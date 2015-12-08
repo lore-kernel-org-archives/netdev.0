@@ -1,60 +1,97 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 1/3] ser_gigaset: fix up NULL checks
-Date: Tue,  8 Dec 2015 12:00:33 +0100 (CET)
-Message-ID: <ed83fae92c8c56e659f59c9a3709c86bd3a7d0c4.1449570042.git.tilman@imap.cc>
-References: <cover.1449570042.git.tilman@imap.cc>
-Cc: Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	<syzkaller@googlegroups.com>, David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	<gigaset307x-common@lists.sourceforge.net>,
-	<linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org
+From: Peter Wu <peter@lekensteyn.nl>
+Subject: [PATCH v2] r8152: fix lockup when runtime PM is enabled
+Date: Tue,  8 Dec 2015 12:17:42 +0100
+Message-ID: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+Cc: Lu Baolu <baolu.lu@linux.intel.com>
+To: Hayes Wang <hayeswang@realtek.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1449570042.git.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit f34d7a5b changed tty->driver to tty->ops but left NULL checks
-for tty->driver untouched. Fix.
+When an interface is brought up which was previously suspended (via
+runtime PM), it would hang. This happens because napi_disable is called
+before napi_enable.
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-Fixes: f34d7a5b7010 ("tty: The big operations rework")
+Solve this by avoiding napi_enable in the resume during open function
+(netif_running is true when open is called, IFF_UP is set after a
+successful open; netif_running is false when close is called, but IFF_UP
+is then still set).
+
+While at it, remove WORK_ENABLE check from rtl8152_open (introduced with
+the original change) because it cannot happen:
+
+ - After this patch, runtime resume will not set it during rtl8152_open.
+ - When link is up, rtl8152_open is not called.
+ - When link is down during system/auto suspend/resume, it is not set.
+
+Fixes: 41cec84cf285 ("r8152: don't enable napi before rx ready")
+Link: https://lkml.kernel.org/r/20151205105912.GA1766@al
+Signed-off-by: Peter Wu <peter@lekensteyn.nl>
 ---
- drivers/isdn/gigaset/ser-gigaset.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ v2: moved rtl_runtime_suspend_enable from close to rtl8152_suspend
 
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 375be50..d8771b5 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -67,7 +67,7 @@ static int write_modem(struct cardstate *cs)
- 	struct sk_buff *skb = bcs->tx_skb;
- 	int sent = -EOPNOTSUPP;
+Tested with the scenario from
+https://lkml.kernel.org/r/20151208111008.GA18728@al
+(added debug prints to verify the suspend/resume moments)
+---
+ drivers/net/usb/r8152.c | 21 +++------------------
+ 1 file changed, 3 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index d9427ca..2e32c41 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3067,17 +3067,6 @@ static int rtl8152_open(struct net_device *netdev)
  
--	if (!tty || !tty->driver || !skb)
-+	if (!tty || !tty->ops || !skb)
- 		return -EINVAL;
+ 	mutex_lock(&tp->control);
  
- 	if (!skb->len) {
-@@ -109,7 +109,7 @@ static int send_cb(struct cardstate *cs)
- 	unsigned long flags;
- 	int sent = 0;
+-	/* The WORK_ENABLE may be set when autoresume occurs */
+-	if (test_bit(WORK_ENABLE, &tp->flags)) {
+-		clear_bit(WORK_ENABLE, &tp->flags);
+-		usb_kill_urb(tp->intr_urb);
+-		cancel_delayed_work_sync(&tp->schedule);
+-
+-		/* disable the tx/rx, if the workqueue has enabled them. */
+-		if (netif_carrier_ok(netdev))
+-			tp->rtl_ops.disable(tp);
+-	}
+-
+ 	tp->rtl_ops.up(tp);
  
--	if (!tty || !tty->driver)
-+	if (!tty || !tty->ops)
- 		return -EFAULT;
+ 	rtl8152_set_speed(tp, AUTONEG_ENABLE,
+@@ -3124,12 +3113,6 @@ static int rtl8152_close(struct net_device *netdev)
+ 	} else {
+ 		mutex_lock(&tp->control);
  
- 	cb = cs->cmdbuf;
-@@ -432,7 +432,7 @@ static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
- 	struct tty_struct *tty = cs->hw.ser->tty;
- 	unsigned int set, clear;
+-		/* The autosuspend may have been enabled and wouldn't
+-		 * be disable when autoresume occurs, because the
+-		 * netif_running() would be false.
+-		 */
+-		rtl_runtime_suspend_enable(tp, false);
+-
+ 		tp->rtl_ops.down(tp);
  
--	if (!tty || !tty->driver || !tty->ops->tiocmset)
-+	if (!tty || !tty->ops || !tty->ops->tiocmset)
- 		return -EINVAL;
- 	set = new_state & ~old_state;
- 	clear = old_state & ~new_state;
+ 		mutex_unlock(&tp->control);
+@@ -3512,7 +3495,7 @@ static int rtl8152_resume(struct usb_interface *intf)
+ 		netif_device_attach(tp->netdev);
+ 	}
+ 
+-	if (netif_running(tp->netdev)) {
++	if (netif_running(tp->netdev) && tp->netdev->flags & IFF_UP) {
+ 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+ 			rtl_runtime_suspend_enable(tp, false);
+ 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
+@@ -3532,6 +3515,8 @@ static int rtl8152_resume(struct usb_interface *intf)
+ 		}
+ 		usb_submit_urb(tp->intr_urb, GFP_KERNEL);
+ 	} else if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
++		if (tp->netdev->flags & IFF_UP)
++			rtl_runtime_suspend_enable(tp, false);
+ 		clear_bit(SELECTIVE_SUSPEND, &tp->flags);
+ 	}
+ 
 -- 
-1.9.2.459.g68773ac
+2.6.3
