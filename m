@@ -1,163 +1,62 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] vrf: Add ip rules at vrf device create
-Date: Tue, 8 Dec 2015 12:54:50 +0100
-Message-ID: <5666C50A.5080409@cumulusnetworks.com>
-References: <1449546920-8617-1-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: shm@cumulusnetworks.com
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH 0/6] VSOCK: revert virtio-vsock until device spec is finalized
+Date: Tue,  8 Dec 2015 19:57:30 +0800
+Message-ID: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
+Cc: Matt Benjamin <mbenjamin@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, kvm@vger.kernel.org,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org, matt.ma@linaro.org,
+	Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:33183 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932632AbbLHLyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 06:54:53 -0500
-Received: by wmec201 with SMTP id c201so208868982wme.0
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 03:54:52 -0800 (PST)
-In-Reply-To: <1449546920-8617-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56857 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752092AbbLHL5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 06:57:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-On 12/08/2015 04:55 AM, David Ahern wrote:
-[snip]
->  
-> +static inline size_t vrf_fib_rule_nl_size(bool have_pref)
-> +{
-> +	size_t sz;
-> +
-> +	sz = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
-> +			 + nla_total_size(IFNAMSIZ) /* FRA_{I,O}IFNAME */
-> +			 + nla_total_size(4); /* FRA_TABLE, u32 */
-directly use sizeof(u32) and remove it from the comment ?
+The virtio-vsock device specification is not finalized yet.  Michael Tsirkin
+voiced concerned about merging this code when the hardware interface (and
+possibly the userspace interface) could still change.
 
-> +
-> +	if (have_pref)
-> +		sz += nla_total_size(4); /* FRA_PRIORITY, u32 */
-Why not always add this to the size and remove the whole have_pref and sz ?
+Please revert for now.
 
-> +
-> +	return sz;
-> +}
-> +
-> +static int vrf_fib_rule(struct net_device *dev, __u8 family, int if_type,
-> +			bool add_it)
-I think dev can be constified.
+I am working to finalize the virtio-vsock device specification and at that
+point the interfaces will be stable.
 
-> +{
-> +	struct net_vrf *vrf = netdev_priv(dev);
-vrf is only read and can be const
+Stefan Hajnoczi (6):
+  Revert "VSOCK: fix returnvar.cocci warnings"
+  Revert "VSOCK: Add Makefile and Kconfig"
+  Revert "VSOCK: Introduce vhost-vsock.ko"
+  Revert "VSOCK: Introduce virtio-vsock.ko"
+  Revert "VSOCK: Introduce virtio-vsock-common.ko"
+  Revert "VSOCK: Introduce vsock_find_unbound_socket and
+    vsock_bind_dgram_generic"
 
-> +	struct fib_rule_hdr *frh;
-> +	struct nlmsghdr *nlh;
-> +	struct sk_buff *skb;
-> +	int err;
-> +
-> +	skb = nlmsg_new(vrf_fib_rule_nl_size(!!vrf->pref), GFP_KERNEL);
-> +	if (!skb)
-> +		return -ENOMEM;
-> +
-> +	nlh = nlmsg_put(skb, 0, 0, 0, sizeof(*frh), 0);
-> +	if (!nlh)
-> +		return -EMSGSIZE;
-Looks like the skb will be leaked here because nlmsg_put() doesn't free it.
-In fact I can see this error in other places throughout the stack (probably
-c&p errors), good that it's not supposed to happen. :-)
+ drivers/vhost/Kconfig                   |    4 -
+ drivers/vhost/Kconfig.vsock             |    7 -
+ drivers/vhost/Makefile                  |    4 -
+ drivers/vhost/vsock.c                   |  630 ---------------
+ drivers/vhost/vsock.h                   |    4 -
+ include/linux/virtio_vsock.h            |  209 -----
+ include/net/af_vsock.h                  |    2 -
+ include/uapi/linux/virtio_ids.h         |    1 -
+ include/uapi/linux/virtio_vsock.h       |   89 ---
+ net/vmw_vsock/Kconfig                   |   18 -
+ net/vmw_vsock/Makefile                  |    2 -
+ net/vmw_vsock/af_vsock.c                |   70 --
+ net/vmw_vsock/virtio_transport.c        |  466 -----------
+ net/vmw_vsock/virtio_transport_common.c | 1272 -------------------------------
+ 14 files changed, 2778 deletions(-)
+ delete mode 100644 drivers/vhost/Kconfig.vsock
+ delete mode 100644 drivers/vhost/vsock.c
+ delete mode 100644 drivers/vhost/vsock.h
+ delete mode 100644 include/linux/virtio_vsock.h
+ delete mode 100644 include/uapi/linux/virtio_vsock.h
+ delete mode 100644 net/vmw_vsock/virtio_transport.c
+ delete mode 100644 net/vmw_vsock/virtio_transport_common.c
 
-> +
-> +	frh = nlmsg_data(nlh);
-> +	memset(frh, 0, sizeof(*frh));
-> +	frh->family = family;
-> +	frh->action = FR_ACT_TO_TBL;
-> +
-> +	if (nla_put_u32(skb, FRA_TABLE, vrf->tb_id))
-> +		goto nla_put_failure;
-> +
-> +	if (nla_put_string(skb, if_type, dev->name))
-> +		goto nla_put_failure;
-> +
-> +	if (vrf->pref) {
-> +		if (nla_put_u32(skb, FRA_PRIORITY, vrf->pref))
-> +			goto nla_put_failure;
-> +	}
-> +
-> +	nlmsg_end(skb, nlh);
-> +
-> +	/* fib_nl_{new,del}rule handling looks for net from skb->sk */
-> +	skb->sk = dev_net(dev)->rtnl;
-> +	if (add_it) {
-> +		err = fib_nl_newrule(skb, nlh);
-> +	} else {
-> +		err = fib_nl_delrule(skb, nlh);
-> +		if (err == -ENOENT)
-> +			err = 0;
-> +	}
-> +
-> +	kfree_skb(skb);
-minor nit: instead of kfree_skb(), you can use nlmsg_free() which currently
-does the same, but would be clearer that this is the nlmsg skb.
-
-> +
-> +	return err;
-> +
-> +nla_put_failure:
-> +	nlmsg_cancel(skb, nlh);
-
-Here you'll leak the skb, nlmsg_cancel() only trims it and removes
-the message, but doesn't free the skb.
-
-> +	return -EMSGSIZE;
-> +}
-> +
-> +static void vrf_del_fib_rules(struct net_device *dev)
-Same here for dev (const)
-
-> +{
-> +	if (vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 0) ||
-> +	    vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 0) ||
-> +	    vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 0) ||
-> +	    vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 0)) {
-> +		netdev_err(dev, "Failed to delete FIB rules for %s\n",
-> +			   dev->name);
-
-I've seen this use of netdev_err() elsewhere in vrf, too. I was going to
-send a patch to change it because you get messages like:
-<dev name>: Failed to add FIB rules for <dev name>
-which is pointless. You can just drop the extra dev->name.
-
-> +	}
-> +}
-> +
-> +static int vrf_add_fib_rules(struct net_device *dev)
-Same here for dev (const)
-
-> +{
-> +	int err;
-> +
-> +	err = vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 1);
-> +	if (err < 0)
-> +		goto out_err;
-> +
-> +	err = vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 1);
-> +	if (err < 0)
-> +		goto out_err;
-> +
-> +	err = vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 1);
-> +	if (err < 0)
-> +		goto out_err;
-> +
-> +	err = vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 1);
-> +	if (err < 0)
-> +		goto out_err;
-> +
-> +	return 0;
-> +out_err:
-> +	netdev_err(dev, "Failed to add FIB rules for %s\n", dev->name);
-Same here for dev->name
-
-> +	vrf_del_fib_rules(dev);
-> +	return err;
-> +}
-> +
-[snip]
+-- 
+2.5.0
