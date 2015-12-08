@@ -1,112 +1,87 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: ezchip: fix address space confusion in nps_enet.c
-Date: Tue, 08 Dec 2015 16:28:59 +0100
-Message-ID: <33732958.3idC7H2UPT@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Noam Camus <noamc@ezchip.com>, Tal Zilcer <talz@ezchip.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: [PATCH 01/14] mm: memcontrol: export root_mem_cgroup
+Date: Tue,  8 Dec 2015 10:30:11 -0500
+Message-ID: <1449588624-9220-2-git-send-email-hannes@cmpxchg.org>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+Cc: linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The nps_enet driver happily mixes virtual, physical and __iomem
-addresses, which are all different depending on the architecture
-and configuration.  That causes a warning when building the code
-on ARM with LPAE mode enabled:
+A later patch will need this symbol in files other than memcontrol.c,
+so export it now and replace mem_cgroup_root_css at the same time.
 
-drivers/net/ethernet/ezchip/nps_enet.c: In function 'nps_enet_send_frame':
-drivers/net/ethernet/ezchip/nps_enet.c:370:13: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
-
-but will also fail to work for other reasons.
-
-In this patch, I'm trying to change the code to use only normal
-kernel pointers, which I assume is what the author actually meant:
-
-* For reading or writing a 32-bit word that may be unaligned when
-  an SKB contains unaligned data, I'm using get_unaligned/put_unaligned()
-  rather than memcpy_fromio/toio.
-
-* For converting a u8 pointer to a u32 pointer, I use a cast rather
-  than the incorrect virt_to_phys.
-
-* For copying a couple of bytes from one place to another while respecting
-  alignment, I use memcpy instead of memcpy_toio.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
 ---
- drivers/net/ethernet/ezchip/nps_enet.c | 30 +++++++++---------------------
- 1 file changed, 9 insertions(+), 21 deletions(-)
+ include/linux/memcontrol.h | 3 ++-
+ mm/backing-dev.c           | 2 +-
+ mm/memcontrol.c            | 5 ++---
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-It would be helpful to test this patch on real hardware before it gets applied.
-
-The current behavior is so obscure that it's hard to know what the author
-of the code actually intended to happen here, this is based on my best guess.
-
-
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 63c2bcf8031a..b1026689b78f 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.c
-+++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -48,21 +48,15 @@ static void nps_enet_read_rx_fifo(struct net_device *ndev,
- 			*reg = nps_enet_reg_get(priv, NPS_ENET_REG_RX_BUF);
- 	else { /* !dst_is_aligned */
- 		for (i = 0; i < len; i++, reg++) {
--			u32 buf =
--				nps_enet_reg_get(priv, NPS_ENET_REG_RX_BUF);
--
--			/* to accommodate word-unaligned address of "reg"
--			 * we have to do memcpy_toio() instead of simple "=".
--			 */
--			memcpy_toio((void __iomem *)reg, &buf, sizeof(buf));
-+			u32 buf = nps_enet_reg_get(priv, NPS_ENET_REG_RX_BUF);
-+			put_unaligned(buf, reg);
- 		}
- 	}
- 
- 	/* copy last bytes (if any) */
- 	if (last) {
- 		u32 buf = nps_enet_reg_get(priv, NPS_ENET_REG_RX_BUF);
--
--		memcpy_toio((void __iomem *)reg, &buf, last);
-+		memcpy((u8*)reg, &buf, last);
- 	}
- }
- 
-@@ -367,7 +361,7 @@ static void nps_enet_send_frame(struct net_device *ndev,
- 	struct nps_enet_tx_ctl tx_ctrl;
- 	short length = skb->len;
- 	u32 i, len = DIV_ROUND_UP(length, sizeof(u32));
--	u32 *src = (u32 *)virt_to_phys(skb->data);
-+	u32 *src = (void *)skb->data;
- 	bool src_is_aligned = IS_ALIGNED((unsigned long)src, sizeof(u32));
- 
- 	tx_ctrl.value = 0;
-@@ -375,17 +369,11 @@ static void nps_enet_send_frame(struct net_device *ndev,
- 	if (src_is_aligned)
- 		for (i = 0; i < len; i++, src++)
- 			nps_enet_reg_set(priv, NPS_ENET_REG_TX_BUF, *src);
--	else { /* !src_is_aligned */
--		for (i = 0; i < len; i++, src++) {
--			u32 buf;
--
--			/* to accommodate word-unaligned address of "src"
--			 * we have to do memcpy_fromio() instead of simple "="
--			 */
--			memcpy_fromio(&buf, (void __iomem *)src, sizeof(buf));
--			nps_enet_reg_set(priv, NPS_ENET_REG_TX_BUF, buf);
--		}
--	}
-+	else /* !src_is_aligned */
-+		for (i = 0; i < len; i++, src++)
-+			nps_enet_reg_set(priv, NPS_ENET_REG_TX_BUF,
-+					 get_unaligned(src));
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 9d5472b..320b690 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -265,7 +265,8 @@ struct mem_cgroup {
+ 	struct mem_cgroup_per_node *nodeinfo[0];
+ 	/* WARNING: nodeinfo must be the last member here */
+ };
+-extern struct cgroup_subsys_state *mem_cgroup_root_css;
 +
- 	/* Write the length of the Frame */
- 	tx_ctrl.nt = length;
++extern struct mem_cgroup *root_mem_cgroup;
  
+ /**
+  * mem_cgroup_events - count memory events against a cgroup
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index 9160853..fdc6f4d 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -707,7 +707,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
+ 
+ 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
+ 	if (!ret) {
+-		bdi->wb.memcg_css = mem_cgroup_root_css;
++		bdi->wb.memcg_css = &root_mem_cgroup->css;
+ 		bdi->wb.blkcg_css = blkcg_root_css;
+ 	}
+ 	return ret;
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 79a29d5..f6ea649 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -76,9 +76,9 @@
+ struct cgroup_subsys memory_cgrp_subsys __read_mostly;
+ EXPORT_SYMBOL(memory_cgrp_subsys);
+ 
++struct mem_cgroup *root_mem_cgroup __read_mostly;
++
+ #define MEM_CGROUP_RECLAIM_RETRIES	5
+-static struct mem_cgroup *root_mem_cgroup __read_mostly;
+-struct cgroup_subsys_state *mem_cgroup_root_css __read_mostly;
+ 
+ /* Whether the swap controller is active */
+ #ifdef CONFIG_MEMCG_SWAP
+@@ -4217,7 +4217,6 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
+ 	/* root ? */
+ 	if (parent_css == NULL) {
+ 		root_mem_cgroup = memcg;
+-		mem_cgroup_root_css = &memcg->css;
+ 		page_counter_init(&memcg->memory, NULL);
+ 		memcg->high = PAGE_COUNTER_MAX;
+ 		memcg->soft_limit = PAGE_COUNTER_MAX;
 -- 
-2.1.0.rc2
+2.6.3
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
