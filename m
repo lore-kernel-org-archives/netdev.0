@@ -1,53 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCHv2 net-next 1/2] tcp: RTO Restart (RTOR)
-Date: Tue, 08 Dec 2015 05:47:10 -0800
-Message-ID: <1449582430.7632.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1449478261.git.per.hurtig@kau.se>
-	 <cover.1449561786.git.per.hurtig@kau.se>
-	 <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, ncardwell@google.com,
-	nanditad@google.com, tom@herbertland.com, ycheng@google.com,
-	viro@zeniv.linux.org.uk, fw@strlen.de, mleitner@redhat.com,
-	daniel@iogearbox.net, willemb@google.com,
-	ilpo.jarvinen@helsinki.fi, pasi.sarolahti@iki.fi,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	anna.brunstrom@kau.se, apetlund@simula.no, michawe@ifi.uio.no,
-	mohammad.rajiullah@kau.se
-To: Per Hurtig <per.hurtig@kau.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34384 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756400AbbLHNrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 08:47:14 -0500
-Received: by pacwq6 with SMTP id wq6so12378079pac.1
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 05:47:13 -0800 (PST)
-In-Reply-To: <8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH v2 net-next 0/3] Add new capability and parse from DT
+Date: Tue,  8 Dec 2015 14:52:03 +0100
+Message-ID: <1449582726-6148-1-git-send-email-narmstrong@baylibre.com>
+References: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
+Cc: Neil Armstrong <narmstrong@baylibre.com>
+To: nicolas.ferre@atmel.com, davem@davemloft.net,
+	harini.katakam@xilinx.com, boris.brezillon@free-electrons.com,
+	alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org, joshc@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-12-08 at 10:19 +0100, Per Hurtig wrote:
+The first patch introduces a new capability bit to disable usage of the
+USRIO register on platform not implementing it thus avoiding some external
+imprecise aborts on ARM based platforms.
+The two last patchs implements a DT fallback to get the software defined 
+capabilities from DT in the case of the generic compatible form is used.
+These properties will permit support of future implementations of macb/gem
+without the need for adding new static structures in the code.
 
-> +static u32 tcp_unsent_pkts(const struct sock *sk, u32 ulimit)
-> +{
-> +	struct sk_buff *skb = tcp_send_head(sk);
-> +	u32 pkts = 0;
-> +
-> +	if (skb)
-> +		tcp_for_write_queue_from(skb, sk) {
-> +			pkts += tcp_skb_pcount(skb);
-> +
-> +			if (ulimit && pkts >= ulimit)
-> +				return ulimit;
-> +		}
-> +
-> +	return pkts;
-> +}
+v1: http://lkml.kernel.org/r/1449485914-12883-1-git-send-email-narmstrong@baylibre.com
+v2: switch to CAPS_* bit and add all software CAPS_* as DT properties
 
+Neil Armstrong (3):
+  net: ethernet: cadence-macb: Add disabled usrio caps
+  net: ethernet: cadence-macb: Add fallback to read DT provided caps
+  bindings: ethernet: macb: Add optional caps properties
 
-Considering Yuchung feedback, have you looked at using an approximation
-instead ? 
+ Documentation/devicetree/bindings/net/macb.txt | 10 ++++
+ drivers/net/ethernet/cadence/macb.c            | 72 +++++++++++++++++++++-----
+ drivers/net/ethernet/cadence/macb.h            |  1 +
+ 3 files changed, 71 insertions(+), 12 deletions(-)
 
-(ie using tp->write_seq - tp->snd_nxt)
+-- 
+1.9.1
