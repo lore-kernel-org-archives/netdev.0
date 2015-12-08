@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] VSOCK: revert virtio-vsock until device spec is
- finalized
-Date: Tue, 08 Dec 2015 11:26:55 -0500 (EST)
-Message-ID: <20151208.112655.353902854757115664.davem@davemloft.net>
-References: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
+Subject: Re: [PATCH 14/14] mm: memcontrol: switch to the updated jump-label
+ API
+Date: Tue, 08 Dec 2015 11:28:20 -0500 (EST)
+Message-ID: <20151208.112820.1456343214602612286.davem@davemloft.net>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+	<1449588624-9220-15-git-send-email-hannes@cmpxchg.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mbenjamin@redhat.com, kvm@vger.kernel.org,
-	christoffer.dall@linaro.org, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, matt.ma@linaro.org
-To: stefanha@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: hannes@cmpxchg.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449588624-9220-15-git-send-email-hannes@cmpxchg.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Tue,  8 Dec 2015 19:57:30 +0800
+From: Johannes Weiner <hannes@cmpxchg.org>
+Date: Tue,  8 Dec 2015 10:30:24 -0500
 
-> Please revert for now.
+> According to <linux/jump_label.h> the direct use of struct static_key
+> is deprecated. Update the socket and slab accounting code accordingly.
+> 
+> Reported-by: Jason Baron <jbaron@akamai.com>
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
 
-Please don't revert it piece by piece like this.
-
-Instead, send me one big revert commit that undoes the whole
-thing.  There is even a merge commit that you can use to
-create that revert cleanly.
-
-Thanks.
+Acked-by: David S. Miller <davem@davemloft.net>
