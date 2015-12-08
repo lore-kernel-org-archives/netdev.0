@@ -1,38 +1,52 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH v2 net-next 0/3] Add new capability and parse from DT
-Date: Tue,  8 Dec 2015 14:52:03 +0100
-Message-ID: <1449582726-6148-1-git-send-email-narmstrong@baylibre.com>
+From: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v2 net-next 3/3] bindings: ethernet: macb: Add optional caps properties
+Date: Tue,  8 Dec 2015 14:52:06 +0100
+Message-ID: <1449582726-6148-4-git-send-email-narmstrong@baylibre.com>
 References: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net,
-	harini.katakam@xilinx.com, boris.brezillon@free-electrons.com,
-	alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org, joshc@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+ <1449582726-6148-1-git-send-email-narmstrong@baylibre.com>
+Cc: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+To: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joshc-acOepvfBmUk@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449582726-6148-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The first patch introduces a new capability bit to disable usage of the
-USRIO register on platform not implementing it thus avoiding some external
-imprecise aborts on ARM based platforms.
-The two last patchs implements a DT fallback to get the software defined 
-capabilities from DT in the case of the generic compatible form is used.
-These properties will permit support of future implementations of macb/gem
-without the need for adding new static structures in the code.
+Add generic caps properties to the binding in order to support
+future macb/gem implementations with the generic macb compatible form.
 
-v1: http://lkml.kernel.org/r/1449485914-12883-1-git-send-email-narmstrong@baylibre.com
-v2: switch to CAPS_* bit and add all software CAPS_* as DT properties
+Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/macb.txt | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Neil Armstrong (3):
-  net: ethernet: cadence-macb: Add disabled usrio caps
-  net: ethernet: cadence-macb: Add fallback to read DT provided caps
-  bindings: ethernet: macb: Add optional caps properties
-
- Documentation/devicetree/bindings/net/macb.txt | 10 ++++
- drivers/net/ethernet/cadence/macb.c            | 72 +++++++++++++++++++++-----
- drivers/net/ethernet/cadence/macb.h            |  1 +
- 3 files changed, 71 insertions(+), 12 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index b5d7976..891c72e 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -19,6 +19,16 @@ Required properties:
+ 	Optional elements: 'tx_clk'
+ - clocks: Phandles to input clocks.
+ 
++Optional properties:
++- cdns,usrio-has-clken: Boolean; The USRIO register has an clock-enable bit.
++- cdns,usrio-default-mii: Boolean; The USRIO register defaults to MII mode.
++- cdns,usrio-disabled: Boolean; The USRIO register is not implemented.
++- cdns,no-gigabit-half: Boolean; The MAC does not support 1000/Half link mode.
++- cdns,gem-sg-disabled: Boolean; The MAC does not support Scatter-Gather mode.
++- cdns,gem-has-gigabit: Boolean; The MAC supports Gigabit Ethernet.
++- cdns,dma-burst-length: Should countain the DMA burst length.
++- cdns,jumbo-max-length: Should countain the maximum Jumbo frame length.
++
+ Examples:
+ 
+ 	macb0: ethernet@fffc4000 {
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
