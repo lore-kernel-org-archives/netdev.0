@@ -1,56 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next v2 2/5] rhashtable: add function to replace an
- element
-Date: Tue, 8 Dec 2015 17:39:41 +0800
-Message-ID: <20151208093941.GA17795@gondor.apana.org.au>
-References: <20151203.144558.1956397517705186998.davem@davemloft.net>
+From: <zyjzyj2000@gmail.com>
+Subject: [PATCH 1/1] net:sctp: disable to inform ULP about transition from PF to active state
+Date: Tue, 8 Dec 2015 17:47:22 +0800
+Message-ID: <1449568042-9176-1-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@herbertland.com, netdev@vger.kernel.org, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <alexandre.dietsch@windriver.com>,
+	<stefan.costandache@windriver.com>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:34216 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933266AbbLHJkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 04:40:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20151203.144558.1956397517705186998.davem@davemloft.net>
+Received: from mail.windriver.com ([147.11.1.11]:63475 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756289AbbLHJr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 04:47:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Tue, 1 Dec 2015 15:11:09 -0800
-> 
->> +     lock = rht_bucket_lock(tbl, hash);
->> +
->> +     spin_lock_bh(lock);
->> +
->> +     pprev = &tbl->buckets[hash];
->> +     rht_for_each(he, tbl, hash) {
->> +             if (he != obj_old) {
->> +                     pprev = &he->next;
->> +                     continue;
->> +             }
->> +
->> +             rcu_assign_pointer(obj_new->next, obj_old->next);
->> +             rcu_assign_pointer(*pprev, obj_new);
->> +             err = 0;
->> +             break;
-> 
-> Are you sure this works fine in the presence of both parallel readers and
-> table expansion passes?
+From: yzhu1 <zyjzyj2000@gmail.com>
 
-Good question.
+This feature is introduced in the commit 5aa93bc "sctp: Implement
+quick failover draft from tsvwg". This feature should be disabled
+if the quick failover feature is disabled.
 
-What's more this is something that can be easily implemented
-outside of rhashtable, i.e., by hashing a pointer to the actual
-object rather than the object itself.  So I'd like to see some
-pretty good reasons for penny-pinching on memory and adding more
-complexity to rhashtable.
+Signed-off-by: yzhu1 <zyjzyj2000@gmail.com>
+---
+ net/sctp/associola.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Cheers,
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 559afd0..7438625 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -795,7 +795,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 		 * active state and set cwnd to 1 MTU, see SCTP
+ 		 * Quick failover draft section 5.1, point 5
+ 		 */
+-		if (transport->state == SCTP_PF) {
++		if ((asoc->pf_retrans < asoc->max_retrans) && 
++			(transport->state == SCTP_PF)) {
+ 			ulp_notify = false;
+ 			transport->cwnd = asoc->pathmtu;
+ 		}
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.9.5
