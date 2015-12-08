@@ -1,89 +1,79 @@
 From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH 00/14] mm: memcontrol: account socket memory in unified hierarchy v4-RESEND
-Date: Tue,  8 Dec 2015 10:30:10 -0500
-Message-ID: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH 03/14] net: tcp_memcontrol: remove bogus hierarchy pressure propagation
+Date: Tue,  8 Dec 2015 10:30:13 -0500
+Message-ID: <1449588624-9220-4-git-send-email-hannes@cmpxchg.org>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+Cc: linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+When a cgroup currently breaches its socket memory limit, it enters
+memory pressure mode for itself and its *ancestors*. This throttles
+transmission in unrelated sibling and cousin subtrees that have
+nothing to do with the breached limit.
 
-there was some build breakage in CONFIG_ combinations I hadn't tested
-in the last revision, so here is a fixed-up resend with minimal CC
-list. The only difference to the previous version is a section in
-memcontrol.h, but it accumulates throughout the series and would have
-been a pain to resolve on your end. So here goes. This also includes
-the review tags that Dave and Vlad had sent out in the meantime.
+On the contrary, breaching a limit should make that group and its
+*children* enter memory pressure mode. But this happens already,
+albeit lazily: if an ancestor limit is breached, siblings will enter
+memory pressure on their own once the next packet arrives for them.
 
-Difference to the original v4:
+So no additional hierarchy code is needed. Remove the bogus stuff.
 
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 9a19590..189f04d 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -702,14 +702,14 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: David S. Miller <davem@davemloft.net>
+Reviewed-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+---
+ include/net/sock.h | 19 ++++---------------
+ 1 file changed, 4 insertions(+), 15 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 8133c71..e27a8bb 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1152,14 +1152,8 @@ static inline void sk_leave_memory_pressure(struct sock *sk)
+ 	if (*memory_pressure)
+ 		*memory_pressure = 0;
  
- #endif	/* CONFIG_CGROUP_WRITEBACK */
- 
--#ifdef CONFIG_INET
- struct sock;
--extern struct static_key_false memcg_sockets_enabled_key;
--#define mem_cgroup_sockets_enabled static_branch_unlikely(&memcg_sockets_enabled_key)
- void sock_update_memcg(struct sock *sk);
- void sock_release_memcg(struct sock *sk);
- bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
- void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
-+#if defined(CONFIG_MEMCG) && defined(CONFIG_INET)
-+extern struct static_key_false memcg_sockets_enabled_key;
-+#define mem_cgroup_sockets_enabled static_branch_unlikely(&memcg_sockets_enabled_key)
- static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
- {
- #ifdef CONFIG_MEMCG_KMEM
-@@ -724,7 +724,11 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp) {
+-		struct cg_proto *cg_proto = sk->sk_cgrp;
+-		struct proto *prot = sk->sk_prot;
+-
+-		for (; cg_proto; cg_proto = parent_cg_proto(prot, cg_proto))
+-			cg_proto->memory_pressure = 0;
+-	}
+-
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
++		sk->sk_cgrp->memory_pressure = 0;
  }
- #else
- #define mem_cgroup_sockets_enabled 0
--#endif /* CONFIG_INET */
-+static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
-+{
-+	return false;
-+}
-+#endif
  
- #ifdef CONFIG_MEMCG_KMEM
- extern struct static_key_false memcg_kmem_enabled_key;
-diff --git a/include/linux/vmpressure.h b/include/linux/vmpressure.h
-index a77b142..3347cc3 100644
---- a/include/linux/vmpressure.h
-+++ b/include/linux/vmpressure.h
-@@ -43,7 +43,7 @@ extern int vmpressure_register_event(struct mem_cgroup *memcg,
- extern void vmpressure_unregister_event(struct mem_cgroup *memcg,
- 					struct eventfd_ctx *eventfd);
- #else
--static inline void vmpressure(gfp_t gfp, struct mem_cgroup *memcg,
-+static inline void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
- 			      unsigned long scanned, unsigned long reclaimed) {}
- static inline void vmpressure_prio(gfp_t gfp, struct mem_cgroup *memcg,
- 				   int prio) {}
+ static inline void sk_enter_memory_pressure(struct sock *sk)
+@@ -1167,13 +1161,8 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
+ 	if (!sk->sk_prot->enter_memory_pressure)
+ 		return;
+ 
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp) {
+-		struct cg_proto *cg_proto = sk->sk_cgrp;
+-		struct proto *prot = sk->sk_prot;
+-
+-		for (; cg_proto; cg_proto = parent_cg_proto(prot, cg_proto))
+-			cg_proto->memory_pressure = 1;
+-	}
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
++		sk->sk_cgrp->memory_pressure = 1;
+ 
+ 	sk->sk_prot->enter_memory_pressure(sk);
+ }
+-- 
+2.6.3
 
-
- Documentation/kernel-parameters.txt |   4 +
- include/linux/memcontrol.h          |  75 ++++++---
- include/linux/vmpressure.h          |   7 +-
- include/net/sock.h                  | 149 ++---------------
- include/net/tcp.h                   |   5 +-
- include/net/tcp_memcontrol.h        |   1 -
- mm/backing-dev.c                    |   2 +-
- mm/memcontrol.c                     | 302 ++++++++++++++++++++++------------
- mm/vmpressure.c                     |  78 ++++++---
- mm/vmscan.c                         |  10 +-
- net/core/sock.c                     |  78 ++-------
- net/ipv4/tcp.c                      |   3 +-
- net/ipv4/tcp_ipv4.c                 |   9 +-
- net/ipv4/tcp_memcontrol.c           |  82 ++++-----
- net/ipv4/tcp_output.c               |   7 +-
- net/ipv6/tcp_ipv6.c                 |   3 -
- 16 files changed, 391 insertions(+), 424 deletions(-)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
