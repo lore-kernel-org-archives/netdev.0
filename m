@@ -1,181 +1,113 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next 1/7] cxgb4: Align rest of the ethtool get stats
-Date: Tue,  8 Dec 2015 10:09:11 +0530
-Message-ID: <1449549557-16023-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 5/7] cxgb4: Deal with wrap-around of queue for Work request
+Date: Tue,  8 Dec 2015 10:09:15 +0530
+Message-ID: <1449549557-16023-6-git-send-email-hariprasad@chelsio.com>
 References: <1449549557-16023-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:6162 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:47068 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753363AbbLHEiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 23:38:15 -0500
+	by vger.kernel.org with ESMTP id S1756124AbbLHEiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 23:38:19 -0500
 In-Reply-To: <1449549557-16023-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The WR headers  may not fit within one descriptor.
+So we need to deal with wrap-around here.
+
+Based on original patch by Pranjal Joshi <pjoshi@chelsio.com>
+
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 146 ++++++++++-----------
- 1 file changed, 73 insertions(+), 73 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 57 +++++++++++++++++++++++++++++---
+ 1 file changed, 53 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index a077f94..2a61a42 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -35,79 +35,79 @@ static void set_msglevel(struct net_device *dev, u32 val)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index e1ff7d8..c72fe1e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1029,6 +1029,30 @@ static void inline_tx_skb(const struct sk_buff *skb, const struct sge_txq *q,
+ 		*p = 0;
  }
  
- static const char stats_strings[][ETH_GSTRING_LEN] = {
--	"tx_octets_ok		",
--	"tx_frames_ok		",
--	"tx_broadcast_frames	",
--	"tx_multicast_frames	",
--	"tx_unicast_frames	",
--	"tx_error_frames	",
--
--	"tx_frames_64		",
--	"tx_frames_65_to_127	",
--	"tx_frames_128_to_255	",
--	"tx_frames_256_to_511	",
--	"tx_frames_512_to_1023	",
--	"tx_frames_1024_to_1518	",
--	"tx_frames_1519_to_max	",
--
--	"tx_frames_dropped	",
--	"tx_pause_frames	",
--	"tx_ppp0_frames		",
--	"tx_ppp1_frames		",
--	"tx_ppp2_frames		",
--	"tx_ppp3_frames		",
--	"tx_ppp4_frames		",
--	"tx_ppp5_frames		",
--	"tx_ppp6_frames		",
--	"tx_ppp7_frames		",
--
--	"rx_octets_ok		",
--	"rx_frames_ok		",
--	"rx_broadcast_frames	",
--	"rx_multicast_frames	",
--	"rx_unicast_frames	",
--
--	"rx_frames_too_long	",
--	"rx_jabber_errors	",
--	"rx_fcs_errors		",
--	"rx_length_errors	",
--	"rx_symbol_errors	",
--	"rx_runt_frames		",
--
--	"rx_frames_64		",
--	"rx_frames_65_to_127	",
--	"rx_frames_128_to_255	",
--	"rx_frames_256_to_511	",
--	"rx_frames_512_to_1023	",
--	"rx_frames_1024_to_1518	",
--	"rx_frames_1519_to_max	",
--
--	"rx_pause_frames	",
--	"rx_ppp0_frames		",
--	"rx_ppp1_frames		",
--	"rx_ppp2_frames		",
--	"rx_ppp3_frames		",
--	"rx_ppp4_frames		",
--	"rx_ppp5_frames		",
--	"rx_ppp6_frames		",
--	"rx_ppp7_frames		",
--
--	"rx_bg0_frames_dropped	",
--	"rx_bg1_frames_dropped	",
--	"rx_bg2_frames_dropped	",
--	"rx_bg3_frames_dropped	",
--	"rx_bg0_frames_trunc	",
--	"rx_bg1_frames_trunc	",
--	"rx_bg2_frames_trunc	",
--	"rx_bg3_frames_trunc	",
--
--	"tso			",
--	"tx_csum_offload	",
--	"rx_csum_good		",
--	"vlan_extractions	",
--	"vlan_insertions	",
--	"gro_packets		",
--	"gro_merged		",
-+	"tx_octets_ok           ",
-+	"tx_frames_ok           ",
-+	"tx_broadcast_frames    ",
-+	"tx_multicast_frames    ",
-+	"tx_unicast_frames      ",
-+	"tx_error_frames        ",
++static void *inline_tx_skb_header(const struct sk_buff *skb,
++				  const struct sge_txq *q,  void *pos,
++				  int length)
++{
++	u64 *p;
++	int left = (void *)q->stat - pos;
 +
-+	"tx_frames_64           ",
-+	"tx_frames_65_to_127    ",
-+	"tx_frames_128_to_255   ",
-+	"tx_frames_256_to_511   ",
-+	"tx_frames_512_to_1023  ",
-+	"tx_frames_1024_to_1518 ",
-+	"tx_frames_1519_to_max  ",
++	if (likely(length <= left)) {
++		memcpy(pos, skb->data, length);
++		pos += length;
++	} else {
++		memcpy(pos, skb->data, left);
++		memcpy(q->desc, skb->data + left, length - left);
++		pos = (void *)q->desc + (length - left);
++	}
++	/* 0-pad to multiple of 16 */
++	p = PTR_ALIGN(pos, 8);
++	if ((uintptr_t)p & 8) {
++		*p = 0;
++		return p + 1;
++	}
++	return p;
++}
 +
-+	"tx_frames_dropped      ",
-+	"tx_pause_frames        ",
-+	"tx_ppp0_frames         ",
-+	"tx_ppp1_frames         ",
-+	"tx_ppp2_frames         ",
-+	"tx_ppp3_frames         ",
-+	"tx_ppp4_frames         ",
-+	"tx_ppp5_frames         ",
-+	"tx_ppp6_frames         ",
-+	"tx_ppp7_frames         ",
-+
-+	"rx_octets_ok           ",
-+	"rx_frames_ok           ",
-+	"rx_broadcast_frames    ",
-+	"rx_multicast_frames    ",
-+	"rx_unicast_frames      ",
-+
-+	"rx_frames_too_long     ",
-+	"rx_jabber_errors       ",
-+	"rx_fcs_errors          ",
-+	"rx_length_errors       ",
-+	"rx_symbol_errors       ",
-+	"rx_runt_frames         ",
-+
-+	"rx_frames_64           ",
-+	"rx_frames_65_to_127    ",
-+	"rx_frames_128_to_255   ",
-+	"rx_frames_256_to_511   ",
-+	"rx_frames_512_to_1023  ",
-+	"rx_frames_1024_to_1518 ",
-+	"rx_frames_1519_to_max  ",
-+
-+	"rx_pause_frames        ",
-+	"rx_ppp0_frames         ",
-+	"rx_ppp1_frames         ",
-+	"rx_ppp2_frames         ",
-+	"rx_ppp3_frames         ",
-+	"rx_ppp4_frames         ",
-+	"rx_ppp5_frames         ",
-+	"rx_ppp6_frames         ",
-+	"rx_ppp7_frames         ",
-+
-+	"rx_bg0_frames_dropped  ",
-+	"rx_bg1_frames_dropped  ",
-+	"rx_bg2_frames_dropped  ",
-+	"rx_bg3_frames_dropped  ",
-+	"rx_bg0_frames_trunc    ",
-+	"rx_bg1_frames_trunc    ",
-+	"rx_bg2_frames_trunc    ",
-+	"rx_bg3_frames_trunc    ",
-+
-+	"tso                    ",
-+	"tx_csum_offload        ",
-+	"rx_csum_good           ",
-+	"vlan_extractions       ",
-+	"vlan_insertions        ",
-+	"gro_packets            ",
-+	"gro_merged             ",
- };
+ /*
+  * Figure out what HW csum a packet wants and return the appropriate control
+  * bits.
+@@ -1561,9 +1585,11 @@ static void ofldtxq_stop(struct sge_ofld_txq *q, struct sk_buff *skb)
+  */
+ static void service_ofldq(struct sge_ofld_txq *q)
+ {
+-	u64 *pos;
++	u64 *pos, *before, *end;
+ 	int credits;
+ 	struct sk_buff *skb;
++	struct sge_txq *txq;
++	unsigned int left;
+ 	unsigned int written = 0;
+ 	unsigned int flits, ndesc;
  
- static char adapter_stats_strings[][ETH_GSTRING_LEN] = {
+@@ -1607,9 +1633,32 @@ static void service_ofldq(struct sge_ofld_txq *q)
+ 		} else {
+ 			int last_desc, hdr_len = skb_transport_offset(skb);
+ 
+-			memcpy(pos, skb->data, hdr_len);
+-			write_sgl(skb, &q->q, (void *)pos + hdr_len,
+-				  pos + flits, hdr_len,
++			/* The WR headers  may not fit within one descriptor.
++			 * So we need to deal with wrap-around here.
++			 */
++			before = (u64 *)pos;
++			end = (u64 *)pos + flits;
++			txq = &q->q;
++			pos = (void *)inline_tx_skb_header(skb, &q->q,
++							   (void *)pos,
++							   hdr_len);
++			if (before > (u64 *)pos) {
++				left = (u8 *)end - (u8 *)txq->stat;
++				end = (void *)txq->desc + left;
++			}
++
++			/* If current position is already at the end of the
++			 * ofld queue, reset the current to point to
++			 * start of the queue and update the end ptr as well.
++			 */
++			if (pos == (u64 *)txq->stat) {
++				left = (u8 *)end - (u8 *)txq->stat;
++				end = (void *)txq->desc + left;
++				pos = (void *)txq->desc;
++			}
++
++			write_sgl(skb, &q->q, (void *)pos,
++				  end, hdr_len,
+ 				  (dma_addr_t *)skb->head);
+ #ifdef CONFIG_NEED_DMA_MAP_STATE
+ 			skb->dev = q->adap->port[0];
 -- 
 2.3.4
