@@ -1,146 +1,66 @@
-From: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Subject: [PATCH v3 3/4] stmmac: Fix calculations for ptp counters when clock input = 50Mhz.
-Date: Tue,  8 Dec 2015 13:13:01 +0800
-Message-ID: <1449551582-6599-4-git-send-email-preid@electromag.com.au>
-References: <1449551582-6599-1-git-send-email-preid@electromag.com.au>
-Cc: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	vbridger-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449551582-6599-1-git-send-email-preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: netlink: Add missing goto statement to netlink_insert
+Date: Tue, 8 Dec 2015 14:13:19 +0800
+Message-ID: <20151208061319.GA16209@gondor.apana.org.au>
+References: <564E2852.8000200@profihost.ag>
+ <56530A42.6030609@profihost.ag>
+ <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
+ <565EBDC1.1090808@profihost.ag>
+ <8737vlt6xb.fsf@stressinduktion.org>
+ <5661DAC4.8040909@profihost.ag>
+ <20151205010819.GA21889@gondor.apana.org.au>
+ <5664A102.2030602@profihost.ag>
+ <20151207012042.GA7420@gondor.apana.org.au>
+ <56652E11.4010604@profihost.ag>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Weimer <fweimer@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jannik Winkel <j.winkel@profihost.ag>,
+	Marco Schinkel <m.schinkel@profihost.ag>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56652E11.4010604@profihost.ag>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-stmmac_config_sub_second_increment set the sub second increment to 20ns.
-Driver is configured to use the fine adjustment method where the sub second
-register is incremented when the acculumator incremented by the addend
-register wraps overflows. This accumulator is update on every ptp clk
-cycle. If a ptp clk with a period of greater than 20ns was used the
-sub second register would not get updated correctly.
+On Mon, Dec 07, 2015 at 07:58:25AM +0100, Stefan Priebe - Profihost AG wrote:
+>
+> Thanks, good. Can you help me to get this fix upstream into the stable
+> lines?
 
-Instead set the sub sec increment to twice the period of the ptp clk.
-This result in the addend register being set mid range and overflow
-the accumlator every 2 clock cycles.
+Sure.  Greg, please apply this patch to fix up the backport for 4.1.
 
-Signed-off-by: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
----
- drivers/net/ethernet/stmicro/stmmac/common.h          |  2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c |  9 ++++++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 19 ++++++++-----------
- 3 files changed, 15 insertions(+), 15 deletions(-)
+---8<---
+The backport of 1f770c0a09da855a2b51af6d19de97fb955eca85 ("netlink:
+Fix autobind race condition that leads to zero port ID") missed a
+goto statement, which causes netlink to break subtly.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index f4518bc..1e19c8f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -439,7 +439,7 @@ struct stmmac_ops {
- /* PTP and HW Timer helpers */
- struct stmmac_hwtimestamp {
- 	void (*config_hw_tstamping) (void __iomem *ioaddr, u32 data);
--	void (*config_sub_second_increment) (void __iomem *ioaddr);
-+	u32 (*config_sub_second_increment) (void __iomem *ioaddr, u32 clk_rate);
- 	int (*init_systime) (void __iomem *ioaddr, u32 sec, u32 nsec);
- 	int (*config_addend) (void __iomem *ioaddr, u32 addend);
- 	int (*adjust_systime) (void __iomem *ioaddr, u32 sec, u32 nsec,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
-index 76ad214..a77f689 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
-@@ -33,22 +33,25 @@ static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
- 	writel(data, ioaddr + PTP_TCR);
- }
- 
--static void stmmac_config_sub_second_increment(void __iomem *ioaddr)
-+static u32 stmmac_config_sub_second_increment(void __iomem *ioaddr,
-+					      u32 ptp_clock)
- {
- 	u32 value = readl(ioaddr + PTP_TCR);
- 	unsigned long data;
- 
- 	/* Convert the ptp_clock to nano second
--	 * formula = (1/ptp_clock) * 1000000000
-+	 * formula = (2/ptp_clock) * 1000000000
- 	 * where, ptp_clock = 50MHz.
- 	 */
--	data = (1000000000ULL / 50000000);
-+	data = (2000000000ULL / ptp_clock);
- 
- 	/* 0.465ns accuracy */
- 	if (!(value & PTP_TCR_TSCTRLSSR))
- 		data = (data * 1000) / 465;
- 
- 	writel(data, ioaddr + PTP_SSIR);
-+
-+	return data;
- }
- 
- static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3c6549a..2231a01 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -53,6 +53,7 @@
- #include "stmmac.h"
- #include <linux/reset.h>
- #include <linux/of_mdio.h>
-+#include "dwmac1000.h"
- 
- #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
- 
-@@ -185,7 +186,7 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
- 			priv->clk_csr = STMMAC_CSR_100_150M;
- 		else if ((clk_rate >= CSR_F_150M) && (clk_rate < CSR_F_250M))
- 			priv->clk_csr = STMMAC_CSR_150_250M;
--		else if ((clk_rate >= CSR_F_250M) && (clk_rate <= CSR_F_300M))
-+		else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
- 			priv->clk_csr = STMMAC_CSR_250_300M;
+This was discovered by Stefan Priebe <s.priebe@profihost.ag>.
+
+Fixes: 4e2776241766 ("netlink: Fix autobind race condition that...")
+Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+Reported-by: Philipp Hahn <pmhahn@pmhahn.de>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index d139c43..0d6038c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1118,6 +1118,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 		if (err == -EEXIST)
+ 			err = -EADDRINUSE;
+ 		sock_put(sk);
++		goto err;
  	}
- }
-@@ -435,6 +436,7 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 	u32 ts_master_en = 0;
- 	u32 ts_event_en = 0;
- 	u32 value = 0;
-+	u32 sec_inc;
  
- 	if (!(priv->dma_cap.time_stamp || priv->adv_ts)) {
- 		netdev_alert(priv->dev, "No support for HW time stamping\n");
-@@ -598,24 +600,19 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 			 tstamp_all | ptp_v2 | ptp_over_ethernet |
- 			 ptp_over_ipv6_udp | ptp_over_ipv4_udp | ts_event_en |
- 			 ts_master_en | snap_type_sel);
--
- 		priv->hw->ptp->config_hw_tstamping(priv->ioaddr, value);
- 
- 		/* program Sub Second Increment reg */
--		priv->hw->ptp->config_sub_second_increment(priv->ioaddr);
-+		sec_inc = priv->hw->ptp->config_sub_second_increment(
-+			priv->ioaddr, priv->clk_ptp_rate);
-+		temp = div_u64(1000000000ULL, sec_inc);
- 
- 		/* calculate default added value:
- 		 * formula is :
- 		 * addend = (2^32)/freq_div_ratio;
--		 * where, freq_div_ratio = clk_ptp_ref_i/50MHz
--		 * hence, addend = ((2^32) * 50MHz)/clk_ptp_ref_i;
--		 * NOTE: clk_ptp_ref_i should be >= 50MHz to
--		 *       achieve 20ns accuracy.
--		 *
--		 * 2^x * y == (y << x), hence
--		 * 2^32 * 50000000 ==> (50000000 << 32)
-+		 * where, freq_div_ratio = 1e9ns/sec_inc
- 		 */
--		temp = (u64) (50000000ULL << 32);
-+		temp = (u64)(temp << 32);
- 		priv->default_addend = div_u64(temp, priv->clk_ptp_rate);
- 		priv->hw->ptp->config_addend(priv->ioaddr,
- 					     priv->default_addend);
--- 
-1.8.3.1
+ 	/* We need to ensure that the socket is hashed and visible. */
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
