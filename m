@@ -1,141 +1,74 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH 6/6] Revert "VSOCK: Introduce vsock_find_unbound_socket and vsock_bind_dgram_generic"
-Date: Tue,  8 Dec 2015 19:57:36 +0800
-Message-ID: <1449575856-28507-7-git-send-email-stefanha@redhat.com>
-References: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
-Cc: Matt Benjamin <mbenjamin@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, kvm@vger.kernel.org,
-	Christoffer Dall <christoffer.dall@linaro.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, matt.ma@linaro.org,
-	Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH 1/1] net:sctp: disable to inform ULP about transition
+ from PF to active state
+Date: Tue, 8 Dec 2015 10:11:31 -0200
+Message-ID: <20151208121131.GA26906@mrl.redhat.com>
+References: <1449568042-9176-1-git-send-email-zyjzyj2000@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	alexandre.dietsch@windriver.com, stefan.costandache@windriver.com
+To: zyjzyj2000@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43643 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932535AbbLHMLh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 07:11:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1449568042-9176-1-git-send-email-zyjzyj2000@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 357ab2234d57f6c74386f64ded42dff8e3c0500b.
+Hi,
 
-Keep virtio-vsock out-of-tree until the device specification is
-finalized.
+On Tue, Dec 08, 2015 at 05:47:22PM +0800, zyjzyj2000@gmail.com wrote:
+> From: yzhu1 <zyjzyj2000@gmail.com>
+> 
+> This feature is introduced in the commit 5aa93bc "sctp: Implement
+> quick failover draft from tsvwg". This feature should be disabled
+> if the quick failover feature is disabled.
+> 
+> Signed-off-by: yzhu1 <zyjzyj2000@gmail.com>
+> ---
+>  net/sctp/associola.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 559afd0..7438625 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -795,7 +795,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+>  		 * active state and set cwnd to 1 MTU, see SCTP
+>  		 * Quick failover draft section 5.1, point 5
+>  		 */
+> -		if (transport->state == SCTP_PF) {
+> +		if ((asoc->pf_retrans < asoc->max_retrans) && 
+> +			(transport->state == SCTP_PF)) {
+>  			ulp_notify = false;
+>  			transport->cwnd = asoc->pathmtu;
+>  		}
 
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
- include/net/af_vsock.h   |  2 --
- net/vmw_vsock/af_vsock.c | 70 ------------------------------------------------
- 2 files changed, 72 deletions(-)
+Didn't you confuse asoc->max_retrans with Path.Max.Retrans?
+That draft refers to asoc->pf_retrans having to be bigger than
+Path.Max.Retrans in order to disable PF, and asoc->max_retrans is
+another thing, it's originated from net->sctp.max_retrans_association.
 
-diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
-index a0c8fa2..e9eb2d6 100644
---- a/include/net/af_vsock.h
-+++ b/include/net/af_vsock.h
-@@ -175,10 +175,8 @@ void vsock_insert_connected(struct vsock_sock *vsk);
- void vsock_remove_bound(struct vsock_sock *vsk);
- void vsock_remove_connected(struct vsock_sock *vsk);
- struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr);
--struct sock *vsock_find_unbound_socket(struct sockaddr_vm *addr);
- struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
- 					 struct sockaddr_vm *dst);
- void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
--int vsock_bind_dgram_generic(struct vsock_sock *vsk, struct sockaddr_vm *addr);
- 
- #endif /* __AF_VSOCK_H__ */
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 77247a2..7fd1220 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -223,17 +223,6 @@ static struct sock *__vsock_find_bound_socket(struct sockaddr_vm *addr)
- 	return NULL;
- }
- 
--static struct sock *__vsock_find_unbound_socket(struct sockaddr_vm *addr)
--{
--	struct vsock_sock *vsk;
--
--	list_for_each_entry(vsk, vsock_unbound_sockets, bound_table)
--		if (addr->svm_port == vsk->local_addr.svm_port)
--			return sk_vsock(vsk);
--
--	return NULL;
--}
--
- static struct sock *__vsock_find_connected_socket(struct sockaddr_vm *src,
- 						  struct sockaddr_vm *dst)
- {
-@@ -309,21 +298,6 @@ struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr)
- }
- EXPORT_SYMBOL_GPL(vsock_find_bound_socket);
- 
--struct sock *vsock_find_unbound_socket(struct sockaddr_vm *addr)
--{
--	struct sock *sk;
--
--	spin_lock_bh(&vsock_table_lock);
--	sk = __vsock_find_unbound_socket(addr);
--	if (sk)
--		sock_hold(sk);
--
--	spin_unlock_bh(&vsock_table_lock);
--
--	return sk;
--}
--EXPORT_SYMBOL_GPL(vsock_find_unbound_socket);
--
- struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
- 					 struct sockaddr_vm *dst)
- {
-@@ -558,50 +532,6 @@ static int __vsock_bind_stream(struct vsock_sock *vsk,
- 	return 0;
- }
- 
--int vsock_bind_dgram_generic(struct vsock_sock *vsk, struct sockaddr_vm *addr)
--{
--	static u32 port = LAST_RESERVED_PORT + 1;
--	struct sockaddr_vm new_addr;
--
--	vsock_addr_init(&new_addr, addr->svm_cid, addr->svm_port);
--
--	if (addr->svm_port == VMADDR_PORT_ANY) {
--		bool found = false;
--		unsigned int i;
--
--		for (i = 0; i < MAX_PORT_RETRIES; i++) {
--			if (port <= LAST_RESERVED_PORT)
--				port = LAST_RESERVED_PORT + 1;
--
--			new_addr.svm_port = port++;
--
--			if (!__vsock_find_unbound_socket(&new_addr)) {
--				found = true;
--				break;
--			}
--		}
--
--		if (!found)
--			return -EADDRNOTAVAIL;
--	} else {
--		/* If port is in reserved range, ensure caller
--		 * has necessary privileges.
--		 */
--		if (addr->svm_port <= LAST_RESERVED_PORT &&
--		    !capable(CAP_NET_BIND_SERVICE)) {
--			return -EACCES;
--		}
--
--		if (__vsock_find_unbound_socket(&new_addr))
--			return -EADDRINUSE;
--	}
--
--	vsock_addr_init(&vsk->local_addr, new_addr.svm_cid, new_addr.svm_port);
--
--	return 0;
--}
--EXPORT_SYMBOL_GPL(vsock_bind_dgram_generic);
--
- static int __vsock_bind_dgram(struct vsock_sock *vsk,
- 			      struct sockaddr_vm *addr)
- {
--- 
-2.5.0
+The check is performed later in the code:
 
++       if ((transport->state != SCTP_PF) &&
++          (asoc->pf_retrans < transport->pathmaxrxt) &&
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
++          (transport->error_count > asoc->pf_retrans)) {
+
+This check should avoid that state transition as it will avoid the path
+from entereing SCTP_PF state at all.
+
+transport->pathmaxrst is originated from net->sctp.max_retrans_path.
+
+Btw, you had indentantion issues with your patch. Extra () that aren't
+needed and the second line should start at the column right after the
+initial ( in the first line. Please run scripts/checkpatch.pl on it next
+time. 
+
+  Marcelo
