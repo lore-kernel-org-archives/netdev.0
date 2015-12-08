@@ -1,75 +1,66 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 0/3] geneve: Add support for Remote Checksum Offload
-Date: Tue, 8 Dec 2015 10:27:15 -0800
-Message-ID: <1449599238-4094072-1-git-send-email-tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bnx2x: remove rx_pkt/rx_calls
+Date: Tue, 08 Dec 2015 10:28:30 -0800
+Message-ID: <1449599310.6639.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<jesse@nicira.com>, <linville@tuxdriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <ariel.elior@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:25824 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751491AbbLHS2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:28:18 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tB8ILaHq023717
-	for <netdev@vger.kernel.org>; Tue, 8 Dec 2015 10:28:17 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1ykvm5wndf-7
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:28:17 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 572a62409dd911e5a04b0002c9521c9e-76ffc210 for <netdev@vger.kernel.org>;	Tue,
- 08 Dec 2015 10:27:30 -0800
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36240 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbbLHS2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 13:28:33 -0500
+Received: by pfdd184 with SMTP id d184so15898690pfd.3
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 10:28:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set adds UDP checksum configuration via netlink and
-Remote Checksum Offload for Geneve,
+From: Eric Dumazet <edumazet@google.com>
 
-Testing (10Gbps mlx4):
+These fields are updated but never read.
+Remove the overhead.
 
-Single connection TCP_STREAM in netperf
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |    2 --
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    4 ----
+ 2 files changed, 6 deletions(-)
 
-  - No UDP checksums, no RCO
-     4371.9 Mbpos
-
-  - UDP checksums enabled, no RCO
-     7263.4 Mbps
-   
-  - UDP checksums enabled, RCO enabled
-     7607.6 Mbps
-
-200 TCP_RR streams
-
-  - No UDP checksums, no RCO
-    55.05% CPU utilization
-    879284.9 tps
-    184/231/742 50/90/99% latencies
-
-  - UDP checksums enabled, no RCO
-    55.46% CPU utilization
-    901785 tps
-    176/222/738 50/90/99% latencies
-
-  - UDP checksums enabled, RCO enabled
-    52.36% CPU utilization
-    910582 tps
-    174/218/706 50/90/99% latencies
-
-
-Tom Herbert (3):
-  rco: Clean up casting errors
-  geneve: UDP checksum configuration via netlink
-  geneve: Remote Checksum Offload support
-
- drivers/net/geneve.c         | 249 ++++++++++++++++++++++++++++++++++++++-----
- include/net/checksum.h       |   3 +-
- include/net/geneve.h         |  22 +++-
- include/uapi/linux/if_link.h |   6 ++
- 4 files changed, 246 insertions(+), 34 deletions(-)
-
--- 
-2.4.6
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 0b214b5d944a..cae0956186ce 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -590,8 +590,6 @@ struct bnx2x_fastpath {
+ 	/* The last maximal completed SGE */
+ 	u16			last_max_sge;
+ 	__le16			*rx_cons_sb;
+-	unsigned long		rx_pkt,
+-				rx_calls;
+ 
+ 	/* TPA related */
+ 	struct bnx2x_agg_info	*tpa_info;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index f6634a524153..2c0d21918417 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1122,9 +1122,6 @@ next_cqe:
+ 	bnx2x_update_rx_prod(bp, fp, bd_prod_fw, sw_comp_prod,
+ 			     fp->rx_sge_prod);
+ 
+-	fp->rx_pkt += rx_pkt;
+-	fp->rx_calls++;
+-
+ 	return rx_pkt;
+ }
+ 
+@@ -4442,7 +4439,6 @@ static int bnx2x_alloc_rx_bds(struct bnx2x_fastpath *fp,
+ 	/* Limit the CQE producer by the CQE ring size */
+ 	fp->rx_comp_prod = min_t(u16, NUM_RCQ_RINGS*RCQ_DESC_CNT,
+ 			       cqe_ring_prod);
+-	fp->rx_pkt = fp->rx_calls = 0;
+ 
+ 	bnx2x_fp_stats(bp, fp)->eth_q_stats.rx_skb_alloc_failed += failure_cnt;
+ 
