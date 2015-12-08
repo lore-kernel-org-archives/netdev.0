@@ -1,32 +1,249 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 8 Dec 2015 03:18:59 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F8D48F@RTITMBSV03.realtek.com.tw>
-References: <1449507520-10671-1-git-send-email-peter@lekensteyn.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Lu Baolu <baolu.lu@linux.intel.com>
-To: Peter Wu <peter@lekensteyn.nl>,
-	"David S . Miller" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449507520-10671-1-git-send-email-peter@lekensteyn.nl>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] vrf: Add ip rules at vrf device create
+Date: Mon,  7 Dec 2015 19:55:20 -0800
+Message-ID: <1449546920-8617-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: shm@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:34220 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755811AbbLHDz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2015 22:55:27 -0500
+Received: by pfbg73 with SMTP id g73so5073828pfb.1
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2015 19:55:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Peter Wu [mailto:peter@lekensteyn.nl]
-> Sent: Tuesday, December 08, 2015 12:59 AM
-[...]
-> +			if (tp->netdev->flags & IFF_UP) {
+VRFs require ip rules for route lookups to work properly. Currently
+creating a VRF means instantiating a device and then adding the 4 ip
+and ip6 rules:
 
-Maybe you could just replace the checking of netif_running(tp->netdev) with this.
+    ip link add vrf-${VRF} type vrf table ${TBID}
+    ip ru add oif vrf-${VRF} table ${TBID}
+    ip ru add iif vrf-${VRF} table ${TBID}
+    ip -6 ru add oif vrf-${VRF} table $TBID
+    ip -6 ru add iif vrf-${VRF} table $TBID
 
-Excuse me. I have a question. Before the open() is finished, the netif_running() would
-be true, but the IFF_UP wouldn't be set. Is it right?
+Since the table is required when the vrf device is created the rules can
+be inserted automatically lightening the overhead and improving the
+user experience.
 
-Best Regards,
-Hayes
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ drivers/net/vrf.c       | 120 +++++++++++++++++++++++++++++++++++++++++++++++-
+ include/net/fib_rules.h |   3 ++
+ net/core/fib_rules.c    |   6 ++-
+ 3 files changed, 126 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 56abdf224d35..5781b77d4c3f 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -36,6 +36,7 @@
+ #include <net/route.h>
+ #include <net/addrconf.h>
+ #include <net/l3mdev.h>
++#include <net/fib_rules.h>
+ 
+ #define RT_FL_TOS(oldflp4) \
+ 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+@@ -50,6 +51,7 @@ struct net_vrf {
+ 	struct rtable           *rth;
+ 	struct rt6_info		*rt6;
+ 	u32                     tb_id;
++	u32                     pref;
+ };
+ 
+ struct pcpu_dstats {
+@@ -809,6 +811,112 @@ static const struct ethtool_ops vrf_ethtool_ops = {
+ 	.get_drvinfo	= vrf_get_drvinfo,
+ };
+ 
++static inline size_t vrf_fib_rule_nl_size(bool have_pref)
++{
++	size_t sz;
++
++	sz = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
++			 + nla_total_size(IFNAMSIZ) /* FRA_{I,O}IFNAME */
++			 + nla_total_size(4); /* FRA_TABLE, u32 */
++
++	if (have_pref)
++		sz += nla_total_size(4); /* FRA_PRIORITY, u32 */
++
++	return sz;
++}
++
++static int vrf_fib_rule(struct net_device *dev, __u8 family, int if_type,
++			bool add_it)
++{
++	struct net_vrf *vrf = netdev_priv(dev);
++	struct fib_rule_hdr *frh;
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	int err;
++
++	skb = nlmsg_new(vrf_fib_rule_nl_size(!!vrf->pref), GFP_KERNEL);
++	if (!skb)
++		return -ENOMEM;
++
++	nlh = nlmsg_put(skb, 0, 0, 0, sizeof(*frh), 0);
++	if (!nlh)
++		return -EMSGSIZE;
++
++	frh = nlmsg_data(nlh);
++	memset(frh, 0, sizeof(*frh));
++	frh->family = family;
++	frh->action = FR_ACT_TO_TBL;
++
++	if (nla_put_u32(skb, FRA_TABLE, vrf->tb_id))
++		goto nla_put_failure;
++
++	if (nla_put_string(skb, if_type, dev->name))
++		goto nla_put_failure;
++
++	if (vrf->pref) {
++		if (nla_put_u32(skb, FRA_PRIORITY, vrf->pref))
++			goto nla_put_failure;
++	}
++
++	nlmsg_end(skb, nlh);
++
++	/* fib_nl_{new,del}rule handling looks for net from skb->sk */
++	skb->sk = dev_net(dev)->rtnl;
++	if (add_it) {
++		err = fib_nl_newrule(skb, nlh);
++	} else {
++		err = fib_nl_delrule(skb, nlh);
++		if (err == -ENOENT)
++			err = 0;
++	}
++
++	kfree_skb(skb);
++
++	return err;
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static void vrf_del_fib_rules(struct net_device *dev)
++{
++	if (vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 0) ||
++	    vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 0) ||
++	    vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 0) ||
++	    vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 0)) {
++		netdev_err(dev, "Failed to delete FIB rules for %s\n",
++			   dev->name);
++	}
++}
++
++static int vrf_add_fib_rules(struct net_device *dev)
++{
++	int err;
++
++	err = vrf_fib_rule(dev, AF_INET,  FRA_IIFNAME, 1);
++	if (err < 0)
++		goto out_err;
++
++	err = vrf_fib_rule(dev, AF_INET,  FRA_OIFNAME, 1);
++	if (err < 0)
++		goto out_err;
++
++	err = vrf_fib_rule(dev, AF_INET6, FRA_IIFNAME, 1);
++	if (err < 0)
++		goto out_err;
++
++	err = vrf_fib_rule(dev, AF_INET6, FRA_OIFNAME, 1);
++	if (err < 0)
++		goto out_err;
++
++	return 0;
++out_err:
++	netdev_err(dev, "Failed to add FIB rules for %s\n", dev->name);
++	vrf_del_fib_rules(dev);
++	return err;
++}
++
+ static void vrf_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -842,6 +950,7 @@ static int vrf_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+ static void vrf_dellink(struct net_device *dev, struct list_head *head)
+ {
++	vrf_del_fib_rules(dev);
+ 	unregister_netdevice_queue(dev, head);
+ }
+ 
+@@ -849,6 +958,7 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 		       struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct net_vrf *vrf = netdev_priv(dev);
++	int err;
+ 
+ 	if (!data || !data[IFLA_VRF_TABLE])
+ 		return -EINVAL;
+@@ -857,7 +967,15 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	dev->priv_flags |= IFF_L3MDEV_MASTER;
+ 
+-	return register_netdevice(dev);
++	err = register_netdevice(dev);
++	if (err)
++		goto out;
++
++	err = vrf_add_fib_rules(dev);
++	if (err)
++		unregister_netdevice(dev);
++out:
++	return err;
+ }
+ 
+ static size_t vrf_nl_getsize(const struct net_device *dev)
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 59160de702b6..0b76f81345c9 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -117,4 +117,7 @@ int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
+ 		     struct fib_lookup_arg *);
+ int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
+ 			 u32 flags);
++
++int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh);
++int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh);
+ #endif
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 365de66436ac..a5068c558bfb 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -265,7 +265,7 @@ static int validate_rulemsg(struct fib_rule_hdr *frh, struct nlattr **tb,
+ 	return err;
+ }
+ 
+-static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
++int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
+@@ -424,8 +424,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	rules_ops_put(ops);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(fib_nl_newrule);
+ 
+-static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
++int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
+@@ -536,6 +537,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	rules_ops_put(ops);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(fib_nl_delrule);
+ 
+ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 					 struct fib_rule *rule)
+-- 
+1.9.1
