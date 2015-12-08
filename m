@@ -1,41 +1,39 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 3/3] ser_gigaset: remove unnecessary kfree() calls from
- release method
-Date: Wed, 09 Dec 2015 00:15:50 +0100
-Message-ID: <1449616550.2384.39.camel@tiscali.nl>
-References: <cover.1449570042.git.tilman@imap.cc>
-	 <61b60d7eff05eddf305460f3dae2b80221f08aad.1449570042.git.tilman@imap.cc>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: [net-next 09/15] i40e: use priv flags to control packet split
+Date: Tue, 8 Dec 2015 15:24:47 -0800
+Message-ID: <CAEuXFEycBrALvFgb3tvcRgHtNzEq7kRk5tHJ8_-K3HEeWeZswQ@mail.gmail.com>
+References: <1449149160-105219-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1449149160-105219-10-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJ3xEMi7=-LgxapNQM2YX26nxqA9gCceMX95wOEGn-WztsQYbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	syzkaller@googlegroups.com, David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	gigaset307x-common@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <61b60d7eff05eddf305460f3dae2b80221f08aad.1449570042.git.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36789 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750871AbbLHXYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 18:24:48 -0500
+Received: by iofh3 with SMTP id h3so41224209iof.3
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 15:24:48 -0800 (PST)
+In-Reply-To: <CAJ3xEMi7=-LgxapNQM2YX26nxqA9gCceMX95wOEGn-WztsQYbg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tilman,
+On Sat, Dec 5, 2015 at 1:25 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> HDS is a generic feature,and even if you think only Intel hardware is
+> the only hardware that supports that, you have multiple drivers..
+> right? why not go the right way of adding new netdev feature and
+> enable/disable it through the conventional ethtool feature on/off
+> directive?
 
-On di, 2015-12-08 at 12:00 +0100, Tilman Schmidt wrote:
-> device->platform_data and platform_device->resource are never used
-> and remain NULL through their entire life. Drops the kfree() calls
-> for them from the device release method.
-> 
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> Reported-by: Paul Bolle <pebolle@tiscali.nl>
-
-s/Reported-by/Acked-by/
-
-(Having both lines would be overdoing things.)
-
-Thanks,
-
-
-Paul Bolle
+In this case, the return on the investment in the new feature is too
+low, IMO. If your hardware also supports this feature we can discuss
+adding this via ethtool, and I'd be glad to review any patches, and
+implement for Intel devices if necessary.
