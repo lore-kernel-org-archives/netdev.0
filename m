@@ -1,28 +1,59 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: local route left hanging around in wrong table
-Date: Wed, 9 Dec 2015 18:20:12 -0700
-Message-ID: <5668D34C.6080304@cumulusnetworks.com>
-References: <5668B9F7.4010400@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, ja@ssi.bg
+From: Phil Reid <preid@electromag.com.au>
+Subject: [PATCH v5 2/4] stmmac: Correct documentation on stmmac clocks.
+Date: Wed,  9 Dec 2015 16:39:39 +0800
+Message-ID: <1449650381-82074-3-git-send-email-preid@electromag.com.au>
+References: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
+Cc: Phil Reid <preid@electromag.com.au>
+To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	peppe.cavallaro@st.com, davem@davemloft.net,
+	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36065 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753794AbbLJBUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 20:20:15 -0500
-Received: by pacdm15 with SMTP id dm15so38542946pac.3
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 17:20:15 -0800 (PST)
-In-Reply-To: <5668B9F7.4010400@cumulusnetworks.com>
+Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:49243 "EHLO
+	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753386AbbLJBdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 20:33:21 -0500
+In-Reply-To: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/9/15 4:32 PM, David Ahern wrote:
-> At this point I don't see a simple solution to fix this for v4.4 hence
-> this email -- any thoughts?
+devm_get_clk looks in clock-name property for matching clock.
+the ptp_ref_clk property is ignored.
 
-never mind.
+Acked-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Phil Reid <preid@electromag.com.au>
+---
+ Documentation/devicetree/bindings/net/stmmac.txt | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-As soon as you send up the flares you solve problem. patch coming soon.
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index fd5ddf8..e862a92 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -35,15 +35,14 @@ Optional properties:
+ - reset-names: Should contain the reset signal name "stmmaceth", if a
+ 	reset phandle is given
+ - max-frame-size: See ethernet.txt file in the same directory
+-- clocks: If present, the first clock should be the GMAC main clock and
+-  the second clock should be peripheral's register interface clock. Further
+-  clocks may be specified in derived bindings.
+-- clock-names: One name for each entry in the clocks property, the
+-  first one should be "stmmaceth" and the second one should be "pclk".
+-- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
+-  available this clock is used for programming the Timestamp Addend Register.
+-  If not passed then the system clock will be used and this is fine on some
+-  platforms.
++- clocks: If present, the first clock should be the GMAC main clock
++  The optional second clock should be peripheral's register interface clock.
++  The third optional clock should be the ptp reference clock.
++  Further clocks may be specified in derived bindings.
++- clock-names: One name for each entry in the clocks property.
++  The first one should be "stmmaceth".
++  The optional second one should be "pclk".
++  The optional third one should be "clk_ptp_ref".
+ - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
+ - tx-fifo-depth: See ethernet.txt file in the same directory
+ - rx-fifo-depth: See ethernet.txt file in the same directory
+-- 
+1.8.3.1
