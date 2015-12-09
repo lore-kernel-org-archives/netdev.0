@@ -1,54 +1,41 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH] iwlegacy: mark il_adjust_beacon_interval as noinline
-Date: Wed, 9 Dec 2015 12:13:14 -0500 (EST)
-Message-ID: <alpine.LFD.2.20.1512091209130.26920@knanqh.ubzr>
-References: <36263581.L8412YxJjp@wuerfel>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH (net-next.git) 13/18] stmmac: perf, remove modulo in
+ stmmac_rx()
+Date: Wed, 9 Dec 2015 17:21:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE9BB2@AcuExch.aculab.com>
+References: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
+ <1449650274-14896-14-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <36263581.L8412YxJjp@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+	Fabrice Gasnier <fabrice.gasnier@st.com>
+To: 'Giuseppe Cavallaro' <peppe.cavallaro@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.187]:61441 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752834AbbLIRXa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 12:23:30 -0500
+In-Reply-To: <1449650274-14896-14-git-send-email-peppe.cavallaro@st.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Dec 2015, Arnd Bergmann wrote:
+From: Giuseppe Cavallaro
+> Sent: 09 December 2015 08:38
+> The indexes into the ring buffer are always incremented, and
+> the entry is accessed via doing a modulo to find the "real" index.
+> Modulo is an expensive operation.
+> 
+> This patch replaces the modulo with a simple if clamp.
+> It helps improve stmmac RX path as it's being called inside RX loop.
 
-> With the new optimized do_div() code, some versions of gcc
-> produce obviously incorrect code that leads to a link error
-> in iwlegacy/common.o:
-> 
-> drivers/built-in.o: In function `il_send_rxon_timing':
-> :(.text+0xa6b4d4): undefined reference to `____ilog2_NaN'
-> :(.text+0xa6b4f0): undefined reference to `__aeabi_uldivmod'
-> 
-> In a few thousand randconfig builds, I have seen this problem
-> a couple of times in this file, but never anywhere else in the
-> kernel, so we can try to work around this in the only file
-> that shows the behavior, by marking the il_adjust_beacon_interval
-> function as noinline, which convinces gcc to use the unoptimized
-> do_div() all the time.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Is dma_rx_size always a power of 2 ?
+If so you can replace the % by & and remove the conditionals.
 
-Acked-by: Nicolas Pitre <nico@linaro.org>
+If you have changed the read and write values to indexes
+then you need to be certain that the 'ring full' and 'ring empty'
+cases are correctly distinguished.
 
-> 
-> diff --git a/drivers/net/wireless/intel/iwlegacy/common.c b/drivers/net/wireless/intel/iwlegacy/common.c
-> index 887114582583..6308bb217454 100644
-> --- a/drivers/net/wireless/intel/iwlegacy/common.c
-> +++ b/drivers/net/wireless/intel/iwlegacy/common.c
-> @@ -3602,7 +3602,7 @@ il_is_ht40_tx_allowed(struct il_priv *il, struct ieee80211_sta_ht_cap *ht_cap)
->  }
->  EXPORT_SYMBOL(il_is_ht40_tx_allowed);
->  
-> -static u16
-> +static u16 noinline
->  il_adjust_beacon_interval(u16 beacon_val, u16 max_beacon_val)
->  {
->  	u16 new_val;
-> 
-> 
+	David
