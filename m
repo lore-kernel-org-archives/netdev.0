@@ -1,33 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-Date: Wed, 9 Dec 2015 03:18:26 +0100
-Message-ID: <20151209021826.GC19097@pox.localdomain>
-References: <20151207.142953.387889541116696974.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/3] geneve: Remote Checksum Offload support
+Date: Tue, 08 Dec 2015 21:20:14 -0500 (EST)
+Message-ID: <20151208.212014.293664653825079141.davem@davemloft.net>
+References: <CALx6S36dU-RLUSTTZz8dVZHD7=p3=modbjUOePKMYG96FrA_zA@mail.gmail.com>
+	<CAEh+42gMC7SSuSsJncxvFCeqJAGA4_DZs2qq3n1NRV7JHYu9SA@mail.gmail.com>
+	<CALx6S37o+gQ4BLtphsDzbg-qPsiZo2_7TvhSdweLy8wAEbbjNw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <phil@nwl.cc>, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151207.142953.387889541116696974.davem@davemloft.net>
- <20151205070603.GB23255@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jesse@kernel.org, linville@tuxdriver.com, netdev@vger.kernel.org,
+	jesse@nicira.com, kernel-team@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47889 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752594AbbLICUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:20:16 -0500
+In-Reply-To: <CALx6S37o+gQ4BLtphsDzbg-qPsiZo2_7TvhSdweLy8wAEbbjNw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 8 Dec 2015 16:11:56 -0800
 
-On 12/05/15 at 03:06pm, Herbert Xu wrote:
-> Unless we can make __vmalloc work with BH disabled, I guess we'll
-> have to go back to multi-level lookups unless someone has a better
-> suggestion.
+> I thought about a TLV implementation but there is no base support in
+> the kernel for it. It would be great if you could implement the TLV
+> loop. Honestly, though, I'm still very leery of the processing
+> overhead associated with TLVs in the critical data path. In the
+> worst case of RCO we would need to fish for the RCO option though
+> the TLV list in both the GRO and normal path for each packet. If the
+> TLV lists are long then performance may be negatively affected
+> mitigating the value of RCO (needs to be measured).
 
-Assuming that we only encounter this scenario with very large
-table sizes, it might be OK to assume that deferring the actual
-resize via the worker thread while continuing to insert above
-100% utilization in atomic context is safe.
-
-On 12/07/15 at 02:29pm, David Miller wrote:
-> You can't issue the cross-cpu TLB flushes from atomic contexts.
-> It's the kernel page table updates that create the restriction.
+Open ended TLVs are to me likened to an attack vector waiting to
+happen, for the reasons Tom listed.
