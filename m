@@ -1,50 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v9, 6/6] fsl/fman: Add FMan MAC driver
-Date: Tue, 08 Dec 2015 21:17:15 -0500 (EST)
-Message-ID: <20151208.211715.790899872740551674.davem@davemloft.net>
-References: <1449127157-9400-7-git-send-email-igal.liberman@freescale.com>
-	<CAKWjMd7EDx8OnYGu-QJXM++fy=W5i2E74Fe4r9zNjUV_giyUKw@mail.gmail.com>
-	<1449614678.15946.152.camel@freescale.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
+Date: Wed, 9 Dec 2015 03:18:26 +0100
+Message-ID: <20151209021826.GC19097@pox.localdomain>
+References: <20151207.142953.387889541116696974.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: afleming@gmail.com, igal.liberman@freescale.com,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, madalin.bucur@freescale.com,
-	pebolle@tiscali.nl, joakim.tjernlund@transmode.se,
-	ppc@mindchasers.com, stephen@networkplumber.org
-To: scottwood@freescale.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Phil Sutter <phil@nwl.cc>, Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449614678.15946.152.camel@freescale.com>
+Content-Disposition: inline
+In-Reply-To: <20151207.142953.387889541116696974.davem@davemloft.net>
+ <20151205070603.GB23255@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Scott Wood <scottwood@freescale.com>
-Date: Tue, 8 Dec 2015 16:44:38 -0600
 
-> On Tue, 2015-12-08 at 14:18 -0600, Andy Fleming wrote:
->> On Thu, Dec 3, 2015 at 1:19 AM,  <igal.liberman@freescale.com> wrote:
->> > From: Igal Liberman <igal.liberman@freescale.com>
->> > 
->> > This patch adds the Ethernet MAC driver supporting the three
->> > different types of MACs: dTSEC, tGEC and mEMAC.
->> > 
->> > Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
->> 
->> [...]
->> 
->> > +
->> > +MODULE_LICENSE("Dual BSD/GPL");
->> > +
->> > +MODULE_AUTHOR("Emil Medve <Emilian.Medve@Freescale.com>");
->> 
->> I imagine this email address doesn't exist anymore, or won't soon.
->> This is also an issue in the ethernet driver (with my old address).
->> I'm not sure what the right approach is, but we shouldn't be putting
->> obsolete email addresses in the kernel.
-> 
-> I don't think a MODULE_AUTHOR tag makes sense for drivers like this that had a
-> lot of people work on them.  git history is better for giving credit in such
-> cases.
+On 12/05/15 at 03:06pm, Herbert Xu wrote:
+> Unless we can make __vmalloc work with BH disabled, I guess we'll
+> have to go back to multi-level lookups unless someone has a better
+> suggestion.
 
-Agreed.
+Assuming that we only encounter this scenario with very large
+table sizes, it might be OK to assume that deferring the actual
+resize via the worker thread while continuing to insert above
+100% utilization in atomic context is safe.
+
+On 12/07/15 at 02:29pm, David Miller wrote:
+> You can't issue the cross-cpu TLB flushes from atomic contexts.
+> It's the kernel page table updates that create the restriction.
