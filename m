@@ -1,35 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Revert "Merge branch 'vsock-virtio'"
-Date: Tue, 08 Dec 2015 21:58:03 -0500 (EST)
-Message-ID: <20151208.215803.235838081070973876.davem@davemloft.net>
-References: <1449629472-26286-1-git-send-email-stefanha@redhat.com>
+From: robert@project.com
+Subject: Update
+Date: Tue, 08 Dec 2015 20:43:16 -0600
+Message-ID: <20151209025522.012182533C__18703.4977171153$1449629916$gmane$org@smtp.altrodesign.cz>
+Reply-To: beckfordchambs@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de, kvm@vger.kernel.org,
-	christoffer.dall@linaro.org, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, mbenjamin@redhat.com,
-	matt.ma@linaro.org
-To: stefanha@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1449629472-26286-1-git-send-email-stefanha@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <robert@project.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.altrodesign.cz ([109.123.203.224]:52483 "EHLO
+	smtp2.altrodesign.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752626AbbLIC5o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:57:44 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Wed,  9 Dec 2015 10:51:12 +0800
-
-> This reverts commit 0d76d6e8b2507983a2cae4c09880798079007421 and merge
-> commit c402293bd76fbc93e52ef8c0947ab81eea3ae019, reversing changes made
-> to c89359a42e2a49656451569c382eed63e781153c.
-> 
-> The virtio-vsock device specification is not finalized yet.  Michael
-> Tsirkin voiced concerned about merging this code when the hardware
-> interface (and possibly the userspace interface) could still change.
-> 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
-> ---
-> v2:
->  * Revert merge commit and coccinelle fixup in a single patch
-
-Applied, th anks.
+Good day, hoping you read this email and respond to me in good time.I do not intend to solicit for funds but your time and energy in using my own resources to assist the less privileged becauseI am medically ill and confined at the moment hence I request your indulgence.I will give you a comprehensive brief once I hear from you.  Thanks and reply. Robert Grondahl
