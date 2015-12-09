@@ -1,133 +1,63 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net-next.git) 17/18] stmmac: tune rx copy via threshold.
-Date: Wed, 9 Dec 2015 09:37:53 +0100
-Message-ID: <1449650274-14896-18-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net-next.git) 15/18] stmmac: fix phy init when attached to a phy
+Date: Wed, 9 Dec 2015 09:37:51 +0100
+Message-ID: <1449650274-14896-16-git-send-email-peppe.cavallaro@st.com>
 References: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <alexandre.torgue@st.com>,
+	Fabrice Gasnier <fabrice.gasnier@st.com>,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:45206 "EHLO
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:38196 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752019AbbLII2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 03:28:49 -0500
-Received: from pps.filterd (m0046668.ppops.net [127.0.0.1])
-	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id tB98DXSu023467
-	for <netdev@vger.kernel.org>; Wed, 9 Dec 2015 09:28:47 +0100
+	by vger.kernel.org with ESMTP id S1753355AbbLII2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 03:28:43 -0500
+Received: from pps.filterd (m0046037.ppops.net [127.0.0.1])
+	by m0046037.ppops.net (8.14.5/8.14.5) with SMTP id tB98BkpF031121
+	for <netdev@vger.kernel.org>; Wed, 9 Dec 2015 09:28:41 +0100
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx07-00178001.pphosted.com with ESMTP id 1yndrgrxsm-1
+	by m0046037.ppops.net with ESMTP id 1ynn3af72r-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:28:47 +0100
+	for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:28:41 +0100
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id A070C38
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:10 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1583438
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:05 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0E4E74F63
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:46 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7F41B4F61
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:40 +0000 (GMT)
 In-Reply-To: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a threshold now used to also limit the skb allocation
-when use zero-copy. This is to avoid that there are incoherence
-in the ring due to a failure on skb allocation under very
-aggressive testing and under low memory conditions.
+From: Fabrice Gasnier <fabrice.gasnier@st.com>
 
+phy_bus_name can be NULL when "fixed-link" property isn't used.
+Then, since "stmmac: do not poll phy handler when attach a switch",
+phy_bus_name ptr needs to be checked before strcmp is called.
+
+Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   26 +++++++++++++++++++-
- 2 files changed, 25 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index b73e8d8..55180e0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -76,6 +76,7 @@ struct stmmac_priv {
- 	unsigned int dirty_rx;
- 	unsigned int dma_rx_size;
- 	unsigned int dma_buf_sz;
-+	unsigned int rx_zeroc_thresh;
- 	u32 rx_riwt;
- 	int hwts_rx_en;
- 	dma_addr_t *rx_skbuff_dma;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index d68775a..74653cf 100644
+index cc04943..6b83213 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -204,6 +204,7 @@ static void print_pkt(unsigned char *buf, int len)
+@@ -886,8 +886,9 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	}
  
- /* minimum number of free TX descriptors required to wake up TX process */
- #define STMMAC_TX_THRESH(x)	(x->dma_tx_size/4)
-+#define STMMAC_RX_THRESH(x)	(x->dma_rx_size / 4)
+ 	/* If attached to a switch, there is no reason to poll phy handler */
+-	if (!strcmp(priv->plat->phy_bus_name, "fixed"))
+-		phydev->irq = PHY_IGNORE_INTERRUPT;
++	if (priv->plat->phy_bus_name)
++		if (!strcmp(priv->plat->phy_bus_name, "fixed"))
++			phydev->irq = PHY_IGNORE_INTERRUPT;
  
- static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
- {
-@@ -2179,6 +2180,14 @@ static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
- }
- 
- 
-+static inline int stmmac_rx_threshold_count(struct stmmac_priv *priv)
-+{
-+	if (priv->rx_zeroc_thresh < STMMAC_RX_THRESH(priv))
-+		return 0;
-+
-+	return 1;
-+}
-+
- /**
-  * stmmac_rx_refill - refill used skb preallocated buffers
-  * @priv: driver private structure
-@@ -2204,8 +2213,15 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- 			struct sk_buff *skb;
- 
- 			skb = netdev_alloc_skb_ip_align(priv->dev, bfsize);
--			if (unlikely(!skb))
-+			if (unlikely(!skb)) {
-+				/* so for a while no zero-copy! */
-+				priv->rx_zeroc_thresh = STMMAC_RX_THRESH(priv);
-+				if (unlikely(net_ratelimit()))
-+					dev_err(priv->device,
-+						"fail to alloc skb entry %d\n",
-+						entry);
- 				break;
-+			}
- 
- 			priv->rx_skbuff[entry] = skb;
- 			priv->rx_skbuff_dma[entry] =
-@@ -2221,9 +2237,13 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- 
- 			priv->hw->mode->refill_desc3(priv, p);
- 
-+			if (priv->rx_zeroc_thresh > 0)
-+				priv->rx_zeroc_thresh--;
-+
- 			if (netif_msg_rx_status(priv))
- 				pr_debug("\trefill entry #%d\n", entry);
- 		}
-+
- 		wmb();
- 		priv->hw->desc->set_rx_owner(p);
- 		wmb();
-@@ -2328,7 +2348,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 						 frame_len, status);
- 			}
- 
--			if (unlikely(frame_len < minrx)) {
-+			if (unlikely((frame_len < minrx) ||
-+				     stmmac_rx_threshold_count(priv))) {
- 				skb = netdev_alloc_skb_ip_align(priv->dev,
- 								frame_len);
- 				if (unlikely(!skb)) {
-@@ -2363,6 +2384,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 				}
- 				prefetch(skb->data - NET_IP_ALIGN);
- 				priv->rx_skbuff[entry] = NULL;
-+				priv->rx_zeroc_thresh++;
- 
- 				skb_put(skb, frame_len);
- 				dma_unmap_single(priv->device,
+ 	pr_debug("stmmac_init_phy:  %s: attached to PHY (UID 0x%x)"
+ 		 " Link = %d\n", dev->name, phydev->phy_id, phydev->link);
 -- 
 1.7.4.4
