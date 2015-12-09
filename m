@@ -1,82 +1,51 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Checksum offload queries
-Date: Wed, 9 Dec 2015 17:31:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE9C19@AcuExch.aculab.com>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <20151208.120654.2127200076257822677.davem@davemloft.net>
- <56681B18.3030200@solarflare.com>
- <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
- <566864C0.6020204@solarflare.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
+Date: Wed, 9 Dec 2015 09:38:44 -0800
+Message-ID: <20151209173842.GA18097@ast-mbp.thefacebook.com>
+References: <1449074114.3806253.455834737.16948E5F@webmail.messagingengine.com>
+ <CALx6S34Zqn1t4RPkAoa3QT-vWLvawnBN19qEZ12P-YiCEckxHw@mail.gmail.com>
+ <565F8059.3010101@gmail.com>
+ <CALx6S35EwSXNvOxf_a+=5n2xBN6ZTq--cxdciNgCzPnqzxACJA@mail.gmail.com>
+ <566687DC.7040805@gmail.com>
+ <5666E7EB.40709@mojatatu.com>
+ <5666F2DB.5000101@mojatatu.com>
+ <20151209014038.GA19097@pox.localdomain>
+ <20151209054543.GA7902@ast-mbp.thefacebook.com>
+ <20151209125857.GA9900@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>
-To: 'Edward Cree' <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jesse Gross <jesse@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kiran Patil <kiran.patil@intel.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:58147 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752735AbbLIRdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 12:33:41 -0500
-In-Reply-To: <566864C0.6020204@solarflare.com>
-Content-Language: en-US
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35466 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752700AbbLIRis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 12:38:48 -0500
+Received: by pacej9 with SMTP id ej9so33046415pac.2
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:38:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20151209125857.GA9900@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRWR3YXJkIENyZWUNCj4gU2VudDogMDkgRGVjZW1iZXIgMjAxNSAxNzoyOQ0KDQpZb3Ug
-YWxzbyBuZWVkIHRvIHN0b3AgKHByb2JhYmx5IG91dGx1Y2s/KSBmcm9tIGRlbGV0aW5nIG5ld2xp
-bmVzIGFuZA0KZmxvd2luZyB0aGUgdGV4dC4NCg0KVGhlIG1lc3NhZ2UgYmVsb3cgaXMgY29tcGxl
-dGVseSB1bnJlYWRhYmxlLg0KDQoJRGF2aWQNCg0KDQo+IE9uIDA5LzEyLzE1IDE2OjAxLCBUb20g
-SGVyYmVydCB3cm90ZToNCj4gPiBPbiBXZWQsIERlYyA5LCAyMDE1IGF0IDQ6MTQgQU0sIEVkd2Fy
-ZCBDcmVlIDxlY3JlZUBzb2xhcmZsYXJlLmNvbT4gPiB3cm90ZTogPj4gQ29udmluY2luZyBoYXJk
-d2FyZQ0KPiBkZXNpZ25lcnMgdG8gZ28gdGhlIEhXX0NTVU0gd2F5IGFuZCBvbmx5IGZpbGwgPj4g
-aW4gdGhlIGlubmVyIGNoZWNrc3VtLCB3aGVuIHRoZWlyIGN1cnJlbnQgYXBwcm9hY2gNCj4gY2Fu
-IGZpbGwgaW4gPj4gYm90aCBpbm5lciBhbmQgb3V0ZXIgY2hlY2tzdW1zICh0aG91Z2ggYWRtaXR0
-ZWRseSBvbmx5IGZvciB0aGUgPj4gcHJvdG9jb2xzIHRoZQ0KPiBoYXJkd2FyZSBrbm93cyBhYm91
-dCksIG1pZ2h0IGJlIGRpZmZpY3VsdC4gPj4gPiBCdXQgYWdhaW4sIE5FVElGX0ZfSVBbVjZdX0NT
-VU0gYW5kIE5FVElGX0ZfSFdfQ1NVTQ0KPiBkZXNjcmliZSA+IGNhcGFiaWxpdGllcy5fbm90XyB0
-aGUgaW50ZXJmYWNlLiBUaGUgaW50ZXJmYWNlIGN1cnJlbnRseSBhbGxvd3Mgb25seSA+IG9uZSBj
-aGVja3N1bSB0byBiZQ0KPiBvZmZsb2FkZWQgYXQgdGltZSwgaWYgd2Ugd2FudCB0byBiZSBhYmxl
-IHRvID4gb2ZmbG9hZCB0d28gY2hlY2tzdW1zIHRoZW4gdGhlIGludGVyZmFjZSBuZWVkcyB0byBi
-ZQ0KPiBjaGFuZ2VkLS0gPiBwcm9iYWJseSBzb21ldGhpbmcgbGlrZSBkZWZpbmluZyBhIG5ldyBj
-YXBhYmlsaXR5IGxpa2UgPiBORVRJRl9GX0hXXzJDU1VNUywgYWRkaW5nIGFub3RoZXINCj4gY3N1
-bV9zdGFydCxjc3VtX29mZnNldCBwYWlyIGludG8gPiB0aGUgc2tfYnVmZi4NCj4gV2hpY2ggb25s
-eSBwdXNoZXMgdGhlIHByb2JsZW0gb250byB3aGVuIHNvbWVvbmUgd2FudHMgdG8gbmVzdA0KPiBl
-bmNhcHN1bGF0aW9ucy4gIChJIGhlYXJkIHlvdSBsaWtlIHR1bm5lbHMsIHNvIEkgcHV0IGEgdHVu
-bmVsIGluIHlvdXINCj4gdHVubmVsIHNvIHlvdSBjYW4gZW5jYXBzdWxhdGUgd2hpbGUgeW91IGVu
-Y2Fwc3VsYXRlLikNCj4gT3IgdG8gcHV0IGl0IGFub3RoZXIgd2F5LCAyIGlzbid0IGEgbnVtYmVy
-OyB0aGUgb25seSBudW1iZXJzIGFyZSAwLCAxDQo+IGFuZCBpbmZpbml0eSA7KQ0KPiBQZXJoYXBz
-IGluIHByYWN0aWNlIDIgY3N1bXMgd291bGQgYmUgZW5vdWdoLCBmb3Igbm93LiAgQnV0IGlzbid0
-IHRoZQ0KPiB3aG9sZSBwb2ludCBvZiB0aGUgYnJhdmUgbmV3IHdvcmxkIG9mIGdlbmVyaWMgY2hl
-Y2tzdW1zIHRoYXQgaXQgc2hvdWxkDQo+IGJlIGZ1dHVyZS1wcm9vZj8NCj4gDQo+ID4gVGhlIHN0
-YWNrIHdpbGwgbmVlZCB0byBiZSBtb2RpZmllZCBhbHNvIHdoZXJldmVyIENIRUNLU1VNX1BBUlRJ
-QUwgaXMgPiBoYW5kbGVkLg0KPiBOYXR1cmFsbHkuDQo+IA0KPiA+IElmIHlvdXIgZGV2aWNlIGlz
-IHRyeWluZyBkbyBvZmZsb2FkIG1vcmUgdGhhbiBvbmUgY2hlY2tzdW0gb24gaXRzIG93biA+IGFj
-Y29yZCB3aXRob3V0IGJlaW5nIGFza2VkDQo+IHRvIGRvIHNvIGJ5IHRoZSBzdGFjayBpdCBpcyBk
-b2luZyB0aGUgPiB3cm9uZyB0aGluZyENCj4gRnJvbSB0aGUgc3RhY2sncyBwZXJzcGVjdGl2ZTog
-eWVzLCBpdCBpcyBkb2luZyB0aGUgd3JvbmcgdGhpbmcuICAoSSd2ZQ0KPiBiZWVuIGRpc2N1c3Np
-bmcgd2l0aCBjb2xsZWFndWVzIHRvZGF5IGhvdyB3ZSBjb3VsZCBjaGFuZ2UgdGhhdCwgYW5kIEkN
-Cj4gdGhpbmsgd2UgY2FuLCBidXQgaXQgaW52b2x2ZXMgaGF2aW5nIF90aHJlZV8gaGFyZHdhcmUg
-VFhRcyBwZXIga2VybmVsDQo+IHF1ZXVlLCBpbnN0ZWFkIG9mIHRoZSB0d28gd2UgaGF2ZSBub3cu
-Li4pDQo+IEJ1dCBmcm9tIHRoZSBvdXRzaWRlIHBlcnNwZWN0aXZlLCB0aGUgc3lzdGVtIGFzIGEg
-d2hvbGUgaXNuJ3QgZG9pbmcNCj4gYW55dGhpbmcgYmFkIC0gdGhlIHBhY2tldCBnb2luZyBvbiB0
-aGUgbmV0d29yayBpcyB2YWxpZCBhbmQganVzdA0KPiBoYXBwZW5zIHRvIGhhdmUgYm90aCBpbm5l
-ciBhbmQgb3V0ZXIgY2hlY2tzdW1zIGZpbGxlZCBpbi4gIElzIHRoZXJlIGENCj4gZ29vZCByZWFz
-b24gX3doeV8gdGhlIHN0YWNrIGZvcmJpZHMgYSBkZXZpY2UgdG8gZG8gdGhpcz8gIChTdXJlLCBp
-dCdzDQo+IG5vdCBuZWNlc3NhcnksIGFuZCBtYWtlcyB0aGUgaGFyZHdhcmUgbW9yZSBjb21wbGV4
-LiAgQnV0IHRoZSBoYXJkd2FyZSdzDQo+IGFscmVhZHkgYmVlbiBtYWRlLCBhbmQgaXQncyBub3Qg
-YSAqY29tcGxldGVseSogdXNlbGVzcyB0aGluZyB0byBkby4uLikNCj4gDQo+ID4gUGxlYXNlIHN0
-b3AgYWRkaW5nIHRoaXMgZGlzY2xhaW1lciB0byB5b3VyIG1lc3NhZ2VzLCBpdCBpcyBub3QgPiBh
-cHByb3ByaWF0ZSBmb3IgdGhlIGxpc3QuDQo+IEFjdHVhbGx5LCB0aGUgY29weSB0aGF0IGdvZXMg
-dGhlIGxpc3QgZG9lc24ndCBoYXZlIHRoZSBkaXNjbGFpbWVyLiAgQnV0DQo+IHRoYW5rcyB0byBh
-IGNvbWJpbmF0aW9uIG9mIGNyYXBweSBlbWFpbCBzZXJ2ZXIgYW5kIGNvcnBvcmF0ZSBwb2xpdGlj
-cywNCj4gaXQgc3RpbGwgc3RpY2tzIGl0IG9uIGFueSBDQ3MuICBJZiBpdCB3ZXJlIHVwIHRvIG1l
-IChpdCdzIG5vdCkgd2UNCj4gd291bGRuJ3QgYWRkIHRoYXQgZGlzY2xhaW1lciB0byBhbnl0aGlu
-ZyBldmVyLg0KPiBJJ20gbm93IGF0dGVtcHRpbmcgKGZvciB0aGUgbnRoIHRpbWUpIHRvIGNvbnZp
-bmNlIG91ciBtZ210IHRvIGdldCByaWQNCj4gb2YgdGhlIGRpc2NsYWltZXIsIGJ1dCBJIGRvbid0
-IGhvbGQgb3V0IG11Y2ggaG9wZSA6KA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMg
-bGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBv
-ZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9t
-byBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg==
+On Wed, Dec 09, 2015 at 01:58:57PM +0100, Thomas Graf wrote:
+> 
+> So if the goal is to make the intent available to the hardware in
+> a format which both the kernel and the hardware can draw the same
+> conclusions from, wouldn't something like P4 + BPF derived from P4
+> be a possibly better fit? There is discussion on stateful P4
+> processing now.
+
+p4 is a high level language and absolutely not suitable for such purpose.
+bpf as intermediate representation can be generated from p4 or C or other
+language. There is room to innovate in the language definition on top
+and in HW design at the bottom. That's the most flexible model.
