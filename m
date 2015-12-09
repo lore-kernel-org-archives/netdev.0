@@ -1,42 +1,64 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Wed, 9 Dec 2015 23:25:44 +0100
-Message-ID: <20151209222544.GF11201@pox.localdomain>
-References: <20151209125857.GA9900@pox.localdomain>
- <20151209173842.GA18097@ast-mbp.thefacebook.com>
- <20151209220339.GD11201@pox.localdomain>
- <20151209.172128.2004885848439372720.davem@davemloft.net>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
+ CONFIG_INET
+Date: Wed, 9 Dec 2015 14:28:36 -0800
+Message-ID: <20151209142836.e81260567879110f319c01a4@linux-foundation.org>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+	<2564892.qO1q7YJ6Nb@wuerfel>
+	<7343206.sFybcLLUN2@wuerfel>
+	<20151209185858.GA2342@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com, tom@herbertland.com,
-	hannes@stressinduktion.org, linville@tuxdriver.com,
-	jesse@kernel.org, anjali.singhai@intel.com, netdev@vger.kernel.org,
-	kiran.patil@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:33774 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752788AbbLIWZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:25:46 -0500
-Received: by mail-wm0-f41.google.com with SMTP id c201so6589999wme.0
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:25:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20151209.172128.2004885848439372720.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151209185858.GA2342-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/09/15 at 05:21pm, David Miller wrote:
-> It is clearly the most appropriate middle layer representation.
+On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org> wrote:
+
+> > diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> > index 6faea81e66d7..73cd572167bb 100644
+> > --- a/mm/memcontrol.c
+> > +++ b/mm/memcontrol.c
+> > @@ -4220,13 +4220,13 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
+> >  	if (ret)
+> >  		return ret;
+> >  
+> > +#ifdef CONFIG_INET
+> >  #ifdef CONFIG_MEMCG_LEGACY_KMEM
+> >  	ret = tcp_init_cgroup(memcg);
+> >  	if (ret)
+> >  		return ret;
+> >  #endif
 > 
-> The fact that BPF could be generated from any P4 program, yet the
-> reverse is not true, tells me everything I need to know.
-> 
-> I'm sorry if you have either a mental or a time invenstment in P4, but
-> I really don't see it as really suitable for this.
+> The calls to tcp_init_cgroup() appear earlier in the series than "mm:
+> memcontrol: hook up vmpressure to socket pressure". However, they get
+> moved around a few times so fixing it earlier means respinning the
+> series. Andrew, it's up to you whether we take the bisectability hit
+> for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
+> want me to resend the series.
 
-I don't. I like the approach and the effect it has on a currently
-very vendor secrets oriented environment.
+hm, drat, I was suspecting dependency issues here, but a test build
+said it was OK.
 
-I won't drag this further. I'm perfectly fine if BPF is suitable for
-a wide range of hardware models.
+Actually, I was expecting this patch series to depend on the linux-next
+cgroup2 changes, but that doesn't appear to be the case.  *should* this
+series be staged after the cgroup2 code?
+
+Regarding this particular series: yes, I think we can live with a
+bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
+sure why we're discussing bisection issues, because Arnd's build
+failure occurs with everything applied?
+
+> Sorry about the trouble. I don't have a git tree on kernel.org because
+> we don't really use git in -mm, but the downside is that we don't get
+> the benefits of the automatic build testing for all kinds of configs.
+> I'll try to set up a git tree to expose series to full build coverage
+> before they hit -mm and -next.
+
+This sort of thing happens quite rarely.
