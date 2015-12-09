@@ -1,305 +1,227 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next v3 2/4] net: mvneta: Associate RX queues with each CPU
-Date: Wed,  9 Dec 2015 18:23:49 +0100
-Message-ID: <1449681831-2798-3-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH net-next v3 3/4] net: mvneta: Add naive RSS support
+Date: Wed,  9 Dec 2015 18:23:50 +0100
+Message-ID: <1449681831-2798-4-git-send-email-gregory.clement@free-electrons.com>
 References: <1449681831-2798-1-git-send-email-gregory.clement@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Russell King - ARM Linux <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
+ Boris BREZILLON <boris.brezillon@free-electrons.com>,
+ Simon Guinot <simon.guinot@sequanux.org>, Nadav Haklai <nadavh@marvell.com>,
+ Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ Maxime Ripard <maxime.ripard@free-electrons.com>,
+ Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1449681831-2798-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-We enable the percpu interrupt for all the CPU and we just associate a
-CPU to a few queue at the neta level. The mapping between the CPUs and
-the queues is static. The queues are associated to the CPU module the
-number of CPUs. However currently we only use on RX queue for a given
-Ethernet port.
+This patch adds the support for the RSS related ethtool
+function. Currently it only uses one entry in the indirection table which
+allows associating an mvneta interface to a given CPU.
 
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Tested-by: Marcin Wojtas <mw@semihalf.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 150 ++++++++++++++++++++++++++--------
- 1 file changed, 115 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 127 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 126 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 1c7751917d58..8974ab084839 100644
+index 8974ab084839..e0dba6869605 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -109,9 +109,16 @@
- #define MVNETA_CPU_MAP(cpu)                      (0x2540 + ((cpu) << 2))
- #define      MVNETA_CPU_RXQ_ACCESS_ALL_MASK      0x000000ff
- #define      MVNETA_CPU_TXQ_ACCESS_ALL_MASK      0x0000ff00
-+#define      MVNETA_CPU_RXQ_ACCESS(rxq)		 BIT(rxq)
- #define MVNETA_RXQ_TIME_COAL_REG(q)              (0x2580 + ((q) << 2))
+@@ -259,6 +259,11 @@
  
--/* Exception Interrupt Port/Queue Cause register */
-+/* Exception Interrupt Port/Queue Cause register
-+ *
-+ * Their behavior depend of the mapping done using the PCPX2Q
-+ * registers. For a given CPU if the bit associated to a queue is not
-+ * set, then for the register a read from this CPU will always return
-+ * 0 and a write won't do anything
+ #define MVNETA_TX_MTU_MAX		0x3ffff
+ 
++/* The RSS lookup table actually has 256 entries but we do not use
++ * them yet
 + */
- 
- #define MVNETA_INTR_NEW_CAUSE                    0x25a0
- #define MVNETA_INTR_NEW_MASK                     0x25a4
-@@ -818,7 +825,13 @@ static void mvneta_port_up(struct mvneta_port *pp)
- 	mvreg_write(pp, MVNETA_TXQ_CMD, q_map);
- 
- 	/* Enable all initialized RXQs. */
--	mvreg_write(pp, MVNETA_RXQ_CMD, BIT(pp->rxq_def));
-+	for (queue = 0; queue < rxq_number; queue++) {
-+		struct mvneta_rx_queue *rxq = &pp->rxqs[queue];
++#define MVNETA_RSS_LU_TABLE_SIZE	1
 +
-+		if (rxq->descs != NULL)
-+			q_map |= (1 << queue);
-+	}
-+	mvreg_write(pp, MVNETA_RXQ_CMD, q_map);
+ /* TSO header size */
+ #define TSO_HEADER_SIZE 128
+ 
+@@ -380,6 +385,8 @@ struct mvneta_port {
+ 	int use_inband_status:1;
+ 
+ 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
++
++	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
+ };
+ 
+ /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
+@@ -1027,7 +1034,7 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 			if ((rxq % max_cpu) == cpu)
+ 				rxq_map |= MVNETA_CPU_RXQ_ACCESS(rxq);
+ 
+-		if (cpu == rxq_def)
++		if (cpu == pp->rxq_def)
+ 			txq_map = MVNETA_CPU_TXQ_ACCESS_ALL_MASK;
+ 
+ 		mvreg_write(pp, MVNETA_CPU_MAP(cpu), rxq_map | txq_map);
+@@ -2483,6 +2490,18 @@ static void mvneta_percpu_unmask_interrupt(void *arg)
+ 		    MVNETA_MISCINTR_INTR_MASK);
  }
  
- /* Stop the Ethernet port activity */
-@@ -986,6 +999,7 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 	int cpu;
- 	int queue;
- 	u32 val;
-+	int max_cpu = num_present_cpus();
- 
- 	/* Clear all Cause registers */
- 	mvreg_write(pp, MVNETA_INTR_NEW_CAUSE, 0);
-@@ -1001,13 +1015,23 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 	/* Enable MBUS Retry bit16 */
- 	mvreg_write(pp, MVNETA_MBUS_RETRY, 0x20);
- 
--	/* Set CPU queue access map - all CPUs have access to all RX
--	 * queues and to all TX queues
-+	/* Set CPU queue access map. CPUs are assigned to the RX
-+	 * queues modulo their number and all the TX queues are
-+	 * assigned to the CPU associated to the default RX queue.
- 	 */
--	for_each_present_cpu(cpu)
--		mvreg_write(pp, MVNETA_CPU_MAP(cpu),
--			    (MVNETA_CPU_RXQ_ACCESS_ALL_MASK |
--			     MVNETA_CPU_TXQ_ACCESS_ALL_MASK));
-+	for_each_present_cpu(cpu) {
-+		int rxq_map = 0, txq_map = 0;
-+		int rxq;
-+
-+		for (rxq = 0; rxq < rxq_number; rxq++)
-+			if ((rxq % max_cpu) == cpu)
-+				rxq_map |= MVNETA_CPU_RXQ_ACCESS(rxq);
-+
-+		if (cpu == rxq_def)
-+			txq_map = MVNETA_CPU_TXQ_ACCESS_ALL_MASK;
-+
-+		mvreg_write(pp, MVNETA_CPU_MAP(cpu), rxq_map | txq_map);
-+	}
- 
- 	/* Reset RX and TX DMAs */
- 	mvreg_write(pp, MVNETA_PORT_RX_RESET, MVNETA_PORT_RX_DMA_RESET);
-@@ -2149,6 +2173,7 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
- {
- 	int rx_done = 0;
- 	u32 cause_rx_tx;
-+	int rx_queue;
- 	struct mvneta_port *pp = netdev_priv(napi->dev);
- 	struct mvneta_pcpu_port *port = this_cpu_ptr(pp->ports);
- 
-@@ -2180,8 +2205,15 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
- 	/* For the case where the last mvneta_poll did not process all
- 	 * RX packets
- 	 */
-+	rx_queue = fls(((cause_rx_tx >> 8) & 0xff));
-+
- 	cause_rx_tx |= port->cause_rx_tx;
--	rx_done = mvneta_rx(pp, budget, &pp->rxqs[pp->rxq_def]);
-+
-+	if (rx_queue) {
-+		rx_queue = rx_queue - 1;
-+		rx_done = mvneta_rx(pp, budget, &pp->rxqs[rx_queue]);
-+	}
-+
- 	budget -= rx_done;
- 
- 	if (budget > 0) {
-@@ -2394,19 +2426,27 @@ static void mvneta_cleanup_txqs(struct mvneta_port *pp)
- /* Cleanup all Rx queues */
- static void mvneta_cleanup_rxqs(struct mvneta_port *pp)
- {
--	mvneta_rxq_deinit(pp, &pp->rxqs[pp->rxq_def]);
-+	int queue;
-+
-+	for (queue = 0; queue < txq_number; queue++)
-+		mvneta_rxq_deinit(pp, &pp->rxqs[queue]);
- }
- 
- 
- /* Init all Rx queues */
- static int mvneta_setup_rxqs(struct mvneta_port *pp)
- {
--	int err = mvneta_rxq_init(pp, &pp->rxqs[pp->rxq_def]);
--	if (err) {
--		netdev_err(pp->dev, "%s: can't create rxq=%d\n",
--			   __func__, pp->rxq_def);
--		mvneta_cleanup_rxqs(pp);
--		return err;
-+	int queue;
-+
-+	for (queue = 0; queue < rxq_number; queue++) {
-+		int err = mvneta_rxq_init(pp, &pp->rxqs[queue]);
-+
-+		if (err) {
-+			netdev_err(pp->dev, "%s: can't create rxq=%d\n",
-+				   __func__, queue);
-+			mvneta_cleanup_rxqs(pp);
-+			return err;
-+		}
- 	}
- 
- 	return 0;
-@@ -2430,6 +2470,19 @@ static int mvneta_setup_txqs(struct mvneta_port *pp)
- 	return 0;
- }
- 
-+static void mvneta_percpu_unmask_interrupt(void *arg)
++static void mvneta_percpu_mask_interrupt(void *arg)
 +{
 +	struct mvneta_port *pp = arg;
 +
-+	/* All the queue are unmasked, but actually only the ones
-+	 * maped to this CPU will be unmasked
++	/* All the queue are masked, but actually only the ones
++	 * maped to this CPU will be masked
 +	 */
-+	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
-+		    MVNETA_RX_INTR_MASK_ALL |
-+		    MVNETA_TX_INTR_MASK_ALL |
-+		    MVNETA_MISCINTR_INTR_MASK);
++	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
++	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
++	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
 +}
 +
  static void mvneta_start_dev(struct mvneta_port *pp)
  {
  	unsigned int cpu;
-@@ -2447,11 +2500,10 @@ static void mvneta_start_dev(struct mvneta_port *pp)
- 		napi_enable(&port->napi);
- 	}
+@@ -3173,6 +3192,106 @@ static int mvneta_ethtool_get_sset_count(struct net_device *dev, int sset)
+ 	return -EOPNOTSUPP;
+ }
  
--	/* Unmask interrupts */
--	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
--		    MVNETA_RX_INTR_MASK(rxq_number) |
--		    MVNETA_TX_INTR_MASK(txq_number) |
--		    MVNETA_MISCINTR_INTR_MASK);
-+	/* Unmask interrupts. It has to be done from each CPU */
++static u32 mvneta_ethtool_get_rxfh_indir_size(struct net_device *dev)
++{
++	return MVNETA_RSS_LU_TABLE_SIZE;
++}
++
++static int mvneta_ethtool_get_rxnfc(struct net_device *dev,
++				    struct ethtool_rxnfc *info,
++				    u32 *rules __always_unused)
++{
++	switch (info->cmd) {
++	case ETHTOOL_GRXRINGS:
++		info->data =  rxq_number;
++		return 0;
++	case ETHTOOL_GRXFH:
++		return -EOPNOTSUPP;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static int  mvneta_config_rss(struct mvneta_port *pp)
++{
++	int cpu;
++	u32 val;
++
++	netif_tx_stop_all_queues(pp->dev);
++
 +	for_each_online_cpu(cpu)
-+		smp_call_function_single(cpu, mvneta_percpu_unmask_interrupt,
++		smp_call_function_single(cpu, mvneta_percpu_mask_interrupt,
 +					 pp, true);
- 	mvreg_write(pp, MVNETA_INTR_MISC_MASK,
- 		    MVNETA_CAUSE_PHY_STATUS_CHANGE |
- 		    MVNETA_CAUSE_LINK_CHANGE |
-@@ -2727,22 +2779,35 @@ static void mvneta_percpu_disable(void *arg)
- 
- static void mvneta_percpu_elect(struct mvneta_port *pp)
- {
--	int online_cpu_idx, cpu, i = 0;
-+	int online_cpu_idx, max_cpu, cpu, i = 0;
- 
- 	online_cpu_idx = pp->rxq_def % num_online_cpus();
-+	max_cpu = num_present_cpus();
- 
- 	for_each_online_cpu(cpu) {
--		if (i == online_cpu_idx)
--			/* Enable per-CPU interrupt on the one CPU we
--			 * just elected
-+		int rxq_map = 0, txq_map = 0;
-+		int rxq;
 +
-+		for (rxq = 0; rxq < rxq_number; rxq++)
-+			if ((rxq % max_cpu) == cpu)
-+				rxq_map |= MVNETA_CPU_RXQ_ACCESS(rxq);
++	/* We have to synchronise on the napi of each CPU */
++	for_each_online_cpu(cpu) {
++		struct mvneta_pcpu_port *pcpu_port =
++			per_cpu_ptr(pp->ports, cpu);
 +
-+		if (i == online_cpu_idx) {
-+			/* Map the default receive queue and transmit
-+			 * queue to the elected CPU
- 			 */
--			smp_call_function_single(cpu, mvneta_percpu_enable,
--						pp, true);
--		else
--			/* Disable per-CPU interrupt on all the other CPU */
--			smp_call_function_single(cpu, mvneta_percpu_disable,
--						pp, true);
-+			rxq_map |= MVNETA_CPU_RXQ_ACCESS(pp->rxq_def);
-+			txq_map = MVNETA_CPU_TXQ_ACCESS_ALL_MASK;
-+		}
-+		mvreg_write(pp, MVNETA_CPU_MAP(cpu), rxq_map | txq_map);
++		napi_synchronize(&pcpu_port->napi);
++		napi_disable(&pcpu_port->napi);
++	}
 +
-+		/* Update the interrupt mask on each CPU according the
-+		 * new mapping
-+		 */
-+		smp_call_function_single(cpu, mvneta_percpu_unmask_interrupt,
-+					 pp, true);
- 		i++;
++	pp->rxq_def = pp->indir[0];
 +
- 	}
++	/* Update unicast mapping */
++	mvneta_set_rx_mode(pp->dev);
++
++	/* Update val of portCfg register accordingly with all RxQueue types */
++	val = MVNETA_PORT_CONFIG_DEFL_VALUE(pp->rxq_def);
++	mvreg_write(pp, MVNETA_PORT_CONFIG, val);
++
++	/* Update the elected CPU matching the new rxq_def */
++	mvneta_percpu_elect(pp);
++
++	/* We have to synchronise on the napi of each CPU */
++	for_each_online_cpu(cpu) {
++		struct mvneta_pcpu_port *pcpu_port =
++			per_cpu_ptr(pp->ports, cpu);
++
++		napi_enable(&pcpu_port->napi);
++	}
++
++	netif_tx_start_all_queues(pp->dev);
++
++	return 0;
++}
++
++static int mvneta_ethtool_set_rxfh(struct net_device *dev, const u32 *indir,
++				   const u8 *key, const u8 hfunc)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++	/* We require at least one supported parameter to be changed
++	 * and no change in any of the unsupported parameters
++	 */
++	if (key ||
++	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
++		return -EOPNOTSUPP;
++
++	if (!indir)
++		return 0;
++
++	memcpy(pp->indir, indir, MVNETA_RSS_LU_TABLE_SIZE);
++
++	return mvneta_config_rss(pp);
++}
++
++static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
++				   u8 *hfunc)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++
++	if (hfunc)
++		*hfunc = ETH_RSS_HASH_TOP;
++
++	if (!indir)
++		return 0;
++
++	memcpy(indir, pp->indir, MVNETA_RSS_LU_TABLE_SIZE);
++
++	return 0;
++}
++
+ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_open            = mvneta_open,
+ 	.ndo_stop            = mvneta_stop,
+@@ -3197,6 +3316,10 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
+ 	.get_strings	= mvneta_ethtool_get_strings,
+ 	.get_ethtool_stats = mvneta_ethtool_get_stats,
+ 	.get_sset_count	= mvneta_ethtool_get_sset_count,
++	.get_rxfh_indir_size = mvneta_ethtool_get_rxfh_indir_size,
++	.get_rxnfc	= mvneta_ethtool_get_rxnfc,
++	.get_rxfh	= mvneta_ethtool_get_rxfh,
++	.set_rxfh	= mvneta_ethtool_set_rxfh,
  };
  
-@@ -2777,12 +2842,22 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 		mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
- 		napi_enable(&port->napi);
+ /* Initialize hw */
+@@ -3389,6 +3512,8 @@ static int mvneta_probe(struct platform_device *pdev)
  
+ 	pp->rxq_def = rxq_def;
+ 
++	pp->indir[0] = rxq_def;
 +
-+		/* Enable per-CPU interrupts on the CPU that is
-+		 * brought up.
-+		 */
-+		smp_call_function_single(cpu, mvneta_percpu_enable,
-+					 pp, true);
-+
- 		/* Enable per-CPU interrupt on the one CPU we care
- 		 * about.
- 		 */
- 		mvneta_percpu_elect(pp);
- 
--		/* Unmask all ethernet port interrupts */
-+		/* Unmask all ethernet port interrupts, as this
-+		 * notifier is called for each CPU then the CPU to
-+		 * Queue mapping is applied
-+		 */
- 		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
- 			MVNETA_RX_INTR_MASK(rxq_number) |
- 			MVNETA_TX_INTR_MASK(txq_number) |
-@@ -2833,7 +2908,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- static int mvneta_open(struct net_device *dev)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
--	int ret;
-+	int ret, cpu;
- 
- 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
- 	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
-@@ -2863,8 +2938,13 @@ static int mvneta_open(struct net_device *dev)
- 	 */
- 	mvneta_percpu_disable(pp);
- 
--	/* Elect a CPU to handle our RX queue interrupt */
--	mvneta_percpu_elect(pp);
-+	/* Enable per-CPU interrupt on all the CPU to handle our RX
-+	 * queue interrupts
-+	 */
-+	for_each_online_cpu(cpu)
-+		smp_call_function_single(cpu, mvneta_percpu_enable,
-+					 pp, true);
-+
- 
- 	/* Register a CPU notifier to handle the case where our CPU
- 	 * might be taken offline.
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
+ 		err = PTR_ERR(pp->clk);
 -- 
 2.5.0
