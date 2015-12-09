@@ -1,83 +1,70 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: local route left hanging around in wrong table
-Date: Wed, 9 Dec 2015 16:32:07 -0700
-Message-ID: <5668B9F7.4010400@cumulusnetworks.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net 1/2] openvswitch: Fix helper reference leak
+Date: Wed, 9 Dec 2015 15:33:33 -0800
+Message-ID: <CALnjE+puO2xGfGF4TD2zLwxcHfcnbChXttrizbeJpiLmTvYf5g@mail.gmail.com>
+References: <1449698860-20685-1-git-send-email-joe@ovn.org>
+	<CALnjE+q7tXTD9=cywSg8qJY19DPbAb8Tpz8EaBuJRcW8ANZ9ZQ@mail.gmail.com>
+	<CAPWQB7H5MR-ogQGk0hB=nj3YjxiuPLdoq68xO-KB63U0To-NHQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, ja@ssi.bg
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Joe Stringer <joe@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:34856 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbbLIXcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:32:10 -0500
-Received: by obc18 with SMTP id 18so46360189obc.2
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:32:09 -0800 (PST)
+Received: from mail-io0-f181.google.com ([209.85.223.181]:34631 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbbLIXde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:33:34 -0500
+Received: by ioir85 with SMTP id r85so77401743ioi.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:33:33 -0800 (PST)
+In-Reply-To: <CAPWQB7H5MR-ogQGk0hB=nj3YjxiuPLdoq68xO-KB63U0To-NHQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Dec 9, 2015 at 3:10 PM, Joe Stringer <joe@ovn.org> wrote:
+> On 9 December 2015 at 14:50, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Wed, Dec 9, 2015 at 2:07 PM, Joe Stringer <joe@ovn.org> wrote:
+>>> If the actions (re)allocation fails, or the actions list is larger than the
+>>> maximum size, and the conntrack action is the last action when these
+>>> problems are hit, then references to helper modules may be leaked. Fix
+>>> the issue.
+>>>
+>>> Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
+>>> Signed-off-by: Joe Stringer <joe@ovn.org>
+>>> ---
+>>>  net/openvswitch/conntrack.c | 9 ++++++++-
+>>>  1 file changed, 8 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>>> index c2cc11168fd5..585a5aa81f89 100644
+>>> --- a/net/openvswitch/conntrack.c
+>>> +++ b/net/openvswitch/conntrack.c
+>>> @@ -53,6 +53,8 @@ struct ovs_conntrack_info {
+>>>         struct md_labels labels;
+>>>  };
+>>>
+>>> +static void __ovs_ct_free_action(struct ovs_conntrack_info *ct_info);
+>>> +
+>>>  static u16 key_to_nfproto(const struct sw_flow_key *key)
+>>>  {
+>>>         switch (ntohs(key->eth.type)) {
+>>> @@ -708,7 +710,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
+>>>         nf_conntrack_get(&ct_info.ct->ct_general);
+>>
+>> I see another issue here. Updates to ct_info are done after it is
+>> copied to action list. ct action on the action list and ct_info are
+>> inconsistent, So it is still leaking nf-conntrack reference.
+>
+> You're referring to the below?
+>
+>          __set_bit(IPS_CONFIRMED_BIT, &ct_info.ct->status);
+>          nf_conntrack_get(&ct_info.ct->ct_general);
+>
+> ct_info.ct points to the same location as the version that has been
+> copied into the action list. I agree it's a bit misleading though. If
+> you're not seeing something else, it seems cosmetic so I can (should?)
+> follow up on net-next.
 
-The VRF driver cycles netdevs (down then up) when an interface is 
-enslaved or released -- the down event is used to flush neighbor and 
-route tables and the up event effectively moves local and connected 
-routes to the proper table.
+Right, there is no leak, cosmetic changes can be done later. I do not
+have problem with this patch as it is.
 
-As of 4f823defdd5b ("ipv4: fix to not remove local route on link down") 
-the local route is left hanging around after a link down and when a 
-netdev is moved from one VRF to another (or released altogether) the 
-local route is in the wrong table:
-
-root@kenny:~# ip link set dev eth1 master vrf-red
-
-At this point all routes associated with eth1 should be in the vrf-red 
-table. Yet:
-
-root@kenny:~# ip ro ls table local | grep eth1
-local 10.100.1.2 dev eth1  proto kernel  scope host  src 10.100.1.2
-
-
-And it is in the vrf table as well:
-
-root@kenny:~# ip ro ls table vrf-red
-unreachable default
-broadcast 10.100.1.0 dev eth1  proto kernel  scope link  src 10.100.1.2
-10.100.1.0/24 dev eth1  proto kernel  scope link  src 10.100.1.2
-local 10.100.1.2 dev eth1  proto kernel  scope host  src 10.100.1.2
-broadcast 10.100.1.255 dev eth1  proto kernel  scope link  src 10.100.1.2
-
-Unenslaving the device leaves the local route in the VRF table:
-
-root@kenny:~# ip link set dev eth1 nomaster
-
-root@kenny:~# ip ro ls table vrf-red
-unreachable default
-local 10.100.1.2 dev eth1  proto kernel  scope host  src 10.100.1.2
-
-
-I realize Julian's patch was fixing a 'bug' introduced in June, so most 
-likely can't do a revert of it. I am looking at a standalone notifier 
-(e.g., NETDEV_VRF_CHANGE), but that patch seems a bit large for v4.4.
-
-At this point I don't see a simple solution to fix this for v4.4 hence 
-this email -- any thoughts? To be clear this is the change that causes 
-the problem:
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d97268e8ff10..1801519da446 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1365,7 +1365,8 @@ int fib_sync_down_dev(struct net_device *dev, 
-unsigned long event, bool force)
-         struct hlist_head *head = &fib_info_devhash[hash];
-         struct fib_nh *nh;
-
--       if (force)
-+       if (event == NETDEV_UNREGISTER ||
-+           event == NETDEV_DOWN)
-                 scope = -1;
-
-         hlist_for_each_entry(nh, head, nh_hash) {
-
-
-David
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
