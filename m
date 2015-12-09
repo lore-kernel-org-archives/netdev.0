@@ -1,42 +1,47 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHSET v4] netfilter, cgroup: implement cgroup2 path match
- in xt_cgroup
-Date: Tue, 08 Dec 2015 22:03:43 -0500 (EST)
-Message-ID: <20151208.220343.114057012128485057.davem@davemloft.net>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file
+Date: Wed, 09 Dec 2015 14:04:19 +1100
+Message-ID: <1449630259.6028.15.camel@ellerman.id.au>
+References: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
+	 <1449623421.6028.13.camel@ellerman.id.au>
+	 <20151209020443.GL22885@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org
-To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449527935-27056-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, Andrew Lunn <andrew@lunn.ch>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:33648 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752167AbbLIDEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 22:04:21 -0500
+In-Reply-To: <20151209020443.GL22885@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date: Mon,  7 Dec 2015 17:38:47 -0500
+On Tue, 2015-12-08 at 21:04 -0500, Paul Gortmaker wrote:
+> [Re: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file] On 09/12/2015 (Wed 12:10) Michael Ellerman wrote:
+> > On Tue, 2015-12-08 at 17:44 -0500, Paul Gortmaker wrote:
+> > > This file was originally cloned off of the MPC8641D-HPCN reference
+> > > platform, which actually had a PHY IRQ line connected.  However
+> > > this board does not.  The bogus entry was largely inert and went
+> > > undetected until commit 321beec5047af83db90c88114b7e664b156f49fe
+> > > ("net: phy: Use interrupts when available in NOLINK state") was
+> > > added to the tree.
+> > >
+> > > With the above commit, the board fails to NFS boot since it sits
+> > > waiting for a PHY IRQ event that of course never arrives.  Removing
+> > > the bogus entries from the DTS file fixes the issue.
+> >
+> > Commit 321beec5047a ("net: phy: Use interrupts when available in NOLINK state")
+> > went into 4.4-rc2, so this is a fix for 4.4 right?
+>
+> Correct, but I'm guessing there are not thousands of users of this board
+> out there, so it probably doesn't matter a whole lot if it goes in the
+> same release where the regression happened or one release later...
 
-> 0001-0003 are prepatory patches in kernfs and cgroup.  These patches
-> are available in the following branch which will stay stable.
-> 
->  git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git for-4.5-ancestor-test
+OK sure. As it happens I'm just prepping a fixes branch, so I'll drop it in.
 
-Pulled into net-next.
-
-> 0004-0006 consolidate two cgroup related fields in struct sock into
-> cgroup_sock_data and update it so that it can alternatively carry a
-> cgroup pointer.
-
-Applied to net-next.
-
-> 0007-0008 implement cgroup2 patch matching in xt_cgroup.
-
-I'll leave these for Pablo to integrate.
-
-Thanks.
+cheers
