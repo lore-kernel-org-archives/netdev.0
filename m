@@ -1,217 +1,178 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net-next.git) 04/18] stmmac: remove modulo in stmmac_xmit()
-Date: Wed, 9 Dec 2015 09:37:40 +0100
-Message-ID: <1449650274-14896-5-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net-next.git) 05/18] stmmac: add length field to dma data
+Date: Wed, 9 Dec 2015 09:37:41 +0100
+Message-ID: <1449650274-14896-6-git-send-email-peppe.cavallaro@st.com>
 References: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <alexandre.torgue@st.com>,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David McKay <david.mckay@st.com>
+	Fabrice Gasnier <fabrice.gasnier@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:11965 "EHLO
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:10401 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753265AbbLII2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 03:28:09 -0500
+	by vger.kernel.org with ESMTP id S1753352AbbLII2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 03:28:13 -0500
 Received: from pps.filterd (m0046037.ppops.net [127.0.0.1])
-	by m0046037.ppops.net (8.14.5/8.14.5) with SMTP id tB98Bmho031140
-	for <netdev@vger.kernel.org>; Wed, 9 Dec 2015 09:28:07 +0100
+	by m0046037.ppops.net (8.14.5/8.14.5) with SMTP id tB98BppX031185
+	for <netdev@vger.kernel.org>; Wed, 9 Dec 2015 09:28:11 +0100
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by m0046037.ppops.net with ESMTP id 1ynn3af6y8-1
+	by m0046037.ppops.net with ESMTP id 1ynn3af6yn-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:28:07 +0100
+	for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:28:11 +0100
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BF94742
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:27:30 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E0E443F
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:27:34 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 2145A4F0C
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:06 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5559D4F06
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:10 +0000 (GMT)
 In-Reply-To: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The indexes into the ring buffer are always incremented, and
-the entry is accessed via doing a modulo to find the "real" index.
+Currently, the code pulls out the length field when
+unmapping a buffer directly from the descriptor. This will result
+in an uncached read to a dma_alloc_coherent() region. There is no
+need to do this, so this patch simply puts the value directly into
+a data structure which will hit the cache.
 
-I have changed this for 3 reasons:
-
-* It is inefficient, modulo is an expensive operation.
-* It is also broken when the counter wraps.
-* It makes my head hurt trying to cope with huge numbers
-
-This patch replaces the modulo with a simple if clamp.
-
-Signed-off-by: David McKay <david.mckay@st.com>
+Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |   15 ++++++----
- drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |    7 +++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   31 +++++++++++++++-----
- 3 files changed, 37 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |    3 +++
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   11 +++++++----
+ 4 files changed, 16 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-index cf28dab..399a7ed 100644
+index 399a7ed..688795e 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-@@ -32,7 +32,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
- 	unsigned int txsize = priv->dma_tx_size;
--	unsigned int entry = priv->cur_tx % txsize;
-+	unsigned int entry = priv->cur_tx;
- 	struct dma_desc *desc = priv->dma_tx + entry;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax;
-@@ -54,7 +54,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+@@ -50,6 +50,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 	if (dma_mapping_error(priv->device, desc->des2))
+ 		return -1;
+ 	priv->tx_skbuff_dma[entry].buf = desc->des2;
++	priv->tx_skbuff_dma[entry].len = bmax;
+ 	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE);
  
  	while (len != 0) {
- 		priv->tx_skbuff[entry] = NULL;
--		entry = (++priv->cur_tx) % txsize;
-+		if (++entry >= txsize)
-+			entry = 0;
- 		desc = priv->dma_tx + entry;
- 
- 		if (len > bmax) {
-@@ -82,6 +83,9 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 			len = 0;
- 		}
- 	}
-+
-+	priv->cur_tx = entry;
-+
- 	return entry;
- }
- 
-@@ -151,10 +155,9 @@ static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
- 		 * 1588-2002 time stamping is enabled, hence reinitialize it
- 		 * to keep explicit chaining in the descriptor.
- 		 */
--		p->des3 = (unsigned int)(priv->dma_tx_phy +
--					 (((priv->dirty_tx + 1) %
--					   priv->dma_tx_size) *
--					  sizeof(struct dma_desc)));
-+		p->des3 = (unsigned int)((priv->dma_tx_phy +
-+					  priv->dirty_tx + 1) *
-+					  sizeof(struct dma_desc));
- }
- 
- const struct stmmac_mode_ops chain_mode_ops = {
+@@ -65,6 +66,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			if (dma_mapping_error(priv->device, desc->des2))
+ 				return -1;
+ 			priv->tx_skbuff_dma[entry].buf = desc->des2;
++			priv->tx_skbuff_dma[entry].len = bmax;
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
+ 							STMMAC_CHAIN_MODE);
+ 			priv->hw->desc->set_tx_owner(desc);
+@@ -77,6 +79,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			if (dma_mapping_error(priv->device, desc->des2))
+ 				return -1;
+ 			priv->tx_skbuff_dma[entry].buf = desc->des2;
++			priv->tx_skbuff_dma[entry].len = len;
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+ 							STMMAC_CHAIN_MODE);
+ 			priv->hw->desc->set_tx_owner(desc);
 diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-index 5dd50c6..2560855 100644
+index 2560855..3300029 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-@@ -32,7 +32,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
- 	unsigned int txsize = priv->dma_tx_size;
--	unsigned int entry = priv->cur_tx % txsize;
-+	unsigned int entry = priv->cur_tx;
- 	struct dma_desc *desc;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax, len;
-@@ -62,7 +62,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 						STMMAC_RING_MODE);
- 		wmb();
- 		priv->tx_skbuff[entry] = NULL;
--		entry = (++priv->cur_tx) % txsize;
-+		if (++entry >= txsize)
-+			entry = 0;
+@@ -57,6 +57,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			return -1;
  
- 		if (priv->extend_desc)
- 			desc = (struct dma_desc *)(priv->dma_etx + entry);
-@@ -90,6 +91,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 						STMMAC_RING_MODE);
- 	}
- 
-+	priv->cur_tx = entry;
+ 		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].len = bmax;
 +
- 	return entry;
- }
+ 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
+ 						STMMAC_RING_MODE);
+@@ -75,6 +77,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		if (dma_mapping_error(priv->device, desc->des2))
+ 			return -1;
+ 		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].len = len;
++
+ 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
+ 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+ 						STMMAC_RING_MODE);
+@@ -86,6 +90,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		if (dma_mapping_error(priv->device, desc->des2))
+ 			return -1;
+ 		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].len = nopaged_len;
+ 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
+ 						STMMAC_RING_MODE);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 1f3b33a..8517a04 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -45,6 +45,7 @@ struct stmmac_resources {
+ struct stmmac_tx_info {
+ 	dma_addr_t buf;
+ 	bool map_as_page;
++	unsigned len;
+ };
  
+ struct stmmac_priv {
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 2dd0279..366da1f 100644
+index 366da1f..f9baf5d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -201,7 +201,14 @@ static void print_pkt(unsigned char *buf, int len)
- 
- static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
- {
--	return priv->dirty_tx + priv->dma_tx_size - priv->cur_tx - 1;
-+	unsigned avail;
-+
-+	if (priv->dirty_tx > priv->cur_tx)
-+		avail = priv->dirty_tx - priv->cur_tx - 1;
-+	else
-+		avail = priv->dma_tx_size - priv->cur_tx + priv->dirty_tx - 1;
-+
-+	return avail;
- }
- 
- /**
-@@ -1315,16 +1322,16 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
-  */
- static void stmmac_tx_clean(struct stmmac_priv *priv)
- {
--	unsigned int txsize = priv->dma_tx_size;
- 	unsigned int bytes_compl = 0, pkts_compl = 0;
-+	unsigned int txsize = priv->dma_tx_size;
-+	unsigned int entry = priv->dirty_tx;
- 
- 	spin_lock(&priv->tx_lock);
- 
- 	priv->xstats.tx_clean++;
- 
--	while (priv->dirty_tx != priv->cur_tx) {
-+	while (entry != priv->cur_tx) {
- 		int last;
--		unsigned int entry = priv->dirty_tx % txsize;
- 		struct sk_buff *skb = priv->tx_skbuff[entry];
- 		struct dma_desc *p;
- 
-@@ -1381,7 +1388,9 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 
- 		priv->hw->desc->release_tx_desc(p, priv->mode);
- 
--		priv->dirty_tx++;
-+		if (++entry >= txsize)
-+			entry = 0;
-+		priv->dirty_tx = entry;
+@@ -1110,6 +1110,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+ 		p->des2 = 0;
+ 		priv->tx_skbuff_dma[i].buf = 0;
+ 		priv->tx_skbuff_dma[i].map_as_page = false;
++		priv->tx_skbuff_dma[i].len = 0;
+ 		priv->tx_skbuff[i] = NULL;
  	}
  
- 	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
-@@ -1981,7 +1990,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (priv->tx_path_in_lpi_mode)
- 		stmmac_disable_eee_mode(priv);
+@@ -1153,12 +1154,12 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+ 			if (priv->tx_skbuff_dma[i].map_as_page)
+ 				dma_unmap_page(priv->device,
+ 					       priv->tx_skbuff_dma[i].buf,
+-					       priv->hw->desc->get_tx_len(p),
++					       priv->tx_skbuff_dma[i].len,
+ 					       DMA_TO_DEVICE);
+ 			else
+ 				dma_unmap_single(priv->device,
+ 						 priv->tx_skbuff_dma[i].buf,
+-						 priv->hw->desc->get_tx_len(p),
++						 priv->tx_skbuff_dma[i].len,
+ 						 DMA_TO_DEVICE);
+ 		}
  
--	entry = priv->cur_tx % txsize;
-+	entry = priv->cur_tx;
-+
+@@ -1367,12 +1368,12 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ 			if (priv->tx_skbuff_dma[entry].map_as_page)
+ 				dma_unmap_page(priv->device,
+ 					       priv->tx_skbuff_dma[entry].buf,
+-					       priv->hw->desc->get_tx_len(p),
++					       priv->tx_skbuff_dma[entry].len,
+ 					       DMA_TO_DEVICE);
+ 			else
+ 				dma_unmap_single(priv->device,
+ 						 priv->tx_skbuff_dma[entry].buf,
+-						 priv->hw->desc->get_tx_len(p),
++						 priv->tx_skbuff_dma[entry].len,
+ 						 DMA_TO_DEVICE);
+ 			priv->tx_skbuff_dma[entry].buf = 0;
+ 			priv->tx_skbuff_dma[entry].map_as_page = false;
+@@ -2012,6 +2013,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (dma_mapping_error(priv->device, desc->des2))
+ 			goto dma_map_err;
+ 		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].len = nopaged_len;
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len,
+ 						csum_insertion, priv->mode);
+ 	} else {
+@@ -2041,6 +2043,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	csum_insertion = (skb->ip_summed == CHECKSUM_PARTIAL);
- 
-@@ -2016,7 +2026,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		int len = skb_frag_size(frag);
- 
- 		priv->tx_skbuff[entry] = NULL;
--		entry = (++priv->cur_tx) % txsize;
-+		if (++entry >= txsize)
-+			entry = 0;
-+
- 		if (priv->extend_desc)
- 			desc = (struct dma_desc *)(priv->dma_etx + entry);
- 		else
-@@ -2059,7 +2071,10 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->hw->desc->set_tx_owner(first);
- 	wmb();
- 
--	priv->cur_tx++;
-+	if (++entry >= txsize)
-+		entry = 0;
-+
-+	priv->cur_tx = entry;
- 
- 	if (netif_msg_pktdata(priv)) {
- 		pr_debug("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d",
+ 		priv->tx_skbuff_dma[entry].buf = desc->des2;
+ 		priv->tx_skbuff_dma[entry].map_as_page = true;
++		priv->tx_skbuff_dma[entry].len = len;
+ 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
+ 						priv->mode);
+ 		wmb();
 -- 
 1.7.4.4
