@@ -1,8 +1,7 @@
 From: Phil Reid <preid@electromag.com.au>
-Subject: [PATCH v4 2/4] stmmac: Correct documentation on stmmac clocks.
-Date: Wed,  9 Dec 2015 09:41:07 +0800
-Message-ID: <1449625269-46078-3-git-send-email-preid@electromag.com.au>
-References: <1449625269-46078-1-git-send-email-preid@electromag.com.au>
+Subject: [PATCH v4 0/4] stmmac: Fixed Phy & PTP fixes
+Date: Wed,  9 Dec 2015 09:41:05 +0800
+Message-ID: <1449625269-46078-1-git-send-email-preid@electromag.com.au>
 Cc: Phil Reid <preid@electromag.com.au>
 To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
@@ -10,50 +9,49 @@ To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:46791 "EHLO
+Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:46788 "EHLO
 	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752229AbbLIBlO (ORCPT
+	by vger.kernel.org with ESMTP id S1752167AbbLIBlO (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 20:41:14 -0500
-In-Reply-To: <1449625269-46078-1-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-devm_get_clk looks in clock-name property for matching clock.
-the ptp_ref_clk property is ignored.
+Provide ability to specify a fixed phy in the device tree and
+retain the mdio bus if no phy is found. This is needed where 
+a dsa is connected via a fixed phy and uses the mdio bus for config.
+Fixed ptp ref clock calculatins for the stmmac when ptp ref clock
+is running at <= 50Mhz. Also add device tree setting to config
+ptp clk source on socfpga platforms.
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Phil Reid <preid@electromag.com.au>
----
- Documentation/devicetree/bindings/net/stmmac.txt | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+Changes from V3:
+- Use if (IS_ENABLED(CONFIG_OF)) instead of #if.
+  Reorder some code to reduce if statements.
+- of_mdiobus_register already falls back to mdiobus_register
+- Tested on system with CONFIG_OF
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index fd5ddf8..e862a92 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -35,15 +35,14 @@ Optional properties:
- - reset-names: Should contain the reset signal name "stmmaceth", if a
- 	reset phandle is given
- - max-frame-size: See ethernet.txt file in the same directory
--- clocks: If present, the first clock should be the GMAC main clock and
--  the second clock should be peripheral's register interface clock. Further
--  clocks may be specified in derived bindings.
--- clock-names: One name for each entry in the clocks property, the
--  first one should be "stmmaceth" and the second one should be "pclk".
--- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
--  available this clock is used for programming the Timestamp Addend Register.
--  If not passed then the system clock will be used and this is fine on some
--  platforms.
-+- clocks: If present, the first clock should be the GMAC main clock
-+  The optional second clock should be peripheral's register interface clock.
-+  The third optional clock should be the ptp reference clock.
-+  Further clocks may be specified in derived bindings.
-+- clock-names: One name for each entry in the clocks property.
-+  The first one should be "stmmaceth".
-+  The optional second one should be "pclk".
-+  The optional third one should be "clk_ptp_ref".
- - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
+Changes from V2:
+- Formatting, spaces & lines > 80 chars. Using checkpatch
+- Drop PTP register debugfs patch.
+
+Changes from V1:
+- Fixed mismatch doc / code for ptp_ref_clk dt node. 
+- Remove unit address from doc example.
+
+Phil Reid (5):
+  stmmac: create of compatible mdio bus for stmacc driver
+  stmmac: Correct documentation on stmmac clocks.
+  stmmac: Fix calculations for ptp counters when clock input = 50Mhz.
+  stmmac: socfpga: Provide dt node to config ptp clk source.
+
+ .../devicetree/bindings/net/socfpga-dwmac.txt      |  2 ++
+ Documentation/devicetree/bindings/net/stmmac.txt   | 25 +++++++++-----
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  9 +++++
+ .../net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c  |  9 +++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 19 +++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 39 ++++++++++++++--------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
+ 8 files changed, 68 insertions(+), 39 deletions(-)
+
 -- 
 1.8.3.1
