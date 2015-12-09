@@ -1,64 +1,42 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 1/3] ser_gigaset: fix up NULL checks
-Date: Wed, 9 Dec 2015 12:12:35 +0000
-Message-ID: <20151209121235.227acac9@lxorguk.ukuu.org.uk>
-References: <cover.1449570042.git.tilman@imap.cc>
-	<ed83fae92c8c56e659f59c9a3709c86bd3a7d0c4.1449570042.git.tilman@imap.cc>
-	<1449603913.2384.16.camel@tiscali.nl>
-	<20151208221657.71fd0d71@lxorguk.ukuu.org.uk>
-	<56680665.4000301@imap.cc>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 12:14:16 +0000
+Message-ID: <56681B18.3030200@solarflare.com>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <20151208.120654.2127200076257822677.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org,
-	Peter Hurley <peter@hurleysoftware.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	syzkaller@googlegroups.com, David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	gigaset307x-common@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
+Cc: <netdev@vger.kernel.org>, <tom@herbertland.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:42039 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754147AbbLIMNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 07:13:09 -0500
-In-Reply-To: <56680665.4000301@imap.cc>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:57170 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751782AbbLIMOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 07:14:24 -0500
+In-Reply-To: <20151208.120654.2127200076257822677.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Dec 2015 11:45:57 +0100
-Tilman Schmidt <tilman@imap.cc> wrote:
+On 08/12/15 17:06, David Miller wrote:
+> All of the headers get touched anyways as each layer of the stack > demuxes the packet. Therefore there is _ZERO_ cost to use 1's > complement to validate checksums in input. It's always superior.
 
-> Am 08.12.2015 um 23:16 schrieb One Thousand Gnomes:
-> > The right fix as far as I can see is to remove the tests although
-> > WARN_ON() combined with your tty->ops change might be safer.
-> 
-> Feel free to submit a patch.
+Ah, I understand now, it's touching the memory that's expensive, not adding
+up the numbers. Thanks for being patient with me :)
 
-Will do later today. Want a patch on top of Paul's change or a single
-patch including both and crediting him ?
+So that just leaves the question of offloading multiple _TX_ checksums.
+Remote checksum offload would deal with this but the receiver might not
+support it, meaning that after decapsulation the packet will have a zero
+checksum (and still has chances to get corrupted); thus it's not necessarily
+safe to do unless you control both endpoints and know you have RCO
+everywhere.
+Convincing hardware designers to go the HW_CSUM way and only fill in the
+inner checksum, when their current approach can fill in both inner and outer
+checksums (though admittedly only for the protocols the hardware knows
+about), might be difficult.
 
-> > tty locking reviews, but drivers/isdn and net/irda weren't traditionally
-> > part of the general tty maintenance but handled separately/
-> 
-> Or just ignored.
-
-Unfortunately at the time that seemed to happen a lot.
-
-> >> test puzzle me. It's not obvious why they're needed. Ie, can the null
-> >> dereferences they try to catch really happen? But I can try to figure
-> >> out that in the future, if I ever feel the urge to do so. Anyhow:
-> >>
-> >> Acked-by: Paul Bolle <pebolle@tiscali.nl>
-> > 
-> > Nacked-by: Alan Cox <alan@linux.intel.com>
-> 
-> So you feel it's better to maintain the current inconsistent state
-> created by commit f34d7a5b? Please elaborate.
-
-No I'd rather we didn't make it look magically better then forget about
-the mess in question.
-
-Alan
+Remember that NICs are going to have packet parsing for those protocols
+anyway, because they need it for things like Windows-spec RSS, so in the
+hardware designer's mind, ossified offloads are "free".
