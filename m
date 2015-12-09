@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] sh_eth: optimize MDIO code
-Date: Tue, 08 Dec 2015 21:56:08 -0500 (EST)
-Message-ID: <20151208.215608.42383332595350416.davem@davemloft.net>
-References: <1582774.FcjyuztLtc@wasted.cogentembedded.com>
+Subject: Re: [PATCH v2] Revert "Merge branch 'vsock-virtio'"
+Date: Tue, 08 Dec 2015 21:58:03 -0500 (EST)
+Message-ID: <20151208.215803.235838081070973876.davem@davemloft.net>
+References: <1449629472-26286-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48893 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbbLIC4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:56:10 -0500
-In-Reply-To: <1582774.FcjyuztLtc@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, arnd@arndb.de, kvm@vger.kernel.org,
+	christoffer.dall@linaro.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, mbenjamin@redhat.com,
+	matt.ma@linaro.org
+To: stefanha@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1449629472-26286-1-git-send-email-stefanha@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 08 Dec 2015 00:39:03 +0300
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Wed,  9 Dec 2015 10:51:12 +0800
 
->    Here's a set of 3 patches against DaveM's 'net-next.git' repo
-> which gets rid of ~35 LoCs in the MDIO bitbang methods.
+> This reverts commit 0d76d6e8b2507983a2cae4c09880798079007421 and merge
+> commit c402293bd76fbc93e52ef8c0947ab81eea3ae019, reversing changes made
+> to c89359a42e2a49656451569c382eed63e781153c.
+> 
+> The virtio-vsock device specification is not finalized yet.  Michael
+> Tsirkin voiced concerned about merging this code when the hardware
+> interface (and possibly the userspace interface) could still change.
+> 
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> ---
+> v2:
+>  * Revert merge commit and coccinelle fixup in a single patch
 
-Series applied, thanks!
+Applied, th anks.
