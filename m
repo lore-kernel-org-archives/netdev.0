@@ -1,44 +1,48 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH bluetooth-next 01/10] 6lowpan: clarify Kconfig entries for upcoming GHC support
-Date: Wed,  9 Dec 2015 22:46:22 +0100
-Message-ID: <1449697591-15991-2-git-send-email-alex.aring@gmail.com>
-References: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>,
-	Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
+Date: Wed, 9 Dec 2015 13:53:04 -0800
+Message-ID: <CAJ+vNU1YbAbb5X68YBsonEQvck2Fg-YRq_4utGcSzn03rV27sQ@mail.gmail.com>
+References: <m3egeyct8o.fsf@t19.piap.pl>
+	<20151208.122447.863577308058835164.davem@davemloft.net>
+	<m3vb88b270.fsf@t19.piap.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34359 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751410AbbLIVxF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:53:05 -0500
+Received: by ioir85 with SMTP id r85so75029414ioi.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 13:53:04 -0800 (PST)
+In-Reply-To: <m3vb88b270.fsf@t19.piap.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+On Tue, Dec 8, 2015 at 9:50 PM, Krzysztof Ha=C5=82asa <khalasa@piap.pl>=
+ wrote:
+> David Miller <davem@davemloft.net> writes:
+>
+>> Since this only touched DT files in the ARM platform code, maybe
+>> the ARM tree is the best path for this patch rather than mine?
+>
+> I think so.
+>
+> Tim, would you like to handle this patch yourself, or should I send i=
+t
+> to the ARM contacts?
 
-Acked-by: Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Signed-off-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/6lowpan/Kconfig | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Krzysztof,
 
-diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
-index 7fa0f38..6af7a46 100644
---- a/net/6lowpan/Kconfig
-+++ b/net/6lowpan/Kconfig
-@@ -6,11 +6,12 @@ menuconfig 6LOWPAN
- 	  "6LoWPAN" which is supported by IEEE 802.15.4 or Bluetooth stacks.
- 
- menuconfig 6LOWPAN_NHC
--	tristate "Next Header Compression Support"
-+	tristate "Next Header and Generic Header Compression Support"
- 	depends on 6LOWPAN
- 	default y
- 	---help---
--	  Support for next header compression.
-+	  Support for next header and generic header compression defined in
-+	  RFC6282 and RFC7400.
- 
- if 6LOWPAN_NHC
- 
--- 
-2.6.1
+Go ahead and send it. You can add my:
+
+Acked-by: Tim Harvey <tharvey@gateworks.com>
+
+I know Shawn would be happy to pick this up as well as he has an
+imx-fixes tree:
+http://git.kernel.org/cgit/linux/kernel/git/shawnguo/linux.git/log/?h=3D=
+imx/soc
+
+Tim
