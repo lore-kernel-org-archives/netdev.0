@@ -1,73 +1,71 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
- CONFIG_INET
-Date: Wed, 9 Dec 2015 13:58:58 -0500
-Message-ID: <20151209185858.GA2342@cmpxchg.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
- <2564892.qO1q7YJ6Nb@wuerfel>
- <7343206.sFybcLLUN2@wuerfel>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: forwarding of ipv4 link local addresses
+Date: Wed, 9 Dec 2015 12:04:17 -0700
+Message-ID: <56687B31.4090006@cumulusnetworks.com>
+References: <565E12BE.90006@cumulusnetworks.com>
+ <20151203.143531.282555789343463670.davem@davemloft.net>
+ <20151209134416.GB11201@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <7343206.sFybcLLUN2@wuerfel>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:36655 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753387AbbLITEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 14:04:20 -0500
+Received: by oiww189 with SMTP id w189so31962551oiw.3
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 11:04:19 -0800 (PST)
+In-Reply-To: <20151209134416.GB11201@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 09, 2015 at 05:32:16PM +0100, Arnd Bergmann wrote:
-> When IPV4 support is disabled, the memcg->socket_pressure field is
-> not defined and we get a build error from the vmpressure code:
-> 
-> mm/vmpressure.c: In function 'vmpressure':
-> mm/vmpressure.c:287:9: error: 'struct mem_cgroup' has no member named 'socket_pressure'
->     memcg->socket_pressure = jiffies + HZ;
-> mm/built-in.o: In function `mem_cgroup_css_free':
-> :(.text+0x1c03a): undefined reference to `tcp_destroy_cgroup'
-> mm/built-in.o: In function `mem_cgroup_css_online':
-> :(.text+0x1c20e): undefined reference to `tcp_init_cgroup'
-> 
-> This puts the code causing this in the same #ifdef that guards the
-> struct member and the TCP implementation.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 20cc40e66c42 ("mm: memcontrol: hook up vmpressure to socket pressure")
+On 12/9/15 6:44 AM, Thomas Graf wrote:
+> On 12/03/15 at 02:35pm, David Miller wrote:
+>> From: David Ahern <dsa@cumulusnetworks.com>
+>> Date: Tue, 1 Dec 2015 13:35:58 -0800
+>>
+>>> RFC 3927 states that packets from/to IPv4 link-local addresses
+>>> (169.254/16) should not be forwarded, yet the Linux networking stack
+>>> happily forwards them. Before sending in a patch I wanted to inquire
+>>> if this behavior is intentional.
+>>
+>> It probably won't break anything if we prohibit this, so sure send
+>> a patch.
+>
+> I don't have the full email context so apologies if this is not
+> relevant. The RFC states that such addresses should not be forwarded
+> _beyond the local link_. So as long as you are not breaking forwarding
+> of these addresses on the local host, I'm perfectly fine.
 
-Acked-by: Johannes Weiner <hannes@cmpxchg.org>
+Hi Thomas:
 
-> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> index 6faea81e66d7..73cd572167bb 100644
-> --- a/mm/memcontrol.c
-> +++ b/mm/memcontrol.c
-> @@ -4220,13 +4220,13 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
->  	if (ret)
->  		return ret;
->  
-> +#ifdef CONFIG_INET
->  #ifdef CONFIG_MEMCG_LEGACY_KMEM
->  	ret = tcp_init_cgroup(memcg);
->  	if (ret)
->  		return ret;
->  #endif
+The above is the full email context.
 
-The calls to tcp_init_cgroup() appear earlier in the series than "mm:
-memcontrol: hook up vmpressure to socket pressure". However, they get
-moved around a few times so fixing it earlier means respinning the
-series. Andrew, it's up to you whether we take the bisectability hit
-for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
-want me to resend the series.
+The behavior that one of our testers tripped over is packets sent to 
+169.254 addresses received on link A are forwarded out link B. That's 
+the behavior that was surprising and seems to violate the RFC.
 
-Sorry about the trouble. I don't have a git tree on kernel.org because
-we don't really use git in -mm, but the downside is that we don't get
-the benefits of the automatic build testing for all kinds of configs.
-I'll try to set up a git tree to expose series to full build coverage
-before they hit -mm and -next.
+>
+> I bring this up specifically because of:
+>
+> commit d0daebc3d622f95db181601cb0c4a0781f74f758
+> Author: Thomas Graf <tgraf@suug.ch>
+> Date:   Tue Jun 12 00:44:01 2012 +0000
+>
+>      ipv4: Add interface option to enable routing of 127.0.0.0/8
+>
+>      Routing of 127/8 is tradtionally forbidden, we consider
+>      packets from that address block martian when routing and do
+>      not process corresponding ARP requests.
+>
+>      [...]
+>
+> This feature is being used by a popular PaaS which leverages the
+> 127/8 address space locally without polluting an entire routeable
+> address space.
+>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Daniel pointed out this commit as well. I am referring strictly to 
+169.254/16 addresses.
