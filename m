@@ -1,9 +1,9 @@
 From: Pavel Fedin <p.fedin@samsung.com>
-Subject: RE: [PATCH 1/2] net: thunderx: HW TSO support for pass-2 hardware
-Date: Wed, 09 Dec 2015 15:05:01 +0300
-Message-ID: <00b701d13279$d54d9c80$7fe8d580$@samsung.com>
+Subject: RE: [PATCH 2/2] net: thunderx: Enable CQE count threshold interrupt
+Date: Wed, 09 Dec 2015 15:07:55 +0300
+Message-ID: <00b801d1327a$3d1e4d50$b75ae7f0$@samsung.com>
 References: <y@samsung.com>
- <1449661081-15435-2-git-send-email-sunil.kovvuri@gmail.com>
+ <1449661081-15435-3-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	'Sunil Goutham' <sgoutham@cavium.com>
 To: 'Sunil Goutham' <sunil.kovvuri@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1449661081-15435-2-git-send-email-sunil.kovvuri@gmail.com>
+In-reply-to: <1449661081-15435-3-git-send-email-sunil.kovvuri@gmail.com>
 Content-language: ru
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -26,280 +26,96 @@ List-Id: netdev.vger.kernel.org
 > To: netdev@vger.kernel.org
 > Cc: linux-kernel@vger.kernel.org; linux-arm-kernel@lists.infradead.org; p.fedin@samsung.com;
 > Sunil.Goutham@caviumnetworks.com; Sunil Goutham
-> Subject: [PATCH 1/2] net: thunderx: HW TSO support for pass-2 hardware
+> Subject: [PATCH 2/2] net: thunderx: Enable CQE count threshold interrupt
 > 
 > From: Sunil Goutham <sgoutham@cavium.com>
 > 
-> This adds support for offloading TCP segmentation to HW in pass-2
-> revision of hardware. Both driver level SW TSO for pass1.x chips
-> and HW TSO for pass-2 chip will co-exist.
+> This feature is introduced in pass-2 chip and with this CQ interrupt
+> coalescing will work based on both timer and count.
 > 
 > Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 > ---
->  drivers/net/ethernet/cavium/thunder/nic.h          |   12 ++++++--
->  drivers/net/ethernet/cavium/thunder/nic_main.c     |   11 ++-----
->  drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   15 ++++++++-
->  drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   20 ++++++++++---
->  drivers/net/ethernet/cavium/thunder/q_struct.h     |   30 ++++++++++---------
->  5 files changed, 56 insertions(+), 32 deletions(-)
+>  drivers/net/ethernet/cavium/thunder/nic.h          |    2 ++
+>  drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    2 +-
+>  drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    5 ++++-
+>  drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    3 ++-
+>  4 files changed, 9 insertions(+), 3 deletions(-)
 > 
 > diff --git a/drivers/net/ethernet/cavium/thunder/nic.h
 > b/drivers/net/ethernet/cavium/thunder/nic.h
-> index 39ca674..02571f4 100644
+> index 02571f4..e782856 100644
 > --- a/drivers/net/ethernet/cavium/thunder/nic.h
 > +++ b/drivers/net/ethernet/cavium/thunder/nic.h
-> @@ -262,9 +262,10 @@ struct nicvf {
->  	struct pci_dev		*pdev;
->  	u8			vf_id;
->  	u8			node;
-> -	u8			tns_mode:1;
-> -	u8			sqs_mode:1;
-> -	u8			loopback_supported:1;
-> +	bool			tns_mode:1;
-> +	bool			sqs_mode:1;
-
- These little refactors are creeping in your code without even being mentioned in the commit message, this is not good practice
-IMHO. Additionally, may be turn these two flags into something like:
-
-enum nicvf_mode {
-	NICVF_BYPASS,
-	NICVF_TNS,
-	NICVF_SQS
-};
-
- ? Anyway, these modes are mutually exclusive.
-
-> +	bool			loopback_supported:1;
-> +	bool			hw_tso:1;
->  	u16			mtu;
->  	struct queue_set	*qs;
->  #define	MAX_SQS_PER_VF_SINGLE_NODE		5
-> @@ -489,6 +490,11 @@ static inline int nic_get_node_id(struct pci_dev *pdev)
->  	return ((addr >> NIC_NODE_ID_SHIFT) & NIC_NODE_ID_MASK);
->  }
+> @@ -34,6 +34,8 @@
+>  /* NIC priv flags */
+>  #define	NIC_SRIOV_ENABLED		BIT(0)
 > 
-> +static inline bool pass1_silicon(struct pci_dev *pdev)
-> +{
-> +	return pdev->revision < 8;
-> +}
+> +#define	VNIC_NAPI_WEIGHT		NAPI_POLL_WEIGHT
 > +
->  int nicvf_set_real_num_queues(struct net_device *netdev,
->  			      int tx_queues, int rx_queues);
->  int nicvf_open(struct net_device *netdev);
-> diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c
-> b/drivers/net/ethernet/cavium/thunder/nic_main.c
-> index 4b7fd63..9f80de4 100644
-> --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-> +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-> @@ -55,11 +55,6 @@ struct nicpf {
->  	bool			irq_allocated[NIC_PF_MSIX_VECTORS];
->  };
-> 
-> -static inline bool pass1_silicon(struct nicpf *nic)
-> -{
-> -	return nic->pdev->revision < 8;
-> -}
-> -
->  /* Supported devices */
->  static const struct pci_device_id nic_id_table[] = {
->  	{ PCI_DEVICE(PCI_VENDOR_ID_CAVIUM, PCI_DEVICE_ID_THUNDER_NIC_PF) },
-> @@ -123,7 +118,7 @@ static void nic_send_msg_to_vf(struct nicpf *nic, int vf, union nic_mbx
-> *mbx)
->  	 * when PF writes to MBOX(1), in next revisions when
->  	 * PF writes to MBOX(0)
->  	 */
-> -	if (pass1_silicon(nic)) {
-> +	if (pass1_silicon(nic->pdev)) {
->  		/* see the comment for nic_reg_write()/nic_reg_read()
->  		 * functions above
->  		 */
-> @@ -400,7 +395,7 @@ static void nic_config_cpi(struct nicpf *nic, struct cpi_cfg_msg *cfg)
->  			padd = cpi % 8; /* 3 bits CS out of 6bits DSCP */
-> 
->  		/* Leave RSS_SIZE as '0' to disable RSS */
-> -		if (pass1_silicon(nic)) {
-> +		if (pass1_silicon(nic->pdev)) {
->  			nic_reg_write(nic, NIC_PF_CPI_0_2047_CFG | (cpi << 3),
->  				      (vnic << 24) | (padd << 16) |
->  				      (rssi_base + rssi));
-> @@ -470,7 +465,7 @@ static void nic_config_rss(struct nicpf *nic, struct rss_cfg_msg *cfg)
->  	}
-> 
->  	cpi_base = nic->cpi_base[cfg->vf_id];
-> -	if (pass1_silicon(nic))
-> +	if (pass1_silicon(nic->pdev))
->  		idx_addr = NIC_PF_CPI_0_2047_CFG;
->  	else
->  		idx_addr = NIC_PF_MPI_0_2047_CFG;
+>  /* Min/Max packet size */
+>  #define	NIC_HW_MIN_FRS			64
+>  #define	NIC_HW_MAX_FRS			9200 /* 9216 max packet including FCS */
 > diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 > b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-> index dde8dc7..c24cb2a 100644
+> index c24cb2a..e06a7f8 100644
 > --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 > +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-> @@ -525,14 +525,22 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
->  		   __func__, cqe_tx->sq_qs, cqe_tx->sq_idx,
->  		   cqe_tx->sqe_ptr, hdr->subdesc_cnt);
-> 
-> -	nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
->  	nicvf_check_cqe_tx_errs(nic, cq, cqe_tx);
->  	skb = (struct sk_buff *)sq->skbuff[cqe_tx->sqe_ptr];
-> -	/* For TSO offloaded packets only one head SKB needs to be freed */
-> +	/* For TSO offloaded packets only one SQE will have a valid SKB */
->  	if (skb) {
-> +		nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
->  		prefetch(skb);
->  		dev_consume_skb_any(skb);
->  		sq->skbuff[cqe_tx->sqe_ptr] = (u64)NULL;
-> +	} else {
-> +		/* In case of HW TSO, HW sends a CQE for each segment of a TSO
-> +		 * packet instead of a single CQE for the whole TSO packet
-> +		 * transmitted. Each of this CQE points to the same SQE, so
-> +		 * avoid freeing same SQE multiple times.
-> +		 */
-> +		if (!nic->hw_tso)
-> +			nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
+> @@ -1155,7 +1155,7 @@ int nicvf_open(struct net_device *netdev)
+>  		cq_poll->cq_idx = qidx;
+>  		cq_poll->nicvf = nic;
+>  		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
+> -			       NAPI_POLL_WEIGHT);
+> +			       VNIC_NAPI_WEIGHT);
+
+ What's the sense in introducing another constant which is aliased to the previous one? Making LOC bigger?
+
+>  		napi_enable(&cq_poll->napi);
+>  		nic->napi[qidx] = cq_poll;
 >  	}
->  }
-> 
-> @@ -1549,6 +1557,9 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id
-> *ent)
-> 
->  	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
-> 
-> +	if (!pass1_silicon(nic->pdev))
-> +		nic->hw_tso = true;
-> +
->  	netdev->netdev_ops = &nicvf_netdev_ops;
->  	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
-> 
 > diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 > b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-> index 1fbd908..b11fc09 100644
+> index b11fc09..4e9709e 100644
 > --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 > +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-> @@ -925,7 +925,7 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff
-> *skb)
->  {
->  	int subdesc_cnt = MIN_SQ_DESC_PER_PKT_XMIT;
+> @@ -299,7 +299,10 @@ static int nicvf_init_cmp_queue(struct nicvf *nic,
+>  		return err;
 > 
-> -	if (skb_shinfo(skb)->gso_size) {
-> +	if (skb_shinfo(skb)->gso_size && !nic->hw_tso) {
->  		subdesc_cnt = nicvf_tso_count_subdescs(skb);
->  		return subdesc_cnt;
->  	}
-> @@ -940,7 +940,7 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff
-> *skb)
->   * First subdescriptor for every send descriptor.
+>  	cq->desc = cq->dmem.base;
+> -	cq->thresh = CMP_QUEUE_CQE_THRESH;
+> +	if (!pass1_silicon(nic->pdev))
+> +		cq->thresh = CMP_QUEUE_CQE_THRESH;
+> +	else
+> +		cq->thresh = 0;
+
+ IMHO "cq->thresh = pass1_silicon(nic->pdev) ? CMP_QUEUE_CQE_THRESH : 0" looks less bulky.
+
+>  	nic->cq_coalesce_usecs = (CMP_QUEUE_TIMER_THRESH * 0.05) - 1;
+> 
+>  	return 0;
+> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> index a4f6667..0fae6ad 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> @@ -10,6 +10,7 @@
+>  #define NICVF_QUEUES_H
+> 
+>  #include <linux/netdevice.h>
+> +#include "nic.h"
+>  #include "q_struct.h"
+> 
+>  #define MAX_QUEUE_SET			128
+> @@ -75,7 +76,7 @@
 >   */
->  static inline void
-> -nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry,
-> +nicvf_sq_add_hdr_subdesc(struct nicvf *nic, struct snd_queue *sq, int qentry,
->  			 int subdesc_cnt, struct sk_buff *skb, int len)
->  {
->  	int proto;
-> @@ -976,6 +976,15 @@ nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry,
->  			break;
->  		}
->  	}
-> +
-> +	if (nic->hw_tso && skb_shinfo(skb)->gso_size) {
-> +		hdr->tso = 1;
-> +		hdr->tso_start = skb_transport_offset(skb) + tcp_hdrlen(skb);
-> +		hdr->tso_max_paysize = skb_shinfo(skb)->gso_size;
-> +		/* For non-tunneled pkts, point this to L2 ethertype */
-> +		hdr->inner_l3_offset = skb_network_offset(skb) - 2;
-> +		nic->drv_stats.tx_tso++;
-> +	}
->  }
+>  #define CMP_QSIZE		CMP_QUEUE_SIZE2
+>  #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
+> -#define CMP_QUEUE_CQE_THRESH	0
+> +#define CMP_QUEUE_CQE_THRESH	(VNIC_NAPI_WEIGHT / 2)
+>  #define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
 > 
->  /* SQ GATHER subdescriptor
-> @@ -1045,7 +1054,7 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
->  			data_left -= size;
->  			tso_build_data(skb, &tso, size);
->  		}
-> -		nicvf_sq_add_hdr_subdesc(sq, hdr_qentry,
-> +		nicvf_sq_add_hdr_subdesc(nic, sq, hdr_qentry,
->  					 seg_subdescs - 1, skb, seg_len);
->  		sq->skbuff[hdr_qentry] = (u64)NULL;
->  		qentry = nicvf_get_nxt_sqentry(sq, qentry);
-> @@ -1098,11 +1107,12 @@ int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
->  	qentry = nicvf_get_sq_desc(sq, subdesc_cnt);
-> 
->  	/* Check if its a TSO packet */
-> -	if (skb_shinfo(skb)->gso_size)
-> +	if (skb_shinfo(skb)->gso_size && !nic->hw_tso)
->  		return nicvf_sq_append_tso(nic, sq, sq_num, qentry, skb);
-> 
->  	/* Add SQ header subdesc */
-> -	nicvf_sq_add_hdr_subdesc(sq, qentry, subdesc_cnt - 1, skb, skb->len);
-> +	nicvf_sq_add_hdr_subdesc(nic, sq, qentry, subdesc_cnt - 1,
-> +				 skb, skb->len);
-> 
->  	/* Add SQ gather subdescs */
->  	qentry = nicvf_get_nxt_sqentry(sq, qentry);
-> diff --git a/drivers/net/ethernet/cavium/thunder/q_struct.h
-> b/drivers/net/ethernet/cavium/thunder/q_struct.h
-> index 3c1de97..9e6d987 100644
-> --- a/drivers/net/ethernet/cavium/thunder/q_struct.h
-> +++ b/drivers/net/ethernet/cavium/thunder/q_struct.h
-> @@ -545,25 +545,28 @@ struct sq_hdr_subdesc {
->  	u64    subdesc_cnt:8;
->  	u64    csum_l4:2;
->  	u64    csum_l3:1;
-> -	u64    rsvd0:5;
-> +	u64    csum_inner_l4:2;
-> +	u64    csum_inner_l3:1;
-> +	u64    rsvd0:2;
->  	u64    l4_offset:8;
->  	u64    l3_offset:8;
->  	u64    rsvd1:4;
->  	u64    tot_len:20; /* W0 */
-> 
-> -	u64    tso_sdc_cont:8;
-> -	u64    tso_sdc_first:8;
-> -	u64    tso_l4_offset:8;
-> -	u64    tso_flags_last:12;
-> -	u64    tso_flags_first:12;
-> -	u64    rsvd2:2;
-> +	u64    rsvd2:24;
-> +	u64    inner_l4_offset:8;
-> +	u64    inner_l3_offset:8;
-> +	u64    tso_start:8;
-> +	u64    rsvd3:2;
->  	u64    tso_max_paysize:14; /* W1 */
->  #elif defined(__LITTLE_ENDIAN_BITFIELD)
->  	u64    tot_len:20;
->  	u64    rsvd1:4;
->  	u64    l3_offset:8;
->  	u64    l4_offset:8;
-> -	u64    rsvd0:5;
-> +	u64    rsvd0:2;
-> +	u64    csum_inner_l3:1;
-> +	u64    csum_inner_l4:2;
->  	u64    csum_l3:1;
->  	u64    csum_l4:2;
->  	u64    subdesc_cnt:8;
-> @@ -574,12 +577,11 @@ struct sq_hdr_subdesc {
->  	u64    subdesc_type:4; /* W0 */
-> 
->  	u64    tso_max_paysize:14;
-> -	u64    rsvd2:2;
-> -	u64    tso_flags_first:12;
-> -	u64    tso_flags_last:12;
-> -	u64    tso_l4_offset:8;
-> -	u64    tso_sdc_first:8;
-> -	u64    tso_sdc_cont:8; /* W1 */
-> +	u64    rsvd3:2;
-> +	u64    tso_start:8;
-> +	u64    inner_l3_offset:8;
-> +	u64    inner_l4_offset:8;
-> +	u64    rsvd2:24; /* W1 */
->  #endif
->  };
-> 
+>  #define RBDR_SIZE		RBDR_SIZE0
 > --
 > 1.7.1
-> 
 
 Kind regards,
 Pavel Fedin
