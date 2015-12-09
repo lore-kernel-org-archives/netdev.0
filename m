@@ -1,43 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 08 Dec 2015 22:48:42 -0500 (EST)
-Message-ID: <20151208.224842.1810870878153442975.davem@davemloft.net>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 net-next 3/3] bindings: ethernet: macb: Add optional
+ caps properties
+Date: Tue, 8 Dec 2015 21:49:51 -0600
+Message-ID: <20151209034951.GA23712@rob-hp-laptop>
+References: <1449485914-12883-1-git-send-email-narmstrong@baylibre.com>
+ <1449582726-6148-1-git-send-email-narmstrong@baylibre.com>
+ <1449582726-6148-4-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	baolu.lu@linux.intel.com
-To: peter@lekensteyn.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.ferre@atmel.com, davem@davemloft.net,
+	harini.katakam@xilinx.com, boris.brezillon@free-electrons.com,
+	alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org, joshc@ni.com
+To: Neil Armstrong <narmstrong@baylibre.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+Content-Disposition: inline
+In-Reply-To: <1449582726-6148-4-git-send-email-narmstrong@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Wu <peter@lekensteyn.nl>
-Date: Tue,  8 Dec 2015 12:17:42 +0100
+On Tue, Dec 08, 2015 at 02:52:06PM +0100, Neil Armstrong wrote:
+> Add generic caps properties to the binding in order to support
+> future macb/gem implementations with the generic macb compatible form.
+> 
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 
-> When an interface is brought up which was previously suspended (via
-> runtime PM), it would hang. This happens because napi_disable is called
-> before napi_enable.
-> 
-> Solve this by avoiding napi_enable in the resume during open function
-> (netif_running is true when open is called, IFF_UP is set after a
-> successful open; netif_running is false when close is called, but IFF_UP
-> is then still set).
-> 
-> While at it, remove WORK_ENABLE check from rtl8152_open (introduced with
-> the original change) because it cannot happen:
-> 
->  - After this patch, runtime resume will not set it during rtl8152_open.
->  - When link is up, rtl8152_open is not called.
->  - When link is down during system/auto suspend/resume, it is not set.
-> 
-> Fixes: 41cec84cf285 ("r8152: don't enable napi before rx ready")
-> Link: https://lkml.kernel.org/r/20151205105912.GA1766@al
-> Signed-off-by: Peter Wu <peter@lekensteyn.nl>
+Acked-by: Rob Herring <robh@kernel.org>
+
 > ---
->  v2: moved rtl_runtime_suspend_enable from close to rtl8152_suspend
-
-Applied, and queued up for -stable, thanks.
+>  Documentation/devicetree/bindings/net/macb.txt | 10 ++++++++++
+>  1 file changed, 10 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+> index b5d7976..891c72e 100644
+> --- a/Documentation/devicetree/bindings/net/macb.txt
+> +++ b/Documentation/devicetree/bindings/net/macb.txt
+> @@ -19,6 +19,16 @@ Required properties:
+>  	Optional elements: 'tx_clk'
+>  - clocks: Phandles to input clocks.
+>  
+> +Optional properties:
+> +- cdns,usrio-has-clken: Boolean; The USRIO register has an clock-enable bit.
+> +- cdns,usrio-default-mii: Boolean; The USRIO register defaults to MII mode.
+> +- cdns,usrio-disabled: Boolean; The USRIO register is not implemented.
+> +- cdns,no-gigabit-half: Boolean; The MAC does not support 1000/Half link mode.
+> +- cdns,gem-sg-disabled: Boolean; The MAC does not support Scatter-Gather mode.
+> +- cdns,gem-has-gigabit: Boolean; The MAC supports Gigabit Ethernet.
+> +- cdns,dma-burst-length: Should countain the DMA burst length.
+> +- cdns,jumbo-max-length: Should countain the maximum Jumbo frame length.
+> +
+>  Examples:
+>  
+>  	macb0: ethernet@fffc4000 {
+> -- 
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
