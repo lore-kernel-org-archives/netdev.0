@@ -1,52 +1,115 @@
-From: "Lan, Tianyu" <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
- SRIOV NIC
-Date: Wed, 9 Dec 2015 19:41:46 +0800
-Message-ID: <5668137A.9090608@intel.com>
-References: <CAKgT0Uc+-gFAetEfde6DmMOFK+vDE6UkgsNF8oLNqaQc4USSeg@mail.gmail.com>
- <565DB6FF.1050602@intel.com> <20151201171140-mutt-send-email-mst@redhat.com>
- <CAKgT0UfLEJpV-KdqRGfzBeas8bdqfHCmT5Xc8iVVP03g_pQO8A@mail.gmail.com>
- <20151201193026-mutt-send-email-mst@redhat.com>
- <CAKgT0UfJ7w6yYcZcF2YZyDKEwvE7Gh3P-jfGQGKLfPH2crVBzw@mail.gmail.com>
- <20151202105955-mutt-send-email-mst@redhat.com> <5661C000.8070201@intel.com>
- <20151209122831-mutt-send-email-mst@redhat.com> <56680E33.6040204@intel.com>
- <20151209132233-mutt-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Dong, Eddie" <eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
-	Alex Williamson <alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
-	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Skidmore, Donald C" <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Jani, Nrupal" <nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>,
-	"kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org" <qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org>,
-	"Tantilov, Emil S" <emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eric Auger <eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	intel-wired-lan <intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151209132233-mutt-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Handle clip return values
+Date: Wed,  9 Dec 2015 17:16:35 +0530
+Message-ID: <1449661595-5745-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:47948 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752120AbbLILpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 06:45:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/9/2015 7:28 PM, Michael S. Tsirkin wrote:
-> I remember reading that it's possible to implement a bus driver
-> on windows if required.  But basically I don't see how windows can be
-> relevant to discussing guest driver patches. That discussion
-> probably belongs on the qemu maling list, not on lkml.
+Add a warn message when clip table overflows. If clip table isn't
+allocated, return from cxgb4_clip_release() to avoid panic.
+Disable offload if clip isn't enabled in the hardware.
 
-I am not sure whether we can write a bus driver for Windows to support
-migration. But I think device vendor who want to support migration will 
-improve their driver if we provide such framework in the
-hypervisor which just need them to change their driver.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c   | 11 +++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 22 ++++++++++++++++------
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  4 ++++
+ 3 files changed, 31 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+index c308429..d288dcf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+@@ -118,6 +118,11 @@ int cxgb4_clip_get(const struct net_device *dev, const u32 *lip, u8 v6)
+ 			ret = clip6_get_mbox(dev, (const struct in6_addr *)lip);
+ 			if (ret) {
+ 				write_unlock_bh(&ctbl->lock);
++				dev_err(adap->pdev_dev,
++					"CLIP FW cmd failed with error %d, "
++					"Connections using %pI6c wont be "
++					"offloaded",
++					ret, ce->addr6.sin6_addr.s6_addr);
+ 				return ret;
+ 			}
+ 		} else {
+@@ -127,6 +132,9 @@ int cxgb4_clip_get(const struct net_device *dev, const u32 *lip, u8 v6)
+ 		}
+ 	} else {
+ 		write_unlock_bh(&ctbl->lock);
++		dev_info(adap->pdev_dev, "CLIP table overflow, "
++			 "Connections using %pI6c wont be offloaded",
++			 (void *)lip);
+ 		return -ENOMEM;
+ 	}
+ 	write_unlock_bh(&ctbl->lock);
+@@ -146,6 +154,9 @@ void cxgb4_clip_release(const struct net_device *dev, const u32 *lip, u8 v6)
+ 	int hash;
+ 	int ret = -1;
+ 
++	if (!ctbl)
++		return;
++
+ 	hash = clip_addr_hash(ctbl, addr, v6);
+ 
+ 	read_lock_bh(&ctbl->lock);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 0d14761..edd706e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4865,15 +4865,25 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-	adapter->clipt = t4_init_clip_tbl(adapter->clipt_start,
+-					  adapter->clipt_end);
+-	if (!adapter->clipt) {
+-		/* We tolerate a lack of clip_table, giving up
+-		 * some functionality
++	if ((CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5) &&
++	    (!(t4_read_reg(adapter, LE_DB_CONFIG_A) & ASLIPCOMPEN_F))) {
++		/* CLIP functionality is not present in hardware,
++		 * hence disable all offload features
+ 		 */
+ 		dev_warn(&pdev->dev,
+-			 "could not allocate Clip table, continuing\n");
++			 "CLIP not enabled in hardware, continuing\n");
+ 		adapter->params.offload = 0;
++	} else {
++		adapter->clipt = t4_init_clip_tbl(adapter->clipt_start,
++						  adapter->clipt_end);
++		if (!adapter->clipt) {
++			/* We tolerate a lack of clip_table, giving up
++			 * some functionality
++			 */
++			dev_warn(&pdev->dev,
++				 "could not allocate Clip table, continuing\n");
++			adapter->params.offload = 0;
++		}
+ 	}
+ #endif
+ 	if (is_offload(adapter) && tid_init(&adapter->tids) < 0) {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index fc3044c..91b52a2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -2802,6 +2802,10 @@
+ #define HASHEN_V(x) ((x) << HASHEN_S)
+ #define HASHEN_F    HASHEN_V(1U)
+ 
++#define ASLIPCOMPEN_S    17
++#define ASLIPCOMPEN_V(x) ((x) << ASLIPCOMPEN_S)
++#define ASLIPCOMPEN_F    ASLIPCOMPEN_V(1U)
++
+ #define REQQPARERR_S    16
+ #define REQQPARERR_V(x) ((x) << REQQPARERR_S)
+ #define REQQPARERR_F    REQQPARERR_V(1U)
+-- 
+2.3.4
