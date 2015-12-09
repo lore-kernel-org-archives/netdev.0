@@ -1,39 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-Date: Wed, 9 Dec 2015 03:42:48 +0100
-Message-ID: <20151209024248.GA20213@pox.localdomain>
-References: <20151207.142953.387889541116696974.davem@davemloft.net>
- <20151205070603.GB23255@gondor.apana.org.au>
- <20151209021826.GC19097@pox.localdomain>
- <20151209022454.GA24515@gondor.apana.org.au>
- <20151209023632.GD19097@pox.localdomain>
- <20151209023844.GA24736@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v2 2/5] rhashtable: add function to replace an
+ element
+Date: Wed, 9 Dec 2015 10:43:23 +0800
+Message-ID: <20151209024323.GA24768@gondor.apana.org.au>
+References: <20151203.144558.1956397517705186998.davem@davemloft.net>
+ <20151208093941.GA17795@gondor.apana.org.au>
+ <CALx6S35sG4+5UT87Yrwa1a=O-Mq09SucXw7=xyxnrJVwXY6fkw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Phil Sutter <phil@nwl.cc>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:38656 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751303AbbLICnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:43:31 -0500
 Content-Disposition: inline
-In-Reply-To: <20151209023844.GA24736@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CALx6S35sG4+5UT87Yrwa1a=O-Mq09SucXw7=xyxnrJVwXY6fkw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/09/15 at 10:38am, Herbert Xu wrote:
-> On Wed, Dec 09, 2015 at 03:36:32AM +0100, Thomas Graf wrote:
-> > 
-> > Without knowing your exact implementation plans: introducing an
-> > additional reference indirection for every lookup will have a
-> > huge performance penalty as well.
-> > 
-> > Is your plan to only introduce the master table after an
-> > allocation has failed?
+On Tue, Dec 08, 2015 at 09:14:24AM -0800, Tom Herbert wrote:
 > 
-> Right, obviously the extra indirections would only come into play
-> after a failed allocation.  As soon as we can run the worker thread
-> it'll try to remove the extra indirections by doing vmalloc.
+> That creates one more level of indirection. I don't see how add an
+> atomic replace operation adds any complexity to the rhashtable, none
+> of the semantics for rhashtable need to be changed.
 
-OK, this sounds like a good compromise. The penalty is isolated
-for the duration of the atomic burst.
+OK after thinking about it a little bit more I think your approach
+is safe and we won't need to play any more games to get this to
+work.  So I'm fine with this patch.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
