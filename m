@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: avoid soft lockup in bnx2x_poll()
-Date: Tue, 08 Dec 2015 22:55:27 -0500 (EST)
-Message-ID: <20151208.225527.75074006409045414.davem@davemloft.net>
-References: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] ipv6: allow routes to be configured with
+ expire values
+Date: Tue, 08 Dec 2015 22:56:20 -0500 (EST)
+Message-ID: <20151208.225620.67864748611461829.davem@davemloft.net>
+References: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449585464.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariel.elior@qlogic.com, willemb@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49805 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49815 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083AbbLIDz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:55:28 -0500
-In-Reply-To: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751370AbbLID4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:56:22 -0500
+In-Reply-To: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449585464.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 08 Dec 2015 05:54:40 -0800
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue,  8 Dec 2015 22:37:44 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> Add the support for adding expire value to routes,  requested by
+> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+> wants it too.
 > 
-> Under heavy TX load, bnx2x_poll() can loop forever and trigger
-> soft lockup bugs.
+> add it by using the field rta_expires of rta_cacheinfo
 > 
-> A napi poll handler must yield after one TX completion round,
-> risk of livelock is too high otherwise.
-> 
-> Bug is very easy to trigger using a debug build, and udp flood, because
-> of added cpu cycles in TX completion, and we do not receive enough
-> packets to break the loop.
-> 
-> Reported-by: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Indeed, no driver should ever do more than one TX completion round
-per NAPI poll call, _ever_.
+Fix your outgoing patch emails, the From: field doesn't have your
+full name in it so the commit AUTHOR fields look terrible.
