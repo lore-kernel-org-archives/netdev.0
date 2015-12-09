@@ -1,39 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next v2 2/5] rhashtable: add function to replace an
- element
-Date: Wed, 9 Dec 2015 10:43:23 +0800
-Message-ID: <20151209024323.GA24768@gondor.apana.org.au>
-References: <20151203.144558.1956397517705186998.davem@davemloft.net>
- <20151208093941.GA17795@gondor.apana.org.au>
- <CALx6S35sG4+5UT87Yrwa1a=O-Mq09SucXw7=xyxnrJVwXY6fkw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: Add fib rules at vrf device create
+Date: Tue, 08 Dec 2015 21:44:11 -0500 (EST)
+Message-ID: <20151208.214411.2137019448940208712.davem@davemloft.net>
+References: <1449607685-8910-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:38656 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303AbbLICnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:43:31 -0500
-Content-Disposition: inline
-In-Reply-To: <CALx6S35sG4+5UT87Yrwa1a=O-Mq09SucXw7=xyxnrJVwXY6fkw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48507 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418AbbLICoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:44:13 -0500
+In-Reply-To: <1449607685-8910-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 08, 2015 at 09:14:24AM -0800, Tom Herbert wrote:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue,  8 Dec 2015 12:48:05 -0800
+
+> VRFs require ip rules for route lookups to work properly. Currently
+> creating a VRF means instantiating a device and then adding the 4 ip
+> and ip6 rules:
 > 
-> That creates one more level of indirection. I don't see how add an
-> atomic replace operation adds any complexity to the rhashtable, none
-> of the semantics for rhashtable need to be changed.
+>     ip link add vrf-${VRF} type vrf table ${TBID}
+>     ip ru add oif vrf-${VRF} table ${TBID}
+>     ip ru add iif vrf-${VRF} table ${TBID}
+>     ip -6 ru add oif vrf-${VRF} table $TBID
+>     ip -6 ru add iif vrf-${VRF} table $TBID
+> 
+> Since the table is required when the vrf device is created the rules can
+> be inserted automatically lightening the overhead and improving the
+> user experience (only the ip link add is needed).
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> v2
+> - addressed comments from Nik
 
-OK after thinking about it a little bit more I think your approach
-is safe and we won't need to play any more games to get this to
-work.  So I'm fine with this patch.
+Unfortunately it's too late for this, you should have considered this
+issue fully when VRF first went into an upstream release.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If I add your change, the user experience is _worse_.
+
+Users on older kernels have to use the full sequence, then if they
+upgrade their kernels to one with this patch then the 'ru add' et
+al. commands will fail.
