@@ -1,50 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Tom Herbert <tom@herbertland.com>
 Subject: Re: Checksum offload queries
-Date: Wed, 9 Dec 2015 23:29:24 +0100
-Message-ID: <20151209222924.GG11201@pox.localdomain>
+Date: Wed, 9 Dec 2015 14:42:06 -0800
+Message-ID: <CALx6S34pkU6XYk4N8MRszae-GoZRzK4vct=WpcX_KC-O9J8p0w@mail.gmail.com>
 References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
- <20151209015602.GB19097@pox.localdomain>
- <CALx6S37Dw_reYPXd9_4wCTO+BMqwQrvfMfEWDD7XCToODmm=rg@mail.gmail.com>
+	<20151207.143848.2158761076110518741.davem@davemloft.net>
+	<5666EC4B.40800@solarflare.com>
+	<20151208.120654.2127200076257822677.davem@davemloft.net>
+	<56681B18.3030200@solarflare.com>
+	<CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+	<566864C0.6020204@solarflare.com>
+	<CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
+	<20151209222153.GE11201@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:34705 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbbLIW31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:29:27 -0500
-Received: by mail-wm0-f49.google.com with SMTP id v187so6633725wmv.1
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:29:26 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALx6S37Dw_reYPXd9_4wCTO+BMqwQrvfMfEWDD7XCToODmm=rg@mail.gmail.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:38392 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753195AbbLIWmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:42:07 -0500
+Received: by igbxm8 with SMTP id xm8so760032igb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:42:06 -0800 (PST)
+In-Reply-To: <20151209222153.GE11201@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/09/15 at 08:08am, Tom Herbert wrote:
-> On Tue, Dec 8, 2015 at 5:56 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> > If I understood Edward correctly, his proposal would be for the
-> > card to provide both, the csum as for CHECKSUM_COMPLETE plus the
-> > validation yes/no hint. It would be up to the kernel to decide
-> > whether to validate itself or trust the card.
-> >
-> > I'm all in favour CHECKSUM_COMPLETE as the only way to go but
-> > we should be aware that it depends on the penetration of RCO in
-> > hardware VTEPs.
-> 
-> Thomas, I don't understand what you are saying here. CHECKSUM_COMPLETE
-> is an interface for drivers providing the computed checksum of a
-> packet on receive, how is this dependent on any use case or any other
-> mechanisms?
+On Wed, Dec 9, 2015 at 2:21 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 12/09/15 at 10:00am, Tom Herbert wrote:
+>> On Wed, Dec 9, 2015 at 9:28 AM, Edward Cree <ecree@solarflare.com> wrote:
+>> > Which only pushes the problem onto when someone wants to nest
+>> > encapsulations.  (I heard you like tunnels, so I put a tunnel in your
+>> > tunnel so you can encapsulate while you encapsulate.)
+>> > Or to put it another way, 2 isn't a number; the only numbers are 0, 1
+>> > and infinity ;)
+>> > Perhaps in practice 2 csums would be enough, for now.  But isn't the
+>> > whole point of the brave new world of generic checksums that it should
+>> > be future-proof?
+>> >
+>> If there is a need then we can add an arbitrary number. But no one has
+>> proven there is a need, however we do have a real need for checksum
+>> offload outside of the narrow uses of  NETIF_F_IP[V6]_CSUM.
+>
+> Need may be a strong word here but people have started doing nested
+> tunneling by running container orchestration tools which use VXLAN
+> to isolate containers inside of OpenStack virtual infrastructure which
+> also creates virtual networks.
+>
+> I'm not saying it's sane or desirable but we will start seeing nested
+> tunnels in the wild :-(
 
-I'm referring to the overall change which comes with a pure
-CHECSUM_COMPLETE model which would forbid a NIC to do automatic nested
-checksum filling even if untold. RCO solves that to some extent but
-only if RCO is widely supported. I'm not aware of anybody relying on
-the performance of such hardware yet so I doubt we would create a
-performance regression.
+csum_start and csum_offset together occupy 32 bits. As demonstrated in
+VXLAN RCO we can compress csum_start/csum_offset down to 8 bits which
+means if necessary we could get up to four pairs in an sk_buff without
+increasing its size. If you need more that four checksums to be
+offloaded in single packet then I doubt getting checksum offload to
+work is going to be your biggest problem.
