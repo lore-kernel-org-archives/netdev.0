@@ -1,57 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Checksum offload queries
-Date: Thu, 10 Dec 2015 00:13:03 +0100
-Message-ID: <20151209231303.GJ11201@pox.localdomain>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
- <20151209015602.GB19097@pox.localdomain>
- <CALx6S37Dw_reYPXd9_4wCTO+BMqwQrvfMfEWDD7XCToODmm=rg@mail.gmail.com>
- <20151209222924.GG11201@pox.localdomain>
- <CALx6S34ns4e_zNzGT6wa9Un7v+P1BiY62UaDCTmS2NeQ_BpBQg@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
+ CONFIG_INET
+Date: Wed, 9 Dec 2015 15:13:26 -0800
+Message-ID: <20151209151326.f7efba4e5697e1b0f212ea34@linux-foundation.org>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+	<2564892.qO1q7YJ6Nb@wuerfel>
+	<7343206.sFybcLLUN2@wuerfel>
+	<20151209185858.GA2342@cmpxchg.org>
+	<20151209142836.e81260567879110f319c01a4@linux-foundation.org>
+	<20151209230505.GA16610@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34182 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753465AbbLIXNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:13:06 -0500
-Received: by mail-wm0-f44.google.com with SMTP id v187so7816598wmv.1
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:13:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALx6S34ns4e_zNzGT6wa9Un7v+P1BiY62UaDCTmS2NeQ_BpBQg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-mm@kvack.org,
+ netdev@vger.kernel.org, cgroups@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+To: Johannes Weiner <hannes@cmpxchg.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151209230505.GA16610@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 12/09/15 at 02:51pm, Tom Herbert wrote:
-> I'm sorry, I still don't understand your point. What is "automatic
-> nested  checksum filling" and how does this relate to RX (e.g.
-> CHECSUM_COMPLETE).
+On Wed, 9 Dec 2015 18:05:05 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
 
-Too much compression ;-)
+> On Wed, Dec 09, 2015 at 02:28:36PM -0800, Andrew Morton wrote:
+> > On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
+> > > The calls to tcp_init_cgroup() appear earlier in the series than "mm:
+> > > memcontrol: hook up vmpressure to socket pressure". However, they get
+> > > moved around a few times so fixing it earlier means respinning the
+> > > series. Andrew, it's up to you whether we take the bisectability hit
+> > > for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
+> > > want me to resend the series.
+> > 
+> > hm, drat, I was suspecting dependency issues here, but a test build
+> > said it was OK.
+> > 
+> > Actually, I was expecting this patch series to depend on the linux-next
+> > cgroup2 changes, but that doesn't appear to be the case.  *should* this
+> > series be staged after the cgroup2 code?
+> 
+> Code-wise they are independent. My stuff is finishing up the new memcg
+> control knobs, the cgroup2 stuff is changing how and when those knobs
+> are exposed from within the cgroup core. I'm not relying on any recent
+> changes in the cgroup core AFAICS, so the order shouldn't matter here.
 
-My understanding of the thread was that the desired state is no
-checksum validation on RX and no automatic checksum offload on TX
-unless explicitly instructed via csum offset. This is what I would
-call a CHECKSUM_COMPLETE card (no protocol parsing).
+OK, thanks.
 
-As opposed to a CHECKSUM_UNNECESSARY card which does protocol parsing.
-Some do nested checksum offload on TX as we know even if only
-instructed to do one of the checksums.
+> > Regarding this particular series: yes, I think we can live with a
+> > bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
+> > sure why we're discussing bisection issues, because Arnd's build
+> > failure occurs with everything applied?
+> 
+> Arnd's patches apply to the top of the stack, but they address issues
+> introduced early in the series and the problematic code gets touched a
+> lot in subsequent patches. E.g. the first build breakage is in ("net:
+> tcp_memcontrol: simplify linkage between socket and page counter")
+> when the tcp_init_cgroup() and tcp_destroy_cgroup() function calls get
+> moved around and lose the CONFIG_INET protection.
 
-So let's assume everybody goes CHECKSUM_COMPLETE and we have at most
-a single level of checksum offload on TX. (As I understand, a
-requirement to not break RCO anyway.) RCO would resolve the possible
-software checksum performance bottleneck in the scenario of outer and
-inner header checksum requirements. While I agree that this is the
-case, we need to have support in hardware VTEPs for this in order for
-it to be usable. (excluding those which require a checksum 0 anyway)
+Yeah, this is a pain.  I think I'll fold Arnd's fix into
+mm-memcontrol-introduce-config_memcg_legacy_kmem.patch (which is staged
+after all the other MM patches and after linux-next) and will pretend I
+didn't know about the issue ;)
 
-Multiple nested tunnels would be another beast outside of the scope of
-RCO but as I stated in the other email, I don't think we should
-proactively solve that.
+> Anyway, if we can live with the bisection caveat then Arnd's fixes on
+> top of the kmem series look good to me. Depending on what Vladimir
+> thinks we might want to replace the CONFIG_SLOB fix with something
+> else later on, but that shouldn't be a problem, either.
+
+I don't have a fix for the CONFIG_SLOB&&CONFIG_MEMCG issue yet.  I
+agree that it would be best to make the combination work correctly
+rather than banning it, but that does require a bit of runtime testing.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
