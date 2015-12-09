@@ -1,79 +1,83 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
- CONFIG_INET
-Date: Wed, 9 Dec 2015 15:13:26 -0800
-Message-ID: <20151209151326.f7efba4e5697e1b0f212ea34@linux-foundation.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-	<2564892.qO1q7YJ6Nb@wuerfel>
-	<7343206.sFybcLLUN2@wuerfel>
-	<20151209185858.GA2342@cmpxchg.org>
-	<20151209142836.e81260567879110f319c01a4@linux-foundation.org>
-	<20151209230505.GA16610@cmpxchg.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: local route left hanging around in wrong table
+Date: Wed, 9 Dec 2015 16:32:07 -0700
+Message-ID: <5668B9F7.4010400@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-mm@kvack.org,
- netdev@vger.kernel.org, cgroups@vger.kernel.org,
- linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151209230505.GA16610@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, ja@ssi.bg
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:34856 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbbLIXcK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:32:10 -0500
+Received: by obc18 with SMTP id 18so46360189obc.2
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:32:09 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Dec 2015 18:05:05 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
 
-> On Wed, Dec 09, 2015 at 02:28:36PM -0800, Andrew Morton wrote:
-> > On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
-> > > The calls to tcp_init_cgroup() appear earlier in the series than "mm:
-> > > memcontrol: hook up vmpressure to socket pressure". However, they get
-> > > moved around a few times so fixing it earlier means respinning the
-> > > series. Andrew, it's up to you whether we take the bisectability hit
-> > > for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
-> > > want me to resend the series.
-> > 
-> > hm, drat, I was suspecting dependency issues here, but a test build
-> > said it was OK.
-> > 
-> > Actually, I was expecting this patch series to depend on the linux-next
-> > cgroup2 changes, but that doesn't appear to be the case.  *should* this
-> > series be staged after the cgroup2 code?
-> 
-> Code-wise they are independent. My stuff is finishing up the new memcg
-> control knobs, the cgroup2 stuff is changing how and when those knobs
-> are exposed from within the cgroup core. I'm not relying on any recent
-> changes in the cgroup core AFAICS, so the order shouldn't matter here.
+The VRF driver cycles netdevs (down then up) when an interface is 
+enslaved or released -- the down event is used to flush neighbor and 
+route tables and the up event effectively moves local and connected 
+routes to the proper table.
 
-OK, thanks.
+As of 4f823defdd5b ("ipv4: fix to not remove local route on link down") 
+the local route is left hanging around after a link down and when a 
+netdev is moved from one VRF to another (or released altogether) the 
+local route is in the wrong table:
 
-> > Regarding this particular series: yes, I think we can live with a
-> > bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
-> > sure why we're discussing bisection issues, because Arnd's build
-> > failure occurs with everything applied?
-> 
-> Arnd's patches apply to the top of the stack, but they address issues
-> introduced early in the series and the problematic code gets touched a
-> lot in subsequent patches. E.g. the first build breakage is in ("net:
-> tcp_memcontrol: simplify linkage between socket and page counter")
-> when the tcp_init_cgroup() and tcp_destroy_cgroup() function calls get
-> moved around and lose the CONFIG_INET protection.
+root@kenny:~# ip link set dev eth1 master vrf-red
 
-Yeah, this is a pain.  I think I'll fold Arnd's fix into
-mm-memcontrol-introduce-config_memcg_legacy_kmem.patch (which is staged
-after all the other MM patches and after linux-next) and will pretend I
-didn't know about the issue ;)
+At this point all routes associated with eth1 should be in the vrf-red 
+table. Yet:
 
-> Anyway, if we can live with the bisection caveat then Arnd's fixes on
-> top of the kmem series look good to me. Depending on what Vladimir
-> thinks we might want to replace the CONFIG_SLOB fix with something
-> else later on, but that shouldn't be a problem, either.
+root@kenny:~# ip ro ls table local | grep eth1
+local 10.100.1.2 dev eth1  proto kernel  scope host  src 10.100.1.2
 
-I don't have a fix for the CONFIG_SLOB&&CONFIG_MEMCG issue yet.  I
-agree that it would be best to make the combination work correctly
-rather than banning it, but that does require a bit of runtime testing.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+And it is in the vrf table as well:
+
+root@kenny:~# ip ro ls table vrf-red
+unreachable default
+broadcast 10.100.1.0 dev eth1  proto kernel  scope link  src 10.100.1.2
+10.100.1.0/24 dev eth1  proto kernel  scope link  src 10.100.1.2
+local 10.100.1.2 dev eth1  proto kernel  scope host  src 10.100.1.2
+broadcast 10.100.1.255 dev eth1  proto kernel  scope link  src 10.100.1.2
+
+Unenslaving the device leaves the local route in the VRF table:
+
+root@kenny:~# ip link set dev eth1 nomaster
+
+root@kenny:~# ip ro ls table vrf-red
+unreachable default
+local 10.100.1.2 dev eth1  proto kernel  scope host  src 10.100.1.2
+
+
+I realize Julian's patch was fixing a 'bug' introduced in June, so most 
+likely can't do a revert of it. I am looking at a standalone notifier 
+(e.g., NETDEV_VRF_CHANGE), but that patch seems a bit large for v4.4.
+
+At this point I don't see a simple solution to fix this for v4.4 hence 
+this email -- any thoughts? To be clear this is the change that causes 
+the problem:
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index d97268e8ff10..1801519da446 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1365,7 +1365,8 @@ int fib_sync_down_dev(struct net_device *dev, 
+unsigned long event, bool force)
+         struct hlist_head *head = &fib_info_devhash[hash];
+         struct fib_nh *nh;
+
+-       if (force)
++       if (event == NETDEV_UNREGISTER ||
++           event == NETDEV_DOWN)
+                 scope = -1;
+
+         hlist_for_each_entry(nh, head, nh_hash) {
+
+
+David
