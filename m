@@ -1,61 +1,61 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] ipv6: sctp: clone options to avoid use after free
-Date: Wed, 09 Dec 2015 20:19:23 +0100
-Message-ID: <56687EBB.5040108@iogearbox.net>
-References: <CACT4Y+YjXJoh3uGDp=FJkYVnjaMxFSPY252ptbDGZ-LQ9JAEWw@mail.gmail.com> <CANn89i+V-GeD3zCzGPAo4jY8Z6iTjFN3U1ixG44WyKKLOZ9Txw@mail.gmail.com> <20151209145917.GA3884@mrl.redhat.com> <CANn89iLhetNbtO6h99zZOrCiMYON50vzVsk7j_AtosXejvvm4Q@mail.gmail.com> <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com> <063D6719AE5E284EB5DD2968C1650D6D1CBE9A61@AcuExch.aculab.com> <1449676782.9768.9.camel@edumazet-glaptop2.roam.corp.google.com> <063D6719AE5E284EB5DD2968C1650D6D1CBE9B1C@AcuExch.aculab.com> <566860BC.4040604@gmail.com>
+From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH] mm: memcontrol: MEMCG no longer works with SLOB
+Date: Wed, 9 Dec 2015 15:01:07 -0500
+Message-ID: <20151209200107.GA17409@cmpxchg.org>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+ <2564892.qO1q7YJ6Nb@wuerfel>
+ <1558902.EBTjGmY9S2@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	'Eric Dumazet' <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <566860BC.4040604@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1558902.EBTjGmY9S2@wuerfel>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/09/2015 06:11 PM, Marcelo Ricardo Leitner wrote:
-> Em 09-12-2015 14:31, David Laight escreveu:
->> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->>> Sent: 09 December 2015 16:00
->>> On Wed, 2015-12-09 at 15:49 +0000, David Laight wrote:
->>>>> SCTP is lacking proper np->opt cloning at accept() time.
->>>>>
->>>>> TCP and DCCP use ipv6_dup_options() helper, do the same in SCTP.
->>>>>
->>>>> We might later factorize this code in a common helper to avoid
->>>>> future mistakes.
->>>>
->>>> I'm wondering what the real impact of this and the other recent
->>>> SCTP bugs/patches is on real workloads?
->>>> We have enough trouble getting our customers to use kernels
->>>> later that the 2.6.18 based RHEL5 - without having to persuade
->>>> them to use kernels that contain very recent fixes.
->>>
->>> It all depends if your customers let (hostile ?) people run programs on
->>> the boxes.
->>
->> If they require hostile programs I'm not worried.
->
-> Not really "require", but "allow", as in: allowing third-party applications to run on it.
+On Wed, Dec 09, 2015 at 05:32:39PM +0100, Arnd Bergmann wrote:
+> The change to move the kmem accounting into the normal memcg
+> code means we can no longer use memcg with slob, which lacks
+> the memcg_params member in its struct kmem_cache:
+> 
+> ../mm/slab.h: In function 'is_root_cache':
+> ../mm/slab.h:187:10: error: 'struct kmem_cache' has no member named 'memcg_params'
+> 
+> This enforces the new dependency in Kconfig. Alternatively,
+> we could change the slob code to allow using MEMCG.
 
-Yeah :/ given distros enable almost everything anyway, the first unpriv'ed
-socket(..., IPPROTO_SCTP) call auto-loads SCTP module. But to be honest, I'd
-be surprised if Cloud providers allow for this. Most of this might only run
-on dedicated boxes with telco appliances.
+I'm curious, was this a random config or do you actually use
+CONFIG_SLOB && CONFIG_MEMCG?
+
+Excluding CONFIG_MEMCG completely for slob seems harsh, but I would
+prefer not littering the source with
+
+#if defined(CONFIG_MEMCG) && (defined(CONFIG_SLAB) || defined(CONFIG_SLUB))
+
+or
+
+#if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
+
+for such a special case. The #ifdefs are already out of hand in there.
+
+Vladimir, what would you think of simply doing this?
+
+diff --git a/mm/slab.h b/mm/slab.h
+index 5adec08..0b3ec4b 100644
+--- a/mm/slab.h
++++ b/mm/slab.h
+@@ -25,6 +25,9 @@ struct kmem_cache {
+ 	int refcount;		/* Use counter */
+ 	void (*ctor)(void *);	/* Called on object slot creation */
+ 	struct list_head list;	/* List of all slab caches on the system */
++#ifdef CONFIG_MEMCG
++	struct memcg_cache_params memcg_params;
++#endif
+ };
+ 
+ #endif /* CONFIG_SLOB */
