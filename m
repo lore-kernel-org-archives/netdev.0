@@ -1,102 +1,86 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
-Date: Tue, 8 Dec 2015 16:22:01 -0800
-Message-ID: <CAPWQB7HkBFRozJzYNMDSZexJzmFVfDWc02Mkk1oTwwiCQtvPCg@mail.gmail.com>
-References: <56435508.9070802@mellanox.com> <CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
- <CAJ3xEMhopRFPJFj4k41X6dKWz7Ok1Jqvtht7YS=59e3ceRf-qg@mail.gmail.com>
- <CAOftzPjio364zHUXSpK3uFDu+DiSc=5ae1WVjg9C+8485rpBsw@mail.gmail.com>
- <CAJ3xEMi5fPCd=v2UJN0CZB5948WpDuBm25rGW4yP6-q_QF31nw@mail.gmail.com>
- <CANr6G5xe7URQgr=C7gL=xoAaUf5rXPQByBZscmNSVHyv2=+wRg@mail.gmail.com>
- <CAJ3xEMiSwVhUCTYcH+nWWBqrSwiykqsBFUZtBkirQtzsXVVL4A@mail.gmail.com>
- <CAJ3xEMhzB3UzfeJ8rvCmDFG57QnG5wdHPfahthxgR7Y-vvaiQg@mail.gmail.com>
- <CAOftzPieLwrF2V5YknHBRHxpGSsHqvqDoiHFPvXEcp3NUe24Gw@mail.gmail.com>
- <CAPWQB7GmJNYwmu5fSOWeLQxhdfPR4WgaD-=F7ZQCd6PtmQ=oYQ@mail.gmail.com> <CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH net-next v4 0/8] openvswitch: NAT support.
+Date: Tue,  8 Dec 2015 17:01:02 -0800
+Message-ID: <1449622870-48944-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ilya Lesokhin <ilyal@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Tal Anker <Ankertal@mellanox.com>,
-	Jarno Rajahalme <jarno@ovn.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:44527 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913AbbLIAWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 19:22:24 -0500
-Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
-	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 81CE5172098
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 01:22:22 +0100 (CET)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-	by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id qEA5MPZOOEDS for <netdev@vger.kernel.org>;
-	Wed,  9 Dec 2015 01:22:21 +0100 (CET)
-Received: from mail-wm0-f41.google.com (mail-wm0-f41.google.com [74.125.82.41])
-	(Authenticated sender: joe@ovn.org)
-	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 23CB517209A
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 01:22:21 +0100 (CET)
-Received: by wmww144 with SMTP id w144so201502613wmw.1
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 16:22:20 -0800 (PST)
-In-Reply-To: <CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 8 December 2015 at 13:23, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Tue, Dec 8, 2015 at 9:20 PM, Joe Stringer <joe@ovn.org> wrote:
->> On 2 December 2015 at 10:01, Joe Stringer <joe@ovn.org> wrote:
->>> On 29 November 2015 at 05:37, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>> On Thu, Nov 19, 2015 at 5:40 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>> On Sat, Nov 14, 2015 at 8:45 AM, Joe Stringer <joestringer@nicira.com> wrote:
->>>>>> On 13 November 2015 at 06:46, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>>> On Fri, Nov 13, 2015 at 10:14 AM, Joe Stringer <joestringer@nicira.com> wrote:
->>>>>
->>>>>>>> I agree that this UNSPEC issue on v2.3 could do with a bit of a closer
->>>>>>>> look. I'll see if I can find some time for it. Alternatively if you're
->>>>>>>> willing and have bandwith, I'd be curious if it's related to the
->>>>>>>> masked set field feature introduced in Linux-4.0.
->>>>>
->>>>>>> so what would you suggest here? run with 3.19 or earlier?
->>>>>
->>>>>> On second thought, I think if it were related to that then userspace
->>>>>> v2.4 would not exhibit the problem. I'd have to dig in to see why it
->>>>>> occurs.
->>>>>
->>>>> Any findings?
->>>>
->>>> Hi Joe/Jesse,
->>>>
->>>> Apart from Haggai's note on the TTL, I am pinging you here for the 2nd
->>>> time... can you please let me know how
->>>> this goes on your end?
->
->>> Apologies for the delayed response, we haven't found anything
->>> interesting yet although we've mostly looked at plain set-field
->>> actions with a combination of kernel/userspace versions. I plan to
->>> carve out some time later this week to take another look.
->
->> (resending due to teething issues with new email and plain-text, sorry
->> for the spam)
->
->> As far as the mask, I briefly discussed this with Jarno and it seems
->> like it could be something as simple as zeroing the ip_ttl mask in
->> tnl_wc_init().
->
-> to make sure I follow, will that have the consequence that we (user +
-> kernel) will practically not be testing the ttl for these flows?
-
-Yes, it would cause userspace to 'wildcard' the field so the kernel
-flows that are installed will ignore it during lookup.
-
->> As far as the UNSPEC issue, I couldn't reproduce it. Are you sure that
->> there weren't multiple versions of OVS installed, and while the OVS
->> running was v2.3, your ovs-dpctl was an older version? I was running
->> latest OVS branch-2.3 (c2e761f5b152).
->
-> OK, for the sake of double checking, I will do over-all cleanup and
-> re-check, but will be able to do that only next week.
-
-Thanks,
-Joe
+VGhpcyBzZXJpZXMgYWRkcyBOQVQgc3VwcG9ydCB0byBvcGVudnN3aXRjaCBrZXJuZWwgbW9kdWxl
+LiAgQSBmZXcKY2hhbmdlcyBhcmUgbmVlZGVkIHRvIHRoZSBuZXRmaWx0ZXIgY29kZSB0byBmYWNp
+bGl0YXRlIHRoaXMgKHBhdGNoZXMKMS0zLzgpLiAgUGF0Y2hlcyA0LTcgbWFrZSB0aGUgb3BlbnZz
+d2l0Y2gga2VybmVsIG1vZHVsZSByZWFkeSBmb3IgdGhlCnBhdGNoIDggdGhhdCBhZGRzIHRoZSBO
+QVQgc3VwcG9ydCBieSBjYWxsaW5nIGludG8gbmV0ZmlsdGVyIE5BVCBjb2RlCmZyb20gdGhlIG9w
+ZW52c3dpdGNoIGNvbm50cmFjayBhY3Rpb24uCgpUaGUgT1ZTIG1hc3RlciBub3cgaGFzIHRoZSBj
+b3JyZXNwb25kaW5nIE9WUyB1c2Vyc3BhY2Ugc3VwcG9ydCB0byB1c2UKYW5kIHRlc3QgdGhlIE5B
+VCBmZWF0dXJlcy4gIEJlbG93IGlmIGEgd2FsayB0aHJvdWdoIG9mIGEgc2ltcGxlIHVzZQpjYXNl
+LgoKSW4gdGhpcyBjYXNlIHBvcnRzIDEgYW5kIDIgYXJlIGluIGRpZmZlcmVudCBuYW1lc3BhY2Vz
+LiAgVGhlIE9wZW5GbG93CnRhYmxlIGJlbG93IG9ubHkgYWxsb3dzIElQdjQgY29ubmVjdGlvbnMg
+aW5pdGlhdGVkIGZyb20gcG9ydCAxLCBhbmQKYXBwbGllcyBzb3VyY2UgTkFUIHRvIHRob3NlIGNv
+bm5lY3Rpb25zOgoKICAgaW5fcG9ydD0xLGlwLGFjdGlvbj1jdChjb21taXQsem9uZT0xLG5hdChz
+cmM9MTAuMS4xLjI0MC0xMC4xLjEuMjU1KSksMgogICBpbl9wb3J0PTIsY3Rfc3RhdGU9LXRyayxp
+cCxhY3Rpb249Y3QodGFibGU9MCx6b25lPTEsbmF0KQogICBpbl9wb3J0PTIsY3Rfc3RhdGU9K2Vz
+dCxjdF96b25lPTEsaXAsYWN0aW9uPTEKClRoaXMgZmxvdyB0YWJsZSBtYXRjaGVzIGFsbCBJUHY0
+IHRyYWZmaWMgZnJvbSBwb3J0IDEsIHJ1bnMgdGhlbQp0aHJvdWdoIGNvbm50cmFjayBpbiB6b25l
+IDEgYW5kIE5BVHMgdGhlbS4gIFRoZSBOQVQgaXMgaW5pdGlhbGl6ZWQgdG8KZG8gc291cmNlIElQ
+IG1hcHBpbmcgdG8gdGhlIGdpdmVuIHJhbmdlIGZvciB0aGUgZmlyc3QgcGFja2V0IG9mIGVhY2gK
+Y29ubmVjdGlvbiwgYWZ0ZXIgd2hpY2ggdGhlIG5ldyBjb25uZWN0aW9uIGlzIGNvbW1pdHRlZCAo
+Y29uZmlybWVkKS4KRm9yIGZ1cnRoZXIgcGFja2V0cyBvZiBhbHJlYWR5IHRyYWNrZWQgY29ubmVj
+dGlvbnMgTkFUIGlzIGRvbmUKYWNjb3JkaW5nIHRvIHRoZSBjb25uZWN0aW9uIHN0YXRlIGFuZCB0
+aGUgY29tbWl0IGlzIGEgbm8tb3AuICBFYWNoCnBhY2tldCB0aGF0IGlzIG5vdCBmbGFnZ2VkIGFz
+IGEgZHJvcCBieSB0aGUgQ1QgYWN0aW9uIGlzIGZvcndhcmRlZCB0bwpwb3J0IDIuICBUaGUgQ1Qg
+YWN0aW9uIGRvZXMgYW4gaW1wbGljaXQgZnJhZ21lbnRhdGlvbiByZWFzc2VtYmx5LCBzbwp0aGF0
+IG9ubHkgY29tcGxldGUgcGFja2V0cyBhcmUgcnVuIHRocm91Z2ggY29ubnRyYWNrLiAgUmVhc3Nl
+bWJsZWQKcGFja2V0cyBhcmUgcmUtZnJhZ21lbnRlZCBvbiBvdXRwdXQuCgpUaGUgSVB2NCB0cmFm
+ZmljIGNvbWluZyBmcm9tIHBvcnQgMiBpcyBmaXJzdCBtYXRjaGVkIGZvciB0aGUKbm9uLXRyYWNr
+ZWQgc3RhdGUgKC10cmspLCB3aGljaCBtZWFucyB0aGF0IHRoZSBwYWNrZXQgaGFzIG5vdCBiZWVu
+CnRocm91Z2ggYSBDVCBhY3Rpb24geWV0LiAgU3VjaCB0cmFmZmljIGlzIHJ1biB0cm91Z2ggdGhl
+IGNvbm50cmFjayBpbgp6b25lIDEgYW5kIGFsbCBwYWNrZXRzIGFzc29jaWF0ZWQgd2l0aCBhIE5B
+VHRlZCBjb25uZWN0aW9uIGFyZSBOQVR0ZWQKYWxzbyBpbiB0aGUgcmV0dXJuIGRpcmVjdGlvbi4g
+IEFmdGVyIHRoZSBwYWNrZXQgaGFzIGJlZW4gdGhyb3VnaApjb25udHJhY2sgaXQgaXMgcmVjaXJj
+dWxhdGVkIGJhY2sgdG8gT3BlbkZsb3cgdGFibGUgMCAod2hpY2ggaXMgdGhlCmRlZmF1bHQgdGFi
+bGUsIHNvIGFsbCB0aGUgcnVsZXMgYWJvdmUgYXJlIGluIHRhYmxlIDApLiAgVGhlIENUIGFjdGlv
+bgpjaGFuZ2VzIHRoZSAndHJrJyBmbGFnIHRvIGJlaW5nIHNldCwgc28gdGhlIHBhY2tldHMgYWZ0
+ZXIKcmVjaXJjdWxhdGlvbiBubyBsb25nZXIgbWF0Y2ggdGhlIHNlY29uZCBydWxlLiAgVGhlIHRo
+aXJkIHJ1bGUgdGhlbgptYXRjaGVzIHRoZSByZWNpcmN1bGF0ZWQgcGFja2V0cyB0aGF0IHdlcmUg
+bWFya2VkIGFzIGVzdGFibGlzaGVkIGJ5CmNvbm50cmFjayAoK2VzdCksIGFuZCB0aGUgcGFja2V0
+IGlzIG91dHB1dCBvbiBwb3J0IDEuICBNYXRjaGluZyBvbgpjdF96b25lIGlzIG5vdCBzdHJpY3Rs
+eSBuZWVkZWQsIGJ1dCBpbiB0aGlzIHRlc3QgY2FzZSBpdCB2ZXJpZmllcyB0aGF0CnRoZSBjdF96
+b25lIGtleSBhdHRyaWJ1dGUgaXMgcHJvcGVybHkgc2V0IGJ5IHRoZSBjb25udHJhY2sgYWN0aW9u
+LgoKQSBmdWxsIHRlc3QgY2FzZSByZXF1aXJlcyBydWxlcyBmb3IgQVJQIGhhbmRsaW5nIG5vdCBz
+aG93biBoZXJlLgoKVGhlIGZsb3cgdGFibGUgYWJvdmUgaXMgYW4gT3BlbkZsb3cgdGFibGUsIGFu
+ZCB0aGUgcnVsZXMgdGhlcmVpbgphcmUgdHJhbnNsYXRlZCB0byBrZXJuZWwgZmxvdyBlbnRyaWVz
+IG9uLWRlbWFuZCBieSBvdnMtdnN3aXRjaGQuCgpKYXJubyBSYWphaGFsbWUgKDgpOgogIG5ldGZp
+bHRlcjogUmVtb3ZlIElQX0NUX05FV19SRVBMWSBkZWZpbml0aW9uLgogIG5ldGZpbHRlcjogRmFj
+dG9yIG91dCBuZl9jdF9nZXRfaW5mbygpLgogIG5ldGZpbHRlcjogQWxsb3cgY2FsbGluZyBpbnRv
+IG5hdCBoZWxwZXIgd2l0aG91dCBza2JfZHN0LgogIG9wZW52c3dpdGNoOiBVcGRhdGUgdGhlIENU
+IHN0YXRlIGtleSBvbmx5IGFmdGVyIG5mX2Nvbm50cmFja19pbigpLgogIG9wZW52c3dpdGNoOiBG
+aW5kIGV4aXN0aW5nIGNvbm50cmFjayBlbnRyeSBhZnRlciB1cGNhbGwuCiAgb3BlbnZzd2l0Y2g6
+IEhhbmRsZSBORl9SRVBFQVQgaW4gY29ubnRyYWNrIGFjdGlvbi4KICBvcGVudnN3aXRjaDogRGVs
+YXkgY29ubnRyYWNrIGhlbHBlciBjYWxsIGZvciBuZXcgY29ubmVjdGlvbnMuCiAgb3BlbnZzd2l0
+Y2g6IEludGVyZmFjZSB3aXRoIE5BVC4KCiBpbmNsdWRlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRy
+YWNrLmggICAgICAgICAgICAgICB8ICAxNSArCiBpbmNsdWRlL3VhcGkvbGludXgvbmV0ZmlsdGVy
+L25mX2Nvbm50cmFja19jb21tb24uaCB8ICAxMiArLQogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52
+c3dpdGNoLmggICAgICAgICAgICAgICAgICAgfCAgNDcgKysKIG5ldC9pcHY0L25ldGZpbHRlci9u
+Zl9uYXRfbDNwcm90b19pcHY0LmMgICAgICAgICAgIHwgIDI5ICstCiBuZXQvaXB2Ni9uZXRmaWx0
+ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jICAgICAgICAgICB8ICAyOSArLQogbmV0L25ldGZpbHRl
+ci9uZl9jb25udHJhY2tfY29yZS5jICAgICAgICAgICAgICAgICAgfCAgMjIgKy0KIG5ldC9vcGVu
+dnN3aXRjaC9jb25udHJhY2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgNjMyICsrKysrKysr
+KysrKysrKysrKystLQogbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5oICAgICAgICAgICAgICAg
+ICAgICAgICAgfCAgIDMgKy0KIDggZmlsZXMgY2hhbmdlZCwgNjg2IGluc2VydGlvbnMoKyksIDEw
+MyBkZWxldGlvbnMoLSkKCi0tIAoyLjEuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0
+dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
