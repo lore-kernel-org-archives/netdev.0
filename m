@@ -1,33 +1,97 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] net: Add fib rules at vrf device create
-Date: Wed, 9 Dec 2015 16:04:53 -0700
-Message-ID: <5668B395.2030604@cumulusnetworks.com>
-References: <1449683012-14145-1-git-send-email-dsa@cumulusnetworks.com>
- <20151209.151309.1866782058292162458.davem@davemloft.net>
- <5668A592.3080104@cumulusnetworks.com>
- <20151209.172207.663308411545854156.davem@davemloft.net>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
+ CONFIG_INET
+Date: Wed, 9 Dec 2015 18:05:05 -0500
+Message-ID: <20151209230505.GA16610@cmpxchg.org>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+ <2564892.qO1q7YJ6Nb@wuerfel>
+ <7343206.sFybcLLUN2@wuerfel>
+ <20151209185858.GA2342@cmpxchg.org>
+ <20151209142836.e81260567879110f319c01a4@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:32902 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422AbbLIXE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:04:56 -0500
-Received: by obbww6 with SMTP id ww6so47328080obb.0
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:04:56 -0800 (PST)
-In-Reply-To: <20151209.172207.663308411545854156.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, cgroups@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20151209142836.e81260567879110f319c01a4@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 12/9/15 3:22 PM, David Miller wrote:
-> Just write a script already...
+On Wed, Dec 09, 2015 at 02:28:36PM -0800, Andrew Morton wrote:
+> On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
+> 
+> > > diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> > > index 6faea81e66d7..73cd572167bb 100644
+> > > --- a/mm/memcontrol.c
+> > > +++ b/mm/memcontrol.c
+> > > @@ -4220,13 +4220,13 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
+> > >  	if (ret)
+> > >  		return ret;
+> > >  
+> > > +#ifdef CONFIG_INET
+> > >  #ifdef CONFIG_MEMCG_LEGACY_KMEM
+> > >  	ret = tcp_init_cgroup(memcg);
+> > >  	if (ret)
+> > >  		return ret;
+> > >  #endif
+> > 
+> > The calls to tcp_init_cgroup() appear earlier in the series than "mm:
+> > memcontrol: hook up vmpressure to socket pressure". However, they get
+> > moved around a few times so fixing it earlier means respinning the
+> > series. Andrew, it's up to you whether we take the bisectability hit
+> > for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
+> > want me to resend the series.
+> 
+> hm, drat, I was suspecting dependency issues here, but a test build
+> said it was OK.
+> 
+> Actually, I was expecting this patch series to depend on the linux-next
+> cgroup2 changes, but that doesn't appear to be the case.  *should* this
+> series be staged after the cgroup2 code?
 
-Why do you think this took so long to bubble up?
+Code-wise they are independent. My stuff is finishing up the new memcg
+control knobs, the cgroup2 stuff is changing how and when those knobs
+are exposed from within the cgroup core. I'm not relying on any recent
+changes in the cgroup core AFAICS, so the order shouldn't matter here.
 
-I wrote a script back in July -- well before VRF was accepted into your 
-tree -- that I use for testing. This request comes from other users 
-starting to work with VRFs.
+> Regarding this particular series: yes, I think we can live with a
+> bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
+> sure why we're discussing bisection issues, because Arnd's build
+> failure occurs with everything applied?
+
+Arnd's patches apply to the top of the stack, but they address issues
+introduced early in the series and the problematic code gets touched a
+lot in subsequent patches. E.g. the first build breakage is in ("net:
+tcp_memcontrol: simplify linkage between socket and page counter")
+when the tcp_init_cgroup() and tcp_destroy_cgroup() function calls get
+moved around and lose the CONFIG_INET protection.
+
+This will leave states in between broken for this configuration, which
+is why I brought up bisection. Or did you mean something else?
+
+> > Sorry about the trouble. I don't have a git tree on kernel.org because
+> > we don't really use git in -mm, but the downside is that we don't get
+> > the benefits of the automatic build testing for all kinds of configs.
+> > I'll try to set up a git tree to expose series to full build coverage
+> > before they hit -mm and -next.
+> 
+> This sort of thing happens quite rarely.
+
+True, this is a particularly tedious one. The only reason I brought it
+up is because I use git to prepare patches anyway, and pushing patches
+into a branch reachable by Fengguang's rig before I send emails might
+have caught this stuff without spamming so many inboxes ;)
+
+Anyway, if we can live with the bisection caveat then Arnd's fixes on
+top of the kmem series look good to me. Depending on what Vladimir
+thinks we might want to replace the CONFIG_SLOB fix with something
+else later on, but that shouldn't be a problem, either.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
