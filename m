@@ -1,7 +1,7 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net-next.git) 18/18] stmmac: update version to Oct_2015
-Date: Wed, 9 Dec 2015 09:37:54 +0100
-Message-ID: <1449650274-14896-19-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net-next.git) 11/18] stmmac: set dirty index out of the loop
+Date: Wed, 9 Dec 2015 09:37:47 +0100
+Message-ID: <1449650274-14896-12-git-send-email-peppe.cavallaro@st.com>
 References: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,47 +9,59 @@ Cc: <alexandre.torgue@st.com>,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:41851 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:41814 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752047AbbLII2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 03:28:49 -0500
+	by vger.kernel.org with ESMTP id S1753352AbbLII2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 03:28:32 -0500
 Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
-	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id tB98DiVr006894
-	for <netdev@vger.kernel.org>; Wed, 9 Dec 2015 09:28:48 +0100
+	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id tB98DhfD006887
+	for <netdev@vger.kernel.org>; Wed, 9 Dec 2015 09:28:31 +0100
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx08-00178001.pphosted.com with ESMTP id 1yjw8vkqdm-1
+	by mx08-00178001.pphosted.com with ESMTP id 1yjw8vkqc3-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:28:48 +0100
+	for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 09:28:31 +0100
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 93E593F
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:11 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6502A3A
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:27:54 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0698A4F64
-	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:47 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id D3A8A4F63
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 08:28:29 +0000 (GMT)
 In-Reply-To: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch just updates the driver to the version fully
-tested on STi platforms. This version is Oct_2015.
+The dirty index can be updated out of the loop where all the
+tx resources are claimed. This will help on performances too.
+Also a useless debug printk has been removed from the main loop.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 55180e0..99c64a1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -24,7 +24,7 @@
- #define __STMMAC_H__
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index e51eee3..38468e9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1360,9 +1360,6 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ 			}
+ 			stmmac_get_tx_hwtstamp(priv, entry, skb);
+ 		}
+-		if (netif_msg_tx_done(priv))
+-			pr_debug("%s: curr %d, dirty %d\n", __func__,
+-				 priv->cur_tx, priv->dirty_tx);
  
- #define STMMAC_RESOURCE_NAME   "stmmaceth"
--#define DRV_MODULE_VERSION	"March_2013"
-+#define DRV_MODULE_VERSION	"Oct_2015"
+ 		if (likely(priv->tx_skbuff_dma[entry].buf)) {
+ 			if (priv->tx_skbuff_dma[entry].map_as_page)
+@@ -1393,8 +1390,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
  
- #include <linux/clk.h>
- #include <linux/stmmac.h>
+ 		if (++entry >= txsize)
+ 			entry = 0;
+-		priv->dirty_tx = entry;
+ 	}
++	priv->dirty_tx = entry;
+ 
+ 	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
+ 
 -- 
 1.7.4.4
