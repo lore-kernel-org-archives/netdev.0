@@ -1,47 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/4] stmmac: create of compatible mdio bus for
- stmacc driver
-Date: Tue, 08 Dec 2015 21:37:42 -0500 (EST)
-Message-ID: <20151208.213742.651430572988328138.davem@davemloft.net>
-References: <1449625269-46078-2-git-send-email-preid@electromag.com.au>
-	<201512091033.svvb9HL7%fengguang.wu@intel.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH v2 0/5] Add virtio transport for AF_VSOCK
+Date: Wed, 9 Dec 2015 10:38:04 +0800
+Message-ID: <20151209023804.GC22280@stefanha-x1.localdomain>
+References: <1449038643-25971-1-git-send-email-stefanha@redhat.com>
+ <20151204074504.GA21363@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: preid@electromag.com.au, kbuild-all@01.org, robh+dt@kernel.org,
-	pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, vbridger@opensource.altera.com,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org
-To: lkp@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48014 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbbLIChp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:37:45 -0500
-In-Reply-To: <201512091033.svvb9HL7%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bKyqfOwhbdpXa4YI"
+Cc: kvm@vger.kernel.org, Matt Benjamin <mbenjamin@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	netdev@vger.kernel.org, matt.ma@linaro.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151204074504.GA21363@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: kbuild test robot <lkp@intel.com>
-Date: Wed, 9 Dec 2015 10:15:17 +0800
 
-> Hi Phil,
-> 
-> [auto build test ERROR on net-next/master]
-> [also build test ERROR on v4.4-rc4 next-20151208]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Phil-Reid/stmmac-create-of-compatible-mdio-bus-for-stmacc-driver/20151209-094242
-> config: x86_64-randconfig-b0-12090825 (attached as .config)
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c: In function 'stmmac_mdio_register':
->>> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c:226:17: error: 'struct stmmac_mdio_bus_data' has no member named 'reset_gpio'
->        mdio_bus_data->reset_gpio = -1;
->                     ^
+--bKyqfOwhbdpXa4YI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yeah this member is only visible when CONFIG_OF.
+On Fri, Dec 04, 2015 at 09:45:04AM +0200, Michael S. Tsirkin wrote:
+> On Wed, Dec 02, 2015 at 02:43:58PM +0800, Stefan Hajnoczi wrote:
+> > 1. The 3-way handshake isn't necessary over a reliable transport (virtq=
+ueue).
+> >    Spoofing packets is also impossible so the security aspects of the 3=
+-way
+> >    handshake (including syn cookie) add nothing.  The next version will=
+ have a
+> >    single operation to establish a connection.
+>=20
+> It's hard to discuss without seeing the details, but we do need to
+> slow down guests that are flooding host with socket creation requests.
+> The handshake is a simple way for hypervisor to defer
+> such requests until it has resources without
+> breaking things.
+
+I'll send an updated virtio-vsock device specification so we can discuss
+it.
+
+VMCI simply uses sk->sk_max_ack_backlog in
+net/vmw_vsock/vmci_transport.c.  If backlog (from listen(2)) is maxed
+out then the connection is refused.
+
+The same would work for virtio-vsock and there is no advantage to the
+3-way handshake.
+
+> > 2. Credit-based flow control doesn't work for SOCK_DGRAM since multiple=
+ clients
+> >    can transmit to the same listen socket.  There is no way for the cli=
+ents to
+> >    coordinate buffer space with each other fairly.  The next version wi=
+ll drop
+> >    credit-based flow control for SOCK_DGRAM and only rely on best-effort
+> >    delivery.  SOCK_STREAM still has guaranteed delivery.
+>=20
+> I suspect in the end we will need a measure of fairness even
+> if you drop packets. And recovering from packet loss is
+> hard enough that not many applications do it correctly.
+> I suggest disabling SOCK_DGRAM for now.
+
+I'm not aware of a SOCK_DGRAM user at this time.  Will disable it for
+now.
+
+--bKyqfOwhbdpXa4YI
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJWZ5QMAAoJEJykq7OBq3PId9UH/3AtdTnom65Ri5q+blEVDMoZ
+tEkQXlDoxfM0mQ3l8qwtO3j65JFTEQFXTNYCH2MSHd3UPYFkAOSgJbUNWTDjJ06O
+9K3Y93YSOFRI3245GE49gxiaw+mXBpHuVjrvIApOMh+PHzkmDRXVNpndV/tdlqSZ
+2lQwiB9uMTHUfZUY3qXpdcI6X/UTJJzQsBr/JJdTqriWY+X1It+V4sE4FsQo+QHJ
+p41lzOS+WrKxEIwqyDpyJcqfj0eEYbTzjs1ldDLDEeWr48c6OWoCMEmt3S86ePhO
+rgTtxfBEv9NZ/wKCHU3GLDRwxJfsB+rd01fHuqZO4o7N83vnna6Gl0OgJI/BGJY=
+=VEuq
+-----END PGP SIGNATURE-----
+
+--bKyqfOwhbdpXa4YI--
