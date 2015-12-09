@@ -1,50 +1,68 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] net: Add fib rules at vrf device create
-Date: Wed, 9 Dec 2015 15:05:06 -0700
-Message-ID: <5668A592.3080104@cumulusnetworks.com>
-References: <1449683012-14145-1-git-send-email-dsa@cumulusnetworks.com>
- <20151209.151309.1866782058292162458.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+From: Joe Stringer <joe@ovn.org>
+Subject: [PATCH net 2/2] openvswitch: Respect conntrack zone even if invalid
+Date: Wed,  9 Dec 2015 14:07:40 -0800
+Message-ID: <1449698860-20685-2-git-send-email-joe@ovn.org>
+References: <1449698860-20685-1-git-send-email-joe@ovn.org>
+Cc: Joe Stringer <joe@ovn.org>, pshelar@nicira.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33481 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752274AbbLIWFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:05:11 -0500
-Received: by pfnn128 with SMTP id n128so36455744pfn.0
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:05:10 -0800 (PST)
-In-Reply-To: <20151209.151309.1866782058292162458.davem@davemloft.net>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:37140 "EHLO
+	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751303AbbLIWH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:07:56 -0500
+In-Reply-To: <1449698860-20685-1-git-send-email-joe@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/9/15 1:13 PM, David Miller wrote:
-> The new attributes make things more complex, because ever _VALID_ tool
-> much accomodate the existing situation and be able to perform all of
-> the commands above if they are executed on an older kernel.
->
-> So the new attributes make things worse, not better.
+If userspace executes ct(zone=1), and the connection tracker determines
+that the packet is invalid, then the ct_zone flow key field is populated
+with the default zone rather than the zone that was specified. Even
+though connection tracking failed, this field should be updated with the
+value that the action specified. Fix the issue.
 
-Dave, how does this make it more complex - beyond the complexity of 
-giving a user choices?
+Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+Signed-off-by: Joe Stringer <joe@ovn.org>
+---
+ net/openvswitch/conntrack.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-If a user wants to install rules directly go for it. That path works 
-fine. That covers whatever user base has popped up over the last 38 days 
-for the IPv4 support in v4.3 and who ever starts on v4.4 with IPv6 support.
-
-With this change if a user wants the driver to take care of the details 
-it can -- by the user asking for the driver to deal with the details.
-
-The 2 options peacefully co-exist.
-
->
-> I will ignore all further attempts to find schemes automate the rule
-> and route additions, because it is simply the wrong way forward.
-
-You want to say I failed by not including this in the first patch set - 
-fine blame accepted. The initial patches focused on core infrastructure 
-to enable VRF support in Linux -- a subject which has proved tough 
-enough over the past 15 years.
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 585a5aa81f89..3e8892216f94 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -143,6 +143,7 @@ static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
+  * previously sent the packet to conntrack via the ct action.
+  */
+ static void ovs_ct_update_key(const struct sk_buff *skb,
++			      const struct ovs_conntrack_info *info,
+ 			      struct sw_flow_key *key, bool post_ct)
+ {
+ 	const struct nf_conntrack_zone *zone = &nf_ct_zone_dflt;
+@@ -160,13 +161,15 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
+ 		zone = nf_ct_zone(ct);
+ 	} else if (post_ct) {
+ 		state = OVS_CS_F_TRACKED | OVS_CS_F_INVALID;
++		if (info)
++			zone = &info->zone;
+ 	}
+ 	__ovs_ct_update_key(key, state, zone, ct);
+ }
+ 
+ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
+ {
+-	ovs_ct_update_key(skb, key, false);
++	ovs_ct_update_key(skb, NULL, key, false);
+ }
+ 
+ int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb)
+@@ -420,7 +423,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 		}
+ 	}
+ 
+-	ovs_ct_update_key(skb, key, true);
++	ovs_ct_update_key(skb, info, key, true);
+ 
+ 	return 0;
+ }
+-- 
+2.1.4
