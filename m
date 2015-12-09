@@ -1,65 +1,102 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net 4/4] bnxt_en: Implement missing tx timeout reset logic.
-Date: Tue, 8 Dec 2015 19:18:42 -0500
-Message-ID: <1449620322-12961-5-git-send-email-mchan@broadcom.com>
-References: <1449620322-12961-1-git-send-email-mchan@broadcom.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
+Date: Tue, 8 Dec 2015 16:22:01 -0800
+Message-ID: <CAPWQB7HkBFRozJzYNMDSZexJzmFVfDWc02Mkk1oTwwiCQtvPCg@mail.gmail.com>
+References: <56435508.9070802@mellanox.com> <CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
+ <CAJ3xEMhopRFPJFj4k41X6dKWz7Ok1Jqvtht7YS=59e3ceRf-qg@mail.gmail.com>
+ <CAOftzPjio364zHUXSpK3uFDu+DiSc=5ae1WVjg9C+8485rpBsw@mail.gmail.com>
+ <CAJ3xEMi5fPCd=v2UJN0CZB5948WpDuBm25rGW4yP6-q_QF31nw@mail.gmail.com>
+ <CANr6G5xe7URQgr=C7gL=xoAaUf5rXPQByBZscmNSVHyv2=+wRg@mail.gmail.com>
+ <CAJ3xEMiSwVhUCTYcH+nWWBqrSwiykqsBFUZtBkirQtzsXVVL4A@mail.gmail.com>
+ <CAJ3xEMhzB3UzfeJ8rvCmDFG57QnG5wdHPfahthxgR7Y-vvaiQg@mail.gmail.com>
+ <CAOftzPieLwrF2V5YknHBRHxpGSsHqvqDoiHFPvXEcp3NUe24Gw@mail.gmail.com>
+ <CAPWQB7GmJNYwmu5fSOWeLQxhdfPR4WgaD-=F7ZQCd6PtmQ=oYQ@mail.gmail.com> <CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilya Lesokhin <ilyal@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Tal Anker <Ankertal@mellanox.com>,
+	Jarno Rajahalme <jarno@ovn.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:52307 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752173AbbLIASo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 19:18:44 -0500
-In-Reply-To: <1449620322-12961-1-git-send-email-mchan@broadcom.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:44527 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913AbbLIAWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 19:22:24 -0500
+Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
+	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 81CE5172098
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 01:22:22 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+	by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id qEA5MPZOOEDS for <netdev@vger.kernel.org>;
+	Wed,  9 Dec 2015 01:22:21 +0100 (CET)
+Received: from mail-wm0-f41.google.com (mail-wm0-f41.google.com [74.125.82.41])
+	(Authenticated sender: joe@ovn.org)
+	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 23CB517209A
+	for <netdev@vger.kernel.org>; Wed,  9 Dec 2015 01:22:21 +0100 (CET)
+Received: by wmww144 with SMTP id w144so201502613wmw.1
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 16:22:20 -0800 (PST)
+In-Reply-To: <CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The reset logic calls bnxt_close_nic() and bnxt_open_nic() under rtnl_lock
-from bnxt_sp_task.  BNXT_STATE_IN_SP_TASK must be cleared before calling
-bnxt_close_nic() to avoid deadlock.
+On 8 December 2015 at 13:23, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Tue, Dec 8, 2015 at 9:20 PM, Joe Stringer <joe@ovn.org> wrote:
+>> On 2 December 2015 at 10:01, Joe Stringer <joe@ovn.org> wrote:
+>>> On 29 November 2015 at 05:37, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>> On Thu, Nov 19, 2015 at 5:40 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>> On Sat, Nov 14, 2015 at 8:45 AM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>>>> On 13 November 2015 at 06:46, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>>>> On Fri, Nov 13, 2015 at 10:14 AM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>>>
+>>>>>>>> I agree that this UNSPEC issue on v2.3 could do with a bit of a closer
+>>>>>>>> look. I'll see if I can find some time for it. Alternatively if you're
+>>>>>>>> willing and have bandwith, I'd be curious if it's related to the
+>>>>>>>> masked set field feature introduced in Linux-4.0.
+>>>>>
+>>>>>>> so what would you suggest here? run with 3.19 or earlier?
+>>>>>
+>>>>>> On second thought, I think if it were related to that then userspace
+>>>>>> v2.4 would not exhibit the problem. I'd have to dig in to see why it
+>>>>>> occurs.
+>>>>>
+>>>>> Any findings?
+>>>>
+>>>> Hi Joe/Jesse,
+>>>>
+>>>> Apart from Haggai's note on the TTL, I am pinging you here for the 2nd
+>>>> time... can you please let me know how
+>>>> this goes on your end?
+>
+>>> Apologies for the delayed response, we haven't found anything
+>>> interesting yet although we've mostly looked at plain set-field
+>>> actions with a combination of kernel/userspace versions. I plan to
+>>> carve out some time later this week to take another look.
+>
+>> (resending due to teething issues with new email and plain-text, sorry
+>> for the spam)
+>
+>> As far as the mask, I briefly discussed this with Jarno and it seems
+>> like it could be something as simple as zeroing the ip_ttl mask in
+>> tnl_wc_init().
+>
+> to make sure I follow, will that have the consequence that we (user +
+> kernel) will practically not be testing the ttl for these flows?
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+Yes, it would cause userspace to 'wildcard' the field so the kernel
+flows that are installed will ignore it during lookup.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index f5f4489..0c2c3f5 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5031,8 +5031,10 @@ static void bnxt_dbg_dump_states(struct bnxt *bp)
- static void bnxt_reset_task(struct bnxt *bp)
- {
- 	bnxt_dbg_dump_states(bp);
--	if (netif_running(bp->dev))
--		bnxt_tx_disable(bp); /* prevent tx timout again */
-+	if (netif_running(bp->dev)) {
-+		bnxt_close_nic(bp, false, false);
-+		bnxt_open_nic(bp, false, false);
-+	}
- }
- 
- static void bnxt_tx_timeout(struct net_device *dev)
-@@ -5111,8 +5113,16 @@ static void bnxt_sp_task(struct work_struct *work)
- 		bnxt_hwrm_tunnel_dst_port_free(
- 			bp, TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_VXLAN);
- 	}
--	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event))
--		bnxt_reset_task(bp);
-+	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event)) {
-+		/* bnxt_reset_task() calls bnxt_close_nic() which waits
-+		 * for BNXT_STATE_IN_SP_TASK to clear.
-+		 */
-+		clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
-+		rtnl_lock();
-+ 		bnxt_reset_task(bp);
-+		set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
-+		rtnl_unlock();
-+	}
- 
- 	smp_mb__before_atomic();
- 	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
--- 
-1.8.3.1
+>> As far as the UNSPEC issue, I couldn't reproduce it. Are you sure that
+>> there weren't multiple versions of OVS installed, and while the OVS
+>> running was v2.3, your ovs-dpctl was an older version? I was running
+>> latest OVS branch-2.3 (c2e761f5b152).
+>
+> OK, for the sake of double checking, I will do over-all cleanup and
+> re-check, but will be able to do that only next week.
+
+Thanks,
+Joe
