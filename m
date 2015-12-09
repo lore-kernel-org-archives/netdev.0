@@ -1,7 +1,7 @@
 From: David Daney <ddaney@caviumnetworks.com>
 Subject: Re: [PATCH net] phy: micrel: Fix finding PHY properties in MAC node.
-Date: Wed, 9 Dec 2015 10:38:49 -0800
-Message-ID: <56687539.3060608@caviumnetworks.com>
+Date: Wed, 9 Dec 2015 10:42:41 -0800
+Message-ID: <56687621.9010602@caviumnetworks.com>
 References: <1449686226-14834-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
@@ -12,11 +12,11 @@ Cc: David Miller <davem@davemloft.net>,
 	<dinguyen@opensource.altera.com>, <david.daney@cavium.com>
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0069.outbound.protection.outlook.com ([157.56.111.69]:54928
+Received: from mail-bn1bon0065.outbound.protection.outlook.com ([157.56.111.65]:34283
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753934AbbLITLP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2015 14:11:15 -0500
+	id S1753553AbbLITPg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2015 14:15:36 -0500
 In-Reply-To: <1449686226-14834-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -35,9 +35,6 @@ On 12/09/2015 10:37 AM, Andrew Lunn wrote:
 > Suggested-by: David Daney <david.daney@cavium.com>
 > Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
 > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-
-Acked-by: David Daney <david.daney@cavium.com>
-
 > ---
 >   drivers/net/phy/micrel.c | 14 ++++++++++++--
 >   1 file changed, 12 insertions(+), 2 deletions(-)
@@ -51,6 +48,10 @@ Acked-by: David Daney <david.daney@cavium.com>
 >   #include <linux/phy.h>
 >   #include <linux/micrel_phy.h>
 > +#include <linux/netdevice.h>
+
+No new types are introduced by the patch.  Why do we need an additional 
+#include?
+
 >   #include <linux/of.h>
 >   #include <linux/clk.h>
 >
