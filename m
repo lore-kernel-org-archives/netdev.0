@@ -1,7 +1,7 @@
 From: Phil Reid <preid@electromag.com.au>
-Subject: [PATCH v5 1/4] stmmac: create of compatible mdio bus for stmacc driver
-Date: Wed,  9 Dec 2015 16:39:38 +0800
-Message-ID: <1449650381-82074-2-git-send-email-preid@electromag.com.au>
+Subject: [PATCH v5 3/4] stmmac: Fix calculations for ptp counters when clock input = 50Mhz.
+Date: Wed,  9 Dec 2015 16:39:40 +0800
+Message-ID: <1449650381-82074-4-git-send-email-preid@electromag.com.au>
 References: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
 Cc: Phil Reid <preid@electromag.com.au>
 To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
@@ -10,131 +10,136 @@ To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:49235 "EHLO
+Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:49241 "EHLO
 	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751685AbbLJBdV (ORCPT
+	by vger.kernel.org with ESMTP id S1753417AbbLJBdV (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 20:33:21 -0500
 In-Reply-To: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DSA driver needs to be passed a reference to an mdio bus. Typically
-the mac is configured to use a fixed link but the mdio bus still needs
-to be registered so that it con configure the switch.
-This patch follows the same process as the altera tse ethernet driver for
-creation of the mdio bus.
+stmmac_config_sub_second_increment set the sub second increment to 20ns.
+Driver is configured to use the fine adjustment method where the sub second
+register is incremented when the acculumator incremented by the addend
+register wraps overflows. This accumulator is update on every ptp clk
+cycle. If a ptp clk with a period of greater than 20ns was used the
+sub second register would not get updated correctly.
 
-Acked-by: Rob Herring <robh@kernel.org>
+Instead set the sub sec increment to twice the period of the ptp clk.
+This result in the addend register being set mid range and overflow
+the accumlator every 2 clock cycles.
+
 Signed-off-by: Phil Reid <preid@electromag.com.au>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt   |  8 ++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 31 +++++++++++++++-------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
- 3 files changed, 31 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h          |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c |  9 ++++++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 19 ++++++++-----------
+ 3 files changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index f34fc3c..fd5ddf8 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -47,6 +47,7 @@ Optional properties:
- - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
-+- mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index f4518bc..1e19c8f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -439,7 +439,7 @@ struct stmmac_ops {
+ /* PTP and HW Timer helpers */
+ struct stmmac_hwtimestamp {
+ 	void (*config_hw_tstamping) (void __iomem *ioaddr, u32 data);
+-	void (*config_sub_second_increment) (void __iomem *ioaddr);
++	u32 (*config_sub_second_increment) (void __iomem *ioaddr, u32 clk_rate);
+ 	int (*init_systime) (void __iomem *ioaddr, u32 sec, u32 nsec);
+ 	int (*config_addend) (void __iomem *ioaddr, u32 addend);
+ 	int (*adjust_systime) (void __iomem *ioaddr, u32 sec, u32 nsec,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+index 76ad214..a77f689 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+@@ -33,22 +33,25 @@ static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
+ 	writel(data, ioaddr + PTP_TCR);
+ }
  
- Examples:
+-static void stmmac_config_sub_second_increment(void __iomem *ioaddr)
++static u32 stmmac_config_sub_second_increment(void __iomem *ioaddr,
++					      u32 ptp_clock)
+ {
+ 	u32 value = readl(ioaddr + PTP_TCR);
+ 	unsigned long data;
  
-@@ -65,4 +66,11 @@ Examples:
- 		tx-fifo-depth = <16384>;
- 		clocks = <&clock>;
- 		clock-names = "stmmaceth";
-+		mdio0 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			compatible = "snps,dwmac-mdio";
-+			phy1: ethernet-phy@0 {
-+			};
-+		};
- 	};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index bba670c..bb6f75c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -29,7 +29,7 @@
- #include <linux/slab.h>
- #include <linux/of.h>
- #include <linux/of_gpio.h>
--
-+#include <linux/of_mdio.h>
- #include <asm/io.h>
+ 	/* Convert the ptp_clock to nano second
+-	 * formula = (1/ptp_clock) * 1000000000
++	 * formula = (2/ptp_clock) * 1000000000
+ 	 * where, ptp_clock = 50MHz.
+ 	 */
+-	data = (1000000000ULL / 50000000);
++	data = (2000000000ULL / ptp_clock);
  
+ 	/* 0.465ns accuracy */
+ 	if (!(value & PTP_TCR_TSCTRLSSR))
+ 		data = (data * 1000) / 465;
+ 
+ 	writel(data, ioaddr + PTP_SSIR);
++
++	return data;
+ }
+ 
+ static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3c6549a..2231a01 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -53,6 +53,7 @@
  #include "stmmac.h"
-@@ -200,10 +200,29 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
- 	int addr, found;
-+	struct device_node *mdio_node = NULL;
-+	struct device_node *child_node = NULL;
+ #include <linux/reset.h>
+ #include <linux/of_mdio.h>
++#include "dwmac1000.h"
  
- 	if (!mdio_bus_data)
- 		return 0;
+ #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
  
-+	if (IS_ENABLED(CONFIG_OF)) {
-+		for_each_child_of_node(priv->device->of_node, child_node) {
-+			if (of_device_is_compatible(child_node,
-+						    "snps,dwmac-mdio")) {
-+				mdio_node = child_node;
-+				break;
-+			}
-+		}
-+
-+		if (mdio_node) {
-+			netdev_dbg(ndev, "FOUND MDIO subnode\n");
-+		} else {
-+			netdev_err(ndev, "NO MDIO subnode\n");
-+			return 0;
-+		}
-+	}
-+
- 	new_bus = mdiobus_alloc();
- 	if (new_bus == NULL)
- 		return -ENOMEM;
-@@ -231,7 +250,8 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	new_bus->irq = irqlist;
- 	new_bus->phy_mask = mdio_bus_data->phy_mask;
- 	new_bus->parent = priv->device;
--	err = mdiobus_register(new_bus);
-+
-+	err = of_mdiobus_register(new_bus, mdio_node);
- 	if (err != 0) {
- 		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
- 		goto bus_register_fail;
-@@ -284,13 +304,6 @@ int stmmac_mdio_register(struct net_device *ndev)
- 		}
+@@ -185,7 +186,7 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
+ 			priv->clk_csr = STMMAC_CSR_100_150M;
+ 		else if ((clk_rate >= CSR_F_150M) && (clk_rate < CSR_F_250M))
+ 			priv->clk_csr = STMMAC_CSR_150_250M;
+-		else if ((clk_rate >= CSR_F_250M) && (clk_rate <= CSR_F_300M))
++		else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
+ 			priv->clk_csr = STMMAC_CSR_250_300M;
  	}
+ }
+@@ -435,6 +436,7 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 	u32 ts_master_en = 0;
+ 	u32 ts_event_en = 0;
+ 	u32 value = 0;
++	u32 sec_inc;
  
--	if (!found) {
--		pr_warn("%s: No PHY found\n", ndev->name);
--		mdiobus_unregister(new_bus);
--		mdiobus_free(new_bus);
--		return -ENODEV;
--	}
+ 	if (!(priv->dma_cap.time_stamp || priv->adv_ts)) {
+ 		netdev_alert(priv->dev, "No support for HW time stamping\n");
+@@ -598,24 +600,19 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 			 tstamp_all | ptp_v2 | ptp_over_ethernet |
+ 			 ptp_over_ipv6_udp | ptp_over_ipv4_udp | ts_event_en |
+ 			 ts_master_en | snap_type_sel);
 -
- 	priv->mii = new_bus;
+ 		priv->hw->ptp->config_hw_tstamping(priv->ioaddr, value);
  
- 	return 0;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index d02691b..6863420 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -146,7 +146,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+ 		/* program Sub Second Increment reg */
+-		priv->hw->ptp->config_sub_second_increment(priv->ioaddr);
++		sec_inc = priv->hw->ptp->config_sub_second_increment(
++			priv->ioaddr, priv->clk_ptp_rate);
++		temp = div_u64(1000000000ULL, sec_inc);
  
--	if (plat->phy_node || plat->phy_bus_name)
-+	if (plat->phy_bus_name)
- 		plat->mdio_bus_data = NULL;
- 	else
- 		plat->mdio_bus_data =
+ 		/* calculate default added value:
+ 		 * formula is :
+ 		 * addend = (2^32)/freq_div_ratio;
+-		 * where, freq_div_ratio = clk_ptp_ref_i/50MHz
+-		 * hence, addend = ((2^32) * 50MHz)/clk_ptp_ref_i;
+-		 * NOTE: clk_ptp_ref_i should be >= 50MHz to
+-		 *       achieve 20ns accuracy.
+-		 *
+-		 * 2^x * y == (y << x), hence
+-		 * 2^32 * 50000000 ==> (50000000 << 32)
++		 * where, freq_div_ratio = 1e9ns/sec_inc
+ 		 */
+-		temp = (u64) (50000000ULL << 32);
++		temp = (u64)(temp << 32);
+ 		priv->default_addend = div_u64(temp, priv->clk_ptp_rate);
+ 		priv->hw->ptp->config_addend(priv->ioaddr,
+ 					     priv->default_addend);
 -- 
 1.8.3.1
