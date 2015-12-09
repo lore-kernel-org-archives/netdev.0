@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v4 07/19] net: usnic: use __ethtool_get_ksettings
-Date: Wed,  9 Dec 2015 09:59:17 -0800
-Message-ID: <1449683969-7305-8-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v4 08/19] net: bonding: use __ethtool_get_ksettings
+Date: Wed,  9 Dec 2015 09:59:18 -0800
+Message-ID: <1449683969-7305-9-git-send-email-ddecotig@gmail.com>
 References: <1449683969-7305-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -42,38 +42,50 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_main.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index e082170..e0d12d4 100644
---- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-+++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -324,12 +324,12 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
- 				struct ib_port_attr *props)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index fe0e7a6..ce8c026 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -374,22 +374,20 @@ down:
+ static void bond_update_speed_duplex(struct slave *slave)
  {
- 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
--	struct ethtool_cmd cmd;
-+	struct ethtool_ksettings cmd;
+ 	struct net_device *slave_dev = slave->dev;
+-	struct ethtool_cmd ecmd;
+-	u32 slave_speed;
++	struct ethtool_ksettings ecmd;
+ 	int res;
  
- 	usnic_dbg("\n");
+ 	slave->speed = SPEED_UNKNOWN;
+ 	slave->duplex = DUPLEX_UNKNOWN;
  
- 	mutex_lock(&us_ibdev->usdev_lock);
--	__ethtool_get_settings(us_ibdev->netdev, &cmd);
-+	__ethtool_get_ksettings(us_ibdev->netdev, &cmd);
- 	memset(props, 0, sizeof(*props));
+-	res = __ethtool_get_settings(slave_dev, &ecmd);
++	res = __ethtool_get_ksettings(slave_dev, &ecmd);
+ 	if (res < 0)
+ 		return;
  
- 	props->lid = 0;
-@@ -353,8 +353,8 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
- 	props->pkey_tbl_len = 1;
- 	props->bad_pkey_cntr = 0;
- 	props->qkey_viol_cntr = 0;
--	eth_speed_to_ib_speed(cmd.speed, &props->active_speed,
--				&props->active_width);
-+	eth_speed_to_ib_speed(cmd.parent.speed, &props->active_speed,
-+			      &props->active_width);
- 	props->max_mtu = IB_MTU_4096;
- 	props->active_mtu = iboe_get_mtu(us_ibdev->ufdev->mtu);
- 	/* Userspace will adjust for hdrs */
+-	slave_speed = ethtool_cmd_speed(&ecmd);
+-	if (slave_speed == 0 || slave_speed == ((__u32) -1))
++	if (ecmd.parent.speed == 0 || ecmd.parent.speed == ((__u32)-1))
+ 		return;
+ 
+-	switch (ecmd.duplex) {
++	switch (ecmd.parent.duplex) {
+ 	case DUPLEX_FULL:
+ 	case DUPLEX_HALF:
+ 		break;
+@@ -397,8 +395,8 @@ static void bond_update_speed_duplex(struct slave *slave)
+ 		return;
+ 	}
+ 
+-	slave->speed = slave_speed;
+-	slave->duplex = ecmd.duplex;
++	slave->speed = ecmd.parent.speed;
++	slave->duplex = ecmd.parent.duplex;
+ 
+ 	return;
+ }
 -- 
 2.6.0.rc2.230.g3dd15c0
