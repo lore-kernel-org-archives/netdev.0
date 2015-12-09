@@ -1,50 +1,78 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next] bnx2x: avoid soft lockup in bnx2x_poll()
-Date: Wed, 9 Dec 2015 10:41:08 +0000
-Message-ID: <CO2PR11MB0088284CEFC5C6FEC40AD67397E80@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CO2PR11MB00881A410C4E35D3859CB84C97080@CO2PR11MB0088.namprd11.prod.outlook.com>
- <1449597817.6639.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Subject: Re: [PATCH net-next 1/2] net: hns: enet specisies a reference to dsaf
+Date: Wed, 9 Dec 2015 18:39:59 +0800
+Message-ID: <566804FF.5000607@huawei.com>
+References: <1449302356-54658-1-git-send-email-yankejian@huawei.com>
+ <1449302356-54658-2-git-send-email-yankejian@huawei.com>
+ <56671D27.5070700@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Ariel Elior" <Ariel.Elior@qlogic.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0105.outbound.protection.outlook.com ([207.46.100.105]:20396
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752507AbbLIKlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2015 05:41:12 -0500
-In-Reply-To: <1449597817.6639.4.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: <devicetree@vger.kernel.org>, <haifeng.wei@huawei.com>,
+	<netdev@vger.kernel.org>, <linuxarm@huawei.com>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>,
+	<arnd@arndb.de>, <fengguang.wu@intel.com>, <robh+dt@kernel.org>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
+	<salil.mehta@huawei.com>, <Yisen.Zhuang@huawei.com>,
+	<liguozhu@huawei.com>, <lisheng011@huawei.com>,
+	<huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56671D27.5070700@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+ID4gVW5kZXIgaGVhdnkgVFggbG9hZCwgYm54MnhfcG9sbCgpIGNhbiBsb29wIGZvcmV2ZXIg
-YW5kIHRyaWdnZXIgc29mdCBsb2NrdXANCj4gYnVncy4NCj4gPiA+DQo+ID4gPiBBIG5hcGkgcG9s
-bCBoYW5kbGVyIG11c3QgeWllbGQgYWZ0ZXIgb25lIFRYIGNvbXBsZXRpb24gcm91bmQsIHJpc2sN
-Cj4gPiA+IG9mIGxpdmVsb2NrIGlzIHRvbyBoaWdoIG90aGVyd2lzZS4NCj4gPiA+DQo+ID4gPiBC
-dWcgaXMgdmVyeSBlYXN5IHRvIHRyaWdnZXIgdXNpbmcgYSBkZWJ1ZyBidWlsZCwgYW5kIHVkcCBm
-bG9vZCwNCj4gPiA+IGJlY2F1c2Ugb2YgYWRkZWQgY3B1IGN5Y2xlcyBpbiBUWCBjb21wbGV0aW9u
-LCBhbmQgd2UgZG8gbm90IHJlY2VpdmUNCj4gPiA+IGVub3VnaCBwYWNrZXRzIHRvIGJyZWFrIHRo
-ZSBsb29wLg0KPiA+DQo+ID4gRXJpYyAtIEkgdW5kZXJzdGFuZCB3aGF0IHlvdSdyZSBkb2luZyBh
-bmQgaXQgbG9va3MgZmluZSBbdG8gbWUsIGF0IGxlYXN0XS4NCj4gPiBPdXQgb2YgY3VyaW9zaXR5
-LCBkbyB5b3Uga25vdyB3aGV0aGVyIHJlbW92aW5nIHRoZSBsb29wIGRhbWFnZXMgYW55DQo+ID4g
-b3RoZXIgZmxvdywgaS5lLiwgYnkgc2xvd2luZyB0cmFuc21pdHRlciBhcyB0cmFuc21pc3Npb24g
-cmluZ3MgZ2V0cw0KPiA+IGZpbGxlZCBjb21wbGV0ZWx5IGJldHdlZW4gY29uc2VjdXRpdmUgTkFQ
-SSBydW5zPw0KPiANCj4gSSBzYXcgbm8gZG93bnNpZGVzIHlldC4gTW9zdCBvZiB0aGUgdGltZSBU
-WCBhcmUgYmxvY2tlZCBieSBCUUwgdGhlc2UgZGF5cywNCj4gYmVmb3JlIGNvbXBsZXRlIFRYIHJp
-bmcgZmlsbGluZy4NCj4gDQo+IEkgYWRkZWQgc29tZSBpbnN0cnVtZW50YXRpb24sIGFuZCBldmVu
-IGFmdGVyIHRoZSBwYXRjaCBhbmQgYSBub24tZGVidWcga2VybmVsDQo+IHdlIGNhbiBzZWUgOg0K
-PiANCj4gYm54Mng6IGJueDJ4X3BvbGwoKSB0b29rIDQ1NTAzNiBuc2VjDQo+IA0KPiA0NTUgdXNl
-YyBvbiBvbmUgYm54MnhfcG9sbCgpIGlzIGFscmVhZHkgcXVpdGUgYmlnLCBidXQgb25lIGNhbiB0
-d2VhayBUWCByaW5nDQo+IChldGh0b29sIC1HIGV0aDEgdHggLi4uLikgaWYgbGF0ZW5jaWVzIGFy
-ZSBhIHNlcmlvdXMgY29uY2Vybi4NCj4gDQo+IE5vdGUgdGhhdCBteSBwYXRjaCBzaG91bGQgbm90
-IHNsb3cgdHJhbnNtaXR0ZXJzLCBvbmx5IGdpdmUgYSBjaGFuY2UgZm9yIG90aGVyDQo+IHNvZnRp
-cnFzIGJlaW5nIHNlcnZpY2VkLCBhbmQgZXZlbnR1YWxseSBnaXZlIGNvbnRyb2wgdG8ga3NvZnRp
-cnFkIHVuZGVyIHN0cmVzcy4NCj4gDQoNCkNvb2wuIFRoYW5rcyBFcmljLg0KDQpBY2tlZC1ieTog
-WXV2YWwgTWludHogPFl1dmFsLk1pbnR6QHFsb2dpYy5jb20+DQo=
+
+
+On 2015/12/9 2:10, Florian Fainelli wrote:
+> Subject: s/specisies/specifies/?
+
+Thanks for pointing it out. i will change it in next patchset.
+
+Best Regards,
+yankejian
+
+> On 04/12/15 23:59, yankejian wrote:
+>> enet is associating with dasf. before this patch, the association is
+>> the same strings between ae-name and dsa-name. in a general way, enet
+>> specifies a reference to dsaf should be a good idea. so this patch
+>> deletes the ae-name in enet, and adds parsing the ae-handle
+>> from DT to set the associating with dsaf.
+>>
+>> Signed-off-by: yankejian <yankejian@huawei.com>
+>> ---
+> [snip]
+>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+>> index b364529..3bfe36f 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hnae.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
+>> @@ -95,21 +95,17 @@ static struct hnae_buf_ops hnae_bops = {
+>>  static int __ae_match(struct device *dev, const void *data)
+>>  {
+>>  	struct hnae_ae_dev *hdev = cls_to_ae_dev(dev);
+>> -	const char *ae_id = data;
+>>  
+>> -	if (!strncmp(ae_id, hdev->name, AE_NAME_SIZE))
+>> -		return 1;
+>> -
+>> -	return 0;
+>> +	return hdev->dev->of_node == data;
+>>  }
+>>  
+>> -static struct hnae_ae_dev *find_ae(const char *ae_id)
+>> +static struct hnae_ae_dev *find_ae(const struct device_node *ae_node)
+>>  {
+>>  	struct device *dev;
+>>  
+>> -	WARN_ON(!ae_id);
+>> +	WARN_ON(!ae_node);
+>>  
+>> -	dev = class_find_device(hnae_class, NULL, ae_id, __ae_match);
+>> +	dev = class_find_device(hnae_class, NULL, ae_node, __ae_match);
+> of_find_net_device_by_node might be used for this maybe?
+it needs return hnae_ae_dev so we didn't decide to use of_find_net_device_by_node.
+Thanks
