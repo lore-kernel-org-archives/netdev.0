@@ -1,60 +1,35 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next] ipv6: allow routes to be configured with expire values
-Date: Thu, 10 Dec 2015 00:27:53 +0800
-Message-ID: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449678473.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34165 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752612AbbLIQ15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 11:27:57 -0500
-Received: by pacwq6 with SMTP id wq6so31953999pac.1
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 08:27:56 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 00/14] mm: memcontrol: account socket memory in unified hierarchy v4-RESEND
+Date: Wed, 09 Dec 2015 17:31:38 +0100
+Message-ID: <2564892.qO1q7YJ6Nb@wuerfel>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1449588624-9220-1-git-send-email-hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add the support for adding expire value to routes,  requested by
-Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
-wants it too.
+On Tuesday 08 December 2015 10:30:10 Johannes Weiner wrote:
+> Hi Andrew,
+> 
+> there was some build breakage in CONFIG_ combinations I hadn't tested
+> in the last revision, so here is a fixed-up resend with minimal CC
+> list. The only difference to the previous version is a section in
+> memcontrol.h, but it accumulates throughout the series and would have
+> been a pain to resolve on your end. So here goes. This also includes
+> the review tags that Dave and Vlad had sent out in the meantime.
+> 
+> Difference to the original v4:
 
-add it by using the field rta_expires of rta_cacheinfo
+I needed two more patches on top of today's linux-next kernel, will
+send them as replies to this mail. I don't know if you have already
+fixed the issues for !CONFIG_INET and CONFIG_SLOB, if not please
+fold them into your series.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/route.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c83b6a5..7815bc0 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2709,6 +2709,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
- 	[RTA_PREF]              = { .type = NLA_U8 },
- 	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
- 	[RTA_ENCAP]		= { .type = NLA_NESTED },
-+	[RTA_CACHEINFO]		= { .len = sizeof(struct rta_cacheinfo) },
- };
- 
- static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
-@@ -2809,6 +2810,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (tb[RTA_ENCAP_TYPE])
- 		cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
- 
-+	if (tb[RTA_CACHEINFO]) {
-+		struct rta_cacheinfo *ci = nla_data(tb[RTA_CACHEINFO]);
-+		unsigned long timeout = addrconf_timeout_fixup(ci->rta_expires, HZ);
-+
-+		if (addrconf_finite_timeout(timeout)) {
-+			cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
-+			cfg->fc_flags |= RTF_EXPIRES;
-+		}
-+	}
-+
- 	err = 0;
- errout:
- 	return err;
--- 
-2.1.0
+	Arnd
