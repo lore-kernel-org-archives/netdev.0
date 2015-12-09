@@ -1,53 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Checksum offload queries
-Date: Wed, 9 Dec 2015 02:56:02 +0100
-Message-ID: <20151209015602.GB19097@pox.localdomain>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
+From: Wang Yufen <wangyufen@huawei.com>
+Subject: [PATCH net] net:sysctl fix the confusing corner of tcp_mem
+Date: Wed, 9 Dec 2015 10:01:49 +0800
+Message-ID: <1449626509-3736-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain
+Cc: <guohanjun@huawei.com>, <zhangdianfang@huawei.com>,
+	<dingtianhong@huawei.com>, <huxinwei@huawei.com>,
+	Yufen Wang <wangyufen@huawei.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34428 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbbLIB4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 20:56:05 -0500
-Received: by wmvv187 with SMTP id v187so239365127wmv.1
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 17:56:03 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:36952 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797AbbLICCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:02:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/08/15 at 09:04am, Tom Herbert wrote:
-> There are other reasons why CHECKSUM_COMPLETE is preferable:
-> 
-> - CHECKSUM_COMPLETE  is more robust. We have no way to validate that
-> the device is actually correct in CHECKSUM_UNNECESSARY. For instance,
-> how do we know that there isn't some failure in the device where
-> everything is being marked as good even if it's not. With
-> CHECKSUM_COMPLETE it is the host that actually makes the decision of
-> whether the checksum is correct it is highly unlikely that failing
-> checksum calculation on the device won't be detected. HW failures and
-> bugs are real concern.
-> -  CHECKSUM_UNNECESSARY does not report bad checksums. There is a
-> csum_bad flag in the sk_buff that could be set if the driver detects a
-> bad checksum in the packet, but no drivers seem to be setting that
-> currently. So for any packets with bad checksums the stack will need
-> to compute the checksum itself, so this potentially becomes the basis
-> of a DDOS attack. CHECKSUM_COMPLETE does not have this problem, we get
-> the checksum of the packet rather the checksum is correct or not.
+From: Yufen Wang <wangyufen@huawei.com>
 
-If I understood Edward correctly, his proposal would be for the
-card to provide both, the csum as for CHECKSUM_COMPLETE plus the
-validation yes/no hint. It would be up to the kernel to decide
-whether to validate itself or trust the card.
+I tried on linux-4.1:
+    linux:~# cat /proc/sys/net/ipv4/tcp_mem 
+    8388608	12582912	16777216
+    linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
+    -bash: echo: write error: Invalid argument
+    linux:~# cat /proc/sys/net/ipv4/tcp_mem 
+    1234	12582912	16777216
 
-I'm all in favour CHECKSUM_COMPLETE as the only way to go but 
-we should be aware that it depends on the penetration of RCO in
-hardware VTEPs.
+the echo operation got error, but value already written to tcp_mem.
+If a write() returns an error like EINVAL, we expect no change occurred.
+This patch fix the confusing corner and makes __do_proc_doulongvec_minmax 
+works the same as __do_proc_dointvec
+
+Signed-off-by: Yufen Wang <wangyufen@huawei.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/sysctl.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index c3eee4c..e3ee4be 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -2318,6 +2318,8 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
+ 			bool neg;
+ 
+ 			left -= proc_skip_spaces(&kbuf);
++                        if (!left)
++                                break;
+ 
+ 			err = proc_get_long(&kbuf, &left, &val, &neg,
+ 					     proc_wspace_sep,
+-- 
+2.5.0
