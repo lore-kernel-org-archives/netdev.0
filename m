@@ -1,49 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-Date: Wed, 9 Dec 2015 03:36:32 +0100
-Message-ID: <20151209023632.GD19097@pox.localdomain>
-References: <20151207.142953.387889541116696974.davem@davemloft.net>
- <20151205070603.GB23255@gondor.apana.org.au>
- <20151209021826.GC19097@pox.localdomain>
- <20151209022454.GA24515@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 1/4] stmmac: create of compatible mdio bus for
+ stmacc driver
+Date: Tue, 08 Dec 2015 21:37:42 -0500 (EST)
+Message-ID: <20151208.213742.651430572988328138.davem@davemloft.net>
+References: <1449625269-46078-2-git-send-email-preid@electromag.com.au>
+	<201512091033.svvb9HL7%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Phil Sutter <phil@nwl.cc>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151209022454.GA24515@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: preid@electromag.com.au, kbuild-all@01.org, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	peppe.cavallaro@st.com, vbridger@opensource.altera.com,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org
+To: lkp@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48014 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751187AbbLIChp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:37:45 -0500
+In-Reply-To: <201512091033.svvb9HL7%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/09/15 at 10:24am, Herbert Xu wrote:
-> On Wed, Dec 09, 2015 at 03:18:26AM +0100, Thomas Graf wrote:
-> > 
-> > Assuming that we only encounter this scenario with very large
-> > table sizes, it might be OK to assume that deferring the actual
-> > resize via the worker thread while continuing to insert above
-> > 100% utilization in atomic context is safe.
+From: kbuild test robot <lkp@intel.com>
+Date: Wed, 9 Dec 2015 10:15:17 +0800
+
+> Hi Phil,
 > 
-> As test_rhashtable has demonstrated already this approach doesn't
-> work.  There is nothing in the kernel that will ensure that the
-> worker thread gets to run at all.
+> [auto build test ERROR on net-next/master]
+> [also build test ERROR on v4.4-rc4 next-20151208]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Phil-Reid/stmmac-create-of-compatible-mdio-bus-for-stmacc-driver/20151209-094242
+> config: x86_64-randconfig-b0-12090825 (attached as .config)
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c: In function 'stmmac_mdio_register':
+>>> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c:226:17: error: 'struct stmmac_mdio_bus_data' has no member named 'reset_gpio'
+>        mdio_bus_data->reset_gpio = -1;
+>                     ^
 
-If we define work assuming that an insertion in atomic context
-should never fail then yes.  I'm not sure you can guarantee that
-with a segmented table either though. I agree though that the
-insertion behaviour is much better defined.
-
-My argument is that if we are in a situation in which a worker
-thread is never invoked and we've grown 2x from the original
-table size, do we still need entries to be inserted into the
-table or can we fail?
-
-Without knowing your exact implementation plans: introducing an
-additional reference indirection for every lookup will have a
-huge performance penalty as well.
-
-Is your plan to only introduce the master table after an
-allocation has failed?
+Yeah this member is only visible when CONFIG_OF.
