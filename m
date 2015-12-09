@@ -1,7 +1,7 @@
 From: Phil Reid <preid@electromag.com.au>
-Subject: [PATCH v5 2/4] stmmac: Correct documentation on stmmac clocks.
-Date: Wed,  9 Dec 2015 16:39:39 +0800
-Message-ID: <1449650381-82074-3-git-send-email-preid@electromag.com.au>
+Subject: [PATCH v5 4/4] stmmac: socfpga: Provide dt node to config ptp clk source.
+Date: Wed,  9 Dec 2015 16:39:41 +0800
+Message-ID: <1449650381-82074-5-git-send-email-preid@electromag.com.au>
 References: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
 Cc: Phil Reid <preid@electromag.com.au>
 To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
@@ -10,50 +10,78 @@ To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:49243 "EHLO
+Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:49242 "EHLO
 	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753386AbbLJBdV (ORCPT
+	by vger.kernel.org with ESMTP id S1753433AbbLJBdV (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 20:33:21 -0500
 In-Reply-To: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-devm_get_clk looks in clock-name property for matching clock.
-the ptp_ref_clk property is ignored.
+Provides an options to use the ptp clock routed from the Altera FPGA
+fabric. Instead of the defalt eosc1 clock connected to the ARM HPS core.
+This setting affects all emacs in the core as the ptp clock is common.
 
 Acked-by: Rob Herring <robh@kernel.org>
 Signed-off-by: Phil Reid <preid@electromag.com.au>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ Documentation/devicetree/bindings/net/socfpga-dwmac.txt | 2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 9 +++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index fd5ddf8..e862a92 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -35,15 +35,14 @@ Optional properties:
- - reset-names: Should contain the reset signal name "stmmaceth", if a
- 	reset phandle is given
- - max-frame-size: See ethernet.txt file in the same directory
--- clocks: If present, the first clock should be the GMAC main clock and
--  the second clock should be peripheral's register interface clock. Further
--  clocks may be specified in derived bindings.
--- clock-names: One name for each entry in the clocks property, the
--  first one should be "stmmaceth" and the second one should be "pclk".
--- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
--  available this clock is used for programming the Timestamp Addend Register.
--  If not passed then the system clock will be used and this is fine on some
--  platforms.
-+- clocks: If present, the first clock should be the GMAC main clock
-+  The optional second clock should be peripheral's register interface clock.
-+  The third optional clock should be the ptp reference clock.
-+  Further clocks may be specified in derived bindings.
-+- clock-names: One name for each entry in the clocks property.
-+  The first one should be "stmmaceth".
-+  The optional second one should be "pclk".
-+  The optional third one should be "clk_ptp_ref".
- - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
+diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+index 3a9d679..72d82d6 100644
+--- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
++++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+@@ -11,6 +11,8 @@ Required properties:
+ 		  designware version numbers documented in stmmac.txt
+  - altr,sysmgr-syscon : Should be the phandle to the system manager node that
+    encompasses the glue register, the register offset, and the register shift.
++ - altr,f2h_ptp_ref_clk use f2h_ptp_ref_clk instead of default eosc1 clock
++   for ptp ref clk. This affects all emacs as the clock is common.
+ 
+ Optional properties:
+ altr,emac-splitter: Should be the phandle to the emac splitter soft IP node if
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 401383b..f0d797a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -32,6 +32,7 @@
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RMII 0x2
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
++#define SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK 0x00000010
+ 
+ #define EMAC_SPLITTER_CTRL_REG			0x0
+ #define EMAC_SPLITTER_CTRL_SPEED_MASK		0x3
+@@ -47,6 +48,7 @@ struct socfpga_dwmac {
+ 	struct regmap *sys_mgr_base_addr;
+ 	struct reset_control *stmmac_rst;
+ 	void __iomem *splitter_base;
++	bool f2h_ptp_ref_clk;
+ };
+ 
+ static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
+@@ -116,6 +118,8 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 		return -EINVAL;
+ 	}
+ 
++	dwmac->f2h_ptp_ref_clk = of_property_read_bool(np, "altr,f2h_ptp_ref_clk");
++
+ 	np_splitter = of_parse_phandle(np, "altr,emac-splitter", 0);
+ 	if (np_splitter) {
+ 		if (of_address_to_resource(np_splitter, 0, &res_splitter)) {
+@@ -171,6 +175,11 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+ 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
+ 	ctrl |= val << reg_shift;
+ 
++	if (dwmac->f2h_ptp_ref_clk)
++		ctrl |= SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2);
++	else
++		ctrl &= ~(SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2));
++
+ 	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
+ 	return 0;
+ }
 -- 
 1.8.3.1
