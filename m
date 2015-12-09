@@ -1,227 +1,57 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next v3 3/4] net: mvneta: Add naive RSS support
-Date: Wed,  9 Dec 2015 18:23:50 +0100
-Message-ID: <1449681831-2798-4-git-send-email-gregory.clement@free-electrons.com>
-References: <1449681831-2798-1-git-send-email-gregory.clement@free-electrons.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 17:28:32 +0000
+Message-ID: <566864C0.6020204@solarflare.com>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <20151208.120654.2127200076257822677.davem@davemloft.net>
+ <56681B18.3030200@solarflare.com>
+ <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
- Boris BREZILLON <boris.brezillon@free-electrons.com>,
- Simon Guinot <simon.guinot@sequanux.org>, Nadav Haklai <nadavh@marvell.com>,
- Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Maxime Ripard <maxime.ripard@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1449681831-2798-1-git-send-email-gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:36236 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752574AbbLIR2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 12:28:39 -0500
+In-Reply-To: <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds the support for the RSS related ethtool
-function. Currently it only uses one entry in the indirection table which
-allows associating an mvneta interface to a given CPU.
+On 09/12/15 16:01, Tom Herbert wrote:
+> On Wed, Dec 9, 2015 at 4:14 AM, Edward Cree <ecree@solarflare.com> > wrote: >> Convincing hardware designers to go the HW_CSUM way and only fill >> in the inner checksum, when their current approach can fill in >> both inner and outer checksums (though admittedly only for the >> protocols the hardware knows about), might be difficult. >> > But again, NETIF_F_IP[V6]_CSUM and NETIF_F_HW_CSUM describe > capabilities._not_ the interface. The interface currently allows only > one checksum to be offloaded at time, if we want to be able to > offload two checksums then the interface needs to be changed-- > probably something like defining a new capability like > NETIF_F_HW_2CSUMS, adding another csum_start,csum_offset pair into > the sk_buff.
+Which only pushes the problem onto when someone wants to nest
+encapsulations.  (I heard you like tunnels, so I put a tunnel in your
+tunnel so you can encapsulate while you encapsulate.)
+Or to put it another way, 2 isn't a number; the only numbers are 0, 1
+and infinity ;)
+Perhaps in practice 2 csums would be enough, for now.  But isn't the
+whole point of the brave new world of generic checksums that it should
+be future-proof?
 
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Tested-by: Marcin Wojtas <mw@semihalf.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 127 +++++++++++++++++++++++++++++++++-
- 1 file changed, 126 insertions(+), 1 deletion(-)
+> The stack will need to be modified also wherever CHECKSUM_PARTIAL is > handled.
+Naturally.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 8974ab084839..e0dba6869605 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -259,6 +259,11 @@
- 
- #define MVNETA_TX_MTU_MAX		0x3ffff
- 
-+/* The RSS lookup table actually has 256 entries but we do not use
-+ * them yet
-+ */
-+#define MVNETA_RSS_LU_TABLE_SIZE	1
-+
- /* TSO header size */
- #define TSO_HEADER_SIZE 128
- 
-@@ -380,6 +385,8 @@ struct mvneta_port {
- 	int use_inband_status:1;
- 
- 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
-+
-+	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -1027,7 +1034,7 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 			if ((rxq % max_cpu) == cpu)
- 				rxq_map |= MVNETA_CPU_RXQ_ACCESS(rxq);
- 
--		if (cpu == rxq_def)
-+		if (cpu == pp->rxq_def)
- 			txq_map = MVNETA_CPU_TXQ_ACCESS_ALL_MASK;
- 
- 		mvreg_write(pp, MVNETA_CPU_MAP(cpu), rxq_map | txq_map);
-@@ -2483,6 +2490,18 @@ static void mvneta_percpu_unmask_interrupt(void *arg)
- 		    MVNETA_MISCINTR_INTR_MASK);
- }
- 
-+static void mvneta_percpu_mask_interrupt(void *arg)
-+{
-+	struct mvneta_port *pp = arg;
-+
-+	/* All the queue are masked, but actually only the ones
-+	 * maped to this CPU will be masked
-+	 */
-+	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
-+	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
-+	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
-+}
-+
- static void mvneta_start_dev(struct mvneta_port *pp)
- {
- 	unsigned int cpu;
-@@ -3173,6 +3192,106 @@ static int mvneta_ethtool_get_sset_count(struct net_device *dev, int sset)
- 	return -EOPNOTSUPP;
- }
- 
-+static u32 mvneta_ethtool_get_rxfh_indir_size(struct net_device *dev)
-+{
-+	return MVNETA_RSS_LU_TABLE_SIZE;
-+}
-+
-+static int mvneta_ethtool_get_rxnfc(struct net_device *dev,
-+				    struct ethtool_rxnfc *info,
-+				    u32 *rules __always_unused)
-+{
-+	switch (info->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		info->data =  rxq_number;
-+		return 0;
-+	case ETHTOOL_GRXFH:
-+		return -EOPNOTSUPP;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int  mvneta_config_rss(struct mvneta_port *pp)
-+{
-+	int cpu;
-+	u32 val;
-+
-+	netif_tx_stop_all_queues(pp->dev);
-+
-+	for_each_online_cpu(cpu)
-+		smp_call_function_single(cpu, mvneta_percpu_mask_interrupt,
-+					 pp, true);
-+
-+	/* We have to synchronise on the napi of each CPU */
-+	for_each_online_cpu(cpu) {
-+		struct mvneta_pcpu_port *pcpu_port =
-+			per_cpu_ptr(pp->ports, cpu);
-+
-+		napi_synchronize(&pcpu_port->napi);
-+		napi_disable(&pcpu_port->napi);
-+	}
-+
-+	pp->rxq_def = pp->indir[0];
-+
-+	/* Update unicast mapping */
-+	mvneta_set_rx_mode(pp->dev);
-+
-+	/* Update val of portCfg register accordingly with all RxQueue types */
-+	val = MVNETA_PORT_CONFIG_DEFL_VALUE(pp->rxq_def);
-+	mvreg_write(pp, MVNETA_PORT_CONFIG, val);
-+
-+	/* Update the elected CPU matching the new rxq_def */
-+	mvneta_percpu_elect(pp);
-+
-+	/* We have to synchronise on the napi of each CPU */
-+	for_each_online_cpu(cpu) {
-+		struct mvneta_pcpu_port *pcpu_port =
-+			per_cpu_ptr(pp->ports, cpu);
-+
-+		napi_enable(&pcpu_port->napi);
-+	}
-+
-+	netif_tx_start_all_queues(pp->dev);
-+
-+	return 0;
-+}
-+
-+static int mvneta_ethtool_set_rxfh(struct net_device *dev, const u32 *indir,
-+				   const u8 *key, const u8 hfunc)
-+{
-+	struct mvneta_port *pp = netdev_priv(dev);
-+	/* We require at least one supported parameter to be changed
-+	 * and no change in any of the unsupported parameters
-+	 */
-+	if (key ||
-+	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
-+		return -EOPNOTSUPP;
-+
-+	if (!indir)
-+		return 0;
-+
-+	memcpy(pp->indir, indir, MVNETA_RSS_LU_TABLE_SIZE);
-+
-+	return mvneta_config_rss(pp);
-+}
-+
-+static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
-+				   u8 *hfunc)
-+{
-+	struct mvneta_port *pp = netdev_priv(dev);
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	if (!indir)
-+		return 0;
-+
-+	memcpy(indir, pp->indir, MVNETA_RSS_LU_TABLE_SIZE);
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops mvneta_netdev_ops = {
- 	.ndo_open            = mvneta_open,
- 	.ndo_stop            = mvneta_stop,
-@@ -3197,6 +3316,10 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
- 	.get_strings	= mvneta_ethtool_get_strings,
- 	.get_ethtool_stats = mvneta_ethtool_get_stats,
- 	.get_sset_count	= mvneta_ethtool_get_sset_count,
-+	.get_rxfh_indir_size = mvneta_ethtool_get_rxfh_indir_size,
-+	.get_rxnfc	= mvneta_ethtool_get_rxnfc,
-+	.get_rxfh	= mvneta_ethtool_get_rxfh,
-+	.set_rxfh	= mvneta_ethtool_set_rxfh,
- };
- 
- /* Initialize hw */
-@@ -3389,6 +3512,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	pp->rxq_def = rxq_def;
- 
-+	pp->indir[0] = rxq_def;
-+
- 	pp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pp->clk)) {
- 		err = PTR_ERR(pp->clk);
--- 
-2.5.0
+> If your device is trying do offload more than one checksum on its own > accord without being asked to do so by the stack it is doing the > wrong thing!
+>From the stack's perspective: yes, it is doing the wrong thing.  (I've
+been discussing with colleagues today how we could change that, and I
+think we can, but it involves having _three_ hardware TXQs per kernel
+queue, instead of the two we have now...)
+But from the outside perspective, the system as a whole isn't doing
+anything bad - the packet going on the network is valid and just
+happens to have both inner and outer checksums filled in.  Is there a
+good reason _why_ the stack forbids a device to do this?  (Sure, it's
+not necessary, and makes the hardware more complex.  But the hardware's
+already been made, and it's not a *completely* useless thing to do...)
+
+> Please stop adding this disclaimer to your messages, it is not > appropriate for the list.
+Actually, the copy that goes the list doesn't have the disclaimer.  But
+thanks to a combination of crappy email server and corporate politics,
+it still sticks it on any CCs.  If it were up to me (it's not) we
+wouldn't add that disclaimer to anything ever.
+I'm now attempting (for the nth time) to convince our mgmt to get rid
+of the disclaimer, but I don't hold out much hope :(
