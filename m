@@ -1,42 +1,65 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next] ipv6: allow routes to be configured with expire values
-Date: Wed, 9 Dec 2015 19:50:38 +0800
-Message-ID: <CADvbK_eXZZ+owgQy8+V71gW1Y_sDwnPNsz_eVgXpHiekhCvsoQ@mail.gmail.com>
-References: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449585464.git.lucien.xin@gmail.com>
-	<20151208.225620.67864748611461829.davem@davemloft.net>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] NFC: nci: fix memory leak
+Date: Wed, 9 Dec 2015 17:29:24 +0530
+Message-ID: <20151209115924.GD24852@sudip-pc>
+References: <1447678635-11146-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>, jk@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:36643 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbbLILui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 06:50:38 -0500
-Received: by igcph11 with SMTP id ph11so116603671igc.1
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 03:50:38 -0800 (PST)
-In-Reply-To: <20151208.225620.67864748611461829.davem@davemloft.net>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:32825 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbbLIL7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 06:59:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1447678635-11146-1-git-send-email-sudipm.mukherjee@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 9, 2015 at 11:56 AM, David Miller <davem@davemloft.net> wrote:
-> From: Xin Long <lucien.xin@gmail.com>
-> Date: Tue,  8 Dec 2015 22:37:44 +0800
->
->> Add the support for adding expire value to routes,  requested by
->> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
->> wants it too.
->>
->> add it by using the field rta_expires of rta_cacheinfo
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->
-> Fix your outgoing patch emails, the From: field doesn't have your
-> full name in it so the commit AUTHOR fields look terrible.
+On Mon, Nov 16, 2015 at 06:27:15PM +0530, Sudip Mukherjee wrote:
+> In case of invalid number_destination_params we were returning error but
+> we missed releasing cmd. Lets check for the number of parameter before
+> allocating memory so that we don't have a memory leak.
+> 
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> ---
 
-it's not the from field issue, it's the incorrect  full name of my account in
-patchwork, I have send mail to Jeremy Kerr to help correct it.
+A gentle ping.
 
-after he do it, i will report, thanks.
+regards
+sudip
+
+
+>  net/nfc/nci/core.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+> index 10c99a5..fbb7a2b 100644
+> --- a/net/nfc/nci/core.c
+> +++ b/net/nfc/nci/core.c
+> @@ -610,14 +610,14 @@ int nci_core_conn_create(struct nci_dev *ndev, u8 destination_type,
+>  	struct nci_core_conn_create_cmd *cmd;
+>  	struct core_conn_create_data data;
+>  
+> +	if (!number_destination_params)
+> +		return -EINVAL;
+> +
+>  	data.length = params_len + sizeof(struct nci_core_conn_create_cmd);
+>  	cmd = kzalloc(data.length, GFP_KERNEL);
+>  	if (!cmd)
+>  		return -ENOMEM;
+>  
+> -	if (!number_destination_params)
+> -		return -EINVAL;
+> -
+>  	cmd->destination_type = destination_type;
+>  	cmd->number_destination_params = number_destination_params;
+>  	memcpy(cmd->params, params, params_len);
+> -- 
+> 1.9.1
+> 
