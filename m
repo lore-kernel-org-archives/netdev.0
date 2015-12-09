@@ -1,42 +1,38 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Checksum offload queries
-Date: Wed, 9 Dec 2015 12:14:16 +0000
-Message-ID: <56681B18.3030200@solarflare.com>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <20151208.120654.2127200076257822677.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] blkcipher: Copy iv from desc even for 0-len walks
+Date: Wed, 9 Dec 2015 20:18:58 +0800
+Message-ID: <20151209121858.GC27962@gondor.apana.org.au>
+References: <1449366698-2422-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:57170 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751782AbbLIMOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 07:14:24 -0500
-In-Reply-To: <20151208.120654.2127200076257822677.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-crypto@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	martin@strongswan.org, stable@vger.kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1449366698-2422-1-git-send-email-Jason@zx2c4.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/12/15 17:06, David Miller wrote:
-> All of the headers get touched anyways as each layer of the stack > demuxes the packet. Therefore there is _ZERO_ cost to use 1's > complement to validate checksums in input. It's always superior.
+On Sun, Dec 06, 2015 at 02:51:37AM +0100, Jason A. Donenfeld wrote:
+> Some ciphers actually support encrypting zero length plaintexts. For
+> example, many AEAD modes support this. The resulting ciphertext for
+> those winds up being only the authentication tag, which is a result of
+> the key, the iv, the additional data, and the fact that the plaintext
+> had zero length. The blkcipher constructors won't copy the IV to the
+> right place, however, when using a zero length input, resulting in
+> some significant problems when ciphers call their initialization
+> routines, only to find that the ->iv parameter is uninitialized. One
+> such example of this would be using chacha20poly1305 with a zero length
+> input, which then calls chacha20, which calls the key setup routine,
+> which eventually OOPSes due to the uninitialized ->iv member.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Cc: <stable@vger.kernel.org>
 
-Ah, I understand now, it's touching the memory that's expensive, not adding
-up the numbers. Thanks for being patient with me :)
-
-So that just leaves the question of offloading multiple _TX_ checksums.
-Remote checksum offload would deal with this but the receiver might not
-support it, meaning that after decapsulation the packet will have a zero
-checksum (and still has chances to get corrupted); thus it's not necessarily
-safe to do unless you control both endpoints and know you have RCO
-everywhere.
-Convincing hardware designers to go the HW_CSUM way and only fill in the
-inner checksum, when their current approach can fill in both inner and outer
-checksums (though admittedly only for the protocols the hardware knows
-about), might be difficult.
-
-Remember that NICs are going to have packet parsing for those protocols
-anyway, because they need it for things like Windows-spec RSS, so in the
-hardware designer's mind, ossified offloads are "free".
+Applied to crypto.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
