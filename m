@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fsl: avoid 64-bit warning on pq_mdio
-Date: Tue, 08 Dec 2015 22:52:23 -0500 (EST)
-Message-ID: <20151208.225223.1912207413262330164.davem@davemloft.net>
-References: <2847304.4thPqtFFJS@wuerfel>
+Subject: Re: [PATCH net-next] bnx2x: avoid soft lockup in bnx2x_poll()
+Date: Tue, 08 Dec 2015 22:55:27 -0500 (EST)
+Message-ID: <20151208.225527.75074006409045414.davem@davemloft.net>
+References: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerlando.falauto@keymile.com, netdev@vger.kernel.org,
-	Shaohui.Xie@freescale.com, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2847304.4thPqtFFJS@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ariel.elior@qlogic.com, willemb@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49805 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083AbbLIDz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:55:28 -0500
+In-Reply-To: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 08 Dec 2015 16:17:29 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 08 Dec 2015 05:54:40 -0800
 
-> The pq_mdio driver can now be built for ARM64, where we get a format
-> string warning:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> drivers/net/ethernet/freescale/fsl_pq_mdio.c: In function 'fsl_pq_mdio_probe':
-> drivers/net/ethernet/freescale/fsl_pq_mdio.c:467:25: warning: format '%x' expects argument of type 'unsigned int', but argument 3 has type 'long int' [-Wformat=]
+> Under heavy TX load, bnx2x_poll() can loop forever and trigger
+> soft lockup bugs.
 > 
-> The argument is an implicit ptrdiff_t from the subtraction of two pointers,
-> so we should use the %z format string modifier to make this work on 64-bit
-> architectures.
+> A napi poll handler must yield after one TX completion round,
+> risk of livelock is too high otherwise.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: fe761bcb9046 ("net: fsl: expands dependencies of NET_VENDOR_FREESCALE")
+> Bug is very easy to trigger using a debug build, and udp flood, because
+> of added cpu cycles in TX completion, and we do not receive enough
+> packets to break the loop.
+> 
+> Reported-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Indeed, no driver should ever do more than one TX completion round
+per NAPI poll call, _ever_.
