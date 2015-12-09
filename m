@@ -1,59 +1,69 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v4 15/19] net: bridge: use __ethtool_get_ksettings
-Date: Wed,  9 Dec 2015 09:59:25 -0800
-Message-ID: <1449683969-7305-16-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v4 03/19] net: usnic: remove unused call to ethtool_ops::get_settings
+Date: Wed,  9 Dec 2015 09:59:13 -0800
+Message-ID: <1449683969-7305-4-git-send-email-ddecotig@gmail.com>
 References: <1449683969-7305-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ed Swierk <eswierk@skyportsystems.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	David Decotigny <decot@googlers.com>
+        Eugenia Emantayev <eugenia@mellanox.co.il>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Govindarajulu Varadarajan <_govind@gmx.com>,
+        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Ed Swierk <eswierk@skyportsystems.com>,
+        Robert Love <robert.w.love@intel.com>,
+        "James E.J. Bottomley" <JBottomley@parallels.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+        David Decotigny <decot@googlers.com>
 To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-	fcoe-devel@open-fcoe.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+        Ben Hutchings <ben@decadent.org.uk>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+        fcoe-devel@open-fcoe.org,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Tejun Heo <tj@kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <1449683969-7305-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- net/bridge/br_if.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 8d1d4a2..d1022fd 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -36,10 +36,10 @@
-  */
- static int port_cost(struct net_device *dev)
- {
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
+diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+index f8e3211..5b60579 100644
+--- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
++++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+@@ -269,7 +269,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
+ 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
+ 	union ib_gid gid;
+ 	struct ethtool_drvinfo info;
+-	struct ethtool_cmd cmd;
+ 	int qp_per_vf;
  
--	if (!__ethtool_get_settings(dev, &ecmd)) {
--		switch (ethtool_cmd_speed(&ecmd)) {
-+	if (!__ethtool_get_ksettings(dev, &ecmd)) {
-+		switch (ecmd.parent.speed) {
- 		case SPEED_10000:
- 			return 2;
- 		case SPEED_1000:
+ 	usnic_dbg("\n");
+@@ -278,7 +277,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
+ 
+ 	mutex_lock(&us_ibdev->usdev_lock);
+ 	us_ibdev->netdev->ethtool_ops->get_drvinfo(us_ibdev->netdev, &info);
+-	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
+ 	memset(props, 0, sizeof(*props));
+ 	usnic_mac_ip_to_gid(us_ibdev->ufdev->mac, us_ibdev->ufdev->inaddr,
+ 			&gid.raw[0]);
 -- 
 2.6.0.rc2.230.g3dd15c0
