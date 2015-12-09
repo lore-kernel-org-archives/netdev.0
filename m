@@ -1,60 +1,79 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: [PATCH v2] r8169: Don't claim WoL works if LanWake flag is not set
-Date: Wed,  9 Dec 2015 11:43:46 +0100
-Message-ID: <1449657826-4461-1-git-send-email-vinschen@redhat.com>
-References: <1449655730-3328-1-git-send-email-vinschen@redhat.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Corinna Vinschen <vinschen@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:35442 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbbLIKnu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 05:43:50 -0500
-In-Reply-To: <1449655730-3328-1-git-send-email-vinschen@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 1/3] ser_gigaset: fix up NULL checks
+Date: Wed, 9 Dec 2015 11:45:57 +0100
+Message-ID: <56680665.4000301@imap.cc>
+References: <cover.1449570042.git.tilman@imap.cc>
+ <ed83fae92c8c56e659f59c9a3709c86bd3a7d0c4.1449570042.git.tilman@imap.cc>
+ <1449603913.2384.16.camel@tiscali.nl>
+ <20151208221657.71fd0d71@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="IdaXhx0NKDSUP9gF7tqh9VosiNJ1enoRr"
+Cc: netdev@vger.kernel.org, Peter Hurley <peter@hurleysoftware.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller@googlegroups.com, David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de,
+	gigaset307x-common@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151208221657.71fd0d71@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[v2 adds missing text to the patch comment]
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--IdaXhx0NKDSUP9gF7tqh9VosiNJ1enoRr
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-The __rtl8169_get_wol function returns the state of the various WoL
-method bits (MagicPaket, Unicast, etc.).  While the PMEnable bit is
-tested at entry, the function doesn't check the LanWake flag.  Even if
-any one of the WoL bits is set, WoL is deactivated as a whole if LanWake
-isn't set.  The return value from __rtl8169_get_wol doesn't reflect
-that.
+Am 08.12.2015 um 23:16 schrieb One Thousand Gnomes:
+> The right fix as far as I can see is to remove the tests although
+> WARN_ON() combined with your tty->ops change might be safer.
 
-Unfortunately BIOS exist (HP T620) which set the MagicPaket bit to 1 but
-the LanWake flag to 0 when switching on WoL in the BIOS.  On those machines,
-ethtool wrongly claims that WoL via MagicPaket is activated while in fact
-it isn't, unless you explicitely called, e.g, `ethtool -s <IF> wol g'.
+Feel free to submit a patch.
 
-This patch is supposed to fix this behaviour.  If LanWake is 0, the
-function now returns 0.  Thus ethtool correctly reports "Wake-on: d".
+>> It's pretty obvious that this should have been part of commit
+>>  f34d7a5b7010 ("tty: The big operations rework"). That being said, the=
+se
+>=20
+> It ahould probably have been fixed around the same time or in one of th=
+e
+> tty locking reviews, but drivers/isdn and net/irda weren't traditionall=
+y
+> part of the general tty maintenance but handled separately/
 
-The patch is against Dave's net-next tree.
+Or just ignored.
+
+>> test puzzle me. It's not obvious why they're needed. Ie, can the null
+>> dereferences they try to catch really happen? But I can try to figure
+>> out that in the future, if I ever feel the urge to do so. Anyhow:
+>>
+>> Acked-by: Paul Bolle <pebolle@tiscali.nl>
+>=20
+> Nacked-by: Alan Cox <alan@linux.intel.com>
+
+So you feel it's better to maintain the current inconsistent state
+created by commit f34d7a5b? Please elaborate.
 
 
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
----
- drivers/net/ethernet/realtek/r8169.c | 4 ++++
- 1 file changed, 4 insertions(+)
+--IdaXhx0NKDSUP9gF7tqh9VosiNJ1enoRr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 79ef799..813ad2b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1705,6 +1705,10 @@ static u32 __rtl8169_get_wol(struct rtl8169_private *tp)
- 	if (!(options & PMEnable))
- 		return 0;
- 
-+	options = RTL_R8(Config5);
-+	if (!(options & LanWake))
-+		return 0;
-+
- 	options = RTL_R8(Config3);
- 	if (options & LinkUp)
- 		wolopts |= WAKE_PHY;
--- 
-2.1.0
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWaAZ0AAoJEFPuqx0v+F+qsKcH/jc4tXNXZG3abCSIrODfIoNP
+JKNYPvtNZFnGwzijOkMsBYeu34PCNFpNZhYPo36hi/X2rZCsmCUmg8yfOgwsGhVV
+9d9KSK3l+WTkwnm4jaA15dP8VHEYrZaZF/CK5tBYCKbkF/qi4FqA8BsJ0CY067WK
+Qg8rS2vcZlmbYMNWgC5fGLk84B5Uy0GjoMOjexWMdf+gYMoMMxhtuSXL3vmgJtIk
+c2R2PdLWYVKBSBD/W06qZWualJMlrrfSHxsQVo6OHueOm64v1xYLAn/HLbVsJnhu
+HnJJZXGekHV6iEMWbSuVQqTYXLO/ZvwRfbvnTxrWvRcxhRPBxqUHGzS2b7D9yv0=
+=l5J4
+-----END PGP SIGNATURE-----
+
+--IdaXhx0NKDSUP9gF7tqh9VosiNJ1enoRr--
