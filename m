@@ -1,57 +1,50 @@
-From: Wang Yufen <wangyufen@huawei.com>
-Subject: [PATCH net] net:sysctl fix the confusing corner of tcp_mem
-Date: Wed, 9 Dec 2015 10:01:49 +0800
-Message-ID: <1449626509-3736-1-git-send-email-wangyufen@huawei.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file
+Date: Tue, 8 Dec 2015 21:04:43 -0500
+Message-ID: <20151209020443.GL22885@windriver.com>
+References: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
+ <1449623421.6028.13.camel@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <guohanjun@huawei.com>, <zhangdianfang@huawei.com>,
-	<dingtianhong@huawei.com>, <huxinwei@huawei.com>,
-	Yufen Wang <wangyufen@huawei.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>, <netdev@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>, Andrew Lunn <andrew@lunn.ch>
+To: Michael Ellerman <mpe@ellerman.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:36952 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797AbbLICCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:02:38 -0500
+Received: from mail5.windriver.com ([192.103.53.11]:52398 "EHLO mail5.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750777AbbLICFS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2015 21:05:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1449623421.6028.13.camel@ellerman.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yufen Wang <wangyufen@huawei.com>
+[Re: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file] On 09/12/2015 (Wed 12:10) Michael Ellerman wrote:
 
-I tried on linux-4.1:
-    linux:~# cat /proc/sys/net/ipv4/tcp_mem 
-    8388608	12582912	16777216
-    linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
-    -bash: echo: write error: Invalid argument
-    linux:~# cat /proc/sys/net/ipv4/tcp_mem 
-    1234	12582912	16777216
+> On Tue, 2015-12-08 at 17:44 -0500, Paul Gortmaker wrote:
+> 
+> > This file was originally cloned off of the MPC8641D-HPCN reference
+> > platform, which actually had a PHY IRQ line connected.  However
+> > this board does not.  The bogus entry was largely inert and went
+> > undetected until commit 321beec5047af83db90c88114b7e664b156f49fe
+> > ("net: phy: Use interrupts when available in NOLINK state") was
+> > added to the tree.
+> > 
+> > With the above commit, the board fails to NFS boot since it sits
+> > waiting for a PHY IRQ event that of course never arrives.  Removing
+> > the bogus entries from the DTS file fixes the issue.
+> 
+> Commit 321beec5047a ("net: phy: Use interrupts when available in NOLINK state")
+> went into 4.4-rc2, so this is a fix for 4.4 right?
 
-the echo operation got error, but value already written to tcp_mem.
-If a write() returns an error like EINVAL, we expect no change occurred.
-This patch fix the confusing corner and makes __do_proc_doulongvec_minmax 
-works the same as __do_proc_dointvec
+Correct, but I'm guessing there are not thousands of users of this board
+out there, so it probably doesn't matter a whole lot if it goes in the
+same release where the regression happened or one release later...
 
-Signed-off-by: Yufen Wang <wangyufen@huawei.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
----
- kernel/sysctl.c | 2 ++
- 1 file changed, 2 insertions(+)
+P.
+--
 
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index c3eee4c..e3ee4be 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -2318,6 +2318,8 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
- 			bool neg;
- 
- 			left -= proc_skip_spaces(&kbuf);
-+                        if (!left)
-+                                break;
- 
- 			err = proc_get_long(&kbuf, &left, &val, &neg,
- 					     proc_wspace_sep,
--- 
-2.5.0
+> 
+> cheers
+> 
