@@ -1,41 +1,35 @@
-From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH 0/2] net: thunderx: Support for pass-2 hw features
-Date: Wed,  9 Dec 2015 17:07:59 +0530
-Message-ID: <1449661081-15435-1-git-send-email-sunil.kovvuri@gmail.com>
-References: <y>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 0/2] mlx5 minor SRIOV fixes
+Date: Wed, 9 Dec 2015 13:39:32 +0200
+Message-ID: <CALzJLG9kp-a_o1Oe-_xcA3wapoAQk283+QDQPNJhmz2uNncN0w@mail.gmail.com>
+References: <1449611811-30573-1-git-send-email-saeedm@mellanox.com>
+	<20151208.214150.624711738996194402.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
- p.fedin@samsung.com, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <y>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:36704 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753857AbbLILjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 06:39:33 -0500
+Received: by qgcc31 with SMTP id c31so8153389qgc.3
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 03:39:32 -0800 (PST)
+In-Reply-To: <20151208.214150.624711738996194402.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sunil Goutham <sgoutham@cavium.com>
+On Wed, Dec 9, 2015 at 4:41 AM, David Miller <davem@davemloft.net> wrote:
+>
+> Don't do this, submitting two disconnected patch series for the same
+> driver (mlx5), for the same tree (net-next).
+>
+for next time ? or you want me to re-submit those two patch sets ?
 
-This patch set adds support for new features added in pass-2 revision
-of hardware like TSO and count based interrupt coalescing.
+> Just submit them all in one batch.
 
-Sunil Goutham (2):
-  net: thunderx: HW TSO support for pass-2 hardware
-  net: thunderx: Enable CQE count threshold interrupt
+In case of resubmission, What will be prefered re-submit with V1 on
+the larger series, or resubmit with new topic ?
 
- drivers/net/ethernet/cavium/thunder/nic.h          |   14 +++++++--
- drivers/net/ethernet/cavium/thunder/nic_main.c     |   11 ++-----
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   17 +++++++++--
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   25 ++++++++++++----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    3 +-
- drivers/net/ethernet/cavium/thunder/q_struct.h     |   30 ++++++++++---------
- 6 files changed, 65 insertions(+), 35 deletions(-)
+Sorry if I am asking trivial questions.
