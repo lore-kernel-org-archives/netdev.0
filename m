@@ -1,89 +1,82 @@
 From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH bluetooth-next 05/10] 6lowpan: add nhc module for GHC destination extension header detection
-Date: Wed,  9 Dec 2015 22:46:26 +0100
-Message-ID: <1449697591-15991-6-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next 10/10] ipv6: add ipv6_addr_prefix_copy
+Date: Wed,  9 Dec 2015 22:46:31 +0100
+Message-ID: <1449697591-15991-11-git-send-email-alex.aring@gmail.com>
 References: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de, Stefan Schmidt <stefan@osg.samsung.com>,
-	Alexander Aring <alex.aring@gmail.com>
+	kernel@pengutronix.de, Alexander Aring <alex.aring@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34624 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753940AbbLIVrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:47:31 -0500
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37122 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753342AbbLIVrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:47:37 -0500
 In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Schmidt <stefan@osg.samsung.com>
+This patch adds a static inline function ipv6_addr_prefix_copy which
+copies a ipv6 address prefix(argument pfx) into the ipv6 address prefix=
+=2E
+The prefix len is given by plen as bits. This function mainly based on
+ipv6_addr_prefix which copies one address prefix from address into a ne=
+w
+ipv6 address destination and zero all other address bits.
 
-Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Signed-off-by: Stefan Schmidt <stefan@osg.samsung.com>
+The difference is that ipv6_addr_prefix_copy don't get a prefix from an
+ipv6 address, it sets a prefix to an ipv6 address with keeping other
+address bits. The use case is for context based address compression
+inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a context
+table to lookup address-bits without sending them.
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Acked-by: =C5=81ukasz Duda <lukasz.duda@nordicsemi.no>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
 Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- net/6lowpan/Kconfig            |  6 ++++++
- net/6lowpan/Makefile           |  1 +
- net/6lowpan/nhc_ghc_ext_dest.c | 27 +++++++++++++++++++++++++++
- 3 files changed, 34 insertions(+)
- create mode 100644 net/6lowpan/nhc_ghc_ext_dest.c
+ include/net/ipv6.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
-index 0a3f5a8..e5184e6 100644
---- a/net/6lowpan/Kconfig
-+++ b/net/6lowpan/Kconfig
-@@ -75,4 +75,10 @@ config 6LOWPAN_GHC_ICMPV6
- 	---help---
- 	  6LoWPAN IPv6 ICMPv6 generic header compression according to RFC7400.
- 
-+config 6LOWPAN_GHC_EXT_HDR_DEST
-+	tristate "GHC Destination Options Header Support"
-+	---help---
-+	  6LoWPAN IPv6 destination option generic header compression according
-+	  to RFC7400.
-+
- endif
-diff --git a/net/6lowpan/Makefile b/net/6lowpan/Makefile
-index 86af3fd..fc4bac0 100644
---- a/net/6lowpan/Makefile
-+++ b/net/6lowpan/Makefile
-@@ -15,3 +15,4 @@ obj-$(CONFIG_6LOWPAN_NHC_UDP) += nhc_udp.o
- obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_HOP) += nhc_ghc_ext_hop.o
- obj-$(CONFIG_6LOWPAN_GHC_UDP) += nhc_ghc_udp.o
- obj-$(CONFIG_6LOWPAN_GHC_ICMPV6) += nhc_ghc_icmpv6.o
-+obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_DEST) += nhc_ghc_ext_dest.o
-diff --git a/net/6lowpan/nhc_ghc_ext_dest.c b/net/6lowpan/nhc_ghc_ext_dest.c
-new file mode 100644
-index 0000000..9887b3a
---- /dev/null
-+++ b/net/6lowpan/nhc_ghc_ext_dest.c
-@@ -0,0 +1,27 @@
-+/*
-+ *	6LoWPAN Extension Header compression according to RFC7400
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+
-+#include "nhc.h"
-+
-+#define LOWPAN_GHC_EXT_DEST_IDLEN	1
-+#define LOWPAN_GHC_EXT_DEST_ID_0	0xb6
-+#define LOWPAN_GHC_EXT_DEST_MASK_0	0xfe
-+
-+static void dest_ghid_setup(struct lowpan_nhc *nhc)
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 9a5c9f0..6570f37 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -401,6 +401,21 @@ static inline void ipv6_addr_prefix(struct in6_add=
+r *pfx,
+ 		pfx->s6_addr[o] =3D addr->s6_addr[o] & (0xff00 >> b);
+ }
+=20
++static inline void ipv6_addr_prefix_copy(struct in6_addr *addr,
++					 const struct in6_addr *pfx,
++					 int plen)
 +{
-+	nhc->id[0] = LOWPAN_GHC_EXT_DEST_ID_0;
-+	nhc->idmask[0] = LOWPAN_GHC_EXT_DEST_MASK_0;
++	/* caller must guarantee 0 <=3D plen <=3D 128 */
++	int o =3D plen >> 3,
++	    b =3D plen & 0x7;
++
++	memcpy(addr->s6_addr, pfx, o);
++	if (b !=3D 0) {
++		addr->s6_addr[o] &=3D ~(0xff00 >> b);
++		addr->s6_addr[o] |=3D (pfx->s6_addr[o] & (0xff00 >> b));
++	}
 +}
 +
-+LOWPAN_NHC(ghc_ext_dest, "RFC7400 Destination Extension Header", NEXTHDR_DEST,
-+	   0, dest_ghid_setup, LOWPAN_GHC_EXT_DEST_IDLEN, NULL, NULL);
-+
-+module_lowpan_nhc(ghc_ext_dest);
-+MODULE_DESCRIPTION("6LoWPAN generic header destination extension compression");
-+MODULE_LICENSE("GPL");
--- 
+ static inline void __ipv6_addr_set_half(__be32 *addr,
+ 					__be32 wh, __be32 wl)
+ {
+--=20
 2.6.1
