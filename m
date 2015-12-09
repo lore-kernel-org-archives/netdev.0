@@ -1,68 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/6] net: Generalize udp based tunnel offload
-Date: Wed, 09 Dec 2015 17:21:28 -0500 (EST)
-Message-ID: <20151209.172128.2004885848439372720.davem@davemloft.net>
-References: <20151209125857.GA9900@pox.localdomain>
-	<20151209173842.GA18097@ast-mbp.thefacebook.com>
-	<20151209220339.GD11201@pox.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 23:21:53 +0100
+Message-ID: <20151209222153.GE11201@pox.localdomain>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <20151208.120654.2127200076257822677.davem@davemloft.net>
+ <56681B18.3030200@solarflare.com>
+ <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+ <566864C0.6020204@solarflare.com>
+ <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com, tom@herbertland.com,
-	hannes@stressinduktion.org, linville@tuxdriver.com,
-	jesse@kernel.org, anjali.singhai@intel.com, netdev@vger.kernel.org,
-	kiran.patil@intel.com
-To: tgraf@suug.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41365 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422AbbLIWVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:21:32 -0500
-In-Reply-To: <20151209220339.GD11201@pox.localdomain>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:33727 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422AbbLIWVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:21:55 -0500
+Received: by mail-wm0-f44.google.com with SMTP id c201so6478694wme.0
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:21:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 9 Dec 2015 23:03:39 +0100
+On 12/09/15 at 10:00am, Tom Herbert wrote:
+> On Wed, Dec 9, 2015 at 9:28 AM, Edward Cree <ecree@solarflare.com> wrote:
+> > Which only pushes the problem onto when someone wants to nest
+> > encapsulations.  (I heard you like tunnels, so I put a tunnel in your
+> > tunnel so you can encapsulate while you encapsulate.)
+> > Or to put it another way, 2 isn't a number; the only numbers are 0, 1
+> > and infinity ;)
+> > Perhaps in practice 2 csums would be enough, for now.  But isn't the
+> > whole point of the brave new world of generic checksums that it should
+> > be future-proof?
+> >
+> If there is a need then we can add an arbitrary number. But no one has
+> proven there is a need, however we do have a real need for checksum
+> offload outside of the narrow uses of  NETIF_F_IP[V6]_CSUM.
 
-> On 12/09/15 at 09:38am, Alexei Starovoitov wrote:
->> On Wed, Dec 09, 2015 at 01:58:57PM +0100, Thomas Graf wrote:
->> > 
->> > So if the goal is to make the intent available to the hardware in
->> > a format which both the kernel and the hardware can draw the same
->> > conclusions from, wouldn't something like P4 + BPF derived from P4
->> > be a possibly better fit? There is discussion on stateful P4
->> > processing now.
->> 
->> p4 is a high level language and absolutely not suitable for such purpose.
->> bpf as intermediate representation can be generated from p4 or C or other
->> language. There is room to innovate in the language definition on top
->> and in HW design at the bottom. That's the most flexible model.
-> 
-> If you don't want to discuss it, no problem. But stating that P4
-> is a high level language (not sure what this means exactly since
-> we exactly _want_ an abstraction away from hardware) and that it's
-> not suitable for this purpose is just wrong. P4 has been created
-> exactly for the purpose of expressing how a packet should be
-> processed by a forwarding element independent of specific hardware.
+Need may be a strong word here but people have started doing nested
+tunneling by running container orchestration tools which use VXLAN
+to isolate containers inside of OpenStack virtual infrastructure which
+also creates virtual networks.
 
-Just because it was supposeduly designed for this purpose, doesn't
-mean it's the most appropriate intermediate language between what
-the kernel wants hardware to do and what actually has to happen for
-the hardware to do that.
-
-BPF is so much more universal and can cover everything we'd want
-hardware to perform, and then some.
-
-Plus it's everywhere in the kernel already, has a full validation and
-test suite, full LLVM backend, plus JITs for several prominent
-architectures with more on the way.
-
-It is clearly the most appropriate middle layer representation.
-
-The fact that BPF could be generated from any P4 program, yet the
-reverse is not true, tells me everything I need to know.
-
-I'm sorry if you have either a mental or a time invenstment in P4, but
-I really don't see it as really suitable for this.
+I'm not saying it's sane or desirable but we will start seeing nested
+tunnels in the wild :-(
