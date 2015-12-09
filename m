@@ -1,45 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ezchip: fix address space confusion in nps_enet.c
-Date: Tue, 08 Dec 2015 22:58:41 -0500 (EST)
-Message-ID: <20151208.225841.2073281401429339939.davem@davemloft.net>
-References: <33732958.3idC7H2UPT@wuerfel>
+Subject: Re: [PATCH net-next] bnx2x: remove rx_pkt/rx_calls
+Date: Tue, 08 Dec 2015 22:59:51 -0500 (EST)
+Message-ID: <20151208.225951.1848968351614156276.davem@davemloft.net>
+References: <1449599310.6639.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: noamc@ezchip.com, talz@ezchip.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <33732958.3idC7H2UPT@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ariel.elior@qlogic.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49841 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751585AbbLID7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:59:52 -0500
+In-Reply-To: <1449599310.6639.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 08 Dec 2015 16:28:59 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 08 Dec 2015 10:28:30 -0800
 
-> The nps_enet driver happily mixes virtual, physical and __iomem
-> addresses, which are all different depending on the architecture
-> and configuration.  That causes a warning when building the code
-> on ARM with LPAE mode enabled:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> drivers/net/ethernet/ezchip/nps_enet.c: In function 'nps_enet_send_frame':
-> drivers/net/ethernet/ezchip/nps_enet.c:370:13: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
+> These fields are updated but never read.
+> Remove the overhead.
 > 
-> but will also fail to work for other reasons.
-> 
-> In this patch, I'm trying to change the code to use only normal
-> kernel pointers, which I assume is what the author actually meant:
-> 
-> * For reading or writing a 32-bit word that may be unaligned when
->   an SKB contains unaligned data, I'm using get_unaligned/put_unaligned()
->   rather than memcpy_fromio/toio.
-> 
-> * For converting a u8 pointer to a u32 pointer, I use a cast rather
->   than the incorrect virt_to_phys.
-> 
-> * For copying a couple of bytes from one place to another while respecting
->   alignment, I use memcpy instead of memcpy_toio.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Arnd.
+Applied, thanks.
