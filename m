@@ -1,75 +1,82 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH net-next] cgroup: fix sock_cgroup_data initialization on
- earlier compilers
-Date: Wed, 9 Dec 2015 12:30:46 -0500
-Message-ID: <20151209173046.GO30240@mtj.duckdns.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Checksum offload queries
+Date: Wed, 9 Dec 2015 17:31:44 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBE9C19@AcuExch.aculab.com>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <20151208.120654.2127200076257822677.davem@davemloft.net>
+ <56681B18.3030200@solarflare.com>
+ <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+ <566864C0.6020204@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alaa Hleihel <alaa@dev.mellanox.co.il>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>
+To: 'Edward Cree' <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f54.google.com ([209.85.213.54]:32907 "EHLO
-	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752584AbbLIRas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 12:30:48 -0500
-Content-Disposition: inline
+Received: from smtp-out4.electric.net ([192.162.216.183]:58147 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752735AbbLIRdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 12:33:41 -0500
+In-Reply-To: <566864C0.6020204@solarflare.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sock_cgroup_data is a struct containing an anonymous union.
-sock_cgroup_set_prioidx() and sock_cgroup_set_classid() were
-initializing a field inside the anonymous union as follows.
-
- struct sock_ccgroup_data skcd_buf =3D { .val =3D VAL };
-
-While this is fine on more recent compilers, gcc-4.4.7 triggers the
-following errors.
-
- include/linux/cgroup-defs.h: In function =E2=80=98sock_cgroup_set_prio=
-idx=E2=80=99:
- include/linux/cgroup-defs.h:619: error: unknown field =E2=80=98val=E2=80=
-=99 specified in initializer
- include/linux/cgroup-defs.h:619: warning: missing braces around initia=
-lizer
- include/linux/cgroup-defs.h:619: warning: (near initialization for =E2=
-=80=98skcd_buf.<anonymous>=E2=80=99)
-
-This is because .val belongs to the anonymous union nested inside the
-struct but the initializer is missing the nesting.  Fix it by adding
-an extra pair of braces.
-
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Reported-by: Alaa Hleihel <alaa@dev.mellanox.co.il>
-=46ixes: bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup")
----
- include/linux/cgroup-defs.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- a/include/linux/cgroup-defs.h
-+++ b/include/linux/cgroup-defs.h
-@@ -616,7 +616,7 @@ static inline u32 sock_cgroup_classid(st
- static inline void sock_cgroup_set_prioidx(struct sock_cgroup_data *sk=
-cd,
- 					   u16 prioidx)
- {
--	struct sock_cgroup_data skcd_buf =3D { .val =3D READ_ONCE(skcd->val) =
-};
-+	struct sock_cgroup_data skcd_buf =3D {{ .val =3D READ_ONCE(skcd->val)=
- }};
-=20
- 	if (sock_cgroup_prioidx(&skcd_buf) =3D=3D prioidx)
- 		return;
-@@ -633,7 +633,7 @@ static inline void sock_cgroup_set_prioi
- static inline void sock_cgroup_set_classid(struct sock_cgroup_data *sk=
-cd,
- 					   u32 classid)
- {
--	struct sock_cgroup_data skcd_buf =3D { .val =3D READ_ONCE(skcd->val) =
-};
-+	struct sock_cgroup_data skcd_buf =3D {{ .val =3D READ_ONCE(skcd->val)=
- }};
-=20
- 	if (sock_cgroup_classid(&skcd_buf) =3D=3D classid)
- 		return;
+RnJvbTogRWR3YXJkIENyZWUNCj4gU2VudDogMDkgRGVjZW1iZXIgMjAxNSAxNzoyOQ0KDQpZb3Ug
+YWxzbyBuZWVkIHRvIHN0b3AgKHByb2JhYmx5IG91dGx1Y2s/KSBmcm9tIGRlbGV0aW5nIG5ld2xp
+bmVzIGFuZA0KZmxvd2luZyB0aGUgdGV4dC4NCg0KVGhlIG1lc3NhZ2UgYmVsb3cgaXMgY29tcGxl
+dGVseSB1bnJlYWRhYmxlLg0KDQoJRGF2aWQNCg0KDQo+IE9uIDA5LzEyLzE1IDE2OjAxLCBUb20g
+SGVyYmVydCB3cm90ZToNCj4gPiBPbiBXZWQsIERlYyA5LCAyMDE1IGF0IDQ6MTQgQU0sIEVkd2Fy
+ZCBDcmVlIDxlY3JlZUBzb2xhcmZsYXJlLmNvbT4gPiB3cm90ZTogPj4gQ29udmluY2luZyBoYXJk
+d2FyZQ0KPiBkZXNpZ25lcnMgdG8gZ28gdGhlIEhXX0NTVU0gd2F5IGFuZCBvbmx5IGZpbGwgPj4g
+aW4gdGhlIGlubmVyIGNoZWNrc3VtLCB3aGVuIHRoZWlyIGN1cnJlbnQgYXBwcm9hY2gNCj4gY2Fu
+IGZpbGwgaW4gPj4gYm90aCBpbm5lciBhbmQgb3V0ZXIgY2hlY2tzdW1zICh0aG91Z2ggYWRtaXR0
+ZWRseSBvbmx5IGZvciB0aGUgPj4gcHJvdG9jb2xzIHRoZQ0KPiBoYXJkd2FyZSBrbm93cyBhYm91
+dCksIG1pZ2h0IGJlIGRpZmZpY3VsdC4gPj4gPiBCdXQgYWdhaW4sIE5FVElGX0ZfSVBbVjZdX0NT
+VU0gYW5kIE5FVElGX0ZfSFdfQ1NVTQ0KPiBkZXNjcmliZSA+IGNhcGFiaWxpdGllcy5fbm90XyB0
+aGUgaW50ZXJmYWNlLiBUaGUgaW50ZXJmYWNlIGN1cnJlbnRseSBhbGxvd3Mgb25seSA+IG9uZSBj
+aGVja3N1bSB0byBiZQ0KPiBvZmZsb2FkZWQgYXQgdGltZSwgaWYgd2Ugd2FudCB0byBiZSBhYmxl
+IHRvID4gb2ZmbG9hZCB0d28gY2hlY2tzdW1zIHRoZW4gdGhlIGludGVyZmFjZSBuZWVkcyB0byBi
+ZQ0KPiBjaGFuZ2VkLS0gPiBwcm9iYWJseSBzb21ldGhpbmcgbGlrZSBkZWZpbmluZyBhIG5ldyBj
+YXBhYmlsaXR5IGxpa2UgPiBORVRJRl9GX0hXXzJDU1VNUywgYWRkaW5nIGFub3RoZXINCj4gY3N1
+bV9zdGFydCxjc3VtX29mZnNldCBwYWlyIGludG8gPiB0aGUgc2tfYnVmZi4NCj4gV2hpY2ggb25s
+eSBwdXNoZXMgdGhlIHByb2JsZW0gb250byB3aGVuIHNvbWVvbmUgd2FudHMgdG8gbmVzdA0KPiBl
+bmNhcHN1bGF0aW9ucy4gIChJIGhlYXJkIHlvdSBsaWtlIHR1bm5lbHMsIHNvIEkgcHV0IGEgdHVu
+bmVsIGluIHlvdXINCj4gdHVubmVsIHNvIHlvdSBjYW4gZW5jYXBzdWxhdGUgd2hpbGUgeW91IGVu
+Y2Fwc3VsYXRlLikNCj4gT3IgdG8gcHV0IGl0IGFub3RoZXIgd2F5LCAyIGlzbid0IGEgbnVtYmVy
+OyB0aGUgb25seSBudW1iZXJzIGFyZSAwLCAxDQo+IGFuZCBpbmZpbml0eSA7KQ0KPiBQZXJoYXBz
+IGluIHByYWN0aWNlIDIgY3N1bXMgd291bGQgYmUgZW5vdWdoLCBmb3Igbm93LiAgQnV0IGlzbid0
+IHRoZQ0KPiB3aG9sZSBwb2ludCBvZiB0aGUgYnJhdmUgbmV3IHdvcmxkIG9mIGdlbmVyaWMgY2hl
+Y2tzdW1zIHRoYXQgaXQgc2hvdWxkDQo+IGJlIGZ1dHVyZS1wcm9vZj8NCj4gDQo+ID4gVGhlIHN0
+YWNrIHdpbGwgbmVlZCB0byBiZSBtb2RpZmllZCBhbHNvIHdoZXJldmVyIENIRUNLU1VNX1BBUlRJ
+QUwgaXMgPiBoYW5kbGVkLg0KPiBOYXR1cmFsbHkuDQo+IA0KPiA+IElmIHlvdXIgZGV2aWNlIGlz
+IHRyeWluZyBkbyBvZmZsb2FkIG1vcmUgdGhhbiBvbmUgY2hlY2tzdW0gb24gaXRzIG93biA+IGFj
+Y29yZCB3aXRob3V0IGJlaW5nIGFza2VkDQo+IHRvIGRvIHNvIGJ5IHRoZSBzdGFjayBpdCBpcyBk
+b2luZyB0aGUgPiB3cm9uZyB0aGluZyENCj4gRnJvbSB0aGUgc3RhY2sncyBwZXJzcGVjdGl2ZTog
+eWVzLCBpdCBpcyBkb2luZyB0aGUgd3JvbmcgdGhpbmcuICAoSSd2ZQ0KPiBiZWVuIGRpc2N1c3Np
+bmcgd2l0aCBjb2xsZWFndWVzIHRvZGF5IGhvdyB3ZSBjb3VsZCBjaGFuZ2UgdGhhdCwgYW5kIEkN
+Cj4gdGhpbmsgd2UgY2FuLCBidXQgaXQgaW52b2x2ZXMgaGF2aW5nIF90aHJlZV8gaGFyZHdhcmUg
+VFhRcyBwZXIga2VybmVsDQo+IHF1ZXVlLCBpbnN0ZWFkIG9mIHRoZSB0d28gd2UgaGF2ZSBub3cu
+Li4pDQo+IEJ1dCBmcm9tIHRoZSBvdXRzaWRlIHBlcnNwZWN0aXZlLCB0aGUgc3lzdGVtIGFzIGEg
+d2hvbGUgaXNuJ3QgZG9pbmcNCj4gYW55dGhpbmcgYmFkIC0gdGhlIHBhY2tldCBnb2luZyBvbiB0
+aGUgbmV0d29yayBpcyB2YWxpZCBhbmQganVzdA0KPiBoYXBwZW5zIHRvIGhhdmUgYm90aCBpbm5l
+ciBhbmQgb3V0ZXIgY2hlY2tzdW1zIGZpbGxlZCBpbi4gIElzIHRoZXJlIGENCj4gZ29vZCByZWFz
+b24gX3doeV8gdGhlIHN0YWNrIGZvcmJpZHMgYSBkZXZpY2UgdG8gZG8gdGhpcz8gIChTdXJlLCBp
+dCdzDQo+IG5vdCBuZWNlc3NhcnksIGFuZCBtYWtlcyB0aGUgaGFyZHdhcmUgbW9yZSBjb21wbGV4
+LiAgQnV0IHRoZSBoYXJkd2FyZSdzDQo+IGFscmVhZHkgYmVlbiBtYWRlLCBhbmQgaXQncyBub3Qg
+YSAqY29tcGxldGVseSogdXNlbGVzcyB0aGluZyB0byBkby4uLikNCj4gDQo+ID4gUGxlYXNlIHN0
+b3AgYWRkaW5nIHRoaXMgZGlzY2xhaW1lciB0byB5b3VyIG1lc3NhZ2VzLCBpdCBpcyBub3QgPiBh
+cHByb3ByaWF0ZSBmb3IgdGhlIGxpc3QuDQo+IEFjdHVhbGx5LCB0aGUgY29weSB0aGF0IGdvZXMg
+dGhlIGxpc3QgZG9lc24ndCBoYXZlIHRoZSBkaXNjbGFpbWVyLiAgQnV0DQo+IHRoYW5rcyB0byBh
+IGNvbWJpbmF0aW9uIG9mIGNyYXBweSBlbWFpbCBzZXJ2ZXIgYW5kIGNvcnBvcmF0ZSBwb2xpdGlj
+cywNCj4gaXQgc3RpbGwgc3RpY2tzIGl0IG9uIGFueSBDQ3MuICBJZiBpdCB3ZXJlIHVwIHRvIG1l
+IChpdCdzIG5vdCkgd2UNCj4gd291bGRuJ3QgYWRkIHRoYXQgZGlzY2xhaW1lciB0byBhbnl0aGlu
+ZyBldmVyLg0KPiBJJ20gbm93IGF0dGVtcHRpbmcgKGZvciB0aGUgbnRoIHRpbWUpIHRvIGNvbnZp
+bmNlIG91ciBtZ210IHRvIGdldCByaWQNCj4gb2YgdGhlIGRpc2NsYWltZXIsIGJ1dCBJIGRvbid0
+IGhvbGQgb3V0IG11Y2ggaG9wZSA6KA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMg
+bGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBv
+ZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9t
+byBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg==
