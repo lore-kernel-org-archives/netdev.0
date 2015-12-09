@@ -1,44 +1,29 @@
-From: <zyjzy2000@gmail.com>
-Subject: [PATCH 1/1] net: bonding: remove redudant brackets
-Date: Wed, 9 Dec 2015 11:30:42 +0800
-Message-ID: <1449631842-29535-1-git-send-email-zyjzy2000@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] geneve: Fix IPv6 xmit stats update.
+Date: Tue, 08 Dec 2015 22:39:19 -0500 (EST)
+Message-ID: <20151208.223919.288650191576863965.davem@davemloft.net>
+References: <1449544650-6112-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <j.vosburgh@gmail.com>, <vfalico@gmail.com>,
-	<gospo@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:61663 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753216AbbLIDa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:30:29 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:49528 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbbLIDjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:39:23 -0500
+In-Reply-To: <1449544650-6112-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yzhu1 <zyzy2000@gmail.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Mon,  7 Dec 2015 19:17:30 -0800
 
-It is not necessary to use two brackets. As such, the redudant brackets
-are removed.
+> Call to iptunnel_xmit_stats() is not required after udp-tunnel6-xmit.
+> By calling iptunnel_xmit_stats() results in incorrect device stats.
+> Following patch drops this call.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: yzhu1 <zyzyj2000@gmail.com>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9e0f8a7..09f8a48 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1351,7 +1351,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	 * the current ifenslave will set the interface down prior to
- 	 * enslaving it; the old ifenslave will not.
- 	 */
--	if ((slave_dev->flags & IFF_UP)) {
-+	if (slave_dev->flags & IFF_UP) {
- 		netdev_err(bond_dev, "%s is up - this may be due to an out of date ifenslave\n",
- 			   slave_dev->name);
- 		res = -EPERM;
--- 
-1.7.9.5
+Applied, thanks Pravin.
