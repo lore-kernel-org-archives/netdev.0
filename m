@@ -1,87 +1,74 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH bluetooth-next 02/10] 6lowpan: add nhc module for GHC hop-by-hopextension header detection
-Date: Wed,  9 Dec 2015 22:46:23 +0100
-Message-ID: <1449697591-15991-3-git-send-email-alex.aring@gmail.com>
-References: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>,
-	Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next 00/10] 6lowpan: pending patches
+Date: Wed,  9 Dec 2015 22:46:21 +0100
+Message-ID: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Alexander Aring <alex.aring@gmail.com>
+To: linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38776 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753521AbbLIVrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:47:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Hi,
 
-Acked-by: Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Signed-off-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/6lowpan/Kconfig           |  6 ++++++
- net/6lowpan/Makefile          |  3 +++
- net/6lowpan/nhc_ghc_ext_hop.c | 27 +++++++++++++++++++++++++++
- 3 files changed, 36 insertions(+)
+these are the current pending patches for 6lowpan based on bluetooth-next.
+It contains the following new features:
+ - per interface debugfs support, useful to add settings to offers a
+   fast/simple userspace api for debugging.
+ - register of available NHC compression by IANA, see [0].
+ - Adding "ipv6_addr_prefix_copy" functionality for upcoming IPHC stateful
+   compression.
+
+- Alex
+
+[0] https://www.iana.org/assignments/_6lowpan-parameters/_6lowpan-parameters.xhtml#lowpan_nhc
+
+Alexander Aring (3):
+  6lowpan: add lowpan dev register helpers
+  6lowpan: add debugfs support
+  ipv6: add ipv6_addr_prefix_copy
+
+Stefan Schmidt (7):
+  6lowpan: clarify Kconfig entries for upcoming GHC support
+  6lowpan: add nhc module for GHC hop-by-hopextension header detection
+  6lowpan: add nhc module for GHC UDP detection
+  6lowpan: add nhc module for GHC ICMPv6 detection
+  6lowpan: add nhc module for GHC destination extension header detection
+  6lowpan: add nhc module for GHC fragmentation extension header
+    detection
+  6lowpan: add nhc module for GHC routing extension header detection
+
+ include/net/6lowpan.h           | 10 ++++++-
+ include/net/ipv6.h              | 15 +++++++++++
+ net/6lowpan/6lowpan_i.h         | 28 +++++++++++++++++++
+ net/6lowpan/Kconfig             | 47 ++++++++++++++++++++++++++++++--
+ net/6lowpan/Makefile            |  9 +++++++
+ net/6lowpan/core.c              | 59 +++++++++++++++++++++++++++++++++++++++--
+ net/6lowpan/debugfs.c           | 53 ++++++++++++++++++++++++++++++++++++
+ net/6lowpan/nhc_ghc_ext_dest.c  | 27 +++++++++++++++++++
+ net/6lowpan/nhc_ghc_ext_frag.c  | 28 +++++++++++++++++++
+ net/6lowpan/nhc_ghc_ext_hop.c   | 27 +++++++++++++++++++
+ net/6lowpan/nhc_ghc_ext_route.c | 27 +++++++++++++++++++
+ net/6lowpan/nhc_ghc_icmpv6.c    | 27 +++++++++++++++++++
+ net/6lowpan/nhc_ghc_udp.c       | 27 +++++++++++++++++++
+ net/bluetooth/6lowpan.c         |  8 +++---
+ net/ieee802154/6lowpan/core.c   |  6 ++---
+ 15 files changed, 384 insertions(+), 14 deletions(-)
+ create mode 100644 net/6lowpan/6lowpan_i.h
+ create mode 100644 net/6lowpan/debugfs.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_dest.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_frag.c
  create mode 100644 net/6lowpan/nhc_ghc_ext_hop.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_route.c
+ create mode 100644 net/6lowpan/nhc_ghc_icmpv6.c
+ create mode 100644 net/6lowpan/nhc_ghc_udp.c
 
-diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
-index 6af7a46..1bd49eb 100644
---- a/net/6lowpan/Kconfig
-+++ b/net/6lowpan/Kconfig
-@@ -59,4 +59,10 @@ config 6LOWPAN_NHC_UDP
- 	---help---
- 	  6LoWPAN IPv6 UDP Header compression according to RFC6282.
- 
-+config 6LOWPAN_GHC_EXT_HDR_HOP
-+	tristate "GHC Hop-by-Hop Options Header Support"
-+	---help---
-+	  6LoWPAN IPv6 Hop-by-Hop option generic header compression according
-+	  to RFC7400.
-+
- endif
-diff --git a/net/6lowpan/Makefile b/net/6lowpan/Makefile
-index c6ffc55..ba20e01 100644
---- a/net/6lowpan/Makefile
-+++ b/net/6lowpan/Makefile
-@@ -10,3 +10,6 @@ obj-$(CONFIG_6LOWPAN_NHC_IPV6) += nhc_ipv6.o
- obj-$(CONFIG_6LOWPAN_NHC_MOBILITY) += nhc_mobility.o
- obj-$(CONFIG_6LOWPAN_NHC_ROUTING) += nhc_routing.o
- obj-$(CONFIG_6LOWPAN_NHC_UDP) += nhc_udp.o
-+
-+#rfc7400 ghcs
-+obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_HOP) += nhc_ghc_ext_hop.o
-diff --git a/net/6lowpan/nhc_ghc_ext_hop.c b/net/6lowpan/nhc_ghc_ext_hop.c
-new file mode 100644
-index 0000000..baec86f
---- /dev/null
-+++ b/net/6lowpan/nhc_ghc_ext_hop.c
-@@ -0,0 +1,27 @@
-+/*
-+ *	6LoWPAN Extension Header compression according to RFC7400
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+
-+#include "nhc.h"
-+
-+#define LOWPAN_GHC_EXT_HOP_IDLEN	1
-+#define LOWPAN_GHC_EXT_HOP_ID_0		0xb0
-+#define LOWPAN_GHC_EXT_HOP_MASK_0	0xfe
-+
-+static void hop_ghid_setup(struct lowpan_nhc *nhc)
-+{
-+	nhc->id[0] = LOWPAN_GHC_EXT_HOP_ID_0;
-+	nhc->idmask[0] = LOWPAN_GHC_EXT_HOP_MASK_0;
-+}
-+
-+LOWPAN_NHC(ghc_ext_hop, "RFC7400 Hop-by-Hop Extension Header", NEXTHDR_HOP, 0,
-+	   hop_ghid_setup, LOWPAN_GHC_EXT_HOP_IDLEN, NULL, NULL);
-+
-+module_lowpan_nhc(ghc_ext_hop);
-+MODULE_DESCRIPTION("6LoWPAN generic header hop-by-hop extension compression");
-+MODULE_LICENSE("GPL");
 -- 
 2.6.1
