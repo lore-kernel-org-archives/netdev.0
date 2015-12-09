@@ -1,55 +1,36 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: [PATCH] r8169: Don't claim WoL works if LanWake flag is not set
-Date: Wed,  9 Dec 2015 11:08:50 +0100
-Message-ID: <1449655730-3328-1-git-send-email-vinschen@redhat.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: netdev@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] mlxsw: spectrum: fix some error handling
+Date: Wed, 9 Dec 2015 13:33:51 +0300
+Message-ID: <20151209103351.GI3173@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:47113 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754266AbbLIK2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 05:28:05 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:29440 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754218AbbLIKeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 05:34:02 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The __rtl8169_get_wol function returns the state of the various WoL
-method bits (MagicPaket, Unicast, etc.).  While the PMEnable bit is
-tested at entry, the function doesn't check the LanWake flag.  Even if
-any one of the WoL bits is set, WoL is deactivated as a whole if LanWake
-isn't set.  The return value from __rtl8169_get_wol doesn't reflect
-that.
+The "err = " assignment is missing here.
 
-Unfortunately BIOS exist (HP T620) which set the MagicPaket bit to 1 but
-the LanWake flag to 0 when switching on WoL in the BIOS.  On those
-machines, ethtool wrongly claims that WoL via MagicPaket is activated
-while in fact it isn't, unless you explicitely called
+Fixes: 0d65fc13042f ('mlxsw: spectrum: Implement LAG port join/leave')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-This patch is supposed to fix this behaviour.  If LanWake is 0, the
-function now returns 0.  Thus ethtool correctly reports "Wake-on: d".
-
-The patch is against Dave's net-next tree.
-
-
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
----
- drivers/net/ethernet/realtek/r8169.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 79ef799..813ad2b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1705,6 +1705,10 @@ static u32 __rtl8169_get_wol(struct rtl8169_private *tp)
- 	if (!(options & PMEnable))
- 		return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 3ec07b9..322ed54 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2091,7 +2091,7 @@ static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	err = mlxsw_sp_lag_col_port_disable(mlxsw_sp_port, lag_id);
+ 	if (err)
+ 		return err;
+-	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
++	err = mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
+ 	if (err)
+ 		return err;
  
-+	options = RTL_R8(Config5);
-+	if (!(options & LanWake))
-+		return 0;
-+
- 	options = RTL_R8(Config3);
- 	if (options & LinkUp)
- 		wolopts |= WAKE_PHY;
--- 
-2.1.0
