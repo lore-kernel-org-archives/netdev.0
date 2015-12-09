@@ -1,110 +1,59 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH v3 4/4] VSOCK: Add Makefile and Kconfig
-Date: Wed,  9 Dec 2015 20:03:53 +0800
-Message-ID: <1449662633-26623-5-git-send-email-stefanha@redhat.com>
-References: <1449662633-26623-1-git-send-email-stefanha@redhat.com>
-Cc: Matt Benjamin <mbenjamin@redhat.com>,
-	Christoffer Dall <christoffer.dall@linaro.org>,
-	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	matt.ma@linaro.org, virtualization@lists.linux-foundation.org,
-	Asias He <asias@redhat.com>,
-	Stefan Hajnoczi <stefanha@redhat.com>
-To: kvm@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1449662633-26623-1-git-send-email-stefanha@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 08:08:23 -0800
+Message-ID: <CALx6S37Dw_reYPXd9_4wCTO+BMqwQrvfMfEWDD7XCToODmm=rg@mail.gmail.com>
+References: <5665A848.9010001@solarflare.com>
+	<20151207.143848.2158761076110518741.davem@davemloft.net>
+	<5666EC4B.40800@solarflare.com>
+	<CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
+	<20151209015602.GB19097@pox.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:37729 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752000AbbLIQIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 11:08:24 -0500
+Received: by igcto18 with SMTP id to18so43575357igc.0
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 08:08:24 -0800 (PST)
+In-Reply-To: <20151209015602.GB19097@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Asias He <asias@redhat.com>
+On Tue, Dec 8, 2015 at 5:56 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 12/08/15 at 09:04am, Tom Herbert wrote:
+>> There are other reasons why CHECKSUM_COMPLETE is preferable:
+>>
+>> - CHECKSUM_COMPLETE  is more robust. We have no way to validate that
+>> the device is actually correct in CHECKSUM_UNNECESSARY. For instance,
+>> how do we know that there isn't some failure in the device where
+>> everything is being marked as good even if it's not. With
+>> CHECKSUM_COMPLETE it is the host that actually makes the decision of
+>> whether the checksum is correct it is highly unlikely that failing
+>> checksum calculation on the device won't be detected. HW failures and
+>> bugs are real concern.
+>> -  CHECKSUM_UNNECESSARY does not report bad checksums. There is a
+>> csum_bad flag in the sk_buff that could be set if the driver detects a
+>> bad checksum in the packet, but no drivers seem to be setting that
+>> currently. So for any packets with bad checksums the stack will need
+>> to compute the checksum itself, so this potentially becomes the basis
+>> of a DDOS attack. CHECKSUM_COMPLETE does not have this problem, we get
+>> the checksum of the packet rather the checksum is correct or not.
+>
+> If I understood Edward correctly, his proposal would be for the
+> card to provide both, the csum as for CHECKSUM_COMPLETE plus the
+> validation yes/no hint. It would be up to the kernel to decide
+> whether to validate itself or trust the card.
+>
+> I'm all in favour CHECKSUM_COMPLETE as the only way to go but
+> we should be aware that it depends on the penetration of RCO in
+> hardware VTEPs.
 
-Enable virtio-vsock and vhost-vsock.
-
-Signed-off-by: Asias He <asias@redhat.com>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
-v3:
- * Don't put vhost vsock driver into staging
- * Add missing Kconfig dependencies (Arnd Bergmann <arnd@arndb.de>)
----
- drivers/vhost/Kconfig  | 10 ++++++++++
- drivers/vhost/Makefile |  4 ++++
- net/vmw_vsock/Kconfig  | 18 ++++++++++++++++++
- net/vmw_vsock/Makefile |  2 ++
- 4 files changed, 34 insertions(+)
-
-diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-index 533eaf0..a1bb4c2 100644
---- a/drivers/vhost/Kconfig
-+++ b/drivers/vhost/Kconfig
-@@ -21,6 +21,16 @@ config VHOST_SCSI
- 	Say M here to enable the vhost_scsi TCM fabric module
- 	for use with virtio-scsi guests
- 
-+config VHOST_VSOCK
-+	tristate "vhost virtio-vsock driver"
-+	depends on VSOCKETS && EVENTFD
-+	select VIRTIO_VSOCKETS_COMMON
-+	select VHOST
-+	select VHOST_RING
-+	default n
-+	---help---
-+	Say M here to enable the vhost-vsock for virtio-vsock guests
-+
- config VHOST_RING
- 	tristate
- 	---help---
-diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
-index e0441c3..6b012b9 100644
---- a/drivers/vhost/Makefile
-+++ b/drivers/vhost/Makefile
-@@ -4,5 +4,9 @@ vhost_net-y := net.o
- obj-$(CONFIG_VHOST_SCSI) += vhost_scsi.o
- vhost_scsi-y := scsi.o
- 
-+obj-$(CONFIG_VHOST_VSOCK) += vhost_vsock.o
-+vhost_vsock-y := vsock.o
-+
- obj-$(CONFIG_VHOST_RING) += vringh.o
-+
- obj-$(CONFIG_VHOST)	+= vhost.o
-diff --git a/net/vmw_vsock/Kconfig b/net/vmw_vsock/Kconfig
-index 14810ab..74e0bc8 100644
---- a/net/vmw_vsock/Kconfig
-+++ b/net/vmw_vsock/Kconfig
-@@ -26,3 +26,21 @@ config VMWARE_VMCI_VSOCKETS
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called vmw_vsock_vmci_transport. If unsure, say N.
-+
-+config VIRTIO_VSOCKETS
-+	tristate "virtio transport for Virtual Sockets"
-+	depends on VSOCKETS && VIRTIO
-+	select VIRTIO_VSOCKETS_COMMON
-+	help
-+	  This module implements a virtio transport for Virtual Sockets.
-+
-+	  Enable this transport if your Virtual Machine runs on Qemu/KVM.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called virtio_vsock_transport. If unsure, say N.
-+
-+config VIRTIO_VSOCKETS_COMMON
-+       tristate
-+       ---help---
-+         This option is selected by any driver which needs to access
-+         the virtio_vsock.
-diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-index 2ce52d7..cf4c294 100644
---- a/net/vmw_vsock/Makefile
-+++ b/net/vmw_vsock/Makefile
-@@ -1,5 +1,7 @@
- obj-$(CONFIG_VSOCKETS) += vsock.o
- obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
-+obj-$(CONFIG_VIRTIO_VSOCKETS) += virtio_transport.o
-+obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += virtio_transport_common.o
- 
- vsock-y += af_vsock.o vsock_addr.o
- 
--- 
-2.5.0
-
+Thomas, I don't understand what you are saying here. CHECKSUM_COMPLETE
+is an interface for drivers providing the computed checksum of a
+packet on receive, how is this dependent on any use case or any other
+mechanisms?
