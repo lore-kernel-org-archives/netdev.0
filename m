@@ -1,49 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: Add fib rules at vrf device create
-Date: Tue, 08 Dec 2015 21:44:11 -0500 (EST)
-Message-ID: <20151208.214411.2137019448940208712.davem@davemloft.net>
-References: <1449607685-8910-1-git-send-email-dsa@cumulusnetworks.com>
+From: Phil Reid <preid@electromag.com.au>
+Subject: Re: [PATCH v4 1/4] stmmac: create of compatible mdio bus for stmacc
+ driver
+Date: Wed, 9 Dec 2015 10:47:29 +0800
+Message-ID: <56679641.7060101@electromag.com.au>
+References: <201512091033.svvb9HL7%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: dsa@cumulusnetworks.com
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	peppe.cavallaro@st.com, davem@davemloft.net,
+	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48507 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418AbbLICoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:44:13 -0500
-In-Reply-To: <1449607685-8910-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from anchovy1.45ru.net.au ([203.30.46.145]:35736 "EHLO
+	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751187AbbLICrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:47:48 -0500
+In-Reply-To: <201512091033.svvb9HL7%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue,  8 Dec 2015 12:48:05 -0800
+On 9/12/2015 10:15 AM, kbuild test robot wrote:
 
-> VRFs require ip rules for route lookups to work properly. Currently
-> creating a VRF means instantiating a device and then adding the 4 ip
-> and ip6 rules:
-> 
->     ip link add vrf-${VRF} type vrf table ${TBID}
->     ip ru add oif vrf-${VRF} table ${TBID}
->     ip ru add iif vrf-${VRF} table ${TBID}
->     ip -6 ru add oif vrf-${VRF} table $TBID
->     ip -6 ru add iif vrf-${VRF} table $TBID
-> 
-> Since the table is required when the vrf device is created the rules can
-> be inserted automatically lightening the overhead and improving the
-> user experience (only the ip link add is needed).
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - addressed comments from Nik
+>
+> url:    https://github.com/0day-ci/linux/commits/Phil-Reid/stmmac-create-of-compatible-mdio-bus-for-stmacc-driver/20151209-094242
+> config: x86_64-randconfig-b0-12090825 (attached as .config)
+> reproduce:
+>          # save the attached .config to linux build tree
+>          make ARCH=x86_64
+>
+> All errors (new ones prefixed by >>):
+>
+>     drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c: In function 'stmmac_mdio_register':
+>>> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c:226:17: error: 'struct stmmac_mdio_bus_data' has no member named 'reset_gpio'
+>         mdio_bus_data->reset_gpio = -1;
+>                      ^
 
-Unfortunately it's too late for this, you should have considered this
-issue fully when VRF first went into an upstream release.
+G'day Arnd,
 
-If I add your change, the user experience is _worse_.
+I got the above error from kbuild test robot. When changing to if (IS_ENABLED(CONFIG_OF)).
+This was existing code that I moved into this conditional.
+reset_gpio member only exists when CONFIG_OF is defined.
+So it looks like I need to move that code back to the #if.
+unless you have an alternate suggestion.
 
-Users on older kernels have to use the full sequence, then if they
-upgrade their kernels to one with this patch then the 'ru add' et
-al. commands will fail.
+
+--
+Regards
+Phil Reid
