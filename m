@@ -1,61 +1,37 @@
-From: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH] mm: memcontrol: MEMCG no longer works with SLOB
-Date: Wed, 9 Dec 2015 15:01:07 -0500
-Message-ID: <20151209200107.GA17409@cmpxchg.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
- <2564892.qO1q7YJ6Nb@wuerfel>
- <1558902.EBTjGmY9S2@wuerfel>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cgroup: fix sock_cgroup_data initialization
+ on earlier compilers
+Date: Wed, 09 Dec 2015 15:02:37 -0500 (EST)
+Message-ID: <20151209.150237.1395563395881100002.davem@davemloft.net>
+References: <20151209173046.GO30240@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Vladimir Davydov <vdavydov-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1558902.EBTjGmY9S2@wuerfel>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: alaa@dev.mellanox.co.il, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151209173046.GO30240@mtj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 09, 2015 at 05:32:39PM +0100, Arnd Bergmann wrote:
-> The change to move the kmem accounting into the normal memcg
-> code means we can no longer use memcg with slob, which lacks
-> the memcg_params member in its struct kmem_cache:
-> 
-> ../mm/slab.h: In function 'is_root_cache':
-> ../mm/slab.h:187:10: error: 'struct kmem_cache' has no member named 'memcg_params'
-> 
-> This enforces the new dependency in Kconfig. Alternatively,
-> we could change the slob code to allow using MEMCG.
-
-I'm curious, was this a random config or do you actually use
-CONFIG_SLOB && CONFIG_MEMCG?
-
-Excluding CONFIG_MEMCG completely for slob seems harsh, but I would
-prefer not littering the source with
-
-#if defined(CONFIG_MEMCG) && (defined(CONFIG_SLAB) || defined(CONFIG_SLUB))
-
-or
-
-#if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
-
-for such a special case. The #ifdefs are already out of hand in there.
-
-Vladimir, what would you think of simply doing this?
-
-diff --git a/mm/slab.h b/mm/slab.h
-index 5adec08..0b3ec4b 100644
---- a/mm/slab.h
-+++ b/mm/slab.h
-@@ -25,6 +25,9 @@ struct kmem_cache {
- 	int refcount;		/* Use counter */
- 	void (*ctor)(void *);	/* Called on object slot creation */
- 	struct list_head list;	/* List of all slab caches on the system */
-+#ifdef CONFIG_MEMCG
-+	struct memcg_cache_params memcg_params;
-+#endif
- };
- 
- #endif /* CONFIG_SLOB */
+RnJvbTogVGVqdW4gSGVvIDx0akBrZXJuZWwub3JnPg0KRGF0ZTogV2VkLCA5IERlYyAyMDE1IDEy
+OjMwOjQ2IC0wNTAwDQoNCj4gc29ja19jZ3JvdXBfZGF0YSBpcyBhIHN0cnVjdCBjb250YWluaW5n
+IGFuIGFub255bW91cyB1bmlvbi4NCj4gc29ja19jZ3JvdXBfc2V0X3ByaW9pZHgoKSBhbmQgc29j
+a19jZ3JvdXBfc2V0X2NsYXNzaWQoKSB3ZXJlDQo+IGluaXRpYWxpemluZyBhIGZpZWxkIGluc2lk
+ZSB0aGUgYW5vbnltb3VzIHVuaW9uIGFzIGZvbGxvd3MuDQo+IA0KPiAgc3RydWN0IHNvY2tfY2Nn
+cm91cF9kYXRhIHNrY2RfYnVmID0geyAudmFsID0gVkFMIH07DQo+IA0KPiBXaGlsZSB0aGlzIGlz
+IGZpbmUgb24gbW9yZSByZWNlbnQgY29tcGlsZXJzLCBnY2MtNC40LjcgdHJpZ2dlcnMgdGhlDQo+
+IGZvbGxvd2luZyBlcnJvcnMuDQo+IA0KPiAgaW5jbHVkZS9saW51eC9jZ3JvdXAtZGVmcy5oOiBJ
+biBmdW5jdGlvbiChc29ja19jZ3JvdXBfc2V0X3ByaW9pZHiiOg0KPiAgaW5jbHVkZS9saW51eC9j
+Z3JvdXAtZGVmcy5oOjYxOTogZXJyb3I6IHVua25vd24gZmllbGQgoXZhbKIgc3BlY2lmaWVkIGlu
+IGluaXRpYWxpemVyDQo+ICBpbmNsdWRlL2xpbnV4L2Nncm91cC1kZWZzLmg6NjE5OiB3YXJuaW5n
+OiBtaXNzaW5nIGJyYWNlcyBhcm91bmQgaW5pdGlhbGl6ZXINCj4gIGluY2x1ZGUvbGludXgvY2dy
+b3VwLWRlZnMuaDo2MTk6IHdhcm5pbmc6IChuZWFyIGluaXRpYWxpemF0aW9uIGZvciChc2tjZF9i
+dWYuPGFub255bW91cz6iKQ0KPiANCj4gVGhpcyBpcyBiZWNhdXNlIC52YWwgYmVsb25ncyB0byB0
+aGUgYW5vbnltb3VzIHVuaW9uIG5lc3RlZCBpbnNpZGUgdGhlDQo+IHN0cnVjdCBidXQgdGhlIGlu
+aXRpYWxpemVyIGlzIG1pc3NpbmcgdGhlIG5lc3RpbmcuICBGaXggaXQgYnkgYWRkaW5nDQo+IGFu
+IGV4dHJhIHBhaXIgb2YgYnJhY2VzLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogVGVqdW4gSGVvIDx0
+akBrZXJuZWwub3JnPg0KPiBSZXBvcnRlZC1ieTogQWxhYSBIbGVpaGVsIDxhbGFhQGRldi5tZWxs
+YW5veC5jby5pbD4NCj4gRml4ZXM6IGJkMTA2MGExZDY3MSAoInNvY2ssIGNncm91cDogYWRkIHNv
+Y2stPnNrX2Nncm91cCIpDQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
