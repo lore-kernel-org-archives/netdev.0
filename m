@@ -1,62 +1,71 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] Doc: Micrel-ksz90x1.txt: Document deprecated MAC OF properties
-Date: Wed,  9 Dec 2015 19:39:03 +0100
-Message-ID: <1449686343-14925-1-git-send-email-andrew@lunn.ch>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] phy: micrel: Fix finding PHY properties in MAC node.
+Date: Wed, 9 Dec 2015 19:52:51 +0100
+Message-ID: <20151209185251.GA14995@lunn.ch>
+References: <1449686226-14834-1-git-send-email-andrew@lunn.ch>
+ <56687621.9010602@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	dinguyen@opensource.altera.com, david.daney@cavium.com
+To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34233 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:34239 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753087AbbLISjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2015 13:39:09 -0500
+	id S1753280AbbLISwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2015 13:52:55 -0500
+Content-Disposition: inline
+In-Reply-To: <56687621.9010602@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phy properties are expected to be found in the PHY OF node. However
-this Micrel driver also allows them to be placed into the MAC OF node.
-This is deprecated. Document it as such, and remove the example using
-the deprecated method to prevent people copying it into new device
-tree files.
+> >diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> >index cf6312fafea5..2493d7c035f2 100644
+> >--- a/drivers/net/phy/micrel.c
+> >+++ b/drivers/net/phy/micrel.c
+> >@@ -26,6 +26,7 @@
+> >  #include <linux/module.h>
+> >  #include <linux/phy.h>
+> >  #include <linux/micrel_phy.h>
+> >+#include <linux/netdevice.h>
+> 
+> No new types are introduced by the patch.  Why do we need an
+> additional #include?
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- .../devicetree/bindings/net/micrel-ksz90x1.txt          | 17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+We probably don't.
 
-diff --git a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-index 692076fda0e5..f9c32adab5c6 100644
---- a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-+++ b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-@@ -1,8 +1,9 @@
- Micrel KSZ9021/KSZ9031 Gigabit Ethernet PHY
+It took my debug patch which printed additional information, and
+stripped the prints out. One of those prints needed netdev, but since
+it has now gone, we probably don't need the include.
+
+   Andrew
+
  
--Some boards require special tuning values, particularly when it comes to
--clock delays. You can specify clock delay values by adding
--micrel-specific properties to an Ethernet OF device node.
-+Some boards require special tuning values, particularly when it comes
-+to clock delays. You can specify clock delay values in the PHY OF
-+device node. Deprecated, but still supported, these properties can
-+also be added to an Ethernet OF device node.
- 
- Note that these settings are applied after any phy-specific fixup from
- phy_fixup_list (see phy_init_hw() from drivers/net/phy/phy_device.c),
-@@ -57,16 +58,6 @@ KSZ9031:
- 
- Examples:
- 
--	/* Attach to an Ethernet device with autodetected PHY */
--	&enet {
--		rxc-skew-ps = <3000>;
--		rxdv-skew-ps = <0>;
--		txc-skew-ps = <3000>;
--		txen-skew-ps = <0>;
--		status = "okay";
--	};
--
--	/* Attach to an explicitly-specified PHY */
- 	mdio {
- 		phy0: ethernet-phy@0 {
- 			rxc-skew-ps = <3000>;
--- 
-2.6.2
+> >  #include <linux/of.h>
+> >  #include <linux/clk.h>
+> >
+> >@@ -339,9 +340,18 @@ static int ksz9021_config_init(struct phy_device *phydev)
+> >  {
+> >  	const struct device *dev = &phydev->dev;
+> >  	const struct device_node *of_node = dev->of_node;
+> >+	const struct device *dev_walker;
+> >
+> >-	if (!of_node && dev->parent->of_node)
+> >-		of_node = dev->parent->of_node;
+> >+	/* The Micrel driver has a deprecated option to place phy OF
+> >+	 * properties in the MAC node. Walk up the tree of devices to
+> >+	 * find a device with an OF node.
+> >+	 */
+> >+	dev_walker = &phydev->dev;
+> >+	do {
+> >+		of_node = dev_walker->of_node;
+> >+		dev_walker = dev_walker->parent;
+> >+
+> >+	} while (!of_node && dev_walker);
+> >
+> >  	if (of_node) {
+> >  		ksz9021_load_values_from_of(phydev, of_node,
+> >
+> 
