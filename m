@@ -1,64 +1,50 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
- CONFIG_INET
-Date: Wed, 9 Dec 2015 14:28:36 -0800
-Message-ID: <20151209142836.e81260567879110f319c01a4@linux-foundation.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-	<2564892.qO1q7YJ6Nb@wuerfel>
-	<7343206.sFybcLLUN2@wuerfel>
-	<20151209185858.GA2342@cmpxchg.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 23:29:24 +0100
+Message-ID: <20151209222924.GG11201@pox.localdomain>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
+ <20151209015602.GB19097@pox.localdomain>
+ <CALx6S37Dw_reYPXd9_4wCTO+BMqwQrvfMfEWDD7XCToODmm=rg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151209185858.GA2342-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:34705 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421AbbLIW31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:29:27 -0500
+Received: by mail-wm0-f49.google.com with SMTP id v187so6633725wmv.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:29:26 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALx6S37Dw_reYPXd9_4wCTO+BMqwQrvfMfEWDD7XCToODmm=rg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org> wrote:
-
-> > diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> > index 6faea81e66d7..73cd572167bb 100644
-> > --- a/mm/memcontrol.c
-> > +++ b/mm/memcontrol.c
-> > @@ -4220,13 +4220,13 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
-> >  	if (ret)
-> >  		return ret;
-> >  
-> > +#ifdef CONFIG_INET
-> >  #ifdef CONFIG_MEMCG_LEGACY_KMEM
-> >  	ret = tcp_init_cgroup(memcg);
-> >  	if (ret)
-> >  		return ret;
-> >  #endif
+On 12/09/15 at 08:08am, Tom Herbert wrote:
+> On Tue, Dec 8, 2015 at 5:56 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> > If I understood Edward correctly, his proposal would be for the
+> > card to provide both, the csum as for CHECKSUM_COMPLETE plus the
+> > validation yes/no hint. It would be up to the kernel to decide
+> > whether to validate itself or trust the card.
+> >
+> > I'm all in favour CHECKSUM_COMPLETE as the only way to go but
+> > we should be aware that it depends on the penetration of RCO in
+> > hardware VTEPs.
 > 
-> The calls to tcp_init_cgroup() appear earlier in the series than "mm:
-> memcontrol: hook up vmpressure to socket pressure". However, they get
-> moved around a few times so fixing it earlier means respinning the
-> series. Andrew, it's up to you whether we take the bisectability hit
-> for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
-> want me to resend the series.
+> Thomas, I don't understand what you are saying here. CHECKSUM_COMPLETE
+> is an interface for drivers providing the computed checksum of a
+> packet on receive, how is this dependent on any use case or any other
+> mechanisms?
 
-hm, drat, I was suspecting dependency issues here, but a test build
-said it was OK.
-
-Actually, I was expecting this patch series to depend on the linux-next
-cgroup2 changes, but that doesn't appear to be the case.  *should* this
-series be staged after the cgroup2 code?
-
-Regarding this particular series: yes, I think we can live with a
-bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
-sure why we're discussing bisection issues, because Arnd's build
-failure occurs with everything applied?
-
-> Sorry about the trouble. I don't have a git tree on kernel.org because
-> we don't really use git in -mm, but the downside is that we don't get
-> the benefits of the automatic build testing for all kinds of configs.
-> I'll try to set up a git tree to expose series to full build coverage
-> before they hit -mm and -next.
-
-This sort of thing happens quite rarely.
+I'm referring to the overall change which comes with a pure
+CHECSUM_COMPLETE model which would forbid a NIC to do automatic nested
+checksum filling even if untold. RCO solves that to some extent but
+only if RCO is widely supported. I'm not aware of anybody relying on
+the performance of such hardware yet so I doubt we would create a
+performance regression.
