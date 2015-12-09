@@ -1,97 +1,73 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for
- CONFIG_INET
-Date: Wed, 9 Dec 2015 18:05:05 -0500
-Message-ID: <20151209230505.GA16610@cmpxchg.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
- <2564892.qO1q7YJ6Nb@wuerfel>
- <7343206.sFybcLLUN2@wuerfel>
- <20151209185858.GA2342@cmpxchg.org>
- <20151209142836.e81260567879110f319c01a4@linux-foundation.org>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH net 1/2] openvswitch: Fix helper reference leak
+Date: Wed, 9 Dec 2015 15:10:21 -0800
+Message-ID: <CAPWQB7H5MR-ogQGk0hB=nj3YjxiuPLdoq68xO-KB63U0To-NHQ@mail.gmail.com>
+References: <1449698860-20685-1-git-send-email-joe@ovn.org> <CALnjE+q7tXTD9=cywSg8qJY19DPbAb8Tpz8EaBuJRcW8ANZ9ZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20151209142836.e81260567879110f319c01a4@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:33292 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754468AbbLIXKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:10:45 -0500
+Received: from mfilter18-d.gandi.net (mfilter18-d.gandi.net [217.70.178.146])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 7303D41C091
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 00:10:42 +0100 (CET)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter18-d.gandi.net (mfilter18-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id kXXZFif4SGka for <netdev@vger.kernel.org>;
+	Thu, 10 Dec 2015 00:10:41 +0100 (CET)
+Received: from mail-wm0-f42.google.com (mail-wm0-f42.google.com [74.125.82.42])
+	(Authenticated sender: joe@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 26E3441C084
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 00:10:41 +0100 (CET)
+Received: by wmec201 with SMTP id c201so1940945wme.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:10:40 -0800 (PST)
+In-Reply-To: <CALnjE+q7tXTD9=cywSg8qJY19DPbAb8Tpz8EaBuJRcW8ANZ9ZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 09, 2015 at 02:28:36PM -0800, Andrew Morton wrote:
-> On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
-> 
-> > > diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> > > index 6faea81e66d7..73cd572167bb 100644
-> > > --- a/mm/memcontrol.c
-> > > +++ b/mm/memcontrol.c
-> > > @@ -4220,13 +4220,13 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
-> > >  	if (ret)
-> > >  		return ret;
-> > >  
-> > > +#ifdef CONFIG_INET
-> > >  #ifdef CONFIG_MEMCG_LEGACY_KMEM
-> > >  	ret = tcp_init_cgroup(memcg);
-> > >  	if (ret)
-> > >  		return ret;
-> > >  #endif
-> > 
-> > The calls to tcp_init_cgroup() appear earlier in the series than "mm:
-> > memcontrol: hook up vmpressure to socket pressure". However, they get
-> > moved around a few times so fixing it earlier means respinning the
-> > series. Andrew, it's up to you whether we take the bisectability hit
-> > for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
-> > want me to resend the series.
-> 
-> hm, drat, I was suspecting dependency issues here, but a test build
-> said it was OK.
-> 
-> Actually, I was expecting this patch series to depend on the linux-next
-> cgroup2 changes, but that doesn't appear to be the case.  *should* this
-> series be staged after the cgroup2 code?
+On 9 December 2015 at 14:50, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Dec 9, 2015 at 2:07 PM, Joe Stringer <joe@ovn.org> wrote:
+>> If the actions (re)allocation fails, or the actions list is larger than the
+>> maximum size, and the conntrack action is the last action when these
+>> problems are hit, then references to helper modules may be leaked. Fix
+>> the issue.
+>>
+>> Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
+>> Signed-off-by: Joe Stringer <joe@ovn.org>
+>> ---
+>>  net/openvswitch/conntrack.c | 9 ++++++++-
+>>  1 file changed, 8 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>> index c2cc11168fd5..585a5aa81f89 100644
+>> --- a/net/openvswitch/conntrack.c
+>> +++ b/net/openvswitch/conntrack.c
+>> @@ -53,6 +53,8 @@ struct ovs_conntrack_info {
+>>         struct md_labels labels;
+>>  };
+>>
+>> +static void __ovs_ct_free_action(struct ovs_conntrack_info *ct_info);
+>> +
+>>  static u16 key_to_nfproto(const struct sw_flow_key *key)
+>>  {
+>>         switch (ntohs(key->eth.type)) {
+>> @@ -708,7 +710,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
+>>         nf_conntrack_get(&ct_info.ct->ct_general);
+>
+> I see another issue here. Updates to ct_info are done after it is
+> copied to action list. ct action on the action list and ct_info are
+> inconsistent, So it is still leaking nf-conntrack reference.
 
-Code-wise they are independent. My stuff is finishing up the new memcg
-control knobs, the cgroup2 stuff is changing how and when those knobs
-are exposed from within the cgroup core. I'm not relying on any recent
-changes in the cgroup core AFAICS, so the order shouldn't matter here.
+You're referring to the below?
 
-> Regarding this particular series: yes, I think we can live with a
-> bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
-> sure why we're discussing bisection issues, because Arnd's build
-> failure occurs with everything applied?
+         __set_bit(IPS_CONFIRMED_BIT, &ct_info.ct->status);
+         nf_conntrack_get(&ct_info.ct->ct_general);
 
-Arnd's patches apply to the top of the stack, but they address issues
-introduced early in the series and the problematic code gets touched a
-lot in subsequent patches. E.g. the first build breakage is in ("net:
-tcp_memcontrol: simplify linkage between socket and page counter")
-when the tcp_init_cgroup() and tcp_destroy_cgroup() function calls get
-moved around and lose the CONFIG_INET protection.
-
-This will leave states in between broken for this configuration, which
-is why I brought up bisection. Or did you mean something else?
-
-> > Sorry about the trouble. I don't have a git tree on kernel.org because
-> > we don't really use git in -mm, but the downside is that we don't get
-> > the benefits of the automatic build testing for all kinds of configs.
-> > I'll try to set up a git tree to expose series to full build coverage
-> > before they hit -mm and -next.
-> 
-> This sort of thing happens quite rarely.
-
-True, this is a particularly tedious one. The only reason I brought it
-up is because I use git to prepare patches anyway, and pushing patches
-into a branch reachable by Fengguang's rig before I send emails might
-have caught this stuff without spamming so many inboxes ;)
-
-Anyway, if we can live with the bisection caveat then Arnd's fixes on
-top of the kmem series look good to me. Depending on what Vladimir
-thinks we might want to replace the CONFIG_SLOB fix with something
-else later on, but that shouldn't be a problem, either.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ct_info.ct points to the same location as the version that has been
+copied into the action list. I agree it's a bit misleading though. If
+you're not seeing something else, it seems cosmetic so I can (should?)
+follow up on net-next.
