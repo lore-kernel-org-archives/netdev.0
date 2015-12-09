@@ -1,55 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: sctp: clone options to avoid use after free
-Date: Wed, 09 Dec 2015 07:59:42 -0800
-Message-ID: <1449676782.9768.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+YjXJoh3uGDp=FJkYVnjaMxFSPY252ptbDGZ-LQ9JAEWw@mail.gmail.com>
-	 <CANn89i+V-GeD3zCzGPAo4jY8Z6iTjFN3U1ixG44WyKKLOZ9Txw@mail.gmail.com>
-	 <20151209145917.GA3884@mrl.redhat.com>
-	 <CANn89iLhetNbtO6h99zZOrCiMYON50vzVsk7j_AtosXejvvm4Q@mail.gmail.com>
-	 <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CBE9A61@AcuExch.aculab.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 08:01:10 -0800
+Message-ID: <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+References: <5665A848.9010001@solarflare.com>
+	<20151207.143848.2158761076110518741.davem@davemloft.net>
+	<5666EC4B.40800@solarflare.com>
+	<20151208.120654.2127200076257822677.davem@davemloft.net>
+	<56681B18.3030200@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBE9A61@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:35528 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbbLIQBL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 11:01:11 -0500
+Received: by ioc74 with SMTP id 74so63658923ioc.2
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 08:01:10 -0800 (PST)
+In-Reply-To: <56681B18.3030200@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-09 at 15:49 +0000, David Laight wrote:
-> > SCTP is lacking proper np->opt cloning at accept() time.
-> > 
-> > TCP and DCCP use ipv6_dup_options() helper, do the same in SCTP.
-> > 
-> > We might later factorize this code in a common helper to avoid
-> > future mistakes.
-> 
-> I'm wondering what the real impact of this and the other recent
-> SCTP bugs/patches is on real workloads?
-> We have enough trouble getting our customers to use kernels
-> later that the 2.6.18 based RHEL5 - without having to persuade
-> them to use kernels that contain very recent fixes.
+On Wed, Dec 9, 2015 at 4:14 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 08/12/15 17:06, David Miller wrote:
+>> All of the headers get touched anyways as each layer of the stack > demuxes the packet. Therefore there is _ZERO_ cost to use 1's > complement to validate checksums in input. It's always superior.
+>
+> Ah, I understand now, it's touching the memory that's expensive, not adding
+> up the numbers. Thanks for being patient with me :)
+>
+> So that just leaves the question of offloading multiple _TX_ checksums.
+> Remote checksum offload would deal with this but the receiver might not
+> support it, meaning that after decapsulation the packet will have a zero
+> checksum (and still has chances to get corrupted); thus it's not necessarily
+> safe to do unless you control both endpoints and know you have RCO
+> everywhere.
+> Convincing hardware designers to go the HW_CSUM way and only fill in the
+> inner checksum, when their current approach can fill in both inner and outer
+> checksums (though admittedly only for the protocols the hardware knows
+> about), might be difficult.
+>
+But again, NETIF_F_IP[V6]_CSUM and NETIF_F_HW_CSUM describe
+capabilities._not_ the interface. The interface currently allows only
+one checksum to be offloaded at time, if we want to be able to offload
+two checksums then the interface needs to be changed-- probably
+something like defining a new capability like NETIF_F_HW_2CSUMS,
+adding another csum_start,csum_offset pair into the sk_buff. The stack
+will need to be modified also wherever CHECKSUM_PARTIAL is handled. If
+your device is trying do offload more than one checksum on its own
+accord without being asked to do so by the stack it is doing the wrong
+thing!
 
-It all depends if your customers let (hostile ?) people run programs on
-the boxes.
+> Remember that NICs are going to have packet parsing for those protocols
+> anyway, because they need it for things like Windows-spec RSS, so in the
+> hardware designer's mind, ossified offloads are "free".
 
-I wont run the program on my laptop just for the fun of making it crash,
-but I guess Cloud providers might be worried, once exploits are public.
+> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+
+Please stop adding this disclaimer to your messages, it is not
+appropriate for the list.
+
+Tom
