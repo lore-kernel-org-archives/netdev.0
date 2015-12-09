@@ -1,40 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-Date: Wed, 9 Dec 2015 10:38:44 +0800
-Message-ID: <20151209023844.GA24736@gondor.apana.org.au>
-References: <20151207.142953.387889541116696974.davem@davemloft.net>
- <20151205070603.GB23255@gondor.apana.org.au>
- <20151209021826.GC19097@pox.localdomain>
- <20151209022454.GA24515@gondor.apana.org.au>
- <20151209023632.GD19097@pox.localdomain>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH 0/6] VSOCK: revert virtio-vsock until device spec is
+ finalized
+Date: Wed, 9 Dec 2015 10:39:28 +0800
+Message-ID: <20151209023928.GA24211@stefanha-x1.localdomain>
+References: <1449575856-28507-1-git-send-email-stefanha@redhat.com>
+ <20151208.112655.353902854757115664.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Phil Sutter <phil@nwl.cc>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="jI8keyz6grp/JLjh"
+Cc: netdev@vger.kernel.org, mbenjamin@redhat.com, kvm@vger.kernel.org,
+	christoffer.dall@linaro.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, matt.ma@linaro.org
+To: David Miller <davem@davemloft.net>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151209023632.GD19097@pox.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20151208.112655.353902854757115664.davem@davemloft.net>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 09, 2015 at 03:36:32AM +0100, Thomas Graf wrote:
-> 
-> Without knowing your exact implementation plans: introducing an
-> additional reference indirection for every lookup will have a
-> huge performance penalty as well.
-> 
-> Is your plan to only introduce the master table after an
-> allocation has failed?
 
-Right, obviously the extra indirections would only come into play
-after a failed allocation.  As soon as we can run the worker thread
-it'll try to remove the extra indirections by doing vmalloc.
+--jI8keyz6grp/JLjh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Tue, Dec 08, 2015 at 11:26:55AM -0500, David Miller wrote:
+> From: Stefan Hajnoczi <stefanha@redhat.com>
+> Date: Tue,  8 Dec 2015 19:57:30 +0800
+>=20
+> > Please revert for now.
+>=20
+> Please don't revert it piece by piece like this.
+>=20
+> Instead, send me one big revert commit that undoes the whole
+> thing.  There is even a merge commit that you can use to
+> create that revert cleanly.
+
+Okay.
+
+Stefan
+
+--jI8keyz6grp/JLjh
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJWZ5RgAAoJEJykq7OBq3PI3GMH/0hrBx0hcoUgtqN++eM0YGOL
++EliNMSqqFPK5BNwI76OSqHfQCjySzq9ueTY0eXkym8xusgBh6UrYM4a0c8I1QjZ
+ItOgEpOuhoJp0jcwuFXXJtjh9hJYUr2a2qYXvDc1wocwfCEuOrlUhOKbDsV+5NIz
+PuKc/Ly+OVXMrmuIRcQoDf3yo1xpH8A0BhPzfyG9C6/7WJiJvUewQLmPb04iqt3E
+mgOmwElXQAZd6GRqJdl6gXt1P4xfyPjpcizgvH3wR3kbqZwMw/mYPjNh1G3QmICa
+V901xXVAeaNAtsoP9iV2spluJj7L4YYd+VQfs3Y4iNGnCwn1i2nDvZW7HmZWUpk=
+=x3Nj
+-----END PGP SIGNATURE-----
+
+--jI8keyz6grp/JLjh--
