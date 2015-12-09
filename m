@@ -1,67 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] net:sysctl fix the confusing corner of tcp_mem
-Date: Wed, 9 Dec 2015 16:47:34 +0300
-Message-ID: <566830F6.705@cogentembedded.com>
-References: <1449626509-3736-1-git-send-email-wangyufen@huawei.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [netfilter-core] [PATCH] netfilter: nfnetlink_queue: Unregister
+ pernet subsys in case of init failure
+Date: Wed, 9 Dec 2015 14:48:25 +0100
+Message-ID: <20151209134825.GA1183@salvia>
+References: <1449483206-22618-1-git-send-email-kernel@kyup.com>
+ <56657BA5.6070303@cogentembedded.com>
+ <56658284.9080009@kyup.com>
+ <20151207131746.GA27860@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: guohanjun@huawei.com, zhangdianfang@huawei.com,
-	dingtianhong@huawei.com, huxinwei@huawei.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Wang Yufen <wangyufen@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:36790 "EHLO
-	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753083AbbLINrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 08:47:36 -0500
-Received: by lfs39 with SMTP id 39so34747627lfs.3
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 05:47:35 -0800 (PST)
-In-Reply-To: <1449626509-3736-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, fruggeri@arista.com,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net
+To: Nikolay Borisov <kernel@kyup.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151207131746.GA27860@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, Dec 07, 2015 at 02:17:46PM +0100, Pablo Neira Ayuso wrote:
+> On Mon, Dec 07, 2015 at 02:58:44PM +0200, Nikolay Borisov wrote:
+> > 
+> > 
+> > On 12/07/2015 02:29 PM, Sergei Shtylyov wrote:
+> > > Hello.
+> > > 
+> > > On 12/07/2015 01:13 PM, Nikolay Borisov wrote:
+> > > 
+> > >> Commit 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}:
+> > > 
+> > >    Double quotes please, that's what scripts/checkpatch.pl enforces now.
+> > > 
+> > >> Register pernet in first place') reorganised the initialisation
+> > >> order of the pernet_subsys to avoid "use-before-initialised"
+> > >> condition. However, in doing so the cleanup logic in nfnetlink_queue
+> > >> got botched in that the pernet_subsys wasn't cleaned in case
+> > >> nfnetlink_subsys_register failed. This patch adds the necessary
+> > >> cleanup routine call.
+> > >>
+> > >> Fixes: 3bfe049807c2403 ('netfilter: nfnetlink_{log,queue}: Register
+> > >>                         pernet in first place')
+> > > 
+> > >    Likewise.
+> > 
+> > I will resend it with proper quotes (even though I think this is a minor
+> > issue) but I'd like to first gather some review feedback.
+> 
+> Unless someone spots any other more relevant problem with this, I'll
+> fix this comestic issues here, no need to resend.
 
-On 12/9/2015 5:01 AM, Wang Yufen wrote:
-
-> From: Yufen Wang <wangyufen@huawei.com>
->
-> I tried on linux-4.1:
->      linux:~# cat /proc/sys/net/ipv4/tcp_mem
->      8388608	12582912	16777216
->      linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem
->      -bash: echo: write error: Invalid argument
->      linux:~# cat /proc/sys/net/ipv4/tcp_mem
->      1234	12582912	16777216
->
-> the echo operation got error, but value already written to tcp_mem.
-> If a write() returns an error like EINVAL, we expect no change occurred.
-> This patch fix the confusing corner and makes __do_proc_doulongvec_minmax
-> works the same as __do_proc_dointvec
->
-> Signed-off-by: Yufen Wang <wangyufen@huawei.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->   kernel/sysctl.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> index c3eee4c..e3ee4be 100644
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -2318,6 +2318,8 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
->   			bool neg;
->
->   			left -= proc_skip_spaces(&kbuf);
-> +                        if (!left)
-> +                                break;
-
-     Please use tabs for indentation, not spaces.
-
-[...]
-
-MBR, Sergei
+Applied, thanks.
