@@ -1,247 +1,88 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH bluetooth-next 09/10] 6lowpan: add debugfs support
-Date: Wed,  9 Dec 2015 22:46:30 +0100
-Message-ID: <1449697591-15991-10-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next 04/10] 6lowpan: add nhc module for GHC ICMPv6 detection
+Date: Wed,  9 Dec 2015 22:46:25 +0100
+Message-ID: <1449697591-15991-5-git-send-email-alex.aring@gmail.com>
 References: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Stefan Schmidt <stefan@osg.samsung.com>,
+	Alexander Aring <alex.aring@gmail.com>
+To: linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37031 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754021AbbLIVra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:47:30 -0500
+In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch will introduce a 6lowpan entry into the debugfs if enabled.
-Inside this 6lowpan directory we create a subdirectories of all 6lowpan
-interfaces to offer a per interface debugfs support.
+From: Stefan Schmidt <stefan@osg.samsung.com>
 
-Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Signed-off-by: Stefan Schmidt <stefan@osg.samsung.com>
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- include/net/6lowpan.h   |  3 +++
- net/6lowpan/6lowpan_i.h | 28 ++++++++++++++++++++++++++
- net/6lowpan/Kconfig     |  8 ++++++++
- net/6lowpan/Makefile    |  1 +
- net/6lowpan/core.c      | 28 +++++++++++++++++++++++++-
- net/6lowpan/debugfs.c   | 53 +++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 120 insertions(+), 1 deletion(-)
- create mode 100644 net/6lowpan/6lowpan_i.h
- create mode 100644 net/6lowpan/debugfs.c
+ net/6lowpan/Kconfig          |  5 +++++
+ net/6lowpan/Makefile         |  1 +
+ net/6lowpan/nhc_ghc_icmpv6.c | 27 +++++++++++++++++++++++++++
+ 3 files changed, 33 insertions(+)
+ create mode 100644 net/6lowpan/nhc_ghc_icmpv6.c
 
-diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
-index 730211f..2f6a3f2 100644
---- a/include/net/6lowpan.h
-+++ b/include/net/6lowpan.h
-@@ -53,6 +53,8 @@
- #ifndef __6LOWPAN_H__
- #define __6LOWPAN_H__
- 
-+#include <linux/debugfs.h>
-+
- #include <net/ipv6.h>
- #include <net/net_namespace.h>
- 
-@@ -98,6 +100,7 @@ enum lowpan_lltypes {
- 
- struct lowpan_priv {
- 	enum lowpan_lltypes lltype;
-+	struct dentry *iface_debugfs;
- 
- 	/* must be last */
- 	u8 priv[0] __aligned(sizeof(void *));
-diff --git a/net/6lowpan/6lowpan_i.h b/net/6lowpan/6lowpan_i.h
-new file mode 100644
-index 0000000..d16bb4b
---- /dev/null
-+++ b/net/6lowpan/6lowpan_i.h
-@@ -0,0 +1,28 @@
-+#ifndef __6LOWPAN_I_H
-+#define __6LOWPAN_I_H
-+
-+#include <linux/netdevice.h>
-+
-+#ifdef CONFIG_6LOWPAN_DEBUGFS
-+int lowpan_dev_debugfs_init(struct net_device *dev);
-+void lowpan_dev_debugfs_exit(struct net_device *dev);
-+
-+int __init lowpan_debugfs_init(void);
-+void lowpan_debugfs_exit(void);
-+#else
-+static inline int lowpan_dev_debugfs_init(struct net_device *dev)
-+{
-+	return 0;
-+}
-+
-+static inline void lowpan_dev_debugfs_exit(struct net_device *dev) { }
-+
-+static inline int __init lowpan_debugfs_init(void)
-+{
-+	return 0;
-+}
-+
-+static inline void lowpan_debugfs_exit(void) { }
-+#endif /* CONFIG_6LOWPAN_DEBUGFS */
-+
-+#endif /* __6LOWPAN_I_H */
 diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
-index bcb9d8a..9c05151 100644
+index 94d5178..0a3f5a8 100644
 --- a/net/6lowpan/Kconfig
 +++ b/net/6lowpan/Kconfig
-@@ -5,6 +5,14 @@ menuconfig 6LOWPAN
- 	  This enables IPv6 over Low power Wireless Personal Area Network -
- 	  "6LoWPAN" which is supported by IEEE 802.15.4 or Bluetooth stacks.
+@@ -70,4 +70,9 @@ config 6LOWPAN_GHC_UDP
+ 	---help---
+ 	  6LoWPAN IPv6 UDP generic header compression according to RFC7400.
  
-+config 6LOWPAN_DEBUGFS
-+	bool "6LoWPAN debugfs support"
-+	depends on 6LOWPAN
-+	depends on DEBUG_FS
++config 6LOWPAN_GHC_ICMPV6
++	tristate "GHC ICMPv6 Support"
 +	---help---
-+	  This enables 6LoWPAN debugfs support. For example to manipulate
-+	  IPHC context information at runtime.
++	  6LoWPAN IPv6 ICMPv6 generic header compression according to RFC7400.
 +
- menuconfig 6LOWPAN_NHC
- 	tristate "Next Header and Generic Header Compression Support"
- 	depends on 6LOWPAN
+ endif
 diff --git a/net/6lowpan/Makefile b/net/6lowpan/Makefile
-index 9e35a5d..e44f3bf 100644
+index 5e4f2f3..86af3fd 100644
 --- a/net/6lowpan/Makefile
 +++ b/net/6lowpan/Makefile
-@@ -1,6 +1,7 @@
- obj-$(CONFIG_6LOWPAN) += 6lowpan.o
- 
- 6lowpan-y := core.o iphc.o nhc.o
-+6lowpan-$(CONFIG_6LOWPAN_DEBUGFS) += debugfs.o
- 
- #rfc6282 nhcs
- obj-$(CONFIG_6LOWPAN_NHC_DEST) += nhc_dest.o
-diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
-index 80fc509..c7f06f5 100644
---- a/net/6lowpan/core.c
-+++ b/net/6lowpan/core.c
-@@ -15,9 +15,13 @@
- 
- #include <net/6lowpan.h>
- 
-+#include "6lowpan_i.h"
-+
- int lowpan_register_netdevice(struct net_device *dev,
- 			      enum lowpan_lltypes lltype)
- {
-+	int ret;
-+
- 	dev->addr_len = EUI64_ADDR_LEN;
- 	dev->type = ARPHRD_6LOWPAN;
- 	dev->mtu = IPV6_MIN_MTU;
-@@ -25,7 +29,15 @@ int lowpan_register_netdevice(struct net_device *dev,
- 
- 	lowpan_priv(dev)->lltype = lltype;
- 
--	return register_netdevice(dev);
-+	ret = lowpan_dev_debugfs_init(dev);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = register_netdevice(dev);
-+	if (ret < 0)
-+		lowpan_dev_debugfs_exit(dev);
-+
-+	return ret;
- }
- EXPORT_SYMBOL(lowpan_register_netdevice);
- 
-@@ -44,6 +56,7 @@ EXPORT_SYMBOL(lowpan_register_netdev);
- void lowpan_unregister_netdevice(struct net_device *dev)
- {
- 	unregister_netdevice(dev);
-+	lowpan_dev_debugfs_exit(dev);
- }
- EXPORT_SYMBOL(lowpan_unregister_netdevice);
- 
-@@ -57,6 +70,12 @@ EXPORT_SYMBOL(lowpan_unregister_netdev);
- 
- static int __init lowpan_module_init(void)
- {
-+	int ret;
-+
-+	ret = lowpan_debugfs_init();
-+	if (ret < 0)
-+		return ret;
-+
- 	request_module_nowait("ipv6");
- 
- 	request_module_nowait("nhc_dest");
-@@ -69,6 +88,13 @@ static int __init lowpan_module_init(void)
- 
- 	return 0;
- }
-+
-+static void __exit lowpan_module_exit(void)
-+{
-+	lowpan_debugfs_exit();
-+}
-+
- module_init(lowpan_module_init);
-+module_exit(lowpan_module_exit);
- 
- MODULE_LICENSE("GPL");
-diff --git a/net/6lowpan/debugfs.c b/net/6lowpan/debugfs.c
+@@ -14,3 +14,4 @@ obj-$(CONFIG_6LOWPAN_NHC_UDP) += nhc_udp.o
+ #rfc7400 ghcs
+ obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_HOP) += nhc_ghc_ext_hop.o
+ obj-$(CONFIG_6LOWPAN_GHC_UDP) += nhc_ghc_udp.o
++obj-$(CONFIG_6LOWPAN_GHC_ICMPV6) += nhc_ghc_icmpv6.o
+diff --git a/net/6lowpan/nhc_ghc_icmpv6.c b/net/6lowpan/nhc_ghc_icmpv6.c
 new file mode 100644
-index 0000000..88eef84
+index 0000000..32e7c2c
 --- /dev/null
-+++ b/net/6lowpan/debugfs.c
-@@ -0,0 +1,53 @@
-+/* This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
++++ b/net/6lowpan/nhc_ghc_icmpv6.c
+@@ -0,0 +1,27 @@
++/*
++ *	6LoWPAN ICMPv6 compression according to RFC7400
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * Authors:
-+ * (C) 2015 Pengutronix, Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-+ * Copyright (c)  2015 Nordic Semiconductor. All Rights Reserved.
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
 + */
 +
-+#include <net/6lowpan.h>
++#include "nhc.h"
 +
-+#include "6lowpan_i.h"
++#define LOWPAN_GHC_ICMPV6_IDLEN		1
++#define LOWPAN_GHC_ICMPV6_ID_0		0xdf
++#define LOWPAN_GHC_ICMPV6_MASK_0	0xff
 +
-+static struct dentry *lowpan_debugfs;
-+
-+int lowpan_dev_debugfs_init(struct net_device *dev)
++static void icmpv6_ghid_setup(struct lowpan_nhc *nhc)
 +{
-+	struct lowpan_priv *lpriv = lowpan_priv(dev);
-+
-+	/* creating the root */
-+	lpriv->iface_debugfs = debugfs_create_dir(dev->name, lowpan_debugfs);
-+	if (!lpriv->iface_debugfs)
-+		goto fail;
-+
-+	return 0;
-+
-+fail:
-+	return -EINVAL;
++	nhc->id[0] = LOWPAN_GHC_ICMPV6_ID_0;
++	nhc->idmask[0] = LOWPAN_GHC_ICMPV6_MASK_0;
 +}
 +
-+void lowpan_dev_debugfs_exit(struct net_device *dev)
-+{
-+	debugfs_remove_recursive(lowpan_priv(dev)->iface_debugfs);
-+}
++LOWPAN_NHC(ghc_icmpv6, "RFC7400 ICMPv6", NEXTHDR_ICMP, 0,
++	   icmpv6_ghid_setup, LOWPAN_GHC_ICMPV6_IDLEN, NULL, NULL);
 +
-+int __init lowpan_debugfs_init(void)
-+{
-+	lowpan_debugfs = debugfs_create_dir("6lowpan", NULL);
-+	if (!lowpan_debugfs)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+void lowpan_debugfs_exit(void)
-+{
-+	debugfs_remove_recursive(lowpan_debugfs);
-+}
++module_lowpan_nhc(ghc_icmpv6);
++MODULE_DESCRIPTION("6LoWPAN generic header ICMPv6 compression");
++MODULE_LICENSE("GPL");
 -- 
 2.6.1
