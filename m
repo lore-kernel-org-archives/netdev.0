@@ -1,43 +1,86 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file
-Date: Wed, 9 Dec 2015 16:29:23 +0100
-Message-ID: <20151209152923.GL13328@lunn.ch>
-References: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
- <20151209030729.GA2093@lunn.ch>
- <20151209143951.GM22885@windriver.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] ipv6: sctp: clone options to avoid use after free
+Date: Wed, 9 Dec 2015 10:34:17 -0500
+Message-ID: <566849F9.2090502@gmail.com>
+References: <CACT4Y+YjXJoh3uGDp=FJkYVnjaMxFSPY252ptbDGZ-LQ9JAEWw@mail.gmail.com>
+ <CANn89i+V-GeD3zCzGPAo4jY8Z6iTjFN3U1ixG44WyKKLOZ9Txw@mail.gmail.com>
+ <20151209145917.GA3884@mrl.redhat.com>
+ <CANn89iLhetNbtO6h99zZOrCiMYON50vzVsk7j_AtosXejvvm4Q@mail.gmail.com>
+ <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:33996 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751236AbbLIP3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2015 10:29:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20151209143951.GM22885@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > Originally the interrupt is used for detecting the link has gone
-> > down. That would of also been bogus before. Have you tried this?  If
+On 12/09/2015 10:25 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Haven't tried it, but chances are you are right.
+> SCTP is lacking proper np->opt cloning at accept() time.
 > 
-> > that is also broken, maybe you need to add a fixes: tag so that it
-> > gets back ported?
+> TCP and DCCP use ipv6_dup_options() helper, do the same
+> in SCTP.
 > 
-> Nobody noticed in the past ~7 years or so, but I guess I can point Greg
-> at it once it is present in mainline.  The main reason I'd Cc'd netdev
-> is just to possibly save anyone else the investigation if they ran into
-> the same issue on a different board -which seems highly probable IMHO.
+> We might later factorize this code in a common helper to avoid
+> future mistakes.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Yes, you are probably right about other boards. So this change might
-be considered as causing a regression. But if they are already broken,
-because link down does not work, there might be less demand to get the
-change reverted....
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-       Andrew
+This is sufficient for accept() processing, but looks like peeloff is missing
+a bunch of ipv6 support.  I'll see if I can cook something up to fix that part.
+
+-vlad
+
+> ---
+>  net/sctp/ipv6.c |    8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index d28c0b4c9128..ec529121f38a 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -641,6 +641,7 @@ static struct sock *sctp_v6_create_accept_sk(struct sock *sk,
+>  	struct sock *newsk;
+>  	struct ipv6_pinfo *newnp, *np = inet6_sk(sk);
+>  	struct sctp6_sock *newsctp6sk;
+> +	struct ipv6_txoptions *opt;
+>  
+>  	newsk = sk_alloc(sock_net(sk), PF_INET6, GFP_KERNEL, sk->sk_prot, 0);
+>  	if (!newsk)
+> @@ -660,6 +661,13 @@ static struct sock *sctp_v6_create_accept_sk(struct sock *sk,
+>  
+>  	memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+>  
+> +	rcu_read_lock();
+> +	opt = rcu_dereference(np->opt);
+> +	if (opt)
+> +		opt = ipv6_dup_options(newsk, opt);
+> +	RCU_INIT_POINTER(newnp->opt, opt);
+> +	rcu_read_unlock();
+> +
+>  	/* Initialize sk's sport, dport, rcv_saddr and daddr for getsockname()
+>  	 * and getpeername().
+>  	 */
+> 
+> 
