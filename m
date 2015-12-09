@@ -1,52 +1,55 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] VSOCK: signedness bug in
- virtio_transport_dgram_enqueue()
-Date: Wed, 9 Dec 2015 13:27:13 +0300
-Message-ID: <20151209102713.GG3173@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ray Jui <rjui@broadcom.com>, Scott Branden <sbranden@broadcom.com>,
-	Jon Mason <jonmason@broadcom.com>,
-	Stefan Hajnoczi <stefanha@redhat.com>, netdev@vger.kernel.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Asias He <asias@redhat.com>
+From: Corinna Vinschen <vinschen@redhat.com>
+Subject: [PATCH] r8169: Don't claim WoL works if LanWake flag is not set
+Date: Wed,  9 Dec 2015 11:08:50 +0100
+Message-ID: <1449655730-3328-1-git-send-email-vinschen@redhat.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:19076 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206AbbLIK10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 05:27:26 -0500
-Content-Disposition: inline
+Received: from mail-n.franken.de ([193.175.24.27]:47113 "EHLO
+	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754266AbbLIK2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 05:28:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"written" has to be signed for the error handling to work.
-trans->ops->send_pkt() returns an int so that's fine.
+The __rtl8169_get_wol function returns the state of the various WoL
+method bits (MagicPaket, Unicast, etc.).  While the PMEnable bit is
+tested at entry, the function doesn't check the LanWake flag.  Even if
+any one of the WoL bits is set, WoL is deactivated as a whole if LanWake
+isn't set.  The return value from __rtl8169_get_wol doesn't reflect
+that.
 
-Fixes: 80a19e338d45 ('VSOCK: Introduce virtio-vsock-common.ko')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Unfortunately BIOS exist (HP T620) which set the MagicPaket bit to 1 but
+the LanWake flag to 0 when switching on WoL in the BIOS.  On those
+machines, ethtool wrongly claims that WoL via MagicPaket is activated
+while in fact it isn't, unless you explicitely called
 
-diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-index 28f790d..d9a2325 100644
---- a/net/vmw_vsock/virtio_transport_common.c
-+++ b/net/vmw_vsock/virtio_transport_common.c
-@@ -815,7 +815,8 @@ virtio_transport_dgram_enqueue(struct vsock_sock *vsk,
- 		.type = VIRTIO_VSOCK_TYPE_DGRAM,
- 		.msg = msg,
- 	};
--	size_t total_written = 0, pkt_off = 0, written;
-+	size_t total_written = 0, pkt_off = 0;
-+	int written;
- 	u16 dgram_id;
+This patch is supposed to fix this behaviour.  If LanWake is 0, the
+function now returns 0.  Thus ethtool correctly reports "Wake-on: d".
+
+The patch is against Dave's net-next tree.
+
+
+Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 79ef799..813ad2b 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1705,6 +1705,10 @@ static u32 __rtl8169_get_wol(struct rtl8169_private *tp)
+ 	if (!(options & PMEnable))
+ 		return 0;
  
- 	/* The max size of a single dgram we support is 64KB */
-@@ -845,7 +846,7 @@ virtio_transport_dgram_enqueue(struct vsock_sock *vsk,
- 		}
- 		total_written += written;
- 		pkt_off += written;
--		pr_debug("%s:id=%d, dgram_len=%zu, off=%zu, total_written=%zu, written=%zu\n",
-+		pr_debug("%s:id=%d, dgram_len=%zu, off=%zu, total_written=%zu, written=%d\n",
- 			  __func__, dgram_id, dgram_len, pkt_off, total_written, written);
- 	}
- 
++	options = RTL_R8(Config5);
++	if (!(options & LanWake))
++		return 0;
++
+ 	options = RTL_R8(Config3);
+ 	if (options & LinkUp)
+ 		wolopts |= WAKE_PHY;
+-- 
+2.1.0
