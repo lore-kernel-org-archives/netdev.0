@@ -1,48 +1,87 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: [PATCH 00/14] mm: memcontrol: account socket memory in unified
- hierarchy v4-RESEND
-Date: Wed, 9 Dec 2015 13:17:46 -0500
-Message-ID: <20151209181746.GA22412@cmpxchg.org>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
- <2564892.qO1q7YJ6Nb@wuerfel>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net/macb: add support for resetting PHY using GPIO
+Date: Wed, 9 Dec 2015 19:18:27 +0100
+Message-ID: <20151209181827.GS13328@lunn.ch>
+References: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	devicetree@vger.kernel.org
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <2564892.qO1q7YJ6Nb@wuerfel>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Arnd!
-
-On Wed, Dec 09, 2015 at 05:31:38PM +0100, Arnd Bergmann wrote:
-> On Tuesday 08 December 2015 10:30:10 Johannes Weiner wrote:
-> > Hi Andrew,
-> > 
-> > there was some build breakage in CONFIG_ combinations I hadn't tested
-> > in the last revision, so here is a fixed-up resend with minimal CC
-> > list. The only difference to the previous version is a section in
-> > memcontrol.h, but it accumulates throughout the series and would have
-> > been a pain to resolve on your end. So here goes. This also includes
-> > the review tags that Dave and Vlad had sent out in the meantime.
-> > 
-> > Difference to the original v4:
+On Wed, Dec 09, 2015 at 06:49:43PM +0100, Gregory CLEMENT wrote:
+> With device tree it is no more possible to reset the PHY at board
+> level. Furthermore, doing in the driver allow to power down the PHY when
+> the network interface is no more used.
 > 
-> I needed two more patches on top of today's linux-next kernel, will
-> send them as replies to this mail. I don't know if you have already
-> fixed the issues for !CONFIG_INET and CONFIG_SLOB, if not please
-> fold them into your series.
+> The patch introduces a new optional property "phy-reset-gpio" inspired
+> from the one use for the FEC.
+> 
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  Documentation/devicetree/bindings/net/macb.txt |  3 +++
+>  drivers/net/ethernet/cadence/macb.c            | 26 ++++++++++++++++++++++++++
+>  drivers/net/ethernet/cadence/macb.h            |  1 +
+>  3 files changed, 30 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+> index b5d7976..546d34d 100644
+> --- a/Documentation/devicetree/bindings/net/macb.txt
+> +++ b/Documentation/devicetree/bindings/net/macb.txt
+> @@ -19,6 +19,9 @@ Required properties:
+>  	Optional elements: 'tx_clk'
+>  - clocks: Phandles to input clocks.
+>  
+> +Optional properties:
+> +- phy-reset-gpio : Should specify the gpio for phy reset
 
-Sorry for breaking your stuff, and thanks for sending patches. I'll
-get to them in a minute and will make sure the fixes get routed to
-Andrew.
+Hi Gregory
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+It is convention to use the plural here. So it should be phy-reset-gpios.
+
+> +
+>  Examples:
+>  
+>  	macb0: ethernet@fffc4000 {
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 88c1e1a..e630c56 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -30,6 +30,7 @@
+>  #include <linux/of_device.h>
+>  #include <linux/of_mdio.h>
+>  #include <linux/of_net.h>
+> +#include <linux/of_gpio.h>
+>  
+>  #include "macb.h"
+>  
+> @@ -2733,6 +2734,28 @@ static int at91ether_init(struct platform_device *pdev)
+>  	return 0;
+>  }
+>  
+> +#ifdef CONFIG_OF
+> +static void macb_reset_phy(struct macb *bp, struct device_node *np, int state)
+> +{
+> +	if (!np)
+> +		return;
+> +
+> +	bp->reset_gpio = of_get_named_gpio(np, "phy-reset-gpio", 0);
+> +
+> +	if (gpio_is_valid(bp->reset_gpio))
+> +		gpio_direction_output(bp->reset_gpio, state);
+
+This does not handle the flags part of the GPIO descriptor in device
+tree. i.e. ACTIVE_LOW or ACTIVE_HIGH. I think the FEC driver has the
+same issue, and is not the best driver to copy. Using the gpiod API
+will solve this issue.
+
+     Andrew
