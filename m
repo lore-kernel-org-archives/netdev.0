@@ -1,59 +1,63 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH bluetooth-next 07/10] 6lowpan: add nhc module for GHC routing extension header detection
-Date: Wed,  9 Dec 2015 22:46:28 +0100
-Message-ID: <1449697591-15991-8-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next 06/10] 6lowpan: add nhc module for GHC fragmentation extension header detection
+Date: Wed,  9 Dec 2015 22:46:27 +0100
+Message-ID: <1449697591-15991-7-git-send-email-alex.aring@gmail.com>
 References: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>,
-	Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Stefan Schmidt <stefan@osg.samsung.com>,
+	Alexander Aring <alex.aring@gmail.com>
+To: linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:33589 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754046AbbLIVrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:47:32 -0500
+In-Reply-To: <1449697591-15991-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+From: Stefan Schmidt <stefan@osg.samsung.com>
 
-Acked-by: Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Signed-off-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Signed-off-by: Stefan Schmidt <stefan@osg.samsung.com>
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- net/6lowpan/Kconfig             |  6 ++++++
- net/6lowpan/Makefile            |  1 +
- net/6lowpan/nhc_ghc_ext_route.c | 27 +++++++++++++++++++++++++++
- 3 files changed, 34 insertions(+)
- create mode 100644 net/6lowpan/nhc_ghc_ext_route.c
+ net/6lowpan/Kconfig            |  6 ++++++
+ net/6lowpan/Makefile           |  1 +
+ net/6lowpan/nhc_ghc_ext_frag.c | 28 ++++++++++++++++++++++++++++
+ 3 files changed, 35 insertions(+)
+ create mode 100644 net/6lowpan/nhc_ghc_ext_frag.c
 
 diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
-index 13abcc5..bcb9d8a 100644
+index e5184e6..13abcc5 100644
 --- a/net/6lowpan/Kconfig
 +++ b/net/6lowpan/Kconfig
-@@ -87,4 +87,10 @@ config 6LOWPAN_GHC_EXT_HDR_FRAG
- 	  6LoWPAN IPv6 fragmentation option generic header compression
- 	  according to RFC7400.
+@@ -81,4 +81,10 @@ config 6LOWPAN_GHC_EXT_HDR_DEST
+ 	  6LoWPAN IPv6 destination option generic header compression according
+ 	  to RFC7400.
  
-+config 6LOWPAN_GHC_EXT_HDR_ROUTE
-+	tristate "GHC Routing Options Header Support"
++config 6LOWPAN_GHC_EXT_HDR_FRAG
++	tristate "GHC Fragmentation Options Header Support"
 +	---help---
-+	  6LoWPAN IPv6 routing option generic header compression according
-+	  to RFC7400.
++	  6LoWPAN IPv6 fragmentation option generic header compression
++	  according to RFC7400.
 +
  endif
 diff --git a/net/6lowpan/Makefile b/net/6lowpan/Makefile
-index fb3f48d..9e35a5d 100644
+index fc4bac0..fb3f48d 100644
 --- a/net/6lowpan/Makefile
 +++ b/net/6lowpan/Makefile
-@@ -17,3 +17,4 @@ obj-$(CONFIG_6LOWPAN_GHC_UDP) += nhc_ghc_udp.o
+@@ -16,3 +16,4 @@ obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_HOP) += nhc_ghc_ext_hop.o
+ obj-$(CONFIG_6LOWPAN_GHC_UDP) += nhc_ghc_udp.o
  obj-$(CONFIG_6LOWPAN_GHC_ICMPV6) += nhc_ghc_icmpv6.o
  obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_DEST) += nhc_ghc_ext_dest.o
- obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_FRAG) += nhc_ghc_ext_frag.o
-+obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_ROUTE) += nhc_ghc_ext_route.o
-diff --git a/net/6lowpan/nhc_ghc_ext_route.c b/net/6lowpan/nhc_ghc_ext_route.c
++obj-$(CONFIG_6LOWPAN_GHC_EXT_HDR_FRAG) += nhc_ghc_ext_frag.o
+diff --git a/net/6lowpan/nhc_ghc_ext_frag.c b/net/6lowpan/nhc_ghc_ext_frag.c
 new file mode 100644
-index 0000000..d7e5bd7
+index 0000000..1308b79
 --- /dev/null
-+++ b/net/6lowpan/nhc_ghc_ext_route.c
-@@ -0,0 +1,27 @@
++++ b/net/6lowpan/nhc_ghc_ext_frag.c
+@@ -0,0 +1,28 @@
 +/*
 + *	6LoWPAN Extension Header compression according to RFC7400
 + *
@@ -65,21 +69,22 @@ index 0000000..d7e5bd7
 +
 +#include "nhc.h"
 +
-+#define LOWPAN_GHC_EXT_ROUTE_IDLEN	1
-+#define LOWPAN_GHC_EXT_ROUTE_ID_0	0xb2
-+#define LOWPAN_GHC_EXT_ROUTE_MASK_0	0xfe
++#define LOWPAN_GHC_EXT_FRAG_IDLEN	1
++#define LOWPAN_GHC_EXT_FRAG_ID_0	0xb4
++#define LOWPAN_GHC_EXT_FRAG_MASK_0	0xfe
 +
-+static void route_ghid_setup(struct lowpan_nhc *nhc)
++static void frag_ghid_setup(struct lowpan_nhc *nhc)
 +{
-+	nhc->id[0] = LOWPAN_GHC_EXT_ROUTE_ID_0;
-+	nhc->idmask[0] = LOWPAN_GHC_EXT_ROUTE_MASK_0;
++	nhc->id[0] = LOWPAN_GHC_EXT_FRAG_ID_0;
++	nhc->idmask[0] = LOWPAN_GHC_EXT_FRAG_MASK_0;
 +}
 +
-+LOWPAN_NHC(ghc_ext_route, "RFC7400 Routing Extension Header", NEXTHDR_ROUTING,
-+	   0, route_ghid_setup, LOWPAN_GHC_EXT_ROUTE_IDLEN, NULL, NULL);
++LOWPAN_NHC(ghc_ext_frag, "RFC7400 Fragmentation Extension Header",
++	   NEXTHDR_FRAGMENT, 0, frag_ghid_setup,
++	   LOWPAN_GHC_EXT_FRAG_IDLEN, NULL, NULL);
 +
-+module_lowpan_nhc(ghc_ext_route);
-+MODULE_DESCRIPTION("6LoWPAN generic header routing extension compression");
++module_lowpan_nhc(ghc_ext_frag);
++MODULE_DESCRIPTION("6LoWPAN generic header fragmentation extension compression");
 +MODULE_LICENSE("GPL");
 -- 
 2.6.1
