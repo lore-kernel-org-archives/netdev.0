@@ -1,115 +1,42 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Handle clip return values
-Date: Wed,  9 Dec 2015 17:16:35 +0530
-Message-ID: <1449661595-5745-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: allow routes to be configured with expire values
+Date: Wed, 9 Dec 2015 19:50:38 +0800
+Message-ID: <CADvbK_eXZZ+owgQy8+V71gW1Y_sDwnPNsz_eVgXpHiekhCvsoQ@mail.gmail.com>
+References: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449585464.git.lucien.xin@gmail.com>
+	<20151208.225620.67864748611461829.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Miller <davem@davemloft.net>, jk@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:47948 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752120AbbLILpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 06:45:25 -0500
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:36643 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbbLILui (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 06:50:38 -0500
+Received: by igcph11 with SMTP id ph11so116603671igc.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 03:50:38 -0800 (PST)
+In-Reply-To: <20151208.225620.67864748611461829.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a warn message when clip table overflows. If clip table isn't
-allocated, return from cxgb4_clip_release() to avoid panic.
-Disable offload if clip isn't enabled in the hardware.
+On Wed, Dec 9, 2015 at 11:56 AM, David Miller <davem@davemloft.net> wrote:
+> From: Xin Long <lucien.xin@gmail.com>
+> Date: Tue,  8 Dec 2015 22:37:44 +0800
+>
+>> Add the support for adding expire value to routes,  requested by
+>> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+>> wants it too.
+>>
+>> add it by using the field rta_expires of rta_cacheinfo
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>
+> Fix your outgoing patch emails, the From: field doesn't have your
+> full name in it so the commit AUTHOR fields look terrible.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c   | 11 +++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 22 ++++++++++++++++------
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  4 ++++
- 3 files changed, 31 insertions(+), 6 deletions(-)
+it's not the from field issue, it's the incorrect  full name of my account in
+patchwork, I have send mail to Jeremy Kerr to help correct it.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
-index c308429..d288dcf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
-@@ -118,6 +118,11 @@ int cxgb4_clip_get(const struct net_device *dev, const u32 *lip, u8 v6)
- 			ret = clip6_get_mbox(dev, (const struct in6_addr *)lip);
- 			if (ret) {
- 				write_unlock_bh(&ctbl->lock);
-+				dev_err(adap->pdev_dev,
-+					"CLIP FW cmd failed with error %d, "
-+					"Connections using %pI6c wont be "
-+					"offloaded",
-+					ret, ce->addr6.sin6_addr.s6_addr);
- 				return ret;
- 			}
- 		} else {
-@@ -127,6 +132,9 @@ int cxgb4_clip_get(const struct net_device *dev, const u32 *lip, u8 v6)
- 		}
- 	} else {
- 		write_unlock_bh(&ctbl->lock);
-+		dev_info(adap->pdev_dev, "CLIP table overflow, "
-+			 "Connections using %pI6c wont be offloaded",
-+			 (void *)lip);
- 		return -ENOMEM;
- 	}
- 	write_unlock_bh(&ctbl->lock);
-@@ -146,6 +154,9 @@ void cxgb4_clip_release(const struct net_device *dev, const u32 *lip, u8 v6)
- 	int hash;
- 	int ret = -1;
- 
-+	if (!ctbl)
-+		return;
-+
- 	hash = clip_addr_hash(ctbl, addr, v6);
- 
- 	read_lock_bh(&ctbl->lock);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 0d14761..edd706e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4865,15 +4865,25 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- #if IS_ENABLED(CONFIG_IPV6)
--	adapter->clipt = t4_init_clip_tbl(adapter->clipt_start,
--					  adapter->clipt_end);
--	if (!adapter->clipt) {
--		/* We tolerate a lack of clip_table, giving up
--		 * some functionality
-+	if ((CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5) &&
-+	    (!(t4_read_reg(adapter, LE_DB_CONFIG_A) & ASLIPCOMPEN_F))) {
-+		/* CLIP functionality is not present in hardware,
-+		 * hence disable all offload features
- 		 */
- 		dev_warn(&pdev->dev,
--			 "could not allocate Clip table, continuing\n");
-+			 "CLIP not enabled in hardware, continuing\n");
- 		adapter->params.offload = 0;
-+	} else {
-+		adapter->clipt = t4_init_clip_tbl(adapter->clipt_start,
-+						  adapter->clipt_end);
-+		if (!adapter->clipt) {
-+			/* We tolerate a lack of clip_table, giving up
-+			 * some functionality
-+			 */
-+			dev_warn(&pdev->dev,
-+				 "could not allocate Clip table, continuing\n");
-+			adapter->params.offload = 0;
-+		}
- 	}
- #endif
- 	if (is_offload(adapter) && tid_init(&adapter->tids) < 0) {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index fc3044c..91b52a2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2802,6 +2802,10 @@
- #define HASHEN_V(x) ((x) << HASHEN_S)
- #define HASHEN_F    HASHEN_V(1U)
- 
-+#define ASLIPCOMPEN_S    17
-+#define ASLIPCOMPEN_V(x) ((x) << ASLIPCOMPEN_S)
-+#define ASLIPCOMPEN_F    ASLIPCOMPEN_V(1U)
-+
- #define REQQPARERR_S    16
- #define REQQPARERR_V(x) ((x) << REQQPARERR_S)
- #define REQQPARERR_F    REQQPARERR_V(1U)
--- 
-2.3.4
+after he do it, i will report, thanks.
