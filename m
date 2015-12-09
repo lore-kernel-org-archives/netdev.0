@@ -1,60 +1,48 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [PATCH 3.16.y-ckt 047/126] can: Use correct type in sizeof() in
- nla_put()
-Date: Wed,  9 Dec 2015 09:36:57 +0000
-Message-ID: <1449653896-5236-48-git-send-email-luis.henriques@canonical.com>
-References: <1449653896-5236-1-git-send-email-luis.henriques@canonical.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: arRe: [PATCH net-next 2/2] net: hns: enet specisies a reference to dsaf (config and documents)
+Date: Wed, 09 Dec 2015 11:00:21 +0100
+Message-ID: <4902591.DhWVhdI4KP@wuerfel>
+References: <1449295856-31068-1-git-send-email-yankejian@huawei.com> <1503684.BNZUVaD74W@wuerfel> <5667F379.2010108@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Marek Vasut <marex@denx.de>, netdev@vger.kernel.org,
- Marc Kleine-Budde <mkl@pengutronix.de>,
- Wolfgang Grandegger <wg@grandegger.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
- kernel-team@lists.ubuntu.com
-Return-path: <kernel-team-bounces@lists.ubuntu.com>
-In-Reply-To: <1449653896-5236-1-git-send-email-luis.henriques@canonical.com>
-List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
- <mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
-List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
-List-Post: <mailto:kernel-team@lists.ubuntu.com>
-List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
-List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
- <mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
-Errors-To: kernel-team-bounces@lists.ubuntu.com
-Sender: kernel-team-bounces@lists.ubuntu.com
+Content-Transfer-Encoding: 7Bit
+Cc: "Yankejian (Hackim Yim)" <yankejian@huawei.com>,
+	mark.rutland@arm.com, lisheng011@huawei.com,
+	salil.mehta@huawei.com, liguozhu@huawei.com,
+	haifeng.wei@huawei.com, pawel.moll@arm.com,
+	ijc+devicetree@hellion.org.uk, catalin.marinas@arm.com,
+	will.deacon@arm.com, linux-kernel@vger.kernel.org,
+	xuwei5@hisilicon.com, devicetree@vger.kernel.org,
+	robh+dt@kernel.org, huangdaode@hisilicon.com, galak@codeaurora.org,
+	netdev@vger.kernel.org, fengguang.wu@intel.com,
+	Yisen.Zhuang@huawei.com, davem@davemloft.net
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5667F379.2010108@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.16.7-ckt21 -stable review patch.  If anyone has any objections, please let me know.
+On Wednesday 09 December 2015 17:25:13 Yankejian wrote:
+>  thanks a lot for pointing it out.
+> 
+>  It is great regret that this change breaks compatibility with old dtbs.
+>  this is a new driver which is run on developing boards, and all the
+>  clients' boards are developing boards. So we provide them a method to
+>  update the firmware on the board, once we update the dtsi and kernel,
+>  we require our clients to update the existed firmware and kernel.
+>  Therefore, these changes is actually under control. Shall we treat this
+>  by this way?
 
-------------------
+Ok, if you can show that the incompatible change is safe to do, that's
+fine. Just put the explanation above into the patch description to
+document that you have considered the effects of the change, and
+to ensure that it gets done atomically.
 
-From: Marek Vasut <marex@denx.de>
+Also, you have to merge the two patches into one to allow bisection,
+or do a series of three patches that need to be applied in order:
 
-commit 562b103a21974c2f9cd67514d110f918bb3e1796 upstream.
+1. add ae-handle property
+2. change driver to use that property
+3. remove ae-name property
 
-The sizeof() is invoked on an incorrect variable, likely due to some
-copy-paste error, and this might result in memory corruption. Fix this.
-
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
----
- drivers/net/can/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index c543c3aaee4d..5635c6e7af57 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -835,7 +835,7 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
- 		     sizeof(*priv->bittiming_const), priv->bittiming_const)) ||
- 
--	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
-+	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(priv->clock), &priv->clock) ||
- 	    nla_put_u32(skb, IFLA_CAN_STATE, state) ||
- 	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
- 	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
+	Arnd
