@@ -1,42 +1,44 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: netlink: Add missing goto statement to netlink_insert
-Date: Tue, 8 Dec 2015 22:29:51 -0500
-Message-ID: <20151209032951.GJ17525@kroah.com>
-References: <56530A42.6030609@profihost.ag>
- <1448283451.4019628.447573353.3659E447@webmail.messagingengine.com>
- <565EBDC1.1090808@profihost.ag>
- <8737vlt6xb.fsf@stressinduktion.org>
- <5661DAC4.8040909@profihost.ag>
- <20151205010819.GA21889@gondor.apana.org.au>
- <5664A102.2030602@profihost.ag>
- <20151207012042.GA7420@gondor.apana.org.au>
- <56652E11.4010604@profihost.ag>
- <20151208061319.GA16209@gondor.apana.org.au>
+From: <zyjzy2000@gmail.com>
+Subject: [PATCH 1/1] net: bonding: remove redudant brackets
+Date: Wed, 9 Dec 2015 11:30:42 +0800
+Message-ID: <1449631842-29535-1-git-send-email-zyjzy2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Weimer <fweimer@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jannik Winkel <j.winkel@profihost.ag>,
-	Marco Schinkel <m.schinkel@profihost.ag>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151208061319.GA16209@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <j.vosburgh@gmail.com>, <vfalico@gmail.com>,
+	<gospo@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:61663 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753216AbbLIDa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 22:30:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 08, 2015 at 02:13:19PM +0800, Herbert Xu wrote:
-> On Mon, Dec 07, 2015 at 07:58:25AM +0100, Stefan Priebe - Profihost AG wrote:
-> >
-> > Thanks, good. Can you help me to get this fix upstream into the stable
-> > lines?
-> 
-> Sure.  Greg, please apply this patch to fix up the backport for 4.1.
+From: yzhu1 <zyzy2000@gmail.com>
 
-Now queued up, thanks for the fix.
+It is not necessary to use two brackets. As such, the redudant brackets
+are removed.
 
-greg k-h
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: yzhu1 <zyzyj2000@gmail.com>
+---
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 9e0f8a7..09f8a48 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1351,7 +1351,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 * the current ifenslave will set the interface down prior to
+ 	 * enslaving it; the old ifenslave will not.
+ 	 */
+-	if ((slave_dev->flags & IFF_UP)) {
++	if (slave_dev->flags & IFF_UP) {
+ 		netdev_err(bond_dev, "%s is up - this may be due to an out of date ifenslave\n",
+ 			   slave_dev->name);
+ 		res = -EPERM;
+-- 
+1.7.9.5
