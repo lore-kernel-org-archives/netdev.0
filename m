@@ -1,155 +1,53 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: [PATCH v4 1/4] stmmac: create of compatible mdio bus for stmacc driver
-Date: Wed,  9 Dec 2015 09:41:06 +0800
-Message-ID: <1449625269-46078-2-git-send-email-preid@electromag.com.au>
-References: <1449625269-46078-1-git-send-email-preid@electromag.com.au>
-Cc: Phil Reid <preid@electromag.com.au>
-To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, davem@davemloft.net,
-	vbridger@opensource.altera.com, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Checksum offload queries
+Date: Wed, 9 Dec 2015 02:56:02 +0100
+Message-ID: <20151209015602.GB19097@pox.localdomain>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:46789 "EHLO
-	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752219AbbLIBlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 20:41:14 -0500
-In-Reply-To: <1449625269-46078-1-git-send-email-preid@electromag.com.au>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:34428 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750935AbbLIB4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 20:56:05 -0500
+Received: by wmvv187 with SMTP id v187so239365127wmv.1
+        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 17:56:03 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALx6S36aMvroE0mWz9+9EU+newrfkUqqFO+6T5YZVh_9xrMJLg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DSA driver needs to be passed a reference to an mdio bus. Typically
-the mac is configured to use a fixed link but the mdio bus still needs
-to be registered so that it con configure the switch.
-This patch follows the same process as the altera tse ethernet driver for
-creation of the mdio bus.
+On 12/08/15 at 09:04am, Tom Herbert wrote:
+> There are other reasons why CHECKSUM_COMPLETE is preferable:
+> 
+> - CHECKSUM_COMPLETE  is more robust. We have no way to validate that
+> the device is actually correct in CHECKSUM_UNNECESSARY. For instance,
+> how do we know that there isn't some failure in the device where
+> everything is being marked as good even if it's not. With
+> CHECKSUM_COMPLETE it is the host that actually makes the decision of
+> whether the checksum is correct it is highly unlikely that failing
+> checksum calculation on the device won't be detected. HW failures and
+> bugs are real concern.
+> -  CHECKSUM_UNNECESSARY does not report bad checksums. There is a
+> csum_bad flag in the sk_buff that could be set if the driver detects a
+> bad checksum in the packet, but no drivers seem to be setting that
+> currently. So for any packets with bad checksums the stack will need
+> to compute the checksum itself, so this potentially becomes the basis
+> of a DDOS attack. CHECKSUM_COMPLETE does not have this problem, we get
+> the checksum of the packet rather the checksum is correct or not.
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Phil Reid <preid@electromag.com.au>
----
- Documentation/devicetree/bindings/net/stmmac.txt   |  8 +++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 39 ++++++++++++++--------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
- 3 files changed, 34 insertions(+), 15 deletions(-)
+If I understood Edward correctly, his proposal would be for the
+card to provide both, the csum as for CHECKSUM_COMPLETE plus the
+validation yes/no hint. It would be up to the kernel to decide
+whether to validate itself or trust the card.
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index f34fc3c..fd5ddf8 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -47,6 +47,7 @@ Optional properties:
- - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
-+- mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
- 
- Examples:
- 
-@@ -65,4 +66,11 @@ Examples:
- 		tx-fifo-depth = <16384>;
- 		clocks = <&clock>;
- 		clock-names = "stmmaceth";
-+		mdio0 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			compatible = "snps,dwmac-mdio";
-+			phy1: ethernet-phy@0 {
-+			};
-+		};
- 	};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index bba670c..0fcecb2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -29,7 +29,7 @@
- #include <linux/slab.h>
- #include <linux/of.h>
- #include <linux/of_gpio.h>
--
-+#include <linux/of_mdio.h>
- #include <asm/io.h>
- 
- #include "stmmac.h"
-@@ -200,10 +200,32 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
- 	int addr, found;
-+	struct device_node *mdio_node = NULL;
-+	struct device_node *child_node = NULL;
- 
- 	if (!mdio_bus_data)
- 		return 0;
- 
-+	if (IS_ENABLED(CONFIG_OF)) {
-+		for_each_child_of_node(priv->device->of_node, child_node) {
-+			if (of_device_is_compatible(child_node,
-+						    "snps,dwmac-mdio")) {
-+				mdio_node = child_node;
-+				break;
-+			}
-+		}
-+
-+		if (mdio_node) {
-+			netdev_dbg(ndev, "FOUND MDIO subnode\n");
-+		} else {
-+			netdev_err(ndev, "NO MDIO subnode\n");
-+			return 0;
-+		}
-+
-+		if (priv->device->of_node)
-+			mdio_bus_data->reset_gpio = -1;
-+	}
-+
- 	new_bus = mdiobus_alloc();
- 	if (new_bus == NULL)
- 		return -ENOMEM;
-@@ -216,11 +238,6 @@ int stmmac_mdio_register(struct net_device *ndev)
- 		irqlist = priv->mii_irq;
- 	}
- 
--#ifdef CONFIG_OF
--	if (priv->device->of_node)
--		mdio_bus_data->reset_gpio = -1;
--#endif
--
- 	new_bus->name = "stmmac";
- 	new_bus->read = &stmmac_mdio_read;
- 	new_bus->write = &stmmac_mdio_write;
-@@ -231,7 +248,8 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	new_bus->irq = irqlist;
- 	new_bus->phy_mask = mdio_bus_data->phy_mask;
- 	new_bus->parent = priv->device;
--	err = mdiobus_register(new_bus);
-+
-+	err = of_mdiobus_register(new_bus, mdio_node);
- 	if (err != 0) {
- 		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
- 		goto bus_register_fail;
-@@ -284,13 +302,6 @@ int stmmac_mdio_register(struct net_device *ndev)
- 		}
- 	}
- 
--	if (!found) {
--		pr_warn("%s: No PHY found\n", ndev->name);
--		mdiobus_unregister(new_bus);
--		mdiobus_free(new_bus);
--		return -ENODEV;
--	}
--
- 	priv->mii = new_bus;
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index d02691b..6863420 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -146,7 +146,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
- 
--	if (plat->phy_node || plat->phy_bus_name)
-+	if (plat->phy_bus_name)
- 		plat->mdio_bus_data = NULL;
- 	else
- 		plat->mdio_bus_data =
--- 
-1.8.3.1
+I'm all in favour CHECKSUM_COMPLETE as the only way to go but 
+we should be aware that it depends on the penetration of RCO in
+hardware VTEPs.
