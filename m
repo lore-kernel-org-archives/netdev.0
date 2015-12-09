@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: xgene: constify xgene_mac_ops and
- xgene_port_ops structures
-Date: Tue, 08 Dec 2015 21:39:45 -0500 (EST)
-Message-ID: <20151208.213945.949354473613069832.davem@davemloft.net>
-References: <1449605905-32342-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH] sbc8641: drop bogus PHY IRQ entries from DTS file
+Date: Tue, 08 Dec 2015 21:40:55 -0500 (EST)
+Message-ID: <20151208.214055.912759732176162258.davem@davemloft.net>
+References: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kernel-janitors@vger.kernel.org,
-	kchudgar@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449605905-32342-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	andrew@lunn.ch
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48327 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753118AbbLICk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2015 21:40:57 -0500
+In-Reply-To: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue,  8 Dec 2015 21:18:25 +0100
+ From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 8 Dec 2015 17:44:02 -0500
 
-> The xgene_mac_ops and xgene_port_ops structures are never modified, so
-> declare them as const.
+> This file was originally cloned off of the MPC8641D-HPCN reference
+> platform, which actually had a PHY IRQ line connected.  However
+> this board does not.  The bogus entry was largely inert and went
+> undetected until commit 321beec5047af83db90c88114b7e664b156f49fe
+> ("net: phy: Use interrupts when available in NOLINK state") was
+> added to the tree.
 > 
-> Done with the help of Coccinelle.
+> With the above commit, the board fails to NFS boot since it sits
+> waiting for a PHY IRQ event that of course never arrives.  Removing
+> the bogus entries from the DTS file fixes the issue.
 > 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Applied to net-next, thanks.
+I'm assuming this will go via the powerpc tree, not mine.
