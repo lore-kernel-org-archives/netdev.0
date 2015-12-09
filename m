@@ -1,102 +1,92 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
- SRIOV NIC
-Date: Wed, 9 Dec 2015 13:28:36 +0200
-Message-ID: <20151209132233-mutt-send-email-mst@redhat.com>
-References: <CAKgT0Uc+-gFAetEfde6DmMOFK+vDE6UkgsNF8oLNqaQc4USSeg@mail.gmail.com>
- <565DB6FF.1050602@intel.com>
- <20151201171140-mutt-send-email-mst@redhat.com>
- <CAKgT0UfLEJpV-KdqRGfzBeas8bdqfHCmT5Xc8iVVP03g_pQO8A@mail.gmail.com>
- <20151201193026-mutt-send-email-mst@redhat.com>
- <CAKgT0UfJ7w6yYcZcF2YZyDKEwvE7Gh3P-jfGQGKLfPH2crVBzw@mail.gmail.com>
- <20151202105955-mutt-send-email-mst@redhat.com>
- <5661C000.8070201@intel.com>
- <20151209122831-mutt-send-email-mst@redhat.com>
- <56680E33.6040204@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Dong, Eddie" <eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
-	Alex Williamson <alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
-	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Skidmore, Donald C" <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Jani, Nrupal" <nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>,
-	"kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org" <qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org>,
-	"Tantilov, Emil S" <emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eric Auger <eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	intel-wired-lan <intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"
-To: "Lan, Tianyu" <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <56680E33.6040204-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sunil Goutham <sunil.kovvuri@gmail.com>
+Subject: [PATCH 2/2] net: thunderx: Enable CQE count threshold interrupt
+Date: Wed,  9 Dec 2015 17:08:01 +0530
+Message-ID: <1449661081-15435-3-git-send-email-sunil.kovvuri@gmail.com>
+References: <y>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	p.fedin@samsung.com, Sunil.Goutham@caviumnetworks.com,
+	Sunil Goutham <sgoutham@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <y>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 09, 2015 at 07:19:15PM +0800, Lan, Tianyu wrote:
-> On 12/9/2015 6:37 PM, Michael S. Tsirkin wrote:
-> >On Sat, Dec 05, 2015 at 12:32:00AM +0800, Lan, Tianyu wrote:
-> >>Hi Michael & Alexander:
-> >>Thanks a lot for your comments and suggestions.
-> >
-> >It's nice that it's appreciated, but you then go on and ignore
-> >all that I have written here:
-> >https://www.mail-archive.com/kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg123826.html
-> >
-> 
-> No, I will reply it separately and according your suggestion to snip it into
-> 3 thread.
-> 
-> >>We still need to support Windows guest for migration and this is why our
-> >>patches keep all changes in the driver since it's impossible to change
-> >>Windows kernel.
-> >
-> >This is not a reasonable argument.  It makes no sense to duplicate code
-> >on Linux because you must duplicate code on Windows.  Let's assume you
-> >must do it in the driver on windows because windows has closed source
-> >drivers.  What does it matter? Linux can still do it as part of DMA API
-> >and have it apply to all drivers.
-> >
-> 
-> Sure. Duplicated code should be encapsulated and make it able to reuse
-> by other drivers. Just like you said the dummy write part.
-> 
-> I meant the framework should not require to change Windows kernel code
-> (such as PM core or PCI bus driver)and this will block implementation on
-> the Windows.
+From: Sunil Goutham <sgoutham@cavium.com>
 
-I remember reading that it's possible to implement a bus driver
-on windows if required.  But basically I don't see how windows can be
-relevant to discussing guest driver patches. That discussion
-probably belongs on the qemu maling list, not on lkml.
+This feature is introduced in pass-2 chip and with this CQ interrupt
+coalescing will work based on both timer and count.
 
-> I think it's not problem to duplicate code in the Windows drivers.
-> 
-> >>Following is my idea to do DMA tracking.
-> >>
-> >>Inject event to VF driver after memory iterate stage
-> >>and before stop VCPU and then VF driver marks dirty all
-> >>using DMA memory. The new allocated pages also need to
-> >>be marked dirty before stopping VCPU. All dirty memory
-> >>in this time slot will be migrated until stop-and-copy
-> >>stage. We also need to make sure to disable VF via clearing the
-> >>bus master enable bit for VF before migrating these memory.
-> >>
-> >>The dma page allocated by VF driver also needs to reserve space
-> >>to do dummy write.
-> >
-> >I suggested ways to do it all in the hypervisor without driver hacks, or
-> >hide it within DMA API without need to reserve extra space. Both
-> >approaches seem much cleaner.
-> >
-> 
-> This sounds reasonable. We may discuss it detail in the separate thread.
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/nic.h          |    2 ++
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |    2 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    5 ++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    3 ++-
+ 4 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 02571f4..e782856 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -34,6 +34,8 @@
+ /* NIC priv flags */
+ #define	NIC_SRIOV_ENABLED		BIT(0)
+ 
++#define	VNIC_NAPI_WEIGHT		NAPI_POLL_WEIGHT
++
+ /* Min/Max packet size */
+ #define	NIC_HW_MIN_FRS			64
+ #define	NIC_HW_MAX_FRS			9200 /* 9216 max packet including FCS */
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index c24cb2a..e06a7f8 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1155,7 +1155,7 @@ int nicvf_open(struct net_device *netdev)
+ 		cq_poll->cq_idx = qidx;
+ 		cq_poll->nicvf = nic;
+ 		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
+-			       NAPI_POLL_WEIGHT);
++			       VNIC_NAPI_WEIGHT);
+ 		napi_enable(&cq_poll->napi);
+ 		nic->napi[qidx] = cq_poll;
+ 	}
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index b11fc09..4e9709e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -299,7 +299,10 @@ static int nicvf_init_cmp_queue(struct nicvf *nic,
+ 		return err;
+ 
+ 	cq->desc = cq->dmem.base;
+-	cq->thresh = CMP_QUEUE_CQE_THRESH;
++	if (!pass1_silicon(nic->pdev))
++		cq->thresh = CMP_QUEUE_CQE_THRESH;
++	else
++		cq->thresh = 0;
+ 	nic->cq_coalesce_usecs = (CMP_QUEUE_TIMER_THRESH * 0.05) - 1;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index a4f6667..0fae6ad 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -10,6 +10,7 @@
+ #define NICVF_QUEUES_H
+ 
+ #include <linux/netdevice.h>
++#include "nic.h"
+ #include "q_struct.h"
+ 
+ #define MAX_QUEUE_SET			128
+@@ -75,7 +76,7 @@
+  */
+ #define CMP_QSIZE		CMP_QUEUE_SIZE2
+ #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
+-#define CMP_QUEUE_CQE_THRESH	0
++#define CMP_QUEUE_CQE_THRESH	(VNIC_NAPI_WEIGHT / 2)
+ #define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
+ 
+ #define RBDR_SIZE		RBDR_SIZE0
+-- 
+1.7.1
