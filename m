@@ -1,48 +1,41 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] net: Add fib rules at vrf device create
-Date: Tue, 08 Dec 2015 21:17:51 -0800
-Message-ID: <5667B97F.2080407@cumulusnetworks.com>
-References: <20151208.214411.2137019448940208712.davem@davemloft.net> <56679B2F.5080700@cumulusnetworks.com> <56679E4F.3020908@cumulusnetworks.com> <20151208.224100.1951416968376650648.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v2 2/5] rhashtable: add function to replace an
+ element
+Date: Wed, 9 Dec 2015 13:38:41 +0800
+Message-ID: <20151209053841.GA25851@gondor.apana.org.au>
+References: <20151203.144558.1956397517705186998.davem@davemloft.net>
+ <20151208093941.GA17795@gondor.apana.org.au>
+ <CALx6S35sG4+5UT87Yrwa1a=O-Mq09SucXw7=xyxnrJVwXY6fkw@mail.gmail.com>
+ <20151209024323.GA24768@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-	shm@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36773 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751466AbbLIFRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 00:17:53 -0500
-Received: by pfdd184 with SMTP id d184so23895823pfd.3
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2015 21:17:53 -0800 (PST)
-In-Reply-To: <20151208.224100.1951416968376650648.davem@davemloft.net>
+Received: from helcar.hengli.com.au ([209.40.204.226]:36497 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbbLIFiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 00:38:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20151209024323.GA24768@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/8/15, 7:41 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Tue, 8 Dec 2015 20:21:51 -0700
+On Wed, Dec 09, 2015 at 10:43:23AM +0800, Herbert Xu wrote:
 >
->> On 12/8/15 8:08 PM, David Ahern wrote:
->>> root@kenny-jessie2:~# ip ru add oif vrf-red lookup vrf-red
->>>
->>> root@kenny-jessie2:~# ip ru ls
->>> 0:    from all lookup local
->>> 32759:    from all oif vrf-red lookup vrf-red
->>> 32760:    from all iif vrf-green lookup vrf-green
->>> 32761:    from all oif vrf-green lookup vrf-green
->>> 32762:    from all iif vrf-blue lookup vrf-blue
->>> 32763:    from all oif vrf-blue lookup vrf-blue
->>> 32764:    from all iif vrf-red lookup vrf-red
->>> 32765:    from all oif vrf-red lookup vrf-red
->>> 32766:    from all lookup main
->>> 32767:    from all lookup default
->> d'oh. They don't fail in the sense of a user getting an error message
->> but they add duplicate entries. So, if I fix the duplicity (ie., don't
->> add a second one) would the patch be acceptable?
-> No, people need to issue all the commands in order for the configuration
-> to work in all kernels.
->
-agreed. In which case, maybe the rules should not be added by default, but added only under a special vrf dev creation attribute or flag
-(something like IFLA_VRF_AUTOCREATE_RULES  ?)
+> OK after thinking about it a little bit more I think your approach
+> is safe and we won't need to play any more games to get this to
+> work.  So I'm fine with this patch.
+
+One suggestion though: your inline function doesn't actually
+inline the fast path.  The only thing that's inlined is the loop
+which is not that critical.  As this is probably not performance
+critical how about just making the whole thing out-of-line?
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
