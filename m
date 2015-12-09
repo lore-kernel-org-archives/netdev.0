@@ -1,36 +1,33 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] ip_tunnel: Move stats update to iptunnel_xmit()
-Date: Wed, 9 Dec 2015 14:53:39 -0800
-Message-ID: <CALnjE+o9ktUFi9SYvGbPcP5e3pjMpi=ebTJxaH8KMGpBkcKQgQ@mail.gmail.com>
-References: <1449631354-3701-1-git-send-email-pshelar@nicira.com>
-	<20151208.224120.451853113571251140.davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3] net: Add fib rules at vrf device create
+Date: Wed, 9 Dec 2015 16:04:53 -0700
+Message-ID: <5668B395.2030604@cumulusnetworks.com>
+References: <1449683012-14145-1-git-send-email-dsa@cumulusnetworks.com>
+ <20151209.151309.1866782058292162458.davem@davemloft.net>
+ <5668A592.3080104@cumulusnetworks.com>
+ <20151209.172207.663308411545854156.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
+	roopa@cumulusnetworks.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35299 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752975AbbLIWxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 17:53:40 -0500
-Received: by ioc74 with SMTP id 74so76189940ioc.2
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 14:53:39 -0800 (PST)
-In-Reply-To: <20151208.224120.451853113571251140.davem@davemloft.net>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:32902 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422AbbLIXE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 18:04:56 -0500
+Received: by obbww6 with SMTP id ww6so47328080obb.0
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 15:04:56 -0800 (PST)
+In-Reply-To: <20151209.172207.663308411545854156.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 8, 2015 at 7:41 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Tue,  8 Dec 2015 19:22:34 -0800
->
->> By moving stats update into iptunnel_xmit(), we can simplify
->> iptunnel_xmit() usage. With this change there is no need to
->> call another function (iptunnel_xmit_stats()) to update stats
->> in tunnel xmit code path.
->>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->
-> You're going to have to respin this relative to the fix I just
-> put into 'net'.
+On 12/9/15 3:22 PM, David Miller wrote:
+> Just write a script already...
 
-ok, I will wait for the net -> net-next merge.
+Why do you think this took so long to bubble up?
+
+I wrote a script back in July -- well before VRF was accepted into your 
+tree -- that I use for testing. This request comes from other users 
+starting to work with VRFs.
