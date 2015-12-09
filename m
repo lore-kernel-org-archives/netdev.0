@@ -1,60 +1,30 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v4 7/8] openvswitch: Delay conntrack helper call
- for new connections.
-Date: Wed, 9 Dec 2015 16:44:43 +0300
-Message-ID: <5668304B.7010409@cogentembedded.com>
-References: <1449622870-48944-1-git-send-email-jarno@ovn.org>
- <1449622870-48944-8-git-send-email-jarno@ovn.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: forwarding of ipv4 link local addresses
+Date: Wed, 9 Dec 2015 14:46:34 +0100
+Message-ID: <20151209134634.GC11201@pox.localdomain>
+References: <565E12BE.90006@cumulusnetworks.com>
+ <20151203.143531.282555789343463670.davem@davemloft.net>
+ <20151209134416.GB11201@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org
-To: Jarno Rajahalme <jarno@ovn.org>, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1449622870-48944-8-git-send-email-jarno@ovn.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:36777 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753083AbbLINqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 08:46:36 -0500
+Received: by wmww144 with SMTP id w144so222979369wmw.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 05:46:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20151209134416.GB11201@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 12/09/15 at 02:44pm, Thomas Graf wrote:
+> This feature is being used by a popular PaaS which leverages the
+> 127/8 address space locally without polluting an entire routeable
+> address space.
 
-On 12/9/2015 4:01 AM, Jarno Rajahalme wrote:
-
-> There is no need to help connections that are not confirmed, so we can
-> delay helping new connections to the time when they are confirmed.
-> This change is needed for NAT support, and having this as a separate
-> patch will make the following NAT patch a bit easier to review.
->
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
->   net/openvswitch/conntrack.c | 20 +++++++++++++++-----
->   1 file changed, 15 insertions(+), 5 deletions(-)
->
-> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-> index 7aa38fa..ba44287 100644
-> --- a/net/openvswitch/conntrack.c
-> +++ b/net/openvswitch/conntrack.c
-[...]
-> @@ -491,11 +496,16 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
->   			return -ENOENT;
->
->   		ovs_ct_update_key(skb, key, true);
-> +	}
->
-> -		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
-> -			WARN_ONCE(1, "helper rejected packet");
-> -			return -EINVAL;
-> -		}
-> +	/* Call the helper right after nf_conntrack_in() for confirmed
-> +	 * connections, but only when commiting for unconfirmed connections.
-> +	 */
-> +	ct = nf_ct_get(skb, &ctinfo);
-> +	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit)
-> +	    && ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
-
-    Please don't place the operators at the start of a continuation lines, 
-place the at the and of a broken up line instead.
-
-[...]
-
-MBR, Sergei
-
+Kubernetes also wants to rely on this eventually, so please let's
+not break it ;-)
