@@ -1,48 +1,50 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: [PATCH] I.MX6: Fix Ethernet PHY mode on Ventana boards
-Date: Wed, 9 Dec 2015 13:53:04 -0800
-Message-ID: <CAJ+vNU1YbAbb5X68YBsonEQvck2Fg-YRq_4utGcSzn03rV27sQ@mail.gmail.com>
-References: <m3egeyct8o.fsf@t19.piap.pl>
-	<20151208.122447.863577308058835164.davem@davemloft.net>
-	<m3vb88b270.fsf@t19.piap.pl>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCHv2 net] phy: micrel: Fix finding PHY properties in MAC
+ node.
+Date: Wed, 9 Dec 2015 22:57:52 +0100
+Message-ID: <20151209215752.GA16723@lunn.ch>
+References: <1449687391-15331-1-git-send-email-andrew@lunn.ch>
+ <E3964CA5-5DD3-4479-B6B9-27982D1A0908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, dinguyen@opensource.altera.com,
+	david.daney@cavium.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34359 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751410AbbLIVxF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 16:53:05 -0500
-Received: by ioir85 with SMTP id r85so75029414ioi.1
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2015 13:53:04 -0800 (PST)
-In-Reply-To: <m3vb88b270.fsf@t19.piap.pl>
+Received: from vps0.lunn.ch ([178.209.37.122]:34374 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752187AbbLIV54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2015 16:57:56 -0500
+Content-Disposition: inline
+In-Reply-To: <E3964CA5-5DD3-4479-B6B9-27982D1A0908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 8, 2015 at 9:50 PM, Krzysztof Ha=C5=82asa <khalasa@piap.pl>=
- wrote:
-> David Miller <davem@davemloft.net> writes:
->
->> Since this only touched DT files in the ARM platform code, maybe
->> the ARM tree is the best path for this patch rather than mine?
->
-> I think so.
->
-> Tim, would you like to handle this patch yourself, or should I send i=
-t
-> to the ARM contacts?
+> >-	if (!of_node && dev->parent->of_node)
+> >-		of_node =3D dev->parent->of_node;
+> >+	/* The Micrel driver has a deprecated option to place phy OF
+> >+	 * properties in the MAC node. Walk up the tree of devices to
+> >+	 * find a device with an OF node.
+> >+	 */
+> >+	dev_walker =3D &phydev->dev;
+> >+	do {
+> >+		of_node =3D dev_walker->of_node;
+> >+		dev_walker =3D dev_walker->parent;
+> >+
+> >+	} while (!of_node && dev_walker);
+>=20
+> Looks good to me, can we also issuing =E0 warning so people get a cha=
+nce to update their Device Tree?
 
-Krzysztof,
+I did wounder about that.
 
-Go ahead and send it. You can add my:
+But i think it might be better to wait until there are updated dts
+files. No point telling users they need to update when there are no
+updated DT files to use.
 
-Acked-by: Tim Harvey <tharvey@gateworks.com>
+If Dinh updates the SoCFPGA .dts files then i think it makes sense to
+add the warning.
 
-I know Shawn would be happy to pick this up as well as he has an
-imx-fixes tree:
-http://git.kernel.org/cgit/linux/kernel/git/shawnguo/linux.git/log/?h=3D=
-imx/soc
-
-Tim
+    Andrew
