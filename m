@@ -1,81 +1,50 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH V2 0/3] IXGBE/VFIO: Add live migration support for
- SRIOV NIC
-Date: Wed, 9 Dec 2015 12:37:46 +0200
-Message-ID: <20151209122831-mutt-send-email-mst@redhat.com>
-References: <CAKgT0Ucyq=7OSYBVvU9Z01b3f6scS+eBMLg+yphW7bwkNZosPQ@mail.gmail.com>
- <565BF285.4040507@intel.com>
- <CAKgT0Uc+-gFAetEfde6DmMOFK+vDE6UkgsNF8oLNqaQc4USSeg@mail.gmail.com>
- <565DB6FF.1050602@intel.com>
- <20151201171140-mutt-send-email-mst@redhat.com>
- <CAKgT0UfLEJpV-KdqRGfzBeas8bdqfHCmT5Xc8iVVP03g_pQO8A@mail.gmail.com>
- <20151201193026-mutt-send-email-mst@redhat.com>
- <CAKgT0UfJ7w6yYcZcF2YZyDKEwvE7Gh3P-jfGQGKLfPH2crVBzw@mail.gmail.com>
- <20151202105955-mutt-send-email-mst@redhat.com>
- <5661C000.8070201@intel.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next] bnx2x: avoid soft lockup in bnx2x_poll()
+Date: Wed, 9 Dec 2015 10:41:08 +0000
+Message-ID: <CO2PR11MB0088284CEFC5C6FEC40AD67397E80@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1449582880.7632.19.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CO2PR11MB00881A410C4E35D3859CB84C97080@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <1449597817.6639.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Dong, Eddie" <eddie.dong-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <a.motakis-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
-	Alex Williamson <alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org" <b.reynal-lrHrjnjw1UfHK3s98zE1ajGjJy/sRE9J@public.gmane.org>,
-	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Skidmore, Donald C" <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Jani, Nrupal" <nrupal.jani-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>,
-	"kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paolo Bonzini <pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org" <qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org>,
-	"Tantilov, Emil S" <emil.s.tantilov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eric Auger <eric.auger-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	intel-wired-lan <intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"
-To: "Lan, Tianyu" <tianyu.lan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5661C000.8070201-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Ariel Elior" <Ariel.Elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0105.outbound.protection.outlook.com ([207.46.100.105]:20396
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752507AbbLIKlM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2015 05:41:12 -0500
+In-Reply-To: <1449597817.6639.4.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 05, 2015 at 12:32:00AM +0800, Lan, Tianyu wrote:
-> Hi Michael & Alexander:
-> Thanks a lot for your comments and suggestions.
-
-It's nice that it's appreciated, but you then go on and ignore
-all that I have written here:
-https://www.mail-archive.com/kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg123826.html
-
-> We still need to support Windows guest for migration and this is why our
-> patches keep all changes in the driver since it's impossible to change
-> Windows kernel.
-
-This is not a reasonable argument.  It makes no sense to duplicate code
-on Linux because you must duplicate code on Windows.  Let's assume you
-must do it in the driver on windows because windows has closed source
-drivers.  What does it matter? Linux can still do it as part of DMA API
-and have it apply to all drivers.
-
-> Following is my idea to do DMA tracking.
-> 
-> Inject event to VF driver after memory iterate stage
-> and before stop VCPU and then VF driver marks dirty all
-> using DMA memory. The new allocated pages also need to
-> be marked dirty before stopping VCPU. All dirty memory
-> in this time slot will be migrated until stop-and-copy
-> stage. We also need to make sure to disable VF via clearing the
-> bus master enable bit for VF before migrating these memory.
-> 
-> The dma page allocated by VF driver also needs to reserve space
-> to do dummy write.
-
-I suggested ways to do it all in the hypervisor without driver hacks, or
-hide it within DMA API without need to reserve extra space. Both
-approaches seem much cleaner.
-
--- 
-MST
+PiA+ID4gVW5kZXIgaGVhdnkgVFggbG9hZCwgYm54MnhfcG9sbCgpIGNhbiBsb29wIGZvcmV2ZXIg
+YW5kIHRyaWdnZXIgc29mdCBsb2NrdXANCj4gYnVncy4NCj4gPiA+DQo+ID4gPiBBIG5hcGkgcG9s
+bCBoYW5kbGVyIG11c3QgeWllbGQgYWZ0ZXIgb25lIFRYIGNvbXBsZXRpb24gcm91bmQsIHJpc2sN
+Cj4gPiA+IG9mIGxpdmVsb2NrIGlzIHRvbyBoaWdoIG90aGVyd2lzZS4NCj4gPiA+DQo+ID4gPiBC
+dWcgaXMgdmVyeSBlYXN5IHRvIHRyaWdnZXIgdXNpbmcgYSBkZWJ1ZyBidWlsZCwgYW5kIHVkcCBm
+bG9vZCwNCj4gPiA+IGJlY2F1c2Ugb2YgYWRkZWQgY3B1IGN5Y2xlcyBpbiBUWCBjb21wbGV0aW9u
+LCBhbmQgd2UgZG8gbm90IHJlY2VpdmUNCj4gPiA+IGVub3VnaCBwYWNrZXRzIHRvIGJyZWFrIHRo
+ZSBsb29wLg0KPiA+DQo+ID4gRXJpYyAtIEkgdW5kZXJzdGFuZCB3aGF0IHlvdSdyZSBkb2luZyBh
+bmQgaXQgbG9va3MgZmluZSBbdG8gbWUsIGF0IGxlYXN0XS4NCj4gPiBPdXQgb2YgY3VyaW9zaXR5
+LCBkbyB5b3Uga25vdyB3aGV0aGVyIHJlbW92aW5nIHRoZSBsb29wIGRhbWFnZXMgYW55DQo+ID4g
+b3RoZXIgZmxvdywgaS5lLiwgYnkgc2xvd2luZyB0cmFuc21pdHRlciBhcyB0cmFuc21pc3Npb24g
+cmluZ3MgZ2V0cw0KPiA+IGZpbGxlZCBjb21wbGV0ZWx5IGJldHdlZW4gY29uc2VjdXRpdmUgTkFQ
+SSBydW5zPw0KPiANCj4gSSBzYXcgbm8gZG93bnNpZGVzIHlldC4gTW9zdCBvZiB0aGUgdGltZSBU
+WCBhcmUgYmxvY2tlZCBieSBCUUwgdGhlc2UgZGF5cywNCj4gYmVmb3JlIGNvbXBsZXRlIFRYIHJp
+bmcgZmlsbGluZy4NCj4gDQo+IEkgYWRkZWQgc29tZSBpbnN0cnVtZW50YXRpb24sIGFuZCBldmVu
+IGFmdGVyIHRoZSBwYXRjaCBhbmQgYSBub24tZGVidWcga2VybmVsDQo+IHdlIGNhbiBzZWUgOg0K
+PiANCj4gYm54Mng6IGJueDJ4X3BvbGwoKSB0b29rIDQ1NTAzNiBuc2VjDQo+IA0KPiA0NTUgdXNl
+YyBvbiBvbmUgYm54MnhfcG9sbCgpIGlzIGFscmVhZHkgcXVpdGUgYmlnLCBidXQgb25lIGNhbiB0
+d2VhayBUWCByaW5nDQo+IChldGh0b29sIC1HIGV0aDEgdHggLi4uLikgaWYgbGF0ZW5jaWVzIGFy
+ZSBhIHNlcmlvdXMgY29uY2Vybi4NCj4gDQo+IE5vdGUgdGhhdCBteSBwYXRjaCBzaG91bGQgbm90
+IHNsb3cgdHJhbnNtaXR0ZXJzLCBvbmx5IGdpdmUgYSBjaGFuY2UgZm9yIG90aGVyDQo+IHNvZnRp
+cnFzIGJlaW5nIHNlcnZpY2VkLCBhbmQgZXZlbnR1YWxseSBnaXZlIGNvbnRyb2wgdG8ga3NvZnRp
+cnFkIHVuZGVyIHN0cmVzcy4NCj4gDQoNCkNvb2wuIFRoYW5rcyBFcmljLg0KDQpBY2tlZC1ieTog
+WXV2YWwgTWludHogPFl1dmFsLk1pbnR6QHFsb2dpYy5jb20+DQo=
