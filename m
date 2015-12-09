@@ -1,79 +1,39 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH net] phy: micrel: Fix finding PHY properties in MAC node.
-Date: Wed, 9 Dec 2015 10:42:41 -0800
-Message-ID: <56687621.9010602@caviumnetworks.com>
-References: <1449686226-14834-1-git-send-email-andrew@lunn.ch>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 1/3] ser_gigaset: fix up NULL checks
+Date: Wed, 09 Dec 2015 20:18:53 +0100
+Message-ID: <1449688733.16068.4.camel@tiscali.nl>
+References: <cover.1449570042.git.tilman@imap.cc>
+	 <ed83fae92c8c56e659f59c9a3709c86bd3a7d0c4.1449570042.git.tilman@imap.cc>
+	 <1449603913.2384.16.camel@tiscali.nl>
+	 <20151208221657.71fd0d71@lxorguk.ukuu.org.uk> <56680665.4000301@imap.cc>
+	 <20151209121235.227acac9@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	<dinguyen@opensource.altera.com>, <david.daney@cavium.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0065.outbound.protection.outlook.com ([157.56.111.65]:34283
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753553AbbLITPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2015 14:15:36 -0500
-In-Reply-To: <1449686226-14834-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Peter Hurley <peter@hurleysoftware.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller@googlegroups.com, David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de,
+	gigaset307x-common@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tilman Schmidt <tilman@imap.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151209121235.227acac9@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/09/2015 10:37 AM, Andrew Lunn wrote:
-> commit 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus,
-> not the bus' parent.")  changed the parenting of PHY devices, making
-> them a child of the MDIO bus, instead of the MAC device. This broken
-> the Micrel PHY driver which has a deprecated feature of allowing PHY
-> properties to be placed into the MAC node.
->
-> In order to find the MAC node, we need to walk up the tree of devices
-> until we find one with an OF node attached.
->
-> Reported-by: Dinh Nguyen <dinguyen@opensource.altera.com>
-> Suggested-by: David Daney <david.daney@cavium.com>
-> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->   drivers/net/phy/micrel.c | 14 ++++++++++++--
->   1 file changed, 12 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index cf6312fafea5..2493d7c035f2 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -26,6 +26,7 @@
->   #include <linux/module.h>
->   #include <linux/phy.h>
->   #include <linux/micrel_phy.h>
-> +#include <linux/netdevice.h>
+On wo, 2015-12-09 at 12:12 +0000, One Thousand Gnomes wrote:
+> On Wed, 9 Dec 2015 11:45:57 +0100
+> Tilman Schmidt <tilman@imap.cc> wrote:
+> Want a patch on top of Paul's change or a single
+> patch including both and crediting him ?
 
-No new types are introduced by the patch.  Why do we need an additional 
-#include?
+There's no change that can be attributed to me, I think. We're
+discussing a series submitted by Tilman.
 
->   #include <linux/of.h>
->   #include <linux/clk.h>
->
-> @@ -339,9 +340,18 @@ static int ksz9021_config_init(struct phy_device *phydev)
->   {
->   	const struct device *dev = &phydev->dev;
->   	const struct device_node *of_node = dev->of_node;
-> +	const struct device *dev_walker;
->
-> -	if (!of_node && dev->parent->of_node)
-> -		of_node = dev->parent->of_node;
-> +	/* The Micrel driver has a deprecated option to place phy OF
-> +	 * properties in the MAC node. Walk up the tree of devices to
-> +	 * find a device with an OF node.
-> +	 */
-> +	dev_walker = &phydev->dev;
-> +	do {
-> +		of_node = dev_walker->of_node;
-> +		dev_walker = dev_walker->parent;
-> +
-> +	} while (!of_node && dev_walker);
->
->   	if (of_node) {
->   		ksz9021_load_values_from_of(phydev, of_node,
->
+Confused,
+
+
+Paul Bolle
