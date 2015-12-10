@@ -1,104 +1,59 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [RFC PATCHv2 net-next 1/2] tcp: RTO Restart (RTOR)
-Date: Thu, 10 Dec 2015 10:37:32 -0500
-Message-ID: <CADVnQyn4X57Tz8GxJRU84=Jr2x1j29ZK8xJfdLjnb2a2g45S0A@mail.gmail.com>
-References: <cover.1449478261.git.per.hurtig@kau.se>
-	<cover.1449561786.git.per.hurtig@kau.se>
-	<8cd2c4817d86e30b09fe398c6bfcb7a89521bdb3.1449561786.git.per.hurtig@kau.se>
-	<1449582430.7632.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<475C1718-ADEE-4839-AC8C-77E3C1353DF4@kau.se>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: Checksum offload queries
+Date: Thu, 10 Dec 2015 15:49:41 +0000
+Message-ID: <56699F15.3030202@solarflare.com>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <20151208.120654.2127200076257822677.davem@davemloft.net>
+ <56681B18.3030200@solarflare.com>
+ <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+ <566864C0.6020204@solarflare.com>
+ <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Florian Westphal <fw@strlen.de>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Willem de Bruijn <willemb@google.com>,
-	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Pasi Sarolahti <pasi.sarolahti@iki.fi>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Anna_Brunstr=C3=B6m?= <anna.brunstrom@kau.se>,
-	Andreas Petlund <apetlund@simula.no>,
-	Michael Welzl <michawe@ifi.uio.no>,
-	Mohammad Rajiullah <mohammad.rajiullah@kau.se>
-To: Per Hurtig <per.hurtig@kau.se>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:36727 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbbLJPhd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 10:37:33 -0500
-Received: by qgcc31 with SMTP id c31so148194598qgc.3
-        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 07:37:32 -0800 (PST)
-In-Reply-To: <475C1718-ADEE-4839-AC8C-77E3C1353DF4@kau.se>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:28940 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751370AbbLJPuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 10:50:09 -0500
+In-Reply-To: <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 10, 2015 at 1:51 AM, Per Hurtig <per.hurtig@kau.se> wrote:
->
->> On 08 Dec 2015, at 14:47, Eric Dumazet <eric.dumazet@gmail.com> wrot=
-e:
->>
->> On Tue, 2015-12-08 at 10:19 +0100, Per Hurtig wrote:
->>
->>> +static u32 tcp_unsent_pkts(const struct sock *sk, u32 ulimit)
->>> +{
->>> +    struct sk_buff *skb =3D tcp_send_head(sk);
->>> +    u32 pkts =3D 0;
->>> +
->>> +    if (skb)
->>> +            tcp_for_write_queue_from(skb, sk) {
->>> +                    pkts +=3D tcp_skb_pcount(skb);
->>> +
->>> +                    if (ulimit && pkts >=3D ulimit)
->>> +                            return ulimit;
->>> +            }
->>> +
->>> +    return pkts;
->>> +}
->>
->>
->> Considering Yuchung feedback, have you looked at using an approximat=
-ion
->> instead ?
->>
->> (ie using tp->write_seq - tp->snd_nxt)
->>
->>
->
-> Well, an approximation is rather =E2=80=9Cdangerous=E2=80=9D as missi=
-ng a single packet
-> could inhibit the desired behaviour. If looping is undesired, I think=
- a
-> better solution is to actually *not* do this check at all and instead=
- rely
-> solely on the
->
-> tp->packets_out < TCP_RTORESTART_THRESH
+On 09/12/15 18:00, Tom Herbert wrote:
+> That is not at all true. If the stack has set up VXLAN RCO and the > device decides to set the inner checksum itself then the checksum > will be bad. The checksum interface is very specific please read it > carefully (sk_buff.h), if the driver/device thinks it is smarter > than the stack and tries to do set its own rules on how checksum > offload works then things will eventually break miserably.
 
-Yes, this simpler version seems very much preferable, IMHO. I agree
-that it does not seem worth the complexity to try to cover the kind of
-corner cases you outline.
+Ok, I've passed that on to the guy working on this bit of the driver.
 
-I would also suggest a TCP_RTORESTART_THRESH value higher than 4.
+It looks like the best way to support the capabilities of NICs like the
+sfc 8000 series (which can fill in two checksums but uses packet parsing
+to figure out what to do, rather than using csum start/offset) is:
 
-In the ID at https://tools.ietf.org/html/draft-ietf-tcpm-rtorestart-10 =
-it says:
+(core / stack)
+* add NETIF_F_HW_2CSUMS (or whatever name)
+* squeeze a second csum start/offset pair into the skb (as you mention,
+ we can do this without size increase)
+* Modify (Tx) CHECKSUM_PARTIAL generation to use both csum pairs.
+ Presumably by creating CHECKSUM_PARTIAL_2CSUMS to indicate that the
+ second csum pair has been filled in as well.
 
-   The RECOMMENDED value of rrthresh is four, as this value will ensure
-   that RTOR is only used when fast retransmit cannot be triggered.
+(sfc driver)
+* declare 2CSUMS support
+* on getting an skb for xmit, check whether the csum pairs match what our
+ eeevil packet parsing hardware will do.  If so, send it with appropriate
+ csum offload settings (we can enable/disable inner & outer offload
+ independently, with TX Option descriptors).  Any csum pair that doesn't
+ match, we call skb_checksum_help to do it in software, and tell the
+ hardware not to do that one.
 
-But my sense is that fast retransmit is often not triggered at
-in-flight counts of much higher than 4, due to drop-tail queues, TSO
-bursts, the initial IW10 being unpaced, etc. It would be interesting
-to see A/B experiments for a few TCP_RTORESTART_THRESH values, say, 4
-vs 10.
+Optionally, we could also create NETIF_F_IP[V6]_2CSUMS in the stack and
+have our driver advertise that instead, but since there has to be a
+fallback to skb_checksum_help in the driver anyway, there doesn't seem
+to be much point.
 
-neal
+Does that seem reasonable?
