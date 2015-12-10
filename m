@@ -1,97 +1,65 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: Checksum offload queries
-Date: Thu, 10 Dec 2015 21:02:18 +0000
-Message-ID: <75AC3A2B-FC0A-4151-BD53-3013970E6609@intel.com>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <20151208.120654.2127200076257822677.davem@davemloft.net>
- <56681B18.3030200@solarflare.com>
- <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
- <566864C0.6020204@solarflare.com>
- <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
- <56699F15.3030202@solarflare.com>
- <CALx6S34bg-iRMcTpGd+yw+CV1T7MxpWx+i_AdxXjsfTTnOGK4g@mail.gmail.com>
- <5669E066.8090703@solarflare.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
+Date: Thu, 10 Dec 2015 23:06:44 +0200
+Message-ID: <CAJ3xEMgOh9busKb7c5WF32=umGf8EdauOwQ1d_eDTJP95V1XLA@mail.gmail.com>
+References: <56435508.9070802@mellanox.com>
+	<CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
+	<CAJ3xEMhopRFPJFj4k41X6dKWz7Ok1Jqvtht7YS=59e3ceRf-qg@mail.gmail.com>
+	<CAOftzPjio364zHUXSpK3uFDu+DiSc=5ae1WVjg9C+8485rpBsw@mail.gmail.com>
+	<CAJ3xEMi5fPCd=v2UJN0CZB5948WpDuBm25rGW4yP6-q_QF31nw@mail.gmail.com>
+	<CANr6G5xe7URQgr=C7gL=xoAaUf5rXPQByBZscmNSVHyv2=+wRg@mail.gmail.com>
+	<CAJ3xEMiSwVhUCTYcH+nWWBqrSwiykqsBFUZtBkirQtzsXVVL4A@mail.gmail.com>
+	<CAJ3xEMhzB3UzfeJ8rvCmDFG57QnG5wdHPfahthxgR7Y-vvaiQg@mail.gmail.com>
+	<CAOftzPieLwrF2V5YknHBRHxpGSsHqvqDoiHFPvXEcp3NUe24Gw@mail.gmail.com>
+	<CAPWQB7GmJNYwmu5fSOWeLQxhdfPR4WgaD-=F7ZQCd6PtmQ=oYQ@mail.gmail.com>
+	<CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
+	<CAPWQB7HkBFRozJzYNMDSZexJzmFVfDWc02Mkk1oTwwiCQtvPCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_9862BD6A-A3ED-4120-97FF-A3DB2CB69ADD";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilya Lesokhin <ilyal@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Tal Anker <Ankertal@mellanox.com>
+To: Joe Stringer <joe@ovn.org>, Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:15364 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750790AbbLJVC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 16:02:27 -0500
-In-Reply-To: <5669E066.8090703@solarflare.com>
-Content-Language: en-US
+Received: from mail-io0-f193.google.com ([209.85.223.193]:33022 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbbLJVGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 16:06:45 -0500
+Received: by ioef137 with SMTP id f137so9304702ioe.0
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 13:06:44 -0800 (PST)
+In-Reply-To: <CAPWQB7HkBFRozJzYNMDSZexJzmFVfDWc02Mkk1oTwwiCQtvPCg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_9862BD6A-A3ED-4120-97FF-A3DB2CB69ADD
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+On Wed, Dec 9, 2015 at 2:22 AM, Joe Stringer <joe@ovn.org> wrote:
+> On 8 December 2015 at 13:23, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Tue, Dec 8, 2015 at 9:20 PM, Joe Stringer <joe@ovn.org> wrote:
 
-Edward Cree <ecree@solarflare.com> wrote:
+>>>> Apologies for the delayed response, we haven't found anything
+>>>> interesting yet although we've mostly looked at plain set-field
+>>>> actions with a combination of kernel/userspace versions. I plan to
+>>>> carve out some time later this week to take another look.
 
-> I have just realised something startling.  Assuming the inner protocol =
-uses the ones complement checksum in the way IP, UDP and TCP do, the =
-outer checksum can be computed *without looking at the payload*.  Why?  =
-Because the ones complement sum of (say) a correctly checksummed UDP =
-datagram is simply the complement of the ones complement sum of the =
-pseudo header.  Similarly, the ones complement sum of a correctly =
-checksummed IP header is zero.
-> Therefore, the outer checksum depends _only_ on the inner and outer =
-pseudo headers and the encapsulation headers.  For example, with UDP =
-encapsulated in VXLAN, we have the following packet structure:
-> ETH IP UDP VXLAN inner-ETH inner-IP inner-UDP PAYLOAD
-> and the outer checksum equals
-> ~([outer_pseudo] + [UDP] + [VXLAN] + [inner-ETH] + ~[inner_pseudo])
-> where [] denotes summation, and all addition is ones complement.
-> This can easily be computed in software, especially as the stack =
-already has ~[inner_pseudo]: it's stored in the inner checksum field to =
-help inner checksum offload.
->=20
-> Have I made a mistake in my ones-complement maths, or is outer =
-checksum offload as unnecessary as IP header checksum offload?
+>>> (resending due to teething issues with new email and plain-text, sorry
+>>> for the spam)
 
-I agree with the overall observation, in that the outer checksum can be =
-derived from the inner one. I think that the inner-ip header needs to be =
-added (after subtracting out the inner_pseudo as you indicate above), =
-because the entire raw inner IP header needs to be included in the outer =
-checksum. I haven't thought this all through in detail yet. It would be =
-really nice to have a function that implemented something like this. =
-Could one be structured to handle most encapsulations?
+>>> As far as the mask, I briefly discussed this with Jarno and it seems
+>>> like it could be something as simple as zeroing the ip_ttl mask in
+>>> tnl_wc_init().
 
---
-Mark Rustad, Networking Division, Intel Corporation
+>> to make sure I follow, will that have the consequence that we (user +
+>> kernel) will practically not be testing the ttl for these flows?
 
---Apple-Mail=_9862BD6A-A3ED-4120-97FF-A3DB2CB69ADD
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+> Yes, it would cause userspace to 'wildcard' the field so the kernel
+> flows that are installed will ignore it during lookup.
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
+Cool, any chance this is gonna fit into your schedule to meet 4.4? if
+not, for 4.5?
 
-iQIcBAEBCAAGBQJWaehaAAoJEDwO/+eO4+5u9PkQAI60jGQ2f8Me+Tlbv8PpmQxi
-zOx2l6DTuuoDP2xmy/36YqGsd3LzBpAU4/5QylWKlrRMFQUhNaCLMlXdFhqQqGCc
-Hm2SIL53Mu8OTRRFdpMgNITpayEJrtiWa0SiYgXDmTN3zQEgujYJAWmRq51+7d4D
-6AixHd9oWe6IJVPxjybINKwCdap1hQ9Ai9qpUB2vEBAba9bZG/jyBwboceusqNLB
-wdaq7WyQRK8GNvnT47UDI9QQ0ZY555UWa0Ek2UV/VMZoseykEDjl1vQYlQeTh1HW
-0X5gn0us14n0zBUs7PUP4TxsCpDEOet+9UUGRx/yQeymOpm5MMY8v4O5vn0UfuX7
-xfATcyI4lhBGn2qIApBj8J1EtROfIVUU+ohGAyxbNgNWUO6x1wZvApgGwjAmZ6Ha
-8pIcX3KgwfwO5VLGJh98deIhsvLL+sNhyLWsW7+bt6MwCjiQNK5WqSWYVd76A5yD
-+8uBRlKY6osNrfwVg8amu9APzav3R/z+vEKrL/4a4sGicplekC5swOHEkESn9sZx
-0KLXNfGHLW/BggglZAB8NWGR+7xwh3l3kUjBalFncS9m0McyAh+e9be9nuWTBMPE
-Ws93PCaNr8BhKH/LvM5vw2DITs0/mqBXSGYxR+Z3pPj5ELz4n0iDaxGULQLw9zFV
-09JXdyc+LvfSXZqLbYVv
-=mQou
------END PGP SIGNATURE-----
+Also, can the patch be made simple/small enough to go into -stable as well?
 
---Apple-Mail=_9862BD6A-A3ED-4120-97FF-A3DB2CB69ADD--
+Or.
