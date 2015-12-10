@@ -1,135 +1,93 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH net] sfc: only use RSS filters if we're using RSS
-Date: Thu, 10 Dec 2015 13:30:08 +0000
-Message-ID: <56697E60.9050304@solarflare.com>
+From: =?koi8-r?B?58HX0snMz9cg6cfP0tg=?= <iggorok@yandex.ua>
+Subject: [PATCH] sched/cls_flow.c : allow nfct-* keys work on ingress interfaces
+Date: Thu, 10 Dec 2015 15:24:09 +0200
+Message-ID: <1498271449753849@web15j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="----==--bound.149830.web15j.yandex.ru"
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:50545 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbbLJNaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 08:30:17 -0500
+Received: from forward20j.cmail.yandex.net ([5.255.227.239]:58526 "EHLO
+	forward20j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750929AbbLJNcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 08:32:06 -0500
+Received: from web15j.yandex.ru (web15j.yandex.ru [5.45.198.56])
+	by forward20j.cmail.yandex.net (Yandex) with ESMTP id 9CA0C20B84
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 16:24:10 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this filter insertion on a VF would fail if only one channel
-was in use. This would include the unicast station filter and therefore
-no traffic would be received.
 
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c  | 23 +++++++++++------------
- drivers/net/ethernet/sfc/efx.h   |  5 +++++
- drivers/net/ethernet/sfc/farch.c |  2 +-
- 3 files changed, 17 insertions(+), 13 deletions(-)
+------==--bound.149830.web15j.yandex.ru
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index c4a0e8a..368e98e 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3309,7 +3309,7 @@ static int efx_ef10_filter_remove_internal(struct efx_nic *efx,
- 
- 		new_spec.priority = EFX_FILTER_PRI_AUTO;
- 		new_spec.flags = (EFX_FILTER_FLAG_RX |
--				  EFX_FILTER_FLAG_RX_RSS);
-+			(efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0));
- 		new_spec.dmaq_id = 0;
- 		new_spec.rss_context = EFX_FILTER_RSS_CONTEXT_DEFAULT;
- 		rc = efx_ef10_filter_push(efx, &new_spec,
-@@ -3931,6 +3931,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
- 	struct efx_ef10_dev_addr *addr_list;
-+	enum efx_filter_flags filter_flags;
- 	struct efx_filter_spec spec;
- 	u8 baddr[ETH_ALEN];
- 	unsigned int i, j;
-@@ -3945,11 +3946,11 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 		addr_count = table->dev_uc_count;
- 	}
- 
-+	filter_flags = efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0;
-+
- 	/* Insert/renew filters */
- 	for (i = 0; i < addr_count; i++) {
--		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
--				   EFX_FILTER_FLAG_RX_RSS,
--				   0);
-+		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
- 		efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
- 					 addr_list[i].addr);
- 		rc = efx_ef10_filter_insert(efx, &spec, true);
-@@ -3978,9 +3979,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 
- 	if (multicast && rollback) {
- 		/* Also need an Ethernet broadcast filter */
--		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
--				   EFX_FILTER_FLAG_RX_RSS,
--				   0);
-+		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
- 		eth_broadcast_addr(baddr);
- 		efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC, baddr);
- 		rc = efx_ef10_filter_insert(efx, &spec, true);
-@@ -4010,13 +4009,14 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	enum efx_filter_flags filter_flags;
- 	struct efx_filter_spec spec;
- 	u8 baddr[ETH_ALEN];
- 	int rc;
- 
--	efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
--			   EFX_FILTER_FLAG_RX_RSS,
--			   0);
-+	filter_flags = efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0;
-+
-+	efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
- 
- 	if (multicast)
- 		efx_filter_set_mc_def(&spec);
-@@ -4033,8 +4033,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- 		if (!nic_data->workaround_26807) {
- 			/* Also need an Ethernet broadcast filter */
- 			efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
--					   EFX_FILTER_FLAG_RX_RSS,
--					   0);
-+					   filter_flags, 0);
- 			eth_broadcast_addr(baddr);
- 			efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
- 						 baddr);
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 1aaf76c..1082747 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -76,6 +76,11 @@ void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
- #define EFX_TXQ_MAX_ENT(efx)	(EFX_WORKAROUND_35388(efx) ? \
- 				 EFX_MAX_DMAQ_SIZE / 2 : EFX_MAX_DMAQ_SIZE)
- 
-+static inline bool efx_rss_enabled(struct efx_nic *efx)
-+{
-+	return efx->rss_spread > 1;
-+}
-+
- /* Filters */
- 
- void efx_mac_reconfigure(struct efx_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index 5a1c5a8..133e9e3 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -2242,7 +2242,7 @@ efx_farch_filter_init_rx_auto(struct efx_nic *efx,
- 	 */
- 	spec->priority = EFX_FILTER_PRI_AUTO;
- 	spec->flags = (EFX_FILTER_FLAG_RX |
--		       (efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0) |
-+		       (efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0) |
- 		       (efx->rx_scatter ? EFX_FILTER_FLAG_RX_SCATTER : 0));
- 	spec->dmaq_id = 0;
- }
--- 
-2.4.3
+Improved CTTUPLE macro with code from sched/act_connmark.c, so it be able to get unNATed addresses from nf_conntrack.
+------==--bound.149830.web15j.yandex.ru
+Content-Disposition: attachment;
+	filename="cls_flow.patch.4.3"
+Content-Transfer-Encoding: base64
+Content-Type: text/x-diff;
+	name="cls_flow.patch.4.3"
+
+LS0tIGNsc19mbG93LmMJMjAxNS0xMS0wMiAwMjowNToyNS4wMDAwMDAwMDAgKzAyMDAKKysrIG5l
+dC9zY2hlZC9jbHNfZmxvdy5jCTIwMTUtMTItMTAgMTc6MDQ6MDMuMDc1MjAyMzMwICswMjAwCkBA
+IC0zMCw2ICszMCw4IEBACiAKICNpZiBkZWZpbmVkKENPTkZJR19ORl9DT05OVFJBQ0spIHx8IGRl
+ZmluZWQoQ09ORklHX05GX0NPTk5UUkFDS19NT0RVTEUpCiAjaW5jbHVkZSA8bmV0L25ldGZpbHRl
+ci9uZl9jb25udHJhY2suaD4KKyNpbmNsdWRlIDxuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19j
+b3JlLmg+CisjaW5jbHVkZSA8bmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfem9uZXMuaD4KICNl
+bmRpZgogCiBzdHJ1Y3QgZmxvd19oZWFkIHsKQEAgLTEzMiwxNiArMTM0LDQzIEBACiB9CiAKICNp
+ZiBkZWZpbmVkKENPTkZJR19ORl9DT05OVFJBQ0spIHx8IGRlZmluZWQoQ09ORklHX05GX0NPTk5U
+UkFDS19NT0RVTEUpCi0jZGVmaW5lIENUVFVQTEUoc2tiLCBtZW1iZXIpCQkJCQkJXAorI2RlZmlu
+ZSBDVFRVUExFKHNrYiwgZGlyZWN0aW9uLCBtZW1iZXIpCQkJCQkJXAogKHsJCQkJCQkJCQlcCiAJ
+ZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm87CQkJCQlcCi0JY29uc3Qgc3RydWN0IG5mX2Nv
+bm4gKmN0ID0gbmZfY3RfZ2V0KHNrYiwgJmN0aW5mbyk7CQlcCi0JaWYgKGN0ID09IE5VTEwpCQkJ
+CQkJCVwKLQkJZ290byBmYWxsYmFjazsJCQkJCQlcCi0JY3QtPnR1cGxlaGFzaFtDVElORk8yRElS
+KGN0aW5mbyldLnR1cGxlLm1lbWJlcjsJCQlcCisJc3RydWN0IG5mX2Nvbm50cmFja190dXBsZSB0
+dXBsZTsJCQkJXAorCXN0cnVjdCBuZl9jb25udHJhY2tfem9uZSB6b25lOwkJCQkJXAorCWNvbnN0
+IHN0cnVjdCBuZl9jb25udHJhY2tfdHVwbGVfaGFzaCAqdGhhc2g7CQkJXAorCV9fYmUzMiByZXN1
+bHQ7CQkJCQkJCVwKKwlpbnQgcHJvdG87CQkJCQkJCVwKKwlzdHJ1Y3QgbmZfY29ubiAqY3QgPSBu
+Zl9jdF9nZXQoc2tiLCAmY3RpbmZvKTsJCQlcCisJaWYgKGN0ID09IE5VTEwpewkJCQkJCVwKKwkJ
+ICAgICAgICBzd2l0Y2ggKHRjX3NrYl9wcm90b2NvbChza2IpKSB7CQkJXAorCQkgICAgICAgIGNh
+c2UgaHRvbnMoRVRIX1BfSVApOgkJCQlcCisgICAgICAgICAgICAgICAgCQlwcm90byA9IE5GUFJP
+VE9fSVBWNDsgCQkJXAorCQkJCWJyZWFrOwkJCQkJXAorCQkgICAgICAgIGNhc2UgaHRvbnMoRVRI
+X1BfSVBWNik6CQkJCVwKKwkJCQlwcm90byA9IE5GUFJPVE9fSVBWNjsJCQlcCisJCQkJYnJlYWs7
+CQkJCQlcCisJCQlkZWZhdWx0OiBnb3RvIGZhbGxiYWNrOwkJCQlcCisJICAgICAgICB9IAkJCQkJ
+CQlcCisJCQkJCQkJCQlcCisJaWYgKCFuZl9jdF9nZXRfdHVwbGVwcihza2IsIHNrYl9uZXR3b3Jr
+X29mZnNldChza2IpLCBwcm90bywgJnR1cGxlKSkgXAorICAgICAgICAgICAgICAgIGdvdG8gZmFs
+bGJhY2s7CQkJCQkJXAorICAgICAgICB6b25lLmlkID0gTkZfQ1RfREVGQVVMVF9aT05FX0lEOwkJ
+CQlcCisgICAgICAgIHpvbmUuZGlyID0gTkZfQ1RfREVGQVVMVF9aT05FX0RJUjsJCQkJXAorCQkJ
+CQkJCQkJXAorICAgICAgICB0aGFzaCA9IG5mX2Nvbm50cmFja19maW5kX2dldChkZXZfbmV0KHNr
+Yi0+ZGV2KSwgJnpvbmUsICZ0dXBsZSk7XAorICAgICAgICBpZiAoIXRoYXNoKSBnb3RvIGZhbGxi
+YWNrOwkJCQkJXAorICAgICAgICBjdCA9IG5mX2N0X3R1cGxlaGFzaF90b19jdHJhY2sodGhhc2gp
+OwkJCQlcCisJcmVzdWx0ID0gY3QtPnR1cGxlaGFzaFsodGhhc2gtPnR1cGxlLmRzdC5kaXIgPT0g
+SVBfQ1RfRElSX1JFUExZKSA/IElQX0NUX0RJUl9PUklHSU5BTCA6IElQX0NUX0RJUl9SRVBMWV0u
+dHVwbGUuc3JjLm1lbWJlcjsJXAorCW5mX2N0X3B1dChjdCk7CQkJCQkJCVwKKwl9IGVsc2UgewkJ
+CQkJCQlcCisJcmVzdWx0ID0gY3QtPnR1cGxlaGFzaFtDVElORk8yRElSKGN0aW5mbyldLnR1cGxl
+LmRpcmVjdGlvbi5tZW1iZXI7CVwKKwl9CQkJCQkJCQlcCisJcmVzdWx0OwkJCQkJCQkJXAogfSkK
+ICNlbHNlCi0jZGVmaW5lIENUVFVQTEUoc2tiLCBtZW1iZXIpCQkJCQkJXAorI2RlZmluZSBDVFRV
+UExFKHNrYiwgZGlyZWN0aW9uLCBtZW1iZXIpCQkJCQkJXAogKHsJCQkJCQkJCQlcCiAJZ290byBm
+YWxsYmFjazsJCQkJCQkJXAogCTA7CQkJCQkJCQlcCkBAIC0xNTIsOSArMTgxLDkgQEAKIHsKIAlz
+d2l0Y2ggKHRjX3NrYl9wcm90b2NvbChza2IpKSB7CiAJY2FzZSBodG9ucyhFVEhfUF9JUCk6Ci0J
+CXJldHVybiBudG9obChDVFRVUExFKHNrYiwgc3JjLnUzLmlwKSk7CisJCXJldHVybiBudG9obChD
+VFRVUExFKHNrYiwgc3JjLCB1My5pcCkpOwogCWNhc2UgaHRvbnMoRVRIX1BfSVBWNik6Ci0JCXJl
+dHVybiBudG9obChDVFRVUExFKHNrYiwgc3JjLnUzLmlwNlszXSkpOworCQlyZXR1cm4gbnRvaGwo
+Q1RUVVBMRShza2IsIHNyYywgdTMuaXA2WzNdKSk7CiAJfQogZmFsbGJhY2s6CiAJcmV0dXJuIGZs
+b3dfZ2V0X3NyYyhza2IsIGZsb3cpOwpAQCAtMTYyLDExICsxOTEsMTIgQEAKIAogc3RhdGljIHUz
+MiBmbG93X2dldF9uZmN0X2RzdChjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25zdCBzdHJ1
+Y3QgZmxvd19rZXlzICpmbG93KQogeworCiAJc3dpdGNoICh0Y19za2JfcHJvdG9jb2woc2tiKSkg
+ewogCWNhc2UgaHRvbnMoRVRIX1BfSVApOgotCQlyZXR1cm4gbnRvaGwoQ1RUVVBMRShza2IsIGRz
+dC51My5pcCkpOworCQlyZXR1cm4gbnRvaGwoQ1RUVVBMRShza2IsIGRzdCwgdTMuaXApKTsKIAlj
+YXNlIGh0b25zKEVUSF9QX0lQVjYpOgotCQlyZXR1cm4gbnRvaGwoQ1RUVVBMRShza2IsIGRzdC51
+My5pcDZbM10pKTsKKwkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBkc3QsIHUzLmlwNlszXSkp
+OwogCX0KIGZhbGxiYWNrOgogCXJldHVybiBmbG93X2dldF9kc3Qoc2tiLCBmbG93KTsKQEAgLTE3
+NCwxNCArMjA0LDE0IEBACiAKIHN0YXRpYyB1MzIgZmxvd19nZXRfbmZjdF9wcm90b19zcmMoY29u
+c3Qgc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IGZsb3dfa2V5cyAqZmxvdykKIHsK
+LQlyZXR1cm4gbnRvaHMoQ1RUVVBMRShza2IsIHNyYy51LmFsbCkpOworCXJldHVybiBudG9ocyhD
+VFRVUExFKHNrYiwgc3JjLCB1LmFsbCkpOwogZmFsbGJhY2s6CiAJcmV0dXJuIGZsb3dfZ2V0X3By
+b3RvX3NyYyhza2IsIGZsb3cpOwogfQogCiBzdGF0aWMgdTMyIGZsb3dfZ2V0X25mY3RfcHJvdG9f
+ZHN0KGNvbnN0IHN0cnVjdCBza19idWZmICpza2IsIGNvbnN0IHN0cnVjdCBmbG93X2tleXMgKmZs
+b3cpCiB7Ci0JcmV0dXJuIG50b2hzKENUVFVQTEUoc2tiLCBkc3QudS5hbGwpKTsKKwlyZXR1cm4g
+bnRvaHMoQ1RUVVBMRShza2IsIGRzdCwgdS5hbGwpKTsKIGZhbGxiYWNrOgogCXJldHVybiBmbG93
+X2dldF9wcm90b19kc3Qoc2tiLCBmbG93KTsKIH0K
+------==--bound.149830.web15j.yandex.ru--
