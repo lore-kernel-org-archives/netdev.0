@@ -1,8 +1,12 @@
 From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 1/4] list: introduce list_is_first()
-Date: Thu, 10 Dec 2015 22:17:15 +0800
-Message-ID: <305feb971ae11e192f35f25d66bb7b2e28e06c39.1449755818.git.geliangtang@163.com>
+Subject: [PATCH 4/4] elevator: use list_is_{first,last}
+Date: Thu, 10 Dec 2015 22:20:00 +0800
+Message-ID: <4f2d53c2ddbc9c0d4b00b4db1bd797b53faf8c2d.1449755818.git.geliangtang@163.com>
+References: <305feb971ae11e192f35f25d66bb7b2e28e06c39.1449755818.git.geliangtang@163.com> <394e9e5ece944969fe1ff4f37c9a73bf5543265e.1449755818.git.geliangtang@163.com> <b415535e3c9784ee8529b3e7372b94e759b48bf4.1449755818.git.geliangtang@163.com>
 Cc: Geliang Tang <geliangtang@163.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Jan Kara <jack@suse.cz>, Josef Bacik <jbacik@fb.com>,
+	Josh Triplett <josh@joshtriplett.org>,
 	Josh Poimboeuf <jpoimboe@redhat.com>,
 	Seth Jennings <sjenning@redhat.com>,
 	Jiri Kosina <jikos@kernel.org>,
@@ -11,47 +15,47 @@ Cc: Geliang Tang <geliangtang@163.com>,
 	Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jens Axboe <axboe@kernel.dk>, live-patching@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-block@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Jan Kara <jack@suse.cz>, Josef Bacik <jbacik@fb.com>,
-	Josh Triplett <josh@joshtriplett.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	live-patching@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-block@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jens Axboe <axboe@kernel.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-134.163.com ([123.125.50.134]:39084 "EHLO m50-134.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752324AbbLJOXB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2015 09:23:01 -0500
+In-Reply-To: <b415535e3c9784ee8529b3e7372b94e759b48bf4.1449755818.git.geliangtang@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We already have list_is_last(), it makes sense to also add
-list_is_first() for consistency. This list utility function
-to check for first element in a list.
+For better readability, use list_is_{first,last}() instead of open-coded.
 
 Signed-off-by: Geliang Tang <geliangtang@163.com>
 ---
- include/linux/list.h | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ block/noop-iosched.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/list.h b/include/linux/list.h
-index 5356f4d..2c43ef4 100644
---- a/include/linux/list.h
-+++ b/include/linux/list.h
-@@ -170,6 +170,17 @@ static inline void list_move_tail(struct list_head *list,
- }
+diff --git a/block/noop-iosched.c b/block/noop-iosched.c
+index a163c48..d44326e 100644
+--- a/block/noop-iosched.c
++++ b/block/noop-iosched.c
+@@ -44,7 +44,7 @@ noop_former_request(struct request_queue *q, struct request *rq)
+ {
+ 	struct noop_data *nd = q->elevator->elevator_data;
  
- /**
-+ * list_is_first - tests whether @list is the first entry in list @head
-+ * @list: the entry to test
-+ * @head: the head of the list
-+ */
-+static inline int list_is_first(const struct list_head *list,
-+				const struct list_head *head)
-+{
-+	return list->prev == head;
-+}
-+
-+/**
-  * list_is_last - tests whether @list is the last entry in list @head
-  * @list: the entry to test
-  * @head: the head of the list
+-	if (rq->queuelist.prev == &nd->queue)
++	if (list_is_first(&rq->queuelist, &nd->queue))
+ 		return NULL;
+ 	return list_prev_entry(rq, queuelist);
+ }
+@@ -54,7 +54,7 @@ noop_latter_request(struct request_queue *q, struct request *rq)
+ {
+ 	struct noop_data *nd = q->elevator->elevator_data;
+ 
+-	if (rq->queuelist.next == &nd->queue)
++	if (list_is_last(&rq->queuelist, &nd->queue))
+ 		return NULL;
+ 	return list_next_entry(rq, queuelist);
+ }
 -- 
 2.5.0
