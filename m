@@ -1,68 +1,94 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
-Date: Thu, 10 Dec 2015 23:43:09 +0200
-Message-ID: <CAJ3xEMiF8-MyNW6iAq2RgH6ZMDrEJ4wMeNUJpSiSHUAdRLfZgg@mail.gmail.com>
-References: <56435508.9070802@mellanox.com>
-	<CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
-	<CAJ3xEMhopRFPJFj4k41X6dKWz7Ok1Jqvtht7YS=59e3ceRf-qg@mail.gmail.com>
-	<CAOftzPjio364zHUXSpK3uFDu+DiSc=5ae1WVjg9C+8485rpBsw@mail.gmail.com>
-	<CAJ3xEMi5fPCd=v2UJN0CZB5948WpDuBm25rGW4yP6-q_QF31nw@mail.gmail.com>
-	<CANr6G5xe7URQgr=C7gL=xoAaUf5rXPQByBZscmNSVHyv2=+wRg@mail.gmail.com>
-	<CAJ3xEMiSwVhUCTYcH+nWWBqrSwiykqsBFUZtBkirQtzsXVVL4A@mail.gmail.com>
-	<CAJ3xEMhzB3UzfeJ8rvCmDFG57QnG5wdHPfahthxgR7Y-vvaiQg@mail.gmail.com>
-	<CAOftzPieLwrF2V5YknHBRHxpGSsHqvqDoiHFPvXEcp3NUe24Gw@mail.gmail.com>
-	<CAPWQB7GmJNYwmu5fSOWeLQxhdfPR4WgaD-=F7ZQCd6PtmQ=oYQ@mail.gmail.com>
-	<CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
-	<CAPWQB7HkBFRozJzYNMDSZexJzmFVfDWc02Mkk1oTwwiCQtvPCg@mail.gmail.com>
-	<CAJ3xEMgOh9busKb7c5WF32=umGf8EdauOwQ1d_eDTJP95V1XLA@mail.gmail.com>
-	<CAPWQB7E=uJ2xyDeAPNKoeUdzpsO9AtYnph4ewfawvbN_NtRfSA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jarno Rajahalme <jarno@ovn.org>, Jesse Gross <jesse@kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ilya Lesokhin <ilyal@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Tal Anker <Ankertal@mellanox.com>
-To: Joe Stringer <joe@ovn.org>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: Re: [PATCH net-next v4 2/8] netfilter: Factor out nf_ct_get_info().
+Date: Thu, 10 Dec 2015 13:51:40 -0800
+Message-ID: <EDA41B9E-0F1E-4ACB-A4AA-28188E8436C8@ovn.org>
+References: <1449622870-48944-1-git-send-email-jarno@ovn.org> <1449622870-48944-3-git-send-email-jarno@ovn.org> <20151210191441.GA20536@salvia>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, dev@openvswitch.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:37821 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753572AbbLJVnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 16:43:09 -0500
-Received: by igcto18 with SMTP id to18so25342777igc.0
-        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 13:43:09 -0800 (PST)
-In-Reply-To: <CAPWQB7E=uJ2xyDeAPNKoeUdzpsO9AtYnph4ewfawvbN_NtRfSA@mail.gmail.com>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:58635 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751929AbbLJVvr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 16:51:47 -0500
+In-Reply-To: <20151210191441.GA20536@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 10, 2015 at 11:23 PM, Joe Stringer <joe@ovn.org> wrote:
-> On 10 December 2015 at 13:06, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Wed, Dec 9, 2015 at 2:22 AM, Joe Stringer <joe@ovn.org> wrote:
 
->>>>> As far as the mask, I briefly discussed this with Jarno and it seems
->>>>> like it could be something as simple as zeroing the ip_ttl mask in
->>>>> tnl_wc_init().
+> On Dec 10, 2015, at 11:14 AM, Pablo Neira Ayuso <pablo@netfilter.org>=
+ wrote:
+>=20
+> On Tue, Dec 08, 2015 at 05:01:04PM -0800, Jarno Rajahalme wrote:
+>> Define a new inline function to map conntrack status to enum
+>> ip_conntrack_info.  This removes the need to otherwise duplicate thi=
+s
+>> code in a later patch ("openvswitch: Find existing conntrack entry
+>> after upcall.").
+>>=20
+>> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+>> ---
+>> include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
+>> net/netfilter/nf_conntrack_core.c    | 22 +++-------------------
+>> 2 files changed, 18 insertions(+), 19 deletions(-)
+>>=20
+>> diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netf=
+ilter/nf_conntrack.h
+>> index fde4068..b3de10e 100644
+>> --- a/include/net/netfilter/nf_conntrack.h
+>> +++ b/include/net/netfilter/nf_conntrack.h
+>> @@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_connt=
+rack_tuple_hash *hash)
+>> 			    tuplehash[hash->tuple.dst.dir]);
+>> }
+>>=20
+>> +static inline enum ip_conntrack_info
+>> +nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
+>> +{
+>> +	const struct nf_conn *ct =3D nf_ct_tuplehash_to_ctrack(h);
+>> +
+>> +	if (NF_CT_DIRECTION(h) =3D=3D IP_CT_DIR_REPLY)
+>> +		return IP_CT_ESTABLISHED_REPLY;
+>> +	/* Once we've had two way comms, always ESTABLISHED. */
+>> +	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
+>> +		return IP_CT_ESTABLISHED;
+>> +	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
+>> +		return IP_CT_RELATED;
+>> +	return IP_CT_NEW;
+>> +}
+>> +
+>> static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
+>> {
+>> 	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+>> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_co=
+nntrack_core.c
+>> index 3cb3cb8..70ddbd8 100644
+>> --- a/net/netfilter/nf_conntrack_core.c
+>> +++ b/net/netfilter/nf_conntrack_core.c
+>> @@ -1056,25 +1056,9 @@ resolve_normal_ct(struct net *net, struct nf_=
+conn *tmpl,
+>> 	ct =3D nf_ct_tuplehash_to_ctrack(h);
+>>=20
+>> 	/* It exists; we have (non-exclusive) reference. */
+>> -	if (NF_CT_DIRECTION(h) =3D=3D IP_CT_DIR_REPLY) {
+>> -		*ctinfo =3D IP_CT_ESTABLISHED_REPLY;
+>> -		/* Please set reply bit if this packet OK */
+>> -		*set_reply =3D 1;
+>> -	} else {
+>> -		/* Once we've had two way comms, always ESTABLISHED. */
+>> -		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+>> -			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+>=20
+> This implicitly assumes we don't want pr_debug for nf_conntrack
+> anymore. Not telling this is wrong, but we have more pr_debug() calls
+> in nf_conntrack that will remain there.
 
->>>> to make sure I follow, will that have the consequence that we (user +
->>>> kernel) will practically not be testing the ttl for these flows?
+Dropping pr_debug was unintentional. Unless I hear otherwise, I=E2=80=99=
+ll add the pr_debug() back for the next version.
 
->>> Yes, it would cause userspace to 'wildcard' the field so the kernel
->>> flows that are installed will ignore it during lookup.
+Thanks,
 
->> Cool, any chance this is gonna fit into your schedule to meet 4.4? if
->> not, for 4.5?
->> Also, can the patch be made simple/small enough to go into -stable as well?
-
-> It's a userspace change.
-
-
-mmm, in a downstream post of this thread [1] Haggai pointed to you
-that there's code in the OVS kernel path that that rejects new tunnel
-flows if they don't have the TTL mask set, so he's wrong? where?
-
-Or.
-
-[1] http://marc.info/?l=linux-netdev&m=144880328121156&w=2
+  Jarno
