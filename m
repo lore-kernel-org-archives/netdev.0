@@ -1,34 +1,37 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH] route: ignore RTAX_HOPLIMIT of value -1
-Date: Thu, 10 Dec 2015 08:48:46 -0800
-Message-ID: <20151210084846.5f31b140@xeon-e3>
-References: <564c2ede04884ee5905825d6363107a2@HQ1WP-EXMB11.corp.brocade.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] libnetlink: don't confuse variables in
+ rtnl_talk()
+Date: Thu, 10 Dec 2015 08:49:29 -0800
+Message-ID: <20151210084929.33fa7bcf@xeon-e3>
+References: <1449159228-4233-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:34786 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751860AbbLJQsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 11:48:42 -0500
-In-Reply-To: <564c2ede04884ee5905825d6363107a2@HQ1WP-EXMB11.corp.brocade.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34212 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753861AbbLJQtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 11:49:22 -0500
+Received: by pacwq6 with SMTP id wq6so50027436pac.1
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 08:49:22 -0800 (PST)
+In-Reply-To: <1449159228-4233-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Dec 2015 12:50:22 +0000
-Phil Sutter <phil@nwl.cc> wrote:
+On Thu,  3 Dec 2015 17:13:48 +0100
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-> Older kernels use -1 internally as indicator to use the sysctl default,
-> but they still export the setting. Newer kernels use 0 to indicate that
-> (which is why the conversion from -1 to 0 was done here), but they also
-> stopped exporting the value. Since the meaning of -1 is clear, treat it
-> equally like default on newer kernels (which is to not print anything).
+> There is two variables named 'len' in rtnl_talk. In fact, commit
+> c079e121a73a didn't work. For example, it was possible to trigger
+> a seg fault with this command:
+> $ ip link set gre2 type ip6gre hoplimit 32
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  ip/iproute.c | 17 ++++++++---------
->  1 file changed, 8 insertions(+), 9 deletions(-)
+> Let's rename the argument len to maxlen.
+> 
+> Fixes: c079e121a73a ("libnetlink: add size argument to rtnl_talk")
+> Reported-by: Thomas Faivre <thomas.faivre@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied, thanks
+Applied, thanks, Not sure why compiler isn't catching this.
