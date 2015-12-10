@@ -1,64 +1,61 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Checksum offload queries
-Date: Thu, 10 Dec 2015 08:26:57 -0800
-Message-ID: <CALx6S34bg-iRMcTpGd+yw+CV1T7MxpWx+i_AdxXjsfTTnOGK4g@mail.gmail.com>
-References: <5665A848.9010001@solarflare.com>
-	<20151207.143848.2158761076110518741.davem@davemloft.net>
-	<5666EC4B.40800@solarflare.com>
-	<20151208.120654.2127200076257822677.davem@davemloft.net>
-	<56681B18.3030200@solarflare.com>
-	<CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
-	<566864C0.6020204@solarflare.com>
-	<CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
-	<56699F15.3030202@solarflare.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH 00/28] MIPS Boston board support
+Date: Thu, 10 Dec 2015 17:26:31 +0100
+Message-ID: <CACRpkdb2YhSbaYUXh4Dz7juObHxmWLc8Gj6UmkJ=Nv69UNfaPA@mail.gmail.com>
+References: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
+        <20151130163413.GB1929@sirena.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38779 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbbLJQ06 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 11:26:58 -0500
-Received: by igbxm8 with SMTP id xm8so19276355igb.1
-        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 08:26:58 -0800 (PST)
-In-Reply-To: <56699F15.3030202@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Burton <paul.burton@imgtec.com>,
+        Linux MIPS <linux-mips@linux-mips.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Joshua Kinard <kumba@gentoo.org>,
+        Alessandro Zummo <a.zummo@towertech.it>,
+        Jiri Slaby <jslaby@suse.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        Yijing Wang <wangyijing@huawei.com>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Rob Herring <robh+dt@kernel.org>,
+        John Crispin <blogic@openwrt.org>,
+        Jayachandran C <jchandra@broadcom.com>,
+        "linux-spi@vger.kernel.org" <linux-spi@vger.kernel.org>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Ray Jui <rjui@broadcom.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Tejun Heo <tj@kernel.org>,
+        Michal
+To: Mark Brown <broonie@kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20151130163413.GB1929@sirena.org.uk>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 10, 2015 at 7:49 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 09/12/15 18:00, Tom Herbert wrote:
->> That is not at all true. If the stack has set up VXLAN RCO and the > device decides to set the inner checksum itself then the checksum > will be bad. The checksum interface is very specific please read it > carefully (sk_buff.h), if the driver/device thinks it is smarter > than the stack and tries to do set its own rules on how checksum > offload works then things will eventually break miserably.
+On Mon, Nov 30, 2015 at 5:34 PM, Mark Brown <broonie@kernel.org> wrote:
+> On Mon, Nov 30, 2015 at 04:21:25PM +0000, Paul Burton wrote:
+>> This series introduces support for the Imagination Technologies MIPS
+>> Boston development board. Boston is an FPGA-based development board
+>> akin to the much older Malta board, built around a Xilinx FPGA running
+>> a MIPS CPU & other logic including a PCIe root port connected to an
+>> Intel EG20T Platform Controller Hub. This provides a base set of
+>> peripherals including SATA, USB, SD/MMC, ethernet, I2C & GPIOs. PCIe
+>> slots are also present for expansion.
 >
-> Ok, I've passed that on to the guy working on this bit of the driver.
+> This is an insanely big CC list :(
 >
-> It looks like the best way to support the capabilities of NICs like the
-> sfc 8000 series (which can fill in two checksums but uses packet parsing
-> to figure out what to do, rather than using csum start/offset) is:
->
-> (core / stack)
-> * add NETIF_F_HW_2CSUMS (or whatever name)
-> * squeeze a second csum start/offset pair into the skb (as you mention,
->  we can do this without size increase)
-> * Modify (Tx) CHECKSUM_PARTIAL generation to use both csum pairs.
->  Presumably by creating CHECKSUM_PARTIAL_2CSUMS to indicate that the
->  second csum pair has been filled in as well.
->
-> (sfc driver)
-> * declare 2CSUMS support
-> * on getting an skb for xmit, check whether the csum pairs match what our
->  eeevil packet parsing hardware will do.  If so, send it with appropriate
->  csum offload settings (we can enable/disable inner & outer offload
->  independently, with TX Option descriptors).  Any csum pair that doesn't
->  match, we call skb_checksum_help to do it in software, and tell the
->  hardware not to do that one.
->
+> What are the interdependencies here - does this really need to be one
+> patch series or can the individual driver changes go in separately?
 
-> Does that seem reasonable?
+I took the two GPIO patches and ran off with them at least.
 
-It sounds like potentially interesting work. You'll probably want my
-patches that provider helper functions that allow a driver to verify
-that it can offload a checksum. We'll have to update those also to
-allow two checksums.
+Yours,
+Linus Walleij
