@@ -1,64 +1,23 @@
-From: Sunil Goutham <sunil.kovvuri@gmail.com>
-Subject: [PATCH v2 2/2] net: thunderx: Enable CQE count threshold interrupt
-Date: Thu, 10 Dec 2015 13:25:20 +0530
-Message-ID: <1449734120-8912-3-git-send-email-sunil.kovvuri@gmail.com>
-References: <y>
+From: "drharunabello868@gmail.com" <billing@btvin.com>
+Subject: I am Dr. Haruna Bello,
+Date: Thu, 10 Dec 2015 13:56:07 +0530 (IST)
+Message-ID: <1342335796.3708440.1449735967985.JavaMail.zimbra@btvin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
- p.fedin@samsung.com, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <y>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tblr45.logix.in ([121.240.11.45]:57914 "EHLO tblr45.logix.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753866AbbLJIgc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2015 03:36:32 -0500
+Received: from vdvmphy21-out.logix.local (127.0.0.1) by tblr45.logix.in (PowerMTA(TM) v3.5r11) id hd4sou1oo388 for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 13:56:26 +0530 (envelope-from <billing@btvin.com>)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sunil Goutham <sgoutham@cavium.com>
 
-This feature is introduced in pass-2 chip and with this CQ interrupt
-coalescing will work based on both timer and count.
 
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index b11fc09..d0d1b54 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -299,7 +299,7 @@ static int nicvf_init_cmp_queue(struct nicvf *nic,
- 		return err;
- 
- 	cq->desc = cq->dmem.base;
--	cq->thresh = CMP_QUEUE_CQE_THRESH;
-+	cq->thresh = pass1_silicon(nic->pdev) ? 0 : CMP_QUEUE_CQE_THRESH;
- 	nic->cq_coalesce_usecs = (CMP_QUEUE_TIMER_THRESH * 0.05) - 1;
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index a4f6667..c5030a7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -75,7 +75,7 @@
-  */
- #define CMP_QSIZE		CMP_QUEUE_SIZE2
- #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
--#define CMP_QUEUE_CQE_THRESH	0
-+#define CMP_QUEUE_CQE_THRESH	(NAPI_POLL_WEIGHT / 2)
- #define CMP_QUEUE_TIMER_THRESH	80 /* ~2usec */
- 
- #define RBDR_SIZE		RBDR_SIZE0
--- 
-1.7.1
+I am Dr. Haruna Bello, 
+>From Bank Of Africa Burkina faso. 
+I have a geniue business for U 
