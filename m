@@ -1,59 +1,60 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Checksum offload queries
-Date: Thu, 10 Dec 2015 15:49:41 +0000
-Message-ID: <56699F15.3030202@solarflare.com>
-References: <5665A848.9010001@solarflare.com>
- <20151207.143848.2158761076110518741.davem@davemloft.net>
- <5666EC4B.40800@solarflare.com>
- <20151208.120654.2127200076257822677.davem@davemloft.net>
- <56681B18.3030200@solarflare.com>
- <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
- <566864C0.6020204@solarflare.com>
- <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: sctp: clone options to avoid use after free
+Date: Thu, 10 Dec 2015 07:58:17 -0800
+Message-ID: <1449763097.9768.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+YjXJoh3uGDp=FJkYVnjaMxFSPY252ptbDGZ-LQ9JAEWw@mail.gmail.com>
+	 <CANn89i+V-GeD3zCzGPAo4jY8Z6iTjFN3U1ixG44WyKKLOZ9Txw@mail.gmail.com>
+	 <20151209145917.GA3884@mrl.redhat.com>
+	 <CANn89iLhetNbtO6h99zZOrCiMYON50vzVsk7j_AtosXejvvm4Q@mail.gmail.com>
+	 <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CBE9A61@AcuExch.aculab.com>
+	 <1449676782.9768.9.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CBE9B1C@AcuExch.aculab.com>
+	 <566860BC.4040604@gmail.com> <56687EBB.5040108@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CBEA7A3@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:28940 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751370AbbLJPuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 10:50:09 -0500
-In-Reply-To: <CALx6S34+j0xQk7gfwOa9adBc3fkjhTJG366eDcT81AzKnWCrLA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBEA7A3@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/12/15 18:00, Tom Herbert wrote:
-> That is not at all true. If the stack has set up VXLAN RCO and the > device decides to set the inner checksum itself then the checksum > will be bad. The checksum interface is very specific please read it > carefully (sk_buff.h), if the driver/device thinks it is smarter > than the stack and tries to do set its own rules on how checksum > offload works then things will eventually break miserably.
+On Thu, 2015-12-10 at 12:26 +0000, David Laight wrote:
 
-Ok, I've passed that on to the guy working on this bit of the driver.
+> Yes, I'm worried about whether our M3UA code is likely to crash customer
+> systems, not whether hostile applications can crash it.
+> These boxes ought to be on private networks since the sigtran protocols
+> themselves have nothing that even gives a hint of security.
 
-It looks like the best way to support the capabilities of NICs like the
-sfc 8000 series (which can fill in two checksums but uses packet parsing
-to figure out what to do, rather than using csum start/offset) is:
+As long as the listener socket is kept as is, meaning that the only use
+of it is the poll()/select()/accept() system calls, you are safe.
 
-(core / stack)
-* add NETIF_F_HW_2CSUMS (or whatever name)
-* squeeze a second csum start/offset pair into the skb (as you mention,
- we can do this without size increase)
-* Modify (Tx) CHECKSUM_PARTIAL generation to use both csum pairs.
- Presumably by creating CHECKSUM_PARTIAL_2CSUMS to indicate that the
- second csum pair has been filled in as well.
+The bug is about having a fuzzer, specifically playing games with multi
+threads so that the listener ipv6 options are changed after accept(). 
 
-(sfc driver)
-* declare 2CSUMS support
-* on getting an skb for xmit, check whether the csum pairs match what our
- eeevil packet parsing hardware will do.  If so, send it with appropriate
- csum offload settings (we can enable/disable inner & outer offload
- independently, with TX Option descriptors).  Any csum pair that doesn't
- match, we call skb_checksum_help to do it in software, and tell the
- hardware not to do that one.
+This should not really happen in real world applications : If ipv6
+options need to be set on listener, they are set before first accept()
+is performed, and not unset until application exits and kill all
+sessions.
 
-Optionally, we could also create NETIF_F_IP[V6]_2CSUMS in the stack and
-have our driver advertise that instead, but since there has to be a
-fallback to skb_checksum_help in the driver anyway, there doesn't seem
-to be much point.
-
-Does that seem reasonable?
+BTW, are you even using IPv6 SCTP sessions ?
