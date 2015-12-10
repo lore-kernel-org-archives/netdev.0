@@ -1,74 +1,61 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1 1/2] net:hns: annotate IO address space properly
-Date: Thu, 10 Dec 2015 17:23:09 +0200
-Message-ID: <1449760990-111046-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	huangdaode <huangdaode@hisilicon.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:56042 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751387AbbLJPX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 10:23:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: [PATCH 1/4] list: introduce list_is_first()
+Date: Thu, 10 Dec 2015 09:23:57 -0600
+Message-ID: <20151210152357.GG29872@treble.redhat.com>
+References: <305feb971ae11e192f35f25d66bb7b2e28e06c39.1449755818.git.geliangtang@163.com>
+ <566995EA.80509@kernel.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Geliang Tang <geliangtang@163.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Jan Kara <jack@suse.cz>, Josef Bacik <jbacik@fb.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Seth Jennings <sjenning@redhat.com>,
+	Jiri Kosina <jikos@kernel.org>,
+	Vojtech Pavlik <vojtech@suse.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	live-patching@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-block@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jens Axboe <axboe@kernel.dk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <566995EA.80509@kernel.dk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mark address pointer with __iomem in the IO accessors.
+On Thu, Dec 10, 2015 at 08:10:34AM -0700, Jens Axboe wrote:
+> On 12/10/2015 07:17 AM, Geliang Tang wrote:
+> >We already have list_is_last(), it makes sense to also add
+> >list_is_first() for consistency. This list utility function
+> >to check for first element in a list.
+> 
+> Honestly, I think we already have way too many of these kind of helpers.
+> IMHO they don't really help, they hurt readability. You should know how the
+> list works anyway, and if you do, then it's a no-brainer what's first and
+> last. If you don't, then you are bound to screw up in other ways.
+> 
+> Just my 2 cents.
 
-Otherwise we will get a sparse complain like following
+Personally I would disagree.  Something like:
 
-.../hns/hns_dsaf_reg.h:991:36: warning: incorrect type in argument 1 (different address spaces)
-.../hns/hns_dsaf_reg.h:991:36:    expected unsigned char [noderef] [usertype] <asn:2>*base
-.../hns/hns_dsaf_reg.h:991:36:    got void *base
+  if (list_is_first(&rq->queuelist, &nd->queue))
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+is much more readable to me than:
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index c4d7c26..5d1b746 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -956,7 +956,7 @@
- #define XGMAC_PAUSE_CTL_RSP_MODE_B	2
- #define XGMAC_PAUSE_CTL_TX_XOFF_B	3
- 
--static inline void dsaf_write_reg(void *base, u32 reg, u32 value)
-+static inline void dsaf_write_reg(void __iomem *base, u32 reg, u32 value)
- {
- 	u8 __iomem *reg_addr = ACCESS_ONCE(base);
- 
-@@ -966,7 +966,7 @@ static inline void dsaf_write_reg(void *base, u32 reg, u32 value)
- #define dsaf_write_dev(a, reg, value) \
- 	dsaf_write_reg((a)->io_base, (reg), (value))
- 
--static inline u32 dsaf_read_reg(u8 *base, u32 reg)
-+static inline u32 dsaf_read_reg(u8 __iomem *base, u32 reg)
- {
- 	u8 __iomem *reg_addr = ACCESS_ONCE(base);
- 
-@@ -985,8 +985,8 @@ static inline u32 dsaf_read_reg(u8 *base, u32 reg)
- #define dsaf_set_bit(origin, shift, val) \
- 	dsaf_set_field((origin), (1ull << (shift)), (shift), (val))
- 
--static inline void dsaf_set_reg_field(void *base, u32 reg, u32 mask, u32 shift,
--				      u32 val)
-+static inline void dsaf_set_reg_field(void __iomem *base, u32 reg, u32 mask,
-+				      u32 shift, u32 val)
- {
- 	u32 origin = dsaf_read_reg(base, reg);
- 
-@@ -1005,7 +1005,8 @@ static inline void dsaf_set_reg_field(void *base, u32 reg, u32 mask, u32 shift,
- #define dsaf_get_bit(origin, shift) \
- 	dsaf_get_field((origin), (1ull << (shift)), (shift))
- 
--static inline u32 dsaf_get_reg_field(void *base, u32 reg, u32 mask, u32 shift)
-+static inline u32 dsaf_get_reg_field(void __iomem *base, u32 reg, u32 mask,
-+				     u32 shift)
- {
- 	u32 origin;
- 
+  if (rq->queuelist.prev == &nd->queue)
+
+The first one takes no effort for me -- it's almost English.  While the
+second one takes me a few seconds (and some precious brain cycles) to
+decipher.
+
+Maybe whether it's readable depends on how many years you've been
+looking at the pattern.  But IMHO we shouldn't make "having x # of years
+staring at kernel code" a prerequisite for being able to read kernel
+code.
+
 -- 
-2.6.2
+Josh
