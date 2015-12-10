@@ -1,7 +1,8 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 0/9] mlx5 improved flow steering management
-Date: Thu, 10 Dec 2015 17:12:36 +0200
-Message-ID: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 2/9] net/mlx5e: Assign random MAC address if needed
+Date: Thu, 10 Dec 2015 17:12:38 +0200
+Message-ID: <1449760365-23622-3-git-send-email-saeedm@mellanox.com>
+References: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,129 +11,55 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53736 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53744 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754073AbbLJPNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 10:13:20 -0500
+	id S1753895AbbLJPNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2015 10:13:22 -0500
+In-Reply-To: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Under SRIOV there might be a case where VFs are loaded
+without pre-assigned MAC address. In this case, the VF
+will randomize its own MAC.  This will address the case
+of administrator not assigning MAC to the VF through
+the PF OS APIs and keep udev happy.
 
-First two patches fixes some minor issues in recently
-introduced SRIOV code.
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |    5 +++++
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    3 +++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
-The other seven patches modifies the driver's code that 
-manages flow steering rules with Connectx-4 devices.
-
-Basic introduction:
-
-The flow steering device specification model is composed of the following entities:
-
-Destination (either a TIR/Flow table/vport), where TIR is RSS end-point, vport 
-is the VF eSwitch port in SRIOV.
- 		
-Flow table entry (FTE) - the values used by the flow specification		
-Flow table group (FG) - the masks used by the flow specification		
-Flow table (FT) - groups several FGs and can serve as destination
-
-The flow steering software entities:
-
-In addition to the device objects, the software have two more objects:
-
-Priorities - group several FTs. Handles order of packet matching.
-
-Namespaces - group several priorities. Namespace are used in order to 
-isolate different usages of steering (for example, add two separate
-namespaces, one for the NIC driver and one for E-Switch FDB).
-
-The base data structure for the flow steering management is a tree and 
-all the flow steering objects such as (Namespace/Flow table/Flow Group/FTE/etc.) 
-are represented as a node in the tree, e.g.:
-Priority-0 -> FT1 -> FG -> FTE -> TIR (destination)
-Priority-1 -> FT2 -> FG->  FTE -> TIR (destination)
-
-Matching begins in FT1 flow rules and if there is a miss on all the FTEs 
-then matching continues on the FTEs in FT2.
-
-The new implementation solves/improves the following
-issues in the current code:
-
-1) The new impl. supports multiple destinations, the search for existing rule with
-   the same matching value is performed by the flow steering management.
-   In the current impl. the E-switch FDB management code needs to search 
-   for existing rules before calling to the add rule function.
-
-2) The new impl. manages the flow table level, in the current implementation the 
-   consumer states the flow table level when new flow table is created without 
-   any knowledge about the levels of other flow tables.
-
-3) In the current impl. the consumer can't create or destroy flow
-   groups dynamically, the flow groups are passed as argument to the create 
-   flow table API. The new impl. exposes API for create/destroy flow group.
-
-The series is built as follows:
-
-Patch #1 add flow steering API firmware commands.
-
-Patch #2 add tree operation of the flow steering tree: add/remove node,
-initialize node and take reference count on a node.
-
-Patch #3 add essential algorithms for managing the flow steering.
-
-Patch #4 Initialize the flow steering tree, flow steering initialization is based 
-on static tree which illustrates the flow steering tree when the driver is loaded.
-
-Patch #5 is the main patch of the series. It introduce the flow steering API.
-
-Patch #6 Expose the new flow steering API and remove the old one.
-The Ethernet flow steering follows the existing implementation,
-but uses the new steering API.
-
-Patch #7 Rename en_flow_table.c to en_fs.c in order to be aligned with
-the new flow steering files.
-
-
-
-Maor Gottlieb (7):
-  net/mlx5_core: Introduce flow steering firmware commands
-  net/mlx5_core: Add flow steering base data structures
-  net/mlx5_core: Add flow steering lookup algorithms
-  net/mlx5_core: Introduce flow steering API
-  net/mlx5_core: Flow steering tree initialization
-  net/mlx5: Use flow steering infrastructure for mlx5_en
-  net/mlx5e: Rename en_flow_table.c to en_fs.c
-
-Saeed Mahameed (2):
-  net/mlx5: Fix query E-Switch capabilities
-  net/mlx5e: Assign random MAC address if needed
-
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    6 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   23 +-
- .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 1046 -----------------
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    | 1224 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |    7 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  291 +----
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |   15 +-
- .../net/ethernet/mellanox/mlx5/core/flow_table.c   |  422 -------
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  239 ++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |   65 +
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 1047 +++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  155 +++
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |    9 +
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    3 +
- include/linux/mlx5/driver.h                        |    2 +
- include/linux/mlx5/flow_table.h                    |   63 -
- include/linux/mlx5/fs.h                            |   93 ++
- include/linux/mlx5/mlx5_ifc.h                      |   32 +-
- 19 files changed, 2939 insertions(+), 1805 deletions(-)
- delete mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
- delete mode 100644 drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
- delete mode 100644 include/linux/mlx5/flow_table.h
- create mode 100644 include/linux/mlx5/fs.h
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index d67058a..a20be56 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2103,6 +2103,11 @@ static void mlx5e_set_netdev_dev_addr(struct net_device *netdev)
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+ 	mlx5_query_nic_vport_mac_address(priv->mdev, 0, netdev->dev_addr);
++	if (is_zero_ether_addr(netdev->dev_addr) &&
++	    !MLX5_CAP_GEN(priv->mdev, vport_group_manager)) {
++		eth_hw_addr_random(netdev);
++		mlx5_core_info(priv->mdev, "Assigned random MAC address %pM\n", netdev->dev_addr);
++	}
+ }
+ 
+ static void mlx5e_build_netdev(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index bee7da8..ea6a137 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -65,6 +65,9 @@ do {									\
+ 		(__dev)->priv.name, __func__, __LINE__, current->pid,	\
+ 		##__VA_ARGS__)
+ 
++#define mlx5_core_info(__dev, format, ...)				\
++	dev_info(&(__dev)->pdev->dev, format, ##__VA_ARGS__)
++
+ enum {
+ 	MLX5_CMD_DATA, /* print command payload only */
+ 	MLX5_CMD_TIME, /* print command execution time */
+-- 
+1.7.1
