@@ -1,30 +1,32 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -next] examples, bpf: further improve examples
-Date: Thu, 10 Dec 2015 09:04:16 -0800
-Message-ID: <20151210090416.4f34927c@xeon-e3>
-References: <d47c2d0a35e6ea07b7c83c8ca5bebb2464b9805c.1449011912.git.daniel@iogearbox.net>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH iproute] ila: Add support for ILA lwtunnels
+Date: Thu, 10 Dec 2015 09:05:09 -0800
+Message-ID: <20151210090509.0cbc5329@xeon-e3>
+References: <1448924248-4025991-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36727 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751996AbbLJREJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 12:04:09 -0500
-Received: by pfbu66 with SMTP id u66so7076508pfb.3
-        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 09:04:08 -0800 (PST)
-In-Reply-To: <d47c2d0a35e6ea07b7c83c8ca5bebb2464b9805c.1449011912.git.daniel@iogearbox.net>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:40249 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752998AbbLJRFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 12:05:16 -0500
+In-Reply-To: <1448924248-4025991-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  2 Dec 2015 00:25:36 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+On Mon, 30 Nov 2015 14:57:28 -0800
+Tom Herbert <tom@herbertland.com> wrote:
 
-> Improve example files further and add a more generic set of possible
-> helpers for them that can be used.
+> This patch:
+>  - Adds a utility function for parsing a 64 bit address
+>  - Adds a utility function for converting a 64 bit address to ASCII
+>  - Adds and ILA encap type in lwt tunnels
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Sure, applied to net-next
+Looks good applied.
+
+You might want to get some of that 64 bit stuff into libmnl as well.
