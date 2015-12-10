@@ -1,50 +1,66 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net v2] net: Flush local routes when device changes vrf
- association
-Date: Thu, 10 Dec 2015 19:30:18 +0100
-Message-ID: <5669C4BA.6020500@cumulusnetworks.com>
-References: <1449771924-21775-1-git-send-email-dsa@cumulusnetworks.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Fix race condition on Multi-Send Data
+ field
+Date: Thu, 10 Dec 2015 12:19:35 -0800
+Message-ID: <1449778775-14404-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:38183 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783AbbLJSar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 13:30:47 -0500
-Received: by wmec201 with SMTP id c201so36938135wme.1
-        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 10:30:45 -0800 (PST)
-In-Reply-To: <1449771924-21775-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 12/10/2015 07:25 PM, David Ahern wrote:
-> The VRF driver cycles netdevs when an interface is enslaved or released:
-> the down event is used to flush neighbor and route tables and the up
-> event (if the interface was already up) effectively moves local and
-> connected routes to the proper table.
-> 
-> As of 4f823defdd5b the local route is left hanging around after a link
-> down, so when a netdev is moved from one VRF to another (or released
-> from a VRF altogether) local routes are left in the wrong table.
-> 
-> Fix by handling the NETDEV_CHANGEUPPER event. When the upper dev is
-> an L3mdev then call fib_disable_ip to flush all routes, local ones
-> to.
-> 
-> Fixes: 4f823defdd5b ("ipv4: fix to not remove local route on link down")
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - key off NETDEV_CHANGEUPPER event vs using a new event
-> 
->  net/ipv4/fib_frontend.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
-> 
+In commit 2a04ae8acb14 ("hv_netvsc: remove locking in netvsc_send()"), the
+locking for MSD (Multi-Send Data) field was removed. This could cause a
+race condition between RNDIS control messages and data packets processing,
+because these two types of traffic are not synchronized.
+This patch fixes this issue by sending control messages out directly
+without reading MSD field.
 
-Looks much better to me, thanks!
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 02bab9a..059fc52 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -867,6 +867,14 @@ int netvsc_send(struct hv_device *device,
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
+ 
++	/* Send control message directly without accessing msd (Multi-Send
++	 * Data) field which may be changed during data packet processing.
++	 */
++	if (!skb) {
++		cur_send = packet;
++		goto send_now;
++	}
++
+ 	msdp = &net_device->msd[q_idx];
+ 
+ 	/* batch packets in send buffer if possible */
+@@ -939,6 +947,7 @@ int netvsc_send(struct hv_device *device,
+ 		}
+ 	}
+ 
++send_now:
+ 	if (cur_send)
+ 		ret = netvsc_send_pkt(cur_send, net_device, pb, skb);
+ 
+-- 
+1.7.4.1
