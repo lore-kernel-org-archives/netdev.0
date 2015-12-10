@@ -1,129 +1,135 @@
-From: Uri Mashiach <uri.mashiach@compulab.co.il>
-Subject: [PATCH v2] wlcore/wl12xx: spi: fix oops on firmware load
-Date: Thu, 10 Dec 2015 15:12:56 +0200
-Message-ID: <1449753176-5851-1-git-send-email-uri.mashiach@compulab.co.il>
-Cc: Luciano Coelho <luca@coelho.fi>, Eliad Peller <eliad@wizery.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	igor.grinberg@compulab.co.il,
-	Uri Mashiach <uri.mashiach@compulab.co.il>
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH net] sfc: only use RSS filters if we're using RSS
+Date: Thu, 10 Dec 2015 13:30:08 +0000
+Message-ID: <56697E60.9050304@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from softlayer.compulab.co.il ([50.23.254.55]:41726 "EHLO
-	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751151AbbLJNNP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 08:13:15 -0500
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:50545 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751151AbbLJNaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 08:30:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The maximum chunks used by the function is
-(SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE + 1).
-The original commands array had space for
-(SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) commands.
-When the last chunk is used (len > 4 * WSPI_MAX_CHUNK_SIZE), the last
-command is stored outside the bounds of the commands array.
+Without this filter insertion on a VF would fail if only one channel
+was in use. This would include the unicast station filter and therefore
+no traffic would be received.
 
-Oops 5 (page fault) is generated during current wl1271 firmware load
-attempt:
-
-root@debian-armhf:~# ifconfig wlan0 up
-[  294.312399] Unable to handle kernel paging request at virtual address
-00203fc4
-[  294.320173] pgd = de528000
-[  294.323028] [00203fc4] *pgd=00000000
-[  294.326916] Internal error: Oops: 5 [#1] SMP ARM
-[  294.331789] Modules linked in: bnep rfcomm bluetooth ipv6 arc4 wl12xx
-wlcore mac80211 musb_dsps cfg80211 musb_hdrc usbcore usb_common
-wlcore_spi omap_rng rng_core musb_am335x omap_wdt cpufreq_dt thermal_sys
-hwmon
-[  294.351838] CPU: 0 PID: 1827 Comm: ifconfig Not tainted
-4.2.0-00002-g3e9ad27-dirty #78
-[  294.360154] Hardware name: Generic AM33XX (Flattened Device Tree)
-[  294.366557] task: dc9d6d40 ti: de550000 task.ti: de550000
-[  294.372236] PC is at __spi_validate+0xa8/0x2ac
-[  294.376902] LR is at __spi_sync+0x78/0x210
-[  294.381200] pc : [<c049c760>]    lr : [<c049ebe0>]    psr: 60000013
-[  294.381200] sp : de551998  ip : de5519d8  fp : 00200000
-[  294.393242] r10: de551c8c  r9 : de5519d8  r8 : de3a9000
-[  294.398730] r7 : de3a9258  r6 : de3a9400  r5 : de551a48  r4 :
-00203fbc
-[  294.405577] r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 :
-de3a9000
-[  294.412420] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
-Segment user
-[  294.419918] Control: 10c5387d  Table: 9e528019  DAC: 00000015
-[  294.425954] Process ifconfig (pid: 1827, stack limit = 0xde550218)
-[  294.432437] Stack: (0xde551998 to 0xde552000)
-
-...
-
-[  294.883613] [<c049c760>] (__spi_validate) from [<c049ebe0>]
-(__spi_sync+0x78/0x210)
-[  294.891670] [<c049ebe0>] (__spi_sync) from [<bf036598>]
-(wl12xx_spi_raw_write+0xfc/0x148 [wlcore_spi])
-[  294.901661] [<bf036598>] (wl12xx_spi_raw_write [wlcore_spi]) from
-[<bf21c694>] (wlcore_boot_upload_firmware+0x1ec/0x458 [wlcore])
-[  294.914038] [<bf21c694>] (wlcore_boot_upload_firmware [wlcore]) from
-[<bf24532c>] (wl12xx_boot+0xc10/0xfac [wl12xx])
-[  294.925161] [<bf24532c>] (wl12xx_boot [wl12xx]) from [<bf20d5cc>]
-(wl1271_op_add_interface+0x5b0/0x910 [wlcore])
-[  294.936364] [<bf20d5cc>] (wl1271_op_add_interface [wlcore]) from
-[<bf15c4ac>] (ieee80211_do_open+0x44c/0xf7c [mac80211])
-[  294.947963] [<bf15c4ac>] (ieee80211_do_open [mac80211]) from
-[<c0537978>] (__dev_open+0xa8/0x110)
-[  294.957307] [<c0537978>] (__dev_open) from [<c0537bf8>]
-(__dev_change_flags+0x88/0x148)
-[  294.965713] [<c0537bf8>] (__dev_change_flags) from [<c0537cd0>]
-(dev_change_flags+0x18/0x48)
-[  294.974576] [<c0537cd0>] (dev_change_flags) from [<c05a55a0>]
-(devinet_ioctl+0x6b4/0x7d0)
-[  294.983191] [<c05a55a0>] (devinet_ioctl) from [<c0517040>]
-(sock_ioctl+0x1e4/0x2bc)
-[  294.991244] [<c0517040>] (sock_ioctl) from [<c017d378>]
-(do_vfs_ioctl+0x420/0x6b0)
-[  294.999208] [<c017d378>] (do_vfs_ioctl) from [<c017d674>]
-(SyS_ioctl+0x6c/0x7c)
-[  295.006880] [<c017d674>] (SyS_ioctl) from [<c000f4c0>]
-(ret_fast_syscall+0x0/0x54)
-[  295.014835] Code: e1550004 e2444034 0a00007d e5953018 (e5942008)
-[  295.021544] ---[ end trace 66ed188198f4e24e ]---
-
-Signed-off-by: Uri Mashiach <uri.mashiach@compulab.co.il>
-Acked-by: Igor Grinberg <grinberg@compulab.co.il>
-Cc: stable@vger.kernel.org
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
 ---
-v1 -> v2: Stable tag v3.9+
+ drivers/net/ethernet/sfc/ef10.c  | 23 +++++++++++------------
+ drivers/net/ethernet/sfc/efx.h   |  5 +++++
+ drivers/net/ethernet/sfc/farch.c |  2 +-
+ 3 files changed, 17 insertions(+), 13 deletions(-)
 
- drivers/net/wireless/ti/wlcore/spi.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index f1ac283..720e4e4 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -73,7 +73,10 @@
-  */
- #define SPI_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index c4a0e8a..368e98e 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -3309,7 +3309,7 @@ static int efx_ef10_filter_remove_internal(struct efx_nic *efx,
  
--#define WSPI_MAX_NUM_OF_CHUNKS (SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE)
-+/* Maximum number of SPI write chunks */
-+#define WSPI_MAX_NUM_OF_CHUNKS \
-+	((SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) + 1)
-+
- 
- struct wl12xx_spi_glue {
- 	struct device *dev;
-@@ -268,9 +271,10 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
- 					     void *buf, size_t len, bool fixed)
+ 		new_spec.priority = EFX_FILTER_PRI_AUTO;
+ 		new_spec.flags = (EFX_FILTER_FLAG_RX |
+-				  EFX_FILTER_FLAG_RX_RSS);
++			(efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0));
+ 		new_spec.dmaq_id = 0;
+ 		new_spec.rss_context = EFX_FILTER_RSS_CONTEXT_DEFAULT;
+ 		rc = efx_ef10_filter_push(efx, &new_spec,
+@@ -3931,6 +3931,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
  {
- 	struct wl12xx_spi_glue *glue = dev_get_drvdata(child->parent);
--	struct spi_transfer t[2 * (WSPI_MAX_NUM_OF_CHUNKS + 1)];
-+	/* SPI write buffers - 2 for each chunk */
-+	struct spi_transfer t[2 * WSPI_MAX_NUM_OF_CHUNKS];
- 	struct spi_message m;
--	u32 commands[WSPI_MAX_NUM_OF_CHUNKS];
-+	u32 commands[WSPI_MAX_NUM_OF_CHUNKS]; /* 1 command per chunk */
- 	u32 *cmd;
- 	u32 chunk_len;
- 	int i;
+ 	struct efx_ef10_filter_table *table = efx->filter_state;
+ 	struct efx_ef10_dev_addr *addr_list;
++	enum efx_filter_flags filter_flags;
+ 	struct efx_filter_spec spec;
+ 	u8 baddr[ETH_ALEN];
+ 	unsigned int i, j;
+@@ -3945,11 +3946,11 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
+ 		addr_count = table->dev_uc_count;
+ 	}
+ 
++	filter_flags = efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0;
++
+ 	/* Insert/renew filters */
+ 	for (i = 0; i < addr_count; i++) {
+-		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
+-				   EFX_FILTER_FLAG_RX_RSS,
+-				   0);
++		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
+ 		efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
+ 					 addr_list[i].addr);
+ 		rc = efx_ef10_filter_insert(efx, &spec, true);
+@@ -3978,9 +3979,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
+ 
+ 	if (multicast && rollback) {
+ 		/* Also need an Ethernet broadcast filter */
+-		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
+-				   EFX_FILTER_FLAG_RX_RSS,
+-				   0);
++		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
+ 		eth_broadcast_addr(baddr);
+ 		efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC, baddr);
+ 		rc = efx_ef10_filter_insert(efx, &spec, true);
+@@ -4010,13 +4009,14 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
+ {
+ 	struct efx_ef10_filter_table *table = efx->filter_state;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	enum efx_filter_flags filter_flags;
+ 	struct efx_filter_spec spec;
+ 	u8 baddr[ETH_ALEN];
+ 	int rc;
+ 
+-	efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
+-			   EFX_FILTER_FLAG_RX_RSS,
+-			   0);
++	filter_flags = efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0;
++
++	efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
+ 
+ 	if (multicast)
+ 		efx_filter_set_mc_def(&spec);
+@@ -4033,8 +4033,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
+ 		if (!nic_data->workaround_26807) {
+ 			/* Also need an Ethernet broadcast filter */
+ 			efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
+-					   EFX_FILTER_FLAG_RX_RSS,
+-					   0);
++					   filter_flags, 0);
+ 			eth_broadcast_addr(baddr);
+ 			efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
+ 						 baddr);
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 1aaf76c..1082747 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -76,6 +76,11 @@ void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ #define EFX_TXQ_MAX_ENT(efx)	(EFX_WORKAROUND_35388(efx) ? \
+ 				 EFX_MAX_DMAQ_SIZE / 2 : EFX_MAX_DMAQ_SIZE)
+ 
++static inline bool efx_rss_enabled(struct efx_nic *efx)
++{
++	return efx->rss_spread > 1;
++}
++
+ /* Filters */
+ 
+ void efx_mac_reconfigure(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index 5a1c5a8..133e9e3 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -2242,7 +2242,7 @@ efx_farch_filter_init_rx_auto(struct efx_nic *efx,
+ 	 */
+ 	spec->priority = EFX_FILTER_PRI_AUTO;
+ 	spec->flags = (EFX_FILTER_FLAG_RX |
+-		       (efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0) |
++		       (efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0) |
+ 		       (efx->rx_scatter ? EFX_FILTER_FLAG_RX_SCATTER : 0));
+ 	spec->dmaq_id = 0;
+ }
 -- 
-2.5.0
+2.4.3
