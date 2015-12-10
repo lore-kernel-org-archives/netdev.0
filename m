@@ -1,79 +1,83 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Suspicious RCU from iwlwifi driver
-Date: Thu, 10 Dec 2015 15:22:17 -0800
-Message-ID: <566A0929.2090706@redhat.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: OVS VXLAN decap rule has full match on TTL for the outer headers?
+Date: Thu, 10 Dec 2015 15:53:47 -0800
+Message-ID: <CAPWQB7Fwjco+BCWv0Pbdtkcu7JkyFzqZ=JgSmK2moQP7N0dumw@mail.gmail.com>
+References: <56435508.9070802@mellanox.com> <CAEh+42jT44TQUcX=KOh9j495ObAJrQ1F_8YQF5Lz6CJUNkuh=w@mail.gmail.com>
+ <CAJ3xEMhopRFPJFj4k41X6dKWz7Ok1Jqvtht7YS=59e3ceRf-qg@mail.gmail.com>
+ <CAOftzPjio364zHUXSpK3uFDu+DiSc=5ae1WVjg9C+8485rpBsw@mail.gmail.com>
+ <CAJ3xEMi5fPCd=v2UJN0CZB5948WpDuBm25rGW4yP6-q_QF31nw@mail.gmail.com>
+ <CANr6G5xe7URQgr=C7gL=xoAaUf5rXPQByBZscmNSVHyv2=+wRg@mail.gmail.com>
+ <CAJ3xEMiSwVhUCTYcH+nWWBqrSwiykqsBFUZtBkirQtzsXVVL4A@mail.gmail.com>
+ <CAJ3xEMhzB3UzfeJ8rvCmDFG57QnG5wdHPfahthxgR7Y-vvaiQg@mail.gmail.com>
+ <CAOftzPieLwrF2V5YknHBRHxpGSsHqvqDoiHFPvXEcp3NUe24Gw@mail.gmail.com>
+ <CAPWQB7GmJNYwmu5fSOWeLQxhdfPR4WgaD-=F7ZQCd6PtmQ=oYQ@mail.gmail.com>
+ <CAJ3xEMiVUqTw-0cykq1x+kv3xKeD463TgmqOHypvy+ybPOVndg@mail.gmail.com>
+ <CAPWQB7HkBFRozJzYNMDSZexJzmFVfDWc02Mkk1oTwwiCQtvPCg@mail.gmail.com>
+ <CAJ3xEMgOh9busKb7c5WF32=umGf8EdauOwQ1d_eDTJP95V1XLA@mail.gmail.com>
+ <CAPWQB7E=uJ2xyDeAPNKoeUdzpsO9AtYnph4ewfawvbN_NtRfSA@mail.gmail.com> <CAJ3xEMiF8-MyNW6iAq2RgH6ZMDrEJ4wMeNUJpSiSHUAdRLfZgg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Intel Linux Wireless <linuxwifi@intel.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Avri Altman <avri.altman@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jarno Rajahalme <jarno@ovn.org>, Jesse Gross <jesse@kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilya Lesokhin <ilyal@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Tal Anker <Ankertal@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:39368 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751369AbbLJXyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 18:54:11 -0500
+Received: from mfilter38-d.gandi.net (mfilter38-d.gandi.net [217.70.178.169])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 0E65C41C084
+	for <netdev@vger.kernel.org>; Fri, 11 Dec 2015 00:54:09 +0100 (CET)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter38-d.gandi.net (mfilter38-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id NyCcz8E-TKIk for <netdev@vger.kernel.org>;
+	Fri, 11 Dec 2015 00:54:07 +0100 (CET)
+Received: from mail-wm0-f54.google.com (mail-wm0-f54.google.com [74.125.82.54])
+	(Authenticated sender: joe@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id BD5E641C087
+	for <netdev@vger.kernel.org>; Fri, 11 Dec 2015 00:54:07 +0100 (CET)
+Received: by wmec201 with SMTP id c201so47224604wme.1
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 15:54:07 -0800 (PST)
+In-Reply-To: <CAJ3xEMiF8-MyNW6iAq2RgH6ZMDrEJ4wMeNUJpSiSHUAdRLfZgg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 10 December 2015 at 13:43, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Thu, Dec 10, 2015 at 11:23 PM, Joe Stringer <joe@ovn.org> wrote:
+>> On 10 December 2015 at 13:06, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Wed, Dec 9, 2015 at 2:22 AM, Joe Stringer <joe@ovn.org> wrote:
+>
+>>>>>> As far as the mask, I briefly discussed this with Jarno and it seems
+>>>>>> like it could be something as simple as zeroing the ip_ttl mask in
+>>>>>> tnl_wc_init().
+>
+>>>>> to make sure I follow, will that have the consequence that we (user +
+>>>>> kernel) will practically not be testing the ttl for these flows?
+>
+>>>> Yes, it would cause userspace to 'wildcard' the field so the kernel
+>>>> flows that are installed will ignore it during lookup.
+>
+>>> Cool, any chance this is gonna fit into your schedule to meet 4.4? if
+>>> not, for 4.5?
+>>> Also, can the patch be made simple/small enough to go into -stable as well?
+>
+>> It's a userspace change.
+>
+>
+> mmm, in a downstream post of this thread [1] Haggai pointed to you
+> that there's code in the OVS kernel path that that rejects new tunnel
+> flows if they don't have the TTL mask set, so he's wrong? where?
+>
+> Or.
+>
+> [1] http://marc.info/?l=linux-netdev&m=144880328121156&w=2
 
-I'm currently seeing a suspicous RCU usage warning:
-
-===============================
-[ INFO: suspicious RCU usage. ]
-  4.4.0-rc4-next-20151210 #23 Not tainted
-  -------------------------------
-  drivers/net/wireless/intel/iwlwifi/mvm/sta.c:1226 suspicious rcu_dereference_protected() usage!
-  
-  other info that might help us debug this:
-  
-  rcu_scheduler_active = 1, debug_locks = 0
-  4 locks held by irq/34-iwlwifi/978:
-   #0:  (sync_cmd_lockdep_map){++++..}, at: [<ffffffffa073c1f5>] iwl_pcie_irq_handler+0x5/0x1870 [iwlwifi]
-   #1:  (&(&rxq->lock)->rlock){+.+...}, at: [<ffffffffa073cafa>] iwl_pcie_irq_handler+0x90a/0x1870 [iwlwifi]
-   #2:  (rcu_read_lock){......}, at: [<ffffffffa0827793>] ieee80211_rx_napi+0xc3/0xbd0 [mac80211]
-   #3:  (&(&local->rx_path_lock)->rlock){+.....}, at: [<ffffffffa0823fce>] ieee80211_rx_handlers+0x3e/0x2c80 [mac80211]
-  
-   stack backtrace:
-  CPU: 4 PID: 978 Comm: irq/34-iwlwifi Not tainted 4.4.0-rc4-next-20151210 #23
-  Hardware name: LENOVO 20BFS0EC00/20BFS0EC00, BIOS GMET62WW (2.10 ) 03/19/2014
-   0000000000000000 000000005a05ae61 ffff880407dc3760 ffffffff81434b69
-   ffff8804053e3200 ffff880407dc3790 ffffffff81106757 0000000000000000
-   ffff880408d8a868 ffff880408d8a868 ffff8804061cc630 ffff880407dc37b0
-  Call Trace:
-   [<ffffffff81434b69>] dump_stack+0x4b/0x72
-   [<ffffffff81106757>] lockdep_rcu_suspicious+0xd7/0x110
-   [<ffffffffa090eff8>] iwl_mvm_get_key_sta_id.part.3+0x88/0x90 [iwlmvm]
-   [<ffffffffa09116b1>] iwl_mvm_update_tkip_key+0x241/0x280 [iwlmvm]
-   [<ffffffffa08fde6c>] iwl_mvm_mac_update_tkip_key+0x1c/0x20 [iwlmvm]
-   [<ffffffffa0816e89>] ieee80211_tkip_decrypt_data+0x249/0x5f0 [mac80211]
-   [<ffffffff81729177>] ? skb_copy_bits+0x137/0x2f0
-   [<ffffffff8172ba55>] ? __pskb_pull_tail+0x85/0x3a0
-   [<ffffffffa080010e>] ieee80211_crypto_tkip_decrypt+0xce/0x150 [mac80211]
-   [<ffffffffa0824900>] ieee80211_rx_handlers+0x970/0x2c80 [mac80211]
-   [<ffffffff8110923a>] ? __lock_acquire+0x4ba/0x1b70
-   [<ffffffffa0826df4>] ieee80211_prepare_and_rx_handle+0x1e4/0xac0 [mac80211]
-   [<ffffffffa0827a06>] ieee80211_rx_napi+0x336/0xbd0 [mac80211]
-   [<ffffffffa0827793>] ? ieee80211_rx_napi+0xc3/0xbd0 [mac80211]
-   [<ffffffffa090adcd>] iwl_mvm_rx_rx_mpdu+0x4ad/0x880 [iwlmvm]
-   [<ffffffffa090ab02>] ? iwl_mvm_rx_rx_mpdu+0x1e2/0x880 [iwlmvm]
-   [<ffffffffa0905076>] iwl_mvm_rx+0x56/0x240 [iwlmvm]
-   [<ffffffffa073d17c>] iwl_pcie_irq_handler+0xf8c/0x1870 [iwlwifi]
-   [<ffffffff81882934>] ? __schedule+0x414/0xaf0
-   [<ffffffff81120310>] irq_thread_fn+0x20/0x50
-   [<ffffffff8112058b>] irq_thread+0x16b/0x1f0
-   [<ffffffff81882934>] ? __schedule+0x414/0xaf0
-   [<ffffffff811202f0>] ? irq_forced_thread_fn+0x70/0x70
-   [<ffffffff81120370>] ? wake_threads_waitq+0x30/0x30
-   [<ffffffff81120420>] ? irq_thread_dtor+0xb0/0xb0
-   [<ffffffff810d3091>] kthread+0x101/0x120
-   [<ffffffff81108999>] ? trace_hardirqs_on_caller+0x129/0x1b0
-   [<ffffffff810d2f90>] ? kthread_create_on_node+0x250/0x250
-   [<ffffffff81889e1f>] ret_from_fork+0x3f/0x70
-   [<ffffffff810d2f90>] ? kthread_create_on_node+0x250/0x250
-
-If I revert 9513c5e18a0dc55a1fc9c890715098ba2315830b
-(iwlwifi: mvm: Avoid dereferencing sta if it was already flushed)
-The warning goes away. Known issue?
-
-Thanks,
-Laura
+The rejection is within an if statement called "if (!is_mask)", so it
+seems to me like it is enforcing the flow key to specify a TTL value
+(any), and doesn't care what the mask does.
