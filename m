@@ -1,69 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the akpm-current tree with the net-next
- tree
-Date: Thu, 10 Dec 2015 15:54:41 +1100
-Message-ID: <20151210155441.2a417341@canb.auug.org.au>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net-next.git) 13/18] stmmac: perf, remove modulo in stmmac_rx()
+Date: Thu, 10 Dec 2015 06:11:07 +0100
+Message-ID: <5669096B.6050505@st.com>
+References: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com> <1449650274-14896-14-git-send-email-peppe.cavallaro@st.com> <063D6719AE5E284EB5DD2968C1650D6D1CBE9BB2@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tejun Heo <tj@kernel.org>, Johannes Weiner <hannes@cmpxchg.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+	Fabrice Gasnier <fabrice.gasnier@st.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:32366 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750717AbbLJFMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 00:12:13 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBE9BB2@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 12/9/2015 6:21 PM, David Laight wrote:
+> From: Giuseppe Cavallaro
+>> Sent: 09 December 2015 08:38
+>> The indexes into the ring buffer are always incremented, and
+>> the entry is accessed via doing a modulo to find the "real" index.
+>> Modulo is an expensive operation.
+>>
+>> This patch replaces the modulo with a simple if clamp.
+>> It helps improve stmmac RX path as it's being called inside RX loop.
+>
+> Is dma_rx_size always a power of 2 ?
 
-Today's linux-next merge of the akpm-current tree got a conflict in:
+no
 
-  include/net/sock.h
+> If so you can replace the % by & and remove the conditionals.
+>
+> If you have changed the read and write values to indexes
+> then you need to be certain that the 'ring full' and 'ring empty'
+> cases are correctly distinguished.
 
-between commits:
+this is implicitly managed by dirty and curr index.
 
-  297dbde19cf6 ("netprio_cgroup: limit the maximum css->id to USHRT_MAX")
-  2a56a1fec290 ("net: wrap sock->sk_cgrp_prioidx and ->sk_classid inside a struct")
+thx
+peppe
 
-from the net-next tree and commit:
-
-  c4b672bd7b34 ("net: tcp_memcontrol: simplify linkage between socket and page counter")
-
-from the akpm-current tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc include/net/sock.h
-index c57e7ce0d097,edd552ef8e38..000000000000
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@@ -309,8 -292,8 +293,8 @@@ struct cg_proto
-    *	@sk_send_head: front of stuff to transmit
-    *	@sk_security: used by security modules
-    *	@sk_mark: generic packet mark
- -  *	@sk_classid: this socket's cgroup classid
- +  *	@sk_cgrp_data: cgroup data for this cgroup
--   *	@sk_cgrp: this socket's cgroup-specific proto data
-+   *	@sk_memcg: this socket's memory cgroup association
-    *	@sk_write_pending: a write to stream socket waits to start
-    *	@sk_state_change: callback to indicate change in the state of the sock
-    *	@sk_data_ready: callback to indicate there is data to be processed
-@@@ -443,8 -428,11 +427,8 @@@ struct sock 
-  #ifdef CONFIG_SECURITY
-  	void			*sk_security;
-  #endif
- -	__u32			sk_mark;
- -#ifdef CONFIG_CGROUP_NET_CLASSID
- -	u32			sk_classid;
- -#endif
- +	struct sock_cgroup_data	sk_cgrp_data;
-- 	struct cg_proto		*sk_cgrp;
-+ 	struct mem_cgroup	*sk_memcg;
-  	void			(*sk_state_change)(struct sock *sk);
-  	void			(*sk_data_ready)(struct sock *sk);
-  	void			(*sk_write_space)(struct sock *sk);
+>
+> 	David
+>
