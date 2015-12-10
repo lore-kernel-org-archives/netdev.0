@@ -1,66 +1,40 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Fix race condition on Multi-Send Data
- field
-Date: Thu, 10 Dec 2015 12:19:35 -0800
-Message-ID: <1449778775-14404-1-git-send-email-haiyangz@microsoft.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] sched/cls_flow.c : allow nfct-* keys work on ingress interfaces
+Date: Thu, 10 Dec 2015 10:46:40 -0800
+Message-ID: <CAHA+R7P=8dg5M1VncpKW85XFOxY6HVL8Ery2v9F4CPz0QtEFPQ@mail.gmail.com>
+References: <1498271449753849@web15j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?UTF-8?B?0JPQsNCy0YDQuNC70L7QsiDQmNCz0L7RgNGM?=
+	<iggorok@yandex.ua>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:36197 "EHLO
+	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876AbbLJSql convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 13:46:41 -0500
+Received: by vkay187 with SMTP id y187so95947042vka.3
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 10:46:40 -0800 (PST)
+In-Reply-To: <1498271449753849@web15j.yandex.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit 2a04ae8acb14 ("hv_netvsc: remove locking in netvsc_send()"), the
-locking for MSD (Multi-Send Data) field was removed. This could cause a
-race condition between RNDIS control messages and data packets processing,
-because these two types of traffic are not synchronized.
-This patch fixes this issue by sending control messages out directly
-without reading MSD field.
+Hello,
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc.c |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+On Thu, Dec 10, 2015 at 5:24 AM, =D0=93=D0=B0=D0=B2=D1=80=D0=B8=D0=BB=D0=
+=BE=D0=B2 =D0=98=D0=B3=D0=BE=D1=80=D1=8C <iggorok@yandex.ua> wrote:
+> Improved CTTUPLE macro with code from sched/act_connmark.c, so it be =
+able to get unNATed addresses from nf_conntrack.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 02bab9a..059fc52 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -867,6 +867,14 @@ int netvsc_send(struct hv_device *device,
- 	packet->send_buf_index = NETVSC_INVALID_INDEX;
- 	packet->cp_partial = false;
- 
-+	/* Send control message directly without accessing msd (Multi-Send
-+	 * Data) field which may be changed during data packet processing.
-+	 */
-+	if (!skb) {
-+		cur_send = packet;
-+		goto send_now;
-+	}
-+
- 	msdp = &net_device->msd[q_idx];
- 
- 	/* batch packets in send buffer if possible */
-@@ -939,6 +947,7 @@ int netvsc_send(struct hv_device *device,
- 		}
- 	}
- 
-+send_now:
- 	if (cur_send)
- 		ret = netvsc_send_pkt(cur_send, net_device, pb, skb);
- 
--- 
-1.7.4.1
+Please follow the guideline to submit a formal kernel patch:
+https://www.kernel.org/doc/Documentation/SubmittingPatches
+
+Hints:
+a) The patch has to be inlined
+b) You have to sign it off
+c) Please Cc the maintainers, in this case, Jamal Hadi Salim <jhs@mojat=
+atu.com>
+d) Use checkpatch.pl to check coding styles etc.
+
+Thanks.
