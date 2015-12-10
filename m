@@ -1,93 +1,45 @@
-From: =?koi8-r?B?58HX0snMz9cg6cfP0tg=?= <iggorok@yandex.ua>
-Subject: [PATCH] sched/cls_flow.c : allow nfct-* keys work on ingress interfaces
-Date: Thu, 10 Dec 2015 15:24:09 +0200
-Message-ID: <1498271449753849@web15j.yandex.ru>
+From: Patrick Schaaf <netdev@bof.de>
+Subject: Re: [PATCH] [BACKPORT] [3.14.56] bnx2x: Don't notify about scratchpad parities
+Date: Thu, 10 Dec 2015 14:37:34 +0100
+Message-ID: <1686003.8SMzEu8fpg@rofl>
+References: <2866398.tTChUFNQ37@rofl> <20151106173246.GA6771@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----==--bound.149830.web15j.yandex.ru"
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward20j.cmail.yandex.net ([5.255.227.239]:58526 "EHLO
-	forward20j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750929AbbLJNcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 08:32:06 -0500
-Received: from web15j.yandex.ru (web15j.yandex.ru [5.45.198.56])
-	by forward20j.cmail.yandex.net (Yandex) with ESMTP id 9CA0C20B84
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 16:24:10 +0300 (MSK)
+Received: from mars.intermailgate.com ([80.242.145.70]:54367 "EHLO
+	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbbLJNhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 08:37:40 -0500
+In-Reply-To: <20151106173246.GA6771@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Friday 06 November 2015 09:32:46 Greg KH wrote:
+> On Thu, Nov 05, 2015 at 11:18:37AM +0100, Patrick Schaaf wrote:
+> > bnx2x: Don't notify about scratchpad parities
+> > 
+> > This is a (trivial) "backport" of ad6afbe9578d1fa26680faf78c846bd8c00d1d6e
+> > to stable kernel 3.14.56.
+> 
+> This patch isn't in 4.1 either, do you want it there as well?
 
-------==--bound.149830.web15j.yandex.ru
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain
+Hi Greg,
 
-Improved CTTUPLE macro with code from sched/act_connmark.c, so it be able to get unNATed addresses from nf_conntrack.
-------==--bound.149830.web15j.yandex.ru
-Content-Disposition: attachment;
-	filename="cls_flow.patch.4.3"
-Content-Transfer-Encoding: base64
-Content-Type: text/x-diff;
-	name="cls_flow.patch.4.3"
+I didn't see the patch in 3.14.57 or 3.14.58 - could you please consider it 
+again (for all stable kernels that don't have it)?
 
-LS0tIGNsc19mbG93LmMJMjAxNS0xMS0wMiAwMjowNToyNS4wMDAwMDAwMDAgKzAyMDAKKysrIG5l
-dC9zY2hlZC9jbHNfZmxvdy5jCTIwMTUtMTItMTAgMTc6MDQ6MDMuMDc1MjAyMzMwICswMjAwCkBA
-IC0zMCw2ICszMCw4IEBACiAKICNpZiBkZWZpbmVkKENPTkZJR19ORl9DT05OVFJBQ0spIHx8IGRl
-ZmluZWQoQ09ORklHX05GX0NPTk5UUkFDS19NT0RVTEUpCiAjaW5jbHVkZSA8bmV0L25ldGZpbHRl
-ci9uZl9jb25udHJhY2suaD4KKyNpbmNsdWRlIDxuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19j
-b3JlLmg+CisjaW5jbHVkZSA8bmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfem9uZXMuaD4KICNl
-bmRpZgogCiBzdHJ1Y3QgZmxvd19oZWFkIHsKQEAgLTEzMiwxNiArMTM0LDQzIEBACiB9CiAKICNp
-ZiBkZWZpbmVkKENPTkZJR19ORl9DT05OVFJBQ0spIHx8IGRlZmluZWQoQ09ORklHX05GX0NPTk5U
-UkFDS19NT0RVTEUpCi0jZGVmaW5lIENUVFVQTEUoc2tiLCBtZW1iZXIpCQkJCQkJXAorI2RlZmlu
-ZSBDVFRVUExFKHNrYiwgZGlyZWN0aW9uLCBtZW1iZXIpCQkJCQkJXAogKHsJCQkJCQkJCQlcCiAJ
-ZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm87CQkJCQlcCi0JY29uc3Qgc3RydWN0IG5mX2Nv
-bm4gKmN0ID0gbmZfY3RfZ2V0KHNrYiwgJmN0aW5mbyk7CQlcCi0JaWYgKGN0ID09IE5VTEwpCQkJ
-CQkJCVwKLQkJZ290byBmYWxsYmFjazsJCQkJCQlcCi0JY3QtPnR1cGxlaGFzaFtDVElORk8yRElS
-KGN0aW5mbyldLnR1cGxlLm1lbWJlcjsJCQlcCisJc3RydWN0IG5mX2Nvbm50cmFja190dXBsZSB0
-dXBsZTsJCQkJXAorCXN0cnVjdCBuZl9jb25udHJhY2tfem9uZSB6b25lOwkJCQkJXAorCWNvbnN0
-IHN0cnVjdCBuZl9jb25udHJhY2tfdHVwbGVfaGFzaCAqdGhhc2g7CQkJXAorCV9fYmUzMiByZXN1
-bHQ7CQkJCQkJCVwKKwlpbnQgcHJvdG87CQkJCQkJCVwKKwlzdHJ1Y3QgbmZfY29ubiAqY3QgPSBu
-Zl9jdF9nZXQoc2tiLCAmY3RpbmZvKTsJCQlcCisJaWYgKGN0ID09IE5VTEwpewkJCQkJCVwKKwkJ
-ICAgICAgICBzd2l0Y2ggKHRjX3NrYl9wcm90b2NvbChza2IpKSB7CQkJXAorCQkgICAgICAgIGNh
-c2UgaHRvbnMoRVRIX1BfSVApOgkJCQlcCisgICAgICAgICAgICAgICAgCQlwcm90byA9IE5GUFJP
-VE9fSVBWNDsgCQkJXAorCQkJCWJyZWFrOwkJCQkJXAorCQkgICAgICAgIGNhc2UgaHRvbnMoRVRI
-X1BfSVBWNik6CQkJCVwKKwkJCQlwcm90byA9IE5GUFJPVE9fSVBWNjsJCQlcCisJCQkJYnJlYWs7
-CQkJCQlcCisJCQlkZWZhdWx0OiBnb3RvIGZhbGxiYWNrOwkJCQlcCisJICAgICAgICB9IAkJCQkJ
-CQlcCisJCQkJCQkJCQlcCisJaWYgKCFuZl9jdF9nZXRfdHVwbGVwcihza2IsIHNrYl9uZXR3b3Jr
-X29mZnNldChza2IpLCBwcm90bywgJnR1cGxlKSkgXAorICAgICAgICAgICAgICAgIGdvdG8gZmFs
-bGJhY2s7CQkJCQkJXAorICAgICAgICB6b25lLmlkID0gTkZfQ1RfREVGQVVMVF9aT05FX0lEOwkJ
-CQlcCisgICAgICAgIHpvbmUuZGlyID0gTkZfQ1RfREVGQVVMVF9aT05FX0RJUjsJCQkJXAorCQkJ
-CQkJCQkJXAorICAgICAgICB0aGFzaCA9IG5mX2Nvbm50cmFja19maW5kX2dldChkZXZfbmV0KHNr
-Yi0+ZGV2KSwgJnpvbmUsICZ0dXBsZSk7XAorICAgICAgICBpZiAoIXRoYXNoKSBnb3RvIGZhbGxi
-YWNrOwkJCQkJXAorICAgICAgICBjdCA9IG5mX2N0X3R1cGxlaGFzaF90b19jdHJhY2sodGhhc2gp
-OwkJCQlcCisJcmVzdWx0ID0gY3QtPnR1cGxlaGFzaFsodGhhc2gtPnR1cGxlLmRzdC5kaXIgPT0g
-SVBfQ1RfRElSX1JFUExZKSA/IElQX0NUX0RJUl9PUklHSU5BTCA6IElQX0NUX0RJUl9SRVBMWV0u
-dHVwbGUuc3JjLm1lbWJlcjsJXAorCW5mX2N0X3B1dChjdCk7CQkJCQkJCVwKKwl9IGVsc2UgewkJ
-CQkJCQlcCisJcmVzdWx0ID0gY3QtPnR1cGxlaGFzaFtDVElORk8yRElSKGN0aW5mbyldLnR1cGxl
-LmRpcmVjdGlvbi5tZW1iZXI7CVwKKwl9CQkJCQkJCQlcCisJcmVzdWx0OwkJCQkJCQkJXAogfSkK
-ICNlbHNlCi0jZGVmaW5lIENUVFVQTEUoc2tiLCBtZW1iZXIpCQkJCQkJXAorI2RlZmluZSBDVFRV
-UExFKHNrYiwgZGlyZWN0aW9uLCBtZW1iZXIpCQkJCQkJXAogKHsJCQkJCQkJCQlcCiAJZ290byBm
-YWxsYmFjazsJCQkJCQkJXAogCTA7CQkJCQkJCQlcCkBAIC0xNTIsOSArMTgxLDkgQEAKIHsKIAlz
-d2l0Y2ggKHRjX3NrYl9wcm90b2NvbChza2IpKSB7CiAJY2FzZSBodG9ucyhFVEhfUF9JUCk6Ci0J
-CXJldHVybiBudG9obChDVFRVUExFKHNrYiwgc3JjLnUzLmlwKSk7CisJCXJldHVybiBudG9obChD
-VFRVUExFKHNrYiwgc3JjLCB1My5pcCkpOwogCWNhc2UgaHRvbnMoRVRIX1BfSVBWNik6Ci0JCXJl
-dHVybiBudG9obChDVFRVUExFKHNrYiwgc3JjLnUzLmlwNlszXSkpOworCQlyZXR1cm4gbnRvaGwo
-Q1RUVVBMRShza2IsIHNyYywgdTMuaXA2WzNdKSk7CiAJfQogZmFsbGJhY2s6CiAJcmV0dXJuIGZs
-b3dfZ2V0X3NyYyhza2IsIGZsb3cpOwpAQCAtMTYyLDExICsxOTEsMTIgQEAKIAogc3RhdGljIHUz
-MiBmbG93X2dldF9uZmN0X2RzdChjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25zdCBzdHJ1
-Y3QgZmxvd19rZXlzICpmbG93KQogeworCiAJc3dpdGNoICh0Y19za2JfcHJvdG9jb2woc2tiKSkg
-ewogCWNhc2UgaHRvbnMoRVRIX1BfSVApOgotCQlyZXR1cm4gbnRvaGwoQ1RUVVBMRShza2IsIGRz
-dC51My5pcCkpOworCQlyZXR1cm4gbnRvaGwoQ1RUVVBMRShza2IsIGRzdCwgdTMuaXApKTsKIAlj
-YXNlIGh0b25zKEVUSF9QX0lQVjYpOgotCQlyZXR1cm4gbnRvaGwoQ1RUVVBMRShza2IsIGRzdC51
-My5pcDZbM10pKTsKKwkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBkc3QsIHUzLmlwNlszXSkp
-OwogCX0KIGZhbGxiYWNrOgogCXJldHVybiBmbG93X2dldF9kc3Qoc2tiLCBmbG93KTsKQEAgLTE3
-NCwxNCArMjA0LDE0IEBACiAKIHN0YXRpYyB1MzIgZmxvd19nZXRfbmZjdF9wcm90b19zcmMoY29u
-c3Qgc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IGZsb3dfa2V5cyAqZmxvdykKIHsK
-LQlyZXR1cm4gbnRvaHMoQ1RUVVBMRShza2IsIHNyYy51LmFsbCkpOworCXJldHVybiBudG9ocyhD
-VFRVUExFKHNrYiwgc3JjLCB1LmFsbCkpOwogZmFsbGJhY2s6CiAJcmV0dXJuIGZsb3dfZ2V0X3By
-b3RvX3NyYyhza2IsIGZsb3cpOwogfQogCiBzdGF0aWMgdTMyIGZsb3dfZ2V0X25mY3RfcHJvdG9f
-ZHN0KGNvbnN0IHN0cnVjdCBza19idWZmICpza2IsIGNvbnN0IHN0cnVjdCBmbG93X2tleXMgKmZs
-b3cpCiB7Ci0JcmV0dXJuIG50b2hzKENUVFVQTEUoc2tiLCBkc3QudS5hbGwpKTsKKwlyZXR1cm4g
-bnRvaHMoQ1RUVVBMRShza2IsIGRzdCwgdS5hbGwpKTsKIGZhbGxiYWNrOgogCXJldHVybiBmbG93
-X2dldF9wcm90b19kc3Qoc2tiLCBmbG93KTsKIH0K
-------==--bound.149830.web15j.yandex.ru--
+My three machines with bnx2x interfaces have been running file with patch 
+3.14.56, for the last 35 days. The original problematic event (spewing a 
+million messages which are suppressed by that patch), did not reoccur so far 
+(neither did any other issue, dmesg is completely empty since boot).
+
+best regards
+  Patrick
+
+Related earlier posts / reports, for reference:
+
+http://marc.info/?l=linux-netdev&m=144663711626469
+http://lists.openwall.net/netdev/2015/11/05/48
