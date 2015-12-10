@@ -1,45 +1,204 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 1/9] net/mlx5: Fix query E-Switch capabilities
-Date: Thu, 10 Dec 2015 17:12:37 +0200
-Message-ID: <1449760365-23622-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 4/9] net/mlx5_core: Add flow steering base data structures
+Date: Thu, 10 Dec 2015 17:12:40 +0200
+Message-ID: <1449760365-23622-5-git-send-email-saeedm@mellanox.com>
 References: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
 	Matan Barak <matanb@mellanox.com>, saeedm@dev.mellanox.co.il,
+	Moni Shoua <monis@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53733 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53766 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754004AbbLJPNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 10:13:20 -0500
+	id S1754415AbbLJPNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2015 10:13:22 -0500
 In-Reply-To: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-E-Switch capabilities should be queried only if E-Switch flow table
-is supported and not only when vport group manager.
+From: Maor Gottlieb <maorg@mellanox.com>
 
-Fixes: d6666753c6e8 ("net/mlx5: E-Switch, Introduce HCA cap and E-Switch vport context")
+Introducing the base data structure and its operations that are
+going to represent ConnectX-4 Flow Steering, this data structure
+is basically a tree and all Flow steering objects such as
+(Flow Table/Flow Group/FTE/etc ..) are represented as fs_node(s).
+
+fs_node is the base object which describes a basic tree node, with the
+following extra info:
+    type: describes the runtime type of the node (Object).
+    lock: lock this node sub-tree.
+    ref_count: number of children + current references.
+    remove_func: a generic destructor.
+
+fs_node types will be used and explained once the usage is added in the
+following patches.
+
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fw.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile  |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |  116 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |    6 +
+ 3 files changed, 123 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index 1c9f9a5..aa1ab47 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -173,7 +173,7 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
- 			return err;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index be10592..7fc5e23 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
  
--	if (MLX5_CAP_GEN(dev, vport_group_manager)) {
-+	if (MLX5_CAP_GEN(dev, eswitch_flow_table)) {
- 		err = mlx5_core_get_caps(dev, MLX5_CAP_ESWITCH,
- 					 HCA_CAP_OPMOD_GET_CUR);
- 		if (err)
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
+-		mad.o transobj.o vport.o sriov.o fs_cmd.o
++		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o flow_table.o eswitch.o \
+ 		en_main.o en_flow_table.o en_ethtool.o en_tx.o en_rx.o \
+ 		en_txrx.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+new file mode 100644
+index 0000000..3c54d7b
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -0,0 +1,116 @@
++/*
++ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/mutex.h>
++#include <linux/mlx5/driver.h>
++
++#include "mlx5_core.h"
++#include "fs_core.h"
++
++static void tree_init_node(struct fs_node *node,
++			   unsigned int refcount,
++			   void (*remove_func)(struct fs_node *))
++{
++	atomic_set(&node->refcount, refcount);
++	INIT_LIST_HEAD(&node->list);
++	INIT_LIST_HEAD(&node->children);
++	mutex_init(&node->lock);
++	node->remove_func = remove_func;
++}
++
++static void tree_add_node(struct fs_node *node, struct fs_node *parent)
++{
++	if (parent)
++		atomic_inc(&parent->refcount);
++	node->parent = parent;
++
++	/* Parent is the root */
++	if (!parent)
++		node->root = node;
++	else
++		node->root = parent->root;
++}
++
++static void tree_get_node(struct fs_node *node)
++{
++	atomic_inc(&node->refcount);
++}
++
++static void nested_lock_ref_node(struct fs_node *node)
++{
++	if (node) {
++		mutex_lock_nested(&node->lock, SINGLE_DEPTH_NESTING);
++		atomic_inc(&node->refcount);
++	}
++}
++
++static void lock_ref_node(struct fs_node *node)
++{
++	if (node) {
++		mutex_lock(&node->lock);
++		atomic_inc(&node->refcount);
++	}
++}
++
++static void unlock_ref_node(struct fs_node *node)
++{
++	if (node) {
++		atomic_dec(&node->refcount);
++		mutex_unlock(&node->lock);
++	}
++}
++
++static void tree_put_node(struct fs_node *node)
++{
++	struct fs_node *parent_node = node->parent;
++
++	lock_ref_node(parent_node);
++	if (atomic_dec_and_test(&node->refcount)) {
++		if (parent_node)
++			list_del_init(&node->list);
++		if (node->remove_func)
++			node->remove_func(node);
++		kfree(node);
++		node = NULL;
++	}
++	unlock_ref_node(parent_node);
++	if (!node && parent_node)
++		tree_put_node(parent_node);
++}
++
++static int tree_remove_node(struct fs_node *node)
++{
++	if (atomic_read(&node->refcount) > 1)
++		return -EPERM;
++	tree_put_node(node);
++	return 0;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index e8b34a9..ae03ae4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -56,6 +56,12 @@ struct fs_node {
+ 	struct list_head	list;
+ 	struct list_head	children;
+ 	enum fs_node_type	type;
++	struct fs_node		*parent;
++	struct fs_node		*root;
++	/* lock the node for writing and traversing */
++	struct mutex		lock;
++	atomic_t		refcount;
++	void			(*remove_func)(struct fs_node *);
+ };
+ 
+ struct mlx5_flow_rule {
 -- 
 1.7.1
