@@ -1,89 +1,56 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH bluetooth-next 10/10] ipv6: add ipv6_addr_prefix_copy
-Date: Wed, 9 Dec 2015 14:28:38 -1000
-Message-ID: <64AE99C3-E5EB-47D8-9B0A-FA5B35E93CB2@holtmann.org>
-References: <1449697591-15991-1-git-send-email-alex.aring@gmail.com> <1449697591-15991-11-git-send-email-alex.aring@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449697591-15991-11-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <mchan@broadcom.com>
+Subject: [PATCH net v2 1/4] bnxt_en: Fix bitmap declaration to work on 32-bit arches.
+Date: Wed, 9 Dec 2015 19:35:41 -0500
+Message-ID: <1449707744-7844-2-git-send-email-mchan@broadcom.com>
+References: <1449707744-7844-1-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:47318 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbbLJAfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 19:35:54 -0500
+In-Reply-To: <1449707744-7844-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+The declaration of the bitmap vf_req_snif_bmap using fixed array of
+unsigned long will only work on 64-bit archs.  Use DECLARE_BITMAP instead
+which will work on all archs.
 
-> This patch adds a static inline function ipv6_addr_prefix_copy which
-> copies a ipv6 address prefix(argument pfx) into the ipv6 address pref=
-ix.
-> The prefix len is given by plen as bits. This function mainly based o=
-n
-> ipv6_addr_prefix which copies one address prefix from address into a =
-new
-> ipv6 address destination and zero all other address bits.
->=20
-> The difference is that ipv6_addr_prefix_copy don't get a prefix from =
-an
-> ipv6 address, it sets a prefix to an ipv6 address with keeping other
-> address bits. The use case is for context based address compression
-> inside 6LoWPAN IPHC header which keeping ipv6 prefixes inside a conte=
-xt
-> table to lookup address-bits without sending them.
->=20
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Acked-by: =C5=81ukasz Duda <lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org>
-> Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> include/net/ipv6.h | 15 +++++++++++++++
-> 1 file changed, 15 insertions(+)
->=20
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index 9a5c9f0..6570f37 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -401,6 +401,21 @@ static inline void ipv6_addr_prefix(struct in6_a=
-ddr *pfx,
-> 		pfx->s6_addr[o] =3D addr->s6_addr[o] & (0xff00 >> b);
-> }
->=20
-> +static inline void ipv6_addr_prefix_copy(struct in6_addr *addr,
-> +					 const struct in6_addr *pfx,
-> +					 int plen)
-> +{
-> +	/* caller must guarantee 0 <=3D plen <=3D 128 */
-> +	int o =3D plen >> 3,
-> +	    b =3D plen & 0x7;
-> +
-> +	memcpy(addr->s6_addr, pfx, o);
-> +	if (b !=3D 0) {
-> +		addr->s6_addr[o] &=3D ~(0xff00 >> b);
-> +		addr->s6_addr[o] |=3D (pfx->s6_addr[o] & (0xff00 >> b));
-> +	}
-> +}
-> +
-> static inline void __ipv6_addr_set_half(__be32 *addr,
-> 					__be32 wh, __be32 wl)
-> {
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-if there are no objections, I would like to take this change through th=
-e bluetooth-next tree.
-
-Regards
-
-Marcel
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index bdf094f..51671e3 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -2693,17 +2693,16 @@ static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
+ 	req.ver_upd = DRV_VER_UPD;
+ 
+ 	if (BNXT_PF(bp)) {
+-		unsigned long vf_req_snif_bmap[4];
++		DECLARE_BITMAP(vf_req_snif_bmap, 256);
+ 		u32 *data = (u32 *)vf_req_snif_bmap;
+ 
+-		memset(vf_req_snif_bmap, 0, 32);
++		memset(vf_req_snif_bmap, 0, sizeof(vf_req_snif_bmap));
+ 		for (i = 0; i < ARRAY_SIZE(bnxt_vf_req_snif); i++)
+ 			__set_bit(bnxt_vf_req_snif[i], vf_req_snif_bmap);
+ 
+-		for (i = 0; i < 8; i++) {
+-			req.vf_req_fwd[i] = cpu_to_le32(*data);
+-			data++;
+-		}
++		for (i = 0; i < 8; i++)
++			req.vf_req_fwd[i] = cpu_to_le32(data[i]);
++
+ 		req.enables |=
+ 			cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_VF_REQ_FWD);
+ 	}
+-- 
+1.8.3.1
