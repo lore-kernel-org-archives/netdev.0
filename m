@@ -1,40 +1,25 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net 1/2] xfrm: add rcu grace period in
- xfrm_policy_destroy()
-Date: Thu, 10 Dec 2015 13:34:22 +0100
-Message-ID: <20151210123422.GA29565@gauss.secunet.com>
-References: <1449588122-13941-1-git-send-email-edumazet@google.com>
- <20151208.225829.122422778076120961.davem@davemloft.net>
+From: "hi" <f1uffyj0e@aol.com>
+Subject: dj,bike,iphone...
+Date: Thu, 10 Dec 2015 21:07:21 +0800
+Message-ID: <0AA8CD06C81C1E6FFDAE861BFE22D25F@vokwuplbq>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <edumazet@google.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <yraeber@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:40889 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753210AbbLJMe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 07:34:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20151208.225829.122422778076120961.davem@davemloft.net>
+Received: from oms-a005e.mx.aol.com ([204.29.186.145]:45046 "EHLO
+	oms-a005e.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbLJNHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 08:07:24 -0500
+Received: from omr-a011e.mx.aol.com (omr-a011.mx.aol.com [10.72.114.237])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by oms-a005e.mx.aol.com (AOL Outbound OMS Interface) with ESMTPS id 2581E3800131
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 08:07:23 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 08, 2015 at 10:58:29PM -0500, David Miller wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> Date: Tue,  8 Dec 2015 07:22:01 -0800
-> 
-> > We will soon switch sk->sk_policy[] to RCU protection,
-> > as SYNACK packets are sent while listener socket is not locked.
-> > 
-> > This patch simply adds RCU grace period before struct xfrm_policy
-> > freeing, and the corresponding rcu_head in struct xfrm_policy.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> I'll give Steffen an opportunity to review these two patches.
-
-Looks ok and survived some tests with socket policies.
-
-If you want to take these direct into the net tree:
-
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+SGFsbG8NCmVpbmUgZ3V0ZSBOYWNocmljaHQsIGd1dGUgTmFjaHJpY2h0DQpGYWhycmFkLCBkaiwg
+dHYsIE1hcmtlbnVociwgc2Ftc3VuZyBQcm9kdWt0IC4uLg0KZGVyIFZlcnNhbmQgaXN0IGtvc3Rl
+bmxvcw0KaXBob25lIDZzLDM2OGV1cm8NCnNpdGU6ICBwb2F6emxvIC5jb20NCg==
