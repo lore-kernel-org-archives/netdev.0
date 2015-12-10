@@ -1,67 +1,99 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net v2 4/4] bnxt_en: Implement missing tx timeout reset logic.
-Date: Wed, 9 Dec 2015 19:35:44 -0500
-Message-ID: <1449707744-7844-5-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net v2 2/4] bnxt_en: Change bp->state to bitmap.
+Date: Wed, 9 Dec 2015 19:35:42 -0500
+Message-ID: <1449707744-7844-3-git-send-email-mchan@broadcom.com>
 References: <1449707744-7844-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:47318 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752864AbbLJAfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 19:35:55 -0500
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:49519 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbbLJAfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2015 19:35:54 -0500
 In-Reply-To: <1449707744-7844-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The reset logic calls bnxt_close_nic() and bnxt_open_nic() under rtnl_lock
-from bnxt_sp_task.  BNXT_STATE_IN_SP_TASK must be cleared before calling
-bnxt_close_nic() to avoid deadlock.
-
-v2: Fixed white space error.  Thanks Dave.
+This allows multiple independent bits to be set for various states.
+Subsequent patches to implement tx timeout reset will require this.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 8 ++++----
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h       | 5 ++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 2 +-
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index f5f4489..0c2c3f5 100644
+index 51671e3..fd89e9d 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5031,8 +5031,10 @@ static void bnxt_dbg_dump_states(struct bnxt *bp)
- static void bnxt_reset_task(struct bnxt *bp)
- {
- 	bnxt_dbg_dump_states(bp);
--	if (netif_running(bp->dev))
--		bnxt_tx_disable(bp); /* prevent tx timout again */
-+	if (netif_running(bp->dev)) {
-+		bnxt_close_nic(bp, false, false);
-+		bnxt_open_nic(bp, false, false);
-+	}
- }
- 
- static void bnxt_tx_timeout(struct net_device *dev)
-@@ -5111,8 +5113,16 @@ static void bnxt_sp_task(struct work_struct *work)
- 		bnxt_hwrm_tunnel_dst_port_free(
- 			bp, TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_VXLAN);
+@@ -4602,7 +4602,7 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
+ 			bp->nge_port_cnt = 1;
  	}
--	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event))
--		bnxt_reset_task(bp);
-+	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event)) {
-+		/* bnxt_reset_task() calls bnxt_close_nic() which waits
-+		 * for BNXT_STATE_IN_SP_TASK to clear.
-+		 */
-+		clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
-+		rtnl_lock();
-+		bnxt_reset_task(bp);
-+		set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
-+		rtnl_unlock();
-+	}
  
- 	smp_mb__before_atomic();
- 	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+-	bp->state = BNXT_STATE_OPEN;
++	set_bit(BNXT_STATE_OPEN, &bp->state);
+ 	bnxt_enable_int(bp);
+ 	/* Enable TX queues */
+ 	bnxt_tx_enable(bp);
+@@ -4678,7 +4678,7 @@ int bnxt_close_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
+ 	/* Change device state to avoid TX queue wake up's */
+ 	bnxt_tx_disable(bp);
+ 
+-	bp->state = BNXT_STATE_CLOSED;
++	clear_bit(BNXT_STATE_OPEN, &bp->state);
+ 	cancel_work_sync(&bp->sp_task);
+ 
+ 	/* Flush rings before disabling interrupts */
+@@ -5080,7 +5080,7 @@ static void bnxt_sp_task(struct work_struct *work)
+ 	struct bnxt *bp = container_of(work, struct bnxt, sp_task);
+ 	int rc;
+ 
+-	if (bp->state != BNXT_STATE_OPEN)
++	if (!test_bit(BNXT_STATE_OPEN, &bp->state))
+ 		return;
+ 
+ 	if (test_and_clear_bit(BNXT_RX_MASK_SP_EVENT, &bp->sp_event))
+@@ -5185,7 +5185,7 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	bp->timer.function = bnxt_timer;
+ 	bp->current_interval = BNXT_TIMER_INTERVAL;
+ 
+-	bp->state = BNXT_STATE_CLOSED;
++	clear_bit(BNXT_STATE_OPEN, &bp->state);
+ 
+ 	return 0;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 674bc51..a8b6881 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -925,9 +925,8 @@ struct bnxt {
+ 
+ 	struct timer_list	timer;
+ 
+-	int			state;
+-#define BNXT_STATE_CLOSED	0
+-#define BNXT_STATE_OPEN		1
++	unsigned long		state;
++#define BNXT_STATE_OPEN		0
+ 
+ 	struct bnxt_irq	*irq_tbl;
+ 	u8			mac_addr[ETH_ALEN];
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index 7a9af28..ea044bb 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -21,7 +21,7 @@
+ #ifdef CONFIG_BNXT_SRIOV
+ static int bnxt_vf_ndo_prep(struct bnxt *bp, int vf_id)
+ {
+-	if (bp->state != BNXT_STATE_OPEN) {
++	if (!test_bit(BNXT_STATE_OPEN, &bp->state)) {
+ 		netdev_err(bp->dev, "vf ndo called though PF is down\n");
+ 		return -EINVAL;
+ 	}
 -- 
 1.8.3.1
