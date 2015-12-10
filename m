@@ -1,66 +1,68 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
-Date: Thu, 10 Dec 2015 08:16:36 -1000
-Message-ID: <7DCE62A2-DEA0-4ABF-A0D6-4EE00BDFFE95@holtmann.org>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <564B5327.4010307@osg.samsung.com> <564B5344.1090200@osg.samsung.com> <56695093.8080605@osg.samsung.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Stefan Schmidt <stefan@osg.samsung.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <56695093.8080605@osg.samsung.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net v2] net: Flush local routes when device changes vrf association
+Date: Thu, 10 Dec 2015 10:25:24 -0800
+Message-ID: <1449771924-21775-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: ja@ssi.bg, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33348 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753188AbbLJSZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 13:25:31 -0500
+Received: by pabur14 with SMTP id ur14so51477662pab.0
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 10:25:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stefan,
+The VRF driver cycles netdevs when an interface is enslaved or released:
+the down event is used to flush neighbor and route tables and the up
+event (if the interface was already up) effectively moves local and
+connected routes to the proper table.
 
->>> From: Markus Elfring <elfring@users.sourceforge.net>
->>> Date: Mon, 16 Nov 2015 13:50:23 +0100
->>> 
->>> The kfree_skb() function tests whether its argument is NULL and then
->>> returns immediately. Thus the test around the call is not needed.
->>> 
->>> This issue was detected by using the Coccinelle software.
->>> 
->>> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
->>> ---
->>> drivers/net/ieee802154/atusb.c | 3 +--
->>> 1 file changed, 1 insertion(+), 2 deletions(-)
->>> 
->>> diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
->>> index 199a94a..b1cd865 100644
->>> --- a/drivers/net/ieee802154/atusb.c
->>> +++ b/drivers/net/ieee802154/atusb.c
->>> @@ -310,8 +310,7 @@ static void atusb_free_urbs(struct atusb *atusb)
->>>         urb = usb_get_from_anchor(&atusb->idle_urbs);
->>>         if (!urb)
->>>             break;
->>> -        if (urb->context)
->>> -            kfree_skb(urb->context);
->>> +        kfree_skb(urb->context);
->>>         usb_free_urb(urb);
->>>     }
->>> }
->> 
->> Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
-> 
-> 
-> You got the original patch and my ACK on this one or would you prefer me to resend it again?
+As of 4f823defdd5b the local route is left hanging around after a link
+down, so when a netdev is moved from one VRF to another (or released
+from a VRF altogether) local routes are left in the wrong table.
 
-this slipped through, but now it does no longer apply.
+Fix by handling the NETDEV_CHANGEUPPER event. When the upper dev is
+an L3mdev then call fib_disable_ip to flush all routes, local ones
+to.
 
-Applying: ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
-error: patch failed: drivers/net/ieee802154/atusb.c:310
-error: drivers/net/ieee802154/atusb.c: patch does not apply
-Patch failed at 0001 ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
+Fixes: 4f823defdd5b ("ipv4: fix to not remove local route on link down")
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- key off NETDEV_CHANGEUPPER event vs using a new event
 
-Regards
+ net/ipv4/fib_frontend.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-Marcel
-
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index cc8f3e506cde..473447593060 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1155,6 +1155,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ static int fib_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct netdev_notifier_changeupper_info *info;
+ 	struct in_device *in_dev;
+ 	struct net *net = dev_net(dev);
+ 	unsigned int flags;
+@@ -1193,6 +1194,14 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	case NETDEV_CHANGEMTU:
+ 		rt_cache_flush(net);
+ 		break;
++	case NETDEV_CHANGEUPPER:
++		info = ptr;
++		/* flush all routes if dev is linked to or unlinked from
++		 * an L3 master device (e.g., VRF)
++		 */
++		if (info->upper_dev && netif_is_l3_master(info->upper_dev))
++			fib_disable_ip(dev, NETDEV_DOWN, true);
++		break;
+ 	}
+ 	return NOTIFY_DONE;
+ }
+-- 
+1.9.1
