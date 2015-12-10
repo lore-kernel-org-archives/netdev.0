@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 3/9] net/mlx5_core: Introduce flow steering firmware commands
-Date: Thu, 10 Dec 2015 17:12:39 +0200
-Message-ID: <1449760365-23622-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 6/9] net/mlx5_core: Introduce flow steering API
+Date: Thu, 10 Dec 2015 17:12:42 +0200
+Message-ID: <1449760365-23622-7-git-send-email-saeedm@mellanox.com>
 References: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
@@ -12,575 +12,589 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53842 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53756 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754089AbbLJPOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2015 10:14:16 -0500
+	id S1754431AbbLJPNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2015 10:13:22 -0500
 In-Reply-To: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Introduce new Flow Steering (FS) firmware commands,
-in-order to support the new flow steering infrastructure.
+Introducing the following objects:
+
+mlx5_flow_root_namespace: represent the root of specific flow table
+type tree(e.g NIC receive, FDB, etc..)
+
+mlx5_flow_group: define the mask of the flow specification.
+
+fs_fte(flow steering flow table entry): defines the value of the
+flow specification.
+
+The following describes the relationships between the tree objects:
+root_namespace --> priorities -->namespaces -->
+priorities -->flow-tables --> flow-groups -->
+flow-entries --> destinations
+
+When we create new object(flow table/flow group/flow table entry), we
+call to the FW command and then we add the related sw object to the tree.
+
+When we destroy object, e.g. call to mlx5_destroy_flow_table, we use
+the tree node destructor for destroying the FW object and remove the
+node from the tree.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile  |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  239 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |   65 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |   81 +++++++
- include/linux/mlx5/fs.h                           |   47 ++++
- include/linux/mlx5/mlx5_ifc.h                     |   32 ++-
- 6 files changed, 455 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
- create mode 100644 include/linux/mlx5/fs.h
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |  464 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |   23 +
+ 2 files changed, 487 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index a075591..be10592 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index cac0d15..1828351 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -35,6 +35,12 @@
  
- mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
--		mad.o transobj.o vport.o sriov.o
-+		mad.o transobj.o vport.o sriov.o fs_cmd.o
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o flow_table.o eswitch.o \
- 		en_main.o en_flow_table.o en_ethtool.o en_tx.o en_rx.o \
- 		en_txrx.o
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-new file mode 100644
-index 0000000..5096f4f
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -0,0 +1,239 @@
-+/*
-+ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/device.h>
-+#include <linux/mlx5/mlx5_ifc.h>
-+
-+#include "fs_core.h"
+ #include "mlx5_core.h"
+ #include "fs_core.h"
 +#include "fs_cmd.h"
-+#include "mlx5_core.h"
 +
-+int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
-+			       enum fs_flow_table_type type, unsigned int level,
-+			       unsigned int log_size, unsigned int *table_id)
++static void del_rule(struct fs_node *node);
++static void del_flow_table(struct fs_node *node);
++static void del_flow_group(struct fs_node *node);
++static void del_fte(struct fs_node *node);
+ 
+ static void tree_init_node(struct fs_node *node,
+ 			   unsigned int refcount,
+@@ -207,3 +213,461 @@ static bool compare_match_criteria(u8 match_criteria_enable1,
+ 	return match_criteria_enable1 == match_criteria_enable2 &&
+ 		!memcmp(mask1, mask2, MLX5_ST_SZ_BYTES(fte_match_param));
+ }
++
++static struct mlx5_flow_root_namespace *find_root(struct fs_node *node)
 +{
-+	u32 out[MLX5_ST_SZ_DW(create_flow_table_out)];
-+	u32 in[MLX5_ST_SZ_DW(create_flow_table_in)];
-+	int err;
++	struct fs_node *root;
++	struct mlx5_flow_namespace *ns;
 +
-+	memset(in, 0, sizeof(in));
++	root = node->root;
 +
-+	MLX5_SET(create_flow_table_in, in, opcode,
-+		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
-+
-+	MLX5_SET(create_flow_table_in, in, table_type, type);
-+	MLX5_SET(create_flow_table_in, in, level, level);
-+	MLX5_SET(create_flow_table_in, in, log_size, log_size);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					 sizeof(out));
-+
-+	if (!err)
-+		*table_id = MLX5_GET(create_flow_table_out, out,
-+				     table_id);
-+	return err;
-+}
-+
-+int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
-+				struct mlx5_flow_table *ft)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_flow_table_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_flow_table_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(destroy_flow_table_in, in, opcode,
-+		 MLX5_CMD_OP_DESTROY_FLOW_TABLE);
-+	MLX5_SET(destroy_flow_table_in, in, table_type, ft->type);
-+	MLX5_SET(destroy_flow_table_in, in, table_id, ft->id);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
-+int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
-+			       struct mlx5_flow_table *ft,
-+			       u32 *in,
-+			       unsigned int *group_id)
-+{
-+	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
-+	u32 out[MLX5_ST_SZ_DW(create_flow_group_out)];
-+	int err;
-+
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(create_flow_group_in, in, opcode,
-+		 MLX5_CMD_OP_CREATE_FLOW_GROUP);
-+	MLX5_SET(create_flow_group_in, in, table_type, ft->type);
-+	MLX5_SET(create_flow_group_in, in, table_id, ft->id);
-+
-+	err = mlx5_cmd_exec_check_status(dev, in,
-+					 inlen, out,
-+					 sizeof(out));
-+	if (!err)
-+		*group_id = MLX5_GET(create_flow_group_out, out,
-+				     group_id);
-+
-+	return err;
-+}
-+
-+int mlx5_cmd_destroy_flow_group(struct mlx5_core_dev *dev,
-+				struct mlx5_flow_table *ft,
-+				unsigned int group_id)
-+{
-+	u32 out[MLX5_ST_SZ_DW(destroy_flow_group_out)];
-+	u32 in[MLX5_ST_SZ_DW(destroy_flow_group_in)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(destroy_flow_group_in, in, opcode,
-+		 MLX5_CMD_OP_DESTROY_FLOW_GROUP);
-+	MLX5_SET(destroy_flow_group_in, in, table_type, ft->type);
-+	MLX5_SET(destroy_flow_group_in, in, table_id, ft->id);
-+	MLX5_SET(destroy_flow_group_in, in, group_id, group_id);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
-+static int mlx5_cmd_set_fte(struct mlx5_core_dev *dev,
-+			    int opmod, int modify_mask,
-+			    struct mlx5_flow_table *ft,
-+			    unsigned group_id,
-+			    struct fs_fte *fte)
-+{
-+	unsigned int inlen = MLX5_ST_SZ_BYTES(set_fte_in) +
-+		fte->dests_size * MLX5_ST_SZ_BYTES(dest_format_struct);
-+	u32 out[MLX5_ST_SZ_DW(set_fte_out)];
-+	struct mlx5_flow_rule *dst;
-+	void *in_flow_context;
-+	void *in_match_value;
-+	void *in_dests;
-+	u32 *in;
-+	int err;
-+
-+	in = mlx5_vzalloc(inlen);
-+	if (!in) {
-+		mlx5_core_warn(dev, "failed to allocate inbox\n");
-+		return -ENOMEM;
++	if (WARN_ON(root->type != FS_TYPE_NAMESPACE)) {
++		pr_warn("mlx5: flow steering node is not in tree or garbaged\n");
++		return NULL;
 +	}
 +
-+	MLX5_SET(set_fte_in, in, opcode, MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
-+	MLX5_SET(set_fte_in, in, op_mod, opmod);
-+	MLX5_SET(set_fte_in, in, modify_enable_mask, modify_mask);
-+	MLX5_SET(set_fte_in, in, table_type, ft->type);
-+	MLX5_SET(set_fte_in, in, table_id,   ft->id);
-+	MLX5_SET(set_fte_in, in, flow_index, fte->index);
-+
-+	in_flow_context = MLX5_ADDR_OF(set_fte_in, in, flow_context);
-+	MLX5_SET(flow_context, in_flow_context, group_id, group_id);
-+	MLX5_SET(flow_context, in_flow_context, flow_tag, fte->flow_tag);
-+	MLX5_SET(flow_context, in_flow_context, action, fte->action);
-+	MLX5_SET(flow_context, in_flow_context, destination_list_size,
-+		 fte->dests_size);
-+	in_match_value = MLX5_ADDR_OF(flow_context, in_flow_context,
-+				      match_value);
-+	memcpy(in_match_value, &fte->val, MLX5_ST_SZ_BYTES(fte_match_param));
-+
-+	in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
-+	list_for_each_entry(dst, &fte->node.children, node.list) {
-+		unsigned int id;
-+
-+		MLX5_SET(dest_format_struct, in_dests, destination_type,
-+			 dst->dest_attr.type);
-+		if (dst->dest_attr.type ==
-+		    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
-+			id = dst->dest_attr.ft->id;
-+		else
-+			id = dst->dest_attr.tir_num;
-+		MLX5_SET(dest_format_struct, in_dests, destination_id, id);
-+		in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
-+	}
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out,
-+					 sizeof(out));
-+	kvfree(in);
-+
-+	return err;
++	ns = container_of(root, struct mlx5_flow_namespace, node);
++	return container_of(ns, struct mlx5_flow_root_namespace, ns);
 +}
 +
-+int mlx5_cmd_create_fte(struct mlx5_core_dev *dev,
-+			struct mlx5_flow_table *ft,
-+			unsigned group_id,
-+			struct fs_fte *fte)
++static inline struct mlx5_core_dev *get_dev(struct fs_node *node)
 +{
-+	return	mlx5_cmd_set_fte(dev, 0, 0, ft, group_id, fte);
++	struct mlx5_flow_root_namespace *root = find_root(node);
++
++	if (root)
++		return root->dev;
++	return NULL;
 +}
 +
-+int mlx5_cmd_update_fte(struct mlx5_core_dev *dev,
-+			struct mlx5_flow_table *ft,
-+			unsigned group_id,
-+			struct fs_fte *fte)
++static void del_flow_table(struct fs_node *node)
 +{
-+	int opmod;
-+	int modify_mask;
-+	int atomic_mod_cap = MLX5_CAP_FLOWTABLE(dev,
-+						flow_table_properties_nic_receive.
-+						flow_modify_en);
-+	if (!atomic_mod_cap)
-+		return -ENOTSUPP;
-+	opmod = 1;
-+	modify_mask = 1 <<
-+		MLX5_SET_FTE_MODIFY_ENABLE_MASK_DESTINATION_LIST;
-+
-+	return	mlx5_cmd_set_fte(dev, opmod, modify_mask, ft, group_id, fte);
-+}
-+
-+int mlx5_cmd_delete_fte(struct mlx5_core_dev *dev,
-+			struct mlx5_flow_table *ft,
-+			unsigned int index)
-+{
-+	u32 out[MLX5_ST_SZ_DW(delete_fte_out)];
-+	u32 in[MLX5_ST_SZ_DW(delete_fte_in)];
++	struct mlx5_flow_table *ft;
++	struct mlx5_core_dev *dev;
++	struct fs_prio *prio;
 +	int err;
 +
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
++	fs_get_obj(ft, node);
++	dev = get_dev(&ft->node);
 +
-+	MLX5_SET(delete_fte_in, in, opcode, MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY);
-+	MLX5_SET(delete_fte_in, in, table_type, ft->type);
-+	MLX5_SET(delete_fte_in, in, table_id, ft->id);
-+	MLX5_SET(delete_fte_in, in, flow_index, index);
-+
-+	err =  mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
-+
-+	return err;
++	err = mlx5_cmd_destroy_flow_table(dev, ft);
++	if (err)
++		pr_warn("flow steering can't destroy ft\n");
++	fs_get_obj(prio, ft->node.parent);
++	prio->num_ft--;
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-new file mode 100644
-index 0000000..f39304e
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -0,0 +1,65 @@
-+/*
-+ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
 +
-+#ifndef _MLX5_FS_CMD_
-+#define _MLX5_FS_CMD_
++static void del_rule(struct fs_node *node)
++{
++	struct mlx5_flow_rule *rule;
++	struct mlx5_flow_table *ft;
++	struct mlx5_flow_group *fg;
++	struct fs_fte *fte;
++	u32	*match_value;
++	struct mlx5_core_dev *dev = get_dev(node);
++	int match_len = MLX5_ST_SZ_BYTES(fte_match_param);
++	int err;
 +
-+int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
-+			       enum fs_flow_table_type type, unsigned int level,
-+			       unsigned int log_size, unsigned int *table_id);
++	match_value = mlx5_vzalloc(match_len);
++	if (!match_value) {
++		pr_warn("failed to allocate inbox\n");
++		return;
++	}
 +
-+int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
-+				struct mlx5_flow_table *ft);
++	fs_get_obj(rule, node);
++	fs_get_obj(fte, rule->node.parent);
++	fs_get_obj(fg, fte->node.parent);
++	memcpy(match_value, fte->val, sizeof(fte->val));
++	fs_get_obj(ft, fg->node.parent);
++	list_del(&rule->node.list);
++	fte->dests_size--;
++	if (fte->dests_size) {
++		err = mlx5_cmd_update_fte(dev, ft,
++					  fg->id, fte);
++		if (err)
++			pr_warn("%s can't del rule fg id=%d fte_index=%d\n",
++				__func__, fg->id, fte->index);
++	}
++	kvfree(match_value);
++}
 +
-+int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
-+			       struct mlx5_flow_table *ft,
-+			       u32 *in, unsigned int *group_id);
++static void del_fte(struct fs_node *node)
++{
++	struct mlx5_flow_table *ft;
++	struct mlx5_flow_group *fg;
++	struct mlx5_core_dev *dev;
++	struct fs_fte *fte;
++	int err;
 +
-+int mlx5_cmd_destroy_flow_group(struct mlx5_core_dev *dev,
-+				struct mlx5_flow_table *ft,
-+				unsigned int group_id);
++	fs_get_obj(fte, node);
++	fs_get_obj(fg, fte->node.parent);
++	fs_get_obj(ft, fg->node.parent);
 +
-+int mlx5_cmd_create_fte(struct mlx5_core_dev *dev,
-+			struct mlx5_flow_table *ft,
-+			unsigned group_id,
-+			struct fs_fte *fte);
++	dev = get_dev(&ft->node);
++	err = mlx5_cmd_delete_fte(dev, ft,
++				  fte->index);
++	if (err)
++		pr_warn("flow steering can't delete fte in index %d of flow group id %d\n",
++			fte->index, fg->id);
 +
-+int mlx5_cmd_update_fte(struct mlx5_core_dev *dev,
-+			struct mlx5_flow_table *ft,
-+			unsigned group_id,
-+			struct fs_fte *fte);
++	fte->status = 0;
++	fg->num_ftes--;
++}
 +
-+int mlx5_cmd_delete_fte(struct mlx5_core_dev *dev,
-+			struct mlx5_flow_table *ft,
-+			unsigned int index);
++static void del_flow_group(struct fs_node *node)
++{
++	struct mlx5_flow_group *fg;
++	struct mlx5_flow_table *ft;
++	struct mlx5_core_dev *dev;
 +
-+#endif
++	fs_get_obj(fg, node);
++	fs_get_obj(ft, fg->node.parent);
++	dev = get_dev(&ft->node);
++
++	if (mlx5_cmd_destroy_flow_group(dev, ft, fg->id))
++		pr_warn("flow steering can't destroy fg %d of ft %d\n",
++			fg->id, ft->id);
++}
++
++static struct fs_fte *alloc_fte(u8 action,
++				u32 flow_tag,
++				u32 *match_value,
++				unsigned int index)
++{
++	struct fs_fte *fte;
++
++	fte = kzalloc(sizeof(*fte), GFP_KERNEL);
++	if (!fte)
++		return ERR_PTR(-ENOMEM);
++
++	memcpy(fte->val, match_value, sizeof(fte->val));
++	fte->node.type =  FS_TYPE_FLOW_ENTRY;
++	fte->flow_tag = flow_tag;
++	fte->index = index;
++	fte->action = action;
++
++	return fte;
++}
++
++static struct mlx5_flow_group *alloc_flow_group(u32 *create_fg_in)
++{
++	struct mlx5_flow_group *fg;
++	void *match_criteria = MLX5_ADDR_OF(create_flow_group_in,
++					    create_fg_in, match_criteria);
++	u8 match_criteria_enable = MLX5_GET(create_flow_group_in,
++					    create_fg_in,
++					    match_criteria_enable);
++	fg = kzalloc(sizeof(*fg), GFP_KERNEL);
++	if (!fg)
++		return ERR_PTR(-ENOMEM);
++
++	fg->mask.match_criteria_enable = match_criteria_enable;
++	memcpy(&fg->mask.match_criteria, match_criteria,
++	       sizeof(fg->mask.match_criteria));
++	fg->node.type =  FS_TYPE_FLOW_GROUP;
++	fg->start_index = MLX5_GET(create_flow_group_in, create_fg_in,
++				   start_flow_index);
++	fg->max_ftes = MLX5_GET(create_flow_group_in, create_fg_in,
++				end_flow_index) - fg->start_index + 1;
++	return fg;
++}
++
++static struct mlx5_flow_table *alloc_flow_table(int level, int max_fte,
++						enum fs_flow_table_type table_type)
++{
++	struct mlx5_flow_table *ft;
++
++	ft  = kzalloc(sizeof(*ft), GFP_KERNEL);
++	if (!ft)
++		return NULL;
++
++	ft->level = level;
++	ft->node.type = FS_TYPE_FLOW_TABLE;
++	ft->type = table_type;
++	ft->max_fte = max_fte;
++
++	return ft;
++}
++
++static struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
++						      int prio,
++						      int max_fte)
++{
++	struct mlx5_flow_table *ft;
++	int err;
++	int log_table_sz;
++	struct mlx5_flow_root_namespace *root =
++		find_root(&ns->node);
++	struct fs_prio *fs_prio = NULL;
++
++	if (!root) {
++		pr_err("mlx5: flow steering failed to find root of namespace\n");
++		return ERR_PTR(-ENODEV);
++	}
++
++	fs_prio = find_prio(ns, prio);
++	if (!fs_prio)
++		return ERR_PTR(-EINVAL);
++
++	lock_ref_node(&fs_prio->node);
++	if (fs_prio->num_ft == fs_prio->max_ft) {
++		err = -ENOSPC;
++		goto unlock_prio;
++	}
++
++	ft = alloc_flow_table(find_next_free_level(fs_prio),
++			      roundup_pow_of_two(max_fte),
++			      root->table_type);
++	if (!ft) {
++		err = -ENOMEM;
++		goto unlock_prio;
++	}
++
++	tree_init_node(&ft->node, 1, del_flow_table);
++	log_table_sz = ilog2(ft->max_fte);
++	err = mlx5_cmd_create_flow_table(root->dev, ft->type, ft->level,
++					 log_table_sz, &ft->id);
++	if (err)
++		goto free_ft;
++
++	tree_add_node(&ft->node, &fs_prio->node);
++	list_add_tail(&ft->node.list, &fs_prio->node.children);
++	fs_prio->num_ft++;
++	unlock_ref_node(&fs_prio->node);
++
++	return ft;
++
++free_ft:
++	kfree(ft);
++unlock_prio:
++	unlock_ref_node(&fs_prio->node);
++	return ERR_PTR(err);
++}
++
++static struct mlx5_flow_group *mlx5_create_flow_group(struct mlx5_flow_table *ft,
++						      u32 *fg_in)
++{
++	struct mlx5_flow_group *fg;
++	struct mlx5_core_dev *dev = get_dev(&ft->node);
++	int err;
++
++	if (!dev)
++		return ERR_PTR(-ENODEV);
++
++	fg = alloc_flow_group(fg_in);
++	if (IS_ERR(fg))
++		return fg;
++
++	lock_ref_node(&ft->node);
++	err = mlx5_cmd_create_flow_group(dev, ft, fg_in, &fg->id);
++	if (err) {
++		kfree(fg);
++		unlock_ref_node(&ft->node);
++		return ERR_PTR(err);
++	}
++	/* Add node to tree */
++	tree_init_node(&fg->node, 1, del_flow_group);
++	tree_add_node(&fg->node, &ft->node);
++	/* Add node to group list */
++	list_add(&fg->node.list, ft->node.children.prev);
++	unlock_ref_node(&ft->node);
++
++	return fg;
++}
++
++static struct mlx5_flow_rule *alloc_rule(struct mlx5_flow_destination *dest)
++{
++	struct mlx5_flow_rule *rule;
++
++	rule = kzalloc(sizeof(*rule), GFP_KERNEL);
++	if (!rule)
++		return NULL;
++
++	rule->node.type = FS_TYPE_FLOW_DEST;
++	memcpy(&rule->dest_attr, dest, sizeof(*dest));
++
++	return rule;
++}
++
++/* fte should not be deleted while calling this function */
++static struct mlx5_flow_rule *add_rule_fte(struct fs_fte *fte,
++					   struct mlx5_flow_group *fg,
++					   struct mlx5_flow_destination *dest)
++{
++	struct mlx5_flow_table *ft;
++	struct mlx5_flow_rule *rule;
++	int err;
++
++	rule = alloc_rule(dest);
++	if (!rule)
++		return ERR_PTR(-ENOMEM);
++
++	fs_get_obj(ft, fg->node.parent);
++	/* Add dest to dests list- added as first element after the head */
++	tree_init_node(&rule->node, 1, del_rule);
++	list_add_tail(&rule->node.list, &fte->node.children);
++	fte->dests_size++;
++	if (fte->dests_size == 1)
++		err = mlx5_cmd_create_fte(get_dev(&ft->node),
++					  ft, fg->id, fte);
++	else
++		err = mlx5_cmd_update_fte(get_dev(&ft->node),
++					  ft, fg->id, fte);
++	if (err)
++		goto free_rule;
++
++	fte->status |= FS_FTE_STATUS_EXISTING;
++
++	return rule;
++
++free_rule:
++	list_del(&rule->node.list);
++	kfree(rule);
++	fte->dests_size--;
++	return ERR_PTR(err);
++}
++
++/* Assumed fg is locked */
++static unsigned int get_free_fte_index(struct mlx5_flow_group *fg,
++				       struct list_head **prev)
++{
++	struct fs_fte *fte;
++	unsigned int start = fg->start_index;
++
++	if (prev)
++		*prev = &fg->node.children;
++
++	/* assumed list is sorted by index */
++	fs_for_each_fte(fte, fg) {
++		if (fte->index != start)
++			return start;
++		start++;
++		if (prev)
++			*prev = &fte->node.list;
++	}
++
++	return start;
++}
++
++/* prev is output, prev->next = new_fte */
++static struct fs_fte *create_fte(struct mlx5_flow_group *fg,
++				 u32 *match_value,
++				 u8 action,
++				 u32 flow_tag,
++				 struct list_head **prev)
++{
++	struct fs_fte *fte;
++	int index;
++
++	index = get_free_fte_index(fg, prev);
++	fte = alloc_fte(action, flow_tag, match_value, index);
++	if (IS_ERR(fte))
++		return fte;
++
++	return fte;
++}
++
++/* Assuming parent fg(flow table) is locked */
++static struct mlx5_flow_rule *add_rule_fg(struct mlx5_flow_group *fg,
++					  u32 *match_value,
++					  u8 action,
++					  u32 flow_tag,
++					  struct mlx5_flow_destination *dest)
++{
++	struct fs_fte *fte;
++	struct mlx5_flow_rule *rule;
++	struct mlx5_flow_table *ft;
++	struct list_head *prev;
++
++	lock_ref_node(&fg->node);
++	fs_for_each_fte(fte, fg) {
++		nested_lock_ref_node(&fte->node);
++		if (compare_match_value(&fg->mask, match_value, &fte->val) &&
++		    action == fte->action && flow_tag == fte->flow_tag) {
++			rule = add_rule_fte(fte, fg, dest);
++			unlock_ref_node(&fte->node);
++			if (IS_ERR(rule))
++				goto unlock_fg;
++			else
++				goto add_rule;
++		}
++		unlock_ref_node(&fte->node);
++	}
++	fs_get_obj(ft, fg->node.parent);
++	if (fg->num_ftes >= fg->max_ftes) {
++		rule = ERR_PTR(-ENOSPC);
++		goto unlock_fg;
++	}
++
++	fte = create_fte(fg, match_value, action, flow_tag, &prev);
++	if (IS_ERR(fte)) {
++		rule = (void *)fte;
++		goto unlock_fg;
++	}
++	tree_init_node(&fte->node, 0, del_fte);
++	rule = add_rule_fte(fte, fg, dest);
++	if (IS_ERR(rule)) {
++		kfree(fte);
++		goto unlock_fg;
++	}
++
++	fg->num_ftes++;
++
++	tree_add_node(&fte->node, &fg->node);
++	list_add(&fte->node.list, prev);
++add_rule:
++	tree_add_node(&rule->node, &fte->node);
++unlock_fg:
++	unlock_ref_node(&fg->node);
++	return rule;
++}
++
++static struct mlx5_flow_rule *
++mlx5_add_flow_rule(struct mlx5_flow_table *ft,
++		   u8 match_criteria_enable,
++		   u32 *match_criteria,
++		   u32 *match_value,
++		   u32 action,
++		   u32 flow_tag,
++		   struct mlx5_flow_destination *dest)
++{
++	struct mlx5_flow_group *g;
++	struct mlx5_flow_rule *rule = ERR_PTR(-EINVAL);
++
++	tree_get_node(&ft->node);
++	lock_ref_node(&ft->node);
++	fs_for_each_fg(g, ft)
++		if (compare_match_criteria(g->mask.match_criteria_enable,
++					   match_criteria_enable,
++					   g->mask.match_criteria,
++					   match_criteria)) {
++			unlock_ref_node(&ft->node);
++			rule = add_rule_fg(g, match_value,
++					   action, flow_tag, dest);
++			goto put;
++		}
++	unlock_ref_node(&ft->node);
++put:
++	tree_put_node(&ft->node);
++	return rule;
++}
++
++static void mlx5_del_flow_rule(struct mlx5_flow_rule *rule)
++{
++	tree_remove_node(&rule->node);
++}
++
++static int mlx5_destroy_flow_table(struct mlx5_flow_table *ft)
++{
++	if (tree_remove_node(&ft->node))
++		mlx5_core_warn(get_dev(&ft->node), "Flow table %d wasn't destroyed, refcount > 1\n",
++			       ft->id);
++
++	return 0;
++}
++
++static void mlx5_destroy_flow_group(struct mlx5_flow_group *fg)
++{
++	if (tree_remove_node(&fg->node))
++		mlx5_core_warn(get_dev(&fg->node), "Flow group %d wasn't destroyed, refcount > 1\n",
++			       fg->id);
++}
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-new file mode 100644
-index 0000000..e8b34a9
---- /dev/null
+index b033714..6c27b8e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -0,0 +1,81 @@
-+/*
-+ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef _MLX5_FS_CORE_
-+#define _MLX5_FS_CORE_
-+
-+#include <linux/mlx5/fs.h>
-+
-+enum fs_node_type {
-+	FS_TYPE_NAMESPACE,
-+	FS_TYPE_PRIO,
-+	FS_TYPE_FLOW_TABLE,
-+	FS_TYPE_FLOW_GROUP,
-+	FS_TYPE_FLOW_ENTRY,
-+	FS_TYPE_FLOW_DEST
-+};
-+
-+enum fs_flow_table_type {
-+	FS_FT_NIC_RX	 = 0x0,
-+};
-+
-+enum fs_fte_status {
-+	FS_FTE_STATUS_EXISTING = 1UL << 0,
-+};
-+
-+struct fs_node {
-+	struct list_head	list;
-+	struct list_head	children;
-+	enum fs_node_type	type;
-+};
-+
-+struct mlx5_flow_rule {
-+	struct fs_node				node;
-+	struct mlx5_flow_destination		dest_attr;
-+};
-+
-+struct mlx5_flow_table {
+@@ -69,13 +69,16 @@ struct mlx5_flow_rule {
+ 	struct mlx5_flow_destination		dest_attr;
+ };
+ 
++/* Type of children is mlx5_flow_group */
+ struct mlx5_flow_table {
+ 	struct fs_node			node;
+ 	u32				id;
++	unsigned int			max_fte;
+ 	unsigned int			level;
+ 	enum fs_flow_table_type		type;
+ };
+ 
++/* Type of children is mlx5_flow_rule */
+ struct fs_fte {
+ 	struct fs_node			node;
+ 	u32				val[MLX5_ST_SZ_DW(fte_match_param)];
+@@ -83,15 +86,19 @@ struct fs_fte {
+ 	u32				flow_tag;
+ 	u32				index;
+ 	u32				action;
++	enum fs_fte_status		status;
+ };
+ 
++/* Type of children is mlx5_flow_table/namespace */
+ struct fs_prio {
+ 	struct fs_node			node;
+ 	unsigned int			max_ft;
+ 	unsigned int			start_level;
+ 	unsigned int			prio;
++	unsigned int			num_ft;
+ };
+ 
++/* Type of children is fs_prio */
+ struct mlx5_flow_namespace {
+ 	/* parent == NULL => root ns */
+ 	struct	fs_node			node;
+@@ -102,6 +109,22 @@ struct mlx5_flow_group_mask {
+ 	u32	match_criteria[MLX5_ST_SZ_DW(fte_match_param)];
+ };
+ 
++/* Type of children is fs_fte */
++struct mlx5_flow_group {
 +	struct fs_node			node;
++	struct mlx5_flow_group_mask	mask;
++	u32				start_index;
++	u32				max_ftes;
++	u32				num_ftes;
 +	u32				id;
-+	enum fs_flow_table_type		type;
 +};
 +
-+struct fs_fte {
-+	struct fs_node			node;
-+	u32				val[MLX5_ST_SZ_DW(fte_match_param)];
-+	u32				dests_size;
-+	u32				flow_tag;
-+	u32				index;
-+	u32				action;
++struct mlx5_flow_root_namespace {
++	struct mlx5_flow_namespace	ns;
++	enum   fs_flow_table_type	table_type;
++	struct mlx5_core_dev		*dev;
 +};
 +
-+#endif
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-new file mode 100644
-index 0000000..34fd8dc
---- /dev/null
-+++ b/include/linux/mlx5/fs.h
-@@ -0,0 +1,47 @@
-+/*
-+ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef _MLX5_FS_
-+#define _MLX5_FS_
-+
-+#include <linux/mlx5/mlx5_ifc.h>
-+
-+struct mlx5_flow_table;
-+
-+struct mlx5_flow_destination {
-+	enum mlx5_flow_destination_type	type;
-+	union {
-+		u32			tir_num;
-+		struct mlx5_flow_table	*ft;
-+	};
-+};
-+#endif
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index f5d9449..131a273 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -256,25 +256,27 @@ struct mlx5_ifc_flow_table_fields_supported_bits {
+ #define fs_get_obj(v, _node)  {v = container_of((_node), typeof(*v), node); }
  
- struct mlx5_ifc_flow_table_prop_layout_bits {
- 	u8         ft_support[0x1];
--	u8         reserved_0[0x1f];
-+	u8         reserved_0[0x2];
-+	u8	   flow_modify_en[0x1];
-+	u8         reserved_1[0x1c];
- 
--	u8         reserved_1[0x2];
-+	u8         reserved_2[0x2];
- 	u8         log_max_ft_size[0x6];
--	u8         reserved_2[0x10];
-+	u8         reserved_3[0x10];
- 	u8         max_ft_level[0x8];
- 
--	u8         reserved_3[0x20];
-+	u8         reserved_4[0x20];
- 
--	u8         reserved_4[0x18];
-+	u8         reserved_5[0x18];
- 	u8         log_max_ft_num[0x8];
- 
--	u8         reserved_5[0x18];
-+	u8         reserved_6[0x18];
- 	u8         log_max_destination[0x8];
- 
--	u8         reserved_6[0x18];
-+	u8         reserved_7[0x18];
- 	u8         log_max_flow[0x8];
- 
--	u8         reserved_7[0x40];
-+	u8         reserved_8[0x40];
- 
- 	struct mlx5_ifc_flow_table_fields_supported_bits ft_field_support;
- 
-@@ -2843,6 +2845,13 @@ struct mlx5_ifc_set_hca_cap_in_bits {
- 	union mlx5_ifc_hca_cap_union_bits capability;
- };
- 
-+enum {
-+	MLX5_SET_FTE_MODIFY_ENABLE_MASK_ACTION    = 0x0,
-+	MLX5_SET_FTE_MODIFY_ENABLE_MASK_FLOW_TAG  = 0x1,
-+	MLX5_SET_FTE_MODIFY_ENABLE_MASK_DESTINATION_LIST    = 0x2,
-+	MLX5_SET_FTE_MODIFY_ENABLE_MASK_FLOW_COUNTERS    = 0x3
-+};
-+
- struct mlx5_ifc_set_fte_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_0[0x18];
-@@ -2867,11 +2876,14 @@ struct mlx5_ifc_set_fte_in_bits {
- 	u8         reserved_4[0x8];
- 	u8         table_id[0x18];
- 
--	u8         reserved_5[0x40];
-+	u8         reserved_5[0x18];
-+	u8         modify_enable_mask[0x8];
-+
-+	u8         reserved_6[0x20];
- 
- 	u8         flow_index[0x20];
- 
--	u8         reserved_6[0xe0];
-+	u8         reserved_7[0xe0];
- 
- 	struct mlx5_ifc_flow_context_bits flow_context;
- };
+ #define fs_list_for_each_entry(pos, root)		\
 -- 
 1.7.1
