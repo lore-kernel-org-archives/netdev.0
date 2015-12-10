@@ -1,37 +1,65 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH] iwlegacy: mark il_adjust_beacon_interval as noinline
-Date: Thu, 10 Dec 2015 12:08:02 +0100
-Message-ID: <20151210110801.GA2010@redhat.com>
-References: <36263581.L8412YxJjp@wuerfel>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 2/3] ser_gigaset: fix deallocation of platform device
+ structure
+Date: Thu, 10 Dec 2015 12:20:22 +0100
+Message-ID: <1449746422.16068.18.camel@tiscali.nl>
+References: <cover.1449570042.git.tilman@imap.cc>
+	 <83c4ab9bbca911aad62343154eabfa1af077b021.1449570042.git.tilman@imap.cc>
+	 <1449616321.2384.36.camel@tiscali.nl> <56680C25.1050704@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, nico@linaro.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <36263581.L8412YxJjp@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Peter Hurley <peter@hurleysoftware.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	syzkaller@googlegroups.com, David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de,
+	gigaset307x-common@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lb2-smtp-cloud2.xs4all.net ([194.109.24.25]:47339 "EHLO
+	lb2-smtp-cloud2.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750762AbbLJLU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 06:20:26 -0500
+In-Reply-To: <56680C25.1050704@imap.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 09, 2015 at 05:42:41PM +0100, Arnd Bergmann wrote:
-> With the new optimized do_div() code, some versions of gcc
-> produce obviously incorrect code that leads to a link error
-> in iwlegacy/common.o:
+On wo, 2015-12-09 at 12:10 +0100, Tilman Schmidt wrote:
+> Am 09.12.2015 um 00:12 schrieb Paul Bolle:
+
+> > So what does setting
+> > cs->hw.ser->dev.dev.driver_data to NULL just before freeing it buy
+> > us?
 > 
-> drivers/built-in.o: In function `il_send_rxon_timing':
-> :(.text+0xa6b4d4): undefined reference to `____ilog2_NaN'
-> :(.text+0xa6b4f0): undefined reference to `__aeabi_uldivmod'
+> We're freeing cs->hw.ser, not cs->hw.ser->dev.
+> Clearing the reference to cs from the device structure before freeing 
+> cs guards against possible use-after-free.
 > 
-> In a few thousand randconfig builds, I have seen this problem
-> a couple of times in this file, but never anywhere else in the
-> kernel, so we can try to work around this in the only file
-> that shows the behavior, by marking the il_adjust_beacon_interval
-> function as noinline, which convinces gcc to use the unoptimized
-> do_div() all the time.
+> > > +	kfree(cs->hw.ser);
+> > > +	cs->hw.ser = NULL;
+> > 
+> > I might be missing something, but what does setting this to NULL buy 
+> > us here?
+> 
+> Just defensive programming. Guarding against possible use-after-free 
+> or double-free.
 
-I don't think this is good way to "fix" the issue, but also have
-nothing against to this particular change.
+I'm inclined to think this is not the best way to guard against such
+nasty bugs. But then again, I'm only a few months into my shift of
+looking after the gigaset drivers and haven't had to track down such
+bugs yet. But I'd be surprised if many other drivers do it that way and
+think this is a job for (tree wide) debugging tools. But, whatever the
+merits of our views, we can defer this discussion to some future date.
+See below.
 
-Acked-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> I'm a big fan of one change per patch. If we also want to modify the
+> moved code then that should be done in a separate patch. It makes
+> bisecting so much easier. Same reason why I separated out patch 3/3.
+
+
+Fair enough.
+
+
+Paul Bolle
