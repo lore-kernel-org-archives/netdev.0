@@ -1,29 +1,29 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v2 2/3] geneve: UDP checksum configuration via netlink
-Date: Thu, 10 Dec 2015 12:34:32 -0800
-Message-ID: <1449779673-3701191-3-git-send-email-tom@herbertland.com>
-References: <1449779673-3701191-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next v3 2/3] geneve: UDP checksum configuration via netlink
+Date: Thu, 10 Dec 2015 12:37:45 -0800
+Message-ID: <1449779866-3704097-3-git-send-email-tom@herbertland.com>
+References: <1449779866-3704097-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:62299 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38346 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754354AbbLJUfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 15:35:00 -0500
+	by vger.kernel.org with ESMTP id S1752456AbbLJUhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 15:37:54 -0500
 Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBAKYK5v000938
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:35:00 -0800
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBAKYcNT001010
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:37:54 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1yqfyt05d2-15
+	by mx0a-00082601.pphosted.com with ESMTP id 1yqfyt05we-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:35:00 -0800
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:37:54 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 70ec5e229f7d11e5bbc50002c99293a0-223fc210 for <netdev@vger.kernel.org>;	Thu,
- 10 Dec 2015 12:34:41 -0800
-In-Reply-To: <1449779673-3701191-1-git-send-email-tom@herbertland.com>
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ e2a1d4b69f7d11e5b94224be0593f280-1d16b6d0 for <netdev@vger.kernel.org>;	Thu,
+ 10 Dec 2015 12:37:52 -0800
+In-Reply-To: <1449779866-3704097-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
