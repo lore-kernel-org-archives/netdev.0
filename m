@@ -1,364 +1,80 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v3 2/3] geneve: UDP checksum configuration via netlink
-Date: Thu, 10 Dec 2015 12:37:45 -0800
-Message-ID: <1449779866-3704097-3-git-send-email-tom@herbertland.com>
-References: <1449779866-3704097-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next v3 0/3] geneve: Add support for Remote Checksum Offload
+Date: Thu, 10 Dec 2015 12:37:43 -0800
+Message-ID: <1449779866-3704097-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38346 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752456AbbLJUhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 15:37:54 -0500
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBAKYcNT001010
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:37:54 -0800
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57222 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751308AbbLJUhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 15:37:52 -0500
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tBAKbFCc011758
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:37:52 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1yqfyt05we-1
+	by m0001303.ppops.net with ESMTP id 1yqg0pg5nf-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:37:54 -0800
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 12:37:52 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.223.100.97) with ESMTP	id
- e2a1d4b69f7d11e5b94224be0593f280-1d16b6d0 for <netdev@vger.kernel.org>;	Thu,
- 10 Dec 2015 12:37:52 -0800
-In-Reply-To: <1449779866-3704097-1-git-send-email-tom@herbertland.com>
+ e0f1df269f7d11e5b94224be0593f280-1d16b6d0 for <netdev@vger.kernel.org>;	Thu,
+ 10 Dec 2015 12:37:50 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to enable and disable UDP checksums via netlink. This is
-similar to how VXLAN and GUE allow this. This includes support for
-enabling the UDP zero checksum (for both TX and RX).
+This patch set adds UDP checksum configuration via netlink and
+Remote Checksum Offload for Geneve,
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- drivers/net/geneve.c         | 93 +++++++++++++++++++++++++++++++++-----------
- include/uapi/linux/if_link.h |  3 ++
- 2 files changed, 73 insertions(+), 23 deletions(-)
+v2:
+  - Fix type in commi log
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index de5c30c..0750d7a 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -71,8 +71,14 @@ struct geneve_dev {
- 	__be16		   dst_port;
- 	bool		   collect_md;
- 	struct gro_cells   gro_cells;
-+	u32		   flags;
- };
- 
-+/* Geneve device flags */
-+#define GENEVE_F_UDP_CSUM		BIT(0)
-+#define GENEVE_F_UDP_ZERO_CSUM6_TX	BIT(1)
-+#define GENEVE_F_UDP_ZERO_CSUM6_RX	BIT(2)
-+
- struct geneve_sock {
- 	bool			collect_md;
- 	struct list_head	list;
-@@ -81,6 +87,7 @@ struct geneve_sock {
- 	int			refcnt;
- 	struct udp_offload	udp_offloads;
- 	struct hlist_head	vni_list[VNI_HASH_SIZE];
-+	u32			flags;
- };
- 
- static inline __u32 geneve_net_vni_hash(u8 vni[3])
-@@ -343,7 +350,7 @@ error:
- }
- 
- static struct socket *geneve_create_sock(struct net *net, bool ipv6,
--					 __be16 port)
-+					 __be16 port, u32 flags)
- {
- 	struct socket *sock;
- 	struct udp_port_cfg udp_conf;
-@@ -354,6 +361,8 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
- 	if (ipv6) {
- 		udp_conf.family = AF_INET6;
- 		udp_conf.ipv6_v6only = 1;
-+		udp_conf.use_udp6_rx_checksums =
-+		    !(flags & GENEVE_F_UDP_ZERO_CSUM6_RX);
- 	} else {
- 		udp_conf.family = AF_INET;
- 		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
-@@ -480,7 +489,7 @@ static int geneve_gro_complete(struct sk_buff *skb, int nhoff,
- 
- /* Create new listen socket if needed */
- static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
--						bool ipv6)
-+						bool ipv6, u32 flags)
- {
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
- 	struct geneve_sock *gs;
-@@ -492,7 +501,7 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
- 	if (!gs)
- 		return ERR_PTR(-ENOMEM);
- 
--	sock = geneve_create_sock(net, ipv6, port);
-+	sock = geneve_create_sock(net, ipv6, port, flags);
- 	if (IS_ERR(sock)) {
- 		kfree(gs);
- 		return ERR_CAST(sock);
-@@ -575,12 +584,13 @@ static int geneve_sock_add(struct geneve_dev *geneve, bool ipv6)
- 		goto out;
- 	}
- 
--	gs = geneve_socket_create(net, geneve->dst_port, ipv6);
-+	gs = geneve_socket_create(net, geneve->dst_port, ipv6, geneve->flags);
- 	if (IS_ERR(gs))
- 		return PTR_ERR(gs);
- 
- out:
- 	gs->collect_md = geneve->collect_md;
-+	gs->flags = geneve->flags;
- #if IS_ENABLED(CONFIG_IPV6)
- 	if (ipv6)
- 		geneve->sock6 = gs;
-@@ -642,11 +652,12 @@ static void geneve_build_header(struct genevehdr *geneveh,
- 
- static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
- 			    __be16 tun_flags, u8 vni[3], u8 opt_len, u8 *opt,
--			    bool csum, bool xnet)
-+			    u32 flags, bool xnet)
- {
- 	struct genevehdr *gnvh;
- 	int min_headroom;
- 	int err;
-+	bool udp_sum = !!(flags & GENEVE_F_UDP_CSUM);
- 
- 	skb_scrub_packet(skb, xnet);
- 
-@@ -658,7 +669,7 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
- 		goto free_rt;
- 	}
- 
--	skb = udp_tunnel_handle_offloads(skb, csum);
-+	skb = udp_tunnel_handle_offloads(skb, udp_sum);
- 	if (IS_ERR(skb)) {
- 		err = PTR_ERR(skb);
- 		goto free_rt;
-@@ -678,11 +689,12 @@ free_rt:
- #if IS_ENABLED(CONFIG_IPV6)
- static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
- 			     __be16 tun_flags, u8 vni[3], u8 opt_len, u8 *opt,
--			     bool csum, bool xnet)
-+			     u32 flags, bool xnet)
- {
- 	struct genevehdr *gnvh;
- 	int min_headroom;
- 	int err;
-+	bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM6_TX);
- 
- 	skb_scrub_packet(skb, xnet);
- 
-@@ -694,7 +706,7 @@ static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
- 		goto free_dst;
- 	}
- 
--	skb = udp_tunnel_handle_offloads(skb, csum);
-+	skb = udp_tunnel_handle_offloads(skb, udp_sum);
- 	if (IS_ERR(skb)) {
- 		err = PTR_ERR(skb);
- 		goto free_dst;
-@@ -824,9 +836,9 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	struct flowi4 fl4;
- 	__u8 tos, ttl;
- 	__be16 sport;
--	bool udp_csum;
- 	__be16 df;
- 	bool xnet = !net_eq(geneve->net, dev_net(geneve->dev));
-+	u32 flags = geneve->flags;
- 
- 	if (geneve->collect_md) {
- 		if (unlikely(!info || !(info->mode & IP_TUNNEL_INFO_TX))) {
-@@ -857,9 +869,13 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (key->tun_flags & TUNNEL_GENEVE_OPT)
- 			opts = ip_tunnel_info_opts(info);
- 
--		udp_csum = !!(key->tun_flags & TUNNEL_CSUM);
-+		if (key->tun_flags & TUNNEL_CSUM)
-+			flags |= GENEVE_F_UDP_CSUM;
-+		else
-+			flags &= ~GENEVE_F_UDP_CSUM;
-+
- 		err = geneve_build_skb(rt, skb, key->tun_flags, vni,
--				       info->options_len, opts, udp_csum, xnet);
-+				       info->options_len, opts, flags, xnet);
- 		if (unlikely(err))
- 			goto err;
- 
-@@ -867,9 +883,8 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		ttl = key->ttl;
- 		df = key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
- 	} else {
--		udp_csum = false;
- 		err = geneve_build_skb(rt, skb, 0, geneve->vni,
--				       0, NULL, udp_csum, xnet);
-+				       0, NULL, flags, xnet);
- 		if (unlikely(err))
- 			goto err;
- 
-@@ -883,7 +898,7 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	err = udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
- 				  tos, ttl, df, sport, geneve->dst_port,
- 				  !net_eq(geneve->net, dev_net(geneve->dev)),
--				  !udp_csum);
-+				  !(flags & GENEVE_F_UDP_CSUM));
- 
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
-@@ -912,8 +927,8 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	struct flowi6 fl6;
- 	__u8 prio, ttl;
- 	__be16 sport;
--	bool udp_csum;
- 	bool xnet = !net_eq(geneve->net, dev_net(geneve->dev));
-+	u32 flags = geneve->flags;
- 
- 	if (geneve->collect_md) {
- 		if (unlikely(!info || !(info->mode & IP_TUNNEL_INFO_TX))) {
-@@ -942,19 +957,22 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (key->tun_flags & TUNNEL_GENEVE_OPT)
- 			opts = ip_tunnel_info_opts(info);
- 
--		udp_csum = !!(key->tun_flags & TUNNEL_CSUM);
-+		if (key->tun_flags & TUNNEL_CSUM)
-+			flags |= GENEVE_F_UDP_CSUM;
-+		else
-+			flags &= ~GENEVE_F_UDP_CSUM;
-+
- 		err = geneve6_build_skb(dst, skb, key->tun_flags, vni,
- 					info->options_len, opts,
--					udp_csum, xnet);
-+					flags, xnet);
- 		if (unlikely(err))
- 			goto err;
- 
- 		prio = ip_tunnel_ecn_encap(key->tos, iip, skb);
- 		ttl = key->ttl;
- 	} else {
--		udp_csum = false;
- 		err = geneve6_build_skb(dst, skb, 0, geneve->vni,
--					0, NULL, udp_csum, xnet);
-+					0, NULL, flags, xnet);
- 		if (unlikely(err))
- 			goto err;
- 
-@@ -966,7 +984,8 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	}
- 	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
- 				   &fl6.saddr, &fl6.daddr, prio, ttl,
--				   sport, geneve->dst_port, !udp_csum);
-+				   sport, geneve->dst_port,
-+				   !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
- 
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
-@@ -1099,6 +1118,9 @@ static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
- 	[IFLA_GENEVE_TOS]		= { .type = NLA_U8 },
- 	[IFLA_GENEVE_PORT]		= { .type = NLA_U16 },
- 	[IFLA_GENEVE_COLLECT_METADATA]	= { .type = NLA_FLAG },
-+	[IFLA_GENEVE_UDP_CSUM]		= { .type = NLA_U8 },
-+	[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]	= { .type = NLA_U8 },
-+	[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]	= { .type = NLA_U8 },
- };
- 
- static int geneve_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -1152,7 +1174,7 @@ static struct geneve_dev *geneve_find_dev(struct geneve_net *gn,
- static int geneve_configure(struct net *net, struct net_device *dev,
- 			    union geneve_addr *remote,
- 			    __u32 vni, __u8 ttl, __u8 tos, __be16 dst_port,
--			    bool metadata)
-+			    bool metadata, u32 flags)
- {
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
- 	struct geneve_dev *t, *geneve = netdev_priv(dev);
-@@ -1183,6 +1205,7 @@ static int geneve_configure(struct net *net, struct net_device *dev,
- 	geneve->tos = tos;
- 	geneve->dst_port = dst_port;
- 	geneve->collect_md = metadata;
-+	geneve->flags = flags;
- 
- 	t = geneve_find_dev(gn, dst_port, remote, geneve->vni,
- 			    &tun_on_same_port, &tun_collect_md);
-@@ -1213,6 +1236,7 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 	bool metadata = false;
- 	union geneve_addr remote = geneve_remote_unspec;
- 	__u32 vni = 0;
-+	u32 flags = 0;
- 
- 	if (data[IFLA_GENEVE_REMOTE] && data[IFLA_GENEVE_REMOTE6])
- 		return -EINVAL;
-@@ -1253,8 +1277,20 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 	if (data[IFLA_GENEVE_COLLECT_METADATA])
- 		metadata = true;
- 
-+	if (data[IFLA_GENEVE_UDP_CSUM] &&
-+	    nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
-+		flags |= GENEVE_F_UDP_CSUM;
-+
-+	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX] &&
-+	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
-+		flags |= GENEVE_F_UDP_ZERO_CSUM6_TX;
-+
-+	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX] &&
-+	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
-+		flags |= GENEVE_F_UDP_ZERO_CSUM6_RX;
-+
- 	return geneve_configure(net, dev, &remote, vni, ttl, tos, dst_port,
--				metadata);
-+				metadata, flags);
- }
- 
- static void geneve_dellink(struct net_device *dev, struct list_head *head)
-@@ -1273,6 +1309,9 @@ static size_t geneve_get_size(const struct net_device *dev)
- 		nla_total_size(sizeof(__u8)) +  /* IFLA_GENEVE_TOS */
- 		nla_total_size(sizeof(__be16)) +  /* IFLA_GENEVE_PORT */
- 		nla_total_size(0) +	 /* IFLA_GENEVE_COLLECT_METADATA */
-+		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_CSUM */
-+		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_ZERO_CSUM6_TX */
-+		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_ZERO_CSUM6_RX */
- 		0;
- }
- 
-@@ -1309,6 +1348,14 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 			goto nla_put_failure;
- 	}
- 
-+	if (nla_put_u8(skb, IFLA_GENEVE_UDP_CSUM,
-+		       !!(geneve->flags & GENEVE_F_UDP_CSUM)) ||
-+	    nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
-+		       !!(geneve->flags & GENEVE_F_UDP_ZERO_CSUM6_TX)) ||
-+	    nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
-+		       !!(geneve->flags & GENEVE_F_UDP_ZERO_CSUM6_RX)))
-+		goto nla_put_failure;
-+
- 	return 0;
- 
- nla_put_failure:
-@@ -1342,7 +1389,7 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
- 		return dev;
- 
- 	err = geneve_configure(net, dev, &geneve_remote_unspec,
--			       0, 0, 0, htons(dst_port), true);
-+			       0, 0, 0, htons(dst_port), true, 0);
- 	if (err) {
- 		free_netdev(dev);
- 		return ERR_PTR(err);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 5ad5737..2be1dd5 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -462,6 +462,9 @@ enum {
- 	IFLA_GENEVE_PORT,	/* destination port */
- 	IFLA_GENEVE_COLLECT_METADATA,
- 	IFLA_GENEVE_REMOTE6,
-+	IFLA_GENEVE_UDP_CSUM,
-+	IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
-+	IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
- 	__IFLA_GENEVE_MAX
- };
- #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
+v3:
+  - Fix issue of taking sizeof a pointer instead of the actual object (for real)
+
+Testing (10Gbps mlx4):
+
+Single connection TCP_STREAM in netperf
+
+  - No UDP checksums, no RCO
+     4371.9 Mbpos
+
+  - UDP checksums enabled, no RCO
+     7263.4 Mbps
+   
+  - UDP checksums enabled, RCO enabled
+     7607.6 Mbps
+
+200 TCP_RR streams
+
+  - No UDP checksums, no RCO
+    55.05% CPU utilization
+    879284.9 tps
+    184/231/742 50/90/99% latencies
+
+  - UDP checksums enabled, no RCO
+    55.46% CPU utilization
+    901785 tps
+    176/222/738 50/90/99% latencies
+
+  - UDP checksums enabled, RCO enabled
+    52.36% CPU utilization
+    910582 tps
+    174/218/706 50/90/99% latencies
+
+
+Tom Herbert (3):
+  rco: Clean up casting errors
+  geneve: UDP checksum configuration via netlink
+  geneve: Remote Checksum Offload support
+
+ drivers/net/geneve.c         | 249 ++++++++++++++++++++++++++++++++++++++-----
+ include/net/checksum.h       |   3 +-
+ include/net/geneve.h         |  22 +++-
+ include/uapi/linux/if_link.h |   6 ++
+ 4 files changed, 246 insertions(+), 34 deletions(-)
+
 -- 
 2.4.6
