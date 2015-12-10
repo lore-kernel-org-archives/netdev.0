@@ -1,98 +1,85 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH v2] r8169: Don't claim WoL works if LanWake flag is not
- set
-Date: Thu, 10 Dec 2015 23:02:55 +0100
-Message-ID: <20151210220255.GB3507@calimero.vinschen.de>
-References: <1449655730-3328-1-git-send-email-vinschen@redhat.com>
- <1449657826-4461-1-git-send-email-vinschen@redhat.com>
- <20151209224306.GA5082@electric-eye.fr.zoreil.com>
- <20151210095135.GA21583@calimero.vinschen.de>
- <20151210204054.GA30391@electric-eye.fr.zoreil.com>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [PATCH] ieee802154-atusb: Delete an unnecessary check before the
+ function call "kfree_skb"
+Date: Thu, 10 Dec 2015 23:45:57 +0100
+Message-ID: <566A00A5.8030806@osg.samsung.com>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <564B5327.4010307@osg.samsung.com>
+ <564B5344.1090200@osg.samsung.com> <56695093.8080605@osg.samsung.com>
+ <7DCE62A2-DEA0-4ABF-A0D6-4EE00BDFFE95@holtmann.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="61jdw2sOBCFtR2d/"
-Cc: netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Chun-Hao Lin <hau@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Corinna Vinschen <vinschen@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:50965 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751134AbbLJWC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 17:02:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20151210204054.GA30391@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7DCE62A2-DEA0-4ABF-A0D6-4EE00BDFFE95@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello.
 
---61jdw2sOBCFtR2d/
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 10/12/15 19:16, Marcel Holtmann wrote:
+> Hi Stefan,
+>
+>>>> From: Markus Elfring <elfring@users.sourceforge.net>
+>>>> Date: Mon, 16 Nov 2015 13:50:23 +0100
+>>>>
+>>>> The kfree_skb() function tests whether its argument is NULL and then
+>>>> returns immediately. Thus the test around the call is not needed.
+>>>>
+>>>> This issue was detected by using the Coccinelle software.
+>>>>
+>>>> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+>>>> ---
+>>>> drivers/net/ieee802154/atusb.c | 3 +--
+>>>> 1 file changed, 1 insertion(+), 2 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
+>>>> index 199a94a..b1cd865 100644
+>>>> --- a/drivers/net/ieee802154/atusb.c
+>>>> +++ b/drivers/net/ieee802154/atusb.c
+>>>> @@ -310,8 +310,7 @@ static void atusb_free_urbs(struct atusb *atusb)
+>>>>          urb = usb_get_from_anchor(&atusb->idle_urbs);
+>>>>          if (!urb)
+>>>>              break;
+>>>> -        if (urb->context)
+>>>> -            kfree_skb(urb->context);
+>>>> +        kfree_skb(urb->context);
+>>>>          usb_free_urb(urb);
+>>>>      }
+>>>> }
+>>> Acked-by: Stefan Schmidt <stefan@osg.samsung.com>
+>>
+>> You got the original patch and my ACK on this one or would you prefer me to resend it again?
+> this slipped through, but now it does no longer apply.
+>
+> Applying: ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
+> error: patch failed: drivers/net/ieee802154/atusb.c:310
+> error: drivers/net/ieee802154/atusb.c: patch does not apply
+> Patch failed at 0001 ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
 
-On Dec 10 21:40, Francois Romieu wrote:
-> Corinna Vinschen <vinschen@redhat.com> :
-> [...]
-> > I could do this (after I could lay my hands on such a board, that is),
-> > but I'm not convinced that this makes a lot of sense for two reasons.
->=20
-> Ok, let's get this change applied. Whatever happens should not be
-> hard to manage (I'm thinking about other boards or BIOSes relying on the
-> current - broken as it can be - behavior to work correctly).
->=20
-> [...]
-> > 1.  There is no global change in behaviour.  The usual way to handle the
-> >     WoL flags is to set the affected method flags and additionally set
-> >     LanWake if any of the method flags is set.  The fact that the method
-> >     flags don't enable WoL without also settting the LanWake flag is
-> >     documented.
->=20
-> I see no such thing in "7.5 Power Management Function" of the 8168c
-> registers datasheet. While Config3 states Magic Packet and Link Up
-> dependencies on Config1.PMEn, it says nothing about Config5.LanWake.
->=20
-> On old 8169 chipsets LanWake is autoloaded from EEPROM.
->=20
-> Plausible for Config5.{B, M, U}WF ? Ok.
->=20
-> Documented ? I am genuinely curious to know where.
+Not good. I did another resend, this one applied, compiled and worked 
+fine for me. You will be in the to line.
 
-Ok, I reread the documentation I have, and I got that wrong it seems.
-Apparently the LanWake flag enables or disables the LANWAKE/LANWAKEB pin
-only but not the other possible PM events.
-
-So, self-NACKed.
-
-It's still a bit weird.  On the machines I tested this on, if I disable
-LanWake and shutdown the machine, I can send, e.g., MagicPackets as much
-as I like, the machined don't come up.  Isn't it a bit misleading then
-if ethtool reports that some WoL method is enabled but it doesn't work?
-
-
-Corinna
-
---61jdw2sOBCFtR2d/
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJWafaPAAoJEPU2Bp2uRE+gDSMQAJfsRIIEqFyf34WJvgI59Aoe
-rWCGPSiXEBDSXhloiBPtmsAFHkqQIrA1pxmMYmEOUUiWD8PT5i06xCeKDC8qDSl8
-f9StbJVetAqvQ+5siLMJdWQsp2FlBKFIm1EXrcjRhRDTe8raVeYfyDoxSYl7rvTz
-7NiXXwJY2iX0YEq05GRAR91AAt0GYg68cPZ4uYDI9IOujlVAdxh7GKIIL3zvaXQI
-VNULVx+8DF94d3ZmhJCz1ixuorcDPDCMZzPs/TMoVhgATTA0HwiCNdM+ZPqnzlxA
-AbDZ5d9O1JhXvEez6MWkAAIUA2aGVfkskZLvZnHJNC1+/aVGhcN/STHw0YybOe25
-nAoe+K+y12nZHA1nMcFdixdqU7Vis5IzKw5iZfZxDTvNO9pmQCzzi87x2BxJoJs6
-qkjc/VscNajrjhU82qbHMCiyT+o79cLq7am/CbzFleCZ84Yk3wF4DRobqVzeIsKz
-d9RlJR/HqgPdH+WaDnQzUGrRhFusACjClZwQleNp8bvVzSehC7sfWTXUEdK2XDar
-q43ytHalVmyaWSkwxO3lOb8KOk7FChYqu3IQo+PPx7HouQA6vLUU28UXfg0ryZ2F
-RUvNcHtaBsnAn0yGMADI1FQBhnCfd5DeNeiaigtkh88cCskJleK5jUF6TK+sz6S7
-Zp6+B7XH5rdCrbsOOyfK
-=0v8n
------END PGP SIGNATURE-----
-
---61jdw2sOBCFtR2d/--
+regards
+Stefan Schmidt
