@@ -1,48 +1,48 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] net/macb: add support for resetting PHY using GPIO
-Date: Thu, 10 Dec 2015 08:37:56 +0100
-Message-ID: <20151210073756.GA11966@pengutronix.de>
-References: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
+From: Sunil Goutham <sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 0/2] net: thunderx: Support for pass-2 hw features
+Date: Thu, 10 Dec 2015 13:25:18 +0530
+Message-ID: <1449734120-8912-1-git-send-email-sunil.kovvuri@gmail.com>
+References: <y>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:34343 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751498AbbLJHiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 02:38:05 -0500
-Content-Disposition: inline
-In-Reply-To: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, Sunil.Goutham@caviumnetworks.com,
+ p.fedin@samsung.com, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <y>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Gregory,
+From: Sunil Goutham <sgoutham@cavium.com>
 
-On Wed, Dec 09, 2015 at 06:49:43PM +0100, Gregory CLEMENT wrote:
-> With device tree it is no more possible to reset the PHY at board
-> level. Furthermore, doing in the driver allow to power down the PHY when
-> the network interface is no more used.
-> 
-> The patch introduces a new optional property "phy-reset-gpio" inspired
-> from the one use for the FEC.
+This patch set adds support for new features added in pass-2 revision
+of hardware like TSO and count based interrupt coalescing.
 
-I don't think it's a good idea to further extend the usage of this
-binding. The driver should use the phy-handle property and
-of_phy_connect() which gives you a proper device node for the phy. Then
-the phy device node should get the reset gpio. I know it's more work,
-but doing it like this gives you additional goodies like proper handling
-of the max-speed property, a fixed-link if necessary and picking the
-correct phy if there are muliple phys on the bus.
+Changes from v1:
+- Addressed comments received regarding boolean bit field changes 
+  by excluding them from this patch. Will submit a seperate
+  patch along with cleanup of unsed field.
+- Got rid of new macro 'VNIC_NAPI_WEIGHT' introduced in 
+  count threshold interrupt patch.
 
-Sascha
+Sunil Goutham (2):
+  net: thunderx: HW TSO support for pass-2 hardware
+  net: thunderx: Enable CQE count threshold interrupt
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+ drivers/net/ethernet/cavium/thunder/nic.h          |    6 ++++
+ drivers/net/ethernet/cavium/thunder/nic_main.c     |   11 ++-----
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   15 ++++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   22 ++++++++++----
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |    2 +-
+ drivers/net/ethernet/cavium/thunder/q_struct.h     |   30 ++++++++++---------
+ 6 files changed, 55 insertions(+), 31 deletions(-)
