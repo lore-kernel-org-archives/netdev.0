@@ -1,32 +1,30 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute] ila: Add support for ILA lwtunnels
-Date: Thu, 10 Dec 2015 09:05:09 -0800
-Message-ID: <20151210090509.0cbc5329@xeon-e3>
-References: <1448924248-4025991-1-git-send-email-tom@herbertland.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] ip neigh: device is optional for proxy entries
+Date: Thu, 10 Dec 2015 09:06:45 -0800
+Message-ID: <20151210090645.053fcecc@xeon-e3>
+References: <144892182676.2301.1460574558873523132.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: netdev@vger.kernel.org
+To: Konstantin Khlebnikov <koct9i@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:40249 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752998AbbLJRFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 12:05:16 -0500
-In-Reply-To: <1448924248-4025991-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36064 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbbLJRGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 12:06:40 -0500
+Received: by pacdm15 with SMTP id dm15so50472577pac.3
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 09:06:40 -0800 (PST)
+In-Reply-To: <144892182676.2301.1460574558873523132.stgit@zurg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Nov 2015 14:57:28 -0800
-Tom Herbert <tom@herbertland.com> wrote:
+On Tue, 01 Dec 2015 01:17:06 +0300
+Konstantin Khlebnikov <koct9i@gmail.com> wrote:
 
-> This patch:
->  - Adds a utility function for parsing a 64 bit address
->  - Adds a utility function for converting a 64 bit address to ASCII
->  - Adds and ILA encap type in lwt tunnels
+> Though dumping such entries crashes present kernels.
 > 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Konstantin Khlebnikov <koct9i@gmail.com>
 
-Looks good applied.
-
-You might want to get some of that 64 bit stuff into libmnl as well.
+Applied thanks, but I nobody will use it until after your
+kernel patch makes it to stable.
