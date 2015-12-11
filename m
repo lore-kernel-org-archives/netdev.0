@@ -1,60 +1,95 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net/macb: add support for resetting PHY using GPIO
-Date: Fri, 11 Dec 2015 10:33:22 +0000
-Message-ID: <20151211103322.GR8644@n2100.arm.linux.org.uk>
-References: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
- <20151210073756.GA11966@pengutronix.de>
- <871tau8hpj.fsf@free-electrons.com>
- <20151211084630.GW11966@pengutronix.de>
- <87wpsl727t.fsf@free-electrons.com>
- <20151211102130.GA11966@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH v2] net/macb: add support for resetting PHY using GPIO
+Date: Fri, 11 Dec 2015 11:34:53 +0100
+Message-ID: <1449830093-29433-1-git-send-email-gregory.clement@free-electrons.com>
+Cc: devicetree@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
 	linux-arm-kernel@lists.infradead.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151211102130.GA11966@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 11, 2015 at 11:21:30AM +0100, Sascha Hauer wrote:
-> On Fri, Dec 11, 2015 at 10:40:22AM +0100, Gregory CLEMENT wrote:
-> > So I see 2 options:
-> > 
-> > - leaving the phy-reset-gpios property in the ethernet node. Thanks to
-> >   this we can use the gpiod functions, and it is still possible to use
-> >   manage the power management.
-> > 
-> > - using a reset-gpios property inside the phy node. But then the only
-> >   solution to get a reference on it, will be to use
-> >   of_get_named_gpio. All the gpiod functions need a reference to the
-> >   device that we won't have at this point. Also we will only be able to
-> >   power up the reset, but we won't have any reference to it latter.
-> 
-> Have you seen fwnode_get_named_gpiod()? This seems to be the right
-> function for the job.
+With device tree it is no more possible to reset the PHY at board
+level. Furthermore, doing in the driver allow to power down the PHY when
+the network interface is no more used.
 
-Except:
+This reset can't be done at the PHY driver level. The PHY must be able to
+answer the to the mii bus scan to let the kernel creating a PHY device.
 
-1. You don't have a dev->fwnode pointer setup.
-2. Using &dev->of_node->fwnode is really going underneath the covers.
+The patch introduces a new optional property "phy-reset-gpios" inspired
+from the one use for the FEC.
 
-I've pointed this problem out several times with the fwnode code, which
-seems to be a half-baked and incomplete design when it comes to DT.
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
 
-I'd suggest using of_get_named_gpio_flags() et.al. and converting the
-resulting gpio number to a gpio descriptor - or trying to push DT and
-fwnode people to initialise dev->fwnode so that a proper transition to
-fwnode for DT can be made.
+Since the v1, I used the gpiod functions. It allows to simplify the
+code and to not introduce any #ifdef.
 
+I also rename the property in phy-reset-gpios, even if actually the
+gpiod will match both phy-reset-gpios and phy-reset-gpio.
+
+
+ Documentation/devicetree/bindings/net/macb.txt | 3 +++
+ drivers/net/ethernet/cadence/macb.c            | 8 ++++++++
+ drivers/net/ethernet/cadence/macb.h            | 1 +
+ 3 files changed, 12 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index b5d7976..4a7fb6c 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -19,6 +19,9 @@ Required properties:
+ 	Optional elements: 'tx_clk'
+ - clocks: Phandles to input clocks.
+ 
++Optional properties:
++- phy-reset-gpios : Should specify the gpio for phy reset
++
+ Examples:
+ 
+ 	macb0: ethernet@fffc4000 {
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 88c1e1a..71fbda3 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2900,6 +2900,10 @@ static int macb_probe(struct platform_device *pdev)
+ 	else
+ 		macb_get_hwaddr(bp);
+ 
++	/* Power up the PHY if there is a GPIO reset */
++	bp->reset_gpio = devm_gpiod_get_optional(&bp->pdev->dev, "phy-reset",
++						 GPIOD_OUT_HIGH);
++
+ 	err = of_get_phy_mode(np);
+ 	if (err < 0) {
+ 		pdata = dev_get_platdata(&pdev->dev);
+@@ -2966,6 +2970,10 @@ static int macb_remove(struct platform_device *pdev)
+ 		mdiobus_unregister(bp->mii_bus);
+ 		kfree(bp->mii_bus->irq);
+ 		mdiobus_free(bp->mii_bus);
++
++		/* Shutdown the PHY if there is a GPIO reset */
++		gpiod_set_value(bp->reset_gpio, 0);
++
+ 		unregister_netdev(dev);
+ 		clk_disable_unprepare(bp->tx_clk);
+ 		clk_disable_unprepare(bp->hclk);
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 6e1faea..b6ec421 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -824,6 +824,7 @@ struct macb {
+ 	unsigned int		dma_burst_length;
+ 
+ 	phy_interface_t		phy_interface;
++	struct gpio_desc	*reset_gpio;
+ 
+ 	/* AT91RM9200 transmit */
+ 	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
 -- 
-RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.5.0
