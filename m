@@ -1,21 +1,21 @@
 From: Andrew <nitr0@seti.kr.ua>
 Subject: Another pppoe-related crash
-Date: Fri, 11 Dec 2015 16:43:39 +0200
-Message-ID: <566AE11B.5070709@seti.kr.ua>
+Date: Fri, 11 Dec 2015 17:07:54 +0200
+Message-ID: <566AE6CA.9080309@seti.kr.ua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pop3.seti.kr.ua ([91.202.132.4]:51086 "EHLO mail.seti.kr.ua"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753595AbbLKOnn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Dec 2015 09:43:43 -0500
+Received: from smtp.seti.kr.ua ([91.202.132.4]:60429 "EHLO mail.seti.kr.ua"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751817AbbLKPH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Dec 2015 10:07:57 -0500
 Received: from [91.202.133.67] (helo=[192.168.0.145])
 	by mail.seti.kr.ua with esmtpa (Exim 4.68)
 	(envelope-from <nitr0@seti.kr.ua>)
-	id 1a7Ov5-0001CF-Dq
-	for netdev@vger.kernel.org; Fri, 11 Dec 2015 16:43:40 +0200
+	id 1a7PIY-0001Gl-A3
+	for netdev@vger.kernel.org; Fri, 11 Dec 2015 17:07:55 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -56,7 +56,7 @@ asus_atk0110 fan thermal_sys igb(O) k10temp hwmon dca ptp pps_core
 ohci_pci ohci_hcd i2c_nforce2 i2c_core nv_tco sd_mod pata_acpi pcspkr 
 ehci_pci pata_amd sata_nv ata_generic ehci_hcd libata usbcore scsi_mod 
 usb_common ext4 mbcache jbd2 crc16 vfat fat isofs
-[587692.546828] CPU: 0 PID: 7260 Comm: ip-down Tainted: G        W O    
+[587692.546828] CPU: 0 PID: 7260 Comm: ip-down Tainted: G        W O 
 4.1.13-i686 #1
 [587692.546851] Hardware name: System manufacturer System Product 
 Name/M2N-SLI DELUXE, BIOS ASUS M2N-SLI DELUXE ACPI BIOS Revision 5001 
