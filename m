@@ -1,50 +1,91 @@
-From: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
-Subject: [PATCH net-next 1/2] igb: Remove unnecessary flag setting in igb_set_flag_queue_pairs()
-Date: Fri, 11 Dec 2015 18:43:59 +0900
-Message-ID: <1449827040-1806-1-git-send-email-suzuki_shota_t3@lab.ntt.co.jp>
-Cc: suzuki_shota_t3@lab.ntt.co.jp
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+From: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Subject: [PATCH ]net: sched/cls_flow.c : allow nfct-* keys work on ingress interfaces
+Date: Fri, 11 Dec 2015 11:55:46 +0200
+Message-ID: <CADo-kffbKruR9zqCQj2qp4Z8CHzJJCo0sm94VCg2tAS=XbSJqQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=001a113f9c88ce461b05269c53f0
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:41568 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbbLKJpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 04:45:23 -0500
+Received: from mail-io0-f180.google.com ([209.85.223.180]:34742 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751849AbbLKJzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 04:55:47 -0500
+Received: by ioir85 with SMTP id r85so121570279ioi.1
+        for <netdev@vger.kernel.org>; Fri, 11 Dec 2015 01:55:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If VFs are enabled (max_vfs >= 1), both max_rss_queues and
-adapter->rss_queues are set to 2 in the case of e1000_82576.
-In this case, IGB_FLAG_QUEUE_PAIRS is always set in the default block as a
-result of fall-through, thus setting it in the e1000_82576 block is not
-necessary.
+--001a113f9c88ce461b05269c53f0
+Content-Type: text/plain; charset=UTF-8
 
-Signed-off-by: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 8 --------
- 1 file changed, 8 deletions(-)
+Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
+able to get unNATed addresses from nf_conntrack.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 3d4b502..340ba4fb 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2922,14 +2922,6 @@ void igb_set_flag_queue_pairs(struct igb_adapter *adapter,
- 		/* Device supports enough interrupts without queue pairing. */
- 		break;
- 	case e1000_82576:
--		/* If VFs are going to be allocated with RSS queues then we
--		 * should pair the queues in order to conserve interrupts due
--		 * to limited supply.
--		 */
--		if ((adapter->rss_queues > 1) &&
--		    (adapter->vfs_allocated_count > 6))
--			adapter->flags |= IGB_FLAG_QUEUE_PAIRS;
--		/* fall through */
- 	case e1000_82580:
- 	case e1000_i350:
- 	case e1000_i354:
--- 
-1.8.3.1
+--001a113f9c88ce461b05269c53f0
+Content-Type: application/octet-stream; name="cls_flow.patch"
+Content-Disposition: attachment; filename="cls_flow.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ii1i038z0
+
+LS0tIG5ldC9zY2hlZC9jbHNfZmxvdy5jLm9yaWcJMjAxNS0xMi0xMSAxMjo1MTozMi41NDE2NzMy
+MTEgKzAyMDAKKysrIG5ldC9zY2hlZC9jbHNfZmxvdy5jCTIwMTUtMTItMTEgMTM6NDY6NTguMTUz
+NjAxODM4ICswMjAwCkBAIC0zMSw2ICszMSw4IEBACiAKICNpZiBkZWZpbmVkKENPTkZJR19ORl9D
+T05OVFJBQ0spIHx8IGRlZmluZWQoQ09ORklHX05GX0NPTk5UUkFDS19NT0RVTEUpCiAjaW5jbHVk
+ZSA8bmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaD4KKyNpbmNsdWRlIDxuZXQvbmV0ZmlsdGVy
+L25mX2Nvbm50cmFja19jb3JlLmg+CisjaW5jbHVkZSA8bmV0L25ldGZpbHRlci9uZl9jb25udHJh
+Y2tfem9uZXMuaD4KICNlbmRpZgogCiBzdHJ1Y3QgZmxvd19oZWFkIHsKQEAgLTEzMywxNiArMTM1
+LDQ3IEBAIHN0YXRpYyB1MzIgZmxvd19nZXRfbmZjdChjb25zdCBzdHJ1Y3Qgc2sKIH0KIAogI2lm
+IGRlZmluZWQoQ09ORklHX05GX0NPTk5UUkFDSykgfHwgZGVmaW5lZChDT05GSUdfTkZfQ09OTlRS
+QUNLX01PRFVMRSkKLSNkZWZpbmUgQ1RUVVBMRShza2IsIG1lbWJlcikJCQkJCQlcCisjZGVmaW5l
+IENUVFVQTEUoc2tiLCBkaXJlY3Rpb24sIG1lbWJlcikJCQkJCVwKICh7CQkJCQkJCQkJXAogCWVu
+dW0gaXBfY29ubnRyYWNrX2luZm8gY3RpbmZvOwkJCQkJXAotCWNvbnN0IHN0cnVjdCBuZl9jb25u
+ICpjdCA9IG5mX2N0X2dldChza2IsICZjdGluZm8pOwkJXAotCWlmIChjdCA9PSBOVUxMKQkJCQkJ
+CQlcCisJc3RydWN0IG5mX2Nvbm50cmFja190dXBsZSB0dXBsZTsJCQkJXAorCXN0cnVjdCBuZl9j
+b25udHJhY2tfem9uZSB6b25lOwkJCQkJXAorCWNvbnN0IHN0cnVjdCBuZl9jb25udHJhY2tfdHVw
+bGVfaGFzaCAqdGhhc2g7CQkJXAorCV9fYmUzMiByZXN1bHQ7CQkJCQkJCVwKKwlpbnQgcHJvdG87
+CQkJCQkJCVwKKwlzdHJ1Y3QgbmZfY29ubiAqY3QgPSBuZl9jdF9nZXQoc2tiLCAmY3RpbmZvKTsJ
+CQlcCisJaWYgKGN0ID09IE5VTEwpIHsJCQkJCQlcCisJCXN3aXRjaCAodGNfc2tiX3Byb3RvY29s
+KHNrYikpIHsJCQkJXAorCQljYXNlIGh0b25zKEVUSF9QX0lQKToJCQkJCVwKKwkJCXByb3RvID0g
+TkZQUk9UT19JUFY0OwkJCQlcCisJCQlicmVhazsJCQkJCQlcCisJCWNhc2UgaHRvbnMoRVRIX1Bf
+SVBWNik6CQkJCQlcCisJCQlwcm90byA9IE5GUFJPVE9fSVBWNjsJCQkJXAorCQkJYnJlYWs7CQkJ
+CQkJXAorCQlkZWZhdWx0OgkJCQkJCVwKKwkJCWdvdG8gZmFsbGJhY2s7CQkJCQlcCisJCX0JCQkJ
+CQkJXAorCQkJCQkJCQkJXAorCWlmICghbmZfY3RfZ2V0X3R1cGxlcHIoc2tiLCBza2JfbmV0d29y
+a19vZmZzZXQoc2tiKSwgcHJvdG8sCVwKKwkJZGV2X25ldChza2ItPmRldiksICZ0dXBsZSkpCQkJ
+CVwKIAkJZ290byBmYWxsYmFjazsJCQkJCQlcCi0JY3QtPnR1cGxlaGFzaFtDVElORk8yRElSKGN0
+aW5mbyldLnR1cGxlLm1lbWJlcjsJCQlcCisJem9uZS5pZCA9IE5GX0NUX0RFRkFVTFRfWk9ORV9J
+RDsJCQkJXAorCXpvbmUuZGlyID0gTkZfQ1RfREVGQVVMVF9aT05FX0RJUjsJCQkJXAorCQkJCQkJ
+CQkJXAorCXRoYXNoID0gbmZfY29ubnRyYWNrX2ZpbmRfZ2V0KGRldl9uZXQoc2tiLT5kZXYpLCAm
+em9uZSwgJnR1cGxlKTtcCisJaWYgKCF0aGFzaCkJCQkJCQkJXAorCQlnb3RvIGZhbGxiYWNrOwkJ
+CQkJCVwKKwljdCA9IG5mX2N0X3R1cGxlaGFzaF90b19jdHJhY2sodGhhc2gpOwkJCQlcCisJcmVz
+dWx0ID0gY3QtPnR1cGxlaGFzaFsodGhhc2gtPnR1cGxlLmRzdC5kaXIgPT0gSVBfQ1RfRElSX1JF
+UExZKSA/IFwKKwkJIElQX0NUX0RJUl9PUklHSU5BTCA6IElQX0NUX0RJUl9SRVBMWV0udHVwbGUu
+c3JjLm1lbWJlcjtcCisJbmZfY3RfcHV0KGN0KTsJCQkJCQkJXAorCX0gZWxzZSB7CQkJCQkJCVwK
+KwlyZXN1bHQgPSBjdC0+dHVwbGVoYXNoW0NUSU5GTzJESVIoY3RpbmZvKV0udHVwbGUuZGlyZWN0
+aW9uLm1lbWJlcjtcCisJfQkJCQkJCQkJXAorCXJlc3VsdDsJCQkJCQkJCVwKIH0pCiAjZWxzZQot
+I2RlZmluZSBDVFRVUExFKHNrYiwgbWVtYmVyKQkJCQkJCVwKKyNkZWZpbmUgQ1RUVVBMRShza2Is
+IGRpcmVjdGlvbiwgbWVtYmVyKQkJCQkJXAogKHsJCQkJCQkJCQlcCiAJZ290byBmYWxsYmFjazsJ
+CQkJCQkJXAogCTA7CQkJCQkJCQlcCkBAIC0xNTMsOSArMTg2LDkgQEAgc3RhdGljIHUzMiBmbG93
+X2dldF9uZmN0X3NyYyhjb25zdCBzdHJ1YwogewogCXN3aXRjaCAodGNfc2tiX3Byb3RvY29sKHNr
+YikpIHsKIAljYXNlIGh0b25zKEVUSF9QX0lQKToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2ti
+LCBzcmMudTMuaXApKTsKKwkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBzcmMsIHUzLmlwKSk7
+CiAJY2FzZSBodG9ucyhFVEhfUF9JUFY2KToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBz
+cmMudTMuaXA2WzNdKSk7CisJCXJldHVybiBudG9obChDVFRVUExFKHNrYiwgc3JjLCB1My5pcDZb
+M10pKTsKIAl9CiBmYWxsYmFjazoKIAlyZXR1cm4gZmxvd19nZXRfc3JjKHNrYiwgZmxvdyk7CkBA
+IC0xNjUsOSArMTk4LDkgQEAgc3RhdGljIHUzMiBmbG93X2dldF9uZmN0X2RzdChjb25zdCBzdHJ1
+YwogewogCXN3aXRjaCAodGNfc2tiX3Byb3RvY29sKHNrYikpIHsKIAljYXNlIGh0b25zKEVUSF9Q
+X0lQKToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBkc3QudTMuaXApKTsKKwkJcmV0dXJu
+IG50b2hsKENUVFVQTEUoc2tiLCBkc3QsIHUzLmlwKSk7CiAJY2FzZSBodG9ucyhFVEhfUF9JUFY2
+KToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBkc3QudTMuaXA2WzNdKSk7CisJCXJldHVy
+biBudG9obChDVFRVUExFKHNrYiwgZHN0LCB1My5pcDZbM10pKTsKIAl9CiBmYWxsYmFjazoKIAly
+ZXR1cm4gZmxvd19nZXRfZHN0KHNrYiwgZmxvdyk7CkBAIC0xNzUsMTQgKzIwOCwxNCBAQCBmYWxs
+YmFjazoKIAogc3RhdGljIHUzMiBmbG93X2dldF9uZmN0X3Byb3RvX3NyYyhjb25zdCBzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiLCBjb25zdCBzdHJ1Y3QgZmxvd19rZXlzICpmbG93KQogewotCXJldHVybiBu
+dG9ocyhDVFRVUExFKHNrYiwgc3JjLnUuYWxsKSk7CisJcmV0dXJuIG50b2hzKENUVFVQTEUoc2ti
+LCBzcmMsIHUuYWxsKSk7CiBmYWxsYmFjazoKIAlyZXR1cm4gZmxvd19nZXRfcHJvdG9fc3JjKHNr
+YiwgZmxvdyk7CiB9CiAKIHN0YXRpYyB1MzIgZmxvd19nZXRfbmZjdF9wcm90b19kc3QoY29uc3Qg
+c3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IGZsb3dfa2V5cyAqZmxvdykKIHsKLQly
+ZXR1cm4gbnRvaHMoQ1RUVVBMRShza2IsIGRzdC51LmFsbCkpOworCXJldHVybiBudG9ocyhDVFRV
+UExFKHNrYiwgZHN0LCB1LmFsbCkpOwogZmFsbGJhY2s6CiAJcmV0dXJuIGZsb3dfZ2V0X3Byb3Rv
+X2RzdChza2IsIGZsb3cpOwogfQoKU2lnbmVkLW9mZi1ieTogSWdvciBHYXZyaWxvdiA8aS5vLmdh
+dnJpbG92QGdtYWlsLmNvbT4K
+--001a113f9c88ce461b05269c53f0--
