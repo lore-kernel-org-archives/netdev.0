@@ -1,89 +1,39 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next] hv_netvsc: Fix race condition on Multi-Send Data
- field
-Date: Fri, 11 Dec 2015 16:00:39 +0000
-Message-ID: <BY2PR0301MB16546E8D28E58409601E80EEA0EA0@BY2PR0301MB1654.namprd03.prod.outlook.com>
-References: <1449778775-14404-1-git-send-email-haiyangz@microsoft.com>
- <877fklyxiu.fsf@vitty.brq.redhat.com> <87vb85xfbz.fsf@vitty.brq.redhat.com>
+From: Colin Ian King <colin.king@canonical.com>
+Subject: rhashtable concurrent writers issue, 4.2+
+Date: Fri, 11 Dec 2015 16:09:04 +0000
+Message-ID: <566AF520.4000904@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87vb85xfbz.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:45836 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbbLKQJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 11:09:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogZGV2ZWwgW21haWx0bzpk
-cml2ZXJkZXYtZGV2ZWwtYm91bmNlc0BsaW51eGRyaXZlcnByb2plY3Qub3JnXSBPbg0KPiBCZWhh
-bGYgT2YgVml0YWx5IEt1em5ldHNvdg0KPiBTZW50OiBGcmlkYXksIERlY2VtYmVyIDExLCAyMDE1
-IDU6NTMgQU0NCj4gVG86IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5jb20+DQo+
-IENjOiBvbGFmQGFlcGZsZS5kZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgamFzb3dhbmdAcmVk
-aGF0LmNvbTsNCj4gZHJpdmVyZGV2LWRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5vcmc7IGxpbnV4
-LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gU3ViamVj
-dDogUmU6IFtQQVRDSCBuZXQtbmV4dF0gaHZfbmV0dnNjOiBGaXggcmFjZSBjb25kaXRpb24gb24g
-TXVsdGktU2VuZA0KPiBEYXRhIGZpZWxkDQo+IA0KPiBWaXRhbHkgS3V6bmV0c292IDx2a3V6bmV0
-c0ByZWRoYXQuY29tPiB3cml0ZXM6DQo+IA0KPiA+IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1p
-Y3Jvc29mdC5jb20+IHdyaXRlczoNCj4gPg0KPiA+PiBJbiBjb21taXQgMmEwNGFlOGFjYjE0ICgi
-aHZfbmV0dnNjOiByZW1vdmUgbG9ja2luZyBpbiBuZXR2c2Nfc2VuZCgpIiksDQo+IHRoZQ0KPiA+
-PiBsb2NraW5nIGZvciBNU0QgKE11bHRpLVNlbmQgRGF0YSkgZmllbGQgd2FzIHJlbW92ZWQuIFRo
-aXMgY291bGQgY2F1c2UgYQ0KPiA+PiByYWNlIGNvbmRpdGlvbiBiZXR3ZWVuIFJORElTIGNvbnRy
-b2wgbWVzc2FnZXMgYW5kIGRhdGEgcGFja2V0cw0KPiBwcm9jZXNzaW5nLA0KPiA+PiBiZWNhdXNl
-IHRoZXNlIHR3byB0eXBlcyBvZiB0cmFmZmljIGFyZSBub3Qgc3luY2hyb25pemVkLg0KPiA+PiBU
-aGlzIHBhdGNoIGZpeGVzIHRoaXMgaXNzdWUgYnkgc2VuZGluZyBjb250cm9sIG1lc3NhZ2VzIG91
-dCBkaXJlY3RseQ0KPiA+PiB3aXRob3V0IHJlYWRpbmcgTVNEIGZpZWxkLg0KPiA+Pg0KPiA+PiBT
-aWduZWQtb2ZmLWJ5OiBIYWl5YW5nIFpoYW5nIDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPg0KPiA+
-PiBSZXZpZXdlZC1ieTogSy4gWS4gU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5jb20+DQo+ID4+
-IC0tLQ0KPiA+PiAgZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jIHwgICAgOSArKysrKysrKysN
-Cj4gPj4gIDEgZmlsZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0K
-PiA+Pg0KPiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jIGIvZHJp
-dmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jDQo+ID4+IGluZGV4IDAyYmFiOWEuLjA1OWZjNTIgMTAw
-NjQ0DQo+ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2MuYw0KPiA+PiArKysgYi9k
-cml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjLmMNCj4gPj4gQEAgLTg2Nyw2ICs4NjcsMTQgQEAgaW50
-IG5ldHZzY19zZW5kKHN0cnVjdCBodl9kZXZpY2UgKmRldmljZSwNCj4gPj4gIAlwYWNrZXQtPnNl
-bmRfYnVmX2luZGV4ID0gTkVUVlNDX0lOVkFMSURfSU5ERVg7DQo+ID4+ICAJcGFja2V0LT5jcF9w
-YXJ0aWFsID0gZmFsc2U7DQo+ID4+DQo+ID4+ICsJLyogU2VuZCBjb250cm9sIG1lc3NhZ2UgZGly
-ZWN0bHkgd2l0aG91dCBhY2Nlc3NpbmcgbXNkIChNdWx0aS1TZW5kDQo+ID4+ICsJICogRGF0YSkg
-ZmllbGQgd2hpY2ggbWF5IGJlIGNoYW5nZWQgZHVyaW5nIGRhdGEgcGFja2V0IHByb2Nlc3Npbmcu
-DQo+ID4+ICsJICovDQo+ID4+ICsJaWYgKCFza2IpIHsNCj4gPj4gKwkJY3VyX3NlbmQgPSBwYWNr
-ZXQ7DQo+ID4+ICsJCWdvdG8gc2VuZF9ub3c7DQo+ID4+ICsJfQ0KPiA+PiArDQo+ID4NCj4gPiBJ
-cyBpcyBzdXBwb3NlZCB0byBiZSBhcHBsaWVkIG9uIHRvcCBvZiBzb21lIG90aGVyIHBhdGNoZXM/
-IEl0IGRvZXNuJ3QNCj4gPiBjb21waWxlIG9uIHRvcCBvZiBjdXJyZW50IG5ldC1uZXh0Og0KPiA+
-DQo+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jOiBJbiBmdW5jdGlvbiDigJhuZXR2c2Nf
-c2VuZOKAmToNCj4gPiBkcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjLmM6ODY1Ojc6IGVycm9yOiDi
-gJhza2LigJkgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluDQo+ID4gdGhpcyBmdW5jdGlvbikNCj4g
-PiAgIGlmICghc2tiKSB7DQo+ID4gICAgICAgICAgXg0KPiA+DQo+ID4gRGlkIHlvdSBtZWFuIHRv
-IGNoZWNrIHJuZGlzX21zZyBpbnN0ZWFkIChhcyBza2IgaXMgbm90IGRlZmluZWQgaGVyZSk/DQo+
-IA0KPiBPaCwgbXkgYmFkLCBpdCB3YXMgbWUgd2hvIHdhcyBsb29raW5nIGF0IHRoZSB3cm9uZyBi
-cmFuY2guLi4gU29ycnkgZm9yDQo+IHRoZSBub2lzZS4NCj4gDQo+ID4NCj4gPj4gIAltc2RwID0g
-Jm5ldF9kZXZpY2UtPm1zZFtxX2lkeF07DQo+ID4+DQo+ID4+ICAJLyogYmF0Y2ggcGFja2V0cyBp
-biBzZW5kIGJ1ZmZlciBpZiBwb3NzaWJsZSAqLw0KPiA+PiBAQCAtOTM5LDYgKzk0Nyw3IEBAIGlu
-dCBuZXR2c2Nfc2VuZChzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2UsDQo+ID4+ICAJCX0NCj4gPj4g
-IAl9DQo+ID4+DQo+ID4+ICtzZW5kX25vdzoNCj4gPj4gIAlpZiAoY3VyX3NlbmQpDQo+ID4+ICAJ
-CXJldCA9IG5ldHZzY19zZW5kX3BrdChjdXJfc2VuZCwgbmV0X2RldmljZSwgcGIsIHNrYik7DQo+
-ID4NCj4gPiBJIHN1cHBvc2Ugd2UgdW50YW5nbGUgdGhlc2UgdHdvIHBhdGhlcyBjb21wbGV0ZWx5
-OiBsZXQNCj4gPiBybmRpc19maWx0ZXJfc2VuZF9yZXF1ZXN0KCkgY2FsbCBuZXR2c2Nfc2VuZF9w
-a3QoKSBkaXJlY3RseS4gUGxlYXNlIHNlZQ0KPiA+IG15IHBhdGNoIGF0dGFjaGVkIChub3RlOiBp
-dCBzaG91bGQgYmUgc3BsaXQgaW4gMyBwYXRjaGVzIGlmDQo+ID4gc3VibWl0dGVkKS4gSWYgeW91
-IGxpa2UgdGhlIGlkZWEgSSBjYW4gc2VuZCBpdC4NCj4gDQo+IFRoaXMgcGF0Y2ggd2lsbCBuZWVk
-IHNvbWUgY2hhbmdlcyBidXQgdGhlIHN1Z2dlc3Rpb24gc3RpbGwgc3RhbmRzOiBsZXQncw0KPiB1
-bnRhbmdsZSBzZW5kaW5nIGRhdGEgYW5kIGNvbnRyb2wgbWVzc2FnZXMuDQoNCkNvbnRyb2wgbWVz
-c2FnZXMgd2lsbCBoYXZlIHNrYiBzZXQgdG8gTlVMTCBhbmQgdGhhdCBpcyB3aGF0IEhhaXlhbmcg
-aXMgZG9pbmcNCnRvIGRpc3Rpbmd1aXNoIGNvbnRyb2wgcGFja2V0cy4NCg0KSy4gWQ0KPiANCj4g
-LS0NCj4gICBWaXRhbHkNCj4gX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18NCj4gZGV2ZWwgbWFpbGluZyBsaXN0DQo+IGRldmVsQGxpbnV4ZHJpdmVycHJvamVj
-dC5vcmcNCj4gaHR0cHM6Ly9uYTAxLnNhZmVsaW5rcy5wcm90ZWN0aW9uLm91dGxvb2suY29tLz91
-cmw9aHR0cCUzYSUyZiUyZmRyaXZlcmRlDQo+IHYubGludXhkcml2ZXJwcm9qZWN0Lm9yZyUyZm1h
-aWxtYW4lMmZsaXN0aW5mbyUyZmRyaXZlcmRldi0NCj4gZGV2ZWwlMGEmZGF0YT0wMSU3YzAxJTdj
-a3lzJTQwbWljcm9zb2Z0LmNvbSU3Yzc0MTAyNmJhOGNiYjQ3YTk5Mw0KPiAyYzA4ZDMwMjMyNTdi
-NyU3YzcyZjk4OGJmODZmMTQxYWY5MWFiMmQ3Y2QwMTFkYjQ3JTdjMSZzZGF0YT1WZFFpTQ0KPiBO
-T3pDdGxSY3NONSUyYiUyZmFmJTJiR3JQTkRIUG1ydm8yVHVVczFUJTJmcmxRJTNkDQo=
+Hi,
+
+After testing with commit 7def0f952eccdd0edb3c504f4dab35ee0d3aba1f
+("lib: fix data race in rhashtable_rehash_one") on the current 4.4-rc4
+kernel, I believe I am still seeing race conditions that seem to bite
+concurrent readers.
+
+The reproducer is found in my stress-ng system stress tool:
+
+git://kernel.ubuntu.com/cking/stress-ng.git
+
+one needs libattr1-dev, libkeyutils-dev to build this.
+
+run the concurrent procfs stressor on 2 CPUs:
+
+./stress-ng --procfs 2
+
+..sometimes this hangs w/o a kernel stack dump, but sometimes it oopses
+and one can see that we get a concurrent reader failure.
+
+Colin
