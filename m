@@ -1,36 +1,92 @@
-From: Saurabh Sengar <saurabh.truth@gmail.com>
-Subject: [PATCH] wan: wanxl: add pci_disable_device in case of error
-Date: Sat, 12 Dec 2015 00:58:19 +0530
-Message-ID: <1449862099-6256-1-git-send-email-saurabh.truth@gmail.com>
-Cc: Saurabh Sengar <saurabh.truth@gmail.com>
-To: khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [RFCv3 bluetooth-next 4/4] 6lowpan: iphc: add support for
+ stateful compression
+Date: Fri, 11 Dec 2015 20:49:23 +0100
+Message-ID: <20151211194922.GA26064@omega>
+References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
+ <1448796882-316-5-git-send-email-alex.aring@gmail.com>
+ <20151211170541.GA1119@omega>
+ <566B1FEE.5030509@osg.samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: linux-wpan@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de, mcr@sandelman.ca,
+	lukasz.duda@nordicsemi.no, martin.gergeleit@hs-rm.de
+To: Stefan Schmidt <stefan@osg.samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33000 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbbLKT23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 14:28:29 -0500
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:34718 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753111AbbLKTtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 14:49:32 -0500
+Content-Disposition: inline
+In-Reply-To: <566B1FEE.5030509@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If there is 'no suitable DMA available' error, device should be disabled
-before returning
+On Fri, Dec 11, 2015 at 08:11:42PM +0100, Stefan Schmidt wrote:
+> Hello.
+> 
+> On 11/12/15 18:05, Alexander Aring wrote:
+> >Hi,
+> >
+> >status update here.
+> >
+> >I implemented successful basic 6CO RA messages at sending and
+> >processing inside radvd.
+> >
+> >There might also the question if processing 6CO inside kernel or
+> >userspace? I put the basic functionality inside userspace for now.
+> 
+> How are you feeding the entries your receive back into the kernel? The
+> debugfs interface right now?
+> If we want to go with userspace handling for 6CO we need something better at
+> some point.
+> 
 
-Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
----
- drivers/net/wan/wanxl.c | 1 +
- 1 file changed, 1 insertion(+)
+yes. For testing it's fine, I think we should add first support this way. If
+we see it seems to be working well then making better UAPI interface.
 
-diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
-index e73f138..a20d688 100644
---- a/drivers/net/wan/wanxl.c
-+++ b/drivers/net/wan/wanxl.c
-@@ -586,6 +586,7 @@ static int wanxl_pci_init_one(struct pci_dev *pdev,
- 	if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(28)) ||
- 	    pci_set_dma_mask(pdev, DMA_BIT_MASK(28))) {
- 		pr_err("No usable DMA configuration\n");
-+		pci_disable_device(pdev);
- 		return -EIO;
- 	}
- 
--- 
-1.9.1
+I currently complete ignore the lifetime thing and handle it like
+lifetime is non-zero.
+
+For the lifetime handling, I think we need more than just a "bool", we
+need flags. Because we need indicate "somehow" the "C flag" and if the
+entry is "added" or "not added" (some active/enabled flag). See [0], or
+we do that by check on "::" address/prefix, but I would not do that so far
+nobody says that's an invalid prefix.
+
+Then also the question is if doing the lifetime of a context inside the
+kernel or in userspace (handled by $USERSPACE_PROGRAM, e.g. radvd). I think
+radvd can handle this. See [1]:
+
+The prefix information is timed out as specified in [RFC4861].  When
+the Valid Lifetime for a context table entry expires, the entry is
+placed in a receive-only mode, which is the equivalent of
+receiving a 6CO for that context with C=0.  The entry is held in
+receive-only mode for a period of twice the default Router Lifetime,
+after which the entry is removed.
+
+For this we need the "C" flag and "active" flag (indicate remove). That
+the entry is held could be very simple by a timer in kernel, but
+otherwise $USERSPACE_PROGRAM could also do this job by handle the
+lifetime only in userspace, when lifetime expires -> manipulating the table.
+
+I am not sure what's the best option here is.
+
+BTW:
+
+One bad news is, that radvd needs now to run under "root" with this
+changes and it seems that it can running without root right before. This
+might be getting a problem when trying to send such feature uptream to
+radvd.
+
+Testing:
+
+I already test the new stateful compression patch (manipulating entries in
+RIOT manually (no RA messages processing on RIOT).
+It works fine under RIOT by manipulating RIOT's context table.
+
+- Alex
+
+[0] https://tools.ietf.org/html/rfc6775#section-5.4.2
+[1] https://tools.ietf.org/html/rfc6775#section-5.4.3
