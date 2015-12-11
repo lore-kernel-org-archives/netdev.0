@@ -1,36 +1,52 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: [PATCH] iwlwifi: mvm: protect RCU dereference in
- iwl_mvm_get_key_sta_id
-Date: Fri, 11 Dec 2015 14:21:19 -0800
-Message-ID: <566B4C5F.4050908@redhat.com>
-References: <566A0929.2090706@redhat.com>
- <1449821632-8106-1-git-send-email-johannes@sipsolutions.net>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net 1/4] mpls: validate L2 via address length
+Date: Fri, 11 Dec 2015 14:51:04 -0800
+Message-ID: <566B5358.4060200@cumulusnetworks.com>
+References: <1449775851-20758-1-git-send-email-rshearma@brocade.com> <1449775851-20758-2-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, avri.altman@intel.com,
-	emmanuel.grumbach@intel.com, linuxwifi@intel.com,
-	linux-kernel@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449821632-8106-1-git-send-email-johannes@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, davem@davemloft.net, netdev@vger.kernel.org,
+	sam.h.russell@gmail.com
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34321 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206AbbLKWvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 17:51:07 -0500
+Received: by pfee188 with SMTP id e188so2485135pfe.1
+        for <netdev@vger.kernel.org>; Fri, 11 Dec 2015 14:51:06 -0800 (PST)
+In-Reply-To: <1449775851-20758-2-git-send-email-rshearma@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/11/2015 12:13 AM, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
+On 12/10/15, 11:30 AM, Robert Shearman wrote:
+> If an L2 via address for an mpls nexthop is specified, the length of
+> the L2 address must match that expected by the output device,
+> otherwise it could access memory beyond the end of the via address
+> buffer in the route.
 >
-> Properly protect the RCU dereference in iwl_mvm_get_key_sta_id() when
-> coming from iwl_mvm_update_tkip_key() which cannot hold the mvm->mutex
-> by moving the call into the RCU critical section.
-> Modify the check to use rcu_dereference_check() to permit this.
+> This check was present prior to commit f8efb73c97e2 ("mpls: multipath
+> route support"), but got lost in the refactoring, so add it back,
+> applying it to all nexthops in multipath routes.
 >
-> Fixes: 9513c5e18a0d ("iwlwifi: mvm: Avoid dereferencing sta if it was already flushed")
-> Reported-by: Laura Abbott <labbott@redhat.com>
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-
-Thanks, it's working for me.
-
-Tested-by: Laura Abbott <labbott@redhat.com>
+> Fixes: f8efb73c97e2 ("mpls: multipath route support")
+> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> ---
+>  net/mpls/af_mpls.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+> index c70d750148b6..3be29cb1f658 100644
+> --- a/net/mpls/af_mpls.c
+> +++ b/net/mpls/af_mpls.c
+> @@ -534,6 +534,10 @@ static int mpls_nh_assign_dev(struct net *net, struct mpls_route *rt,
+>  	if (!mpls_dev_get(dev))
+>  		goto errout;
+>  
+> +	if ((nh->nh_via_table == NEIGH_LINK_TABLE) &&
+> +	    (dev->addr_len != nh->nh_via_alen))
+> +		goto errout;
+> +
+>
+Robert, seems like the right place for this check is nla_get_via ?
