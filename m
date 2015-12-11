@@ -1,48 +1,35 @@
-From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Subject: [PATCH] ixgbe: on recv increment rx.ring->stats.yields instead of tx
-Date: Fri, 11 Dec 2015 10:24:06 +0300
-Message-ID: <1449818646-29348-1-git-send-email-ptikhomirov@virtuozzo.com>
-Cc: Andrew Vagin <avagin@parallels.com>,
-	Konstantin Khorenko <khorenko@parallels.com>,
-	<devel@openvz.org>
-To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Suspicious RCU from iwlwifi driver
+Date: Fri, 11 Dec 2015 09:00:34 +0100
+Message-ID: <1449820834.2324.0.camel@sipsolutions.net>
+References: <566A0929.2090706@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Intel Linux Wireless <linuxwifi@intel.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Laura Abbott <labbott@redhat.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Avri Altman <avri.altman@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:15493 "EHLO relay.sw.ru"
+Received: from s3.sipsolutions.net ([5.9.151.49]:59220 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751924AbbLKH0s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Dec 2015 02:26:48 -0500
+	id S1752775AbbLKIAl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Dec 2015 03:00:41 -0500
+In-Reply-To: <566A0929.2090706@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seem to be non intentionaly changed to tx in
-ms commit: adc810900a703ee78fe88fd65e086d359fec04b2
-ixgbe: Refactor busy poll socket code to address multiple issues
+Hi Laura,
 
-Lock is taken from ixgbe_low_latency_recv, and there under this
-lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
-tx counter.
+> =C2=A0 drivers/net/wireless/intel/iwlwifi/mvm/sta.c:1226 suspicious
+> rcu_dereference_protected() usage!
 
-Yield stats can be shown through ethtool:
-ethtool -S enp129s0 | grep yield
+> If I revert 9513c5e18a0dc55a1fc9c890715098ba2315830b
+> (iwlwifi: mvm: Avoid dereferencing sta if it was already flushed)
+> The warning goes away. Known issue?
 
-Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks for the report - I at least hadn't seen this (or a fix for it)
+yet, we'll take a look.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 1d21745..7656d46 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -451,7 +451,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 				IXGBE_QV_STATE_POLL);
- #ifdef BP_EXTENDED_STATS
- 	if (rc != IXGBE_QV_STATE_IDLE)
--		q_vector->tx.ring->stats.yields++;
-+		q_vector->rx.ring->stats.yields++;
- #endif
- 	return rc == IXGBE_QV_STATE_IDLE;
- }
--- 
-1.9.3
+johannes
