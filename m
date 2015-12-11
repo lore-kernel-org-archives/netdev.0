@@ -1,21 +1,27 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: pull request: bluetooth-next 2015-12-11
-Date: Fri, 11 Dec 2015 22:16:11 +0200
-Message-ID: <20151211201611.GA17376@t440s.P-661HNU-F1>
+Date: Fri, 11 Dec 2015 22:20:59 +0200
+Message-ID: <20151211202059.GA19118@t440s.P-661HNU-F1>
+References: <20151211201611.GA17376@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:34022 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752338AbbLKUQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 15:16:20 -0500
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="3V7upXqbjpZ4EhLz"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20151211201611.GA17376-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+
+--3V7upXqbjpZ4EhLz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
 Hi Dave,
+
+(resending since I forgot to sign the previous one)
 
 Here's another set of Bluetooth & 802.15.4 patches for the 4.5 kernel:
 
@@ -159,3 +165,26 @@ Yichen Zhao (1):
  create mode 100644 net/6lowpan/nhc_ghc_ext_route.c
  create mode 100644 net/6lowpan/nhc_ghc_icmpv6.c
  create mode 100644 net/6lowpan/nhc_ghc_udp.c
+
+--3V7upXqbjpZ4EhLz
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJWazArAAoJECQj9vv5qNQStM8P/i5YOPasI+QyMe3YBexiPp0W
+epj9ktEmFnDfHP/4djvjEGc1skialvPESFxsYWcUpeKYK2E6/m5kYKXtgU/iRuoN
+dO6FpInQpnxyvy1beF3DK5X3L/yRRnIW+1xuacf82BIYNqofbF5S1xvVyzhPSASu
+plE8qlFNasoEoa+WHKYSL2yXK7Fy3LvqRsYPFUND4Qe0Kc/kHGMP8lxZjrBb/2qx
+l3YeGpgUZTKILqnG3PFa/0MnkjWfkaFKtLMbJ0j4oJFFSuISWilp1F2ib+fTOH3d
+doGmwymkI0p/6C2tWJGBpMfFY9NyWVsqYvoKH0F6VQ7TF2/1LdZsbZPFjhUXZiTT
+UvdJEmXoMGU/KOx9hrl0jsQp3Nrsd2f8jgpxSj9kyDdsjW6im8wagIhEqj/c9udK
+SrDJsxHT9nJsIBiFx6F8ex+zZcPOwGKk008q7YxJ1rythAnPLwABO6zg9K5ijZ7t
+YVJm16xr4c+e/kyS+utGGFXzAjDHHsJtqdcGWvMqJP0/05/W3hp2n4BsEgjoe1e6
+3vGSgVr5bwnI1euRMvRtwFvyWsDEtKFkx0hmNLL9TvNeT93Ek3VGHQeihe6OQnEB
+/GuC619jWZZirI0iZxuyKmVrfbziHiu60IaZ+1D2/ERY5qNqCoRDZO6HP5ApRQvu
+9yBBgSdZwjq6b1tRcr6H
+=7WER
+-----END PGP SIGNATURE-----
+
+--3V7upXqbjpZ4EhLz--
