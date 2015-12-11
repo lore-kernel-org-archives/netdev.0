@@ -1,60 +1,88 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFCv3 bluetooth-next 4/4] 6lowpan: iphc: add support for
- stateful compression
-Date: Fri, 11 Dec 2015 18:13:53 +0100
-Message-ID: <20151211171352.GA25972@omega>
-References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
- <1448796882-316-5-git-send-email-alex.aring@gmail.com>
- <20151211170541.GA1119@omega>
+From: Alex =?utf-8?Q?Benn=C3=A9e?= <alex.bennee@linaro.org>
+Subject: Re: [PATCH v3 4/4] VSOCK: Add Makefile and Kconfig
+Date: Fri, 11 Dec 2015 17:19:08 +0000
+Message-ID: <87fuz8q4xf.fsf@linaro.org>
+References: <1449662633-26623-1-git-send-email-stefanha@redhat.com>
+	<1449662633-26623-5-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	martin.gergeleit-6wGqcYweBVc@public.gmane.org
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20151211170541.GA1119@omega>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Matt Benjamin <mbenjamin@redhat.com>, Asias He <asias@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>, matt.ma@linaro.org
+To: Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-reply-to: <1449662633-26623-5-git-send-email-stefanha@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 11, 2015 at 06:05:41PM +0100, Alexander Aring wrote:
-> Hi,
-> 
-> status update here.
-> 
-> I implemented successful basic 6CO RA messages at sending and
-> processing inside radvd.
-> 
-> There might also the question if processing 6CO inside kernel or
-> userspace? I put the basic functionality inside userspace for now.
-> 
-> I will send patches for this in the next days.
-> 
-> Anyway I figured some things out which was completely wrong inside this
-> patch.
-> 
->  - There exist one context based table only.
->    
->    In rfc6282 stands:
->    The specification enables a node to use up to 16 contexts. The
->    context used to encode the source address does not have to be the
->    same as the context used to encode the destination address.
-> 
->    and I thought it was $SOME_TABLE[DCI] != $DIFFERENT_TABLE[SCI].
-
-in case of SCI == DCI.
-
->    But it means in general simple that it can be: DCI != SCI.
-> 
->    With this knowledge the code gets much smaller.
-> 
->  - I also remove the validation check for contexts, it can be any
->    prefic/address. The lookup functionality will deal with that if the
->    context looks not correct or need additional changes.
-> 
-
-  - Also I renamed the "enabled" to "C" which is the compression flag of
-    6CO.
-
-- Alex
+ClN0ZWZhbiBIYWpub2N6aSA8c3RlZmFuaGFAcmVkaGF0LmNvbT4gd3JpdGVzOgoKPiBGcm9tOiBB
+c2lhcyBIZSA8YXNpYXNAcmVkaGF0LmNvbT4KPgo+IEVuYWJsZSB2aXJ0aW8tdnNvY2sgYW5kIHZo
+b3N0LXZzb2NrLgo+Cj4gU2lnbmVkLW9mZi1ieTogQXNpYXMgSGUgPGFzaWFzQHJlZGhhdC5jb20+
+Cj4gU2lnbmVkLW9mZi1ieTogU3RlZmFuIEhham5vY3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPgo+
+IC0tLQo+IHYzOgo+ICAqIERvbid0IHB1dCB2aG9zdCB2c29jayBkcml2ZXIgaW50byBzdGFnaW5n
+Cj4gICogQWRkIG1pc3NpbmcgS2NvbmZpZyBkZXBlbmRlbmNpZXMgKEFybmQgQmVyZ21hbm4gPGFy
+bmRAYXJuZGIuZGU+KQo+IC0tLQo+ICBkcml2ZXJzL3Zob3N0L0tjb25maWcgIHwgMTAgKysrKysr
+KysrKwo+ICBkcml2ZXJzL3Zob3N0L01ha2VmaWxlIHwgIDQgKysrKwo+ICBuZXQvdm13X3Zzb2Nr
+L0tjb25maWcgIHwgMTggKysrKysrKysrKysrKysrKysrCj4gIG5ldC92bXdfdnNvY2svTWFrZWZp
+bGUgfCAgMiArKwo+ICA0IGZpbGVzIGNoYW5nZWQsIDM0IGluc2VydGlvbnMoKykKPgo+IGRpZmYg
+LS1naXQgYS9kcml2ZXJzL3Zob3N0L0tjb25maWcgYi9kcml2ZXJzL3Zob3N0L0tjb25maWcKPiBp
+bmRleCA1MzNlYWYwLi5hMWJiNGMyIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvdmhvc3QvS2NvbmZp
+Zwo+ICsrKyBiL2RyaXZlcnMvdmhvc3QvS2NvbmZpZwo+IEBAIC0yMSw2ICsyMSwxNiBAQCBjb25m
+aWcgVkhPU1RfU0NTSQo+ICAJU2F5IE0gaGVyZSB0byBlbmFibGUgdGhlIHZob3N0X3Njc2kgVENN
+IGZhYnJpYyBtb2R1bGUKPiAgCWZvciB1c2Ugd2l0aCB2aXJ0aW8tc2NzaSBndWVzdHMKPgo+ICtj
+b25maWcgVkhPU1RfVlNPQ0sKPiArCXRyaXN0YXRlICJ2aG9zdCB2aXJ0aW8tdnNvY2sgZHJpdmVy
+Igo+ICsJZGVwZW5kcyBvbiBWU09DS0VUUyAmJiBFVkVOVEZECj4gKwlzZWxlY3QgVklSVElPX1ZT
+T0NLRVRTX0NPTU1PTgo+ICsJc2VsZWN0IFZIT1NUCj4gKwlzZWxlY3QgVkhPU1RfUklORwo+ICsJ
+ZGVmYXVsdCBuCj4gKwktLS1oZWxwLS0tCj4gKwlTYXkgTSBoZXJlIHRvIGVuYWJsZSB0aGUgdmhv
+c3QtdnNvY2sgZm9yIHZpcnRpby12c29jayBndWVzdHMKCkkgdGhpbmsgY2hlY2twYXRjaCBwcmVm
+ZXJzIGEgZmV3IG1vcmUgd29yZHMgZm9yIHRoZSBmZWF0dXJlIGJ1dCBJJ20KaGFwcHkgd2l0aCBp
+dC4KCj4gKwo+ICBjb25maWcgVkhPU1RfUklORwo+ICAJdHJpc3RhdGUKPiAgCS0tLWhlbHAtLS0K
+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy92aG9zdC9NYWtlZmlsZSBiL2RyaXZlcnMvdmhvc3QvTWFr
+ZWZpbGUKPiBpbmRleCBlMDQ0MWMzLi42YjAxMmI5IDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvdmhv
+c3QvTWFrZWZpbGUKPiArKysgYi9kcml2ZXJzL3Zob3N0L01ha2VmaWxlCj4gQEAgLTQsNSArNCw5
+IEBAIHZob3N0X25ldC15IDo9IG5ldC5vCj4gIG9iai0kKENPTkZJR19WSE9TVF9TQ1NJKSArPSB2
+aG9zdF9zY3NpLm8KPiAgdmhvc3Rfc2NzaS15IDo9IHNjc2kubwo+Cj4gK29iai0kKENPTkZJR19W
+SE9TVF9WU09DSykgKz0gdmhvc3RfdnNvY2subwo+ICt2aG9zdF92c29jay15IDo9IHZzb2NrLm8K
+PiArCj4gIG9iai0kKENPTkZJR19WSE9TVF9SSU5HKSArPSB2cmluZ2gubwo+ICsKPiAgb2JqLSQo
+Q09ORklHX1ZIT1NUKQkrPSB2aG9zdC5vCj4gZGlmZiAtLWdpdCBhL25ldC92bXdfdnNvY2svS2Nv
+bmZpZyBiL25ldC92bXdfdnNvY2svS2NvbmZpZwo+IGluZGV4IDE0ODEwYWIuLjc0ZTBiYzggMTAw
+NjQ0Cj4gLS0tIGEvbmV0L3Ztd192c29jay9LY29uZmlnCj4gKysrIGIvbmV0L3Ztd192c29jay9L
+Y29uZmlnCj4gQEAgLTI2LDMgKzI2LDIxIEBAIGNvbmZpZyBWTVdBUkVfVk1DSV9WU09DS0VUUwo+
+Cj4gIAkgIFRvIGNvbXBpbGUgdGhpcyBkcml2ZXIgYXMgYSBtb2R1bGUsIGNob29zZSBNIGhlcmU6
+IHRoZSBtb2R1bGUKPiAgCSAgd2lsbCBiZSBjYWxsZWQgdm13X3Zzb2NrX3ZtY2lfdHJhbnNwb3J0
+LiBJZiB1bnN1cmUsIHNheSBOLgo+ICsKPiArY29uZmlnIFZJUlRJT19WU09DS0VUUwo+ICsJdHJp
+c3RhdGUgInZpcnRpbyB0cmFuc3BvcnQgZm9yIFZpcnR1YWwgU29ja2V0cyIKPiArCWRlcGVuZHMg
+b24gVlNPQ0tFVFMgJiYgVklSVElPCj4gKwlzZWxlY3QgVklSVElPX1ZTT0NLRVRTX0NPTU1PTgo+
+ICsJaGVscAo+ICsJICBUaGlzIG1vZHVsZSBpbXBsZW1lbnRzIGEgdmlydGlvIHRyYW5zcG9ydCBm
+b3IgVmlydHVhbCBTb2NrZXRzLgo+ICsKPiArCSAgRW5hYmxlIHRoaXMgdHJhbnNwb3J0IGlmIHlv
+dXIgVmlydHVhbCBNYWNoaW5lIHJ1bnMgb24KPiAgCSAgUWVtdS9LVk0uCgpJcyB0aGlzIGJldHRl
+ciB3b3JkZWQgYXM6CgoiRW5hYmxlIHRoaXMgdHJhbnNwb3J0IGlmIHlvdXIgVmlydHVhbCBNYWNo
+aW5lIGhvc3Qgc3VwcG9ydHMgdnNvY2tldHMKb3ZlciB2aXJ0aW8uIgoKPwoKT3RoZXJ3aXNlOgoK
+UmV2aWV3ZWQtYnk6IEFsZXggQmVubsOpZSA8YWxleC5iZW5uZWVAbGluYXJvLm9yZz4KCj4gKwo+
+ICsJICBUbyBjb21waWxlIHRoaXMgZHJpdmVyIGFzIGEgbW9kdWxlLCBjaG9vc2UgTSBoZXJlOiB0
+aGUgbW9kdWxlCj4gKwkgIHdpbGwgYmUgY2FsbGVkIHZpcnRpb192c29ja190cmFuc3BvcnQuIElm
+IHVuc3VyZSwgc2F5IE4uCj4gKwo+ICtjb25maWcgVklSVElPX1ZTT0NLRVRTX0NPTU1PTgo+ICsg
+ICAgICAgdHJpc3RhdGUKPiArICAgICAgIC0tLWhlbHAtLS0KPiArICAgICAgICAgVGhpcyBvcHRp
+b24gaXMgc2VsZWN0ZWQgYnkgYW55IGRyaXZlciB3aGljaCBuZWVkcyB0byBhY2Nlc3MKPiArICAg
+ICAgICAgdGhlIHZpcnRpb192c29jay4KPiBkaWZmIC0tZ2l0IGEvbmV0L3Ztd192c29jay9NYWtl
+ZmlsZSBiL25ldC92bXdfdnNvY2svTWFrZWZpbGUKPiBpbmRleCAyY2U1MmQ3Li5jZjRjMjk0IDEw
+MDY0NAo+IC0tLSBhL25ldC92bXdfdnNvY2svTWFrZWZpbGUKPiArKysgYi9uZXQvdm13X3Zzb2Nr
+L01ha2VmaWxlCj4gQEAgLTEsNSArMSw3IEBACj4gIG9iai0kKENPTkZJR19WU09DS0VUUykgKz0g
+dnNvY2subwo+ICBvYmotJChDT05GSUdfVk1XQVJFX1ZNQ0lfVlNPQ0tFVFMpICs9IHZtd192c29j
+a192bWNpX3RyYW5zcG9ydC5vCj4gK29iai0kKENPTkZJR19WSVJUSU9fVlNPQ0tFVFMpICs9IHZp
+cnRpb190cmFuc3BvcnQubwo+ICtvYmotJChDT05GSUdfVklSVElPX1ZTT0NLRVRTX0NPTU1PTikg
+Kz0gdmlydGlvX3RyYW5zcG9ydF9jb21tb24ubwo+Cj4gIHZzb2NrLXkgKz0gYWZfdnNvY2subyB2
+c29ja19hZGRyLm8KPgo+IC0tCj4gMi41LjAKCgotLQpBbGV4IEJlbm7DqWUKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGlu
+ZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8v
+bGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
