@@ -1,127 +1,200 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] net: sctp: dynamically enable or disable pf state
-Date: Fri, 11 Dec 2015 17:05:32 +0800
-Message-ID: <1449824732-22362-1-git-send-email-zyjzyj2000@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v5 1/4] stmmac: create of compatible mdio bus for stmacc
+ driver
+Date: Fri, 11 Dec 2015 10:13:07 +0100
+Message-ID: <566A93A3.9010004@st.com>
+References: <1449650381-82074-1-git-send-email-preid@electromag.com.au> <1449650381-82074-2-git-send-email-preid@electromag.com.au> <5669B372.5070207@st.com> <566A2A94.9090000@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<alexandre.dietsch@windriver.com>,
-	<stefan.costandache@windriver.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Phil Reid <preid@electromag.com.au>, <robh+dt@kernel.org>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<davem@davemloft.net>, <vbridger@opensource.altera.com>,
+	<devicetree@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:32944 "EHLO mail5.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751805AbbLKJFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Dec 2015 04:05:32 -0500
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:50656 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754063AbbLKJOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 04:14:12 -0500
+In-Reply-To: <566A2A94.9090000@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+Hello Phil
 
-As we all know, the vale of pf_retrans >= max_retrans_path can
-disable pf state. The variables of pf_retrans and max_retrans_path
-can be changed by the user space application.
+On 12/11/2015 2:44 AM, Phil Reid wrote:
+> G'day Giuseppe,
+>
+> On 11/12/2015 1:16 AM, Giuseppe CAVALLARO wrote:
+>> Hi
+>>
+>> also pls fix this typo
+>>
+>> stmmac: create of compatible mdio bus for stmacc driver
+>>                                           ^^^^^^^^
+>>                                            stmmac
+> Will do.
+>>
+>> On 12/9/2015 9:39 AM, Phil Reid wrote:
+>>> The DSA driver needs to be passed a reference to an mdio bus. Typically
+>>> the mac is configured to use a fixed link but the mdio bus still needs
+>>> to be registered so that it con configure the switch.
+>>> This patch follows the same process as the altera tse ethernet driver
+>>> for
+>>> creation of the mdio bus.
+>>>
+>>> Acked-by: Rob Herring <robh@kernel.org>
+>>> Signed-off-by: Phil Reid <preid@electromag.com.au>
+>>> ---
+>>>   Documentation/devicetree/bindings/net/stmmac.txt   |  8 ++++++
+>>>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 31
+>>> +++++++++++++++-------
+>>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
+>>>   3 files changed, 31 insertions(+), 10 deletions(-)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
+>>> b/Documentation/devicetree/bindings/net/stmmac.txt
+>>> index f34fc3c..fd5ddf8 100644
+>>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+>>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+>>> @@ -47,6 +47,7 @@ Optional properties:
+>>>   - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE
+>>> register.
+>>>   - tx-fifo-depth: See ethernet.txt file in the same directory
+>>>   - rx-fifo-depth: See ethernet.txt file in the same directory
+>>> +- mdio: with compatible = "snps,dwmac-mdio", create and register
+>>> mdio bus.
+>>>
+>>>   Examples:
+>>>
+>>> @@ -65,4 +66,11 @@ Examples:
+>>>           tx-fifo-depth = <16384>;
+>>>           clocks = <&clock>;
+>>>           clock-names = "stmmaceth";
+>>> +        mdio0 {
+>>> +            #address-cells = <1>;
+>>> +            #size-cells = <0>;
+>>> +            compatible = "snps,dwmac-mdio";
+>>> +            phy1: ethernet-phy@0 {
+>>> +            };
+>>> +        };
+>>>       };
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>>> index bba670c..bb6f75c 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>>> @@ -29,7 +29,7 @@
+>>>   #include <linux/slab.h>
+>>>   #include <linux/of.h>
+>>>   #include <linux/of_gpio.h>
+>>> -
+>>> +#include <linux/of_mdio.h>
+>>>   #include <asm/io.h>
+>>>
+>>>   #include "stmmac.h"
+>>> @@ -200,10 +200,29 @@ int stmmac_mdio_register(struct net_device *ndev)
+>>>       struct stmmac_priv *priv = netdev_priv(ndev);
+>>>       struct stmmac_mdio_bus_data *mdio_bus_data =
+>>> priv->plat->mdio_bus_data;
+>>>       int addr, found;
+>>> +    struct device_node *mdio_node = NULL;
+>>> +    struct device_node *child_node = NULL;
+>>>
+>>>       if (!mdio_bus_data)
+>>>           return 0;
+>>>
+>>> +    if (IS_ENABLED(CONFIG_OF)) {
+>>> +        for_each_child_of_node(priv->device->of_node, child_node) {
+>>> +            if (of_device_is_compatible(child_node,
+>>> +                            "snps,dwmac-mdio")) {
+>>> +                mdio_node = child_node;
+>>> +                break;
+>>> +            }
+>>> +        }
+>>> +
+>>> +        if (mdio_node) {
+>>> +            netdev_dbg(ndev, "FOUND MDIO subnode\n");
+>>> +        } else {
+>>> +            netdev_err(ndev, "NO MDIO subnode\n");
+>>> +            return 0;
+>>> +        }
+>>> +    }
+>>> +
+>>>       new_bus = mdiobus_alloc();
+>>>       if (new_bus == NULL)
+>>>           return -ENOMEM;
+>>> @@ -231,7 +250,8 @@ int stmmac_mdio_register(struct net_device *ndev)
+>>>       new_bus->irq = irqlist;
+>>>       new_bus->phy_mask = mdio_bus_data->phy_mask;
+>>>       new_bus->parent = priv->device;
+>>> -    err = mdiobus_register(new_bus);
+>>> +
+>>> +    err = of_mdiobus_register(new_bus, mdio_node);
+>>>       if (err != 0) {
+>>>           pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
+>>>           goto bus_register_fail;
+>>> @@ -284,13 +304,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+>>>           }
+>>>       }
+>>>
+>>> -    if (!found) {
+>>> -        pr_warn("%s: No PHY found\n", ndev->name);
+>>> -        mdiobus_unregister(new_bus);
+>>> -        mdiobus_free(new_bus);
+>>> -        return -ENODEV;
+>>> -    }
+>>
+>> hmm,  this could be necessary on some platforms that wants to
+>> get the phy addr at runtime and in case of failure then
+>> removes the registered bus.
+>>
+> Could make this conditional on (!found && !mdio_node).
+> Therefore if dt node exists it will be created regardless, otherwise
+> unregister if nothing found.
+> Thoughts?
+>
+>>> -
+>>>       priv->mii = new_bus;
+>>>
+>>>       return 0;
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> index d02691b..6863420 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> @@ -146,7 +146,7 @@ stmmac_probe_config_dt(struct platform_device
+>>> *pdev, const char **mac)
+>>>       if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr)
+>>> == 0)
+>>>           dev_warn(&pdev->dev, "snps,phy-addr property is
+>>> deprecated\n");
+>>> ec
+>>> -    if (plat->phy_node || plat->phy_bus_name)
+>>
+> I think that would be dependent on the device tree.
+> However this may also work:
+> if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_name)
 
-Sometimes the user expects to disable pf state while the 2
-variables are changed to enable pf state. So it is necessary to
-introduce a new variable to disable pf state.
+that's ok for me
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- Documentation/networking/ip-sysctl.txt |   17 +++++++++++++++++
- include/net/netns/sctp.h               |    7 +++++++
- net/sctp/sm_sideeffect.c               |    5 ++++-
- net/sctp/sysctl.c                      |    9 +++++++++
- 4 files changed, 37 insertions(+), 1 deletion(-)
+>
+>> can this breaks some conf case?
+>>
+>>> +    if (plat->phy_bus_name)
+>>>           plat->mdio_bus_data = NULL;
+>>>       else
+>>>           plat->mdio_bus_data =
+>>>
+>
+> Alternatively the solution would be to introduce some non standard
+> device tree node
+> to force the creation of the mdio bus.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index f647900..7195c24 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1723,6 +1723,23 @@ addip_enable - BOOLEAN
- 
- 	Default: 0
- 
-+pf_enable - INTEGER
-+	Enable or disable pf state. A value of pf_retrans > path_max_retrans
-+	also disables pf state. That is, one of both pf_enable and
-+	pf_retrans > path_max_retrans can disable pf state. Since pf_retrans
-+	and path_max_retrans can be changed by userspace application, sometimes
-+	user expects to disable pf state by the value of
-+	pf_retrans > path_max_retrans, but ocassionally the value of pf_retrans
-+	or path_max_retrans is changed by the user application, this pf state is
-+	enabled. As such, it is necessary to add this to dynamically enable
-+	and disable pf state.
-+
-+	1: Enable pf.
-+
-+	0: Disable pf.
-+
-+	Default: 1
-+
- addip_noauth_enable - BOOLEAN
- 	Dynamic Address Reconfiguration (ADD-IP) requires the use of
- 	authentication to protect the operations of adding or removing new
-diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-index 8ba379f..c501d67 100644
---- a/include/net/netns/sctp.h
-+++ b/include/net/netns/sctp.h
-@@ -89,6 +89,13 @@ struct netns_sctp {
- 	int pf_retrans;
- 
- 	/*
-+	 * Disable Potentially-Failed feature, the feature is enabled by default
-+	 * pf_enable	-  0  : disable pf
-+	 *		- >0  : enable pf
-+	 */
-+	int pf_enable;
-+
-+	/*
- 	 * Policy for preforming sctp/socket accounting
- 	 * 0   - do socket level accounting, all assocs share sk_sndbuf
- 	 * 1   - do sctp accounting, each asoc may use sk_sndbuf bytes
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 6098d4c..50309ed 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -477,6 +477,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 					 struct sctp_transport *transport,
- 					 int is_hb)
- {
-+	struct net *net = sock_net(asoc->base.sk);
-+
- 	/* The check for association's overall error counter exceeding the
- 	 * threshold is done in the state function.
- 	 */
-@@ -503,7 +505,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 	 * is SCTP_ACTIVE, then mark this transport as Partially Failed,
- 	 * see SCTP Quick Failover Draft, section 5.1
- 	 */
--	if ((transport->state == SCTP_ACTIVE) &&
-+	if (net->sctp.pf_enable &&
-+	   (transport->state == SCTP_ACTIVE) &&
- 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
- 	   (transport->error_count > asoc->pf_retrans)) {
- 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 26d50c5..0a4f402 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -308,6 +308,15 @@ static struct ctl_table sctp_net_table[] = {
- 		.extra1		= &max_autoclose_min,
- 		.extra2		= &max_autoclose_max,
- 	},
-+	{
-+		.procname	= "pf_enable",
-+		.data		= &init_net.sctp.pf_enable,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+		.extra1		= &one,
-+		.extra2		= &int_max
-+	},
- 
- 	{ /* sentinel */ }
- };
--- 
-1.7.9.5
+no, I guess the easier way is what you proposed.
+
+Peppe
+
+>
+>
