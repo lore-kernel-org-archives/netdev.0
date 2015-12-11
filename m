@@ -1,66 +1,36 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [RFCv3 bluetooth-next 4/4] 6lowpan: iphc: add support for
- stateful compression
-Date: Fri, 11 Dec 2015 20:11:42 +0100
-Message-ID: <566B1FEE.5030509@osg.samsung.com>
-References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
- <1448796882-316-5-git-send-email-alex.aring@gmail.com>
- <20151211170541.GA1119@omega>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de, mcr@sandelman.ca, lukasz.duda@nordicsemi.no,
-	martin.gergeleit@hs-rm.de
-To: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org
+From: Saurabh Sengar <saurabh.truth@gmail.com>
+Subject: [PATCH] wan: wanxl: add pci_disable_device in case of error
+Date: Sat, 12 Dec 2015 00:58:19 +0530
+Message-ID: <1449862099-6256-1-git-send-email-saurabh.truth@gmail.com>
+Cc: Saurabh Sengar <saurabh.truth@gmail.com>
+To: khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:37741 "EHLO lists.s-osg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751201AbbLKTLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Dec 2015 14:11:49 -0500
-In-Reply-To: <20151211170541.GA1119@omega>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33000 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbbLKT23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 14:28:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+If there is 'no suitable DMA available' error, device should be disabled
+before returning
 
-On 11/12/15 18:05, Alexander Aring wrote:
-> Hi,
->
-> status update here.
->
-> I implemented successful basic 6CO RA messages at sending and
-> processing inside radvd.
->
-> There might also the question if processing 6CO inside kernel or
-> userspace? I put the basic functionality inside userspace for now.
+Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
+---
+ drivers/net/wan/wanxl.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-How are you feeding the entries your receive back into the kernel? The 
-debugfs interface right now?
-If we want to go with userspace handling for 6CO we need something 
-better at some point.
-
-> I will send patches for this in the next days.
-
-Great.
-
->
-> Anyway I figured some things out which was completely wrong inside this
-> patch.
->
->   - There exist one context based table only.
->     
->     In rfc6282 stands:
->     The specification enables a node to use up to 16 contexts. The
->     context used to encode the source address does not have to be the
->     same as the context used to encode the destination address.
->
->     and I thought it was $SOME_TABLE[DCI] != $DIFFERENT_TABLE[SCI].
->     But it means in general simple that it can be: DCI != SCI.
->
->     With this knowledge the code gets much smaller.
-
-Interesting point. I also overlooked this during the first review rounds.
-
-regards
-Stefan Schmidt
+diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
+index e73f138..a20d688 100644
+--- a/drivers/net/wan/wanxl.c
++++ b/drivers/net/wan/wanxl.c
+@@ -586,6 +586,7 @@ static int wanxl_pci_init_one(struct pci_dev *pdev,
+ 	if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(28)) ||
+ 	    pci_set_dma_mask(pdev, DMA_BIT_MASK(28))) {
+ 		pr_err("No usable DMA configuration\n");
++		pci_disable_device(pdev);
+ 		return -EIO;
+ 	}
+ 
+-- 
+1.9.1
