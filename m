@@ -1,75 +1,103 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] iwlwifi: mvm: protect RCU dereference in iwl_mvm_get_key_sta_id
-Date: Fri, 11 Dec 2015 09:13:52 +0100
-Message-ID: <1449821632-8106-1-git-send-email-johannes@sipsolutions.net>
-References: <566A0929.2090706@redhat.com>
-Cc: Laura Abbott <labbott@redhat.com>, netdev@vger.kernel.org,
-	avri.altman@intel.com, emmanuel.grumbach@intel.com,
-	linuxwifi@intel.com, linux-kernel@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <566A0929.2090706@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net/macb: add support for resetting PHY using GPIO
+Date: Fri, 11 Dec 2015 09:46:30 +0100
+Message-ID: <20151211084630.GW11966@pengutronix.de>
+References: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
+ <20151210073756.GA11966@pengutronix.de>
+ <871tau8hpj.fsf@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:51480 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754121AbbLKIqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 03:46:39 -0500
+Content-Disposition: inline
+In-Reply-To: <871tau8hpj.fsf@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+On Thu, Dec 10, 2015 at 04:08:08PM +0100, Gregory CLEMENT wrote:
+> Hi Sascha,
+> =20
+>  On jeu., d=E9c. 10 2015, Sascha Hauer <s.hauer@pengutronix.de> wrote=
+:
+>=20
+> > Hi Gregory,
+> >
+> > On Wed, Dec 09, 2015 at 06:49:43PM +0100, Gregory CLEMENT wrote:
+> >> With device tree it is no more possible to reset the PHY at board
+> >> level. Furthermore, doing in the driver allow to power down the PH=
+Y when
+> >> the network interface is no more used.
+> >>=20
+> >> The patch introduces a new optional property "phy-reset-gpio" insp=
+ired
+> >> from the one use for the FEC.
+> >
+> > I don't think it's a good idea to further extend the usage of this
+> > binding. The driver should use the phy-handle property and
+> > of_phy_connect() which gives you a proper device node for the phy. =
+Then
+> > the phy device node should get the reset gpio. I know it's more wor=
+k,
+>=20
+> So you suggest to pass from this binding:
+> macb1: ethernet@fc028000 {
+> 	phy-mode =3D "rmii";
+> 	status =3D "okay";
+> 	#address-cells =3D <1>;
+> 	#size-cells =3D <0>;
+> 	status =3D "okay";
+> 	phy-reset-gpio =3D <&pioE 6 GPIO_ACTIVE_HIGH>;
+>=20
+> 	ethernet-phy@1 {
+> 		reg =3D <0x1>;
+> 		interrupt-parent =3D <&pioB>;
+> 		interrupts =3D <31 IRQ_TYPE_EDGE_FALLING>;
+>=20
+> 	};
+> };
+>=20
+> to this binding
+> macb1: ethernet@fc028000 {
+> 	phy-mode =3D "rmii";
+> 	status =3D "okay";
+> 	#address-cells =3D <1>;
+> 	#size-cells =3D <0>;
+> 	status =3D "okay";
+>=20
+> 	ethernet-phy@1 {
+> 		reg =3D <0x1>;
+> 		interrupt-parent =3D <&pioB>;
+> 		interrupts =3D <31 IRQ_TYPE_EDGE_FALLING>;
+>                 phy-reset-gpio =3D <&pioE 6 GPIO_ACTIVE_HIGH>;
+> 	};
+> };
 
-Properly protect the RCU dereference in iwl_mvm_get_key_sta_id() when
-coming from iwl_mvm_update_tkip_key() which cannot hold the mvm->mutex
-by moving the call into the RCU critical section.
-Modify the check to use rcu_dereference_check() to permit this.
+s/phy-reset-gpio/reset-gpios/, but yes.
 
-Fixes: 9513c5e18a0d ("iwlwifi: mvm: Avoid dereferencing sta if it was already flushed")
-Reported-by: Laura Abbott <labbott@redhat.com>
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- drivers/net/wireless/iwlwifi/mvm/sta.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+I had assumed you do not use a phy description in the device tree at al=
+l
+since the macb driver doesn't use of_phy_connect(). Apparently there ar=
+e
+other possibilities to connect the phy device nodes with the phys
 
-diff --git a/drivers/net/wireless/iwlwifi/mvm/sta.c b/drivers/net/wireless/iwlwifi/mvm/sta.c
-index 354acbde088e..2b976b110207 100644
---- a/drivers/net/wireless/iwlwifi/mvm/sta.c
-+++ b/drivers/net/wireless/iwlwifi/mvm/sta.c
-@@ -1222,8 +1222,8 @@ static u8 iwl_mvm_get_key_sta_id(struct iwl_mvm *mvm,
- 	    mvmvif->ap_sta_id != IWL_MVM_STATION_COUNT) {
- 		u8 sta_id = mvmvif->ap_sta_id;
- 
--		sta = rcu_dereference_protected(mvm->fw_id_to_mac_id[sta_id],
--						lockdep_is_held(&mvm->mutex));
-+		sta = rcu_dereference_check(mvm->fw_id_to_mac_id[sta_id],
-+					    lockdep_is_held(&mvm->mutex));
- 		/*
- 		 * It is possible that the 'sta' parameter is NULL,
- 		 * for example when a GTK is removed - the sta_id will then
-@@ -1590,14 +1590,15 @@ void iwl_mvm_update_tkip_key(struct iwl_mvm *mvm,
- 			     u16 *phase1key)
- {
- 	struct iwl_mvm_sta *mvm_sta;
--	u8 sta_id = iwl_mvm_get_key_sta_id(mvm, vif, sta);
-+	u8 sta_id;
- 	bool mcast = !(keyconf->flags & IEEE80211_KEY_FLAG_PAIRWISE);
- 
--	if (WARN_ON_ONCE(sta_id == IWL_MVM_STATION_COUNT))
--		return;
--
- 	rcu_read_lock();
- 
-+	sta_id = iwl_mvm_get_key_sta_id(mvm, vif, sta);
-+	if (WARN_ON_ONCE(sta_id == IWL_MVM_STATION_COUNT))
-+		goto unlock;
-+
- 	if (!sta) {
- 		sta = rcu_dereference(mvm->fw_id_to_mac_id[sta_id]);
- 		if (WARN_ON(IS_ERR_OR_NULL(sta))) {
-@@ -1609,6 +1610,8 @@ void iwl_mvm_update_tkip_key(struct iwl_mvm *mvm,
- 	mvm_sta = iwl_mvm_sta_from_mac80211(sta);
- 	iwl_mvm_send_sta_key(mvm, mvm_sta, keyconf, mcast,
- 			     iv32, phase1key, CMD_ASYNC, keyconf->hw_key_idx);
-+
-+ unlock:
- 	rcu_read_unlock();
- }
- 
--- 
-2.6.2
+Sascha
+
+--=20
+Pengutronix e.K.                           |                           =
+  |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
+  |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
+5 |
