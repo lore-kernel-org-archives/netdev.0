@@ -1,146 +1,181 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v4 3/4] netlink: add a start callback for starting a netlink dump
-Date: Thu, 10 Dec 2015 16:19:32 -0800
-Message-ID: <1449793173-4086221-4-git-send-email-tom@herbertland.com>
-References: <1449793173-4086221-1-git-send-email-tom@herbertland.com>
+From: Phil Reid <preid@electromag.com.au>
+Subject: Re: [PATCH v5 1/4] stmmac: create of compatible mdio bus for stmacc
+ driver
+Date: Fri, 11 Dec 2015 09:44:52 +0800
+Message-ID: <566A2A94.9090000@electromag.com.au>
+References: <1449650381-82074-1-git-send-email-preid@electromag.com.au>
+ <1449650381-82074-2-git-send-email-preid@electromag.com.au>
+ <5669B372.5070207@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	davem@davemloft.net, vbridger@opensource.altera.com,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41093 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751611AbbLKATp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 19:19:45 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBB0BtkN007043
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 16:19:45 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1yqg1as1td-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2015 16:19:45 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.103.99.99) with ESMTP	id
- e07d7da69f9c11e591a00002c9dfb610-747f3210 for <netdev@vger.kernel.org>;	Thu,
- 10 Dec 2015 16:19:43 -0800
-In-Reply-To: <1449793173-4086221-1-git-send-email-tom@herbertland.com>
+Received: from anchovy1.45ru.net.au ([203.30.46.145]:52850 "EHLO
+	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752047AbbLKBpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2015 20:45:08 -0500
+In-Reply-To: <5669B372.5070207@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The start callback allows the caller to set up a context for the
-dump callbacks. Presumably, the context can then be destroyed in
-the done callback.
+G'day Giuseppe,
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/netlink.h  |  2 ++
- include/net/genetlink.h  |  2 ++
- net/netlink/af_netlink.c |  4 ++++
- net/netlink/genetlink.c  | 16 ++++++++++++++++
- 4 files changed, 24 insertions(+)
+On 11/12/2015 1:16 AM, Giuseppe CAVALLARO wrote:
+> Hi
+>
+> also pls fix this typo
+>
+> stmmac: create of compatible mdio bus for stmacc driver
+>                                           ^^^^^^^^
+>                                            stmmac
+Will do.
+>
+> On 12/9/2015 9:39 AM, Phil Reid wrote:
+>> The DSA driver needs to be passed a reference to an mdio bus. Typically
+>> the mac is configured to use a fixed link but the mdio bus still needs
+>> to be registered so that it con configure the switch.
+>> This patch follows the same process as the altera tse ethernet driver for
+>> creation of the mdio bus.
+>>
+>> Acked-by: Rob Herring <robh@kernel.org>
+>> Signed-off-by: Phil Reid <preid@electromag.com.au>
+>> ---
+>>   Documentation/devicetree/bindings/net/stmmac.txt   |  8 ++++++
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 31 +++++++++++++++-------
+>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
+>>   3 files changed, 31 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+>> index f34fc3c..fd5ddf8 100644
+>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+>> @@ -47,6 +47,7 @@ Optional properties:
+>>   - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
+>>   - tx-fifo-depth: See ethernet.txt file in the same directory
+>>   - rx-fifo-depth: See ethernet.txt file in the same directory
+>> +- mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+>>
+>>   Examples:
+>>
+>> @@ -65,4 +66,11 @@ Examples:
+>>           tx-fifo-depth = <16384>;
+>>           clocks = <&clock>;
+>>           clock-names = "stmmaceth";
+>> +        mdio0 {
+>> +            #address-cells = <1>;
+>> +            #size-cells = <0>;
+>> +            compatible = "snps,dwmac-mdio";
+>> +            phy1: ethernet-phy@0 {
+>> +            };
+>> +        };
+>>       };
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>> index bba670c..bb6f75c 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+>> @@ -29,7 +29,7 @@
+>>   #include <linux/slab.h>
+>>   #include <linux/of.h>
+>>   #include <linux/of_gpio.h>
+>> -
+>> +#include <linux/of_mdio.h>
+>>   #include <asm/io.h>
+>>
+>>   #include "stmmac.h"
+>> @@ -200,10 +200,29 @@ int stmmac_mdio_register(struct net_device *ndev)
+>>       struct stmmac_priv *priv = netdev_priv(ndev);
+>>       struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+>>       int addr, found;
+>> +    struct device_node *mdio_node = NULL;
+>> +    struct device_node *child_node = NULL;
+>>
+>>       if (!mdio_bus_data)
+>>           return 0;
+>>
+>> +    if (IS_ENABLED(CONFIG_OF)) {
+>> +        for_each_child_of_node(priv->device->of_node, child_node) {
+>> +            if (of_device_is_compatible(child_node,
+>> +                            "snps,dwmac-mdio")) {
+>> +                mdio_node = child_node;
+>> +                break;
+>> +            }
+>> +        }
+>> +
+>> +        if (mdio_node) {
+>> +            netdev_dbg(ndev, "FOUND MDIO subnode\n");
+>> +        } else {
+>> +            netdev_err(ndev, "NO MDIO subnode\n");
+>> +            return 0;
+>> +        }
+>> +    }
+>> +
+>>       new_bus = mdiobus_alloc();
+>>       if (new_bus == NULL)
+>>           return -ENOMEM;
+>> @@ -231,7 +250,8 @@ int stmmac_mdio_register(struct net_device *ndev)
+>>       new_bus->irq = irqlist;
+>>       new_bus->phy_mask = mdio_bus_data->phy_mask;
+>>       new_bus->parent = priv->device;
+>> -    err = mdiobus_register(new_bus);
+>> +
+>> +    err = of_mdiobus_register(new_bus, mdio_node);
+>>       if (err != 0) {
+>>           pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
+>>           goto bus_register_fail;
+>> @@ -284,13 +304,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+>>           }
+>>       }
+>>
+>> -    if (!found) {
+>> -        pr_warn("%s: No PHY found\n", ndev->name);
+>> -        mdiobus_unregister(new_bus);
+>> -        mdiobus_free(new_bus);
+>> -        return -ENODEV;
+>> -    }
+>
+> hmm,  this could be necessary on some platforms that wants to
+> get the phy addr at runtime and in case of failure then
+> removes the registered bus.
+>
+Could make this conditional on (!found && !mdio_node).
+Therefore if dt node exists it will be created regardless, otherwise unregister if nothing found.
+Thoughts?
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 639e9b8..0b41959 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -131,6 +131,7 @@ netlink_skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- struct netlink_callback {
- 	struct sk_buff		*skb;
- 	const struct nlmsghdr	*nlh;
-+	int			(*start)(struct netlink_callback *);
- 	int			(*dump)(struct sk_buff * skb,
- 					struct netlink_callback *cb);
- 	int			(*done)(struct netlink_callback *cb);
-@@ -153,6 +154,7 @@ struct nlmsghdr *
- __nlmsg_put(struct sk_buff *skb, u32 portid, u32 seq, int type, int len, int flags);
- 
- struct netlink_dump_control {
-+	int (*start)(struct netlink_callback *);
- 	int (*dump)(struct sk_buff *skb, struct netlink_callback *);
- 	int (*done)(struct netlink_callback *);
- 	void *data;
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 1b6b6dc..43c0e77 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -114,6 +114,7 @@ static inline void genl_info_net_set(struct genl_info *info, struct net *net)
-  * @flags: flags
-  * @policy: attribute validation policy
-  * @doit: standard command callback
-+ * @start: start callback for dumps
-  * @dumpit: callback for dumpers
-  * @done: completion callback for dumps
-  * @ops_list: operations list
-@@ -122,6 +123,7 @@ struct genl_ops {
- 	const struct nla_policy	*policy;
- 	int		       (*doit)(struct sk_buff *skb,
- 				       struct genl_info *info);
-+	int		       (*start)(struct netlink_callback *cb);
- 	int		       (*dumpit)(struct sk_buff *skb,
- 					 struct netlink_callback *cb);
- 	int		       (*done)(struct netlink_callback *cb);
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 59651af..81dc1bb 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2915,6 +2915,7 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 
- 	cb = &nlk->cb;
- 	memset(cb, 0, sizeof(*cb));
-+	cb->start = control->start;
- 	cb->dump = control->dump;
- 	cb->done = control->done;
- 	cb->nlh = nlh;
-@@ -2927,6 +2928,9 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 
- 	mutex_unlock(nlk->cb_mutex);
- 
-+	if (cb->start)
-+		cb->start(cb);
-+
- 	ret = netlink_dump(sk);
- 	sock_put(sk);
- 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index bc0e504..8e63662 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -513,6 +513,20 @@ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
- }
- EXPORT_SYMBOL(genlmsg_put);
- 
-+static int genl_lock_start(struct netlink_callback *cb)
-+{
-+	/* our ops are always const - netlink API doesn't propagate that */
-+	const struct genl_ops *ops = cb->data;
-+	int rc = 0;
-+
-+	if (ops->start) {
-+		genl_lock();
-+		rc = ops->start(cb);
-+		genl_unlock();
-+	}
-+	return rc;
-+}
-+
- static int genl_lock_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	/* our ops are always const - netlink API doesn't propagate that */
-@@ -577,6 +591,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 				.module = family->module,
- 				/* we have const, but the netlink API doesn't */
- 				.data = (void *)ops,
-+				.start = genl_lock_start,
- 				.dump = genl_lock_dumpit,
- 				.done = genl_lock_done,
- 			};
-@@ -588,6 +603,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 		} else {
- 			struct netlink_dump_control c = {
- 				.module = family->module,
-+				.start = ops->start,
- 				.dump = ops->dumpit,
- 				.done = ops->done,
- 			};
+>> -
+>>       priv->mii = new_bus;
+>>
+>>       return 0;
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> index d02691b..6863420 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> @@ -146,7 +146,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>>       if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
+>>           dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+>>ec
+>> -    if (plat->phy_node || plat->phy_bus_name)
+>
+I think that would be dependent on the device tree.
+However this may also work:
+if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_name)
+
+> can this breaks some conf case?
+>
+>> +    if (plat->phy_bus_name)
+>>           plat->mdio_bus_data = NULL;
+>>       else
+>>           plat->mdio_bus_data =
+>>
+
+Alternatively the solution would be to introduce some non standard device tree node
+to force the creation of the mdio bus.
+
+
 -- 
-2.4.6
+Regards
+Phil Reid
