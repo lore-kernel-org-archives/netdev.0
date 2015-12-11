@@ -1,47 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ixgbe: on recv increment rx.ring->stats.yields instead of
- tx
-Date: Fri, 11 Dec 2015 16:47:33 +0300
-Message-ID: <566AD3F5.9050502@cogentembedded.com>
-References: <1449818646-29348-1-git-send-email-ptikhomirov@virtuozzo.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [linux-next] iwl_mvm_get_key_sta_id() suspicious RCU usage
+Date: Fri, 11 Dec 2015 14:49:01 +0100
+Message-ID: <1449841741.2324.2.camel@sipsolutions.net>
+References: <20151211134418.GA29351@swordfish>
+	 (sfid-20151211_144614_821713_0C346E06)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Vagin <avagin@parallels.com>,
-	Konstantin Khorenko <khorenko@parallels.com>, devel@openvz.org
-To: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:34733 "EHLO
-	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751741AbbLKNrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 08:47:37 -0500
-Received: by lfcy184 with SMTP id y184so6078212lfc.1
-        for <netdev@vger.kernel.org>; Fri, 11 Dec 2015 05:47:36 -0800 (PST)
-In-Reply-To: <1449818646-29348-1-git-send-email-ptikhomirov@virtuozzo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <linuxwifi@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151211134418.GA29351@swordfish> (sfid-20151211_144614_821713_0C346E06)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, 2015-12-11 at 22:44 +0900, Sergey Senozhatsky wrote:
 
-On 12/11/2015 10:24 AM, Pavel Tikhomirov wrote:
+> [ 6385.246300] drivers/net/wireless/intel/iwlwifi/mvm/sta.c:1226
+> suspicious rcu_dereference_protected() usage!
+> 
 
-> It seem to be non intentionaly changed to tx in
-> ms commit: adc810900a703ee78fe88fd65e086d359fec04b2
-> ixgbe: Refactor busy poll socket code to address multiple issues
+Funny, Laura Abbott also reported this bug earlier today :)
 
-    scripts/checkpatch.pl now enforces uniform style of the commit citing, 
-please follow.
+I've sent out a fix, you can see it here:
+https://patchwork.ozlabs.org/patch/555587/
 
-> Lock is taken from ixgbe_low_latency_recv, and there under this
-> lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
-> tx counter.
->
-> Yield stats can be shown through ethtool:
-> ethtool -S enp129s0 | grep yield
->
-> Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-[...]
-
-MBR, Sergei
+johannes
