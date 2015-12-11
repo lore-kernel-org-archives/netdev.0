@@ -1,103 +1,127 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] net/macb: add support for resetting PHY using GPIO
-Date: Fri, 11 Dec 2015 09:46:30 +0100
-Message-ID: <20151211084630.GW11966@pengutronix.de>
-References: <1449683383-5022-1-git-send-email-gregory.clement@free-electrons.com>
- <20151210073756.GA11966@pengutronix.de>
- <871tau8hpj.fsf@free-electrons.com>
+From: <zyjzyj2000@gmail.com>
+Subject: [PATCH 1/1] net: sctp: dynamically enable or disable pf state
+Date: Fri, 11 Dec 2015 17:05:32 +0800
+Message-ID: <1449824732-22362-1-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Content-Type: text/plain
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<alexandre.dietsch@windriver.com>,
+	<stefan.costandache@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:51480 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754121AbbLKIqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 03:46:39 -0500
-Content-Disposition: inline
-In-Reply-To: <871tau8hpj.fsf@free-electrons.com>
+Received: from mail5.windriver.com ([192.103.53.11]:32944 "EHLO mail5.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805AbbLKJFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Dec 2015 04:05:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 10, 2015 at 04:08:08PM +0100, Gregory CLEMENT wrote:
-> Hi Sascha,
-> =20
->  On jeu., d=E9c. 10 2015, Sascha Hauer <s.hauer@pengutronix.de> wrote=
-:
->=20
-> > Hi Gregory,
-> >
-> > On Wed, Dec 09, 2015 at 06:49:43PM +0100, Gregory CLEMENT wrote:
-> >> With device tree it is no more possible to reset the PHY at board
-> >> level. Furthermore, doing in the driver allow to power down the PH=
-Y when
-> >> the network interface is no more used.
-> >>=20
-> >> The patch introduces a new optional property "phy-reset-gpio" insp=
-ired
-> >> from the one use for the FEC.
-> >
-> > I don't think it's a good idea to further extend the usage of this
-> > binding. The driver should use the phy-handle property and
-> > of_phy_connect() which gives you a proper device node for the phy. =
-Then
-> > the phy device node should get the reset gpio. I know it's more wor=
-k,
->=20
-> So you suggest to pass from this binding:
-> macb1: ethernet@fc028000 {
-> 	phy-mode =3D "rmii";
-> 	status =3D "okay";
-> 	#address-cells =3D <1>;
-> 	#size-cells =3D <0>;
-> 	status =3D "okay";
-> 	phy-reset-gpio =3D <&pioE 6 GPIO_ACTIVE_HIGH>;
->=20
-> 	ethernet-phy@1 {
-> 		reg =3D <0x1>;
-> 		interrupt-parent =3D <&pioB>;
-> 		interrupts =3D <31 IRQ_TYPE_EDGE_FALLING>;
->=20
-> 	};
-> };
->=20
-> to this binding
-> macb1: ethernet@fc028000 {
-> 	phy-mode =3D "rmii";
-> 	status =3D "okay";
-> 	#address-cells =3D <1>;
-> 	#size-cells =3D <0>;
-> 	status =3D "okay";
->=20
-> 	ethernet-phy@1 {
-> 		reg =3D <0x1>;
-> 		interrupt-parent =3D <&pioB>;
-> 		interrupts =3D <31 IRQ_TYPE_EDGE_FALLING>;
->                 phy-reset-gpio =3D <&pioE 6 GPIO_ACTIVE_HIGH>;
-> 	};
-> };
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-s/phy-reset-gpio/reset-gpios/, but yes.
+As we all know, the vale of pf_retrans >= max_retrans_path can
+disable pf state. The variables of pf_retrans and max_retrans_path
+can be changed by the user space application.
 
-I had assumed you do not use a phy description in the device tree at al=
-l
-since the macb driver doesn't use of_phy_connect(). Apparently there ar=
-e
-other possibilities to connect the phy device nodes with the phys
+Sometimes the user expects to disable pf state while the 2
+variables are changed to enable pf state. So it is necessary to
+introduce a new variable to disable pf state.
 
-Sascha
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt |   17 +++++++++++++++++
+ include/net/netns/sctp.h               |    7 +++++++
+ net/sctp/sm_sideeffect.c               |    5 ++++-
+ net/sctp/sysctl.c                      |    9 +++++++++
+ 4 files changed, 37 insertions(+), 1 deletion(-)
 
---=20
-Pengutronix e.K.                           |                           =
-  |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
-  |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
-5 |
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index f647900..7195c24 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1723,6 +1723,23 @@ addip_enable - BOOLEAN
+ 
+ 	Default: 0
+ 
++pf_enable - INTEGER
++	Enable or disable pf state. A value of pf_retrans > path_max_retrans
++	also disables pf state. That is, one of both pf_enable and
++	pf_retrans > path_max_retrans can disable pf state. Since pf_retrans
++	and path_max_retrans can be changed by userspace application, sometimes
++	user expects to disable pf state by the value of
++	pf_retrans > path_max_retrans, but ocassionally the value of pf_retrans
++	or path_max_retrans is changed by the user application, this pf state is
++	enabled. As such, it is necessary to add this to dynamically enable
++	and disable pf state.
++
++	1: Enable pf.
++
++	0: Disable pf.
++
++	Default: 1
++
+ addip_noauth_enable - BOOLEAN
+ 	Dynamic Address Reconfiguration (ADD-IP) requires the use of
+ 	authentication to protect the operations of adding or removing new
+diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+index 8ba379f..c501d67 100644
+--- a/include/net/netns/sctp.h
++++ b/include/net/netns/sctp.h
+@@ -89,6 +89,13 @@ struct netns_sctp {
+ 	int pf_retrans;
+ 
+ 	/*
++	 * Disable Potentially-Failed feature, the feature is enabled by default
++	 * pf_enable	-  0  : disable pf
++	 *		- >0  : enable pf
++	 */
++	int pf_enable;
++
++	/*
+ 	 * Policy for preforming sctp/socket accounting
+ 	 * 0   - do socket level accounting, all assocs share sk_sndbuf
+ 	 * 1   - do sctp accounting, each asoc may use sk_sndbuf bytes
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 6098d4c..50309ed 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -477,6 +477,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
+ 					 struct sctp_transport *transport,
+ 					 int is_hb)
+ {
++	struct net *net = sock_net(asoc->base.sk);
++
+ 	/* The check for association's overall error counter exceeding the
+ 	 * threshold is done in the state function.
+ 	 */
+@@ -503,7 +505,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
+ 	 * is SCTP_ACTIVE, then mark this transport as Partially Failed,
+ 	 * see SCTP Quick Failover Draft, section 5.1
+ 	 */
+-	if ((transport->state == SCTP_ACTIVE) &&
++	if (net->sctp.pf_enable &&
++	   (transport->state == SCTP_ACTIVE) &&
+ 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
+ 	   (transport->error_count > asoc->pf_retrans)) {
+ 
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 26d50c5..0a4f402 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -308,6 +308,15 @@ static struct ctl_table sctp_net_table[] = {
+ 		.extra1		= &max_autoclose_min,
+ 		.extra2		= &max_autoclose_max,
+ 	},
++	{
++		.procname	= "pf_enable",
++		.data		= &init_net.sctp.pf_enable,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++		.extra1		= &one,
++		.extra2		= &int_max
++	},
+ 
+ 	{ /* sentinel */ }
+ };
+-- 
+1.7.9.5
