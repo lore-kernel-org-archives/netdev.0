@@ -1,94 +1,39 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hv_netvsc: Fix race condition on Multi-Send Data
- field
-Date: Fri, 11 Dec 2015 15:42:57 +0000
-Message-ID: <BN1PR0301MB0770DA5A40A4964F74689336CAEA0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <1449778775-14404-1-git-send-email-haiyangz@microsoft.com>
- <877fklyxiu.fsf@vitty.brq.redhat.com> <87vb85xfbz.fsf@vitty.brq.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Double free of dst_entry in ipv4_dst_destroy()
+Date: Fri, 11 Dec 2015 07:48:33 -0800
+Message-ID: <1449848913.9768.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151206132657.Horde.rQvtH4bu51mT83V1RAKxWA1@ltc.linux.ibm.com>
+	 <1449435784.25029.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1449453515.25029.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1449843809.9768.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <87vb85xfbz.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, predeep@us.ibm.com, mjtarsel@us.ibm.com
+To: dwilder@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35758 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753761AbbLKPsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 10:48:39 -0500
+Received: by pfd5 with SMTP id 5so6308129pfd.2
+        for <netdev@vger.kernel.org>; Fri, 11 Dec 2015 07:48:36 -0800 (PST)
+In-Reply-To: <1449843809.9768.18.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogVml0YWx5IEt1em5ldHNv
-diBbbWFpbHRvOnZrdXpuZXRzQHJlZGhhdC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgRGVjZW1iZXIg
-MTEsIDIwMTUgODo1MyBBTQ0KPiBUbzogSGFpeWFuZyBaaGFuZyA8aGFpeWFuZ3pAbWljcm9zb2Z0
-LmNvbT4NCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
-IG9sYWZAYWVwZmxlLmRlOw0KPiBqYXNvd2FuZ0ByZWRoYXQuY29tOyBkcml2ZXJkZXYtZGV2ZWxA
-bGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcN
-Cj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dF0gaHZfbmV0dnNjOiBGaXggcmFjZSBjb25k
-aXRpb24gb24gTXVsdGktDQo+IFNlbmQgRGF0YSBmaWVsZA0KPiANCj4gVml0YWx5IEt1em5ldHNv
-diA8dmt1em5ldHNAcmVkaGF0LmNvbT4gd3JpdGVzOg0KPiANCj4gPiBIYWl5YW5nIFpoYW5nIDxo
-YWl5YW5nekBtaWNyb3NvZnQuY29tPiB3cml0ZXM6DQo+ID4NCj4gPj4gSW4gY29tbWl0IDJhMDRh
-ZThhY2IxNCAoImh2X25ldHZzYzogcmVtb3ZlIGxvY2tpbmcgaW4gbmV0dnNjX3NlbmQoKSIpLA0K
-PiB0aGUNCj4gPj4gbG9ja2luZyBmb3IgTVNEIChNdWx0aS1TZW5kIERhdGEpIGZpZWxkIHdhcyBy
-ZW1vdmVkLiBUaGlzIGNvdWxkIGNhdXNlDQo+IGENCj4gPj4gcmFjZSBjb25kaXRpb24gYmV0d2Vl
-biBSTkRJUyBjb250cm9sIG1lc3NhZ2VzIGFuZCBkYXRhIHBhY2tldHMNCj4gcHJvY2Vzc2luZywN
-Cj4gPj4gYmVjYXVzZSB0aGVzZSB0d28gdHlwZXMgb2YgdHJhZmZpYyBhcmUgbm90IHN5bmNocm9u
-aXplZC4NCj4gPj4gVGhpcyBwYXRjaCBmaXhlcyB0aGlzIGlzc3VlIGJ5IHNlbmRpbmcgY29udHJv
-bCBtZXNzYWdlcyBvdXQgZGlyZWN0bHkNCj4gPj4gd2l0aG91dCByZWFkaW5nIE1TRCBmaWVsZC4N
-Cj4gPj4NCj4gPj4gU2lnbmVkLW9mZi1ieTogSGFpeWFuZyBaaGFuZyA8aGFpeWFuZ3pAbWljcm9z
-b2Z0LmNvbT4NCj4gPj4gUmV2aWV3ZWQtYnk6IEsuIFkuIFNyaW5pdmFzYW4gPGt5c0BtaWNyb3Nv
-ZnQuY29tPg0KPiA+PiAtLS0NCj4gPj4gIGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2MuYyB8ICAg
-IDkgKysrKysrKysrDQo+ID4+ICAxIGZpbGVzIGNoYW5nZWQsIDkgaW5zZXJ0aW9ucygrKSwgMCBk
-ZWxldGlvbnMoLSkNCj4gPj4NCj4gPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9u
-ZXR2c2MuYw0KPiBiL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2MuYw0KPiA+PiBpbmRleCAwMmJh
-YjlhLi4wNTlmYzUyIDEwMDY0NA0KPiA+PiAtLS0gYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNj
-LmMNCj4gPj4gKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jDQo+ID4+IEBAIC04Njcs
-NiArODY3LDE0IEBAIGludCBuZXR2c2Nfc2VuZChzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2UsDQo+
-ID4+ICAJcGFja2V0LT5zZW5kX2J1Zl9pbmRleCA9IE5FVFZTQ19JTlZBTElEX0lOREVYOw0KPiA+
-PiAgCXBhY2tldC0+Y3BfcGFydGlhbCA9IGZhbHNlOw0KPiA+Pg0KPiA+PiArCS8qIFNlbmQgY29u
-dHJvbCBtZXNzYWdlIGRpcmVjdGx5IHdpdGhvdXQgYWNjZXNzaW5nIG1zZCAoTXVsdGktU2VuZA0K
-PiA+PiArCSAqIERhdGEpIGZpZWxkIHdoaWNoIG1heSBiZSBjaGFuZ2VkIGR1cmluZyBkYXRhIHBh
-Y2tldCBwcm9jZXNzaW5nLg0KPiA+PiArCSAqLw0KPiA+PiArCWlmICghc2tiKSB7DQo+ID4+ICsJ
-CWN1cl9zZW5kID0gcGFja2V0Ow0KPiA+PiArCQlnb3RvIHNlbmRfbm93Ow0KPiA+PiArCX0NCj4g
-Pj4gKw0KPiA+DQo+ID4gSXMgaXMgc3VwcG9zZWQgdG8gYmUgYXBwbGllZCBvbiB0b3Agb2Ygc29t
-ZSBvdGhlciBwYXRjaGVzPyBJdCBkb2Vzbid0DQo+ID4gY29tcGlsZSBvbiB0b3Agb2YgY3VycmVu
-dCBuZXQtbmV4dDoNCj4gPg0KPiA+IGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2MuYzogSW4gZnVu
-Y3Rpb24g4oCYbmV0dnNjX3NlbmTigJk6DQo+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5j
-Ojg2NTo3OiBlcnJvcjog4oCYc2ti4oCZIHVuZGVjbGFyZWQgKGZpcnN0IHVzZQ0KPiBpbg0KPiA+
-IHRoaXMgZnVuY3Rpb24pDQo+ID4gICBpZiAoIXNrYikgew0KPiA+ICAgICAgICAgIF4NCj4gPg0K
-PiA+IERpZCB5b3UgbWVhbiB0byBjaGVjayBybmRpc19tc2cgaW5zdGVhZCAoYXMgc2tiIGlzIG5v
-dCBkZWZpbmVkIGhlcmUpPw0KPiANCj4gT2gsIG15IGJhZCwgaXQgd2FzIG1lIHdobyB3YXMgbG9v
-a2luZyBhdCB0aGUgd3JvbmcgYnJhbmNoLi4uIFNvcnJ5IGZvcg0KPiB0aGUgbm9pc2UuDQo+IA0K
-PiA+DQo+ID4+ICAJbXNkcCA9ICZuZXRfZGV2aWNlLT5tc2RbcV9pZHhdOw0KPiA+Pg0KPiA+PiAg
-CS8qIGJhdGNoIHBhY2tldHMgaW4gc2VuZCBidWZmZXIgaWYgcG9zc2libGUgKi8NCj4gPj4gQEAg
-LTkzOSw2ICs5NDcsNyBAQCBpbnQgbmV0dnNjX3NlbmQoc3RydWN0IGh2X2RldmljZSAqZGV2aWNl
-LA0KPiA+PiAgCQl9DQo+ID4+ICAJfQ0KPiA+Pg0KPiA+PiArc2VuZF9ub3c6DQo+ID4+ICAJaWYg
-KGN1cl9zZW5kKQ0KPiA+PiAgCQlyZXQgPSBuZXR2c2Nfc2VuZF9wa3QoY3VyX3NlbmQsIG5ldF9k
-ZXZpY2UsIHBiLCBza2IpOw0KPiA+DQo+ID4gSSBzdXBwb3NlIHdlIHVudGFuZ2xlIHRoZXNlIHR3
-byBwYXRoZXMgY29tcGxldGVseTogbGV0DQo+ID4gcm5kaXNfZmlsdGVyX3NlbmRfcmVxdWVzdCgp
-IGNhbGwgbmV0dnNjX3NlbmRfcGt0KCkgZGlyZWN0bHkuIFBsZWFzZQ0KPiBzZWUNCj4gPiBteSBw
-YXRjaCBhdHRhY2hlZCAobm90ZTogaXQgc2hvdWxkIGJlIHNwbGl0IGluIDMgcGF0Y2hlcyBpZg0K
-PiA+IHN1Ym1pdHRlZCkuIElmIHlvdSBsaWtlIHRoZSBpZGVhIEkgY2FuIHNlbmQgaXQuDQo+IA0K
-PiBUaGlzIHBhdGNoIHdpbGwgbmVlZCBzb21lIGNoYW5nZXMgYnV0IHRoZSBzdWdnZXN0aW9uIHN0
-aWxsIHN0YW5kczogbGV0J3MNCj4gdW50YW5nbGUgc2VuZGluZyBkYXRhIGFuZCBjb250cm9sIG1l
-c3NhZ2VzLg0KDQpUaGFua3MgZm9yIHRoZSBzdWdnZXN0aW9uLg0KSSBzdGlsbCBwcmVmZXIgZml4
-aW5nIHRoaXMgYnVnIGluIHRoZSBuZXR2c2Nfc2VuZCgpLCBhbmQga2VlcCB0aGUgY29tbW9uDQpl
-bnRyeSBwb2ludCBmb3Igc2VuZGluZyBkYXRhICYgY29udHJvbCBwYWNrZXRzLiBTbywgdGhlIHRv
-dGFsIGxpbmVzIG9mDQpjb2RlIGlzIHNtYWxsZXIuIEFuZCwgd2hlbiB3ZSBhZGQgbW9yZSBwcmUt
-cHJvY2Vzc2luZyBzdGVwcyBmb3Igc2VuZCBpbiANCnRoZSBmdXR1cmUsIHdlIHdvbid0IG5lZWQg
-dG8gY2hhbmdlIG11bHRpcGxlIHBsYWNlcy4NCg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoNCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcg
-bGlzdApkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhk
-cml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
+On Fri, 2015-12-11 at 06:23 -0800, Eric Dumazet wrote:
+> On Sun, 2015-12-06 at 17:58 -0800, Eric Dumazet wrote:
+> > On Sun, 2015-12-06 at 13:03 -0800, Eric Dumazet wrote:
+> > 
+> > > But then when later we promote a skb->dst to a refctounted one
+> > > (skb_dst_force(), we might make sure we abort the operation if __refcnt
+> > > == 0 ( and DST_NOCACHE is in dst->flags)
+> > > 
+> > 
+> > Minimum patch would be :
+> > 
+> 
+> Here is a more complete patch, it should fix the issue I think :
+
+Hmm, I'll send a v3, I forgot to test DST_NOCACHE properly.
