@@ -1,210 +1,226 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH v3 1/4] VSOCK: Introduce virtio-vsock-common.ko
-Date: Fri, 11 Dec 2015 10:51:06 +0800
-Message-ID: <20151211025106.GA6367@stefanha-x1.localdomain>
+Subject: Re: [PATCH v3 2/4] VSOCK: Introduce virtio-vsock.ko
+Date: Fri, 11 Dec 2015 11:00:28 +0800
+Message-ID: <20151211030028.GB6367@stefanha-x1.localdomain>
 References: <1449662633-26623-1-git-send-email-stefanha@redhat.com>
-	<1449662633-26623-2-git-send-email-stefanha@redhat.com>
-	<87k2omppzw.fsf@linaro.org>
+ <1449662633-26623-3-git-send-email-stefanha@redhat.com>
+ <87io46ov5e.fsf@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4312551810150489156=="
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="p4qYPpj5QlsIQJ0K"
 Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
 	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Matt Benjamin <mbenjamin@redhat.com>, Asias He <asias@redhat.com>,
-	Christoffer Dall <christoffer.dall@linaro.org>, matt.ma@linaro.org
+	Matt Benjamin <mbenjamin@redhat.com>,
+	Asias He <asias@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	matt.ma@linaro.org
 To: Alex =?iso-8859-1?Q?Benn=E9e?= <alex.bennee@linaro.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87k2omppzw.fsf@linaro.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87io46ov5e.fsf@linaro.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---===============4312551810150489156==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="zYM0uCDKw75PZbzx"
-Content-Disposition: inline
-
-
---zYM0uCDKw75PZbzx
+--p4qYPpj5QlsIQJ0K
 Content-Type: text/plain; charset=iso-8859-1
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, Dec 10, 2015 at 10:17:07AM +0000, Alex Benn=E9e wrote:
+On Thu, Dec 10, 2015 at 09:23:25PM +0000, Alex Benn=E9e wrote:
 > Stefan Hajnoczi <stefanha@redhat.com> writes:
 >=20
 > > From: Asias He <asias@redhat.com>
 > >
-> > This module contains the common code and header files for the following
-> > virtio-vsock and virtio-vhost kernel modules.
+> > VM sockets virtio transport implementation. This module runs in guest
+> > kernel.
 >=20
-> General comment checkpatch has a bunch of warnings about 80 character
-> limits, extra braces and BUG_ON usage.
+> checkpatch warns on a bunch of whitespace/tab issues.
 
-Will fix in the next verison.
+Will fix in the next version.
 
-> > diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-> > new file mode 100644
-> > index 0000000..e54eb45
-> > --- /dev/null
-> > +++ b/include/linux/virtio_vsock.h
-> > @@ -0,0 +1,203 @@
-> > +/*
-> > + * This header, excluding the #ifdef __KERNEL__ part, is BSD licensed =
-so
-> > + * anyone can use the definitions to implement compatible
-> > drivers/servers:
+> > +struct virtio_vsock {
+> > +	/* Virtio device */
+> > +	struct virtio_device *vdev;
+> > +	/* Virtio virtqueue */
+> > +	struct virtqueue *vqs[VSOCK_VQ_MAX];
+> > +	/* Wait queue for send pkt */
+> > +	wait_queue_head_t queue_wait;
+> > +	/* Work item to send pkt */
+> > +	struct work_struct tx_work;
+> > +	/* Work item to recv pkt */
+> > +	struct work_struct rx_work;
+> > +	/* Mutex to protect send pkt*/
+> > +	struct mutex tx_lock;
+> > +	/* Mutex to protect recv pkt*/
+> > +	struct mutex rx_lock;
 >=20
-> Is anything in here actually exposed to userspace or the guest? The
-> #ifdef __KERNEL__ statement seems redundant for this file at least.
-
-You are right.  I think the header was copied from a uapi file.
-
-I'll compare against other virtio code and apply an appropriate header.
-
-> > +void virtio_vsock_dumppkt(const char *func,  const struct virtio_vsock=
-_pkt *pkt)
-> > +{
-> > +	pr_debug("%s: pkt=3D%p, op=3D%d, len=3D%d, %d:%d---%d:%d, len=3D%d\n",
-> > +		 func, pkt,
-> > +		 le16_to_cpu(pkt->hdr.op),
-> > +		 le32_to_cpu(pkt->hdr.len),
-> > +		 le32_to_cpu(pkt->hdr.src_cid),
-> > +		 le32_to_cpu(pkt->hdr.src_port),
-> > +		 le32_to_cpu(pkt->hdr.dst_cid),
-> > +		 le32_to_cpu(pkt->hdr.dst_port),
-> > +		 pkt->len);
-> > +}
-> > +EXPORT_SYMBOL_GPL(virtio_vsock_dumppkt);
+> Further down I got confused by what lock was what and exactly what was
+> being protected. If the receive and transmit paths touch separate things
+> it might be worth re-arranging the structure to make it clearer, eg:
 >=20
-> Why export this at all? The only users are in this file so you could
-> make it static.
+>    /* The transmit path is protected by tx_lock */
+>    struct mutex tx_lock;
+>    struct work_struct tx_work;
+>    ..
+>    ..
+>=20
+>    /* The receive path is protected by rx_lock */
+>    wait_queue_head_t queue_wait;
+>    ..
+>    ..
+>=20
+>  Which might make things a little clearer. Then all the redundant
+>  information in the comments can be removed. I don't need to know what
+>  is a Virtio device, virtqueue or wait_queue etc as they are implicit in
+>  the structure name.
 
-I'll make it static.
+Thanks, that is a nice idea.
 
-> > +u32 virtio_transport_get_credit(struct virtio_transport *trans, u32 cr=
-edit)
-> > +{
-> > +	u32 ret;
+> > +	mutex_lock(&vsock->tx_lock);
+> > +	while ((ret =3D virtqueue_add_sgs(vq, sgs, out_sg, in_sg, pkt,
+> > +					GFP_KERNEL)) < 0) {
+> > +		prepare_to_wait_exclusive(&vsock->queue_wait, &wait,
+> > +					  TASK_UNINTERRUPTIBLE);
+> > +		mutex_unlock(&vsock->tx_lock);
+> > +		schedule();
+> > +		mutex_lock(&vsock->tx_lock);
+> > +		finish_wait(&vsock->queue_wait, &wait);
+> > +	}
+> > +	virtqueue_kick(vq);
+> > +	mutex_unlock(&vsock->tx_lock);
+>=20
+> What are we protecting with tx_lock here? See comments above about
+> making the lock usage semantics clearer.
+
+vq (vsock->vqs[VSOCK_VQ_TX]) is being protected.  Concurrent calls to
+virtqueue_add_sgs() are not allowed.
+
 > > +
-> > +	mutex_lock(&trans->tx_lock);
-> > +	ret =3D trans->peer_buf_alloc - (trans->tx_cnt - trans->peer_fwd_cnt);
-> > +	if (ret > credit)
-> > +		ret =3D credit;
-> > +	trans->tx_cnt +=3D ret;
-> > +	mutex_unlock(&trans->tx_lock);
-> > +
-> > +	pr_debug("%s: ret=3D%d, buf_alloc=3D%d, peer_buf_alloc=3D%d,"
-> > +		 "tx_cnt=3D%d, fwd_cnt=3D%d, peer_fwd_cnt=3D%d\n", __func__,
->=20
-> I think __func__ is superfluous here as the dynamic print code already
-> has it and can print it when required. Having said that there seems to
-> be plenty of code already in the kernel that uses __func__ :-/
-
-I'll convert most printks to tracepoints in the next revision.
-
-> > +u64 virtio_transport_get_max_buffer_size(struct vsock_sock *vsk)
-> > +{
-> > +	struct virtio_transport *trans =3D vsk->trans;
-> > +
-> > +	return trans->buf_size_max;
+> > +	return pkt_len;
 > > +}
-> > +EXPORT_SYMBOL_GPL(virtio_transport_get_max_buffer_size);
->=20
-> All these accesses functions seem pretty simple. Maybe they should be
-> inline header functions or even #define macros?
-
-They are used as struct vsock_transport function pointers.  What is the
-advantage to inlining them?
-
-> > +int virtio_transport_notify_send_post_enqueue(struct vsock_sock *vsk,
-> > +	ssize_t written, struct vsock_transport_send_notify_data *data)
+> > +
+> > +static struct virtio_transport_pkt_ops virtio_ops =3D {
+> > +	.send_pkt =3D virtio_transport_send_pkt,
+> > +};
+> > +
+> > +static void virtio_vsock_rx_fill(struct virtio_vsock *vsock)
 > > +{
-> > +	return 0;
+> > +	int buf_len =3D VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	struct scatterlist hdr, buf, *sgs[2];
+> > +	struct virtqueue *vq;
+> > +	int ret;
+> > +
+> > +	vq =3D vsock->vqs[VSOCK_VQ_RX];
+> > +
+> > +	do {
+> > +		pkt =3D kzalloc(sizeof(*pkt), GFP_KERNEL);
+> > +		if (!pkt) {
+> > +			pr_debug("%s: fail to allocate pkt\n", __func__);
+> > +			goto out;
+> > +		}
+> > +
+> > +		/* TODO: use mergeable rx buffer */
+>=20
+> TODO's should end up in merged code.
+
+Will fix in next revision.
+
+> > +		pkt->buf =3D kmalloc(buf_len, GFP_KERNEL);
+> > +		if (!pkt->buf) {
+> > +			pr_debug("%s: fail to allocate pkt->buf\n", __func__);
+> > +			goto err;
+> > +		}
+> > +
+> > +		sg_init_one(&hdr, &pkt->hdr, sizeof(pkt->hdr));
+> > +		sgs[0] =3D &hdr;
+> > +
+> > +		sg_init_one(&buf, pkt->buf, buf_len);
+> > +	        sgs[1] =3D &buf;
+> > +		ret =3D virtqueue_add_sgs(vq, sgs, 0, 2, pkt, GFP_KERNEL);
+> > +		if (ret)
+> > +			goto err;
+> > +		vsock->rx_buf_nr++;
+> > +	} while (vq->num_free);
+> > +	if (vsock->rx_buf_nr > vsock->rx_buf_max_nr)
+> > +		vsock->rx_buf_max_nr =3D vsock->rx_buf_nr;
+> > +out:
+> > +	virtqueue_kick(vq);
+> > +	return;
+> > +err:
+> > +	virtqueue_kick(vq);
+> > +	virtio_transport_free_pkt(pkt);
+>=20
+> You could free the pkt memory at the fail site and just have one exit pat=
+h.
+
+Okay, I agree the err label is of marginal use.  Let's get rid of it.
+
+>=20
+> > +	return;
 > > +}
-> > +EXPORT_SYMBOL_GPL(virtio_transport_notify_send_post_enqueue);
->=20
-> This makes me wonder if the calling code should be having
-> if(transport->fn) checks rather than filling stuff out will null
-> implementations but I guess that's a question better aimed at the
-> maintainers.
-
-I've considered it too.  I'll try to streamline this in the next
-revision.
-
-> > +/* We are under the virtio-vsock's vsock->rx_lock or
-> > + * vhost-vsock's vq->mutex lock */
-> > +void virtio_transport_recv_pkt(struct virtio_vsock_pkt *pkt)
+> > +
+> > +static void virtio_transport_send_pkt_work(struct work_struct *work)
 > > +{
-> > +	struct virtio_transport *trans;
-> > +	struct sockaddr_vm src, dst;
-> > +	struct vsock_sock *vsk;
+> > +	struct virtio_vsock *vsock =3D
+> > +		container_of(work, struct virtio_vsock, tx_work);
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	bool added =3D false;
+> > +	struct virtqueue *vq;
+> > +	unsigned int len;
 > > +	struct sock *sk;
 > > +
-> > +	vsock_addr_init(&src, le32_to_cpu(pkt->hdr.src_cid), le32_to_cpu(pkt-=
->hdr.src_port));
-> > +	vsock_addr_init(&dst, le32_to_cpu(pkt->hdr.dst_cid), le32_to_cpu(pkt-=
->hdr.dst_port));
-> > +
-> > +	virtio_vsock_dumppkt(__func__, pkt);
-> > +
-> > +	if (le16_to_cpu(pkt->hdr.type) !=3D VIRTIO_VSOCK_TYPE_STREAM) {
-> > +		/* TODO send RST */
+> > +	vq =3D vsock->vqs[VSOCK_VQ_TX];
+> > +	mutex_lock(&vsock->tx_lock);
+> > +	do {
 >=20
-> TODO's shouldn't make it into final submissions.
->=20
-> > +		goto free_pkt;
-> > +	}
-> > +
-> > +	/* The socket must be in connected or bound table
-> > +	 * otherwise send reset back
-> > +	 */
-> > +	sk =3D vsock_find_connected_socket(&src, &dst);
-> > +	if (!sk) {
-> > +		sk =3D vsock_find_bound_socket(&dst);
-> > +		if (!sk) {
-> > +			pr_debug("%s: can not find bound_socket\n", __func__);
-> > +			virtio_vsock_dumppkt(__func__, pkt);
-> > +			/* Ignore this pkt instead of sending reset back */
-> > +			/* TODO send a RST unless this packet is a RST
-> > (to avoid infinite loops) */
->=20
-> Ditto.
+> You can move the declarations of pkt/len into the do block.
 
-Thanks, I'll complete the RST code in the next revision.
+Okay.
 
---zYM0uCDKw75PZbzx
+>=20
+> > +		virtqueue_disable_cb(vq);
+> > +		while ((pkt =3D virtqueue_get_buf(vq, &len)) !=3D NULL) {
+>=20
+> And the sk declaration here
+
+Okay.
+
+> > +static void virtio_transport_recv_pkt_work(struct work_struct *work)
+> > +{
+> > +	struct virtio_vsock *vsock =3D
+> > +		container_of(work, struct virtio_vsock, rx_work);
+> > +	struct virtio_vsock_pkt *pkt;
+> > +	struct virtqueue *vq;
+> > +	unsigned int len;
+>=20
+> Same as above for pkt, len.
+
+Okay.
+
+> > +	vsock =3D kzalloc(sizeof(*vsock), GFP_KERNEL);
+> > +	if (!vsock) {
+> > +		ret =3D -ENOMEM;
+> > +		goto out;
+>=20
+> Won't this attempt to kfree a NULL vsock?
+
+kfree(NULL) is a nop so this is safe.
+
+--p4qYPpj5QlsIQJ0K
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQEcBAEBAgAGBQJWajoaAAoJEJykq7OBq3PICiwH/0qtmNM1Bx/iQQWj0K135qYF
-hrX2HZXOBOQfLIQdnxBX/uryAJuXn7rHluJKQywMrXQr/oXvYQQFMKCluBfrpt0h
-MNJTkTn+xwufX8/8SSsSQ2TheyAs7ZiGA6xye0QV7f/DS9f+Gcq7BCegNnsnDtYh
-o8htx5vgAJXyq/Zx1Lga3WksyVr4TGJlB30o53u8501BSJfdE525oQwe2xuXKk7E
-325PABgH8+Lefcqu6M34K3KVJZS4biGD1jLyp5GIp3kN7M/upMpI4BHoFwFEWAEL
-G+edTArxccb/K/ZBgzxRtyd2SY86K36nkimi1/g2RLMMr/9m7/6LtMY4qBgAhnA=
-=YuOQ
+iQEcBAEBAgAGBQJWajxMAAoJEJykq7OBq3PIARUH/2+ozsM6kUlwi23aFZTjXcre
+aYnnq7MXRSLvzC69EGWR+tQ5Mn6vpcExy3v2G5vmRUaKWntSqhbNSWQ5iW4ssTrP
+AYZOGtO68Qi2fYF5I1hAa2qvRzfwZLMutUxTKjtmFiWqjnHOOmzfb6ZQ+WtK+ShP
+6Qm12R+n3SXGkRVsABS2Omdyzv4uZ7UpfuhXQmGxlxKCObZVKLhg6ie/k8Ka4e3Q
+UtIVmv3khOlR4WjgH7d/6a/Kg/sDh9basE7te7yjcw+An0M+mJDb9zQ7g0p8wTsU
+vOhsC1UjHqpdDcgd8AE5gnlV1sZ0VrcWzq9RbbWGwPoZM2HN3JKmbOuPOVZpJ/A=
+=gJQ8
 -----END PGP SIGNATURE-----
 
---zYM0uCDKw75PZbzx--
-
---===============4312551810150489156==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============4312551810150489156==--
+--p4qYPpj5QlsIQJ0K--
