@@ -1,92 +1,161 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [RFCv3 bluetooth-next 4/4] 6lowpan: iphc: add support for
- stateful compression
-Date: Fri, 11 Dec 2015 20:49:23 +0100
-Message-ID: <20151211194922.GA26064@omega>
-References: <1448796882-316-1-git-send-email-alex.aring@gmail.com>
- <1448796882-316-5-git-send-email-alex.aring@gmail.com>
- <20151211170541.GA1119@omega>
- <566B1FEE.5030509@osg.samsung.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2015-12-11
+Date: Fri, 11 Dec 2015 22:16:11 +0200
+Message-ID: <20151211201611.GA17376@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-wpan@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, kernel@pengutronix.de, mcr@sandelman.ca,
-	lukasz.duda@nordicsemi.no, martin.gergeleit@hs-rm.de
-To: Stefan Schmidt <stefan@osg.samsung.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:34718 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753111AbbLKTtc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 14:49:32 -0500
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:34022 "EHLO
+	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338AbbLKUQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 15:16:20 -0500
 Content-Disposition: inline
-In-Reply-To: <566B1FEE.5030509@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 11, 2015 at 08:11:42PM +0100, Stefan Schmidt wrote:
-> Hello.
-> 
-> On 11/12/15 18:05, Alexander Aring wrote:
-> >Hi,
-> >
-> >status update here.
-> >
-> >I implemented successful basic 6CO RA messages at sending and
-> >processing inside radvd.
-> >
-> >There might also the question if processing 6CO inside kernel or
-> >userspace? I put the basic functionality inside userspace for now.
-> 
-> How are you feeding the entries your receive back into the kernel? The
-> debugfs interface right now?
-> If we want to go with userspace handling for 6CO we need something better at
-> some point.
-> 
+Hi Dave,
 
-yes. For testing it's fine, I think we should add first support this way. If
-we see it seems to be working well then making better UAPI interface.
+Here's another set of Bluetooth & 802.15.4 patches for the 4.5 kernel:
 
-I currently complete ignore the lifetime thing and handle it like
-lifetime is non-zero.
+ - 6LoWPAN debugfs support
+ - New 802.15.4 driver for ADF7242 MAC IEEE802154
+ - Initial code for 6LoWPAN Generic Header Compression (GHC) support
+ - Refactor Bluetooth LE scan & advertising behind dedicated workqueue
+ - Cleanups to Bluetooth H:5 HCI driver
+ - Support for Toshiba Broadcom based Bluetooth controllers
+ - Use continuous scanning when establishing Bluetooth LE connections
 
-For the lifetime handling, I think we need more than just a "bool", we
-need flags. Because we need indicate "somehow" the "C flag" and if the
-entry is "added" or "not added" (some active/enabled flag). See [0], or
-we do that by check on "::" address/prefix, but I would not do that so far
-nobody says that's an invalid prefix.
+Please let me know if there are any issues pulling. Thanks.
 
-Then also the question is if doing the lifetime of a context inside the
-kernel or in userspace (handled by $USERSPACE_PROGRAM, e.g. radvd). I think
-radvd can handle this. See [1]:
+Johan
 
-The prefix information is timed out as specified in [RFC4861].  When
-the Valid Lifetime for a context table entry expires, the entry is
-placed in a receive-only mode, which is the equivalent of
-receiving a 6CO for that context with C=0.  The entry is held in
-receive-only mode for a period of twice the default Router Lifetime,
-after which the entry is removed.
+---
+The following changes since commit ad2c8c73d29702c3193f739390f6661f9a4ecad9:
 
-For this we need the "C" flag and "active" flag (indicate remove). That
-the entry is held could be very simple by a timer in kernel, but
-otherwise $USERSPACE_PROGRAM could also do this job by handle the
-lifetime only in userspace, when lifetime expires -> manipulating the table.
+  cgroup: fix sock_cgroup_data initialization on earlier compilers (2015-12-09 15:02:31 -0500)
 
-I am not sure what's the best option here is.
+are available in the git repository at:
 
-BTW:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
 
-One bad news is, that radvd needs now to run under "root" with this
-changes and it seems that it can running without root right before. This
-might be getting a problem when trying to send such feature uptream to
-radvd.
+for you to fetch changes up to 7302b9d90117496049dd4bfa28755f7c2ed55b27:
 
-Testing:
+  ieee802154/adf7242: Driver for ADF7242 MAC IEEE802154 (2015-12-11 11:27:22 +0100)
 
-I already test the new stateful compression patch (manipulating entries in
-RIOT manually (no RA messages processing on RIOT).
-It works fine under RIOT by manipulating RIOT's context table.
+----------------------------------------------------------------
+Alexander Aring (4):
+      6lowpan: add lowpan dev register helpers
+      6lowpan: add debugfs support
+      ipv6: add ipv6_addr_prefix_copy
+      mac802154: tx: fix synced xmit deadlock
 
-- Alex
+Andrei Emeltchenko (3):
+      Bluetooth: Use hexadecimal notation for mask
+      Bluetooth: Simplify setting Configuration Field
+      Bluetooth: h5: Do not initialize Configuration field
 
-[0] https://tools.ietf.org/html/rfc6775#section-5.4.2
-[1] https://tools.ietf.org/html/rfc6775#section-5.4.3
+Danny Schweizer (1):
+      Bluetooth: Do not filter multicast addresses by default
+
+Dmitry Tunin (1):
+      Bluetooth: Add support of Toshiba Broadcom based devices
+
+Johan Hedberg (19):
+      Bluetooth: Run page scan updates through hdev->req_workqueue
+      Bluetooth: Move __hci_update_background_scan up in hci_request.c
+      Bluetooth: Move advertising instance management to hci_request.c
+      Bluetooth: Move connectable changes to hdev->req_workqueue
+      Bluetooth: Perform Class of Device changes through hdev->req_workqueue
+      Bluetooth: Move discoverable changes to hdev->req_workqueue
+      Bluetooth: Move discoverable timeout behind hdev->req_workqueue
+      Bluetooth: HCI name update to hci_request.c
+      Bluetooth: Move EIR update to hci_request.c
+      Bluetooth: Move fast connectable code to hci_request.c
+      Bluetooth: Perform HCI update for power on synchronously
+      Bluetooth: Simplify read_adv_features code
+      Bluetooth: Remove unnecessary HCI_ADVERTISING_INSTANCE flag
+      Bluetooth: Fix updating wrong instance's scan_rsp data
+      Bluetooth: Remove redundant check for req.cmd_q
+      Bluetooth: Clean up advertising initialization in powered_update_hci()
+      Bluetooth: Clean up current advertising instance tracking
+      Bluetooth: Use continuous scanning when creating LE connections
+      Bluetooth: Don't treat connection timeout as a failure
+
+Loic Poulain (3):
+      Bluetooth: hci_intel: Use shorter timeout for HCI commands
+      Bluetooth: btintel: Add manufacturing enter/exit helpers
+      Bluetooth: btintel: Create common Intel Version Read function
+
+Markus Elfring (1):
+      ieee802154-atusb: Delete an unnecessary check before the function call "kfree_skb"
+
+Michael Hennerich (1):
+      ieee802154/adf7242: Driver for ADF7242 MAC IEEE802154
+
+Peter Hurley (1):
+      Bluetooth: hci_ldisc: Remove dead code
+
+Stefan Schmidt (7):
+      6lowpan: clarify Kconfig entries for upcoming GHC support
+      6lowpan: add nhc module for GHC hop-by-hopextension header detection
+      6lowpan: add nhc module for GHC UDP detection
+      6lowpan: add nhc module for GHC ICMPv6 detection
+      6lowpan: add nhc module for GHC destination extension header detection
+      6lowpan: add nhc module for GHC fragmentation extension header detection
+      6lowpan: add nhc module for GHC routing extension header detection
+
+Yichen Zhao (1):
+      Bluetooth: Fix locking in bt_accept_dequeue after disconnection
+
+ .../devicetree/bindings/net/ieee802154/adf7242.txt |   18 +
+ MAINTAINERS                                        |    9 +
+ drivers/bluetooth/btintel.c                        |  129 +-
+ drivers/bluetooth/btintel.h                        |   19 +
+ drivers/bluetooth/btusb.c                          |  138 +-
+ drivers/bluetooth/hci_h5.c                         |   12 +-
+ drivers/bluetooth/hci_intel.c                      |   52 +-
+ drivers/bluetooth/hci_ldisc.c                      |    8 +-
+ drivers/net/ieee802154/Kconfig                     |   11 +
+ drivers/net/ieee802154/Makefile                    |    1 +
+ drivers/net/ieee802154/adf7242.c                   | 1285 +++++++++++++++++++
+ drivers/net/ieee802154/atusb.c                     |    3 +-
+ include/net/6lowpan.h                              |   10 +-
+ include/net/bluetooth/hci.h                        |    1 -
+ include/net/bluetooth/hci_core.h                   |   18 +-
+ include/net/ipv6.h                                 |   15 +
+ net/6lowpan/6lowpan_i.h                            |   28 +
+ net/6lowpan/Kconfig                                |   47 +-
+ net/6lowpan/Makefile                               |    9 +
+ net/6lowpan/core.c                                 |   59 +-
+ net/6lowpan/debugfs.c                              |   53 +
+ net/6lowpan/nhc_ghc_ext_dest.c                     |   27 +
+ net/6lowpan/nhc_ghc_ext_frag.c                     |   28 +
+ net/6lowpan/nhc_ghc_ext_hop.c                      |   27 +
+ net/6lowpan/nhc_ghc_ext_route.c                    |   27 +
+ net/6lowpan/nhc_ghc_icmpv6.c                       |   27 +
+ net/6lowpan/nhc_ghc_udp.c                          |   27 +
+ net/bluetooth/6lowpan.c                            |    8 +-
+ net/bluetooth/af_bluetooth.c                       |    2 +-
+ net/bluetooth/bnep/core.c                          |    7 +-
+ net/bluetooth/hci_conn.c                           |   20 +-
+ net/bluetooth/hci_core.c                           |   63 +-
+ net/bluetooth/hci_event.c                          |    8 +-
+ net/bluetooth/hci_request.c                        | 1233 ++++++++++++++++--
+ net/bluetooth/hci_request.h                        |   28 +-
+ net/bluetooth/mgmt.c                               | 1285 ++-----------------
+ net/ieee802154/6lowpan/core.c                      |    6 +-
+ net/mac802154/driver-ops.h                         |    3 -
+ net/mac802154/tx.c                                 |    9 -
+ 39 files changed, 3174 insertions(+), 1586 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/ieee802154/adf7242.txt
+ create mode 100644 drivers/net/ieee802154/adf7242.c
+ create mode 100644 net/6lowpan/6lowpan_i.h
+ create mode 100644 net/6lowpan/debugfs.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_dest.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_frag.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_hop.c
+ create mode 100644 net/6lowpan/nhc_ghc_ext_route.c
+ create mode 100644 net/6lowpan/nhc_ghc_icmpv6.c
+ create mode 100644 net/6lowpan/nhc_ghc_udp.c
