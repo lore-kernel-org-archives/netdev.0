@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] sfc: only use RSS filters if we're using RSS
-Date: Sat, 12 Dec 2015 00:27:04 -0500 (EST)
-Message-ID: <20151212.002704.1233703185682812026.davem@davemloft.net>
-References: <56697E60.9050304@solarflare.com>
-	<566A99D4.5010807@solarflare.com>
+Subject: Re: [PATCH net 0/4] mpls: fixes for nexthops without via addresses
+Date: Sat, 12 Dec 2015 00:44:21 -0500 (EST)
+Message-ID: <20151212.004421.1597066518363711281.davem@davemloft.net>
+References: <1449775851-20758-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bkenward@solarflare.com
+Cc: ebiederm@xmission.com, roopa@cumulusnetworks.com,
+	netdev@vger.kernel.org, sam.h.russell@gmail.com
+To: rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34254 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34385 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbbLLF1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 00:27:06 -0500
-In-Reply-To: <566A99D4.5010807@solarflare.com>
+	with ESMTP id S1751039AbbLLFoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 00:44:23 -0500
+In-Reply-To: <1449775851-20758-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Fri, 11 Dec 2015 09:39:32 +0000
+From: Robert Shearman <rshearma@brocade.com>
+Date: Thu, 10 Dec 2015 19:30:47 +0000
 
-> Without this, filter insertion on a VF would fail if only one channel
-> was in use. This would include the unicast station filter and therefore
-> no traffic would be received.
-> 
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+> These four fixes all apply to the case of having an mpls route with an
+> output device, but without a nexthop.
 
-Applied, thank you.
+Series applied, thanks.
