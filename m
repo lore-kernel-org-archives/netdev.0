@@ -1,30 +1,74 @@
-From: "Mr Guiya" <konkurss@studentuparadize.lv>
-Subject: Hi!
-Date: Fri, 11 Dec 2015 13:43:54 -0600
-Message-ID: <E1a7Tbh-0001ej-Ms@shosting.lv>
-Reply-To: mr.wang_guiya@hotmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] 10GbE Intel Wired LAN Driver Updates 2015-12-12
+Date: Sat, 12 Dec 2015 03:14:38 -0800
+Message-ID: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shosting.lv ([91.224.13.31]:47783 "EHLO shosting.lv"
+Received: from mga14.intel.com ([192.55.52.115]:14272 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751862AbbLLLNm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 06:13:42 -0500
-Received: from h157.122.19.98.static.ip.windstream.net ([98.19.122.157] helo=[192.168.1.135])
-	by shosting.lv with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:256)
-	(Exim 4.80)
-	(envelope-from <konkurss@studentuparadize.lv>)
-	id 1a7Tbh-0001ej-Ms
-	for netdev@vger.kernel.org; Fri, 11 Dec 2015 21:43:57 +0200
-Content-Description: Mail message body
+	id S1752181AbbLLLO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2015 06:14:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+This series contains updates to ixgbe only.
 
-Is it okay to discuss possible business in this email? Do let me know ASAP so i can provide you with the details.
+Alex Duyck provides almost off of the changes in this series.  First, add a
+check to make sure mac_table was actually allocated and is not NULL to
+ensure we do not get a NULL pointer dereference further down the line.
+Fixed SR-IOV VLAN pool configuration since the code for checking the PF bit
+in ixgbe_set_vf_vlan_msg() was using the wrong offset.  Cleanup/simplify
+the logic for setting the VFTA register by removing the number of
+conditional checks needed.  Fixed a number of issues within the VLVF and
+VLFB configuration by simplifying the code.  Added support for bypassing
+the VLVF entry creation when the PF is adding a new VLAN.  Reduced the
+complexity of the search function used for finding a VLVF entry associated
+with a given VLAN ID.  Added support for VLAN promiscuous with SR-IOV
+enabled by setting all the bits in the VFTA and all of the VLVF bits
+associated with teh pool belonging to the PF, in addition to cleaning up
+those same bits in the event of promiscuous mode being disabled.  Fixed
+and issue where we ran the risk of leaking an address into pool 0 which
+really belongs to VF 0 when SR-IOV is enabled.
 
-Regards,
-Guiya.
+Emil fixes an issue with some X550 devices which can connect at 2.5Gbps,
+but only with certain link partners during fail-over, so to avoid
+confusion, we do not report it as supported.
+
+The following are changes since commit 9ad321b0b6de666814e3950c963387d116bfe3d1:
+  Merge branch 'mlx5-flow-steering'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Alexander Duyck (11):
+  ixgbe: Return error on failure to allocate mac_table
+  ixgbe: Fix SR-IOV VLAN pool configuration
+  ixgbe: Simplify definitions for regidx and bit in set_vfta
+  ixgbe: Reduce VT code indent in set_vfta by introducing jump label
+  ixgbe: Simplify configuration of setting VLVF and VLVFB
+  ixgbe: Add support for adding/removing VLAN on PF bypassing the VLVF
+  ixgbe: Reorder search to work from the top down instead of bottom up
+  ixgbe: Add support for VLAN promiscuous with SR-IOV
+  ixgbe: Fix VLAN promisc in relation to SR-IOV
+  ixgbe: Clear stale pool mappings
+  ixgbe: Clean stale VLANs when changing port VLAN or resetting
+
+Emil Tantilov (1):
+  ixgbe: do not report 2.5 Gbps as supported
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 236 ++++++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   4 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 194 +++++++++++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   | 187 ++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |  10 +-
+ 10 files changed, 415 insertions(+), 235 deletions(-)
+
+-- 
+2.5.0
