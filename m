@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 0/9] mlx5 improved flow steering management
-Date: Sat, 12 Dec 2015 00:24:48 -0500 (EST)
-Message-ID: <20151212.002448.481078451575331382.davem@davemloft.net>
-References: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
+Subject: Re: [PATCH net v2] sfc: only use RSS filters if we're using RSS
+Date: Sat, 12 Dec 2015 00:27:04 -0500 (EST)
+Message-ID: <20151212.002704.1233703185682812026.davem@davemloft.net>
+References: <56697E60.9050304@solarflare.com>
+	<566A99D4.5010807@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, maorg@mellanox.com,
-	talal@mellanox.com, majd@mellanox.com, matanb@mellanox.com,
-	saeedm@dev.mellanox.co.il
-To: saeedm@mellanox.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bkenward@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34078 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34254 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbbLLFYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 00:24:55 -0500
-In-Reply-To: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
+	with ESMTP id S1751056AbbLLF1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 00:27:06 -0500
+In-Reply-To: <566A99D4.5010807@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Thu, 10 Dec 2015 17:12:36 +0200
+From: Bert Kenward <bkenward@solarflare.com>
+Date: Fri, 11 Dec 2015 09:39:32 +0000
 
-> First two patches fixes some minor issues in recently
-> introduced SRIOV code.
+> Without this, filter insertion on a VF would fail if only one channel
+> was in use. This would include the unicast station filter and therefore
+> no traffic would be received.
 > 
-> The other seven patches modifies the driver's code that 
-> manages flow steering rules with Connectx-4 devices.
+> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
 
-Series applied, thanks.
+Applied, thank you.
