@@ -1,72 +1,53 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 2/3] ser_gigaset: fix deallocation of platform device
- structure
-Date: Sat, 12 Dec 2015 18:52:36 +0100
-Message-ID: <566C5EE4.6040402@imap.cc>
+Subject: Re: [PATCH 0/3] ser_gigaset fixes
+Date: Sat, 12 Dec 2015 19:09:44 +0100
+Message-ID: <566C62E8.4010308@imap.cc>
 References: <cover.1449570042.git.tilman@imap.cc>
- <83c4ab9bbca911aad62343154eabfa1af077b021.1449570042.git.tilman@imap.cc>
- <1449616321.2384.36.camel@tiscali.nl> <56680C25.1050704@imap.cc>
- <5669866F.6040407@hurleysoftware.com>
+ <1449747069.16068.27.camel@tiscali.nl>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
  protocol="application/pgp-signature";
- boundary="06t8tLkxjk3Gsd7MECHrsvjDa1e8eTSit"
-Cc: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org,
+ boundary="JDLi8frJp4jlGbFr6WQoh4IQVTh688pvu"
+Cc: Peter Hurley <peter@hurleysoftware.com>,
 	Sasha Levin <sasha.levin@oracle.com>,
 	syzkaller@googlegroups.com, David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>,
 	isdn4linux@listserv.isdn4linux.de,
 	gigaset307x-common@lists.sourceforge.net,
 	linux-kernel@vger.kernel.org
-To: Peter Hurley <peter@hurleysoftware.com>
+To: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5669866F.6040407@hurleysoftware.com>
+In-Reply-To: <1449747069.16068.27.camel@tiscali.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---06t8tLkxjk3Gsd7MECHrsvjDa1e8eTSit
+--JDLi8frJp4jlGbFr6WQoh4IQVTh688pvu
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
-Hi Peter,
+Hi Paul,
 
-Am 10.12.2015 um 15:04 schrieb Peter Hurley:
-
->>>> --- a/drivers/isdn/gigaset/ser-gigaset.c
->>>> +++ b/drivers/isdn/gigaset/ser-gigaset.c
->>>> @@ -370,19 +370,23 @@ static void gigaset_freecshw(struct cardstate
->>>> *cs)
->>>>  	tasklet_kill(&cs->write_tasklet);
->>>>  	if (!cs->hw.ser)
->>>>  		return;
->>>> -	dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
->>>>  	platform_device_unregister(&cs->hw.ser->dev);
->>>> -	kfree(cs->hw.ser);
->>>> -	cs->hw.ser =3D NULL;
->>>>  }
->>>> =20
->>>>  static void gigaset_device_release(struct device *dev)
->>>>  {
->>>>  	struct platform_device *pdev =3D to_platform_device(dev);
->>>> +	struct cardstate *cs =3D dev_get_drvdata(dev);
->>>> =20
->>>>  	/* adapted from platform_device_release() in
->>>> drivers/base/platform.c */
->>>>  	kfree(dev->platform_data);
->>>>  	kfree(pdev->resource);
->>>> +
->>>> +	if (!cs)
->>>> +		return;
->>>> +	dev_set_drvdata(dev, NULL);
+Am 10.12.2015 um 12:31 schrieb Paul Bolle:
+> 1/3 ran into objections and, I think, Alan Cox is working on an
+> alternative for it. Would you mind resending 2/3 and 3/3 as a two
+> patches series? Feel free to add
+>     Acked-by: Paul Bolle <pebolle@tiscali.nl>
 >=20
-> This is of marginal value and (I think) unnecessary; it implies
-> the core will use the device after release, which would trigger
-> many problems if true.
+> to both.
 
-Agreed, but I'm just moving existing code here. Dropping the
-dev_set_drvdata() call would be an unrelated change which should be done
-in a separate patch if I understand the rules correctly.
+Alan's patch dated 09 Dec 2015 20:33:24 applies on top of 1/3 so I
+reckon it should be kept.
+
+> (The previous gigaset series, which you sent in July this year, was
+> picked up from netdev directly by David Miller. Unless people actually
+> prefer these patches to also be signed-off by me, I'm perfectly fine
+> with that.)
+
+I think as a maintainer you are supposed to sign off patches for the
+code you maintain. My signed-off as recently retired ex-maintainer was
+probably still good enough in July. I'm unsure whether it still is today.=
+
 
 Regards,
 Tilman
@@ -77,7 +58,7 @@ Bonn, Germany
 Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
 
 
---06t8tLkxjk3Gsd7MECHrsvjDa1e8eTSit
+--JDLi8frJp4jlGbFr6WQoh4IQVTh688pvu
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -85,13 +66,13 @@ Content-Disposition: attachment; filename="signature.asc"
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQEcBAEBCAAGBQJWbF70AAoJEFPuqx0v+F+qAQAH/1u4di4itW3HkcPQ2zfi/GbB
-zsuCKZ3lvDpiq9b9svbQM8LzlPVJCGeus6SxuU/tADY0dZIgGRUXtDIvxCmCg/xQ
-R0e+Pe6xCSZRVds/dAWux6OegZ1vLJHPp0rkbUtbvxrA6obfZ8QG1LVeGXnBPK0D
-MdeIOZi97t/uUzs7VvKueFJ0tw/bNZOGnbqgDUcLcNpJYnw5X072DhM/QGgZPuUk
-Bd5fkDpIXrZPh3PJLhycaXxUb6G5vqb+NVsL10/0pkAPMb+fAmek1CD0/lojc3Ut
-EdSWEjIjSynVEYruemfstuQSVOpZjx1sngNHDitbCg9h4EEPnYsHAJAu7QCutWg=
-=69AB
+iQEcBAEBCAAGBQJWbGLoAAoJEFPuqx0v+F+qpfwH/Rga8O9//JCP+BU5N+F0e78H
+3GE9He328Ooz5FwAoMgUhJhUnm1m8roSQtkPFed+6Dk7SqaCMbMNSPHrxNCUHUyS
+PjFF94KQEkB3ZNPaYu2XDyNn9Pwb+gIhG7x4oE5H7MEnEH049PwM3yBbC+u0gEKV
+ZVjRkTqenPS+VyScFNM3bcua1RP5MKOMgFYwxqHCMnRfXEJxdSG+wgCnjw1xOqcT
+fdW47ejfNIQ9IwfMA/VwQdAFqTzJcIDavmnyuMUv1xWwrkRQ6ZrjyIb3Gh2712uN
+jr1Fsb0V6Jf1q+FDOsnukLCeDzQPpgXeD/8arnGLuc8K87f+5Sjxz9ltexF7tJo=
+=cijx
 -----END PGP SIGNATURE-----
 
---06t8tLkxjk3Gsd7MECHrsvjDa1e8eTSit--
+--JDLi8frJp4jlGbFr6WQoh4IQVTh688pvu--
