@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: sctp: clone options to avoid use after free
-Date: Fri, 11 Dec 2015 20:19:16 -0500 (EST)
-Message-ID: <20151211.201916.1656429874143124778.davem@davemloft.net>
-References: <20151209145917.GA3884@mrl.redhat.com>
-	<CANn89iLhetNbtO6h99zZOrCiMYON50vzVsk7j_AtosXejvvm4Q@mail.gmail.com>
-	<1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCHv2 net-next] ipv6: allow routes to be configured with
+ expire values
+Date: Fri, 11 Dec 2015 20:21:57 -0500 (EST)
+Message-ID: <20151211.202157.2045048466167764855.davem@davemloft.net>
+References: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449678473.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, marcelo.leitner@gmail.com, dvyukov@google.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vyasevich@gmail.com,
-	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
-	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
-	sasha.levin@oracle.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59256 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755144AbbLLBV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:21:59 -0500
+In-Reply-To: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449678473.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 09 Dec 2015 07:25:06 -0800
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 10 Dec 2015 00:27:53 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> Add the support for adding expire value to routes,  requested by
+> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+> wants it too.
 > 
-> SCTP is lacking proper np->opt cloning at accept() time.
+> add it by using the field rta_expires of rta_cacheinfo
 > 
-> TCP and DCCP use ipv6_dup_options() helper, do the same
-> in SCTP.
-> 
-> We might later factorize this code in a common helper to avoid
-> future mistakes.
-> 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied and queued up for -stable, thanks.
+This is the wrong way to do this.
+
+Currently we only ever dump rta_cacheinfo values to the user.
+
+If we use it to set things, we have to completely consider every
+member of that structure as potentially having meaning either
+intended by the user or choosen by us in the future.
+
+Therefore it is a poor choice to start using for specifying the
+expires value, and some other mechanism such as a new RTNETLINK
+attribute, should be used for this.
