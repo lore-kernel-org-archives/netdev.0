@@ -1,250 +1,125 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/12] ixgbe: Add support for VLAN promiscuous with SR-IOV
-Date: Sat, 12 Dec 2015 03:14:46 -0800
-Message-ID: <1449918890-145243-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
+Subject: [PATCH][iproute2] tc/q_htb.c: Fix the MPU value output in 'tc -d class show dev <device_name> ' command
+Date: Sat, 12 Dec 2015 14:09:39 +0300
+Message-ID: <5917221449918579@web5j.yandex.ru>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jbrouer <jbrouer@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:49719 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752388AbbLLLPC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2015 06:15:02 -0500
-In-Reply-To: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from forward10j.cmail.yandex.net ([5.255.227.111]:48122 "EHLO
+	forward10j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752753AbbLLLQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 06:16:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+Hello,
 
-This patch adds support for VLAN promiscuous with SR-IOV enabled.
+I noticed a quite an old change which I have a few questions about so maybe somebody could help me out. There are a few lines of code in tc/q_htb.c which were committed originally back in 2004 and have not changed since related to MPU (Minimum Packet Unit). I asked Stephen - this is probably the code that pre-dated git so I am not sure exactly who to ask:
 
-The code prior to this patch was only adding the PF to VLANs that the VF
-had added.  As such enabling promiscuous mode would actually not add any
-additional VLAN filters so visibility was limited.  This lead to a number
-of issues as the bridge and OVS would expect us to accept all VLAN tagged
-packets when promiscuous mode was enabled, and instead we would filter out
-most if not all depending on the configuration of the PF.
+commit a166d246d84e7d0ba784e210515708006e16a366
+Author: osdl.net!shemminger <osdl.net!shemminger>
+Date:   Fri Jul 30 20:26:15 2004 +0000
 
-With this patch what we do is set all the bits in the VFTA and all of the
-VLVF bits associated with the pool belonging to the PF.  By doing this the
-PF is guaranteed to receive all VLAN tagged traffic associated with the RAR
-filters assigned to the PF.  In addition we will clean up those same bits
-in the event of promiscuous mode being disabled.
+    mpu support
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+@@ -243,10 +264,16 @@ static int htb_print_opt(struct qdisc_util *qu,
+FILE *f, struct rtattr *opt)
+            fprintf(f, "ceil %s ", sprint_rate(hopt->ceil.rate, b1));
+            cbuffer =
+((double)hopt->ceil.rate*tc_core_tick2usec(hopt->cbuffer))/1000000;
+            if (show_details) {
+-               fprintf(f, "burst %s/%u mpu %s ", sprint_size(buffer, b1),
+-                       1<<hopt->rate.cell_log,
+sprint_size(hopt->rate.mpu, b2));
+-               fprintf(f, "cburst %s/%u mpu %s ", sprint_size(cbuffer, b1),
+-                       1<<hopt->ceil.cell_log,
+sprint_size(hopt->ceil.mpu, b2));
++               fprintf(f, "burst %s/%u mpu %s overhead %s ",
++                       sprint_size(buffer, b1),
++                       1<<hopt->rate.cell_log,
++                       sprint_size(hopt->rate.mpu&0xFF, b2),
++                       sprint_size((hopt->rate.mpu>>8)&0xFF, b3));
++               fprintf(f, "cburst %s/%u mpu %s overhead %s ",
++                       sprint_size(cbuffer, b1),
++                       1<<hopt->ceil.cell_log,
++                       sprint_size(hopt->ceil.mpu&0xFF, b2),
++                       sprint_size((hopt->ceil.mpu>>8)&0xFF, b3));
+
+I noticed that there is a separate configurable value called 'overhead' in q_htb.c now which does not have anything to do with 'overhead = hopt->rate.mpu>>8)&0xFF' that is being printed out in the above lines:
+
+static void explain(void)
+{
+    ...
+        " overhead per-packet size overhead used in rate computations\n"
+    ...
+
+In the code fragment from the commit (for some reason I don't understand) 'rate.mpu' is sliced into two parts called 'mpu' and 'overhead'. So, basically, to retrieve the original MPU value from the output of `tc -d class show dev <device_name>` I need to do the following: real_mpu = mpu + overhead<<8.
+
+I also have a hard time understanding whether it is possible to have a condition where rate.mpu and ceil.mpu have different values - the outputs I have seen always showed the same values for both and I do not see anything in the code that sets them to different values (if so, maybe the duplicate output should be removed).
+
+As a reference, here is a link for a line in tc/q_tbf.c for the same functionality (show_details) that does not have anything like that for the MPU value:
+https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/tc/q_tbf.c#n279
+
+|fprintf(f, "burst %s/%u mpu %s ", sprint_size(buffer, b1),|
+
+
+
+Please take a look at my patch if you have time for it as this would simplify testing in the project I work on and make the output of the command less ambiguous for other people who may use HTB.
+
+Thank you,
+Dmitrii Shcherbakov
+
+>From 26c62f17e1d6ebca9f236000806a63363ab70640 Mon Sep 17 00:00:00 2001
+From: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
+Date: Sat, 12 Dec 2015 02:04:09 +0300
+Subject: [PATCH] tc/q_htb.c: Fix the MPU value output in 'tc -d class show dev
+ <device_name> ' command
+
+This patch removes slicing of 'rate.mpu' into two parts called 'mpu' and 'overhead' alleviating the need to perform calculations to get the original MPU value after it is configured as follows: real_mpu = mpu + overhead<<8.
+
+Signed-off-by: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 140 +++++++++++++++++++++++---
- 2 files changed, 129 insertions(+), 12 deletions(-)
+ tc/q_htb.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 445b4c9..0269c0c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -664,6 +664,7 @@ struct ixgbe_adapter {
- #ifdef CONFIG_IXGBE_VXLAN
- #define IXGBE_FLAG2_VXLAN_REREG_NEEDED		BIT(12)
- #endif
-+#define IXGBE_FLAG2_VLAN_PROMISC		BIT(13)
+diff --git a/tc/q_htb.c b/tc/q_htb.c
+index 7075a4c..f810329 100644
+--- a/tc/q_htb.c
++++ b/tc/q_htb.c
+@@ -274,7 +274,6 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	SPRINT_BUF(b1);
+ 	SPRINT_BUF(b2);
+ 	SPRINT_BUF(b3);
+-	SPRINT_BUF(b4);
  
- 	/* Tx fast path data */
- 	int num_tx_queues;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index dcd99e6..431c70c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3702,6 +3702,9 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 	/* Map PF MAC address in RAR Entry 0 to first pool following VFs */
- 	hw->mac.ops.set_vmdq(hw, 0, VMDQ_P(0));
- 
-+	/* clear VLAN promisc flag so VFTA will be updated if necessary */
-+	adapter->flags2 &= ~IXGBE_FLAG2_VLAN_PROMISC;
-+
- 	/*
- 	 * Set up VF register offsets for selected VT Mode,
- 	 * i.e. 32 or 64 VFs for SR-IOV
-@@ -3990,6 +3993,129 @@ static void ixgbe_vlan_strip_enable(struct ixgbe_adapter *adapter)
- 	}
- }
- 
-+static void ixgbe_vlan_promisc_enable(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vlnctrl, i;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+	default:
-+		if (adapter->flags & IXGBE_FLAG_VMDQ_ENABLED)
-+			break;
-+		/* fall through */
-+	case ixgbe_mac_82598EB:
-+		/* legacy case, we can just disable VLAN filtering */
-+		vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
-+		vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		return;
-+	}
-+
-+	/* We are already in VLAN promisc, nothing to do */
-+	if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC)
-+		return;
-+
-+	/* Set flag so we don't redo unnecessary work */
-+	adapter->flags2 |= IXGBE_FLAG2_VLAN_PROMISC;
-+
-+	/* Add PF to all active pools */
-+	for (i = IXGBE_VLVF_ENTRIES; --i;) {
-+		u32 reg_offset = IXGBE_VLVFB(i * 2 + VMDQ_P(0) / 32);
-+		u32 vlvfb = IXGBE_READ_REG(hw, reg_offset);
-+
-+		vlvfb |= 1 << (VMDQ_P(0) % 32);
-+		IXGBE_WRITE_REG(hw, reg_offset, vlvfb);
-+	}
-+
-+	/* Set all bits in the VLAN filter table array */
-+	for (i = hw->mac.vft_size; i--;)
-+		IXGBE_WRITE_REG(hw, IXGBE_VFTA(i), ~0U);
-+}
-+
-+#define VFTA_BLOCK_SIZE 8
-+static void ixgbe_scrub_vfta(struct ixgbe_adapter *adapter, u32 vfta_offset)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vfta[VFTA_BLOCK_SIZE] = { 0 };
-+	u32 vid_start = vfta_offset * 32;
-+	u32 vid_end = vid_start + (VFTA_BLOCK_SIZE * 32);
-+	u32 i, vid, word, bits;
-+
-+	for (i = IXGBE_VLVF_ENTRIES; --i;) {
-+		u32 vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
-+
-+		/* pull VLAN ID from VLVF */
-+		vid = vlvf & VLAN_VID_MASK;
-+
-+		/* only concern outselves with a certain range */
-+		if (vid < vid_start || vid >= vid_end)
-+			continue;
-+
-+		if (vlvf) {
-+			/* record VLAN ID in VFTA */
-+			vfta[(vid - vid_start) / 32] |= 1 << (vid % 32);
-+
-+			/* if PF is part of this then continue */
-+			if (test_bit(vid, adapter->active_vlans))
-+				continue;
-+		}
-+
-+		/* remove PF from the pool */
-+		word = i * 2 + VMDQ_P(0) / 32;
-+		bits = ~(1 << (VMDQ_P(0) % 32));
-+		bits &= IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), bits);
-+	}
-+
-+	/* extract values from active_vlans and write back to VFTA */
-+	for (i = VFTA_BLOCK_SIZE; i--;) {
-+		vid = (vfta_offset + i) * 32;
-+		word = vid / BITS_PER_LONG;
-+		bits = vid % BITS_PER_LONG;
-+
-+		vfta[i] |= adapter->active_vlans[word] >> bits;
-+
-+		IXGBE_WRITE_REG(hw, IXGBE_VFTA(vfta_offset + i), vfta[i]);
-+	}
-+}
-+
-+static void ixgbe_vlan_promisc_disable(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vlnctrl, i;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+	default:
-+		if (adapter->flags & IXGBE_FLAG_VMDQ_ENABLED)
-+			break;
-+		/* fall through */
-+	case ixgbe_mac_82598EB:
-+		vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
-+		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+		vlnctrl |= IXGBE_VLNCTRL_VFE;
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		return;
-+	}
-+
-+	/* We are not in VLAN promisc, nothing to do */
-+	if (!(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
-+		return;
-+
-+	/* Set flag so we don't redo unnecessary work */
-+	adapter->flags2 &= ~IXGBE_FLAG2_VLAN_PROMISC;
-+
-+	for (i = 0; i < hw->mac.vft_size; i += VFTA_BLOCK_SIZE)
-+		ixgbe_scrub_vfta(adapter, i);
-+}
-+
- static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
- {
- 	u16 vid;
-@@ -4246,12 +4372,10 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 fctrl, vmolr = IXGBE_VMOLR_BAM | IXGBE_VMOLR_AUPE;
--	u32 vlnctrl;
- 	int count;
- 
- 	/* Check for Promiscuous and All Multicast modes */
- 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
--	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
- 
- 	/* set all bits that we expect to always be set */
- 	fctrl &= ~IXGBE_FCTRL_SBP; /* disable store-bad-packets */
-@@ -4261,25 +4385,18 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 
- 	/* clear the bits we are changing the status of */
- 	fctrl &= ~(IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
--	vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
- 	if (netdev->flags & IFF_PROMISC) {
- 		hw->addr_ctrl.user_set_promisc = true;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
- 		vmolr |= IXGBE_VMOLR_MPE;
--		/* Only disable hardware filter vlans in promiscuous mode
--		 * if SR-IOV and VMDQ are disabled - otherwise ensure
--		 * that hardware VLAN filters remain enabled.
--		 */
--		if (adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
--				      IXGBE_FLAG_SRIOV_ENABLED))
--			vlnctrl |= (IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
-+		ixgbe_vlan_promisc_enable(adapter);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
- 			vmolr |= IXGBE_VMOLR_MPE;
- 		}
--		vlnctrl |= IXGBE_VLNCTRL_VFE;
- 		hw->addr_ctrl.user_set_promisc = false;
-+		ixgbe_vlan_promisc_disable(adapter);
- 	}
- 
- 	/*
-@@ -4323,7 +4440,6 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		/* NOTE:  VLAN filtering is disabled by setting PROMISC */
- 	}
- 
--	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
- 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
- 
- 	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
+ 	if (opt == NULL)
+ 		return 0;
+@@ -311,18 +310,16 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 		cbuffer = tc_calc_xmitsize(ceil64, hopt->cbuffer);
+ 		linklayer = (hopt->rate.linklayer & TC_LINKLAYER_MASK);
+ 		if (linklayer > TC_LINKLAYER_ETHERNET || show_details)
+-			fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b4));
++			fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b3));
+ 		if (show_details) {
+-			fprintf(f, "burst %s/%u mpu %s overhead %s ",
++			fprintf(f, "burst %s/%u mpu %s ",
+ 				sprint_size(buffer, b1),
+ 				1<<hopt->rate.cell_log,
+-				sprint_size(hopt->rate.mpu&0xFF, b2),
+-				sprint_size((hopt->rate.mpu>>8)&0xFF, b3));
+-			fprintf(f, "cburst %s/%u mpu %s overhead %s ",
++				sprint_size(hopt->rate.mpu, b2));
++			fprintf(f, "cburst %s/%u mpu %s ",
+ 				sprint_size(cbuffer, b1),
+ 				1<<hopt->ceil.cell_log,
+-				sprint_size(hopt->ceil.mpu&0xFF, b2),
+-				sprint_size((hopt->ceil.mpu>>8)&0xFF, b3));
++				sprint_size(hopt->ceil.mpu, b2));
+ 			fprintf(f, "level %d ", (int)hopt->level);
+ 		} else {
+ 			fprintf(f, "burst %s ", sprint_size(buffer, b1));
 -- 
 2.5.0
