@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Handle clip return values
-Date: Fri, 11 Dec 2015 20:15:34 -0500 (EST)
-Message-ID: <20151211.201534.354331798657050762.davem@davemloft.net>
-References: <1449661595-5745-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [patch -next] mlxsw: spectrum: fix some error handling
+Date: Fri, 11 Dec 2015 20:15:51 -0500 (EST)
+Message-ID: <20151211.201551.1725224415474409711.davem@davemloft.net>
+References: <20151209103351.GI3173@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59092 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59108 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbbLLBPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:15:36 -0500
-In-Reply-To: <1449661595-5745-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1751029AbbLLBPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:15:53 -0500
+In-Reply-To: <20151209103351.GI3173@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed,  9 Dec 2015 17:16:35 +0530
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 9 Dec 2015 13:33:51 +0300
 
-> Add a warn message when clip table overflows. If clip table isn't
-> allocated, return from cxgb4_clip_release() to avoid panic.
-> Disable offload if clip isn't enabled in the hardware.
+> The "err = " assignment is missing here.
 > 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Fixes: 0d65fc13042f ('mlxsw: spectrum: Implement LAG port join/leave')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied.
