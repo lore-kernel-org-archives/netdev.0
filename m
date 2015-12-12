@@ -1,31 +1,42 @@
-From: Jesse White <jesse@opennms.org>
-Subject: ICMPv6 sockets
-Date: Sat, 12 Dec 2015 11:02:50 -0500
-Message-ID: <566C452A.5000204@opennms.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: Checksum offload queries
+Date: Sat, 12 Dec 2015 11:41:37 -0500
+Message-ID: <20151212164137.GG19608@oracle.com>
+References: <5665A848.9010001@solarflare.com>
+ <20151207.143848.2158761076110518741.davem@davemloft.net>
+ <5666EC4B.40800@solarflare.com>
+ <20151208.120654.2127200076257822677.davem@davemloft.net>
+ <56681B18.3030200@solarflare.com>
+ <CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
+ <566864C0.6020204@solarflare.com>
+ <CALx6S35UUmt+f4c_5Dh=8qvKBqtO7F5j_RqhXs01ONhj4HChKw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.opennms.com ([64.34.187.168]:55421 "EHLO
-	mail2.opennms.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbbLLQJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 11:09:03 -0500
-Received: from [172.23.1.103] (cpe-45-37-71-140.nc.res.rr.com [45.37.71.140])
-	by mail2.opennms.com (Postfix) with ESMTPSA id 41ED9A0096A
-	for <netdev@vger.kernel.org>; Sat, 12 Dec 2015 11:05:26 -0500 (EST)
+Received: from userp1040.oracle.com ([156.151.31.81]:17765 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbbLLQlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 11:41:52 -0500
+Content-Disposition: inline
+In-Reply-To: <CALx6S35UUmt+f4c_5Dh=8qvKBqtO7F5j_RqhXs01ONhj4HChKw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On (12/11/15 15:50), Tom Herbert wrote:
+> layers of encapsulation. For example, suppose send a UDP packet in
+> VXLAN in VXLAN, where packet looks like:
+> IP|UDP|VXLAN|Eth|IP|UDP|VXLAN|Eth|IP|UDP. I believe the kernel can set
 
-Support for IPPROTO_ICMP socket binds was added in commit c319b4d76b9e583a5d88d6bf190e079c4e43213d
-which allow for process to send ICMP_ECHO messages (and receive the corresponding ICMP_ECHOREPLY messages)
-without any special privileges.
+Without detracting from the fact that you have probably found a bug
+for checksumming here..
 
-There doesn't appear to be any similar functionality for IPPROTO_ICMPV6.
+if you have multiple encapsulations above (vxlan over vxlan?)
+I think lot of other things like pmtu may also be broken?  (Each
+encaps layer lowers the actual application mtu till the thing starts 
+to get absurd)
 
-Would the net maintainers be open to including a patch that adds similar support for ICMPv6?
-
-Thanks,
-Jesse
+--Sowmini
