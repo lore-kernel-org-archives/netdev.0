@@ -1,33 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: core: Fix temperature sensor index
- during initialization
-Date: Sat, 12 Dec 2015 00:46:12 -0500 (EST)
-Message-ID: <20151212.004612.52689578296384782.davem@davemloft.net>
-References: <1449854760-15190-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com
-To: jiri@resnulli.us
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11][pull request] 40GbE Intel Wired LAN Driver Updates 2015-12-12
+Date: Sat, 12 Dec 2015 00:33:22 -0800
+Message-ID: <1449909213-33795-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34412 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751093AbbLLFqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 00:46:14 -0500
-In-Reply-To: <1449854760-15190-1-git-send-email-jiri@resnulli.us>
+Received: from mga03.intel.com ([134.134.136.65]:52824 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751177AbbLLIdi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2015 03:33:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 11 Dec 2015 18:26:00 +0100
+This series contains updates to i40e and i40evf only.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Sensor index should be passed instead of 0. For now, this does not make
-> a difference, since there is so far only one temperature sensor
-> exposed by HW.
-> 
-> Fixes: 89309da39 ("mlxsw: core: Implement temperature hwmon interface")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Jesse fixes some trivial static analyzer warnings where BIT() can be used
+instead of BIT_ULL().
 
-Applied.
+Mitch fixes the virtual channel interface which was using incorrect semantics
+to remove MAC addresses and would leave incorrect filters active when using
+VLANs.  Also fixes an issue that when VF's are created, the MAC address
+defaults to all zeros, indicating to the VF driver that it should use a
+random MAC address.  However, the PF driver was incorrectly adding this
+zero MAC to the filter table, so check for a good address before adding
+the default filter.  Adds a check to make sure that the Tx and Rx rings
+actually exist before dereferencing them to free resources.  Re-classifies
+several messages which are really for debugging purposes, especially since
+the driver can fully recover from any of these.  Fixed up the VF version
+strings to match the PF driver.
+
+Anjali adds a virtchnl offload to support the expanded version of TCP/UDP
+PCTYPES for RSS.
+
+Shannon fixes i40e to clean the whole MAC filter list when resetting after
+an intermediate add or delete push to the firmware.
+
+The following are changes since commit 9ad321b0b6de666814e3950c963387d116bfe3d1:
+  Merge branch 'mlx5-flow-steering'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Anjali Singhai Jain (1):
+  i40e/i40evf: Add a new offload for RSS PCTYPE V2 for X722
+
+Catherine Sullivan (1):
+  i40e/i40evf: Bump i40e to 1.4.8 and i40evf to 1.4.4
+
+Jesse Brandeburg (1):
+  i40e: chomp the BIT(_ULL)
+
+Kamil Krawczyk (1):
+  i40e: use explicit cast from u16 to u8
+
+Michal Kosiarz (1):
+  i40e: Opcode and structures required by OEM Post Update AQ command and
+    add new NVM arq message
+
+Mitch Williams (5):
+  i40e: properly delete VF MAC filters
+  i40e: don't add zero MAC filter
+  i40evf: check rings before freeing resources
+  i40e: hush little warnings
+  i40evf: change version string generation
+
+Shannon Nelson (1):
+  i40e: clean whole mac filter list
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   2 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  21 +++++
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 105 +++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  23 +++--
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  21 +++++
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |   1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  16 +++-
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   4 +-
+ 10 files changed, 155 insertions(+), 41 deletions(-)
+
+-- 
+2.5.0
