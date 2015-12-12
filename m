@@ -1,49 +1,53 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] route: Fix printing of locked entries
-Date: Sat, 12 Dec 2015 14:09:48 +0100
-Message-ID: <1449925788-30736-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:43718 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751496AbbLLNKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2015 08:10:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3] sh_eth: fix kernel oops in skb_put()
+Date: Sat, 12 Dec 2015 18:17:45 +0300
+Message-ID: <566C3A99.2000103@cogentembedded.com>
+References: <1498048.4g9dLWgJuk@wasted.cogentembedded.com>
+ <20151205.174648.1064779484509050839.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yashi@atmark-techno.com,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20151205.174648.1064779484509050839.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 0f7543322c5fd ("route: ignore RTAX_HOPLIMIT of value -1")
-accidentally reordered fprintf statements. This patch restores the
-original ordering.
+Hello.
 
-Fixes: 0f7543322c5fd ("route: ignore RTAX_HOPLIMIT of value -1")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/iproute.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+On 12/6/2015 1:46 AM, David Miller wrote:
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index c42ea0b9ecb8e..4d86a596175f5 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -577,8 +577,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			if (mxrta[i] == NULL)
- 				continue;
- 
--			if (mxlock & (1<<i))
--				fprintf(fp, " lock");
- 			if (i != RTAX_CC_ALGO)
- 				val = rta_getattr_u32(mxrta[i]);
- 
-@@ -590,6 +588,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			else
- 				fprintf(fp, " metric %d", i);
- 
-+			if (mxlock & (1<<i))
-+				fprintf(fp, " lock");
-+
- 			switch (i) {
- 			case RTAX_FEATURES:
- 				print_rtax_features(fp, val);
--- 
-2.6.4
+>> In a low memory situation the following kernel oops occurs:
+>>
+>> Unable to handle kernel NULL pointer dereference at virtual address 00000050
+>> pgd = 8490c000
+>> [00000050] *pgd=4651e831, *pte=00000000, *ppte=00000000
+>> Internal error: Oops: 17 [#1] PREEMPT ARM
+>> Modules linked in:
+>> CPU: 0    Not tainted  (3.4-at16 #9)
+>> PC is at skb_put+0x10/0x98
+>> LR is at sh_eth_poll+0x2c8/0xa10
+>> pc : [<8035f780>]    lr : [<8028bf50>]    psr: 60000113
+>> sp : 84eb1a90  ip : 84eb1ac8  fp : 84eb1ac4
+>> r10: 0000003f  r9 : 000005ea  r8 : 00000000
+>> r7 : 00000000  r6 : 940453b0  r5 : 00030000  r4 : 9381b180
+>> r3 : 00000000  r2 : 00000000  r1 : 000005ea  r0 : 00000000
+>> Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+>> Control: 10c53c7d  Table: 4248c059  DAC: 00000015
+>> Process klogd (pid: 2046, stack limit = 0x84eb02e8)
+>> [...]
+>>
+>> This is  because netdev_alloc_skb() fails and 'mdp->rx_skbuff[entry]' is left
+>> NULL but sh_eth_rx() later  uses it without checking.  Add such check...
+>>
+>> Reported-by: Yasushi SHOJI <yashi@atmark-techno.com>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> Applied.
+
+    Could you also queue this for the stable kernels?
+
+MBR, Sergei
+
