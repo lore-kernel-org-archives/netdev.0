@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] uapi: export ila.h
-Date: Fri, 11 Dec 2015 23:41:57 -0500 (EST)
-Message-ID: <20151211.234157.1518389637155421184.davem@davemloft.net>
-References: <20151210091420.3e785232@xeon-e3>
+Subject: Re: [PATCH net-next V1 0/9] mlx5 improved flow steering management
+Date: Sat, 12 Dec 2015 00:24:48 -0500 (EST)
+Message-ID: <20151212.002448.481078451575331382.davem@davemloft.net>
+References: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, maorg@mellanox.com,
+	talal@mellanox.com, majd@mellanox.com, matanb@mellanox.com,
+	saeedm@dev.mellanox.co.il
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32958 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34078 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752923AbbLLEl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 23:41:59 -0500
-In-Reply-To: <20151210091420.3e785232@xeon-e3>
+	with ESMTP id S1751056AbbLLFYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 00:24:55 -0500
+In-Reply-To: <1449760365-23622-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 10 Dec 2015 09:14:20 -0800
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Thu, 10 Dec 2015 17:12:36 +0200
 
-> The file ila.h used for lightweight tunnels is being used by iproute2
-> but is not exported yet.
+> First two patches fixes some minor issues in recently
+> introduced SRIOV code.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> The other seven patches modifies the driver's code that 
+> manages flow steering rules with Connectx-4 devices.
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
