@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: bonding: remove redudant brackets
-Date: Fri, 11 Dec 2015 20:03:21 -0500 (EST)
-Message-ID: <20151211.200321.1340364047276738783.davem@davemloft.net>
-References: <1449631842-29535-1-git-send-email-zyjzy2000@gmail.com>
+Subject: Re: [PATCH (net-next.git) 16/18] stmmac: do not perform zero-copy
+ for rx frames
+Date: Fri, 11 Dec 2015 20:09:29 -0500 (EST)
+Message-ID: <20151211.200929.1933211408365625907.davem@davemloft.net>
+References: <1449650274-14896-1-git-send-email-peppe.cavallaro@st.com>
+	<1449650274-14896-17-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: zyjzy2000@gmail.com
+Cc: netdev@vger.kernel.org, alexandre.torgue@st.com
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58625 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58930 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341AbbLLBDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:03:23 -0500
-In-Reply-To: <1449631842-29535-1-git-send-email-zyjzy2000@gmail.com>
+	with ESMTP id S1753755AbbLLBJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:09:31 -0500
+In-Reply-To: <1449650274-14896-17-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <zyjzy2000@gmail.com>
-Date: Wed, 9 Dec 2015 11:30:42 +0800
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Wed, 9 Dec 2015 09:37:52 +0100
 
-> From: yzhu1 <zyzy2000@gmail.com>
-> 
-> It is not necessary to use two brackets. As such, the redudant brackets
-> are removed.
-> 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Signed-off-by: yzhu1 <zyzyj2000@gmail.com>
+> @@ -98,6 +98,10 @@ static int buf_sz = DEFAULT_BUFSIZE;
+>  module_param(buf_sz, int, S_IRUGO | S_IWUSR);
+>  MODULE_PARM_DESC(buf_sz, "DMA buffer size");
+>  
+> +static int minrx = 256;
+> +module_param(minrx, int, S_IRUGO | S_IWUSR);
+> +MODULE_PARM_DESC(minrx, "Copy only tiny-frames");
+> +
 
-Does not apply to the net-next tree.
+When you type module_param() in a network driver, you ought to receive
+an electric shock in order to remind you that except in the most extreme
+cases module parameters are absolutely not appropriate.
+
+In this case we have an ethtool tunable people can use to control copy
+break values like this, so use that instead.
