@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mpls_iptunnel: add static qualifier to
- mpls_output
-Date: Fri, 11 Dec 2015 20:18:09 -0500 (EST)
-Message-ID: <20151211.201809.1609331243183993066.davem@davemloft.net>
-References: <1449673001-27596-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] ipv6: sctp: clone options to avoid use after free
+Date: Fri, 11 Dec 2015 20:19:16 -0500 (EST)
+Message-ID: <20151211.201916.1656429874143124778.davem@davemloft.net>
+References: <20151209145917.GA3884@mrl.redhat.com>
+	<CANn89iLhetNbtO6h99zZOrCiMYON50vzVsk7j_AtosXejvvm4Q@mail.gmail.com>
+	<1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59181 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbbLLBSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:18:11 -0500
-In-Reply-To: <1449673001-27596-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: edumazet@google.com, marcelo.leitner@gmail.com, dvyukov@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vyasevich@gmail.com,
+	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
+	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
+	sasha.levin@oracle.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449674706.9768.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Wed,  9 Dec 2015 06:56:41 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 09 Dec 2015 07:25:06 -0800
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This gets rid of the following compile warn:
-> net/mpls/mpls_iptunnel.c:40:5: warning: no previous prototype for
-> mpls_output [-Wmissing-prototypes]
+> SCTP is lacking proper np->opt cloning at accept() time.
 > 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> TCP and DCCP use ipv6_dup_options() helper, do the same
+> in SCTP.
+> 
+> We might later factorize this code in a common helper to avoid
+> future mistakes.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thank you.
+Applied and queued up for -stable, thanks.
