@@ -1,114 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/12] ixgbe: Simplify definitions for regidx and bit in set_vfta
-Date: Sat, 12 Dec 2015 03:14:41 -0800
-Message-ID: <1449918890-145243-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/12] ixgbe: Clear stale pool mappings
+Date: Sat, 12 Dec 2015 03:14:48 -0800
+Message-ID: <1449918890-145243-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:14272 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:39614 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752326AbbLLLPB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2015 06:15:01 -0500
+	id S1752408AbbLLLPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2015 06:15:03 -0500
 In-Reply-To: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-This patch simplifies the logic for setting the VFTA register by removing
-the number of conditional checks needed.  Instead we just use some boolean
-logic to generate vfta_delta, and if that is set then we xor the vfta by
-that value and write it back.
+This patch makes certain that we clear the pool mappings added when we
+configure default MAC addresses for the interface.  Without this we run the
+risk of leaking an address into pool 0 which really belongs to VF 0 when
+SR-IOV is enabled.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 48 ++++++++++---------------
- 1 file changed, 19 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 10 +++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  7 ++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   | 10 +++++++---
+ 3 files changed, 18 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index b8bd725..fa8d4f4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1083,12 +1083,16 @@ mac_reset_top:
+ 
+ 	/* Add the SAN MAC address to the RAR only if it's a valid address */
+ 	if (is_valid_ether_addr(hw->mac.san_addr)) {
+-		hw->mac.ops.set_rar(hw, hw->mac.num_rar_entries - 1,
+-				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
+-
+ 		/* Save the SAN MAC RAR index */
+ 		hw->mac.san_mac_rar_index = hw->mac.num_rar_entries - 1;
+ 
++		hw->mac.ops.set_rar(hw, hw->mac.san_mac_rar_index,
++				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
++
++		/* clear VMDq pool/queue selection for this RAR */
++		hw->mac.ops.clear_vmdq(hw, hw->mac.san_mac_rar_index,
++				       IXGBE_CLEAR_VMDQ_ALL);
++
+ 		/* Reserve the last RAR for the SAN MAC address */
+ 		hw->mac.num_rar_entries--;
+ 	}
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index daec6ae..027c1ad 100644
+index 73dcc0a..6404505 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3050,13 +3050,9 @@ static s32 ixgbe_find_vlvf_slot(struct ixgbe_hw *hw, u32 vlan)
- s32 ixgbe_set_vfta_generic(struct ixgbe_hw *hw, u32 vlan, u32 vind,
- 			   bool vlan_on)
- {
--	s32 regindex;
--	u32 bitindex;
--	u32 vfta;
-+	u32 regidx, vfta_delta, vfta;
- 	u32 bits;
- 	u32 vt;
--	u32 targetbit;
--	bool vfta_changed = false;
+@@ -1884,10 +1884,11 @@ s32 ixgbe_init_rx_addrs_generic(struct ixgbe_hw *hw)
+ 		hw_dbg(hw, " New MAC Addr =%pM\n", hw->mac.addr);
  
- 	if (vlan > 4095)
- 		return IXGBE_ERR_PARAM;
-@@ -3073,22 +3069,16 @@ s32 ixgbe_set_vfta_generic(struct ixgbe_hw *hw, u32 vlan, u32 vind,
- 	 *    bits[11-5]: which register
- 	 *    bits[4-0]:  which bit in the register
- 	 */
--	regindex = (vlan >> 5) & 0x7F;
--	bitindex = vlan & 0x1F;
--	targetbit = (1 << bitindex);
--	vfta = IXGBE_READ_REG(hw, IXGBE_VFTA(regindex));
+ 		hw->mac.ops.set_rar(hw, 0, hw->mac.addr, 0, IXGBE_RAH_AV);
 -
--	if (vlan_on) {
--		if (!(vfta & targetbit)) {
--			vfta |= targetbit;
--			vfta_changed = true;
--		}
--	} else {
--		if ((vfta & targetbit)) {
--			vfta &= ~targetbit;
--			vfta_changed = true;
--		}
--	}
-+	regidx = vlan / 32;
-+	vfta_delta = 1 << (vlan % 32);
-+	vfta = IXGBE_READ_REG(hw, IXGBE_VFTA(regidx));
-+
-+	/* vfta_delta represents the difference between the current value
-+	 * of vfta and the value we want in the register.  Since the diff
-+	 * is an XOR mask we can just update vfta using an XOR.
-+	 */
-+	vfta_delta &= vlan_on ? ~vfta : vfta;
-+	vfta ^= vfta_delta;
- 
- 	/* Part 2
- 	 * If VT Mode is set
-@@ -3164,19 +3154,19 @@ s32 ixgbe_set_vfta_generic(struct ixgbe_hw *hw, u32 vlan, u32 vind,
- 		if (bits) {
- 			IXGBE_WRITE_REG(hw, IXGBE_VLVF(vlvf_index),
- 					(IXGBE_VLVF_VIEN | vlan));
--			if (!vlan_on) {
--				/* someone wants to clear the vfta entry
--				 * but some pools/VFs are still using it.
--				 * Ignore it. */
--				vfta_changed = false;
--			}
-+
-+			/* if someone wants to clear the vfta entry but
-+			 * some pools/VFs are still using it.  Ignore it.
-+			 */
-+			if (!vlan_on)
-+				vfta_delta = 0;
- 		} else {
- 			IXGBE_WRITE_REG(hw, IXGBE_VLVF(vlvf_index), 0);
- 		}
+-		/*  clear VMDq pool/queue selection for RAR 0 */
+-		hw->mac.ops.clear_vmdq(hw, 0, IXGBE_CLEAR_VMDQ_ALL);
  	}
++
++	/*  clear VMDq pool/queue selection for RAR 0 */
++	hw->mac.ops.clear_vmdq(hw, 0, IXGBE_CLEAR_VMDQ_ALL);
++
+ 	hw->addr_ctrl.overflow_promisc = 0;
  
--	if (vfta_changed)
--		IXGBE_WRITE_REG(hw, IXGBE_VFTA(regindex), vfta);
-+	if (vfta_delta)
-+		IXGBE_WRITE_REG(hw, IXGBE_VFTA(regidx), vfta);
+ 	hw->addr_ctrl.rar_used_count = 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index bf8225c..2358c1b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -154,12 +154,16 @@ mac_reset_top:
  
- 	return 0;
- }
+ 	/* Add the SAN MAC address to the RAR only if it's a valid address */
+ 	if (is_valid_ether_addr(hw->mac.san_addr)) {
+-		hw->mac.ops.set_rar(hw, hw->mac.num_rar_entries - 1,
+-				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
+-
+ 		/* Save the SAN MAC RAR index */
+ 		hw->mac.san_mac_rar_index = hw->mac.num_rar_entries - 1;
+ 
++		hw->mac.ops.set_rar(hw, hw->mac.san_mac_rar_index,
++				    hw->mac.san_addr, 0, IXGBE_RAH_AV);
++
++		/* clear VMDq pool/queue selection for this RAR */
++		hw->mac.ops.clear_vmdq(hw, hw->mac.san_mac_rar_index,
++				       IXGBE_CLEAR_VMDQ_ALL);
++
+ 		/* Reserve the last RAR for the SAN MAC address */
+ 		hw->mac.num_rar_entries--;
+ 	}
 -- 
 2.5.0
