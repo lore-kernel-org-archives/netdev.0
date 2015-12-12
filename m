@@ -1,93 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/11] i40e: clean whole mac filter list
-Date: Sat, 12 Dec 2015 00:33:31 -0800
-Message-ID: <1449909213-33795-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/11] i40e: hush little warnings
+Date: Sat, 12 Dec 2015 00:33:29 -0800
+Message-ID: <1449909213-33795-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449909213-33795-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:52824 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:2094 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751588AbbLLIdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751576AbbLLIdm (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 12 Dec 2015 03:33:42 -0500
 In-Reply-To: <1449909213-33795-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Clean the whole mac filter list when resetting after an intermediate
-add or delete push to the firmware.  The code had evolved from using
-a list from the stack to a heap allocation, but the memset() didn't
-follow the change correctly.  This now cleans the whole list rather
-that just part of the first element.
+These messages seem big and scary, but they're really not. The driver
+can fully recover from any of these. The overflow error in particular
+can happen when enabling a bunch of VFs and the VF driver is not
+blacklisted.
 
-Change-ID: I4cd03d5a103b7407dd8556a3a231e800f2d6f2d5
-Reported-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Since these messages are really for debugging purposes, reclassify
+them as such.
+
+Change-ID: I628d0f5e135e7063450ba05393a50b7af23aa6d7
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 35d787e..8ebf72b 100644
+index aff401f..35d787e 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1916,11 +1916,12 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 
- 	/* Now process 'del_list' outside the lock */
- 	if (!list_empty(&tmp_del_list)) {
-+		int del_list_size;
- 		filter_list_len = pf->hw.aq.asq_buf_size /
- 			    sizeof(struct i40e_aqc_remove_macvlan_element_data);
--		del_list = kcalloc(filter_list_len,
--			    sizeof(struct i40e_aqc_remove_macvlan_element_data),
--			    GFP_KERNEL);
-+		del_list_size = filter_list_len *
-+			    sizeof(struct i40e_aqc_remove_macvlan_element_data);
-+		del_list = kzalloc(del_list_size, GFP_KERNEL);
- 		if (!del_list) {
- 			i40e_cleanup_add_list(&tmp_add_list);
- 
-@@ -1955,7 +1956,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 								NULL);
- 				aq_err = pf->hw.aq.asq_last_status;
- 				num_del = 0;
--				memset(del_list, 0, sizeof(*del_list));
-+				memset(del_list, 0, del_list_size);
- 
- 				if (aq_ret && aq_err != I40E_AQ_RC_ENOENT) {
- 					retval = -EIO;
-@@ -1991,13 +1992,14 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+@@ -6219,15 +6219,18 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+ 	val = rd32(&pf->hw, pf->hw.aq.arq.len);
+ 	oldval = val;
+ 	if (val & I40E_PF_ARQLEN_ARQVFE_MASK) {
+-		dev_info(&pf->pdev->dev, "ARQ VF Error detected\n");
++		if (hw->debug_mask & I40E_DEBUG_AQ)
++			dev_info(&pf->pdev->dev, "ARQ VF Error detected\n");
+ 		val &= ~I40E_PF_ARQLEN_ARQVFE_MASK;
  	}
- 
- 	if (!list_empty(&tmp_add_list)) {
-+		int add_list_size;
- 
- 		/* do all the adds now */
- 		filter_list_len = pf->hw.aq.asq_buf_size /
- 			       sizeof(struct i40e_aqc_add_macvlan_element_data),
--		add_list = kcalloc(filter_list_len,
--			       sizeof(struct i40e_aqc_add_macvlan_element_data),
--			       GFP_KERNEL);
-+		add_list_size = filter_list_len *
-+			       sizeof(struct i40e_aqc_add_macvlan_element_data);
-+		add_list = kzalloc(add_list_size, GFP_KERNEL);
- 		if (!add_list) {
- 			/* Purge element from temporary lists */
- 			i40e_cleanup_add_list(&tmp_add_list);
-@@ -2036,7 +2038,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 
- 				if (aq_ret)
- 					break;
--				memset(add_list, 0, sizeof(*add_list));
-+				memset(add_list, 0, add_list_size);
- 			}
- 			/* Entries from tmp_add_list were cloned from MAC
- 			 * filter list, hence clean those cloned entries
+ 	if (val & I40E_PF_ARQLEN_ARQOVFL_MASK) {
+-		dev_info(&pf->pdev->dev, "ARQ Overflow Error detected\n");
++		if (hw->debug_mask & I40E_DEBUG_AQ)
++			dev_info(&pf->pdev->dev, "ARQ Overflow Error detected\n");
+ 		val &= ~I40E_PF_ARQLEN_ARQOVFL_MASK;
+ 	}
+ 	if (val & I40E_PF_ARQLEN_ARQCRIT_MASK) {
+-		dev_info(&pf->pdev->dev, "ARQ Critical Error detected\n");
++		if (hw->debug_mask & I40E_DEBUG_AQ)
++			dev_info(&pf->pdev->dev, "ARQ Critical Error detected\n");
+ 		val &= ~I40E_PF_ARQLEN_ARQCRIT_MASK;
+ 	}
+ 	if (oldval != val)
+@@ -6236,15 +6239,18 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+ 	val = rd32(&pf->hw, pf->hw.aq.asq.len);
+ 	oldval = val;
+ 	if (val & I40E_PF_ATQLEN_ATQVFE_MASK) {
+-		dev_info(&pf->pdev->dev, "ASQ VF Error detected\n");
++		if (pf->hw.debug_mask & I40E_DEBUG_AQ)
++			dev_info(&pf->pdev->dev, "ASQ VF Error detected\n");
+ 		val &= ~I40E_PF_ATQLEN_ATQVFE_MASK;
+ 	}
+ 	if (val & I40E_PF_ATQLEN_ATQOVFL_MASK) {
+-		dev_info(&pf->pdev->dev, "ASQ Overflow Error detected\n");
++		if (pf->hw.debug_mask & I40E_DEBUG_AQ)
++			dev_info(&pf->pdev->dev, "ASQ Overflow Error detected\n");
+ 		val &= ~I40E_PF_ATQLEN_ATQOVFL_MASK;
+ 	}
+ 	if (val & I40E_PF_ATQLEN_ATQCRIT_MASK) {
+-		dev_info(&pf->pdev->dev, "ASQ Critical Error detected\n");
++		if (pf->hw.debug_mask & I40E_DEBUG_AQ)
++			dev_info(&pf->pdev->dev, "ASQ Critical Error detected\n");
+ 		val &= ~I40E_PF_ATQLEN_ATQCRIT_MASK;
+ 	}
+ 	if (oldval != val)
 -- 
 2.5.0
