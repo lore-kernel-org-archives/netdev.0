@@ -1,74 +1,202 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] 10GbE Intel Wired LAN Driver Updates 2015-12-12
-Date: Sat, 12 Dec 2015 03:14:38 -0800
-Message-ID: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 04/12] ixgbe: Reduce VT code indent in set_vfta by introducing jump label
+Date: Sat, 12 Dec 2015 03:14:42 -0800
+Message-ID: <1449918890-145243-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:14272 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:30916 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752181AbbLLLO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2015 06:14:59 -0500
+	id S1752394AbbLLLPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2015 06:15:03 -0500
+In-Reply-To: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Alex Duyck provides almost off of the changes in this series.  First, add a
-check to make sure mac_table was actually allocated and is not NULL to
-ensure we do not get a NULL pointer dereference further down the line.
-Fixed SR-IOV VLAN pool configuration since the code for checking the PF bit
-in ixgbe_set_vf_vlan_msg() was using the wrong offset.  Cleanup/simplify
-the logic for setting the VFTA register by removing the number of
-conditional checks needed.  Fixed a number of issues within the VLVF and
-VLFB configuration by simplifying the code.  Added support for bypassing
-the VLVF entry creation when the PF is adding a new VLAN.  Reduced the
-complexity of the search function used for finding a VLVF entry associated
-with a given VLAN ID.  Added support for VLAN promiscuous with SR-IOV
-enabled by setting all the bits in the VFTA and all of the VLVF bits
-associated with teh pool belonging to the PF, in addition to cleaning up
-those same bits in the event of promiscuous mode being disabled.  Fixed
-and issue where we ran the risk of leaking an address into pool 0 which
-really belongs to VF 0 when SR-IOV is enabled.
+In order to clear the way for upcoming work I thought it best to drop the
+level of indent in the ixgbe_set_vfta_generic function.  Most of the code
+is held in the virtualization specific section.  So the easiest approach is
+to just add a jump label and jump past the bulk of the code if it is not
+enabled.
 
-Emil fixes an issue with some X550 devices which can connect at 2.5Gbps,
-but only with certain link partners during fail-over, so to avoid
-confusion, we do not report it as supported.
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 142 ++++++++++++------------
+ 1 file changed, 70 insertions(+), 72 deletions(-)
 
-The following are changes since commit 9ad321b0b6de666814e3950c963387d116bfe3d1:
-  Merge branch 'mlx5-flow-steering'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Alexander Duyck (11):
-  ixgbe: Return error on failure to allocate mac_table
-  ixgbe: Fix SR-IOV VLAN pool configuration
-  ixgbe: Simplify definitions for regidx and bit in set_vfta
-  ixgbe: Reduce VT code indent in set_vfta by introducing jump label
-  ixgbe: Simplify configuration of setting VLVF and VLVFB
-  ixgbe: Add support for adding/removing VLAN on PF bypassing the VLVF
-  ixgbe: Reorder search to work from the top down instead of bottom up
-  ixgbe: Add support for VLAN promiscuous with SR-IOV
-  ixgbe: Fix VLAN promisc in relation to SR-IOV
-  ixgbe: Clear stale pool mappings
-  ixgbe: Clean stale VLANs when changing port VLAN or resetting
-
-Emil Tantilov (1):
-  ixgbe: do not report 2.5 Gbps as supported
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  10 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 236 ++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   4 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 194 +++++++++++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   | 187 ++++++++++--------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |  10 +-
- 10 files changed, 415 insertions(+), 235 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 027c1ad..f608973 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3051,8 +3051,8 @@ s32 ixgbe_set_vfta_generic(struct ixgbe_hw *hw, u32 vlan, u32 vind,
+ 			   bool vlan_on)
+ {
+ 	u32 regidx, vfta_delta, vfta;
++	s32 vlvf_index;
+ 	u32 bits;
+-	u32 vt;
+ 
+ 	if (vlan > 4095)
+ 		return IXGBE_ERR_PARAM;
+@@ -3088,83 +3088,81 @@ s32 ixgbe_set_vfta_generic(struct ixgbe_hw *hw, u32 vlan, u32 vind,
+ 	 *   Or !vlan_on
+ 	 *     clear the pool bit and possibly the vind
+ 	 */
+-	vt = IXGBE_READ_REG(hw, IXGBE_VT_CTL);
+-	if (vt & IXGBE_VT_CTL_VT_ENABLE) {
+-		s32 vlvf_index;
+-
+-		vlvf_index = ixgbe_find_vlvf_slot(hw, vlan);
+-		if (vlvf_index < 0)
+-			return vlvf_index;
+-
+-		if (vlan_on) {
+-			/* set the pool bit */
+-			if (vind < 32) {
+-				bits = IXGBE_READ_REG(hw,
+-						IXGBE_VLVFB(vlvf_index*2));
+-				bits |= (1 << vind);
+-				IXGBE_WRITE_REG(hw,
+-						IXGBE_VLVFB(vlvf_index*2),
+-						bits);
+-			} else {
+-				bits = IXGBE_READ_REG(hw,
+-						IXGBE_VLVFB((vlvf_index*2)+1));
+-				bits |= (1 << (vind-32));
+-				IXGBE_WRITE_REG(hw,
+-						IXGBE_VLVFB((vlvf_index*2)+1),
+-						bits);
+-			}
++	if (!(IXGBE_READ_REG(hw, IXGBE_VT_CTL) & IXGBE_VT_CTL_VT_ENABLE))
++		goto vfta_update;
++
++	vlvf_index = ixgbe_find_vlvf_slot(hw, vlan);
++	if (vlvf_index < 0)
++		return vlvf_index;
++
++	if (vlan_on) {
++		/* set the pool bit */
++		if (vind < 32) {
++			bits = IXGBE_READ_REG(hw,
++					IXGBE_VLVFB(vlvf_index*2));
++			bits |= (1 << vind);
++			IXGBE_WRITE_REG(hw,
++					IXGBE_VLVFB(vlvf_index*2),
++					bits);
+ 		} else {
+-			/* clear the pool bit */
+-			if (vind < 32) {
+-				bits = IXGBE_READ_REG(hw,
+-						IXGBE_VLVFB(vlvf_index*2));
+-				bits &= ~(1 << vind);
+-				IXGBE_WRITE_REG(hw,
+-						IXGBE_VLVFB(vlvf_index*2),
+-						bits);
+-				bits |= IXGBE_READ_REG(hw,
+-						IXGBE_VLVFB((vlvf_index*2)+1));
+-			} else {
+-				bits = IXGBE_READ_REG(hw,
+-						IXGBE_VLVFB((vlvf_index*2)+1));
+-				bits &= ~(1 << (vind-32));
+-				IXGBE_WRITE_REG(hw,
+-						IXGBE_VLVFB((vlvf_index*2)+1),
+-						bits);
+-				bits |= IXGBE_READ_REG(hw,
+-						IXGBE_VLVFB(vlvf_index*2));
+-			}
++			bits = IXGBE_READ_REG(hw,
++					IXGBE_VLVFB((vlvf_index*2)+1));
++			bits |= (1 << (vind-32));
++			IXGBE_WRITE_REG(hw,
++					IXGBE_VLVFB((vlvf_index*2)+1),
++					bits);
+ 		}
+-
+-		/*
+-		 * If there are still bits set in the VLVFB registers
+-		 * for the VLAN ID indicated we need to see if the
+-		 * caller is requesting that we clear the VFTA entry bit.
+-		 * If the caller has requested that we clear the VFTA
+-		 * entry bit but there are still pools/VFs using this VLAN
+-		 * ID entry then ignore the request.  We're not worried
+-		 * about the case where we're turning the VFTA VLAN ID
+-		 * entry bit on, only when requested to turn it off as
+-		 * there may be multiple pools and/or VFs using the
+-		 * VLAN ID entry.  In that case we cannot clear the
+-		 * VFTA bit until all pools/VFs using that VLAN ID have also
+-		 * been cleared.  This will be indicated by "bits" being
+-		 * zero.
+-		 */
+-		if (bits) {
+-			IXGBE_WRITE_REG(hw, IXGBE_VLVF(vlvf_index),
+-					(IXGBE_VLVF_VIEN | vlan));
+-
+-			/* if someone wants to clear the vfta entry but
+-			 * some pools/VFs are still using it.  Ignore it.
+-			 */
+-			if (!vlan_on)
+-				vfta_delta = 0;
++	} else {
++		/* clear the pool bit */
++		if (vind < 32) {
++			bits = IXGBE_READ_REG(hw,
++					IXGBE_VLVFB(vlvf_index*2));
++			bits &= ~(1 << vind);
++			IXGBE_WRITE_REG(hw,
++					IXGBE_VLVFB(vlvf_index*2),
++					bits);
++			bits |= IXGBE_READ_REG(hw,
++					IXGBE_VLVFB((vlvf_index*2)+1));
+ 		} else {
+-			IXGBE_WRITE_REG(hw, IXGBE_VLVF(vlvf_index), 0);
++			bits = IXGBE_READ_REG(hw,
++					IXGBE_VLVFB((vlvf_index*2)+1));
++			bits &= ~(1 << (vind-32));
++			IXGBE_WRITE_REG(hw,
++					IXGBE_VLVFB((vlvf_index*2)+1),
++					bits);
++			bits |= IXGBE_READ_REG(hw,
++					IXGBE_VLVFB(vlvf_index*2));
+ 		}
+ 	}
+ 
++	/* If there are still bits set in the VLVFB registers
++	 * for the VLAN ID indicated we need to see if the
++	 * caller is requesting that we clear the VFTA entry bit.
++	 * If the caller has requested that we clear the VFTA
++	 * entry bit but there are still pools/VFs using this VLAN
++	 * ID entry then ignore the request.  We're not worried
++	 * about the case where we're turning the VFTA VLAN ID
++	 * entry bit on, only when requested to turn it off as
++	 * there may be multiple pools and/or VFs using the
++	 * VLAN ID entry.  In that case we cannot clear the
++	 * VFTA bit until all pools/VFs using that VLAN ID have also
++	 * been cleared.  This will be indicated by "bits" being
++	 * zero.
++	 */
++	if (bits) {
++		IXGBE_WRITE_REG(hw, IXGBE_VLVF(vlvf_index),
++				(IXGBE_VLVF_VIEN | vlan));
++
++		/* if someone wants to clear the vfta entry but
++		 * some pools/VFs are still using it.  Ignore it.
++		 */
++		if (!vlan_on)
++			vfta_delta = 0;
++	} else {
++		IXGBE_WRITE_REG(hw, IXGBE_VLVF(vlvf_index), 0);
++	}
++
++vfta_update:
+ 	if (vfta_delta)
+ 		IXGBE_WRITE_REG(hw, IXGBE_VFTA(regidx), vfta);
+ 
 -- 
 2.5.0
