@@ -1,42 +1,46 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Subject: Re: [linux-next] iwl_mvm_get_key_sta_id() suspicious RCU usage
-Date: Sat, 12 Dec 2015 09:11:40 +0900
-Message-ID: <20151212001140.GB579@swordfish>
-References: <20151211134418.GA29351@swordfish>
- <1449841741.2324.2.camel@sipsolutions.net>
- <20151212000501.GA579@swordfish>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] xfrm: add rcu grace period in
+ xfrm_policy_destroy()
+Date: Fri, 11 Dec 2015 19:22:29 -0500 (EST)
+Message-ID: <20151211.192229.424897034366170918.davem@davemloft.net>
+References: <1449588122-13941-1-git-send-email-edumazet@google.com>
+	<20151208.225829.122422778076120961.davem@davemloft.net>
+	<20151210123422.GA29565@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <linuxwifi@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151212000501.GA579@swordfish>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753142AbbLLAWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 19:22:31 -0500
+In-Reply-To: <20151210123422.GA29565@gauss.secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (12/12/15 09:05), Sergey Senozhatsky wrote:
-> On (12/11/15 14:49), Johannes Berg wrote:
-> > On Fri, 2015-12-11 at 22:44 +0900, Sergey Senozhatsky wrote:
-> > 
-> > > [ 6385.246300] drivers/net/wireless/intel/iwlwifi/mvm/sta.c:1226
-> > > suspicious rcu_dereference_protected() usage!
-> > > 
-> > 
-> > Funny, Laura Abbott also reported this bug earlier today :)
-> > 
-> > I've sent out a fix, you can see it here:
-> > https://patchwork.ozlabs.org/patch/555587/
-> > 
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 10 Dec 2015 13:34:22 +0100
+
+> On Tue, Dec 08, 2015 at 10:58:29PM -0500, David Miller wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> Date: Tue,  8 Dec 2015 07:22:01 -0800
+>> 
+>> > We will soon switch sk->sk_policy[] to RCU protection,
+>> > as SYNACK packets are sent while listener socket is not locked.
+>> > 
+>> > This patch simply adds RCU grace period before struct xfrm_policy
+>> > freeing, and the corresponding rcu_head in struct xfrm_policy.
+>> > 
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> 
+>> I'll give Steffen an opportunity to review these two patches.
 > 
+> Looks ok and survived some tests with socket policies.
+> 
+> If you want to take these direct into the net tree:
+> 
+> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-had to replace 'drivers/net/wireless/iwlwifi/mvm/sta.c' with
-drivers/net/wireless/intel/iwlwifi/mvm/sta.c'
-
-I'll report back if any problems show up.
-
-	-ss
+Thanks! I just did exactly that.
