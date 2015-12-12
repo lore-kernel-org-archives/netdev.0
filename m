@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] mvneta: Introduce RSS support and XPS
- configuration
-Date: Fri, 11 Dec 2015 20:28:56 -0500 (EST)
-Message-ID: <20151211.202856.919803358989781714.davem@davemloft.net>
-References: <1449681831-2798-1-git-send-email-gregory.clement@free-electrons.com>
+Subject: Re: [PATCHv2 net] phy: micrel: Fix finding PHY properties in MAC
+ node.
+Date: Fri, 11 Dec 2015 20:32:15 -0500 (EST)
+Message-ID: <20151211.203215.437220060059895199.davem@davemloft.net>
+References: <1449687391-15331-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
-	andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-	ezequiel.garcia@free-electrons.com,
-	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
-	nadavh@marvell.com, mw@semihalf.com, simon.guinot@sequanux.org,
-	maxime.ripard@free-electrons.com,
-	boris.brezillon@free-electrons.com, linux@arm.linux.org.uk,
-	w@1wt.eu, arnd@arndb.de
-To: gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449681831-2798-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	dinguyen@opensource.altera.com, david.daney@cavium.com
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59564 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753755AbbLLBcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 20:32:17 -0500
+In-Reply-To: <1449687391-15331-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Date: Wed,  9 Dec 2015 18:23:47 +0100
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed,  9 Dec 2015 19:56:31 +0100
 
-> this series is the first step add RSS support on mvneta.
+> commit 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus,
+> not the bus' parent.")  changed the parenting of PHY devices, making
+> them a child of the MDIO bus, instead of the MAC device. This broken
+> the Micrel PHY driver which has a deprecated feature of allowing PHY
+> properties to be placed into the MAC node.
+> 
+> In order to find the MAC node, we need to walk up the tree of devices
+> until we find one with an OF node attached.
+> 
+> Reported-by: Dinh Nguyen <dinguyen@opensource.altera.com>
+> Suggested-by: David Daney <david.daney@cavium.com>
+> Acked-by: David Daney <david.daney@cavium.com>
+> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Series applied.
+Applied and queued up for -stable, thanks.
