@@ -1,46 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] xfrm: add rcu grace period in
- xfrm_policy_destroy()
-Date: Fri, 11 Dec 2015 19:22:29 -0500 (EST)
-Message-ID: <20151211.192229.424897034366170918.davem@davemloft.net>
-References: <1449588122-13941-1-git-send-email-edumazet@google.com>
-	<20151208.225829.122422778076120961.davem@davemloft.net>
-	<20151210123422.GA29565@gauss.secunet.com>
+Subject: Re: [PATCH 2/2] netcp: add more __le32 annotations
+Date: Fri, 11 Dec 2015 19:35:03 -0500 (EST)
+Message-ID: <20151211.193503.312733505035879098.davem@davemloft.net>
+References: <1578620.t1ANcREMZ8@wuerfel>
+	<6435706.peaM34LhnV@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57156 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753142AbbLLAWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2015 19:22:31 -0500
-In-Reply-To: <20151210123422.GA29565@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: w-kwok2@ti.com, netdev@vger.kernel.org, m-karicheri2@ti.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <6435706.peaM34LhnV@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 10 Dec 2015 13:34:22 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 08 Dec 2015 16:32:59 +0100
 
-> On Tue, Dec 08, 2015 at 10:58:29PM -0500, David Miller wrote:
->> From: Eric Dumazet <edumazet@google.com>
->> Date: Tue,  8 Dec 2015 07:22:01 -0800
->> 
->> > We will soon switch sk->sk_policy[] to RCU protection,
->> > as SYNACK packets are sent while listener socket is not locked.
->> > 
->> > This patch simply adds RCU grace period before struct xfrm_policy
->> > freeing, and the corresponding rcu_head in struct xfrm_policy.
->> > 
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> 
->> I'll give Steffen an opportunity to review these two patches.
+> The handling of epib and psdata remains a bit unclear in the driver,
+> as we access the same fields both as CPU-endian and through DMA
+> from the device.
 > 
-> Looks ok and survived some tests with socket policies.
+> Sparse warns about this:
+> ti/netcp_core.c:1147:21: warning: incorrect type in assignment (different base types)
+> ti/netcp_core.c:1147:21:    expected unsigned int [usertype] *[assigned] epib
+> ti/netcp_core.c:1147:21:    got restricted __le32 *<noident>
 > 
-> If you want to take these direct into the net tree:
+> This uses __le32 types in a few places and uses __force where the code
+> looks fishy. The previous patch should really have produced the correct
+> behavior, but this second patch is needed to shut up the warnings about
+> it. Ideally it would be slightly rewritten to not need those casts,
+> but I don't dare do that without access to the hardware for proper
+> testing.
 > 
-> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks! I just did exactly that.
+Applied to net-next.
