@@ -1,46 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/11] i40e: use explicit cast from u16 to u8
-Date: Sat, 12 Dec 2015 00:33:27 -0800
-Message-ID: <1449909213-33795-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/11] i40evf: change version string generation
+Date: Sat, 12 Dec 2015 00:33:32 -0800
+Message-ID: <1449909213-33795-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449909213-33795-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:2094 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751568AbbLLIdl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2015 03:33:41 -0500
+	id S1751591AbbLLIdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2015 03:33:42 -0500
 In-Reply-To: <1449909213-33795-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Current implementation generates compilation warnings.
+Generate version strings like the PF driver does. This gives us more
+flexibility to add suffixes to the version string at build time.
 
-Change-ID: Icceefb50fe62aefaf90a64afb7192e08355a4ec5
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I0a5ca0783dd8fb849516bfc1e37ea070127847bd
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-index 79ae7be..daa9204 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-@@ -762,7 +762,7 @@ static void i40e_write_byte(u8 *hmc_bits,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 98091b4..cb58bad 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -34,7 +34,15 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- 	/* prepare the bits and mask */
- 	shift_width = ce_info->lsb % 8;
--	mask = BIT(ce_info->width) - 1;
-+	mask = (u8)(BIT(ce_info->width) - 1);
- 
- 	src_byte = *from;
- 	src_byte &= mask;
+-#define DRV_VERSION "1.4.3"
++#define DRV_KERN "-k"
++
++#define DRV_VERSION_MAJOR 1
++#define DRV_VERSION_MINOR 4
++#define DRV_VERSION_BUILD 3
++#define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
++	     __stringify(DRV_VERSION_MINOR) "." \
++	     __stringify(DRV_VERSION_BUILD) \
++	     DRV_KERN
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2015 Intel Corporation.";
 -- 
 2.5.0
