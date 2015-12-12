@@ -1,52 +1,84 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Checksum offload queries
-Date: Sat, 12 Dec 2015 09:24:42 -0800
-Message-ID: <CALx6S35aSWZnxJstSzkjRHXOrb5Y-1B_5qwnbx-naR3LJ0B_8A@mail.gmail.com>
-References: <5665A848.9010001@solarflare.com>
-	<20151207.143848.2158761076110518741.davem@davemloft.net>
-	<5666EC4B.40800@solarflare.com>
-	<20151208.120654.2127200076257822677.davem@davemloft.net>
-	<56681B18.3030200@solarflare.com>
-	<CALx6S357W+HXp4S8+tveKrqJ3-2XrZsKmBTvxZVHdwF93UWkOw@mail.gmail.com>
-	<566864C0.6020204@solarflare.com>
-	<CALx6S35UUmt+f4c_5Dh=8qvKBqtO7F5j_RqhXs01ONhj4HChKw@mail.gmail.com>
-	<20151212164137.GG19608@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:32793 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751558AbbLLRYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 12:24:42 -0500
-Received: by mail-ig0-f170.google.com with SMTP id mv3so59134075igc.0
-        for <netdev@vger.kernel.org>; Sat, 12 Dec 2015 09:24:42 -0800 (PST)
-In-Reply-To: <20151212164137.GG19608@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH V2 net-next] drivers/net: fix eisa_driver probe section mismatch
+Date: Sat, 12 Dec 2015 18:24:38 +0100
+Message-ID: <1449941078-15854-1-git-send-email-fabf@skynet.be>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabian Frederick <fabf@skynet.be>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	Jaroslav Kysela <perex@perex.cz>, linux-parisc@vger.kernel.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 12, 2015 at 8:41 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (12/11/15 15:50), Tom Herbert wrote:
->> layers of encapsulation. For example, suppose send a UDP packet in
->> VXLAN in VXLAN, where packet looks like:
->> IP|UDP|VXLAN|Eth|IP|UDP|VXLAN|Eth|IP|UDP. I believe the kernel can set
->
-> Without detracting from the fact that you have probably found a bug
-> for checksumming here..
->
-> if you have multiple encapsulations above (vxlan over vxlan?)
-> I think lot of other things like pmtu may also be broken?  (Each
-> encaps layer lowers the actual application mtu till the thing starts
-> to get absurd)
->
-PMTU is going to be a headache with any encapsulation, multiple layers
-just makes the headache worse. This is one of the reasons why ILA is
-better for network virtualization-- no PMTU issue since there is no
-encapsulation being done.
+Some eisa_driver structures used __init probe functions which generates
+a warning and could crash if function is called after being deleted.
 
-> --Sowmini
->
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+V2:
+	-Remove scsi occurence for net-next(suggested by David S. Miller)
+	-Fix checkpatch warnings(space prohibited between function name
+	 and parenthesis).
+
+ drivers/net/ethernet/3com/3c509.c      | 2 +-
+ drivers/net/ethernet/3com/3c59x.c      | 2 +-
+ drivers/net/ethernet/dec/tulip/de4x5.c | 2 +-
+ drivers/net/ethernet/hp/hp100.c        | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index 4547a1b..7677c74 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -562,7 +562,7 @@ static void el3_common_remove (struct net_device *dev)
+ }
+ 
+ #ifdef CONFIG_EISA
+-static int __init el3_eisa_probe (struct device *device)
++static int el3_eisa_probe(struct device *device)
+ {
+ 	short i;
+ 	int ioaddr, irq, if_port;
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 2839af0..1c5f3b2 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -907,7 +907,7 @@ static struct eisa_device_id vortex_eisa_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(eisa, vortex_eisa_ids);
+ 
+-static int __init vortex_eisa_probe(struct device *device)
++static int vortex_eisa_probe(struct device *device)
+ {
+ 	void __iomem *ioaddr;
+ 	struct eisa_device *edev;
+diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+index 8966f31..3acde3b 100644
+--- a/drivers/net/ethernet/dec/tulip/de4x5.c
++++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+@@ -1990,7 +1990,7 @@ SetMulticastFilter(struct net_device *dev)
+ 
+ static u_char de4x5_irq[] = EISA_ALLOWED_IRQ_LIST;
+ 
+-static int __init de4x5_eisa_probe (struct device *gendev)
++static int de4x5_eisa_probe(struct device *gendev)
+ {
+ 	struct eisa_device *edev;
+ 	u_long iobase;
+diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
+index ae6e30d..1d5c3e1 100644
+--- a/drivers/net/ethernet/hp/hp100.c
++++ b/drivers/net/ethernet/hp/hp100.c
+@@ -2843,7 +2843,7 @@ static void cleanup_dev(struct net_device *d)
+ }
+ 
+ #ifdef CONFIG_EISA
+-static int __init hp100_eisa_probe (struct device *gendev)
++static int hp100_eisa_probe(struct device *gendev)
+ {
+ 	struct net_device *dev = alloc_etherdev(sizeof(struct hp100_private));
+ 	struct eisa_device *edev = to_eisa_device(gendev);
+-- 
+2.1.4
+
