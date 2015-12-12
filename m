@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/12] ixgbe: Clean stale VLANs when changing port VLAN or resetting
-Date: Sat, 12 Dec 2015 03:14:49 -0800
-Message-ID: <1449918890-145243-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/12] ixgbe: Return error on failure to allocate mac_table
+Date: Sat, 12 Dec 2015 03:14:39 -0800
+Message-ID: <1449918890-145243-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,151 +10,37 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:30916 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752393AbbLLLPE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2015 06:15:04 -0500
+	id S1752280AbbLLLPA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2015 06:15:00 -0500
 In-Reply-To: <1449918890-145243-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-This patch guarantees that the VFs do not have access to VLANs that they
-were not supposed to.  What this patch does is add code so that we delete
-the previous port VLAN after adding a new one, and if we reset the VF we
-clear all of the filters associated with it.
-
-Previously the code was leaving all previous VLANs mapped to the VF and
-they didn't get deleted unless the VF specifically requested it or if the
-PF itself was reset.
+Add a check to make certain mac_table was actually allocated and is not
+NULL.  If it is NULL return -ENOMEM and allow the probe routine to fail
+rather then causing a NULL pointer dereference further down the line.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 77 ++++++++++++++++++++++++--
- 1 file changed, 72 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 03d4e5c..eeff3d0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -455,10 +455,6 @@ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int err;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ebd4522..c539b1c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5381,6 +5381,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	adapter->mac_table = kzalloc(sizeof(struct ixgbe_mac_addr) *
+ 				     hw->mac.num_rar_entries,
+ 				     GFP_ATOMIC);
++	if (!adapter->mac_table)
++		return -ENOMEM;
  
--	/* VLAN 0 is a special case, don't allow it to be removed */
--	if (!vid && !add)
--		return 0;
--
- 	/* If VLAN overlaps with one the PF is currently monitoring make
- 	 * sure that we are able to allocate a VLVF entry.  This may be
- 	 * redundant but it guarantees PF will maintain visibility to
-@@ -589,13 +585,75 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_VMVIR(vf), 0);
- }
-+
-+static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 i;
-+
-+	/* post increment loop, covers VLVF_ENTRIES - 1 to 0 */
-+	for (i = IXGBE_VLVF_ENTRIES; i--;) {
-+		u32 word = IXGBE_VLVFB(i * 2 + vf / 32);
-+		u32 bits[2], vlvfb, vid, vfta, vlvf;
-+		u32 mask = 1 << (vf / 32);
-+
-+		vlvfb = IXGBE_READ_REG(hw, word);
-+
-+		/* if our bit isn't set we can skip it */
-+		if (!(vlvfb & mask))
-+			continue;
-+
-+		/* clear our bit from vlvfb */
-+		vlvfb ^= mask;
-+
-+		/* create 64b mask to chedk to see if we should clear VLVF */
-+		bits[word % 2] = vlvfb;
-+		bits[(word % 2) ^ 1] = IXGBE_READ_REG(hw, word ^ 1);
-+
-+		/* if promisc is enabled, PF will be present, leave VFTA */
-+		if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC) {
-+			bits[VMDQ_P(0) / 32] &= ~(1 << (VMDQ_P(0) % 32));
-+
-+			if (bits[0] || bits[1])
-+				goto update_vlvfb;
-+			goto update_vlvf;
-+		}
-+
-+		/* if other pools are present, just remove ourselves */
-+		if (bits[0] || bits[1])
-+			goto update_vlvfb;
-+
-+		/* if we cannot determine VLAN just remove ourselves */
-+		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
-+		if (!vlvf)
-+			goto update_vlvfb;
-+
-+		vid = vlvf & VLAN_VID_MASK;
-+		mask = 1 << (vid % 32);
-+
-+		/* clear bit from VFTA */
-+		vfta = IXGBE_READ_REG(hw, IXGBE_VFTA(vid / 32));
-+		if (vfta & mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_VFTA(vid / 32), vfta ^ mask);
-+update_vlvf:
-+		/* clear POOL selection enable */
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVF(i), 0);
-+update_vlvfb:
-+		/* clear pool bits */
-+		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), vlvfb);
-+	}
-+}
-+
- static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
- 	u8 num_tcs = netdev_get_num_tc(adapter->netdev);
- 
--	/* add PF assigned VLAN or VLAN 0 */
-+	/* remove VLAN filters beloning to this VF */
-+	ixgbe_clear_vf_vlans(adapter, vf);
-+
-+	/* add back PF assigned VLAN or VLAN 0 */
- 	ixgbe_set_vf_vlan(adapter, true, vfinfo->pf_vlan, vf);
- 
- 	/* reset offloads to defaults */
-@@ -858,6 +916,10 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 		return -1;
- 	}
- 
-+	/* VLAN 0 is a special case, don't allow it to be removed */
-+	if (!vid && !add)
-+		return 0;
-+
- 	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
- 	if (err)
- 		return err;
-@@ -1251,6 +1313,9 @@ static int ixgbe_enable_port_vlan(struct ixgbe_adapter *adapter, int vf,
- 	if (err)
- 		goto out;
- 
-+	/* Revoke tagless access via VLAN 0 */
-+	ixgbe_set_vf_vlan(adapter, false, 0, vf);
-+
- 	ixgbe_set_vmvir(adapter, vlan, qos, vf);
- 	ixgbe_set_vmolr(hw, vf, false);
- 	if (adapter->vfinfo[vf].spoofchk_enabled)
-@@ -1284,6 +1349,8 @@ static int ixgbe_disable_port_vlan(struct ixgbe_adapter *adapter, int vf)
- 
- 	err = ixgbe_set_vf_vlan(adapter, false,
- 				adapter->vfinfo[vf].pf_vlan, vf);
-+	/* Restore tagless access via VLAN 0 */
-+	ixgbe_set_vf_vlan(adapter, true, 0, vf);
- 	ixgbe_clear_vmvir(adapter, vf);
- 	ixgbe_set_vmolr(hw, vf, true);
- 	hw->mac.ops.set_vlan_anti_spoofing(hw, false, vf);
+ 	/* Set MAC specific capability flags and exceptions */
+ 	switch (hw->mac.type) {
 -- 
 2.5.0
