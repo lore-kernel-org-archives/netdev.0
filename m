@@ -1,44 +1,66 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH ]net: sched/cls_flow.c : allow nfct-* keys work on ingress
- interfaces
-Date: Sun, 13 Dec 2015 09:01:42 -0500
-Message-ID: <566D7A46.5090008@mojatatu.com>
-References: <CADo-kffbKruR9zqCQj2qp4Z8CHzJJCo0sm94VCg2tAS=XbSJqQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Igor Gavrilov <i.o.gavrilov@gmail.com>, netdev@vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH v2 net] ravb: Remove clear unhandled interrupt
+Date: Mon, 14 Dec 2015 00:12:23 +0900
+Message-ID: <1450019545-32540-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:35517 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751666AbbLMOBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 09:01:50 -0500
-Received: by mail-ig0-f178.google.com with SMTP id su19so67829497igc.0
-        for <netdev@vger.kernel.org>; Sun, 13 Dec 2015 06:01:50 -0800 (PST)
-In-Reply-To: <CADo-kffbKruR9zqCQj2qp4Z8CHzJJCo0sm94VCg2tAS=XbSJqQ@mail.gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34466 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884AbbLMPOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 10:14:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Igor,
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-On 15-12-11 04:55 AM, Igor Gavrilov wrote:
-> Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
-> able to get unNATed addresses from nf_conntrack.
->
+AVB-DMAC Receive FIFO Warning interrupt is not enabled, so it is not
+necessary to disable the interrupt in ndo_close().
+On the other hand, this patch disables the interrupt in ndo_open() to
+prevent the possibility that the interrupt is issued by the state that
+a boot loader left.
 
-1) Question: Have you tested the patch or you just cutnpasted
-from connmark.c? By inspection the patch looks ok technically
-but if you havent tested, please verify it.
-2)The macros have indentation issues around
-if (ct == NULL) {} else { }
-just use the proper indent rules.
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+---
 
-3) Please use proper formatting on submitting patches (such as putting
-the From at the top etc). Look at:
-Maybe you should use git facilities?
+This patch is based on the master branch of David Miller's networking
+tree.
 
-If you meet all the above requirements, please resubmit and
-add my Acked-by
+v2 [Yoshihiro Kaneko]
+* compile tested only
+* As suggested by Sergei Shtylyov
+  - clear RIC1 in ndo_open() to disable the interrupt regardless of
+    a left state from a bootloader.
 
-cheers,
-jamal
+
+ drivers/net/ethernet/renesas/ravb_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index b69e0c2..5e34a88 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1228,6 +1228,9 @@ static int ravb_open(struct net_device *ndev)
+ 		goto out_free_irq2;
+ 	ravb_emac_init(ndev);
+ 
++	/* Disable unhandled interrupt */
++	ravb_write(ndev, 0, RIC1);
++
+ 	/* Initialise PTP Clock driver */
+ 	ravb_ptp_init(ndev, priv->pdev);
+ 
+@@ -1471,7 +1474,6 @@ static int ravb_close(struct net_device *ndev)
+ 
+ 	/* Disable interrupts by clearing the interrupt masks. */
+ 	ravb_write(ndev, 0, RIC0);
+-	ravb_write(ndev, 0, RIC1);
+ 	ravb_write(ndev, 0, RIC2);
+ 	ravb_write(ndev, 0, TIC);
+ 
+-- 
+1.9.1
