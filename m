@@ -1,158 +1,115 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/17] igb: don't unmap NULL hw_addr
-Date: Sun, 13 Dec 2015 00:31:17 -0800
-Message-ID: <1449995490-17020-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/17][pull request] 1GbE Intel Wired LAN Driver Updates 2015-12-12
+Date: Sun, 13 Dec 2015 00:31:13 -0800
+Message-ID: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:41148 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:34868 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751048AbbLMIk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751269AbbLMIk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 13 Dec 2015 03:40:59 -0500
-In-Reply-To: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
+This series contains updates to e1000, e1000e and igb.
 
-I've got a startech thunderbolt dock someone loaned me, which among other
-things, has the following device in it:
+Joern Engel fixes up the e1000 driver to reduce scheduler latencies by
+making the eeprom read/write functions scheduler friendly by using a mutex
+lock instead of a spin lock.
 
-08:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+Todd adds code for igb to initialize the 88E1543 PHY properly.  Then fixed
+igb to use the correct i210 register for EEMNGCTL, since the i210 has two
+EEPROM access registers (EEARBC and EEMNGCTL).
 
-This hotplugs just fine (kernel 4.2.0 plus a patch or two here):
+Dmitry Vyukov provides a fix for e1000 to resolve a data race found with
+KernelThreadSanitizer (KTSAN), where no memory barriers were being used
+when buffers get recycled, so the recycled buffers can be corrupted.  So
+use smp_store_release() to update tx_ring->next_to_clean and
+smp_load_acquire() to read tx_ring->next_to_clean to properly hand off
+buffers from e1000_clean_tx_irq() to e1000_xmit_frame().
 
-[  863.020315] igb: Intel(R) Gigabit Ethernet Network Driver - version 5.2.18-k
-[  863.020316] igb: Copyright (c) 2007-2014 Intel Corporation.
-[  863.028657] igb 0000:08:00.0: enabling device (0000 -> 0002)
-[  863.062089] igb 0000:08:00.0: added PHC on eth0
-[  863.062090] igb 0000:08:00.0: Intel(R) Gigabit Ethernet Network Connection
-[  863.062091] igb 0000:08:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a
-[  863.062194] igb 0000:08:00.0: eth0: PBA No: 000200-000
-[  863.062196] igb 0000:08:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
-[  863.064889] igb 0000:08:00.0 enp8s0: renamed from eth0
+Jarod Wilson fixes igb so that we do not try to unmap a NULL hw_addr.  Then
+cleaned up array_rd32() so that it uses igb_rd32() the same as rd32() and
+use io_addr() in more places so that we do not have to call E1000_REMOVED().
 
-But disconnecting it is another story:
+Janusz Wolak cleans up the e1000 driver by correcting warnings produced
+by checkpatch.pl for the driver.
 
-[ 1002.807932] igb 0000:08:00.0: removed PHC on enp8s0
-[ 1002.807944] igb 0000:08:00.0 enp8s0: PCIe link lost, device now detached
-[ 1003.341141] ------------[ cut here ]------------
-[ 1003.341148] WARNING: CPU: 0 PID: 199 at lib/iomap.c:43 bad_io_access+0x38/0x40()
-[ 1003.341149] Bad IO access at port 0x0 ()
-[ 1003.342767] Modules linked in: snd_usb_audio snd_usbmidi_lib snd_rawmidi igb dca firewire_ohci firewire_core crc_itu_t rfcomm ctr ccm arc4 iwlmvm mac80211 fuse xt_CHECKSUM ipt_MASQUERADE
-nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 ipt_REJECT nf_reject_ipv4 xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat
-nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
-nf_conntrack iptable_mangle iptable_security iptable_raw iptable_filter bnep dm_mirror dm_region_hash dm_log dm_mod coretemp x86_pkg_temp_thermal intel_powerclamp kvm_intel snd_hda_codec_hdmi kvm
-crct10dif_pclmul crc32_pclmul ghash_clmulni_intel drbg
-[ 1003.342793]  ansi_cprng aesni_intel hp_wmi aes_x86_64 iTCO_wdt lrw iTCO_vendor_support ppdev gf128mul sparse_keymap glue_helper ablk_helper cryptd snd_hda_codec_realtek snd_hda_codec_generic
-microcode snd_hda_intel uvcvideo iwlwifi snd_hda_codec videobuf2_vmalloc videobuf2_memops snd_hda_core videobuf2_core snd_hwdep btusb v4l2_common btrtl snd_seq btbcm btintel videodev cfg80211
-snd_seq_device rtsx_pci_ms bluetooth pcspkr input_leds i2c_i801 media parport_pc memstick rfkill sg lpc_ich snd_pcm 8250_fintek parport joydev snd_timer snd soundcore hp_accel ie31200_edac
-mei_me lis3lv02d edac_core input_polldev mei hp_wireless shpchp tpm_infineon sch_fq_codel nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables autofs4 xfs libcrc32c sd_mod sr_mod cdrom
-rtsx_pci_sdmmc mmc_core crc32c_intel serio_raw rtsx_pci
-[ 1003.342822]  nouveau ahci libahci mxm_wmi e1000e xhci_pci hwmon ptp drm_kms_helper pps_core xhci_hcd ttm wmi video ipv6
-[ 1003.342839] CPU: 0 PID: 199 Comm: kworker/0:2 Not tainted 4.2.0-2.el7_UNSUPPORTED.x86_64 #1
-[ 1003.342840] Hardware name: Hewlett-Packard HP ZBook 15 G2/2253, BIOS M70 Ver. 01.07 02/26/2015
-[ 1003.342843] Workqueue: pciehp-3 pciehp_power_thread
-[ 1003.342844]  ffffffff81a90655 ffff8804866d3b48 ffffffff8164763a 0000000000000000
-[ 1003.342846]  ffff8804866d3b98 ffff8804866d3b88 ffffffff8107134a ffff8804866d3b88
-[ 1003.342847]  ffff880486f46000 ffff88046c8a8000 ffff880486f46840 ffff88046c8a8098
-[ 1003.342848] Call Trace:
-[ 1003.342852]  [<ffffffff8164763a>] dump_stack+0x45/0x57
-[ 1003.342855]  [<ffffffff8107134a>] warn_slowpath_common+0x8a/0xc0
-[ 1003.342857]  [<ffffffff810713c6>] warn_slowpath_fmt+0x46/0x50
-[ 1003.342859]  [<ffffffff8133719e>] ? pci_disable_msix+0x3e/0x50
-[ 1003.342860]  [<ffffffff812f6328>] bad_io_access+0x38/0x40
-[ 1003.342861]  [<ffffffff812f6567>] pci_iounmap+0x27/0x40
-[ 1003.342865]  [<ffffffffa0b728d7>] igb_remove+0xc7/0x160 [igb]
-[ 1003.342867]  [<ffffffff8132189f>] pci_device_remove+0x3f/0xc0
-[ 1003.342869]  [<ffffffff81433426>] __device_release_driver+0x96/0x130
-[ 1003.342870]  [<ffffffff814334e3>] device_release_driver+0x23/0x30
-[ 1003.342871]  [<ffffffff8131b404>] pci_stop_bus_device+0x94/0xa0
-[ 1003.342872]  [<ffffffff8131b3ad>] pci_stop_bus_device+0x3d/0xa0
-[ 1003.342873]  [<ffffffff8131b3ad>] pci_stop_bus_device+0x3d/0xa0
-[ 1003.342874]  [<ffffffff8131b516>] pci_stop_and_remove_bus_device+0x16/0x30
-[ 1003.342876]  [<ffffffff81333f5b>] pciehp_unconfigure_device+0x9b/0x180
-[ 1003.342877]  [<ffffffff81333a73>] pciehp_disable_slot+0x43/0xb0
-[ 1003.342878]  [<ffffffff81333b6d>] pciehp_power_thread+0x8d/0xb0
-[ 1003.342885]  [<ffffffff810881b2>] process_one_work+0x152/0x3d0
-[ 1003.342886]  [<ffffffff8108854a>] worker_thread+0x11a/0x460
-[ 1003.342887]  [<ffffffff81088430>] ? process_one_work+0x3d0/0x3d0
-[ 1003.342890]  [<ffffffff8108ddd9>] kthread+0xc9/0xe0
-[ 1003.342891]  [<ffffffff8108dd10>] ? kthread_create_on_node+0x180/0x180
-[ 1003.342893]  [<ffffffff8164e29f>] ret_from_fork+0x3f/0x70
-[ 1003.342894]  [<ffffffff8108dd10>] ? kthread_create_on_node+0x180/0x180
-[ 1003.342895] ---[ end trace 65a77e06d5aa9358 ]---
+Jean Sacren provides several patches with general cleanups for e1000 and
+e1000e, which include code comment fix-ups and cleanup of local variables
+not needed.
 
-Upon looking at the igb driver, I see that igb_rd32() attempted to read from
-hw_addr and failed, so it set hw->hw_addr to NULL and spit out the message
-in the log output above, "PCIe link lost, device now detached".
+Dmitry Fleytman fixes a possible division by zero in the receive interrupt
+handler for e1000e when working without adaptive interrupt moderation,
+which is typically disabled on jumbo MTUs.
 
-Well, now that hw_addr is NULL, the attempt to call pci_iounmap is obviously
-not going to go well. As suggested by Mark Rustad, do something similar to
-what ixgbe does, and save a copy of hw_addr as adapter->io_addr, so we can
-still call pci_iounmap on it on teardown. Additionally, for consistency,
-make the pci_iomap call assignment directly to io_addr, so map and unmap
-match.
+Raanan increases the timeout of the polling bit due to timing changes to
+the ME firmware on a platform, so increase the timeout to 300ms.  Added
+initial support for i219-LM, which is a LOM that will be available on
+systems with the Lewisburg Platform Controller HUB (PCH) chipset.
 
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb.h      |  2 ++
- drivers/net/ethernet/intel/igb/igb_main.c | 10 ++++++----
- 2 files changed, 8 insertions(+), 4 deletions(-)
+Jan Beulich fixes a NULL dereference in igb, due to the adapter->vf _data
+being NULL while adapter->vfs_allocated_count is non-zero.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 1a2f1cc..e3cb93b 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -389,6 +389,8 @@ struct igb_adapter {
- 	u16 link_speed;
- 	u16 link_duplex;
- 
-+	u8 __iomem *io_addr; /* Mainly for iounmap use */
-+
- 	struct work_struct reset_task;
- 	struct work_struct watchdog_task;
- 	bool fc_autoneg;
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index ea7b098..061e102 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2294,9 +2294,11 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->msg_enable = netif_msg_init(debug, DEFAULT_MSG_ENABLE);
- 
- 	err = -EIO;
--	hw->hw_addr = pci_iomap(pdev, 0, 0);
--	if (!hw->hw_addr)
-+	adapter->io_addr = pci_iomap(pdev, 0, 0);
-+	if (!adapter->io_addr)
- 		goto err_ioremap;
-+	/* hw->hw_addr can be altered, we'll use adapter->io_addr for unmap */
-+	hw->hw_addr = adapter->io_addr;
- 
- 	netdev->netdev_ops = &igb_netdev_ops;
- 	igb_set_ethtool_ops(netdev);
-@@ -2656,7 +2658,7 @@ err_sw_init:
- #ifdef CONFIG_PCI_IOV
- 	igb_disable_sriov(pdev);
- #endif
--	pci_iounmap(pdev, hw->hw_addr);
-+	pci_iounmap(pdev, adapter->io_addr);
- err_ioremap:
- 	free_netdev(netdev);
- err_alloc_etherdev:
-@@ -2823,7 +2825,7 @@ static void igb_remove(struct pci_dev *pdev)
- 
- 	igb_clear_interrupt_scheme(adapter);
- 
--	pci_iounmap(pdev, hw->hw_addr);
-+	pci_iounmap(pdev, adapter->io_addr);
- 	if (hw->flash_address)
- 		iounmap(hw->flash_address);
- 	pci_release_selected_regions(pdev,
+The following are changes since commit 1d72135dd6be396bf724cd962555758c0277db93:
+  Merge branch '10GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Dmitriy Vyukov (1):
+  e1000: fix data race between tx_ring->next_to_clean
+
+Dmitry Fleytman (1):
+  e1000e: fix division by zero on jumbo MTUs
+
+Jan Beulich (1):
+  igb: fix NULL derefs due to skipped SR-IOV enabling
+
+Janusz Wolak (2):
+  e1000: Remove checkpatch coding style errors
+  e1000: Elementary checkpatch warnings and checks removed
+
+Jarod Wilson (2):
+  igb: don't unmap NULL hw_addr
+  igb: improve handling of disconnected adapters
+
+Jean Sacren (5):
+  e1000: clean up the checking logic
+  e1000: fix a typo in the comment
+  e1000e: clean up the local variable
+  e1000: fix kernel-doc argument being missing
+  e1000: get rid of duplicate exit path
+
+Joern Engel (1):
+  e1000: make eeprom read/write scheduler friendly
+
+Raanan Avargil (2):
+  e1000e: Increase timeout of polling bit RSPCIPHY
+  e1000e: initial support for i219-LM (3)
+
+Todd Fujinaka (2):
+  igb: add 88E1543 initialization code
+  igb: use the correct i210 register for EEMNGCTL
+
+ drivers/net/ethernet/intel/e1000/e1000.h       |   7 +-
+ drivers/net/ethernet/intel/e1000/e1000_hw.c    | 216 ++++++++++++-------------
+ drivers/net/ethernet/intel/e1000/e1000_main.c  | 133 ++++++++-------
+ drivers/net/ethernet/intel/e1000e/hw.h         |   1 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c    |  45 ++++--
+ drivers/net/ethernet/intel/e1000e/netdev.c     |  12 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |   8 +
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   1 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c    |  27 ++++
+ drivers/net/ethernet/intel/igb/e1000_i210.h    |   1 +
+ drivers/net/ethernet/intel/igb/e1000_phy.c     |  94 +++++++++++
+ drivers/net/ethernet/intel/igb/e1000_phy.h     |   1 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   4 +-
+ drivers/net/ethernet/intel/igb/igb.h           |   2 +
+ drivers/net/ethernet/intel/igb/igb_main.c      |  22 ++-
+ 15 files changed, 379 insertions(+), 195 deletions(-)
+
 -- 
 2.5.0
