@@ -1,56 +1,43 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] ravb: Add disable 10base
-Date: Sun, 13 Dec 2015 20:17:48 +0300
-Message-ID: <566DA83C.9080801@cogentembedded.com>
-References: <1450019758-32710-1-git-send-email-ykaneko0929@gmail.com>
+Subject: [PATCH] sh_eth: fix TX buffer byte-swapping
+Date: Sun, 13 Dec 2015 21:27:04 +0300
+Message-ID: <4052048.4A561jYI0l@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:33310 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752080AbbLMRRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 12:17:52 -0500
-Received: by lbbkw15 with SMTP id kw15so94303851lbb.0
-        for <netdev@vger.kernel.org>; Sun, 13 Dec 2015 09:17:51 -0800 (PST)
-In-Reply-To: <1450019758-32710-1-git-send-email-ykaneko0929@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+For the little-endian SH771x kernels the driver has to byte-swap the RX/TX
+buffers,  however yet unset physcial address from the TX descriptor is used
+to call sh_eth_soft_swap(). Use 'skb->data' instead...
 
-On 12/13/2015 06:15 PM, Yoshihiro Kaneko wrote:
+Fixes: 31fcb99d9958 ("net: sh_eth: remove __flush_purge_region")
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> Ethernet AVB does not support 10 Mbps transfer speed.
->
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-> ---
->
-> This patch is based on the master branch of David Miller's networking
-> tree.
->
->   drivers/net/ethernet/renesas/ravb_main.c | 3 +++
->   1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index b69e0c2..467d416 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -905,6 +905,9 @@ static int ravb_phy_init(struct net_device *ndev)
->   		netdev_info(ndev, "limited PHY to 100Mbit/s\n");
->   	}
->
-> +	/* 10BASE is not supported */
-> +	phydev->supported &= ~PHY_10BT_FEATURES;
-> +
+---
+The patch is against Dave Miller's 'net.git' repo.
+Although there have been no complaints during 4+ years of this being broken,
+I  think it's  probably  worth queuing the patch for  the stable trees...
 
-    Perhaps we need phy_set_min_speed() in addition to phy_set_max_speed()?
+ drivers/net/ethernet/renesas/sh_eth.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-MBR, Sergei
+Index: net/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2372,8 +2372,7 @@ static int sh_eth_start_xmit(struct sk_b
+ 	txdesc = &mdp->tx_ring[entry];
+ 	/* soft swap. */
+ 	if (!mdp->cd->hw_swap)
+-		sh_eth_soft_swap(phys_to_virt(ALIGN(txdesc->addr, 4)),
+-				 skb->len + 2);
++		sh_eth_soft_swap(PTR_ALIGN(skb->data, 4), skb->len + 2);
+ 	txdesc->addr = dma_map_single(&ndev->dev, skb->data, skb->len,
+ 				      DMA_TO_DEVICE);
+ 	if (dma_mapping_error(&ndev->dev, txdesc->addr)) {
+
