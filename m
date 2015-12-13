@@ -1,128 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/11] i40e: Opcode and structures required by OEM Post Update AQ command and add new NVM arq message
-Date: Sat, 12 Dec 2015 21:17:32 -0800
-Message-ID: <1449983857-74434-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/11] i40evf: check rings before freeing resources
+Date: Sat, 12 Dec 2015 21:17:30 -0800
+Message-ID: <1449983857-74434-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Michal Kosiarz <michal.kosiarz@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:22967 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750914AbbLMFRl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 00:17:41 -0500
+	id S1750903AbbLMFRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 00:17:40 -0500
 In-Reply-To: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kosiarz <michal.kosiarz@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This is a part of implementation which contains data structures and
-opcode for new AQ command. There's a new ARQ message that gets sent
-near the end of the NVM update process that the driver should recognize
-and ignore, rather than printing an Unknown Event error.
+If the driver gets unloaded during reset recovery, it's possible
+that it will attempt to free resources when they're already free.
 
-Change-ID: I04830a5bcae14823e16b9424cc4165e169336c1f
-Signed-off-by: Michal Kosiarz <michal.kosiarz@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Add a check to make sure that the Tx and Rx rings actually exist
+before dereferencing them to free resources.
+
+Change-ID: I4d2b7e9ede49f634d421a4c5deaa5446bc755eee
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 21 +++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c         |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 21 +++++++++++++++++++++
- 3 files changed, 43 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 61a4979..b22012a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -227,6 +227,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_nvm_update			= 0x0703,
- 	i40e_aqc_opc_nvm_config_read		= 0x0704,
- 	i40e_aqc_opc_nvm_config_write		= 0x0705,
-+	i40e_aqc_opc_oem_post_update		= 0x0720,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index b4c632f..98091b4 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2034,6 +2034,9 @@ void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
+ {
+ 	int i;
  
- 	/* virtualization commands */
- 	i40e_aqc_opc_send_msg_to_pf		= 0x0801,
-@@ -1891,6 +1892,26 @@ struct i40e_aqc_nvm_config_data_immediate_field {
++	if (!adapter->tx_rings)
++		return;
++
+ 	for (i = 0; i < adapter->num_active_queues; i++)
+ 		if (adapter->tx_rings[i].desc)
+ 			i40evf_free_tx_resources(&adapter->tx_rings[i]);
+@@ -2102,6 +2105,9 @@ void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter)
+ {
+ 	int i;
  
- I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
- 
-+/* OEM Post Update (indirect 0x0720)
-+ * no command data struct used
-+ */
-+struct i40e_aqc_nvm_oem_post_update {
-+#define I40E_AQ_NVM_OEM_POST_UPDATE_EXTERNAL_DATA	0x01
-+	u8 sel_data;
-+	u8 reserved[7];
-+};
++	if (!adapter->rx_rings)
++		return;
 +
-+I40E_CHECK_STRUCT_LEN(0x8, i40e_aqc_nvm_oem_post_update);
-+
-+struct i40e_aqc_nvm_oem_post_update_buffer {
-+	u8 str_len;
-+	u8 dev_addr;
-+	__le16 eeprom_addr;
-+	u8 data[36];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x28, i40e_aqc_nvm_oem_post_update_buffer);
-+
- /* Send to PF command (indirect 0x0801) id is only used by PF
-  * Send to VF command (indirect 0x0802) id is only used by PF
-  * Send to Peer PF command (indirect 0x0803)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 36d1c2b..aff401f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6295,6 +6295,7 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- 			break;
- 		case i40e_aqc_opc_nvm_erase:
- 		case i40e_aqc_opc_nvm_update:
-+		case i40e_aqc_opc_oem_post_update:
- 			i40e_debug(&pf->hw, I40E_DEBUG_NVM, "ARQ NVM operation completed\n");
- 			break;
- 		default:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 1c76389..f5b2b36 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -227,6 +227,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_nvm_update			= 0x0703,
- 	i40e_aqc_opc_nvm_config_read		= 0x0704,
- 	i40e_aqc_opc_nvm_config_write		= 0x0705,
-+	i40e_aqc_opc_oem_post_update		= 0x0720,
- 
- 	/* virtualization commands */
- 	i40e_aqc_opc_send_msg_to_pf		= 0x0801,
-@@ -1888,6 +1889,26 @@ struct i40e_aqc_nvm_config_data_immediate_field {
- 
- I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
- 
-+/* OEM Post Update (indirect 0x0720)
-+ * no command data struct used
-+ */
-+ struct i40e_aqc_nvm_oem_post_update {
-+#define I40E_AQ_NVM_OEM_POST_UPDATE_EXTERNAL_DATA	0x01
-+	u8 sel_data;
-+	u8 reserved[7];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x8, i40e_aqc_nvm_oem_post_update);
-+
-+struct i40e_aqc_nvm_oem_post_update_buffer {
-+	u8 str_len;
-+	u8 dev_addr;
-+	__le16 eeprom_addr;
-+	u8 data[36];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x28, i40e_aqc_nvm_oem_post_update_buffer);
-+
- /* Send to PF command (indirect 0x0801) id is only used by PF
-  * Send to VF command (indirect 0x0802) id is only used by PF
-  * Send to Peer PF command (indirect 0x0803)
+ 	for (i = 0; i < adapter->num_active_queues; i++)
+ 		if (adapter->rx_rings[i].desc)
+ 			i40evf_free_rx_resources(&adapter->rx_rings[i]);
 -- 
 2.5.0
