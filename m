@@ -1,44 +1,75 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/17] e1000: fix kernel-doc argument being missing
-Date: Sun, 13 Dec 2015 00:31:23 -0800
-Message-ID: <1449995490-17020-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/17] e1000: fix data race between tx_ring->next_to_clean
+Date: Sun, 13 Dec 2015 00:31:16 -0800
+Message-ID: <1449995490-17020-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jean Sacren <sakiwit@gmail.com>, netdev@vger.kernel.org,
+Cc: Dmitriy Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:34868 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751435AbbLMIlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 03:41:01 -0500
+	id S1751210AbbLMIlA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 03:41:00 -0500
 In-Reply-To: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Sacren <sakiwit@gmail.com>
+From: Dmitriy Vyukov <dvyukov@google.com>
 
-Due to historical reason, 'phy_data' has never been included in the
-kernel doc. Fix it so that the requirement could be fulfilled.
+e1000_clean_tx_irq cleans buffers and sets tx_ring->next_to_clean,
+then e1000_xmit_frame reuses the cleaned buffers. But there are no
+memory barriers when buffers gets recycled, so the recycled buffers
+can be corrupted.
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+Use smp_store_release to update tx_ring->next_to_clean and
+smp_load_acquire to read tx_ring->next_to_clean to properly
+hand off buffers from e1000_clean_tx_irq to e1000_xmit_frame.
+
+The data race was found with KernelThreadSanitizer (KTSAN).
+
+Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_hw.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/e1000/e1000.h      | 7 +++++--
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 5 ++++-
+ 2 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 59d1769..dbae55e 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -2806,6 +2806,7 @@ static u16 e1000_shift_in_mdi_bits(struct e1000_hw *hw)
-  * e1000_read_phy_reg - read a phy register
-  * @hw: Struct containing variables accessed by shared code
-  * @reg_addr: address of the PHY register to read
-+ * @phy_data: pointer to the value on the PHY register
-  *
-  * Reads the value from a PHY register, if the value is on a specific non zero
-  * page, sets the page first.
+diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
+index 6970710..98fe5a2 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000.h
++++ b/drivers/net/ethernet/intel/e1000/e1000.h
+@@ -213,8 +213,11 @@ struct e1000_rx_ring {
+ };
+ 
+ #define E1000_DESC_UNUSED(R)						\
+-	((((R)->next_to_clean > (R)->next_to_use)			\
+-	  ? 0 : (R)->count) + (R)->next_to_clean - (R)->next_to_use - 1)
++({									\
++	unsigned int clean = smp_load_acquire(&(R)->next_to_clean);	\
++	unsigned int use = READ_ONCE((R)->next_to_use);			\
++	(clean > use ? 0 : (R)->count) + clean - use - 1;		\
++})
+ 
+ #define E1000_RX_DESC_EXT(R, i)						\
+ 	(&(((union e1000_rx_desc_extended *)((R).desc))[i]))
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index fd7be86..0680235 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3876,7 +3876,10 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
+ 		eop_desc = E1000_TX_DESC(*tx_ring, eop);
+ 	}
+ 
+-	tx_ring->next_to_clean = i;
++	/* Synchronize with E1000_DESC_UNUSED called from e1000_xmit_frame,
++	 * which will reuse the cleaned buffers.
++	 */
++	smp_store_release(&tx_ring->next_to_clean, i);
+ 
+ 	netdev_completed_queue(netdev, pkts_compl, bytes_compl);
+ 
 -- 
 2.5.0
