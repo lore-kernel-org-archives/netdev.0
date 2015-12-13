@@ -1,87 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/11][pull request] 40GbE Intel Wired LAN Driver Updates 2015-12-12
-Date: Sat, 12 Dec 2015 21:17:26 -0800
-Message-ID: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next v2 06/11] i40e: Opcode and structures required by OEM Post Update AQ command and add new NVM arq message
+Date: Sat, 12 Dec 2015 21:17:32 -0800
+Message-ID: <1449983857-74434-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Michal Kosiarz <michal.kosiarz@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56992 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:22967 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750720AbbLMFRj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 00:17:39 -0500
+	id S1750914AbbLMFRl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 00:17:41 -0500
+In-Reply-To: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Michal Kosiarz <michal.kosiarz@intel.com>
 
-Jesse fixes some trivial static analyzer warnings where BIT() can be used
-instead of BIT_ULL().
+This is a part of implementation which contains data structures and
+opcode for new AQ command. There's a new ARQ message that gets sent
+near the end of the NVM update process that the driver should recognize
+and ignore, rather than printing an Unknown Event error.
 
-Mitch fixes the virtual channel interface which was using incorrect semantics
-to remove MAC addresses and would leave incorrect filters active when using
-VLANs.  Also fixes an issue that when VF's are created, the MAC address
-defaults to all zeros, indicating to the VF driver that it should use a
-random MAC address.  However, the PF driver was incorrectly adding this
-zero MAC to the filter table, so check for a good address before adding
-the default filter.  Adds a check to make sure that the Tx and Rx rings
-actually exist before dereferencing them to free resources.  Re-classifies
-several messages which are really for debugging purposes, especially since
-the driver can fully recover from any of these.  Fixed up the VF version
-strings to match the PF driver.
+Change-ID: I04830a5bcae14823e16b9424cc4165e169336c1f
+Signed-off-by: Michal Kosiarz <michal.kosiarz@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 21 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c         |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 21 +++++++++++++++++++++
+ 3 files changed, 43 insertions(+)
 
-Anjali adds a virtchnl offload to support the expanded version of TCP/UDP
-PCTYPES for RSS.
-
-Shannon fixes i40e to clean the whole MAC filter list when resetting after
-an intermediate add or delete push to the firmware.
-
-v2: added blank line after variable declaration in patch 9 based on
-    feedback from Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-The following are changes since commit 1d72135dd6be396bf724cd962555758c0277db93:
-  Merge branch '10GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Anjali Singhai Jain (1):
-  i40e/i40evf: Add a new offload for RSS PCTYPE V2 for X722
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump i40e to 1.4.8 and i40evf to 1.4.4
-
-Jesse Brandeburg (1):
-  i40e: chomp the BIT(_ULL)
-
-Kamil Krawczyk (1):
-  i40e: use explicit cast from u16 to u8
-
-Michal Kosiarz (1):
-  i40e: Opcode and structures required by OEM Post Update AQ command and
-    add new NVM arq message
-
-Mitch Williams (5):
-  i40e: properly delete VF MAC filters
-  i40e: don't add zero MAC filter
-  i40evf: check rings before freeing resources
-  i40e: hush little warnings
-  i40evf: change version string generation
-
-Shannon Nelson (1):
-  i40e: clean whole mac filter list
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   2 +
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  21 ++++
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 106 +++++++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |   1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  23 +++--
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  21 ++++
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  16 +++-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   4 +-
- 10 files changed, 156 insertions(+), 41 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 61a4979..b22012a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -227,6 +227,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_nvm_update			= 0x0703,
+ 	i40e_aqc_opc_nvm_config_read		= 0x0704,
+ 	i40e_aqc_opc_nvm_config_write		= 0x0705,
++	i40e_aqc_opc_oem_post_update		= 0x0720,
+ 
+ 	/* virtualization commands */
+ 	i40e_aqc_opc_send_msg_to_pf		= 0x0801,
+@@ -1891,6 +1892,26 @@ struct i40e_aqc_nvm_config_data_immediate_field {
+ 
+ I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
+ 
++/* OEM Post Update (indirect 0x0720)
++ * no command data struct used
++ */
++struct i40e_aqc_nvm_oem_post_update {
++#define I40E_AQ_NVM_OEM_POST_UPDATE_EXTERNAL_DATA	0x01
++	u8 sel_data;
++	u8 reserved[7];
++};
++
++I40E_CHECK_STRUCT_LEN(0x8, i40e_aqc_nvm_oem_post_update);
++
++struct i40e_aqc_nvm_oem_post_update_buffer {
++	u8 str_len;
++	u8 dev_addr;
++	__le16 eeprom_addr;
++	u8 data[36];
++};
++
++I40E_CHECK_STRUCT_LEN(0x28, i40e_aqc_nvm_oem_post_update_buffer);
++
+ /* Send to PF command (indirect 0x0801) id is only used by PF
+  * Send to VF command (indirect 0x0802) id is only used by PF
+  * Send to Peer PF command (indirect 0x0803)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 36d1c2b..aff401f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6295,6 +6295,7 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+ 			break;
+ 		case i40e_aqc_opc_nvm_erase:
+ 		case i40e_aqc_opc_nvm_update:
++		case i40e_aqc_opc_oem_post_update:
+ 			i40e_debug(&pf->hw, I40E_DEBUG_NVM, "ARQ NVM operation completed\n");
+ 			break;
+ 		default:
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 1c76389..f5b2b36 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -227,6 +227,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_nvm_update			= 0x0703,
+ 	i40e_aqc_opc_nvm_config_read		= 0x0704,
+ 	i40e_aqc_opc_nvm_config_write		= 0x0705,
++	i40e_aqc_opc_oem_post_update		= 0x0720,
+ 
+ 	/* virtualization commands */
+ 	i40e_aqc_opc_send_msg_to_pf		= 0x0801,
+@@ -1888,6 +1889,26 @@ struct i40e_aqc_nvm_config_data_immediate_field {
+ 
+ I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
+ 
++/* OEM Post Update (indirect 0x0720)
++ * no command data struct used
++ */
++ struct i40e_aqc_nvm_oem_post_update {
++#define I40E_AQ_NVM_OEM_POST_UPDATE_EXTERNAL_DATA	0x01
++	u8 sel_data;
++	u8 reserved[7];
++};
++
++I40E_CHECK_STRUCT_LEN(0x8, i40e_aqc_nvm_oem_post_update);
++
++struct i40e_aqc_nvm_oem_post_update_buffer {
++	u8 str_len;
++	u8 dev_addr;
++	__le16 eeprom_addr;
++	u8 data[36];
++};
++
++I40E_CHECK_STRUCT_LEN(0x28, i40e_aqc_nvm_oem_post_update_buffer);
++
+ /* Send to PF command (indirect 0x0801) id is only used by PF
+  * Send to VF command (indirect 0x0802) id is only used by PF
+  * Send to Peer PF command (indirect 0x0803)
 -- 
 2.5.0
