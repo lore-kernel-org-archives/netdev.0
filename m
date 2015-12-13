@@ -1,158 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/11] i40e: chomp the BIT(_ULL)
-Date: Sat, 12 Dec 2015 21:17:27 -0800
-Message-ID: <1449983857-74434-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/11] i40e: clean whole mac filter list
+Date: Sat, 12 Dec 2015 21:17:35 -0800
+Message-ID: <1449983857-74434-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56992 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:22967 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750726AbbLMFRj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 00:17:39 -0500
+	id S1751003AbbLMFRl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 00:17:41 -0500
 In-Reply-To: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-BIT_ULL was used on a u32 or less where it can simply be BIT. This
-fixes some trivial static analyzer warnings. Chomp, chomp.
+Clean the whole mac filter list when resetting after an intermediate
+add or delete push to the firmware.  The code had evolved from using
+a list from the stack to a heap allocation, but the memset() didn't
+follow the change correctly.  This now cleans the whole list rather
+that just part of the first element.
 
-Tested with objdump of binary before and after, no changes to code.
-
-Change-ID: I6245e9abd447192dbde1669c747aeb2878126c7d
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I4cd03d5a103b7407dd8556a3a231e800f2d6f2d5
+Reported-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 30 ++++++++++++++---------------
- 1 file changed, 15 insertions(+), 15 deletions(-)
+
+v2: Added blank line after variable declaration
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2b1b655..3373b75 100644
+index 35d787e..7049342 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1531,7 +1531,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
- 	if (enabled_tc && (vsi->back->flags & I40E_FLAG_DCB_ENABLED)) {
- 		/* Find numtc from enabled TC bitmap */
- 		for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
--			if (enabled_tc & BIT_ULL(i)) /* TC is enabled */
-+			if (enabled_tc & BIT(i)) /* TC is enabled */
- 				numtc++;
- 		}
- 		if (!numtc) {
-@@ -1560,7 +1560,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
- 	/* Setup queue offset/count for all TCs for given VSI */
- 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
- 		/* See if the given TC is enabled for the given VSI */
--		if (vsi->tc_config.enabled_tc & BIT_ULL(i)) {
-+		if (vsi->tc_config.enabled_tc & BIT(i)) {
- 			/* TC is enabled */
- 			int pow, num_qps;
+@@ -1916,11 +1916,13 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  
-@@ -4433,7 +4433,7 @@ static u8 i40e_get_iscsi_tc_map(struct i40e_pf *pf)
- 		if (app.selector == I40E_APP_SEL_TCPIP &&
- 		    app.protocolid == I40E_APP_PROTOID_ISCSI) {
- 			tc = dcbcfg->etscfg.prioritytable[app.priority];
--			enabled_tc |= BIT_ULL(tc);
-+			enabled_tc |= BIT(tc);
- 			break;
- 		}
- 	}
-@@ -4517,7 +4517,7 @@ static u8 i40e_pf_get_num_tc(struct i40e_pf *pf)
- 	/* At least have TC0 */
- 	enabled_tc = (enabled_tc ? enabled_tc : 0x1);
- 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
--		if (enabled_tc & BIT_ULL(i))
-+		if (enabled_tc & BIT(i))
- 			num_tc++;
- 	}
- 	return num_tc;
-@@ -4539,7 +4539,7 @@ static u8 i40e_pf_get_default_tc(struct i40e_pf *pf)
+ 	/* Now process 'del_list' outside the lock */
+ 	if (!list_empty(&tmp_del_list)) {
++		int del_list_size;
++
+ 		filter_list_len = pf->hw.aq.asq_buf_size /
+ 			    sizeof(struct i40e_aqc_remove_macvlan_element_data);
+-		del_list = kcalloc(filter_list_len,
+-			    sizeof(struct i40e_aqc_remove_macvlan_element_data),
+-			    GFP_KERNEL);
++		del_list_size = filter_list_len *
++			    sizeof(struct i40e_aqc_remove_macvlan_element_data);
++		del_list = kzalloc(del_list_size, GFP_KERNEL);
+ 		if (!del_list) {
+ 			i40e_cleanup_add_list(&tmp_add_list);
  
- 	/* Find the first enabled TC */
- 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
--		if (enabled_tc & BIT_ULL(i))
-+		if (enabled_tc & BIT(i))
- 			break;
+@@ -1955,7 +1957,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 								NULL);
+ 				aq_err = pf->hw.aq.asq_last_status;
+ 				num_del = 0;
+-				memset(del_list, 0, sizeof(*del_list));
++				memset(del_list, 0, del_list_size);
+ 
+ 				if (aq_ret && aq_err != I40E_AQ_RC_ENOENT) {
+ 					retval = -EIO;
+@@ -1991,13 +1993,14 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  	}
  
-@@ -4699,7 +4699,7 @@ static void i40e_vsi_config_netdev_tc(struct i40e_vsi *vsi, u8 enabled_tc)
- 		 * will set the numtc for netdev as 2 that will be
- 		 * referenced by the netdev layer as TC 0 and 1.
- 		 */
--		if (vsi->tc_config.enabled_tc & BIT_ULL(i))
-+		if (vsi->tc_config.enabled_tc & BIT(i))
- 			netdev_set_tc_queue(netdev,
- 					vsi->tc_config.tc_info[i].netdev_tc,
- 					vsi->tc_config.tc_info[i].qcount,
-@@ -4761,7 +4761,7 @@ static int i40e_vsi_config_tc(struct i40e_vsi *vsi, u8 enabled_tc)
+ 	if (!list_empty(&tmp_add_list)) {
++		int add_list_size;
  
- 	/* Enable ETS TCs with equal BW Share for now across all VSIs */
- 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
--		if (enabled_tc & BIT_ULL(i))
-+		if (enabled_tc & BIT(i))
- 			bw_share[i] = 1;
- 	}
+ 		/* do all the adds now */
+ 		filter_list_len = pf->hw.aq.asq_buf_size /
+ 			       sizeof(struct i40e_aqc_add_macvlan_element_data),
+-		add_list = kcalloc(filter_list_len,
+-			       sizeof(struct i40e_aqc_add_macvlan_element_data),
+-			       GFP_KERNEL);
++		add_list_size = filter_list_len *
++			       sizeof(struct i40e_aqc_add_macvlan_element_data);
++		add_list = kzalloc(add_list_size, GFP_KERNEL);
+ 		if (!add_list) {
+ 			/* Purge element from temporary lists */
+ 			i40e_cleanup_add_list(&tmp_add_list);
+@@ -2036,7 +2039,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  
-@@ -4835,7 +4835,7 @@ int i40e_veb_config_tc(struct i40e_veb *veb, u8 enabled_tc)
- 
- 	/* Enable ETS TCs with equal BW Share for now */
- 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
--		if (enabled_tc & BIT_ULL(i))
-+		if (enabled_tc & BIT(i))
- 			bw_data.tc_bw_share_credits[i] = 1;
- 	}
- 
-@@ -5232,7 +5232,7 @@ static int i40e_setup_tc(struct net_device *netdev, u8 tc)
- 
- 	/* Generate TC map for number of tc requested */
- 	for (i = 0; i < tc; i++)
--		enabled_tc |= BIT_ULL(i);
-+		enabled_tc |= BIT(i);
- 
- 	/* Requesting same TC configuration as already enabled */
- 	if (enabled_tc == vsi->tc_config.enabled_tc)
-@@ -6096,23 +6096,23 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
- 
- 	rtnl_lock();
- 	if (test_bit(__I40E_REINIT_REQUESTED, &pf->state)) {
--		reset_flags |= BIT_ULL(__I40E_REINIT_REQUESTED);
-+		reset_flags |= BIT(__I40E_REINIT_REQUESTED);
- 		clear_bit(__I40E_REINIT_REQUESTED, &pf->state);
- 	}
- 	if (test_bit(__I40E_PF_RESET_REQUESTED, &pf->state)) {
--		reset_flags |= BIT_ULL(__I40E_PF_RESET_REQUESTED);
-+		reset_flags |= BIT(__I40E_PF_RESET_REQUESTED);
- 		clear_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
- 	}
- 	if (test_bit(__I40E_CORE_RESET_REQUESTED, &pf->state)) {
--		reset_flags |= BIT_ULL(__I40E_CORE_RESET_REQUESTED);
-+		reset_flags |= BIT(__I40E_CORE_RESET_REQUESTED);
- 		clear_bit(__I40E_CORE_RESET_REQUESTED, &pf->state);
- 	}
- 	if (test_bit(__I40E_GLOBAL_RESET_REQUESTED, &pf->state)) {
--		reset_flags |= BIT_ULL(__I40E_GLOBAL_RESET_REQUESTED);
-+		reset_flags |= BIT(__I40E_GLOBAL_RESET_REQUESTED);
- 		clear_bit(__I40E_GLOBAL_RESET_REQUESTED, &pf->state);
- 	}
- 	if (test_bit(__I40E_DOWN_REQUESTED, &pf->state)) {
--		reset_flags |= BIT_ULL(__I40E_DOWN_REQUESTED);
-+		reset_flags |= BIT(__I40E_DOWN_REQUESTED);
- 		clear_bit(__I40E_DOWN_REQUESTED, &pf->state);
- 	}
- 
-@@ -10567,7 +10567,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	/* NVM bit on means WoL disabled for the port */
- 	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
--	if ((1 << hw->port) & wol_nvm_bits || hw->partition_id != 1)
-+	if (BIT (hw->port) & wol_nvm_bits || hw->partition_id != 1)
- 		pf->wol_en = false;
- 	else
- 		pf->wol_en = true;
+ 				if (aq_ret)
+ 					break;
+-				memset(add_list, 0, sizeof(*add_list));
++				memset(add_list, 0, add_list_size);
+ 			}
+ 			/* Entries from tmp_add_list were cloned from MAC
+ 			 * filter list, hence clean those cloned entries
 -- 
 2.5.0
