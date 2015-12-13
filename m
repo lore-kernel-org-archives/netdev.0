@@ -1,48 +1,40 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v2] vhost: replace % with & on data path
-Date: Sun, 13 Dec 2015 02:01:22 +0200
-Message-ID: <CAHp75VcnkCZUF1dP7B8G4qv-JNBah+MzZn_v-aW9i8iWUDA6TQ@mail.gmail.com>
-References: <1448874894-18398-1-git-send-email-mst@redhat.com>
-	<20151204201901.GB19430@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf, inode: allow for rename and link ops
+Date: Sat, 12 Dec 2015 19:06:15 -0500 (EST)
+Message-ID: <20151212.190615.2226584145922779613.davem@davemloft.net>
+References: <023d613fa37780f354c130c7920a43da2090e58e.1449782627.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Venkatesh Srinivas <venkateshs@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151204201901.GB19430@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46765 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbbLMAVT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 19:21:19 -0500
+In-Reply-To: <023d613fa37780f354c130c7920a43da2090e58e.1449782627.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 4, 2015 at 10:19 PM, Venkatesh Srinivas
-<venkateshs@google.com> wrote:
-> On Mon, Nov 30, 2015 at 11:15:23AM +0200, Michael S. Tsirkin wrote:
->> We know vring num is a power of 2, so use &
->> to mask the high bits.
->>
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> ---
->
-> The generated code switches from DIV -> masking, source is clearer as well.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 10 Dec 2015 22:33:49 +0100
 
-First impression was why, now it seems that compiler can't predict
-this for variables.
-For constants it would be optimized to the same, I suppose.
+> Add support for renaming and hard links to the fs. Most of this can be
+> implemented by using simple library operations under the same constraints
+> that we don't use a reserved name like elsewhere. Linking can be useful
+> to share/manage things like maps across subsystem users. It works within
+> the file system boundary, but is not allowed for directories.
+> 
+> Symbolic links are explicitly not implemented here, as it can be better
+> done already by doing bind mounts inside bpf fs to set up shared directories
+> f.e. useful when using volumes in docker containers that map a private
+> working directory into /sys/fs/bpf/ which contains itself a bind mounted
+> path from the host's /sys/fs/bpf/ mount that is shared among multiple
+> containers. For single maps instead of whole directory, hard links can
+> be easily used to do the same.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
->
-> Tested-by: Venkatesh Srinivas <venkateshs@google.com>
->
-> -- vs;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
-
-
--- 
-With Best Regards,
-Andy Shevchenko
+Applied, thanks.
