@@ -1,60 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/11] i40evf: check rings before freeing resources
-Date: Sat, 12 Dec 2015 21:17:30 -0800
-Message-ID: <1449983857-74434-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/11] i40evf: change version string generation
+Date: Sat, 12 Dec 2015 21:17:36 -0800
+Message-ID: <1449983857-74434-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22967 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:56992 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750903AbbLMFRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 00:17:40 -0500
+	id S1751139AbbLMFRn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 00:17:43 -0500
 In-Reply-To: <1449983857-74434-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-If the driver gets unloaded during reset recovery, it's possible
-that it will attempt to free resources when they're already free.
+Generate version strings like the PF driver does. This gives us more
+flexibility to add suffixes to the version string at build time.
 
-Add a check to make sure that the Tx and Rx rings actually exist
-before dereferencing them to free resources.
-
-Change-ID: I4d2b7e9ede49f634d421a4c5deaa5446bc755eee
+Change-ID: I0a5ca0783dd8fb849516bfc1e37ea070127847bd
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index b4c632f..98091b4 100644
+index 98091b4..cb58bad 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2034,6 +2034,9 @@ void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
- {
- 	int i;
+@@ -34,7 +34,15 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
-+	if (!adapter->tx_rings)
-+		return;
+-#define DRV_VERSION "1.4.3"
++#define DRV_KERN "-k"
 +
- 	for (i = 0; i < adapter->num_active_queues; i++)
- 		if (adapter->tx_rings[i].desc)
- 			i40evf_free_tx_resources(&adapter->tx_rings[i]);
-@@ -2102,6 +2105,9 @@ void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
-+	if (!adapter->rx_rings)
-+		return;
-+
- 	for (i = 0; i < adapter->num_active_queues; i++)
- 		if (adapter->rx_rings[i].desc)
- 			i40evf_free_rx_resources(&adapter->rx_rings[i]);
++#define DRV_VERSION_MAJOR 1
++#define DRV_VERSION_MINOR 4
++#define DRV_VERSION_BUILD 3
++#define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
++	     __stringify(DRV_VERSION_MINOR) "." \
++	     __stringify(DRV_VERSION_BUILD) \
++	     DRV_KERN
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2015 Intel Corporation.";
 -- 
 2.5.0
