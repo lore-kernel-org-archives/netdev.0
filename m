@@ -1,70 +1,128 @@
 From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
-Date: Sun, 13 Dec 2015 02:52:39 +0200
-Message-ID: <CAHp75VdOwJbgm1Hr7UmUss2iWnaujVoLVvwpg7D9B=VA8qs-Qw@mail.gmail.com>
-References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
+Subject: Re: [PATCH 24/28] net: pch_gbe: add device tree support
+Date: Sun, 13 Dec 2015 03:22:19 +0200
+Message-ID: <CAHp75VdezHXFcV9T=bd8k5JHoogC39Hew5GCdd02rk=PEM6ajw@mail.gmail.com>
+References: <1448900513-20856-1-git-send-email-paul.burton@imgtec.com>
+        <1448900513-20856-25-git-send-email-paul.burton@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
-	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	ath6kl@lists.infradead.org
-To: Brent Taylor <motobud@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:33111 "EHLO
-	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbbLMAwk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2015 19:52:40 -0500
-In-Reply-To: <1448948470-31111-1-git-send-email-motobud@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips@linux-mips.org, netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Paul Burton <paul.burton@imgtec.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1448900513-20856-25-git-send-email-paul.burton@imgtec.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 1, 2015 at 7:41 AM, Brent Taylor <motobud@gmail.com> wrote:
-> Since commit 8437754c83351d6213c1a47ff029c1126d6042a7, ar->fw is expected to be pointing to memory allocated by vmalloc.  If the api1 method (via ath6kl_fetch_fw_api1) is used to allocate memory for ar->fw, then kmemdup is used.  This patch checks if the firmware being loaded is the 'fw' image, then use vmalloc, otherwise use kmalloc.
+On Mon, Nov 30, 2015 at 6:21 PM, Paul Burton <paul.burton@imgtec.com> wrote:
+> Introduce support for retrieving the PHY reset GPIO from device tree,
+> which will be used on the MIPS Boston development board. This requires
+> support for probe deferral in order to work correctly, since the order
+> of device probe is not guaranteed & typically the EG20T GPIO controller
+> device will be probed after the ethernet MAC.
 >
-
-I think I already told someone that this kind of fixes miss the
-symmetric kvfree() calls. Please, fix.
-
-
-> Signed-off-by: Brent Taylor <motobud@gmail.com>
+> Signed-off-by: Paul Burton <paul.burton@imgtec.com>
 > ---
->  drivers/net/wireless/ath/ath6kl/init.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
-> index 6ae0734..4f2b124d 100644
-> --- a/drivers/net/wireless/ath/ath6kl/init.c
-> +++ b/drivers/net/wireless/ath/ath6kl/init.c
-> @@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
+>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 33 +++++++++++++++++++++-
+>  1 file changed, 32 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> index 824ff9e..f2a9a38 100644
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> @@ -23,6 +23,8 @@
+>  #include <linux/net_tstamp.h>
+>  #include <linux/ptp_classify.h>
+>  #include <linux/gpio.h>
+> +#include <linux/gpio/consumer.h>
+> +#include <linux/of_gpio.h>
+>
+>  #define DRV_VERSION     "1.01"
+>  const char pch_driver_version[] = DRV_VERSION;
+> @@ -2594,13 +2596,41 @@ static void pch_gbe_remove(struct pci_dev *pdev)
+>         free_netdev(netdev);
+>  }
+>
+> +static int pch_gbe_parse_dt(struct pci_dev *pdev,
+> +                           struct pch_gbe_privdata **pdata)
+
+Why not to return pdata as it done in many other drivers?
+You have ERR_PTR() macro to pass errors.
+
+> +{
+> +       struct device_node *np = pdev->dev.of_node;
+> +       struct gpio_desc *gpio;
+> +
+> +       if (!config_enabled(CONFIG_OF) || !np)
+
+Before I saw IS_ENABLED(). Is this one a preferable new API?
+
+> +               return 0;
+> +
+> +       if (!*pdata)
+> +               *pdata = devm_kzalloc(&pdev->dev, sizeof(**pdata), GFP_KERNEL);
+> +       if (!*pdata)
+> +               return -ENOMEM;
+> +
+> +       gpio = devm_gpiod_get(&pdev->dev, "phy-reset", GPIOD_ASIS);
+> +       if (IS_ERR(gpio))
+> +               return PTR_ERR(gpio);
+> +
+> +       (*pdata)->phy_reset_gpio = gpio;
+> +       return 0;
+> +}
+> +
+>  static int pch_gbe_probe(struct pci_dev *pdev,
+>                           const struct pci_device_id *pci_id)
+>  {
+>         struct net_device *netdev;
+>         struct pch_gbe_adapter *adapter;
+> +       struct pch_gbe_privdata *pdata;
+>         int ret;
+>
+> +       pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
+> +       ret = pch_gbe_parse_dt(pdev, &pdata);
+
+So, I didn;t see anything related to dt in that function.
+Maybe you just call it always? In that case remove check for np.
+
+> +       if (ret)
+> +               goto err_out;
+> +
+>         ret = pcim_enable_device(pdev);
+>         if (ret)
 >                 return ret;
+> @@ -2638,7 +2668,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+>         adapter->pdev = pdev;
+>         adapter->hw.back = adapter;
+>         adapter->hw.reg = pcim_iomap_table(pdev)[PCH_GBE_PCI_BAR];
+> -       adapter->pdata = (struct pch_gbe_privdata *)pci_id->driver_data;
+> +       adapter->pdata = pdata;
+>         if (adapter->pdata && adapter->pdata->platform_init)
+>                 adapter->pdata->platform_init(pdev, pdata);
 >
->         *fw_len = fw_entry->size;
-> -       *fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
-> +   if (&ar->fw == fw)
-> +               *fw = vmalloc(fw_entry->size);
-> +   else
-> +               *fw = kmalloc(fw_entry->size, GFP_KERNEL);
->
->         if (*fw == NULL)
->                 ret = -ENOMEM;
-> +       else
-> +               memcpy(*fw, fw_entry->data, fw_entry->size);
->
->         release_firmware(fw_entry);
->
-> --
-> 2.6.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> @@ -2729,6 +2759,7 @@ err_free_adapter:
+>         pch_gbe_hal_phy_hw_reset(&adapter->hw);
+>  err_free_netdev:
+>         free_netdev(netdev);
+> +err_out:
 
+Redundant.
 
+>         return ret;
+>  }
+
+For now it's a common practice to mix styles in probe due to usage of
+devres API.
 
 -- 
 With Best Regards,
