@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/17] igb: add 88E1543 initialization code
-Date: Sun, 13 Dec 2015 00:31:15 -0800
-Message-ID: <1449995490-17020-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] igb: use the correct i210 register for EEMNGCTL
+Date: Sun, 13 Dec 2015 00:31:19 -0800
+Message-ID: <1449995490-17020-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,179 +10,99 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:41148 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751394AbbLMIlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 03:41:01 -0500
+	id S1751496AbbLMIlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 03:41:03 -0500
 In-Reply-To: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Todd Fujinaka <todd.fujinaka@intel.com>
 
-Initialize the 88E1543 PHY.
+The i210 has two EEPROM access registers that are located in
+non-standard offsets: EEARBC and EEMNGCTL. EEARBC was fixed previously
+and EEMNGCTL should also be corrected.
 
+Reported-by: Roman Hodek <roman.aud@siemens.com>
 Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   |  7 ++
- drivers/net/ethernet/intel/igb/e1000_defines.h |  1 +
- drivers/net/ethernet/intel/igb/e1000_phy.c     | 94 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/igb/e1000_phy.h     |  1 +
- 4 files changed, 103 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  1 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c  | 27 +++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_i210.h  |  1 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h  |  1 +
+ 4 files changed, 30 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 7a73510..d9664c4 100644
+index d9664c4..362911d 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_82575.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -272,6 +272,11 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
- 			if (ret_val)
- 				goto out;
- 		}
-+		if (phy->id == M88E1543_E_PHY_ID) {
-+			ret_val = igb_initialize_M88E1543_phy(hw);
-+			if (ret_val)
-+				goto out;
-+		}
- 		break;
- 	case IGP03E1000_E_PHY_ID:
- 		phy->type = e1000_phy_igp_3;
-@@ -925,6 +930,8 @@ static s32 igb_phy_hw_reset_sgmii_82575(struct e1000_hw *hw)
- 
- 	if (phy->id == M88E1512_E_PHY_ID)
- 		ret_val = igb_initialize_M88E1512_phy(hw);
-+	if (phy->id == M88E1543_E_PHY_ID)
-+		ret_val = igb_initialize_M88E1543_phy(hw);
- out:
+@@ -299,6 +299,7 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
+ 	case I210_I_PHY_ID:
+ 		phy->type		= e1000_phy_i210;
+ 		phy->ops.check_polarity	= igb_check_polarity_m88;
++		phy->ops.get_cfg_done	= igb_get_cfg_done_i210;
+ 		phy->ops.get_phy_info	= igb_get_phy_info_m88;
+ 		phy->ops.get_cable_length = igb_get_cable_length_m88_gen2;
+ 		phy->ops.set_d0_lplu_state = igb_set_d0_lplu_state_82580;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 65d9316..29f59c7 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -900,3 +900,30 @@ s32 igb_pll_workaround_i210(struct e1000_hw *hw)
+ 	wr32(E1000_MDICNFG, mdicnfg);
  	return ret_val;
  }
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index b191504..a61ee94 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -990,6 +990,7 @@
- #define E1000_M88E1543_PAGE_ADDR	0x16       /* Page Offset Register */
- #define E1000_M88E1543_EEE_CTRL_1	0x0
- #define E1000_M88E1543_EEE_CTRL_1_MS	0x0001     /* EEE Master/Slave */
-+#define E1000_M88E1543_FIBER_CTRL	0x0
- #define E1000_EEE_ADV_DEV_I354		7
- #define E1000_EEE_ADV_ADDR_I354		60
- #define E1000_EEE_ADV_100_SUPPORTED	(1 << 1)   /* 100BaseTx EEE Supported */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 23ec28f..c0df40f 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -2278,6 +2278,100 @@ out:
- }
- 
- /**
-+ *  igb_initialize_M88E1543_phy - Initialize M88E1512 PHY
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Initialize Marvell 1543 to work correctly with Avoton.
-+ **/
-+s32 igb_initialize_M88E1543_phy(struct e1000_hw *hw)
-+{
-+	struct e1000_phy_info *phy = &hw->phy;
-+	s32 ret_val = 0;
-+
-+	/* Switch to PHY page 0xFF. */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 0x00FF);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_2, 0x214B);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_1, 0x2144);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_2, 0x0C28);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_1, 0x2146);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_2, 0xB233);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_1, 0x214D);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_2, 0xDC0C);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_1, 0x2159);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Switch to PHY page 0xFB. */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 0x00FB);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_CFG_REG_3, 0x0C0D);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Switch to PHY page 0x12. */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 0x12);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Change mode to SGMII-to-Copper */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1512_MODE, 0x8001);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Switch to PHY page 1. */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 0x1);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Change mode to 1000BASE-X/SGMII and autoneg enable */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1543_FIBER_CTRL, 0x9140);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Return the PHY to page 0. */
-+	ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 0);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = igb_phy_sw_reset(hw);
-+	if (ret_val) {
-+		hw_dbg("Error committing the PHY changes\n");
-+		return ret_val;
-+	}
-+
-+	/* msec_delay(1000); */
-+	usleep_range(1000, 2000);
-+out:
-+	return ret_val;
-+}
 +
 +/**
-  * igb_power_up_phy_copper - Restore copper link in case of PHY power down
-  * @hw: pointer to the HW structure
-  *
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index 24d55ed..aa1ae61 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -62,6 +62,7 @@ void igb_power_up_phy_copper(struct e1000_hw *hw);
- void igb_power_down_phy_copper(struct e1000_hw *hw);
- s32  igb_phy_init_script_igp3(struct e1000_hw *hw);
- s32  igb_initialize_M88E1512_phy(struct e1000_hw *hw);
-+s32  igb_initialize_M88E1543_phy(struct e1000_hw *hw);
- s32  igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data);
- s32  igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
- s32  igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data);
++ *  igb_get_cfg_done_i210 - Read config done bit
++ *  @hw: pointer to the HW structure
++ *
++ *  Read the management control register for the config done bit for
++ *  completion status.  NOTE: silicon which is EEPROM-less will fail trying
++ *  to read the config done bit, so an error is *ONLY* logged and returns
++ *  0.  If we were to return with error, EEPROM-less silicon
++ *  would not be able to be reset or change link.
++ **/
++s32 igb_get_cfg_done_i210(struct e1000_hw *hw)
++{
++	s32 timeout = PHY_CFG_TIMEOUT;
++	u32 mask = E1000_NVM_CFG_DONE_PORT_0;
++
++	while (timeout) {
++		if (rd32(E1000_EEMNGCTL_I210) & mask)
++			break;
++		usleep_range(1000, 2000);
++		timeout--;
++	}
++	if (!timeout)
++		hw_dbg("MNG configuration cycle has not completed.\n");
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
+index 3442b63..eaa68a5 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.h
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
+@@ -34,6 +34,7 @@ s32 igb_write_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 data);
+ s32 igb_init_nvm_params_i210(struct e1000_hw *hw);
+ bool igb_get_flash_presence_i210(struct e1000_hw *hw);
+ s32 igb_pll_workaround_i210(struct e1000_hw *hw);
++s32 igb_get_cfg_done_i210(struct e1000_hw *hw);
+ 
+ #define E1000_STM_OPCODE		0xDB00
+ #define E1000_EEPROM_FLASH_SIZE_WORD	0x11
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 4af2870..0fdcd4d 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -66,6 +66,7 @@
+ #define E1000_PBA      0x01000  /* Packet Buffer Allocation - RW */
+ #define E1000_PBS      0x01008  /* Packet Buffer Size */
+ #define E1000_EEMNGCTL 0x01010  /* MNG EEprom Control */
++#define E1000_EEMNGCTL_I210 0x12030  /* MNG EEprom Control */
+ #define E1000_EEARBC_I210 0x12024  /* EEPROM Auto Read Bus Control */
+ #define E1000_EEWR     0x0102C  /* EEPROM Write Register - RW */
+ #define E1000_I2CCMD   0x01028  /* SFPI2C Command Register - RW */
 -- 
 2.5.0
