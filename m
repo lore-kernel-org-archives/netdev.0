@@ -1,60 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/17] igb: fix NULL derefs due to skipped SR-IOV enabling
-Date: Sun, 13 Dec 2015 00:31:28 -0800
-Message-ID: <1449995490-17020-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/17] e1000e: fix division by zero on jumbo MTUs
+Date: Sun, 13 Dec 2015 00:31:26 -0800
+Message-ID: <1449995490-17020-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jan Beulich <JBeulich@suse.com>, netdev@vger.kernel.org,
+Cc: Dmitry Fleytman <dmitry@daynix.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jan Beulich <jbeulich@suse.com>,
+	Leonid Bloch <leonid@daynix.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:4841 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbbLMIbi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 03:31:38 -0500
+	id S1751210AbbLMIbh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 03:31:37 -0500
 In-Reply-To: <1449995490-17020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Beulich <JBeulich@suse.com>
+From: Dmitry Fleytman <dmitry@daynix.com>
 
-The combined effect of commits 6423fc3416 ("igb: do not re-init SR-IOV
-during probe") and ceee3450b3 ("igb: make sure SR-IOV init uses the
-right number of queues") causes VFs no longer getting set up, leading
-to NULL pointer dereferences due to the adapter's ->vf_data being NULL
-while ->vfs_allocated_count is non-zero. The first commit not only
-neglected the side effect of igb_sriov_reinit() that the second commit
-tried to account for, but also that of setting IGB_FLAG_HAS_MSIX,
-without which igb_enable_sriov() is effectively a no-op. Calling
-igb_{,re}set_interrupt_capability() as done here seems to address this,
-but I'm not sure whether this is better than sinply reverting the other
-two commits.
+This patch fixes possible division by zero in receive
+interrupt handler when working without adaptive interrupt
+moderation.
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
+The adaptive interrupt moderation mechanism is typically
+disabled on jumbo MTUs.
+
+Signed-off-by: Dmitry Fleytman <dmitry@daynix.com>
+Signed-off-by: Leonid Bloch <leonid@daynix.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 061e102..fa3b4cb 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2858,6 +2858,13 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
- 	if ((hw->mac.type == e1000_i210) || (hw->mac.type == e1000_i211))
- 		return;
- 
-+	/* Of the below we really only want the effect of getting
-+	 * IGB_FLAG_HAS_MSIX set (if available), without which
-+	 * igb_enable_sriov() has no effect.
-+	 */
-+	igb_set_interrupt_capability(adapter, true);
-+	igb_reset_interrupt_capability(adapter);
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 0003bf6..7724473 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1959,8 +1959,10 @@ static irqreturn_t e1000_intr_msix_rx(int __always_unused irq, void *data)
+ 	 * previous interrupt.
+ 	 */
+ 	if (rx_ring->set_itr) {
+-		writel(1000000000 / (rx_ring->itr_val * 256),
+-		       rx_ring->itr_register);
++		u32 itr = rx_ring->itr_val ?
++			  1000000000 / (rx_ring->itr_val * 256) : 0;
 +
- 	pci_sriov_set_totalvfs(pdev, 7);
- 	igb_enable_sriov(pdev, max_vfs);
++		writel(itr, rx_ring->itr_register);
+ 		rx_ring->set_itr = 0;
+ 	}
  
 -- 
 2.5.0
