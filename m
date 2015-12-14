@@ -1,62 +1,67 @@
-From: Dmitry Vyukov <dvyukov@gmail.com>
-Subject: Information leak in pptp_bind
-Date: Mon, 14 Dec 2015 11:38:28 +0100
-Message-ID: <CAEeQi3u5VDmmaLGHAzG1NOknXo=Ap0MdXZiYPusEX3VSx8R3Jw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller@googlegroups.com, Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>, edumazet@google.com,
-	Sasha Levin <sasha.levin@oracle.com>, keescook@google.com,
-	jln@google.com
-To: Dmitry Kozlov <xeb@mail.ru>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 4/6] netfilter: nfnetlink: fix splat due to incorrect socket memory accounting in skbuff clones
+Date: Mon, 14 Dec 2015 12:25:44 +0100
+Message-ID: <1450092346-3281-5-git-send-email-pablo@netfilter.org>
+References: <1450092346-3281-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1450092346-3281-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+If we attach the sk to the skb from nfnetlink_rcv_batch(), then
+netlink_skb_destructor() will underflow the socket receive memory
+counter and we get warning splat when releasing the socket.
 
-The following program leak various uninit garbage including kernel
-addresses and whatever is on kernel stack, in particular defeating
-ASLR. The issue is in pptp_bind which does not verify sockaddr_len
+$ cat /proc/net/netlink
+sk       Eth Pid    Groups   Rmem     Wmem     Dump     Locks     Drops     Inode
+ffff8800ca903000 12  0      00000000 -54144   0        0 2        0        17942
+                                     ^^^^^^
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <linux/in.h>
-#include <linux/in6.h>
-#include <linux/socket.h>
-#include <linux/if.h>
-#include <linux/if_pppox.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
+Rmem above shows an underflow.
 
-int main(void)
-{
-        struct sockaddr sa;
-        unsigned len, i, try;
-        int fd;
+And here below the warning splat:
 
-        for (try = 0; try < 5; try++) {
-                fd = socket(AF_PPPOX, SOCK_RAW, PX_PROTO_PPTP);
-                if (fd == -1)
-                        return;
-                memset(&sa, 0, sizeof(sa));
-                bind(fd, &sa, 0);
-                len = sizeof(sa);
-                getsockname(fd, &sa, &len);
-                for (i = 0; i < len; i++)
-                        printf("%02x", ((unsigned char*)&sa)[i]);
-                printf("\n");
-        }
-        return 0;
-}
+[ 1363.815976] WARNING: CPU: 2 PID: 1356 at net/netlink/af_netlink.c:958 netlink_sock_destruct+0x80/0xb9()
+[...]
+[ 1363.816152] CPU: 2 PID: 1356 Comm: kworker/u16:1 Tainted: G        W       4.4.0-rc1+ #153
+[ 1363.816155] Hardware name: LENOVO 23259H1/23259H1, BIOS G2ET32WW (1.12 ) 05/30/2012
+[ 1363.816160] Workqueue: netns cleanup_net
+[ 1363.816163]  0000000000000000 ffff880119203dd0 ffffffff81240204 0000000000000000
+[ 1363.816169]  ffff880119203e08 ffffffff8104db4b ffffffff813d49a1 ffff8800ca771000
+[ 1363.816174]  ffffffff81a42b00 0000000000000000 ffff8800c0afe1e0 ffff880119203e18
+[ 1363.816179] Call Trace:
+[ 1363.816181]  <IRQ>  [<ffffffff81240204>] dump_stack+0x4e/0x79
+[ 1363.816193]  [<ffffffff8104db4b>] warn_slowpath_common+0x9a/0xb3
+[ 1363.816197]  [<ffffffff813d49a1>] ? netlink_sock_destruct+0x80/0xb9
 
-# ./a.out
-1800020000004700c012833d00880000b002400000000000005eddc66d2b
-1800020000004800408bf13a00880000b002400000000000005eddc66d2b
-180002000000490080a5f13a00880000b002400000000000005eddc66d2b
-1800020000004a00008ff13a00880000b002400000000000005eddc66d2b
-1800020000004b008096f13a00880000b002400000000000005eddc66d2b
+skb->sk was only needed to lookup for the netns, however we don't need
+this anymore since 633c9a840d0b ("netfilter: nfnetlink: avoid recurrent
+netns lookups in call_batch") so this patch removes this manual socket
+assignment to resolve this problem.
+
+Reported-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
+Reported-by: Ben Hutchings <ben@decadent.org.uk>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Tested-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
+---
+ net/netfilter/nfnetlink.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 445590f..77afe91 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -295,8 +295,6 @@ replay:
+ 	if (!skb)
+ 		return netlink_ack(oskb, nlh, -ENOMEM);
+ 
+-	skb->sk = oskb->sk;
+-
+ 	nfnl_lock(subsys_id);
+ 	ss = rcu_dereference_protected(table[subsys_id].subsys,
+ 				       lockdep_is_held(&table[subsys_id].mutex));
+-- 
+2.1.4
+
