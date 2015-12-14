@@ -1,24 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wan: wanxl: add pci_disable_device in case of error
-Date: Mon, 14 Dec 2015 16:22:19 -0500 (EST)
-Message-ID: <20151214.162219.1631096471928074532.davem@davemloft.net>
-References: <1449862099-6256-1-git-send-email-saurabh.truth@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2015-12-11
+Date: Mon, 14 Dec 2015 16:23:52 -0500 (EST)
+Message-ID: <20151214.162352.2171571188988498415.davem@davemloft.net>
+References: <20151211201611.GA17376@t440s.P-661HNU-F1>
+	<20151211202059.GA19118@t440s.P-661HNU-F1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: saurabh.truth@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449862099-6256-1-git-send-email-saurabh.truth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151211202059.GA19118-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Saurabh Sengar <saurabh.truth@gmail.com>
-Date: Sat, 12 Dec 2015 00:58:19 +0530
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Fri, 11 Dec 2015 22:20:59 +0200
 
-> If there is 'no suitable DMA available' error, device should be disabled
-> before returning
+> (resending since I forgot to sign the previous one)
 > 
-> Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
+> Here's another set of Bluetooth & 802.15.4 patches for the 4.5 kernel:
+> 
+>  - 6LoWPAN debugfs support
+>  - New 802.15.4 driver for ADF7242 MAC IEEE802154
+>  - Initial code for 6LoWPAN Generic Header Compression (GHC) support
+>  - Refactor Bluetooth LE scan & advertising behind dedicated workqueue
+>  - Cleanups to Bluetooth H:5 HCI driver
+>  - Support for Toshiba Broadcom based Bluetooth controllers
+>  - Use continuous scanning when establishing Bluetooth LE connections
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied to net-next, thanks.
+Pulled, thanks Johan.
