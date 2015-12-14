@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] fm10k: remove unnecessary else block from if statements with return
-Date: Sun, 13 Dec 2015 16:27:35 -0800
-Message-ID: <1450052867-36654-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] fm10k: initialize xps at driver load
+Date: Sun, 13 Dec 2015 16:27:47 -0800
+Message-ID: <1450052867-36654-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:42600 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:60774 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751938AbbLNA1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751992AbbLNA1u (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 13 Dec 2015 19:27:50 -0500
 In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,52 +18,97 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Improve code style by removing the unnecessary else block of an if
-statement which immediately returns.
+Similar to ixgbe and i40e, initialize XPS on driver load so that we can
+take advantage of this kernel feature.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h     |  3 +++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 18 ++++++++++++++++--
+ 2 files changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index bbf0b4a..76f273a 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -1232,8 +1232,8 @@ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *hw, u32 **results,
- 		err = fm10k_iov_select_vid(vf_info, (u16)vid);
- 		if (err < 0)
- 			return err;
--		else
--			vid = err;
-+
-+		vid = err;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 021abe3..b34bb00 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -23,6 +23,7 @@
  
- 		/* update VSI info for VF in regards to VLAN table */
- 		err = hw->mac.ops.update_vlan(hw, vid, vf_info->vsi, set);
-@@ -1258,8 +1258,8 @@ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *hw, u32 **results,
- 		err = fm10k_iov_select_vid(vf_info, vlan);
- 		if (err < 0)
- 			return err;
--		else
--			vlan = (u16)err;
-+
-+		vlan = (u16)err;
+ #include <linux/types.h>
+ #include <linux/etherdevice.h>
++#include <linux/cpumask.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/if_vlan.h>
+ #include <linux/pci.h>
+@@ -66,6 +67,7 @@ struct fm10k_l2_accel {
+ enum fm10k_ring_state_t {
+ 	__FM10K_TX_DETECT_HANG,
+ 	__FM10K_HANG_CHECK_ARMED,
++	__FM10K_TX_XPS_INIT_DONE,
+ };
  
- 		/* notify switch of request for new unicast address */
- 		err = hw->mac.ops.update_uc_addr(hw, vf_info->glort,
-@@ -1284,8 +1284,8 @@ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *hw, u32 **results,
- 		err = fm10k_iov_select_vid(vf_info, vlan);
- 		if (err < 0)
- 			return err;
--		else
--			vlan = (u16)err;
-+
-+		vlan = (u16)err;
+ #define check_for_tx_hang(ring) \
+@@ -209,6 +211,7 @@ struct fm10k_q_vector {
+ 	struct fm10k_ring_container rx, tx;
  
- 		/* notify switch of request for new multicast address */
- 		err = hw->mac.ops.update_mc_addr(hw, vf_info->glort,
+ 	struct napi_struct napi;
++	cpumask_t affinity_mask;
+ 	char name[IFNAMSIZ + 9];
+ 
+ #ifdef CONFIG_DEBUG_FS
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index e820b5f..020f6dc 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -601,6 +601,13 @@ static void fm10k_configure_tx_ring(struct fm10k_intfc *interface,
+ 	fm10k_write_reg(hw, FM10K_PFVTCTL(reg_idx),
+ 			FM10K_PFVTCTL_FTAG_DESC_ENABLE);
+ 
++	/* Initialize XPS */
++	if (!test_and_set_bit(__FM10K_TX_XPS_INIT_DONE, &ring->state) &&
++	    ring->q_vector)
++		netif_set_xps_queue(ring->netdev,
++				    &ring->q_vector->affinity_mask,
++				    ring->queue_index);
++
+ 	/* enable queue */
+ 	fm10k_write_reg(hw, FM10K_TXDCTL(reg_idx), txdctl);
+ }
+@@ -1488,8 +1495,10 @@ void fm10k_qv_free_irq(struct fm10k_intfc *interface)
+ 		if (!q_vector->tx.count && !q_vector->rx.count)
+ 			continue;
+ 
+-		/* disable interrupts */
++		/* clear the affinity_mask in the IRQ descriptor */
++		irq_set_affinity_hint(entry->vector, NULL);
+ 
++		/* disable interrupts */
+ 		writel(FM10K_ITR_MASK_SET, q_vector->itr);
+ 
+ 		free_irq(entry->vector, q_vector);
+@@ -1547,6 +1556,9 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
+ 			goto err_out;
+ 		}
+ 
++		/* assign the mask for this irq */
++		irq_set_affinity_hint(entry->vector, &q_vector->affinity_mask);
++
+ 		/* Enable q_vector */
+ 		writel(FM10K_ITR_ENABLE, q_vector->itr);
+ 
+@@ -1567,8 +1579,10 @@ err_out:
+ 		if (!q_vector->tx.count && !q_vector->rx.count)
+ 			continue;
+ 
+-		/* disable interrupts */
++		/* clear the affinity_mask in the IRQ descriptor */
++		irq_set_affinity_hint(entry->vector, NULL);
+ 
++		/* disable interrupts */
+ 		writel(FM10K_ITR_MASK_SET, q_vector->itr);
+ 
+ 		free_irq(entry->vector, q_vector);
 -- 
 2.5.0
