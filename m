@@ -1,57 +1,31 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 3/8] fcoe: Use CHECKSUM_PARTIAL to indicate CRC offload
-Date: Mon, 14 Dec 2015 11:19:42 -0800
-Message-ID: <1450120787-1773171-4-git-send-email-tom@herbertland.com>
-References: <1450120787-1773171-1-git-send-email-tom@herbertland.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: mdio-mux: Check return value of
+ mdiobus_alloc()
+Date: Mon, 14 Dec 2015 14:30:47 -0500 (EST)
+Message-ID: <20151214.143047.997678276798238332.davem@davemloft.net>
+References: <1450097511-13010-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47909 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932175AbbLNTUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:20:42 -0500
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBEJJSIp021604
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:20:42 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1ysvw6abjj-4
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:20:42 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- bce353cca29711e593540002c99293a0-b11f8210 for <netdev@vger.kernel.org>;	Mon,
- 14 Dec 2015 11:20:31 -0800
-In-Reply-To: <1450120787-1773171-1-git-send-email-tom@herbertland.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59056 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbbLNTat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:30:49 -0500
+In-Reply-To: <1450097511-13010-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When setting up CRC offload set ip_summed to CHECKSUM_PARTIAL
-instead of CHECKSUM_UNNECESSARY. This is consistent with the
-definition of CHECKSUM_PARTIAL.
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Mon, 14 Dec 2015 13:51:51 +0100
 
-The only driver that seems to be advertising NETIF_F_FCOE_CRC is
-ixgbe. AFICT the driver does not look at ip_summed for FCOE and
-just assumes that CRC is being offloaded.
+> mdiobus_alloc() might return NULL, but its return value is not
+> checked in mdio_mux_init(). This could potentially lead to a NULL
+> pointer dereference. Fix it by checking the return value
+> 
+> Fixes: 0ca2997d1452 ("netdev/of/phy: Add MDIO bus multiplexer support.")
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- drivers/scsi/fcoe/fcoe.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
-index f442406..0efe711 100644
---- a/drivers/scsi/fcoe/fcoe.c
-+++ b/drivers/scsi/fcoe/fcoe.c
-@@ -1625,7 +1625,7 @@ static int fcoe_xmit(struct fc_lport *lport, struct fc_frame *fp)
- 
- 	/* crc offload */
- 	if (likely(lport->crc_offload)) {
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		skb->ip_summed = CHECKSUM_PARTIAL;
- 		skb->csum_start = skb_headroom(skb);
- 		skb->csum_offset = skb->len;
- 		crc = 0;
--- 
-2.4.6
+Applied, thanks Tobias.
