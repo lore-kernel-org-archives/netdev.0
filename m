@@ -1,78 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 100GbE Intel Wired LAN Driver Updates 2015-12-13
-Date: Sun, 13 Dec 2015 16:27:32 -0800
-Message-ID: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 04/15] fm10k: remove namespace pollution of fm10k_iov_msg_data_pf
+Date: Sun, 13 Dec 2015 16:27:36 -0800
+Message-ID: <1450052867-36654-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:41661 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751478AbbLNA1t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 19:27:49 -0500
+	id S1751478AbbLNA1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 19:27:50 -0500
+In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to fm10k only.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Jacob updates the driver to use ether_addr_copy() instead of copying
-byte-by-byte in a for loop.  Fixed up CamelCase variable names and coding
-style issues.  Cleaned up namespace pollution of fm10k_iov_msg_data_pf().
-Cleaned up, by making it consistent, the use of VLAN and VLAN ID instead of
-vlan or vid.  Lastly, update the driver to initialize XPS so that we can
-take advantage of the kernel feature.
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 8 --------
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h | 1 -
+ 2 files changed, 9 deletions(-)
 
-Alex Duyck fixed up the driver to free the resources associated with the
-MSI-X vector table if the q_vector allocation failed.  Then fixed the driver
-to check for msix_entries to be NULL and freed the IRQ if the mailbox API
-returned an error on trying to connect.
-
-Bruce cleans up whitespace and namespace pollution issues in the driver.
-Also updates the driver to use the BIT() macro instead of bit-shifting coding.
-
-The following are changes since commit f68766d8844f4340992a993f1af5f0307d740d8c:
-  Merge branch '1GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 100GbE
-
-Alexander Duyck (2):
-  fm10k: Cleanup MSI-X interrupts in case of failure
-  fm10k: Cleanup exception handling for mailbox interrupt
-
-Bruce Allan (5):
-  fm10k: do not inline fm10k_iov_select_vid()
-  fm10k: whitespace cleanups
-  fm10k: use BIT() macro instead of open-coded bit-shifting
-  fm10k: cleanup namespace pollution
-  fm10k: cleanup overly long lines
-
-Jacob Keller (8):
-  fm10k: use ether_addr_copy to copy MAC address
-  fm10k: do not use CamelCase
-  fm10k: remove unnecessary else block from if statements with return
-  fm10k: remove namespace pollution of fm10k_iov_msg_data_pf
-  fm10k: consistently refer to VLANs and VLAN IDs
-  fm10k: bump driver version
-  fm10k: conditionally compile DCB and DebugFS support
-  fm10k: initialize xps at driver load
-
- drivers/net/ethernet/intel/fm10k/Makefile        | 20 ++++--
- drivers/net/ethernet/intel/fm10k/fm10k.h         | 15 +++--
- drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c   |  4 --
- drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c |  4 --
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 16 +++--
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 10 +--
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     |  3 +-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  | 14 ++--
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c     | 81 ++++++++++++++++--------
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c      | 55 +++++++---------
- drivers/net/ethernet/intel/fm10k/fm10k_pf.h      |  5 +-
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.c     | 18 +++---
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.h     |  7 +-
- drivers/net/ethernet/intel/fm10k/fm10k_type.h    | 16 ++---
- drivers/net/ethernet/intel/fm10k/fm10k_vf.c      |  1 +
- 15 files changed, 148 insertions(+), 121 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 76f273a..5bb6185 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -1413,14 +1413,6 @@ s32 fm10k_iov_msg_lport_state_pf(struct fm10k_hw *hw, u32 **results,
+ 	return err;
+ }
+ 
+-const struct fm10k_msg_data fm10k_iov_msg_data_pf[] = {
+-	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
+-	FM10K_VF_MSG_MSIX_HANDLER(fm10k_iov_msg_msix_pf),
+-	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_iov_msg_mac_vlan_pf),
+-	FM10K_VF_MSG_LPORT_STATE_HANDLER(fm10k_iov_msg_lport_state_pf),
+-	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_tlv_msg_error),
+-};
+-
+ /**
+  *  fm10k_update_stats_hw_pf - Updates hardware related statistics of PF
+  *  @hw: pointer to hardware structure
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+index 40a0dbc..9d77daa 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+@@ -129,7 +129,6 @@ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *, u32 **,
+ 			      struct fm10k_mbx_info *);
+ s32 fm10k_iov_msg_lport_state_pf(struct fm10k_hw *, u32 **,
+ 				 struct fm10k_mbx_info *);
+-extern const struct fm10k_msg_data fm10k_iov_msg_data_pf[];
+ 
+ extern struct fm10k_info fm10k_pf_info;
+ #endif /* _FM10K_PF_H */
 -- 
 2.5.0
