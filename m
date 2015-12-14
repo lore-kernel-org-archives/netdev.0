@@ -1,7 +1,7 @@
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
-Subject: [PATCH v4 1/5] geneve: Add geneve udp port offload for ethernet devices
-Date: Mon, 14 Dec 2015 11:57:56 -0800
-Message-ID: <1450123080-206406-2-git-send-email-anjali.singhai@intel.com>
+Subject: [PATCH v4 3/5] i40e: Kernel dependency update for i40e to support geneve offload
+Date: Mon, 14 Dec 2015 11:57:58 -0800
+Message-ID: <1450123080-206406-4-git-send-email-anjali.singhai@intel.com>
 References: <1450123080-206406-1-git-send-email-anjali.singhai@intel.com>
 Cc: jeffrey.t.kirsher@intel.com,
 	Anjali Singhai Jain <anjali.singhai@intel.com>,
@@ -10,113 +10,41 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:45318 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752586AbbLNTlS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Dec 2015 14:41:18 -0500
+	id S1751470AbbLNTlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 14:41:17 -0500
 In-Reply-To: <1450123080-206406-1-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ndo_ops to add/del UDP ports to a device that supports geneve
-offload.
-
-v2: Comment fix.
+Update the Kconfig file with dependency for supporting GENEVE tunnel
+offloads.
 
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 ---
- drivers/net/geneve.c      | 23 +++++++++++++++++++++++
- include/linux/netdevice.h | 20 +++++++++++++++++++-
- 2 files changed, 42 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/Kconfig | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 0750d7a..89325e4 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -380,8 +380,11 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 4163b16..fa593dd 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -280,6 +280,16 @@ config I40E_VXLAN
+ 	  Say Y here if you want to use Virtual eXtensible Local Area Network
+ 	  (VXLAN) in the driver.
  
- static void geneve_notify_add_rx_port(struct geneve_sock *gs)
- {
-+	struct net_device *dev;
- 	struct sock *sk = gs->sock->sk;
-+	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
-+	__be16 port = inet_sk(sk)->inet_sport;
- 	int err;
- 
- 	if (sa_family == AF_INET) {
-@@ -390,6 +393,14 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
- 			pr_warn("geneve: udp_add_offload failed with status %d\n",
- 				err);
- 	}
++config I40E_GENEVE
++	bool "Generic Network Virtualization Encapsulation (GENEVE) Support"
++	depends on I40E && GENEVE && !(I40E=y && GENEVE=m)
++	default n
++	---help---
++	  This allows one to create GENEVE virtual interfaces that provide
++	  Layer 2 Networks over Layer 3 Networks. GENEVE is often used
++	  to tunnel virtual network infrastructure in virtualized environments.
++	  Say Y here if you want to use GENEVE in the driver.
 +
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		if (dev->netdev_ops->ndo_add_geneve_port)
-+			dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
-+							     port);
-+	}
-+	rcu_read_unlock();
- }
- 
- static int geneve_hlen(struct genevehdr *gh)
-@@ -530,8 +541,20 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
- 
- static void geneve_notify_del_rx_port(struct geneve_sock *gs)
- {
-+	struct net_device *dev;
- 	struct sock *sk = gs->sock->sk;
-+	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
-+	__be16 port = inet_sk(sk)->inet_sport;
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		if (dev->netdev_ops->ndo_del_geneve_port)
-+			dev->netdev_ops->ndo_del_geneve_port(dev, sa_family,
-+							     port);
-+	}
-+
-+	rcu_read_unlock();
- 
- 	if (sa_family == AF_INET)
- 		udp_del_offload(&gs->udp_offloads);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1bb21ff..82065a7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1013,6 +1013,19 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	a new port starts listening. The operation is protected by the
-  *	vxlan_net->sock_lock.
-  *
-+ * void (*ndo_add_geneve_port)(struct net_device *dev,
-+ *			      sa_family_t sa_family, __be16 port);
-+ *	Called by geneve to notify a driver about the UDP port and socket
-+ *	address family that geneve is listnening to. It is called only when
-+ *	a new port starts listening. The operation is protected by the
-+ *	geneve_net->sock_lock.
-+ *
-+ * void (*ndo_del_geneve_port)(struct net_device *dev,
-+ *			      sa_family_t sa_family, __be16 port);
-+ *	Called by geneve to notify the driver about a UDP port and socket
-+ *	address family that geneve is not listening to anymore. The operation
-+ *	is protected by the geneve_net->sock_lock.
-+ *
-  * void (*ndo_del_vxlan_port)(struct  net_device *dev,
-  *			      sa_family_t sa_family, __be16 port);
-  *	Called by vxlan to notify the driver about a UDP port and socket
-@@ -1217,7 +1230,12 @@ struct net_device_ops {
- 	void			(*ndo_del_vxlan_port)(struct  net_device *dev,
- 						      sa_family_t sa_family,
- 						      __be16 port);
--
-+	void			(*ndo_add_geneve_port)(struct  net_device *dev,
-+						       sa_family_t sa_family,
-+						       __be16 port);
-+	void			(*ndo_del_geneve_port)(struct  net_device *dev,
-+						       sa_family_t sa_family,
-+						       __be16 port);
- 	void*			(*ndo_dfwd_add_station)(struct net_device *pdev,
- 							struct net_device *dev);
- 	void			(*ndo_dfwd_del_station)(struct net_device *pdev,
+ config I40E_DCB
+ 	bool "Data Center Bridging (DCB) Support"
+ 	default n
 -- 
 1.8.1.4
