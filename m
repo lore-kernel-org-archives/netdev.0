@@ -1,96 +1,41 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 1/2] vlan: Fix untag operations of stacked vlans with
- REORDER_HEADER off
-Date: Mon, 14 Dec 2015 15:51:30 +0100
-Message-ID: <566ED772.8070600@6wind.com>
-References: <1447706625-25979-1-git-send-email-vyasevic@redhat.com>
- <1447706625-25979-2-git-send-email-vyasevic@redhat.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Edward Cree <ecree@solarflare.com>
+Subject: [RFC PATCH net-next 0/2] Local checksum offload for VXLAN
+Date: Mon, 14 Dec 2015 15:11:18 +0000
+Message-ID: <566EDC16.1060706@solarflare.com>
+References: <5669E066.8090703@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: phil@nwl.cc, kaber@trash.net,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:33094 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588AbbLNOvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 09:51:33 -0500
-Received: by mail-wm0-f53.google.com with SMTP id n186so49473475wmn.0
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 06:51:32 -0800 (PST)
-In-Reply-To: <1447706625-25979-2-git-send-email-vyasevic@redhat.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:28102 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752442AbbLNPL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 10:11:26 -0500
+In-Reply-To: <5669E066.8090703@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 16/11/2015 21:43, Vladislav Yasevich a =C3=A9crit :
-> When we have multiple stacked vlan devices all of which have
-> turned off REORDER_HEADER flag, the untag operation does not
-> locate the ethernet addresses correctly for nested vlans.
-> The reason is that in case of REORDER_HEADER flag being off,
-> the outer vlan headers are put back and the mac_len is adjusted
-> to account for the presense of the header.  Then, the subsequent
-> untag operation, for the next level vlan, always use VLAN_ETH_HLEN
-> to locate the begining of the ethernet header and that ends up
-> being a multiple of 4 bytes short of the actuall beginning
-> of the mac header (the multiple depending on the how many vlan
-> encapsulations ethere are).
->
-> As a reslult, if there are multiple levles of vlan devices
-> with REODER_HEADER being off, the recevied packets end up
-> being dropped.
->
-> To solve this, we use skb->mac_len as the offset.  The value
-> is always set on receive path and starts out as a ETH_HLEN.
-> The value is also updated when the vlan header manupations occur
-> so we know it will be correct.
->
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
->   net/core/skbuff.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index fab4599..160193f 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4268,7 +4268,8 @@ static struct sk_buff *skb_reorder_vlan_header(=
-struct sk_buff *skb)
->   		return NULL;
->   	}
->
-> -	memmove(skb->data - ETH_HLEN, skb->data - VLAN_ETH_HLEN, 2 * ETH_AL=
-EN);
-> +	memmove(skb->data - ETH_HLEN, skb->data - skb->mac_len,
-> +		2 * ETH_ALEN);
->   	skb->mac_header +=3D VLAN_HLEN;
->   	return skb;
->   }
->
-This patch breaks the following test case: a vlan packet is received by=
- an
-e1000 interface. Here is the configuration of the interface:
-$ ethtool -k ntfp2 | grep "vlan\|offload"
-tcp-segmentation-offload: off
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: off
-tx-vlan-offload: off [fixed]
-rx-vlan-filter: on [fixed]
-vlan-challenged: off [fixed]
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
+When the inner packet checksum is offloaded, the outer UDP checksum is easy
+ to calculate as it doesn't depend on the payload (because the inner checksum
+ cancels out everything from the inner packet except the pseudo header).
+Thus, transmit checksums for VXLAN (and in principle other encapsulations,
+ but I haven't enabled it for / tested with those) can be offloaded on any
+ device supporting NETIF_F_HW_CSUM.  Only the innermost checksum has to be
+ offloaded, the rest are filled in by the stack.
+Tested by hacking a driver to report NETIF_F_HW_CSUM, call skb_checksum_help
+ before transmitting a packet, and not actually offload anything to the hw.
+ I did it that way because I don't have any hw that can actually offload the
+ inner checksum; but I should be able to get hold of some soon.
 
-The vlan header is not removed by the driver. It calls dev_gro_receive(=
-) which
-sets the network header to +14, thus mac_len is also sets to 14 and
-skb_reorder_vlan_header() do a wrong memmove() (the packet is dropped).
-Not sure who is responsible to update mac_len before skb_vlan_untag() i=
-s
-called. Any suggestions?
+Edward Cree (2):
+  net: udp: local checksum offload for encapsulation
+  net: vxlan: enable local checksum offload on HW_CSUM devices
+
+ drivers/net/vxlan.c |  5 ++++-
+ net/ipv4/udp.c      | 31 +++++++++++++++++++++++++++----
+ 2 files changed, 31 insertions(+), 5 deletions(-)
+
+-- 
+2.4.3
