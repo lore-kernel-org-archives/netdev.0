@@ -1,58 +1,121 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: [PATCH] chelsio: add support for other 10G boards
-Date: Mon, 14 Dec 2015 22:58:42 +0300
-Message-ID: <20151214195842.GA20848@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: shemminger@osdl.org
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
+Subject: [PATCH v5 1/5] geneve: Add geneve udp port offload for ethernet devices
+Date: Mon, 14 Dec 2015 12:21:17 -0800
+Message-ID: <1450124481-206978-2-git-send-email-anjali.singhai@intel.com>
+References: <1450124481-206978-1-git-send-email-anjali.singhai@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	jeffrey.t.kirsher@intel.com, Kiran Patil <kiran.patil@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:49009 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801AbbLNT65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:58:57 -0500
-Content-Disposition: inline
+Received: from mga04.intel.com ([192.55.52.120]:35429 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751455AbbLNUD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 15:03:56 -0500
+In-Reply-To: <1450124481-206978-1-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Stephen Hemminger,
+Add ndo_ops to add/del UDP ports to a device that supports geneve
+offload.
 
-The patch f1d3d38af757: "[PATCH] chelsio: add support for other 10G
-boards" from Dec 1, 2006, leads to the following static checker
-warning:
+v2: Comment fix.
 
-	drivers/net/ethernet/chelsio/cxgb/subr.c:630 t1_link_start()
-	warn: was shift intended here '(mac->adapter->params.nports < 2)'
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+---
+ drivers/net/geneve.c      | 23 +++++++++++++++++++++++
+ include/linux/netdevice.h | 20 +++++++++++++++++++-
+ 2 files changed, 42 insertions(+), 1 deletion(-)
 
-drivers/net/ethernet/chelsio/cxgb/subr.c
-   623  int t1_link_start(struct cphy *phy, struct cmac *mac, struct link_config *lc)
-   624  {
-   625          unsigned int fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
-   626  
-   627          if (lc->supported & SUPPORTED_Autoneg) {
-   628                  lc->advertising &= ~(ADVERTISED_ASYM_PAUSE | ADVERTISED_PAUSE);
-   629                  if (fc) {
-   630                          if (fc == ((PAUSE_RX | PAUSE_TX) &
-   631                                     (mac->adapter->params.nports < 2)))
-
-This condition is never weird.  PAUSE_RX is 1.  PAUSE_TX is 2.
-The nports < 2 condition is either 0 or 1.  We know fc is in 1-3 range.
-
-We could re-write it as:
-
-	if (fc == 1 && mac->adapter->params.nports < 2)
-
-The static checker is suggesting that we could do nports << 2 but then
-the condition would never be true so that can't be right.
-
-   632                                  lc->advertising |= ADVERTISED_PAUSE;
-   633                          else {
-   634                                  lc->advertising |= ADVERTISED_ASYM_PAUSE;
-   635                                  if (fc == PAUSE_RX)
-   636                                          lc->advertising |= ADVERTISED_PAUSE;
-   637                          }
-   638                  }
-   639                  phy->ops->advertise(phy, lc->advertising);
-
-regards,
-dan carpenter
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 0750d7a..89325e4 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -380,8 +380,11 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+ 
+ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+ {
++	struct net_device *dev;
+ 	struct sock *sk = gs->sock->sk;
++	struct net *net = sock_net(sk);
+ 	sa_family_t sa_family = sk->sk_family;
++	__be16 port = inet_sk(sk)->inet_sport;
+ 	int err;
+ 
+ 	if (sa_family == AF_INET) {
+@@ -390,6 +393,14 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+ 			pr_warn("geneve: udp_add_offload failed with status %d\n",
+ 				err);
+ 	}
++
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev) {
++		if (dev->netdev_ops->ndo_add_geneve_port)
++			dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
++							     port);
++	}
++	rcu_read_unlock();
+ }
+ 
+ static int geneve_hlen(struct genevehdr *gh)
+@@ -530,8 +541,20 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
+ 
+ static void geneve_notify_del_rx_port(struct geneve_sock *gs)
+ {
++	struct net_device *dev;
+ 	struct sock *sk = gs->sock->sk;
++	struct net *net = sock_net(sk);
+ 	sa_family_t sa_family = sk->sk_family;
++	__be16 port = inet_sk(sk)->inet_sport;
++
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev) {
++		if (dev->netdev_ops->ndo_del_geneve_port)
++			dev->netdev_ops->ndo_del_geneve_port(dev, sa_family,
++							     port);
++	}
++
++	rcu_read_unlock();
+ 
+ 	if (sa_family == AF_INET)
+ 		udp_del_offload(&gs->udp_offloads);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1bb21ff..82065a7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1013,6 +1013,19 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	a new port starts listening. The operation is protected by the
+  *	vxlan_net->sock_lock.
+  *
++ * void (*ndo_add_geneve_port)(struct net_device *dev,
++ *			      sa_family_t sa_family, __be16 port);
++ *	Called by geneve to notify a driver about the UDP port and socket
++ *	address family that geneve is listnening to. It is called only when
++ *	a new port starts listening. The operation is protected by the
++ *	geneve_net->sock_lock.
++ *
++ * void (*ndo_del_geneve_port)(struct net_device *dev,
++ *			      sa_family_t sa_family, __be16 port);
++ *	Called by geneve to notify the driver about a UDP port and socket
++ *	address family that geneve is not listening to anymore. The operation
++ *	is protected by the geneve_net->sock_lock.
++ *
+  * void (*ndo_del_vxlan_port)(struct  net_device *dev,
+  *			      sa_family_t sa_family, __be16 port);
+  *	Called by vxlan to notify the driver about a UDP port and socket
+@@ -1217,7 +1230,12 @@ struct net_device_ops {
+ 	void			(*ndo_del_vxlan_port)(struct  net_device *dev,
+ 						      sa_family_t sa_family,
+ 						      __be16 port);
+-
++	void			(*ndo_add_geneve_port)(struct  net_device *dev,
++						       sa_family_t sa_family,
++						       __be16 port);
++	void			(*ndo_del_geneve_port)(struct  net_device *dev,
++						       sa_family_t sa_family,
++						       __be16 port);
+ 	void*			(*ndo_dfwd_add_station)(struct net_device *pdev,
+ 							struct net_device *dev);
+ 	void			(*ndo_dfwd_del_station)(struct net_device *pdev,
+-- 
+1.8.1.4
