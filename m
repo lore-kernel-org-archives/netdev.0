@@ -1,22 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Minor PPP devices improvements
-Date: Mon, 14 Dec 2015 16:21:23 -0500 (EST)
-Message-ID: <20151214.162123.1224487737448145823.davem@davemloft.net>
-References: <cover.1449859708.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH] wan: wanxl: add pci_disable_device in case of error
+Date: Mon, 14 Dec 2015 16:22:19 -0500 (EST)
+Message-ID: <20151214.162219.1631096471928074532.davem@davemloft.net>
+References: <1449862099-6256-1-git-send-email-saurabh.truth@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
-To: g.nault@alphalink.fr
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <cover.1449859708.git.g.nault@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: saurabh.truth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1449862099-6256-1-git-send-email-saurabh.truth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 11 Dec 2015 19:54:47 +0100
+From: Saurabh Sengar <saurabh.truth@gmail.com>
+Date: Sat, 12 Dec 2015 00:58:19 +0530
 
-> Let PPP devices be friendlier to user space by registering their device
-> type and reporting their interface naming scheme.
+> If there is 'no suitable DMA available' error, device should be disabled
+> before returning
+> 
+> Signed-off-by: Saurabh Sengar <saurabh.truth@gmail.com>
 
-Series applied, thanks.
+Applied to net-next, thanks.
