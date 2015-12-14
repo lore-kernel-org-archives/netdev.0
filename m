@@ -1,46 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 net] ravb: clear RIC1 in init instead of stop
-Date: Mon, 14 Dec 2015 19:57:39 +0300
-Message-ID: <566EF503.10304@cogentembedded.com>
-References: <1450110298-21392-1-git-send-email-ykaneko0929@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net] netlink: fix boolean evaluation on bound
+Date: Tue, 15 Dec 2015 01:06:42 +0800
+Message-ID: <20151214170642.GA4180@gondor.apana.org.au>
+References: <1450112125-29848-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:35588 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356AbbLNQ5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 11:57:42 -0500
-Received: by lbpu9 with SMTP id u9so103631181lbp.2
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 08:57:41 -0800 (PST)
-In-Reply-To: <1450110298-21392-1-git-send-email-ykaneko0929@gmail.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:34664 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751787AbbLNRGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 12:06:45 -0500
+Content-Disposition: inline
+In-Reply-To: <1450112125-29848-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/14/2015 07:24 PM, Yoshihiro Kaneko wrote:
-
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> AVB-DMAC Receive FIFO Warning interrupt is not enabled, so it is not
-> necessary to disable the interrupt in ravb_close().
-> On the other hand, this patch disables the interrupt in ravb_dmac_init() to
-> prevent the possibility that the interrupt is issued by the state that
-> a boot loader left.
->
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
+On Mon, Dec 14, 2015 at 05:55:25PM +0100, Hannes Frederic Sowa wrote:
+> portid may be 0, thus bound will set the flag to false for in-kernel
+> created netlink sockets.
+> 
+> Fixes: da314c9923fed55 ("netlink: Replace rhash_portid with bound")
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
->
-> This patch is based on the master branch of David Miller's networking
-> tree.
+> This patch should not affect anything and is just meant to close this
+> loophole in future. I based it on net, but you can also apply it to
+> net-next.
 
-    I think this should rather go into net-next.git though...
+Nack.  The bound field only needs to be true for user-space sockets.
+So please explain why you need it to be true for kernel sockets.
 
-MBR, Sergei
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
