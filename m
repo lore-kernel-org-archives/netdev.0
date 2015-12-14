@@ -1,40 +1,64 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: sbc8641: drop bogus PHY IRQ entries from DTS file
-Date: Mon, 14 Dec 2015 20:46:38 +1100 (AEDT)
-Message-ID: <20151214094638.87145140557@ozlabs.org>
-References: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: use-after-free in sctp_do_sm
+Date: Mon, 14 Dec 2015 09:50:36 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBEC96A@AcuExch.aculab.com>
+References: <5665EE26.3000706@gmail.com> <5665F17B.5030908@gmail.com>
+ <CACT4Y+ad0YGve+KB8wiv6f1+eHt9Ci19FGM0SMWQvJFSez+Rcw@mail.gmail.com>
+ <20151208174039.GB22987@mrl.redhat.com>
+ <CACT4Y+b1OEE9NqN3J5574iN7t8NEi9jPc2Hxoj6AMHZKjCJ-mg@mail.gmail.com>
+ <CACT4Y+YYbC53awV4eiDAwjJO=WHYGv3Og3XDh-gTFB1q_w0YXQ@mail.gmail.com>
+ <20151209150356.GA3886@mrl.redhat.com>
+ <20151209164108.GB3886@mrl.redhat.com>
+ <CACT4Y+YPEqETP7NTOwJ6=4yYoAmM30qv6oRgw7apSS3+UwusAg@mail.gmail.com>
+ <566AD4D9.90608@gmail.com> <20151211140333.GE3886@mrl.redhat.com>
+ <566B1800.60100@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	"Alexander Potapenko" <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:47445 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932105AbbLNJqj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Dec 2015 04:46:39 -0500
-In-Reply-To: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from smtp-out6.electric.net ([192.162.217.188]:59386 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932183AbbLNJwu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 04:52:50 -0500
+In-Reply-To: <566B1800.60100@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-08-12 at 22:44:02 UTC, Paul Gortmaker wrote:
-> This file was originally cloned off of the MPC8641D-HPCN reference
-> platform, which actually had a PHY IRQ line connected.  However
-> this board does not.  The bogus entry was largely inert and went
-> undetected until commit 321beec5047af83db90c88114b7e664b156f49fe
-> ("net: phy: Use interrupts when available in NOLINK state") was
-> added to the tree.
+From: Vlad Yasevich
+> Sent: 11 December 2015 18:38
+...
+> > Found a similar place in abort primitive handling like in this last
+> > patch update, it's probably the issue you're still triggering.
+> >
+> > Also found another place that may lead to this use after free, in case
+> > we receive a packet with a chunk that has no data.
+> >
+> > Oh my.. :)
 > 
-> With the above commit, the board fails to NFS boot since it sits
-> waiting for a PHY IRQ event that of course never arrives.  Removing
-> the bogus entries from the DTS file fixes the issue.
+> Yes.  This is what I was worried about...  Anything that triggers
+> a DELTE_TCB command has to return a code that we can trap.
 > 
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> The other way is to do what Dmitri suggested, but even there, we
+> need to be very careful.
 
-Applied to powerpc fixes, thanks.
+I'm always wary of anything that queues actions up for later processing.
+It is far too easy (as found here) to end up processing actions
+in invalid states, or to process actions in 'unusual' orders when
+specific events happen close together.
 
-https://git.kernel.org/powerpc/c/5b01310cfc8d2302dcca1d8d
+I wonder how much fallout there'd be from getting the sctp code
+to immediately action things, instead of queuing the actions for later.
+It would certainly remove a lot of the unusual combinations of events.
 
-cheers
+	David
