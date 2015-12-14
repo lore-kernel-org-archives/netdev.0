@@ -1,33 +1,27 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 0/4] Replace tty->closing
-Date: Sun, 13 Dec 2015 20:02:46 -0800
-Message-ID: <20151214040246.GA2026@kroah.com>
-References: <1447020173-32207-1-git-send-email-peter@hurleysoftware.com>
- <1447071353-2961-1-git-send-email-peter@hurleysoftware.com>
- <566E0A64.4080509@hurleysoftware.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] 100GbE Intel Wired LAN Driver
+ Updates 2015-12-13
+Date: Sun, 13 Dec 2015 23:21:12 -0500 (EST)
+Message-ID: <20151213.232112.630845891734492437.davem@davemloft.net>
+References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby@suse.cz>, linux-kernel@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org,
-	Johannes Stezenbach <js@sig21.net>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Jesper Nilsson <jesper.nilsson@axis.com>,
-	Mikael Starvik <starvik@axis.com>,
-	Jiri Kosina <jikos@kernel.org>,
-	David Sterba <dsterba@suse.com>,
-	Mark Hounschell <markh@compro.net>
-To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <566E0A64.4080509@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43797 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932096AbbLNEVS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 23:21:18 -0500
+In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 13, 2015 at 04:16:36PM -0800, Peter Hurley wrote:
-> Greg,
-> 
-> Would you drop these 4 patches from tty-testing please?
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sun, 13 Dec 2015 16:27:32 -0800
 
-Now dropped.
+> This series contains updates to fm10k only.
+
+Pulled, thanks Jeff.
