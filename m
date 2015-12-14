@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] openvswitch: fix trivial comment typo
-Date: Mon, 14 Dec 2015 14:00:22 -0500 (EST)
-Message-ID: <20151214.140022.2303208414121788568.davem@davemloft.net>
-References: <aa5f132cc2095dbce252b320ca50c275c85ef4fa.1450092360.git.pabeni@redhat.com>
+Subject: Re: [PATCH net-next] sched/cls_flow.c
+Date: Mon, 14 Dec 2015 14:12:51 -0500 (EST)
+Message-ID: <20151214.141251.1256607903523580851.davem@davemloft.net>
+References: <CADo-kff8vOq8YzvB8R+LOCUyfhx9+=QRhsLLa-eP9M+i3m5rcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, trivial@kernel.org,
-	joestringer@nicira.com, dev@openvswitch.org
-To: pabeni@redhat.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: i.o.gavrilov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58639 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58798 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932175AbbLNTA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:00:26 -0500
-In-Reply-To: <aa5f132cc2095dbce252b320ca50c275c85ef4fa.1450092360.git.pabeni@redhat.com>
+	with ESMTP id S932077AbbLNTMx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:12:53 -0500
+In-Reply-To: <CADo-kff8vOq8YzvB8R+LOCUyfhx9+=QRhsLLa-eP9M+i3m5rcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Mon, 14 Dec 2015 14:29:58 +0100
+From: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Date: Mon, 14 Dec 2015 10:43:35 +0200
 
-> The commit 33db4125ec74 ("openvswitch: Rename LABEL->LABELS") left
-> over an old OVS_CT_ATTR_LABEL instance, fix it.
+> From: Igor Gavrilov <i.o.gavrilov@gmail.com>
 > 
-> Fixes: 33db4125ec74 ("openvswitch: Rename LABEL->LABELS")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
+> able to get unNATed addresses from nf_conntrack on ingress interface.
+> 
+> Signed-off-by: Igor Gavrilov <i.o.gavrilov@gmail.com>
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Applied, thanks.
+Your patch was mangled by your email client.
+
+Please email a test patch to yourself, and DO NOT try to resubmit this patch
+to the mailing list until you can successfully apply the patch you receive
+in that test email.
