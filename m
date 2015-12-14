@@ -1,50 +1,47 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH 2/2] net: vxlan: enable local checksum offload on HW_CSUM
- devices
-Date: Mon, 14 Dec 2015 15:13:29 +0000
-Message-ID: <566EDC99.1010604@solarflare.com>
-References: <566EDC16.1060706@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Tom Herbert <tom@herbertland.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2] ip, route: fix minor compile warning
+Date: Mon, 14 Dec 2015 16:34:29 +0100
+Message-ID: <c43f41f31854bb0a27cc6cd6d9e465a28a94ffb9.1450106992.git.daniel@iogearbox.net>
+Cc: phil@nwl.cc, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:5794 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751061AbbLNPNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 10:13:37 -0500
-In-Reply-To: <566EDC16.1060706@solarflare.com>
+Received: from www62.your-server.de ([213.133.104.62]:49542 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752513AbbLNPec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 10:34:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/vxlan.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Seems like gcc (4.8.3) doesn't catch this false positive, triggering
+after 0f7543322c5f ("route: ignore RTAX_HOPLIMIT of value -1"):
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 6369a57..c1660d6 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1785,6 +1785,9 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 	bool udp_sum = !!(vxflags & VXLAN_F_UDP_CSUM);
- 	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 	u16 hdrlen = sizeof(struct vxlanhdr);
-+	/* Is device able to do the inner checksum? */
-+	bool inner_csum = skb_dst(skb) && skb_dst(skb)->dev &&
-+				(skb_dst(skb)->dev->features & NETIF_F_HW_CSUM);
+  iproute.c: In function 'print_route':
+  iproute.c:301:12: warning: 'val' may be used uninitialized in this function [-Wmaybe-uninitialized]
+     features &= ~RTAX_FEATURE_ECN;
+              ^
+  iproute.c:575:10: note: 'val' was declared here
+      __u32 val;
+            ^
+So just shut it up by initializing to 0.
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ ip/iproute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index c42ea0b..867c8da 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -572,7 +572,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			mxlock = *(unsigned*)RTA_DATA(mxrta[RTAX_LOCK]);
  
- 	if ((vxflags & VXLAN_F_REMCSUM_TX) &&
- 	    skb->ip_summed == CHECKSUM_PARTIAL) {
-@@ -1814,7 +1817,7 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 	if (WARN_ON(!skb))
- 		return -ENOMEM;
+ 		for (i=2; i<= RTAX_MAX; i++) {
+-			__u32 val;
++			__u32 val = 0;
  
--	skb = iptunnel_handle_offloads(skb, udp_sum, type);
-+	skb = iptunnel_handle_offloads(skb, udp_sum && !inner_csum, type);
- 	if (IS_ERR(skb))
- 		return PTR_ERR(skb);
- 
+ 			if (mxrta[i] == NULL)
+ 				continue;
 -- 
-2.4.3
+1.9.3
