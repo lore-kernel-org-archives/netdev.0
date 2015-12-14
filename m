@@ -1,105 +1,138 @@
-From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: Re: [PATCH] drivers: net: cpsw: fix RMII/RGMII mode when used with
- fixed-link PHY
-Date: Mon, 14 Dec 2015 13:04:46 -0500
-Message-ID: <20151214130446.1e14fbb8.drivshin.allworx@gmail.com>
-References: <20151209223115.6c5a400f.drivshin.allworx@gmail.com>
-	<6416396.ZOturxhSar@localhost>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2] Driver for IBM System i/p VNIC protocol
+Date: Mon, 14 Dec 2015 12:05:10 -0600
+Message-ID: <566F04D6.3030007@linux.vnet.ibm.com>
+References: <1449597139-8338-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <20151211.195358.1764064794354600517.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Pascal Speck <kernel@iktek.de>,
-	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>
-To: Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, nguyendo@us.ibm.com, formosa@us.ibm.com,
+	jallen@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+	nfont@linux.vnet.ibm.com, linuxppc-dev@lists.ozlabs.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:34363 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752685AbbLNSEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 13:04:49 -0500
-In-Reply-To: <6416396.ZOturxhSar@localhost>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:32896 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932099AbbLNSFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 13:05:17 -0500
+Received: from localhost
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Mon, 14 Dec 2015 11:05:17 -0700
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id AE9E01FF0045
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 10:53:25 -0700 (MST)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id tBEI5Ewk26148980
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:05:14 -0700
+Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id tBEI5D6o018187
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:05:14 -0700
+In-Reply-To: <20151211.195358.1764064794354600517.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 12 Dec 2015 16:44:19 +0100
-Markus Brunner <systemprogrammierung.brunner@gmail.com> wrote:
+On 12/11/2015 06:53 PM, David Miller wrote:
+> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> Date: Tue,  8 Dec 2015 11:52:19 -0600
+>
+>> +static long h_reg_sub_crq(unsigned long unit_address, unsigned long token,
+>> +			  unsigned long length, unsigned long *number,
+>> +			  unsigned long *irq)
+>> +{
+>> +	long rc;
+>> +	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
+> Please declare local variables from longest to shortest line, otherwise
+> known as "reverse christmas tree" order.
+>
+> Audit this in your entire driver.
+>
+>> +	pool->rx_buff = kcalloc(pool->size, sizeof(struct ibmvnic_rx_buff),
+>> +				GFP_KERNEL);
+> Allocation failures not checked until much later in this function, where
+> several other resources have been allocated meanwhile.  That doesn't
+> make any sense at all.
+>
+>> +	adapter->closing = 1;
+> Please use type 'bool' and values 'true' and 'false' for boolean
+> values.
+>
+> Audit this in your entire driver.
+>
+>> +	if (ip_hdr(skb)->version == 4)
+>> +		tx_crq.v1.flags1 |= IBMVNIC_TX_PROT_IPV4;
+>> +	else if (ip_hdr(skb)->version == 6)
+>> +		tx_crq.v1.flags1 |= IBMVNIC_TX_PROT_IPV6;
+>> +
+> You cannot dereference the protocol header of the SKB without
+> first checking the skb->protocol value, otherwise you're looking
+> at garbage.
+>
+>> +static int ibmvnic_set_mac(struct net_device *netdev, void *p)
+>> +{
+>> +	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+>> +	struct sockaddr *addr = p;
+>> +	union ibmvnic_crq crq;
+>> +
+>> +	if (!is_valid_ether_addr(addr->sa_data))
+>> +		return -EADDRNOTAVAIL;
+>> +
+>> +	memset(&crq, 0, sizeof(crq));
+>> +	crq.change_mac_addr.first = IBMVNIC_CRQ_CMD;
+>> +	crq.change_mac_addr.cmd = CHANGE_MAC_ADDR;
+>> +	ether_addr_copy(&crq.change_mac_addr.mac_addr[0], addr->sa_data);
+>> +	ibmvnic_send_crq(adapter, &crq);
+>> +
+>> +	return 0;
+>> +}
+> You are responsible for copying the new MAC address into dev->dev_addr
+> on success.
 
-> On Wednesday 09 December 2015 22:31:15 David Rivshin wrote:
-> ...
-> > This patch was originally developed in parallel with 1f71e8c96fc6 to
-> > accomplish the same goal. When I replaced this patch with
-> > 1f71e8c96fc6, I found that it did not work on my hardware (which
-> > uses RGMII), so I am submitting this patch now as a bugfix. 
-> 
-> Your patch works fine on my board, which uses MII and dual_emac with
-> a fixed_phy and a real one. 
+We do this in another function (handle_change_mac_rsp), which handles the response from firmware indicating whether the CHANGE_MAC_ADDR command was successful.  Is this acceptable? 
 
-Thanks for checking. The only dual_emac board I have available is the 
-EVMSK, which has two real PHYs. I'm not sure of the usual etiquette 
-(and Google was  unhelpful), should I add a Tested-by on the next 
-version?
+Thank you for your review comments and your time.
 
-> > Besides fixing the bug mentioned in the commit log, there are a few
-> > other differences to note:
-> >  * If both "phy_id" and a "fixed-link" subnode are present this
-> > patch will use the "phy_id" property. This should preserve current
-> > behavior with existing devicetrees that might incorrectly have
-> > both. This motivates the biggest difference in code organization
-> > from 1f71e8c96fc6.
-> >  * Some error messages have been tweaked to reflect the slightly
-> > changed meanings of the checks.
-> 
-> I wanted to keep changes small and didn't spend too much thinking
-> about already broken devicetrees. Since my patch is quite new, I
-
-I'm honestly not sure it's an important consideration myself. Most
-patches I've seen in this area for this or other drivers do not take 
-such behavior into account (e.g. the phy-handle parsing that went in 
-to cpsw in 4.3).
-I would generally feel more comfortable with such a behavior tweak
-(minor as it is) before 4.4 is released, to avoid ping-ponging the
-behavior. But given how far along the cycle is, I'm not sure about 
-the chances of that.
-
-> don't see any problems with subtle changes like that. However you
-> should update the documentation as well. 
-
-Your patch already updated .../bindings/net/cpsw.txt, which this
-patch left alone. Are you referring to some other documentation, 
-or do you think I should update the binding documentation to state
-that phy_id takes precedence over fixed-link? I figured that such
-devicetrees were still officially malformed, so I thought the 
-existing text was appropriate.
-
-> >  * of_node_get() is called on slave_node before passing the result
-> > to of_phy_find_device(). This increments the reference count, which
-> > I believe is correct for this situation, but I'm not certain of
-> > that.
-> I think you are right. At least most other drivers calling
-> of_phy_register_fixed_link(), call of_node_get afterwards. I can't
-> remember where I got my "inspiration" for the patch. I made it almost
-> a year ago and now 3 other guys tinker with the same feature? What a
-> coincidence ;-)
-
-Perhaps not a complete coincidence. I first wrote this patch a few 
-months ago against 4.1. While I had always intended on submitting when 
-time allowed, testing your patch gave me an extra push.
-
-[...]
-
-> > --- a/drivers/net/ethernet/ti/cpsw.c
-> > +++ b/drivers/net/ethernet/ti/cpsw.c
-> > @@ -26,6 +26,7 @@
-> >  #include <linux/netdevice.h>
-> >  #include <linux/net_tstamp.h>
-> >  #include <linux/phy.h>
-> > +#include <linux/phy_fixed.h>
-> 
-> The prototypes for of_*_fixed_link are in linux/of_mdio.h, which is
-> already included.
-
-You are correct; I forget why I had originally included that. I will 
-remove it for v2.
+>
+>> +static int ibmvnic_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
+>> +			     int cmd)
+>> +{
+>  ...
+>> +	return 0;
+>> +}
+>> +
+>> +static int ibmvnic_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+>> +{
+>> +	switch (cmd) {
+>> +	case SIOCGMIIPHY:
+>> +	case SIOCGMIIREG:
+>> +	case SIOCSMIIREG:
+>> +		return ibmvnic_mii_ioctl(netdev, ifr, cmd);
+>> +	default:
+>> +		return -EOPNOTSUPP;
+>> +	}
+>> +}
+> This really doesn't make any sense.  Please just delete this.  You
+> don't support MII reads or writes because they logically don't make
+> sense on this device.
+>
+>> +static struct net_device_stats *ibmvnic_get_stats(struct net_device *dev)
+>> +{
+>> +	struct ibmvnic_adapter *adapter = netdev_priv(dev);
+>> +
+>> +	/* only return the current stats */
+>> +	return &adapter->net_stats;
+>> +}
+> The default method does this for you as long as you properly use
+> net_device's embedded stats, therefore you don't need to provide this
+> at all.
+>
+> That's all I have any energy for, and as you can see nobody else wants
+> to even try to review this driver.
+>
+> It's going to take a lot of respins and time before this driver is
+> ready for upstream inclusion.
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@lists.ozlabs.org
+> https://lists.ozlabs.org/listinfo/linuxppc-dev
