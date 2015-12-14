@@ -1,139 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] fm10k: conditionally compile DCB and DebugFS support
-Date: Sun, 13 Dec 2015 16:27:39 -0800
-Message-ID: <1450052867-36654-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] fm10k: use ether_addr_copy to copy MAC address
+Date: Sun, 13 Dec 2015 16:27:33 -0800
+Message-ID: <1450052867-36654-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:42600 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:41661 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751551AbbLNA1v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 19:27:51 -0500
+	id S1751551AbbLNA1t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 19:27:49 -0500
 In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Rather than wrapping fm10k_dcbnl.c and fm10k_debugfs.c support with
- #ifdef blocks, just conditionally include the .o files in the Makefile.
-Also, since we're modifying it, update the copyright year on the
-Makefile.
+Use the ether_addr_copy function instead of copying byte-by-byte in a
+for-loop by hand.
 
+Reported-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile        | 20 +++++++++++++++-----
- drivers/net/ethernet/intel/fm10k/fm10k.h         |  4 ++++
- drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c   |  4 ----
- drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c |  4 ----
- 4 files changed, 19 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index 08859dd..b006ff6 100644
---- a/drivers/net/ethernet/intel/fm10k/Makefile
-+++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel Ethernet Switch Host Interface Driver
--# Copyright(c) 2013 - 2014 Intel Corporation.
-+# Copyright(c) 2013 - 2015 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-@@ -27,7 +27,17 @@
- 
- obj-$(CONFIG_FM10K) += fm10k.o
- 
--fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
--	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
--	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
--	      fm10k_debugfs.o fm10k_ptp.o fm10k_dcbnl.o
-+fm10k-y := fm10k_main.o \
-+	   fm10k_common.o \
-+	   fm10k_pci.o \
-+	   fm10k_ptp.o \
-+	   fm10k_netdev.o \
-+	   fm10k_ethtool.o \
-+	   fm10k_pf.o \
-+	   fm10k_vf.o \
-+	   fm10k_mbx.o \
-+	   fm10k_iov.o \
-+	   fm10k_tlv.o
-+
-+fm10k-$(CONFIG_DEBUG_FS) += fm10k_debugfs.o
-+fm10k-$(CONFIG_DCB) += fm10k_dcbnl.o
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 8595a3d..02219d9 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -557,5 +557,9 @@ int fm10k_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
- int fm10k_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
- 
- /* DCB */
-+#ifdef CONFIG_DCB
- void fm10k_dcbnl_set_ops(struct net_device *dev);
-+#else
-+static inline void fm10k_dcbnl_set_ops(struct net_device *dev) {}
-+#endif
- #endif /* _FM10K_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
-index 5c7a4d7..2be4361 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
-@@ -20,7 +20,6 @@
- 
- #include "fm10k.h"
- 
--#ifdef CONFIG_DCB
- /**
-  * fm10k_dcbnl_ieee_getets - get the ETS configuration for the device
-  * @dev: netdev interface for the device
-@@ -155,7 +154,6 @@ static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
- 	.setdcbx	= fm10k_dcbnl_setdcbx,
- };
- 
--#endif /* CONFIG_DCB */
- /**
-  * fm10k_dcbnl_set_ops - Configures dcbnl ops pointer for netdev
-  * @dev: netdev interface for the device
-@@ -164,11 +162,9 @@ static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
-  **/
- void fm10k_dcbnl_set_ops(struct net_device *dev)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 8b9b6ba..bbf0b4a 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -266,7 +266,6 @@ static s32 fm10k_read_mac_addr_pf(struct fm10k_hw *hw)
  {
--#ifdef CONFIG_DCB
- 	struct fm10k_intfc *interface = netdev_priv(dev);
- 	struct fm10k_hw *hw = &interface->hw;
+ 	u8 perm_addr[ETH_ALEN];
+ 	u32 serial_num;
+-	int i;
  
- 	if (hw->mac.type == fm10k_mac_pf)
- 		dev->dcbnl_ops = &fm10k_dcbnl_ops;
--#endif /* CONFIG_DCB */
+ 	serial_num = fm10k_read_reg(hw, FM10K_SM_AREA(1));
+ 
+@@ -288,10 +287,8 @@ static s32 fm10k_read_mac_addr_pf(struct fm10k_hw *hw)
+ 	perm_addr[4] = (u8)(serial_num >> 8);
+ 	perm_addr[5] = (u8)(serial_num);
+ 
+-	for (i = 0; i < ETH_ALEN; i++) {
+-		hw->mac.perm_addr[i] = perm_addr[i];
+-		hw->mac.addr[i] = perm_addr[i];
+-	}
++	ether_addr_copy(hw->mac.perm_addr, perm_addr);
++	ether_addr_copy(hw->mac.addr, perm_addr);
+ 
+ 	return 0;
  }
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-index 5304bc1..5d6137f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-@@ -18,8 +18,6 @@
-  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-  */
- 
--#ifdef CONFIG_DEBUG_FS
--
- #include "fm10k.h"
- 
- #include <linux/debugfs.h>
-@@ -258,5 +256,3 @@ void fm10k_dbg_exit(void)
- 	debugfs_remove_recursive(dbg_root);
- 	dbg_root = NULL;
- }
--
--#endif /* CONFIG_DEBUG_FS */
 -- 
 2.5.0
