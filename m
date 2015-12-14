@@ -1,67 +1,76 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/6] netfilter: nfnetlink: fix splat due to incorrect socket memory accounting in skbuff clones
-Date: Mon, 14 Dec 2015 12:25:44 +0100
-Message-ID: <1450092346-3281-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/6] netfilter: nfnetlink_queue: avoid harmless unnitialized variable warnings
+Date: Mon, 14 Dec 2015 12:25:41 +0100
+Message-ID: <1450092346-3281-2-git-send-email-pablo@netfilter.org>
 References: <1450092346-3281-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:47850 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752759AbbLNL15 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 06:27:57 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id E81C4DA24C
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 12:27:55 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id C5D9A29EC0A
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 12:27:55 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B33CBDF6D3
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 12:27:11 +0100 (CET)
 In-Reply-To: <1450092346-3281-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If we attach the sk to the skb from nfnetlink_rcv_batch(), then
-netlink_skb_destructor() will underflow the socket receive memory
-counter and we get warning splat when releasing the socket.
+From: Arnd Bergmann <arnd@arndb.de>
 
-$ cat /proc/net/netlink
-sk       Eth Pid    Groups   Rmem     Wmem     Dump     Locks     Drops     Inode
-ffff8800ca903000 12  0      00000000 -54144   0        0 2        0        17942
-                                     ^^^^^^
+Several ARM default configurations give us warnings on recent
+compilers about potentially uninitialized variables in the
+nfnetlink code in two functions:
 
-Rmem above shows an underflow.
+net/netfilter/nfnetlink_queue.c: In function 'nfqnl_build_packet_message':
+net/netfilter/nfnetlink_queue.c:519:19: warning: 'nfnl_ct' may be used uninitialized in this function [-Wmaybe-uninitialized]
+  if (ct && nfnl_ct->build(skb, ct, ctinfo, NFQA_CT, NFQA_CT_INFO) < 0)
 
-And here below the warning splat:
+Moving the rcu_dereference(nfnl_ct_hook) call outside of the
+conditional code avoids the warning without forcing us to
+preinitialize the variable.
 
-[ 1363.815976] WARNING: CPU: 2 PID: 1356 at net/netlink/af_netlink.c:958 netlink_sock_destruct+0x80/0xb9()
-[...]
-[ 1363.816152] CPU: 2 PID: 1356 Comm: kworker/u16:1 Tainted: G        W       4.4.0-rc1+ #153
-[ 1363.816155] Hardware name: LENOVO 23259H1/23259H1, BIOS G2ET32WW (1.12 ) 05/30/2012
-[ 1363.816160] Workqueue: netns cleanup_net
-[ 1363.816163]  0000000000000000 ffff880119203dd0 ffffffff81240204 0000000000000000
-[ 1363.816169]  ffff880119203e08 ffffffff8104db4b ffffffff813d49a1 ffff8800ca771000
-[ 1363.816174]  ffffffff81a42b00 0000000000000000 ffff8800c0afe1e0 ffff880119203e18
-[ 1363.816179] Call Trace:
-[ 1363.816181]  <IRQ>  [<ffffffff81240204>] dump_stack+0x4e/0x79
-[ 1363.816193]  [<ffffffff8104db4b>] warn_slowpath_common+0x9a/0xb3
-[ 1363.816197]  [<ffffffff813d49a1>] ? netlink_sock_destruct+0x80/0xb9
-
-skb->sk was only needed to lookup for the netns, however we don't need
-this anymore since 633c9a840d0b ("netfilter: nfnetlink: avoid recurrent
-netns lookups in call_batch") so this patch removes this manual socket
-assignment to resolve this problem.
-
-Reported-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-Reported-by: Ben Hutchings <ben@decadent.org.uk>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: a4b4766c3ceb ("netfilter: nfnetlink_queue: rename related to nfqueue attaching conntrack info")
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Tested-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 ---
- net/netfilter/nfnetlink.c | 2 --
- 1 file changed, 2 deletions(-)
+ net/netfilter/nfnetlink_queue.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 445590f..77afe91 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -295,8 +295,6 @@ replay:
- 	if (!skb)
- 		return netlink_ack(oskb, nlh, -ENOMEM);
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 7d81d28..3e24054 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -365,8 +365,9 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		break;
+ 	}
  
--	skb->sk = oskb->sk;
--
- 	nfnl_lock(subsys_id);
- 	ss = rcu_dereference_protected(table[subsys_id].subsys,
- 				       lockdep_is_held(&table[subsys_id].mutex));
++	nfnl_ct = rcu_dereference(nfnl_ct_hook);
++
+ 	if (queue->flags & NFQA_CFG_F_CONNTRACK) {
+-		nfnl_ct = rcu_dereference(nfnl_ct_hook);
+ 		if (nfnl_ct != NULL) {
+ 			ct = nfnl_ct->get_ct(entskb, &ctinfo);
+ 			if (ct != NULL)
+@@ -1064,9 +1065,10 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	if (entry == NULL)
+ 		return -ENOENT;
+ 
++	/* rcu lock already held from nfnl->call_rcu. */
++	nfnl_ct = rcu_dereference(nfnl_ct_hook);
++
+ 	if (nfqa[NFQA_CT]) {
+-		/* rcu lock already held from nfnl->call_rcu. */
+-		nfnl_ct = rcu_dereference(nfnl_ct_hook);
+ 		if (nfnl_ct != NULL)
+ 			ct = nfqnl_ct_parse(nfnl_ct, nlh, nfqa, entry, &ctinfo);
+ 	}
 -- 
 2.1.4
-
