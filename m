@@ -1,48 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/1] net: sctp: dynamically enable or disable pf state
-Date: Mon, 14 Dec 2015 09:53:58 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBEC9E2@AcuExch.aculab.com>
-References: <1449824732-22362-1-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "'zyjzyj2000@gmail.com'" <zyjzyj2000@gmail.com>,
-	"vyasevich@gmail.com" <vyasevich@gmail.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"alexandre.dietsch@windriver.com" <alexandre.dietsch@windriver.com>,
-	"stefan.costandache@windriver.com" <stefan.costandache@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:52204 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932150AbbLNJ4N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 04:56:13 -0500
-In-Reply-To: <1449824732-22362-1-git-send-email-zyjzyj2000@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH] net/mlx4_core: fix handling return value of
+ mlx4_slave_convert_port
+Date: Mon, 14 Dec 2015 11:05:58 +0100
+Message-ID: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
+Cc: Andrzej Hajda <a.hajda@samsung.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: zyjzyj2000@gmail.com
-> Sent: 11 December 2015 09:06
-...
-> +pf_enable - INTEGER
-> +	Enable or disable pf state. A value of pf_retrans > path_max_retrans
-> +	also disables pf state. That is, one of both pf_enable and
-> +	pf_retrans > path_max_retrans can disable pf state. Since pf_retrans
-> +	and path_max_retrans can be changed by userspace application, sometimes
-> +	user expects to disable pf state by the value of
-> +	pf_retrans > path_max_retrans, but ocassionally the value of pf_retrans
-> +	or path_max_retrans is changed by the user application, this pf state is
-> +	enabled. As such, it is necessary to add this to dynamically enable
-> +	and disable pf state.
-> +
-> +	1: Enable pf.
-> +
-> +	0: Disable pf.
-> +
-> +	Default: 1
+The function can return negative values, so its result should
+be assigned to signed variable.
 
-You ought to say what 'pf' is short for.
+The problem has been detected using proposed semantic patch
+scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
 
-	David
+[1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index da7f578..b46dbe2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -4331,9 +4331,10 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 		return -EOPNOTSUPP;
+ 
+ 	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)inbox->buf;
+-	ctrl->port = mlx4_slave_convert_port(dev, slave, ctrl->port);
+-	if (ctrl->port <= 0)
++	err = mlx4_slave_convert_port(dev, slave, ctrl->port);
++	if (err <= 0)
+ 		return -EINVAL;
++	ctrl->port = err;
+ 	qpn = be32_to_cpu(ctrl->qpn) & 0xffffff;
+ 	err = get_res(dev, slave, qpn, RES_QP, &rqp);
+ 	if (err) {
+-- 
+1.9.1
