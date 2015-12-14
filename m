@@ -1,114 +1,139 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [V2 PATCH 1/1] net: sctp: dynamically enable or disable pf state
-Date: Mon, 14 Dec 2015 14:22:19 +0800
-Message-ID: <1450074139-3923-1-git-send-email-zyjzyj2000@gmail.com>
+From: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Subject: [PATCH net-next] sched/cls_flow.c
+Date: Mon, 14 Dec 2015 10:43:35 +0200
+Message-ID: <CADo-kff8vOq8YzvB8R+LOCUyfhx9+=QRhsLLa-eP9M+i3m5rcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<alexandre.dietsch@windriver.com>,
-	<stefan.costandache@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:63109 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752372AbbLNGWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 01:22:36 -0500
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:34909 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752778AbbLNIng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 03:43:36 -0500
+Received: by mail-ig0-f169.google.com with SMTP id 9so1856080igl.0
+        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 00:43:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+From: Igor Gavrilov <i.o.gavrilov@gmail.com>
 
-As we all know, the value of pf_retrans >= max_retrans_path can
-disable pf state. The variables of pf_retrans and max_retrans_path
-can be changed by the user space application.
+Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
+able to get unNATed addresses from nf_conntrack on ingress interface.
 
-Sometimes the user expects to disable pf state while the 2
-variables are changed to enable pf state. So it is necessary to
-introduce a new variable to disable pf state.
-
-According to the suggestions from Vlad Yasevich, extra1 and extra2
-are removed. The initialization of pf_enable is added.
-
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+Signed-off-by: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- include/net/netns/sctp.h |    7 +++++++
- net/sctp/protocol.c      |    3 +++
- net/sctp/sm_sideeffect.c |    5 ++++-
- net/sctp/sysctl.c        |    7 +++++++
- 4 files changed, 21 insertions(+), 1 deletion(-)
+--- net/sched/cls_flow.c.orig   2015-12-11 12:51:32.541673211 +0200
++++ net/sched/cls_flow.c        2015-12-14 12:01:50.719174387 +0200
+@@ -31,6 +31,8 @@
 
-diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-index 8ba379f..c501d67 100644
---- a/include/net/netns/sctp.h
-+++ b/include/net/netns/sctp.h
-@@ -89,6 +89,13 @@ struct netns_sctp {
- 	int pf_retrans;
- 
- 	/*
-+	 * Disable Potentially-Failed feature, the feature is enabled by default
-+	 * pf_enable	-  0  : disable pf
-+	 *		- >0  : enable pf
-+	 */
-+	int pf_enable;
-+
-+	/*
- 	 * Policy for preforming sctp/socket accounting
- 	 * 0   - do socket level accounting, all assocs share sk_sndbuf
- 	 * 1   - do sctp accounting, each asoc may use sk_sndbuf bytes
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 4d9912f..571a631 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1223,6 +1223,9 @@ static int __net_init sctp_defaults_init(struct net *net)
- 	/* Max.Burst		    - 4 */
- 	net->sctp.max_burst			= SCTP_DEFAULT_MAX_BURST;
- 
-+	/* Enable pf state by default */
-+	net->sctp.pf_enable = 1;
-+
- 	/* Association.Max.Retrans  - 10 attempts
- 	 * Path.Max.Retrans         - 5  attempts (per destination address)
- 	 * Max.Init.Retransmits     - 8  attempts
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 6098d4c..05cd164 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -477,6 +477,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 					 struct sctp_transport *transport,
- 					 int is_hb)
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_core.h>
++#include <net/netfilter/nf_conntrack_zones.h>
+ #endif
+
+ struct flow_head {
+@@ -133,16 +135,48 @@ static u32 flow_get_nfct(const struct sk
+ }
+
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+-#define CTTUPLE(skb, member)                                           \
++#define CTTUPLE(skb, direction, member)
+         \
+ ({                                                                     \
+        enum ip_conntrack_info ctinfo;                                  \
+-       const struct nf_conn *ct = nf_ct_get(skb, &ctinfo);             \
+-       if (ct == NULL)                                                 \
+-               goto fallback;                                          \
+-       ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.member;                 \
++       struct nf_conntrack_tuple tuple;                                \
++       struct nf_conntrack_zone zone;                                  \
++       const struct nf_conntrack_tuple_hash *thash;                    \
++       __be32 result;                                                  \
++       int proto;                                                      \
++       struct nf_conn *ct = nf_ct_get(skb, &ctinfo);                   \
++       if (ct == NULL) {                                               \
++               switch (tc_skb_protocol(skb)) {                         \
++               case htons(ETH_P_IP):                                   \
++                       proto = NFPROTO_IPV4;                           \
++                       break;                                          \
++               case htons(ETH_P_IPV6):                                 \
++                       proto = NFPROTO_IPV6;                           \
++                       break;                                          \
++               default:                                                \
++                       goto fallback;                                  \
++               }                                                       \
++                                                                       \
++               if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb), proto,\
++                       dev_net(skb->dev), &tuple))                     \
++                       goto fallback;                                  \
++               zone.id = NF_CT_DEFAULT_ZONE_ID;                        \
++               zone.dir = NF_CT_DEFAULT_ZONE_DIR;                      \
++                                                                       \
++               thash = nf_conntrack_find_get(dev_net(skb->dev), &zone, \
++                       &tuple);                                        \
++               if (!thash)                                             \
++                       goto fallback;                                  \
++               ct = nf_ct_tuplehash_to_ctrack(thash);                  \
++               result = ct->tuplehash[(thash->tuple.dst.dir ==
+IP_CT_DIR_REPLY) ? \
++                IP_CT_DIR_ORIGINAL : IP_CT_DIR_REPLY].tuple.src.member;\
++               nf_ct_put(ct);                                          \
++       } else {                                                        \
++               result =
+ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.direction.member;\
++       }                                                               \
++       result;                                                         \
+ })
+ #else
+-#define CTTUPLE(skb, member)                                           \
++#define CTTUPLE(skb, direction, member)
+         \
+ ({                                                                     \
+        goto fallback;                                                  \
+        0;                                                              \
+@@ -153,9 +187,9 @@ static u32 flow_get_nfct_src(const struc
  {
-+	struct net *net = sock_net(asoc->base.sk);
-+
- 	/* The check for association's overall error counter exceeding the
- 	 * threshold is done in the state function.
- 	 */
-@@ -503,7 +505,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 	 * is SCTP_ACTIVE, then mark this transport as Partially Failed,
- 	 * see SCTP Quick Failover Draft, section 5.1
- 	 */
--	if ((transport->state == SCTP_ACTIVE) &&
-+	if (net->sctp.pf_enable &&
-+	   (transport->state == SCTP_ACTIVE) &&
- 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
- 	   (transport->error_count > asoc->pf_retrans)) {
- 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 26d50c5..ccbfc93 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -308,6 +308,13 @@ static struct ctl_table sctp_net_table[] = {
- 		.extra1		= &max_autoclose_min,
- 		.extra2		= &max_autoclose_max,
- 	},
-+	{
-+		.procname	= "pf_enable",
-+		.data		= &init_net.sctp.pf_enable,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 
- 	{ /* sentinel */ }
- };
--- 
-1.7.9.5
+        switch (tc_skb_protocol(skb)) {
+        case htons(ETH_P_IP):
+-               return ntohl(CTTUPLE(skb, src.u3.ip));
++               return ntohl(CTTUPLE(skb, src, u3.ip));
+        case htons(ETH_P_IPV6):
+-               return ntohl(CTTUPLE(skb, src.u3.ip6[3]));
++               return ntohl(CTTUPLE(skb, src, u3.ip6[3]));
+        }
+ fallback:
+        return flow_get_src(skb, flow);
+@@ -165,9 +199,9 @@ static u32 flow_get_nfct_dst(const struc
+ {
+        switch (tc_skb_protocol(skb)) {
+        case htons(ETH_P_IP):
+-               return ntohl(CTTUPLE(skb, dst.u3.ip));
++               return ntohl(CTTUPLE(skb, dst, u3.ip));
+        case htons(ETH_P_IPV6):
+-               return ntohl(CTTUPLE(skb, dst.u3.ip6[3]));
++               return ntohl(CTTUPLE(skb, dst, u3.ip6[3]));
+        }
+ fallback:
+        return flow_get_dst(skb, flow);
+@@ -175,14 +209,14 @@ fallback:
+
+ static u32 flow_get_nfct_proto_src(const struct sk_buff *skb, const
+struct flow_keys *flow)
+ {
+-       return ntohs(CTTUPLE(skb, src.u.all));
++       return ntohs(CTTUPLE(skb, src, u.all));
+ fallback:
+        return flow_get_proto_src(skb, flow);
+ }
+
+ static u32 flow_get_nfct_proto_dst(const struct sk_buff *skb, const
+struct flow_keys *flow)
+ {
+-       return ntohs(CTTUPLE(skb, dst.u.all));
++       return ntohs(CTTUPLE(skb, dst, u.all));
+ fallback:
+        return flow_get_proto_dst(skb, flow);
+ }
