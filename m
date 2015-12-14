@@ -1,51 +1,46 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv2 net-next] ipv6: allow routes to be configured with
- expire values
-Date: Mon, 14 Dec 2015 19:48:01 +0800
-Message-ID: <CADvbK_fxww6-EfDgdo-4e=UscsB_pvJO4z1NAPiFyujiA5xr0Q@mail.gmail.com>
-References: <b813d147f9f4c938fbe4c3e0e671e88b2afcf412.1449678473.git.lucien.xin@gmail.com>
-	<20151211.202157.2045048466167764855.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: phy: mdio-mux: Check return value of mdiobus_alloc()
+Date: Mon, 14 Dec 2015 13:51:51 +0100
+Message-ID: <1450097511-13010-1-git-send-email-tklauser@distanz.ch>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37513 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932179AbbLNLsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 06:48:03 -0500
-Received: by igcto18 with SMTP id to18so80366156igc.0
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 03:48:02 -0800 (PST)
-In-Reply-To: <20151211.202157.2045048466167764855.davem@davemloft.net>
+Received: from mail.zhinst.com ([212.126.164.98]:60140 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932262AbbLNMvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 07:51:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> This is the wrong way to do this.
->
-> Currently we only ever dump rta_cacheinfo values to the user.
->
-> If we use it to set things, we have to completely consider every
-> member of that structure as potentially having meaning either
-> intended by the user or choosen by us in the future.
->
-> Therefore it is a poor choice to start using for specifying the
-> expires value, and some other mechanism such as a new RTNETLINK
-> attribute, should be used for this.
+mdiobus_alloc() might return NULL, but its return value is not
+checked in mdio_mux_init(). This could potentially lead to a NULL
+pointer dereference. Fix it by checking the return value
 
-we did it like this to avoid adding the new RTNETLINK attribute.
-now I got your meaning, and rta_cacheinfo seems to be designed
-for dumping info, not for seting info. i guess you hope we do it like:
+Fixes: 0ca2997d1452 ("netdev/of/phy: Add MDIO bus multiplexer support.")
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/phy/mdio-mux.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-+       if (tb[RTA_EXPIRES]) {
-+               unsigned long timeout =
-addrconf_timeout_fixup(nla_get_u32(tb[RTA_EXPIRES]), HZ);
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 908e8d486342..7f8e7662e28c 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -149,9 +149,14 @@ int mdio_mux_init(struct device *dev,
+ 		}
+ 		cb->bus_number = v;
+ 		cb->parent = pb;
 +
-+               if (addrconf_finite_timeout(timeout)) {
-+                       cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
-+                       cfg->fc_flags |= RTF_EXPIRES;
-+               }
-+       }
-
-hi Hannes, we seem to go back here again, what do you think ?
+ 		cb->mii_bus = mdiobus_alloc();
++		if (!cb->mii_bus) {
++			ret_val = -ENOMEM;
++			of_node_put(child_bus_node);
++			break;
++		}
+ 		cb->mii_bus->priv = cb;
+-
+ 		cb->mii_bus->irq = cb->phy_irq;
+ 		cb->mii_bus->name = "mdio_mux";
+ 		snprintf(cb->mii_bus->id, MII_BUS_ID_SIZE, "%x.%x",
+-- 
+2.6.3.368.gf34be46.dirty
