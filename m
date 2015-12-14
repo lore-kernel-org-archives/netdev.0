@@ -1,304 +1,216 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 7/8] net: Add driver helper functions to determine checksum offloadability
-Date: Mon, 14 Dec 2015 11:19:46 -0800
-Message-ID: <1450120787-1773171-8-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 8/8] net: Elaborate on checksum offload interface description
+Date: Mon, 14 Dec 2015 11:19:47 -0800
+Message-ID: <1450120787-1773171-9-git-send-email-tom@herbertland.com>
 References: <1450120787-1773171-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58271 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932182AbbLNTVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:21:06 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBEJI5SA032137
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:21:06 -0800
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58949 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932224AbbLNTVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:21:09 -0500
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBEJION7005111
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:21:09 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1ys1c86qvt-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1yt3mm82jg-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:21:06 -0800
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:21:09 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- d0480f34a29711e593540002c99293a0-b11f8210 for <netdev@vger.kernel.org>;	Mon,
- 14 Dec 2015 11:21:03 -0800
+ d2bd8eeca29711e593540002c99293a0-b11f8210 for <netdev@vger.kernel.org>;	Mon,
+ 14 Dec 2015 11:21:07 -0800
 In-Reply-To: <1450120787-1773171-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add skb_csum_offload_chk driver helper function to determine if a
-device with limited checksum offload capabilities is able to offload the
-checksum for a given packet.
-
-This patch includes:
-  - The skb_csum_offload_chk function. Returns true if checksum is
-    offloadable, else false. Optionally, in the case that the checksum
-    is not offloable, the function can call skb_checksum_help to resolve
-    the checksum. skb_csum_offload_chk also returns whether the checksum
-    refers to an encapsulated checksum.
-  - Definition of skb_csum_offl_spec structure that caller uses to
-    indicate rules about what it can offload (e.g. IPv4/v6, TCP/UDP only,
-    whether encapsulated checksums can be offloaded, whether checksum with
-    IPv6 extension headers can be offloaded).
-  - Ancilary functions called skb_csum_offload_chk_help,
-    skb_csum_off_chk_help_cmn, skb_csum_off_chk_help_cmn_v4_only.
+Add specifics and details the description of the interface between
+the stack and drivers for doing checksum offload. This description
+is meant to be as specific and complete as possible.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/linux/netdevice.h |  78 ++++++++++++++++++++++++++
- net/core/dev.c            | 136 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 214 insertions(+)
+ include/linux/skbuff.h | 138 ++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 109 insertions(+), 29 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 283984b..9fb6395 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2522,6 +2522,71 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
- 	remcsum_unadjust((__sum16 *)ptr, grc->delta);
- }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 3f19744..123a843 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -39,11 +39,55 @@
+ #include <linux/in6.h>
+ #include <net/flow.h>
  
-+struct skb_csum_offl_spec {
-+	__u16		ipv4_okay:1,
-+			ipv6_okay:1,
-+			encap_okay:1,
-+			ip_options_okay:1,
-+			ext_hdrs_okay:1,
-+			tcp_okay:1,
-+			udp_okay:1,
-+			sctp_okay:1,
-+			vlan_okay:1,
-+			no_encapped_ipv6:1,
-+			no_not_encapped:1;
-+};
-+
-+bool __skb_csum_offload_chk(struct sk_buff *skb,
-+			    const struct skb_csum_offl_spec *spec,
-+			    bool *csum_encapped,
-+			    bool csum_help);
-+
-+static inline bool skb_csum_offload_chk(struct sk_buff *skb,
-+					const struct skb_csum_offl_spec *spec,
-+					bool *csum_encapped,
-+					bool csum_help)
-+{
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		return false;
-+
-+	return __skb_csum_offload_chk(skb, spec, csum_encapped, csum_help);
-+}
-+
-+static inline bool skb_csum_offload_chk_help(struct sk_buff *skb,
-+					     const struct skb_csum_offl_spec *spec)
-+{
-+	bool csum_encapped;
-+
-+	return skb_csum_offload_chk(skb, spec, &csum_encapped, true);
-+}
-+
-+static inline bool skb_csum_off_chk_help_cmn(struct sk_buff *skb)
-+{
-+	static const struct skb_csum_offl_spec csum_offl_spec = {
-+		.ipv4_okay = 1,
-+		.ip_options_okay = 1,
-+		.ipv6_okay = 1,
-+		.vlan_okay = 1,
-+		.tcp_okay = 1,
-+		.udp_okay = 1,
-+	};
-+
-+	return skb_csum_offload_chk_help(skb, &csum_offl_spec);
-+}
-+
-+static inline bool skb_csum_off_chk_help_cmn_v4_only(struct sk_buff *skb)
-+{
-+	static const struct skb_csum_offl_spec csum_offl_spec = {
-+		.ipv4_okay = 1,
-+		.ip_options_okay = 1,
-+		.tcp_okay = 1,
-+		.udp_okay = 1,
-+		.vlan_okay = 1,
-+	};
-+
-+	return skb_csum_offload_chk_help(skb, &csum_offl_spec);
-+}
-+
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 				  unsigned short type,
- 				  const void *daddr, const void *saddr,
-@@ -3711,6 +3776,19 @@ static inline bool can_checksum_protocol(netdev_features_t features,
- 	}
- }
- 
-+/* Map an ethertype into IP protocol if possible */
-+static inline int eproto_to_ipproto(int eproto)
-+{
-+	switch (eproto) {
-+	case htons(ETH_P_IP):
-+		return IPPROTO_IP;
-+	case htons(ETH_P_IPV6):
-+		return IPPROTO_IPV6;
-+	default:
-+		return -1;
-+	}
-+}
-+
- #ifdef CONFIG_BUG
- void netdev_rx_csum_fault(struct net_device *dev);
- #else
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 45b013f..914b4a2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -138,6 +138,7 @@
- #include <linux/errqueue.h>
- #include <linux/hrtimer.h>
- #include <linux/netfilter_ingress.h>
-+#include <linux/sctp.h>
- 
- #include "net-sysfs.h"
- 
-@@ -2471,6 +2472,141 @@ out:
- }
- EXPORT_SYMBOL(skb_checksum_help);
- 
-+/* skb_csum_offload_check - Driver helper function to determine if a device
-+ * with limited checksum offload capabilities is able to offload the checksum
-+ * for a given packet.
+-/* A. Checksumming of received packets by device.
++/* The interface for checksum offload between the stack and networking drivers
++ * is as follows...
 + *
-+ * Arguments:
-+ *   skb - sk_buff for the packet in question
-+ *   spec - contains the description of what device can offload
-+ *   csum_encapped - returns true if the checksum being offloaded is
-+ *	      encpasulated. That is it is checksum for the transport header
-+ *	      in the inner headers.
-+ *   checksum_help - when set indicates that helper function should
-+ *	      call skb_checksum_help if offload checks fail
++ * A. IP checksum related features
 + *
-+ * Returns:
-+ *   true: Packet has passed the checksum checks and should be offloadable to
-+ *	   the device (a driver may still need to check for additional
-+ *	   restrictions of its device)
-+ *   false: Checksum is not offloadable. If checksum_help was set then
-+ *	   skb_checksum_help was called to resolve checksum for non-GSO
-+ *	   packets and when IP protocol is not SCTP
-+ */
-+bool __skb_csum_offload_chk(struct sk_buff *skb,
-+			    const struct skb_csum_offl_spec *spec,
-+			    bool *csum_encapped,
-+			    bool csum_help)
-+{
-+	struct iphdr *iph;
-+	struct ipv6hdr *ipv6;
-+	void *nhdr;
-+	int protocol;
-+	u8 ip_proto;
-+
-+	if (skb->protocol == htons(ETH_P_8021Q) ||
-+	    skb->protocol == htons(ETH_P_8021AD)) {
-+		if (!spec->vlan_okay)
-+			goto need_help;
-+	}
-+
-+	/* We check whether the checksum refers to a transport layer checksum in
-+	 * the outermost header or an encapsulated transport layer checksum that
-+	 * corresponds to the inner headers of the skb. If the checksum is for
-+	 * something else in the packet we need help.
-+	 */
-+	if (skb_checksum_start_offset(skb) == skb_transport_offset(skb)) {
-+		/* Non-encapsulated checksum */
-+		protocol = eproto_to_ipproto(vlan_get_protocol(skb));
-+		nhdr = skb_network_header(skb);
-+		*csum_encapped = false;
-+		if (spec->no_not_encapped)
-+			goto need_help;
-+	} else if (skb->encapsulation && spec->encap_okay &&
-+		   skb_checksum_start_offset(skb) ==
-+		   skb_inner_transport_offset(skb)) {
-+		/* Encapsulated checksum */
-+		*csum_encapped = true;
-+		switch (skb->inner_protocol_type) {
-+		case ENCAP_TYPE_ETHER:
-+			protocol = eproto_to_ipproto(skb->inner_protocol);
-+			break;
-+		case ENCAP_TYPE_IPPROTO:
-+			protocol = skb->inner_protocol;
-+			break;
-+		}
-+		nhdr = skb_inner_network_header(skb);
-+	} else {
-+		goto need_help;
-+	}
-+
-+	switch (protocol) {
-+	case IPPROTO_IP:
-+		if (!spec->ipv4_okay)
-+			goto need_help;
-+		iph = nhdr;
-+		ip_proto = iph->protocol;
-+		if (iph->ihl != 5 && !spec->ip_options_okay)
-+			goto need_help;
-+		break;
-+	case IPPROTO_IPV6:
-+		if (!spec->ipv6_okay)
-+			goto need_help;
-+		if (spec->no_encapped_ipv6 && *csum_encapped)
-+			goto need_help;
-+		ipv6 = nhdr;
-+		nhdr += sizeof(*ipv6);
-+		ip_proto = ipv6->nexthdr;
-+		break;
-+	default:
-+		goto need_help;
-+	}
-+
-+ip_proto_again:
-+	switch (ip_proto) {
-+	case IPPROTO_TCP:
-+		if (!spec->tcp_okay ||
-+		    skb->csum_offset != offsetof(struct tcphdr, check))
-+			goto need_help;
-+		break;
-+	case IPPROTO_UDP:
-+		if (!spec->udp_okay ||
-+		    skb->csum_offset != offsetof(struct udphdr, check))
-+			goto need_help;
-+		break;
-+	case IPPROTO_SCTP:
-+		if (!spec->sctp_okay ||
-+		    skb->csum_offset != offsetof(struct sctphdr, checksum))
-+			goto cant_help;
-+		break;
-+	case NEXTHDR_HOP:
-+	case NEXTHDR_ROUTING:
-+	case NEXTHDR_DEST: {
-+		u8 *opthdr = nhdr;
-+
-+		if (protocol != IPPROTO_IPV6 || !spec->ext_hdrs_okay)
-+			goto need_help;
-+
-+		ip_proto = opthdr[0];
-+		nhdr += (opthdr[1] + 1) << 3;
-+
-+		goto ip_proto_again;
-+	}
-+	default:
-+		goto need_help;
-+	}
-+
-+	/* Passed the tests for offloading checksum */
-+	return true;
-+
-+need_help:
-+	if (csum_help && !skb_shinfo(skb)->gso_size)
-+		skb_checksum_help(skb);
-+cant_help:
-+	return false;
-+}
-+EXPORT_SYMBOL(__skb_csum_offload_chk);
-+
- __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
- {
- 	__be16 type = skb->protocol;
++ * Drivers advertise checksum offload capabilities in the features of a device.
++ * From the stack's point of view these are capabilities offered by the driver,
++ * a driver typically only advertises features that it is capable of offloading
++ * to its device.
++ *
++ * The checksum related features are:
++ *
++ *	NETIF_F_HW_CSUM	- The driver (or its device) is able to compute one
++ *			  IP (one's complement) checksum for any combination
++ *			  of protocols or protocol layering. The checksum is
++ *			  computed and set in a packet per the CHECKSUM_PARTIAL
++ *			  interface (see below).
++ *
++ *	NETIF_F_IP_CSUM - Driver (device) is only able to checksum plain
++ *			  TCP or UDP packets over IPv4. These are specifically
++ *			  unencapsulated packets of the form IPv4|TCP or
++ *			  IPv4|UDP where the Protocol field in the IPv4 header
++ *			  is TCP or UDP. The IPv4 header may contain IP options
++ *			  This feature cannot be set in features for a device
++ *			  with NETIF_F_HW_CSUM also set. This feature is being
++ *			  DEPRECATED (see below).
++ *
++ *	NETIF_F_IPV6_CSUM - Driver (device) is only able to checksum plain
++ *			  TCP or UDP packets over IPv6. These are specifically
++ *			  unencapsulated packets of the form IPv6|TCP or
++ *			  IPv4|UDP where the Next Header field in the IPv6
++ *			  header is either TCP or UDP. IPv6 extension headers
++ *			  are not supported with this feature. This feature
++ *			  cannot be set in features for a device with
++ *			  NETIF_F_HW_CSUM also set. This feature is being
++ *			  DEPRECATED (see below).
++ *
++ *	NETIF_F_RXCSUM - Driver (device) performs receive checksum offload.
++ *			 This flag is used only used to disable the RX checksum
++ *			 feature for a device. The stack will accept receive
++ *			 checksum indication in packets received on a device
++ *			 regardless of whether NETIF_F_RXCSUM is set.
++ *
++ * B. Checksumming of received packets by device. Indication of checksum
++ *    verification is in set skb->ip_summed. Possible values are:
+  *
+  * CHECKSUM_NONE:
+  *
+- *   Device failed to checksum this packet e.g. due to lack of capabilities.
++ *   Device did not checksum this packet e.g. due to lack of capabilities.
+  *   The packet contains full (though not verified) checksum in packet but
+  *   not in skb->csum. Thus, skb->csum is undefined in this case.
+  *
+@@ -53,9 +97,8 @@
+  *   (as in CHECKSUM_COMPLETE), but it does parse headers and verify checksums
+  *   for specific protocols. For such packets it will set CHECKSUM_UNNECESSARY
+  *   if their checksums are okay. skb->csum is still undefined in this case
+- *   though. It is a bad option, but, unfortunately, nowadays most vendors do
+- *   this. Apparently with the secret goal to sell you new devices, when you
+- *   will add new protocol to your host, f.e. IPv6 8)
++ *   though. A driver or device must never modify the checksum field in the
++ *   packet even if checksum is verified.
+  *
+  *   CHECKSUM_UNNECESSARY is applicable to following protocols:
+  *     TCP: IPv6 and IPv4.
+@@ -96,40 +139,77 @@
+  *   packet that are after the checksum being offloaded are not considered to
+  *   be verified.
+  *
+- * B. Checksumming on output.
+- *
+- * CHECKSUM_NONE:
+- *
+- *   The skb was already checksummed by the protocol, or a checksum is not
+- *   required.
++ * C. Checksumming on transmit for non-GSO. The stack requests checksum offload
++ *    in the skb->ip_summed for a packet. Values are:
+  *
+  * CHECKSUM_PARTIAL:
+  *
+- *   The device is required to checksum the packet as seen by hard_start_xmit()
++ *   The driver is required to checksum the packet as seen by hard_start_xmit()
+  *   from skb->csum_start up to the end, and to record/write the checksum at
+- *   offset skb->csum_start + skb->csum_offset.
++ *   offset skb->csum_start + skb->csum_offset. A driver may verify that the
++ *   csum_start and csum_offset values are valid values given the length and
++ *   offset of the packet, however they should not attempt to validate that the
++ *   checksum refers to a legitimate transport layer checksum-- it is the
++ *   purview of the stack to validate that csum_start and csum_offset are set
++ *   correctly.
++ *
++ *   When the stack requests checksum offload for a packet, the driver MUST
++ *   ensure that the checksum is set correctly. A driver can either offload the
++ *   checksum calculation to the device, or call skb_checksum_help (in the case
++ *   that the device does not support offload for a particular checksum).
++ *
++ *   NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM are being deprecated in favor of
++ *   NETIF_F_HW_CSUM. New devices should use NETIF_F_HW_CSUM to indicate
++ *   checksum offload capability. If a	device has limited checksum capabilities
++ *   (for instance can only perform NETIF_F_IP_CSUM or NETIF_F_IPV6_CSUM as
++ *   described above) a helper function can be called to resolve
++ *   CHECKSUM_PARTIAL. The helper functions are skb_csum_off_chk*. The helper
++ *   function takes a spec argument that describes the protocol layer that is
++ *   supported for checksum offload and can be called for each packet. If a
++ *   packet does not match the specification for offload, skb_checksum_help
++ *   is called to resolve the checksum.
+  *
+- *   The device must show its capabilities in dev->features, set up at device
+- *   setup time, e.g. netdev_features.h:
++ * CHECKSUM_NONE:
+  *
+- *	NETIF_F_HW_CSUM	- It's a clever device, it's able to checksum everything.
+- *	NETIF_F_IP_CSUM - Device is dumb, it's able to checksum only TCP/UDP over
+- *			  IPv4. Sigh. Vendors like this way for an unknown reason.
+- *			  Though, see comment above about CHECKSUM_UNNECESSARY. 8)
+- *	NETIF_F_IPV6_CSUM - About as dumb as the last one but does IPv6 instead.
+- *	NETIF_F_...     - Well, you get the picture.
++ *   The skb was already checksummed by the protocol, or a checksum is not
++ *   required.
+  *
+  * CHECKSUM_UNNECESSARY:
+  *
+- *   Normally, the device will do per protocol specific checksumming. Protocol
+- *   implementations that do not want the NIC to perform the checksum
+- *   calculation should use this flag in their outgoing skbs.
++ *   This has the same meaning on as CHECKSUM_NONE for checksum offload on
++ *   output.
+  *
+- *	NETIF_F_FCOE_CRC - This indicates that the device can do FCoE FC CRC
+- *			   offload. Correspondingly, the FCoE protocol driver
+- *			   stack should use CHECKSUM_UNNECESSARY.
+- *
+- * Any questions? No questions, good.		--ANK
++ * CHECKSUM_COMPLETE:
++ *   Not used in checksum output. If a driver observes a packet with this value
++ *   set in skbuff, if should treat as CHECKSUM_NONE being set.
++ *
++ * D. Non-IP checksum (CRC) offloads
++ *
++ *   NETIF_F_SCTP_CRC - This feature indicates that a device is capable of
++ *     offloading the SCTP CRC in a packet. To perform this offload the stack
++ *     will set ip_summed to CHECKSUM_PARTIAL and set csum_start and csum_offset
++ *     accordingly. Note the there is no indication in the skbuff that the
++ *     CHECKSUM_PARTIAL refers to an SCTP checksum, a driver that supports
++ *     both IP checksum offload and SCTP CRC offload must verify which offload
++ *     is configured for a packet presumably by inspecting packet headers.
++ *
++ *   NETIF_F_FCOE_CRC - This feature indicates that a device is capable of
++ *     offloading the FCOE CRC in a packet. To perform this offload the stack
++ *     will set ip_summed to CHECKSUM_PARTIAL and set csum_start and csum_offset
++ *     accordingly. Note the there is no indication in the skbuff that the
++ *     CHECKSUM_PARTIAL refers to an FCOE checksum, a driver that supports
++ *     both IP checksum offload and FCOE CRC offload must verify which offload
++ *     is configured for a packet presumably by inspecting packet headers.
++ *
++ * E. Checksumming on output with GSO.
++ *
++ * In the case of a GSO packet (skb_is_gso(skb) is true), checksum offload
++ * is implied by the SKB_GSO_* flags in gso_type. Most obviously, if the
++ * gso_type is SKB_GSO_TCPV4 or SKB_GSO_TCPV6, TCP checksum offload as
++ * part of the GSO operation is implied. If a checksum is being offloaded
++ * with GSO then ip_summed is CHECKSUM_PARTIAL, csum_start and csum_offset
++ * are set to refer to the outermost checksum being offload (two offloaded
++ * checksums are possible with UDP encapsulation).
+  */
+ 
+ /* Don't change this without changing skb_csum_unnecessary! */
 -- 
 2.4.6
