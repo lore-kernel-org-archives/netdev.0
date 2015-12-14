@@ -1,111 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] net: add validation for the socket syscall protocol argument
-Date: Mon, 14 Dec 2015 17:17:49 +0100
-Message-ID: <1450109869-23769-1-git-send-email-hannes@stressinduktion.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH net-next] net, cgroup: cgroup_sk_updat_lock was missing
+ initializer
+Date: Mon, 14 Dec 2015 11:24:06 -0500
+Message-ID: <20151214162406.GA4026@mtj.duckdns.org>
+References: <1449527935-27056-1-git-send-email-tj@kernel.org>
+ <f90d369a0e004fee8d3bfdfe95e0abc0@HKXPR3004MB0088.064d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39405 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751155AbbLNQR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 11:17:57 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id D8CB6207F0
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:17:55 -0500 (EST)
-Received: from z.com (unknown [217.192.177.51])
-	by mail.messagingengine.com (Postfix) with ESMTPA id 71F86C016D5
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:17:55 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dexuan Cui <decui@microsoft.com>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>,
+	"daniel.wagner@bmw-carit.de" <daniel.wagner@bmw-carit.de>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"lizefan@huawei.com" <lizefan@huawei.com>,
+	"hannes@cmpxchg.org" <hannes@cmpxchg.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"coreteam@netfilter.org" <coreteam@netfilter.org>,
+	"cgroups@vger.kernel.org" <cgroups@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>,
+	"ninasc@fb.com" <ninasc@fb.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f90d369a0e004fee8d3bfdfe95e0abc0@HKXPR3004MB0088.064d.mgd.msft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E9=83=AD=E6=B0=B8=E5=88=9A reported that one could simply crash the ke=
-rnel as root by
-using a simple program:
+bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup") added global
+spinlock cgroup_sk_update_lock but erroneously skipped initializer
+leading to uninitialized spinlock warning.  Fix it by using
+DEFINE_SPINLOCK().
 
-	int socket_fd;
-	struct sockaddr_in addr;
-	addr.sin_port =3D 0;
-	addr.sin_addr.s_addr =3D INADDR_ANY;
-	addr.sin_family =3D 10;
-
-	socket_fd =3D socket(10,3,0x40000000);
-	connect(socket_fd , &addr,16);
-
-AF_INET, AF_INET6 sockets actually only support 8-bit protocol
-identifiers. inet_sock's skc_protocol field thus is sized accordingly,
-thus larger protocol identifiers simply cut off the higher bits and
-store a zero in the protocol fields.
-
-This could lead to e.g. NULL function pointer because as a result of
-the cut off inet_num is zero and we call down to inet_autobind, which
-is NULL for raw sockets.
-
-kernel: Call Trace:
-kernel:  [<ffffffff816db90e>] ? inet_autobind+0x2e/0x70
-kernel:  [<ffffffff816db9a4>] inet_dgram_connect+0x54/0x80
-kernel:  [<ffffffff81645069>] SYSC_connect+0xd9/0x110
-kernel:  [<ffffffff810ac51b>] ? ptrace_notify+0x5b/0x80
-kernel:  [<ffffffff810236d8>] ? syscall_trace_enter_phase2+0x108/0x200
-kernel:  [<ffffffff81645e0e>] SyS_connect+0xe/0x10
-kernel:  [<ffffffff81779515>] tracesys_phase2+0x84/0x89
-
-I found no particular commit which introduced this problem.
-
-CVE: CVE-2015-8543
-Reported-by: =E9=83=AD=E6=B0=B8=E5=88=9A <guoyonggang@360.cn>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Reported-by: Dexuan Cui <decui@microsoft.com>
+Fixes: bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup")
 ---
- net/ipv4/af_inet.c  | 3 +++
- net/ipv6/af_inet6.c | 3 +++
- net/socket.c        | 3 +++
- 3 files changed, 9 insertions(+)
+Hello, Dexuan.
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 11c4ca1..cfb4496 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -257,6 +257,9 @@ static int inet_create(struct net *net, struct sock=
-et *sock, int protocol,
- 	int try_loading_module =3D 0;
- 	int err;
-=20
-+	if (protocol >=3D IPPROTO_MAX)
-+		return -EINVAL;
-+
- 	sock->state =3D SS_UNCONNECTED;
-=20
- 	/* Look for the requested type/protocol pair. */
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 8ec0df7..9fb093c 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -109,6 +109,9 @@ static int inet6_create(struct net *net, struct soc=
-ket *sock, int protocol,
- 	int try_loading_module =3D 0;
- 	int err;
-=20
-+	if (protocol >=3D IPPROTO_MAX)
-+		return -EINVAL;
-+
- 	/* Look for the requested type/protocol pair. */
- lookup_protocol:
- 	err =3D -ESOCKTNOSUPPORT;
-diff --git a/net/socket.c b/net/socket.c
-index 456fadb..d2f3d49 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1098,6 +1098,9 @@ int __sock_create(struct net *net, int family, in=
-t type, int protocol,
- 		return -EAFNOSUPPORT;
- 	if (type < 0 || type >=3D SOCK_MAX)
- 		return -EINVAL;
-+	/* upper bound should be tested by per-protocol .create callbacks */
-+	if (protocol < 0)
-+		return -EINVAL;
-=20
- 	/* Compatibility.
-=20
---=20
-2.5.0
+Oops, sorry about that.  Somehow thought it was a different problem
+which is already fixed.  This should do it.
+
+Thanks.
+
+ kernel/cgroup.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index 4f8f792..4466273f 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -5790,7 +5790,7 @@ EXPORT_SYMBOL_GPL(cgroup_get_from_path);
+ 
+ #if defined(CONFIG_CGROUP_NET_PRIO) || defined(CONFIG_CGROUP_NET_CLASSID)
+ 
+-spinlock_t cgroup_sk_update_lock;
++DEFINE_SPINLOCK(cgroup_sk_update_lock);
+ static bool cgroup_sk_alloc_disabled __read_mostly;
+ 
+ void cgroup_sk_alloc_disable(void)
