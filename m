@@ -1,34 +1,30 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net: add validation for the socket syscall protocol argument
-Date: Mon, 14 Dec 2015 10:59:55 -0800
-Message-ID: <CAHA+R7MtR-LaE56ByZ3arzFihwp5wn73Kq1i=vxMRHJ3Zo5MhA@mail.gmail.com>
-References: <1450109869-23769-1-git-send-email-hannes@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] openvswitch: fix trivial comment typo
+Date: Mon, 14 Dec 2015 14:00:22 -0500 (EST)
+Message-ID: <20151214.140022.2303208414121788568.davem@davemloft.net>
+References: <aa5f132cc2095dbce252b320ca50c275c85ef4fa.1450092360.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, trivial@kernel.org,
+	joestringer@nicira.com, dev@openvswitch.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:32968 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753368AbbLNS74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 13:59:56 -0500
-Received: by qkck189 with SMTP id k189so115154435qkc.0
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 10:59:55 -0800 (PST)
-In-Reply-To: <1450109869-23769-1-git-send-email-hannes@stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58639 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932175AbbLNTA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:00:26 -0500
+In-Reply-To: <aa5f132cc2095dbce252b320ca50c275c85ef4fa.1450092360.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 14, 2015 at 8:17 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1098,6 +1098,9 @@ int __sock_create(struct net *net, int family, int type, int protocol,
->                 return -EAFNOSUPPORT;
->         if (type < 0 || type >= SOCK_MAX)
->                 return -EINVAL;
-> +       /* upper bound should be tested by per-protocol .create callbacks */
-> +       if (protocol < 0)
-> +               return -EINVAL;
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Mon, 14 Dec 2015 14:29:58 +0100
 
-Why? At least  bt_sock_create() and  netlink_create() do both upper bound
-and lower bound checks.
+> The commit 33db4125ec74 ("openvswitch: Rename LABEL->LABELS") left
+> over an old OVS_CT_ATTR_LABEL instance, fix it.
+> 
+> Fixes: 33db4125ec74 ("openvswitch: Rename LABEL->LABELS")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+
+Applied, thanks.
