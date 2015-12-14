@@ -1,56 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net] ravb: Add disable 10base
-Date: Mon, 14 Dec 2015 13:53:04 +0900
-Message-ID: <20151214045301.GA18143@verge.net.au>
-References: <1450019758-32710-1-git-send-email-ykaneko0929@gmail.com>
- <566DA83C.9080801@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] net: Flush local routes when device changes vrf
+ association
+Date: Sun, 13 Dec 2015 23:59:48 -0500 (EST)
+Message-ID: <20151213.235948.2125623235400954469.davem@davemloft.net>
+References: <1449771924-21775-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <566DA83C.9080801@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44118 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752346AbbLNE7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 23:59:50 -0500
+In-Reply-To: <1449771924-21775-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Cc Florian]
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu, 10 Dec 2015 10:25:24 -0800
 
-On Sun, Dec 13, 2015 at 08:17:48PM +0300, Sergei Shtylyov wrote:
-> Hello.
+> The VRF driver cycles netdevs when an interface is enslaved or released:
+> the down event is used to flush neighbor and route tables and the up
+> event (if the interface was already up) effectively moves local and
+> connected routes to the proper table.
 > 
-> On 12/13/2015 06:15 PM, Yoshihiro Kaneko wrote:
+> As of 4f823defdd5b the local route is left hanging around after a link
+> down, so when a netdev is moved from one VRF to another (or released
+> from a VRF altogether) local routes are left in the wrong table.
 > 
-> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> >Ethernet AVB does not support 10 Mbps transfer speed.
-> >
-> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-> >---
-> >
-> >This patch is based on the master branch of David Miller's networking
-> >tree.
-> >
-> >  drivers/net/ethernet/renesas/ravb_main.c | 3 +++
-> >  1 file changed, 3 insertions(+)
-> >
-> >diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> >index b69e0c2..467d416 100644
-> >--- a/drivers/net/ethernet/renesas/ravb_main.c
-> >+++ b/drivers/net/ethernet/renesas/ravb_main.c
-> >@@ -905,6 +905,9 @@ static int ravb_phy_init(struct net_device *ndev)
-> >  		netdev_info(ndev, "limited PHY to 100Mbit/s\n");
-> >  	}
-> >
-> >+	/* 10BASE is not supported */
-> >+	phydev->supported &= ~PHY_10BT_FEATURES;
-> >+
+> Fix by handling the NETDEV_CHANGEUPPER event. When the upper dev is
+> an L3mdev then call fib_disable_ip to flush all routes, local ones
+> to.
 > 
->    Perhaps we need phy_set_min_speed() in addition to phy_set_max_speed()?
+> Fixes: 4f823defdd5b ("ipv4: fix to not remove local route on link down")
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-FWIW, as the person who added phy_set_max_speed(), I think
-that is sounds like a good idea.
+Applied, thanks.
