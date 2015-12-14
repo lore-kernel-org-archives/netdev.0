@@ -1,78 +1,102 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v5 10/19] net: macvlan: use __ethtool_get_ksettings
-Date: Mon, 14 Dec 2015 13:03:57 -0800
-Message-ID: <1450127046-4573-11-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v5 12/19] net: fcoe: use __ethtool_get_ksettings
+Date: Mon, 14 Dec 2015 13:03:59 -0800
+Message-ID: <1450127046-4573-13-git-send-email-ddecotig@gmail.com>
 References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
-        Eugenia Emantayev <eugenia@mellanox.co.il>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Govindarajulu Varadarajan <_govind@gmx.com>,
-        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Ed Swierk <eswierk@skyportsystems.com>,
-        Robert Love <robert.w.love@intel.com>,
-        "James E.J. Bottomley" <JBottomley@parallels.com>,
-        Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-        David Decotigny <decot@googlers.com>
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	David Decotigny <decot@googlers.com>
 To: "David S. Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-        fcoe-devel@open-fcoe.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
+	Ben Hutchings <ben@decadent.org.uk>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+	fcoe-devel@open-fcoe.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/macvlan.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/scsi/fcoe/fcoe_transport.c | 36 ++++++++++++++++++++----------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 06c8bfe..a95b793 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -940,12 +940,12 @@ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 	strlcpy(drvinfo->version, "0.1", sizeof(drvinfo->version));
- }
- 
--static int macvlan_ethtool_get_settings(struct net_device *dev,
--					struct ethtool_cmd *cmd)
-+static int macvlan_ethtool_get_ksettings(struct net_device *dev,
-+					 struct ethtool_ksettings *cmd)
+diff --git a/drivers/scsi/fcoe/fcoe_transport.c b/drivers/scsi/fcoe/fcoe_transport.c
+index d7597c0..2d5909f 100644
+--- a/drivers/scsi/fcoe/fcoe_transport.c
++++ b/drivers/scsi/fcoe/fcoe_transport.c
+@@ -93,36 +93,40 @@ static struct notifier_block libfcoe_notifier = {
+ int fcoe_link_speed_update(struct fc_lport *lport)
  {
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
+ 	struct net_device *netdev = fcoe_get_netdev(lport);
+-	struct ethtool_cmd ecmd;
++	struct ethtool_ksettings ecmd;
  
--	return __ethtool_get_settings(vlan->lowerdev, cmd);
-+	return __ethtool_get_ksettings(vlan->lowerdev, cmd);
- }
+-	if (!__ethtool_get_settings(netdev, &ecmd)) {
++	if (!__ethtool_get_ksettings(netdev, &ecmd)) {
+ 		lport->link_supported_speeds &= ~(FC_PORTSPEED_1GBIT  |
+ 		                                  FC_PORTSPEED_10GBIT |
+ 		                                  FC_PORTSPEED_20GBIT |
+ 		                                  FC_PORTSPEED_40GBIT);
  
- static netdev_features_t macvlan_fix_features(struct net_device *dev,
-@@ -1020,7 +1020,7 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
+-		if (ecmd.supported & (SUPPORTED_1000baseT_Half |
+-		                      SUPPORTED_1000baseT_Full |
+-		                      SUPPORTED_1000baseKX_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_1000baseT_Half |
++			    SUPPORTED_1000baseT_Full |
++			    SUPPORTED_1000baseKX_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_1GBIT;
  
- static const struct ethtool_ops macvlan_ethtool_ops = {
- 	.get_link		= ethtool_op_get_link,
--	.get_settings		= macvlan_ethtool_get_settings,
-+	.get_ksettings		= macvlan_ethtool_get_ksettings,
- 	.get_drvinfo		= macvlan_ethtool_get_drvinfo,
- };
+-		if (ecmd.supported & (SUPPORTED_10000baseT_Full   |
+-		                      SUPPORTED_10000baseKX4_Full |
+-		                      SUPPORTED_10000baseKR_Full  |
+-		                      SUPPORTED_10000baseR_FEC))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_10000baseT_Full   |
++			    SUPPORTED_10000baseKX4_Full |
++			    SUPPORTED_10000baseKR_Full  |
++			    SUPPORTED_10000baseR_FEC))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_10GBIT;
  
+-		if (ecmd.supported & (SUPPORTED_20000baseMLD2_Full |
+-		                      SUPPORTED_20000baseKR2_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_20000baseMLD2_Full |
++			    SUPPORTED_20000baseKR2_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_20GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_40000baseKR4_Full |
+-		                      SUPPORTED_40000baseCR4_Full |
+-		                      SUPPORTED_40000baseSR4_Full |
+-		                      SUPPORTED_40000baseLR4_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_40000baseKR4_Full |
++			    SUPPORTED_40000baseCR4_Full |
++			    SUPPORTED_40000baseSR4_Full |
++			    SUPPORTED_40000baseLR4_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_40GBIT;
+ 
+-		switch (ethtool_cmd_speed(&ecmd)) {
++		switch (ecmd.parent.speed) {
+ 		case SPEED_1000:
+ 			lport->link_speed = FC_PORTSPEED_1GBIT;
+ 			break;
 -- 
 2.6.0.rc2.230.g3dd15c0
