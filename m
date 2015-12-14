@@ -1,71 +1,175 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH v3 net] ravb: clear RIC1 in init instead of stop
-Date: Tue, 15 Dec 2015 01:24:58 +0900
-Message-ID: <1450110298-21392-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: dwilder@us.ibm.com
+Subject: Re: Double free of dst_entry in ipv4_dst_destroy()
+Date: Mon, 14 Dec 2015 11:28:02 -0500
+Message-ID: <20151214112802.Horde.BK3A-grfQxyYIrszzKdCZg1@ltc.linux.ibm.com>
+References: <20151206132657.Horde.rQvtH4bu51mT83V1RAKxWA1@ltc.linux.ibm.com>
+ <1449435784.25029.50.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1449453515.25029.54.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1449843809.9768.18.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1449848913.9768.19.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1449852442.9768.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed; DelSp=Yes
+Cc: netdev@vger.kernel.org, predeep@us.ibm.com, mjtarsel@us.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:48019 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbbLNQ2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 11:28:11 -0500
+Received: from localhost
+	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dwilder@us.ibm.com>;
+	Mon, 14 Dec 2015 09:28:09 -0700
+Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 16B403E40047
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 09:28:07 -0700 (MST)
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by b03cxnp08026.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id tBEGS7fl29819086
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 09:28:07 -0700
+Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id tBEGS5mZ025588
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 09:28:06 -0700
+In-Reply-To: <1449852442.9768.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Eric -
+With this patch applied the test ran clean for 2 days.
 
-AVB-DMAC Receive FIFO Warning interrupt is not enabled, so it is not
-necessary to disable the interrupt in ravb_close().
-On the other hand, this patch disables the interrupt in ravb_dmac_init() to
-prevent the possibility that the interrupt is issued by the state that
-a boot loader left.
+Thanks for your help.
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+Quoting Eric Dumazet <eric.dumazet@gmail.com>:
 
-This patch is based on the master branch of David Miller's networking
-tree.
-
-v3 [Yoshihiro Kaneko]
-* compile tested only
-* As suggested by Sergei Shtylyov
-  - update the subject to reflect what this patch is doing.
-  - clear RIC1 in ravb_dmac_init() instead of ravb_open().
-
-v2 [Yoshihiro Kaneko]
-* compile tested only
-* As suggested by Sergei Shtylyov
-  - clear RIC1 in ndo_open() to disable the interrupt regardless of
-    a left state from a bootloader.
-
- drivers/net/ethernet/renesas/ravb_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index b69e0c2..b76303e 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -405,9 +405,11 @@ static int ravb_dmac_init(struct net_device *ndev)
- 	/* Timestamp enable */
- 	ravb_write(ndev, TCCR_TFEN, TCCR);
- 
--	/* Interrupt enable: */
-+	/* Interrupt init: */
- 	/* Frame receive */
- 	ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
-+	/* Disable FIFO full warning */
-+	ravb_write(ndev, 0, RIC1);
- 	/* Receive FIFO full error, descriptor empty */
- 	ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
- 	/* Frame transmitted, timestamp FIFO updated */
-@@ -1471,7 +1473,6 @@ static int ravb_close(struct net_device *ndev)
- 
- 	/* Disable interrupts by clearing the interrupt masks. */
- 	ravb_write(ndev, 0, RIC0);
--	ravb_write(ndev, 0, RIC1);
- 	ravb_write(ndev, 0, RIC2);
- 	ravb_write(ndev, 0, TIC);
- 
--- 
-1.9.1
-
+> On Fri, 2015-12-11 at 07:48 -0800, Eric Dumazet wrote:
+>> On Fri, 2015-12-11 at 06:23 -0800, Eric Dumazet wrote:
+>> > On Sun, 2015-12-06 at 17:58 -0800, Eric Dumazet wrote:
+>> > > On Sun, 2015-12-06 at 13:03 -0800, Eric Dumazet wrote:
+>> > >
+>> > > > But then when later we promote a skb->dst to a refctounted one
+>> > > > (skb_dst_force(), we might make sure we abort the operation  
+>> if __refcnt
+>> > > > == 0 ( and DST_NOCACHE is in dst->flags)
+>> > > >
+>> > >
+>> > > Minimum patch would be :
+>> > >
+>> >
+>> > Here is a more complete patch, it should fix the issue I think :
+>>
+>> Hmm, I'll send a v3, I forgot to test DST_NOCACHE properly.
+>>
+>
+> David, please test the following patch, thanks !
+>
+>  include/net/dst.h   |   33 +++++++++++++++++++++++++++++++++
+>  include/net/sock.h  |    2 +-
+>  net/ipv4/tcp_ipv4.c |    5 ++---
+>  net/ipv6/tcp_ipv6.c |    3 +--
+>  4 files changed, 37 insertions(+), 6 deletions(-)
+>
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 1279f9b09791..c7329dcd90cc 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -322,6 +322,39 @@ static inline void skb_dst_force(struct sk_buff *skb)
+>  	}
+>  }
+>
+> +/**
+> + * dst_hold_safe - Take a reference on a dst if possible
+> + * @dst: pointer to dst entry
+> + *
+> + * This helper returns false if it could not safely
+> + * take a reference on a dst.
+> + */
+> +static inline bool dst_hold_safe(struct dst_entry *dst)
+> +{
+> +	if (dst->flags & DST_NOCACHE)
+> +		return atomic_inc_not_zero(&dst->__refcnt);
+> +	dst_hold(dst);
+> +	return true;
+> +}
+> +
+> +/**
+> + * skb_dst_force_safe - makes sure skb dst is refcounted
+> + * @skb: buffer
+> + *
+> + * If dst is not yet refcounted and not destroyed, grab a ref on it.
+> + */
+> +static inline void skb_dst_force_safe(struct sk_buff *skb)
+> +{
+> +	if (skb_dst_is_noref(skb)) {
+> +		struct dst_entry *dst = skb_dst(skb);
+> +
+> +		if (!dst_hold_safe(dst))
+> +			dst = NULL;
+> +
+> +		skb->_skb_refdst = (unsigned long)dst;
+> +	}
+> +}
+> +
+>
+>  /**
+>   *	__skb_tunnel_rx - prepare skb for rx reinsert
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index eaef41433d7a..18322bded064 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -816,7 +816,7 @@ void sk_stream_write_space(struct sock *sk);
+>  static inline void __sk_add_backlog(struct sock *sk, struct sk_buff *skb)
+>  {
+>  	/* dont let skb dst not refcounted, we are going to leave rcu lock */
+> -	skb_dst_force(skb);
+> +	skb_dst_force_safe(skb);
+>
+>  	if (!sk->sk_backlog.tail)
+>  		sk->sk_backlog.head = skb;
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index db003438aaf5..d8841a2f1569 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -1493,7 +1493,7 @@ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+>  	if (likely(sk->sk_rx_dst))
+>  		skb_dst_drop(skb);
+>  	else
+> -		skb_dst_force(skb);
+> +		skb_dst_force_safe(skb);
+>
+>  	__skb_queue_tail(&tp->ucopy.prequeue, skb);
+>  	tp->ucopy.memory += skb->truesize;
+> @@ -1721,8 +1721,7 @@ void inet_sk_rx_dst_set(struct sock *sk, const  
+> struct sk_buff *skb)
+>  {
+>  	struct dst_entry *dst = skb_dst(skb);
+>
+> -	if (dst) {
+> -		dst_hold(dst);
+> +	if (dst && dst_hold_safe(dst)) {
+>  		sk->sk_rx_dst = dst;
+>  		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
+>  	}
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index e7aab561b7b4..6b8a8a9091fa 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -93,10 +93,9 @@ static void inet6_sk_rx_dst_set(struct sock *sk,  
+> const struct sk_buff *skb)
+>  {
+>  	struct dst_entry *dst = skb_dst(skb);
+>
+> -	if (dst) {
+> +	if (dst && dst_hold_safe(dst)) {
+>  		const struct rt6_info *rt = (const struct rt6_info *)dst;
+>
+> -		dst_hold(dst);
+>  		sk->sk_rx_dst = dst;
+>  		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
+>  		inet6_sk(sk)->rx_dst_cookie = rt6_get_cookie(rt);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
