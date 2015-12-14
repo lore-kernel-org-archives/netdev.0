@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v5 06/19] tx4939: use __ethtool_get_ksettings
-Date: Mon, 14 Dec 2015 13:03:53 -0800
-Message-ID: <1450127046-4573-7-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v5 07/19] net: usnic: use __ethtool_get_ksettings
+Date: Mon, 14 Dec 2015 13:03:54 -0800
+Message-ID: <1450127046-4573-8-git-send-email-ddecotig@gmail.com>
 References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -42,28 +42,38 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
-index e3733cd..4a3ebf6 100644
---- a/arch/mips/txx9/generic/setup_tx4939.c
-+++ b/arch/mips/txx9/generic/setup_tx4939.c
-@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
- #if IS_ENABLED(CONFIG_TC35815)
- static u32 tx4939_get_eth_speed(struct net_device *dev)
+diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+index e082170..e0d12d4 100644
+--- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
++++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+@@ -324,12 +324,12 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
+ 				struct ib_port_attr *props)
  {
+ 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
 -	struct ethtool_cmd cmd;
--	if (__ethtool_get_settings(dev, &cmd))
 +	struct ethtool_ksettings cmd;
-+
-+	if (__ethtool_get_ksettings(dev, &cmd))
- 		return 100;	/* default 100Mbps */
  
--	return ethtool_cmd_speed(&cmd);
-+	return cmd.parent.speed;
- }
+ 	usnic_dbg("\n");
  
- static int tx4939_netdev_event(struct notifier_block *this,
+ 	mutex_lock(&us_ibdev->usdev_lock);
+-	__ethtool_get_settings(us_ibdev->netdev, &cmd);
++	__ethtool_get_ksettings(us_ibdev->netdev, &cmd);
+ 	memset(props, 0, sizeof(*props));
+ 
+ 	props->lid = 0;
+@@ -353,8 +353,8 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
+ 	props->pkey_tbl_len = 1;
+ 	props->bad_pkey_cntr = 0;
+ 	props->qkey_viol_cntr = 0;
+-	eth_speed_to_ib_speed(cmd.speed, &props->active_speed,
+-				&props->active_width);
++	eth_speed_to_ib_speed(cmd.parent.speed, &props->active_speed,
++			      &props->active_width);
+ 	props->max_mtu = IB_MTU_4096;
+ 	props->active_mtu = iboe_get_mtu(us_ibdev->ufdev->mtu);
+ 	/* Userspace will adjust for hdrs */
 -- 
 2.6.0.rc2.230.g3dd15c0
