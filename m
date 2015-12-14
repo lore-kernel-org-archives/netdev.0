@@ -1,52 +1,72 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next] bpf: minor fix in api and bpf_dump_error() usage
-Date: Mon, 14 Dec 2015 16:57:32 +0100
-Message-ID: <6598a3bfadced14239ea333155eb7fb9aaceccda.1450108152.git.daniel@iogearbox.net>
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
+From: "Singhai, Anjali" <anjali.singhai@intel.com>
+Subject: Re: [PATCH v3 1/4] geneve: Add geneve udp port offload for ethernet
+ devices
+Date: Mon, 14 Dec 2015 08:03:31 -0800
+Message-ID: <566EE853.5040002@intel.com>
+References: <1449598334-97674-1-git-send-email-anjali.singhai@intel.com>
+ <1449598334-97674-2-git-send-email-anjali.singhai@intel.com>
+ <CALx6S36TL4YUXxHCUTnw55EPTnD7vRVBdzGFKLUES3+ZSG+m4w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	jeffrey.t.kirsher@intel.org, Kiran Patil <kiran.patil@intel.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51880 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654AbbLNP5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 10:57:37 -0500
+Received: from mga01.intel.com ([192.55.52.88]:47242 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751992AbbLNQEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 11:04:45 -0500
+In-Reply-To: <CALx6S36TL4YUXxHCUTnw55EPTnD7vRVBdzGFKLUES3+ZSG+m4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a whitespace in bpf_dump_error() usage, and also a missing closing
-bracket in ntohl() macro for eBPF programs.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/bpf_api.h | 2 +-
- tc/tc_bpf.c       | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/bpf_api.h b/include/bpf_api.h
-index 8503b9a..0666a31 100644
---- a/include/bpf_api.h
-+++ b/include/bpf_api.h
-@@ -53,7 +53,7 @@
- #endif
- 
- #ifndef ntohl
--# define ntohl(X)		__constant_ntohl((X)
-+# define ntohl(X)		__constant_ntohl((X))
- #endif
- 
- /** Section helper macros. */
-diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-index beb74be..f9b2b00 100644
---- a/tc/tc_bpf.c
-+++ b/tc/tc_bpf.c
-@@ -1042,7 +1042,7 @@ static int bpf_prog_attach(const char *section,
- 			       "license:\'%s\') %s%s (%d)!\n\n",
- 			       section, prog->type,
- 			       prog->size / sizeof(struct bpf_insn),
--			       prog->license, fd < 0 ? "rejected :" :
-+			       prog->license, fd < 0 ? "rejected: " :
- 			       "loaded", fd < 0 ? strerror(errno) : "",
- 			       fd < 0 ? errno : fd);
- 	}
--- 
-1.9.3
+On 12/11/2015 7:11 PM, Tom Herbert wrote:
+> On Tue, Dec 8, 2015 at 10:12 AM, Anjali Singhai Jain
+> <anjali.singhai@intel.com> wrote:
+>> Add ndo_ops to add/del UDP ports to a device that supports geneve
+>> offload.
+>>
+>> v3: Add some more comments about the use of the new ndo ops.
+>>
+>> Signed-off-by: Anjali Singhai Jain <anjali.singhai at intel.com>
+>> Signed-off-by: Kiran Patil <kiran.patil at intel.com>
+>> ---
+>>   drivers/net/geneve.c      | 23 +++++++++++++++++++++++
+>>   include/linux/netdevice.h | 21 ++++++++++++++++++++-
+>>   2 files changed, 43 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+>> index de5c30c..b43fd56 100644
+>> --- a/drivers/net/geneve.c
+>> +++ b/drivers/net/geneve.c
+>> @@ -371,8 +371,11 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+>>
+>>   static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+>>   {
+>> +       struct net_device *dev;
+>>          struct sock *sk = gs->sock->sk;
+>> +       struct net *net = sock_net(sk);
+>>          sa_family_t sa_family = sk->sk_family;
+>> +       __be16 port = inet_sk(sk)->inet_sport;
+>>          int err;
+>>
+>>          if (sa_family == AF_INET) {
+>> @@ -381,6 +384,14 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+>>                          pr_warn("geneve: udp_add_offload failed with status %d\n",
+>>                                  err);
+>>          }
+>> +
+>> +       rcu_read_lock();
+>> +       for_each_netdev_rcu(net, dev) {
+>> +               if (dev->netdev_ops->ndo_add_geneve_port)
+>> +                       dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
+>> +                                                            port);
+>> +       }
+>> +       rcu_read_unlock();
+> What about IPv6 case?
+
+The driver still gets add port calls for IPv6 and can decide to offload 
+L4 RX checksum if the HW is capable.
