@@ -1,48 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: add validation for the socket syscall
- protocol argument
-Date: Mon, 14 Dec 2015 16:12:40 -0500 (EST)
-Message-ID: <20151214.161240.183700484320030237.davem@davemloft.net>
-References: <1450127019-26920-1-git-send-email-hannes@stressinduktion.org>
+From: Dinh Nguyen <dinh.linux@gmail.com>
+Subject: Re: [PATCH v6 4/4] stmmac: socfpga: Provide dt node to config ptp clk source.
+Date: Mon, 14 Dec 2015 15:16:10 -0600
+Message-ID: <CADhT+wesDDATNR1dX8ynjKKfm3tUv7_TSyZ80kCgGcr9gYcfBg@mail.gmail.com>
+References: <1450063922-19481-1-git-send-email-preid@electromag.com.au>
+	<1450063922-19481-5-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, cwang@twopensource.com
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	David Miller <davem@davemloft.net>,
+	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Phil Reid <preid@electromag.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60539 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932509AbbLNVMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:12:42 -0500
-In-Reply-To: <1450127019-26920-1-git-send-email-hannes@stressinduktion.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:34939 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932080AbbLNVQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:16:11 -0500
+In-Reply-To: <1450063922-19481-5-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0K
-RGF0ZTogTW9uLCAxNCBEZWMgMjAxNSAyMjowMzozOSArMDEwMA0KDQo+IOmDreawuOWImiByZXBv
-cnRlZCB0aGF0IG9uZSBjb3VsZCBzaW1wbHkgY3Jhc2ggdGhlIGtlcm5lbCBhcyByb290IGJ5DQo+
-IHVzaW5nIGEgc2ltcGxlIHByb2dyYW06DQo+IA0KPiAJaW50IHNvY2tldF9mZDsNCj4gCXN0cnVj
-dCBzb2NrYWRkcl9pbiBhZGRyOw0KPiAJYWRkci5zaW5fcG9ydCA9IDA7DQo+IAlhZGRyLnNpbl9h
-ZGRyLnNfYWRkciA9IElOQUREUl9BTlk7DQo+IAlhZGRyLnNpbl9mYW1pbHkgPSAxMDsNCj4gDQo+
-IAlzb2NrZXRfZmQgPSBzb2NrZXQoMTAsMywweDQwMDAwMDAwKTsNCj4gCWNvbm5lY3Qoc29ja2V0
-X2ZkICwgJmFkZHIsMTYpOw0KPiANCj4gQUZfSU5FVCwgQUZfSU5FVDYgc29ja2V0cyBhY3R1YWxs
-eSBvbmx5IHN1cHBvcnQgOC1iaXQgcHJvdG9jb2wNCj4gaWRlbnRpZmllcnMuIGluZXRfc29jaydz
-IHNrY19wcm90b2NvbCBmaWVsZCB0aHVzIGlzIHNpemVkIGFjY29yZGluZ2x5LA0KPiB0aHVzIGxh
-cmdlciBwcm90b2NvbCBpZGVudGlmaWVycyBzaW1wbHkgY3V0IG9mZiB0aGUgaGlnaGVyIGJpdHMg
-YW5kDQo+IHN0b3JlIGEgemVybyBpbiB0aGUgcHJvdG9jb2wgZmllbGRzLg0KPiANCj4gVGhpcyBj
-b3VsZCBsZWFkIHRvIGUuZy4gTlVMTCBmdW5jdGlvbiBwb2ludGVyIGJlY2F1c2UgYXMgYSByZXN1
-bHQgb2YNCj4gdGhlIGN1dCBvZmYgaW5ldF9udW0gaXMgemVybyBhbmQgd2UgY2FsbCBkb3duIHRv
-IGluZXRfYXV0b2JpbmQsIHdoaWNoDQo+IGlzIE5VTEwgZm9yIHJhdyBzb2NrZXRzLg0KPiANCj4g
-a2VybmVsOiBDYWxsIFRyYWNlOg0KPiBrZXJuZWw6ICBbPGZmZmZmZmZmODE2ZGI5MGU+XSA/IGlu
-ZXRfYXV0b2JpbmQrMHgyZS8weDcwDQo+IGtlcm5lbDogIFs8ZmZmZmZmZmY4MTZkYjlhND5dIGlu
-ZXRfZGdyYW1fY29ubmVjdCsweDU0LzB4ODANCj4ga2VybmVsOiAgWzxmZmZmZmZmZjgxNjQ1MDY5
-Pl0gU1lTQ19jb25uZWN0KzB4ZDkvMHgxMTANCj4ga2VybmVsOiAgWzxmZmZmZmZmZjgxMGFjNTFi
-Pl0gPyBwdHJhY2Vfbm90aWZ5KzB4NWIvMHg4MA0KPiBrZXJuZWw6ICBbPGZmZmZmZmZmODEwMjM2
-ZDg+XSA/IHN5c2NhbGxfdHJhY2VfZW50ZXJfcGhhc2UyKzB4MTA4LzB4MjAwDQo+IGtlcm5lbDog
-IFs8ZmZmZmZmZmY4MTY0NWUwZT5dIFN5U19jb25uZWN0KzB4ZS8weDEwDQo+IGtlcm5lbDogIFs8
-ZmZmZmZmZmY4MTc3OTUxNT5dIHRyYWNlc3lzX3BoYXNlMisweDg0LzB4ODkNCj4gDQo+IEkgZm91
-bmQgbm8gcGFydGljdWxhciBjb21taXQgd2hpY2ggaW50cm9kdWNlZCB0aGlzIHByb2JsZW0uDQo+
-IA0KPiBDVkU6IENWRS0yMDE1LTg1NDMNCj4gQ2M6IENvbmcgV2FuZyA8Y3dhbmdAdHdvcGVuc291
-cmNlLmNvbT4NCj4gUmVwb3J0ZWQtYnk6IOmDreawuOWImiA8Z3VveW9uZ2dhbmdAMzYwLmNuPg0K
-PiBTaWduZWQtb2ZmLWJ5OiBIYW5uZXMgRnJlZGVyaWMgU293YSA8aGFubmVzQHN0cmVzc2luZHVr
-dGlvbi5vcmc+DQoNCkFwcGxpZWQgYW5kIHF1ZXVlZCB1cCBmb3IgLXN0YWJsZSwgdGhhbmtzLg0K
+On Sun, Dec 13, 2015 at 9:32 PM, Phil Reid <preid@electromag.com.au> wrote:
+> Provides an options to use the ptp clock routed from the Altera FPGA
+> fabric. Instead of the defalt eosc1 clock connected to the ARM HPS core.
+> This setting affects all emacs in the core as the ptp clock is common.
+>
+> Acked-by: Rob Herring <robh@kernel.org>
+> Signed-off-by: Phil Reid <preid@electromag.com.au>
+> ---
+>  Documentation/devicetree/bindings/net/socfpga-dwmac.txt | 2 ++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 9 +++++++++
+>  2 files changed, 11 insertions(+)
+>
+
+Acked-by: Dinh Nguyen <dinguyen@opensource.altera.com>
+
+Dinh
