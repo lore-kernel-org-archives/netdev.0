@@ -1,131 +1,623 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v5 net-next 2/4] rhashtable: add function to replace an element
-Date: Mon, 14 Dec 2015 15:56:46 -0800
-Message-ID: <1450137408-2589240-3-git-send-email-tom@herbertland.com>
+Subject: [PATCH v5 net-next 1/4] ila: Create net/ipv6/ila directory
+Date: Mon, 14 Dec 2015 15:56:45 -0800
+Message-ID: <1450137408-2589240-2-git-send-email-tom@herbertland.com>
 References: <1450137408-2589240-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55777 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:8231 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932808AbbLNX5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 18:57:02 -0500
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tBENuuG1017631
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 15:57:02 -0800
+	by vger.kernel.org with ESMTP id S932453AbbLNX5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 18:57:00 -0500
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tBENs740013724
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 15:56:59 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 1yt5ry0qhh-2
+	by m0089730.ppops.net with ESMTP id 1yt5b88u0r-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 15:57:02 -0800
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 15:56:59 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 5d16d0b4a2be11e590630002c95209d8-ea6e1210 for <netdev@vger.kernel.org>;	Mon,
- 14 Dec 2015 15:56:59 -0800
+ 5c1b70f2a2be11e590630002c95209d8-ea6e1210 for <netdev@vger.kernel.org>;	Mon,
+ 14 Dec 2015 15:56:58 -0800
 In-Reply-To: <1450137408-2589240-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the rhashtable_replace_fast function. This replaces one object in
-the table with another atomically. The hashes of the new and old objects
-must be equal.
+Create ila directory in preparation for supporting other hooks in the
+kernel than LWT for doing ILA. This includes:
+  - Moving ila.c to ila/ila_lwt.c
+  - Splitting out some common functions into ila_common.c
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/linux/rhashtable.h | 82 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 82 insertions(+)
+ net/ipv6/Makefile         |   2 +-
+ net/ipv6/ila.c            | 229 ----------------------------------------------
+ net/ipv6/ila/Makefile     |   7 ++
+ net/ipv6/ila/ila.h        |  46 ++++++++++
+ net/ipv6/ila/ila_common.c |  95 +++++++++++++++++++
+ net/ipv6/ila/ila_lwt.c    | 152 ++++++++++++++++++++++++++++++
+ 6 files changed, 301 insertions(+), 230 deletions(-)
+ delete mode 100644 net/ipv6/ila.c
+ create mode 100644 net/ipv6/ila/Makefile
+ create mode 100644 net/ipv6/ila/ila.h
+ create mode 100644 net/ipv6/ila/ila_common.c
+ create mode 100644 net/ipv6/ila/ila_lwt.c
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 843ceca..77deece 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -819,4 +819,86 @@ out:
- 	return err;
- }
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 2c900c7..2fbd90b 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -34,7 +34,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
+ obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
+ obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
+ obj-$(CONFIG_IPV6_MIP6) += mip6.o
+-obj-$(CONFIG_IPV6_ILA) += ila.o
++obj-$(CONFIG_IPV6_ILA) += ila/
+ obj-$(CONFIG_NETFILTER)	+= netfilter/
  
-+/* Internal function, please use rhashtable_replace_fast() instead */
-+static inline int __rhashtable_replace_fast(
-+	struct rhashtable *ht, struct bucket_table *tbl,
-+	struct rhash_head *obj_old, struct rhash_head *obj_new,
-+	const struct rhashtable_params params)
+ obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
+diff --git a/net/ipv6/ila.c b/net/ipv6/ila.c
+deleted file mode 100644
+index 1a6852e..0000000
+--- a/net/ipv6/ila.c
++++ /dev/null
+@@ -1,229 +0,0 @@
+-#include <linux/errno.h>
+-#include <linux/ip.h>
+-#include <linux/kernel.h>
+-#include <linux/module.h>
+-#include <linux/skbuff.h>
+-#include <linux/socket.h>
+-#include <linux/types.h>
+-#include <net/checksum.h>
+-#include <net/ip.h>
+-#include <net/ip6_fib.h>
+-#include <net/lwtunnel.h>
+-#include <net/protocol.h>
+-#include <uapi/linux/ila.h>
+-
+-struct ila_params {
+-	__be64 locator;
+-	__be64 locator_match;
+-	__wsum csum_diff;
+-};
+-
+-static inline struct ila_params *ila_params_lwtunnel(
+-	struct lwtunnel_state *lwstate)
+-{
+-	return (struct ila_params *)lwstate->data;
+-}
+-
+-static inline __wsum compute_csum_diff8(const __be32 *from, const __be32 *to)
+-{
+-	__be32 diff[] = {
+-		~from[0], ~from[1], to[0], to[1],
+-	};
+-
+-	return csum_partial(diff, sizeof(diff), 0);
+-}
+-
+-static inline __wsum get_csum_diff(struct ipv6hdr *ip6h, struct ila_params *p)
+-{
+-	if (*(__be64 *)&ip6h->daddr == p->locator_match)
+-		return p->csum_diff;
+-	else
+-		return compute_csum_diff8((__be32 *)&ip6h->daddr,
+-					  (__be32 *)&p->locator);
+-}
+-
+-static void update_ipv6_locator(struct sk_buff *skb, struct ila_params *p)
+-{
+-	__wsum diff;
+-	struct ipv6hdr *ip6h = ipv6_hdr(skb);
+-	size_t nhoff = sizeof(struct ipv6hdr);
+-
+-	/* First update checksum */
+-	switch (ip6h->nexthdr) {
+-	case NEXTHDR_TCP:
+-		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct tcphdr)))) {
+-			struct tcphdr *th = (struct tcphdr *)
+-					(skb_network_header(skb) + nhoff);
+-
+-			diff = get_csum_diff(ip6h, p);
+-			inet_proto_csum_replace_by_diff(&th->check, skb,
+-							diff, true);
+-		}
+-		break;
+-	case NEXTHDR_UDP:
+-		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct udphdr)))) {
+-			struct udphdr *uh = (struct udphdr *)
+-					(skb_network_header(skb) + nhoff);
+-
+-			if (uh->check || skb->ip_summed == CHECKSUM_PARTIAL) {
+-				diff = get_csum_diff(ip6h, p);
+-				inet_proto_csum_replace_by_diff(&uh->check, skb,
+-								diff, true);
+-				if (!uh->check)
+-					uh->check = CSUM_MANGLED_0;
+-			}
+-		}
+-		break;
+-	case NEXTHDR_ICMP:
+-		if (likely(pskb_may_pull(skb,
+-					 nhoff + sizeof(struct icmp6hdr)))) {
+-			struct icmp6hdr *ih = (struct icmp6hdr *)
+-					(skb_network_header(skb) + nhoff);
+-
+-			diff = get_csum_diff(ip6h, p);
+-			inet_proto_csum_replace_by_diff(&ih->icmp6_cksum, skb,
+-							diff, true);
+-		}
+-		break;
+-	}
+-
+-	/* Now change destination address */
+-	*(__be64 *)&ip6h->daddr = p->locator;
+-}
+-
+-static int ila_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+-{
+-	struct dst_entry *dst = skb_dst(skb);
+-
+-	if (skb->protocol != htons(ETH_P_IPV6))
+-		goto drop;
+-
+-	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
+-
+-	return dst->lwtstate->orig_output(net, sk, skb);
+-
+-drop:
+-	kfree_skb(skb);
+-	return -EINVAL;
+-}
+-
+-static int ila_input(struct sk_buff *skb)
+-{
+-	struct dst_entry *dst = skb_dst(skb);
+-
+-	if (skb->protocol != htons(ETH_P_IPV6))
+-		goto drop;
+-
+-	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
+-
+-	return dst->lwtstate->orig_input(skb);
+-
+-drop:
+-	kfree_skb(skb);
+-	return -EINVAL;
+-}
+-
+-static struct nla_policy ila_nl_policy[ILA_ATTR_MAX + 1] = {
+-	[ILA_ATTR_LOCATOR] = { .type = NLA_U64, },
+-};
+-
+-static int ila_build_state(struct net_device *dev, struct nlattr *nla,
+-			   unsigned int family, const void *cfg,
+-			   struct lwtunnel_state **ts)
+-{
+-	struct ila_params *p;
+-	struct nlattr *tb[ILA_ATTR_MAX + 1];
+-	size_t encap_len = sizeof(*p);
+-	struct lwtunnel_state *newts;
+-	const struct fib6_config *cfg6 = cfg;
+-	int ret;
+-
+-	if (family != AF_INET6)
+-		return -EINVAL;
+-
+-	ret = nla_parse_nested(tb, ILA_ATTR_MAX, nla,
+-			       ila_nl_policy);
+-	if (ret < 0)
+-		return ret;
+-
+-	if (!tb[ILA_ATTR_LOCATOR])
+-		return -EINVAL;
+-
+-	newts = lwtunnel_state_alloc(encap_len);
+-	if (!newts)
+-		return -ENOMEM;
+-
+-	newts->len = encap_len;
+-	p = ila_params_lwtunnel(newts);
+-
+-	p->locator = (__force __be64)nla_get_u64(tb[ILA_ATTR_LOCATOR]);
+-
+-	if (cfg6->fc_dst_len > sizeof(__be64)) {
+-		/* Precompute checksum difference for translation since we
+-		 * know both the old locator and the new one.
+-		 */
+-		p->locator_match = *(__be64 *)&cfg6->fc_dst;
+-		p->csum_diff = compute_csum_diff8(
+-			(__be32 *)&p->locator_match, (__be32 *)&p->locator);
+-	}
+-
+-	newts->type = LWTUNNEL_ENCAP_ILA;
+-	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
+-			LWTUNNEL_STATE_INPUT_REDIRECT;
+-
+-	*ts = newts;
+-
+-	return 0;
+-}
+-
+-static int ila_fill_encap_info(struct sk_buff *skb,
+-			       struct lwtunnel_state *lwtstate)
+-{
+-	struct ila_params *p = ila_params_lwtunnel(lwtstate);
+-
+-	if (nla_put_u64(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator))
+-		goto nla_put_failure;
+-
+-	return 0;
+-
+-nla_put_failure:
+-	return -EMSGSIZE;
+-}
+-
+-static int ila_encap_nlsize(struct lwtunnel_state *lwtstate)
+-{
+-	/* No encapsulation overhead */
+-	return 0;
+-}
+-
+-static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
+-{
+-	struct ila_params *a_p = ila_params_lwtunnel(a);
+-	struct ila_params *b_p = ila_params_lwtunnel(b);
+-
+-	return (a_p->locator != b_p->locator);
+-}
+-
+-static const struct lwtunnel_encap_ops ila_encap_ops = {
+-	.build_state = ila_build_state,
+-	.output = ila_output,
+-	.input = ila_input,
+-	.fill_encap = ila_fill_encap_info,
+-	.get_encap_size = ila_encap_nlsize,
+-	.cmp_encap = ila_encap_cmp,
+-};
+-
+-static int __init ila_init(void)
+-{
+-	return lwtunnel_encap_add_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
+-}
+-
+-static void __exit ila_fini(void)
+-{
+-	lwtunnel_encap_del_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
+-}
+-
+-module_init(ila_init);
+-module_exit(ila_fini);
+-MODULE_AUTHOR("Tom Herbert <tom@herbertland.com>");
+-MODULE_LICENSE("GPL");
+diff --git a/net/ipv6/ila/Makefile b/net/ipv6/ila/Makefile
+new file mode 100644
+index 0000000..31d136b
+--- /dev/null
++++ b/net/ipv6/ila/Makefile
+@@ -0,0 +1,7 @@
++#
++# Makefile for ILA module
++#
++
++obj-$(CONFIG_IPV6_ILA) += ila.o
++
++ila-objs := ila_common.o ila_lwt.o
+diff --git a/net/ipv6/ila/ila.h b/net/ipv6/ila/ila.h
+new file mode 100644
+index 0000000..b94081f
+--- /dev/null
++++ b/net/ipv6/ila/ila.h
+@@ -0,0 +1,46 @@
++/*
++ * Copyright (c) 2015 Tom Herbert <tom@herbertland.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ */
++
++#ifndef __ILA_H
++#define __ILA_H
++
++#include <linux/errno.h>
++#include <linux/ip.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/socket.h>
++#include <linux/skbuff.h>
++#include <linux/types.h>
++#include <net/checksum.h>
++#include <net/ip.h>
++#include <net/protocol.h>
++#include <uapi/linux/ila.h>
++
++struct ila_params {
++	__be64 locator;
++	__be64 locator_match;
++	__wsum csum_diff;
++};
++
++static inline __wsum compute_csum_diff8(const __be32 *from, const __be32 *to)
 +{
-+	struct rhash_head __rcu **pprev;
-+	struct rhash_head *he;
-+	spinlock_t *lock;
-+	unsigned int hash;
-+	int err = -ENOENT;
++	__be32 diff[] = {
++		~from[0], ~from[1], to[0], to[1],
++	};
 +
-+	/* Minimally, the old and new objects must have same hash
-+	 * (which should mean identifiers are the same).
-+	 */
-+	hash = rht_head_hashfn(ht, tbl, obj_old, params);
-+	if (hash != rht_head_hashfn(ht, tbl, obj_new, params))
-+		return -EINVAL;
++	return csum_partial(diff, sizeof(diff), 0);
++}
 +
-+	lock = rht_bucket_lock(tbl, hash);
++void update_ipv6_locator(struct sk_buff *skb, struct ila_params *p);
 +
-+	spin_lock_bh(lock);
++int ila_lwt_init(void);
++void ila_lwt_fini(void);
 +
-+	pprev = &tbl->buckets[hash];
-+	rht_for_each(he, tbl, hash) {
-+		if (he != obj_old) {
-+			pprev = &he->next;
-+			continue;
++#endif /* __ILA_H */
+diff --git a/net/ipv6/ila/ila_common.c b/net/ipv6/ila/ila_common.c
+new file mode 100644
+index 0000000..64e1904
+--- /dev/null
++++ b/net/ipv6/ila/ila_common.c
+@@ -0,0 +1,95 @@
++#include <linux/errno.h>
++#include <linux/ip.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/socket.h>
++#include <linux/types.h>
++#include <net/checksum.h>
++#include <net/ip.h>
++#include <net/ip6_fib.h>
++#include <net/lwtunnel.h>
++#include <net/protocol.h>
++#include <uapi/linux/ila.h>
++#include "ila.h"
++
++static __wsum get_csum_diff(struct ipv6hdr *ip6h, struct ila_params *p)
++{
++	if (*(__be64 *)&ip6h->daddr == p->locator_match)
++		return p->csum_diff;
++	else
++		return compute_csum_diff8((__be32 *)&ip6h->daddr,
++					  (__be32 *)&p->locator);
++}
++
++void update_ipv6_locator(struct sk_buff *skb, struct ila_params *p)
++{
++	__wsum diff;
++	struct ipv6hdr *ip6h = ipv6_hdr(skb);
++	size_t nhoff = sizeof(struct ipv6hdr);
++
++	/* First update checksum */
++	switch (ip6h->nexthdr) {
++	case NEXTHDR_TCP:
++		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct tcphdr)))) {
++			struct tcphdr *th = (struct tcphdr *)
++					(skb_network_header(skb) + nhoff);
++
++			diff = get_csum_diff(ip6h, p);
++			inet_proto_csum_replace_by_diff(&th->check, skb,
++							diff, true);
 +		}
++		break;
++	case NEXTHDR_UDP:
++		if (likely(pskb_may_pull(skb, nhoff + sizeof(struct udphdr)))) {
++			struct udphdr *uh = (struct udphdr *)
++					(skb_network_header(skb) + nhoff);
 +
-+		rcu_assign_pointer(obj_new->next, obj_old->next);
-+		rcu_assign_pointer(*pprev, obj_new);
-+		err = 0;
++			if (uh->check || skb->ip_summed == CHECKSUM_PARTIAL) {
++				diff = get_csum_diff(ip6h, p);
++				inet_proto_csum_replace_by_diff(&uh->check, skb,
++								diff, true);
++				if (!uh->check)
++					uh->check = CSUM_MANGLED_0;
++			}
++		}
++		break;
++	case NEXTHDR_ICMP:
++		if (likely(pskb_may_pull(skb,
++					 nhoff + sizeof(struct icmp6hdr)))) {
++			struct icmp6hdr *ih = (struct icmp6hdr *)
++					(skb_network_header(skb) + nhoff);
++
++			diff = get_csum_diff(ip6h, p);
++			inet_proto_csum_replace_by_diff(&ih->icmp6_cksum, skb,
++							diff, true);
++		}
 +		break;
 +	}
 +
-+	spin_unlock_bh(lock);
-+
-+	return err;
++	/* Now change destination address */
++	*(__be64 *)&ip6h->daddr = p->locator;
 +}
 +
-+/**
-+ * rhashtable_replace_fast - replace an object in hash table
-+ * @ht:		hash table
-+ * @obj_old:	pointer to hash head inside object being replaced
-+ * @obj_new:	pointer to hash head inside object which is new
-+ * @params:	hash table parameters
-+ *
-+ * Replacing an object doesn't affect the number of elements in the hash table
-+ * or bucket, so we don't need to worry about shrinking or expanding the
-+ * table here.
-+ *
-+ * Returns zero on success, -ENOENT if the entry could not be found,
-+ * -EINVAL if hash is not the same for the old and new objects.
-+ */
-+static inline int rhashtable_replace_fast(
-+	struct rhashtable *ht, struct rhash_head *obj_old,
-+	struct rhash_head *obj_new,
-+	const struct rhashtable_params params)
++static int __init ila_init(void)
 +{
-+	struct bucket_table *tbl;
-+	int err;
++	int ret;
 +
-+	rcu_read_lock();
++	ret = ila_lwt_init();
 +
-+	tbl = rht_dereference_rcu(ht->tbl, ht);
++	if (ret)
++		goto fail_lwt;
 +
-+	/* Because we have already taken (and released) the bucket
-+	 * lock in old_tbl, if we find that future_tbl is not yet
-+	 * visible then that guarantees the entry to still be in
-+	 * the old tbl if it exists.
-+	 */
-+	while ((err = __rhashtable_replace_fast(ht, tbl, obj_old,
-+						obj_new, params)) &&
-+	       (tbl = rht_dereference_rcu(tbl->future_tbl, ht)))
-+		;
-+
-+	rcu_read_unlock();
-+
-+	return err;
++fail_lwt:
++	return ret;
 +}
 +
- #endif /* _LINUX_RHASHTABLE_H */
++static void __exit ila_fini(void)
++{
++	ila_lwt_fini();
++}
++
++module_init(ila_init);
++module_exit(ila_fini);
++MODULE_AUTHOR("Tom Herbert <tom@herbertland.com>");
++MODULE_LICENSE("GPL");
+diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+new file mode 100644
+index 0000000..2ae3c4f
+--- /dev/null
++++ b/net/ipv6/ila/ila_lwt.c
+@@ -0,0 +1,152 @@
++#include <linux/errno.h>
++#include <linux/ip.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/socket.h>
++#include <linux/types.h>
++#include <net/checksum.h>
++#include <net/ip.h>
++#include <net/ip6_fib.h>
++#include <net/lwtunnel.h>
++#include <net/protocol.h>
++#include <uapi/linux/ila.h>
++#include "ila.h"
++
++static inline struct ila_params *ila_params_lwtunnel(
++	struct lwtunnel_state *lwstate)
++{
++	return (struct ila_params *)lwstate->data;
++}
++
++static int ila_output(struct net *net, struct sock *sk, struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++
++	if (skb->protocol != htons(ETH_P_IPV6))
++		goto drop;
++
++	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
++
++	return dst->lwtstate->orig_output(net, sk, skb);
++
++drop:
++	kfree_skb(skb);
++	return -EINVAL;
++}
++
++static int ila_input(struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++
++	if (skb->protocol != htons(ETH_P_IPV6))
++		goto drop;
++
++	update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate));
++
++	return dst->lwtstate->orig_input(skb);
++
++drop:
++	kfree_skb(skb);
++	return -EINVAL;
++}
++
++static struct nla_policy ila_nl_policy[ILA_ATTR_MAX + 1] = {
++	[ILA_ATTR_LOCATOR] = { .type = NLA_U64, },
++};
++
++static int ila_build_state(struct net_device *dev, struct nlattr *nla,
++			   unsigned int family, const void *cfg,
++			   struct lwtunnel_state **ts)
++{
++	struct ila_params *p;
++	struct nlattr *tb[ILA_ATTR_MAX + 1];
++	size_t encap_len = sizeof(*p);
++	struct lwtunnel_state *newts;
++	const struct fib6_config *cfg6 = cfg;
++	int ret;
++
++	if (family != AF_INET6)
++		return -EINVAL;
++
++	ret = nla_parse_nested(tb, ILA_ATTR_MAX, nla,
++			       ila_nl_policy);
++	if (ret < 0)
++		return ret;
++
++	if (!tb[ILA_ATTR_LOCATOR])
++		return -EINVAL;
++
++	newts = lwtunnel_state_alloc(encap_len);
++	if (!newts)
++		return -ENOMEM;
++
++	newts->len = encap_len;
++	p = ila_params_lwtunnel(newts);
++
++	p->locator = (__force __be64)nla_get_u64(tb[ILA_ATTR_LOCATOR]);
++
++	if (cfg6->fc_dst_len > sizeof(__be64)) {
++		/* Precompute checksum difference for translation since we
++		 * know both the old locator and the new one.
++		 */
++		p->locator_match = *(__be64 *)&cfg6->fc_dst;
++		p->csum_diff = compute_csum_diff8(
++			(__be32 *)&p->locator_match, (__be32 *)&p->locator);
++	}
++
++	newts->type = LWTUNNEL_ENCAP_ILA;
++	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
++			LWTUNNEL_STATE_INPUT_REDIRECT;
++
++	*ts = newts;
++
++	return 0;
++}
++
++static int ila_fill_encap_info(struct sk_buff *skb,
++			       struct lwtunnel_state *lwtstate)
++{
++	struct ila_params *p = ila_params_lwtunnel(lwtstate);
++
++	if (nla_put_u64(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator))
++		goto nla_put_failure;
++
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
++}
++
++static int ila_encap_nlsize(struct lwtunnel_state *lwtstate)
++{
++	/* No encapsulation overhead */
++	return 0;
++}
++
++static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
++{
++	struct ila_params *a_p = ila_params_lwtunnel(a);
++	struct ila_params *b_p = ila_params_lwtunnel(b);
++
++	return (a_p->locator != b_p->locator);
++}
++
++static const struct lwtunnel_encap_ops ila_encap_ops = {
++	.build_state = ila_build_state,
++	.output = ila_output,
++	.input = ila_input,
++	.fill_encap = ila_fill_encap_info,
++	.get_encap_size = ila_encap_nlsize,
++	.cmp_encap = ila_encap_cmp,
++};
++
++int ila_lwt_init(void)
++{
++	return lwtunnel_encap_add_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
++}
++
++void ila_lwt_fini(void)
++{
++	lwtunnel_encap_del_ops(&ila_encap_ops, LWTUNNEL_ENCAP_ILA);
++}
 -- 
 2.4.6
