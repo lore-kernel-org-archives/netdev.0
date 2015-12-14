@@ -1,59 +1,47 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v5 15/19] net: bridge: use __ethtool_get_ksettings
-Date: Mon, 14 Dec 2015 13:04:02 -0800
-Message-ID: <1450127046-4573-16-git-send-email-ddecotig@gmail.com>
-References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ed Swierk <eswierk@skyportsystems.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	David Decotigny <decot@googlers.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-	fcoe-devel@open-fcoe.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: addrconf: drop ieee802154 specific
+ things
+Date: Mon, 14 Dec 2015 16:11:04 -0500 (EST)
+Message-ID: <20151214.161104.51809961792932420.davem@davemloft.net>
+References: <1450122922-3174-1-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wpan@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60518 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932371AbbLNVLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:11:10 -0500
+In-Reply-To: <1450122922-3174-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Mon, 14 Dec 2015 20:55:22 +0100
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- net/bridge/br_if.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> This patch removes ARPHRD_IEEE802154 from addrconf handling. In the
+> earlier days of 802.15.4 6LoWPAN, the interface type was ARPHRD_IEEE802154
+> which introduced several issues, because 802.15.4 interfaces used the
+> same type.
+> 
+> Since commit 965e613d299c ("ieee802154: 6lowpan: fix ARPHRD to
+> ARPHRD_6LOWPAN") we use ARPHRD_6LOWPAN for 6LoWPAN interfaces. This
+> patch will remove ARPHRD_IEEE802154 which is currently deadcode, because
+> ARPHRD_IEEE802154 doesn't reach the minimum 1280 MTU of IPv6.
+> 
+> Also we use 6LoWPAN EUI64 specific defines instead using link-layer
+> constanst from 802.15.4 link-layer header.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 8d1d4a2..d1022fd 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -36,10 +36,10 @@
-  */
- static int port_cost(struct net_device *dev)
- {
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
- 
--	if (!__ethtool_get_settings(dev, &ecmd)) {
--		switch (ethtool_cmd_speed(&ecmd)) {
-+	if (!__ethtool_get_ksettings(dev, &ecmd)) {
-+		switch (ecmd.parent.speed) {
- 		case SPEED_10000:
- 			return 2;
- 		case SPEED_1000:
--- 
-2.6.0.rc2.230.g3dd15c0
+Applied, thank you.
