@@ -1,34 +1,82 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 1/1] net: bonding: remove redudant brackets
-Date: Mon, 14 Dec 2015 15:06:54 +0100
-Message-ID: <566ECCFE.2010603@6wind.com>
-References: <1449631842-29535-1-git-send-email-zyjzy2000@gmail.com>
- <20151211.200321.1340364047276738783.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, zyjzy2000@gmail.com
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [RFC radvd 0/2] radvd: 6lowpan 6CO testing patches
+Date: Mon, 14 Dec 2015 15:07:34 +0100
+Message-ID: <1450102056-23107-1-git-send-email-alex.aring@gmail.com>
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, mcr@sandelman.ca, lukasz.duda@nordicsemi.no,
+	martin.gergeleit@hs-rm.de, Alexander Aring <alex.aring@gmail.com>
+To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37748 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751336AbbLNOHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 09:07:01 -0500
-Received: by wmnn186 with SMTP id n186so122395533wmn.0
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 06:07:00 -0800 (PST)
-In-Reply-To: <20151211.200321.1340364047276738783.davem@davemloft.net>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38715 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbbLNOIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 09:08:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/12/2015 02:03, David Miller a =E9crit :
-> From: <zyjzy2000@gmail.com>
+Hi,
 
->> From: yzhu1 <zyzy2000@gmail.com>
+this patch is for testing 6CO fields in RA messages with the help of radvd.
 
->> Signed-off-by: yzhu1 <zyzyj2000@gmail.com>
->
-> Does not apply to the net-next tree.
-Also three different emails ...
+I tested it with the following configuration and two or more nodes which can
+directly reach each other.
+
+On one node (6LBR, if more 6LBR they need to have the same context
+information!):
+
+interface lowpan0
+{
+        Adv6LBR on;
+        AdvSendAdvert on;
+        UnicastOnly on;
+        AdvCurHopLimit 255;
+
+        prefix 2001::/64 {
+                AdvOnLink on;
+                AdvAutonomous on;
+                AdvRouterAddr on;
+        };
+
+        lowpanco {
+                ctx 0 {
+                        AdvContextCompressionFlag on;
+                        AdvContextLength 64;
+                        AdvContextPrefix 2001::;
+                        AdvLifeTime 1000;
+                };
+        };
+};
+
+On other nodes:
+
+interface lowpan0
+{
+	Adv6LBR off;
+	AdvSendAdvert off;
+};
+
+Then you can see that the assigned global link 2001::/64 address will
+be compressed. Tested with: ping6 and wireshark on $WPAN interface, when
+using 802.15.4 6LoWPAN.
+
+- Alex
+
+Alexander Aring (2):
+  device-linux: replace ARPHRD_IEEE802154 to ARPHRD_6LOWPAN
+  radvd: rework 6CO handling
+
+ defaults.h      |  3 +++
+ device-bsd44.c  |  6 ++++++
+ device-linux.c  | 46 +++++++++++++++++++++++++++++++++++++++++++---
+ gram.y          | 55 ++++++++++++++++++++++++++++++++++++++++++++++---------
+ pathnames.h     |  1 +
+ privsep-linux.c | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ process.c       | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ radvd.c         |  6 ++++++
+ radvd.h         | 21 +++++++++++++++++++--
+ scanner.l       |  4 +++-
+ send.c          | 33 ++++++++++++++++++++++++---------
+ 11 files changed, 253 insertions(+), 25 deletions(-)
+
+-- 
+2.6.1
