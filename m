@@ -1,43 +1,29 @@
-From: Dinh Nguyen <dinh.linux@gmail.com>
-Subject: Re: [PATCH v6 4/4] stmmac: socfpga: Provide dt node to config ptp clk source.
-Date: Mon, 14 Dec 2015 15:16:10 -0600
-Message-ID: <CADhT+wesDDATNR1dX8ynjKKfm3tUv7_TSyZ80kCgGcr9gYcfBg@mail.gmail.com>
-References: <1450063922-19481-1-git-send-email-preid@electromag.com.au>
-	<1450063922-19481-5-git-send-email-preid@electromag.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] s390 network patches
+Date: Mon, 14 Dec 2015 16:17:09 -0500 (EST)
+Message-ID: <20151214.161709.47793912452228938.davem@davemloft.net>
+References: <1449833277-69012-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>,
-	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Phil Reid <preid@electromag.com.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mschwid2@linux.vnet.ibm.com, heicars2@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ubraunu@linux.vnet.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34939 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932080AbbLNVQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:16:11 -0500
-In-Reply-To: <1450063922-19481-5-git-send-email-preid@electromag.com.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60612 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753540AbbLNVRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:17:12 -0500
+In-Reply-To: <1449833277-69012-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 13, 2015 at 9:32 PM, Phil Reid <preid@electromag.com.au> wrote:
-> Provides an options to use the ptp clock routed from the Altera FPGA
-> fabric. Instead of the defalt eosc1 clock connected to the ARM HPS core.
-> This setting affects all emacs in the core as the ptp clock is common.
->
-> Acked-by: Rob Herring <robh@kernel.org>
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
-> ---
->  Documentation/devicetree/bindings/net/socfpga-dwmac.txt | 2 ++
->  drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c     | 9 +++++++++
->  2 files changed, 11 insertions(+)
->
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Fri, 11 Dec 2015 12:27:49 +0100
 
-Acked-by: Dinh Nguyen <dinguyen@opensource.altera.com>
+> here are some s390 related patches for net-next. Most important is
+> the skb_linearize af_iucv patch from Eugene solving traffic problems
+> in certain scenarios. The remaining patches are minor improvements.
 
-Dinh
+Series applied to net-next, thanks.
