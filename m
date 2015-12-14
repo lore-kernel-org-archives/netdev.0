@@ -1,64 +1,71 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH net-next] net, cgroup: cgroup_sk_updat_lock was missing
- initializer
-Date: Mon, 14 Dec 2015 11:24:06 -0500
-Message-ID: <20151214162406.GA4026@mtj.duckdns.org>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
- <f90d369a0e004fee8d3bfdfe95e0abc0@HKXPR3004MB0088.064d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dexuan Cui <decui@microsoft.com>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>,
-	"daniel.wagner@bmw-carit.de" <daniel.wagner@bmw-carit.de>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"lizefan@huawei.com" <lizefan@huawei.com>,
-	"hannes@cmpxchg.org" <hannes@cmpxchg.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"cgroups@vger.kernel.org" <cgroups@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>,
-	"ninasc@fb.com" <ninasc@fb.com>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f90d369a0e004fee8d3bfdfe95e0abc0@HKXPR3004MB0088.064d.mgd.msft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH v3 net] ravb: clear RIC1 in init instead of stop
+Date: Tue, 15 Dec 2015 01:24:58 +0900
+Message-ID: <1450110298-21392-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup") added global
-spinlock cgroup_sk_update_lock but erroneously skipped initializer
-leading to uninitialized spinlock warning.  Fix it by using
-DEFINE_SPINLOCK().
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Reported-by: Dexuan Cui <decui@microsoft.com>
-Fixes: bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup")
+AVB-DMAC Receive FIFO Warning interrupt is not enabled, so it is not
+necessary to disable the interrupt in ravb_close().
+On the other hand, this patch disables the interrupt in ravb_dmac_init() to
+prevent the possibility that the interrupt is issued by the state that
+a boot loader left.
+
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 ---
-Hello, Dexuan.
 
-Oops, sorry about that.  Somehow thought it was a different problem
-which is already fixed.  This should do it.
+This patch is based on the master branch of David Miller's networking
+tree.
 
-Thanks.
+v3 [Yoshihiro Kaneko]
+* compile tested only
+* As suggested by Sergei Shtylyov
+  - update the subject to reflect what this patch is doing.
+  - clear RIC1 in ravb_dmac_init() instead of ravb_open().
 
- kernel/cgroup.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+v2 [Yoshihiro Kaneko]
+* compile tested only
+* As suggested by Sergei Shtylyov
+  - clear RIC1 in ndo_open() to disable the interrupt regardless of
+    a left state from a bootloader.
 
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 4f8f792..4466273f 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -5790,7 +5790,7 @@ EXPORT_SYMBOL_GPL(cgroup_get_from_path);
+ drivers/net/ethernet/renesas/ravb_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index b69e0c2..b76303e 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -405,9 +405,11 @@ static int ravb_dmac_init(struct net_device *ndev)
+ 	/* Timestamp enable */
+ 	ravb_write(ndev, TCCR_TFEN, TCCR);
  
- #if defined(CONFIG_CGROUP_NET_PRIO) || defined(CONFIG_CGROUP_NET_CLASSID)
+-	/* Interrupt enable: */
++	/* Interrupt init: */
+ 	/* Frame receive */
+ 	ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
++	/* Disable FIFO full warning */
++	ravb_write(ndev, 0, RIC1);
+ 	/* Receive FIFO full error, descriptor empty */
+ 	ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
+ 	/* Frame transmitted, timestamp FIFO updated */
+@@ -1471,7 +1473,6 @@ static int ravb_close(struct net_device *ndev)
  
--spinlock_t cgroup_sk_update_lock;
-+DEFINE_SPINLOCK(cgroup_sk_update_lock);
- static bool cgroup_sk_alloc_disabled __read_mostly;
+ 	/* Disable interrupts by clearing the interrupt masks. */
+ 	ravb_write(ndev, 0, RIC0);
+-	ravb_write(ndev, 0, RIC1);
+ 	ravb_write(ndev, 0, RIC2);
+ 	ravb_write(ndev, 0, TIC);
  
- void cgroup_sk_alloc_disable(void)
+-- 
+1.9.1
+
