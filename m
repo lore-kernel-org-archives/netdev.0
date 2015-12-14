@@ -1,64 +1,48 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: use-after-free in sctp_do_sm
-Date: Mon, 14 Dec 2015 09:50:36 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBEC96A@AcuExch.aculab.com>
-References: <5665EE26.3000706@gmail.com> <5665F17B.5030908@gmail.com>
- <CACT4Y+ad0YGve+KB8wiv6f1+eHt9Ci19FGM0SMWQvJFSez+Rcw@mail.gmail.com>
- <20151208174039.GB22987@mrl.redhat.com>
- <CACT4Y+b1OEE9NqN3J5574iN7t8NEi9jPc2Hxoj6AMHZKjCJ-mg@mail.gmail.com>
- <CACT4Y+YYbC53awV4eiDAwjJO=WHYGv3Og3XDh-gTFB1q_w0YXQ@mail.gmail.com>
- <20151209150356.GA3886@mrl.redhat.com>
- <20151209164108.GB3886@mrl.redhat.com>
- <CACT4Y+YPEqETP7NTOwJ6=4yYoAmM30qv6oRgw7apSS3+UwusAg@mail.gmail.com>
- <566AD4D9.90608@gmail.com> <20151211140333.GE3886@mrl.redhat.com>
- <566B1800.60100@gmail.com>
+Subject: RE: [PATCH 1/1] net: sctp: dynamically enable or disable pf state
+Date: Mon, 14 Dec 2015 09:53:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CBEC9E2@AcuExch.aculab.com>
+References: <1449824732-22362-1-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	syzkaller <syzkaller@googlegroups.com>,
+To: "'zyjzyj2000@gmail.com'" <zyjzyj2000@gmail.com>,
+	"vyasevich@gmail.com" <vyasevich@gmail.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
 	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	"Alexander Potapenko" <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: 'Vlad Yasevich' <vyasevich@gmail.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Dmitry Vyukov <dvyukov@google.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"alexandre.dietsch@windriver.com" <alexandre.dietsch@windriver.com>,
+	"stefan.costandache@windriver.com" <stefan.costandache@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.188]:59386 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932183AbbLNJwu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 04:52:50 -0500
-In-Reply-To: <566B1800.60100@gmail.com>
+Received: from smtp-out4.electric.net ([192.162.216.194]:52204 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932150AbbLNJ4N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 04:56:13 -0500
+In-Reply-To: <1449824732-22362-1-git-send-email-zyjzyj2000@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich
-> Sent: 11 December 2015 18:38
+From: zyjzyj2000@gmail.com
+> Sent: 11 December 2015 09:06
 ...
-> > Found a similar place in abort primitive handling like in this last
-> > patch update, it's probably the issue you're still triggering.
-> >
-> > Also found another place that may lead to this use after free, in case
-> > we receive a packet with a chunk that has no data.
-> >
-> > Oh my.. :)
-> 
-> Yes.  This is what I was worried about...  Anything that triggers
-> a DELTE_TCB command has to return a code that we can trap.
-> 
-> The other way is to do what Dmitri suggested, but even there, we
-> need to be very careful.
+> +pf_enable - INTEGER
+> +	Enable or disable pf state. A value of pf_retrans > path_max_retrans
+> +	also disables pf state. That is, one of both pf_enable and
+> +	pf_retrans > path_max_retrans can disable pf state. Since pf_retrans
+> +	and path_max_retrans can be changed by userspace application, sometimes
+> +	user expects to disable pf state by the value of
+> +	pf_retrans > path_max_retrans, but ocassionally the value of pf_retrans
+> +	or path_max_retrans is changed by the user application, this pf state is
+> +	enabled. As such, it is necessary to add this to dynamically enable
+> +	and disable pf state.
+> +
+> +	1: Enable pf.
+> +
+> +	0: Disable pf.
+> +
+> +	Default: 1
 
-I'm always wary of anything that queues actions up for later processing.
-It is far too easy (as found here) to end up processing actions
-in invalid states, or to process actions in 'unusual' orders when
-specific events happen close together.
-
-I wonder how much fallout there'd be from getting the sctp code
-to immediately action things, instead of queuing the actions for later.
-It would certainly remove a lot of the unusual combinations of events.
+You ought to say what 'pf' is short for.
 
 	David
