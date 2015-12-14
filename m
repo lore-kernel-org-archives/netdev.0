@@ -1,27 +1,29 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 7/8] netfilter: prepare xt_cgroup for multi revisions
-Date: Mon, 14 Dec 2015 20:35:31 +0100
-Message-ID: <20151214193531.GA18238@salvia>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
- <1449527935-27056-8-git-send-email-tj@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next] ipv6: allow routes to be configured with
+ expire values
+Date: Mon, 14 Dec 2015 14:36:45 -0500 (EST)
+Message-ID: <20151214.143645.1177969141058180151.davem@davemloft.net>
+References: <20151211.202157.2045048466167764855.davem@davemloft.net>
+	<CADvbK_fxww6-EfDgdo-4e=UscsB_pvJO4z1NAPiFyujiA5xr0Q@mail.gmail.com>
+	<566EF98B.8060704@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	daniel@iogearbox.net, daniel.wagner@bmw-carit.de,
-	nhorman@tuxdriver.com, lizefan@huawei.com, hannes@cmpxchg.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, cgroups@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com, ninasc@fb.com,
-	Jan Engelhardt <jengelh@inai.de>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1449527935-27056-8-git-send-email-tj@kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59152 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752041AbbLNTgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:36:47 -0500
+In-Reply-To: <566EF98B.8060704@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2015 at 05:38:54PM -0500, Tejun Heo wrote:
-> xt_cgroup will grow cgroup2 path based match.  Postfix existing
-> symbols with _v0 and prepare for multi revision registration.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 14 Dec 2015 18:16:59 +0100
 
-Applied, thanks.
+> We can easily switch to new attributes. Should we introduce a new
+> interface for this?
+
+Yes.
