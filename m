@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] ipv6: allow routes to be configured with
- expire values
-Date: Mon, 14 Dec 2015 14:36:45 -0500 (EST)
-Message-ID: <20151214.143645.1177969141058180151.davem@davemloft.net>
-References: <20151211.202157.2045048466167764855.davem@davemloft.net>
-	<CADvbK_fxww6-EfDgdo-4e=UscsB_pvJO4z1NAPiFyujiA5xr0Q@mail.gmail.com>
-	<566EF98B.8060704@stressinduktion.org>
+Subject: Re: [PATCH v5 4/4] net: diag: Support destroying TCP sockets.
+Date: Mon, 14 Dec 2015 14:37:39 -0500 (EST)
+Message-ID: <20151214.143739.879220917312503422.davem@davemloft.net>
+References: <CALx6S37SvPk319=hC8mVwLHsa8T_6wed41wcqLgudR8yj3akdg@mail.gmail.com>
+	<1450114197-73779-1-git-send-email-lorenzo@google.com>
+	<1450114197-73779-5-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59152 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59156 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbbLNTgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:36:47 -0500
-In-Reply-To: <566EF98B.8060704@stressinduktion.org>
+	with ESMTP id S932127AbbLNThk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:37:40 -0500
+In-Reply-To: <1450114197-73779-5-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 14 Dec 2015 18:16:59 +0100
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue, 15 Dec 2015 02:29:57 +0900
 
-> We can easily switch to new attributes. Should we introduce a new
-> interface for this?
+> +#if CONFIG_INET_DIAG_DESTROY
 
-Yes.
+Config symbols are to be checked with "ifdef" not "if".
+
+> +config INET_DIAG_DESTROY
+> +	bool "INET: allow privileged process to administratively close sockets"
+> +	depends on INET_DIAG && (IPV6 || IPV6=n)
+> +	default n
+
+As Eric Dumazet stated, this "(X || X=n)" construct only makes sense for
+tristate Kconfig entries.
