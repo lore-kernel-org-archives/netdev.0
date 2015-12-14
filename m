@@ -1,190 +1,139 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] fm10k: cleanup overly long lines
-Date: Sun, 13 Dec 2015 16:27:46 -0800
-Message-ID: <1450052867-36654-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] fm10k: conditionally compile DCB and DebugFS support
+Date: Sun, 13 Dec 2015 16:27:39 -0800
+Message-ID: <1450052867-36654-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:41661 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:42600 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752018AbbLNA1w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 19:27:52 -0500
+	id S1751551AbbLNA1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 19:27:51 -0500
 In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
+Rather than wrapping fm10k_dcbnl.c and fm10k_debugfs.c support with
+ #ifdef blocks, just conditionally include the .o files in the Makefile.
+Also, since we're modifying it, update the copyright year on the
+Makefile.
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h         |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 12 ++++++----
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |  4 +++-
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c     | 29 +++++++++++++-----------
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c      |  7 +++---
- 6 files changed, 33 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/fm10k/Makefile        | 20 +++++++++++++++-----
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |  4 ++++
+ drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c   |  4 ----
+ drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c |  4 ----
+ 4 files changed, 19 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
+index 08859dd..b006ff6 100644
+--- a/drivers/net/ethernet/intel/fm10k/Makefile
++++ b/drivers/net/ethernet/intel/fm10k/Makefile
+@@ -1,7 +1,7 @@
+ ################################################################################
+ #
+ # Intel Ethernet Switch Host Interface Driver
+-# Copyright(c) 2013 - 2014 Intel Corporation.
++# Copyright(c) 2013 - 2015 Intel Corporation.
+ #
+ # This program is free software; you can redistribute it and/or modify it
+ # under the terms and conditions of the GNU General Public License,
+@@ -27,7 +27,17 @@
+ 
+ obj-$(CONFIG_FM10K) += fm10k.o
+ 
+-fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
+-	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
+-	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
+-	      fm10k_debugfs.o fm10k_ptp.o fm10k_dcbnl.o
++fm10k-y := fm10k_main.o \
++	   fm10k_common.o \
++	   fm10k_pci.o \
++	   fm10k_ptp.o \
++	   fm10k_netdev.o \
++	   fm10k_ethtool.o \
++	   fm10k_pf.o \
++	   fm10k_vf.o \
++	   fm10k_mbx.o \
++	   fm10k_iov.o \
++	   fm10k_tlv.o
++
++fm10k-$(CONFIG_DEBUG_FS) += fm10k_debugfs.o
++fm10k-$(CONFIG_DCB) += fm10k_dcbnl.o
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 849e36d..021abe3 100644
+index 8595a3d..02219d9 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -164,7 +164,7 @@ struct fm10k_ring_container {
- 	unsigned int total_packets;	/* total packets processed this int */
- 	u16 work_limit;			/* total work allowed per interrupt */
- 	u16 itr;			/* interrupt throttle rate value */
--	u8 itr_scale;			/* ITR adjustment scaler based on PCI speed */
-+	u8 itr_scale;			/* ITR adjustment based on PCI speed */
- 	u8 count;			/* total number of rings in vector */
+@@ -557,5 +557,9 @@ int fm10k_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
+ int fm10k_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
+ 
+ /* DCB */
++#ifdef CONFIG_DCB
+ void fm10k_dcbnl_set_ops(struct net_device *dev);
++#else
++static inline void fm10k_dcbnl_set_ops(struct net_device *dev) {}
++#endif
+ #endif /* _FM10K_H_ */
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+index 5c7a4d7..2be4361 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+@@ -20,7 +20,6 @@
+ 
+ #include "fm10k.h"
+ 
+-#ifdef CONFIG_DCB
+ /**
+  * fm10k_dcbnl_ieee_getets - get the ETS configuration for the device
+  * @dev: netdev interface for the device
+@@ -155,7 +154,6 @@ static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
+ 	.setdcbx	= fm10k_dcbnl_setdcbx,
  };
  
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 3b857f4..2f6a05b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -259,7 +259,8 @@ static int fm10k_get_sset_count(struct net_device *dev, int sset)
- 			stats_len += FM10K_DEBUG_STATS_LEN;
- 
- 			if (iov_data)
--				stats_len += FM10K_MBX_STATS_LEN * iov_data->num_vfs;
-+				stats_len += FM10K_MBX_STATS_LEN *
-+					iov_data->num_vfs;
- 		}
- 
- 		return stats_len;
-@@ -298,14 +299,16 @@ static void fm10k_get_ethtool_stats(struct net_device *netdev,
- 
- 	if (interface->flags & FM10K_FLAG_DEBUG_STATS) {
- 		for (i = 0; i < FM10K_DEBUG_STATS_LEN; i++) {
--			p = (char *)interface + fm10k_gstrings_debug_stats[i].stat_offset;
-+			p = (char *)interface +
-+				fm10k_gstrings_debug_stats[i].stat_offset;
- 			*(data++) = (fm10k_gstrings_debug_stats[i].sizeof_stat ==
- 				     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 		}
- 	}
- 
- 	for (i = 0; i < FM10K_MBX_STATS_LEN; i++) {
--		p = (char *)&interface->hw.mbx + fm10k_gstrings_mbx_stats[i].stat_offset;
-+		p = (char *)&interface->hw.mbx +
-+			fm10k_gstrings_mbx_stats[i].stat_offset;
- 		*(data++) = (fm10k_gstrings_mbx_stats[i].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
-@@ -332,7 +335,8 @@ static void fm10k_get_ethtool_stats(struct net_device *netdev,
- 			}
- 
- 			for (j = 0; j < FM10K_MBX_STATS_LEN; j++) {
--				p = (char *)&vf_info->mbx + fm10k_gstrings_mbx_stats[j].stat_offset;
-+				p = (char *)&vf_info->mbx +
-+					fm10k_gstrings_mbx_stats[j].stat_offset;
- 				*(data++) = (fm10k_gstrings_mbx_stats[j].sizeof_stat ==
- 					     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 			}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-index b31bbc2..c7fea47 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-@@ -903,7 +903,7 @@ static void fm10k_mbx_create_disconnect_hdr(struct fm10k_mbx_info *mbx)
- }
- 
+-#endif /* CONFIG_DCB */
  /**
-- *  fm10k_mbx_create_fake_disconnect_hdr - Generate a false disconnect mailbox header
-+ *  fm10k_mbx_create_fake_disconnect_hdr - Generate a false disconnect mbox hdr
-  *  @mbx: pointer to mailbox
-  *
-  *  This function creates a fake disconnect header for loading into remote
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index c9c94c4..d9854d3 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -789,7 +789,9 @@ static int fm10k_update_vid(struct net_device *netdev, u16 vid, bool set)
- 			rx_ring->vid &= ~FM10K_VLAN_CLEAR;
- 	}
+  * fm10k_dcbnl_set_ops - Configures dcbnl ops pointer for netdev
+  * @dev: netdev interface for the device
+@@ -164,11 +162,9 @@ static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
+  **/
+ void fm10k_dcbnl_set_ops(struct net_device *dev)
+ {
+-#ifdef CONFIG_DCB
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 	struct fm10k_hw *hw = &interface->hw;
  
--	/* Do not remove default VLAN ID related entries from VLAN and MAC tables */
-+	/* Do not remove default VLAN ID related entries from VLAN and MAC
-+	 * tables
-+	 */
- 	if (!set && vid == hw->mac.default_vid)
- 		return 0;
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 84424a8..e820b5f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -180,7 +180,8 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 
- 	err = fm10k_init_queueing_scheme(interface);
- 	if (err) {
--		dev_err(&interface->pdev->dev, "init_queueing_scheme failed: %d\n", err);
-+		dev_err(&interface->pdev->dev,
-+			"init_queueing_scheme failed: %d\n", err);
- 		goto reinit_err;
- 	}
- 
-@@ -1866,17 +1867,18 @@ static void fm10k_slot_warn(struct fm10k_intfc *interface)
- 		return;
- 	}
- 
--	if (max_gts < expected_gts) {
--		dev_warn(&interface->pdev->dev,
--			 "This device requires %dGT/s of bandwidth for optimal performance.\n",
--			 expected_gts);
--		dev_warn(&interface->pdev->dev,
--			 "A %sslot with x%d lanes is suggested.\n",
--			 (hw->bus_caps.speed == fm10k_bus_speed_2500 ? "2.5GT/s " :
--			  hw->bus_caps.speed == fm10k_bus_speed_5000 ? "5.0GT/s " :
--			  hw->bus_caps.speed == fm10k_bus_speed_8000 ? "8.0GT/s " : ""),
--			 hw->bus_caps.width);
--	}
-+	if (max_gts >= expected_gts)
-+		return;
-+
-+	dev_warn(&interface->pdev->dev,
-+		 "This device requires %dGT/s of bandwidth for optimal performance.\n",
-+		 expected_gts);
-+	dev_warn(&interface->pdev->dev,
-+		 "A %sslot with x%d lanes is suggested.\n",
-+		 (hw->bus_caps.speed == fm10k_bus_speed_2500 ? "2.5GT/s " :
-+		  hw->bus_caps.speed == fm10k_bus_speed_5000 ? "5.0GT/s " :
-+		  hw->bus_caps.speed == fm10k_bus_speed_8000 ? "8.0GT/s " : ""),
-+		 hw->bus_caps.width);
+ 	if (hw->mac.type == fm10k_mac_pf)
+ 		dev->dcbnl_ops = &fm10k_dcbnl_ops;
+-#endif /* CONFIG_DCB */
  }
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+index 5304bc1..5d6137f 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+@@ -18,8 +18,6 @@
+  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+  */
  
- /**
-@@ -2294,7 +2296,8 @@ static void fm10k_io_resume(struct pci_dev *pdev)
+-#ifdef CONFIG_DEBUG_FS
+-
+ #include "fm10k.h"
  
- 	err = fm10k_init_queueing_scheme(interface);
- 	if (err) {
--		dev_err(&interface->pdev->dev, "init_queueing_scheme failed: %d\n", err);
-+		dev_err(&interface->pdev->dev,
-+			"init_queueing_scheme failed: %d\n", err);
- 		return;
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index ac3dc28..808307e 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -1441,9 +1441,10 @@ static void fm10k_update_hw_stats_pf(struct fm10k_hw *hw,
- 		xec = fm10k_read_hw_stats_32b(hw, FM10K_STATS_XEC, &stats->xec);
- 		vlan_drop = fm10k_read_hw_stats_32b(hw, FM10K_STATS_VLAN_DROP,
- 						    &stats->vlan_drop);
--		loopback_drop = fm10k_read_hw_stats_32b(hw,
--							FM10K_STATS_LOOPBACK_DROP,
--							&stats->loopback_drop);
-+		loopback_drop =
-+			fm10k_read_hw_stats_32b(hw,
-+						FM10K_STATS_LOOPBACK_DROP,
-+						&stats->loopback_drop);
- 		nodesc_drop = fm10k_read_hw_stats_32b(hw,
- 						      FM10K_STATS_NODESC_DROP,
- 						      &stats->nodesc_drop);
+ #include <linux/debugfs.h>
+@@ -258,5 +256,3 @@ void fm10k_dbg_exit(void)
+ 	debugfs_remove_recursive(dbg_root);
+ 	dbg_root = NULL;
+ }
+-
+-#endif /* CONFIG_DEBUG_FS */
 -- 
 2.5.0
