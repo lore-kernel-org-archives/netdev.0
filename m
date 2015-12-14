@@ -1,30 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 2/2] net:hns: print MAC with %pM
-Date: Sun, 13 Dec 2015 23:37:34 -0500 (EST)
-Message-ID: <20151213.233734.1535353072666775593.davem@davemloft.net>
-References: <1449760990-111046-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<1449760990-111046-2-git-send-email-andriy.shevchenko@linux.intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net] ravb: Add disable 10base
+Date: Mon, 14 Dec 2015 13:53:04 +0900
+Message-ID: <20151214045301.GA18143@verge.net.au>
+References: <1450019758-32710-1-git-send-email-ykaneko0929@gmail.com>
+ <566DA83C.9080801@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, huangdaode@hisilicon.com,
-	linux@rasmusvillemoes.dk
-To: andriy.shevchenko@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43959 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280AbbLNEhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 23:37:36 -0500
-In-Reply-To: <1449760990-111046-2-git-send-email-andriy.shevchenko@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <566DA83C.9080801@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Thu, 10 Dec 2015 17:23:10 +0200
+[Cc Florian]
 
-> printf() has a dedicated specifier to print MAC addresses. Use it instead of
-> pushing each byte via stack.
+On Sun, Dec 13, 2015 at 08:17:48PM +0300, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> On 12/13/2015 06:15 PM, Yoshihiro Kaneko wrote:
+> 
+> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >
+> >Ethernet AVB does not support 10 Mbps transfer speed.
+> >
+> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> >---
+> >
+> >This patch is based on the master branch of David Miller's networking
+> >tree.
+> >
+> >  drivers/net/ethernet/renesas/ravb_main.c | 3 +++
+> >  1 file changed, 3 insertions(+)
+> >
+> >diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> >index b69e0c2..467d416 100644
+> >--- a/drivers/net/ethernet/renesas/ravb_main.c
+> >+++ b/drivers/net/ethernet/renesas/ravb_main.c
+> >@@ -905,6 +905,9 @@ static int ravb_phy_init(struct net_device *ndev)
+> >  		netdev_info(ndev, "limited PHY to 100Mbit/s\n");
+> >  	}
+> >
+> >+	/* 10BASE is not supported */
+> >+	phydev->supported &= ~PHY_10BT_FEATURES;
+> >+
+> 
+>    Perhaps we need phy_set_min_speed() in addition to phy_set_max_speed()?
 
-Applied.
+FWIW, as the person who added phy_set_max_speed(), I think
+that is sounds like a good idea.
