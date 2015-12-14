@@ -1,37 +1,320 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net, cgroup: cgroup_sk_updat_lock was missing
- initializer
-Date: Mon, 14 Dec 2015 14:20:43 -0500 (EST)
-Message-ID: <20151214.142043.1185024338854399910.davem@davemloft.net>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
-	<f90d369a0e004fee8d3bfdfe95e0abc0@HKXPR3004MB0088.064d.mgd.msft.net>
-	<20151214162406.GA4026@mtj.duckdns.org>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 5/8] net: Eliminate NETIF_F_GEN_CSUM and NETIF_F_V[46]_CSUM
+Date: Mon, 14 Dec 2015 11:19:44 -0800
+Message-ID: <1450120787-1773171-6-git-send-email-tom@herbertland.com>
+References: <1450120787-1773171-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: decui@microsoft.com, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, daniel@iogearbox.net,
-	daniel.wagner@bmw-carit.de, nhorman@tuxdriver.com,
-	lizefan@huawei.com, hannes@cmpxchg.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com, ninasc@fb.com
-To: tj@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151214162406.GA4026@mtj.duckdns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43997 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932224AbbLNTU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:20:58 -0500
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.15.0.59/8.15.0.59) with SMTP id tBEJI5kR012184
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:20:57 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 1ys1f5f61n-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 11:20:57 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.102.107.99) with ESMTP	id
+ c857de6ca29711e593540002c99293a0-b11f8210 for <netdev@vger.kernel.org>;	Mon,
+ 14 Dec 2015 11:20:50 -0800
+In-Reply-To: <1450120787-1773171-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj@kernel.org>
-Date: Mon, 14 Dec 2015 11:24:06 -0500
+These netif flags are unnecessary convolutions. It is more
+straightforward to just use NETIF_F_HW_CSUM, NETIF_F_IP_CSUM,
+and NETIF_F_IPV6_CSUM directly.
 
-> bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup") added global
-> spinlock cgroup_sk_update_lock but erroneously skipped initializer
-> leading to uninitialized spinlock warning.  Fix it by using
-> DEFINE_SPINLOCK().
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Reported-by: Dexuan Cui <decui@microsoft.com>
-> Fixes: bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup")
+This patch also:
+    - Cleans up can_checksum_protocol
+    - Simplifies netdev_intersect_features
 
-Applied, thanks.
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ drivers/net/ethernet/sfc/efx.c           |  2 +-
+ drivers/net/macvlan.c                    |  2 +-
+ include/linux/if_vlan.h                  |  2 +-
+ include/linux/netdev_features.h          |  9 +++----
+ include/linux/netdevice.h                | 40 ++++++++++++++++++++------------
+ net/core/dev.c                           | 12 +++++-----
+ net/core/pktgen.c                        |  4 ++--
+ net/ipv4/ip_output.c                     |  2 +-
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c |  3 ++-
+ net/ipv4/udp.c                           |  3 ++-
+ net/ipv4/udp_offload.c                   |  5 ++--
+ net/ipv6/ip6_output.c                    |  2 +-
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c |  3 ++-
+ 13 files changed, 50 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 1fe13c7..6f69743 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -3128,7 +3128,7 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+ 	net_dev->features |= (efx->type->offload_features | NETIF_F_SG |
+ 			      NETIF_F_HIGHDMA | NETIF_F_TSO |
+ 			      NETIF_F_RXCSUM);
+-	if (efx->type->offload_features & NETIF_F_V6_CSUM)
++	if (efx->type->offload_features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
+ 		net_dev->features |= NETIF_F_TSO6;
+ 	/* Mask for features that also apply to VLAN devices */
+ 	net_dev->vlan_features |= (NETIF_F_HW_CSUM | NETIF_F_SG |
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index ae3b486..6a57a00 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -758,7 +758,7 @@ static struct lock_class_key macvlan_netdev_xmit_lock_key;
+ static struct lock_class_key macvlan_netdev_addr_lock_key;
+ 
+ #define ALWAYS_ON_FEATURES \
+-	(NETIF_F_SG | NETIF_F_GEN_CSUM | NETIF_F_GSO_SOFTWARE | NETIF_F_LLTX | \
++	(NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE | NETIF_F_LLTX | \
+ 	 NETIF_F_GSO_ROBUST)
+ 
+ #define MACVLAN_FEATURES \
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 05f5879..a5f6ce6 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -621,7 +621,7 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
+ 						     NETIF_F_SG |
+ 						     NETIF_F_HIGHDMA |
+ 						     NETIF_F_FRAGLIST |
+-						     NETIF_F_GEN_CSUM |
++						     NETIF_F_HW_CSUM |
+ 						     NETIF_F_HW_VLAN_CTAG_TX |
+ 						     NETIF_F_HW_VLAN_STAG_TX);
+ 
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 2c4e94a..d9654f0e 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -146,15 +146,12 @@ enum {
+ #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
+ 				 NETIF_F_TSO6 | NETIF_F_UFO)
+ 
+-#define NETIF_F_GEN_CSUM	NETIF_F_HW_CSUM
+-#define NETIF_F_V4_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IP_CSUM)
+-#define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+-
+-/* List of IP checksum features. Note that NETIF_HW_CSUM should not be
++/* List of IP checksum features. Note that NETIF_F_ HW_CSUM should not be
+  * set in features when NETIF_F_IP_CSUM or NETIF_F_IPV6_CSUM are set--
+  * this would be contradictory
+  */
+-#define NETIF_F_CSUM_MASK	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
++#define NETIF_F_CSUM_MASK	(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | \
++				 NETIF_F_HW_CSUM)
+ 
+ #define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a54223a..283984b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3691,13 +3691,24 @@ __be16 skb_network_protocol(struct sk_buff *skb, int *depth);
+ static inline bool can_checksum_protocol(netdev_features_t features,
+ 					 __be16 protocol)
+ {
+-	return ((features & NETIF_F_GEN_CSUM) ||
+-		((features & NETIF_F_V4_CSUM) &&
+-		 protocol == htons(ETH_P_IP)) ||
+-		((features & NETIF_F_V6_CSUM) &&
+-		 protocol == htons(ETH_P_IPV6)) ||
+-		((features & NETIF_F_FCOE_CRC) &&
+-		 protocol == htons(ETH_P_FCOE)));
++	if (protocol == htons(ETH_P_FCOE))
++		return !!(features & NETIF_F_FCOE_CRC);
++
++	/* Assume this is an IP checksum (not SCTP CRC) */
++
++	if (features & NETIF_F_HW_CSUM) {
++		/* Can checksum everything */
++		return true;
++	}
++
++	switch (protocol) {
++	case htons(ETH_P_IP):
++		return !!(features & NETIF_F_IP_CSUM);
++	case htons(ETH_P_IPV6):
++		return !!(features & NETIF_F_IPV6_CSUM);
++	default:
++		return false;
++	}
+ }
+ 
+ #ifdef CONFIG_BUG
+@@ -3762,15 +3773,14 @@ void linkwatch_run_queue(void);
+ static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
+ 							  netdev_features_t f2)
+ {
+-	if (f1 & NETIF_F_GEN_CSUM)
+-		f1 |= (NETIF_F_CSUM_MASK & ~NETIF_F_GEN_CSUM);
+-	if (f2 & NETIF_F_GEN_CSUM)
+-		f2 |= (NETIF_F_CSUM_MASK & ~NETIF_F_GEN_CSUM);
+-	f1 &= f2;
+-	if (f1 & NETIF_F_GEN_CSUM)
+-		f1 &= ~(NETIF_F_CSUM_MASK & ~NETIF_F_GEN_CSUM);
++	if ((f1 ^ f2) & NETIF_F_HW_CSUM) {
++		if (f1 & NETIF_F_HW_CSUM)
++			f1 |= (NETIF_F_IP_CSUM|NETIF_F_IP_CSUM);
++		else
++			f2 |= (NETIF_F_IP_CSUM|NETIF_F_IP_CSUM);
++	}
+ 
+-	return f1;
++	return f1 & f2;
+ }
+ 
+ static inline netdev_features_t netdev_get_wanted_features(
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5a3b5a4..45b013f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6467,9 +6467,9 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
+ 	/* UFO needs SG and checksumming */
+ 	if (features & NETIF_F_UFO) {
+ 		/* maybe split UFO into V4 and V6? */
+-		if (!((features & NETIF_F_GEN_CSUM) ||
+-		    (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
+-			    == (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
++		if (!(features & NETIF_F_HW_CSUM) &&
++		    ((features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) !=
++		     (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))) {
+ 			netdev_dbg(dev,
+ 				"Dropping NETIF_F_UFO since no checksum offload features.\n");
+ 			features &= ~NETIF_F_UFO;
+@@ -7571,7 +7571,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+ netdev_features_t netdev_increment_features(netdev_features_t all,
+ 	netdev_features_t one, netdev_features_t mask)
+ {
+-	if (mask & NETIF_F_GEN_CSUM)
++	if (mask & NETIF_F_HW_CSUM)
+ 		mask |= NETIF_F_CSUM_MASK;
+ 	mask |= NETIF_F_VLAN_CHALLENGED;
+ 
+@@ -7579,8 +7579,8 @@ netdev_features_t netdev_increment_features(netdev_features_t all,
+ 	all &= one | ~NETIF_F_ALL_FOR_ALL;
+ 
+ 	/* If one device supports hw checksumming, set for all. */
+-	if (all & NETIF_F_GEN_CSUM)
+-		all &= ~(NETIF_F_CSUM_MASK & ~NETIF_F_GEN_CSUM);
++	if (all & NETIF_F_HW_CSUM)
++		all &= ~(NETIF_F_CSUM_MASK & ~NETIF_F_HW_CSUM);
+ 
+ 	return all;
+ }
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index de8d5cc..2be1444 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2898,7 +2898,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 
+ 	if (!(pkt_dev->flags & F_UDPCSUM)) {
+ 		skb->ip_summed = CHECKSUM_NONE;
+-	} else if (odev->features & NETIF_F_V4_CSUM) {
++	} else if (odev->features & (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM)) {
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+ 		udp4_hwcsum(skb, iph->saddr, iph->daddr);
+@@ -3032,7 +3032,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 
+ 	if (!(pkt_dev->flags & F_UDPCSUM)) {
+ 		skb->ip_summed = CHECKSUM_NONE;
+-	} else if (odev->features & NETIF_F_V6_CSUM) {
++	} else if (odev->features & (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM)) {
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum_start = skb_transport_header(skb) - skb->head;
+ 		skb->csum_offset = offsetof(struct udphdr, check);
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index e0b94cd..568e2bc 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -911,7 +911,7 @@ static int __ip_append_data(struct sock *sk,
+ 	 */
+ 	if (transhdrlen &&
+ 	    length + fragheaderlen <= mtu &&
+-	    rt->dst.dev->features & NETIF_F_V4_CSUM &&
++	    rt->dst.dev->features & (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM) &&
+ 	    !(flags & MSG_MORE) &&
+ 	    !exthdrlen)
+ 		csummode = CHECKSUM_PARTIAL;
+diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+index 5075b7e..61c7cc2 100644
+--- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+@@ -132,7 +132,8 @@ static void nf_nat_ipv4_csum_recalc(struct sk_buff *skb,
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		if (!(rt->rt_flags & RTCF_LOCAL) &&
+-		    (!skb->dev || skb->dev->features & NETIF_F_V4_CSUM)) {
++		    (!skb->dev || skb->dev->features &
++		     (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
+ 			skb->ip_summed = CHECKSUM_PARTIAL;
+ 			skb->csum_start = skb_headroom(skb) +
+ 					  skb_network_offset(skb) +
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0c7b0e6..8841e98 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -772,7 +772,8 @@ void udp_set_csum(bool nocheck, struct sk_buff *skb,
+ 	else if (skb_is_gso(skb))
+ 		uh->check = ~udp_v4_check(len, saddr, daddr, 0);
+ 	else if (skb_dst(skb) && skb_dst(skb)->dev &&
+-		 (skb_dst(skb)->dev->features & NETIF_F_V4_CSUM)) {
++		 (skb_dst(skb)->dev->features &
++		  (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
+ 
+ 		BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+ 
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index f938616..1300426 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -60,8 +60,9 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 
+ 	/* Try to offload checksum if possible */
+ 	offload_csum = !!(need_csum &&
+-			  (skb->dev->features &
+-			   (is_ipv6 ? NETIF_F_V6_CSUM : NETIF_F_V4_CSUM)));
++			  ((skb->dev->features & NETIF_F_HW_CSUM) ||
++			   (skb->dev->features & (is_ipv6 ?
++			    NETIF_F_IPV6_CSUM : NETIF_F_IP_CSUM))));
+ 
+ 	/* segment inner packet. */
+ 	enc_features = skb->dev->hw_enc_features & features;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index e6a7bd15..2f74845 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1322,7 +1322,7 @@ emsgsize:
+ 	    headersize == sizeof(struct ipv6hdr) &&
+ 	    length < mtu - headersize &&
+ 	    !(flags & MSG_MORE) &&
+-	    rt->dst.dev->features & NETIF_F_V6_CSUM)
++	    rt->dst.dev->features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
+ 		csummode = CHECKSUM_PARTIAL;
+ 
+ 	if (sk->sk_type == SOCK_DGRAM || sk->sk_type == SOCK_RAW) {
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index 238e70c..6ce3099 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -136,7 +136,8 @@ static void nf_nat_ipv6_csum_recalc(struct sk_buff *skb,
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		if (!(rt->rt6i_flags & RTF_LOCAL) &&
+-		    (!skb->dev || skb->dev->features & NETIF_F_V6_CSUM)) {
++		    (!skb->dev || skb->dev->features &
++		     (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))) {
+ 			skb->ip_summed = CHECKSUM_PARTIAL;
+ 			skb->csum_start = skb_headroom(skb) +
+ 					  skb_network_offset(skb) +
+-- 
+2.4.6
