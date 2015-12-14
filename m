@@ -1,210 +1,37 @@
-From: Tom Herbert <tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v5 4/4] net: diag: Support destroying TCP sockets.
-Date: Mon, 14 Dec 2015 09:52:02 -0800
-Message-ID: <CALx6S34bY5mafoTnu5-GTqYmc23oc9OyhyFe367PH+PphT5YjA@mail.gmail.com>
+Date: Mon, 14 Dec 2015 10:03:03 -0800
+Message-ID: <1450116183.8474.5.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <CALx6S37SvPk319=hC8mVwLHsa8T_6wed41wcqLgudR8yj3akdg@mail.gmail.com>
-	<1450114197-73779-1-git-send-email-lorenzo@google.com>
-	<1450114197-73779-5-git-send-email-lorenzo@google.com>
+	 <1450114197-73779-1-git-send-email-lorenzo@google.com>
+	 <1450114197-73779-5-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Erik Kline <ek@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	hannes@stressinduktion.org, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com
 To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:33217 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736AbbLNRwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 12:52:03 -0500
-Received: by mail-ig0-f182.google.com with SMTP id mv3so87023145igc.0
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 09:52:03 -0800 (PST)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34780 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753023AbbLNSDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 13:03:06 -0500
+Received: by pfbo64 with SMTP id o64so30470322pfb.1
+        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 10:03:05 -0800 (PST)
 In-Reply-To: <1450114197-73779-5-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 14, 2015 at 9:29 AM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> This implements SOCK_DESTROY for TCP sockets. It causes all
-> blocking calls on the socket to fail fast with ECONNABORTED and
-> causes a protocol close of the socket. It informs the other end
-> of the connection by sending a RST, i.e., initiating a TCP ABORT
-> as per RFC 793. ECONNABORTED was chosen for consistency with
-> FreeBSD.
->
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
->  include/net/tcp.h   |  4 ++++
->  net/ipv4/Kconfig    | 13 +++++++++++++
->  net/ipv4/tcp.c      | 34 ++++++++++++++++++++++++++++++++++
->  net/ipv4/tcp_diag.c | 19 +++++++++++++++++++
->  net/ipv4/tcp_ipv4.c |  3 +++
->  net/ipv6/tcp_ipv6.c |  3 +++
->  6 files changed, 76 insertions(+)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index f80e74c..505cef5 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1170,6 +1170,10 @@ void tcp_set_state(struct sock *sk, int state);
->
->  void tcp_done(struct sock *sk);
->
-> +#if CONFIG_INET_DIAG_DESTROY
-> +int tcp_abort(struct sock *sk);
-> +#endif
-> +
->  static inline void tcp_sack_reset(struct tcp_options_received *rx_opt)
->  {
->         rx_opt->dsack = 0;
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index 416dfa0..31c4496 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -436,6 +436,19 @@ config INET_UDP_DIAG
->           Support for UDP socket monitoring interface used by the ss tool.
->           If unsure, say Y.
->
+On Tue, 2015-12-15 at 02:29 +0900, Lorenzo Colitti wrote:
+
 > +config INET_DIAG_DESTROY
-> +       bool "INET: allow privileged process to administratively close sockets"
-> +       depends on INET_DIAG && (IPV6 || IPV6=n)
-> +       default n
-> +       ---help---
-> +         Provides a SOCK_DESTROY operation that allows privileged processes
-> +         (e.g., a connection manager or a network administration tool such as
-> +         ss) to close sockets opened by other processes. Closing a socket in
-> +         this way interrupts any blocking read/writes/connect operations on
-> +         the socket and causes future socket calls to behave as if the socket
-> +         had been disconnected.
-> +         If unsure, say N.
-> +
->  menuconfig TCP_CONG_ADVANCED
->         bool "TCP: advanced congestion control"
->         ---help---
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index c82cca1..fc5068d 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -3080,6 +3080,40 @@ void tcp_done(struct sock *sk)
->  }
->  EXPORT_SYMBOL_GPL(tcp_done);
->
-> +#ifdef CONFIG_INET_DIAG_DESTROY
+> +	bool "INET: allow privileged process to administratively close sockets"
+> +	depends on INET_DIAG && (IPV6 || IPV6=n)
+> +	default n
 
-This is a general use function it should not be under a CONFIG.
+I can see the effect of (IPV6 || IPv6=n) for a tristate,
+but what is the intent for a bool ?
 
-> +int tcp_abort(struct sock *sk)
-
-Please add an err argument for setting sk->err. A value of zero could
-mean to use the default value (ECONNABORTED).
-
-> +{
-> +       if (!sk_fullsock(sk)) {
-> +               sock_gen_put(sk);
-> +               return -EOPNOTSUPP;
-> +       }
-> +
-> +       /* Don't race with userspace socket closes such as tcp_close. */
-> +       lock_sock(sk);
-> +
-> +       /* Don't race with BH socket closes such as inet_csk_listen_stop. */
-> +       local_bh_disable();
-> +       bh_lock_sock(sk);
-> +
-> +       if (!sock_flag(sk, SOCK_DEAD)) {
-> +               sk->sk_err = ECONNABORTED;
-> +               /* This barrier is coupled with smp_rmb() in tcp_poll() */
-> +               smp_wmb();
-> +               sk->sk_error_report(sk);
-> +               if (tcp_need_reset(sk->sk_state))
-> +                       tcp_send_active_reset(sk, GFP_ATOMIC);
-> +               tcp_done(sk);
-> +       }
-> +
-> +       bh_unlock_sock(sk);
-> +       local_bh_enable();
-> +       release_sock(sk);
-> +       sock_put(sk);
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(tcp_abort);
-> +#endif
-> +
->  extern struct tcp_congestion_ops tcp_reno;
->
->  static __initdata unsigned long thash_entries;
-> diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-> index b316040..8d435f17 100644
-> --- a/net/ipv4/tcp_diag.c
-> +++ b/net/ipv4/tcp_diag.c
-> @@ -10,6 +10,8 @@
->   */
->
->  #include <linux/module.h>
-> +#include <linux/net.h>
-> +#include <linux/sock_diag.h>
->  #include <linux/inet_diag.h>
->
->  #include <linux/tcp.h>
-> @@ -46,12 +48,29 @@ static int tcp_diag_dump_one(struct sk_buff *in_skb, const struct nlmsghdr *nlh,
->         return inet_diag_dump_one_icsk(&tcp_hashinfo, in_skb, nlh, req);
->  }
->
-> +#ifdef CONFIG_INET_DIAG_DESTROY
-> +static int tcp_diag_destroy(struct sk_buff *in_skb,
-> +                           const struct inet_diag_req_v2 *req)
-> +{
-> +       struct net *net = sock_net(in_skb->sk);
-> +       struct sock *sk = inet_diag_find_one_icsk(net, &tcp_hashinfo, req);
-> +
-> +       if (IS_ERR(sk))
-> +               return PTR_ERR(sk);
-> +
-> +       return sock_diag_destroy(sk);
-> +}
-> +#endif
-> +
->  static const struct inet_diag_handler tcp_diag_handler = {
->         .dump            = tcp_diag_dump,
->         .dump_one        = tcp_diag_dump_one,
->         .idiag_get_info  = tcp_diag_get_info,
->         .idiag_type      = IPPROTO_TCP,
->         .idiag_info_size = sizeof(struct tcp_info),
-> +#ifdef CONFIG_INET_DIAG_DESTROY
-> +       .destroy         = tcp_diag_destroy,
-> +#endif
->  };
->
->  static int __init tcp_diag_init(void)
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index db00343..5e28bf1 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -2342,6 +2342,9 @@ struct proto tcp_prot = {
->         .destroy_cgroup         = tcp_destroy_cgroup,
->         .proto_cgroup           = tcp_proto_cgroup,
->  #endif
-> +#ifdef CONFIG_INET_DIAG_DESTROY
-> +       .diag_destroy           = tcp_abort,
-> +#endif
->  };
->  EXPORT_SYMBOL(tcp_prot);
->
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index c16e3fb..289c5db 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1890,6 +1890,9 @@ struct proto tcpv6_prot = {
->         .proto_cgroup           = tcp_proto_cgroup,
->  #endif
->         .clear_sk               = tcp_v6_clear_sk,
-> +#ifdef CONFIG_INET_DIAG_DESTROY
-> +       .diag_destroy           = tcp_abort,
-> +#endif
->  };
->
->  static const struct inet6_protocol tcpv6_protocol = {
-> --
-> 2.6.0.rc2.230.g3dd15c0
->
+It seems INET_DIAG_DESTROY can be selected regardless of IPV6 being off,
+on, or a module ?
