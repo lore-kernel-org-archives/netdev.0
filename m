@@ -1,37 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: add validation for the socket syscall
- protocol argument
-Date: Mon, 14 Dec 2015 14:32:17 -0500 (EST)
-Message-ID: <20151214.143217.492564448937971982.davem@davemloft.net>
-References: <1450109869-23769-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH v3 net] ravb: clear RIC1 in init instead of stop
+Date: Mon, 14 Dec 2015 14:33:24 -0500 (EST)
+Message-ID: <20151214.143324.2191268209263094341.davem@davemloft.net>
+References: <1450110298-21392-1-git-send-email-ykaneko0929@gmail.com>
+	<566EF503.10304@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59075 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbbLNTcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 14:32:19 -0500
-In-Reply-To: <1450109869-23769-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ykaneko0929@gmail.com, netdev@vger.kernel.org, horms@verge.net.au,
+	magnus.damm@gmail.com, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <566EF503.10304@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 14 Dec 2015 17:17:49 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 14 Dec 2015 19:57:39 +0300
 
-> diff --git a/net/socket.c b/net/socket.c
-> index 456fadb..d2f3d49 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1098,6 +1098,9 @@ int __sock_create(struct net *net, int family, int type, int protocol,
->  		return -EAFNOSUPPORT;
->  	if (type < 0 || type >= SOCK_MAX)
->  		return -EINVAL;
-> +	/* upper bound should be tested by per-protocol .create callbacks */
-> +	if (protocol < 0)
-> +		return -EINVAL;
->  
+> On 12/14/2015 07:24 PM, Yoshihiro Kaneko wrote:
+> 
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> AVB-DMAC Receive FIFO Warning interrupt is not enabled, so it is not
+>> necessary to disable the interrupt in ravb_close().
+>> On the other hand, this patch disables the interrupt in
+>> ravb_dmac_init() to
+>> prevent the possibility that the interrupt is issued by the state that
+>> a boot loader left.
+>>
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> 
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+>> ---
+>>
+>> This patch is based on the master branch of David Miller's networking
+>> tree.
+> 
+>    I think this should rather go into net-next.git though...
 
-Please get rid of this part of your patch and resubmit, thanks.
+Agreed, applied to net-next, thanks.
