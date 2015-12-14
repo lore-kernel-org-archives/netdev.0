@@ -1,44 +1,77 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] openvswitch: fix trivial comment typo
-Date: Mon, 14 Dec 2015 14:29:58 +0100
-Message-ID: <aa5f132cc2095dbce252b320ca50c275c85ef4fa.1450092360.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RFCv4 bluetooth-next 0/2] 6lowpan: 6co and stateful compression support
+Date: Mon, 14 Dec 2015 15:00:52 +0100
+Message-ID: <1450101654-22633-1-git-send-email-alex.aring@gmail.com>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
+	martin.gergeleit-6wGqcYweBVc@public.gmane.org, Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIGNvbW1pdCAzM2RiNDEyNWVjNzQgKCJvcGVudnN3aXRjaDogUmVuYW1lIExBQkVMLT5MQUJF
-TFMiKSBsZWZ0Cm92ZXIgYW4gb2xkIE9WU19DVF9BVFRSX0xBQkVMIGluc3RhbmNlLCBmaXggaXQu
-CgpGaXhlczogMzNkYjQxMjVlYzc0ICgib3BlbnZzd2l0Y2g6IFJlbmFtZSBMQUJFTC0+TEFCRUxT
-IikKU2lnbmVkLW9mZi1ieTogUGFvbG8gQWJlbmkgPHBhYmVuaUByZWRoYXQuY29tPgotLS0KIGlu
-Y2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oIHwgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEg
-aW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xp
-bnV4L29wZW52c3dpdGNoLmggYi9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaAppbmRl
-eCAyOGNjZWRkLi5hMjcyMjJkIDEwMDY0NAotLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZz
-d2l0Y2guaAorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaApAQCAtNjI4LDcg
-KzYyOCw3IEBAIHN0cnVjdCBvdnNfYWN0aW9uX2hhc2ggewogICogQE9WU19DVF9BVFRSX01BUks6
-IHUzMiB2YWx1ZSBmb2xsb3dlZCBieSB1MzIgbWFzay4gRm9yIGVhY2ggYml0IHNldCBpbiB0aGUK
-ICAqIG1hc2ssIHRoZSBjb3JyZXNwb25kaW5nIGJpdCBpbiB0aGUgdmFsdWUgaXMgY29waWVkIHRv
-IHRoZSBjb25uZWN0aW9uCiAgKiB0cmFja2luZyBtYXJrIGZpZWxkIGluIHRoZSBjb25uZWN0aW9u
-LgotICogQE9WU19DVF9BVFRSX0xBQkVMOiAlT1ZTX0NUX0xBQkVMU19MRU4gdmFsdWUgZm9sbG93
-ZWQgYnkgJU9WU19DVF9MQUJFTFNfTEVOCisgKiBAT1ZTX0NUX0FUVFJfTEFCRUxTOiAlT1ZTX0NU
-X0xBQkVMU19MRU4gdmFsdWUgZm9sbG93ZWQgYnkgJU9WU19DVF9MQUJFTFNfTEVOCiAgKiBtYXNr
-LiBGb3IgZWFjaCBiaXQgc2V0IGluIHRoZSBtYXNrLCB0aGUgY29ycmVzcG9uZGluZyBiaXQgaW4g
-dGhlIHZhbHVlIGlzCiAgKiBjb3BpZWQgdG8gdGhlIGNvbm5lY3Rpb24gdHJhY2tpbmcgbGFiZWwg
-ZmllbGQgaW4gdGhlIGNvbm5lY3Rpb24uCiAgKiBAT1ZTX0NUX0FUVFJfSEVMUEVSOiB2YXJpYWJs
-ZSBsZW5ndGggc3RyaW5nIGRlZmluaW5nIGNvbm50cmFjayBBTEcuCi0tIAoxLjguMy4xCgpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBs
-aXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL2Rldgo=
+Hi,
+
+this patch series adds stateful compression support and add 6co option as a new
+userspace option for processing RA messages inside userspace.
+
+I am not sure if "6CO" handling inside userspace is the best option here.
+
+I will send also "radvd" patches which introduce a very "basic" support for
+processing(non 6LBR)/manage(6LBR) 6CO option fields. These patches doesn't
+support lifetime handling of contexts. There exists the question as well if
+we should handle the lifetime handling inside userspace or kernelspace.
+
+I am currently follow this approach:
+If we doesn't need it inside the kernelspace, then we should handle it in
+userspace.
+
+It's difficult to figure out if we really can it handle inside userspace only.
+
+RFC6775 describes some different roles inside the network:
+
+ - 6LN (6LoWPAN Node)
+ - 6LR (Router inside 6LoWPAN network)
+ - 6LBR ($IP_NETWORK <-> 6LoWPAN network)
+
+Processing ICMPv6 (RA/RS, NA/NS) messages may be different for each role. I
+currently have not the full overlook inside RFC6775 and sometimes (as example
+of ABRO field, another Option-Field for 6LoWPAN) says:
+
+8.1.3.  Routers Processing Router Advertisements
+Note: (I suppose this is for 6LR only!)
+If a received RA does not contain an ABRO, then the RA MUST be silently
+ignored.
+
+---
+
+For my knowledge such handling need to be inside kernelspace. This is filter
+functionality only, processing can be handled inside userspace (which needs ABRO
+also as userspace option at first), but then the kernel need to know which "role
+(6LN, 6LR, 6LBR)" the interface has.
+
+- Alex
+
+changes since v4:
+ - remove patches for adding debugfs which are already upstream.
+ - add "ipv6: add 6co as icmpv6 userspace option"
+ - fix transmit check on (cid) instead (sci || dci) for adding CID inline
+   data. If CID is zero it will be compressed.
+ - remove "dci_table, sci_table, mcast_table" we have "ctx_table" only.
+ - Change enabled with "u32 flags" since we need more information than
+   "enabled" only. We handle also "compression flag" now.
+
+Alexander Aring (2):
+  6lowpan: iphc: add support for stateful compression
+  ipv6: add 6co as icmpv6 userspace option
+
+ include/net/6lowpan.h |  31 ++++
+ include/net/ndisc.h   |   1 +
+ net/6lowpan/core.c    |   6 +-
+ net/6lowpan/debugfs.c |  97 ++++++++++++
+ net/6lowpan/iphc.c    | 420 +++++++++++++++++++++++++++++++++++++++++++-------
+ net/ipv6/ndisc.c      |   3 +-
+ 6 files changed, 499 insertions(+), 59 deletions(-)
+
+-- 
+2.6.1
