@@ -1,121 +1,73 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [V2 PATCH 1/1] net: sctp: dynamically enable or disable pf state
-Date: Mon, 14 Dec 2015 09:23:21 -0500
-Message-ID: <566ED0D9.8040200@gmail.com>
-References: <1450074139-3923-1-git-send-email-zyjzyj2000@gmail.com>
+Subject: Re: use-after-free in sctp_do_sm
+Date: Mon, 14 Dec 2015 09:25:54 -0500
+Message-ID: <566ED172.3000906@gmail.com>
+References: <5665EE26.3000706@gmail.com> <5665F17B.5030908@gmail.com>
+ <CACT4Y+ad0YGve+KB8wiv6f1+eHt9Ci19FGM0SMWQvJFSez+Rcw@mail.gmail.com>
+ <20151208174039.GB22987@mrl.redhat.com>
+ <CACT4Y+b1OEE9NqN3J5574iN7t8NEi9jPc2Hxoj6AMHZKjCJ-mg@mail.gmail.com>
+ <CACT4Y+YYbC53awV4eiDAwjJO=WHYGv3Og3XDh-gTFB1q_w0YXQ@mail.gmail.com>
+ <20151209150356.GA3886@mrl.redhat.com> <20151209164108.GB3886@mrl.redhat.com>
+ <CACT4Y+YPEqETP7NTOwJ6=4yYoAmM30qv6oRgw7apSS3+UwusAg@mail.gmail.com>
+ <566AD4D9.90608@gmail.com> <20151211140333.GE3886@mrl.redhat.com>
+ <566B1800.60100@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CBEC96A@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: zyjzyj2000@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	alexandre.dietsch@windriver.com, stefan.costandache@windriver.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f52.google.com ([209.85.192.52]:34003 "EHLO
-	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbbLNOX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 09:23:27 -0500
-In-Reply-To: <1450074139-3923-1-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:33729 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898AbbLNOZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 09:25:58 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CBEC96A@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/14/2015 01:22 AM, zyjzyj2000@gmail.com wrote:
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+On 12/14/2015 04:50 AM, David Laight wrote:
+> From: Vlad Yasevich
+>> Sent: 11 December 2015 18:38
+> ...
+>>> Found a similar place in abort primitive handling like in this last
+>>> patch update, it's probably the issue you're still triggering.
+>>>
+>>> Also found another place that may lead to this use after free, in case
+>>> we receive a packet with a chunk that has no data.
+>>>
+>>> Oh my.. :)
+>>
+>> Yes.  This is what I was worried about...  Anything that triggers
+>> a DELTE_TCB command has to return a code that we can trap.
+>>
+>> The other way is to do what Dmitri suggested, but even there, we
+>> need to be very careful.
 > 
-> As we all know, the value of pf_retrans >= max_retrans_path can
-> disable pf state. The variables of pf_retrans and max_retrans_path
-> can be changed by the user space application.
+> I'm always wary of anything that queues actions up for later processing.
+> It is far too easy (as found here) to end up processing actions
+> in invalid states, or to process actions in 'unusual' orders when
+> specific events happen close together.
 > 
-> Sometimes the user expects to disable pf state while the 2
-> variables are changed to enable pf state. So it is necessary to
-> introduce a new variable to disable pf state.
+> I wonder how much fallout there'd be from getting the sctp code
+> to immediately action things, instead of queuing the actions for later.
+> It would certainly remove a lot of the unusual combinations of events.
 > 
-> According to the suggestions from Vlad Yasevich, extra1 and extra2
-> are removed. The initialization of pf_enable is added.
-> 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+We've bandied this idea around for a while, but no one has had the time
+to tackle this.  This would be rather time-consuming task, but in the end
+might be a good idea.
 
 -vlad
 
-> ---
->  include/net/netns/sctp.h |    7 +++++++
->  net/sctp/protocol.c      |    3 +++
->  net/sctp/sm_sideeffect.c |    5 ++++-
->  net/sctp/sysctl.c        |    7 +++++++
->  4 files changed, 21 insertions(+), 1 deletion(-)
+> 	David
 > 
-> diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-> index 8ba379f..c501d67 100644
-> --- a/include/net/netns/sctp.h
-> +++ b/include/net/netns/sctp.h
-> @@ -89,6 +89,13 @@ struct netns_sctp {
->  	int pf_retrans;
->  
->  	/*
-> +	 * Disable Potentially-Failed feature, the feature is enabled by default
-> +	 * pf_enable	-  0  : disable pf
-> +	 *		- >0  : enable pf
-> +	 */
-> +	int pf_enable;
-> +
-> +	/*
->  	 * Policy for preforming sctp/socket accounting
->  	 * 0   - do socket level accounting, all assocs share sk_sndbuf
->  	 * 1   - do sctp accounting, each asoc may use sk_sndbuf bytes
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 4d9912f..571a631 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1223,6 +1223,9 @@ static int __net_init sctp_defaults_init(struct net *net)
->  	/* Max.Burst		    - 4 */
->  	net->sctp.max_burst			= SCTP_DEFAULT_MAX_BURST;
->  
-> +	/* Enable pf state by default */
-> +	net->sctp.pf_enable = 1;
-> +
->  	/* Association.Max.Retrans  - 10 attempts
->  	 * Path.Max.Retrans         - 5  attempts (per destination address)
->  	 * Max.Init.Retransmits     - 8  attempts
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 6098d4c..05cd164 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -477,6 +477,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
->  					 struct sctp_transport *transport,
->  					 int is_hb)
->  {
-> +	struct net *net = sock_net(asoc->base.sk);
-> +
->  	/* The check for association's overall error counter exceeding the
->  	 * threshold is done in the state function.
->  	 */
-> @@ -503,7 +505,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
->  	 * is SCTP_ACTIVE, then mark this transport as Partially Failed,
->  	 * see SCTP Quick Failover Draft, section 5.1
->  	 */
-> -	if ((transport->state == SCTP_ACTIVE) &&
-> +	if (net->sctp.pf_enable &&
-> +	   (transport->state == SCTP_ACTIVE) &&
->  	   (asoc->pf_retrans < transport->pathmaxrxt) &&
->  	   (transport->error_count > asoc->pf_retrans)) {
->  
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 26d50c5..ccbfc93 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -308,6 +308,13 @@ static struct ctl_table sctp_net_table[] = {
->  		.extra1		= &max_autoclose_min,
->  		.extra2		= &max_autoclose_max,
->  	},
-> +	{
-> +		.procname	= "pf_enable",
-> +		.data		= &init_net.sctp.pf_enable,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
->  
->  	{ /* sentinel */ }
->  };
 > 
