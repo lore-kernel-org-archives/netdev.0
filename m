@@ -1,56 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] fm10k: use BIT() macro instead of open-coded bit-shifting
-Date: Sun, 13 Dec 2015 16:27:44 -0800
-Message-ID: <1450052867-36654-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] fm10k: Cleanup exception handling for mailbox interrupt
+Date: Sun, 13 Dec 2015 16:27:41 -0800
+Message-ID: <1450052867-36654-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:65123 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752063AbbLNA1w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 19:27:52 -0500
+	id S1752035AbbLNA1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2015 19:27:51 -0500
 In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+This patch addresses two issues.
+
+First is the fact that the fm10k_mbx_free_irq was assuming msix_entries was
+valid and that will not always be the case.  As such we need to add a check
+for if it is NULL.
+
+Second is the fact that we weren't freeing the IRQ if the mailbox API
+returned an error on trying to connect.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h      | 2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_type.h | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 02219d9..849e36d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -419,7 +419,7 @@ static inline u16 fm10k_desc_unused(struct fm10k_ring *ring)
- 	 (&(((union fm10k_rx_desc *)((R)->desc))[i]))
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index b9ed94a..694c648 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1124,6 +1124,10 @@ void fm10k_mbx_free_irq(struct fm10k_intfc *interface)
+ 	struct fm10k_hw *hw = &interface->hw;
+ 	int itr_reg;
  
- #define FM10K_MAX_TXD_PWR	14
--#define FM10K_MAX_DATA_PER_TXD	(1 << FM10K_MAX_TXD_PWR)
-+#define FM10K_MAX_DATA_PER_TXD	BIT(FM10K_MAX_TXD_PWR)
++	/* no mailbox IRQ to free if MSI-X is not enabled */
++	if (!interface->msix_entries)
++		return;
++
+ 	/* disconnect the mailbox */
+ 	hw->mbx.ops.disconnect(hw, &hw->mbx);
  
- /* Tx Descriptors needed, worst case */
- #define TXD_USE_COUNT(S)	DIV_ROUND_UP((S), FM10K_MAX_DATA_PER_TXD)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index 2fd962f..098883d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -354,7 +354,7 @@ struct fm10k_hw;
- #define FM10K_VLAN_TABLE_VID_MAX		4096
- #define FM10K_VLAN_TABLE_VSI_MAX		64
- #define FM10K_VLAN_LENGTH_SHIFT			16
--#define FM10K_VLAN_CLEAR			(1 << 15)
-+#define FM10K_VLAN_CLEAR			BIT(15)
- #define FM10K_VLAN_ALL \
- 	((FM10K_VLAN_TABLE_VID_MAX - 1) << FM10K_VLAN_LENGTH_SHIFT)
+@@ -1446,10 +1450,15 @@ int fm10k_mbx_request_irq(struct fm10k_intfc *interface)
+ 		err = fm10k_mbx_request_irq_pf(interface);
+ 	else
+ 		err = fm10k_mbx_request_irq_vf(interface);
++	if (err)
++		return err;
  
+ 	/* connect mailbox */
+-	if (!err)
+-		err = hw->mbx.ops.connect(hw, &hw->mbx);
++	err = hw->mbx.ops.connect(hw, &hw->mbx);
++
++	/* if the mailbox failed to connect, then free IRQ */
++	if (err)
++		fm10k_mbx_free_irq(interface);
+ 
+ 	return err;
+ }
 -- 
 2.5.0
