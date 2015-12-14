@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Fix race condition on Multi-Send
- Data field
-Date: Mon, 14 Dec 2015 00:02:22 -0500 (EST)
-Message-ID: <20151214.000222.959007472004329129.davem@davemloft.net>
-References: <1449778775-14404-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH V2 net-next] drivers/net: fix eisa_driver probe section
+ mismatch
+Date: Mon, 14 Dec 2015 00:24:41 -0500 (EST)
+Message-ID: <20151214.002441.143023648656067275.davem@davemloft.net>
+References: <1449941078-15854-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1449778775-14404-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	klassert@mathematik.tu-chemnitz.de, perex@perex.cz,
+	linux-parisc@vger.kernel.org
+To: fabf@skynet.be
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <1449941078-15854-1-git-send-email-fabf@skynet.be>
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 10 Dec 2015 12:19:35 -0800
+From: Fabian Frederick <fabf@skynet.be>
+Date: Sat, 12 Dec 2015 18:24:38 +0100
 
-> In commit 2a04ae8acb14 ("hv_netvsc: remove locking in netvsc_send()"), the
-> locking for MSD (Multi-Send Data) field was removed. This could cause a
-> race condition between RNDIS control messages and data packets processing,
-> because these two types of traffic are not synchronized.
-> This patch fixes this issue by sending control messages out directly
-> without reading MSD field.
+> Some eisa_driver structures used __init probe functions which generates
+> a warning and could crash if function is called after being deleted.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-Applied.
+Applied, thanks.
