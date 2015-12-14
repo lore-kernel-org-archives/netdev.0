@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/6] netfilter: nfnetlink: avoid recurrent netns lookups in call_batch
-Date: Mon, 14 Dec 2015 12:25:43 +0100
-Message-ID: <1450092346-3281-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] netfilter: nf_dup: add missing dependencies with NF_CONNTRACK
+Date: Mon, 14 Dec 2015 12:25:45 +0100
+Message-ID: <1450092346-3281-6-git-send-email-pablo@netfilter.org>
 References: <1450092346-3281-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,424 +10,45 @@ In-Reply-To: <1450092346-3281-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pass the net pointer to the call_batch callback functions so we can skip
-recurrent lookups.
+CONFIG_NF_CONNTRACK=m
+CONFIG_NF_DUP_IPV4=y
 
+results in:
+
+   net/built-in.o: In function `nf_dup_ipv4':
+>> (.text+0xd434f): undefined reference to `nf_conntrack_untracked'
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Tested-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 ---
- include/linux/netfilter/nfnetlink.h |  2 +-
- net/netfilter/nf_tables_api.c       | 96 +++++++++++++++++--------------------
- net/netfilter/nfnetlink.c           |  2 +-
- 3 files changed, 47 insertions(+), 53 deletions(-)
+ net/ipv4/netfilter/Kconfig | 1 +
+ net/ipv6/netfilter/Kconfig | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index 249d1bb..5646b24 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -14,7 +14,7 @@ struct nfnl_callback {
- 	int (*call_rcu)(struct sock *nl, struct sk_buff *skb, 
- 		    const struct nlmsghdr *nlh,
- 		    const struct nlattr * const cda[]);
--	int (*call_batch)(struct sock *nl, struct sk_buff *skb,
-+	int (*call_batch)(struct net *net, struct sock *nl, struct sk_buff *skb,
- 			  const struct nlmsghdr *nlh,
- 			  const struct nlattr * const cda[]);
- 	const struct nla_policy *policy;	/* netlink attribute policy */
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 93cc473..f1002dc 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -89,6 +89,7 @@ nf_tables_afinfo_lookup(struct net *net, int family, bool autoload)
- }
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index a355841..c187c60 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -60,6 +60,7 @@ config NFT_REJECT_IPV4
  
- static void nft_ctx_init(struct nft_ctx *ctx,
-+			 struct net *net,
- 			 const struct sk_buff *skb,
- 			 const struct nlmsghdr *nlh,
- 			 struct nft_af_info *afi,
-@@ -96,7 +97,7 @@ static void nft_ctx_init(struct nft_ctx *ctx,
- 			 struct nft_chain *chain,
- 			 const struct nlattr * const *nla)
- {
--	ctx->net	= sock_net(skb->sk);
-+	ctx->net	= net;
- 	ctx->afi	= afi;
- 	ctx->table	= table;
- 	ctx->chain	= chain;
-@@ -672,15 +673,14 @@ err:
- 	return ret;
- }
+ config NFT_DUP_IPV4
+ 	tristate "IPv4 nf_tables packet duplication support"
++	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	select NF_DUP_IPV4
+ 	help
+ 	  This module enables IPv4 packet duplication support for nf_tables.
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index f6a024e..e10a04c 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -49,6 +49,7 @@ config NFT_REJECT_IPV6
  
--static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
--			      const struct nlmsghdr *nlh,
-+static int nf_tables_newtable(struct net *net, struct sock *nlsk,
-+			      struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	const struct nlattr *name;
- 	struct nft_af_info *afi;
- 	struct nft_table *table;
--	struct net *net = sock_net(skb->sk);
- 	int family = nfmsg->nfgen_family;
- 	u32 flags = 0;
- 	struct nft_ctx ctx;
-@@ -706,7 +706,7 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 		if (nlh->nlmsg_flags & NLM_F_REPLACE)
- 			return -EOPNOTSUPP;
- 
--		nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
-+		nft_ctx_init(&ctx, net, skb, nlh, afi, table, NULL, nla);
- 		return nf_tables_updtable(&ctx);
- 	}
- 
-@@ -730,7 +730,7 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 	INIT_LIST_HEAD(&table->sets);
- 	table->flags = flags;
- 
--	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, afi, table, NULL, nla);
- 	err = nft_trans_table_add(&ctx, NFT_MSG_NEWTABLE);
- 	if (err < 0)
- 		goto err3;
-@@ -810,18 +810,17 @@ out:
- 	return err;
- }
- 
--static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
--			      const struct nlmsghdr *nlh,
-+static int nf_tables_deltable(struct net *net, struct sock *nlsk,
-+			      struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	struct nft_af_info *afi;
- 	struct nft_table *table;
--	struct net *net = sock_net(skb->sk);
- 	int family = nfmsg->nfgen_family;
- 	struct nft_ctx ctx;
- 
--	nft_ctx_init(&ctx, skb, nlh, NULL, NULL, NULL, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, NULL, NULL, NULL, nla);
- 	if (family == AF_UNSPEC || nla[NFTA_TABLE_NAME] == NULL)
- 		return nft_flush(&ctx, family);
- 
-@@ -1221,8 +1220,8 @@ static void nf_tables_chain_destroy(struct nft_chain *chain)
- 	}
- }
- 
--static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
--			      const struct nlmsghdr *nlh,
-+static int nf_tables_newchain(struct net *net, struct sock *nlsk,
-+			      struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
-@@ -1232,7 +1231,6 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	struct nft_chain *chain;
- 	struct nft_base_chain *basechain = NULL;
- 	struct nlattr *ha[NFTA_HOOK_MAX + 1];
--	struct net *net = sock_net(skb->sk);
- 	int family = nfmsg->nfgen_family;
- 	struct net_device *dev = NULL;
- 	u8 policy = NF_ACCEPT;
-@@ -1313,7 +1311,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 				return PTR_ERR(stats);
- 		}
- 
--		nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
-+		nft_ctx_init(&ctx, net, skb, nlh, afi, table, chain, nla);
- 		trans = nft_trans_alloc(&ctx, NFT_MSG_NEWCHAIN,
- 					sizeof(struct nft_trans_chain));
- 		if (trans == NULL) {
-@@ -1461,7 +1459,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (err < 0)
- 		goto err1;
- 
--	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, afi, table, chain, nla);
- 	err = nft_trans_chain_add(&ctx, NFT_MSG_NEWCHAIN);
- 	if (err < 0)
- 		goto err2;
-@@ -1476,15 +1474,14 @@ err1:
- 	return err;
- }
- 
--static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
--			      const struct nlmsghdr *nlh,
-+static int nf_tables_delchain(struct net *net, struct sock *nlsk,
-+			      struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	struct nft_af_info *afi;
- 	struct nft_table *table;
- 	struct nft_chain *chain;
--	struct net *net = sock_net(skb->sk);
- 	int family = nfmsg->nfgen_family;
- 	struct nft_ctx ctx;
- 
-@@ -1506,7 +1503,7 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (chain->use > 0)
- 		return -EBUSY;
- 
--	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, afi, table, chain, nla);
- 
- 	return nft_delchain(&ctx);
- }
-@@ -2010,13 +2007,12 @@ static void nf_tables_rule_destroy(const struct nft_ctx *ctx,
- 
- static struct nft_expr_info *info;
- 
--static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
--			     const struct nlmsghdr *nlh,
-+static int nf_tables_newrule(struct net *net, struct sock *nlsk,
-+			     struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			     const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	struct nft_af_info *afi;
--	struct net *net = sock_net(skb->sk);
- 	struct nft_table *table;
- 	struct nft_chain *chain;
- 	struct nft_rule *rule, *old_rule = NULL;
-@@ -2075,7 +2071,7 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 			return PTR_ERR(old_rule);
- 	}
- 
--	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, afi, table, chain, nla);
- 
- 	n = 0;
- 	size = 0;
-@@ -2176,13 +2172,12 @@ err1:
- 	return err;
- }
- 
--static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
--			     const struct nlmsghdr *nlh,
-+static int nf_tables_delrule(struct net *net, struct sock *nlsk,
-+			     struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			     const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	struct nft_af_info *afi;
--	struct net *net = sock_net(skb->sk);
- 	struct nft_table *table;
- 	struct nft_chain *chain = NULL;
- 	struct nft_rule *rule;
-@@ -2205,7 +2200,7 @@ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
- 			return PTR_ERR(chain);
- 	}
- 
--	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, afi, table, chain, nla);
- 
- 	if (chain) {
- 		if (nla[NFTA_RULE_HANDLE]) {
-@@ -2344,12 +2339,11 @@ static const struct nla_policy nft_set_desc_policy[NFTA_SET_DESC_MAX + 1] = {
- 	[NFTA_SET_DESC_SIZE]		= { .type = NLA_U32 },
- };
- 
--static int nft_ctx_init_from_setattr(struct nft_ctx *ctx,
-+static int nft_ctx_init_from_setattr(struct nft_ctx *ctx, struct net *net,
- 				     const struct sk_buff *skb,
- 				     const struct nlmsghdr *nlh,
- 				     const struct nlattr * const nla[])
- {
--	struct net *net = sock_net(skb->sk);
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	struct nft_af_info *afi = NULL;
- 	struct nft_table *table = NULL;
-@@ -2371,7 +2365,7 @@ static int nft_ctx_init_from_setattr(struct nft_ctx *ctx,
- 			return -ENOENT;
- 	}
- 
--	nft_ctx_init(ctx, skb, nlh, afi, table, NULL, nla);
-+	nft_ctx_init(ctx, net, skb, nlh, afi, table, NULL, nla);
- 	return 0;
- }
- 
-@@ -2623,6 +2617,7 @@ static int nf_tables_getset(struct sock *nlsk, struct sk_buff *skb,
- 			    const struct nlmsghdr *nlh,
- 			    const struct nlattr * const nla[])
- {
-+	struct net *net = sock_net(skb->sk);
- 	const struct nft_set *set;
- 	struct nft_ctx ctx;
- 	struct sk_buff *skb2;
-@@ -2630,7 +2625,7 @@ static int nf_tables_getset(struct sock *nlsk, struct sk_buff *skb,
- 	int err;
- 
- 	/* Verify existence before starting dump */
--	err = nft_ctx_init_from_setattr(&ctx, skb, nlh, nla);
-+	err = nft_ctx_init_from_setattr(&ctx, net, skb, nlh, nla);
- 	if (err < 0)
- 		return err;
- 
-@@ -2693,14 +2688,13 @@ static int nf_tables_set_desc_parse(const struct nft_ctx *ctx,
- 	return 0;
- }
- 
--static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
--			    const struct nlmsghdr *nlh,
-+static int nf_tables_newset(struct net *net, struct sock *nlsk,
-+			    struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			    const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	const struct nft_set_ops *ops;
- 	struct nft_af_info *afi;
--	struct net *net = sock_net(skb->sk);
- 	struct nft_table *table;
- 	struct nft_set *set;
- 	struct nft_ctx ctx;
-@@ -2798,7 +2792,7 @@ static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
--	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
-+	nft_ctx_init(&ctx, net, skb, nlh, afi, table, NULL, nla);
- 
- 	set = nf_tables_set_lookup(table, nla[NFTA_SET_NAME]);
- 	if (IS_ERR(set)) {
-@@ -2882,8 +2876,8 @@ static void nf_tables_set_destroy(const struct nft_ctx *ctx, struct nft_set *set
- 	nft_set_destroy(set);
- }
- 
--static int nf_tables_delset(struct sock *nlsk, struct sk_buff *skb,
--			    const struct nlmsghdr *nlh,
-+static int nf_tables_delset(struct net *net, struct sock *nlsk,
-+			    struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			    const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
-@@ -2896,7 +2890,7 @@ static int nf_tables_delset(struct sock *nlsk, struct sk_buff *skb,
- 	if (nla[NFTA_SET_TABLE] == NULL)
- 		return -EINVAL;
- 
--	err = nft_ctx_init_from_setattr(&ctx, skb, nlh, nla);
-+	err = nft_ctx_init_from_setattr(&ctx, net, skb, nlh, nla);
- 	if (err < 0)
- 		return err;
- 
-@@ -3024,7 +3018,7 @@ static const struct nla_policy nft_set_elem_list_policy[NFTA_SET_ELEM_LIST_MAX +
- 	[NFTA_SET_ELEM_LIST_SET_ID]	= { .type = NLA_U32 },
- };
- 
--static int nft_ctx_init_from_elemattr(struct nft_ctx *ctx,
-+static int nft_ctx_init_from_elemattr(struct nft_ctx *ctx, struct net *net,
- 				      const struct sk_buff *skb,
- 				      const struct nlmsghdr *nlh,
- 				      const struct nlattr * const nla[],
-@@ -3033,7 +3027,6 @@ static int nft_ctx_init_from_elemattr(struct nft_ctx *ctx,
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
- 	struct nft_af_info *afi;
- 	struct nft_table *table;
--	struct net *net = sock_net(skb->sk);
- 
- 	afi = nf_tables_afinfo_lookup(net, nfmsg->nfgen_family, false);
- 	if (IS_ERR(afi))
-@@ -3045,7 +3038,7 @@ static int nft_ctx_init_from_elemattr(struct nft_ctx *ctx,
- 	if (!trans && (table->flags & NFT_TABLE_INACTIVE))
- 		return -ENOENT;
- 
--	nft_ctx_init(ctx, skb, nlh, afi, table, NULL, nla);
-+	nft_ctx_init(ctx, net, skb, nlh, afi, table, NULL, nla);
- 	return 0;
- }
- 
-@@ -3135,6 +3128,7 @@ static int nf_tables_dump_setelem(const struct nft_ctx *ctx,
- 
- static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = sock_net(skb->sk);
- 	const struct nft_set *set;
- 	struct nft_set_dump_args args;
- 	struct nft_ctx ctx;
-@@ -3150,8 +3144,8 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (err < 0)
- 		return err;
- 
--	err = nft_ctx_init_from_elemattr(&ctx, cb->skb, cb->nlh, (void *)nla,
--					 false);
-+	err = nft_ctx_init_from_elemattr(&ctx, net, cb->skb, cb->nlh,
-+					 (void *)nla, false);
- 	if (err < 0)
- 		return err;
- 
-@@ -3212,11 +3206,12 @@ static int nf_tables_getsetelem(struct sock *nlsk, struct sk_buff *skb,
- 				const struct nlmsghdr *nlh,
- 				const struct nlattr * const nla[])
- {
-+	struct net *net = sock_net(skb->sk);
- 	const struct nft_set *set;
- 	struct nft_ctx ctx;
- 	int err;
- 
--	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, false);
-+	err = nft_ctx_init_from_elemattr(&ctx, net, skb, nlh, nla, false);
- 	if (err < 0)
- 		return err;
- 
-@@ -3528,11 +3523,10 @@ err1:
- 	return err;
- }
- 
--static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
--				const struct nlmsghdr *nlh,
-+static int nf_tables_newsetelem(struct net *net, struct sock *nlsk,
-+				struct sk_buff *skb, const struct nlmsghdr *nlh,
- 				const struct nlattr * const nla[])
- {
--	struct net *net = sock_net(skb->sk);
- 	const struct nlattr *attr;
- 	struct nft_set *set;
- 	struct nft_ctx ctx;
-@@ -3541,7 +3535,7 @@ static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
- 	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL)
- 		return -EINVAL;
- 
--	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, true);
-+	err = nft_ctx_init_from_elemattr(&ctx, net, skb, nlh, nla, true);
- 	if (err < 0)
- 		return err;
- 
-@@ -3623,8 +3617,8 @@ err1:
- 	return err;
- }
- 
--static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
--				const struct nlmsghdr *nlh,
-+static int nf_tables_delsetelem(struct net *net, struct sock *nlsk,
-+				struct sk_buff *skb, const struct nlmsghdr *nlh,
- 				const struct nlattr * const nla[])
- {
- 	const struct nlattr *attr;
-@@ -3635,7 +3629,7 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
- 	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL)
- 		return -EINVAL;
- 
--	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, false);
-+	err = nft_ctx_init_from_elemattr(&ctx, net, skb, nlh, nla, false);
- 	if (err < 0)
- 		return err;
- 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 46453ab..445590f 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -381,7 +381,7 @@ replay:
- 				goto ack;
- 
- 			if (nc->call_batch) {
--				err = nc->call_batch(net->nfnl, skb, nlh,
-+				err = nc->call_batch(net, net->nfnl, skb, nlh,
- 						     (const struct nlattr **)cda);
- 			}
- 
+ config NFT_DUP_IPV6
+ 	tristate "IPv6 nf_tables packet duplication support"
++	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	select NF_DUP_IPV6
+ 	help
+ 	  This module enables IPv6 packet duplication support for nf_tables.
 -- 
 2.1.4
 
