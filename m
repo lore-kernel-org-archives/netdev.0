@@ -1,114 +1,27 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] fm10k: initialize xps at driver load
-Date: Sun, 13 Dec 2015 16:27:47 -0800
-Message-ID: <1450052867-36654-16-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: noreply@cirrus.com
+Subject: Message TO: twoller@crystal.cirrus.com  has been discarded due to a filter
+ rule
+Date: Sun, 13 Dec 2015 19:46:25 -0600
+Message-ID: <mailbox-30631-1450057585-899690@m0077473.ppops.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:60774 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751992AbbLNA1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2015 19:27:50 -0500
-In-Reply-To: <1450052867-36654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx0a-001ae601.pphosted.com ([67.231.149.25]:41195 "EHLO
+	mx0a-001ae601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751814AbbLNBq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2015 20:46:26 -0500
+Received: from pps.filterd (m0077473.ppops.net [127.0.0.1])
+	by mx0a-001ae601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id tBE1hSkq004914
+	for <netdev@vger.kernel.org>; Sun, 13 Dec 2015 19:46:26 -0600
+Received: from ppops.net (localhost [127.0.0.1])
+	by mx0a-001ae601.pphosted.com with ESMTP id 1yrp4tj8u6-1
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sun, 13 Dec 2015 19:46:26 -0600
+Received: from m0077473.ppops.net (m0077473.ppops.net [127.0.0.1])
+	by pps.default (8.15.0.59/8.15.0.59) with SMTP id tBE1kPil006637
+	for <netdev@vger.kernel.org>; Sun, 13 Dec 2015 19:46:25 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
-
-Similar to ixgbe and i40e, initialize XPS on driver load so that we can
-take advantage of this kernel feature.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k.h     |  3 +++
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 18 ++++++++++++++++--
- 2 files changed, 19 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 021abe3..b34bb00 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -23,6 +23,7 @@
- 
- #include <linux/types.h>
- #include <linux/etherdevice.h>
-+#include <linux/cpumask.h>
- #include <linux/rtnetlink.h>
- #include <linux/if_vlan.h>
- #include <linux/pci.h>
-@@ -66,6 +67,7 @@ struct fm10k_l2_accel {
- enum fm10k_ring_state_t {
- 	__FM10K_TX_DETECT_HANG,
- 	__FM10K_HANG_CHECK_ARMED,
-+	__FM10K_TX_XPS_INIT_DONE,
- };
- 
- #define check_for_tx_hang(ring) \
-@@ -209,6 +211,7 @@ struct fm10k_q_vector {
- 	struct fm10k_ring_container rx, tx;
- 
- 	struct napi_struct napi;
-+	cpumask_t affinity_mask;
- 	char name[IFNAMSIZ + 9];
- 
- #ifdef CONFIG_DEBUG_FS
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index e820b5f..020f6dc 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -601,6 +601,13 @@ static void fm10k_configure_tx_ring(struct fm10k_intfc *interface,
- 	fm10k_write_reg(hw, FM10K_PFVTCTL(reg_idx),
- 			FM10K_PFVTCTL_FTAG_DESC_ENABLE);
- 
-+	/* Initialize XPS */
-+	if (!test_and_set_bit(__FM10K_TX_XPS_INIT_DONE, &ring->state) &&
-+	    ring->q_vector)
-+		netif_set_xps_queue(ring->netdev,
-+				    &ring->q_vector->affinity_mask,
-+				    ring->queue_index);
-+
- 	/* enable queue */
- 	fm10k_write_reg(hw, FM10K_TXDCTL(reg_idx), txdctl);
- }
-@@ -1488,8 +1495,10 @@ void fm10k_qv_free_irq(struct fm10k_intfc *interface)
- 		if (!q_vector->tx.count && !q_vector->rx.count)
- 			continue;
- 
--		/* disable interrupts */
-+		/* clear the affinity_mask in the IRQ descriptor */
-+		irq_set_affinity_hint(entry->vector, NULL);
- 
-+		/* disable interrupts */
- 		writel(FM10K_ITR_MASK_SET, q_vector->itr);
- 
- 		free_irq(entry->vector, q_vector);
-@@ -1547,6 +1556,9 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
- 			goto err_out;
- 		}
- 
-+		/* assign the mask for this irq */
-+		irq_set_affinity_hint(entry->vector, &q_vector->affinity_mask);
-+
- 		/* Enable q_vector */
- 		writel(FM10K_ITR_ENABLE, q_vector->itr);
- 
-@@ -1567,8 +1579,10 @@ err_out:
- 		if (!q_vector->tx.count && !q_vector->rx.count)
- 			continue;
- 
--		/* disable interrupts */
-+		/* clear the affinity_mask in the IRQ descriptor */
-+		irq_set_affinity_hint(entry->vector, NULL);
- 
-+		/* disable interrupts */
- 		writel(FM10K_ITR_MASK_SET, q_vector->itr);
- 
- 		free_irq(entry->vector, q_vector);
--- 
-2.5.0
+Your message to  twoller@crystal.cirrus.com  sent  2015-12-13   19:46:25 with Subject:  RETURNED MAIL: SEE TRANSCRIPT FOR DETAILS   has been discarded due to an attachment restriction rule.
