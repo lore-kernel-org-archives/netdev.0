@@ -1,50 +1,40 @@
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
-Subject: [PATCH v4 3/5] i40e: Kernel dependency update for i40e to support geneve offload
-Date: Mon, 14 Dec 2015 11:57:58 -0800
-Message-ID: <1450123080-206406-4-git-send-email-anjali.singhai@intel.com>
+From: "Singhai, Anjali" <anjali.singhai@intel.com>
+Subject: Re: [PATCH v4 1/5] geneve: Add geneve udp port offload for ethernet
+ devices
+Date: Mon, 14 Dec 2015 11:48:39 -0800
+Message-ID: <566F1D17.3010008@intel.com>
 References: <1450123080-206406-1-git-send-email-anjali.singhai@intel.com>
-Cc: jeffrey.t.kirsher@intel.com,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Kiran Patil <kiran.patil@intel.com>
+ <1450123080-206406-2-git-send-email-anjali.singhai@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, Kiran Patil <kiran.patil@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45318 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:63727 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751470AbbLNTlR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Dec 2015 14:41:17 -0500
-In-Reply-To: <1450123080-206406-1-git-send-email-anjali.singhai@intel.com>
+	id S1752837AbbLNTsl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 14:48:41 -0500
+In-Reply-To: <1450123080-206406-2-git-send-email-anjali.singhai@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the Kconfig file with dependency for supporting GENEVE tunnel
-offloads.
+Resending the series with a  cover-letter that got missed.
 
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
----
- drivers/net/ethernet/intel/Kconfig | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+Thanks
+Anjali
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 4163b16..fa593dd 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -280,6 +280,16 @@ config I40E_VXLAN
- 	  Say Y here if you want to use Virtual eXtensible Local Area Network
- 	  (VXLAN) in the driver.
- 
-+config I40E_GENEVE
-+	bool "Generic Network Virtualization Encapsulation (GENEVE) Support"
-+	depends on I40E && GENEVE && !(I40E=y && GENEVE=m)
-+	default n
-+	---help---
-+	  This allows one to create GENEVE virtual interfaces that provide
-+	  Layer 2 Networks over Layer 3 Networks. GENEVE is often used
-+	  to tunnel virtual network infrastructure in virtualized environments.
-+	  Say Y here if you want to use GENEVE in the driver.
-+
- config I40E_DCB
- 	bool "Data Center Bridging (DCB) Support"
- 	default n
--- 
-1.8.1.4
+On 12/14/2015 11:57 AM, Anjali Singhai Jain wrote:
+> Add ndo_ops to add/del UDP ports to a device that supports geneve
+> offload.
+>
+> v2: Comment fix.
+>
+> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+> ---
+>   drivers/net/geneve.c      | 23 +++++++++++++++++++++++
+>   include/linux/netdevice.h | 20 +++++++++++++++++++-
+>   2 files changed, 42 insertions(+), 1 deletion(-)
+>
+>
