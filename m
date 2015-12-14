@@ -1,46 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] netlink: fix boolean evaluation on bound
-Date: Mon, 14 Dec 2015 22:07:04 +0100
-Message-ID: <566F2F78.8020705@stressinduktion.org>
-References: <1450112125-29848-1-git-send-email-hannes@stressinduktion.org>
- <20151214170642.GA4180@gondor.apana.org.au>
- <566EFBF0.5020604@stressinduktion.org>
- <1450115411.8474.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47616 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932296AbbLNVHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:07:07 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 53CCA20B0B
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 16:07:07 -0500 (EST)
-In-Reply-To: <1450115411.8474.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [PATCH net-next v5 09/19] net: ipvlan: use __ethtool_get_ksettings
+Date: Mon, 14 Dec 2015 13:03:56 -0800
+Message-ID: <1450127046-4573-10-git-send-email-ddecotig@gmail.com>
+References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Eugenia Emantayev <eugenia@mellanox.co.il>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Govindarajulu Varadarajan <_govind@gmx.com>,
+        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Ed Swierk <eswierk@skyportsystems.com>,
+        Robert Love <robert.w.love@intel.com>,
+        "James E.J. Bottomley" <JBottomley@parallels.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+        David Decotigny <decot@googlers.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+        fcoe-devel@open-fcoe.org,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Tejun Heo <tj@kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On 14.12.2015 18:50, Eric Dumazet wrote:
-> On Mon, 2015-12-14 at 18:27 +0100, Hannes Frederic Sowa wrote:
-> 
->> Otherwise I would recommend adding a "!!" to express that we actually
->> want bound set based on the portid value?
-> 
-> Note that compiler already does the !! thing, when you store an integer
-> into a bool var.
+From: David Decotigny <decot@googlers.com>
 
-Exactly, the gcc compiler does that automatically when writing to a
-_Bool type.
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-> So it definitely is a matter of taste and code readability.
-
-Yes, as I wrote, this patch doesn't alter the any runtime behavior, it
-confused me and thus I wanted to make the assignment more explicit.
-
-It looked like a trap to me, thus I wanted to change it.
-
-Bye,
-Hannes
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index a9268db..63b3aa5 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -346,12 +346,12 @@ static const struct header_ops ipvlan_header_ops = {
+ 	.cache_update	= eth_header_cache_update,
+ };
+ 
+-static int ipvlan_ethtool_get_settings(struct net_device *dev,
+-				       struct ethtool_cmd *cmd)
++static int ipvlan_ethtool_get_ksettings(struct net_device *dev,
++					struct ethtool_ksettings *cmd)
+ {
+ 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 
+-	return __ethtool_get_settings(ipvlan->phy_dev, cmd);
++	return __ethtool_get_ksettings(ipvlan->phy_dev, cmd);
+ }
+ 
+ static void ipvlan_ethtool_get_drvinfo(struct net_device *dev,
+@@ -377,7 +377,7 @@ static void ipvlan_ethtool_set_msglevel(struct net_device *dev, u32 value)
+ 
+ static const struct ethtool_ops ipvlan_ethtool_ops = {
+ 	.get_link	= ethtool_op_get_link,
+-	.get_settings	= ipvlan_ethtool_get_settings,
++	.get_ksettings	= ipvlan_ethtool_get_ksettings,
+ 	.get_drvinfo	= ipvlan_ethtool_get_drvinfo,
+ 	.get_msglevel	= ipvlan_ethtool_get_msglevel,
+ 	.set_msglevel	= ipvlan_ethtool_set_msglevel,
+-- 
+2.6.0.rc2.230.g3dd15c0
