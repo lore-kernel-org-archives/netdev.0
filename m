@@ -1,139 +1,40 @@
-From: Igor Gavrilov <i.o.gavrilov@gmail.com>
-Subject: [PATCH net-next] sched/cls_flow.c
-Date: Mon, 14 Dec 2015 10:43:35 +0200
-Message-ID: <CADo-kff8vOq8YzvB8R+LOCUyfhx9+=QRhsLLa-eP9M+i3m5rcQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: sbc8641: drop bogus PHY IRQ entries from DTS file
+Date: Mon, 14 Dec 2015 20:46:38 +1100 (AEDT)
+Message-ID: <20151214094638.87145140557@ozlabs.org>
+References: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:34909 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbbLNIng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 03:43:36 -0500
-Received: by mail-ig0-f169.google.com with SMTP id 9so1856080igl.0
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 00:43:35 -0800 (PST)
+Received: from ozlabs.org ([103.22.144.67]:47445 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932105AbbLNJqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2015 04:46:39 -0500
+In-Reply-To: <1449614642-8161-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Gavrilov <i.o.gavrilov@gmail.com>
+On Tue, 2015-08-12 at 22:44:02 UTC, Paul Gortmaker wrote:
+> This file was originally cloned off of the MPC8641D-HPCN reference
+> platform, which actually had a PHY IRQ line connected.  However
+> this board does not.  The bogus entry was largely inert and went
+> undetected until commit 321beec5047af83db90c88114b7e664b156f49fe
+> ("net: phy: Use interrupts when available in NOLINK state") was
+> added to the tree.
+> 
+> With the above commit, the board fails to NFS boot since it sits
+> waiting for a PHY IRQ event that of course never arrives.  Removing
+> the bogus entries from the DTS file fixes the issue.
+> 
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
-able to get unNATed addresses from nf_conntrack on ingress interface.
+Applied to powerpc fixes, thanks.
 
-Signed-off-by: Igor Gavrilov <i.o.gavrilov@gmail.com>
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
---- net/sched/cls_flow.c.orig   2015-12-11 12:51:32.541673211 +0200
-+++ net/sched/cls_flow.c        2015-12-14 12:01:50.719174387 +0200
-@@ -31,6 +31,8 @@
+https://git.kernel.org/powerpc/c/5b01310cfc8d2302dcca1d8d
 
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- #include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_zones.h>
- #endif
-
- struct flow_head {
-@@ -133,16 +135,48 @@ static u32 flow_get_nfct(const struct sk
- }
-
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
--#define CTTUPLE(skb, member)                                           \
-+#define CTTUPLE(skb, direction, member)
-         \
- ({                                                                     \
-        enum ip_conntrack_info ctinfo;                                  \
--       const struct nf_conn *ct = nf_ct_get(skb, &ctinfo);             \
--       if (ct == NULL)                                                 \
--               goto fallback;                                          \
--       ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.member;                 \
-+       struct nf_conntrack_tuple tuple;                                \
-+       struct nf_conntrack_zone zone;                                  \
-+       const struct nf_conntrack_tuple_hash *thash;                    \
-+       __be32 result;                                                  \
-+       int proto;                                                      \
-+       struct nf_conn *ct = nf_ct_get(skb, &ctinfo);                   \
-+       if (ct == NULL) {                                               \
-+               switch (tc_skb_protocol(skb)) {                         \
-+               case htons(ETH_P_IP):                                   \
-+                       proto = NFPROTO_IPV4;                           \
-+                       break;                                          \
-+               case htons(ETH_P_IPV6):                                 \
-+                       proto = NFPROTO_IPV6;                           \
-+                       break;                                          \
-+               default:                                                \
-+                       goto fallback;                                  \
-+               }                                                       \
-+                                                                       \
-+               if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb), proto,\
-+                       dev_net(skb->dev), &tuple))                     \
-+                       goto fallback;                                  \
-+               zone.id = NF_CT_DEFAULT_ZONE_ID;                        \
-+               zone.dir = NF_CT_DEFAULT_ZONE_DIR;                      \
-+                                                                       \
-+               thash = nf_conntrack_find_get(dev_net(skb->dev), &zone, \
-+                       &tuple);                                        \
-+               if (!thash)                                             \
-+                       goto fallback;                                  \
-+               ct = nf_ct_tuplehash_to_ctrack(thash);                  \
-+               result = ct->tuplehash[(thash->tuple.dst.dir ==
-IP_CT_DIR_REPLY) ? \
-+                IP_CT_DIR_ORIGINAL : IP_CT_DIR_REPLY].tuple.src.member;\
-+               nf_ct_put(ct);                                          \
-+       } else {                                                        \
-+               result =
-ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.direction.member;\
-+       }                                                               \
-+       result;                                                         \
- })
- #else
--#define CTTUPLE(skb, member)                                           \
-+#define CTTUPLE(skb, direction, member)
-         \
- ({                                                                     \
-        goto fallback;                                                  \
-        0;                                                              \
-@@ -153,9 +187,9 @@ static u32 flow_get_nfct_src(const struc
- {
-        switch (tc_skb_protocol(skb)) {
-        case htons(ETH_P_IP):
--               return ntohl(CTTUPLE(skb, src.u3.ip));
-+               return ntohl(CTTUPLE(skb, src, u3.ip));
-        case htons(ETH_P_IPV6):
--               return ntohl(CTTUPLE(skb, src.u3.ip6[3]));
-+               return ntohl(CTTUPLE(skb, src, u3.ip6[3]));
-        }
- fallback:
-        return flow_get_src(skb, flow);
-@@ -165,9 +199,9 @@ static u32 flow_get_nfct_dst(const struc
- {
-        switch (tc_skb_protocol(skb)) {
-        case htons(ETH_P_IP):
--               return ntohl(CTTUPLE(skb, dst.u3.ip));
-+               return ntohl(CTTUPLE(skb, dst, u3.ip));
-        case htons(ETH_P_IPV6):
--               return ntohl(CTTUPLE(skb, dst.u3.ip6[3]));
-+               return ntohl(CTTUPLE(skb, dst, u3.ip6[3]));
-        }
- fallback:
-        return flow_get_dst(skb, flow);
-@@ -175,14 +209,14 @@ fallback:
-
- static u32 flow_get_nfct_proto_src(const struct sk_buff *skb, const
-struct flow_keys *flow)
- {
--       return ntohs(CTTUPLE(skb, src.u.all));
-+       return ntohs(CTTUPLE(skb, src, u.all));
- fallback:
-        return flow_get_proto_src(skb, flow);
- }
-
- static u32 flow_get_nfct_proto_dst(const struct sk_buff *skb, const
-struct flow_keys *flow)
- {
--       return ntohs(CTTUPLE(skb, dst.u.all));
-+       return ntohs(CTTUPLE(skb, dst, u.all));
- fallback:
-        return flow_get_proto_dst(skb, flow);
- }
+cheers
