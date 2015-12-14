@@ -1,41 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] stmmac: dwmac-sunxi: Call exit cleanup function in
- probe error path
-Date: Mon, 14 Dec 2015 16:12:18 -0500 (EST)
-Message-ID: <20151214.161218.2057176608170714361.davem@davemloft.net>
-References: <1449828229-10720-1-git-send-email-wens@csie.org>
+Subject: Re: [PATCH net v2] net: add validation for the socket syscall
+ protocol argument
+Date: Mon, 14 Dec 2015 16:12:40 -0500 (EST)
+Message-ID: <20151214.161240.183700484320030237.davem@davemloft.net>
+References: <1450127019-26920-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, maxime.ripard@free-electrons.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, manabian@gmail.com
-To: wens@csie.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, cwang@twopensource.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60529 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60539 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932190AbbLNVMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:12:20 -0500
-In-Reply-To: <1449828229-10720-1-git-send-email-wens@csie.org>
+	with ESMTP id S932509AbbLNVMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 16:12:42 -0500
+In-Reply-To: <1450127019-26920-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen-Yu Tsai <wens@csie.org>
-Date: Fri, 11 Dec 2015 18:03:49 +0800
-
-> dwmac-sunxi has 2 callbacks that were called from stmmac_platform as
-> part of the probe and remove sequences.
-> 
-> Ater the conversion of dwmac-sunxi into a standalone platform driver,
-> the .init function is called before calling into the stmmac driver
-> core, but .exit is not called to clean up if stmmac returns an error.
-> 
-> This patch fixes the probe error path. This properly cleans up and
-> releases resources when the driver core fails to probe.
-> 
-> Cc: Joachim Eastwood <manabian@gmail.com>
-> Fixes: 9a9e9a1edee8 ("stmmac: dwmac-sunxi: turn setup callback into a
-> 		      probe function")
-> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
-
-Applied, thanks.
+RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0K
+RGF0ZTogTW9uLCAxNCBEZWMgMjAxNSAyMjowMzozOSArMDEwMA0KDQo+IOmDreawuOWImiByZXBv
+cnRlZCB0aGF0IG9uZSBjb3VsZCBzaW1wbHkgY3Jhc2ggdGhlIGtlcm5lbCBhcyByb290IGJ5DQo+
+IHVzaW5nIGEgc2ltcGxlIHByb2dyYW06DQo+IA0KPiAJaW50IHNvY2tldF9mZDsNCj4gCXN0cnVj
+dCBzb2NrYWRkcl9pbiBhZGRyOw0KPiAJYWRkci5zaW5fcG9ydCA9IDA7DQo+IAlhZGRyLnNpbl9h
+ZGRyLnNfYWRkciA9IElOQUREUl9BTlk7DQo+IAlhZGRyLnNpbl9mYW1pbHkgPSAxMDsNCj4gDQo+
+IAlzb2NrZXRfZmQgPSBzb2NrZXQoMTAsMywweDQwMDAwMDAwKTsNCj4gCWNvbm5lY3Qoc29ja2V0
+X2ZkICwgJmFkZHIsMTYpOw0KPiANCj4gQUZfSU5FVCwgQUZfSU5FVDYgc29ja2V0cyBhY3R1YWxs
+eSBvbmx5IHN1cHBvcnQgOC1iaXQgcHJvdG9jb2wNCj4gaWRlbnRpZmllcnMuIGluZXRfc29jaydz
+IHNrY19wcm90b2NvbCBmaWVsZCB0aHVzIGlzIHNpemVkIGFjY29yZGluZ2x5LA0KPiB0aHVzIGxh
+cmdlciBwcm90b2NvbCBpZGVudGlmaWVycyBzaW1wbHkgY3V0IG9mZiB0aGUgaGlnaGVyIGJpdHMg
+YW5kDQo+IHN0b3JlIGEgemVybyBpbiB0aGUgcHJvdG9jb2wgZmllbGRzLg0KPiANCj4gVGhpcyBj
+b3VsZCBsZWFkIHRvIGUuZy4gTlVMTCBmdW5jdGlvbiBwb2ludGVyIGJlY2F1c2UgYXMgYSByZXN1
+bHQgb2YNCj4gdGhlIGN1dCBvZmYgaW5ldF9udW0gaXMgemVybyBhbmQgd2UgY2FsbCBkb3duIHRv
+IGluZXRfYXV0b2JpbmQsIHdoaWNoDQo+IGlzIE5VTEwgZm9yIHJhdyBzb2NrZXRzLg0KPiANCj4g
+a2VybmVsOiBDYWxsIFRyYWNlOg0KPiBrZXJuZWw6ICBbPGZmZmZmZmZmODE2ZGI5MGU+XSA/IGlu
+ZXRfYXV0b2JpbmQrMHgyZS8weDcwDQo+IGtlcm5lbDogIFs8ZmZmZmZmZmY4MTZkYjlhND5dIGlu
+ZXRfZGdyYW1fY29ubmVjdCsweDU0LzB4ODANCj4ga2VybmVsOiAgWzxmZmZmZmZmZjgxNjQ1MDY5
+Pl0gU1lTQ19jb25uZWN0KzB4ZDkvMHgxMTANCj4ga2VybmVsOiAgWzxmZmZmZmZmZjgxMGFjNTFi
+Pl0gPyBwdHJhY2Vfbm90aWZ5KzB4NWIvMHg4MA0KPiBrZXJuZWw6ICBbPGZmZmZmZmZmODEwMjM2
+ZDg+XSA/IHN5c2NhbGxfdHJhY2VfZW50ZXJfcGhhc2UyKzB4MTA4LzB4MjAwDQo+IGtlcm5lbDog
+IFs8ZmZmZmZmZmY4MTY0NWUwZT5dIFN5U19jb25uZWN0KzB4ZS8weDEwDQo+IGtlcm5lbDogIFs8
+ZmZmZmZmZmY4MTc3OTUxNT5dIHRyYWNlc3lzX3BoYXNlMisweDg0LzB4ODkNCj4gDQo+IEkgZm91
+bmQgbm8gcGFydGljdWxhciBjb21taXQgd2hpY2ggaW50cm9kdWNlZCB0aGlzIHByb2JsZW0uDQo+
+IA0KPiBDVkU6IENWRS0yMDE1LTg1NDMNCj4gQ2M6IENvbmcgV2FuZyA8Y3dhbmdAdHdvcGVuc291
+cmNlLmNvbT4NCj4gUmVwb3J0ZWQtYnk6IOmDreawuOWImiA8Z3VveW9uZ2dhbmdAMzYwLmNuPg0K
+PiBTaWduZWQtb2ZmLWJ5OiBIYW5uZXMgRnJlZGVyaWMgU293YSA8aGFubmVzQHN0cmVzc2luZHVr
+dGlvbi5vcmc+DQoNCkFwcGxpZWQgYW5kIHF1ZXVlZCB1cCBmb3IgLXN0YWJsZSwgdGhhbmtzLg0K
