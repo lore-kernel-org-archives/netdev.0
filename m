@@ -1,41 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Information leak in llcp_sock_bind/llcp_raw_sock_bind
-Date: Tue, 15 Dec 2015 15:36:26 -0500 (EST)
-Message-ID: <20151215.153626.1500179484827859040.davem@davemloft.net>
-References: <CACT4Y+bjSFyXZi1PKTUsT9PhAYvCGiGjRkOBRbUON0Pw7rJxGg@mail.gmail.com>
+Subject: Re: Information leak in sco_sock_bind
+Date: Tue, 15 Dec 2015 15:39:26 -0500 (EST)
+Message-ID: <20151215.153926.440589493634712000.davem@davemloft.net>
+References: <CACT4Y+Zi9L5K3JExRLxuLS7FzjnQQth3b9ns-q6QufpyHOXf7Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	sameo@linux.intel.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	syzkaller@googlegroups.com, edumazet@google.com, kcc@google.com,
-	glider@google.com, sasha.levin@oracle.com
+Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
+	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
+	edumazet@google.com, keescook@google.com,
+	hannes@stressinduktion.org, ursula.braun@de.ibm.com,
+	linux-s390@vger.kernel.org, lauro.venancio@openbossa.org,
+	aloisio.almeida@openbossa.org, sameo@linux.intel.com
 To: dvyukov@google.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+bjSFyXZi1PKTUsT9PhAYvCGiGjRkOBRbUON0Pw7rJxGg@mail.gmail.com>
+In-Reply-To: <CACT4Y+Zi9L5K3JExRLxuLS7FzjnQQth3b9ns-q6QufpyHOXf7Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Dmitry Vyukov <dvyukov@google.com>
-Date: Tue, 15 Dec 2015 21:00:20 +0100
+Date: Tue, 15 Dec 2015 21:02:30 +0100
 
-> The problem is that llcp_sock_bind/llcp_raw_sock_bind do not check
-> sockaddr_len passed in, so they copy stack garbage from stack into the
-> socket and then return it in getsockname.
-> This can defeat ASLR, leak crypto keys, etc.
+> The following program leads to leak of 6 bytes from kernel stack:
 
-That's actually the first thing these functions do.
+This should fix it:
 
-They completely clear out the on-stack llcp_addr, then they copy only
-as much as the user gave them, being careful not to use more than
-sizeof(llcp_addr).
+====================
+[PATCH] bluetooth: Validate socket address length in sco_sock_bind().
 
-	memset(&llcp_addr, 0, sizeof(llcp_addr));
-	len = min_t(unsigned int, sizeof(llcp_addr), alen);
-	memcpy(&llcp_addr, addr, len);
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/bluetooth/sco.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-I don't see what the problem is, you'll need to be more specific.
-
-Even wrt. llcp_sock->service_name, the code limits the string to
-NFC_LLCP_MAX_SERVICE_NAME.
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+index fe12966..f52bcbf 100644
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -526,6 +526,9 @@ static int sco_sock_bind(struct socket *sock, struct sockaddr *addr,
+ 	if (!addr || addr->sa_family != AF_BLUETOOTH)
+ 		return -EINVAL;
+ 
++	if (addr_len < sizeof(struct sockaddr_sco))
++		return -EINVAL;
++
+ 	lock_sock(sk);
+ 
+ 	if (sk->sk_state != BT_OPEN) {
+-- 
+2.4.1
