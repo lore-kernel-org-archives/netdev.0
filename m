@@ -1,49 +1,28 @@
-From: Martin Roth <martin.roth@motorolasolutions.com>
-Subject: [PATCH] 82xx: FCC: Fixing a bug causing to FCC port lock-up
-Date: Tue, 15 Dec 2015 04:17:53 +0200
-Message-ID: <1450145874-9750-1-git-send-email-martin.roth@motorolasolutions.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 net-next 4/4] ila: Add generic ILA translation
+ facility
+Date: Mon, 14 Dec 2015 23:50:45 -0500 (EST)
+Message-ID: <20151214.235045.1657196344079746671.davem@davemloft.net>
+References: <1450137408-2589240-1-git-send-email-tom@herbertland.com>
+	<1450137408-2589240-5-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org, stable@vger.kernel.org,
- Martin Roth <martin.roth@motorolasolutions.com>
-To: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38117 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933098AbbLOEut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 23:50:49 -0500
+In-Reply-To: <1450137408-2589240-5-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIHBhdGNoIGZpeGVzIEZDQyBwb3J0IGxvY2stdXAsIHdoaWNoIG9jY3VycyBhcyBhIHJlc3Vs
-dCBvZiBhIGJ1ZwpkdXJpbmcgdW5kZXJydW4vY29sbGlzaW9uIGhhbmRsaW5nLiBXaXRoaW4gdGhl
-IHR4X3N0YXJ0dXAoKSBmdW5jdGlvbgppbiBtYWMtZmNjLmMsIHRoZSBhZGRyZXNzIG9mIGxhc3Qg
-QkQgaXMgbm90IGNhbGN1bGF0ZWQgY29ycmVjdGx5LgpBcyBhIHJlc3VsdCBvZiB3cm9uZyBjYWxj
-dWxhdGlvbiBvZiB0aGUgbGFzdCBCRCBhZGRyZXNzLCB0aGUgbmV4dAp0cmFuc21pdHRlZCBCRCBt
-YXkgYmUgc2V0IHRvIGFuIGFyZWEgb3V0IG9mIHRoZSB0cmFuc21pdCBCRCByaW5nLgpUaGlzIGFj
-dHVhbGx5IGNhdXNlcyB0byBwb3J0IGxvY2stdXAgYW5kIGl0IGlzIG5vdCByZWNvdmVyYWJsZS4K
-ClNpZ25lZC1vZmYtYnk6IE1hcnRpbiBSb3RoIDxtYXJ0aW4ucm90aEBtb3Rvcm9sYXNvbHV0aW9u
-cy5jb20+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLWZj
-Yy5jIHwgICAgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9u
-KC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQv
-bWFjLWZjYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLWZj
-Yy5jCmluZGV4IDA4ZjViOTEuLjUyZTAwOTEgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1mY2MuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvZnNfZW5ldC9tYWMtZmNjLmMKQEAgLTU1Miw3ICs1NTIsNyBAQCBzdGF0aWMg
-dm9pZCB0eF9yZXN0YXJ0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJY2JkX3QgX19pb21lbSAq
-cHJldl9iZDsKIAljYmRfdCBfX2lvbWVtICpsYXN0X3R4X2JkOwogCi0JbGFzdF90eF9iZCA9IGZl
-cC0+dHhfYmRfYmFzZSArIChmcGktPnR4X3JpbmcgKiBzaXplb2YoY2JkX3QpKTsKKwlsYXN0X3R4
-X2JkID0gZmVwLT50eF9iZF9iYXNlICsgKChmcGktPnR4X3JpbmcgLSAxKSAqIHNpemVvZihjYmRf
-dCkpOwogCiAJLyogZ2V0IHRoZSBjdXJyZW50IGJkIGhlbGQgaW4gVEJQVFIgIGFuZCBzY2FuIGJh
-Y2sgZnJvbSB0aGlzIHBvaW50ICovCiAJcmVjaGVja19iZCA9IGN1cnJfdGJwdHIgPSAoY2JkX3Qg
-X19pb21lbSAqKQotLSAKMS43LjkuNQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlz
-dHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMt
-ZGV2
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 14 Dec 2015 15:56:48 -0800
+
+> +static int alloc_ila_locks(struct ila_net *ilan, gfp_t gfp)
+
+gfp is always GFP_KERNEL, thus this flexibility is never
+necessary.
