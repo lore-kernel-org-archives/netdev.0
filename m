@@ -1,45 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx4_core: fix handling return value of
- mlx4_slave_convert_port
-Date: Tue, 15 Dec 2015 11:55:16 -0500 (EST)
-Message-ID: <20151215.115516.1151100457916943363.davem@davemloft.net>
-References: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
-	<566FD8D4.5030506@mellanox.com>
+Subject: Re: [patch net-next 00/14] mlxws: update driver to support offload
+ of bridged vlan devices
+Date: Tue, 15 Dec 2015 12:01:39 -0500 (EST)
+Message-ID: <20151215.120139.382714446824576938.davem@davemloft.net>
+References: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.hajda@samsung.com, jackm@dev.mellanox.co.il,
-	b.zolnierkie@samsung.com, m.szyprowski@samsung.com,
-	eranbe@mellanox.com, hadarh@mellanox.com, monis@mellanox.com,
-	yishaih@mellanox.com, maorg@mellanox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ogerlitz@mellanox.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <566FD8D4.5030506@mellanox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	f.fainelli@gmail.com, sfeldma@gmail.com, john.fastabend@gmail.com,
+	roopa@cumulusnetworks.com, andrew@lunn.ch, kaber@trash.net,
+	stephen@networkplumber.org
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47114 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932462AbbLORBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:01:42 -0500
+In-Reply-To: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 15 Dec 2015 11:09:40 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 15 Dec 2015 16:03:33 +0100
 
-> On 12/14/2015 12:05 PM, Andrzej Hajda wrote:
->> The function can return negative values, so its result should
->> be assigned to signed variable.
->>
->> The problem has been detected using proposed semantic patch
->> scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
->>
->> [1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
->>
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Please add here
+> Ido Schimmel says:
+>         
+> ====================
+> This patchset introduces support for the offloading of 802.1D bridges
+> between VLAN devices. These can either be VLAN devices configured on top
+> of the physical ports or on top of LAG devices.
 > 
-> Fixes: fc48866f7 ('net/mlx4: Adapt code for N-Port VF')
+> Patches 1-2 deal with the necessary infrastructure changes needed in order
+> to enable the above. The main change is that switchdev drivers can now know
+> the device from which the switchdev op originated from.
 > 
->> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+> Patches 3-10 lay the groundwork for 802.1D bridges support in the mlxsw
+> driver, with patch 4 doing most of the heavy lifting.
 > 
-> otherwise, Looks good
+> Patch 11 finally offloads these bridges to hardware by listening to the
+> notifications sent when the VLAN device joins or leaves a bridge. It is
+> very similar to the already existing 802.1Q bridge we support.
 > 
-> Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Patches 12-14 add minor modifications to allow one to bridge a VLAN device
+> configured on top of LAG.
+> ====================
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Applied with Fixes tag added.
+Series applied, thanks guys.
