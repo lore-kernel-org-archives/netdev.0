@@ -1,53 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Information leak in sco_sock_bind
-Date: Tue, 15 Dec 2015 15:39:26 -0500 (EST)
-Message-ID: <20151215.153926.440589493634712000.davem@davemloft.net>
-References: <CACT4Y+Zi9L5K3JExRLxuLS7FzjnQQth3b9ns-q6QufpyHOXf7Q@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Information leak in llcp_sock_bind/llcp_raw_sock_bind
+Date: Tue, 15 Dec 2015 21:45:16 +0100
+Message-ID: <CACT4Y+ZnZ2EcZwc6T5LZ1YR2zC8+6aFT_JFYb_LeegnB6tmESw@mail.gmail.com>
+References: <CACT4Y+bjSFyXZi1PKTUsT9PhAYvCGiGjRkOBRbUON0Pw7rJxGg@mail.gmail.com>
+ <20151215.153626.1500179484827859040.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
-	edumazet@google.com, keescook@google.com,
-	hannes@stressinduktion.org, ursula.braun@de.ibm.com,
-	linux-s390@vger.kernel.org, lauro.venancio@openbossa.org,
-	aloisio.almeida@openbossa.org, sameo@linux.intel.com
-To: dvyukov@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Zi9L5K3JExRLxuLS7FzjnQQth3b9ns-q6QufpyHOXf7Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+To: syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151215.153626.1500179484827859040.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Dmitry Vyukov <dvyukov@google.com>
-Date: Tue, 15 Dec 2015 21:02:30 +0100
+On Tue, Dec 15, 2015 at 9:36 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Date: Tue, 15 Dec 2015 21:00:20 +0100
+>
+>> The problem is that llcp_sock_bind/llcp_raw_sock_bind do not check
+>> sockaddr_len passed in, so they copy stack garbage from stack into the
+>> socket and then return it in getsockname.
+>> This can defeat ASLR, leak crypto keys, etc.
+>
+> That's actually the first thing these functions do.
+>
+> They completely clear out the on-stack llcp_addr, then they copy only
+> as much as the user gave them, being careful not to use more than
+> sizeof(llcp_addr).
+>
+>         memset(&llcp_addr, 0, sizeof(llcp_addr));
+>         len = min_t(unsigned int, sizeof(llcp_addr), alen);
+>         memcpy(&llcp_addr, addr, len);
+>
+> I don't see what the problem is, you'll need to be more specific.
 
-> The following program leads to leak of 6 bytes from kernel stack:
+You are right. Sorry.
 
-This should fix it:
+There still seems to be a minor leak here:
 
-====================
-[PATCH] bluetooth: Validate socket address length in sco_sock_bind().
+  if (!addr || addr->sa_family != AF_NFC)
+      return -EINVAL;
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/bluetooth/sco.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
-index fe12966..f52bcbf 100644
---- a/net/bluetooth/sco.c
-+++ b/net/bluetooth/sco.c
-@@ -526,6 +526,9 @@ static int sco_sock_bind(struct socket *sock, struct sockaddr *addr,
- 	if (!addr || addr->sa_family != AF_BLUETOOTH)
- 		return -EINVAL;
- 
-+	if (addr_len < sizeof(struct sockaddr_sco))
-+		return -EINVAL;
-+
- 	lock_sock(sk);
- 
- 	if (sk->sk_state != BT_OPEN) {
--- 
-2.4.1
+addr->sa_family can be uninit.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
