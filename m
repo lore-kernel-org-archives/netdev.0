@@ -1,117 +1,85 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch] qlcnic: fix a timeout loop
-Date: Tue, 15 Dec 2015 17:35:45 +0100
-Message-ID: <56704161.6040901@bfs.de>
-References: <20151215101618.GG20848@mwanda> <BLUPR11MB0114ED16EBE57CC01FD9797393EE0@BLUPR11MB0114.namprd11.prod.outlook.com>
-Reply-To: wharms@bfs.de
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next] pppoe: optional deactivation of PADT packet
+ handling
+Date: Tue, 15 Dec 2015 10:50:05 -0600
+Message-ID: <1450198205.3851.6.camel@redhat.com>
+References: <712ac4d53ca9fb8621164a1b72c74eae8c8529aa.1450194732.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Manish Chopra <manish.chopra@qlogic.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <BLUPR11MB0114ED16EBE57CC01FD9797393EE0@BLUPR11MB0114.namprd11.prod.outlook.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: linux-ppp@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>, netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <712ac4d53ca9fb8621164a1b72c74eae8c8529aa.1450194732.git.g.nault@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2015-12-15 at 17:06 +0100, Guillaume Nault wrote:
+> Kernel space shouldn't handle PADT packets since PADT belongs to
+> PPPoE's control plane.
+> With "handle_padt" module option, user space can now decide to avoid
+> kernel interpretation of PADT packets and be responsible for session
+> disconnection.
 
+In general, module options like this kinda suck.  How about a new PPPoE
+ioctl so the option can be toggled for a given socket/session instead? 
+ Then at least you're not locked into a specific PPPoE implementation
+for all sessions on the machine.
 
-Am 15.12.2015 14:46, schrieb Manish Chopra:
->> -----Original Message-----
->> From: dept_hsg_linux_nic_dev-bounces@qlclistserver.qlogic.com
->> [mailto:dept_hsg_linux_nic_dev-bounces@qlclistserver.qlogic.com] On Behalf
->> Of Dan Carpenter
->> Sent: Tuesday, December 15, 2015 3:46 PM
->> To: Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>; Rajesh
->> Borundia <rajesh.borundia@qlogic.com>
->> Cc: netdev <netdev@vger.kernel.org>; kernel-janitors@vger.kernel.org
->> Subject: [patch] qlcnic: fix a timeout loop
->>
->> The problem here is that at the end of the loop we test for if
->> idc->vnic_wait_limit is zero, but since idc->vnic_wait_limit-- is a
->> post-op, it actually ends up set to (u8)-1.  I have fixed this by changing it to a
->> pre-op.  I had to change the starting value from
->> "QLCNIC_DEV_NPAR_OPER_TIMEO" (30) to "QLCNIC_DEV_NPAR_OPER_TIMEO
->> + 1" so that we still loop the same number of times as before.
->>
->> Fixes: 486a5bc77a4a ('qlcnic: Add support for 83xx suspend and resume.')
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->>
->> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
->> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
->> index be7d7a6..9919245 100644
->> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
->> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
->> @@ -234,7 +234,7 @@ int qlcnic_83xx_config_vnic_opmode(struct
->> qlcnic_adapter *adapter)
->>  	}
->>
->>  	ahw->idc.vnic_state = QLCNIC_DEV_NPAR_NON_OPER;
->> -	ahw->idc.vnic_wait_limit = QLCNIC_DEV_NPAR_OPER_TIMEO;
->> +	ahw->idc.vnic_wait_limit = QLCNIC_DEV_NPAR_OPER_TIMEO + 1;
->>
->>  	return 0;
->>  }
->> @@ -246,7 +246,7 @@ int qlcnic_83xx_check_vnic_state(struct qlcnic_adapter
->> *adapter)
->>  	u32 state;
->>
->>  	state = QLCRDX(ahw, QLC_83XX_VNIC_STATE);
->> -	while (state != QLCNIC_DEV_NPAR_OPER && idc->vnic_wait_limit--) {
->> +	while (state != QLCNIC_DEV_NPAR_OPER && --idc->vnic_wait_limit) {
->>  		msleep(1000);
->>  		state = QLCRDX(ahw, QLC_83XX_VNIC_STATE);
->>  	}
+Dan
+
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> ---
+> The two open-source PPPoE programs I know of are accel-ppp and pppd
+> (with the rp-pppoe plugin). Accel-ppp already handles PADT, while
+> pppd + rp-pppoe doesn't (seems like it doesn't even listen to its
+> PPPoE Discovery socket once session is established).
 > 
-> Hi Dan,
-> It looks bit odd incrementing 1 in QLCNIC_DEV_NPAR_OPER_TIMEO. Can't we just post increment inside the loop ?
 > 
-> ahw->idc.vnic_wait_limit = QLCNIC_DEV_NPAR_OPER_TIMEO;
-> while (state != QLCNIC_DEV_NPAR_OPER && idc->vnic_wait_limit) {
-> 	idc->vnic_wait_limit--;
-> 	-----;
-> 	-----;
-> }
+>  drivers/net/ppp/pppoe.c | 18 ++++++++++++++++--
+>  1 file changed, 16 insertions(+), 2 deletions(-)
 > 
-> Thanks,
-> Manish 
-
-
-Hi Manish,
-i would like to ask an other question. Why do you choose this way ?
-Basicly you have a
-#define QLCNIC_DEV_NPAR_OPER_TIMEO
-idc->vnic_wait_limit=QLCNIC_DEV_NPAR_OPER_TIMEO;
-while ( ... --idc->vnic_wait_limit)
-
-Do you need the time it took to chance the state ?
-
-Look at Dan patches, there is a whole list that shows that programmers are
-terrible at counting backwarts. Maybe it is possible to change the code into
-something like
-
-while (  cnt++ < idc->vnic_wait_limit)
-
-this way you have a flexible limit, and it is better to understand for others
-what you want to archive.
-
-just my 2 cents,
-re,
- wh
-
-
-
-
-
-
+> diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+> index b8da2ea..1846c3a 100644
+> --- a/drivers/net/ppp/pppoe.c
+> +++ b/drivers/net/ppp/pppoe.c
+> @@ -109,6 +109,18 @@ struct pppoe_net {
+>  	rwlock_t hash_lock;
+>  };
 >  
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> +/* PADT packets belong to PPPoE's discovery stage (i.e. control
+> plane)
+> + * and should be handled by user space. Unfortunately, some programs
+> + * don't listen out for PADT packets and rely on pppoe module for
+> + * closing session after reception of PADT.
+> + *
+> + * This option can be deactivated when PPPoE discovery is handled by
+> + * a PADT aware program.
+> + */
+> +static bool handle_padt __read_mostly = true;
+> +module_param(handle_padt, bool, 0444);
+> +MODULE_PARM_DESC(handle_padt, "Let kernel interpret incoming PADT");
+> +
+>  /*
+>   * PPPoE could be in the following stages:
+>   * 1) Discovery stage (to obtain remote MAC and Session ID)
+> @@ -1173,7 +1185,8 @@ static int __init pppoe_init(void)
+>  		goto out_unregister_pppoe_proto;
+>  
+>  	dev_add_pack(&pppoes_ptype);
+> -	dev_add_pack(&pppoed_ptype);
+> +	if (handle_padt)
+> +		dev_add_pack(&pppoed_ptype);
+>  	register_netdevice_notifier(&pppoe_notifier);
+>  
+>  	return 0;
+> @@ -1189,7 +1202,8 @@ out:
+>  static void __exit pppoe_exit(void)
+>  {
+>  	unregister_netdevice_notifier(&pppoe_notifier);
+> -	dev_remove_pack(&pppoed_ptype);
+> +	if (handle_padt)
+> +		dev_remove_pack(&pppoed_ptype);
+>  	dev_remove_pack(&pppoes_ptype);
+>  	unregister_pppox_proto(PX_PROTO_OE);
+>  	proto_unregister(&pppoe_sk_proto);
