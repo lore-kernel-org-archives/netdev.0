@@ -1,63 +1,40 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH 3/4] ser_gigaset: fix deallocation of platform device structure
-Date: Tue, 15 Dec 2015 18:11:30 +0100
-Message-ID: <1450199491-30471-4-git-send-email-pebolle@tiscali.nl>
-References: <1450199491-30471-1-git-send-email-pebolle@tiscali.nl>
-Cc: Tilman Schmidt <tilman@imap.cc>, Alan Cox <alan@linux.intel.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Peter Hurley <peter@hurleysoftware.com>,
-	linux-kernel@vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH v5 4/4] net: diag: Support destroying TCP socketsr
+Date: Wed, 16 Dec 2015 02:17:44 +0900
+Message-ID: <1450199868-93712-1-git-send-email-lorenzo@google.com>
+References: <20151214.143739.879220917312503422.davem@davemloft.net>
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450199491-30471-1-git-send-email-pebolle@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:34635 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965147AbbLORR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:17:59 -0500
+Received: by mail-pf0-f170.google.com with SMTP id o64so7938822pfb.1
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:17:58 -0800 (PST)
+In-Reply-To: <20151214.143739.879220917312503422.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
+Thanks for the reviews. This version fixes a few issues and
+addresses Tom's comments on v5. Specifically:
 
-When shutting down the device, the struct ser_cardstate must not be
-kfree()d immediately after the call to platform_device_unregister()
-since the embedded struct platform_device is still in use.
-Move the kfree() call to the release method instead.
+1. As requested by Tom, tcp_abort is no longer behind a config
+   option, and now allows the caller to specify the error with
+   which to interrupt blocking operations. (The SOCK_DIAG
+   codepath to close TCP sockets from userspace always uses
+   ECONNABORTED.)
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-Fixes: 2869b23e4b95 ("drivers/isdn/gigaset: new M101 driver (v2)")
-Reported-by: Sasha Levin <sasha.levin@oracle.com>
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
- drivers/isdn/gigaset/ser-gigaset.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+2. Config symbols are checked with "ifdef" not "if".
 
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 8e21f6afa832..635baaf34e95 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -368,19 +368,23 @@ static void gigaset_freecshw(struct cardstate *cs)
- 	tasklet_kill(&cs->write_tasklet);
- 	if (!cs->hw.ser)
- 		return;
--	dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
- 	platform_device_unregister(&cs->hw.ser->dev);
--	kfree(cs->hw.ser);
--	cs->hw.ser = NULL;
- }
- 
- static void gigaset_device_release(struct device *dev)
- {
- 	struct platform_device *pdev = to_platform_device(dev);
-+	struct cardstate *cs = dev_get_drvdata(dev);
- 
- 	/* adapted from platform_device_release() in drivers/base/platform.c */
- 	kfree(dev->platform_data);
- 	kfree(pdev->resource);
-+
-+	if (!cs)
-+		return;
-+	dev_set_drvdata(dev, NULL);
-+	kfree(cs->hw.ser);
-+	cs->hw.ser = NULL;
- }
- 
- /*
--- 
-2.4.3
+3. The boolean Kconfig option no longer depends on
+   INET_DIAG && (IPV6 || IPV6=n) but only on INET_DIAG
+
+The name of the operation is still SOCK_DESTROY, and the
+functions that implement it still have "destroy" in their
+name. I'm leaning towards changing this to SOCK_ABORT instead,
+both to reduce confusion with e.g., sock_diag_destroy_group,
+and because it seems more correct in general, at least for
+TCP. Thoughts on the name?
