@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH/RFC net-next] ravb: Add dma queue interrupt support
-Date: Tue, 15 Dec 2015 21:59:52 +0300
-Message-ID: <56706328.1030209@cogentembedded.com>
+Date: Tue, 15 Dec 2015 22:00:00 +0300
+Message-ID: <56706330.2060803@cogentembedded.com>
 References: <1450182181-12575-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
