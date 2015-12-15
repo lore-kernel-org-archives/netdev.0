@@ -1,156 +1,151 @@
-From: Dustin Byford <dustin@cumulusnetworks.com>
-Subject: Re: [PATCH RFC 00/26] Phylink & SFP support
-Date: Mon, 14 Dec 2015 23:26:21 -0800
-Message-ID: <20151215072621.GA6953@cumulusnetworks.com>
-References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH v3 3/4] VSOCK: Introduce vhost-vsock.ko
+Date: Tue, 15 Dec 2015 15:47:00 +0800
+Message-ID: <20151215074700.GC30291@stefanha-x1.localdomain>
+References: <1449662633-26623-1-git-send-email-stefanha@redhat.com>
+ <1449662633-26623-4-git-send-email-stefanha@redhat.com>
+ <87h9jpp092.fsf@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34794 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753082AbbLOH0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 02:26:23 -0500
-Received: by mail-pf0-f177.google.com with SMTP id o64so190688pfb.1
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2015 23:26:23 -0800 (PST)
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FsscpQKzF/jJk6ya"
+Cc: kvm@vger.kernel.org, Matt Benjamin <mbenjamin@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	matt.ma@linaro.org, virtualization@lists.linux-foundation.org,
+	Asias He <asias@redhat.com>
+To: Alex =?iso-8859-1?Q?Benn=E9e?= <alex.bennee@linaro.org>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20151207173553.GU8644@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Mon Dec 07 17:35, Russell King - ARM Linux wrote:
-> Hi,
-
-Hello.
-
-> SFP modules are hot-pluggable ethernet transceivers; they can be
-> detected at runtime and accordingly configured.  There are a range of
-> modules offering many different features.
-> 
-> Some SFP modules have PHYs conventional integrated into them, others
-> drive a laser diode from the Serdes bus.  Some have monitoring, others
-> do not.
-> 
-> Some SFP modules want to use SGMII over the Serdes link, others want
-> to use 1000base-X over the Serdes link.
-> 
-> This makes it non-trivial to support with the existing code structure.
-> Not wanting to write something specific to the mvneta driver, I decided
-> to have a go at coming up with something more generic.
-> 
-> My initial attempts were to provide a PHY driver, but I found that
-> phylib's state machine got in the way, and it was hard to support two
-> chained PHYs.  Conversely, having a fixed DT specified setup (via
-> the fixed phy infrastructure) would allow some SFP modules to work, but
-> not others.  The same is true of the "managed" in-band status (which
-> is SGMII.)
-> 
-> The result is that I came up with phylink - an infrastructure layer
-> which sits between the network driver and any attached PHY, and a
-> SFP module layer detects the SFP module, and configures phylink
-> accordingly.
-> 
-> Overall, this supports:
-> 
-> * switching the serdes mode at the NIC driver
-> * controlling autonegotiation and autoneg results
-> * allowing PHYs to be hotplugged
-> * allowing SFP modules to be hotplugged with proper link indication
-> * fixed-mode links without involving phylib
-> * flow control
-> * EEE support
-> * reading SFP module EEPROMs
-> 
-> Overall, phylink supports several link modes, with dynamic switching
-> possible between these:
-> * A true fixed link mode, where the parameters are set by DT.
-> * PHY mode, where we read the negotiation results from the PHY registers
->   and pass them to the NIC driver.
-> * SGMII mode, where the in-band status indicates the speed, duplex and
->   flow control settings of the link partner.
-> * 1000base-X mode, where the in-band status indicates only duplex and
->   flow control settings (different, incompatible bit layout from SGMII.)
-
-I've been working on some similar code to handle interactions with a
-wide range of SFF modules, 1G to 100G, on Linux network switches for
-some time.  For practical reasons a lot of that was in userspace but
-I've been planning and recently working on an SFF kernel driver that
-does some of what's done in this series.  I think the model you're
-proposing is right on, and since you're further along in implementation
-I'd like to help round out support for the other SFF modules if I can.
-Then make this work on the network ASICs I have access to.
-
-Any concrete plans for QSFP or the new 25G modules?
-
-> Ethtool support is included, as well as emulation of the MII registers
-> for situations where a PHY is not attached, giving compatible emulation
-> of existing user interfaces where required.
-> 
-> The patches here include modification of mvneta (against 4.4-rc1, so
-> probably won't apply to current development tips.)  It basically
-> hooks into the places where the phylib would hook into.
-> 
-> DT wise, the changes needed to support SFP look like this (example
-> taken from Clearfog):
-> 
->  			ethernet@34000 {
-> +				managed = "in-band-status";
->  				phy-mode = "sgmii";
->  				status = "okay";
-> -
-> -				fixed-link {
-> -					speed = <1000>;
-> -					full-duplex;
-> -				};
->  			};
-> ...
-> +	sfp: sfp {
-> +		compatible = "sff,sfp";
-> +		i2c-bus = <&i2c1>;
-> +		los-gpio = <&expander0 12 GPIO_ACTIVE_HIGH>;
-> +		moddef0-gpio = <&expander0 15 GPIO_ACTIVE_LOW>;
-> +		sfp,ethernet = <&eth2>;
-
-Using &eth2 is unambiguous in the this case because there's only one
-serdes and one mac involved.  To specify the mac/serdes/cage
-associations at the same level of detail as the gpios it might be nice
-(at least for some devices) to point to a serdes node (or 4 in the case
-of QSFP) instead of &eth2.  Any thoughts on that?
-
-Switch ASICs, and I imagine at least some NICs, are really flexible in
-terms of how serdes are wired to a cage.  Both in the sense that the
-board designer gets to pick which wires route to the cage based on
-physical constraints and the user gets to pick which serdes or group of
-serdes compose the ethernet device.  For example, using a breakout cable
-to get 4xSFP out of a QSFP or the other way around.
-
-Perhaps the simple case (sfp,ethernet -> &eth2) can remain simple, but
-I'd be interested in any thoughts you have on introducing a serdes
-layer here.
-
-I think adding such a layer would make it easier to 1) make serdes to
-cage mappings part of the platform description (DT or ACPI) and 2) allow
-automatic reconfiguration of the mac based on the SFF module.  For
-example, if a user plugs in a QSFP->4xSFP breakout cable why not
-automatically create four netdevs instead of one?
-
-> +		tx-disable-gpio = <&expander0 14 GPIO_ACTIVE_HIGH>;
-> +		tx-fault-gpio = <&expander0 13 GPIO_ACTIVE_HIGH>;
-> +	};
-> 
-> These DT changes are omitted from this patch set as the baseline DT
-> file is not in mainline yet (has been submitted.)
-
-Cool.  Do you have a link to the DT patches?
+In-Reply-To: <87h9jpp092.fsf@linaro.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-In short, I think this is awesome, and I'd like to help where I can.
-I'll start by having a look at the rest of the series.  I'd like to
-apply it and see if I can make it work on one of my systems.
+--FsscpQKzF/jJk6ya
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
+On Fri, Dec 11, 2015 at 01:45:29PM +0000, Alex Benn=E9e wrote:
+> > +		if (head =3D=3D vq->num) {
+> > +			if (unlikely(vhost_enable_notify(&vsock->dev, vq))) {
+> > +				vhost_disable_notify(&vsock->dev, vq);
+> > +				continue;
+>=20
+> Why are we doing this? If we enable something we then disable it? A
+> comment as to what is going on here would be useful.
 
-		--Dustin
+This is a standard optimization to avoid vmexits that other vhost
+devices and QEMU implement too.
+
+When the host begins pulling buffers off a virtqueue it first disables
+guest->host notifications.  If the guest adds additional buffers while
+the host is processing, the notification (vmexit) is skipped.  The host
+re-enables guest->host notifications when it finishes virtqueue
+processing.
+
+If the guest added buffers after vhost_get_vq_desc() but before
+vhost_enable_notify(), then vhost_enable_notify() returns true and the
+host must process the buffers (i.e. restart the loop).  Failure to do so
+could result in deadlocks because the guest didn't notify and the host
+would be waiting for a notification.
+
+I will add comments to the code.
+
+> > +		vhost_add_used(vq, head, pkt->len); /* TODO should this
+> > be sizeof(pkt->hdr) + pkt->len? */
+>=20
+> TODO needs sorting our or removing.
+
+Will fix in the next revision.
+
+> > +	/* Respect global tx buf limitation */
+> > +	mutex_lock(&vq->mutex);
+> > +	while (pkt_len + vsock->total_tx_buf >
+> > VIRTIO_VSOCK_MAX_TX_BUF_SIZE) {
+>=20
+> I'm curious about the relationship between
+> VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE above and VIRTIO_VSOCK_MAX_TX_BUF_SIZE
+> just here. Why do we need to limit pkt_len to the smaller when really
+> all that matters is pkt_len + vsock->total_tx_buf >
+> VIRTIO_VSOCK_MAX_TX_BUF_SIZE?
+
+There are two separate issues:
+
+1. The total amount of pending data.  The idea is to stop queuing
+   packets and make the caller wait until resources become available so
+   that vhost_vsock.ko memory consumption is bounded.
+
+   total_tx_buf len is an artificial limit that is lower than the actual
+   virtqueue maximum data size.  Otherwise we could just rely on the
+   virtqueue to limit the size but it can be very large.
+
+2. Splitting data into packets that fit into rx virtqueue buffers.  The
+   guest sets up the rx virtqueue with VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE
+   buffers.  Here, vhost_vsock.ko is assuming that the rx virtqueue
+   buffers are always VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE bytes so it
+   splits data along this boundary.
+
+   This is ugly because the guest could choose a different buffer size
+   and the host has VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE hardcoded.  I'll
+   look into eliminating this assumption.
+
+> > +static void vhost_vsock_handle_ctl_kick(struct vhost_work *work)
+> > +{
+> > +	struct vhost_virtqueue *vq =3D container_of(work, struct vhost_virtqu=
+eue,
+> > +						  poll.work);
+> > +	struct vhost_vsock *vsock =3D container_of(vq->dev, struct vhost_vsoc=
+k,
+> > +						 dev);
+> > +
+> > +	pr_debug("%s vq=3D%p, vsock=3D%p\n", __func__, vq, vsock);
+> > +}
+>=20
+> This doesn't handle anything, it just prints debug stuff. Should this be
+> a NOP function?
+
+The control virtqueue is currently not used.  In the next revision this
+function will be dropped.
+
+> > +static int vhost_vsock_set_features(struct vhost_vsock *vsock, u64 fea=
+tures)
+> > +{
+> > +	struct vhost_virtqueue *vq;
+> > +	int i;
+> > +
+> > +	if (features & ~VHOST_VSOCK_FEATURES)
+> > +		return -EOPNOTSUPP;
+> > +
+> > +	mutex_lock(&vsock->dev.mutex);
+> > +	if ((features & (1 << VHOST_F_LOG_ALL)) &&
+> > +	    !vhost_log_access_ok(&vsock->dev)) {
+> > +		mutex_unlock(&vsock->dev.mutex);
+> > +		return -EFAULT;
+> > +	}
+> > +
+> > +	for (i =3D 0; i < VSOCK_VQ_MAX; i++) {
+> > +		vq =3D &vsock->vqs[i].vq;
+> > +		mutex_lock(&vq->mutex);
+> > +		vq->acked_features =3D features;
+>=20
+> Is this a user supplied flag? Should it be masked to valid values?
+
+That is already done above where VHOST_VSOCK_FEATURES is checked.
+
+--FsscpQKzF/jJk6ya
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJWb8V0AAoJEJykq7OBq3PIE04H/2eH1uaMqX/FAiA8/UZyZi9h
+RS0Vz5ojCzqsYy3wJ4hVyEmcPU3CyPgoFF+GLVczLh2lx5rmqwl10ypqnTOeMXFN
+8CQmvgNWDPPVB2eCdWy1dtnzD/7AJ5G+N29CtJwaXqWtecuYiN/Z6nBIzINCoNLY
+pWnWcKQ9tv+J6m/QkCZvY2Y2U9+2wsr/p7F7BSto1e4+GIXKMMhlLheSTE5k2+KL
+IyUKGmLqxnljHJFAcBTFebOfnfJ8gTv6YZiYXx0arjx3pNiIj2GQFMtg0nA/6/OT
+cBk/LRfHb8dOqUrGjEMeUT/fv09rtPD5cZvWtsQGknVmURjNn2jJWy75+p4cziQ=
+=FROJ
+-----END PGP SIGNATURE-----
+
+--FsscpQKzF/jJk6ya--
