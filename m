@@ -1,231 +1,108 @@
-From: Gilad Avidov <gavidov@codeaurora.org>
-Subject: Re: [PATCH] net: emac: emac gigabit ethernet controller driver
-Date: Tue, 15 Dec 2015 15:49:04 -0700
-Message-ID: <20151215154904.559bd0cb@gavidov-lnx.qualcomm.com>
-References: <1450138740-32562-1-git-send-email-gavidov@codeaurora.org>
-	<566F6F3D.5050004@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 4/6] bpf: hash: convert per-hashtable lock into
+ per-bucket bit spinlock
+Date: Tue, 15 Dec 2015 14:51:19 -0800
+Message-ID: <20151215225118.GA67370@ast-mbp.thefacebook.com>
+References: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
+ <1450178464-27721-5-git-send-email-tom.leiming@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	sdharia@codeaurora.org, shankerd@codeaurora.org,
-	timur@codeaurora.org, gregkh@linuxfoundation.org,
-	vikrams@codeaurora.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <566F6F3D.5050004@gmail.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1450178464-27721-5-git-send-email-tom.leiming@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Dec 2015 17:39:09 -0800
-Florian Fainelli <f.fainelli@gmail.com> wrote:
+On Tue, Dec 15, 2015 at 07:21:02PM +0800, Ming Lei wrote:
+> Both htab_map_update_elem() and htab_map_delete_elem() can be
+> called from eBPF program, and they may be in kernel hot path,
+> so it isn't efficient to use a per-hashtable lock in this two
+> helpers.
+> 
+> The per-hashtable spinlock is used just for protecting bucket's
+> hlist, and per-bucket lock should be enough. This patch converts
+> the per-hashtable lock into per-bucket bit spinlock, so that
+> contention can be decreased a lot, and no extra memory can be
+> consumed for these locks.
+> 
+> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
 
-> On 14/12/15 16:19, Gilad Avidov wrote:
-> 
-> [snip]
-> 
-> > +			"sgmii_irq";
-> > +		qcom,emac-gpio-mdc = <&msmgpio 123 0>;
-> > +		qcom,emac-gpio-mdio = <&msmgpio 124 0>;
-> > +		qcom,emac-tstamp-en;
-> > +		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
-> > +		phy-addr = <0>;
-> 
-> Please use the standard Ethernet PHY and MDIO device tree bindings to
-> describe your MAC to PHY connection here, that includes using a
-> phy-connection-type property to describe the (x)MII lanes.
-> 
+thank you for working on this.
+Interesting stuff!
 
+>  	/* bpf_map_update_elem() can be called in_irq() */
+> -	raw_spin_lock_irqsave(&htab->lock, flags);
+> +	raw_local_irq_save(flags);
+> +	bit_spin_lock(HLIST_LOCK_BIT, (unsigned long *)&head->first);
 
-Hi Florian,
+can you add a helper for bit_spin_lock/unlock as well so that whole hlist+bit
+api looks consistent?
 
-Thank you for the review.
+>  
+> -	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
+> +	l_old = lookup_elem_raw(hlist_get_head_lock(head, &h), l_new->hash,
+> +			key, key_size);
+>  
+>  	if (!l_old && unlikely(atomic_read(&htab->count) >= map->max_entries)) {
+>  		/* if elem with this 'key' doesn't exist and we've reached
+> @@ -278,18 +284,20 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+>  	/* add new element to the head of the list, so that concurrent
+>  	 * search will find it before old elem
+>  	 */
+> -	hlist_add_head_rcu(&l_new->hash_node, head);
+> +	hlist_add_head_rcu_lock(&l_new->hash_node, head);
 
-Unfortunately this Ethernet controller's PHY is non standard and fits
-poorly into the standard MDIO framework layer. Rather than read/writs
-over MDIO only, this hw have some of the PHY registers internal and
-accessed by memory mapped IO, while others are accessed over the MDIO.
-Some standard functions requires using both. Additionally a number
-of different functions are controlled from different fields of the
-same register.
+I think the new macros have confusing names:
 
-> [snip]
-> 
-> > +/* EMAC_MAC_CTRL */
-> > +#define SINGLE_PAUSE_MODE
-> > 0x10000000 +#define
-> > DEBUG_MODE                                           0x8000000
-> > +#define BROAD_EN
-> > 0x4000000 +#define
-> > MULTI_ALL                                            0x2000000
-> > +#define RX_CHKSUM_EN
-> > 0x1000000 +#define
-> > HUGE                                                  0x800000
-> > +#define SPEED_BMSK
-> > 0x300000 +#define
-> > SPEED_SHFT                                                  20
-> > +#define SIMR
-> > 0x80000 +#define
-> > TPAUSE                                                 0x10000
-> > +#define PROM_MODE
-> > 0x8000 +#define
-> > VLAN_STRIP                                              0x4000
-> > +#define PRLEN_BMSK
-> > 0x3c00 +#define
-> > PRLEN_SHFT                                                  10
-> > +#define HUGEN
-> > 0x200 +#define
-> > FLCHK                                                    0x100
-> > +#define PCRCE
-> > 0x80 +#define
-> > CRCE                                                      0x40
-> > +#define FULLD
-> > 0x20 +#define
-> > MAC_LP_EN                                                 0x10
-> > +#define RXFC
-> > 0x8 +#define
-> > TXFC                                                       0x4
-> > +#define RXEN
-> > 0x2 +#define
-> > TXEN                                                       0x1
-> 
-> BIT(x)? which would avoid making this reverse christmas tree, I know
-> this is the time of year though.
-> 
++#define hlist_get_first(h)     \
++       (struct hlist_node *)((unsigned long)(h)->first & ~HLIST_LOCK_MASK)
++#define hlist_get_lock(h)    ((unsigned long)(h)->first & HLIST_LOCK_MASK)
++#define hlist_make_1st_node(h, n) \
++       (struct hlist_node *)((unsigned long)(n) | hlist_get_lock(h))
++
++static inline struct hlist_head *hlist_get_head_lock(
++               struct hlist_head *head, struct hlist_head *new_head)
++{
++       new_head->first = hlist_get_first(head);
++       return new_head;
++}
 
-:)
-Agree.
+This new hlist_add_head_rcu_lock() adds new element and it doesn't take new lock.
+May be rename this new api as 'locked_hlist' ?
+Then all normal helpers will convert like:
+hlist_add_head_rcu() -> locked_hlist_add_head_rcu()
 
-> [snip]
-> 
-> > +/* DMA address */
-> > +#define DMA_ADDR_HI_MASK
-> > 0xffffffff00000000ULL +#define
-> > DMA_ADDR_LO_MASK                         0x00000000ffffffffULL +
-> > +#define
-> > EMAC_DMA_ADDR_HI(_addr)                                      \
-> > +		((u32)(((u64)(_addr) & DMA_ADDR_HI_MASK) >> 32))
-> > +#define
-> > EMAC_DMA_ADDR_LO(_addr)                                      \
-> > +		((u32)((u64)(_addr) & DMA_ADDR_LO_MASK))
-> 
-> The kernel provides helpers for that: upper_32bits and lower_32bits().
-> 
+>  	if (l_old) {
+> -		hlist_del_rcu(&l_old->hash_node);
+> +		hlist_del_rcu_lock(&l_old->hash_node);
 
-lower_32_bits(n) and upper_32_bits(n), thanks. I'll use them here.
+and here it will be:
+hlist_del_rcu() -> locked_hlist_del_rcu()
 
-> [snip]
-> 
-> > +struct emac_skb_cb {
-> > +	u32           tpd_idx;
-> > +	unsigned long jiffies;
-> > +};
-> > +
-> > +struct emac_tx_ts_cb {
-> > +	u32 sec;
-> > +	u32 ns;
-> > +};
-> > +
-> > +#define EMAC_SKB_CB(skb)	((struct emac_skb_cb *)(skb)->cb)
-> > +#define EMAC_TX_TS_CB(skb)	((struct emac_tx_ts_cb
-> > *)(skb)->cb)
-> 
-> Should not these two have different offsets within skb->cb in case
-> they both end-up being added to the same SKB?
-> 
+Also is there a race here ?
++static inline void hlist_add_head_rcu_lock(struct hlist_node *n,
++                                          struct hlist_head *h)
++{
++       struct hlist_node *first = hlist_get_first(h);
++
++       n->next = first;
++       n->pprev = &h->first;
++       rcu_assign_pointer(hlist_first_rcu(h), hlist_make_1st_node(h, n));
++       if (first)
++               first->pprev = &n->next;
++}
 
-Good point. I'll look into this.
+Do you need cmpxchg when updatding hlist_head->first ?
 
-
-> [snip]
-> 
-> > +
-> > +	/* enable RX/TX Flow Control */
-> > +	switch (phy->cur_fc_mode) {
-> > +	case EMAC_FC_FULL:
-> > +		mac |= (TXFC | RXFC);
-> > +		break;
-> > +	case EMAC_FC_RX_PAUSE:
-> > +		mac |= RXFC;
-> > +		break;
-> > +	case EMAC_FC_TX_PAUSE:
-> > +		mac |= TXFC;
-> > +		break;
-> > +	default:
-> > +		break;
-> > +	}
-> > +
-> > +	/* setup link speed */
-> > +	mac &= ~SPEED_BMSK;
-> > +	switch (phy->link_speed) {
-> > +	case EMAC_LINK_SPEED_1GB_FULL:
-> > +		mac |= ((emac_mac_speed_1000 << SPEED_SHFT) &
-> > SPEED_BMSK);
-> > +		csr1 |= FREQ_MODE;
-> > +		break;
-> > +	default:
-> > +		mac |= ((emac_mac_speed_10_100 << SPEED_SHFT) &
-> > SPEED_BMSK);
-> > +		csr1 &= ~FREQ_MODE;
-> > +		break;
-> > +	}
-> > +
-> > +	switch (phy->link_speed) {
-> > +	case EMAC_LINK_SPEED_1GB_FULL:
-> > +	case EMAC_LINK_SPEED_100_FULL:
-> > +	case EMAC_LINK_SPEED_10_FULL:
-> > +		mac |= FULLD;
-> > +		break;
-> > +	default:
-> > +		mac &= ~FULLD;
-> > +	}
-> 
-> You should use the PHY library and implement an adjust_link callback
-> which does exactly that above.
-> [snip]
-> 
-> > +static bool emac_tx_has_enough_descs(struct emac_tx_queue *tx_q,
-> > +				     const struct sk_buff *skb)
-> > +{
-> > +	u32 num_required = 1;
-> > +	int i;
-> > +	u16 proto_hdr_len = 0;
-> > +
-> > +	if (skb_is_gso(skb)) {
-> > +		proto_hdr_len = skb_transport_offset(skb) +
-> > tcp_hdrlen(skb);
-> 
-> You cannot do this until you have looked at skb->protocol AFAIR.
-> 
-
-Got it.
-
-> [snip]
-> 
-> > diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-> > b/drivers/net/ethernet/qualcomm/emac/emac-phy.c new file mode 100644
-> > index 0000000..45571a5
-> > --- /dev/null
-> > +++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-> 
-> [snip]
-> 
-> This file implement a large amount of what the PHY library already
-> does for you if you simply provided a MDIO bus implementation
-> instead, please consider dropping 80% of this file content and using
-> what is already there to help you.
-
-MDIO bus will not work for this hw due to the reasons explained above.
-
-> 
-> I stopped reading there because the driver is very large, I would
-> really start submitting it in smaller piece that make it more
-> readable, and dropping things that may not be necessary for now like
-> RSS support, Wake-on-LAN etc. etc.
-
-I'll work on that.
-
-
-Thank you again for the review,
-Gilad
+Overall looks like a very interesting idea, but I'm not sure about
+trade-off of saving 8 bytes for rounded-up spinlock per bucket.
+The loss of lockdep is concerning.
+Have you compared performance of this bit-lock embedded inside hlist_head vs
+just adding spinlock_t for every hlist_head?
+Another concern is that hlist walking may be more costly due to
+requirement of having to clear that bit while doing the walk in lookup().
+I guess I would prefer normal spinlock per bucket. Additional 8 * n_buckets bytes
+don't seem to be worth optimizing.
