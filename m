@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Information leak in llcp_sock_bind/llcp_raw_sock_bind
-Date: Tue, 15 Dec 2015 15:58:56 -0500 (EST)
-Message-ID: <20151215.155856.467616191891653108.davem@davemloft.net>
-References: <CACT4Y+ZnZ2EcZwc6T5LZ1YR2zC8+6aFT_JFYb_LeegnB6tmESw@mail.gmail.com>
-	<20151215.154851.2132284113916223057.davem@davemloft.net>
-	<CACT4Y+a804iMbkA+kWdYfOPYGQz61ZCRVqKOdDBYtSM=FQ2cYQ@mail.gmail.com>
+Subject: Re: [PATCH] net: add Qualcomm IPC router
+Date: Tue, 15 Dec 2015 16:01:14 -0500 (EST)
+Message-ID: <20151215.160114.1178824607335349574.davem@davemloft.net>
+References: <1449866519-14551-1-git-send-email-bjorn.andersson@sonymobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: syzkaller@googlegroups.com, lauro.venancio@openbossa.org,
-	aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, edumazet@google.com, kcc@google.com,
-	glider@google.com, sasha.levin@oracle.com
-To: dvyukov@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+a804iMbkA+kWdYfOPYGQz61ZCRVqKOdDBYtSM=FQ2cYQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, srinivas.kandagatla@linaro.org,
+	linux-arm-msm@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, courtney.cavin@sonymobile.com
+To: bjorn.andersson@sonymobile.com
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <1449866519-14551-1-git-send-email-bjorn.andersson@sonymobile.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dmitry Vyukov <dvyukov@google.com>
-Date: Tue, 15 Dec 2015 21:55:37 +0100
+From: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+Date: Fri, 11 Dec 2015 12:41:59 -0800
 
-> I've seen a kernel address at least in pptp_bind,
+> +static unsigned int qrtr_local_nid = 1;
+> +module_param_named(node_id, qrtr_local_nid, uint, S_IRUGO);
+> +MODULE_PARM_DESC(idVendor, "Local Node Identifier");
 
-We're not talking about pptp_bind.
+Module parameters suck.
 
-We're talking about llcp_{,raw}_sock_bind().
+Allow the user to choose this dynamically.  You have roughtly two choices.
 
-If your hex dump doesn't show it, don't report anything unless you are
-absolutely sure via code inspection that there could be a leak.  And
-in that case make it perfectly clear exactly how that can happen.
+1) Subvert the 'protocol' field passed to ->create() and use that, it is
+   being ignored otherwise.
 
-I am generally unimpressed with your reports half of the time,
-and just a small amount of extra effort would extraordinarily
-improve the quality of the things your post.
-
-Thanks.
-
-> So it is almost impossible to prove that a PC cannot be leaked.
-
-You can't show that anything is actually being leaked in this specific
-case, period.
+2) Put it into the socket address for bind().
