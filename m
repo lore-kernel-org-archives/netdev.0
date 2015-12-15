@@ -1,99 +1,34 @@
-From: Igor Gavrilov <i.o.gavrilov@gmail.com>
-Subject: [PATCH net-next] sched/cls_flow.c make nfct-* keys working on ingress
- with NAT
-Date: Tue, 15 Dec 2015 17:43:47 +0200
-Message-ID: <CADo-kfc0WvECccZNmEQ7dDmYE6Z-+sSWK-B_jYaK7EOQ7Z6UcA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1140d944c91c7a0526f1a78f
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH iproute2 0/3] improve lwtunnel route support
+Date: Tue, 15 Dec 2015 16:48:24 +0100
+Message-ID: <cover.1450193891.git.pabeni@redhat.com>
+Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>
+To: shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:36265 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965125AbbLOPns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:43:48 -0500
-Received: by mail-io0-f174.google.com with SMTP id o67so23348363iof.3
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:43:47 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:48181 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753862AbbLOPsx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2015 10:48:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a1140d944c91c7a0526f1a78f
-Content-Type: text/plain; charset=UTF-8
+This patch series try to improve the current route based
+lwtunnel support in iproute2, namely adding support for the
+COLLECT_METADATA flag in vxlan and gre link, and for ip6
+encap type in lwtunnel.
 
-From: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Tunnel devices need to have the COLLECT_METADATA flag
+set in order to be used for route based lwtunnel.
 
-Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
-able to get unNATed addresses from nf_conntrack on ingress interface.
+Paolo Abeni (3):
+  vxlan: add support for collect metadata flag
+  gre: add support for collect metadata flag
+  lwtunnel: implement support for ip6 encap
 
-Signed-off-by: Igor Gavrilov <i.o.gavrilov@gmail.com>
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
+ ip/iplink_vxlan.c     | 12 ++++++-
+ ip/iproute_lwtunnel.c | 91 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ ip/link_gre.c         | 11 +++++++
+ 3 files changed, 112 insertions(+), 2 deletions(-)
 
---001a1140d944c91c7a0526f1a78f
-Content-Type: application/octet-stream; name="cls_flow.patch"
-Content-Disposition: attachment; filename="cls_flow.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ii7k511m0
-
-LS0tIG5ldC9zY2hlZC9jbHNfZmxvdy5jLm9yaWcJMjAxNS0xMi0xMSAxMjo1MTozMi41NDE2NzMy
-MTEgKzAyMDAKKysrIG5ldC9zY2hlZC9jbHNfZmxvdy5jCTIwMTUtMTItMTUgMTM6MjI6MDAuNzY0
-MjE2ODg0ICswMjAwCkBAIC0zMSw2ICszMSw4IEBACiAKICNpZiBkZWZpbmVkKENPTkZJR19ORl9D
-T05OVFJBQ0spIHx8IGRlZmluZWQoQ09ORklHX05GX0NPTk5UUkFDS19NT0RVTEUpCiAjaW5jbHVk
-ZSA8bmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaD4KKyNpbmNsdWRlIDxuZXQvbmV0ZmlsdGVy
-L25mX2Nvbm50cmFja19jb3JlLmg+CisjaW5jbHVkZSA8bmV0L25ldGZpbHRlci9uZl9jb25udHJh
-Y2tfem9uZXMuaD4KICNlbmRpZgogCiBzdHJ1Y3QgZmxvd19oZWFkIHsKQEAgLTEzMywxNiArMTM1
-LDUwIEBAIHN0YXRpYyB1MzIgZmxvd19nZXRfbmZjdChjb25zdCBzdHJ1Y3Qgc2sKIH0KIAogI2lm
-IGRlZmluZWQoQ09ORklHX05GX0NPTk5UUkFDSykgfHwgZGVmaW5lZChDT05GSUdfTkZfQ09OTlRS
-QUNLX01PRFVMRSkKLSNkZWZpbmUgQ1RUVVBMRShza2IsIG1lbWJlcikJCQkJCQlcCisjZGVmaW5l
-IENUVFVQTEUoc2tiLCBkaXJlY3Rpb24sIG1lbWJlcikJCQkJXAogKHsJCQkJCQkJCQlcCiAJZW51
-bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm87CQkJCQlcCi0JY29uc3Qgc3RydWN0IG5mX2Nvbm4g
-KmN0ID0gbmZfY3RfZ2V0KHNrYiwgJmN0aW5mbyk7CQlcCi0JaWYgKGN0ID09IE5VTEwpCQkJCQkJ
-CVwKLQkJZ290byBmYWxsYmFjazsJCQkJCQlcCi0JY3QtPnR1cGxlaGFzaFtDVElORk8yRElSKGN0
-aW5mbyldLnR1cGxlLm1lbWJlcjsJCQlcCisJc3RydWN0IG5mX2Nvbm50cmFja190dXBsZSB0dXBs
-ZTsJCQkJXAorCXN0cnVjdCBuZl9jb25udHJhY2tfem9uZSB6b25lOwkJCQkJXAorCWNvbnN0IHN0
-cnVjdCBuZl9jb25udHJhY2tfdHVwbGVfaGFzaCAqdGhhc2g7CQkJXAorCV9fYmUzMiByZXN1bHQ7
-CQkJCQkJCVwKKwlpbnQgcHJvdG87CQkJCQkJCVwKKwlzdHJ1Y3QgbmZfY29ubiAqY3QgPSBuZl9j
-dF9nZXQoc2tiLCAmY3RpbmZvKTsJCQlcCisJaWYgKGN0ID09IE5VTEwpIHsJCQkJCQlcCisJCXN3
-aXRjaCAodGNfc2tiX3Byb3RvY29sKHNrYikpIHsJCQkJXAorCQljYXNlIGh0b25zKEVUSF9QX0lQ
-KToJCQkJCVwKKwkJCXByb3RvID0gTkZQUk9UT19JUFY0OwkJCQlcCisJCQlicmVhazsJCQkJCQlc
-CisJCWNhc2UgaHRvbnMoRVRIX1BfSVBWNik6CQkJCQlcCisJCQlwcm90byA9IE5GUFJPVE9fSVBW
-NjsJCQkJXAorCQkJYnJlYWs7CQkJCQkJXAorCQlkZWZhdWx0OgkJCQkJCVwKKwkJCWdvdG8gZmFs
-bGJhY2s7CQkJCQlcCisJCX0JCQkJCQkJXAorCQkJCQkJCQkJXAorCQlpZiAoIW5mX2N0X2dldF90
-dXBsZXByKHNrYiwgc2tiX25ldHdvcmtfb2Zmc2V0KHNrYiksCVwKKwkJCQlwcm90bywgZGV2X25l
-dChza2ItPmRldiksICZ0dXBsZSkpCVwKKwkJCWdvdG8gZmFsbGJhY2s7CQkJCQlcCisJCXpvbmUu
-aWQgPSBORl9DVF9ERUZBVUxUX1pPTkVfSUQ7CQkJXAorCQl6b25lLmRpciA9IE5GX0NUX0RFRkFV
-TFRfWk9ORV9ESVI7CQkJXAorCQkJCQkJCQkJXAorCQl0aGFzaCA9IG5mX2Nvbm50cmFja19maW5k
-X2dldChkZXZfbmV0KHNrYi0+ZGV2KSwJXAorCQkJCQkJICZ6b25lLAkmdHVwbGUpOwlcCisJCWlm
-ICghdGhhc2gpCQkJCQkJXAorCQkJZ290byBmYWxsYmFjazsJCQkJCVwKKwkJY3QgPSBuZl9jdF90
-dXBsZWhhc2hfdG9fY3RyYWNrKHRoYXNoKTsJCQlcCisJCXJlc3VsdCA9IGN0LT50dXBsZWhhc2hb
-KHRoYXNoLT50dXBsZS5kc3QuZGlyID09CQlcCisJCQkJSVBfQ1RfRElSX1JFUExZKSA/IElQX0NU
-X0RJUl9PUklHSU5BTCA6CVwKKwkJCQlJUF9DVF9ESVJfUkVQTFldLnR1cGxlLnNyYy5tZW1iZXI7
-CVwKKwkJbmZfY3RfcHV0KGN0KTsJCQkJCQlcCisJfSBlbHNlIHsJCQkJCQkJXAorCQlyZXN1bHQg
-PQkJCQkJCVwKKwkJY3QtPnR1cGxlaGFzaFtDVElORk8yRElSKGN0aW5mbyldLnR1cGxlLmRpcmVj
-dGlvbi5tZW1iZXI7XAorCX0JCQkJCQkJCVwKKwlyZXN1bHQ7CQkJCQkJCQlcCiB9KQogI2Vsc2UK
-LSNkZWZpbmUgQ1RUVVBMRShza2IsIG1lbWJlcikJCQkJCQlcCisjZGVmaW5lIENUVFVQTEUoc2ti
-LCBkaXJlY3Rpb24sIG1lbWJlcikJCQkJXAogKHsJCQkJCQkJCQlcCiAJZ290byBmYWxsYmFjazsJ
-CQkJCQkJXAogCTA7CQkJCQkJCQlcCkBAIC0xNTMsOSArMTg5LDkgQEAgc3RhdGljIHUzMiBmbG93
-X2dldF9uZmN0X3NyYyhjb25zdCBzdHJ1YwogewogCXN3aXRjaCAodGNfc2tiX3Byb3RvY29sKHNr
-YikpIHsKIAljYXNlIGh0b25zKEVUSF9QX0lQKToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2ti
-LCBzcmMudTMuaXApKTsKKwkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBzcmMsIHUzLmlwKSk7
-CiAJY2FzZSBodG9ucyhFVEhfUF9JUFY2KToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBz
-cmMudTMuaXA2WzNdKSk7CisJCXJldHVybiBudG9obChDVFRVUExFKHNrYiwgc3JjLCB1My5pcDZb
-M10pKTsKIAl9CiBmYWxsYmFjazoKIAlyZXR1cm4gZmxvd19nZXRfc3JjKHNrYiwgZmxvdyk7CkBA
-IC0xNjUsOSArMjAxLDkgQEAgc3RhdGljIHUzMiBmbG93X2dldF9uZmN0X2RzdChjb25zdCBzdHJ1
-YwogewogCXN3aXRjaCAodGNfc2tiX3Byb3RvY29sKHNrYikpIHsKIAljYXNlIGh0b25zKEVUSF9Q
-X0lQKToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBkc3QudTMuaXApKTsKKwkJcmV0dXJu
-IG50b2hsKENUVFVQTEUoc2tiLCBkc3QsIHUzLmlwKSk7CiAJY2FzZSBodG9ucyhFVEhfUF9JUFY2
-KToKLQkJcmV0dXJuIG50b2hsKENUVFVQTEUoc2tiLCBkc3QudTMuaXA2WzNdKSk7CisJCXJldHVy
-biBudG9obChDVFRVUExFKHNrYiwgZHN0LCB1My5pcDZbM10pKTsKIAl9CiBmYWxsYmFjazoKIAly
-ZXR1cm4gZmxvd19nZXRfZHN0KHNrYiwgZmxvdyk7CkBAIC0xNzUsMTQgKzIxMSwxNCBAQCBmYWxs
-YmFjazoKIAogc3RhdGljIHUzMiBmbG93X2dldF9uZmN0X3Byb3RvX3NyYyhjb25zdCBzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiLCBjb25zdCBzdHJ1Y3QgZmxvd19rZXlzICpmbG93KQogewotCXJldHVybiBu
-dG9ocyhDVFRVUExFKHNrYiwgc3JjLnUuYWxsKSk7CisJcmV0dXJuIG50b2hzKENUVFVQTEUoc2ti
-LCBzcmMsIHUuYWxsKSk7CiBmYWxsYmFjazoKIAlyZXR1cm4gZmxvd19nZXRfcHJvdG9fc3JjKHNr
-YiwgZmxvdyk7CiB9CiAKIHN0YXRpYyB1MzIgZmxvd19nZXRfbmZjdF9wcm90b19kc3QoY29uc3Qg
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IGZsb3dfa2V5cyAqZmxvdykKIHsKLQly
-ZXR1cm4gbnRvaHMoQ1RUVVBMRShza2IsIGRzdC51LmFsbCkpOworCXJldHVybiBudG9ocyhDVFRV
-UExFKHNrYiwgZHN0LCB1LmFsbCkpOwogZmFsbGJhY2s6CiAJcmV0dXJuIGZsb3dfZ2V0X3Byb3Rv
-X2RzdChza2IsIGZsb3cpOwogfQo=
---001a1140d944c91c7a0526f1a78f--
+-- 
+1.8.3.1
