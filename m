@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/14] switchdev: Pass original device to port netdev driver
-Date: Tue, 15 Dec 2015 16:03:35 +0100
-Message-ID: <1450191827-6679-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 07/14] mlxsw: spectrum: Use FID instead of VID when accessing FDB
+Date: Tue, 15 Dec 2015 16:03:40 +0100
+Message-ID: <1450191827-6679-8-git-send-email-jiri@resnulli.us>
 References: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,249 +11,268 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:34219 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933457AbbLOPDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:03:54 -0500
-Received: by mail-wm0-f49.google.com with SMTP id p66so114401862wmp.1
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:03:53 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:34421 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933578AbbLOPEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:04:01 -0500
+Received: by mail-wm0-f45.google.com with SMTP id p66so114407914wmp.1
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:04:00 -0800 (PST)
 In-Reply-To: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-switchdev drivers need to know the netdev on which the switchdev op was
-invoked. For example, the STP state of a VLAN interface configured on top
-of a port can change while being member in a bridge. In this case, the
-underlying driver should only change the STP state of that particular
-VLAN and not of all the VLANs configured on the port.
+In the Spectrum ASIC - unlike SwitchX-2 - FDB access is done by
+specifying FID as parameter and not VID.
 
-However, current switchdev infrastructure only passes the port netdev down
-to the driver. Solve that by passing the original device down to the
-driver as part of the required switchdev object / attribute.
+Change the relevant variables and parameters names to reflect that.
 
-This doesn't entail any change in current switchdev drivers. It simply
-enables those supporting stacked devices to know the originating device
-and act accordingly.
+Note that this was OK up until now, since FID was always equal to VID,
+but with the introduction of VLAN interfaces this is no longer the case.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h   |  2 ++
- net/bridge/br_fdb.c       |  1 +
- net/bridge/br_stp.c       |  2 ++
- net/bridge/br_stp_if.c    |  1 +
- net/bridge/br_vlan.c      |  2 ++
- net/core/net-sysfs.c      |  1 +
- net/core/rtnetlink.c      |  1 +
- net/switchdev/switchdev.c | 12 ++++++++++++
- 8 files changed, 22 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 12 +++---
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 50 ++++++++++++----------
+ 2 files changed, 34 insertions(+), 28 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 1d22ce9..6612946 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -50,6 +50,7 @@ enum switchdev_attr_id {
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index af631df..be529e4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -396,7 +396,7 @@ static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
  
- struct switchdev_attr {
-+	struct net_device *orig_dev;
- 	enum switchdev_attr_id id;
- 	u32 flags;
- 	union {
-@@ -68,6 +69,7 @@ enum switchdev_obj_id {
- };
+ static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
+ 					 enum mlxsw_reg_sfd_rec_policy policy,
+-					 const char *mac, u16 vid,
++					 const char *mac, u16 fid_vid,
+ 					 enum mlxsw_reg_sfd_rec_action action,
+ 					 u8 local_port)
+ {
+@@ -404,16 +404,16 @@ static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
+ 			       MLXSW_REG_SFD_REC_TYPE_UNICAST,
+ 			       policy, mac, action);
+ 	mlxsw_reg_sfd_uc_sub_port_set(payload, rec_index, 0);
+-	mlxsw_reg_sfd_uc_fid_vid_set(payload, rec_index, vid);
++	mlxsw_reg_sfd_uc_fid_vid_set(payload, rec_index, fid_vid);
+ 	mlxsw_reg_sfd_uc_system_port_set(payload, rec_index, local_port);
+ }
  
- struct switchdev_obj {
-+	struct net_device *orig_dev;
- 	enum switchdev_obj_id id;
- 	u32 flags;
- };
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index a642bb8..82e3e97 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -135,6 +135,7 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
+ static inline void mlxsw_reg_sfd_uc_unpack(char *payload, int rec_index,
+-					   char *mac, u16 *p_vid,
++					   char *mac, u16 *p_fid_vid,
+ 					   u8 *p_local_port)
  {
- 	struct switchdev_obj_port_fdb fdb = {
- 		.obj = {
-+			.orig_dev = f->dst->dev,
- 			.id = SWITCHDEV_OBJ_ID_PORT_FDB,
- 			.flags = SWITCHDEV_F_DEFER,
- 		},
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 5f3f645..b3cca12 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -40,6 +40,7 @@ void br_log_state(const struct net_bridge_port *p)
- void br_set_state(struct net_bridge_port *p, unsigned int state)
- {
- 	struct switchdev_attr attr = {
-+		.orig_dev = p->dev,
- 		.id = SWITCHDEV_ATTR_ID_PORT_STP_STATE,
- 		.flags = SWITCHDEV_F_DEFER,
- 		.u.stp_state = state,
-@@ -570,6 +571,7 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
- int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
- {
- 	struct switchdev_attr attr = {
-+		.orig_dev = br->dev,
- 		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
- 		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
- 		.u.ageing_time = ageing_time,
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 5396ff08..775e00f 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -37,6 +37,7 @@ static inline port_id br_make_port_id(__u8 priority, __u16 port_no)
- void br_init_port(struct net_bridge_port *p)
- {
- 	struct switchdev_attr attr = {
-+		.orig_dev = p->dev,
- 		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
- 		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
- 		.u.ageing_time = p->br->ageing_time,
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 1394da6..66c4549 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -73,6 +73,7 @@ static int __vlan_vid_add(struct net_device *dev, struct net_bridge *br,
- 			  u16 vid, u16 flags)
- {
- 	struct switchdev_obj_port_vlan v = {
-+		.obj.orig_dev = dev,
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
- 		.flags = flags,
- 		.vid_begin = vid,
-@@ -120,6 +121,7 @@ static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
- 			  u16 vid)
- {
- 	struct switchdev_obj_port_vlan v = {
-+		.obj.orig_dev = dev,
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
- 		.vid_begin = vid,
- 		.vid_end = vid,
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index f88a62a..bca8c35 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -471,6 +471,7 @@ static ssize_t phys_switch_id_show(struct device *dev,
+ 	mlxsw_reg_sfd_rec_mac_memcpy_from(payload, rec_index, mac);
+-	*p_vid = mlxsw_reg_sfd_uc_fid_vid_get(payload, rec_index);
++	*p_fid_vid = mlxsw_reg_sfd_uc_fid_vid_get(payload, rec_index);
+ 	*p_local_port = mlxsw_reg_sfd_uc_system_port_get(payload, rec_index);
+ }
  
- 	if (dev_isalive(netdev)) {
- 		struct switchdev_attr attr = {
-+			.orig_dev = netdev,
- 			.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
- 			.flags = SWITCHDEV_F_NO_RECURSE,
- 		};
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 34ba7a0..d8b0113 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1027,6 +1027,7 @@ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+@@ -448,7 +448,7 @@ MLXSW_ITEM32_INDEXED(reg, sfd, uc_lag_lag_id, MLXSW_REG_SFD_BASE_LEN, 0, 10,
+ static inline void
+ mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
+ 			  enum mlxsw_reg_sfd_rec_policy policy,
+-			  const char *mac, u16 vid,
++			  const char *mac, u16 fid_vid,
+ 			  enum mlxsw_reg_sfd_rec_action action,
+ 			  u16 lag_id)
  {
+@@ -456,7 +456,7 @@ mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
+ 			       MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG,
+ 			       policy, mac, action);
+ 	mlxsw_reg_sfd_uc_lag_sub_port_set(payload, rec_index, 0);
+-	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, vid);
++	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, fid_vid);
+ 	mlxsw_reg_sfd_uc_lag_lag_id_set(payload, rec_index, lag_id);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index af9c73b..97714e7 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -520,7 +520,7 @@ static enum mlxsw_reg_sfd_op mlxsw_sp_sfd_op(bool adding)
+ }
+ 
+ static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp_port *mlxsw_sp_port,
+-				   const char *mac, u16 vid, bool adding,
++				   const char *mac, u16 fid, bool adding,
+ 				   bool dynamic)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+@@ -533,7 +533,7 @@ static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ 	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
+ 	mlxsw_reg_sfd_uc_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
+-			      mac, vid, MLXSW_REG_SFD_REC_ACTION_NOP,
++			      mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP,
+ 			      mlxsw_sp_port->local_port);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
+ 	kfree(sfd_pl);
+@@ -542,7 +542,7 @@ static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp_port *mlxsw_sp_port,
+ }
+ 
+ static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
+-				       const char *mac, u16 vid, bool adding,
++				       const char *mac, u16 fid, bool adding,
+ 				       bool dynamic)
+ {
+ 	char *sfd_pl;
+@@ -554,7 +554,7 @@ static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
+ 
+ 	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
+ 	mlxsw_reg_sfd_uc_lag_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
+-				  mac, vid, MLXSW_REG_SFD_REC_ACTION_NOP,
++				  mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP,
+ 				  lag_id);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
+ 	kfree(sfd_pl);
+@@ -567,21 +567,21 @@ mlxsw_sp_port_fdb_static_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			     const struct switchdev_obj_port_fdb *fdb,
+ 			     struct switchdev_trans *trans)
+ {
+-	u16 vid = fdb->vid;
++	u16 fid = fdb->vid;
+ 
+ 	if (switchdev_trans_ph_prepare(trans))
+ 		return 0;
+ 
+-	if (!vid)
+-		vid = mlxsw_sp_port->pvid;
++	if (!fid)
++		fid = mlxsw_sp_port->pvid;
+ 
+ 	if (!mlxsw_sp_port->lagged)
+ 		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port,
+-					       fdb->addr, vid, true, false);
++					       fdb->addr, fid, true, false);
+ 	else
+ 		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp_port->mlxsw_sp,
+ 						   mlxsw_sp_port->lag_id,
+-						   fdb->addr, vid, true, false);
++						   fdb->addr, fid, true, false);
+ }
+ 
+ static int mlxsw_sp_port_obj_add(struct net_device *dev,
+@@ -696,14 +696,16 @@ static int
+ mlxsw_sp_port_fdb_static_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			     const struct switchdev_obj_port_fdb *fdb)
+ {
++	u16 fid = fdb->vid;
++
+ 	if (!mlxsw_sp_port->lagged)
+ 		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port,
+-					       fdb->addr, fdb->vid,
++					       fdb->addr, fid,
+ 					       false, false);
+ 	else
+ 		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp_port->mlxsw_sp,
+ 						   mlxsw_sp_port->lag_id,
+-						   fdb->addr, fdb->vid,
++						   fdb->addr, fid,
+ 						   false, false);
+ }
+ 
+@@ -751,7 +753,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char *sfd_pl;
+ 	char mac[ETH_ALEN];
+-	u16 vid;
++	u16 fid;
+ 	u8 local_port;
+ 	u16 lag_id;
+ 	u8 num_rec;
+@@ -781,12 +783,12 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		for (i = 0; i < num_rec; i++) {
+ 			switch (mlxsw_reg_sfd_rec_type_get(sfd_pl, i)) {
+ 			case MLXSW_REG_SFD_REC_TYPE_UNICAST:
+-				mlxsw_reg_sfd_uc_unpack(sfd_pl, i, mac, &vid,
++				mlxsw_reg_sfd_uc_unpack(sfd_pl, i, mac, &fid,
+ 							&local_port);
+ 				if (local_port == mlxsw_sp_port->local_port) {
+ 					ether_addr_copy(fdb->addr, mac);
+ 					fdb->ndm_state = NUD_REACHABLE;
+-					fdb->vid = vid;
++					fdb->vid = fid;
+ 					err = cb(&fdb->obj);
+ 					if (err)
+ 						stored_err = err;
+@@ -794,12 +796,12 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				break;
+ 			case MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG:
+ 				mlxsw_reg_sfd_uc_lag_unpack(sfd_pl, i,
+-							    mac, &vid, &lag_id);
++							    mac, &fid, &lag_id);
+ 				if (mlxsw_sp_port ==
+ 				    mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id)) {
+ 					ether_addr_copy(fdb->addr, mac);
+ 					fdb->ndm_state = NUD_REACHABLE;
+-					fdb->vid = vid;
++					fdb->vid = fid;
+ 					err = cb(&fdb->obj);
+ 					if (err)
+ 						stored_err = err;
+@@ -888,17 +890,17 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	char mac[ETH_ALEN];
+ 	u8 local_port;
+-	u16 vid;
++	u16 vid, fid;
  	int err;
- 	struct switchdev_attr attr = {
-+		.orig_dev = dev,
- 		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
- 		.flags = SWITCHDEV_F_NO_RECURSE,
- 	};
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index f34e535..df790d3 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -723,6 +723,7 @@ static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
- 				    u32 filter_mask)
- {
- 	struct switchdev_vlan_dump dump = {
-+		.vlan.obj.orig_dev = dev,
- 		.vlan.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
- 		.skb = skb,
- 		.filter_mask = filter_mask,
-@@ -757,6 +758,7 @@ int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 				  int nlflags)
- {
- 	struct switchdev_attr attr = {
-+		.orig_dev = dev,
- 		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
- 	};
- 	u16 mode = BRIDGE_MODE_UNDEF;
-@@ -778,6 +780,7 @@ static int switchdev_port_br_setflag(struct net_device *dev,
- 				     unsigned long brport_flag)
- {
- 	struct switchdev_attr attr = {
-+		.orig_dev = dev,
- 		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
- 	};
- 	u8 flag = nla_get_u8(nlattr);
-@@ -853,6 +856,7 @@ static int switchdev_port_br_afspec(struct net_device *dev,
- 	struct nlattr *attr;
- 	struct bridge_vlan_info *vinfo;
- 	struct switchdev_obj_port_vlan vlan = {
-+		.obj.orig_dev = dev,
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
- 	};
- 	int rem;
-@@ -975,6 +979,7 @@ int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 			   u16 vid, u16 nlm_flags)
- {
- 	struct switchdev_obj_port_fdb fdb = {
-+		.obj.orig_dev = dev,
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
- 		.vid = vid,
- 	};
-@@ -1000,6 +1005,7 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- 			   u16 vid)
- {
- 	struct switchdev_obj_port_fdb fdb = {
-+		.obj.orig_dev = dev,
- 		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
- 		.vid = vid,
- 	};
-@@ -1077,6 +1083,7 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 			    struct net_device *filter_dev, int idx)
- {
- 	struct switchdev_fdb_dump dump = {
-+		.fdb.obj.orig_dev = dev,
- 		.fdb.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
- 		.dev = dev,
- 		.skb = skb,
-@@ -1135,6 +1142,7 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
- 		if (!dev)
- 			return NULL;
  
-+		attr.orig_dev = dev;
- 		if (switchdev_port_attr_get(dev, &attr))
- 			return NULL;
+-	mlxsw_reg_sfn_mac_unpack(sfn_pl, rec_index, mac, &vid, &local_port);
++	mlxsw_reg_sfn_mac_unpack(sfn_pl, rec_index, mac, &fid, &local_port);
+ 	mlxsw_sp_port = mlxsw_sp->ports[local_port];
+ 	if (!mlxsw_sp_port) {
+ 		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Incorrect local port in FDB notification\n");
+ 		return;
+ 	}
  
-@@ -1194,6 +1202,7 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 	if (!dev)
- 		return 0;
+-	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port, mac, vid,
++	err = mlxsw_sp_port_fdb_uc_op(mlxsw_sp_port, mac, fid,
+ 				      adding && mlxsw_sp_port->learning, true);
+ 	if (err) {
+ 		if (net_ratelimit())
+@@ -906,6 +908,8 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+ 		return;
+ 	}
  
-+	ipv4_fib.obj.orig_dev = dev;
- 	err = switchdev_port_obj_add(dev, &ipv4_fib.obj);
- 	if (!err)
- 		fi->fib_flags |= RTNH_F_OFFLOAD;
-@@ -1238,6 +1247,7 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 	if (!dev)
- 		return 0;
++	vid = fid;
++
+ 	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
+ 				    mlxsw_sp_port->learning_sync,
+ 				    adding, mac, vid, mlxsw_sp_port->dev);
+@@ -918,17 +922,17 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	char mac[ETH_ALEN];
+ 	u16 lag_id;
+-	u16 vid;
++	u16 vid, fid;
+ 	int err;
  
-+	ipv4_fib.obj.orig_dev = dev;
- 	err = switchdev_port_obj_del(dev, &ipv4_fib.obj);
- 	if (!err)
- 		fi->fib_flags &= ~RTNH_F_OFFLOAD;
-@@ -1270,10 +1280,12 @@ static bool switchdev_port_same_parent_id(struct net_device *a,
- 					  struct net_device *b)
- {
- 	struct switchdev_attr a_attr = {
-+		.orig_dev = a,
- 		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
- 		.flags = SWITCHDEV_F_NO_RECURSE,
- 	};
- 	struct switchdev_attr b_attr = {
-+		.orig_dev = b,
- 		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
- 		.flags = SWITCHDEV_F_NO_RECURSE,
- 	};
+-	mlxsw_reg_sfn_mac_lag_unpack(sfn_pl, rec_index, mac, &vid, &lag_id);
++	mlxsw_reg_sfn_mac_lag_unpack(sfn_pl, rec_index, mac, &fid, &lag_id);
+ 	mlxsw_sp_port = mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id);
+ 	if (!mlxsw_sp_port) {
+ 		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Cannot find port representor for LAG\n");
+ 		return;
+ 	}
+ 
+-	err = mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp, lag_id, mac, vid,
++	err = mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp, lag_id, mac, fid,
+ 					  adding && mlxsw_sp_port->learning,
+ 					  true);
+ 	if (err) {
+@@ -937,6 +941,8 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
+ 		return;
+ 	}
+ 
++	vid = fid;
++
+ 	mlxsw_sp_fdb_call_notifiers(mlxsw_sp_port->learning,
+ 				    mlxsw_sp_port->learning_sync,
+ 				    adding, mac, vid,
 -- 
 1.9.3
