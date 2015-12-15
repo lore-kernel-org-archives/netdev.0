@@ -1,76 +1,160 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH iproute2 2/3] gre: add support for collect metadata flag
-Date: Tue, 15 Dec 2015 16:48:26 +0100
-Message-ID: <60286413f0d62fed304d1dbc0b309a2a118bc009.1450193891.git.pabeni@redhat.com>
+Subject: [PATCH iproute2 3/3] lwtunnel: implement support for ip6 encap
+Date: Tue, 15 Dec 2015 16:48:27 +0100
+Message-ID: <d3c8c84b79507d7743aaa43aa76444ceb15c5639.1450193891.git.pabeni@redhat.com>
 References: <cover.1450193891.git.pabeni@redhat.com>
 Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>
 To: shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33763 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37897 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754147AbbLOPtH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2015 10:49:07 -0500
+	id S1753895AbbLOPtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2015 10:49:09 -0500
 In-Reply-To: <cover.1450193891.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add support for IFLA_GRE_COLLECT_METADATA via the
-'collectmetadata' keyword to the gre link.
+Currently ip6 encap support for lwtunnel is missing.
+This patch implement it, mostly duplicating the ipv4 parts.
+
+Also be sure to insert a space after the encap type, when
+showing lwtunnel, to avoid the tunnel type and the following
+argument being merged into a single word.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- ip/link_gre.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ ip/iproute_lwtunnel.c | 91 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 90 insertions(+), 1 deletion(-)
 
-diff --git a/ip/link_gre.c b/ip/link_gre.c
-index 58f416c..8be157f 100644
---- a/ip/link_gre.c
-+++ b/ip/link_gre.c
-@@ -74,6 +74,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u16 encapflags = 0;
- 	__u16 encapsport = 0;
- 	__u16 encapdport = 0;
-+	__u8 metadata = 0;
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index c825b82..b34e02c 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -95,6 +95,37 @@ static void print_encap_ip(FILE *fp, struct rtattr *encap)
+ 		fprintf(fp, "tos %d ", rta_getattr_u8(tb[LWTUNNEL_IP_TOS]));
+ }
  
- 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
- 		memset(&req, 0, sizeof(req));
-@@ -148,6 +149,9 @@ get_failed:
- 			encapsport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_SPORT]);
- 		if (greinfo[IFLA_GRE_ENCAP_DPORT])
- 			encapdport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_DPORT]);
++static void print_encap_ip6(FILE *fp, struct rtattr *encap)
++{
++	struct rtattr *tb[LWTUNNEL_IP6_MAX+1];
++	char abuf[256];
 +
-+		if (greinfo[IFLA_GRE_COLLECT_METADATA])
-+			metadata = 1;
++	parse_rtattr_nested(tb, LWTUNNEL_IP6_MAX, encap);
++
++	if (tb[LWTUNNEL_IP6_ID])
++		fprintf(fp, "id %llu ", ntohll(rta_getattr_u64(tb[LWTUNNEL_IP6_ID])));
++
++	if (tb[LWTUNNEL_IP6_SRC])
++		fprintf(fp, "src %s ",
++			rt_addr_n2a(AF_INET6,
++				    RTA_PAYLOAD(tb[LWTUNNEL_IP6_SRC]),
++				    RTA_DATA(tb[LWTUNNEL_IP6_SRC]),
++				    abuf, sizeof(abuf)));
++
++	if (tb[LWTUNNEL_IP6_DST])
++		fprintf(fp, "dst %s ",
++			rt_addr_n2a(AF_INET6,
++				    RTA_PAYLOAD(tb[LWTUNNEL_IP6_DST]),
++				    RTA_DATA(tb[LWTUNNEL_IP6_DST]),
++				    abuf, sizeof(abuf)));
++
++	if (tb[LWTUNNEL_IP6_HOPLIMIT])
++		fprintf(fp, "hoplimit %d ", rta_getattr_u8(tb[LWTUNNEL_IP6_HOPLIMIT]));
++
++	if (tb[LWTUNNEL_IP6_TC])
++		fprintf(fp, "tc %d ", rta_getattr_u8(tb[LWTUNNEL_IP6_TC]));
++}
++
+ void lwt_print_encap(FILE *fp, struct rtattr *encap_type,
+ 			  struct rtattr *encap)
+ {
+@@ -105,7 +136,7 @@ void lwt_print_encap(FILE *fp, struct rtattr *encap_type,
+ 
+ 	et = rta_getattr_u16(encap_type);
+ 
+-	fprintf(fp, " encap %s", format_encap_type(et));
++	fprintf(fp, " encap %s ", format_encap_type(et));
+ 
+ 	switch (et) {
+ 	case LWTUNNEL_ENCAP_MPLS:
+@@ -114,6 +145,9 @@ void lwt_print_encap(FILE *fp, struct rtattr *encap_type,
+ 	case LWTUNNEL_ENCAP_IP:
+ 		print_encap_ip(fp, encap);
+ 		break;
++	case LWTUNNEL_ENCAP_IP6:
++		print_encap_ip6(fp, encap);
++		break;
  	}
+ }
  
- 	while (argc > 0) {
-@@ -291,6 +295,8 @@ get_failed:
- 			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
- 		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
- 			encapflags |= ~TUNNEL_ENCAP_FLAG_REMCSUM;
-+		} else if (strcmp(*argv, "collectmetadata") == 0) {
-+			metadata = 1;
- 		} else
- 			usage();
- 		argc--; argv++;
-@@ -325,6 +331,8 @@ get_failed:
- 	addattr16(n, 1024, IFLA_GRE_ENCAP_FLAGS, encapflags);
- 	addattr16(n, 1024, IFLA_GRE_ENCAP_SPORT, htons(encapsport));
- 	addattr16(n, 1024, IFLA_GRE_ENCAP_DPORT, htons(encapdport));
-+	if (metadata)
-+		addattr_l(n, 1024, IFLA_GRE_COLLECT_METADATA, NULL, 0);
- 
+@@ -190,6 +224,58 @@ static int parse_encap_ip(struct rtattr *rta, size_t len, int *argcp, char ***ar
  	return 0;
  }
-@@ -413,6 +421,9 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (oflags & GRE_CSUM)
- 		fputs("ocsum ", f);
  
-+	if (tb[IFLA_GRE_COLLECT_METADATA])
-+		fputs("collectmetadata ", f);
++static int parse_encap_ip6(struct rtattr *rta, size_t len, int *argcp, char ***argvp)
++{
++	int id_ok = 0, dst_ok = 0, tos_ok = 0, ttl_ok = 0;
++	char **argv = *argvp;
++	int argc = *argcp;
 +
- 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
- 	    *(__u16 *)RTA_DATA(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
- 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
++	while (argc > 0) {
++		if (strcmp(*argv, "id") == 0) {
++			__u64 id;
++			NEXT_ARG();
++			if (id_ok++)
++				duparg2("id", *argv);
++			if (get_u64(&id, *argv, 0))
++				invarg("\"id\" value is invalid\n", *argv);
++			rta_addattr64(rta, len, LWTUNNEL_IP6_ID, htonll(id));
++		} else if (strcmp(*argv, "dst") == 0) {
++			inet_prefix addr;
++			NEXT_ARG();
++			if (dst_ok++)
++				duparg2("dst", *argv);
++			get_addr(&addr, *argv, AF_INET6);
++			rta_addattr_l(rta, len, LWTUNNEL_IP6_DST, &addr.data, addr.bytelen);
++		} else if (strcmp(*argv, "tc") == 0) {
++			__u32 tc;
++			NEXT_ARG();
++			if (tos_ok++)
++				duparg2("tc", *argv);
++			if (rtnl_dsfield_a2n(&tc, *argv))
++				invarg("\"tc\" value is invalid\n", *argv);
++			rta_addattr8(rta, len, LWTUNNEL_IP6_TC, tc);
++		} else if (strcmp(*argv, "hoplimit") == 0) {
++			__u8 hoplimit;
++			NEXT_ARG();
++			if (ttl_ok++)
++				duparg2("hoplimit", *argv);
++			if (get_u8(&hoplimit, *argv, 0))
++				invarg("\"hoplimit\" value is invalid\n", *argv);
++			rta_addattr8(rta, len, LWTUNNEL_IP6_HOPLIMIT, hoplimit);
++		} else {
++			break;
++		}
++		argc--; argv++;
++	}
++
++	/* argv is currently the first unparsed argument,
++	 * but the lwt_parse_encap() caller will move to the next,
++	 * so step back */
++	*argcp = argc + 1;
++	*argvp = argv - 1;
++
++	return 0;
++}
+ 
+ int lwt_parse_encap(struct rtattr *rta, size_t len, int *argcp, char ***argvp)
+ {
+@@ -217,6 +303,9 @@ int lwt_parse_encap(struct rtattr *rta, size_t len, int *argcp, char ***argvp)
+ 	case LWTUNNEL_ENCAP_IP:
+ 		parse_encap_ip(rta, len, &argc, &argv);
+ 		break;
++	case LWTUNNEL_ENCAP_IP6:
++		parse_encap_ip6(rta, len, &argc, &argv);
++		break;
+ 	default:
+ 		fprintf(stderr, "Error: unsupported encap type\n");
+ 		break;
 -- 
 1.8.3.1
