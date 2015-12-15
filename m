@@ -1,39 +1,61 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 15 Dec 2015 12:32:44 +0100
-Message-ID: <1450179164.17387.18.camel@suse.com>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
-	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
-	 <20151208143305.GB18728@al>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] ravb: Add disable 10base
+Date: Tue, 15 Dec 2015 14:41:40 +0300
+Message-ID: <566FFC74.6060407@cogentembedded.com>
+References: <1450019758-32710-1-git-send-email-ykaneko0929@gmail.com>
+ <566EFCEF.2030200@cogentembedded.com> <566F0F21.6040504@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hayes Wang <hayeswang@realtek.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Lu Baolu <baolu.lu@linux.intel.com>
-To: Peter Wu <peter@lekensteyn.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151208143305.GB18728@al>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <566F0F21.6040504@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-12-08 at 15:33 +0100, Peter Wu wrote:
-> Can you have a look? I guess that reset_resume needs different
-> treatment, but don't know how to do it properly as suspend is not
-> called
-> before system reset (because the device is apparently already in
-> suspended state).
-> 
-> I think that this new issue can be addressed in a different patch,
-> this
-> patch solves a more severe lockup. Opinions?
+Hello.
 
-We do not know in advance whether resume() or reset_resume()
-will be called after S3. A driver must be ready for both.
+On 12/14/2015 9:49 PM, Florian Fainelli wrote:
 
+>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>
+>>> Ethernet AVB does not support 10 Mbps transfer speed.
+>>>
+>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>>> ---
+>>>
+>>> This patch is based on the master branch of David Miller's networking
+>>> tree.
+>>>
+>>>    drivers/net/ethernet/renesas/ravb_main.c | 3 +++
+>>>    1 file changed, 3 insertions(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>>> b/drivers/net/ethernet/renesas/ravb_main.c
+>>> index b69e0c2..467d416 100644
+>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>>> @@ -905,6 +905,9 @@ static int ravb_phy_init(struct net_device *ndev)
+>>>            netdev_info(ndev, "limited PHY to 100Mbit/s\n");
+>>>        }
+>>>
+>>> +    /* 10BASE is not supported */
+>>> +    phydev->supported &= ~PHY_10BT_FEATURES;
+>>
+>>     I wonder if we should also modify 'phydev->advertising' like
+>> phy_set_max_speed() does...
+>
+> Yes, this is a good idea. If your PHY driver uses genphy_config_advert()
+> this is taken care of for you, but in case you have a buggy PHY driver,
+> you should just do this yourself here.
 
-	Regards
-		Oliver
+    OK, drivers/net/phy/micrel.c uses it for almost all chips.
+
+MBR, Sergei
+
