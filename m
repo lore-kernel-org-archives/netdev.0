@@ -1,40 +1,81 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] skbuff: Fix offset error in skb_reorder_vlan_header
-Date: Tue, 15 Dec 2015 15:57:44 +0100
-Message-ID: <56702A68.8000600@6wind.com>
-References: <566ED772.8070600@6wind.com>
- <1450133050-24636-1-git-send-email-vyasevich@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 00/14] mlxws: update driver to support offload of bridged vlan devices
+Date: Tue, 15 Dec 2015 16:03:33 +0100
+Message-ID: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	f.fainelli@gmail.com, sfeldma@gmail.com, john.fastabend@gmail.com,
+	roopa@cumulusnetworks.com, andrew@lunn.ch, kaber@trash.net,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:38645 "EHLO
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36013 "EHLO
 	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751996AbbLOO5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 09:57:47 -0500
-Received: by mail-wm0-f50.google.com with SMTP id p66so29437386wmp.1
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 06:57:47 -0800 (PST)
-In-Reply-To: <1450133050-24636-1-git-send-email-vyasevich@gmail.com>
+	with ESMTP id S933550AbbLOPD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:03:57 -0500
+Received: by mail-wm0-f50.google.com with SMTP id n186so169108612wmn.1
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:03:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/12/2015 23:44, Vladislav Yasevich a =C3=A9crit :
-> skb_reorder_vlan_header is called after the vlan header has
-> been pulled.  As a result the offset of the begining of
-> the mac header has been incrased by 4 bytes (VLAN_HLEN).
-> When moving the mac addresses, include this incrase in
-> the offset calcualation so that the mac addresses are
-> copied correctly.
->
-> Fixes: a6e18ff1117 (vlan: Fix untag operations of stacked vlans with =
-REORDER_HEADER off)
-> CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> CC: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
-Thank you for the fix. A bit late, but for the record:
+From: Jiri Pirko <jiri@mellanox.com>
 
-Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Ido Schimmel says:
+        
+====================
+This patchset introduces support for the offloading of 802.1D bridges
+between VLAN devices. These can either be VLAN devices configured on top
+of the physical ports or on top of LAG devices.
+
+Patches 1-2 deal with the necessary infrastructure changes needed in order
+to enable the above. The main change is that switchdev drivers can now know
+the device from which the switchdev op originated from.
+
+Patches 3-10 lay the groundwork for 802.1D bridges support in the mlxsw
+driver, with patch 4 doing most of the heavy lifting.
+
+Patch 11 finally offloads these bridges to hardware by listening to the
+notifications sent when the VLAN device joins or leaves a bridge. It is
+very similar to the already existing 802.1Q bridge we support.
+
+Patches 12-14 add minor modifications to allow one to bridge a VLAN device
+configured on top of LAG.
+====================
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+
+Ido Schimmel (14):
+  switchdev: vlan: Use switchdev_port* in vlan_netdev_ops
+  switchdev: Pass original device to port netdev driver
+  mlxsw: spectrum: Allocate active VLANs only for port netdevs
+  mlxsw: spectrum: Split vFID range in two
+  mlxsw: spectrum: Use appropriate parameter name
+  mlxsw: spectrum: Add another flood table for vFIDs
+  mlxsw: spectrum: Use FID instead of VID when accessing FDB
+  mlxsw: spectrum: Adjust switchdev ops for VLAN devices
+  mlxsw: spectrum: Adjust FDB notifications for VLAN devices
+  mlxsw: spectrum: Handle VLAN devices linking / unlinking
+  mlxsw: spectrum: Add support for VLAN devices bridging
+  mlxsw: reg: Add lag_vid field to SFD register
+  mlxsw: spectrum: Enable FDB records for VLAN devices on top of LAG
+  mlxsw: spectrum: Add support for VLAN devices on top of LAG
+
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig        |   2 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          |  22 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 774 ++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 102 ++-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 234 ++++++-
+ include/net/switchdev.h                            |   2 +
+ net/8021q/vlan_dev.c                               |   7 +
+ net/bridge/br_fdb.c                                |   1 +
+ net/bridge/br_stp.c                                |   2 +
+ net/bridge/br_stp_if.c                             |   1 +
+ net/bridge/br_vlan.c                               |   2 +
+ net/core/net-sysfs.c                               |   1 +
+ net/core/rtnetlink.c                               |   1 +
+ net/switchdev/switchdev.c                          |  12 +
+ 14 files changed, 1001 insertions(+), 162 deletions(-)
+
+-- 
+1.9.3
