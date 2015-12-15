@@ -1,47 +1,68 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH] net/mlx4_core: fix handling return value of
- mlx4_slave_convert_port
-Date: Tue, 15 Dec 2015 11:09:40 +0200
-Message-ID: <566FD8D4.5030506@mellanox.com>
-References: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] mISDN: fix a loop count
+Date: Tue, 15 Dec 2015 13:07:52 +0300
+Message-ID: <20151215100752.GC20848@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Andrzej Hajda <a.hajda@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20757 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964872AbbLOKIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 05:08:07 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/14/2015 12:05 PM, Andrzej Hajda wrote:
-> The function can return negative values, so its result should
-> be assigned to signed variable.
->
-> The problem has been detected using proposed semantic patch
-> scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
->
-> [1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
->
+There are two issue here.
+1)  cnt starts as maxloop + 1 so all these loops iterate one more time
+    than intended.
+2)  At the end of the loop we test for "if (maxloop && !cnt)" but for
+    the first two loops, we end with cnt equal to -1.  Changing this to
+    a pre-op means we end with cnt set to 0.
 
-Please add here
+Fixes: cae86d4a4e56 ('mISDN: Add driver for Infineon ISDN chipset family')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Fixes: fc48866f7 ('net/mlx4: Adapt code for N-Port VF')
-
-
-> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
-
-otherwise, Looks good
-
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
-
-Or.
+diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
+index a77eea5..cb428b9 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNipac.c
++++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
+@@ -1170,7 +1170,7 @@ mISDNipac_irq(struct ipac_hw *ipac, int maxloop)
+ 
+ 	if (ipac->type & IPAC_TYPE_IPACX) {
+ 		ista = ReadIPAC(ipac, ISACX_ISTA);
+-		while (ista && cnt--) {
++		while (ista && --cnt) {
+ 			pr_debug("%s: ISTA %02x\n", ipac->name, ista);
+ 			if (ista & IPACX__ICA)
+ 				ipac_irq(&ipac->hscx[0], ista);
+@@ -1182,7 +1182,7 @@ mISDNipac_irq(struct ipac_hw *ipac, int maxloop)
+ 		}
+ 	} else if (ipac->type & IPAC_TYPE_IPAC) {
+ 		ista = ReadIPAC(ipac, IPAC_ISTA);
+-		while (ista && cnt--) {
++		while (ista && --cnt) {
+ 			pr_debug("%s: ISTA %02x\n", ipac->name, ista);
+ 			if (ista & (IPAC__ICD | IPAC__EXD)) {
+ 				istad = ReadISAC(isac, ISAC_ISTA);
+@@ -1200,7 +1200,7 @@ mISDNipac_irq(struct ipac_hw *ipac, int maxloop)
+ 			ista = ReadIPAC(ipac, IPAC_ISTA);
+ 		}
+ 	} else if (ipac->type & IPAC_TYPE_HSCX) {
+-		while (cnt) {
++		while (--cnt) {
+ 			ista = ReadIPAC(ipac, IPAC_ISTAB + ipac->hscx[1].off);
+ 			pr_debug("%s: B2 ISTA %02x\n", ipac->name, ista);
+ 			if (ista)
+@@ -1211,7 +1211,6 @@ mISDNipac_irq(struct ipac_hw *ipac, int maxloop)
+ 				mISDNisac_irq(isac, istad);
+ 			if (0 == (ista | istad))
+ 				break;
+-			cnt--;
+ 		}
+ 	}
+ 	if (cnt > maxloop) /* only for ISAC/HSCX without PCI IRQ test */
