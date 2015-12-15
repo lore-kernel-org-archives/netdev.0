@@ -1,65 +1,49 @@
-From: Dexuan Cui <decui-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-Subject: RE: [PATCH net-next] net, cgroup: cgroup_sk_updat_lock was missing
- initializer
-Date: Tue, 15 Dec 2015 02:11:20 +0000
-Message-ID: <9f79b2053ba7422b816cfc34d380e5d6@HKXPR3004MB0088.064d.mgd.msft.net>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
-	<f90d369a0e004fee8d3bfdfe95e0abc0@HKXPR3004MB0088.064d.mgd.msft.net>
-	<20151214162406.GA4026@mtj.duckdns.org>
- <20151214.142043.1185024338854399910.davem@davemloft.net>
+From: Martin Roth <martin.roth@motorolasolutions.com>
+Subject: [PATCH] 82xx: FCC: Fixing a bug causing to FCC port lock-up
+Date: Tue, 15 Dec 2015 04:17:53 +0200
+Message-ID: <1450145874-9750-1-git-send-email-martin.roth@motorolasolutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org" <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org" <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	"kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org" <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>,
-	"daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org" <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	"daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org" <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org" <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	"hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org" <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org" <coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"kernel-team-b10kYP2dOMg@public.gmane.org" <kernel-team-b10kYP2dOMg@public.gmane.org>,
-	"ninasc-b10kYP2dOMg@public.gmane.org" <ninasc-b10kYP2dOMg@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151214.142043.1185024338854399910.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-US
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+ Martin Roth <martin.roth@motorolasolutions.com>
+To: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
-> Sent: Tuesday, December 15, 2015 3:21
-> To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-> Cc: Dexuan Cui <decui-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>; pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org; kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org;
-> kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org; daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org; daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org;
-> nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org; lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org; hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org;
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org; cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; kernel-team-b10kYP2dOMg@public.gmane.org; ninasc-b10kYP2dOMg@public.gmane.org
-> Subject: Re: [PATCH net-next] net, cgroup: cgroup_sk_updat_lock was missing
-> initializer
-> 
-> From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Date: Mon, 14 Dec 2015 11:24:06 -0500
-> 
-> > bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup") added global
-> > spinlock cgroup_sk_update_lock but erroneously skipped initializer
-> > leading to uninitialized spinlock warning.  Fix it by using
-> > DEFINE_SPINLOCK().
-> >
-> > Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> > Reported-by: Dexuan Cui <decui-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-> > Fixes: bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup")
-> 
-> Applied, thanks.
-
-Thanks! I can confirm it fixed the issue.
-
-Thanks,
--- Dexuan
+VGhlIHBhdGNoIGZpeGVzIEZDQyBwb3J0IGxvY2stdXAsIHdoaWNoIG9jY3VycyBhcyBhIHJlc3Vs
+dCBvZiBhIGJ1ZwpkdXJpbmcgdW5kZXJydW4vY29sbGlzaW9uIGhhbmRsaW5nLiBXaXRoaW4gdGhl
+IHR4X3N0YXJ0dXAoKSBmdW5jdGlvbgppbiBtYWMtZmNjLmMsIHRoZSBhZGRyZXNzIG9mIGxhc3Qg
+QkQgaXMgbm90IGNhbGN1bGF0ZWQgY29ycmVjdGx5LgpBcyBhIHJlc3VsdCBvZiB3cm9uZyBjYWxj
+dWxhdGlvbiBvZiB0aGUgbGFzdCBCRCBhZGRyZXNzLCB0aGUgbmV4dAp0cmFuc21pdHRlZCBCRCBt
+YXkgYmUgc2V0IHRvIGFuIGFyZWEgb3V0IG9mIHRoZSB0cmFuc21pdCBCRCByaW5nLgpUaGlzIGFj
+dHVhbGx5IGNhdXNlcyB0byBwb3J0IGxvY2stdXAgYW5kIGl0IGlzIG5vdCByZWNvdmVyYWJsZS4K
+ClNpZ25lZC1vZmYtYnk6IE1hcnRpbiBSb3RoIDxtYXJ0aW4ucm90aEBtb3Rvcm9sYXNvbHV0aW9u
+cy5jb20+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLWZj
+Yy5jIHwgICAgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9u
+KC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQv
+bWFjLWZjYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLWZj
+Yy5jCmluZGV4IDA4ZjViOTEuLjUyZTAwOTEgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1mY2MuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZnNfZW5ldC9tYWMtZmNjLmMKQEAgLTU1Miw3ICs1NTIsNyBAQCBzdGF0aWMg
+dm9pZCB0eF9yZXN0YXJ0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJY2JkX3QgX19pb21lbSAq
+cHJldl9iZDsKIAljYmRfdCBfX2lvbWVtICpsYXN0X3R4X2JkOwogCi0JbGFzdF90eF9iZCA9IGZl
+cC0+dHhfYmRfYmFzZSArIChmcGktPnR4X3JpbmcgKiBzaXplb2YoY2JkX3QpKTsKKwlsYXN0X3R4
+X2JkID0gZmVwLT50eF9iZF9iYXNlICsgKChmcGktPnR4X3JpbmcgLSAxKSAqIHNpemVvZihjYmRf
+dCkpOwogCiAJLyogZ2V0IHRoZSBjdXJyZW50IGJkIGhlbGQgaW4gVEJQVFIgIGFuZCBzY2FuIGJh
+Y2sgZnJvbSB0aGlzIHBvaW50ICovCiAJcmVjaGVja19iZCA9IGN1cnJfdGJwdHIgPSAoY2JkX3Qg
+X19pb21lbSAqKQotLSAKMS43LjkuNQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlz
+dHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMt
+ZGV2
