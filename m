@@ -1,49 +1,136 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 0/2] net: Allow accepted sockets to be bound to l3mdev domain
-Date: Tue, 15 Dec 2015 09:18:10 -0800
-Message-ID: <1450199892-18201-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH v6 3/4] net: diag: Support SOCK_DESTROY for inet sockets.
+Date: Wed, 16 Dec 2015 02:17:47 +0900
+Message-ID: <1450199868-93712-4-git-send-email-lorenzo@google.com>
+References: <20151214.143739.879220917312503422.davem@davemloft.net>
+ <1450199868-93712-1-git-send-email-lorenzo@google.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35456 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965325AbbLORSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:18:21 -0500
-Received: by mail-pa0-f41.google.com with SMTP id hk6so7863092pad.2
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:18:21 -0800 (PST)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35361 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965147AbbLORSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:18:10 -0500
+Received: by mail-pa0-f46.google.com with SMTP id hk6so7860648pad.2
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:18:09 -0800 (PST)
+In-Reply-To: <1450199868-93712-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow accepted sockets to derive their sk_bound_dev_if setting from the
-l3mdev domain in which the packets originated. This version adds a sysctl
-to control whether the setting is inherited, making the functionality
-similar to sk_mark and its sysctl_tcp_fwmark_accept setting.
+This passes the SOCK_DESTROY operation to the underlying protocol
+diag handler, or returns -EOPNOTSUPP if that handler does not
+define a destroy operation.
 
-This effectively allow a process to have a "VRF-global" listen socket,
-with child sockets bound to the VRF device in which the packet originated.
-A similar behavior can be achieved using sk_mark, but a solution using marks
-is incomplete as it does not handle duplicate addresses in different L3
-domains/VRFs. Allowing sockets to inherit the sk_bound_dev_if from l3mdev
-domain provides a complete solution.
+Most of this patch is just renaming functions. This is not
+strictly necessary, but it would be fairly counterintuitive to
+have the code to destroy inet sockets be in a function whose name
+starts with inet_diag_get.
 
-v2
-- Wrap the sk_bound_dev_if inheritance behavior in a new sysctl that
-  defaults to disabled so a user has to opt-in
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/linux/inet_diag.h |  4 ++++
+ net/ipv4/inet_diag.c      | 23 +++++++++++++++--------
+ 2 files changed, 19 insertions(+), 8 deletions(-)
 
-David Ahern (2):
-  net: l3mdev: Add master device lookup by index
-  net: Allow accepted sockets to be bound to l3mdev domain
-
- Documentation/networking/ip-sysctl.txt |  7 +++++++
- include/net/inet_sock.h                | 12 ++++++++++++
- include/net/l3mdev.h                   | 23 +++++++++++++++++++++++
- include/net/netns/ipv4.h               |  1 +
- net/ipv4/syncookies.c                  |  4 ++--
- net/ipv4/sysctl_net_ipv4.c             |  9 +++++++++
- net/ipv4/tcp_input.c                   |  2 +-
- net/ipv4/tcp_ipv4.c                    |  1 +
- net/ipv6/syncookies.c                  |  4 ++--
- 9 files changed, 58 insertions(+), 5 deletions(-)
-
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index e7032f04..7c27fa1 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -24,6 +24,10 @@ struct inet_diag_handler {
+ 	void		(*idiag_get_info)(struct sock *sk,
+ 					  struct inet_diag_msg *r,
+ 					  void *info);
++
++	int		(*destroy)(struct sk_buff *in_skb,
++				   const struct inet_diag_req_v2 *req);
++
+ 	__u16		idiag_type;
+ 	__u16		idiag_info_size;
+ };
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index cfabb8f..8bb8e7a 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -426,7 +426,7 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_dump_one_icsk);
+ 
+-static int inet_diag_get_exact(struct sk_buff *in_skb,
++static int inet_diag_cmd_exact(int cmd, struct sk_buff *in_skb,
+ 			       const struct nlmsghdr *nlh,
+ 			       const struct inet_diag_req_v2 *req)
+ {
+@@ -436,8 +436,12 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
+ 	handler = inet_diag_lock_handler(req->sdiag_protocol);
+ 	if (IS_ERR(handler))
+ 		err = PTR_ERR(handler);
+-	else
++	else if (cmd == SOCK_DIAG_BY_FAMILY)
+ 		err = handler->dump_one(in_skb, nlh, req);
++	else if (cmd == SOCK_DESTROY && handler->destroy)
++		err = handler->destroy(in_skb, req);
++	else
++		err = -EOPNOTSUPP;
+ 	inet_diag_unlock_handler(handler);
+ 
+ 	return err;
+@@ -950,7 +954,7 @@ static int inet_diag_get_exact_compat(struct sk_buff *in_skb,
+ 	req.idiag_states = rc->idiag_states;
+ 	req.id = rc->id;
+ 
+-	return inet_diag_get_exact(in_skb, nlh, &req);
++	return inet_diag_cmd_exact(SOCK_DIAG_BY_FAMILY, in_skb, nlh, &req);
+ }
+ 
+ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -984,7 +988,7 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	return inet_diag_get_exact_compat(skb, nlh);
+ }
+ 
+-static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
++static int inet_diag_handler_cmd(struct sk_buff *skb, struct nlmsghdr *h)
+ {
+ 	int hdrlen = sizeof(struct inet_diag_req_v2);
+ 	struct net *net = sock_net(skb->sk);
+@@ -992,7 +996,8 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
+ 	if (nlmsg_len(h) < hdrlen)
+ 		return -EINVAL;
+ 
+-	if (h->nlmsg_flags & NLM_F_DUMP) {
++	if (h->nlmsg_type == SOCK_DIAG_BY_FAMILY &&
++	    h->nlmsg_flags & NLM_F_DUMP) {
+ 		if (nlmsg_attrlen(h, hdrlen)) {
+ 			struct nlattr *attr;
+ 
+@@ -1011,7 +1016,7 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
+ 		}
+ 	}
+ 
+-	return inet_diag_get_exact(skb, h, nlmsg_data(h));
++	return inet_diag_cmd_exact(h->nlmsg_type, skb, h, nlmsg_data(h));
+ }
+ 
+ static
+@@ -1062,14 +1067,16 @@ int inet_diag_handler_get_info(struct sk_buff *skb, struct sock *sk)
+ 
+ static const struct sock_diag_handler inet_diag_handler = {
+ 	.family = AF_INET,
+-	.dump = inet_diag_handler_dump,
++	.dump = inet_diag_handler_cmd,
+ 	.get_info = inet_diag_handler_get_info,
++	.destroy = inet_diag_handler_cmd,
+ };
+ 
+ static const struct sock_diag_handler inet6_diag_handler = {
+ 	.family = AF_INET6,
+-	.dump = inet_diag_handler_dump,
++	.dump = inet_diag_handler_cmd,
+ 	.get_info = inet_diag_handler_get_info,
++	.destroy = inet_diag_handler_cmd,
+ };
+ 
+ int inet_diag_register(const struct inet_diag_handler *h)
 -- 
-1.9.1
+2.6.0.rc2.230.g3dd15c0
