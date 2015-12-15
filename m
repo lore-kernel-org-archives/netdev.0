@@ -1,54 +1,78 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 15 Dec 2015 11:31:29 +1100
-Message-ID: <20151215113129.197e5e0b@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+Subject: [PATCH] gianfar: Don't enable RX Filer if not supported
+Date: Tue, 15 Dec 2015 14:14:50 +1300
+Message-ID: <1450142090-10411-1-git-send-email-hamish.martin@alliedtelesis.co.nz>
+Cc: netdev@vger.kernel.org,
+	Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:52627 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753685AbbLOBPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2015 20:15:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+After commit 15bf176db1fb ("gianfar: Don't enable the Filer w/o the
+Parser"), 'TSEC' model controllers (for example as seen on MPC8541E)
+always have 8 bytes stripped from the front of received frames.
+Only 'eTSEC' gianfar controllers have the RX Filer capability (amongst
+other enhancements). Previously this was treated as always enabled
+for both 'TSEC' and 'eTSEC' controllers.
+In commit 15bf176db1fb ("gianfar: Don't enable the Filer w/o the Parser")
+a subtle change was made to the setting of 'uses_rxfcb' to effectively
+always set it (since 'rx_filer_enable' was always true). This had the
+side-effect of always stripping 8 bytes from the front of received frames
+on 'TSEC' type controllers.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+We now only enable the RX Filer capability on controller types that
+support it, thereby avoiding the issue for 'TSEC' type controllers.
 
-  drivers/net/geneve.c
+Reviewed-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Reviewed-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+Signed-off-by: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 8 +++++---
+ drivers/net/ethernet/freescale/gianfar.h | 1 +
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-between commit:
-
-  a322a1bcf329 ("geneve: Fix IPv6 xmit stats update.")
-
-from the net tree and commit:
-
-  abe492b4f50c ("geneve: UDP checksum configuration via netlink")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 7cf8984..3e233d9 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -894,7 +894,8 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 				     FSL_GIANFAR_DEV_HAS_VLAN |
+ 				     FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
+ 				     FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
+-				     FSL_GIANFAR_DEV_HAS_TIMER;
++				     FSL_GIANFAR_DEV_HAS_TIMER |
++				     FSL_GIANFAR_DEV_HAS_RX_FILER;
+ 
+ 	err = of_property_read_string(np, "phy-connection-type", &ctype);
+ 
+@@ -1396,8 +1397,9 @@ static int gfar_probe(struct platform_device *ofdev)
+ 		priv->rx_queue[i]->rxic = DEFAULT_RXIC;
+ 	}
+ 
+-	/* always enable rx filer */
+-	priv->rx_filer_enable = 1;
++	/* Always enable rx filer if available */
++	priv->rx_filer_enable =
++	    (priv->device_flags & FSL_GIANFAR_DEV_HAS_RX_FILER) ? 1 : 0;
+ 	/* Enable most messages by default */
+ 	priv->msg_enable = (NETIF_MSG_IFUP << 1 ) - 1;
+ 	/* use pritority h/w tx queue scheduling for single queue devices */
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index f266b20..cb77667 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -923,6 +923,7 @@ struct gfar {
+ #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
+ #define FSL_GIANFAR_DEV_HAS_TIMER		0x00000800
+ #define FSL_GIANFAR_DEV_HAS_WAKE_ON_FILER	0x00001000
++#define FSL_GIANFAR_DEV_HAS_RX_FILER		0x00002000
+ 
+ #if (MAXGROUPS == 2)
+ #define DEFAULT_MAPPING 	0xAA
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/geneve.c
-index c2b79f5d1c89,0750d7a93878..000000000000
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@@ -966,7 -984,10 +984,8 @@@ static netdev_tx_t geneve6_xmit_skb(str
-  	}
-  	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
-  				   &fl6.saddr, &fl6.daddr, prio, ttl,
-- 				   sport, geneve->dst_port, !udp_csum);
-+ 				   sport, geneve->dst_port,
-+ 				   !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
- -
- -	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-  	return NETDEV_TX_OK;
-  
-  tx_error:
+2.6.4
