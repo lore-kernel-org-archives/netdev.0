@@ -1,122 +1,558 @@
-From: Liberman Igal <Igal.Liberman@freescale.com>
-Subject: RE: [v9, 6/6] fsl/fman: Add FMan MAC driver
-Date: Tue, 15 Dec 2015 11:55:57 +0000
-Message-ID: <DM2PR03MB50969DA7ABC7D4641BCF1C7E6EE0@DM2PR03MB509.namprd03.prod.outlook.com>
-References: <1449127157-9400-1-git-send-email-igal.liberman@freescale.com>
-	<1449127157-9400-7-git-send-email-igal.liberman@freescale.com>
- <CAKWjMd7EDx8OnYGu-QJXM++fy=W5i2E74Fe4r9zNjUV_giyUKw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
-	Joakim Tjernlund <joakim.tjernlund@transmode.se>,
-	"ppc@mindchasers.com" <ppc@mindchasers.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>
-To: Andy Fleming <afleming@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKWjMd7EDx8OnYGu-QJXM++fy=W5i2E74Fe4r9zNjUV_giyUKw@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH/RFC net-next] ravb: Add dma queue interrupt support
+Date: Tue, 15 Dec 2015 21:23:01 +0900
+Message-ID: <1450182181-12575-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33132 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753821AbbLOMZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 07:25:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gQW5keSwNClRoYW5rIHlvdSBmb3IgeW91ciBmZWVkYmFjay4gU29tZSBpbmxpbmUgYW5z
-d2Vycy4NCg0KUmVnYXJkcywNCklnYWwgTGliZXJtYW4NCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLQ0KPiBGcm9tOiBBbmR5IEZsZW1pbmcgW21haWx0bzphZmxlbWluZ0BnbWFpbC5jb21d
-DQo+IFNlbnQ6IFR1ZXNkYXksIERlY2VtYmVyIDA4LCAyMDE1IDEwOjE4IFBNDQo+IFRvOiBMaWJl
-cm1hbiBJZ2FsLUIzMTk1MCA8SWdhbC5MaWJlcm1hbkBmcmVlc2NhbGUuY29tPg0KPiBDYzogbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7IGxpbnV4
-LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBXb29kIFNjb3R0LUIwNzQyMSA8c2NvdHR3b29k
-QGZyZWVzY2FsZS5jb20+Ow0KPiBCdWN1ciBNYWRhbGluLUNyaXN0aWFuLUIzMjcxNiA8bWFkYWxp
-bi5idWN1ckBmcmVlc2NhbGUuY29tPjsNCj4gcGVib2xsZUB0aXNjYWxpLm5sOyBKb2FraW0gVGpl
-cm5sdW5kIDxqb2FraW0udGplcm5sdW5kQHRyYW5zbW9kZS5zZT47DQo+IHBwY0BtaW5kY2hhc2Vy
-cy5jb207IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnOyBEYXZpZCBNaWxsZXINCj4gPGRhdmVt
-QGRhdmVtbG9mdC5uZXQ+DQo+IFN1YmplY3Q6IFJlOiBbdjksIDYvNl0gZnNsL2ZtYW46IEFkZCBG
-TWFuIE1BQyBkcml2ZXINCj4gDQo+IE9uIFRodSwgRGVjIDMsIDIwMTUgYXQgMToxOSBBTSwgIDxp
-Z2FsLmxpYmVybWFuQGZyZWVzY2FsZS5jb20+IHdyb3RlOg0KPiA+IEZyb206IElnYWwgTGliZXJt
-YW4gPGlnYWwubGliZXJtYW5AZnJlZXNjYWxlLmNvbT4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggYWRk
-cyB0aGUgRXRoZXJuZXQgTUFDIGRyaXZlciBzdXBwb3J0aW5nIHRoZSB0aHJlZSBkaWZmZXJlbnQN
-Cj4gPiB0eXBlcyBvZiBNQUNzOiBkVFNFQywgdEdFQyBhbmQgbUVNQUMuDQo+ID4NCj4gPiBTaWdu
-ZWQtb2ZmLWJ5OiBJZ2FsIExpYmVybWFuIDxpZ2FsLmxpYmVybWFuQGZyZWVzY2FsZS5jb20+DQo+
-IA0KPiBbLi4uXQ0KPiANCj4gPiArDQo+ID4gK01PRFVMRV9MSUNFTlNFKCJEdWFsIEJTRC9HUEwi
-KTsNCj4gPiArDQo+ID4gK01PRFVMRV9BVVRIT1IoIkVtaWwgTWVkdmUgPEVtaWxpYW4uTWVkdmVA
-RnJlZXNjYWxlLmNvbT4iKTsNCj4gDQo+IEkgaW1hZ2luZSB0aGlzIGVtYWlsIGFkZHJlc3MgZG9l
-c24ndCBleGlzdCBhbnltb3JlLCBvciB3b24ndCBzb29uLg0KPiBUaGlzIGlzIGFsc28gYW4gaXNz
-dWUgaW4gdGhlIGV0aGVybmV0IGRyaXZlciAod2l0aCBteSBvbGQgYWRkcmVzcykuDQo+IEknbSBu
-b3Qgc3VyZSB3aGF0IHRoZSByaWdodCBhcHByb2FjaCBpcywgYnV0IHdlIHNob3VsZG4ndCBiZSBw
-dXR0aW5nIG9ic29sZXRlDQo+IGVtYWlsIGFkZHJlc3NlcyBpbiB0aGUga2VybmVsLg0KPiANCj4g
-Wy4uLl0NCj4gDQoNCkkgcmVtb3ZlZCBNT0RVTEVfQVVUSE9SIGFzIHBlciBTY290dCdzIHJlcXVl
-c3QuDQpXZSdsbCBjaGFuZ2UgdGhlIHdheSB3ZSBub3RlIGNvbnRyaWJ1dG9ycy4NCg0KPiA+ICtz
-dGF0aWMgdm9pZCBtYWNfZXhjZXB0aW9uKHZvaWQgKl9tYWNfZGV2LCBlbnVtIGZtYW5fbWFjX2V4
-Y2VwdGlvbnMNCj4gPiArZXgpIHsNCj4gPiArICAgICAgIHN0cnVjdCBtYWNfZGV2aWNlICAgICAg
-ICptYWNfZGV2Ow0KPiA+ICsgICAgICAgc3RydWN0IG1hY19wcml2X3MgICAgICAgKnByaXY7DQo+
-ID4gKw0KPiA+ICsgICAgICAgbWFjX2RldiA9IChzdHJ1Y3QgbWFjX2RldmljZSAqKV9tYWNfZGV2
-Ow0KPiANCj4gDQo+IERvbid0IGNhc3QgYSB2b2lkICoNCj4gDQoNCk9LLCByZW1vdmVkLg0KDQo+
-IFsuLi5dDQo+IA0KPiA+ICtzdGF0aWMgaW50IG1hY19wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2
-aWNlICpfb2ZfZGV2KSB7DQo+ID4gKyAgICAgICBpbnQgICAgICAgICAgICAgICAgICAgICAgZXJy
-LCBpLCBsZW5wLCBucGg7DQo+ID4gKyAgICAgICBzdHJ1Y3QgZGV2aWNlICAgICAgICAgICAqZGV2
-Ow0KPiA+ICsgICAgICAgc3RydWN0IGRldmljZV9ub2RlICAgICAgKm1hY19ub2RlLCAqZGV2X25v
-ZGUsICp0Ymlfbm9kZTsNCj4gPiArICAgICAgIHN0cnVjdCBtYWNfZGV2aWNlICAgICAgICptYWNf
-ZGV2Ow0KPiA+ICsgICAgICAgc3RydWN0IHBsYXRmb3JtX2RldmljZSAgKm9mX2RldjsNCj4gPiAr
-ICAgICAgIHN0cnVjdCByZXNvdXJjZSAgICAgICAgICByZXM7DQo+ID4gKyAgICAgICBzdHJ1Y3Qg
-bWFjX3ByaXZfcyAgICAgICAqcHJpdjsNCj4gPiArICAgICAgIGNvbnN0IHU4ICAgICAgICAgICAg
-ICAgICptYWNfYWRkcjsNCj4gPiArICAgICAgIGNvbnN0IGNoYXIgICAgICAgICAgICAgICpjaGFy
-X3Byb3A7DQo+IA0KPiBbLi4uXQ0KPiANCj4gPiArICAgICAgIC8qIEdldCB0aGUgUEhZIGNvbm5l
-Y3Rpb24gdHlwZSAqLw0KPiA+ICsgICAgICAgY2hhcl9wcm9wID0gKGNvbnN0IGNoYXIgKilvZl9n
-ZXRfcHJvcGVydHkobWFjX25vZGUsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgInBoeS1jb25uZWN0aW9uLXR5cGUiLCBOVUxMKTsNCj4gPiArICAg
-ICAgIGlmICghY2hhcl9wcm9wKSB7DQo+ID4gKyAgICAgICAgICAgICAgIGRldl93YXJuKGRldiwN
-Cj4gPiArICAgICAgICAgICAgICAgICAgICAgICAgIm9mX2dldF9wcm9wZXJ0eSglcywgcGh5LWNv
-bm5lY3Rpb24tdHlwZSkgZmFpbGVkLiBEZWZhdWx0aW5nDQo+IHRvIE1JSVxuIiwNCj4gPiArICAg
-ICAgICAgICAgICAgICAgICAgICAgbWFjX25vZGUtPmZ1bGxfbmFtZSk7DQo+ID4gKyAgICAgICAg
-ICAgICAgIHByaXYtPnBoeV9pZiA9IFBIWV9JTlRFUkZBQ0VfTU9ERV9NSUk7DQo+ID4gKyAgICAg
-ICB9IGVsc2Ugew0KPiA+ICsgICAgICAgICAgICAgICBwcml2LT5waHlfaWYgPSBzdHIycGh5KGNo
-YXJfcHJvcCk7DQo+ID4gKyAgICAgICB9DQo+ID4gKw0KPiA+ICsgICAgICAgcHJpdi0+c3BlZWQg
-ICAgICAgICAgICAgPSBwaHkyc3BlZWRbcHJpdi0+cGh5X2lmXTsNCj4gPiArICAgICAgIHByaXYt
-Pm1heF9zcGVlZCAgICAgICAgID0gcHJpdi0+c3BlZWQ7DQo+ID4gKyAgICAgICBtYWNfZGV2LT5p
-Zl9zdXBwb3J0ICAgICA9IERUU0VDX1NVUFBPUlRFRDsNCj4gPiArICAgICAgIC8qIFdlIGRvbid0
-IHN1cHBvcnQgaGFsZi1kdXBsZXggaW4gU0dNSUkgbW9kZSAqLw0KPiA+ICsgICAgICAgaWYgKHN0
-cnN0cihjaGFyX3Byb3AsICJzZ21paSIpKQ0KPiANCj4gVGhpcyBjYXVzZXMgYSBjcmFzaCBpZiB0
-aGUgZGV2aWNlIHRyZWUgZG9lcyBub3QgaGF2ZSBhICJwaHktY29ubmVjdGlvbi10eXBlIg0KPiBm
-b3IgdGhpcyBub2RlLiBBbHNvLCB5b3UgYWxyZWFkeSBoYXZlIHBhcnNlZCB0aGUgcHJvcGVydHks
-IGFuZCBwdXQgdGhlIHJlc3VsdA0KPiBpbiBwcml2LT5waHlfaWYuIFdoeSBub3QgdXNlIHRoaXMg
-dG8gZG8gYWxsIG9mIHRoZXNlIGRldGVybWluYXRpb25zPw0KPiANCg0KQWdyZWUsIGNoYW5nZWQg
-dGhlIGRyaXZlciB0byB1c2UgcHJpdi0+cGh5X2lmIGluc3RlYWQgb2Ygc3Ryc3RyIGluIGJvdGgg
-cGxhY2VzLg0KSW4gYm90aCANCg0KPiANCj4gPiArICAgICAgICAgICAgICAgbWFjX2Rldi0+aWZf
-c3VwcG9ydCAmPSB+KFNVUFBPUlRFRF8xMGJhc2VUX0hhbGYgfA0KPiA+ICsgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICBTVVBQT1JURURfMTAwYmFzZVRfSGFsZik7DQo+ID4g
-Kw0KPiA+ICsgICAgICAgLyogR2lnYWJpdCBzdXBwb3J0IChubyBoYWxmLWR1cGxleCkgKi8NCj4g
-PiArICAgICAgIGlmIChwcml2LT5tYXhfc3BlZWQgPT0gMTAwMCkNCj4gPiArICAgICAgICAgICAg
-ICAgbWFjX2Rldi0+aWZfc3VwcG9ydCB8PSBTVVBQT1JURURfMTAwMGJhc2VUX0Z1bGw7DQo+ID4g
-Kw0KPiA+ICsgICAgICAgLyogVGhlIDEwRyBpbnRlcmZhY2Ugb25seSBzdXBwb3J0cyBvbmUgbW9k
-ZSAqLw0KPiA+ICsgICAgICAgaWYgKHN0cnN0cihjaGFyX3Byb3AsICJ4Z21paSIpKQ0KPiA+ICsg
-ICAgICAgICAgICAgICBtYWNfZGV2LT5pZl9zdXBwb3J0ID0gU1VQUE9SVEVEXzEwMDAwYmFzZVRf
-RnVsbDsNCj4gDQo+IEhlcmUsIHRvby4NCj4gDQo+IA0KPiBbLi4uXQ0KPiANCj4gPiArICAgICAg
-IGVyciA9IG1hY19kZXYtPmluaXQobWFjX2Rldik7DQo+ID4gKyAgICAgICBpZiAoZXJyIDwgMCkg
-ew0KPiA+ICsgICAgICAgICAgICAgICBkZXZfZXJyKGRldiwgIm1hY19kZXYtPmluaXQoKSA9ICVk
-XG4iLCBlcnIpOw0KPiA+ICsgICAgICAgICAgICAgICBvZl9ub2RlX3B1dChwcml2LT5waHlfbm9k
-ZSk7DQo+ID4gKyAgICAgICAgICAgICAgIGdvdG8gX3JldHVybl9kZXZfc2V0X2RydmRhdGE7DQo+
-ID4gKyAgICAgICB9DQo+ID4gKw0KPiA+ICsgICAgICAgLyogcGF1c2UgZnJhbWUgYXV0b25lZ290
-aWF0aW9uIGVuYWJsZWQgKi8NCj4gPiArICAgICAgIG1hY19kZXYtPmF1dG9uZWdfcGF1c2UgPSB0
-cnVlOw0KPiA+ICsNCj4gPiArICAgICAgIC8qIGJ5IGludGlhbGl6aW5nIHRoZSB2YWx1ZXMgdG8g
-ZmFsc2UsIGZvcmNlIEZNRCB0byBlbmFibGUgUEFVU0UgZnJhbWVzDQo+ID4gKyAgICAgICAgKiBv
-biBSWCBhbmQgVFgNCj4gPiArICAgICAgICAqLw0KPiANCj4gTWlub3IgY29tbWVudCBmb3JtYXQg
-aXNzdWUgKGxlYXZlIGJsYW5rIGxpbmUgYXQgdG9wIG9mIGJsb2NrIGNvbW1lbnQpDQo+IA0KDQpB
-Y2NvcmRpbmcgdG8gaHR0cHM6Ly93d3cua2VybmVsLm9yZy9kb2MvRG9jdW1lbnRhdGlvbi9Db2Rp
-bmdTdHlsZToNCg0KVGhlIHByZWZlcnJlZCBzdHlsZSBmb3IgbG9uZyAobXVsdGktbGluZSkgY29t
-bWVudHMgaXM6DQoNCgkvKg0KCSAqIFRoaXMgaXMgdGhlIHByZWZlcnJlZCBzdHlsZSBmb3IgbXVs
-dGktbGluZQ0KCSAqIGNvbW1lbnRzIGluIHRoZSBMaW51eCBrZXJuZWwgc291cmNlIGNvZGUuDQoJ
-ICogUGxlYXNlIHVzZSBpdCBjb25zaXN0ZW50bHkuDQoJICoNCgkgKiBEZXNjcmlwdGlvbjogIEEg
-Y29sdW1uIG9mIGFzdGVyaXNrcyBvbiB0aGUgbGVmdCBzaWRlLA0KCSAqIHdpdGggYmVnaW5uaW5n
-IGFuZCBlbmRpbmcgYWxtb3N0LWJsYW5rIGxpbmVzLg0KCSAqLw0KDQpGb3IgZmlsZXMgaW4gbmV0
-LyBhbmQgZHJpdmVycy9uZXQvIHRoZSBwcmVmZXJyZWQgc3R5bGUgZm9yIGxvbmcgKG11bHRpLWxp
-bmUpDQpjb21tZW50cyBpcyBhIGxpdHRsZSBkaWZmZXJlbnQuDQoNCgkvKiBUaGUgcHJlZmVycmVk
-IGNvbW1lbnQgc3R5bGUgZm9yIGZpbGVzIGluIG5ldC8gYW5kIGRyaXZlcnMvbmV0DQoJICogbG9v
-a3MgbGlrZSB0aGlzLg0KCSAqDQoJICogSXQgaXMgbmVhcmx5IHRoZSBzYW1lIGFzIHRoZSBnZW5l
-cmFsbHkgcHJlZmVycmVkIGNvbW1lbnQgc3R5bGUsDQoJICogYnV0IHRoZXJlIGlzIG5vIGluaXRp
-YWwgYWxtb3N0LWJsYW5rIGxpbmUuDQoJICovDQoNCj4gQW5keQ0K
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+
+This patch supports the following interrupts.
+
+- One interrupt for multiple (descriptor, error, management)
+- One interrupt for emac
+- Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+---
+
+This patch is based on the master branch of David Miller's next networking
+tree.
+
+ drivers/net/ethernet/renesas/ravb.h      |  34 +++++
+ drivers/net/ethernet/renesas/ravb_main.c | 248 +++++++++++++++++++++++++++----
+ drivers/net/ethernet/renesas/ravb_ptp.c  |  42 ++++--
+ 3 files changed, 283 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+index 9fbe92a..eada5a1 100644
+--- a/drivers/net/ethernet/renesas/ravb.h
++++ b/drivers/net/ethernet/renesas/ravb.h
+@@ -157,6 +157,7 @@ enum ravb_reg {
+ 	TIC	= 0x0378,
+ 	TIS	= 0x037C,
+ 	ISS	= 0x0380,
++	CIE	= 0x0384,
+ 	GCCR	= 0x0390,
+ 	GMTT	= 0x0394,
+ 	GPTC	= 0x0398,
+@@ -170,6 +171,15 @@ enum ravb_reg {
+ 	GCT0	= 0x03B8,
+ 	GCT1	= 0x03BC,
+ 	GCT2	= 0x03C0,
++	GIE	= 0x03CC,
++	GID	= 0x03D0,
++	DIL	= 0x0440,
++	RIE0	= 0x0460,
++	RID0	= 0x0464,
++	RIE2	= 0x0470,
++	RID2	= 0x0474,
++	TIE	= 0x0478,
++	TID	= 0x047c,
+ 
+ 	/* E-MAC registers */
+ 	ECMR	= 0x0500,
+@@ -556,6 +566,16 @@ enum ISS_BIT {
+ 	ISS_DPS15	= 0x80000000,
+ };
+ 
++/* CIE */
++enum CIE_BIT {
++	CIE_CRIE	= 0x00000001, /* Common Receive Interrupt Enable */
++	CIE_CTIE	= 0x00000100, /* Common Transmit Interrupt Enable */
++	CIE_RQFM	= 0x00010000, /* Reception Queue Full Mode */
++	CIE_CL0M	= 0x00020000, /* Common Line 0 Mode */
++	CIE_RFWL	= 0x00040000, /* Rx-FIFO Warning interrupt Line */
++	CIE_RFFL	= 0x00080000, /* Rx-FIFO Full interrupt Line */
++};
++
+ /* GCCR */
+ enum GCCR_BIT {
+ 	GCCR_TCR	= 0x00000003,
+@@ -592,6 +612,18 @@ enum GIS_BIT {
+ 	GIS_PTMF	= 0x00000004,
+ };
+ 
++/* GIx */
++#define RAVB_GIx_ALL	0xffff03ff
++
++/* RIx0 */
++#define RAVB_RIx0_ALL	0x0003ffff
++
++/* RIx2 */
++#define RAVB_RIx2_ALL	0x8003ffff
++
++/* TIx */
++#define RAVB_TIx_ALL	0x000fffff
++
+ /* ECMR */
+ enum ECMR_BIT {
+ 	ECMR_PRM	= 0x00000001,
+@@ -817,6 +849,8 @@ struct ravb_private {
+ 	int duplex;
+ 	int emac_irq;
+ 	enum ravb_chip_id chip_id;
++	int rx_irqs[NUM_RX_QUEUE];
++	int tx_irqs[NUM_TX_QUEUE];
+ 
+ 	unsigned no_avb_link:1;
+ 	unsigned avb_link_active_low:1;
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 120cc25..753b67d 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -42,6 +42,16 @@
+ 		 NETIF_MSG_RX_ERR | \
+ 		 NETIF_MSG_TX_ERR)
+ 
++static const char *ravb_rx_irqs[NUM_RX_QUEUE] = {
++	"ch0", /* RAVB_BE */
++	"ch1", /* RAVB_NC */
++};
++
++static const char *ravb_tx_irqs[NUM_TX_QUEUE] = {
++	"ch18", /* RAVB_BE */
++	"ch19", /* RAVB_NC */
++};
++
+ int ravb_wait(struct net_device *ndev, enum ravb_reg reg, u32 mask, u32 value)
+ {
+ 	int i;
+@@ -376,6 +386,7 @@ static void ravb_emac_init(struct net_device *ndev)
+ static int ravb_dmac_init(struct net_device *ndev)
+ {
+ 	int error;
++	struct ravb_private *priv = netdev_priv(ndev);
+ 
+ 	/* Set CONFIG mode */
+ 	error = ravb_config(ndev);
+@@ -411,14 +422,28 @@ static int ravb_dmac_init(struct net_device *ndev)
+ 	ravb_write(ndev, TCCR_TFEN, TCCR);
+ 
+ 	/* Interrupt init: */
+-	/* Frame receive */
+-	ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
+-	/* Disable FIFO full warning */
+-	ravb_write(ndev, 0, RIC1);
+-	/* Receive FIFO full error, descriptor empty */
+-	ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
+-	/* Frame transmitted, timestamp FIFO updated */
+-	ravb_write(ndev, TIC_FTE0 | TIC_FTE1 | TIC_TFUE, TIC);
++	if (priv->chip_id == RCAR_GEN2) {
++		/* Frame receive */
++		ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
++		/* Disable FIFO full warning */
++		ravb_write(ndev, 0, RIC1);
++		/* Receive FIFO full error, descriptor empty */
++		ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
++		/* Frame transmitted, timestamp FIFO updated */
++		ravb_write(ndev, TIC_FTE0 | TIC_FTE1 | TIC_TFUE, TIC);
++	} else {
++		/* Clear CIE.CTIE, CIE.CRIE, DIL.DPLx */
++		ravb_write(ndev, 0, CIE);
++		ravb_write(ndev, 0, DIL);
++		/* Set queue specific interrupt */
++		ravb_write(ndev, CIE_CRIE | CIE_CTIE | CIE_CL0M, CIE);
++		/* Frame receive */
++		ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIE0);
++		/* Receive FIFO full error, descriptor empty */
++		ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIE2);
++		/* Frame transmitted, timestamp FIFO updated */
++		ravb_write(ndev, TIC_FTE0 | TIC_FTE1 | TIC_TFUE, TIE);
++	}
+ 
+ 	/* Setting the control will start the AVB-DMAC process. */
+ 	ravb_write(ndev, (ravb_read(ndev, CCC) & ~CCC_OPC) | CCC_OPC_OPERATION,
+@@ -654,7 +679,7 @@ static int ravb_stop_dma(struct net_device *ndev)
+ }
+ 
+ /* E-MAC interrupt handler */
+-static void ravb_emac_interrupt(struct net_device *ndev)
++static void _ravb_emac_interrupt(struct net_device *ndev)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 	u32 ecsr, psr;
+@@ -680,6 +705,18 @@ static void ravb_emac_interrupt(struct net_device *ndev)
+ 	}
+ }
+ 
++static irqreturn_t ravb_emac_interrupt(int irq, void *dev_id)
++{
++	struct net_device *ndev = dev_id;
++	struct ravb_private *priv = netdev_priv(ndev);
++
++	spin_lock(&priv->lock);
++	_ravb_emac_interrupt(ndev);
++	mmiowb();
++	spin_unlock(&priv->lock);
++	return IRQ_HANDLED;
++}
++
+ /* Error interrupt handler */
+ static void ravb_error_interrupt(struct net_device *ndev)
+ {
+@@ -690,7 +727,10 @@ static void ravb_error_interrupt(struct net_device *ndev)
+ 	ravb_write(ndev, ~EIS_QFS, EIS);
+ 	if (eis & EIS_QFS) {
+ 		ris2 = ravb_read(ndev, RIS2);
+-		ravb_write(ndev, ~(RIS2_QFF0 | RIS2_RFFF), RIS2);
++		if (priv->chip_id == RCAR_GEN2)
++			ravb_write(ndev, ~(RIS2_QFF0 | RIS2_RFFF), RIS2);
++		else
++			ravb_write(ndev, RIS2_QFF0 | RIS2_RFFF, RID2);
+ 
+ 		/* Receive Descriptor Empty int */
+ 		if (ris2 & RIS2_QFF0)
+@@ -758,16 +798,43 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
+ 
+ 	/* E-MAC status summary */
+ 	if (iss & ISS_MS) {
+-		ravb_emac_interrupt(ndev);
++		_ravb_emac_interrupt(ndev);
++		result = IRQ_HANDLED;
++	}
++
++	/* Error status summary */
++	if (iss & ISS_ES) {
++		ravb_error_interrupt(ndev);
+ 		result = IRQ_HANDLED;
+ 	}
+ 
++	if (iss & ISS_CGIS)
++		result = ravb_ptp_interrupt(ndev);
++
++	mmiowb();
++	spin_unlock(&priv->lock);
++	return result;
++}
++
++/* Descriptor IRQ/ Error/ Management interrupt handler */
++static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
++{
++	struct net_device *ndev = dev_id;
++	struct ravb_private *priv = netdev_priv(ndev);
++	irqreturn_t result = IRQ_NONE;
++	u32 iss;
++
++	spin_lock(&priv->lock);
++	/* Get interrupt status */
++	iss = ravb_read(ndev, ISS);
++
+ 	/* Error status summary */
+ 	if (iss & ISS_ES) {
+ 		ravb_error_interrupt(ndev);
+ 		result = IRQ_HANDLED;
+ 	}
+ 
++	/* Management */
+ 	if (iss & ISS_CGIS)
+ 		result = ravb_ptp_interrupt(ndev);
+ 
+@@ -776,6 +843,55 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
+ 	return result;
+ }
+ 
++static irqreturn_t ravb_dmaq_interrupt(int irq, void *dev_id, int ravb_queue)
++{
++	struct net_device *ndev = dev_id;
++	struct ravb_private *priv = netdev_priv(ndev);
++	irqreturn_t result = IRQ_NONE;
++	u32 ris0, ric0, tis, tic;
++	int q = ravb_queue;
++
++	spin_lock(&priv->lock);
++
++	ris0 = ravb_read(ndev, RIS0);
++	ric0 = ravb_read(ndev, RIC0);
++	tis  = ravb_read(ndev, TIS);
++	tic  = ravb_read(ndev, TIC);
++
++	/* Timestamp updated */
++	if (tis & TIS_TFUF) {
++		ravb_write(ndev, TIS_TFUF, TID);
++		ravb_get_tx_tstamp(ndev);
++		result = IRQ_HANDLED;
++	}
++
++	/* Best effort queue RX/TX */
++	if (((ris0 & ric0) & BIT(q)) ||
++	    ((tis  & tic)  & BIT(q))) {
++		if (napi_schedule_prep(&priv->napi[q])) {
++			/* Mask RX and TX interrupts */
++			ravb_write(ndev, BIT(q), RID0);
++			ravb_write(ndev, BIT(q), TID);
++			__napi_schedule(&priv->napi[q]);
++		}
++		result = IRQ_HANDLED;
++	}
++
++	mmiowb();
++	spin_unlock(&priv->lock);
++	return result;
++}
++
++static irqreturn_t ravb_be_interrupt(int irq, void *dev_id)
++{
++	return ravb_dmaq_interrupt(irq, dev_id, RAVB_BE);
++}
++
++static irqreturn_t ravb_nc_interrupt(int irq, void *dev_id)
++{
++	return ravb_dmaq_interrupt(irq, dev_id, RAVB_NC);
++}
++
+ static int ravb_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct net_device *ndev = napi->dev;
+@@ -815,8 +931,13 @@ static int ravb_poll(struct napi_struct *napi, int budget)
+ 
+ 	/* Re-enable RX/TX interrupts */
+ 	spin_lock_irqsave(&priv->lock, flags);
+-	ravb_write(ndev, ravb_read(ndev, RIC0) | mask, RIC0);
+-	ravb_write(ndev, ravb_read(ndev, TIC)  | mask,  TIC);
++	if (priv->chip_id == RCAR_GEN2) {
++		ravb_write(ndev, ravb_read(ndev, RIC0) | mask, RIC0);
++		ravb_write(ndev, ravb_read(ndev, TIC)  | mask,  TIC);
++	} else {
++		ravb_write(ndev, mask, RIE0);
++		ravb_write(ndev, mask, TIE);
++	}
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+@@ -1208,23 +1329,68 @@ static const struct ethtool_ops ravb_ethtool_ops = {
+ static int ravb_open(struct net_device *ndev)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+-	int error;
++	int error, i;
++	struct platform_device *pdev = priv->pdev;
++	struct device *dev = &pdev->dev;
++	char *name;
+ 
+ 	napi_enable(&priv->napi[RAVB_BE]);
+ 	napi_enable(&priv->napi[RAVB_NC]);
+ 
+-	error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED, ndev->name,
+-			    ndev);
+-	if (error) {
+-		netdev_err(ndev, "cannot request IRQ\n");
+-		goto out_napi_off;
+-	}
+-
+-	if (priv->chip_id == RCAR_GEN3) {
+-		error = request_irq(priv->emac_irq, ravb_interrupt,
+-				    IRQF_SHARED, ndev->name, ndev);
++	if (priv->chip_id == RCAR_GEN2) {
++		error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
++				    ndev->name, ndev);
+ 		if (error) {
+ 			netdev_err(ndev, "cannot request IRQ\n");
++			goto out_napi_off;
++		}
++	} else {
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
++				      ndev->name);
++		error = request_irq(ndev->irq, ravb_multi_interrupt,
++				    IRQF_SHARED, name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ %s\n", name);
++			goto out_napi_off;
++		}
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch24:emac",
++				      ndev->name);
++		error = request_irq(priv->emac_irq, ravb_emac_interrupt,
++				    IRQF_SHARED, name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ %s\n", name);
++			goto out_free_irq;
++		}
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch0:rx_be",
++				      ndev->name);
++		error = request_irq(priv->rx_irqs[RAVB_BE], ravb_be_interrupt,
++				    IRQF_SHARED, name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ %s\n", name);
++			goto out_free_irq;
++		}
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch18:tx_be",
++				      ndev->name);
++		error = request_irq(priv->tx_irqs[RAVB_BE], ravb_be_interrupt,
++				    IRQF_SHARED, name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ %s\n", name);
++			goto out_free_irq;
++		}
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch1:rx_nc",
++				      ndev->name);
++		error = request_irq(priv->rx_irqs[RAVB_NC], ravb_nc_interrupt,
++				    IRQF_SHARED, name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ %s\n", name);
++			goto out_free_irq;
++		}
++		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
++				      ndev->name);
++		error = request_irq(priv->tx_irqs[RAVB_NC], ravb_nc_interrupt,
++				    IRQF_SHARED, name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ %s\n", name);
+ 			goto out_free_irq;
+ 		}
+ 	}
+@@ -1257,6 +1423,10 @@ out_free_irq2:
+ 		free_irq(priv->emac_irq, ndev);
+ out_free_irq:
+ 	free_irq(ndev->irq, ndev);
++	for (i = 0; i < NUM_RX_QUEUE; i++)
++		free_irq(priv->rx_irqs[i], ndev);
++	for (i = 0; i < NUM_TX_QUEUE; i++)
++		free_irq(priv->tx_irqs[i], ndev);
+ out_napi_off:
+ 	napi_disable(&priv->napi[RAVB_NC]);
+ 	napi_disable(&priv->napi[RAVB_BE]);
+@@ -1479,10 +1649,15 @@ static int ravb_close(struct net_device *ndev)
+ 	netif_tx_stop_all_queues(ndev);
+ 
+ 	/* Disable interrupts by clearing the interrupt masks. */
+-	ravb_write(ndev, 0, RIC0);
+-	ravb_write(ndev, 0, RIC2);
+-	ravb_write(ndev, 0, TIC);
+-
++	if (priv->chip_id == RCAR_GEN2) {
++		ravb_write(ndev, 0, RIC0);
++		ravb_write(ndev, 0, RIC2);
++		ravb_write(ndev, 0, TIC);
++	} else {
++		ravb_write(ndev, RAVB_RIx0_ALL, RID0);
++		ravb_write(ndev, RAVB_RIx2_ALL, RID2);
++		ravb_write(ndev, RAVB_TIx_ALL, TID);
++	}
+ 	/* Stop PTP Clock driver */
+ 	if (priv->chip_id == RCAR_GEN2)
+ 		ravb_ptp_stop(ndev);
+@@ -1713,6 +1888,7 @@ static int ravb_probe(struct platform_device *pdev)
+ 	struct net_device *ndev;
+ 	int error, irq, q;
+ 	struct resource *res;
++	int i;
+ 
+ 	if (!np) {
+ 		dev_err(&pdev->dev,
+@@ -1783,6 +1959,22 @@ static int ravb_probe(struct platform_device *pdev)
+ 			goto out_release;
+ 		}
+ 		priv->emac_irq = irq;
++		for (i = 0; i < NUM_RX_QUEUE; i++) {
++			irq = platform_get_irq_byname(pdev, ravb_rx_irqs[i]);
++			if (irq < 0) {
++				error = irq;
++				goto out_release;
++			}
++			priv->rx_irqs[i] = irq;
++		}
++		for (i = 0; i < NUM_TX_QUEUE; i++) {
++			irq = platform_get_irq_byname(pdev, ravb_tx_irqs[i]);
++			if (irq < 0) {
++				error = irq;
++				goto out_release;
++			}
++			priv->tx_irqs[i] = irq;
++		}
+ 	}
+ 
+ 	priv->chip_id = chip_id;
+diff --git a/drivers/net/ethernet/renesas/ravb_ptp.c b/drivers/net/ethernet/renesas/ravb_ptp.c
+index 7a8ce92..a789c7c 100644
+--- a/drivers/net/ethernet/renesas/ravb_ptp.c
++++ b/drivers/net/ethernet/renesas/ravb_ptp.c
+@@ -196,11 +196,15 @@ static int ravb_ptp_extts(struct ptp_clock_info *ptp,
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 	gic = ravb_read(ndev, GIC);
+-	if (on)
+-		gic |= GIC_PTCE;
+-	else
+-		gic &= ~GIC_PTCE;
+-	ravb_write(ndev, gic, GIC);
++	if (priv->chip_id == RCAR_GEN2) {
++		if (on)
++			gic |= GIC_PTCE;
++		else
++			gic &= ~GIC_PTCE;
++		ravb_write(ndev, gic, GIC);
++	} else {
++		ravb_write(ndev, GIC_PTCE, (on) ? GIE : GID);
++	}
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+@@ -216,7 +220,7 @@ static int ravb_ptp_perout(struct ptp_clock_info *ptp,
+ 	struct ravb_ptp_perout *perout;
+ 	unsigned long flags;
+ 	int error = 0;
+-	u32 gic;
++	u32 gic = 0;
+ 
+ 	if (req->index)
+ 		return -EINVAL;
+@@ -248,9 +252,13 @@ static int ravb_ptp_perout(struct ptp_clock_info *ptp,
+ 		error = ravb_ptp_update_compare(priv, (u32)start_ns);
+ 		if (!error) {
+ 			/* Unmask interrupt */
+-			gic = ravb_read(ndev, GIC);
+-			gic |= GIC_PTME;
+-			ravb_write(ndev, gic, GIC);
++			if (priv->chip_id == RCAR_GEN2) {
++				gic = ravb_read(ndev, GIC);
++				gic |= GIC_PTME;
++				ravb_write(ndev, gic, GIC);
++			} else {
++				ravb_write(ndev, GIC_PTME, GIE);
++			}
+ 		}
+ 	} else	{
+ 		spin_lock_irqsave(&priv->lock, flags);
+@@ -259,9 +267,13 @@ static int ravb_ptp_perout(struct ptp_clock_info *ptp,
+ 		perout->period = 0;
+ 
+ 		/* Mask interrupt */
+-		gic = ravb_read(ndev, GIC);
+-		gic &= ~GIC_PTME;
+-		ravb_write(ndev, gic, GIC);
++		if (priv->chip_id == RCAR_GEN2) {
++			gic = ravb_read(ndev, GIC);
++			gic &= ~GIC_PTME;
++			ravb_write(ndev, gic, GIC);
++		} else {
++			ravb_write(ndev, GIC_PTME, GID);
++		}
+ 	}
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+@@ -352,7 +364,11 @@ void ravb_ptp_stop(struct net_device *ndev)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 
+-	ravb_write(ndev, 0, GIC);
++	if (priv->chip_id == RCAR_GEN2)
++		ravb_write(ndev, 0, GIC);
++	else
++		ravb_write(ndev, RAVB_GIx_ALL, GID);
++
+ 	ravb_write(ndev, 0, GIS);
+ 
+ 	ptp_clock_unregister(priv->ptp.clock);
+-- 
+1.9.1
