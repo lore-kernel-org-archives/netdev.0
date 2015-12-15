@@ -1,7 +1,7 @@
 From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH 1/4] ser_gigaset: fix up NULL checks
-Date: Tue, 15 Dec 2015 18:11:28 +0100
-Message-ID: <1450199491-30471-2-git-send-email-pebolle@tiscali.nl>
+Subject: [PATCH 3/4] ser_gigaset: fix deallocation of platform device structure
+Date: Tue, 15 Dec 2015 18:11:30 +0100
+Message-ID: <1450199491-30471-4-git-send-email-pebolle@tiscali.nl>
 References: <1450199491-30471-1-git-send-email-pebolle@tiscali.nl>
 Cc: Tilman Schmidt <tilman@imap.cc>, Alan Cox <alan@linux.intel.com>,
 	Sasha Levin <sasha.levin@oracle.com>,
@@ -15,47 +15,49 @@ List-Id: netdev.vger.kernel.org
 
 From: Tilman Schmidt <tilman@imap.cc>
 
-Commit f34d7a5b7010 ("tty: The big operations rework") changed
-tty->driver to tty->ops but left NULL checks for tty->driver untouched.
-Fix.
+When shutting down the device, the struct ser_cardstate must not be
+kfree()d immediately after the call to platform_device_unregister()
+since the embedded struct platform_device is still in use.
+Move the kfree() call to the release method instead.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-[pebolle: removed Fixes tag]
+Fixes: 2869b23e4b95 ("drivers/isdn/gigaset: new M101 driver (v2)")
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
 Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 ---
- drivers/isdn/gigaset/ser-gigaset.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/isdn/gigaset/ser-gigaset.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 375be509e95f..d8771b5d6904 100644
+index 8e21f6afa832..635baaf34e95 100644
 --- a/drivers/isdn/gigaset/ser-gigaset.c
 +++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -67,7 +67,7 @@ static int write_modem(struct cardstate *cs)
- 	struct sk_buff *skb = bcs->tx_skb;
- 	int sent = -EOPNOTSUPP;
+@@ -368,19 +368,23 @@ static void gigaset_freecshw(struct cardstate *cs)
+ 	tasklet_kill(&cs->write_tasklet);
+ 	if (!cs->hw.ser)
+ 		return;
+-	dev_set_drvdata(&cs->hw.ser->dev.dev, NULL);
+ 	platform_device_unregister(&cs->hw.ser->dev);
+-	kfree(cs->hw.ser);
+-	cs->hw.ser = NULL;
+ }
  
--	if (!tty || !tty->driver || !skb)
-+	if (!tty || !tty->ops || !skb)
- 		return -EINVAL;
+ static void gigaset_device_release(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
++	struct cardstate *cs = dev_get_drvdata(dev);
  
- 	if (!skb->len) {
-@@ -109,7 +109,7 @@ static int send_cb(struct cardstate *cs)
- 	unsigned long flags;
- 	int sent = 0;
+ 	/* adapted from platform_device_release() in drivers/base/platform.c */
+ 	kfree(dev->platform_data);
+ 	kfree(pdev->resource);
++
++	if (!cs)
++		return;
++	dev_set_drvdata(dev, NULL);
++	kfree(cs->hw.ser);
++	cs->hw.ser = NULL;
+ }
  
--	if (!tty || !tty->driver)
-+	if (!tty || !tty->ops)
- 		return -EFAULT;
- 
- 	cb = cs->cmdbuf;
-@@ -432,7 +432,7 @@ static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
- 	struct tty_struct *tty = cs->hw.ser->tty;
- 	unsigned int set, clear;
- 
--	if (!tty || !tty->driver || !tty->ops->tiocmset)
-+	if (!tty || !tty->ops || !tty->ops->tiocmset)
- 		return -EINVAL;
- 	set = new_state & ~old_state;
- 	clear = old_state & ~new_state;
+ /*
 -- 
 2.4.3
