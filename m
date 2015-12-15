@@ -1,46 +1,70 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -mainline] amd-xgbe: fix a couple timeout loops
-Date: Tue, 15 Dec 2015 13:12:29 +0300
-Message-ID: <20151215101229.GF20848@mwanda>
+From: Manoil Claudiu <claudiu.manoil@freescale.com>
+Subject: RE: [PATCH] gianfar: Don't enable RX Filer if not supported
+Date: Tue, 15 Dec 2015 10:12:36 +0000
+Message-ID: <SN1PR0301MB2046E539353A8295C56340E79CEE0@SN1PR0301MB2046.namprd03.prod.outlook.com>
+References: <1450142090-10411-1-git-send-email-hamish.martin@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:49175 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964822AbbLOKMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 05:12:38 -0500
-Content-Disposition: inline
+Received: from mail-bn1bon0130.outbound.protection.outlook.com ([157.56.111.130]:28448
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S964834AbbLOKMj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 05:12:39 -0500
+In-Reply-To: <1450142090-10411-1-git-send-email-hamish.martin@alliedtelesis.co.nz>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At the end of the loop we test "if (!count)" but because "count--" is
-a post-op then the loop will end with count set to -1.  I have fixed
-this by changing it to --count.
+>-----Original Message-----
+>From: Hamish Martin [mailto:hamish.martin@alliedtelesis.co.nz]
+>Sent: Tuesday, December 15, 2015 3:15 AM
+>To: Manoil Claudiu-B08782 <claudiu.manoil@freescale.com>
+>Cc: netdev@vger.kernel.org; Hamish Martin
+><hamish.martin@alliedtelesis.co.nz>
+>Subject: [PATCH] gianfar: Don't enable RX Filer if not supported
+>
+>After commit 15bf176db1fb ("gianfar: Don't enable the Filer w/o the
+>Parser"), 'TSEC' model controllers (for example as seen on MPC8541E)
+>always have 8 bytes stripped from the front of received frames.
+>Only 'eTSEC' gianfar controllers have the RX Filer capability (amongst
+>other enhancements). Previously this was treated as always enabled
+>for both 'TSEC' and 'eTSEC' controllers.
+>In commit 15bf176db1fb ("gianfar: Don't enable the Filer w/o the Parser")
+>a subtle change was made to the setting of 'uses_rxfcb' to effectively
+>always set it (since 'rx_filer_enable' was always true). This had the
+>side-effect of always stripping 8 bytes from the front of received frames
+>on 'TSEC' type controllers.
+>
+>We now only enable the RX Filer capability on controller types that
+>support it, thereby avoiding the issue for 'TSEC' type controllers.
+>
 
-Fixes: c5aa9e3b8156 ('amd-xgbe: Initial AMD 10GbE platform driver')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 970781a..f6a7161 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1849,7 +1849,7 @@ static int xgbe_exit(struct xgbe_prv_data *pdata)
- 	usleep_range(10, 15);
- 
- 	/* Poll Until Poll Condition */
--	while (count-- && XGMAC_IOREAD_BITS(pdata, DMA_MR, SWR))
-+	while (--count && XGMAC_IOREAD_BITS(pdata, DMA_MR, SWR))
- 		usleep_range(500, 600);
- 
- 	if (!count)
-@@ -1873,7 +1873,7 @@ static int xgbe_flush_tx_queues(struct xgbe_prv_data *pdata)
- 	/* Poll Until Poll Condition */
- 	for (i = 0; i < pdata->tx_q_count; i++) {
- 		count = 2000;
--		while (count-- && XGMAC_MTL_IOREAD_BITS(pdata, i,
-+		while (--count && XGMAC_MTL_IOREAD_BITS(pdata, i,
- 							MTL_Q_TQOMR, FTQ))
- 			usleep_range(500, 600);
- 
+Reviewed-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+
+Thanks.
+This should be applied on net. (I checked it applies w/o conflicts)
+
+The usecase covered by rx_filer_enable was lost to me, yet I didn't remove
+rx_filer_enable.  Turns out it's for TSEC, unfortunately I don't have a TSEC
+board for testing yet.  With this patch, rx_filer_enable makes a lot more sense now.
+
+Just out of curiosity, I had a look at the rx_filer_enable history. It looks that
+its meaning got lost back in 2011 with
+commit 4aa3a715551c93eda32d79bd52042ce500bd5383
+(gianfar v5: implement nfc)
+
+Where following change occurred:
+-       /* enable filer if using multiple RX queues*/
+-       if(priv->num_rx_queues > 1)
+-               priv->rx_filer_enable = 1;
++       /* always enable rx filer*/
++       priv->rx_filer_enable = 1;
+
+Back then, apparently the number of Rx queues was used to differentiate
+between eTSEC and the older TSEC controllers (with just 1 RxQ).
