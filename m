@@ -1,61 +1,83 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] ravb: Add disable 10base
-Date: Tue, 15 Dec 2015 14:41:40 +0300
-Message-ID: <566FFC74.6060407@cogentembedded.com>
-References: <1450019758-32710-1-git-send-email-ykaneko0929@gmail.com>
- <566EFCEF.2030200@cogentembedded.com> <566F0F21.6040504@gmail.com>
+From: "Duda, Lukasz" <Lukasz.Duda@nordicsemi.no>
+Subject: RE: [PATCH bluetooth-next] 6lowpan: fix debugfs interface entry name
+Date: Tue, 15 Dec 2015 11:47:27 +0000
+Message-ID: <AB80DA35A7B64E4E98291794926897D9011B97549F@MBX03.nvlsi.no>
+References: <1450178735-1572-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <566F0F21.6040504@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Alexander Aring <alex.aring@gmail.com>,
+	"linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.nordicsemi.no ([194.19.86.146]:53945 "EHLO
+	ironport02.nordicsemi.no" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S964922AbbLOLra convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2015 06:47:30 -0500
+In-Reply-To: <1450178735-1572-1-git-send-email-alex.aring@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Alex,
 
-On 12/14/2015 9:49 PM, Florian Fainelli wrote:
+> -----Original Message-----
+> From: Alexander Aring [mailto:alex.aring@gmail.com]
+> Sent: Tuesday, December 15, 2015 12:26
+> To: linux-wpan@vger.kernel.org
+> Cc: linux-bluetooth@vger.kernel.org; netdev@vger.kernel.org;
+> kernel@pengutronix.de; Duda, Lukasz; Alexander Aring
+> Subject: [PATCH bluetooth-next] 6lowpan: fix debugfs interface entry =
+name
+>=20
+> This patches moves the debugfs interface related register after netde=
+vice
+> register. The function lowpan_dev_debugfs_init will use "dev->name" w=
+hich
+> can be before register_netdevice a format string.
+> The function register_netdevice will evaluate the format string if ne=
+cessary
+> and replace "dev->name" to the real interface name.
+>=20
+> Reported-by: Lukasz Duda <lukasz.duda@nordicsemi.no>
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+>  net/6lowpan/core.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c index c7f06f5..f=
+af65ba
+> 100644
+> --- a/net/6lowpan/core.c
+> +++ b/net/6lowpan/core.c
+> @@ -29,13 +29,13 @@ int lowpan_register_netdevice(struct net_device
+> *dev,
+>=20
+>  	lowpan_priv(dev)->lltype =3D lltype;
+>=20
+> -	ret =3D lowpan_dev_debugfs_init(dev);
+> +	ret =3D register_netdevice(dev);
+>  	if (ret < 0)
+>  		return ret;
+>=20
+> -	ret =3D register_netdevice(dev);
+> +	ret =3D lowpan_dev_debugfs_init(dev);
+>  	if (ret < 0)
+> -		lowpan_dev_debugfs_exit(dev);
+> +		unregister_netdevice(dev);
+>=20
+>  	return ret;
+>  }
+> --
+> 2.6.1
 
->>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>
->>> Ethernet AVB does not support 10 Mbps transfer speed.
->>>
->>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->>> ---
->>>
->>> This patch is based on the master branch of David Miller's networking
->>> tree.
->>>
->>>    drivers/net/ethernet/renesas/ravb_main.c | 3 +++
->>>    1 file changed, 3 insertions(+)
->>>
->>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->>> b/drivers/net/ethernet/renesas/ravb_main.c
->>> index b69e0c2..467d416 100644
->>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->>> @@ -905,6 +905,9 @@ static int ravb_phy_init(struct net_device *ndev)
->>>            netdev_info(ndev, "limited PHY to 100Mbit/s\n");
->>>        }
->>>
->>> +    /* 10BASE is not supported */
->>> +    phydev->supported &= ~PHY_10BT_FEATURES;
->>
->>     I wonder if we should also modify 'phydev->advertising' like
->> phy_set_max_speed() does...
->
-> Yes, this is a good idea. If your PHY driver uses genphy_config_advert()
-> this is taken care of for you, but in case you have a buggy PHY driver,
-> you should just do this yourself here.
+Thanks, after this change I do have correct interface name under
+/sys/kernel/debug/6lowpan for Bluetooth Low Energy (bt0).
 
-    OK, drivers/net/phy/micrel.c uses it for almost all chips.
+Acked-by: Lukasz Duda <lukasz.duda@nordicsemi.no>
 
-MBR, Sergei
-
+Best regards,
+=A3ukasz
