@@ -1,110 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 8/9] e1000e: Do not write lsc to ics in msi-x mode
-Date: Mon, 14 Dec 2015 21:38:43 -0800
-Message-ID: <1450157924-58901-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/9] e1000e: Switch e1000e_up to void, drop code checking for error result
+Date: Mon, 14 Dec 2015 21:38:36 -0800
+Message-ID: <1450157924-58901-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450157924-58901-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:59684 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751577AbbLOFiu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2015 00:38:50 -0500
+	id S1751061AbbLOFir (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2015 00:38:47 -0500
 In-Reply-To: <1450157924-58901-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-In msi-x mode, there is no handler for the lsc interrupt so there is no
-point in writing that to ics now that we always assume Other interrupts
-are caused by lsc.
+The function e1000e_up always returns 0.  As such we can convert it to a
+void and just ignore the results.  This allows us to drop some code in a
+couple spots as we no longer need to worry about non-zero return values.
 
-Reviewed-by: Jasna Hodzic <jhodzic@ucdavis.edu>
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |  3 ++-
- drivers/net/ethernet/intel/e1000e/netdev.c  | 28 +++++++++++++++++-----------
- 2 files changed, 19 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h  |  2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c | 15 ++++-----------
+ 2 files changed, 5 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 133d407..f7c7804 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -441,12 +441,13 @@
- #define E1000_IMS_RXQ1      E1000_ICR_RXQ1      /* Rx Queue 1 Interrupt */
- #define E1000_IMS_TXQ0      E1000_ICR_TXQ0      /* Tx Queue 0 Interrupt */
- #define E1000_IMS_TXQ1      E1000_ICR_TXQ1      /* Tx Queue 1 Interrupt */
--#define E1000_IMS_OTHER     E1000_ICR_OTHER     /* Other Interrupts */
-+#define E1000_IMS_OTHER     E1000_ICR_OTHER     /* Other Interrupt */
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 0b748d1..1dc293b 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -480,7 +480,7 @@ extern const char e1000e_driver_version[];
+ void e1000e_check_options(struct e1000_adapter *adapter);
+ void e1000e_set_ethtool_ops(struct net_device *netdev);
  
- /* Interrupt Cause Set */
- #define E1000_ICS_LSC       E1000_ICR_LSC       /* Link Status Change */
- #define E1000_ICS_RXSEQ     E1000_ICR_RXSEQ     /* Rx sequence error */
- #define E1000_ICS_RXDMT0    E1000_ICR_RXDMT0    /* Rx desc min. threshold */
-+#define E1000_ICS_OTHER     E1000_ICR_OTHER     /* Other Interrupt */
- 
- /* Transmit Descriptor Control */
- #define E1000_TXDCTL_PTHRESH 0x0000003F /* TXDCTL Prefetch Threshold */
+-int e1000e_up(struct e1000_adapter *adapter);
++void e1000e_up(struct e1000_adapter *adapter);
+ void e1000e_down(struct e1000_adapter *adapter, bool reset);
+ void e1000e_reinit_locked(struct e1000_adapter *adapter);
+ void e1000e_reset(struct e1000_adapter *adapter);
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 56bc422..d59c0bc 100644
+index 775e389..955c8c7 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4132,10 +4132,24 @@ void e1000e_reset(struct e1000_adapter *adapter)
+@@ -4146,7 +4146,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
  
  }
  
--void e1000e_up(struct e1000_adapter *adapter)
-+/**
-+ * e1000e_trigger_lsc - trigger an LSC interrupt
-+ * @adapter: 
-+ *
-+ * Fire a link status change interrupt to start the watchdog.
-+ **/
-+static void e1000e_trigger_lsc(struct e1000_adapter *adapter)
+-int e1000e_up(struct e1000_adapter *adapter)
++void e1000e_up(struct e1000_adapter *adapter)
  {
  	struct e1000_hw *hw = &adapter->hw;
  
-+	if (adapter->msix_entries)
-+		ew32(ICS, E1000_ICS_OTHER);
-+	else
-+		ew32(ICS, E1000_ICS_LSC);
-+}
-+
-+void e1000e_up(struct e1000_adapter *adapter)
-+{
- 	/* hardware has been reset, we need to reload some things */
- 	e1000_configure(adapter);
- 
-@@ -4147,11 +4161,7 @@ void e1000e_up(struct e1000_adapter *adapter)
- 
- 	netif_start_queue(adapter->netdev);
- 
--	/* fire a link change interrupt to start the watchdog */
--	if (adapter->msix_entries)
--		ew32(ICS, E1000_ICS_LSC | E1000_ICR_OTHER);
--	else
--		ew32(ICS, E1000_ICS_LSC);
-+	e1000e_trigger_lsc(adapter);
+@@ -4166,8 +4166,6 @@ int e1000e_up(struct e1000_adapter *adapter)
+ 		ew32(ICS, E1000_ICS_LSC | E1000_ICR_OTHER);
+ 	else
+ 		ew32(ICS, E1000_ICS_LSC);
+-
+-	return 0;
  }
  
  static void e1000e_flush_descriptors(struct e1000_adapter *adapter)
-@@ -4576,11 +4586,7 @@ static int e1000_open(struct net_device *netdev)
- 	hw->mac.get_link_status = true;
- 	pm_runtime_put(&pdev->dev);
+@@ -6633,7 +6631,7 @@ static int e1000e_pm_runtime_resume(struct device *dev)
+ 		return rc;
  
--	/* fire a link status change interrupt to start the watchdog */
--	if (adapter->msix_entries)
--		ew32(ICS, E1000_ICS_LSC | E1000_ICR_OTHER);
--	else
--		ew32(ICS, E1000_ICS_LSC);
-+	e1000e_trigger_lsc(adapter);
+ 	if (netdev->flags & IFF_UP)
+-		rc = e1000e_up(adapter);
++		e1000e_up(adapter);
  
- 	return 0;
+ 	return rc;
+ }
+@@ -6824,13 +6822,8 @@ static void e1000_io_resume(struct pci_dev *pdev)
+ 
+ 	e1000_init_manageability_pt(adapter);
+ 
+-	if (netif_running(netdev)) {
+-		if (e1000e_up(adapter)) {
+-			dev_err(&pdev->dev,
+-				"can't bring device back up after reset\n");
+-			return;
+-		}
+-	}
++	if (netif_running(netdev))
++		e1000e_up(adapter);
+ 
+ 	netif_device_attach(netdev);
  
 -- 
 2.5.0
