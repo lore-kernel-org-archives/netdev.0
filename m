@@ -1,32 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] ser_gigaset: fic deallocation of platform device
- structure
-Date: Tue, 15 Dec 2015 13:24:39 -0500 (EST)
-Message-ID: <20151215.132439.2249620841169077570.davem@davemloft.net>
-References: <1450199491-30471-1-git-send-email-pebolle@tiscali.nl>
+Subject: Re: [PATCH] sh_eth: fix descriptor access endianness
+Date: Tue, 15 Dec 2015 13:26:50 -0500 (EST)
+Message-ID: <20151215.132650.1190111989349535666.davem@davemloft.net>
+References: <566FF8FB.2010005@cogentembedded.com>
+	<20151215.125336.1876941788722356501.davem@davemloft.net>
+	<56705698.9010703@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tilman@imap.cc, alan@linux.intel.com,
-	sasha.levin@oracle.com, peter@hurleysoftware.com,
-	linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450199491-30471-1-git-send-email-pebolle@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <56705698.9010703@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Tue, 15 Dec 2015 18:11:27 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 15 Dec 2015 21:06:16 +0300
 
-> Sascha Levin reported that the syzkaller fuzzer triggered a WARNING in
-> ser_gigaset (see https://lkml.kernel.org/g/56587467.8050102@oracle.com ). It
-> turned out that ser_gigaset has always deallocated its platform device
-> structure incorrectly. Tilman submitted the patch that fixes that (3/4) and a
-> related cleanup (4/4).
+> On 12/15/2015 08:53 PM, David Miller wrote:
 > 
-> Tilman also submitted a minor cleanup of some NULL checks (1/4) that prompted
-> Alan to turn those checks into WARN_ONs (2/4). If no one hits these WARN_ONs in
-> the next couple of releases these WARN_ONs should be removed.
+>>>>> The driver never calls cpu_to_edmac() when writing the descriptor
+>>>>> address
+>>>>> and edmac_to_cpu() when reading it, although it should -- fix this.
+>>>>>
+>>>>> Note that the frame/buffer length descriptor field accesses also need
+>>>>> fixing
+>>>>> but since they are both 16-bit we can't use
+>>>>> {cpu|edmac}_to_{edmac|cpu}()...
+>>>>>
+>>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>>
+>>>> Applied.
+>>>
+>>>     I was going to rework this to fix _all_ cases, and sent follow-up
+>>>     email about that yesterday... Haven't you received it?
+>>
+>> I saw it but you were not entirely clear whether you were going to do
+>> that work in a follow-on patch or not.
+>>
+>> If you don't clearly say "Dave, please drop this patch." expect me to
+>> do random things.
+> 
+>    Previously I had a plan to get rid of never used EDMAC_BIG_ENDIAN and
+>    then get rid of {edmac|cpu}_to_{cpu|edmac}() and fix 16-bit descriptor
+>    R/W by using {cpu|le32}_to_{le32|cpu}(). How's that plan to you?
 
-Series applied, thanks Paul.
+I personally don't care what work you do on this driver.
+
+All I care about is that people communicate clearly with me when they
+want me to take, or not take, a given patch.
+
