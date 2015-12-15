@@ -1,56 +1,68 @@
-From: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Information leak in llcp_sock_bind/llcp_raw_sock_bind
-Date: Tue, 15 Dec 2015 21:45:16 +0100
-Message-ID: <CACT4Y+ZnZ2EcZwc6T5LZ1YR2zC8+6aFT_JFYb_LeegnB6tmESw@mail.gmail.com>
-References: <CACT4Y+bjSFyXZi1PKTUsT9PhAYvCGiGjRkOBRbUON0Pw7rJxGg@mail.gmail.com>
- <20151215.153626.1500179484827859040.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
+Date: Tue, 15 Dec 2015 21:46:11 +0100
+Message-ID: <56707C13.3080707@stressinduktion.org>
+References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
+ <1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
+ <CALx6S36bA_PJLpqPbqM_gnZLUE3v7J9iBndGqj=HQLG8hQ_0_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151215.153626.1500179484827859040.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:34912 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932286AbbLOUqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 15:46:15 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id B65E9219E8
+	for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 15:46:14 -0500 (EST)
+In-Reply-To: <CALx6S36bA_PJLpqPbqM_gnZLUE3v7J9iBndGqj=HQLG8hQ_0_w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2015 at 9:36 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 15 Dec 2015 21:00:20 +0100
->
->> The problem is that llcp_sock_bind/llcp_raw_sock_bind do not check
->> sockaddr_len passed in, so they copy stack garbage from stack into the
->> socket and then return it in getsockname.
->> This can defeat ASLR, leak crypto keys, etc.
->
-> That's actually the first thing these functions do.
->
-> They completely clear out the on-stack llcp_addr, then they copy only
-> as much as the user gave them, being careful not to use more than
-> sizeof(llcp_addr).
->
->         memset(&llcp_addr, 0, sizeof(llcp_addr));
->         len = min_t(unsigned int, sizeof(llcp_addr), alen);
->         memcpy(&llcp_addr, addr, len);
->
-> I don't see what the problem is, you'll need to be more specific.
+On 15.12.2015 21:26, Tom Herbert wrote:
+> On Tue, Dec 15, 2015 at 12:01 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> udp tunnel offloads tend to aggregate datagrams based on inner
+>> headers. gro engine gets notified by tunnel implementations about
+>> possible offloads. The match is solely based on the port number.
+>>
+>> Imagine a tunnel bound to port 53, the offloading will look into all
+>> DNS packets and tries to aggregate them based on the inner data found
+>> within. This could lead to data corruption and malformed DNS packets.
+>>
+>> While this patch minimizes the problem and helps an administrator to find
+>> the issue by querying ip tunnel/fou, a better way would be to match on
+>> the specific destination ip address so if a user space socket is bound
+>> to the same address it will conflict.
+>>
+> I don't know... seems like this is more likely to add code into the
+> critical path rather than solve a problem impacting anyone yet. No
+> other GRO code needs to be namespace aware and none of these fancy HW
+> offloads for UDP encapsulations are going to care anything about
+> namespaces.
 
-You are right. Sorry.
+HW encapsulation actually already respects namespaces, they only iterate
+over the net_devices in the namespace the tunnel is created in to push
+down the udp port information.
 
-There still seems to be a minor leak here:
+I would like to extend this to destination addresses, too. I am not sure
+this is possible and if hw offloads actually corrupt packets.
 
-  if (!addr || addr->sa_family != AF_NFC)
-      return -EINVAL;
+> I think you point out the real underlying problem though, the UDP
+> offloads are restricted only be done by destination port and nothing
+> else. A more flexible method would be to allow matching on based
+> addresses, four tuples, interfaces etc. (latter may be needed to
+> offload connected UDP).
 
-addr->sa_family can be uninit.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+With net namespaces a quadruple does not uniquely identify a socket
+anymore, as different netns could have the same ip address bound. So
+separation by netns seems to be the first and easy implementable
+solution to protect against those problems. I am already working to push
+the local address to gro, too.
+
+Bye,
+Hannes
