@@ -1,47 +1,35 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH bluetooth-next] 6lowpan: fix debugfs interface entry name
-Date: Tue, 15 Dec 2015 12:25:35 +0100
-Message-ID: <1450178735-1572-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org,
-	Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: fix descriptor access endianness
+Date: Tue, 15 Dec 2015 14:26:51 +0300
+Message-ID: <566FF8FB.2010005@cogentembedded.com>
+References: <11070795.yxBPvlHg4n@wasted.cogentembedded.com>
+ <20151215.002541.762812772082527155.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20151215.002541.762812772082527155.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patches moves the debugfs interface related register after
-netdevice register. The function lowpan_dev_debugfs_init will use
-"dev->name" which can be before register_netdevice a format string.
-The function register_netdevice will evaluate the format string if
-necessary and replace "dev->name" to the real interface name.
+Hello.
 
-Reported-by: Lukasz Duda <lukasz.duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org>
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/6lowpan/core.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On 12/15/2015 8:25 AM, David Miller wrote:
 
-diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
-index c7f06f5..faf65ba 100644
---- a/net/6lowpan/core.c
-+++ b/net/6lowpan/core.c
-@@ -29,13 +29,13 @@ int lowpan_register_netdevice(struct net_device *dev,
- 
- 	lowpan_priv(dev)->lltype = lltype;
- 
--	ret = lowpan_dev_debugfs_init(dev);
-+	ret = register_netdevice(dev);
- 	if (ret < 0)
- 		return ret;
- 
--	ret = register_netdevice(dev);
-+	ret = lowpan_dev_debugfs_init(dev);
- 	if (ret < 0)
--		lowpan_dev_debugfs_exit(dev);
-+		unregister_netdevice(dev);
- 
- 	return ret;
- }
--- 
-2.6.1
+>> The driver never  calls cpu_to_edmac() when writing the descriptor address
+>> and edmac_to_cpu() when reading it, although it should -- fix this.
+>>
+>> Note that the frame/buffer length descriptor field accesses also need fixing
+>> but since they are both 16-bit we can't  use {cpu|edmac}_to_{edmac|cpu}()...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+> Applied.
+
+    I was going to rework this to fix _all_ cases, and sent follow-up email 
+about that yesterday... Haven't you received it?
+
+MBR, Sergei
+
