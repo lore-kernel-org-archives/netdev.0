@@ -1,7 +1,7 @@
 From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH 2/6] hlist: prepare for supporting bit spinlock
-Date: Tue, 15 Dec 2015 19:21:00 +0800
-Message-ID: <1450178464-27721-3-git-send-email-tom.leiming@gmail.com>
+Subject: [PATCH 1/6] bpf: hash: use atomic count
+Date: Tue, 15 Dec 2015 19:20:59 +0800
+Message-ID: <1450178464-27721-2-git-send-email-tom.leiming@gmail.com>
 References: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Ming Lei <tom.leiming@gmail.com>
@@ -11,86 +11,71 @@ In-Reply-To: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hlist_head is often used for implementing bucket header of
-hash table, and one lock is often needed for adding/deleting
-node in the bucket list. It can consume lots of memory if
-per-bucket spinlock is used, so this patch trys to use the 1st
-bit of hlist_head->first as bit lock for this purpose.
-
-bit spinlock isn't efficient as spin lock, but the contention
-shouldn't be very high for operating per-bucket hlist, so bit
-spinlock should be OK.
+Preparing for removing global per-hashtable lock, so
+the counter need to be defined as aotmic_t first.
 
 Signed-off-by: Ming Lei <tom.leiming@gmail.com>
 ---
- include/linux/rculist.h | 55 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 55 insertions(+)
+ kernel/bpf/hashtab.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-index 14ec165..9fc394a 100644
---- a/include/linux/rculist.h
-+++ b/include/linux/rculist.h
-@@ -435,6 +435,61 @@ static inline void hlist_replace_rcu(struct hlist_node *old,
- #define hlist_next_rcu(node)	(*((struct hlist_node __rcu **)(&(node)->next)))
- #define hlist_pprev_rcu(node)	(*((struct hlist_node __rcu **)((node)->pprev)))
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 34777b3..2615388 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -18,7 +18,7 @@ struct bpf_htab {
+ 	struct bpf_map map;
+ 	struct hlist_head *buckets;
+ 	raw_spinlock_t lock;
+-	u32 count;	/* number of elements in this hashtable */
++	atomic_t count;	/* number of elements in this hashtable */
+ 	u32 n_buckets;	/* number of hash buckets */
+ 	u32 elem_size;	/* size of each element in bytes */
+ };
+@@ -106,7 +106,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		INIT_HLIST_HEAD(&htab->buckets[i]);
  
-+/*
-+ * This bit of hlist_head->first can be used as per-bucket
-+ * bit spin_lock in hash table use case, and the lock bit
-+ * should always be kept when hlist_node is added, deleted
-+ * and other update operations.
-+ *
-+ * When lock bit is used, only the _lock version of hlist
-+ * helpers can be used for operating the hlist.
-+ */
-+#define	HLIST_LOCK_BIT		0
-+#define	HLIST_LOCK_MASK		(1UL << HLIST_LOCK_BIT)
-+#define hlist_get_first(h)	\
-+	(struct hlist_node *)((unsigned long)(h)->first & ~HLIST_LOCK_MASK)
-+#define hlist_get_lock(h)    ((unsigned long)(h)->first & HLIST_LOCK_MASK)
-+#define hlist_make_1st_node(h, n) \
-+	(struct hlist_node *)((unsigned long)(n) | hlist_get_lock(h))
-+
-+static inline struct hlist_head *hlist_get_head_lock(
-+		struct hlist_head *head, struct hlist_head *new_head)
-+{
-+	new_head->first = hlist_get_first(head);
-+	return new_head;
-+}
-+
-+static inline void __hlist_del_lock(struct hlist_node *n)
-+{
-+	struct hlist_node *next = n->next;
-+	struct hlist_node **pprev = n->pprev;
-+
-+	WRITE_ONCE(*pprev, (unsigned long)next |
-+			((unsigned long)*pprev & HLIST_LOCK_MASK));
-+	if (next)
-+		next->pprev = pprev;
-+}
-+
-+/* The bit lock should be held before calling this helper */
-+static inline void hlist_del_rcu_lock(struct hlist_node *n)
-+{
-+	__hlist_del_lock(n);
-+	n->pprev = LIST_POISON2;
-+}
-+
-+/* The bit lock should be held before calling this helper */
-+static inline void hlist_add_head_rcu_lock(struct hlist_node *n,
-+					   struct hlist_head *h)
-+{
-+	struct hlist_node *first = hlist_get_first(h);
-+
-+	n->next = first;
-+	n->pprev = &h->first;
-+	rcu_assign_pointer(hlist_first_rcu(h), hlist_make_1st_node(h, n));
-+	if (first)
-+		first->pprev = &n->next;
-+}
-+
- /**
-  * hlist_add_head_rcu
-  * @n: the element to add to the hash list.
+ 	raw_spin_lock_init(&htab->lock);
+-	htab->count = 0;
++	atomic_set(&htab->count, 0);
+ 
+ 	return &htab->map;
+ 
+@@ -256,7 +256,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 
+ 	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
+ 
+-	if (!l_old && unlikely(htab->count >= map->max_entries)) {
++	if (!l_old && unlikely(atomic_read(&htab->count) >= map->max_entries)) {
+ 		/* if elem with this 'key' doesn't exist and we've reached
+ 		 * max_entries limit, fail insertion of new elem
+ 		 */
+@@ -284,7 +284,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 		hlist_del_rcu(&l_old->hash_node);
+ 		kfree_rcu(l_old, rcu);
+ 	} else {
+-		htab->count++;
++		atomic_inc(&htab->count);
+ 	}
+ 	raw_spin_unlock_irqrestore(&htab->lock, flags);
+ 
+@@ -319,7 +319,7 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
+ 
+ 	if (l) {
+ 		hlist_del_rcu(&l->hash_node);
+-		htab->count--;
++		atomic_dec(&htab->count);
+ 		kfree_rcu(l, rcu);
+ 		ret = 0;
+ 	}
+@@ -339,7 +339,7 @@ static void delete_all_elements(struct bpf_htab *htab)
+ 
+ 		hlist_for_each_entry_safe(l, n, head, hash_node) {
+ 			hlist_del_rcu(&l->hash_node);
+-			htab->count--;
++			atomic_dec(&htab->count);
+ 			kfree(l);
+ 		}
+ 	}
 -- 
 1.9.1
