@@ -1,56 +1,48 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH iproute2] lwtunnel: fix argument parsing
-Date: Tue, 15 Dec 2015 12:18:04 +0100
-Message-ID: <f105b591ec43f65607f9d08d46af4612bb75e8cd.1450178247.git.pabeni@redhat.com>
-Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>
-To: shemming@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50142 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964994AbbLOLSW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2015 06:18:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: [PATCH 0/6] bpf: hash: optimization
+Date: Tue, 15 Dec 2015 19:20:58 +0800
+Message-ID: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently parse_encap_ip() does not update correctly argv/argc;
-if multiple lwtunnel arguments are provided, the parsing fails after
-the first one, i.e.
+Hi,
 
- ip route add 172.16.101.0/24 dev vxlan1 encap ip id 42 dst 192.168.255.1
+This patchset tries to optimize ebpf hash map, and follows
+the ideas:
 
-fails with:
+1) Both htab_map_update_elem() and htab_map_delete_elem()
+can be called from eBPF program, and they may be in kernel
+hot path, so it isn't efficient to use a per-hashtable lock
+in this two helpers, so this patch converts the lock into
+per-bucket bit spinlock.
 
- Error: either "to" is duplicate, or "dst" is a garbage.
+2) kmalloc() is called in htab_map_update_elem() for allocating
+element, together with one global counter for tracking how many
+elementes have been allocated. kmalloc is often a bit slow,
+and the global counter doesn't scale well. This patch pre-allocates
+one element pool and uses percpu ida for runtime element allocation/free,
+and the global counter is removed too with this approach.
 
-This commit addresses the issue, stepping to next argument at each iteration
-of the parsing loop.
+With this patchset, looks the performance penalty from eBPF
+decreased a lot, see the following test:
 
-Fixes: 1e5293056a02 ("lwtunnel: Add encapsulation support to ip route")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- ip/iproute_lwtunnel.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+1) run 'tools/biolatency' of bcc before running block test;
 
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 63322a1..c825b82 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -178,10 +178,14 @@ static int parse_encap_ip(struct rtattr *rta, size_t len, int *argcp, char ***ar
- 		} else {
- 			break;
- 		}
-+		argc--; argv++;
- 	}
- 
--	*argcp = argc;
--	*argvp = argv;
-+	/* argv is currently the first unparsed argument,
-+	 * but the lwt_parse_encap() caller will move to the next,
-+	 * so step back */
-+	*argcp = argc + 1;
-+	*argvp = argv - 1;
- 
- 	return 0;
- }
--- 
-1.8.3.1
+2) run fio to test block throught over /dev/nullb0,
+(randread, 16jobs, libaio, 4k bs) and the test box
+is one 24cores(dual sockets) VM server:
+
+	- without patchset:  607K IOPS
+	- with this patchset: 1332K IOPS
+	- without running eBPF prog: 1492K IOPS
+
+ include/linux/rculist.h |  55 +++++++++++
+ kernel/bpf/hashtab.c    | 247 ++++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 252 insertions(+), 50 deletions(-)
+
+
+Thanks,
+Ming 
