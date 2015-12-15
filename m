@@ -1,53 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: fix uninitialized variable issue
-Date: Tue, 15 Dec 2015 11:02:09 -0800
-Message-ID: <1450206129.8474.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151215184617.11620.23369.stgit@tstruk-mobl1>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: fix descriptor access endianness
+Date: Tue, 15 Dec 2015 22:02:41 +0300
+Message-ID: <567063D1.1020909@cogentembedded.com>
+References: <11070795.yxBPvlHg4n@wasted.cogentembedded.com>
+ <20151215.002541.762812772082527155.davem@davemloft.net>
+ <566FF8FB.2010005@cogentembedded.com>
+ <20151215.125336.1876941788722356501.davem@davemloft.net>
+ <56705698.9010703@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, freude@linux.vnet.ibm.com,
-	viro@zeniv.linux.org.uk, linux-crypto@vger.kernel.org
-To: Tadeusz Struk <tadeusz.struk@intel.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20151215184617.11620.23369.stgit@tstruk-mobl1>
-Sender: linux-crypto-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <56705698.9010703@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-12-15 at 10:46 -0800, Tadeusz Struk wrote:
-> msg_iocb needs to be initialized on the recv/recvfrom path.
-> Otherwise afalg will wrongly interpret it as an async call.
-> 
-> Cc: stable@vger.kernel.org
-> Reported-by: Harald Freudenberger <freude@linux.vnet.ibm.com>
-> Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
-> ---
->  net/socket.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/socket.c b/net/socket.c
-> index dd2c247..80ca820 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1702,6 +1702,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
->  	msg.msg_name = addr ? (struct sockaddr *)&address : NULL;
->  	/* We assume all kernel code knows the size of sockaddr_storage */
->  	msg.msg_namelen = 0;
-> +	msg.msg_iocb = NULL;
->  	if (sock->file->f_flags & O_NONBLOCK)
->  		flags |= MSG_DONTWAIT;
->  	err = sock_recvmsg(sock, &msg, iov_iter_count(&msg.msg_iter), flags);
-> 
+Hello.
 
-Do not add "Cc: stable@vger.kernel.org" for networking patches, thanks 
-( Documentation/networking/netdev-FAQ.txt )
+On 12/15/2015 09:06 PM, Sergei Shtylyov wrote:
 
-Do you know when was this bug added ?
+>>>>> The driver never calls cpu_to_edmac() when writing the descriptor
+>>>>> address
+>>>>> and edmac_to_cpu() when reading it, although it should -- fix this.
+>>>>>
+>>>>> Note that the frame/buffer length descriptor field accesses also need
+>>>>> fixing
+>>>>> but since they are both 16-bit we can't use
+>>>>> {cpu|edmac}_to_{edmac|cpu}()...
+>>>>>
+>>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>>
+>>>> Applied.
+>>>
+>>>     I was going to rework this to fix _all_ cases, and sent follow-up
+>>>     email about that yesterday... Haven't you received it?
+>>
+>> I saw it but you were not entirely clear whether you were going to do
+>> that work in a follow-on patch or not.
+>>
+>> If you don't clearly say "Dave, please drop this patch." expect me to
+>> do random things.
+>
+>     Previously I had a plan to get rid of never used EDMAC_BIG_ENDIAN and then
+> get rid of {edmac|cpu}_to_{cpu|edmac}() and fix 16-bit descriptor R/W by using
+> {cpu|le32}_to_{le32|cpu}(). How's that plan to you?
 
-Please add the 
+   le16, of course.
 
-Fixes:  12-digit-sha1 ("patch title")
+MBR, Sergei
 
-Thanks.
