@@ -1,160 +1,53 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v6 2/4] net: diag: Add the ability to destroy a socket.
-Date: Wed, 16 Dec 2015 02:17:46 +0900
-Message-ID: <1450199868-93712-3-git-send-email-lorenzo@google.com>
-References: <20151214.143739.879220917312503422.davem@davemloft.net>
- <1450199868-93712-1-git-send-email-lorenzo@google.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org,
-	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
-	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net_sched: make qdisc_tree_decrease_qlen() work for non
+ mq
+Date: Tue, 15 Dec 2015 09:43:12 -0800
+Message-ID: <1450201392.8474.37.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stas Nichiporovich <stasn77@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33154 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965091AbbLORZu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:25:50 -0500
-Received: by mail-pf0-f169.google.com with SMTP id n128so8072361pfn.0
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:25:49 -0800 (PST)
-In-Reply-To: <1450199868-93712-1-git-send-email-lorenzo@google.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35149 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932211AbbLORnO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:43:14 -0500
+Received: by mail-pf0-f182.google.com with SMTP id 63so8457629pff.2
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:43:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a diag_destroy pointer to struct proto that allows a
-socket to be administratively closed without any action from the
-process owning the socket or the socket protocol.
+From: Eric Dumazet <edumazet@google.com>
 
-This allows a privileged userspace process, such as a connection
-manager or system administration tool, to close sockets belonging
-to other apps when the network they were established on has
-disconnected. It is needed on laptops and mobile hosts to ensure
-that network switches / disconnects do not result in applications
-being blocked for long periods of time (minutes) in read or
-connect calls on TCP sockets that will never succeed because the
-IP address they are bound to is no longer on the system. Closing
-the sockets causes these calls to fail fast and allows the apps
-to reconnect on another network.
+Stas Nichiporovich reported a regression in his HFSC qdisc setup
+on a non multi queue device.
 
-For many years Android kernels have supported this via an
-out-of-tree SIOCKILLADDR ioctl that is called on every
-RTM_DELADDR event, but this solution is cleaner, more robust and
-more flexible: the connection manager can iterate over all
-connections on the deleted IP address and close all of them. It
-can also be used to close all sockets opened by a given app
-process, for example if the user has restricted that app from
-using the network.
+It turns out I mistakenly added a TCQ_F_NOPARENT flag on all qdisc
+allocated in qdisc_create() for non multi queue devices, which was
+rather buggy. I was clearly mislead by the TCQ_F_ONETXQUEUE that is
+also set here for no good reason, since it only matters for the root
+qdisc.
 
-It also allows in-kernel callers to perform the same sort of
-operation by invoking sk->sk_prot->diag_destroy(sk) directly.
-
-This patch adds a SOCK_DESTROY operation, a destroy function
-pointer to sock_diag_handler, and a diag_destroy function
-pointer.  It does not include any implementation code.
-
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Fixes: 4eaf3b84f288 ("net_sched: fix qdisc_tree_decrease_qlen() races")
+Reported-by: Stas Nichiporovich <stasn77@gmail.com>
+Tested-by: Stas Nichiporovich <stasn77@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/sock_diag.h      |  2 ++
- include/net/sock.h             |  1 +
- include/uapi/linux/sock_diag.h |  1 +
- net/core/sock_diag.c           | 23 ++++++++++++++++++++---
- 4 files changed, 24 insertions(+), 3 deletions(-)
+ net/sched/sch_api.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index fddebc6..4018b48 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -15,6 +15,7 @@ struct sock_diag_handler {
- 	__u8 family;
- 	int (*dump)(struct sk_buff *skb, struct nlmsghdr *nlh);
- 	int (*get_info)(struct sk_buff *skb, struct sock *sk);
-+	int (*destroy)(struct sk_buff *skb, struct nlmsghdr *nlh);
- };
- 
- int sock_diag_register(const struct sock_diag_handler *h);
-@@ -68,4 +69,5 @@ bool sock_diag_has_destroy_listeners(const struct sock *sk)
- }
- void sock_diag_broadcast_destroy(struct sock *sk);
- 
-+int sock_diag_destroy(struct sock *sk, int err);
- #endif
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 0ca22b0..c9218f5 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1060,6 +1060,7 @@ struct proto {
- 	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
- 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
- #endif
-+	int			(*diag_destroy)(struct sock *sk, int err);
- };
- 
- int proto_register(struct proto *prot, int alloc_slab);
-diff --git a/include/uapi/linux/sock_diag.h b/include/uapi/linux/sock_diag.h
-index 49230d3..bae2d80 100644
---- a/include/uapi/linux/sock_diag.h
-+++ b/include/uapi/linux/sock_diag.h
-@@ -4,6 +4,7 @@
- #include <linux/types.h>
- 
- #define SOCK_DIAG_BY_FAMILY 20
-+#define SOCK_DESTROY 21
- 
- struct sock_diag_req {
- 	__u8	sdiag_family;
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 0c1d58d..a996ce8 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -214,7 +214,7 @@ void sock_diag_unregister(const struct sock_diag_handler *hnld)
- }
- EXPORT_SYMBOL_GPL(sock_diag_unregister);
- 
--static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-+static int __sock_diag_cmd(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
- 	int err;
- 	struct sock_diag_req *req = nlmsg_data(nlh);
-@@ -234,8 +234,12 @@ static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	hndl = sock_diag_handlers[req->sdiag_family];
- 	if (hndl == NULL)
- 		err = -ENOENT;
--	else
-+	else if (nlh->nlmsg_type == SOCK_DIAG_BY_FAMILY)
- 		err = hndl->dump(skb, nlh);
-+	else if (nlh->nlmsg_type == SOCK_DESTROY && hndl->destroy)
-+		err = hndl->destroy(skb, nlh);
-+	else
-+		err = -EOPNOTSUPP;
- 	mutex_unlock(&sock_diag_table_mutex);
- 
- 	return err;
-@@ -261,7 +265,8 @@ static int sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 
- 		return ret;
- 	case SOCK_DIAG_BY_FAMILY:
--		return __sock_diag_rcv_msg(skb, nlh);
-+	case SOCK_DESTROY:
-+		return __sock_diag_cmd(skb, nlh);
- 	default:
- 		return -EINVAL;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 7ec667dd4ce1..b5c2cf2aa6d4 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -950,7 +950,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 		}
+ 		lockdep_set_class(qdisc_lock(sch), &qdisc_tx_lock);
+ 		if (!netif_is_multiqueue(dev))
+-			sch->flags |= TCQ_F_ONETXQUEUE | TCQ_F_NOPARENT;
++			sch->flags |= TCQ_F_ONETXQUEUE;
  	}
-@@ -295,6 +300,18 @@ static int sock_diag_bind(struct net *net, int group)
- 	return 0;
- }
  
-+int sock_diag_destroy(struct sock *sk, int err)
-+{
-+	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	if (!sk->sk_prot->diag_destroy)
-+		return -EOPNOTSUPP;
-+
-+	return sk->sk_prot->diag_destroy(sk, err);
-+}
-+EXPORT_SYMBOL_GPL(sock_diag_destroy);
-+
- static int __net_init diag_net_init(struct net *net)
- {
- 	struct netlink_kernel_cfg cfg = {
--- 
-2.6.0.rc2.230.g3dd15c0
+ 	sch->handle = handle;
