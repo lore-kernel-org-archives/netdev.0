@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/14] mlxsw: spectrum: Split vFID range in two
-Date: Tue, 15 Dec 2015 16:03:37 +0100
-Message-ID: <1450191827-6679-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 06/14] mlxsw: spectrum: Add another flood table for vFIDs
+Date: Tue, 15 Dec 2015 16:03:39 +0100
+Message-ID: <1450191827-6679-7-git-send-email-jiri@resnulli.us>
 References: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,747 +11,149 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:38416 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933458AbbLOPD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:03:57 -0500
-Received: by mail-wm0-f41.google.com with SMTP id p66so29757302wmp.1
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:03:56 -0800 (PST)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:38499 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933550AbbLOPEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:04:00 -0500
+Received: by mail-wm0-f48.google.com with SMTP id p66so29759806wmp.1
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:03:59 -0800 (PST)
 In-Reply-To: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Up until now we used a 1:1 mapping - based on VID - to map a VLAN
-interface to a vFID. However, a different scheme is needed in order to
-support bridges between VLAN interfaces, as all the member interfaces -
-which can have different VIDs - need to share the same vFID.
+We previously used only one flood table for packets classified to vFIDs.
+However, since we are going to add support for bridges between VLAN
+interfaces (mapped to vFIDs) we need to add one more flood table.
 
-Solve that by splitting the vFID range in two:
- 1. Non-bridged VLAN interfaces
- 2. Bridged VLAN interfaces
-
-When a VLAN interface is created, assign it the next available vFID in
-the first range, unless one already exists for that VID or number of
-vFIDs in the range was exceeded. When interface is removed, free the
-vFID, unless other interfaces are mapped to it.
-
-To accomplish the above:
- 1. Store the VID to vFID mapping in a new struct (mlxsw_sp_vfid), which
-    has a global context and holds a reference count.
- 2. Create a vPort (dummy in case of bridge SELF invocation) on top of
-    of the physical port and hold a reference to the associated vFID.
-
-	     vfid                    vfid
-	+-------------+	        +-------------+
-	| vfid        |         | vfid        |
-	| vid         +---> ... | vid         |
-	| nr_vports   |         | nr_vports   |
-	+------+------+         +------+------+
-				       |
-	       +-----------------------+-------+
-	       |			       |
-	     vport			     vport
-	+-------------+         	+-------------+
-	| ...	      |         	| ...	      |
-	| *vfid	      +---> ... 	| *vfid	      +---> ...
-	| ...	      |         	| ...	      |
-	+------+------+         	+------+------+
-	       |                               |
-	     port			     port
-	+-------------+         	+-------------+
-	| ...         |         	| ...         |
-	| vports_list |         	| vports_list |
-	| ...         |         	| ...         |
-	+-------------+         	+-------------+
-	     swXpY			     swXpZ
-
-Next patches in the series will add the missing infrastructure for the
-second range and transfer vPorts between the two ranges according to the
-received notifications.
+That way we can separate the flooding domain of unknown unicast traffic
+from all the rest and support flood control (as we do with the 802.1Q
+bridge).
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 294 ++++++++++++++-------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  64 ++++-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  28 +-
- 3 files changed, 287 insertions(+), 99 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 36 ++++++++--------------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 +-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  5 +--
+ 3 files changed, 16 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 6bacdcf5..00ffff9 100644
+index 00ffff9..7b1ce97 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -48,6 +48,7 @@
- #include <linux/workqueue.h>
- #include <linux/jiffies.h>
- #include <linux/bitops.h>
-+#include <linux/list.h>
- #include <net/switchdev.h>
- #include <generated/utsrelease.h>
+@@ -679,7 +679,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
  
-@@ -186,33 +187,6 @@ static int mlxsw_sp_port_oper_status_get(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return 0;
- }
- 
--static int mlxsw_sp_vfid_create(struct mlxsw_sp *mlxsw_sp, u16 vfid)
--{
--	char sfmr_pl[MLXSW_REG_SFMR_LEN];
--	int err;
--
--	mlxsw_reg_sfmr_pack(sfmr_pl, MLXSW_REG_SFMR_OP_CREATE_FID,
--			    MLXSW_SP_VFID_BASE + vfid, 0);
--	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfmr), sfmr_pl);
--
--	if (err)
--		return err;
--
--	set_bit(vfid, mlxsw_sp->active_vfids);
--	return 0;
--}
--
--static void mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp, u16 vfid)
--{
--	char sfmr_pl[MLXSW_REG_SFMR_LEN];
--
--	clear_bit(vfid, mlxsw_sp->active_vfids);
--
--	mlxsw_reg_sfmr_pack(sfmr_pl, MLXSW_REG_SFMR_OP_DESTROY_FID,
--			    MLXSW_SP_VFID_BASE + vfid, 0);
--	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfmr), sfmr_pl);
--}
--
- static int mlxsw_sp_port_dev_addr_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 				      unsigned char *addr)
- {
-@@ -549,12 +523,130 @@ static int mlxsw_sp_port_vlan_mode_trans(struct mlxsw_sp_port *mlxsw_sp_port)
- 	return 0;
- }
- 
-+static struct mlxsw_sp_vfid *
-+mlxsw_sp_vfid_find(const struct mlxsw_sp *mlxsw_sp, u16 vid)
-+{
-+	struct mlxsw_sp_vfid *vfid;
-+
-+	list_for_each_entry(vfid, &mlxsw_sp->port_vfids.list, list) {
-+		if (vfid->vid == vid)
-+			return vfid;
-+	}
-+
-+	return NULL;
-+}
-+
-+static u16 mlxsw_sp_avail_vfid_get(const struct mlxsw_sp *mlxsw_sp)
-+{
-+	return find_first_zero_bit(mlxsw_sp->port_vfids.mapped,
-+				   MLXSW_SP_VFID_PORT_MAX);
-+}
-+
-+static int __mlxsw_sp_vfid_create(struct mlxsw_sp *mlxsw_sp, u16 vfid)
-+{
-+	u16 fid = mlxsw_sp_vfid_to_fid(vfid);
-+	char sfmr_pl[MLXSW_REG_SFMR_LEN];
-+
-+	mlxsw_reg_sfmr_pack(sfmr_pl, MLXSW_REG_SFMR_OP_CREATE_FID, fid, 0);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfmr), sfmr_pl);
-+}
-+
-+static void __mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp, u16 vfid)
-+{
-+	u16 fid = mlxsw_sp_vfid_to_fid(vfid);
-+	char sfmr_pl[MLXSW_REG_SFMR_LEN];
-+
-+	mlxsw_reg_sfmr_pack(sfmr_pl, MLXSW_REG_SFMR_OP_DESTROY_FID, fid, 0);
-+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfmr), sfmr_pl);
-+}
-+
-+static struct mlxsw_sp_vfid *mlxsw_sp_vfid_create(struct mlxsw_sp *mlxsw_sp,
-+						  u16 vid)
-+{
-+	struct device *dev = mlxsw_sp->bus_info->dev;
-+	struct mlxsw_sp_vfid *vfid;
-+	u16 n_vfid;
-+	int err;
-+
-+	n_vfid = mlxsw_sp_avail_vfid_get(mlxsw_sp);
-+	if (n_vfid == MLXSW_SP_VFID_PORT_MAX) {
-+		dev_err(dev, "No available vFIDs\n");
-+		return ERR_PTR(-ERANGE);
-+	}
-+
-+	err = __mlxsw_sp_vfid_create(mlxsw_sp, n_vfid);
-+	if (err) {
-+		dev_err(dev, "Failed to create vFID=%d\n", n_vfid);
-+		return ERR_PTR(err);
-+	}
-+
-+	vfid = kzalloc(sizeof(*vfid), GFP_KERNEL);
-+	if (!vfid)
-+		goto err_allocate_vfid;
-+
-+	vfid->vfid = n_vfid;
-+	vfid->vid = vid;
-+
-+	list_add(&vfid->list, &mlxsw_sp->port_vfids.list);
-+	set_bit(n_vfid, mlxsw_sp->port_vfids.mapped);
-+
-+	return vfid;
-+
-+err_allocate_vfid:
-+	__mlxsw_sp_vfid_destroy(mlxsw_sp, n_vfid);
-+	return ERR_PTR(-ENOMEM);
-+}
-+
-+static void mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
-+				  struct mlxsw_sp_vfid *vfid)
-+{
-+	clear_bit(vfid->vfid, mlxsw_sp->port_vfids.mapped);
-+	list_del(&vfid->list);
-+
-+	__mlxsw_sp_vfid_destroy(mlxsw_sp, vfid->vfid);
-+
-+	kfree(vfid);
-+}
-+
-+static struct mlxsw_sp_port *
-+mlxsw_sp_port_vport_create(struct mlxsw_sp_port *mlxsw_sp_port,
-+			   struct mlxsw_sp_vfid *vfid)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_vport;
-+
-+	mlxsw_sp_vport = kzalloc(sizeof(*mlxsw_sp_vport), GFP_KERNEL);
-+	if (!mlxsw_sp_vport)
-+		return NULL;
-+
-+	/* dev will be set correctly after the VLAN device is linked
-+	 * with the real device. In case of bridge SELF invocation, dev
-+	 * will remain as is.
-+	 */
-+	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
-+	mlxsw_sp_vport->mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	mlxsw_sp_vport->local_port = mlxsw_sp_port->local_port;
-+	mlxsw_sp_vport->stp_state = BR_STATE_FORWARDING;
-+	mlxsw_sp_vport->vport.vfid = vfid;
-+	mlxsw_sp_vport->vport.vid = vfid->vid;
-+
-+	list_add(&mlxsw_sp_vport->vport.list, &mlxsw_sp_port->vports_list);
-+
-+	return mlxsw_sp_vport;
-+}
-+
-+static void mlxsw_sp_port_vport_destroy(struct mlxsw_sp_port *mlxsw_sp_vport)
-+{
-+	list_del(&mlxsw_sp_vport->vport.list);
-+	kfree(mlxsw_sp_vport);
-+}
-+
- int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 			  u16 vid)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
--	char *sftr_pl;
-+	struct mlxsw_sp_port *mlxsw_sp_vport;
-+	struct mlxsw_sp_vfid *vfid;
- 	int err;
- 
- 	/* VLAN 0 is added to HW filter when device goes up, but it is
-@@ -563,100 +655,104 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 	if (!vid)
- 		return 0;
- 
--	if (test_bit(vid, mlxsw_sp_port->active_vfids)) {
-+	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid)) {
- 		netdev_warn(dev, "VID=%d already configured\n", vid);
- 		return 0;
- 	}
- 
--	if (!test_bit(vid, mlxsw_sp->active_vfids)) {
--		err = mlxsw_sp_vfid_create(mlxsw_sp, vid);
--		if (err) {
--			netdev_err(dev, "Failed to create vFID=%d\n",
--				   MLXSW_SP_VFID_BASE + vid);
--			return err;
-+	vfid = mlxsw_sp_vfid_find(mlxsw_sp, vid);
-+	if (!vfid) {
-+		vfid = mlxsw_sp_vfid_create(mlxsw_sp, vid);
-+		if (IS_ERR(vfid)) {
-+			netdev_err(dev, "Failed to create vFID for VID=%d\n",
-+				   vid);
-+			return PTR_ERR(vfid);
- 		}
-+	}
- 
--		sftr_pl = kmalloc(MLXSW_REG_SFTR_LEN, GFP_KERNEL);
--		if (!sftr_pl) {
--			err = -ENOMEM;
--			goto err_flood_table_alloc;
--		}
--		mlxsw_reg_sftr_pack(sftr_pl, 0, vid,
--				    MLXSW_REG_SFGC_TABLE_TYPE_FID, 0,
--				    MLXSW_PORT_CPU_PORT, true);
--		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
--		kfree(sftr_pl);
-+	mlxsw_sp_vport = mlxsw_sp_port_vport_create(mlxsw_sp_port, vfid);
-+	if (!mlxsw_sp_vport) {
-+		netdev_err(dev, "Failed to create vPort for VID=%d\n", vid);
-+		err = -ENOMEM;
-+		goto err_port_vport_create;
-+	}
-+
-+	if (!vfid->nr_vports) {
-+		err = mlxsw_sp_vport_flood_set(mlxsw_sp_vport, vfid->vfid,
-+					       true);
+ 	if (!vfid->nr_vports) {
+ 		err = mlxsw_sp_vport_flood_set(mlxsw_sp_vport, vfid->vfid,
+-					       true);
++					       true, false);
  		if (err) {
--			netdev_err(dev, "Failed to configure flood table\n");
--			goto err_flood_table_config;
-+			netdev_err(dev, "Failed to setup flooding for vFID=%d\n",
-+				   vfid->vfid);
-+			goto err_vport_flood_set;
- 		}
- 	}
+ 			netdev_err(dev, "Failed to setup flooding for vFID=%d\n",
+ 				   vfid->vfid);
+@@ -747,7 +747,8 @@ err_port_vid_to_fid_set:
+ 		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
+ err_port_vp_mode_trans:
+ 	if (!vfid->nr_vports)
+-		mlxsw_sp_vport_flood_set(mlxsw_sp_vport, vfid->vfid, false);
++		mlxsw_sp_vport_flood_set(mlxsw_sp_vport, vfid->vfid, false,
++					 false);
+ err_vport_flood_set:
+ 	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
+ err_port_vport_create:
+@@ -1788,16 +1789,15 @@ static int __mlxsw_sp_flood_init(struct mlxsw_core *mlxsw_core,
+ 	enum mlxsw_sp_flood_table flood_table;
+ 	char sfgc_pl[MLXSW_REG_SFGC_LEN];
  
--	/* In case we fail in the following steps, we intentionally do not
--	 * destroy the associated vFID.
+-	if (bridge_type == MLXSW_REG_SFGC_BRIDGE_TYPE_VFID) {
++	if (bridge_type == MLXSW_REG_SFGC_BRIDGE_TYPE_VFID)
+ 		table_type = MLXSW_REG_SFGC_TABLE_TYPE_FID;
+-		flood_table = 0;
+-	} else {
++	else
+ 		table_type = MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST;
+-		if (type == MLXSW_REG_SFGC_TYPE_UNKNOWN_UNICAST)
+-			flood_table = MLXSW_SP_FLOOD_TABLE_UC;
+-		else
+-			flood_table = MLXSW_SP_FLOOD_TABLE_BM;
+-	}
++
++	if (type == MLXSW_REG_SFGC_TYPE_UNKNOWN_UNICAST)
++		flood_table = MLXSW_SP_FLOOD_TABLE_UC;
++	else
++		flood_table = MLXSW_SP_FLOOD_TABLE_BM;
+ 
+ 	mlxsw_reg_sfgc_pack(sfgc_pl, type, bridge_type, table_type,
+ 			    flood_table);
+@@ -1808,9 +1808,6 @@ static int mlxsw_sp_flood_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	int type, err;
+ 
+-	/* For non-offloaded netdevs, flood all traffic types to CPU
+-	 * port.
 -	 */
+ 	for (type = 0; type < MLXSW_REG_SFGC_TYPE_MAX; type++) {
+ 		if (type == MLXSW_REG_SFGC_TYPE_RESERVED)
+ 			continue;
+@@ -1819,15 +1816,6 @@ static int mlxsw_sp_flood_init(struct mlxsw_sp *mlxsw_sp)
+ 					    MLXSW_REG_SFGC_BRIDGE_TYPE_VFID);
+ 		if (err)
+ 			return err;
+-	}
 -
- 	/* When adding the first VLAN interface on a bridged port we need to
- 	 * transition all the active 802.1Q bridge VLANs to use explicit
- 	 * {Port, VID} to FID mappings and set the port's mode to Virtual mode.
- 	 */
--	if (!mlxsw_sp_port->nr_vfids) {
-+	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
- 		err = mlxsw_sp_port_vp_mode_trans(mlxsw_sp_port);
- 		if (err) {
- 			netdev_err(dev, "Failed to set to Virtual mode\n");
--			return err;
-+			goto err_port_vp_mode_trans;
- 		}
- 	}
+-	/* For bridged ports, use one flooding table for unknown unicast
+-	 * traffic and a second table for unregistered multicast and
+-	 * broadcast.
+-	 */
+-	for (type = 0; type < MLXSW_REG_SFGC_TYPE_MAX; type++) {
+-		if (type == MLXSW_REG_SFGC_TYPE_RESERVED)
+-			continue;
  
--	err = mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_port,
-+	err = mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_vport,
- 					   MLXSW_REG_SVFA_MT_PORT_VID_TO_FID,
--					   true, MLXSW_SP_VFID_BASE + vid, vid);
-+					   true,
-+					   mlxsw_sp_vfid_to_fid(vfid->vfid),
-+					   vid);
- 	if (err) {
- 		netdev_err(dev, "Failed to map {Port, VID=%d} to vFID=%d\n",
--			   vid, MLXSW_SP_VFID_BASE + vid);
-+			   vid, vfid->vfid);
- 		goto err_port_vid_to_fid_set;
- 	}
- 
--	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, false);
-+	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
- 	if (err) {
- 		netdev_err(dev, "Failed to disable learning for VID=%d\n", vid);
- 		goto err_port_vid_learning_set;
- 	}
- 
--	err = mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid, true, false);
-+	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, false);
- 	if (err) {
- 		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
- 			   vid);
- 		goto err_port_add_vid;
- 	}
- 
--	err = mlxsw_sp_port_stp_state_set(mlxsw_sp_port, vid,
-+	err = mlxsw_sp_port_stp_state_set(mlxsw_sp_vport, vid,
- 					  MLXSW_REG_SPMS_STATE_FORWARDING);
- 	if (err) {
- 		netdev_err(dev, "Failed to set STP state for VID=%d\n", vid);
- 		goto err_port_stp_state_set;
- 	}
- 
--	mlxsw_sp_port->nr_vfids++;
--	set_bit(vid, mlxsw_sp_port->active_vfids);
-+	vfid->nr_vports++;
- 
- 	return 0;
- 
--err_flood_table_config:
--err_flood_table_alloc:
--	mlxsw_sp_vfid_destroy(mlxsw_sp, vid);
--	return err;
--
- err_port_stp_state_set:
--	mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid, false, false);
-+	mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
- err_port_add_vid:
--	mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, true);
-+	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
- err_port_vid_learning_set:
--	mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_port,
-+	mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_vport,
- 				     MLXSW_REG_SVFA_MT_PORT_VID_TO_FID, false,
--				     MLXSW_SP_VFID_BASE + vid, vid);
-+				     mlxsw_sp_vfid_to_fid(vfid->vfid), vid);
- err_port_vid_to_fid_set:
--	mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
-+	if (list_is_singular(&mlxsw_sp_port->vports_list))
-+		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
-+err_port_vp_mode_trans:
-+	if (!vfid->nr_vports)
-+		mlxsw_sp_vport_flood_set(mlxsw_sp_vport, vfid->vfid, false);
-+err_vport_flood_set:
-+	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
-+err_port_vport_create:
-+	if (!vfid->nr_vports)
-+		mlxsw_sp_vfid_destroy(mlxsw_sp, vfid);
- 	return err;
- }
- 
-@@ -664,6 +760,8 @@ int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 			   __be16 __always_unused proto, u16 vid)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
-+	struct mlxsw_sp_port *mlxsw_sp_vport;
-+	struct mlxsw_sp_vfid *vfid;
- 	int err;
- 
- 	/* VLAN 0 is removed from HW filter when device goes down, but
-@@ -672,38 +770,42 @@ int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	if (!vid)
- 		return 0;
- 
--	if (!test_bit(vid, mlxsw_sp_port->active_vfids)) {
-+	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
-+	if (!mlxsw_sp_vport) {
- 		netdev_warn(dev, "VID=%d does not exist\n", vid);
- 		return 0;
- 	}
- 
--	err = mlxsw_sp_port_stp_state_set(mlxsw_sp_port, vid,
-+	vfid = mlxsw_sp_vport->vport.vfid;
-+
-+	err = mlxsw_sp_port_stp_state_set(mlxsw_sp_vport, vid,
- 					  MLXSW_REG_SPMS_STATE_DISCARDING);
- 	if (err) {
- 		netdev_err(dev, "Failed to set STP state for VID=%d\n", vid);
- 		return err;
- 	}
- 
--	err = mlxsw_sp_port_vlan_set(mlxsw_sp_port, vid, vid, false, false);
-+	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
- 	if (err) {
- 		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
- 			   vid);
- 		return err;
- 	}
- 
--	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, true);
-+	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
- 	if (err) {
- 		netdev_err(dev, "Failed to enable learning for VID=%d\n", vid);
- 		return err;
- 	}
- 
--	err = mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_port,
-+	err = mlxsw_sp_port_vid_to_fid_set(mlxsw_sp_vport,
- 					   MLXSW_REG_SVFA_MT_PORT_VID_TO_FID,
--					   false, MLXSW_SP_VFID_BASE + vid,
-+					   false,
-+					   mlxsw_sp_vfid_to_fid(vfid->vfid),
- 					   vid);
- 	if (err) {
- 		netdev_err(dev, "Failed to invalidate {Port, VID=%d} to vFID=%d mapping\n",
--			   vid, MLXSW_SP_VFID_BASE + vid);
-+			   vid, vfid->vfid);
- 		return err;
- 	}
- 
-@@ -711,7 +813,7 @@ int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	 * transition all active 802.1Q bridge VLANs to use VID to FID
- 	 * mappings and set port's mode to VLAN mode.
- 	 */
--	if (mlxsw_sp_port->nr_vfids == 1) {
-+	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
- 		err = mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
- 		if (err) {
- 			netdev_err(dev, "Failed to set to VLAN mode\n");
-@@ -719,8 +821,12 @@ int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 		}
- 	}
- 
--	mlxsw_sp_port->nr_vfids--;
--	clear_bit(vid, mlxsw_sp_port->active_vfids);
-+	vfid->nr_vports--;
-+	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
-+
-+	/* Destroy the vFID if no vPorts are assigned to it anymore. */
-+	if (!vfid->nr_vports)
-+		mlxsw_sp_vfid_destroy(mlxsw_sp_port->mlxsw_sp, vfid);
- 
- 	return 0;
- }
-@@ -1265,6 +1371,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 		err = -ENOMEM;
- 		goto err_port_active_vlans_alloc;
- 	}
-+	INIT_LIST_HEAD(&mlxsw_sp_port->vports_list);
- 
- 	mlxsw_sp_port->pcpu_stats =
- 		netdev_alloc_pcpu_stats(struct mlxsw_sp_port_pcpu_stats);
-@@ -1372,12 +1479,21 @@ err_port_active_vlans_alloc:
- 	return err;
- }
- 
--static void mlxsw_sp_vfids_fini(struct mlxsw_sp *mlxsw_sp)
-+static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
- {
--	u16 vfid;
-+	struct net_device *dev = mlxsw_sp_port->dev;
-+	struct mlxsw_sp_port *mlxsw_sp_vport, *tmp;
- 
--	for_each_set_bit(vfid, mlxsw_sp->active_vfids, VLAN_N_VID)
--		mlxsw_sp_vfid_destroy(mlxsw_sp, vfid);
-+	list_for_each_entry_safe(mlxsw_sp_vport, tmp,
-+				 &mlxsw_sp_port->vports_list, vport.list) {
-+		u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
-+
-+		/* vPorts created for VLAN devices should already be gone
-+		 * by now, since we unregistered the port netdev.
-+		 */
-+		WARN_ON(is_vlan_dev(mlxsw_sp_vport->dev));
-+		mlxsw_sp_port_kill_vid(dev, 0, vid);
-+	}
- }
- 
- static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
-@@ -1386,8 +1502,8 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 
- 	if (!mlxsw_sp_port)
- 		return;
--	mlxsw_sp_port_kill_vid(mlxsw_sp_port->dev, 0, 1);
- 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
-+	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
- 	kfree(mlxsw_sp_port->active_vlans);
-@@ -1746,6 +1862,7 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
- 
- 	mlxsw_sp->core = mlxsw_core;
- 	mlxsw_sp->bus_info = mlxsw_bus_info;
-+	INIT_LIST_HEAD(&mlxsw_sp->port_vfids.list);
- 
- 	err = mlxsw_sp_base_mac_get(mlxsw_sp);
- 	if (err) {
-@@ -1756,7 +1873,7 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
- 	err = mlxsw_sp_ports_create(mlxsw_sp);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to create ports\n");
--		goto err_ports_create;
-+		return err;
- 	}
- 
- 	err = mlxsw_sp_event_register(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
-@@ -1806,8 +1923,6 @@ err_rx_listener_register:
- 	mlxsw_sp_event_unregister(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
- err_event_register:
- 	mlxsw_sp_ports_remove(mlxsw_sp);
--err_ports_create:
--	mlxsw_sp_vfids_fini(mlxsw_sp);
- 	return err;
- }
- 
-@@ -1819,7 +1934,6 @@ static void mlxsw_sp_fini(void *priv)
- 	mlxsw_sp_traps_fini(mlxsw_sp);
- 	mlxsw_sp_event_unregister(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
- 	mlxsw_sp_ports_remove(mlxsw_sp);
--	mlxsw_sp_vfids_fini(mlxsw_sp);
- }
- 
- static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 		err = __mlxsw_sp_flood_init(mlxsw_sp->core, type,
+ 					    MLXSW_REG_SFGC_BRIDGE_TYPE_1Q_FID);
+@@ -1958,8 +1946,8 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.flood_mode			= 3,
+ 	.max_fid_offset_flood_tables	= 2,
+ 	.fid_offset_flood_table_size	= VLAN_N_VID - 1,
+-	.max_fid_flood_tables		= 1,
+-	.fid_flood_table_size		= VLAN_N_VID,
++	.max_fid_flood_tables		= 2,
++	.fid_flood_table_size		= MLXSW_SP_VFID_MAX,
+ 	.used_max_ib_mc			= 1,
+ 	.max_ib_mc			= 0,
+ 	.used_max_pkey			= 1,
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 608be6e..c2aa9ac 100644
+index c2aa9ac..809c322 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -41,11 +41,16 @@
- #include <linux/netdevice.h>
- #include <linux/bitops.h>
- #include <linux/if_vlan.h>
-+#include <linux/list.h>
- #include <net/switchdev.h>
- 
- #include "core.h"
- 
- #define MLXSW_SP_VFID_BASE VLAN_N_VID
-+#define MLXSW_SP_VFID_PORT_MAX 512	/* Non-bridged VLAN interfaces */
-+#define MLXSW_SP_VFID_BR_MAX 8192	/* Bridged VLAN interfaces */
-+#define MLXSW_SP_VFID_MAX (MLXSW_SP_VFID_PORT_MAX + MLXSW_SP_VFID_BR_MAX)
-+
- #define MLXSW_SP_LAG_MAX 64
- #define MLXSW_SP_PORT_PER_LAG_MAX 16
- 
-@@ -56,8 +61,23 @@ struct mlxsw_sp_upper {
- 	unsigned int ref_count;
- };
- 
-+struct mlxsw_sp_vfid {
-+	struct list_head list;
-+	u16 nr_vports;
-+	u16 vfid;	/* Starting at 0 */
-+	u16 vid;
-+};
-+
-+static inline u16 mlxsw_sp_vfid_to_fid(u16 vfid)
-+{
-+	return MLXSW_SP_VFID_BASE + vfid;
-+}
-+
- struct mlxsw_sp {
--	unsigned long active_vfids[BITS_TO_LONGS(VLAN_N_VID)];
-+	struct {
-+		struct list_head list;
-+		unsigned long mapped[BITS_TO_LONGS(MLXSW_SP_VFID_PORT_MAX)];
-+	} port_vfids;
- 	unsigned long active_fids[BITS_TO_LONGS(VLAN_N_VID)];
- 	struct mlxsw_sp_port **ports;
- 	struct mlxsw_core *core;
-@@ -102,11 +122,15 @@ struct mlxsw_sp_port {
- 	   lagged:1;
- 	u16 pvid;
- 	u16 lag_id;
-+	struct {
-+		struct list_head list;
-+		struct mlxsw_sp_vfid *vfid;
-+		u16 vid;
-+	} vport;
- 	/* 802.1Q bridge VLANs */
- 	unsigned long *active_vlans;
- 	/* VLAN interfaces */
--	unsigned long active_vfids[BITS_TO_LONGS(VLAN_N_VID)];
--	u16 nr_vfids;
-+	struct list_head vports_list;
- };
- 
- static inline struct mlxsw_sp_port *
-@@ -121,6 +145,38 @@ mlxsw_sp_port_lagged_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id, u8 port_index)
- 	return mlxsw_sp_port && mlxsw_sp_port->lagged ? mlxsw_sp_port : NULL;
- }
- 
-+static inline bool
-+mlxsw_sp_port_is_vport(const struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	return mlxsw_sp_port->vport.vfid;
-+}
-+
-+static inline u16
-+mlxsw_sp_vport_vid_get(const struct mlxsw_sp_port *mlxsw_sp_vport)
-+{
-+	return mlxsw_sp_vport->vport.vid;
-+}
-+
-+static inline u16
-+mlxsw_sp_vport_vfid_get(const struct mlxsw_sp_port *mlxsw_sp_vport)
-+{
-+	return mlxsw_sp_vport->vport.vfid->vfid;
-+}
-+
-+static inline struct mlxsw_sp_port *
-+mlxsw_sp_port_vport_find(const struct mlxsw_sp_port *mlxsw_sp_port, u16 vid)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_vport;
-+
-+	list_for_each_entry(mlxsw_sp_vport, &mlxsw_sp_port->vports_list,
-+			    vport.list) {
-+		if (mlxsw_sp_vport_vid_get(mlxsw_sp_vport) == vid)
-+			return mlxsw_sp_vport;
-+	}
-+
-+	return NULL;
-+}
-+
- enum mlxsw_sp_flood_table {
- 	MLXSW_SP_FLOOD_TABLE_UC,
- 	MLXSW_SP_FLOOD_TABLE_BM,
-@@ -143,5 +199,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 			  u16 vid);
+@@ -200,6 +200,6 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
  int mlxsw_sp_port_kill_vid(struct net_device *dev,
  			   __be16 __always_unused proto, u16 vid);
-+int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 vfid,
-+			     bool set);
+ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 vfid,
+-			     bool set);
++			     bool set, bool only_uc);
  
  #endif
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 406dab2..67052ea 100644
+index a8c35ed..af9c73b 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -129,17 +129,25 @@ static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 				     bool only_uc)
- {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	u16 local_port = mlxsw_sp_port->local_port;
-+	enum mlxsw_flood_table_type table_type;
- 	u16 range = fid_end - fid_begin + 1;
- 	char *sftr_pl;
- 	int err;
- 
-+	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
-+		table_type = MLXSW_REG_SFGC_TABLE_TYPE_FID;
-+		local_port = MLXSW_PORT_CPU_PORT;
-+	} else {
-+		table_type = MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST;
-+	}
-+
- 	sftr_pl = kmalloc(MLXSW_REG_SFTR_LEN, GFP_KERNEL);
- 	if (!sftr_pl)
- 		return -ENOMEM;
- 
- 	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_UC, fid_begin,
--			    MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST, range,
--			    mlxsw_sp_port->local_port, set);
-+			    table_type, range, local_port, set);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
- 	if (err)
- 		goto buffer_out;
-@@ -151,8 +159,7 @@ static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 		goto buffer_out;
- 
- 	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_BM, fid_begin,
--			    MLXSW_REG_SFGC_TABLE_TYPE_FID_OFFEST, range,
--			    mlxsw_sp_port->local_port, set);
-+			    table_type, range, local_port, set);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
- 
- buffer_out:
-@@ -185,6 +192,15 @@ err_port_flood_set:
- 	return err;
+@@ -193,12 +193,13 @@ err_port_flood_set:
  }
  
-+int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 vfid,
-+			     bool set)
-+{
-+	/* In case of vFIDs, index into the flooding table is relative to
-+	 * the start of the vFIDs range.
-+	 */
-+	return __mlxsw_sp_port_flood_set(mlxsw_sp_vport, vfid, vfid, set, true);
-+}
-+
+ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 vfid,
+-			     bool set)
++			     bool set, bool only_uc)
+ {
+ 	/* In case of vFIDs, index into the flooding table is relative to
+ 	 * the start of the vFIDs range.
+ 	 */
+-	return __mlxsw_sp_port_flood_set(mlxsw_sp_vport, vfid, vfid, set, true);
++	return __mlxsw_sp_port_flood_set(mlxsw_sp_vport, vfid, vfid, set,
++					 only_uc);
+ }
+ 
  static int mlxsw_sp_port_attr_br_flags_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 					   struct switchdev_trans *trans,
- 					   unsigned long brport_flags)
-@@ -304,7 +320,7 @@ static int mlxsw_sp_port_fid_map(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
- {
- 	enum mlxsw_reg_svfa_mt mt;
- 
--	if (mlxsw_sp_port->nr_vfids)
-+	if (!list_empty(&mlxsw_sp_port->vports_list))
- 		mt = MLXSW_REG_SVFA_MT_PORT_VID_TO_FID;
- 	else
- 		mt = MLXSW_REG_SVFA_MT_VID_TO_FID;
-@@ -316,7 +332,7 @@ static int mlxsw_sp_port_fid_unmap(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
- {
- 	enum mlxsw_reg_svfa_mt mt;
- 
--	if (!mlxsw_sp_port->nr_vfids)
-+	if (list_empty(&mlxsw_sp_port->vports_list))
- 		return 0;
- 
- 	mt = MLXSW_REG_SVFA_MT_PORT_VID_TO_FID;
 -- 
 1.9.3
