@@ -1,35 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: fix descriptor access endianness
-Date: Tue, 15 Dec 2015 14:26:51 +0300
-Message-ID: <566FF8FB.2010005@cogentembedded.com>
-References: <11070795.yxBPvlHg4n@wasted.cogentembedded.com>
- <20151215.002541.762812772082527155.davem@davemloft.net>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
+Date: Tue, 15 Dec 2015 12:32:44 +0100
+Message-ID: <1450179164.17387.18.camel@suse.com>
+References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
+	 <20151208143305.GB18728@al>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20151215.002541.762812772082527155.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: Hayes Wang <hayeswang@realtek.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Lu Baolu <baolu.lu@linux.intel.com>
+To: Peter Wu <peter@lekensteyn.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151208143305.GB18728@al>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, 2015-12-08 at 15:33 +0100, Peter Wu wrote:
+> Can you have a look? I guess that reset_resume needs different
+> treatment, but don't know how to do it properly as suspend is not
+> called
+> before system reset (because the device is apparently already in
+> suspended state).
+> 
+> I think that this new issue can be addressed in a different patch,
+> this
+> patch solves a more severe lockup. Opinions?
 
-On 12/15/2015 8:25 AM, David Miller wrote:
+We do not know in advance whether resume() or reset_resume()
+will be called after S3. A driver must be ready for both.
 
->> The driver never  calls cpu_to_edmac() when writing the descriptor address
->> and edmac_to_cpu() when reading it, although it should -- fix this.
->>
->> Note that the frame/buffer length descriptor field accesses also need fixing
->> but since they are both 16-bit we can't  use {cpu|edmac}_to_{edmac|cpu}()...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> Applied.
 
-    I was going to rework this to fix _all_ cases, and sent follow-up email 
-about that yesterday... Haven't you received it?
-
-MBR, Sergei
-
+	Regards
+		Oliver
