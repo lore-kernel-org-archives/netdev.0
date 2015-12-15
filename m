@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -mainline] amd-xgbe: fix a couple timeout loops
-Date: Tue, 15 Dec 2015 12:51:42 -0500 (EST)
-Message-ID: <20151215.125142.35117005882837154.davem@davemloft.net>
-References: <20151215101229.GF20848@mwanda>
+Subject: Re: [PATCH v2 net-next] ravb: Add fixed-link support
+Date: Tue, 15 Dec 2015 12:52:13 -0500 (EST)
+Message-ID: <20151215.125213.2041200282341063429.davem@davemloft.net>
+References: <1450176253-24131-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	horms@verge.net.au, magnus.damm@gmail.com, linux-sh@vger.kernel.org
+To: ykaneko0929@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48049 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48059 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754028AbbLORvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:51:44 -0500
-In-Reply-To: <20151215101229.GF20848@mwanda>
+	with ESMTP id S933455AbbLORwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:52:14 -0500
+In-Reply-To: <1450176253-24131-1-git-send-email-ykaneko0929@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 15 Dec 2015 13:12:29 +0300
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Date: Tue, 15 Dec 2015 19:44:13 +0900
 
-> At the end of the loop we test "if (!count)" but because "count--" is
-> a post-op then the loop will end with count set to -1.  I have fixed
-> this by changing it to --count.
+> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 > 
-> Fixes: c5aa9e3b8156 ('amd-xgbe: Initial AMD 10GbE platform driver')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> This patch adds support of the fixed PHY.
+> This patch is based on commit 87009814cdbb ("ucc_geth: use the new fixed
+> PHY helpers").
+> 
+> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 
 Applied.
