@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add Qualcomm IPC router
-Date: Tue, 15 Dec 2015 16:01:14 -0500 (EST)
-Message-ID: <20151215.160114.1178824607335349574.davem@davemloft.net>
-References: <1449866519-14551-1-git-send-email-bjorn.andersson@sonymobile.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] net: emac: emac gigabit ethernet controller driver
+Date: Tue, 15 Dec 2015 15:09:23 -0600
+Message-ID: <56708183.4090005@codeaurora.org>
+References: <1450138740-32562-1-git-send-email-gavidov@codeaurora.org>
+ <1594472.ixZvj6PYdz@wuerfel> <56702EEC.8000506@codeaurora.org>
+ <1579270.z2ZaCA4LQo@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, srinivas.kandagatla@linaro.org,
-	linux-arm-msm@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, courtney.cavin@sonymobile.com
-To: bjorn.andersson@sonymobile.com
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <1449866519-14551-1-git-send-email-bjorn.andersson@sonymobile.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Cc: Christopher Covington <cov@codeaurora.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Gilad Avidov <gavidov@codeaurora.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, gregkh@linuxfoundation.org,
+	vikrams@codeaurora.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1579270.z2ZaCA4LQo@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bjorn Andersson <bjorn.andersson@sonymobile.com>
-Date: Fri, 11 Dec 2015 12:41:59 -0800
+Arnd Bergmann wrote:
+> If that's in the probe() called from it function, just use writel() everywhere,
+> a few extra microseconds won't kill the boot time. In general, if a user would
+> notice the difference, use the relaxed version and add a comment to explain
+> how you proved it's correct, otherwise stay with the default accessors.
 
-> +static unsigned int qrtr_local_nid = 1;
-> +module_param_named(node_id, qrtr_local_nid, uint, S_IRUGO);
-> +MODULE_PARM_DESC(idVendor, "Local Node Identifier");
-
-Module parameters suck.
-
-Allow the user to choose this dynamically.  You have roughtly two choices.
-
-1) Subvert the 'protocol' field passed to ->create() and use that, it is
-   being ignored otherwise.
-
-2) Put it into the socket address for bind().
+What about adding a wmb() after the last writel()?  This driver does 
+that a lot.  Is that something we want to discourage?  I can understand 
+how we would want to make sure that the last write is posted before the 
+function exits.
