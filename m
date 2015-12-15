@@ -1,53 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: fix descriptor access endianness
-Date: Tue, 15 Dec 2015 13:26:50 -0500 (EST)
-Message-ID: <20151215.132650.1190111989349535666.davem@davemloft.net>
-References: <566FF8FB.2010005@cogentembedded.com>
-	<20151215.125336.1876941788722356501.davem@davemloft.net>
-	<56705698.9010703@cogentembedded.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH v5 4/4] net: diag: Support destroying TCP socketsr
+Date: Tue, 15 Dec 2015 19:36:37 +0100
+Message-ID: <CAHo-OoxJHuuYqzpSmYkMKvXjmesMD=_G5_G5uBndNSPHTy8qBw@mail.gmail.com>
+References: <20151214.143739.879220917312503422.davem@davemloft.net>
+	<1450199868-93712-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <56705698.9010703@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Erik Kline <ek@google.com>, Tom Herbert <tom@herbertland.com>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33530 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932620AbbLOSgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 13:36:39 -0500
+Received: by mail-lf0-f47.google.com with SMTP id p203so13343296lfa.0
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 10:36:38 -0800 (PST)
+In-Reply-To: <1450199868-93712-1-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 15 Dec 2015 21:06:16 +0300
-
-> On 12/15/2015 08:53 PM, David Miller wrote:
-> 
->>>>> The driver never calls cpu_to_edmac() when writing the descriptor
->>>>> address
->>>>> and edmac_to_cpu() when reading it, although it should -- fix this.
->>>>>
->>>>> Note that the frame/buffer length descriptor field accesses also need
->>>>> fixing
->>>>> but since they are both 16-bit we can't use
->>>>> {cpu|edmac}_to_{edmac|cpu}()...
->>>>>
->>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>>
->>>> Applied.
->>>
->>>     I was going to rework this to fix _all_ cases, and sent follow-up
->>>     email about that yesterday... Haven't you received it?
->>
->> I saw it but you were not entirely clear whether you were going to do
->> that work in a follow-on patch or not.
->>
->> If you don't clearly say "Dave, please drop this patch." expect me to
->> do random things.
-> 
->    Previously I had a plan to get rid of never used EDMAC_BIG_ENDIAN and
->    then get rid of {edmac|cpu}_to_{cpu|edmac}() and fix 16-bit descriptor
->    R/W by using {cpu|le32}_to_{le32|cpu}(). How's that plan to you?
-
-I personally don't care what work you do on this driver.
-
-All I care about is that people communicate clearly with me when they
-want me to take, or not take, a given patch.
-
+I'd tend to agree that reset or abort would be preferable to destroy.
+After all... the socket doesn't actually go away.
