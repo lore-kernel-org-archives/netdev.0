@@ -1,77 +1,76 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH iproute2 1/3] vxlan: add support for collect metadata flag
-Date: Tue, 15 Dec 2015 16:48:25 +0100
-Message-ID: <c83d317f4849cbbb1b0551d450c3972c5bc73e2b.1450193891.git.pabeni@redhat.com>
+Subject: [PATCH iproute2 2/3] gre: add support for collect metadata flag
+Date: Tue, 15 Dec 2015 16:48:26 +0100
+Message-ID: <60286413f0d62fed304d1dbc0b309a2a118bc009.1450193891.git.pabeni@redhat.com>
 References: <cover.1450193891.git.pabeni@redhat.com>
 Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>
 To: shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47990 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33763 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753862AbbLOPtE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2015 10:49:04 -0500
+	id S1754147AbbLOPtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2015 10:49:07 -0500
 In-Reply-To: <cover.1450193891.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add support for IFLA_VXLAN_COLLECT_METADATA via the
-'collectmetadata' keyword to the vxlan link.
+This patch add support for IFLA_GRE_COLLECT_METADATA via the
+'collectmetadata' keyword to the gre link.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- ip/iplink_vxlan.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ ip/link_gre.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index db29bf0..a943e03 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -31,7 +31,7 @@ static void print_explain(FILE *f)
- 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
- 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
- 	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
--	fprintf(f, "                 [ gbp ]\n");
-+	fprintf(f, "                 [ [no]collectmetadata ] [ gbp ]\n");
- 	fprintf(f, "\n");
- 	fprintf(f, "Where: VNI := 0-16777215\n");
- 	fprintf(f, "       ADDR := { IP_ADDRESS | any }\n");
-@@ -72,6 +72,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 udp6zerocsumrx = 0;
- 	__u8 remcsumtx = 0;
- 	__u8 remcsumrx = 0;
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 58f416c..8be157f 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -74,6 +74,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	__u16 encapflags = 0;
+ 	__u16 encapsport = 0;
+ 	__u16 encapdport = 0;
 +	__u8 metadata = 0;
- 	__u8 gbp = 0;
- 	int dst_port_set = 0;
- 	struct ifla_vxlan_port_range range = { 0, 0 };
-@@ -210,6 +211,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			remcsumrx = 1;
- 		} else if (!matches(*argv, "noremcsumrx")) {
- 			remcsumrx = 0;
-+		} else if (!matches(*argv, "collectmetadata")) {
+ 
+ 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
+ 		memset(&req, 0, sizeof(req));
+@@ -148,6 +149,9 @@ get_failed:
+ 			encapsport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_SPORT]);
+ 		if (greinfo[IFLA_GRE_ENCAP_DPORT])
+ 			encapdport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_DPORT]);
++
++		if (greinfo[IFLA_GRE_COLLECT_METADATA])
 +			metadata = 1;
-+		} else if (!matches(*argv, "nocollectmetadata")) {
-+			metadata = 0;
- 		} else if (!matches(*argv, "gbp")) {
- 			gbp = 1;
- 		} else if (matches(*argv, "help") == 0) {
-@@ -272,6 +277,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, udp6zerocsumrx);
- 	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_TX, remcsumtx);
- 	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_RX, remcsumrx);
-+	addattr8(n, 1024, IFLA_VXLAN_COLLECT_METADATA, metadata);
+ 	}
  
- 	if (noage)
- 		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
-@@ -428,6 +434,10 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_RX]))
- 		fputs("remcsumrx ", f);
+ 	while (argc > 0) {
+@@ -291,6 +295,8 @@ get_failed:
+ 			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
+ 		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
+ 			encapflags |= ~TUNNEL_ENCAP_FLAG_REMCSUM;
++		} else if (strcmp(*argv, "collectmetadata") == 0) {
++			metadata = 1;
+ 		} else
+ 			usage();
+ 		argc--; argv++;
+@@ -325,6 +331,8 @@ get_failed:
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_FLAGS, encapflags);
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_SPORT, htons(encapsport));
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_DPORT, htons(encapdport));
++	if (metadata)
++		addattr_l(n, 1024, IFLA_GRE_COLLECT_METADATA, NULL, 0);
  
-+	if (tb[IFLA_VXLAN_COLLECT_METADATA] &&
-+	    rta_getattr_u8(tb[IFLA_VXLAN_COLLECT_METADATA]))
+ 	return 0;
+ }
+@@ -413,6 +421,9 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (oflags & GRE_CSUM)
+ 		fputs("ocsum ", f);
+ 
++	if (tb[IFLA_GRE_COLLECT_METADATA])
 +		fputs("collectmetadata ", f);
 +
- 	if (tb[IFLA_VXLAN_GBP])
- 		fputs("gbp ", f);
- }
+ 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
+ 	    *(__u16 *)RTA_DATA(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
+ 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
 -- 
 1.8.3.1
