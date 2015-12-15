@@ -1,197 +1,160 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 2/2] net: Allow accepted sockets to be bound to l3mdev domain
-Date: Tue, 15 Dec 2015 09:18:12 -0800
-Message-ID: <1450199892-18201-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1450199892-18201-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH v6 2/4] net: diag: Add the ability to destroy a socket.
+Date: Wed, 16 Dec 2015 02:17:46 +0900
+Message-ID: <1450199868-93712-3-git-send-email-lorenzo@google.com>
+References: <20151214.143739.879220917312503422.davem@davemloft.net>
+ <1450199868-93712-1-git-send-email-lorenzo@google.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33059 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965325AbbLORSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:18:24 -0500
-Received: by mail-pa0-f50.google.com with SMTP id ur14so7946217pab.0
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:18:24 -0800 (PST)
-In-Reply-To: <1450199892-18201-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33154 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965091AbbLORZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:25:50 -0500
+Received: by mail-pf0-f169.google.com with SMTP id n128so8072361pfn.0
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:25:49 -0800 (PST)
+In-Reply-To: <1450199868-93712-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow accepted sockets to derive their sk_bound_dev_if setting from the
-l3mdev domain in which the packets originated. A sysctl setting is added
-to control the behavior which is similar to sk_mark and
-sysctl_tcp_fwmark_accept.
+This adds a diag_destroy pointer to struct proto that allows a
+socket to be administratively closed without any action from the
+process owning the socket or the socket protocol.
 
-This effectively allow a process to have a "VRF-global" listen socket,
-with child sockets bound to the VRF device in which the packet originated.
-A similar behavior can be achieved using sk_mark, but a solution using marks
-is incomplete as it does not handle duplicate addresses in different L3
-domains/VRFs. Allowing sockets to inherit the sk_bound_dev_if from l3mdev
-domain provides a complete solution.
+This allows a privileged userspace process, such as a connection
+manager or system administration tool, to close sockets belonging
+to other apps when the network they were established on has
+disconnected. It is needed on laptops and mobile hosts to ensure
+that network switches / disconnects do not result in applications
+being blocked for long periods of time (minutes) in read or
+connect calls on TCP sockets that will never succeed because the
+IP address they are bound to is no longer on the system. Closing
+the sockets causes these calls to fail fast and allows the apps
+to reconnect on another network.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+For many years Android kernels have supported this via an
+out-of-tree SIOCKILLADDR ioctl that is called on every
+RTM_DELADDR event, but this solution is cleaner, more robust and
+more flexible: the connection manager can iterate over all
+connections on the deleted IP address and close all of them. It
+can also be used to close all sockets opened by a given app
+process, for example if the user has restricted that app from
+using the network.
+
+It also allows in-kernel callers to perform the same sort of
+operation by invoking sk->sk_prot->diag_destroy(sk) directly.
+
+This patch adds a SOCK_DESTROY operation, a destroy function
+pointer to sock_diag_handler, and a diag_destroy function
+pointer.  It does not include any implementation code.
+
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
-v2
-- added sysctl option. wrapped l3mdev lookup in helper function
-  similar to marks
+ include/linux/sock_diag.h      |  2 ++
+ include/net/sock.h             |  1 +
+ include/uapi/linux/sock_diag.h |  1 +
+ net/core/sock_diag.c           | 23 ++++++++++++++++++++---
+ 4 files changed, 24 insertions(+), 3 deletions(-)
 
- Documentation/networking/ip-sysctl.txt |  7 +++++++
- include/net/inet_sock.h                | 12 ++++++++++++
- include/net/netns/ipv4.h               |  1 +
- net/ipv4/syncookies.c                  |  4 ++--
- net/ipv4/sysctl_net_ipv4.c             |  9 +++++++++
- net/ipv4/tcp_input.c                   |  2 +-
- net/ipv4/tcp_ipv4.c                    |  1 +
- net/ipv6/syncookies.c                  |  4 ++--
- 8 files changed, 35 insertions(+), 5 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 2ea4c45cf1c8..7efa54c5b059 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -335,6 +335,13 @@ tcp_keepalive_intvl - INTEGER
- 	after probes started. Default value: 75sec i.e. connection
- 	will be aborted after ~11 minutes of retries.
+diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+index fddebc6..4018b48 100644
+--- a/include/linux/sock_diag.h
++++ b/include/linux/sock_diag.h
+@@ -15,6 +15,7 @@ struct sock_diag_handler {
+ 	__u8 family;
+ 	int (*dump)(struct sk_buff *skb, struct nlmsghdr *nlh);
+ 	int (*get_info)(struct sk_buff *skb, struct sock *sk);
++	int (*destroy)(struct sk_buff *skb, struct nlmsghdr *nlh);
+ };
  
-+tcp_l3mdev_accept - BOOLEAN
-+	Enables child sockets to inherit the L3 master device index.
-+	Enabling this option allows a "global" listen socket to work
-+	across L3 master domains (e.g., VRFs) with connected sockets
-+	derived from the listen socket to be bound to the L3 domain in
-+	which the packets originated.
-+
- tcp_low_latency - BOOLEAN
- 	If set, the TCP stack makes decisions that prefer lower
- 	latency as opposed to higher throughput.  By default, this
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 2134e6d815bc..df71cdaa1be2 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -28,6 +28,7 @@
- #include <net/request_sock.h>
- #include <net/netns/hash.h>
- #include <net/tcp_states.h>
-+#include <net/l3mdev.h>
+ int sock_diag_register(const struct sock_diag_handler *h);
+@@ -68,4 +69,5 @@ bool sock_diag_has_destroy_listeners(const struct sock *sk)
+ }
+ void sock_diag_broadcast_destroy(struct sock *sk);
  
- /** struct ip_options - IP Options
-  *
-@@ -113,6 +114,17 @@ static inline u32 inet_request_mark(const struct sock *sk, struct sk_buff *skb)
- 	return sk->sk_mark;
++int sock_diag_destroy(struct sock *sk, int err);
+ #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 0ca22b0..c9218f5 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1060,6 +1060,7 @@ struct proto {
+ 	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
+ 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
+ #endif
++	int			(*diag_destroy)(struct sock *sk, int err);
+ };
+ 
+ int proto_register(struct proto *prot, int alloc_slab);
+diff --git a/include/uapi/linux/sock_diag.h b/include/uapi/linux/sock_diag.h
+index 49230d3..bae2d80 100644
+--- a/include/uapi/linux/sock_diag.h
++++ b/include/uapi/linux/sock_diag.h
+@@ -4,6 +4,7 @@
+ #include <linux/types.h>
+ 
+ #define SOCK_DIAG_BY_FAMILY 20
++#define SOCK_DESTROY 21
+ 
+ struct sock_diag_req {
+ 	__u8	sdiag_family;
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 0c1d58d..a996ce8 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -214,7 +214,7 @@ void sock_diag_unregister(const struct sock_diag_handler *hnld)
+ }
+ EXPORT_SYMBOL_GPL(sock_diag_unregister);
+ 
+-static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
++static int __sock_diag_cmd(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	int err;
+ 	struct sock_diag_req *req = nlmsg_data(nlh);
+@@ -234,8 +234,12 @@ static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	hndl = sock_diag_handlers[req->sdiag_family];
+ 	if (hndl == NULL)
+ 		err = -ENOENT;
+-	else
++	else if (nlh->nlmsg_type == SOCK_DIAG_BY_FAMILY)
+ 		err = hndl->dump(skb, nlh);
++	else if (nlh->nlmsg_type == SOCK_DESTROY && hndl->destroy)
++		err = hndl->destroy(skb, nlh);
++	else
++		err = -EOPNOTSUPP;
+ 	mutex_unlock(&sock_diag_table_mutex);
+ 
+ 	return err;
+@@ -261,7 +265,8 @@ static int sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 		return ret;
+ 	case SOCK_DIAG_BY_FAMILY:
+-		return __sock_diag_rcv_msg(skb, nlh);
++	case SOCK_DESTROY:
++		return __sock_diag_cmd(skb, nlh);
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -295,6 +300,18 @@ static int sock_diag_bind(struct net *net, int group)
+ 	return 0;
  }
  
-+static inline int inet_request_bound_dev_if(const struct sock *sk,
-+					    struct sk_buff *skb)
++int sock_diag_destroy(struct sock *sk, int err)
 +{
-+	struct net *net = sock_net(sk);
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
 +
-+	if (!sk->sk_bound_dev_if && net->ipv4.sysctl_tcp_l3mdev_accept)
-+		return l3mdev_master_ifindex_by_index(net, skb->skb_iif);
++	if (!sk->sk_prot->diag_destroy)
++		return -EOPNOTSUPP;
 +
-+	return sk->sk_bound_dev_if;
++	return sk->sk_prot->diag_destroy(sk, err);
 +}
++EXPORT_SYMBOL_GPL(sock_diag_destroy);
 +
- struct inet_cork {
- 	unsigned int		flags;
- 	__be32			addr;
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index c68926b4899c..22257790b75b 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -86,6 +86,7 @@ struct netns_ipv4 {
- 
- 	int sysctl_fwmark_reflect;
- 	int sysctl_tcp_fwmark_accept;
-+	int sysctl_tcp_l3mdev_accept;
- 	int sysctl_tcp_mtu_probing;
- 	int sysctl_tcp_base_mss;
- 	int sysctl_tcp_probe_threshold;
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 4cbe9f0a4281..643a86c49020 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -351,7 +351,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	treq->snt_synack.v64	= 0;
- 	treq->tfo_listener	= false;
- 
--	ireq->ir_iif = sk->sk_bound_dev_if;
-+	ireq->ir_iif = inet_request_bound_dev_if(sk, skb);
- 
- 	/* We throwed the options of the initial SYN away, so we hope
- 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
-@@ -371,7 +371,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	 * hasn't changed since we received the original syn, but I see
- 	 * no easy way to do this.
- 	 */
--	flowi4_init_output(&fl4, sk->sk_bound_dev_if, ireq->ir_mark,
-+	flowi4_init_output(&fl4, ireq->ir_iif, ireq->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
- 			   inet_sk_flowi_flags(sk),
- 			   opt->srr ? opt->faddr : ireq->ir_rmt_addr,
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index a0bd7a55193e..9dbe7ca7944a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -916,6 +916,15 @@ static struct ctl_table ipv4_net_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
-+		.procname	= "tcp_l3mdev_accept",
-+		.data		= &init_net.ipv4.sysctl_tcp_l3mdev_accept,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &one,
-+	},
-+	{
- 		.procname	= "tcp_mtu_probing",
- 		.data		= &init_net.ipv4.sysctl_tcp_mtu_probing,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2d656eef7f8e..7b1fddc47019 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6204,7 +6204,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	tcp_openreq_init(req, &tmp_opt, skb, sk);
- 
- 	/* Note: tcp_v6_init_req() might override ir_iif for link locals */
--	inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
-+	inet_rsk(req)->ir_iif = inet_request_bound_dev_if(sk, skb);
- 
- 	af_ops->init_req(req, sk, skb);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index db003438aaf5..ce966846c6a3 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1276,6 +1276,7 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
- 	ireq		      = inet_rsk(req);
- 	sk_daddr_set(newsk, ireq->ir_rmt_addr);
- 	sk_rcv_saddr_set(newsk, ireq->ir_loc_addr);
-+	newsk->sk_bound_dev_if = ireq->ir_iif;
- 	newinet->inet_saddr	      = ireq->ir_loc_addr;
- 	inet_opt	      = ireq->opt;
- 	rcu_assign_pointer(newinet->inet_opt, inet_opt);
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index eaf7ac496d50..2906ef20795e 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -193,7 +193,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		ireq->pktopts = skb;
- 	}
- 
--	ireq->ir_iif = sk->sk_bound_dev_if;
-+	ireq->ir_iif = inet_request_bound_dev_if(sk, skb);
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
- 	    ipv6_addr_type(&ireq->ir_v6_rmt_addr) & IPV6_ADDR_LINKLOCAL)
-@@ -224,7 +224,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		fl6.daddr = ireq->ir_v6_rmt_addr;
- 		final_p = fl6_update_dst(&fl6, rcu_dereference(np->opt), &final);
- 		fl6.saddr = ireq->ir_v6_loc_addr;
--		fl6.flowi6_oif = sk->sk_bound_dev_if;
-+		fl6.flowi6_oif = ireq->ir_iif;
- 		fl6.flowi6_mark = ireq->ir_mark;
- 		fl6.fl6_dport = ireq->ir_rmt_port;
- 		fl6.fl6_sport = inet_sk(sk)->inet_sport;
+ static int __net_init diag_net_init(struct net *net)
+ {
+ 	struct netlink_kernel_cfg cfg = {
 -- 
-1.9.1
+2.6.0.rc2.230.g3dd15c0
