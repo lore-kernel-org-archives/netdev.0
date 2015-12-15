@@ -1,55 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 00/14] mlxws: update driver to support offload
- of bridged vlan devices
-Date: Tue, 15 Dec 2015 12:01:39 -0500 (EST)
-Message-ID: <20151215.120139.382714446824576938.davem@davemloft.net>
-References: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Tue, 15 Dec 2015 09:10:24 -0800
+Message-ID: <1450199424.8474.30.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <877fnc7i0i.fsf@bytheb.org>
+	 <CALmu+Sx8L5mWf3Nnbz=x0qt7pC5n5oVPRJd7dnLATVpmmO+nrA@mail.gmail.com>
+	 <1443320655.3273.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34PkfKS47_FxuqwDbqP9P0C5J7YRR5e_-BLjfkPwPRgXw@mail.gmail.com>
+	 <1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
+	 <1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S37B4mGqYe63JkLmPeQNuOX_WMK2NHaOe7Dtt79Nv9Mo4g@mail.gmail.com>
+	 <1447267424.17135.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447290541.22599.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215161456.GA3182@1wt.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	f.fainelli@gmail.com, sfeldma@gmail.com, john.fastabend@gmail.com,
-	roopa@cumulusnetworks.com, andrew@lunn.ch, kaber@trash.net,
-	stephen@networkplumber.org
-To: jiri@resnulli.us
+Cc: Tom Herbert <tom@herbertland.com>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47114 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932462AbbLORBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:01:42 -0500
-In-Reply-To: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35655 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932462AbbLORK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 12:10:26 -0500
+Received: by mail-pa0-f50.google.com with SMTP id hk6so7760942pad.2
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 09:10:26 -0800 (PST)
+In-Reply-To: <20151215161456.GA3182@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 15 Dec 2015 16:03:33 +0100
+On Tue, 2015-12-15 at 17:14 +0100, Willy Tarreau wrote:
+> Hi Eric,
+> 
+> On Wed, Nov 11, 2015 at 05:09:01PM -0800, Eric Dumazet wrote:
+> > On Wed, 2015-11-11 at 10:43 -0800, Eric Dumazet wrote:
+> > > On Wed, 2015-11-11 at 10:23 -0800, Tom Herbert wrote:
+> > > 
+> > > > How about doing this in shutdown called for a listener?
+> > > 
+> > > Seems a good idea, I will try it, thanks !
+> > > 
+> > 
+> > Arg, I forgot about this shutdown() discussion we had recently
+> > with Oracle guys.
+> > 
+> > It is currently used in linux to unblock potential threads in accept()
+> > system call.
+> > 
+> > This would prevent syn_recv sockets to be finally accepted.
+> 
+> I had a conversation with an haproxy user who's concerned with the
+> connection drops during the reload operation and we stumbled upon
+> this thread. I was considering improving shutdown() as well for this
+> as haproxy already performs a shutdown(RD) during a "pause" operation
+> (ie: workaround for kernels missing SO_REUSEPORT).
+> 
+> And I found that the code clearly doesn't make this possible since
+> shutdown(RD) flushes the queue and stops the listening.
+> 
+> However I found what I consider an elegant solution which works
+> pretty well : by simply adding a test in compute_score(), we can
+> ensure that a previous socket ranks lower than the current ones,
+> and is never considered as long as the new ones are present. Here I
+> achieved this using setsockopt(SO_LINGER). The old process just has
+> to do this with a non-zero value on the socket it wants to put into
+> lingering mode and that's all.
+> 
+> I find this elegant since it keeps the same semantics as for a
+> connected socket in that it avoids killing the queue, and that it
+> doesn't change the behaviour for existing applications. It just
+> turns out that listening sockets are set up without any lingering
+> by default so we don't need to add any new socket options nor
+> anything.
+> 
+> Please let me know what you think about it (patch attached), if
+> it's accepted it's trivial to adapt haproxy to this new behaviour.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido Schimmel says:
->         
-> ====================
-> This patchset introduces support for the offloading of 802.1D bridges
-> between VLAN devices. These can either be VLAN devices configured on top
-> of the physical ports or on top of LAG devices.
-> 
-> Patches 1-2 deal with the necessary infrastructure changes needed in order
-> to enable the above. The main change is that switchdev drivers can now know
-> the device from which the switchdev op originated from.
-> 
-> Patches 3-10 lay the groundwork for 802.1D bridges support in the mlxsw
-> driver, with patch 4 doing most of the heavy lifting.
-> 
-> Patch 11 finally offloads these bridges to hardware by listening to the
-> notifications sent when the VLAN device joins or leaves a bridge. It is
-> very similar to the already existing 802.1Q bridge we support.
-> 
-> Patches 12-14 add minor modifications to allow one to bridge a VLAN device
-> configured on top of LAG.
-> ====================
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Well, problem is : some applications use LINGER on the listener,
+you can not really hijack this flag.
 
-Series applied, thanks guys.
+Thanks.
