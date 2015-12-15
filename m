@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 14/14] mlxsw: spectrum: Add support for VLAN devices on top of LAG
-Date: Tue, 15 Dec 2015 16:03:47 +0100
-Message-ID: <1450191827-6679-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 10/14] mlxsw: spectrum: Handle VLAN devices linking / unlinking
+Date: Tue, 15 Dec 2015 16:03:43 +0100
+Message-ID: <1450191827-6679-11-git-send-email-jiri@resnulli.us>
 References: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,89 +11,102 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37492 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933606AbbLOPEM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:04:12 -0500
-Received: by mail-wm0-f50.google.com with SMTP id n186so30052281wmn.0
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:04:11 -0800 (PST)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:34558 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933598AbbLOPEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 10:04:05 -0500
+Received: by mail-wm0-f51.google.com with SMTP id p66so114411886wmp.1
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 07:04:05 -0800 (PST)
 In-Reply-To: <1450191827-6679-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When creating a VLAN device on top of LAG, we are basically creating a
-vPort on top of each of the port netdevs member in the LAG. Therefore,
-these vPorts should inherit both the LAG status and LAG ID from the
-underlying port netdevs.
+When a VLAN interface is configured on top of a physical port we should
+associate the VLAN device with the matching vPort. Likewise, when it's
+removed, we should revert back to the underlying port netdev.
 
-In addition, when the VLAN device joins or leaves a bridge each of the
-underlying vPorts should know about it and act accordingly. This is
-achieved by propagating the VLAN event down to the lower devices.
+While not a must, this is consistent with port netdevs and also provides
+a more accurate error printing via netdev_err() and friends.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 32 +++++++++++++++++++++++---
- 1 file changed, 29 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 54 ++++++++++++++++++++++++--
+ 1 file changed, 51 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e5f888f..c588c65 100644
+index 7b1ce97..159b18d 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -626,6 +626,8 @@ mlxsw_sp_port_vport_create(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_sp_vport->mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	mlxsw_sp_vport->local_port = mlxsw_sp_port->local_port;
- 	mlxsw_sp_vport->stp_state = BR_STATE_FORWARDING;
-+	mlxsw_sp_vport->lagged = mlxsw_sp_port->lagged;
-+	mlxsw_sp_vport->lag_id = mlxsw_sp_port->lag_id;
- 	mlxsw_sp_vport->vport.vfid = vfid;
- 	mlxsw_sp_vport->vport.vid = vfid->vid;
- 
-@@ -2774,16 +2776,40 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
- 	return NOTIFY_DONE;
+@@ -2259,6 +2259,40 @@ static int mlxsw_sp_port_lag_changed(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return mlxsw_sp_port_lag_tx_en_set(mlxsw_sp_port, info->tx_enabled);
  }
  
-+static int mlxsw_sp_netdevice_lag_vport_event(struct net_device *lag_dev,
-+					      unsigned long event, void *ptr,
-+					      u16 vid)
++static int mlxsw_sp_port_vlan_link(struct mlxsw_sp_port *mlxsw_sp_port,
++				   struct net_device *vlan_dev)
 +{
-+	struct net_device *dev;
-+	struct list_head *iter;
-+	int ret;
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++	u16 vid = vlan_dev_vlan_id(vlan_dev);
 +
-+	netdev_for_each_lower_dev(lag_dev, dev, iter) {
-+		if (mlxsw_sp_port_dev_check(dev)) {
-+			ret = mlxsw_sp_netdevice_vport_event(dev, event, ptr,
-+							     vid);
-+			if (ret == NOTIFY_BAD)
-+				return ret;
-+		}
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
++	if (!mlxsw_sp_vport) {
++		WARN_ON(!mlxsw_sp_vport);
++		return -EINVAL;
 +	}
 +
-+	return NOTIFY_DONE;
++	mlxsw_sp_vport->dev = vlan_dev;
++
++	return 0;
 +}
 +
- static int mlxsw_sp_netdevice_vlan_event(struct net_device *vlan_dev,
- 					 unsigned long event, void *ptr)
++static int mlxsw_sp_port_vlan_unlink(struct mlxsw_sp_port *mlxsw_sp_port,
++				     struct net_device *vlan_dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++	u16 vid = vlan_dev_vlan_id(vlan_dev);
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
++	if (!mlxsw_sp_vport) {
++		WARN_ON(!mlxsw_sp_vport);
++		return -EINVAL;
++	}
++
++	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
++
++	return 0;
++}
++
+ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 					       unsigned long event, void *ptr)
  {
- 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
- 	u16 vid = vlan_dev_vlan_id(vlan_dev);
- 
--	if (!mlxsw_sp_port_dev_check(real_dev))
--		return NOTIFY_DONE;
-+	if (mlxsw_sp_port_dev_check(real_dev))
-+		return mlxsw_sp_netdevice_vport_event(real_dev, event, ptr,
-+						      vid);
-+	else if (netif_is_lag_master(real_dev))
-+		return mlxsw_sp_netdevice_lag_vport_event(real_dev, event, ptr,
-+							  vid);
- 
--	return mlxsw_sp_netdevice_vport_event(real_dev, event, ptr, vid);
-+	return NOTIFY_DONE;
- }
- 
- static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+@@ -2288,9 +2322,23 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 		break;
+ 	case NETDEV_CHANGEUPPER:
+ 		upper_dev = info->upper_dev;
+-		if (!info->master)
+-			break;
+-		if (netif_is_bridge_master(upper_dev)) {
++		if (is_vlan_dev(upper_dev)) {
++			if (info->linking) {
++				err = mlxsw_sp_port_vlan_link(mlxsw_sp_port,
++							      upper_dev);
++				if (err) {
++					netdev_err(dev, "Failed to link VLAN device\n");
++					return NOTIFY_BAD;
++				}
++			} else {
++				err = mlxsw_sp_port_vlan_unlink(mlxsw_sp_port,
++								upper_dev);
++				if (err) {
++					netdev_err(dev, "Failed to unlink VLAN device\n");
++					return NOTIFY_BAD;
++				}
++			}
++		} else if (netif_is_bridge_master(upper_dev)) {
+ 			if (info->linking) {
+ 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port);
+ 				if (err)
 -- 
 1.9.3
