@@ -1,119 +1,41 @@
-From: "Sokolowski, Hubert" <hubert.sokolowski@intel.com>
-Subject: [PATCH net-next] net: Pass ndm_state to route netlink FDB
- notifications.
-Date: Tue, 15 Dec 2015 13:20:30 +0000
-Message-ID: <C039B2B452EFF24BA495644ED973419132ACE538@IRSMSX108.ger.corp.intel.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] qlcnic: fix a timeout loop
+Date: Tue, 15 Dec 2015 16:56:16 +0300
+Message-ID: <20151215135616.GA18851@mwanda>
+References: <BLUPR11MB0114ED16EBE57CC01FD9797393EE0@BLUPR11MB0114.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:58277 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932176AbbLONYC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 08:24:02 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Dept-GELinuxNICDev@qlogic.com,
+	Manish Chopra <manish.chopra@qlogic.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <BLUPR11MB0114ED16EBE57CC01FD9797393EE0@BLUPR11MB0114.namprd11.prod.outlook.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Before this change applications monitoring FDB notifications
-were not able to determine whether a new FDB entry is permament
-or not:
-bridge fdb add f1:f2:f3:f4:f5:f8 dev sw0p1 temp self
-bridge fdb add f1:f2:f3:f4:f5:f9 dev sw0p1 self
+The problem here is that at the end of the loop we test for if
+idc->vnic_wait_limit is zero, but since idc->vnic_wait_limit-- is a
+post-op, it actually ends up set to (u8)-1.  I have fixed this by
+moving the decrement inside the loop.
 
-bridge monitor fdb
-
-f1:f2:f3:f4:f5:f8 dev sw0p1 self permanent
-f1:f2:f3:f4:f5:f9 dev sw0p1 self permanent
-
-With this change ndm_state from the original netlink message
-is passed to the new netlink message sent as notification.
-
-bridge fdb add f1:f2:f3:f4:f5:f6 dev sw0p1 self
-bridge fdb add f1:f2:f3:f4:f5:f7 dev sw0p1 temp self
-
-bridge monitor fdb
-f1:f2:f3:f4:f5:f6 dev sw0p1 self permanent
-f1:f2:f3:f4:f5:f7 dev sw0p1 self static
-
-Signed-off-by: Hubert Sokolowski <hubert.sokolowski@intel.com>
+Fixes: 486a5bc77a4a ('qlcnic: Add support for 83xx suspend and resume.')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- net/core/rtnetlink.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+v2: different color on the bikeshed
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 34ba7a0..3974a9a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2563,7 +2563,7 @@ static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
- 				   struct net_device *dev,
- 				   u8 *addr, u16 vid, u32 pid, u32 seq,
- 				   int type, unsigned int flags,
--				   int nlflags)
-+				   int nlflags, u16 ndm_state)
- {
- 	struct nlmsghdr *nlh;
- 	struct ndmsg *ndm;
-@@ -2579,7 +2579,7 @@ static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
- 	ndm->ndm_flags	 = flags;
- 	ndm->ndm_type	 = 0;
- 	ndm->ndm_ifindex = dev->ifindex;
--	ndm->ndm_state   = NUD_PERMANENT;
-+	ndm->ndm_state   = ndm_state;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
+index be7d7a6..b1a452f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
+@@ -246,7 +246,8 @@ int qlcnic_83xx_check_vnic_state(struct qlcnic_adapter *adapter)
+ 	u32 state;
  
- 	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, addr))
- 		goto nla_put_failure;
-@@ -2600,7 +2600,8 @@ static inline size_t rtnl_fdb_nlmsg_size(void)
- 	return NLMSG_ALIGN(sizeof(struct ndmsg)) + nla_total_size(ETH_ALEN);
- }
- 
--static void rtnl_fdb_notify(struct net_device *dev, u8 *addr, u16 vid, int type)
-+static void rtnl_fdb_notify(struct net_device *dev, u8 *addr, u16 vid, int type,
-+			    u16 ndm_state)
- {
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
-@@ -2611,7 +2612,7 @@ static void rtnl_fdb_notify(struct net_device *dev, u8 *addr, u16 vid, int type)
- 		goto errout;
- 
- 	err = nlmsg_populate_fdb_fill(skb, dev, addr, vid,
--				      0, 0, type, NTF_SELF, 0);
-+				      0, 0, type, NTF_SELF, 0, ndm_state);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		goto errout;
-@@ -2746,7 +2747,8 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
- 					       nlh->nlmsg_flags);
- 
- 		if (!err) {
--			rtnl_fdb_notify(dev, addr, vid, RTM_NEWNEIGH);
-+			rtnl_fdb_notify(dev, addr, vid, RTM_NEWNEIGH,
-+					ndm->ndm_state);
- 			ndm->ndm_flags &= ~NTF_SELF;
- 		}
+ 	state = QLCRDX(ahw, QLC_83XX_VNIC_STATE);
+-	while (state != QLCNIC_DEV_NPAR_OPER && idc->vnic_wait_limit--) {
++	while (state != QLCNIC_DEV_NPAR_OPER && idc->vnic_wait_limit) {
++		idc->vnic_wait_limit--;
+ 		msleep(1000);
+ 		state = QLCRDX(ahw, QLC_83XX_VNIC_STATE);
  	}
-@@ -2847,7 +2849,8 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
- 			err = ndo_dflt_fdb_del(ndm, tb, dev, addr, vid);
- 
- 		if (!err) {
--			rtnl_fdb_notify(dev, addr, vid, RTM_DELNEIGH);
-+			rtnl_fdb_notify(dev, addr, vid, RTM_DELNEIGH,
-+					ndm->ndm_state);
- 			ndm->ndm_flags &= ~NTF_SELF;
- 		}
- 	}
-@@ -2875,7 +2878,7 @@ static int nlmsg_populate_fdb(struct sk_buff *skb,
- 		err = nlmsg_populate_fdb_fill(skb, dev, ha->addr, 0,
- 					      portid, seq,
- 					      RTM_NEWNEIGH, NTF_SELF,
--					      NLM_F_MULTI);
-+					      NLM_F_MULTI, NUD_PERMANENT);
- 		if (err < 0)
- 			return err;
- skip:
--- 
-2.1.0
-
--- 
-Hubert Sokolowski                  Intel Corporation
