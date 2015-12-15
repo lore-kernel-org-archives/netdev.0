@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 0/4] stmmac: create of compatible mdio bus for
- stmacc driver
-Date: Tue, 15 Dec 2015 00:28:52 -0500 (EST)
-Message-ID: <20151215.002852.426273016037598426.davem@davemloft.net>
-References: <1450063922-19481-1-git-send-email-preid@electromag.com.au>
+Subject: Re: [Patch net] pptp: verify sockaddr_len in pptp_bind() and
+ pptp_connect()
+Date: Tue, 15 Dec 2015 00:30:22 -0500 (EST)
+Message-ID: <20151215.003022.2241775391037074869.davem@davemloft.net>
+References: <1450129716-32422-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, vbridger@opensource.altera.com,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org
-To: preid@electromag.com.au
+Cc: netdev@vger.kernel.org, dvyukov@gmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38439 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38447 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbbLOF2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 00:28:55 -0500
-In-Reply-To: <1450063922-19481-1-git-send-email-preid@electromag.com.au>
+	with ESMTP id S1750764AbbLOFaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 00:30:24 -0500
+In-Reply-To: <1450129716-32422-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Reid <preid@electromag.com.au>
-Date: Mon, 14 Dec 2015 11:31:58 +0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 14 Dec 2015 13:48:36 -0800
 
-> Provide ability to specify a fixed phy in the device tree and
-> retain the mdio bus if no phy is found. This is needed where 
-> a dsa is connected via a fixed phy and uses the mdio bus for config.
-> Fixed ptp ref clock calculatins for the stmmac when ptp ref clock
-> is running at <= 50Mhz. Also add device tree setting to config
-> ptp clk source on socfpga platforms.
+> Reported-by: Dmitry Vyukov <dvyukov@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Series applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
