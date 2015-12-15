@@ -1,78 +1,268 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 9/9] e1000e: Fix msi-x interrupt automask
-Date: Mon, 14 Dec 2015 21:38:44 -0800
-Message-ID: <1450157924-58901-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/9] igb: Remove GS40G specific defines/functions
+Date: Mon, 14 Dec 2015 21:38:37 -0800
+Message-ID: <1450157924-58901-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450157924-58901-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org,
+Cc: Aaron Sierra <asierra@xes-inc.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59689 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:59684 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751588AbbLOFiu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2015 00:38:50 -0500
+	id S1750801AbbLOFis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2015 00:38:48 -0500
 In-Reply-To: <1450157924-58901-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
+From: Aaron Sierra <asierra@xes-inc.com>
 
-Since the introduction of 82574 support in e1000e, the driver has worked
-on the assumption that msi-x interrupt generation is automatically
-disabled after each irq. As it turns out, this is not the case.
-Currently, rx interrupts can fire multiple times before and during napi
-processing. This can be a problem for users because frames that arrive
-in a certain window (after adapter->clean_rx() but before
-napi_complete_done() has cleared NAPI_STATE_SCHED) generate an interrupt
-which does not lead to napi_schedule(). These frames sit in the rx queue
-until another frame arrives (a tcp retransmit for example).
+The I210 internal PHY can be accessed just as well with the access
+functions shared by 82580, I350, and I354 devices. A side effect of
+relying on the common functions, is that I210 cable length support
+is folded back into the common case which effectively reverts the
+following commit:
 
-While the EIAC and CTRL_EXT registers are properly configured for irq
-automask, the modification of IAM in e1000_configure_msix() is what
-prevents automask from working as intended.
+    commit 59f301046b276f87483b3afa3201a4273def06a9
+    Author: Carolyn Wyborny <carolyn.wyborny@intel.com>
+    Date:   Wed Oct 10 04:42:59 2012 +0000
 
-This patch removes that erroneous write and fixes interrupt rearming for
-tx interrupts. It also clears IAME from CTRL_EXT. This is not strictly
-necessary for operation of the driver but it is to avoid disruption from
-potential programs that access the registers directly, like `ethregs -c`.
+    igb: Update get cable length function for i210/i211
 
-Reported-by: Frank Steiner <steiner-reg@bio.ifi.lmu.de>
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Aaron Sierra <asierra@xes-inc.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 13 ++---
+ drivers/net/ethernet/intel/igb/e1000_i210.c  |  5 +-
+ drivers/net/ethernet/intel/igb/e1000_i210.h  |  2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c   | 82 +---------------------------
+ drivers/net/ethernet/intel/igb/e1000_phy.h   | 15 +----
+ 5 files changed, 11 insertions(+), 106 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index d59c0bc..c71ba1b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1931,6 +1931,9 @@ static irqreturn_t e1000_intr_msix_tx(int __always_unused irq, void *data)
- 		/* Ring was not completely cleaned, so fire another interrupt */
- 		ew32(ICS, tx_ring->ims_val);
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 362911d..adb33e2 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -45,8 +45,6 @@ static s32  igb_get_cfg_done_82575(struct e1000_hw *);
+ static s32  igb_init_hw_82575(struct e1000_hw *);
+ static s32  igb_phy_hw_reset_sgmii_82575(struct e1000_hw *);
+ static s32  igb_read_phy_reg_sgmii_82575(struct e1000_hw *, u32, u16 *);
+-static s32  igb_read_phy_reg_82580(struct e1000_hw *, u32, u16 *);
+-static s32  igb_write_phy_reg_82580(struct e1000_hw *, u32, u16);
+ static s32  igb_reset_hw_82575(struct e1000_hw *);
+ static s32  igb_reset_hw_82580(struct e1000_hw *);
+ static s32  igb_set_d0_lplu_state_82575(struct e1000_hw *, bool);
+@@ -205,13 +203,10 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
+ 		case e1000_82580:
+ 		case e1000_i350:
+ 		case e1000_i354:
+-			phy->ops.read_reg = igb_read_phy_reg_82580;
+-			phy->ops.write_reg = igb_write_phy_reg_82580;
+-			break;
+ 		case e1000_i210:
+ 		case e1000_i211:
+-			phy->ops.read_reg = igb_read_phy_reg_gs40g;
+-			phy->ops.write_reg = igb_write_phy_reg_gs40g;
++			phy->ops.read_reg = igb_read_phy_reg_82580;
++			phy->ops.write_reg = igb_write_phy_reg_82580;
+ 			break;
+ 		default:
+ 			phy->ops.read_reg = igb_read_phy_reg_igp;
+@@ -2153,7 +2148,7 @@ void igb_vmdq_set_replication_pf(struct e1000_hw *hw, bool enable)
+  *  Reads the MDI control register in the PHY at offset and stores the
+  *  information read to data.
+  **/
+-static s32 igb_read_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 *data)
++s32 igb_read_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 *data)
+ {
+ 	s32 ret_val;
  
-+	if (!test_bit(__E1000_DOWN, &adapter->state))
-+		ew32(IMS, adapter->tx_ring->ims_val);
-+
- 	return IRQ_HANDLED;
- }
+@@ -2177,7 +2172,7 @@ out:
+  *
+  *  Writes data to MDI control register in the PHY at offset.
+  **/
+-static s32 igb_write_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 data)
++s32 igb_write_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 data)
+ {
+ 	s32 ret_val;
  
-@@ -2020,12 +2023,8 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
- 	ew32(IVAR, ivar);
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 29f59c7..8aa7987 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -861,10 +861,10 @@ s32 igb_pll_workaround_i210(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		nvm_word = E1000_INVM_DEFAULT_AL;
+ 	tmp_nvm = nvm_word | E1000_INVM_PLL_WO_VAL;
++	igb_write_phy_reg_82580(hw, I347AT4_PAGE_SELECT, E1000_PHY_PLL_FREQ_PAGE);
+ 	for (i = 0; i < E1000_MAX_PLL_TRIES; i++) {
+ 		/* check current state directly from internal PHY */
+-		igb_read_phy_reg_gs40g(hw, (E1000_PHY_PLL_FREQ_PAGE |
+-					 E1000_PHY_PLL_FREQ_REG), &phy_word);
++		igb_read_phy_reg_82580(hw, E1000_PHY_PLL_FREQ_REG, &phy_word);
+ 		if ((phy_word & E1000_PHY_PLL_UNCONF)
+ 		    != E1000_PHY_PLL_UNCONF) {
+ 			ret_val = 0;
+@@ -896,6 +896,7 @@ s32 igb_pll_workaround_i210(struct e1000_hw *hw)
+ 		/* restore WUC register */
+ 		wr32(E1000_WUC, wuc);
+ 	}
++	igb_write_phy_reg_82580(hw, I347AT4_PAGE_SELECT, 0);
+ 	/* restore MDICNFG setting */
+ 	wr32(E1000_MDICNFG, mdicnfg);
+ 	return ret_val;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
+index eaa68a5..b2964a2 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.h
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
+@@ -85,7 +85,7 @@ enum E1000_INVM_STRUCTURE_TYPE {
+ #define E1000_PCI_PMCSR_D3		0x03
+ #define E1000_MAX_PLL_TRIES		5
+ #define E1000_PHY_PLL_UNCONF		0xFF
+-#define E1000_PHY_PLL_FREQ_PAGE		0xFC0000
++#define E1000_PHY_PLL_FREQ_PAGE		0xFC
+ #define E1000_PHY_PLL_FREQ_REG		0x000E
+ #define E1000_INVM_DEFAULT_AL		0x202F
+ #define E1000_INVM_AUTOLOAD		0x0A
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index c0df40f..c906826 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -1719,30 +1719,10 @@ s32 igb_get_cable_length_m88_gen2(struct e1000_hw *hw)
+ 	u16 phy_data, phy_data2, index, default_page, is_cm;
  
- 	/* enable MSI-X PBA support */
--	ctrl_ext = er32(CTRL_EXT);
--	ctrl_ext |= E1000_CTRL_EXT_PBA_CLR;
+ 	switch (hw->phy.id) {
+-	case I210_I_PHY_ID:
+-		/* Get cable length from PHY Cable Diagnostics Control Reg */
+-		ret_val = phy->ops.read_reg(hw, (0x7 << GS40G_PAGE_SHIFT) +
+-					    (I347AT4_PCDL + phy->addr),
+-					    &phy_data);
+-		if (ret_val)
+-			return ret_val;
 -
--	/* Auto-Mask Other interrupts upon ICR read */
--	ew32(IAM, ~E1000_EIAC_MASK_82574 | E1000_IMS_OTHER);
--	ctrl_ext |= E1000_CTRL_EXT_EIAME;
-+	ctrl_ext = er32(CTRL_EXT) & ~E1000_CTRL_EXT_IAME;
-+	ctrl_ext |= E1000_CTRL_EXT_PBA_CLR | E1000_CTRL_EXT_EIAME;
- 	ew32(CTRL_EXT, ctrl_ext);
- 	e1e_flush();
+-		/* Check if the unit of cable length is meters or cm */
+-		ret_val = phy->ops.read_reg(hw, (0x7 << GS40G_PAGE_SHIFT) +
+-					    I347AT4_PCDC, &phy_data2);
+-		if (ret_val)
+-			return ret_val;
+-
+-		is_cm = !(phy_data2 & I347AT4_PCDC_CABLE_LENGTH_UNIT);
+-
+-		/* Populate the phy structure with cable length in meters */
+-		phy->min_cable_length = phy_data / (is_cm ? 100 : 1);
+-		phy->max_cable_length = phy_data / (is_cm ? 100 : 1);
+-		phy->cable_length = phy_data / (is_cm ? 100 : 1);
+-		break;
+ 	case M88E1543_E_PHY_ID:
+ 	case M88E1512_E_PHY_ID:
+ 	case I347AT4_E_PHY_ID:
++	case I210_I_PHY_ID:
+ 		/* Remember the original page select and set it to 7 */
+ 		ret_val = phy->ops.read_reg(hw, I347AT4_PAGE_SELECT,
+ 					    &default_page);
+@@ -2588,66 +2568,6 @@ out:
  }
+ 
+ /**
+- *  igb_write_phy_reg_gs40g - Write GS40G PHY register
+- *  @hw: pointer to the HW structure
+- *  @offset: lower half is register offset to write to
+- *     upper half is page to use.
+- *  @data: data to write at register offset
+- *
+- *  Acquires semaphore, if necessary, then writes the data to PHY register
+- *  at the offset.  Release any acquired semaphores before exiting.
+- **/
+-s32 igb_write_phy_reg_gs40g(struct e1000_hw *hw, u32 offset, u16 data)
+-{
+-	s32 ret_val;
+-	u16 page = offset >> GS40G_PAGE_SHIFT;
+-
+-	offset = offset & GS40G_OFFSET_MASK;
+-	ret_val = hw->phy.ops.acquire(hw);
+-	if (ret_val)
+-		return ret_val;
+-
+-	ret_val = igb_write_phy_reg_mdic(hw, GS40G_PAGE_SELECT, page);
+-	if (ret_val)
+-		goto release;
+-	ret_val = igb_write_phy_reg_mdic(hw, offset, data);
+-
+-release:
+-	hw->phy.ops.release(hw);
+-	return ret_val;
+-}
+-
+-/**
+- *  igb_read_phy_reg_gs40g - Read GS40G  PHY register
+- *  @hw: pointer to the HW structure
+- *  @offset: lower half is register offset to read to
+- *     upper half is page to use.
+- *  @data: data to read at register offset
+- *
+- *  Acquires semaphore, if necessary, then reads the data in the PHY register
+- *  at the offset.  Release any acquired semaphores before exiting.
+- **/
+-s32 igb_read_phy_reg_gs40g(struct e1000_hw *hw, u32 offset, u16 *data)
+-{
+-	s32 ret_val;
+-	u16 page = offset >> GS40G_PAGE_SHIFT;
+-
+-	offset = offset & GS40G_OFFSET_MASK;
+-	ret_val = hw->phy.ops.acquire(hw);
+-	if (ret_val)
+-		return ret_val;
+-
+-	ret_val = igb_write_phy_reg_mdic(hw, GS40G_PAGE_SELECT, page);
+-	if (ret_val)
+-		goto release;
+-	ret_val = igb_read_phy_reg_mdic(hw, offset, data);
+-
+-release:
+-	hw->phy.ops.release(hw);
+-	return ret_val;
+-}
+-
+-/**
+  *  igb_set_master_slave_mode - Setup PHY for Master/slave mode
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
+index aa1ae61..969a6dd 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.h
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
+@@ -72,8 +72,8 @@ s32  igb_copper_link_setup_82580(struct e1000_hw *hw);
+ s32  igb_get_phy_info_82580(struct e1000_hw *hw);
+ s32  igb_phy_force_speed_duplex_82580(struct e1000_hw *hw);
+ s32  igb_get_cable_length_82580(struct e1000_hw *hw);
+-s32  igb_read_phy_reg_gs40g(struct e1000_hw *hw, u32 offset, u16 *data);
+-s32  igb_write_phy_reg_gs40g(struct e1000_hw *hw, u32 offset, u16 data);
++s32  igb_read_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 *data);
++s32  igb_write_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 data);
+ s32  igb_check_polarity_m88(struct e1000_hw *hw);
+ 
+ /* IGP01E1000 Specific Registers */
+@@ -144,17 +144,6 @@ s32  igb_check_polarity_m88(struct e1000_hw *hw);
+ 
+ #define E1000_CABLE_LENGTH_UNDEFINED      0xFF
+ 
+-/* GS40G - I210 PHY defines */
+-#define GS40G_PAGE_SELECT		0x16
+-#define GS40G_PAGE_SHIFT		16
+-#define GS40G_OFFSET_MASK		0xFFFF
+-#define GS40G_PAGE_2			0x20000
+-#define GS40G_MAC_REG2			0x15
+-#define GS40G_MAC_LB			0x4140
+-#define GS40G_MAC_SPEED_1G		0X0006
+-#define GS40G_COPPER_SPEC		0x0010
+-#define GS40G_LINE_LB			0x4000
+-
+ /* SFP modules ID memory locations */
+ #define E1000_SFF_IDENTIFIER_OFFSET	0x00
+ #define E1000_SFF_IDENTIFIER_SFF	0x02
 -- 
 2.5.0
