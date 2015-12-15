@@ -1,58 +1,45 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net: add Qualcomm IPC router
-Date: Tue, 15 Dec 2015 15:14:10 -0600
-Message-ID: <1450214050.4464.10.camel@redhat.com>
-References: <1449866519-14551-1-git-send-email-bjorn.andersson@sonymobile.com>
-	 <20151215.160114.1178824607335349574.davem@davemloft.net>
-	 <1450214005.4464.9.camel@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Tue, 15 Dec 2015 13:21:15 -0800
+Message-ID: <1450214475.8474.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447222769.17135.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S37FOq+JVs8LKh5ezR9JhATrz2=NhmbEYPUxUt8Cyb9xaw@mail.gmail.com>
+	 <1447262610.17135.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S37B4mGqYe63JkLmPeQNuOX_WMK2NHaOe7Dtt79Nv9Mo4g@mail.gmail.com>
+	 <1447267424.17135.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1447290541.22599.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215161456.GA3182@1wt.eu>
+	 <1450199424.8474.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215174346.GA3187@1wt.eu>
+	 <1450203712.8474.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215194410.GB3187@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, srinivas.kandagatla-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, courtney.cavin-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450214005.4464.9.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <tom@herbertland.com>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:36859 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932462AbbLOVVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 16:21:17 -0500
+Received: by mail-pf0-f169.google.com with SMTP id o64so118031pfb.3
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 13:21:17 -0800 (PST)
+In-Reply-To: <20151215194410.GB3187@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-12-15 at 15:13 -0600, Dan Williams wrote:
-> On Tue, 2015-12-15 at 16:01 -0500, David Miller wrote:
-> > From: Bjorn Andersson <bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
-> > Date: Fri, 11 Dec 2015 12:41:59 -0800
-> > 
-> > > +static unsigned int qrtr_local_nid = 1;
-> > > +module_param_named(node_id, qrtr_local_nid, uint, S_IRUGO);
-> > > +MODULE_PARM_DESC(idVendor, "Local Node Identifier");
-> 
-> Also s/idVendor/node_id?
+On Tue, 2015-12-15 at 20:44 +0100, Willy Tarreau wrote:
 
-Well, not that it matters if the module parameter gets removed...
+> Thus do you think it's worth adding a new option as Tolga proposed ?
 
-Dan
 
-> 
-> Dan
-> 
-> > Module parameters suck.
-> > 
-> > Allow the user to choose this dynamically.  You have roughtly two
-> > choices.
-> > 
-> > 1) Subvert the 'protocol' field passed to ->create() and use that,
-> > it
-> > is
-> >    being ignored otherwise.
-> > 
-> > 2) Put it into the socket address for bind().
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev"
-> > in
-> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I thought we tried hard to avoid adding the option but determined
+we could not avoid it ;)
+
+So I would simply resend the patch for another review.
