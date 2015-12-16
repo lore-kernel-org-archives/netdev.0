@@ -1,59 +1,52 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v3] net/macb: add support for resetting PHY using GPIO
-Date: Wed, 16 Dec 2015 20:10:14 +0100
-Message-ID: <6382531.CWmTLTEYMq@wuerfel>
-References: <1450290690-32369-1-git-send-email-gregory.clement@free-electrons.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net/mlx5_en: Add HW timestamping (TS)
+ support
+Date: Wed, 16 Dec 2015 20:16:27 +0100
+Message-ID: <20151216191627.GC28759@localhost.localdomain>
+References: <1450284394-32386-1-git-send-email-saeedm@mellanox.com>
+ <1450284394-32386-3-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Gregory CLEMENT <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450290690-32369-1-git-send-email-gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38554 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966128AbbLPTQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 14:16:32 -0500
+Received: by mail-wm0-f52.google.com with SMTP id l126so52668356wml.1
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 11:16:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1450284394-32386-3-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 16 December 2015 19:31:30 Gregory CLEMENT wrote:
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 88c1e1a..35661aa 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -28,6 +28,7 @@
->  #include <linux/phy.h>
->  #include <linux/of.h>
->  #include <linux/of_device.h>
-> +#include <linux/of_gpio.h>
->  #include <linux/of_mdio.h>
->  #include <linux/of_net.h>
+On Wed, Dec 16, 2015 at 06:46:34PM +0200, Saeed Mahameed wrote:
+> From: Eran Ben Elisha <eranbe@mellanox.com>
+> 
+> Add support for enable/disable HW timestamping for incoming and/or
+> outgoing packets. It adds and initializes all structs and callbacks
+> needed by kernel TS API.  To enable/disable HW timestamping appropriate
+> ioctl should be used.  Currently HWTSTAMP_FILTER_ALL/NONE and
+> HWTSAMP_TX_ON/OFF only are supported.  Make all relevant changes in
+> RX/TX flows to consider TS request and plant HW timestamps into
+> relevant structures.
+> 
+> Add a PHC support to the mlx5_en driver. Use reader/writer spinlocks to
+> protect the timecounter since every packet received needs to call
+> timecounter_cycle2time() when timestamping is enabled.  This can become
+> a performance bottleneck with RSS and multiple receive queues if normal
+> spinlocks are used.
 
-Is this the patch that is already in linux-next?
+The subject line doesn't mention PHC.  Please break this into two patches.
 
-I needed an additional
+1. add hw time stamping
+2. add phc support
 
-#include <linux/gpio/consumer.h>
+Also, please CC the ptp maintainer for ptp patches.
 
-to avoid this build error on randconfig builds without GPIOLIB:
-
-    drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
-    drivers/net/ethernet/cadence/macb.c:2908:19: error: implicit declaration of function 'devm_gpiod_get_optional' [-Werror=implicit-function-declaration]
-      bp->reset_gpio = devm_gpiod_get_optional(&bp->pdev->dev, "phy-reset",
-                       ^
-    drivers/net/ethernet/cadence/macb.c:2909:8: error: 'GPIOD_OUT_HIGH' undeclared (first use in this function)
-            GPIOD_OUT_HIGH);
-            ^
-    drivers/net/ethernet/cadence/macb.c:2909:8: note: each undeclared identifier is reported only once for each function it appears in
-    drivers/net/ethernet/cadence/macb.c: In function 'macb_remove':
-    drivers/net/ethernet/cadence/macb.c:2979:3: error: implicit declaration of function 'gpiod_set_value' [-Werror=implicit-function-declaration]
-
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Richard
