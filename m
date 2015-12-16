@@ -1,65 +1,59 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 Subject: Re: [PATCH v3] net/macb: add support for resetting PHY using GPIO
-Date: Wed, 16 Dec 2015 20:09:39 +0100
-Message-ID: <878u4utdl8.fsf@free-electrons.com>
+Date: Wed, 16 Dec 2015 20:10:14 +0100
+Message-ID: <6382531.CWmTLTEYMq@wuerfel>
 References: <1450290690-32369-1-git-send-email-gregory.clement@free-electrons.com>
-	<20151216190431.GB28759@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Russell King <linux@arm.linux.org.uk>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151216190431.GB28759@localhost.localdomain> (Richard Cochran's
-	message of "Wed, 16 Dec 2015 20:04:31 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Gregory CLEMENT <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1450290690-32369-1-git-send-email-gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Richard,
-=20
- On mer., d=C3=A9c. 16 2015, Richard Cochran <richardcochran@gmail.com>=
- wrote:
+On Wednesday 16 December 2015 19:31:30 Gregory CLEMENT wrote:
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 88c1e1a..35661aa 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -28,6 +28,7 @@
+>  #include <linux/phy.h>
+>  #include <linux/of.h>
+>  #include <linux/of_device.h>
+> +#include <linux/of_gpio.h>
+>  #include <linux/of_mdio.h>
+>  #include <linux/of_net.h>
 
-> On Wed, Dec 16, 2015 at 07:31:30PM +0100, Gregory CLEMENT wrote:
->> +Optional properties for PHY child node:
->> +- reset-gpios : Should specify the gpio for phy reset
->
-> reset-gpios plural or reset-gpio singular?
+Is this the patch that is already in linux-next?
 
-The bindings name is plural but it handle only one gpio.
+I needed an additional
 
-See:
-https://lkml.org/lkml/2015/12/9/623
+#include <linux/gpio/consumer.h>
 
->
->> +
->>  Examples:
->> =20
->>  	macb0: ethernet@fffc4000 {
->> @@ -29,4 +32,8 @@ Examples:
->>  		local-mac-address =3D [3a 0e 03 04 05 06];
->>  		clock-names =3D "pclk", "hclk", "tx_clk";
->>  		clocks =3D <&clkc 30>, <&clkc 30>, <&clkc 13>;
->> +		ethernet-phy@1 {
->> +			reg =3D <0x1>;
->> +			reset-gpios =3D <&pioE 6 1>;
->
-> Did you mean "gpioE" ?
+to avoid this build error on randconfig builds without GPIOLIB:
 
-No, I really mean pioE: it is the name used for the at91 SoCs.
+    drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
+    drivers/net/ethernet/cadence/macb.c:2908:19: error: implicit declaration of function 'devm_gpiod_get_optional' [-Werror=implicit-function-declaration]
+      bp->reset_gpio = devm_gpiod_get_optional(&bp->pdev->dev, "phy-reset",
+                       ^
+    drivers/net/ethernet/cadence/macb.c:2909:8: error: 'GPIOD_OUT_HIGH' undeclared (first use in this function)
+            GPIOD_OUT_HIGH);
+            ^
+    drivers/net/ethernet/cadence/macb.c:2909:8: note: each undeclared identifier is reported only once for each function it appears in
+    drivers/net/ethernet/cadence/macb.c: In function 'macb_remove':
+    drivers/net/ethernet/cadence/macb.c:2979:3: error: implicit declaration of function 'gpiod_set_value' [-Werror=implicit-function-declaration]
 
-Thanks,
 
-Gregory
-
---=20
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
