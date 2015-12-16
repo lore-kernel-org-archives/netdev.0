@@ -1,40 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] inet: tcp: fix inetpeer_set_addr_v4()
-Date: Wed, 16 Dec 2015 00:14:35 -0500 (EST)
-Message-ID: <20151216.001435.1872718804742060388.davem@davemloft.net>
-References: <1450241804.8474.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: <zyjzyj2000@gmail.com>
+Subject: [V3 PATCH 1/1] net: sctp: dynamically enable or disable pf state
+Date: Wed, 16 Dec 2015 13:39:28 +0800
+Message-ID: <1450244369-29801-1-git-send-email-zyjzyj2000@gmail.com>
+References: <566ED0D9.8040200@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com, ycheng@google.com,
-	ncardwell@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<alexandre.dietsch@windriver.com>,
+	<stefan.costandache@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56990 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750732AbbLPFOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 00:14:39 -0500
-In-Reply-To: <1450241804.8474.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail5.windriver.com ([192.103.53.11]:47001 "EHLO mail5.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751796AbbLPFjc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2015 00:39:32 -0500
+In-Reply-To: <566ED0D9.8040200@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Dec 2015 20:56:44 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> David Ahern added a vif field in the a4 part of inetpeer_addr struct.
-> 
-> This broke IPv4 TCP fast open client side and more generally tcp metrics
-> cache, because inetpeer_addr_cmp() is now comparing two u32 instead of
-> one.
-> 
-> inetpeer_set_addr_v4() needs to properly init vif field, otherwise
-> the comparison result depends on uninitialized data.
-> 
-> Fixes: 192132b9a034 ("net: Add support for VRFs to inetpeer cache")
-> Reported-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
+Hi, vlad
 
-Applied and queued up for -stable, thanks Eric.
+Thanks for your ack. The latest patch is in the attachment.
+
+Changes:
+
+Modify Documentation/networking/ip-sysctl.txt according to Marcelo and David.
+
+Best Regards!
+Zhu Yanjun
