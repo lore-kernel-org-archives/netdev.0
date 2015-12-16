@@ -1,67 +1,56 @@
-From: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
-Subject: Re: [PATCH][iproute2] tc/q_htb.c: Fix the MPU value output in 'tc -d class show dev <device_name> ' command
-Date: Wed, 16 Dec 2015 23:56:35 +0300
-Message-ID: <930151450299395@web20m.yandex.ru>
-References: <5917221449918579@web5j.yandex.ru>
-	 <20151216161558.265296c7@redhat.com> <20151216160400.GJ6555@orbit.nwl.cc>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net: heap-out-of-bounds in sock_setsockopt
+Date: Wed, 16 Dec 2015 13:07:30 -0800
+Message-ID: <CANn89iLWOkR3odzkdoYbXCwNEkiQsM7MeONX5GVd0OMJZSBOYA@mail.gmail.com>
+References: <CACT4Y+Y5jtsfn4U8C-iBT4njrjXH+fFmvajuyhA-VpEchjLKFw@mail.gmail.com>
+	<CAHA+R7PCNuyW7RhbzxPJvnrX0NA1bxDXR8cL58STXrWkwMXXyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Phil Sutter <phil@nwl.cc>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward20m.cmail.yandex.net ([5.255.216.151]:32998 "EHLO
-	forward20m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751166AbbLPVEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 16:04:13 -0500
-In-Reply-To: <20151216160400.GJ6555@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Craig Gallek <kraig@google.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Edward Jee <edjee@google.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7PCNuyW7RhbzxPJvnrX0NA1bxDXR8cL58STXrWkwMXXyA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Phil,
+On Wed, Dec 16, 2015 at 12:22 PM, Cong Wang <cwang@twopensource.com> wrote:
 
-> Dmitrii, did iproute2 without your change even print the overhead as
-set by you before? Looking at the code, I'd assume not.
+> Hmm, we should exclude the raw socket case, something like the
+> following, but I am not sure if the check is too strict or not, also
+> not sure if we should return an error for this raw socket case.
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 765be83..c26e80a 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -872,7 +872,7 @@ int sock_setsockopt(struct socket *sock, int
+> level, int optname,
+>
+>                 if (val & SOF_TIMESTAMPING_OPT_ID &&
+>                     !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
+> -                       if (sk->sk_protocol == IPPROTO_TCP) {
+> +                       if (sk->sk_protocol == IPPROTO_TCP &&
+> sk->sk_type == SOCK_STREAM) {
+>                                 if (sk->sk_state != TCP_ESTABLISHED) {
+>                                         ret = -EINVAL;
+>                                         break;
 
-I used an iproute2 provided by the distribution and an OpenVZ 3.10 kernel
-so there are differences there but I
-noticed the 'manual' overhead-related code is included there. I am going
-to get an upstream kernel and iproute2 to check tomorrow. At least they
-print mpu consistently.
+This looks right, please post this officially ;)
 
-The following output is for non-upstream kernels and iproute2 provided
-by the distributions so it probably won't be 100% useful to answer your
-question.
-
-This is what I have on a quite an old ovz kernel at home:
-
-[root@localhost ~]# uname -r
-3.10.0-229.7.2.vz7.8.8
-[root@localhost ~]# tc qdisc add dev eth0 root handle 1: htb default 12
-[root@localhost ~]# tc class add dev eth0 parent 1: classid 1:1 htb rate
-100kbps ceil 100kbps mpu 256 overhead 64
-[root@localhost ~]# tc -d class show dev eth0
-class htb 1:1 root prio 0 quantum 10000 rate 800000bit overhead 64 ceil
-800000bit burst 1600b/1 mpu 0b overhead 1b cburst 1600b/1 mpu 0b
-overhead 1b level 0
-
-And this is the same on ubuntu 14.04 with 3.19 kernel (looks like the
-mpu value is not configured properly which is strange, though 'manual'
-overhead is there).
-
-administrator@ubuntu-q87:~$ uname -r
-3.19.0-33-generic
-
-administrator@ubuntu-q87:~$ sudo tc qdisc add dev eth0 root handle 1:
-htb default 12
-administrator@ubuntu-q87:~$ sudo tc class add dev eth0 parent 1: classid
-1:1 htb rate 100kbps ceil 100kbps mpu 256 overhead 64
-administrator@ubuntu-q87:~$ tc -d class show dev eth0
-class htb 1:1 root prio 0 quantum 10000 rate 800000bit overhead 64 ceil
-800000bit linklayer ethernet burst 1600b/1 mpu 0b overhead 0b cburst
-1600b/1 mpu 0b overhead 0b level 0
-
-Thanks,
-Dima
+tcp_sk(sk) only works for TCP sockets , and the test must include
+sk->sk_type == SOCK_STREAM
