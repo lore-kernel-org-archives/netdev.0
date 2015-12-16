@@ -1,113 +1,58 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: rhashtable: Fix walker list corruption
-Date: Wed, 16 Dec 2015 14:02:54 +0000
-Message-ID: <56716F0E.1030409@canonical.com>
-References: <561797B7.3090807@canonical.com>
- <20151216084554.GA24395@gondor.apana.org.au>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: kernel BUG at /home/kas/linux/mm/net/ipv6/raw.c:592!
+Date: Wed, 16 Dec 2015 16:24:42 +0200
+Message-ID: <20151216142442.GA18196@node.shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:48386 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166AbbLPOC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 09:02:57 -0500
-In-Reply-To: <20151216084554.GA24395@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/12/15 08:45, Herbert Xu wrote:
-> On Fri, Oct 09, 2015 at 11:32:23AM +0100, Colin Ian King wrote:
->>
->> I'm hitting a null ptr deference bug when running 2 or more instances of
->> the attached reproducer program.  I've bisected this down to the
->> following commit:
->>
->> commit ba7c95ea3870fe7b847466d39a049ab6f156aa2c
->> Author: Herbert Xu <herbert@gondor.apana.org.au>
->> Date:   Tue Mar 24 09:53:17 2015 +1100
->>
->>     rhashtable: Fix sleeping inside RCU critical section in walk_stop
->>
->>
->> Without this commit, the attached reproducer runs fine for hours. With
->> the commit, I can oops a 4 core (8 thread) Intel i7-6700 Sharkbay SDP in
->> a few seconds.
-> 
-> Thanks Colin.  This commit was indeed bogus, as we end up using
-> two different locks for the one list.
+Hi,
 
-I've given this a good soak test and it fixes the issue. Thanks Herbert!
+Fuzzing -mm tree with trinity in KVM trigered this:
 
-Colin
+[  602.630207] kernel BUG at /home/kas/linux/mm/net/ipv6/raw.c:592!
+[  602.630912] invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC 
+[  602.631627] Modules linked in:
+[  602.631969] CPU: 17 PID: 13535 Comm: trinity-c17 Not tainted 4.3.0-dirty #858
+[  602.632730] Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+[  602.633079] task: ffff880852f298c0 ti: ffff8806d4648000 task.ti: ffff8806d4648000
+[  602.633079] RIP: 0010:[<ffffffff81859e21>]  [<ffffffff81859e21>] rawv6_sendmsg+0xb31/0xb80
+[  602.633079] RSP: 0018:ffff8806d464bc30  EFLAGS: 00010282
+[  602.633079] RAX: 00000000fffffff2 RBX: 0000000000000030 RCX: 0000000000000002
+[  602.633079] RDX: ffff8806d464bce0 RSI: 0000000000000030 RDI: ffff88084ff9de00
+[  602.633079] RBP: ffff8806d464bd88 R08: 000000000000007c R09: 0000000000000009
+[  602.638114] R10: 0000000000000031 R11: 0000000000000000 R12: 0000000000000000
+[  602.638114] R13: ffff88084f685480 R14: ffff88084ff9de00 R15: ffff880791a7c000
+[  602.638114] FS:  00007f1fb31a8700(0000) GS:ffff880859800000(0000) knlGS:0000000000000000
+[  602.638114] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  602.638114] CR2: 0000000000000004 CR3: 0000000832baa000 CR4: 00000000000006a0
+[  602.638114] DR0: ffffffff81000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  602.638114] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+[  602.638114] Stack:
+[  602.638114]  0000000000000000 ffff880855ead000 ffff8806d464bd18 ffff880791a7c000
+[  602.638114]  ffff880800000000 0000000000000000 0000000000000011 ffff88080000007c
+[  602.638114]  ffff880800000009 0000000000000001 0000000000000040 0000000000000000
+[  602.638114] Call Trace:
+[  602.638114]  [<ffffffff8108ced7>] ? sched_clock_local+0x17/0x80
+[  602.638114]  [<ffffffff8143f9e7>] ? debug_smp_processor_id+0x17/0x20
+[  602.638114]  [<ffffffff81808031>] ? inet_sendmsg+0xc1/0x1c0
+[  602.638114]  [<ffffffff8180806e>] inet_sendmsg+0xfe/0x1c0
+[  602.638114]  [<ffffffff81807f75>] ? inet_sendmsg+0x5/0x1c0
+[  602.638114]  [<ffffffff8175a747>] sock_sendmsg+0x17/0x30
+[  602.638114]  [<ffffffff8175a7de>] sock_write_iter+0x7e/0xd0
+[  602.638114]  [<ffffffff811e684a>] __vfs_write+0xaa/0xf0
+[  602.638114]  [<ffffffff811e7067>] vfs_write+0xa7/0x1a0
+[  602.638114]  [<ffffffff812062ef>] ? __fget_light+0x6f/0x90
+[  602.638114]  [<ffffffff811e7ccd>] SyS_write+0x4d/0xc0
+[  602.638114]  [<ffffffff8189df17>] entry_SYSCALL_64_fastpath+0x12/0x6f
+[  602.638114] Code: 00 00 e9 15 f9 ff ff ba ff ff ff ff 66 89 94 24 b0 00 00 00 e9 bf fe ff ff e8 2c 42 87 ff 85 c0 74 19 49 8b 46 58 e9 b1 fd ff ff <0f> 0b f7 d0 41 01 c0 41 83 d0 00 e9 5e fe ff ff e8 7a 43 87 ff 
+[  602.638114] RIP  [<ffffffff81859e21>] rawv6_sendmsg+0xb31/0xb80
+[  602.638114]  RSP <ffff8806d464bc30>
 
-> 
-> ---8<---
-> The commit ba7c95ea3870fe7b847466d39a049ab6f156aa2c ("rhashtable:
-> Fix sleeping inside RCU critical section in walk_stop") introduced
-> a new spinlock for the walker list.  However, it did not convert
-> all existing users of the list over to the new spin lock.  Some
-> continued to use the old mutext for this purpose.  This obviously
-> led to corruption of the list.
-> 
-> The fix is to use the spin lock everywhere where we touch the list.
-> 
-> This also allows us to do rcu_rad_lock before we take the lock in
-> rhashtable_walk_start.  With the old mutex this would've deadlocked
-> but it's safe with the new spin lock.
-> 
-> Fixes: ba7c95ea3870 ("rhashtable: Fix sleeping inside RCU...")
-> Reported-by: Colin Ian King <colin.king@canonical.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 1c624db..ed7ba47 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -519,10 +519,10 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
->  	if (!iter->walker)
->  		return -ENOMEM;
->  
-> -	mutex_lock(&ht->mutex);
-> +	spin_lock(&ht->lock);
->  	iter->walker->tbl = rht_dereference(ht->tbl, ht);
->  	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
-> -	mutex_unlock(&ht->mutex);
-> +	spin_unlock(&ht->lock);
->  
->  	return 0;
->  }
-> @@ -536,10 +536,10 @@ EXPORT_SYMBOL_GPL(rhashtable_walk_init);
->   */
->  void rhashtable_walk_exit(struct rhashtable_iter *iter)
->  {
-> -	mutex_lock(&iter->ht->mutex);
-> +	spin_lock(&iter->ht->lock);
->  	if (iter->walker->tbl)
->  		list_del(&iter->walker->list);
-> -	mutex_unlock(&iter->ht->mutex);
-> +	spin_unlock(&iter->ht->lock);
->  	kfree(iter->walker);
->  }
->  EXPORT_SYMBOL_GPL(rhashtable_walk_exit);
-> @@ -563,14 +563,12 @@ int rhashtable_walk_start(struct rhashtable_iter *iter)
->  {
->  	struct rhashtable *ht = iter->ht;
->  
-> -	mutex_lock(&ht->mutex);
-> +	rcu_read_lock();
->  
-> +	spin_lock(&ht->lock);
->  	if (iter->walker->tbl)
->  		list_del(&iter->walker->list);
-> -
-> -	rcu_read_lock();
-> -
-> -	mutex_unlock(&ht->mutex);
-> +	spin_unlock(&ht->lock);
->  
->  	if (!iter->walker->tbl) {
->  		iter->walker->tbl = rht_dereference_rcu(ht->tbl, ht);
-> 
+-- 
+ Kirill A. Shutemov
