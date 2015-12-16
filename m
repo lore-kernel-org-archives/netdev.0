@@ -1,160 +1,80 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] net: sctp: dynamically enable or disable pf state
-Date: Wed, 16 Dec 2015 13:55:04 +0800
-Message-ID: <1450245304-29848-2-git-send-email-zyjzyj2000@gmail.com>
-References: <566ED0D9.8040200@gmail.com>
- <1450245304-29848-1-git-send-email-zyjzyj2000@gmail.com>
+From: Markus Brunner <systemprogrammierung.brunner@gmail.com>
+Subject: Re: [PATCH] drivers: net: cpsw: fix RMII/RGMII mode when used with fixed-link PHY
+Date: Wed, 16 Dec 2015 07:39:16 +0100
+Message-ID: <1741588.Ve76Z1ZI87@localhost>
+References: <20151209223115.6c5a400f.drivshin.allworx@gmail.com> <6416396.ZOturxhSar@localhost> <20151214130446.1e14fbb8.drivshin.allworx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<alexandre.dietsch@windriver.com>,
-	<stefan.costandache@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Pascal Speck <kernel@iktek.de>,
+	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>
+To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51615 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbbLPFzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 00:55:20 -0500
-In-Reply-To: <1450245304-29848-1-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:34277 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932197AbbLPGlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 01:41:14 -0500
+In-Reply-To: <20151214130446.1e14fbb8.drivshin.allworx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+On Monday 14 December 2015 13:04:46 David Rivshin wrote:
+> On Sat, 12 Dec 2015 16:44:19 +0100
+...
+> > Your patch works fine on my board, which uses MII and dual_emac with
+> > a fixed_phy and a real one.
+> 
+> Thanks for checking. The only dual_emac board I have available is the
+> EVMSK, which has two real PHYs. I'm not sure of the usual etiquette
+> (and Google was  unhelpful), should I add a Tested-by on the next
+> version?
+> 
+Yes you can. Documentation/SubmittingPatches has some notes about it.
 
-As we all know, the value of pf_retrans >= max_retrans_path can
-disable pf state. The variables of pf_retrans and max_retrans_path
-can be changed by the userspace application.
+> > > Besides fixing the bug mentioned in the commit log, there are a few
+> > > 
+> > > other differences to note:
+> > >  * If both "phy_id" and a "fixed-link" subnode are present this
+> > > 
+> > > patch will use the "phy_id" property. This should preserve current
+> > > behavior with existing devicetrees that might incorrectly have
+> > > both. This motivates the biggest difference in code organization
+> > > from 1f71e8c96fc6.
+> > > 
+> > >  * Some error messages have been tweaked to reflect the slightly
+> > > 
+> > > changed meanings of the checks.
+> > 
+> > I wanted to keep changes small and didn't spend too much thinking
+> > about already broken devicetrees. Since my patch is quite new, I
+> 
+> I'm honestly not sure it's an important consideration myself. Most
+> patches I've seen in this area for this or other drivers do not take
+> such behavior into account (e.g. the phy-handle parsing that went in
+> to cpsw in 4.3).
+> I would generally feel more comfortable with such a behavior tweak
+> (minor as it is) before 4.4 is released, to avoid ping-ponging the
+> behavior. But given how far along the cycle is, I'm not sure about
+> the chances of that.
+> 
 
-Sometimes the user expects to disable pf state while the 2
-variables are changed to enable pf state. So it is necessary to
-introduce a new variable to disable pf state.
+Well I don't think compatibility for flawed DTs is such a high priority, especially if it is that unlikely that there are some affected.
+Keep the focus on the other _real_ problems you have encountered and fix those like you see fit. 
 
-According to the suggestions from Vlad Yasevich, extra1 and extra2
-are removed. The initialization of pf_enable is added.
+> > don't see any problems with subtle changes like that. However you
+> > should update the documentation as well.
+> 
+> Your patch already updated .../bindings/net/cpsw.txt, which this
+> patch left alone. Are you referring to some other documentation,
+> or do you think I should update the binding documentation to state
+> that phy_id takes precedence over fixed-link? I figured that such
+> devicetrees were still officially malformed, so I thought the
+> existing text was appropriate.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- Documentation/networking/ip-sysctl.txt |   23 ++++++++++++++++++++++-
- include/net/netns/sctp.h               |    7 +++++++
- net/sctp/protocol.c                    |    3 +++
- net/sctp/sm_sideeffect.c               |    5 ++++-
- net/sctp/sysctl.c                      |    7 +++++++
- 5 files changed, 43 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 2ea4c45..f43ead3 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1723,6 +1723,25 @@ addip_enable - BOOLEAN
- 
- 	Default: 0
- 
-+pf_enable - INTEGER
-+	Enable or disable pf (pf is short for potentially failed) state. A value
-+	of pf_retrans > path_max_retrans also disables pf state. That is, one of
-+	both pf_enable and pf_retrans > path_max_retrans can disable pf state.
-+	Since pf_retrans and path_max_retrans can be changed by userspace
-+	application, sometimes user expects to disable pf state by the value of
-+	pf_retrans > path_max_retrans, but occasionally the value of pf_retrans
-+	or path_max_retrans is changed by the user application, this pf state is
-+	enabled. As such, it is necessary to add this to dynamically enable
-+	and disable pf state. See:
-+	https://datatracker.ietf.org/doc/draft-ietf-tsvwg-sctp-failover for
-+	details.
-+
-+	1: Enable pf.
-+
-+	0: Disable pf.
-+
-+	Default: 1
-+
- addip_noauth_enable - BOOLEAN
- 	Dynamic Address Reconfiguration (ADD-IP) requires the use of
- 	authentication to protect the operations of adding or removing new
-@@ -1799,7 +1818,9 @@ pf_retrans - INTEGER
- 	having to reduce path_max_retrans to a very low value.  See:
- 	http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
- 	for details.  Note also that a value of pf_retrans > path_max_retrans
--	disables this feature
-+	disables this feature. Since both pf_retrans and path_max_retrans can
-+	be changed by userspace application, a variable pf_enable is used to
-+	disable pf state.
- 
- 	Default: 0
- 
-diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-index 8ba379f..c501d67 100644
---- a/include/net/netns/sctp.h
-+++ b/include/net/netns/sctp.h
-@@ -89,6 +89,13 @@ struct netns_sctp {
- 	int pf_retrans;
- 
- 	/*
-+	 * Disable Potentially-Failed feature, the feature is enabled by default
-+	 * pf_enable	-  0  : disable pf
-+	 *		- >0  : enable pf
-+	 */
-+	int pf_enable;
-+
-+	/*
- 	 * Policy for preforming sctp/socket accounting
- 	 * 0   - do socket level accounting, all assocs share sk_sndbuf
- 	 * 1   - do sctp accounting, each asoc may use sk_sndbuf bytes
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 3d9ea9a..cfbf49b 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1223,6 +1223,9 @@ static int __net_init sctp_defaults_init(struct net *net)
- 	/* Max.Burst		    - 4 */
- 	net->sctp.max_burst			= SCTP_DEFAULT_MAX_BURST;
- 
-+	/* Enable pf state by default */
-+	net->sctp.pf_enable = 1;
-+
- 	/* Association.Max.Retrans  - 10 attempts
- 	 * Path.Max.Retrans         - 5  attempts (per destination address)
- 	 * Max.Init.Retransmits     - 8  attempts
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 6098d4c..05cd164 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -477,6 +477,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 					 struct sctp_transport *transport,
- 					 int is_hb)
- {
-+	struct net *net = sock_net(asoc->base.sk);
-+
- 	/* The check for association's overall error counter exceeding the
- 	 * threshold is done in the state function.
- 	 */
-@@ -503,7 +505,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 	 * is SCTP_ACTIVE, then mark this transport as Partially Failed,
- 	 * see SCTP Quick Failover Draft, section 5.1
- 	 */
--	if ((transport->state == SCTP_ACTIVE) &&
-+	if (net->sctp.pf_enable &&
-+	   (transport->state == SCTP_ACTIVE) &&
- 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
- 	   (transport->error_count > asoc->pf_retrans)) {
- 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 26d50c5..ccbfc93 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -308,6 +308,13 @@ static struct ctl_table sctp_net_table[] = {
- 		.extra1		= &max_autoclose_min,
- 		.extra2		= &max_autoclose_max,
- 	},
-+	{
-+		.procname	= "pf_enable",
-+		.data		= &init_net.sctp.pf_enable,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 
- 	{ /* sentinel */ }
- };
--- 
-1.7.9.5
+"Either the properties phy_id and phy-mode, or the sub-node fixed-link can be specified"
+One flaw of my patch was to ignore the phy-mode for a fixed link. Do not mention the precedence of the phy_id, because it is an undefined behavior.
+Your patch should change it to:
+"Either the property phy_id, or the sub-node fixed-link can be specified"
