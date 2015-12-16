@@ -1,99 +1,61 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Use simple parser for IPv4 and v6 headers
-Date: Wed, 16 Dec 2015 10:03:42 -0800
-Message-ID: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v5 05/19] net: ethtool: add new
+ ETHTOOL_GSETTINGS/SSETTINGS API
+Date: Wed, 16 Dec 2015 11:38:14 -0500 (EST)
+Message-ID: <20151216.113814.2025166082777387327.davem@davemloft.net>
+References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
+	<1450127046-4573-6-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: driverdev-devel@linuxdriverproject.org, haiyangz@microsoft.com,
- olaf@aepfle.de, linux-kernel@vger.kernel.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, _govind-KK0ffGbhmjU@public.gmane.org,
+	VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org,
+	robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org,
+	decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org
+To: ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1450127046-4573-6-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-To avoid performance overhead when using skb_flow_dissect_flow_keys(),
-we switch to the simple parsers to get the IP and port numbers.
+From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 14 Dec 2015 13:03:52 -0800
 
-Performance comparison: throughput (Gbps):
-Number of connections, before patch, after patch
-1			8.56		10.18
-4			11.17		14.07
-16			12.21		21.78
-64			18.71		32.08
-256			15.92		26.32
-1024			8.41		15.49
-3000			7.82		11.58
+> +static int ethtool_get_ksettings(struct net_device *dev, void __user *useraddr)
+> +{
+ ...
+> +	if (__ETHTOOL_LINK_MODE_MASK_NU32
+> +	    != ksettings.parent.link_mode_masks_nwords) {
+> +		/* wrong link mode nbits requested */
+> +		memset(&ksettings, 0, sizeof(ksettings));
+> +		/* keep cmd field reset to 0 */
+> +		/* send back number of words required as negative val */
+> +		compiletime_assert(__ETHTOOL_LINK_MODE_MASK_NU32 <= S8_MAX,
+> +				   "need too many bits for link modes!");
+> +		ksettings.parent.link_mode_masks_nwords
+> +			= -((s8)__ETHTOOL_LINK_MODE_MASK_NU32);
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Tested-by: Simon Xiao <sixiao@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c |   38 +++++++++++++++++++++++++++++---------
- 1 files changed, 29 insertions(+), 9 deletions(-)
+I'm trying to understand how this can work.
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1c8db9a..e28951f 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -237,20 +237,40 @@ static u32 comp_hash(u8 *key, int klen, void *data, int dlen)
- 
- static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
- {
--	struct flow_keys flow;
-+	struct iphdr *iphdr;
-+	struct ipv6hdr *ipv6hdr;
-+	__be32 dbuf[9];
- 	int data_len;
- 
--	if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
--	    !(flow.basic.n_proto == htons(ETH_P_IP) ||
--	      flow.basic.n_proto == htons(ETH_P_IPV6)))
-+	if (eth_hdr(skb)->h_proto != htons(ETH_P_IP) &&
-+	    eth_hdr(skb)->h_proto != htons(ETH_P_IPV6))
- 		return false;
- 
--	if (flow.basic.ip_proto == IPPROTO_TCP)
--		data_len = 12;
--	else
--		data_len = 8;
-+	iphdr = ip_hdr(skb);
-+	ipv6hdr = ipv6_hdr(skb);
-+
-+	if (iphdr->version == 4) {
-+		dbuf[0] = iphdr->saddr;
-+		dbuf[1] = iphdr->daddr;
-+		if (iphdr->protocol == IPPROTO_TCP) {
-+			dbuf[2] = *(__be32 *)&tcp_hdr(skb)->source;
-+			data_len = 12;
-+		} else {
-+			data_len = 8;
-+		}
-+	} else if (ipv6hdr->version == 6) {
-+		memcpy(dbuf, &ipv6hdr->saddr, 32);
-+		if (ipv6hdr->nexthdr == IPPROTO_TCP) {
-+			dbuf[8] = *(__be32 *)&tcp_hdr(skb)->source;
-+			data_len = 36;
-+		} else {
-+			data_len = 32;
-+		}
-+	} else {
-+		return false;
-+	}
- 
--	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
-+	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, data_len);
- 
- 	return true;
- }
--- 
-1.7.4.1
+Supposedly, the link_mode_masks_nwords field is there so that we can
+add new link modes yet still work with tools built against any
+particular link mode list in the UAPI header files.
+
+But here you're forcing the value of link_mode_masks_nwords and then
+copying that amount back to userspace.  If the user allocated less
+space than the the link mode list in the kernel supports, we will
+overwrite past the end of the user's usettings object.
+
+You cannot unconditionally copy sizeof(usettings) back to the user,
+as store_ksettings_for_user() will do.
+
+I think you have to truncate here, copying only the array elements the
+user's structure actually has space for.  That's the only way this can
+work.
