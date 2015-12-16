@@ -1,174 +1,113 @@
-From: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Subject: Re: [PATCH] vhost: move is_le setup to the backend
-Date: Wed, 16 Dec 2015 14:52:48 +0100
-Message-ID: <20151216145248.50d0bbee@bahia.local>
-References: <20151030114235.28847.63465.stgit@bahia.huguette.org>
-	<20151112154610-mutt-send-email-mst@redhat.com>
-	<20151112152819.78eb1b4d@bahia.local>
+From: Colin Ian King <colin.king@canonical.com>
+Subject: Re: rhashtable: Fix walker list corruption
+Date: Wed, 16 Dec 2015 14:02:54 +0000
+Message-ID: <56716F0E.1030409@canonical.com>
+References: <561797B7.3090807@canonical.com>
+ <20151216084554.GA24395@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20151112152819.78eb1b4d@bahia.local>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:48386 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754166AbbLPOC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 09:02:57 -0500
+In-Reply-To: <20151216084554.GA24395@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Nov 2015 15:28:19 +0100
-Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
-
-> On Thu, 12 Nov 2015 15:46:30 +0200
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+On 16/12/15 08:45, Herbert Xu wrote:
+> On Fri, Oct 09, 2015 at 11:32:23AM +0100, Colin Ian King wrote:
+>>
+>> I'm hitting a null ptr deference bug when running 2 or more instances of
+>> the attached reproducer program.  I've bisected this down to the
+>> following commit:
+>>
+>> commit ba7c95ea3870fe7b847466d39a049ab6f156aa2c
+>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date:   Tue Mar 24 09:53:17 2015 +1100
+>>
+>>     rhashtable: Fix sleeping inside RCU critical section in walk_stop
+>>
+>>
+>> Without this commit, the attached reproducer runs fine for hours. With
+>> the commit, I can oops a 4 core (8 thread) Intel i7-6700 Sharkbay SDP in
+>> a few seconds.
 > 
-> > On Fri, Oct 30, 2015 at 12:42:35PM +0100, Greg Kurz wrote:
-> > > The vq->is_le field is used to fix endianness when accessing the vring via
-> > > the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
-> > > 
-> > > 1) host is big endian and device is modern virtio
-> > > 
-> > > 2) host has cross-endian support and device is legacy virtio with a different
-> > >    endianness than the host
-> > > 
-> > > Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
-> > > VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
-> > > is only needed when the backend is active, it was decided to set it at
-> > > backend start.
-> > > 
-> > > This is currently done in vhost_init_used()->vhost_init_is_le() but it
-> > > obfuscates the core vhost code. This patch moves the is_le setup to a
-> > > dedicated function that is called from the backend code.
-> > > 
-> > > Note vhost_net is the only backend that can pass vq->private_data == NULL to
-> > > vhost_init_used(), hence the "if (sock)" branch.
-> > > 
-> > > No behaviour change.
-> > > 
-> > > Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
-> > 
-> > I plan to look at this next week, busy with QEMU 2.5 now.
-> > 
-> 
-> I don't have any deadline for this since this is only a cleanup tentative.
-> 
-> Thanks.
-> 
+> Thanks Colin.  This commit was indeed bogus, as we end up using
+> two different locks for the one list.
 
-... but ping anyway since it was a month ago :)
+I've given this a good soak test and it fixes the issue. Thanks Herbert!
 
-Cheers.
+Colin
 
---
-Greg
-
-> > > ---
-> > >  drivers/vhost/net.c   |    6 ++++++
-> > >  drivers/vhost/scsi.c  |    3 +++
-> > >  drivers/vhost/test.c  |    2 ++
-> > >  drivers/vhost/vhost.c |   12 +++++++-----
-> > >  drivers/vhost/vhost.h |    1 +
-> > >  5 files changed, 19 insertions(+), 5 deletions(-)
-> > > 
-> > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > > index 9eda69e40678..d6319cb2664c 100644
-> > > --- a/drivers/vhost/net.c
-> > > +++ b/drivers/vhost/net.c
-> > > @@ -917,6 +917,12 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> > >  
-> > >  		vhost_net_disable_vq(n, vq);
-> > >  		vq->private_data = sock;
-> > > +
-> > > +		if (sock)
-> > > +			vhost_set_is_le(vq);
-> > > +		else
-> > > +			vq->is_le = virtio_legacy_is_little_endian();
-> > > +
-> > >  		r = vhost_init_used(vq);
-> > >  		if (r)
-> > >  			goto err_used;
-> > > diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> > > index e25a23692822..e2644a301fa5 100644
-> > > --- a/drivers/vhost/scsi.c
-> > > +++ b/drivers/vhost/scsi.c
-> > > @@ -1276,6 +1276,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
-> > >  			vq = &vs->vqs[i].vq;
-> > >  			mutex_lock(&vq->mutex);
-> > >  			vq->private_data = vs_tpg;
-> > > +
-> > > +			vhost_set_is_le(vq);
-> > > +
-> > >  			vhost_init_used(vq);
-> > >  			mutex_unlock(&vq->mutex);
-> > >  		}
-> > > diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-> > > index f2882ac98726..b1c7df502211 100644
-> > > --- a/drivers/vhost/test.c
-> > > +++ b/drivers/vhost/test.c
-> > > @@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
-> > >  		oldpriv = vq->private_data;
-> > >  		vq->private_data = priv;
-> > >  
-> > > +		vhost_set_is_le(vq);
-> > > +
-> > >  		r = vhost_init_used(&n->vqs[index]);
-> > >  
-> > >  		mutex_unlock(&vq->mutex);
-> > > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > > index eec2f11809ff..6be863dcbd13 100644
-> > > --- a/drivers/vhost/vhost.c
-> > > +++ b/drivers/vhost/vhost.c
-> > > @@ -113,6 +113,12 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
-> > >  }
-> > >  #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
-> > >  
-> > > +void vhost_set_is_le(struct vhost_virtqueue *vq)
-> > > +{
-> > > +	vhost_init_is_le(vq);
-> > > +}
-> > > +EXPORT_SYMBOL_GPL(vhost_set_is_le);
-> > > +
-> > >  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
-> > >  			    poll_table *pt)
-> > >  {
-> > > @@ -1156,12 +1162,8 @@ int vhost_init_used(struct vhost_virtqueue *vq)
-> > >  {
-> > >  	__virtio16 last_used_idx;
-> > >  	int r;
-> > > -	if (!vq->private_data) {
-> > > -		vq->is_le = virtio_legacy_is_little_endian();
-> > > +	if (!vq->private_data)
-> > >  		return 0;
-> > > -	}
-> > > -
-> > > -	vhost_init_is_le(vq);
-> > >  
-> > >  	r = vhost_update_used_flags(vq);
-> > >  	if (r)
-> > > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> > > index 4772862b71a7..8a62041959fe 100644
-> > > --- a/drivers/vhost/vhost.h
-> > > +++ b/drivers/vhost/vhost.h
-> > > @@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
-> > >  
-> > >  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
-> > >  		    unsigned int log_num, u64 len);
-> > > +void vhost_set_is_le(struct vhost_virtqueue *vq);
-> > >  
-> > >  #define vq_err(vq, fmt, ...) do {                                  \
-> > >  		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
-> > 
 > 
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+> ---8<---
+> The commit ba7c95ea3870fe7b847466d39a049ab6f156aa2c ("rhashtable:
+> Fix sleeping inside RCU critical section in walk_stop") introduced
+> a new spinlock for the walker list.  However, it did not convert
+> all existing users of the list over to the new spin lock.  Some
+> continued to use the old mutext for this purpose.  This obviously
+> led to corruption of the list.
+> 
+> The fix is to use the spin lock everywhere where we touch the list.
+> 
+> This also allows us to do rcu_rad_lock before we take the lock in
+> rhashtable_walk_start.  With the old mutex this would've deadlocked
+> but it's safe with the new spin lock.
+> 
+> Fixes: ba7c95ea3870 ("rhashtable: Fix sleeping inside RCU...")
+> Reported-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index 1c624db..ed7ba47 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -519,10 +519,10 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
+>  	if (!iter->walker)
+>  		return -ENOMEM;
+>  
+> -	mutex_lock(&ht->mutex);
+> +	spin_lock(&ht->lock);
+>  	iter->walker->tbl = rht_dereference(ht->tbl, ht);
+>  	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
+> -	mutex_unlock(&ht->mutex);
+> +	spin_unlock(&ht->lock);
+>  
+>  	return 0;
+>  }
+> @@ -536,10 +536,10 @@ EXPORT_SYMBOL_GPL(rhashtable_walk_init);
+>   */
+>  void rhashtable_walk_exit(struct rhashtable_iter *iter)
+>  {
+> -	mutex_lock(&iter->ht->mutex);
+> +	spin_lock(&iter->ht->lock);
+>  	if (iter->walker->tbl)
+>  		list_del(&iter->walker->list);
+> -	mutex_unlock(&iter->ht->mutex);
+> +	spin_unlock(&iter->ht->lock);
+>  	kfree(iter->walker);
+>  }
+>  EXPORT_SYMBOL_GPL(rhashtable_walk_exit);
+> @@ -563,14 +563,12 @@ int rhashtable_walk_start(struct rhashtable_iter *iter)
+>  {
+>  	struct rhashtable *ht = iter->ht;
+>  
+> -	mutex_lock(&ht->mutex);
+> +	rcu_read_lock();
+>  
+> +	spin_lock(&ht->lock);
+>  	if (iter->walker->tbl)
+>  		list_del(&iter->walker->list);
+> -
+> -	rcu_read_lock();
+> -
+> -	mutex_unlock(&ht->mutex);
+> +	spin_unlock(&ht->lock);
+>  
+>  	if (!iter->walker->tbl) {
+>  		iter->walker->tbl = rht_dereference_rcu(ht->tbl, ht);
 > 
