@@ -1,84 +1,108 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net] tcp: restore fastopen with no data in SYN packet
-Date: Wed, 16 Dec 2015 15:02:02 -0800
-Message-ID: <CAK6E8=ekbipXbX8tko9F8O0w1zfJ_eqYPE3VBak5k-wGUiSGOQ@mail.gmail.com>
-References: <1450302790.8474.101.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: [PATCH RFC] AF_UNIX SOCK_STREAM SO_PEEK_OFS oddity
+Date: Wed, 16 Dec 2015 23:09:47 +0000
+Message-ID: <87bn9qgfd0.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:36263 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752118AbbLPXCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:02:43 -0500
-Received: by mail-wm0-f42.google.com with SMTP id p187so22365489wmp.1
-        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 15:02:42 -0800 (PST)
-In-Reply-To: <1450302790.8474.101.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 16, 2015 at 1:53 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@google.com>
->
-> Yuchung tracked a regression caused by commit 57be5bdad759 ("ip: convert
-> tcp_sendmsg() to iov_iter primitives") for TCP Fast Open.
->
-> Some Fast Open users do not actually add any data in the SYN packet.
->
-> Fixes: 57be5bdad759 ("ip: convert tcp_sendmsg() to iov_iter primitives")
-> Reported-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Al Viro <viro@zeniv.linux.org.uk>
-> ---
-Acked-by: Yuchung Cheng <ycheng@google.com>
->  net/ipv4/tcp_output.c |   23 ++++++++++++-----------
->  1 file changed, 12 insertions(+), 11 deletions(-)
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index cb7ca569052c..9bfc39ff2285 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -3150,7 +3150,7 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
->         struct tcp_fastopen_request *fo = tp->fastopen_req;
-> -       int syn_loss = 0, space, err = 0, copied;
-> +       int syn_loss = 0, space, err = 0;
->         unsigned long last_syn_loss = 0;
->         struct sk_buff *syn_data;
->
-> @@ -3188,17 +3188,18 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
->                 goto fallback;
->         syn_data->ip_summed = CHECKSUM_PARTIAL;
->         memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
-> -       copied = copy_from_iter(skb_put(syn_data, space), space,
-> -                               &fo->data->msg_iter);
-> -       if (unlikely(!copied)) {
-> -               kfree_skb(syn_data);
-> -               goto fallback;
-> -       }
-> -       if (copied != space) {
-> -               skb_trim(syn_data, copied);
-> -               space = copied;
-> +       if (space) {
-> +               int copied = copy_from_iter(skb_put(syn_data, space), space,
-> +                                           &fo->data->msg_iter);
-> +               if (unlikely(!copied)) {
-> +                       kfree_skb(syn_data);
-> +                       goto fallback;
-> +               }
-> +               if (copied != space) {
-> +                       skb_trim(syn_data, copied);
-> +                       space = copied;
-> +               }
->         }
-> -
->         /* No more data pending in inet_wait_for_connect() */
->         if (space == fo->size)
->                 fo->data = NULL;
->
->
+While moving towards rectifying some more of my past missteps, I noticed
+that the unix_stream_read_generic code loads the peek offset (into a
+variable named skip) before entering the actual receive loop with the
+u->readlock mutex held. If there's no data to return, it drops this lock
+and goes to sleep until there is. The lock is then reacquired and it
+proceeds using the old skip value which is later used to adjust the peek
+offset for the socket in question. But since the readlock was dropped in
+between, another reader could already have adjusted the peek offset by
+the same amount based on the same, initial skip value: If there are two
+concurrent 'peekers' and no skb available initially, they will both
+return the same data to their respective callers and the peek offset
+will end up being adjusted by twice the length of the returned number of
+bytes, causing not-yet-peeked data immediately adjacent to that to be
+skipped.
+
+Example program:
+
+---------
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#ifndef SO_PEEK_OFF
+#  define SO_PEEK_OFF	42	/* my system is too old to have this */
+#endif
+
+#define MSG	"TWOTIMESNOTATALL12345678"
+
+static void peek_n_print(int sk)
+{
+    char peeked[8];
+    ssize_t nr;
+    
+    nr = recv(sk, peeked, sizeof(peeked), MSG_PEEK);
+    fprintf(stderr, "%ld got %.*s\n", (long)getpid(), (int)nr, peeked);
+}
+
+int main(void)
+{
+    int sks[2], x;
+    
+    socketpair(AF_UNIX, SOCK_STREAM, 0, sks);
+    
+    x = 0;
+    setsockopt(sks[1], SOL_SOCKET, SO_PEEK_OFF, &x, sizeof(x));
+
+    if (fork() == 0) {
+	if (fork() == 0) {
+	    peek_n_print(sks[1]);
+	    _exit(0);
+	}
+	
+	peek_n_print(sks[1]);
+
+	wait(NULL);
+
+	peek_n_print(sks[1]);
+	_exit(0);
+    }
+
+    sleep(1);
+    write(*sks, MSG, sizeof(MSG) - 1);
+
+    wait(NULL);
+    return 0;
+}
+---------
+
+If I understand the description available here,
+
+http://www.spinics.net/lists/netdev/msg189589.html
+
+correctly, this should print TWOTIMES, NOTATALL and 12345768 but because
+of the locking/ offset handling issue (if it is an issue) described
+above, it will actually print TWOTIMES twices followed by 12345678 while
+the NOTATALL remains invisible. If this is not the intended behaviour, I
+propose the patch below to fix it. It changes the code to reload the
+peek offset after the sleep.
+
+Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+---
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 1c3c1f3..f020a81 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2320,6 +2320,9 @@ again:
+ 				goto out;
+ 			}
+ 
++			if (flags & MSG_PEEK)
++				skip = sk_peek_offset(sk, flags);
++
+ 			continue;
+ unlock:
+ 			unix_state_unlock(sk);
