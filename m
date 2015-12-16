@@ -1,137 +1,133 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v7 0/4] Support administratively closing application sockets
-Date: Wed, 16 Dec 2015 12:30:01 +0900
-Message-ID: <1450236605-87170-1-git-send-email-lorenzo@google.com>
+Subject: [PATCH v7 2/4] net: diag: Add the ability to destroy a socket.
+Date: Wed, 16 Dec 2015 12:30:03 +0900
+Message-ID: <1450236605-87170-3-git-send-email-lorenzo@google.com>
+References: <1450236605-87170-1-git-send-email-lorenzo@google.com>
 Cc: davem@davemloft.net, hannes@stressinduktion.org,
 	eric.dumazet@gmail.com, ek@google.com, tom@herbertland.com,
 	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36513 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932667AbbLPDaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 22:30:17 -0500
-Received: by mail-pa0-f43.google.com with SMTP id nt2so6216379pab.3
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 19:30:16 -0800 (PST)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36614 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754299AbbLPDa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 22:30:29 -0500
+Received: by mail-pa0-f53.google.com with SMTP id nt2so6219157pab.3
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 19:30:28 -0800 (PST)
+In-Reply-To: <1450236605-87170-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset adds the ability to administratively close a socket
-without any action from the process owning the socket or the
-socket protocol.
+This patch adds a SOCK_DESTROY operation, a destroy function
+pointer to sock_diag_handler, and a diag_destroy function
+pointer.  It does not include any implementation code.
 
-It implements this by adding a new diag_destroy function pointer
-to struct proto. In-kernel callers can access this functionality
-directly by calling sk->sk_prot->diag_destroy(sk, err).
-
-It also exposes this functionality to userspace via a new
-SOCK_DESTROY operation in the NETLINK_SOCK_DIAG sockets. This
-allows a privileged userspace process, such as a connection
-manager or system administration tool, to close sockets belonging
-to other apps when the network they were established on has
-disconnected. It is needed on laptops and mobile hosts to ensure
-that network switches / disconnects do not result in applications
-being blocked for long periods of time (minutes) in read or
-connect calls on TCP sockets that will never succeed because the
-IP address they are bound to is no longer on the system. Closing
-the sockets causes these calls to fail fast and allows the apps
-to reconnect on another network.
-
-Userspace intervention is necessary because in many cases the
-kernel does not have enough information to know that a connection
-is now inoperable. The kernel can know if a packet can't be
-routed, but in general it won't know if a TCP connection is stuck
-because it is now routed to a network where its source address is
-no longer valid [5][6].
-
-Many other operating systems offer similar functionality:
-
- - FreeBSD has had this since 5.4 in 2005 [2]. It is available
-   to privileged userspace and there is a tool to use it [3].
- - The FreeBSD commit description states that the idea came
-   from OpenBSD.
- - iOS has been administratively closing app sockets since
-   iOS 4 - see [4], which states that a socket "might get
-   reclaimed by the kernel" and after that will return EBADF].
-   For many years Android kernels have supported this via an
-   out-of-tree SIOCKILLADDR ioctl that is called on every
-   RTM_DELADDR event, but this solution is cleaner, more robust
-   and more flexible: the connection manager can iterate over all
-   connections on the deleted IP address and close all of them.
-   It can also be used to close all sockets opened by a given app
-   process, for example if the user has restricted that app from
-   using the network, if a secure network such as a VPN has
-   connected and security policy requires all of an application's
-   connections to be routed via the VPN, etc.
- - For many years Android kernels have supported an out-of-tree
-   SIOCKILLADDR ioctl that is called when a network disconnects
-   or an RTM_DELADDR event is received. This solution is cleaner,
-   more robust and more flexible. The connection manager can
-   implement SIOCKILLADDR by iterating over all connections on
-   the deleted IP address and close all of them, but it can also
-   close all sockets opened by a given app process (for example
-   if the user has restricted that app from), close all of a
-   user's TCP connections if a user has connected a secure
-   network such as a VPN and expects all of an application's
-   connections to be routed via the VPN, etc.
-
-Alternative schemes such as TCP keepalives in combination with
-"iptables -j REJECT --reject-with tcp-reset", could be used to
-achieve similar results, but on mobile devices TCP keepalives are
-very expensive, and in such a scheme detecting stuck connections
-has to wait for a keepalive to be sent or the application to
-perform a write. An explicit notification from userspace is
-cheaper and faster in the common case where an application is
-blocked on read.
-
-SOCK_DESTROY is placed behind an INET_DIAG_DESTROY configuration
-option, which is currently off by default.
-
-The TCP implementation of diag_destroy causes a TCP ABORT as
-specified by RFC 793 [1]: immediately send a RST and clear local
-connection state. This is what happens today if an application
-enables SO_LINGER with a timeout of 0 and then calls close.
-
-The first versions of the patchset did not send a RST, but that
-is not graceful/correct TCP behaviour. tcp_abort now does a
-proper RFC 793 ABORT and sends a RST to the peer. This is
-consistent with BSD's tcpdrop, and is more correct in general,
-even though in many use cases tcp_abort will only be called when
-sending a RST is no longer possible (e.g., the network has
-disconnected).
-
-The original patchset also behaved like SIOCKILADDR and closed
-TCP sockets with ETIMEDOUT. Tom Herbert pointed out that it would
-be better if applications could distinguish between a timeout and
-an administrative close. ECONNABORTED was chosen because it is
-consistent with BSD.
-
-[1] http://tools.ietf.org/html/rfc793#page-50
-[2] http://svnweb.freebsd.org/base?view=revision&revision=141381
-[3] https://www.freebsd.org/cgi/man.cgi?query=tcpdrop&sektion=8&manpath=FreeBSD+5.4-RELEASE
-[4] https://developer.apple.com/library/ios/technotes/tn2277/_index.html#//apple_ref/doc/uid/DTS40010841-CH1-SUBSECTION3
-[5] http://www.spinics.net/lists/netdev/msg352775.html
-[6] http://www.spinics.net/lists/netdev/msg352952.html
-
-Lorenzo Colitti (4):
-  net: diag: split inet_diag_dump_one_icsk into two
-  net: diag: Add the ability to destroy a socket.
-  net: diag: Support SOCK_DESTROY for inet sockets.
-  net: diag: Support destroying TCP sockets.
-
- include/linux/inet_diag.h      |  9 ++++++
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
  include/linux/sock_diag.h      |  2 ++
  include/net/sock.h             |  1 +
- include/net/tcp.h              |  2 ++
  include/uapi/linux/sock_diag.h |  1 +
- net/core/sock_diag.c           | 23 +++++++++++++--
- net/ipv4/Kconfig               | 13 +++++++++
- net/ipv4/inet_diag.c           | 65 +++++++++++++++++++++++++++---------------
- net/ipv4/tcp.c                 | 32 +++++++++++++++++++++
- net/ipv4/tcp_diag.c            | 19 ++++++++++++
- net/ipv4/tcp_ipv4.c            |  1 +
- net/ipv6/tcp_ipv6.c            |  1 +
- 12 files changed, 143 insertions(+), 26 deletions(-)
+ net/core/sock_diag.c           | 23 ++++++++++++++++++++---
+ 4 files changed, 24 insertions(+), 3 deletions(-)
 
+diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+index fddebc6..4018b48 100644
+--- a/include/linux/sock_diag.h
++++ b/include/linux/sock_diag.h
+@@ -15,6 +15,7 @@ struct sock_diag_handler {
+ 	__u8 family;
+ 	int (*dump)(struct sk_buff *skb, struct nlmsghdr *nlh);
+ 	int (*get_info)(struct sk_buff *skb, struct sock *sk);
++	int (*destroy)(struct sk_buff *skb, struct nlmsghdr *nlh);
+ };
+ 
+ int sock_diag_register(const struct sock_diag_handler *h);
+@@ -68,4 +69,5 @@ bool sock_diag_has_destroy_listeners(const struct sock *sk)
+ }
+ void sock_diag_broadcast_destroy(struct sock *sk);
+ 
++int sock_diag_destroy(struct sock *sk, int err);
+ #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 0ca22b0..c9218f5 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1060,6 +1060,7 @@ struct proto {
+ 	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
+ 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
+ #endif
++	int			(*diag_destroy)(struct sock *sk, int err);
+ };
+ 
+ int proto_register(struct proto *prot, int alloc_slab);
+diff --git a/include/uapi/linux/sock_diag.h b/include/uapi/linux/sock_diag.h
+index 49230d3..bae2d80 100644
+--- a/include/uapi/linux/sock_diag.h
++++ b/include/uapi/linux/sock_diag.h
+@@ -4,6 +4,7 @@
+ #include <linux/types.h>
+ 
+ #define SOCK_DIAG_BY_FAMILY 20
++#define SOCK_DESTROY 21
+ 
+ struct sock_diag_req {
+ 	__u8	sdiag_family;
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 0c1d58d..a996ce8 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -214,7 +214,7 @@ void sock_diag_unregister(const struct sock_diag_handler *hnld)
+ }
+ EXPORT_SYMBOL_GPL(sock_diag_unregister);
+ 
+-static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
++static int __sock_diag_cmd(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	int err;
+ 	struct sock_diag_req *req = nlmsg_data(nlh);
+@@ -234,8 +234,12 @@ static int __sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	hndl = sock_diag_handlers[req->sdiag_family];
+ 	if (hndl == NULL)
+ 		err = -ENOENT;
+-	else
++	else if (nlh->nlmsg_type == SOCK_DIAG_BY_FAMILY)
+ 		err = hndl->dump(skb, nlh);
++	else if (nlh->nlmsg_type == SOCK_DESTROY && hndl->destroy)
++		err = hndl->destroy(skb, nlh);
++	else
++		err = -EOPNOTSUPP;
+ 	mutex_unlock(&sock_diag_table_mutex);
+ 
+ 	return err;
+@@ -261,7 +265,8 @@ static int sock_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 		return ret;
+ 	case SOCK_DIAG_BY_FAMILY:
+-		return __sock_diag_rcv_msg(skb, nlh);
++	case SOCK_DESTROY:
++		return __sock_diag_cmd(skb, nlh);
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -295,6 +300,18 @@ static int sock_diag_bind(struct net *net, int group)
+ 	return 0;
+ }
+ 
++int sock_diag_destroy(struct sock *sk, int err)
++{
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (!sk->sk_prot->diag_destroy)
++		return -EOPNOTSUPP;
++
++	return sk->sk_prot->diag_destroy(sk, err);
++}
++EXPORT_SYMBOL_GPL(sock_diag_destroy);
++
+ static int __net_init diag_net_init(struct net *net)
+ {
+ 	struct netlink_kernel_cfg cfg = {
 -- 
 2.6.0.rc2.230.g3dd15c0
