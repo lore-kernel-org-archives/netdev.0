@@ -1,66 +1,82 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: [PATCH] af_unix: Revert 'lock_interruptible' in stream receive code
-Date: Wed, 16 Dec 2015 20:09:25 +0000
-Message-ID: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: net: heap-out-of-bounds in sock_setsockopt
+Date: Wed, 16 Dec 2015 12:22:34 -0800
+Message-ID: <CAHA+R7PCNuyW7RhbzxPJvnrX0NA1bxDXR8cL58STXrWkwMXXyA@mail.gmail.com>
+References: <CACT4Y+Y5jtsfn4U8C-iBT4njrjXH+fFmvajuyhA-VpEchjLKFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemb@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Craig Gallek <kraig@google.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Edward Jee <edjee@google.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35094 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934143AbbLPUWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 15:22:35 -0500
+Received: by mail-qk0-f180.google.com with SMTP id u65so64397900qkh.2
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 12:22:34 -0800 (PST)
+In-Reply-To: <CACT4Y+Y5jtsfn4U8C-iBT4njrjXH+fFmvajuyhA-VpEchjLKFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With b3ca9b02b00704053a38bfe4c31dbbb9c13595d0, the AF_UNIX SOCK_STREAM
-receive code was changed from using mutex_lock(&u->readlock) to
-mutex_lock_interruptible(&u->readlock) to prevent signals from being
-delayed for an indefinite time if a thread sleeping on the mutex
-happened to be selected for handling the signal. But this was never a
-problem with the stream receive code (as opposed to its datagram
-counterpart) as that never went to sleep waiting for new messages with the
-mutex held and thus, wouldn't cause secondary readers to block on the
-mutex waiting for the sleeping primary reader. As the interruptible
-locking makes the code more complicated in exchange for no benefit,
-change it back to using mutex_lock.
+On Wed, Dec 16, 2015 at 11:34 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> BUG: KASAN: slab-out-of-bounds in sock_setsockopt+0x1284/0x13d0 at
+> addr ffff88006563ec10
+> Read of size 4 by task syzkaller_execu/4755
+> =============================================================================
+> BUG RAWv6 (Not tainted): kasan: bad access detected
+> -----------------------------------------------------------------------------
+> INFO: Allocated in sk_prot_alloc+0x69/0x340 age=17 cpu=3 pid=4755
+> [<      none      >] kmem_cache_alloc+0x244/0x2c0 mm/slub.c:2607
+> [<      none      >] sk_prot_alloc+0x69/0x340 net/core/sock.c:1343
+> [<      none      >] sk_alloc+0x3a/0x6b0 net/core/sock.c:1418
+> [<      none      >] inet6_create+0x2c4/0xfd0 net/ipv6/af_inet6.c:170
+> [<      none      >] __sock_create+0x37c/0x640 net/socket.c:1162
+> [<     inline     >] sock_create net/socket.c:1202
+> [<     inline     >] SYSC_socket net/socket.c:1232
+> [<      none      >] SyS_socket+0xef/0x1b0 net/socket.c:1212
+> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
+>
+> Call Trace:
+>  [<ffffffff816cec2e>] __asan_report_load4_noabort+0x3e/0x40
+> mm/kasan/report.c:294
+>  [<ffffffff84affb14>] sock_setsockopt+0x1284/0x13d0 net/core/sock.c:880
+>  [<     inline     >] SYSC_setsockopt net/socket.c:1746
+>  [<ffffffff84aed7ee>] SyS_setsockopt+0x1fe/0x240 net/socket.c:1729
+>  [<ffffffff85c18c76>] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
 
-Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
+Hmm, we should exclude the raw socket case, something like the
+following, but I am not sure if the check is too strict or not, also
+not sure if we should return an error for this raw socket case.
 
-Considering that the datagram receive routine also doesn't go the sleep
-with the mutex held anymore, the 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490
-change to unix_autobind is now similarly purposeless.
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 765be83..c26e80a 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -872,7 +872,7 @@ int sock_setsockopt(struct socket *sock, int
+level, int optname,
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 1c3c1f3..b1314c0 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2263,14 +2263,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 	/* Lock the socket to prevent queue disordering
- 	 * while sleeps in memcpy_tomsg
- 	 */
--	err = mutex_lock_interruptible(&u->readlock);
--	if (unlikely(err)) {
--		/* recvmsg() in non blocking mode is supposed to return -EAGAIN
--		 * sk_rcvtimeo is not honored by mutex_lock_interruptible()
--		 */
--		err = noblock ? -EAGAIN : -ERESTARTSYS;
--		goto out;
--	}
-+	mutex_lock(&u->readlock);
- 
- 	if (flags & MSG_PEEK)
- 		skip = sk_peek_offset(sk, flags);
-@@ -2314,12 +2307,12 @@ again:
- 			timeo = unix_stream_data_wait(sk, timeo, last,
- 						      last_len);
- 
--			if (signal_pending(current) ||
--			    mutex_lock_interruptible(&u->readlock)) {
-+			if (signal_pending(current)) {
- 				err = sock_intr_errno(timeo);
- 				goto out;
- 			}
- 
-+			mutex_lock(&u->readlock);
- 			continue;
- unlock:
- 			unix_state_unlock(sk);
+                if (val & SOF_TIMESTAMPING_OPT_ID &&
+                    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
+-                       if (sk->sk_protocol == IPPROTO_TCP) {
++                       if (sk->sk_protocol == IPPROTO_TCP &&
+sk->sk_type == SOCK_STREAM) {
+                                if (sk->sk_state != TCP_ESTABLISHED) {
+                                        ret = -EINVAL;
+                                        break;
