@@ -1,37 +1,67 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Random packet loss using IPsec with AES128-SHA1
-Date: Wed, 16 Dec 2015 10:59:54 +0100
-Message-ID: <20151216095954.GN29565@gauss.secunet.com>
-References: <000a01d137e2$afedd130$0fc97390$@drvsource.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: rhashtable: Enforce minimum size on initial hash table
+Date: Wed, 16 Dec 2015 18:13:14 +0800
+Message-ID: <20151216101314.GA24928@gondor.apana.org.au>
+References: <567113CA.8030108@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Gabriele Beltrame <belgab@drvsource.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: William Hua <william.hua@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39892 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932907AbbLPJ75 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 04:59:57 -0500
+Received: from helcar.hengli.com.au ([209.40.204.226]:45830 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932751AbbLPKNV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 05:13:21 -0500
 Content-Disposition: inline
-In-Reply-To: <000a01d137e2$afedd130$0fc97390$@drvsource.net>
+In-Reply-To: <567113CA.8030108@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2015 at 10:17:54AM +0100, Gabriele Beltrame wrote:
-> Hi,
-> 
-> I'm running a few Strongswan 5.3.* CentOS (Kernel 3.16.7, 4.2.6, 4.1.*)
-> instances on AWS to terminate VPNs between each other and/or to other
-> devices across the Internet.
-> While investigating some application issues, I've noticed that on every VPNs
-> I have random packet losses (from 1% to 4% over 100 to 300 requests sent).
-> This only happens when the two following conditions are met: (a) AES
-> encryption used, (b) IP packet size shorter than about (150+8+20)Bytes.
+William Hua <william.hua@canonical.com> wrote:
+>
+> I wasn't aware there was an enforced minimum size. I simply set the 
+> nelem_hint in the rhastable_params struct to 1, expecting it to grow as
+> needed. This caused a segfault afterwards when trying to insert an
+> element.
 
-I've never seen this.
+OK we're doing the size computation before we enforce the limit
+on min_size.
 
-If xfrm statistics are compiled in, a counter is bumped for each packet
-dropped by IPsec. You can check these counters in /proc/net/xfrm_stat.
+---8<---
+We need to do the initial hash table size computation after we
+have obtained the correct min_size/max_size parameters.  Otherwise
+we may end up with a hash table whose size is outside the allowed
+envelope.
 
-This will tell you at least whether IPsec is the reason for your packet
-loss.
+Fixes: a998f712f77e ("rhashtable: Round up/down min/max_size to...")
+Reported-by: William Hua <william.hua@canonical.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 1c624db..9a40963 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -739,9 +737,6 @@ int rhashtable_init(struct rhashtable *ht,
+ 	if (params->nulls_base && params->nulls_base < (1U << RHT_BASE_SHIFT))
+ 		return -EINVAL;
+ 
+-	if (params->nelem_hint)
+-		size = rounded_hashtable_size(params);
+-
+ 	memset(ht, 0, sizeof(*ht));
+ 	mutex_init(&ht->mutex);
+ 	spin_lock_init(&ht->lock);
+@@ -761,6 +756,9 @@ int rhashtable_init(struct rhashtable *ht,
+ 
+ 	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
+ 
++	if (params->nelem_hint)
++		size = rounded_hashtable_size(&ht->p);
++
+ 	/* The maximum (not average) chain length grows with the
+ 	 * size of the hash table, at a rate of (log N)/(log log N).
+ 	 * The value of 16 is selected so that even if the hash
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
