@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211 2015-12-15
-Date: Wed, 16 Dec 2015 18:34:43 -0500 (EST)
-Message-ID: <20151216.183443.615368179590575650.davem@davemloft.net>
-References: <1450182621.3356.12.camel@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v7 0/4] Support administratively closing application
+ sockets
+Date: Wed, 16 Dec 2015 15:35:35 -0800
+Message-ID: <1450308935.8474.103.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450236605-87170-1-git-send-email-lorenzo@google.com>
+	 <20151216074334.593a1ad6@xeon-e3>
+	 <1450281013.8474.73.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5671C1A3.30207@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, hannes@stressinduktion.org, ek@google.com,
+	tom@herbertland.com, zenczykowski@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41507 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732AbbLPXep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:34:45 -0500
-In-Reply-To: <1450182621.3356.12.camel@sipsolutions.net>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33261 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753610AbbLPXfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:35:37 -0500
+Received: by mail-pa0-f48.google.com with SMTP id ur14so31247329pab.0
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 15:35:37 -0800 (PST)
+In-Reply-To: <5671C1A3.30207@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 15 Dec 2015 13:30:21 +0100
-
-> After going through my patch queue, I have another set of fixes that
-> I think is still appropriate for the current cycle.
+On Wed, 2015-12-16 at 14:55 -0500, Jamal Hadi Salim wrote:
+> On 15-12-16 10:50 AM, Eric Dumazet wrote:
+> > On Wed, 2015-12-16 at 07:43 -0800, Stephen Hemminger wrote:
+> >
+> >>
+> >> I see no security checks in the diag infrastructure.
+> >> Up until now diag has been read-only access and therefore has been
+> >> allowed for all users.
+> >
+> > It is still allowed to all users.
+> >
+> > Only the 'destroy' operation is restricted.
 > 
-> Two of my own restart changes there are fairly big but for the most
-> part just move code around so it can be called in a slightly different
-> order.
-> 
-> Let me know if there are any issues.
+> The question i had was the opposite when i saw this: why are
+> regular users allowed to read admin (and any other users) details?;->
+> On this specific feature: why, as a regular user, I cant close
+> connections attributed to me (and have to use CAP_NET_ADMIN)?
 
-Something about your text encoding kept this from ending up
-in patchwork for some reason.
+I guess that we need to be careful here.
 
-Anyways, pulled, thanks a lot!
+socket can be shared by fd passing to multiple users.
+
+Who really owns it ?
