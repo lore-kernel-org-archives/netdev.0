@@ -1,61 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v5 05/19] net: ethtool: add new
- ETHTOOL_GSETTINGS/SSETTINGS API
-Date: Wed, 16 Dec 2015 11:38:14 -0500 (EST)
-Message-ID: <20151216.113814.2025166082777387327.davem@davemloft.net>
-References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
-	<1450127046-4573-6-git-send-email-ddecotig@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v3 3/3] geneve: Remote Checksum Offload support
+Date: Wed, 16 Dec 2015 08:41:57 -0800
+Message-ID: <CALx6S37jRCwwZHDSVY6DOY3u9EUkHnQsupFa5zzx-KWk7pE5AA@mail.gmail.com>
+References: <1449779866-3704097-1-git-send-email-tom@herbertland.com>
+	<1449779866-3704097-4-git-send-email-tom@herbertland.com>
+	<CAEh+42hCrCOqnPf2Sj5po6MjtJie=kL2QX4MmBqcAquJp4RUng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, _govind-KK0ffGbhmjU@public.gmane.org,
-	VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org,
-	robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
-	Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org,
-	decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org
-To: ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450127046-4573-6-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37169 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752722AbbLPQl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 11:41:58 -0500
+Received: by mail-ig0-f170.google.com with SMTP id to18so55778607igc.0
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 08:41:58 -0800 (PST)
+In-Reply-To: <CAEh+42hCrCOqnPf2Sj5po6MjtJie=kL2QX4MmBqcAquJp4RUng@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 14 Dec 2015 13:03:52 -0800
+On Thu, Dec 10, 2015 at 1:17 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Thu, Dec 10, 2015 at 12:37 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> Add support for remote checksum offload in both the normal and GRO
+>> paths. netlinks command are used to enable sending of the Remote
+>> Checksum Data, and allow processing of it on receive.
+>>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>
+> Tom, can you please split this patch off and mark it as RFC or similar?
+>
+> I don't have any objections to implementing remote checksum offload
+> for Geneve in general but I think that it's pretty clear that the
+> format that you are using here is not the direction that the protocol
+> is going to evolve. We don't need to fragment the protocol by applying
+> this at this time.
 
-> +static int ethtool_get_ksettings(struct net_device *dev, void __user *useraddr)
-> +{
- ...
-> +	if (__ETHTOOL_LINK_MODE_MASK_NU32
-> +	    != ksettings.parent.link_mode_masks_nwords) {
-> +		/* wrong link mode nbits requested */
-> +		memset(&ksettings, 0, sizeof(ksettings));
-> +		/* keep cmd field reset to 0 */
-> +		/* send back number of words required as negative val */
-> +		compiletime_assert(__ETHTOOL_LINK_MODE_MASK_NU32 <= S8_MAX,
-> +				   "need too many bits for link modes!");
-> +		ksettings.parent.link_mode_masks_nwords
-> +			= -((s8)__ETHTOOL_LINK_MODE_MASK_NU32);
+The first two patches were accepted, you should have enough to
+implement the remote checksum patches in the TLV format so you can
+take it from here.
 
-I'm trying to understand how this can work.
+As for direction, I strongly suggest that you define some TLVs,
+implement the TLV processing loop, and begin analyzing performance in
+both HW and SW ASAP. As mentioned in the Geneve draft:
 
-Supposedly, the link_mode_masks_nwords field is there so that we can
-add new link modes yet still work with tools built against any
-particular link mode list in the UAPI header files.
+"The use of a variable length header and options in a protocol often
+raises questions about whether it is truly efficiently implementable
+in hardware."
 
-But here you're forcing the value of link_mode_masks_nwords and then
-copying that amount back to userspace.  If the user allocated less
-space than the the link mode list in the kernel supports, we will
-overwrite past the end of the user's usettings object.
+I don't see that you've answered the question of rather TLVs can be
+even be efficiently implemented in software much less hardware.
+Without answering these questions I don't think we can claim the
+protocol is viable or provides any benefit over VXLAN.
 
-You cannot unconditionally copy sizeof(usettings) back to the user,
-as store_ksettings_for_user() will do.
-
-I think you have to truncate here, copying only the array elements the
-user's structure actually has space for.  That's the only way this can
-work.
+Tom
