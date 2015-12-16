@@ -1,45 +1,76 @@
 From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 4/6] bpf: hash: convert per-hashtable lock into per-bucket
- bit spinlock
-Date: Wed, 16 Dec 2015 14:58:08 +0800
-Message-ID: <CACVXFVOeh0D+Nf8AVw68-e-aSYtVVLiRoUoDCi89zYXXiUm4gA@mail.gmail.com>
+Subject: Re: [PATCH 5/6] bpf: hash: avoid to call kmalloc() in eBPF prog
+Date: Wed, 16 Dec 2015 15:13:22 +0800
+Message-ID: <CACVXFVNhh3eX_vobCG6JehuV=sJ1xywK6C-s1BGeakVkprbaPA@mail.gmail.com>
 References: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
-	<1450178464-27721-5-git-send-email-tom.leiming@gmail.com>
-	<20151215225118.GA67370@ast-mbp.thefacebook.com>
-	<CACVXFVMaRPSHCEi9BpA1R9FnQFhUODc6UVonE_SjiytmL2WAXQ@mail.gmail.com>
-	<CAHbLzkpW_seTrs+WgFqsriH5uhG4LMY_jiYC0iRQ-LAdJFiUjw@mail.gmail.com>
+	<1450178464-27721-6-git-send-email-tom.leiming@gmail.com>
+	<20151215231057.GB67370@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Alexei Starovoitov <ast@kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Yang Shi <shy828301@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38361 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932197AbbLPG6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 01:58:10 -0500
-In-Reply-To: <CAHbLzkpW_seTrs+WgFqsriH5uhG4LMY_jiYC0iRQ-LAdJFiUjw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151215231057.GB67370@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 16, 2015 at 1:01 PM, Yang Shi <shy828301@gmail.com> wrote:
+On Wed, Dec 16, 2015 at 7:10 AM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Tue, Dec 15, 2015 at 07:21:03PM +0800, Ming Lei wrote:
+>> kmalloc() is often a bit time-consuming, also
+>> one atomic counter has to be used to track the total
+>> allocated elements, which is also not good.
+>>
+>> This patch pre-allocates element pool in htab_map_alloc(),
+>> then use percpu_ida to allocate one slot from the pool,
+>> then the runtime allocation/freeing cost can be decreased.
+>>
+>> From my test, at least 10% fio throughput is improved in block
+>> I/O test when tools/biolatency of bcc(iovisor) is running.
+>>
+>> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+>
+> Looks very intersting as well.
+> Approach looks good.
+> If you can make a common allocation helper for this map and
+> for blk-mq would be even better.
+
+OK, I will see if it is doable.
 
 >
-> I recalled Steven confirmed raw_spin_lock has the lockdep benefit too in the
-> patch review for changing to raw lock.
+>> -     htab->elem_size = sizeof(struct htab_elem) +
+>> -                       round_up(htab->map.key_size, 8) +
+>> -                       htab->map.value_size;
+>> +     htab->elem_size = round_up(sizeof(struct htab_elem) +
+>> +                                round_up(htab->map.key_size, 8) +
+>> +                                htab->map.value_size,
+>> +                                cache_line_size());
 >
-> Please check this thread out
->  http://lists.openwall.net/netdev/2015/10/31/7
+> this rounding to cache line is great for performance, but it's extra
+> memory upfront which may not be needed. The per-allocation is a classic
+> performance vs memory trade-off. In other cases it may hurt.
 
-OK, looks I was wrong about the lockdep benifit, :-(
+The current kmalloc allocation for 'struct htab_elem' is still cache line
+aligned, that is one reason why I choose to do it, but we can change
+it too.
 
-But for this lock, I think lockdep isn't such important, because it is the
-intermost lock, and it can be used just for protecting the bucket list
-and nothing else need to be covered.
+> So could you change the patch to do pre-allocation only when
+> requested by user space via extra flag for hash map or via
+> new BPF_MAP_TYPE_HASH_PREALLOC type? Not sure yet whether flag or
+> new type is better. I guess implementation will dictate.
+
+Looks a better idea, then we can let user make the choice.
+
+>
+> PS
+> Glad that you found iovisor/tools/biolatency useful.
+> It's indeed pretty helpful to analyze real-time block io latency.
+
+This tool is great and I have played it for a while, :-)
+
 
 
 Thanks,
