@@ -1,107 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] hv_netvsc: Use simple parser for IPv4 and v6
- headers
-Date: Wed, 16 Dec 2015 13:19:32 -0800
-Message-ID: <1450300772.8474.96.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
- <1450285688.8474.86.camel@edumazet-glaptop2.roam.corp.google.com>
- <BN1PR0301MB0770A1CB185D1AB82D5F9E44CAEF0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Haiyang Zhang <haiyangz@microsoft.com>, Tom Herbert <tom@herbertland.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BN1PR0301MB0770A1CB185D1AB82D5F9E44CAEF0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 0/2] net: Allow accepted sockets to be bound to l3mdev domain
+Date: Wed, 16 Dec 2015 13:20:42 -0800
+Message-ID: <1450300844-11010-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33892 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965604AbbLPVUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 16:20:52 -0500
+Received: by mail-pf0-f169.google.com with SMTP id 68so18198306pfc.1
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 13:20:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-16 at 19:20 +0000, Haiyang Zhang wrote:
-> > -----Original Message-----
-> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > Sent: Wednesday, December 16, 2015 12:08 PM
-> > 
-> > This looks very very wrong to me.
-> > 
-> > How many times this is called per second, for the 'one flow' case ?
-> > 
-> > Don't you use TSO in this driver ?
-> > 
-> > What about encapsulation ?
-> > 
-> > I suspect you have a quite different issue here.
-> > 
-> > You simply could use skb_get_hash() since local TCP flows will provide a
-> > l4 skb->hash and you have no further flow dissection to do.
-> 
-> In our test, we have bisected and found the following patch introduced big 
-> overhead into skb_flow_dissect_flow_keys(), and caused performance 
-> regression:
-> commit: d34af823
-> net: Add VLAN ID to flow_keys
+Allow accepted sockets to derive their sk_bound_dev_if setting from the
+l3mdev domain in which the packets originated. This version adds a sysctl
+to control whether the setting is inherited, making the functionality
+similar to sk_mark and its sysctl_tcp_fwmark_accept setting.
 
-Adding Tom Herbert <tom@herbertland.com>
+This effectively allow a process to have a "VRF-global" listen socket,
+with child sockets bound to the VRF device in which the packet originated.
+A similar behavior can be achieved using sk_mark, but a solution using marks
+is incomplete as it does not handle duplicate addresses in different L3
+domains/VRFs. Allowing sockets to inherit the sk_bound_dev_if from l3mdev
+domain provides a complete solution.
 
-Your driver was assuming things about "struct flow_keys" layout.
-This is not permitted.
+David Ahern (2):
+  net: l3mdev: Add master device lookup by index
+  net: Allow accepted sockets to be bound to l3mdev domain
 
-Magic numbers like 12 and 8 are really bad...
+ Documentation/networking/ip-sysctl.txt |  8 ++++++++
+ include/net/inet_sock.h                | 14 ++++++++++++++
+ include/net/l3mdev.h                   | 23 +++++++++++++++++++++++
+ include/net/netns/ipv4.h               |  3 +++
+ net/ipv4/syncookies.c                  |  4 ++--
+ net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
+ net/ipv4/tcp_input.c                   |  2 +-
+ net/ipv4/tcp_ipv4.c                    |  1 +
+ net/ipv6/syncookies.c                  |  4 ++--
+ 9 files changed, 65 insertions(+), 5 deletions(-)
 
-static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
-{
-        struct flow_keys flow;
-        int data_len;
-
-        if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
-            !(flow.basic.n_proto == htons(ETH_P_IP) ||
-              flow.basic.n_proto == htons(ETH_P_IPV6)))
-                return false;
-
-        if (flow.basic.ip_proto == IPPROTO_TCP)
-                data_len = 12;
-        else
-                data_len = 8;
-
-        *hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
-
-        return true;
-}
-
-
-> This patch didn't add too many instructions, but we think the change to 
-> the size of struct flow_keys may cause different cache missing rate...
-> 
-> To avoid affecting other drivers using this function, our patch limits the 
-> change inside our driver to fix this performance regression.
-> 
-> Regarding your suggestion on skb_get_hash(), I looked at the code and ran 
-> some tests, and found the skb->l4_hash and skb->sw_hash bits are not set, 
-> so it calls __skb_get_hash() which eventually calls 
-> skb_flow_dissect_flow_keys(). So it still includes the performance 
-> overhead mentioned above.
-
-Okay, but have you tried this instead of just guessing ?
-
-Are you forwarding traffic, or is the traffic locally generated ?
-
-TCP stack does set skb->l4_hash for sure in current kernels.
-
-Your 'basic flow dissection' is very buggy and a step backward.
-
-Just call skb_get_hash() : Not only your perf problem will vanish, but
-your driver will correctly work with all possible malformed packets
-(like pretending to be TCP packets but too small to even contain one
-byte of TCP header) and well formed ones, with all encapsulations.
+-- 
+1.9.1
