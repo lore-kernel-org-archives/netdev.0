@@ -1,56 +1,107 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net: heap-out-of-bounds in sock_setsockopt
-Date: Wed, 16 Dec 2015 13:07:30 -0800
-Message-ID: <CANn89iLWOkR3odzkdoYbXCwNEkiQsM7MeONX5GVd0OMJZSBOYA@mail.gmail.com>
-References: <CACT4Y+Y5jtsfn4U8C-iBT4njrjXH+fFmvajuyhA-VpEchjLKFw@mail.gmail.com>
-	<CAHA+R7PCNuyW7RhbzxPJvnrX0NA1bxDXR8cL58STXrWkwMXXyA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Use simple parser for IPv4 and v6
+ headers
+Date: Wed, 16 Dec 2015 13:19:32 -0800
+Message-ID: <1450300772.8474.96.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
+ <1450285688.8474.86.camel@edumazet-glaptop2.roam.corp.google.com>
+ <BN1PR0301MB0770A1CB185D1AB82D5F9E44CAEF0@BN1PR0301MB0770.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Craig Gallek <kraig@google.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7PCNuyW7RhbzxPJvnrX0NA1bxDXR8cL58STXrWkwMXXyA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Haiyang Zhang <haiyangz@microsoft.com>, Tom Herbert <tom@herbertland.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <BN1PR0301MB0770A1CB185D1AB82D5F9E44CAEF0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 16, 2015 at 12:22 PM, Cong Wang <cwang@twopensource.com> wrote:
+On Wed, 2015-12-16 at 19:20 +0000, Haiyang Zhang wrote:
+> > -----Original Message-----
+> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > Sent: Wednesday, December 16, 2015 12:08 PM
+> > 
+> > This looks very very wrong to me.
+> > 
+> > How many times this is called per second, for the 'one flow' case ?
+> > 
+> > Don't you use TSO in this driver ?
+> > 
+> > What about encapsulation ?
+> > 
+> > I suspect you have a quite different issue here.
+> > 
+> > You simply could use skb_get_hash() since local TCP flows will provide a
+> > l4 skb->hash and you have no further flow dissection to do.
+> 
+> In our test, we have bisected and found the following patch introduced big 
+> overhead into skb_flow_dissect_flow_keys(), and caused performance 
+> regression:
+> commit: d34af823
+> net: Add VLAN ID to flow_keys
 
-> Hmm, we should exclude the raw socket case, something like the
-> following, but I am not sure if the check is too strict or not, also
-> not sure if we should return an error for this raw socket case.
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 765be83..c26e80a 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -872,7 +872,7 @@ int sock_setsockopt(struct socket *sock, int
-> level, int optname,
->
->                 if (val & SOF_TIMESTAMPING_OPT_ID &&
->                     !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
-> -                       if (sk->sk_protocol == IPPROTO_TCP) {
-> +                       if (sk->sk_protocol == IPPROTO_TCP &&
-> sk->sk_type == SOCK_STREAM) {
->                                 if (sk->sk_state != TCP_ESTABLISHED) {
->                                         ret = -EINVAL;
->                                         break;
+Adding Tom Herbert <tom@herbertland.com>
 
-This looks right, please post this officially ;)
+Your driver was assuming things about "struct flow_keys" layout.
+This is not permitted.
 
-tcp_sk(sk) only works for TCP sockets , and the test must include
-sk->sk_type == SOCK_STREAM
+Magic numbers like 12 and 8 are really bad...
+
+static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+{
+        struct flow_keys flow;
+        int data_len;
+
+        if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
+            !(flow.basic.n_proto == htons(ETH_P_IP) ||
+              flow.basic.n_proto == htons(ETH_P_IPV6)))
+                return false;
+
+        if (flow.basic.ip_proto == IPPROTO_TCP)
+                data_len = 12;
+        else
+                data_len = 8;
+
+        *hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
+
+        return true;
+}
+
+
+> This patch didn't add too many instructions, but we think the change to 
+> the size of struct flow_keys may cause different cache missing rate...
+> 
+> To avoid affecting other drivers using this function, our patch limits the 
+> change inside our driver to fix this performance regression.
+> 
+> Regarding your suggestion on skb_get_hash(), I looked at the code and ran 
+> some tests, and found the skb->l4_hash and skb->sw_hash bits are not set, 
+> so it calls __skb_get_hash() which eventually calls 
+> skb_flow_dissect_flow_keys(). So it still includes the performance 
+> overhead mentioned above.
+
+Okay, but have you tried this instead of just guessing ?
+
+Are you forwarding traffic, or is the traffic locally generated ?
+
+TCP stack does set skb->l4_hash for sure in current kernels.
+
+Your 'basic flow dissection' is very buggy and a step backward.
+
+Just call skb_get_hash() : Not only your perf problem will vanish, but
+your driver will correctly work with all possible malformed packets
+(like pretending to be TCP packets but too small to even contain one
+byte of TCP header) and well formed ones, with all encapsulations.
