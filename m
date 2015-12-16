@@ -1,36 +1,46 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCHv3 net-next] ipv6: allow routes to be configured with
- expire values
-Date: Wed, 16 Dec 2015 12:19:21 +0100
-Message-ID: <567148B9.9050906@stressinduktion.org>
-References: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>
+Subject: [PATCH iproute2] ipv6: allow setting stable_secret mode
+Date: Wed, 16 Dec 2015 12:30:08 +0100
+Message-ID: <1450265408-20510-1-git-send-email-hannes@stressinduktion.org>
+Cc: stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36904 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48423 "EHLO
 	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754550AbbLPLTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 06:19:23 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 1A5B420941
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 06:19:23 -0500 (EST)
-In-Reply-To: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
+	by vger.kernel.org with ESMTP id S932113AbbLPLaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 06:30:16 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 76ABC20714
+	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 06:30:15 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16.12.2015 10:50, Xin Long wrote:
-> Add the support for adding expire value to routes,  requested by
-> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
-> wants it too.
-> 
-> implement it by adding the new RTNETLINK attribute RTA_EXPIRES.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ ip/iplink.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks, Xin Long!
+diff --git a/ip/iplink.c b/ip/iplink.c
+index f30de86d1858a0..e824082f7d8149 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -84,7 +84,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
+-	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
++	fprintf(stderr, "			  [ addrgenmode { eui64 | none | stable_secret } ]\n");
+ 	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type TYPE]\n");
+ 
+@@ -176,6 +176,8 @@ static int get_addr_gen_mode(const char *mode)
+ 		return IN6_ADDR_GEN_MODE_EUI64;
+ 	if (strcasecmp(mode, "none") == 0)
+ 		return IN6_ADDR_GEN_MODE_NONE;
++	if (strcasecmp(mode, "stable_secret") == 0)
++		return IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+ 	return -1;
+ }
+ 
+-- 
+2.5.0
