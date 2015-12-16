@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Use simple parser for IPv4 and v6
- headers
-Date: Wed, 16 Dec 2015 18:23:10 -0500 (EST)
-Message-ID: <20151216.182310.1967561459941374668.davem@davemloft.net>
-References: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
- <1450285688.8474.86.camel@edumazet-glaptop2.roam.corp.google.com>
- <BN1PR0301MB0770A1CB185D1AB82D5F9E44CAEF0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+Subject: Re: [PATCH v7 0/4] Support administratively closing application
+ sockets
+Date: Wed, 16 Dec 2015 18:24:13 -0500 (EST)
+Message-ID: <20151216.182413.1561030855644800839.davem@davemloft.net>
+References: <20151216074334.593a1ad6@xeon-e3>
+	<1450281013.8474.73.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5671C1A3.30207@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, eric.dumazet@gmail.com, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BN1PR0301MB0770A1CB185D1AB82D5F9E44CAEF0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
+	lorenzo@google.com, netdev@vger.kernel.org,
+	hannes@stressinduktion.org, ek@google.com, tom@herbertland.com,
+	zenczykowski@gmail.com
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41398 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145AbbLPXYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:24:15 -0500
+In-Reply-To: <5671C1A3.30207@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Wed, 16 Dec 2015 19:20:44 +0000
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Wed, 16 Dec 2015 14:55:15 -0500
 
-> In our test, we have bisected and found the following patch introduced big 
-> overhead into skb_flow_dissect_flow_keys(), and caused performance 
-> regression:
-> commit: d34af823
-> net: Add VLAN ID to flow_keys
+> The question i had was the opposite when i saw this: why are
+> regular users allowed to read admin (and any other users) details?;->
+> On this specific feature: why, as a regular user, I cant close
+> connections attributed to me (and have to use CAP_NET_ADMIN)?
 
-NEVER _EVER_ work around this kind of problem by bypassing the code in
-question in your driver.
-
-ALWAYS work to fix the actual problem.
+There is nothing provided via socket diag that can't be seen
+also via /proc/net/tcp et al.
