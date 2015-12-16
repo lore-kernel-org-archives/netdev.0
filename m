@@ -1,45 +1,54 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH 15/15] i40iw: changes for build of i40iw module
-Date: Wed, 16 Dec 2015 12:53:16 -0800
-Message-ID: <20151216205316.GA21948@infradead.org>
-References: <1450295919-17292-7-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-8-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-9-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-10-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-11-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-12-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-13-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-14-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-15-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-16-git-send-email-faisal.latif@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1450295919-17292-16-git-send-email-faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Luuk Paulussen <luuk.paulussen@alliedtelesis.co.nz>
+Subject: [PATCH] Octeon: Fix logic for waking octoen ethernet tx queue.
+Date: Thu, 17 Dec 2015 09:59:32 +1300
+Message-ID: <1450299572-11012-1-git-send-email-luuk.paulussen@alliedtelesis.co.nz>
+Cc: support@caviumnetworks.com,
+	Luuk Paulussen <luuk.paulussen@alliedtelesis.co.nz>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:59429 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934216AbbLPU7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 15:59:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> --- a/include/uapi/rdma/rdma_netlink.h
-> +++ b/include/uapi/rdma/rdma_netlink.h
-> @@ -5,6 +5,7 @@
->  
->  enum {
->  	RDMA_NL_RDMA_CM = 1,
-> +	RDMA_NL_I40IW,
->  	RDMA_NL_NES,
->  	RDMA_NL_C4IW,
->  	RDMA_NL_LS,	/* RDMA Local Services */
+The ethernet driver tx queue is stopped when the queue length exceeds
+what is allowed.  It should only be started again when the queue length
+is back within bounds.
 
-This changes the values for the existing RDMA_NL_NES, RDMA_NL_C4IW and
-RDMA_NL_LS symbols.  Please add your new value at the end.  And it
-should probably be a separate patch as it's not related to the build
-system and referenced by the earlier patches.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The logic here was just reenabling the queue when any buffers had been
+freed.  the queue was stopped whenever the length exceeded 1000
+(MAX_OUT_QUEUE_DEPTH), but then was essentially immediately started again.
+On a congested link, the queue length would just keep increasing up to around
+8000 (for average size packets), at which point the hardware would start
+refusing the packets and they would begin to be dropped.
+This prevented the qdisc layer from effectively managing and prioritising
+packets, as essentially all packets were being allowed into the driver queue
+and then were being dropped by the hardware.
+
+This change only restarts the queue if the length is less than 1000
+(MAX_OUT_QUEUE_DEPTH).
+
+Reviewed-by: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
+Reviewed-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Reviewed-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
+---
+ drivers/staging/octeon/ethernet-tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/octeon/ethernet-tx.c b/drivers/staging/octeon/ethernet-tx.c
+index c053c4a..31292fe 100644
+--- a/drivers/staging/octeon/ethernet-tx.c
++++ b/drivers/staging/octeon/ethernet-tx.c
+@@ -126,7 +126,7 @@ static void cvm_oct_free_tx_skbs(struct net_device *dev)
+ 		}
+ 		total_remaining += skb_queue_len(&priv->tx_free_list[qos]);
+ 	}
+-	if (total_freed >= 0 && netif_queue_stopped(dev))
++	if (total_remaining < MAX_OUT_QUEUE_DEPTH && netif_queue_stopped(dev))
+ 		netif_wake_queue(dev);
+ 	if (total_remaining)
+ 		cvm_oct_kick_tx_poll_watchdog();
+-- 
+2.6.4
