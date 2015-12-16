@@ -1,109 +1,97 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: rhashtable: Fix walker list corruption
-Date: Wed, 16 Dec 2015 16:45:54 +0800
-Message-ID: <20151216084554.GA24395@gondor.apana.org.au>
-References: <561797B7.3090807@canonical.com>
+From: "Gabriele Beltrame" <belgab@drvsource.net>
+Subject: Random packet loss using IPsec with AES128-SHA1
+Date: Wed, 16 Dec 2015 10:17:54 +0100
+Message-ID: <000a01d137e2$afedd130$0fc97390$@drvsource.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:60864 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754466AbbLPIqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 03:46:02 -0500
-Content-Disposition: inline
-In-Reply-To: <561797B7.3090807@canonical.com>
+Received: from ip209.psaruba.com ([94.23.150.209]:59662 "EHLO webs.psaruba.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933879AbbLPJSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2015 04:18:17 -0500
+Received: from amavis-7.psaruba.com (amavis-7.psaruba.com [192.168.255.7])
+	by webs.psaruba.com (Postfix) with ESMTP id 22138881DC
+	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 10:18:15 +0100 (CET)
+Received: from mail-hub.psaruba.com ([192.168.255.1])
+	by amavis-7.psaruba.com (srv-psaruba-002.psaruba.com [192.168.255.7]) (amavisd-new, port 10026)
+	with ESMTP id HTA9h5H9HrBY for <netdev@vger.kernel.org>;
+	Wed, 16 Dec 2015 10:18:15 +0100 (CET)
+Received: from mail-ext-sub.psaruba.com (mail-ext-sub.psaruba.com [IPv6:fc00:0:0:ff::4])
+	by mail-hub.psaruba.com (Postfix) with ESMTP id E064BC403B
+	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 10:18:14 +0100 (CET)
+Received: from Unimatrix (host127-236-dynamic.24-79-r.retail.telecomitalia.it [79.24.236.127])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: belgab@drvsource.net)
+	by mail-ext-sub.psaruba.com (Postfix) with ESMTPSA id 1A4EA84039
+	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 10:18:12 +0100 (CET)
+Content-Language: it
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 09, 2015 at 11:32:23AM +0100, Colin Ian King wrote:
-> 
-> I'm hitting a null ptr deference bug when running 2 or more instances of
-> the attached reproducer program.  I've bisected this down to the
-> following commit:
-> 
-> commit ba7c95ea3870fe7b847466d39a049ab6f156aa2c
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Tue Mar 24 09:53:17 2015 +1100
-> 
->     rhashtable: Fix sleeping inside RCU critical section in walk_stop
-> 
-> 
-> Without this commit, the attached reproducer runs fine for hours. With
-> the commit, I can oops a 4 core (8 thread) Intel i7-6700 Sharkbay SDP in
-> a few seconds.
+Hi,
 
-Thanks Colin.  This commit was indeed bogus, as we end up using
-two different locks for the one list.
+I'm running a few Strongswan 5.3.* CentOS (Kernel 3.16.7, 4.2.6, 4.1.*)
+instances on AWS to terminate VPNs between each other and/or to other
+devices across the Internet.
+While investigating some application issues, I've noticed that on every VPNs
+I have random packet losses (from 1% to 4% over 100 to 300 requests sent).
+This only happens when the two following conditions are met: (a) AES
+encryption used, (b) IP packet size shorter than about (150+8+20)Bytes.
 
----8<---
-The commit ba7c95ea3870fe7b847466d39a049ab6f156aa2c ("rhashtable:
-Fix sleeping inside RCU critical section in walk_stop") introduced
-a new spinlock for the walker list.  However, it did not convert
-all existing users of the list over to the new spin lock.  Some
-continued to use the old mutext for this purpose.  This obviously
-led to corruption of the list.
+In tcpdump I can actually see all packets (requests and replies) being
+"sent" from the router, but on destination server (on the same "LAN") they
+are not being received... it's just like if the packet is being lost before
+it's being actually serialized onto the network by the XEN NIC driver
+Pinging form the vpn router itself always works fine though, never losing a
+single packet...
 
-The fix is to use the spin lock everywhere where we touch the list.
+Tested with Kernel 3.16.7, 4.2.6 and a AWS Amazon Linux instance (kernel
+4.1.*).
+Strongswan and libreswan shows the same issue, so it's not a Strongswan
+issue.
+Only AES CBS is affected... AES GCM is not affected, furthermore if I use
+the Strongswan's kernel-libipsec plugin there is no packet loss.
 
-This also allows us to do rcu_rad_lock before we take the lock in
-rhashtable_walk_start.  With the old mutex this would've deadlocked
-but it's safe with the new spin lock.
+To recap:
+	a. it's not an instance type/size issue (I have the same issue on
+everything I've tested with)
+	b. it's not a Strongswan issue (I have the same
+withlbreswan/Openswan)
+	c. it's not a network/related issue (I can actually see on the
+router all packets with tcpdump, they are just not received at the
+destination (a host on the same network as the "vpn router")
+	d. I only see this occurring with AES128 CBS DH2 (and possibly other
+key sizes as well)... AES GCM is not affected, as well as 3DES and NULL
+encryption
+	e. Strongswan developers cannot reproduce the issue on their lab
+(Strongswan issue #1220), so possibly there could be something wrong within
+the Xen NIC driver
+	f. ICMP packets bigger than around 178bytes (150+8+20) seem to not
+be affected
 
-Fixes: ba7c95ea3870 ("rhashtable: Fix sleeping inside RCU...")
-Reported-by: Colin Ian King <colin.king@canonical.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Has somebody an idea about where the issue might be and how to
+fix/workaround it (I cannot use 3DES and/or AES GCM everywhere and the
+Strongswan's kernel-libipsec plugin taxes the CPU a lot more than the kernel
+implementation)?
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 1c624db..ed7ba47 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -519,10 +519,10 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
- 	if (!iter->walker)
- 		return -ENOMEM;
- 
--	mutex_lock(&ht->mutex);
-+	spin_lock(&ht->lock);
- 	iter->walker->tbl = rht_dereference(ht->tbl, ht);
- 	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
--	mutex_unlock(&ht->mutex);
-+	spin_unlock(&ht->lock);
- 
- 	return 0;
- }
-@@ -536,10 +536,10 @@ EXPORT_SYMBOL_GPL(rhashtable_walk_init);
-  */
- void rhashtable_walk_exit(struct rhashtable_iter *iter)
- {
--	mutex_lock(&iter->ht->mutex);
-+	spin_lock(&iter->ht->lock);
- 	if (iter->walker->tbl)
- 		list_del(&iter->walker->list);
--	mutex_unlock(&iter->ht->mutex);
-+	spin_unlock(&iter->ht->lock);
- 	kfree(iter->walker);
- }
- EXPORT_SYMBOL_GPL(rhashtable_walk_exit);
-@@ -563,14 +563,12 @@ int rhashtable_walk_start(struct rhashtable_iter *iter)
- {
- 	struct rhashtable *ht = iter->ht;
- 
--	mutex_lock(&ht->mutex);
-+	rcu_read_lock();
- 
-+	spin_lock(&ht->lock);
- 	if (iter->walker->tbl)
- 		list_del(&iter->walker->list);
--
--	rcu_read_lock();
--
--	mutex_unlock(&ht->mutex);
-+	spin_unlock(&ht->lock);
- 
- 	if (!iter->walker->tbl) {
- 		iter->walker->tbl = rht_dereference_rcu(ht->tbl, ht);
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+Gabriele
+
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
