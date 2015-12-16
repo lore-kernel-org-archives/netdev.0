@@ -1,94 +1,77 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH iproute2 v2 1/3] vxlan: add support for collect metadata flag
-Date: Wed, 16 Dec 2015 13:22:26 +0100
-Message-ID: <1eddfa2c5c660e15992d767129a50fd9fc846101.1450267709.git.pabeni@redhat.com>
+Subject: [PATCH iproute2 v2 2/3] gre: add support for collect metadata flag
+Date: Wed, 16 Dec 2015 13:22:27 +0100
+Message-ID: <5ad4de65fe71c859bb768bbabd7442181d97f225.1450267709.git.pabeni@redhat.com>
 References: <cover.1450267709.git.pabeni@redhat.com>
 Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
 	Jiri Benc <jbenc@redhat.com>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37411 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37425 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933781AbbLPMWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 07:22:41 -0500
+	id S933781AbbLPMWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2015 07:22:43 -0500
 In-Reply-To: <cover.1450267709.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add support for IFLA_VXLAN_COLLECT_METADATA via the
-'external' keyword to the vxlan link.
-
-Also enforce mutual exclusion between 'vni' and 'external'.
+This patch add support for IFLA_GRE_COLLECT_METADATA via the
+'external' keyword to the gre link.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- ip/iplink_vxlan.c | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ ip/link_gre.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index db29bf0..aa4d519 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -31,7 +31,7 @@ static void print_explain(FILE *f)
- 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
- 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
- 	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
--	fprintf(f, "                 [ gbp ]\n");
-+	fprintf(f, "                 [ [no]external ] [ gbp ]\n");
- 	fprintf(f, "\n");
- 	fprintf(f, "Where: VNI := 0-16777215\n");
- 	fprintf(f, "       ADDR := { IP_ADDRESS | any }\n");
-@@ -72,6 +72,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 udp6zerocsumrx = 0;
- 	__u8 remcsumtx = 0;
- 	__u8 remcsumrx = 0;
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 58f416c..c85741f 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -74,6 +74,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	__u16 encapflags = 0;
+ 	__u16 encapsport = 0;
+ 	__u16 encapdport = 0;
 +	__u8 metadata = 0;
- 	__u8 gbp = 0;
- 	int dst_port_set = 0;
- 	struct ifla_vxlan_port_range range = { 0, 0 };
-@@ -210,6 +211,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			remcsumrx = 1;
- 		} else if (!matches(*argv, "noremcsumrx")) {
- 			remcsumrx = 0;
-+		} else if (!matches(*argv, "external")) {
-+			metadata = 1;
-+		} else if (!matches(*argv, "noexternal")) {
-+			metadata = 0;
- 		} else if (!matches(*argv, "gbp")) {
- 			gbp = 1;
- 		} else if (matches(*argv, "help") == 0) {
-@@ -223,7 +228,12 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 		argc--, argv++;
- 	}
  
--	if (!vni_set) {
-+	if (metadata && vni_set) {
-+		fprintf(stderr, "vxlan: both 'external' and vni cannot be specified\n");
-+		return -1;
-+	}
+ 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
+ 		memset(&req, 0, sizeof(req));
+@@ -148,6 +149,9 @@ get_failed:
+ 			encapsport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_SPORT]);
+ 		if (greinfo[IFLA_GRE_ENCAP_DPORT])
+ 			encapdport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_DPORT]);
 +
-+	if (!metadata && !vni_set) {
- 		fprintf(stderr, "vxlan: missing virtual network identifier\n");
- 		return -1;
++		if (greinfo[IFLA_GRE_COLLECT_METADATA])
++			metadata = 1;
  	}
-@@ -272,6 +282,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, udp6zerocsumrx);
- 	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_TX, remcsumtx);
- 	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_RX, remcsumrx);
-+	addattr8(n, 1024, IFLA_VXLAN_COLLECT_METADATA, metadata);
  
- 	if (noage)
- 		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
-@@ -428,6 +439,10 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_RX]))
- 		fputs("remcsumrx ", f);
+ 	while (argc > 0) {
+@@ -291,6 +295,8 @@ get_failed:
+ 			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
+ 		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
+ 			encapflags |= ~TUNNEL_ENCAP_FLAG_REMCSUM;
++		} else if (strcmp(*argv, "external") == 0) {
++			metadata = 1;
+ 		} else
+ 			usage();
+ 		argc--; argv++;
+@@ -325,6 +331,8 @@ get_failed:
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_FLAGS, encapflags);
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_SPORT, htons(encapsport));
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_DPORT, htons(encapdport));
++	if (metadata)
++		addattr_l(n, 1024, IFLA_GRE_COLLECT_METADATA, NULL, 0);
  
-+	if (tb[IFLA_VXLAN_COLLECT_METADATA] &&
-+	    rta_getattr_u8(tb[IFLA_VXLAN_COLLECT_METADATA]))
+ 	return 0;
+ }
+@@ -413,6 +421,9 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (oflags & GRE_CSUM)
+ 		fputs("ocsum ", f);
+ 
++	if (tb[IFLA_GRE_COLLECT_METADATA])
 +		fputs("external ", f);
 +
- 	if (tb[IFLA_VXLAN_GBP])
- 		fputs("gbp ", f);
- }
+ 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
+ 	    *(__u16 *)RTA_DATA(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
+ 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
 -- 
 1.8.3.1
