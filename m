@@ -1,51 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v7 0/4] Support administratively closing application
- sockets
-Date: Wed, 16 Dec 2015 15:35:35 -0800
-Message-ID: <1450308935.8474.103.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1450236605-87170-1-git-send-email-lorenzo@google.com>
-	 <20151216074334.593a1ad6@xeon-e3>
-	 <1450281013.8474.73.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5671C1A3.30207@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: Pass ndm_state to route netlink FDB
+ notifications.
+Date: Wed, 16 Dec 2015 18:37:07 -0500 (EST)
+Message-ID: <20151216.183707.441075703434515451.davem@davemloft.net>
+References: <C039B2B452EFF24BA495644ED973419132ACE538@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, hannes@stressinduktion.org, ek@google.com,
-	tom@herbertland.com, zenczykowski@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org
+To: hubert.sokolowski@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33261 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753610AbbLPXfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:35:37 -0500
-Received: by mail-pa0-f48.google.com with SMTP id ur14so31247329pab.0
-        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 15:35:37 -0800 (PST)
-In-Reply-To: <5671C1A3.30207@mojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41550 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754907AbbLPXhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:37:08 -0500
+In-Reply-To: <C039B2B452EFF24BA495644ED973419132ACE538@IRSMSX108.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-16 at 14:55 -0500, Jamal Hadi Salim wrote:
-> On 15-12-16 10:50 AM, Eric Dumazet wrote:
-> > On Wed, 2015-12-16 at 07:43 -0800, Stephen Hemminger wrote:
-> >
-> >>
-> >> I see no security checks in the diag infrastructure.
-> >> Up until now diag has been read-only access and therefore has been
-> >> allowed for all users.
-> >
-> > It is still allowed to all users.
-> >
-> > Only the 'destroy' operation is restricted.
+From: "Sokolowski, Hubert" <hubert.sokolowski@intel.com>
+Date: Tue, 15 Dec 2015 13:20:30 +0000
+
+> Before this change applications monitoring FDB notifications
+> were not able to determine whether a new FDB entry is permament
+> or not:
+> bridge fdb add f1:f2:f3:f4:f5:f8 dev sw0p1 temp self
+> bridge fdb add f1:f2:f3:f4:f5:f9 dev sw0p1 self
 > 
-> The question i had was the opposite when i saw this: why are
-> regular users allowed to read admin (and any other users) details?;->
-> On this specific feature: why, as a regular user, I cant close
-> connections attributed to me (and have to use CAP_NET_ADMIN)?
+> bridge monitor fdb
+> 
+> f1:f2:f3:f4:f5:f8 dev sw0p1 self permanent
+> f1:f2:f3:f4:f5:f9 dev sw0p1 self permanent
+> 
+> With this change ndm_state from the original netlink message
+> is passed to the new netlink message sent as notification.
+> 
+> bridge fdb add f1:f2:f3:f4:f5:f6 dev sw0p1 self
+> bridge fdb add f1:f2:f3:f4:f5:f7 dev sw0p1 temp self
+> 
+> bridge monitor fdb
+> f1:f2:f3:f4:f5:f6 dev sw0p1 self permanent
+> f1:f2:f3:f4:f5:f7 dev sw0p1 self static
+> 
+> Signed-off-by: Hubert Sokolowski <hubert.sokolowski@intel.com>
 
-I guess that we need to be careful here.
-
-socket can be shared by fd passing to multiple users.
-
-Who really owns it ?
+This looks fine, applied, thanks.
