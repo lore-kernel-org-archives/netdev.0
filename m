@@ -1,43 +1,49 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3] net/macb: add support for resetting PHY using GPIO
-Date: Wed, 16 Dec 2015 20:04:31 +0100
-Message-ID: <20151216190431.GB28759@localhost.localdomain>
-References: <1450290690-32369-1-git-send-email-gregory.clement@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Russell King <linux@arm.linux.org.uk>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1450290690-32369-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next] nfp: clear ring delayed kick counters
+Date: Wed, 16 Dec 2015 19:08:52 +0000
+Message-ID: <1450292932-24393-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: simon.horman@netronome.com, rolf.neugebauer@netronome.com,
+	Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34952 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226AbbLPTI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 14:08:59 -0500
+Received: by mail-wm0-f42.google.com with SMTP id l126so53274311wml.0
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 11:08:58 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2015 at 07:31:30PM +0100, Gregory CLEMENT wrote:
-> +Optional properties for PHY child node:
-> +- reset-gpios : Should specify the gpio for phy reset
+We need to clear delayed kick counters when we free rings otherwise
+after ndo_close()/ndo_open() we could kick HW by more entries than
+actually written to rings.
 
-reset-gpios plural or reset-gpio singular?
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-> +
->  Examples:
->  
->  	macb0: ethernet@fffc4000 {
-> @@ -29,4 +32,8 @@ Examples:
->  		local-mac-address = [3a 0e 03 04 05 06];
->  		clock-names = "pclk", "hclk", "tx_clk";
->  		clocks = <&clkc 30>, <&clkc 30>, <&clkc 13>;
-> +		ethernet-phy@1 {
-> +			reg = <0x1>;
-> +			reset-gpios = <&pioE 6 1>;
-
-Did you mean "gpioE" ?
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 7060539d276a..6c5af4cb5bdc 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1363,6 +1363,7 @@ static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
+ 	tx_ring->wr_p = 0;
+ 	tx_ring->rd_p = 0;
+ 	tx_ring->qcp_rd_p = 0;
++	tx_ring->wr_ptr_add = 0;
+ 
+ 	tx_ring->txbufs = NULL;
+ 	tx_ring->txds = NULL;
+@@ -1437,6 +1438,7 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ 	rx_ring->cnt = 0;
+ 	rx_ring->wr_p = 0;
+ 	rx_ring->rd_p = 0;
++	rx_ring->wr_ptr_add = 0;
+ 
+ 	rx_ring->rxbufs = NULL;
+ 	rx_ring->rxds = NULL;
+-- 
+1.9.1
