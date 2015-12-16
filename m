@@ -1,41 +1,39 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH iproute2 1/3] vxlan: add support for collect metadata
- flag
-Date: Wed, 16 Dec 2015 13:11:05 +0100
-Message-ID: <1450267865.4626.22.camel@redhat.com>
-References: <cover.1450193891.git.pabeni@redhat.com>
-	 <c83d317f4849cbbb1b0551d450c3972c5bc73e2b.1450193891.git.pabeni@redhat.com>
-	 <20151216115054.47dca715@griffin> <20151216115626.7a35b4ff@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shemming@brocade.com, netdev@vger.kernel.org,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH iproute2 v2 0/3] improve lwtunnel route support
+Date: Wed, 16 Dec 2015 13:22:25 +0100
+Message-ID: <cover.1450267709.git.pabeni@redhat.com>
+Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jiri Benc <jbenc@redhat.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34159 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46392 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752817AbbLPMLH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 07:11:07 -0500
-In-Reply-To: <20151216115626.7a35b4ff@griffin>
+	id S933781AbbLPMWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2015 07:22:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-16 at 11:56 +0100, Jiri Benc wrote:
-> On Wed, 16 Dec 2015 11:50:53 +0100, Jiri Benc wrote:
-> > Also, as a related remark, please note that IFLA_VXLAN_COLLECT_METADATA
-> > is mutually exclusive with many other flags. It's currently not
-> > enforced correctly at the kernel level (instead, you get weird
-> > behavior). I'll fix this on the kernel side but we may want to enforce
-> > this on the iproute2 side, too, to get a better error message. This is
-> > not to be addressed by this patch, though.
-> 
-> Actually, there's one thing this patch must do. Currently, vxlan
-> enforces vni to be specified. This is not required for metadata based
-> tunneling. It's actually not permitted.
+This patch series try to improve the current route based
+lwtunnel support in iproute2, namely adding support for the
+COLLECT_METADATA flag in vxlan and gre link, and for ip6
+encap type in lwtunnel.
 
-Ok, thank you. I'll re-submit incorporating your feedback.
+Tunnel devices need to have the COLLECT_METADATA flag
+set in order to be used for route based lwtunnel.
 
-Cheers,
+Changes from V1:
+- the COLLECT_METADATA flag is now controlled via the 'external' keyword
+- 'vni' and 'external' arguments are mutually exclusive for the vxlan link
 
-Paolo
+Paolo Abeni (3):
+  vxlan: add support for collect metadata flag
+  gre: add support for collect metadata flag
+  lwtunnel: implement support for ip6 encap
+
+ ip/iplink_vxlan.c     | 19 +++++++++--
+ ip/iproute_lwtunnel.c | 91 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ ip/link_gre.c         | 11 +++++++
+ 3 files changed, 118 insertions(+), 3 deletions(-)
+
+-- 
+1.8.3.1
