@@ -1,54 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] ipv6: add IPV6_HDRINCL option for raw sockets
-Date: Wed, 16 Dec 2015 11:01:55 -0800
-Message-ID: <1450292515.23587.6.camel@perches.com>
-References: <1450282967-3184-1-git-send-email-hannes@stressinduktion.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3] net/macb: add support for resetting PHY using GPIO
+Date: Wed, 16 Dec 2015 20:04:31 +0100
+Message-ID: <20151216190431.GB28759@localhost.localdomain>
+References: <1450290690-32369-1-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0220.hostedemail.com ([216.40.44.220]:54905 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752692AbbLPTCF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 14:02:05 -0500
-In-Reply-To: <1450282967-3184-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Russell King <linux@arm.linux.org.uk>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1450290690-32369-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-12-16 at 17:22 +0100, Hannes Frederic Sowa wrote:
-> Same as in Windows, we miss IPV6_HDRINCL for SOL_IPV6 and SOL_RAW.
-> The SOL_IP/IP_HDRINCL is not available for IPv6 sockets.
-[]
-> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-[]
-> @@ -972,6 +972,11 @@ static int do_rawv6_setsockopt(struct sock *sk,
-> int level, int optname,
-> =A0		return -EFAULT;
-> =A0
-> =A0	switch (optname) {
-> +	case IPV6_HDRINCL:
-> +		if (sk->sk_type !=3D SOCK_RAW)
-> +			return -EINVAL;
-> +		inet_sk(sk)->hdrincl =3D !!val;
+On Wed, Dec 16, 2015 at 07:31:30PM +0100, Gregory CLEMENT wrote:
+> +Optional properties for PHY child node:
+> +- reset-gpios : Should specify the gpio for phy reset
 
-trivia:
+reset-gpios plural or reset-gpio singular?
 
-ipv4/sockglue.c uses the ternary '? 1 : 0' convention for this.
-It might be nicer to be consistent.
+> +
+>  Examples:
+>  
+>  	macb0: ethernet@fffc4000 {
+> @@ -29,4 +32,8 @@ Examples:
+>  		local-mac-address = [3a 0e 03 04 05 06];
+>  		clock-names = "pclk", "hclk", "tx_clk";
+>  		clocks = <&clkc 30>, <&clkc 30>, <&clkc 13>;
+> +		ethernet-phy@1 {
+> +			reg = <0x1>;
+> +			reset-gpios = <&pioE 6 1>;
 
-Then again sockglue.c is inconsistent about that too.
+Did you mean "gpioE" ?
 
-net/ipv4/ip_sockglue.c:736:		inet->hdrincl =3D val ? 1 : 0;
-net/ipv4/ip_sockglue.c:743:		inet->nodefrag =3D val ? 1 : 0;
-net/ipv4/ip_sockglue.c:746:		inet->bind_address_no_port =3D val ? 1 : 0=
-;
-net/ipv4/ip_sockglue.c:754:=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0inet-=
->recverr =3D !!val;
-net/ipv4/ip_sockglue.c:772:=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0inet-=
->mc_loop =3D !!val;
-net/ipv4/ip_sockglue.c:1123:=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0inet->f=
-reebind =3D !!val;
-
-There's no change to object code either way.
+Thanks,
+Richard
