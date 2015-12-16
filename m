@@ -1,7 +1,7 @@
 From: Faisal Latif <faisal.latif@intel.com>
-Subject: [PATCH 13/15] i40iw: virtual channel handling files
-Date: Wed, 16 Dec 2015 13:58:37 -0600
-Message-ID: <1450295919-17292-14-git-send-email-faisal.latif@intel.com>
+Subject: [PATCH 12/15] i40iw: user kernel shared files
+Date: Wed, 16 Dec 2015 13:58:36 -0600
+Message-ID: <1450295919-17292-13-git-send-email-faisal.latif@intel.com>
 References: <1450295919-17292-1-git-send-email-faisal.latif@intel.com>
  <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
  <1450295919-17292-3-git-send-email-faisal.latif@intel.com>
@@ -14,43 +14,38 @@ References: <1450295919-17292-1-git-send-email-faisal.latif@intel.com>
  <1450295919-17292-10-git-send-email-faisal.latif@intel.com>
  <1450295919-17292-11-git-send-email-faisal.latif@intel.com>
  <1450295919-17292-12-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-13-git-send-email-faisal.latif@intel.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, e1000-rdma@lists.sourceforge.net,
 	faisal.latif@intel.com
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37738 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:64830 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754803AbbLPT7t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 14:59:49 -0500
-In-Reply-To: <1450295919-17292-13-git-send-email-faisal.latif@intel.com>
+	id S1755265AbbLPT7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2015 14:59:46 -0500
+In-Reply-To: <1450295919-17292-12-git-send-email-faisal.latif@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i40iw_vf.[ch] and i40iw_virtchnl[ch] are used for virtual
-channel support for iWARP VF module.
+i40iw_user.h and i40iw_uk.c are used by both user library as well as
+kernel requests.
 
 Acked-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Faisal Latif <faisal.latif@intel.com>
 ---
- drivers/infiniband/hw/i40iw/i40iw_vf.c       |  85 +++
- drivers/infiniband/hw/i40iw/i40iw_vf.h       |  62 +++
- drivers/infiniband/hw/i40iw/i40iw_virtchnl.c | 750 +++++++++++++++++++++++++++
- drivers/infiniband/hw/i40iw/i40iw_virtchnl.h | 124 +++++
- 4 files changed, 1021 insertions(+)
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw_vf.c
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw_vf.h
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw_virtchnl.c
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw_virtchnl.h
+ drivers/infiniband/hw/i40iw/i40iw_uk.c   | 1213 ++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/i40iw/i40iw_user.h |  438 +++++++++++
+ 2 files changed, 1651 insertions(+)
+ create mode 100644 drivers/infiniband/hw/i40iw/i40iw_uk.c
+ create mode 100644 drivers/infiniband/hw/i40iw/i40iw_user.h
 
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_vf.c b/drivers/infiniband/hw/i40iw/i40iw_vf.c
+diff --git a/drivers/infiniband/hw/i40iw/i40iw_uk.c b/drivers/infiniband/hw/i40iw/i40iw_uk.c
 new file mode 100644
-index 0000000..39bb0ca
+index 0000000..d7ae9e6
 --- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw_vf.c
-@@ -0,0 +1,85 @@
++++ b/drivers/infiniband/hw/i40iw/i40iw_uk.c
+@@ -0,0 +1,1213 @@
 +/*******************************************************************************
 +*
 +* Copyright (c) 2015 Intel Corporation.  All rights reserved.
@@ -86,886 +81,1190 @@ index 0000000..39bb0ca
 +*******************************************************************************/
 +
 +#include "i40iw_osdep.h"
-+#include "i40iw_register.h"
 +#include "i40iw_status.h"
-+#include "i40iw_hmc.h"
 +#include "i40iw_d.h"
-+#include "i40iw_type.h"
-+#include "i40iw_p.h"
-+#include "i40iw_vf.h"
++#include "i40iw_user.h"
++#include "i40iw_register.h"
++
++static u32 nop_signature = 0x55550000;
 +
 +/**
-+ * i40iw_manage_vf_pble_bp - manage vf pble
-+ * @cqp: cqp for cqp' sq wqe
-+ * @info: pble info
-+ * @scratch: pointer for completion
-+ * @post_sq: to post and ring
++ * i40iw_nop_1 - insert a nop wqe and move head. no post work
++ * @qp: hw qp ptr
 + */
-+enum i40iw_status_code i40iw_manage_vf_pble_bp(struct i40iw_sc_cqp *cqp,
-+					       struct i40iw_manage_vf_pble_info *info,
-+					       u64 scratch,
-+					       bool post_sq)
++static enum i40iw_status_code i40iw_nop_1(struct i40iw_qp_uk *qp)
 +{
-+	u64 *wqe;
-+	u64 temp, header, pd_pl_pba = 0;
++	u64 header, *wqe;
++	u64 *wqe_0 = NULL;
++	u32 wqe_idx, peek_head;
++	bool signaled = false;
 +
-+	wqe = i40iw_sc_cqp_get_next_send_wqe(cqp, scratch);
-+	if (!wqe)
-+		return I40IW_ERR_RING_FULL;
++	if (!qp->sq_ring.head)
++		return I40IW_ERR_PARAM;
 +
-+	temp = LS_64((info->pd_entry_cnt), I40IW_CQPSQ_MVPBP_PD_ENTRY_CNT) |
-+	    LS_64((info->first_pd_index), I40IW_CQPSQ_MVPBP_FIRST_PD_INX) |
-+	    LS_64((info->sd_index), I40IW_CQPSQ_MVPBP_SD_INX);
-+	set_64bit_val(wqe, 16, temp);
++	wqe_idx = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++	wqe = &qp->sq_base[wqe_idx << 2];
++	peek_head = (qp->sq_ring.head + 1) % qp->sq_ring.size;
++	wqe_0 = &qp->sq_base[peek_head << 2];
++	if (peek_head)
++		wqe_0[3] = LS_64(!qp->swqe_polarity, I40IWQPSQ_VALID);
++	else
++		wqe_0[3] = LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
 +
-+	header = LS_64((info->inv_pd_ent ? 1 : 0), I40IW_CQPSQ_MVPBP_INV_PD_ENT) |
-+	    LS_64(I40IW_CQP_OP_MANAGE_VF_PBLE_BP, I40IW_CQPSQ_OPCODE) |
-+	    LS_64(cqp->polarity, I40IW_CQPSQ_WQEVALID);
++	set_64bit_val(wqe, 0, 0);
++	set_64bit_val(wqe, 8, 0);
++	set_64bit_val(wqe, 16, 0);
++
++	header = LS_64(I40IWQP_OP_NOP, I40IWQPSQ_OPCODE) |
++	    LS_64(signaled, I40IWQPSQ_SIGCOMPL) |
++	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID) | nop_signature++;
++
++	wmb();	/* Memory barrier to ensure data is written before valid bit is set */
++
 +	set_64bit_val(wqe, 24, header);
-+
-+	pd_pl_pba = LS_64(info->pd_pl_pba >> 3, I40IW_CQPSQ_MVPBP_PD_PLPBA);
-+	set_64bit_val(wqe, 32, pd_pl_pba);
-+
-+	i40iw_debug_buf(cqp->dev, I40IW_DEBUG_WQE, "MANAGE VF_PBLE_BP WQE", wqe, I40IW_CQP_WQE_SIZE * 8);
-+
-+	if (post_sq)
-+		i40iw_sc_cqp_post_sq(cqp);
 +	return 0;
 +}
 +
-+struct i40iw_vf_cqp_ops iw_vf_cqp_ops = {
-+	i40iw_manage_vf_pble_bp
-+};
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_vf.h b/drivers/infiniband/hw/i40iw/i40iw_vf.h
-new file mode 100644
-index 0000000..cfe112d
---- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw_vf.h
-@@ -0,0 +1,62 @@
-+/*******************************************************************************
-+*
-+* Copyright (c) 2015 Intel Corporation.  All rights reserved.
-+*
-+* This software is available to you under a choice of one of two
-+* licenses.  You may choose to be licensed under the terms of the GNU
-+* General Public License (GPL) Version 2, available from the file
-+* COPYING in the main directory of this source tree, or the
-+* OpenFabrics.org BSD license below:
-+*
-+*   Redistribution and use in source and binary forms, with or
-+*   without modification, are permitted provided that the following
-+*   conditions are met:
-+*
-+*    - Redistributions of source code must retain the above
-+*	copyright notice, this list of conditions and the following
-+*	disclaimer.
-+*
-+*    - Redistributions in binary form must reproduce the above
-+*	copyright notice, this list of conditions and the following
-+*	disclaimer in the documentation and/or other materials
-+*	provided with the distribution.
-+*
-+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+* NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+* BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+* ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+* SOFTWARE.
-+*
-+*******************************************************************************/
-+
-+#ifndef I40IW_VF_H
-+#define I40IW_VF_H
-+
-+struct i40iw_sc_cqp;
-+
-+struct i40iw_manage_vf_pble_info {
-+	u32 sd_index;
-+	u16 first_pd_index;
-+	u16 pd_entry_cnt;
-+	u8 inv_pd_ent;
-+	u64 pd_pl_pba;
-+};
-+
-+struct i40iw_vf_cqp_ops {
-+	enum i40iw_status_code (*manage_vf_pble_bp)(struct i40iw_sc_cqp *,
-+						    struct i40iw_manage_vf_pble_info *,
-+						    u64,
-+						    bool);
-+};
-+
-+enum i40iw_status_code i40iw_manage_vf_pble_bp(struct i40iw_sc_cqp *cqp,
-+					       struct i40iw_manage_vf_pble_info *info,
-+					       u64 scratch,
-+					       bool post_sq);
-+
-+extern struct i40iw_vf_cqp_ops iw_vf_cqp_ops;
-+
-+#endif
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_virtchnl.c b/drivers/infiniband/hw/i40iw/i40iw_virtchnl.c
-new file mode 100644
-index 0000000..5229f98
---- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw_virtchnl.c
-@@ -0,0 +1,750 @@
-+/*******************************************************************************
-+*
-+* Copyright (c) 2015 Intel Corporation.  All rights reserved.
-+*
-+* This software is available to you under a choice of one of two
-+* licenses.  You may choose to be licensed under the terms of the GNU
-+* General Public License (GPL) Version 2, available from the file
-+* COPYING in the main directory of this source tree, or the
-+* OpenFabrics.org BSD license below:
-+*
-+*   Redistribution and use in source and binary forms, with or
-+*   without modification, are permitted provided that the following
-+*   conditions are met:
-+*
-+*    - Redistributions of source code must retain the above
-+*	copyright notice, this list of conditions and the following
-+*	disclaimer.
-+*
-+*    - Redistributions in binary form must reproduce the above
-+*	copyright notice, this list of conditions and the following
-+*	disclaimer in the documentation and/or other materials
-+*	provided with the distribution.
-+*
-+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+* NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+* BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+* ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+* SOFTWARE.
-+*
-+*******************************************************************************/
-+
-+#include "i40iw_osdep.h"
-+#include "i40iw_register.h"
-+#include "i40iw_status.h"
-+#include "i40iw_hmc.h"
-+#include "i40iw_d.h"
-+#include "i40iw_type.h"
-+#include "i40iw_p.h"
-+#include "i40iw_virtchnl.h"
-+
 +/**
-+ * vchnl_vf_send_get_ver_req - Request Channel version
-+ * @dev: IWARP device pointer
-+ * @vchnl_req: Virtual channel message request pointer
++ * i40iw_qp_post_wr - post wr to hrdware
++ * @qp: hw qp ptr
 + */
-+static enum i40iw_status_code vchnl_vf_send_get_ver_req(struct i40iw_sc_dev *dev,
-+							struct i40iw_virtchnl_req *vchnl_req)
++void i40iw_qp_post_wr(struct i40iw_qp_uk *qp)
 +{
-+	enum i40iw_status_code ret_code = I40IW_ERR_NOT_READY;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = vchnl_req->vchnl_msg;
++	u64 temp;
++	u32 hw_sq_tail;
++	u32 sw_sq_head;
 +
-+	if (!dev->vchnl_up)
-+		return ret_code;
++	wmb(); /* make sure valid bit is written */
 +
-+	memset(vchnl_msg, 0, sizeof(*vchnl_msg));
-+	vchnl_msg->iw_chnl_op_ctx = (uintptr_t)vchnl_req;
-+	vchnl_msg->iw_chnl_buf_len = sizeof(*vchnl_msg);
-+	vchnl_msg->iw_op_code = I40IW_VCHNL_OP_GET_VER;
-+	vchnl_msg->iw_op_ver = I40IW_VCHNL_OP_GET_VER_V0;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, 0, (u8 *)vchnl_msg, vchnl_msg->iw_chnl_buf_len);
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			   "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+	return ret_code;
-+}
++	/* read the doorbell shadow area */
++	get_64bit_val(qp->shadow_area, 0, &temp);
 +
-+/**
-+ * vchnl_vf_send_get_hmc_fcn_req - Request HMC Function from VF
-+ * @dev: IWARP device pointer
-+ * @vchnl_req: Virtual channel message request pointer
-+ */
-+static enum i40iw_status_code vchnl_vf_send_get_hmc_fcn_req(struct i40iw_sc_dev *dev,
-+							    struct i40iw_virtchnl_req *vchnl_req)
-+{
-+	enum i40iw_status_code ret_code = I40IW_ERR_NOT_READY;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = vchnl_req->vchnl_msg;
++	rmb(); /* make sure read is finished */
 +
-+	if (!dev->vchnl_up)
-+		return ret_code;
-+
-+	memset(vchnl_msg, 0, sizeof(*vchnl_msg));
-+	vchnl_msg->iw_chnl_op_ctx = (uintptr_t)vchnl_req;
-+	vchnl_msg->iw_chnl_buf_len = sizeof(*vchnl_msg);
-+	vchnl_msg->iw_op_code = I40IW_VCHNL_OP_GET_HMC_FCN;
-+	vchnl_msg->iw_op_ver = I40IW_VCHNL_OP_GET_HMC_FCN_V0;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, 0, (u8 *)vchnl_msg, vchnl_msg->iw_chnl_buf_len);
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+	return ret_code;
-+}
-+
-+/**
-+ * vchnl_vf_send_get_pe_stats_req - Request PE stats from VF
-+ * @dev: IWARP device pointer
-+ * @vchnl_req: Virtual channel message request pointer
-+ */
-+static enum i40iw_status_code vchnl_vf_send_get_pe_stats_req(struct i40iw_sc_dev *dev,
-+							     struct i40iw_virtchnl_req  *vchnl_req)
-+{
-+	enum i40iw_status_code ret_code = I40IW_ERR_NOT_READY;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = vchnl_req->vchnl_msg;
-+
-+	if (!dev->vchnl_up)
-+		return ret_code;
-+
-+	memset(vchnl_msg, 0, sizeof(*vchnl_msg));
-+	vchnl_msg->iw_chnl_op_ctx = (uintptr_t)vchnl_req;
-+	vchnl_msg->iw_chnl_buf_len = sizeof(*vchnl_msg) + sizeof(struct i40iw_dev_hw_stats) - 1;
-+	vchnl_msg->iw_op_code = I40IW_VCHNL_OP_GET_STATS;
-+	vchnl_msg->iw_op_ver = I40IW_VCHNL_OP_GET_STATS_V0;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, 0, (u8 *)vchnl_msg, vchnl_msg->iw_chnl_buf_len);
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+	return ret_code;
-+}
-+
-+/**
-+ * vchnl_vf_send_add_hmc_objs_req - Add HMC objects
-+ * @dev: IWARP device pointer
-+ * @vchnl_req: Virtual channel message request pointer
-+ */
-+static enum i40iw_status_code vchnl_vf_send_add_hmc_objs_req(struct i40iw_sc_dev *dev,
-+							     struct i40iw_virtchnl_req *vchnl_req,
-+							     enum i40iw_hmc_rsrc_type rsrc_type,
-+							     u32 start_index,
-+							     u32 rsrc_count)
-+{
-+	enum i40iw_status_code ret_code = I40IW_ERR_NOT_READY;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = vchnl_req->vchnl_msg;
-+	struct i40iw_virtchnl_hmc_obj_range *add_hmc_obj;
-+
-+	if (!dev->vchnl_up)
-+		return ret_code;
-+
-+	add_hmc_obj = (struct i40iw_virtchnl_hmc_obj_range *)vchnl_msg->iw_chnl_buf;
-+	memset(vchnl_msg, 0, sizeof(*vchnl_msg));
-+	memset(add_hmc_obj, 0, sizeof(*add_hmc_obj));
-+	vchnl_msg->iw_chnl_op_ctx = (uintptr_t)vchnl_req;
-+	vchnl_msg->iw_chnl_buf_len = sizeof(*vchnl_msg) + sizeof(struct i40iw_virtchnl_hmc_obj_range) - 1;
-+	vchnl_msg->iw_op_code = I40IW_VCHNL_OP_ADD_HMC_OBJ_RANGE;
-+	vchnl_msg->iw_op_ver = I40IW_VCHNL_OP_ADD_HMC_OBJ_RANGE_V0;
-+	add_hmc_obj->obj_type = (u16)rsrc_type;
-+	add_hmc_obj->start_index = start_index;
-+	add_hmc_obj->obj_count = rsrc_count;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, 0, (u8 *)vchnl_msg, vchnl_msg->iw_chnl_buf_len);
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+	return ret_code;
-+}
-+
-+/**
-+ * vchnl_vf_send_del_hmc_objs_req - del HMC objects
-+ * @dev: IWARP device pointer
-+ * @vchnl_req: Virtual channel message request pointer
-+ * @ rsrc_type - resource type to delete
-+ * @ start_index - starting index for resource
-+ * @ rsrc_count - number of resource type to delete
-+ */
-+static enum i40iw_status_code vchnl_vf_send_del_hmc_objs_req(struct i40iw_sc_dev *dev,
-+							     struct i40iw_virtchnl_req *vchnl_req,
-+							     enum i40iw_hmc_rsrc_type rsrc_type,
-+							     u32 start_index,
-+							     u32 rsrc_count)
-+{
-+	enum i40iw_status_code ret_code = I40IW_ERR_NOT_READY;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = vchnl_req->vchnl_msg;
-+	struct i40iw_virtchnl_hmc_obj_range *add_hmc_obj;
-+
-+	if (!dev->vchnl_up)
-+		return ret_code;
-+
-+	add_hmc_obj = (struct i40iw_virtchnl_hmc_obj_range *)vchnl_msg->iw_chnl_buf;
-+	memset(vchnl_msg, 0, sizeof(*vchnl_msg));
-+	memset(add_hmc_obj, 0, sizeof(*add_hmc_obj));
-+	vchnl_msg->iw_chnl_op_ctx = (uintptr_t)vchnl_req;
-+	vchnl_msg->iw_chnl_buf_len = sizeof(*vchnl_msg) + sizeof(struct i40iw_virtchnl_hmc_obj_range) - 1;
-+	vchnl_msg->iw_op_code = I40IW_VCHNL_OP_DEL_HMC_OBJ_RANGE;
-+	vchnl_msg->iw_op_ver = I40IW_VCHNL_OP_DEL_HMC_OBJ_RANGE_V0;
-+	add_hmc_obj->obj_type = (u16)rsrc_type;
-+	add_hmc_obj->start_index = start_index;
-+	add_hmc_obj->obj_count = rsrc_count;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, 0, (u8 *)vchnl_msg, vchnl_msg->iw_chnl_buf_len);
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+	return ret_code;
-+}
-+
-+/**
-+ * vchnl_pf_send_get_ver_resp - Send channel version to VF
-+ * @dev: IWARP device pointer
-+ * @vf_id: Virtual function ID associated with the message
-+ * @vchnl_msg: Virtual channel message buffer pointer
-+ */
-+static void vchnl_pf_send_get_ver_resp(struct i40iw_sc_dev *dev,
-+				       u32 vf_id,
-+				       struct i40iw_virtchnl_op_buf *vchnl_msg)
-+{
-+	enum i40iw_status_code ret_code;
-+	u8 resp_buffer[sizeof(struct i40iw_virtchnl_resp_buf) + sizeof(u32) - 1];
-+	struct i40iw_virtchnl_resp_buf *vchnl_msg_resp = (struct i40iw_virtchnl_resp_buf *)resp_buffer;
-+
-+	memset(resp_buffer, 0, sizeof(*resp_buffer));
-+	vchnl_msg_resp->iw_chnl_op_ctx = vchnl_msg->iw_chnl_op_ctx;
-+	vchnl_msg_resp->iw_chnl_buf_len = sizeof(resp_buffer);
-+	vchnl_msg_resp->iw_op_ret_code = I40IW_SUCCESS;
-+	*((u32 *)vchnl_msg_resp->iw_chnl_buf) = I40IW_VCHNL_CHNL_VER_V0;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, vf_id, resp_buffer, sizeof(resp_buffer));
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+}
-+
-+/**
-+ * vchnl_pf_send_get_hmc_fcn_resp - Send HMC Function to VF
-+ * @dev: IWARP device pointer
-+ * @vf_id: Virtual function ID associated with the message
-+ * @vchnl_msg: Virtual channel message buffer pointer
-+ */
-+static void vchnl_pf_send_get_hmc_fcn_resp(struct i40iw_sc_dev *dev,
-+					   u32 vf_id,
-+					   struct i40iw_virtchnl_op_buf *vchnl_msg,
-+					   u16 hmc_fcn)
-+{
-+	enum i40iw_status_code ret_code;
-+	u8 resp_buffer[sizeof(struct i40iw_virtchnl_resp_buf) + sizeof(u16) - 1];
-+	struct i40iw_virtchnl_resp_buf *vchnl_msg_resp = (struct i40iw_virtchnl_resp_buf *)resp_buffer;
-+
-+	memset(resp_buffer, 0, sizeof(*resp_buffer));
-+	vchnl_msg_resp->iw_chnl_op_ctx = vchnl_msg->iw_chnl_op_ctx;
-+	vchnl_msg_resp->iw_chnl_buf_len = sizeof(resp_buffer);
-+	vchnl_msg_resp->iw_op_ret_code = I40IW_SUCCESS;
-+	*((u16 *)vchnl_msg_resp->iw_chnl_buf) = hmc_fcn;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, vf_id, resp_buffer, sizeof(resp_buffer));
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+}
-+
-+/**
-+ * vchnl_pf_send_get_pe_stats_resp - Send PE Stats to VF
-+ * @dev: IWARP device pointer
-+ * @vf_id: Virtual function ID associated with the message
-+ * @vchnl_msg: Virtual channel message buffer pointer
-+ * @hw_stats: HW Stats struct
-+ */
-+
-+static void vchnl_pf_send_get_pe_stats_resp(struct i40iw_sc_dev *dev,
-+					    u32 vf_id,
-+					    struct i40iw_virtchnl_op_buf *vchnl_msg,
-+					    struct i40iw_dev_hw_stats hw_stats)
-+{
-+	enum i40iw_status_code ret_code;
-+	u8 resp_buffer[sizeof(struct i40iw_virtchnl_resp_buf) + sizeof(struct i40iw_dev_hw_stats) - 1];
-+	struct i40iw_virtchnl_resp_buf *vchnl_msg_resp = (struct i40iw_virtchnl_resp_buf *)resp_buffer;
-+
-+	memset(resp_buffer, 0, sizeof(*resp_buffer));
-+	vchnl_msg_resp->iw_chnl_op_ctx = vchnl_msg->iw_chnl_op_ctx;
-+	vchnl_msg_resp->iw_chnl_buf_len = sizeof(resp_buffer);
-+	vchnl_msg_resp->iw_op_ret_code = I40IW_SUCCESS;
-+	*((struct i40iw_dev_hw_stats *)vchnl_msg_resp->iw_chnl_buf) = hw_stats;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, vf_id, resp_buffer, sizeof(resp_buffer));
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+}
-+
-+/**
-+ * vchnl_pf_send_error_resp - Send an error response to VF
-+ * @dev: IWARP device pointer
-+ * @vf_id: Virtual function ID associated with the message
-+ * @vchnl_msg: Virtual channel message buffer pointer
-+ */
-+static void vchnl_pf_send_error_resp(struct i40iw_sc_dev *dev, u32 vf_id,
-+				     struct i40iw_virtchnl_op_buf *vchnl_msg,
-+				     u16 op_ret_code)
-+{
-+	enum i40iw_status_code ret_code;
-+	u8 resp_buffer[sizeof(struct i40iw_virtchnl_resp_buf)];
-+	struct i40iw_virtchnl_resp_buf *vchnl_msg_resp = (struct i40iw_virtchnl_resp_buf *)resp_buffer;
-+
-+	memset(resp_buffer, 0, sizeof(resp_buffer));
-+	vchnl_msg_resp->iw_chnl_op_ctx = vchnl_msg->iw_chnl_op_ctx;
-+	vchnl_msg_resp->iw_chnl_buf_len = sizeof(resp_buffer);
-+	vchnl_msg_resp->iw_op_ret_code = (u16)op_ret_code;
-+	ret_code = dev->vchnl_if.vchnl_send(dev, vf_id, resp_buffer, sizeof(resp_buffer));
-+	if (ret_code)
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: virt channel send failed 0x%x\n", __func__, ret_code);
-+}
-+
-+/**
-+ * pf_cqp_get_hmc_fcn_callback - Callback for Get HMC Fcn
-+ * @cqp_req_param: CQP Request param value
-+ * @not_used: unused CQP callback parameter
-+ */
-+static void pf_cqp_get_hmc_fcn_callback(struct i40iw_sc_dev *dev, void *callback_param,
-+					struct i40iw_ccq_cqe_info *cqe_info)
-+{
-+	struct i40iw_vfdev *vf_dev = callback_param;
-+	struct i40iw_virt_mem vf_dev_mem;
-+
-+	if (cqe_info->error) {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "CQP Completion Error on Get HMC Function.  Maj = 0x%04x, Minor = 0x%04x\n",
-+			    cqe_info->maj_err_code, cqe_info->min_err_code);
-+		dev->vf_dev[vf_dev->iw_vf_idx] = NULL;
-+		vchnl_pf_send_error_resp(dev, vf_dev->vf_id, &vf_dev->vf_msg_buffer.vchnl_msg,
-+					 (u16)I40IW_ERR_CQP_COMPL_ERROR);
-+		vf_dev_mem.va = vf_dev;
-+		vf_dev_mem.size = sizeof(*vf_dev);
-+		i40iw_free_virt_mem(dev->hw, &vf_dev_mem);
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "CQP Completion Operation Return information = 0x%08x\n",
-+			    cqe_info->op_ret_val);
-+		vf_dev->pmf_index = (u16)cqe_info->op_ret_val;
-+		vf_dev->msg_count--;
-+		vchnl_pf_send_get_hmc_fcn_resp(dev,
-+					       vf_dev->vf_id,
-+					       &vf_dev->vf_msg_buffer.vchnl_msg,
-+					       vf_dev->pmf_index);
++	hw_sq_tail = (u32)RS_64(temp, I40IW_QP_DBSA_HW_SQ_TAIL);
++	sw_sq_head = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++	if (sw_sq_head != hw_sq_tail) {
++		if (sw_sq_head > qp->initial_ring.head) {
++			if ((hw_sq_tail >= qp->initial_ring.head) &&
++			    (hw_sq_tail < sw_sq_head)) {
++				db_wr32(qp->wqe_alloc_reg, qp->qp_id);
++			}
++		} else if (sw_sq_head != qp->initial_ring.head) {
++			if ((hw_sq_tail >= qp->initial_ring.head) ||
++			    (hw_sq_tail < sw_sq_head)) {
++				db_wr32(qp->wqe_alloc_reg, qp->qp_id);
++			}
++		}
 +	}
++
++	qp->initial_ring.head = qp->sq_ring.head;
 +}
 +
 +/**
-+ * pf_add_hmc_obj - Callback for Add HMC Object
-+ * @vf_dev: pointer to the VF Device
++ * i40iw_qp_ring_push_db -  ring qp doorbell
++ * @qp: hw qp ptr
++ * @wqe_idx: wqe index
 + */
-+static void pf_add_hmc_obj_callback(void *work_vf_dev)
++static void i40iw_qp_ring_push_db(struct i40iw_qp_uk *qp, u32 wqe_idx)
 +{
-+	struct i40iw_vfdev *vf_dev = (struct i40iw_vfdev *)work_vf_dev;
-+	struct i40iw_hmc_info *hmc_info = &vf_dev->hmc_info;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = &vf_dev->vf_msg_buffer.vchnl_msg;
-+	struct i40iw_hmc_create_obj_info info;
-+	struct i40iw_virtchnl_hmc_obj_range *add_hmc_obj;
-+	enum i40iw_status_code ret_code;
++	set_32bit_val(qp->push_db, 0, LS_32((wqe_idx >> 2), I40E_PFPE_WQEALLOC_WQE_DESC_INDEX) | qp->qp_id);
++	qp->initial_ring.head = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++}
 +
-+	if (!vf_dev->pf_hmc_initialized) {
-+		ret_code = i40iw_pf_init_vfhmc(vf_dev->pf_dev, (u8)vf_dev->pmf_index, NULL);
++/**
++ * i40iw_qp_get_next_send_wqe - return next wqe ptr
++ * @qp: hw qp ptr
++ * @wqe_idx: return wqe index
++ * @wqe_size: size of sq wqe
++ */
++u64 *i40iw_qp_get_next_send_wqe(struct i40iw_qp_uk *qp,
++				u32 *wqe_idx,
++				u8 wqe_size)
++{
++	u64 *wqe = NULL;
++	u64 wqe_ptr;
++	u32 peek_head = 0;
++	u16 offset;
++	enum i40iw_status_code ret_code = 0;
++	u8 nop_wqe_cnt = 0, i;
++	u64 *wqe_0 = NULL;
++
++	*wqe_idx = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++
++	if (!*wqe_idx)
++		qp->swqe_polarity = !qp->swqe_polarity;
++	wqe_ptr = (uintptr_t)&qp->sq_base[*wqe_idx << 2];
++	offset = (u16)(wqe_ptr) & 0x7F;
++	if ((offset + wqe_size) > I40IW_QP_WQE_MAX_SIZE) {
++		nop_wqe_cnt = (u8)(I40IW_QP_WQE_MAX_SIZE - offset) / I40IW_QP_WQE_MIN_SIZE;
++		for (i = 0; i < nop_wqe_cnt; i++) {
++			i40iw_nop_1(qp);
++			I40IW_RING_MOVE_HEAD(qp->sq_ring, ret_code);
++			if (ret_code)
++				return NULL;
++		}
++
++		*wqe_idx = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++		if (!*wqe_idx)
++			qp->swqe_polarity = !qp->swqe_polarity;
++	}
++	for (i = 0; i < wqe_size / I40IW_QP_WQE_MIN_SIZE; i++) {
++		I40IW_RING_MOVE_HEAD(qp->sq_ring, ret_code);
 +		if (ret_code)
-+			goto add_out;
-+		vf_dev->pf_hmc_initialized = true;
++			return NULL;
 +	}
 +
-+	add_hmc_obj = (struct i40iw_virtchnl_hmc_obj_range *)vchnl_msg->iw_chnl_buf;
++	wqe = &qp->sq_base[*wqe_idx << 2];
 +
-+	memset(&info, 0, sizeof(info));
-+	info.hmc_info = hmc_info;
-+	info.is_pf = false;
-+	info.rsrc_type = (u32)add_hmc_obj->obj_type;
-+	info.entry_type = (info.rsrc_type == I40IW_HMC_IW_PBLE) ? I40IW_SD_TYPE_PAGED : I40IW_SD_TYPE_DIRECT;
-+	info.start_idx = add_hmc_obj->start_index;
-+	info.count = add_hmc_obj->obj_count;
-+	i40iw_debug(vf_dev->pf_dev, I40IW_DEBUG_VIRT,
-+		    "I40IW_VCHNL_OP_ADD_HMC_OBJ_RANGE.  Add %u type %u objects\n",
-+		    info.count, info.rsrc_type);
-+	ret_code = i40iw_sc_create_hmc_obj(vf_dev->pf_dev, &info);
-+	if (!ret_code)
-+		vf_dev->hmc_info.hmc_obj[add_hmc_obj->obj_type].cnt = add_hmc_obj->obj_count;
-+add_out:
-+	vf_dev->msg_count--;
-+	vchnl_pf_send_error_resp(vf_dev->pf_dev, vf_dev->vf_id, vchnl_msg, (u16)ret_code);
++	peek_head = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++	wqe_0 = &qp->sq_base[peek_head << 2];
++	if (peek_head & 0x3)
++		wqe_0[3] = LS_64(!qp->swqe_polarity, I40IWQPSQ_VALID);
++	return wqe;
 +}
 +
 +/**
-+ * pf_del_hmc_obj_callback - Callback for delete HMC Object
-+ * @work_vf_dev: pointer to the VF Device
++ * i40iw_set_fragment - set fragment in wqe
++ * @wqe: wqe for setting fragment
++ * @offset: offset value
++ * @sge: sge length and stag
 + */
-+static void pf_del_hmc_obj_callback(void *work_vf_dev)
++static void i40iw_set_fragment(u64 *wqe, u32 offset, struct i40iw_sge *sge)
 +{
-+	struct i40iw_vfdev *vf_dev = (struct i40iw_vfdev *)work_vf_dev;
-+	struct i40iw_hmc_info *hmc_info = &vf_dev->hmc_info;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = &vf_dev->vf_msg_buffer.vchnl_msg;
-+	struct i40iw_hmc_del_obj_info info;
-+	struct i40iw_virtchnl_hmc_obj_range *del_hmc_obj;
-+	enum i40iw_status_code ret_code = I40IW_SUCCESS;
-+
-+	if (!vf_dev->pf_hmc_initialized)
-+		goto del_out;
-+
-+	del_hmc_obj = (struct i40iw_virtchnl_hmc_obj_range *)vchnl_msg->iw_chnl_buf;
-+
-+	memset(&info, 0, sizeof(info));
-+	info.hmc_info = hmc_info;
-+	info.is_pf = false;
-+	info.rsrc_type = (u32)del_hmc_obj->obj_type;
-+	info.start_idx = del_hmc_obj->start_index;
-+	info.count = del_hmc_obj->obj_count;
-+	i40iw_debug(vf_dev->pf_dev, I40IW_DEBUG_VIRT,
-+		    "I40IW_VCHNL_OP_DEL_HMC_OBJ_RANGE.  Delete %u type %u objects\n",
-+		    info.count, info.rsrc_type);
-+	ret_code = i40iw_sc_del_hmc_obj(vf_dev->pf_dev, &info, false);
-+del_out:
-+	vf_dev->msg_count--;
-+	vchnl_pf_send_error_resp(vf_dev->pf_dev, vf_dev->vf_id, vchnl_msg, (u16)ret_code);
++	if (sge) {
++		set_64bit_val(wqe, offset, LS_64(sge->tag_off, I40IWQPSQ_FRAG_TO));
++		set_64bit_val(wqe, (offset + 8),
++			      (LS_64(sge->len, I40IWQPSQ_FRAG_LEN) |
++			       LS_64(sge->stag, I40IWQPSQ_FRAG_STAG)));
++	}
 +}
 +
 +/**
-+ * i40iw_vchnl_recv_pf - Receive PF virtual channel messages
-+ * @dev: IWARP device pointer
-+ * @vf_id: Virtual function ID associated with the message
-+ * @msg: Virtual channel message buffer pointer
-+ * @len: Length of the virtual channels message
++ * i40iw_qp_get_next_recv_wqe - get next qp's rcv wqe
++ * @qp: hw qp ptr
++ * @wqe_idx: return wqe index
 + */
-+enum i40iw_status_code i40iw_vchnl_recv_pf(struct i40iw_sc_dev *dev,
-+					   u32 vf_id,
-+					   u8 *msg,
-+					   u16 len)
++u64 *i40iw_qp_get_next_recv_wqe(struct i40iw_qp_uk *qp, u32 *wqe_idx)
 +{
-+	struct i40iw_virtchnl_op_buf *vchnl_msg = (struct i40iw_virtchnl_op_buf *)msg;
-+	struct i40iw_vfdev *vf_dev = NULL;
-+	struct i40iw_hmc_fcn_info hmc_fcn_info;
-+	u16 iw_vf_idx;
-+	u16 first_avail_iw_vf = I40IW_MAX_PE_ENABLED_VF_COUNT;
-+	struct i40iw_virt_mem vf_dev_mem;
-+	struct i40iw_virtchnl_work_info work_info;
-+	struct i40iw_dev_pestat *devstat;
++	u64 *wqe = NULL;
 +	enum i40iw_status_code ret_code;
-+	unsigned long flags;
 +
-+	if (!dev || !msg || !len)
-+		return I40IW_ERR_PARAM;
++	if (I40IW_RING_FULL_ERR(qp->rq_ring))
++		return NULL;
 +
-+	if (!dev->vchnl_up)
-+		return I40IW_ERR_NOT_READY;
-+	if (vchnl_msg->iw_op_code == I40IW_VCHNL_OP_GET_VER) {
-+		if (vchnl_msg->iw_op_ver != I40IW_VCHNL_OP_GET_VER_V0)
-+			vchnl_pf_send_get_ver_resp(dev, vf_id, vchnl_msg);
++	I40IW_ATOMIC_RING_MOVE_HEAD(qp->rq_ring, *wqe_idx, ret_code);
++	if (ret_code)
++		return NULL;
++	if (!*wqe_idx)
++		qp->rwqe_polarity = !qp->rwqe_polarity;
++	/* rq_wqe_size_multiplier is no of qwords in one rq wqe */
++	wqe = &qp->rq_base[(*wqe_idx) * qp->rq_wqe_size_multiplier];
++
++	return wqe;
++}
++
++/**
++ * i40iw_rdma_write - rdma write operation
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_rdma_write(struct i40iw_qp_uk *qp,
++					       struct i40iw_post_sq_info *info,
++					       bool post_sq)
++{
++	u64 header;
++	u64 *wqe;
++	struct i40iw_rdma_write *op_info;
++	u32 i, wqe_idx;
++	u32 total_size = 0, byte_off;
++	enum i40iw_status_code ret_code;
++	bool read_fence = false;
++	u8 wqe_size;
++
++	op_info = &info->op.rdma_write;
++	if (op_info->num_lo_sges > qp->max_sq_frag_cnt)
++		return I40IW_ERR_INVALID_FRAG_COUNT;
++
++	for (i = 0; i < op_info->num_lo_sges; i++)
++		total_size += op_info->lo_sg_list[i].len;
++
++	if (total_size > I40IW_MAX_OUTBOUND_MESSAGE_SIZE)
++		return I40IW_ERR_QP_INVALID_MSG_SIZE;
++
++	read_fence |= info->read_fence;
++
++	ret_code = i40iw_fragcnt_to_wqesize_sq(op_info->num_lo_sges, &wqe_size);
++	if (ret_code)
++		return ret_code;
++
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, wqe_size);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = total_size;
++	set_64bit_val(wqe, 16,
++		      LS_64(op_info->rem_addr.tag_off, I40IWQPSQ_FRAG_TO));
++	if (!op_info->rem_addr.stag)
++		return I40IW_ERR_BAD_STAG;
++
++	header = LS_64(op_info->rem_addr.stag, I40IWQPSQ_REMSTAG) |
++		 LS_64(I40IWQP_OP_RDMA_WRITE, I40IWQPSQ_OPCODE) |
++		 LS_64((op_info->num_lo_sges > 1 ?  (op_info->num_lo_sges - 1) : 0), I40IWQPSQ_ADDFRAGCNT) |
++		 LS_64(read_fence, I40IWQPSQ_READFENCE) |
++		 LS_64(info->local_fence, I40IWQPSQ_LOCALFENCE) |
++		 LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++		 LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	i40iw_set_fragment(wqe, 0, op_info->lo_sg_list);
++
++	for (i = 1; i < op_info->num_lo_sges; i++) {
++		byte_off = 32 + (i - 1) * 16;
++		i40iw_set_fragment(wqe, byte_off, &op_info->lo_sg_list[i]);
++	}
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++
++	if (post_sq)
++		i40iw_qp_post_wr(qp);
++
++	return 0;
++}
++
++/**
++ * i40iw_rdma_read - rdma read command
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @inv_stag: flag for inv_stag
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_rdma_read(struct i40iw_qp_uk *qp,
++					      struct i40iw_post_sq_info *info,
++					      bool inv_stag,
++					      bool post_sq)
++{
++	u64 *wqe;
++	struct i40iw_rdma_read *op_info;
++	u64 header;
++	u32 wqe_idx;
++	enum i40iw_status_code ret_code;
++	u8 wqe_size;
++	bool local_fence = false;
++
++	op_info = &info->op.rdma_read;
++	ret_code = i40iw_fragcnt_to_wqesize_sq(1, &wqe_size);
++	if (ret_code)
++		return ret_code;
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, wqe_size);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = op_info->lo_addr.len;
++	local_fence |= info->local_fence;
++
++	set_64bit_val(wqe, 16, LS_64(op_info->rem_addr.tag_off, I40IWQPSQ_FRAG_TO));
++	header = LS_64(op_info->rem_addr.stag, I40IWQPSQ_REMSTAG) |
++		 LS_64((inv_stag ? I40IWQP_OP_RDMA_READ_LOC_INV : I40IWQP_OP_RDMA_READ), I40IWQPSQ_OPCODE) |
++		 LS_64(info->read_fence, I40IWQPSQ_READFENCE) |
++		 LS_64(local_fence, I40IWQPSQ_LOCALFENCE) |
++		 LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++		 LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	i40iw_set_fragment(wqe, 0, &op_info->lo_addr);
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++	if (post_sq)
++		i40iw_qp_post_wr(qp);
++
++	return 0;
++}
++
++/**
++ * i40iw_send - rdma send command
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @stag_to_inv: stag_to_inv value
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_send(struct i40iw_qp_uk *qp,
++					 struct i40iw_post_sq_info *info,
++					 u32 stag_to_inv,
++					 bool post_sq)
++{
++	u64 *wqe;
++	struct i40iw_post_send *op_info;
++	u64 header;
++	u32 i, wqe_idx, total_size = 0, byte_off;
++	enum i40iw_status_code ret_code;
++	bool read_fence = false;
++	u8 wqe_size;
++
++	op_info = &info->op.send;
++	if (qp->max_sq_frag_cnt < op_info->num_sges)
++		return I40IW_ERR_INVALID_FRAG_COUNT;
++
++	for (i = 0; i < op_info->num_sges; i++)
++		total_size += op_info->sg_list[i].len;
++	ret_code = i40iw_fragcnt_to_wqesize_sq(op_info->num_sges, &wqe_size);
++	if (ret_code)
++		return ret_code;
++
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, wqe_size);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	read_fence |= info->read_fence;
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = total_size;
++	set_64bit_val(wqe, 16, 0);
++	header = LS_64(stag_to_inv, I40IWQPSQ_REMSTAG) |
++		 LS_64(info->op_type, I40IWQPSQ_OPCODE) |
++		 LS_64((op_info->num_sges > 1 ? (op_info->num_sges - 1) : 0),
++		       I40IWQPSQ_ADDFRAGCNT) |
++		 LS_64(read_fence, I40IWQPSQ_READFENCE) |
++		 LS_64(info->local_fence, I40IWQPSQ_LOCALFENCE) |
++		 LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++		 LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	i40iw_set_fragment(wqe, 0, op_info->sg_list);
++
++	for (i = 1; i < op_info->num_sges; i++) {
++		byte_off = 32 + (i - 1) * 16;
++		i40iw_set_fragment(wqe, byte_off, &op_info->sg_list[i]);
++	}
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++	if (post_sq)
++		i40iw_qp_post_wr(qp);
++
++	return 0;
++}
++
++/**
++ * i40iw_inline_rdma_write - inline rdma write operation
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_inline_rdma_write(struct i40iw_qp_uk *qp,
++						      struct i40iw_post_sq_info *info,
++						      bool post_sq)
++{
++	u64 *wqe;
++	u8 *dest, *src;
++	struct i40iw_inline_rdma_write *op_info;
++	u64 *push;
++	u64 header = 0;
++	u32 i, wqe_idx;
++	enum i40iw_status_code ret_code;
++	bool read_fence = false;
++	u8 wqe_size;
++
++	op_info = &info->op.inline_rdma_write;
++	if (op_info->len > I40IW_MAX_INLINE_DATA_SIZE)
++		return I40IW_ERR_INVALID_IMM_DATA_SIZE;
++
++	ret_code = i40iw_inline_data_size_to_wqesize(op_info->len, &wqe_size);
++	if (ret_code)
++		return ret_code;
++
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, wqe_size);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	read_fence |= info->read_fence;
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = op_info->len;
++	set_64bit_val(wqe, 16,
++		      LS_64(op_info->rem_addr.tag_off, I40IWQPSQ_FRAG_TO));
++
++	header = LS_64(op_info->rem_addr.stag, I40IWQPSQ_REMSTAG) |
++		 LS_64(I40IWQP_OP_RDMA_WRITE, I40IWQPSQ_OPCODE) |
++		 LS_64(op_info->len, I40IWQPSQ_INLINEDATALEN) |
++		 LS_64(1, I40IWQPSQ_INLINEDATAFLAG) |
++		 LS_64(((qp->push_db) ? 1 : 0), I40IWQPSQ_PUSHWQE) |
++		 LS_64(read_fence, I40IWQPSQ_READFENCE) |
++		 LS_64(info->local_fence, I40IWQPSQ_LOCALFENCE) |
++		 LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++		 LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	dest = (u8 *)wqe;
++	src = (u8 *)(op_info->data);
++
++	if (op_info->len <= 16) {
++		for (i = 0; i < op_info->len; i++, src++, dest++)
++			*dest = *src;
++	} else {
++		for (i = 0; i < 16; i++, src++, dest++)
++			*dest = *src;
++		dest = (u8 *)wqe + 32;
++		for (; i < op_info->len; i++, src++, dest++)
++			*dest = *src;
++	}
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++
++	if (qp->push_db) {
++		push = (u64 *)(((uintptr_t)qp->push_wqe) + (wqe_idx & 0x3) * 0x20);
++		memcpy(push, wqe, (op_info->len > 16) ? op_info->len + 16 : 32);
++		i40iw_qp_ring_push_db(qp, wqe_idx);
++	} else {
++		if (post_sq)
++			i40iw_qp_post_wr(qp);
++	}
++
++	return 0;
++}
++
++/**
++ * i40iw_inline_send - inline send operation
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @stag_to_inv: remote stag
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_inline_send(struct i40iw_qp_uk *qp,
++						struct i40iw_post_sq_info *info,
++						u32 stag_to_inv,
++						bool post_sq)
++{
++	u64 *wqe;
++	u8 *dest, *src;
++	struct i40iw_post_inline_send *op_info;
++	u64 header;
++	u32 wqe_idx, i;
++	enum i40iw_status_code ret_code;
++	bool read_fence = false;
++	u8 wqe_size;
++	u64 *push;
++
++	op_info = &info->op.inline_send;
++	if (op_info->len > I40IW_MAX_INLINE_DATA_SIZE)
++		return I40IW_ERR_INVALID_IMM_DATA_SIZE;
++
++	ret_code = i40iw_inline_data_size_to_wqesize(op_info->len, &wqe_size);
++	if (ret_code)
++		return ret_code;
++
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, wqe_size);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	read_fence |= info->read_fence;
++
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = op_info->len;
++	header = LS_64(stag_to_inv, I40IWQPSQ_REMSTAG) |
++	    LS_64(info->op_type, I40IWQPSQ_OPCODE) |
++	    LS_64(op_info->len, I40IWQPSQ_INLINEDATALEN) |
++	    LS_64(1, I40IWQPSQ_INLINEDATAFLAG) |
++	    LS_64(((qp->push_db) ? 1 : 0), I40IWQPSQ_PUSHWQE) |
++	    LS_64(read_fence, I40IWQPSQ_READFENCE) |
++	    LS_64(info->local_fence, I40IWQPSQ_LOCALFENCE) |
++	    LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	dest = (u8 *)wqe;
++	src = (u8 *)(op_info->data);
++
++	if (op_info->len <= 16) {
++		for (i = 0; i < op_info->len; i++, src++, dest++)
++			*dest = *src;
++	} else {
++		for (i = 0; i < 16; i++, src++, dest++)
++			*dest = *src;
++		dest = (u8 *)wqe + 32;
++		for (; i < op_info->len; i++, src++, dest++)
++			*dest = *src;
++	}
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++
++	if (qp->push_db) {
++		push = (u64 *)(((uintptr_t)qp->push_wqe) + (wqe_idx & 0x3) * 0x20);
++		memcpy(push, wqe, (op_info->len > 16) ? op_info->len + 16 : 32);
++		i40iw_qp_ring_push_db(qp, wqe_idx);
++	} else {
++		if (post_sq)
++			i40iw_qp_post_wr(qp);
++	}
++
++	return 0;
++}
++
++/**
++ * i40iw_stag_local_invalidate - stag invalidate operation
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_stag_local_invalidate(struct i40iw_qp_uk *qp,
++							  struct i40iw_post_sq_info *info,
++							  bool post_sq)
++{
++	u64 *wqe;
++	struct i40iw_inv_local_stag *op_info;
++	u64 header;
++	u32 wqe_idx;
++	bool local_fence = false;
++
++	op_info = &info->op.inv_local_stag;
++	local_fence = info->local_fence;
++
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, I40IW_QP_WQE_MIN_SIZE);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = 0;
++	set_64bit_val(wqe, 0, 0);
++	set_64bit_val(wqe, 8,
++		      LS_64(op_info->target_stag, I40IWQPSQ_LOCSTAG));
++	set_64bit_val(wqe, 16, 0);
++	header = LS_64(I40IW_OP_TYPE_INV_STAG, I40IWQPSQ_OPCODE) |
++	    LS_64(info->read_fence, I40IWQPSQ_READFENCE) |
++	    LS_64(local_fence, I40IWQPSQ_LOCALFENCE) |
++	    LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++
++	if (post_sq)
++		i40iw_qp_post_wr(qp);
++
++	return 0;
++}
++
++/**
++ * i40iw_mw_bind - Memory Window bind operation
++ * @qp: hw qp ptr
++ * @info: post sq information
++ * @post_sq: flag to post sq
++ */
++static enum i40iw_status_code i40iw_mw_bind(struct i40iw_qp_uk *qp,
++					    struct i40iw_post_sq_info *info,
++					    bool post_sq)
++{
++	u64 *wqe;
++	struct i40iw_bind_window *op_info;
++	u64 header;
++	u32 wqe_idx;
++	bool local_fence = false;
++
++	op_info = &info->op.bind_window;
++
++	local_fence |= info->local_fence;
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, I40IW_QP_WQE_MIN_SIZE);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	qp->sq_wrtrk_array[wqe_idx].wrid = info->wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = 0;
++	set_64bit_val(wqe, 0, (uintptr_t)op_info->va);
++	set_64bit_val(wqe, 8,
++		      LS_64(op_info->mr_stag, I40IWQPSQ_PARENTMRSTAG) |
++		      LS_64(op_info->mw_stag, I40IWQPSQ_MWSTAG));
++	set_64bit_val(wqe, 16, op_info->bind_length);
++	header = LS_64(I40IW_OP_TYPE_BIND_MW, I40IWQPSQ_OPCODE) |
++	    LS_64(((op_info->enable_reads << 2) |
++		   (op_info->enable_writes << 3)),
++		  I40IWQPSQ_STAGRIGHTS) |
++	    LS_64((op_info->addressing_type == I40IW_ADDR_TYPE_VA_BASED ?  1 : 0),
++		  I40IWQPSQ_VABASEDTO) |
++	    LS_64(info->read_fence, I40IWQPSQ_READFENCE) |
++	    LS_64(local_fence, I40IWQPSQ_LOCALFENCE) |
++	    LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
++	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++
++	if (post_sq)
++		i40iw_qp_post_wr(qp);
++
++	return 0;
++}
++
++/**
++ * i40iw_post_receive - post receive wqe
++ * @qp: hw qp ptr
++ * @info: post rq information
++ */
++static enum i40iw_status_code i40iw_post_receive(struct i40iw_qp_uk *qp,
++						 struct i40iw_post_rq_info *info)
++{
++	u64 *wqe;
++	u64 header;
++	u32 total_size = 0, wqe_idx, i, byte_off;
++
++	if (qp->max_rq_frag_cnt < info->num_sges)
++		return I40IW_ERR_INVALID_FRAG_COUNT;
++	for (i = 0; i < info->num_sges; i++)
++		total_size += info->sg_list[i].len;
++	wqe = i40iw_qp_get_next_recv_wqe(qp, &wqe_idx);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	qp->rq_wrid_array[wqe_idx] = info->wr_id;
++	set_64bit_val(wqe, 16, 0);
++
++	header = LS_64((info->num_sges > 1 ? (info->num_sges - 1) : 0),
++		       I40IWQPSQ_ADDFRAGCNT) |
++	    LS_64(qp->rwqe_polarity, I40IWQPSQ_VALID);
++
++	i40iw_set_fragment(wqe, 0, info->sg_list);
++
++	for (i = 1; i < info->num_sges; i++) {
++		byte_off = 32 + (i - 1) * 16;
++		i40iw_set_fragment(wqe, byte_off, &info->sg_list[i]);
++	}
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++
++	return 0;
++}
++
++/**
++ * i40iw_cq_request_notification - cq notification request (door bell)
++ * @cq: hw cq
++ * @cq_notify: notification type
++ */
++static enum i40iw_status_code i40iw_cq_request_notification(struct i40iw_cq_uk *cq,
++							    enum i40iw_completion_notify cq_notify)
++{
++	u64 temp_val;
++	u16 sw_cq_sel;
++	u8 arm_next_se = 0;
++	u8 arm_next = 0;
++	u8 arm_seq_num;
++
++	get_64bit_val(cq->shadow_area, 32, &temp_val);
++	arm_seq_num = (u8)RS_64(temp_val, I40IW_CQ_DBSA_ARM_SEQ_NUM);
++	arm_seq_num++;
++
++	sw_cq_sel = (u16)RS_64(temp_val, I40IW_CQ_DBSA_SW_CQ_SELECT);
++	arm_next_se = (u8)RS_64(temp_val, I40IW_CQ_DBSA_ARM_NEXT_SE);
++	arm_next_se |= 1;
++	if (cq_notify == IW_CQ_COMPL_EVENT)
++		arm_next = 1;
++	temp_val = LS_64(arm_seq_num, I40IW_CQ_DBSA_ARM_SEQ_NUM) |
++	    LS_64(sw_cq_sel, I40IW_CQ_DBSA_SW_CQ_SELECT) |
++	    LS_64(arm_next_se, I40IW_CQ_DBSA_ARM_NEXT_SE) |
++	    LS_64(arm_next, I40IW_CQ_DBSA_ARM_NEXT);
++
++	set_64bit_val(cq->shadow_area, 32, temp_val);
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	db_wr32(cq->cqe_alloc_reg, cq->cq_id);
++
++	return 0;
++}
++
++/**
++ * i40iw_cq_post_entries - update tail in shadow memory
++ * @cq: hw cq
++ * @count: # of entries processed
++ */
++static enum i40iw_status_code i40iw_cq_post_entries(struct i40iw_cq_uk *cq,
++						    u8 count)
++{
++	I40IW_RING_MOVE_TAIL_BY_COUNT(cq->cq_ring, count);
++	set_64bit_val(cq->shadow_area, 0,
++		      I40IW_RING_GETCURRENT_HEAD(cq->cq_ring));
++	return 0;
++}
++
++/**
++ * i40iw_cq_poll_completion - get cq completion info
++ * @cq: hw cq
++ * @info: cq poll information returned
++ * @post_cq: update cq tail
++ */
++static enum i40iw_status_code i40iw_cq_poll_completion(struct i40iw_cq_uk *cq,
++						       struct i40iw_cq_poll_info *info,
++						       bool post_cq)
++{
++	u64 comp_ctx, qword0, qword2, qword3, wqe_qword;
++	u64 *cqe, *sw_wqe;
++	struct i40iw_qp_uk *qp;
++	struct i40iw_ring *pring = NULL;
++	u32 wqe_idx, q_type, array_idx = 0;
++	enum i40iw_status_code ret_code = 0;
++	enum i40iw_status_code ret_code2 = 0;
++	bool valid_bit, move_cq_head = true;
++	u8 addl_frag_cnt, addl_wqes = 0;
++
++	if (cq->avoid_mem_cflct)
++		cqe = (u64 *)I40IW_GET_CURRENT_EXTENDED_CQ_ELEMENT(cq);
++	else
++		cqe = (u64 *)I40IW_GET_CURRENT_CQ_ELEMENT(cq);
++
++	get_64bit_val(cqe, 24, &qword3);
++	valid_bit = (bool)RS_64(qword3, I40IW_CQ_VALID);
++
++	if (valid_bit != cq->polarity)
++		return I40IW_ERR_QUEUE_EMPTY;
++
++	q_type = (u8)RS_64(qword3, I40IW_CQ_SQ);
++	info->error = (bool)RS_64(qword3, I40IW_CQ_ERROR);
++	info->push_dropped = (bool)RS_64(qword3, I40IWCQ_PSHDROP);
++	if (info->error) {
++		info->comp_status = I40IW_COMPL_STATUS_FLUSHED;
++		info->major_err = (bool)RS_64(qword3, I40IW_CQ_MAJERR);
++		info->minor_err = (bool)RS_64(qword3, I40IW_CQ_MINERR);
++	} else {
++		info->comp_status = I40IW_COMPL_STATUS_SUCCESS;
++	}
++
++	get_64bit_val(cqe, 0, &qword0);
++	get_64bit_val(cqe, 16, &qword2);
++
++	info->tcp_seq_num = (u8)RS_64(qword0, I40IWCQ_TCPSEQNUM);
++
++	info->qp_id = (u32)RS_64(qword2, I40IWCQ_QPID);
++
++	get_64bit_val(cqe, 8, &comp_ctx);
++
++	info->solicited_event = (bool)RS_64(qword3, I40IWCQ_SOEVENT);
++	info->is_srq = (bool)RS_64(qword3, I40IWCQ_SRQ);
++
++	qp = (struct i40iw_qp_uk *)(unsigned long)comp_ctx;
++	wqe_idx = (u32)RS_64(qword3, I40IW_CQ_WQEIDX);
++	info->qp_handle = (i40iw_qp_handle)(unsigned long)qp;
++
++	if (q_type == I40IW_CQE_QTYPE_RQ) {
++		array_idx = (wqe_idx * 4) / qp->rq_wqe_size_multiplier;
++		if (info->comp_status == I40IW_COMPL_STATUS_FLUSHED) {
++			info->wr_id = qp->rq_wrid_array[qp->rq_ring.tail];
++			array_idx = qp->rq_ring.tail;
++		} else {
++			info->wr_id = qp->rq_wrid_array[array_idx];
++		}
++
++		info->op_type = I40IW_OP_TYPE_REC;
++		if (qword3 & I40IWCQ_STAG_MASK) {
++			info->stag_invalid_set = true;
++			info->inv_stag = (u32)RS_64(qword2, I40IWCQ_INVSTAG);
++		} else {
++			info->stag_invalid_set = false;
++		}
++		info->bytes_xfered = (u32)RS_64(qword0, I40IWCQ_PAYLDLEN);
++		I40IW_RING_SET_TAIL(qp->rq_ring, array_idx + 1);
++		pring = &qp->rq_ring;
++	} else {
++		if (info->comp_status != I40IW_COMPL_STATUS_FLUSHED) {
++			info->wr_id = qp->sq_wrtrk_array[wqe_idx].wrid;
++			info->bytes_xfered = qp->sq_wrtrk_array[wqe_idx].wr_len;
++
++			info->op_type = (u8)RS_64(qword3, I40IWCQ_OP);
++			sw_wqe = &qp->sq_base[wqe_idx << 2];
++			get_64bit_val(sw_wqe, 24, &wqe_qword);
++			addl_frag_cnt =
++			    (u8)RS_64(wqe_qword, I40IWQPSQ_ADDFRAGCNT);
++			i40iw_fragcnt_to_wqesize_sq((addl_frag_cnt + 1), &addl_wqes);
++
++			addl_wqes = (addl_wqes / I40IW_QP_WQE_MIN_SIZE);
++			I40IW_RING_SET_TAIL(qp->sq_ring, (wqe_idx + addl_wqes));
++		} else {
++			do {
++				u8 op_type;
++				u32 tail;
++
++				tail = qp->sq_ring.tail;
++				sw_wqe = &qp->sq_base[tail << 2];
++				get_64bit_val(sw_wqe, 24, &wqe_qword);
++				op_type = (u8)RS_64(wqe_qword, I40IWQPSQ_OPCODE);
++				info->op_type = op_type;
++				addl_frag_cnt = (u8)RS_64(wqe_qword, I40IWQPSQ_ADDFRAGCNT);
++				i40iw_fragcnt_to_wqesize_sq((addl_frag_cnt + 1), &addl_wqes);
++				addl_wqes = (addl_wqes / I40IW_QP_WQE_MIN_SIZE);
++				I40IW_RING_SET_TAIL(qp->sq_ring, (tail + addl_wqes));
++				if (op_type != I40IWQP_OP_NOP) {
++					info->wr_id = qp->sq_wrtrk_array[tail].wrid;
++					info->bytes_xfered = qp->sq_wrtrk_array[tail].wr_len;
++					break;
++				}
++			} while (1);
++		}
++		pring = &qp->sq_ring;
++	}
++
++	ret_code = 0;
++
++	if ((!ret_code) &&
++	    (info->comp_status == I40IW_COMPL_STATUS_FLUSHED))
++		if (pring && (I40IW_RING_MORE_WORK(*pring)))
++			move_cq_head = false;
++
++	if (move_cq_head) {
++		I40IW_RING_MOVE_HEAD(cq->cq_ring, ret_code2);
++
++		if (ret_code2 && !ret_code)
++			ret_code = ret_code2;
++
++		if (I40IW_RING_GETCURRENT_HEAD(cq->cq_ring) == 0)
++			cq->polarity = !cq->polarity;
++
++		if (post_cq) {
++			I40IW_RING_MOVE_TAIL(cq->cq_ring);
++			set_64bit_val(cq->shadow_area, 0,
++				      I40IW_RING_GETCURRENT_HEAD(cq->cq_ring));
++		}
++	} else {
++		if (info->is_srq)
++			return ret_code;
++		qword3 &= ~I40IW_CQ_WQEIDX_MASK;
++		qword3 |= LS_64(pring->tail, I40IW_CQ_WQEIDX);
++		set_64bit_val(cqe, 24, qword3);
++	}
++
++	return ret_code;
++}
++
++/**
++ * i40iw_get_wqe_shift - get shift count for maximum wqe size
++ * @wqdepth: depth of wq required.
++ * @sge: Maximum Scatter Gather Elements wqe
++ * @shift: Returns the shift needed based on sge
++ *
++ * Shift can be used to left shift the wqe size based on sge.
++ * If sge, == 1, shift =0 (wqe_size of 32 bytes), for sge=2 and 3, shift =1
++ * (64 bytes wqes) and 2 otherwise (128 bytes wqe).
++ */
++enum i40iw_status_code i40iw_get_wqe_shift(u32 wqdepth, u8 sge, u8 *shift)
++{
++	u32 size;
++
++	*shift = 0;
++	if (sge > 1)
++		*shift = (sge < 4) ? 1 : 2;
++
++	/* check if wqdepth is multiple of 2 or not */
++
++	if ((wqdepth < I40IWQP_SW_MIN_WQSIZE) || (wqdepth & (wqdepth - 1)))
++		return I40IW_ERR_INVALID_SIZE;
++
++	size = wqdepth << *shift;	/* multiple of 32 bytes count */
++	if (size > I40IWQP_SW_MAX_WQSIZE)
++		return I40IW_ERR_INVALID_SIZE;
++	return 0;
++}
++
++static struct i40iw_qp_uk_ops iw_qp_uk_ops = {
++	i40iw_qp_post_wr,
++	i40iw_qp_ring_push_db,
++	i40iw_rdma_write,
++	i40iw_rdma_read,
++	i40iw_send,
++	i40iw_inline_rdma_write,
++	i40iw_inline_send,
++	i40iw_stag_local_invalidate,
++	i40iw_mw_bind,
++	i40iw_post_receive,
++	i40iw_nop
++};
++
++static struct i40iw_cq_ops iw_cq_ops = {
++	i40iw_cq_request_notification,
++	i40iw_cq_poll_completion,
++	i40iw_cq_post_entries,
++	i40iw_clean_cq
++};
++
++static struct i40iw_device_uk_ops iw_device_uk_ops = {
++	i40iw_cq_uk_init,
++	i40iw_qp_uk_init,
++};
++
++/**
++ * i40iw_qp_uk_init - initialize shared qp
++ * @qp: hw qp (user and kernel)
++ * @info: qp initialization info
++ *
++ * initializes the vars used in both user and kernel mode.
++ * size of the wqe depends on numbers of max. fragements
++ * allowed. Then size of wqe * the number of wqes should be the
++ * amount of memory allocated for sq and rq. If srq is used,
++ * then rq_base will point to one rq wqe only (not the whole
++ * array of wqes)
++ */
++enum i40iw_status_code i40iw_qp_uk_init(struct i40iw_qp_uk *qp,
++					struct i40iw_qp_uk_init_info *info)
++{
++	enum i40iw_status_code ret_code = 0;
++	u32 sq_ring_size;
++	u8 sqshift, rqshift;
++
++	if (info->max_sq_frag_cnt > I40IW_MAX_WQ_FRAGMENT_COUNT)
++		return I40IW_ERR_INVALID_FRAG_COUNT;
++
++	if (info->max_rq_frag_cnt > I40IW_MAX_WQ_FRAGMENT_COUNT)
++		return I40IW_ERR_INVALID_FRAG_COUNT;
++	ret_code = i40iw_get_wqe_shift(info->sq_size, info->max_sq_frag_cnt, &sqshift);
++	if (ret_code)
++		return ret_code;
++
++	ret_code = i40iw_get_wqe_shift(info->rq_size, info->max_rq_frag_cnt, &rqshift);
++	if (ret_code)
++		return ret_code;
++
++	qp->sq_base = info->sq;
++	qp->rq_base = info->rq;
++	qp->shadow_area = info->shadow_area;
++	qp->sq_wrtrk_array = info->sq_wrtrk_array;
++	qp->rq_wrid_array = info->rq_wrid_array;
++
++	qp->wqe_alloc_reg = info->wqe_alloc_reg;
++	qp->qp_id = info->qp_id;
++
++	qp->sq_size = info->sq_size;
++	qp->push_db = info->push_db;
++	qp->push_wqe = info->push_wqe;
++
++	qp->max_sq_frag_cnt = info->max_sq_frag_cnt;
++	sq_ring_size = qp->sq_size << sqshift;
++
++	I40IW_RING_INIT(qp->sq_ring, sq_ring_size);
++	I40IW_RING_INIT(qp->initial_ring, sq_ring_size);
++	I40IW_RING_MOVE_HEAD(qp->sq_ring, ret_code);
++	I40IW_RING_MOVE_TAIL(qp->sq_ring);
++	I40IW_RING_MOVE_HEAD(qp->initial_ring, ret_code);
++	qp->swqe_polarity = 1;
++	qp->swqe_polarity_deferred = 1;
++	qp->rwqe_polarity = 0;
++
++	if (!qp->use_srq) {
++		qp->rq_size = info->rq_size;
++		qp->max_rq_frag_cnt = info->max_rq_frag_cnt;
++		qp->rq_wqe_size = rqshift;
++		I40IW_RING_INIT(qp->rq_ring, qp->rq_size);
++		qp->rq_wqe_size_multiplier = 4 << rqshift;
++	} else {
++		qp->rq_size = 0;
++		qp->rq_wqe_size = 0;
++		qp->rq_wqe_size_multiplier = 0;
++	}
++	qp->ops = iw_qp_uk_ops;
++
++	return ret_code;
++}
++
++/**
++ * i40iw_cq_uk_init - initialize shared cq (user and kernel)
++ * @cq: hw cq
++ * @info: hw cq initialization info
++ */
++enum i40iw_status_code i40iw_cq_uk_init(struct i40iw_cq_uk *cq,
++					struct i40iw_cq_uk_init_info *info)
++{
++	if ((info->cq_size < I40IW_MIN_CQ_SIZE) ||
++	    (info->cq_size > I40IW_MAX_CQ_SIZE))
++		return I40IW_ERR_INVALID_SIZE;
++	cq->cq_base = (struct i40iw_cqe *)info->cq_base;
++	cq->cq_id = info->cq_id;
++	cq->cq_size = info->cq_size;
++	cq->cqe_alloc_reg = info->cqe_alloc_reg;
++	cq->shadow_area = info->shadow_area;
++	cq->avoid_mem_cflct = info->avoid_mem_cflct;
++
++	I40IW_RING_INIT(cq->cq_ring, cq->cq_size);
++	cq->polarity = 1;
++	cq->ops = iw_cq_ops;
++
++	return 0;
++}
++
++/**
++ * i40iw_device_init_uk - setup routines for iwarp shared device
++ * @dev: iwarp shared (user and kernel)
++ */
++void i40iw_device_init_uk(struct i40iw_dev_uk *dev)
++{
++	dev->ops_uk = iw_device_uk_ops;
++}
++
++/**
++ * i40iw_clean_cq - clean cq entries
++ * @ queue completion context
++ * @cq: cq to clean
++ */
++enum i40iw_status_code i40iw_clean_cq(void *queue, struct i40iw_cq_uk *cq)
++{
++	u64 *cqe;
++	u64 qword3, comp_ctx;
++	u32 cq_head;
++	bool polarity, valid_bit;
++
++	cq_head = cq->cq_ring.head;
++	polarity = cq->polarity;
++	do {
++		if (cq->avoid_mem_cflct)
++			cqe = (u64 *)&(((struct i40iw_extended_cqe *)cq->cq_base)[cq_head]);
 +		else
-+			vchnl_pf_send_get_ver_resp(dev, vf_id, vchnl_msg);
-+		return I40IW_SUCCESS;
-+	}
-+	for (iw_vf_idx = 0; iw_vf_idx < I40IW_MAX_PE_ENABLED_VF_COUNT;
-+	     iw_vf_idx++) {
-+		if (!dev->vf_dev[iw_vf_idx]) {
-+			if (first_avail_iw_vf ==
-+			    I40IW_MAX_PE_ENABLED_VF_COUNT)
-+				first_avail_iw_vf = iw_vf_idx;
-+			continue;
-+		}
-+		if (dev->vf_dev[iw_vf_idx]->vf_id == vf_id) {
-+			vf_dev = dev->vf_dev[iw_vf_idx];
-+			break;
-+		}
-+	}
-+	if (vf_dev) {
-+		if (!vf_dev->msg_count) {
-+			vf_dev->msg_count++;
-+		} else {
-+			i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+				    "VF%u already has a channel message in progress.\n",
-+				    vf_id);
-+			return I40IW_SUCCESS;
-+		}
-+	}
-+	switch (vchnl_msg->iw_op_code) {
-+	case I40IW_VCHNL_OP_GET_HMC_FCN:
-+		if (!vf_dev &&
-+		    (first_avail_iw_vf != I40IW_MAX_PE_ENABLED_VF_COUNT)) {
-+			ret_code = i40iw_allocate_virt_mem(dev->hw, &vf_dev_mem, sizeof(struct i40iw_vfdev) +
-+							   (sizeof(struct i40iw_hmc_obj_info) * I40IW_HMC_IW_MAX));
-+			if (!ret_code) {
-+				vf_dev = vf_dev_mem.va;
-+				vf_dev->stats_initialized = false;
-+				vf_dev->pf_dev = dev;
-+				vf_dev->msg_count = 1;
-+				vf_dev->vf_id = vf_id;
-+				vf_dev->iw_vf_idx = first_avail_iw_vf;
-+				vf_dev->pf_hmc_initialized = false;
-+				vf_dev->hmc_info.hmc_obj = (struct i40iw_hmc_obj_info *)(&vf_dev[1]);
-+				i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+					    "vf_dev %p, hmc_info %p, hmc_obj %p\n",
-+					    vf_dev, &vf_dev->hmc_info, vf_dev->hmc_info.hmc_obj);
-+				dev->vf_dev[first_avail_iw_vf] = vf_dev;
-+				iw_vf_idx = first_avail_iw_vf;
-+			} else {
-+				i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+					    "VF%u Unable to allocate a VF device structure.\n",
-+					    vf_id);
-+				vchnl_pf_send_error_resp(dev, vf_id, vchnl_msg, (u16)I40IW_ERR_NO_MEMORY);
-+				return I40IW_SUCCESS;
-+			}
-+			memcpy(&vf_dev->vf_msg_buffer.vchnl_msg, vchnl_msg, len);
-+			hmc_fcn_info.callback_fcn = pf_cqp_get_hmc_fcn_callback;
-+			hmc_fcn_info.vf_id = vf_id;
-+			hmc_fcn_info.iw_vf_idx = vf_dev->iw_vf_idx;
-+			hmc_fcn_info.cqp_callback_param = vf_dev;
-+			hmc_fcn_info.free_fcn = false;
-+			ret_code = i40iw_cqp_manage_hmc_fcn_cmd(dev, &hmc_fcn_info);
-+			if (ret_code)
-+				i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+					    "VF%u error CQP HMC Function operation.\n",
-+					    vf_id);
-+			ret_code = i40iw_device_init_pestat(&vf_dev->dev_pestat);
-+			if (ret_code)
-+				i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+					    "VF%u - i40iw_device_init_pestat failed\n",
-+					    vf_id);
-+			vf_dev->dev_pestat.ops.iw_hw_stat_init(&vf_dev->dev_pestat,
-+							      (u8)vf_dev->pmf_index,
-+							      dev->hw, false);
-+			vf_dev->stats_initialized = true;
-+		} else {
-+			if (vf_dev) {
-+				vf_dev->msg_count--;
-+				vchnl_pf_send_get_hmc_fcn_resp(dev, vf_id, vchnl_msg, vf_dev->pmf_index);
-+			} else {
-+				vchnl_pf_send_error_resp(dev, vf_id, vchnl_msg,
-+							 (u16)I40IW_ERR_NO_MEMORY);
-+			}
-+		}
++			cqe = (u64 *)&cq->cq_base[cq_head];
++		get_64bit_val(cqe, 24, &qword3);
++		valid_bit = (bool)RS_64(qword3, I40IW_CQ_VALID);
++
++		if (valid_bit != polarity)
++			return 0;
++
++		get_64bit_val(cqe, 8, &comp_ctx);
++		if ((void *)(unsigned long)comp_ctx == queue)
++			set_64bit_val(cqe, 8, 0);
++
++		cq_head = (cq_head + 1) % cq->cq_ring.size;
++		if (!cq_head)
++			polarity = !polarity;
++	} while (true);
++
++	return 0;
++}
++
++/**
++ * i40iw_nop - send a nop
++ * @qp: hw qp ptr
++ * @wr_id: work request id
++ * @signaled: flag if signaled for completion
++ * @post_sq: flag to post sq
++ */
++enum i40iw_status_code i40iw_nop(struct i40iw_qp_uk *qp,
++				 u64 wr_id,
++				 bool signaled,
++				 bool post_sq)
++{
++	u64 header, *wqe;
++	u32 wqe_idx;
++
++	wqe = i40iw_qp_get_next_send_wqe(qp, &wqe_idx, I40IW_QP_WQE_MIN_SIZE);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++
++	qp->sq_wrtrk_array[wqe_idx].wrid = wr_id;
++	qp->sq_wrtrk_array[wqe_idx].wr_len = 0;
++	set_64bit_val(wqe, 0, 0);
++	set_64bit_val(wqe, 8, 0);
++	set_64bit_val(wqe, 16, 0);
++
++	header = LS_64(I40IWQP_OP_NOP, I40IWQPSQ_OPCODE) |
++	    LS_64(signaled, I40IWQPSQ_SIGCOMPL) |
++	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
++
++	wmb(); /* make sure WQE is populated before valid bit is set */
++
++	set_64bit_val(wqe, 24, header);
++	if (post_sq)
++		i40iw_qp_post_wr(qp);
++
++	return 0;
++}
++
++/**
++ * i40iw_fragcnt_to_wqesize_sq - calculate wqe size based on fragment count for SQ
++ * @frag_cnt: number of fragments
++ * @wqe_size: size of sq wqe returned
++ */
++enum i40iw_status_code i40iw_fragcnt_to_wqesize_sq(u8 frag_cnt, u8 *wqe_size)
++{
++	switch (frag_cnt) {
++	case 0:
++	case 1:
++		*wqe_size = I40IW_QP_WQE_MIN_SIZE;
 +		break;
-+	case I40IW_VCHNL_OP_ADD_HMC_OBJ_RANGE:
-+		if (!vf_dev)
-+			return I40IW_ERR_BAD_PTR;
-+		work_info.worker_vf_dev = vf_dev;
-+		work_info.callback_fcn = pf_add_hmc_obj_callback;
-+		memcpy(&vf_dev->vf_msg_buffer.vchnl_msg, vchnl_msg, len);
-+		i40iw_cqp_spawn_worker(dev, &work_info, vf_dev->iw_vf_idx);
++	case 2:
++	case 3:
++		*wqe_size = 64;
 +		break;
-+	case I40IW_VCHNL_OP_DEL_HMC_OBJ_RANGE:
-+		if (!vf_dev)
-+			return I40IW_ERR_BAD_PTR;
-+		work_info.worker_vf_dev = vf_dev;
-+		work_info.callback_fcn = pf_del_hmc_obj_callback;
-+		memcpy(&vf_dev->vf_msg_buffer.vchnl_msg, vchnl_msg, len);
-+		i40iw_cqp_spawn_worker(dev, &work_info, vf_dev->iw_vf_idx);
++	case 4:
++	case 5:
++		*wqe_size = 96;
 +		break;
-+	case I40IW_VCHNL_OP_GET_STATS:
-+		if (!vf_dev)
-+			return I40IW_ERR_BAD_PTR;
-+		devstat = &vf_dev->dev_pestat;
-+		spin_lock_irqsave(&dev->dev_pestat.stats_lock, flags);
-+		devstat->ops.iw_hw_stat_read_all(devstat, &devstat->hw_stats);
-+		spin_unlock_irqrestore(&dev->dev_pestat.stats_lock, flags);
-+		vf_dev->msg_count--;
-+		vchnl_pf_send_get_pe_stats_resp(dev, vf_id, vchnl_msg, devstat->hw_stats);
++	case 6:
++	case 7:
++		*wqe_size = 128;
 +		break;
 +	default:
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "40iw_vchnl_recv_pf: Invalid OpCode 0x%x\n",
-+			    vchnl_msg->iw_op_code);
-+		vchnl_pf_send_error_resp(dev, vf_id,
-+					 vchnl_msg, (u16)I40IW_ERR_NOT_IMPLEMENTED);
++		return I40IW_ERR_INVALID_FRAG_COUNT;
 +	}
-+	return I40IW_SUCCESS;
++
++	return 0;
 +}
 +
 +/**
-+ * i40iw_vchnl_recv_vf - Receive VF virtual channel messages
-+ * @dev: IWARP device pointer
-+ * @vf_id: Virtual function ID associated with the message
-+ * @msg: Virtual channel message buffer pointer
-+ * @len: Length of the virtual channels message
++ * i40iw_fragcnt_to_wqesize_rq - calculate wqe size based on fragment count for RQ
++ * @frag_cnt: number of fragments
++ * @wqe_size: size of rq wqe returned
 + */
-+enum i40iw_status_code i40iw_vchnl_recv_vf(struct i40iw_sc_dev *dev,
-+					   u32 vf_id,
-+					   u8 *msg,
-+					   u16 len)
++enum i40iw_status_code i40iw_fragcnt_to_wqesize_rq(u8 frag_cnt, u8 *wqe_size)
 +{
-+	struct i40iw_virtchnl_resp_buf *vchnl_msg_resp = (struct i40iw_virtchnl_resp_buf *)msg;
-+	struct i40iw_virtchnl_req *vchnl_req;
-+
-+	UNREFERENCED_PARAMETER(dev);
-+	UNREFERENCED_PARAMETER(vf_id);
-+
-+	vchnl_req = (struct i40iw_virtchnl_req *)(uintptr_t)vchnl_msg_resp->iw_chnl_op_ctx;
-+	vchnl_req->ret_code = (enum i40iw_status_code)vchnl_msg_resp->iw_op_ret_code;
-+	if (len == (sizeof(*vchnl_msg_resp) + vchnl_req->parm_len - 1)) {
-+		if ((vchnl_req->parm_len) && (vchnl_req->parm))
-+			memcpy(vchnl_req->parm, vchnl_msg_resp->iw_chnl_buf, vchnl_req->parm_len);
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: Got response, data size %u\n", __func__,
-+			    vchnl_req->parm_len);
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s: error length on response, Got %u, expected %u\n", __func__,
-+			    len, (u32)(sizeof(*vchnl_msg_resp) + vchnl_req->parm_len - 1));
++	switch (frag_cnt) {
++	case 0:
++	case 1:
++		*wqe_size = 32;
++		break;
++	case 2:
++	case 3:
++		*wqe_size = 64;
++		break;
++	case 4:
++	case 5:
++	case 6:
++	case 7:
++		*wqe_size = 128;
++		break;
++	default:
++		return I40IW_ERR_INVALID_FRAG_COUNT;
 +	}
 +
-+	return I40IW_SUCCESS;
++	return 0;
 +}
 +
 +/**
-+ * i40iw_vchnl_vf_get_ver - Request Channel version
-+ * @dev: IWARP device pointer
-+ * @vchnl_ver: Virtual channel message version pointer
++ * i40iw_inline_data_size_to_wqesize - based on inline data, wqe size
++ * @data_size: data size for inline
++ * @wqe_size: size of sq wqe returned
 + */
-+enum i40iw_status_code i40iw_vchnl_vf_get_ver(struct i40iw_sc_dev *dev,
-+					      u32 *vchnl_ver)
++enum i40iw_status_code i40iw_inline_data_size_to_wqesize(u32 data_size,
++							 u8 *wqe_size)
 +{
-+	struct i40iw_virtchnl_req vchnl_req = { NULL };
-+	enum i40iw_status_code ret_code;
++	if (data_size > I40IW_MAX_INLINE_DATA_SIZE)
++		return I40IW_ERR_INVALID_IMM_DATA_SIZE;
 +
-+	vchnl_req.dev = dev;
-+	vchnl_req.parm = vchnl_ver;
-+	vchnl_req.parm_len = sizeof(*vchnl_ver);
-+	vchnl_req.vchnl_msg = &dev->vchnl_vf_msg_buf.vchnl_msg;
-+	ret_code = vchnl_vf_send_get_ver_req(dev, &vchnl_req);
-+	if (!ret_code) {
-+		ret_code = i40iw_vf_wait_vchnl_resp(dev);
-+		if (!ret_code)
-+			ret_code = vchnl_req.ret_code;
-+		else
-+			dev->vchnl_up = false;
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s Send message failed 0x%0x\n", __func__, ret_code);
-+	}
-+	return ret_code;
++	if (data_size <= 16)
++		*wqe_size = I40IW_QP_WQE_MIN_SIZE;
++	else if (data_size <= 48)
++		*wqe_size = 64;
++	else if (data_size <= 80)
++		*wqe_size = 96;
++	else
++		*wqe_size = 128;
++
++	return 0;
 +}
-+
-+/**
-+ * i40iw_vchnl_vf_get_hmc_fcn - Request HMC Function
-+ * @dev: IWARP device pointer
-+ * @hmc_fcn: HMC function index pointer
-+ */
-+enum i40iw_status_code i40iw_vchnl_vf_get_hmc_fcn(struct i40iw_sc_dev *dev,
-+						  u16 *hmc_fcn)
-+{
-+	struct i40iw_virtchnl_req vchnl_req = { NULL };
-+	enum i40iw_status_code ret_code;
-+
-+	vchnl_req.dev = dev;
-+	vchnl_req.parm = hmc_fcn;
-+	vchnl_req.parm_len = sizeof(*hmc_fcn);
-+	vchnl_req.vchnl_msg = &dev->vchnl_vf_msg_buf.vchnl_msg;
-+	ret_code = vchnl_vf_send_get_hmc_fcn_req(dev, &vchnl_req);
-+	if (!ret_code) {
-+		ret_code = i40iw_vf_wait_vchnl_resp(dev);
-+		if (!ret_code)
-+			ret_code = vchnl_req.ret_code;
-+		else
-+			dev->vchnl_up = false;
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s Send message failed 0x%0x\n", __func__, ret_code);
-+	}
-+	return ret_code;
-+}
-+
-+/**
-+ * i40iw_vchnl_vf_add_hmc_objs - Add HMC Object
-+ * @dev: IWARP device pointer
-+ * @rsrc_type: HMC Resource type
-+ * @start_index: Starting index of the objects to be added
-+ * @rsrc_count: Number of resources to be added
-+ */
-+enum i40iw_status_code i40iw_vchnl_vf_add_hmc_objs(struct i40iw_sc_dev *dev,
-+						   enum i40iw_hmc_rsrc_type rsrc_type,
-+						   u32 start_index,
-+						   u32 rsrc_count)
-+{
-+	struct i40iw_virtchnl_req vchnl_req = { NULL };
-+	enum i40iw_status_code ret_code;
-+
-+	vchnl_req.dev = dev;
-+	vchnl_req.parm = NULL;
-+	vchnl_req.parm_len = 0;
-+	vchnl_req.vchnl_msg = &dev->vchnl_vf_msg_buf.vchnl_msg;
-+	ret_code = vchnl_vf_send_add_hmc_objs_req(dev,
-+						  &vchnl_req,
-+						  rsrc_type,
-+						  start_index,
-+						  rsrc_count);
-+	if (!ret_code) {
-+		ret_code = i40iw_vf_wait_vchnl_resp(dev);
-+		if (!ret_code)
-+			ret_code = vchnl_req.ret_code;
-+		else
-+			dev->vchnl_up = false;
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s Send message failed 0x%0x\n", __func__, ret_code);
-+	}
-+	return ret_code;
-+}
-+
-+/**
-+ * i40iw_vchnl_vf_del_hmc_obj - del HMC obj
-+ * @dev: IWARP device pointer
-+ * @rsrc_type: HMC Resource type
-+ * @start_index: Starting index of the object to delete
-+ * @rsrc_count: Number of resources to be delete
-+ */
-+enum i40iw_status_code i40iw_vchnl_vf_del_hmc_obj(struct i40iw_sc_dev *dev,
-+						  enum i40iw_hmc_rsrc_type rsrc_type,
-+						  u32 start_index,
-+						  u32 rsrc_count)
-+{
-+	struct i40iw_virtchnl_req vchnl_req = { NULL };
-+	enum i40iw_status_code ret_code;
-+
-+	vchnl_req.dev = dev;
-+	vchnl_req.parm = NULL;
-+	vchnl_req.parm_len = 0;
-+	vchnl_req.vchnl_msg = &dev->vchnl_vf_msg_buf.vchnl_msg;
-+	ret_code = vchnl_vf_send_del_hmc_objs_req(dev,
-+						  &vchnl_req,
-+						  rsrc_type,
-+						  start_index,
-+						  rsrc_count);
-+	if (!ret_code) {
-+		ret_code = i40iw_vf_wait_vchnl_resp(dev);
-+		if (!ret_code)
-+			ret_code = vchnl_req.ret_code;
-+		else
-+			dev->vchnl_up = false;
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s Send message failed 0x%0x\n", __func__, ret_code);
-+	}
-+	return ret_code;
-+}
-+
-+/**
-+ * i40iw_vchnl_vf_get_pe_stats - Get PE stats
-+ * @dev: IWARP device pointer
-+ * @hw_stats: HW stats struct
-+ */
-+enum i40iw_status_code i40iw_vchnl_vf_get_pe_stats(struct i40iw_sc_dev *dev,
-+						   struct i40iw_dev_hw_stats *hw_stats)
-+{
-+	struct i40iw_virtchnl_req  vchnl_req = { NULL };
-+	enum i40iw_status_code ret_code;
-+
-+	vchnl_req.dev = dev;
-+	vchnl_req.parm = hw_stats;
-+	vchnl_req.parm_len = sizeof(*hw_stats);
-+	vchnl_req.vchnl_msg = &dev->vchnl_vf_msg_buf.vchnl_msg;
-+	ret_code = vchnl_vf_send_get_pe_stats_req(dev, &vchnl_req);
-+	if (!ret_code) {
-+		ret_code = i40iw_vf_wait_vchnl_resp(dev);
-+		if (!ret_code)
-+			ret_code = vchnl_req.ret_code;
-+		else
-+			dev->vchnl_up = false;
-+	} else {
-+		i40iw_debug(dev, I40IW_DEBUG_VIRT,
-+			    "%s Send message failed 0x%0x\n", __func__, ret_code);
-+	}
-+	return ret_code;
-+}
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_virtchnl.h b/drivers/infiniband/hw/i40iw/i40iw_virtchnl.h
+diff --git a/drivers/infiniband/hw/i40iw/i40iw_user.h b/drivers/infiniband/hw/i40iw/i40iw_user.h
 new file mode 100644
-index 0000000..e794d36
+index 0000000..0d917a2
 --- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw_virtchnl.h
-@@ -0,0 +1,124 @@
++++ b/drivers/infiniband/hw/i40iw/i40iw_user.h
+@@ -0,0 +1,438 @@
 +/*******************************************************************************
 +*
 +* Copyright (c) 2015 Intel Corporation.  All rights reserved.
@@ -1000,95 +1299,409 @@ index 0000000..e794d36
 +*
 +*******************************************************************************/
 +
-+#ifndef I40IW_VIRTCHNL_H
-+#define I40IW_VIRTCHNL_H
++#ifndef I40IW_USER_H
++#define I40IW_USER_H
 +
-+#include "i40iw_hmc.h"
-+
-+#pragma pack(push, 1)
-+
-+struct i40iw_virtchnl_op_buf {
-+	u16 iw_op_code;
-+	u16 iw_op_ver;
-+	u16 iw_chnl_buf_len;
-+	u16 rsvd;
-+	u64 iw_chnl_op_ctx;
-+	/* Member alignment MUST be maintained above this location */
-+	u8 iw_chnl_buf[1];
++enum i40iw_device_capabilities_const {
++	I40IW_WQE_SIZE =			4,
++	I40IW_CQP_WQE_SIZE =			8,
++	I40IW_CQE_SIZE =			4,
++	I40IW_EXTENDED_CQE_SIZE =		8,
++	I40IW_AEQE_SIZE =			2,
++	I40IW_CEQE_SIZE =			1,
++	I40IW_CQP_CTX_SIZE =			8,
++	I40IW_SHADOW_AREA_SIZE =		8,
++	I40IW_CEQ_MAX_COUNT =			256,
++	I40IW_QUERY_FPM_BUF_SIZE =		128,
++	I40IW_COMMIT_FPM_BUF_SIZE =		128,
++	I40IW_MIN_IW_QP_ID =			1,
++	I40IW_MAX_IW_QP_ID =			262143,
++	I40IW_MIN_CEQID =			0,
++	I40IW_MAX_CEQID =			256,
++	I40IW_MIN_CQID =			0,
++	I40IW_MAX_CQID =			131071,
++	I40IW_MIN_AEQ_ENTRIES =			1,
++	I40IW_MAX_AEQ_ENTRIES =			524287,
++	I40IW_MIN_CEQ_ENTRIES =			1,
++	I40IW_MAX_CEQ_ENTRIES =			131071,
++	I40IW_MIN_CQ_SIZE =			1,
++	I40IW_MAX_CQ_SIZE =			1048575,
++	I40IW_MAX_AEQ_ALLOCATE_COUNT =		255,
++	I40IW_DB_ID_ZERO =			0,
++	I40IW_MAX_WQ_FRAGMENT_COUNT =		6,
++	I40IW_MAX_SGE_RD =			1,
++	I40IW_MAX_OUTBOUND_MESSAGE_SIZE =	2147483647,
++	I40IW_MAX_INBOUND_MESSAGE_SIZE =	2147483647,
++	I40IW_MAX_PUSH_PAGE_COUNT =		4096,
++	I40IW_MAX_PE_ENABLED_VF_COUNT =		32,
++	I40IW_MAX_VF_FPM_ID =			47,
++	I40IW_MAX_VF_PER_PF =			127,
++	I40IW_MAX_SQ_PAYLOAD_SIZE =		2145386496,
++	I40IW_MAX_INLINE_DATA_SIZE =		112,
++	I40IW_MAX_PUSHMODE_INLINE_DATA_SIZE =	112,
++	I40IW_MAX_IRD_SIZE =			32,
++	I40IW_QPCTX_ENCD_MAXIRD =		3,
++	I40IW_MAX_WQ_ENTRIES =			2048,
++	I40IW_MAX_ORD_SIZE =			32,
++	I40IW_Q2_BUFFER_SIZE =			(248 + 100),
++	I40IW_QP_CTX_SIZE =			248
 +};
 +
-+struct i40iw_virtchnl_resp_buf {
-+	u64 iw_chnl_op_ctx;
-+	u16 iw_chnl_buf_len;
-+	s16 iw_op_ret_code;
-+	/* Member alignment MUST be maintained above this location */
-+	u16 rsvd[2];
-+	u8 iw_chnl_buf[1];
++#define i40iw_handle void *
++#define i40iw_adapter_handle i40iw_handle
++#define i40iw_qp_handle i40iw_handle
++#define i40iw_cq_handle i40iw_handle
++#define i40iw_srq_handle i40iw_handle
++#define i40iw_pd_id i40iw_handle
++#define i40iw_stag_handle i40iw_handle
++#define i40iw_stag_index u32
++#define i40iw_stag u32
++#define i40iw_stag_key u8
++
++#define i40iw_tagged_offset u64
++#define i40iw_access_privileges u32
++#define i40iw_physical_fragment u64
++#define i40iw_address_list u64 *
++
++#define I40IW_CREATE_STAG(index, key)       (((index) << 8) + (key))
++
++#define I40IW_STAG_KEY_FROM_STAG(stag)      ((stag) && 0x000000FF)
++
++#define I40IW_STAG_INDEX_FROM_STAG(stag)    (((stag) && 0xFFFFFF00) >> 8)
++
++struct i40iw_qp_uk;
++struct i40iw_cq_uk;
++struct i40iw_srq_uk;
++struct i40iw_qp_uk_init_info;
++struct i40iw_cq_uk_init_info;
++struct i40iw_srq_uk_init_info;
++
++struct i40iw_sge {
++	i40iw_tagged_offset tag_off;
++	u32 len;
++	i40iw_stag stag;
 +};
 +
-+enum i40iw_virtchnl_ops {
-+	I40IW_VCHNL_OP_GET_VER = 0,
-+	I40IW_VCHNL_OP_GET_HMC_FCN,
-+	I40IW_VCHNL_OP_ADD_HMC_OBJ_RANGE,
-+	I40IW_VCHNL_OP_DEL_HMC_OBJ_RANGE,
-+	I40IW_VCHNL_OP_GET_STATS
++#define i40iw_sgl struct i40iw_sge *
++
++struct i40iw_ring {
++	u32 head;
++	u32 tail;
++	u32 size;
 +};
 +
-+#define I40IW_VCHNL_OP_GET_VER_V0 0
-+#define I40IW_VCHNL_OP_GET_HMC_FCN_V0 0
-+#define I40IW_VCHNL_OP_ADD_HMC_OBJ_RANGE_V0 0
-+#define I40IW_VCHNL_OP_DEL_HMC_OBJ_RANGE_V0 0
-+#define I40IW_VCHNL_OP_GET_STATS_V0 0
-+#define I40IW_VCHNL_CHNL_VER_V0 0
-+
-+struct i40iw_dev_hw_stats;
-+
-+struct i40iw_virtchnl_hmc_obj_range {
-+	u16 obj_type;
-+	u16 rsvd;
-+	u32 start_index;
-+	u32 obj_count;
++struct i40iw_cqe {
++	u64 buf[I40IW_CQE_SIZE];
 +};
 +
-+enum i40iw_status_code i40iw_vchnl_recv_pf(struct i40iw_sc_dev *dev,
-+					   u32 vf_id,
-+					   u8 *msg,
-+					   u16 len);
-+
-+enum i40iw_status_code i40iw_vchnl_recv_vf(struct i40iw_sc_dev *dev,
-+					   u32 vf_id,
-+					   u8 *msg,
-+					   u16 len);
-+
-+struct i40iw_virtchnl_req {
-+	struct i40iw_sc_dev *dev;
-+	struct i40iw_virtchnl_op_buf *vchnl_msg;
-+	void *parm;
-+	u32 vf_id;
-+	u16 parm_len;
-+	s16 ret_code;
++struct i40iw_extended_cqe {
++	u64 buf[I40IW_EXTENDED_CQE_SIZE];
 +};
 +
-+#pragma pack(pop)
++struct i40iw_wqe {
++	u64 buf[I40IW_WQE_SIZE];
++};
 +
-+enum i40iw_status_code i40iw_vchnl_vf_get_ver(struct i40iw_sc_dev *dev,
-+					      u32 *vchnl_ver);
++struct i40iw_qp_uk_ops;
 +
-+enum i40iw_status_code i40iw_vchnl_vf_get_hmc_fcn(struct i40iw_sc_dev *dev,
-+						  u16 *hmc_fcn);
++enum i40iw_addressing_type {
++	I40IW_ADDR_TYPE_ZERO_BASED = 0,
++	I40IW_ADDR_TYPE_VA_BASED = 1,
++};
 +
-+enum i40iw_status_code i40iw_vchnl_vf_add_hmc_objs(struct i40iw_sc_dev *dev,
-+						   enum i40iw_hmc_rsrc_type rsrc_type,
-+						   u32 start_index,
-+						   u32 rsrc_count);
++#define I40IW_ACCESS_FLAGS_LOCALREAD		0x01
++#define I40IW_ACCESS_FLAGS_LOCALWRITE		0x02
++#define I40IW_ACCESS_FLAGS_REMOTEREAD_ONLY	0x04
++#define I40IW_ACCESS_FLAGS_REMOTEREAD		0x05
++#define I40IW_ACCESS_FLAGS_REMOTEWRITE_ONLY	0x08
++#define I40IW_ACCESS_FLAGS_REMOTEWRITE		0x0a
++#define I40IW_ACCESS_FLAGS_BIND_WINDOW		0x10
++#define I40IW_ACCESS_FLAGS_ALL			0x1F
 +
-+enum i40iw_status_code i40iw_vchnl_vf_del_hmc_obj(struct i40iw_sc_dev *dev,
-+						  enum i40iw_hmc_rsrc_type rsrc_type,
-+						  u32 start_index,
-+						  u32 rsrc_count);
++#define I40IW_OP_TYPE_RDMA_WRITE	0
++#define I40IW_OP_TYPE_RDMA_READ		1
++#define I40IW_OP_TYPE_SEND		3
++#define I40IW_OP_TYPE_SEND_INV		4
++#define I40IW_OP_TYPE_SEND_SOL		5
++#define I40IW_OP_TYPE_SEND_SOL_INV	6
++#define I40IW_OP_TYPE_REC		7
++#define I40IW_OP_TYPE_BIND_MW		8
++#define I40IW_OP_TYPE_FAST_REG_NSMR	9
++#define I40IW_OP_TYPE_INV_STAG		10
++#define I40IW_OP_TYPE_RDMA_READ_INV_STAG 11
++#define I40IW_OP_TYPE_NOP		12
 +
-+enum i40iw_status_code i40iw_vchnl_vf_get_pe_stats(struct i40iw_sc_dev *dev,
-+						   struct i40iw_dev_hw_stats *hw_stats);
++enum i40iw_completion_status {
++	I40IW_COMPL_STATUS_SUCCESS = 0,
++	I40IW_COMPL_STATUS_FLUSHED,
++	I40IW_COMPL_STATUS_INVALID_WQE,
++	I40IW_COMPL_STATUS_QP_CATASTROPHIC,
++	I40IW_COMPL_STATUS_REMOTE_TERMINATION,
++	I40IW_COMPL_STATUS_INVALID_STAG,
++	I40IW_COMPL_STATUS_BASE_BOUND_VIOLATION,
++	I40IW_COMPL_STATUS_ACCESS_VIOLATION,
++	I40IW_COMPL_STATUS_INVALID_PD_ID,
++	I40IW_COMPL_STATUS_WRAP_ERROR,
++	I40IW_COMPL_STATUS_STAG_INVALID_PDID,
++	I40IW_COMPL_STATUS_RDMA_READ_ZERO_ORD,
++	I40IW_COMPL_STATUS_QP_NOT_PRIVLEDGED,
++	I40IW_COMPL_STATUS_STAG_NOT_INVALID,
++	I40IW_COMPL_STATUS_INVALID_PHYS_BUFFER_SIZE,
++	I40IW_COMPL_STATUS_INVALID_PHYS_BUFFER_ENTRY,
++	I40IW_COMPL_STATUS_INVALID_FBO,
++	I40IW_COMPL_STATUS_INVALID_LENGTH,
++	I40IW_COMPL_STATUS_INVALID_ACCESS,
++	I40IW_COMPL_STATUS_PHYS_BUFFER_LIST_TOO_LONG,
++	I40IW_COMPL_STATUS_INVALID_VIRT_ADDRESS,
++	I40IW_COMPL_STATUS_INVALID_REGION,
++	I40IW_COMPL_STATUS_INVALID_WINDOW,
++	I40IW_COMPL_STATUS_INVALID_TOTAL_LENGTH
++};
++
++enum i40iw_completion_notify {
++	IW_CQ_COMPL_EVENT = 0,
++	IW_CQ_COMPL_SOLICITED = 1
++};
++
++struct i40iw_post_send {
++	i40iw_sgl sg_list;
++	u8 num_sges;
++};
++
++struct i40iw_post_inline_send {
++	void *data;
++	u32 len;
++};
++
++struct i40iw_post_send_w_inv {
++	i40iw_sgl sg_list;
++	u32 num_sges;
++	i40iw_stag remote_stag_to_inv;
++};
++
++struct i40iw_post_inline_send_w_inv {
++	void *data;
++	u32 len;
++	i40iw_stag remote_stag_to_inv;
++};
++
++struct i40iw_rdma_write {
++	i40iw_sgl lo_sg_list;
++	u8 num_lo_sges;
++	struct i40iw_sge rem_addr;
++};
++
++struct i40iw_inline_rdma_write {
++	void *data;
++	u32 len;
++	struct i40iw_sge rem_addr;
++};
++
++struct i40iw_rdma_read {
++	struct i40iw_sge lo_addr;
++	struct i40iw_sge rem_addr;
++};
++
++struct i40iw_bind_window {
++	i40iw_stag mr_stag;
++	u64 bind_length;
++	void *va;
++	enum i40iw_addressing_type addressing_type;
++	bool enable_reads;
++	bool enable_writes;
++	i40iw_stag mw_stag;
++};
++
++struct i40iw_inv_local_stag {
++	i40iw_stag target_stag;
++};
++
++struct i40iw_post_sq_info {
++	u64 wr_id;
++	u8 op_type;
++	bool signaled;
++	bool read_fence;
++	bool local_fence;
++	bool inline_data;
++	bool defer_flag;
++	union {
++		struct i40iw_post_send send;
++		struct i40iw_post_send send_w_sol;
++		struct i40iw_post_send_w_inv send_w_inv;
++		struct i40iw_post_send_w_inv send_w_sol_inv;
++		struct i40iw_rdma_write rdma_write;
++		struct i40iw_rdma_read rdma_read;
++		struct i40iw_rdma_read rdma_read_inv;
++		struct i40iw_bind_window bind_window;
++		struct i40iw_inv_local_stag inv_local_stag;
++		struct i40iw_inline_rdma_write inline_rdma_write;
++		struct i40iw_post_inline_send inline_send;
++		struct i40iw_post_inline_send inline_send_w_sol;
++		struct i40iw_post_inline_send_w_inv inline_send_w_inv;
++		struct i40iw_post_inline_send_w_inv inline_send_w_sol_inv;
++	} op;
++};
++
++struct i40iw_post_rq_info {
++	u64 wr_id;
++	i40iw_sgl sg_list;
++	u32 num_sges;
++};
++
++struct i40iw_cq_poll_info {
++	u64 wr_id;
++	i40iw_qp_handle qp_handle;
++	u32 bytes_xfered;
++	u32 tcp_seq_num;
++	u32 qp_id;
++	i40iw_stag inv_stag;
++	enum i40iw_completion_status comp_status;
++	u16 major_err;
++	u16 minor_err;
++	u8 op_type;
++	bool stag_invalid_set;
++	bool push_dropped;
++	bool error;
++	bool is_srq;
++	bool solicited_event;
++};
++
++struct i40iw_qp_uk_ops {
++	void (*iw_qp_post_wr)(struct i40iw_qp_uk *);
++	void (*iw_qp_ring_push_db)(struct i40iw_qp_uk *, u32);
++	enum i40iw_status_code (*iw_rdma_write)(struct i40iw_qp_uk *,
++						struct i40iw_post_sq_info *, bool);
++	enum i40iw_status_code (*iw_rdma_read)(struct i40iw_qp_uk *,
++					       struct i40iw_post_sq_info *, bool, bool);
++	enum i40iw_status_code (*iw_send)(struct i40iw_qp_uk *,
++					  struct i40iw_post_sq_info *, u32, bool);
++	enum i40iw_status_code (*iw_inline_rdma_write)(struct i40iw_qp_uk *,
++						       struct i40iw_post_sq_info *, bool);
++	enum i40iw_status_code (*iw_inline_send)(struct i40iw_qp_uk *,
++						 struct i40iw_post_sq_info *, u32, bool);
++	enum i40iw_status_code (*iw_stag_local_invalidate)(struct i40iw_qp_uk *,
++							   struct i40iw_post_sq_info *, bool);
++	enum i40iw_status_code (*iw_mw_bind)(struct i40iw_qp_uk *,
++					     struct i40iw_post_sq_info *, bool);
++	enum i40iw_status_code (*iw_post_receive)(struct i40iw_qp_uk *,
++						  struct i40iw_post_rq_info *);
++	enum i40iw_status_code (*iw_post_nop)(struct i40iw_qp_uk *, u64, bool, bool);
++};
++
++struct i40iw_cq_ops {
++	enum i40iw_status_code (*iw_cq_request_notification)(struct i40iw_cq_uk *,
++							     enum i40iw_completion_notify);
++	enum i40iw_status_code (*iw_cq_poll_completion)(struct i40iw_cq_uk *,
++							struct i40iw_cq_poll_info *, bool);
++	enum i40iw_status_code (*iw_cq_post_entries)(struct i40iw_cq_uk *, u8 count);
++	enum i40iw_status_code (*iw_cq_clean)(void *, struct i40iw_cq_uk *);
++};
++
++struct i40iw_dev_uk;
++
++struct i40iw_device_uk_ops {
++	enum i40iw_status_code (*iwarp_cq_uk_init)(struct i40iw_cq_uk *,
++						   struct i40iw_cq_uk_init_info *);
++	enum i40iw_status_code (*iwarp_qp_uk_init)(struct i40iw_qp_uk *,
++						   struct i40iw_qp_uk_init_info *);
++};
++
++struct i40iw_dev_uk {
++	struct i40iw_device_uk_ops ops_uk;
++};
++
++struct i40iw_sq_uk_wr_trk_info {
++	u64 wrid;
++	u64 wr_len;
++};
++
++struct i40iw_qp_uk {
++	u64 *sq_base;
++	u64 *rq_base;
++	u32 __iomem *wqe_alloc_reg;
++	struct i40iw_sq_uk_wr_trk_info *sq_wrtrk_array;
++	u64 *rq_wrid_array;
++	u64 *shadow_area;
++	u32 *push_db;
++	u64 *push_wqe;
++	struct i40iw_ring sq_ring;
++	struct i40iw_ring rq_ring;
++	struct i40iw_ring initial_ring;
++	u32 qp_id;
++	u32 sq_size;
++	u32 rq_size;
++	struct i40iw_qp_uk_ops ops;
++	bool use_srq;
++	u8 swqe_polarity;
++	u8 swqe_polarity_deferred;
++	u8 rwqe_polarity;
++	u8 rq_wqe_size;
++	u8 rq_wqe_size_multiplier;
++	u8 max_sq_frag_cnt;
++	u8 max_rq_frag_cnt;
++	bool deferred_flag;
++};
++
++struct i40iw_cq_uk {
++	struct i40iw_cqe *cq_base;
++	u32 __iomem *cqe_alloc_reg;
++	u64 *shadow_area;
++	u32 cq_id;
++	u32 cq_size;
++	struct i40iw_ring cq_ring;
++	u8 polarity;
++	bool avoid_mem_cflct;
++
++	struct i40iw_cq_ops ops;
++};
++
++struct i40iw_qp_uk_init_info {
++	u64 *sq;
++	u64 *rq;
++	u32 __iomem *wqe_alloc_reg;
++	u64 *shadow_area;
++	struct i40iw_sq_uk_wr_trk_info *sq_wrtrk_array;
++	u64 *rq_wrid_array;
++	u32 *push_db;
++	u64 *push_wqe;
++	u32 qp_id;
++	u32 sq_size;
++	u32 rq_size;
++	u8 max_sq_frag_cnt;
++	u8 max_rq_frag_cnt;
++
++};
++
++struct i40iw_cq_uk_init_info {
++	u32 __iomem *cqe_alloc_reg;
++	struct i40iw_cqe *cq_base;
++	u64 *shadow_area;
++	u32 cq_size;
++	u32 cq_id;
++	bool avoid_mem_cflct;
++};
++
++void i40iw_device_init_uk(struct i40iw_dev_uk *dev);
++
++void i40iw_qp_post_wr(struct i40iw_qp_uk *qp);
++u64 *i40iw_qp_get_next_send_wqe(struct i40iw_qp_uk *qp, u32 *wqe_idx,
++				u8 wqe_size);
++u64 *i40iw_qp_get_next_recv_wqe(struct i40iw_qp_uk *qp, u32 *wqe_idx);
++u64 *i40iw_qp_get_next_srq_wqe(struct i40iw_srq_uk *srq, u32 *wqe_idx);
++
++enum i40iw_status_code i40iw_cq_uk_init(struct i40iw_cq_uk *cq,
++					struct i40iw_cq_uk_init_info *info);
++enum i40iw_status_code i40iw_qp_uk_init(struct i40iw_qp_uk *qp,
++					struct i40iw_qp_uk_init_info *info);
++
++enum i40iw_status_code i40iw_clean_cq(void *queue, struct i40iw_cq_uk *cq);
++enum i40iw_status_code i40iw_nop(struct i40iw_qp_uk *qp, u64 wr_id,
++				 bool signaled, bool post_sq);
++enum i40iw_status_code i40iw_fragcnt_to_wqesize_sq(u8 frag_cnt, u8 *wqe_size);
++enum i40iw_status_code i40iw_fragcnt_to_wqesize_rq(u8 frag_cnt, u8 *wqe_size);
++enum i40iw_status_code i40iw_inline_data_size_to_wqesize(u32 data_size,
++							 u8 *wqe_size);
++enum i40iw_status_code i40iw_get_wqe_shift(u32 wqdepth, u8 sge, u8 *shift);
 +#endif
 -- 
 2.5.3
