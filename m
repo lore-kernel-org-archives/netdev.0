@@ -1,108 +1,99 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: add IPV6_HDRINCL option for raw sockets
-Date: Wed, 16 Dec 2015 17:22:47 +0100
-Message-ID: <1450282967-3184-1-git-send-email-hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39086 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753192AbbLPQWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 11:22:54 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9A9D620C91
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 11:22:53 -0500 (EST)
-Received: from z.localhost.localdomain (unknown [217.192.177.51])
-	by mail.messagingengine.com (Postfix) with ESMTPA id 19BD4680133
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 11:22:52 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Use simple parser for IPv4 and v6 headers
+Date: Wed, 16 Dec 2015 10:03:42 -0800
+Message-ID: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: driverdev-devel@linuxdriverproject.org, haiyangz@microsoft.com,
+ olaf@aepfle.de, linux-kernel@vger.kernel.org
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Same as in Windows, we miss IPV6_HDRINCL for SOL_IPV6 and SOL_RAW.
-The SOL_IP/IP_HDRINCL is not available for IPv6 sockets.
+To avoid performance overhead when using skb_flow_dissect_flow_keys(),
+we switch to the simple parsers to get the IP and port numbers.
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Performance comparison: throughput (Gbps):
+Number of connections, before patch, after patch
+1			8.56		10.18
+4			11.17		14.07
+16			12.21		21.78
+64			18.71		32.08
+256			15.92		26.32
+1024			8.41		15.49
+3000			7.82		11.58
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Tested-by: Simon Xiao <sixiao@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- include/uapi/linux/in6.h |  1 +
- net/ipv6/raw.c           | 20 ++++++++++++++++----
- 2 files changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c |   38 +++++++++++++++++++++++++++++---------
+ 1 files changed, 29 insertions(+), 9 deletions(-)
 
-diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-index 79b12b004ade03..318a4828bf98c2 100644
---- a/include/uapi/linux/in6.h
-+++ b/include/uapi/linux/in6.h
-@@ -196,6 +196,7 @@ struct in6_flowlabel_req {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1c8db9a..e28951f 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -237,20 +237,40 @@ static u32 comp_hash(u8 *key, int klen, void *data, int dlen)
  
- #define IPV6_IPSEC_POLICY	34
- #define IPV6_XFRM_POLICY	35
-+#define IPV6_HDRINCL		36
- #endif
+ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+ {
+-	struct flow_keys flow;
++	struct iphdr *iphdr;
++	struct ipv6hdr *ipv6hdr;
++	__be32 dbuf[9];
+ 	int data_len;
  
- /*
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 99140986e88716..fa59dd7a427e88 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -972,6 +972,11 @@ static int do_rawv6_setsockopt(struct sock *sk, int level, int optname,
- 		return -EFAULT;
+-	if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
+-	    !(flow.basic.n_proto == htons(ETH_P_IP) ||
+-	      flow.basic.n_proto == htons(ETH_P_IPV6)))
++	if (eth_hdr(skb)->h_proto != htons(ETH_P_IP) &&
++	    eth_hdr(skb)->h_proto != htons(ETH_P_IPV6))
+ 		return false;
  
- 	switch (optname) {
-+	case IPV6_HDRINCL:
-+		if (sk->sk_type != SOCK_RAW)
-+			return -EINVAL;
-+		inet_sk(sk)->hdrincl = !!val;
-+		return 0;
- 	case IPV6_CHECKSUM:
- 		if (inet_sk(sk)->inet_num == IPPROTO_ICMPV6 &&
- 		    level == IPPROTO_IPV6) {
-@@ -1016,7 +1021,8 @@ static int rawv6_setsockopt(struct sock *sk, int level, int optname,
- 			return -EOPNOTSUPP;
- 		return rawv6_seticmpfilter(sk, level, optname, optval, optlen);
- 	case SOL_IPV6:
--		if (optname == IPV6_CHECKSUM)
-+		if (optname == IPV6_CHECKSUM ||
-+		    optname == IPV6_HDRINCL)
- 			break;
- 	default:
- 		return ipv6_setsockopt(sk, level, optname, optval, optlen);
-@@ -1037,7 +1043,8 @@ static int compat_rawv6_setsockopt(struct sock *sk, int level, int optname,
- 			return -EOPNOTSUPP;
- 		return rawv6_seticmpfilter(sk, level, optname, optval, optlen);
- 	case SOL_IPV6:
--		if (optname == IPV6_CHECKSUM)
-+		if (optname == IPV6_CHECKSUM ||
-+		    optname == IPV6_HDRINCL)
- 			break;
- 	default:
- 		return compat_ipv6_setsockopt(sk, level, optname,
-@@ -1057,6 +1064,9 @@ static int do_rawv6_getsockopt(struct sock *sk, int level, int optname,
- 		return -EFAULT;
+-	if (flow.basic.ip_proto == IPPROTO_TCP)
+-		data_len = 12;
+-	else
+-		data_len = 8;
++	iphdr = ip_hdr(skb);
++	ipv6hdr = ipv6_hdr(skb);
++
++	if (iphdr->version == 4) {
++		dbuf[0] = iphdr->saddr;
++		dbuf[1] = iphdr->daddr;
++		if (iphdr->protocol == IPPROTO_TCP) {
++			dbuf[2] = *(__be32 *)&tcp_hdr(skb)->source;
++			data_len = 12;
++		} else {
++			data_len = 8;
++		}
++	} else if (ipv6hdr->version == 6) {
++		memcpy(dbuf, &ipv6hdr->saddr, 32);
++		if (ipv6hdr->nexthdr == IPPROTO_TCP) {
++			dbuf[8] = *(__be32 *)&tcp_hdr(skb)->source;
++			data_len = 36;
++		} else {
++			data_len = 32;
++		}
++	} else {
++		return false;
++	}
  
- 	switch (optname) {
-+	case IPV6_HDRINCL:
-+		val = inet_sk(sk)->hdrincl;
-+		break;
- 	case IPV6_CHECKSUM:
- 		/*
- 		 * We allow getsockopt() for IPPROTO_IPV6-level
-@@ -1094,7 +1104,8 @@ static int rawv6_getsockopt(struct sock *sk, int level, int optname,
- 			return -EOPNOTSUPP;
- 		return rawv6_geticmpfilter(sk, level, optname, optval, optlen);
- 	case SOL_IPV6:
--		if (optname == IPV6_CHECKSUM)
-+		if (optname == IPV6_CHECKSUM ||
-+		    optname == IPV6_HDRINCL)
- 			break;
- 	default:
- 		return ipv6_getsockopt(sk, level, optname, optval, optlen);
-@@ -1115,7 +1126,8 @@ static int compat_rawv6_getsockopt(struct sock *sk, int level, int optname,
- 			return -EOPNOTSUPP;
- 		return rawv6_geticmpfilter(sk, level, optname, optval, optlen);
- 	case SOL_IPV6:
--		if (optname == IPV6_CHECKSUM)
-+		if (optname == IPV6_CHECKSUM ||
-+		    optname == IPV6_HDRINCL)
- 			break;
- 	default:
- 		return compat_ipv6_getsockopt(sk, level, optname,
+-	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
++	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, data_len);
+ 
+ 	return true;
+ }
 -- 
-2.5.0
+1.7.4.1
