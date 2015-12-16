@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: automatically enable stable privacy mode if
- stable_secret set
-Date: Tue, 15 Dec 2015 23:38:04 -0500 (EST)
-Message-ID: <20151215.233804.855487652290746503.davem@davemloft.net>
-References: <1450216752-18088-1-git-send-email-hannes@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] inet: tcp: fix inetpeer_set_addr_v4()
+Date: Tue, 15 Dec 2015 20:56:44 -0800
+Message-ID: <1450241804.8474.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bjorn@mork.no
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56736 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbbLPEiG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 23:38:06 -0500
-In-Reply-To: <1450216752-18088-1-git-send-email-hannes@stressinduktion.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35430 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbbLPE4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2015 23:56:46 -0500
+Received: by mail-pa0-f54.google.com with SMTP id hk6so17141027pad.2
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2015 20:56:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 15 Dec 2015 22:59:12 +0100
+From: Eric Dumazet <edumazet@google.com>
 
-> Bj=F8rn reported that while we switch all interfaces to privacy stabl=
-e mode
-> when setting the secret, we don't set this mode for new interfaces. T=
-his
-> does not make sense, so change this behaviour.
->=20
-> Fixes: 622c81d57b392cc ("ipv6: generation of stable privacy addresses=
- for link-local and autoconf")
-> Reported-by: Bj=F8rn Mork <bjorn@mork.no>
-> Cc: Bj=F8rn Mork <bjorn@mork.no>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+David Ahern added a vif field in the a4 part of inetpeer_addr struct.
 
-Agreed, the current behavior makes no sense at all.
+This broke IPv4 TCP fast open client side and more generally tcp metrics
+cache, because inetpeer_addr_cmp() is now comparing two u32 instead of
+one.
 
-Applied and queued up for -stable, thanks.
+inetpeer_set_addr_v4() needs to properly init vif field, otherwise
+the comparison result depends on uninitialized data.
+
+Fixes: 192132b9a034 ("net: Add support for VRFs to inetpeer cache")
+Reported-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ include/net/inetpeer.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+index 4a6009d4486b..235c7811a86a 100644
+--- a/include/net/inetpeer.h
++++ b/include/net/inetpeer.h
+@@ -78,6 +78,7 @@ void inet_initpeers(void) __init;
+ static inline void inetpeer_set_addr_v4(struct inetpeer_addr *iaddr, __be32 ip)
+ {
+ 	iaddr->a4.addr = ip;
++	iaddr->a4.vif = 0;
+ 	iaddr->family = AF_INET;
+ }
+ 
