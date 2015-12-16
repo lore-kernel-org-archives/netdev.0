@@ -1,44 +1,39 @@
-From: Faisal Latif <faisal.latif@intel.com>
-Subject: [PATCH 02/15] i40iw: add main, hdr, status
-Date: Wed, 16 Dec 2015 13:58:26 -0600
-Message-ID: <1450295919-17292-3-git-send-email-faisal.latif@intel.com>
+From: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 04/15] i40iw: add puda code
+Date: Wed, 16 Dec 2015 13:58:28 -0600
+Message-ID: <1450295919-17292-5-git-send-email-faisal.latif@intel.com>
 References: <1450295919-17292-1-git-send-email-faisal.latif@intel.com>
  <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, e1000-rdma@lists.sourceforge.net,
-	faisal.latif@intel.com
-To: dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:41311 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750823AbbLPT70 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 14:59:26 -0500
-In-Reply-To: <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ <1450295919-17292-3-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-4-git-send-email-faisal.latif@intel.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1450295919-17292-4-git-send-email-faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-i40iw_main.c contains routines for i40e <=> i40iw interface and setup.
-i40iw.h is header file for main device data structures.
-i40iw_status.h is for return status codes.
+i40iw_puda.[ch] are files to handle iwarp connection packets as
+well as exception packets over multiple privilege mode uda queues.
 
-Acked-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Faisal Latif <faisal.latif@intel.com>
+Acked-by: Anjali Singhai Jain <anjali.singhai-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Acked-by: Shannon Nelson <shannon.nelson-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/hw/i40iw/i40iw.h        |  573 +++++++++
- drivers/infiniband/hw/i40iw/i40iw_main.c   | 1905 ++++++++++++++++++++++++++++
- drivers/infiniband/hw/i40iw/i40iw_status.h |  100 ++
- 3 files changed, 2578 insertions(+)
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw.h
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw_main.c
- create mode 100644 drivers/infiniband/hw/i40iw/i40iw_status.h
+ drivers/infiniband/hw/i40iw/i40iw_puda.c | 1443 ++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/i40iw/i40iw_puda.h |  183 ++++
+ 2 files changed, 1626 insertions(+)
+ create mode 100644 drivers/infiniband/hw/i40iw/i40iw_puda.c
+ create mode 100644 drivers/infiniband/hw/i40iw/i40iw_puda.h
 
-diff --git a/drivers/infiniband/hw/i40iw/i40iw.h b/drivers/infiniband/hw/i40iw/i40iw.h
+diff --git a/drivers/infiniband/hw/i40iw/i40iw_puda.c b/drivers/infiniband/hw/i40iw/i40iw_puda.c
 new file mode 100644
-index 0000000..c048f06b
+index 0000000..8e628af
 --- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw.h
-@@ -0,0 +1,573 @@
++++ b/drivers/infiniband/hw/i40iw/i40iw_puda.c
+@@ -0,0 +1,1443 @@
 +/*******************************************************************************
 +*
 +* Copyright (c) 2015 Intel Corporation.  All rights reserved.
@@ -73,2462 +68,1421 @@ index 0000000..c048f06b
 +*
 +*******************************************************************************/
 +
-+#ifndef I40IW_IW_H
-+#define I40IW_IW_H
-+#include <linux/netdevice.h>
-+#include <linux/inetdevice.h>
-+#include <linux/spinlock.h>
-+#include <linux/kernel.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/workqueue.h>
-+#include <linux/slab.h>
-+#include <linux/io.h>
-+#include <linux/crc32c.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_verbs.h>
-+#include <rdma/ib_pack.h>
-+#include <rdma/rdma_cm.h>
-+#include <rdma/iw_cm.h>
-+#include <rdma/iw_portmap.h>
-+#include <rdma/rdma_netlink.h>
-+
-+#include "i40iw_status.h"
 +#include "i40iw_osdep.h"
-+#include "i40iw_d.h"
++#include "i40iw_register.h"
++#include "i40iw_status.h"
 +#include "i40iw_hmc.h"
 +
-+#include <i40e_client.h>
++#include "i40iw_d.h"
 +#include "i40iw_type.h"
 +#include "i40iw_p.h"
-+#include "i40iw_ucontext.h"
-+#include "i40iw_pble.h"
-+#include "i40iw_verbs.h"
-+#include "i40iw_cm.h"
-+#include "i40iw_user.h"
 +#include "i40iw_puda.h"
 +
-+#define I40IW_FW_VERSION  2
-+#define I40IW_HW_VERSION  2
-+
-+#define I40IW_ARP_ADD     1
-+#define I40IW_ARP_DELETE  2
-+#define I40IW_ARP_RESOLVE 3
-+
-+#define I40IW_MACIP_ADD     1
-+#define I40IW_MACIP_DELETE  2
-+
-+#define IW_CCQ_SIZE         (I40IW_CQP_SW_SQSIZE_2048 + 1)
-+#define IW_CEQ_SIZE         2048
-+#define IW_AEQ_SIZE         2048
-+
-+#define RX_BUF_SIZE            (1536 + 8)
-+#define IW_REG0_SIZE           (4 * 1024)
-+#define IW_TX_TIMEOUT          (6 * HZ)
-+#define IW_FIRST_QPN           1
-+#define IW_SW_CONTEXT_ALIGN    1024
-+
-+#define MAX_DPC_ITERATIONS		128
-+
-+#define I40IW_EVENT_TIMEOUT		100000
-+#define I40IW_VCHNL_EVENT_TIMEOUT	100000
-+
-+#define	I40IW_NO_VLAN			0xffff
-+#define	I40IW_NO_QSET			0xffff
-+
-+/* access to mcast filter list */
-+#define IW_ADD_MCAST false
-+#define IW_DEL_MCAST true
-+
-+#define I40IW_DRV_OPT_ENABLE_MPA_VER_0     0x00000001
-+#define I40IW_DRV_OPT_DISABLE_MPA_CRC      0x00000002
-+#define I40IW_DRV_OPT_DISABLE_FIRST_WRITE  0x00000004
-+#define I40IW_DRV_OPT_DISABLE_INTF         0x00000008
-+#define I40IW_DRV_OPT_ENABLE_MSI           0x00000010
-+#define I40IW_DRV_OPT_DUAL_LOGICAL_PORT    0x00000020
-+#define I40IW_DRV_OPT_NO_INLINE_DATA       0x00000080
-+#define I40IW_DRV_OPT_DISABLE_INT_MOD      0x00000100
-+#define I40IW_DRV_OPT_DISABLE_VIRT_WQ      0x00000200
-+#define I40IW_DRV_OPT_ENABLE_PAU           0x00000400
-+#define I40IW_DRV_OPT_MCAST_LOGPORT_MAP    0x00000800
-+
-+#define IW_HMC_OBJ_TYPE_NUM ARRAY_SIZE(iw_hmc_obj_types)
-+#define IW_CFG_FPM_QP_COUNT		32768
-+
-+#define I40IW_MTU_TO_MSS		40
-+#define I40IW_DEFAULT_MSS		1460
-+
-+struct i40iw_cqp_compl_info {
-+	u32 op_ret_val;
-+	u16 maj_err_code;
-+	u16 min_err_code;
-+	bool error;
-+	u8 op_code;
-+};
-+
-+#define CHECK_CQP_REQ(cqp_request)	\
-+{					\
-+	if (!cqp_request) {		\
-+		i40iw_pr_err("error cqp_request memory\n");\
-+		status = I40IW_ERR_NO_MEMORY;		\
-+	}						\
-+}
-+
-+#define i40iw_pr_err(fmt, args ...) pr_err("%s: error " fmt, __func__, ## args)
-+
-+#define i40iw_pr_info(fmt, args ...) pr_info("%s: " fmt, __func__, ## args)
-+
-+#define i40iw_pr_warn(fmt, args ...) pr_warn("%s: " fmt, __func__, ## args)
-+
-+struct i40iw_cqp_request {
-+	struct cqp_commands_info info;
-+	wait_queue_head_t waitq;
-+	struct list_head list;
-+	atomic_t refcount;
-+	void (*callback_fcn)(struct i40iw_cqp_request*, u32);
-+	void *param;
-+	struct i40iw_cqp_compl_info compl_info;
-+	u8 waiting:1;
-+	u8 request_done:1;
-+	u8 dynamic:1;
-+	u8 polling:1;
-+	u8 rsvd:3;
-+};
-+
-+struct i40iw_cqp {
-+	struct i40iw_sc_cqp sc_cqp;
-+	spinlock_t req_lock; /*cqp request list */
-+	wait_queue_head_t waitq;
-+	struct i40iw_dma_mem sq;
-+	struct i40iw_dma_mem host_ctx;
-+	u64 *scratch_array;
-+	struct i40iw_cqp_request *cqp_requests;
-+	struct list_head cqp_avail_reqs;
-+	struct list_head cqp_pending_reqs;
-+};
-+
-+struct i40iw_device;
-+
-+struct i40iw_ccq {
-+	struct i40iw_sc_cq sc_cq;
-+	spinlock_t lock; /* ccq control */
-+	wait_queue_head_t waitq;
-+	struct i40iw_dma_mem mem_cq;
-+	struct i40iw_dma_mem shadow_area;
-+};
-+
-+struct i40iw_ceq {
-+	struct i40iw_sc_ceq sc_ceq;
-+	struct i40iw_dma_mem mem;
-+	u32 irq;
-+	u32 msix_idx;
-+	struct i40iw_device *iwdev;
-+	struct tasklet_struct dpc_tasklet;
-+};
-+
-+struct i40iw_aeq {
-+	struct i40iw_sc_aeq sc_aeq;
-+	struct i40iw_dma_mem mem;
-+};
-+
-+struct i40iw_arp_entry {
-+	u32 ip_addr[4];
-+	u8 mac_addr[ETH_ALEN];
-+};
-+
-+enum init_completion_state {
-+	INVALID_STATE = 0,
-+	INITIAL_STATE,
-+	CQP_CREATED,
-+	HMC_OBJS_CREATED,
-+	PBLE_CHUNK_MEM,
-+	CCQ_CREATED,
-+	CEQ_CREATED,
-+	AEQ_CREATED,
-+	ILQ_CREATED,
-+	IEQ_CREATED,
-+	INET_NOTIFIER,
-+	IP_ADDR_REGISTERED,
-+	OFA_DEV_REGISTERED
-+};
-+
-+struct i40iw_msix_vector {
-+	u32 idx;
-+	u32 irq;
-+	u32 cpu_affinity;
-+	u32 ceq_id;
-+};
-+
-+#define I40IW_MSIX_TABLE_SIZE   65
-+
-+struct virtchnl_work {
-+	struct work_struct work;
-+	union {
-+		struct i40iw_cqp_request *cqp_request;
-+		struct i40iw_virtchnl_work_info work_info;
-+	};
-+};
-+
-+struct i40e_qvlist_info;
-+
-+struct i40iw_device {
-+	struct i40iw_ib_device *iwibdev;
-+	struct net_device *netdev;
-+	wait_queue_head_t vchnl_waitq;
-+	struct i40iw_sc_dev sc_dev;
-+	struct i40e_info *ldev;
-+	struct i40e_client *client;
-+	struct i40iw_hw hw;
-+	struct i40iw_cm_core cm_core;
-+	unsigned long *mem_resources;
-+	unsigned long *allocated_qps;
-+	unsigned long *allocated_cqs;
-+	unsigned long *allocated_mrs;
-+	unsigned long *allocated_pds;
-+	unsigned long *allocated_arps;
-+	struct i40iw_qp **qp_table;
-+	bool msix_shared;
-+	u32 msix_count;
-+	struct i40iw_msix_vector *iw_msixtbl;
-+	struct i40e_qvlist_info *iw_qvlist;
-+
-+	struct i40iw_hmc_pble_rsrc *pble_rsrc;
-+	struct i40iw_arp_entry *arp_table;
-+	struct i40iw_cqp cqp;
-+	struct i40iw_ccq ccq;
-+	u32 ceqs_count;
-+	struct i40iw_ceq *ceqlist;
-+	struct i40iw_aeq aeq;
-+	u32 arp_table_size;
-+	u32 next_arp_index;
-+	spinlock_t resource_lock; /* hw resource access */
-+	u32 vendor_id;
-+	u32 vendor_part_id;
-+	u32 of_device_registered;
-+
-+	u32 device_cap_flags;
-+	unsigned long db_start;
-+	u8 resource_profile;
-+	u8 max_rdma_vfs;
-+	u8 max_enabled_vfs;
-+	u8 max_sge;
-+	u8 iw_status;
-+	u8 send_term_ok;
-+	bool push_mode;		/* Initialized from parameter passed to driver */
-+
-+	/* x710 specific */
-+	struct mutex pbl_mutex;
-+	struct tasklet_struct dpc_tasklet;
-+	struct workqueue_struct *virtchnl_wq;
-+	struct virtchnl_work virtchnl_w[I40IW_MAX_PE_ENABLED_VF_COUNT];
-+	struct i40iw_dma_mem obj_mem;
-+	struct i40iw_dma_mem obj_next;
-+	u8 *hmc_info_mem;
-+	u32 sd_type;
-+	struct workqueue_struct *param_wq;
-+	atomic_t params_busy;
-+	u32 mss;
-+	enum init_completion_state init_state;
-+	u16 mac_ip_table_idx;
-+	atomic_t vchnl_msgs;
-+	u32 max_mr;
-+	u32 max_qp;
-+	u32 max_cq;
-+	u32 max_pd;
-+	u32 next_qp;
-+	u32 next_cq;
-+	u32 next_pd;
-+	u32 max_mr_size;
-+	u32 max_qp_wr;
-+	u32 max_cqe;
-+	u32 mr_stagmask;
-+	u32 mpa_version;
-+	bool dcb;
-+};
-+
-+struct i40iw_ib_device {
-+	struct ib_device ibdev;
-+	struct i40iw_device *iwdev;
-+};
-+
-+struct i40iw_handler {
-+	struct list_head list;
-+	struct i40e_client *client;
-+	struct i40iw_device device;
-+	struct i40e_info ldev;
-+};
-+
++static void i40iw_ieq_receive(struct i40iw_sc_dev *dev,
++			      struct i40iw_puda_buf *buf);
++static void i40iw_ieq_tx_compl(struct i40iw_sc_dev *dev, void *sqwrid);
++static void i40iw_ilq_putback_rcvbuf(struct i40iw_sc_qp *qp, u32 wqe_idx);
++static enum i40iw_status_code i40iw_puda_replenish_rq(struct i40iw_puda_rsrc
++						      *rsrc, bool initial);
 +/**
-+ * to_iwdev - get device
-+ * @ibdev: ib device
-+ **/
-+static inline struct i40iw_device *to_iwdev(struct ib_device *ibdev)
++ * i40iw_puda_get_listbuf - get buffer from puda list
++ * @list: list to use for buffers (ILQ or IEQ)
++ */
++static struct i40iw_puda_buf *i40iw_puda_get_listbuf(struct list_head *list)
 +{
-+	return container_of(ibdev, struct i40iw_ib_device, ibdev)->iwdev;
-+}
++	struct i40iw_puda_buf *buf = NULL;
 +
-+/**
-+ * to_ucontext - get user context
-+ * @ibucontext: ib user context
-+ **/
-+static inline struct i40iw_ucontext *to_ucontext(struct ib_ucontext *ibucontext)
-+{
-+	return container_of(ibucontext, struct i40iw_ucontext, ibucontext);
-+}
-+
-+/**
-+ * to_iwpd - get protection domain
-+ * @ibpd: ib pd
-+ **/
-+static inline struct i40iw_pd *to_iwpd(struct ib_pd *ibpd)
-+{
-+	return container_of(ibpd, struct i40iw_pd, ibpd);
-+}
-+
-+/**
-+ * to_iwmr - get device memory region
-+ * @ibdev: ib memory region
-+ **/
-+static inline struct i40iw_mr *to_iwmr(struct ib_mr *ibmr)
-+{
-+	return container_of(ibmr, struct i40iw_mr, ibmr);
-+}
-+
-+/**
-+ * to_iwmr_from_ibfmr - get device memory region
-+ * @ibfmr: ib fmr
-+ **/
-+static inline struct i40iw_mr *to_iwmr_from_ibfmr(struct ib_fmr *ibfmr)
-+{
-+	return container_of(ibfmr, struct i40iw_mr, ibfmr);
-+}
-+
-+/**
-+ * to_iwmw - get device memory window
-+ * @ibmw: ib memory window
-+ **/
-+static inline struct i40iw_mr *to_iwmw(struct ib_mw *ibmw)
-+{
-+	return container_of(ibmw, struct i40iw_mr, ibmw);
-+}
-+
-+/**
-+ * to_iwcq - get completion queue
-+ * @ibcq: ib cqdevice
-+ **/
-+static inline struct i40iw_cq *to_iwcq(struct ib_cq *ibcq)
-+{
-+	return container_of(ibcq, struct i40iw_cq, ibcq);
-+}
-+
-+/**
-+ * to_iwqp - get device qp
-+ * @ibqp: ib qp
-+ **/
-+static inline struct i40iw_qp *to_iwqp(struct ib_qp *ibqp)
-+{
-+	return container_of(ibqp, struct i40iw_qp, ibqp);
-+}
-+
-+/* i40iw.c */
-+void i40iw_add_ref(struct ib_qp *);
-+void i40iw_rem_ref(struct ib_qp *);
-+struct ib_qp *i40iw_get_qp(struct ib_device *, int);
-+
-+void i40iw_flush_wqes(struct i40iw_device *iwdev,
-+		      struct i40iw_qp *qp);
-+
-+void i40iw_manage_arp_cache(struct i40iw_device *iwdev,
-+			    unsigned char *mac_addr,
-+			    __be32 *ip_addr,
-+			    bool ipv4,
-+			    u32 action);
-+
-+int i40iw_manage_apbvt(struct i40iw_device *iwdev,
-+		       u16 accel_local_port,
-+		       bool add_port);
-+
-+struct i40iw_cqp_request *i40iw_get_cqp_request(struct i40iw_cqp *cqp, bool wait);
-+void i40iw_free_cqp_request(struct i40iw_cqp *cqp, struct i40iw_cqp_request *cqp_request);
-+void i40iw_put_cqp_request(struct i40iw_cqp *cqp, struct i40iw_cqp_request *cqp_request);
-+
-+/**
-+ * i40iw_alloc_resource - allocate a resource
-+ * @iwdev: device pointer
-+ * @resource_array: resource bit array:
-+ * @max_resources: maximum resource number
-+ * @req_resources_num: Allocated resource number
-+ * @next: next free id
-+ **/
-+static inline int i40iw_alloc_resource(struct i40iw_device *iwdev,
-+				       unsigned long *resource_array,
-+				       u32 max_resources,
-+				       u32 *req_resource_num,
-+				       u32 *next)
-+{
-+	u32 resource_num;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&iwdev->resource_lock, flags);
-+	resource_num = find_next_zero_bit(resource_array, max_resources, *next);
-+	if (resource_num >= max_resources) {
-+		resource_num = find_first_zero_bit(resource_array, max_resources);
-+		if (resource_num >= max_resources) {
-+			spin_unlock_irqrestore(&iwdev->resource_lock, flags);
-+			return -EOVERFLOW;
-+		}
++	if (!list_empty(list)) {
++		buf = (struct i40iw_puda_buf *)list->next;
++		list_del((struct list_head *)&buf->list);
 +	}
-+	set_bit(resource_num, resource_array);
-+	*next = resource_num + 1;
-+	if (*next == max_resources)
-+		*next = 0;
-+	spin_unlock_irqrestore(&iwdev->resource_lock, flags);
-+	*req_resource_num = resource_num;
-+
-+	return 0;
++	return buf;
 +}
 +
 +/**
-+ * i40iw_is_resource_allocated - detrmine if resource is
-+ * allocated
-+ * @iwdev: device pointer
-+ * @resource_array: resource array for the resource_num
-+ * @resource_num: resource number to check
-+ **/
-+static inline bool i40iw_is_resource_allocated(struct i40iw_device *iwdev,
-+					       unsigned long *resource_array,
-+					       u32 resource_num)
-+{
-+	bool bit_is_set;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&iwdev->resource_lock, flags);
-+
-+	bit_is_set = test_bit(resource_num, resource_array);
-+	spin_unlock_irqrestore(&iwdev->resource_lock, flags);
-+
-+	return bit_is_set;
-+}
-+
-+/**
-+ * i40iw_free_resource - free a resource
-+ * @iwdev: device pointer
-+ * @resource_array: resource array for the resource_num
-+ * @resource_num: resource number to free
-+ **/
-+static inline void i40iw_free_resource(struct i40iw_device *iwdev,
-+				       unsigned long *resource_array,
-+				       u32 resource_num)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&iwdev->resource_lock, flags);
-+	clear_bit(resource_num, resource_array);
-+	spin_unlock_irqrestore(&iwdev->resource_lock, flags);
-+}
-+
-+/**
-+ * to_iwhdl - Get the handler from the device pointer
-+ * @iwdev: device pointer
-+ **/
-+static inline struct i40iw_handler *to_iwhdl(struct i40iw_device *iw_dev)
-+{
-+	return container_of(iw_dev, struct i40iw_handler, device);
-+}
-+
-+struct i40iw_handler *i40iw_find_netdev(struct net_device *netdev);
-+
-+/**
-+ * iw_init_resources -
++ * i40iw_puda_get_bufpool - return buffer from resource
++ * @rsrc: resource to use for buffer
 + */
-+u32 i40iw_initialize_hw_resources(struct i40iw_device *iwdev);
-+
-+int i40iw_register_ofa_device(struct i40iw_device *iwdev);
-+void i40iw_port_ibevent(struct i40iw_device *iwdev);
-+int i40iw_cm_disconn(struct i40iw_qp *);
-+void i40iw_cm_disconn_worker(void *);
-+int mini_cm_recv_pkt(struct i40iw_cm_core *, struct i40iw_device *,
-+		     struct sk_buff *);
-+
-+enum i40iw_status_code i40iw_handle_cqp_op(struct i40iw_device *iwdev,
-+					   struct i40iw_cqp_request *cqp_request);
-+enum i40iw_status_code i40iw_add_mac_addr(struct i40iw_device *iwdev,
-+					  u8 *mac_addr, u8 *mac_index);
-+int i40iw_modify_qp(struct ib_qp *, struct ib_qp_attr *, int, struct ib_udata *);
-+
-+void i40iw_rem_pdusecount(struct i40iw_pd *iwpd, struct i40iw_device *iwdev);
-+void i40iw_add_pdusecount(struct i40iw_pd *iwpd);
-+void i40iw_hw_modify_qp(struct i40iw_device *iwdev, struct i40iw_qp *iwqp,
-+			struct i40iw_modify_qp_info *info, bool wait);
-+
-+enum i40iw_status_code i40iw_manage_qhash(struct i40iw_device *iwdev,
-+					  struct i40iw_cm_info *cminfo,
-+					  enum i40iw_quad_entry_type etype,
-+					  enum i40iw_quad_hash_manage_type mtype,
-+					  void *cmnode,
-+					  bool wait);
-+void i40iw_receive_ilq(struct i40iw_sc_dev *dev, struct i40iw_puda_buf *rbuf);
-+void i40iw_free_sqbuf(struct i40iw_sc_dev *dev, void *bufp);
-+void i40iw_free_qp_resources(struct i40iw_device *iwdev,
-+			     struct i40iw_qp *iwqp,
-+			     u32 qp_num);
-+enum i40iw_status_code i40iw_obj_aligned_mem(struct i40iw_device *iwdev,
-+					     struct i40iw_dma_mem *memptr,
-+					     u32 size, u32 mask);
-+
-+void i40iw_request_reset(struct i40iw_device *iwdev);
-+void i40iw_destroy_ofa_device(struct i40iw_ib_device *iwibdev);
-+void i40iw_setup_cm_core(struct i40iw_device *iwdev);
-+void i40iw_cleanup_cm_core(struct i40iw_cm_core *cm_core);
-+void i40iw_process_ceq(struct i40iw_device *, struct i40iw_ceq *iwceq);
-+void i40iw_process_aeq(struct i40iw_device *);
-+void i40iw_next_iw_state(struct i40iw_qp *iwqp,
-+			 u8 state, u8 del_hash,
-+			 u8 term, u8 term_len);
-+int i40iw_send_syn(struct i40iw_cm_node *cm_node, u32 sendack);
-+struct i40iw_cm_node *i40iw_find_node(struct i40iw_cm_core *cm_core,
-+				      u16 rem_port,
-+				      u32 *rem_addr,
-+				      u16 loc_port,
-+				      u32 *loc_addr,
-+				      bool add_refcnt);
-+
-+enum i40iw_status_code i40iw_hw_flush_wqes(struct i40iw_device *iwdev,
-+					   struct i40iw_sc_qp *qp,
-+					   struct i40iw_qp_flush_info *info,
-+					   bool wait);
-+
-+void i40iw_copy_ip_ntohl(u32 *dst, u32 *src);
-+
-+int i40iw_inetaddr_event(struct notifier_block *notifier,
-+			 unsigned long event,
-+			 void *ptr);
-+int i40iw_inet6addr_event(struct notifier_block *notifier,
-+			  unsigned long event,
-+			  void *ptr);
-+int i40iw_net_event(struct notifier_block *notifier,
-+		    unsigned long event,
-+		    void *ptr);
-+
-+#endif
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_main.c b/drivers/infiniband/hw/i40iw/i40iw_main.c
-new file mode 100644
-index 0000000..efe7217
---- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw_main.c
-@@ -0,0 +1,1905 @@
-+/*******************************************************************************
-+*
-+* Copyright (c) 2015 Intel Corporation.  All rights reserved.
-+*
-+* This software is available to you under a choice of one of two
-+* licenses.  You may choose to be licensed under the terms of the GNU
-+* General Public License (GPL) Version 2, available from the file
-+* COPYING in the main directory of this source tree, or the
-+* OpenFabrics.org BSD license below:
-+*
-+*   Redistribution and use in source and binary forms, with or
-+*   without modification, are permitted provided that the following
-+*   conditions are met:
-+*
-+*    - Redistributions of source code must retain the above
-+*	copyright notice, this list of conditions and the following
-+*	disclaimer.
-+*
-+*    - Redistributions in binary form must reproduce the above
-+*	copyright notice, this list of conditions and the following
-+*	disclaimer in the documentation and/or other materials
-+*	provided with the distribution.
-+*
-+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+* NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+* BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+* ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+* SOFTWARE.
-+*
-+*******************************************************************************/
-+
-+/* MODULE_VERSION(DRV_VERSION); */
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/if_vlan.h>
-+#include <net/addrconf.h>
-+
-+#include "i40iw.h"
-+#include "i40iw_register.h"
-+#include <net/netevent.h>
-+#define CLIENT_IW_INTERFACE_VERSION_MAJOR 0
-+#define CLIENT_IW_INTERFACE_VERSION_MINOR 01
-+#define CLIENT_IW_INTERFACE_VERSION_BUILD 00
-+
-+#define DRV_VERSION_MAJOR 0
-+#define DRV_VERSION_MINOR 5
-+#define DRV_VERSION_BUILD 76
-+#define DRV_VERSION	__stringify(DRV_VERSION_MAJOR) "."		\
-+	__stringify(DRV_VERSION_MINOR) "." __stringify(DRV_VERSION_BUILD)
-+
-+static int push_mode;
-+module_param(push_mode, int, 0644);
-+MODULE_PARM_DESC(push_mode, "Low latency mode: 0=disabled (default), 1=enabled)");
-+
-+static int debug;
-+module_param(debug, int, 0644);
-+MODULE_PARM_DESC(debug, "debug flags: 0=disabled (default), 0x7fffffff=all");
-+
-+static int resource_profile;
-+module_param(resource_profile, int, 0644);
-+MODULE_PARM_DESC(resource_profile,
-+		 "Resource Profile: 0=no VF RDMA support (default), 1=Weighted VF, 2=Even Distribution");
-+
-+static int max_rdma_vfs = 32;
-+module_param(max_rdma_vfs, int, 0644);
-+MODULE_PARM_DESC(max_rdma_vfs, "Maximum VF count: 0-32 32=default");
-+static int mpa_version = 2;
-+module_param(mpa_version, int, 0644);
-+MODULE_PARM_DESC(mpa_version, "MPA version to be used in MPA Req/Resp 1 or 2");
-+
-+MODULE_AUTHOR("Intel Corporation, <e1000-rdma@lists.sourceforge.net>");
-+MODULE_DESCRIPTION("Intel(R) Ethernet Connection X722 iWARP RDMA Driver");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_VERSION(DRV_VERSION);
-+
-+static struct i40e_client i40iw_client;
-+static char i40iw_client_name[I40E_CLIENT_STR_LENGTH] = "i40iw";
-+
-+static LIST_HEAD(i40iw_handlers);
-+static spinlock_t i40iw_handler_lock;
-+
-+static enum i40iw_status_code i40iw_virtchnl_send(struct i40iw_sc_dev *dev,
-+						  u32 vf_id, u8 *msg, u16 len);
-+
-+static struct notifier_block i40iw_inetaddr_notifier = {
-+	.notifier_call = i40iw_inetaddr_event
-+};
-+
-+static struct notifier_block i40iw_inetaddr6_notifier = {
-+	.notifier_call = i40iw_inet6addr_event
-+};
-+
-+static struct notifier_block i40iw_net_notifier = {
-+	.notifier_call = i40iw_net_event
-+};
-+
-+static int i40iw_notifiers_registered;
-+
-+/* registered port mapper netlink callbacks */
-+static struct ibnl_client_cbs i40iw_nl_cb_table[] = {
-+	[RDMA_NL_IWPM_REG_PID] = {.dump = iwpm_register_pid_cb},
-+	[RDMA_NL_IWPM_ADD_MAPPING] = {.dump = iwpm_add_mapping_cb},
-+	[RDMA_NL_IWPM_QUERY_MAPPING] = {.dump = iwpm_add_and_query_mapping_cb},
-+	[RDMA_NL_IWPM_REMOTE_INFO] = {.dump = iwpm_remote_info_cb},
-+	[RDMA_NL_IWPM_HANDLE_ERR] = {.dump = iwpm_mapping_error_cb},
-+	[RDMA_NL_IWPM_MAPINFO] = {.dump = iwpm_mapping_info_cb},
-+	[RDMA_NL_IWPM_MAPINFO_NUM] = {.dump = iwpm_ack_mapping_info_cb}
-+};
-+
-+/**
-+ * i40iw_find_i40e_handler - find a handler given a client info
-+ * @ldev: pointer to a client info
-+ */
-+static struct i40iw_handler *i40iw_find_i40e_handler(struct i40e_info *ldev)
++struct i40iw_puda_buf *i40iw_puda_get_bufpool(struct i40iw_puda_rsrc *rsrc)
 +{
-+	struct i40iw_handler *hdl;
-+	unsigned long flags;
++	struct i40iw_puda_buf *buf = NULL;
++	struct list_head *list = &rsrc->bufpool;
++	unsigned long	flags;
 +
-+	spin_lock_irqsave(&i40iw_handler_lock, flags);
-+	list_for_each_entry(hdl, &i40iw_handlers, list) {
-+		if (hdl->ldev.netdev == ldev->netdev) {
-+			spin_unlock_irqrestore(&i40iw_handler_lock, flags);
-+			return hdl;
-+		}
-+	}
-+	spin_unlock_irqrestore(&i40iw_handler_lock, flags);
-+	return NULL;
-+}
-+
-+/**
-+ * i40iw_find_netdev - find a handler given a netdev
-+ * @netdev: pointer to net_device
-+ */
-+struct i40iw_handler *i40iw_find_netdev(struct net_device *netdev)
-+{
-+	struct i40iw_handler *hdl;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i40iw_handler_lock, flags);
-+	list_for_each_entry(hdl, &i40iw_handlers, list) {
-+		if (hdl->ldev.netdev == netdev) {
-+			spin_unlock_irqrestore(&i40iw_handler_lock, flags);
-+			return hdl;
-+		}
-+	}
-+	spin_unlock_irqrestore(&i40iw_handler_lock, flags);
-+	return NULL;
-+}
-+
-+/**
-+ * i40iw_add_handler - add a handler to the list
-+ * @hdl: handler to be added to the handler list
-+ */
-+static void i40iw_add_handler(struct i40iw_handler *hdl)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i40iw_handler_lock, flags);
-+	list_add(&hdl->list, &i40iw_handlers);
-+	spin_unlock_irqrestore(&i40iw_handler_lock, flags);
-+}
-+
-+/**
-+ * i40iw_del_handler - delete a handler from the list
-+ * @hdl: handler to be deleted from the handler list
-+ */
-+static int i40iw_del_handler(struct i40iw_handler *hdl)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i40iw_handler_lock, flags);
-+	list_del(&hdl->list);
-+	spin_unlock_irqrestore(&i40iw_handler_lock, flags);
-+	kfree(hdl);
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_enable_intr - set up device interrupts
-+ * @dev: hardware control device structure
-+ * @msix_id: id of the interrupt to be enabled
-+ */
-+static void i40iw_enable_intr(struct i40iw_sc_dev *dev, u32 msix_id)
-+{
-+	u32 val;
-+
-+	val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
-+		I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
-+		(3 << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
-+	if (dev->is_pf)
-+		wr32(dev->hw, I40E_PFINT_DYN_CTLN(msix_id - 1), val);
++	spin_lock_irqsave(&rsrc->bufpool_lock, flags);
++	buf = i40iw_puda_get_listbuf(list);
++	if (buf)
++		rsrc->avail_buf_count--;
 +	else
-+		wr32(dev->hw, I40E_VFINT_DYN_CTLN1(msix_id - 1), val);
++		rsrc->stats_buf_alloc_fail++;
++	spin_unlock_irqrestore(&rsrc->bufpool_lock, flags);
++	return buf;
 +}
 +
 +/**
-+ * i40iw_dpc - tasklet for aeq and ceq 0
-+ * @data: iwarp device
++ * i40iw_puda_ret_bufpool - return buffer to rsrc list
++ * @rsrc: resource to use for buffer
++ * @buf: buffe to return to resouce
 + */
-+static void i40iw_dpc(unsigned long data)
++void i40iw_puda_ret_bufpool(struct i40iw_puda_rsrc *rsrc,
++			    struct i40iw_puda_buf *buf)
 +{
-+	struct i40iw_device *iwdev = (struct i40iw_device *)data;
++	unsigned long	flags;
 +
-+	if (iwdev->msix_shared)
-+		i40iw_process_ceq(iwdev, iwdev->ceqlist);
-+	i40iw_process_aeq(iwdev);
-+	i40iw_enable_intr(&iwdev->sc_dev, iwdev->iw_msixtbl[0].idx);
++	spin_lock_irqsave(&rsrc->bufpool_lock, flags);
++	list_add(&buf->list, &rsrc->bufpool);
++	spin_unlock_irqrestore(&rsrc->bufpool_lock, flags);
++	rsrc->avail_buf_count++;
 +}
 +
 +/**
-+ * i40iw_ceq_dpc - dpc handler for CEQ
-+ * @data: data points to CEQ
++ * i40iw_puda_post_recvbuf - set wqe for rcv buffer
++ * @rsrc: resource ptr
++ * @wqe_idx: wqe index to use
++ * @buf: puda buffer for rcv q
++ * @initial: flag if during init time
 + */
-+static void i40iw_ceq_dpc(unsigned long data)
++static void i40iw_puda_post_recvbuf(struct i40iw_puda_rsrc *rsrc, u32 wqe_idx,
++				    struct i40iw_puda_buf *buf, bool initial)
 +{
-+	struct i40iw_ceq *iwceq = (struct i40iw_ceq *)data;
-+	struct i40iw_device *iwdev = iwceq->iwdev;
++	u64 *wqe;
++	struct i40iw_sc_qp *qp = &rsrc->qp;
++	u64 offset24 = 0;
 +
-+	i40iw_process_ceq(iwdev, iwceq);
-+	i40iw_enable_intr(&iwdev->sc_dev, iwceq->msix_idx);
++	qp->qp_uk.rq_wrid_array[wqe_idx] = (uintptr_t)buf;
++	wqe = &qp->qp_uk.rq_base[wqe_idx << 2];
++	i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++		    "%s: wqe_idx= %d buf = %p wqe = %p\n", __func__,
++		    wqe_idx, buf, wqe);
++	if (!initial)
++		get_64bit_val(wqe, 24, &offset24);
++
++	offset24 = (offset24) ? 0 : LS_64(1, I40IWQPSQ_VALID);
++	set_64bit_val(wqe, 24, offset24);
++
++	set_64bit_val(wqe, 0, buf->mem.pa);
++	set_64bit_val(wqe, 8,
++		      LS_64(buf->mem.size, I40IWQPSQ_FRAG_LEN));
++	set_64bit_val(wqe, 24, offset24);
 +}
 +
 +/**
-+ * i40iw_irq_handler - interrupt handler for aeq and ceq0
-+ * @irq: Interrupt request number
-+ * @data: iwarp device
++ * i40iw_puda_replenish_rq - post rcv buffers
++ * @rsrc: resource to use for buffer
++ * @initial: flag if during init time
 + */
-+static irqreturn_t i40iw_irq_handler(int irq, void *data)
-+{
-+	struct i40iw_device *iwdev = (struct i40iw_device *)data;
-+
-+	tasklet_schedule(&iwdev->dpc_tasklet);
-+	return IRQ_HANDLED;
-+}
-+
-+/**
-+ * i40iw_destroy_cqp  - destroy control qp
-+ * @iwdev: iwarp device
-+ * @create_done: 1 if cqp create poll was success
-+ *
-+ * Issue destroy cqp request and
-+ * free the resources associated with the cqp
-+ */
-+static void i40iw_destroy_cqp(struct i40iw_device *iwdev, bool free_hwcqp)
-+{
-+	enum i40iw_status_code status = 0;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_cqp *cqp = &iwdev->cqp;
-+
-+	if ((free_hwcqp) && (dev->cqp_ops->cqp_destroy))
-+		status = dev->cqp_ops->cqp_destroy(dev->cqp);
-+	if (status)
-+		i40iw_pr_err("destroy cqp failed");
-+
-+	i40iw_free_dma_mem(dev->hw, &cqp->sq);
-+	kfree(cqp->scratch_array);
-+	iwdev->cqp.scratch_array = NULL;
-+
-+	kfree(cqp->cqp_requests);
-+	cqp->cqp_requests = NULL;
-+}
-+
-+/**
-+ * i40iw_disable_irqs - disable device interrupts
-+ * @dev: hardware control device structure
-+ * @msic_vec: msix vector to disable irq
-+ * @dev_id: parameter to pass to free_irq (used during irq setup)
-+ *
-+ * The function is called when destroying aeq/ceq
-+ */
-+static void i40iw_disable_irq(struct i40iw_sc_dev *dev,
-+			      struct i40iw_msix_vector *msix_vec,
-+			      void *dev_id)
-+{
-+	if (dev->is_pf)
-+		wr32(dev->hw, I40E_PFINT_DYN_CTLN(msix_vec->idx - 1), 0);
-+	else
-+		wr32(dev->hw, I40E_VFINT_DYN_CTLN1(msix_vec->idx - 1), 0);
-+	synchronize_irq(msix_vec->irq);
-+	free_irq(msix_vec->irq, dev_id);
-+}
-+
-+/**
-+ * i40iw_destroy_aeq - destroy aeq
-+ * @iwdev: iwarp device
-+ * @reset: true if called before reset
-+ *
-+ * Issue a destroy aeq request and
-+ * free the resources associated with the aeq
-+ * The function is called during driver unload
-+ */
-+static void i40iw_destroy_aeq(struct i40iw_device *iwdev, bool reset)
-+{
-+	enum i40iw_status_code status = I40IW_ERR_NOT_READY;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_aeq *aeq = &iwdev->aeq;
-+
-+	if (!iwdev->msix_shared)
-+		i40iw_disable_irq(dev, iwdev->iw_msixtbl, (void *)iwdev);
-+	if (reset)
-+		goto exit;
-+
-+	if (!dev->aeq_ops->aeq_destroy(&aeq->sc_aeq, 0, 1))
-+		status = dev->aeq_ops->aeq_destroy_done(&aeq->sc_aeq);
-+	if (status)
-+		i40iw_pr_err("destroy aeq failed %d\n", status);
-+
-+exit:
-+	i40iw_free_dma_mem(dev->hw, &aeq->mem);
-+}
-+
-+/**
-+ * i40iw_destroy_ceq - destroy ceq
-+ * @iwdev: iwarp device
-+ * @iwceq: ceq to be destroyed
-+ * @reset: true if called before reset
-+ *
-+ * Issue a destroy ceq request and
-+ * free the resources associated with the ceq
-+ */
-+static void i40iw_destroy_ceq(struct i40iw_device *iwdev,
-+			      struct i40iw_ceq *iwceq,
-+			      bool reset)
-+{
-+	enum i40iw_status_code status = 0;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+
-+	if (reset)
-+		goto exit;
-+
-+	status = dev->ceq_ops->ceq_destroy(&iwceq->sc_ceq, 0, 1);
-+	if (status) {
-+		i40iw_pr_err("ceq destroy command failed %d\n", status);
-+		goto exit;
-+	}
-+
-+	status = dev->ceq_ops->cceq_destroy_done(&iwceq->sc_ceq);
-+	if (status)
-+		i40iw_pr_err("ceq destroy completion failed %d\n", status);
-+exit:
-+	i40iw_free_dma_mem(dev->hw, &iwceq->mem);
-+}
-+
-+/**
-+ * i40iw_dele_ceqs - destroy all ceq's
-+ * @iwdev: iwarp device
-+ * @reset: true if called before reset
-+ *
-+ * Go through all of the device ceq's and for each ceq
-+ * disable the ceq interrupt and destroy the ceq
-+ */
-+static void i40iw_dele_ceqs(struct i40iw_device *iwdev, bool reset)
-+{
-+	u32 i = 0;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_ceq *iwceq = iwdev->ceqlist;
-+	struct i40iw_msix_vector *msix_vec = iwdev->iw_msixtbl;
-+
-+	if (iwdev->msix_shared) {
-+		i40iw_disable_irq(dev, msix_vec, (void *)iwdev);
-+		i40iw_destroy_ceq(iwdev, iwceq, reset);
-+		iwceq++;
-+		i++;
-+	}
-+
-+	for (msix_vec++; i < iwdev->ceqs_count; i++, msix_vec++, iwceq++) {
-+		i40iw_disable_irq(dev, msix_vec, (void *)iwceq);
-+		i40iw_destroy_ceq(iwdev, iwceq, reset);
-+	}
-+}
-+
-+/**
-+ * i40iw_destroy_ccq - destroy control cq
-+ * @iwdev: iwarp device
-+ * @reset: true if called before reset
-+ *
-+ * Issue destroy ccq request and
-+ * free the resources associated with the ccq
-+ */
-+static void i40iw_destroy_ccq(struct i40iw_device *iwdev, bool reset)
-+{
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_ccq *ccq = &iwdev->ccq;
-+	enum i40iw_status_code status = 0;
-+
-+	if (!reset)
-+		status = dev->ccq_ops->ccq_destroy(dev->ccq, 0, true);
-+	if (status)
-+		i40iw_pr_err("ccq destroy failed %d\n", status);
-+	i40iw_free_dma_mem(dev->hw, &ccq->mem_cq);
-+}
-+
-+/* types of hmc objects */
-+static enum i40iw_hmc_rsrc_type iw_hmc_obj_types[] = {
-+	I40IW_HMC_IW_QP,
-+	I40IW_HMC_IW_CQ,
-+	I40IW_HMC_IW_HTE,
-+	I40IW_HMC_IW_ARP,
-+	I40IW_HMC_IW_APBVT_ENTRY,
-+	I40IW_HMC_IW_MR,
-+	I40IW_HMC_IW_XF,
-+	I40IW_HMC_IW_XFFL,
-+	I40IW_HMC_IW_Q1,
-+	I40IW_HMC_IW_Q1FL,
-+	I40IW_HMC_IW_TIMER,
-+};
-+
-+/**
-+ * i40iw_close_hmc_objects_type - delete hmc objects of a given type
-+ * @iwdev: iwarp device
-+ * @obj_type: the hmc object type to be deleted
-+ * @is_pf: true if the function is PF otherwise false
-+ * @reset: true if called before reset
-+ */
-+static void i40iw_close_hmc_objects_type(struct i40iw_sc_dev *dev,
-+					 enum i40iw_hmc_rsrc_type obj_type,
-+					 struct i40iw_hmc_info *hmc_info,
-+					 bool is_pf,
-+					 bool reset)
-+{
-+	struct i40iw_hmc_del_obj_info info;
-+
-+	info.hmc_info = hmc_info;
-+	info.rsrc_type = obj_type;
-+	info.start_idx = 0;
-+	info.count = hmc_info->hmc_obj[obj_type].cnt;
-+	info.is_pf = is_pf;
-+	if (dev->hmc_ops->del_hmc_object(dev, &info, reset))
-+		i40iw_pr_err("del obj of type %d failed\n", obj_type);
-+}
-+
-+/**
-+ * i40iw_del_hmc_objects - remove all device hmc objects
-+ * @dev: iwarp device
-+ * @hmc_info: hmc_info to free
-+ * @is_pf: true if hmc_info belongs to PF, not vf nor allocated
-+ *	   by PF on behalf of VF
-+ * @reset: true if called before reset
-+ */
-+static void i40iw_del_hmc_objects(struct i40iw_sc_dev *dev,
-+				  struct i40iw_hmc_info *hmc_info,
-+				  bool is_pf,
-+				  bool reset)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < IW_HMC_OBJ_TYPE_NUM; i++)
-+		i40iw_close_hmc_objects_type(dev, iw_hmc_obj_types[i], hmc_info, is_pf, reset);
-+}
-+
-+/**
-+ * i40iw_ceq_handler - interrupt handler for ceq
-+ * @data: ceq pointer
-+ */
-+static irqreturn_t i40iw_ceq_handler(int irq, void *data)
-+{
-+	struct i40iw_ceq *iwceq = (struct i40iw_ceq *)data;
-+
-+	if (iwceq->irq != irq)
-+		i40iw_pr_err("expected irq = %d received irq = %d\n", iwceq->irq, irq);
-+	tasklet_schedule(&iwceq->dpc_tasklet);
-+	return IRQ_HANDLED;
-+}
-+
-+/**
-+ * i40iw_create_hmc_obj_type - create hmc object of a given type
-+ * @dev: hardware control device structure
-+ * @info: information for the hmc object to create
-+ */
-+static enum i40iw_status_code i40iw_create_hmc_obj_type(struct i40iw_sc_dev *dev,
-+							struct i40iw_hmc_create_obj_info *info)
-+{
-+	return dev->hmc_ops->create_hmc_object(dev, info);
-+}
-+
-+/**
-+ * i40iw_create_hmc_objs - create all hmc objects for the device
-+ * @iwdev: iwarp device
-+ * @is_pf: true if the function is PF otherwise false
-+ *
-+ * Create the device hmc objects and allocate hmc pages
-+ * Return 0 if successful, otherwise clean up and return error
-+ */
-+static enum i40iw_status_code i40iw_create_hmc_objs(struct i40iw_device *iwdev,
-+						    bool is_pf)
-+{
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_hmc_create_obj_info info;
-+	enum i40iw_status_code status = 0;
-+	int i;
-+
-+	memset(&info, 0, sizeof(info));
-+	info.hmc_info = dev->hmc_info;
-+	info.is_pf = is_pf;
-+	info.entry_type = iwdev->sd_type;
-+	for (i = 0; i < IW_HMC_OBJ_TYPE_NUM; i++) {
-+		info.rsrc_type = iw_hmc_obj_types[i];
-+		info.count = dev->hmc_info->hmc_obj[info.rsrc_type].cnt;
-+		status = i40iw_create_hmc_obj_type(dev, &info);
-+		if (status) {
-+			i40iw_pr_err("create obj type %d status = %d\n",
-+				     iw_hmc_obj_types[i], status);
-+			break;
-+		}
-+	}
-+	if (!status)
-+		return (dev->cqp_misc_ops->static_hmc_pages_allocated(dev->cqp, 0,
-+								      dev->hmc_fn_id,
-+								      true, true));
-+
-+	while (i) {
-+		i--;
-+		/* destroy the hmc objects of a given type */
-+		i40iw_close_hmc_objects_type(dev,
-+					     iw_hmc_obj_types[i],
-+					     dev->hmc_info,
-+					     is_pf,
-+					     false);
-+	}
-+	return status;
-+}
-+
-+/**
-+ * i40iw_obj_aligned_mem - get aligned memory from device allocated memory
-+ * @iwdev: iwarp device
-+ * @memptr: points to the memory addresses
-+ * @size: size of memory needed
-+ * @mask: mask for the aligned memory
-+ *
-+ * Get aligned memory of the requested size and
-+ * update the memptr to point to the new aligned memory
-+ * Return 0 if successful, otherwise return no memory error
-+ */
-+enum i40iw_status_code i40iw_obj_aligned_mem(struct i40iw_device *iwdev,
-+					     struct i40iw_dma_mem *memptr,
-+					     u32 size,
-+					     u32 mask)
-+{
-+	unsigned long va, newva;
-+	unsigned long extra;
-+
-+	va = (unsigned long)iwdev->obj_next.va;
-+	newva = va;
-+	if (mask)
-+		newva = ALIGN(va, (mask + 1));
-+	extra = newva - va;
-+	memptr->va = (u8 *)va + extra;
-+	memptr->pa = iwdev->obj_next.pa + extra;
-+	memptr->size = size;
-+	if ((memptr->va + size) > (iwdev->obj_mem.va + iwdev->obj_mem.size))
-+		return I40IW_ERR_NO_MEMORY;
-+
-+	iwdev->obj_next.va = memptr->va + size;
-+	iwdev->obj_next.pa = memptr->pa + size;
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_create_cqp - create control qp
-+ * @iwdev: iwarp device
-+ *
-+ * Return 0, if the cqp and all the resources associated with it
-+ * are successfully created, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_create_cqp(struct i40iw_device *iwdev)
-+{
-+	enum i40iw_status_code status = 0;
-+	u32 sqsize = I40IW_CQP_SW_SQSIZE_2048;
-+	struct i40iw_dma_mem mem;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_cqp_init_info cqp_init_info;
-+	struct i40iw_cqp *cqp = &iwdev->cqp;
-+	u16 maj_err, min_err;
-+	int i;
-+
-+	cqp->cqp_requests = kcalloc(sqsize, sizeof(*cqp->cqp_requests), GFP_KERNEL);
-+	if (!cqp->cqp_requests)
-+		return I40IW_ERR_NO_MEMORY;
-+	cqp->scratch_array = kcalloc(sqsize, sizeof(*cqp->scratch_array), GFP_KERNEL);
-+	if (!cqp->scratch_array) {
-+		kfree(cqp->cqp_requests);
-+		return I40IW_ERR_NO_MEMORY;
-+	}
-+	dev->cqp = &cqp->sc_cqp;
-+	dev->cqp->dev = dev;
-+	memset(&cqp_init_info, 0, sizeof(cqp_init_info));
-+	status = i40iw_allocate_dma_mem(dev->hw, &cqp->sq,
-+					(sizeof(struct i40iw_cqp_sq_wqe) * sqsize),
-+					I40IW_CQP_ALIGNMENT);
-+	if (status)
-+		goto exit;
-+	status = i40iw_obj_aligned_mem(iwdev, &mem, sizeof(struct i40iw_cqp_ctx),
-+				       I40IW_HOST_CTX_ALIGNMENT_MASK);
-+	if (status)
-+		goto exit;
-+	dev->cqp->host_ctx_pa = mem.pa;
-+	dev->cqp->host_ctx = mem.va;
-+	/* populate the cqp init info */
-+	cqp_init_info.dev = dev;
-+	cqp_init_info.sq_size = sqsize;
-+	cqp_init_info.sq = cqp->sq.va;
-+	cqp_init_info.sq_pa = cqp->sq.pa;
-+	cqp_init_info.host_ctx_pa = mem.pa;
-+	cqp_init_info.host_ctx = mem.va;
-+	cqp_init_info.hmc_profile = iwdev->resource_profile;
-+	cqp_init_info.enabled_vf_count = iwdev->max_rdma_vfs;
-+	cqp_init_info.scratch_array = cqp->scratch_array;
-+	status = dev->cqp_ops->cqp_init(dev->cqp, &cqp_init_info);
-+	if (status) {
-+		i40iw_pr_err("cqp init status %d maj_err %d min_err %d\n",
-+			     status, maj_err, min_err);
-+		goto exit;
-+	}
-+	status = dev->cqp_ops->cqp_create(dev->cqp, true, &maj_err, &min_err);
-+	if (status) {
-+		i40iw_pr_err("cqp create status %d maj_err %d min_err %d\n",
-+			     status, maj_err, min_err);
-+		goto exit;
-+	}
-+	spin_lock_init(&cqp->req_lock);
-+	INIT_LIST_HEAD(&cqp->cqp_avail_reqs);
-+	INIT_LIST_HEAD(&cqp->cqp_pending_reqs);
-+	/* init the waitq of the cqp_requests and add them to the list */
-+	for (i = 0; i < I40IW_CQP_SW_SQSIZE_2048; i++) {
-+		init_waitqueue_head(&cqp->cqp_requests[i].waitq);
-+		list_add_tail(&cqp->cqp_requests[i].list, &cqp->cqp_avail_reqs);
-+	}
-+	return 0;
-+exit:
-+	/* clean up the created resources */
-+	i40iw_destroy_cqp(iwdev, false);
-+	return status;
-+}
-+
-+/**
-+ * i40iw_create_ccq - create control cq
-+ * @iwdev: iwarp device
-+ *
-+ * Return 0, if the ccq and the resources associated with it
-+ * are successfully created, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_create_ccq(struct i40iw_device *iwdev)
-+{
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_dma_mem mem;
-+	enum i40iw_status_code status = 0;
-+	struct i40iw_ccq_init_info info;
-+	struct i40iw_ccq *ccq = &iwdev->ccq;
-+
-+	memset(&info, 0, sizeof(info));
-+	dev->ccq = &ccq->sc_cq;
-+	dev->ccq->dev = dev;
-+	info.dev = dev;
-+	ccq->shadow_area.size = sizeof(struct i40iw_cq_shadow_area);
-+	ccq->mem_cq.size = sizeof(struct i40iw_cqe) * IW_CCQ_SIZE;
-+	status = i40iw_allocate_dma_mem(dev->hw, &ccq->mem_cq,
-+					ccq->mem_cq.size, I40IW_CQ0_ALIGNMENT);
-+	if (status)
-+		goto exit;
-+	status = i40iw_obj_aligned_mem(iwdev, &mem, ccq->shadow_area.size,
-+				       I40IW_SHADOWAREA_MASK);
-+	if (status)
-+		goto exit;
-+	ccq->sc_cq.back_cq = (void *)ccq;
-+	/* populate the ccq init info */
-+	info.cq_base = ccq->mem_cq.va;
-+	info.cq_pa = ccq->mem_cq.pa;
-+	info.num_elem = IW_CCQ_SIZE;
-+	info.shadow_area = mem.va;
-+	info.shadow_area_pa = mem.pa;
-+	info.ceqe_mask = false;
-+	info.ceq_id_valid = true;
-+	info.shadow_read_threshold = 16;
-+	status = dev->ccq_ops->ccq_init(dev->ccq, &info);
-+	if (!status)
-+		status = dev->ccq_ops->ccq_create(dev->ccq, 0, true, true);
-+exit:
-+	if (status)
-+		i40iw_free_dma_mem(dev->hw, &ccq->mem_cq);
-+	return status;
-+}
-+
-+/**
-+ * i40iw_configure_ceq_vector - set up the msix interrupt vector for ceq
-+ * @iwdev: iwarp device
-+ * @msix_vec: interrupt vector information
-+ * @iwceq: ceq associated with the vector
-+ * @ceq_id: the id number of the iwceq
-+ *
-+ * Allocate interrupt resources and enable irq handling
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_configure_ceq_vector(struct i40iw_device *iwdev,
-+							 struct i40iw_ceq *iwceq,
-+							 u32 ceq_id,
-+							 struct i40iw_msix_vector *msix_vec)
-+{
-+	enum i40iw_status_code status = 0;
-+
-+	if ((iwdev->msix_shared) && (!ceq_id)) {
-+		tasklet_init(&iwdev->dpc_tasklet, i40iw_dpc, (unsigned long)iwdev);
-+		status = request_irq(msix_vec->irq, i40iw_irq_handler, 0, "AEQCEQ", iwdev);
-+	} else {
-+		tasklet_init(&iwceq->dpc_tasklet, i40iw_ceq_dpc, (unsigned long)iwceq);
-+		status = request_irq(msix_vec->irq, i40iw_ceq_handler, 0, "CEQ", iwceq);
-+	}
-+
-+	if (status) {
-+		i40iw_pr_err("ceq irq config fail\n");
-+		return I40IW_ERR_CONFIG;
-+	}
-+	msix_vec->ceq_id = ceq_id;
-+	msix_vec->cpu_affinity = 0;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_create_ceq - create completion event queue
-+ * @iwdev: iwarp device
-+ * @iwceq: pointer to the ceq resources to be created
-+ * @ceq_id: the id number of the iwceq
-+ *
-+ * Return 0, if the ceq and the resources associated with it
-+ * are successfully created, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_create_ceq(struct i40iw_device *iwdev,
-+					       struct i40iw_ceq *iwceq,
-+					       u32 ceq_id)
-+{
-+	enum i40iw_status_code status = 0;
-+	struct i40iw_ceq_init_info info;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	u64 scratch = 0;
-+
-+	memset(&info, 0, sizeof(info));
-+	info.ceq_id = ceq_id;
-+	iwceq->iwdev = iwdev;
-+	iwceq->mem.size = sizeof(struct i40iw_ceqe) *
-+		iwdev->sc_dev.hmc_info->hmc_obj[I40IW_HMC_IW_CQ].cnt;
-+	status = i40iw_allocate_dma_mem(dev->hw, &iwceq->mem, iwceq->mem.size,
-+					I40IW_CEQ_ALIGNMENT);
-+	if (status)
-+		goto exit;
-+	info.ceq_id = ceq_id;
-+	info.ceqe_base = iwceq->mem.va;
-+	info.ceqe_pa = iwceq->mem.pa;
-+
-+	info.elem_cnt = iwdev->sc_dev.hmc_info->hmc_obj[I40IW_HMC_IW_CQ].cnt;
-+	iwceq->sc_ceq.ceq_id = ceq_id;
-+	info.dev = dev;
-+	scratch = (uintptr_t)&iwdev->cqp.sc_cqp;
-+	status = dev->ceq_ops->ceq_init(&iwceq->sc_ceq, &info);
-+	if (!status)
-+		status = dev->ceq_ops->cceq_create(&iwceq->sc_ceq, scratch);
-+
-+exit:
-+	if (status)
-+		i40iw_free_dma_mem(dev->hw, &iwceq->mem);
-+	return status;
-+}
-+
-+void i40iw_request_reset(struct i40iw_device *iwdev)
-+{
-+	struct i40e_info *ldev = iwdev->ldev;
-+
-+	ldev->ops->request_reset(ldev, iwdev->client, 1);
-+}
-+
-+/**
-+ * i40iw_setup_ceqs - manage the device ceq's and their interrupt resources
-+ * @iwdev: iwarp device
-+ * @ldev: i40e lan device
-+ *
-+ * Allocate a list for all device completion event queues
-+ * Create the ceq's and configure their msix interrupt vectors
-+ * Return 0, if at least one ceq is successfully set up, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_setup_ceqs(struct i40iw_device *iwdev,
-+					       struct i40e_info *ldev)
++static enum i40iw_status_code i40iw_puda_replenish_rq(struct i40iw_puda_rsrc *rsrc,
++						      bool initial)
 +{
 +	u32 i;
-+	u32 ceq_id;
-+	struct i40iw_ceq *iwceq;
-+	struct i40iw_msix_vector *msix_vec;
-+	enum i40iw_status_code status = 0;
-+	u32 num_ceqs;
++	u32 invalid_cnt = rsrc->rxq_invalid_cnt;
++	struct i40iw_puda_buf *buf = NULL;
 +
-+	if ((ldev) && (ldev->ops) && (ldev->ops->setup_qvlist)) {
-+		status = ldev->ops->setup_qvlist(ldev, &i40iw_client,
-+						 iwdev->iw_qvlist);
-+		if (status)
-+			goto exit;
-+	} else {
-+		status = I40IW_ERR_BAD_PTR;
-+		goto exit;
++	for (i = 0; i < invalid_cnt; i++) {
++		buf = i40iw_puda_get_bufpool(rsrc);
++		if (!buf)
++			return I40IW_ERR_list_empty;
++		i40iw_puda_post_recvbuf(rsrc, rsrc->rx_wqe_idx, buf,
++					initial);
++		rsrc->rx_wqe_idx =
++		    ((rsrc->rx_wqe_idx + 1) % rsrc->rq_size);
++		rsrc->rxq_invalid_cnt--;
 +	}
-+
-+	num_ceqs = min(iwdev->msix_count, iwdev->sc_dev.hmc_fpm_misc.max_ceqs);
-+	iwdev->ceqlist = kcalloc(num_ceqs, sizeof(*iwdev->ceqlist), GFP_KERNEL);
-+	if (!iwdev->ceqlist) {
-+		status = I40IW_ERR_NO_MEMORY;
-+		goto exit;
-+	}
-+	i = (iwdev->msix_shared) ? 0 : 1;
-+	for (ceq_id = 0; i < num_ceqs; i++, ceq_id++) {
-+		iwceq = &iwdev->ceqlist[ceq_id];
-+		status = i40iw_create_ceq(iwdev, iwceq, ceq_id);
-+		if (status) {
-+			i40iw_pr_err("create ceq status = %d\n", status);
-+			break;
-+		}
-+
-+		msix_vec = &iwdev->iw_msixtbl[i];
-+		iwceq->irq = msix_vec->irq;
-+		iwceq->msix_idx = msix_vec->idx;
-+		status = i40iw_configure_ceq_vector(iwdev, iwceq, ceq_id, msix_vec);
-+		if (status) {
-+			i40iw_destroy_ceq(iwdev, iwceq, false);
-+			break;
-+		}
-+		i40iw_enable_intr(&iwdev->sc_dev, msix_vec->idx);
-+		iwdev->ceqs_count++;
-+	}
-+
-+exit:
-+	if (status) {
-+		if (!iwdev->ceqs_count) {
-+			kfree(iwdev->ceqlist);
-+			iwdev->ceqlist = NULL;
-+		} else {
-+			status = 0;
-+		}
-+	}
-+	return status;
++	return 0;
 +}
 +
 +/**
-+ * i40iw_configure_aeq_vector - set up the msix vector for aeq
-+ * @iwdev: iwarp device
-+ *
-+ * Allocate interrupt resources and enable irq handling
-+ * Return 0 if successful, otherwise return error
++ * i40iw_puda_alloc_buf - allocate mem for buffer
++ * @dev: iwarp device
++ * @length: length of buffer
 + */
-+static enum i40iw_status_code i40iw_configure_aeq_vector(struct i40iw_device *iwdev)
++static struct i40iw_puda_buf *i40iw_puda_alloc_buf(struct i40iw_sc_dev *dev,
++						   u32 length)
 +{
-+	struct i40iw_msix_vector *msix_vec = iwdev->iw_msixtbl;
-+	u32 ret = 0;
++	struct i40iw_puda_buf *buf = NULL;
++	struct i40iw_virt_mem buf_mem;
++	enum i40iw_status_code ret;
 +
-+	if (!iwdev->msix_shared) {
-+		tasklet_init(&iwdev->dpc_tasklet, i40iw_dpc, (unsigned long)iwdev);
-+		ret = request_irq(msix_vec->irq, i40iw_irq_handler, 0, "i40iw", iwdev);
-+	}
++	ret = i40iw_allocate_virt_mem(dev->hw, &buf_mem,
++				      sizeof(struct i40iw_puda_buf));
 +	if (ret) {
-+		i40iw_pr_err("aeq irq config fail\n");
-+		return I40IW_ERR_CONFIG;
++		i40iw_debug(dev, I40IW_DEBUG_PUDA,
++			    "%s: error mem for buf\n", __func__);
++		return NULL;
 +	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_create_aeq - create async event queue
-+ * @iwdev: iwarp device
-+ *
-+ * Return 0, if the aeq and the resources associated with it
-+ * are successfully created, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_create_aeq(struct i40iw_device *iwdev)
-+{
-+	enum i40iw_status_code status = 0;
-+	struct i40iw_aeq_init_info info;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_aeq *aeq = &iwdev->aeq;
-+	u64 scratch = 0;
-+	u32 aeq_size;
-+
-+	aeq_size = 2 * iwdev->sc_dev.hmc_info->hmc_obj[I40IW_HMC_IW_QP].cnt +
-+		iwdev->sc_dev.hmc_info->hmc_obj[I40IW_HMC_IW_CQ].cnt;
-+	memset(&info, 0, sizeof(info));
-+	aeq->mem.size = sizeof(struct i40iw_sc_aeqe) * aeq_size;
-+	status = i40iw_allocate_dma_mem(dev->hw, &aeq->mem, aeq->mem.size,
-+					I40IW_AEQ_ALIGNMENT);
-+	if (status)
-+		goto exit;
-+
-+	info.aeqe_base = aeq->mem.va;
-+	info.aeq_elem_pa = aeq->mem.pa;
-+	info.elem_cnt = aeq_size;
-+	info.dev = dev;
-+	status = dev->aeq_ops->aeq_init(&aeq->sc_aeq, &info);
-+	if (status)
-+		goto exit;
-+	status = dev->aeq_ops->aeq_create(&aeq->sc_aeq, scratch, 1);
-+	if (!status)
-+		status = dev->aeq_ops->aeq_create_done(&aeq->sc_aeq);
-+exit:
-+	if (status)
-+		i40iw_free_dma_mem(dev->hw, &aeq->mem);
-+	return status;
-+}
-+
-+/**
-+ * i40iw_setup_aeq - set up the device aeq
-+ * @iwdev: iwarp device
-+ *
-+ * Create the aeq and configure its msix interrupt vector
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_setup_aeq(struct i40iw_device *iwdev)
-+{
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	enum i40iw_status_code status = 0;
-+
-+	status = i40iw_create_aeq(iwdev);
-+	if (status)
-+		return status;
-+
-+	status = i40iw_configure_aeq_vector(iwdev);
-+	if (status) {
-+		i40iw_destroy_aeq(iwdev, false);
-+		return status;
++	buf = (struct i40iw_puda_buf *)buf_mem.va;
++	ret = i40iw_allocate_dma_mem(dev->hw, &buf->mem, length, 1);
++	if (ret) {
++		i40iw_debug(dev, I40IW_DEBUG_PUDA,
++			    "%s: error dma mem for buf\n", __func__);
++		i40iw_free_virt_mem(dev->hw, &buf_mem);
++		return NULL;
 +	}
-+
-+	if (!iwdev->msix_shared)
-+		i40iw_enable_intr(dev, iwdev->iw_msixtbl[0].idx);
-+	return 0;
++	buf->buf_mem.va = buf_mem.va;
++	buf->buf_mem.size = buf_mem.size;
++	return buf;
 +}
 +
 +/**
-+ * i40iw_initialize_ilq - create iwarp local queue for cm
-+ * @iwdev: iwarp device
-+ *
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_initialize_ilq(struct i40iw_device *iwdev)
-+{
-+	struct i40iw_puda_rsrc_info info;
-+	enum i40iw_status_code status;
-+
-+	info.type = I40IW_PUDA_RSRC_TYPE_ILQ;
-+	info.cq_id = 1;
-+	info.qp_id = 0;
-+	info.count = 1;
-+	info.pd_id = 1;
-+	info.sq_size = 8192;
-+	info.rq_size = 8192;
-+	info.buf_size = 1024;
-+	info.tx_buf_cnt = 16384;
-+	info.mss = iwdev->mss;
-+	info.receive = i40iw_receive_ilq;
-+	info.xmit_complete = i40iw_free_sqbuf;
-+	status = i40iw_puda_create_rsrc(&iwdev->sc_dev, &info);
-+	if (status)
-+		i40iw_pr_err("ilq create fail\n");
-+	return status;
-+}
-+
-+/**
-+ * i40iw_initialize_ieq - create iwarp exception queue
-+ * @iwdev: iwarp device
-+ *
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_initialize_ieq(struct i40iw_device *iwdev)
-+{
-+	struct i40iw_puda_rsrc_info info;
-+	enum i40iw_status_code status;
-+
-+	info.type = I40IW_PUDA_RSRC_TYPE_IEQ;
-+	info.cq_id = 2;
-+	info.qp_id = iwdev->sc_dev.exception_lan_queue;
-+	info.count = 1;
-+	info.pd_id = 2;
-+	info.sq_size = 8192;
-+	info.rq_size = 8192;
-+	info.buf_size = 2048;
-+	info.mss = iwdev->mss;
-+	info.tx_buf_cnt = 16384;
-+	status = i40iw_puda_create_rsrc(&iwdev->sc_dev, &info);
-+	if (status)
-+		i40iw_pr_err("ieq create fail\n");
-+	return status;
-+}
-+
-+/**
-+ * i40iw_hmc_setup - create hmc objects for the device
-+ * @iwdev: iwarp device
-+ *
-+ * Set up the device private memory space for the number and size of
-+ * the hmc objects and create the objects
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_hmc_setup(struct i40iw_device *iwdev)
-+{
-+	enum i40iw_status_code status = 0;
-+
-+	iwdev->sd_type = I40IW_SD_TYPE_DIRECT;
-+	status = i40iw_config_fpm_values(&iwdev->sc_dev, IW_CFG_FPM_QP_COUNT);
-+	if (status)
-+		goto exit;
-+	status = i40iw_create_hmc_objs(iwdev, true);
-+	if (status)
-+		goto exit;
-+	iwdev->init_state = HMC_OBJS_CREATED;
-+exit:
-+	return status;
-+}
-+
-+/**
-+ * i40iw_del_init_mem - deallocate memory resources
-+ * @iwdev: iwarp device
-+ */
-+static void i40iw_del_init_mem(struct i40iw_device *iwdev)
-+{
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+
-+	i40iw_free_dma_mem(&iwdev->hw, &iwdev->obj_mem);
-+	kfree(dev->hmc_info->sd_table.sd_entry);
-+	dev->hmc_info->sd_table.sd_entry = NULL;
-+	kfree(iwdev->mem_resources);
-+	iwdev->mem_resources = NULL;
-+	kfree(iwdev->ceqlist);
-+	iwdev->ceqlist = NULL;
-+	kfree(iwdev->iw_msixtbl);
-+	iwdev->iw_msixtbl = NULL;
-+	kfree(iwdev->hmc_info_mem);
-+	iwdev->hmc_info_mem = NULL;
-+}
-+
-+/**
-+ * i40iw_del_macip_entry - remove a mac ip address entry from the hw table
-+ * @iwdev: iwarp device
-+ * @idx: the index of the mac ip address to delete
-+ */
-+static void i40iw_del_macip_entry(struct i40iw_device *iwdev, u8 idx)
-+{
-+	struct i40iw_cqp *iwcqp = &iwdev->cqp;
-+	struct i40iw_cqp_request *cqp_request;
-+	struct cqp_commands_info *cqp_info;
-+	enum i40iw_status_code status = 0;
-+
-+	cqp_request = i40iw_get_cqp_request(iwcqp, true);
-+	CHECK_CQP_REQ(cqp_request);
-+	if (status)
-+		return;
-+	cqp_info = &cqp_request->info;
-+	cqp_info->cqp_cmd = OP_DELETE_LOCAL_MAC_IPADDR_ENTRY;
-+	cqp_info->post_sq = 1;
-+	cqp_info->in.u.del_local_mac_ipaddr_entry.cqp = &iwcqp->sc_cqp;
-+	cqp_info->in.u.del_local_mac_ipaddr_entry.scratch = (uintptr_t)cqp_request;
-+	cqp_info->in.u.del_local_mac_ipaddr_entry.entry_idx = idx;
-+	cqp_info->in.u.del_local_mac_ipaddr_entry.ignore_ref_count = 0;
-+	status = i40iw_handle_cqp_op(iwdev, cqp_request);
-+	if (status)
-+		i40iw_pr_err("CQP-OP Del MAC Ip entry fail");
-+}
-+
-+/**
-+ * i40iw_add_mac_ipaddr_entry - add a mac ip address entry to the hw table
-+ * @iwdev: iwarp device
-+ * @mac_addr: pointer to mac address
-+ * @idx: the index of the mac ip address to add
-+ */
-+static enum i40iw_status_code i40iw_add_mac_ipaddr_entry(struct i40iw_device *iwdev,
-+							 u8 *mac_addr,
-+							 u8 idx)
-+{
-+	struct i40iw_local_mac_ipaddr_entry_info *info;
-+	struct i40iw_cqp *iwcqp = &iwdev->cqp;
-+	struct i40iw_cqp_request *cqp_request;
-+	struct cqp_commands_info *cqp_info;
-+	enum i40iw_status_code status = 0;
-+
-+	cqp_request = i40iw_get_cqp_request(iwcqp, true);
-+	CHECK_CQP_REQ(cqp_request);
-+	if (status)
-+		return status;
-+
-+	cqp_info = &cqp_request->info;
-+
-+	cqp_info->post_sq = 1;
-+	info = &cqp_info->in.u.add_local_mac_ipaddr_entry.info;
-+	ether_addr_copy(info->mac_addr, mac_addr);
-+	info->entry_idx = idx;
-+	cqp_info->in.u.add_local_mac_ipaddr_entry.scratch = (uintptr_t)cqp_request;
-+	cqp_info->cqp_cmd = OP_ADD_LOCAL_MAC_IPADDR_ENTRY;
-+	cqp_info->in.u.add_local_mac_ipaddr_entry.cqp = &iwcqp->sc_cqp;
-+	cqp_info->in.u.add_local_mac_ipaddr_entry.scratch = (uintptr_t)cqp_request;
-+	status = i40iw_handle_cqp_op(iwdev, cqp_request);
-+	if (status)
-+		i40iw_pr_err("CQP-OP Add MAC Ip entry fail");
-+	return status;
-+}
-+
-+/**
-+ * i40iw_alloc_local_mac_ipaddr_entry - allocate a mac ip address entry
-+ * @iwdev: iwarp device
-+ * @mac_ip_tbl_idx: the index of the new mac ip address
-+ *
-+ * Allocate a mac ip address entry and update the mac_ip_tbl_idx
-+ * to hold the index of the newly created mac ip address
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_alloc_local_mac_ipaddr_entry(struct i40iw_device *iwdev,
-+								 u16 *mac_ip_tbl_idx)
-+{
-+	struct i40iw_cqp *iwcqp = &iwdev->cqp;
-+	struct i40iw_cqp_request *cqp_request;
-+	struct cqp_commands_info *cqp_info;
-+	enum i40iw_status_code status = 0;
-+
-+	cqp_request = i40iw_get_cqp_request(iwcqp, true);
-+	CHECK_CQP_REQ(cqp_request);
-+	if (status)
-+		return status;
-+
-+	/* increment refcount, because we need the cqp request ret value */
-+	atomic_inc(&cqp_request->refcount);
-+
-+	cqp_info = &cqp_request->info;
-+	cqp_info->cqp_cmd = OP_ALLOC_LOCAL_MAC_IPADDR_ENTRY;
-+	cqp_info->post_sq = 1;
-+	cqp_info->in.u.alloc_local_mac_ipaddr_entry.cqp = &iwcqp->sc_cqp;
-+	cqp_info->in.u.alloc_local_mac_ipaddr_entry.scratch = (uintptr_t)cqp_request;
-+	status = i40iw_handle_cqp_op(iwdev, cqp_request);
-+	if (!status)
-+		*mac_ip_tbl_idx = cqp_request->compl_info.op_ret_val;
-+	else
-+		i40iw_pr_err("CQP-OP Alloc MAC Ip entry fail");
-+	/* decrement refcount and free the cqp request, if no longer used */
-+	i40iw_put_cqp_request(iwcqp, cqp_request);
-+	return status;
-+}
-+
-+/**
-+ * i40iw_alloc_set_mac_ipaddr - set up a mac ip address table entry
-+ * @iwdev: iwarp device
-+ * @macaddr: pointer to mac address
-+ *
-+ * Allocate a mac ip address entry and add it to the hw table
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_alloc_set_mac_ipaddr(struct i40iw_device *iwdev,
-+							 u8 *macaddr)
-+{
-+	enum i40iw_status_code status;
-+
-+	status = i40iw_alloc_local_mac_ipaddr_entry(iwdev, &iwdev->mac_ip_table_idx);
-+	if (!status) {
-+		status = i40iw_add_mac_ipaddr_entry(iwdev, macaddr,
-+						    (u8)iwdev->mac_ip_table_idx);
-+		if (!status)
-+			status = i40iw_add_mac_ipaddr_entry(iwdev, macaddr,
-+							    (u8)iwdev->mac_ip_table_idx);
-+		else
-+			i40iw_del_macip_entry(iwdev, (u8)iwdev->mac_ip_table_idx);
-+	}
-+	return status;
-+}
-+
-+/**
-+ * i40iw_add_ipv6_addr - add ipv6 address to the hw arp table
-+ * @iwdev: iwarp device
-+ */
-+static void i40iw_add_ipv6_addr(struct i40iw_device *iwdev)
-+{
-+	struct net_device *ip_dev = NULL;
-+	struct inet6_dev *idev;
-+	struct inet6_ifaddr *ifp;
-+	__be32 local_ipaddr6[4];
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(&init_net, ip_dev) {
-+		if ((((rdma_vlan_dev_vlan_id(ip_dev) < 0xFFFF) &&
-+		      (rdma_vlan_dev_real_dev(ip_dev) == iwdev->netdev)) ||
-+		     (ip_dev == iwdev->netdev)) && (ip_dev->flags & IFF_UP)) {
-+			idev = __in6_dev_get(ip_dev);
-+			if (!idev) {
-+				i40iw_pr_err("ipv6 inet device not found\n");
-+				break;
-+			}
-+			list_for_each_entry(ifp, &idev->addr_list, if_list) {
-+				i40iw_pr_info("IP=%pI6, vlan_id=%d, MAC=%pM\n", &ifp->addr,
-+					      rdma_vlan_dev_vlan_id(ip_dev), ip_dev->dev_addr);
-+				i40iw_copy_ip_ntohl(local_ipaddr6,
-+						    ifp->addr.in6_u.u6_addr32);
-+				i40iw_manage_arp_cache(iwdev,
-+						       ip_dev->dev_addr,
-+						       local_ipaddr6,
-+						       false,
-+						       I40IW_ARP_ADD);
-+			}
-+		}
-+	}
-+	rcu_read_unlock();
-+}
-+
-+/**
-+ * i40iw_add_ipv4_addr - add ipv4 address to the hw arp table
-+ * @iwdev: iwarp device
-+ */
-+static void i40iw_add_ipv4_addr(struct i40iw_device *iwdev)
-+{
-+	struct net_device *dev;
-+	struct in_device *idev;
-+	bool got_lock = true;
-+	u32 ip_addr;
-+
-+	if (!rtnl_trylock())
-+		got_lock = false;
-+
-+	for_each_netdev(&init_net, dev) {
-+		if ((((rdma_vlan_dev_vlan_id(dev) < 0xFFFF) &&
-+		      (rdma_vlan_dev_real_dev(dev) == iwdev->netdev)) ||
-+		    (dev == iwdev->netdev)) && (dev->flags & IFF_UP)) {
-+			idev = in_dev_get(dev);
-+			for_ifa(idev) {
-+				i40iw_debug(&iwdev->sc_dev, I40IW_DEBUG_CM,
-+					    "IP=%pI4, vlan_id=%d, MAC=%pM\n", &ifa->ifa_address,
-+					     rdma_vlan_dev_vlan_id(dev), dev->dev_addr);
-+
-+				ip_addr = ntohl(ifa->ifa_address);
-+				i40iw_manage_arp_cache(iwdev,
-+						       dev->dev_addr,
-+						       &ip_addr,
-+						       true,
-+						       I40IW_ARP_ADD);
-+			}
-+			endfor_ifa(idev);
-+			in_dev_put(idev);
-+		}
-+	}
-+	if (got_lock)
-+		rtnl_unlock();
-+}
-+
-+/**
-+ * i40iw_add_mac_ip - add mac and ip addresses
-+ * @iwdev: iwarp device
-+ *
-+ * Create and add a mac ip address entry to the hw table and
-+ * ipv4/ipv6 addresses to the arp cache
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_add_mac_ip(struct i40iw_device *iwdev)
-+{
-+	struct net_device *netdev = iwdev->netdev;
-+	enum i40iw_status_code status;
-+
-+	status = i40iw_alloc_set_mac_ipaddr(iwdev, (u8 *)netdev->dev_addr);
-+	if (status)
-+		return status;
-+	i40iw_add_ipv4_addr(iwdev);
-+	i40iw_add_ipv6_addr(iwdev);
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_wait_pe_ready - Check if firmware is ready
-+ * @hw: provides access to registers
-+ */
-+static void i40iw_wait_pe_ready(struct i40iw_hw *hw)
-+{
-+	u32 statusfw;
-+	u32 statuscpu0;
-+	u32 statuscpu1;
-+	u32 statuscpu2;
-+	u32 retrycount = 0;
-+
-+	do {
-+		statusfw = rd32(hw, I40E_GLPE_FWLDSTATUS);
-+		i40iw_pr_info("[%04d] fm load status[x%04X]\n", __LINE__, statusfw);
-+		statuscpu0 = rd32(hw, I40E_GLPE_CPUSTATUS0);
-+		i40iw_pr_info("[%04d] CSR_CQP status[x%04X]\n", __LINE__, statuscpu0);
-+		statuscpu1 = rd32(hw, I40E_GLPE_CPUSTATUS1);
-+		i40iw_pr_info("[%04d] I40E_GLPE_CPUSTATUS1 status[x%04X]\n",
-+			      __LINE__, statuscpu1);
-+		statuscpu2 = rd32(hw, I40E_GLPE_CPUSTATUS2);
-+		i40iw_pr_info("[%04d] I40E_GLPE_CPUSTATUS2 status[x%04X]\n",
-+			      __LINE__, statuscpu2);
-+		if ((statuscpu0 == 0x80) && (statuscpu1 == 0x80) && (statuscpu2 == 0x80))
-+			break;	/* SUCCESS */
-+		mdelay(1000);
-+		retrycount++;
-+	} while (retrycount < 14);
-+	wr32(hw, 0xb4040, 0x4C104C5);
-+}
-+
-+/**
-+ * i40iw_initialize_dev - initialize device
-+ * @iwdev: iwarp device
-+ * @ldev: lan device information
-+ *
-+ * Allocate memory for the hmc objects and initialize iwdev
-+ * Return 0 if successful, otherwise clean up the resources
-+ * and return error
-+ */
-+static enum i40iw_status_code i40iw_initialize_dev(struct i40iw_device *iwdev,
-+						   struct i40e_info *ldev)
-+{
-+	enum i40iw_status_code status = 0;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	struct i40iw_device_init_info info;
-+	struct i40iw_dma_mem mem;
-+	u32 size;
-+
-+	memset(&info, 0, sizeof(info));
-+	size = sizeof(struct i40iw_hmc_pble_rsrc) + sizeof(struct i40iw_hmc_info) +
-+				(sizeof(struct i40iw_hmc_obj_info) * I40IW_HMC_IW_MAX);
-+	iwdev->hmc_info_mem = kzalloc(size, GFP_KERNEL);
-+	if (!iwdev->hmc_info_mem) {
-+		i40iw_pr_err("memory alloc fail\n");
-+		return I40IW_ERR_NO_MEMORY;
-+	}
-+	iwdev->pble_rsrc = (struct i40iw_hmc_pble_rsrc *)(u8 *)iwdev->hmc_info_mem;
-+	dev->hmc_info = &iwdev->hw.hmc;
-+	dev->hmc_info->hmc_obj = (struct i40iw_hmc_obj_info *)((u8 *)iwdev->pble_rsrc +
-+				sizeof(struct i40iw_hmc_pble_rsrc));
-+	status = i40iw_obj_aligned_mem(iwdev, &mem, I40IW_QUERY_FPM_BUF_SIZE,
-+				       I40IW_FPM_QUERY_BUF_ALIGNMENT_MASK);
-+	if (status)
-+		goto exit;
-+	info.fpm_query_buf_pa = mem.pa;
-+	info.fpm_query_buf = mem.va;
-+	status = i40iw_obj_aligned_mem(iwdev, &mem, I40IW_COMMIT_FPM_BUF_SIZE,
-+				       I40IW_FPM_COMMIT_BUF_ALIGNMENT_MASK);
-+	if (status)
-+		goto exit;
-+	info.fpm_commit_buf_pa = mem.pa;
-+	info.fpm_commit_buf = mem.va;
-+	info.hmc_fn_id = ldev->fid;
-+	info.is_pf = (ldev->ftype) ? false : true;
-+	info.bar0 = ldev->hw_addr;
-+	info.hw = &iwdev->hw;
-+	info.debug_mask = debug;
-+	info.qs_handle = ldev->params.qos.prio_qos[0].qs_handle;
-+	info.exception_lan_queue = 1;
-+	info.vchnl_send = i40iw_virtchnl_send;
-+	status = i40iw_device_init(&iwdev->sc_dev, &info);
-+exit:
-+	if (status) {
-+		kfree(iwdev->hmc_info_mem);
-+		iwdev->hmc_info_mem = NULL;
-+	}
-+	return status;
-+}
-+
-+/**
-+ * i40iw_register_notifiers - register tcp ip notifiers
-+ */
-+static void i40iw_register_notifiers(void)
-+{
-+	if (!i40iw_notifiers_registered) {
-+		register_inetaddr_notifier(&i40iw_inetaddr_notifier);
-+		register_inet6addr_notifier(&i40iw_inetaddr6_notifier);
-+		register_netevent_notifier(&i40iw_net_notifier);
-+	}
-+	i40iw_notifiers_registered++;
-+}
-+
-+/**
-+ * i40iw_save_msix_info - copy msix vector information to iwarp device
-+ * @iwdev: iwarp device
-+ * @ldev: lan device information
-+ *
-+ * Allocate iwdev msix table and copy the ldev msix info to the table
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_save_msix_info(struct i40iw_device *iwdev,
-+						   struct i40e_info *ldev)
-+{
-+	struct i40e_qvlist_info *iw_qvlist;
-+	struct i40e_qv_info *iw_qvinfo;
-+	u32 ceq_idx;
-+	u32 i;
-+	u32 size;
-+
-+	iwdev->msix_count = ldev->msix_count;
-+
-+	size = sizeof(struct i40iw_msix_vector) * iwdev->msix_count;
-+	size += sizeof(struct i40e_qvlist_info);
-+	size +=  sizeof(struct i40e_qv_info) * iwdev->msix_count - 1;
-+	iwdev->iw_msixtbl = kzalloc(size, GFP_KERNEL);
-+
-+	if (!iwdev->iw_msixtbl)
-+		return I40IW_ERR_NO_MEMORY;
-+	iwdev->iw_qvlist = (struct i40e_qvlist_info *)(&iwdev->iw_msixtbl[iwdev->msix_count]);
-+	iw_qvlist = iwdev->iw_qvlist;
-+	iw_qvinfo = iw_qvlist->qv_info;
-+	iw_qvlist->num_vectors = iwdev->msix_count;
-+	if (iwdev->msix_count <= num_online_cpus())
-+		iwdev->msix_shared = true;
-+	for (i = 0, ceq_idx = 0; i < iwdev->msix_count; i++, iw_qvinfo++) {
-+		iwdev->iw_msixtbl[i].idx = ldev->msix_entries[i].entry;
-+		iwdev->iw_msixtbl[i].irq = ldev->msix_entries[i].vector;
-+		if (i == 0) {
-+			iw_qvinfo->aeq_idx = 0;
-+			if (iwdev->msix_shared)
-+				iw_qvinfo->ceq_idx = ceq_idx++;
-+			else
-+				iw_qvinfo->ceq_idx = I40E_QUEUE_INVALID_IDX;
-+		} else {
-+			iw_qvinfo->aeq_idx = I40E_QUEUE_INVALID_IDX;
-+			iw_qvinfo->ceq_idx = ceq_idx++;
-+		}
-+		iw_qvinfo->itr_idx = 3;
-+		iw_qvinfo->v_idx = iwdev->iw_msixtbl[i].idx;
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_deinit_device - clean up the device resources
-+ * @iwdev: iwarp device
-+ * @reset: true if called before reset
-+ *
-+ * Destroy the ib device interface, remove the mac ip entry and ipv4/ipv6 addresses,
-+ * destroy the device queues and free the pble and the hmc objects
-+ */
-+static void i40iw_deinit_device(struct i40iw_device *iwdev, bool reset)
-+{
-+	struct i40e_info *ldev = iwdev->ldev;
-+
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+
-+	i40iw_pr_info("state = %d\n", iwdev->init_state);
-+
-+	switch (iwdev->init_state) {
-+	case OFA_DEV_REGISTERED:
-+		iwdev->iw_status = 0;
-+		i40iw_port_ibevent(iwdev);
-+		i40iw_destroy_ofa_device(iwdev->iwibdev);
-+		/* fallthrough */
-+	case IP_ADDR_REGISTERED:
-+		if (!reset)
-+			i40iw_del_macip_entry(iwdev, (u8)iwdev->mac_ip_table_idx);
-+		/* fallthrough */
-+	case INET_NOTIFIER:
-+		if (i40iw_notifiers_registered > 0) {
-+			i40iw_notifiers_registered--;
-+			unregister_netevent_notifier(&i40iw_net_notifier);
-+			unregister_inetaddr_notifier(&i40iw_inetaddr_notifier);
-+			unregister_inet6addr_notifier(&i40iw_inetaddr6_notifier);
-+		}
-+		/* fallthrough */
-+	case AEQ_CREATED:
-+		i40iw_destroy_aeq(iwdev, reset);
-+		/* fallthrough */
-+	case CEQ_CREATED:
-+		i40iw_dele_ceqs(iwdev, reset);
-+		/* fallthrough */
-+	case IEQ_CREATED:
-+		i40iw_puda_dele_resources(dev, I40IW_PUDA_RSRC_TYPE_IEQ, reset);
-+		/* fallthrough */
-+	case ILQ_CREATED:
-+		i40iw_puda_dele_resources(dev, I40IW_PUDA_RSRC_TYPE_ILQ, reset);
-+		/* fallthrough */
-+	case CCQ_CREATED:
-+		i40iw_destroy_ccq(iwdev, reset);
-+		/* fallthrough */
-+	case PBLE_CHUNK_MEM:
-+		i40iw_destroy_pble_pool(dev, iwdev->pble_rsrc);
-+		/* fallthrough */
-+	case HMC_OBJS_CREATED:
-+		i40iw_del_hmc_objects(dev, dev->hmc_info, true, reset);
-+		/* fallthrough */
-+	case CQP_CREATED:
-+		i40iw_destroy_cqp(iwdev, !reset);
-+		/* fallthrough */
-+	case INITIAL_STATE:
-+		i40iw_cleanup_cm_core(&iwdev->cm_core);
-+		if (dev->is_pf)
-+			i40iw_hw_stats_del_timer(dev);
-+
-+		i40iw_del_init_mem(iwdev);
-+		break;
-+	case INVALID_STATE:
-+		/* fallthrough */
-+	default:
-+		i40iw_pr_err("bad init_state = %d\n", iwdev->init_state);
-+		break;
-+	}
-+
-+	i40iw_del_handler(i40iw_find_i40e_handler(ldev));
-+}
-+
-+/**
-+ * i40iw_setup_init_state - set up the initial device struct
-+ * @hdl: handler for iwarp device - one per instance
-+ * @ldev: lan device information
-+ * @client: iwarp client information, provided during registration
-+ *
-+ * Initialize the iwarp device and its hdl information
-+ * using the ldev and client information
-+ * Return 0 if successful, otherwise return error
-+ */
-+static enum i40iw_status_code i40iw_setup_init_state(struct i40iw_handler *hdl,
-+						     struct i40e_info *ldev,
-+						     struct i40e_client *client)
-+{
-+	struct i40iw_device *iwdev = &hdl->device;
-+	struct i40iw_sc_dev *dev = &iwdev->sc_dev;
-+	enum i40iw_status_code status = 0;
-+
-+	memcpy(&hdl->ldev, ldev, sizeof(*ldev));
-+	if (resource_profile == 1)
-+		resource_profile = 2;
-+
-+	iwdev->mpa_version = mpa_version;
-+	iwdev->resource_profile = (resource_profile < I40IW_HMC_PROFILE_EQUAL) ?
-+	    (u8)resource_profile + I40IW_HMC_PROFILE_DEFAULT :
-+	    I40IW_HMC_PROFILE_DEFAULT;
-+	iwdev->max_rdma_vfs =
-+		(iwdev->resource_profile != I40IW_HMC_PROFILE_DEFAULT) ?  max_rdma_vfs : 0;
-+	iwdev->netdev = ldev->netdev;
-+	hdl->client = client;
-+	iwdev->mss = (!ldev->params.mtu) ? I40IW_DEFAULT_MSS : ldev->params.mtu - I40IW_MTU_TO_MSS;
-+	if (!ldev->ftype)
-+		iwdev->db_start = pci_resource_start(ldev->pcidev, 0) + I40IW_DB_ADDR_OFFSET;
-+	else
-+		iwdev->db_start = pci_resource_start(ldev->pcidev, 0) + I40IW_VF_DB_ADDR_OFFSET;
-+
-+	status = i40iw_save_msix_info(iwdev, ldev);
-+	if (status)
-+		goto exit;
-+	iwdev->hw.dev_context = (void *)ldev->pcidev;
-+	iwdev->hw.hw_addr = ldev->hw_addr;
-+	status = i40iw_allocate_dma_mem(&iwdev->hw,
-+					&iwdev->obj_mem, 8192, 4096);
-+	if (status)
-+		goto exit;
-+	iwdev->obj_next = iwdev->obj_mem;
-+	iwdev->push_mode = push_mode;
-+	init_waitqueue_head(&iwdev->vchnl_waitq);
-+	status = i40iw_initialize_dev(iwdev, ldev);
-+exit:
-+	if (status) {
-+		kfree(iwdev->iw_msixtbl);
-+		i40iw_free_dma_mem(dev->hw, &iwdev->obj_mem);
-+		iwdev->iw_msixtbl = NULL;
-+	}
-+	return status;
-+}
-+
-+/**
-+ * i40iw_open - client interface operation open for iwarp/uda device
-+ * @ldev: lan device information
-+ * @client: iwarp client information, provided during registration
-+ *
-+ * Called by the lan driver during the processing of client register
-+ * Create device resources, set up queues, pble and hmc objects and
-+ * register the device with the ib verbs interface
-+ * Return 0 if successful, otherwise return error
-+ */
-+static int i40iw_open(struct i40e_info *ldev, struct i40e_client *client)
-+{
-+	struct i40iw_device *iwdev;
-+	struct i40iw_sc_dev *dev;
-+	enum i40iw_status_code status;
-+	struct i40iw_handler *hdl;
-+
-+	hdl = kzalloc(sizeof(*hdl), GFP_KERNEL);
-+	if (!hdl)
-+		return -ENOMEM;
-+	iwdev = &hdl->device;
-+	dev = &iwdev->sc_dev;
-+	i40iw_setup_cm_core(iwdev);
-+	dev->back_dev = (void *)iwdev;
-+	iwdev->ldev = &hdl->ldev;
-+	iwdev->client = client;
-+	mutex_init(&iwdev->pbl_mutex);
-+
-+	do {
-+		status = i40iw_setup_init_state(hdl, ldev, client);
-+		if (status)
-+			break;
-+		iwdev->init_state = INITIAL_STATE;
-+		if (dev->is_pf)
-+			i40iw_wait_pe_ready(dev->hw);
-+		status = i40iw_create_cqp(iwdev);
-+		if (status)
-+			break;
-+		iwdev->init_state = CQP_CREATED;
-+		status = i40iw_hmc_setup(iwdev);
-+		if (status)
-+			break;
-+		status = i40iw_create_ccq(iwdev);
-+		if (status)
-+			break;
-+		iwdev->init_state = CCQ_CREATED;
-+		status = i40iw_initialize_ilq(iwdev);
-+		if (status)
-+			break;
-+		iwdev->init_state = ILQ_CREATED;
-+		status = i40iw_initialize_ieq(iwdev);
-+		if (status)
-+			break;
-+		iwdev->init_state = IEQ_CREATED;
-+		status = i40iw_setup_ceqs(iwdev, ldev);
-+		if (status)
-+			break;
-+		iwdev->init_state = CEQ_CREATED;
-+		status = i40iw_setup_aeq(iwdev);
-+		if (status)
-+			break;
-+		iwdev->init_state = AEQ_CREATED;
-+		status = i40iw_initialize_hw_resources(iwdev);
-+		if (status)
-+			break;
-+		dev->ccq_ops->ccq_arm(dev->ccq);
-+		status = i40iw_hmc_init_pble(&iwdev->sc_dev, iwdev->pble_rsrc);
-+		if (status)
-+			break;
-+		iwdev->virtchnl_wq = create_singlethread_workqueue("iwvch");
-+		i40iw_register_notifiers();
-+		iwdev->init_state = INET_NOTIFIER;
-+		status = i40iw_add_mac_ip(iwdev);
-+		if (status)
-+			break;
-+		iwdev->init_state = IP_ADDR_REGISTERED;
-+		if (i40iw_register_ofa_device(iwdev)) {
-+			i40iw_pr_err("register ofa device fail\n");
-+			break;
-+		};
-+
-+		iwdev->init_state = OFA_DEV_REGISTERED;
-+		iwdev->iw_status = 1;
-+		i40iw_port_ibevent(iwdev);
-+		i40iw_add_handler(hdl);
-+		i40iw_pr_info("i40iw_open completed\n");
-+		return 0;
-+	} while (0);
-+
-+	i40iw_pr_err("status = %d last completion = %d\n", status, iwdev->init_state);
-+	i40iw_deinit_device(iwdev, false);
-+	return -ERESTART;
-+}
-+
-+/**
-+ * i40iw_close - client interface operation close for iwarp/uda device
-+ * @ldev: lan device information
-+ * @client: client to close
-+ *
-+ * Called by the lan driver during the processing of client unregister
-+ * Destroy and clean up the driver resources
-+ */
-+static void i40iw_close(struct i40e_info *ldev, struct i40e_client *client, bool reset)
-+{
-+	struct i40iw_device *iwdev;
-+	struct i40iw_handler *hdl;
-+
-+	hdl = i40iw_find_i40e_handler(ldev);
-+	if (!hdl)
-+		return;
-+
-+	iwdev = &hdl->device;
-+	destroy_workqueue(iwdev->virtchnl_wq);
-+	i40iw_deinit_device(iwdev, reset);
-+}
-+
-+/**
-+ * i40iw_vf_reset - process VF reset
-+ * @ldev: lan device information
-+ * @client: client interface instance
-+ * @vf_id: virtual function id
-+ *
-+ * Called when a VF is reset by the PF
-+ * Destroy and clean up the VF resources
-+ */
-+static void i40iw_vf_reset(struct i40e_info *ldev, struct i40e_client *client, u32 vf_id)
-+{
-+	struct i40iw_handler *hdl;
-+	struct i40iw_sc_dev *dev;
-+	struct i40iw_hmc_fcn_info hmc_fcn_info;
-+	struct i40iw_virt_mem vf_dev_mem;
-+	struct i40iw_vfdev *tmp_vfdev;
-+	unsigned int i;
-+	unsigned long flags;
-+
-+	hdl = i40iw_find_i40e_handler(ldev);
-+	if (!hdl)
-+		return;
-+
-+	dev = &hdl->device.sc_dev;
-+
-+	for (i = 0; i < I40IW_MAX_PE_ENABLED_VF_COUNT; i++) {
-+		if ((!dev->vf_dev[i]) || (dev->vf_dev[i]->vf_id != vf_id))
-+			continue;
-+
-+		/* free all resources allocated on behalf of vf */
-+		tmp_vfdev = dev->vf_dev[i];
-+		spin_lock_irqsave(&dev->dev_pestat.stats_lock, flags);
-+		dev->vf_dev[i] = NULL;
-+		spin_unlock_irqrestore(&dev->dev_pestat.stats_lock, flags);
-+		i40iw_del_hmc_objects(dev, &tmp_vfdev->hmc_info, false, false);
-+		/* remove vf hmc function */
-+		memset(&hmc_fcn_info, 0, sizeof(hmc_fcn_info));
-+		hmc_fcn_info.vf_id = vf_id;
-+		hmc_fcn_info.iw_vf_idx = tmp_vfdev->iw_vf_idx;
-+		hmc_fcn_info.free_fcn = true;
-+		i40iw_cqp_manage_hmc_fcn_cmd(dev, &hmc_fcn_info);
-+		/* free vf_dev */
-+		vf_dev_mem.va = tmp_vfdev;
-+		vf_dev_mem.size = sizeof(struct i40iw_vfdev) +
-+					sizeof(struct i40iw_hmc_obj_info) * I40IW_HMC_IW_MAX;
-+		i40iw_free_virt_mem(dev->hw, &vf_dev_mem);
-+		break;
-+	}
-+}
-+
-+/**
-+ * i40iw_vf_enable - enable a number of VFs
-+ * @ldev: lan device information
-+ * @client: client interface instance
-+ * @num_vfs: number of VFs for the PF
-+ *
-+ * Called when the number of VFs changes
-+ */
-+static void i40iw_vf_enable(struct i40e_info *ldev,
-+			    struct i40e_client *client,
-+			    u32 num_vfs)
-+{
-+	struct i40iw_handler *hdl;
-+
-+	hdl = i40iw_find_i40e_handler(ldev);
-+	if (!hdl)
-+		return;
-+
-+	if (num_vfs > I40IW_MAX_PE_ENABLED_VF_COUNT)
-+		hdl->device.max_enabled_vfs = I40IW_MAX_PE_ENABLED_VF_COUNT;
-+	else
-+		hdl->device.max_enabled_vfs = num_vfs;
-+}
-+
-+/**
-+ * i40iw_vf_capable - check if VF capable
-+ * @ldev: lan device information
-+ * @client: client interface instance
-+ * @vf_id: virtual function id
-+ *
-+ * Return 1 if a VF slot is available or if VF is already RDMA enabled
-+ * Return 0 otherwise
-+ */
-+static int i40iw_vf_capable(struct i40e_info *ldev,
-+			    struct i40e_client *client,
-+			    u32 vf_id)
-+{
-+	struct i40iw_handler *hdl;
-+	struct i40iw_sc_dev *dev;
-+	unsigned int i;
-+
-+	hdl = i40iw_find_i40e_handler(ldev);
-+	if (!hdl)
-+		return 0;
-+
-+	dev = &hdl->device.sc_dev;
-+
-+	for (i = 0; i < hdl->device.max_enabled_vfs; i++) {
-+		if ((!dev->vf_dev[i]) || (dev->vf_dev[i]->vf_id == vf_id))
-+			return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40iw_virtchnl_receive - receive a message through the virtual channel
-+ * @ldev: lan device information
-+ * @client: client interface instance
-+ * @vf_id: virtual function id associated with the message
-+ * @msg: message buffer pointer
-+ * @len: length of the message
-+ *
-+ * Invoke virtual channel receive operation for the given msg
-+ * Return 0 if successful, otherwise return error
-+ */
-+static int i40iw_virtchnl_receive(struct i40e_info *ldev,
-+				  struct i40e_client *client,
-+				  u32 vf_id,
-+				  u8 *msg,
-+				  u16 len)
-+{
-+	struct i40iw_handler *hdl;
-+	struct i40iw_sc_dev *dev;
-+	struct i40iw_device *iwdev;
-+	int ret_code = I40IW_NOT_SUPPORTED;
-+
-+	if ((!len) || (!msg))
-+		return I40IW_ERR_PARAM;
-+
-+	hdl = i40iw_find_i40e_handler(ldev);
-+	if (!hdl)
-+		return I40IW_ERR_PARAM;
-+
-+	dev = &hdl->device.sc_dev;
-+	iwdev = dev->back_dev;
-+
-+	i40iw_debug(dev, I40IW_DEBUG_VIRT, "msg %p, message length %u\n", msg, len);
-+
-+	if (dev->vchnl_if.vchnl_recv) {
-+		ret_code = dev->vchnl_if.vchnl_recv(dev, vf_id, msg, len);
-+		if (!dev->is_pf) {
-+			atomic_dec(&iwdev->vchnl_msgs);
-+			wake_up(&iwdev->vchnl_waitq);
-+		}
-+	}
-+	return ret_code;
-+}
-+
-+/**
-+ * i40iw_virtchnl_send - send a message through the virtual channel
++ * i40iw_puda_dele_buf - delete buffer back to system
 + * @dev: iwarp device
-+ * @vf_id: virtual function id associated with the message
-+ * @msg: virtual channel message buffer pointer
-+ * @len: length of the message
-+ *
-+ * Invoke virtual channel send operation for the given msg
-+ * Return 0 if successful, otherwise return error
++ * @buf: buffer to free
 + */
-+static enum i40iw_status_code i40iw_virtchnl_send(struct i40iw_sc_dev *dev,
-+						  u32 vf_id,
-+						  u8 *msg,
-+						  u16 len)
++static void i40iw_puda_dele_buf(struct i40iw_sc_dev *dev,
++				struct i40iw_puda_buf *buf)
 +{
-+	struct i40iw_device *iwdev;
-+	struct i40e_info *ldev;
-+	enum i40iw_status_code ret_code = I40IW_ERR_BAD_PTR;
-+
-+	if ((!dev) || (!dev->back_dev))
-+		return ret_code;
-+
-+	iwdev = dev->back_dev;
-+	ldev = iwdev->ldev;
-+
-+	if ((ldev) && (ldev->ops) && (ldev->ops->virtchnl_send))
-+		ret_code = ldev->ops->virtchnl_send(ldev, &i40iw_client, vf_id, msg, len);
-+
-+	return ret_code;
++	i40iw_free_dma_mem(dev->hw, &buf->mem);
++	i40iw_free_virt_mem(dev->hw, &buf->buf_mem);
 +}
 +
-+/* client interface functions */
-+static struct i40e_client_ops i40e_ops = {
-+	.open = i40iw_open,
-+	.close = i40iw_close,
-+	.l2_param_change = NULL,
-+	.virtchnl_receive = i40iw_virtchnl_receive,
-+	.vf_reset = i40iw_vf_reset,
-+	.vf_enable = i40iw_vf_enable,
-+	.vf_capable = i40iw_vf_capable
-+};
++/**
++ * i40iw_puda_get_next_send_wqe - return next wqe for processing
++ * @qp: puda qp for wqe
++ * @wqe_idx: wqe index for caller
++ */
++static u64 *i40iw_puda_get_next_send_wqe(struct i40iw_qp_uk *qp, u32 *wqe_idx)
++{
++	u64 *wqe = NULL;
++	enum i40iw_status_code ret_code = 0;
++
++	*wqe_idx = I40IW_RING_GETCURRENT_HEAD(qp->sq_ring);
++	if (!*wqe_idx)
++		qp->swqe_polarity = !qp->swqe_polarity;
++	I40IW_RING_MOVE_HEAD(qp->sq_ring, ret_code);
++	if (ret_code)
++		return wqe;
++	wqe = &qp->sq_base[*wqe_idx << 2];
++
++	return wqe;
++}
 +
 +/**
-+ * i40iw_init_module - driver initialization function
-+ *
-+ * First function to call when the driver is loaded
-+ * Register the driver as i40e client and port mapper client
++ * i40iw_puda_poll_info - poll cq for completion
++ * @cq: cq for poll
++ * @info: info return for successful completion
 + */
-+static int __init i40iw_init_module(void)
++static enum i40iw_status_code i40iw_puda_poll_info(struct i40iw_sc_cq *cq,
++						   struct i40iw_puda_completion_info *info)
 +{
-+	int ret = 0;
++	u64 qword0, qword2, qword3;
++	u64 *cqe;
++	u64 comp_ctx;
++	bool valid_bit;
++	u32 major_err, minor_err;
++	bool error;
 +
-+	memset(&i40iw_client, 0, sizeof(i40iw_client));
-+	i40iw_client.version.major = CLIENT_IW_INTERFACE_VERSION_MAJOR;
-+	i40iw_client.version.minor = CLIENT_IW_INTERFACE_VERSION_MINOR;
-+	i40iw_client.version.build = CLIENT_IW_INTERFACE_VERSION_BUILD;
-+	i40iw_client.version.rsvd = 0;
-+	i40iw_client.flags = I40E_CLIENT_FLAGS_LAUNCH_ON_PROBE;
-+	i40iw_client.ops = &i40e_ops;
-+	memcpy(i40iw_client.name, i40iw_client_name, I40E_CLIENT_STR_LENGTH);
-+	i40iw_client.type = I40E_CLIENT_IWARP;
-+	spin_lock_init(&i40iw_handler_lock);
-+	ret = i40e_register_client(&i40iw_client);
-+	ret = iwpm_init(RDMA_NL_I40IW);
++	info->compl_error = 0;
++	cqe = (u64 *)I40IW_GET_CURRENT_CQ_ELEMENT(&cq->cq_uk);
++	get_64bit_val(cqe, 24, &qword3);
++	valid_bit = (bool)RS_64(qword3, I40IW_CQ_VALID);
++
++	if (valid_bit != cq->cq_uk.polarity)
++		return I40IW_ERR_QUEUE_EMPTY;
++
++	i40iw_debug_buf(cq->dev, I40IW_DEBUG_PUDA, "PUDA CQE", cqe, 32);
++	error = (bool)RS_64(qword3, I40IW_CQ_ERROR);
++	if (error) {
++		i40iw_debug(cq->dev, I40IW_DEBUG_PUDA, "%s receive error\n", __func__);
++		major_err = (u32)(RS_64(qword3, I40IW_CQ_MAJERR));
++		minor_err = (u32)(RS_64(qword3, I40IW_CQ_MINERR));
++		info->compl_error = major_err << 16 | minor_err;
++		return I40IW_ERR_CQ_COMPL_ERROR;
++	}
++
++	get_64bit_val(cqe, 0, &qword0);
++	get_64bit_val(cqe, 16, &qword2);
++
++	info->q_type = (u8)RS_64(qword3, I40IW_CQ_SQ);
++	info->qp_id = (u32)RS_64(qword2, I40IWCQ_QPID);
++
++	get_64bit_val(cqe, 8, &comp_ctx);
++	info->qp = (struct i40iw_qp_uk *)(unsigned long)comp_ctx;
++	info->wqe_idx = (u32)RS_64(qword3, I40IW_CQ_WQEIDX);
++
++	if (info->q_type == I40IW_CQE_QTYPE_RQ) {
++		info->vlan_valid = (bool)RS_64(qword3, I40IW_VLAN_TAG_VALID);
++		info->l4proto = (u8)RS_64(qword2, I40IW_UDA_L4PROTO);
++		info->l3proto = (u8)RS_64(qword2, I40IW_UDA_L3PROTO);
++		info->payload_len = (u16)RS_64(qword0, I40IW_UDA_PAYLOADLEN);
++	}
++
++	return 0;
++}
++
++/**
++ * i40iw_puda_poll_completion - processes completion for cq
++ * @dev: iwarp device
++ * @cq: cq getting interrupt
++ * @compl_err: return any completion err
++ */
++enum i40iw_status_code i40iw_puda_poll_completion(struct i40iw_sc_dev *dev,
++						  struct i40iw_sc_cq *cq, u32 *compl_err)
++{
++	struct i40iw_qp_uk *qp;
++	struct i40iw_cq_uk *cq_uk = &cq->cq_uk;
++	struct i40iw_puda_completion_info info;
++	enum i40iw_status_code ret = 0;
++	struct i40iw_puda_buf *buf;
++	struct i40iw_puda_rsrc *rsrc;
++	void *sqwrid;
++	u8 cq_type = cq->cq_type;
++	unsigned long	flags;
++
++	if ((cq_type == I40IW_CQ_TYPE_ILQ) || (cq_type == I40IW_CQ_TYPE_IEQ)) {
++		rsrc = (cq_type == I40IW_CQ_TYPE_ILQ) ? dev->ilq : dev->ieq;
++	} else {
++		i40iw_debug(dev, I40IW_DEBUG_PUDA, "%s qp_type error\n", __func__);
++		return I40IW_ERR_BAD_PTR;
++	}
++
++	ret = i40iw_puda_poll_info(cq, &info);
++	*compl_err = info.compl_error;
++	if (ret == I40IW_ERR_QUEUE_EMPTY)
++		return ret;
 +	if (ret)
-+		i40iw_pr_err("Port mapper initialization failed\n");
-+	ret = ibnl_add_client(RDMA_NL_I40IW, RDMA_NL_IWPM_NUM_OPS,
-+			      i40iw_nl_cb_table);
++		goto done;
++
++	qp = info.qp;
++	if ((!qp) || (!rsrc)) {
++		ret = I40IW_ERR_BAD_PTR;
++		goto done;
++	}
++
++	if (qp->qp_id != rsrc->qp_id) {
++		ret = I40IW_ERR_BAD_PTR;
++		goto done;
++	}
++
++	if (info.q_type == I40IW_CQE_QTYPE_RQ) {
++		buf = (struct i40iw_puda_buf *)(uintptr_t)qp->rq_wrid_array[info.wqe_idx];
++		/* Get all the tcpip information in the buf header */
++		ret = i40iw_puda_get_tcpip_info(&info, buf);
++		if (ret) {
++			rsrc->stats_rcvd_pkt_err++;
++			if (cq_type == I40IW_CQ_TYPE_ILQ) {
++				i40iw_ilq_putback_rcvbuf(&rsrc->qp,
++							 info.wqe_idx);
++			} else {
++				i40iw_puda_ret_bufpool(rsrc, buf);
++				i40iw_puda_replenish_rq(rsrc, false);
++			}
++			goto done;
++		}
++
++		rsrc->stats_pkt_rcvd++;
++		rsrc->compl_rxwqe_idx = info.wqe_idx;
++		i40iw_debug(dev, I40IW_DEBUG_PUDA, "%s RQ completion\n", __func__);
++		rsrc->receive(rsrc->dev, buf);
++		if (cq_type == I40IW_CQ_TYPE_ILQ)
++			i40iw_ilq_putback_rcvbuf(&rsrc->qp, info.wqe_idx);
++		else
++			i40iw_puda_replenish_rq(rsrc, false);
++
++	} else {
++		i40iw_debug(dev, I40IW_DEBUG_PUDA, "%s SQ completion\n", __func__);
++		sqwrid = (void *)(uintptr_t)qp->sq_wrtrk_array[info.wqe_idx].wrid;
++		I40IW_RING_SET_TAIL(qp->sq_ring, info.wqe_idx);
++		rsrc->xmit_complete(rsrc->dev, sqwrid);
++		spin_lock_irqsave(&rsrc->bufpool_lock, flags);
++		rsrc->tx_wqe_avail_cnt++;
++		spin_unlock_irqrestore(&rsrc->bufpool_lock, flags);
++		if (!list_empty(&dev->ilq->txpend))
++			i40iw_puda_send_buf(dev->ilq, NULL);
++	}
++
++done:
++	I40IW_RING_MOVE_HEAD(cq_uk->cq_ring, ret);
++	if (I40IW_RING_GETCURRENT_HEAD(cq_uk->cq_ring) == 0)
++		cq_uk->polarity = !cq_uk->polarity;
++	/* update cq tail in cq shadow memory also */
++	I40IW_RING_MOVE_TAIL(cq_uk->cq_ring);
++	set_64bit_val(cq_uk->shadow_area, 0,
++		      I40IW_RING_GETCURRENT_HEAD(cq_uk->cq_ring));
++	return 0;
++}
++
++/**
++ * i40iw_puda_send - complete send wqe for transmit
++ * @qp: puda qp for send
++ * @info: buffer information for transmit
++ */
++enum i40iw_status_code i40iw_puda_send(struct i40iw_sc_qp *qp,
++				       struct i40iw_puda_send_info *info)
++{
++	u64 *wqe;
++	u32 iplen, l4len;
++	u64 header[2];
++	u32 wqe_idx;
++	u8 iipt;
++
++	/* number of 32 bits DWORDS in header */
++	l4len = info->tcplen >> 2;
++	if (info->ipv4) {
++		iipt = 3;
++		iplen = 5;
++	} else {
++		iipt = 1;
++		iplen = 10;
++	}
++
++	wqe = i40iw_puda_get_next_send_wqe(&qp->qp_uk, &wqe_idx);
++	if (!wqe)
++		return I40IW_ERR_QP_TOOMANY_WRS_POSTED;
++	qp->qp_uk.sq_wrtrk_array[wqe_idx].wrid = (uintptr_t)info->scratch;
++	/* Third line of WQE descriptor */
++	/* maclen is in words */
++	header[0] = LS_64((info->maclen >> 1), I40IW_UDA_QPSQ_MACLEN) |
++		    LS_64(iplen, I40IW_UDA_QPSQ_IPLEN) | LS_64(1, I40IW_UDA_QPSQ_L4T) |
++		    LS_64(iipt, I40IW_UDA_QPSQ_IIPT) |
++		    LS_64(l4len, I40IW_UDA_QPSQ_L4LEN);
++	/* Forth line of WQE descriptor */
++	header[1] = LS_64(I40IW_OP_TYPE_SEND, I40IW_UDA_QPSQ_OPCODE) |
++		    LS_64(1, I40IW_UDA_QPSQ_SIGCOMPL) |
++		    LS_64(info->doloopback, I40IW_UDA_QPSQ_DOLOOPBACK) |
++		    LS_64(qp->qp_uk.swqe_polarity, I40IW_UDA_QPSQ_VALID);
++
++	set_64bit_val(wqe, 0, info->paddr);
++	set_64bit_val(wqe, 8, LS_64(info->len, I40IWQPSQ_FRAG_LEN));
++	set_64bit_val(wqe, 16, header[0]);
++	set_64bit_val(wqe, 24, header[1]);
++
++	i40iw_debug_buf(qp->dev, I40IW_DEBUG_PUDA, "PUDA SEND WQE", wqe, 32);
++	i40iw_qp_post_wr(&qp->qp_uk);
++	return 0;
++}
++
++/**
++ * i40iw_puda_send_buf - transmit puda buffer
++ * @rsrc: resource to use for buffer
++ * @buf: puda buffer to transmit
++ */
++void i40iw_puda_send_buf(struct i40iw_puda_rsrc *rsrc, struct i40iw_puda_buf *buf)
++{
++	struct i40iw_puda_send_info info;
++	enum i40iw_status_code ret = 0;
++	unsigned long	flags;
++
++	spin_lock_irqsave(&rsrc->bufpool_lock, flags);
++	/* if no wqe available or not from a completion and we have
++	 * pending buffers, we must queue new buffer
++	 */
++	if (!rsrc->tx_wqe_avail_cnt || ((buf) && !list_empty(&rsrc->txpend))) {
++		list_add_tail(&buf->list, &rsrc->txpend);
++		spin_unlock_irqrestore(&rsrc->bufpool_lock, flags);
++		rsrc->stats_sent_pkt_q++;
++		if (rsrc->type == I40IW_PUDA_RSRC_TYPE_ILQ)
++			i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++				    "%s: adding to txpend\n", __func__);
++		return;
++	}
++	rsrc->tx_wqe_avail_cnt--;
++	/* if we are coming from a completion and have pending buffers
++	 * then Get one from pending list
++	 */
++	if (!buf) {
++		buf = i40iw_puda_get_listbuf(&rsrc->txpend);
++		if (!buf)
++			goto done;
++	}
++
++	info.scratch = (void *)buf;
++	info.paddr = buf->mem.pa;
++	info.len = buf->totallen;
++	info.tcplen = buf->tcphlen;
++	info.maclen = buf->maclen;
++	info.ipv4 = buf->ipv4;
++	info.doloopback = (rsrc->type == I40IW_PUDA_RSRC_TYPE_IEQ);
++
++	ret = i40iw_puda_send(&rsrc->qp, &info);
++	if (ret) {
++		rsrc->tx_wqe_avail_cnt++;
++		rsrc->stats_sent_pkt_q++;
++		list_add(&buf->list, &rsrc->txpend);
++		if (rsrc->type == I40IW_PUDA_RSRC_TYPE_ILQ)
++			i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++				    "%s: adding to puda_send\n", __func__);
++	} else {
++		rsrc->stats_pkt_sent++;
++	}
++done:
++	spin_unlock_irqrestore(&rsrc->bufpool_lock, flags);
++}
++
++/**
++ * i40iw_puda_qp_setctx - during init, set qp's context
++ * @rsrc: qp's resource
++ */
++static void i40iw_puda_qp_setctx(struct i40iw_puda_rsrc *rsrc)
++{
++	struct i40iw_sc_qp *qp = &rsrc->qp;
++	u64 *qp_ctx = qp->hw_host_ctx;
++
++	set_64bit_val(qp_ctx, 8, qp->sq_pa);
++	set_64bit_val(qp_ctx, 16, qp->rq_pa);
++
++	set_64bit_val(qp_ctx, 24,
++		      LS_64(qp->hw_rq_size, I40IWQPC_RQSIZE) |
++		      LS_64(qp->hw_sq_size, I40IWQPC_SQSIZE));
++
++	set_64bit_val(qp_ctx, 48, LS_64(1514, I40IWQPC_SNDMSS));
++	set_64bit_val(qp_ctx, 56, 0);
++	set_64bit_val(qp_ctx, 64, 1);
++
++	set_64bit_val(qp_ctx, 136,
++		      LS_64(rsrc->cq_id, I40IWQPC_TXCQNUM) |
++		      LS_64(rsrc->cq_id, I40IWQPC_RXCQNUM));
++
++	set_64bit_val(qp_ctx, 160, LS_64(1, I40IWQPC_PRIVEN));
++
++	set_64bit_val(qp_ctx, 168,
++		      LS_64((uintptr_t)qp, I40IWQPC_QPCOMPCTX));
++
++	set_64bit_val(qp_ctx, 176,
++		      LS_64(qp->sq_tph_val, I40IWQPC_SQTPHVAL) |
++		      LS_64(qp->rq_tph_val, I40IWQPC_RQTPHVAL) |
++		      LS_64(qp->qs_handle, I40IWQPC_QSHANDLE));
++
++	i40iw_debug_buf(rsrc->dev, I40IW_DEBUG_PUDA, "PUDA QP CONTEXT",
++			qp_ctx, I40IW_QP_CTX_SIZE);
++}
++
++/**
++ * i40iw_puda_qp_wqe - setup wqe for qp create
++ * @rsrc: resource for qp
++ */
++static enum i40iw_status_code i40iw_puda_qp_wqe(struct i40iw_puda_rsrc *rsrc)
++{
++	struct i40iw_sc_qp *qp = &rsrc->qp;
++	struct i40iw_sc_dev *dev = rsrc->dev;
++	struct i40iw_sc_cqp *cqp;
++	u64 *wqe;
++	u64 header;
++	struct i40iw_ccq_cqe_info compl_info;
++	enum i40iw_status_code status = 0;
++
++	cqp = dev->cqp;
++	wqe = i40iw_sc_cqp_get_next_send_wqe(cqp, 0);
++	if (!wqe)
++		return I40IW_ERR_RING_FULL;
++
++	set_64bit_val(wqe, 16, qp->hw_host_ctx_pa);
++	set_64bit_val(wqe, 40, qp->shadow_area_pa);
++	header = qp->qp_uk.qp_id |
++		 LS_64(I40IW_CQP_OP_CREATE_QP, I40IW_CQPSQ_OPCODE) |
++		 LS_64(I40IW_QP_TYPE_UDA, I40IW_CQPSQ_QP_QPTYPE) |
++		 LS_64(1, I40IW_CQPSQ_QP_CQNUMVALID) |
++		 LS_64(2, I40IW_CQPSQ_QP_NEXTIWSTATE) |
++		 LS_64(cqp->polarity, I40IW_CQPSQ_WQEVALID);
++
++	set_64bit_val(wqe, 24, header);
++
++	i40iw_debug_buf(cqp->dev, I40IW_DEBUG_PUDA, "PUDA CQE", wqe, 32);
++	i40iw_sc_cqp_post_sq(cqp);
++	status = dev->cqp_ops->poll_for_cqp_op_done(dev->cqp,
++						    I40IW_CQP_OP_CREATE_QP,
++						    &compl_info);
++	return status;
++}
++
++/**
++ * i40iw_puda_qp_create - create qp for resource
++ * @rsrc: resource to use for buffer
++ */
++static enum i40iw_status_code i40iw_puda_qp_create(struct i40iw_puda_rsrc *rsrc)
++{
++	struct i40iw_sc_qp *qp = &rsrc->qp;
++	struct i40iw_qp_uk *ukqp = &qp->qp_uk;
++	enum i40iw_status_code ret = 0;
++	u32 sq_size, rq_size, t_size;
++	struct i40iw_dma_mem *mem;
++
++	sq_size = rsrc->sq_size * I40IW_QP_WQE_MIN_SIZE;
++	rq_size = rsrc->rq_size * I40IW_QP_WQE_MIN_SIZE;
++	t_size = (sq_size + rq_size + (I40IW_SHADOW_AREA_SIZE << 3) +
++		  I40IW_QP_CTX_SIZE);
++	/* Get page aligned memory */
++	ret =
++	    i40iw_allocate_dma_mem(rsrc->dev->hw, &rsrc->qpmem, t_size,
++				   I40IW_HW_PAGE_SIZE);
++	if (ret) {
++		i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA, "%s: error dma mem\n", __func__);
++		return ret;
++	}
++
++	mem = &rsrc->qpmem;
++	memset(mem->va, 0, t_size);
++	qp->qp_uk.swqe_polarity = 0;
++	qp->qp_uk.rwqe_polarity = 0;
++	qp->hw_sq_size = i40iw_get_encoded_wqe_size(rsrc->sq_size, false);
++	qp->hw_rq_size = i40iw_get_encoded_wqe_size(rsrc->rq_size, false);
++	qp->pd = &rsrc->sc_pd;
++	qp->qp_type = I40IW_QP_TYPE_UDA;
++	qp->dev = rsrc->dev;
++	qp->back_qp = (void *)rsrc;
++	qp->sq_pa = mem->pa;
++	qp->rq_pa = qp->sq_pa + sq_size;
++	ukqp->sq_base = mem->va;
++	ukqp->rq_base = (void *)((u8 *)mem->va + sq_size);
++	ukqp->shadow_area = (void *)((u8 *)ukqp->rq_base + rq_size);
++	qp->shadow_area_pa = qp->rq_pa + rq_size;
++	qp->hw_host_ctx = (u64 *)((u8 *)ukqp->shadow_area +
++				  (I40IW_SHADOW_AREA_SIZE << 3));
++	qp->hw_host_ctx_pa =
++		qp->shadow_area_pa + (I40IW_SHADOW_AREA_SIZE << 3);
++	ukqp->qp_id = rsrc->qp_id;
++	ukqp->sq_wrtrk_array = rsrc->sq_wrtrk_array;
++	ukqp->rq_wrid_array = rsrc->rq_wrid_array;
++
++	ukqp->qp_id = rsrc->qp_id;
++	ukqp->sq_size = rsrc->sq_size;
++	ukqp->rq_size = rsrc->rq_size;
++
++	I40IW_RING_INIT(ukqp->sq_ring, ukqp->sq_size);
++	I40IW_RING_INIT(ukqp->initial_ring, ukqp->sq_size);
++	I40IW_RING_INIT(ukqp->rq_ring, ukqp->rq_size);
++
++	if (qp->pd->dev->is_pf)
++		ukqp->wqe_alloc_reg = (u32 __iomem *)(i40iw_get_hw_addr(qp->pd->dev) +
++						    I40E_PFPE_WQEALLOC);
++	else
++		ukqp->wqe_alloc_reg = (u32 __iomem *)(i40iw_get_hw_addr(qp->pd->dev) +
++						    I40E_VFPE_WQEALLOC1);
++
++	qp->qs_handle = qp->dev->qs_handle;
++	i40iw_puda_qp_setctx(rsrc);
++	ret = i40iw_puda_qp_wqe(rsrc);
 +	if (ret)
-+		i40iw_pr_err("Failed to add netlink callback\n");
++		i40iw_free_dma_mem(rsrc->dev->hw, &rsrc->qpmem);
 +	return ret;
 +}
 +
 +/**
-+ * i40iw_exit_module - driver exit clean up function
-+ *
-+ * The function is called just before the driver is unloaded
-+ * Unregister the driver as i40e client and port mapper client
++ * i40iw_puda_cq_create - create cq for resource
++ * @rsrc: resource for which cq to create
 + */
-+static void __exit i40iw_exit_module(void)
++static enum i40iw_status_code i40iw_puda_cq_create(struct i40iw_puda_rsrc *rsrc)
 +{
-+	i40e_unregister_client(&i40iw_client);
-+	ibnl_remove_client(RDMA_NL_I40IW);
-+	iwpm_exit(RDMA_NL_I40IW);
++	struct i40iw_sc_dev *dev = rsrc->dev;
++	struct i40iw_sc_cq *cq = &rsrc->cq;
++	u64 *wqe;
++	struct i40iw_sc_cqp *cqp;
++	u64 header;
++	enum i40iw_status_code ret = 0;
++	u32 tsize, cqsize;
++	u32 shadow_read_threshold = 128;
++	struct i40iw_dma_mem *mem;
++	struct i40iw_ccq_cqe_info compl_info;
++	struct i40iw_cq_init_info info;
++	struct i40iw_cq_uk_init_info *init_info = &info.cq_uk_init_info;
++
++	cq->back_cq = (void *)rsrc;
++	cqsize = rsrc->cq_size * (sizeof(struct i40iw_cqe));
++	tsize = cqsize + sizeof(struct i40iw_cq_shadow_area);
++	ret = i40iw_allocate_dma_mem(dev->hw, &rsrc->cqmem, tsize,
++				     I40IW_CQ0_ALIGNMENT_MASK);
++	if (ret)
++		return ret;
++
++	mem = &rsrc->cqmem;
++	memset(&info, 0, sizeof(info));
++	info.dev = dev;
++	info.type = (rsrc->type == I40IW_PUDA_RSRC_TYPE_ILQ) ?
++			 I40IW_CQ_TYPE_ILQ : I40IW_CQ_TYPE_IEQ;
++	info.shadow_read_threshold = rsrc->cq_size >> 2;
++	info.ceq_id = 0;
++	info.ceq_id_valid = true;
++	info.cq_base_pa = mem->pa;
++	info.shadow_area_pa = mem->pa + cqsize;
++	init_info->cq_base = mem->va;
++	init_info->shadow_area = (u64 *)((u8 *)mem->va + cqsize);
++	init_info->cq_size = rsrc->cq_size;
++	init_info->cq_id = rsrc->cq_id;
++	ret = dev->iw_priv_cq_ops->cq_init(cq, &info);
++	if (ret)
++		goto error;
++	cqp = dev->cqp;
++	wqe = i40iw_sc_cqp_get_next_send_wqe(cqp, 0);
++	if (!wqe) {
++		ret = I40IW_ERR_RING_FULL;
++		goto error;
++	}
++
++	set_64bit_val(wqe, 0, rsrc->cq_size);
++	set_64bit_val(wqe, 8, RS_64_1(cq, 1));
++	set_64bit_val(wqe, 16, LS_64(shadow_read_threshold,
++						I40IW_CQPSQ_CQ_SHADOW_READ_THRESHOLD));
++	set_64bit_val(wqe, 32, cq->cq_pa);
++
++	set_64bit_val(wqe, 40, cq->shadow_area_pa);
++
++	header = rsrc->cq_id |
++	    LS_64(I40IW_CQP_OP_CREATE_CQ, I40IW_CQPSQ_OPCODE) |
++	    LS_64(1, I40IW_CQPSQ_CQ_CHKOVERFLOW) |
++	    LS_64(1, I40IW_CQPSQ_CQ_ENCEQEMASK) |
++	    LS_64(1, I40IW_CQPSQ_CQ_CEQIDVALID) |
++	    LS_64(cqp->polarity, I40IW_CQPSQ_WQEVALID);
++	set_64bit_val(wqe, 24, header);
++
++	i40iw_debug_buf(dev, I40IW_DEBUG_PUDA, "PUDA CQE",
++			wqe, I40IW_CQP_WQE_SIZE * 8);
++
++	i40iw_sc_cqp_post_sq(dev->cqp);
++	ret = dev->cqp_ops->poll_for_cqp_op_done(dev->cqp,
++						 I40IW_CQP_OP_CREATE_CQ,
++						 &compl_info);
++
++error:
++	if (ret)
++		i40iw_free_dma_mem(dev->hw, &rsrc->cqmem);
++	return ret;
 +}
 +
-+module_init(i40iw_init_module);
-+module_exit(i40iw_exit_module);
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_status.h b/drivers/infiniband/hw/i40iw/i40iw_status.h
++/**
++ * i40iw_puda_dele_resources - delete all resources during close
++ * @dev: iwarp device
++ * @type: type of resource to dele
++ * @reset: true if reset chip
++ */
++void i40iw_puda_dele_resources(struct i40iw_sc_dev *dev,
++			       enum puda_resource_type type,
++			       bool reset)
++{
++	struct i40iw_ccq_cqe_info compl_info;
++	struct i40iw_puda_rsrc *rsrc;
++	struct i40iw_puda_buf *buf = NULL;
++	struct i40iw_puda_buf *nextbuf = NULL;
++	struct i40iw_virt_mem *vmem;
++	enum i40iw_status_code ret;
++
++	switch (type) {
++	case I40IW_PUDA_RSRC_TYPE_ILQ:
++		rsrc = dev->ilq;
++		vmem = &dev->ilq_mem;
++		break;
++	case I40IW_PUDA_RSRC_TYPE_IEQ:
++		rsrc = dev->ieq;
++		vmem = &dev->ieq_mem;
++		break;
++	default:
++		i40iw_debug(dev, I40IW_DEBUG_PUDA, "%s: error resource type = 0x%x\n",
++			    __func__, type);
++		return;
++	}
++
++	switch (rsrc->completion) {
++	case PUDA_HASH_CRC_COMPLETE:
++		i40iw_free_hash_desc(&rsrc->hash_desc);
++	case PUDA_QP_CREATED:
++		do {
++			if (reset)
++				break;
++			ret = dev->iw_priv_qp_ops->qp_destroy(&rsrc->qp,
++							      0, false, true, true);
++			if (ret)
++				i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++					    "%s error ieq qp destroy\n",
++					    __func__);
++
++			ret = dev->cqp_ops->poll_for_cqp_op_done(dev->cqp,
++								 I40IW_CQP_OP_DESTROY_QP,
++								 &compl_info);
++			if (ret)
++				i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++					    "%s error ieq qp destroy done\n",
++					    __func__);
++		} while (0);
++
++		i40iw_free_dma_mem(dev->hw, &rsrc->qpmem);
++		/* fallthrough */
++	case PUDA_CQ_CREATED:
++		do {
++			if (reset)
++				break;
++			ret = dev->iw_priv_cq_ops->cq_destroy(&rsrc->cq, 0, true);
++			if (ret)
++				i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++					    "%s error ieq cq destroy\n",
++					    __func__);
++
++			ret = dev->cqp_ops->poll_for_cqp_op_done(dev->cqp,
++								 I40IW_CQP_OP_DESTROY_CQ,
++								 &compl_info);
++			if (ret)
++				i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA,
++					    "%s error ieq qp destroy done\n",
++					    __func__);
++		} while (0);
++
++		i40iw_free_dma_mem(dev->hw, &rsrc->cqmem);
++		break;
++	default:
++		i40iw_debug(rsrc->dev, I40IW_DEBUG_PUDA, "%s error no resources\n", __func__);
++		break;
++	}
++	/* Free all allocated puda buffers for both tx and rx */
++	buf = rsrc->alloclist;
++	while (buf) {
++		nextbuf = buf->next;
++		i40iw_puda_dele_buf(dev, buf);
++		buf = nextbuf;
++		rsrc->alloc_buf_count--;
++	}
++	i40iw_free_virt_mem(dev->hw, vmem);
++}
++
++/**
++ * i40iw_puda_allocbufs - allocate buffers for resource
++ * @rsrc: resource for buffer allocation
++ * @count: number of buffers to create
++ */
++static enum i40iw_status_code i40iw_puda_allocbufs(struct i40iw_puda_rsrc *rsrc,
++						   u32 count)
++{
++	u32 i;
++	struct i40iw_puda_buf *buf;
++	struct i40iw_puda_buf *nextbuf;
++
++	for (i = 0; i < count; i++) {
++		buf = i40iw_puda_alloc_buf(rsrc->dev, rsrc->buf_size);
++		if (!buf) {
++			rsrc->stats_buf_alloc_fail++;
++			return I40IW_ERR_NO_MEMORY;
++		}
++		i40iw_puda_ret_bufpool(rsrc, buf);
++		rsrc->alloc_buf_count++;
++		if (!rsrc->alloclist) {
++			rsrc->alloclist = buf;
++		} else {
++			nextbuf = rsrc->alloclist;
++			rsrc->alloclist = buf;
++			buf->next = nextbuf;
++		}
++	}
++	rsrc->avail_buf_count = rsrc->alloc_buf_count;
++	return 0;
++}
++
++/**
++ * i40iw_puda_create_rsrc - create resouce (ilq or ieq)
++ * @dev: iwarp device
++ * @info: resource information
++ */
++enum i40iw_status_code i40iw_puda_create_rsrc(struct i40iw_sc_dev *dev,
++					      struct i40iw_puda_rsrc_info *info)
++{
++	enum i40iw_status_code ret = 0;
++	struct i40iw_puda_rsrc *rsrc;
++	u32 pudasize;
++	u32 sqwridsize, rqwridsize;
++	struct i40iw_virt_mem *vmem;
++
++	info->count = 1;
++	pudasize = sizeof(struct i40iw_puda_rsrc);
++	sqwridsize = info->sq_size * sizeof(struct i40iw_sq_uk_wr_trk_info);
++	rqwridsize = info->rq_size * 8;
++	switch (info->type) {
++	case I40IW_PUDA_RSRC_TYPE_ILQ:
++		vmem = &dev->ilq_mem;
++		break;
++	case I40IW_PUDA_RSRC_TYPE_IEQ:
++		vmem = &dev->ieq_mem;
++		break;
++	default:
++		return I40IW_NOT_SUPPORTED;
++	}
++	ret =
++	    i40iw_allocate_virt_mem(dev->hw, vmem,
++				    (pudasize + sqwridsize + rqwridsize));
++	if (ret)
++		return ret;
++	rsrc = (struct i40iw_puda_rsrc *)vmem->va;
++	spin_lock_init(&rsrc->bufpool_lock);
++	if (info->type == I40IW_PUDA_RSRC_TYPE_ILQ) {
++		dev->ilq = (struct i40iw_puda_rsrc *)vmem->va;
++		dev->ilq_count = info->count;
++		rsrc->receive = info->receive;
++		rsrc->xmit_complete = info->xmit_complete;
++	} else {
++		vmem = &dev->ieq_mem;
++		dev->ieq_count = info->count;
++		dev->ieq = (struct i40iw_puda_rsrc *)vmem->va;
++		rsrc->receive = i40iw_ieq_receive;
++		rsrc->xmit_complete = i40iw_ieq_tx_compl;
++	}
++
++	rsrc->type = info->type;
++	rsrc->sq_wrtrk_array = (struct i40iw_sq_uk_wr_trk_info *)((u8 *)vmem->va + pudasize);
++	rsrc->rq_wrid_array = (u64 *)((u8 *)vmem->va + pudasize + sqwridsize);
++	rsrc->mss = info->mss;
++	/* Initialize all ieq lists */
++	INIT_LIST_HEAD(&rsrc->bufpool);
++	INIT_LIST_HEAD(&rsrc->txpend);
++
++	rsrc->tx_wqe_avail_cnt = info->sq_size - 1;
++	dev->iw_pd_ops->pd_init(dev, &rsrc->sc_pd, info->pd_id);
++	rsrc->qp_id = info->qp_id;
++	rsrc->cq_id = info->cq_id;
++	rsrc->sq_size = info->sq_size;
++	rsrc->rq_size = info->rq_size;
++	rsrc->cq_size = info->rq_size + info->sq_size;
++	rsrc->buf_size = info->buf_size;
++	rsrc->dev = dev;
++
++	ret = i40iw_puda_cq_create(rsrc);
++	if (!ret) {
++		rsrc->completion = PUDA_CQ_CREATED;
++		ret = i40iw_puda_qp_create(rsrc);
++	}
++	if (ret) {
++		i40iw_debug(dev, I40IW_DEBUG_PUDA, "[%s] error qp_create\n", __func__);
++		goto error;
++	}
++	rsrc->completion = PUDA_QP_CREATED;
++
++	ret = i40iw_puda_allocbufs(rsrc, info->tx_buf_cnt + info->rq_size);
++	if (ret) {
++		i40iw_debug(dev, I40IW_DEBUG_PUDA, "[%s] error allloc_buf\n", __func__);
++		goto error;
++	}
++
++	rsrc->rxq_invalid_cnt = info->rq_size;
++	rsrc->rx_wqe_idx = 0;
++	ret = i40iw_puda_replenish_rq(rsrc, true);
++	if (ret)
++		goto error;
++
++	if (info->type == I40IW_PUDA_RSRC_TYPE_IEQ) {
++		if (!i40iw_init_hash_desc(&rsrc->hash_desc)) {
++			rsrc->check_crc = true;
++			rsrc->completion = PUDA_HASH_CRC_COMPLETE;
++			ret = 0;
++		}
++	}
++
++	dev->ccq_ops->ccq_arm(&rsrc->cq);
++	return ret;
++ error:
++	i40iw_puda_dele_resources(dev, info->type, false);
++
++	return ret;
++}
++
++/**
++ * i40iw_ilq_putback_rcvbuf - ilq buffer to put back on rq
++ * @qp: ilq's qp resource
++ * @wqe_idx:  wqe index of completed rcvbuf
++ */
++static void i40iw_ilq_putback_rcvbuf(struct i40iw_sc_qp *qp, u32 wqe_idx)
++{
++	u64 *wqe;
++	u64 offset24;
++
++	wqe = &qp->qp_uk.rq_base[wqe_idx << 2];
++	get_64bit_val(wqe, 24, &offset24);
++	offset24 = (offset24) ? 0 : LS_64(1, I40IWQPSQ_VALID);
++	set_64bit_val(wqe, 24, offset24);
++}
++
++/**
++ * i40iw_ieq_get_fpdu - given length return fpdu length
++ * @length: length if fpdu
++ */
++static u16 i40iw_ieq_get_fpdu_length(u16 length)
++{
++	u16 fpdu_len;
++
++	fpdu_len = length + I40IW_IEQ_MPA_FRAMING;
++	fpdu_len = (fpdu_len + 3) & 0xfffffffc;
++	return fpdu_len;
++}
++
++/**
++ * i40iw_ieq_copy_to_txbuf - copydata from rcv buf to tx buf
++ * @buf: rcv buffer with partial
++ * @txbuf: tx buffer for sendign back
++ * @buf_offset: rcv buffer offset to copy from
++ * @txbuf_offset: at offset in tx buf to copy
++ * @length: length of data to copy
++ */
++static void i40iw_ieq_copy_to_txbuf(struct i40iw_puda_buf *buf,
++				    struct i40iw_puda_buf *txbuf,
++				    u16 buf_offset, u32 txbuf_offset,
++				    u32 length)
++{
++	void *mem1 = (void *)((u8 *)buf->mem.va + buf_offset);
++	void *mem2 = (void *)((u8 *)txbuf->mem.va + txbuf_offset);
++
++	memcpy(mem2, mem1, length);
++}
++
++/**
++ * i40iw_ieq_setup_tx_buf - setup tx buffer for partial handling
++ * @buf: reeive buffer with partial
++ * @txbuf: buffer to prepare
++ */
++static void i40iw_ieq_setup_tx_buf(struct i40iw_puda_buf *buf,
++				   struct i40iw_puda_buf *txbuf)
++{
++	txbuf->maclen = buf->maclen;
++	txbuf->tcphlen = buf->tcphlen;
++	txbuf->ipv4 = buf->ipv4;
++	txbuf->hdrlen = buf->hdrlen;
++	i40iw_ieq_copy_to_txbuf(buf, txbuf, 0, 0, buf->hdrlen);
++}
++
++/**
++ * i40iw_ieq_check_first_buf - check if rcv buffer's seq is in range
++ * @buf: receive exception buffer
++ * @fps: first partial sequence number
++ */
++static void i40iw_ieq_check_first_buf(struct i40iw_puda_buf *buf, u32 fps)
++{
++	u32 offset;
++
++	if (buf->seqnum < fps) {
++		offset = fps - buf->seqnum;
++		if (offset > buf->datalen)
++			return;
++		buf->data += offset;
++		buf->datalen -= (u16)offset;
++		buf->seqnum = fps;
++	}
++}
++
++/**
++ * i40iw_ieq_compl_pfpdu - write txbuf with full fpdu
++ * @ieq: ieq resource
++ * @rxlist: ieq's received buffer list
++ * @pbufl: temporary list for buffers for fpddu
++ * @txbuf: tx buffer for fpdu
++ * @fpdu_len: total length of fpdu
++ */
++static void  i40iw_ieq_compl_pfpdu(struct i40iw_puda_rsrc *ieq,
++				   struct list_head *rxlist,
++				   struct list_head *pbufl,
++				   struct i40iw_puda_buf *txbuf,
++				   u16 fpdu_len)
++{
++	struct i40iw_puda_buf *buf;
++	u32 nextseqnum;
++	u16 txoffset, bufoffset;
++
++	buf = i40iw_puda_get_listbuf(pbufl);
++	nextseqnum = buf->seqnum + fpdu_len;
++	txbuf->totallen = buf->hdrlen + fpdu_len;
++	txbuf->data = (u8 *)txbuf->mem.va + buf->hdrlen;
++	i40iw_ieq_setup_tx_buf(buf, txbuf);
++
++	txoffset = buf->hdrlen;
++	bufoffset = (u16)(buf->data - (u8 *)buf->mem.va);
++
++	do {
++		if (buf->datalen >= fpdu_len) {
++			/* copied full fpdu */
++			i40iw_ieq_copy_to_txbuf(buf, txbuf, bufoffset, txoffset, fpdu_len);
++			buf->datalen -= fpdu_len;
++			buf->data += fpdu_len;
++			buf->seqnum = nextseqnum;
++			break;
++		}
++		/* copy partial fpdu */
++		i40iw_ieq_copy_to_txbuf(buf, txbuf, bufoffset, txoffset, buf->datalen);
++		txoffset += buf->datalen;
++		fpdu_len -= buf->datalen;
++		i40iw_puda_ret_bufpool(ieq, buf);
++		buf = i40iw_puda_get_listbuf(pbufl);
++		bufoffset = (u16)(buf->data - (u8 *)buf->mem.va);
++	} while (1);
++
++	/* last buffer on the list*/
++	if (buf->datalen)
++		list_add(&buf->list, rxlist);
++	else
++		i40iw_puda_ret_bufpool(ieq, buf);
++}
++
++/**
++ * i40iw_ieq_create_pbufl - create buffer list for single fpdu
++ * @rxlist: resource list for receive ieq buffes
++ * @pbufl: temp. list for buffers for fpddu
++ * @buf: first receive buffer
++ * @fpdu_len: total length of fpdu
++ */
++static enum i40iw_status_code i40iw_ieq_create_pbufl(
++						     struct i40iw_pfpdu *pfpdu,
++						     struct list_head *rxlist,
++						     struct list_head *pbufl,
++						     struct i40iw_puda_buf *buf,
++						     u16 fpdu_len)
++{
++	enum i40iw_status_code status = 0;
++	struct i40iw_puda_buf *nextbuf;
++	u32	nextseqnum;
++	u16 plen = fpdu_len - buf->datalen;
++	bool done = false;
++
++	nextseqnum = buf->seqnum + buf->datalen;
++	do {
++		nextbuf = i40iw_puda_get_listbuf(rxlist);
++		if (!nextbuf) {
++			status = I40IW_ERR_list_empty;
++			break;
++		}
++		list_add_tail(&nextbuf->list, pbufl);
++		if (nextbuf->seqnum != nextseqnum) {
++			pfpdu->bad_seq_num++;
++			status = I40IW_ERR_SEQ_NUM;
++			break;
++		}
++		if (nextbuf->datalen >= plen) {
++			done = true;
++		} else {
++			plen -= nextbuf->datalen;
++			nextseqnum = nextbuf->seqnum + nextbuf->datalen;
++		}
++
++	} while (!done);
++
++	return status;
++}
++
++/**
++ * i40iw_ieq_handle_partial - process partial fpdu buffer
++ * @ieq: ieq resource
++ * @pfpdu: partial management per user qp
++ * @buf: receive buffer
++ * @fpdu_len: fpdu len in the buffer
++ */
++static enum i40iw_status_code i40iw_ieq_handle_partial(struct i40iw_puda_rsrc *ieq,
++						       struct i40iw_pfpdu *pfpdu,
++						       struct i40iw_puda_buf *buf,
++						       u16 fpdu_len)
++{
++	enum i40iw_status_code status = 0;
++	u8 *crcptr;
++	u32 mpacrc;
++	u32 seqnum = buf->seqnum;
++	struct list_head pbufl;	/* partial buffer list */
++	struct i40iw_puda_buf *txbuf = NULL;
++	struct list_head *rxlist = &pfpdu->rxlist;
++
++	INIT_LIST_HEAD(&pbufl);
++	list_add(&buf->list, &pbufl);
++
++	status = i40iw_ieq_create_pbufl(pfpdu, rxlist, &pbufl, buf, fpdu_len);
++	if (!status)
++		goto error;
++
++	txbuf = i40iw_puda_get_bufpool(ieq);
++	if (!txbuf) {
++		pfpdu->no_tx_bufs++;
++		status = I40IW_ERR_NO_TXBUFS;
++		goto error;
++	}
++
++	i40iw_ieq_compl_pfpdu(ieq, rxlist, &pbufl, txbuf, fpdu_len);
++	i40iw_ieq_update_tcpip_info(txbuf, fpdu_len, seqnum);
++	crcptr = txbuf->data + fpdu_len - 4;
++	mpacrc = *(u32 *)crcptr;
++	if (ieq->check_crc) {
++		status = i40iw_ieq_check_mpacrc(&ieq->hash_desc, txbuf->data,
++						(fpdu_len - 4), mpacrc);
++		if (status) {
++			i40iw_debug(ieq->dev, I40IW_DEBUG_IEQ,
++				    "%s: error bad crc\n", __func__);
++			goto error;
++		}
++	}
++
++	i40iw_debug_buf(ieq->dev, I40IW_DEBUG_IEQ, "IEQ TX BUFFER",
++			txbuf->mem.va, txbuf->totallen);
++	i40iw_puda_send_buf(ieq, txbuf);
++	pfpdu->rcv_nxt = seqnum + fpdu_len;
++	return status;
++ error:
++	while (!list_empty(&pbufl)) {
++		buf = (struct i40iw_puda_buf *)(pbufl.prev);
++		list_del(&buf->list);
++		list_add(&buf->list, rxlist);
++	}
++	if (txbuf)
++		i40iw_puda_ret_bufpool(ieq, txbuf);
++	return status;
++}
++
++/**
++ * i40iw_ieq_process_buf - process buffer rcvd for ieq
++ * @ieq: ieq resource
++ * @pfpdu: partial management per user qp
++ * @buf: receive buffer
++ */
++static enum i40iw_status_code i40iw_ieq_process_buf(struct i40iw_puda_rsrc *ieq,
++						    struct i40iw_pfpdu *pfpdu,
++						    struct i40iw_puda_buf *buf)
++{
++	u16 fpdu_len = 0;
++	u16 datalen = buf->datalen;
++	u8 *datap = buf->data;
++	u8 *crcptr;
++	u16 ioffset = 0;
++	u32 mpacrc;
++	u32 seqnum = buf->seqnum;
++	u16 length = 0;
++	u16 full = 0;
++	bool partial = false;
++	struct i40iw_puda_buf *txbuf;
++	struct list_head *rxlist = &pfpdu->rxlist;
++	enum i40iw_status_code ret = 0;
++	enum i40iw_status_code status = 0;
++
++	ioffset = (u16)(buf->data - (u8 *)buf->mem.va);
++	while (datalen) {
++		fpdu_len = i40iw_ieq_get_fpdu_length(ntohs(*(u16 *)datap));
++		if (fpdu_len > pfpdu->max_fpdu_data) {
++			i40iw_debug(ieq->dev, I40IW_DEBUG_IEQ,
++				    "%s: error bad fpdu_len\n", __func__);
++			status = I40IW_ERR_MPA_CRC;
++			list_add(&buf->list, rxlist);
++			return status;
++		}
++
++		if (datalen < fpdu_len) {
++			partial = true;
++			break;
++		}
++		crcptr = datap + fpdu_len - 4;
++		mpacrc = *(u32 *)crcptr;
++		if (ieq->check_crc)
++			ret = i40iw_ieq_check_mpacrc(&ieq->hash_desc,
++						     datap, fpdu_len - 4, mpacrc);
++		if (ret) {
++			status = I40IW_ERR_MPA_CRC;
++			list_add(&buf->list, rxlist);
++			return status;
++		}
++		full++;
++		pfpdu->fpdu_processed++;
++		datap += fpdu_len;
++		length += fpdu_len;
++		datalen -= fpdu_len;
++	}
++	if (full) {
++		/* copy full pdu's in the txbuf and send them out */
++		txbuf = i40iw_puda_get_bufpool(ieq);
++		if (!txbuf) {
++			pfpdu->no_tx_bufs++;
++			status = I40IW_ERR_NO_TXBUFS;
++			list_add(&buf->list, rxlist);
++			return status;
++		}
++		/* modify txbuf's buffer header */
++		i40iw_ieq_setup_tx_buf(buf, txbuf);
++		/* copy full fpdu's to new buffer */
++		i40iw_ieq_copy_to_txbuf(buf, txbuf, ioffset, buf->hdrlen,
++					length);
++		txbuf->totallen = buf->hdrlen + length;
++
++		i40iw_ieq_update_tcpip_info(txbuf, length, buf->seqnum);
++		i40iw_puda_send_buf(ieq, txbuf);
++
++		if (!datalen) {
++			pfpdu->rcv_nxt = buf->seqnum + length;
++			i40iw_puda_ret_bufpool(ieq, buf);
++			return status;
++		}
++		buf->data = datap;
++		buf->seqnum = seqnum + length;
++		buf->datalen = datalen;
++		pfpdu->rcv_nxt = buf->seqnum;
++	}
++	if (partial)
++		status = i40iw_ieq_handle_partial(ieq, pfpdu, buf, fpdu_len);
++
++	return status;
++}
++
++/**
++ * i40iw_ieq_process_fpdus - process fpdu's buffers on its list
++ * @qp: qp for which partial fpdus
++ * @ieq: ieq resource
++ */
++static void i40iw_ieq_process_fpdus(struct i40iw_sc_qp *qp,
++				    struct i40iw_puda_rsrc *ieq)
++{
++	struct i40iw_pfpdu *pfpdu = &qp->pfpdu;
++	struct list_head *rxlist = &pfpdu->rxlist;
++	struct i40iw_puda_buf *buf;
++	enum i40iw_status_code status;
++
++	do {
++		if (list_empty(rxlist))
++			break;
++		buf = i40iw_puda_get_listbuf(rxlist);
++		if (!buf) {
++			i40iw_debug(ieq->dev, I40IW_DEBUG_IEQ,
++				    "%s: error no buf\n", __func__);
++			break;
++		}
++		if (buf->seqnum != pfpdu->rcv_nxt) {
++			/* This could be out of order or missing packet */
++			pfpdu->out_of_order++;
++			list_add(&buf->list, rxlist);
++			break;
++		}
++		/* keep processing buffers from the head of the list */
++		status = i40iw_ieq_process_buf(ieq, pfpdu, buf);
++		if (status == I40IW_ERR_MPA_CRC) {
++			pfpdu->mpa_crc_err = true;
++			while (!list_empty(rxlist)) {
++				buf = i40iw_puda_get_listbuf(rxlist);
++				i40iw_puda_ret_bufpool(ieq, buf);
++				pfpdu->crc_err++;
++			}
++			/* create CQP for AE */
++			i40iw_ieq_mpa_crc_ae(ieq->dev, qp);
++		}
++	} while (!status);
++}
++
++/**
++ * i40iw_ieq_handle_exception - handle qp's exception
++ * @ieq: ieq resource
++ * @qp: qp receiving excpetion
++ * @buf: receive buffer
++ */
++static void i40iw_ieq_handle_exception(struct i40iw_puda_rsrc *ieq,
++				       struct i40iw_sc_qp *qp,
++				       struct i40iw_puda_buf *buf)
++{
++	struct i40iw_puda_buf *tmpbuf = NULL;
++	struct i40iw_pfpdu *pfpdu = &qp->pfpdu;
++	u32 *hw_host_ctx = (u32 *)qp->hw_host_ctx;
++	u32 rcv_wnd = hw_host_ctx[23];
++	/* first partial seq # in q2 */
++	u32 fps = qp->q2_buf[16];
++	struct list_head *rxlist = &pfpdu->rxlist;
++	struct list_head *plist;
++
++	pfpdu->total_ieq_bufs++;
++
++	if (pfpdu->mpa_crc_err) {
++		pfpdu->crc_err++;
++		goto error;
++	}
++	if ((pfpdu->mode) && (fps != pfpdu->fps)) {
++		/* clean up qp as it is new partial sequence */
++		i40iw_ieq_cleanup_qp(ieq->dev, qp);
++		i40iw_debug(ieq->dev, I40IW_DEBUG_IEQ,
++			    "%s: restarting new partial\n", __func__);
++		pfpdu->mode = false;
++	}
++
++	if (!pfpdu->mode) {
++		i40iw_debug_buf(ieq->dev, I40IW_DEBUG_IEQ, "Q2 BUFFER", (u64 *)qp->q2_buf, 128);
++		/* First_Partial_Sequence_Number check */
++		pfpdu->rcv_nxt = fps;
++		pfpdu->fps = fps;
++		pfpdu->mode = true;
++		pfpdu->max_fpdu_data = ieq->mss;
++		pfpdu->pmode_count++;
++		INIT_LIST_HEAD(rxlist);
++		i40iw_ieq_check_first_buf(buf, fps);
++	}
++
++	if (!(rcv_wnd >= (buf->seqnum - pfpdu->rcv_nxt))) {
++		pfpdu->bad_seq_num++;
++		goto error;
++	}
++
++	if (!list_empty(rxlist)) {
++		tmpbuf = (struct i40iw_puda_buf *)rxlist->next;
++		plist = &tmpbuf->list;
++		while ((struct list_head *)tmpbuf != rxlist) {
++			if ((int)(buf->seqnum - tmpbuf->seqnum) < 0)
++				break;
++			tmpbuf = (struct i40iw_puda_buf *)plist->next;
++		}
++		/* Insert buf before tmpbuf */
++		list_add_tail(&buf->list, &tmpbuf->list);
++	} else {
++		list_add_tail(&buf->list, rxlist);
++	}
++	i40iw_ieq_process_fpdus(qp, ieq);
++	return;
++ error:
++	i40iw_puda_ret_bufpool(ieq, buf);
++}
++
++/**
++ * i40iw_ieq_receive - received exception buffer
++ * @dev: iwarp device
++ * @buf: exception buffer received
++ */
++static void i40iw_ieq_receive(struct i40iw_sc_dev *dev,
++			      struct i40iw_puda_buf *buf)
++{
++	struct i40iw_puda_rsrc *ieq = dev->ieq;
++	struct i40iw_sc_qp *qp = NULL;
++	u32 wqe_idx = ieq->compl_rxwqe_idx;
++
++	qp = i40iw_ieq_get_qp(dev, buf);
++	if (!qp) {
++		ieq->stats_bad_qp_id++;
++		i40iw_puda_ret_bufpool(ieq, buf);
++	} else {
++		i40iw_ieq_handle_exception(ieq, qp, buf);
++	}
++	/*
++	 * ieq->rx_wqe_idx is used by i40iw_puda_replenish_rq()
++	 * on which wqe_idx to start replenish rq
++	 */
++	if (!ieq->rxq_invalid_cnt)
++		ieq->rx_wqe_idx = wqe_idx;
++	ieq->rxq_invalid_cnt++;
++}
++
++/**
++ * i40iw_ieq_tx_compl - put back after sending completed exception buffer
++ * @dev: iwarp device
++ * @sqwrid: pointer to puda buffer
++ */
++static void i40iw_ieq_tx_compl(struct i40iw_sc_dev *dev, void *sqwrid)
++{
++	struct i40iw_puda_rsrc *ieq = dev->ieq;
++	struct i40iw_puda_buf *buf = (struct i40iw_puda_buf *)sqwrid;
++
++	i40iw_puda_ret_bufpool(ieq, buf);
++	if (!list_empty(&ieq->txpend)) {
++		buf = i40iw_puda_get_listbuf(&ieq->txpend);
++		i40iw_puda_send_buf(ieq, buf);
++	}
++}
++
++/**
++ * i40iw_ieq_cleanup_qp - qp is being destroyed
++ * @dev: iwarp device
++ * @qp: all pending fpdu buffers
++ */
++void i40iw_ieq_cleanup_qp(struct i40iw_sc_dev *dev, struct i40iw_sc_qp *qp)
++{
++	struct i40iw_puda_buf *buf;
++	struct i40iw_pfpdu *pfpdu = &qp->pfpdu;
++	struct list_head *rxlist = &pfpdu->rxlist;
++	struct i40iw_puda_rsrc *ieq = dev->ieq;
++
++	if (!pfpdu->mode)
++		return;
++	while (!list_empty(rxlist)) {
++		buf = i40iw_puda_get_listbuf(rxlist);
++		i40iw_puda_ret_bufpool(ieq, buf);
++	}
++}
+diff --git a/drivers/infiniband/hw/i40iw/i40iw_puda.h b/drivers/infiniband/hw/i40iw/i40iw_puda.h
 new file mode 100644
-index 0000000..6bd87b1
+index 0000000..9462d0e
 --- /dev/null
-+++ b/drivers/infiniband/hw/i40iw/i40iw_status.h
-@@ -0,0 +1,100 @@
++++ b/drivers/infiniband/hw/i40iw/i40iw_puda.h
+@@ -0,0 +1,183 @@
 +/*******************************************************************************
 +*
 +* Copyright (c) 2015 Intel Corporation.  All rights reserved.
@@ -2563,71 +1517,159 @@ index 0000000..6bd87b1
 +*
 +*******************************************************************************/
 +
-+#ifndef I40IW_STATUS_H
-+#define I40IW_STATUS_H
++#ifndef I40IW_PUDA_H
++#define I40IW_PUDA_H
 +
-+/* Error Codes */
-+enum i40iw_status_code {
-+	I40IW_SUCCESS = 0,
-+	I40IW_ERR_NVM = -1,
-+	I40IW_ERR_NVM_CHECKSUM = -2,
-+	I40IW_ERR_CONFIG = -4,
-+	I40IW_ERR_PARAM = -5,
-+	I40IW_ERR_DEVICE_NOT_SUPPORTED = -6,
-+	I40IW_ERR_RESET_FAILED = -7,
-+	I40IW_ERR_SWFW_SYNC = -8,
-+	I40IW_ERR_NO_MEMORY = -9,
-+	I40IW_ERR_BAD_PTR = -10,
-+	I40IW_ERR_INVALID_PD_ID = -11,
-+	I40IW_ERR_INVALID_QP_ID = -12,
-+	I40IW_ERR_INVALID_CQ_ID = -13,
-+	I40IW_ERR_INVALID_CEQ_ID = -14,
-+	I40IW_ERR_INVALID_AEQ_ID = -15,
-+	I40IW_ERR_INVALID_SIZE = -16,
-+	I40IW_ERR_INVALID_ARP_INDEX = -17,
-+	I40IW_ERR_INVALID_FPM_FUNC_ID = -18,
-+	I40IW_ERR_QP_INVALID_MSG_SIZE = -19,
-+	I40IW_ERR_QP_TOOMANY_WRS_POSTED = -20,
-+	I40IW_ERR_INVALID_FRAG_COUNT = -21,
-+	I40IW_ERR_QUEUE_EMPTY = -22,
-+	I40IW_ERR_INVALID_ALIGNMENT = -23,
-+	I40IW_ERR_FLUSHED_QUEUE = -24,
-+	I40IW_ERR_INVALID_PUSH_PAGE_INDEX = -25,
-+	I40IW_ERR_INVALID_IMM_DATA_SIZE = -26,
-+	I40IW_ERR_TIMEOUT = -27,
-+	I40IW_ERR_OPCODE_MISMATCH = -28,
-+	I40IW_ERR_CQP_COMPL_ERROR = -29,
-+	I40IW_ERR_INVALID_VF_ID = -30,
-+	I40IW_ERR_INVALID_HMCFN_ID = -31,
-+	I40IW_ERR_BACKING_PAGE_ERROR = -32,
-+	I40IW_ERR_NO_PBLCHUNKS_AVAILABLE = -33,
-+	I40IW_ERR_INVALID_PBLE_INDEX = -34,
-+	I40IW_ERR_INVALID_SD_INDEX = -35,
-+	I40IW_ERR_INVALID_PAGE_DESC_INDEX = -36,
-+	I40IW_ERR_INVALID_SD_TYPE = -37,
-+	I40IW_ERR_MEMCPY_FAILED = -38,
-+	I40IW_ERR_INVALID_HMC_OBJ_INDEX = -39,
-+	I40IW_ERR_INVALID_HMC_OBJ_COUNT = -40,
-+	I40IW_ERR_INVALID_SRQ_ARM_LIMIT = -41,
-+	I40IW_ERR_SRQ_ENABLED = -42,
-+	I40IW_ERR_BUF_TOO_SHORT = -43,
-+	I40IW_ERR_BAD_IWARP_CQE = -44,
-+	I40IW_ERR_NVM_BLANK_MODE = -45,
-+	I40IW_ERR_NOT_IMPLEMENTED = -46,
-+	I40IW_ERR_PE_DOORBELL_NOT_ENABLED = -47,
-+	I40IW_ERR_NOT_READY = -48,
-+	I40IW_NOT_SUPPORTED = -49,
-+	I40IW_ERR_FIRMWARE_API_VERSION = -50,
-+	I40IW_ERR_RING_FULL = -51,
-+	I40IW_ERR_MPA_CRC = -61,
-+	I40IW_ERR_NO_TXBUFS = -62,
-+	I40IW_ERR_SEQ_NUM = -63,
-+	I40IW_ERR_list_empty = -64,
-+	I40IW_ERR_INVALID_MAC_ADDR = -65,
-+	I40IW_ERR_BAD_STAG      = -66,
-+	I40IW_ERR_CQ_COMPL_ERROR = -67,
++#define I40IW_IEQ_MPA_FRAMING 6
 +
++struct i40iw_sc_dev;
++struct i40iw_sc_qp;
++struct i40iw_sc_cq;
++
++enum puda_resource_type {
++	I40IW_PUDA_RSRC_TYPE_ILQ = 1,
++	I40IW_PUDA_RSRC_TYPE_IEQ
 +};
++
++enum puda_rsrc_complete {
++	PUDA_CQ_CREATED = 1,
++	PUDA_QP_CREATED,
++	PUDA_TX_COMPLETE,
++	PUDA_RX_COMPLETE,
++	PUDA_HASH_CRC_COMPLETE
++};
++
++struct i40iw_puda_completion_info {
++	struct i40iw_qp_uk *qp;
++	u8 q_type;
++	u8 vlan_valid;
++	u8 l3proto;
++	u8 l4proto;
++	u16 payload_len;
++	u32 compl_error;	/* No_err=0, else major and minor err code */
++	u32 qp_id;
++	u32 wqe_idx;
++};
++
++struct i40iw_puda_send_info {
++	u64 paddr;		/* Physical address */
++	u32 len;
++	u8 tcplen;
++	u8 maclen;
++	bool ipv4;
++	bool doloopback;
++	void *scratch;
++};
++
++struct i40iw_puda_buf {
++	struct list_head list;	/* MUST be first entry */
++	struct i40iw_dma_mem mem;	/* DMA memory for the buffer */
++	struct i40iw_puda_buf *next;	/* for alloclist in rsrc struct */
++	struct i40iw_virt_mem buf_mem;	/* Buffer memory for this buffer */
++	void *scratch;
++	u8 *iph;
++	u8 *tcph;
++	u8 *data;
++	u16 datalen;
++	u16 vlan_id;
++	u8 tcphlen;		/* tcp length in bytes */
++	u8 maclen;		/* mac length in bytes */
++	u32 totallen;		/* machlen+iphlen+tcphlen+datalen */
++	atomic_t refcount;
++	u8 hdrlen;
++	bool ipv4;
++	u32 seqnum;
++};
++
++struct i40iw_puda_rsrc_info {
++	enum puda_resource_type type;	/* ILQ or IEQ */
++	u32 count;
++	u16 pd_id;
++	u32 cq_id;
++	u32 qp_id;
++	u32 sq_size;
++	u32 rq_size;
++	u16 buf_size;
++	u16 mss;
++	u32 tx_buf_cnt;		/* total bufs allocated will be rq_size + tx_buf_cnt */
++	void (*receive)(struct i40iw_sc_dev *, struct i40iw_puda_buf *);
++	void (*xmit_complete)(struct i40iw_sc_dev *, void *);
++};
++
++struct i40iw_puda_rsrc {
++	struct i40iw_sc_cq cq;
++	struct i40iw_sc_qp qp;
++	struct i40iw_sc_pd sc_pd;
++	struct i40iw_sc_dev *dev;
++	struct i40iw_dma_mem cqmem;
++	struct i40iw_dma_mem qpmem;
++	struct i40iw_virt_mem ilq_mem;
++	enum puda_rsrc_complete completion;
++	enum puda_resource_type type;
++	u16 buf_size;		/*buffer must be max datalen + tcpip hdr + mac */
++	u16 mss;
++	u32 cq_id;
++	u32 qp_id;
++	u32 sq_size;
++	u32 rq_size;
++	u32 cq_size;
++	struct i40iw_sq_uk_wr_trk_info *sq_wrtrk_array;
++	u64 *rq_wrid_array;
++	u32 compl_rxwqe_idx;
++	u32 rx_wqe_idx;
++	u32 rxq_invalid_cnt;
++	u32 tx_wqe_avail_cnt;
++	bool check_crc;
++	struct hash_desc hash_desc;
++	struct list_head txpend;
++	struct list_head bufpool;	/* free buffers pool list for recv and xmit */
++	u32 alloc_buf_count;
++	u32 avail_buf_count;		/* snapshot of currently available buffers */
++	spinlock_t bufpool_lock;
++	struct i40iw_puda_buf *alloclist;
++	void (*receive)(struct i40iw_sc_dev *, struct i40iw_puda_buf *);
++	void (*xmit_complete)(struct i40iw_sc_dev *, void *);
++	/* puda stats */
++	u64 stats_buf_alloc_fail;
++	u64 stats_pkt_rcvd;
++	u64 stats_pkt_sent;
++	u64 stats_rcvd_pkt_err;
++	u64 stats_sent_pkt_q;
++	u64 stats_bad_qp_id;
++};
++
++struct i40iw_puda_buf *i40iw_puda_get_bufpool(struct i40iw_puda_rsrc *rsrc);
++void i40iw_puda_ret_bufpool(struct i40iw_puda_rsrc *rsrc,
++			    struct i40iw_puda_buf *buf);
++void i40iw_puda_send_buf(struct i40iw_puda_rsrc *rsrc,
++			 struct i40iw_puda_buf *buf);
++enum i40iw_status_code i40iw_puda_send(struct i40iw_sc_qp *qp,
++				       struct i40iw_puda_send_info *info);
++enum i40iw_status_code i40iw_puda_create_rsrc(struct i40iw_sc_dev *dev,
++					      struct i40iw_puda_rsrc_info *info);
++void i40iw_puda_dele_resources(struct i40iw_sc_dev *dev,
++			       enum puda_resource_type type,
++			       bool reset);
++enum i40iw_status_code i40iw_puda_poll_completion(struct i40iw_sc_dev *dev,
++						  struct i40iw_sc_cq *cq, u32 *compl_err);
++void i40iw_ieq_cleanup_qp(struct i40iw_sc_dev *dev, struct i40iw_sc_qp *qp);
++
++struct i40iw_sc_qp *i40iw_ieq_get_qp(struct i40iw_sc_dev *dev,
++				     struct i40iw_puda_buf *buf);
++enum i40iw_status_code i40iw_puda_get_tcpip_info(struct i40iw_puda_completion_info *info,
++						 struct i40iw_puda_buf *buf);
++enum i40iw_status_code i40iw_ieq_check_mpacrc(struct hash_desc *desc,
++					      void *addr, u32 length, u32 value);
++enum i40iw_status_code i40iw_init_hash_desc(struct hash_desc *desc);
++void i40iw_ieq_mpa_crc_ae(struct i40iw_sc_dev *dev, struct i40iw_sc_qp *qp);
++void i40iw_free_hash_desc(struct hash_desc *desc);
++void i40iw_ieq_update_tcpip_info(struct i40iw_puda_buf *buf, u16 length,
++				 u32 seqnum);
 +#endif
 -- 
 2.5.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
