@@ -1,77 +1,115 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH iproute2] ipv6: allow setting stable_secret mode
-Date: Wed, 16 Dec 2015 18:04:34 +0100
-Message-ID: <567199A2.3050305@stressinduktion.org>
-References: <1450265408-20510-1-git-send-email-hannes@stressinduktion.org>
- <64C7B1E3-1F0C-4472-91A9-9D6DE5206D6A@mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Use simple parser for IPv4 and v6
+ headers
+Date: Wed, 16 Dec 2015 09:08:08 -0800
+Message-ID: <1450285688.8474.86.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen@networkplumber.org
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36383 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753701AbbLPREg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 12:04:36 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 5DE1F205A3
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 12:04:36 -0500 (EST)
-In-Reply-To: <64C7B1E3-1F0C-4472-91A9-9D6DE5206D6A@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1450289022-9958-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 16.12.2015 17:56, Bj=C3=B8rn Mork wrote:
->=20
->=20
-> On December 16, 2015 12:30:08 PM CET, Hannes Frederic Sowa <hannes@st=
-ressinduktion.org> wrote:
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> ---
->> ip/iplink.c | 4 +++-
->> 1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/ip/iplink.c b/ip/iplink.c
->> index f30de86d1858a0..e824082f7d8149 100644
->> --- a/ip/iplink.c
->> +++ b/ip/iplink.c
->> @@ -84,7 +84,7 @@ void iplink_usage(void)
->> 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
->> 	fprintf(stderr, "			  [ master DEVICE ]\n");
->> 	fprintf(stderr, "			  [ nomaster ]\n");
->> -	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
->> +	fprintf(stderr, "			  [ addrgenmode { eui64 | none | stable_secret=
- }
->> ]\n");
->> 	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
->> 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up]
->> [master DEV] [type TYPE]\n");
->>
->> @@ -176,6 +176,8 @@ static int get_addr_gen_mode(const char *mode)
->> 		return IN6_ADDR_GEN_MODE_EUI64;
->> 	if (strcasecmp(mode, "none") =3D=3D 0)
->> 		return IN6_ADDR_GEN_MODE_NONE;
->> +	if (strcasecmp(mode, "stable_secret") =3D=3D 0)
->> +		return IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
->> 	return -1;
->> }
->>
->=20
-> Ah, didn't notice this before I sent my similar patch. Sorry about th=
-at.
->=20
-> But FWIW, I really don't like the renaming you do here.=20
-> If the mode is 'stable_privacy', then it should be known
-> by that name here as well.
+On Wed, 2015-12-16 at 10:03 -0800, Haiyang Zhang wrote:
+> To avoid performance overhead when using skb_flow_dissect_flow_keys(),
+> we switch to the simple parsers to get the IP and port numbers.
+> 
+> Performance comparison: throughput (Gbps):
+> Number of connections, before patch, after patch
+> 1			8.56		10.18
+> 4			11.17		14.07
+> 16			12.21		21.78
+> 64			18.71		32.08
+> 256			15.92		26.32
+> 1024			8.41		15.49
+> 3000			7.82		11.58
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Tested-by: Simon Xiao <sixiao@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |   38 +++++++++++++++++++++++++++++---------
+>  1 files changed, 29 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 1c8db9a..e28951f 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -237,20 +237,40 @@ static u32 comp_hash(u8 *key, int klen, void *data, int dlen)
+>  
+>  static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+>  {
+> -	struct flow_keys flow;
+> +	struct iphdr *iphdr;
+> +	struct ipv6hdr *ipv6hdr;
+> +	__be32 dbuf[9];
+>  	int data_len;
+>  
+> -	if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
+> -	    !(flow.basic.n_proto == htons(ETH_P_IP) ||
+> -	      flow.basic.n_proto == htons(ETH_P_IPV6)))
+> +	if (eth_hdr(skb)->h_proto != htons(ETH_P_IP) &&
+> +	    eth_hdr(skb)->h_proto != htons(ETH_P_IPV6))
+>  		return false;
+>  
+> -	if (flow.basic.ip_proto == IPPROTO_TCP)
+> -		data_len = 12;
+> -	else
+> -		data_len = 8;
+> +	iphdr = ip_hdr(skb);
+> +	ipv6hdr = ipv6_hdr(skb);
+> +
+> +	if (iphdr->version == 4) {
+> +		dbuf[0] = iphdr->saddr;
+> +		dbuf[1] = iphdr->daddr;
+> +		if (iphdr->protocol == IPPROTO_TCP) {
+> +			dbuf[2] = *(__be32 *)&tcp_hdr(skb)->source;
+> +			data_len = 12;
+> +		} else {
+> +			data_len = 8;
+> +		}
+> +	} else if (ipv6hdr->version == 6) {
+> +		memcpy(dbuf, &ipv6hdr->saddr, 32);
+> +		if (ipv6hdr->nexthdr == IPPROTO_TCP) {
+> +			dbuf[8] = *(__be32 *)&tcp_hdr(skb)->source;
+> +			data_len = 36;
+> +		} else {
+> +			data_len = 32;
+> +		}
+> +	} else {
+> +		return false;
+> +	}
+>  
+> -	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
+> +	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, data_len);
+>  
+>  	return true;
+>  }
 
-I am fine with both ways. We can take your patch as you also updated th=
-e
-man page. :)
 
-The reason why I chose stable secret in the end was to align it with th=
-e
-already visible proc filename stable_secret and didn't care too much
-about the internal variable names.
+This looks very very wrong to me.
 
-Thanks,
-Hannes
+How many times this is called per second, for the 'one flow' case ?
+
+Don't you use TSO in this driver ?
+
+What about encapsulation ?
+
+I suspect you have a quite different issue here.
+
+You simply could use skb_get_hash() since local TCP flows will provide a
+l4 skb->hash and you have no further flow dissection to do.
