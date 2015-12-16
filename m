@@ -1,34 +1,71 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv2 net-next] ipv6: allow routes to be configured with
- expire values
-Date: Wed, 16 Dec 2015 17:45:42 +0800
-Message-ID: <CADvbK_emJxQ8E2P6YCdywCXOAApOObH2S-RBqTfpWDFAnTawVA@mail.gmail.com>
-References: <20151211.202157.2045048466167764855.davem@davemloft.net>
-	<CADvbK_fxww6-EfDgdo-4e=UscsB_pvJO4z1NAPiFyujiA5xr0Q@mail.gmail.com>
-	<566EF98B.8060704@stressinduktion.org>
-	<20151214.143645.1177969141058180151.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	network dev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Subject: [PATCHv3 net-next] ipv6: allow routes to be configured with expire values
+Date: Wed, 16 Dec 2015 17:50:11 +0800
+Message-ID: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:33444 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754638AbbLPJpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 04:45:43 -0500
-Received: by mail-ig0-f181.google.com with SMTP id mv3so126984261igc.0
-        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 01:45:43 -0800 (PST)
-In-Reply-To: <20151214.143645.1177969141058180151.davem@davemloft.net>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35550 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933999AbbLPJuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 04:50:17 -0500
+Received: by mail-pa0-f43.google.com with SMTP id hk6so21075527pad.2
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 01:50:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2015 at 3:36 AM, David Miller <davem@davemloft.net> wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Mon, 14 Dec 2015 18:16:59 +0100
->
->> We can easily switch to new attributes. Should we introduce a new
->> interface for this?
->
-> Yes.
-okay, I will repost the patch with a new netlink attribute
+Add the support for adding expire value to routes,  requested by
+Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+wants it too.
+
+implement it by adding the new RTNETLINK attribute RTA_EXPIRES.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ include/uapi/linux/rtnetlink.h |  1 +
+ net/ipv6/route.c               | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 123a5af..ca764b5 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -311,6 +311,7 @@ enum rtattr_type_t {
+ 	RTA_PREF,
+ 	RTA_ENCAP_TYPE,
+ 	RTA_ENCAP,
++	RTA_EXPIRES,
+ 	__RTA_MAX
+ };
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c83b6a5..3c8834b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2709,6 +2709,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+ 	[RTA_PREF]              = { .type = NLA_U8 },
+ 	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
+ 	[RTA_ENCAP]		= { .type = NLA_NESTED },
++	[RTA_EXPIRES]		= { .type = NLA_U32 },
+ };
+ 
+ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -2809,6 +2810,15 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_ENCAP_TYPE])
+ 		cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
+ 
++	if (tb[RTA_EXPIRES]) {
++		unsigned long timeout = addrconf_timeout_fixup(nla_get_u32(tb[RTA_EXPIRES]), HZ);
++
++		if (addrconf_finite_timeout(timeout)) {
++			cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
++			cfg->fc_flags |= RTF_EXPIRES;
++		}
++	}
++
+ 	err = 0;
+ errout:
+ 	return err;
+-- 
+2.1.0
