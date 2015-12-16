@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 82xx: FCC: Fixing a bug causing to FCC port lock-up
-Date: Wed, 16 Dec 2015 18:32:53 -0500 (EST)
-Message-ID: <20151216.183253.313939933312742383.davem@davemloft.net>
-References: <1450145874-9750-1-git-send-email-martin.roth@motorolasolutions.com>
+Subject: Re: pull-request: mac80211 2015-12-15
+Date: Wed, 16 Dec 2015 18:34:43 -0500 (EST)
+Message-ID: <20151216.183443.615368179590575650.davem@davemloft.net>
+References: <1450182621.3356.12.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: martin.roth@motorolasolutions.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1450145874-9750-1-git-send-email-martin.roth@motorolasolutions.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41507 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732AbbLPXep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:34:45 -0500
+In-Reply-To: <1450182621.3356.12.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Martin Roth <martin.roth@motorolasolutions.com>
-Date: Tue, 15 Dec 2015 04:17:53 +0200
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 15 Dec 2015 13:30:21 +0100
 
-> The patch fixes FCC port lock-up, which occurs as a result of a bug
-> during underrun/collision handling. Within the tx_startup() function
-> in mac-fcc.c, the address of last BD is not calculated correctly.
-> As a result of wrong calculation of the last BD address, the next
-> transmitted BD may be set to an area out of the transmit BD ring.
-> This actually causes to port lock-up and it is not recoverable.
+> After going through my patch queue, I have another set of fixes that
+> I think is still appropriate for the current cycle.
 > 
-> Signed-off-by: Martin Roth <martin.roth@motorolasolutions.com>
+> Two of my own restart changes there are fairly big but for the most
+> part just move code around so it can be called in a slightly different
+> order.
+> 
+> Let me know if there are any issues.
 
-Applied, thanks.
+Something about your text encoding kept this from ending up
+in patchwork for some reason.
+
+Anyways, pulled, thanks a lot!
