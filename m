@@ -1,39 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 01/15] i40e: Add support for client interface for IWARP
- driver
-Date: Wed, 16 Dec 2015 12:26:14 -0800
-Message-ID: <1450297574.24782.3.camel@perches.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH 02/15] i40iw: add main, hdr, status
+Date: Wed, 16 Dec 2015 12:31:13 -0800
+Message-ID: <1450297873.24782.7.camel@perches.com>
 References: <1450295919-17292-1-git-send-email-faisal.latif@intel.com>
 	 <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
+	 <1450295919-17292-3-git-send-email-faisal.latif@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, e1000-rdma@lists.sourceforge.net,
-	Anjali Singhai Jain <anjali.singhai@intel.com>
-To: Faisal Latif <faisal.latif@intel.com>, dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0103.hostedemail.com ([216.40.44.103]:39140 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S966999AbbLPU0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 15:26:19 -0500
-In-Reply-To: <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1450295919-17292-3-git-send-email-faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Wed, 2015-12-16 at 13:58 -0600, Faisal Latif wrote:
-> From: Anjali Singhai Jain <anjali.singhai@intel.com>
->=20
-> This patch adds a Client interface for i40iw driver
-> support. Also expands the Virtchannel to support messages
-> from i40evf driver on behalf of i40iwvf driver.
+> i40iw_main.c contains routines for i40e <=> i40iw interface and setup.
+> i40iw.h is header file for main device data structures.
+> i40iw_status.h is for return status codes.
 []
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/=
-net/ethernet/intel/i40e/i40e_client.c
+> diff --git a/drivers/infiniband/hw/i40iw/i40iw.h b/drivers/infiniband/hw/i40iw/i40iw.h
 []
-> + * Contact Information:
-> + * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+> +#define i40iw_pr_err(fmt, args ...) pr_err("%s: error " fmt, __func__, ## args)
+> +
+> +#define i40iw_pr_info(fmt, args ...) pr_info("%s: " fmt, __func__, ## args)
+> +
+> +#define i40iw_pr_warn(fmt, args ...) pr_warn("%s: " fmt, __func__, ## args)
 
-trivia:
+Using "error " in the output doesn't really add much
+as there's already a KERN_ERR with the output.
 
-This should probably be:=A0intel-wired-lan@lists.osuosl.org
+Using __func__ hardly adds anything.
+
+Using netdev_<level> is generally preferred
+
+> +
+> +struct i40iw_cqp_request {
+> +	struct cqp_commands_info info;
+> +	wait_queue_head_t waitq;
+> +	struct list_head list;
+> +	atomic_t refcount;
+> +	void (*callback_fcn)(struct i40iw_cqp_request*, u32);
+> +	void *param;
+> +	struct i40iw_cqp_compl_info compl_info;
+> +	u8 waiting:1;
+> +	u8 request_done:1;
+> +	u8 dynamic:1;
+> +	u8 polling:1;
+
+These would bitfields might be better as bool
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
