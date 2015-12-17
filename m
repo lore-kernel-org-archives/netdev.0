@@ -1,69 +1,36 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH 07/15] i40iw: add hw and utils files
-Date: Thu, 17 Dec 2015 08:07:36 -0800
-Message-ID: <20151217160736.GA19013@infradead.org>
-References: <1450295919-17292-1-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-3-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-4-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-5-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-6-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-7-git-send-email-faisal.latif@intel.com>
- <1450295919-17292-8-git-send-email-faisal.latif@intel.com>
+From: Bryce Cronkite-Ratcliff <brycecr@gmail.com>
+Subject: Instantaneous Threshold ECN marking for DCTCP
+Date: Thu, 17 Dec 2015 08:13:49 -0800
+Message-ID: <CADn3pMdDr=MmTyeZJ0ofacy+gcTC2qKJpWxp9gdBCpr+cfJzHA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1450295919-17292-8-git-send-email-faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37002 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756071AbbLQQNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 11:13:50 -0500
+Received: by mail-wm0-f48.google.com with SMTP id p187so28416641wmp.0
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 08:13:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +#ifndef UNREFERENCED_PARAMETER
-> +#define UNREFERENCED_PARAMETER(_p)	\
-> +{					\
-> +	(_p) = (_p);			\
-> +}
-> +#endif
+Hi there,
 
-No need for this, just remove it.
+I am attempting to run some experiments with DCTCP using mininet (so
+this is all user-level emulation -- my switch is a linux namespace
+using OVS). My question is on how to apply DCTCP's AQM. DCTCP's AQM
+just marks all packets with CE if they are received when the queue is
+over a threshold value of K and otherwise does not mark CE. The DCTCP
+papers I have seen suggest that RED can be used to achieve this: set
+probability to 1, burst to 1, and min and max to the same value.
 
-> +#define I40E_MASK(mask, shift) (mask << shift)
+However, tc-red, in accordance with this paper, does not allow burst
+to be significantly below the minimum threshold value, so I am unable
+to set the parameters I would like -- in particular to set burst to 1
+-- without monkey-patching tc.
 
-Please just opencode the shit, this macro is silly.
+Is there a way to achieve this simple threshold-ECN marking AQM with
+tc, or another approach?
 
-> +#define i40iw_flush(a)          readl((a)->hw_addr + I40E_GLGEN_STAT)
-> +
-> +#define wr32(a, reg, value)     writel((value), (a)->hw_addr + (reg))
-> +#define rd32(a, reg)            readl((a)->hw_addr + (reg))
-
-Please urn these into inlines.
-
-> +
-> +#ifndef readq
-> +static inline u64 rd64(u8 * __iomem addr)
-> +{
-> +	return ((u64)readl(addr)) | (((u64)readl(addr + 4UL)) << 32);
-> +}
-> +#else
-> +#define rd64(a)            readq((a))
-> +#endif
-
-Please use the magic in <linux/io-64-nonatomic-lo-hi.h> instead.
-
-> +
-> +#define db_wr32(a, value)       writel((value), (a))
-
-Pleas remove this pointless wrapper.
-
-> +void SLEEP(u8 ms);
-
-Please give this function a sensible name.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you!
