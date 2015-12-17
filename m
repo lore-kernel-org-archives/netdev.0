@@ -1,107 +1,60 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the akpm-current tree with the net-next
- tree
-Date: Thu, 17 Dec 2015 16:31:58 +1100
-Message-ID: <20151217163158.19359f6a@canb.auug.org.au>
+From: Prashant Upadhyaya <praupadhyaya@gmail.com>
+Subject: Re: Load Balancing for AF_INET Raw Sockets
+Date: Thu, 17 Dec 2015 11:40:21 +0530
+Message-ID: <CAPBAu3XWzO5GT1cceVgYCJ2Du_p+yht3moBPuKrn-i_O5yLJvw@mail.gmail.com>
+References: <CAPBAu3Uz5P-uJ3Hqg=K49PLDkaGtUWW_SGAH0mTvAsevwvE7Ew@mail.gmail.com>
+	<1450190376.8474.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Lorenzo Colitti <lorenzo@google.com>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:33409 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932239AbbLQGKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 01:10:22 -0500
+Received: by mail-ig0-f177.google.com with SMTP id mv3so6896824igc.0
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2015 22:10:21 -0800 (PST)
+In-Reply-To: <1450190376.8474.28.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Tue, Dec 15, 2015 at 8:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2015-12-15 at 18:26 +0530, Prashant Upadhyaya wrote:
+>> Hi,
+>>
+>> I open a raw socket for listening to all the UDP packets in a raw fashion --
+>>
+>> socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
+>>
+>> Then I use recvfrom to read the packets over the socket.
+>>
+>> The above works mighty fine.
+>> I want to find out if it is possible to 'load balance' the UDP flows
+>> by opening up multiple instances of this socket and then possibly
+>> setting some socket options so that I can scale up the reading via
+>> multiple threads doing recvfrom on these from multiple cores.
+>> (I know it is possible over packet sockets, but that is a different usecase)
+>
+> No plan yet to support fanout on multiple raw sockets.
+>
+>
+Hi,
 
-Today's linux-next merge of the akpm-current tree got a conflict in:
+One question on the AF_INET6 raw sockets.
+Here I don't get the ipv6 header at all when I read a packet.
+I checked the RFC 3542 and it specifies the following as the ancillary
+data which can be obtained --
 
-  include/net/sock.h
-  net/ipv4/tcp_ipv4.c
+Four similar pieces of information can be returned for a received
+   packet as ancillary data:
 
-between commit:
+      1.  the destination IPv6 address,
+      2.  the arriving interface index,
+      3.  the arriving hop limit, and
+      4.  the arriving traffic class value.
 
-  64be0aed59ad ("net: diag: Add the ability to destroy a socket.")
+Now how do I obtain the 'src IPv6 address' ?
 
-from the net-next tree and commit:
-
-  0e2cde9cf7b6 ("net: tcp_memcontrol: simplify linkage between socket and page counter")
-
-from the akpm-current tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc include/net/sock.h
-index f772b8245cae,edd552ef8e38..000000000000
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@@ -309,8 -292,8 +293,8 @@@ struct cg_proto
-    *	@sk_send_head: front of stuff to transmit
-    *	@sk_security: used by security modules
-    *	@sk_mark: generic packet mark
- -  *	@sk_classid: this socket's cgroup classid
- +  *	@sk_cgrp_data: cgroup data for this cgroup
--   *	@sk_cgrp: this socket's cgroup-specific proto data
-+   *	@sk_memcg: this socket's memory cgroup association
-    *	@sk_write_pending: a write to stream socket waits to start
-    *	@sk_state_change: callback to indicate change in the state of the sock
-    *	@sk_data_ready: callback to indicate there is data to be processed
-@@@ -444,8 -428,11 +428,8 @@@ struct sock 
-  #ifdef CONFIG_SECURITY
-  	void			*sk_security;
-  #endif
- -	__u32			sk_mark;
- -#ifdef CONFIG_CGROUP_NET_CLASSID
- -	u32			sk_classid;
- -#endif
- +	struct sock_cgroup_data	sk_cgrp_data;
-- 	struct cg_proto		*sk_cgrp;
-+ 	struct mem_cgroup	*sk_memcg;
-  	void			(*sk_state_change)(struct sock *sk);
-  	void			(*sk_data_ready)(struct sock *sk);
-  	void			(*sk_write_space)(struct sock *sk);
-@@@ -1051,19 -1036,6 +1035,7 @@@ struct proto 
-  #ifdef SOCK_REFCNT_DEBUG
-  	atomic_t		socks;
-  #endif
-- #ifdef CONFIG_MEMCG_KMEM
-- 	/*
-- 	 * cgroup specific init/deinit functions. Called once for all
-- 	 * protocols that implement it, from cgroups populate function.
-- 	 * This function has to setup any files the protocol want to
-- 	 * appear in the kmem cgroup filesystem.
-- 	 */
-- 	int			(*init_cgroup)(struct mem_cgroup *memcg,
-- 					       struct cgroup_subsys *ss);
-- 	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
-- 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
-- #endif
- +	int			(*diag_destroy)(struct sock *sk, int err);
-  };
-  
-  int proto_register(struct proto *prot, int alloc_slab);
-diff --cc net/ipv4/tcp_ipv4.c
-index 205e6745393f,34c26782e114..000000000000
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@@ -2336,12 -2339,6 +2338,7 @@@ struct proto tcp_prot = 
-  	.compat_setsockopt	= compat_tcp_setsockopt,
-  	.compat_getsockopt	= compat_tcp_getsockopt,
-  #endif
-- #ifdef CONFIG_MEMCG_KMEM
-- 	.init_cgroup		= tcp_init_cgroup,
-- 	.destroy_cgroup		= tcp_destroy_cgroup,
-- 	.proto_cgroup		= tcp_proto_cgroup,
-- #endif
- +	.diag_destroy		= tcp_abort,
-  };
-  EXPORT_SYMBOL(tcp_prot);
-  
+Regards
+-Prashant
