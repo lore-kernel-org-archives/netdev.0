@@ -1,36 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [iproute PATCH v2 1/2] libnetlink: add a variant of
- rtnl_send_check that consumes ACKs
-Date: Thu, 17 Dec 2015 08:07:22 -0800
-Message-ID: <1450368442.8474.106.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1450358538-134898-1-git-send-email-lorenzo@google.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
+Date: Fri, 18 Dec 2015 00:07:08 +0800
+Message-ID: <CADvbK_e_H91UAatLSOEAvPFxZZTNNs5ZFR5TieXBdWt65z4Qzg@mail.gmail.com>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+	<20151130093755.GA8159@gondor.apana.org.au>
+	<20151130101401.GA17712@orbit.nwl.cc>
+	<20151130101859.GA8378@gondor.apana.org.au>
+	<20151203124129.GA5505@gondor.apana.org.au>
+	<CADvbK_cA5qaooTOE4Z2bGYs+ys17ZajSMgKDVWgctSZWJ0vjpw@mail.gmail.com>
+	<20151217084809.GC9239@gondor.apana.org.au>
+	<CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	zenczykowski@gmail.com
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33759 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966354AbbLQQHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 11:07:24 -0500
-Received: by mail-pf0-f172.google.com with SMTP id n128so14799828pfn.0
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 08:07:24 -0800 (PST)
-In-Reply-To: <1450358538-134898-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Phil Sutter <phil@nwl.cc>, davem <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-12-17 at 22:22 +0900, Lorenzo Colitti wrote:
-> The new variant is identical to rtnl_send_check, except it also
-> consumes the kernel response instead of using MSG_PEEK. This is
-> useful for callers that send simple commands that never cause a
-> response but only ACKs, and that expect to receive and deal
-> with errors without printing them to stderr like rtnl_talk does.
+On Thu, Dec 17, 2015 at 5:00 PM, Xin Long <lucien.xin@gmail.com> wrote:
+> On Thu, Dec 17, 2015 at 4:48 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>> On Thu, Dec 17, 2015 at 04:46:00PM +0800, Xin Long wrote:
+>>>
+>>> sorry for late test, but unfortunately, my case with rhashtalbe still
+>>> return EBUSY.
+>>> I added some debug code in rhashtable_insert_rehash(), and found:
+>>> *future_tbl is null*
+>>>
+>>> fail:
+>>>         /* Do not fail the insert if someone else did a rehash. */
+>>>         if (likely(rcu_dereference_raw(tbl->future_tbl))) {
+>>>                 printk("future_tbl is there\n");
+>>>                 return 0;
+>>>         } else {
+>>>                 printk("future_tbl is null\n");
+>>>         }
+>>>
+>>> any idea why ?
+>>
+>> That's presumably because you got a genuine double rehash.
+>>
+>> Until you post your code we can't really help you.
+>>
+> i wish i could , but my codes is a big patch for sctp, and this issue
+> happens in a special stress test based on this patch.
+> im trying to think how i can show you. :)
 
-> +inline int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
-> +{
-> +	return rtnl_send_check_ack(rth, buf, len, 0);
-> +}
-
-Please remove this inline attribute.
+I'm just wondering, why do not we handle the genuine double rehash
+issue inside rhashtable? i mean it's just a temporary error that a
+simple retry may fix it.
