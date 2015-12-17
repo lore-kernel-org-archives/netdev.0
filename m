@@ -1,46 +1,66 @@
-From: Dave Young <dyoung@redhat.com>
-Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
- debug messages
-Date: Thu, 17 Dec 2015 11:19:12 +0800
-Message-ID: <20151217031912.GB3821@dhcp-128-65.nay.redhat.com>
-References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
- <20151115192547.3fd1b3cc@mir>
- <1448020533.3141.27.camel@sipsolutions.net>
- <20151123013740.GA27383@dhcp-128-32.nay.redhat.com>
- <1449843990.2324.11.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stefan Lippers-Hollmann <s.l-h@gmx.de>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1449843990.2324.11.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Subject: [PATCH v2 0/3] drivers: net: cpsw: Fix bugs in fixed-link PHY DT parsing
+Date: Wed, 16 Dec 2015 23:02:08 -0500
+Message-ID: <cover.1450309613.git.drivshin@allworx.com>
+References: <20151209223115.6c5a400f.drivshin.allworx@gmail.com> <1741588.Ve76Z1ZI87@localhost>
+Cc: linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Pascal Speck <kernel@iktek.de>,
+	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:35551 "EHLO
+	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755374AbbLQECn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 23:02:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Commit 1f71e8c96fc654724723ce987e0a8b2aeb81746d ("drivers: net: cpsw:
+Add support for fixed-link PHY") added initial fixed-link PHY support
+for CPSW, but missed a few considerations.
 
-On 12/11/15 at 03:26pm, Johannes Berg wrote:
-> On Mon, 2015-11-23 at 09:37 +0800, Dave Young wrote:
->=20
-> > Seems there're a lot of other wireless messages. Should we refactor=
-=20
-> > them as well? I still did not get chance to see where is the code.
-> > (My wireless driver being used is iwlwifi)
->=20
-> Most are probably from net/mac80211/.
->=20
-> > # dmesg|grep "Limiting TX power"|wc
-> > =A0=A0=A04128=A0=A0=A049600=A0=A0360052
-> >=20
->=20
-> I fixed this one recently, due to a bug it was printed all the time
-> instead of just once when taking effect.
+This series is based on the tip of the net tree. The first two patches
+fix user-visible errors in different hardware configurations. The third
+patch is for an internal reference counting issue. They are logically
+independent changes, but in the same function, so must be applied in
+order to apply cleanly.
 
-Cool, has the fix been in mainline or somewhere else?
+The first patch was originally submitted by Pascal Speck on December 4,
+but was not picked up by patchwork. I suspect that is because the patch
+was mangled by the mailer. I fixed the mangling and am including it in
+this series, as I believe it is the correct change.
 
-Thanks
-Dave
+I have tested on the following hardware configurations:
+ - (EVMSK) dual emac with two real MDIO-connected phys using RGMII-TXID
+ - single emac with fixed-link using RGMII
+Testing of other CPSW emac configurations that folks may have would
+be appreciated.
+
+
+Changes from v1 [1]:
+ - Split into 3 smaller patches.
+ - Maintain 1f71e8c96fc6's preference for fixed-link over phy_id if
+   they are both (incorrectly) specified in the slave node.
+ - Update binding documentation to no longer say that phy_mode is also
+   mutually exclusive with fixed-link.
+ - Dropped unnecessary include of phy_fixed.h.
+
+[1] https://patchwork.ozlabs.org/patch/554989/
+
+David Rivshin (2):
+  drivers: net: cpsw: fix RMII/RGMII mode when used with fixed-link PHY
+  drivers: net: cpsw: increment reference count on fixed-link PHY node
+
+Pascal Speck (Iktek) (1):
+  ethernet:ti:cpsw: fix phy identification with multiple slaves on
+    fixed-phy
+
+ Documentation/devicetree/bindings/net/cpsw.txt |  6 +--
+ drivers/net/ethernet/ti/cpsw.c                 | 53 +++++++++++++++-----------
+ 2 files changed, 34 insertions(+), 25 deletions(-)
+
+--
+2.5.0
