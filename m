@@ -1,51 +1,66 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next 1/4] cxgb4: Use mask & shift while returning vlan_prio
-Date: Wed, 16 Dec 2015 17:40:41 -0800
-Message-ID: <B7C06B31-B31A-453D-AA4E-4C836056832E@chelsio.com>
-References: <1450251988-9246-1-git-send-email-hariprasad@chelsio.com> <1450251988-9246-2-git-send-email-hariprasad@chelsio.com> <20151216.190733.272791166074460566.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-	nirranjan@chelsio.com
-To: David Miller <davem@davemloft.net>
+From: Dave Young <dyoung@redhat.com>
+Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
+ debug messages
+Date: Thu, 17 Dec 2015 11:16:52 +0800
+Message-ID: <20151217031652.GA3821@dhcp-128-65.nay.redhat.com>
+References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
+ <1449844729.2324.15.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Emmanuel Grumbach <egrumbach@gmail.com>,
+	Stefan Lippers-Hollmann <s.l-h@gmx.de>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:8187 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751356AbbLQBtt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 20:49:49 -0500
-In-Reply-To: <20151216.190733.272791166074460566.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:34089 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932239AbbLQDRF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2015 22:17:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1449844729.2324.15.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi, Johannes
 
-> On Dec 16, 2015, at 4:07 PM, David Miller <davem@davemloft.net> wrote=
-:
->=20
-> From: Hariprasad Shenai <hariprasad@chelsio.com>
-> Date: Wed, 16 Dec 2015 13:16:25 +0530
->=20
->> @@ -66,7 +66,7 @@ struct l2t_data {
->>=20
->> static inline unsigned int vlan_prio(const struct l2t_entry *e)
->> {
->> -	return e->vlan >> 13;
->> +	return (e->vlan & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
->=20
-> e->vlan is a u16, the vlan priotity is the top 3 bits of the 16-bit
-> value, and finally the right shift will be non-signed.
->=20
-> Therefore this change is absolutely not necessary.
->=20
-> Please remove this patch from the series and resend.
+Sorry for late feedback, I was busying on other things.
 
-I assume that you only meant that the masking portion is unnecessary.  =
-Doing the shift with the symbolic constant VLAN_PRIO_SHIFT instead of t=
-he literal constant =E2=80=9C13=E2=80=9D is still a reasonable change. =
- The masking was almost certainly from me because once one uses the sym=
-bolic constants, weren=E2=80=99t not supposed to =E2=80=9Cknow=E2=80=9D=
- about the internal structure of the operation.  Modern compilers are o=
-f course free to optimize away the mask, etc.
+On 12/11/15 at 03:38pm, Johannes Berg wrote:
+> On Sun, 2015-11-15 at 15:31 +0800, Dave Young wrote:
+> > cfg80211 module prints a lot of messages like below. Actually
+> > printing once is acceptable but sometimes it will print again and
+> > again, it looks very annoying. It is better to change these detail
+> > messages to debugging only.
+> > 
+> 
+> Despite the objections, I've applied this patch now.
+> 
 
-Casey
+Thanks a lot.
+
+> I've made one change: keeping the alpha2 (e.g. "US") printed in some of
+> the pr_err() cases in this file.
+> I also got rid of CONFIG_CFG80211_REG_DEBUG in a separate patch.
+> 
+> I somewhat agree with the objections, but if the kernel is with
+> CONFIG_DYNAMIC_DEBUG then it's really simple to get the messages back
+> by enabling them for this file.
+> 
+> Where the messages were used as an indication of something having gone
+> awry at a different level (e.g. mac80211 disconnect) I don't really
+> quite agree - that then perhaps should have a more explicit (and less
+> noisy) message.
+> 
+> I also agree that the regulatory code is quite opaque, and the way it
+> arrives at certain conclusions is not always obvious. These messages
+> don't help all that much though since they don't contain the actual
+> input to the decisions. I think for that, we'd be much better served
+> with some kind of tracepoint or so that records all the information.
+
+I think you guys are expert in this area, I will agree with all of
+above. But I hope we can have some rate limited messages at least
+especially for endless things.
+
+Thanks
+Dave
