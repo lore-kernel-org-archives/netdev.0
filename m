@@ -1,36 +1,120 @@
-From: Bryce Cronkite-Ratcliff <brycecr@gmail.com>
-Subject: Instantaneous Threshold ECN marking for DCTCP
-Date: Thu, 17 Dec 2015 08:13:49 -0800
-Message-ID: <CADn3pMdDr=MmTyeZJ0ofacy+gcTC2qKJpWxp9gdBCpr+cfJzHA@mail.gmail.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 08/15] i40iw: add files for iwarp interface
+Date: Thu, 17 Dec 2015 08:27:38 -0800
+Message-ID: <20151217162738.GA12875@infradead.org>
+References: <1450295919-17292-1-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-2-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-3-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-4-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-5-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-6-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-7-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-8-git-send-email-faisal.latif@intel.com>
+ <1450295919-17292-9-git-send-email-faisal.latif@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	e1000-rdma@lists.sourceforge.net
+To: Faisal Latif <faisal.latif@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37002 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756071AbbLQQNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 11:13:50 -0500
-Received: by mail-wm0-f48.google.com with SMTP id p187so28416641wmp.0
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 08:13:50 -0800 (PST)
+Received: from bombadil.infradead.org ([198.137.202.9]:40494 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755731AbbLQQ1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 11:27:39 -0500
+Content-Disposition: inline
+In-Reply-To: <1450295919-17292-9-git-send-email-faisal.latif@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi there,
+> +		i40iw_next_iw_state(iwqp, I40IW_QP_STATE_ERROR, 0, 0, 0);
+> +
+> +	if (!iwqp->user_mode) {
+> +		if (iwqp->iwscq)
+> +			i40iw_clean_cqes(iwqp, iwqp->iwscq);
+> +		if ((iwqp->iwrcq) && (iwqp->iwrcq != iwqp->iwscq))
 
-I am attempting to run some experiments with DCTCP using mininet (so
-this is all user-level emulation -- my switch is a linux namespace
-using OVS). My question is on how to apply DCTCP's AQM. DCTCP's AQM
-just marks all packets with CE if they are received when the queue is
-over a threshold value of K and otherwise does not mark CE. The DCTCP
-papers I have seen suggest that RED can be used to achieve this: set
-probability to 1, burst to 1, and min and max to the same value.
+Please try to do a pass over your code and remove all these pointless
+braces.
 
-However, tc-red, in accordance with this paper, does not allow burst
-to be significantly below the minimum threshold value, so I am unable
-to set the parameters I would like -- in particular to set burst to 1
--- without monkey-patching tc.
+> +static int i40iw_setup_virt_qp(struct i40iw_device *iwdev,
+> +			       struct i40iw_qp *iwqp,
+> +			       struct i40iw_qp_init_info *init_info)
+> +{
+> +	struct i40iw_pbl *iwpbl = iwqp->iwpbl;
+> +	struct i40iw_qp_mr *qpmr = &iwpbl->qp_mr;
+> +	u64 *sq_base;
+> +
+> +	sq_base = kmap(qpmr->sq_page);
+> +	iwqp->sq_kmapped = 1;
 
-Is there a way to achieve this simple threshold-ECN marking AQM with
-tc, or another approach?
 
-Thank you!
+You must never use kmap for any long lived resource.  Just allocate
+it it out of lowmem so that you don't need the kmap.
+
+> +	ukinfo->rq = (u64 *)((u8 *)mem->va + (sqdepth * I40IW_QP_WQE_MIN_SIZE));
+> +	info->rq_pa = (uintptr_t)((u8 *)mem->pa + (sqdepth * I40IW_QP_WQE_MIN_SIZE));
+> +
+> +	ukinfo->shadow_area = (u64 *)((u8 *)ukinfo->rq +
+> +				      (rqdepth * I40IW_QP_WQE_MIN_SIZE));
+> +	info->shadow_area_pa = info->rq_pa + (rqdepth * I40IW_QP_WQE_MIN_SIZE);
+
+Can you please try to get away with less casts here?  Note that Linux does
+use GCC extensions for void pointer arithmetics.  Even without that you
+never need to use casts to or from void pointers.  All this happes in
+lots of places in the code, so a little audit would be useful.
+
+> +/**
+> + * i40iw_alloc_mw - Allocate memory window
+> + * @ibpd: protection domain
+> + * @type: memory window type
+> + */
+> +static struct ib_mw *i40iw_alloc_mw(struct ib_pd *ibpd,
+> +				    enum ib_mw_type type)
+> +{
+> +	return ERR_PTR(-ENOSYS);
+> +}
+> +
+> +/**
+> + * i40iw_dealloc_mw - Free a memory window
+> + * @ibmw: memory window to free
+> + */
+> +static int i40iw_dealloc_mw(struct ib_mw *ibmw)
+> +{
+> +	return -EIO;
+> +}
+> +
+> +/**
+> + * i40iw_bind_mw - Bind a memory window to a qp
+> + * @ibqp: queue pair
+> + * @ibmw: memory window
+> + * @ibmw_bind: pointer to bind structure
+> + */
+> +static int i40iw_bind_mw(struct ib_qp *ibqp,
+> +			 struct ib_mw *ibmw,
+> +			 struct ib_mw_bind *ibmw_bind)
+> +{
+> +	return -ENOSYS;
+> +}
+
+There shouldn't be any need to stub all these out.
+
+> +/**
+> + * i40iw_init_ofa_device - initialization of iwarp device
+> + * @iwdev: iwarp device
+> + */
+> +static struct i40iw_ib_device *i40iw_init_ofa_device(struct i40iw_device *iwdev)
+
+Where is that weird ofa prefix coming from?
+
+> +	iwibdev->ibdev.reg_phys_mr = i40iw_reg_phys_mr;
+
+Please don't add phys MR support in new drivers, it's about to
+disappear.
+
+> +	iwibdev->ibdev.detach_mcast = NULL;
+> +	iwibdev->ibdev.attach_mcast = NULL;
+> +	iwibdev->ibdev.get_protocol_stats = i40iw_get_protocol_stats;
+> +	iwibdev->ibdev.process_mad = NULL;
+
+All the unused fields should already be zeroed.
