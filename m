@@ -1,183 +1,85 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [iproute PATCH v2 2/2] ss: support closing inet sockets via SOCK_DESTROY.
-Date: Thu, 17 Dec 2015 22:22:18 +0900
-Message-ID: <1450358538-134898-2-git-send-email-lorenzo@google.com>
-References: <1450358538-134898-1-git-send-email-lorenzo@google.com>
+Subject: [iproute PATCH v2 1/2] libnetlink: add a variant of rtnl_send_check that consumes ACKs
+Date: Thu, 17 Dec 2015 22:22:17 +0900
+Message-ID: <1450358538-134898-1-git-send-email-lorenzo@google.com>
 Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
 	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36254 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934753AbbLQNW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 08:22:56 -0500
-Received: by mail-pa0-f44.google.com with SMTP id q3so22445906pav.3
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 05:22:56 -0800 (PST)
-In-Reply-To: <1450358538-134898-1-git-send-email-lorenzo@google.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34482 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933043AbbLQNWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 08:22:48 -0500
+Received: by mail-pf0-f172.google.com with SMTP id 68so30944615pfc.1
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 05:22:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a -K / --kill option to ss that attempts to
-forcibly close matching sockets using SOCK_DESTROY.
-
-This is implemented by adding a new "struct action" to struct
-filter. If necessary, this can be extended later on to support
-further actions on sockets.
-
-Because ss typically prints sockets instead of acting on them,
-and because the kernel only suppors forcibly closing some types
-of sockets, the output of -K is as follows:
-
-- If closing the socket succeeds, the socket is printed.
-- If the kernel does not support forcibly closing this type of
-  socket (e.g., if it's a UDP socket, or a TIME_WAIT socket),
-  the socket is silently skipped.
-- If an error occurs (e.g., permission denied), the error is
-  reported and ss exits.
+The new variant is identical to rtnl_send_check, except it also
+consumes the kernel response instead of using MSG_PEEK. This is
+useful for callers that send simple commands that never cause a
+response but only ACKs, and that expect to receive and deal
+with errors without printing them to stderr like rtnl_talk does.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/linux/sock_diag.h |  1 +
- misc/ss.c                 | 52 +++++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 51 insertions(+), 2 deletions(-)
+ include/libnetlink.h |  2 ++
+ lib/libnetlink.c     | 14 +++++++++++---
+ 2 files changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index 024e1f4..dafcb89 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -4,6 +4,7 @@
- #include <linux/types.h>
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 431189e..a88cb4d 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -75,6 +75,8 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 	__attribute__((warn_unused_result));
+ int rtnl_send(struct rtnl_handle *rth, const void *buf, int)
+ 	__attribute__((warn_unused_result));
++int rtnl_send_check_ack(struct rtnl_handle *rth, const void *buf, int, int)
++	__attribute__((warn_unused_result));
+ int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int)
+ 	__attribute__((warn_unused_result));
  
- #define SOCK_DIAG_BY_FAMILY 20
-+#define SOCK_DESTROY 21
- 
- struct sock_diag_req {
- 	__u8	sdiag_family;
-diff --git a/misc/ss.c b/misc/ss.c
-index 0dab32c..be70c41 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -160,6 +160,9 @@ struct filter
- 	int states;
- 	int families;
- 	struct ssfilter *f;
-+	struct {
-+		__u8 kill:1;
-+	} action;
- };
- 
- static const struct filter default_dbs[MAX_DB] = {
-@@ -2194,8 +2197,27 @@ static int sockdiag_send(int family, int fd, int protocol, struct filter *f)
- struct inet_diag_arg {
- 	struct filter *f;
- 	int protocol;
-+	struct rtnl_handle *rth;
- };
- 
-+static int kill_inet_sock(const struct sockaddr_nl *addr,
-+		struct nlmsghdr *h, void *arg)
-+{
-+	struct inet_diag_msg *d = NLMSG_DATA(h);
-+	struct inet_diag_arg *diag_arg = arg;
-+	struct rtnl_handle *rth = diag_arg->rth;
-+	DIAG_REQUEST(req, struct inet_diag_req_v2 r);
-+
-+	req.nlh.nlmsg_type = SOCK_DESTROY;
-+	req.nlh.nlmsg_flags = NLM_F_REQUEST;
-+	req.nlh.nlmsg_seq = ++rth->seq;
-+	req.r.sdiag_family = d->idiag_family;
-+	req.r.sdiag_protocol = diag_arg->protocol;
-+	req.r.id = d->id;
-+
-+	return rtnl_send_check_ack(rth, &req.nlh, req.nlh.nlmsg_len, 1);
-+}
-+
- static int show_one_inet_sock(const struct sockaddr_nl *addr,
- 		struct nlmsghdr *h, void *arg)
- {
-@@ -2205,6 +2227,15 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
- 
- 	if (!(diag_arg->f->families & (1 << r->idiag_family)))
- 		return 0;
-+	if (diag_arg->f->action.kill && kill_inet_sock(addr, h, arg) != 0) {
-+		if (errno == EOPNOTSUPP) {
-+			/* This socket can't be closed. Silently skip it. */
-+			return 0;
-+		} else {
-+			perror("SOCK_DESTROY answers");
-+			return -1;
-+		}
-+	}
- 	if ((err = inet_show_sock(h, diag_arg->f, diag_arg->protocol)) < 0)
- 		return err;
- 
-@@ -2214,12 +2245,21 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
- static int inet_show_netlink(struct filter *f, FILE *dump_fp, int protocol)
- {
- 	int err = 0;
--	struct rtnl_handle rth;
-+	struct rtnl_handle rth, rth2;
- 	int family = PF_INET;
- 	struct inet_diag_arg arg = { .f = f, .protocol = protocol };
- 
- 	if (rtnl_open_byproto(&rth, 0, NETLINK_SOCK_DIAG))
- 		return -1;
-+
-+	if (f->action.kill) {
-+		if (rtnl_open_byproto(&rth2, 0, NETLINK_SOCK_DIAG)) {
-+			rtnl_close(&rth);
-+			return -1;
-+		}
-+		arg.rth = &rth2;
-+	}
-+
- 	rth.dump = MAGIC_SEQ;
- 	rth.dump_fp = dump_fp;
- 	if (preferred_family == PF_INET6)
-@@ -2243,6 +2283,8 @@ again:
- 
- Exit:
- 	rtnl_close(&rth);
-+	if (arg.rth)
-+		rtnl_close(arg.rth);
- 	return err;
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 1658214..a3ad83a 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -134,18 +134,21 @@ int rtnl_send(struct rtnl_handle *rth, const void *buf, int len)
+ 	return send(rth->fd, buf, len, 0);
  }
  
-@@ -3489,6 +3531,8 @@ static void _usage(FILE *dest)
- "   -x, --unix          display only Unix domain sockets\n"
- "   -f, --family=FAMILY display sockets of type FAMILY\n"
- "\n"
-+"   -K, --kill          forcibly close sockets, display what was closed\n"
-+"\n"
- "   -A, --query=QUERY, --socket=QUERY\n"
- "       QUERY := {all|inet|tcp|udp|raw|unix|unix_dgram|unix_stream|unix_seqpacket|packet|netlink}[,QUERY]\n"
- "\n"
-@@ -3579,6 +3623,7 @@ static const struct option long_opts[] = {
- 	{ "context", 0, 0, 'Z' },
- 	{ "contexts", 0, 0, 'z' },
- 	{ "net", 1, 0, 'N' },
-+	{ "kill", 0, 0, 'K' },
- 	{ 0 }
+-int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
++int rtnl_send_check_ack(struct rtnl_handle *rth, const void *buf, int len,
++		int ack)
+ {
+ 	struct nlmsghdr *h;
+-	int status;
++	int status, flags;
+ 	char resp[1024];
  
- };
-@@ -3593,7 +3638,7 @@ int main(int argc, char *argv[])
- 	int ch;
- 	int state_filter = 0;
+ 	status = send(rth->fd, buf, len, 0);
+ 	if (status < 0)
+ 		return status;
  
--	while ((ch = getopt_long(argc, argv, "dhaletuwxnro460spbEf:miA:D:F:vVzZN:",
-+	while ((ch = getopt_long(argc, argv, "dhaletuwxnro460spbEf:miA:D:F:vVzZN:K",
- 				 long_opts, NULL)) != EOF) {
- 		switch(ch) {
- 		case 'n':
-@@ -3774,6 +3819,9 @@ int main(int argc, char *argv[])
- 			if (netns_switch(optarg))
- 				exit(1);
- 			break;
-+		case 'K':
-+			current_filter.action.kill = 1;
-+			break;
- 		case 'h':
- 			help();
- 		case '?':
++	flags = MSG_DONTWAIT | (ack ? 0 : MSG_PEEK);
++
+ 	/* Check for immediate errors */
+-	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT|MSG_PEEK);
++	status = recv(rth->fd, resp, sizeof(resp), flags);
+ 	if (status < 0) {
+ 		if (errno == EAGAIN)
+ 			return 0;
+@@ -167,6 +170,11 @@ int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
+ 	return 0;
+ }
+ 
++inline int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
++{
++	return rtnl_send_check_ack(rth, buf, len, 0);
++}
++
+ int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
+ {
+ 	struct nlmsghdr nlh;
 -- 
 2.6.0.rc2.230.g3dd15c0
