@@ -1,41 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] team: Advertise tunneling offload features
-Date: Thu, 17 Dec 2015 16:24:49 -0500 (EST)
-Message-ID: <20151217.162449.2133225661920779627.davem@davemloft.net>
-References: <1450361515-23594-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCHv3 net-next] ipv6: allow routes to be configured with
+ expire values
+Date: Thu, 17 Dec 2015 16:26:50 -0500 (EST)
+Message-ID: <20151217.162650.526302130376762794.davem@davemloft.net>
+References: <1450285432.23793.12.camel@redhat.com>
+	<20151217.150826.320110242014234511.davem@davemloft.net>
+	<1450383837.28806.4.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com,
-	jackm@dev.mellanox.co.il
-To: ogerlitz@mellanox.com
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+	hannes@stressinduktion.org
+To: dcbw@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57239 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57281 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932333AbbLQVYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:24:51 -0500
-In-Reply-To: <1450361515-23594-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S932670AbbLQV0v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:26:51 -0500
+In-Reply-To: <1450383837.28806.4.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 17 Dec 2015 16:11:55 +0200
+From: Dan Williams <dcbw@redhat.com>
+Date: Thu, 17 Dec 2015 14:23:57 -0600
 
-> From: Eran Ben Elisha <eranbe@mellanox.com>
+> On Thu, 2015-12-17 at 15:08 -0500, David Miller wrote:
+>> That brings up an interesting issue, and I do not agree that we
+>> should
+>> publish the value for the purpose of determining if the kernel
+>> supports
+>> it or not.
 > 
-> When the underlying device supports offloads encapulated traffic,
-> we need to reflect that through the hw_enc_features field of the
-> team net-device.
-> 
-> This will cause the xmit path in the core networking stack to provide
-> team with encapsulated GSO frames to offload into the HW etc.
-> 
-> Using this over Mellanox ConnectX3-pro (mlx4 driver) card that supports
-> VXLAN offloads we got 36.0 Gbits/sec using eight iperf streams.
-> 
-> Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> That said, userspace still needs to read back the EXPIRES attribute, if
+> only for iproute.  The program setting RTA_EXPIRES isn't the only thing
+> that wants to know about the route's details.
 
-Applied, thanks.
+Agreed.
+
+>> I'm almost positive that the right thing to do is to unilaterally
+>> making nlmsg_parse() error out on out-of-range attribute type
+>> numbers,
+>> and then backport that to all -stable branches.
+> 
+> This works for one attribute because then userspace gets an error like
+> EOPNOTSUPP or something.  But which attribute caused it?  Does
+> userspace then have to retry the operation a couple times with all the
+> different combinations of potentially unsupported options?
+> 
+> If we're going to error out on unrecognized options, I'd really like to
+> see some kind of netlink features bitmap or something that positively
+> indicates which options the kernel will accept.
+
+Also agree.  But it has to be really simple and trivial so that -stable
+backports are possible.
