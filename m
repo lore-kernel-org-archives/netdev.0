@@ -1,66 +1,46 @@
 From: Dave Young <dyoung@redhat.com>
 Subject: Re: [PATCH] wireless: change cfg80211 regulatory domain info as
  debug messages
-Date: Thu, 17 Dec 2015 11:16:52 +0800
-Message-ID: <20151217031652.GA3821@dhcp-128-65.nay.redhat.com>
+Date: Thu, 17 Dec 2015 11:19:12 +0800
+Message-ID: <20151217031912.GB3821@dhcp-128-65.nay.redhat.com>
 References: <20151115073105.GA18846@dhcp-128-65.nay.redhat.com>
- <1449844729.2324.15.camel@sipsolutions.net>
+ <20151115192547.3fd1b3cc@mir>
+ <1448020533.3141.27.camel@sipsolutions.net>
+ <20151123013740.GA27383@dhcp-128-32.nay.redhat.com>
+ <1449843990.2324.11.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Emmanuel Grumbach <egrumbach@gmail.com>,
-	Stefan Lippers-Hollmann <s.l-h@gmx.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stefan Lippers-Hollmann <s.l-h@gmx.de>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
 To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34089 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932239AbbLQDRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2015 22:17:05 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1449844729.2324.15.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1449843990.2324.11.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Johannes
+Hi,
 
-Sorry for late feedback, I was busying on other things.
+On 12/11/15 at 03:26pm, Johannes Berg wrote:
+> On Mon, 2015-11-23 at 09:37 +0800, Dave Young wrote:
+>=20
+> > Seems there're a lot of other wireless messages. Should we refactor=
+=20
+> > them as well? I still did not get chance to see where is the code.
+> > (My wireless driver being used is iwlwifi)
+>=20
+> Most are probably from net/mac80211/.
+>=20
+> > # dmesg|grep "Limiting TX power"|wc
+> > =A0=A0=A04128=A0=A0=A049600=A0=A0360052
+> >=20
+>=20
+> I fixed this one recently, due to a bug it was printed all the time
+> instead of just once when taking effect.
 
-On 12/11/15 at 03:38pm, Johannes Berg wrote:
-> On Sun, 2015-11-15 at 15:31 +0800, Dave Young wrote:
-> > cfg80211 module prints a lot of messages like below. Actually
-> > printing once is acceptable but sometimes it will print again and
-> > again, it looks very annoying. It is better to change these detail
-> > messages to debugging only.
-> > 
-> 
-> Despite the objections, I've applied this patch now.
-> 
-
-Thanks a lot.
-
-> I've made one change: keeping the alpha2 (e.g. "US") printed in some of
-> the pr_err() cases in this file.
-> I also got rid of CONFIG_CFG80211_REG_DEBUG in a separate patch.
-> 
-> I somewhat agree with the objections, but if the kernel is with
-> CONFIG_DYNAMIC_DEBUG then it's really simple to get the messages back
-> by enabling them for this file.
-> 
-> Where the messages were used as an indication of something having gone
-> awry at a different level (e.g. mac80211 disconnect) I don't really
-> quite agree - that then perhaps should have a more explicit (and less
-> noisy) message.
-> 
-> I also agree that the regulatory code is quite opaque, and the way it
-> arrives at certain conclusions is not always obvious. These messages
-> don't help all that much though since they don't contain the actual
-> input to the decisions. I think for that, we'd be much better served
-> with some kind of tracepoint or so that records all the information.
-
-I think you guys are expert in this area, I will agree with all of
-above. But I hope we can have some rate limited messages at least
-especially for endless things.
+Cool, has the fix been in mainline or somewhere else?
 
 Thanks
 Dave
