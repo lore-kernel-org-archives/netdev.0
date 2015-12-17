@@ -1,45 +1,53 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: use-after-free in sixpack_close
-Date: Thu, 17 Dec 2015 11:41:04 +0000
-Message-ID: <20151217114104.6946d72b@lxorguk.ukuu.org.uk>
-References: <CACT4Y+YfPHHON7VywV_G-qOyQ0wv6UVB0uxFAGf1aGKpfAP-KA@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next] net: qmi_wwan: ignore bogus CDC Union descriptors
+Date: Thu, 17 Dec 2015 12:44:04 +0100
+Message-ID: <1450352644-12445-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Koensgen <ajk@comnets.uni-bremen.de>,
-	linux-hams@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Slaby <jslaby@suse.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YfPHHON7VywV_G-qOyQ0wv6UVB0uxFAGf1aGKpfAP-KA@mail.gmail.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kanerva Topi <Topi.Kanerva@cinia.fi>, linux-usb@vger.kernel.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:43602 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751278AbbLQLoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 06:44:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This report is then followed by a dozen of other use-after-free reports.
-> 
-> On commit edb42dc7bc0da0125ceacab810a553ce1f0cac8d (Dec 15).
-> 
-> Thank you
+The CDC descriptors found on these vendor specific functions should
+not be considered authoritative.  They seem to be ignored by drivers
+for other systems, and the quality is therefore low.
 
-sixpack_close does unregister_netdev(sp->dev), which frees sp as sp is
-actually allocated via alloc_netdev()
+One device (1e0e:9001) has been reported to have such a bogus union
+descriptor on the QMI function, making it fail probing even if the
+device id was dynamically added.  The report was not complete enough
+to allow adding a device entry for this modem. But this should at
+least fix the dynamic id probing problem.
 
-Then deletes two timers within sp
+Reported-by: Kanerva Topi <Topi.Kanerva@cinia.fi>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/qmi_wwan.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Then frees two buffers indexed off sp
-
-The mkiss driver also appears to share the same bug and references
-ax->rbuff/xbuff after they have been freed, and then writes to ax->tty.
-
-
-Alan
-
-
-
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 6f3bf75147e2..ad1f7dfac590 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -374,7 +374,10 @@ static int qmi_wwan_bind(struct usbnet *dev, struc=
+t usb_interface *intf)
+ 				"bogus CDC Union: master=3D%u, slave=3D%u\n",
+ 				cdc_union->bMasterInterface0,
+ 				cdc_union->bSlaveInterface0);
+-			goto err;
++
++			/* ignore and continue... */
++			cdc_union =3D NULL;
++			info->data =3D intf;
+ 		}
+ 	}
+=20
+--=20
+2.1.4
