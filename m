@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net: check both type and procotol for tcp sockets
-Date: Thu, 17 Dec 2015 15:47:11 -0500 (EST)
-Message-ID: <20151217.154711.623723483208177420.davem@davemloft.net>
-References: <1450337944-22834-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCHv2 net-next 0/4] Few l2 table related enhancements for
+ cxgb4
+Date: Thu, 17 Dec 2015 15:52:04 -0500 (EST)
+Message-ID: <20151217.155204.320117650010273666.davem@davemloft.net>
+References: <1450340110-30031-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemdebruijn.kernel@gmail.com,
-	eric.dumazet@gmail.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56859 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56915 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932139AbbLQUrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:47:13 -0500
-In-Reply-To: <1450337944-22834-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1754936AbbLQUwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:52:06 -0500
+In-Reply-To: <1450340110-30031-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 16 Dec 2015 23:39:04 -0800
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 17 Dec 2015 13:45:06 +0530
 
-> Dmitry reported the following out-of-bound access:
+> This series adds a new API to allocate and update l2t entry, replaces
+> arpq_head/arpq_tail with double skb double linked list. Use t4_mgmt_tx()
+> to send control packets of l2t write request. Use symbolic constants
+> while calculating vlan priority.
 > 
-> Call Trace:
->  [<ffffffff816cec2e>] __asan_report_load4_noabort+0x3e/0x40
-> mm/kasan/report.c:294
->  [<ffffffff84affb14>] sock_setsockopt+0x1284/0x13d0 net/core/sock.c:880
->  [<     inline     >] SYSC_setsockopt net/socket.c:1746
->  [<ffffffff84aed7ee>] SyS_setsockopt+0x1fe/0x240 net/socket.c:1729
->  [<ffffffff85c18c76>] entry_SYSCALL_64_fastpath+0x16/0x7a
-> arch/x86/entry/entry_64.S:185
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 driver.
 > 
-> This is because we mistake a raw socket as a tcp socket.
-> We should check both sk->sk_type and sk->sk_protocol to ensure
-> it is a tcp socket.
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
 > 
-> Willem points out __skb_complete_tx_timestamp() needs to fix as well.
+> Thanks
 > 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> V2: Remove unnecessary MAS operation while calculating vlan prio in
+>     PATCH 1/4 ("cxgb4: Use symbolic constant for VLAN priority calculation")
+>     based on review comment by David Miller
 
-Applied and queued up for -stable, thanks.
+Series applied.
+
+However, while reading over this, it seems to me that e->refcnt doesn't
+need to be an atomic_t.  It's always changed under the rwlock, therefore
+you can just use non-atomic refcounting.
