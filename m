@@ -1,41 +1,49 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next] nfp: call netif_carrier_off() during init
-Date: Thu, 17 Dec 2015 14:18:44 +0000
-Message-ID: <1450361924-25223-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: simon.horman@netronome.com, rolf.neugebauer@netronome.com,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: sctp should release assoc when sctp_make_abort_user return NULL in sctp_close
+Date: Thu, 17 Dec 2015 22:30:52 +0800
+Message-ID: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
+Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:36328 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934159AbbLQOSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 09:18:50 -0500
-Received: by mail-wm0-f48.google.com with SMTP id p187so23163900wmp.1
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 06:18:50 -0800 (PST)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33432 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755730AbbLQOa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 09:30:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Netdevs default to carrier on, we should call netif_carrier_off()
-during initialization since we handle carrier state changes in the
-driver.
+In sctp_close, sctp_make_abort_user may return NULL because of memory
+allocation failure. If this happens, it will bypass any state change
+and never free the assoc. The assoc has no chance to be freed and it
+will be kept in memory with the state it had even after the socket is
+closed by sctp_close().
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
+So if sctp_make_abort_user fails to allocate memory, we should just
+free the asoc, as there isn't much else that we can do.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/sctp/socket.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 6c5af4cb5bdc..43c618bafdb6 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2417,6 +2417,7 @@ int nfp_net_netdev_init(struct net_device *netdev)
- 	ether_setup(netdev);
- 	netdev->netdev_ops = &nfp_net_netdev_ops;
- 	netdev->watchdog_timeo = msecs_to_jiffies(5 * 1000);
-+	netif_carrier_off(netdev);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9b6cc6d..267b8f8 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1513,8 +1513,12 @@ static void sctp_close(struct sock *sk, long timeout)
+ 			struct sctp_chunk *chunk;
  
- 	nfp_net_set_ethtool_ops(netdev);
- 	nfp_net_irqs_assign(netdev);
+ 			chunk = sctp_make_abort_user(asoc, NULL, 0);
+-			if (chunk)
++			if (chunk) {
+ 				sctp_primitive_ABORT(net, asoc, chunk);
++			} else {
++				sctp_unhash_established(asoc);
++				sctp_association_free(asoc);
++			}
+ 		} else
+ 			sctp_primitive_SHUTDOWN(net, asoc, NULL);
+ 	}
 -- 
-1.9.1
+2.1.0
