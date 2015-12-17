@@ -1,93 +1,50 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: sctp should release assoc when
- sctp_make_abort_user return NULL in sctp_close
-Date: Thu, 17 Dec 2015 14:33:51 -0500
-Message-ID: <56730E1F.2090003@gmail.com>
-References: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
- <5672FF06.2030803@gmail.com> <5673067B.6080001@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 net-next] ipv6: allow routes to be configured with
+ expire values
+Date: Thu, 17 Dec 2015 15:08:26 -0500 (EST)
+Message-ID: <20151217.150826.320110242014234511.davem@davemloft.net>
+References: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
+	<1450285432.23793.12.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, davem@davemloft.net
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+	hannes@stressinduktion.org
+To: dcbw@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36648 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755228AbbLQTd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 14:33:59 -0500
-In-Reply-To: <5673067B.6080001@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56416 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754643AbbLQUIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:08:30 -0500
+In-Reply-To: <1450285432.23793.12.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2015 02:01 PM, Marcelo Ricardo Leitner wrote:
-> Em 17-12-2015 16:29, Vlad Yasevich escreveu:
->> On 12/17/2015 09:30 AM, Xin Long wrote:
->>> In sctp_close, sctp_make_abort_user may return NULL because of memory
->>> allocation failure. If this happens, it will bypass any state change
->>> and never free the assoc. The assoc has no chance to be freed and it
->>> will be kept in memory with the state it had even after the socket is
->>> closed by sctp_close().
->>>
->>> So if sctp_make_abort_user fails to allocate memory, we should just
->>> free the asoc, as there isn't much else that we can do.
->>>
->>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->>> ---
->>>   net/sctp/socket.c | 6 +++++-
->>>   1 file changed, 5 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->>> index 9b6cc6d..267b8f8 100644
->>> --- a/net/sctp/socket.c
->>> +++ b/net/sctp/socket.c
->>> @@ -1513,8 +1513,12 @@ static void sctp_close(struct sock *sk, long timeout)
->>>               struct sctp_chunk *chunk;
->>>
->>>               chunk = sctp_make_abort_user(asoc, NULL, 0);
->>> -            if (chunk)
->>> +            if (chunk) {
->>>                   sctp_primitive_ABORT(net, asoc, chunk);
->>> +            } else {
->>> +                sctp_unhash_established(asoc);
->>> +                sctp_association_free(asoc);
->>> +            }
->>
->> I don't think you can do that for an association that has not been closed.
->>
->> I think a cleaner approach might be to update abort primitive handlers
->> to handle a NULL chunk value and unconditionally call the primitive.
->>
->> This guarantees that any timers or waitqueues that might be active are
->> stopped correctly.
-> 
-> sctp_association_free() is the one who does that job, even that way. All in between the
-> primitive call and then the call to sctp_association_free() is just status changes and
-> packet xmit, which doing this way we cut out when we are in memory pressure. pkt xmit or
-> ULP events are likely going to fail too anyway.
-> 
-> sctp_sf_do_9_1_prm_abort() -> SCTP_CMD_ASSOC_FAILED ->
->   sctp_cmd_assoc_failed -> ULP events, send abort, and SCTP_CMD_DELETE_TCB ->
->     sctp_cmd_delete_tcb ->
->       sctp_unhash_established(asoc);
->       sctp_association_free(asoc);
-> and returns.
-> 
-> There is a check on sctp_cmd_delete_tcb() that avoids calling that on temp assocs on
-> listening sockets, but that condition is false due to the check on sk_shutdown so it will
-> call those two functions anyway.
+From: Dan Williams <dcbw@redhat.com>
+Date: Wed, 16 Dec 2015 11:03:52 -0600
 
-The condition I am a bit concerned about is one thread waiting in sctp_wait_for_sndbuf
-while another does an abort.
-
-I think this is OK though.  I need to look a bit more...
-
--vlad
-
-
+> On Wed, 2015-12-16 at 17:50 +0800, Xin Long wrote:
+>> Add the support for adding expire value to routes,  requested by
+>> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
+>> wants it too.
+>> 
+>> implement it by adding the new RTNETLINK attribute RTA_EXPIRES.
 > 
->   Marcelo
+> Could you also add bits to send RTA_EXPIRES back to userspace in the
+> route dump in rt6_fill_node(), so that userspace can figure out when
+> RTA_EXPIRES is supported or not?
 > 
+> (obviously having it there isn't foolproof as if there are no routes on
+> the system yet userspace can't figure out support, but it's better than
+> nothing...)
+
+That brings up an interesting issue, and I do not agree that we should
+publish the value for the purpose of determining if the kernel supports
+it or not.
+
+We need to come up with a policy for handling unknown attributes
+because what we do now doesn't work.
+
+I'm almost positive that the right thing to do is to unilaterally
+making nlmsg_parse() error out on out-of-range attribute type numbers,
+and then backport that to all -stable branches.
