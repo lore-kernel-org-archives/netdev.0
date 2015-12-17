@@ -1,65 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
-Date: Thu, 17 Dec 2015 09:49:53 +0100
-Message-ID: <56727731.2010605@stressinduktion.org>
-References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
- <1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
- <20151216.190417.1337922066819496682.davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
+Date: Thu, 17 Dec 2015 17:00:35 +0800
+Message-ID: <CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+	<20151130093755.GA8159@gondor.apana.org.au>
+	<20151130101401.GA17712@orbit.nwl.cc>
+	<20151130101859.GA8378@gondor.apana.org.au>
+	<20151203124129.GA5505@gondor.apana.org.au>
+	<CADvbK_cA5qaooTOE4Z2bGYs+ys17ZajSMgKDVWgctSZWJ0vjpw@mail.gmail.com>
+	<20151217084809.GC9239@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:50517 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755293AbbLQIt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 03:49:58 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 6E33420452
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 03:49:55 -0500 (EST)
-In-Reply-To: <20151216.190417.1337922066819496682.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Phil Sutter <phil@nwl.cc>, davem <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151217084809.GC9239@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-
-On 17.12.2015 01:04, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Tue, 15 Dec 2015 21:01:54 +0100
-> 
->> udp tunnel offloads tend to aggregate datagrams based on inner
->> headers. gro engine gets notified by tunnel implementations about
->> possible offloads. The match is solely based on the port number.
+On Thu, Dec 17, 2015 at 4:48 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Thu, Dec 17, 2015 at 04:46:00PM +0800, Xin Long wrote:
 >>
->> Imagine a tunnel bound to port 53, the offloading will look into all
->> DNS packets and tries to aggregate them based on the inner data found
->> within. This could lead to data corruption and malformed DNS packets.
+>> sorry for late test, but unfortunately, my case with rhashtalbe still
+>> return EBUSY.
+>> I added some debug code in rhashtable_insert_rehash(), and found:
+>> *future_tbl is null*
 >>
->> While this patch minimizes the problem and helps an administrator to find
->> the issue by querying ip tunnel/fou, a better way would be to match on
->> the specific destination ip address so if a user space socket is bound
->> to the same address it will conflict.
+>> fail:
+>>         /* Do not fail the insert if someone else did a rehash. */
+>>         if (likely(rcu_dereference_raw(tbl->future_tbl))) {
+>>                 printk("future_tbl is there\n");
+>>                 return 0;
+>>         } else {
+>>                 printk("future_tbl is null\n");
+>>         }
 >>
->> Cc: Tom Herbert <tom@herbertland.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> It looks this issue is still being hashed out so I've marked this
-> patch as deferred for now.
-
-
-I think we need this patch. We later can decide to add more
-classification attributes, like dst ip down to gro, but the netns marks
-are important.
-
-With user namespaces a normal user can start a new network namespace
-with all privileges and thus add new offloads, letting the other stack
-interpret this garbage. Because the user namespace can also add
-arbitrary ip addresses to its interface, solely matching those is not
-enough.
-
-Tom any further comments?
-
-Thanks,
-Hannes
+>> any idea why ?
+>
+> That's presumably because you got a genuine double rehash.
+>
+> Until you post your code we can't really help you.
+>
+i wish i could , but my codes is a big patch for sctp, and this issue
+happens in a special stress test based on this patch.
+im trying to think how i can show you. :)
