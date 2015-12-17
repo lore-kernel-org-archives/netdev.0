@@ -1,7 +1,8 @@
 From: kan.liang@intel.com
-Subject: [RFC 1/5] net/ethtool: introduce a new ioctl for per queue setting
-Date: Thu, 17 Dec 2015 06:51:17 +0000
-Message-ID: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
+Subject: [RFC 3/5] net/ethtool: support set coalesce per queue
+Date: Thu, 17 Dec 2015 06:51:19 +0000
+Message-ID: <1450335081-3012-3-git-send-email-kan.liang@intel.com>
+References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
 Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 	f.fainelli@gmail.com, alexander.duyck@gmail.com,
 	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
@@ -14,95 +15,98 @@ Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 	Kan Liang <kan.liang@intel.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:23649 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:1700 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751385AbbLQSdB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Dec 2015 13:33:01 -0500
+	id S1751385AbbLQSdD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 13:33:03 -0500
+In-Reply-To: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-Introduce a new ioctl ETHTOOL_PERQUEUE for per queue parameters setting.
-The following patches will enable some SUB_COMMANDs for per queue
-setting.
+Device driver has to provide an interface to set per queue coalesce. The
+wanted coalesce information are stored in "data" for each masked queue,
+which can copy from userspace.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/uapi/linux/ethtool.h | 18 ++++++++++++++++++
- net/core/ethtool.c           | 17 +++++++++++++++++
- 2 files changed, 35 insertions(+)
+ include/linux/ethtool.h |  4 ++++
+ net/core/ethtool.c      | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index cd16291..05bc92a 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1144,6 +1144,22 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
- #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 107f75f..b3bbbcb 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -203,6 +203,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  * @set_eee: Set EEE status (enable/disable) as well as LPI timers.
+  * @get_per_queue_coalesce: Get interrupt coalescing parameters per queue.
+  * 	Returns a negative error code or zero.
++ * @set_per_queue_coalesce: Set interrupt coalescing parameters per queue.
++ * 	Returns a negative error code or zero.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -283,6 +285,8 @@ struct ethtool_ops {
+ 			       const struct ethtool_tunable *, const void *);
+ 	int	(*get_per_queue_coalesce)(struct net_device *, int,
+ 					  struct ethtool_coalesce *);
++	int	(*set_per_queue_coalesce)(struct net_device *, int,
++					  struct ethtool_coalesce *);
  
-+#define MAX_QUEUE		4096
-+#define MAX_QUEUE_MASK		(MAX_QUEUE / 64)
-+
-+/**
-+ * struct ethtool_per_queue_op - apply sub command to the queues in mask.
-+ * @cmd: ETHTOOL_PERQUEUE
-+ * @queue_mask: Mask the queues which sub command apply to
-+ * @sub_command: the sub command
-+ * @data: parameters of the command
-+ */
-+struct ethtool_per_queue_op {
-+	__u32	cmd;
-+	__u64	queue_mask[MAX_QUEUE_MASK];
-+	__u32	sub_command;
-+	char	data[];
-+};
- 
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-@@ -1226,6 +1242,8 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
- #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
- 
-+#define ETHTOOL_PERQUEUE	0x0000004a /* Set per queue options */
-+
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
- #define SPARC_ETH_SSET		ETHTOOL_SSET
+ };
+ #endif /* _LINUX_ETHTOOL_H */
 diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 29edf74..125fb32 100644
+index 22ff69a..c8c5726 100644
 --- a/net/core/ethtool.c
 +++ b/net/core/ethtool.c
-@@ -1748,6 +1748,20 @@ out:
- 	return ret;
+@@ -1778,6 +1778,37 @@ static int ethtool_get_per_queue_coalesce(struct net_device *dev,
+ 	return 0;
  }
  
-+static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
++static int ethtool_set_per_queue_coalesce(struct net_device *dev,
++					  void __user *useraddr,
++					  struct ethtool_per_queue_op *per_queue_opt)
 +{
-+	struct ethtool_per_queue_op per_queue_opt;
++	u64 queue_mask;
++	int bit, i, ret;
 +
-+	if (copy_from_user(&per_queue_opt, useraddr, sizeof(per_queue_opt)))
-+		return -EFAULT;
-+
-+	switch (per_queue_opt.sub_command) {
-+
-+	default:
++	if (!dev->ethtool_ops->set_per_queue_coalesce)
 +		return -EOPNOTSUPP;
-+	};
++
++	useraddr += sizeof(*per_queue_opt);
++	for (i = 0; i < MAX_QUEUE_MASK; i++) {
++		queue_mask = per_queue_opt->queue_mask[i];
++		if (queue_mask > 0) {
++			for_each_set_bit(bit, (unsigned long *)&queue_mask, 64) {
++				struct ethtool_coalesce coalesce;
++
++				if (copy_from_user(&coalesce, useraddr, sizeof(coalesce)))
++					return -EFAULT;
++
++				ret = dev->ethtool_ops->set_per_queue_coalesce(dev, bit + i * 64, &coalesce);
++				if (ret != 0)
++					return ret;
++				useraddr += sizeof(coalesce);
++			}
++		}
++	}
++
++	return 0;
 +}
 +
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1991,6 +2005,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_STUNABLE:
- 		rc = ethtool_set_tunable(dev, useraddr);
- 		break;
-+	case ETHTOOL_PERQUEUE:
-+		rc = ethtool_set_per_queue(dev, useraddr);
-+		break;
+ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_per_queue_op per_queue_opt;
+@@ -1788,6 +1819,8 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ 	switch (per_queue_opt.sub_command) {
+ 	case ETHTOOL_GCOALESCE:
+ 		return ethtool_get_per_queue_coalesce(dev, useraddr, &per_queue_opt);
++	case ETHTOOL_SCOALESCE:
++		return ethtool_set_per_queue_coalesce(dev, useraddr, &per_queue_opt);
  	default:
- 		rc = -EOPNOTSUPP;
- 	}
+ 		return -EOPNOTSUPP;
+ 	};
 -- 
 1.7.11.7
