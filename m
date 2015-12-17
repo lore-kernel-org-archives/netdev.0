@@ -1,50 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
-Date: Thu, 17 Dec 2015 12:00:24 -0500 (EST)
-Message-ID: <20151217.120024.1598833629356298916.davem@davemloft.net>
-References: <CADvbK_cA5qaooTOE4Z2bGYs+ys17ZajSMgKDVWgctSZWJ0vjpw@mail.gmail.com>
-	<20151217084809.GC9239@gondor.apana.org.au>
-	<CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
+Subject: Re: pull-request: mac80211 2015-12-15
+Date: Thu, 17 Dec 2015 12:04:48 -0500 (EST)
+Message-ID: <20151217.120448.2070217640292112574.davem@davemloft.net>
+References: <1450182621.3356.12.camel@sipsolutions.net>
+	<20151216.183443.615368179590575650.davem@davemloft.net>
+	<1450356272.8247.31.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, phil@nwl.cc, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: lucien.xin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54508 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbbLQREu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 12:04:50 -0500
+In-Reply-To: <1450356272.8247.31.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 17 Dec 2015 17:00:35 +0800
+=46rom: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 17 Dec 2015 13:44:32 +0100
 
-> On Thu, Dec 17, 2015 at 4:48 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
->> On Thu, Dec 17, 2015 at 04:46:00PM +0800, Xin Long wrote:
->>>
->>> sorry for late test, but unfortunately, my case with rhashtalbe still
->>> return EBUSY.
->>> I added some debug code in rhashtable_insert_rehash(), and found:
->>> *future_tbl is null*
->>>
->>> fail:
->>>         /* Do not fail the insert if someone else did a rehash. */
->>>         if (likely(rcu_dereference_raw(tbl->future_tbl))) {
->>>                 printk("future_tbl is there\n");
->>>                 return 0;
->>>         } else {
->>>                 printk("future_tbl is null\n");
->>>         }
->>>
->>> any idea why ?
->>
->> That's presumably because you got a genuine double rehash.
->>
->> Until you post your code we can't really help you.
->>
-> i wish i could , but my codes is a big patch for sctp, and this issue
-> happens in a special stress test based on this patch.
-> im trying to think how i can show you. :)
+> On Wed, 2015-12-16 at 18:34 -0500, David Miller wrote:
+>>=A0
+>> Something about your text encoding kept this from ending up
+>> in patchwork for some reason.
+>>=20
+>=20
+> Hm. I don't see anything special with this, seems to just be plain te=
+xt
+> 8bit transfer encoding.
+>=20
+> Do you want me to watch out for things getting into patchwork in the
+> future?
 
-Simply post it.
+Look in the quoted text of mine, see that underline thing after
+the ">>"?  Where are those coming from?  Those were all over the
+place in your pull request and tripped up patchwork's parser I
+guess.
