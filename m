@@ -1,52 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net-next v5 7/8] openvswitch: Delay conntrack
- helper call for new connections.
-Date: Thu, 17 Dec 2015 16:33:14 +0300
-Message-ID: <5672B99A.7080404@cogentembedded.com>
-References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
- <1450312607-44050-8-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1450312607-44050-8-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_en: Remove dependency between timestamping capability and service_task
+Date: Thu, 17 Dec 2015 15:35:37 +0200
+Message-ID: <1450359338-32220-2-git-send-email-ogerlitz@mellanox.com>
+References: <a>
+ <1450359338-32220-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Eugenia Emantayev <eugenia@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:36158 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752270AbbLQNgG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 08:36:06 -0500
+In-Reply-To: <1450359338-32220-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8uCgpPbiAxMi8xNy8yMDE1IDM6MzYgQU0sIEphcm5vIFJhamFoYWxtZSB3cm90ZToKCj4g
-VGhlcmUgaXMgbm8gbmVlZCB0byBoZWxwIGNvbm5lY3Rpb25zIHRoYXQgYXJlIG5vdCBjb25maXJt
-ZWQsIHNvIHdlIGNhbgo+IGRlbGF5IGhlbHBpbmcgbmV3IGNvbm5lY3Rpb25zIHRvIHRoZSB0aW1l
-IHdoZW4gdGhleSBhcmUgY29uZmlybWVkLgo+IFRoaXMgY2hhbmdlIGlzIG5lZWRlZCBmb3IgTkFU
-IHN1cHBvcnQsIGFuZCBoYXZpbmcgdGhpcyBhcyBhIHNlcGFyYXRlCj4gcGF0Y2ggd2lsbCBtYWtl
-IHRoZSBmb2xsb3dpbmcgTkFUIHBhdGNoIGEgYml0IGVhc2llciB0byByZXZpZXcuCj4KPiBTaWdu
-ZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4gLS0tCj4gICBuZXQv
-b3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgfCAyMCArKysrKysrKysrKysrKystLS0tLQo+ICAgMSBm
-aWxlIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0t
-Z2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIGIvbmV0L29wZW52c3dpdGNoL2Nvbm50
-cmFjay5jCj4gaW5kZXggN2FhMzhmYS4uYmE0NDI4NyAxMDA2NDQKPiAtLS0gYS9uZXQvb3BlbnZz
-d2l0Y2gvY29ubnRyYWNrLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKWy4u
-Ll0KPiBAQCAtNDkxLDExICs0OTYsMTYgQEAgc3RhdGljIGludCBfX292c19jdF9sb29rdXAoc3Ry
-dWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKPiAgIAkJCXJldHVybiAtRU5P
-RU5UOwo+Cj4gICAJCW92c19jdF91cGRhdGVfa2V5KHNrYiwga2V5LCB0cnVlKTsKPiArCX0KPgo+
-IC0JCWlmIChvdnNfY3RfaGVscGVyKHNrYiwgaW5mby0+ZmFtaWx5KSAhPSBORl9BQ0NFUFQpIHsK
-PiAtCQkJV0FSTl9PTkNFKDEsICJoZWxwZXIgcmVqZWN0ZWQgcGFja2V0Iik7Cj4gLQkJCXJldHVy
-biAtRUlOVkFMOwo+IC0JCX0KPiArCS8qIENhbGwgdGhlIGhlbHBlciByaWdodCBhZnRlciBuZl9j
-b25udHJhY2tfaW4oKSBmb3IgY29uZmlybWVkCj4gKwkgKiBjb25uZWN0aW9ucywgYnV0IG9ubHkg
-d2hlbiBjb21taXRpbmcgZm9yIHVuY29uZmlybWVkIGNvbm5lY3Rpb25zLgo+ICsJICovCj4gKwlj
-dCA9IG5mX2N0X2dldChza2IsICZjdGluZm8pOwo+ICsJaWYgKGN0ICYmIChuZl9jdF9pc19jb25m
-aXJtZWQoY3QpID8gIWNhY2hlZCA6IGluZm8tPmNvbW1pdCkKPiArCSAgICAmJiBvdnNfY3RfaGVs
-cGVyKHNrYiwgaW5mby0+ZmFtaWx5KSAhPSBORl9BQ0NFUFQpIHsKCiAgICBQbGVhc2UgbGVhdmUg
-JiYgb24gdGhlIGxpbmUgYmVpbmcgYnJva2VuLCBkb24ndCBjYXJyeSBpdCBpbnRvIHRoZSAKY29u
-dGludWF0aW9uIGxpbmUuCgpNQlIsIFNlcmdlaQoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+From: Eugenia Emantayev <eugenia@mellanox.com>
+
+Service task is responsible for other tasks in addition to timestamping
+overflow check. Launch it even if timestamping is not supported by device.
+
+Fixes: 07841f9d94c1 ('net/mlx4_en: Schedule napi when RX buffers allocation fails')
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 886e1bc..4eef316 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -3058,9 +3058,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	}
+ 	queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
+ 
+-	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
+-		queue_delayed_work(mdev->workqueue, &priv->service_task,
+-				   SERVICE_TASK_DELAY);
++	queue_delayed_work(mdev->workqueue, &priv->service_task,
++			   SERVICE_TASK_DELAY);
+ 
+ 	mlx4_en_set_stats_bitmap(mdev->dev, &priv->stats_bitmap,
+ 				 mdev->profile.prof[priv->port].rx_ppp,
+-- 
+2.3.7
