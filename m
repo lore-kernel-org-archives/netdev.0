@@ -1,69 +1,113 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: sctp should release assoc when
- sctp_make_abort_user return NULL in sctp_close
-Date: Thu, 17 Dec 2015 13:29:26 -0500
-Message-ID: <5672FF06.2030803@gmail.com>
-References: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
+From: kan.liang@intel.com
+Subject: [RFC 2/5] net/ethtool: support get coalesce per queue
+Date: Thu, 17 Dec 2015 06:51:18 +0000
+Message-ID: <1450335081-3012-2-git-send-email-kan.liang@intel.com>
+References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
+Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
+	f.fainelli@gmail.com, alexander.duyck@gmail.com,
+	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, ben@decadent.org.uk,
+	Kan Liang <kan.liang@intel.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f51.google.com ([209.85.192.51]:36025 "EHLO
-	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbbLQS3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 13:29:30 -0500
-In-Reply-To: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:54437 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752115AbbLQSdC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 13:33:02 -0500
+In-Reply-To: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2015 09:30 AM, Xin Long wrote:
-> In sctp_close, sctp_make_abort_user may return NULL because of memory
-> allocation failure. If this happens, it will bypass any state change
-> and never free the assoc. The assoc has no chance to be freed and it
-> will be kept in memory with the state it had even after the socket is
-> closed by sctp_close().
-> 
-> So if sctp_make_abort_user fails to allocate memory, we should just
-> free the asoc, as there isn't much else that we can do.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/socket.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 9b6cc6d..267b8f8 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1513,8 +1513,12 @@ static void sctp_close(struct sock *sk, long timeout)
->  			struct sctp_chunk *chunk;
->  
->  			chunk = sctp_make_abort_user(asoc, NULL, 0);
-> -			if (chunk)
-> +			if (chunk) {
->  				sctp_primitive_ABORT(net, asoc, chunk);
-> +			} else {
-> +				sctp_unhash_established(asoc);
-> +				sctp_association_free(asoc);
-> +			}
+From: Kan Liang <kan.liang@intel.com>
 
-I don't think you can do that for an association that has not been closed.
+Device driver has to provide an interface to get per queue coalesce.
+The interrupt coalescing parameters of each masked queue will be
+copied back to user space one by one.
 
-I think a cleaner approach might be to update abort primitive handlers
-to handle a NULL chunk value and unconditionally call the primitive.
+Signed-off-by: Kan Liang <kan.liang@intel.com>
+---
+ include/linux/ethtool.h |  5 ++++-
+ net/core/ethtool.c      | 33 ++++++++++++++++++++++++++++++++-
+ 2 files changed, 36 insertions(+), 2 deletions(-)
 
-This guarantees that any timers or waitqueues that might be active are
-stopped correctly.
-
--vlad
-
-
->  		} else
->  			sctp_primitive_SHUTDOWN(net, asoc, NULL);
->  	}
-> 
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 653dc9c..107f75f 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -201,6 +201,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  * @get_module_eeprom: Get the eeprom information from the plug-in module
+  * @get_eee: Get Energy-Efficient (EEE) supported and status.
+  * @set_eee: Set EEE status (enable/disable) as well as LPI timers.
++ * @get_per_queue_coalesce: Get interrupt coalescing parameters per queue.
++ * 	Returns a negative error code or zero.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -279,7 +281,8 @@ struct ethtool_ops {
+ 			       const struct ethtool_tunable *, void *);
+ 	int	(*set_tunable)(struct net_device *,
+ 			       const struct ethtool_tunable *, const void *);
+-
++	int	(*get_per_queue_coalesce)(struct net_device *, int,
++					  struct ethtool_coalesce *);
+ 
+ };
+ #endif /* _LINUX_ETHTOOL_H */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 125fb32..22ff69a 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1748,6 +1748,36 @@ out:
+ 	return ret;
+ }
+ 
++static int ethtool_get_per_queue_coalesce(struct net_device *dev,
++					  void __user *useraddr,
++					  struct ethtool_per_queue_op *per_queue_opt)
++{
++	u64 queue_mask;
++	int bit, i, ret;
++
++	if (!dev->ethtool_ops->get_per_queue_coalesce)
++		return -EOPNOTSUPP;
++
++	useraddr += sizeof(*per_queue_opt);
++	for (i = 0; i < MAX_QUEUE_MASK; i++) {
++		queue_mask = per_queue_opt->queue_mask[i];
++		if (queue_mask > 0) {
++			for_each_set_bit(bit, (unsigned long *)&queue_mask, 64) {
++				struct ethtool_coalesce coalesce = { .cmd = ETHTOOL_GCOALESCE };
++
++				ret = dev->ethtool_ops->get_per_queue_coalesce(dev, bit + i * 64, &coalesce);
++				if (ret != 0)
++					return ret;
++				if (copy_to_user(useraddr, &coalesce, sizeof(coalesce)))
++					return -EFAULT;
++				useraddr += sizeof(coalesce);
++			}
++		}
++	}
++
++	return 0;
++}
++
+ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_per_queue_op per_queue_opt;
+@@ -1756,7 +1786,8 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ 		return -EFAULT;
+ 
+ 	switch (per_queue_opt.sub_command) {
+-
++	case ETHTOOL_GCOALESCE:
++		return ethtool_get_per_queue_coalesce(dev, useraddr, &per_queue_opt);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	};
+-- 
+1.7.11.7
