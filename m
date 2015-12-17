@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
-Date: Wed, 16 Dec 2015 19:04:17 -0500 (EST)
-Message-ID: <20151216.190417.1337922066819496682.davem@davemloft.net>
-References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
-	<1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/4] cxgb4: Use mask & shift while returning
+ vlan_prio
+Date: Wed, 16 Dec 2015 19:07:33 -0500 (EST)
+Message-ID: <20151216.190733.272791166074460566.davem@davemloft.net>
+References: <1450251988-9246-1-git-send-email-hariprasad@chelsio.com>
+	<1450251988-9246-2-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, edumazet@google.com
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41863 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41904 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145AbbLQAET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:04:19 -0500
-In-Reply-To: <1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
+	with ESMTP id S1750990AbbLQAHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:07:35 -0500
+In-Reply-To: <1450251988-9246-2-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 15 Dec 2015 21:01:54 +0100
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed, 16 Dec 2015 13:16:25 +0530
 
-> udp tunnel offloads tend to aggregate datagrams based on inner
-> headers. gro engine gets notified by tunnel implementations about
-> possible offloads. The match is solely based on the port number.
-> 
-> Imagine a tunnel bound to port 53, the offloading will look into all
-> DNS packets and tries to aggregate them based on the inner data found
-> within. This could lead to data corruption and malformed DNS packets.
-> 
-> While this patch minimizes the problem and helps an administrator to find
-> the issue by querying ip tunnel/fou, a better way would be to match on
-> the specific destination ip address so if a user space socket is bound
-> to the same address it will conflict.
-> 
-> Cc: Tom Herbert <tom@herbertland.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> @@ -66,7 +66,7 @@ struct l2t_data {
+>  
+>  static inline unsigned int vlan_prio(const struct l2t_entry *e)
+>  {
+> -	return e->vlan >> 13;
+> +	return (e->vlan & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
 
-It looks this issue is still being hashed out so I've marked this
-patch as deferred for now.
+e->vlan is a u16, the vlan priotity is the top 3 bits of the 16-bit
+value, and finally the right shift will be non-signed.
 
-THanks.
+Therefore this change is absolutely not necessary.
+
+Please remove this patch from the series and resend.
