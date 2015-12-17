@@ -1,55 +1,50 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] net/macb: add proper header file
-Date: Thu, 17 Dec 2015 17:45:53 +0530
-Message-ID: <1450354553-18745-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 0/2] net: usb: cdc_ncm: Adding support for two new Dell devices
+Date: Thu, 17 Dec 2015 13:21:31 +0100
+Message-ID: <87fuz15kqc.fsf@nemi.mork.no>
+References: <1450258765-11215-1-git-send-email-dnlplm@gmail.com>
+	<1450285954.23793.15.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniele Palmas <dnlplm@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:55142 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756172AbbLQMVu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 07:21:50 -0500
+In-Reply-To: <1450285954.23793.15.camel@redhat.com> (Dan Williams's message of
+	"Wed, 16 Dec 2015 11:12:34 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-mips allmodconfig build fails with the error:
+Dan Williams <dcbw@redhat.com> writes:
+> On Wed, 2015-12-16 at 10:39 +0100, Daniele Palmas wrote:
+>> This patch series add support in the cdc_ncm driver for two devices
+>> based on the same platform, that are different only for carrier
+>> customization.
+>>=20
+>> The devices do not have ARP capabilities.
+>>=20
+>> Daniele Palmas (2):
+>>   net: usb: cdc_ncm: Adding Dell DW5812 LTE Verizon Mobile Broadband
+>>     Card
+>>   net: usb: cdc_ncm: Adding Dell DW5813 LTE AT&T Mobile Broadband
+>> Card
+>
+> Quite interesting; Google knows nothing about these devices that I ca=
+n
+> find.  What platform are these based on?
 
-drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
-drivers/net/ethernet/cadence/macb.c:2908:2: error: implicit declaration of function 'devm_gpiod_get_optional' [-Werror=implicit-function-declaration]
-  bp->reset_gpio = devm_gpiod_get_optional(&bp->pdev->dev, "phy-reset",
-  ^
-drivers/net/ethernet/cadence/macb.c:2909:8: error: 'GPIOD_OUT_HIGH' undeclared (first use in this function)
-        GPIOD_OUT_HIGH);
-        ^
-drivers/net/ethernet/cadence/macb.c:2909:8: note: each undeclared identifier is reported only once for each function it appears in
-drivers/net/ethernet/cadence/macb.c: In function 'macb_remove':
-drivers/net/ethernet/cadence/macb.c:2979:3: error: implicit declaration of function 'gpiod_set_value' [-Werror=implicit-function-declaration]
-   gpiod_set_value(bp->reset_gpio, 0);
-   ^
+There are a number of launchpad bugs reported for these devices.  Don't
+know why they chose that channel..  This one:
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1520147
+shows that it is an Intel/Infineon based design.
 
-Add the proper header file to resolve it.  
+BTW, DeWalt seems to own these device names :)
 
-Fixes: 5833e0526820 ("net/macb: add support for resetting PHY using GPIO")
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
 
-build log with next-20151217 is at:
-https://travis-ci.org/sudipm-mukherjee/parport/jobs/97388463
-
- drivers/net/ethernet/cadence/macb.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 0123646..988ee14 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -19,6 +19,7 @@
- #include <linux/init.h>
- #include <linux/io.h>
- #include <linux/gpio.h>
-+#include <linux/gpio/consumer.h>
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
--- 
-1.9.1
+Bj=C3=B8rn
