@@ -1,73 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v5 2/8] netfilter: Factor out nf_ct_get_info().
-Date: Thu, 17 Dec 2015 16:31:24 +0300
-Message-ID: <5672B92C.1000903@cogentembedded.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH net-next v5 7/8] openvswitch: Delay conntrack
+ helper call for new connections.
+Date: Thu, 17 Dec 2015 16:33:14 +0300
+Message-ID: <5672B99A.7080404@cogentembedded.com>
 References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
- <1450312607-44050-3-git-send-email-jarno@ovn.org>
+ <1450312607-44050-8-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org
-To: Jarno Rajahalme <jarno@ovn.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:36319 "EHLO
-	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934325AbbLQNb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 08:31:27 -0500
-Received: by mail-lf0-f42.google.com with SMTP id z124so46927495lfa.3
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 05:31:26 -0800 (PST)
-In-Reply-To: <1450312607-44050-3-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1450312607-44050-8-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 12/17/2015 3:36 AM, Jarno Rajahalme wrote:
-
-> Define a new inline function to map conntrack status to enum
-> ip_conntrack_info.  This removes the need to otherwise duplicate this
-> code in a later patch ("openvswitch: Find existing conntrack entry
-> after upcall.").
->
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-[...]
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 3cb3cb8..7546fc7 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1056,25 +1056,15 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
->   	ct = nf_ct_tuplehash_to_ctrack(h);
->
->   	/* It exists; we have (non-exclusive) reference. */
-> -	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
-> -		*ctinfo = IP_CT_ESTABLISHED_REPLY;
-> -		/* Please set reply bit if this packet OK */
-> -		*set_reply = 1;
-> -	} else {
-> -		/* Once we've had two way comms, always ESTABLISHED. */
-> -		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
-> -			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
-> -			*ctinfo = IP_CT_ESTABLISHED;
-> -		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
-> -			pr_debug("nf_conntrack_in: related packet for %p\n",
-> -				 ct);
-> -			*ctinfo = IP_CT_RELATED;
-> -		} else {
-> -			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
-> -			*ctinfo = IP_CT_NEW;
-> -		}
-> -		*set_reply = 0;
-> -	}
-> +	*ctinfo = nf_ct_get_info(h);
-> +	if (*ctinfo == IP_CT_ESTABLISHED)
-> +		pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
-> +	else if (*ctinfo == IP_CT_RELATED)
-> +		pr_debug("nf_conntrack_in: related packet for %p\n", ct);
-> +	else if (*ctinfo == IP_CT_NEW)
-> +		pr_debug("nf_conntrack_in: new packet for %p\n", ct);
-
-    This is asking to be a *switch* statement...
-
-[...]
-
-MBR, Sergei
+SGVsbG8uCgpPbiAxMi8xNy8yMDE1IDM6MzYgQU0sIEphcm5vIFJhamFoYWxtZSB3cm90ZToKCj4g
+VGhlcmUgaXMgbm8gbmVlZCB0byBoZWxwIGNvbm5lY3Rpb25zIHRoYXQgYXJlIG5vdCBjb25maXJt
+ZWQsIHNvIHdlIGNhbgo+IGRlbGF5IGhlbHBpbmcgbmV3IGNvbm5lY3Rpb25zIHRvIHRoZSB0aW1l
+IHdoZW4gdGhleSBhcmUgY29uZmlybWVkLgo+IFRoaXMgY2hhbmdlIGlzIG5lZWRlZCBmb3IgTkFU
+IHN1cHBvcnQsIGFuZCBoYXZpbmcgdGhpcyBhcyBhIHNlcGFyYXRlCj4gcGF0Y2ggd2lsbCBtYWtl
+IHRoZSBmb2xsb3dpbmcgTkFUIHBhdGNoIGEgYml0IGVhc2llciB0byByZXZpZXcuCj4KPiBTaWdu
+ZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4gLS0tCj4gICBuZXQv
+b3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgfCAyMCArKysrKysrKysrKysrKystLS0tLQo+ICAgMSBm
+aWxlIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0t
+Z2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIGIvbmV0L29wZW52c3dpdGNoL2Nvbm50
+cmFjay5jCj4gaW5kZXggN2FhMzhmYS4uYmE0NDI4NyAxMDA2NDQKPiAtLS0gYS9uZXQvb3BlbnZz
+d2l0Y2gvY29ubnRyYWNrLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKWy4u
+Ll0KPiBAQCAtNDkxLDExICs0OTYsMTYgQEAgc3RhdGljIGludCBfX292c19jdF9sb29rdXAoc3Ry
+dWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKPiAgIAkJCXJldHVybiAtRU5P
+RU5UOwo+Cj4gICAJCW92c19jdF91cGRhdGVfa2V5KHNrYiwga2V5LCB0cnVlKTsKPiArCX0KPgo+
+IC0JCWlmIChvdnNfY3RfaGVscGVyKHNrYiwgaW5mby0+ZmFtaWx5KSAhPSBORl9BQ0NFUFQpIHsK
+PiAtCQkJV0FSTl9PTkNFKDEsICJoZWxwZXIgcmVqZWN0ZWQgcGFja2V0Iik7Cj4gLQkJCXJldHVy
+biAtRUlOVkFMOwo+IC0JCX0KPiArCS8qIENhbGwgdGhlIGhlbHBlciByaWdodCBhZnRlciBuZl9j
+b25udHJhY2tfaW4oKSBmb3IgY29uZmlybWVkCj4gKwkgKiBjb25uZWN0aW9ucywgYnV0IG9ubHkg
+d2hlbiBjb21taXRpbmcgZm9yIHVuY29uZmlybWVkIGNvbm5lY3Rpb25zLgo+ICsJICovCj4gKwlj
+dCA9IG5mX2N0X2dldChza2IsICZjdGluZm8pOwo+ICsJaWYgKGN0ICYmIChuZl9jdF9pc19jb25m
+aXJtZWQoY3QpID8gIWNhY2hlZCA6IGluZm8tPmNvbW1pdCkKPiArCSAgICAmJiBvdnNfY3RfaGVs
+cGVyKHNrYiwgaW5mby0+ZmFtaWx5KSAhPSBORl9BQ0NFUFQpIHsKCiAgICBQbGVhc2UgbGVhdmUg
+JiYgb24gdGhlIGxpbmUgYmVpbmcgYnJva2VuLCBkb24ndCBjYXJyeSBpdCBpbnRvIHRoZSAKY29u
+dGludWF0aW9uIGxpbmUuCgpNQlIsIFNlcmdlaQoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
+Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
