@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] cxgb4: Use mask & shift while returning
- vlan_prio
-Date: Wed, 16 Dec 2015 19:07:33 -0500 (EST)
-Message-ID: <20151216.190733.272791166074460566.davem@davemloft.net>
-References: <1450251988-9246-1-git-send-email-hariprasad@chelsio.com>
-	<1450251988-9246-2-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH v7 0/4] Support administratively closing application
+ sockets
+Date: Wed, 16 Dec 2015 19:15:59 -0500 (EST)
+Message-ID: <20151216.191559.1301813441203295326.davem@davemloft.net>
+References: <1450281013.8474.73.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5671C1A3.30207@mojatatu.com>
+	<1450308935.8474.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: jhs@mojatatu.com, stephen@networkplumber.org, lorenzo@google.com,
+	netdev@vger.kernel.org, hannes@stressinduktion.org, ek@google.com,
+	tom@herbertland.com, zenczykowski@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41904 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42015 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750990AbbLQAHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:07:35 -0500
-In-Reply-To: <1450251988-9246-2-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1751580AbbLQAQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:16:01 -0500
+In-Reply-To: <1450308935.8474.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed, 16 Dec 2015 13:16:25 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 16 Dec 2015 15:35:35 -0800
 
-> @@ -66,7 +66,7 @@ struct l2t_data {
->  
->  static inline unsigned int vlan_prio(const struct l2t_entry *e)
->  {
-> -	return e->vlan >> 13;
-> +	return (e->vlan & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
+> socket can be shared by fd passing to multiple users.
+> 
+> Who really owns it ?
 
-e->vlan is a u16, the vlan priotity is the top 3 bits of the 16-bit
-value, and finally the right shift will be non-signed.
+Oh yes the old fd permission discussion...
 
-Therefore this change is absolutely not necessary.
-
-Please remove this patch from the series and resend.
+Probably need to use the openner's permissions.
