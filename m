@@ -1,81 +1,136 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: addrconf: use stable address generator for
- ARPHRD_NONE
-Date: Thu, 17 Dec 2015 23:04:56 +0100
-Message-ID: <56733188.8030205@stressinduktion.org>
-References: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [RFC 4/5] i40e/ethtool: support coalesce getting by queue
+Date: Thu, 17 Dec 2015 22:43:52 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFD1C84@fmsmsx115.amr.corp.intel.com>
+References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
+ <1450335081-3012-4-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"andi@firstfloor.org" <andi@firstfloor.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
+	"dsahern@gmail.com" <dsahern@gmail.com>,
+	"tj@kernel.org" <tj@kernel.org>,
+	"cascardo@redhat.com" <cascardo@redhat.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"ben@decadent.org.uk" <ben@decadent.org
+To: "Liang, Kan" <kan.liang@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"bwh@kernel.org" <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59392 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932828AbbLQWE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:04:59 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id E3E3120398
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 17:04:58 -0500 (EST)
-In-Reply-To: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+Received: from mga11.intel.com ([192.55.52.93]:9403 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933482AbbLQWny convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:43:54 -0500
+In-Reply-To: <1450335081-3012-4-git-send-email-kan.liang@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16.12.2015 16:44, Bj=C3=B8rn Mork wrote:
-> Add a new address generator mode, using the stable address generator
-> with an automatically generated secret. This is intended as a default
-> address generator mode for device types with no EUI64 implementation.
-> The new generator is used for ARPHRD_NONE interfaces initially, addin=
-g
-> default IPv6 autoconf support to e.g. tun interfaces.
->=20
-> If the addrgenmode is set to 'random', either by default or manually,
-> and no stable secret is available, then a random secret is used as
-> input for the stable-privacy address generator.  The secret can be
-> read and modified like manually configured secrets, using the proc
-> interface.  Modifying the secret will change the addrgen mode to
-> 'stable-privacy' to indicate that it operates on a known secret.
->=20
-> Existing behaviour of the 'stable-privacy' mode is kept unchanged. If
-> a known secret is available when the device is created, then the mode
-> will default to 'stable-privacy' as before.  The mode can be manually
-> set to 'random' but it will behave exactly like 'stable-privacy' in
-> this case. The secret will not change.
->=20
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yoshifuji@miracleli=
-nux.com>
-> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+> From: Kan Liang <kan.liang@intel.com>
+> 
+> This patch implements get_per_queue_coalesce for i40e driver.
+> For i40e driver, only rx and tx usecs has per queue value. So only these
+> two parameters are read from specific registers. For other interrupt
+> coalescing parameters, they are shared among queues. The values which
+> are stored in vsi will be return.
+> 
+> Signed-off-by: Kan Liang <kan.liang@intel.com>
 > ---
-> Changes since RFC:
->  - use IN6_ADDR_GEN_MODE_RANDOM as requested
->  - set the device type specific default in addrconf_dev_config() inst=
-ead
->    of ipv6_add_dev() to catch device type changes
->=20
-> I guess an explanation is needed for the last change: My primary
-> use case for this is the raw-ip support recently added to the qmi_wwa=
-n
-> driver. This driver creates an ARPHRD_ETHER device which can be morph=
-ed
-> into an ARPHRD_NONE device. So at device creation time everything is
-> fine and EUI64 is supported. But when the link is set up, the device
-> type is change and EUI64 does not work. So I needed to override the
-> default for ARPHRD_NONE at link up time.
->=20
-> An alternative would be to keep the ipv6_add_dev() code and add devic=
-e
-> type change notifier code. That seemed messier to me. Besides, we
-> already do type based address configuration decisions in
-> addrconf_dev_config(), deciding whether autoconfiguration is availabl=
-e
-> or not.
+>  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 34
+> ++++++++++++++++++++++++--
+>  1 file changed, 32 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> index 3f385ff..b41f0be 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> @@ -1843,11 +1843,16 @@ static int i40e_set_phys_id(struct net_device
+> *netdev,
+>   * 125us (8000 interrupts per second) == ITR(62)
+>   */
+> 
+> -static int i40e_get_coalesce(struct net_device *netdev,
+> -			     struct ethtool_coalesce *ec)
+> +static int __i40e_get_coalesce(struct net_device *netdev,
+> +			       struct ethtool_coalesce *ec,
+> +			       int queue)
+>  {
+>  	struct i40e_netdev_priv *np = netdev_priv(netdev);
+>  	struct i40e_vsi *vsi = np->vsi;
+> +	struct i40e_pf *pf = vsi->back;
+> +	struct i40e_hw *hw = &pf->hw;
+> +	struct i40e_q_vector *q_vector;
+> +	u16 vector;
+> 
+>  	ec->tx_max_coalesced_frames_irq = vsi->work_limit;
+>  	ec->rx_max_coalesced_frames_irq = vsi->work_limit;
+> @@ -1869,9 +1874,33 @@ static int i40e_get_coalesce(struct net_device
+> *netdev,
+>  	ec->rx_coalesce_usecs_high = vsi->int_rate_limit;
+>  	ec->tx_coalesce_usecs_high = vsi->int_rate_limit;
+> 
+> +	if (queue > 0) {
+> +		if (queue >= vsi->num_q_vectors) {
+> +			netif_info(pf, drv, netdev, "Invalid queue number\n");
+> +			return -EINVAL;
+> +		}
+> +
+> +		q_vector = vsi->q_vectors[queue];
 
-Agreed to your statements above and I reviewed the patch. Also, I can't
-see any bad side effects resulting in ARPHRD_NONE interfaces picking up
-link local addresses in general.
+The problem here is that there can be more queues than vectors and they're not spread round-robin style.  For example, if the VSI was only given 4 vectors, but has 8 queues, there will be 2 queues per vector paired up such that V0 <= {Q0, Q1}, V1 <= {Q2, Q3} ...
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+You'll need to check the requested queue number against vsi->num_queue_pairs for the max queue check, then look at vsi->tx_rings[queue].q_vector and/or vsi->rx_rings[queue].q_vector to find the actual q_vector for the requested queue.
 
-Thanks,
-Hannes
+sln
+
+> +		vector = vsi->base_vector + queue;
+> +
+> +		ec->rx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw,
+> I40E_PFINT_ITRN(0, vector - 1)));
+> +		ec->tx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw,
+> I40E_PFINT_ITRN(1, vector - 1)));
+> +	}
+>  	return 0;
+>  }
+> 
+> +static int i40e_get_coalesce(struct net_device *netdev,
+> +			     struct ethtool_coalesce *ec)
+> +{
+> +	return __i40e_get_coalesce(netdev, ec, -1);
+> +}
+> +
+> +static int i40e_get_per_queue_coalesce(struct net_device *netdev, int
+> queue,
+> +				       struct ethtool_coalesce *ec)
+> +{
+> +	return __i40e_get_coalesce(netdev, ec, queue);
+> +}
+> +
+>  static int i40e_set_coalesce(struct net_device *netdev,
+>  			     struct ethtool_coalesce *ec)
+>  {
+> @@ -2788,6 +2817,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+>  	.get_ts_info		= i40e_get_ts_info,
+>  	.get_priv_flags		= i40e_get_priv_flags,
+>  	.set_priv_flags		= i40e_set_priv_flags,
+> +	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
+>  };
+> 
+>  void i40e_set_ethtool_ops(struct net_device *netdev)
+> --
+> 1.7.11.7
