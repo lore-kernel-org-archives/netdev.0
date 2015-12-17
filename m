@@ -1,106 +1,54 @@
-From: "Duda, Lukasz" <Lukasz.Duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org>
-Subject: RE: [RFCv4 bluetooth-next 1/2] 6lowpan: iphc: add support for
- stateful compression
-Date: Thu, 17 Dec 2015 12:26:37 +0000
-Message-ID: <AB80DA35A7B64E4E98291794926897D9011B977941@MBX03.nvlsi.no>
-References: <1450101654-22633-1-git-send-email-alex.aring@gmail.com>
- <1450101654-22633-2-git-send-email-alex.aring@gmail.com>
- <AB80DA35A7B64E4E98291794926897D9011B97546F@MBX03.nvlsi.no>
- <20151215110835.GA3774@omega>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org" <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org" <mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org>,
-	"martin.gergeleit-6wGqcYweBVc@public.gmane.org" <martin.gergeleit-6wGqcYweBVc@public.gmane.org>
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151215110835.GA3774@omega>
-Content-Language: en-US
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V1 1/4] net/mlx5e: Restore the skb data pointer after xmit is finished
+Date: Thu, 17 Dec 2015 14:35:32 +0200
+Message-ID: <1450355735-30846-2-git-send-email-saeedm@mellanox.com>
+References: <1450355735-30846-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:60084 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756043AbbLQMgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 07:36:08 -0500
+In-Reply-To: <1450355735-30846-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgQWxleCENCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbGV4YW5k
-ZXIgQXJpbmcgW21haWx0bzphbGV4LmFyaW5nQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwg
-RGVjZW1iZXIgMTUsIDIwMTUgMTI6MDkNCj4gVG86IER1ZGEsIEx1a2Fzeg0KPiBDYzogbGludXgt
-d3BhbkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWJsdWV0b290aEB2Z2VyLmtlcm5lbC5vcmc7DQo+
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGtlcm5lbEBwZW5ndXRyb25peC5kZTsgbWNyQHNhbmRl
-bG1hbi5jYTsNCj4gbWFydGluLmdlcmdlbGVpdEBocy1ybS5kZQ0KPiBTdWJqZWN0OiBSZTogW1JG
-Q3Y0IGJsdWV0b290aC1uZXh0IDEvMl0gNmxvd3BhbjogaXBoYzogYWRkIHN1cHBvcnQgZm9yDQo+
-IHN0YXRlZnVsIGNvbXByZXNzaW9uDQo+IA0KPiBPbiBUdWUsIERlYyAxNSwgMjAxNSBhdCAxMDoy
-OTo1MUFNICswMDAwLCBEdWRhLCBMdWthc3ogd3JvdGU6DQo+ID4gRmlyc3Qgb2YgYWxsIGdyZWF0
-IHdvcmsgZm9yIHlvdXIgc2VyaWVzIG9mIHBhdGNoZXMgb24gNmxvd3BhbiBpbXByb3ZlbWVudHMN
-Cj4gYW5kDQo+ID4gc3RhdGVmdWwgY29tcHJlc3Npb24hDQo+ID4NCj4gPiBJIGhhdmUganVzdCBk
-b25lIHNvbWUgdGVzdGluZyBvZiB0aGlzIHBhdGNoICh3aXRob3V0IFJBRFZEIG1vZGlmaWNhdGlv
-bnMpLA0KPiBhbmQNCj4gPiBJIGNhbiBzaGFyZSBteSBleHBlcmltZW50cyB1c2luZyA2TG9XUEFO
-IG92ZXIgQlQtTEUgYnkgc2VuZGluZyBzaW1wbGUNCj4gSUNNUHY2DQo+ID4gbWVzc2FnZXMuIENv
-bnRleHRzIGZvciBCVExFIGRldmljZSBoYXMgYmVlbiBhZGRlZCBtYW51YWxseS4NCj4gPg0KPiAN
-Cj4gZGlkIHlvdSB0ZXN0IHRoYXQgd2l0aCBsaW51eCA8LT4gbGludXg/IE9yIGxpbnV4IDwtPg0K
-PiAkU09NRV9PVEhFUl82TE9XUEFOX0JUTEVfU1RBQ0suDQo+IA0KPiBJIHRlc3RlZCBpdCBvbiBt
-eSBzaWRlIHdpdGggUklPVCwgaXQgaGFzIDgwMi4xNS40IDZMb1dQQU4gc3VwcG9ydCBhbmQNCj4g
-YWxzbyBtYW5pcHVsYXRlIG1hbnVhbGx5IHRoZSBjb250ZXh0IHRhYmxlLg0KPiANCg0KSSBoYXZl
-IHRlc3RlZCBpdCB3aXRoIG5SRjUyIEJUTEUgZGV2aWNlIGZyb20gTm9yZGljIFNlbWljb25kdWN0
-b3IgDQp3aXRoIElvVCBTREssIGFuZCBMaW51eCBVYnVudHUgd2l0aCBCVExFIERvbmdsZSB0aGF0
-IGFjdHMgYXMgUm91dGVyL01hc3Rlci4NCg0KPiA+IEV4cGVyaW1lbnQgMToNCj4gPg0KPiA+IFJv
-dXRlcjogMjAwMTpkYjg6OjEvNjQgQlRMRTogMjAwMTpkYjg6OjIxMToyMkZGOkZFMzM6NDQ1NS82
-NA0KPiA+IENJRCAxOiAyMDAxOmRiODo6LzY0DQo+ID4NCj4gPiBXb3JrcyBmaW5lLCBJIHNlZSB0
-aGF0IENJRCAxIGlzIHVzZWQgZm9yIGJvdGggYWRkcmVzc2VzLiBSb3V0ZXIgaGFzIDY0IGJpdHMg
-b2YNCj4gPiBJSUQgaW5saW5lIGFuZCBCVExFIG5vZGUgaGFzIDAuDQo+ID4NCj4gPiBFeHBlcmlt
-ZW50IDI6DQo+ID4NCj4gPiBSb3V0ZXI6IDIwMDE6ZGI4OjoxLzY0IEJUTEU6IDIwMDE6ZGI4Ojoy
-MTE6MjJGRjpGRTMzOjQ0NTUvNjQNCj4gPiBDSUQgMzogMjAwMTpkYjg6Oi82NCBDSUQgNTogMjAw
-MTpkYjg6OjEvMTI4DQo+ID4NCj4gPiBXb3JrcyBhbHNvIGZpbmUsIEkgc2VlIHRoYXQgYm90aCBD
-SUQgMyBhbmQgNSBhcmUgdXNlZCwgYXMgd2VsbCBhcyBib3RoIHNpZGVzDQo+ID4gY29tcHJlc3Mg
-aXRzIElJRCBpbiB0aGUgYmVzdCBwb3NzaWJsZSB3YXkuIFNvIHRoZSBwYXRjaCBhcHBlYXJzIHRv
-IHdvcmsgZmluZQ0KPiBvbg0KPiA+IDZMb1dQQU4gb3ZlciBCVC1MRS4NCj4gPg0KPiANCj4gb2su
-DQo+IA0KPiA+DQo+ID4gSG93ZXZlciwgSSBub3RpY2UgdGhhdCB0aGUgZm9sZGVyIGNyZWF0ZWQg
-aW4gdGhlIHN5cy9rZXJuZWwvZGVidWcvNmxvd3Bhbi8NCj4gZm9yDQo+ID4gbXkgYmx1ZXRvb3Ro
-IG5ldHdvcmsgaW50ZXJmYWNlIGlzIGNhbGxlZCAiYnQlZCIuIEFuZCBJIHdvdWxkIGltYWdpbmUg
-dGhpcw0KPiA+IHNob3VsZCBiZSAiYnQwIiwgImJ0MSIsIC4uLiBhbmQgbm90IHRoZSB0ZW1wbGF0
-ZT8NCj4gPg0KPiANCj4gdXJnaCwgdGhpcyBzaG91bGQgbm90IGhhcHBlbi4gSSB1c2UgImRldi0+
-bmFtZSIgZm9yIHRoYXQgYW5kIGRldiBpcyB0aGUNCj4gbmV0ZGV2aWNlIHN0cnVjdHVyZS4gVGhp
-cyBzaG91bGQgYmUgYW4gX3VuaXF1ZV8gaW50ZXJmYWNlIG5hbWUsDQo+IG90aGVyd2lzZSB5b3Ug
-d2lsbCBnZXR0aW5nIHRyb3VibGUgaWYgeW91IGhhdmUgdHdvIGJ0bGUgNmxvd3Bhbg0KPiBpbnRl
-cmZhY2VzLg0KPiANCj4gSSBkaWRuJ3QgcmVhbGl6ZWQgaXQgYmVjYXVzZSBJIGNyZWF0ZSBteSBp
-bnRlcmZhY2Ugd2l0aDoNCj4gDQo+IGlwIGxpbmsgYWRkIGxpbmsgd3BhbjAgbmFtZSBsb3dwYW4w
-IHR5cGUgbG93cGFuDQo+IA0KPiBidXQgc2hvdWxkIGNoYW5nZSBpdCBpbnRvOg0KPiANCj4gaXAg
-bGluayBhZGQgbGluayB3cGFuMCBuYW1lIGxvd3BhbiVkIHR5cGUgbG93cGFuDQo+IA0KPiBJIHJl
-YWxpemVkIHRoYXQgdGhlIGRldi0+bmFtZSB3aWxsIGJlIGNoYW5nZWQgZnJvbSB0ZW1wbGF0ZSBp
-bnRvICJyZWFsIg0KPiBuYW1lIGFmdGVyIHJlZ2lzdGVyaW5nLiBUaGlzIHNob3VsZCBkbyB0aGUg
-am9iOg0KPiANCj4gZGlmZiAtLWdpdCBhL25ldC82bG93cGFuL2NvcmUuYyBiL25ldC82bG93cGFu
-L2NvcmUuYw0KPiBpbmRleCBjN2YwNmY1Li5mYWY2NWJhIDEwMDY0NA0KPiAtLS0gYS9uZXQvNmxv
-d3Bhbi9jb3JlLmMNCj4gKysrIGIvbmV0LzZsb3dwYW4vY29yZS5jDQo+IEBAIC0yOSwxMyArMjks
-MTMgQEAgaW50IGxvd3Bhbl9yZWdpc3Rlcl9uZXRkZXZpY2Uoc3RydWN0IG5ldF9kZXZpY2UNCj4g
-KmRldiwNCj4gDQo+ICAgICAgICAgbG93cGFuX3ByaXYoZGV2KS0+bGx0eXBlID0gbGx0eXBlOw0K
-PiANCj4gLSAgICAgICByZXQgPSBsb3dwYW5fZGV2X2RlYnVnZnNfaW5pdChkZXYpOw0KPiArICAg
-ICAgIHJldCA9IHJlZ2lzdGVyX25ldGRldmljZShkZXYpOw0KPiAgICAgICAgIGlmIChyZXQgPCAw
-KQ0KPiAgICAgICAgICAgICAgICAgcmV0dXJuIHJldDsNCj4gDQo+IC0gICAgICAgcmV0ID0gcmVn
-aXN0ZXJfbmV0ZGV2aWNlKGRldik7DQo+ICsgICAgICAgcmV0ID0gbG93cGFuX2Rldl9kZWJ1Z2Zz
-X2luaXQoZGV2KTsNCj4gICAgICAgICBpZiAocmV0IDwgMCkNCj4gLSAgICAgICAgICAgICAgIGxv
-d3Bhbl9kZXZfZGVidWdmc19leGl0KGRldik7DQo+ICsgICAgICAgICAgICAgICB1bnJlZ2lzdGVy
-X25ldGRldmljZShkZXYpOw0KPiANCj4gICAgICAgICByZXR1cm4gcmV0Ow0KPiAgfQ0KPiANCj4g
-SSB0aGluayBpdCBzaG91bGQgYmUgc2FmZSB0byBkbyB0aGF0IGFmdGVyIHJlZ2lzdGVyaW5nIGJl
-Y2F1c2Ugd2UgaGVsZCB0aGUNCj4gUlROTCBsb2NrLiBBbmQgdGhlIGludGVyZmFjZSBpc24ndCB1
-cCBhZnRlciByZWdpc3RlcmluZy4NCj4gDQoNClRoYW5rcyEgWW91ciBwYXRjaCBoZWxwZWQsIGFu
-ZCBJIGFja2VkIGl0IGluIHNlcGFyYXRlIG1haWwgdGhyZWFkLg0KDQo+ID4gQWxzbywgSSBub3Rp
-Y2UgdGhhdCB0aGUgY29tcHJlc3Npb24gZm9yIEZsb3cgQ29udHJvbCBhbmQgVHJhZmZpYyBMYWJl
-bCBpbiBJUHY2DQo+ID4gaGVhZGVyIGhhcyBiZWVuIG1vZGlmaWVkLCB0aGVzZSBmaWVsZHMgYXJl
-IG5vIGxvbmdlciBjb21wcmVzc2VkIGluIGFueQ0KPiBwYWNrZXRzDQo+ID4gKDBiMTEgdmFsdWUp
-IHRoYXQgY29tZXMgZnJvbSBMaW51eCBLZXJuZWwgKGUuZy4gSUNNUCBFY2hvIFJlcXVlc3QsDQo+
-ID4gUm91dGVyIEFkdmVydGlzZW1lbnQpLCBpbnN0ZWFkIEkgZ2V0IHRocmVlIGV4dHJhIGJ5dGVz
-ICgwYjAxIHZhbHVlKS4NCj4gPiBJIHdvdWxkIGxpa2UgdG8gdW5kZXJzdGFuZCByZWFzb24gZm9y
-IHRoaXMgbW9kaWZpY2F0aW9uIGEgbGl0dGxlIGJldHRlci4NCj4gDQo+IDBiMTEgbWVhbnMgdGhh
-dCB0cmFmZmljIGNsYXNzIGFuZCBmbG93IGxhYmVsIGFyZSB6ZXJvLiBBcmUgeW91IHN1cmUgdGhh
-dA0KPiB0aGVzZSBmaWVsZHMgYXJlIHplcm8gaW5zaWRlIHRoZSBJUHY2IGhlYWRlciB3aGVuIHlv
-dSB0cmFuc21pdA0KPiAiZS5nLiBJQ01QIEVjaG8gUmVxdWVzdCwgUkEiPw0KPiANCj4gQ2FuIHlv
-dSB2ZXJpZnkgdGhpcyBieSBydW5uaW5nIHRjcGR1bXAvd2lyZXNoYXJrPyBPciBpbnN0cnVtZW50
-cyBzb21lDQo+IHByaW50aydzIGF0IFswXSBmb3IgaGRyLT5mbG93X2xibCBhcnJheSBhbmQgaGRy
-LT5wcmlvcml0eT8NCj4gDQo+IC0gQWxleA0KPiANCj4gWzBdIGh0dHA6Ly9seHIuZnJlZS1lbGVj
-dHJvbnMuY29tL3NvdXJjZS9uZXQvNmxvd3Bhbi9pcGhjLmMjTDQyOA0KDQpJIGRpZCBzb21lIG1v
-cmUgbGludXggZGVidWdnaW5nLCBhbmQgaW5kZWVkLCBpdHMgSVB2NiBzdGFjayB0aGF0IGFscmVh
-ZHkgZ2l2ZXMgaXA2aGRyDQp3aXRoIGZsb3cgbGFiZWwgc2V0IHRvIHNvbWUgc3RyYW5nZSBudW1i
-ZXIuIERvIHlvdSBrbm93IG1heWJlIHRoZSByZWFzb24gb2YgdGhpcz8NCk9uIEtlcm5lbCB2ZXJz
-aW9uIDwgNC4yIHRoYXQgZmllbGQgd2FzIGFsd2F5cyBzZXQgdG8gMCwgdGh1cyBiZXR0ZXIgY29t
-cHJlc3Npb24gY2FuDQpiZSBhcHBsaWVkLg0KDQpCZXN0IHJlZ2FyZHMsDQrFgXVrYXN6DQo=
+From: Eran Ben Elisha <eranbe@mellanox.com>
+
+Restore the skb data pointer after coping the data to the HW, so the skb
+can be cloned with correct headers for future use (e.g timestamping).
+
+Fixes: e586b3b0baee ("net/mlx5: Ethernet Datapath files")
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 1341b1d..0fcfe64 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -165,6 +165,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
+ 	struct mlx5_wqe_data_seg *dseg;
+ 
++	unsigned char *skb_data_orig = skb->data;
+ 	u8  opcode = MLX5_OPCODE_SEND;
+ 	dma_addr_t dma_addr = 0;
+ 	bool bf = false;
+@@ -263,6 +264,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
+ 	cseg->qpn_ds           = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+ 
++	skb_push(skb, skb->data - skb_data_orig);
+ 	sq->skb[pi] = skb;
+ 
+ 	MLX5E_TX_SKB_CB(skb)->num_wqebbs = DIV_ROUND_UP(ds_cnt,
+-- 
+1.7.1
