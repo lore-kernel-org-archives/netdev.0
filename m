@@ -1,120 +1,28 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V1 3/4] net/mlx5e: Add HW timestamping (TS)
- support
-Date: Thu, 17 Dec 2015 21:11:54 +0100
-Message-ID: <20151217201154.GA5975@localhost.localdomain>
-References: <1450355735-30846-1-git-send-email-saeedm@mellanox.com>
- <1450355735-30846-4-git-send-email-saeedm@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: add IPV6_HDRINCL option for raw sockets
+Date: Thu, 17 Dec 2015 15:12:43 -0500 (EST)
+Message-ID: <20151217.151243.1359682670479159843.davem@davemloft.net>
+References: <1450282967-3184-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:38037 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932099AbbLQUMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:12:00 -0500
-Received: by mail-wm0-f52.google.com with SMTP id l126so37669138wml.1
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 12:11:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1450355735-30846-4-git-send-email-saeedm@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56505 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932083AbbLQUMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:12:44 -0500
+In-Reply-To: <1450282967-3184-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2015 at 02:35:34PM +0200, Saeed Mahameed wrote:
-> @@ -63,6 +65,7 @@
->  #define MLX5E_TX_CQ_POLL_BUDGET        128
->  #define MLX5E_UPDATE_STATS_INTERVAL    200 /* msecs */
->  #define MLX5E_SQ_BF_BUDGET             16
-> +#define MLX5E_SERVICE_TASK_DELAY       (HZ / 4)
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 16 Dec 2015 17:22:47 +0100
 
-Hm...
-  
-> +void mlx5e_timestamp_overflow_check(struct mlx5e_priv *priv)
-> +{
-> +	bool timeout = time_is_before_jiffies(priv->tstamp.last_overflow_check +
-> +					      priv->tstamp.overflow_period);
-> +	unsigned long flags;
-> +
-> +	if (timeout) {
-> +		write_lock_irqsave(&priv->tstamp.lock, flags);
-> +		timecounter_read(&priv->tstamp.clock);
-> +		write_unlock_irqrestore(&priv->tstamp.lock, flags);
-> +		priv->tstamp.last_overflow_check = jiffies;
+> Same as in Windows, we miss IPV6_HDRINCL for SOL_IPV6 and SOL_RAW.
+> The SOL_IP/IP_HDRINCL is not available for IPv6 sockets.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Here you have extra book keeping, because the rate of the work
-callbacks is not the same as the rate of the overflow checks.
-
-> +	}
-> +}
-
-> +void mlx5e_timestamp_init(struct mlx5e_priv *priv)
-> +{
-> +	struct mlx5e_tstamp *tstamp = &priv->tstamp;
-> +	u64 ns;
-> +	u64 frac = 0;
-> +	u32 dev_freq;
-> +
-> +	mlx5e_timestamp_init_config(tstamp);
-> +	dev_freq = MLX5_CAP_GEN(priv->mdev, device_frequency_khz);
-> +	if (!dev_freq) {
-> +		mlx5_core_warn(priv->mdev, "invalid device_frequency_khz. %s failed\n",
-> +			       __func__);
-> +		return;
-> +	}
-> +	rwlock_init(&tstamp->lock);
-> +	memset(&tstamp->cycles, 0, sizeof(tstamp->cycles));
-> +	tstamp->cycles.read = mlx5e_read_clock;
-> +	tstamp->cycles.shift = MLX5E_CYCLES_SHIFT;
-> +	tstamp->cycles.mult = clocksource_khz2mult(dev_freq,
-> +						   tstamp->cycles.shift);
-> +	tstamp->nominal_c_mult = tstamp->cycles.mult;
-> +	tstamp->cycles.mask = CLOCKSOURCE_MASK(41);
-> +
-> +	timecounter_init(&tstamp->clock, &tstamp->cycles,
-> +			 ktime_to_ns(ktime_get_real()));
-> +
-> +	/* Calculate period in seconds to call the overflow watchdog - to make
-> +	 * sure counter is checked at least once every wrap around.
-> +	 */
-> +	ns = cyclecounter_cyc2ns(&tstamp->cycles, tstamp->cycles.mask, frac,
-> +				 &frac);
-> +	do_div(ns, NSEC_PER_SEC / 2 / HZ);
-> +	tstamp->overflow_period = ns;
-> +}
-
-And here you take great pains to calculate the rate of overflow checks...
-
-> +/* mlx5e_service_task - Run service task for tasks that needed to be done
-> + * periodically
-> + */
-> +static void mlx5e_service_task(struct work_struct *work)
-> +{
-> +	struct delayed_work *dwork = to_delayed_work(work);
-> +	struct mlx5e_priv *priv = container_of(dwork, struct mlx5e_priv,
-> +					       service_task);
-> +
-> +	mutex_lock(&priv->state_lock);
-> +	if (test_bit(MLX5E_STATE_OPENED, &priv->state) &&
-> +	    !test_bit(MLX5E_STATE_DESTROYING, &priv->state)) {
-> +		if (MLX5_CAP_GEN(priv->mdev, device_frequency_khz)) {
-> +			mlx5e_timestamp_overflow_check(priv);
-> +			/* Only mlx5e_timestamp_overflow_check is called from
-> +			 * this service task. schedule a new task only if clock
-> +			 * is initialized. if changed, move the scheduler.
-> +			 */
-> +			schedule_delayed_work(dwork, MLX5E_SERVICE_TASK_DELAY);
-
-Why not simply use the rate you calculated, rather than some hard
-coded value?
-
-Consider What happens if MLX5E_SERVICE_TASK_DELAY is too long or way
-too short.
-
-> +		}
-> +	}
-> +	mutex_unlock(&priv->state_lock);
-> +}
+This looks fine, applied, thanks!
