@@ -1,40 +1,47 @@
-From: Prashant Upadhyaya <praupadhyaya@gmail.com>
-Subject: Re: Load Balancing for AF_INET Raw Sockets
-Date: Thu, 17 Dec 2015 14:38:23 +0530
-Message-ID: <CAPBAu3Wmj2w_pfcqFeDtXG9BOYF4tuohyCNOOY_B2HgPDf7BrA@mail.gmail.com>
-References: <CAPBAu3Uz5P-uJ3Hqg=K49PLDkaGtUWW_SGAH0mTvAsevwvE7Ew@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] af_unix: Revert 'lock_interruptible' in stream receive
+ code
+Date: Thu, 17 Dec 2015 10:22:49 +0100
+Message-ID: <56727EE9.5020805@stressinduktion.org>
+References: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:32912 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933280AbbLQJIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 04:08:24 -0500
-Received: by mail-io0-f172.google.com with SMTP id 186so49258107iow.0
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 01:08:24 -0800 (PST)
-In-Reply-To: <CAPBAu3Uz5P-uJ3Hqg=K49PLDkaGtUWW_SGAH0mTvAsevwvE7Ew@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Al Viro <viro@ZenIV.linux.org.uk>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 15, 2015 at 6:26 PM, Prashant Upadhyaya
-<praupadhyaya@gmail.com> wrote:
-> Hi,
->
-> I open a raw socket for listening to all the UDP packets in a raw fashion --
->
-> socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
->
-> Then I use recvfrom to read the packets over the socket.
->
-> The above works mighty fine.
-> I want to find out if it is possible to 'load balance' the UDP flows
-> by opening up multiple instances of this socket and then possibly
-> setting some socket options so that I can scale up the reading via
-> multiple threads doing recvfrom on these from multiple cores.
-> (I know it is possible over packet sockets, but that is a different usecase)
->
-> Regards
-> -Prashant
+On 16.12.2015 21:09, Rainer Weikusat wrote:
+> With b3ca9b02b00704053a38bfe4c31dbbb9c13595d0, the AF_UNIX SOCK_STREAM
+> receive code was changed from using mutex_lock(&u->readlock) to
+> mutex_lock_interruptible(&u->readlock) to prevent signals from being
+> delayed for an indefinite time if a thread sleeping on the mutex
+> happened to be selected for handling the signal. But this was never a
+> problem with the stream receive code (as opposed to its datagram
+> counterpart) as that never went to sleep waiting for new messages with the
+> mutex held and thus, wouldn't cause secondary readers to block on the
+> mutex waiting for the sleeping primary reader. As the interruptible
+> locking makes the code more complicated in exchange for no benefit,
+> change it back to using mutex_lock.
+> 
+> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> ---
+> 
+> Considering that the datagram receive routine also doesn't go the sleep
+> with the mutex held anymore, the 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490
+> change to unix_autobind is now similarly purposeless.
 
-ah, the msg_name field in msghdr should do the trick for src address.
+I wouldn't do this conversion, yet. There is still a deadlock lingering
+around which should be solved earlier:
+
+http://lists.openwall.net/netdev/2015/11/10/4
+
+Unfortunately I haven't found a good way how to solve it, yet.
+
+Thanks,
+Hannes
