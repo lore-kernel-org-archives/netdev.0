@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC 2/5] net/ethtool: support get coalesce per queue
-Date: Thu, 17 Dec 2015 06:51:18 +0000
-Message-ID: <1450335081-3012-2-git-send-email-kan.liang@intel.com>
+Subject: [RFC 4/5] i40e/ethtool: support coalesce getting by queue
+Date: Thu, 17 Dec 2015 06:51:20 +0000
+Message-ID: <1450335081-3012-4-git-send-email-kan.liang@intel.com>
 References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
 Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 	f.fainelli@gmail.com, alexander.duyck@gmail.com,
@@ -15,99 +15,91 @@ Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 	Kan Liang <kan.liang@intel.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:54437 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:1700 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752115AbbLQSdC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Dec 2015 13:33:02 -0500
+	id S1752115AbbLQSdE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 13:33:04 -0500
 In-Reply-To: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-Device driver has to provide an interface to get per queue coalesce.
-The interrupt coalescing parameters of each masked queue will be
-copied back to user space one by one.
+This patch implements get_per_queue_coalesce for i40e driver.
+For i40e driver, only rx and tx usecs has per queue value. So only these
+two parameters are read from specific registers. For other interrupt
+coalescing parameters, they are shared among queues. The values which
+are stored in vsi will be return.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/ethtool.h |  5 ++++-
- net/core/ethtool.c      | 33 ++++++++++++++++++++++++++++++++-
- 2 files changed, 36 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 34 ++++++++++++++++++++++++--
+ 1 file changed, 32 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 653dc9c..107f75f 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -201,6 +201,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
-  * @get_module_eeprom: Get the eeprom information from the plug-in module
-  * @get_eee: Get Energy-Efficient (EEE) supported and status.
-  * @set_eee: Set EEE status (enable/disable) as well as LPI timers.
-+ * @get_per_queue_coalesce: Get interrupt coalescing parameters per queue.
-+ * 	Returns a negative error code or zero.
-  *
-  * All operations are optional (i.e. the function pointer may be set
-  * to %NULL) and callers must take this into account.  Callers must
-@@ -279,7 +281,8 @@ struct ethtool_ops {
- 			       const struct ethtool_tunable *, void *);
- 	int	(*set_tunable)(struct net_device *,
- 			       const struct ethtool_tunable *, const void *);
--
-+	int	(*get_per_queue_coalesce)(struct net_device *, int,
-+					  struct ethtool_coalesce *);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 3f385ff..b41f0be 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1843,11 +1843,16 @@ static int i40e_set_phys_id(struct net_device *netdev,
+  * 125us (8000 interrupts per second) == ITR(62)
+  */
  
- };
- #endif /* _LINUX_ETHTOOL_H */
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 125fb32..22ff69a 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1748,6 +1748,36 @@ out:
- 	return ret;
+-static int i40e_get_coalesce(struct net_device *netdev,
+-			     struct ethtool_coalesce *ec)
++static int __i40e_get_coalesce(struct net_device *netdev,
++			       struct ethtool_coalesce *ec,
++			       int queue)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++	struct i40e_q_vector *q_vector;
++	u16 vector;
+ 
+ 	ec->tx_max_coalesced_frames_irq = vsi->work_limit;
+ 	ec->rx_max_coalesced_frames_irq = vsi->work_limit;
+@@ -1869,9 +1874,33 @@ static int i40e_get_coalesce(struct net_device *netdev,
+ 	ec->rx_coalesce_usecs_high = vsi->int_rate_limit;
+ 	ec->tx_coalesce_usecs_high = vsi->int_rate_limit;
+ 
++	if (queue > 0) {
++		if (queue >= vsi->num_q_vectors) {
++			netif_info(pf, drv, netdev, "Invalid queue number\n");
++			return -EINVAL;
++		}
++
++		q_vector = vsi->q_vectors[queue];
++		vector = vsi->base_vector + queue;
++
++		ec->rx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw, I40E_PFINT_ITRN(0, vector - 1)));
++		ec->tx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw, I40E_PFINT_ITRN(1, vector - 1)));
++	}
+ 	return 0;
  }
  
-+static int ethtool_get_per_queue_coalesce(struct net_device *dev,
-+					  void __user *useraddr,
-+					  struct ethtool_per_queue_op *per_queue_opt)
++static int i40e_get_coalesce(struct net_device *netdev,
++			     struct ethtool_coalesce *ec)
 +{
-+	u64 queue_mask;
-+	int bit, i, ret;
-+
-+	if (!dev->ethtool_ops->get_per_queue_coalesce)
-+		return -EOPNOTSUPP;
-+
-+	useraddr += sizeof(*per_queue_opt);
-+	for (i = 0; i < MAX_QUEUE_MASK; i++) {
-+		queue_mask = per_queue_opt->queue_mask[i];
-+		if (queue_mask > 0) {
-+			for_each_set_bit(bit, (unsigned long *)&queue_mask, 64) {
-+				struct ethtool_coalesce coalesce = { .cmd = ETHTOOL_GCOALESCE };
-+
-+				ret = dev->ethtool_ops->get_per_queue_coalesce(dev, bit + i * 64, &coalesce);
-+				if (ret != 0)
-+					return ret;
-+				if (copy_to_user(useraddr, &coalesce, sizeof(coalesce)))
-+					return -EFAULT;
-+				useraddr += sizeof(coalesce);
-+			}
-+		}
-+	}
-+
-+	return 0;
++	return __i40e_get_coalesce(netdev, ec, -1);
 +}
 +
- static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
++static int i40e_get_per_queue_coalesce(struct net_device *netdev, int queue,
++				       struct ethtool_coalesce *ec)
++{
++	return __i40e_get_coalesce(netdev, ec, queue);
++}
++
+ static int i40e_set_coalesce(struct net_device *netdev,
+ 			     struct ethtool_coalesce *ec)
  {
- 	struct ethtool_per_queue_op per_queue_opt;
-@@ -1756,7 +1786,8 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
- 		return -EFAULT;
+@@ -2788,6 +2817,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_ts_info		= i40e_get_ts_info,
+ 	.get_priv_flags		= i40e_get_priv_flags,
+ 	.set_priv_flags		= i40e_set_priv_flags,
++	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
+ };
  
- 	switch (per_queue_opt.sub_command) {
--
-+	case ETHTOOL_GCOALESCE:
-+		return ethtool_get_per_queue_coalesce(dev, useraddr, &per_queue_opt);
- 	default:
- 		return -EOPNOTSUPP;
- 	};
+ void i40e_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.7.11.7
