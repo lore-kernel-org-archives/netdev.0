@@ -1,102 +1,84 @@
-From: kan.liang@intel.com
-Subject: [RFC 1/5] ethtool: move option parsing related codes into function
-Date: Thu, 17 Dec 2015 06:53:02 +0000
-Message-ID: <1450335186-3062-1-git-send-email-kan.liang@intel.com>
-Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
-	f.fainelli@gmail.com, alexander.duyck@gmail.com,
-	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
-	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
-	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
-	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
-	corbet@lwn.net, ben@decadent.org.uk,
-	Kan Liang <kan.liang@intel.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: sctp should release assoc when
+ sctp_make_abort_user return NULL in sctp_close
+Date: Thu, 17 Dec 2015 17:01:15 -0200
+Message-ID: <5673067B.6080001@gmail.com>
+References: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
+ <5672FF06.2030803@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, davem@davemloft.net
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15482 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751395AbbLQSe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Dec 2015 13:34:29 -0500
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:33099 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753947AbbLQTBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 14:01:22 -0500
+In-Reply-To: <5672FF06.2030803@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kan Liang <kan.liang@intel.com>
+Em 17-12-2015 16:29, Vlad Yasevich escreveu:
+> On 12/17/2015 09:30 AM, Xin Long wrote:
+>> In sctp_close, sctp_make_abort_user may return NULL because of memory
+>> allocation failure. If this happens, it will bypass any state change
+>> and never free the assoc. The assoc has no chance to be freed and it
+>> will be kept in memory with the state it had even after the socket is
+>> closed by sctp_close().
+>>
+>> So if sctp_make_abort_user fails to allocate memory, we should just
+>> free the asoc, as there isn't much else that we can do.
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+>> ---
+>>   net/sctp/socket.c | 6 +++++-
+>>   1 file changed, 5 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>> index 9b6cc6d..267b8f8 100644
+>> --- a/net/sctp/socket.c
+>> +++ b/net/sctp/socket.c
+>> @@ -1513,8 +1513,12 @@ static void sctp_close(struct sock *sk, long timeout)
+>>   			struct sctp_chunk *chunk;
+>>
+>>   			chunk = sctp_make_abort_user(asoc, NULL, 0);
+>> -			if (chunk)
+>> +			if (chunk) {
+>>   				sctp_primitive_ABORT(net, asoc, chunk);
+>> +			} else {
+>> +				sctp_unhash_established(asoc);
+>> +				sctp_association_free(asoc);
+>> +			}
+>
+> I don't think you can do that for an association that has not been closed.
+>
+> I think a cleaner approach might be to update abort primitive handlers
+> to handle a NULL chunk value and unconditionally call the primitive.
+>
+> This guarantees that any timers or waitqueues that might be active are
+> stopped correctly.
 
-Move option parsing code into find_option function.
-No behavior changes.
+sctp_association_free() is the one who does that job, even that way. All 
+in between the primitive call and then the call to 
+sctp_association_free() is just status changes and packet xmit, which 
+doing this way we cut out when we are in memory pressure. pkt xmit or 
+ULP events are likely going to fail too anyway.
 
-Signed-off-by: Kan Liang <kan.liang@intel.com>
----
- ethtool.c | 49 +++++++++++++++++++++++++++++++------------------
- 1 file changed, 31 insertions(+), 18 deletions(-)
+sctp_sf_do_9_1_prm_abort() -> SCTP_CMD_ASSOC_FAILED ->
+   sctp_cmd_assoc_failed -> ULP events, send abort, and 
+SCTP_CMD_DELETE_TCB ->
+     sctp_cmd_delete_tcb ->
+       sctp_unhash_established(asoc);
+       sctp_association_free(asoc);
+and returns.
 
-diff --git a/ethtool.c b/ethtool.c
-index 92c40b8..04c5015 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -4173,6 +4173,29 @@ static int show_usage(struct cmd_context *ctx)
- 	return 0;
- }
- 
-+static int find_option(int argc, char **argp)
-+{
-+	const char *opt;
-+	size_t len;
-+	int k;
-+
-+	for (k = 0; args[k].opts; k++) {
-+		opt = args[k].opts;
-+		for (;;) {
-+			len = strcspn(opt, "|");
-+			if (strncmp(*argp, opt, len) == 0 &&
-+			    (*argp)[len] == 0)
-+				return k;
-+
-+			if (opt[len] == 0)
-+				break;
-+			opt += len + 1;
-+		}
-+	}
-+
-+	return -1;
-+}
-+
- int main(int argc, char **argp)
- {
- 	int (*func)(struct cmd_context *);
-@@ -4190,24 +4213,14 @@ int main(int argc, char **argp)
- 	 */
- 	if (argc == 0)
- 		exit_bad_args();
--	for (k = 0; args[k].opts; k++) {
--		const char *opt;
--		size_t len;
--		opt = args[k].opts;
--		for (;;) {
--			len = strcspn(opt, "|");
--			if (strncmp(*argp, opt, len) == 0 &&
--			    (*argp)[len] == 0) {
--				argp++;
--				argc--;
--				func = args[k].func;
--				want_device = args[k].want_device;
--				goto opt_found;
--			}
--			if (opt[len] == 0)
--				break;
--			opt += len + 1;
--		}
-+
-+	k = find_option(argc, argp);
-+	if (k > 0) {
-+		argp++;
-+		argc--;
-+		func = args[k].func;
-+		want_device = args[k].want_device;
-+		goto opt_found;
- 	}
- 	if ((*argp)[0] == '-')
- 		exit_bad_args();
--- 
-1.7.11.7
+There is a check on sctp_cmd_delete_tcb() that avoids calling that on 
+temp assocs on listening sockets, but that condition is false due to the 
+check on sk_shutdown so it will call those two functions anyway.
+
+   Marcelo
