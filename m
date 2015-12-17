@@ -1,50 +1,106 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 0/2] net: usb: cdc_ncm: Adding support for two new Dell devices
-Date: Thu, 17 Dec 2015 13:21:31 +0100
-Message-ID: <87fuz15kqc.fsf@nemi.mork.no>
-References: <1450258765-11215-1-git-send-email-dnlplm@gmail.com>
-	<1450285954.23793.15.camel@redhat.com>
+From: "Duda, Lukasz" <Lukasz.Duda-hR+23Fw+YnFSHonuZl5R5Q@public.gmane.org>
+Subject: RE: [RFCv4 bluetooth-next 1/2] 6lowpan: iphc: add support for
+ stateful compression
+Date: Thu, 17 Dec 2015 12:26:37 +0000
+Message-ID: <AB80DA35A7B64E4E98291794926897D9011B977941@MBX03.nvlsi.no>
+References: <1450101654-22633-1-git-send-email-alex.aring@gmail.com>
+ <1450101654-22633-2-git-send-email-alex.aring@gmail.com>
+ <AB80DA35A7B64E4E98291794926897D9011B97546F@MBX03.nvlsi.no>
+ <20151215110835.GA3774@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniele Palmas <dnlplm@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:55142 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756172AbbLQMVu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 07:21:50 -0500
-In-Reply-To: <1450285954.23793.15.camel@redhat.com> (Dan Williams's message of
-	"Wed, 16 Dec 2015 11:12:34 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org" <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org" <mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org>,
+	"martin.gergeleit-6wGqcYweBVc@public.gmane.org" <martin.gergeleit-6wGqcYweBVc@public.gmane.org>
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151215110835.GA3774@omega>
+Content-Language: en-US
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dan Williams <dcbw@redhat.com> writes:
-> On Wed, 2015-12-16 at 10:39 +0100, Daniele Palmas wrote:
->> This patch series add support in the cdc_ncm driver for two devices
->> based on the same platform, that are different only for carrier
->> customization.
->>=20
->> The devices do not have ARP capabilities.
->>=20
->> Daniele Palmas (2):
->>   net: usb: cdc_ncm: Adding Dell DW5812 LTE Verizon Mobile Broadband
->>     Card
->>   net: usb: cdc_ncm: Adding Dell DW5813 LTE AT&T Mobile Broadband
->> Card
->
-> Quite interesting; Google knows nothing about these devices that I ca=
-n
-> find.  What platform are these based on?
-
-There are a number of launchpad bugs reported for these devices.  Don't
-know why they chose that channel..  This one:
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1520147
-shows that it is an Intel/Infineon based design.
-
-BTW, DeWalt seems to own these device names :)
-
-
-Bj=C3=B8rn
+SGkgQWxleCENCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbGV4YW5k
+ZXIgQXJpbmcgW21haWx0bzphbGV4LmFyaW5nQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwg
+RGVjZW1iZXIgMTUsIDIwMTUgMTI6MDkNCj4gVG86IER1ZGEsIEx1a2Fzeg0KPiBDYzogbGludXgt
+d3BhbkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWJsdWV0b290aEB2Z2VyLmtlcm5lbC5vcmc7DQo+
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGtlcm5lbEBwZW5ndXRyb25peC5kZTsgbWNyQHNhbmRl
+bG1hbi5jYTsNCj4gbWFydGluLmdlcmdlbGVpdEBocy1ybS5kZQ0KPiBTdWJqZWN0OiBSZTogW1JG
+Q3Y0IGJsdWV0b290aC1uZXh0IDEvMl0gNmxvd3BhbjogaXBoYzogYWRkIHN1cHBvcnQgZm9yDQo+
+IHN0YXRlZnVsIGNvbXByZXNzaW9uDQo+IA0KPiBPbiBUdWUsIERlYyAxNSwgMjAxNSBhdCAxMDoy
+OTo1MUFNICswMDAwLCBEdWRhLCBMdWthc3ogd3JvdGU6DQo+ID4gRmlyc3Qgb2YgYWxsIGdyZWF0
+IHdvcmsgZm9yIHlvdXIgc2VyaWVzIG9mIHBhdGNoZXMgb24gNmxvd3BhbiBpbXByb3ZlbWVudHMN
+Cj4gYW5kDQo+ID4gc3RhdGVmdWwgY29tcHJlc3Npb24hDQo+ID4NCj4gPiBJIGhhdmUganVzdCBk
+b25lIHNvbWUgdGVzdGluZyBvZiB0aGlzIHBhdGNoICh3aXRob3V0IFJBRFZEIG1vZGlmaWNhdGlv
+bnMpLA0KPiBhbmQNCj4gPiBJIGNhbiBzaGFyZSBteSBleHBlcmltZW50cyB1c2luZyA2TG9XUEFO
+IG92ZXIgQlQtTEUgYnkgc2VuZGluZyBzaW1wbGUNCj4gSUNNUHY2DQo+ID4gbWVzc2FnZXMuIENv
+bnRleHRzIGZvciBCVExFIGRldmljZSBoYXMgYmVlbiBhZGRlZCBtYW51YWxseS4NCj4gPg0KPiAN
+Cj4gZGlkIHlvdSB0ZXN0IHRoYXQgd2l0aCBsaW51eCA8LT4gbGludXg/IE9yIGxpbnV4IDwtPg0K
+PiAkU09NRV9PVEhFUl82TE9XUEFOX0JUTEVfU1RBQ0suDQo+IA0KPiBJIHRlc3RlZCBpdCBvbiBt
+eSBzaWRlIHdpdGggUklPVCwgaXQgaGFzIDgwMi4xNS40IDZMb1dQQU4gc3VwcG9ydCBhbmQNCj4g
+YWxzbyBtYW5pcHVsYXRlIG1hbnVhbGx5IHRoZSBjb250ZXh0IHRhYmxlLg0KPiANCg0KSSBoYXZl
+IHRlc3RlZCBpdCB3aXRoIG5SRjUyIEJUTEUgZGV2aWNlIGZyb20gTm9yZGljIFNlbWljb25kdWN0
+b3IgDQp3aXRoIElvVCBTREssIGFuZCBMaW51eCBVYnVudHUgd2l0aCBCVExFIERvbmdsZSB0aGF0
+IGFjdHMgYXMgUm91dGVyL01hc3Rlci4NCg0KPiA+IEV4cGVyaW1lbnQgMToNCj4gPg0KPiA+IFJv
+dXRlcjogMjAwMTpkYjg6OjEvNjQgQlRMRTogMjAwMTpkYjg6OjIxMToyMkZGOkZFMzM6NDQ1NS82
+NA0KPiA+IENJRCAxOiAyMDAxOmRiODo6LzY0DQo+ID4NCj4gPiBXb3JrcyBmaW5lLCBJIHNlZSB0
+aGF0IENJRCAxIGlzIHVzZWQgZm9yIGJvdGggYWRkcmVzc2VzLiBSb3V0ZXIgaGFzIDY0IGJpdHMg
+b2YNCj4gPiBJSUQgaW5saW5lIGFuZCBCVExFIG5vZGUgaGFzIDAuDQo+ID4NCj4gPiBFeHBlcmlt
+ZW50IDI6DQo+ID4NCj4gPiBSb3V0ZXI6IDIwMDE6ZGI4OjoxLzY0IEJUTEU6IDIwMDE6ZGI4Ojoy
+MTE6MjJGRjpGRTMzOjQ0NTUvNjQNCj4gPiBDSUQgMzogMjAwMTpkYjg6Oi82NCBDSUQgNTogMjAw
+MTpkYjg6OjEvMTI4DQo+ID4NCj4gPiBXb3JrcyBhbHNvIGZpbmUsIEkgc2VlIHRoYXQgYm90aCBD
+SUQgMyBhbmQgNSBhcmUgdXNlZCwgYXMgd2VsbCBhcyBib3RoIHNpZGVzDQo+ID4gY29tcHJlc3Mg
+aXRzIElJRCBpbiB0aGUgYmVzdCBwb3NzaWJsZSB3YXkuIFNvIHRoZSBwYXRjaCBhcHBlYXJzIHRv
+IHdvcmsgZmluZQ0KPiBvbg0KPiA+IDZMb1dQQU4gb3ZlciBCVC1MRS4NCj4gPg0KPiANCj4gb2su
+DQo+IA0KPiA+DQo+ID4gSG93ZXZlciwgSSBub3RpY2UgdGhhdCB0aGUgZm9sZGVyIGNyZWF0ZWQg
+aW4gdGhlIHN5cy9rZXJuZWwvZGVidWcvNmxvd3Bhbi8NCj4gZm9yDQo+ID4gbXkgYmx1ZXRvb3Ro
+IG5ldHdvcmsgaW50ZXJmYWNlIGlzIGNhbGxlZCAiYnQlZCIuIEFuZCBJIHdvdWxkIGltYWdpbmUg
+dGhpcw0KPiA+IHNob3VsZCBiZSAiYnQwIiwgImJ0MSIsIC4uLiBhbmQgbm90IHRoZSB0ZW1wbGF0
+ZT8NCj4gPg0KPiANCj4gdXJnaCwgdGhpcyBzaG91bGQgbm90IGhhcHBlbi4gSSB1c2UgImRldi0+
+bmFtZSIgZm9yIHRoYXQgYW5kIGRldiBpcyB0aGUNCj4gbmV0ZGV2aWNlIHN0cnVjdHVyZS4gVGhp
+cyBzaG91bGQgYmUgYW4gX3VuaXF1ZV8gaW50ZXJmYWNlIG5hbWUsDQo+IG90aGVyd2lzZSB5b3Ug
+d2lsbCBnZXR0aW5nIHRyb3VibGUgaWYgeW91IGhhdmUgdHdvIGJ0bGUgNmxvd3Bhbg0KPiBpbnRl
+cmZhY2VzLg0KPiANCj4gSSBkaWRuJ3QgcmVhbGl6ZWQgaXQgYmVjYXVzZSBJIGNyZWF0ZSBteSBp
+bnRlcmZhY2Ugd2l0aDoNCj4gDQo+IGlwIGxpbmsgYWRkIGxpbmsgd3BhbjAgbmFtZSBsb3dwYW4w
+IHR5cGUgbG93cGFuDQo+IA0KPiBidXQgc2hvdWxkIGNoYW5nZSBpdCBpbnRvOg0KPiANCj4gaXAg
+bGluayBhZGQgbGluayB3cGFuMCBuYW1lIGxvd3BhbiVkIHR5cGUgbG93cGFuDQo+IA0KPiBJIHJl
+YWxpemVkIHRoYXQgdGhlIGRldi0+bmFtZSB3aWxsIGJlIGNoYW5nZWQgZnJvbSB0ZW1wbGF0ZSBp
+bnRvICJyZWFsIg0KPiBuYW1lIGFmdGVyIHJlZ2lzdGVyaW5nLiBUaGlzIHNob3VsZCBkbyB0aGUg
+am9iOg0KPiANCj4gZGlmZiAtLWdpdCBhL25ldC82bG93cGFuL2NvcmUuYyBiL25ldC82bG93cGFu
+L2NvcmUuYw0KPiBpbmRleCBjN2YwNmY1Li5mYWY2NWJhIDEwMDY0NA0KPiAtLS0gYS9uZXQvNmxv
+d3Bhbi9jb3JlLmMNCj4gKysrIGIvbmV0LzZsb3dwYW4vY29yZS5jDQo+IEBAIC0yOSwxMyArMjks
+MTMgQEAgaW50IGxvd3Bhbl9yZWdpc3Rlcl9uZXRkZXZpY2Uoc3RydWN0IG5ldF9kZXZpY2UNCj4g
+KmRldiwNCj4gDQo+ICAgICAgICAgbG93cGFuX3ByaXYoZGV2KS0+bGx0eXBlID0gbGx0eXBlOw0K
+PiANCj4gLSAgICAgICByZXQgPSBsb3dwYW5fZGV2X2RlYnVnZnNfaW5pdChkZXYpOw0KPiArICAg
+ICAgIHJldCA9IHJlZ2lzdGVyX25ldGRldmljZShkZXYpOw0KPiAgICAgICAgIGlmIChyZXQgPCAw
+KQ0KPiAgICAgICAgICAgICAgICAgcmV0dXJuIHJldDsNCj4gDQo+IC0gICAgICAgcmV0ID0gcmVn
+aXN0ZXJfbmV0ZGV2aWNlKGRldik7DQo+ICsgICAgICAgcmV0ID0gbG93cGFuX2Rldl9kZWJ1Z2Zz
+X2luaXQoZGV2KTsNCj4gICAgICAgICBpZiAocmV0IDwgMCkNCj4gLSAgICAgICAgICAgICAgIGxv
+d3Bhbl9kZXZfZGVidWdmc19leGl0KGRldik7DQo+ICsgICAgICAgICAgICAgICB1bnJlZ2lzdGVy
+X25ldGRldmljZShkZXYpOw0KPiANCj4gICAgICAgICByZXR1cm4gcmV0Ow0KPiAgfQ0KPiANCj4g
+SSB0aGluayBpdCBzaG91bGQgYmUgc2FmZSB0byBkbyB0aGF0IGFmdGVyIHJlZ2lzdGVyaW5nIGJl
+Y2F1c2Ugd2UgaGVsZCB0aGUNCj4gUlROTCBsb2NrLiBBbmQgdGhlIGludGVyZmFjZSBpc24ndCB1
+cCBhZnRlciByZWdpc3RlcmluZy4NCj4gDQoNClRoYW5rcyEgWW91ciBwYXRjaCBoZWxwZWQsIGFu
+ZCBJIGFja2VkIGl0IGluIHNlcGFyYXRlIG1haWwgdGhyZWFkLg0KDQo+ID4gQWxzbywgSSBub3Rp
+Y2UgdGhhdCB0aGUgY29tcHJlc3Npb24gZm9yIEZsb3cgQ29udHJvbCBhbmQgVHJhZmZpYyBMYWJl
+bCBpbiBJUHY2DQo+ID4gaGVhZGVyIGhhcyBiZWVuIG1vZGlmaWVkLCB0aGVzZSBmaWVsZHMgYXJl
+IG5vIGxvbmdlciBjb21wcmVzc2VkIGluIGFueQ0KPiBwYWNrZXRzDQo+ID4gKDBiMTEgdmFsdWUp
+IHRoYXQgY29tZXMgZnJvbSBMaW51eCBLZXJuZWwgKGUuZy4gSUNNUCBFY2hvIFJlcXVlc3QsDQo+
+ID4gUm91dGVyIEFkdmVydGlzZW1lbnQpLCBpbnN0ZWFkIEkgZ2V0IHRocmVlIGV4dHJhIGJ5dGVz
+ICgwYjAxIHZhbHVlKS4NCj4gPiBJIHdvdWxkIGxpa2UgdG8gdW5kZXJzdGFuZCByZWFzb24gZm9y
+IHRoaXMgbW9kaWZpY2F0aW9uIGEgbGl0dGxlIGJldHRlci4NCj4gDQo+IDBiMTEgbWVhbnMgdGhh
+dCB0cmFmZmljIGNsYXNzIGFuZCBmbG93IGxhYmVsIGFyZSB6ZXJvLiBBcmUgeW91IHN1cmUgdGhh
+dA0KPiB0aGVzZSBmaWVsZHMgYXJlIHplcm8gaW5zaWRlIHRoZSBJUHY2IGhlYWRlciB3aGVuIHlv
+dSB0cmFuc21pdA0KPiAiZS5nLiBJQ01QIEVjaG8gUmVxdWVzdCwgUkEiPw0KPiANCj4gQ2FuIHlv
+dSB2ZXJpZnkgdGhpcyBieSBydW5uaW5nIHRjcGR1bXAvd2lyZXNoYXJrPyBPciBpbnN0cnVtZW50
+cyBzb21lDQo+IHByaW50aydzIGF0IFswXSBmb3IgaGRyLT5mbG93X2xibCBhcnJheSBhbmQgaGRy
+LT5wcmlvcml0eT8NCj4gDQo+IC0gQWxleA0KPiANCj4gWzBdIGh0dHA6Ly9seHIuZnJlZS1lbGVj
+dHJvbnMuY29tL3NvdXJjZS9uZXQvNmxvd3Bhbi9pcGhjLmMjTDQyOA0KDQpJIGRpZCBzb21lIG1v
+cmUgbGludXggZGVidWdnaW5nLCBhbmQgaW5kZWVkLCBpdHMgSVB2NiBzdGFjayB0aGF0IGFscmVh
+ZHkgZ2l2ZXMgaXA2aGRyDQp3aXRoIGZsb3cgbGFiZWwgc2V0IHRvIHNvbWUgc3RyYW5nZSBudW1i
+ZXIuIERvIHlvdSBrbm93IG1heWJlIHRoZSByZWFzb24gb2YgdGhpcz8NCk9uIEtlcm5lbCB2ZXJz
+aW9uIDwgNC4yIHRoYXQgZmllbGQgd2FzIGFsd2F5cyBzZXQgdG8gMCwgdGh1cyBiZXR0ZXIgY29t
+cHJlc3Npb24gY2FuDQpiZSBhcHBsaWVkLg0KDQpCZXN0IHJlZ2FyZHMsDQrFgXVrYXN6DQo=
