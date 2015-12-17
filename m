@@ -1,47 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Pass ndm_state to route netlink FDB
- notifications.
-Date: Wed, 16 Dec 2015 18:37:07 -0500 (EST)
-Message-ID: <20151216.183707.441075703434515451.davem@davemloft.net>
-References: <C039B2B452EFF24BA495644ED973419132ACE538@IRSMSX108.ger.corp.intel.com>
+From: Courtney Cavin <courtney.cavin-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
+Subject: Re: [PATCH] net: add Qualcomm IPC router
+Date: Wed, 16 Dec 2015 16:01:41 -0800
+Message-ID: <20151217000141.GG28026@sonymobile.com>
+References: <1449866519-14551-1-git-send-email-bjorn.andersson@sonymobile.com>
+ <20151215.160114.1178824607335349574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hubert.sokolowski@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41550 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754907AbbLPXhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 18:37:08 -0500
-In-Reply-To: <C039B2B452EFF24BA495644ED973419132ACE538@IRSMSX108.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "Andersson, Bj?rn" <Bjorn.Andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"srinivas.kandagatla-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <srinivas.kandagatla-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20151215.160114.1178824607335349574.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Sokolowski, Hubert" <hubert.sokolowski@intel.com>
-Date: Tue, 15 Dec 2015 13:20:30 +0000
+On Tue, Dec 15, 2015 at 10:01:14PM +0100, David Miller wrote:
+> From: Bjorn Andersson <bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
+> Date: Fri, 11 Dec 2015 12:41:59 -0800
+> 
+> > +static unsigned int qrtr_local_nid = 1;
+> > +module_param_named(node_id, qrtr_local_nid, uint, S_IRUGO);
+> > +MODULE_PARM_DESC(idVendor, "Local Node Identifier");
+> 
+> Module parameters suck.
+> 
+> Allow the user to choose this dynamically.  You have roughtly two choices.
+> 
+> 1) Subvert the 'protocol' field passed to ->create() and use that, it is
+>    being ignored otherwise.
+> 
+> 2) Put it into the socket address for bind().
 
-> Before this change applications monitoring FDB notifications
-> were not able to determine whether a new FDB entry is permament
-> or not:
-> bridge fdb add f1:f2:f3:f4:f5:f8 dev sw0p1 temp self
-> bridge fdb add f1:f2:f3:f4:f5:f9 dev sw0p1 self
-> 
-> bridge monitor fdb
-> 
-> f1:f2:f3:f4:f5:f8 dev sw0p1 self permanent
-> f1:f2:f3:f4:f5:f9 dev sw0p1 self permanent
-> 
-> With this change ndm_state from the original netlink message
-> is passed to the new netlink message sent as notification.
-> 
-> bridge fdb add f1:f2:f3:f4:f5:f6 dev sw0p1 self
-> bridge fdb add f1:f2:f3:f4:f5:f7 dev sw0p1 temp self
-> 
-> bridge monitor fdb
-> f1:f2:f3:f4:f5:f6 dev sw0p1 self permanent
-> f1:f2:f3:f4:f5:f7 dev sw0p1 self static
-> 
-> Signed-off-by: Hubert Sokolowski <hubert.sokolowski@intel.com>
+So each socket can have its own node id?  That doesn't seem right.
 
-This looks fine, applied, thanks.
+The way these node ids are assigned is by a system designer (in this
+case Qualcomm).  The ARM, Linux CPU is always node 1, the audio DSP is
+always node 5, etc.  Anyone with the knowhow could reassign these
+numbers, but there's no reason to have them be dynamic during runtime.
+Additionally, allowing dynamic assignment would require code to prevent
+id duplication for known remote nodes, as well as to deal with cases in
+which remote node discovery happens after local sockets have acquired
+that node's id.
+
+Maybe the first socket created needs CAP_NET_ADMIN, and uses the
+'protocol' field to set the node id?  Ugh. Gross.
+
+We could hardcode the value in kconfig, but that seems like a worse
+solution than a module parameter.
+
+I'm open to further suggestions.
+
+-Courtney
