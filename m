@@ -1,88 +1,94 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: Re: [PATCH net-next v5 05/19] net: ethtool: add new
- ETHTOOL_GSETTINGS/SSETTINGS API
-Date: Wed, 16 Dec 2015 16:26:46 -0800
-Message-ID: <CAG88wWa85iPJMYQtE4o_Cx3+-A-m_+wqxf2PWYTcpOvB=8_d8Q@mail.gmail.com>
-References: <1450127046-4573-1-git-send-email-ddecotig@gmail.com>
- <1450127046-4573-6-git-send-email-ddecotig@gmail.com> <20151216.113814.2025166082777387327.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Eric Dumazet <edumazet@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru@emulex.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ed Swierk <eswierk@skyportsystems.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Yuval Mintz <Yuval.Mint
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151216.113814.2025166082777387327.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next v5 2/8] netfilter: Factor out nf_ct_get_info().
+Date: Wed, 16 Dec 2015 16:36:41 -0800
+Message-ID: <1450312607-44050-3-git-send-email-jarno@ovn.org>
+References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:49984 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751732AbbLQAh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:37:26 -0500
+In-Reply-To: <1450312607-44050-1-git-send-email-jarno@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks David: you are right, we should copy back sizeof(struct
-ethtool_settings) in that case and not sizeof(usettings). Sorry about
-that, will fix for v6.
+Define a new inline function to map conntrack status to enum
+ip_conntrack_info.  This removes the need to otherwise duplicate this
+code in a later patch ("openvswitch: Find existing conntrack entry
+after upcall.").
 
-a few questions before sending update:
- - is this handshake reasonable? or should we have an ethtool cmd
-dedicated to this kind of handshake, or should we hardcode bitmap
-length once and for all (ie. 128 instead of 32 today)?
- - is it ok to have the u32[] api part of bitmap.h? I was assuming it
-could be used for other ioctl/syscalls outside ethtool... but maybe
-this is being too pretentious and we could keep this internal to
-net/core?
- - struct inheritance is used to have the link mode bitmaps
-piggybacked at end the public struct ethtool_settings. hence this
-"parent" field. I'm not super proud of this, but I find relying on the
-compiler more comfortable. could revise my position with a
-constructor+accessors macros if you think it's preferred.
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ include/net/netfilter/nf_conntrack.h | 15 +++++++++++++++
+ net/netfilter/nf_conntrack_core.c    | 28 +++++++++-------------------
+ 2 files changed, 24 insertions(+), 19 deletions(-)
 
-
-On Wed, Dec 16, 2015 at 8:38 AM, David Miller <davem@davemloft.net> wrote:
-> From: David Decotigny <ddecotig@gmail.com>
-> Date: Mon, 14 Dec 2015 13:03:52 -0800
->
->> +static int ethtool_get_ksettings(struct net_device *dev, void __user *useraddr)
->> +{
->  ...
->> +     if (__ETHTOOL_LINK_MODE_MASK_NU32
->> +         != ksettings.parent.link_mode_masks_nwords) {
->> +             /* wrong link mode nbits requested */
->> +             memset(&ksettings, 0, sizeof(ksettings));
->> +             /* keep cmd field reset to 0 */
->> +             /* send back number of words required as negative val */
->> +             compiletime_assert(__ETHTOOL_LINK_MODE_MASK_NU32 <= S8_MAX,
->> +                                "need too many bits for link modes!");
->> +             ksettings.parent.link_mode_masks_nwords
->> +                     = -((s8)__ETHTOOL_LINK_MODE_MASK_NU32);
->
-> I'm trying to understand how this can work.
->
-> Supposedly, the link_mode_masks_nwords field is there so that we can
-> add new link modes yet still work with tools built against any
-> particular link mode list in the UAPI header files.
->
-> But here you're forcing the value of link_mode_masks_nwords and then
-> copying that amount back to userspace.  If the user allocated less
-> space than the the link mode list in the kernel supports, we will
-> overwrite past the end of the user's usettings object.
->
-> You cannot unconditionally copy sizeof(usettings) back to the user,
-> as store_ksettings_for_user() will do.
->
-> I think you have to truncate here, copying only the array elements the
-> user's structure actually has space for.  That's the only way this can
-> work.
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index fde4068..b3de10e 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -125,6 +125,21 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
+ 			    tuplehash[hash->tuple.dst.dir]);
+ }
+ 
++static inline enum ip_conntrack_info
++nf_ct_get_info(const struct nf_conntrack_tuple_hash *h)
++{
++	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
++
++	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
++		return IP_CT_ESTABLISHED_REPLY;
++	/* Once we've had two way comms, always ESTABLISHED. */
++	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
++		return IP_CT_ESTABLISHED;
++	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
++		return IP_CT_RELATED;
++	return IP_CT_NEW;
++}
++
+ static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
+ {
+ 	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 3cb3cb8..7546fc7 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1056,25 +1056,15 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+ 
+ 	/* It exists; we have (non-exclusive) reference. */
+-	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
+-		*ctinfo = IP_CT_ESTABLISHED_REPLY;
+-		/* Please set reply bit if this packet OK */
+-		*set_reply = 1;
+-	} else {
+-		/* Once we've had two way comms, always ESTABLISHED. */
+-		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+-			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+-			*ctinfo = IP_CT_ESTABLISHED;
+-		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
+-			pr_debug("nf_conntrack_in: related packet for %p\n",
+-				 ct);
+-			*ctinfo = IP_CT_RELATED;
+-		} else {
+-			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
+-			*ctinfo = IP_CT_NEW;
+-		}
+-		*set_reply = 0;
+-	}
++	*ctinfo = nf_ct_get_info(h);
++	if (*ctinfo == IP_CT_ESTABLISHED)
++		pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
++	else if (*ctinfo == IP_CT_RELATED)
++		pr_debug("nf_conntrack_in: related packet for %p\n", ct);
++	else if (*ctinfo == IP_CT_NEW)
++		pr_debug("nf_conntrack_in: new packet for %p\n", ct);
++	*set_reply = NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY;
++
+ 	skb->nfct = &ct->ct_general;
+ 	skb->nfctinfo = *ctinfo;
+ 	return ct;
+-- 
+2.1.4
