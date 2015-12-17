@@ -1,139 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC net-next] ravb: Add dma queue interrupt support
-Date: Thu, 17 Dec 2015 20:42:59 +0300
-Message-ID: <5672F423.6010807@cogentembedded.com>
-References: <1450182181-12575-1-git-send-email-ykaneko0929@gmail.com>
- <56706330.2060803@cogentembedded.com>
- <CAH1o70LnEEu3iYos8wsaEZ=T67N+Tex_XHZgE9P93n6X6Bzz4A@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/2] Local checksum offload for VXLAN
+Date: Thu, 17 Dec 2015 10:06:13 -0800
+Message-ID: <CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
+References: <5672D466.6050900@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAH1o70LnEEu3iYos8wsaEZ=T67N+Tex_XHZgE9P93n6X6Bzz4A@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:33659 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751201AbbLQSGN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 13:06:13 -0500
+Received: by mail-ig0-f176.google.com with SMTP id mv3so18110579igc.0
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 10:06:13 -0800 (PST)
+In-Reply-To: <5672D466.6050900@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 12/17/2015 07:29 PM, Yoshihiro Kaneko wrote:
-
->>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>
->>> This patch supports the following interrupts.
->>>
->>> - One interrupt for multiple (descriptor, error, management)
->>> - One interrupt for emac
->>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->>
->>
->>     You don't say why the current 2-interrupt scheme (implemented by Simon's
->> patch) isn't enpough...
->>
->>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->>
->> [...]
->>
->>> diff --git a/drivers/net/ethernet/renesas/ravb.h
->>> b/drivers/net/ethernet/renesas/ravb.h
->>> index 9fbe92a..eada5a1 100644
->>> --- a/drivers/net/ethernet/renesas/ravb.h
->>> +++ b/drivers/net/ethernet/renesas/ravb.h
->>> @@ -157,6 +157,7 @@ enum ravb_reg {
-[...]
->>> +#define RAVB_RIx2_ALL  0x8003ffff
->>
->>     No prefix. And there's bit 31 in this register, according to my gen3
->> manual. So, your _ALL isn't really "all bits". I'd rather call it RIx2_QFx.
->> Or even RIE2_QFS and RID2_QFD.
+On Thu, Dec 17, 2015 at 7:27 AM, Edward Cree <ecree@solarflare.com> wrote:
+> When the inner packet checksum is offloaded, the outer UDP checksum is easy
+>  to calculate as it doesn't depend on the payload (because the inner checksum
+>  cancels out everything from the inner packet except the pseudo header).
+> Thus, transmit checksums for VXLAN (and in principle other encapsulations,
+>  but I haven't enabled it for / tested with those) can be offloaded on any
+>  device supporting NETIF_F_HW_CSUM.  Only the innermost checksum has to be
+>  offloaded, the rest are filled in by the stack.
+> Tested by hacking a driver to report NETIF_F_HW_CSUM, call skb_checksum_help
+>  before transmitting a packet, and not actually offload anything to the hw.
+> In principle it should also be possible to apply this technique when the
+>  inner packet has been checksummed by software, but only if skb->csum_start
+>  and skb->csum_offset have been filled in to describe the inner checksum.
+>  However in this case it is easier to use skb->csum and skb->csum_start, as
+>  gso_make_checksum() already does - a similar but simpler technique.  It's
+>  not clear to me where else this should be done, so this is out of scope for
+>  this patch series.
 >
-> I think that bit 31 is included in the value 0x8003ffff. Or I'm
-> missing something?
+Edward, it took me a while to understand how this works, but this
+really is an amazing trick! This implies that we don't need to worry
+about HW support for offloading multiple checksums.
 
-    Sorry, I misread the code.
+I'm not sure that we need bits in VXLAN or any other encapsulation. It
+should be sufficient in udp_set_csum that if we already have
+CHECKSUM_PARTIAL that can always be used to do local checksum offload.
+This is also should be independent as to whether the device does
+NETIF_F_HW_CSUM or can offload  NETIF_F_IP[V6]_CSUM for encapsulated
+packets.
 
->>> +
->>> +/* TIx */
->>
->>     TIE/TID.
->>
->>> +#define RAVB_TIx_ALL   0x000fffff
->>
->>     No prefix. And there's bit 31 in this register, according to my gen3
->> manual.
+It would be nice to have a more formal documentation also. This is a
+very powerful mechanism but the math behind it and requirements are
+subtle.
 
-    Oops, no bit 31 in these regs.
+Tom
 
-> So, your _ALL isn't really "all bits".
+> Edward Cree (2):
+>   net: udp: local checksum offload for encapsulation
+>   net: vxlan: enable local checksum offload on HW_CSUM devices
 >
-> I think the correct value is 0x000f0f0f.
-
-    Indeed, please fix.
-
->> [...]
->>>
->>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->>> b/drivers/net/ethernet/renesas/ravb_main.c
->>> index 120cc25..753b67d 100644
->>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-[...]
->>> @@ -654,7 +679,7 @@ static int ravb_stop_dma(struct net_device *ndev)
->>>    }
->>>
->>>    /* E-MAC interrupt handler */
->>> -static void ravb_emac_interrupt(struct net_device *ndev)
->>> +static void _ravb_emac_interrupt(struct net_device *ndev)
->>
->>
->>     ravb_emac_interrupt_[un]locked() perhaps? Not sure which is more
->> correct... :-)
+>  drivers/net/vxlan.c |  5 ++++-
+>  net/ipv4/udp.c      | 34 +++++++++++++++++++++++++++++-----
+>  2 files changed, 33 insertions(+), 6 deletions(-)
 >
-> How about ravb_process_emac_interrupt() ?
-
-    I've made up my mind -- I'd prefer ravb_emac_interrupt_unlocked().
-
-[...]
->>> +static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
->>> +{
->>> +       struct net_device *ndev = dev_id;
->>> +       struct ravb_private *priv = netdev_priv(ndev);
->>> +       irqreturn_t result = IRQ_NONE;
->>> +       u32 iss;
->>> +
->>> +       spin_lock(&priv->lock);
->>> +       /* Get interrupt status */
->>> +       iss = ravb_read(ndev, ISS);
->>> +
->>>          /* Error status summary */
->>>          if (iss & ISS_ES) {
->>>                  ravb_error_interrupt(ndev);
->>>                  result = IRQ_HANDLED;
->>>          }
->>>
->>> +       /* Management */
->>
->>
->>     Really? I thought that's gPTP Interrupt...
+> --
+> 2.4.3
 >
-> gPTP seems to be a part of Management related interrupts.
-
-    ISS.CGIM is still described as gPTP interrupt mirror in my gen3 manual.
-
->>>          if (iss & ISS_CGIS)
->>>                  result = ravb_ptp_interrupt(ndev);
->>>
->>> @@ -776,6 +843,55 @@ static irqreturn_t ravb_interrupt(int irq, void
->>> *dev_id)
-[...]
-
-> Thanks,
-> kaneko
-
-MBR, Sergei
-
+> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
