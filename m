@@ -1,39 +1,77 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net/macb: Update device tree binding for resetting PHY
- using GPIO
-Date: Thu, 17 Dec 2015 15:53:45 -0500 (EST)
-Message-ID: <20151217.155345.1947787110373074406.davem@davemloft.net>
-References: <874mfhtqnv.fsf@free-electrons.com>
-	<1450345864-10907-1-git-send-email-gregory.clement@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: use-after-free in sixpack_close
+Date: Thu, 17 Dec 2015 16:05:32 -0500 (EST)
+Message-ID: <20151217.160532.999129498473749695.davem@davemloft.net>
+References: <CACT4Y+YfPHHON7VywV_G-qOyQ0wv6UVB0uxFAGf1aGKpfAP-KA@mail.gmail.com>
+	<20151217114104.6946d72b@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-To: gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450345864-10907-1-git-send-email-gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: dvyukov@google.com, ajk@comnets.uni-bremen.de,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
+	jslaby@suse.com, syzkaller@googlegroups.com, kcc@google.com,
+	glider@google.com, sasha.levin@oracle.com, edumazet@google.com
+To: gnomes@lxorguk.ukuu.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57065 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755165AbbLQVFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:05:34 -0500
+In-Reply-To: <20151217114104.6946d72b@lxorguk.ukuu.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gregory CLEMENT <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Date: Thu, 17 Dec 2015 10:51:04 +0100
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Date: Thu, 17 Dec 2015 11:41:04 +0000
 
-> Instead of being at the MAC level the reset gpio preperty is moved at the
-> PHY child node level. It is still managed by the MAC, but from the point
-> of view of the binding it make more sense to be part of the PHY node.
+>> This report is then followed by a dozen of other use-after-free reports.
+>> 
+>> On commit edb42dc7bc0da0125ceacab810a553ce1f0cac8d (Dec 15).
+>> 
+>> Thank you
 > 
-> This commit also fixes a build errors if GPIOLIB is not selected.
+> sixpack_close does unregister_netdev(sp->dev), which frees sp as sp is
+> actually allocated via alloc_netdev()
 > 
-> Signed-off-by: Gregory CLEMENT <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> Then deletes two timers within sp
+> 
+> Then frees two buffers indexed off sp
 
-Applied to net-next, thanks.
+This should fix it, the only thing I'm unsure of is if we should perhaps
+also use del_timer_sync() here.  Anyone?
 
-Please be explicit in your patch postings what tree you are targetting
-a change at.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+====================
+[PATCH 1/2] 6pack: Fix use after free in sixpack_close().
+
+Need to do the unregister_device() after all references to the driver
+private have been done.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/hamradio/6pack.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 7c4a415..218f3ab 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -683,14 +683,14 @@ static void sixpack_close(struct tty_struct *tty)
+ 	if (!atomic_dec_and_test(&sp->refcnt))
+ 		down(&sp->dead_sem);
+ 
+-	unregister_netdev(sp->dev);
+-
+ 	del_timer(&sp->tx_t);
+ 	del_timer(&sp->resync_t);
+ 
+ 	/* Free all 6pack frame buffers. */
+ 	kfree(sp->rbuff);
+ 	kfree(sp->xbuff);
++
++	unregister_netdev(sp->dev);
+ }
+ 
+ /* Perform I/O control on an active 6pack channel. */
+-- 
+2.4.1
