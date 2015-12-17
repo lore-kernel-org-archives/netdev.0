@@ -1,160 +1,179 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [RFC 5/5] i40e/ethtool: support coalesce setting by queue
-Date: Thu, 17 Dec 2015 22:47:17 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFD1CAC@fmsmsx115.amr.corp.intel.com>
-References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
- <1450335081-3012-5-git-send-email-kan.liang@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"andi@firstfloor.org" <andi@firstfloor.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
-	"dsahern@gmail.com" <dsahern@gmail.com>,
-	"tj@kernel.org" <tj@kernel.org>,
-	"cascardo@redhat.com" <cascardo@redhat.com>,
-	"corbet@lwn.net" <corbet@lwn.net>,
-	"ben@decadent.org.uk" <ben@decadent.org
-To: "Liang, Kan" <kan.liang@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bwh@kernel.org" <bwh@kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 5/5] bpf, test: add couple of test cases
+Date: Thu, 17 Dec 2015 23:51:57 +0100
+Message-ID: <9c2e19af98fcb41b3058cb7c32577b5ac1920858.1450391511.git.daniel@iogearbox.net>
+References: <cover.1450391511.git.daniel@iogearbox.net>
+Cc: ast@kernel.org, holzheu@linux.vnet.ibm.com, zlim.lnx@gmail.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:28972 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965128AbbLQWrT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:47:19 -0500
-In-Reply-To: <1450335081-3012-5-git-send-email-kan.liang@intel.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:53900 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964900AbbLQWwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:52:06 -0500
+In-Reply-To: <cover.1450391511.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1450391511.git.daniel@iogearbox.net>
+References: <cover.1450391511.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Kan Liang <kan.liang@intel.com>
-> 
-> This patch implements set_per_queue_coalesce for i40e driver.
-> For i40e driver, only rx and tx usecs has per queue value. Changing
-> these two parameters only impact the specific queue. For other interrupt
-> coalescing parameters, they are shared among queues. The change to one
-> queue will impact all queues.
-> 
-> Signed-off-by: Kan Liang <kan.liang@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 55 +++++++++++++++++++--
-> -----
->  1 file changed, 41 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> index b41f0be..5a35fdb 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> @@ -1901,14 +1901,29 @@ static int i40e_get_per_queue_coalesce(struct
-> net_device *netdev, int queue,
->  	return __i40e_get_coalesce(netdev, ec, queue);
->  }
-> 
-> -static int i40e_set_coalesce(struct net_device *netdev,
-> -			     struct ethtool_coalesce *ec)
-> +static void i40e_set_itr_for_queue(struct i40e_vsi *vsi, int queue, u16
-> vector)
->  {
-> -	struct i40e_netdev_priv *np = netdev_priv(netdev);
->  	struct i40e_q_vector *q_vector;
-> -	struct i40e_vsi *vsi = np->vsi;
->  	struct i40e_pf *pf = vsi->back;
->  	struct i40e_hw *hw = &pf->hw;
-> +	u16 intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
-> +
-> +	q_vector = vsi->q_vectors[queue];
+Add couple of test cases for interpreter but also JITs, f.e. to test that
+when imm32 moves are being done, upper 32bits of the regs are being zero
+extended.
 
-Again, the problem here is that there can be more queues than vectors, so you'll need to check the requested queue number against vsi->num_queue_pairs for the max queue check, then look at vsi->tx_rings[queue].q_vector and/or vsi->rx_rings[queue].q_vector to find the actual q_vector for the requested queue.
+Without JIT:
 
-Also, this means that it would be possible for the user to try to assign different values to queues on the same vector.  How do you want to handle that?  My first inclination is to not do anything and just let the last value assigned win.
+  [...]
+  [ 1114.129301] test_bpf: #43 MOV REG64 jited:0 128 PASS
+  [ 1114.130626] test_bpf: #44 MOV REG32 jited:0 139 PASS
+  [ 1114.132055] test_bpf: #45 LD IMM64 jited:0 124 PASS
+  [...]
 
-sln
+With JIT (generated code can as usual be nicely verified with the help of
+bpf_jit_disasm tool):
 
-> +	q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
-> +	wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector->rx.itr);
-> +	q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
-> +	wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector->tx.itr);
-> +	wr32(hw, I40E_PFINT_RATEN(vector - 1), intrl);
-> +	i40e_flush(hw);
-> +}
-> +
-> +static int __i40e_set_coalesce(struct net_device *netdev,
-> +			       struct ethtool_coalesce *ec,
-> +			       int queue)
-> +{
-> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> +	struct i40e_vsi *vsi = np->vsi;
-> +	struct i40e_pf *pf = vsi->back;
->  	u16 vector;
->  	int i;
-> 
-> @@ -1964,21 +1979,32 @@ static int i40e_set_coalesce(struct net_device
-> *netdev,
->  	else
->  		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
-> 
-> -	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
-> -		u16 intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
-> -
-> -		q_vector = vsi->q_vectors[i];
-> -		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
-> -		wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector->rx.itr);
-> -		q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
-> -		wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector->tx.itr);
-> -		wr32(hw, I40E_PFINT_RATEN(vector - 1), intrl);
-> -		i40e_flush(hw);
-> +	if (queue < 0) {
-> +		for (i = 0; i < vsi->num_q_vectors; i++, vector++)
-> +			i40e_set_itr_for_queue(vsi, i, vector);
-> +	} else {
-> +		if (queue >= vsi->num_q_vectors) {
-> +			netif_info(pf, drv, netdev, "Invalid queue value, queue
-> range is 0 - %d\n", vsi->num_q_vectors - 1);
-> +			return -EINVAL;
-> +		}
-> +		i40e_set_itr_for_queue(vsi, queue, vector + queue);
->  	}
-> 
->  	return 0;
->  }
-> 
-> +static int i40e_set_coalesce(struct net_device *netdev,
-> +			     struct ethtool_coalesce *ec)
-> +{
-> +	return __i40e_set_coalesce(netdev, ec, -1);
-> +}
-> +
-> +static int i40e_set_per_queue_coalesce(struct net_device *netdev, int
-> queue,
-> +				       struct ethtool_coalesce *ec)
-> +{
-> +	return __i40e_set_coalesce(netdev, ec, queue);
-> +}
-> +
->  /**
->   * i40e_get_rss_hash_opts - Get RSS hash Input Set for each flow type
->   * @pf: pointer to the physical function struct
-> @@ -2818,6 +2844,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
->  	.get_priv_flags		= i40e_get_priv_flags,
->  	.set_priv_flags		= i40e_set_priv_flags,
->  	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
-> +	.set_per_queue_coalesce	= i40e_set_per_queue_coalesce,
->  };
-> 
->  void i40e_set_ethtool_ops(struct net_device *netdev)
-> --
-> 1.7.11.7
+  [...]
+  [ 1062.726782] test_bpf: #43 MOV REG64 jited:1 6 PASS
+  [ 1062.726890] test_bpf: #44 MOV REG32 jited:1 6 PASS
+  [ 1062.726993] test_bpf: #45 LD IMM64 jited:1 6 PASS
+  [...]
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ lib/test_bpf.c | 120 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 120 insertions(+)
+
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 10cd186..27a7a26 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -1685,6 +1685,126 @@ static struct bpf_test tests[] = {
+ 		{ },
+ 		{ { 0, 0x35d97ef2 } }
+ 	},
++	{	/* Mainly checking JIT here. */
++		"MOV REG64",
++		.u.insns_int = {
++			BPF_LD_IMM64(R0, 0xffffffffffffffffLL),
++			BPF_MOV64_REG(R1, R0),
++			BPF_MOV64_REG(R2, R1),
++			BPF_MOV64_REG(R3, R2),
++			BPF_MOV64_REG(R4, R3),
++			BPF_MOV64_REG(R5, R4),
++			BPF_MOV64_REG(R6, R5),
++			BPF_MOV64_REG(R7, R6),
++			BPF_MOV64_REG(R8, R7),
++			BPF_MOV64_REG(R9, R8),
++			BPF_ALU64_IMM(BPF_MOV, R0, 0),
++			BPF_ALU64_IMM(BPF_MOV, R1, 0),
++			BPF_ALU64_IMM(BPF_MOV, R2, 0),
++			BPF_ALU64_IMM(BPF_MOV, R3, 0),
++			BPF_ALU64_IMM(BPF_MOV, R4, 0),
++			BPF_ALU64_IMM(BPF_MOV, R5, 0),
++			BPF_ALU64_IMM(BPF_MOV, R6, 0),
++			BPF_ALU64_IMM(BPF_MOV, R7, 0),
++			BPF_ALU64_IMM(BPF_MOV, R8, 0),
++			BPF_ALU64_IMM(BPF_MOV, R9, 0),
++			BPF_ALU64_REG(BPF_ADD, R0, R0),
++			BPF_ALU64_REG(BPF_ADD, R0, R1),
++			BPF_ALU64_REG(BPF_ADD, R0, R2),
++			BPF_ALU64_REG(BPF_ADD, R0, R3),
++			BPF_ALU64_REG(BPF_ADD, R0, R4),
++			BPF_ALU64_REG(BPF_ADD, R0, R5),
++			BPF_ALU64_REG(BPF_ADD, R0, R6),
++			BPF_ALU64_REG(BPF_ADD, R0, R7),
++			BPF_ALU64_REG(BPF_ADD, R0, R8),
++			BPF_ALU64_REG(BPF_ADD, R0, R9),
++			BPF_ALU64_IMM(BPF_ADD, R0, 0xfefe),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 0xfefe } }
++	},
++	{	/* Mainly checking JIT here. */
++		"MOV REG32",
++		.u.insns_int = {
++			BPF_LD_IMM64(R0, 0xffffffffffffffffLL),
++			BPF_MOV64_REG(R1, R0),
++			BPF_MOV64_REG(R2, R1),
++			BPF_MOV64_REG(R3, R2),
++			BPF_MOV64_REG(R4, R3),
++			BPF_MOV64_REG(R5, R4),
++			BPF_MOV64_REG(R6, R5),
++			BPF_MOV64_REG(R7, R6),
++			BPF_MOV64_REG(R8, R7),
++			BPF_MOV64_REG(R9, R8),
++			BPF_ALU32_IMM(BPF_MOV, R0, 0),
++			BPF_ALU32_IMM(BPF_MOV, R1, 0),
++			BPF_ALU32_IMM(BPF_MOV, R2, 0),
++			BPF_ALU32_IMM(BPF_MOV, R3, 0),
++			BPF_ALU32_IMM(BPF_MOV, R4, 0),
++			BPF_ALU32_IMM(BPF_MOV, R5, 0),
++			BPF_ALU32_IMM(BPF_MOV, R6, 0),
++			BPF_ALU32_IMM(BPF_MOV, R7, 0),
++			BPF_ALU32_IMM(BPF_MOV, R8, 0),
++			BPF_ALU32_IMM(BPF_MOV, R9, 0),
++			BPF_ALU64_REG(BPF_ADD, R0, R0),
++			BPF_ALU64_REG(BPF_ADD, R0, R1),
++			BPF_ALU64_REG(BPF_ADD, R0, R2),
++			BPF_ALU64_REG(BPF_ADD, R0, R3),
++			BPF_ALU64_REG(BPF_ADD, R0, R4),
++			BPF_ALU64_REG(BPF_ADD, R0, R5),
++			BPF_ALU64_REG(BPF_ADD, R0, R6),
++			BPF_ALU64_REG(BPF_ADD, R0, R7),
++			BPF_ALU64_REG(BPF_ADD, R0, R8),
++			BPF_ALU64_REG(BPF_ADD, R0, R9),
++			BPF_ALU64_IMM(BPF_ADD, R0, 0xfefe),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 0xfefe } }
++	},
++	{	/* Mainly checking JIT here. */
++		"LD IMM64",
++		.u.insns_int = {
++			BPF_LD_IMM64(R0, 0xffffffffffffffffLL),
++			BPF_MOV64_REG(R1, R0),
++			BPF_MOV64_REG(R2, R1),
++			BPF_MOV64_REG(R3, R2),
++			BPF_MOV64_REG(R4, R3),
++			BPF_MOV64_REG(R5, R4),
++			BPF_MOV64_REG(R6, R5),
++			BPF_MOV64_REG(R7, R6),
++			BPF_MOV64_REG(R8, R7),
++			BPF_MOV64_REG(R9, R8),
++			BPF_LD_IMM64(R0, 0x0LL),
++			BPF_LD_IMM64(R1, 0x0LL),
++			BPF_LD_IMM64(R2, 0x0LL),
++			BPF_LD_IMM64(R3, 0x0LL),
++			BPF_LD_IMM64(R4, 0x0LL),
++			BPF_LD_IMM64(R5, 0x0LL),
++			BPF_LD_IMM64(R6, 0x0LL),
++			BPF_LD_IMM64(R7, 0x0LL),
++			BPF_LD_IMM64(R8, 0x0LL),
++			BPF_LD_IMM64(R9, 0x0LL),
++			BPF_ALU64_REG(BPF_ADD, R0, R0),
++			BPF_ALU64_REG(BPF_ADD, R0, R1),
++			BPF_ALU64_REG(BPF_ADD, R0, R2),
++			BPF_ALU64_REG(BPF_ADD, R0, R3),
++			BPF_ALU64_REG(BPF_ADD, R0, R4),
++			BPF_ALU64_REG(BPF_ADD, R0, R5),
++			BPF_ALU64_REG(BPF_ADD, R0, R6),
++			BPF_ALU64_REG(BPF_ADD, R0, R7),
++			BPF_ALU64_REG(BPF_ADD, R0, R8),
++			BPF_ALU64_REG(BPF_ADD, R0, R9),
++			BPF_ALU64_IMM(BPF_ADD, R0, 0xfefe),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, 0xfefe } }
++	},
+ 	{
+ 		"INT: ALU MIX",
+ 		.u.insns_int = {
+-- 
+1.9.3
