@@ -1,67 +1,60 @@
-From: "Gabriele Beltrame" <belgab@drvsource.net>
-Subject: RE: Random packet loss using IPsec with AES128-SHA1
-Date: Thu, 17 Dec 2015 16:36:06 +0100
-Message-ID: <005901d138e0$a6a7a750$f3f6f5f0$@drvsource.net>
-References: <000a01d137e2$afedd130$0fc97390$@drvsource.net> <20151216095954.GN29565@gauss.secunet.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] af_unix: Revert 'lock_interruptible' in stream receive
+ code
+Date: Thu, 17 Dec 2015 16:43:55 +0100
+Message-ID: <5672D83B.7000008@stressinduktion.org>
+References: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
+ <56727EE9.5020805@stressinduktion.org>
+ <87a8p92iy2.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: "'Steffen Klassert'" <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip209.psaruba.com ([94.23.150.209]:35641 "EHLO webs.psaruba.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751420AbbLQPgK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:36:10 -0500
-In-Reply-To: <20151216095954.GN29565@gauss.secunet.com>
-Content-Language: it
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87a8p92iy2.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Steffen,
+On 17.12.2015 16:28, Rainer Weikusat wrote:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+>> On 16.12.2015 21:09, Rainer Weikusat wrote:
+>>> With b3ca9b02b00704053a38bfe4c31dbbb9c13595d0, the AF_UNIX SOCK_STREAM
+>>> receive code was changed from using mutex_lock(&u->readlock) to
+>>> mutex_lock_interruptible(&u->readlock) to prevent signals from being
+>>> delayed for an indefinite time if a thread sleeping on the mutex
+>>> happened to be selected for handling the signal. But this was never a
+>>> problem with the stream receive code (as opposed to its datagram
+>>> counterpart) as that never went to sleep waiting for new messages with the
+>>> mutex held and thus, wouldn't cause secondary readers to block on the
+>>> mutex waiting for the sleeping primary reader. As the interruptible
+>>> locking makes the code more complicated in exchange for no benefit,
+>>> change it back to using mutex_lock.
+>>>
+>>> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+>>> ---
+>>>
+>>> Considering that the datagram receive routine also doesn't go the sleep
+>>> with the mutex held anymore, the 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490
+>>> change to unix_autobind is now similarly purposeless.
+>>
+>> I wouldn't do this conversion, yet. There is still a deadlock lingering
+>> around which should be solved earlier:
+>>
+>> http://lists.openwall.net/netdev/2015/11/10/4
+>>
+>> Unfortunately I haven't found a good way how to solve it, yet.
+> 
+> Judging from the link, that's not related to the stream receive code.
+> 
 
-I don't think it's IPsec (I can see the outbound packet in tcpdump), no=
-t
-alone at least but the XEN /AWS Ethernet driver (or multiple things
-concurring to the issue) actually... the odd thing is that it does seem=
- to
-affect AES-CBS only (3DES-CBS, AES-GCM are fine)
-This is the short discussion on the Strongswan support wiki:
-https://wiki.strongswan.org/issues/1220
+No, but to commit 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490 where the
+mutexes of unix_bind and unix_autobind got changed.
+
+The unix_stream_read_generic conversion is fine.
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
 Thanks,
-Gabriele
-
------Original Message-----
-=46rom: Steffen Klassert [mailto:steffen.klassert@secunet.com]=20
-Sent: mercoled=EC 16 dicembre 2015 11:00
-To: Gabriele Beltrame <belgab@drvsource.net>
-Cc: netdev@vger.kernel.org
-Subject: Re: Random packet loss using IPsec with AES128-SHA1
-
-On Wed, Dec 16, 2015 at 10:17:54AM +0100, Gabriele Beltrame wrote:
-> Hi,
->=20
-> I'm running a few Strongswan 5.3.* CentOS (Kernel 3.16.7, 4.2.6,=20
-> 4.1.*) instances on AWS to terminate VPNs between each other and/or t=
-o=20
-> other devices across the Internet.
-> While investigating some application issues, I've noticed that on=20
-> every VPNs I have random packet losses (from 1% to 4% over 100 to 300
-requests sent).
-> This only happens when the two following conditions are met: (a) AES=20
-> encryption used, (b) IP packet size shorter than about (150+8+20)Byte=
-s.
-
-I've never seen this.
-
-If xfrm statistics are compiled in, a counter is bumped for each packet
-dropped by IPsec. You can check these counters in /proc/net/xfrm_stat.
-
-This will tell you at least whether IPsec is the reason for your packet
-loss.
-
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Hannes
