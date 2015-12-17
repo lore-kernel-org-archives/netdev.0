@@ -1,47 +1,36 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [Patch net] net: check both type and procotol for tcp sockets
-Date: Thu, 17 Dec 2015 10:52:02 -0500
-Message-ID: <CAF=yD-+DHDUdU2njA32eTP1MMtHwp_mTt=hSE+-wVvp0ByuWLA@mail.gmail.com>
-References: <1450337944-22834-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [iproute PATCH v2 1/2] libnetlink: add a variant of
+ rtnl_send_check that consumes ACKs
+Date: Thu, 17 Dec 2015 08:07:22 -0800
+Message-ID: <1450368442.8474.106.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450358538-134898-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	zenczykowski@gmail.com
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:35827 "EHLO
-	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934845AbbLQPwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:52:43 -0500
-Received: by mail-lf0-f43.google.com with SMTP id l133so54390311lfd.2
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 07:52:43 -0800 (PST)
-In-Reply-To: <1450337944-22834-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33759 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966354AbbLQQHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 11:07:24 -0500
+Received: by mail-pf0-f172.google.com with SMTP id n128so14799828pfn.0
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 08:07:24 -0800 (PST)
+In-Reply-To: <1450358538-134898-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2015 at 2:39 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Dmitry reported the following out-of-bound access:
->
-> Call Trace:
->  [<ffffffff816cec2e>] __asan_report_load4_noabort+0x3e/0x40
-> mm/kasan/report.c:294
->  [<ffffffff84affb14>] sock_setsockopt+0x1284/0x13d0 net/core/sock.c:880
->  [<     inline     >] SYSC_setsockopt net/socket.c:1746
->  [<ffffffff84aed7ee>] SyS_setsockopt+0x1fe/0x240 net/socket.c:1729
->  [<ffffffff85c18c76>] entry_SYSCALL_64_fastpath+0x16/0x7a
-> arch/x86/entry/entry_64.S:185
->
-> This is because we mistake a raw socket as a tcp socket.
-> We should check both sk->sk_type and sk->sk_protocol to ensure
-> it is a tcp socket.
->
-> Willem points out __skb_complete_tx_timestamp() needs to fix as well.
->
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On Thu, 2015-12-17 at 22:22 +0900, Lorenzo Colitti wrote:
+> The new variant is identical to rtnl_send_check, except it also
+> consumes the kernel response instead of using MSG_PEEK. This is
+> useful for callers that send simple commands that never cause a
+> response but only ACKs, and that expect to receive and deal
+> with errors without printing them to stderr like rtnl_talk does.
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+> +inline int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
+> +{
+> +	return rtnl_send_check_ack(rth, buf, len, 0);
+> +}
 
-Thanks for fixing both cases at once.
+Please remove this inline attribute.
