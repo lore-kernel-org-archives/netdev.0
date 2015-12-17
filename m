@@ -1,178 +1,92 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net-next v5 5/8] openvswitch: Find existing conntrack entry after upcall.
-Date: Wed, 16 Dec 2015 16:36:44 -0800
-Message-ID: <1450312607-44050-6-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH net-next v5 3/8] netfilter: Allow calling into nat
+	helper without skb_dst.
+Date: Wed, 16 Dec 2015 16:36:42 -0800
+Message-ID: <1450312607-44050-4-git-send-email-jarno@ovn.org>
 References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
-Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:51412 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934143AbbLQAhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:37:32 -0500
-In-Reply-To: <1450312607-44050-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1450312607-44050-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Add a new function ovs_ct_find_existing() to find an existing
-conntrack entry for which this packet was already applied to.  This is
-only to be called when there is evidence that the packet was already
-tracked and committed, but we lost the ct reference due to an
-userspace upcall.
-
-ovs_ct_find_existing() is called from skb_nfct_cached(), which can now
-hide the fact that the ct reference may have been lost due to an
-upcall.  This allows ovs_ct_commit() to be simplified.
-
-This patch is needed by later "openvswitch: Interface with NAT" patch,
-as we need to be able to pass the packet through NAT using the
-original ct reference also after the reference is lost after an
-upcall.
-
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/conntrack.c | 95 ++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 82 insertions(+), 13 deletions(-)
-
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 10f4a6e..0c371d0 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -359,16 +359,87 @@ ovs_ct_expect_find(struct net *net, const struct nf_conntrack_zone *zone,
- 	return __nf_ct_expect_find(net, zone, &tuple);
- }
- 
-+/* Find an existing conntrack entry for which this packet was already applied
-+ * to.  This is only called when there is evidence that the packet was already
-+ * tracked and commited, but we lost the ct reference due to an userspace
-+ * upcall. This means that on entry skb->nfct is NULL.
-+ * On success, returns conntrack ptr, sets skb->nfct and ctinfo.
-+ * Must be called rcu_read_lock()ed. */
-+static struct nf_conn *
-+ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
-+		     u_int8_t l3num, struct sk_buff *skb,
-+		     enum ip_conntrack_info *ctinfo)
-+{
-+	struct nf_conntrack_l3proto *l3proto;
-+	struct nf_conntrack_l4proto *l4proto;
-+	struct nf_conntrack_tuple tuple;
-+	struct nf_conntrack_tuple_hash *h;
-+	struct nf_conn *ct;
-+	unsigned int dataoff;
-+	u_int8_t protonum;
-+
-+	BUG_ON(skb->nfct != NULL);
-+
-+	l3proto = __nf_ct_l3proto_find(l3num);
-+	if (!l3proto) {
-+		pr_debug("ovs_ct_find_existing: Can't get l3proto\n");
-+		return NULL;
-+	}
-+	if (l3proto->get_l4proto(skb, skb_network_offset(skb), &dataoff,
-+				 &protonum) <= 0) {
-+		pr_debug("ovs_ct_find_existing: Can't get protonum\n");
-+		return NULL;
-+	}
-+	l4proto = __nf_ct_l4proto_find(l3num, protonum);
-+	if (!l4proto) {
-+		pr_debug("ovs_ct_find_existing: Can't get l4proto\n");
-+		return NULL;
-+	}
-+	if (!nf_ct_get_tuple(skb, skb_network_offset(skb), dataoff, l3num,
-+			     protonum, net, &tuple, l3proto, l4proto)) {
-+		pr_debug("ovs_ct_find_existing: Can't get tuple\n");
-+		return NULL;
-+	}
-+
-+	/* look for tuple match */
-+	h = nf_conntrack_find_get(net, zone, &tuple);
-+	if (!h)
-+		return NULL;   /* Not found. */
-+
-+	ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	*ctinfo = nf_ct_get_info(h);
-+	if (*ctinfo == IP_CT_NEW) {
-+		/* This should not happen. */
-+		WARN_ONCE(1, "ovs_ct_find_existing: new packet for %p\n", ct);
-+	}
-+	skb->nfct = &ct->ct_general;
-+	skb->nfctinfo = *ctinfo;
-+	return ct;
-+}
-+
- /* Determine whether skb->nfct is equal to the result of conntrack lookup. */
--static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
--			    const struct ovs_conntrack_info *info)
-+static bool skb_nfct_cached(struct net *net,
-+			    const struct sw_flow_key *key,
-+			    const struct ovs_conntrack_info *info,
-+			    struct sk_buff *skb)
- {
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct;
- 
- 	ct = nf_ct_get(skb, &ctinfo);
-+	/* If no ct, check if we have evidence that an existing conntrack entry
-+	 * might be found for this skb.  This happens when we lose a skb->nfct
-+	 * due to an upcall.  If the connection was not confirmed, it is not
-+	 * cached and needs to be run through conntrack again. */
-+	if (!ct && key->ct.state & OVS_CS_F_TRACKED
-+	    && !(key->ct.state & OVS_CS_F_INVALID)
-+	    && key->ct.zone == info->zone.id)
-+		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
-+					  &ctinfo);
- 	if (!ct)
- 		return false;
-+
- 	if (!net_eq(net, read_pnet(&ct->ct_net)))
- 		return false;
- 	if (!nf_ct_zone_equal_any(info->ct, nf_ct_zone(ct)))
-@@ -397,7 +468,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 	 * actually run the packet through conntrack twice unless it's for a
- 	 * different zone.
- 	 */
--	if (!skb_nfct_cached(net, skb, info)) {
-+	if (!skb_nfct_cached(net, key, info, skb)) {
- 		struct nf_conn *tmpl = info->ct;
- 
- 		/* Associate skb with specified zone. */
-@@ -431,6 +502,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- {
- 	struct nf_conntrack_expect *exp;
- 
-+	/* If we pass an expected packet through nf_conntrack_in() the
-+	 * expectiation will be removed, but the packet could still be lost in
-+	 * upcall processing.  To prevent this from happening we perform an
-+	 * explicit expectation lookup.  Expected connections are always new,
-+	 * and will be passed through conntrack only when they are committed,
-+	 * as it is OK to remove the expectation at that time.
-+	 */
- 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
- 	if (exp) {
- 		u8 state;
-@@ -453,21 +531,12 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 			 const struct ovs_conntrack_info *info,
- 			 struct sk_buff *skb)
- {
--	u8 state;
- 	int err;
- 
--	state = key->ct.state;
--	if (key->ct.zone == info->zone.id &&
--	    ((state & OVS_CS_F_TRACKED) && !(state & OVS_CS_F_NEW))) {
--		/* Previous lookup has shown that this connection is already
--		 * tracked and committed. Skip committing.
--		 */
--		return 0;
--	}
--
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
-+	/* This is a no-op if the connection has already been confirmed. */
- 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
- 		return -EINVAL;
- 
--- 
-2.1.4
+TkFUIGNoZWNrc3VtIHJlY2FsY3VsYXRpb24gY29kZSBhc3N1bWVzIGV4aXN0ZW5jZSBvZiBza2Jf
+ZHN0LCB3aGljaApiZWNvbWVzIGEgcHJvYmxlbSBmb3IgYSBsYXRlciBwYXRjaCBpbiB0aGUgc2Vy
+aWVzICgib3BlbnZzd2l0Y2g6CkludGVyZmFjZSB3aXRoIE5BVC4iKS4gIFNpbXBsaWZ5IHRoaXMg
+YnkgcmVtb3ZpbmcgdGhlIGNoZWNrIG9uCnNrYl9kc3QsIGFzIHRoZSBjaGVja3N1bSB3aWxsIGJl
+IGRlYWx0IHdpdGggbGF0ZXIgaW4gdGhlIHN0YWNrLgoKU3VnZ2VzdGVkLWJ5OiBQcmF2aW4gU2hl
+bGFyIDxwc2hlbGFyQG5pY2lyYS5jb20+ClNpZ25lZC1vZmYtYnk6IEphcm5vIFJhamFoYWxtZSA8
+amFybm9Ab3ZuLm9yZz4KLS0tCiBuZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2
+NC5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBuZXQvaXB2Ni9uZXRmaWx0
+ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tCiAyIGZpbGVzIGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDQ0IGRlbGV0aW9ucygtKQoK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0LmMgYi9u
+ZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2NC5jCmluZGV4IDYxYzdjYzIuLmY4
+YWFkMDMgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0
+LmMKKysrIGIvbmV0L2lwdjQvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjQuYwpAQCAtMTI3
+LDI5ICsxMjcsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjRfY3N1bV9yZWNhbGMoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
+ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
+aXBoZHIgKmlwaCA9IGlwX2hkcihza2IpOwotCXN0cnVjdCBydGFibGUgKnJ0ID0gc2tiX3J0YWJs
+ZShza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJ
+aWYgKCEocnQtPnJ0X2ZsYWdzICYgUlRDRl9MT0NBTCkgJiYKLQkJICAgICghc2tiLT5kZXYgfHwg
+c2tiLT5kZXYtPmZlYXR1cmVzICYKLQkJICAgICAoTkVUSUZfRl9JUF9DU1VNIHwgTkVUSUZfRl9I
+V19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNr
+Yi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShza2IpICsKLQkJCQkJICBza2JfbmV0d29ya19v
+ZmZzZXQoc2tiKSArCi0JCQkJCSAgaXBfaGRybGVuKHNrYik7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0
+ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV90Y3B1ZHBfbWFnaWMo
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgICBkYXRhbGVuLCBwcm90bywgMCk7Ci0J
+CX0gZWxzZSB7Ci0JCQkqY2hlY2sgPSAwOwotCQkJKmNoZWNrID0gY3N1bV90Y3B1ZHBfbWFnaWMo
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgIGRhdGFsZW4sIHByb3RvLAotCQkJCQkJ
+ICAgY3N1bV9wYXJ0aWFsKGRhdGEsIGRhdGFsZW4sCi0JCQkJCQkJCTApKTsKLQkJCWlmIChwcm90
+byA9PSBJUFBST1RPX1VEUCAmJiAhKmNoZWNrKQotCQkJCSpjaGVjayA9IENTVU1fTUFOR0xFRF8w
+OwotCQl9CisJCWNvbnN0IHN0cnVjdCBpcGhkciAqaXBoID0gaXBfaGRyKHNrYik7CisKKwkJc2ti
+LT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9QQVJUSUFMOworCQlza2ItPmNzdW1fc3RhcnQgPSBza2Jf
+aGVhZHJvb20oc2tiKSArIHNrYl9uZXR3b3JrX29mZnNldChza2IpICsKKwkJCWlwX2hkcmxlbihz
+a2IpOworCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7CisJCSpjaGVj
+ayA9IH5jc3VtX3RjcHVkcF9tYWdpYyhpcGgtPnNhZGRyLCBpcGgtPmRhZGRyLCBkYXRhbGVuLAor
+CQkJCQkgICAgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1fcmVwbGFjZTIo
+Y2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4pLCB0cnVlKTsK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2LmMgYi9u
+ZXQvaXB2Ni9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jCmluZGV4IDZjZTMwOTkuLmUw
+YmU5N2UgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2
+LmMKKysrIGIvbmV0L2lwdjYvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYwpAQCAtMTMx
+LDI5ICsxMzEsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjZfY3N1bV9yZWNhbGMoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
+ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
+aXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOwotCXN0cnVjdCBydDZfaW5mbyAqcnQgPSAo
+c3RydWN0IHJ0Nl9pbmZvICopc2tiX2RzdChza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9
+IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJaWYgKCEocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfTE9DQUwp
+ICYmCi0JCSAgICAoIXNrYi0+ZGV2IHx8IHNrYi0+ZGV2LT5mZWF0dXJlcyAmCi0JCSAgICAgKE5F
+VElGX0ZfSVBWNl9DU1VNIHwgTkVUSUZfRl9IV19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVk
+ID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNrYi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShz
+a2IpICsKLQkJCQkJICBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCi0JCQkJCSAgKGRhdGEgLSAo
+dm9pZCAqKXNrYi0+ZGF0YSk7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAt
+IGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2
+aC0+ZGFkZHIsCi0JCQkJCQkgIGRhdGFsZW4sIHByb3RvLCAwKTsKLQkJfSBlbHNlIHsKLQkJCSpj
+aGVjayA9IDA7Ci0JCQkqY2hlY2sgPSBjc3VtX2lwdjZfbWFnaWMoJmlwdjZoLT5zYWRkciwgJmlw
+djZoLT5kYWRkciwKLQkJCQkJCSBkYXRhbGVuLCBwcm90bywKLQkJCQkJCSBjc3VtX3BhcnRpYWwo
+ZGF0YSwgZGF0YWxlbiwKLQkJCQkJCQkgICAgICAwKSk7Ci0JCQlpZiAocHJvdG8gPT0gSVBQUk9U
+T19VRFAgJiYgISpjaGVjaykKLQkJCQkqY2hlY2sgPSBDU1VNX01BTkdMRURfMDsKLQkJfQorCQlj
+b25zdCBzdHJ1Y3QgaXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOworCisJCXNrYi0+aXBf
+c3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKKwkJc2tiLT5jc3VtX3N0YXJ0ID0gc2tiX2hlYWRy
+b29tKHNrYikgKyBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCisJCQkoZGF0YSAtICh2b2lkICop
+c2tiLT5kYXRhKTsKKwkJc2tiLT5jc3VtX29mZnNldCA9ICh2b2lkICopY2hlY2sgLSBkYXRhOwor
+CQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2aC0+ZGFkZHIs
+CisJCQkJCSAgZGF0YWxlbiwgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1f
+cmVwbGFjZTIoY2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4p
+LCB0cnVlKTsKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
