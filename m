@@ -1,85 +1,73 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [iproute PATCH v2 1/2] libnetlink: add a variant of rtnl_send_check that consumes ACKs
-Date: Thu, 17 Dec 2015 22:22:17 +0900
-Message-ID: <1450358538-134898-1-git-send-email-lorenzo@google.com>
-Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
-	zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v5 2/8] netfilter: Factor out nf_ct_get_info().
+Date: Thu, 17 Dec 2015 16:31:24 +0300
+Message-ID: <5672B92C.1000903@cogentembedded.com>
+References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
+ <1450312607-44050-3-git-send-email-jarno@ovn.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org
+To: Jarno Rajahalme <jarno@ovn.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34482 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933043AbbLQNWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 08:22:48 -0500
-Received: by mail-pf0-f172.google.com with SMTP id 68so30944615pfc.1
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 05:22:48 -0800 (PST)
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:36319 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934325AbbLQNb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 08:31:27 -0500
+Received: by mail-lf0-f42.google.com with SMTP id z124so46927495lfa.3
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 05:31:26 -0800 (PST)
+In-Reply-To: <1450312607-44050-3-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new variant is identical to rtnl_send_check, except it also
-consumes the kernel response instead of using MSG_PEEK. This is
-useful for callers that send simple commands that never cause a
-response but only ACKs, and that expect to receive and deal
-with errors without printing them to stderr like rtnl_talk does.
+Hello.
 
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- include/libnetlink.h |  2 ++
- lib/libnetlink.c     | 14 +++++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+On 12/17/2015 3:36 AM, Jarno Rajahalme wrote:
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 431189e..a88cb4d 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -75,6 +75,8 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 	__attribute__((warn_unused_result));
- int rtnl_send(struct rtnl_handle *rth, const void *buf, int)
- 	__attribute__((warn_unused_result));
-+int rtnl_send_check_ack(struct rtnl_handle *rth, const void *buf, int, int)
-+	__attribute__((warn_unused_result));
- int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int)
- 	__attribute__((warn_unused_result));
- 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 1658214..a3ad83a 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -134,18 +134,21 @@ int rtnl_send(struct rtnl_handle *rth, const void *buf, int len)
- 	return send(rth->fd, buf, len, 0);
- }
- 
--int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
-+int rtnl_send_check_ack(struct rtnl_handle *rth, const void *buf, int len,
-+		int ack)
- {
- 	struct nlmsghdr *h;
--	int status;
-+	int status, flags;
- 	char resp[1024];
- 
- 	status = send(rth->fd, buf, len, 0);
- 	if (status < 0)
- 		return status;
- 
-+	flags = MSG_DONTWAIT | (ack ? 0 : MSG_PEEK);
-+
- 	/* Check for immediate errors */
--	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT|MSG_PEEK);
-+	status = recv(rth->fd, resp, sizeof(resp), flags);
- 	if (status < 0) {
- 		if (errno == EAGAIN)
- 			return 0;
-@@ -167,6 +170,11 @@ int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
- 	return 0;
- }
- 
-+inline int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int len)
-+{
-+	return rtnl_send_check_ack(rth, buf, len, 0);
-+}
-+
- int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
- {
- 	struct nlmsghdr nlh;
--- 
-2.6.0.rc2.230.g3dd15c0
+> Define a new inline function to map conntrack status to enum
+> ip_conntrack_info.  This removes the need to otherwise duplicate this
+> code in a later patch ("openvswitch: Find existing conntrack entry
+> after upcall.").
+>
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+[...]
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 3cb3cb8..7546fc7 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1056,25 +1056,15 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+>   	ct = nf_ct_tuplehash_to_ctrack(h);
+>
+>   	/* It exists; we have (non-exclusive) reference. */
+> -	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
+> -		*ctinfo = IP_CT_ESTABLISHED_REPLY;
+> -		/* Please set reply bit if this packet OK */
+> -		*set_reply = 1;
+> -	} else {
+> -		/* Once we've had two way comms, always ESTABLISHED. */
+> -		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+> -			pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+> -			*ctinfo = IP_CT_ESTABLISHED;
+> -		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
+> -			pr_debug("nf_conntrack_in: related packet for %p\n",
+> -				 ct);
+> -			*ctinfo = IP_CT_RELATED;
+> -		} else {
+> -			pr_debug("nf_conntrack_in: new packet for %p\n", ct);
+> -			*ctinfo = IP_CT_NEW;
+> -		}
+> -		*set_reply = 0;
+> -	}
+> +	*ctinfo = nf_ct_get_info(h);
+> +	if (*ctinfo == IP_CT_ESTABLISHED)
+> +		pr_debug("nf_conntrack_in: normal packet for %p\n", ct);
+> +	else if (*ctinfo == IP_CT_RELATED)
+> +		pr_debug("nf_conntrack_in: related packet for %p\n", ct);
+> +	else if (*ctinfo == IP_CT_NEW)
+> +		pr_debug("nf_conntrack_in: new packet for %p\n", ct);
+
+    This is asking to be a *switch* statement...
+
+[...]
+
+MBR, Sergei
