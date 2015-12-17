@@ -1,90 +1,81 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
-Date: Thu, 17 Dec 2015 13:57:16 -0800
-Message-ID: <1586.1450389436@famine>
-References: <1450339417-31254-1-git-send-email-zyjzyj2000@gmail.com>
-Cc: vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, Boris.Shteinbock@windriver.com
-To: zyjzyj2000@gmail.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: addrconf: use stable address generator for
+ ARPHRD_NONE
+Date: Thu, 17 Dec 2015 23:04:56 +0100
+Message-ID: <56733188.8030205@stressinduktion.org>
+References: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:34821 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932330AbbLQV5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:57:21 -0500
-In-reply-to: <1450339417-31254-1-git-send-email-zyjzyj2000@gmail.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59392 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932828AbbLQWE7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:04:59 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id E3E3120398
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 17:04:58 -0500 (EST)
+In-Reply-To: <1450280678-4730-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-<zyjzyj2000@gmail.com> wrote:
+On 16.12.2015 16:44, Bj=C3=B8rn Mork wrote:
+> Add a new address generator mode, using the stable address generator
+> with an automatically generated secret. This is intended as a default
+> address generator mode for device types with no EUI64 implementation.
+> The new generator is used for ARPHRD_NONE interfaces initially, addin=
+g
+> default IPv6 autoconf support to e.g. tun interfaces.
+>=20
+> If the addrgenmode is set to 'random', either by default or manually,
+> and no stable secret is available, then a random secret is used as
+> input for the stable-privacy address generator.  The secret can be
+> read and modified like manually configured secrets, using the proc
+> interface.  Modifying the secret will change the addrgen mode to
+> 'stable-privacy' to indicate that it operates on a known secret.
+>=20
+> Existing behaviour of the 'stable-privacy' mode is kept unchanged. If
+> a known secret is available when the device is created, then the mode
+> will default to 'stable-privacy' as before.  The mode can be manually
+> set to 'random' but it will behave exactly like 'stable-privacy' in
+> this case. The secret will not change.
+>=20
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yoshifuji@miracleli=
+nux.com>
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+> ---
+> Changes since RFC:
+>  - use IN6_ADDR_GEN_MODE_RANDOM as requested
+>  - set the device type specific default in addrconf_dev_config() inst=
+ead
+>    of ipv6_add_dev() to catch device type changes
+>=20
+> I guess an explanation is needed for the last change: My primary
+> use case for this is the raw-ip support recently added to the qmi_wwa=
+n
+> driver. This driver creates an ARPHRD_ETHER device which can be morph=
+ed
+> into an ARPHRD_NONE device. So at device creation time everything is
+> fine and EUI64 is supported. But when the link is set up, the device
+> type is change and EUI64 does not work. So I needed to override the
+> default for ARPHRD_NONE at link up time.
+>=20
+> An alternative would be to keep the ipv6_add_dev() code and add devic=
+e
+> type change notifier code. That seemed messier to me. Besides, we
+> already do type based address configuration decisions in
+> addrconf_dev_config(), deciding whether autoconfiguration is availabl=
+e
+> or not.
 
->From: Zhu Yanjun <zyjzyj2000@gmail.com>
->
->In 802.3ad mode, the speed and duplex is needed. But in some NIC,
->there is a time span between NIC up state and getting speed and duplex.
->As such, sometimes a slave in 802.3ad mode is in up state without
->speed and duplex. This will make bonding in 802.3ad mode can not
->work well. 
->To make bonding driver be compatible with more NICs, it is
->necessary to restrict the up state in 802.3ad mode.
+Agreed to your statements above and I reviewed the patch. Also, I can't
+see any bad side effects resulting in ARPHRD_NONE interfaces picking up
+link local addresses in general.
 
-	What device is this?  It seems a bit odd that an Ethernet device
-can be carrier up but not have the duplex and speed available.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-	Also, what are the option settings for bonding?  Specifically,
-is "use_carrier" set to 0?  The default setting is 1.
-
-	In general, though, bonding expects a speed or duplex change to
-be announced via a NETDEV_UPDATE or NETDEV_UP notifier, which would
-propagate to the 802.3ad logic.
-
-	If the device here is going carrier up prior to having speed or
-duplex available, then maybe it should call netdev_state_change() when
-the duplex and speed are available, or delay calling netif_carrier_on().
-
->Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
->---
-> drivers/net/bonding/bond_main.c |   19 +++++++++++++++++++
-> 1 file changed, 19 insertions(+)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 9e0f8a7..0a80fb3 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1991,6 +1991,25 @@ static int bond_miimon_inspect(struct bonding *bond)
-> 
-> 		link_state = bond_check_dev_link(bond, slave->dev, 0);
-> 
->+		/* Since some NIC has time span between netif_running and
->+		 * getting speed and duples. That is, after a NIC is up (netif_running),
->+		 * there is a time span before this NIC is negotiated with speed and duplex.
->+		 * During this time span, the slave in 802.3ad is configured without speed
->+		 * and duplex. This 802.3ad bonding will not work because it needs slave's speed
->+		 * and duplex to generate key field.
->+		 * As such, we restrict up in 802.3ad mode to: netif_running && peed != SPEED_UNKNOWN &&
->+		 * duplex != DUPLEX_UNKNOWN
->+		 */
->+		if ((BMSR_LSTATUS == link_state) &&
->+		    (BOND_MODE(bond) == BOND_MODE_8023AD)) {
->+			bond_update_speed_duplex(slave);
->+			if ((slave->speed == SPEED_UNKNOWN) ||
->+			    (slave->duplex == DUPLEX_UNKNOWN)) {
->+				link_state = 0;
->+				netdev_info(bond->dev, "In 802.3ad mode, it is not enough to up without speed and duplex");
->+			}
->+		}
-
-	Also, as a functional note on this patch, the above looks like
-it will spam the log repeatedly every miimon interval for as long as the
-"carrier up but no speed/duplex" situation persists.
-
-	-J
-
-> 		switch (slave->link) {
-> 		case BOND_LINK_UP:
-> 			if (link_state)
->-- 
->1.7.9.5
->
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Thanks,
+Hannes
