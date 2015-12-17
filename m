@@ -1,35 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/1] mac80211: improve the contiguous mask checking
-Date: Thu, 17 Dec 2015 16:04:28 +0100
-Message-ID: <1450364668.8247.34.camel@sipsolutions.net>
-References: <1450364392-76874-1-git-send-email-zhaoxiu.zeng@gmail.com>
-	 (sfid-20151217_160054_877867_44DDA348)
+From: Tristan Colgate <tristan@cloudflare.com>
+Subject: [PATCH] net ixgbevf: ethtool statistics yields/misses fixes
+Date: Thu, 17 Dec 2015 15:16:32 +0000
+Message-ID: <CAKMD_B1woL6tWv+D9SVrOwA6VEeWX1pY22DEuw1jn-Vq=+Lp6g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450364392-76874-1-git-send-email-zhaoxiu.zeng@gmail.com> (sfid-20151217_160054_877867_44DDA348)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:33987 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755687AbbLQPQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:16:33 -0500
+Received: by mail-wm0-f51.google.com with SMTP id l126so27958380wml.1
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 07:16:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-12-17 at 22:59 +0800, Zeng Zhaoxiu wrote:
-> If the result of adding the first set bit to the mask is power of 2,
-> the mask must be contiguous. "mask & -mask" can get the first set bit
-> of mask gracefully.
+ixgbevf over counts yields and does not actually count misses.
+---
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> -		if (__ffs64(mask) + hweight64(mask) !=3D fls64(mask))
-> {
-> +		inc =3D (mask & -mask);
-> +		val =3D mask + inc;
-> +		if ((val & (val - 1)) !=3D 0) {
-> =C2=A0			/* not a contiguous mask ... not handled now! */
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index d3e5f5b..ffdd8df 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -417,13 +417,13 @@ static void ixgbevf_get_ethtool_stats(struct
+net_device *netdev,
+        for (i = 0; i < adapter->num_rx_queues; i++) {
+                rx_yields += adapter->rx_ring[i]->stats.yields;
+                rx_cleaned += adapter->rx_ring[i]->stats.cleaned;
+-               rx_yields += adapter->rx_ring[i]->stats.yields;
++               rx_missed += adapter->rx_ring[i]->stats.misses;
+        }
 
-Hm. Ok, I can see how that would work, but it doesn't really seem like
-much of an "improvement" to me? Surely I seem to need much more
-thinking to understand this. There's no reason to optimise it either,
-so why should we change it?
+        for (i = 0; i < adapter->num_tx_queues; i++) {
+                tx_yields += adapter->tx_ring[i]->stats.yields;
+                tx_cleaned += adapter->tx_ring[i]->stats.cleaned;
+-               tx_yields += adapter->tx_ring[i]->stats.yields;
++               tx_missed += adapter->tx_ring[i]->stats.misses;
+        }
 
-johannes
+        adapter->bp_rx_yields = rx_yields;
+-- 
+2.1.4
