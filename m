@@ -1,9 +1,9 @@
 From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [RFC 4/5] i40e/ethtool: support coalesce getting by queue
-Date: Thu, 17 Dec 2015 22:43:52 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFD1C84@fmsmsx115.amr.corp.intel.com>
+Subject: RE: [RFC 5/5] i40e/ethtool: support coalesce setting by queue
+Date: Thu, 17 Dec 2015 22:47:17 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFD1CAC@fmsmsx115.amr.corp.intel.com>
 References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
- <1450335081-3012-4-git-send-email-kan.liang@intel.com>
+ <1450335081-3012-5-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -31,104 +31,128 @@ To: "Liang, Kan" <kan.liang@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"bwh@kernel.org" <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9403 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:28972 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933482AbbLQWny convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:43:54 -0500
-In-Reply-To: <1450335081-3012-4-git-send-email-kan.liang@intel.com>
+	id S965128AbbLQWrT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 17:47:19 -0500
+In-Reply-To: <1450335081-3012-5-git-send-email-kan.liang@intel.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 > From: Kan Liang <kan.liang@intel.com>
 > 
-> This patch implements get_per_queue_coalesce for i40e driver.
-> For i40e driver, only rx and tx usecs has per queue value. So only these
-> two parameters are read from specific registers. For other interrupt
-> coalescing parameters, they are shared among queues. The values which
-> are stored in vsi will be return.
+> This patch implements set_per_queue_coalesce for i40e driver.
+> For i40e driver, only rx and tx usecs has per queue value. Changing
+> these two parameters only impact the specific queue. For other interrupt
+> coalescing parameters, they are shared among queues. The change to one
+> queue will impact all queues.
 > 
 > Signed-off-by: Kan Liang <kan.liang@intel.com>
 > ---
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 34
-> ++++++++++++++++++++++++--
->  1 file changed, 32 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 55 +++++++++++++++++++--
+> -----
+>  1 file changed, 41 insertions(+), 14 deletions(-)
 > 
 > diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 > b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> index 3f385ff..b41f0be 100644
+> index b41f0be..5a35fdb 100644
 > --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 > +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> @@ -1843,11 +1843,16 @@ static int i40e_set_phys_id(struct net_device
-> *netdev,
->   * 125us (8000 interrupts per second) == ITR(62)
->   */
+> @@ -1901,14 +1901,29 @@ static int i40e_get_per_queue_coalesce(struct
+> net_device *netdev, int queue,
+>  	return __i40e_get_coalesce(netdev, ec, queue);
+>  }
 > 
-> -static int i40e_get_coalesce(struct net_device *netdev,
+> -static int i40e_set_coalesce(struct net_device *netdev,
 > -			     struct ethtool_coalesce *ec)
-> +static int __i40e_get_coalesce(struct net_device *netdev,
-> +			       struct ethtool_coalesce *ec,
-> +			       int queue)
+> +static void i40e_set_itr_for_queue(struct i40e_vsi *vsi, int queue, u16
+> vector)
 >  {
->  	struct i40e_netdev_priv *np = netdev_priv(netdev);
->  	struct i40e_vsi *vsi = np->vsi;
-> +	struct i40e_pf *pf = vsi->back;
-> +	struct i40e_hw *hw = &pf->hw;
-> +	struct i40e_q_vector *q_vector;
-> +	u16 vector;
-> 
->  	ec->tx_max_coalesced_frames_irq = vsi->work_limit;
->  	ec->rx_max_coalesced_frames_irq = vsi->work_limit;
-> @@ -1869,9 +1874,33 @@ static int i40e_get_coalesce(struct net_device
-> *netdev,
->  	ec->rx_coalesce_usecs_high = vsi->int_rate_limit;
->  	ec->tx_coalesce_usecs_high = vsi->int_rate_limit;
-> 
-> +	if (queue > 0) {
-> +		if (queue >= vsi->num_q_vectors) {
-> +			netif_info(pf, drv, netdev, "Invalid queue number\n");
-> +			return -EINVAL;
-> +		}
+> -	struct i40e_netdev_priv *np = netdev_priv(netdev);
+>  	struct i40e_q_vector *q_vector;
+> -	struct i40e_vsi *vsi = np->vsi;
+>  	struct i40e_pf *pf = vsi->back;
+>  	struct i40e_hw *hw = &pf->hw;
+> +	u16 intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
 > +
-> +		q_vector = vsi->q_vectors[queue];
+> +	q_vector = vsi->q_vectors[queue];
 
-The problem here is that there can be more queues than vectors and they're not spread round-robin style.  For example, if the VSI was only given 4 vectors, but has 8 queues, there will be 2 queues per vector paired up such that V0 <= {Q0, Q1}, V1 <= {Q2, Q3} ...
+Again, the problem here is that there can be more queues than vectors, so you'll need to check the requested queue number against vsi->num_queue_pairs for the max queue check, then look at vsi->tx_rings[queue].q_vector and/or vsi->rx_rings[queue].q_vector to find the actual q_vector for the requested queue.
 
-You'll need to check the requested queue number against vsi->num_queue_pairs for the max queue check, then look at vsi->tx_rings[queue].q_vector and/or vsi->rx_rings[queue].q_vector to find the actual q_vector for the requested queue.
+Also, this means that it would be possible for the user to try to assign different values to queues on the same vector.  How do you want to handle that?  My first inclination is to not do anything and just let the last value assigned win.
 
 sln
 
-> +		vector = vsi->base_vector + queue;
+> +	q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
+> +	wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector->rx.itr);
+> +	q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
+> +	wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector->tx.itr);
+> +	wr32(hw, I40E_PFINT_RATEN(vector - 1), intrl);
+> +	i40e_flush(hw);
+> +}
 > +
-> +		ec->rx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw,
-> I40E_PFINT_ITRN(0, vector - 1)));
-> +		ec->tx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw,
-> I40E_PFINT_ITRN(1, vector - 1)));
-> +	}
+> +static int __i40e_set_coalesce(struct net_device *netdev,
+> +			       struct ethtool_coalesce *ec,
+> +			       int queue)
+> +{
+> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
+> +	struct i40e_vsi *vsi = np->vsi;
+> +	struct i40e_pf *pf = vsi->back;
+>  	u16 vector;
+>  	int i;
+> 
+> @@ -1964,21 +1979,32 @@ static int i40e_set_coalesce(struct net_device
+> *netdev,
+>  	else
+>  		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
+> 
+> -	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
+> -		u16 intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
+> -
+> -		q_vector = vsi->q_vectors[i];
+> -		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
+> -		wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector->rx.itr);
+> -		q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
+> -		wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector->tx.itr);
+> -		wr32(hw, I40E_PFINT_RATEN(vector - 1), intrl);
+> -		i40e_flush(hw);
+> +	if (queue < 0) {
+> +		for (i = 0; i < vsi->num_q_vectors; i++, vector++)
+> +			i40e_set_itr_for_queue(vsi, i, vector);
+> +	} else {
+> +		if (queue >= vsi->num_q_vectors) {
+> +			netif_info(pf, drv, netdev, "Invalid queue value, queue
+> range is 0 - %d\n", vsi->num_q_vectors - 1);
+> +			return -EINVAL;
+> +		}
+> +		i40e_set_itr_for_queue(vsi, queue, vector + queue);
+>  	}
+> 
 >  	return 0;
 >  }
 > 
-> +static int i40e_get_coalesce(struct net_device *netdev,
+> +static int i40e_set_coalesce(struct net_device *netdev,
 > +			     struct ethtool_coalesce *ec)
 > +{
-> +	return __i40e_get_coalesce(netdev, ec, -1);
+> +	return __i40e_set_coalesce(netdev, ec, -1);
 > +}
 > +
-> +static int i40e_get_per_queue_coalesce(struct net_device *netdev, int
+> +static int i40e_set_per_queue_coalesce(struct net_device *netdev, int
 > queue,
 > +				       struct ethtool_coalesce *ec)
 > +{
-> +	return __i40e_get_coalesce(netdev, ec, queue);
+> +	return __i40e_set_coalesce(netdev, ec, queue);
 > +}
 > +
->  static int i40e_set_coalesce(struct net_device *netdev,
->  			     struct ethtool_coalesce *ec)
->  {
-> @@ -2788,6 +2817,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
->  	.get_ts_info		= i40e_get_ts_info,
+>  /**
+>   * i40e_get_rss_hash_opts - Get RSS hash Input Set for each flow type
+>   * @pf: pointer to the physical function struct
+> @@ -2818,6 +2844,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
 >  	.get_priv_flags		= i40e_get_priv_flags,
 >  	.set_priv_flags		= i40e_set_priv_flags,
-> +	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
+>  	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
+> +	.set_per_queue_coalesce	= i40e_set_per_queue_coalesce,
 >  };
 > 
 >  void i40e_set_ethtool_ops(struct net_device *netdev)
