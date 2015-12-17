@@ -1,49 +1,62 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: sctp should release assoc when sctp_make_abort_user return NULL in sctp_close
-Date: Thu, 17 Dec 2015 22:30:52 +0800
-Message-ID: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
-Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Load Balancing for AF_INET Raw Sockets
+Date: Thu, 17 Dec 2015 06:45:35 -0800
+Message-ID: <1450363535.8474.104.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAPBAu3Uz5P-uJ3Hqg=K49PLDkaGtUWW_SGAH0mTvAsevwvE7Ew@mail.gmail.com>
+	 <1450190376.8474.28.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAPBAu3XWzO5GT1cceVgYCJ2Du_p+yht3moBPuKrn-i_O5yLJvw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Prashant Upadhyaya <praupadhyaya@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33432 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755730AbbLQOa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 09:30:58 -0500
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36467 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756098AbbLQOpi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 09:45:38 -0500
+Received: by mail-pf0-f180.google.com with SMTP id o64so32034788pfb.3
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 06:45:37 -0800 (PST)
+In-Reply-To: <CAPBAu3XWzO5GT1cceVgYCJ2Du_p+yht3moBPuKrn-i_O5yLJvw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In sctp_close, sctp_make_abort_user may return NULL because of memory
-allocation failure. If this happens, it will bypass any state change
-and never free the assoc. The assoc has no chance to be freed and it
-will be kept in memory with the state it had even after the socket is
-closed by sctp_close().
+On Thu, 2015-12-17 at 11:40 +0530, Prashant Upadhyaya wrote:
+> On Tue, Dec 15, 2015 at 8:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2015-12-15 at 18:26 +0530, Prashant Upadhyaya wrote:
+> >> Hi,
+> >>
+> >> I open a raw socket for listening to all the UDP packets in a raw fashion --
+> >>
+> >> socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
+> >>
+> >> Then I use recvfrom to read the packets over the socket.
+> >>
+> >> The above works mighty fine.
+> >> I want to find out if it is possible to 'load balance' the UDP flows
+> >> by opening up multiple instances of this socket and then possibly
+> >> setting some socket options so that I can scale up the reading via
+> >> multiple threads doing recvfrom on these from multiple cores.
+> >> (I know it is possible over packet sockets, but that is a different usecase)
+> >
+> > No plan yet to support fanout on multiple raw sockets.
+> >
+> >
+> Hi,
+> 
+> One question on the AF_INET6 raw sockets.
+> Here I don't get the ipv6 header at all when I read a packet.
+> I checked the RFC 3542 and it specifies the following as the ancillary
+> data which can be obtained --
+> 
+> Four similar pieces of information can be returned for a received
+>    packet as ancillary data:
+> 
+>       1.  the destination IPv6 address,
+>       2.  the arriving interface index,
+>       3.  the arriving hop limit, and
+>       4.  the arriving traffic class value.
+> 
+> Now how do I obtain the 'src IPv6 address' ?
 
-So if sctp_make_abort_user fails to allocate memory, we should just
-free the asoc, as there isn't much else that we can do.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/socket.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9b6cc6d..267b8f8 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1513,8 +1513,12 @@ static void sctp_close(struct sock *sk, long timeout)
- 			struct sctp_chunk *chunk;
- 
- 			chunk = sctp_make_abort_user(asoc, NULL, 0);
--			if (chunk)
-+			if (chunk) {
- 				sctp_primitive_ABORT(net, asoc, chunk);
-+			} else {
-+				sctp_unhash_established(asoc);
-+				sctp_association_free(asoc);
-+			}
- 		} else
- 			sctp_primitive_SHUTDOWN(net, asoc, NULL);
- 	}
--- 
-2.1.0
+man recvfrom
