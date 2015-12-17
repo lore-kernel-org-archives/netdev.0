@@ -1,46 +1,120 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: addrconf: use stable address generator
- for ARPHRD_NONE
-Date: Thu, 17 Dec 2015 15:11:25 -0500 (EST)
-Message-ID: <20151217.151125.1201586932750585868.davem@davemloft.net>
-References: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V1 3/4] net/mlx5e: Add HW timestamping (TS)
+ support
+Date: Thu, 17 Dec 2015 21:11:54 +0100
+Message-ID: <20151217201154.GA5975@localhost.localdomain>
+References: <1450355735-30846-1-git-send-email-saeedm@mellanox.com>
+ <1450355735-30846-4-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	hideaki.yoshifuji@miraclelinux.com
-To: bjorn@mork.no
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56487 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754643AbbLQUL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:11:27 -0500
-In-Reply-To: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38037 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932099AbbLQUMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:12:00 -0500
+Received: by mail-wm0-f52.google.com with SMTP id l126so37669138wml.1
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 12:11:59 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1450355735-30846-4-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+DQpEYXRlOiBXZWQsIDE2IERlYyAyMDE1
-IDE2OjQ0OjM4ICswMTAwDQoNCj4gQWRkIGEgbmV3IGFkZHJlc3MgZ2VuZXJhdG9yIG1vZGUsIHVz
-aW5nIHRoZSBzdGFibGUgYWRkcmVzcyBnZW5lcmF0b3INCj4gd2l0aCBhbiBhdXRvbWF0aWNhbGx5
-IGdlbmVyYXRlZCBzZWNyZXQuIFRoaXMgaXMgaW50ZW5kZWQgYXMgYSBkZWZhdWx0DQo+IGFkZHJl
-c3MgZ2VuZXJhdG9yIG1vZGUgZm9yIGRldmljZSB0eXBlcyB3aXRoIG5vIEVVSTY0IGltcGxlbWVu
-dGF0aW9uLg0KPiBUaGUgbmV3IGdlbmVyYXRvciBpcyB1c2VkIGZvciBBUlBIUkRfTk9ORSBpbnRl
-cmZhY2VzIGluaXRpYWxseSwgYWRkaW5nDQo+IGRlZmF1bHQgSVB2NiBhdXRvY29uZiBzdXBwb3J0
-IHRvIGUuZy4gdHVuIGludGVyZmFjZXMuDQo+IA0KPiBJZiB0aGUgYWRkcmdlbm1vZGUgaXMgc2V0
-IHRvICdyYW5kb20nLCBlaXRoZXIgYnkgZGVmYXVsdCBvciBtYW51YWxseSwNCj4gYW5kIG5vIHN0
-YWJsZSBzZWNyZXQgaXMgYXZhaWxhYmxlLCB0aGVuIGEgcmFuZG9tIHNlY3JldCBpcyB1c2VkIGFz
-DQo+IGlucHV0IGZvciB0aGUgc3RhYmxlLXByaXZhY3kgYWRkcmVzcyBnZW5lcmF0b3IuICBUaGUg
-c2VjcmV0IGNhbiBiZQ0KPiByZWFkIGFuZCBtb2RpZmllZCBsaWtlIG1hbnVhbGx5IGNvbmZpZ3Vy
-ZWQgc2VjcmV0cywgdXNpbmcgdGhlIHByb2MNCj4gaW50ZXJmYWNlLiAgTW9kaWZ5aW5nIHRoZSBz
-ZWNyZXQgd2lsbCBjaGFuZ2UgdGhlIGFkZHJnZW4gbW9kZSB0bw0KPiAnc3RhYmxlLXByaXZhY3kn
-IHRvIGluZGljYXRlIHRoYXQgaXQgb3BlcmF0ZXMgb24gYSBrbm93biBzZWNyZXQuDQo+IA0KPiBF
-eGlzdGluZyBiZWhhdmlvdXIgb2YgdGhlICdzdGFibGUtcHJpdmFjeScgbW9kZSBpcyBrZXB0IHVu
-Y2hhbmdlZC4gSWYNCj4gYSBrbm93biBzZWNyZXQgaXMgYXZhaWxhYmxlIHdoZW4gdGhlIGRldmlj
-ZSBpcyBjcmVhdGVkLCB0aGVuIHRoZSBtb2RlDQo+IHdpbGwgZGVmYXVsdCB0byAnc3RhYmxlLXBy
-aXZhY3knIGFzIGJlZm9yZS4gIFRoZSBtb2RlIGNhbiBiZSBtYW51YWxseQ0KPiBzZXQgdG8gJ3Jh
-bmRvbScgYnV0IGl0IHdpbGwgYmVoYXZlIGV4YWN0bHkgbGlrZSAnc3RhYmxlLXByaXZhY3knIGlu
-DQo+IHRoaXMgY2FzZS4gVGhlIHNlY3JldCB3aWxsIG5vdCBjaGFuZ2UuDQo+IA0KPiBDYzogSGFu
-bmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KPiBDYzog5ZCJ
-6Jek6Iux5piOIDxoaWRlYWtpLnlvc2hpZnVqaUBtaXJhY2xlbGludXguY29tPg0KPiBTaWduZWQt
-b2ZmLWJ5OiBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4NCg0KSSdsbCBnaXZlIEhhbm5lcyBh
-bmQgSGlkZWFraSBhIGNoYW5jZSB0byByZXZpZXcgdGhpcy4NCg==
+On Thu, Dec 17, 2015 at 02:35:34PM +0200, Saeed Mahameed wrote:
+> @@ -63,6 +65,7 @@
+>  #define MLX5E_TX_CQ_POLL_BUDGET        128
+>  #define MLX5E_UPDATE_STATS_INTERVAL    200 /* msecs */
+>  #define MLX5E_SQ_BF_BUDGET             16
+> +#define MLX5E_SERVICE_TASK_DELAY       (HZ / 4)
+
+Hm...
+  
+> +void mlx5e_timestamp_overflow_check(struct mlx5e_priv *priv)
+> +{
+> +	bool timeout = time_is_before_jiffies(priv->tstamp.last_overflow_check +
+> +					      priv->tstamp.overflow_period);
+> +	unsigned long flags;
+> +
+> +	if (timeout) {
+> +		write_lock_irqsave(&priv->tstamp.lock, flags);
+> +		timecounter_read(&priv->tstamp.clock);
+> +		write_unlock_irqrestore(&priv->tstamp.lock, flags);
+> +		priv->tstamp.last_overflow_check = jiffies;
+
+Here you have extra book keeping, because the rate of the work
+callbacks is not the same as the rate of the overflow checks.
+
+> +	}
+> +}
+
+> +void mlx5e_timestamp_init(struct mlx5e_priv *priv)
+> +{
+> +	struct mlx5e_tstamp *tstamp = &priv->tstamp;
+> +	u64 ns;
+> +	u64 frac = 0;
+> +	u32 dev_freq;
+> +
+> +	mlx5e_timestamp_init_config(tstamp);
+> +	dev_freq = MLX5_CAP_GEN(priv->mdev, device_frequency_khz);
+> +	if (!dev_freq) {
+> +		mlx5_core_warn(priv->mdev, "invalid device_frequency_khz. %s failed\n",
+> +			       __func__);
+> +		return;
+> +	}
+> +	rwlock_init(&tstamp->lock);
+> +	memset(&tstamp->cycles, 0, sizeof(tstamp->cycles));
+> +	tstamp->cycles.read = mlx5e_read_clock;
+> +	tstamp->cycles.shift = MLX5E_CYCLES_SHIFT;
+> +	tstamp->cycles.mult = clocksource_khz2mult(dev_freq,
+> +						   tstamp->cycles.shift);
+> +	tstamp->nominal_c_mult = tstamp->cycles.mult;
+> +	tstamp->cycles.mask = CLOCKSOURCE_MASK(41);
+> +
+> +	timecounter_init(&tstamp->clock, &tstamp->cycles,
+> +			 ktime_to_ns(ktime_get_real()));
+> +
+> +	/* Calculate period in seconds to call the overflow watchdog - to make
+> +	 * sure counter is checked at least once every wrap around.
+> +	 */
+> +	ns = cyclecounter_cyc2ns(&tstamp->cycles, tstamp->cycles.mask, frac,
+> +				 &frac);
+> +	do_div(ns, NSEC_PER_SEC / 2 / HZ);
+> +	tstamp->overflow_period = ns;
+> +}
+
+And here you take great pains to calculate the rate of overflow checks...
+
+> +/* mlx5e_service_task - Run service task for tasks that needed to be done
+> + * periodically
+> + */
+> +static void mlx5e_service_task(struct work_struct *work)
+> +{
+> +	struct delayed_work *dwork = to_delayed_work(work);
+> +	struct mlx5e_priv *priv = container_of(dwork, struct mlx5e_priv,
+> +					       service_task);
+> +
+> +	mutex_lock(&priv->state_lock);
+> +	if (test_bit(MLX5E_STATE_OPENED, &priv->state) &&
+> +	    !test_bit(MLX5E_STATE_DESTROYING, &priv->state)) {
+> +		if (MLX5_CAP_GEN(priv->mdev, device_frequency_khz)) {
+> +			mlx5e_timestamp_overflow_check(priv);
+> +			/* Only mlx5e_timestamp_overflow_check is called from
+> +			 * this service task. schedule a new task only if clock
+> +			 * is initialized. if changed, move the scheduler.
+> +			 */
+> +			schedule_delayed_work(dwork, MLX5E_SERVICE_TASK_DELAY);
+
+Why not simply use the rate you calculated, rather than some hard
+coded value?
+
+Consider What happens if MLX5E_SERVICE_TASK_DELAY is too long or way
+too short.
+
+> +		}
+> +	}
+> +	mutex_unlock(&priv->state_lock);
+> +}
