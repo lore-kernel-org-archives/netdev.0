@@ -1,55 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] ipv6: allow routes to be configured with
- expire values
-Date: Thu, 17 Dec 2015 16:26:50 -0500 (EST)
-Message-ID: <20151217.162650.526302130376762794.davem@davemloft.net>
-References: <1450285432.23793.12.camel@redhat.com>
-	<20151217.150826.320110242014234511.davem@davemloft.net>
-	<1450383837.28806.4.camel@redhat.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
+Date: Thu, 17 Dec 2015 13:31:00 -0800
+Message-ID: <CALx6S37VcT6fYjNuZ2YT5TqGK_FTbpcGoY5gKNYeoobrcTA8_Q@mail.gmail.com>
+References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
+	<1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
+	<20151216.190417.1337922066819496682.davem@davemloft.net>
+	<56727731.2010605@stressinduktion.org>
+	<CALx6S36B5LFgJqJB7Q98Z2KF74Ee3UDiqva6fm+8HEo_KFfTMA@mail.gmail.com>
+	<5672F37C.9040602@stressinduktion.org>
+	<CALx6S363K9DXbPq0VCd8+AW-5v3oz+AXMnDF5-BBarh-WTsUGA@mail.gmail.com>
+	<56731C1C.60001@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-	hannes@stressinduktion.org
-To: dcbw@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57281 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932670AbbLQV0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:26:51 -0500
-In-Reply-To: <1450383837.28806.4.camel@redhat.com>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:33665 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932429AbbLQVbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:31:01 -0500
+Received: by mail-io0-f181.google.com with SMTP id 186so70589676iow.0
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 13:31:00 -0800 (PST)
+In-Reply-To: <56731C1C.60001@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Thu, 17 Dec 2015 14:23:57 -0600
+On Thu, Dec 17, 2015 at 12:33 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 17.12.2015 19:10, Tom Herbert wrote:
+>> On Thu, Dec 17, 2015 at 9:40 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>>> On 17.12.2015 18:32, Tom Herbert wrote:
+>>>> On Thu, Dec 17, 2015 at 12:49 AM, Hannes Frederic Sowa
+>>>> <hannes@stressinduktion.org> wrote:
+>>>>> With user namespaces a normal user can start a new network namespace
+>>>>> with all privileges and thus add new offloads, letting the other stack
+>>>>> interpret this garbage. Because the user namespace can also add
+>>>>> arbitrary ip addresses to its interface, solely matching those is not
+>>>>> enough.
+>>>>>
+>>>>> Tom any further comments?
+>>>>>
+>>>> I still don't think this addresses the core problem. If we're just
+>>>> worried about offloads being added in a user namespace that conflict
+>>>> with the those in the root space, it might be just as easy to disallow
+>>>> setting offloads except in default namespace.
+>>>
+>>> I am fine with that solution, too.
+>>>
+>>>> [...]
+>>>>
+>>>> To address this in the host stack the solution is pretty
+>>>> straightforward, we need to decide that the packet is going to be
+>>>> received before applying any offloads. Essentially we want to do an
+>>>> early_demux _really_ early. If we demux and get UDP socket for
+>>>> instance, then the protocol specific GRO function can be retrieved
+>>>> from the socket. So this will work with single listener port like
+>>>> encaps do today,  and also if encapsulation is being used over a
+>>>> connected socket. This also works if we want to support a user defined
+>>>> GRO function like I mentioned we might want to do for QUIC etc.
+>>>
+>>> An approximation can be done, but I don't think it is feasible to
+>>> implement this kind of checks across namespace borders, ip rules and
+>>> netfilter rulesets, which could all change the outcome of the process.
+>>>
+>> For receive offloads we don't need to worry about checking other namespaces.
+>
+> That is true. Albeit for net-branch/stable I would still suggest either
+> this patch or restricting udp offloads just to the initial net namespace.
+>
+I would opt for the latter then.
 
-> On Thu, 2015-12-17 at 15:08 -0500, David Miller wrote:
->> That brings up an interesting issue, and I do not agree that we
->> should
->> publish the value for the purpose of determining if the kernel
->> supports
->> it or not.
-> 
-> That said, userspace still needs to read back the EXPIRES attribute, if
-> only for iproute.  The program setting RTA_EXPIRES isn't the only thing
-> that wants to know about the route's details.
-
-Agreed.
-
->> I'm almost positive that the right thing to do is to unilaterally
->> making nlmsg_parse() error out on out-of-range attribute type
->> numbers,
->> and then backport that to all -stable branches.
-> 
-> This works for one attribute because then userspace gets an error like
-> EOPNOTSUPP or something.  But which attribute caused it?  Does
-> userspace then have to retry the operation a couple times with all the
-> different combinations of potentially unsupported options?
-> 
-> If we're going to error out on unrecognized options, I'd really like to
-> see some kind of netlink features bitmap or something that positively
-> indicates which options the kernel will accept.
-
-Also agree.  But it has to be really simple and trivial so that -stable
-backports are possible.
+> Bye,
+> Hannes
+>
