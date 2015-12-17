@@ -1,60 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] af_unix: Revert 'lock_interruptible' in stream receive
- code
-Date: Thu, 17 Dec 2015 16:43:55 +0100
-Message-ID: <5672D83B.7000008@stressinduktion.org>
-References: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
- <56727EE9.5020805@stressinduktion.org>
- <87a8p92iy2.fsf@doppelsaurus.mobileactivedefense.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a8p92iy2.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Venkat Duvvuru <venkatkumar.duvvuru@avagotech.com>
+Subject: [PATCH net] be2net: Avoid accessing eq object in be_msix_register routine, when i < 0.
+Date: Fri, 18 Dec 2015 01:40:50 +0530
+Message-ID: <1450383050-25106-1-git-send-email-venkatkumar.duvvuru@avagotech.com>
+Cc: venkatkumar.duvvuru@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:50719 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755866AbbLQPuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:50:21 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17.12.2015 16:28, Rainer Weikusat wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
->> On 16.12.2015 21:09, Rainer Weikusat wrote:
->>> With b3ca9b02b00704053a38bfe4c31dbbb9c13595d0, the AF_UNIX SOCK_STREAM
->>> receive code was changed from using mutex_lock(&u->readlock) to
->>> mutex_lock_interruptible(&u->readlock) to prevent signals from being
->>> delayed for an indefinite time if a thread sleeping on the mutex
->>> happened to be selected for handling the signal. But this was never a
->>> problem with the stream receive code (as opposed to its datagram
->>> counterpart) as that never went to sleep waiting for new messages with the
->>> mutex held and thus, wouldn't cause secondary readers to block on the
->>> mutex waiting for the sleeping primary reader. As the interruptible
->>> locking makes the code more complicated in exchange for no benefit,
->>> change it back to using mutex_lock.
->>>
->>> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
->>> ---
->>>
->>> Considering that the datagram receive routine also doesn't go the sleep
->>> with the mutex held anymore, the 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490
->>> change to unix_autobind is now similarly purposeless.
->>
->> I wouldn't do this conversion, yet. There is still a deadlock lingering
->> around which should be solved earlier:
->>
->> http://lists.openwall.net/netdev/2015/11/10/4
->>
->> Unfortunately I haven't found a good way how to solve it, yet.
-> 
-> Judging from the link, that's not related to the stream receive code.
-> 
+When the first request_irq fails in be_msix_register, i value
+would be zero. The current code decrements the i value and
+accesses the eq object without validating the decremented
+"i" value. This can cause an "invalid memory address access"
+violation.
 
-No, but to commit 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490 where the
-mutexes of unix_bind and unix_autobind got changed.
+This patch fixes the problem by accessing the eq object after
+validating the "i" value.
 
-The unix_stream_read_generic conversion is fine.
+Signed-off-by: Venkat Duvvuru <venkatkumar.duvvuru@avagotech.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks,
-Hannes
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index b6ad029..6598820 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3299,8 +3299,10 @@ static int be_msix_register(struct be_adapter *adapter)
+ 
+ 	return 0;
+ err_msix:
+-	for (i--, eqo = &adapter->eq_obj[i]; i >= 0; i--, eqo--)
++	for (i--; i >= 0; i--) {
++		eqo = &adapter->eq_obj[i];
+ 		free_irq(be_msix_vec_get(adapter, eqo), eqo);
++	}
+ 	dev_warn(&adapter->pdev->dev, "MSIX Request IRQ failed - err %d\n",
+ 		 status);
+ 	be_msix_disable(adapter);
+-- 
+1.8.3.1
