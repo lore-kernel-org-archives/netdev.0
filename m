@@ -1,46 +1,45 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] af_unix: Revert 'lock_interruptible' in stream receive code
-Date: Thu, 17 Dec 2015 15:28:21 +0000
-Message-ID: <87a8p92iy2.fsf@doppelsaurus.mobileactivedefense.com>
-References: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
-	<56727EE9.5020805@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [iproute PATCH v2 2/2] ss: support closing inet sockets via
+ SOCK_DESTROY.
+Date: Thu, 17 Dec 2015 07:29:47 -0800
+Message-ID: <1450366187.8474.105.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450358538-134898-1-git-send-email-lorenzo@google.com>
+	 <1450358538-134898-2-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56727EE9.5020805@stressinduktion.org> (Hannes Frederic Sowa's
-	message of "Thu, 17 Dec 2015 10:22:49 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	zenczykowski@gmail.com
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34135 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932318AbbLQP3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:29:51 -0500
+Received: by mail-pf0-f169.google.com with SMTP id 68so32482609pfc.1
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 07:29:51 -0800 (PST)
+In-Reply-To: <1450358538-134898-2-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-> On 16.12.2015 21:09, Rainer Weikusat wrote:
->> With b3ca9b02b00704053a38bfe4c31dbbb9c13595d0, the AF_UNIX SOCK_STREAM
->> receive code was changed from using mutex_lock(&u->readlock) to
->> mutex_lock_interruptible(&u->readlock) to prevent signals from being
->> delayed for an indefinite time if a thread sleeping on the mutex
->> happened to be selected for handling the signal. But this was never a
->> problem with the stream receive code (as opposed to its datagram
->> counterpart) as that never went to sleep waiting for new messages with the
->> mutex held and thus, wouldn't cause secondary readers to block on the
->> mutex waiting for the sleeping primary reader. As the interruptible
->> locking makes the code more complicated in exchange for no benefit,
->> change it back to using mutex_lock.
->> 
->> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
->> ---
->> 
->> Considering that the datagram receive routine also doesn't go the sleep
->> with the mutex held anymore, the 37ab4fa7844a044dc21fde45e2a0fc2f3c3b6490
->> change to unix_autobind is now similarly purposeless.
->
-> I wouldn't do this conversion, yet. There is still a deadlock lingering
-> around which should be solved earlier:
->
-> http://lists.openwall.net/netdev/2015/11/10/4
->
-> Unfortunately I haven't found a good way how to solve it, yet.
+On Thu, 2015-12-17 at 22:22 +0900, Lorenzo Colitti wrote:
+> This patch adds a -K / --kill option to ss that attempts to
+> forcibly close matching sockets using SOCK_DESTROY.
+> 
+> This is implemented by adding a new "struct action" to struct
+> filter. If necessary, this can be extended later on to support
+> further actions on sockets.
 
-Judging from the link, that's not related to the stream receive code.
+Does not work for me :
+
+lpaa23:~# ./ss dst lpaa24|wc -l
+401
+lpaa23:~# ./ss -K dst lpaa24|wc -l
+1
+lpaa23:~# ./ss dst lpaa24|wc -l
+401
+lpaa23:~# id
+uid=0(root) gid=0(root)
+groups=0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),26(tape)
+
+Kernel is latest David Miller net-next
