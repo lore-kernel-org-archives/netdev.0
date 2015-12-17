@@ -1,65 +1,95 @@
-From: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/2] net: usb: cdc_ncm: Adding support for two new Dell devices
-Date: Thu, 17 Dec 2015 13:47:36 +0100
-Message-ID: <CAGRyCJFOq89v2u5n0yQw9eRSjvH3fntcpAbxrPMb498-7sOFYQ@mail.gmail.com>
-References: <1450258765-11215-1-git-send-email-dnlplm@gmail.com>
-	<1450285954.23793.15.camel@redhat.com>
-	<87fuz15kqc.fsf@nemi.mork.no>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH] net/macb: add proper header file
+Date: Thu, 17 Dec 2015 13:41:59 +0100
+Message-ID: <87twnhs0vc.fsf@free-electrons.com>
+References: <1450354553-18745-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87fuz15kqc.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450354553-18745-1-git-send-email-sudipm.mukherjee@gmail.com>
+	(Sudip Mukherjee's message of "Thu, 17 Dec 2015 17:45:53 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Bjorn,
+Hi Sudip,
+=20
+ On jeu., d=C3=A9c. 17 2015, Sudip Mukherjee <sudipm.mukherjee@gmail.co=
+m> wrote:
 
-2015-12-17 13:21 GMT+01:00 Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>:
-> Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
->> On Wed, 2015-12-16 at 10:39 +0100, Daniele Palmas wrote:
->>> This patch series add support in the cdc_ncm driver for two devices
->>> based on the same platform, that are different only for carrier
->>> customization.
->>>
->>> The devices do not have ARP capabilities.
->>>
->>> Daniele Palmas (2):
->>>   net: usb: cdc_ncm: Adding Dell DW5812 LTE Verizon Mobile Broadban=
-d
->>>     Card
->>>   net: usb: cdc_ncm: Adding Dell DW5813 LTE AT&T Mobile Broadband
->>> Card
->>
->> Quite interesting; Google knows nothing about these devices that I c=
-an
->> find.  What platform are these based on?
+> mips allmodconfig build fails with the error:
 >
-> There are a number of launchpad bugs reported for these devices.  Don=
-'t
-> know why they chose that channel..  This one:
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1520147
-> shows that it is an Intel/Infineon based design.
+> drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
+> drivers/net/ethernet/cadence/macb.c:2908:2: error: implicit declarati=
+on of function 'devm_gpiod_get_optional' [-Werror=3Dimplicit-function-d=
+eclaration]
+>   bp->reset_gpio =3D devm_gpiod_get_optional(&bp->pdev->dev, "phy-res=
+et",
+>   ^
+> drivers/net/ethernet/cadence/macb.c:2909:8: error: 'GPIOD_OUT_HIGH' u=
+ndeclared (first use in this function)
+>         GPIOD_OUT_HIGH);
+>         ^
+> drivers/net/ethernet/cadence/macb.c:2909:8: note: each undeclared ide=
+ntifier is reported only once for each function it appears in
+> drivers/net/ethernet/cadence/macb.c: In function 'macb_remove':
+> drivers/net/ethernet/cadence/macb.c:2979:3: error: implicit declarati=
+on of function 'gpiod_set_value' [-Werror=3Dimplicit-function-declarati=
+on]
+>    gpiod_set_value(bp->reset_gpio, 0);
+>    ^
 >
-> BTW, DeWalt seems to own these device names :)
->
+> Add the proper header file to resolve it. =20
 
-patches were passed first to Canonical for custom OS image testing.
 
-413c:81ba is the HSPA+ variant of the family: however this does not
-use ncm, but ecm, see
-https://github.com/torvalds/linux/commit/0b88393cdf6b1322522849e61f7a33=
-28f4fd3843
-
->
-> Bj=C3=B8rn
+A proper fix already has been posted along with the proper device tree
+bindinsg too:
+http://marc.info/?l=3Dlinux-netdev&m=3D145034590619620&w=3D2
 
 Thanks,
-Daniele
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Gregory
+
+>
+> Fixes: 5833e0526820 ("net/macb: add support for resetting PHY using G=
+PIO")
+> Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> ---
+>
+> build log with next-20151217 is at:
+> https://travis-ci.org/sudipm-mukherjee/parport/jobs/97388463
+>
+>  drivers/net/ethernet/cadence/macb.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 0123646..988ee14 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -19,6 +19,7 @@
+>  #include <linux/init.h>
+>  #include <linux/io.h>
+>  #include <linux/gpio.h>
+> +#include <linux/gpio/consumer.h>
+>  #include <linux/interrupt.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/etherdevice.h>
+> --=20
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--=20
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
