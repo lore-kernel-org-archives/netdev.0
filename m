@@ -1,48 +1,24 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next 0/4] Few l2 table related enhancements for cxgb4
-Date: Thu, 17 Dec 2015 13:45:06 +0530
-Message-ID: <1450340110-30031-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Michael@mail.microamerica.com.pe,
+	"J.Tynan <f.digeronimo"@federconsumatori.abruzzo.it
+Subject: Review & Reply
+Date: Thu, 17 Dec 2015 07:55:43 +0700
+Message-ID: <20151217005635.8F1948B6C4C7@mail.microamerica.com.pe>
+Reply-To: michaeljtynan8@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <f.digeronimo@federconsumatori.abruzzo.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:28143 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751895AbbLQIOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 03:14:09 -0500
+Received: from mail.microamerica.com.pe ([200.37.170.69]:46551 "EHLO
+	mail.microamerica.com.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754948AbbLQIfW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 03:35:22 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-
-This series adds a new API to allocate and update l2t entry, replaces
-arpq_head/arpq_tail with double skb double linked list. Use t4_mgmt_tx()
-to send control packets of l2t write request. Use symbolic constants
-while calculating vlan priority.
-
-This patch series has been created against net-next tree and includes
-patches on cxgb4 driver.
-
-We have included all the maintainers of respective drivers. Kindly review
-the change and let us know in case of any review comments.
-
-Thanks
-
-V2: Remove unnecessary MAS operation while calculating vlan prio in
-    PATCH 1/4 ("cxgb4: Use symbolic constant for VLAN priority calculation")
-    based on review comment by David Miller
-
-Hariprasad Shenai (4):
-  cxgb4: Use symbolic constant for VLAN priority calculation
-  cxgb4: Add API to alloc l2t entry; also update existing ones
-  cxgb4: Use t4_mgmt_tx() API for sending write l2t request ctrl
-    packets.
-  cxgb4: Replace arpq_head/arpq_tail with  SKB double link-list code
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  10 +-
- drivers/net/ethernet/chelsio/cxgb4/l2t.c        | 179 +++++++++++++++++-------
- drivers/net/ethernet/chelsio/cxgb4/l2t.h        |  10 +-
- 3 files changed, 137 insertions(+), 62 deletions(-)
-
--- 
-2.3.4
+Greetings,
+My name is Mr.Michael J. Tynan, I am a banker with Bank Of America. It is true that we have not meet each other in person, but I strongly believe in trust and friendship in every business. I have a Lebanese deceased customer's abandoned fund, which I am his personal financial adviser before his accidental death, that being the main reason why I alone working in the bank here, know much about the existence of this fund and the secrets surrounding this money. But before I disclose the full details to you, I will like to know your interest and willingness to assist me. You can call me as soon you receive my message, so that i will send to you full details about the transaction.
+My best regards,
+Mr.Michael J. Tynan
+MOBILE: +1 347 269 3740
