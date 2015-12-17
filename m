@@ -1,46 +1,44 @@
-From: Tristan Colgate <tristan@cloudflare.com>
-Subject: [PATCH] net ixgbevf: ethtool statistics yields/misses fixes
-Date: Thu, 17 Dec 2015 15:16:32 +0000
-Message-ID: <CAKMD_B1woL6tWv+D9SVrOwA6VEeWX1pY22DEuw1jn-Vq=+Lp6g@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/2] Local checksum offload for VXLAN
+Date: Thu, 17 Dec 2015 15:27:34 +0000
+Message-ID: <5672D466.6050900@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33987 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755687AbbLQPQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:16:33 -0500
-Received: by mail-wm0-f51.google.com with SMTP id l126so27958380wml.1
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 07:16:33 -0800 (PST)
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:25611 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934373AbbLQP1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:27:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ixgbevf over counts yields and does not actually count misses.
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+When the inner packet checksum is offloaded, the outer UDP checksum is easy
+ to calculate as it doesn't depend on the payload (because the inner checksum
+ cancels out everything from the inner packet except the pseudo header).
+Thus, transmit checksums for VXLAN (and in principle other encapsulations,
+ but I haven't enabled it for / tested with those) can be offloaded on any
+ device supporting NETIF_F_HW_CSUM.  Only the innermost checksum has to be
+ offloaded, the rest are filled in by the stack.
+Tested by hacking a driver to report NETIF_F_HW_CSUM, call skb_checksum_help
+ before transmitting a packet, and not actually offload anything to the hw.
+In principle it should also be possible to apply this technique when the
+ inner packet has been checksummed by software, but only if skb->csum_start
+ and skb->csum_offset have been filled in to describe the inner checksum.
+ However in this case it is easier to use skb->csum and skb->csum_start, as
+ gso_make_checksum() already does - a similar but simpler technique.  It's
+ not clear to me where else this should be done, so this is out of scope for
+ this patch series.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index d3e5f5b..ffdd8df 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -417,13 +417,13 @@ static void ixgbevf_get_ethtool_stats(struct
-net_device *netdev,
-        for (i = 0; i < adapter->num_rx_queues; i++) {
-                rx_yields += adapter->rx_ring[i]->stats.yields;
-                rx_cleaned += adapter->rx_ring[i]->stats.cleaned;
--               rx_yields += adapter->rx_ring[i]->stats.yields;
-+               rx_missed += adapter->rx_ring[i]->stats.misses;
-        }
+Edward Cree (2):
+  net: udp: local checksum offload for encapsulation
+  net: vxlan: enable local checksum offload on HW_CSUM devices
 
-        for (i = 0; i < adapter->num_tx_queues; i++) {
-                tx_yields += adapter->tx_ring[i]->stats.yields;
-                tx_cleaned += adapter->tx_ring[i]->stats.cleaned;
--               tx_yields += adapter->tx_ring[i]->stats.yields;
-+               tx_missed += adapter->tx_ring[i]->stats.misses;
-        }
+ drivers/net/vxlan.c |  5 ++++-
+ net/ipv4/udp.c      | 34 +++++++++++++++++++++++++++++-----
+ 2 files changed, 33 insertions(+), 6 deletions(-)
 
-        adapter->bp_rx_yields = rx_yields;
 -- 
-2.1.4
+2.4.3
