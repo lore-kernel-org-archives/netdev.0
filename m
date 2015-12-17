@@ -1,71 +1,178 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net-next v5 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
-Date: Wed, 16 Dec 2015 16:36:40 -0800
-Message-ID: <1450312607-44050-2-git-send-email-jarno@ovn.org>
+Subject: [PATCH net-next v5 5/8] openvswitch: Find existing conntrack entry after upcall.
+Date: Wed, 16 Dec 2015 16:36:44 -0800
+Message-ID: <1450312607-44050-6-git-send-email-jarno@ovn.org>
 References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
 Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:37467 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:51412 "EHLO
 	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752117AbbLQAhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:37:24 -0500
+	with ESMTP id S934143AbbLQAhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:37:32 -0500
 In-Reply-To: <1450312607-44050-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
-not make sense.  This allows the definition of IP_CT_NUMBER to be
-simplified as well.
+Add a new function ovs_ct_find_existing() to find an existing
+conntrack entry for which this packet was already applied to.  This is
+only to be called when there is evidence that the packet was already
+tracked and committed, but we lost the ct reference due to an
+userspace upcall.
+
+ovs_ct_find_existing() is called from skb_nfct_cached(), which can now
+hide the fact that the ct reference may have been lost due to an
+upcall.  This allows ovs_ct_commit() to be simplified.
+
+This patch is needed by later "openvswitch: Interface with NAT" patch,
+as we need to be able to pass the packet through NAT using the
+original ct reference also after the reference is lost after an
+upcall.
 
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
- net/openvswitch/conntrack.c                        |  2 --
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ net/openvswitch/conntrack.c | 95 ++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 82 insertions(+), 13 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
-index 319f471..6d074d1 100644
---- a/include/uapi/linux/netfilter/nf_conntrack_common.h
-+++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
-@@ -20,9 +20,15 @@ enum ip_conntrack_info {
- 
- 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
- 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
--	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
--	/* Number of distinct IP_CT types (no NEW in reply dirn). */
--	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
-+	/* No NEW in reply direction. */
-+
-+	/* Number of distinct IP_CT types. */
-+	IP_CT_NUMBER,
-+
-+	/* only for userspace compatibility */
-+#ifndef __KERNEL__
-+	IP_CT_NEW_REPLY = IP_CT_NUMBER,
-+#endif
- };
- 
- #define NF_CT_STATE_INVALID_BIT			(1 << 0)
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index c2cc111..a28a819 100644
+index 10f4a6e..0c371d0 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -73,7 +73,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
- 	switch (ctinfo) {
- 	case IP_CT_ESTABLISHED_REPLY:
- 	case IP_CT_RELATED_REPLY:
--	case IP_CT_NEW_REPLY:
- 		ct_state |= OVS_CS_F_REPLY_DIR;
- 		break;
- 	default:
-@@ -90,7 +89,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
- 		ct_state |= OVS_CS_F_RELATED;
- 		break;
- 	case IP_CT_NEW:
--	case IP_CT_NEW_REPLY:
- 		ct_state |= OVS_CS_F_NEW;
- 		break;
- 	default:
+@@ -359,16 +359,87 @@ ovs_ct_expect_find(struct net *net, const struct nf_conntrack_zone *zone,
+ 	return __nf_ct_expect_find(net, zone, &tuple);
+ }
+ 
++/* Find an existing conntrack entry for which this packet was already applied
++ * to.  This is only called when there is evidence that the packet was already
++ * tracked and commited, but we lost the ct reference due to an userspace
++ * upcall. This means that on entry skb->nfct is NULL.
++ * On success, returns conntrack ptr, sets skb->nfct and ctinfo.
++ * Must be called rcu_read_lock()ed. */
++static struct nf_conn *
++ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
++		     u_int8_t l3num, struct sk_buff *skb,
++		     enum ip_conntrack_info *ctinfo)
++{
++	struct nf_conntrack_l3proto *l3proto;
++	struct nf_conntrack_l4proto *l4proto;
++	struct nf_conntrack_tuple tuple;
++	struct nf_conntrack_tuple_hash *h;
++	struct nf_conn *ct;
++	unsigned int dataoff;
++	u_int8_t protonum;
++
++	BUG_ON(skb->nfct != NULL);
++
++	l3proto = __nf_ct_l3proto_find(l3num);
++	if (!l3proto) {
++		pr_debug("ovs_ct_find_existing: Can't get l3proto\n");
++		return NULL;
++	}
++	if (l3proto->get_l4proto(skb, skb_network_offset(skb), &dataoff,
++				 &protonum) <= 0) {
++		pr_debug("ovs_ct_find_existing: Can't get protonum\n");
++		return NULL;
++	}
++	l4proto = __nf_ct_l4proto_find(l3num, protonum);
++	if (!l4proto) {
++		pr_debug("ovs_ct_find_existing: Can't get l4proto\n");
++		return NULL;
++	}
++	if (!nf_ct_get_tuple(skb, skb_network_offset(skb), dataoff, l3num,
++			     protonum, net, &tuple, l3proto, l4proto)) {
++		pr_debug("ovs_ct_find_existing: Can't get tuple\n");
++		return NULL;
++	}
++
++	/* look for tuple match */
++	h = nf_conntrack_find_get(net, zone, &tuple);
++	if (!h)
++		return NULL;   /* Not found. */
++
++	ct = nf_ct_tuplehash_to_ctrack(h);
++
++	*ctinfo = nf_ct_get_info(h);
++	if (*ctinfo == IP_CT_NEW) {
++		/* This should not happen. */
++		WARN_ONCE(1, "ovs_ct_find_existing: new packet for %p\n", ct);
++	}
++	skb->nfct = &ct->ct_general;
++	skb->nfctinfo = *ctinfo;
++	return ct;
++}
++
+ /* Determine whether skb->nfct is equal to the result of conntrack lookup. */
+-static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
+-			    const struct ovs_conntrack_info *info)
++static bool skb_nfct_cached(struct net *net,
++			    const struct sw_flow_key *key,
++			    const struct ovs_conntrack_info *info,
++			    struct sk_buff *skb)
+ {
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct;
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
++	/* If no ct, check if we have evidence that an existing conntrack entry
++	 * might be found for this skb.  This happens when we lose a skb->nfct
++	 * due to an upcall.  If the connection was not confirmed, it is not
++	 * cached and needs to be run through conntrack again. */
++	if (!ct && key->ct.state & OVS_CS_F_TRACKED
++	    && !(key->ct.state & OVS_CS_F_INVALID)
++	    && key->ct.zone == info->zone.id)
++		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
++					  &ctinfo);
+ 	if (!ct)
+ 		return false;
++
+ 	if (!net_eq(net, read_pnet(&ct->ct_net)))
+ 		return false;
+ 	if (!nf_ct_zone_equal_any(info->ct, nf_ct_zone(ct)))
+@@ -397,7 +468,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 * actually run the packet through conntrack twice unless it's for a
+ 	 * different zone.
+ 	 */
+-	if (!skb_nfct_cached(net, skb, info)) {
++	if (!skb_nfct_cached(net, key, info, skb)) {
+ 		struct nf_conn *tmpl = info->ct;
+ 
+ 		/* Associate skb with specified zone. */
+@@ -431,6 +502,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ {
+ 	struct nf_conntrack_expect *exp;
+ 
++	/* If we pass an expected packet through nf_conntrack_in() the
++	 * expectiation will be removed, but the packet could still be lost in
++	 * upcall processing.  To prevent this from happening we perform an
++	 * explicit expectation lookup.  Expected connections are always new,
++	 * and will be passed through conntrack only when they are committed,
++	 * as it is OK to remove the expectation at that time.
++	 */
+ 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
+ 	if (exp) {
+ 		u8 state;
+@@ -453,21 +531,12 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
+ 			 const struct ovs_conntrack_info *info,
+ 			 struct sk_buff *skb)
+ {
+-	u8 state;
+ 	int err;
+ 
+-	state = key->ct.state;
+-	if (key->ct.zone == info->zone.id &&
+-	    ((state & OVS_CS_F_TRACKED) && !(state & OVS_CS_F_NEW))) {
+-		/* Previous lookup has shown that this connection is already
+-		 * tracked and committed. Skip committing.
+-		 */
+-		return 0;
+-	}
+-
+ 	err = __ovs_ct_lookup(net, key, info, skb);
+ 	if (err)
+ 		return err;
++	/* This is a no-op if the connection has already been confirmed. */
+ 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
+ 		return -EINVAL;
+ 
 -- 
 2.1.4
