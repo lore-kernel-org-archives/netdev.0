@@ -1,50 +1,67 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 2/2] net: vxlan: enable local checksum offload on
- HW_CSUM devices
-Date: Thu, 17 Dec 2015 15:30:25 +0000
-Message-ID: <5672D511.3050905@solarflare.com>
-References: <5672D466.6050900@solarflare.com>
+From: "Gabriele Beltrame" <belgab@drvsource.net>
+Subject: RE: Random packet loss using IPsec with AES128-SHA1
+Date: Thu, 17 Dec 2015 16:36:06 +0100
+Message-ID: <005901d138e0$a6a7a750$f3f6f5f0$@drvsource.net>
+References: <000a01d137e2$afedd130$0fc97390$@drvsource.net> <20151216095954.GN29565@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: "'Steffen Klassert'" <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:48727 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932318AbbLQPak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:30:40 -0500
-In-Reply-To: <5672D466.6050900@solarflare.com>
+Received: from ip209.psaruba.com ([94.23.150.209]:35641 "EHLO webs.psaruba.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751420AbbLQPgK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:36:10 -0500
+In-Reply-To: <20151216095954.GN29565@gauss.secunet.com>
+Content-Language: it
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/vxlan.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Hi Steffen,
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 6369a57..c1660d6 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1785,6 +1785,9 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 	bool udp_sum = !!(vxflags & VXLAN_F_UDP_CSUM);
- 	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 	u16 hdrlen = sizeof(struct vxlanhdr);
-+	/* Is device able to do the inner checksum? */
-+	bool inner_csum = skb_dst(skb) && skb_dst(skb)->dev &&
-+				(skb_dst(skb)->dev->features & NETIF_F_HW_CSUM);
- 
- 	if ((vxflags & VXLAN_F_REMCSUM_TX) &&
- 	    skb->ip_summed == CHECKSUM_PARTIAL) {
-@@ -1814,7 +1817,7 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 	if (WARN_ON(!skb))
- 		return -ENOMEM;
- 
--	skb = iptunnel_handle_offloads(skb, udp_sum, type);
-+	skb = iptunnel_handle_offloads(skb, udp_sum && !inner_csum, type);
- 	if (IS_ERR(skb))
- 		return PTR_ERR(skb);
- 
--- 
-2.4.3
+I don't think it's IPsec (I can see the outbound packet in tcpdump), no=
+t
+alone at least but the XEN /AWS Ethernet driver (or multiple things
+concurring to the issue) actually... the odd thing is that it does seem=
+ to
+affect AES-CBS only (3DES-CBS, AES-GCM are fine)
+This is the short discussion on the Strongswan support wiki:
+https://wiki.strongswan.org/issues/1220
+
+Thanks,
+Gabriele
+
+-----Original Message-----
+=46rom: Steffen Klassert [mailto:steffen.klassert@secunet.com]=20
+Sent: mercoled=EC 16 dicembre 2015 11:00
+To: Gabriele Beltrame <belgab@drvsource.net>
+Cc: netdev@vger.kernel.org
+Subject: Re: Random packet loss using IPsec with AES128-SHA1
+
+On Wed, Dec 16, 2015 at 10:17:54AM +0100, Gabriele Beltrame wrote:
+> Hi,
+>=20
+> I'm running a few Strongswan 5.3.* CentOS (Kernel 3.16.7, 4.2.6,=20
+> 4.1.*) instances on AWS to terminate VPNs between each other and/or t=
+o=20
+> other devices across the Internet.
+> While investigating some application issues, I've noticed that on=20
+> every VPNs I have random packet losses (from 1% to 4% over 100 to 300
+requests sent).
+> This only happens when the two following conditions are met: (a) AES=20
+> encryption used, (b) IP packet size shorter than about (150+8+20)Byte=
+s.
+
+I've never seen this.
+
+If xfrm statistics are compiled in, a counter is bumped for each packet
+dropped by IPsec. You can check these counters in /proc/net/xfrm_stat.
+
+This will tell you at least whether IPsec is the reason for your packet
+loss.
+
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
