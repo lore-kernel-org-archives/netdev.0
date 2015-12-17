@@ -1,78 +1,30 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
-Date: Thu, 17 Dec 2015 13:31:00 -0800
-Message-ID: <CALx6S37VcT6fYjNuZ2YT5TqGK_FTbpcGoY5gKNYeoobrcTA8_Q@mail.gmail.com>
-References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
-	<1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
-	<20151216.190417.1337922066819496682.davem@davemloft.net>
-	<56727731.2010605@stressinduktion.org>
-	<CALx6S36B5LFgJqJB7Q98Z2KF74Ee3UDiqva6fm+8HEo_KFfTMA@mail.gmail.com>
-	<5672F37C.9040602@stressinduktion.org>
-	<CALx6S363K9DXbPq0VCd8+AW-5v3oz+AXMnDF5-BBarh-WTsUGA@mail.gmail.com>
-	<56731C1C.60001@stressinduktion.org>
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: Re: use-after-free in sixpack_close
+Date: Thu, 17 Dec 2015 22:34:00 +0100
+Message-ID: <20151217213400.GA15130@linux-mips.org>
+References: <CACT4Y+YfPHHON7VywV_G-qOyQ0wv6UVB0uxFAGf1aGKpfAP-KA@mail.gmail.com>
+ <20151217114104.6946d72b@lxorguk.ukuu.org.uk>
+ <20151217.160532.999129498473749695.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:33665 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932429AbbLQVbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 16:31:01 -0500
-Received: by mail-io0-f181.google.com with SMTP id 186so70589676iow.0
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 13:31:00 -0800 (PST)
-In-Reply-To: <56731C1C.60001@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gnomes@lxorguk.ukuu.org.uk, dvyukov@google.com,
+	ajk@comnets.uni-bremen.de, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gregkh@linuxfoundation.org, jslaby@suse.com,
+	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
+	sasha.levin@oracle.com, edumazet@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151217.160532.999129498473749695.davem@davemloft.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 17, 2015 at 12:33 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 17.12.2015 19:10, Tom Herbert wrote:
->> On Thu, Dec 17, 2015 at 9:40 AM, Hannes Frederic Sowa
->> <hannes@stressinduktion.org> wrote:
->>> On 17.12.2015 18:32, Tom Herbert wrote:
->>>> On Thu, Dec 17, 2015 at 12:49 AM, Hannes Frederic Sowa
->>>> <hannes@stressinduktion.org> wrote:
->>>>> With user namespaces a normal user can start a new network namespace
->>>>> with all privileges and thus add new offloads, letting the other stack
->>>>> interpret this garbage. Because the user namespace can also add
->>>>> arbitrary ip addresses to its interface, solely matching those is not
->>>>> enough.
->>>>>
->>>>> Tom any further comments?
->>>>>
->>>> I still don't think this addresses the core problem. If we're just
->>>> worried about offloads being added in a user namespace that conflict
->>>> with the those in the root space, it might be just as easy to disallow
->>>> setting offloads except in default namespace.
->>>
->>> I am fine with that solution, too.
->>>
->>>> [...]
->>>>
->>>> To address this in the host stack the solution is pretty
->>>> straightforward, we need to decide that the packet is going to be
->>>> received before applying any offloads. Essentially we want to do an
->>>> early_demux _really_ early. If we demux and get UDP socket for
->>>> instance, then the protocol specific GRO function can be retrieved
->>>> from the socket. So this will work with single listener port like
->>>> encaps do today,  and also if encapsulation is being used over a
->>>> connected socket. This also works if we want to support a user defined
->>>> GRO function like I mentioned we might want to do for QUIC etc.
->>>
->>> An approximation can be done, but I don't think it is feasible to
->>> implement this kind of checks across namespace borders, ip rules and
->>> netfilter rulesets, which could all change the outcome of the process.
->>>
->> For receive offloads we don't need to worry about checking other namespaces.
->
-> That is true. Albeit for net-branch/stable I would still suggest either
-> this patch or restricting udp offloads just to the initial net namespace.
->
-I would opt for the latter then.
+On Thu, Dec 17, 2015 at 04:05:32PM -0500, David Miller wrote:
 
-> Bye,
-> Hannes
->
+> This should fix it, the only thing I'm unsure of is if we should perhaps
+> also use del_timer_sync() here.  Anyone?
+
+I think so.
+
+  Ralf
