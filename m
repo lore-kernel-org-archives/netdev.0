@@ -1,64 +1,139 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
-Date: Thu, 17 Dec 2015 18:40:12 +0100
-Message-ID: <5672F37C.9040602@stressinduktion.org>
-References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
- <1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
- <20151216.190417.1337922066819496682.davem@davemloft.net>
- <56727731.2010605@stressinduktion.org>
- <CALx6S36B5LFgJqJB7Q98Z2KF74Ee3UDiqva6fm+8HEo_KFfTMA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC net-next] ravb: Add dma queue interrupt support
+Date: Thu, 17 Dec 2015 20:42:59 +0300
+Message-ID: <5672F423.6010807@cogentembedded.com>
+References: <1450182181-12575-1-git-send-email-ykaneko0929@gmail.com>
+ <56706330.2060803@cogentembedded.com>
+ <CAH1o70LnEEu3iYos8wsaEZ=T67N+Tex_XHZgE9P93n6X6Bzz4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39963 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751348AbbLQRkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 12:40:14 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0200B20731
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 12:40:13 -0500 (EST)
-In-Reply-To: <CALx6S36B5LFgJqJB7Q98Z2KF74Ee3UDiqva6fm+8HEo_KFfTMA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAH1o70LnEEu3iYos8wsaEZ=T67N+Tex_XHZgE9P93n6X6Bzz4A@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17.12.2015 18:32, Tom Herbert wrote:
-> On Thu, Dec 17, 2015 at 12:49 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> With user namespaces a normal user can start a new network namespace
->> with all privileges and thus add new offloads, letting the other stack
->> interpret this garbage. Because the user namespace can also add
->> arbitrary ip addresses to its interface, solely matching those is not
->> enough.
+Hello.
+
+On 12/17/2015 07:29 PM, Yoshihiro Kaneko wrote:
+
+>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>
+>>> This patch supports the following interrupts.
+>>>
+>>> - One interrupt for multiple (descriptor, error, management)
+>>> - One interrupt for emac
+>>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
 >>
->> Tom any further comments?
 >>
-> I still don't think this addresses the core problem. If we're just
-> worried about offloads being added in a user namespace that conflict
-> with the those in the root space, it might be just as easy to disallow
-> setting offloads except in default namespace.
-
-I am fine with that solution, too.
-
-> [...]
+>>     You don't say why the current 2-interrupt scheme (implemented by Simon's
+>> patch) isn't enpough...
+>>
+>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>>
+>> [...]
+>>
+>>> diff --git a/drivers/net/ethernet/renesas/ravb.h
+>>> b/drivers/net/ethernet/renesas/ravb.h
+>>> index 9fbe92a..eada5a1 100644
+>>> --- a/drivers/net/ethernet/renesas/ravb.h
+>>> +++ b/drivers/net/ethernet/renesas/ravb.h
+>>> @@ -157,6 +157,7 @@ enum ravb_reg {
+[...]
+>>> +#define RAVB_RIx2_ALL  0x8003ffff
+>>
+>>     No prefix. And there's bit 31 in this register, according to my gen3
+>> manual. So, your _ALL isn't really "all bits". I'd rather call it RIx2_QFx.
+>> Or even RIE2_QFS and RID2_QFD.
 >
-> To address this in the host stack the solution is pretty
-> straightforward, we need to decide that the packet is going to be
-> received before applying any offloads. Essentially we want to do an
-> early_demux _really_ early. If we demux and get UDP socket for
-> instance, then the protocol specific GRO function can be retrieved
-> from the socket. So this will work with single listener port like
-> encaps do today,  and also if encapsulation is being used over a
-> connected socket. This also works if we want to support a user defined
-> GRO function like I mentioned we might want to do for QUIC etc.
+> I think that bit 31 is included in the value 0x8003ffff. Or I'm
+> missing something?
 
-An approximation can be done, but I don't think it is feasible to
-implement this kind of checks across namespace borders, ip rules and
-netfilter rulesets, which could all change the outcome of the process.
+    Sorry, I misread the code.
 
-Bye,
-Hannes
+>>> +
+>>> +/* TIx */
+>>
+>>     TIE/TID.
+>>
+>>> +#define RAVB_TIx_ALL   0x000fffff
+>>
+>>     No prefix. And there's bit 31 in this register, according to my gen3
+>> manual.
+
+    Oops, no bit 31 in these regs.
+
+> So, your _ALL isn't really "all bits".
+>
+> I think the correct value is 0x000f0f0f.
+
+    Indeed, please fix.
+
+>> [...]
+>>>
+>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>>> b/drivers/net/ethernet/renesas/ravb_main.c
+>>> index 120cc25..753b67d 100644
+>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+[...]
+>>> @@ -654,7 +679,7 @@ static int ravb_stop_dma(struct net_device *ndev)
+>>>    }
+>>>
+>>>    /* E-MAC interrupt handler */
+>>> -static void ravb_emac_interrupt(struct net_device *ndev)
+>>> +static void _ravb_emac_interrupt(struct net_device *ndev)
+>>
+>>
+>>     ravb_emac_interrupt_[un]locked() perhaps? Not sure which is more
+>> correct... :-)
+>
+> How about ravb_process_emac_interrupt() ?
+
+    I've made up my mind -- I'd prefer ravb_emac_interrupt_unlocked().
+
+[...]
+>>> +static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
+>>> +{
+>>> +       struct net_device *ndev = dev_id;
+>>> +       struct ravb_private *priv = netdev_priv(ndev);
+>>> +       irqreturn_t result = IRQ_NONE;
+>>> +       u32 iss;
+>>> +
+>>> +       spin_lock(&priv->lock);
+>>> +       /* Get interrupt status */
+>>> +       iss = ravb_read(ndev, ISS);
+>>> +
+>>>          /* Error status summary */
+>>>          if (iss & ISS_ES) {
+>>>                  ravb_error_interrupt(ndev);
+>>>                  result = IRQ_HANDLED;
+>>>          }
+>>>
+>>> +       /* Management */
+>>
+>>
+>>     Really? I thought that's gPTP Interrupt...
+>
+> gPTP seems to be a part of Management related interrupts.
+
+    ISS.CGIM is still described as gPTP interrupt mirror in my gen3 manual.
+
+>>>          if (iss & ISS_CGIS)
+>>>                  result = ravb_ptp_interrupt(ndev);
+>>>
+>>> @@ -776,6 +843,55 @@ static irqreturn_t ravb_interrupt(int irq, void
+>>> *dev_id)
+[...]
+
+> Thanks,
+> kaneko
+
+MBR, Sergei
+
