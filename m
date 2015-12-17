@@ -1,67 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 1/4] net/mlx5e: Restore the skb data
- pointer after xmit is finished
-Date: Thu, 17 Dec 2015 15:21:04 -0500 (EST)
-Message-ID: <20151217.152104.2240043588504838923.davem@davemloft.net>
-References: <1450355735-30846-1-git-send-email-saeedm@mellanox.com>
-	<1450355735-30846-2-git-send-email-saeedm@mellanox.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCHv3 net-next] ipv6: allow routes to be configured with
+ expire values
+Date: Thu, 17 Dec 2015 14:23:57 -0600
+Message-ID: <1450383837.28806.4.camel@redhat.com>
+References: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
+	 <1450285432.23793.12.camel@redhat.com>
+	 <20151217.150826.320110242014234511.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, eranbe@mellanox.com,
-	talal@mellanox.com, richardcochran@gmail.com
-To: saeedm@mellanox.com
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+	hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56597 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755018AbbLQUVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:21:06 -0500
-In-Reply-To: <1450355735-30846-2-git-send-email-saeedm@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:60619 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932100AbbLQUX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 15:23:58 -0500
+In-Reply-To: <20151217.150826.320110242014234511.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Thu, 17 Dec 2015 14:35:32 +0200
+On Thu, 2015-12-17 at 15:08 -0500, David Miller wrote:
+> From: Dan Williams <dcbw@redhat.com>
+> Date: Wed, 16 Dec 2015 11:03:52 -0600
+> 
+> > On Wed, 2015-12-16 at 17:50 +0800, Xin Long wrote:
+> >> Add the support for adding expire value to routes,  requested by
+> >> Tom Gundersen <teg@jklm.no> for systemd-networkd, and
+> NetworkManager
+> >> wants it too.
+> >> 
+> >> implement it by adding the new RTNETLINK attribute RTA_EXPIRES.
+> > 
+> > Could you also add bits to send RTA_EXPIRES back to userspace in
+> the
+> > route dump in rt6_fill_node(), so that userspace can figure out
+> when
+> > RTA_EXPIRES is supported or not?
+> > 
+> > (obviously having it there isn't foolproof as if there are no
+> routes on
+> > the system yet userspace can't figure out support, but it's better
+> than
+> > nothing...)
+> 
+> That brings up an interesting issue, and I do not agree that we
+> should
+> publish the value for the purpose of determining if the kernel
+> supports
+> it or not.
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-> index 1341b1d..0fcfe64 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-> @@ -165,6 +165,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
->  	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
->  	struct mlx5_wqe_data_seg *dseg;
->  
-> +	unsigned char *skb_data_orig = skb->data;
->  	u8  opcode = MLX5_OPCODE_SEND;
->  	dma_addr_t dma_addr = 0;
->  	bool bf = false;
-> @@ -263,6 +264,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
->  	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
->  	cseg->qpn_ds           = cpu_to_be32((sq->sqn << 8) | ds_cnt);
->  
-> +	skb_push(skb, skb->data - skb_data_orig);
->  	sq->skb[pi] = skb;
->  
->  	MLX5E_TX_SKB_CB(skb)->num_wqebbs = DIV_ROUND_UP(ds_cnt,
+That said, userspace still needs to read back the EXPIRES attribute, if
+only for iproute.  The program setting RTA_EXPIRES isn't the only thing
+that wants to know about the route's details.
 
-And in the middle of this we have:
+> We need to come up with a policy for handling unknown attributes
+> because what we do now doesn't work.
 
-		skb_pull_inline(skb, ihs);
+Definitely agree.
 
-This is looks illegal.
+> I'm almost positive that the right thing to do is to unilaterally
+> making nlmsg_parse() error out on out-of-range attribute type
+> numbers,
+> and then backport that to all -stable branches.
 
-You must not modify the data pointers of any SKB that you receive for
-sending via ->ndo_start_xmit() unless you know that absolutely you are
-the one and only reference that exists to that SKB.
+This works for one attribute because then userspace gets an error like
+EOPNOTSUPP or something.  But which attribute caused it?  Does
+userspace then have to retry the operation a couple times with all the
+different combinations of potentially unsupported options?
 
-And exactly for the case you are trying to "fix" here, you do not.  If
-the SKB is cloned, or has an elevated users count, someone else can be
-looking at it exactly at the same time you are messing with the data
-pointers.
+If we're going to error out on unrecognized options, I'd really like to
+see some kind of netlink features bitmap or something that positively
+indicates which options the kernel will accept.
 
-I bet mlx4 has this bug too.
-
-You must fix this properly, by keeping track of an offset or similar
-internally to your driver, rather than changing the SKB data pointers.
-
-Thanks.
+Dan
