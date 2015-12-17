@@ -1,32 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] ipv6: allow routes to be configured with
- expire values
-Date: Thu, 17 Dec 2015 15:09:03 -0500 (EST)
-Message-ID: <20151217.150903.1977974325959462390.davem@davemloft.net>
-References: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: addrconf: use stable address generator
+ for ARPHRD_NONE
+Date: Thu, 17 Dec 2015 15:11:25 -0500 (EST)
+Message-ID: <20151217.151125.1201586932750585868.davem@davemloft.net>
+References: <1450280678-4730-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: lucien.xin@gmail.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	hideaki.yoshifuji@miraclelinux.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56429 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56487 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754824AbbLQUJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:09:05 -0500
-In-Reply-To: <3b977653c7ade52e180d754eb660ec66af212e94.1450259411.git.lucien.xin@gmail.com>
+	with ESMTP id S1754643AbbLQUL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 15:11:27 -0500
+In-Reply-To: <1450280678-4730-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Wed, 16 Dec 2015 17:50:11 +0800
-
-> Add the support for adding expire value to routes,  requested by
-> Tom Gundersen <teg@jklm.no> for systemd-networkd, and NetworkManager
-> wants it too.
-> 
-> implement it by adding the new RTNETLINK attribute RTA_EXPIRES.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-
-Applied, thanks.
+RnJvbTogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+DQpEYXRlOiBXZWQsIDE2IERlYyAyMDE1
+IDE2OjQ0OjM4ICswMTAwDQoNCj4gQWRkIGEgbmV3IGFkZHJlc3MgZ2VuZXJhdG9yIG1vZGUsIHVz
+aW5nIHRoZSBzdGFibGUgYWRkcmVzcyBnZW5lcmF0b3INCj4gd2l0aCBhbiBhdXRvbWF0aWNhbGx5
+IGdlbmVyYXRlZCBzZWNyZXQuIFRoaXMgaXMgaW50ZW5kZWQgYXMgYSBkZWZhdWx0DQo+IGFkZHJl
+c3MgZ2VuZXJhdG9yIG1vZGUgZm9yIGRldmljZSB0eXBlcyB3aXRoIG5vIEVVSTY0IGltcGxlbWVu
+dGF0aW9uLg0KPiBUaGUgbmV3IGdlbmVyYXRvciBpcyB1c2VkIGZvciBBUlBIUkRfTk9ORSBpbnRl
+cmZhY2VzIGluaXRpYWxseSwgYWRkaW5nDQo+IGRlZmF1bHQgSVB2NiBhdXRvY29uZiBzdXBwb3J0
+IHRvIGUuZy4gdHVuIGludGVyZmFjZXMuDQo+IA0KPiBJZiB0aGUgYWRkcmdlbm1vZGUgaXMgc2V0
+IHRvICdyYW5kb20nLCBlaXRoZXIgYnkgZGVmYXVsdCBvciBtYW51YWxseSwNCj4gYW5kIG5vIHN0
+YWJsZSBzZWNyZXQgaXMgYXZhaWxhYmxlLCB0aGVuIGEgcmFuZG9tIHNlY3JldCBpcyB1c2VkIGFz
+DQo+IGlucHV0IGZvciB0aGUgc3RhYmxlLXByaXZhY3kgYWRkcmVzcyBnZW5lcmF0b3IuICBUaGUg
+c2VjcmV0IGNhbiBiZQ0KPiByZWFkIGFuZCBtb2RpZmllZCBsaWtlIG1hbnVhbGx5IGNvbmZpZ3Vy
+ZWQgc2VjcmV0cywgdXNpbmcgdGhlIHByb2MNCj4gaW50ZXJmYWNlLiAgTW9kaWZ5aW5nIHRoZSBz
+ZWNyZXQgd2lsbCBjaGFuZ2UgdGhlIGFkZHJnZW4gbW9kZSB0bw0KPiAnc3RhYmxlLXByaXZhY3kn
+IHRvIGluZGljYXRlIHRoYXQgaXQgb3BlcmF0ZXMgb24gYSBrbm93biBzZWNyZXQuDQo+IA0KPiBF
+eGlzdGluZyBiZWhhdmlvdXIgb2YgdGhlICdzdGFibGUtcHJpdmFjeScgbW9kZSBpcyBrZXB0IHVu
+Y2hhbmdlZC4gSWYNCj4gYSBrbm93biBzZWNyZXQgaXMgYXZhaWxhYmxlIHdoZW4gdGhlIGRldmlj
+ZSBpcyBjcmVhdGVkLCB0aGVuIHRoZSBtb2RlDQo+IHdpbGwgZGVmYXVsdCB0byAnc3RhYmxlLXBy
+aXZhY3knIGFzIGJlZm9yZS4gIFRoZSBtb2RlIGNhbiBiZSBtYW51YWxseQ0KPiBzZXQgdG8gJ3Jh
+bmRvbScgYnV0IGl0IHdpbGwgYmVoYXZlIGV4YWN0bHkgbGlrZSAnc3RhYmxlLXByaXZhY3knIGlu
+DQo+IHRoaXMgY2FzZS4gVGhlIHNlY3JldCB3aWxsIG5vdCBjaGFuZ2UuDQo+IA0KPiBDYzogSGFu
+bmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KPiBDYzog5ZCJ
+6Jek6Iux5piOIDxoaWRlYWtpLnlvc2hpZnVqaUBtaXJhY2xlbGludXguY29tPg0KPiBTaWduZWQt
+b2ZmLWJ5OiBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4NCg0KSSdsbCBnaXZlIEhhbm5lcyBh
+bmQgSGlkZWFraSBhIGNoYW5jZSB0byByZXZpZXcgdGhpcy4NCg==
