@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] fou: clean up socket with kfree_rcu
-Date: Wed, 16 Dec 2015 19:03:36 -0500 (EST)
-Message-ID: <20151216.190336.1728452196062056833.davem@davemloft.net>
+Subject: Re: [PATCH net 2/2] udp: restrict offloads to one namespace
+Date: Wed, 16 Dec 2015 19:04:17 -0500 (EST)
+Message-ID: <20151216.190417.1337922066819496682.davem@davemloft.net>
 References: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
+	<1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com, edumazet@google.com
 To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41850 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41863 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750792AbbLQADk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:03:40 -0500
-In-Reply-To: <1450209714-26037-1-git-send-email-hannes@stressinduktion.org>
+	with ESMTP id S1751145AbbLQAET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2015 19:04:19 -0500
+In-Reply-To: <1450209714-26037-2-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 15 Dec 2015 21:01:53 +0100
+Date: Tue, 15 Dec 2015 21:01:54 +0100
 
-> fou->udp_offloads is managed by RCU. As it is actually included inside
-> the fou sockets, we cannot let the memory go out of scope before a grace
-> period. We either can synchronize_rcu or switch over to kfree_rcu to
-> manage the sockets. kfree_rcu seems appropriate as it is used by vxlan
-> and geneve.
+> udp tunnel offloads tend to aggregate datagrams based on inner
+> headers. gro engine gets notified by tunnel implementations about
+> possible offloads. The match is solely based on the port number.
 > 
-> Fixes: 23461551c00628c ("fou: Support for foo-over-udp RX path")
+> Imagine a tunnel bound to port 53, the offloading will look into all
+> DNS packets and tries to aggregate them based on the inner data found
+> within. This could lead to data corruption and malformed DNS packets.
+> 
+> While this patch minimizes the problem and helps an administrator to find
+> the issue by querying ip tunnel/fou, a better way would be to match on
+> the specific destination ip address so if a user space socket is bound
+> to the same address it will conflict.
+> 
 > Cc: Tom Herbert <tom@herbertland.com>
+> Cc: Eric Dumazet <edumazet@google.com>
 > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied.
+It looks this issue is still being hashed out so I've marked this
+patch as deferred for now.
+
+THanks.
