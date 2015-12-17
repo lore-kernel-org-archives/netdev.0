@@ -1,46 +1,47 @@
-From: Venkat Duvvuru <venkatkumar.duvvuru@avagotech.com>
-Subject: [PATCH net] be2net: Avoid accessing eq object in be_msix_register routine, when i < 0.
-Date: Fri, 18 Dec 2015 01:40:50 +0530
-Message-ID: <1450383050-25106-1-git-send-email-venkatkumar.duvvuru@avagotech.com>
-Cc: venkatkumar.duvvuru@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [Patch net] net: check both type and procotol for tcp sockets
+Date: Thu, 17 Dec 2015 10:52:02 -0500
+Message-ID: <CAF=yD-+DHDUdU2njA32eTP1MMtHwp_mTt=hSE+-wVvp0ByuWLA@mail.gmail.com>
+References: <1450337944-22834-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:50719 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755866AbbLQPuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:50:21 -0500
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:35827 "EHLO
+	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934845AbbLQPwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 10:52:43 -0500
+Received: by mail-lf0-f43.google.com with SMTP id l133so54390311lfd.2
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 07:52:43 -0800 (PST)
+In-Reply-To: <1450337944-22834-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the first request_irq fails in be_msix_register, i value
-would be zero. The current code decrements the i value and
-accesses the eq object without validating the decremented
-"i" value. This can cause an "invalid memory address access"
-violation.
+On Thu, Dec 17, 2015 at 2:39 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Dmitry reported the following out-of-bound access:
+>
+> Call Trace:
+>  [<ffffffff816cec2e>] __asan_report_load4_noabort+0x3e/0x40
+> mm/kasan/report.c:294
+>  [<ffffffff84affb14>] sock_setsockopt+0x1284/0x13d0 net/core/sock.c:880
+>  [<     inline     >] SYSC_setsockopt net/socket.c:1746
+>  [<ffffffff84aed7ee>] SyS_setsockopt+0x1fe/0x240 net/socket.c:1729
+>  [<ffffffff85c18c76>] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
+>
+> This is because we mistake a raw socket as a tcp socket.
+> We should check both sk->sk_type and sk->sk_protocol to ensure
+> it is a tcp socket.
+>
+> Willem points out __skb_complete_tx_timestamp() needs to fix as well.
+>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-This patch fixes the problem by accessing the eq object after
-validating the "i" value.
+Acked-by: Willem de Bruijn <willemb@google.com>
 
-Signed-off-by: Venkat Duvvuru <venkatkumar.duvvuru@avagotech.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b6ad029..6598820 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3299,8 +3299,10 @@ static int be_msix_register(struct be_adapter *adapter)
- 
- 	return 0;
- err_msix:
--	for (i--, eqo = &adapter->eq_obj[i]; i >= 0; i--, eqo--)
-+	for (i--; i >= 0; i--) {
-+		eqo = &adapter->eq_obj[i];
- 		free_irq(be_msix_vec_get(adapter, eqo), eqo);
-+	}
- 	dev_warn(&adapter->pdev->dev, "MSIX Request IRQ failed - err %d\n",
- 		 status);
- 	be_msix_disable(adapter);
--- 
-1.8.3.1
+Thanks for fixing both cases at once.
