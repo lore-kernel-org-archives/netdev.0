@@ -1,34 +1,80 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2015-12-15
-Date: Thu, 17 Dec 2015 13:44:32 +0100
-Message-ID: <1450356272.8247.31.camel@sipsolutions.net>
-References: <1450182621.3356.12.camel@sipsolutions.net>
-	 <20151216.183443.615368179590575650.davem@davemloft.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net/macb: add proper header file
+Date: Thu, 17 Dec 2015 13:47:00 +0100
+Message-ID: <5672AEC4.70800@atmel.com>
+References: <1450354553-18745-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151216.183443.615368179590575650.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450354553-18745-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-12-16 at 18:34 -0500, David Miller wrote:
->=C2=A0
-> Something about your text encoding kept this from ending up
-> in patchwork for some reason.
+Le 17/12/2015 13:15, Sudip Mukherjee a =E9crit :
+> mips allmodconfig build fails with the error:
+>=20
+> drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
+> drivers/net/ethernet/cadence/macb.c:2908:2: error: implicit declarati=
+on of function 'devm_gpiod_get_optional' [-Werror=3Dimplicit-function-d=
+eclaration]
+>   bp->reset_gpio =3D devm_gpiod_get_optional(&bp->pdev->dev, "phy-res=
+et",
+>   ^
+> drivers/net/ethernet/cadence/macb.c:2909:8: error: 'GPIOD_OUT_HIGH' u=
+ndeclared (first use in this function)
+>         GPIOD_OUT_HIGH);
+>         ^
+> drivers/net/ethernet/cadence/macb.c:2909:8: note: each undeclared ide=
+ntifier is reported only once for each function it appears in
+> drivers/net/ethernet/cadence/macb.c: In function 'macb_remove':
+> drivers/net/ethernet/cadence/macb.c:2979:3: error: implicit declarati=
+on of function 'gpiod_set_value' [-Werror=3Dimplicit-function-declarati=
+on]
+>    gpiod_set_value(bp->reset_gpio, 0);
+>    ^
+>=20
+> Add the proper header file to resolve it. =20
+>=20
+> Fixes: 5833e0526820 ("net/macb: add support for resetting PHY using G=
+PIO")
+> Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+
+This one is fixed and handled by Gregory here:
+http://lists.infradead.org/pipermail/linux-arm-kernel/2015-December/394=
+433.html
+
+Thanks a lot anyay, bye,
+
+
+> ---
+>=20
+> build log with next-20151217 is at:
+> https://travis-ci.org/sudipm-mukherjee/parport/jobs/97388463
+>=20
+>  drivers/net/ethernet/cadence/macb.c | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 0123646..988ee14 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -19,6 +19,7 @@
+>  #include <linux/init.h>
+>  #include <linux/io.h>
+>  #include <linux/gpio.h>
+> +#include <linux/gpio/consumer.h>
+>  #include <linux/interrupt.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/etherdevice.h>
 >=20
 
-Hm. I don't see anything special with this, seems to just be plain text
-8bit transfer encoding.
 
-Do you want me to watch out for things getting into patchwork in the
-future?
-
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Nicolas Ferre
