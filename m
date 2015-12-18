@@ -1,30 +1,65 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] iplink: support 'stable-privacy' IPv6
- addrgenmode
-Date: Thu, 17 Dec 2015 17:32:38 -0800
-Message-ID: <20151217173238.7c742fb1@xeon-e3>
-References: <1450278914-12717-1-git-send-email-bjorn@mork.no>
+From: Calvin Owens <calvinowens@fb.com>
+Subject: Re: [PATCH] netconsole: Initialize after all core networking drivers
+Date: Thu, 17 Dec 2015 17:39:20 -0800
+Message-ID: <20151218013906.GA1715233@devbig337.prn1.facebook.com>
+References: <20151217235239.GA1444048@devbig337.prn1.facebook.com>
+ <20151217171057.6c0d3b35@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: =?UTF-8?B?QmrDuHJu?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36543 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965137AbbLRBcb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 20:32:31 -0500
-Received: by mail-pa0-f46.google.com with SMTP id q3so31314085pav.3
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 17:32:31 -0800 (PST)
-In-Reply-To: <1450278914-12717-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Cc: <davem@davemloft.net>, <shm@cumulusnetworks.com>,
+	<izumi.taku@jp.fujitsu.com>, <linville@tuxdriver.com>,
+	<dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151217171057.6c0d3b35@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Dec 2015 16:15:14 +0100
-Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+On Thursday 12/17 at 17:10 -0800, Stephen Hemminger wrote:
+> On Thu, 17 Dec 2015 15:52:39 -0800
+> Calvin Owens <calvinowens@fb.com> wrote:
+> 
+> > With built-in netconsole and IXGBE, configuring netconsole via the kernel
+> > cmdline results in the following panic at boot:
+> > 
+> >     netpoll: netconsole: device eth0 not up yet, forcing it
+> >     usb 2-1: new high-speed USB device number 2 using ehci-pci
+> >     ixgbe 0000:03:00.0: registered PHC device on eth0
+> >     BUG: unable to handle kernel NULL pointer dereference at 0000000000000810
+> >     <snip>
+> >     Call Trace:
+> >      [<ffffffff81578661>] ? vxlan_get_rx_port+0x41/0xa0
+> >      [<ffffffff81586828>] ixgbe_open+0x4e8/0x540
+> >      [<ffffffff8168045c>] __dev_open+0xac/0x120
+> >      [<ffffffff81680506>] dev_open+0x36/0x70
+> >      [<ffffffff8169abec>] netpoll_setup+0x23c/0x300
+> >      [<ffffffff8169a66a>] ? netpoll_parse_options+0x19a/0x200
+> >      [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
+> >      [<ffffffff81d79882>] init_netconsole+0xda/0x262
+> >      [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
+> >      [<ffffffff810003a8>] do_one_initcall+0x88/0x1b0
+> >      [<ffffffff81d31144>] kernel_init_freeable+0x14a/0x1e3
+> >      [<ffffffff81d308f1>] ? do_early_param+0x8c/0x8c
+> >      [<ffffffff81778610>] ? rest_init+0x80/0x80
+> >      [<ffffffff8177861e>] kernel_init+0xe/0xe0
+> >      [<ffffffff8177dc5f>] ret_from_fork+0x3f/0x70
+> >      [<ffffffff81778610>] ? rest_init+0x80/0x80
+> > 
+> > This happens because IXGBE assumes that vxlan has already been initialized.
+> > The cleanest way to fix this is to just initialize netconsole after all the
+> > other core networking stuff has completed.
+> > 
+> > Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> 
+> Fixing this by changing Makefile order is too fragile.
+> You are depending on the fact that Makefile order determines link order
+> and that determines initialization order. Down that path demons lie.
 
-> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Hmm, include/linux/init.h explicitly states that "Ordering inside the
+subsections is determined by link order", and has since before the
+beginning of the history in Git.
 
-Does not apply to current code base. Probably because of Hannes recent =
-changes.
+I agree it seems magic/scary, but as Eric says I would imagine this
+behavior is relied upon in other places.
