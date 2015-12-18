@@ -1,39 +1,32 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute2] lwtunnel: fix argument parsing
-Date: Thu, 17 Dec 2015 17:16:31 -0800
-Message-ID: <20151217171631.4ea010c0@xeon-e3>
-References: <f105b591ec43f65607f9d08d46af4612bb75e8cd.1450178247.git.pabeni@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -next] bpf: minor fix in api and
+ bpf_dump_error() usage
+Date: Thu, 17 Dec 2015 17:23:06 -0800
+Message-ID: <20151217172306.17bdb569@xeon-e3>
+References: <6598a3bfadced14239ea333155eb7fb9aaceccda.1450108152.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:24703 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753234AbbLRBQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 20:16:29 -0500
-In-Reply-To: <f105b591ec43f65607f9d08d46af4612bb75e8cd.1450178247.git.pabeni@redhat.com>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:34003 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753234AbbLRBW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 20:22:59 -0500
+Received: by mail-pf0-f175.google.com with SMTP id 68so39768864pfc.1
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 17:22:59 -0800 (PST)
+In-Reply-To: <6598a3bfadced14239ea333155eb7fb9aaceccda.1450108152.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Dec 2015 12:18:04 +0100
-Paolo Abeni <pabeni@redhat.com> wrote:
+On Mon, 14 Dec 2015 16:57:32 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> Currently parse_encap_ip() does not update correctly argv/argc;
-> if multiple lwtunnel arguments are provided, the parsing fails after
-> the first one, i.e.
+> Fix a whitespace in bpf_dump_error() usage, and also a missing closing
+> bracket in ntohl() macro for eBPF programs.
 > 
->  ip route add 172.16.101.0/24 dev vxlan1 encap ip id 42 dst 192.168.255.1
-> 
-> fails with:
-> 
->  Error: either "to" is duplicate, or "dst" is a garbage.
-> 
-> This commit addresses the issue, stepping to next argument at each iteration
-> of the parsing loop.
-> 
-> Fixes: 1e5293056a02 ("lwtunnel: Add encapsulation support to ip route")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
 
-Applied, thanks
+Applied to net-next
