@@ -1,209 +1,261 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 15/23] netfilter: nf_tables: wrap tracing with a static key
-Date: Fri, 18 Dec 2015 21:26:41 +0100
-Message-ID: <1450470409-31427-16-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/23] netfilter: nft_payload: add packet mangling support
+Date: Fri, 18 Dec 2015 21:26:39 +0100
+Message-ID: <1450470409-31427-14-git-send-email-pablo@netfilter.org>
 References: <1450470409-31427-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58082 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965210AbbLRUeK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2015 15:34:10 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 136331A5513
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:09 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id BAD07DA80C
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:08 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 1F013DA85D
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:02 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1450470409-31427-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Patrick McHardy <kaber@trash.net>
 
-Only needed when meta nftrace rule(s) were added.
-The assumption is that no such rules are active, so the call to
-nft_trace_init is "never" needed.
+Add support for mangling packet payload. Checksum for the specified base
+header is updated automatically if requested, however no updates for any
+kind of pseudo headers are supported, meaning no stateless NAT is supported.
 
-When nftrace rules are active, we always call the nft_trace_* functions,
-but will only send netlink messages when all of the following are true:
+For checksum updates different checksumming methods can be specified. The
+currently supported methods are NONE for no checksum updates, and INET for
+internet type checksums.
 
- - traceinfo structure was initialised
- - skb->nf_trace == 1
- - at least one subscriber to trace group.
-
-Adding an extra conditional
-(static_branch ... && skb->nf_trace)
-	nft_trace_init( ..)
-
-Is possible but results in a larger nft_do_chain footprint.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables_core.h |  1 +
- include/net/netfilter/nft_meta.h       |  3 +++
- net/bridge/netfilter/nft_meta_bridge.c |  1 +
- net/netfilter/nf_tables_core.c         |  9 ++++++---
- net/netfilter/nf_tables_trace.c        |  4 ++++
- net/netfilter/nft_meta.c               | 16 ++++++++++++++++
- 6 files changed, 31 insertions(+), 3 deletions(-)
+ include/net/netfilter/nf_tables_core.h   |   9 +++
+ include/uapi/linux/netfilter/nf_tables.h |  17 ++++
+ net/netfilter/nft_payload.c              | 135 +++++++++++++++++++++++++++++--
+ 3 files changed, 155 insertions(+), 6 deletions(-)
 
 diff --git a/include/net/netfilter/nf_tables_core.h b/include/net/netfilter/nf_tables_core.h
-index 4ff5424..a9060dd 100644
+index c6f400c..4ff5424 100644
 --- a/include/net/netfilter/nf_tables_core.h
 +++ b/include/net/netfilter/nf_tables_core.h
-@@ -57,6 +57,7 @@ struct nft_payload_set {
+@@ -47,6 +47,15 @@ struct nft_payload {
+ 	enum nft_registers	dreg:8;
  };
  
++struct nft_payload_set {
++	enum nft_payload_bases	base:8;
++	u8			offset;
++	u8			len;
++	enum nft_registers	sreg:8;
++	u8			csum_type;
++	u8			csum_offset;
++};
++
  extern const struct nft_expr_ops nft_payload_fast_ops;
-+extern struct static_key_false nft_trace_enabled;
  
  int nft_payload_module_init(void);
- void nft_payload_module_exit(void);
-diff --git a/include/net/netfilter/nft_meta.h b/include/net/netfilter/nft_meta.h
-index 711887a..d27588c 100644
---- a/include/net/netfilter/nft_meta.h
-+++ b/include/net/netfilter/nft_meta.h
-@@ -33,4 +33,7 @@ void nft_meta_set_eval(const struct nft_expr *expr,
- 		       struct nft_regs *regs,
- 		       const struct nft_pktinfo *pkt);
- 
-+void nft_meta_set_destroy(const struct nft_ctx *ctx,
-+			  const struct nft_expr *expr);
-+
- #endif
-diff --git a/net/bridge/netfilter/nft_meta_bridge.c b/net/bridge/netfilter/nft_meta_bridge.c
-index a21269b..4b901d9 100644
---- a/net/bridge/netfilter/nft_meta_bridge.c
-+++ b/net/bridge/netfilter/nft_meta_bridge.c
-@@ -84,6 +84,7 @@ static const struct nft_expr_ops nft_meta_bridge_set_ops = {
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_meta)),
- 	.eval		= nft_meta_set_eval,
- 	.init		= nft_meta_set_init,
-+	.destroy	= nft_meta_set_destroy,
- 	.dump		= nft_meta_set_dump,
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index d8c8a7c..5f3ecec 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -598,12 +598,26 @@ enum nft_payload_bases {
  };
  
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 2395de7..67fa41d 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -16,6 +16,7 @@
- #include <linux/skbuff.h>
- #include <linux/netlink.h>
- #include <linux/netfilter.h>
-+#include <linux/static_key.h>
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables_core.h>
-@@ -50,7 +51,7 @@ static noinline void __nft_trace_packet(struct nft_traceinfo *info,
- {
- 	const struct nft_pktinfo *pkt = info->pkt;
- 
--	if (!pkt->skb->nf_trace)
-+	if (!info->trace || !pkt->skb->nf_trace)
- 		return;
- 
- 	info->chain = chain;
-@@ -70,7 +71,7 @@ static inline void nft_trace_packet(struct nft_traceinfo *info,
- 				    int rulenum,
- 				    enum nft_trace_types type)
- {
--	if (unlikely(info->trace)) {
-+	if (static_branch_unlikely(&nft_trace_enabled)) {
- 		info->rule = rule;
- 		__nft_trace_packet(info, chain, rulenum, type);
- 	}
-@@ -137,7 +138,9 @@ nft_do_chain(struct nft_pktinfo *pkt, void *priv)
- 	unsigned int gencursor = nft_genmask_cur(net);
- 	struct nft_traceinfo info;
- 
--	nft_trace_init(&info, pkt, &regs.verdict, basechain);
-+	info.trace = false;
-+	if (static_branch_unlikely(&nft_trace_enabled))
-+		nft_trace_init(&info, pkt, &regs.verdict, basechain);
- do_chain:
- 	rulenum = 0;
- 	rule = list_entry(&chain->rules, struct nft_rule, list);
-diff --git a/net/netfilter/nf_tables_trace.c b/net/netfilter/nf_tables_trace.c
-index 36fd7ad..e9e959f 100644
---- a/net/netfilter/nf_tables_trace.c
-+++ b/net/netfilter/nf_tables_trace.c
-@@ -8,6 +8,7 @@
+ /**
++ * enum nft_payload_csum_types - nf_tables payload expression checksum types
++ *
++ * @NFT_PAYLOAD_CSUM_NONE: no checksumming
++ * @NFT_PAYLOAD_CSUM_INET: internet checksum (RFC 791)
++ */
++enum nft_payload_csum_types {
++	NFT_PAYLOAD_CSUM_NONE,
++	NFT_PAYLOAD_CSUM_INET,
++};
++
++/**
+  * enum nft_payload_attributes - nf_tables payload expression netlink attributes
+  *
+  * @NFTA_PAYLOAD_DREG: destination register to load data into (NLA_U32: nft_registers)
+  * @NFTA_PAYLOAD_BASE: payload base (NLA_U32: nft_payload_bases)
+  * @NFTA_PAYLOAD_OFFSET: payload offset relative to base (NLA_U32)
+  * @NFTA_PAYLOAD_LEN: payload length (NLA_U32)
++ * @NFTA_PAYLOAD_SREG: source register to load data from (NLA_U32: nft_registers)
++ * @NFTA_PAYLOAD_CSUM_TYPE: checksum type (NLA_U32)
++ * @NFTA_PAYLOAD_CSUM_OFFSET: checksum offset relative to base (NLA_U32)
   */
- 
- #include <linux/module.h>
-+#include <linux/static_key.h>
- #include <linux/hash.h>
- #include <linux/jhash.h>
- #include <linux/if_vlan.h>
-@@ -24,6 +25,9 @@
- #define NFT_TRACETYPE_NETWORK_HSIZE	40
- #define NFT_TRACETYPE_TRANSPORT_HSIZE	20
- 
-+DEFINE_STATIC_KEY_FALSE(nft_trace_enabled);
-+EXPORT_SYMBOL_GPL(nft_trace_enabled);
-+
- static int trace_fill_id(struct sk_buff *nlskb, struct sk_buff *skb)
- {
- 	__be32 id;
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index 9dfaf4d..85a465b 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -18,10 +18,12 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/smp.h>
-+#include <linux/static_key.h>
- #include <net/dst.h>
- #include <net/sock.h>
- #include <net/tcp_states.h> /* for TCP_TIME_WAIT */
- #include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables_core.h>
- #include <net/netfilter/nft_meta.h>
- 
- void nft_meta_get_eval(const struct nft_expr *expr,
-@@ -297,6 +299,9 @@ int nft_meta_set_init(const struct nft_ctx *ctx,
- 	if (err < 0)
- 		return err;
- 
-+	if (priv->key == NFT_META_NFTRACE)
-+		static_branch_inc(&nft_trace_enabled);
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(nft_meta_set_init);
-@@ -334,6 +339,16 @@ nla_put_failure:
- }
- EXPORT_SYMBOL_GPL(nft_meta_set_dump);
- 
-+void nft_meta_set_destroy(const struct nft_ctx *ctx,
-+			  const struct nft_expr *expr)
-+{
-+	const struct nft_meta *priv = nft_expr_priv(expr);
-+
-+	if (priv->key == NFT_META_NFTRACE)
-+		static_branch_dec(&nft_trace_enabled);
-+}
-+EXPORT_SYMBOL_GPL(nft_meta_set_destroy);
-+
- static struct nft_expr_type nft_meta_type;
- static const struct nft_expr_ops nft_meta_get_ops = {
- 	.type		= &nft_meta_type,
-@@ -348,6 +363,7 @@ static const struct nft_expr_ops nft_meta_set_ops = {
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_meta)),
- 	.eval		= nft_meta_set_eval,
- 	.init		= nft_meta_set_init,
-+	.destroy	= nft_meta_set_destroy,
- 	.dump		= nft_meta_set_dump,
+ enum nft_payload_attributes {
+ 	NFTA_PAYLOAD_UNSPEC,
+@@ -611,6 +625,9 @@ enum nft_payload_attributes {
+ 	NFTA_PAYLOAD_BASE,
+ 	NFTA_PAYLOAD_OFFSET,
+ 	NFTA_PAYLOAD_LEN,
++	NFTA_PAYLOAD_SREG,
++	NFTA_PAYLOAD_CSUM_TYPE,
++	NFTA_PAYLOAD_CSUM_OFFSET,
+ 	__NFTA_PAYLOAD_MAX
  };
+ #define NFTA_PAYLOAD_MAX	(__NFTA_PAYLOAD_MAX - 1)
+diff --git a/net/netfilter/nft_payload.c b/net/netfilter/nft_payload.c
+index 09b4b07..12cd4bf 100644
+--- a/net/netfilter/nft_payload.c
++++ b/net/netfilter/nft_payload.c
+@@ -107,10 +107,13 @@ err:
+ }
+ 
+ static const struct nla_policy nft_payload_policy[NFTA_PAYLOAD_MAX + 1] = {
+-	[NFTA_PAYLOAD_DREG]	= { .type = NLA_U32 },
+-	[NFTA_PAYLOAD_BASE]	= { .type = NLA_U32 },
+-	[NFTA_PAYLOAD_OFFSET]	= { .type = NLA_U32 },
+-	[NFTA_PAYLOAD_LEN]	= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_SREG]		= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_DREG]		= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_BASE]		= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_OFFSET]		= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_LEN]		= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_CSUM_TYPE]	= { .type = NLA_U32 },
++	[NFTA_PAYLOAD_CSUM_OFFSET]	= { .type = NLA_U32 },
+ };
+ 
+ static int nft_payload_init(const struct nft_ctx *ctx,
+@@ -160,6 +163,118 @@ const struct nft_expr_ops nft_payload_fast_ops = {
+ 	.dump		= nft_payload_dump,
+ };
+ 
++static void nft_payload_set_eval(const struct nft_expr *expr,
++				 struct nft_regs *regs,
++				 const struct nft_pktinfo *pkt)
++{
++	const struct nft_payload_set *priv = nft_expr_priv(expr);
++	struct sk_buff *skb = pkt->skb;
++	const u32 *src = &regs->data[priv->sreg];
++	int offset, csum_offset;
++	__wsum fsum, tsum;
++	__sum16 sum;
++
++	switch (priv->base) {
++	case NFT_PAYLOAD_LL_HEADER:
++		if (!skb_mac_header_was_set(skb))
++			goto err;
++		offset = skb_mac_header(skb) - skb->data;
++		break;
++	case NFT_PAYLOAD_NETWORK_HEADER:
++		offset = skb_network_offset(skb);
++		break;
++	case NFT_PAYLOAD_TRANSPORT_HEADER:
++		offset = pkt->xt.thoff;
++		break;
++	default:
++		BUG();
++	}
++
++	csum_offset = offset + priv->csum_offset;
++	offset += priv->offset;
++
++	if (priv->csum_type == NFT_PAYLOAD_CSUM_INET &&
++	    (priv->base != NFT_PAYLOAD_TRANSPORT_HEADER ||
++	     skb->ip_summed != CHECKSUM_PARTIAL)) {
++		if (skb_copy_bits(skb, csum_offset, &sum, sizeof(sum)) < 0)
++			goto err;
++
++		fsum = skb_checksum(skb, offset, priv->len, 0);
++		tsum = csum_partial(src, priv->len, 0);
++		sum = csum_fold(csum_add(csum_sub(~csum_unfold(sum), fsum),
++					 tsum));
++		if (sum == 0)
++			sum = CSUM_MANGLED_0;
++
++		if (!skb_make_writable(skb, csum_offset + sizeof(sum)) ||
++		    skb_store_bits(skb, csum_offset, &sum, sizeof(sum)) < 0)
++			goto err;
++	}
++
++	if (!skb_make_writable(skb, max(offset + priv->len, 0)) ||
++	    skb_store_bits(skb, offset, src, priv->len) < 0)
++		goto err;
++
++	return;
++err:
++	regs->verdict.code = NFT_BREAK;
++}
++
++static int nft_payload_set_init(const struct nft_ctx *ctx,
++				const struct nft_expr *expr,
++				const struct nlattr * const tb[])
++{
++	struct nft_payload_set *priv = nft_expr_priv(expr);
++
++	priv->base        = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_BASE]));
++	priv->offset      = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_OFFSET]));
++	priv->len         = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_LEN]));
++	priv->sreg        = nft_parse_register(tb[NFTA_PAYLOAD_SREG]);
++
++	if (tb[NFTA_PAYLOAD_CSUM_TYPE])
++		priv->csum_type =
++			ntohl(nla_get_be32(tb[NFTA_PAYLOAD_CSUM_TYPE]));
++	if (tb[NFTA_PAYLOAD_CSUM_OFFSET])
++		priv->csum_offset =
++			ntohl(nla_get_be32(tb[NFTA_PAYLOAD_CSUM_OFFSET]));
++
++	switch (priv->csum_type) {
++	case NFT_PAYLOAD_CSUM_NONE:
++	case NFT_PAYLOAD_CSUM_INET:
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return nft_validate_register_load(priv->sreg, priv->len);
++}
++
++static int nft_payload_set_dump(struct sk_buff *skb, const struct nft_expr *expr)
++{
++	const struct nft_payload_set *priv = nft_expr_priv(expr);
++
++	if (nft_dump_register(skb, NFTA_PAYLOAD_SREG, priv->sreg) ||
++	    nla_put_be32(skb, NFTA_PAYLOAD_BASE, htonl(priv->base)) ||
++	    nla_put_be32(skb, NFTA_PAYLOAD_OFFSET, htonl(priv->offset)) ||
++	    nla_put_be32(skb, NFTA_PAYLOAD_LEN, htonl(priv->len)) ||
++	    nla_put_be32(skb, NFTA_PAYLOAD_CSUM_TYPE, htonl(priv->csum_type)) ||
++	    nla_put_be32(skb, NFTA_PAYLOAD_CSUM_OFFSET,
++			 htonl(priv->csum_offset)))
++		goto nla_put_failure;
++	return 0;
++
++nla_put_failure:
++	return -1;
++}
++
++static const struct nft_expr_ops nft_payload_set_ops = {
++	.type		= &nft_payload_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_payload_set)),
++	.eval		= nft_payload_set_eval,
++	.init		= nft_payload_set_init,
++	.dump		= nft_payload_set_dump,
++};
++
+ static const struct nft_expr_ops *
+ nft_payload_select_ops(const struct nft_ctx *ctx,
+ 		       const struct nlattr * const tb[])
+@@ -167,8 +282,7 @@ nft_payload_select_ops(const struct nft_ctx *ctx,
+ 	enum nft_payload_bases base;
+ 	unsigned int offset, len;
+ 
+-	if (tb[NFTA_PAYLOAD_DREG] == NULL ||
+-	    tb[NFTA_PAYLOAD_BASE] == NULL ||
++	if (tb[NFTA_PAYLOAD_BASE] == NULL ||
+ 	    tb[NFTA_PAYLOAD_OFFSET] == NULL ||
+ 	    tb[NFTA_PAYLOAD_LEN] == NULL)
+ 		return ERR_PTR(-EINVAL);
+@@ -183,6 +297,15 @@ nft_payload_select_ops(const struct nft_ctx *ctx,
+ 		return ERR_PTR(-EOPNOTSUPP);
+ 	}
+ 
++	if (tb[NFTA_PAYLOAD_SREG] != NULL) {
++		if (tb[NFTA_PAYLOAD_DREG] != NULL)
++			return ERR_PTR(-EINVAL);
++		return &nft_payload_set_ops;
++	}
++
++	if (tb[NFTA_PAYLOAD_DREG] == NULL)
++		return ERR_PTR(-EINVAL);
++
+ 	offset = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_OFFSET]));
+ 	len    = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_LEN]));
  
 -- 
 2.1.4
+
