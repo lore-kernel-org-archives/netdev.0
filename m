@@ -1,40 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
-Date: Fri, 18 Dec 2015 10:26:54 +0800
-Message-ID: <20151218022654.GA18495@gondor.apana.org.au>
-References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
- <20151130093755.GA8159@gondor.apana.org.au>
- <20151130101401.GA17712@orbit.nwl.cc>
- <20151130101859.GA8378@gondor.apana.org.au>
- <20151203124129.GA5505@gondor.apana.org.au>
- <CADvbK_cA5qaooTOE4Z2bGYs+ys17ZajSMgKDVWgctSZWJ0vjpw@mail.gmail.com>
- <20151217084809.GC9239@gondor.apana.org.au>
- <CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
- <CADvbK_e_H91UAatLSOEAvPFxZZTNNs5ZFR5TieXBdWt65z4Qzg@mail.gmail.com>
+From: <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
+Date: Fri, 18 Dec 2015 12:36:25 +0800
+Message-ID: <1450413386-8867-1-git-send-email-zyjzyj2000@gmail.com>
+References: <1586.1450389436@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <phil@nwl.cc>, davem <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CADvbK_e_H91UAatLSOEAvPFxZZTNNs5ZFR5TieXBdWt65z4Qzg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <vfalico@gmail.com>, <gospo@cumulusnetworks.com>,
+	<netdev@vger.kernel.org>, <Boris.Shteinbock@windriver.com>
+To: <j.vosburgh@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail5.windriver.com ([192.103.53.11]:53988 "EHLO mail5.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933572AbbLREgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2015 23:36:14 -0500
+In-Reply-To: <1586.1450389436@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 18, 2015 at 12:07:08AM +0800, Xin Long wrote:
->
-> I'm just wondering, why do not we handle the genuine double rehash
-> issue inside rhashtable? i mean it's just a temporary error that a
-> simple retry may fix it.
 
-Because a double rehash means that someone has cracked your hash
-function and there is no point in trying anymore.
+Hi, Jay
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks for your reply.
+
+Yes. The NIC is a bit odd. We have to be compatible with it.
+I followed your advice to delay calling netif_carrier_on().
+
+Changes:
+Delay calling netif_carrier_on().
+
+Best Regards!
+Zhu Yanjun
