@@ -1,81 +1,55 @@
-From: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
-Subject: Re: [PATCH][iproute2] tc/q_htb.c: Fix the MPU value output in 'tc -d class show dev <device_name> ' command
-Date: Sat, 19 Dec 2015 00:45:40 +0300
-Message-ID: <1335891450475140@web23o.yandex.ru>
-References: <5917221449918579@web5j.yandex.ru>
-	 <20151216161558.265296c7@redhat.com>
-	 <20151216160400.GJ6555@orbit.nwl.cc>
-	 <1313271450456765@web7g.yandex.ru> <20151218165518.GE19288@orbyte.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Phil Sutter <phil@nwl.cc>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] natsemi: add checks for dma mapping errors
+Date: Sat, 19 Dec 2015 00:55:37 +0300
+Message-ID: <1450475737-5959-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward7o.cmail.yandex.net ([37.9.109.53]:39600 "EHLO
-	forward7o.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965054AbbLRVxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 16:53:25 -0500
-In-Reply-To: <20151218165518.GE19288@orbyte.nwl.cc>
+Received: from mail.ispras.ru ([83.149.199.45]:35426 "EHLO mail.ispras.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753057AbbLRVzu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2015 16:55:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phil,
+refill_rx() and start_tx() do not check if mapping dma memory succeed.
+The patch adds the checks and failure handling.
 
-18.12.2015, 19:55, "Phil Sutter" <phil@nwl.cc>:
-> On Fri, Dec 18, 2015 at 07:39:25PM +0300, Dmitrii Shcherbakov wrote:
->> =9A> Dmitrii, did iproute2 without your change even print the overhe=
-ad as set
->> =9A> by you before? Looking at the code, I'd assume not.
->>
->> =9ATried building iproute2 (as of tag 4.2) and using the upstream li=
-nux kernel (also tag 4.2 - 64291f7db5bd8150a74ad2036f1037e6a0428df2):
->
-> This is without your patch, right?
+Found by Linux Driver Verification project (linuxtesting.org).
 
-Yes (ec4ef6aebd5a52ab1acf1f5be1749320b3188659).=20
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/ethernet/natsemi/natsemi.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
->
->> =9A~/src/iproute2/tc$ sudo ./tc class add dev eth0 parent 1: classid=
- 1:1 htb rate 100kbps ceil 100kbps mpu 256 overhead 64
->
-> Setting an mpu of 256 is suitable to get 0 as output value, as the co=
-de
-> before your patch ANDs it with 0xff.
-
-True, but then I think I would get the 'old' (encoded) overhead output =
-of '1b' then and the first 8 bits which are treated as mpu would be 0 a=
-nyway. And its 0 for both mpu and overhead ("mpu 0b overhead 0b") which=
- is strange. I am going to have to take a look at the kernel state with=
- gdb.
-
-What I would expect instead (notice 'overhead 1b'):
-
-[root@localhost ~]# tc -d class show dev eth0
-[root@localhost ~]# tc qdisc add dev eth0 root handle 1: htb default 12
-[root@localhost ~]# tc class add dev eth0 parent 1: classid 1:1 htb rat=
-e 100kbps ceil 100kbps mpu 256 overhead 64
-[root@localhost ~]# tc -d class show dev eth0
-class htb 1:1 root prio 0 quantum 10000 rate 800000bit overhead 64 ceil=
- 800000bit burst 1600b/1 mpu 0b overhead 1b cburst 1600b/1 mpu 0b overh=
-ead 1b level 0 =20
-
->
->> =9ASo it looks like the overhead is being set correctly, but the mpu=
- is not, even though the respective kernel module is loaded judging by =
-what I see.
->
-> To really know what is being set, you would have to look at the kerne=
-l
-> variables not what iproute prints. This is nitpicking mostly, but
-> relevant in this case as your patches to fix iproute's output show.
->
-> Cheers, Phil
-
-I am going to try and take a look at it. I have not delved into the ker=
-nel's network subsystem so it may take some time.
-
-Thanks,
-Dima
+diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+index b83f7c0fcf99..282e59d66a52 100644
+--- a/drivers/net/ethernet/natsemi/natsemi.c
++++ b/drivers/net/ethernet/natsemi/natsemi.c
+@@ -1937,6 +1937,12 @@ static void refill_rx(struct net_device *dev)
+ 				break; /* Better luck next round. */
+ 			np->rx_dma[entry] = pci_map_single(np->pci_dev,
+ 				skb->data, buflen, PCI_DMA_FROMDEVICE);
++			if (pci_dma_mapping_error(np->pci_dev,
++						  np->rx_dma[entry])) {
++				dev_kfree_skb_any(skb);
++				np->rx_skbuff[entry] = NULL;
++				break; /* Better luck next round. */
++			}
+ 			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
+ 		}
+ 		np->rx_ring[entry].cmd_status = cpu_to_le32(np->rx_buf_sz);
+@@ -2093,6 +2099,10 @@ static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev)
+ 	np->tx_skbuff[entry] = skb;
+ 	np->tx_dma[entry] = pci_map_single(np->pci_dev,
+ 				skb->data,skb->len, PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(np->pci_dev, np->tx_dma[entry])) {
++		np->tx_skbuff[entry] = NULL;
++		return NETDEV_TX_BUSY;
++	}
+ 
+ 	np->tx_ring[entry].addr = cpu_to_le32(np->tx_dma[entry]);
+ 
+-- 
+1.9.1
