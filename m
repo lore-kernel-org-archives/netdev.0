@@ -1,46 +1,46 @@
-From: Daniel Trautmann <dtrautmann@ibhsoftec.com>
-Subject: Re: [PATCH v2 0/3] drivers: net: cpsw: Fix bugs in fixed-link PHY DT
- parsing
-Date: Fri, 18 Dec 2015 11:20:21 +0100
-Message-ID: <20151218102020.GA1703@dt-ub1404lts.ENTWDOM.local>
-References: <20151209223115.6c5a400f.drivshin.allworx@gmail.com>
- <1741588.Ve76Z1ZI87@localhost>
- <cover.1450309613.git.drivshin@allworx.com>
- <20151217.154508.505711333985621252.davem@davemloft.net>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next 0/2] Local checksum offload for VXLAN
+Date: Fri, 18 Dec 2015 10:41:58 +0000
+Message-ID: <5673E2F6.2000209@solarflare.com>
+References: <5672D466.6050900@solarflare.com>
+ <CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, dtrautmann@ibhsoftec-sps.de,
- systemprogrammierung.brunner@gmail.com, netdev@vger.kernel.org,
- kernel@iktek.de, linux-omap@vger.kernel.org, drivshin.allworx@gmail.com,
- linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20151217.154508.505711333985621252.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:48007 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752611AbbLRKmK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 05:42:10 -0500
+In-Reply-To: <CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2015 at 03:45:08PM -0500, David Miller wrote:
-> From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-> Date: Wed, 16 Dec 2015 23:02:08 -0500
-> 
-> > I have tested on the following hardware configurations:
-> >  - (EVMSK) dual emac with two real MDIO-connected phys using RGMII-TXID
-> >  - single emac with fixed-link using RGMII
-> > Testing of other CPSW emac configurations that folks may have would
-> > be appreciated.
-> 
-> I'm going to wait until some others give some feedback and testing
-> results on this one, thanks.
+On 17/12/15 18:06, Tom Herbert wrote:
+> I'm not sure that we need bits in VXLAN or any other encapsulation. It
+> should be sufficient in udp_set_csum that if we already have
+> CHECKSUM_PARTIAL that can always be used to do local checksum offload.
+My understandingis that otherwise iptunnel_handle_offloads() will do the
+ inner checksum in sw, because csum_help will be passed as true.  It will
+ call skb_checksum_help().
+> This is also should be independent as to whether the device does
+> NETIF_F_HW_CSUM or can offload  NETIF_F_IP[V6]_CSUM for encapsulated
+> packets.
+I was wary of drivers that declare NETIF_F_IP[V6]_CSUM but don't cope with
+ encapsulated packets.  Would they do the right thing if the inner_csum bool
+ in patch 2 just tested for NETIF_F_CSUM_MASK, or do I need to test things
+ like NETIF_F_GSO_UDP_TUNNEL_CSUM?  I'm afraid I don't entirely understand
+ the infrastructure here, so I just did the minimal thing I was sure worked,
+ i.e. testing for NETIF_F_HW_CSUM.
+> It would be nice to have a more formal documentation also. This is a
+> very powerful mechanism but the math behind it and requirements are
+> subtle.
+>
+> Tom
+What would be a good place to put such documentation?  In
+ Documentation/networking, or as part of the big checksums comment at the
+ top of skbuff.h?
 
-I can confirm that this patch is working on the following hardware setup:
- - single emac using MII connected with fixed-link to Micrel KSZ8895 Switch
+-ed
