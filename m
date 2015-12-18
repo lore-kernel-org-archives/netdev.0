@@ -1,15 +1,17 @@
 From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 01/14] Bluetooth: use list_for_each_entry*
-Date: Fri, 18 Dec 2015 23:33:25 +0800
-Message-ID: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
+Subject: [PATCH 02/14] sctp: use list_for_each_entry*
+Date: Fri, 18 Dec 2015 23:33:26 +0800
+Message-ID: <e7b5bfc4a114ea85e85e4038199d3e5a76040148.1450451516.git.geliangtang@163.com>
+References: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
+Cc: Geliang Tang <geliangtang@163.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
+In-Reply-To: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
+References: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -18,225 +20,379 @@ the code.
 
 Signed-off-by: Geliang Tang <geliangtang@163.com>
 ---
- net/bluetooth/af_bluetooth.c | 12 ++++++------
- net/bluetooth/cmtp/capi.c    |  8 ++------
- net/bluetooth/hci_core.c     |  8 +++-----
- net/bluetooth/rfcomm/core.c  | 46 ++++++++++++++------------------------------
- 4 files changed, 25 insertions(+), 49 deletions(-)
+ net/sctp/associola.c     | 24 +++++++++------------
+ net/sctp/chunk.c         | 16 ++++++--------
+ net/sctp/outqueue.c      | 56 +++++++++++++++++++-----------------------------
+ net/sctp/protocol.c      | 12 ++++-------
+ net/sctp/sm_make_chunk.c | 11 +++++-----
+ net/sctp/sm_sideeffect.c |  8 +++----
+ net/sctp/socket.c        |  7 ++----
+ 7 files changed, 52 insertions(+), 82 deletions(-)
 
-diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
-index cb4e8d4..955eda9 100644
---- a/net/bluetooth/af_bluetooth.c
-+++ b/net/bluetooth/af_bluetooth.c
-@@ -174,13 +174,13 @@ EXPORT_SYMBOL(bt_accept_unlink);
- 
- struct sock *bt_accept_dequeue(struct sock *parent, struct socket *newsock)
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 559afd0..a7065ca 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -324,8 +324,7 @@ fail:
+ void sctp_association_free(struct sctp_association *asoc)
  {
--	struct list_head *p, *n;
-+	struct bt_sock *s, *n;
- 	struct sock *sk;
+ 	struct sock *sk = asoc->base.sk;
+-	struct sctp_transport *transport;
+-	struct list_head *pos, *temp;
++	struct sctp_transport *transport, *temp;
+ 	int i;
  
- 	BT_DBG("parent %p", parent);
+ 	/* Only real associations count against the endpoint, so
+@@ -380,9 +379,9 @@ void sctp_association_free(struct sctp_association *asoc)
+ 	kfree(asoc->peer.peer_hmacs);
  
--	list_for_each_safe(p, n, &bt_sk(parent)->accept_q) {
--		sk = (struct sock *) list_entry(p, struct bt_sock, accept_q);
-+	list_for_each_entry_safe(s, n, &bt_sk(parent)->accept_q, accept_q) {
-+		sk = (struct sock *)s;
- 
- 		lock_sock(sk);
- 
-@@ -388,11 +388,11 @@ EXPORT_SYMBOL(bt_sock_stream_recvmsg);
- 
- static inline unsigned int bt_accept_poll(struct sock *parent)
- {
--	struct list_head *p, *n;
-+	struct bt_sock *s, *n;
- 	struct sock *sk;
- 
--	list_for_each_safe(p, n, &bt_sk(parent)->accept_q) {
--		sk = (struct sock *) list_entry(p, struct bt_sock, accept_q);
-+	list_for_each_entry_safe(s, n, &bt_sk(parent)->accept_q, accept_q) {
-+		sk = (struct sock *)s;
- 		if (sk->sk_state == BT_CONNECTED ||
- 		    (test_bit(BT_SK_DEFER_SETUP, &bt_sk(parent)->flags) &&
- 		     sk->sk_state == BT_CONNECT2))
-diff --git a/net/bluetooth/cmtp/capi.c b/net/bluetooth/cmtp/capi.c
-index 9a503387..46ac686 100644
---- a/net/bluetooth/cmtp/capi.c
-+++ b/net/bluetooth/cmtp/capi.c
-@@ -100,10 +100,8 @@ static void cmtp_application_del(struct cmtp_session *session, struct cmtp_appli
- static struct cmtp_application *cmtp_application_get(struct cmtp_session *session, int pattern, __u16 value)
- {
- 	struct cmtp_application *app;
--	struct list_head *p;
- 
--	list_for_each(p, &session->applications) {
--		app = list_entry(p, struct cmtp_application, list);
-+	list_for_each_entry(app, &session->applications, list) {
- 		switch (pattern) {
- 		case CMTP_MSGNUM:
- 			if (app->msgnum == value)
-@@ -511,14 +509,12 @@ static int cmtp_proc_show(struct seq_file *m, void *v)
- 	struct capi_ctr *ctrl = m->private;
- 	struct cmtp_session *session = ctrl->driverdata;
- 	struct cmtp_application *app;
--	struct list_head *p;
- 
- 	seq_printf(m, "%s\n\n", cmtp_procinfo(ctrl));
- 	seq_printf(m, "addr %s\n", session->name);
- 	seq_printf(m, "ctrl %d\n", session->num);
- 
--	list_for_each(p, &session->applications) {
--		app = list_entry(p, struct cmtp_application, list);
-+	list_for_each_entry(app, &session->applications, list) {
- 		seq_printf(m, "appl %d -> %d\n", app->appl, app->mapping);
+ 	/* Release the transport structures. */
+-	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+-		transport = list_entry(pos, struct sctp_transport, transports);
+-		list_del_rcu(pos);
++	list_for_each_entry_safe(transport, temp,
++				 &asoc->peer.transport_addr_list, transports) {
++		list_del_rcu(&transport->transports);
+ 		sctp_transport_free(transport);
  	}
  
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 9fb443a..47bcef7 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -2713,12 +2713,10 @@ struct bdaddr_list *hci_bdaddr_list_lookup(struct list_head *bdaddr_list,
- 
- void hci_bdaddr_list_clear(struct list_head *bdaddr_list)
+@@ -718,12 +717,10 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+ void sctp_assoc_del_peer(struct sctp_association *asoc,
+ 			 const union sctp_addr *addr)
  {
--	struct list_head *p, *n;
-+	struct bdaddr_list *b, *n;
+-	struct list_head	*pos;
+-	struct list_head	*temp;
+-	struct sctp_transport	*transport;
++	struct sctp_transport	*transport, *temp;
  
--	list_for_each_safe(p, n, bdaddr_list) {
--		struct bdaddr_list *b = list_entry(p, struct bdaddr_list, list);
--
--		list_del(p);
-+	list_for_each_entry_safe(b, n, bdaddr_list, list) {
-+		list_del(&b->list);
- 		kfree(b);
- 	}
- }
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index 29709fb..f7eb02f 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -692,11 +692,9 @@ static struct rfcomm_session *rfcomm_session_del(struct rfcomm_session *s)
- 
- static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
+-	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+-		transport = list_entry(pos, struct sctp_transport, transports);
++	list_for_each_entry_safe(transport, temp,
++				 &asoc->peer.transport_addr_list, transports) {
+ 		if (sctp_cmp_addr_exact(addr, &transport->ipaddr)) {
+ 			/* Do book keeping for removing the peer and free it. */
+ 			sctp_assoc_rm_peer(asoc, transport);
+@@ -1090,8 +1087,7 @@ void sctp_assoc_migrate(struct sctp_association *assoc, struct sock *newsk)
+ void sctp_assoc_update(struct sctp_association *asoc,
+ 		       struct sctp_association *new)
  {
--	struct rfcomm_session *s;
--	struct list_head *p, *n;
-+	struct rfcomm_session *s, *n;
- 	struct l2cap_chan *chan;
--	list_for_each_safe(p, n, &session_list) {
--		s = list_entry(p, struct rfcomm_session, list);
-+	list_for_each_entry_safe(s, n, &session_list, list) {
- 		chan = l2cap_pi(s->sock->sk)->chan;
+-	struct sctp_transport *trans;
+-	struct list_head *pos, *temp;
++	struct sctp_transport *trans, *temp;
  
- 		if ((!bacmp(src, BDADDR_ANY) || !bacmp(&chan->src, src)) &&
-@@ -709,16 +707,14 @@ static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
- static struct rfcomm_session *rfcomm_session_close(struct rfcomm_session *s,
- 						   int err)
- {
--	struct rfcomm_dlc *d;
--	struct list_head *p, *n;
-+	struct rfcomm_dlc *d, *n;
+ 	/* Copy in new parameters of peer. */
+ 	asoc->c = new->c;
+@@ -1103,8 +1099,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
+ 			 asoc->peer.i.initial_tsn, GFP_ATOMIC);
  
- 	s->state = BT_CLOSED;
- 
- 	BT_DBG("session %p state %ld err %d", s, s->state, err);
- 
- 	/* Close all dlcs */
--	list_for_each_safe(p, n, &s->dlcs) {
--		d = list_entry(p, struct rfcomm_dlc, list);
-+	list_for_each_entry_safe(d, n, &s->dlcs, list) {
- 		d->state = BT_CLOSED;
- 		__rfcomm_dlc_close(d, err);
- 	}
-@@ -1771,13 +1767,11 @@ static struct rfcomm_session *rfcomm_recv_frame(struct rfcomm_session *s,
- 
- static void rfcomm_process_connect(struct rfcomm_session *s)
- {
--	struct rfcomm_dlc *d;
--	struct list_head *p, *n;
-+	struct rfcomm_dlc *d, *n;
- 
- 	BT_DBG("session %p state %ld", s, s->state);
- 
--	list_for_each_safe(p, n, &s->dlcs) {
--		d = list_entry(p, struct rfcomm_dlc, list);
-+	list_for_each_entry_safe(d, n, &s->dlcs, list) {
- 		if (d->state == BT_CONFIG) {
- 			d->mtu = s->mtu;
- 			if (rfcomm_check_security(d)) {
-@@ -1843,14 +1837,11 @@ static int rfcomm_process_tx(struct rfcomm_dlc *d)
- 
- static void rfcomm_process_dlcs(struct rfcomm_session *s)
- {
--	struct rfcomm_dlc *d;
--	struct list_head *p, *n;
-+	struct rfcomm_dlc *d, *n;
- 
- 	BT_DBG("session %p state %ld", s, s->state);
- 
--	list_for_each_safe(p, n, &s->dlcs) {
--		d = list_entry(p, struct rfcomm_dlc, list);
--
-+	list_for_each_entry_safe(d, n, &s->dlcs, list) {
- 		if (test_bit(RFCOMM_TIMED_OUT, &d->flags)) {
- 			__rfcomm_dlc_close(d, ETIMEDOUT);
+ 	/* Remove any peer addresses not present in the new association. */
+-	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+-		trans = list_entry(pos, struct sctp_transport, transports);
++	list_for_each_entry_safe(trans, temp,
++				 &asoc->peer.transport_addr_list, transports) {
+ 		if (!sctp_assoc_lookup_paddr(new, &trans->ipaddr)) {
+ 			sctp_assoc_rm_peer(asoc, trans);
  			continue;
-@@ -1985,14 +1976,11 @@ static struct rfcomm_session *rfcomm_check_connection(struct rfcomm_session *s)
- 
- static void rfcomm_process_sessions(void)
+diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+index a338091..b024109 100644
+--- a/net/sctp/chunk.c
++++ b/net/sctp/chunk.c
+@@ -86,8 +86,7 @@ void sctp_datamsg_free(struct sctp_datamsg *msg)
+ /* Final destructruction of datamsg memory. */
+ static void sctp_datamsg_destroy(struct sctp_datamsg *msg)
  {
--	struct list_head *p, *n;
-+	struct rfcomm_session *s, *n;
+-	struct list_head *pos, *temp;
+-	struct sctp_chunk *chunk;
++	struct sctp_chunk *chunk, *temp;
+ 	struct sctp_sock *sp;
+ 	struct sctp_ulpevent *ev;
+ 	struct sctp_association *asoc = NULL;
+@@ -97,9 +96,8 @@ static void sctp_datamsg_destroy(struct sctp_datamsg *msg)
+ 	notify = msg->send_failed ? -1 : 0;
  
- 	rfcomm_lock();
+ 	/* Release all references. */
+-	list_for_each_safe(pos, temp, &msg->chunks) {
+-		list_del_init(pos);
+-		chunk = list_entry(pos, struct sctp_chunk, frag_list);
++	list_for_each_entry_safe(chunk, temp, &msg->chunks, frag_list) {
++		list_del_init(&chunk->frag_list);
+ 		/* Check whether we _really_ need to notify. */
+ 		if (notify < 0) {
+ 			asoc = chunk->asoc;
+@@ -169,9 +167,8 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 	int max, whole, i, offset, over, err;
+ 	int len, first_len;
+ 	int max_data;
+-	struct sctp_chunk *chunk;
++	struct sctp_chunk *chunk, *temp;
+ 	struct sctp_datamsg *msg;
+-	struct list_head *pos, *temp;
+ 	size_t msg_len = iov_iter_count(from);
+ 	__u8 frag;
  
--	list_for_each_safe(p, n, &session_list) {
--		struct rfcomm_session *s;
--		s = list_entry(p, struct rfcomm_session, list);
+@@ -334,9 +331,8 @@ errout_chunk_free:
+ 	sctp_chunk_free(chunk);
+ 
+ errout:
+-	list_for_each_safe(pos, temp, &msg->chunks) {
+-		list_del_init(pos);
+-		chunk = list_entry(pos, struct sctp_chunk, frag_list);
++	list_for_each_entry_safe(chunk, temp, &msg->chunks, frag_list) {
++		list_del_init(&chunk->frag_list);
+ 		sctp_chunk_free(chunk);
+ 	}
+ 	sctp_datamsg_put(msg);
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 7e8f0a1..f72a443 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -214,7 +214,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ static void __sctp_outq_teardown(struct sctp_outq *q)
+ {
+ 	struct sctp_transport *transport;
+-	struct list_head *lchunk, *temp;
++	struct list_head *lchunk;
+ 	struct sctp_chunk *chunk, *tmp;
+ 
+ 	/* Throw away unacknowledged chunks. */
+@@ -230,28 +230,22 @@ static void __sctp_outq_teardown(struct sctp_outq *q)
+ 	}
+ 
+ 	/* Throw away chunks that have been gap ACKed.  */
+-	list_for_each_safe(lchunk, temp, &q->sacked) {
+-		list_del_init(lchunk);
+-		chunk = list_entry(lchunk, struct sctp_chunk,
+-				   transmitted_list);
++	list_for_each_entry_safe(chunk, tmp, &q->sacked, transmitted_list) {
++		list_del_init(&chunk->transmitted_list);
+ 		sctp_chunk_fail(chunk, q->error);
+ 		sctp_chunk_free(chunk);
+ 	}
+ 
+ 	/* Throw away any chunks in the retransmit queue. */
+-	list_for_each_safe(lchunk, temp, &q->retransmit) {
+-		list_del_init(lchunk);
+-		chunk = list_entry(lchunk, struct sctp_chunk,
+-				   transmitted_list);
++	list_for_each_entry_safe(chunk, tmp, &q->retransmit, transmitted_list) {
++		list_del_init(&chunk->transmitted_list);
+ 		sctp_chunk_fail(chunk, q->error);
+ 		sctp_chunk_free(chunk);
+ 	}
+ 
+ 	/* Throw away any chunks that are in the abandoned queue. */
+-	list_for_each_safe(lchunk, temp, &q->abandoned) {
+-		list_del_init(lchunk);
+-		chunk = list_entry(lchunk, struct sctp_chunk,
+-				   transmitted_list);
++	list_for_each_entry_safe(chunk, tmp, &q->abandoned, transmitted_list) {
++		list_del_init(&chunk->transmitted_list);
+ 		sctp_chunk_fail(chunk, q->error);
+ 		sctp_chunk_free(chunk);
+ 	}
+@@ -376,18 +370,16 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+ 			  struct sctp_transport *transport,
+ 			  __u8 reason)
+ {
+-	struct list_head *lchunk, *ltemp;
+-	struct sctp_chunk *chunk;
++	struct sctp_chunk *chunk, *temp;
+ 
+ 	/* Walk through the specified transmitted queue.  */
+-	list_for_each_safe(lchunk, ltemp, &transport->transmitted) {
+-		chunk = list_entry(lchunk, struct sctp_chunk,
+-				   transmitted_list);
 -
-+	list_for_each_entry_safe(s, n, &session_list, list) {
- 		if (test_and_clear_bit(RFCOMM_TIMED_OUT, &s->flags)) {
- 			s->state = BT_DISCONN;
- 			rfcomm_send_disc(s, 0);
-@@ -2075,15 +2063,12 @@ failed:
++	list_for_each_entry_safe(chunk, temp, &transport->transmitted,
++				 transmitted_list) {
+ 		/* If the chunk is abandoned, move it to abandoned list. */
+ 		if (sctp_chunk_abandoned(chunk)) {
+-			list_del_init(lchunk);
+-			sctp_insert_list(&q->abandoned, lchunk);
++			list_del_init(&chunk->transmitted_list);
++			sctp_insert_list(&q->abandoned,
++					 &chunk->transmitted_list);
  
- static void rfcomm_kill_listener(void)
- {
--	struct rfcomm_session *s;
--	struct list_head *p, *n;
-+	struct rfcomm_session *s, *n;
+ 			/* If this chunk has not been previousely acked,
+ 			 * stop considering it 'outstanding'.  Our peer
+@@ -447,8 +439,9 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+ 			/* Move the chunk to the retransmit queue. The chunks
+ 			 * on the retransmit queue are always kept in order.
+ 			 */
+-			list_del_init(lchunk);
+-			sctp_insert_list(&q->retransmit, lchunk);
++			list_del_init(&chunk->transmitted_list);
++			sctp_insert_list(&q->retransmit,
++					 &chunk->transmitted_list);
+ 		}
+ 	}
  
- 	BT_DBG("");
+@@ -1125,8 +1118,8 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
+ 	struct sctp_association *asoc = q->asoc;
+ 	struct sctp_sackhdr *sack = chunk->subh.sack_hdr;
+ 	struct sctp_transport *transport;
+-	struct sctp_chunk *tchunk = NULL;
+-	struct list_head *lchunk, *transport_list, *temp;
++	struct sctp_chunk *tchunk = NULL, *temp;
++	struct list_head *transport_list;
+ 	sctp_sack_variable_t *frags = sack->variable;
+ 	__u32 sack_ctsn, ctsn, tsn;
+ 	__u32 highest_tsn, highest_new_tsn;
+@@ -1235,9 +1228,7 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
+ 	ctsn = asoc->ctsn_ack_point;
  
--	list_for_each_safe(p, n, &session_list) {
--		s = list_entry(p, struct rfcomm_session, list);
-+	list_for_each_entry_safe(s, n, &session_list, list)
- 		rfcomm_session_del(s);
--	}
- }
+ 	/* Throw away stuff rotting on the sack queue.  */
+-	list_for_each_safe(lchunk, temp, &q->sacked) {
+-		tchunk = list_entry(lchunk, struct sctp_chunk,
+-				    transmitted_list);
++	list_for_each_entry_safe(tchunk, temp, &q->sacked, transmitted_list) {
+ 		tsn = ntohl(tchunk->subh.data_hdr->tsn);
+ 		if (TSN_lte(tsn, ctsn)) {
+ 			list_del_init(&tchunk->transmitted_list);
+@@ -1689,8 +1680,7 @@ static void sctp_generate_fwdtsn(struct sctp_outq *q, __u32 ctsn)
+ 	int nskips = 0;
+ 	int skip_pos = 0;
+ 	__u32 tsn;
+-	struct sctp_chunk *chunk;
+-	struct list_head *lchunk, *temp;
++	struct sctp_chunk *chunk, *temp;
  
- static int rfcomm_run(void *unused)
-@@ -2113,8 +2098,7 @@ static int rfcomm_run(void *unused)
- static void rfcomm_security_cfm(struct hci_conn *conn, u8 status, u8 encrypt)
- {
- 	struct rfcomm_session *s;
--	struct rfcomm_dlc *d;
--	struct list_head *p, *n;
-+	struct rfcomm_dlc *d, *n;
- 
- 	BT_DBG("conn %p status 0x%02x encrypt 0x%02x", conn, status, encrypt);
- 
-@@ -2122,9 +2106,7 @@ static void rfcomm_security_cfm(struct hci_conn *conn, u8 status, u8 encrypt)
- 	if (!s)
+ 	if (!asoc->peer.prsctp_capable)
  		return;
+@@ -1725,16 +1715,14 @@ static void sctp_generate_fwdtsn(struct sctp_outq *q, __u32 ctsn)
+ 	 * In this example, the data sender successfully advanced the
+ 	 * "Advanced.Peer.Ack.Point" from 102 to 104 locally.
+ 	 */
+-	list_for_each_safe(lchunk, temp, &q->abandoned) {
+-		chunk = list_entry(lchunk, struct sctp_chunk,
+-					transmitted_list);
++	list_for_each_entry_safe(chunk, temp, &q->abandoned, transmitted_list) {
+ 		tsn = ntohl(chunk->subh.data_hdr->tsn);
  
--	list_for_each_safe(p, n, &s->dlcs) {
--		d = list_entry(p, struct rfcomm_dlc, list);
+ 		/* Remove any chunks in the abandoned queue that are acked by
+ 		 * the ctsn.
+ 		 */
+ 		if (TSN_lte(tsn, ctsn)) {
+-			list_del_init(lchunk);
++			list_del_init(&chunk->transmitted_list);
+ 			sctp_chunk_free(chunk);
+ 		} else {
+ 			if (TSN_lte(tsn, asoc->adv_peer_ack_point+1)) {
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 010aced..bd41095 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -166,13 +166,11 @@ static void sctp_v4_copy_addrlist(struct list_head *addrlist,
+ static void sctp_get_local_addr_list(struct net *net)
+ {
+ 	struct net_device *dev;
+-	struct list_head *pos;
+ 	struct sctp_af *af;
+ 
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+-		list_for_each(pos, &sctp_address_families) {
+-			af = list_entry(pos, struct sctp_af, list);
++		list_for_each_entry(af, &sctp_address_families, list) {
+ 			af->copy_addrlist(&net->sctp.local_addr_list, dev);
+ 		}
+ 	}
+@@ -182,12 +180,10 @@ static void sctp_get_local_addr_list(struct net *net)
+ /* Free the existing local addresses.  */
+ static void sctp_free_local_addr_list(struct net *net)
+ {
+-	struct sctp_sockaddr_entry *addr;
+-	struct list_head *pos, *temp;
++	struct sctp_sockaddr_entry *addr, *temp;
+ 
+-	list_for_each_safe(pos, temp, &net->sctp.local_addr_list) {
+-		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+-		list_del(pos);
++	list_for_each_entry_safe(addr, temp, &net->sctp.local_addr_list, list) {
++		list_del(&addr->list);
+ 		kfree(addr);
+ 	}
+ }
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 763e06a..819bbc4 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2293,8 +2293,7 @@ int sctp_process_init(struct sctp_association *asoc, struct sctp_chunk *chunk,
+ {
+ 	struct net *net = sock_net(asoc->base.sk);
+ 	union sctp_params param;
+-	struct sctp_transport *transport;
+-	struct list_head *pos, *temp;
++	struct sctp_transport *transport, *temp;
+ 	struct sctp_af *af;
+ 	union sctp_addr addr;
+ 	char *cookie;
+@@ -2358,8 +2357,8 @@ int sctp_process_init(struct sctp_association *asoc, struct sctp_chunk *chunk,
+ 	}
+ 
+ 	/* Walk list of transports, removing transports in the UNKNOWN state. */
+-	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+-		transport = list_entry(pos, struct sctp_transport, transports);
++	list_for_each_entry_safe(transport, temp,
++				 &asoc->peer.transport_addr_list, transports) {
+ 		if (transport->state == SCTP_UNKNOWN) {
+ 			sctp_assoc_rm_peer(asoc, transport);
+ 		}
+@@ -2461,8 +2460,8 @@ int sctp_process_init(struct sctp_association *asoc, struct sctp_chunk *chunk,
+ 
+ clean_up:
+ 	/* Release the transport structures. */
+-	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+-		transport = list_entry(pos, struct sctp_transport, transports);
++	list_for_each_entry_safe(transport, temp,
++				 &asoc->peer.transport_addr_list, transports) {
+ 		if (transport->state != SCTP_ACTIVE)
+ 			sctp_assoc_rm_peer(asoc, transport);
+ 	}
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 05cd164..7521e56 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -953,12 +953,10 @@ static void sctp_cmd_process_fwdtsn(struct sctp_ulpq *ulpq,
+  */
+ static void sctp_cmd_del_non_primary(struct sctp_association *asoc)
+ {
+-	struct sctp_transport *t;
+-	struct list_head *pos;
+-	struct list_head *temp;
++	struct sctp_transport *t, *temp;
+ 
+-	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+-		t = list_entry(pos, struct sctp_transport, transports);
++	list_for_each_entry_safe(t, temp, &asoc->peer.transport_addr_list,
++				 transports) {
+ 		if (!sctp_cmp_addr_exact(&t->ipaddr,
+ 					 &asoc->peer.primary_addr)) {
+ 			sctp_assoc_rm_peer(asoc, t);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 106bb09..9272e7b 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1474,8 +1474,7 @@ static void sctp_close(struct sock *sk, long timeout)
+ {
+ 	struct net *net = sock_net(sk);
+ 	struct sctp_endpoint *ep;
+-	struct sctp_association *asoc;
+-	struct list_head *pos, *temp;
++	struct sctp_association *asoc, *temp;
+ 	unsigned int data_was_unread;
+ 
+ 	pr_debug("%s: sk:%p, timeout:%ld\n", __func__, sk, timeout);
+@@ -1491,9 +1490,7 @@ static void sctp_close(struct sock *sk, long timeout)
+ 	data_was_unread += sctp_queue_purge_ulpevents(&sctp_sk(sk)->pd_lobby);
+ 
+ 	/* Walk all associations on an endpoint.  */
+-	list_for_each_safe(pos, temp, &ep->asocs) {
+-		asoc = list_entry(pos, struct sctp_association, asocs);
 -
-+	list_for_each_entry_safe(d, n, &s->dlcs, list) {
- 		if (test_and_clear_bit(RFCOMM_SEC_PENDING, &d->flags)) {
- 			rfcomm_dlc_clear_timer(d);
- 			if (status || encrypt == 0x00) {
++	list_for_each_entry_safe(asoc, temp, &ep->asocs, asocs) {
+ 		if (sctp_style(sk, TCP)) {
+ 			/* A closed association can still be in the list if
+ 			 * it belongs to a TCP-style listening socket that is
 -- 
 2.5.0
