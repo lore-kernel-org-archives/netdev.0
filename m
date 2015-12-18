@@ -1,105 +1,73 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH 1/1] bonding: delay up state without speed and duplex in 802.3ad mode
-Date: Thu, 17 Dec 2015 20:54:06 -0800
-Message-ID: <8629.1450414446@famine>
-References: <1586.1450389436@famine> <1450413386-8867-1-git-send-email-zyjzyj2000@gmail.com> <1450413386-8867-2-git-send-email-zyjzyj2000@gmail.com>
-Cc: vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, Boris.Shteinbock@windriver.com
-To: zyjzyj2000@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:36710 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751987AbbLREyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 23:54:12 -0500
-In-reply-to: <1450413386-8867-2-git-send-email-zyjzyj2000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [lkp] [rhashtable] f9f51b8070: INFO: suspicious RCU usage. ]
+Date: Fri, 18 Dec 2015 13:34:16 +0800
+Message-ID: <20151218053416.GA19479@gondor.apana.org.au>
+References: <874mfgedrp.fsf@yhuang-dev.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lkp@01.org, LKML <linux-kernel@vger.kernel.org>,
+	Colin Ian King <colin.king@canonical.com>,
+	0day robot <fengguang.wu@intel.com>, netdev@vger.kernel.org
+To: kernel test robot <ying.huang@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <874mfgedrp.fsf@yhuang-dev.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-<zyjzyj2000@gmail.com> wrote:
-
->From: yzhu1 <yzhu1@windriver.com>
->
->In 802.3ad mode, the speed and duplex is needed. But in some NICs,
->there is a time span between NIC up state and getting speed and duplex.
->As such, sometimes a slave in 802.3ad mode is in up state without
->speed and duplex. This will make bonding in 802.3ad mode can not
->work well.
->
->To make bonding driver robust and compatible with more NICs, it is
->necessary to delay the up state without speed and duplex in 802.3ad
->mode.
-
-	You misunderstood my comment.  What I meant is that the device
-driver for the network device should change to either delay carrier up
-or issue a second notifier when speed and duplex are available.  If the
-driver doesn't handle duplex and speed notification properly, it will
-likely have trouble with more than just bonding.
-
-	You also didn't mention the identity of the network device that
-requires this special handling.  Is the driver part of the linux kernel?
-
-	-J
-
->Signed-off-by: yzhu1 <yzhu1@windriver.com>
->---
-> drivers/net/bonding/bond_main.c |   34 ++++++++++++++++++++++++++++++++++
-> 1 file changed, 34 insertions(+)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 9e0f8a7..a1d8708 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -419,6 +419,35 @@ const char *bond_slave_link_status(s8 link)
-> 	}
-> }
+On Fri, Dec 18, 2015 at 09:39:22AM +0800, kernel test robot wrote:
+> FYI, we noticed the below changes on
 > 
->+/* This function is to check the speed and duplex of a NIC.
->+ * Since the speed and duplex of a slave device are very
->+ * important to the bonding in the 802.3ad mode. As such,
->+ * it is necessary to check the speed and duplex of a slave
->+ * device in 802.3ad mode.
->+ *
->+ * speed != SPEED_UNKNOWN and duplex == DUPLEX_FULL  :  1
->+ *                                           others  :  0
->+ */
->+static int __check_speed_duplex(struct net_device *netdev)
->+{
->+	struct ethtool_cmd ecmd;
->+	u32 slave_speed = SPEED_UNKNOWN;
->+	int res;
->+
->+	res = __ethtool_get_settings(netdev, &ecmd);
->+	if (res < 0)
->+		return 0;
->+
->+	slave_speed = ethtool_cmd_speed(&ecmd);
->+	if (slave_speed == 0 || slave_speed == ((__u32) -1))
->+		return 0;
->+
->+	if (DUPLEX_FULL != ecmd.duplex)
->+		return 0;
->+
->+	return 1;
->+}
->+
-> /* if <dev> supports MII link status reporting, check its link status.
->  *
->  * We either do MII/ETHTOOL ioctls, or check netif_carrier_ok(),
->@@ -445,6 +474,11 @@ static int bond_check_dev_link(struct bonding *bond,
-> 	if (!reporting && !netif_running(slave_dev))
-> 		return 0;
+> https://github.com/0day-ci/linux Herbert-Xu/rhashtable-Fix-walker-list-corruption/20151216-164833
+> commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable: Fix walker list corruption")
 > 
->+	/* Check the speed and duplex of the slave device in 802.3ad mode. */
->+	if ((BOND_MODE(bond) == BOND_MODE_8023AD) &&
->+	   !__check_speed_duplex(slave_dev))
->+		return 0;
->+
-> 	if (bond->params.use_carrier)
-> 		return netif_carrier_ok(slave_dev) ? BMSR_LSTATUS : 0;
 > 
->-- 
->1.7.9.5
->
+> [    8.933376] ===============================
+> [    8.933376] ===============================
+> [    8.934629] [ INFO: suspicious RCU usage. ]
+> [    8.934629] [ INFO: suspicious RCU usage. ]
+> [    8.935941] 4.4.0-rc3-00995-gf9f51b8 #2 Not tainted
+> [    8.935941] 4.4.0-rc3-00995-gf9f51b8 #2 Not tainted
+> [    8.937494] -------------------------------
+> [    8.937494] -------------------------------
+> [    8.938818] lib/rhashtable.c:504 suspicious rcu_dereference_protected() usage!
+> [    8.938818] lib/rhashtable.c:504 suspicious rcu_dereference_protected() usage!
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+This is actually a false positive because the new spin lock that
+we hold prevents ht->tbl from disappearing under us.  So here is
+a patch to kill the warning with a comment.
+
+---8<---
+The commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable:
+Fix walker list corruption") causes a suspicious RCU usage warning
+because we no longer hold ht->mutex when we dereference ht->tbl.
+
+However, this is a false positive because we now hold ht->lock
+which also guarantees that ht->tbl won't disppear from under us.
+
+This patch kills the warning by using rcu_dereference_raw and
+adding a comment.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index eb9240c..3404b06 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -519,7 +519,11 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
+ 		return -ENOMEM;
+ 
+ 	spin_lock(&ht->lock);
+-	iter->walker->tbl = rht_dereference(ht->tbl, ht);
++	/* We do not need RCU protection because we hold ht->lock
++	 * which guarantees that if we see ht->tbl then it won't
++	 * die on us.
++	 */
++	iter->walker->tbl = rcu_dereference_raw(ht->tbl);
+ 	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
+ 	spin_unlock(&ht->lock);
+ 
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
