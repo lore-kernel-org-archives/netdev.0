@@ -1,29 +1,102 @@
-From: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
-Subject: Re: [PATCH 1/2] [iproute2] tc/q_htb.c: remove printing of a deprecated overhead value previously encoded as a part of mpu field
-Date: Fri, 18 Dec 2015 18:56:32 +0300
-Message-ID: <604441450454192@web18m.yandex.ru>
-References: <1450444599-29265-1-git-send-email-fw.dmitrii@yandex.com> <20151218152608.3f08159d@redhat.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: splice-bind deadlock (was: [PATCH] af_unix: Revert 'lock_interruptible' in stream receive code)
+Date: Fri, 18 Dec 2015 16:04:09 +0000
+Message-ID: <87si2zbv5y.fsf_-_@doppelsaurus.mobileactivedefense.com>
+References: <877fke6tqi.fsf@doppelsaurus.mobileactivedefense.com>
+	<56727EE9.5020805@stressinduktion.org>
+	<871takk674.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward19m.cmail.yandex.net ([5.255.216.150]:47385 "EHLO
-	forward19m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751436AbbLRP4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 10:56:36 -0500
-In-Reply-To: <20151218152608.3f08159d@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <871takk674.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Thu, 17 Dec 2015 23:26:23 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jesper,
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+>
+> [...]
+>
+>> There is still a deadlock lingering around
+>
+> [...]
+>
+>> http://lists.openwall.net/netdev/2015/11/10/4
 
-> Thank you Dmitrii for cleaning this up :-)
+[...]
 
-You are welcome :^)
+> 	(a while ago) A: socketpair()
+>         
+> 	B: splice() from a pipe to /mnt/regular_file
+>  	   does sb_start_write() on /mnt
+>            
+> 	C: try to freeze /mnt
+> 	   wait for B to finish with /mnt
+>            
+> 	A: bind() try to bind our socket to /mnt/new_socket_name
+> 	   lock our socket, see it not bound yet
+> 	   decide that it needs to create something in /mnt
+> 	   try to do sb_start_write() on /mnt, block (it's
+> 	   waiting for C).
+>            
+> 	D: splice() from the same pipe to our socket
+> 	   lock the pipe, see that socket is connected
+> 	   try to lock the socket, block waiting for A
+>            
+> 	B: get around to actually feeding a chunk from
+> 	   pipe to file, try to lock the pipe.
+	[from the page]
 
-I should read more carefully: its what you asked from the beginning.
+[...]
 
-Thank you,
-Dmitrii Shcherbakov
+> Given
+> 	a/b	- acquire a block b (eg, get read lock on superblock
+>                   rwsem)
+>
+> 	b/a	- acquire b block a
+>
+>         c	- u->readlock
+>
+>         d	- pipe lock
+>
+> 	[*y]   - blocks waiting for y
+>
+>         
+> B	a/b
+>
+> C	b/a[*B]
+>
+> A	c
+> A	a/b[*C]
+>
+> D	d
+> D	c[*A]
+>
+> B	d[*D]
+
+Some more explanations on this: There two groups of three in the above
+(X <- Y supposed to mean 'Y waits for X'), B <- C <- A and A <- D <-
+B. 'B blocking C blocking A' is really the same as if B was holding an
+abstract mutex m0 A wants. Likewise, A <- D <- B is equivalent to A
+holding an abstract mutex m1 B wants. Conceptually, there are two
+threads and two locks here,
+
+B: acquires m0 then m1
+A: acquires m1 then m0
+
+and because of the conflicting  locking orders, the whole
+shoggoth deadlocks sooner or later (Fhtagn!).
+
+The obvious idea to fix this is to reverse either A or B. I think A
+should be reversed because that's probably easier (unless there's some
+technical problem with that I don't yet know of) and because this avoids
+a situation where some other thread which wants the readlock mutex has to
+wait until some completeld unrelated filesystem operations have
+completed.
+
+But theory only gets one so far and it would be good if someone capable
+of reproducing the problem tested this.
