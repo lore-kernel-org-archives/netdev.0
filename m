@@ -1,26 +1,28 @@
 From: Calvin Owens <calvinowens@fb.com>
 Subject: Re: [PATCH] netconsole: Initialize after all core networking drivers
-Date: Thu, 17 Dec 2015 17:39:20 -0800
-Message-ID: <20151218013906.GA1715233@devbig337.prn1.facebook.com>
+Date: Thu, 17 Dec 2015 17:46:15 -0800
+Message-ID: <20151218014615.GB1715233@devbig337.prn1.facebook.com>
 References: <20151217235239.GA1444048@devbig337.prn1.facebook.com>
- <20151217171057.6c0d3b35@xeon-e3>
+ <1450400894.8474.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Cc: <davem@davemloft.net>, <shm@cumulusnetworks.com>,
 	<izumi.taku@jp.fujitsu.com>, <linville@tuxdriver.com>,
 	<dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55638 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752783AbbLRBqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 20:46:35 -0500
 Content-Disposition: inline
-In-Reply-To: <20151217171057.6c0d3b35@xeon-e3>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1450400894.8474.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12/17 at 17:10 -0800, Stephen Hemminger wrote:
-> On Thu, 17 Dec 2015 15:52:39 -0800
-> Calvin Owens <calvinowens@fb.com> wrote:
-> 
+On Thursday 12/17 at 17:08 -0800, Eric Dumazet wrote:
+> On Thu, 2015-12-17 at 15:52 -0800, Calvin Owens wrote:
 > > With built-in netconsole and IXGBE, configuring netconsole via the kernel
 > > cmdline results in the following panic at boot:
 > > 
@@ -52,14 +54,42 @@ On Thursday 12/17 at 17:10 -0800, Stephen Hemminger wrote:
 > > other core networking stuff has completed.
 > > 
 > > Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> > ---
+> >  drivers/net/Makefile | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> > index 900b0c5..31557d0 100644
+> > --- a/drivers/net/Makefile
+> > +++ b/drivers/net/Makefile
+> > @@ -15,7 +15,6 @@ obj-$(CONFIG_MACVTAP) += macvtap.o
+> >  obj-$(CONFIG_MII) += mii.o
+> >  obj-$(CONFIG_MDIO) += mdio.o
+> >  obj-$(CONFIG_NET) += Space.o loopback.o
+> > -obj-$(CONFIG_NETCONSOLE) += netconsole.o
+> >  obj-$(CONFIG_PHYLIB) += phy/
+> >  obj-$(CONFIG_RIONET) += rionet.o
+> >  obj-$(CONFIG_NET_TEAM) += team/
+> > @@ -26,6 +25,7 @@ obj-$(CONFIG_VXLAN) += vxlan.o
+> >  obj-$(CONFIG_GENEVE) += geneve.o
+> >  obj-$(CONFIG_NLMON) += nlmon.o
+> >  obj-$(CONFIG_NET_VRF) += vrf.o
+> > +obj-$(CONFIG_NETCONSOLE) += netconsole.o
+> >  
+> >  #
+> >  # Networking Drivers
 > 
-> Fixing this by changing Makefile order is too fragile.
-> You are depending on the fact that Makefile order determines link order
-> and that determines initialization order. Down that path demons lie.
+> 
+> Looks odd to rely on link order, but we might already rely on this...
+> 
+> Have you considered using device_initcall() instead of late_initcall()
+> in vxlan ?
 
-Hmm, include/linux/init.h explicitly states that "Ordering inside the
-subsections is determined by link order", and has since before the
-beginning of the history in Git.
+I'll look. As-is though, I think a similar problem would happen if you
+tried to use a virtio_net device with netconsole= cmdline (although that
+is admittedly a bizarre use case). The Makefile patch seemed like the
+best way to ensure this can't recur elsewhere.
 
-I agree it seems magic/scary, but as Eric says I would imagine this
-behavior is relied upon in other places.
+> In any case, a comment would really be good to avoid future mistakes.
+
+Good point, I'll add something.
