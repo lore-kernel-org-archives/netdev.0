@@ -1,73 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [lkp] [rhashtable] f9f51b8070: INFO: suspicious RCU usage. ]
-Date: Fri, 18 Dec 2015 13:34:16 +0800
-Message-ID: <20151218053416.GA19479@gondor.apana.org.au>
-References: <874mfgedrp.fsf@yhuang-dev.intel.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 4/6] bpf: hash: convert per-hashtable lock into
+ per-bucket bit spinlock
+Date: Thu, 17 Dec 2015 22:20:44 -0800
+Message-ID: <20151218062043.GB59584@ast-mbp.thefacebook.com>
+References: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
+ <1450178464-27721-5-git-send-email-tom.leiming@gmail.com>
+ <20151215225118.GA67370@ast-mbp.thefacebook.com>
+ <CACVXFVMaRPSHCEi9BpA1R9FnQFhUODc6UVonE_SjiytmL2WAXQ@mail.gmail.com>
+ <CAHbLzkpW_seTrs+WgFqsriH5uhG4LMY_jiYC0iRQ-LAdJFiUjw@mail.gmail.com>
+ <CACVXFVOeh0D+Nf8AVw68-e-aSYtVVLiRoUoDCi89zYXXiUm4gA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lkp@01.org, LKML <linux-kernel@vger.kernel.org>,
-	Colin Ian King <colin.king@canonical.com>,
-	0day robot <fengguang.wu@intel.com>, netdev@vger.kernel.org
-To: kernel test robot <ying.huang@linux.intel.com>
+Cc: Yang Shi <shy828301@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <874mfgedrp.fsf@yhuang-dev.intel.com>
+In-Reply-To: <CACVXFVOeh0D+Nf8AVw68-e-aSYtVVLiRoUoDCi89zYXXiUm4gA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 18, 2015 at 09:39:22AM +0800, kernel test robot wrote:
-> FYI, we noticed the below changes on
+On Wed, Dec 16, 2015 at 02:58:08PM +0800, Ming Lei wrote:
+> On Wed, Dec 16, 2015 at 1:01 PM, Yang Shi <shy828301@gmail.com> wrote:
 > 
-> https://github.com/0day-ci/linux Herbert-Xu/rhashtable-Fix-walker-list-corruption/20151216-164833
-> commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable: Fix walker list corruption")
+> >
+> > I recalled Steven confirmed raw_spin_lock has the lockdep benefit too in the
+> > patch review for changing to raw lock.
+> >
+> > Please check this thread out
+> >  http://lists.openwall.net/netdev/2015/10/31/7
 > 
+> OK, looks I was wrong about the lockdep benifit, :-(
 > 
-> [    8.933376] ===============================
-> [    8.933376] ===============================
-> [    8.934629] [ INFO: suspicious RCU usage. ]
-> [    8.934629] [ INFO: suspicious RCU usage. ]
-> [    8.935941] 4.4.0-rc3-00995-gf9f51b8 #2 Not tainted
-> [    8.935941] 4.4.0-rc3-00995-gf9f51b8 #2 Not tainted
-> [    8.937494] -------------------------------
-> [    8.937494] -------------------------------
-> [    8.938818] lib/rhashtable.c:504 suspicious rcu_dereference_protected() usage!
-> [    8.938818] lib/rhashtable.c:504 suspicious rcu_dereference_protected() usage!
+> But for this lock, I think lockdep isn't such important, because it is the
+> intermost lock, and it can be used just for protecting the bucket list
+> and nothing else need to be covered.
 
-This is actually a false positive because the new spin lock that
-we hold prevents ht->tbl from disappearing under us.  So here is
-a patch to kill the warning with a comment.
-
----8<---
-The commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable:
-Fix walker list corruption") causes a suspicious RCU usage warning
-because we no longer hold ht->mutex when we dereference ht->tbl.
-
-However, this is a false positive because we now hold ht->lock
-which also guarantees that ht->tbl won't disppear from under us.
-
-This patch kills the warning by using rcu_dereference_raw and
-adding a comment.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index eb9240c..3404b06 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -519,7 +519,11 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
- 		return -ENOMEM;
- 
- 	spin_lock(&ht->lock);
--	iter->walker->tbl = rht_dereference(ht->tbl, ht);
-+	/* We do not need RCU protection because we hold ht->lock
-+	 * which guarantees that if we see ht->tbl then it won't
-+	 * die on us.
-+	 */
-+	iter->walker->tbl = rcu_dereference_raw(ht->tbl);
- 	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
- 	spin_unlock(&ht->lock);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I still think that overhead of normal spinlock per bucket is acceptable.
+Makes the whole thing much easier to read.
