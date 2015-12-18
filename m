@@ -1,49 +1,42 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2] ip, route: fix minor compile warning
-Date: Fri, 18 Dec 2015 10:18:23 +0100
-Message-ID: <5673CF5F.1060806@iogearbox.net>
-References: <c43f41f31854bb0a27cc6cd6d9e465a28a94ffb9.1450106992.git.daniel@iogearbox.net>	<20151214155104.GE6555@orbit.nwl.cc>	<566EE5F0.9030504@iogearbox.net> <20151217171203.723b4d16@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH iproute2 v3 0/3] improve lwtunnel route support
+Date: Fri, 18 Dec 2015 10:50:35 +0100
+Message-ID: <cover.1450428323.git.pabeni@redhat.com>
+Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jiri Benc <jbenc@redhat.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60703 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966463AbbLRJS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 04:18:26 -0500
-In-Reply-To: <20151217171203.723b4d16@xeon-e3>
+Received: from mx1.redhat.com ([209.132.183.28]:42714 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751009AbbLRJvT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2015 04:51:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2015 02:12 AM, Stephen Hemminger wrote:
-> On Mon, 14 Dec 2015 16:53:20 +0100
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->
->> On 12/14/2015 04:51 PM, Phil Sutter wrote:
->>> On Mon, Dec 14, 2015 at 04:34:29PM +0100, Daniel Borkmann wrote:
->>>> Seems like gcc (4.8.3) doesn't catch this false positive, triggering
->>>> after 0f7543322c5f ("route: ignore RTAX_HOPLIMIT of value -1"):
->>>>
->>>>     iproute.c: In function 'print_route':
->>>>     iproute.c:301:12: warning: 'val' may be used uninitialized in this function [-Wmaybe-uninitialized]
->>>>        features &= ~RTAX_FEATURE_ECN;
->>>>                 ^
->>>>     iproute.c:575:10: note: 'val' was declared here
->>>>         __u32 val;
->>>>               ^
->>>> So just shut it up by initializing to 0.
->>>
->>> Hmm. Interestingly, my patch shouldn't have changed anything relevant
->>> for gcc's decision. OTOH, I don't see a warning using gcc-4.9.3.
->>
->> If I revert it, the warning is gone for me ;) perhaps some heuristic issue
->> with that gcc version.
->>
->> Cheers,
->> Daniel
->
-> I don't see this warning on current master with gcc 4.9.2.
+This patch series try to improve the current route based
+lwtunnel support in iproute2, namely adding support for the
+COLLECT_METADATA flag in vxlan and gre link, and for ip6
+encap type in lwtunnel.
 
-Well, in the commit message I wrote 4.8.3 ... but I don't mind if we drop it, sure.
+Tunnel devices need to have the COLLECT_METADATA flag
+set in order to be used for route based lwtunnel.
+
+Changes from V1:
+- the COLLECT_METADATA flag is now controlled via the 'external' keyword
+- 'vni' and 'external' arguments are mutually exclusive for the vxlan link
+
+Changes from V2:
+- rebased
+
+Paolo Abeni (3):
+  vxlan: add support for collect metadata flag
+  gre: add support for collect metadata flag
+  lwtunnel: implement support for ip6 encap
+
+ ip/iplink_vxlan.c     | 19 +++++++++--
+ ip/iproute_lwtunnel.c | 92 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ ip/link_gre.c         | 11 ++++++
+ 3 files changed, 119 insertions(+), 3 deletions(-)
+
+-- 
+1.8.3.1
