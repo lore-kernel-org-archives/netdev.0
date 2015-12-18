@@ -1,46 +1,45 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next 0/2] Local checksum offload for VXLAN
-Date: Fri, 18 Dec 2015 10:41:58 +0000
-Message-ID: <5673E2F6.2000209@solarflare.com>
-References: <5672D466.6050900@solarflare.com>
- <CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: [PATCH net] openvswitch: correct encoding of set tunnel
+	action attributes
+Date: Fri, 18 Dec 2015 19:43:15 +0900
+Message-ID: <1450435395-23775-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:48007 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752611AbbLRKmK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 05:42:10 -0500
-In-Reply-To: <CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 17/12/15 18:06, Tom Herbert wrote:
-> I'm not sure that we need bits in VXLAN or any other encapsulation. It
-> should be sufficient in udp_set_csum that if we already have
-> CHECKSUM_PARTIAL that can always be used to do local checksum offload.
-My understandingis that otherwise iptunnel_handle_offloads() will do the
- inner checksum in sw, because csum_help will be passed as true.  It will
- call skb_checksum_help().
-> This is also should be independent as to whether the device does
-> NETIF_F_HW_CSUM or can offload  NETIF_F_IP[V6]_CSUM for encapsulated
-> packets.
-I was wary of drivers that declare NETIF_F_IP[V6]_CSUM but don't cope with
- encapsulated packets.  Would they do the right thing if the inner_csum bool
- in patch 2 just tested for NETIF_F_CSUM_MASK, or do I need to test things
- like NETIF_F_GSO_UDP_TUNNEL_CSUM?  I'm afraid I don't entirely understand
- the infrastructure here, so I just did the minimal thing I was sure worked,
- i.e. testing for NETIF_F_HW_CSUM.
-> It would be nice to have a more formal documentation also. This is a
-> very powerful mechanism but the math behind it and requirements are
-> subtle.
->
-> Tom
-What would be a good place to put such documentation?  In
- Documentation/networking, or as part of the big checksums comment at the
- top of skbuff.h?
-
--ed
+SW4gYSBzZXQgYWN0aW9uIHR1bm5lbCBhdHRyaWJ1dGVzIHNob3VsZCBiZSBlbmNvZGVkIGluIGEK
+bmVzdGVkIGFjdGlvbi4KCkkgbm90aWNlZCB0aGlzIGJlY2F1c2Ugb3ZzLWRwY3RsIHdhcyByZXBv
+cnRpbmcgYW4gZXJyb3IKd2hlbiBkdW1waW5nIGZsb3dzIGR1ZSB0byB0aGUgaW5jb3JyZWN0IGVu
+Y29kaW5nIG9mIHR1bm5lbCBhdHRyaWJ1dGVzCmluIGEgc2V0IGFjdGlvbi4KCkZpeGVzOiBmYzQw
+OTlmMTcyNDAgKCJvcGVudnN3aXRjaDogRml4IGVncmVzcyB0dW5uZWwgaW5mby4iKQpTaWduZWQt
+b2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPgoKLS0tCiog
+TGlnaHRseSB0ZXN0ZWQgdXNpbmcgb3ZzLWRwY3RsIGR1bXAtZmxvd3MKLS0tCiBuZXQvb3BlbnZz
+d2l0Y2gvZmxvd19uZXRsaW5rLmMgfCA1ICsrKystCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRp
+b25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3df
+bmV0bGluay5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCmluZGV4IDkwN2Q2ZmQy
+OGVkZS4uZDFiZDRhNDVjYTJkIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
+aW5rLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCkBAIC0yNDM0LDcgKzI0
+MzQsMTAgQEAgc3RhdGljIGludCBzZXRfYWN0aW9uX3RvX2F0dHIoY29uc3Qgc3RydWN0IG5sYXR0
+ciAqYSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJaWYgKCFzdGFydCkKIAkJCXJldHVybiAtRU1T
+R1NJWkU7CiAKLQkJZXJyID0gb3ZzX25sYV9wdXRfdHVubmVsX2luZm8oc2tiLCB0dW5faW5mbyk7
+CisJCWVyciA9ICBpcF90dW5fdG9fbmxhdHRyKHNrYiwgJnR1bl9pbmZvLT5rZXksCisJCQkJCWlw
+X3R1bm5lbF9pbmZvX29wdHModHVuX2luZm8pLAorCQkJCQl0dW5faW5mby0+b3B0aW9uc19sZW4s
+CisJCQkJCWlwX3R1bm5lbF9pbmZvX2FmKHR1bl9pbmZvKSk7CiAJCWlmIChlcnIpCiAJCQlyZXR1
+cm4gZXJyOwogCQlubGFfbmVzdF9lbmQoc2tiLCBzdGFydCk7Ci0tIAoyLjEuNAoKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
+ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9kZXYK
