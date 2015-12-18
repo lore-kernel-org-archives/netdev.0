@@ -1,14 +1,14 @@
 From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 13/14] sunrpc: use list_for_each_entry_safe
-Date: Fri, 18 Dec 2015 23:33:37 +0800
-Message-ID: <fddb964a421701bcb303bc2cf3369facbe2bf11b.1450451516.git.geliangtang@163.com>
+Subject: [PATCH 07/14] batman-adv: use list_for_each_entry_safe
+Date: Fri, 18 Dec 2015 23:33:31 +0800
+Message-ID: <b01d3ee936833e94fffa53f7a82fc46e20d877c1.1450451516.git.geliangtang@163.com>
 References: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
+Cc: Geliang Tang <geliangtang@163.com>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Antonio Quartulli <a@unstable.cc>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
@@ -22,42 +22,47 @@ simplify the code.
 
 Signed-off-by: Geliang Tang <geliangtang@163.com>
 ---
- net/sunrpc/svc_xprt.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ net/batman-adv/icmp_socket.c | 22 +++++++++-------------
+ 1 file changed, 9 insertions(+), 13 deletions(-)
 
-diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-index a6cbb21..fe4f628 100644
---- a/net/sunrpc/svc_xprt.c
-+++ b/net/sunrpc/svc_xprt.c
-@@ -904,8 +904,7 @@ out:
- static void svc_age_temp_xprts(unsigned long closure)
+diff --git a/net/batman-adv/icmp_socket.c b/net/batman-adv/icmp_socket.c
+index bcabb5e..841239c 100644
+--- a/net/batman-adv/icmp_socket.c
++++ b/net/batman-adv/icmp_socket.c
+@@ -104,25 +104,21 @@ static int batadv_socket_open(struct inode *inode, struct file *file)
+ 
+ static int batadv_socket_release(struct inode *inode, struct file *file)
  {
- 	struct svc_serv *serv = (struct svc_serv *)closure;
--	struct svc_xprt *xprt;
--	struct list_head *le, *next;
-+	struct svc_xprt *xprt, *next;
+-	struct batadv_socket_client *socket_client = file->private_data;
+-	struct batadv_socket_packet *socket_packet;
+-	struct list_head *list_pos, *list_pos_tmp;
++	struct batadv_socket_client *client = file->private_data;
++	struct batadv_socket_packet *packet, *tmp;
  
- 	dprintk("svc_age_temp_xprts\n");
+-	spin_lock_bh(&socket_client->lock);
++	spin_lock_bh(&client->lock);
  
-@@ -916,9 +915,7 @@ static void svc_age_temp_xprts(unsigned long closure)
- 		return;
+ 	/* for all packets in the queue ... */
+-	list_for_each_safe(list_pos, list_pos_tmp, &socket_client->queue_list) {
+-		socket_packet = list_entry(list_pos,
+-					   struct batadv_socket_packet, list);
+-
+-		list_del(list_pos);
+-		kfree(socket_packet);
++	list_for_each_entry_safe(packet, tmp, &client->queue_list, list) {
++		list_del(&packet->list);
++		kfree(packet);
  	}
  
--	list_for_each_safe(le, next, &serv->sv_tempsocks) {
--		xprt = list_entry(le, struct svc_xprt, xpt_list);
--
-+	list_for_each_entry_safe(xprt, next, &serv->sv_tempsocks, xpt_list) {
- 		/* First time through, just mark it OLD. Second time
- 		 * through, close it. */
- 		if (!test_and_set_bit(XPT_OLD, &xprt->xpt_flags))
-@@ -926,7 +923,7 @@ static void svc_age_temp_xprts(unsigned long closure)
- 		if (atomic_read(&xprt->xpt_ref.refcount) > 1 ||
- 		    test_bit(XPT_BUSY, &xprt->xpt_flags))
- 			continue;
--		list_del_init(le);
-+		list_del_init(&xprt->xpt_list);
- 		set_bit(XPT_CLOSE, &xprt->xpt_flags);
- 		dprintk("queuing xprt %p for closing\n", xprt);
+-	batadv_socket_client_hash[socket_client->index] = NULL;
+-	spin_unlock_bh(&socket_client->lock);
++	batadv_socket_client_hash[client->index] = NULL;
++	spin_unlock_bh(&client->lock);
  
+-	kfree(socket_client);
++	kfree(client);
+ 	module_put(THIS_MODULE);
+ 
+ 	return 0;
 -- 
 2.5.0
