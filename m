@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipip: ioctl: Remove superfluous IP-TTL handling.
-Date: Fri, 18 Dec 2015 16:08:12 -0500 (EST)
-Message-ID: <20151218.160812.1544150617286452401.davem@davemloft.net>
-References: <1450399599-7528-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net-next] asix: silence log message from oversize packet
+Date: Fri, 18 Dec 2015 16:08:53 -0500 (EST)
+Message-ID: <20151218.160853.1076037989795474904.davem@davemloft.net>
+References: <20151217175116.234fa63b@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Cc: ben.hutchings@codethink.co.uk, ivecera@redhat.com,
+	linuxbrad@gmail.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45503 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45517 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965294AbbLRVIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 16:08:13 -0500
-In-Reply-To: <1450399599-7528-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S965232AbbLRVIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 16:08:54 -0500
+In-Reply-To: <20151217175116.234fa63b@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Thu, 17 Dec 2015 16:46:39 -0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 17 Dec 2015 17:51:16 -0800
 
-> IP-TTL case is already handled in ip_tunnel_ioctl() API.
+> Since it is possible for an external system to send oversize packets
+> at anytime, it is best for driver not to print a message and spam
+> the log (potential external DoS).
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=109471
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thanks Pravin.
+Seems reasonable, applied, thanks Stephen.
