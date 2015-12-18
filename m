@@ -1,55 +1,37 @@
-From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: Re: [PATCH v2 0/3] drivers: net: cpsw: Fix bugs in fixed-link PHY
- DT parsing
-Date: Fri, 18 Dec 2015 17:06:31 -0500
-Message-ID: <20151218170631.643ead8d.drivshin.allworx@gmail.com>
-References: <20151209223115.6c5a400f.drivshin.allworx@gmail.com>
-	<1741588.Ve76Z1ZI87@localhost>
-	<cover.1450309613.git.drivshin@allworx.com>
-	<20151217.154508.505711333985621252.davem@davemloft.net>
-	<20151218102020.GA1703@dt-ub1404lts.ENTWDOM.local>
+From: "MRS. PATRICIA O. PHILIP" <kkkjjjddd@rose.ocn.ne.jp>
+Subject: Attention please!!!
+Date: Sat, 19 Dec 2015 08:47:20 +0900 (JST)
+Message-ID: <1226438151.60162507.1450482440473.JavaMail.root@rose.ocn.ne.jp>
+Reply-To: "MRS. PATRICIA O. PHILIP" <telex-unit@outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>,
-	<systemprogrammierung.brunner@gmail.com>, <mugunthanvnm@ti.com>,
-	<kernel@iktek.de>, <dtrautmann@ibhsoftec-sps.de>
-To: Daniel Trautmann <dtrautmann@ibhsoftec.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33772 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752998AbbLRWGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 17:06:34 -0500
-In-Reply-To: <20151218102020.GA1703@dt-ub1404lts.ENTWDOM.local>
+Received: from mfdf016.ocn.ad.jp ([153.128.50.70]:38855 "EHLO
+	mfdf016.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422AbbLSAEM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 19:04:12 -0500
+Received: from mogw1134.ocn.ad.jp (mogw1134.ocn.ad.jp [153.149.229.35])
+	by mfdf016.ocn.ad.jp (Postfix) with ESMTP id C8D7ED00B08
+	for <netdev@vger.kernel.org>; Sat, 19 Dec 2015 08:47:32 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Dec 2015 11:20:21 +0100
-Daniel Trautmann <dtrautmann@ibhsoftec.com> wrote:
 
-> On Thu, Dec 17, 2015 at 03:45:08PM -0500, David Miller wrote:
-> > From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-> > Date: Wed, 16 Dec 2015 23:02:08 -0500
-> > 
-> > > I have tested on the following hardware configurations:
-> > >  - (EVMSK) dual emac with two real MDIO-connected phys using
-> > > RGMII-TXID
-> > >  - single emac with fixed-link using RGMII
-> > > Testing of other CPSW emac configurations that folks may have
-> > > would be appreciated.
-> > 
-> > I'm going to wait until some others give some feedback and testing
-> > results on this one, thanks.
-> 
-> I can confirm that this patch is working on the following hardware
-> setup:
->  - single emac using MII connected with fixed-link to Micrel KSZ8895
-> Switch
 
-Thanks for testing.
+Attention please!!!
 
-I see that Dave applied the series, but just for good measure I'll 
-report that I also tested on:
- - (BeagleBone-Black) single emac, MII, real 100Mbit PHY
+We have registered your ATM CARD of =E2=82=AC4.9m Euros with DHL Courie=
+r Company with registration code of (DCJKT00147G). Please kindly Contac=
+t DHL Courier delivery Company services with your Address and Telephone=
+ No: for the delivery of the loaded ATM CARD to you
+
+Contact Person:
+
+Name Dr. Barrack .U. Aziz
+E-mail; (dhl.services@pisem.net)
+Telephone No: +229 61322836.
+
+Best Regards.
+MRS. PATRICIA O. PHILIP;
