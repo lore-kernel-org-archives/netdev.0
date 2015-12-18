@@ -1,49 +1,102 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as drain mode
-Date: Fri, 18 Dec 2015 19:58:12 +0100
-Message-ID: <20151218185812.GD4448@1wt.eu>
-References: <1447290541.22599.11.camel@edumazet-glaptop2.roam.corp.google.com> <20151215161456.GA3182@1wt.eu> <1450199424.8474.30.camel@edumazet-glaptop2.roam.corp.google.com> <20151215174346.GA3187@1wt.eu> <1450203712.8474.46.camel@edumazet-glaptop2.roam.corp.google.com> <20151215194410.GB3187@1wt.eu> <1450214475.8474.50.camel@edumazet-glaptop2.roam.corp.google.com> <20151216073814.GA3373@1wt.eu> <20151216161514.GA3476@1wt.eu> <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] veth: don't modify ip-summed; doing so treats packets
+ with bad checksums as good.
+Date: Fri, 18 Dec 2015 11:00:54 -0800
+Message-ID: <CAM_iQpUOKGoNNDF2Nbut8a0q2rGY6pCXBm3NVkBMe=63K7L9bg@mail.gmail.com>
+References: <CAKoqxG=R566bG2sQzWabAaaoUZjUJfoVP7k7dcYK4QuEcH0jrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Josh Snyder <josh@code406.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:61902 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932502AbbLRS6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2015 13:58:24 -0500
-Content-Disposition: inline
-In-Reply-To: <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, ej@evanjones.ca,
+	Eric Biederman <ebiederm@aristanetworks.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Vijay Pandurangan <vijayp@vijayp.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKoqxG=R566bG2sQzWabAaaoUZjUJfoVP7k7dcYK4QuEcH0jrA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Josh,
+(Cc'ing Eric B and Tom)
 
-On Fri, Dec 18, 2015 at 08:33:45AM -0800, Josh Snyder wrote:
-> I was also puzzled that binding succeeded. Looking into the code paths
-> involved, in inet_csk_get_port, we quickly goto have_snum. From there, we end
-> up dropping into tb_found. Since !hlist_empty(&tb->owners), we end up checking
-> that (tb->fastreuseport > 0 && sk->sk_reuseport && uid_eq(tb->fastuid, uid)).
-> This test passes, so we goto success and bind.
-> 
-> Crucially, we are checking the fastreuseport field on the inet_bind_bucket, and
-> not the sk_reuseport variable on the other sockets in the bucket. Since this
-> bit is set based on sk_reuseport at the time the first socket binds (see
-> tb_not_found), I can see no reason why sockets need to keep SO_REUSEPORT set
-> beyond initial binding.
-> 
-> Given this, I believe Willy's patch elegantly solves the problem at hand.
+On Fri, Dec 18, 2015 at 9:54 AM, Vijay Pandurangan <vijayp@vijayp.ca> w=
+rote:
+> Packets that arrive from real hardware devices have ip_summed =3D=3D
+> CHECKSUM_UNNECESSARY if the hardware verified the checksums, or
+> CHECKSUM_NONE if the packet is bad or it was unable to verify it. The
+> current version of veth will replace CHECKSUM_NONE with
+> CHECKSUM_UNNECESSARY, which causes corrupt packets routed from hardwa=
+re to
+> a veth device to be delivered to the application. This caused applica=
+tions
+> at Twitter to receive corrupt data when network hardware was corrupti=
+ng
+> packets.
 
-Great, thanks for your in-depth explanation.
+Yeah, https://reviews.apache.org/r/41158/.
 
-Eric, do you think that this patch may be acceptable material for next
-merge window (given that it's not a fix per-se) ? If so I'll resubmit
-later.
+This is because normally packets to a veth device are _only_ from its p=
+air
+device, Mesos network isolator redirects packets from a hardware interf=
+ace
+to veth, which violates this expectation. This is also why no one else =
+sees
+this bug. ;)
 
-Thanks,
-Willy
+>
+> We believe this was added as an optimization to skip computing and
+> verifying checksums for communication between containers. However, lo=
+cally
+> generated packets have ip_summed =3D=3D CHECKSUM_PARTIAL, so the code=
+ as
+> written does nothing for them. As far as we can tell, after removing =
+this
+> code, these packets are transmitted from one stack to another unmodif=
+ied
+> (tcpdump shows invalid checksums on both sides, as expected), and the=
+y are
+> delivered correctly to applications. We didn=E2=80=99t test every pos=
+sible network
+> configuration, but we tried a few common ones such as bridging contai=
+ners,
+> using NAT between the host and a container, and routing from hardware
+> devices to containers. We have effectively deployed this in productio=
+n at
+> Twitter (by disabling RX checksum offloading on veth devices).
+
+
+I am wondering if there is any other CHECKSUM_NONE case in the tx
+path we could miss here. Mesos case is too special not only because
+it redirects packets from hardware to veth, but also because it moves
+packets from RX path to TX path.
+
+Eric? Tom?
+
+>
+> This code dates back to the first version of the driver, commit
+> <e314dbdc1c0dc6a548ecf> ("[NET]: Virtual ethernet device driver"), so=
+ I
+> suspect this bug occurred mostly because the driver API has evolved
+> significantly since then. Commit <0b7967503dc97864f283a> ("net/veth: =
+=46ix
+> packet checksumming") (in December 2010) fixed this for packets that =
+get
+> created locally and sent to hardware devices, by not changing
+> CHECKSUM_PARTIAL. However, the same issue still occurs for packets co=
+ming
+> in from hardware devices.
+>
+> Co-authored-by: Evan Jones <ej@evanjones.ca>
+> Signed-off-by: Evan Jones <ej@evanjones.ca>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Cc: Phil Sutter <phil@nwl.cc>
+> Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Vijay Pandurangan <vijayp@vijayp.ca>
+
+Your patch looks good to me but your email client corrupts your patch,
+so please resend.
