@@ -1,73 +1,65 @@
-From: Calvin Owens <calvinowens@fb.com>
-Subject: [PATCH] netconsole: Initialize after all core networking drivers
-Date: Thu, 17 Dec 2015 15:52:39 -0800
-Message-ID: <20151217235239.GA1444048@devbig337.prn1.facebook.com>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH net-next 2/5] bpf: move clearing of A/X into classic to
+ eBPF migration prologue
+Date: Thu, 17 Dec 2015 16:00:45 -0800
+Message-ID: <CABg9mcuVj7XL=3LyQHxjep_k4eBYe7OcV3W4jrOzXrHaD6iCaA@mail.gmail.com>
+References: <cover.1450391511.git.daniel@iogearbox.net>
+	<59015f2db8fe71c235fe2c19714448601136d5f9.1450391511.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>, <calvinowens@fb.com>
-To: <davem@davemloft.net>, <shm@cumulusnetworks.com>,
-	<izumi.taku@jp.fujitsu.com>, <linville@tuxdriver.com>,
-	<dsa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Yang Shi <yang.shi@linaro.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36339 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752029AbbLRAAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 19:00:46 -0500
+Received: by mail-io0-f194.google.com with SMTP id q126so59775iof.3
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 16:00:46 -0800 (PST)
+In-Reply-To: <59015f2db8fe71c235fe2c19714448601136d5f9.1450391511.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With built-in netconsole and IXGBE, configuring netconsole via the kernel
-cmdline results in the following panic at boot:
+On Thu, Dec 17, 2015 at 2:51 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Back in the days where eBPF (or back then "internal BPF" ;->) was not
+> exposed to user space, and only the classic BPF programs internally
+> translated into eBPF programs, we missed the fact that for classic BPF
+> A and X needed to be cleared. It was fixed back then via 83d5b7ef99c9
+> ("net: filter: initialize A and X registers"), and thus classic BPF
+> specifics were added to the eBPF interpreter core to work around it.
+>
+> This added some confusion for JIT developers later on that take the
+> eBPF interpreter code as an example for deriving their JIT. F.e. in
+> f75298f5c3fe ("s390/bpf: clear correct BPF accumulator register"), at
+> least X could leak stack memory. Furthermore, since this is only needed
+> for classic BPF translations and not for eBPF (verifier takes care
+> that read access to regs cannot be done uninitialized), more complexity
+> is added to JITs as they need to determine whether they deal with
+> migrations or native eBPF where they can just omit clearing A/X in
+> their prologue and thus reduce image size a bit, see f.e. cde66c2d88da
+> ("s390/bpf: Only clear A and X for converted BPF programs"). In other
+> cases (x86, arm64), A and X is being cleared in the prologue also for
+> eBPF case, which is unnecessary.
+>
+> Lets move this into the BPF migration in bpf_convert_filter() where it
+> actually belongs as long as the number of eBPF JITs are still few. It
+> can thus be done generically; allowing us to remove the quirk from
+> __bpf_prog_run() and to slightly reduce JIT image size in case of eBPF,
+> while reducing code duplication on this matter in current(/future) eBPF
+> JITs.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Reviewed-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Tested-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Cc: Zi Shen Lim <zlim.lnx@gmail.com>
+> Cc: Yang Shi <yang.shi@linaro.org>
+> ---
+>  arch/arm64/net/bpf_jit_comp.c |  6 ------
 
-    netpoll: netconsole: device eth0 not up yet, forcing it
-    usb 2-1: new high-speed USB device number 2 using ehci-pci
-    ixgbe 0000:03:00.0: registered PHC device on eth0
-    BUG: unable to handle kernel NULL pointer dereference at 0000000000000810
-    <snip>
-    Call Trace:
-     [<ffffffff81578661>] ? vxlan_get_rx_port+0x41/0xa0
-     [<ffffffff81586828>] ixgbe_open+0x4e8/0x540
-     [<ffffffff8168045c>] __dev_open+0xac/0x120
-     [<ffffffff81680506>] dev_open+0x36/0x70
-     [<ffffffff8169abec>] netpoll_setup+0x23c/0x300
-     [<ffffffff8169a66a>] ? netpoll_parse_options+0x19a/0x200
-     [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
-     [<ffffffff81d79882>] init_netconsole+0xda/0x262
-     [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
-     [<ffffffff810003a8>] do_one_initcall+0x88/0x1b0
-     [<ffffffff81d31144>] kernel_init_freeable+0x14a/0x1e3
-     [<ffffffff81d308f1>] ? do_early_param+0x8c/0x8c
-     [<ffffffff81778610>] ? rest_init+0x80/0x80
-     [<ffffffff8177861e>] kernel_init+0xe/0xe0
-     [<ffffffff8177dc5f>] ret_from_fork+0x3f/0x70
-     [<ffffffff81778610>] ? rest_init+0x80/0x80
-
-This happens because IXGBE assumes that vxlan has already been initialized.
-The cleanest way to fix this is to just initialize netconsole after all the
-other core networking stuff has completed.
-
-Signed-off-by: Calvin Owens <calvinowens@fb.com>
----
- drivers/net/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 900b0c5..31557d0 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -15,7 +15,6 @@ obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_NET) += Space.o loopback.o
--obj-$(CONFIG_NETCONSOLE) += netconsole.o
- obj-$(CONFIG_PHYLIB) += phy/
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_NET_TEAM) += team/
-@@ -26,6 +25,7 @@ obj-$(CONFIG_VXLAN) += vxlan.o
- obj-$(CONFIG_GENEVE) += geneve.o
- obj-$(CONFIG_NLMON) += nlmon.o
- obj-$(CONFIG_NET_VRF) += vrf.o
-+obj-$(CONFIG_NETCONSOLE) += netconsole.o
- 
- #
- # Networking Drivers
--- 
-2.5.0
+For the arm64 bits:
+Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
