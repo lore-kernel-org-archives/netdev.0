@@ -1,30 +1,47 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Random packet loss using IPsec with AES128-SHA1
-Date: Fri, 18 Dec 2015 08:41:45 +0100
-Message-ID: <20151218074145.GS29565@gauss.secunet.com>
-References: <000a01d137e2$afedd130$0fc97390$@drvsource.net>
- <20151216095954.GN29565@gauss.secunet.com>
- <005901d138e0$a6a7a750$f3f6f5f0$@drvsource.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
+Date: Fri, 18 Dec 2015 16:18:38 +0800
+Message-ID: <CADvbK_cArD4QjPzHC1W4ZY=e5dur=uJsQd9WwSB2yYhnq_YbOg@mail.gmail.com>
+References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
+	<20151130093755.GA8159@gondor.apana.org.au>
+	<20151130101401.GA17712@orbit.nwl.cc>
+	<20151130101859.GA8378@gondor.apana.org.au>
+	<20151203124129.GA5505@gondor.apana.org.au>
+	<CADvbK_cA5qaooTOE4Z2bGYs+ys17ZajSMgKDVWgctSZWJ0vjpw@mail.gmail.com>
+	<20151217084809.GC9239@gondor.apana.org.au>
+	<CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
+	<CADvbK_e_H91UAatLSOEAvPFxZZTNNs5ZFR5TieXBdWt65z4Qzg@mail.gmail.com>
+	<20151218022654.GA18495@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Gabriele Beltrame <belgab@drvsource.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:47154 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752375AbbLRHlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2015 02:41:49 -0500
-Content-Disposition: inline
-In-Reply-To: <005901d138e0$a6a7a750$f3f6f5f0$@drvsource.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Phil Sutter <phil@nwl.cc>, davem <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151218022654.GA18495@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 17, 2015 at 04:36:06PM +0100, Gabriele Beltrame wrote:
-> Hi Steffen,
-> 
-> I don't think it's IPsec (I can see the outbound packet in tcpdump), not
-> alone at least but the XEN /AWS Ethernet driver (or multiple things
-> concurring to the issue) actually.i
+On Fri, Dec 18, 2015 at 10:26 AM, Herbert Xu
+<herbert@gondor.apana.org.au> wrote:
+> On Fri, Dec 18, 2015 at 12:07:08AM +0800, Xin Long wrote:
+>>
+>> I'm just wondering, why do not we handle the genuine double rehash
+>> issue inside rhashtable? i mean it's just a temporary error that a
+>> simple retry may fix it.
+>
+> Because a double rehash means that someone has cracked your hash
+> function and there is no point in trying anymore.
 
-Well, in this case you should change the subject to something that
-attracts the related driver developers and resend the mail.
+ok, get your point, is it possible to be triggered by some cases under
+a big stress insertion, but they are all legal cases. like we use rhash in
+nftables, if there are a big batch sets to insert, may this issue happen?
+
+>
+> Cheers,
+> --
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
