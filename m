@@ -1,52 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v3 0/3] improve lwtunnel route support
-Date: Fri, 18 Dec 2015 11:43:24 -0800
-Message-ID: <20151218114324.007fe1b8@xeon-e3>
-References: <cover.1450428323.git.pabeni@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/2] net: Allow accepted sockets to be
+ bound to l3mdev domain
+Date: Fri, 18 Dec 2015 14:44:00 -0500 (EST)
+Message-ID: <20151218.144400.647630972937662772.davem@davemloft.net>
+References: <1450300844-11010-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jiri Benc <jbenc@redhat.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34192 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932554AbbLRTnf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 14:43:35 -0500
-Received: by mail-pa0-f52.google.com with SMTP id wq6so65064015pac.1
-        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 11:43:34 -0800 (PST)
-In-Reply-To: <cover.1450428323.git.pabeni@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44077 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932554AbbLRToC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 14:44:02 -0500
+In-Reply-To: <1450300844-11010-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Dec 2015 10:50:35 +0100
-Paolo Abeni <pabeni@redhat.com> wrote:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 16 Dec 2015 13:20:42 -0800
 
-> This patch series try to improve the current route based
-> lwtunnel support in iproute2, namely adding support for the
-> COLLECT_METADATA flag in vxlan and gre link, and for ip6
-> encap type in lwtunnel.
+> Allow accepted sockets to derive their sk_bound_dev_if setting from the
+> l3mdev domain in which the packets originated. This version adds a sysctl
+> to control whether the setting is inherited, making the functionality
+> similar to sk_mark and its sysctl_tcp_fwmark_accept setting.
 > 
-> Tunnel devices need to have the COLLECT_METADATA flag
-> set in order to be used for route based lwtunnel.
-> 
-> Changes from V1:
-> - the COLLECT_METADATA flag is now controlled via the 'external' keyword
-> - 'vni' and 'external' arguments are mutually exclusive for the vxlan link
-> 
-> Changes from V2:
-> - rebased
-> 
-> Paolo Abeni (3):
->   vxlan: add support for collect metadata flag
->   gre: add support for collect metadata flag
->   lwtunnel: implement support for ip6 encap
-> 
->  ip/iplink_vxlan.c     | 19 +++++++++--
->  ip/iproute_lwtunnel.c | 92 ++++++++++++++++++++++++++++++++++++++++++++++++++-
->  ip/link_gre.c         | 11 ++++++
->  3 files changed, 119 insertions(+), 3 deletions(-)
-> 
+> This effectively allow a process to have a "VRF-global" listen socket,
+> with child sockets bound to the VRF device in which the packet originated.
+> A similar behavior can be achieved using sk_mark, but a solution using marks
+> is incomplete as it does not handle duplicate addresses in different L3
+> domains/VRFs. Allowing sockets to inherit the sk_bound_dev_if from l3mdev
+> domain provides a complete solution.
 
-Applied thanks.
+Series applied, thanks David.
