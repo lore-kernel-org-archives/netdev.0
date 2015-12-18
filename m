@@ -1,45 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: addrconf: use stable address generator
- for ARPHRD_NONE
-Date: Fri, 18 Dec 2015 14:41:22 -0500 (EST)
-Message-ID: <20151218.144122.761248016851249147.davem@davemloft.net>
-References: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/2] Local checksum offload for VXLAN
+Date: Fri, 18 Dec 2015 11:41:34 -0800
+Message-ID: <CALx6S35n+dt-F6m3TvW6KfbDq883Uzvi_unduDgPcT2H-Cf7ZQ@mail.gmail.com>
+References: <5672D466.6050900@solarflare.com>
+	<CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
+	<5673E2F6.2000209@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	hideaki.yoshifuji@miraclelinux.com
-To: bjorn@mork.no
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44041 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932554AbbLRTlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 14:41:24 -0500
-In-Reply-To: <1450280678-4730-1-git-send-email-bjorn@mork.no>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:32955 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964776AbbLRTle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 14:41:34 -0500
+Received: by mail-ig0-f180.google.com with SMTP id mv3so39825608igc.0
+        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 11:41:34 -0800 (PST)
+In-Reply-To: <5673E2F6.2000209@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+DQpEYXRlOiBXZWQsIDE2IERlYyAyMDE1
-IDE2OjQ0OjM4ICswMTAwDQoNCj4gQWRkIGEgbmV3IGFkZHJlc3MgZ2VuZXJhdG9yIG1vZGUsIHVz
-aW5nIHRoZSBzdGFibGUgYWRkcmVzcyBnZW5lcmF0b3INCj4gd2l0aCBhbiBhdXRvbWF0aWNhbGx5
-IGdlbmVyYXRlZCBzZWNyZXQuIFRoaXMgaXMgaW50ZW5kZWQgYXMgYSBkZWZhdWx0DQo+IGFkZHJl
-c3MgZ2VuZXJhdG9yIG1vZGUgZm9yIGRldmljZSB0eXBlcyB3aXRoIG5vIEVVSTY0IGltcGxlbWVu
-dGF0aW9uLg0KPiBUaGUgbmV3IGdlbmVyYXRvciBpcyB1c2VkIGZvciBBUlBIUkRfTk9ORSBpbnRl
-cmZhY2VzIGluaXRpYWxseSwgYWRkaW5nDQo+IGRlZmF1bHQgSVB2NiBhdXRvY29uZiBzdXBwb3J0
-IHRvIGUuZy4gdHVuIGludGVyZmFjZXMuDQo+IA0KPiBJZiB0aGUgYWRkcmdlbm1vZGUgaXMgc2V0
-IHRvICdyYW5kb20nLCBlaXRoZXIgYnkgZGVmYXVsdCBvciBtYW51YWxseSwNCj4gYW5kIG5vIHN0
-YWJsZSBzZWNyZXQgaXMgYXZhaWxhYmxlLCB0aGVuIGEgcmFuZG9tIHNlY3JldCBpcyB1c2VkIGFz
-DQo+IGlucHV0IGZvciB0aGUgc3RhYmxlLXByaXZhY3kgYWRkcmVzcyBnZW5lcmF0b3IuICBUaGUg
-c2VjcmV0IGNhbiBiZQ0KPiByZWFkIGFuZCBtb2RpZmllZCBsaWtlIG1hbnVhbGx5IGNvbmZpZ3Vy
-ZWQgc2VjcmV0cywgdXNpbmcgdGhlIHByb2MNCj4gaW50ZXJmYWNlLiAgTW9kaWZ5aW5nIHRoZSBz
-ZWNyZXQgd2lsbCBjaGFuZ2UgdGhlIGFkZHJnZW4gbW9kZSB0bw0KPiAnc3RhYmxlLXByaXZhY3kn
-IHRvIGluZGljYXRlIHRoYXQgaXQgb3BlcmF0ZXMgb24gYSBrbm93biBzZWNyZXQuDQo+IA0KPiBF
-eGlzdGluZyBiZWhhdmlvdXIgb2YgdGhlICdzdGFibGUtcHJpdmFjeScgbW9kZSBpcyBrZXB0IHVu
-Y2hhbmdlZC4gSWYNCj4gYSBrbm93biBzZWNyZXQgaXMgYXZhaWxhYmxlIHdoZW4gdGhlIGRldmlj
-ZSBpcyBjcmVhdGVkLCB0aGVuIHRoZSBtb2RlDQo+IHdpbGwgZGVmYXVsdCB0byAnc3RhYmxlLXBy
-aXZhY3knIGFzIGJlZm9yZS4gIFRoZSBtb2RlIGNhbiBiZSBtYW51YWxseQ0KPiBzZXQgdG8gJ3Jh
-bmRvbScgYnV0IGl0IHdpbGwgYmVoYXZlIGV4YWN0bHkgbGlrZSAnc3RhYmxlLXByaXZhY3knIGlu
-DQo+IHRoaXMgY2FzZS4gVGhlIHNlY3JldCB3aWxsIG5vdCBjaGFuZ2UuDQo+IA0KPiBDYzogSGFu
-bmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KPiBDYzog5ZCJ
-6Jek6Iux5piOIDxoaWRlYWtpLnlvc2hpZnVqaUBtaXJhY2xlbGludXguY29tPg0KPiBTaWduZWQt
-b2ZmLWJ5OiBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4NCg0KQXBwbGllZCwgdGhhbmtzIQ0K
+On Fri, Dec 18, 2015 at 2:41 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 17/12/15 18:06, Tom Herbert wrote:
+>> I'm not sure that we need bits in VXLAN or any other encapsulation. It
+>> should be sufficient in udp_set_csum that if we already have
+>> CHECKSUM_PARTIAL that can always be used to do local checksum offload.
+> My understandingis that otherwise iptunnel_handle_offloads() will do the
+>  inner checksum in sw, because csum_help will be passed as true.  It will
+>  call skb_checksum_help().
+>> This is also should be independent as to whether the device does
+>> NETIF_F_HW_CSUM or can offload  NETIF_F_IP[V6]_CSUM for encapsulated
+>> packets.
+> I was wary of drivers that declare NETIF_F_IP[V6]_CSUM but don't cope with
+>  encapsulated packets.  Would they do the right thing if the inner_csum bool
+>  in patch 2 just tested for NETIF_F_CSUM_MASK, or do I need to test things
+>  like NETIF_F_GSO_UDP_TUNNEL_CSUM?  I'm afraid I don't entirely understand
+>  the infrastructure here, so I just did the minimal thing I was sure worked,
+>  i.e. testing for NETIF_F_HW_CSUM.
+
+Drivers indicate that can do NETIF_F_IP[V6]_CSUM for encapsulation by
+setting enc_features. This is checked in validate_xmit_skb so that if
+drive can't handle encapsulated checksum skb_checksum_help is called
+there.
+
+ >> It would be nice to have a more formal documentation also. This is a
+>> very powerful mechanism but the math behind it and requirements are
+>> subtle.
+>>
+>> Tom
+> What would be a good place to put such documentation?  In
+>  Documentation/networking, or as part of the big checksums comment at the
+>  top of skbuff.h?
+>
+I don't think this right for skbuff.h that should just describe the
+interface. LCO has no interface like checksum-unnecessary conversion.
+Checksumming, encapsulation, segmentation offloads are complex enough
+now there should really be a Linux doc on this maybe modeled after
+scaling.txt. That's probably more than you bargained for in this
+patch, but if someone wants to learn how this infrastructure really
+works, writing a doc is a good way! :-)
+
+Tom
