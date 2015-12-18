@@ -1,43 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH iproute2] iplink: support 'stable-privacy' IPv6 addrgenmode
-Date: Fri, 18 Dec 2015 13:26:28 +0100
-Message-ID: <87y4cs0wp7.fsf@nemi.mork.no>
-References: <1450278914-12717-1-git-send-email-bjorn@mork.no>
-	<20151217173238.7c742fb1@xeon-e3>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: diag: add support for request sockets to
+ tcp_abort()
+Date: Fri, 18 Dec 2015 04:46:51 -0800
+Message-ID: <1450442811.8474.116.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450397651.8474.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAKD1Yr11jzdP3hfK3qk+-mkOV1Pc3DCi+Pmf=noT3SDJP6ZTGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:41932 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751788AbbLRM0m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 07:26:42 -0500
-In-Reply-To: <20151217173238.7c742fb1@xeon-e3> (Stephen Hemminger's message of
-	"Thu, 17 Dec 2015 17:32:38 -0800")
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33392 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753077AbbLRMqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 07:46:53 -0500
+Received: by mail-pa0-f52.google.com with SMTP id ur14so60174542pab.0
+        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 04:46:53 -0800 (PST)
+In-Reply-To: <CAKD1Yr11jzdP3hfK3qk+-mkOV1Pc3DCi+Pmf=noT3SDJP6ZTGA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
-> On Wed, 16 Dec 2015 16:15:14 +0100
-> Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
->
->> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
->
-> Does not apply to current code base. Probably because of Hannes recen=
-t changes.
+On Fri, 2015-12-18 at 17:38 +0900, Lorenzo Colitti wrote:
+> On Fri, Dec 18, 2015 at 9:14 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Adding support for SYN_RECV request sockets to tcp_abort()
+> > is quite easy after our tcp listener rewrite.
+> 
+> I added test coverage for this to our tests.
+> 
+> Without this patch, attempting to destroy an SYN_RECV socket using
+> SOCK_DESTROY results in EOPNOTSUPP. With this patch, SOCK_DESTROY
+> succeeds, and after it does, sock_diag reports no child sockets.
+> 
+> Tested-by: Lorenzo Colitti <lorenzo@google.com>
 
-Yes, I saw that you applied Hannes' ipaddress.c patch, which conficts
-with this one.  No problem, either way is fine by me.  I'll redo the ma=
-n
-page thing as part of the next round for "addrgenmode random", if/when
-that is applied to the kernel.
+I am curious, did you use packetdrill for this ?
 
-BTW, I didn't understand your comment regarding Hannes' iplink.c patch.
-If the ipaddress patch is OK, then the iplink patch is just the part
-missing for show/set symmetry.  Or did I misunderstand something?
+I was about to write a packetdrill test as well ;)
 
-
-Bj=C3=B8rn
+Thanks !
