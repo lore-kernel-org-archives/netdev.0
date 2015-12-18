@@ -1,77 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: rhashtable: Kill harmless RCU warning in rhashtable_walk_init
-Date: Fri, 18 Dec 2015 14:24:50 +0800
-Message-ID: <20151218062450.GA19749@gondor.apana.org.au>
-References: <874mfgedrp.fsf@yhuang-dev.intel.com>
- <20151218053416.GA19479@gondor.apana.org.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Random packet loss using IPsec with AES128-SHA1
+Date: Fri, 18 Dec 2015 08:41:45 +0100
+Message-ID: <20151218074145.GS29565@gauss.secunet.com>
+References: <000a01d137e2$afedd130$0fc97390$@drvsource.net>
+ <20151216095954.GN29565@gauss.secunet.com>
+ <005901d138e0$a6a7a750$f3f6f5f0$@drvsource.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkp@01.org, LKML <linux-kernel@vger.kernel.org>,
-	Colin Ian King <colin.king@canonical.com>,
-	0day robot <fengguang.wu@intel.com>, netdev@vger.kernel.org
-To: kernel test robot <ying.huang@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Gabriele Beltrame <belgab@drvsource.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:47154 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752375AbbLRHlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2015 02:41:49 -0500
 Content-Disposition: inline
-In-Reply-To: <20151218053416.GA19479@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <005901d138e0$a6a7a750$f3f6f5f0$@drvsource.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 18, 2015 at 01:34:16PM +0800, Herbert Xu wrote:
-> On Fri, Dec 18, 2015 at 09:39:22AM +0800, kernel test robot wrote:
-> > FYI, we noticed the below changes on
-> > 
-> > https://github.com/0day-ci/linux Herbert-Xu/rhashtable-Fix-walker-list-corruption/20151216-164833
-> > commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable: Fix walker list corruption")
-> > 
-> > [    8.933376] ===============================
-> > [    8.933376] ===============================
-> > [    8.934629] [ INFO: suspicious RCU usage. ]
-> > [    8.934629] [ INFO: suspicious RCU usage. ]
-> > [    8.935941] 4.4.0-rc3-00995-gf9f51b8 #2 Not tainted
-> > [    8.935941] 4.4.0-rc3-00995-gf9f51b8 #2 Not tainted
-> > [    8.937494] -------------------------------
-> > [    8.937494] -------------------------------
-> > [    8.938818] lib/rhashtable.c:504 suspicious rcu_dereference_protected() usage!
-> > [    8.938818] lib/rhashtable.c:504 suspicious rcu_dereference_protected() usage!
+On Thu, Dec 17, 2015 at 04:36:06PM +0100, Gabriele Beltrame wrote:
+> Hi Steffen,
 > 
-> This is actually a false positive because the new spin lock that
-> we hold prevents ht->tbl from disappearing under us.  So here is
-> a patch to kill the warning with a comment.
+> I don't think it's IPsec (I can see the outbound packet in tcpdump), not
+> alone at least but the XEN /AWS Ethernet driver (or multiple things
+> concurring to the issue) actually.i
 
-Resent with a proper patch subject and reported-by.
-
----8<---
-The commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable:
-Fix walker list corruption") causes a suspicious RCU usage warning
-because we no longer hold ht->mutex when we dereference ht->tbl.
-
-However, this is a false positive because we now hold ht->lock
-which also guarantees that ht->tbl won't disppear from under us.
-
-This patch kills the warning by using rcu_dereference_raw and
-adding a comment.
-
-Reported-by: kernel test robot <ying.huang@linux.intel.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index eb9240c..3404b06 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -519,7 +519,11 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
- 		return -ENOMEM;
- 
- 	spin_lock(&ht->lock);
--	iter->walker->tbl = rht_dereference(ht->tbl, ht);
-+	/* We do not need RCU protection because we hold ht->lock
-+	 * which guarantees that if we see ht->tbl then it won't
-+	 * die on us.
-+	 */
-+	iter->walker->tbl = rcu_dereference_raw(ht->tbl);
- 	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
- 	spin_unlock(&ht->lock);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Well, in this case you should change the subject to something that
+attracts the related driver developers and resend the mail.
