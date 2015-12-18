@@ -1,45 +1,38 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: [PATCH net] openvswitch: correct encoding of set tunnel
-	action attributes
-Date: Fri, 18 Dec 2015 19:43:15 +0900
-Message-ID: <1450435395-23775-1-git-send-email-simon.horman@netronome.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH] ip{,6}tunnel: have a shared stats parser/printer
+Date: Fri, 18 Dec 2015 11:52:25 +0100
+Message-ID: <20151218105225.GA19288@orbyte.nwl.cc>
+References: <1449836624-1998-1-git-send-email-phil@nwl.cc>
+ <20151217171421.578767cc@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:42073 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750943AbbLRKw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2015 05:52:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20151217171421.578767cc@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SW4gYSBzZXQgYWN0aW9uIHR1bm5lbCBhdHRyaWJ1dGVzIHNob3VsZCBiZSBlbmNvZGVkIGluIGEK
-bmVzdGVkIGFjdGlvbi4KCkkgbm90aWNlZCB0aGlzIGJlY2F1c2Ugb3ZzLWRwY3RsIHdhcyByZXBv
-cnRpbmcgYW4gZXJyb3IKd2hlbiBkdW1waW5nIGZsb3dzIGR1ZSB0byB0aGUgaW5jb3JyZWN0IGVu
-Y29kaW5nIG9mIHR1bm5lbCBhdHRyaWJ1dGVzCmluIGEgc2V0IGFjdGlvbi4KCkZpeGVzOiBmYzQw
-OTlmMTcyNDAgKCJvcGVudnN3aXRjaDogRml4IGVncmVzcyB0dW5uZWwgaW5mby4iKQpTaWduZWQt
-b2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPgoKLS0tCiog
-TGlnaHRseSB0ZXN0ZWQgdXNpbmcgb3ZzLWRwY3RsIGR1bXAtZmxvd3MKLS0tCiBuZXQvb3BlbnZz
-d2l0Y2gvZmxvd19uZXRsaW5rLmMgfCA1ICsrKystCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRp
-b25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3df
-bmV0bGluay5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCmluZGV4IDkwN2Q2ZmQy
-OGVkZS4uZDFiZDRhNDVjYTJkIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
-aW5rLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCkBAIC0yNDM0LDcgKzI0
-MzQsMTAgQEAgc3RhdGljIGludCBzZXRfYWN0aW9uX3RvX2F0dHIoY29uc3Qgc3RydWN0IG5sYXR0
-ciAqYSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJaWYgKCFzdGFydCkKIAkJCXJldHVybiAtRU1T
-R1NJWkU7CiAKLQkJZXJyID0gb3ZzX25sYV9wdXRfdHVubmVsX2luZm8oc2tiLCB0dW5faW5mbyk7
-CisJCWVyciA9ICBpcF90dW5fdG9fbmxhdHRyKHNrYiwgJnR1bl9pbmZvLT5rZXksCisJCQkJCWlw
-X3R1bm5lbF9pbmZvX29wdHModHVuX2luZm8pLAorCQkJCQl0dW5faW5mby0+b3B0aW9uc19sZW4s
-CisJCQkJCWlwX3R1bm5lbF9pbmZvX2FmKHR1bl9pbmZvKSk7CiAJCWlmIChlcnIpCiAJCQlyZXR1
-cm4gZXJyOwogCQlubGFfbmVzdF9lbmQoc2tiLCBzdGFydCk7Ci0tIAoyLjEuNAoKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
-ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
-by9kZXYK
+On Thu, Dec 17, 2015 at 05:14:21PM -0800, Stephen Hemminger wrote:
+> I just fixed the sscanf formats and after that this patch caused buil=
+d error.
+> tunnel.c: In function =E2=80=98tnl_print_stats=E2=80=99:
+> tunnel.c:211:13: error: =E2=80=98ptr=E2=80=99 undeclared (first use i=
+n this function)
+>   if (sscanf(ptr, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
+>              ^
+> tunnel.c:211:13: note: each undeclared identifier is reported only on=
+ce for each function it appears in
+> <builtin>: recipe for target 'tunnel.o' failed
+
+Ah, sorry. I obviously messed up conflict resolution while rebasing thi=
+s
+onto your master. Fixed version follows.
+
+Thanks, Phil
