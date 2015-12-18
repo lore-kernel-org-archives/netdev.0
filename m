@@ -1,57 +1,50 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] netconsole: Initialize after all core networking
- drivers
-Date: Thu, 17 Dec 2015 17:10:57 -0800
-Message-ID: <20151217171057.6c0d3b35@xeon-e3>
-References: <20151217235239.GA1444048@devbig337.prn1.facebook.com>
+Subject: Re: [PATCH iproute2] ip, route: fix minor compile warning
+Date: Thu, 17 Dec 2015 17:12:03 -0800
+Message-ID: <20151217171203.723b4d16@xeon-e3>
+References: <c43f41f31854bb0a27cc6cd6d9e465a28a94ffb9.1450106992.git.daniel@iogearbox.net>
+	<20151214155104.GE6555@orbit.nwl.cc>
+	<566EE5F0.9030504@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <shm@cumulusnetworks.com>,
-	<izumi.taku@jp.fujitsu.com>, <linville@tuxdriver.com>,
-	<dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: Calvin Owens <calvinowens@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151217235239.GA1444048@devbig337.prn1.facebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33218 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933301AbbLRBL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2015 20:11:57 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ur14so51062507pab.0
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2015 17:11:57 -0800 (PST)
+In-Reply-To: <566EE5F0.9030504@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Dec 2015 15:52:39 -0800
-Calvin Owens <calvinowens@fb.com> wrote:
+On Mon, 14 Dec 2015 16:53:20 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> With built-in netconsole and IXGBE, configuring netconsole via the kernel
-> cmdline results in the following panic at boot:
+> On 12/14/2015 04:51 PM, Phil Sutter wrote:
+> > On Mon, Dec 14, 2015 at 04:34:29PM +0100, Daniel Borkmann wrote:
+> >> Seems like gcc (4.8.3) doesn't catch this false positive, triggering
+> >> after 0f7543322c5f ("route: ignore RTAX_HOPLIMIT of value -1"):
+> >>
+> >>    iproute.c: In function 'print_route':
+> >>    iproute.c:301:12: warning: 'val' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> >>       features &= ~RTAX_FEATURE_ECN;
+> >>                ^
+> >>    iproute.c:575:10: note: 'val' was declared here
+> >>        __u32 val;
+> >>              ^
+> >> So just shut it up by initializing to 0.
+> >
+> > Hmm. Interestingly, my patch shouldn't have changed anything relevant
+> > for gcc's decision. OTOH, I don't see a warning using gcc-4.9.3.
 > 
->     netpoll: netconsole: device eth0 not up yet, forcing it
->     usb 2-1: new high-speed USB device number 2 using ehci-pci
->     ixgbe 0000:03:00.0: registered PHC device on eth0
->     BUG: unable to handle kernel NULL pointer dereference at 0000000000000810
->     <snip>
->     Call Trace:
->      [<ffffffff81578661>] ? vxlan_get_rx_port+0x41/0xa0
->      [<ffffffff81586828>] ixgbe_open+0x4e8/0x540
->      [<ffffffff8168045c>] __dev_open+0xac/0x120
->      [<ffffffff81680506>] dev_open+0x36/0x70
->      [<ffffffff8169abec>] netpoll_setup+0x23c/0x300
->      [<ffffffff8169a66a>] ? netpoll_parse_options+0x19a/0x200
->      [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
->      [<ffffffff81d79882>] init_netconsole+0xda/0x262
->      [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
->      [<ffffffff810003a8>] do_one_initcall+0x88/0x1b0
->      [<ffffffff81d31144>] kernel_init_freeable+0x14a/0x1e3
->      [<ffffffff81d308f1>] ? do_early_param+0x8c/0x8c
->      [<ffffffff81778610>] ? rest_init+0x80/0x80
->      [<ffffffff8177861e>] kernel_init+0xe/0xe0
->      [<ffffffff8177dc5f>] ret_from_fork+0x3f/0x70
->      [<ffffffff81778610>] ? rest_init+0x80/0x80
+> If I revert it, the warning is gone for me ;) perhaps some heuristic issue
+> with that gcc version.
 > 
-> This happens because IXGBE assumes that vxlan has already been initialized.
-> The cleanest way to fix this is to just initialize netconsole after all the
-> other core networking stuff has completed.
-> 
-> Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> Cheers,
+> Daniel
 
-Fixing this by changing Makefile order is too fragile.
-You are depending on the fact that Makefile order determines link order
-and that determines initialization order. Down that path demons lie.
+I don't see this warning on current master with gcc 4.9.2.
