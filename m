@@ -1,50 +1,31 @@
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Subject: [PATCH 1/2] can: sja1000: add documentation for Technologic Systems version
-Date: Fri, 18 Dec 2015 15:17:24 -0500
-Message-ID: <1450469845-12900-1-git-send-email-damien.riegel@savoirfairelinux.com>
-Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	kernel@savoirfairelinux.com,
-	Damien Riegel <damien.riegel@savoirfairelinux.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, devicetree@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] nfp: call netif_carrier_off() during init
+Date: Fri, 18 Dec 2015 15:31:48 -0500 (EST)
+Message-ID: <20151218.153148.310614347822860478.davem@davemloft.net>
+References: <1450361924-25223-1-git-send-email-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+	rolf.neugebauer@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44794 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964980AbbLRUbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 15:31:52 -0500
+In-Reply-To: <1450361924-25223-1-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This commit adds documentation for the Technologic Systems version of
-SJA1000. The difference with the NXP version is in the way the registers
-are accessed.
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 17 Dec 2015 14:18:44 +0000
 
-Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
----
- Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> Netdevs default to carrier on, we should call netif_carrier_off()
+> during initialization since we handle carrier state changes in the
+> driver.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
 
-diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
-index b4a6d53..7a158d5 100644
---- a/Documentation/devicetree/bindings/net/can/sja1000.txt
-+++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
-@@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
- 
- Required properties:
- 
--- compatible : should be "nxp,sja1000".
-+- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
- 
- - reg : should specify the chip select, address offset and size required
- 	to map the registers of the SJA1000. The size is usually 0x80.
-@@ -14,6 +14,7 @@ Optional properties:
- 
- - reg-io-width : Specify the size (in bytes) of the IO accesses that
- 	should be performed on the device.  Valid value is 1, 2 or 4.
-+	Must be set to 2 for technologic version.
- 	Default to 1 (8 bits).
- 
- - nxp,external-clock-frequency : Frequency of the external oscillator
--- 
-2.5.0
+Applied, thanks.
