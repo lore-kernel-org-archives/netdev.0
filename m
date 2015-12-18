@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 4/4] ila: Add generic ILA translation
- facility
-Date: Fri, 18 Dec 2015 14:18:13 -0500 (EST)
-Message-ID: <20151218.141813.1894760758551190776.davem@davemloft.net>
-References: <1449793173-4086221-1-git-send-email-tom@herbertland.com>
-	<1449793173-4086221-5-git-send-email-tom@herbertland.com>
-	<20151211111904.GB5665@breakpoint.cc>
+Subject: Re: [PATCH] ila: add NETFILTER dependency
+Date: Fri, 18 Dec 2015 14:19:48 -0500 (EST)
+Message-ID: <20151218.141948.2267406136595226362.davem@davemloft.net>
+References: <2011239.T7zzuZGeyk@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org, kernel-team@fb.com
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, tom@herbertland.com,
+	netfilter-devel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43831 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43844 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932736AbbLRTSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 14:18:15 -0500
-In-Reply-To: <20151211111904.GB5665@breakpoint.cc>
+	with ESMTP id S932736AbbLRTTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 14:19:50 -0500
+In-Reply-To: <2011239.T7zzuZGeyk@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 11 Dec 2015 12:19:04 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Dec 2015 15:37:37 +0100
 
-> So if we do ILA in init ns it & pass such skbs to other netns
-> it would be preferable to use nf_register_net_hooks in a namespace
-> once the first ila translation is added within that namespace.
+> The recently added generic ILA translation facility fails to
+> build when CONFIG_NETFILTER is disabled:
+> 
+> net/ipv6/ila/ila_xlat.c:229:20: warning: 'struct nf_hook_state' declared inside parameter list
+> net/ipv6/ila/ila_xlat.c:235:27: error: array type has incomplete element type 'struct nf_hook_ops'
+>  static struct nf_hook_ops ila_nf_hook_ops[] __read_mostly = {
+> 
+> This adds an explicit Kconfig dependency to avoid that case.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 7f00feaf1076 ("ila: Add generic ILA translation facility")
 
-Right, the idea is that we want to do the ILA address translation
-before most other things in the stack see the headers.
-
-In particular, we want this to happen before early socket demux.
+Applied, thanks.
