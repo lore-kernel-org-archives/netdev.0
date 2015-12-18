@@ -1,78 +1,49 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211-next 2015-12-18
-Date: Fri, 18 Dec 2015 19:49:42 +0100
-Message-ID: <1450464582.2849.68.camel@sipsolutions.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as drain mode
+Date: Fri, 18 Dec 2015 19:58:12 +0100
+Message-ID: <20151218185812.GD4448@1wt.eu>
+References: <1447290541.22599.11.camel@edumazet-glaptop2.roam.corp.google.com> <20151215161456.GA3182@1wt.eu> <1450199424.8474.30.camel@edumazet-glaptop2.roam.corp.google.com> <20151215174346.GA3187@1wt.eu> <1450203712.8474.46.camel@edumazet-glaptop2.roam.corp.google.com> <20151215194410.GB3187@1wt.eu> <1450214475.8474.50.camel@edumazet-glaptop2.roam.corp.google.com> <20151216073814.GA3373@1wt.eu> <20151216161514.GA3476@1wt.eu> <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Josh Snyder <josh@code406.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:61902 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932502AbbLRS6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2015 13:58:24 -0500
+Content-Disposition: inline
+In-Reply-To: <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hi Josh,
 
-Before we all go on vacation/holidays, I have a few bugfixes for
-net-next. The remain-on-channel ones are quite necessary since Ilan's
-patch broke things quite a bit, causing crashes.
+On Fri, Dec 18, 2015 at 08:33:45AM -0800, Josh Snyder wrote:
+> I was also puzzled that binding succeeded. Looking into the code paths
+> involved, in inet_csk_get_port, we quickly goto have_snum. From there, we end
+> up dropping into tb_found. Since !hlist_empty(&tb->owners), we end up checking
+> that (tb->fastreuseport > 0 && sk->sk_reuseport && uid_eq(tb->fastuid, uid)).
+> This test passes, so we goto success and bind.
+> 
+> Crucially, we are checking the fastreuseport field on the inet_bind_bucket, and
+> not the sk_reuseport variable on the other sockets in the bucket. Since this
+> bit is set based on sk_reuseport at the time the first socket binds (see
+> tb_not_found), I can see no reason why sockets need to keep SO_REUSEPORT set
+> beyond initial binding.
+> 
+> Given this, I believe Willy's patch elegantly solves the problem at hand.
 
-If the issue with the strange mail formatting persists let me know and
-I'll send these through some other client in the future.
+Great, thanks for your in-depth explanation.
 
-Enjoy the holidays and happy New Year :)
+Eric, do you think that this patch may be acceptable material for next
+merge window (given that it's not a fix per-se) ? If so I'll resubmit
+later.
 
 Thanks,
-johannes
-
-
-The following changes since commit 1b894521e60c1b91db1e8ba1278660e5c89f=
-1b5f:
-
-=C2=A0 mac80211: handle HW ROC expired properly (2015-12-07 11:06:37 +0=
-100)
-
-are available in the git repository at:
-
-=C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-nex=
-t.git tags/mac80211-next-for-davem-2015-12-18
-
-for you to fetch changes up to c45932df56120a73b05f391be9730185eb51eecf=
-:
-
-=C2=A0 regulatory: fix world regulatory domain data (2015-12-11 17:42:0=
-6 +0100)
-
-----------------------------------------------------------------
-A few more updates for the next cycle:
-=C2=A0* remove pretty much unused and useless REG_DEBUG option
-=C2=A0* make regdomain messages debugging only
-=C2=A0* fix two bugs in the new remain-on-channel code
-=C2=A0* fix the world regdomain data for consistency
-
-----------------------------------------------------------------
-Dave Young (1):
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0wireless: change cfg80211 regulator=
-y domain info as debug messages
-
-Johannes Berg (4):
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: recalculate SW ROC only w=
-hen needed
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac80211: fix remain-on-channel can=
-cellation
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0cfg80211: remove CFG80211_REG_DEBUG
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0regulatory: fix world regulatory do=
-main data
-
-=C2=A0net/mac80211/offchannel.c |=C2=A0=C2=A012 ++--
-=C2=A0net/wireless/Kconfig=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0|=C2=A0=C2=
-=A013 ----
-=C2=A0net/wireless/reg.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-| 167 ++++++++++++++++------------------------------
-=C2=A03 files changed, 64 insertions(+), 128 deletions(-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Willy
