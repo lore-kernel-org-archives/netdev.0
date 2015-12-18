@@ -1,84 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] bonding: delay up state without speed and duplex in
- 802.3ad mode
-Date: Fri, 18 Dec 2015 16:37:25 +0300
-Message-ID: <56740C15.9080609@cogentembedded.com>
-References: <1586.1450389436@famine>
- <1450413386-8867-1-git-send-email-zyjzyj2000@gmail.com>
- <1450413386-8867-2-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, Boris.Shteinbock@windriver.com
-To: zyjzyj2000@gmail.com, j.vosburgh@gmail.com
+From: Daniele Palmas <dnlplm@gmail.com>
+Subject: [PATCH v2 0/2] net: usb: cdc_ncm: Adding support for two new Dell devices
+Date: Fri, 18 Dec 2015 14:43:32 +0100
+Message-ID: <1450446214-22948-1-git-send-email-dnlplm@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Daniele Palmas <dnlplm@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:33645 "EHLO
-	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753063AbbLRNh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 08:37:29 -0500
-Received: by mail-lf0-f45.google.com with SMTP id p203so73505646lfa.0
-        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 05:37:28 -0800 (PST)
-In-Reply-To: <1450413386-8867-2-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:33881 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932129AbbLRNnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 08:43:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This patch series add support in the cdc_ncm driver for two devices
+based on the same platform, that are different only for carrier
+customization.
 
-On 12/18/2015 7:36 AM, zyjzyj2000@gmail.com wrote:
+V2: Added comment for highlighting FLAG_NOARP usage for those devices
 
-> From: yzhu1 <yzhu1@windriver.com>
->
-> In 802.3ad mode, the speed and duplex is needed. But in some NICs,
-> there is a time span between NIC up state and getting speed and duplex.
-> As such, sometimes a slave in 802.3ad mode is in up state without
-> speed and duplex. This will make bonding in 802.3ad mode can not
-> work well.
->
-> To make bonding driver robust and compatible with more NICs, it is
-> necessary to delay the up state without speed and duplex in 802.3ad
-> mode.
->
-> Signed-off-by: yzhu1 <yzhu1@windriver.com>
-> ---
->   drivers/net/bonding/bond_main.c |   34 ++++++++++++++++++++++++++++++++++
->   1 file changed, 34 insertions(+)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 9e0f8a7..a1d8708 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -419,6 +419,35 @@ const char *bond_slave_link_status(s8 link)
->   	}
->   }
->
-> +/* This function is to check the speed and duplex of a NIC.
-> + * Since the speed and duplex of a slave device are very
-> + * important to the bonding in the 802.3ad mode. As such,
-> + * it is necessary to check the speed and duplex of a slave
-> + * device in 802.3ad mode.
-> + *
-> + * speed != SPEED_UNKNOWN and duplex == DUPLEX_FULL  :  1
-> + *                                           others  :  0
-> + */
-> +static int __check_speed_duplex(struct net_device *netdev)
-> +{
-> +	struct ethtool_cmd ecmd;
-> +	u32 slave_speed = SPEED_UNKNOWN;
-> +	int res;
-> +
-> +	res = __ethtool_get_settings(netdev, &ecmd);
-> +	if (res < 0)
-> +		return 0;
-> +
-> +	slave_speed = ethtool_cmd_speed(&ecmd);
-> +	if (slave_speed == 0 || slave_speed == ((__u32) -1))
-> +		return 0;
-> +
-> +	if (DUPLEX_FULL != ecmd.duplex)
+Daniele Palmas (2):
+  net: usb: cdc_ncm: Adding Dell DW5812 LTE Verizon Mobile Broadband
+    Card
+  net: usb: cdc_ncm: Adding Dell DW5813 LTE AT&T Mobile Broadband Card
 
-    Please place the immediate operand to the right of the != operator.
+ drivers/net/usb/cdc_ncm.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-[...]
-
-MBR, Sergei
+-- 
+1.9.1
