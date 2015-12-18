@@ -1,47 +1,31 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: rhashtable: Prevent spurious EBUSY errors on insertion
-Date: Fri, 18 Dec 2015 16:18:38 +0800
-Message-ID: <CADvbK_cArD4QjPzHC1W4ZY=e5dur=uJsQd9WwSB2yYhnq_YbOg@mail.gmail.com>
-References: <1448039840-11367-1-git-send-email-phil@nwl.cc>
-	<20151130093755.GA8159@gondor.apana.org.au>
-	<20151130101401.GA17712@orbit.nwl.cc>
-	<20151130101859.GA8378@gondor.apana.org.au>
-	<20151203124129.GA5505@gondor.apana.org.au>
-	<CADvbK_cA5qaooTOE4Z2bGYs+ys17ZajSMgKDVWgctSZWJ0vjpw@mail.gmail.com>
-	<20151217084809.GC9239@gondor.apana.org.au>
-	<CADvbK_df=Z1re2wPUF9JCXggBzRqF=Tgt86PXV0KqBcx3VeVNA@mail.gmail.com>
-	<CADvbK_e_H91UAatLSOEAvPFxZZTNNs5ZFR5TieXBdWt65z4Qzg@mail.gmail.com>
-	<20151218022654.GA18495@gondor.apana.org.au>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next] tcp: diag: add support for request sockets to tcp_abort()
+Date: Fri, 18 Dec 2015 17:38:42 +0900
+Message-ID: <CAKD1Yr11jzdP3hfK3qk+-mkOV1Pc3DCi+Pmf=noT3SDJP6ZTGA@mail.gmail.com>
+References: <1450397651.8474.110.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Phil Sutter <phil@nwl.cc>, davem <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, tgraf@suug.ch,
-	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151218022654.GA18495@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f174.google.com ([209.85.160.174]:36014 "EHLO
+	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752652AbbLRIjD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 03:39:03 -0500
+Received: by mail-yk0-f174.google.com with SMTP id x184so50431616yka.3
+        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 00:39:02 -0800 (PST)
+In-Reply-To: <1450397651.8474.110.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 18, 2015 at 10:26 AM, Herbert Xu
-<herbert@gondor.apana.org.au> wrote:
-> On Fri, Dec 18, 2015 at 12:07:08AM +0800, Xin Long wrote:
->>
->> I'm just wondering, why do not we handle the genuine double rehash
->> issue inside rhashtable? i mean it's just a temporary error that a
->> simple retry may fix it.
->
-> Because a double rehash means that someone has cracked your hash
-> function and there is no point in trying anymore.
+On Fri, Dec 18, 2015 at 9:14 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Adding support for SYN_RECV request sockets to tcp_abort()
+> is quite easy after our tcp listener rewrite.
 
-ok, get your point, is it possible to be triggered by some cases under
-a big stress insertion, but they are all legal cases. like we use rhash in
-nftables, if there are a big batch sets to insert, may this issue happen?
+I added test coverage for this to our tests.
 
->
-> Cheers,
-> --
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Without this patch, attempting to destroy an SYN_RECV socket using
+SOCK_DESTROY results in EOPNOTSUPP. With this patch, SOCK_DESTROY
+succeeds, and after it does, sock_diag reports no child sockets.
+
+Tested-by: Lorenzo Colitti <lorenzo@google.com>
