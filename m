@@ -1,35 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] openvswitch: correct encoding of set
- tunnel action attributes
-Date: Fri, 18 Dec 2015 16:36:21 -0500 (EST)
-Message-ID: <20151218.163621.2079398380424602134.davem@davemloft.net>
-References: <1450435395-23775-1-git-send-email-simon.horman@netronome.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/2] net: usb: cdc_ncm: Adding support for two new
+ Dell devices
+Date: Fri, 18 Dec 2015 16:37:54 -0500 (EST)
+Message-ID: <20151218.163754.149339367899840992.davem@davemloft.net>
+References: <1450446214-22948-1-git-send-email-dnlplm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1450435395-23775-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: dnlplm@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46464 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964992AbbLRVh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 16:37:56 -0500
+In-Reply-To: <1450446214-22948-1-git-send-email-dnlplm@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4KRGF0ZTogRnJp
-LCAxOCBEZWMgMjAxNSAxOTo0MzoxNSArMDkwMAoKPiBJbiBhIHNldCBhY3Rpb24gdHVubmVsIGF0
-dHJpYnV0ZXMgc2hvdWxkIGJlIGVuY29kZWQgaW4gYQo+IG5lc3RlZCBhY3Rpb24uCj4gCj4gSSBu
-b3RpY2VkIHRoaXMgYmVjYXVzZSBvdnMtZHBjdGwgd2FzIHJlcG9ydGluZyBhbiBlcnJvcgo+IHdo
-ZW4gZHVtcGluZyBmbG93cyBkdWUgdG8gdGhlIGluY29ycmVjdCBlbmNvZGluZyBvZiB0dW5uZWwg
-YXR0cmlidXRlcwo+IGluIGEgc2V0IGFjdGlvbi4KPiAKPiBGaXhlczogZmM0MDk5ZjE3MjQwICgi
-b3BlbnZzd2l0Y2g6IEZpeCBlZ3Jlc3MgdHVubmVsIGluZm8uIikKPiBTaWduZWQtb2ZmLWJ5OiBT
-aW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPgoKQXBwbGllZCBhbmQgcXVl
-dWVkIHVwIGZvciAtc3RhYmxlLCB0aGFua3MgU2ltb24uCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNo
-Lm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Daniele Palmas <dnlplm@gmail.com>
+Date: Fri, 18 Dec 2015 14:43:32 +0100
+
+> This patch series add support in the cdc_ncm driver for two devices
+> based on the same platform, that are different only for carrier
+> customization.
+> 
+> V2: Added comment for highlighting FLAG_NOARP usage for those devices
+
+Series applied, thanks.
