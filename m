@@ -1,39 +1,55 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: use-after-free in sixpack_close
-Date: Fri, 18 Dec 2015 22:02:04 +0000
-Message-ID: <20151218220204.6faf8e93@lxorguk.ukuu.org.uk>
-References: <20151217114104.6946d72b@lxorguk.ukuu.org.uk>
-	<20151217.160532.999129498473749695.davem@davemloft.net>
-	<20151217234739.651e7c5b@lxorguk.ukuu.org.uk>
-	<20151218.155954.26632223306803039.davem@davemloft.net>
+From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Subject: Re: [PATCH v2 0/3] drivers: net: cpsw: Fix bugs in fixed-link PHY
+ DT parsing
+Date: Fri, 18 Dec 2015 17:06:31 -0500
+Message-ID: <20151218170631.643ead8d.drivshin.allworx@gmail.com>
+References: <20151209223115.6c5a400f.drivshin.allworx@gmail.com>
+	<1741588.Ve76Z1ZI87@localhost>
+	<cover.1450309613.git.drivshin@allworx.com>
+	<20151217.154508.505711333985621252.davem@davemloft.net>
+	<20151218102020.GA1703@dt-ub1404lts.ENTWDOM.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, ajk@comnets.uni-bremen.de,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
-	jslaby@suse.com, syzkaller@googlegroups.com, kcc@google.com,
-	glider@google.com, sasha.levin@oracle.com, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20151218.155954.26632223306803039.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>,
+	<systemprogrammierung.brunner@gmail.com>, <mugunthanvnm@ti.com>,
+	<kernel@iktek.de>, <dtrautmann@ibhsoftec-sps.de>
+To: Daniel Trautmann <dtrautmann@ibhsoftec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:33772 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752998AbbLRWGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 17:06:34 -0500
+In-Reply-To: <20151218102020.GA1703@dt-ub1404lts.ENTWDOM.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Also you are at the point the tty is closing so the net device may be
-> > active. Don't you need to netif_stop_queue() or defer the buffer
-> > kfrees until after the network device is unregistered so you don't pee
-> > into free memory if you have a transmit occurring ?
+On Fri, 18 Dec 2015 11:20:21 +0100
+Daniel Trautmann <dtrautmann@ibhsoftec.com> wrote:
+
+> On Thu, Dec 17, 2015 at 03:45:08PM -0500, David Miller wrote:
+> > From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+> > Date: Wed, 16 Dec 2015 23:02:08 -0500
+> > 
+> > > I have tested on the following hardware configurations:
+> > >  - (EVMSK) dual emac with two real MDIO-connected phys using
+> > > RGMII-TXID
+> > >  - single emac with fixed-link using RGMII
+> > > Testing of other CPSW emac configurations that folks may have
+> > > would be appreciated.
+> > 
+> > I'm going to wait until some others give some feedback and testing
+> > results on this one, thanks.
 > 
-> I'm pretty sure that's what the semaphore down above this sequence is
-> accomplishing.  But if we do need the netif_stop_queue() let's do that
-> as a separate patch.
+> I can confirm that this patch is working on the following hardware
+> setup:
+>  - single emac using MII connected with fixed-link to Micrel KSZ8895
+> Switch
 
-Follow the code path for sp_xmit(). If sp_xmit is called it digs out sp
-from the ndetdev, locks sp->lock and stops the queue then calls sp_encaps
-which touches sp->xbuff.
+Thanks for testing.
 
-So if one thread of execution hits sp_xmit and another closes the ldisc
-at just the wrong moment then we have no protection.
-
-Alan
+I see that Dave applied the series, but just for good measure I'll 
+report that I also tested on:
+ - (BeagleBone-Black) single emac, MII, real 100Mbit PHY
