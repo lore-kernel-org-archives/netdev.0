@@ -1,29 +1,32 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 21/23] netfilter: implement xt_cgroup cgroup2 path match
-Date: Fri, 18 Dec 2015 21:26:47 +0100
-Message-ID: <1450470409-31427-22-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 20/23] netfilter: prepare xt_cgroup for multi revisions
+Date: Fri, 18 Dec 2015 21:26:46 +0100
+Message-ID: <1450470409-31427-21-git-send-email-pablo@netfilter.org>
 References: <1450470409-31427-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58080 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965217AbbLRUeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2015 15:34:12 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id EC1B91A5538
+	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id AF235DA804
+	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 8AC93DA804
+	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:09 +0100 (CET)
 In-Reply-To: <1450470409-31427-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Tejun Heo <tj@kernel.org>
 
-This patch implements xt_cgroup path match which matches cgroup2
-membership of the associated socket.  The match is recursive and
-invertible.
-
-For rationales on introducing another cgroup based match, please refer
-to a preceding commit "sock, cgroup: add sock->sk_cgroup".
-
-v3: Folded into xt_cgroup as a new revision interface as suggested by
-    Pablo.
-
-v2: Included linux/limits.h from xt_cgroup2.h for PATH_MAX.  Added
-    explicit alignment to the priv field.  Both suggested by Jan.
+xt_cgroup will grow cgroup2 path based match.  Postfix existing
+symbols with _v0 and prepare for multi revision registration.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
@@ -33,124 +36,74 @@ Cc: Jan Engelhardt <jengelh@inai.de>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/xt_cgroup.h | 13 ++++++
- net/netfilter/xt_cgroup.c                | 69 ++++++++++++++++++++++++++++++++
- 2 files changed, 82 insertions(+)
+ include/uapi/linux/netfilter/xt_cgroup.h |  2 +-
+ net/netfilter/xt_cgroup.c                | 36 +++++++++++++++++---------------
+ 2 files changed, 20 insertions(+), 18 deletions(-)
 
 diff --git a/include/uapi/linux/netfilter/xt_cgroup.h b/include/uapi/linux/netfilter/xt_cgroup.h
-index 577c9e0..1e4b37b 100644
+index 43acb7e..577c9e0 100644
 --- a/include/uapi/linux/netfilter/xt_cgroup.h
 +++ b/include/uapi/linux/netfilter/xt_cgroup.h
-@@ -2,10 +2,23 @@
- #define _UAPI_XT_CGROUP_H
+@@ -3,7 +3,7 @@
  
  #include <linux/types.h>
-+#include <linux/limits.h>
  
- struct xt_cgroup_info_v0 {
+-struct xt_cgroup_info {
++struct xt_cgroup_info_v0 {
  	__u32 id;
  	__u32 invert;
  };
- 
-+struct xt_cgroup_info_v1 {
-+	__u8		has_path;
-+	__u8		has_classid;
-+	__u8		invert_path;
-+	__u8		invert_classid;
-+	char		path[PATH_MAX];
-+	__u32		classid;
-+
-+	/* kernel internal data */
-+	void		*priv __attribute__((aligned(8)));
-+};
-+
- #endif /* _UAPI_XT_CGROUP_H */
 diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
-index 1730025..a086a91 100644
+index 54eaeb4..1730025 100644
 --- a/net/netfilter/xt_cgroup.c
 +++ b/net/netfilter/xt_cgroup.c
-@@ -34,6 +34,37 @@ static int cgroup_mt_check_v0(const struct xt_mtchk_param *par)
- 	return 0;
+@@ -24,9 +24,9 @@ MODULE_DESCRIPTION("Xtables: process control group matching");
+ MODULE_ALIAS("ipt_cgroup");
+ MODULE_ALIAS("ip6t_cgroup");
+ 
+-static int cgroup_mt_check(const struct xt_mtchk_param *par)
++static int cgroup_mt_check_v0(const struct xt_mtchk_param *par)
+ {
+-	struct xt_cgroup_info *info = par->matchinfo;
++	struct xt_cgroup_info_v0 *info = par->matchinfo;
+ 
+ 	if (info->invert & ~1)
+ 		return -EINVAL;
+@@ -35,9 +35,9 @@ static int cgroup_mt_check(const struct xt_mtchk_param *par)
  }
  
-+static int cgroup_mt_check_v1(const struct xt_mtchk_param *par)
-+{
-+	struct xt_cgroup_info_v1 *info = par->matchinfo;
-+	struct cgroup *cgrp;
-+
-+	if ((info->invert_path & ~1) || (info->invert_classid & ~1))
-+		return -EINVAL;
-+
-+	if (!info->has_path && !info->has_classid) {
-+		pr_info("xt_cgroup: no path or classid specified\n");
-+		return -EINVAL;
-+	}
-+
-+	if (info->has_path && info->has_classid) {
-+		pr_info("xt_cgroup: both path and classid specified\n");
-+		return -EINVAL;
-+	}
-+
-+	if (info->has_path) {
-+		cgrp = cgroup_get_from_path(info->path);
-+		if (IS_ERR(cgrp)) {
-+			pr_info("xt_cgroup: invalid path, errno=%ld\n",
-+				PTR_ERR(cgrp));
-+			return -EINVAL;
-+		}
-+		info->priv = cgrp;
-+	}
-+
-+	return 0;
-+}
-+
  static bool
- cgroup_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
+-cgroup_mt(const struct sk_buff *skb, struct xt_action_param *par)
++cgroup_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
  {
-@@ -46,6 +77,31 @@ cgroup_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
+-	const struct xt_cgroup_info *info = par->matchinfo;
++	const struct xt_cgroup_info_v0 *info = par->matchinfo;
+ 
+ 	if (skb->sk == NULL || !sk_fullsock(skb->sk))
+ 		return false;
+@@ -46,27 +46,29 @@ cgroup_mt(const struct sk_buff *skb, struct xt_action_param *par)
  		info->invert;
  }
  
-+static bool cgroup_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	const struct xt_cgroup_info_v1 *info = par->matchinfo;
-+	struct sock_cgroup_data *skcd = &skb->sk->sk_cgrp_data;
-+	struct cgroup *ancestor = info->priv;
-+
-+	if (!skb->sk || !sk_fullsock(skb->sk))
-+		return false;
-+
-+	if (ancestor)
-+		return cgroup_is_descendant(sock_cgroup_ptr(skcd), ancestor) ^
-+			info->invert_path;
-+	else
-+		return (info->classid == sock_cgroup_classid(skcd)) ^
-+			info->invert_classid;
-+}
-+
-+static void cgroup_mt_destroy_v1(const struct xt_mtdtor_param *par)
-+{
-+	struct xt_cgroup_info_v1 *info = par->matchinfo;
-+
-+	if (info->priv)
-+		cgroup_put(info->priv);
-+}
-+
- static struct xt_match cgroup_mt_reg[] __read_mostly = {
- 	{
- 		.name		= "cgroup",
-@@ -59,6 +115,19 @@ static struct xt_match cgroup_mt_reg[] __read_mostly = {
- 				  (1 << NF_INET_POST_ROUTING) |
- 				  (1 << NF_INET_LOCAL_IN),
- 	},
+-static struct xt_match cgroup_mt_reg __read_mostly = {
+-	.name       = "cgroup",
+-	.revision   = 0,
+-	.family     = NFPROTO_UNSPEC,
+-	.checkentry = cgroup_mt_check,
+-	.match      = cgroup_mt,
+-	.matchsize  = sizeof(struct xt_cgroup_info),
+-	.me         = THIS_MODULE,
+-	.hooks      = (1 << NF_INET_LOCAL_OUT) |
+-		      (1 << NF_INET_POST_ROUTING) |
+-		      (1 << NF_INET_LOCAL_IN),
++static struct xt_match cgroup_mt_reg[] __read_mostly = {
 +	{
 +		.name		= "cgroup",
-+		.revision	= 1,
++		.revision	= 0,
 +		.family		= NFPROTO_UNSPEC,
-+		.checkentry	= cgroup_mt_check_v1,
-+		.match		= cgroup_mt_v1,
-+		.matchsize	= sizeof(struct xt_cgroup_info_v1),
-+		.destroy	= cgroup_mt_destroy_v1,
++		.checkentry	= cgroup_mt_check_v0,
++		.match		= cgroup_mt_v0,
++		.matchsize	= sizeof(struct xt_cgroup_info_v0),
 +		.me		= THIS_MODULE,
 +		.hooks		= (1 << NF_INET_LOCAL_OUT) |
 +				  (1 << NF_INET_POST_ROUTING) |
@@ -159,6 +112,17 @@ index 1730025..a086a91 100644
  };
  
  static int __init cgroup_mt_init(void)
+ {
+-	return xt_register_match(&cgroup_mt_reg);
++	return xt_register_matches(cgroup_mt_reg, ARRAY_SIZE(cgroup_mt_reg));
+ }
+ 
+ static void __exit cgroup_mt_exit(void)
+ {
+-	xt_unregister_match(&cgroup_mt_reg);
++	xt_unregister_matches(cgroup_mt_reg, ARRAY_SIZE(cgroup_mt_reg));
+ }
+ 
+ module_init(cgroup_mt_init);
 -- 
 2.1.4
-
