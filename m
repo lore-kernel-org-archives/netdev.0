@@ -1,75 +1,41 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/23] netfilter-bridge: brace placement
-Date: Fri, 18 Dec 2015 21:26:31 +0100
-Message-ID: <1450470409-31427-6-git-send-email-pablo@netfilter.org>
-References: <1450470409-31427-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57984 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965165AbbLRUeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2015 15:34:05 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 1FC0017F1D0
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:04 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id C4217DA86F
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:34:03 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A5C0BDA809
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 21:33:43 +0100 (CET)
-In-Reply-To: <1450470409-31427-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH] ila: add NETFILTER dependency
+Date: Fri, 18 Dec 2015 21:37:17 +0100
+Message-ID: <20151218203717.GA14846@salvia>
+References: <2011239.T7zzuZGeyk@wuerfel>
+ <20151218172606.GB1299@salvia>
+ <20151218180931.GC29573@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Tom Herbert <tom@herbertland.com>,
+	netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20151218180931.GC29573@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Morris <ipm@chirality.org.uk>
+On Fri, Dec 18, 2015 at 07:09:31PM +0100, Florian Westphal wrote:
+> Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > I'm afraid this extra Kconfig dependency that Arnd adds to fix this is
+> > a symptom that there is something that doesn't belong there.
+> > 
+> > I overlook this new hook on priority -1, how does this integrate into
+> > our infrastructure?
+> 
+> Looks problematic since address changes post ipv6 dnat translations,
+> its certainly unexpected for nft since we have magic address mangling
+> after -2 and 0 priroized tables...
 
-Change brace placement to eliminate checkpatch error.
+David indicated that this should be sort of transparent and integrated
+into separated infrastructure.
 
-No changes detected by objdiff.
+The existing hook will break IPv6 conntrack and NAT for us, and the
+extra hook is suboptimal as it
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/bridge/netfilter/ebt_log.c  | 6 ++----
- net/bridge/netfilter/ebtables.c | 3 +--
- 2 files changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index f22284d..152300d 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -36,14 +36,12 @@ static int ebt_log_tg_check(const struct xt_tgchk_param *par)
- 	return 0;
- }
- 
--struct tcpudphdr
--{
-+struct tcpudphdr {
- 	__be16 src;
- 	__be16 dst;
- };
- 
--struct arppayload
--{
-+struct arppayload {
- 	unsigned char mac_src[ETH_ALEN];
- 	unsigned char ip_src[4];
- 	unsigned char mac_dst[ETH_ALEN];
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 62090e2..b13ea69 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -551,8 +551,7 @@ ebt_check_entry_size_and_hooks(const struct ebt_entry *e,
- 	return 0;
- }
- 
--struct ebt_cl_stack
--{
-+struct ebt_cl_stack {
- 	struct ebt_chainstack cs;
- 	int from;
- 	unsigned int hookmask;
--- 
-2.1.4
+I'd suggest you add a static key and specific hook before netfilter to
+deal with this.
