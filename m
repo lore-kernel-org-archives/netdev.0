@@ -1,58 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: adds backplane driver for Freescale's PCS PHY
-Date: Fri, 18 Dec 2015 13:02:09 +0100
-Message-ID: <20151218120209.GA477@lunn.ch>
-References: <1450431054-5227-1-git-send-email-shh.xie@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH iproute2] iplink: support 'stable-privacy' IPv6 addrgenmode
+Date: Fri, 18 Dec 2015 13:26:28 +0100
+Message-ID: <87y4cs0wp7.fsf@nemi.mork.no>
+References: <1450278914-12717-1-git-send-email-bjorn@mork.no>
+	<20151217173238.7c742fb1@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, f.fainelli@gmail.com,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: shh.xie@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44308 "EHLO vps0.lunn.ch"
+Received: from canardo.mork.no ([148.122.252.1]:41932 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751794AbbLRMCN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2015 07:02:13 -0500
-Content-Disposition: inline
-In-Reply-To: <1450431054-5227-1-git-send-email-shh.xie@gmail.com>
+	id S1751788AbbLRM0m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 07:26:42 -0500
+In-Reply-To: <20151217173238.7c742fb1@xeon-e3> (Stephen Hemminger's message of
+	"Thu, 17 Dec 2015 17:32:38 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 18, 2015 at 05:30:54PM +0800, shh.xie@gmail.com wrote:
-> +static int fsl_backplane_probe(struct phy_device *phydev)
-> +{
-> +	struct fsl_xgkr_inst *xgkr_inst;
-> +	struct device_node *child, *parent, *lane_node;
-> +	const char *lane_name;
-> +	int len;
-> +	int ret;
-> +	u32 mode;
-> +	u32 lane[2];
-> +
-> +	child = phydev->dev.of_node;
-> +	parent = of_get_parent(child);
-> +	if (!parent) {
-> +		dev_err(&phydev->dev, "could not get parent node");
-> +		return 0;
-> +	}
-> +
-> +	lane_name = of_get_property(parent, "lane-instance", &len);
-> +	if (!lane_name)
-> +		return 0;
-> +
-> +	if (strstr(lane_name, "1000BASE-KX"))
-> +		mode = BACKPLANE_1G_KX;
-> +	else
-> +		mode = BACKPLANE_10G_KR;
-> +
-> +	lane_node = of_parse_phandle(child, "lane-handle", 0);
+Stephen Hemminger <stephen@networkplumber.org> writes:
+> On Wed, 16 Dec 2015 16:15:14 +0100
+> Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+>
+>> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+>
+> Does not apply to current code base. Probably because of Hannes recen=
+t changes.
+
+Yes, I saw that you applied Hannes' ipaddress.c patch, which conficts
+with this one.  No problem, either way is fine by me.  I'll redo the ma=
+n
+page thing as part of the next round for "addrgenmode random", if/when
+that is applied to the kernel.
+
+BTW, I didn't understand your comment regarding Hannes' iplink.c patch.
+If the ipaddress patch is OK, then the iplink patch is just the part
+missing for show/set symmetry.  Or did I misunderstand something?
 
 
-Hi Shaohui
-
-You are missing the device tree binding Documentation.
-
-Parent will be the mdio bus device and you want 'lane-instance' and
-'lane-handle' properties to be in the mdio bus node?
-
-     Andrew
+Bj=C3=B8rn
