@@ -1,50 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] asix: silence log message from oversize packet
-Date: Fri, 18 Dec 2015 21:25:14 -0500 (EST)
-Message-ID: <20151218.212514.1288582729750012735.davem@davemloft.net>
-References: <20151217175116.234fa63b@xeon-e3>
-	<20151218.160853.1076037989795474904.davem@davemloft.net>
-	<20151218161503.123b5171@xeon-e3>
+Subject: Re: [PATCH 3/4] net/rfkill: Create "airplane mode" LED trigger
+Date: Fri, 18 Dec 2015 21:25:37 -0500 (EST)
+Message-ID: <20151218.212537.143932475051408734.davem@davemloft.net>
+References: <1450193442-7930-1-git-send-email-jprvita@endlessm.com>
+	<1450193442-7930-4-git-send-email-jprvita@endlessm.com>
+	<20151219002212.GC7244@malice.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben.hutchings@codethink.co.uk, ivecera@redhat.com,
-	linuxbrad@gmail.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50812 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752523AbbLSCZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 21:25:19 -0500
-In-Reply-To: <20151218161503.123b5171@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jprvita@gmail.com, johannes@sipsolutions.net,
+	corentin.chary@gmail.com, platform-driver-x86@vger.kernel.org,
+	acpi4asus-user@lists.sourceforge.net, jprvita@endlessm.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: dvhart@infradead.org
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <20151219002212.GC7244@malice.jf.intel.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 18 Dec 2015 16:15:03 -0800
+=46rom: Darren Hart <dvhart@infradead.org>
+Date: Fri, 18 Dec 2015 16:22:12 -0800
 
-> On Fri, 18 Dec 2015 16:08:53 -0500 (EST)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> From: Stephen Hemminger <stephen@networkplumber.org>
->> Date: Thu, 17 Dec 2015 17:51:16 -0800
->> 
->> > Since it is possible for an external system to send oversize packets
->> > at anytime, it is best for driver not to print a message and spam
->> > the log (potential external DoS).
->> > 
->> > Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=109471
->> > 
->> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->> 
->> Seems reasonable, applied, thanks Stephen.
-> 
-> It doesn't fix the bug that is generating the oversize packet, that still needs
-> to be root caused.
+> On Tue, Dec 15, 2015 at 10:30:41AM -0500, Jo=E3o Paulo Rechi Vita wro=
+te:
+>> For platform drivers to be able to correctly drive the "Airplane Mod=
+e"
+>> indicative LED there needs to be a RFKill LED trigger tied to the gl=
+obal
+>> state of RFKILL_TYPE_ALL (instead of to a specific RFKill) and that
+>> works in an inverted manner of regular RFKill LED triggers, that is,=
+ the
+>> LED is ON when the state is blocked, and OFF otherwise.
+>>=20
+>> This commit implements such a trigger, which will be used by the
+>> asus-wrc x86 platform driver.
+>=20
+> So this will need to go through Johannes and David per get_maintainer=
+=2Epl before
+> we can use it in platform drivers.
+>=20
+> +Johannes
+> +David
+> +wireless
+> +netdev
 
-Remote systems can do this easily.  It's not a bug in the driver.
-
-Say you decrease the MTU to 500 or whatever, nothing in the hardware
-prevents reception of > 500 byte frames.
-
-It's only a software limit.
+RFKILL changes go via the wireless tree.
