@@ -1,131 +1,56 @@
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Subject: [RFC PATCH] can: sja1000: of: add per-compatible init hook
-Date: Sat, 19 Dec 2015 12:11:25 -0500
-Message-ID: <1450545085-29252-1-git-send-email-damien.riegel@savoirfairelinux.com>
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	kernel@savoirfairelinux.com,
-	Damien Riegel <damien.riegel@savoirfairelinux.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] natsemi: add checks for dma mapping errors
+Date: Sat, 19 Dec 2015 12:54:33 -0500 (EST)
+Message-ID: <20151219.125433.148505706922863925.davem@davemloft.net>
+References: <1450475737-5959-1-git-send-email-khoroshilov@ispras.ru>
+	<20151218.213607.1270121670262037282.davem@davemloft.net>
+	<56754855.6080808@ispras.ru>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36940 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754036AbbLSRyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2015 12:54:38 -0500
+In-Reply-To: <56754855.6080808@ispras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This commit adds the capability to allocate and init private data
-embedded in the sja1000_priv structure on a per-compatible basis. The
-device node is passed as a parameter of the init callback to allow
-parsing of custom device tree properties.
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Sat, 19 Dec 2015 15:06:45 +0300
 
-Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
----
-Hi Marc,
+> On 19.12.2015 05:36, David Miller wrote:
+>> From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+>> Date: Sat, 19 Dec 2015 00:55:37 +0300
+>>
+>>> @@ -2093,6 +2099,10 @@ static netdev_tx_t start_tx(struct sk_buff
+> *skb, struct net_device *dev)
+>>>  	np->tx_skbuff[entry] = skb;
+>>>  	np->tx_dma[entry] = pci_map_single(np->pci_dev,
+>>>  				skb->data,skb->len, PCI_DMA_TODEVICE);
+>>> +	if (pci_dma_mapping_error(np->pci_dev, np->tx_dma[entry])) {
+>>> +		np->tx_skbuff[entry] = NULL;
+>>> +		return NETDEV_TX_BUSY;
+>>> +	}
+>>>
+>>>  	np->tx_ring[entry].addr = cpu_to_le32(np->tx_dma[entry]);
+>>>
+>>
+>> Returning NETDEV_TX_BUSY and freeing the SKB will crash the system.
+> 
+> I do not quite understand what do you mean by 'freeing the SKB'.
+> At least the patch left skb untouched.
 
+Sorry, I misread your patch, I thought I saw a kfree there but
+obviously there isn't.
 
-I am sending this patch as RFC as I have only compile-tested it, but I
-would like your feedback on it.
+>> NETDEV_TX_BUSY is only for buggy drivers that do not manage their
+>> TX ring busy condition correctly, and thus need retries.
+> 
+> Ok, I will replace NETDEV_TX_BUSY by dropping the packet.
 
-The idea of this patch is to ease integration of the Technologic Systems
-version of this IP in the most generic way, providing a facility that
-could be used by others.
-
-
-Thanks,
-Damien
-
- drivers/net/can/sja1000/sja1000_platform.c | 44 +++++++++++++++++++++++++-----
- 1 file changed, 37 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-index 0552ed4..33581b0 100644
---- a/drivers/net/can/sja1000/sja1000_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_platform.c
-@@ -40,6 +40,11 @@ MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
- MODULE_ALIAS("platform:" DRV_NAME);
- MODULE_LICENSE("GPL v2");
- 
-+struct sja1000_of_data {
-+	size_t  priv_sz;
-+	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
-+};
-+
- static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
- {
- 	return ioread8(priv->reg_base + reg);
-@@ -154,6 +159,26 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
- 		priv->cdr |= CDR_CBP; /* default */
- }
- 
-+static const struct of_device_id sp_of_table[] = {
-+	{.compatible = "nxp,sja1000"},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, sp_of_table);
-+
-+static const struct sja1000_of_data *sp_get_of_data(struct device_node *of)
-+{
-+	const struct of_device_id *id;
-+
-+	if (!of)
-+		return NULL;
-+
-+	id = of_match_node(sp_of_table, of);
-+	if (!id)
-+		return NULL;
-+
-+	return id->data;
-+}
-+
- static int sp_probe(struct platform_device *pdev)
- {
- 	int err, irq = 0;
-@@ -163,6 +188,8 @@ static int sp_probe(struct platform_device *pdev)
- 	struct resource *res_mem, *res_irq = NULL;
- 	struct sja1000_platform_data *pdata;
- 	struct device_node *of = pdev->dev.of_node;
-+	const struct sja1000_of_data *of_data = sp_get_of_data(of);
-+	size_t priv_sz = 0;
- 
- 	pdata = dev_get_platdata(&pdev->dev);
- 	if (!pdata && !of) {
-@@ -191,7 +218,10 @@ static int sp_probe(struct platform_device *pdev)
- 	if (!irq && !res_irq)
- 		return -ENODEV;
- 
--	dev = alloc_sja1000dev(0);
-+	if (of_data)
-+		priv_sz = of_data->priv_sz;
-+
-+	dev = alloc_sja1000dev(priv_sz);
- 	if (!dev)
- 		return -ENOMEM;
- 	priv = netdev_priv(dev);
-@@ -213,6 +243,12 @@ static int sp_probe(struct platform_device *pdev)
- 	else
- 		sp_populate(priv, pdata, res_mem->flags);
- 
-+	if (of_data && of_data->init) {
-+		err = of_data->init(priv, of);
-+		if (err)
-+			goto exit_free;
-+	}
-+
- 	platform_set_drvdata(pdev, dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
-@@ -242,12 +278,6 @@ static int sp_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--static const struct of_device_id sp_of_table[] = {
--	{.compatible = "nxp,sja1000"},
--	{},
--};
--MODULE_DEVICE_TABLE(of, sp_of_table);
--
- static struct platform_driver sp_driver = {
- 	.probe = sp_probe,
- 	.remove = sp_remove,
--- 
-2.5.0
-
+Thanks.
