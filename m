@@ -1,79 +1,47 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH v2] RDS: don't pretend to use cpu notifiers
-Date: Sat, 19 Dec 2015 12:55:43 -0800
-Message-ID: <1450558543-3650-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] veth: don't modify ip-summed; doing so treats packets
+ with bad checksums as good.
+Date: Sat, 19 Dec 2015 13:01:27 -0800
+Message-ID: <CAM_iQpVAZ=C68f1BGNEV=e-WGaJrvR-pzu_6kqCGnJLo8gw6Pg@mail.gmail.com>
+References: <CAKoqxG=R566bG2sQzWabAaaoUZjUJfoVP7k7dcYK4QuEcH0jrA@mail.gmail.com>
+	<CAM_iQpUOKGoNNDF2Nbut8a0q2rGY6pCXBm3NVkBMe=63K7L9bg@mail.gmail.com>
+	<CAKUBDd-VfaBvdMDJE8_mH2vXKn-66PM_0i-ioJLm6yQgwbrE4A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Evan Jones <ej@evanjones.ca>,
+	Eric Biederman <ebiederm@aristanetworks.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Vijay Pandurangan <vijayp@vijayp.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f181.google.com ([209.85.160.181]:33884 "EHLO
+	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982AbbLSVB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2015 16:01:27 -0500
+In-Reply-To: <CAKUBDd-VfaBvdMDJE8_mH2vXKn-66PM_0i-ioJLm6yQgwbrE4A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+On Fri, Dec 18, 2015 at 11:42 AM, Vijay Pandurangan <vijayp@vijayp.ca> wrote:
+> Evan and I have demonstrated this bug on Kubernetes as well, so it's
+> not just a problem in Mesos. (See
+> https://github.com/kubernetes/kubernetes/issues/18898)
+>
 
-It looks like an attempt to use CPU notifier here which was never
-completed. Nobody tried to wire it up completely since 2k9. So I unwind
-this code and get rid of everything not required. Oh look! 19 lines were
-removed while code still does the same thing.
+Interesting... then this problem is much more serious than I thought.
 
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Tested-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
+Looks like in RX path the bridge sets the checksum to CHECKSUM_NONE
+too:
 
-v2:
-Test and Ack tag added.
+static inline void skb_forward_csum(struct sk_buff *skb)
+{
+        /* Unfortunately we don't support this one.  Any brave souls? */
+        if (skb->ip_summed == CHECKSUM_COMPLETE)
+                skb->ip_summed = CHECKSUM_NONE;
+}
 
- net/rds/page.c | 31 ++++++-------------------------
- 1 file changed, 6 insertions(+), 25 deletions(-)
-
-diff --git a/net/rds/page.c b/net/rds/page.c
-index 9005a2c..5a14e6d 100644
---- a/net/rds/page.c
-+++ b/net/rds/page.c
-@@ -179,37 +179,18 @@ out:
- }
- EXPORT_SYMBOL_GPL(rds_page_remainder_alloc);
- 
--static int rds_page_remainder_cpu_notify(struct notifier_block *self,
--					 unsigned long action, void *hcpu)
-+void rds_page_exit(void)
- {
--	struct rds_page_remainder *rem;
--	long cpu = (long)hcpu;
-+	unsigned int cpu;
- 
--	rem = &per_cpu(rds_page_remainders, cpu);
-+	for_each_possible_cpu(cpu) {
-+		struct rds_page_remainder *rem;
- 
--	rdsdebug("cpu %ld action 0x%lx\n", cpu, action);
-+		rem = &per_cpu(rds_page_remainders, cpu);
-+		rdsdebug("cpu %u\n", cpu);
- 
--	switch (action) {
--	case CPU_DEAD:
- 		if (rem->r_page)
- 			__free_page(rem->r_page);
- 		rem->r_page = NULL;
--		break;
- 	}
--
--	return 0;
--}
--
--static struct notifier_block rds_page_remainder_nb = {
--	.notifier_call = rds_page_remainder_cpu_notify,
--};
--
--void rds_page_exit(void)
--{
--	int i;
--
--	for_each_possible_cpu(i)
--		rds_page_remainder_cpu_notify(&rds_page_remainder_nb,
--					      (unsigned long)CPU_DEAD,
--					      (void *)(long)i);
- }
--- 
-1.9.1
+I guess this is probably why Docker/Kubernetes could be affected too.
