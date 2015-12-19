@@ -1,32 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] natsemi: add checks for dma mapping errors
-Date: Sat, 19 Dec 2015 12:59:07 -0500 (EST)
-Message-ID: <20151219.125907.1209644088992518899.davem@davemloft.net>
-References: <56754855.6080808@ispras.ru>
-	<1450527229-6454-1-git-send-email-khoroshilov@ispras.ru>
+From: "xpp74" <xpp74@im285.com>
+Subject: Merry Christmas
+Date: Sun, 20 Dec 2015 03:10:40 +0800
+Message-ID: <201512200310409370509@im285.com>
+Reply-To: comebaby25@sohu.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37009 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965060AbbLSR7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2015 12:59:09 -0500
-In-Reply-To: <1450527229-6454-1-git-send-email-khoroshilov@ispras.ru>
+Received: from [103.229.124.91] ([103.229.124.91]:3406 "HELO im285.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751777AbbLSTKl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Dec 2015 14:10:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Sat, 19 Dec 2015 15:13:49 +0300
-
-> refill_rx() and start_tx() do not check if mapping dma memory succeed.
-> The patch adds the checks and failure handling.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
-
-Applied, thanks.
+zeLDs7/Nu6e/qreix+HLycjrw8Wjuw0KyO28/tXrttTN4sOz0NDStbXEv827p7+qt6LPtc2zo6y+
+39PQvqrIy7XEv827p8vRy/fL2bbIus23x7OjusO1xM3GuePQp7n7oaMNCr/J0tTA+9PDxOPDx7XE
+svrGt7XEobC52Lz8tMqhscvRy/ez9sTjw8fQ0NK1tcTL+dPQtcS+rc/6ycyjrL34v9rJzKOsT0VN
+ycy1yMv509C1xMGqz7W3vcq9o6zWsbv31tW2y7/Nu6ehow0KzerIq7Hcv6pCMkK1xLzbuPHVvaOs
+1bm74bXEs8mxvrjfo6zW97avs/a799G4y9nV0rW91ebV/bbUxOPDx7L6xre40NDLyKS1xL/Nu6eh
+ow0KvNNRLS1Ro7oyMDM2LTAxOTUxOcPit9HOqsT60d3KvsjtvP65psTc0tS8sNCnufuhow==
