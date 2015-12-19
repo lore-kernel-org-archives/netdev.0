@@ -1,34 +1,68 @@
-From: SYSTEM UPDATE <finance@ee.nits.ac.in>
-Subject: WARNING!!WARNING!!
-Date: Sat, 19 Dec 2015 00:02:44 +0100
-Message-ID: <20151218230310.0E2081EBF28D@mta.nits.ac.in>
-Reply-To: N0-reply@mta.nits.ac.in
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] rhashtable: Kill harmless RCU warning in
+ rhashtable_walk_init
+Date: Fri, 18 Dec 2015 23:42:59 -0500 (EST)
+Message-ID: <20151218.234259.445944618583370177.davem@davemloft.net>
+References: <20151218131408.GA21756@gondor.apana.org.au>
+	<20151218.162731.305092674804556753.davem@davemloft.net>
+	<20151219024528.GA27814@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <finance@ee.nits.ac.in>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta.nits.ac.in ([14.139.217.133]:34476 "EHLO mta.nits.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752780AbbLSDwe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 22:52:34 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, ying.huang@linux.intel.com, lkp@01.org,
+	linux-kernel@vger.kernel.org, colin.king@canonical.com,
+	fengguang.wu@intel.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151219024528.GA27814@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 19 Dec 2015 10:45:28 +0800
 
-Dear:  Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.
-To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://webmail-survey-citilink.ezweb123.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2015.
+> On Fri, Dec 18, 2015 at 04:27:31PM -0500, David Miller wrote:
+>> From: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date: Fri, 18 Dec 2015 21:14:08 +0800
+>> 
+>> > On Fri, Dec 18, 2015 at 04:54:14AM -0800, Eric Dumazet wrote:
+>> >>
+>> >> You can avoid the comment by using the self documented and lockdep
+>> >> enabled primitive
+>> >> 
+>> >> iter->walker->tbl = rcu_dereference_protected(ht->tbl,
+>> >> 					      lockdep_is_held(&ht->lock));
+>> > 
+>> > That is just gross.  I think a comment is much better in this case.
+>> 
+>> Herbert, this macro was created exactly to handle this situation,
+>> and this is what we do everywhere else in the tree.
+> 
+> OK.
+> 
+> ---8<---
+> The commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable:
+> Fix walker list corruption") causes a suspicious RCU usage warning
+> because we no longer hold ht->mutex when we dereference ht->tbl.
+> 
+> However, this is a false positive because we now hold ht->lock
+> which also guarantees that ht->tbl won't disppear from under us.
+> 
+> This patch kills the warning by using rcu_dereference_protected.
+> 
+> Reported-by: kernel test robot <ying.huang@linux.intel.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+The correct commti SHA1 is c6ff5268293ef98e48a99597e765ffc417e39fa5.
+
+Or at least, when I run:
+
+	git show f9f51b8070be3e829100614a7372b219723b864f
+
+I get:
+
+	fatal: bad object f9f51b8070be3e829100614a7372b219723b864f
+
+:-)
+
+I fixed this up and applied this, thanks!
