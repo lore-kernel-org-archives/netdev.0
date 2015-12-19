@@ -1,62 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Fri, 18 Dec 2015 18:38:03 -0800
-Message-ID: <1450492683.8474.123.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1447290541.22599.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151215161456.GA3182@1wt.eu>
-	 <1450199424.8474.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151215174346.GA3187@1wt.eu>
-	 <1450203712.8474.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151215194410.GB3187@1wt.eu>
-	 <1450214475.8474.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151216073814.GA3373@1wt.eu> <20151216161514.GA3476@1wt.eu>
-	 <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
-	 <20151218185812.GD4448@1wt.eu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH v2] rhashtable: Kill harmless RCU warning in
+ rhashtable_walk_init
+Date: Sat, 19 Dec 2015 10:45:28 +0800
+Message-ID: <20151219024528.GA27814@gondor.apana.org.au>
+References: <20151218062450.GA19749@gondor.apana.org.au>
+ <1450443254.8474.120.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20151218131408.GA21756@gondor.apana.org.au>
+ <20151218.162731.305092674804556753.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Josh Snyder <josh@code406.com>, Tom Herbert <tom@herbertland.com>,
-	Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>, cgallek@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, ying.huang@linux.intel.com, lkp@01.org,
+	linux-kernel@vger.kernel.org, colin.king@canonical.com,
+	fengguang.wu@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:35878 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752626AbbLSCiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 21:38:07 -0500
-Received: by mail-qg0-f54.google.com with SMTP id c96so47806491qgd.3
-        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 18:38:06 -0800 (PST)
-In-Reply-To: <20151218185812.GD4448@1wt.eu>
+Received: from helcar.hengli.com.au ([209.40.204.226]:55452 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752850AbbLSCpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 21:45:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20151218.162731.305092674804556753.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-12-18 at 19:58 +0100, Willy Tarreau wrote:
-> Hi Josh,
+On Fri, Dec 18, 2015 at 04:27:31PM -0500, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 18 Dec 2015 21:14:08 +0800
 > 
-> On Fri, Dec 18, 2015 at 08:33:45AM -0800, Josh Snyder wrote:
-> > I was also puzzled that binding succeeded. Looking into the code paths
-> > involved, in inet_csk_get_port, we quickly goto have_snum. From there, we end
-> > up dropping into tb_found. Since !hlist_empty(&tb->owners), we end up checking
-> > that (tb->fastreuseport > 0 && sk->sk_reuseport && uid_eq(tb->fastuid, uid)).
-> > This test passes, so we goto success and bind.
+> > On Fri, Dec 18, 2015 at 04:54:14AM -0800, Eric Dumazet wrote:
+> >>
+> >> You can avoid the comment by using the self documented and lockdep
+> >> enabled primitive
+> >> 
+> >> iter->walker->tbl = rcu_dereference_protected(ht->tbl,
+> >> 					      lockdep_is_held(&ht->lock));
 > > 
-> > Crucially, we are checking the fastreuseport field on the inet_bind_bucket, and
-> > not the sk_reuseport variable on the other sockets in the bucket. Since this
-> > bit is set based on sk_reuseport at the time the first socket binds (see
-> > tb_not_found), I can see no reason why sockets need to keep SO_REUSEPORT set
-> > beyond initial binding.
-> > 
-> > Given this, I believe Willy's patch elegantly solves the problem at hand.
+> > That is just gross.  I think a comment is much better in this case.
 > 
-> Great, thanks for your in-depth explanation.
-> 
-> Eric, do you think that this patch may be acceptable material for next
-> merge window (given that it's not a fix per-se) ? If so I'll resubmit
-> later.
+> Herbert, this macro was created exactly to handle this situation,
+> and this is what we do everywhere else in the tree.
 
-I need to check with Craig Gallek, because he was about to upstream a
-change to make SO_REUSEPORT more scalable & sexy (like having an [e]BPF
-filter to perform the selection in an array of sockets)
+OK.
+
+---8<---
+The commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable:
+Fix walker list corruption") causes a suspicious RCU usage warning
+because we no longer hold ht->mutex when we dereference ht->tbl.
+
+However, this is a false positive because we now hold ht->lock
+which also guarantees that ht->tbl won't disppear from under us.
+
+This patch kills the warning by using rcu_dereference_protected.
+
+Reported-by: kernel test robot <ying.huang@linux.intel.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index eb9240c..51282f5 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -519,7 +519,8 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
+ 		return -ENOMEM;
+ 
+ 	spin_lock(&ht->lock);
+-	iter->walker->tbl = rht_dereference(ht->tbl, ht);
++	iter->walker->tbl =
++		rcu_dereference_protected(ht->tbl, lockdep_is_held(&ht->lock));
+ 	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
+ 	spin_unlock(&ht->lock);
+ 
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
