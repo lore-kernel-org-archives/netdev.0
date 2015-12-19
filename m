@@ -1,29 +1,51 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: Migrate all elements from net_device_stats
-Date: Sat, 19 Dec 2015 08:21:48 +0200
-Message-ID: <1450506108.5019.6.camel@marian1000.go.ro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-231-255.residential.rdsnet.ro ([5.14.231.255]:39276 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754003AbbLSPgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2015 10:36:21 -0500
-Received: from [192.168.0.3] (helo=ubuntu)
-	by marian1000.go.ro with esmtp (Exim 4.84)
-	(envelope-from <asd@marian1000.go.ro>)
-	id 1aADTf-0000WQ-AL
-	for netdev@vger.kernel.org; Sat, 19 Dec 2015 11:07:08 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] rsi: consolidate kmalloc/memset 0 calls to kzalloc
+Date: Sat, 19 Dec 2015 17:39:26 +0100
+Message-ID: <1450543166-27531-1-git-send-email-hofrat@osadl.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi
-This is not patch .On net_device structure only 2 elements from old
-structure net_device_stats exists rx_dropped and tx_dropped why please
-put alls elements from net_device_stats for bee ready for atomic
-operations.
-/include/linux/netdevice.h
+This is an API consolidation only. The use of kmalloc + memset to 0
+is equivalent to kzalloc.
+
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+
+Found by coccinelle script (relaxed version of
+scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
+
+Patch was compile tested with: x86_64_defconfig +
+CONFIG_RSI_91X=m
+
+Patch is against linux-next (localversion-next is -next-20151218)
+
+ drivers/net/wireless/rsi/rsi_91x_mgmt.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
+index 8d110fd..697caab 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
++++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
+@@ -1023,7 +1023,7 @@ static int rsi_send_auto_rate_request(struct rsi_common *common)
+ 		return -ENOMEM;
+ 	}
+ 
+-	selected_rates = kmalloc(2 * RSI_TBL_SZ, GFP_KERNEL);
++	selected_rates = kzalloc(2 * RSI_TBL_SZ, GFP_KERNEL);
+ 	if (!selected_rates) {
+ 		rsi_dbg(ERR_ZONE, "%s: Failed in allocation of mem\n",
+ 			__func__);
+@@ -1032,7 +1032,6 @@ static int rsi_send_auto_rate_request(struct rsi_common *common)
+ 	}
+ 
+ 	memset(skb->data, 0, sizeof(struct rsi_auto_rate));
+-	memset(selected_rates, 0, 2 * RSI_TBL_SZ);
+ 
+ 	auto_rate = (struct rsi_auto_rate *)skb->data;
+ 
 -- 
-Corcodel Marian <asd@marian1000.go.ro>
+1.7.10.4
