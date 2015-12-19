@@ -1,36 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netcp: fix regression in receive processing
-Date: Sat, 19 Dec 2015 00:10:58 -0500 (EST)
-Message-ID: <20151219.001058.862320196789855068.davem@davemloft.net>
-References: <1651314.QiL8XMyoqS@wuerfel>
+From: "rvc90" <rvc90@sanwen2.com>
+Subject: Merry Christmas
+Date: Sat, 19 Dec 2015 13:26:25 +0800
+Message-ID: <201512191326252024680@sanwen2.com>
+Reply-To: mcliziming@sohu.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, w-kwok2@ti.com, m-karicheri2@ti.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1651314.QiL8XMyoqS@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [116.23.12.124] ([116.23.12.124]:3614 "HELO sanwen2.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751480AbbLSFcB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Dec 2015 00:32:01 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 18 Dec 2015 15:18:08 +0100
-
-> A cleanup patch I did was unfortunately wrong and introduced
-> multiple serious bugs in the netcp rx processing, as indicated
-> by these correct gcc warnings:
-> 
-> drivers/net/ethernet/ti/netcp_core.c:776:14: warning: 'buf_ptr' may be used uninitialized in this function [-Wuninitialized]
-> drivers/net/ethernet/ti/netcp_core.c:687:14: warning: 'ptr' may be used uninitialized in this function [-Wuninitialized]
-> 
-> I have checked the patch once more and found that a call to
-> get_pkt_info() accidentally got removed in netcp_free_rx_desc_chain,
-> and netcp_process_one_rx_packet no longer retrieved the correct
-> buffer length. This patch should fix all the known problems,
-> but I did not test on real hardware.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 899077791403 ("netcp: try to reduce type confusion in descriptors")
-
-Applied.
+QjJC09DQp9GvxczUvcC01L3J2aOsss7VubzbuPHMq7jfo6zX+LXIv827p7mk1/fP+7yro6zE+s/r
+ytTK1Nb3tq+z9rv3v6q3osr009rE+rXEtaW2wNPF1sq/zbun0a/FzMLwo78NCsT6v8nS1LOiytS9
+q8T6tcTAz7/Nu6fU2rulwarN+MnPy9HL97eiz9a2vL/J0tTL0cv3tb21xKGjDQrN4sOzv827p8vR
+y/fT67+qt6LI7bz+ttTM2Lao0NDStaOs1NrL0cv30v3H5snPw+bL0cv309DSu7aowPrKt7XEuavL
+vsbz0rXN+NW+o6zArcihxL+x6r/Nu6fQxc+ioaMNCsGqz7XV5tX9uN/WysG/tcTW1bbLv827p6Os
+srvAy7fRyrG85NTawKy7+NGvxczJ7cnPoaMNCrzTUS0tUaO6MTQyODcwNTQ5OcPit9HOqsT60d3K
+vsjtvP65psTc0tS8sNCnufuhow==
