@@ -1,35 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] natsemi: add checks for dma mapping errors
-Date: Fri, 18 Dec 2015 21:36:07 -0500 (EST)
-Message-ID: <20151218.213607.1270121670262037282.davem@davemloft.net>
-References: <1450475737-5959-1-git-send-email-khoroshilov@ispras.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Fri, 18 Dec 2015 18:38:03 -0800
+Message-ID: <1450492683.8474.123.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1447290541.22599.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215161456.GA3182@1wt.eu>
+	 <1450199424.8474.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215174346.GA3187@1wt.eu>
+	 <1450203712.8474.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151215194410.GB3187@1wt.eu>
+	 <1450214475.8474.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151216073814.GA3373@1wt.eu> <20151216161514.GA3476@1wt.eu>
+	 <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
+	 <20151218185812.GD4448@1wt.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450475737-5959-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Josh Snyder <josh@code406.com>, Tom Herbert <tom@herbertland.com>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>, cgallek@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:35878 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752626AbbLSCiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 21:38:07 -0500
+Received: by mail-qg0-f54.google.com with SMTP id c96so47806491qgd.3
+        for <netdev@vger.kernel.org>; Fri, 18 Dec 2015 18:38:06 -0800 (PST)
+In-Reply-To: <20151218185812.GD4448@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Sat, 19 Dec 2015 00:55:37 +0300
+On Fri, 2015-12-18 at 19:58 +0100, Willy Tarreau wrote:
+> Hi Josh,
+> 
+> On Fri, Dec 18, 2015 at 08:33:45AM -0800, Josh Snyder wrote:
+> > I was also puzzled that binding succeeded. Looking into the code paths
+> > involved, in inet_csk_get_port, we quickly goto have_snum. From there, we end
+> > up dropping into tb_found. Since !hlist_empty(&tb->owners), we end up checking
+> > that (tb->fastreuseport > 0 && sk->sk_reuseport && uid_eq(tb->fastuid, uid)).
+> > This test passes, so we goto success and bind.
+> > 
+> > Crucially, we are checking the fastreuseport field on the inet_bind_bucket, and
+> > not the sk_reuseport variable on the other sockets in the bucket. Since this
+> > bit is set based on sk_reuseport at the time the first socket binds (see
+> > tb_not_found), I can see no reason why sockets need to keep SO_REUSEPORT set
+> > beyond initial binding.
+> > 
+> > Given this, I believe Willy's patch elegantly solves the problem at hand.
+> 
+> Great, thanks for your in-depth explanation.
+> 
+> Eric, do you think that this patch may be acceptable material for next
+> merge window (given that it's not a fix per-se) ? If so I'll resubmit
+> later.
 
-> @@ -2093,6 +2099,10 @@ static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev)
->  	np->tx_skbuff[entry] = skb;
->  	np->tx_dma[entry] = pci_map_single(np->pci_dev,
->  				skb->data,skb->len, PCI_DMA_TODEVICE);
-> +	if (pci_dma_mapping_error(np->pci_dev, np->tx_dma[entry])) {
-> +		np->tx_skbuff[entry] = NULL;
-> +		return NETDEV_TX_BUSY;
-> +	}
->  
->  	np->tx_ring[entry].addr = cpu_to_le32(np->tx_dma[entry]);
->  
-
-Returning NETDEV_TX_BUSY and freeing the SKB will crash the system.
-
-NETDEV_TX_BUSY is only for buggy drivers that do not manage their
-TX ring busy condition correctly, and thus need retries.
+I need to check with Craig Gallek, because he was about to upstream a
+change to make SO_REUSEPORT more scalable & sexy (like having an [e]BPF
+filter to perform the selection in an array of sockets)
