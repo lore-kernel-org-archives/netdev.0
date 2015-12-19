@@ -1,75 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH v2] rhashtable: Kill harmless RCU warning in
- rhashtable_walk_init
-Date: Sat, 19 Dec 2015 10:45:28 +0800
-Message-ID: <20151219024528.GA27814@gondor.apana.org.au>
-References: <20151218062450.GA19749@gondor.apana.org.au>
- <1450443254.8474.120.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151218131408.GA21756@gondor.apana.org.au>
- <20151218.162731.305092674804556753.davem@davemloft.net>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH net-next 1/2] igb: Remove unnecessary flag setting in
+ igb_set_flag_queue_pairs()
+Date: Sat, 19 Dec 2015 03:24:15 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81E3134E@ORSMSX101.amr.corp.intel.com>
+References: <1449827040-1806-1-git-send-email-suzuki_shota_t3@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, ying.huang@linux.intel.com, lkp@01.org,
-	linux-kernel@vger.kernel.org, colin.king@canonical.com,
-	fengguang.wu@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:55452 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752850AbbLSCpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 21:45:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20151218.162731.305092674804556753.davem@davemloft.net>
+Received: from mga14.intel.com ([192.55.52.115]:65514 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752753AbbLSDYR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2015 22:24:17 -0500
+In-Reply-To: <1449827040-1806-1-git-send-email-suzuki_shota_t3@lab.ntt.co.jp>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 18, 2015 at 04:27:31PM -0500, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Fri, 18 Dec 2015 21:14:08 +0800
+> From: netdev-owner@vger.kernel.org [netdev-owner@vger.kernel.org] on behalf of Shota Suzuki 
+> [suzuki_shota_t3@lab.ntt.co.jp]
+> Sent: Friday, December 11, 2015 1:43 AM
+> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald C; 
+> Ronciak, John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org
+> Cc: suzuki_shota_t3@lab.ntt.co.jp
+> Subject: [PATCH net-next 1/2] igb: Remove unnecessary flag setting in igb_set_flag_queue_pairs()
 > 
-> > On Fri, Dec 18, 2015 at 04:54:14AM -0800, Eric Dumazet wrote:
-> >>
-> >> You can avoid the comment by using the self documented and lockdep
-> >> enabled primitive
-> >> 
-> >> iter->walker->tbl = rcu_dereference_protected(ht->tbl,
-> >> 					      lockdep_is_held(&ht->lock));
-> > 
-> > That is just gross.  I think a comment is much better in this case.
-> 
-> Herbert, this macro was created exactly to handle this situation,
-> and this is what we do everywhere else in the tree.
+> If VFs are enabled (max_vfs >= 1), both max_rss_queues and
+> adapter->rss_queues are set to 2 in the case of e1000_82576.
+> In this case, IGB_FLAG_QUEUE_PAIRS is always set in the default block as a
+> result of fall-through, thus setting it in the e1000_82576 block is not
+> necessary.
 
-OK.
+> Signed-off-by: Shota Suzuki <suzuki_shota_t3@lab.ntt.co.jp>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c | 8 --------
+>  1 file changed, 8 deletions(-)
 
----8<---
-The commit f9f51b8070be3e829100614a7372b219723b864f ("rhashtable:
-Fix walker list corruption") causes a suspicious RCU usage warning
-because we no longer hold ht->mutex when we dereference ht->tbl.
-
-However, this is a false positive because we now hold ht->lock
-which also guarantees that ht->tbl won't disppear from under us.
-
-This patch kills the warning by using rcu_dereference_protected.
-
-Reported-by: kernel test robot <ying.huang@linux.intel.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index eb9240c..51282f5 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -519,7 +519,8 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
- 		return -ENOMEM;
- 
- 	spin_lock(&ht->lock);
--	iter->walker->tbl = rht_dereference(ht->tbl, ht);
-+	iter->walker->tbl =
-+		rcu_dereference_protected(ht->tbl, lockdep_is_held(&ht->lock));
- 	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
- 	spin_unlock(&ht->lock);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
