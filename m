@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 1/4] net/mlx5e: Do not modify the TX SKB
-Date: Sun, 20 Dec 2015 23:46:28 +0200
-Message-ID: <1450647991-13736-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 2/4] net/mlx5_core: Add support for reading hardware timestamp
+Date: Sun, 20 Dec 2015 23:46:29 +0200
+Message-ID: <1450647991-13736-3-git-send-email-saeedm@mellanox.com>
 References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -12,286 +12,145 @@ Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:60479 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:60537 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751057AbbLTVq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2015 16:46:58 -0500
+	id S1751208AbbLTVrR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2015 16:47:17 -0500
 In-Reply-To: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Achiad Shochat <achiad@mellanox.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-If the SKB is cloned, or has an elevated users count, someone else
-can be looking at it at the same time.
+A preparation step which adds support for reading the hardware
+timestamp from the internal clock and from the CQE.
+In addition, advertize device_frequency_khz HCA capability.
 
-Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    5 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   73 ++++++++++++---------
- 3 files changed, 49 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   31 ++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
+ include/linux/mlx5/device.h                        |   20 +++++++++++--
+ include/linux/mlx5/mlx5_ifc.h                      |    5 ++-
+ 4 files changed, 52 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index f689ce5..ae3f0e3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -328,14 +328,12 @@ struct mlx5e_rq {
- 	struct mlx5e_priv     *priv;
- } ____cacheline_aligned_in_smp;
- 
--struct mlx5e_tx_skb_cb {
-+struct mlx5e_tx_wqe_info {
- 	u32 num_bytes;
- 	u8  num_wqebbs;
- 	u8  num_dma;
- };
- 
--#define MLX5E_TX_SKB_CB(__skb) ((struct mlx5e_tx_skb_cb *)__skb->cb)
--
- enum mlx5e_dma_map_type {
- 	MLX5E_DMA_MAP_SINGLE,
- 	MLX5E_DMA_MAP_PAGE
-@@ -371,6 +369,7 @@ struct mlx5e_sq {
- 	/* pointers to per packet info: write@xmit, read@completion */
- 	struct sk_buff           **skb;
- 	struct mlx5e_sq_dma       *dma_fifo;
-+	struct mlx5e_tx_wqe_info  *wqe_info;
- 
- 	/* read only */
- 	struct mlx5_wq_cyc         wq;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index d4601a5..96775a2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -507,6 +507,7 @@ static void mlx5e_close_rq(struct mlx5e_rq *rq)
- 
- static void mlx5e_free_sq_db(struct mlx5e_sq *sq)
- {
-+	kfree(sq->wqe_info);
- 	kfree(sq->dma_fifo);
- 	kfree(sq->skb);
- }
-@@ -519,8 +520,10 @@ static int mlx5e_alloc_sq_db(struct mlx5e_sq *sq, int numa)
- 	sq->skb = kzalloc_node(wq_sz * sizeof(*sq->skb), GFP_KERNEL, numa);
- 	sq->dma_fifo = kzalloc_node(df_sz * sizeof(*sq->dma_fifo), GFP_KERNEL,
- 				    numa);
-+	sq->wqe_info = kzalloc_node(wq_sz * sizeof(*sq->wqe_info), GFP_KERNEL,
-+				    numa);
- 
--	if (!sq->skb || !sq->dma_fifo) {
-+	if (!sq->skb || !sq->dma_fifo || !sq->wqe_info) {
- 		mlx5e_free_sq_db(sq);
- 		return -ENOMEM;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 1341b1d..aa037eb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -92,11 +92,11 @@ static inline struct mlx5e_sq_dma *mlx5e_dma_get(struct mlx5e_sq *sq, u32 i)
- 	return &sq->dma_fifo[i & sq->dma_fifo_mask];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 789882b..b16eb42 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -504,6 +504,37 @@ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id)
+ 	return mlx5_cmd_status_to_err_v2(out);
  }
  
--static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, struct sk_buff *skb)
-+static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, u8 num_dma)
- {
- 	int i;
- 
--	for (i = 0; i < MLX5E_TX_SKB_CB(skb)->num_dma; i++) {
-+	for (i = 0; i < num_dma; i++) {
- 		struct mlx5e_sq_dma *last_pushed_dma =
- 			mlx5e_dma_get(sq, --sq->dma_fifo_pc);
- 
-@@ -139,19 +139,28 @@ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
- 	return MLX5E_MIN_INLINE;
- }
- 
--static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs)
-+static inline void mlx5e_tx_skb_pull_inline(unsigned char **skb_data,
-+					    unsigned int *skb_len,
-+					    unsigned int len)
++static u32 internal_timer_h(struct mlx5_core_dev *dev)
 +{
-+	*skb_len -= len;
-+	*skb_data += len;
++	return ioread32be(&dev->iseg->internal_timer_h);
 +}
 +
-+static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs,
-+				     unsigned char **skb_data,
-+				     unsigned int *skb_len)
++static u32 internal_timer_l(struct mlx5_core_dev *dev)
++{
++	return ioread32be(&dev->iseg->internal_timer_l);
++}
++
++cycle_t mlx5_core_read_clock(struct mlx5_core_dev *dev)
++{
++	u32 timer_h, timer_h1, timer_l;
++
++	/*  Reading the internal timer using 2 PCI reads in a non-atomic manner
++	 * may hit the wraparound of the 32 LSBs. Reading the 32 MSBs twice can
++	 * verify a wraparound did not happen.
++	 */
++	timer_h = internal_timer_h(dev);
++	timer_l = internal_timer_l(dev);
++	timer_h1 = internal_timer_h(dev);
++	if (timer_h == timer_h1)
++		goto ret;
++
++	/* In case of overflow or wraparound, re-read the LSB */
++	timer_l = internal_timer_l(dev);
++
++ret:
++	return (u64)timer_l | (u64)timer_h1 << 32;
++}
++
+ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
  {
- 	struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)start;
- 	int cpy1_sz = 2 * ETH_ALEN;
- 	int cpy2_sz = ihs - cpy1_sz;
+ 	struct mlx5_priv *priv  = &mdev->priv;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index ea6a137..b6651b8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -98,6 +98,7 @@ int mlx5_core_sriov_configure(struct pci_dev *dev, int num_vfs);
+ int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
++cycle_t mlx5_core_read_clock(struct mlx5_core_dev *dev);
  
--	skb_copy_from_linear_data(skb, vhdr, cpy1_sz);
--	skb_pull_inline(skb, cpy1_sz);
-+	memcpy(vhdr, *skb_data, cpy1_sz);
-+	mlx5e_tx_skb_pull_inline(skb_data, skb_len, cpy1_sz);
- 	vhdr->h_vlan_proto = skb->vlan_proto;
- 	vhdr->h_vlan_TCI = cpu_to_be16(skb_vlan_tag_get(skb));
--	skb_copy_from_linear_data(skb, &vhdr->h_vlan_encapsulated_proto,
--				  cpy2_sz);
--	skb_pull_inline(skb, cpy2_sz);
-+	memcpy(&vhdr->h_vlan_encapsulated_proto, *skb_data, cpy2_sz);
-+	mlx5e_tx_skb_pull_inline(skb_data, skb_len, cpy2_sz);
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 7d3a85f..df2f79e 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -443,9 +443,12 @@ struct mlx5_init_seg {
+ 	__be32			rsvd1[120];
+ 	__be32			initializing;
+ 	struct health_buffer	health;
+-	__be32			rsvd2[884];
++	__be32			rsvd2[880];
++	__be32			internal_timer_h;
++	__be32			internal_timer_l;
++	__be32			rsrv3[2];
+ 	__be32			health_counter;
+-	__be32			rsvd3[1019];
++	__be32			rsvd4[1019];
+ 	__be64			ieee1588_clk;
+ 	__be32			ieee1588_clk_type;
+ 	__be32			clr_intx;
+@@ -601,7 +604,8 @@ struct mlx5_cqe64 {
+ 	__be32		imm_inval_pkey;
+ 	u8		rsvd40[4];
+ 	__be32		byte_cnt;
+-	__be64		timestamp;
++	__be32		timestamp_h;
++	__be32		timestamp_l;
+ 	__be32		sop_drop_qpn;
+ 	__be16		wqe_counter;
+ 	u8		signature;
+@@ -623,6 +627,16 @@ static inline int cqe_has_vlan(struct mlx5_cqe64 *cqe)
+ 	return !!(cqe->l4_hdr_type_etc & 0x1);
  }
  
- static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
-@@ -160,11 +169,14 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
++static inline u64 get_cqe_ts(struct mlx5_cqe64 *cqe)
++{
++	u32 hi, lo;
++
++	hi = be32_to_cpu(cqe->timestamp_h);
++	lo = be32_to_cpu(cqe->timestamp_l);
++
++	return (u64)lo | ((u64)hi << 32);
++}
++
+ enum {
+ 	CQE_L4_HDR_TYPE_NONE			= 0x0,
+ 	CQE_L4_HDR_TYPE_TCP_NO_ACK		= 0x1,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 131a273..e4da900 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -829,9 +829,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_66[0x8];
+ 	u8         log_uar_page_sz[0x10];
  
- 	u16 pi = sq->pc & wq->sz_m1;
- 	struct mlx5e_tx_wqe      *wqe  = mlx5_wq_cyc_get_wqe(wq, pi);
-+	struct mlx5e_tx_wqe_info *wi   = &sq->wqe_info[pi];
+-	u8         reserved_67[0xe0];
++	u8         reserved_67[0x40];
++	u8         device_frequency_khz[0x20];
++	u8         reserved_68[0x5f];
  
- 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
- 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
- 	struct mlx5_wqe_data_seg *dseg;
+-	u8         reserved_68[0x1f];
+ 	u8         cqe_zip[0x1];
  
-+	unsigned char *skb_data = skb->data;
-+	unsigned int skb_len = skb->len;
- 	u8  opcode = MLX5_OPCODE_SEND;
- 	dma_addr_t dma_addr = 0;
- 	bool bf = false;
-@@ -192,8 +204,8 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		opcode       = MLX5_OPCODE_LSO;
- 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 		payload_len  = skb->len - ihs;
--		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
--					(skb_shinfo(skb)->gso_segs - 1) * ihs;
-+		wi->num_bytes = skb->len +
-+				(skb_shinfo(skb)->gso_segs - 1) * ihs;
- 		sq->stats.tso_packets++;
- 		sq->stats.tso_bytes += payload_len;
- 	} else {
-@@ -201,16 +213,16 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		     !skb->xmit_more &&
- 		     !skb_shinfo(skb)->nr_frags;
- 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
--		MLX5E_TX_SKB_CB(skb)->num_bytes = max_t(unsigned int, skb->len,
--							ETH_ZLEN);
-+		wi->num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
- 	}
- 
- 	if (skb_vlan_tag_present(skb)) {
--		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs);
-+		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
-+				  &skb_len);
- 		ihs += VLAN_HLEN;
- 	} else {
--		skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
--		skb_pull_inline(skb, ihs);
-+		memcpy(eseg->inline_hdr_start, skb_data, ihs);
-+		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
- 	}
- 
- 	eseg->inline_hdr_sz = cpu_to_be16(ihs);
-@@ -220,11 +232,11 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 			       MLX5_SEND_WQE_DS);
- 	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
- 
--	MLX5E_TX_SKB_CB(skb)->num_dma = 0;
-+	wi->num_dma = 0;
- 
--	headlen = skb_headlen(skb);
-+	headlen = skb_len - skb->data_len;
- 	if (headlen) {
--		dma_addr = dma_map_single(sq->pdev, skb->data, headlen,
-+		dma_addr = dma_map_single(sq->pdev, skb_data, headlen,
- 					  DMA_TO_DEVICE);
- 		if (unlikely(dma_mapping_error(sq->pdev, dma_addr)))
- 			goto dma_unmap_wqe_err;
-@@ -234,7 +246,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		dseg->byte_count = cpu_to_be32(headlen);
- 
- 		mlx5e_dma_push(sq, dma_addr, headlen, MLX5E_DMA_MAP_SINGLE);
--		MLX5E_TX_SKB_CB(skb)->num_dma++;
-+		wi->num_dma++;
- 
- 		dseg++;
- 	}
-@@ -253,23 +265,22 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		dseg->byte_count = cpu_to_be32(fsz);
- 
- 		mlx5e_dma_push(sq, dma_addr, fsz, MLX5E_DMA_MAP_PAGE);
--		MLX5E_TX_SKB_CB(skb)->num_dma++;
-+		wi->num_dma++;
- 
- 		dseg++;
- 	}
- 
--	ds_cnt += MLX5E_TX_SKB_CB(skb)->num_dma;
-+	ds_cnt += wi->num_dma;
- 
- 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
- 	cseg->qpn_ds           = cpu_to_be32((sq->sqn << 8) | ds_cnt);
- 
- 	sq->skb[pi] = skb;
- 
--	MLX5E_TX_SKB_CB(skb)->num_wqebbs = DIV_ROUND_UP(ds_cnt,
--							MLX5_SEND_WQEBB_NUM_DS);
--	sq->pc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
-+	wi->num_wqebbs = DIV_ROUND_UP(ds_cnt, MLX5_SEND_WQEBB_NUM_DS);
-+	sq->pc += wi->num_wqebbs;
- 
--	netdev_tx_sent_queue(sq->txq, MLX5E_TX_SKB_CB(skb)->num_bytes);
-+	netdev_tx_sent_queue(sq->txq, wi->num_bytes);
- 
- 	if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5E_SQ_STOP_ROOM))) {
- 		netif_tx_stop_queue(sq->txq);
-@@ -280,7 +291,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		int bf_sz = 0;
- 
- 		if (bf && sq->uar_bf_map)
--			bf_sz = MLX5E_TX_SKB_CB(skb)->num_wqebbs << 3;
-+			bf_sz = wi->num_wqebbs << 3;
- 
- 		cseg->fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
- 		mlx5e_tx_notify_hw(sq, wqe, bf_sz);
-@@ -297,7 +308,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 
- dma_unmap_wqe_err:
- 	sq->stats.dropped++;
--	mlx5e_dma_unmap_wqe_err(sq, skb);
-+	mlx5e_dma_unmap_wqe_err(sq, wi->num_dma);
- 
- 	dev_kfree_skb_any(skb);
- 
-@@ -352,6 +363,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 		wqe_counter = be16_to_cpu(cqe->wqe_counter);
- 
- 		do {
-+			struct mlx5e_tx_wqe_info *wi;
- 			struct sk_buff *skb;
- 			u16 ci;
- 			int j;
-@@ -360,6 +372,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 
- 			ci = sqcc & sq->wq.sz_m1;
- 			skb = sq->skb[ci];
-+			wi = &sq->wqe_info[ci];
- 
- 			if (unlikely(!skb)) { /* nop */
- 				sq->stats.nop++;
-@@ -367,7 +380,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 				continue;
- 			}
- 
--			for (j = 0; j < MLX5E_TX_SKB_CB(skb)->num_dma; j++) {
-+			for (j = 0; j < wi->num_dma; j++) {
- 				struct mlx5e_sq_dma *dma =
- 					mlx5e_dma_get(sq, dma_fifo_cc++);
- 
-@@ -375,8 +388,8 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 			}
- 
- 			npkts++;
--			nbytes += MLX5E_TX_SKB_CB(skb)->num_bytes;
--			sqcc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
-+			nbytes += wi->num_bytes;
-+			sqcc += wi->num_wqebbs;
- 			dev_kfree_skb(skb);
- 		} while (!last_wqe);
- 	}
+ 	u8         cqe_zip_timeout[0x10];
 -- 
 1.7.1
