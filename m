@@ -1,26 +1,58 @@
-From: Vitaly Davidovich <vitalyd@gmail.com>
-Subject: (unknown)
-Date: Sat, 19 Dec 2015 22:26:24 -0500
-Message-ID: <376FB7A4-2BF8-4A93-B6B8-611F458B22D0@gmail.com>
-Mime-Version: 1.0 (1.0)
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/2] can: sja1000: add documentation for Technologic
+ Systems version
+Date: Sat, 19 Dec 2015 21:37:42 -0600
+Message-ID: <20151220033742.GA9883@rob-hp-laptop>
+References: <1450469845-12900-1-git-send-email-damien.riegel@savoirfairelinux.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:33539 "EHLO
-	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbbLTD00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2015 22:26:26 -0500
-Received: by mail-qk0-f178.google.com with SMTP id k189so126426822qkc.0
-        for <netdev@vger.kernel.org>; Sat, 19 Dec 2015 19:26:26 -0800 (PST)
-Received: from [192.168.1.5] (ool-43572b3e.dyn.optonline.net. [67.87.43.62])
-        by smtp.gmail.com with ESMTPSA id y200sm10082896qka.48.2015.12.19.19.26.24
-        for <netdev@vger.kernel.org>
-        (version=TLSv1/SSLv3 cipher=OTHER);
-        Sat, 19 Dec 2015 19:26:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, devicetree@vger.kernel.org,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	kernel@savoirfairelinux.com
+To: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1450469845-12900-1-git-send-email-damien.riegel@savoirfairelinux.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-subscribe netdev 
+On Fri, Dec 18, 2015 at 03:17:24PM -0500, Damien Riegel wrote:
+> This commit adds documentation for the Technologic Systems version of
+> SJA1000. The difference with the NXP version is in the way the registers
+> are accessed.
+> 
+> Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
+> ---
+>  Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
+> index b4a6d53..7a158d5 100644
+> --- a/Documentation/devicetree/bindings/net/can/sja1000.txt
+> +++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
+> @@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
+>  
+>  Required properties:
+>  
+> -- compatible : should be "nxp,sja1000".
+> +- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
+>  
+>  - reg : should specify the chip select, address offset and size required
+>  	to map the registers of the SJA1000. The size is usually 0x80.
+> @@ -14,6 +14,7 @@ Optional properties:
+>  
+>  - reg-io-width : Specify the size (in bytes) of the IO accesses that
+>  	should be performed on the device.  Valid value is 1, 2 or 4.
+> +	Must be set to 2 for technologic version.
+>  	Default to 1 (8 bits).
 
-Sent from my iPhone
+Really, this should default to 2 for technologic version and not be 
+required.
+
+Rob
