@@ -1,137 +1,491 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] dccp: fix use-after-free after cloning struct dccp_sock
-Date: Sun, 20 Dec 2015 21:53:27 +0100
-Message-ID: <1450644807-852-1-git-send-email-vegard.nossum@oracle.com>
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@oracle.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS) support
+Date: Sun, 20 Dec 2015 23:46:30 +0200
+Message-ID: <1450647991-13736-4-git-send-email-saeedm@mellanox.com>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:60573 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751219AbbLTVrn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2015 16:47:43 -0500
+In-Reply-To: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've observed various spew (KASAN, warnings, oopses, etc.) that seem to
-stem from incorrect cloning of dccp_sock in dccp_create_openreq_child().
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-The problem is that struct dccp_sock's
-  ->dccps_hc_rx_ackvec,
-  ->dccps_hc_rx_ccid, and
-  ->dccps_hc_tx_ccid
-members are pointers to memory which is not reference counted and not
-protected by any locks, so sharing them between original sock and the
-clone seems like a bad idea.
+Add support for enable/disable HW timestamping for incoming and/or
+outgoing packets. To enable/disable HW timestamping appropriate
+ioctl should be used. Currently HWTSTAMP_FILTER_ALL/NONE and
+HWTSAMP_TX_ON/OFF only are supported. Make all relevant changes in
+RX/TX flows to consider TS request and plant HW timestamps into
+relevant structures.
 
-The usual symptom would be a use-after-free which happens when an
-operation on the original sock causes any of these pointers to be freed
-followed by an operation on the cloned sock:
+Add internal clock for converting hardware timestamp to nanoseconds. In
+addition, add a service task to catch internal clock overflow, to make
+sure timestamping is accurate.
 
-==================================================================
-BUG: KASAN: use-after-free in dccp_sync_mss+0x45/0x160 at addr ffff880012c65780
-Read of size 8 by task a.out/987
-=============================================================================
-BUG ccid2_hc_tx_sock (Tainted: G        W      ): kasan: bad access detected
------------------------------------------------------------------------------
-
-Disabling lock debugging due to kernel taint
-INFO: Allocated in ccid_new+0x1b4/0x270 age=64589 cpu=0 pid=986
-        ___slab_alloc+0x724/0x810
-        __slab_alloc.isra.49+0x86/0xc0
-        kmem_cache_alloc+0x25a/0x2d0
-        ccid_new+0x1b4/0x270
-        dccp_hdlr_ccid+0x26/0xe0
-        __dccp_feat_activate+0xc3/0x180
-        dccp_feat_activate_values+0x2fa/0x4c0
-        dccp_rcv_state_process+0x814/0xa80
-        dccp_v4_do_rcv+0x6a/0x100
-        release_sock+0x168/0x330
-        inet_stream_connect+0x6d/0x90
-        SYSC_connect+0x1d0/0x200
-        SyS_connect+0x11/0x20
-        entry_SYSCALL_64_fastpath+0x12/0x71
-INFO: Freed in ccid_hc_tx_delete+0x7d/0x90 age=11330 cpu=1 pid=989
-        __slab_free+0x1f0/0x360
-        kmem_cache_free+0x2b6/0x300
-        ccid_hc_tx_delete+0x7d/0x90
-        dccp_hdlr_ccid+0x65/0xe0
-        __dccp_feat_activate+0xc3/0x180
-        dccp_feat_activate_values+0x2fa/0x4c0
-        dccp_create_openreq_child+0x1fc/0x290
-        dccp_v4_request_recv_sock+0x67/0x430
-        dccp_check_req+0x248/0x330
-        dccp_v4_rcv+0x2a8/0xd50
-        ip_local_deliver_finish+0x160/0x4c0
-        ip_local_deliver+0x175/0x230
-        ip_rcv_finish+0x119/0x750
-        ip_rcv+0x678/0x960
-        __netif_receive_skb_core+0xe64/0x1810
-        __netif_receive_skb+0x41/0xf0
-INFO: Slab 0xffffea00004b1800 objects=20 used=9 fp=0xffff880012c644c0 flags=0x100000000004080
-INFO: Object 0xffff880012c65780 @offset=22400 fp=0xffff880012c60c80
-[...]
-CPU: 0 PID: 987 Comm: a.out Tainted: G    B   W       4.4.0-rc5+ #76
- ffffea00004b1800 ffff88001304fa40 ffffffff8169ed5b ffff88001422e800
- ffff88001304fa70 ffffffff812e36ec ffff88001422e800 ffffea00004b1800
- ffff880012c65780 000000000000ffff ffff88001304fa98 ffffffff812e946f
-Call Trace:
- [<ffffffff8169ed5b>] dump_stack+0x8d/0xe2
- [<ffffffff812e36ec>] print_trailer+0x13c/0x1b0
- [<ffffffff812e946f>] object_err+0x3f/0x50
- [<ffffffff812f02c3>] kasan_report_error+0x2e3/0x6e0
- [<ffffffff8108d321>] ? kvm_clock_get_cycles+0x11/0x20
- [<ffffffff81e8fb33>] ? secure_dccp_sequence_number+0x133/0x1d0
- [<ffffffff812f0704>] kasan_report+0x44/0x50
- [<ffffffff82207155>] ? dccp_sync_mss+0x45/0x160
- [<ffffffff812ef403>] __asan_load8+0x93/0xe0
- [<ffffffff82207155>] dccp_sync_mss+0x45/0x160
- [<ffffffff822080df>] dccp_connect+0x7f/0x2a0
- [<ffffffff82217632>] dccp_v4_connect+0x612/0x960
- [<ffffffff81ff20a7>] __inet_stream_connect+0x1d7/0x6a0
- [<ffffffff8110438b>] ? preempt_count_sub+0x1b/0x170
- [<ffffffff824cd007>] ? _raw_spin_unlock_irqrestore+0x47/0x90
- [<ffffffff81ff1ed0>] ? inet_sendpage+0x200/0x200
- [<ffffffff811302c1>] ? __raw_callee_save___pv_queued_spin_unlock+0x11/0x20
- [<ffffffff8110438b>] ? preempt_count_sub+0x1b/0x170
- [<ffffffff810baa41>] ? __local_bh_enable_ip+0x61/0x110
- [<ffffffff81ff25c1>] inet_stream_connect+0x51/0x90
- [<ffffffff81e671a0>] SYSC_connect+0x1d0/0x200
- [<ffffffff81ff2570>] ? __inet_stream_connect+0x6a0/0x6a0
- [<ffffffff81e66fd0>] ? ___sys_recvmsg+0x3d0/0x3d0
- [<ffffffff81384490>] ? SyS_epoll_create+0x1a0/0x1a0
- [<ffffffff813372e5>] ? __fget+0x115/0x180
- [<ffffffff8133739d>] ? __fget_light+0x4d/0xf0
- [<ffffffff813822e0>] ? ep_poll_wakeup_proc+0x30/0x30
- [<ffffffff81e69e71>] SyS_connect+0x11/0x20
- [<ffffffff824cdd6e>] entry_SYSCALL_64_fastpath+0x12/0x71
-
-I'm not really sure if setting them to NULL is really the correct
-solution -- maybe we should try to duplicate the pointed-to memory
-instead?
-
-Anyway, this is a tentative patch that explains the issue and fixes
-this particular problem -- dccp fuzzing now runs for minutes rather
-than seconds before encountering a crash. I haven't tested any
-real world workloads on this patch.
-
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- net/dccp/minisocks.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   19 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  134 ++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   31 +++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   77 +++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   10 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   17 +++
+ 7 files changed, 288 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
 
-diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-index 1994f8a..3c349e7 100644
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -115,6 +115,10 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
- 		newdp->dccps_isr = dreq->dreq_isr;
- 		newdp->dccps_gsr = dreq->dreq_gsr;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index fe11e96..01c0256 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -5,4 +5,4 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
+ 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
+-		en_txrx.o
++		en_txrx.o en_clock.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index ae3f0e3..0395e72 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -32,6 +32,8 @@
  
-+		newdp->dccps_hc_rx_ackvec = NULL;
-+		newdp->dccps_hc_rx_ccid = NULL;
-+		newdp->dccps_hc_tx_ccid = NULL;
+ #include <linux/if_vlan.h>
+ #include <linux/etherdevice.h>
++#include <linux/timecounter.h>
++#include <linux/net_tstamp.h>
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/qp.h>
+ #include <linux/mlx5/cq.h>
+@@ -485,6 +487,16 @@ struct mlx5e_flow_tables {
+ 	struct mlx5e_flow_table		main;
+ };
+ 
++struct mlx5e_tstamp {
++	rwlock_t                   lock;
++	struct cyclecounter        cycles;
++	struct timecounter         clock;
++	struct hwtstamp_config     hwtstamp_config;
++	u32                        nominal_c_mult;
++	unsigned long              overflow_period;
++	struct delayed_work        overflow_work;
++};
 +
- 		/*
- 		 * Activate features: initialise CCIDs, sequence windows etc.
- 		 */
+ struct mlx5e_priv {
+ 	/* priv data path fields - start */
+ 	int                        default_vlan_prio;
+@@ -518,6 +530,7 @@ struct mlx5e_priv {
+ 	struct mlx5_core_dev      *mdev;
+ 	struct net_device         *netdev;
+ 	struct mlx5e_stats         stats;
++	struct mlx5e_tstamp        tstamp;
+ };
+ 
+ #define MLX5E_NET_IP_ALIGN 2
+@@ -584,6 +597,12 @@ void mlx5e_destroy_flow_tables(struct mlx5e_priv *priv);
+ void mlx5e_init_eth_addr(struct mlx5e_priv *priv);
+ void mlx5e_set_rx_mode_work(struct work_struct *work);
+ 
++void mlx5e_fill_hwstamp(struct mlx5e_tstamp *clock,
++			struct skb_shared_hwtstamps *hwts,
++			u64 timestamp);
++void mlx5e_timestamp_init(struct mlx5e_priv *priv);
++void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv);
++
+ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
+ 			  u16 vid);
+ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+new file mode 100644
+index 0000000..b85863e
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+@@ -0,0 +1,134 @@
++/*
++ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/clocksource.h>
++#include "en.h"
++
++enum {
++	MLX5E_CYCLES_SHIFT	= 23
++};
++
++void mlx5e_fill_hwstamp(struct mlx5e_tstamp *tstamp,
++			struct skb_shared_hwtstamps *hwts,
++			u64 timestamp)
++{
++	unsigned long flags;
++	u64 nsec;
++
++	memset(hwts, 0, sizeof(struct skb_shared_hwtstamps));
++	read_lock_irqsave(&tstamp->lock, flags);
++	nsec = timecounter_cyc2time(&tstamp->clock, timestamp);
++	read_unlock_irqrestore(&tstamp->lock, flags);
++
++	hwts->hwtstamp = ns_to_ktime(nsec);
++}
++
++static cycle_t mlx5e_read_clock(const struct cyclecounter *cc)
++{
++	struct mlx5e_tstamp *tstamp = container_of(cc, struct mlx5e_tstamp,
++						   cycles);
++	struct mlx5e_priv *priv = container_of(tstamp, struct mlx5e_priv,
++					       tstamp);
++
++	return mlx5_core_read_clock(priv->mdev) & cc->mask;
++}
++
++/* Should run once every mlx5e_tstamp->overflow_period */
++static void mlx5e_timestamp_overflow(struct work_struct *work)
++{
++	struct delayed_work *dwork = to_delayed_work(work);
++	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp, overflow_work);
++	unsigned long flags;
++
++	write_lock_irqsave(&tstamp->lock, flags);
++	timecounter_read(&tstamp->clock);
++	if (tstamp->overflow_period)
++		schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
++	write_unlock_irqrestore(&tstamp->lock, flags);
++}
++
++static void mlx5e_timestamp_init_config(struct mlx5e_tstamp *tstamp)
++{
++	tstamp->hwtstamp_config.flags = 0;
++	tstamp->hwtstamp_config.tx_type = HWTSTAMP_TX_OFF;
++	tstamp->hwtstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
++}
++
++void mlx5e_timestamp_init(struct mlx5e_priv *priv)
++{
++	struct mlx5e_tstamp *tstamp = &priv->tstamp;
++	u64 ns;
++	u64 frac = 0;
++	u32 dev_freq;
++
++	mlx5e_timestamp_init_config(tstamp);
++	dev_freq = MLX5_CAP_GEN(priv->mdev, device_frequency_khz);
++	if (!dev_freq) {
++		mlx5_core_warn(priv->mdev, "invalid device_frequency_khz, aborting HW clock init\n");
++		return;
++	}
++	rwlock_init(&tstamp->lock);
++	memset(&tstamp->cycles, 0, sizeof(tstamp->cycles));
++	tstamp->cycles.read = mlx5e_read_clock;
++	tstamp->cycles.shift = MLX5E_CYCLES_SHIFT;
++	tstamp->cycles.mult = clocksource_khz2mult(dev_freq,
++						   tstamp->cycles.shift);
++	tstamp->nominal_c_mult = tstamp->cycles.mult;
++	tstamp->cycles.mask = CLOCKSOURCE_MASK(41);
++
++	timecounter_init(&tstamp->clock, &tstamp->cycles,
++			 ktime_to_ns(ktime_get_real()));
++
++	/* Calculate period in seconds to call the overflow watchdog - to make
++	 * sure counter is checked at least once every wrap around.
++	 */
++	ns = cyclecounter_cyc2ns(&tstamp->cycles, tstamp->cycles.mask, frac, &frac);
++	do_div(ns, NSEC_PER_SEC / 2 / HZ);
++	tstamp->overflow_period = ns;
++
++	INIT_DELAYED_WORK(&tstamp->overflow_work, mlx5e_timestamp_overflow);
++	schedule_delayed_work(&tstamp->overflow_work, 0);
++}
++
++void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
++{
++	struct mlx5e_tstamp *tstamp = &priv->tstamp;
++
++	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
++		return;
++
++	write_lock(&tstamp->lock);
++	tstamp->overflow_period = 0; /* Signal overflow_check to stop */
++	write_unlock(&tstamp->lock);
++
++	cancel_delayed_work_sync(&tstamp->overflow_work);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 2e022e9..00458c7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -855,6 +855,36 @@ static int mlx5e_set_pauseparam(struct net_device *netdev,
+ 	return err;
+ }
+ 
++static int mlx5e_get_ts_info(struct net_device *dev,
++			     struct ethtool_ts_info *info)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	int ret;
++
++	ret = ethtool_op_get_ts_info(dev, info);
++	if (ret)
++		return ret;
++
++	if (MLX5_CAP_GEN(priv->mdev, device_frequency_khz)) {
++		info->so_timestamping |=
++				SOF_TIMESTAMPING_TX_HARDWARE |
++				SOF_TIMESTAMPING_RX_HARDWARE |
++				SOF_TIMESTAMPING_RAW_HARDWARE;
++
++		info->tx_types =
++				(1 << HWTSTAMP_TX_OFF) |
++				(1 << HWTSTAMP_TX_ON);
++
++		info->rx_filters =
++				(1 << HWTSTAMP_FILTER_NONE) |
++				(1 << HWTSTAMP_FILTER_ALL);
++	}
++
++	info->phc_index = -1;
++
++	return 0;
++}
++
+ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_drvinfo       = mlx5e_get_drvinfo,
+ 	.get_link          = ethtool_op_get_link,
+@@ -878,4 +908,5 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.set_tunable       = mlx5e_set_tunable,
+ 	.get_pauseparam    = mlx5e_get_pauseparam,
+ 	.set_pauseparam    = mlx5e_set_pauseparam,
++	.get_ts_info       = mlx5e_get_ts_info,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 96775a2..97eeb5a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1935,6 +1935,77 @@ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
+ 	return err;
+ }
+ 
++static int mlx5e_hwstamp_set(struct net_device *dev, struct ifreq *ifr)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct hwtstamp_config config;
++
++	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
++		return -EFAULT;
++
++	/* TX HW timestamp */
++	switch (config.tx_type) {
++	case HWTSTAMP_TX_OFF:
++	case HWTSTAMP_TX_ON:
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	/* RX HW timestamp */
++	switch (config.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		break;
++	case HWTSTAMP_FILTER_ALL:
++	case HWTSTAMP_FILTER_SOME:
++	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		config.rx_filter = HWTSTAMP_FILTER_ALL;
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	priv->tstamp.hwtstamp_config.tx_type = config.tx_type;
++	priv->tstamp.hwtstamp_config.rx_filter = config.rx_filter;
++
++	return copy_to_user(ifr->ifr_data, &config,
++			    sizeof(config)) ? -EFAULT : 0;
++}
++
++static int mlx5e_hwstamp_get(struct net_device *dev, struct ifreq *ifr)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++
++	return copy_to_user(ifr->ifr_data, &priv->tstamp.hwtstamp_config,
++			    sizeof(priv->tstamp.hwtstamp_config)) ? -EFAULT : 0;
++}
++
++static int mlx5e_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++{
++	switch (cmd) {
++	case SIOCSHWTSTAMP:
++		return mlx5e_hwstamp_set(dev, ifr);
++	case SIOCGHWTSTAMP:
++		return mlx5e_hwstamp_get(dev, ifr);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
+ static int mlx5e_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+@@ -2018,7 +2089,8 @@ static struct net_device_ops mlx5e_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid	 = mlx5e_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	 = mlx5e_vlan_rx_kill_vid,
+ 	.ndo_set_features        = mlx5e_set_features,
+-	.ndo_change_mtu		 = mlx5e_change_mtu
++	.ndo_change_mtu		 = mlx5e_change_mtu,
++	.ndo_do_ioctl		 = mlx5e_ioctl,
+ };
+ 
+ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
+@@ -2273,6 +2345,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 	}
+ 
+ 	mlx5e_init_eth_addr(priv);
++	mlx5e_timestamp_init(priv);
+ 
+ 	err = register_netdev(netdev);
+ 	if (err) {
+@@ -2286,6 +2359,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 	return priv;
+ 
+ err_destroy_flow_tables:
++	mlx5e_timestamp_cleanup(priv);
+ 	mlx5e_destroy_flow_tables(priv);
+ 
+ err_destroy_tirs:
+@@ -2332,6 +2406,7 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
+ 	mlx5e_disable_async_events(priv);
+ 	flush_scheduled_work();
+ 	unregister_netdev(netdev);
++	mlx5e_timestamp_cleanup(priv);
+ 	mlx5e_destroy_flow_tables(priv);
+ 	mlx5e_destroy_tirs(priv);
+ 	mlx5e_destroy_rqt(priv, MLX5E_SINGLE_RQ_RQT);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 7c8c408..2fae730 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -36,6 +36,11 @@
+ #include <net/busy_poll.h>
+ #include "en.h"
+ 
++static inline bool mlx5e_rx_hw_stamp(struct mlx5e_priv *priv)
++{
++	return priv->tstamp.hwtstamp_config.rx_filter == HWTSTAMP_FILTER_ALL;
++}
++
+ static inline int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq,
+ 				     struct mlx5e_rx_wqe *wqe, u16 ix)
+ {
+@@ -189,6 +194,7 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 				      struct sk_buff *skb)
+ {
+ 	struct net_device *netdev = rq->netdev;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	u32 cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
+ 	int lro_num_seg;
+ 
+@@ -202,6 +208,10 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 		rq->stats.lro_bytes += cqe_bcnt;
+ 	}
+ 
++	if (mlx5e_rx_hw_stamp(priv))
++		mlx5e_fill_hwstamp(&priv->tstamp, skb_hwtstamps(skb),
++				   get_cqe_ts(cqe));
++
+ 	mlx5e_handle_csum(netdev, cqe, rq, skb);
+ 
+ 	skb->protocol = eth_type_trans(skb, netdev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index aa037eb..c48a732 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -38,6 +38,12 @@
+ #define MLX5E_SQ_STOP_ROOM (MLX5_SEND_WQE_MAX_WQEBBS +\
+ 			    MLX5E_SQ_NOPS_ROOM)
+ 
++static inline bool mlx5e_tx_hw_stamp(struct mlx5e_priv *priv, struct sk_buff *skb)
++{
++	return ((priv->tstamp.hwtstamp_config.tx_type == HWTSTAMP_TX_ON) &&
++		(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP));
++}
++
+ void mlx5e_send_nop(struct mlx5e_sq *sq, bool notify_hw)
+ {
+ 	struct mlx5_wq_cyc                *wq  = &sq->wq;
+@@ -282,6 +288,9 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	netdev_tx_sent_queue(sq->txq, wi->num_bytes);
+ 
++	if (mlx5e_tx_hw_stamp(sq->channel->priv, skb))
++		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
++
+ 	if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5E_SQ_STOP_ROOM))) {
+ 		netif_tx_stop_queue(sq->txq);
+ 		sq->stats.stopped++;
+@@ -380,6 +389,14 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 				continue;
+ 			}
+ 
++			if (mlx5e_tx_hw_stamp(sq->channel->priv, skb)) {
++				struct skb_shared_hwtstamps hwts;
++
++				mlx5e_fill_hwstamp(&sq->cq.channel->priv->tstamp,
++						   &hwts, get_cqe_ts(cqe));
++				skb_tstamp_tx(skb, &hwts);
++			}
++
+ 			for (j = 0; j < wi->num_dma; j++) {
+ 				struct mlx5e_sq_dma *dma =
+ 					mlx5e_dma_get(sq, dma_fifo_cc++);
 -- 
-1.9.1
+1.7.1
