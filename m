@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 4/4] net/mlx5e: Add PTP Hardware Clock (PHC) support
-Date: Sun, 20 Dec 2015 23:46:31 +0200
-Message-ID: <1450647991-13736-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 1/4] net/mlx5e: Do not modify the TX SKB
+Date: Sun, 20 Dec 2015 23:46:28 +0200
+Message-ID: <1450647991-13736-2-git-send-email-saeedm@mellanox.com>
 References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -12,208 +12,286 @@ Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:60555 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:60479 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751211AbbLTVr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2015 16:47:28 -0500
+	id S1751057AbbLTVq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2015 16:46:58 -0500
 In-Reply-To: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Achiad Shochat <achiad@mellanox.com>
 
-Add a PHC support to the mlx5_en driver. Use reader/writer spinlocks to
-protect the timecounter since every packet received needs to call
-timecounter_cycle2time() when timestamping is enabled.  This can become
-a performance bottleneck with RSS and multiple receive queues if normal
-spinlocks are used.
+If the SKB is cloned, or has an elevated users count, someone else
+can be looking at it at the same time.
 
-The driver has been tested with both Documentation/ptp/testptp and the
-linuxptp project (http://linuxptp.sourceforge.net/) on a Mellanox
-ConnectX-4 card.
-
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |    3 +
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  104 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    2 +
- 4 files changed, 110 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    5 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   73 ++++++++++++---------
+ 3 files changed, 49 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index 158c88c..c503ea0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -13,6 +13,7 @@ config MLX5_CORE
- config MLX5_CORE_EN
- 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
- 	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
-+	select PTP_1588_CLOCK
- 	default n
- 	---help---
- 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 0395e72..9fa933d 100644
+index f689ce5..ae3f0e3 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -34,6 +34,7 @@
- #include <linux/etherdevice.h>
- #include <linux/timecounter.h>
- #include <linux/net_tstamp.h>
-+#include <linux/ptp_clock_kernel.h>
- #include <linux/mlx5/driver.h>
- #include <linux/mlx5/qp.h>
- #include <linux/mlx5/cq.h>
-@@ -495,6 +496,8 @@ struct mlx5e_tstamp {
- 	u32                        nominal_c_mult;
- 	unsigned long              overflow_period;
- 	struct delayed_work        overflow_work;
-+	struct ptp_clock          *ptp;
-+	struct ptp_clock_info      ptp_info;
+@@ -328,14 +328,12 @@ struct mlx5e_rq {
+ 	struct mlx5e_priv     *priv;
+ } ____cacheline_aligned_in_smp;
+ 
+-struct mlx5e_tx_skb_cb {
++struct mlx5e_tx_wqe_info {
+ 	u32 num_bytes;
+ 	u8  num_wqebbs;
+ 	u8  num_dma;
  };
  
- struct mlx5e_priv {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-index b85863e..eacf633 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-@@ -52,6 +52,93 @@ void mlx5e_fill_hwstamp(struct mlx5e_tstamp *tstamp,
- 	hwts->hwtstamp = ns_to_ktime(nsec);
- }
+-#define MLX5E_TX_SKB_CB(__skb) ((struct mlx5e_tx_skb_cb *)__skb->cb)
+-
+ enum mlx5e_dma_map_type {
+ 	MLX5E_DMA_MAP_SINGLE,
+ 	MLX5E_DMA_MAP_PAGE
+@@ -371,6 +369,7 @@ struct mlx5e_sq {
+ 	/* pointers to per packet info: write@xmit, read@completion */
+ 	struct sk_buff           **skb;
+ 	struct mlx5e_sq_dma       *dma_fifo;
++	struct mlx5e_tx_wqe_info  *wqe_info;
  
-+static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
-+			     const struct timespec64 *ts)
-+{
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						   ptp_info);
-+	u64 ns = timespec64_to_ns(ts);
-+	unsigned long flags;
-+
-+	write_lock_irqsave(&tstamp->lock, flags);
-+	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
-+
-+	return 0;
-+}
-+
-+static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
-+			     struct timespec64 *ts)
-+{
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						   ptp_info);
-+	u64 ns;
-+	unsigned long flags;
-+
-+	write_lock_irqsave(&tstamp->lock, flags);
-+	ns = timecounter_read(&tstamp->clock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
-+
-+	*ts = ns_to_timespec64(ns);
-+
-+	return 0;
-+}
-+
-+static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-+{
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						   ptp_info);
-+	unsigned long flags;
-+
-+	write_lock_irqsave(&tstamp->lock, flags);
-+	timecounter_adjtime(&tstamp->clock, delta);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
-+
-+	return 0;
-+}
-+
-+static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
-+{
-+	u64 adj;
-+	u32 diff;
-+	int neg_adj = 0;
-+	unsigned long flags;
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						  ptp_info);
-+
-+	if (delta < 0) {
-+		neg_adj = 1;
-+		delta = -delta;
-+	}
-+
-+	adj = tstamp->nominal_c_mult;
-+	adj *= delta;
-+	diff = div_u64(adj, 1000000000ULL);
-+
-+	write_lock_irqsave(&tstamp->lock, flags);
-+	timecounter_read(&tstamp->clock);
-+	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
-+					tstamp->nominal_c_mult + diff;
-+	write_unlock_irqrestore(&tstamp->lock, flags);
-+
-+	return 0;
-+}
-+
-+static const struct ptp_clock_info mlx5e_ptp_clock_info = {
-+	.owner		= THIS_MODULE,
-+	.max_adj	= 100000000,
-+	.n_alarm	= 0,
-+	.n_ext_ts	= 0,
-+	.n_per_out	= 0,
-+	.n_pins		= 0,
-+	.pps		= 0,
-+	.adjfreq	= mlx5e_ptp_adjfreq,
-+	.adjtime	= mlx5e_ptp_adjtime,
-+	.gettime64	= mlx5e_ptp_gettime,
-+	.settime64	= mlx5e_ptp_settime,
-+	.enable		= NULL,
-+};
-+
- static cycle_t mlx5e_read_clock(const struct cyclecounter *cc)
+ 	/* read only */
+ 	struct mlx5_wq_cyc         wq;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index d4601a5..96775a2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -507,6 +507,7 @@ static void mlx5e_close_rq(struct mlx5e_rq *rq)
+ 
+ static void mlx5e_free_sq_db(struct mlx5e_sq *sq)
  {
- 	struct mlx5e_tstamp *tstamp = container_of(cc, struct mlx5e_tstamp,
-@@ -117,6 +204,18 @@ void mlx5e_timestamp_init(struct mlx5e_priv *priv)
++	kfree(sq->wqe_info);
+ 	kfree(sq->dma_fifo);
+ 	kfree(sq->skb);
+ }
+@@ -519,8 +520,10 @@ static int mlx5e_alloc_sq_db(struct mlx5e_sq *sq, int numa)
+ 	sq->skb = kzalloc_node(wq_sz * sizeof(*sq->skb), GFP_KERNEL, numa);
+ 	sq->dma_fifo = kzalloc_node(df_sz * sizeof(*sq->dma_fifo), GFP_KERNEL,
+ 				    numa);
++	sq->wqe_info = kzalloc_node(wq_sz * sizeof(*sq->wqe_info), GFP_KERNEL,
++				    numa);
  
- 	INIT_DELAYED_WORK(&tstamp->overflow_work, mlx5e_timestamp_overflow);
- 	schedule_delayed_work(&tstamp->overflow_work, 0);
-+
-+	/* Configure the PHC */
-+	tstamp->ptp_info = mlx5e_ptp_clock_info;
-+	snprintf(tstamp->ptp_info.name, 16, "mlx5 ptp");
-+
-+	tstamp->ptp = ptp_clock_register(&tstamp->ptp_info,
-+					 &priv->mdev->pdev->dev);
-+	if (IS_ERR_OR_NULL(tstamp->ptp)) {
-+		mlx5_core_warn(priv->mdev, "ptp_clock_register failed %ld\n",
-+			       PTR_ERR(tstamp->ptp));
-+		tstamp->ptp = NULL;
-+	}
+-	if (!sq->skb || !sq->dma_fifo) {
++	if (!sq->skb || !sq->dma_fifo || !sq->wqe_info) {
+ 		mlx5e_free_sq_db(sq);
+ 		return -ENOMEM;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 1341b1d..aa037eb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -92,11 +92,11 @@ static inline struct mlx5e_sq_dma *mlx5e_dma_get(struct mlx5e_sq *sq, u32 i)
+ 	return &sq->dma_fifo[i & sq->dma_fifo_mask];
  }
  
- void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
-@@ -131,4 +230,9 @@ void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
- 	write_unlock(&tstamp->lock);
+-static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, struct sk_buff *skb)
++static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, u8 num_dma)
+ {
+ 	int i;
  
- 	cancel_delayed_work_sync(&tstamp->overflow_work);
-+
-+	if (priv->tstamp.ptp) {
-+		ptp_clock_unregister(priv->tstamp.ptp);
-+		priv->tstamp.ptp = NULL;
-+	}
+-	for (i = 0; i < MLX5E_TX_SKB_CB(skb)->num_dma; i++) {
++	for (i = 0; i < num_dma; i++) {
+ 		struct mlx5e_sq_dma *last_pushed_dma =
+ 			mlx5e_dma_get(sq, --sq->dma_fifo_pc);
+ 
+@@ -139,19 +139,28 @@ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
+ 	return MLX5E_MIN_INLINE;
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 00458c7..aa1fc3e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -881,6 +881,8 @@ static int mlx5e_get_ts_info(struct net_device *dev,
+ 
+-static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs)
++static inline void mlx5e_tx_skb_pull_inline(unsigned char **skb_data,
++					    unsigned int *skb_len,
++					    unsigned int len)
++{
++	*skb_len -= len;
++	*skb_data += len;
++}
++
++static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs,
++				     unsigned char **skb_data,
++				     unsigned int *skb_len)
+ {
+ 	struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)start;
+ 	int cpy1_sz = 2 * ETH_ALEN;
+ 	int cpy2_sz = ihs - cpy1_sz;
+ 
+-	skb_copy_from_linear_data(skb, vhdr, cpy1_sz);
+-	skb_pull_inline(skb, cpy1_sz);
++	memcpy(vhdr, *skb_data, cpy1_sz);
++	mlx5e_tx_skb_pull_inline(skb_data, skb_len, cpy1_sz);
+ 	vhdr->h_vlan_proto = skb->vlan_proto;
+ 	vhdr->h_vlan_TCI = cpu_to_be16(skb_vlan_tag_get(skb));
+-	skb_copy_from_linear_data(skb, &vhdr->h_vlan_encapsulated_proto,
+-				  cpy2_sz);
+-	skb_pull_inline(skb, cpy2_sz);
++	memcpy(&vhdr->h_vlan_encapsulated_proto, *skb_data, cpy2_sz);
++	mlx5e_tx_skb_pull_inline(skb_data, skb_len, cpy2_sz);
+ }
+ 
+ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+@@ -160,11 +169,14 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	u16 pi = sq->pc & wq->sz_m1;
+ 	struct mlx5e_tx_wqe      *wqe  = mlx5_wq_cyc_get_wqe(wq, pi);
++	struct mlx5e_tx_wqe_info *wi   = &sq->wqe_info[pi];
+ 
+ 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
+ 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
+ 	struct mlx5_wqe_data_seg *dseg;
+ 
++	unsigned char *skb_data = skb->data;
++	unsigned int skb_len = skb->len;
+ 	u8  opcode = MLX5_OPCODE_SEND;
+ 	dma_addr_t dma_addr = 0;
+ 	bool bf = false;
+@@ -192,8 +204,8 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		opcode       = MLX5_OPCODE_LSO;
+ 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		payload_len  = skb->len - ihs;
+-		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
+-					(skb_shinfo(skb)->gso_segs - 1) * ihs;
++		wi->num_bytes = skb->len +
++				(skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 		sq->stats.tso_packets++;
+ 		sq->stats.tso_bytes += payload_len;
+ 	} else {
+@@ -201,16 +213,16 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		     !skb->xmit_more &&
+ 		     !skb_shinfo(skb)->nr_frags;
+ 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
+-		MLX5E_TX_SKB_CB(skb)->num_bytes = max_t(unsigned int, skb->len,
+-							ETH_ZLEN);
++		wi->num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
  	}
  
- 	info->phc_index = -1;
-+	if (priv->tstamp.ptp)
-+		info->phc_index = ptp_clock_index(priv->tstamp.ptp);
+ 	if (skb_vlan_tag_present(skb)) {
+-		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs);
++		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
++				  &skb_len);
+ 		ihs += VLAN_HLEN;
+ 	} else {
+-		skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
+-		skb_pull_inline(skb, ihs);
++		memcpy(eseg->inline_hdr_start, skb_data, ihs);
++		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
+ 	}
  
- 	return 0;
- }
+ 	eseg->inline_hdr_sz = cpu_to_be16(ihs);
+@@ -220,11 +232,11 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 			       MLX5_SEND_WQE_DS);
+ 	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
+ 
+-	MLX5E_TX_SKB_CB(skb)->num_dma = 0;
++	wi->num_dma = 0;
+ 
+-	headlen = skb_headlen(skb);
++	headlen = skb_len - skb->data_len;
+ 	if (headlen) {
+-		dma_addr = dma_map_single(sq->pdev, skb->data, headlen,
++		dma_addr = dma_map_single(sq->pdev, skb_data, headlen,
+ 					  DMA_TO_DEVICE);
+ 		if (unlikely(dma_mapping_error(sq->pdev, dma_addr)))
+ 			goto dma_unmap_wqe_err;
+@@ -234,7 +246,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		dseg->byte_count = cpu_to_be32(headlen);
+ 
+ 		mlx5e_dma_push(sq, dma_addr, headlen, MLX5E_DMA_MAP_SINGLE);
+-		MLX5E_TX_SKB_CB(skb)->num_dma++;
++		wi->num_dma++;
+ 
+ 		dseg++;
+ 	}
+@@ -253,23 +265,22 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		dseg->byte_count = cpu_to_be32(fsz);
+ 
+ 		mlx5e_dma_push(sq, dma_addr, fsz, MLX5E_DMA_MAP_PAGE);
+-		MLX5E_TX_SKB_CB(skb)->num_dma++;
++		wi->num_dma++;
+ 
+ 		dseg++;
+ 	}
+ 
+-	ds_cnt += MLX5E_TX_SKB_CB(skb)->num_dma;
++	ds_cnt += wi->num_dma;
+ 
+ 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
+ 	cseg->qpn_ds           = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+ 
+ 	sq->skb[pi] = skb;
+ 
+-	MLX5E_TX_SKB_CB(skb)->num_wqebbs = DIV_ROUND_UP(ds_cnt,
+-							MLX5_SEND_WQEBB_NUM_DS);
+-	sq->pc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++	wi->num_wqebbs = DIV_ROUND_UP(ds_cnt, MLX5_SEND_WQEBB_NUM_DS);
++	sq->pc += wi->num_wqebbs;
+ 
+-	netdev_tx_sent_queue(sq->txq, MLX5E_TX_SKB_CB(skb)->num_bytes);
++	netdev_tx_sent_queue(sq->txq, wi->num_bytes);
+ 
+ 	if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5E_SQ_STOP_ROOM))) {
+ 		netif_tx_stop_queue(sq->txq);
+@@ -280,7 +291,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		int bf_sz = 0;
+ 
+ 		if (bf && sq->uar_bf_map)
+-			bf_sz = MLX5E_TX_SKB_CB(skb)->num_wqebbs << 3;
++			bf_sz = wi->num_wqebbs << 3;
+ 
+ 		cseg->fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
+ 		mlx5e_tx_notify_hw(sq, wqe, bf_sz);
+@@ -297,7 +308,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ dma_unmap_wqe_err:
+ 	sq->stats.dropped++;
+-	mlx5e_dma_unmap_wqe_err(sq, skb);
++	mlx5e_dma_unmap_wqe_err(sq, wi->num_dma);
+ 
+ 	dev_kfree_skb_any(skb);
+ 
+@@ -352,6 +363,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 		wqe_counter = be16_to_cpu(cqe->wqe_counter);
+ 
+ 		do {
++			struct mlx5e_tx_wqe_info *wi;
+ 			struct sk_buff *skb;
+ 			u16 ci;
+ 			int j;
+@@ -360,6 +372,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 
+ 			ci = sqcc & sq->wq.sz_m1;
+ 			skb = sq->skb[ci];
++			wi = &sq->wqe_info[ci];
+ 
+ 			if (unlikely(!skb)) { /* nop */
+ 				sq->stats.nop++;
+@@ -367,7 +380,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 				continue;
+ 			}
+ 
+-			for (j = 0; j < MLX5E_TX_SKB_CB(skb)->num_dma; j++) {
++			for (j = 0; j < wi->num_dma; j++) {
+ 				struct mlx5e_sq_dma *dma =
+ 					mlx5e_dma_get(sq, dma_fifo_cc++);
+ 
+@@ -375,8 +388,8 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 			}
+ 
+ 			npkts++;
+-			nbytes += MLX5E_TX_SKB_CB(skb)->num_bytes;
+-			sqcc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++			nbytes += wi->num_bytes;
++			sqcc += wi->num_wqebbs;
+ 			dev_kfree_skb(skb);
+ 		} while (!last_wqe);
+ 	}
 -- 
 1.7.1
