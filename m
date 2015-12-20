@@ -1,41 +1,183 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH bluetooth-next] 6lowpan: fix debugfs interface entry name
-Date: Sun, 20 Dec 2015 08:22:04 +0100
-Message-ID: <60F184F1-1E10-4D0E-92F8-C778E6FF8386@holtmann.org>
-References: <1450178735-1572-1-git-send-email-alex.aring@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	netdev@vger.kernel.org, kernel@pengutronix.de,
-	lukasz.duda@nordicsemi.no
-To: Alexander Aring <alex.aring@gmail.com>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH/RFC net-next] ravb: Add dma queue interrupt support
+Date: Sun, 20 Dec 2015 18:10:35 +0900
+Message-ID: <CAH1o70K87cCy9qyWDjLy=otzhVg7V=znfZNbLV2XcTYyW6didQ@mail.gmail.com>
+References: <1450182181-12575-1-git-send-email-ykaneko0929@gmail.com>
+	<56706330.2060803@cogentembedded.com>
+	<CAH1o70LnEEu3iYos8wsaEZ=T67N+Tex_XHZgE9P93n6X6Bzz4A@mail.gmail.com>
+	<5672F423.6010807@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [82.165.8.211] ([82.165.8.211]:51609 "EHLO mail.holtmann.org"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751402AbbLTHWI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2015 02:22:08 -0500
-In-Reply-To: <1450178735-1572-1-git-send-email-alex.aring@gmail.com>
+Received: from mail-yk0-f181.google.com ([209.85.160.181]:34313 "EHLO
+	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754262AbbLTJKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2015 04:10:36 -0500
+In-Reply-To: <5672F423.6010807@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex,
+Hi,
 
-> This patches moves the debugfs interface related register after
-> netdevice register. The function lowpan_dev_debugfs_init will use
-> "dev->name" which can be before register_netdevice a format string.
-> The function register_netdevice will evaluate the format string if
-> necessary and replace "dev->name" to the real interface name.
-> 
-> Reported-by: Lukasz Duda <lukasz.duda@nordicsemi.no>
-> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> ---
-> net/6lowpan/core.c | 6 +++---
-> 1 file changed, 3 insertions(+), 3 deletions(-)
+2015-12-18 2:42 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+> On 12/17/2015 07:29 PM, Yoshihiro Kaneko wrote:
+>
+>>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>>
+>>>> This patch supports the following interrupts.
+>>>>
+>>>> - One interrupt for multiple (descriptor, error, management)
+>>>> - One interrupt for emac
+>>>> - Four interrupts for dma queue (best effort rx/tx, network control
+>>>> rx/tx)
+>>>
+>>>
+>>>
+>>>     You don't say why the current 2-interrupt scheme (implemented by
+>>> Simon's
+>>> patch) isn't enpough...
+>>>
+>>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>>>
+>>>
+>>> [...]
+>>>
+>>>> diff --git a/drivers/net/ethernet/renesas/ravb.h
+>>>> b/drivers/net/ethernet/renesas/ravb.h
+>>>> index 9fbe92a..eada5a1 100644
+>>>> --- a/drivers/net/ethernet/renesas/ravb.h
+>>>> +++ b/drivers/net/ethernet/renesas/ravb.h
+>>>> @@ -157,6 +157,7 @@ enum ravb_reg {
+>
+> [...]
+>>>>
+>>>> +#define RAVB_RIx2_ALL  0x8003ffff
+>>>
+>>>
+>>>     No prefix. And there's bit 31 in this register, according to my gen3
+>>> manual. So, your _ALL isn't really "all bits". I'd rather call it
+>>> RIx2_QFx.
+>>> Or even RIE2_QFS and RID2_QFD.
+>>
+>>
+>> I think that bit 31 is included in the value 0x8003ffff. Or I'm
+>> missing something?
+>
+>
+>    Sorry, I misread the code.
+>
+>>>> +
+>>>> +/* TIx */
+>>>
+>>>
+>>>     TIE/TID.
+>>>
+>>>> +#define RAVB_TIx_ALL   0x000fffff
+>>>
+>>>
+>>>     No prefix. And there's bit 31 in this register, according to my gen3
+>>> manual.
+>
+>
+>    Oops, no bit 31 in these regs.
+>
+>> So, your _ALL isn't really "all bits".
+>>
+>> I think the correct value is 0x000f0f0f.
+>
+>
+>    Indeed, please fix.
+>
+>>> [...]
+>>>>
+>>>>
+>>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>>>> b/drivers/net/ethernet/renesas/ravb_main.c
+>>>> index 120cc25..753b67d 100644
+>>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>
+> [...]
+>>>>
+>>>> @@ -654,7 +679,7 @@ static int ravb_stop_dma(struct net_device *ndev)
+>>>>    }
+>>>>
+>>>>    /* E-MAC interrupt handler */
+>>>> -static void ravb_emac_interrupt(struct net_device *ndev)
+>>>> +static void _ravb_emac_interrupt(struct net_device *ndev)
+>>>
+>>>
+>>>
+>>>     ravb_emac_interrupt_[un]locked() perhaps? Not sure which is more
+>>> correct... :-)
+>>
+>>
+>> How about ravb_process_emac_interrupt() ?
+>
+>
+>    I've made up my mind -- I'd prefer ravb_emac_interrupt_unlocked().
 
-patch has been applied to bluetooth-next tree.
+Got it.
 
-Regards
+>
+> [...]
+>>>>
+>>>> +static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
+>>>> +{
+>>>> +       struct net_device *ndev = dev_id;
+>>>> +       struct ravb_private *priv = netdev_priv(ndev);
+>>>> +       irqreturn_t result = IRQ_NONE;
+>>>> +       u32 iss;
+>>>> +
+>>>> +       spin_lock(&priv->lock);
+>>>> +       /* Get interrupt status */
+>>>> +       iss = ravb_read(ndev, ISS);
+>>>> +
+>>>>          /* Error status summary */
+>>>>          if (iss & ISS_ES) {
+>>>>                  ravb_error_interrupt(ndev);
+>>>>                  result = IRQ_HANDLED;
+>>>>          }
+>>>>
+>>>> +       /* Management */
+>>>
+>>>
+>>>
+>>>     Really? I thought that's gPTP Interrupt...
+>>
+>>
+>> gPTP seems to be a part of Management related interrupts.
+>
+>
+>    ISS.CGIM is still described as gPTP interrupt mirror in my gen3 manual.
 
-Marcel
+It is true.
+And also gPTP interrupt belongs to the interrupt Group 2, Management
+related interrupt.
+
+>
+>>>>          if (iss & ISS_CGIS)
+>>>>                  result = ravb_ptp_interrupt(ndev);
+>>>>
+>>>> @@ -776,6 +843,55 @@ static irqreturn_t ravb_interrupt(int irq, void
+>>>> *dev_id)
+>
+> [...]
+>
+>> Thanks,
+>> kaneko
+>
+>
+> MBR, Sergei
+>
+
+Thanks,
+kaneko
