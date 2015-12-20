@@ -1,8 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 2/4] net/mlx5_core: Add support for reading hardware timestamp
-Date: Sun, 20 Dec 2015 23:46:29 +0200
-Message-ID: <1450647991-13736-3-git-send-email-saeedm@mellanox.com>
-References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 0/4] Introduce mlx5 ethernet timestamping
+Date: Sun, 20 Dec 2015 23:46:27 +0200
+Message-ID: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -12,145 +11,62 @@ Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:60537 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:60475 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751208AbbLTVrR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2015 16:47:17 -0500
-In-Reply-To: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+	id S1751046AbbLTVq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2015 16:46:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+Hi Dave,
 
-A preparation step which adds support for reading the hardware
-timestamp from the internal clock and from the CQE.
-In addition, advertize device_frequency_khz HCA capability.
+This patch series introduces the support for ConnectX-4 timestamping
+and the PTP kernel interface.
 
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   31 ++++++++++++++++++++
+This version addresses all the comments received on v1. The first patch
+was replaced with a one that addresses the SKB data issue and fixes it
+in the right way (By Achiad), Also Addressed all of Richard's comments
+re timestamping patches and fixed the delayed work to work in the correct delay.
+
+In details:
+
+1st patch prevents the driver from modifying skb->data and SKB CB in
+device xmit function.
+
+2nd patch adds the needed low level helpers for:
+	- Fetching the hardware clock (hardware internal timer)
+	- Parsing CQEs timestamps
+	- Device frequency capability
+
+3rd patch adds new en_clock.c file that handles all needed timestamping
+operations:
+	- Internal clock structure initialization and other helper functions
+	- Added the needed ioctl for setting/getting the current timestamping
+	  configuration.
+	- used this configuration in RX/TX data path to fill the SKB with 
+	  the timestamp.
+
+4th patch Introduces PTP (PHC) support.
+
+Achiad Shochat (1):
+  net/mlx5e: Do not modify the TX SKB
+
+Eran Ben Elisha (3):
+  net/mlx5_core: Add support for reading hardware timestamp
+  net/mlx5e: Add HW timestamping (TS) support
+  net/mlx5e: Add PTP Hardware Clock (PHC) support
+
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  238 ++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   33 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   82 +++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   10 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   90 +++++---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   31 +++
  .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
- include/linux/mlx5/device.h                        |   20 +++++++++++--
- include/linux/mlx5/mlx5_ifc.h                      |    5 ++-
- 4 files changed, 52 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 789882b..b16eb42 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -504,6 +504,37 @@ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id)
- 	return mlx5_cmd_status_to_err_v2(out);
- }
- 
-+static u32 internal_timer_h(struct mlx5_core_dev *dev)
-+{
-+	return ioread32be(&dev->iseg->internal_timer_h);
-+}
-+
-+static u32 internal_timer_l(struct mlx5_core_dev *dev)
-+{
-+	return ioread32be(&dev->iseg->internal_timer_l);
-+}
-+
-+cycle_t mlx5_core_read_clock(struct mlx5_core_dev *dev)
-+{
-+	u32 timer_h, timer_h1, timer_l;
-+
-+	/*  Reading the internal timer using 2 PCI reads in a non-atomic manner
-+	 * may hit the wraparound of the 32 LSBs. Reading the 32 MSBs twice can
-+	 * verify a wraparound did not happen.
-+	 */
-+	timer_h = internal_timer_h(dev);
-+	timer_l = internal_timer_l(dev);
-+	timer_h1 = internal_timer_h(dev);
-+	if (timer_h == timer_h1)
-+		goto ret;
-+
-+	/* In case of overflow or wraparound, re-read the LSB */
-+	timer_l = internal_timer_l(dev);
-+
-+ret:
-+	return (u64)timer_l | (u64)timer_h1 << 32;
-+}
-+
- static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
- {
- 	struct mlx5_priv *priv  = &mdev->priv;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index ea6a137..b6651b8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -98,6 +98,7 @@ int mlx5_core_sriov_configure(struct pci_dev *dev, int num_vfs);
- int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
- int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
- int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
-+cycle_t mlx5_core_read_clock(struct mlx5_core_dev *dev);
- 
- void mlx5e_init(void);
- void mlx5e_cleanup(void);
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 7d3a85f..df2f79e 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -443,9 +443,12 @@ struct mlx5_init_seg {
- 	__be32			rsvd1[120];
- 	__be32			initializing;
- 	struct health_buffer	health;
--	__be32			rsvd2[884];
-+	__be32			rsvd2[880];
-+	__be32			internal_timer_h;
-+	__be32			internal_timer_l;
-+	__be32			rsrv3[2];
- 	__be32			health_counter;
--	__be32			rsvd3[1019];
-+	__be32			rsvd4[1019];
- 	__be64			ieee1588_clk;
- 	__be32			ieee1588_clk_type;
- 	__be32			clr_intx;
-@@ -601,7 +604,8 @@ struct mlx5_cqe64 {
- 	__be32		imm_inval_pkey;
- 	u8		rsvd40[4];
- 	__be32		byte_cnt;
--	__be64		timestamp;
-+	__be32		timestamp_h;
-+	__be32		timestamp_l;
- 	__be32		sop_drop_qpn;
- 	__be16		wqe_counter;
- 	u8		signature;
-@@ -623,6 +627,16 @@ static inline int cqe_has_vlan(struct mlx5_cqe64 *cqe)
- 	return !!(cqe->l4_hdr_type_etc & 0x1);
- }
- 
-+static inline u64 get_cqe_ts(struct mlx5_cqe64 *cqe)
-+{
-+	u32 hi, lo;
-+
-+	hi = be32_to_cpu(cqe->timestamp_h);
-+	lo = be32_to_cpu(cqe->timestamp_l);
-+
-+	return (u64)lo | ((u64)hi << 32);
-+}
-+
- enum {
- 	CQE_L4_HDR_TYPE_NONE			= 0x0,
- 	CQE_L4_HDR_TYPE_TCP_NO_ACK		= 0x1,
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 131a273..e4da900 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -829,9 +829,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         reserved_66[0x8];
- 	u8         log_uar_page_sz[0x10];
- 
--	u8         reserved_67[0xe0];
-+	u8         reserved_67[0x40];
-+	u8         device_frequency_khz[0x20];
-+	u8         reserved_68[0x5f];
- 
--	u8         reserved_68[0x1f];
- 	u8         cqe_zip[0x1];
- 
- 	u8         cqe_zip_timeout[0x10];
--- 
-1.7.1
+ include/linux/mlx5/device.h                        |   20 ++-
+ include/linux/mlx5/mlx5_ifc.h                      |    5 +-
+ 12 files changed, 499 insertions(+), 41 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
