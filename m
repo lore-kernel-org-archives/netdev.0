@@ -1,137 +1,57 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 3/4] net/mlx5e: Add HW timestamping (TS) support
-Date: Sun, 20 Dec 2015 15:08:18 +0200
-Message-ID: <CALzJLG_PdkDNnHVfV5XsD0pGJ5MXx7Tb-4kuLSFq3o4P2dG8KA@mail.gmail.com>
-References: <1450355735-30846-1-git-send-email-saeedm@mellanox.com>
-	<1450355735-30846-4-git-send-email-saeedm@mellanox.com>
-	<20151217201154.GA5975@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: Richard Cochran <richardcochran@gmail.com>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] ibmveth: consolidate kmalloc of array, memset 0 to kcalloc
+Date: Sun, 20 Dec 2015 15:06:18 +0100
+Message-ID: <1450620378-8342-1-git-send-email-hofrat@osadl.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f171.google.com ([209.85.160.171]:36663 "EHLO
-	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754422AbbLTNIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2015 08:08:19 -0500
-Received: by mail-yk0-f171.google.com with SMTP id x184so107670628yka.3
-        for <netdev@vger.kernel.org>; Sun, 20 Dec 2015 05:08:18 -0800 (PST)
-In-Reply-To: <20151217201154.GA5975@localhost.localdomain>
+Received: from www.osadl.org ([62.245.132.105]:46392 "EHLO www.osadl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932558AbbLTOKX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2015 09:10:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2015 at 10:11 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Thu, Dec 17, 2015 at 02:35:34PM +0200, Saeed Mahameed wrote:
->> @@ -63,6 +65,7 @@
->>  #define MLX5E_TX_CQ_POLL_BUDGET        128
->>  #define MLX5E_UPDATE_STATS_INTERVAL    200 /* msecs */
->>  #define MLX5E_SQ_BF_BUDGET             16
->> +#define MLX5E_SERVICE_TASK_DELAY       (HZ / 4)
->
-> Hm...
->
->> +void mlx5e_timestamp_overflow_check(struct mlx5e_priv *priv)
->> +{
->> +     bool timeout = time_is_before_jiffies(priv->tstamp.last_overflow_check +
->> +                                           priv->tstamp.overflow_period);
->> +     unsigned long flags;
->> +
->> +     if (timeout) {
->> +             write_lock_irqsave(&priv->tstamp.lock, flags);
->> +             timecounter_read(&priv->tstamp.clock);
->> +             write_unlock_irqrestore(&priv->tstamp.lock, flags);
->> +             priv->tstamp.last_overflow_check = jiffies;
->
-> Here you have extra book keeping, because the rate of the work
-> callbacks is not the same as the rate of the overflow checks.
->
->> +     }
->> +}
->
->> +void mlx5e_timestamp_init(struct mlx5e_priv *priv)
->> +{
->> +     struct mlx5e_tstamp *tstamp = &priv->tstamp;
->> +     u64 ns;
->> +     u64 frac = 0;
->> +     u32 dev_freq;
->> +
->> +     mlx5e_timestamp_init_config(tstamp);
->> +     dev_freq = MLX5_CAP_GEN(priv->mdev, device_frequency_khz);
->> +     if (!dev_freq) {
->> +             mlx5_core_warn(priv->mdev, "invalid device_frequency_khz. %s failed\n",
->> +                            __func__);
->> +             return;
->> +     }
->> +     rwlock_init(&tstamp->lock);
->> +     memset(&tstamp->cycles, 0, sizeof(tstamp->cycles));
->> +     tstamp->cycles.read = mlx5e_read_clock;
->> +     tstamp->cycles.shift = MLX5E_CYCLES_SHIFT;
->> +     tstamp->cycles.mult = clocksource_khz2mult(dev_freq,
->> +                                                tstamp->cycles.shift);
->> +     tstamp->nominal_c_mult = tstamp->cycles.mult;
->> +     tstamp->cycles.mask = CLOCKSOURCE_MASK(41);
->> +
->> +     timecounter_init(&tstamp->clock, &tstamp->cycles,
->> +                      ktime_to_ns(ktime_get_real()));
->> +
->> +     /* Calculate period in seconds to call the overflow watchdog - to make
->> +      * sure counter is checked at least once every wrap around.
->> +      */
->> +     ns = cyclecounter_cyc2ns(&tstamp->cycles, tstamp->cycles.mask, frac,
->> +                              &frac);
->> +     do_div(ns, NSEC_PER_SEC / 2 / HZ);
->> +     tstamp->overflow_period = ns;
->> +}
->
-> And here you take great pains to calculate the rate of overflow checks...
->
->> +/* mlx5e_service_task - Run service task for tasks that needed to be done
->> + * periodically
->> + */
->> +static void mlx5e_service_task(struct work_struct *work)
->> +{
->> +     struct delayed_work *dwork = to_delayed_work(work);
->> +     struct mlx5e_priv *priv = container_of(dwork, struct mlx5e_priv,
->> +                                            service_task);
->> +
->> +     mutex_lock(&priv->state_lock);
->> +     if (test_bit(MLX5E_STATE_OPENED, &priv->state) &&
->> +         !test_bit(MLX5E_STATE_DESTROYING, &priv->state)) {
->> +             if (MLX5_CAP_GEN(priv->mdev, device_frequency_khz)) {
->> +                     mlx5e_timestamp_overflow_check(priv);
->> +                     /* Only mlx5e_timestamp_overflow_check is called from
->> +                      * this service task. schedule a new task only if clock
->> +                      * is initialized. if changed, move the scheduler.
->> +                      */
->> +                     schedule_delayed_work(dwork, MLX5E_SERVICE_TASK_DELAY);
->
-> Why not simply use the rate you calculated, rather than some hard
-> coded value?
->
+This is an API consolidation only. The use of kmalloc + memset to 0
+is equivalent to kcalloc in this case as it is allocating an array
+of elements.
 
-This task was made to serve several kinds of tasks, currently its only
-purpose is to serve the overflow check,
-We will make it specific to overflow check for now and will use a more
-accurate delay.
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-> Consider What happens if MLX5E_SERVICE_TASK_DELAY is too long or way
-> too short.
->
+Found by coccinelle script (relaxed version of
+scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
 
-Agree, but what will happen if the calculated period is too rapid ?
-shouldn't we have some kind of minimum ?
+Patch was compile tested with: ppc64_defconfig
+(implies CONFIG_IBMVETH=m)
 
+Patch is against linux-next (localversion-next is -next-20150518)
 
->> +             }
->> +     }
->> +     mutex_unlock(&priv->state_lock);
->> +}
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ethernet/ibm/ibmveth.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 6691b5a..05f5e81 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -169,7 +169,7 @@ static int ibmveth_alloc_buffer_pool(struct ibmveth_buff_pool *pool)
+ 	if (!pool->free_map)
+ 		return -1;
+ 
+-	pool->dma_addr = kmalloc(sizeof(dma_addr_t) * pool->size, GFP_KERNEL);
++	pool->dma_addr = kcalloc(pool->size, sizeof(dma_addr_t), GFP_KERNEL);
+ 	if (!pool->dma_addr) {
+ 		kfree(pool->free_map);
+ 		pool->free_map = NULL;
+@@ -187,8 +187,6 @@ static int ibmveth_alloc_buffer_pool(struct ibmveth_buff_pool *pool)
+ 		return -1;
+ 	}
+ 
+-	memset(pool->dma_addr, 0, sizeof(dma_addr_t) * pool->size);
+-
+ 	for (i = 0; i < pool->size; ++i)
+ 		pool->free_map[i] = i;
+ 
+-- 
+1.7.10.4
