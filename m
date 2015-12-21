@@ -1,52 +1,47 @@
-From: Jeff Haran <Jeff.Haran@citrix.com>
-Subject: RE: Does the Community use Coverity ?
-Date: Mon, 21 Dec 2015 18:22:03 +0000
-Message-ID: <4E5779AD88B2F040B8A7E83ECF544D1A64AADA@SJCPEX01CL03.citrite.net>
-References: <CAMf7+LiLgPcNSMOGhV=i=6FV5VwrM0VNXpSmPci7xU9EBc0Sgg@mail.gmail.com>
-	<4E5779AD88B2F040B8A7E83ECF544D1A64A4CF@SJCPEX01CL03.citrite.net>
- <CAMf7+Li74m2_nZru3kfwJZ5G9r7W69pwkarHbccs1xw-G8ZjnA@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS)
+ support
+Date: Mon, 21 Dec 2015 19:35:08 +0100
+Message-ID: <20151221183508.GA13533@localhost.localdomain>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+ <1450647991-13736-4-git-send-email-saeedm@mellanox.com>
+ <20151221091509.GA2297@localhost.localdomain>
+ <CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kernelnewbies@kernelnewbies.org" <kernelnewbies@kernelnewbies.org>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: pavi1729 <pavitra1729@gmail.com>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <CAMf7+Li74m2_nZru3kfwJZ5G9r7W69pwkarHbccs1xw-G8ZjnA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34500 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750870AbbLUSfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 13:35:15 -0500
+Received: by mail-wm0-f42.google.com with SMTP id l126so80131723wml.1
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 10:35:14 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBwYXZpMTcyOSBbbWFpbHRvOnBh
-dml0cmExNzI5QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIERlY2VtYmVyIDE3LCAyMDE1
-IDI6MDQgQU0NCj4gVG86IEplZmYgSGFyYW4NCj4gQ2M6IGtlcm5lbG5ld2JpZXNAa2VybmVsbmV3
-Ymllcy5vcmc7IGxpbnV4LWZzZGV2ZWxAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC1tbWNAdmdl
-ci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBEb2Vz
-IHRoZSBDb21tdW5pdHkgdXNlIENvdmVyaXR5ID8NCj4gDQo+IFNhbmtldCwgSmVmZiwNCj4gICAg
-IFRoYW5rcyBhIHRvbiwgdGhhdCB3YXMgaGVscGZ1bC4NCj4gDQo+IENoZWVycywNCj4gUGF2aQ0K
-DQpQYXZpLA0KDQpJIHN1Z2dlc3QgdGhhdCBpZiB5b3UgZ2V0IHRoZSBjaGFuY2UsIGNoZWNrIG91
-dCB0aGVpciBjb2RlIGJyb3dzZXIuIENsaWNrIG9uIG9uZSBvZiB0aGUgYnVncyBpbiB0aGUgTGlu
-dXggcHJvamVjdCBhbmQgdGhlbiBjbGljayB0aGUgZm9sZGVyIGljb24gYXQgdGhlIHRvcCBvZiB0
-aGUgbG93ZXIgbGVmdCBwYW5lIHRvIGdldCB0byB0aGUgc291cmNlIGNvZGUuIEl0J3MgYWJpbGl0
-eSB0byBjcm9zcyByZWZlcmVuY2UgaXMgdGhlIGJlc3Qgb3V0IHRoZXJlLiBJdCBlbGltaW5hdGVz
-IGFsbCB0aGUgZmFsc2UgcG9zaXRpdmVzIGluIGNyb3NzIHJlZmVyZW5jZSByZXN1bHRzIHRoYXQg
-eW91IGdldCBmcm9tIG1vcmUgdHJhZGl0aW9uYWwgdG9rZW4gbWF0Y2hpbmcgYmFzZWQgYnJvd3Nl
-cnMgbGlrZSBjc2NvcGUsIGN0YWdzLCBldGMuDQoNCkplZmYgSGFyYW4NCiANCj4gT24gV2VkLCBE
-ZWMgMTYsIDIwMTUgYXQgMTI6MzIgQU0sIEplZmYgSGFyYW4gPEplZmYuSGFyYW5AY2l0cml4LmNv
-bT4NCj4gd3JvdGU6DQo+ID4+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj5Gcm9tOiBr
-ZXJuZWxuZXdiaWVzLQ0KPiBib3VuY2VzK2poYXJhbj1ieXRlbW9iaWxlLmNvbUBrZXJuZWxuZXdi
-aWVzLm9yZw0KPiA+PlttYWlsdG86a2VybmVsbmV3Ymllcy0NCj4gPj5ib3VuY2VzK2poYXJhbj1i
-eXRlbW9iaWxlLmNvbUBrZXJuZWxuZXdiaWVzLm9yZ10gT24gQmVoYWxmIE9mDQo+ID4+cGF2aTE3
-MjkNCj4gPj5TZW50OiBNb25kYXksIERlY2VtYmVyIDE0LCAyMDE1IDExOjAzIFBNDQo+ID4+VG86
-IGtlcm5lbG5ld2JpZXNAa2VybmVsbmV3Ymllcy5vcmc7IGxpbnV4LWZzZGV2ZWxAdmdlci5rZXJu
-ZWwub3JnOw0KPiA+PmxpbnV4LSBtbWNAdmdlci5rZXJuZWwub3JnOyBsaW51eC1uZXRkZXZAdmdl
-ci5rZXJuZWwub3JnDQo+ID4+U3ViamVjdDogRG9lcyB0aGUgQ29tbXVuaXR5IHVzZSBDb3Zlcml0
-eSA/DQo+ID4+DQo+ID4+SGksDQo+ID4+ICBNYXkgSSBrbm93IGlmIHRoZSBjb21tdW5pdHkgdXNl
-cyB0aGUgQ292ZXJpdHkgdG9vbCBhbmQsIGlmIHllcyB3aGVyZQ0KPiA+PmNhbiBJIGZpbmQgYSBy
-ZXBvIG9mIENvdmVyaXR5IHNjYW5zIG9mIGtlcm5lbHMgYW5kIElHTk9SRSBMSVNUOyBjYXVzZQ0K
-PiA+PnRoZXJlIG9idmlvdXNseSB3b3VsZCBiZSBmYWxzZSBwb3NpdGl2ZXMuDQo+ID4+DQo+ID4+
-Q2hlZXJzLA0KPiA+PlBhdmkNCj4gPg0KPiA+IGh0dHBzOi8vc2Nhbi5jb3Zlcml0eS5jb20vDQo+
-ID4NCj4gPiBTaWduIHVwIGZvciBhbiBhY2NvdW50IGFuZCBqb2luIHRoZSBMaW51eCBwcm9qZWN0
-Lg0KPiA+DQo+ID4gSmVmZiBIYXJhbg0KPiA+DQo=
+On Mon, Dec 21, 2015 at 04:35:23PM +0200, Saeed Mahameed wrote:
+> think of a case where:
+> CPU1: is just about to call
+> "schedule_delayed_work(&tstamp->overflow_work,
+> tstamp->overflow_period);"
+> CPU2: cancel_delayed_work
+> 
+> In this case cancel_dalyed_work_sync (CPU2) will wait for CPU1 to
+> complete but CPU1 will re-arm the work, and we will
+> be left with tstamp->overflow_work running forever.
+
+This is my understanding:  Once the work becomes re-queued, it will be
+canceled before running again.
+
+Thanks,
+Richard
