@@ -1,67 +1,58 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [RFC 5/5] i40e/ethtool: support coalesce setting by queue
-Date: Mon, 21 Dec 2015 16:49:09 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFD2BFC@fmsmsx115.amr.corp.intel.com>
-References: <1450335081-3012-1-git-send-email-kan.liang@intel.com>
- <1450335081-3012-5-git-send-email-kan.liang@intel.com>
- <FC41C24E35F18A40888AACA1A36F3E418AFD1CAC@fmsmsx115.amr.corp.intel.com>
- <37D7C6CF3E00A74B8858931C1DB2F077019C0D63@SHSMSX103.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"andi@firstfloor.org" <andi@firstfloor.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
-	"dsahern@gmail.com" <dsahern@gmail.com>,
-	"tj@kernel.org" <tj@kernel.org>,
-	"cascardo@redhat.com" <cascardo@redhat.com>,
-	"corbet@lwn.net" <corbet@lwn.net>,
-	"ben@decadent.org.uk" <ben@decadent.org
-To: "Liang, Kan" <kan.liang@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bwh@kernel.org" <bwh@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7360 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751208AbbLUQtK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 11:49:10 -0500
-In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F077019C0D63@SHSMSX103.ccr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] wlcore: consolidate kmalloc + memset 0 into kzalloc
+Date: Mon, 21 Dec 2015 17:47:44 +0100
+Message-ID: <1450716464-20759-1-git-send-email-hofrat@osadl.org>
+Cc: Eliad Peller <eliad@wizery.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Arik Nemtsov <arik@wizery.com>,
+	Tony Lindgren <tony@atomide.com>,
+	Luciano Coelho <luca@coelho.fi>,
+	Eyal Reizer <eyalreizer@gmail.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This is an API consolidation only. The use of kmalloc + memset to 0
+is equivalent to kzalloc.
 
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-> From: Liang, Kan
-> Sent: Friday, December 18, 2015 1:06 PM
-> 
-> Hi sln,
-> 
-> Thanks for the comments. I will fix it in V2.
-> 
-> Could you please check if the following code can find and set/get vector
-> correctly?
-> 
-> Get rx_usecs and tx_usecs per queue
-> 
-> +	if (queue > 0) {
-> +		if (queue >= vsi->num_queue_pairs) {
-> +			netif_info(pf, drv, netdev, "Invalid queue number\n");
+Found by coccinelle script (relaxed version of
+scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
 
-Adding queue range information here like in the next chunk would be nice.
+Patch was compile tested with: x86_64_defconfig +
+CONFIG_WL12XX=m (implies CONFIG_WLCORE=m)
 
-Otherwise, I think the rest of this looks reasonable.
+Patch is against linux-next (localversion-next is -next-20151221)
 
-sln
+ drivers/net/wireless/ti/wlcore/main.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+index ec7f6af..dfc49bf 100644
+--- a/drivers/net/wireless/ti/wlcore/main.c
++++ b/drivers/net/wireless/ti/wlcore/main.c
+@@ -838,7 +838,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
+ 
+ 	wl1271_info("Reading FW panic log");
+ 
+-	block = kmalloc(wl->fw_mem_block_size, GFP_KERNEL);
++	block = kzalloc(wl->fw_mem_block_size, GFP_KERNEL);
+ 	if (!block)
+ 		return;
+ 
+@@ -885,7 +885,6 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
+ 			goto out;
+ 		}
+ 
+-		memset(block, 0, wl->fw_mem_block_size);
+ 		ret = wlcore_read_hwaddr(wl, addr, block,
+ 					wl->fw_mem_block_size, false);
+ 
+-- 
+2.1.4
