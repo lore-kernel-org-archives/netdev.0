@@ -1,3264 +1,1091 @@
 From: <igal.liberman@freescale.com>
-Subject: [v10, 2/6] fsl/fman: Add FMan support
-Date: Mon, 21 Dec 2015 02:21:26 +0200
-Message-ID: <1450657290-6644-3-git-send-email-igal.liberman@freescale.com>
+Subject: [v10, 5/6] fsl/fman: Add FMan Port Support
+Date: Mon, 21 Dec 2015 02:21:29 +0200
+Message-ID: <1450657290-6644-6-git-send-email-igal.liberman@freescale.com>
 References: <1450657290-6644-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: <igal.liberman@freescale.com>
+Reply-To: igal.liberman@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
-	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
-	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
-	<davem@davemloft.net>, <afleming@gmail.com>, <knneth@gmail.com>,
-	Igal Liberman <igal.liberman@freescale.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, knneth@gmail.com, linux-kernel@vger.kernel.org,
+ ppc@mindchasers.com, stephen@networkplumber.org,
+ Igal Liberman <igal.liberman@freescale.com>, scottwood@freescale.com,
+ afleming@gmail.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ madalin.bucur@freescale.com
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1450657290-6644-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Igal Liberman <igal.liberman@freescale.com>
-
-Add the Data Path Acceleration Architecture Frame Manger Driver.
-The FMan embeds a series of hardware blocks that implement a group
-of Ethernet interfaces. This patch adds The FMan configuration,
-initialization and runtime control routines.
-
-The FMan driver supports several hardware versions
-differentiated by things like:
-	- Different type of MACs
-	- Number of MAC and ports
-	- Available resources
-	- Different hardware errata
-
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
----
- drivers/net/ethernet/freescale/fman/Makefile |    2 +-
- drivers/net/ethernet/freescale/fman/fman.c   | 2872 ++++++++++++++++++++++++++
- drivers/net/ethernet/freescale/fman/fman.h   |  325 +++
- 3 files changed, 3198 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/fman/fman.c
- create mode 100644 drivers/net/ethernet/freescale/fman/fman.h
-
-diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
-index fc2e194..fb5a7f0 100644
---- a/drivers/net/ethernet/freescale/fman/Makefile
-+++ b/drivers/net/ethernet/freescale/fman/Makefile
-@@ -2,4 +2,4 @@ subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
- 
- obj-y		+= fsl_fman.o
- 
--fsl_fman-objs	:= fman_muram.o
-+fsl_fman-objs	:= fman_muram.o fman.o
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-new file mode 100644
-index 0000000..98bae37
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -0,0 +1,2872 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include "fman.h"
-+#include "fman_muram.h"
-+
-+#include <linux/slab.h>
-+#include <linux/delay.h>
-+#include <linux/module.h>
-+#include <linux/of_platform.h>
-+#include <linux/clk.h>
-+#include <linux/of_address.h>
-+#include <linux/of_irq.h>
-+#include <linux/interrupt.h>
-+#include <linux/libfdt_env.h>
-+
-+/* General defines */
-+#define FMAN_LIODN_TBL			64	/* size of LIODN table */
-+#define MAX_NUM_OF_MACS			10
-+#define FM_NUM_OF_FMAN_CTRL_EVENT_REGS	4
-+#define BASE_RX_PORTID			0x08
-+#define BASE_TX_PORTID			0x28
-+
-+/* Modules registers offsets */
-+#define BMI_OFFSET		0x00080000
-+#define QMI_OFFSET		0x00080400
-+#define DMA_OFFSET		0x000C2000
-+#define FPM_OFFSET		0x000C3000
-+#define IMEM_OFFSET		0x000C4000
-+#define CGP_OFFSET		0x000DB000
-+
-+/* Exceptions bit map */
-+#define EX_DMA_BUS_ERROR		0x80000000
-+#define EX_DMA_READ_ECC			0x40000000
-+#define EX_DMA_SYSTEM_WRITE_ECC	0x20000000
-+#define EX_DMA_FM_WRITE_ECC		0x10000000
-+#define EX_FPM_STALL_ON_TASKS		0x08000000
-+#define EX_FPM_SINGLE_ECC		0x04000000
-+#define EX_FPM_DOUBLE_ECC		0x02000000
-+#define EX_QMI_SINGLE_ECC		0x01000000
-+#define EX_QMI_DEQ_FROM_UNKNOWN_PORTID	0x00800000
-+#define EX_QMI_DOUBLE_ECC		0x00400000
-+#define EX_BMI_LIST_RAM_ECC		0x00200000
-+#define EX_BMI_STORAGE_PROFILE_ECC	0x00100000
-+#define EX_BMI_STATISTICS_RAM_ECC	0x00080000
-+#define EX_IRAM_ECC			0x00040000
-+#define EX_MURAM_ECC			0x00020000
-+#define EX_BMI_DISPATCH_RAM_ECC	0x00010000
-+#define EX_DMA_SINGLE_PORT_ECC		0x00008000
-+
-+/* DMA defines */
-+/* masks */
-+#define DMA_MODE_BER			0x00200000
-+#define DMA_MODE_ECC			0x00000020
-+#define DMA_MODE_SECURE_PROT		0x00000800
-+#define DMA_MODE_AXI_DBG_MASK		0x0F000000
-+
-+#define DMA_TRANSFER_PORTID_MASK	0xFF000000
-+#define DMA_TRANSFER_TNUM_MASK		0x00FF0000
-+#define DMA_TRANSFER_LIODN_MASK	0x00000FFF
-+
-+#define DMA_STATUS_BUS_ERR		0x08000000
-+#define DMA_STATUS_READ_ECC		0x04000000
-+#define DMA_STATUS_SYSTEM_WRITE_ECC	0x02000000
-+#define DMA_STATUS_FM_WRITE_ECC	0x01000000
-+#define DMA_STATUS_FM_SPDAT_ECC	0x00080000
-+
-+#define DMA_MODE_CACHE_OR_SHIFT		30
-+#define DMA_MODE_AXI_DBG_SHIFT			24
-+#define DMA_MODE_CEN_SHIFT			13
-+#define DMA_MODE_CEN_MASK			0x00000007
-+#define DMA_MODE_DBG_SHIFT			7
-+#define DMA_MODE_AID_MODE_SHIFT		4
-+
-+#define DMA_THRESH_COMMQ_SHIFT			24
-+#define DMA_THRESH_READ_INT_BUF_SHIFT		16
-+#define DMA_THRESH_READ_INT_BUF_MASK		0x0000003f
-+#define DMA_THRESH_WRITE_INT_BUF_MASK		0x0000003f
-+
-+#define DMA_TRANSFER_PORTID_SHIFT		24
-+#define DMA_TRANSFER_TNUM_SHIFT		16
-+
-+#define DMA_CAM_SIZEOF_ENTRY			0x40
-+#define DMA_CAM_UNITS				8
-+
-+#define DMA_LIODN_SHIFT		16
-+#define DMA_LIODN_BASE_MASK	0x00000FFF
-+
-+/* FPM defines */
-+#define FPM_EV_MASK_DOUBLE_ECC		0x80000000
-+#define FPM_EV_MASK_STALL		0x40000000
-+#define FPM_EV_MASK_SINGLE_ECC		0x20000000
-+#define FPM_EV_MASK_RELEASE_FM		0x00010000
-+#define FPM_EV_MASK_DOUBLE_ECC_EN	0x00008000
-+#define FPM_EV_MASK_STALL_EN		0x00004000
-+#define FPM_EV_MASK_SINGLE_ECC_EN	0x00002000
-+#define FPM_EV_MASK_EXTERNAL_HALT	0x00000008
-+#define FPM_EV_MASK_ECC_ERR_HALT	0x00000004
-+
-+#define FPM_RAM_MURAM_ECC		0x00008000
-+#define FPM_RAM_IRAM_ECC		0x00004000
-+#define FPM_IRAM_ECC_ERR_EX_EN		0x00020000
-+#define FPM_MURAM_ECC_ERR_EX_EN	0x00040000
-+#define FPM_RAM_IRAM_ECC_EN		0x40000000
-+#define FPM_RAM_RAMS_ECC_EN		0x80000000
-+#define FPM_RAM_RAMS_ECC_EN_SRC_SEL	0x08000000
-+
-+#define FPM_REV1_MAJOR_MASK		0x0000FF00
-+#define FPM_REV1_MINOR_MASK		0x000000FF
-+
-+#define FPM_DISP_LIMIT_SHIFT		24
-+
-+#define FPM_PRT_FM_CTL1			0x00000001
-+#define FPM_PRT_FM_CTL2			0x00000002
-+#define FPM_PORT_FM_CTL_PORTID_SHIFT	24
-+#define FPM_PRC_ORA_FM_CTL_SEL_SHIFT	16
-+
-+#define FPM_THR1_PRS_SHIFT		24
-+#define FPM_THR1_KG_SHIFT		16
-+#define FPM_THR1_PLCR_SHIFT		8
-+#define FPM_THR1_BMI_SHIFT		0
-+
-+#define FPM_THR2_QMI_ENQ_SHIFT		24
-+#define FPM_THR2_QMI_DEQ_SHIFT		0
-+#define FPM_THR2_FM_CTL1_SHIFT		16
-+#define FPM_THR2_FM_CTL2_SHIFT		8
-+
-+#define FPM_EV_MASK_CAT_ERR_SHIFT	1
-+#define FPM_EV_MASK_DMA_ERR_SHIFT	0
-+
-+#define FPM_REV1_MAJOR_SHIFT		8
-+
-+#define FPM_RSTC_FM_RESET		0x80000000
-+#define FPM_RSTC_MAC0_RESET		0x40000000
-+#define FPM_RSTC_MAC1_RESET		0x20000000
-+#define FPM_RSTC_MAC2_RESET		0x10000000
-+#define FPM_RSTC_MAC3_RESET		0x08000000
-+#define FPM_RSTC_MAC8_RESET		0x04000000
-+#define FPM_RSTC_MAC4_RESET		0x02000000
-+#define FPM_RSTC_MAC5_RESET		0x01000000
-+#define FPM_RSTC_MAC6_RESET		0x00800000
-+#define FPM_RSTC_MAC7_RESET		0x00400000
-+#define FPM_RSTC_MAC9_RESET		0x00200000
-+
-+#define FPM_TS_INT_SHIFT		16
-+#define FPM_TS_CTL_EN			0x80000000
-+
-+/* BMI defines */
-+#define BMI_INIT_START				0x80000000
-+#define BMI_ERR_INTR_EN_STORAGE_PROFILE_ECC	0x80000000
-+#define BMI_ERR_INTR_EN_LIST_RAM_ECC		0x40000000
-+#define BMI_ERR_INTR_EN_STATISTICS_RAM_ECC	0x20000000
-+#define BMI_ERR_INTR_EN_DISPATCH_RAM_ECC	0x10000000
-+#define BMI_NUM_OF_TASKS_MASK			0x3F000000
-+#define BMI_NUM_OF_EXTRA_TASKS_MASK		0x000F0000
-+#define BMI_NUM_OF_DMAS_MASK			0x00000F00
-+#define BMI_NUM_OF_EXTRA_DMAS_MASK		0x0000000F
-+#define BMI_FIFO_SIZE_MASK			0x000003FF
-+#define BMI_EXTRA_FIFO_SIZE_MASK		0x03FF0000
-+#define BMI_CFG2_DMAS_MASK			0x0000003F
-+#define BMI_CFG2_TASKS_MASK			0x0000003F
-+
-+#define BMI_CFG2_TASKS_SHIFT		16
-+#define BMI_CFG2_DMAS_SHIFT		0
-+#define BMI_CFG1_FIFO_SIZE_SHIFT	16
-+#define BMI_NUM_OF_TASKS_SHIFT		24
-+#define BMI_EXTRA_NUM_OF_TASKS_SHIFT	16
-+#define BMI_NUM_OF_DMAS_SHIFT		8
-+#define BMI_EXTRA_NUM_OF_DMAS_SHIFT	0
-+
-+#define BMI_FIFO_ALIGN			0x100
-+
-+#define BMI_EXTRA_FIFO_SIZE_SHIFT	16
-+
-+/* QMI defines */
-+#define QMI_CFG_ENQ_EN			0x80000000
-+#define QMI_CFG_DEQ_EN			0x40000000
-+#define QMI_CFG_EN_COUNTERS		0x10000000
-+#define QMI_CFG_DEQ_MASK		0x0000003F
-+#define QMI_CFG_ENQ_MASK		0x00003F00
-+#define QMI_CFG_ENQ_SHIFT		8
-+
-+#define QMI_ERR_INTR_EN_DOUBLE_ECC	0x80000000
-+#define QMI_ERR_INTR_EN_DEQ_FROM_DEF	0x40000000
-+#define QMI_INTR_EN_SINGLE_ECC		0x80000000
-+
-+#define QMI_GS_HALT_NOT_BUSY		0x00000002
-+
-+/* IRAM defines */
-+#define IRAM_IADD_AIE			0x80000000
-+#define IRAM_READY			0x80000000
-+
-+/* Default values */
-+#define DEFAULT_CATASTROPHIC_ERR		0
-+#define DEFAULT_DMA_ERR				0
-+#define DEFAULT_AID_MODE			FMAN_DMA_AID_OUT_TNUM
-+#define DEFAULT_DMA_COMM_Q_LOW			0x2A
-+#define DEFAULT_DMA_COMM_Q_HIGH		0x3F
-+#define DEFAULT_CACHE_OVERRIDE			0
-+#define DEFAULT_DMA_CAM_NUM_OF_ENTRIES		64
-+#define DEFAULT_DMA_DBG_CNT_MODE		0
-+#define DEFAULT_DMA_SOS_EMERGENCY		0
-+#define DEFAULT_DMA_WATCHDOG			0
-+#define DEFAULT_DISP_LIMIT			0
-+#define DEFAULT_PRS_DISP_TH			16
-+#define DEFAULT_PLCR_DISP_TH			16
-+#define DEFAULT_KG_DISP_TH			16
-+#define DEFAULT_BMI_DISP_TH			16
-+#define DEFAULT_QMI_ENQ_DISP_TH		16
-+#define DEFAULT_QMI_DEQ_DISP_TH		16
-+#define DEFAULT_FM_CTL1_DISP_TH		16
-+#define DEFAULT_FM_CTL2_DISP_TH		16
-+
-+#define DFLT_AXI_DBG_NUM_OF_BEATS		1
-+
-+#define DFLT_DMA_READ_INT_BUF_LOW(dma_thresh_max_buf)	\
-+	((dma_thresh_max_buf + 1) / 2)
-+#define DFLT_DMA_READ_INT_BUF_HIGH(dma_thresh_max_buf)	\
-+	((dma_thresh_max_buf + 1) * 3 / 4)
-+#define DFLT_DMA_WRITE_INT_BUF_LOW(dma_thresh_max_buf)	\
-+	((dma_thresh_max_buf + 1) / 2)
-+#define DFLT_DMA_WRITE_INT_BUF_HIGH(dma_thresh_max_buf)\
-+	((dma_thresh_max_buf + 1) * 3 / 4)
-+
-+#define DMA_COMM_Q_LOW_FMAN_V3		0x2A
-+#define DMA_COMM_Q_LOW_FMAN_V2(dma_thresh_max_commq)		\
-+	((dma_thresh_max_commq + 1) / 2)
-+#define DFLT_DMA_COMM_Q_LOW(major, dma_thresh_max_commq)	\
-+	((major == 6) ? DMA_COMM_Q_LOW_FMAN_V3 :		\
-+	DMA_COMM_Q_LOW_FMAN_V2(dma_thresh_max_commq))
-+
-+#define DMA_COMM_Q_HIGH_FMAN_V3	0x3f
-+#define DMA_COMM_Q_HIGH_FMAN_V2(dma_thresh_max_commq)		\
-+	((dma_thresh_max_commq + 1) * 3 / 4)
-+#define DFLT_DMA_COMM_Q_HIGH(major, dma_thresh_max_commq)	\
-+	((major == 6) ? DMA_COMM_Q_HIGH_FMAN_V3 :		\
-+	DMA_COMM_Q_HIGH_FMAN_V2(dma_thresh_max_commq))
-+
-+#define TOTAL_NUM_OF_TASKS_FMAN_V3L	59
-+#define TOTAL_NUM_OF_TASKS_FMAN_V3H	124
-+#define DFLT_TOTAL_NUM_OF_TASKS(major, minor, bmi_max_num_of_tasks)	\
-+	((major == 6) ? ((minor == 1 || minor == 4) ?			\
-+	TOTAL_NUM_OF_TASKS_FMAN_V3L : TOTAL_NUM_OF_TASKS_FMAN_V3H) :	\
-+	bmi_max_num_of_tasks)
-+
-+#define DMA_CAM_NUM_OF_ENTRIES_FMAN_V3		64
-+#define DMA_CAM_NUM_OF_ENTRIES_FMAN_V2		32
-+#define DFLT_DMA_CAM_NUM_OF_ENTRIES(major)			\
-+	(major == 6 ? DMA_CAM_NUM_OF_ENTRIES_FMAN_V3 :		\
-+	DMA_CAM_NUM_OF_ENTRIES_FMAN_V2)
-+
-+#define FM_TIMESTAMP_1_USEC_BIT             8
-+
-+/* Defines used for enabling/disabling FMan interrupts */
-+#define ERR_INTR_EN_DMA         0x00010000
-+#define ERR_INTR_EN_FPM         0x80000000
-+#define ERR_INTR_EN_BMI         0x00800000
-+#define ERR_INTR_EN_QMI         0x00400000
-+#define ERR_INTR_EN_MURAM       0x00040000
-+#define ERR_INTR_EN_MAC0        0x00004000
-+#define ERR_INTR_EN_MAC1        0x00002000
-+#define ERR_INTR_EN_MAC2        0x00001000
-+#define ERR_INTR_EN_MAC3        0x00000800
-+#define ERR_INTR_EN_MAC4        0x00000400
-+#define ERR_INTR_EN_MAC5        0x00000200
-+#define ERR_INTR_EN_MAC6        0x00000100
-+#define ERR_INTR_EN_MAC7        0x00000080
-+#define ERR_INTR_EN_MAC8        0x00008000
-+#define ERR_INTR_EN_MAC9        0x00000040
-+
-+#define INTR_EN_QMI             0x40000000
-+#define INTR_EN_MAC0            0x00080000
-+#define INTR_EN_MAC1            0x00040000
-+#define INTR_EN_MAC2            0x00020000
-+#define INTR_EN_MAC3            0x00010000
-+#define INTR_EN_MAC4            0x00000040
-+#define INTR_EN_MAC5            0x00000020
-+#define INTR_EN_MAC6            0x00000008
-+#define INTR_EN_MAC7            0x00000002
-+#define INTR_EN_MAC8            0x00200000
-+#define INTR_EN_MAC9            0x00100000
-+#define INTR_EN_REV0            0x00008000
-+#define INTR_EN_REV1            0x00004000
-+#define INTR_EN_REV2            0x00002000
-+#define INTR_EN_REV3            0x00001000
-+#define INTR_EN_TMR             0x01000000
-+
-+enum fman_dma_aid_mode {
-+	FMAN_DMA_AID_OUT_PORT_ID = 0,		  /* 4 LSB of PORT_ID */
-+	FMAN_DMA_AID_OUT_TNUM			  /* 4 LSB of TNUM */
-+};
-+
-+struct fman_iram_regs {
-+	u32 iadd;	/* FM IRAM instruction address register */
-+	u32 idata;	/* FM IRAM instruction data register */
-+	u32 itcfg;	/* FM IRAM timing config register */
-+	u32 iready;	/* FM IRAM ready register */
-+};
-+
-+struct fman_fpm_regs {
-+	u32 fmfp_tnc;		/* FPM TNUM Control 0x00 */
-+	u32 fmfp_prc;		/* FPM Port_ID FmCtl Association 0x04 */
-+	u32 fmfp_brkc;		/* FPM Breakpoint Control 0x08 */
-+	u32 fmfp_mxd;		/* FPM Flush Control 0x0c */
-+	u32 fmfp_dist1;		/* FPM Dispatch Thresholds1 0x10 */
-+	u32 fmfp_dist2;		/* FPM Dispatch Thresholds2 0x14 */
-+	u32 fm_epi;		/* FM Error Pending Interrupts 0x18 */
-+	u32 fm_rie;		/* FM Error Interrupt Enable 0x1c */
-+	u32 fmfp_fcev[4];	/* FPM FMan-Controller Event 1-4 0x20-0x2f */
-+	u32 res0030[4];		/* res 0x30 - 0x3f */
-+	u32 fmfp_cee[4];	/* PM FMan-Controller Event 1-4 0x40-0x4f */
-+	u32 res0050[4];		/* res 0x50-0x5f */
-+	u32 fmfp_tsc1;		/* FPM TimeStamp Control1 0x60 */
-+	u32 fmfp_tsc2;		/* FPM TimeStamp Control2 0x64 */
-+	u32 fmfp_tsp;		/* FPM Time Stamp 0x68 */
-+	u32 fmfp_tsf;		/* FPM Time Stamp Fraction 0x6c */
-+	u32 fm_rcr;		/* FM Rams Control 0x70 */
-+	u32 fmfp_extc;		/* FPM External Requests Control 0x74 */
-+	u32 fmfp_ext1;		/* FPM External Requests Config1 0x78 */
-+	u32 fmfp_ext2;		/* FPM External Requests Config2 0x7c */
-+	u32 fmfp_drd[16];	/* FPM Data_Ram Data 0-15 0x80 - 0xbf */
-+	u32 fmfp_dra;		/* FPM Data Ram Access 0xc0 */
-+	u32 fm_ip_rev_1;	/* FM IP Block Revision 1 0xc4 */
-+	u32 fm_ip_rev_2;	/* FM IP Block Revision 2 0xc8 */
-+	u32 fm_rstc;		/* FM Reset Command 0xcc */
-+	u32 fm_cld;		/* FM Classifier Debug 0xd0 */
-+	u32 fm_npi;		/* FM Normal Pending Interrupts 0xd4 */
-+	u32 fmfp_exte;		/* FPM External Requests Enable 0xd8 */
-+	u32 fmfp_ee;		/* FPM Event&Mask 0xdc */
-+	u32 fmfp_cev[4];	/* FPM CPU Event 1-4 0xe0-0xef */
-+	u32 res00f0[4];		/* res 0xf0-0xff */
-+	u32 fmfp_ps[50];	/* FPM Port Status 0x100-0x1c7 */
-+	u32 res01c8[14];	/* res 0x1c8-0x1ff */
-+	u32 fmfp_clfabc;	/* FPM CLFABC 0x200 */
-+	u32 fmfp_clfcc;		/* FPM CLFCC 0x204 */
-+	u32 fmfp_clfaval;	/* FPM CLFAVAL 0x208 */
-+	u32 fmfp_clfbval;	/* FPM CLFBVAL 0x20c */
-+	u32 fmfp_clfcval;	/* FPM CLFCVAL 0x210 */
-+	u32 fmfp_clfamsk;	/* FPM CLFAMSK 0x214 */
-+	u32 fmfp_clfbmsk;	/* FPM CLFBMSK 0x218 */
-+	u32 fmfp_clfcmsk;	/* FPM CLFCMSK 0x21c */
-+	u32 fmfp_clfamc;	/* FPM CLFAMC 0x220 */
-+	u32 fmfp_clfbmc;	/* FPM CLFBMC 0x224 */
-+	u32 fmfp_clfcmc;	/* FPM CLFCMC 0x228 */
-+	u32 fmfp_decceh;	/* FPM DECCEH 0x22c */
-+	u32 res0230[116];	/* res 0x230 - 0x3ff */
-+	u32 fmfp_ts[128];	/* 0x400: FPM Task Status 0x400 - 0x5ff */
-+	u32 res0600[0x400 - 384];
-+};
-+
-+struct fman_bmi_regs {
-+	u32 fmbm_init;		/* BMI Initialization 0x00 */
-+	u32 fmbm_cfg1;		/* BMI Configuration 1 0x04 */
-+	u32 fmbm_cfg2;		/* BMI Configuration 2 0x08 */
-+	u32 res000c[5];		/* 0x0c - 0x1f */
-+	u32 fmbm_ievr;		/* Interrupt Event Register 0x20 */
-+	u32 fmbm_ier;		/* Interrupt Enable Register 0x24 */
-+	u32 fmbm_ifr;		/* Interrupt Force Register 0x28 */
-+	u32 res002c[5];		/* 0x2c - 0x3f */
-+	u32 fmbm_arb[8];	/* BMI Arbitration 0x40 - 0x5f */
-+	u32 res0060[12];	/* 0x60 - 0x8f */
-+	u32 fmbm_dtc[3];	/* Debug Trap Counter 0x90 - 0x9b */
-+	u32 res009c;		/* 0x9c */
-+	u32 fmbm_dcv[3][4];	/* Debug Compare val 0xa0-0xcf */
-+	u32 fmbm_dcm[3][4];	/* Debug Compare Mask 0xd0-0xff */
-+	u32 fmbm_gde;		/* BMI Global Debug Enable 0x100 */
-+	u32 fmbm_pp[63];	/* BMI Port Parameters 0x104 - 0x1ff */
-+	u32 res0200;		/* 0x200 */
-+	u32 fmbm_pfs[63];	/* BMI Port FIFO Size 0x204 - 0x2ff */
-+	u32 res0300;		/* 0x300 */
-+	u32 fmbm_spliodn[63];	/* Port Partition ID 0x304 - 0x3ff */
-+};
-+
-+struct fman_qmi_regs {
-+	u32 fmqm_gc;		/* General Configuration Register 0x00 */
-+	u32 res0004;		/* 0x04 */
-+	u32 fmqm_eie;		/* Error Interrupt Event Register 0x08 */
-+	u32 fmqm_eien;		/* Error Interrupt Enable Register 0x0c */
-+	u32 fmqm_eif;		/* Error Interrupt Force Register 0x10 */
-+	u32 fmqm_ie;		/* Interrupt Event Register 0x14 */
-+	u32 fmqm_ien;		/* Interrupt Enable Register 0x18 */
-+	u32 fmqm_if;		/* Interrupt Force Register 0x1c */
-+	u32 fmqm_gs;		/* Global Status Register 0x20 */
-+	u32 fmqm_ts;		/* Task Status Register 0x24 */
-+	u32 fmqm_etfc;		/* Enqueue Total Frame Counter 0x28 */
-+	u32 fmqm_dtfc;		/* Dequeue Total Frame Counter 0x2c */
-+	u32 fmqm_dc0;		/* Dequeue Counter 0 0x30 */
-+	u32 fmqm_dc1;		/* Dequeue Counter 1 0x34 */
-+	u32 fmqm_dc2;		/* Dequeue Counter 2 0x38 */
-+	u32 fmqm_dc3;		/* Dequeue Counter 3 0x3c */
-+	u32 fmqm_dfdc;		/* Dequeue FQID from Default Counter 0x40 */
-+	u32 fmqm_dfcc;		/* Dequeue FQID from Context Counter 0x44 */
-+	u32 fmqm_dffc;		/* Dequeue FQID from FD Counter 0x48 */
-+	u32 fmqm_dcc;		/* Dequeue Confirm Counter 0x4c */
-+	u32 res0050[7];		/* 0x50 - 0x6b */
-+	u32 fmqm_tapc;		/* Tnum Aging Period Control 0x6c */
-+	u32 fmqm_dmcvc;		/* Dequeue MAC Command Valid Counter 0x70 */
-+	u32 fmqm_difdcc;	/* Dequeue Invalid FD Command Counter 0x74 */
-+	u32 fmqm_da1v;		/* Dequeue A1 Valid Counter 0x78 */
-+	u32 res007c;		/* 0x7c */
-+	u32 fmqm_dtc;		/* 0x80 Debug Trap Counter 0x80 */
-+	u32 fmqm_efddd;		/* 0x84 Enqueue Frame desc Dynamic dbg 0x84 */
-+	u32 res0088[2];		/* 0x88 - 0x8f */
-+	struct {
-+		u32 fmqm_dtcfg1;	/* 0x90 dbg trap cfg 1 Register 0x00 */
-+		u32 fmqm_dtval1;	/* Debug Trap Value 1 Register 0x04 */
-+		u32 fmqm_dtm1;		/* Debug Trap Mask 1 Register 0x08 */
-+		u32 fmqm_dtc1;		/* Debug Trap Counter 1 Register 0x0c */
-+		u32 fmqm_dtcfg2;	/* dbg Trap cfg 2 Register 0x10 */
-+		u32 fmqm_dtval2;	/* Debug Trap Value 2 Register 0x14 */
-+		u32 fmqm_dtm2;		/* Debug Trap Mask 2 Register 0x18 */
-+		u32 res001c;		/* 0x1c */
-+	} dbg_traps[3];			/* 0x90 - 0xef */
-+	u8 res00f0[0x400 - 0xf0];	/* 0xf0 - 0x3ff */
-+};
-+
-+struct fman_dma_regs {
-+	u32 fmdmsr;	/* FM DMA status register 0x00 */
-+	u32 fmdmmr;	/* FM DMA mode register 0x04 */
-+	u32 fmdmtr;	/* FM DMA bus threshold register 0x08 */
-+	u32 fmdmhy;	/* FM DMA bus hysteresis register 0x0c */
-+	u32 fmdmsetr;	/* FM DMA SOS emergency Threshold Register 0x10 */
-+	u32 fmdmtah;	/* FM DMA transfer bus address high reg 0x14 */
-+	u32 fmdmtal;	/* FM DMA transfer bus address low reg 0x18 */
-+	u32 fmdmtcid;	/* FM DMA transfer bus communication ID reg 0x1c */
-+	u32 fmdmra;	/* FM DMA bus internal ram address register 0x20 */
-+	u32 fmdmrd;	/* FM DMA bus internal ram data register 0x24 */
-+	u32 fmdmwcr;	/* FM DMA CAM watchdog counter value 0x28 */
-+	u32 fmdmebcr;	/* FM DMA CAM base in MURAM register 0x2c */
-+	u32 fmdmccqdr;	/* FM DMA CAM and CMD Queue Debug reg 0x30 */
-+	u32 fmdmccqvr1;	/* FM DMA CAM and CMD Queue Value reg #1 0x34 */
-+	u32 fmdmccqvr2;	/* FM DMA CAM and CMD Queue Value reg #2 0x38 */
-+	u32 fmdmcqvr3;	/* FM DMA CMD Queue Value register #3 0x3c */
-+	u32 fmdmcqvr4;	/* FM DMA CMD Queue Value register #4 0x40 */
-+	u32 fmdmcqvr5;	/* FM DMA CMD Queue Value register #5 0x44 */
-+	u32 fmdmsefrc;	/* FM DMA Semaphore Entry Full Reject Cntr 0x48 */
-+	u32 fmdmsqfrc;	/* FM DMA Semaphore Queue Full Reject Cntr 0x4c */
-+	u32 fmdmssrc;	/* FM DMA Semaphore SYNC Reject Counter 0x50 */
-+	u32 fmdmdcr;	/* FM DMA Debug Counter 0x54 */
-+	u32 fmdmemsr;	/* FM DMA Emergency Smoother Register 0x58 */
-+	u32 res005c;	/* 0x5c */
-+	u32 fmdmplr[FMAN_LIODN_TBL / 2];	/* DMA LIODN regs 0x60-0xdf */
-+	u32 res00e0[0x400 - 56];
-+};
-+
-+/* Structure that holds current FMan state.
-+ * Used for saving run time information.
-+ */
-+struct fman_state_struct {
-+	u8 fm_id;
-+	u16 fm_clk_freq;
-+	struct fman_rev_info rev_info;
-+	bool enabled_time_stamp;
-+	u8 count1_micro_bit;
-+	u8 total_num_of_tasks;
-+	u8 accumulated_num_of_tasks;
-+	u32 accumulated_fifo_size;
-+	u8 accumulated_num_of_open_dmas;
-+	u8 accumulated_num_of_deq_tnums;
-+	u32 exceptions;
-+	u32 extra_fifo_pool_size;
-+	u8 extra_tasks_pool_size;
-+	u8 extra_open_dmas_pool_size;
-+	u16 port_mfl[MAX_NUM_OF_MACS];
-+	u16 mac_mfl[MAX_NUM_OF_MACS];
-+
-+	/* SOC specific */
-+	u32 fm_iram_size;
-+	/* DMA */
-+	u32 dma_thresh_max_commq;
-+	u32 dma_thresh_max_buf;
-+	u32 max_num_of_open_dmas;
-+	/* QMI */
-+	u32 qmi_max_num_of_tnums;
-+	u32 qmi_def_tnums_thresh;
-+	/* BMI */
-+	u32 bmi_max_num_of_tasks;
-+	u32 bmi_max_fifo_size;
-+	/* General */
-+	u32 fm_port_num_of_cg;
-+	u32 num_of_rx_ports;
-+	u32 total_fifo_size;
-+
-+	u32 qman_channel_base;
-+	u32 num_of_qman_channels;
-+
-+	struct resource *res;
-+};
-+
-+/* Structure that holds FMan initial configuration */
-+struct fman_cfg {
-+	u8 disp_limit_tsh;
-+	u8 prs_disp_tsh;
-+	u8 plcr_disp_tsh;
-+	u8 kg_disp_tsh;
-+	u8 bmi_disp_tsh;
-+	u8 qmi_enq_disp_tsh;
-+	u8 qmi_deq_disp_tsh;
-+	u8 fm_ctl1_disp_tsh;
-+	u8 fm_ctl2_disp_tsh;
-+	int dma_cache_override;
-+	enum fman_dma_aid_mode dma_aid_mode;
-+	u32 dma_axi_dbg_num_of_beats;
-+	u32 dma_cam_num_of_entries;
-+	u32 dma_watchdog;
-+	u8 dma_comm_qtsh_asrt_emer;
-+	u32 dma_write_buf_tsh_asrt_emer;
-+	u32 dma_read_buf_tsh_asrt_emer;
-+	u8 dma_comm_qtsh_clr_emer;
-+	u32 dma_write_buf_tsh_clr_emer;
-+	u32 dma_read_buf_tsh_clr_emer;
-+	u32 dma_sos_emergency;
-+	int dma_dbg_cnt_mode;
-+	int catastrophic_err;
-+	int dma_err;
-+	u32 exceptions;
-+	u16 clk_freq;
-+	u32 cam_base_addr;
-+	u32 fifo_base_addr;
-+	u32 total_fifo_size;
-+	u32 total_num_of_tasks;
-+	u32 qmi_def_tnums_thresh;
-+};
-+
-+/* Structure that holds information received from device tree */
-+struct fman_dts_params {
-+	void __iomem *base_addr;		/* FMan virtual address */
-+	struct resource *res;			/* FMan memory resource */
-+	u8 id;					/* FMan ID */
-+
-+	int err_irq;				/* FMan Error IRQ */
-+
-+	u16 clk_freq;				/* FMan clock freq (In Mhz) */
-+
-+	u32 qman_channel_base;			/* QMan channels base */
-+	u32 num_of_qman_channels;		/* Number of QMan channels */
-+
-+	struct resource muram_res;		/* MURAM resource */
-+};
-+
-+/** fman_exceptions_cb
-+ * fman		- Pointer to FMan
-+ * exception	- The exception.
-+ *
-+ * Exceptions user callback routine, will be called upon an exception
-+ * passing the exception identification.
-+ *
-+ * Return: irq status
-+ */
-+typedef irqreturn_t (fman_exceptions_cb)(struct fman *fman,
-+					 enum fman_exceptions exception);
-+
-+/** fman_bus_error_cb
-+ * fman		- Pointer to FMan
-+ * port_id	- Port id
-+ * addr		- Address that caused the error
-+ * tnum		- Owner of error
-+ * liodn	- Logical IO device number
-+ *
-+ * Bus error user callback routine, will be called upon bus error,
-+ * passing parameters describing the errors and the owner.
-+ *
-+ * Return: IRQ status
-+ */
-+typedef irqreturn_t (fman_bus_error_cb)(struct fman *fman, u8 port_id,
-+					u64 addr, u8 tnum, u16 liodn);
-+
-+struct fman {
-+	struct device *dev;
-+	void __iomem *base_addr;
-+	struct fman_intr_src intr_mng[FMAN_EV_CNT];
-+
-+	struct fman_fpm_regs __iomem *fpm_regs;
-+	struct fman_bmi_regs __iomem *bmi_regs;
-+	struct fman_qmi_regs __iomem *qmi_regs;
-+	struct fman_dma_regs __iomem *dma_regs;
-+	fman_exceptions_cb *exception_cb;
-+	fman_bus_error_cb *bus_error_cb;
-+	/* Spinlock for FMan use */
-+	spinlock_t spinlock;
-+	struct fman_state_struct *state;
-+
-+	struct fman_cfg *cfg;
-+	struct muram_info *muram;
-+	/* cam section in muram */
-+	int cam_offset;
-+	size_t cam_size;
-+	/* Fifo in MURAM */
-+	int fifo_offset;
-+	size_t fifo_size;
-+
-+	u32 liodn_base[64];
-+	u32 liodn_offset[64];
-+
-+	struct fman_dts_params dts_params;
-+};
-+
-+static irqreturn_t fman_exceptions(struct fman *fman,
-+				   enum fman_exceptions exception)
-+{
-+	dev_dbg(fman->dev, "%s: FMan[%d] exception %d\n",
-+		__func__, fman->state->fm_id, exception);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t fman_bus_error(struct fman *fman, u8 __maybe_unused port_id,
-+				  u64 __maybe_unused addr,
-+				  u8 __maybe_unused tnum,
-+				  u16 __maybe_unused liodn)
-+{
-+	dev_dbg(fman->dev, "%s: FMan[%d] bus error: port_id[%d]\n",
-+		__func__, fman->state->fm_id, port_id);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static inline irqreturn_t call_mac_isr(struct fman *fman, u8 id)
-+{
-+	if (fman->intr_mng[id].isr_cb) {
-+		fman->intr_mng[id].isr_cb(fman->intr_mng[id].src_handle);
-+
-+		return IRQ_HANDLED;
-+	}
-+
-+	return IRQ_NONE;
-+}
-+
-+static inline u8 hw_port_id_to_sw_port_id(u8 major, u8 hw_port_id)
-+{
-+	u8 sw_port_id = 0;
-+
-+	if (hw_port_id >= BASE_TX_PORTID)
-+		sw_port_id = hw_port_id - BASE_TX_PORTID;
-+	else if (hw_port_id >= BASE_RX_PORTID)
-+		sw_port_id = hw_port_id - BASE_RX_PORTID;
-+	else
-+		sw_port_id = 0;
-+
-+	return sw_port_id;
-+}
-+
-+static void set_port_order_restoration(struct fman_fpm_regs __iomem *fpm_rg,
-+				       u8 port_id)
-+{
-+	u32 tmp = 0;
-+
-+	tmp = port_id << FPM_PORT_FM_CTL_PORTID_SHIFT;
-+
-+	tmp |= FPM_PRT_FM_CTL2 | FPM_PRT_FM_CTL1;
-+
-+	/* order restoration */
-+	if (port_id % 2)
-+		tmp |= FPM_PRT_FM_CTL1 << FPM_PRC_ORA_FM_CTL_SEL_SHIFT;
-+	else
-+		tmp |= FPM_PRT_FM_CTL2 << FPM_PRC_ORA_FM_CTL_SEL_SHIFT;
-+
-+	iowrite32be(tmp, &fpm_rg->fmfp_prc);
-+}
-+
-+static void set_port_liodn(struct fman *fman, u8 port_id,
-+			   u32 liodn_base, u32 liodn_ofst)
-+{
-+	u32 tmp;
-+
-+	/* set LIODN base for this port */
-+	tmp = ioread32be(&fman->dma_regs->fmdmplr[port_id / 2]);
-+	if (port_id % 2) {
-+		tmp &= ~DMA_LIODN_BASE_MASK;
-+		tmp |= liodn_base;
-+	} else {
-+		tmp &= ~(DMA_LIODN_BASE_MASK << DMA_LIODN_SHIFT);
-+		tmp |= liodn_base << DMA_LIODN_SHIFT;
-+	}
-+	iowrite32be(tmp, &fman->dma_regs->fmdmplr[port_id / 2]);
-+	iowrite32be(liodn_ofst, &fman->bmi_regs->fmbm_spliodn[port_id - 1]);
-+}
-+
-+static void enable_rams_ecc(struct fman_fpm_regs __iomem *fpm_rg)
-+{
-+	u32 tmp;
-+
-+	tmp = ioread32be(&fpm_rg->fm_rcr);
-+	if (tmp & FPM_RAM_RAMS_ECC_EN_SRC_SEL)
-+		iowrite32be(tmp | FPM_RAM_IRAM_ECC_EN, &fpm_rg->fm_rcr);
-+	else
-+		iowrite32be(tmp | FPM_RAM_RAMS_ECC_EN |
-+			    FPM_RAM_IRAM_ECC_EN, &fpm_rg->fm_rcr);
-+}
-+
-+static void disable_rams_ecc(struct fman_fpm_regs __iomem *fpm_rg)
-+{
-+	u32 tmp;
-+
-+	tmp = ioread32be(&fpm_rg->fm_rcr);
-+	if (tmp & FPM_RAM_RAMS_ECC_EN_SRC_SEL)
-+		iowrite32be(tmp & ~FPM_RAM_IRAM_ECC_EN, &fpm_rg->fm_rcr);
-+	else
-+		iowrite32be(tmp & ~(FPM_RAM_RAMS_ECC_EN | FPM_RAM_IRAM_ECC_EN),
-+			    &fpm_rg->fm_rcr);
-+}
-+
-+static void fman_defconfig(struct fman_cfg *cfg)
-+{
-+	memset(cfg, 0, sizeof(struct fman_cfg));
-+
-+	cfg->catastrophic_err = DEFAULT_CATASTROPHIC_ERR;
-+	cfg->dma_err = DEFAULT_DMA_ERR;
-+	cfg->dma_aid_mode = DEFAULT_AID_MODE;
-+	cfg->dma_comm_qtsh_clr_emer = DEFAULT_DMA_COMM_Q_LOW;
-+	cfg->dma_comm_qtsh_asrt_emer = DEFAULT_DMA_COMM_Q_HIGH;
-+	cfg->dma_cache_override = DEFAULT_CACHE_OVERRIDE;
-+	cfg->dma_cam_num_of_entries = DEFAULT_DMA_CAM_NUM_OF_ENTRIES;
-+	cfg->dma_dbg_cnt_mode = DEFAULT_DMA_DBG_CNT_MODE;
-+	cfg->dma_sos_emergency = DEFAULT_DMA_SOS_EMERGENCY;
-+	cfg->dma_watchdog = DEFAULT_DMA_WATCHDOG;
-+	cfg->disp_limit_tsh = DEFAULT_DISP_LIMIT;
-+	cfg->prs_disp_tsh = DEFAULT_PRS_DISP_TH;
-+	cfg->plcr_disp_tsh = DEFAULT_PLCR_DISP_TH;
-+	cfg->kg_disp_tsh = DEFAULT_KG_DISP_TH;
-+	cfg->bmi_disp_tsh = DEFAULT_BMI_DISP_TH;
-+	cfg->qmi_enq_disp_tsh = DEFAULT_QMI_ENQ_DISP_TH;
-+	cfg->qmi_deq_disp_tsh = DEFAULT_QMI_DEQ_DISP_TH;
-+	cfg->fm_ctl1_disp_tsh = DEFAULT_FM_CTL1_DISP_TH;
-+	cfg->fm_ctl2_disp_tsh = DEFAULT_FM_CTL2_DISP_TH;
-+}
-+
-+static int dma_init(struct fman *fman)
-+{
-+	struct fman_dma_regs __iomem *dma_rg = fman->dma_regs;
-+	struct fman_cfg *cfg = fman->cfg;
-+	u32 tmp_reg;
-+
-+	/* Init DMA Registers */
-+
-+	/* clear status reg events */
-+	tmp_reg = (DMA_STATUS_BUS_ERR | DMA_STATUS_READ_ECC |
-+		   DMA_STATUS_SYSTEM_WRITE_ECC | DMA_STATUS_FM_WRITE_ECC);
-+	iowrite32be(ioread32be(&dma_rg->fmdmsr) | tmp_reg, &dma_rg->fmdmsr);
-+
-+	/* configure mode register */
-+	tmp_reg = 0;
-+	tmp_reg |= cfg->dma_cache_override << DMA_MODE_CACHE_OR_SHIFT;
-+	if (cfg->exceptions & EX_DMA_BUS_ERROR)
-+		tmp_reg |= DMA_MODE_BER;
-+	if ((cfg->exceptions & EX_DMA_SYSTEM_WRITE_ECC) |
-+	    (cfg->exceptions & EX_DMA_READ_ECC) |
-+	    (cfg->exceptions & EX_DMA_FM_WRITE_ECC))
-+		tmp_reg |= DMA_MODE_ECC;
-+	if (cfg->dma_axi_dbg_num_of_beats)
-+		tmp_reg |= (DMA_MODE_AXI_DBG_MASK &
-+			((cfg->dma_axi_dbg_num_of_beats - 1)
-+			<< DMA_MODE_AXI_DBG_SHIFT));
-+
-+	tmp_reg |= (((cfg->dma_cam_num_of_entries / DMA_CAM_UNITS) - 1) &
-+		DMA_MODE_CEN_MASK) << DMA_MODE_CEN_SHIFT;
-+	tmp_reg |= DMA_MODE_SECURE_PROT;
-+	tmp_reg |= cfg->dma_dbg_cnt_mode << DMA_MODE_DBG_SHIFT;
-+	tmp_reg |= cfg->dma_aid_mode << DMA_MODE_AID_MODE_SHIFT;
-+
-+	iowrite32be(tmp_reg, &dma_rg->fmdmmr);
-+
-+	/* configure thresholds register */
-+	tmp_reg = ((u32)cfg->dma_comm_qtsh_asrt_emer <<
-+		DMA_THRESH_COMMQ_SHIFT);
-+	tmp_reg |= (cfg->dma_read_buf_tsh_asrt_emer &
-+		DMA_THRESH_READ_INT_BUF_MASK) << DMA_THRESH_READ_INT_BUF_SHIFT;
-+	tmp_reg |= cfg->dma_write_buf_tsh_asrt_emer &
-+		DMA_THRESH_WRITE_INT_BUF_MASK;
-+
-+	iowrite32be(tmp_reg, &dma_rg->fmdmtr);
-+
-+	/* configure hysteresis register */
-+	tmp_reg = ((u32)cfg->dma_comm_qtsh_clr_emer <<
-+		DMA_THRESH_COMMQ_SHIFT);
-+	tmp_reg |= (cfg->dma_read_buf_tsh_clr_emer &
-+		DMA_THRESH_READ_INT_BUF_MASK) << DMA_THRESH_READ_INT_BUF_SHIFT;
-+	tmp_reg |= cfg->dma_write_buf_tsh_clr_emer &
-+		DMA_THRESH_WRITE_INT_BUF_MASK;
-+
-+	iowrite32be(tmp_reg, &dma_rg->fmdmhy);
-+
-+	/* configure emergency threshold */
-+	iowrite32be(cfg->dma_sos_emergency, &dma_rg->fmdmsetr);
-+
-+	/* configure Watchdog */
-+	iowrite32be((cfg->dma_watchdog * cfg->clk_freq), &dma_rg->fmdmwcr);
-+
-+	iowrite32be(cfg->cam_base_addr, &dma_rg->fmdmebcr);
-+
-+	/* Allocate MURAM for CAM */
-+	fman->cam_size =
-+		(u32)(fman->cfg->dma_cam_num_of_entries * DMA_CAM_SIZEOF_ENTRY);
-+	fman->cam_offset = fman_muram_alloc(fman->muram, fman->cam_size);
-+	if (IS_ERR_VALUE(fman->cam_offset)) {
-+		dev_err(fman->dev, "%s: MURAM alloc for DMA CAM failed\n",
-+			__func__);
-+		return -ENOMEM;
-+	}
-+
-+	if (fman->state->rev_info.major == 2) {
-+		u32 __iomem *cam_base_addr;
-+
-+		fman_muram_free_mem(fman->muram, fman->cam_offset,
-+				    fman->cam_size);
-+
-+		fman->cam_size = fman->cfg->dma_cam_num_of_entries * 72 + 128;
-+		fman->cam_offset = fman_muram_alloc(fman->muram,
-+						    fman->cam_size);
-+		if (IS_ERR_VALUE(fman->cam_offset)) {
-+			dev_err(fman->dev, "%s: MURAM alloc for DMA CAM failed\n",
-+				__func__);
-+			return -ENOMEM;
-+		}
-+
-+		if (fman->cfg->dma_cam_num_of_entries % 8 ||
-+		    fman->cfg->dma_cam_num_of_entries > 32) {
-+			dev_err(fman->dev, "%s: wrong dma_cam_num_of_entries\n",
-+				__func__);
-+			return -EINVAL;
-+		}
-+
-+		cam_base_addr = (u32 __iomem *)
-+			fman_muram_offset_to_vbase(fman->muram,
-+						   fman->cam_offset);
-+		iowrite32be(~((1 <<
-+			    (32 - fman->cfg->dma_cam_num_of_entries)) - 1),
-+			    cam_base_addr);
-+	}
-+
-+	fman->cfg->cam_base_addr = fman->cam_offset;
-+
-+	return 0;
-+}
-+
-+static void fpm_init(struct fman_fpm_regs __iomem *fpm_rg, struct fman_cfg *cfg)
-+{
-+	u32 tmp_reg;
-+	int i;
-+
-+	/* Init FPM Registers */
-+
-+	tmp_reg = (u32)(cfg->disp_limit_tsh << FPM_DISP_LIMIT_SHIFT);
-+	iowrite32be(tmp_reg, &fpm_rg->fmfp_mxd);
-+
-+	tmp_reg = (((u32)cfg->prs_disp_tsh << FPM_THR1_PRS_SHIFT) |
-+		   ((u32)cfg->kg_disp_tsh << FPM_THR1_KG_SHIFT) |
-+		   ((u32)cfg->plcr_disp_tsh << FPM_THR1_PLCR_SHIFT) |
-+		   ((u32)cfg->bmi_disp_tsh << FPM_THR1_BMI_SHIFT));
-+	iowrite32be(tmp_reg, &fpm_rg->fmfp_dist1);
-+
-+	tmp_reg =
-+		(((u32)cfg->qmi_enq_disp_tsh << FPM_THR2_QMI_ENQ_SHIFT) |
-+		 ((u32)cfg->qmi_deq_disp_tsh << FPM_THR2_QMI_DEQ_SHIFT) |
-+		 ((u32)cfg->fm_ctl1_disp_tsh << FPM_THR2_FM_CTL1_SHIFT) |
-+		 ((u32)cfg->fm_ctl2_disp_tsh << FPM_THR2_FM_CTL2_SHIFT));
-+	iowrite32be(tmp_reg, &fpm_rg->fmfp_dist2);
-+
-+	/* define exceptions and error behavior */
-+	tmp_reg = 0;
-+	/* Clear events */
-+	tmp_reg |= (FPM_EV_MASK_STALL | FPM_EV_MASK_DOUBLE_ECC |
-+		    FPM_EV_MASK_SINGLE_ECC);
-+	/* enable interrupts */
-+	if (cfg->exceptions & EX_FPM_STALL_ON_TASKS)
-+		tmp_reg |= FPM_EV_MASK_STALL_EN;
-+	if (cfg->exceptions & EX_FPM_SINGLE_ECC)
-+		tmp_reg |= FPM_EV_MASK_SINGLE_ECC_EN;
-+	if (cfg->exceptions & EX_FPM_DOUBLE_ECC)
-+		tmp_reg |= FPM_EV_MASK_DOUBLE_ECC_EN;
-+	tmp_reg |= (cfg->catastrophic_err << FPM_EV_MASK_CAT_ERR_SHIFT);
-+	tmp_reg |= (cfg->dma_err << FPM_EV_MASK_DMA_ERR_SHIFT);
-+	/* FMan is not halted upon external halt activation */
-+	tmp_reg |= FPM_EV_MASK_EXTERNAL_HALT;
-+	/* Man is not halted upon  Unrecoverable ECC error behavior */
-+	tmp_reg |= FPM_EV_MASK_ECC_ERR_HALT;
-+	iowrite32be(tmp_reg, &fpm_rg->fmfp_ee);
-+
-+	/* clear all fmCtls event registers */
-+	for (i = 0; i < FM_NUM_OF_FMAN_CTRL_EVENT_REGS; i++)
-+		iowrite32be(0xFFFFFFFF, &fpm_rg->fmfp_cev[i]);
-+
-+	/* RAM ECC -  enable and clear events */
-+	/* first we need to clear all parser memory,
-+	 * as it is uninitialized and may cause ECC errors
-+	 */
-+	/* event bits */
-+	tmp_reg = (FPM_RAM_MURAM_ECC | FPM_RAM_IRAM_ECC);
-+
-+	iowrite32be(tmp_reg, &fpm_rg->fm_rcr);
-+
-+	tmp_reg = 0;
-+	if (cfg->exceptions & EX_IRAM_ECC) {
-+		tmp_reg |= FPM_IRAM_ECC_ERR_EX_EN;
-+		enable_rams_ecc(fpm_rg);
-+	}
-+	if (cfg->exceptions & EX_MURAM_ECC) {
-+		tmp_reg |= FPM_MURAM_ECC_ERR_EX_EN;
-+		enable_rams_ecc(fpm_rg);
-+	}
-+	iowrite32be(tmp_reg, &fpm_rg->fm_rie);
-+}
-+
-+static void bmi_init(struct fman_bmi_regs __iomem *bmi_rg,
-+		     struct fman_cfg *cfg)
-+{
-+	u32 tmp_reg;
-+
-+	/* Init BMI Registers */
-+
-+	/* define common resources */
-+	tmp_reg = cfg->fifo_base_addr;
-+	tmp_reg = tmp_reg / BMI_FIFO_ALIGN;
-+
-+	tmp_reg |= ((cfg->total_fifo_size / FMAN_BMI_FIFO_UNITS - 1) <<
-+		    BMI_CFG1_FIFO_SIZE_SHIFT);
-+	iowrite32be(tmp_reg, &bmi_rg->fmbm_cfg1);
-+
-+	tmp_reg = ((cfg->total_num_of_tasks - 1) & BMI_CFG2_TASKS_MASK) <<
-+		   BMI_CFG2_TASKS_SHIFT;
-+	/* num of DMA's will be dynamically updated when each port is set */
-+	iowrite32be(tmp_reg, &bmi_rg->fmbm_cfg2);
-+
-+	/* define unmaskable exceptions, enable and clear events */
-+	tmp_reg = 0;
-+	iowrite32be(BMI_ERR_INTR_EN_LIST_RAM_ECC |
-+		    BMI_ERR_INTR_EN_STORAGE_PROFILE_ECC |
-+		    BMI_ERR_INTR_EN_STATISTICS_RAM_ECC |
-+		    BMI_ERR_INTR_EN_DISPATCH_RAM_ECC, &bmi_rg->fmbm_ievr);
-+
-+	if (cfg->exceptions & EX_BMI_LIST_RAM_ECC)
-+		tmp_reg |= BMI_ERR_INTR_EN_LIST_RAM_ECC;
-+	if (cfg->exceptions & EX_BMI_STORAGE_PROFILE_ECC)
-+		tmp_reg |= BMI_ERR_INTR_EN_STORAGE_PROFILE_ECC;
-+	if (cfg->exceptions & EX_BMI_STATISTICS_RAM_ECC)
-+		tmp_reg |= BMI_ERR_INTR_EN_STATISTICS_RAM_ECC;
-+	if (cfg->exceptions & EX_BMI_DISPATCH_RAM_ECC)
-+		tmp_reg |= BMI_ERR_INTR_EN_DISPATCH_RAM_ECC;
-+	iowrite32be(tmp_reg, &bmi_rg->fmbm_ier);
-+}
-+
-+static void qmi_init(struct fman_qmi_regs __iomem *qmi_rg,
-+		     struct fman_cfg *cfg)
-+{
-+	u32 tmp_reg;
-+
-+	/* Init QMI Registers */
-+
-+	/* Clear error interrupt events */
-+
-+	iowrite32be(QMI_ERR_INTR_EN_DOUBLE_ECC | QMI_ERR_INTR_EN_DEQ_FROM_DEF,
-+		    &qmi_rg->fmqm_eie);
-+	tmp_reg = 0;
-+	if (cfg->exceptions & EX_QMI_DEQ_FROM_UNKNOWN_PORTID)
-+		tmp_reg |= QMI_ERR_INTR_EN_DEQ_FROM_DEF;
-+	if (cfg->exceptions & EX_QMI_DOUBLE_ECC)
-+		tmp_reg |= QMI_ERR_INTR_EN_DOUBLE_ECC;
-+	/* enable events */
-+	iowrite32be(tmp_reg, &qmi_rg->fmqm_eien);
-+
-+	tmp_reg = 0;
-+	/* Clear interrupt events */
-+	iowrite32be(QMI_INTR_EN_SINGLE_ECC, &qmi_rg->fmqm_ie);
-+	if (cfg->exceptions & EX_QMI_SINGLE_ECC)
-+		tmp_reg |= QMI_INTR_EN_SINGLE_ECC;
-+	/* enable events */
-+	iowrite32be(tmp_reg, &qmi_rg->fmqm_ien);
-+}
-+
-+static int enable(struct fman *fman, struct fman_cfg *cfg)
-+{
-+	u32 cfg_reg = 0;
-+
-+	/* Enable all modules */
-+
-+	/* clear&enable global counters - calculate reg and save for later,
-+	 * because it's the same reg for QMI enable
-+	 */
-+	cfg_reg = QMI_CFG_EN_COUNTERS;
-+
-+	/* Set enqueue and dequeue thresholds */
-+	cfg_reg |= (cfg->qmi_def_tnums_thresh << 8) | cfg->qmi_def_tnums_thresh;
-+
-+	iowrite32be(BMI_INIT_START, &fman->bmi_regs->fmbm_init);
-+	iowrite32be(cfg_reg | QMI_CFG_ENQ_EN | QMI_CFG_DEQ_EN,
-+		    &fman->qmi_regs->fmqm_gc);
-+
-+	return 0;
-+}
-+
-+static int set_exception(struct fman *fman,
-+			 enum fman_exceptions exception, bool enable)
-+{
-+	u32 tmp;
-+
-+	switch (exception) {
-+	case FMAN_EX_DMA_BUS_ERROR:
-+		tmp = ioread32be(&fman->dma_regs->fmdmmr);
-+		if (enable)
-+			tmp |= DMA_MODE_BER;
-+		else
-+			tmp &= ~DMA_MODE_BER;
-+		/* disable bus error */
-+		iowrite32be(tmp, &fman->dma_regs->fmdmmr);
-+		break;
-+	case FMAN_EX_DMA_READ_ECC:
-+	case FMAN_EX_DMA_SYSTEM_WRITE_ECC:
-+	case FMAN_EX_DMA_FM_WRITE_ECC:
-+		tmp = ioread32be(&fman->dma_regs->fmdmmr);
-+		if (enable)
-+			tmp |= DMA_MODE_ECC;
-+		else
-+			tmp &= ~DMA_MODE_ECC;
-+		iowrite32be(tmp, &fman->dma_regs->fmdmmr);
-+		break;
-+	case FMAN_EX_FPM_STALL_ON_TASKS:
-+		tmp = ioread32be(&fman->fpm_regs->fmfp_ee);
-+		if (enable)
-+			tmp |= FPM_EV_MASK_STALL_EN;
-+		else
-+			tmp &= ~FPM_EV_MASK_STALL_EN;
-+		iowrite32be(tmp, &fman->fpm_regs->fmfp_ee);
-+		break;
-+	case FMAN_EX_FPM_SINGLE_ECC:
-+		tmp = ioread32be(&fman->fpm_regs->fmfp_ee);
-+		if (enable)
-+			tmp |= FPM_EV_MASK_SINGLE_ECC_EN;
-+		else
-+			tmp &= ~FPM_EV_MASK_SINGLE_ECC_EN;
-+		iowrite32be(tmp, &fman->fpm_regs->fmfp_ee);
-+		break;
-+	case FMAN_EX_FPM_DOUBLE_ECC:
-+		tmp = ioread32be(&fman->fpm_regs->fmfp_ee);
-+		if (enable)
-+			tmp |= FPM_EV_MASK_DOUBLE_ECC_EN;
-+		else
-+			tmp &= ~FPM_EV_MASK_DOUBLE_ECC_EN;
-+		iowrite32be(tmp, &fman->fpm_regs->fmfp_ee);
-+		break;
-+	case FMAN_EX_QMI_SINGLE_ECC:
-+		tmp = ioread32be(&fman->qmi_regs->fmqm_ien);
-+		if (enable)
-+			tmp |= QMI_INTR_EN_SINGLE_ECC;
-+		else
-+			tmp &= ~QMI_INTR_EN_SINGLE_ECC;
-+		iowrite32be(tmp, &fman->qmi_regs->fmqm_ien);
-+		break;
-+	case FMAN_EX_QMI_DOUBLE_ECC:
-+		tmp = ioread32be(&fman->qmi_regs->fmqm_eien);
-+		if (enable)
-+			tmp |= QMI_ERR_INTR_EN_DOUBLE_ECC;
-+		else
-+			tmp &= ~QMI_ERR_INTR_EN_DOUBLE_ECC;
-+		iowrite32be(tmp, &fman->qmi_regs->fmqm_eien);
-+		break;
-+	case FMAN_EX_QMI_DEQ_FROM_UNKNOWN_PORTID:
-+		tmp = ioread32be(&fman->qmi_regs->fmqm_eien);
-+		if (enable)
-+			tmp |= QMI_ERR_INTR_EN_DEQ_FROM_DEF;
-+		else
-+			tmp &= ~QMI_ERR_INTR_EN_DEQ_FROM_DEF;
-+		iowrite32be(tmp, &fman->qmi_regs->fmqm_eien);
-+		break;
-+	case FMAN_EX_BMI_LIST_RAM_ECC:
-+		tmp = ioread32be(&fman->bmi_regs->fmbm_ier);
-+		if (enable)
-+			tmp |= BMI_ERR_INTR_EN_LIST_RAM_ECC;
-+		else
-+			tmp &= ~BMI_ERR_INTR_EN_LIST_RAM_ECC;
-+		iowrite32be(tmp, &fman->bmi_regs->fmbm_ier);
-+		break;
-+	case FMAN_EX_BMI_STORAGE_PROFILE_ECC:
-+		tmp = ioread32be(&fman->bmi_regs->fmbm_ier);
-+		if (enable)
-+			tmp |= BMI_ERR_INTR_EN_STORAGE_PROFILE_ECC;
-+		else
-+			tmp &= ~BMI_ERR_INTR_EN_STORAGE_PROFILE_ECC;
-+		iowrite32be(tmp, &fman->bmi_regs->fmbm_ier);
-+		break;
-+	case FMAN_EX_BMI_STATISTICS_RAM_ECC:
-+		tmp = ioread32be(&fman->bmi_regs->fmbm_ier);
-+		if (enable)
-+			tmp |= BMI_ERR_INTR_EN_STATISTICS_RAM_ECC;
-+		else
-+			tmp &= ~BMI_ERR_INTR_EN_STATISTICS_RAM_ECC;
-+		iowrite32be(tmp, &fman->bmi_regs->fmbm_ier);
-+		break;
-+	case FMAN_EX_BMI_DISPATCH_RAM_ECC:
-+		tmp = ioread32be(&fman->bmi_regs->fmbm_ier);
-+		if (enable)
-+			tmp |= BMI_ERR_INTR_EN_DISPATCH_RAM_ECC;
-+		else
-+			tmp &= ~BMI_ERR_INTR_EN_DISPATCH_RAM_ECC;
-+		iowrite32be(tmp, &fman->bmi_regs->fmbm_ier);
-+		break;
-+	case FMAN_EX_IRAM_ECC:
-+		tmp = ioread32be(&fman->fpm_regs->fm_rie);
-+		if (enable) {
-+			/* enable ECC if not enabled */
-+			enable_rams_ecc(fman->fpm_regs);
-+			/* enable ECC interrupts */
-+			tmp |= FPM_IRAM_ECC_ERR_EX_EN;
-+		} else {
-+			/* ECC mechanism may be disabled,
-+			 * depending on driver status
-+			 */
-+			disable_rams_ecc(fman->fpm_regs);
-+			tmp &= ~FPM_IRAM_ECC_ERR_EX_EN;
-+		}
-+		iowrite32be(tmp, &fman->fpm_regs->fm_rie);
-+		break;
-+	case FMAN_EX_MURAM_ECC:
-+		tmp = ioread32be(&fman->fpm_regs->fm_rie);
-+		if (enable) {
-+			/* enable ECC if not enabled */
-+			enable_rams_ecc(fman->fpm_regs);
-+			/* enable ECC interrupts */
-+			tmp |= FPM_MURAM_ECC_ERR_EX_EN;
-+		} else {
-+			/* ECC mechanism may be disabled,
-+			 * depending on driver status
-+			 */
-+			disable_rams_ecc(fman->fpm_regs);
-+			tmp &= ~FPM_MURAM_ECC_ERR_EX_EN;
-+		}
-+		iowrite32be(tmp, &fman->fpm_regs->fm_rie);
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static void resume(struct fman_fpm_regs __iomem *fpm_rg)
-+{
-+	u32 tmp;
-+
-+	tmp = ioread32be(&fpm_rg->fmfp_ee);
-+	/* clear tmp_reg event bits in order not to clear standing events */
-+	tmp &= ~(FPM_EV_MASK_DOUBLE_ECC |
-+		 FPM_EV_MASK_STALL | FPM_EV_MASK_SINGLE_ECC);
-+	tmp |= FPM_EV_MASK_RELEASE_FM;
-+
-+	iowrite32be(tmp, &fpm_rg->fmfp_ee);
-+}
-+
-+static int fill_soc_specific_params(struct fman_state_struct *state)
-+{
-+	u8 minor = state->rev_info.minor;
-+	/* P4080 - Major 2
-+	 * P2041/P3041/P5020/P5040 - Major 3
-+	 * Tx/Bx - Major 6
-+	 */
-+	switch (state->rev_info.major) {
-+	case 3:
-+		state->bmi_max_fifo_size	= 160 * 1024;
-+		state->fm_iram_size		= 64 * 1024;
-+		state->dma_thresh_max_commq	= 31;
-+		state->dma_thresh_max_buf	= 127;
-+		state->qmi_max_num_of_tnums	= 64;
-+		state->qmi_def_tnums_thresh	= 48;
-+		state->bmi_max_num_of_tasks	= 128;
-+		state->max_num_of_open_dmas	= 32;
-+		state->fm_port_num_of_cg	= 256;
-+		state->num_of_rx_ports	= 6;
-+		state->total_fifo_size	= 122 * 1024;
-+		break;
-+
-+	case 2:
-+		state->bmi_max_fifo_size	= 160 * 1024;
-+		state->fm_iram_size		= 64 * 1024;
-+		state->dma_thresh_max_commq	= 31;
-+		state->dma_thresh_max_buf	= 127;
-+		state->qmi_max_num_of_tnums	= 64;
-+		state->qmi_def_tnums_thresh	= 48;
-+		state->bmi_max_num_of_tasks	= 128;
-+		state->max_num_of_open_dmas	= 32;
-+		state->fm_port_num_of_cg	= 256;
-+		state->num_of_rx_ports	= 5;
-+		state->total_fifo_size	= 100 * 1024;
-+		break;
-+
-+	case 6:
-+		state->dma_thresh_max_commq	= 83;
-+		state->dma_thresh_max_buf	= 127;
-+		state->qmi_max_num_of_tnums	= 64;
-+		state->qmi_def_tnums_thresh	= 32;
-+		state->fm_port_num_of_cg	= 256;
-+
-+		/* FManV3L */
-+		if (minor == 1 || minor == 4) {
-+			state->bmi_max_fifo_size	= 192 * 1024;
-+			state->bmi_max_num_of_tasks	= 64;
-+			state->max_num_of_open_dmas	= 32;
-+			state->num_of_rx_ports		= 5;
-+			if (minor == 1)
-+				state->fm_iram_size	= 32 * 1024;
-+			else
-+				state->fm_iram_size	= 64 * 1024;
-+			state->total_fifo_size		= 156 * 1024;
-+		}
-+		/* FManV3H */
-+		else if (minor == 0 || minor == 2 || minor == 3) {
-+			state->bmi_max_fifo_size	= 384 * 1024;
-+			state->fm_iram_size		= 64 * 1024;
-+			state->bmi_max_num_of_tasks	= 128;
-+			state->max_num_of_open_dmas	= 84;
-+			state->num_of_rx_ports		= 8;
-+			state->total_fifo_size		= 295 * 1024;
-+		} else {
-+			pr_err("Unsupported FManv3 version\n");
-+			return -EINVAL;
-+		}
-+
-+		break;
-+	default:
-+		pr_err("Unsupported FMan version\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static bool is_init_done(struct fman_cfg *cfg)
-+{
-+	/* Checks if FMan driver parameters were initialized */
-+	if (!cfg)
-+		return true;
-+
-+	return false;
-+}
-+
-+static void free_init_resources(struct fman *fman)
-+{
-+	if (fman->cam_offset)
-+		fman_muram_free_mem(fman->muram, fman->cam_offset,
-+				    fman->cam_size);
-+	if (fman->fifo_offset)
-+		fman_muram_free_mem(fman->muram, fman->fifo_offset,
-+				    fman->fifo_size);
-+}
-+
-+static irqreturn_t bmi_err_event(struct fman *fman)
-+{
-+	u32 event, mask, force;
-+	struct fman_bmi_regs __iomem *bmi_rg = fman->bmi_regs;
-+	irqreturn_t ret = IRQ_NONE;
-+
-+	event = ioread32be(&bmi_rg->fmbm_ievr);
-+	mask = ioread32be(&bmi_rg->fmbm_ier);
-+	event &= mask;
-+	/* clear the forced events */
-+	force = ioread32be(&bmi_rg->fmbm_ifr);
-+	if (force & event)
-+		iowrite32be(force & ~event, &bmi_rg->fmbm_ifr);
-+	/* clear the acknowledged events */
-+	iowrite32be(event, &bmi_rg->fmbm_ievr);
-+
-+	if (event & BMI_ERR_INTR_EN_STORAGE_PROFILE_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_BMI_STORAGE_PROFILE_ECC);
-+	if (event & BMI_ERR_INTR_EN_LIST_RAM_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_BMI_LIST_RAM_ECC);
-+	if (event & BMI_ERR_INTR_EN_STATISTICS_RAM_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_BMI_STATISTICS_RAM_ECC);
-+	if (event & BMI_ERR_INTR_EN_DISPATCH_RAM_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_BMI_DISPATCH_RAM_ECC);
-+
-+	return ret;
-+}
-+
-+static irqreturn_t qmi_err_event(struct fman *fman)
-+{
-+	u32 event, mask, force;
-+	struct fman_qmi_regs __iomem *qmi_rg = fman->qmi_regs;
-+	irqreturn_t ret = IRQ_NONE;
-+
-+	event = ioread32be(&qmi_rg->fmqm_eie);
-+	mask = ioread32be(&qmi_rg->fmqm_eien);
-+	event &= mask;
-+
-+	/* clear the forced events */
-+	force = ioread32be(&qmi_rg->fmqm_eif);
-+	if (force & event)
-+		iowrite32be(force & ~event, &qmi_rg->fmqm_eif);
-+	/* clear the acknowledged events */
-+	iowrite32be(event, &qmi_rg->fmqm_eie);
-+
-+	if (event & QMI_ERR_INTR_EN_DOUBLE_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_QMI_DOUBLE_ECC);
-+	if (event & QMI_ERR_INTR_EN_DEQ_FROM_DEF)
-+		ret = fman->exception_cb(fman,
-+					 FMAN_EX_QMI_DEQ_FROM_UNKNOWN_PORTID);
-+
-+	return ret;
-+}
-+
-+static irqreturn_t dma_err_event(struct fman *fman)
-+{
-+	u32 status, mask, com_id;
-+	u8 tnum, port_id, relative_port_id;
-+	u16 liodn;
-+	struct fman_dma_regs __iomem *dma_rg = fman->dma_regs;
-+	irqreturn_t ret = IRQ_NONE;
-+
-+	status = ioread32be(&dma_rg->fmdmsr);
-+	mask = ioread32be(&dma_rg->fmdmmr);
-+
-+	/* clear DMA_STATUS_BUS_ERR if mask has no DMA_MODE_BER */
-+	if ((mask & DMA_MODE_BER) != DMA_MODE_BER)
-+		status &= ~DMA_STATUS_BUS_ERR;
-+
-+	/* clear relevant bits if mask has no DMA_MODE_ECC */
-+	if ((mask & DMA_MODE_ECC) != DMA_MODE_ECC)
-+		status &= ~(DMA_STATUS_FM_SPDAT_ECC |
-+			    DMA_STATUS_READ_ECC |
-+			    DMA_STATUS_SYSTEM_WRITE_ECC |
-+			    DMA_STATUS_FM_WRITE_ECC);
-+
-+	/* clear set events */
-+	iowrite32be(status, &dma_rg->fmdmsr);
-+
-+	if (status & DMA_STATUS_BUS_ERR) {
-+		u64 addr;
-+
-+		addr = (u64)ioread32be(&dma_rg->fmdmtal);
-+		addr |= ((u64)(ioread32be(&dma_rg->fmdmtah)) << 32);
-+
-+		com_id = ioread32be(&dma_rg->fmdmtcid);
-+		port_id = (u8)(((com_id & DMA_TRANSFER_PORTID_MASK) >>
-+			       DMA_TRANSFER_PORTID_SHIFT));
-+		relative_port_id =
-+		hw_port_id_to_sw_port_id(fman->state->rev_info.major, port_id);
-+		tnum = (u8)((com_id & DMA_TRANSFER_TNUM_MASK) >>
-+			    DMA_TRANSFER_TNUM_SHIFT);
-+		liodn = (u16)(com_id & DMA_TRANSFER_LIODN_MASK);
-+		ret = fman->bus_error_cb(fman, relative_port_id, addr, tnum,
-+					 liodn);
-+	}
-+	if (status & DMA_STATUS_FM_SPDAT_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_DMA_SINGLE_PORT_ECC);
-+	if (status & DMA_STATUS_READ_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_DMA_READ_ECC);
-+	if (status & DMA_STATUS_SYSTEM_WRITE_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_DMA_SYSTEM_WRITE_ECC);
-+	if (status & DMA_STATUS_FM_WRITE_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_DMA_FM_WRITE_ECC);
-+
-+	return ret;
-+}
-+
-+static irqreturn_t fpm_err_event(struct fman *fman)
-+{
-+	u32 event;
-+	struct fman_fpm_regs __iomem *fpm_rg = fman->fpm_regs;
-+	irqreturn_t ret = IRQ_NONE;
-+
-+	event = ioread32be(&fpm_rg->fmfp_ee);
-+	/* clear the all occurred events */
-+	iowrite32be(event, &fpm_rg->fmfp_ee);
-+
-+	if ((event & FPM_EV_MASK_DOUBLE_ECC) &&
-+	    (event & FPM_EV_MASK_DOUBLE_ECC_EN))
-+		ret = fman->exception_cb(fman, FMAN_EX_FPM_DOUBLE_ECC);
-+	if ((event & FPM_EV_MASK_STALL) && (event & FPM_EV_MASK_STALL_EN))
-+		ret = fman->exception_cb(fman, FMAN_EX_FPM_STALL_ON_TASKS);
-+	if ((event & FPM_EV_MASK_SINGLE_ECC) &&
-+	    (event & FPM_EV_MASK_SINGLE_ECC_EN))
-+		ret = fman->exception_cb(fman, FMAN_EX_FPM_SINGLE_ECC);
-+
-+	return ret;
-+}
-+
-+static irqreturn_t muram_err_intr(struct fman *fman)
-+{
-+	u32 event, mask;
-+	struct fman_fpm_regs __iomem *fpm_rg = fman->fpm_regs;
-+	irqreturn_t ret = IRQ_NONE;
-+
-+	event = ioread32be(&fpm_rg->fm_rcr);
-+	mask = ioread32be(&fpm_rg->fm_rie);
-+
-+	/* clear MURAM event bit (do not clear IRAM event) */
-+	iowrite32be(event & ~FPM_RAM_IRAM_ECC, &fpm_rg->fm_rcr);
-+
-+	if ((mask & FPM_MURAM_ECC_ERR_EX_EN) && (event & FPM_RAM_MURAM_ECC))
-+		ret = fman->exception_cb(fman, FMAN_EX_MURAM_ECC);
-+
-+	return ret;
-+}
-+
-+static irqreturn_t qmi_event(struct fman *fman)
-+{
-+	u32 event, mask, force;
-+	struct fman_qmi_regs __iomem *qmi_rg = fman->qmi_regs;
-+	irqreturn_t ret = IRQ_NONE;
-+
-+	event = ioread32be(&qmi_rg->fmqm_ie);
-+	mask = ioread32be(&qmi_rg->fmqm_ien);
-+	event &= mask;
-+	/* clear the forced events */
-+	force = ioread32be(&qmi_rg->fmqm_if);
-+	if (force & event)
-+		iowrite32be(force & ~event, &qmi_rg->fmqm_if);
-+	/* clear the acknowledged events */
-+	iowrite32be(event, &qmi_rg->fmqm_ie);
-+
-+	if (event & QMI_INTR_EN_SINGLE_ECC)
-+		ret = fman->exception_cb(fman, FMAN_EX_QMI_SINGLE_ECC);
-+
-+	return ret;
-+}
-+
-+static void enable_time_stamp(struct fman *fman)
-+{
-+	struct fman_fpm_regs __iomem *fpm_rg = fman->fpm_regs;
-+	u16 fm_clk_freq = fman->state->fm_clk_freq;
-+	u32 tmp, intgr, ts_freq;
-+	u64 frac;
-+
-+	ts_freq = (u32)(1 << fman->state->count1_micro_bit);
-+	/* configure timestamp so that bit 8 will count 1 microsecond
-+	 * Find effective count rate at TIMESTAMP least significant bits:
-+	 * Effective_Count_Rate = 1MHz x 2^8 = 256MHz
-+	 * Find frequency ratio between effective count rate and the clock:
-+	 * Effective_Count_Rate / CLK e.g. for 600 MHz clock:
-+	 * 256/600 = 0.4266666...
-+	 */
-+
-+	intgr = ts_freq / fm_clk_freq;
-+	/* we multiply by 2^16 to keep the fraction of the division
-+	 * we do not div back, since we write this value as a fraction
-+	 * see spec
-+	 */
-+
-+	frac = ((ts_freq << 16) - (intgr << 16) * fm_clk_freq) / fm_clk_freq;
-+	/* we check remainder of the division in order to round up if not int */
-+	if (((ts_freq << 16) - (intgr << 16) * fm_clk_freq) % fm_clk_freq)
-+		frac++;
-+
-+	tmp = (intgr << FPM_TS_INT_SHIFT) | (u16)frac;
-+	iowrite32be(tmp, &fpm_rg->fmfp_tsc2);
-+
-+	/* enable timestamp with original clock */
-+	iowrite32be(FPM_TS_CTL_EN, &fpm_rg->fmfp_tsc1);
-+	fman->state->enabled_time_stamp = true;
-+}
-+
-+static int clear_iram(struct fman *fman)
-+{
-+	struct fman_iram_regs __iomem *iram;
-+	int i, count;
-+
-+	iram = fman->base_addr + IMEM_OFFSET;
-+
-+	/* Enable the auto-increment */
-+	iowrite32be(IRAM_IADD_AIE, &iram->iadd);
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while ((ioread32be(&iram->iadd) != IRAM_IADD_AIE) && --count);
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	for (i = 0; i < (fman->state->fm_iram_size / 4); i++)
-+		iowrite32be(0xffffffff, &iram->idata);
-+
-+	iowrite32be(fman->state->fm_iram_size - 4, &iram->iadd);
-+	count = 100;
-+	do {
-+		udelay(1);
-+	} while ((ioread32be(&iram->idata) != 0xffffffff) && --count);
-+	if (count == 0)
-+		return -EBUSY;
-+
-+	return 0;
-+}
-+
-+static u32 get_exception_flag(enum fman_exceptions exception)
-+{
-+	u32 bit_mask;
-+
-+	switch (exception) {
-+	case FMAN_EX_DMA_BUS_ERROR:
-+		bit_mask = EX_DMA_BUS_ERROR;
-+		break;
-+	case FMAN_EX_DMA_SINGLE_PORT_ECC:
-+		bit_mask = EX_DMA_SINGLE_PORT_ECC;
-+		break;
-+	case FMAN_EX_DMA_READ_ECC:
-+		bit_mask = EX_DMA_READ_ECC;
-+		break;
-+	case FMAN_EX_DMA_SYSTEM_WRITE_ECC:
-+		bit_mask = EX_DMA_SYSTEM_WRITE_ECC;
-+		break;
-+	case FMAN_EX_DMA_FM_WRITE_ECC:
-+		bit_mask = EX_DMA_FM_WRITE_ECC;
-+		break;
-+	case FMAN_EX_FPM_STALL_ON_TASKS:
-+		bit_mask = EX_FPM_STALL_ON_TASKS;
-+		break;
-+	case FMAN_EX_FPM_SINGLE_ECC:
-+		bit_mask = EX_FPM_SINGLE_ECC;
-+		break;
-+	case FMAN_EX_FPM_DOUBLE_ECC:
-+		bit_mask = EX_FPM_DOUBLE_ECC;
-+		break;
-+	case FMAN_EX_QMI_SINGLE_ECC:
-+		bit_mask = EX_QMI_SINGLE_ECC;
-+		break;
-+	case FMAN_EX_QMI_DOUBLE_ECC:
-+		bit_mask = EX_QMI_DOUBLE_ECC;
-+		break;
-+	case FMAN_EX_QMI_DEQ_FROM_UNKNOWN_PORTID:
-+		bit_mask = EX_QMI_DEQ_FROM_UNKNOWN_PORTID;
-+		break;
-+	case FMAN_EX_BMI_LIST_RAM_ECC:
-+		bit_mask = EX_BMI_LIST_RAM_ECC;
-+		break;
-+	case FMAN_EX_BMI_STORAGE_PROFILE_ECC:
-+		bit_mask = EX_BMI_STORAGE_PROFILE_ECC;
-+		break;
-+	case FMAN_EX_BMI_STATISTICS_RAM_ECC:
-+		bit_mask = EX_BMI_STATISTICS_RAM_ECC;
-+		break;
-+	case FMAN_EX_BMI_DISPATCH_RAM_ECC:
-+		bit_mask = EX_BMI_DISPATCH_RAM_ECC;
-+		break;
-+	case FMAN_EX_MURAM_ECC:
-+		bit_mask = EX_MURAM_ECC;
-+		break;
-+	default:
-+		bit_mask = 0;
-+		break;
-+	}
-+
-+	return bit_mask;
-+}
-+
-+static int get_module_event(enum fman_event_modules module, u8 mod_id,
-+			    enum fman_intr_type intr_type)
-+{
-+	int event;
-+
-+	switch (module) {
-+	case FMAN_MOD_MAC:
-+		if (intr_type == FMAN_INTR_TYPE_ERR)
-+			event = FMAN_EV_ERR_MAC0 + mod_id;
-+		else
-+			event = FMAN_EV_MAC0 + mod_id;
-+		break;
-+	case FMAN_MOD_FMAN_CTRL:
-+		if (intr_type == FMAN_INTR_TYPE_ERR)
-+			event = FMAN_EV_CNT;
-+		else
-+			event = (FMAN_EV_FMAN_CTRL_0 + mod_id);
-+		break;
-+	case FMAN_MOD_DUMMY_LAST:
-+		event = FMAN_EV_CNT;
-+		break;
-+	default:
-+		event = FMAN_EV_CNT;
-+		break;
-+	}
-+
-+	return event;
-+}
-+
-+static int set_size_of_fifo(struct fman *fman, u8 port_id, u32 *size_of_fifo,
-+			    u32 *extra_size_of_fifo)
-+{
-+	struct fman_bmi_regs __iomem *bmi_rg = fman->bmi_regs;
-+	u32 fifo = *size_of_fifo;
-+	u32 extra_fifo = *extra_size_of_fifo;
-+	u32 tmp;
-+
-+	/* if this is the first time a port requires extra_fifo_pool_size,
-+	 * the total extra_fifo_pool_size must be initialized to 1 buffer per
-+	 * port
-+	 */
-+	if (extra_fifo && !fman->state->extra_fifo_pool_size)
-+		fman->state->extra_fifo_pool_size =
-+			fman->state->num_of_rx_ports * FMAN_BMI_FIFO_UNITS;
-+
-+	fman->state->extra_fifo_pool_size =
-+		max(fman->state->extra_fifo_pool_size, extra_fifo);
-+
-+	/* check that there are enough uncommitted fifo size */
-+	if ((fman->state->accumulated_fifo_size + fifo) >
-+	    (fman->state->total_fifo_size -
-+	    fman->state->extra_fifo_pool_size)) {
-+		dev_err(fman->dev, "%s: Requested fifo size and extra size exceed total FIFO size.\n",
-+			__func__);
-+		return -EAGAIN;
-+	}
-+
-+	/* Read, modify and write to HW */
-+	tmp = (fifo / FMAN_BMI_FIFO_UNITS - 1) |
-+	       ((extra_fifo / FMAN_BMI_FIFO_UNITS) <<
-+	       BMI_EXTRA_FIFO_SIZE_SHIFT);
-+	iowrite32be(tmp, &bmi_rg->fmbm_pfs[port_id - 1]);
-+
-+	/* update accumulated */
-+	fman->state->accumulated_fifo_size += fifo;
-+
-+	return 0;
-+}
-+
-+static int set_num_of_tasks(struct fman *fman, u8 port_id, u8 *num_of_tasks,
-+			    u8 *num_of_extra_tasks)
-+{
-+	struct fman_bmi_regs __iomem *bmi_rg = fman->bmi_regs;
-+	u8 tasks = *num_of_tasks;
-+	u8 extra_tasks = *num_of_extra_tasks;
-+	u32 tmp;
-+
-+	if (extra_tasks)
-+		fman->state->extra_tasks_pool_size =
-+		max(fman->state->extra_tasks_pool_size, extra_tasks);
-+
-+	/* check that there are enough uncommitted tasks */
-+	if ((fman->state->accumulated_num_of_tasks + tasks) >
-+	    (fman->state->total_num_of_tasks -
-+	     fman->state->extra_tasks_pool_size)) {
-+		dev_err(fman->dev, "%s: Requested num_of_tasks and extra tasks pool for fm%d exceed total num_of_tasks.\n",
-+			__func__, fman->state->fm_id);
-+		return -EAGAIN;
-+	}
-+	/* update accumulated */
-+	fman->state->accumulated_num_of_tasks += tasks;
-+
-+	/* Write to HW */
-+	tmp = ioread32be(&bmi_rg->fmbm_pp[port_id - 1]) &
-+	    ~(BMI_NUM_OF_TASKS_MASK | BMI_NUM_OF_EXTRA_TASKS_MASK);
-+	tmp |= ((u32)((tasks - 1) << BMI_NUM_OF_TASKS_SHIFT) |
-+		(u32)(extra_tasks << BMI_EXTRA_NUM_OF_TASKS_SHIFT));
-+	iowrite32be(tmp, &bmi_rg->fmbm_pp[port_id - 1]);
-+
-+	return 0;
-+}
-+
-+static int set_num_of_open_dmas(struct fman *fman, u8 port_id,
-+				u8 *num_of_open_dmas,
-+				u8 *num_of_extra_open_dmas)
-+{
-+	struct fman_bmi_regs __iomem *bmi_rg = fman->bmi_regs;
-+	u8 open_dmas = *num_of_open_dmas;
-+	u8 extra_open_dmas = *num_of_extra_open_dmas;
-+	u8 total_num_dmas = 0, current_val = 0, current_extra_val = 0;
-+	u32 tmp;
-+
-+	if (!open_dmas) {
-+		/* Configuration according to values in the HW.
-+		 * read the current number of open Dma's
-+		 */
-+		tmp = ioread32be(&bmi_rg->fmbm_pp[port_id - 1]);
-+		current_extra_val = (u8)((tmp & BMI_NUM_OF_EXTRA_DMAS_MASK) >>
-+					 BMI_EXTRA_NUM_OF_DMAS_SHIFT);
-+
-+		tmp = ioread32be(&bmi_rg->fmbm_pp[port_id - 1]);
-+		current_val = (u8)(((tmp & BMI_NUM_OF_DMAS_MASK) >>
-+				   BMI_NUM_OF_DMAS_SHIFT) + 1);
-+
-+		/* This is the first configuration and user did not
-+		 * specify value (!open_dmas), reset values will be used
-+		 * and we just save these values for resource management
-+		 */
-+		fman->state->extra_open_dmas_pool_size =
-+			(u8)max(fman->state->extra_open_dmas_pool_size,
-+				current_extra_val);
-+		fman->state->accumulated_num_of_open_dmas += current_val;
-+		*num_of_open_dmas = current_val;
-+		*num_of_extra_open_dmas = current_extra_val;
-+		return 0;
-+	}
-+
-+	if (extra_open_dmas > current_extra_val)
-+		fman->state->extra_open_dmas_pool_size =
-+		    (u8)max(fman->state->extra_open_dmas_pool_size,
-+			    extra_open_dmas);
-+
-+	if ((fman->state->rev_info.major < 6) &&
-+	    (fman->state->accumulated_num_of_open_dmas - current_val +
-+	     open_dmas > fman->state->max_num_of_open_dmas)) {
-+		dev_err(fman->dev, "%s: Requested num_of_open_dmas for fm%d exceeds total num_of_open_dmas.\n",
-+			__func__, fman->state->fm_id);
-+		return -EAGAIN;
-+	} else if ((fman->state->rev_info.major >= 6) &&
-+		   !((fman->state->rev_info.major == 6) &&
-+		   (fman->state->rev_info.minor == 0)) &&
-+		   (fman->state->accumulated_num_of_open_dmas -
-+		   current_val + open_dmas >
-+		   fman->state->dma_thresh_max_commq + 1)) {
-+		dev_err(fman->dev, "%s: Requested num_of_open_dmas for fm%d exceeds DMA Command queue (%d)\n",
-+			__func__, fman->state->fm_id,
-+		       fman->state->dma_thresh_max_commq + 1);
-+		return -EAGAIN;
-+	}
-+
-+	WARN_ON(fman->state->accumulated_num_of_open_dmas < current_val);
-+	/* update acummulated */
-+	fman->state->accumulated_num_of_open_dmas -= current_val;
-+	fman->state->accumulated_num_of_open_dmas += open_dmas;
-+
-+	if (fman->state->rev_info.major < 6)
-+		total_num_dmas =
-+		    (u8)(fman->state->accumulated_num_of_open_dmas +
-+		    fman->state->extra_open_dmas_pool_size);
-+
-+	/* calculate reg */
-+	tmp = ioread32be(&bmi_rg->fmbm_pp[port_id - 1]) &
-+	    ~(BMI_NUM_OF_DMAS_MASK | BMI_NUM_OF_EXTRA_DMAS_MASK);
-+	tmp |= (u32)(((open_dmas - 1) << BMI_NUM_OF_DMAS_SHIFT) |
-+			   (extra_open_dmas << BMI_EXTRA_NUM_OF_DMAS_SHIFT));
-+	iowrite32be(tmp, &bmi_rg->fmbm_pp[port_id - 1]);
-+
-+	/* update total num of DMA's with committed number of open DMAS,
-+	 * and max uncommitted pool.
-+	 */
-+	if (total_num_dmas) {
-+		tmp = ioread32be(&bmi_rg->fmbm_cfg2) & ~BMI_CFG2_DMAS_MASK;
-+		tmp |= (u32)(total_num_dmas - 1) << BMI_CFG2_DMAS_SHIFT;
-+		iowrite32be(tmp, &bmi_rg->fmbm_cfg2);
-+	}
-+
-+	return 0;
-+}
-+
-+static int fman_config(struct fman *fman)
-+{
-+	void __iomem *base_addr;
-+	int err;
-+
-+	base_addr = fman->dts_params.base_addr;
-+
-+	fman->state = kzalloc(sizeof(*fman->state), GFP_KERNEL);
-+	if (!fman->state)
-+		goto err_fm_state;
-+
-+	/* Allocate the FM driver's parameters structure */
-+	fman->cfg = kzalloc(sizeof(*fman->cfg), GFP_KERNEL);
-+	if (!fman->cfg)
-+		goto err_fm_drv;
-+
-+	/* Initialize MURAM block */
-+	fman->muram =
-+		fman_muram_init(fman->dts_params.muram_res.start,
-+				resource_size(&fman->dts_params.muram_res));
-+	if (!fman->muram)
-+		goto err_fm_soc_specific;
-+
-+	/* Initialize FM parameters which will be kept by the driver */
-+	fman->state->fm_id = fman->dts_params.id;
-+	fman->state->fm_clk_freq = fman->dts_params.clk_freq;
-+	fman->state->qman_channel_base = fman->dts_params.qman_channel_base;
-+	fman->state->num_of_qman_channels =
-+		fman->dts_params.num_of_qman_channels;
-+	fman->state->res = fman->dts_params.res;
-+	fman->exception_cb = fman_exceptions;
-+	fman->bus_error_cb = fman_bus_error;
-+	fman->fpm_regs = base_addr + FPM_OFFSET;
-+	fman->bmi_regs = base_addr + BMI_OFFSET;
-+	fman->qmi_regs = base_addr + QMI_OFFSET;
-+	fman->dma_regs = base_addr + DMA_OFFSET;
-+	fman->base_addr = base_addr;
-+
-+	spin_lock_init(&fman->spinlock);
-+	fman_defconfig(fman->cfg);
-+
-+	fman->state->extra_fifo_pool_size = 0;
-+	fman->state->exceptions = (EX_DMA_BUS_ERROR                 |
-+					EX_DMA_READ_ECC              |
-+					EX_DMA_SYSTEM_WRITE_ECC      |
-+					EX_DMA_FM_WRITE_ECC          |
-+					EX_FPM_STALL_ON_TASKS        |
-+					EX_FPM_SINGLE_ECC            |
-+					EX_FPM_DOUBLE_ECC            |
-+					EX_QMI_DEQ_FROM_UNKNOWN_PORTID |
-+					EX_BMI_LIST_RAM_ECC          |
-+					EX_BMI_STORAGE_PROFILE_ECC   |
-+					EX_BMI_STATISTICS_RAM_ECC    |
-+					EX_MURAM_ECC                 |
-+					EX_BMI_DISPATCH_RAM_ECC      |
-+					EX_QMI_DOUBLE_ECC            |
-+					EX_QMI_SINGLE_ECC);
-+
-+	/* Read FMan revision for future use*/
-+	fman_get_revision(fman, &fman->state->rev_info);
-+
-+	err = fill_soc_specific_params(fman->state);
-+	if (err)
-+		goto err_fm_soc_specific;
-+
-+	/* FM_AID_MODE_NO_TNUM_SW005 Errata workaround */
-+	if (fman->state->rev_info.major >= 6)
-+		fman->cfg->dma_aid_mode = FMAN_DMA_AID_OUT_PORT_ID;
-+
-+	fman->cfg->qmi_def_tnums_thresh = fman->state->qmi_def_tnums_thresh;
-+
-+	fman->state->total_num_of_tasks =
-+	(u8)DFLT_TOTAL_NUM_OF_TASKS(fman->state->rev_info.major,
-+				    fman->state->rev_info.minor,
-+				    fman->state->bmi_max_num_of_tasks);
-+
-+	if (fman->state->rev_info.major < 6) {
-+		fman->cfg->dma_comm_qtsh_clr_emer =
-+		(u8)DFLT_DMA_COMM_Q_LOW(fman->state->rev_info.major,
-+					fman->state->dma_thresh_max_commq);
-+
-+		fman->cfg->dma_comm_qtsh_asrt_emer =
-+		(u8)DFLT_DMA_COMM_Q_HIGH(fman->state->rev_info.major,
-+					 fman->state->dma_thresh_max_commq);
-+
-+		fman->cfg->dma_cam_num_of_entries =
-+		DFLT_DMA_CAM_NUM_OF_ENTRIES(fman->state->rev_info.major);
-+
-+		fman->cfg->dma_read_buf_tsh_clr_emer =
-+		DFLT_DMA_READ_INT_BUF_LOW(fman->state->dma_thresh_max_buf);
-+
-+		fman->cfg->dma_read_buf_tsh_asrt_emer =
-+		DFLT_DMA_READ_INT_BUF_HIGH(fman->state->dma_thresh_max_buf);
-+
-+		fman->cfg->dma_write_buf_tsh_clr_emer =
-+		DFLT_DMA_WRITE_INT_BUF_LOW(fman->state->dma_thresh_max_buf);
-+
-+		fman->cfg->dma_write_buf_tsh_asrt_emer =
-+		DFLT_DMA_WRITE_INT_BUF_HIGH(fman->state->dma_thresh_max_buf);
-+
-+		fman->cfg->dma_axi_dbg_num_of_beats =
-+		DFLT_AXI_DBG_NUM_OF_BEATS;
-+	}
-+
-+	return 0;
-+
-+err_fm_soc_specific:
-+	kfree(fman->cfg);
-+err_fm_drv:
-+	kfree(fman->state);
-+err_fm_state:
-+	kfree(fman);
-+	return -EINVAL;
-+}
-+
-+static int fman_init(struct fman *fman)
-+{
-+	struct fman_cfg *cfg = NULL;
-+	int err = 0, i, count;
-+
-+	if (is_init_done(fman->cfg))
-+		return -EINVAL;
-+
-+	fman->state->count1_micro_bit = FM_TIMESTAMP_1_USEC_BIT;
-+
-+	cfg = fman->cfg;
-+
-+	/* clear revision-dependent non existing exception */
-+	if (fman->state->rev_info.major < 6)
-+		fman->state->exceptions &= ~FMAN_EX_BMI_DISPATCH_RAM_ECC;
-+
-+	if (fman->state->rev_info.major >= 6)
-+		fman->state->exceptions &= ~FMAN_EX_QMI_SINGLE_ECC;
-+
-+	/* clear CPG */
-+	memset_io((void __iomem *)(fman->base_addr + CGP_OFFSET), 0,
-+		  fman->state->fm_port_num_of_cg);
-+
-+	/* Save LIODN info before FMan reset
-+	 * Skipping non-existent port 0 (i = 1)
-+	 */
-+	for (i = 1; i < FMAN_LIODN_TBL; i++) {
-+		u32 liodn_base;
-+
-+		fman->liodn_offset[i] =
-+			ioread32be(&fman->bmi_regs->fmbm_spliodn[i - 1]);
-+		liodn_base = ioread32be(&fman->dma_regs->fmdmplr[i / 2]);
-+		if (i % 2) {
-+			/* FMDM_PLR LSB holds LIODN base for odd ports */
-+			liodn_base &= DMA_LIODN_BASE_MASK;
-+		} else {
-+			/* FMDM_PLR MSB holds LIODN base for even ports */
-+			liodn_base >>= DMA_LIODN_SHIFT;
-+			liodn_base &= DMA_LIODN_BASE_MASK;
-+		}
-+		fman->liodn_base[i] = liodn_base;
-+	}
-+
-+	/* FMan Reset (supported only for FMan V2) */
-+	if (fman->state->rev_info.major >= 6) {
-+		/* Errata A007273 */
-+		dev_dbg(fman->dev, "%s: FManV3 reset is not supported!\n",
-+			__func__);
-+	} else {
-+		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
-+		/* Wait for reset completion */
-+		count = 100;
-+		do {
-+			udelay(1);
-+		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
-+			 FPM_RSTC_FM_RESET) && --count);
-+		if (count == 0)
-+			return -EBUSY;
-+	}
-+
-+	if (ioread32be(&fman->qmi_regs->fmqm_gs) & QMI_GS_HALT_NOT_BUSY) {
-+		resume(fman->fpm_regs);
-+		/* Wait until QMI is not in halt not busy state */
-+		count = 100;
-+		do {
-+			udelay(1);
-+		} while (((ioread32be(&fman->qmi_regs->fmqm_gs)) &
-+			 QMI_GS_HALT_NOT_BUSY) && --count);
-+		if (count == 0)
-+			dev_warn(fman->dev, "%s: QMI is in halt not busy state\n",
-+				 __func__);
-+	}
-+
-+	if (clear_iram(fman) != 0)
-+		return -EINVAL;
-+
-+	cfg->exceptions = fman->state->exceptions;
-+
-+	/* Init DMA Registers */
-+
-+	err = dma_init(fman);
-+	if (err != 0) {
-+		free_init_resources(fman);
-+		return err;
-+	}
-+
-+	/* Init FPM Registers */
-+	fpm_init(fman->fpm_regs, fman->cfg);
-+
-+	/* define common resources */
-+	/* allocate MURAM for FIFO according to total size */
-+	fman->fifo_offset = fman_muram_alloc(fman->muram,
-+					     fman->state->total_fifo_size);
-+	if (IS_ERR_VALUE(fman->cam_offset)) {
-+		free_init_resources(fman);
-+		dev_err(fman->dev, "%s: MURAM alloc for BMI FIFO failed\n",
-+			__func__);
-+		return -ENOMEM;
-+	}
-+
-+	cfg->fifo_base_addr = fman->fifo_offset;
-+	cfg->total_fifo_size = fman->state->total_fifo_size;
-+	cfg->total_num_of_tasks = fman->state->total_num_of_tasks;
-+	cfg->clk_freq = fman->state->fm_clk_freq;
-+
-+	/* Init BMI Registers */
-+	bmi_init(fman->bmi_regs, fman->cfg);
-+
-+	/* Init QMI Registers */
-+	qmi_init(fman->qmi_regs, fman->cfg);
-+
-+	err = enable(fman, cfg);
-+	if (err != 0)
-+		return err;
-+
-+	enable_time_stamp(fman);
-+
-+	kfree(fman->cfg);
-+	fman->cfg = NULL;
-+
-+	return 0;
-+}
-+
-+static int fman_set_exception(struct fman *fman,
-+			      enum fman_exceptions exception, bool enable)
-+{
-+	u32 bit_mask = 0;
-+
-+	if (!is_init_done(fman->cfg))
-+		return -EINVAL;
-+
-+	bit_mask = get_exception_flag(exception);
-+	if (bit_mask) {
-+		if (enable)
-+			fman->state->exceptions |= bit_mask;
-+		else
-+			fman->state->exceptions &= ~bit_mask;
-+	} else {
-+		dev_err(fman->dev, "%s: Undefined exception (%d)\n",
-+			__func__, exception);
-+		return -EINVAL;
-+	}
-+
-+	return set_exception(fman, exception, enable);
-+}
-+
-+/**
-+ * fman_register_intr
-+ * @fman:	A Pointer to FMan device
-+ * @mod:	Calling module
-+ * @mod_id:	Module id (if more than 1 exists, '0' if not)
-+ * @intr_type:	Interrupt type (error/normal) selection.
-+ * @f_isr:	The interrupt service routine.
-+ * @h_src_arg:	Argument to be passed to f_isr.
-+ *
-+ * Used to register an event handler to be processed by FMan
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+void fman_register_intr(struct fman *fman, enum fman_event_modules module,
-+			u8 mod_id, enum fman_intr_type intr_type,
-+			void (*isr_cb)(void *src_arg), void *src_arg)
-+{
-+	int event = 0;
-+
-+	event = get_module_event(module, mod_id, intr_type);
-+	WARN_ON(event >= FMAN_EV_CNT);
-+
-+	/* register in local FM structure */
-+	fman->intr_mng[event].isr_cb = isr_cb;
-+	fman->intr_mng[event].src_handle = src_arg;
-+}
-+
-+/**
-+ * fman_unregister_intr
-+ * @fman:	A Pointer to FMan device
-+ * @mod:	Calling module
-+ * @mod_id:	Module id (if more than 1 exists, '0' if not)
-+ * @intr_type:	Interrupt type (error/normal) selection.
-+ *
-+ * Used to unregister an event handler to be processed by FMan
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+void fman_unregister_intr(struct fman *fman, enum fman_event_modules module,
-+			  u8 mod_id, enum fman_intr_type intr_type)
-+{
-+	int event = 0;
-+
-+	event = get_module_event(module, mod_id, intr_type);
-+	WARN_ON(event >= FMAN_EV_CNT);
-+
-+	fman->intr_mng[event].isr_cb = NULL;
-+	fman->intr_mng[event].src_handle = NULL;
-+}
-+
-+/**
-+ * fman_set_port_params
-+ * @fman:		A Pointer to FMan device
-+ * @port_params:	Port parameters
-+ *
-+ * Used by FMan Port to pass parameters to the FMan
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+int fman_set_port_params(struct fman *fman,
-+			 struct fman_port_init_params *port_params)
-+{
-+	int err;
-+	unsigned long flags;
-+	u8 port_id = port_params->port_id, mac_id;
-+
-+	spin_lock_irqsave(&fman->spinlock, flags);
-+
-+	err = set_num_of_tasks(fman, port_params->port_id,
-+			       &port_params->num_of_tasks,
-+			       &port_params->num_of_extra_tasks);
-+	if (err)
-+		goto return_err;
-+
-+	/* TX Ports */
-+	if (port_params->port_type != FMAN_PORT_TYPE_RX) {
-+		u32 enq_th, deq_th, reg;
-+
-+		/* update qmi ENQ/DEQ threshold */
-+		fman->state->accumulated_num_of_deq_tnums +=
-+			port_params->deq_pipeline_depth;
-+		enq_th = (ioread32be(&fman->qmi_regs->fmqm_gc) &
-+			  QMI_CFG_ENQ_MASK) >> QMI_CFG_ENQ_SHIFT;
-+		/* if enq_th is too big, we reduce it to the max value
-+		 * that is still 0
-+		 */
-+		if (enq_th >= (fman->state->qmi_max_num_of_tnums -
-+		    fman->state->accumulated_num_of_deq_tnums)) {
-+			enq_th =
-+			fman->state->qmi_max_num_of_tnums -
-+			fman->state->accumulated_num_of_deq_tnums - 1;
-+
-+			reg = ioread32be(&fman->qmi_regs->fmqm_gc);
-+			reg &= ~QMI_CFG_ENQ_MASK;
-+			reg |= (enq_th << QMI_CFG_ENQ_SHIFT);
-+			iowrite32be(reg, &fman->qmi_regs->fmqm_gc);
-+		}
-+
-+		deq_th = ioread32be(&fman->qmi_regs->fmqm_gc) &
-+				    QMI_CFG_DEQ_MASK;
-+		/* if deq_th is too small, we enlarge it to the min
-+		 * value that is still 0.
-+		 * depTh may not be larger than 63
-+		 * (fman->state->qmi_max_num_of_tnums-1).
-+		 */
-+		if ((deq_th <= fman->state->accumulated_num_of_deq_tnums) &&
-+		    (deq_th < fman->state->qmi_max_num_of_tnums - 1)) {
-+			deq_th = fman->state->accumulated_num_of_deq_tnums + 1;
-+			reg = ioread32be(&fman->qmi_regs->fmqm_gc);
-+			reg &= ~QMI_CFG_DEQ_MASK;
-+			reg |= deq_th;
-+			iowrite32be(reg, &fman->qmi_regs->fmqm_gc);
-+		}
-+	}
-+
-+	err = set_size_of_fifo(fman, port_params->port_id,
-+			       &port_params->size_of_fifo,
-+			       &port_params->extra_size_of_fifo);
-+	if (err)
-+		goto return_err;
-+
-+	err = set_num_of_open_dmas(fman, port_params->port_id,
-+				   &port_params->num_of_open_dmas,
-+				   &port_params->num_of_extra_open_dmas);
-+	if (err)
-+		goto return_err;
-+
-+	set_port_liodn(fman, port_id, fman->liodn_base[port_id],
-+		       fman->liodn_offset[port_id]);
-+
-+	if (fman->state->rev_info.major < 6)
-+		set_port_order_restoration(fman->fpm_regs, port_id);
-+
-+	mac_id = hw_port_id_to_sw_port_id(fman->state->rev_info.major, port_id);
-+
-+	if (port_params->max_frame_length >= fman->state->mac_mfl[mac_id]) {
-+		fman->state->port_mfl[mac_id] = port_params->max_frame_length;
-+	} else {
-+		dev_warn(fman->dev, "%s: Port (%d) max_frame_length is smaller than MAC (%d) current MTU\n",
-+			 __func__, port_id, mac_id);
-+		err = -EINVAL;
-+		goto return_err;
-+	}
-+
-+	spin_unlock_irqrestore(&fman->spinlock, flags);
-+
-+	return 0;
-+
-+return_err:
-+	spin_unlock_irqrestore(&fman->spinlock, flags);
-+	return err;
-+}
-+
-+/**
-+ * fman_reset_mac
-+ * @fman:	A Pointer to FMan device
-+ * @mac_id:	MAC id to be reset
-+ *
-+ * Reset a specific MAC
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+int fman_reset_mac(struct fman *fman, u8 mac_id)
-+{
-+	struct fman_fpm_regs __iomem *fpm_rg = fman->fpm_regs;
-+	u32 msk, timeout = 100;
-+
-+	if (fman->state->rev_info.major >= 6) {
-+		dev_err(fman->dev, "%s: FMan MAC reset no available for FMan V3!\n",
-+			__func__);
-+		return -EINVAL;
-+	}
-+
-+	/* Get the relevant bit mask */
-+	switch (mac_id) {
-+	case 0:
-+		msk = FPM_RSTC_MAC0_RESET;
-+		break;
-+	case 1:
-+		msk = FPM_RSTC_MAC1_RESET;
-+		break;
-+	case 2:
-+		msk = FPM_RSTC_MAC2_RESET;
-+		break;
-+	case 3:
-+		msk = FPM_RSTC_MAC3_RESET;
-+		break;
-+	case 4:
-+		msk = FPM_RSTC_MAC4_RESET;
-+		break;
-+	case 5:
-+		msk = FPM_RSTC_MAC5_RESET;
-+		break;
-+	case 6:
-+		msk = FPM_RSTC_MAC6_RESET;
-+		break;
-+	case 7:
-+		msk = FPM_RSTC_MAC7_RESET;
-+		break;
-+	case 8:
-+		msk = FPM_RSTC_MAC8_RESET;
-+		break;
-+	case 9:
-+		msk = FPM_RSTC_MAC9_RESET;
-+		break;
-+	default:
-+		dev_warn(fman->dev, "%s: Illegal MAC Id [%d]\n",
-+			 __func__, mac_id);
-+		return -EINVAL;
-+	}
-+
-+	/* reset */
-+	iowrite32be(msk, &fpm_rg->fm_rstc);
-+	while ((ioread32be(&fpm_rg->fm_rstc) & msk) && --timeout)
-+		udelay(10);
-+
-+	if (!timeout)
-+		return -EIO;
-+
-+	return 0;
-+}
-+
-+/**
-+ * fman_set_mac_max_frame
-+ * @fman:	A Pointer to FMan device
-+ * @mac_id:	MAC id
-+ * @mfl:	Maximum frame length
-+ *
-+ * Set maximum frame length of specific MAC in FMan driver
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+int fman_set_mac_max_frame(struct fman *fman, u8 mac_id, u16 mfl)
-+{
-+	/* if port is already initialized, check that MaxFrameLength is smaller
-+	 * or equal to the port's max
-+	 */
-+	if ((!fman->state->port_mfl[mac_id]) ||
-+	    (fman->state->port_mfl[mac_id] &&
-+	    (mfl <= fman->state->port_mfl[mac_id]))) {
-+		fman->state->mac_mfl[mac_id] = mfl;
-+	} else {
-+		dev_warn(fman->dev, "%s: MAC max_frame_length is larger than Port max_frame_length\n",
-+			 __func__);
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * fman_get_clock_freq
-+ * @fman:	A Pointer to FMan device
-+ *
-+ * Get FMan clock frequency
-+ *
-+ * Return: FMan clock frequency
-+ */
-+u16 fman_get_clock_freq(struct fman *fman)
-+{
-+	return fman->state->fm_clk_freq;
-+}
-+
-+/**
-+ * fman_get_bmi_max_fifo_size
-+ * @fman:	A Pointer to FMan device
-+ *
-+ * Get FMan maximum FIFO size
-+ *
-+ * Return: FMan Maximum FIFO size
-+ */
-+u32 fman_get_bmi_max_fifo_size(struct fman *fman)
-+{
-+	return fman->state->bmi_max_fifo_size;
-+}
-+
-+/**
-+ * fman_get_revision
-+ * @fman		- Pointer to the FMan module
-+ * @rev_info		- A structure of revision information parameters.
-+ *
-+ * Returns the FM revision
-+ *
-+ * Allowed only following fman_init().
-+ *
-+ * Return: 0 on success; Error code otherwise.
-+ */
-+void fman_get_revision(struct fman *fman, struct fman_rev_info *rev_info)
-+{
-+	u32 tmp;
-+
-+	tmp = ioread32be(&fman->fpm_regs->fm_ip_rev_1);
-+	rev_info->major = (u8)((tmp & FPM_REV1_MAJOR_MASK) >>
-+				FPM_REV1_MAJOR_SHIFT);
-+	rev_info->minor = tmp & FPM_REV1_MINOR_MASK;
-+}
-+
-+/**
-+ * fman_get_qman_channel_id
-+ * @fman:	A Pointer to FMan device
-+ * @port_id:	Port id
-+ *
-+ * Get QMan channel ID associated to the Port id
-+ *
-+ * Return: QMan channel ID
-+ */
-+u32 fman_get_qman_channel_id(struct fman *fman, u32 port_id)
-+{
-+	int i;
-+
-+	if (fman->state->rev_info.major >= 6) {
-+		u32 port_ids[] = {0x30, 0x31, 0x28, 0x29, 0x2a, 0x2b,
-+				  0x2c, 0x2d, 0x2, 0x3, 0x4, 0x5, 0x7, 0x7};
-+		for (i = 0; i < fman->state->num_of_qman_channels; i++) {
-+			if (port_ids[i] == port_id)
-+				break;
-+		}
-+	} else {
-+		u32 port_ids[] = {0x30, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x1,
-+				  0x2, 0x3, 0x4, 0x5, 0x7, 0x7};
-+		for (i = 0; i < fman->state->num_of_qman_channels; i++) {
-+			if (port_ids[i] == port_id)
-+				break;
-+		}
-+	}
-+
-+	if (i == fman->state->num_of_qman_channels)
-+		return 0;
-+
-+	return fman->state->qman_channel_base + i;
-+}
-+
-+/**
-+ * fman_get_mem_region
-+ * @fman:	A Pointer to FMan device
-+ *
-+ * Get FMan memory region
-+ *
-+ * Return: A structure with FMan memory region information
-+ */
-+struct resource *fman_get_mem_region(struct fman *fman)
-+{
-+	return fman->state->res;
-+}
-+
-+/* Bootargs defines */
-+/* Extra headroom for RX buffers - Default, min and max */
-+#define FSL_FM_RX_EXTRA_HEADROOM	64
-+#define FSL_FM_RX_EXTRA_HEADROOM_MIN	16
-+#define FSL_FM_RX_EXTRA_HEADROOM_MAX	384
-+
-+/* Maximum frame length */
-+#define FSL_FM_MAX_FRAME_SIZE			1522
-+#define FSL_FM_MAX_POSSIBLE_FRAME_SIZE		9600
-+#define FSL_FM_MIN_POSSIBLE_FRAME_SIZE		64
-+
-+/* Extra headroom for Rx buffers.
-+ * FMan is instructed to allocate, on the Rx path, this amount of
-+ * space at the beginning of a data buffer, beside the DPA private
-+ * data area and the IC fields.
-+ * Does not impact Tx buffer layout.
-+ * Configurable from bootargs. 64 by default, it's needed on
-+ * particular forwarding scenarios that add extra headers to the
-+ * forwarded frame.
-+ */
-+int fsl_fm_rx_extra_headroom = FSL_FM_RX_EXTRA_HEADROOM;
-+module_param(fsl_fm_rx_extra_headroom, int, 0);
-+MODULE_PARM_DESC(fsl_fm_rx_extra_headroom, "Extra headroom for Rx buffers");
-+
-+/* Max frame size, across all interfaces.
-+ * Configurable from bootargs, to avoid allocating oversized (socket)
-+ * buffers when not using jumbo frames.
-+ * Must be large enough to accommodate the network MTU, but small enough
-+ * to avoid wasting skb memory.
-+ *
-+ * Could be overridden once, at boot-time, via the
-+ * fm_set_max_frm() callback.
-+ */
-+int fsl_fm_max_frm = FSL_FM_MAX_FRAME_SIZE;
-+module_param(fsl_fm_max_frm, int, 0);
-+MODULE_PARM_DESC(fsl_fm_max_frm, "Maximum frame size, across all interfaces");
-+
-+/**
-+ * fman_get_max_frm
-+ *
-+ * Return: Max frame length configured in the FM driver
-+ */
-+u16 fman_get_max_frm(void)
-+{
-+	static bool fm_check_mfl;
-+
-+	if (!fm_check_mfl) {
-+		if (fsl_fm_max_frm > FSL_FM_MAX_POSSIBLE_FRAME_SIZE ||
-+		    fsl_fm_max_frm < FSL_FM_MIN_POSSIBLE_FRAME_SIZE) {
-+			pr_warn("Invalid fsl_fm_max_frm value (%d) in bootargs, valid range is %d-%d. Falling back to the default (%d)\n",
-+				fsl_fm_max_frm,
-+				FSL_FM_MIN_POSSIBLE_FRAME_SIZE,
-+				FSL_FM_MAX_POSSIBLE_FRAME_SIZE,
-+				FSL_FM_MAX_FRAME_SIZE);
-+			fsl_fm_max_frm = FSL_FM_MAX_FRAME_SIZE;
-+		}
-+		fm_check_mfl = true;
-+	}
-+
-+	return fsl_fm_max_frm;
-+}
-+EXPORT_SYMBOL(fman_get_max_frm);
-+
-+/**
-+ * fman_get_rx_extra_headroom
-+ *
-+ * Return: Extra headroom size configured in the FM driver
-+ */
-+int fman_get_rx_extra_headroom(void)
-+{
-+	static bool fm_check_rx_extra_headroom;
-+
-+	if (!fm_check_rx_extra_headroom) {
-+		if (fsl_fm_rx_extra_headroom > FSL_FM_RX_EXTRA_HEADROOM_MAX ||
-+		    fsl_fm_rx_extra_headroom < FSL_FM_RX_EXTRA_HEADROOM_MIN) {
-+			pr_warn("Invalid fsl_fm_rx_extra_headroom value (%d) in bootargs, valid range is %d-%d. Falling back to the default (%d)\n",
-+				fsl_fm_rx_extra_headroom,
-+				FSL_FM_RX_EXTRA_HEADROOM_MIN,
-+				FSL_FM_RX_EXTRA_HEADROOM_MAX,
-+				FSL_FM_RX_EXTRA_HEADROOM);
-+			fsl_fm_rx_extra_headroom = FSL_FM_RX_EXTRA_HEADROOM;
-+		}
-+
-+		fm_check_rx_extra_headroom = true;
-+		fsl_fm_rx_extra_headroom = ALIGN(fsl_fm_rx_extra_headroom, 16);
-+	}
-+
-+	return fsl_fm_rx_extra_headroom;
-+}
-+EXPORT_SYMBOL(fman_get_rx_extra_headroom);
-+
-+/**
-+ * fman_bind
-+ * @dev:	FMan OF device pointer
-+ *
-+ * Bind to a specific FMan device.
-+ *
-+ * Allowed only after the port was created.
-+ *
-+ * Return: A pointer to the FMan device
-+ */
-+struct fman *fman_bind(struct device *fm_dev)
-+{
-+	return (struct fman *)(dev_get_drvdata(get_device(fm_dev)));
-+}
-+
-+static irqreturn_t fman_err_irq(int irq, void *handle)
-+{
-+	struct fman *fman = (struct fman *)handle;
-+	u32 pending;
-+	struct fman_fpm_regs __iomem *fpm_rg;
-+	irqreturn_t single_ret, ret = IRQ_NONE;
-+
-+	if (!is_init_done(fman->cfg))
-+		return IRQ_NONE;
-+
-+	fpm_rg = fman->fpm_regs;
-+
-+	/* error interrupts */
-+	pending = ioread32be(&fpm_rg->fm_epi);
-+	if (!pending)
-+		return IRQ_NONE;
-+
-+	if (pending & ERR_INTR_EN_BMI) {
-+		single_ret = bmi_err_event(fman);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_QMI) {
-+		single_ret = qmi_err_event(fman);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_FPM) {
-+		single_ret = fpm_err_event(fman);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_DMA) {
-+		single_ret = dma_err_event(fman);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MURAM) {
-+		single_ret = muram_err_intr(fman);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+
-+	/* MAC error interrupts */
-+	if (pending & ERR_INTR_EN_MAC0) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 0);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC1) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 1);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC2) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 2);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC3) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 3);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC4) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 4);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC5) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 5);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC6) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 6);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC7) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 7);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC8) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 8);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & ERR_INTR_EN_MAC9) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_ERR_MAC0 + 9);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+
-+	return ret;
-+}
-+
-+static irqreturn_t fman_irq(int irq, void *handle)
-+{
-+	struct fman *fman = (struct fman *)handle;
-+	u32 pending;
-+	struct fman_fpm_regs __iomem *fpm_rg;
-+	irqreturn_t single_ret, ret = IRQ_NONE;
-+
-+	if (!is_init_done(fman->cfg))
-+		return IRQ_NONE;
-+
-+	fpm_rg = fman->fpm_regs;
-+
-+	/* normal interrupts */
-+	pending = ioread32be(&fpm_rg->fm_npi);
-+	if (!pending)
-+		return IRQ_NONE;
-+
-+	if (pending & INTR_EN_QMI) {
-+		single_ret = qmi_event(fman);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+
-+	/* MAC interrupts */
-+	if (pending & INTR_EN_MAC0) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 0);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC1) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 1);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC2) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 2);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC3) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 3);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC4) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 4);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC5) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 5);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC6) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 6);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC7) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 7);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC8) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 8);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+	if (pending & INTR_EN_MAC9) {
-+		single_ret = call_mac_isr(fman, FMAN_EV_MAC0 + 9);
-+		if (single_ret == IRQ_HANDLED)
-+			ret = IRQ_HANDLED;
-+	}
-+
-+	return ret;
-+}
-+
-+static const struct of_device_id fman_muram_match[] = {
-+	{
-+		.compatible = "fsl,fman-muram"},
-+	{}
-+};
-+MODULE_DEVICE_TABLE(of, fman_muram_match);
-+
-+static struct fman *read_dts_node(struct platform_device *of_dev)
-+{
-+	struct fman *fman;
-+	struct device_node *fm_node, *muram_node;
-+	struct resource *res;
-+	const u32 *u32_prop;
-+	int lenp, err, irq;
-+	struct clk *clk;
-+	u32 clk_rate;
-+	phys_addr_t phys_base_addr;
-+	resource_size_t mem_size;
-+
-+	fman = kzalloc(sizeof(*fman), GFP_KERNEL);
-+	if (!fman)
-+		return NULL;
-+
-+	fm_node = of_node_get(of_dev->dev.of_node);
-+
-+	u32_prop = (const u32 *)of_get_property(fm_node, "cell-index", &lenp);
-+	if (!u32_prop) {
-+		dev_err(&of_dev->dev, "%s: of_get_property(%s, cell-index) failed\n",
-+			__func__, fm_node->full_name);
-+		goto fman_node_put;
-+	}
-+	if (WARN_ON(lenp != sizeof(u32)))
-+		goto fman_node_put;
-+
-+	fman->dts_params.id = (u8)fdt32_to_cpu(u32_prop[0]);
-+
-+	/* Get the FM interrupt */
-+	res = platform_get_resource(of_dev, IORESOURCE_IRQ, 0);
-+	if (!res) {
-+		dev_err(&of_dev->dev, "%s: Can't get FMan IRQ resource\n",
-+			__func__);
-+		goto fman_node_put;
-+	}
-+	irq = res->start;
-+
-+	/* Get the FM error interrupt */
-+	res = platform_get_resource(of_dev, IORESOURCE_IRQ, 1);
-+	if (!res) {
-+		dev_err(&of_dev->dev, "%s: Can't get FMan Error IRQ resource\n",
-+			__func__);
-+		goto fman_node_put;
-+	}
-+	fman->dts_params.err_irq = res->start;
-+
-+	/* Get the FM address */
-+	res = platform_get_resource(of_dev, IORESOURCE_MEM, 0);
-+	if (!res) {
-+		dev_err(&of_dev->dev, "%s: Can't get FMan memory resouce\n",
-+			__func__);
-+		goto fman_node_put;
-+	}
-+
-+	phys_base_addr = res->start;
-+	mem_size = resource_size(res);
-+
-+	clk = of_clk_get(fm_node, 0);
-+	if (IS_ERR(clk)) {
-+		dev_err(&of_dev->dev, "%s: Failed to get FM%d clock structure\n",
-+			__func__, fman->dts_params.id);
-+		goto fman_node_put;
-+	}
-+
-+	clk_rate = clk_get_rate(clk);
-+	if (!clk_rate) {
-+		dev_err(&of_dev->dev, "%s: Failed to determine FM%d clock rate\n",
-+			__func__, fman->dts_params.id);
-+		goto fman_node_put;
-+	}
-+	/* Rounding to MHz */
-+	fman->dts_params.clk_freq = DIV_ROUND_UP(clk_rate, 1000000);
-+
-+	u32_prop = (const u32 *)of_get_property(fm_node,
-+						"fsl,qman-channel-range",
-+						&lenp);
-+	if (!u32_prop) {
-+		dev_err(&of_dev->dev, "%s: of_get_property(%s, fsl,qman-channel-range) failed\n",
-+			__func__, fm_node->full_name);
-+		goto fman_node_put;
-+	}
-+	if (WARN_ON(lenp != sizeof(u32) * 2))
-+		goto fman_node_put;
-+	fman->dts_params.qman_channel_base = fdt32_to_cpu(u32_prop[0]);
-+	fman->dts_params.num_of_qman_channels = fdt32_to_cpu(u32_prop[1]);
-+
-+	/* Get the MURAM base address and size */
-+	muram_node = of_find_matching_node(fm_node, fman_muram_match);
-+	if (!muram_node) {
-+		dev_err(&of_dev->dev, "%s: could not find MURAM node\n",
-+			__func__);
-+		goto fman_node_put;
-+	}
-+
-+	err = of_address_to_resource(muram_node, 0,
-+				     &fman->dts_params.muram_res);
-+	if (err) {
-+		of_node_put(muram_node);
-+		dev_err(&of_dev->dev, "%s: of_address_to_resource() = %d\n",
-+			__func__, err);
-+		goto fman_node_put;
-+	}
-+
-+	of_node_put(muram_node);
-+	of_node_put(fm_node);
-+
-+	err = devm_request_irq(&of_dev->dev, irq, fman_irq, 0, "fman", fman);
-+	if (err < 0) {
-+		dev_err(&of_dev->dev, "%s: irq %d allocation failed (error = %d)\n",
-+			__func__, irq, err);
-+		goto fman_free;
-+	}
-+
-+	if (fman->dts_params.err_irq != 0) {
-+		err = devm_request_irq(&of_dev->dev, fman->dts_params.err_irq,
-+				       fman_err_irq, IRQF_SHARED,
-+				       "fman-err", fman);
-+		if (err < 0) {
-+			dev_err(&of_dev->dev, "%s: irq %d allocation failed (error = %d)\n",
-+				__func__, fman->dts_params.err_irq, err);
-+			goto fman_free;
-+		}
-+	}
-+
-+	fman->dts_params.res =
-+		devm_request_mem_region(&of_dev->dev, phys_base_addr,
-+					mem_size, "fman");
-+	if (!fman->dts_params.res) {
-+		dev_err(&of_dev->dev, "%s: request_mem_region() failed\n",
-+			__func__);
-+		goto fman_free;
-+	}
-+
-+	fman->dts_params.base_addr =
-+		devm_ioremap(&of_dev->dev, phys_base_addr, mem_size);
-+	if (fman->dts_params.base_addr == 0) {
-+		dev_err(&of_dev->dev, "%s: devm_ioremap() failed\n", __func__);
-+		goto fman_free;
-+	}
-+
-+	return fman;
-+
-+fman_node_put:
-+	of_node_put(fm_node);
-+fman_free:
-+	kfree(fman);
-+	return NULL;
-+}
-+
-+static int fman_probe(struct platform_device *of_dev)
-+{
-+	struct fman *fman;
-+	struct device *dev;
-+	int err;
-+
-+	dev = &of_dev->dev;
-+
-+	fman = read_dts_node(of_dev);
-+	if (!fman)
-+		return -EIO;
-+
-+	err = fman_config(fman);
-+	if (err) {
-+		dev_err(dev, "%s: FMan config failed\n", __func__);
-+		return -EINVAL;
-+	}
-+
-+	if (fman_init(fman) != 0) {
-+		dev_err(dev, "%s: FMan init failed\n", __func__);
-+		return -EINVAL;
-+	}
-+
-+	if (fman->dts_params.err_irq == 0) {
-+		fman_set_exception(fman, FMAN_EX_DMA_BUS_ERROR, false);
-+		fman_set_exception(fman, FMAN_EX_DMA_READ_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_DMA_SYSTEM_WRITE_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_DMA_FM_WRITE_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_DMA_SINGLE_PORT_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_FPM_STALL_ON_TASKS, false);
-+		fman_set_exception(fman, FMAN_EX_FPM_SINGLE_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_FPM_DOUBLE_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_QMI_SINGLE_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_QMI_DOUBLE_ECC, false);
-+		fman_set_exception(fman,
-+				   FMAN_EX_QMI_DEQ_FROM_UNKNOWN_PORTID, false);
-+		fman_set_exception(fman, FMAN_EX_BMI_LIST_RAM_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_BMI_STORAGE_PROFILE_ECC,
-+				   false);
-+		fman_set_exception(fman, FMAN_EX_BMI_STATISTICS_RAM_ECC, false);
-+		fman_set_exception(fman, FMAN_EX_BMI_DISPATCH_RAM_ECC, false);
-+	}
-+
-+	dev_set_drvdata(dev, fman);
-+
-+	fman->dev = dev;
-+
-+	dev_dbg(dev, "FMan%d probed\n", fman->dts_params.id);
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id fman_match[] = {
-+	{
-+		.compatible = "fsl,fman"},
-+	{}
-+};
-+
-+MODULE_DEVICE_TABLE(of, fm_match);
-+
-+static struct platform_driver fman_driver = {
-+	.driver = {
-+		.name = "fsl-fman",
-+		.of_match_table = fman_match,
-+	},
-+	.probe = fman_probe,
-+};
-+
-+builtin_platform_driver(fman_driver);
-+
-diff --git a/drivers/net/ethernet/freescale/fman/fman.h b/drivers/net/ethernet/freescale/fman/fman.h
-new file mode 100644
-index 0000000..57aae8d
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/fman/fman.h
-@@ -0,0 +1,325 @@
-+/*
-+ * Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef __FM_H
-+#define __FM_H
-+
-+#include <linux/io.h>
-+
-+/* FM Frame descriptor macros  */
-+/* Frame queue Context Override */
-+#define FM_FD_CMD_FCO                   0x80000000
-+#define FM_FD_CMD_RPD                   0x40000000  /* Read Prepended Data */
-+#define FM_FD_CMD_DTC                   0x10000000  /* Do L4 Checksum */
-+
-+/* TX-Port: Unsupported Format */
-+#define FM_FD_ERR_UNSUPPORTED_FORMAT    0x04000000
-+/* TX Port: Length Error */
-+#define FM_FD_ERR_LENGTH                0x02000000
-+#define FM_FD_ERR_DMA                   0x01000000  /* DMA Data error */
-+
-+/* IPR frame (not error) */
-+#define FM_FD_IPR                       0x00000001
-+/* IPR non-consistent-sp */
-+#define FM_FD_ERR_IPR_NCSP              (0x00100000 | FM_FD_IPR)
-+/* IPR error */
-+#define FM_FD_ERR_IPR                   (0x00200000 | FM_FD_IPR)
-+/* IPR timeout */
-+#define FM_FD_ERR_IPR_TO                (0x00300000 | FM_FD_IPR)
-+/* TX Port: Length Error */
-+#define FM_FD_ERR_IPRE                  (FM_FD_ERR_IPR & ~FM_FD_IPR)
-+
-+/* Rx FIFO overflow, FCS error, code error, running disparity error
-+ * (SGMII and TBI modes), FIFO parity error. PHY Sequence error,
-+ * PHY error control character detected.
-+ */
-+#define FM_FD_ERR_PHYSICAL              0x00080000
-+/* Frame too long OR Frame size exceeds max_length_frame  */
-+#define FM_FD_ERR_SIZE                  0x00040000
-+/* classification discard */
-+#define FM_FD_ERR_CLS_DISCARD           0x00020000
-+/* Extract Out of Frame */
-+#define FM_FD_ERR_EXTRACTION            0x00008000
-+/* No Scheme Selected */
-+#define FM_FD_ERR_NO_SCHEME             0x00004000
-+/* Keysize Overflow */
-+#define FM_FD_ERR_KEYSIZE_OVERFLOW      0x00002000
-+/* Frame color is red */
-+#define FM_FD_ERR_COLOR_RED             0x00000800
-+/* Frame color is yellow */
-+#define FM_FD_ERR_COLOR_YELLOW          0x00000400
-+/* Parser Time out Exceed */
-+#define FM_FD_ERR_PRS_TIMEOUT           0x00000080
-+/* Invalid Soft Parser instruction */
-+#define FM_FD_ERR_PRS_ILL_INSTRUCT      0x00000040
-+/* Header error was identified during parsing */
-+#define FM_FD_ERR_PRS_HDR_ERR           0x00000020
-+/* Frame parsed beyind 256 first bytes */
-+#define FM_FD_ERR_BLOCK_LIMIT_EXCEEDED  0x00000008
-+
-+/* non Frame-Manager error */
-+#define FM_FD_RX_STATUS_ERR_NON_FM      0x00400000
-+
-+/* FMan driver defines */
-+#define FMAN_BMI_FIFO_UNITS		0x100
-+#define OFFSET_UNITS			16
-+
-+/* BMan defines */
-+#define BM_MAX_NUM_OF_POOLS		64 /* Buffers pools */
-+#define FMAN_PORT_MAX_EXT_POOLS_NUM	8  /* External BM pools per Rx port */
-+
-+struct fman; /* FMan data */
-+
-+/* Enum for defining port types */
-+enum fman_port_type {
-+	FMAN_PORT_TYPE_TX = 0,	/* TX Port */
-+	FMAN_PORT_TYPE_RX,	/* RX Port */
-+};
-+
-+struct fman_rev_info {
-+	u8 major;			/* Major revision */
-+	u8 minor;			/* Minor revision */
-+};
-+
-+enum fman_exceptions {
-+	FMAN_EX_DMA_BUS_ERROR = 0,	/* DMA bus error. */
-+	FMAN_EX_DMA_READ_ECC,		/* Read Buffer ECC error */
-+	FMAN_EX_DMA_SYSTEM_WRITE_ECC,	/* Write Buffer ECC err on sys side */
-+	FMAN_EX_DMA_FM_WRITE_ECC,	/* Write Buffer ECC error on FM side */
-+	FMAN_EX_DMA_SINGLE_PORT_ECC,	/* Single Port ECC error on FM side */
-+	FMAN_EX_FPM_STALL_ON_TASKS,	/* Stall of tasks on FPM */
-+	FMAN_EX_FPM_SINGLE_ECC,		/* Single ECC on FPM. */
-+	FMAN_EX_FPM_DOUBLE_ECC,		/* Double ECC error on FPM ram access */
-+	FMAN_EX_QMI_SINGLE_ECC,	/* Single ECC on QMI. */
-+	FMAN_EX_QMI_DOUBLE_ECC,	/* Double bit ECC occurred on QMI */
-+	FMAN_EX_QMI_DEQ_FROM_UNKNOWN_PORTID,/* DeQ from unknown port id */
-+	FMAN_EX_BMI_LIST_RAM_ECC,	/* Linked List RAM ECC error */
-+	FMAN_EX_BMI_STORAGE_PROFILE_ECC,/* storage profile */
-+	FMAN_EX_BMI_STATISTICS_RAM_ECC,/* Statistics RAM ECC Err Enable */
-+	FMAN_EX_BMI_DISPATCH_RAM_ECC,	/* Dispatch RAM ECC Error Enable */
-+	FMAN_EX_IRAM_ECC,		/* Double bit ECC occurred on IRAM */
-+	FMAN_EX_MURAM_ECC		/* Double bit ECC occurred on MURAM */
-+};
-+
-+/* Parse results memory layout */
-+struct fman_prs_result {
-+	u8 lpid;		/* Logical port id */
-+	u8 shimr;		/* Shim header result  */
-+	u16 l2r;		/* Layer 2 result */
-+	u16 l3r;		/* Layer 3 result */
-+	u8 l4r;		/* Layer 4 result */
-+	u8 cplan;		/* Classification plan id */
-+	u16 nxthdr;		/* Next Header  */
-+	u16 cksum;		/* Running-sum */
-+	/* Flags&fragment-offset field of the last IP-header */
-+	u16 flags_frag_off;
-+	/* Routing type field of a IPV6 routing extension header */
-+	u8 route_type;
-+	/* Routing Extension Header Present; last bit is IP valid */
-+	u8 rhp_ip_valid;
-+	u8 shim_off[2];		/* Shim offset */
-+	u8 ip_pid_off;		/* IP PID (last IP-proto) offset */
-+	u8 eth_off;		/* ETH offset */
-+	u8 llc_snap_off;	/* LLC_SNAP offset */
-+	u8 vlan_off[2];		/* VLAN offset */
-+	u8 etype_off;		/* ETYPE offset */
-+	u8 pppoe_off;		/* PPP offset */
-+	u8 mpls_off[2];		/* MPLS offset */
-+	u8 ip_off[2];		/* IP offset */
-+	u8 gre_off;		/* GRE offset */
-+	u8 l4_off;		/* Layer 4 offset */
-+	u8 nxthdr_off;		/* Parser end point */
-+};
-+
-+/* A structure for defining buffer prefix area content. */
-+struct fman_buffer_prefix_content {
-+	/* Number of bytes to be left at the beginning of the external
-+	 * buffer; Note that the private-area will start from the base
-+	 * of the buffer address.
-+	 */
-+	u16 priv_data_size;
-+	/* true to pass the parse result to/from the FM;
-+	 * User may use FM_PORT_GetBufferPrsResult() in
-+	 * order to get the parser-result from a buffer.
-+	 */
-+	bool pass_prs_result;
-+	/* true to pass the timeStamp to/from the FM User */
-+	bool pass_time_stamp;
-+	/* true to pass the KG hash result to/from the FM User may
-+	 * use FM_PORT_GetBufferHashResult() in order to get the
-+	 * parser-result from a buffer.
-+	 */
-+	bool pass_hash_result;
-+	/* Add all other Internal-Context information: AD,
-+	 * hash-result, key, etc.
-+	 */
-+	u16 data_align;
-+};
-+
-+/* A structure of information about each of the external
-+ * buffer pools used by a port or storage-profile.
-+ */
-+struct fman_ext_pool_params {
-+	u8 id;		    /* External buffer pool id */
-+	u16 size;		    /* External buffer pool buffer size */
-+};
-+
-+/* A structure for informing the driver about the external
-+ * buffer pools allocated in the BM and used by a port or a
-+ * storage-profile.
-+ */
-+struct fman_ext_pools {
-+	u8 num_of_pools_used; /* Number of pools use by this port */
-+	struct fman_ext_pool_params ext_buf_pool[FMAN_PORT_MAX_EXT_POOLS_NUM];
-+					/* Parameters for each port */
-+};
-+
-+/* A structure for defining BM pool depletion criteria */
-+struct fman_buf_pool_depletion {
-+	/* select mode in which pause frames will be sent after a
-+	 * number of pools (all together!) are depleted
-+	 */
-+	bool pools_grp_mode_enable;
-+	/* the number of depleted pools that will invoke pause
-+	 * frames transmission.
-+	 */
-+	u8 num_of_pools;
-+	/* For each pool, true if it should be considered for
-+	 * depletion (Note - this pool must be used by this port!).
-+	 */
-+	bool pools_to_consider[BM_MAX_NUM_OF_POOLS];
-+	/* select mode in which pause frames will be sent
-+	 * after a single-pool is depleted;
-+	 */
-+	bool single_pool_mode_enable;
-+	/* For each pool, true if it should be considered
-+	 * for depletion (Note - this pool must be used by this port!)
-+	 */
-+	bool pools_to_consider_for_single_mode[BM_MAX_NUM_OF_POOLS];
-+};
-+
-+/* Enum for inter-module interrupts registration */
-+enum fman_event_modules {
-+	FMAN_MOD_MAC = 0,		/* MAC event */
-+	FMAN_MOD_FMAN_CTRL,	/* FMAN Controller */
-+	FMAN_MOD_DUMMY_LAST
-+};
-+
-+/* Enum for interrupts types */
-+enum fman_intr_type {
-+	FMAN_INTR_TYPE_ERR,
-+	FMAN_INTR_TYPE_NORMAL
-+};
-+
-+/* Enum for inter-module interrupts registration */
-+enum fman_inter_module_event {
-+	FMAN_EV_ERR_MAC0 = 0,	/* MAC 0 error event */
-+	FMAN_EV_ERR_MAC1,		/* MAC 1 error event */
-+	FMAN_EV_ERR_MAC2,		/* MAC 2 error event */
-+	FMAN_EV_ERR_MAC3,		/* MAC 3 error event */
-+	FMAN_EV_ERR_MAC4,		/* MAC 4 error event */
-+	FMAN_EV_ERR_MAC5,		/* MAC 5 error event */
-+	FMAN_EV_ERR_MAC6,		/* MAC 6 error event */
-+	FMAN_EV_ERR_MAC7,		/* MAC 7 error event */
-+	FMAN_EV_ERR_MAC8,		/* MAC 8 error event */
-+	FMAN_EV_ERR_MAC9,		/* MAC 9 error event */
-+	FMAN_EV_MAC0,		/* MAC 0 event (Magic packet detection) */
-+	FMAN_EV_MAC1,		/* MAC 1 event (Magic packet detection) */
-+	FMAN_EV_MAC2,		/* MAC 2 (Magic packet detection) */
-+	FMAN_EV_MAC3,		/* MAC 3 (Magic packet detection) */
-+	FMAN_EV_MAC4,		/* MAC 4 (Magic packet detection) */
-+	FMAN_EV_MAC5,		/* MAC 5 (Magic packet detection) */
-+	FMAN_EV_MAC6,		/* MAC 6 (Magic packet detection) */
-+	FMAN_EV_MAC7,		/* MAC 7 (Magic packet detection) */
-+	FMAN_EV_MAC8,		/* MAC 8 event (Magic packet detection) */
-+	FMAN_EV_MAC9,		/* MAC 9 event (Magic packet detection) */
-+	FMAN_EV_FMAN_CTRL_0,	/* Fman controller event 0 */
-+	FMAN_EV_FMAN_CTRL_1,	/* Fman controller event 1 */
-+	FMAN_EV_FMAN_CTRL_2,	/* Fman controller event 2 */
-+	FMAN_EV_FMAN_CTRL_3,	/* Fman controller event 3 */
-+	FMAN_EV_CNT
-+};
-+
-+struct fman_intr_src {
-+	void (*isr_cb)(void *src_arg);
-+	void *src_handle;
-+};
-+
-+/* Structure for port-FM communication during fman_port_init. */
-+struct fman_port_init_params {
-+	u8 port_id;			/* port Id */
-+	enum fman_port_type port_type;	/* Port type */
-+	u16 port_speed;			/* Port speed */
-+	u16 liodn_offset;		/* Port's requested resource */
-+	u8 num_of_tasks;		/* Port's requested resource */
-+	u8 num_of_extra_tasks;		/* Port's requested resource */
-+	u8 num_of_open_dmas;		/* Port's requested resource */
-+	u8 num_of_extra_open_dmas;	/* Port's requested resource */
-+	u32 size_of_fifo;		/* Port's requested resource */
-+	u32 extra_size_of_fifo;		/* Port's requested resource */
-+	u8 deq_pipeline_depth;		/* Port's requested resource */
-+	u16 max_frame_length;		/* Port's max frame length. */
-+	u16 liodn_base;
-+	/* LIODN base for this port, to be used together with LIODN offset. */
-+};
-+
-+void fman_get_revision(struct fman *fman, struct fman_rev_info *rev_info);
-+
-+void fman_register_intr(struct fman *fman, enum fman_event_modules mod,
-+			u8 mod_id, enum fman_intr_type intr_type,
-+			void (*f_isr)(void *h_src_arg), void *h_src_arg);
-+
-+void fman_unregister_intr(struct fman *fman, enum fman_event_modules mod,
-+			  u8 mod_id, enum fman_intr_type intr_type);
-+
-+int fman_set_port_params(struct fman *fman,
-+			 struct fman_port_init_params *port_params);
-+
-+int fman_reset_mac(struct fman *fman, u8 mac_id);
-+
-+u16 fman_get_clock_freq(struct fman *fman);
-+
-+u32 fman_get_bmi_max_fifo_size(struct fman *fman);
-+
-+int fman_set_mac_max_frame(struct fman *fman, u8 mac_id, u16 mfl);
-+
-+u32 fman_get_qman_channel_id(struct fman *fman, u32 port_id);
-+
-+struct resource *fman_get_mem_region(struct fman *fman);
-+
-+u16 fman_get_max_frm(void);
-+
-+int fman_get_rx_extra_headroom(void);
-+
-+struct fman *fman_bind(struct device *dev);
-+
-+#endif /* __FM_H */
--- 
-1.7.9.5
+RnJvbTogSWdhbCBMaWJlcm1hbiA8aWdhbC5saWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKQWRkIHRo
+ZSBEYXRhIFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSBGcmFtZSBNYW5nZXIgUG9ydCBE
+cml2ZXIuClRoZSBGTWFuIGRyaXZlciB1c2VzIGEgbW9kdWxlIGNhbGxlZCAiUG9ydCIgdG8gcmVw
+cmVzZW50IHRoZSBwaHlzaWNhbApUWCBhbmQgUlggcG9ydHMuCkVhY2ggRk1hbiB2ZXJzaW9uIGhh
+cyBkaWZmZXJlbnQgbnVtYmVyIG9mIHBoeXNpY2FsIHBvcnRzLgpUaGlzIHBhdGNoIGFkZHMgVGhl
+IEZNYW4gUG9ydCBjb25maWd1cmF0aW9uLCBpbml0aWFsaXphdGlvbiBhbmQKcnVudGltZSBjb250
+cm9sIHJvdXRpbmVzIGZvciBib3RoIFRYIGFuZCBSWC4KClNpZ25lZC1vZmYtYnk6IElnYWwgTGli
+ZXJtYW4gPGlnYWwubGliZXJtYW5AZnJlZXNjYWxlLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSAgICB8ICAgIDIgKy0KIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fcG9ydC5jIHwgMTc3OSArKysrKysrKysrKysrKysr
+KysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0Lmgg
+fCAgMTUxICsrCiAzIGZpbGVzIGNoYW5nZWQsIDE5MzEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlv
+bigtKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9m
+bWFuL2ZtYW5fcG9ydC5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmgKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
+Y2FsZS9mbWFuL01ha2VmaWxlCmluZGV4IDUxNDE1MzIuLjJlYjBiOWIgMTAwNjQ0Ci0tLSBhL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCisrKyBiL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCkBAIC0yLDUgKzIsNSBAQCBzdWJk
+aXItY2NmbGFncy15ICs9ICAtSSQoc3JjdHJlZSkvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZtYW4KIAogb2JqLXkJCSs9IGZzbF9mbWFuLm8gZnNsX2ZtYW5fbWFjLm8KIAotZnNsX2Zt
+YW4tb2Jqcwk6PSBmbWFuX211cmFtLm8gZm1hbi5vIGZtYW5fc3AubworZnNsX2ZtYW4tb2Jqcwk6
+PSBmbWFuX211cmFtLm8gZm1hbi5vIGZtYW5fc3AubyBmbWFuX3BvcnQubwogZnNsX2ZtYW5fbWFj
+LW9ianMgOj0gZm1hbl9kdHNlYy5vIGZtYW5fbWVtYWMubyBmbWFuX3RnZWMubwpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmMgYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3BvcnQuYwpuZXcgZmlsZSBtb2Rl
+IDEwMDY0NAppbmRleCAwMDAwMDAwLi41NjJkNTI0Ci0tLSAvZGV2L251bGwKKysrIGIvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1hbl9wb3J0LmMKQEAgLTAsMCArMSwxNzc5
+IEBACisvKgorICogQ29weXJpZ2h0IDIwMDggLSAyMDE1IEZyZWVzY2FsZSBTZW1pY29uZHVjdG9y
+IEluYy4KKyAqCisgKiBSZWRpc3RyaWJ1dGlvbiBhbmQgdXNlIGluIHNvdXJjZSBhbmQgYmluYXJ5
+IGZvcm1zLCB3aXRoIG9yIHdpdGhvdXQKKyAqIG1vZGlmaWNhdGlvbiwgYXJlIHBlcm1pdHRlZCBw
+cm92aWRlZCB0aGF0IHRoZSBmb2xsb3dpbmcgY29uZGl0aW9ucyBhcmUgbWV0OgorICogICAgICog
+UmVkaXN0cmlidXRpb25zIG9mIHNvdXJjZSBjb2RlIG11c3QgcmV0YWluIHRoZSBhYm92ZSBjb3B5
+cmlnaHQKKyAqICAgICAgIG5vdGljZSwgdGhpcyBsaXN0IG9mIGNvbmRpdGlvbnMgYW5kIHRoZSBm
+b2xsb3dpbmcgZGlzY2xhaW1lci4KKyAqICAgICAqIFJlZGlzdHJpYnV0aW9ucyBpbiBiaW5hcnkg
+Zm9ybSBtdXN0IHJlcHJvZHVjZSB0aGUgYWJvdmUgY29weXJpZ2h0CisgKiAgICAgICBub3RpY2Us
+IHRoaXMgbGlzdCBvZiBjb25kaXRpb25zIGFuZCB0aGUgZm9sbG93aW5nIGRpc2NsYWltZXIgaW4g
+dGhlCisgKiAgICAgICBkb2N1bWVudGF0aW9uIGFuZC9vciBvdGhlciBtYXRlcmlhbHMgcHJvdmlk
+ZWQgd2l0aCB0aGUgZGlzdHJpYnV0aW9uLgorICogICAgICogTmVpdGhlciB0aGUgbmFtZSBvZiBG
+cmVlc2NhbGUgU2VtaWNvbmR1Y3RvciBub3IgdGhlCisgKiAgICAgICBuYW1lcyBvZiBpdHMgY29u
+dHJpYnV0b3JzIG1heSBiZSB1c2VkIHRvIGVuZG9yc2Ugb3IgcHJvbW90ZSBwcm9kdWN0cworICog
+ICAgICAgZGVyaXZlZCBmcm9tIHRoaXMgc29mdHdhcmUgd2l0aG91dCBzcGVjaWZpYyBwcmlvciB3
+cml0dGVuIHBlcm1pc3Npb24uCisgKgorICoKKyAqIEFMVEVSTkFUSVZFTFksIHRoaXMgc29mdHdh
+cmUgbWF5IGJlIGRpc3RyaWJ1dGVkIHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUKKyAqIEdOVSBHZW5l
+cmFsIFB1YmxpYyBMaWNlbnNlICgiR1BMIikgYXMgcHVibGlzaGVkIGJ5IHRoZSBGcmVlIFNvZnR3
+YXJlCisgKiBGb3VuZGF0aW9uLCBlaXRoZXIgdmVyc2lvbiAyIG9mIHRoYXQgTGljZW5zZSBvciAo
+YXQgeW91ciBvcHRpb24pIGFueQorICogbGF0ZXIgdmVyc2lvbi4KKyAqCisgKiBUSElTIFNPRlRX
+QVJFIElTIFBST1ZJREVEIEJZIEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yIGBgQVMgSVMnJyBBTkQg
+QU5ZCisgKiBFWFBSRVNTIE9SIElNUExJRUQgV0FSUkFOVElFUywgSU5DTFVESU5HLCBCVVQgTk9U
+IExJTUlURUQgVE8sIFRIRSBJTVBMSUVECisgKiBXQVJSQU5USUVTIE9GIE1FUkNIQU5UQUJJTElU
+WSBBTkQgRklUTkVTUyBGT1IgQSBQQVJUSUNVTEFSIFBVUlBPU0UgQVJFCisgKiBESVNDTEFJTUVE
+LiBJTiBOTyBFVkVOVCBTSEFMTCBGcmVlc2NhbGUgU2VtaWNvbmR1Y3RvciBCRSBMSUFCTEUgRk9S
+IEFOWQorICogRElSRUNULCBJTkRJUkVDVCwgSU5DSURFTlRBTCwgU1BFQ0lBTCwgRVhFTVBMQVJZ
+LCBPUiBDT05TRVFVRU5USUFMIERBTUFHRVMKKyAqIChJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRF
+RCBUTywgUFJPQ1VSRU1FTlQgT0YgU1VCU1RJVFVURSBHT09EUyBPUiBTRVJWSUNFUzsKKyAqIExP
+U1MgT0YgVVNFLCBEQVRBLCBPUiBQUk9GSVRTOyBPUiBCVVNJTkVTUyBJTlRFUlJVUFRJT04pIEhP
+V0VWRVIgQ0FVU0VEIEFORAorICogT04gQU5ZIFRIRU9SWSBPRiBMSUFCSUxJVFksIFdIRVRIRVIg
+SU4gQ09OVFJBQ1QsIFNUUklDVCBMSUFCSUxJVFksIE9SIFRPUlQKKyAqIChJTkNMVURJTkcgTkVH
+TElHRU5DRSBPUiBPVEhFUldJU0UpIEFSSVNJTkcgSU4gQU5ZIFdBWSBPVVQgT0YgVEhFIFVTRSBP
+RiBUSElTCisgKiBTT0ZUV0FSRSwgRVZFTiBJRiBBRFZJU0VEIE9GIFRIRSBQT1NTSUJJTElUWSBP
+RiBTVUNIIERBTUFHRS4KKyAqLworCisjZGVmaW5lIHByX2ZtdChmbXQpIEtCVUlMRF9NT0ROQU1F
+ICI6ICIgZm10CisKKyNpbmNsdWRlICJmbWFuX3BvcnQuaCIKKyNpbmNsdWRlICJmbWFuLmgiCisj
+aW5jbHVkZSAiZm1hbl9zcC5oIgorCisjaW5jbHVkZSA8bGludXgvaW8uaD4KKyNpbmNsdWRlIDxs
+aW51eC9zbGFiLmg+CisjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+CisjaW5jbHVkZSA8bGludXgv
+aW50ZXJydXB0Lmg+CisjaW5jbHVkZSA8bGludXgvb2ZfcGxhdGZvcm0uaD4KKyNpbmNsdWRlIDxs
+aW51eC9vZl9hZGRyZXNzLmg+CisjaW5jbHVkZSA8bGludXgvZGVsYXkuaD4KKyNpbmNsdWRlIDxs
+aW51eC9saWJmZHRfZW52Lmg+CisKKy8qIFF1ZXVlIElEICovCisjZGVmaW5lIERGTFRfRlFfSUQJ
+CTB4MDBGRkZGRkYKKworLyogR2VuZXJhbCBkZWZpbmVzICovCisjZGVmaW5lIFBPUlRfQk1JX0ZJ
+Rk9fVU5JVFMJCTB4MTAwCisKKyNkZWZpbmUgTUFYX1BPUlRfRklGT19TSVpFKGJtaV9tYXhfZmlm
+b19zaXplKQlcCisJbWluKCh1MzIpYm1pX21heF9maWZvX3NpemUsICh1MzIpMTAyNCAqIEZNQU5f
+Qk1JX0ZJRk9fVU5JVFMpCisKKyNkZWZpbmUgUE9SVF9DR19NQVBfTlVNCQkJOAorI2RlZmluZSBQ
+T1JUX1BSU19SRVNVTFRfV09SRFNfTlVNCTgKKyNkZWZpbmUgUE9SVF9JQ19PRkZTRVRfVU5JVFMJ
+CTB4MTAKKworI2RlZmluZSBNSU5fRVhUX0JVRl9TSVpFCQk2NAorCisjZGVmaW5lIEJNSV9QT1JU
+X1JFR1NfT0ZGU0VUCQkJCTAKKyNkZWZpbmUgUU1JX1BPUlRfUkVHU19PRkZTRVQJCQkJMHg0MDAK
+KworLyogRGVmYXVsdCB2YWx1ZXMgKi8KKyNkZWZpbmUgREZMVF9QT1JUX0JVRkZFUl9QUkVGSVhf
+Q09OVEVYVF9EQVRBX0FMSUdOCQlcCisJREZMVF9GTV9TUF9CVUZGRVJfUFJFRklYX0NPTlRFWFRf
+REFUQV9BTElHTgorCisjZGVmaW5lIERGTFRfUE9SVF9DVVRfQllURVNfRlJPTV9FTkQJCTQKKwor
+I2RlZmluZSBERkxUX1BPUlRfRVJST1JTX1RPX0RJU0NBUkQJCUZNX1BPUlRfRlJNX0VSUl9DTFNf
+RElTQ0FSRAorI2RlZmluZSBERkxUX1BPUlRfTUFYX0ZSQU1FX0xFTkdUSAkJOTYwMAorCisjZGVm
+aW5lIERGTFRfUE9SVF9SWF9GSUZPX1BSSV9FTEVWQVRJT05fTEVWKGJtaV9tYXhfZmlmb19zaXpl
+KQlcCisJTUFYX1BPUlRfRklGT19TSVpFKGJtaV9tYXhfZmlmb19zaXplKQorCisjZGVmaW5lIERG
+TFRfUE9SVF9SWF9GSUZPX1RIUkVTSE9MRChtYWpvciwgYm1pX21heF9maWZvX3NpemUpCVwKKwko
+bWFqb3IgPT0gNiA/CQkJCQkJXAorCU1BWF9QT1JUX0ZJRk9fU0laRShibWlfbWF4X2ZpZm9fc2l6
+ZSkgOgkJXAorCShNQVhfUE9SVF9GSUZPX1NJWkUoYm1pX21heF9maWZvX3NpemUpICogMyAvIDQp
+KQlcCisKKyNkZWZpbmUgREZMVF9QT1JUX0VYVFJBX05VTV9PRl9GSUZPX0JVRlMJCTAKKworLyog
+UU1JIGRlZmluZXMgKi8KKyNkZWZpbmUgUU1JX0RFUV9DRkdfU1VCUE9SVEFMX01BU0sJCTB4MWYK
+KworI2RlZmluZSBRTUlfUE9SVF9DRkdfRU4JCQkJMHg4MDAwMDAwMAorI2RlZmluZSBRTUlfUE9S
+VF9TVEFUVVNfREVRX0ZEX0JTWQkJMHgyMDAwMDAwMAorCisjZGVmaW5lIFFNSV9ERVFfQ0ZHX1BS
+SQkJCQkweDgwMDAwMDAwCisjZGVmaW5lIFFNSV9ERVFfQ0ZHX1RZUEUxCQkJMHgxMDAwMDAwMAor
+I2RlZmluZSBRTUlfREVRX0NGR19UWVBFMgkJCTB4MjAwMDAwMDAKKyNkZWZpbmUgUU1JX0RFUV9D
+RkdfVFlQRTMJCQkweDMwMDAwMDAwCisjZGVmaW5lIFFNSV9ERVFfQ0ZHX1BSRUZFVENIX1BBUlRJ
+QUwJCTB4MDEwMDAwMDAKKyNkZWZpbmUgUU1JX0RFUV9DRkdfUFJFRkVUQ0hfRlVMTAkJMHgwMzAw
+MDAwMAorI2RlZmluZSBRTUlfREVRX0NGR19TUF9NQVNLCQkJMHhmCisjZGVmaW5lIFFNSV9ERVFf
+Q0ZHX1NQX1NISUZUCQkJMjAKKworI2RlZmluZSBRTUlfQllURV9DT1VOVF9MRVZFTF9DT05UUk9M
+KF90eXBlKQlcCisJKF90eXBlID09IEZNQU5fUE9SVF9UWVBFX1RYID8gMHgxNDAwIDogMHg0MDAp
+CisKKy8qIEJNSSBkZWZpbnMgKi8KKyNkZWZpbmUgQk1JX0VCRF9FTgkJCQkweDgwMDAwMDAwCisK
+KyNkZWZpbmUgQk1JX1BPUlRfQ0ZHX0VOCQkJCTB4ODAwMDAwMDAKKworI2RlZmluZSBCTUlfUE9S
+VF9TVEFUVVNfQlNZCQkJMHg4MDAwMDAwMAorCisjZGVmaW5lIEJNSV9ETUFfQVRUUl9TV1BfU0hJ
+RlQJCQlGTUFOX1NQX0RNQV9BVFRSX1NXUF9TSElGVAorI2RlZmluZSBCTUlfRE1BX0FUVFJfV1JJ
+VEVfT1BUSU1JWkUJCUZNQU5fU1BfRE1BX0FUVFJfV1JJVEVfT1BUSU1JWkUKKworI2RlZmluZSBC
+TUlfUlhfRklGT19QUklfRUxFVkFUSU9OX1NISUZUCTE2CisjZGVmaW5lIEJNSV9SWF9GSUZPX1RI
+UkVTSE9MRF9FVEhFCQkweDgwMDAwMDAwCisKKyNkZWZpbmUgQk1JX0ZSQU1FX0VORF9DU19JR05P
+UkVfU0hJRlQJCTI0CisjZGVmaW5lIEJNSV9GUkFNRV9FTkRfQ1NfSUdOT1JFX01BU0sJCTB4MDAw
+MDAwMWYKKworI2RlZmluZSBCTUlfUlhfRlJBTUVfRU5EX0NVVF9TSElGVAkJMTYKKyNkZWZpbmUg
+Qk1JX1JYX0ZSQU1FX0VORF9DVVRfTUFTSwkJMHgwMDAwMDAxZgorCisjZGVmaW5lIEJNSV9JQ19U
+T19FWFRfU0hJRlQJCQlGTUFOX1NQX0lDX1RPX0VYVF9TSElGVAorI2RlZmluZSBCTUlfSUNfVE9f
+RVhUX01BU0sJCQkweDAwMDAwMDFmCisjZGVmaW5lIEJNSV9JQ19GUk9NX0lOVF9TSElGVAkJCUZN
+QU5fU1BfSUNfRlJPTV9JTlRfU0hJRlQKKyNkZWZpbmUgQk1JX0lDX0ZST01fSU5UX01BU0sJCQkw
+eDAwMDAwMDBmCisjZGVmaW5lIEJNSV9JQ19TSVpFX01BU0sJCQkweDAwMDAwMDFmCisKKyNkZWZp
+bmUgQk1JX0lOVF9CVUZfTUFSR19TSElGVAkJCTI4CisjZGVmaW5lIEJNSV9JTlRfQlVGX01BUkdf
+TUFTSwkJCTB4MDAwMDAwMGYKKyNkZWZpbmUgQk1JX0VYVF9CVUZfTUFSR19TVEFSVF9TSElGVAkJ
+Rk1BTl9TUF9FWFRfQlVGX01BUkdfU1RBUlRfU0hJRlQKKyNkZWZpbmUgQk1JX0VYVF9CVUZfTUFS
+R19TVEFSVF9NQVNLCQkweDAwMDAwMWZmCisjZGVmaW5lIEJNSV9FWFRfQlVGX01BUkdfRU5EX01B
+U0sJCTB4MDAwMDAxZmYKKworI2RlZmluZSBCTUlfQ01EX01SX0xFQUMJCQkJMHgwMDIwMDAwMAor
+I2RlZmluZSBCTUlfQ01EX01SX1NMRUFDCQkJMHgwMDEwMDAwMAorI2RlZmluZSBCTUlfQ01EX01S
+X01BCQkJCTB4MDAwODAwMDAKKyNkZWZpbmUgQk1JX0NNRF9NUl9ERUFTCQkJCTB4MDAwNDAwMDAK
+KyNkZWZpbmUgQk1JX0NNRF9SWF9NUl9ERUYJCQkoQk1JX0NNRF9NUl9MRUFDIHwgXAorCQkJCQkJ
+Qk1JX0NNRF9NUl9TTEVBQyB8IFwKKwkJCQkJCUJNSV9DTURfTVJfTUEgfCBcCisJCQkJCQlCTUlf
+Q01EX01SX0RFQVMpCisjZGVmaW5lIEJNSV9DTURfVFhfTVJfREVGCQkJMAorCisjZGVmaW5lIEJN
+SV9DTURfQVRUUl9PUkRFUgkJCTB4ODAwMDAwMDAKKyNkZWZpbmUgQk1JX0NNRF9BVFRSX1NZTkMJ
+CQkweDAyMDAwMDAwCisjZGVmaW5lIEJNSV9DTURfQVRUUl9DT0xPUl9TSElGVAkJMjYKKworI2Rl
+ZmluZSBCTUlfRklGT19QSVBFTElORV9ERVBUSF9TSElGVAkJMTIKKyNkZWZpbmUgQk1JX0ZJRk9f
+UElQRUxJTkVfREVQVEhfTUFTSwkJMHgwMDAwMDAwZgorI2RlZmluZSBCTUlfTkVYVF9FTkdfRkRf
+QklUU19TSElGVAkJMjQKKworI2RlZmluZSBCTUlfRVhUX0JVRl9QT09MX1ZBTElECQkJRk1BTl9T
+UF9FWFRfQlVGX1BPT0xfVkFMSUQKKyNkZWZpbmUgQk1JX0VYVF9CVUZfUE9PTF9FTl9DT1VOVEVS
+CQlGTUFOX1NQX0VYVF9CVUZfUE9PTF9FTl9DT1VOVEVSCisjZGVmaW5lIEJNSV9FWFRfQlVGX1BP
+T0xfQkFDS1VQCQlGTUFOX1NQX0VYVF9CVUZfUE9PTF9CQUNLVVAKKyNkZWZpbmUgQk1JX0VYVF9C
+VUZfUE9PTF9JRF9TSElGVAkJMTYKKyNkZWZpbmUgQk1JX0VYVF9CVUZfUE9PTF9JRF9NQVNLCQkw
+eDAwM0YwMDAwCisjZGVmaW5lIEJNSV9QT09MX0RFUF9OVU1fT0ZfUE9PTFNfU0hJRlQJMTYKKwor
+I2RlZmluZSBCTUlfVFhfRklGT19NSU5fRklMTF9TSElGVAkJMTYKKworI2RlZmluZSBCTUlfUFJJ
+T1JJVFlfRUxFVkFUSU9OX0xFVkVMICgoMHgzRkYgKyAxKSAqIFBPUlRfQk1JX0ZJRk9fVU5JVFMp
+CisjZGVmaW5lIEJNSV9GSUZPX1RIUkVTSE9MRAkgICAgICAoKDB4M0ZGICsgMSkgKiBQT1JUX0JN
+SV9GSUZPX1VOSVRTKQorCisjZGVmaW5lIEJNSV9ERVFVRVVFX1BJUEVMSU5FX0RFUFRIKF90eXBl
+LCBfc3BlZWQpCQlcCisJKChfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9UWCAmJiBfc3BlZWQgPT0g
+MTAwMDApID8gNCA6IDEpCisKKyNkZWZpbmUgUlhfRVJSU19UT19FTlEJCQkJICBcCisJKEZNX1BP
+UlRfRlJNX0VSUl9ETUEJCQl8IFwKKwlGTV9QT1JUX0ZSTV9FUlJfUEhZU0lDQUwJCXwgXAorCUZN
+X1BPUlRfRlJNX0VSUl9TSVpFCQkJfCBcCisJRk1fUE9SVF9GUk1fRVJSX0VYVFJBQ1RJT04JCXwg
+XAorCUZNX1BPUlRfRlJNX0VSUl9OT19TQ0hFTUUJCXwgXAorCUZNX1BPUlRfRlJNX0VSUl9QUlNf
+VElNRU9VVAkJfCBcCisJRk1fUE9SVF9GUk1fRVJSX1BSU19JTExfSU5TVFJVQ1QJfCBcCisJRk1f
+UE9SVF9GUk1fRVJSX0JMT0NLX0xJTUlUX0VYQ0VFREVECXwgXAorCUZNX1BPUlRfRlJNX0VSUl9Q
+UlNfSERSX0VSUgkJfCBcCisJRk1fUE9SVF9GUk1fRVJSX0tFWVNJWkVfT1ZFUkZMT1cJfCBcCisJ
+Rk1fUE9SVF9GUk1fRVJSX0lQUkUpCisKKy8qIE5JQSBkZWZpbmVzICovCisjZGVmaW5lIE5JQV9P
+UkRFUl9SRVNUT1IJCQkJMHgwMDgwMDAwMAorI2RlZmluZSBOSUFfRU5HX0JNSQkJCQkJMHgwMDUw
+MDAwMAorI2RlZmluZSBOSUFfRU5HX1FNSV9FTlEJCQkJCTB4MDA1NDAwMDAKKyNkZWZpbmUgTklB
+X0VOR19RTUlfREVRCQkJCQkweDAwNTgwMDAwCisKKyNkZWZpbmUgTklBX0JNSV9BQ19FTlFfRlJB
+TUUJCQkJMHgwMDAwMDAwMgorI2RlZmluZSBOSUFfQk1JX0FDX1RYX1JFTEVBU0UJCQkJMHgwMDAw
+MDJDMAorI2RlZmluZSBOSUFfQk1JX0FDX1JFTEVBU0UJCQkJMHgwMDAwMDBDMAorI2RlZmluZSBO
+SUFfQk1JX0FDX1RYCQkJCQkweDAwMDAwMjc0CisjZGVmaW5lIE5JQV9CTUlfQUNfRkVUQ0hfQUxM
+X0ZSQU1FCQkJMHgwMDAwMDIwYworCisvKiBQb3J0IElEcyAqLworI2RlZmluZSBUWF8xMEdfUE9S
+VF9CQVNFCQkweDMwCisjZGVmaW5lIFJYXzEwR19QT1JUX0JBU0UJCTB4MTAKKworLyogQk1JIFJ4
+IHBvcnQgcmVnaXN0ZXIgbWFwICovCitzdHJ1Y3QgZm1hbl9wb3J0X3J4X2JtaV9yZWdzIHsKKwl1
+MzIgZm1ibV9yY2ZnOwkJLyogUnggQ29uZmlndXJhdGlvbiAqLworCXUzMiBmbWJtX3JzdDsJCS8q
+IFJ4IFN0YXR1cyAqLworCXUzMiBmbWJtX3JkYTsJCS8qIFJ4IERNQSBhdHRyaWJ1dGVzICovCisJ
+dTMyIGZtYm1fcmZwOwkJLyogUnggRklGTyBQYXJhbWV0ZXJzICovCisJdTMyIGZtYm1fcmZlZDsJ
+CS8qIFJ4IEZyYW1lIEVuZCBEYXRhICovCisJdTMyIGZtYm1fcmljcDsJCS8qIFJ4IEludGVybmFs
+IENvbnRleHQgUGFyYW1ldGVycyAqLworCXUzMiBmbWJtX3JpbTsJCS8qIFJ4IEludGVybmFsIEJ1
+ZmZlciBNYXJnaW5zICovCisJdTMyIGZtYm1fcmVibTsJCS8qIFJ4IEV4dGVybmFsIEJ1ZmZlciBN
+YXJnaW5zICovCisJdTMyIGZtYm1fcmZuZTsJCS8qIFJ4IEZyYW1lIE5leHQgRW5naW5lICovCisJ
+dTMyIGZtYm1fcmZjYTsJCS8qIFJ4IEZyYW1lIENvbW1hbmQgQXR0cmlidXRlcy4gKi8KKwl1MzIg
+Zm1ibV9yZnBuZTsJCS8qIFJ4IEZyYW1lIFBhcnNlciBOZXh0IEVuZ2luZSAqLworCXUzMiBmbWJt
+X3Jwc287CQkvKiBSeCBQYXJzZSBTdGFydCBPZmZzZXQgKi8KKwl1MzIgZm1ibV9ycHA7CQkvKiBS
+eCBQb2xpY2VyIFByb2ZpbGUgICovCisJdTMyIGZtYm1fcmNjYjsJCS8qIFJ4IENvYXJzZSBDbGFz
+c2lmaWNhdGlvbiBCYXNlICovCisJdTMyIGZtYm1fcmV0aDsJCS8qIFJ4IEV4Y2Vzc2l2ZSBUaHJl
+c2hvbGQgKi8KKwl1MzIgcmVzZXJ2ZWQwMDNjWzFdOwkvKiAoMHgwM0MgMHgwM0YpICovCisJdTMy
+IGZtYm1fcnByYWlbUE9SVF9QUlNfUkVTVUxUX1dPUkRTX05VTV07CisJLyogUnggUGFyc2UgUmVz
+dWx0cyBBcnJheSBJbml0ICovCisJdTMyIGZtYm1fcmZxaWQ7CQkvKiBSeCBGcmFtZSBRdWV1ZSBJ
+RCAqLworCXUzMiBmbWJtX3JlZnFpZDsJLyogUnggRXJyb3IgRnJhbWUgUXVldWUgSUQgKi8KKwl1
+MzIgZm1ibV9yZnNkbTsJCS8qIFJ4IEZyYW1lIFN0YXR1cyBEaXNjYXJkIE1hc2sgKi8KKwl1MzIg
+Zm1ibV9yZnNlbTsJCS8qIFJ4IEZyYW1lIFN0YXR1cyBFcnJvciBNYXNrICovCisJdTMyIGZtYm1f
+cmZlbmU7CQkvKiBSeCBGcmFtZSBFbnF1ZXVlIE5leHQgRW5naW5lICovCisJdTMyIHJlc2VydmVk
+MDA3NFsweDJdOwkvKiAoMHgwNzQtMHgwN0MpICAqLworCXUzMiBmbWJtX3JjbW5lOwkJLyogUngg
+RnJhbWUgQ29udGludW91cyBNb2RlIE5leHQgRW5naW5lICovCisJdTMyIHJlc2VydmVkMDA4MFsw
+eDIwXTsJLyogKDB4MDgwIDB4MEZGKSAgKi8KKwl1MzIgZm1ibV9lYm1waVtGTUFOX1BPUlRfTUFY
+X0VYVF9QT09MU19OVU1dOworCS8qIEJ1ZmZlciBNYW5hZ2VyIHBvb2wgSW5mb3JtYXRpb24tICov
+CisJdTMyIGZtYm1fYWNudFtGTUFOX1BPUlRfTUFYX0VYVF9QT09MU19OVU1dOwkvKiBBbGxvY2F0
+ZSBDb3VudGVyLSAqLworCXUzMiByZXNlcnZlZDAxMzBbOF07CS8qIDB4MTMwLzB4MTQwIC0gMHgx
+NUYgcmVzZXJ2ZWQgLSAqLworCXUzMiBmbWJtX3JjZ21bUE9SVF9DR19NQVBfTlVNXTsJLyogQ29u
+Z2VzdGlvbiBHcm91cCBNYXAgKi8KKwl1MzIgZm1ibV9tcGQ7CQkvKiBCTSBQb29sIERlcGxldGlv
+biAgKi8KKwl1MzIgcmVzZXJ2ZWQwMTg0WzB4MUZdOwkvKiAoMHgxODQgMHgxRkYpICovCisJdTMy
+IGZtYm1fcnN0YzsJCS8qIFJ4IFN0YXRpc3RpY3MgQ291bnRlcnMgKi8KKwl1MzIgZm1ibV9yZnJj
+OwkJLyogUnggRnJhbWUgQ291bnRlciAqLworCXUzMiBmbWJtX3JmYmM7CQkvKiBSeCBCYWQgRnJh
+bWVzIENvdW50ZXIgKi8KKwl1MzIgZm1ibV9ybGZjOwkJLyogUnggTGFyZ2UgRnJhbWVzIENvdW50
+ZXIgKi8KKwl1MzIgZm1ibV9yZmZjOwkJLyogUnggRmlsdGVyIEZyYW1lcyBDb3VudGVyICovCisJ
+dTMyIGZtYm1fcmZkYzsJCS8qIFJ4IEZyYW1lIERpc2NhcmQgQ291bnRlciAqLworCXUzMiBmbWJt
+X3JmbGRlYzsJCS8qIFJ4IEZyYW1lcyBMaXN0IERNQSBFcnJvciBDb3VudGVyICovCisJdTMyIGZt
+Ym1fcm9kYzsJCS8qIFJ4IE91dCBvZiBCdWZmZXJzIERpc2NhcmQgbm50ciAqLworCXUzMiBmbWJt
+X3JiZGM7CQkvKiBSeCBCdWZmZXJzIERlYWxsb2NhdGUgQ291bnRlciAqLworCXUzMiBmbWJtX3Jw
+ZWM7CQkvKiBSWCBQcmVwYXJlIHRvIGVucXVldWUgQ291bnRlICovCisJdTMyIHJlc2VydmVkMDIy
+NFsweDE2XTsJLyogKDB4MjI0IDB4MjdGKSAqLworCXUzMiBmbWJtX3JwYzsJCS8qIFJ4IFBlcmZv
+cm1hbmNlIENvdW50ZXJzICovCisJdTMyIGZtYm1fcnBjcDsJCS8qIFJ4IFBlcmZvcm1hbmNlIENv
+dW50IFBhcmFtZXRlcnMgKi8KKwl1MzIgZm1ibV9yY2NuOwkJLyogUnggQ3ljbGUgQ291bnRlciAq
+LworCXUzMiBmbWJtX3J0dWM7CQkvKiBSeCBUYXNrcyBVdGlsaXphdGlvbiBDb3VudGVyICovCisJ
+dTMyIGZtYm1fcnJxdWM7CQkvKiBSeCBSZWNlaXZlIFF1ZXVlIFV0aWxpemF0aW9uIGNudHIgKi8K
+Kwl1MzIgZm1ibV9yZHVjOwkJLyogUnggRE1BIFV0aWxpemF0aW9uIENvdW50ZXIgKi8KKwl1MzIg
+Zm1ibV9yZnVjOwkJLyogUnggRklGTyBVdGlsaXphdGlvbiBDb3VudGVyICovCisJdTMyIGZtYm1f
+cnBhYzsJCS8qIFJ4IFBhdXNlIEFjdGl2YXRpb24gQ291bnRlciAqLworCXUzMiByZXNlcnZlZDAy
+YTBbMHgxOF07CS8qICgweDJBMCAweDJGRikgKi8KKwl1MzIgZm1ibV9yZGNmZ1sweDNdOwkvKiBS
+eCBEZWJ1ZyBDb25maWd1cmF0aW9uICovCisJdTMyIGZtYm1fcmdwcjsJCS8qIFJ4IEdlbmVyYWwg
+UHVycG9zZSBSZWdpc3RlciAqLworCXUzMiByZXNlcnZlZDAzMTBbMHgzYV07Cit9OworCisvKiBC
+TUkgVHggcG9ydCByZWdpc3RlciBtYXAgKi8KK3N0cnVjdCBmbWFuX3BvcnRfdHhfYm1pX3JlZ3Mg
+eworCXUzMiBmbWJtX3RjZmc7CQkvKiBUeCBDb25maWd1cmF0aW9uICovCisJdTMyIGZtYm1fdHN0
+OwkJLyogVHggU3RhdHVzICovCisJdTMyIGZtYm1fdGRhOwkJLyogVHggRE1BIGF0dHJpYnV0ZXMg
+Ki8KKwl1MzIgZm1ibV90ZnA7CQkvKiBUeCBGSUZPIFBhcmFtZXRlcnMgKi8KKwl1MzIgZm1ibV90
+ZmVkOwkJLyogVHggRnJhbWUgRW5kIERhdGEgKi8KKwl1MzIgZm1ibV90aWNwOwkJLyogVHggSW50
+ZXJuYWwgQ29udGV4dCBQYXJhbWV0ZXJzICovCisJdTMyIGZtYm1fdGZkbmU7CQkvKiBUeCBGcmFt
+ZSBEZXF1ZXVlIE5leHQgRW5naW5lLiAqLworCXUzMiBmbWJtX3RmY2E7CQkvKiBUeCBGcmFtZSBD
+b21tYW5kIGF0dHJpYnV0ZS4gKi8KKwl1MzIgZm1ibV90Y2ZxaWQ7CS8qIFR4IENvbmZpcm1hdGlv
+biBGcmFtZSBRdWV1ZSBJRC4gKi8KKwl1MzIgZm1ibV90ZWZxaWQ7CS8qIFR4IEZyYW1lIEVycm9y
+IFF1ZXVlIElEICovCisJdTMyIGZtYm1fdGZlbmU7CQkvKiBUeCBGcmFtZSBFbnF1ZXVlIE5leHQg
+RW5naW5lICovCisJdTMyIGZtYm1fdHJsbXRzOwkvKiBUeCBSYXRlIExpbWl0ZXIgU2NhbGUgKi8K
+Kwl1MzIgZm1ibV90cmxtdDsJCS8qIFR4IFJhdGUgTGltaXRlciAqLworCXUzMiByZXNlcnZlZDAw
+MzRbMHgwZV07CS8qICgweDAzNC0weDZjKSAqLworCXUzMiBmbWJtX3RjY2I7CQkvKiBUeCBDb2Fy
+c2UgQ2xhc3NpZmljYXRpb24gYmFzZSAqLworCXUzMiBmbWJtX3RmbmU7CQkvKiBUeCBGcmFtZSBO
+ZXh0IEVuZ2luZSAqLworCXUzMiBmbWJtX3RwZmNtWzB4MDJdOworCS8qIFR4IFByaW9yaXR5IGJh
+c2VkIEZsb3cgQ29udHJvbCAoUEZDKSBNYXBwaW5nICovCisJdTMyIGZtYm1fdGNtbmU7CQkvKiBU
+eCBGcmFtZSBDb250aW51b3VzIE1vZGUgTmV4dCBFbmdpbmUgKi8KKwl1MzIgcmVzZXJ2ZWQwMDgw
+WzB4NjBdOwkvKiAoMHgwODAtMHgyMDApICovCisJdTMyIGZtYm1fdHN0YzsJCS8qIFR4IFN0YXRp
+c3RpY3MgQ291bnRlcnMgKi8KKwl1MzIgZm1ibV90ZnJjOwkJLyogVHggRnJhbWUgQ291bnRlciAq
+LworCXUzMiBmbWJtX3RmZGM7CQkvKiBUeCBGcmFtZXMgRGlzY2FyZCBDb3VudGVyICovCisJdTMy
+IGZtYm1fdGZsZWRjOwkvKiBUeCBGcmFtZSBsZW4gZXJyb3IgZGlzY2FyZCBjbnRyICovCisJdTMy
+IGZtYm1fdGZ1ZmRjOwkvKiBUeCBGcmFtZSB1bnNwcnQgZnJtdCBkaXNjYXJkIGNudHIgKi8KKwl1
+MzIgZm1ibV90YmRjOwkJLyogVHggQnVmZmVycyBEZWFsbG9jYXRlIENvdW50ZXIgKi8KKwl1MzIg
+cmVzZXJ2ZWQwMjE4WzB4MUFdOwkvKiAoMHgyMTgtMHgyODApICovCisJdTMyIGZtYm1fdHBjOwkJ
+LyogVHggUGVyZm9ybWFuY2UgQ291bnRlcnMgKi8KKwl1MzIgZm1ibV90cGNwOwkJLyogVHggUGVy
+Zm9ybWFuY2UgQ291bnQgUGFyYW1ldGVycyAqLworCXUzMiBmbWJtX3RjY247CQkvKiBUeCBDeWNs
+ZSBDb3VudGVyICovCisJdTMyIGZtYm1fdHR1YzsJCS8qIFR4IFRhc2tzIFV0aWxpemF0aW9uIENv
+dW50ZXIgKi8KKwl1MzIgZm1ibV90dGNxdWM7CS8qIFR4IFRyYW5zbWl0IGNvbmYgUSB1dGlsIENv
+dW50ZXIgKi8KKwl1MzIgZm1ibV90ZHVjOwkJLyogVHggRE1BIFV0aWxpemF0aW9uIENvdW50ZXIg
+Ki8KKwl1MzIgZm1ibV90ZnVjOwkJLyogVHggRklGTyBVdGlsaXphdGlvbiBDb3VudGVyICovCisJ
+dTMyIHJlc2VydmVkMDI5Y1sxNl07CS8qICgweDI5Qy0weDJGRikgKi8KKwl1MzIgZm1ibV90ZGNm
+Z1sweDNdOwkvKiBUeCBEZWJ1ZyBDb25maWd1cmF0aW9uICovCisJdTMyIGZtYm1fdGdwcjsJCS8q
+IFR4IEdlbmVyYWwgUHVycG9zZSBSZWdpc3RlciAqLworCXUzMiByZXNlcnZlZDAzMTBbMHgzYV07
+IC8qICgweDMxMC0weDNGRikgKi8KK307CisKKy8qIEJNSSBwb3J0IHJlZ2lzdGVyIG1hcCAqLwor
+dW5pb24gZm1hbl9wb3J0X2JtaV9yZWdzIHsKKwlzdHJ1Y3QgZm1hbl9wb3J0X3J4X2JtaV9yZWdz
+IHJ4OworCXN0cnVjdCBmbWFuX3BvcnRfdHhfYm1pX3JlZ3MgdHg7Cit9OworCisvKiBRTUkgcG9y
+dCByZWdpc3RlciBtYXAgKi8KK3N0cnVjdCBmbWFuX3BvcnRfcW1pX3JlZ3MgeworCXUzMiBmbXFt
+X3BuYzsJCS8qIFBvcnRJRCBuIENvbmZpZ3VyYXRpb24gUmVnaXN0ZXIgKi8KKwl1MzIgZm1xbV9w
+bnM7CQkvKiBQb3J0SUQgbiBTdGF0dXMgUmVnaXN0ZXIgKi8KKwl1MzIgZm1xbV9wbnRzOwkJLyog
+UG9ydElEIG4gVGFzayBTdGF0dXMgUmVnaXN0ZXIgKi8KKwl1MzIgcmVzZXJ2ZWQwMGNbNF07CS8q
+IDB4bjAwQyAtIDB4bjAxQiAqLworCXUzMiBmbXFtX3BuZW47CQkvKiBQb3J0SUQgbiBFbnF1ZXVl
+IE5JQSBSZWdpc3RlciAqLworCXUzMiBmbXFtX3BuZXRmYzsJCS8qIFBvcnRJRCBuIEVucSBUb3Rh
+bCBGcmFtZSBDb3VudGVyICovCisJdTMyIHJlc2VydmVkMDI0WzJdOwkvKiAweG4wMjQgLSAweDAy
+QiAqLworCXUzMiBmbXFtX3BuZG47CQkvKiBQb3J0SUQgbiBEZXF1ZXVlIE5JQSBSZWdpc3RlciAq
+LworCXUzMiBmbXFtX3BuZGM7CQkvKiBQb3J0SUQgbiBEZXF1ZXVlIENvbmZpZyBSZWdpc3RlciAq
+LworCXUzMiBmbXFtX3BuZHRmYzsJCS8qIFBvcnRJRCBuIERlcXVldWUgdG90IEZyYW1lIGNudHIg
+Ki8KKwl1MzIgZm1xbV9wbmRmZGM7CQkvKiBQb3J0SUQgbiBEZXF1ZXVlIEZRSUQgRGZsdCBDbnRy
+ICovCisJdTMyIGZtcW1fcG5kY2M7CQkvKiBQb3J0SUQgbiBEZXF1ZXVlIENvbmZpcm0gQ291bnRl
+ciAqLworfTsKKworLyogUU1JIGRlcXVldWUgcHJlZmV0Y2ggbW9kZXMgKi8KK2VudW0gZm1hbl9w
+b3J0X2RlcV9wcmVmZXRjaCB7CisJRk1BTl9QT1JUX0RFUV9OT19QUkVGRVRDSCwgLyogTm8gcHJl
+ZmV0Y2ggbW9kZSAqLworCUZNQU5fUE9SVF9ERVFfUEFSVF9QUkVGRVRDSCwgLyogUGFydGlhbCBw
+cmVmZXRjaCBtb2RlICovCisJRk1BTl9QT1JUX0RFUV9GVUxMX1BSRUZFVENIIC8qIEZ1bGwgcHJl
+ZmV0Y2ggbW9kZSAqLworfTsKKworLyogQSBzdHJ1Y3R1cmUgZm9yIGRlZmluaW5nIEZNIHBvcnQg
+cmVzb3VyY2VzICovCitzdHJ1Y3QgZm1hbl9wb3J0X3JzcmMgeworCXUzMiBudW07IC8qIENvbW1p
+dHRlZCByZXF1aXJlZCByZXNvdXJjZSAqLworCXUzMiBleHRyYTsgLyogRXh0cmEgKG5vdCBjb21t
+aXR0ZWQpIHJlcXVpcmVkIHJlc291cmNlICovCit9OworCitlbnVtIGZtYW5fcG9ydF9kbWFfc3dh
+cCB7CisJRk1BTl9QT1JUX0RNQV9OT19TV0FQLAkvKiBObyBzd2FwLCB0cmFuc2ZlciBkYXRhIGFz
+IGlzICovCisJRk1BTl9QT1JUX0RNQV9TV0FQX0xFLAorCS8qIFRoZSB0cmFuc2ZlcnJlZCBkYXRh
+IHNob3VsZCBiZSBzd2FwcGVkIGluIFBQQyBMaXR0bGUgRW5kaWFuIG1vZGUgKi8KKwlGTUFOX1BP
+UlRfRE1BX1NXQVBfQkUKKwkvKiBUaGUgdHJhbnNmZXJyZWQgZGF0YSBzaG91bGQgYmUgc3dhcHBl
+ZCBpbiBCaWcgRW5kaWFuIG1vZGUgKi8KK307CisKKy8qIERlZmF1bHQgcG9ydCBjb2xvciAqLwor
+ZW51bSBmbWFuX3BvcnRfY29sb3IgeworCUZNQU5fUE9SVF9DT0xPUl9HUkVFTiwJLyogRGVmYXVs
+dCBwb3J0IGNvbG9yIGlzIGdyZWVuICovCisJRk1BTl9QT1JUX0NPTE9SX1lFTExPVywJLyogRGVm
+YXVsdCBwb3J0IGNvbG9yIGlzIHllbGxvdyAqLworCUZNQU5fUE9SVF9DT0xPUl9SRUQsCQkvKiBE
+ZWZhdWx0IHBvcnQgY29sb3IgaXMgcmVkICovCisJRk1BTl9QT1JUX0NPTE9SX09WRVJSSURFCS8q
+IElnbm9yZSBjb2xvciAqLworfTsKKworLyogUU1JIGRlcXVldWUgZnJvbSB0aGUgU1AgY2hhbm5l
+bCAtIHR5cGVzICovCitlbnVtIGZtYW5fcG9ydF9kZXFfdHlwZSB7CisJRk1BTl9QT1JUX0RFUV9C
+WV9QUkksCisJLyogUHJpb3JpdHkgcHJlY2VkZW5jZSBhbmQgSW50cmEtQ2xhc3Mgc2NoZWR1bGlu
+ZyAqLworCUZNQU5fUE9SVF9ERVFfQUNUSVZFX0ZRLAorCS8qIEFjdGl2ZSBGUSBwcmVjZWRlbmNl
+IGFuZCBJbnRyYS1DbGFzcyBzY2hlZHVsaW5nICovCisJRk1BTl9QT1JUX0RFUV9BQ1RJVkVfRlFf
+Tk9fSUNTCisJLyogQWN0aXZlIEZRIHByZWNlZGVuY2UgYW5kIG92ZXJyaWRlIEludHJhLUNsYXNz
+IHNjaGVkdWxpbmcgKi8KK307CisKKy8qIEV4dGVybmFsIGJ1ZmZlciBwb29scyBjb25maWd1cmF0
+aW9uICovCitzdHJ1Y3QgZm1hbl9wb3J0X2Jwb29scyB7CisJdTggY291bnQ7CQkJLyogTnVtIG9m
+IHBvb2xzIHRvIHNldCB1cCAqLworCWJvb2wgY291bnRlcnNfZW5hYmxlOwkJLyogRW5hYmxlIGFs
+bG9jYXRlIGNvdW50ZXJzICovCisJdTggZ3JwX2JwX2RlcGxldGVkX251bTsKKwkvKiBOdW1iZXIg
+b2YgZGVwbGV0ZWQgcG9vbHMgLSBpZiByZWFjaGVkIHRoZSBCTUkgaW5kaWNhdGVzCisJICogdGhl
+IE1BQyB0byBzZW5kIGEgcGF1c2UgZnJhbWUKKwkgKi8KKwlzdHJ1Y3QgeworCQl1OCBicGlkOwkJ
+LyogQk0gcG9vbCBJRCAqLworCQl1MTYgc2l6ZTsKKwkJLyogUG9vbCdzIHNpemUgLSBtdXN0IGJl
+IGluIGFzY2VuZGluZyBvcmRlciAqLworCQlib29sIGlzX2JhY2t1cDsKKwkJLyogSWYgdGhpcyBp
+cyBhIGJhY2t1cCBwb29sICovCisJCWJvb2wgZ3JwX2JwX2RlcGxldGVkOworCQkvKiBDb25zaWRl
+ciB0aGlzIGJ1ZmZlciBpbiBtdWx0aXBsZSBwb29scyBkZXBsZXRpb24gY3JpdGVyaWEgKi8KKwkJ
+Ym9vbCBzaW5nbGVfYnBfZGVwbGV0ZWQ7CisJCS8qIENvbnNpZGVyIHRoaXMgYnVmZmVyIGluIHNp
+bmdsZSBwb29sIGRlcGxldGlvbiBjcml0ZXJpYSAqLworCX0gYnBvb2xbRk1BTl9QT1JUX01BWF9F
+WFRfUE9PTFNfTlVNXTsKK307CisKK3N0cnVjdCBmbWFuX3BvcnRfY2ZnIHsKKwl1MzIgZGZsdF9m
+cWlkOworCXUzMiBlcnJfZnFpZDsKKwl1OCBkZXFfc3A7CisJYm9vbCBkZXFfaGlnaF9wcmlvcml0
+eTsKKwllbnVtIGZtYW5fcG9ydF9kZXFfdHlwZSBkZXFfdHlwZTsKKwllbnVtIGZtYW5fcG9ydF9k
+ZXFfcHJlZmV0Y2ggZGVxX3ByZWZldGNoX29wdGlvbjsKKwl1MTYgZGVxX2J5dGVfY250OworCXU4
+IGNoZWtzdW1fbGFzdF9ieXRlc19pZ25vcmU7CisJdTggcnhfY3V0X2VuZF9ieXRlczsKKwlzdHJ1
+Y3QgZm1hbl9idWZfcG9vbF9kZXBsZXRpb24gYnVmX3Bvb2xfZGVwbGV0aW9uOworCXN0cnVjdCBm
+bWFuX2V4dF9wb29scyBleHRfYnVmX3Bvb2xzOworCXUzMiB0eF9maWZvX21pbl9sZXZlbDsKKwl1
+MzIgdHhfZmlmb19sb3dfY29tZl9sZXZlbDsKKwl1MzIgcnhfcHJpX2VsZXZhdGlvbjsKKwl1MzIg
+cnhfZmlmb190aHI7CisJc3RydWN0IGZtYW5fc3BfYnVmX21hcmdpbnMgYnVmX21hcmdpbnM7CisJ
+dTMyIGludF9idWZfc3RhcnRfbWFyZ2luOworCXN0cnVjdCBmbWFuX3NwX2ludF9jb250ZXh0X2Rh
+dGFfY29weSBpbnRfY29udGV4dDsKKwl1MzIgZGlzY2FyZF9tYXNrOworCXUzMiBlcnJfbWFzazsK
+KwlzdHJ1Y3QgZm1hbl9idWZmZXJfcHJlZml4X2NvbnRlbnQgYnVmZmVyX3ByZWZpeF9jb250ZW50
+OworCWJvb2wgZG9udF9yZWxlYXNlX2J1ZjsKKworCXU4IHJ4X2ZkX2JpdHM7CisJdTMyIHR4X2Zp
+Zm9fZGVxX3BpcGVsaW5lX2RlcHRoOworCWJvb2wgZXJyYXRhX0EwMDYzMjA7CisJYm9vbCBleGNl
+c3NpdmVfdGhyZXNob2xkX3JlZ2lzdGVyOworCWJvb2wgZm1ibV90Zm5lX2hhc19mZWF0dXJlczsK
+KworCWVudW0gZm1hbl9wb3J0X2RtYV9zd2FwIGRtYV9zd2FwX2RhdGE7CisJZW51bSBmbWFuX3Bv
+cnRfY29sb3IgY29sb3I7Cit9OworCitzdHJ1Y3QgZm1hbl9wb3J0X3J4X3Bvb2xzX3BhcmFtcyB7
+CisJdTggbnVtX29mX3Bvb2xzOworCXUxNiBzZWNvbmRfbGFyZ2VzdF9idWZfc2l6ZTsKKwl1MTYg
+bGFyZ2VzdF9idWZfc2l6ZTsKK307CisKK3N0cnVjdCBmbWFuX3BvcnRfZHRzX3BhcmFtcyB7CisJ
+dm9pZCBfX2lvbWVtICpiYXNlX2FkZHI7CS8qIEZNYW4gcG9ydCB2aXJ0dWFsIG1lbW9yeSAqLwor
+CWVudW0gZm1hbl9wb3J0X3R5cGUgdHlwZTsJLyogUG9ydCB0eXBlICovCisJdTE2IHNwZWVkOwkJ
+CS8qIFBvcnQgc3BlZWQgKi8KKwl1OCBpZDsJCQkJLyogSFcgUG9ydCBJZCAqLworCXUzMiBxbWFu
+X2NoYW5uZWxfaWQ7CQkvKiBRTWFuIGNoYW5uZWwgaWQgKG5vbiBSWCBvbmx5KSAqLworCXN0cnVj
+dCBmbWFuICpmbWFuOwkJLyogRk1hbiBIYW5kbGUgKi8KK307CisKK3N0cnVjdCBmbWFuX3BvcnQg
+eworCXZvaWQgKmZtOworCXN0cnVjdCBkZXZpY2UgKmRldjsKKwlzdHJ1Y3QgZm1hbl9yZXZfaW5m
+byByZXZfaW5mbzsKKwl1OCBwb3J0X2lkOworCWVudW0gZm1hbl9wb3J0X3R5cGUgcG9ydF90eXBl
+OworCXUxNiBwb3J0X3NwZWVkOworCisJdW5pb24gZm1hbl9wb3J0X2JtaV9yZWdzIF9faW9tZW0g
+KmJtaV9yZWdzOworCXN0cnVjdCBmbWFuX3BvcnRfcW1pX3JlZ3MgX19pb21lbSAqcW1pX3JlZ3M7
+CisKKwlzdHJ1Y3QgZm1hbl9zcF9idWZmZXJfb2Zmc2V0cyBidWZmZXJfb2Zmc2V0czsKKworCXU4
+IGludGVybmFsX2J1Zl9vZmZzZXQ7CisJc3RydWN0IGZtYW5fZXh0X3Bvb2xzIGV4dF9idWZfcG9v
+bHM7CisKKwl1MTYgbWF4X2ZyYW1lX2xlbmd0aDsKKwlzdHJ1Y3QgZm1hbl9wb3J0X3JzcmMgb3Bl
+bl9kbWFzOworCXN0cnVjdCBmbWFuX3BvcnRfcnNyYyB0YXNrczsKKwlzdHJ1Y3QgZm1hbl9wb3J0
+X3JzcmMgZmlmb19idWZzOworCXN0cnVjdCBmbWFuX3BvcnRfcnhfcG9vbHNfcGFyYW1zIHJ4X3Bv
+b2xzX3BhcmFtczsKKworCXN0cnVjdCBmbWFuX3BvcnRfY2ZnICpjZmc7CisJc3RydWN0IGZtYW5f
+cG9ydF9kdHNfcGFyYW1zIGR0c19wYXJhbXM7CisKKwl1OCBleHRfcG9vbHNfbnVtOworCXUzMiBt
+YXhfcG9ydF9maWZvX3NpemU7CisJdTMyIG1heF9udW1fb2ZfZXh0X3Bvb2xzOworCXUzMiBtYXhf
+bnVtX29mX3N1Yl9wb3J0YWxzOworCXUzMiBibV9tYXhfbnVtX29mX3Bvb2xzOworfTsKKworc3Rh
+dGljIGludCBpbml0X2JtaV9yeChzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXN0cnVjdCBm
+bWFuX3BvcnRfcnhfYm1pX3JlZ3MgX19pb21lbSAqcmVncyA9ICZwb3J0LT5ibWlfcmVncy0+cng7
+CisJc3RydWN0IGZtYW5fcG9ydF9jZmcgKmNmZyA9IHBvcnQtPmNmZzsKKwl1MzIgdG1wOworCisJ
+LyogRE1BIGF0dHJpYnV0ZXMgKi8KKwl0bXAgPSAodTMyKWNmZy0+ZG1hX3N3YXBfZGF0YSA8PCBC
+TUlfRE1BX0FUVFJfU1dQX1NISUZUOworCS8qIEVuYWJsZSB3cml0ZSBvcHRpbWl6YXRpb24gKi8K
+Kwl0bXAgfD0gQk1JX0RNQV9BVFRSX1dSSVRFX09QVElNSVpFOworCWlvd3JpdGUzMmJlKHRtcCwg
+JnJlZ3MtPmZtYm1fcmRhKTsKKworCS8qIFJ4IEZJRk8gcGFyYW1ldGVycyAqLworCXRtcCA9IChj
+ZmctPnJ4X3ByaV9lbGV2YXRpb24gLyBQT1JUX0JNSV9GSUZPX1VOSVRTIC0gMSkgPDwKKwkJQk1J
+X1JYX0ZJRk9fUFJJX0VMRVZBVElPTl9TSElGVDsKKwl0bXAgfD0gY2ZnLT5yeF9maWZvX3RociAv
+IFBPUlRfQk1JX0ZJRk9fVU5JVFMgLSAxOworCWlvd3JpdGUzMmJlKHRtcCwgJnJlZ3MtPmZtYm1f
+cmZwKTsKKworCWlmIChjZmctPmV4Y2Vzc2l2ZV90aHJlc2hvbGRfcmVnaXN0ZXIpCisJCS8qIGFs
+d2F5cyBhbGxvdyBhY2Nlc3MgdG8gdGhlIGV4dHJhIHJlc291cmNlcyAqLworCQlpb3dyaXRlMzJi
+ZShCTUlfUlhfRklGT19USFJFU0hPTERfRVRIRSwgJnJlZ3MtPmZtYm1fcmV0aCk7CisKKwkvKiBG
+cmFtZSBlbmQgZGF0YSAqLworCXRtcCA9IChjZmctPmNoZWtzdW1fbGFzdF9ieXRlc19pZ25vcmUg
+JiBCTUlfRlJBTUVfRU5EX0NTX0lHTk9SRV9NQVNLKSA8PAorCQlCTUlfRlJBTUVfRU5EX0NTX0lH
+Tk9SRV9TSElGVDsKKwl0bXAgfD0gKGNmZy0+cnhfY3V0X2VuZF9ieXRlcyAmIEJNSV9SWF9GUkFN
+RV9FTkRfQ1VUX01BU0spIDw8CisJCUJNSV9SWF9GUkFNRV9FTkRfQ1VUX1NISUZUOworCWlmIChj
+ZmctPmVycmF0YV9BMDA2MzIwKQorCQl0bXAgJj0gMHhmZmUwZmZmZjsKKwlpb3dyaXRlMzJiZSh0
+bXAsICZyZWdzLT5mbWJtX3JmZWQpOworCisJLyogSW50ZXJuYWwgY29udGV4dCBwYXJhbWV0ZXJz
+ICovCisJdG1wID0gKChjZmctPmludF9jb250ZXh0LmV4dF9idWZfb2Zmc2V0IC8gUE9SVF9JQ19P
+RkZTRVRfVU5JVFMpICYKKwkJQk1JX0lDX1RPX0VYVF9NQVNLKSA8PCBCTUlfSUNfVE9fRVhUX1NI
+SUZUOworCXRtcCB8PSAoKGNmZy0+aW50X2NvbnRleHQuaW50X2NvbnRleHRfb2Zmc2V0IC8gUE9S
+VF9JQ19PRkZTRVRfVU5JVFMpICYKKwkJQk1JX0lDX0ZST01fSU5UX01BU0spIDw8IEJNSV9JQ19G
+Uk9NX0lOVF9TSElGVDsKKwl0bXAgfD0gKGNmZy0+aW50X2NvbnRleHQuc2l6ZSAvIFBPUlRfSUNf
+T0ZGU0VUX1VOSVRTKSAmCisJCUJNSV9JQ19TSVpFX01BU0s7CisJaW93cml0ZTMyYmUodG1wLCAm
+cmVncy0+Zm1ibV9yaWNwKTsKKworCS8qIEludGVybmFsIGJ1ZmZlciBvZmZzZXQgKi8KKwl0bXAg
+PSAoKGNmZy0+aW50X2J1Zl9zdGFydF9tYXJnaW4gLyBQT1JUX0lDX09GRlNFVF9VTklUUykgJgor
+CQlCTUlfSU5UX0JVRl9NQVJHX01BU0spIDw8IEJNSV9JTlRfQlVGX01BUkdfU0hJRlQ7CisJaW93
+cml0ZTMyYmUodG1wLCAmcmVncy0+Zm1ibV9yaW0pOworCisJLyogRXh0ZXJuYWwgYnVmZmVyIG1h
+cmdpbnMgKi8KKwl0bXAgPSAoY2ZnLT5idWZfbWFyZ2lucy5zdGFydF9tYXJnaW5zICYgQk1JX0VY
+VF9CVUZfTUFSR19TVEFSVF9NQVNLKSA8PAorCQlCTUlfRVhUX0JVRl9NQVJHX1NUQVJUX1NISUZU
+OworCXRtcCB8PSBjZmctPmJ1Zl9tYXJnaW5zLmVuZF9tYXJnaW5zICYgQk1JX0VYVF9CVUZfTUFS
+R19FTkRfTUFTSzsKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdzLT5mbWJtX3JlYm0pOworCisJLyog
+RnJhbWUgYXR0cmlidXRlcyAqLworCXRtcCA9IEJNSV9DTURfUlhfTVJfREVGOworCXRtcCB8PSBC
+TUlfQ01EX0FUVFJfT1JERVI7CisJdG1wIHw9ICh1MzIpY2ZnLT5jb2xvciA8PCBCTUlfQ01EX0FU
+VFJfQ09MT1JfU0hJRlQ7CisJLyogU3luY2hyb25pemF0aW9uIHJlcXVlc3QgKi8KKwl0bXAgfD0g
+Qk1JX0NNRF9BVFRSX1NZTkM7CisKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdzLT5mbWJtX3JmY2Ep
+OworCisJLyogTklBICovCisJdG1wID0gKHUzMiljZmctPnJ4X2ZkX2JpdHMgPDwgQk1JX05FWFRf
+RU5HX0ZEX0JJVFNfU0hJRlQ7CisKKwl0bXAgfD0gTklBX0VOR19CTUkgfCBOSUFfQk1JX0FDX0VO
+UV9GUkFNRTsKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdzLT5mbWJtX3JmbmUpOworCisJLyogRW5x
+dWV1ZSBOSUEgKi8KKwlpb3dyaXRlMzJiZShOSUFfRU5HX1FNSV9FTlEgfCBOSUFfT1JERVJfUkVT
+VE9SLCAmcmVncy0+Zm1ibV9yZmVuZSk7CisKKwkvKiBEZWZhdWx0L2Vycm9yIHF1ZXVlcyAqLwor
+CWlvd3JpdGUzMmJlKChjZmctPmRmbHRfZnFpZCAmIERGTFRfRlFfSUQpLCAmcmVncy0+Zm1ibV9y
+ZnFpZCk7CisJaW93cml0ZTMyYmUoKGNmZy0+ZXJyX2ZxaWQgJiBERkxUX0ZRX0lEKSwgJnJlZ3Mt
+PmZtYm1fcmVmcWlkKTsKKworCS8qIERpc2NhcmQvZXJyb3IgbWFza3MgKi8KKwlpb3dyaXRlMzJi
+ZShjZmctPmRpc2NhcmRfbWFzaywgJnJlZ3MtPmZtYm1fcmZzZG0pOworCWlvd3JpdGUzMmJlKGNm
+Zy0+ZXJyX21hc2ssICZyZWdzLT5mbWJtX3Jmc2VtKTsKKworCXJldHVybiAwOworfQorCitzdGF0
+aWMgaW50IGluaXRfYm1pX3R4KHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpCit7CisJc3RydWN0IGZt
+YW5fcG9ydF90eF9ibWlfcmVncyBfX2lvbWVtICpyZWdzID0gJnBvcnQtPmJtaV9yZWdzLT50eDsK
+KwlzdHJ1Y3QgZm1hbl9wb3J0X2NmZyAqY2ZnID0gcG9ydC0+Y2ZnOworCXUzMiB0bXA7CisKKwkv
+KiBUeCBDb25maWd1cmF0aW9uIHJlZ2lzdGVyICovCisJdG1wID0gMDsKKwlpb3dyaXRlMzJiZSh0
+bXAsICZyZWdzLT5mbWJtX3RjZmcpOworCisJLyogRE1BIGF0dHJpYnV0ZXMgKi8KKwl0bXAgPSAo
+dTMyKWNmZy0+ZG1hX3N3YXBfZGF0YSA8PCBCTUlfRE1BX0FUVFJfU1dQX1NISUZUOworCWlvd3Jp
+dGUzMmJlKHRtcCwgJnJlZ3MtPmZtYm1fdGRhKTsKKworCS8qIFR4IEZJRk8gcGFyYW1ldGVycyAq
+LworCXRtcCA9IChjZmctPnR4X2ZpZm9fbWluX2xldmVsIC8gUE9SVF9CTUlfRklGT19VTklUUykg
+PDwKKwkJQk1JX1RYX0ZJRk9fTUlOX0ZJTExfU0hJRlQ7CisJdG1wIHw9ICgoY2ZnLT50eF9maWZv
+X2RlcV9waXBlbGluZV9kZXB0aCAtIDEpICYKKwkJQk1JX0ZJRk9fUElQRUxJTkVfREVQVEhfTUFT
+SykgPDwgQk1JX0ZJRk9fUElQRUxJTkVfREVQVEhfU0hJRlQ7CisJdG1wIHw9IChjZmctPnR4X2Zp
+Zm9fbG93X2NvbWZfbGV2ZWwgLyBQT1JUX0JNSV9GSUZPX1VOSVRTKSAtIDE7CisJaW93cml0ZTMy
+YmUodG1wLCAmcmVncy0+Zm1ibV90ZnApOworCisJLyogRnJhbWUgZW5kIGRhdGEgKi8KKwl0bXAg
+PSAoY2ZnLT5jaGVrc3VtX2xhc3RfYnl0ZXNfaWdub3JlICYgQk1JX0ZSQU1FX0VORF9DU19JR05P
+UkVfTUFTSykgPDwKKwkJQk1JX0ZSQU1FX0VORF9DU19JR05PUkVfU0hJRlQ7CisJaW93cml0ZTMy
+YmUodG1wLCAmcmVncy0+Zm1ibV90ZmVkKTsKKworCS8qIEludGVybmFsIGNvbnRleHQgcGFyYW1l
+dGVycyAqLworCXRtcCA9ICgoY2ZnLT5pbnRfY29udGV4dC5leHRfYnVmX29mZnNldCAvIFBPUlRf
+SUNfT0ZGU0VUX1VOSVRTKSAmCisJCUJNSV9JQ19UT19FWFRfTUFTSykgPDwgQk1JX0lDX1RPX0VY
+VF9TSElGVDsKKwl0bXAgfD0gKChjZmctPmludF9jb250ZXh0LmludF9jb250ZXh0X29mZnNldCAv
+IFBPUlRfSUNfT0ZGU0VUX1VOSVRTKSAmCisJCUJNSV9JQ19GUk9NX0lOVF9NQVNLKSA8PCBCTUlf
+SUNfRlJPTV9JTlRfU0hJRlQ7CisJdG1wIHw9IChjZmctPmludF9jb250ZXh0LnNpemUgLyBQT1JU
+X0lDX09GRlNFVF9VTklUUykgJgorCQlCTUlfSUNfU0laRV9NQVNLOworCWlvd3JpdGUzMmJlKHRt
+cCwgJnJlZ3MtPmZtYm1fdGljcCk7CisKKwkvKiBGcmFtZSBhdHRyaWJ1dGVzICovCisJdG1wID0g
+Qk1JX0NNRF9UWF9NUl9ERUY7CisJdG1wIHw9IEJNSV9DTURfQVRUUl9PUkRFUjsKKwl0bXAgfD0g
+KHUzMiljZmctPmNvbG9yIDw8IEJNSV9DTURfQVRUUl9DT0xPUl9TSElGVDsKKwlpb3dyaXRlMzJi
+ZSh0bXAsICZyZWdzLT5mbWJtX3RmY2EpOworCisJLyogRGVxdWV1ZSBOSUEgKyBlbnF1ZXVlIE5J
+QSAqLworCWlvd3JpdGUzMmJlKE5JQV9FTkdfUU1JX0RFUSwgJnJlZ3MtPmZtYm1fdGZkbmUpOwor
+CWlvd3JpdGUzMmJlKE5JQV9FTkdfUU1JX0VOUSB8IE5JQV9PUkRFUl9SRVNUT1IsICZyZWdzLT5m
+bWJtX3RmZW5lKTsKKwlpZiAoY2ZnLT5mbWJtX3RmbmVfaGFzX2ZlYXR1cmVzKQorCQlpb3dyaXRl
+MzJiZSghY2ZnLT5kZmx0X2ZxaWQgPworCQkJICAgIEJNSV9FQkRfRU4gfCBOSUFfQk1JX0FDX0ZF
+VENIX0FMTF9GUkFNRSA6CisJCQkgICAgTklBX0JNSV9BQ19GRVRDSF9BTExfRlJBTUUsICZyZWdz
+LT5mbWJtX3RmbmUpOworCWlmICghY2ZnLT5kZmx0X2ZxaWQgJiYgY2ZnLT5kb250X3JlbGVhc2Vf
+YnVmKSB7CisJCWlvd3JpdGUzMmJlKERGTFRfRlFfSUQsICZyZWdzLT5mbWJtX3RjZnFpZCk7CisJ
+CWlvd3JpdGUzMmJlKE5JQV9FTkdfQk1JIHwgTklBX0JNSV9BQ19UWF9SRUxFQVNFLAorCQkJICAg
+ICZyZWdzLT5mbWJtX3RmZW5lKTsKKwkJaWYgKGNmZy0+Zm1ibV90Zm5lX2hhc19mZWF0dXJlcykK
+KwkJCWlvd3JpdGUzMmJlKGlvcmVhZDMyYmUoJnJlZ3MtPmZtYm1fdGZuZSkgJiB+Qk1JX0VCRF9F
+TiwKKwkJCQkgICAgJnJlZ3MtPmZtYm1fdGZuZSk7CisJfQorCisJLyogQ29uZmlybWF0aW9uL2Vy
+cm9yIHF1ZXVlcyAqLworCWlmIChjZmctPmRmbHRfZnFpZCB8fCAhY2ZnLT5kb250X3JlbGVhc2Vf
+YnVmKQorCQlpb3dyaXRlMzJiZShjZmctPmRmbHRfZnFpZCAmIERGTFRfRlFfSUQsICZyZWdzLT5m
+bWJtX3RjZnFpZCk7CisJaW93cml0ZTMyYmUoKGNmZy0+ZXJyX2ZxaWQgJiBERkxUX0ZRX0lEKSwg
+JnJlZ3MtPmZtYm1fdGVmcWlkKTsKKworCXJldHVybiAwOworfQorCitzdGF0aWMgaW50IGluaXRf
+cW1pKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpCit7CisJc3RydWN0IGZtYW5fcG9ydF9xbWlfcmVn
+cyBfX2lvbWVtICpyZWdzID0gcG9ydC0+cW1pX3JlZ3M7CisJc3RydWN0IGZtYW5fcG9ydF9jZmcg
+KmNmZyA9IHBvcnQtPmNmZzsKKwl1MzIgdG1wOworCisJLyogUnggcG9ydCBjb25maWd1cmF0aW9u
+ICovCisJaWYgKHBvcnQtPnBvcnRfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9SWCkgeworCQkvKiBF
+bnF1ZXVlIE5JQSAqLworCQlpb3dyaXRlMzJiZShOSUFfRU5HX0JNSSB8IE5JQV9CTUlfQUNfUkVM
+RUFTRSwgJnJlZ3MtPmZtcW1fcG5lbik7CisJCXJldHVybiAwOworCX0KKworCS8qIENvbnRpbnVl
+IHdpdGggVHggcG9ydCBjb25maWd1cmF0aW9uICovCisJaWYgKHBvcnQtPnBvcnRfdHlwZSA9PSBG
+TUFOX1BPUlRfVFlQRV9UWCkgeworCQkvKiBFbnF1ZXVlIE5JQSAqLworCQlpb3dyaXRlMzJiZShO
+SUFfRU5HX0JNSSB8IE5JQV9CTUlfQUNfVFhfUkVMRUFTRSwKKwkJCSAgICAmcmVncy0+Zm1xbV9w
+bmVuKTsKKwkJLyogRGVxdWV1ZSBOSUEgKi8KKwkJaW93cml0ZTMyYmUoTklBX0VOR19CTUkgfCBO
+SUFfQk1JX0FDX1RYLCAmcmVncy0+Zm1xbV9wbmRuKTsKKwl9CisKKwkvKiBEZXF1ZXVlIENvbmZp
+Z3VyYXRpb24gcmVnaXN0ZXIgKi8KKwl0bXAgPSAwOworCWlmIChjZmctPmRlcV9oaWdoX3ByaW9y
+aXR5KQorCQl0bXAgfD0gUU1JX0RFUV9DRkdfUFJJOworCisJc3dpdGNoIChjZmctPmRlcV90eXBl
+KSB7CisJY2FzZSBGTUFOX1BPUlRfREVRX0JZX1BSSToKKwkJdG1wIHw9IFFNSV9ERVFfQ0ZHX1RZ
+UEUxOworCQlicmVhazsKKwljYXNlIEZNQU5fUE9SVF9ERVFfQUNUSVZFX0ZROgorCQl0bXAgfD0g
+UU1JX0RFUV9DRkdfVFlQRTI7CisJCWJyZWFrOworCWNhc2UgRk1BTl9QT1JUX0RFUV9BQ1RJVkVf
+RlFfTk9fSUNTOgorCQl0bXAgfD0gUU1JX0RFUV9DRkdfVFlQRTM7CisJCWJyZWFrOworCWRlZmF1
+bHQ6CisJCXJldHVybiAtRUlOVkFMOworCX0KKworCXN3aXRjaCAoY2ZnLT5kZXFfcHJlZmV0Y2hf
+b3B0aW9uKSB7CisJY2FzZSBGTUFOX1BPUlRfREVRX05PX1BSRUZFVENIOgorCQlicmVhazsKKwlj
+YXNlIEZNQU5fUE9SVF9ERVFfUEFSVF9QUkVGRVRDSDoKKwkJdG1wIHw9IFFNSV9ERVFfQ0ZHX1BS
+RUZFVENIX1BBUlRJQUw7CisJCWJyZWFrOworCWNhc2UgRk1BTl9QT1JUX0RFUV9GVUxMX1BSRUZF
+VENIOgorCQl0bXAgfD0gUU1JX0RFUV9DRkdfUFJFRkVUQ0hfRlVMTDsKKwkJYnJlYWs7CisJZGVm
+YXVsdDoKKwkJcmV0dXJuIC1FSU5WQUw7CisJfQorCisJdG1wIHw9IChjZmctPmRlcV9zcCAmIFFN
+SV9ERVFfQ0ZHX1NQX01BU0spIDw8IFFNSV9ERVFfQ0ZHX1NQX1NISUZUOworCXRtcCB8PSBjZmct
+PmRlcV9ieXRlX2NudDsKKwlpb3dyaXRlMzJiZSh0bXAsICZyZWdzLT5mbXFtX3BuZGMpOworCisJ
+cmV0dXJuIDA7Cit9CisKK3N0YXRpYyBpbnQgaW5pdChzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQor
+eworCWludCBlcnI7CisKKwkvKiBJbml0IEJNSSByZWdpc3RlcnMgKi8KKwlzd2l0Y2ggKHBvcnQt
+PnBvcnRfdHlwZSkgeworCWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6CisJCWVyciA9IGluaXRfYm1p
+X3J4KHBvcnQpOworCQlicmVhazsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1RYOgorCQllcnIgPSBp
+bml0X2JtaV90eChwb3J0KTsKKwkJYnJlYWs7CisJZGVmYXVsdDoKKwkJcmV0dXJuIC1FSU5WQUw7
+CisJfQorCisJaWYgKGVycikKKwkJcmV0dXJuIGVycjsKKworCS8qIEluaXQgUU1JIHJlZ2lzdGVy
+cyAqLworCWVyciA9IGluaXRfcW1pKHBvcnQpOworCXJldHVybiBlcnI7CisKKwlyZXR1cm4gMDsK
+K30KKworc3RhdGljIGludCBzZXRfYnBvb2xzKGNvbnN0IHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQs
+CisJCSAgICAgIGNvbnN0IHN0cnVjdCBmbWFuX3BvcnRfYnBvb2xzICpicCkKK3sKKwl1MzIgX19p
+b21lbSAqYnBfcmVnLCAqYnBfZGVwbF9yZWc7CisJdTMyIHRtcDsKKwl1OCBpLCBtYXhfYnBfbnVt
+OworCWJvb2wgZ3JwX2RlcGxfdXNlZCA9IGZhbHNlLCByeF9wb3J0OworCisJc3dpdGNoIChwb3J0
+LT5wb3J0X3R5cGUpIHsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1JYOgorCQltYXhfYnBfbnVtID0g
+cG9ydC0+ZXh0X3Bvb2xzX251bTsKKwkJcnhfcG9ydCA9IHRydWU7CisJCWJwX3JlZyA9IHBvcnQt
+PmJtaV9yZWdzLT5yeC5mbWJtX2VibXBpOworCQlicF9kZXBsX3JlZyA9ICZwb3J0LT5ibWlfcmVn
+cy0+cnguZm1ibV9tcGQ7CisJCWJyZWFrOworCWRlZmF1bHQ6CisJCXJldHVybiAtRUlOVkFMOwor
+CX0KKworCWlmIChyeF9wb3J0KSB7CisJCS8qIENoZWNrIGJ1ZmZlcnMgYXJlIHByb3ZpZGVkIGlu
+IGFzY2VuZGluZyBvcmRlciAqLworCQlmb3IgKGkgPSAwOyAoaSA8IChicC0+Y291bnQgLSAxKSAm
+JgorCQkJICAgICAoaSA8IEZNQU5fUE9SVF9NQVhfRVhUX1BPT0xTX05VTSAtIDEpKTsgaSsrKSB7
+CisJCQlpZiAoYnAtPmJwb29sW2ldLnNpemUgPiBicC0+YnBvb2xbaSArIDFdLnNpemUpCisJCQkJ
+cmV0dXJuIC1FSU5WQUw7CisJCX0KKwl9CisKKwkvKiBTZXQgdXAgZXh0ZXJuYWwgYnVmZmVycyBw
+b29scyAqLworCWZvciAoaSA9IDA7IGkgPCBicC0+Y291bnQ7IGkrKykgeworCQl0bXAgPSBCTUlf
+RVhUX0JVRl9QT09MX1ZBTElEOworCQl0bXAgfD0gKCh1MzIpYnAtPmJwb29sW2ldLmJwaWQgPDwK
+KwkJCUJNSV9FWFRfQlVGX1BPT0xfSURfU0hJRlQpICYgQk1JX0VYVF9CVUZfUE9PTF9JRF9NQVNL
+OworCisJCWlmIChyeF9wb3J0KSB7CisJCQlpZiAoYnAtPmNvdW50ZXJzX2VuYWJsZSkKKwkJCQl0
+bXAgfD0gQk1JX0VYVF9CVUZfUE9PTF9FTl9DT1VOVEVSOworCisJCQlpZiAoYnAtPmJwb29sW2ld
+LmlzX2JhY2t1cCkKKwkJCQl0bXAgfD0gQk1JX0VYVF9CVUZfUE9PTF9CQUNLVVA7CisKKwkJCXRt
+cCB8PSAodTMyKWJwLT5icG9vbFtpXS5zaXplOworCQl9CisKKwkJaW93cml0ZTMyYmUodG1wLCAm
+YnBfcmVnW2ldKTsKKwl9CisKKwkvKiBDbGVhciB1bnVzZWQgcG9vbHMgKi8KKwlmb3IgKGkgPSBi
+cC0+Y291bnQ7IGkgPCBtYXhfYnBfbnVtOyBpKyspCisJCWlvd3JpdGUzMmJlKDAsICZicF9yZWdb
+aV0pOworCisJLyogUG9vbHMgZGVwbGV0aW9uICovCisJdG1wID0gMDsKKwlmb3IgKGkgPSAwOyBp
+IDwgRk1BTl9QT1JUX01BWF9FWFRfUE9PTFNfTlVNOyBpKyspIHsKKwkJaWYgKGJwLT5icG9vbFtp
+XS5ncnBfYnBfZGVwbGV0ZWQpIHsKKwkJCWdycF9kZXBsX3VzZWQgPSB0cnVlOworCQkJdG1wIHw9
+IDB4ODAwMDAwMDAgPj4gaTsKKwkJfQorCisJCWlmIChicC0+YnBvb2xbaV0uc2luZ2xlX2JwX2Rl
+cGxldGVkKQorCQkJdG1wIHw9IDB4ODAgPj4gaTsKKwl9CisKKwlpZiAoZ3JwX2RlcGxfdXNlZCkK
+KwkJdG1wIHw9ICgodTMyKWJwLT5ncnBfYnBfZGVwbGV0ZWRfbnVtIC0gMSkgPDwKKwkJICAgIEJN
+SV9QT09MX0RFUF9OVU1fT0ZfUE9PTFNfU0hJRlQ7CisKKwlpb3dyaXRlMzJiZSh0bXAsIGJwX2Rl
+cGxfcmVnKTsKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGJvb2wgaXNfaW5pdF9kb25lKHN0cnVj
+dCBmbWFuX3BvcnRfY2ZnICpjZmcpCit7CisJLyogQ2hlY2tzIGlmIEZNYW4gcG9ydCBkcml2ZXIg
+cGFyYW1ldGVycyB3ZXJlIGluaXRpYWxpemVkICovCisJaWYgKCFjZmcpCisJCXJldHVybiB0cnVl
+OworCisJcmV0dXJuIGZhbHNlOworfQorCitzdGF0aWMgaW50IHZlcmlmeV9zaXplX29mX2ZpZm8o
+c3RydWN0IGZtYW5fcG9ydCAqcG9ydCkKK3sKKwl1MzIgbWluX2ZpZm9fc2l6ZV9yZXF1aXJlZCA9
+IDAsIG9wdF9maWZvX3NpemVfZm9yX2IyYiA9IDA7CisKKwkvKiBUWCBQb3J0cyAqLworCWlmIChw
+b3J0LT5wb3J0X3R5cGUgPT0gRk1BTl9QT1JUX1RZUEVfVFgpIHsKKwkJbWluX2ZpZm9fc2l6ZV9y
+ZXF1aXJlZCA9ICh1MzIpCisJCSAgICAocm91bmR1cChwb3J0LT5tYXhfZnJhbWVfbGVuZ3RoLAor
+CQkJICAgICBGTUFOX0JNSV9GSUZPX1VOSVRTKSArICgzICogRk1BTl9CTUlfRklGT19VTklUUykp
+OworCisJCW1pbl9maWZvX3NpemVfcmVxdWlyZWQgKz0KKwkJICAgIHBvcnQtPmNmZy0+dHhfZmlm
+b19kZXFfcGlwZWxpbmVfZGVwdGggKgorCQkgICAgRk1BTl9CTUlfRklGT19VTklUUzsKKworCQlv
+cHRfZmlmb19zaXplX2Zvcl9iMmIgPSBtaW5fZmlmb19zaXplX3JlcXVpcmVkOworCisJCS8qIEFk
+ZCBzb21lIG1hcmdpbiBmb3IgYmFjay10by1iYWNrIGNhcGFiaWxpdHkgdG8gaW1wcm92ZQorCQkg
+KiBwZXJmb3JtYW5jZSwgYWxsb3dzIHRoZSBoYXJkd2FyZSB0byBwaXBlbGluZSBuZXcgZnJhbWUg
+ZG1hCisJCSAqIHdoaWxlIHRoZSBwcmV2aW91cyBmcmFtZSBub3QgeWV0IHRyYW5zbWl0dGVkLgor
+CQkgKi8KKwkJaWYgKHBvcnQtPnBvcnRfc3BlZWQgPT0gMTAwMDApCisJCQlvcHRfZmlmb19zaXpl
+X2Zvcl9iMmIgKz0gMyAqIEZNQU5fQk1JX0ZJRk9fVU5JVFM7CisJCWVsc2UKKwkJCW9wdF9maWZv
+X3NpemVfZm9yX2IyYiArPSAyICogRk1BTl9CTUlfRklGT19VTklUUzsKKwl9CisKKwkvKiBSWCBQ
+b3J0cyAqLworCWVsc2UgaWYgKHBvcnQtPnBvcnRfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9SWCkg
+eworCQlpZiAocG9ydC0+cmV2X2luZm8ubWFqb3IgPj0gNikKKwkJCW1pbl9maWZvX3NpemVfcmVx
+dWlyZWQgPSAodTMyKQorCQkJKHJvdW5kdXAocG9ydC0+bWF4X2ZyYW1lX2xlbmd0aCwKKwkJCQkg
+Rk1BTl9CTUlfRklGT19VTklUUykgKworCQkJCSAoNSAqIEZNQU5fQk1JX0ZJRk9fVU5JVFMpKTsK
+KwkJCS8qIDQgYWNjb3JkaW5nIHRvIHNwZWMgKyAxIGZvciBGT0Y+MCAqLworCQllbHNlCisJCQlt
+aW5fZmlmb19zaXplX3JlcXVpcmVkID0gKHUzMikKKwkJCShyb3VuZHVwKG1pbihwb3J0LT5tYXhf
+ZnJhbWVfbGVuZ3RoLAorCQkJCSAgICAgcG9ydC0+cnhfcG9vbHNfcGFyYW1zLmxhcmdlc3RfYnVm
+X3NpemUpLAorCQkJCSAgICAgRk1BTl9CTUlfRklGT19VTklUUykgKworCQkJCSAgICAgKDcgKiBG
+TUFOX0JNSV9GSUZPX1VOSVRTKSk7CisKKwkJb3B0X2ZpZm9fc2l6ZV9mb3JfYjJiID0gbWluX2Zp
+Zm9fc2l6ZV9yZXF1aXJlZDsKKworCQkvKiBBZGQgc29tZSBtYXJnaW4gZm9yIGJhY2stdG8tYmFj
+ayBjYXBhYmlsaXR5IHRvIGltcHJvdmUKKwkJICogcGVyZm9ybWFuY2UsYWxsb3dzIHRoZSBoYXJk
+d2FyZSB0byBwaXBlbGluZSBuZXcgZnJhbWUgZG1hCisJCSAqIHdoaWxlIHRoZSBwcmV2aW91cyBm
+cmFtZSBub3QgeWV0IHRyYW5zbWl0dGVkLgorCQkgKi8KKwkJaWYgKHBvcnQtPnBvcnRfc3BlZWQg
+PT0gMTAwMDApCisJCQlvcHRfZmlmb19zaXplX2Zvcl9iMmIgKz0gOCAqIEZNQU5fQk1JX0ZJRk9f
+VU5JVFM7CisJCWVsc2UKKwkJCW9wdF9maWZvX3NpemVfZm9yX2IyYiArPSAzICogRk1BTl9CTUlf
+RklGT19VTklUUzsKKwl9CisKKwlXQVJOX09OKG1pbl9maWZvX3NpemVfcmVxdWlyZWQgPD0gMCk7
+CisJV0FSTl9PTihvcHRfZmlmb19zaXplX2Zvcl9iMmIgPCBtaW5fZmlmb19zaXplX3JlcXVpcmVk
+KTsKKworCS8qIFZlcmlmeSB0aGUgc2l6ZSAgKi8KKwlpZiAocG9ydC0+Zmlmb19idWZzLm51bSA8
+IG1pbl9maWZvX3NpemVfcmVxdWlyZWQpCisJCWRldl9kYmcocG9ydC0+ZGV2LCAiJXM6IEZJRk8g
+c2l6ZSBzaG91bGQgYmUgZW5sYXJnZWQgdG8gJWQgYnl0ZXNcbiIsCisJCQlfX2Z1bmNfXywgbWlu
+X2ZpZm9fc2l6ZV9yZXF1aXJlZCk7CisJZWxzZSBpZiAocG9ydC0+Zmlmb19idWZzLm51bSA8IG9w
+dF9maWZvX3NpemVfZm9yX2IyYikKKwkJZGV2X2RiZyhwb3J0LT5kZXYsICIlczogRm9yIGIyYiBw
+cm9jZXNzaW5nLEZJRk8gbWF5IGJlIGVubGFyZ2VkIHRvICVkIGJ5dGVzXG4iLAorCQkJX19mdW5j
+X18sIG9wdF9maWZvX3NpemVfZm9yX2IyYik7CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGlu
+dCBzZXRfZXh0X2J1ZmZlcl9wb29scyhzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXN0cnVj
+dCBmbWFuX2V4dF9wb29scyAqZXh0X2J1Zl9wb29scyA9ICZwb3J0LT5jZmctPmV4dF9idWZfcG9v
+bHM7CisJc3RydWN0IGZtYW5fYnVmX3Bvb2xfZGVwbGV0aW9uICpidWZfcG9vbF9kZXBsZXRpb24g
+PQorCSZwb3J0LT5jZmctPmJ1Zl9wb29sX2RlcGxldGlvbjsKKwl1OCBvcmRlcmVkX2FycmF5W0ZN
+QU5fUE9SVF9NQVhfRVhUX1BPT0xTX05VTV07CisJdTE2IHNpemVzX2FycmF5W0JNX01BWF9OVU1f
+T0ZfUE9PTFNdOworCWludCBpID0gMCwgaiA9IDAsIGVycjsKKwlzdHJ1Y3QgZm1hbl9wb3J0X2Jw
+b29scyBicG9vbHM7CisKKwltZW1zZXQoJm9yZGVyZWRfYXJyYXksIDAsIHNpemVvZih1OCkgKiBG
+TUFOX1BPUlRfTUFYX0VYVF9QT09MU19OVU0pOworCW1lbXNldCgmc2l6ZXNfYXJyYXksIDAsIHNp
+emVvZih1MTYpICogQk1fTUFYX05VTV9PRl9QT09MUyk7CisJbWVtY3B5KCZwb3J0LT5leHRfYnVm
+X3Bvb2xzLCBleHRfYnVmX3Bvb2xzLAorCSAgICAgICBzaXplb2Yoc3RydWN0IGZtYW5fZXh0X3Bv
+b2xzKSk7CisKKwlmbWFuX3NwX3NldF9idWZfcG9vbHNfaW5fYXNjX29yZGVyX29mX2J1Zl9zaXpl
+cyhleHRfYnVmX3Bvb2xzLAorCQkJCQkJCW9yZGVyZWRfYXJyYXksCisJCQkJCQkJc2l6ZXNfYXJy
+YXkpOworCisJbWVtc2V0KCZicG9vbHMsIDAsIHNpemVvZihzdHJ1Y3QgZm1hbl9wb3J0X2Jwb29s
+cykpOworCWJwb29scy5jb3VudCA9IGV4dF9idWZfcG9vbHMtPm51bV9vZl9wb29sc191c2VkOwor
+CWJwb29scy5jb3VudGVyc19lbmFibGUgPSB0cnVlOworCWZvciAoaSA9IDA7IGkgPCBleHRfYnVm
+X3Bvb2xzLT5udW1fb2ZfcG9vbHNfdXNlZDsgaSsrKSB7CisJCWJwb29scy5icG9vbFtpXS5icGlk
+ID0gb3JkZXJlZF9hcnJheVtpXTsKKwkJYnBvb2xzLmJwb29sW2ldLnNpemUgPSBzaXplc19hcnJh
+eVtvcmRlcmVkX2FycmF5W2ldXTsKKwl9CisKKwkvKiBzYXZlIHBvb2xzIHBhcmFtZXRlcnMgZm9y
+IGxhdGVyIHVzZSAqLworCXBvcnQtPnJ4X3Bvb2xzX3BhcmFtcy5udW1fb2ZfcG9vbHMgPSBleHRf
+YnVmX3Bvb2xzLT5udW1fb2ZfcG9vbHNfdXNlZDsKKwlwb3J0LT5yeF9wb29sc19wYXJhbXMubGFy
+Z2VzdF9idWZfc2l6ZSA9CisJICAgIHNpemVzX2FycmF5W29yZGVyZWRfYXJyYXlbZXh0X2J1Zl9w
+b29scy0+bnVtX29mX3Bvb2xzX3VzZWQgLSAxXV07CisJcG9ydC0+cnhfcG9vbHNfcGFyYW1zLnNl
+Y29uZF9sYXJnZXN0X2J1Zl9zaXplID0KKwkgICAgc2l6ZXNfYXJyYXlbb3JkZXJlZF9hcnJheVtl
+eHRfYnVmX3Bvb2xzLT5udW1fb2ZfcG9vbHNfdXNlZCAtIDJdXTsKKworCS8qIEZNQk1fUk1QRCBy
+ZWcuIC0gcG9vbCBkZXBsZXRpb24gKi8KKwlpZiAoYnVmX3Bvb2xfZGVwbGV0aW9uLT5wb29sc19n
+cnBfbW9kZV9lbmFibGUpIHsKKwkJYnBvb2xzLmdycF9icF9kZXBsZXRlZF9udW0gPSBidWZfcG9v
+bF9kZXBsZXRpb24tPm51bV9vZl9wb29sczsKKwkJZm9yIChpID0gMDsgaSA8IHBvcnQtPmJtX21h
+eF9udW1fb2ZfcG9vbHM7IGkrKykgeworCQkJaWYgKGJ1Zl9wb29sX2RlcGxldGlvbi0+cG9vbHNf
+dG9fY29uc2lkZXJbaV0pIHsKKwkJCQlmb3IgKGogPSAwOyBqIDwgZXh0X2J1Zl9wb29scy0+CisJ
+CQkJICAgICBudW1fb2ZfcG9vbHNfdXNlZDsgaisrKSB7CisJCQkJCWlmIChpID09IG9yZGVyZWRf
+YXJyYXlbal0pIHsKKwkJCQkJCWJwb29scy5icG9vbFtqXS4KKwkJCQkJCSAgICBncnBfYnBfZGVw
+bGV0ZWQgPSB0cnVlOworCQkJCQkJYnJlYWs7CisJCQkJCX0KKwkJCQl9CisJCQl9CisJCX0KKwl9
+CisKKwlpZiAoYnVmX3Bvb2xfZGVwbGV0aW9uLT5zaW5nbGVfcG9vbF9tb2RlX2VuYWJsZSkgewor
+CQlmb3IgKGkgPSAwOyBpIDwgcG9ydC0+Ym1fbWF4X251bV9vZl9wb29sczsgaSsrKSB7CisJCQlp
+ZiAoYnVmX3Bvb2xfZGVwbGV0aW9uLT4KKwkJCSAgICBwb29sc190b19jb25zaWRlcl9mb3Jfc2lu
+Z2xlX21vZGVbaV0pIHsKKwkJCQlmb3IgKGogPSAwOyBqIDwgZXh0X2J1Zl9wb29scy0+CisJCQkJ
+ICAgICBudW1fb2ZfcG9vbHNfdXNlZDsgaisrKSB7CisJCQkJCWlmIChpID09IG9yZGVyZWRfYXJy
+YXlbal0pIHsKKwkJCQkJCWJwb29scy5icG9vbFtqXS4KKwkJCQkJCSAgICBzaW5nbGVfYnBfZGVw
+bGV0ZWQgPSB0cnVlOworCQkJCQkJYnJlYWs7CisJCQkJCX0KKwkJCQl9CisJCQl9CisJCX0KKwl9
+CisKKwllcnIgPSBzZXRfYnBvb2xzKHBvcnQsICZicG9vbHMpOworCWlmIChlcnIgIT0gMCkgewor
+CQlkZXZfZXJyKHBvcnQtPmRldiwgIiVzOiBzZXRfYnBvb2xzKCkgZmFpbGVkXG4iLCBfX2Z1bmNf
+Xyk7CisJCXJldHVybiAtRUlOVkFMOworCX0KKworCXJldHVybiAwOworfQorCitzdGF0aWMgaW50
+IGluaXRfbG93X2xldmVsX2RyaXZlcihzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXN0cnVj
+dCBmbWFuX3BvcnRfY2ZnICpjZmcgPSBwb3J0LT5jZmc7CisJdTMyIHRtcF92YWw7CisKKwlzd2l0
+Y2ggKHBvcnQtPnBvcnRfdHlwZSkgeworCWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6CisJCWNmZy0+
+ZXJyX21hc2sgPSAoUlhfRVJSU19UT19FTlEgJiB+Y2ZnLT5kaXNjYXJkX21hc2spOworCQlicmVh
+azsKKwlkZWZhdWx0OgorCQlicmVhazsKKwl9CisKKwl0bXBfdmFsID0gKHUzMikoKHBvcnQtPmlu
+dGVybmFsX2J1Zl9vZmZzZXQgJSBPRkZTRVRfVU5JVFMpID8KKwkJKHBvcnQtPmludGVybmFsX2J1
+Zl9vZmZzZXQgLyBPRkZTRVRfVU5JVFMgKyAxKSA6CisJCShwb3J0LT5pbnRlcm5hbF9idWZfb2Zm
+c2V0IC8gT0ZGU0VUX1VOSVRTKSk7CisJcG9ydC0+aW50ZXJuYWxfYnVmX29mZnNldCA9ICh1OCko
+dG1wX3ZhbCAqIE9GRlNFVF9VTklUUyk7CisJcG9ydC0+Y2ZnLT5pbnRfYnVmX3N0YXJ0X21hcmdp
+biA9IHBvcnQtPmludGVybmFsX2J1Zl9vZmZzZXQ7CisKKwlpZiAoaW5pdChwb3J0KSAhPSAwKSB7
+CisJCWRldl9lcnIocG9ydC0+ZGV2LCAiJXM6IGZtYW4gcG9ydCBpbml0aWFsaXphdGlvbiBmYWls
+ZWRcbiIsCisJCQlfX2Z1bmNfXyk7CisJCXJldHVybiAtRU5PREVWOworCX0KKworCS8qIFRoZSBj
+b2RlIGJlbGxvdyBpcyBhIHRyaWNrIHNvIHRoZSBGTSB3aWxsIG5vdCByZWxlYXNlIHRoZSBidWZm
+ZXIKKwkgKiB0byBCTSBub3Igd2lsbCB0cnkgdG8gZW5xdWV1ZSB0aGUgZnJhbWUgdG8gUU0KKwkg
+Ki8KKwlpZiAocG9ydC0+cG9ydF90eXBlID09IEZNQU5fUE9SVF9UWVBFX1RYKSB7CisJCWlmICgh
+Y2ZnLT5kZmx0X2ZxaWQgJiYgY2ZnLT5kb250X3JlbGVhc2VfYnVmKSB7CisJCQkvKiBvdmVycmlk
+ZSBmbWJtX3RjZnFpZCAwIHdpdGggYSBmYWxzZSBub24tMCB2YWx1ZS4KKwkJCSAqIFRoaXMgd2ls
+bCBmb3JjZSBGTSB0byBhY3QgYWNjb3JkaW5nIHRvIHRmZW5lLgorCQkJICogT3RoZXJ3aXNlLCBp
+ZiBmbWJtX3RjZnFpZCBpcyAwIHRoZSBGTSB3aWxsIHJlbGVhc2UKKwkJCSAqIGJ1ZmZlcnMgdG8g
+Qk0gcmVnYXJkbGVzcyBvZiBmbWJtX3RmZW5lCisJCQkgKi8KKwkJCWlvd3JpdGUzMmJlKDB4RkZG
+RkZGLCAmcG9ydC0+Ym1pX3JlZ3MtPnR4LmZtYm1fdGNmcWlkKTsKKwkJCWlvd3JpdGUzMmJlKE5J
+QV9FTkdfQk1JIHwgTklBX0JNSV9BQ19UWF9SRUxFQVNFLAorCQkJCSAgICAmcG9ydC0+Ym1pX3Jl
+Z3MtPnR4LmZtYm1fdGZlbmUpOworCQl9CisJfQorCisJcmV0dXJuIDA7Cit9CisKK3N0YXRpYyBp
+bnQgZmlsbF9zb2Nfc3BlY2lmaWNfcGFyYW1zKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpCit7CisJ
+dTMyIGJtaV9tYXhfZmlmb19zaXplOworCisJYm1pX21heF9maWZvX3NpemUgPSBmbWFuX2dldF9i
+bWlfbWF4X2ZpZm9fc2l6ZShwb3J0LT5mbSk7CisJcG9ydC0+bWF4X3BvcnRfZmlmb19zaXplID0g
+TUFYX1BPUlRfRklGT19TSVpFKGJtaV9tYXhfZmlmb19zaXplKTsKKwlwb3J0LT5ibV9tYXhfbnVt
+X29mX3Bvb2xzID0gNjQ7CisKKwkvKiBQNDA4MCAtIE1ham9yIDIKKwkgKiBQMjA0MS9QMzA0MS9Q
+NTAyMC9QNTA0MCAtIE1ham9yIDMKKwkgKiBUeC9CeCAtIE1ham9yIDYKKwkgKi8KKwlzd2l0Y2gg
+KHBvcnQtPnJldl9pbmZvLm1ham9yKSB7CisJY2FzZSAyOgorCWNhc2UgMzoKKwkJcG9ydC0+bWF4
+X251bV9vZl9leHRfcG9vbHMJCT0gNDsKKwkJcG9ydC0+bWF4X251bV9vZl9zdWJfcG9ydGFscwkJ
+PSAxMjsKKwkJYnJlYWs7CisKKwljYXNlIDY6CisJCXBvcnQtPm1heF9udW1fb2ZfZXh0X3Bvb2xz
+CQk9IDg7CisJCXBvcnQtPm1heF9udW1fb2Zfc3ViX3BvcnRhbHMJCT0gMTY7CisJCWJyZWFrOwor
+CisJZGVmYXVsdDoKKwkJZGV2X2Vycihwb3J0LT5kZXYsICIlczogVW5zdXBwb3J0ZWQgRk1hbiB2
+ZXJzaW9uXG4iLCBfX2Z1bmNfXyk7CisJCXJldHVybiAtRUlOVkFMOworCX0KKworCXJldHVybiAw
+OworfQorCitzdGF0aWMgaW50IGdldF9kZmx0X2ZpZm9fZGVxX3BpcGVsaW5lX2RlcHRoKHU4IG1h
+am9yLCBlbnVtIGZtYW5fcG9ydF90eXBlIHR5cGUsCisJCQkJCSAgICB1MTYgc3BlZWQpCit7CisJ
+c3dpdGNoICh0eXBlKSB7CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9SWDoKKwljYXNlIEZNQU5fUE9S
+VF9UWVBFX1RYOgorCQlzd2l0Y2ggKHNwZWVkKSB7CisJCWNhc2UgMTAwMDA6CisJCQlyZXR1cm4g
+NDsKKwkJY2FzZSAxMDAwOgorCQkJaWYgKG1ham9yID49IDYpCisJCQkJcmV0dXJuIDI7CisJCQll
+bHNlCisJCQkJcmV0dXJuIDE7CisJCWRlZmF1bHQ6CisJCQlyZXR1cm4gMDsKKwkJfQorCWRlZmF1
+bHQ6CisJCXJldHVybiAwOworCX0KK30KKworc3RhdGljIGludCBnZXRfZGZsdF9udW1fb2ZfdGFz
+a3ModTggbWFqb3IsIGVudW0gZm1hbl9wb3J0X3R5cGUgdHlwZSwKKwkJCQkgdTE2IHNwZWVkKQor
+eworCXN3aXRjaCAodHlwZSkgeworCWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6CisJY2FzZSBGTUFO
+X1BPUlRfVFlQRV9UWDoKKwkJc3dpdGNoIChzcGVlZCkgeworCQljYXNlIDEwMDAwOgorCQkJcmV0
+dXJuIDE2OworCQljYXNlIDEwMDA6CisJCQlpZiAobWFqb3IgPj0gNikKKwkJCQlyZXR1cm4gNDsK
+KwkJCWVsc2UKKwkJCQlyZXR1cm4gMzsKKwkJZGVmYXVsdDoKKwkJCXJldHVybiAwOworCQl9CisJ
+ZGVmYXVsdDoKKwkJcmV0dXJuIDA7CisJfQorfQorCitzdGF0aWMgaW50IGdldF9kZmx0X2V4dHJh
+X251bV9vZl90YXNrcyh1OCBtYWpvciwgZW51bSBmbWFuX3BvcnRfdHlwZSB0eXBlLAorCQkJCSAg
+ICAgICB1MTYgc3BlZWQpCit7CisJc3dpdGNoICh0eXBlKSB7CisJY2FzZSBGTUFOX1BPUlRfVFlQ
+RV9SWDoKKwkJLyogRk1hbiBWMyAqLworCQlpZiAobWFqb3IgPj0gNikKKwkJCXJldHVybiAwOwor
+CisJCS8qIEZNYW4gVjIgKi8KKwkJaWYgKHNwZWVkID09IDEwMDAwKQorCQkJcmV0dXJuIDg7CisJ
+CWVsc2UKKwkJCXJldHVybiAyOworCWNhc2UgRk1BTl9QT1JUX1RZUEVfVFg6CisJZGVmYXVsdDoK
+KwkJcmV0dXJuIDA7CisJfQorfQorCitzdGF0aWMgaW50IGdldF9kZmx0X251bV9vZl9vcGVuX2Rt
+YXModTggbWFqb3IsIGVudW0gZm1hbl9wb3J0X3R5cGUgdHlwZSwKKwkJCQkgICAgIHUxNiBzcGVl
+ZCkKK3sKKwlpbnQgdmFsOworCisJaWYgKG1ham9yID49IDYpIHsKKwkJc3dpdGNoICh0eXBlKSB7
+CisJCWNhc2UgRk1BTl9QT1JUX1RZUEVfVFg6CisJCQlpZiAoc3BlZWQgPT0gMTAwMDApCisJCQkJ
+dmFsID0gMTI7CisJCQllbHNlCisJCQkJdmFsID0gMzsKKwkJCWJyZWFrOworCQljYXNlIEZNQU5f
+UE9SVF9UWVBFX1JYOgorCQkJaWYgKHNwZWVkID09IDEwMDAwKQorCQkJCXZhbCA9IDg7CisJCQll
+bHNlCisJCQkJdmFsID0gMjsKKwkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJcmV0dXJuIDA7CisJ
+CX0KKwl9IGVsc2UgeworCQlzd2l0Y2ggKHR5cGUpIHsKKwkJY2FzZSBGTUFOX1BPUlRfVFlQRV9U
+WDoKKwkJY2FzZSBGTUFOX1BPUlRfVFlQRV9SWDoKKwkJCWlmIChzcGVlZCA9PSAxMDAwMCkKKwkJ
+CQl2YWwgPSA4OworCQkJZWxzZQorCQkJCXZhbCA9IDE7CisJCQlicmVhazsKKwkJZGVmYXVsdDoK
+KwkJCXZhbCA9IDA7CisJCX0KKwl9CisKKwlyZXR1cm4gdmFsOworfQorCitzdGF0aWMgaW50IGdl
+dF9kZmx0X2V4dHJhX251bV9vZl9vcGVuX2RtYXModTggbWFqb3IsIGVudW0gZm1hbl9wb3J0X3R5
+cGUgdHlwZSwKKwkJCQkJICAgdTE2IHNwZWVkKQoreworCS8qIEZNYW4gVjMgKi8KKwlpZiAobWFq
+b3IgPj0gNikKKwkJcmV0dXJuIDA7CisKKwkvKiBGTWFuIFYyICovCisJc3dpdGNoICh0eXBlKSB7
+CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9SWDoKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1RYOgorCQlp
+ZiAoc3BlZWQgPT0gMTAwMDApCisJCQlyZXR1cm4gODsKKwkJZWxzZQorCQkJcmV0dXJuIDE7CisJ
+ZGVmYXVsdDoKKwkJcmV0dXJuIDA7CisJfQorfQorCitzdGF0aWMgaW50IGdldF9kZmx0X251bV9v
+Zl9maWZvX2J1ZnModTggbWFqb3IsIGVudW0gZm1hbl9wb3J0X3R5cGUgdHlwZSwKKwkJCQkgICAg
+IHUxNiBzcGVlZCkKK3sKKwlpbnQgdmFsOworCisJaWYgKG1ham9yID49IDYpIHsKKwkJc3dpdGNo
+ICh0eXBlKSB7CisJCWNhc2UgRk1BTl9QT1JUX1RZUEVfVFg6CisJCQlpZiAoc3BlZWQgPT0gMTAw
+MDApCisJCQkJdmFsID0gNjQ7CisJCQllbHNlCisJCQkJdmFsID0gNTA7CisJCQlicmVhazsKKwkJ
+Y2FzZSBGTUFOX1BPUlRfVFlQRV9SWDoKKwkJCWlmIChzcGVlZCA9PSAxMDAwMCkKKwkJCQl2YWwg
+PSA5NjsKKwkJCWVsc2UKKwkJCQl2YWwgPSA1MDsKKwkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJ
+dmFsID0gMDsKKwkJfQorCX0gZWxzZSB7CisJCXN3aXRjaCAodHlwZSkgeworCQljYXNlIEZNQU5f
+UE9SVF9UWVBFX1RYOgorCQkJaWYgKHNwZWVkID09IDEwMDAwKQorCQkJCXZhbCA9IDQ4OworCQkJ
+ZWxzZQorCQkJCXZhbCA9IDQ0OworCQkJYnJlYWs7CisJCWNhc2UgRk1BTl9QT1JUX1RZUEVfUlg6
+CisJCQlpZiAoc3BlZWQgPT0gMTAwMDApCisJCQkJdmFsID0gNDg7CisJCQllbHNlCisJCQkJdmFs
+ID0gNDU7CisJCQlicmVhazsKKwkJZGVmYXVsdDoKKwkJCXZhbCA9IDA7CisJCX0KKwl9CisKKwly
+ZXR1cm4gdmFsOworfQorCitzdGF0aWMgdm9pZCBzZXRfZGZsdF9jZmcoc3RydWN0IGZtYW5fcG9y
+dCAqcG9ydCwKKwkJCSBzdHJ1Y3QgZm1hbl9wb3J0X3BhcmFtcyAqcG9ydF9wYXJhbXMpCit7CisJ
+c3RydWN0IGZtYW5fcG9ydF9jZmcgKmNmZyA9IHBvcnQtPmNmZzsKKworCWNmZy0+ZG1hX3N3YXBf
+ZGF0YSA9IEZNQU5fUE9SVF9ETUFfTk9fU1dBUDsKKwljZmctPmNvbG9yID0gRk1BTl9QT1JUX0NP
+TE9SX0dSRUVOOworCWNmZy0+cnhfY3V0X2VuZF9ieXRlcyA9IERGTFRfUE9SVF9DVVRfQllURVNf
+RlJPTV9FTkQ7CisJY2ZnLT5yeF9wcmlfZWxldmF0aW9uID0gQk1JX1BSSU9SSVRZX0VMRVZBVElP
+Tl9MRVZFTDsKKwljZmctPnJ4X2ZpZm9fdGhyID0gQk1JX0ZJRk9fVEhSRVNIT0xEOworCWNmZy0+
+dHhfZmlmb19sb3dfY29tZl9sZXZlbCA9ICg1ICogMTAyNCk7CisJY2ZnLT5kZXFfdHlwZSA9IEZN
+QU5fUE9SVF9ERVFfQllfUFJJOworCWNmZy0+ZGVxX3ByZWZldGNoX29wdGlvbiA9IEZNQU5fUE9S
+VF9ERVFfRlVMTF9QUkVGRVRDSDsKKwljZmctPnR4X2ZpZm9fZGVxX3BpcGVsaW5lX2RlcHRoID0K
+KwkJQk1JX0RFUVVFVUVfUElQRUxJTkVfREVQVEgocG9ydC0+cG9ydF90eXBlLCBwb3J0LT5wb3J0
+X3NwZWVkKTsKKwljZmctPmRlcV9ieXRlX2NudCA9IFFNSV9CWVRFX0NPVU5UX0xFVkVMX0NPTlRS
+T0wocG9ydC0+cG9ydF90eXBlKTsKKworCWNmZy0+cnhfcHJpX2VsZXZhdGlvbiA9CisJCURGTFRf
+UE9SVF9SWF9GSUZPX1BSSV9FTEVWQVRJT05fTEVWKHBvcnQtPm1heF9wb3J0X2ZpZm9fc2l6ZSk7
+CisJcG9ydC0+Y2ZnLT5yeF9maWZvX3RociA9CisJCURGTFRfUE9SVF9SWF9GSUZPX1RIUkVTSE9M
+RChwb3J0LT5yZXZfaW5mby5tYWpvciwKKwkJCQkJICAgIHBvcnQtPm1heF9wb3J0X2ZpZm9fc2l6
+ZSk7CisKKwlpZiAoKHBvcnQtPnJldl9pbmZvLm1ham9yID09IDYpICYmCisJICAgICgocG9ydC0+
+cmV2X2luZm8ubWlub3IgPT0gMCkgfHwgKHBvcnQtPnJldl9pbmZvLm1pbm9yID09IDMpKSkKKwkJ
+Y2ZnLT5lcnJhdGFfQTAwNjMyMCA9IHRydWU7CisKKwkvKiBFeGNlc3NpdmUgVGhyZXNob2xkIHJl
+Z2lzdGVyIC0gZXhpc3RzIGZvciBwcmUtRk12MyBjaGlwcyBvbmx5ICovCisJaWYgKHBvcnQtPnJl
+dl9pbmZvLm1ham9yIDwgNikKKwkJY2ZnLT5leGNlc3NpdmVfdGhyZXNob2xkX3JlZ2lzdGVyID0g
+dHJ1ZTsKKwllbHNlCisJCWNmZy0+Zm1ibV90Zm5lX2hhc19mZWF0dXJlcyA9IHRydWU7CisKKwlj
+ZmctPmJ1ZmZlcl9wcmVmaXhfY29udGVudC5kYXRhX2FsaWduID0KKwkJREZMVF9QT1JUX0JVRkZF
+Ul9QUkVGSVhfQ09OVEVYVF9EQVRBX0FMSUdOOworfQorCitzdGF0aWMgdm9pZCBzZXRfcnhfZGZs
+dF9jZmcoc3RydWN0IGZtYW5fcG9ydCAqcG9ydCwKKwkJCSAgICBzdHJ1Y3QgZm1hbl9wb3J0X3Bh
+cmFtcyAqcG9ydF9wYXJhbXMpCit7CisJcG9ydC0+Y2ZnLT5kaXNjYXJkX21hc2sgPSBERkxUX1BP
+UlRfRVJST1JTX1RPX0RJU0NBUkQ7CisKKwltZW1jcHkoJnBvcnQtPmNmZy0+ZXh0X2J1Zl9wb29s
+cywKKwkgICAgICAgJnBvcnRfcGFyYW1zLT5zcGVjaWZpY19wYXJhbXMucnhfcGFyYW1zLmV4dF9i
+dWZfcG9vbHMsCisJICAgICAgIHNpemVvZihzdHJ1Y3QgZm1hbl9leHRfcG9vbHMpKTsKKwlwb3J0
+LT5jZmctPmVycl9mcWlkID0KKwkJcG9ydF9wYXJhbXMtPnNwZWNpZmljX3BhcmFtcy5yeF9wYXJh
+bXMuZXJyX2ZxaWQ7CisJcG9ydC0+Y2ZnLT5kZmx0X2ZxaWQgPQorCQlwb3J0X3BhcmFtcy0+c3Bl
+Y2lmaWNfcGFyYW1zLnJ4X3BhcmFtcy5kZmx0X2ZxaWQ7Cit9CisKK3N0YXRpYyB2b2lkIHNldF90
+eF9kZmx0X2NmZyhzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0LAorCQkJICAgIHN0cnVjdCBmbWFuX3Bv
+cnRfcGFyYW1zICpwb3J0X3BhcmFtcywKKwkJCSAgICBzdHJ1Y3QgZm1hbl9wb3J0X2R0c19wYXJh
+bXMgKmR0c19wYXJhbXMpCit7CisJcG9ydC0+Y2ZnLT50eF9maWZvX2RlcV9waXBlbGluZV9kZXB0
+aCA9CisJCWdldF9kZmx0X2ZpZm9fZGVxX3BpcGVsaW5lX2RlcHRoKHBvcnQtPnJldl9pbmZvLm1h
+am9yLAorCQkJCQkJIHBvcnQtPnBvcnRfdHlwZSwKKwkJCQkJCSBwb3J0LT5wb3J0X3NwZWVkKTsK
+Kwlwb3J0LT5jZmctPmVycl9mcWlkID0KKwkJcG9ydF9wYXJhbXMtPnNwZWNpZmljX3BhcmFtcy5u
+b25fcnhfcGFyYW1zLmVycl9mcWlkOworCXBvcnQtPmNmZy0+ZGVxX3NwID0KKwkJKHU4KShkdHNf
+cGFyYW1zLT5xbWFuX2NoYW5uZWxfaWQgJiBRTUlfREVRX0NGR19TVUJQT1JUQUxfTUFTSyk7CisJ
+cG9ydC0+Y2ZnLT5kZmx0X2ZxaWQgPQorCQlwb3J0X3BhcmFtcy0+c3BlY2lmaWNfcGFyYW1zLm5v
+bl9yeF9wYXJhbXMuZGZsdF9mcWlkOworCXBvcnQtPmNmZy0+ZGVxX2hpZ2hfcHJpb3JpdHkgPSB0
+cnVlOworfQorCisvKioKKyAqIGZtYW5fcG9ydF9jb25maWcKKyAqIEBwb3J0OglQb2ludGVyIHRv
+IHRoZSBwb3J0IHN0cnVjdHVyZQorICogQHBhcmFtczoJUG9pbnRlciB0byBkYXRhIHN0cnVjdHVy
+ZSBvZiBwYXJhbWV0ZXJzCisgKgorICogQ3JlYXRlcyBhIGRlc2NyaXB0b3IgZm9yIHRoZSBGTSBQ
+T1JUIG1vZHVsZS4KKyAqIFRoZSByb3V0aW5lIHJldHVybnMgYSBwb2ludGVyIHRvIHRoZSBGTSBQ
+T1JUIG9iamVjdC4KKyAqIFRoaXMgZGVzY3JpcHRvciBtdXN0IGJlIHBhc3NlZCBhcyBmaXJzdCBw
+YXJhbWV0ZXIgdG8gYWxsIG90aGVyIEZNIFBPUlQKKyAqIGZ1bmN0aW9uIGNhbGxzLgorICogTm8g
+YWN0dWFsIGluaXRpYWxpemF0aW9uIG9yIGNvbmZpZ3VyYXRpb24gb2YgRk0gaGFyZHdhcmUgaXMg
+ZG9uZSBieSB0aGlzCisgKiByb3V0aW5lLgorICoKKyAqIFJldHVybjogMCBvbiBzdWNjZXNzOyBF
+cnJvciBjb2RlIG90aGVyd2lzZS4KKyAqLworaW50IGZtYW5fcG9ydF9jb25maWcoc3RydWN0IGZt
+YW5fcG9ydCAqcG9ydCwgc3RydWN0IGZtYW5fcG9ydF9wYXJhbXMgKnBhcmFtcykKK3sKKwl2b2lk
+IF9faW9tZW0gKmJhc2VfYWRkciA9IHBvcnQtPmR0c19wYXJhbXMuYmFzZV9hZGRyOworCWludCBl
+cnI7CisKKwkvKiBBbGxvY2F0ZSB0aGUgRk0gZHJpdmVyJ3MgcGFyYW1ldGVycyBzdHJ1Y3R1cmUg
+Ki8KKwlwb3J0LT5jZmcgPSBremFsbG9jKHNpemVvZigqcG9ydC0+Y2ZnKSwgR0ZQX0tFUk5FTCk7
+CisJaWYgKCFwb3J0LT5jZmcpCisJCWdvdG8gZXJyX3BhcmFtczsKKworCS8qIEluaXRpYWxpemUg
+Rk0gcG9ydCBwYXJhbWV0ZXJzIHdoaWNoIHdpbGwgYmUga2VwdCBieSB0aGUgZHJpdmVyICovCisJ
+cG9ydC0+cG9ydF90eXBlID0gcG9ydC0+ZHRzX3BhcmFtcy50eXBlOworCXBvcnQtPnBvcnRfc3Bl
+ZWQgPSBwb3J0LT5kdHNfcGFyYW1zLnNwZWVkOworCXBvcnQtPnBvcnRfaWQgPSBwb3J0LT5kdHNf
+cGFyYW1zLmlkOworCXBvcnQtPmZtID0gcG9ydC0+ZHRzX3BhcmFtcy5mbWFuOworCXBvcnQtPmV4
+dF9wb29sc19udW0gPSAodTgpODsKKworCS8qIGdldCBGTSByZXZpc2lvbiAqLworCWZtYW5fZ2V0
+X3JldmlzaW9uKHBvcnQtPmZtLCAmcG9ydC0+cmV2X2luZm8pOworCisJZXJyID0gZmlsbF9zb2Nf
+c3BlY2lmaWNfcGFyYW1zKHBvcnQpOworCWlmIChlcnIpCisJCWdvdG8gZXJyX3BvcnRfY2ZnOwor
+CisJc3dpdGNoIChwb3J0LT5wb3J0X3R5cGUpIHsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1JYOgor
+CQlzZXRfcnhfZGZsdF9jZmcocG9ydCwgcGFyYW1zKTsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1RY
+OgorCQlzZXRfdHhfZGZsdF9jZmcocG9ydCwgcGFyYW1zLCAmcG9ydC0+ZHRzX3BhcmFtcyk7CisJ
+ZGVmYXVsdDoKKwkJc2V0X2RmbHRfY2ZnKHBvcnQsIHBhcmFtcyk7CisJfQorCisJLyogQ29udGlu
+dWUgd2l0aCBvdGhlciBwYXJhbWV0ZXJzICovCisJLyogc2V0IG1lbW9yeSBtYXAgcG9pbnRlcnMg
+Ki8KKwlwb3J0LT5ibWlfcmVncyA9IGJhc2VfYWRkciArIEJNSV9QT1JUX1JFR1NfT0ZGU0VUOwor
+CXBvcnQtPnFtaV9yZWdzID0gYmFzZV9hZGRyICsgUU1JX1BPUlRfUkVHU19PRkZTRVQ7CisKKwlw
+b3J0LT5tYXhfZnJhbWVfbGVuZ3RoID0gREZMVF9QT1JUX01BWF9GUkFNRV9MRU5HVEg7CisJLyog
+cmVzb3VyY2UgZGlzdHJpYnV0aW9uLiAqLworCisJcG9ydC0+Zmlmb19idWZzLm51bSA9CisJZ2V0
+X2RmbHRfbnVtX29mX2ZpZm9fYnVmcyhwb3J0LT5yZXZfaW5mby5tYWpvciwgcG9ydC0+cG9ydF90
+eXBlLAorCQkJCSAgcG9ydC0+cG9ydF9zcGVlZCkgKiBGTUFOX0JNSV9GSUZPX1VOSVRTOworCXBv
+cnQtPmZpZm9fYnVmcy5leHRyYSA9CisJREZMVF9QT1JUX0VYVFJBX05VTV9PRl9GSUZPX0JVRlMg
+KiBGTUFOX0JNSV9GSUZPX1VOSVRTOworCisJcG9ydC0+b3Blbl9kbWFzLm51bSA9CisJZ2V0X2Rm
+bHRfbnVtX29mX29wZW5fZG1hcyhwb3J0LT5yZXZfaW5mby5tYWpvciwKKwkJCQkgIHBvcnQtPnBv
+cnRfdHlwZSwgcG9ydC0+cG9ydF9zcGVlZCk7CisJcG9ydC0+b3Blbl9kbWFzLmV4dHJhID0KKwln
+ZXRfZGZsdF9leHRyYV9udW1fb2Zfb3Blbl9kbWFzKHBvcnQtPnJldl9pbmZvLm1ham9yLAorCQkJ
+CQlwb3J0LT5wb3J0X3R5cGUsIHBvcnQtPnBvcnRfc3BlZWQpOworCXBvcnQtPnRhc2tzLm51bSA9
+CisJZ2V0X2RmbHRfbnVtX29mX3Rhc2tzKHBvcnQtPnJldl9pbmZvLm1ham9yLAorCQkJICAgICAg
+cG9ydC0+cG9ydF90eXBlLCBwb3J0LT5wb3J0X3NwZWVkKTsKKwlwb3J0LT50YXNrcy5leHRyYSA9
+CisJZ2V0X2RmbHRfZXh0cmFfbnVtX29mX3Rhc2tzKHBvcnQtPnJldl9pbmZvLm1ham9yLAorCQkJ
+CSAgICBwb3J0LT5wb3J0X3R5cGUsIHBvcnQtPnBvcnRfc3BlZWQpOworCisJLyogRk1fSEVBVllf
+VFJBRkZJQ19TRVFVRU5DRVJfSEFOR19FUlJBVEFfRk1BTl9BMDA2OTgxIGVycmF0YQorCSAqIHdv
+cmthcm91bmQKKwkgKi8KKwlpZiAoKHBvcnQtPnJldl9pbmZvLm1ham9yID09IDYpICYmIChwb3J0
+LT5yZXZfaW5mby5taW5vciA9PSAwKSAmJgorCSAgICAoKChwb3J0LT5wb3J0X3R5cGUgPT0gRk1B
+Tl9QT1JUX1RZUEVfVFgpICYmCisJICAgIChwb3J0LT5wb3J0X3NwZWVkID09IDEwMDApKSkpIHsK
+KwkJcG9ydC0+b3Blbl9kbWFzLm51bSA9IDE2OworCQlwb3J0LT5vcGVuX2RtYXMuZXh0cmEgPSAw
+OworCX0KKworCWlmIChwb3J0LT5yZXZfaW5mby5tYWpvciA+PSA2ICYmCisJICAgIHBvcnQtPnBv
+cnRfdHlwZSA9PSBGTUFOX1BPUlRfVFlQRV9UWCAmJgorCSAgICBwb3J0LT5wb3J0X3NwZWVkID09
+IDEwMDApIHsKKwkJLyogRk1fV1JPTkdfUkVTRVRfVkFMVUVTX0VSUkFUQV9GTUFOX0EwMDUxMjcg
+RXJyYXRhCisJCSAqIHdvcmthcm91bmQKKwkJICovCisJCWlmIChwb3J0LT5yZXZfaW5mby5tYWpv
+ciA+PSA2KSB7CisJCQl1MzIgcmVnOworCisJCQlyZWcgPSAweDAwMDAxMDEzOworCQkJaW93cml0
+ZTMyYmUocmVnLCAmcG9ydC0+Ym1pX3JlZ3MtPnR4LmZtYm1fdGZwKTsKKwkJfQorCX0KKworCXJl
+dHVybiAwOworCitlcnJfcG9ydF9jZmc6CisJa2ZyZWUocG9ydC0+Y2ZnKTsKK2Vycl9wYXJhbXM6
+CisJa2ZyZWUocG9ydCk7CisJcmV0dXJuIC1FSU5WQUw7Cit9CitFWFBPUlRfU1lNQk9MKGZtYW5f
+cG9ydF9jb25maWcpOworCisvKioKKyAqIGZtYW5fcG9ydF9pbml0CisgKiBwb3J0OglBIHBvaW50
+ZXIgdG8gYSBGTSBQb3J0IG1vZHVsZS4KKyAqIEluaXRpYWxpemVzIHRoZSBGTSBQT1JUIG1vZHVs
+ZSBieSBkZWZpbmluZyB0aGUgc29mdHdhcmUgc3RydWN0dXJlIGFuZAorICogY29uZmlndXJpbmcg
+dGhlIGhhcmR3YXJlIHJlZ2lzdGVycy4KKyAqCisgKiBSZXR1cm46IDAgb24gc3VjY2VzczsgRXJy
+b3IgY29kZSBvdGhlcndpc2UuCisgKi8KK2ludCBmbWFuX3BvcnRfaW5pdChzdHJ1Y3QgZm1hbl9w
+b3J0ICpwb3J0KQoreworCXN0cnVjdCBmbWFuX3BvcnRfY2ZnICpjZmc7CisJaW50IGVycjsKKwlz
+dHJ1Y3QgZm1hbl9wb3J0X2luaXRfcGFyYW1zIHBhcmFtczsKKworCWlmIChpc19pbml0X2RvbmUo
+cG9ydC0+Y2ZnKSkKKwkJcmV0dXJuIC1FSU5WQUw7CisKKwllcnIgPSBmbWFuX3NwX2J1aWxkX2J1
+ZmZlcl9zdHJ1Y3QoJnBvcnQtPmNmZy0+aW50X2NvbnRleHQsCisJCQkJCSAgJnBvcnQtPmNmZy0+
+YnVmZmVyX3ByZWZpeF9jb250ZW50LAorCQkJCQkgICZwb3J0LT5jZmctPmJ1Zl9tYXJnaW5zLAor
+CQkJCQkgICZwb3J0LT5idWZmZXJfb2Zmc2V0cywKKwkJCQkJICAmcG9ydC0+aW50ZXJuYWxfYnVm
+X29mZnNldCk7CisJaWYgKGVycikKKwkJcmV0dXJuIGVycjsKKworCWNmZyA9IHBvcnQtPmNmZzsK
+KworCWlmIChwb3J0LT5wb3J0X3R5cGUgPT0gRk1BTl9QT1JUX1RZUEVfUlgpIHsKKwkJLyogQ2Fs
+bCB0aGUgZXh0ZXJuYWwgQnVmZmVyIHJvdXRpbmUgd2hpY2ggYWxzbyBjaGVja3MgZmlmbworCQkg
+KiBzaXplIGFuZCB1cGRhdGVzIGl0IGlmIG5lY2Vzc2FyeQorCQkgKi8KKwkJLyogZGVmaW5lIGV4
+dGVybmFsIGJ1ZmZlciBwb29scyBhbmQgcG9vbCBkZXBsZXRpb24gKi8KKwkJZXJyID0gc2V0X2V4
+dF9idWZmZXJfcG9vbHMocG9ydCk7CisJCWlmIChlcnIpCisJCQlyZXR1cm4gZXJyOworCQkvKiBj
+aGVjayBpZiB0aGUgbGFyZ2VzdCBleHRlcm5hbCBidWZmZXIgcG9vbCBpcyBsYXJnZSBlbm91Z2gg
+Ki8KKwkJaWYgKGNmZy0+YnVmX21hcmdpbnMuc3RhcnRfbWFyZ2lucyArIE1JTl9FWFRfQlVGX1NJ
+WkUgKworCQkgICAgY2ZnLT5idWZfbWFyZ2lucy5lbmRfbWFyZ2lucyA+CisJCSAgICBwb3J0LT5y
+eF9wb29sc19wYXJhbXMubGFyZ2VzdF9idWZfc2l6ZSkgeworCQkJZGV2X2Vycihwb3J0LT5kZXYs
+ICIlczogYnVmX21hcmdpbnMuc3RhcnRfbWFyZ2lucyAoJWQpICsgbWluaW11bSBidWYgc2l6ZSAo
+NjQpICsgYnVmX21hcmdpbnMuZW5kX21hcmdpbnMgKCVkKSBpcyBsYXJnZXIgdGhhbiBtYXhpbXVt
+IGV4dGVybmFsIGJ1ZmZlciBzaXplICglZClcbiIsCisJCQkJX19mdW5jX18sIGNmZy0+YnVmX21h
+cmdpbnMuc3RhcnRfbWFyZ2lucywKKwkJCQljZmctPmJ1Zl9tYXJnaW5zLmVuZF9tYXJnaW5zLAor
+CQkJCXBvcnQtPnJ4X3Bvb2xzX3BhcmFtcy5sYXJnZXN0X2J1Zl9zaXplKTsKKwkJCXJldHVybiAt
+RUlOVkFMOworCQl9CisJfQorCisJLyogQ2FsbCBGTSBtb2R1bGUgcm91dGluZSBmb3IgY29tbXVu
+aWNhdGluZyBwYXJhbWV0ZXJzICovCisJbWVtc2V0KCZwYXJhbXMsIDAsIHNpemVvZihwYXJhbXMp
+KTsKKwlwYXJhbXMucG9ydF9pZCA9IHBvcnQtPnBvcnRfaWQ7CisJcGFyYW1zLnBvcnRfdHlwZSA9
+IHBvcnQtPnBvcnRfdHlwZTsKKwlwYXJhbXMucG9ydF9zcGVlZCA9IHBvcnQtPnBvcnRfc3BlZWQ7
+CisJcGFyYW1zLm51bV9vZl90YXNrcyA9ICh1OClwb3J0LT50YXNrcy5udW07CisJcGFyYW1zLm51
+bV9vZl9leHRyYV90YXNrcyA9ICh1OClwb3J0LT50YXNrcy5leHRyYTsKKwlwYXJhbXMubnVtX29m
+X29wZW5fZG1hcyA9ICh1OClwb3J0LT5vcGVuX2RtYXMubnVtOworCXBhcmFtcy5udW1fb2ZfZXh0
+cmFfb3Blbl9kbWFzID0gKHU4KXBvcnQtPm9wZW5fZG1hcy5leHRyYTsKKworCWlmIChwb3J0LT5m
+aWZvX2J1ZnMubnVtKSB7CisJCWVyciA9IHZlcmlmeV9zaXplX29mX2ZpZm8ocG9ydCk7CisJCWlm
+IChlcnIpCisJCQlyZXR1cm4gZXJyOworCX0KKwlwYXJhbXMuc2l6ZV9vZl9maWZvID0gcG9ydC0+
+Zmlmb19idWZzLm51bTsKKwlwYXJhbXMuZXh0cmFfc2l6ZV9vZl9maWZvID0gcG9ydC0+Zmlmb19i
+dWZzLmV4dHJhOworCXBhcmFtcy5kZXFfcGlwZWxpbmVfZGVwdGggPSBwb3J0LT5jZmctPnR4X2Zp
+Zm9fZGVxX3BpcGVsaW5lX2RlcHRoOworCXBhcmFtcy5tYXhfZnJhbWVfbGVuZ3RoID0gcG9ydC0+
+bWF4X2ZyYW1lX2xlbmd0aDsKKworCWVyciA9IGZtYW5fc2V0X3BvcnRfcGFyYW1zKHBvcnQtPmZt
+LCAmcGFyYW1zKTsKKwlpZiAoZXJyKQorCQlyZXR1cm4gZXJyOworCisJZXJyID0gaW5pdF9sb3df
+bGV2ZWxfZHJpdmVyKHBvcnQpOworCWlmIChlcnIpCisJCXJldHVybiBlcnI7CisKKwlrZnJlZShw
+b3J0LT5jZmcpOworCXBvcnQtPmNmZyA9IE5VTEw7CisKKwlyZXR1cm4gMDsKK30KK0VYUE9SVF9T
+WU1CT0woZm1hbl9wb3J0X2luaXQpOworCisvKioKKyAqIGZtYW5fcG9ydF9jZmdfYnVmX3ByZWZp
+eF9jb250ZW50CisgKiBAcG9ydAkJCUEgcG9pbnRlciB0byBhIEZNIFBvcnQgbW9kdWxlLgorICog
+QGJ1ZmZlcl9wcmVmaXhfY29udGVudAlBIHN0cnVjdHVyZSBvZiBwYXJhbWV0ZXJzIGRlc2NyaWJp
+bmcKKyAqCQkJCXRoZSBzdHJ1Y3R1cmUgb2YgdGhlIGJ1ZmZlci4KKyAqCQkJCU91dCBwYXJhbWV0
+ZXI6CisgKgkJCQlTdGFydCBtYXJnaW4gLSBvZmZzZXQgb2YgZGF0YSBmcm9tCisgKgkJCQlzdGFy
+dCBvZiBleHRlcm5hbCBidWZmZXIuCisgKiBEZWZpbmVzIHRoZSBzdHJ1Y3R1cmUsIHNpemUgYW5k
+IGNvbnRlbnQgb2YgdGhlIGFwcGxpY2F0aW9uIGJ1ZmZlci4KKyAqIFRoZSBwcmVmaXgsIGluIFR4
+IHBvcnRzLCBpZiAncGFzc19wcnNfcmVzdWx0JywgdGhlIGFwcGxpY2F0aW9uIHNob3VsZCBzZXQK
+KyAqIGEgdmFsdWUgdG8gdGhlaXIgb2Zmc2V0cyBpbiB0aGUgcHJlZml4IG9mIHRoZSBGTSB3aWxs
+IHNhdmUgdGhlIGZpcnN0CisgKiAncHJpdl9kYXRhX3NpemUnLCB0aGFuLCBkZXBlbmRpbmcgb24g
+J3Bhc3NfcHJzX3Jlc3VsdCcgYW5kCisgKiAncGFzc190aW1lX3N0YW1wJywgY29weSBwYXJzZSBy
+ZXN1bHQgYW5kIHRpbWVTdGFtcCwgYW5kIHRoZSBwYWNrZXQgaXRzZWxmCisgKiAoaW4gdGhpcyBv
+cmRlciksIHRvIHRoZSBhcHBsaWNhdGlvbiBidWZmZXIsIGFuZCB0byBvZmZzZXQuCisgKiBDYWxs
+aW5nIHRoaXMgcm91dGluZSBjaGFuZ2VzIHRoZSBidWZmZXIgbWFyZ2lucyBkZWZpbml0aW9ucyBp
+biB0aGUgaW50ZXJuYWwKKyAqIGRyaXZlciBkYXRhIGJhc2UgZnJvbSBpdHMgZGVmYXVsdCBjb25m
+aWd1cmF0aW9uOgorICogRGF0YSBzaXplOiAgW0RFRkFVTFRfUE9SVF9CVUZGRVJfUFJFRklYX0NP
+TlRFTlRfUFJJVl9EQVRBX1NJWkVdCisgKiBQYXNzIFBhcnNlciByZXN1bHQ6IFtERUZBVUxUX1BP
+UlRfQlVGRkVSX1BSRUZJWF9DT05URU5UX1BBU1NfUFJTX1JFU1VMVF0uCisgKiBQYXNzIHRpbWVz
+dGFtcDogW0RFRkFVTFRfUE9SVF9CVUZGRVJfUFJFRklYX0NPTlRFTlRfUEFTU19USU1FX1NUQU1Q
+XS4KKyAqIE1heSBiZSB1c2VkIGZvciBhbGwgcG9ydHMKKyAqCisgKiBBbGxvd2VkIG9ubHkgZm9s
+bG93aW5nIGZtYW5fcG9ydF9jb25maWcoKSBhbmQgYmVmb3JlIGZtYW5fcG9ydF9pbml0KCkuCisg
+KgorICogUmV0dXJuOiAwIG9uIHN1Y2Nlc3M7IEVycm9yIGNvZGUgb3RoZXJ3aXNlLgorICovCitp
+bnQgZm1hbl9wb3J0X2NmZ19idWZfcHJlZml4X2NvbnRlbnQoc3RydWN0IGZtYW5fcG9ydCAqcG9y
+dCwKKwkJCQkgICAgIHN0cnVjdCBmbWFuX2J1ZmZlcl9wcmVmaXhfY29udGVudCAqCisJCQkJICAg
+ICBidWZmZXJfcHJlZml4X2NvbnRlbnQpCit7CisJaWYgKGlzX2luaXRfZG9uZShwb3J0LT5jZmcp
+KQorCQlyZXR1cm4gLUVJTlZBTDsKKworCW1lbWNweSgmcG9ydC0+Y2ZnLT5idWZmZXJfcHJlZml4
+X2NvbnRlbnQsCisJICAgICAgIGJ1ZmZlcl9wcmVmaXhfY29udGVudCwKKwkgICAgICAgc2l6ZW9m
+KHN0cnVjdCBmbWFuX2J1ZmZlcl9wcmVmaXhfY29udGVudCkpOworCS8qIGlmIGRhdGFfYWxpZ24g
+d2FzIG5vdCBpbml0aWFsaXplZCBieSB1c2VyLAorCSAqIHdlIHJldHVybiB0byBkcml2ZXIncyBk
+ZWZhdWx0CisJICovCisJaWYgKCFwb3J0LT5jZmctPmJ1ZmZlcl9wcmVmaXhfY29udGVudC5kYXRh
+X2FsaWduKQorCQlwb3J0LT5jZmctPmJ1ZmZlcl9wcmVmaXhfY29udGVudC5kYXRhX2FsaWduID0K
+KwkJREZMVF9QT1JUX0JVRkZFUl9QUkVGSVhfQ09OVEVYVF9EQVRBX0FMSUdOOworCisJcmV0dXJu
+IDA7Cit9CitFWFBPUlRfU1lNQk9MKGZtYW5fcG9ydF9jZmdfYnVmX3ByZWZpeF9jb250ZW50KTsK
+KworLyoqCisgKiBmbWFuX3BvcnRfZGlzYWJsZQorICogcG9ydDoJQSBwb2ludGVyIHRvIGEgRk0g
+UG9ydCBtb2R1bGUuCisgKgorICogR3JhY2VmdWxseSBkaXNhYmxlIGFuIEZNIHBvcnQuIFRoZSBw
+b3J0IHdpbGwgbm90IHN0YXJ0IG5ldwl0YXNrcyBhZnRlciBhbGwKKyAqIHRhc2tzIGFzc29jaWF0
+ZWQgd2l0aCB0aGUgcG9ydCBhcmUgdGVybWluYXRlZC4KKyAqCisgKiBUaGlzIGlzIGEgYmxvY2tp
+bmcgcm91dGluZSwgaXQgcmV0dXJucyBhZnRlciBwb3J0IGlzIGdyYWNlZnVsbHkgc3RvcHBlZCwK
+KyAqIGkuZS4gdGhlIHBvcnQgd2lsbCBub3QgZXhjZXB0IG5ldyBmcmFtZXMsIGJ1dCBpdCB3aWxs
+IGZpbmlzaCBhbGwgZnJhbWVzCisgKiBvciB0YXNrcyB3aGljaCB3ZXJlIGFscmVhZHkgYmVnYW4u
+CisgKiBBbGxvd2VkIG9ubHkgZm9sbG93aW5nIGZtYW5fcG9ydF9pbml0KCkuCisgKgorICogUmV0
+dXJuOiAwIG9uIHN1Y2Nlc3M7IEVycm9yIGNvZGUgb3RoZXJ3aXNlLgorICovCitpbnQgZm1hbl9w
+b3J0X2Rpc2FibGUoc3RydWN0IGZtYW5fcG9ydCAqcG9ydCkKK3sKKwl1MzIgX19pb21lbSAqYm1p
+X2NmZ19yZWcsICpibWlfc3RhdHVzX3JlZywgdG1wOworCWJvb2wgcnhfcG9ydCwgZmFpbHVyZSA9
+IGZhbHNlOworCWludCBjb3VudDsKKworCWlmICghaXNfaW5pdF9kb25lKHBvcnQtPmNmZykpCisJ
+CXJldHVybiAtRUlOVkFMOworCisJc3dpdGNoIChwb3J0LT5wb3J0X3R5cGUpIHsKKwljYXNlIEZN
+QU5fUE9SVF9UWVBFX1JYOgorCQlibWlfY2ZnX3JlZyA9ICZwb3J0LT5ibWlfcmVncy0+cnguZm1i
+bV9yY2ZnOworCQlibWlfc3RhdHVzX3JlZyA9ICZwb3J0LT5ibWlfcmVncy0+cnguZm1ibV9yc3Q7
+CisJCXJ4X3BvcnQgPSB0cnVlOworCQlicmVhazsKKwljYXNlIEZNQU5fUE9SVF9UWVBFX1RYOgor
+CQlibWlfY2ZnX3JlZyA9ICZwb3J0LT5ibWlfcmVncy0+dHguZm1ibV90Y2ZnOworCQlibWlfc3Rh
+dHVzX3JlZyA9ICZwb3J0LT5ibWlfcmVncy0+dHguZm1ibV90c3Q7CisJCXJ4X3BvcnQgPSBmYWxz
+ZTsKKwkJYnJlYWs7CisJZGVmYXVsdDoKKwkJcmV0dXJuIC1FSU5WQUw7CisJfQorCisJLyogRGlz
+YWJsZSBRTUkgKi8KKwlpZiAoIXJ4X3BvcnQpIHsKKwkJdG1wID0gaW9yZWFkMzJiZSgmcG9ydC0+
+cW1pX3JlZ3MtPmZtcW1fcG5jKSAmIH5RTUlfUE9SVF9DRkdfRU47CisJCWlvd3JpdGUzMmJlKHRt
+cCwgJnBvcnQtPnFtaV9yZWdzLT5mbXFtX3BuYyk7CisKKwkJLyogV2FpdCBmb3IgUU1JIHRvIGZp
+bmlzaCBGRCBoYW5kbGluZyAqLworCQljb3VudCA9IDEwMDsKKwkJZG8geworCQkJdWRlbGF5KDEw
+KTsKKwkJCXRtcCA9IGlvcmVhZDMyYmUoJnBvcnQtPnFtaV9yZWdzLT5mbXFtX3Bucyk7CisJCX0g
+d2hpbGUgKCh0bXAgJiBRTUlfUE9SVF9TVEFUVVNfREVRX0ZEX0JTWSkgJiYgLS1jb3VudCk7CisK
+KwkJaWYgKGNvdW50ID09IDApIHsKKwkJCS8qIFRpbWVvdXQgKi8KKwkJCWZhaWx1cmUgPSB0cnVl
+OworCQl9CisJfQorCisJLyogRGlzYWJsZSBCTUkgKi8KKwl0bXAgPSBpb3JlYWQzMmJlKGJtaV9j
+ZmdfcmVnKSAmIH5CTUlfUE9SVF9DRkdfRU47CisJaW93cml0ZTMyYmUodG1wLCBibWlfY2ZnX3Jl
+Zyk7CisKKwkvKiBXYWl0IGZvciBncmFjZWZ1bCBzdG9wIGVuZCAqLworCWNvdW50ID0gNTAwOwor
+CWRvIHsKKwkJdWRlbGF5KDEwKTsKKwkJdG1wID0gaW9yZWFkMzJiZShibWlfc3RhdHVzX3JlZyk7
+CisJfSB3aGlsZSAoKHRtcCAmIEJNSV9QT1JUX1NUQVRVU19CU1kpICYmIC0tY291bnQpOworCisJ
+aWYgKGNvdW50ID09IDApIHsKKwkJLyogVGltZW91dCAqLworCQlmYWlsdXJlID0gdHJ1ZTsKKwl9
+CisKKwlpZiAoZmFpbHVyZSkKKwkJZGV2X2RiZyhwb3J0LT5kZXYsICIlczogRk1hbiBQb3J0WyVk
+XTogQk1JIG9yIFFNSSBpcyBCdXN5LiBQb3J0IGZvcmNlZCBkb3duXG4iLAorCQkJX19mdW5jX18s
+ICBwb3J0LT5wb3J0X2lkKTsKKworCXJldHVybiAwOworfQorRVhQT1JUX1NZTUJPTChmbWFuX3Bv
+cnRfZGlzYWJsZSk7CisKKy8qKgorICogZm1hbl9wb3J0X2VuYWJsZQorICogcG9ydDoJQSBwb2lu
+dGVyIHRvIGEgRk0gUG9ydCBtb2R1bGUuCisgKgorICogQSBydW50aW1lIHJvdXRpbmUgcHJvdmlk
+ZWQgdG8gYWxsb3cgZGlzYWJsZS9lbmFibGUgb2YgcG9ydC4KKyAqCisgKiBBbGxvd2VkIG9ubHkg
+Zm9sbG93aW5nIGZtYW5fcG9ydF9pbml0KCkuCisgKgorICogUmV0dXJuOiAwIG9uIHN1Y2Nlc3M7
+IEVycm9yIGNvZGUgb3RoZXJ3aXNlLgorICovCitpbnQgZm1hbl9wb3J0X2VuYWJsZShzdHJ1Y3Qg
+Zm1hbl9wb3J0ICpwb3J0KQoreworCXUzMiBfX2lvbWVtICpibWlfY2ZnX3JlZywgdG1wOworCWJv
+b2wgcnhfcG9ydDsKKworCWlmICghaXNfaW5pdF9kb25lKHBvcnQtPmNmZykpCisJCXJldHVybiAt
+RUlOVkFMOworCisJc3dpdGNoIChwb3J0LT5wb3J0X3R5cGUpIHsKKwljYXNlIEZNQU5fUE9SVF9U
+WVBFX1JYOgorCQlibWlfY2ZnX3JlZyA9ICZwb3J0LT5ibWlfcmVncy0+cnguZm1ibV9yY2ZnOwor
+CQlyeF9wb3J0ID0gdHJ1ZTsKKwkJYnJlYWs7CisJY2FzZSBGTUFOX1BPUlRfVFlQRV9UWDoKKwkJ
+Ym1pX2NmZ19yZWcgPSAmcG9ydC0+Ym1pX3JlZ3MtPnR4LmZtYm1fdGNmZzsKKwkJcnhfcG9ydCA9
+IGZhbHNlOworCQlicmVhazsKKwlkZWZhdWx0OgorCQlyZXR1cm4gLUVJTlZBTDsKKwl9CisKKwkv
+KiBFbmFibGUgUU1JICovCisJaWYgKCFyeF9wb3J0KSB7CisJCXRtcCA9IGlvcmVhZDMyYmUoJnBv
+cnQtPnFtaV9yZWdzLT5mbXFtX3BuYykgfCBRTUlfUE9SVF9DRkdfRU47CisJCWlvd3JpdGUzMmJl
+KHRtcCwgJnBvcnQtPnFtaV9yZWdzLT5mbXFtX3BuYyk7CisJfQorCisJLyogRW5hYmxlIEJNSSAq
+LworCXRtcCA9IGlvcmVhZDMyYmUoYm1pX2NmZ19yZWcpIHwgQk1JX1BPUlRfQ0ZHX0VOOworCWlv
+d3JpdGUzMmJlKHRtcCwgYm1pX2NmZ19yZWcpOworCisJcmV0dXJuIDA7Cit9CitFWFBPUlRfU1lN
+Qk9MKGZtYW5fcG9ydF9lbmFibGUpOworCisvKioKKyAqIGZtYW5fcG9ydF9iaW5kCisgKiBkZXY6
+CQlGTWFuIFBvcnQgT0YgZGV2aWNlIHBvaW50ZXIKKyAqCisgKiBCaW5kIHRvIGEgc3BlY2lmaWMg
+Rk1hbiBQb3J0LgorICoKKyAqIEFsbG93ZWQgb25seSBhZnRlciB0aGUgcG9ydCB3YXMgY3JlYXRl
+ZC4KKyAqCisgKiBSZXR1cm46IEEgcG9pbnRlciB0byB0aGUgRk1hbiBwb3J0IGRldmljZS4KKyAq
+Lworc3RydWN0IGZtYW5fcG9ydCAqZm1hbl9wb3J0X2JpbmQoc3RydWN0IGRldmljZSAqZGV2KQor
+eworCXJldHVybiAoc3RydWN0IGZtYW5fcG9ydCAqKShkZXZfZ2V0X2RydmRhdGEoZ2V0X2Rldmlj
+ZShkZXYpKSk7Cit9CitFWFBPUlRfU1lNQk9MKGZtYW5fcG9ydF9iaW5kKTsKKworLyoqCisgKiBm
+bWFuX3BvcnRfZ2V0X3FtYW5fY2hhbm5lbF9pZAorICogcG9ydDoJUG9pbnRlciB0byB0aGUgRk1h
+biBwb3J0IGRldnVjZQorICoKKyAqIEdldCB0aGUgUU1hbiBjaGFubmVsIElEIGZvciB0aGUgc3Bl
+Y2lmaWMgcG9ydAorICoKKyAqIFJldHVybjogUU1hbiBjaGFubmVsIElECisgKi8KK3UzMiBmbWFu
+X3BvcnRfZ2V0X3FtYW5fY2hhbm5lbF9pZChzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KQoreworCXJl
+dHVybiBwb3J0LT5kdHNfcGFyYW1zLnFtYW5fY2hhbm5lbF9pZDsKK30KK0VYUE9SVF9TWU1CT0wo
+Zm1hbl9wb3J0X2dldF9xbWFuX2NoYW5uZWxfaWQpOworCitzdGF0aWMgaW50IGZtYW5fcG9ydF9w
+cm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpvZl9kZXYpCit7CisJc3RydWN0IGZtYW5fcG9y
+dCAqcG9ydDsKKwlzdHJ1Y3QgZm1hbiAqZm1hbjsKKwlzdHJ1Y3QgZGV2aWNlX25vZGUgKmZtX25v
+ZGUsICpwb3J0X25vZGU7CisJc3RydWN0IHJlc291cmNlIHJlczsKKwlzdHJ1Y3QgcmVzb3VyY2Ug
+KmRldl9yZXM7CisJY29uc3QgdTMyICp1MzJfcHJvcDsKKwlpbnQgZXJyID0gMCwgbGVucDsKKwll
+bnVtIGZtYW5fcG9ydF90eXBlIHBvcnRfdHlwZTsKKwl1MTYgcG9ydF9zcGVlZDsKKwl1OCBwb3J0
+X2lkOworCisJcG9ydCA9IGt6YWxsb2Moc2l6ZW9mKCpwb3J0KSwgR0ZQX0tFUk5FTCk7CisJaWYg
+KCFwb3J0KQorCQlyZXR1cm4gLUVOT01FTTsKKworCXBvcnQtPmRldiA9ICZvZl9kZXYtPmRldjsK
+KworCXBvcnRfbm9kZSA9IG9mX25vZGVfZ2V0KG9mX2Rldi0+ZGV2Lm9mX25vZGUpOworCisJLyog
+R2V0IHRoZSBGTSBub2RlICovCisJZm1fbm9kZSA9IG9mX2dldF9wYXJlbnQocG9ydF9ub2RlKTsK
+KwlpZiAoIWZtX25vZGUpIHsKKwkJZGV2X2Vycihwb3J0LT5kZXYsICIlczogb2ZfZ2V0X3BhcmVu
+dCgpIGZhaWxlZFxuIiwgX19mdW5jX18pOworCQllcnIgPSAtRU5PREVWOworCQlnb3RvIHJldHVy
+bl9lcnI7CisJfQorCisJZm1hbiA9IGRldl9nZXRfZHJ2ZGF0YSgmb2ZfZmluZF9kZXZpY2VfYnlf
+bm9kZShmbV9ub2RlKS0+ZGV2KTsKKwlvZl9ub2RlX3B1dChmbV9ub2RlKTsKKwlpZiAoIWZtYW4p
+IHsKKwkJZXJyID0gLUVJTlZBTDsKKwkJZ290byByZXR1cm5fZXJyOworCX0KKworCXUzMl9wcm9w
+ID0gKGNvbnN0IHUzMiAqKW9mX2dldF9wcm9wZXJ0eShwb3J0X25vZGUsICJjZWxsLWluZGV4Iiwg
+JmxlbnApOworCWlmICghdTMyX3Byb3ApIHsKKwkJZGV2X2Vycihwb3J0LT5kZXYsICIlczogb2Zf
+Z2V0X3Byb3BlcnR5KCVzLCBjZWxsLWluZGV4KSBmYWlsZWRcbiIsCisJCQlfX2Z1bmNfXywgcG9y
+dF9ub2RlLT5mdWxsX25hbWUpOworCQllcnIgPSAtRUlOVkFMOworCQlnb3RvIHJldHVybl9lcnI7
+CisJfQorCWlmIChXQVJOX09OKGxlbnAgIT0gc2l6ZW9mKHUzMikpKSB7CisJCWVyciA9IC1FSU5W
+QUw7CisJCWdvdG8gcmV0dXJuX2VycjsKKwl9CisJcG9ydF9pZCA9ICh1OClmZHQzMl90b19jcHUo
+dTMyX3Byb3BbMF0pOworCisJcG9ydC0+ZHRzX3BhcmFtcy5pZCA9IHBvcnRfaWQ7CisKKwlpZiAo
+b2ZfZGV2aWNlX2lzX2NvbXBhdGlibGUocG9ydF9ub2RlLCAiZnNsLGZtYW4tdjMtcG9ydC10eCIp
+KSB7CisJCXBvcnRfdHlwZSA9IEZNQU5fUE9SVF9UWVBFX1RYOworCQlwb3J0X3NwZWVkID0gMTAw
+MDsKKwkJdTMyX3Byb3AgPSAoY29uc3QgdTMyICopb2ZfZ2V0X3Byb3BlcnR5KHBvcnRfbm9kZSwK
+KwkJCQkJCQkiZnNsLGZtYW4tMTBnLXBvcnQiLAorCQkJCQkJCSZsZW5wKTsKKwkJaWYgKHUzMl9w
+cm9wKQorCQkJcG9ydF9zcGVlZCA9IDEwMDAwOworCisJfSBlbHNlIGlmIChvZl9kZXZpY2VfaXNf
+Y29tcGF0aWJsZShwb3J0X25vZGUsICJmc2wsZm1hbi12Mi1wb3J0LXR4IikpIHsKKwkJaWYgKHBv
+cnRfaWQgPj0gVFhfMTBHX1BPUlRfQkFTRSkKKwkJCXBvcnRfc3BlZWQgPSAxMDAwMDsKKwkJZWxz
+ZQorCQkJcG9ydF9zcGVlZCA9IDEwMDA7CisJCXBvcnRfdHlwZSA9IEZNQU5fUE9SVF9UWVBFX1RY
+OworCisJfSBlbHNlIGlmIChvZl9kZXZpY2VfaXNfY29tcGF0aWJsZShwb3J0X25vZGUsICJmc2ws
+Zm1hbi12My1wb3J0LXJ4IikpIHsKKwkJcG9ydF90eXBlID0gRk1BTl9QT1JUX1RZUEVfUlg7CisJ
+CXBvcnRfc3BlZWQgPSAxMDAwOworCQl1MzJfcHJvcCA9IChjb25zdCB1MzIgKilvZl9nZXRfcHJv
+cGVydHkocG9ydF9ub2RlLAorCQkJCQkJICAiZnNsLGZtYW4tMTBnLXBvcnQiLCAmbGVucCk7CisJ
+CWlmICh1MzJfcHJvcCkKKwkJCXBvcnRfc3BlZWQgPSAxMDAwMDsKKworCX0gZWxzZSBpZiAob2Zf
+ZGV2aWNlX2lzX2NvbXBhdGlibGUocG9ydF9ub2RlLCAiZnNsLGZtYW4tdjItcG9ydC1yeCIpKSB7
+CisJCWlmIChwb3J0X2lkID49IFJYXzEwR19QT1JUX0JBU0UpCisJCQlwb3J0X3NwZWVkID0gMTAw
+MDA7CisJCWVsc2UKKwkJCXBvcnRfc3BlZWQgPSAxMDAwOworCQlwb3J0X3R5cGUgPSBGTUFOX1BP
+UlRfVFlQRV9SWDsKKworCX0gIGVsc2UgeworCQlkZXZfZXJyKHBvcnQtPmRldiwgIiVzOiBJbGxl
+Z2FsIHBvcnQgdHlwZVxuIiwgX19mdW5jX18pOworCQllcnIgPSAtRUlOVkFMOworCQlnb3RvIHJl
+dHVybl9lcnI7CisJfQorCisJcG9ydC0+ZHRzX3BhcmFtcy50eXBlID0gcG9ydF90eXBlOworCXBv
+cnQtPmR0c19wYXJhbXMuc3BlZWQgPSBwb3J0X3NwZWVkOworCisJaWYgKHBvcnRfdHlwZSA9PSBG
+TUFOX1BPUlRfVFlQRV9UWCkgeworCQl1MzIgcW1hbl9jaGFubmVsX2lkOworCisJCXFtYW5fY2hh
+bm5lbF9pZCA9IGZtYW5fZ2V0X3FtYW5fY2hhbm5lbF9pZChmbWFuLCBwb3J0X2lkKTsKKwkJaWYg
+KHFtYW5fY2hhbm5lbF9pZCA9PSAwKSB7CisJCQlkZXZfZXJyKHBvcnQtPmRldiwgIiVzOiBpbmNv
+cnJlY3QgcW1hbi1jaGFubmVsLWlkXG4iLAorCQkJCV9fZnVuY19fKTsKKwkJCWVyciA9IC1FSU5W
+QUw7CisJCQlnb3RvIHJldHVybl9lcnI7CisJCX0KKwkJcG9ydC0+ZHRzX3BhcmFtcy5xbWFuX2No
+YW5uZWxfaWQgPSBxbWFuX2NoYW5uZWxfaWQ7CisJfQorCisJZXJyID0gb2ZfYWRkcmVzc190b19y
+ZXNvdXJjZShwb3J0X25vZGUsIDAsICZyZXMpOworCWlmIChlcnIgPCAwKSB7CisJCWRldl9lcnIo
+cG9ydC0+ZGV2LCAiJXM6IG9mX2FkZHJlc3NfdG9fcmVzb3VyY2UoKSBmYWlsZWRcbiIsCisJCQlf
+X2Z1bmNfXyk7CisJCWVyciA9IC1FTk9NRU07CisJCWdvdG8gcmV0dXJuX2VycjsKKwl9CisKKwlw
+b3J0LT5kdHNfcGFyYW1zLmZtYW4gPSBmbWFuOworCisJb2Zfbm9kZV9wdXQocG9ydF9ub2RlKTsK
+KworCWRldl9yZXMgPSBfX2Rldm1fcmVxdWVzdF9yZWdpb24ocG9ydC0+ZGV2LCAmcmVzLCByZXMu
+c3RhcnQsCisJCQkJCXJlc291cmNlX3NpemUoJnJlcyksICJmbWFuLXBvcnQiKTsKKwlpZiAoIWRl
+dl9yZXMpIHsKKwkJZGV2X2Vycihwb3J0LT5kZXYsICIlczogX19kZXZtX3JlcXVlc3RfcmVnaW9u
+KCkgZmFpbGVkXG4iLAorCQkJX19mdW5jX18pOworCQllcnIgPSAtRUlOVkFMOworCQlnb3RvIGZy
+ZWVfcG9ydDsKKwl9CisKKwlwb3J0LT5kdHNfcGFyYW1zLmJhc2VfYWRkciA9IGRldm1faW9yZW1h
+cChwb3J0LT5kZXYsIHJlcy5zdGFydCwKKwkJCQkJCSAgcmVzb3VyY2Vfc2l6ZSgmcmVzKSk7CisJ
+aWYgKHBvcnQtPmR0c19wYXJhbXMuYmFzZV9hZGRyID09IDApCisJCWRldl9lcnIocG9ydC0+ZGV2
+LCAiJXM6IGRldm1faW9yZW1hcCgpIGZhaWxlZFxuIiwgX19mdW5jX18pOworCisJZGV2X3NldF9k
+cnZkYXRhKCZvZl9kZXYtPmRldiwgcG9ydCk7CisKKwlyZXR1cm4gMDsKKworcmV0dXJuX2VycjoK
+KwlvZl9ub2RlX3B1dChwb3J0X25vZGUpOworZnJlZV9wb3J0OgorCWtmcmVlKHBvcnQpOworCXJl
+dHVybiBlcnI7Cit9CisKK3N0YXRpYyBjb25zdCBzdHJ1Y3Qgb2ZfZGV2aWNlX2lkIGZtYW5fcG9y
+dF9tYXRjaFtdID0geworCXsuY29tcGF0aWJsZSA9ICJmc2wsZm1hbi12My1wb3J0LXJ4In0sCisJ
+ey5jb21wYXRpYmxlID0gImZzbCxmbWFuLXYyLXBvcnQtcngifSwKKwl7LmNvbXBhdGlibGUgPSAi
+ZnNsLGZtYW4tdjMtcG9ydC10eCJ9LAorCXsuY29tcGF0aWJsZSA9ICJmc2wsZm1hbi12Mi1wb3J0
+LXR4In0sCisJe30KK307CisKK01PRFVMRV9ERVZJQ0VfVEFCTEUob2YsIGZtYW5fcG9ydF9tYXRj
+aCk7CisKK3N0YXRpYyBzdHJ1Y3QgcGxhdGZvcm1fZHJpdmVyIGZtYW5fcG9ydF9kcml2ZXIgPSB7
+CisJLmRyaXZlciA9IHsKKwkJLm5hbWUgPSAiZnNsLWZtYW4tcG9ydCIsCisJCS5vZl9tYXRjaF90
+YWJsZSA9IGZtYW5fcG9ydF9tYXRjaCwKKwl9LAorCS5wcm9iZSA9IGZtYW5fcG9ydF9wcm9iZSwK
+K307CisKK2J1aWx0aW5fcGxhdGZvcm1fZHJpdmVyKGZtYW5fcG9ydF9kcml2ZXIpOworCmRpZmYg
+LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3BvcnQuaCBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW5fcG9ydC5oCm5ldyBmaWxl
+IG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLjhiYTkwMTcKLS0tIC9kZXYvbnVsbAorKysgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuX3BvcnQuaApAQCAtMCwwICsx
+LDE1MSBAQAorLyoKKyAqIENvcHlyaWdodCAyMDA4IC0gMjAxNSBGcmVlc2NhbGUgU2VtaWNvbmR1
+Y3RvciBJbmMuCisgKgorICogUmVkaXN0cmlidXRpb24gYW5kIHVzZSBpbiBzb3VyY2UgYW5kIGJp
+bmFyeSBmb3Jtcywgd2l0aCBvciB3aXRob3V0CisgKiBtb2RpZmljYXRpb24sIGFyZSBwZXJtaXR0
+ZWQgcHJvdmlkZWQgdGhhdCB0aGUgZm9sbG93aW5nIGNvbmRpdGlvbnMgYXJlIG1ldDoKKyAqICAg
+ICAqIFJlZGlzdHJpYnV0aW9ucyBvZiBzb3VyY2UgY29kZSBtdXN0IHJldGFpbiB0aGUgYWJvdmUg
+Y29weXJpZ2h0CisgKiAgICAgICBub3RpY2UsIHRoaXMgbGlzdCBvZiBjb25kaXRpb25zIGFuZCB0
+aGUgZm9sbG93aW5nIGRpc2NsYWltZXIuCisgKiAgICAgKiBSZWRpc3RyaWJ1dGlvbnMgaW4gYmlu
+YXJ5IGZvcm0gbXVzdCByZXByb2R1Y2UgdGhlIGFib3ZlIGNvcHlyaWdodAorICogICAgICAgbm90
+aWNlLCB0aGlzIGxpc3Qgb2YgY29uZGl0aW9ucyBhbmQgdGhlIGZvbGxvd2luZyBkaXNjbGFpbWVy
+IGluIHRoZQorICogICAgICAgZG9jdW1lbnRhdGlvbiBhbmQvb3Igb3RoZXIgbWF0ZXJpYWxzIHBy
+b3ZpZGVkIHdpdGggdGhlIGRpc3RyaWJ1dGlvbi4KKyAqICAgICAqIE5laXRoZXIgdGhlIG5hbWUg
+b2YgRnJlZXNjYWxlIFNlbWljb25kdWN0b3Igbm9yIHRoZQorICogICAgICAgbmFtZXMgb2YgaXRz
+IGNvbnRyaWJ1dG9ycyBtYXkgYmUgdXNlZCB0byBlbmRvcnNlIG9yIHByb21vdGUgcHJvZHVjdHMK
+KyAqICAgICAgIGRlcml2ZWQgZnJvbSB0aGlzIHNvZnR3YXJlIHdpdGhvdXQgc3BlY2lmaWMgcHJp
+b3Igd3JpdHRlbiBwZXJtaXNzaW9uLgorICoKKyAqCisgKiBBTFRFUk5BVElWRUxZLCB0aGlzIHNv
+ZnR3YXJlIG1heSBiZSBkaXN0cmlidXRlZCB1bmRlciB0aGUgdGVybXMgb2YgdGhlCisgKiBHTlUg
+R2VuZXJhbCBQdWJsaWMgTGljZW5zZSAoIkdQTCIpIGFzIHB1Ymxpc2hlZCBieSB0aGUgRnJlZSBT
+b2Z0d2FyZQorICogRm91bmRhdGlvbiwgZWl0aGVyIHZlcnNpb24gMiBvZiB0aGF0IExpY2Vuc2Ug
+b3IgKGF0IHlvdXIgb3B0aW9uKSBhbnkKKyAqIGxhdGVyIHZlcnNpb24uCisgKgorICogVEhJUyBT
+T0ZUV0FSRSBJUyBQUk9WSURFRCBCWSBGcmVlc2NhbGUgU2VtaWNvbmR1Y3RvciBgYEFTIElTJycg
+QU5EIEFOWQorICogRVhQUkVTUyBPUiBJTVBMSUVEIFdBUlJBTlRJRVMsIElOQ0xVRElORywgQlVU
+IE5PVCBMSU1JVEVEIFRPLCBUSEUgSU1QTElFRAorICogV0FSUkFOVElFUyBPRiBNRVJDSEFOVEFC
+SUxJVFkgQU5EIEZJVE5FU1MgRk9SIEEgUEFSVElDVUxBUiBQVVJQT1NFIEFSRQorICogRElTQ0xB
+SU1FRC4gSU4gTk8gRVZFTlQgU0hBTEwgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgQkUgTElBQkxF
+IEZPUiBBTlkKKyAqIERJUkVDVCwgSU5ESVJFQ1QsIElOQ0lERU5UQUwsIFNQRUNJQUwsIEVYRU1Q
+TEFSWSwgT1IgQ09OU0VRVUVOVElBTCBEQU1BR0VTCisgKiAoSU5DTFVESU5HLCBCVVQgTk9UIExJ
+TUlURUQgVE8sIFBST0NVUkVNRU5UIE9GIFNVQlNUSVRVVEUgR09PRFMgT1IgU0VSVklDRVM7Cisg
+KiBMT1NTIE9GIFVTRSwgREFUQSwgT1IgUFJPRklUUzsgT1IgQlVTSU5FU1MgSU5URVJSVVBUSU9O
+KSBIT1dFVkVSIENBVVNFRCBBTkQKKyAqIE9OIEFOWSBUSEVPUlkgT0YgTElBQklMSVRZLCBXSEVU
+SEVSIElOIENPTlRSQUNULCBTVFJJQ1QgTElBQklMSVRZLCBPUiBUT1JUCisgKiAoSU5DTFVESU5H
+IE5FR0xJR0VOQ0UgT1IgT1RIRVJXSVNFKSBBUklTSU5HIElOIEFOWSBXQVkgT1VUIE9GIFRIRSBV
+U0UgT0YgVEhJUworICogU09GVFdBUkUsIEVWRU4gSUYgQURWSVNFRCBPRiBUSEUgUE9TU0lCSUxJ
+VFkgT0YgU1VDSCBEQU1BR0UuCisgKi8KKworI2lmbmRlZiBfX0ZNQU5fUE9SVF9ICisjZGVmaW5l
+IF9fRk1BTl9QT1JUX0gKKworI2luY2x1ZGUgImZtYW4uaCIKKworLyogRk0gUG9ydCBBUEkKKyAq
+IFRoZSBGTSB1c2VzIGEgZ2VuZXJhbCBtb2R1bGUgY2FsbGVkICJwb3J0IiB0byByZXByZXNlbnQg
+YSBUeCBwb3J0IChNQUMpLAorICogYW4gUnggcG9ydCAoTUFDKS4KKyAqIFRoZSBudW1iZXIgb2Yg
+cG9ydHMgaW4gYW4gRk0gdmFyaWVzIGJldHdlZW4gU09Dcy4KKyAqIFRoZSBTVyBkcml2ZXIgbWFu
+YWdlcyB0aGVzZSBwb3J0cyBhcyBzdWItbW9kdWxlcyBvZiB0aGUgRk0saS5lLiBhZnRlciBhbgor
+ICogRk0gaXMgaW5pdGlhbGl6ZWQsIGl0cyBwb3J0cyBtYXkgYmUgaW5pdGlhbGl6ZWQgYW5kIG9w
+ZXJhdGVkIHVwb24uCisgKiBUaGUgcG9ydCBpcyBpbml0aWFsaXplZCBhd2FyZSBvZiBpdHMgdHlw
+ZSwgYnV0IG90aGVyIGZ1bmN0aW9ucyBvbiBhIHBvcnQKKyAqIG1heSBiZSBpbmRpZmZlcmVudCB0
+byBpdHMgdHlwZS4gV2hlbiBuZWNlc3NhcnksIHRoZSBkcml2ZXIgdmVyaWZpZXMKKyAqIGNvaGVy
+ZW5jZSBhbmQgcmV0dXJucyBlcnJvciBpZiBhcHBsaWNhYmxlLgorICogT24gaW5pdGlhbGl6YXRp
+b24sIHVzZXIgc3BlY2lmaWVzIHRoZSBwb3J0IHR5cGUgYW5kIGl0J3MgaW5kZXggKHJlbGF0aXZl
+CisgKiB0byB0aGUgcG9ydCdzIHR5cGUpIC0gYWx3YXlzIHN0YXJ0aW5nIGF0IDAuCisgKi8KKwor
+LyogRk0gRnJhbWUgZXJyb3IgKi8KKy8qIEZyYW1lIERlc2NyaXB0b3IgZXJyb3JzICovCisvKiBO
+b3QgZm9yIFJ4LVBvcnQhIFVuc3VwcG9ydGVkIEZvcm1hdCAqLworI2RlZmluZSBGTV9QT1JUX0ZS
+TV9FUlJfVU5TVVBQT1JURURfRk9STUFUCUZNX0ZEX0VSUl9VTlNVUFBPUlRFRF9GT1JNQVQKKy8q
+IE5vdCBmb3IgUngtUG9ydCEgTGVuZ3RoIEVycm9yICovCisjZGVmaW5lIEZNX1BPUlRfRlJNX0VS
+Ul9MRU5HVEgJCQlGTV9GRF9FUlJfTEVOR1RICisvKiBETUEgRGF0YSBlcnJvciAqLworI2RlZmlu
+ZSBGTV9QT1JUX0ZSTV9FUlJfRE1BCQkJRk1fRkRfRVJSX0RNQQorLyogbm9uIEZyYW1lLU1hbmFn
+ZXIgZXJyb3I7IHByb2JhYmx5IGNvbWUgZnJvbSBTRUMgdGhhdCB3YXMgY2hhaW5lZCB0byBGTSAq
+LworI2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJfTk9OX0ZNCQkJRk1fRkRfUlhfU1RBVFVTX0VSUl9O
+T05fRk0KKyAvKiBJUFIgZXJyb3IgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0lQUkUJCQko
+Rk1fRkRfRVJSX0lQUiAmIH5GTV9GRF9JUFIpCisvKiBJUFIgbm9uLWNvbnNpc3RlbnQtc3AgKi8K
+KyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0lQUl9OQ1NQCQkoRk1fRkRfRVJSX0lQUl9OQ1NQICYJ
+XAorCQkJCQkJfkZNX0ZEX0lQUikKKworLyogUnggRklGTyBvdmVyZmxvdywgRkNTIGVycm9yLCBj
+b2RlIGVycm9yLCBydW5uaW5nIGRpc3Bhcml0eQorICogZXJyb3IgKFNHTUlJIGFuZCBUQkkgbW9k
+ZXMpLCBGSUZPIHBhcml0eSBlcnJvci4KKyAqIFBIWSBTZXF1ZW5jZSBlcnJvciwgUEhZIGVycm9y
+IGNvbnRyb2wgY2hhcmFjdGVyIGRldGVjdGVkLgorICovCisjZGVmaW5lIEZNX1BPUlRfRlJNX0VS
+Ul9QSFlTSUNBTCAgICAgICAgICAgICAgICBGTV9GRF9FUlJfUEhZU0lDQUwKKy8qIEZyYW1lIHRv
+byBsb25nIE9SIEZyYW1lIHNpemUgZXhjZWVkcyBtYXhfbGVuZ3RoX2ZyYW1lICAqLworI2RlZmlu
+ZSBGTV9QT1JUX0ZSTV9FUlJfU0laRSAgICAgICAgICAgICAgICAgICAgRk1fRkRfRVJSX1NJWkUK
+Ky8qIGluZGljYXRlcyBhIGNsYXNzaWZpZXIgImRyb3AiIG9wZXJhdGlvbiAqLworI2RlZmluZSBG
+TV9QT1JUX0ZSTV9FUlJfQ0xTX0RJU0NBUkQgICAgICAgICAgICAgRk1fRkRfRVJSX0NMU19ESVND
+QVJECisvKiBFeHRyYWN0IE91dCBvZiBGcmFtZSAqLworI2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJf
+RVhUUkFDVElPTiAgICAgICAgICAgICAgRk1fRkRfRVJSX0VYVFJBQ1RJT04KKy8qIE5vIFNjaGVt
+ZSBTZWxlY3RlZCAqLworI2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJfTk9fU0NIRU1FICAgICAgICAg
+ICAgICAgRk1fRkRfRVJSX05PX1NDSEVNRQorLyogS2V5c2l6ZSBPdmVyZmxvdyAqLworI2RlZmlu
+ZSBGTV9QT1JUX0ZSTV9FUlJfS0VZU0laRV9PVkVSRkxPVyAgICAgICAgRk1fRkRfRVJSX0tFWVNJ
+WkVfT1ZFUkZMT1cKKy8qIEZyYW1lIGNvbG9yIGlzIHJlZCAqLworI2RlZmluZSBGTV9QT1JUX0ZS
+TV9FUlJfQ09MT1JfUkVEICAgICAgICAgICAgICAgRk1fRkRfRVJSX0NPTE9SX1JFRAorLyogRnJh
+bWUgY29sb3IgaXMgeWVsbG93ICovCisjZGVmaW5lIEZNX1BPUlRfRlJNX0VSUl9DT0xPUl9ZRUxM
+T1cgICAgICAgICAgICBGTV9GRF9FUlJfQ09MT1JfWUVMTE9XCisvKiBQYXJzZXIgVGltZSBvdXQg
+RXhjZWVkICovCisjZGVmaW5lIEZNX1BPUlRfRlJNX0VSUl9QUlNfVElNRU9VVCAgICAgICAgICAg
+ICBGTV9GRF9FUlJfUFJTX1RJTUVPVVQKKy8qIEludmFsaWQgU29mdCBQYXJzZXIgaW5zdHJ1Y3Rp
+b24gKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX1BSU19JTExfSU5TVFJVQ1QgICAgICAgIEZN
+X0ZEX0VSUl9QUlNfSUxMX0lOU1RSVUNUCisvKiBIZWFkZXIgZXJyb3Igd2FzIGlkZW50aWZpZWQg
+ZHVyaW5nIHBhcnNpbmcgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX1BSU19IRFJfRVJSICAg
+ICAgICAgICAgIEZNX0ZEX0VSUl9QUlNfSERSX0VSUgorLyogRnJhbWUgcGFyc2VkIGJleWluZCAy
+NTYgZmlyc3QgYnl0ZXMgKi8KKyNkZWZpbmUgRk1fUE9SVF9GUk1fRVJSX0JMT0NLX0xJTUlUX0VY
+Q0VFREVEICAgIEZNX0ZEX0VSUl9CTE9DS19MSU1JVF9FWENFRURFRAorLyogRlBNIEZyYW1lIFBy
+b2Nlc3NpbmcgVGltZW91dCBFeGNlZWRlZCAqLworI2RlZmluZSBGTV9QT1JUX0ZSTV9FUlJfUFJP
+Q0VTU19USU1FT1VUICAgICAgICAgMHgwMDAwMDAwMQorCitzdHJ1Y3QgZm1hbl9wb3J0OworCisv
+KiBBIHN0cnVjdHVyZSBmb3IgYWRkaXRpb25hbCBSeCBwb3J0IHBhcmFtZXRlcnMgKi8KK3N0cnVj
+dCBmbWFuX3BvcnRfcnhfcGFyYW1zIHsKKwl1MzIgZXJyX2ZxaWQ7CQkJLyogRXJyb3IgUXVldWUg
+SWQuICovCisJdTMyIGRmbHRfZnFpZDsJCQkvKiBEZWZhdWx0IFF1ZXVlIElkLiAqLworCS8qIFdo
+aWNoIGV4dGVybmFsIGJ1ZmZlciBwb29scyBhcmUgdXNlZAorCSAqICh1cCB0byBGTUFOX1BPUlRf
+TUFYX0VYVF9QT09MU19OVU0pLCBhbmQgdGhlaXIgc2l6ZXMuCisJICovCisJc3RydWN0IGZtYW5f
+ZXh0X3Bvb2xzIGV4dF9idWZfcG9vbHM7Cit9OworCisvKiBBIHN0cnVjdHVyZSBmb3IgYWRkaXRp
+b25hbCBub24tUnggcG9ydCBwYXJhbWV0ZXJzICovCitzdHJ1Y3QgZm1hbl9wb3J0X25vbl9yeF9w
+YXJhbXMgeworCS8qIEVycm9yIFF1ZXVlIElkLiAqLworCXUzMiBlcnJfZnFpZDsKKwkvKiBGb3Ig
+VHggLSBEZWZhdWx0IENvbmZpcm1hdGlvbiBxdWV1ZSwgMCBtZWFucyBubyBUeCBjb25maXJtYXRp
+b24KKwkgKiBmb3IgcHJvY2Vzc2VkIGZyYW1lcy4gRm9yIE9QIHBvcnQgLSBkZWZhdWx0IFJ4IHF1
+ZXVlLgorCSAqLworCXUzMiBkZmx0X2ZxaWQ7Cit9OworCisvKiBBIHVuaW9uIGZvciBhZGRpdGlv
+bmFsIHBhcmFtZXRlcnMgZGVwZW5kaW5nIG9uIHBvcnQgdHlwZSAqLwordW5pb24gZm1hbl9wb3J0
+X3NwZWNpZmljX3BhcmFtcyB7CisJLyogUnggcG9ydCBwYXJhbWV0ZXJzIHN0cnVjdHVyZSAqLwor
+CXN0cnVjdCBmbWFuX3BvcnRfcnhfcGFyYW1zIHJ4X3BhcmFtczsKKwkvKiBOb24tUnggcG9ydCBw
+YXJhbWV0ZXJzIHN0cnVjdHVyZSAqLworCXN0cnVjdCBmbWFuX3BvcnRfbm9uX3J4X3BhcmFtcyBu
+b25fcnhfcGFyYW1zOworfTsKKworLyogQSBzdHJ1Y3R1cmUgcmVwcmVzZW50aW5nIEZNIGluaXRp
+YWxpemF0aW9uIHBhcmFtZXRlcnMgKi8KK3N0cnVjdCBmbWFuX3BvcnRfcGFyYW1zIHsKKwkvKiBW
+aXJ0dWFsIEFkZHJlc3Mgb2YgbWVtb3J5IG1hcHBlZCBGTSBQb3J0IHJlZ2lzdGVycy4gKi8KKwl2
+b2lkICpmbTsKKwl1bmlvbiBmbWFuX3BvcnRfc3BlY2lmaWNfcGFyYW1zIHNwZWNpZmljX3BhcmFt
+czsKKwkvKiBBZGRpdGlvbmFsIHBhcmFtZXRlcnMgZGVwZW5kaW5nIG9uIHBvcnQgdHlwZS4gKi8K
+K307CisKK2ludCBmbWFuX3BvcnRfY29uZmlnKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQsIHN0cnVj
+dCBmbWFuX3BvcnRfcGFyYW1zICpwYXJhbXMpOworCitpbnQgZm1hbl9wb3J0X2luaXQoc3RydWN0
+IGZtYW5fcG9ydCAqcG9ydCk7CisKK2ludCBmbWFuX3BvcnRfY2ZnX2J1Zl9wcmVmaXhfY29udGVu
+dChzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0LAorCQkJCSAgICAgc3RydWN0IGZtYW5fYnVmZmVyX3By
+ZWZpeF9jb250ZW50CisJCQkJICAgICAqYnVmZmVyX3ByZWZpeF9jb250ZW50KTsKKworaW50IGZt
+YW5fcG9ydF9kaXNhYmxlKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpOworCitpbnQgZm1hbl9wb3J0
+X2VuYWJsZShzdHJ1Y3QgZm1hbl9wb3J0ICpwb3J0KTsKKwordTMyIGZtYW5fcG9ydF9nZXRfcW1h
+bl9jaGFubmVsX2lkKHN0cnVjdCBmbWFuX3BvcnQgKnBvcnQpOworCitzdHJ1Y3QgZm1hbl9wb3J0
+ICpmbWFuX3BvcnRfYmluZChzdHJ1Y3QgZGV2aWNlICpkZXYpOworCisjZW5kaWYgLyogX19GTUFO
+X1BPUlRfSCAqLwotLSAKMS43LjkuNQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlz
+dHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMt
+ZGV2
