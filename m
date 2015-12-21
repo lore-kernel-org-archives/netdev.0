@@ -1,40 +1,25 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: [REGRESSION] tcp/ipv4: kernel panic because of (possible) division by zero
-Date: Mon, 21 Dec 2015 22:25:30 +0200
-Message-ID: <26396443.iDTTxgChSj@spock>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yuchung Cheng <ycheng@google.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 -next 0/3] tcp: honour SO_BINDTODEVICE for TW_RST case too
+Date: Mon, 21 Dec 2015 21:29:23 +0100
+Message-ID: <1450729766-14926-1-git-send-email-fw@strlen.de>
+Cc: eric.dumazet@gmail.com
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45111 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751253AbbLUUfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 15:35:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 3759824da87b30ce7a35b4873b62b0ba38905ef5 (tcp: PRR uses CRB mode=
- by=20
-default and SS mode conditionally) introduced changes to net/ipv4/tcp_i=
-nput.c=20
-tcp_cwnd_reduction() that, possibly, cause division by zero, and theref=
-ore,=20
-kernel panic in interrupt handler [1].
+This is V2, this time as a small series since I followed Erics advice
+to split this into smaller chunks, I hope this makes it easier to
+review.
 
-Reverting 3759824da87b30ce7a35b4873b62b0ba38905ef5 seems to fix the iss=
-ue.
+First patch adds inet_sk_transparent helper.
+Second patch contains an if/else swap that I split from the
+original TW_RST v1 one.
+Third patch is the actual change without the superfluous sock_net change.
 
-I'm able to reproduce the issue on 4.3.0=E2=80=934.3.3 once per several=
- day=20
-(occasionally).
-
-What could be done to help in debugging this issue?
-
-Regards,
-  Oleksandr.
-
-[1] http://i.piccy.info/
-i9/6f5cb187c4ff282d189f78c63f95af43/1450729403/283985/951663/panic.jpg
+Thanks,
+Florian
