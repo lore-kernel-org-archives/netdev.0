@@ -1,44 +1,49 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V2 1/4] net/mlx5e: Do not modify the TX SKB
-Date: Mon, 21 Dec 2015 07:05:05 +0200
-Message-ID: <CAJ3xEMiPYAFmKfF7_QJoOy++7y3FqNCWd7zzDz7xe5xdtvVXgQ@mail.gmail.com>
-References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
-	<1450647991-13736-2-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/5] Trivial enhancements for cxgb4
+Date: Mon, 21 Dec 2015 12:46:05 +0530
+Message-ID: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:35197 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750761AbbLUFFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 00:05:06 -0500
-Received: by mail-ig0-f182.google.com with SMTP id to4so29638638igc.0
-        for <netdev@vger.kernel.org>; Sun, 20 Dec 2015 21:05:05 -0800 (PST)
-In-Reply-To: <1450647991-13736-2-git-send-email-saeedm@mellanox.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:33459 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750863AbbLUHOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:14:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 20, 2015 at 11:46 PM, Saeed Mahameed wrote:
-> From: Achiad Shochat <achiad@mellanox.com>
->
-> If the SKB is cloned, or has an elevated users count, someone else
-> can be looking at it at the same time.
+Hi
 
->  drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 +-
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    5 +-
->  drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   73 ++++++++++++---------
->  3 files changed, 49 insertions(+), 34 deletions(-)
+This series adds a debug message if adapter isn't inserted in right PCI
+slot, adds a debug entry to dump dcb information. Changes naming
+conventions for iSCSI rx queues, use node info while allocating rx queue
+and use napi_complete_done() api in napi handler. 
 
-Guys, can this can be made in a manner which is lighter w.r.t data
-path changes? lets make sure we do things (1) right and (2) efficient
+This patch series has been created against net-next tree and includes
+patches on cxgb4 driver.
 
-Or.
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+Thanks
+
+
+Hariprasad Shenai (5):
+  cxgb4: Warn if device doesn't have enough PCI bandwidth
+  cxgb4: get naming correct for iscsi queues
+  cxgb4: add dcb info node in debugfs
+  cxgb4: Use the node info to alloc_ring() for RX queues
+  cxgb4: Use napi_complete_done() api in napi handler
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  13 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c     |  11 --
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h     |  11 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 199 ++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 133 +++++++++++---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |  10 +-
+ 7 files changed, 324 insertions(+), 54 deletions(-)
+
+-- 
+2.3.4
