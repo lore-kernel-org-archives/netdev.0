@@ -1,48 +1,37 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 4/5] cxgb4: Use the node info to alloc_ring() for RX queues
-Date: Mon, 21 Dec 2015 12:46:09 +0530
-Message-ID: <1450682170-7106-5-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/5] cxgb4: Use napi_complete_done() api in napi handler
+Date: Mon, 21 Dec 2015 12:46:10 +0530
+Message-ID: <1450682170-7106-6-git-send-email-hariprasad@chelsio.com>
 References: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:48574 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:39269 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751199AbbLUHPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:15:01 -0500
+	by vger.kernel.org with ESMTP id S1751246AbbLUHPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:15:04 -0500
 In-Reply-To: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 0333435..138be46 100644
+index 138be46..5e3ffa7 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2555,7 +2555,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	iq->size = roundup(iq->size, 16);
+@@ -2288,7 +2288,7 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+ 	if (likely(work_done < budget)) {
+ 		int timer_index;
  
- 	iq->desc = alloc_ring(adap->pdev_dev, iq->size, iq->iqe_len, 0,
--			      &iq->phys_addr, NULL, 0, NUMA_NO_NODE);
-+			      &iq->phys_addr, NULL, 0,
-+			      dev_to_node(adap->pdev_dev));
- 	if (!iq->desc)
- 		return -ENOMEM;
+-		napi_complete(napi);
++		napi_complete_done(napi, work_done);
+ 		timer_index = QINTR_TIMER_IDX_G(q->next_intr_params);
  
-@@ -2595,7 +2596,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 		fl->size = roundup(fl->size, 8);
- 		fl->desc = alloc_ring(adap->pdev_dev, fl->size, sizeof(__be64),
- 				      sizeof(struct rx_sw_desc), &fl->addr,
--				      &fl->sdesc, s->stat_len, NUMA_NO_NODE);
-+				      &fl->sdesc, s->stat_len,
-+				      dev_to_node(adap->pdev_dev));
- 		if (!fl->desc)
- 			goto fl_nomem;
- 
+ 		if (q->adaptive_rx) {
 -- 
 2.3.4
