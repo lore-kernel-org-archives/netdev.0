@@ -1,82 +1,85 @@
-From: Luuk Paulussen <Luuk.Paulussen@alliedtelesis.co.nz>
-Subject: Re: [PATCH] Octeon: Fix logic for waking octoen ethernet tx queue.
-Date: Mon, 21 Dec 2015 22:53:06 +0000
-Message-ID: <567882D2.1020406@alliedtelesis.co.nz>
-References: <1450299572-11012-1-git-send-email-luuk.paulussen@alliedtelesis.co.nz>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] wlcore: consolidate kmalloc + memset 0 into kzalloc
+Date: Tue, 22 Dec 2015 09:56:10 +1100
+Message-ID: <CAGRGNgU+CA-jLAX=_qV27tfbyQ2cyjYo2NZOq3_7fFLc-VsCew@mail.gmail.com>
+References: <1450716464-20759-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:46467 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751710AbbLUWxR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 17:53:17 -0500
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id A47FE800E6
-	for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 11:53:11 +1300 (NZDT)
-In-Reply-To: <1450299572-11012-1-git-send-email-luuk.paulussen@alliedtelesis.co.nz>
-Content-Language: en-US
-Content-ID: <B4FD9DBA8EE4914693275958FF279F81@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>, Eliad Peller <eliad@wizery.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Arik Nemtsov <arik@wizery.com>,
+	Tony Lindgren <tony@atomide.com>,
+	Luciano Coelho <luca@coelho.fi>,
+	Eyal Reizer <eyalreizer@gmail.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Nicholas Mc Guire <hofrat@osadl.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450716464-20759-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I see that this patch has been marked as "Not applicable" in patchworx.
-Is this because I have sent it to the wrong place?  I also noticed that
-I forgot to add a signoff line or CC a maintainer, so I'm happy to
-resend if those are the issues.
+Hi,
 
-The patch is a bugfix for an ethernet driver in the staging dir.
-
-
-On 12/17/2015 09:59 AM, Luuk Paulussen wrote:
-> The ethernet driver tx queue is stopped when the queue length exceeds
-> what is allowed.  It should only be started again when the queue length
-> is back within bounds.
+On Tue, Dec 22, 2015 at 3:47 AM, Nicholas Mc Guire <hofrat@osadl.org> wrote:
+> This is an API consolidation only. The use of kmalloc + memset to 0
+> is equivalent to kzalloc.
 >
-> The logic here was just reenabling the queue when any buffers had been
-> freed.  the queue was stopped whenever the length exceeded 1000
-> (MAX_OUT_QUEUE_DEPTH), but then was essentially immediately started again.
-> On a congested link, the queue length would just keep increasing up to around
-> 8000 (for average size packets), at which point the hardware would start
-> refusing the packets and they would begin to be dropped.
-> This prevented the qdisc layer from effectively managing and prioritising
-> packets, as essentially all packets were being allowed into the driver queue
-> and then were being dropped by the hardware.
->
-> This change only restarts the queue if the length is less than 1000
-> (MAX_OUT_QUEUE_DEPTH).
->
-> Reviewed-by: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
-> Reviewed-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
-> Reviewed-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 > ---
->   drivers/staging/octeon/ethernet-tx.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/staging/octeon/ethernet-tx.c b/drivers/staging/octeon/ethernet-tx.c
-> index c053c4a..31292fe 100644
-> --- a/drivers/staging/octeon/ethernet-tx.c
-> +++ b/drivers/staging/octeon/ethernet-tx.c
-> @@ -126,7 +126,7 @@ static void cvm_oct_free_tx_skbs(struct net_device *dev)
->   		}
->   		total_remaining += skb_queue_len(&priv->tx_free_list[qos]);
->   	}
-> -	if (total_freed >= 0 && netif_queue_stopped(dev))
-> +	if (total_remaining < MAX_OUT_QUEUE_DEPTH && netif_queue_stopped(dev))
->   		netif_wake_queue(dev);
->   	if (total_remaining)
->   		cvm_oct_kick_tx_poll_watchdog();
+> Found by coccinelle script (relaxed version of
+> scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
+>
+> Patch was compile tested with: x86_64_defconfig +
+> CONFIG_WL12XX=m (implies CONFIG_WLCORE=m)
+>
+> Patch is against linux-next (localversion-next is -next-20151221)
+>
+>  drivers/net/wireless/ti/wlcore/main.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+> index ec7f6af..dfc49bf 100644
+> --- a/drivers/net/wireless/ti/wlcore/main.c
+> +++ b/drivers/net/wireless/ti/wlcore/main.c
+> @@ -838,7 +838,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
+>
+>         wl1271_info("Reading FW panic log");
+>
+> -       block = kmalloc(wl->fw_mem_block_size, GFP_KERNEL);
+> +       block = kzalloc(wl->fw_mem_block_size, GFP_KERNEL);
+>         if (!block)
+>                 return;
+>
+> @@ -885,7 +885,6 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
+>                         goto out;
+>                 }
+> -               memset(block, 0, wl->fw_mem_block_size);
+
+I don't think you can't remove this line. It appears that the loop
+this is part of resets block to be all zero, reads a chunk of data in,
+then operates on it. I'm guessing that the code after the following
+line expects that there isn't any data left over from previous runs
+through the loop.
+
+>                 ret = wlcore_read_hwaddr(wl, addr, block,
+>                                         wl->fw_mem_block_size, false);
+>
+> --
+> 2.1.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
 
 -- 
+Julian Calaby
 
-*Luuk Paulussen*
-
-Software Team Lead
-*Allied Telesis Labs* | 27 Nazareth Ave | Christchurch 8024 | New Zealand
-Phone: +64 3 3399242
-Web: *alliedtelesis*.com <http://alliedtelesis.com/>
-
-<%20http://go.alliedtelesis.com/icmg2015>
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
