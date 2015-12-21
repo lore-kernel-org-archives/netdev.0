@@ -1,34 +1,41 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] ipv6/addrlabel: fix ip6addrlbl_get()
-Date: Mon, 21 Dec 2015 11:37:38 -0800
-Message-ID: <CAHA+R7OBGDZAFog7yrcJ4VPORE3ahgqMaZZs1B0XLwBh14Jg9g@mail.gmail.com>
-References: <1450691685-29413-1-git-send-email-aryabinin@virtuozzo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450691685-29413-1-git-send-email-aryabinin@virtuozzo.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] iptunnel: Fix compile error in ip/tunnel.c
+Date: Mon, 21 Dec 2015 20:42:56 +0100
+Message-ID: <20151221194131.636F061201@mail.nwl.cc>
+References: <5677DBB6.3070008@iogearbox.net>
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:55636 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751424AbbLUTlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Dec 2015 14:41:32 -0500
+In-Reply-To: <5677DBB6.3070008@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 21, 2015 at 1:54 AM, Andrey Ryabinin
-<aryabinin@virtuozzo.com> wrote:
-> ip6addrlbl_get() has never worked. If ip6addrlbl_hold() succeeded,
-> ip6addrlbl_get() will exit with '-ESRCH'. If ip6addrlbl_hold() failed,
-> ip6addrlbl_get() will use about to be free ip6addrlbl_entry pointer.
->
-> Fix this by inverting ip6addrlbl_hold() check.
->
-> Fixes: 2a8cc6c89039 ("[IPV6] ADDRCONF: Support RFC3484 configurable address selection policy table.")
-> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+I repeatedly failed to get this right, so now I have to clean up my mess
+afterwards.
 
-Good catch!
+Fixes: 7d6aadcd0a1dc ("ip{,6}tunnel: have a shared stats parser/printer")
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/tunnel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Reviewed-by: Cong Wang <cwang@twopensource.com>
+diff --git a/ip/tunnel.c b/ip/tunnel.c
+index 1dd8092..39f825b 100644
+--- a/ip/tunnel.c
++++ b/ip/tunnel.c
+@@ -208,7 +208,7 @@ void tnl_print_stats(const char *buf)
+ 		      tx_bytes, tx_packets, tx_errs, tx_drops,
+ 		      tx_fifo, tx_colls, tx_carrier, rx_multi;
+ 
+-	if (sscanf(ptr, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
++	if (sscanf(buf, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
+ 	           &rx_bytes, &rx_packets, &rx_errs, &rx_drops,
+ 	           &rx_fifo, &rx_frame, &rx_multi,
+ 	           &tx_bytes, &tx_packets, &tx_errs, &tx_drops,
+-- 
+2.5.3
