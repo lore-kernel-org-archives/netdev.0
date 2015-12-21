@@ -1,78 +1,169 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [iproute PATCH v2] ip{,6}tunnel: have a shared stats parser/printer
-Date: Mon, 21 Dec 2015 12:00:06 +0100
-Message-ID: <5677DBB6.3070008@iogearbox.net>
-References: <20151218105225.GA19288@orbyte.nwl.cc> <1450436286-14882-1-git-send-email-phil@nwl.cc>
+From: <igal.liberman@freescale.com>
+Subject: [v10, 0/6] Freescale DPAA FMan
+Date: Mon, 21 Dec 2015 02:21:24 +0200
+Message-ID: <1450657290-6644-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: <igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49852 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbbLULAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 06:00:12 -0500
-In-Reply-To: <1450436286-14882-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
+	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
+	<ppc@mindchasers.com>, <stephen@networkplumber.org>,
+	<davem@davemloft.net>, <afleming@gmail.com>, <knneth@gmail.com>,
+	Igal Liberman <igal.liberman@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/18/2015 11:58 AM, Phil Sutter wrote:
-> This has a slight side-effect of not aborting when /proc/net/dev is
-> malformed, but OTOH stats are not parsed for uninteresting interfaces=
-=2E
->
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
-> Changes since v1:
-> - Fix conflict resolution (sscan from 'buf' instead of 'ptr').
-[...]
+From: Igal Liberman <igal.liberman@freescale.com>
 
-Hmm, did you actually compile that?
+The Freescale Data Path Acceleration Architecture (DPAA) is a set
+of hardware components on specific QorIQ multicore processors.
+This architecture provides the infrastructure to support
+simplified sharing of networking interfaces and accelerators
+by multiple CPU cores and the accelerators.
 
-The code is still the same as in v1 ... the only thing added is the "Ch=
-anges since v1"
-description. ;)
+One of the DPAA accelerators is the Frame Manager (FMan)
+which contains a series of hardware blocks: ports, Ethernet MACs,
+a multi user RAM (MURAM) and Storage Profile (SP).
 
-[...]
-> +void tnl_print_stats(const char *buf)
-> +{
-> +	unsigned long rx_bytes, rx_packets, rx_errs, rx_drops,
-> +		      rx_fifo, rx_frame,
-> +		      tx_bytes, tx_packets, tx_errs, tx_drops,
-> +		      tx_fifo, tx_colls, tx_carrier, rx_multi;
-> +
-> +	if (sscanf(ptr, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
+This patch set introduce the FMan drivers.
+Each driver configures and initializes the corresponding
+FMan hardware module (described above).
+The MAC driver offers support for three different
+types of MACs (eTSEC, TGEC, MEMAC).
 
-   s/ptr/buf/
+v9 --> v10:
+	- Addressed feedback from David Miller
+		Remove private CRC implementation
+	- Addressed feedback from Kenneth Klette Jonassen:
+		- Use Kernel PHY API to configure dTSEC TBI
+		- Use Kernel PHY API to configure mEMAC PCS
+		  This patchset requires device tree update:
+		  https://patchwork.ozlabs.org/patch/559501/
+	- Addressed feedback from Andy Fleming
 
-> +	           &rx_bytes, &rx_packets, &rx_errs, &rx_drops,
-> +	           &rx_fifo, &rx_frame, &rx_multi,
-> +	           &tx_bytes, &tx_packets, &tx_errs, &tx_drops,
-> +	           &tx_fifo, &tx_colls, &tx_carrier) !=3D 14)
-> +		return;
-> +
-> +	printf("%s", _SL_);
-> +	printf("RX: Packets    Bytes        Errors CsumErrs OutOfSeq Mcasts=
-%s", _SL_);
-> +	printf("    %-10ld %-12ld %-6ld %-8ld %-8ld %-8ld%s",
-> +	       rx_packets, rx_bytes, rx_errs, rx_frame, rx_fifo, rx_multi, =
-_SL_);
-> +	printf("TX: Packets    Bytes        Errors DeadLoop NoRoute  NoBufs=
-%s", _SL_);
-> +	printf("    %-10ld %-12ld %-6ld %-8ld %-8ld %-6ld",
-> +	       tx_packets, tx_bytes, tx_errs, tx_colls, tx_carrier, tx_drop=
-s);
-> +}
+v8 --> v9:
+	No changes
 
-tunnel.c: In function =91tnl_print_stats=92:
-tunnel.c:211:13: error: =91buff=92 undeclared (first use in this functi=
-on)
-   if (sscanf(buff, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
-              ^
-tunnel.c:211:13: note: each undeclared identifier is reported only once=
- for each function it appears in
-make[1]: *** [tunnel.o] Error 1
-make[1]: *** Waiting for unfinished jobs....
-make: *** [all] Error 2
+v7 --> v8:
+	- Addressed feedback from David Miller
+	- Support for ARM:
+		- Device tree parsing
+		- IO Accessors
+		- Addressed compilation issue on non-PPC targets
+
+v6 --> v7:
+	- Addressed compilation issue on non-PPC targets
+	- Removed B4860 rev 1 support
+
+v5 --> v6:
+	- Addressed feedback from Scott:
+		- Moved kernel doc to source files
+		- Removed a series of configurable settings
+		- Miscellaneous code updates
+
+v4 --> v5:
+	- Addressed feedback from David Miller:
+		- Removed driver layering
+		- Reduce namespace pollution
+		- Reduce code complexity and size
+
+v3 --> v4:
+	- Remove device_initcall call in driver registration (redundant)
+	- Remove hot/cold labels
+	- Minor update in FMan Clock read from device-tree
+	- Update fixed-link support
+	- Addressed feedback from Stephen Hemminger
+		- Remove bogus blank line
+
+v2 --> v3:
+	- Addressed feedback from Scott:
+		- Remove typedefs
+		- Remove unnecessary memory barriers
+		- Remove unnecessary casting
+		- Remove KConfig options
+		- Remove early_params
+		- Remove Hungarian notation
+		- Remove __packed__  attribute and padding from structures
+		- Remove unlikely attribute (where it's not needed)
+		- Use proper error codes and remove unnecessary prints
+		- Use proper values for sleep routines
+		- Replace complex Macros with functions
+		- Improve device tree processing code
+		- Use symbolic defines
+		- Add time-out in busy-wait loops
+		- Removed exit code (loadable module support will be added later)
+	- Fixed "fixed-link" issue raised by Joakim Tjernlund
+
+v1 --> v2:
+	- Addressed feedback from Paul Bolle:
+		- General feedback of FMan Driver layer
+		- Remove Errata defines
+		- Aligned comments to Kernel Doc
+		- Remove Loadable Module support (not yet supported)
+		- Removed not needed KConfig dependencies
+	- Addressed feedback from Scott Wood
+		- Use Kernel ioread/iowrite services
+		- Squash FLIB source and header patches together
+
+This submission is based on the prior Freescale DPAA FMan V3,RFC submission.
+Several issues addresses in this submission:
+	- Reduced MAC layering and complexity
+	- Reduced code base
+	- T1024/T2080 10G best effort support
+
+
+Igal Liberman (6):
+  fsl/fman: Add FMan MURAM support
+  fsl/fman: Add FMan support
+  fsl/fman: Add FMan MAC support
+  fsl/fman: Add FMan SP support
+  fsl/fman: Add FMan Port Support
+  fsl/fman: Add FMan MAC driver
+
+ drivers/net/ethernet/freescale/Kconfig           |    1 +
+ drivers/net/ethernet/freescale/Makefile          |    2 +
+ drivers/net/ethernet/freescale/fman/Kconfig      |    8 +
+ drivers/net/ethernet/freescale/fman/Makefile     |    7 +
+ drivers/net/ethernet/freescale/fman/fman.c       | 2872 ++++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman.h       |  325 +++
+ drivers/net/ethernet/freescale/fman/fman_dtsec.c | 1453 +++++++++++
+ drivers/net/ethernet/freescale/fman/fman_dtsec.h |   59 +
+ drivers/net/ethernet/freescale/fman/fman_mac.h   |  278 +++
+ drivers/net/ethernet/freescale/fman/fman_memac.c | 1170 +++++++++
+ drivers/net/ethernet/freescale/fman/fman_memac.h |   60 +
+ drivers/net/ethernet/freescale/fman/fman_muram.c |  159 ++
+ drivers/net/ethernet/freescale/fman/fman_muram.h |   51 +
+ drivers/net/ethernet/freescale/fman/fman_port.c  | 1779 ++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_port.h  |  151 ++
+ drivers/net/ethernet/freescale/fman/fman_sp.c    |  167 ++
+ drivers/net/ethernet/freescale/fman/fman_sp.h    |  103 +
+ drivers/net/ethernet/freescale/fman/fman_tgec.c  |  786 ++++++
+ drivers/net/ethernet/freescale/fman/fman_tgec.h  |   55 +
+ drivers/net/ethernet/freescale/fman/mac.c        |  978 ++++++++
+ drivers/net/ethernet/freescale/fman/mac.h        |   97 +
+ 21 files changed, 10561 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_muram.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_sp.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac.h
+
+-- 
+1.7.9.5
