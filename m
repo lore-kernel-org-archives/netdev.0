@@ -1,64 +1,40 @@
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Subject: Re: [PATCH 1/2] can: sja1000: add documentation for Technologic
- Systems version
-Date: Mon, 21 Dec 2015 10:09:54 -0500
-Message-ID: <20151221150953.GA6434@localhost>
-References: <1450469845-12900-1-git-send-email-damien.riegel@savoirfairelinux.com>
- <20151220033742.GA9883@rob-hp-laptop>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net] switchdev: bridge: Pass ageing time as clock_t instead
+ of jiffies
+Date: Mon, 21 Dec 2015 10:53:19 -0500
+Message-ID: <5678206F.8050104@gmail.com>
+References: <1450688161-4792-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, devicetree@vger.kernel.org,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	kernel@savoirfairelinux.com
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151220033742.GA9883@rob-hp-laptop>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, stephen@networkplumber.org,
+	Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f47.google.com ([209.85.213.47]:35764 "EHLO
+	mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049AbbLUPx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 10:53:57 -0500
+Received: by mail-vk0-f47.google.com with SMTP id a189so102800310vkh.2
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 07:53:57 -0800 (PST)
+In-Reply-To: <1450688161-4792-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 19, 2015 at 09:37:42PM -0600, Rob Herring wrote:
-> On Fri, Dec 18, 2015 at 03:17:24PM -0500, Damien Riegel wrote:
-> > This commit adds documentation for the Technologic Systems version of
-> > SJA1000. The difference with the NXP version is in the way the registers
-> > are accessed.
-> > 
-> > Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
-> > ---
-> >  Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
-> > index b4a6d53..7a158d5 100644
-> > --- a/Documentation/devicetree/bindings/net/can/sja1000.txt
-> > +++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
-> > @@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
-> >  
-> >  Required properties:
-> >  
-> > -- compatible : should be "nxp,sja1000".
-> > +- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
-> >  
-> >  - reg : should specify the chip select, address offset and size required
-> >  	to map the registers of the SJA1000. The size is usually 0x80.
-> > @@ -14,6 +14,7 @@ Optional properties:
-> >  
-> >  - reg-io-width : Specify the size (in bytes) of the IO accesses that
-> >  	should be performed on the device.  Valid value is 1, 2 or 4.
-> > +	Must be set to 2 for technologic version.
-> >  	Default to 1 (8 bits).
-> 
-> Really, this should default to 2 for technologic version and not be 
-> required.
+On 12/21/15 3:56 AM, Jiri Pirko wrote:
+> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+> index 5396ff08..12045de 100644
+> --- a/net/bridge/br_stp_if.c
+> +++ b/net/bridge/br_stp_if.c
+> @@ -39,7 +39,7 @@ void br_init_port(struct net_bridge_port *p)
+>   	struct switchdev_attr attr = {
+>   		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+>   		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
+> -		.u.ageing_time = p->br->ageing_time,
+> +		.u.ageing_time = jiffies_to_clock_t(p->br->ageing_time),
+>   	};
+>   	int err;
 
-Would something along the line of "This property is <not used|ignored>
-for technologic version." be more appropriate?
 
-Thanks,
-Damien
+ageing_time is a u32; clock_t is a long.
