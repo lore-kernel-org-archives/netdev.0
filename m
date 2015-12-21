@@ -1,66 +1,42 @@
-From: Vikas Bansal <vikas.bansal@samsung.com>
-Subject: [PATCH] Adding Reset resume support for CDC-EEM driver.
-Date: Mon, 21 Dec 2015 18:34:37 +0530
-Message-ID: <1450703077-5467-1-git-send-email-vikas.bansal@samsung.com>
-Cc: sumit.batra@samsung.com, Vikas Bansal <vikas.bansal@samsung.com>
-To: oneukum@suse.de, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christian Hesse <list@eworm.de>
+Subject: [PATCH 1/1] use buf, not (non-existent) ptr
+Date: Mon, 21 Dec 2015 14:08:18 +0100
+Message-ID: <1450703298-21675-1-git-send-email-list@eworm.de>
+Cc: Christian Hesse <mail@eworm.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.mylinuxtime.de ([148.251.109.235]:40745 "EHLO
+	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbbLUNRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 08:17:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pre-Condition
-At the time of reset resume of a USB device, both self and bus powered 
-devices might go to a low power state or power off state depending on 
-the acceptable suspend time power of the system.    
-In case the device experiences a power glitch or completely powers off 
-during suspend-resume, the device will lose its internal state and 
-hence it'll again need a set interface from class driver on reset resume 
-operation.
+From: Christian Hesse <mail@eworm.de>
 
-Issue 
-So far our experiments were based on a USB gadget working on cdc_eem 
-protocol. 
-We have seen that device is unable to continue the packet transfer on 
-bulk endpoints after the reset resume operation.
+Shared code was moved to a function, but variable name has not been
+updated. Use buf (passed to the function) instead of ptr.
 
-Solution
-We have added a .reset_resume function for cdc_eem protocol which sends a
-set interface command on the Control endpoint. And calls the existing 
-usbnet_resume thereafter
+This fixes regressen from upstream commit
+7d6aadcd0a1dc795d72e1ab311aee333c763fe71.
 
+Signed-off-by: Christian Hesse <mail@eworm.de>
+---
+ ip/tunnel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Signed-off-by: Vikas Bansal <vikas.bansal@samsung.com>
-Signed-off-by: Sumit Batra <sumit.batra@samsung.com>
-diff --git a/drivers/net/usb/cdc_eem.c b/drivers/net/usb/cdc_eem.c
-index f7180f8..1f6f7ea 100644
---- a/drivers/net/usb/cdc_eem.c
-+++ b/drivers/net/usb/cdc_eem.c
-@@ -342,6 +342,19 @@ next:
- 	return 1;
- }
+diff --git a/ip/tunnel.c b/ip/tunnel.c
+index 1dd8092..39f825b 100644
+--- a/ip/tunnel.c
++++ b/ip/tunnel.c
+@@ -208,7 +208,7 @@ void tnl_print_stats(const char *buf)
+ 		      tx_bytes, tx_packets, tx_errs, tx_drops,
+ 		      tx_fifo, tx_colls, tx_carrier, rx_multi;
  
-+static int cdc_eem_resume(struct usb_interface *intf)
-+{
-+	int ret = 0;
-+	struct usbnet *dev = usb_get_intfdata(intf);
-+
-+	ret = usbnet_get_endpoints(dev, intf);
-+	if (ret < 0)
-+		goto err;
-+	ret = usbnet_resume(intf);
-+err:
-+	return ret;
-+}
-+
- static const struct driver_info eem_info = {
- 	.description =	"CDC EEM Device",
- 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
-@@ -371,6 +384,7 @@ static struct usb_driver eem_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.reset_resume =	cdc_eem_resume,
- 	.disable_hub_initiated_lpm = 1,
- };
- 
+-	if (sscanf(ptr, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
++	if (sscanf(buf, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
+ 	           &rx_bytes, &rx_packets, &rx_errs, &rx_drops,
+ 	           &rx_fifo, &rx_frame, &rx_multi,
+ 	           &tx_bytes, &tx_packets, &tx_errs, &tx_drops,
+-- 
+2.6.4
