@@ -1,105 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: core: Allow to reset temperature history via hwmon interface
-Date: Mon, 21 Dec 2015 11:14:21 +0100
-Message-ID: <1450692861-2567-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [iproute PATCH v2] ip{,6}tunnel: have a shared stats parser/printer
+Date: Mon, 21 Dec 2015 12:00:06 +0100
+Message-ID: <5677DBB6.3070008@iogearbox.net>
+References: <20151218105225.GA19288@orbyte.nwl.cc> <1450436286-14882-1-git-send-email-phil@nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37924 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529AbbLUKOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 05:14:24 -0500
-Received: by mail-wm0-f52.google.com with SMTP id l126so62922535wml.1
-        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 02:14:23 -0800 (PST)
+Received: from www62.your-server.de ([213.133.104.62]:49852 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751076AbbLULAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 06:00:12 -0500
+In-Reply-To: <1450436286-14882-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On 12/18/2015 11:58 AM, Phil Sutter wrote:
+> This has a slight side-effect of not aborting when /proc/net/dev is
+> malformed, but OTOH stats are not parsed for uninteresting interfaces=
+=2E
+>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+> Changes since v1:
+> - Fix conflict resolution (sscan from 'buf' instead of 'ptr').
+[...]
 
-Add another sysfs hwmon attribute to expose possibility to reset
-temperature sensors history.
+Hmm, did you actually compile that?
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 37 +++++++++++++++++++++++-
- 1 file changed, 36 insertions(+), 1 deletion(-)
+The code is still the same as in v1 ... the only thing added is the "Ch=
+anges since v1"
+description. ;)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-index b86db96..00ccf1c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-@@ -49,7 +49,7 @@ struct mlxsw_hwmon_attr {
- 	struct device_attribute dev_attr;
- 	struct mlxsw_hwmon *hwmon;
- 	unsigned int type_index;
--	char name[16];
-+	char name[32];
- };
- 
- struct mlxsw_hwmon {
-@@ -107,6 +107,32 @@ static ssize_t mlxsw_hwmon_temp_max_show(struct device *dev,
- 	return sprintf(buf, "%u\n", temp_max);
- }
- 
-+static ssize_t mlxsw_hwmon_temp_rst_store(struct device *dev,
-+					  struct device_attribute *attr,
-+					  const char *buf, size_t len)
-+{
-+	struct mlxsw_hwmon_attr *mlwsw_hwmon_attr =
-+			container_of(attr, struct mlxsw_hwmon_attr, dev_attr);
-+	struct mlxsw_hwmon *mlxsw_hwmon = mlwsw_hwmon_attr->hwmon;
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	unsigned long val;
-+	int err;
-+
-+	err = kstrtoul(buf, 10, &val);
-+	if (err)
-+		return err;
-+	if (val != 1)
-+		return -EINVAL;
-+
-+	mlxsw_reg_mtmp_pack(mtmp_pl, mlwsw_hwmon_attr->type_index, true, true);
-+	err = mlxsw_reg_write(mlxsw_hwmon->core, MLXSW_REG(mtmp), mtmp_pl);
-+	if (err) {
-+		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to reset temp sensor history\n");
-+		return err;
-+	}
-+	return err ? err : len;
-+}
-+
- static ssize_t mlxsw_hwmon_fan_rpm_show(struct device *dev,
- 					struct device_attribute *attr,
- 					char *buf)
-@@ -175,6 +201,7 @@ static ssize_t mlxsw_hwmon_pwm_store(struct device *dev,
- enum mlxsw_hwmon_attr_type {
- 	MLXSW_HWMON_ATTR_TYPE_TEMP,
- 	MLXSW_HWMON_ATTR_TYPE_TEMP_MAX,
-+	MLXSW_HWMON_ATTR_TYPE_TEMP_RST,
- 	MLXSW_HWMON_ATTR_TYPE_FAN_RPM,
- 	MLXSW_HWMON_ATTR_TYPE_PWM,
- };
-@@ -201,6 +228,12 @@ static void mlxsw_hwmon_attr_add(struct mlxsw_hwmon *mlxsw_hwmon,
- 		snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
- 			 "temp%u_highest", num + 1);
- 		break;
-+	case MLXSW_HWMON_ATTR_TYPE_TEMP_RST:
-+		mlxsw_hwmon_attr->dev_attr.store = mlxsw_hwmon_temp_rst_store;
-+		mlxsw_hwmon_attr->dev_attr.attr.mode = S_IWUSR;
-+		snprintf(mlxsw_hwmon_attr->name, sizeof(mlxsw_hwmon_attr->name),
-+			 "temp%u_reset_history", num + 1);
-+		break;
- 	case MLXSW_HWMON_ATTR_TYPE_FAN_RPM:
- 		mlxsw_hwmon_attr->dev_attr.show = mlxsw_hwmon_fan_rpm_show;
- 		mlxsw_hwmon_attr->dev_attr.attr.mode = S_IRUGO;
-@@ -254,6 +287,8 @@ static int mlxsw_hwmon_temp_init(struct mlxsw_hwmon *mlxsw_hwmon)
- 				     MLXSW_HWMON_ATTR_TYPE_TEMP, i, i);
- 		mlxsw_hwmon_attr_add(mlxsw_hwmon,
- 				     MLXSW_HWMON_ATTR_TYPE_TEMP_MAX, i, i);
-+		mlxsw_hwmon_attr_add(mlxsw_hwmon,
-+				     MLXSW_HWMON_ATTR_TYPE_TEMP_RST, i, i);
- 	}
- 	return 0;
- }
--- 
-1.9.3
+[...]
+> +void tnl_print_stats(const char *buf)
+> +{
+> +	unsigned long rx_bytes, rx_packets, rx_errs, rx_drops,
+> +		      rx_fifo, rx_frame,
+> +		      tx_bytes, tx_packets, tx_errs, tx_drops,
+> +		      tx_fifo, tx_colls, tx_carrier, rx_multi;
+> +
+> +	if (sscanf(ptr, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
+
+   s/ptr/buf/
+
+> +	           &rx_bytes, &rx_packets, &rx_errs, &rx_drops,
+> +	           &rx_fifo, &rx_frame, &rx_multi,
+> +	           &tx_bytes, &tx_packets, &tx_errs, &tx_drops,
+> +	           &tx_fifo, &tx_colls, &tx_carrier) !=3D 14)
+> +		return;
+> +
+> +	printf("%s", _SL_);
+> +	printf("RX: Packets    Bytes        Errors CsumErrs OutOfSeq Mcasts=
+%s", _SL_);
+> +	printf("    %-10ld %-12ld %-6ld %-8ld %-8ld %-8ld%s",
+> +	       rx_packets, rx_bytes, rx_errs, rx_frame, rx_fifo, rx_multi, =
+_SL_);
+> +	printf("TX: Packets    Bytes        Errors DeadLoop NoRoute  NoBufs=
+%s", _SL_);
+> +	printf("    %-10ld %-12ld %-6ld %-8ld %-8ld %-6ld",
+> +	       tx_packets, tx_bytes, tx_errs, tx_colls, tx_carrier, tx_drop=
+s);
+> +}
+
+tunnel.c: In function =91tnl_print_stats=92:
+tunnel.c:211:13: error: =91buff=92 undeclared (first use in this functi=
+on)
+   if (sscanf(buff, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
+              ^
+tunnel.c:211:13: note: each undeclared identifier is reported only once=
+ for each function it appears in
+make[1]: *** [tunnel.o] Error 1
+make[1]: *** Waiting for unfinished jobs....
+make: *** [all] Error 2
