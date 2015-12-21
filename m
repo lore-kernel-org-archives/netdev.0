@@ -1,35 +1,44 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH] Adding Reset resume support for CDC-EEM driver.
-Date: Mon, 21 Dec 2015 10:56:04 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1512211053330.22031-100000@netrider.rowland.org>
-References: <1450699731-4666-1-git-send-email-vikas.bansal@samsung.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: tcp: deal with listen sockets properly in
+ tcp_abort.
+Date: Mon, 21 Dec 2015 11:20:53 -0500
+Message-ID: <1450714853.8474.124.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450710224-91722-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: oneukum@suse.de, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<sumit.batra@samsung.com>
-To: Vikas Bansal <vikas.bansal@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450699731-4666-1-git-send-email-vikas.bansal@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, tom@herbertland.com
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:36562 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751199AbbLUQU4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 11:20:56 -0500
+Received: by mail-qg0-f42.google.com with SMTP id c96so89744717qgd.3
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 08:20:56 -0800 (PST)
+In-Reply-To: <1450710224-91722-1-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Dec 2015, Vikas Bansal wrote:
-
-> Pre-Condition
-> At the time of reset resume of a USB device, both self and bus powered devices might go to a low power state or power off state depending on the acceptable suspend time power of the system.    
-> In case the device experiences a power glitch or completely powers off during suspend-resume, the device will lose its internal state and hence it'll again need a set interface from class driver on reset resume operation.
+On Tue, 2015-12-22 at 00:03 +0900, Lorenzo Colitti wrote:
+> When closing a listen socket, tcp_abort currently calls
+> tcp_done without clearing the request queue. If the socket has a
+> child socket that is established but not yet accepted, the child
+> socket is then left without a parent, causing a leak.
 > 
-> Issue 
-> So far our experiments were based on a USB gadget working on cdc_eem protocol. 
-> We have seen that device is unable to continue the packet transfer on bulk endpoints after the reset resume operation.
+> Fix this by setting the socket state to TCP_CLOSE and calling
+> inet_csk_listen_stop with the socket lock held, like tcp_close
+> does.
 > 
-> Solution
-> We have added a .reset_resume function for cdc_eem protocol which sends a set interface command on the Control endpoint. And calls the existing usbnet_resume thereafter
+> Tested using net_test. With this patch, calling SOCK_DESTROY on a
+> listen socket that has an established but not yet accepted child
+> socket results in the parent and the child being closed, such
+> that they no longer appear in sock_diag dumps.
+> 
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> ---
 
-You know, the USB core already issues a Set-Interface request on the
-control endpoint whenever a reset-resume occurs (unless the interface
-was using altsetting 0 beforehand).  Issuing another Set-Interface
-shouldn't make any difference.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Alan Stern
+Thanks !
