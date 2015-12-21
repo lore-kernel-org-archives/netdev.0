@@ -1,58 +1,44 @@
-From: Hanjun Guo <guohanjun@huawei.com>
-Subject: Re: [PATCH net] net:sysctl fix the confusing corner of tcp_mem
-Date: Mon, 21 Dec 2015 09:02:20 +0800
-Message-ID: <56774F9C.4070303@huawei.com>
-References: <1449626509-3736-1-git-send-email-wangyufen@huawei.com> <877fknbms6.fsf@x220.int.ebiederm.org>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V2 1/4] net/mlx5e: Do not modify the TX SKB
+Date: Mon, 21 Dec 2015 07:05:05 +0200
+Message-ID: <CAJ3xEMiPYAFmKfF7_QJoOy++7y3FqNCWd7zzDz7xe5xdtvVXgQ@mail.gmail.com>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+	<1450647991-13736-2-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<zhangdianfang@huawei.com>, <dingtianhong@huawei.com>,
-	<huxinwei@huawei.com>, Eric Dumazet <eric.dumazet@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Wang Yufen <wangyufen@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:62735 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbbLUBCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2015 20:02:39 -0500
-In-Reply-To: <877fknbms6.fsf@x220.int.ebiederm.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35197 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750761AbbLUFFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 00:05:06 -0500
+Received: by mail-ig0-f182.google.com with SMTP id to4so29638638igc.0
+        for <netdev@vger.kernel.org>; Sun, 20 Dec 2015 21:05:05 -0800 (PST)
+In-Reply-To: <1450647991-13736-2-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-
-On 2015/12/10 0:38, Eric W. Biederman wrote:
-> Wang Yufen <wangyufen@huawei.com> writes:
+On Sun, Dec 20, 2015 at 11:46 PM, Saeed Mahameed wrote:
+> From: Achiad Shochat <achiad@mellanox.com>
 >
->> From: Yufen Wang <wangyufen@huawei.com>
->>
->> I tried on linux-4.1:
->>     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
->>     8388608	12582912	16777216
->>     linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
->>     -bash: echo: write error: Invalid argument
->>     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
->>     1234	12582912	16777216
->>
->> the echo operation got error, but value already written to tcp_mem.
->> If a write() returns an error like EINVAL, we expect no change occurred.
->> This patch fix the confusing corner and makes __do_proc_doulongvec_minmax 
->> works the same as __do_proc_dointvec
-> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
->
-> Except for possibly breaking your muscle memory this does not explain
-> why this is a problem.
+> If the SKB is cloned, or has an elevated users count, someone else
+> can be looking at it at the same time.
 
-I think it's really confusing that we got write error but actually the
-value echoed is written properly, at least we need to fix it and make
-the result match the behavior, right?
+>  drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 +-
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    5 +-
+>  drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   73 ++++++++++++---------
+>  3 files changed, 49 insertions(+), 34 deletions(-)
 
->
-> Further you are changing a whole lot more than tcp_mem, without a word
-> of justification in your description.
+Guys, can this can be made in a manner which is lighter w.r.t data
+path changes? lets make sure we do things (1) right and (2) efficient
 
-I agree, we can update the change log.
-
-Thanks
-Hanjun
+Or.
