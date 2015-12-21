@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
 Subject: Re: [PATCH 07/14] batman-adv: use list_for_each_entry_safe
 Date: Mon, 21 Dec 2015 22:42:39 +0800
-Message-ID: <56780FDF.10204__39300.8690014996$1450710355$gmane$org@unstable.cc>
+Message-ID: <56780FDF.10204__29307.9068222598$1450710372$gmane$org@unstable.cc>
 References: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
  <b01d3ee936833e94fffa53f7a82fc46e20d877c1.1450451516.git.geliangtang@163.com>
 Mime-Version: 1.0
@@ -14,14 +14,10 @@ Cc: Marek Lindner <mareklindner@neomailbox.ch>,
 	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Geliang Tang <geliangtang@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:15902 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750984AbbLUPFb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Dec 2015 10:05:31 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <b01d3ee936833e94fffa53f7a82fc46e20d877c1.1450451516.git.geliangtang@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
 --6X948h2CMWjxusk3cplXFHpJDsWael4Ev
