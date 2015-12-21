@@ -1,64 +1,69 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: net, ipv6: out of bounds access in secret_stable
-Date: Mon, 21 Dec 2015 09:58:31 +0100
-Message-ID: <5677BF37.1080500@stressinduktion.org>
-References: <5674AF3B.6030903@oracle.com>
- <CAHA+R7MRM3io3uAzJmjFBNj6-MtKJ67kxKqiH8TZM-jjJvzmcg@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS)
+ support
+Date: Mon, 21 Dec 2015 10:15:09 +0100
+Message-ID: <20151221091509.GA2297@localhost.localdomain>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+ <1450647991-13736-4-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7MRM3io3uAzJmjFBNj6-MtKJ67kxKqiH8TZM-jjJvzmcg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>, saeedm@dev.mellanox.co.il
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35400 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751424AbbLUJPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 04:15:14 -0500
+Received: by mail-wm0-f44.google.com with SMTP id l126so60236598wml.0
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 01:15:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1450647991-13736-4-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19.12.2015 21:50, Cong Wang wrote:
-> On Fri, Dec 18, 2015 at 5:13 PM, Sasha Levin <sasha.levin@oracle.com> wrote:
->> Hi Hannes,
->>
->> I've hit the following out of bounds access while fuzzing on the latest -next kernel.
->>
->> This code was added in 3d1bec9932 ("ipv6: introduce secret_stable to ipv6_devconf").
->>
->> [  459.553655] BUG: KASAN: stack-out-of-bounds in strlen+0x58/0x90 at addr ffff8802ab0efb0e
->> [  459.554953] Read of size 1 by task trinity-c91/22576
->> [  459.555805] page:ffffea000aac3bc0 count:0 mapcount:0 mapping:          (null) index:0x0
->> [  459.556899] flags: 0x26fffff80000000()
->> [  459.557521] page dumped because: kasan: bad access detected
->> [  459.558320] CPU: 7 PID: 22576 Comm: trinity-c91 Not tainted 4.4.0-rc5-next-20151218-sasha-00021-gaba8d84-dirty #2750
->> [  459.559809]  0000000000000000 00000000549d0aa3 ffff8802ab0ef860 ffffffffa1042384
->> [  459.561036]  0000000041b58ab3 ffffffffac667cdb ffffffffa10422d9 ffff8802ab0ef848
->> [  459.562245]  ffffffff9f6a417e 00000000549d0aa3 ffff8802ab0efb0e ffff8802ab0efb0e
->> [  459.563429] Call Trace:
->> [  459.563831] dump_stack (lib/dump_stack.c:52)
->> [  459.564623] ? _atomic_dec_and_lock (lib/dump_stack.c:27)
->> [  459.565628] ? __dump_page (mm/debug.c:126)
->> [  459.566538] kasan_report_error (include/linux/kasan.h:28 mm/kasan/report.c:170 mm/kasan/report.c:237)
->> [  459.570997] __asan_report_load1_noabort (mm/kasan/report.c:277)
->> [  459.572119] ? check_preemption_disabled (lib/smp_processor_id.c:39)
->> [  459.573731] ? strlen (lib/string.c:481 (discriminator 1))
->> [  459.574646] strlen (lib/string.c:481 (discriminator 1))
->> [  459.575485] proc_dostring (kernel/sysctl.c:1825 kernel/sysctl.c:1906)
->> [  459.576445] ? alloc_debug_processing (mm/slub.c:1054)
->> [  459.577523] addrconf_sysctl_stable_secret (net/ipv6/addrconf.c:5395)
-> 
-> Looks like we don't initialize the array on stack for write case.
-> At least other callers always initialize the data for both read
-> and write.
-> 
-> Please try the attached patch.
+On Sun, Dec 20, 2015 at 11:46:30PM +0200, Saeed Mahameed wrote:
+> +/* Should run once every mlx5e_tstamp->overflow_period */
+> +static void mlx5e_timestamp_overflow(struct work_struct *work)
+> +{
+> +	struct delayed_work *dwork = to_delayed_work(work);
+> +	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp, overflow_work);
+> +	unsigned long flags;
+> +
+> +	write_lock_irqsave(&tstamp->lock, flags);
+> +	timecounter_read(&tstamp->clock);
+> +	if (tstamp->overflow_period)
+> +		schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
 
-Your patch is right. I am surprised you need to initialize the buffer
-passed down to proc_dostring so that strlen can correctly operate on it,
-but f4aacea2f5d1a5 ("sysctl: allow for strict write position handling")
-explains why. Can you submit formally?
+You don't need this test, and the call to schedule_delayed_work can be
+outside of the lock.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> +	write_unlock_irqrestore(&tstamp->lock, flags);
+> +}
+
+> +void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
+> +{
+> +	struct mlx5e_tstamp *tstamp = &priv->tstamp;
+> +
+> +	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
+> +		return;
+> +
+> +	write_lock(&tstamp->lock);
+> +	tstamp->overflow_period = 0; /* Signal overflow_check to stop */
+> +	write_unlock(&tstamp->lock);
+
+This is unnecessary because
+
+> +
+> +	cancel_delayed_work_sync(&tstamp->overflow_work);
+
+this will block until the work is cancelled.
+
+> +}
 
 Thanks,
-Hannes
+Richard
