@@ -1,47 +1,54 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS)
- support
-Date: Mon, 21 Dec 2015 19:35:08 +0100
-Message-ID: <20151221183508.GA13533@localhost.localdomain>
-References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
- <1450647991-13736-4-git-send-email-saeedm@mellanox.com>
- <20151221091509.GA2297@localhost.localdomain>
- <CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] addrconf: always initialize sysctl table data
+Date: Mon, 21 Dec 2015 10:55:45 -0800
+Message-ID: <1450724145-4777-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: sasha.levin@oracle.com, hannes@stressinduktion.org,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:34500 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870AbbLUSfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 13:35:15 -0500
-Received: by mail-wm0-f42.google.com with SMTP id l126so80131723wml.1
-        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 10:35:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35118 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750870AbbLUS4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 13:56:02 -0500
+Received: by mail-pf0-f176.google.com with SMTP id 78so19891780pfw.2
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 10:56:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 21, 2015 at 04:35:23PM +0200, Saeed Mahameed wrote:
-> think of a case where:
-> CPU1: is just about to call
-> "schedule_delayed_work(&tstamp->overflow_work,
-> tstamp->overflow_period);"
-> CPU2: cancel_delayed_work
-> 
-> In this case cancel_dalyed_work_sync (CPU2) will wait for CPU1 to
-> complete but CPU1 will re-arm the work, and we will
-> be left with tstamp->overflow_work running forever.
+When sysctl performs restrict writes, it allows to write from
+a middle position of a sysctl file, which requires us to initialize
+the table data before calling proc_dostring() for the write case.
 
-This is my understanding:  Once the work becomes re-queued, it will be
-canceled before running again.
+Fixes: 3d1bec99320d ("ipv6: introduce secret_stable to ipv6_devconf")
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Tested-by: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv6/addrconf.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
-Thanks,
-Richard
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 17f8e7e..1f21087 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5369,13 +5369,10 @@ static int addrconf_sysctl_stable_secret(struct ctl_table *ctl, int write,
+ 		goto out;
+ 	}
+ 
+-	if (!write) {
+-		err = snprintf(str, sizeof(str), "%pI6",
+-			       &secret->secret);
+-		if (err >= sizeof(str)) {
+-			err = -EIO;
+-			goto out;
+-		}
++	err = snprintf(str, sizeof(str), "%pI6", &secret->secret);
++	if (err >= sizeof(str)) {
++		err = -EIO;
++		goto out;
+ 	}
+ 
+ 	err = proc_dostring(&lctl, write, buffer, lenp, ppos);
+-- 
+1.8.3.1
