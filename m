@@ -1,37 +1,29 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 5/5] cxgb4: Use napi_complete_done() api in napi handler
-Date: Mon, 21 Dec 2015 12:46:10 +0530
-Message-ID: <1450682170-7106-6-git-send-email-hariprasad@chelsio.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 3/5] cxgb4: add dcb info node in debugfs
+Date: Mon, 21 Dec 2015 09:33:22 +0200
+Message-ID: <CAJ3xEMjctGauyRjCKLV+wACkzDC5xF8J9khdhCm+YZXuEafU5Q@mail.gmail.com>
 References: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+	<1450682170-7106-4-git-send-email-hariprasad@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, leedom@chelsio.com,
+	nirranjan@chelsio.com, John Fastabend <john.r.fastabend@intel.com>
+To: Hariprasad Shenai <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:39269 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751246AbbLUHPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:15:04 -0500
-In-Reply-To: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:33380 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbbLUHdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:33:23 -0500
+Received: by mail-ig0-f177.google.com with SMTP id mv3so26088343igc.0
+        for <netdev@vger.kernel.org>; Sun, 20 Dec 2015 23:33:23 -0800 (PST)
+In-Reply-To: <1450682170-7106-4-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/sge.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Mon, Dec 21, 2015 at 9:16 AM, Hariprasad Shenai
+<hariprasad@chelsio.com> wrote:
+> Add new /sys/kernel/debug/cxgb4/*/dcb_info node to dump out
+> various Data Center Bridging information.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 138be46..5e3ffa7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2288,7 +2288,7 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- 	if (likely(work_done < budget)) {
- 		int timer_index;
- 
--		napi_complete(napi);
-+		napi_complete_done(napi, work_done);
- 		timer_index = QINTR_TIMER_IDX_G(q->next_intr_params);
- 
- 		if (q->adaptive_rx) {
--- 
-2.3.4
+why? what's wrong with using the lldp tool for that purpose?
