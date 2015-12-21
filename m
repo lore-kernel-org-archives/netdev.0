@@ -1,7 +1,7 @@
 From: Vikas Bansal <vikas.bansal@samsung.com>
-Subject: [PATCH] BugFix in XHCI controller driver for scatter gather DMA
-Date: Mon, 21 Dec 2015 17:34:54 +0530
-Message-ID: <1450699494-4598-1-git-send-email-vikas.bansal@samsung.com>
+Subject: [PATCH] Adding Reset resume support for CDC-EEM driver.
+Date: Mon, 21 Dec 2015 17:38:51 +0530
+Message-ID: <1450699731-4666-1-git-send-email-vikas.bansal@samsung.com>
 Cc: sumit.batra@samsung.com, Vikas Bansal <vikas.bansal@samsung.com>
 To: oneukum@suse.de, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
 	linux-kernel@vger.kernel.org
