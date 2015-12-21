@@ -1,64 +1,88 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: sctp should release assoc when
- sctp_make_abort_user return NULL in sctp_close
-Date: Mon, 21 Dec 2015 11:45:41 -0200
-Message-ID: <56780285.3040007@gmail.com>
-References: <48cc5cc3af81404dffc6121f075c05e6b8c5171c.1450362652.git.lucien.xin@gmail.com>
- <5672FF06.2030803@gmail.com> <5673067B.6080001@gmail.com>
- <56730E1F.2090003@gmail.com> <5674136E.6050104@gmail.com>
- <20151218162357.GB5050@mrl.redhat.com>
- <CADvbK_fWOErVv6EM5R5jstZSXscqK_-K+wvTLdb4DYv6+MTuSg@mail.gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS) support
+Date: Mon, 21 Dec 2015 16:35:23 +0200
+Message-ID: <CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+	<1450647991-13736-4-git-send-email-saeedm@mellanox.com>
+	<20151221091509.GA2297@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
-	davem <davem@davemloft.net>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36189 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbbLUNps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 08:45:48 -0500
-In-Reply-To: <CADvbK_fWOErVv6EM5R5jstZSXscqK_-K+wvTLdb4DYv6+MTuSg@mail.gmail.com>
+Received: from mail-yk0-f182.google.com ([209.85.160.182]:34819 "EHLO
+	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbbLUOfY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 09:35:24 -0500
+Received: by mail-yk0-f182.google.com with SMTP id v6so131878926ykc.2
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 06:35:24 -0800 (PST)
+In-Reply-To: <20151221091509.GA2297@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 21-12-2015 07:56, Xin Long escreveu:
-> On Sat, Dec 19, 2015 at 12:23 AM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
->> On Fri, Dec 18, 2015 at 09:08:46AM -0500, Vlad Yasevich wrote:
->>> On 12/17/2015 02:33 PM, Vlad Yasevich wrote:
->>>> On 12/17/2015 02:01 PM, Marcelo Ricardo Leitner wrote:
->> ...
->>>>> There is a check on sctp_cmd_delete_tcb() that avoids calling that on temp assocs on
->>>>> listening sockets, but that condition is false due to the check on sk_shutdown so it will
->>>>> call those two functions anyway.
->>>>
->>>> The condition I am a bit concerned about is one thread waiting in sctp_wait_for_sndbuf
->>>> while another does an abort.
->>>>
->>>> I think this is OK though.  I need to look a bit more...
->>>
->>> I think the only time this ends up biting us is if SO_SNDTIMEO was used and we ran out
->>> of send buffer.  It looks to me like schedule_timeout() will wait until timer expired and
->>> depending on the timer value, you could wait quite a while.
->>>
->>> With this path, since you don't transition state, the asoc->wait wait queue is never
->>> notified and it could be hanging around for quite a while.
+On Mon, Dec 21, 2015 at 11:15 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Sun, Dec 20, 2015 at 11:46:30PM +0200, Saeed Mahameed wrote:
+>> +/* Should run once every mlx5e_tstamp->overflow_period */
+>> +static void mlx5e_timestamp_overflow(struct work_struct *work)
+>> +{
+>> +     struct delayed_work *dwork = to_delayed_work(work);
+>> +     struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp, overflow_work);
+>> +     unsigned long flags;
+>> +
+>> +     write_lock_irqsave(&tstamp->lock, flags);
+>> +     timecounter_read(&tstamp->clock);
+>> +     if (tstamp->overflow_period)
+>> +             schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
 >
-> do you think it makes sense if we have this condition judgment there ?
->          if (waitqueue_active(&asoc->wait))
->              wake_up_interruptible(&asoc->wait);
+> You don't need this test, and the call to schedule_delayed_work can be
+> outside of the lock.
+>
 
-No, because later if there is something else like this that we need to 
-handle on this situation, we will have to update both places and we may 
-forget to update one of them. It's better to just skip the packet 
-transmission/CMD_REPLY if chunk is NULL and let rest execute, as Vlad 
-suggested.
+think of a case where:
+CPU1: is just about to call
+"schedule_delayed_work(&tstamp->overflow_work,
+tstamp->overflow_period);"
+CPU2: cancel_delayed_work
 
-It will also be better for troubleshooting, as it may generate debug 
-msgs about the state transition.
+In this case cancel_dalyed_work_sync (CPU2) will wait for CPU1 to
+complete but CPU1 will re-arm the work, and we will
+be left with tstamp->overflow_work running forever.
 
-   Marcelo
+>> +     write_unlock_irqrestore(&tstamp->lock, flags);
+>> +}
+>
+>> +void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
+>> +{
+>> +     struct mlx5e_tstamp *tstamp = &priv->tstamp;
+>> +
+>> +     if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
+>> +             return;
+>> +
+>> +     write_lock(&tstamp->lock);
+>> +     tstamp->overflow_period = 0; /* Signal overflow_check to stop */
+>> +     write_unlock(&tstamp->lock);
+>
+> This is unnecessary because
+>
+>> +
+>> +     cancel_delayed_work_sync(&tstamp->overflow_work);
+>
+> this will block until the work is cancelled.
+>
+see my previous comment it sure will block but without the protected
+signal " tstamp->overflow_period = 0;"
+the work can reschedule itself.
+
+>> +}
+>
+> Thanks,
+> Richard
+>
+>
