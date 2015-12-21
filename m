@@ -1,58 +1,46 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] wlcore: consolidate kmalloc + memset 0 into kzalloc
-Date: Mon, 21 Dec 2015 17:47:44 +0100
-Message-ID: <1450716464-20759-1-git-send-email-hofrat@osadl.org>
-Cc: Eliad Peller <eliad@wizery.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Arik Nemtsov <arik@wizery.com>,
-	Tony Lindgren <tony@atomide.com>,
-	Luciano Coelho <luca@coelho.fi>,
-	Eyal Reizer <eyalreizer@gmail.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net] switchdev: bridge: Pass ageing time as clock_t
+ instead of jiffies
+Date: Mon, 21 Dec 2015 18:50:38 +0200
+Message-ID: <20151221165021.GA22302@colbert.mtl.com>
+References: <1450688161-4792-1-git-send-email-jiri@resnulli.us>
+ <5678206F.8050104@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <eladr@mellanox.com>, <yotamg@mellanox.com>,
+	<stephen@networkplumber.org>, Jiri Pirko <jiri@mellanox.com>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0093.outbound.protection.outlook.com ([157.55.234.93]:7084
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751314AbbLURHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Dec 2015 12:07:04 -0500
+Content-Disposition: inline
+In-Reply-To: <5678206F.8050104@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an API consolidation only. The use of kmalloc + memset to 0
-is equivalent to kzalloc.
+Mon, Dec 21, 2015 at 05:53:19PM IST, dsahern@gmail.com wrote:
+>On 12/21/15 3:56 AM, Jiri Pirko wrote:
+>> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+>> index 5396ff08..12045de 100644
+>> --- a/net/bridge/br_stp_if.c
+>> +++ b/net/bridge/br_stp_if.c
+>> @@ -39,7 +39,7 @@ void br_init_port(struct net_bridge_port *p)
+>>   	struct switchdev_attr attr = {
+>>   		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+>>   		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
+>> -		.u.ageing_time = p->br->ageing_time,
+>> +		.u.ageing_time = jiffies_to_clock_t(p->br->ageing_time),
+>>   	};
+>>   	int err;
+>
+>
+>ageing_time is a u32; clock_t is a long.
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
+Hi,
 
-Found by coccinelle script (relaxed version of
-scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
-
-Patch was compile tested with: x86_64_defconfig +
-CONFIG_WL12XX=m (implies CONFIG_WLCORE=m)
-
-Patch is against linux-next (localversion-next is -next-20151221)
-
- drivers/net/wireless/ti/wlcore/main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-index ec7f6af..dfc49bf 100644
---- a/drivers/net/wireless/ti/wlcore/main.c
-+++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -838,7 +838,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
- 
- 	wl1271_info("Reading FW panic log");
- 
--	block = kmalloc(wl->fw_mem_block_size, GFP_KERNEL);
-+	block = kzalloc(wl->fw_mem_block_size, GFP_KERNEL);
- 	if (!block)
- 		return;
- 
-@@ -885,7 +885,6 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
- 			goto out;
- 		}
- 
--		memset(block, 0, wl->fw_mem_block_size);
- 		ret = wlcore_read_hwaddr(wl, addr, block,
- 					wl->fw_mem_block_size, false);
- 
--- 
-2.1.4
+p->br->ageing_time is set in br_set_ageing_time, where it's converted to
+jiffies from clock_t, that is treated as u32.
