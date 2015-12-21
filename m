@@ -1,88 +1,55 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS) support
-Date: Mon, 21 Dec 2015 16:35:23 +0200
-Message-ID: <CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
-References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
-	<1450647991-13736-4-git-send-email-saeedm@mellanox.com>
-	<20151221091509.GA2297@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Richard Cochran <richardcochran@gmail.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH] net: tcp: deal with listen sockets properly in tcp_abort.
+Date: Tue, 22 Dec 2015 00:03:44 +0900
+Message-ID: <1450710224-91722-1-git-send-email-lorenzo@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, tom@herbertland.com,
+	Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:34819 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbbLUOfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 09:35:24 -0500
-Received: by mail-yk0-f182.google.com with SMTP id v6so131878926ykc.2
-        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 06:35:24 -0800 (PST)
-In-Reply-To: <20151221091509.GA2297@localhost.localdomain>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34236 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbbLUPD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 10:03:56 -0500
+Received: by mail-pf0-f172.google.com with SMTP id u7so43520769pfb.1
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 07:03:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 21, 2015 at 11:15 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Sun, Dec 20, 2015 at 11:46:30PM +0200, Saeed Mahameed wrote:
->> +/* Should run once every mlx5e_tstamp->overflow_period */
->> +static void mlx5e_timestamp_overflow(struct work_struct *work)
->> +{
->> +     struct delayed_work *dwork = to_delayed_work(work);
->> +     struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp, overflow_work);
->> +     unsigned long flags;
->> +
->> +     write_lock_irqsave(&tstamp->lock, flags);
->> +     timecounter_read(&tstamp->clock);
->> +     if (tstamp->overflow_period)
->> +             schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
->
-> You don't need this test, and the call to schedule_delayed_work can be
-> outside of the lock.
->
+When closing a listen socket, tcp_abort currently calls
+tcp_done without clearing the request queue. If the socket has a
+child socket that is established but not yet accepted, the child
+socket is then left without a parent, causing a leak.
 
-think of a case where:
-CPU1: is just about to call
-"schedule_delayed_work(&tstamp->overflow_work,
-tstamp->overflow_period);"
-CPU2: cancel_delayed_work
+Fix this by setting the socket state to TCP_CLOSE and calling
+inet_csk_listen_stop with the socket lock held, like tcp_close
+does.
 
-In this case cancel_dalyed_work_sync (CPU2) will wait for CPU1 to
-complete but CPU1 will re-arm the work, and we will
-be left with tstamp->overflow_work running forever.
+Tested using net_test. With this patch, calling SOCK_DESTROY on a
+listen socket that has an established but not yet accepted child
+socket results in the parent and the child being closed, such
+that they no longer appear in sock_diag dumps.
 
->> +     write_unlock_irqrestore(&tstamp->lock, flags);
->> +}
->
->> +void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
->> +{
->> +     struct mlx5e_tstamp *tstamp = &priv->tstamp;
->> +
->> +     if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
->> +             return;
->> +
->> +     write_lock(&tstamp->lock);
->> +     tstamp->overflow_period = 0; /* Signal overflow_check to stop */
->> +     write_unlock(&tstamp->lock);
->
-> This is unnecessary because
->
->> +
->> +     cancel_delayed_work_sync(&tstamp->overflow_work);
->
-> this will block until the work is cancelled.
->
-see my previous comment it sure will block but without the protected
-signal " tstamp->overflow_period = 0;"
-the work can reschedule itself.
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ net/ipv4/tcp.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
->> +}
->
-> Thanks,
-> Richard
->
->
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index cc7aaa5..7bb1b09 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3099,6 +3099,11 @@ int tcp_abort(struct sock *sk, int err)
+ 	/* Don't race with userspace socket closes such as tcp_close. */
+ 	lock_sock(sk);
+ 
++	if (sk->sk_state == TCP_LISTEN) {
++		tcp_set_state(sk, TCP_CLOSE);
++		inet_csk_listen_stop(sk);
++	}
++
+ 	/* Don't race with BH socket closes such as inet_csk_listen_stop. */
+ 	local_bh_disable();
+ 	bh_lock_sock(sk);
+-- 
+2.6.0.rc2.230.g3dd15c0
