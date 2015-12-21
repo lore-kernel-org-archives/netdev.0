@@ -1,76 +1,52 @@
-From: Karl Krach <ml@kkrach.de>
-Subject: TUN works when SRC != own IP
-Date: Mon, 21 Dec 2015 18:44:16 +0100
-Message-ID: <56783A70.6020308@kkrach.de>
+From: Jeff Haran <Jeff.Haran@citrix.com>
+Subject: RE: Does the Community use Coverity ?
+Date: Mon, 21 Dec 2015 18:22:03 +0000
+Message-ID: <4E5779AD88B2F040B8A7E83ECF544D1A64AADA@SJCPEX01CL03.citrite.net>
+References: <CAMf7+LiLgPcNSMOGhV=i=6FV5VwrM0VNXpSmPci7xU9EBc0Sgg@mail.gmail.com>
+	<4E5779AD88B2F040B8A7E83ECF544D1A64A4CF@SJCPEX01CL03.citrite.net>
+ <CAMf7+Li74m2_nZru3kfwJZ5G9r7W69pwkarHbccs1xw-G8ZjnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.mail.vrmd.de ([81.28.224.28]:38258 "EHLO
-	relay2.mail.vrmd.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965AbbLUR7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 12:59:23 -0500
-Received: from [62.245.205.51] (helo=[172.16.11.137])
-	by relay2.mail.vrmd.de with esmtpsa (TLS1.0:DHE_RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82.1)
-	(envelope-from <ml@kkrach.de>)
-	id 1aB4VM-00017L-Qy
-	for netdev@vger.kernel.org; Mon, 21 Dec 2015 18:44:16 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kernelnewbies@kernelnewbies.org" <kernelnewbies@kernelnewbies.org>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: pavi1729 <pavitra1729@gmail.com>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <CAMf7+Li74m2_nZru3kfwJZ5G9r7W69pwkarHbccs1xw-G8ZjnA@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-mmc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-I have to forward IP-packets from an FPGA via network. For this I use 
-packet_mmap / PACKET_TX_RING for destinations within the ARP cache and 
-the TUN interface for all others (incl. packets to my own device).
-
-When I send these foreign packets (ip4h->saddr != device address) via 
-TUN device, they are forwarded to the appropriate interface eth1 
-correctly. But when I want to send packets from the own device 
-(ip4h->saddr == device address) they get lost between tunX and ethX.
-
-I use the following to setup the system (Linux 4.0.0, PowerPC TQMP2020):
-
-# openvpn --mktun --dev tun16
-# ip link set tun16 up
-# ip rule add iif tun16 table 50
-# ip route add 0/0 dev eth1 table 50
-
-and this program (https://github.com/kkrach/tuncom) to test the data 
-transfer over TUN. When I use "1.1.1.1" as source address, everything 
-works fine. But when I use the device's IP (192.168.32.60) the packets 
-can be seen on the TUN interface (tcpdump -i tun16) but not on the 
-network interface (tcpdump -i eth1).
-
-Can't I use TUN for this purpose - or is my setup somehow wrong?
-
-
-
-
-
-I ve figured out, that when I remove the rule "local 192.168.32.60 dev 
-eth1 proto kernel scope host src 192.168.32.60" from the table "local" 
-all packets (also those with the correct SRC address) are sent correctly 
-- but then the device stops to receive any.
-
-Could the problem be somewhere in my (local) rules?
-
-
-# ip route show table local
-broadcast 127.0.0.0 dev lo proto kernel  scope link  src 127.0.0.1
-local 127.0.0.0/8 dev lo proto kernel  scope host  src 127.0.0.1
-local 127.0.0.1 dev lo proto kernel  scope host  src 127.0.0.1
-broadcast 127.255.255.255 dev lo proto kernel scope link  src 127.0.0.1
-broadcast 172.16.10.0 dev eth0 proto kernel scope link src 172.16.10.12
-local 172.16.10.12 dev eth0 proto kernel scope host  src 172.16.10.12
-broadcast 172.16.11.255 dev eth0 proto kernel scope link src 172.16.10.12
-broadcast 192.168.32.0 dev eth1 proto kernel scope link src 192.168.32.60
-local 192.168.32.60 dev eth1 proto kernel scope host  src 192.168.32.60
-broadcast 192.168.32.255 dev eth1  proto kernel scope link  src 
-192.168.32.60
-#
-
-Best regards,
-Karl Krach
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBwYXZpMTcyOSBbbWFpbHRvOnBh
+dml0cmExNzI5QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIERlY2VtYmVyIDE3LCAyMDE1
+IDI6MDQgQU0NCj4gVG86IEplZmYgSGFyYW4NCj4gQ2M6IGtlcm5lbG5ld2JpZXNAa2VybmVsbmV3
+Ymllcy5vcmc7IGxpbnV4LWZzZGV2ZWxAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC1tbWNAdmdl
+ci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBEb2Vz
+IHRoZSBDb21tdW5pdHkgdXNlIENvdmVyaXR5ID8NCj4gDQo+IFNhbmtldCwgSmVmZiwNCj4gICAg
+IFRoYW5rcyBhIHRvbiwgdGhhdCB3YXMgaGVscGZ1bC4NCj4gDQo+IENoZWVycywNCj4gUGF2aQ0K
+DQpQYXZpLA0KDQpJIHN1Z2dlc3QgdGhhdCBpZiB5b3UgZ2V0IHRoZSBjaGFuY2UsIGNoZWNrIG91
+dCB0aGVpciBjb2RlIGJyb3dzZXIuIENsaWNrIG9uIG9uZSBvZiB0aGUgYnVncyBpbiB0aGUgTGlu
+dXggcHJvamVjdCBhbmQgdGhlbiBjbGljayB0aGUgZm9sZGVyIGljb24gYXQgdGhlIHRvcCBvZiB0
+aGUgbG93ZXIgbGVmdCBwYW5lIHRvIGdldCB0byB0aGUgc291cmNlIGNvZGUuIEl0J3MgYWJpbGl0
+eSB0byBjcm9zcyByZWZlcmVuY2UgaXMgdGhlIGJlc3Qgb3V0IHRoZXJlLiBJdCBlbGltaW5hdGVz
+IGFsbCB0aGUgZmFsc2UgcG9zaXRpdmVzIGluIGNyb3NzIHJlZmVyZW5jZSByZXN1bHRzIHRoYXQg
+eW91IGdldCBmcm9tIG1vcmUgdHJhZGl0aW9uYWwgdG9rZW4gbWF0Y2hpbmcgYmFzZWQgYnJvd3Nl
+cnMgbGlrZSBjc2NvcGUsIGN0YWdzLCBldGMuDQoNCkplZmYgSGFyYW4NCiANCj4gT24gV2VkLCBE
+ZWMgMTYsIDIwMTUgYXQgMTI6MzIgQU0sIEplZmYgSGFyYW4gPEplZmYuSGFyYW5AY2l0cml4LmNv
+bT4NCj4gd3JvdGU6DQo+ID4+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj5Gcm9tOiBr
+ZXJuZWxuZXdiaWVzLQ0KPiBib3VuY2VzK2poYXJhbj1ieXRlbW9iaWxlLmNvbUBrZXJuZWxuZXdi
+aWVzLm9yZw0KPiA+PlttYWlsdG86a2VybmVsbmV3Ymllcy0NCj4gPj5ib3VuY2VzK2poYXJhbj1i
+eXRlbW9iaWxlLmNvbUBrZXJuZWxuZXdiaWVzLm9yZ10gT24gQmVoYWxmIE9mDQo+ID4+cGF2aTE3
+MjkNCj4gPj5TZW50OiBNb25kYXksIERlY2VtYmVyIDE0LCAyMDE1IDExOjAzIFBNDQo+ID4+VG86
+IGtlcm5lbG5ld2JpZXNAa2VybmVsbmV3Ymllcy5vcmc7IGxpbnV4LWZzZGV2ZWxAdmdlci5rZXJu
+ZWwub3JnOw0KPiA+PmxpbnV4LSBtbWNAdmdlci5rZXJuZWwub3JnOyBsaW51eC1uZXRkZXZAdmdl
+ci5rZXJuZWwub3JnDQo+ID4+U3ViamVjdDogRG9lcyB0aGUgQ29tbXVuaXR5IHVzZSBDb3Zlcml0
+eSA/DQo+ID4+DQo+ID4+SGksDQo+ID4+ICBNYXkgSSBrbm93IGlmIHRoZSBjb21tdW5pdHkgdXNl
+cyB0aGUgQ292ZXJpdHkgdG9vbCBhbmQsIGlmIHllcyB3aGVyZQ0KPiA+PmNhbiBJIGZpbmQgYSBy
+ZXBvIG9mIENvdmVyaXR5IHNjYW5zIG9mIGtlcm5lbHMgYW5kIElHTk9SRSBMSVNUOyBjYXVzZQ0K
+PiA+PnRoZXJlIG9idmlvdXNseSB3b3VsZCBiZSBmYWxzZSBwb3NpdGl2ZXMuDQo+ID4+DQo+ID4+
+Q2hlZXJzLA0KPiA+PlBhdmkNCj4gPg0KPiA+IGh0dHBzOi8vc2Nhbi5jb3Zlcml0eS5jb20vDQo+
+ID4NCj4gPiBTaWduIHVwIGZvciBhbiBhY2NvdW50IGFuZCBqb2luIHRoZSBMaW51eCBwcm9qZWN0
+Lg0KPiA+DQo+ID4gSmVmZiBIYXJhbg0KPiA+DQo=
