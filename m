@@ -1,72 +1,58 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 0/4] Introduce mlx5 ethernet timestamping
-Date: Sun, 20 Dec 2015 23:46:27 +0200
-Message-ID: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Hanjun Guo <guohanjun@huawei.com>
+Subject: Re: [PATCH net] net:sysctl fix the confusing corner of tcp_mem
+Date: Mon, 21 Dec 2015 09:02:20 +0800
+Message-ID: <56774F9C.4070303@huawei.com>
+References: <1449626509-3736-1-git-send-email-wangyufen@huawei.com> <877fknbms6.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<zhangdianfang@huawei.com>, <dingtianhong@huawei.com>,
+	<huxinwei@huawei.com>, Eric Dumazet <eric.dumazet@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Wang Yufen <wangyufen@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:60475 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751046AbbLTVq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2015 16:46:58 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:62735 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbbLUBCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2015 20:02:39 -0500
+In-Reply-To: <877fknbms6.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hi Eric,
 
-This patch series introduces the support for ConnectX-4 timestamping
-and the PTP kernel interface.
+On 2015/12/10 0:38, Eric W. Biederman wrote:
+> Wang Yufen <wangyufen@huawei.com> writes:
+>
+>> From: Yufen Wang <wangyufen@huawei.com>
+>>
+>> I tried on linux-4.1:
+>>     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
+>>     8388608	12582912	16777216
+>>     linux:~# echo 1234 >/proc/sys/net/ipv4/tcp_mem 
+>>     -bash: echo: write error: Invalid argument
+>>     linux:~# cat /proc/sys/net/ipv4/tcp_mem 
+>>     1234	12582912	16777216
+>>
+>> the echo operation got error, but value already written to tcp_mem.
+>> If a write() returns an error like EINVAL, we expect no change occurred.
+>> This patch fix the confusing corner and makes __do_proc_doulongvec_minmax 
+>> works the same as __do_proc_dointvec
+> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>
+> Except for possibly breaking your muscle memory this does not explain
+> why this is a problem.
 
-This version addresses all the comments received on v1. The first patch
-was replaced with a one that addresses the SKB data issue and fixes it
-in the right way (By Achiad), Also Addressed all of Richard's comments
-re timestamping patches and fixed the delayed work to work in the correct delay.
+I think it's really confusing that we got write error but actually the
+value echoed is written properly, at least we need to fix it and make
+the result match the behavior, right?
 
-In details:
+>
+> Further you are changing a whole lot more than tcp_mem, without a word
+> of justification in your description.
 
-1st patch prevents the driver from modifying skb->data and SKB CB in
-device xmit function.
+I agree, we can update the change log.
 
-2nd patch adds the needed low level helpers for:
-	- Fetching the hardware clock (hardware internal timer)
-	- Parsing CQEs timestamps
-	- Device frequency capability
-
-3rd patch adds new en_clock.c file that handles all needed timestamping
-operations:
-	- Internal clock structure initialization and other helper functions
-	- Added the needed ioctl for setting/getting the current timestamping
-	  configuration.
-	- used this configuration in RX/TX data path to fill the SKB with 
-	  the timestamp.
-
-4th patch Introduces PTP (PHC) support.
-
-Achiad Shochat (1):
-  net/mlx5e: Do not modify the TX SKB
-
-Eran Ben Elisha (3):
-  net/mlx5_core: Add support for reading hardware timestamp
-  net/mlx5e: Add HW timestamping (TS) support
-  net/mlx5e: Add PTP Hardware Clock (PHC) support
-
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++-
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  238 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   33 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   82 +++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   10 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   90 +++++---
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   31 +++
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
- include/linux/mlx5/device.h                        |   20 ++-
- include/linux/mlx5/mlx5_ifc.h                      |    5 +-
- 12 files changed, 499 insertions(+), 41 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+Thanks
+Hanjun
