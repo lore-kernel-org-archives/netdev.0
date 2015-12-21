@@ -1,159 +1,64 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 -next 3/3] tcp: honour SO_BINDTODEVICE for TW_RST case too
-Date: Mon, 21 Dec 2015 21:29:26 +0100
-Message-ID: <1450729766-14926-4-git-send-email-fw@strlen.de>
+Subject: [PATCH -next 1/3] net: add inet_sk_transparent() helper
+Date: Mon, 21 Dec 2015 21:29:24 +0100
+Message-ID: <1450729766-14926-2-git-send-email-fw@strlen.de>
 References: <1450729766-14926-1-git-send-email-fw@strlen.de>
 Cc: eric.dumazet@gmail.com, Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45117 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45113 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751817AbbLUUfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 15:35:20 -0500
+	by vger.kernel.org with ESMTP id S1751523AbbLUUfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 15:35:18 -0500
 In-Reply-To: <1450729766-14926-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes points out that when we generate tcp reset for timewait sockets we
-pretend we found no socket and pass NULL sk to tcp_vX_send_reset().
+Avoids cluttering tcp_v4_send_reset when followup patch extends
+it to deal with timewait sockets.
 
-Make it cope with inet tw sockets and then provide tw sk.
-
-This makes RSTs appear on correct interface when SO_BINDTODEVICE is used.
-
-Packetdrill test case:
-// want default route to be used, we rely on BINDTODEVICE
-`ip route del 192.0.2.0/24 via 192.168.0.2 dev tun0`
-
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-// test case still works due to BINDTODEVICE
-0.001 setsockopt(3, SOL_SOCKET, SO_BINDTODEVICE, "tun0", 4) = 0
-0.100...0.200 connect(3, ..., ...) = 0
-
-0.100 > S 0:0(0) <mss 1460,sackOK,nop,nop>
-0.200 < S. 0:0(0) ack 1 win 32792 <mss 1460,sackOK,nop,nop>
-0.200 > . 1:1(0) ack 1
-
-0.210 close(3) = 0
-
-0.210 > F. 1:1(0) ack 1 win 29200
-0.300 < . 1:1(0) ack 2 win 46
-
-// more data while in FIN_WAIT2, expect RST
-1.300 < P. 1:1001(1000) ack 1 win 46
-
-// fails without this change -- default route is used
-1.301 > R 1:1(0) win 0
-
-Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Suggested-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- Changes since v1:
- follow all of Erics suggestions, namely:
-  - drop unneeded special-casing of sock_net(), it handles TW sk just fine
-  - use new inet_sk_transparent() helper to reduce clutter
-  - tcp_v6_send_response also handles TW sockets, no need to set
-  TW sk to NULL
-  - split if/else md5 change to extra patch
+ include/net/request_sock.h |  2 +-
+ include/net/tcp.h          | 12 ++++++++++++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
- net/ipv4/tcp_ipv4.c      | 12 +++++++++---
- net/ipv4/tcp_minisocks.c |  7 ++-----
- net/ipv6/tcp_ipv6.c      |  6 ++++--
- 3 files changed, 15 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index eb29c2f..fc4f726 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -627,7 +627,7 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 	net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
- #ifdef CONFIG_TCP_MD5SIG
- 	hash_location = tcp_parse_md5sig_option(th);
--	if (sk) {
-+	if (sk && sk_fullsock(sk)) {
- 		key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)
- 					&ip_hdr(skb)->saddr, AF_INET);
- 	} else if (hash_location) {
-@@ -674,7 +674,8 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 				      ip_hdr(skb)->saddr, /* XXX */
- 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
- 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
--	arg.flags = (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCCHECK : 0;
-+	arg.flags = (sk && inet_sk_transparent(sk)) ? IP_REPLY_ARG_NOSRCCHECK : 0;
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index a0dde04..f49759d 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -68,7 +68,7 @@ struct request_sock {
+ 	u32				peer_secid;
+ };
+ 
+-static inline struct request_sock *inet_reqsk(struct sock *sk)
++static inline struct request_sock *inet_reqsk(const struct sock *sk)
+ {
+ 	return (struct request_sock *)sk;
+ }
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 3077735b..f33fecf 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1620,6 +1620,18 @@ static inline void tcp_highest_sack_combine(struct sock *sk,
+ 		tcp_sk(sk)->highest_sack = new;
+ }
+ 
++/* This helper checks if socket has IP_TRANSPARENT set */
++static inline bool inet_sk_transparent(const struct sock *sk)
++{
++	switch (sk->sk_state) {
++	case TCP_TIME_WAIT:
++		return inet_twsk(sk)->tw_transparent;
++	case TCP_NEW_SYN_RECV:
++		return inet_rsk(inet_reqsk(sk))->no_srccheck;
++	}
++	return inet_sk(sk)->transparent;
++}
 +
- 	/* When socket is gone, all binding information is lost.
- 	 * routing might fail in this case. No choice here, if we choose to force
- 	 * input interface, we will misroute in case of asymmetric route.
-@@ -682,6 +683,9 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 	if (sk)
- 		arg.bound_dev_if = sk->sk_bound_dev_if;
- 
-+	BUILD_BUG_ON(offsetof(struct sock, sk_bound_dev_if) !=
-+		     offsetof(struct inet_timewait_sock, tw_bound_dev_if));
-+
- 	arg.tos = ip_hdr(skb)->tos;
- 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
- 			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
-@@ -1705,7 +1709,9 @@ do_time_wait:
- 		tcp_v4_timewait_ack(sk, skb);
- 		break;
- 	case TCP_TW_RST:
--		goto no_tcp_socket;
-+		tcp_v4_send_reset(sk, skb);
-+		inet_twsk_deschedule_put(inet_twsk(sk));
-+		goto discard_it;
- 	case TCP_TW_SUCCESS:;
- 	}
- 	goto discard_it;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index ac6b196..75632a9 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -131,7 +131,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 			goto kill;
- 
- 		if (th->syn && !before(TCP_SKB_CB(skb)->seq, tcptw->tw_rcv_nxt))
--			goto kill_with_rst;
-+			return TCP_TW_RST;
- 
- 		/* Dup ACK? */
- 		if (!th->ack ||
-@@ -145,11 +145,8 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 		 * reset.
- 		 */
- 		if (!th->fin ||
--		    TCP_SKB_CB(skb)->end_seq != tcptw->tw_rcv_nxt + 1) {
--kill_with_rst:
--			inet_twsk_deschedule_put(tw);
-+		    TCP_SKB_CB(skb)->end_seq != tcptw->tw_rcv_nxt + 1)
- 			return TCP_TW_RST;
--		}
- 
- 		/* FIN arrived, enter true time-wait state. */
- 		tw->tw_substate	  = TCP_TIME_WAIT;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 32fa0de..9ecb012 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -854,7 +854,7 @@ static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	hash_location = tcp_parse_md5sig_option(th);
--	if (sk) {
-+	if (sk && sk_fullsock(sk)) {
- 		key = tcp_v6_md5_do_lookup(sk, &ipv6h->saddr);
- 	} else if (hash_location) {
- 		/*
-@@ -1516,7 +1516,9 @@ do_time_wait:
- 		break;
- 	case TCP_TW_RST:
- 		tcp_v6_restore_cb(skb);
--		goto no_tcp_socket;
-+		tcp_v6_send_reset(sk, skb);
-+		inet_twsk_deschedule_put(inet_twsk(sk));
-+		goto discard_it;
- 	case TCP_TW_SUCCESS:
- 		;
- 	}
+ /* Determines whether this is a thin stream (which may suffer from
+  * increased latency). Used to trigger latency-reducing mechanisms.
+  */
 -- 
 2.4.10
