@@ -1,310 +1,302 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/5] cxgb4: get naming correct for iscsi queues
-Date: Mon, 21 Dec 2015 12:46:07 +0530
-Message-ID: <1450682170-7106-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/5] cxgb4: add dcb info node in debugfs
+Date: Mon, 21 Dec 2015 12:46:08 +0530
+Message-ID: <1450682170-7106-4-git-send-email-hariprasad@chelsio.com>
 References: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:19925 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:30789 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751199AbbLUHO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:14:57 -0500
+	by vger.kernel.org with ESMTP id S1751299AbbLUHO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 02:14:58 -0500
 In-Reply-To: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All the upper level protocols like rdma, iscsi have their own offload rx
-queues, so instead of using the generic naming convention be specific
-while naming them. Improves code readability
+Add new /sys/kernel/debug/cxgb4/*/dcb_info node to dump out
+various Data Center Bridging information.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         | 13 +++---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  8 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 53 +++++++++++-----------
- drivers/net/ethernet/chelsio/cxgb4/sge.c           |  2 +-
- 4 files changed, 38 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c     |  11 --
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h     |  11 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 191 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   1 +
+ 4 files changed, 203 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index e01e722..3b59bc4 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -398,11 +398,10 @@ struct link_config {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index 052c660..dde7b80 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -20,17 +20,6 @@
  
- enum {
- 	MAX_ETH_QSETS = 32,           /* # of Ethernet Tx/Rx queue sets */
--	MAX_OFLD_QSETS = 16,          /* # of offload Tx/Rx queue sets */
-+	MAX_OFLD_QSETS = 16,          /* # of offload Tx, iscsi Rx queue sets */
- 	MAX_CTRL_QUEUES = NCHAN,      /* # of control Tx queues */
- 	MAX_RDMA_QUEUES = NCHAN,      /* # of streaming RDMA Rx queues */
- 	MAX_RDMA_CIQS = 32,        /* # of  RDMA concentrator IQs */
--	MAX_ISCSI_QUEUES = NCHAN,     /* # of streaming iSCSI Rx queues */
- };
+ #include "cxgb4.h"
  
- enum {
-@@ -420,7 +419,7 @@ enum {
- 	INGQ_EXTRAS = 2,        /* firmware event queue and */
- 				/*   forwarded interrupts */
- 	MAX_INGQ = MAX_ETH_QSETS + MAX_OFLD_QSETS + MAX_RDMA_QUEUES
--		   + MAX_RDMA_CIQS + MAX_ISCSI_QUEUES + INGQ_EXTRAS,
-+		   + MAX_RDMA_CIQS + INGQ_EXTRAS,
- };
+-/* DCBx version control
+- */
+-static const char * const dcb_ver_array[] = {
+-	"Unknown",
+-	"DCBx-CIN",
+-	"DCBx-CEE 1.01",
+-	"DCBx-IEEE",
+-	"", "", "",
+-	"Auto Negotiated"
+-};
+-
+ static inline bool cxgb4_dcb_state_synced(enum cxgb4_dcb_state state)
+ {
+ 	if (state == CXGB4_DCB_STATE_FW_ALLSYNCED ||
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+index ccf24d3..6581ba8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+@@ -70,6 +70,17 @@
+ 					    CXGB4_DCB_STATE_FW_ALLSYNCED); \
+ 	} while (0)
  
- struct adapter;
-@@ -639,7 +638,7 @@ struct sge {
- 	struct sge_ctrl_txq ctrlq[MAX_CTRL_QUEUES];
- 
- 	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
--	struct sge_ofld_rxq ofldrxq[MAX_OFLD_QSETS];
-+	struct sge_ofld_rxq iscsirxq[MAX_OFLD_QSETS];
- 	struct sge_ofld_rxq rdmarxq[MAX_RDMA_QUEUES];
- 	struct sge_ofld_rxq rdmaciq[MAX_RDMA_CIQS];
- 	struct sge_rspq fw_evtq ____cacheline_aligned_in_smp;
-@@ -650,10 +649,10 @@ struct sge {
- 	u16 max_ethqsets;           /* # of available Ethernet queue sets */
- 	u16 ethqsets;               /* # of active Ethernet queue sets */
- 	u16 ethtxq_rover;           /* Tx queue to clean up next */
--	u16 ofldqsets;              /* # of active offload queue sets */
-+	u16 iscsiqsets;              /* # of active iSCSI queue sets */
- 	u16 rdmaqs;                 /* # of available RDMA Rx queues */
- 	u16 rdmaciqs;               /* # of available RDMA concentrator IQs */
--	u16 ofld_rxq[MAX_OFLD_QSETS];
-+	u16 iscsi_rxq[MAX_OFLD_QSETS];
- 	u16 rdma_rxq[MAX_RDMA_QUEUES];
- 	u16 rdma_ciq[MAX_RDMA_CIQS];
- 	u16 timer_val[SGE_NTIMERS];
-@@ -679,7 +678,7 @@ struct sge {
- };
- 
- #define for_each_ethrxq(sge, i) for (i = 0; i < (sge)->ethqsets; i++)
--#define for_each_ofldrxq(sge, i) for (i = 0; i < (sge)->ofldqsets; i++)
-+#define for_each_iscsirxq(sge, i) for (i = 0; i < (sge)->iscsiqsets; i++)
- #define for_each_rdmarxq(sge, i) for (i = 0; i < (sge)->rdmaqs; i++)
- #define for_each_rdmaciq(sge, i) for (i = 0; i < (sge)->rdmaciqs; i++)
- 
++/* DCBx version control
++ */
++static const char * const dcb_ver_array[] = {
++	"Unknown",
++	"DCBx-CIN",
++	"DCBx-CEE 1.01",
++	"DCBx-IEEE",
++	"", "", "",
++	"Auto Negotiated"
++};
++
+ /* States we can be in for a port's Data Center Bridging.
+  */
+ enum cxgb4_dcb_state {
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 0d579b1..62a343f 100644
+index 62a343f..a008afdb 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -2245,7 +2245,7 @@ static int sge_qinfo_show(struct seq_file *seq, void *v)
- {
- 	struct adapter *adap = seq->private;
- 	int eth_entries = DIV_ROUND_UP(adap->sge.ethqsets, 4);
--	int iscsi_entries = DIV_ROUND_UP(adap->sge.ofldqsets, 4);
-+	int iscsi_entries = DIV_ROUND_UP(adap->sge.iscsiqsets, 4);
- 	int rdma_entries = DIV_ROUND_UP(adap->sge.rdmaqs, 4);
- 	int ciq_entries = DIV_ROUND_UP(adap->sge.rdmaciqs, 4);
- 	int ctrl_entries = DIV_ROUND_UP(MAX_CTRL_QUEUES, 4);
-@@ -2331,10 +2331,10 @@ do { \
+@@ -44,6 +44,7 @@
+ #include "t4fw_api.h"
+ #include "cxgb4_debugfs.h"
+ #include "clip_tbl.h"
++#include "cxgb4_dcb.h"
+ #include "l2t.h"
  
- 	} else if (iscsi_idx < iscsi_entries) {
- 		const struct sge_ofld_rxq *rx =
--			&adap->sge.ofldrxq[iscsi_idx * 4];
-+			&adap->sge.iscsirxq[iscsi_idx * 4];
- 		const struct sge_ofld_txq *tx =
- 			&adap->sge.ofldtxq[iscsi_idx * 4];
--		int n = min(4, adap->sge.ofldqsets - 4 * iscsi_idx);
-+		int n = min(4, adap->sge.iscsiqsets - 4 * iscsi_idx);
+ /* generic seq_file support for showing a table of size rows x width. */
+@@ -2219,6 +2220,193 @@ static const struct file_operations rss_vf_config_debugfs_fops = {
+ 	.release = seq_release_private
+ };
  
- 		S("QType:", "iSCSI");
- 		T("TxQ ID:", q.cntxt_id);
-@@ -2454,7 +2454,7 @@ do { \
- static int sge_queue_entries(const struct adapter *adap)
- {
- 	return DIV_ROUND_UP(adap->sge.ethqsets, 4) +
--	       DIV_ROUND_UP(adap->sge.ofldqsets, 4) +
-+	       DIV_ROUND_UP(adap->sge.iscsiqsets, 4) +
- 	       DIV_ROUND_UP(adap->sge.rdmaqs, 4) +
- 	       DIV_ROUND_UP(adap->sge.rdmaciqs, 4) +
- 	       DIV_ROUND_UP(MAX_CTRL_QUEUES, 4) + 1;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8326a776..2642593 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -766,8 +766,8 @@ static void name_msix_vecs(struct adapter *adap)
- 	}
- 
- 	/* offload queues */
--	for_each_ofldrxq(&adap->sge, i)
--		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-ofld%d",
-+	for_each_iscsirxq(&adap->sge, i)
-+		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-iscsi%d",
- 			 adap->port[0]->name, i);
- 
- 	for_each_rdmarxq(&adap->sge, i)
-@@ -782,7 +782,7 @@ static void name_msix_vecs(struct adapter *adap)
- static int request_msix_queue_irqs(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, rdmaciqqidx = 0;
-+	int err, ethqidx, iscsiqidx = 0, rdmaqidx = 0, rdmaciqqidx = 0;
- 	int msi_index = 2;
- 
- 	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
-@@ -799,11 +799,11 @@ static int request_msix_queue_irqs(struct adapter *adap)
- 			goto unwind;
- 		msi_index++;
- 	}
--	for_each_ofldrxq(s, ofldqidx) {
-+	for_each_iscsirxq(s, iscsiqidx) {
- 		err = request_irq(adap->msix_info[msi_index].vec,
- 				  t4_sge_intr_msix, 0,
- 				  adap->msix_info[msi_index].desc,
--				  &s->ofldrxq[ofldqidx].rspq);
-+				  &s->iscsirxq[iscsiqidx].rspq);
- 		if (err)
- 			goto unwind;
- 		msi_index++;
-@@ -835,9 +835,9 @@ unwind:
- 	while (--rdmaqidx >= 0)
- 		free_irq(adap->msix_info[--msi_index].vec,
- 			 &s->rdmarxq[rdmaqidx].rspq);
--	while (--ofldqidx >= 0)
-+	while (--iscsiqidx >= 0)
- 		free_irq(adap->msix_info[--msi_index].vec,
--			 &s->ofldrxq[ofldqidx].rspq);
-+			 &s->iscsirxq[iscsiqidx].rspq);
- 	while (--ethqidx >= 0)
- 		free_irq(adap->msix_info[--msi_index].vec,
- 			 &s->ethrxq[ethqidx].rspq);
-@@ -853,8 +853,9 @@ static void free_msix_queue_irqs(struct adapter *adap)
- 	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
- 	for_each_ethrxq(s, i)
- 		free_irq(adap->msix_info[msi_index++].vec, &s->ethrxq[i].rspq);
--	for_each_ofldrxq(s, i)
--		free_irq(adap->msix_info[msi_index++].vec, &s->ofldrxq[i].rspq);
-+	for_each_iscsirxq(s, i)
-+		free_irq(adap->msix_info[msi_index++].vec,
-+			 &s->iscsirxq[i].rspq);
- 	for_each_rdmarxq(s, i)
- 		free_irq(adap->msix_info[msi_index++].vec, &s->rdmarxq[i].rspq);
- 	for_each_rdmaciq(s, i)
-@@ -1093,8 +1094,8 @@ freeout:	t4_free_sge_resources(adap);
- 		}
- 	}
- 
--	j = s->ofldqsets / adap->params.nports; /* ofld queues per channel */
--	for_each_ofldrxq(s, i) {
-+	j = s->iscsiqsets / adap->params.nports; /* iscsi queues per channel */
-+	for_each_iscsirxq(s, i) {
- 		err = t4_sge_alloc_ofld_txq(adap, &s->ofldtxq[i],
- 					    adap->port[i / j],
- 					    s->fw_evtq.cntxt_id);
-@@ -1110,7 +1111,7 @@ freeout:	t4_free_sge_resources(adap);
- 		msi_idx += nq; \
- } while (0)
- 
--	ALLOC_OFLD_RXQS(s->ofldrxq, s->ofldqsets, j, s->ofld_rxq);
-+	ALLOC_OFLD_RXQS(s->iscsirxq, s->iscsiqsets, j, s->iscsi_rxq);
- 	ALLOC_OFLD_RXQS(s->rdmarxq, s->rdmaqs, 1, s->rdma_rxq);
- 	j = s->rdmaciqs / adap->params.nports; /* rdmaq queues per channel */
- 	ALLOC_OFLD_RXQS(s->rdmaciq, s->rdmaciqs, j, s->rdma_ciq);
-@@ -2277,7 +2278,7 @@ static void disable_dbs(struct adapter *adap)
- 
- 	for_each_ethrxq(&adap->sge, i)
- 		disable_txq_db(&adap->sge.ethtxq[i].q);
--	for_each_ofldrxq(&adap->sge, i)
-+	for_each_iscsirxq(&adap->sge, i)
- 		disable_txq_db(&adap->sge.ofldtxq[i].q);
- 	for_each_port(adap, i)
- 		disable_txq_db(&adap->sge.ctrlq[i].q);
-@@ -2289,7 +2290,7 @@ static void enable_dbs(struct adapter *adap)
- 
- 	for_each_ethrxq(&adap->sge, i)
- 		enable_txq_db(adap, &adap->sge.ethtxq[i].q);
--	for_each_ofldrxq(&adap->sge, i)
-+	for_each_iscsirxq(&adap->sge, i)
- 		enable_txq_db(adap, &adap->sge.ofldtxq[i].q);
- 	for_each_port(adap, i)
- 		enable_txq_db(adap, &adap->sge.ctrlq[i].q);
-@@ -2359,7 +2360,7 @@ static void recover_all_queues(struct adapter *adap)
- 
- 	for_each_ethrxq(&adap->sge, i)
- 		sync_txq_pidx(adap, &adap->sge.ethtxq[i].q);
--	for_each_ofldrxq(&adap->sge, i)
-+	for_each_iscsirxq(&adap->sge, i)
- 		sync_txq_pidx(adap, &adap->sge.ofldtxq[i].q);
- 	for_each_port(adap, i)
- 		sync_txq_pidx(adap, &adap->sge.ctrlq[i].q);
-@@ -2443,10 +2444,10 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 		lli.nrxq = adap->sge.rdmaqs;
- 		lli.nciq = adap->sge.rdmaciqs;
- 	} else if (uld == CXGB4_ULD_ISCSI) {
--		lli.rxq_ids = adap->sge.ofld_rxq;
--		lli.nrxq = adap->sge.ofldqsets;
-+		lli.rxq_ids = adap->sge.iscsi_rxq;
-+		lli.nrxq = adap->sge.iscsiqsets;
- 	}
--	lli.ntxq = adap->sge.ofldqsets;
-+	lli.ntxq = adap->sge.iscsiqsets;
- 	lli.nchan = adap->params.nports;
- 	lli.nports = adap->params.nports;
- 	lli.wr_cred = adap->params.ofldq_wr_cred;
-@@ -4342,11 +4343,11 @@ static void cfg_queues(struct adapter *adap)
- 		 * capped by the number of available cores.
- 		 */
- 		if (n10g) {
--			i = min_t(int, ARRAY_SIZE(s->ofldrxq),
-+			i = min_t(int, ARRAY_SIZE(s->iscsirxq),
- 				  num_online_cpus());
--			s->ofldqsets = roundup(i, adap->params.nports);
-+			s->iscsiqsets = roundup(i, adap->params.nports);
- 		} else
--			s->ofldqsets = adap->params.nports;
-+			s->iscsiqsets = adap->params.nports;
- 		/* For RDMA one Rx queue per channel suffices */
- 		s->rdmaqs = adap->params.nports;
- 		/* Try and allow at least 1 CIQ per cpu rounding down
-@@ -4377,8 +4378,8 @@ static void cfg_queues(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(s->ofldtxq); i++)
- 		s->ofldtxq[i].q.size = 1024;
- 
--	for (i = 0; i < ARRAY_SIZE(s->ofldrxq); i++) {
--		struct sge_ofld_rxq *r = &s->ofldrxq[i];
-+	for (i = 0; i < ARRAY_SIZE(s->iscsirxq); i++) {
-+		struct sge_ofld_rxq *r = &s->iscsirxq[i];
- 
- 		init_rspq(adap, &r->rspq, 5, 1, 1024, 64);
- 		r->rspq.uld = CXGB4_ULD_ISCSI;
-@@ -4459,7 +4460,7 @@ static int enable_msix(struct adapter *adap)
- 
- 	want = s->max_ethqsets + EXTRA_VECS;
- 	if (is_offload(adap)) {
--		want += s->rdmaqs + s->rdmaciqs + s->ofldqsets;
-+		want += s->rdmaqs + s->rdmaciqs + s->iscsiqsets;
- 		/* need nchan for each possible ULD */
- 		ofld_need = 3 * nchan;
- 	}
-@@ -4498,13 +4499,13 @@ static int enable_msix(struct adapter *adap)
- 		/* leftovers go to OFLD */
- 		i = allocated - EXTRA_VECS - s->max_ethqsets -
- 		    s->rdmaqs - s->rdmaciqs;
--		s->ofldqsets = (i / nchan) * nchan;  /* round down */
-+		s->iscsiqsets = (i / nchan) * nchan;  /* round down */
- 	}
- 	for (i = 0; i < allocated; ++i)
- 		adap->msix_info[i].vec = entries[i].vector;
- 	dev_info(adap->pdev_dev, "%d MSI-X vectors allocated, "
- 		 "nic %d iscsi %d rdma cpl %d rdma ciq %d\n",
--		 allocated, s->max_ethqsets, s->ofldqsets, s->rdmaqs,
-+		 allocated, s->max_ethqsets, s->iscsiqsets, s->rdmaqs,
- 		 s->rdmaciqs);
- 
- 	kfree(entries);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 8d35ce3..0333435 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2978,7 +2978,7 @@ void t4_free_sge_resources(struct adapter *adap)
- 	}
- 
- 	/* clean up RDMA and iSCSI Rx queues */
--	t4_free_ofld_rxqs(adap, adap->sge.ofldqsets, adap->sge.ofldrxq);
-+	t4_free_ofld_rxqs(adap, adap->sge.iscsiqsets, adap->sge.iscsirxq);
- 	t4_free_ofld_rxqs(adap, adap->sge.rdmaqs, adap->sge.rdmarxq);
- 	t4_free_ofld_rxqs(adap, adap->sge.rdmaciqs, adap->sge.rdmaciq);
- 
++#ifdef CONFIG_CHELSIO_T4_DCB
++/* Data Center Briging information for each port */
++static int dcb_info_show(struct seq_file *seq, void *v)
++{
++	struct adapter *adap = seq->private;
++
++	if (v == SEQ_START_TOKEN) {
++		seq_puts(seq, "Data Center Bridging Information\n");
++	} else {
++		int port = (uintptr_t)v - 2;
++		struct net_device *dev = adap->port[port];
++		struct port_info *pi = netdev2pinfo(dev);
++		struct port_dcb_info *dcb = &pi->dcb;
++
++		seq_puts(seq, "\n");
++		seq_printf(seq, "Port: %d (DCB negotiated: %s)\n",
++			   port,
++			   cxgb4_dcb_enabled(dev) ? "yes" : "no");
++
++		if (cxgb4_dcb_enabled(dev))
++			seq_printf(seq, "[ DCBx Version %s ]\n",
++				   dcb_ver_array[dcb->dcb_version]);
++
++		if (dcb->msgs) {
++			int i;
++
++			seq_puts(seq, "\n  Index\t\t\t  :\t");
++			for (i = 0; i < 8; i++)
++				seq_printf(seq, " %3d", i);
++			seq_puts(seq, "\n\n");
++		}
++
++		if (dcb->msgs & CXGB4_DCB_FW_PGID) {
++			int prio, pgid;
++
++			seq_puts(seq, "  Priority Group IDs\t  :\t");
++			for (prio = 0; prio < 8; prio++) {
++				pgid = (dcb->pgid >> 4 * (7 - prio)) & 0xf;
++				seq_printf(seq, " %3d", pgid);
++			}
++			seq_puts(seq, "\n");
++		}
++
++		if (dcb->msgs & CXGB4_DCB_FW_PGRATE) {
++			int pg;
++
++			seq_puts(seq, "  Priority Group BW(%)\t  :\t");
++			for (pg = 0; pg < 8; pg++)
++				seq_printf(seq, " %3d", dcb->pgrate[pg]);
++			seq_puts(seq, "\n");
++
++			if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE) {
++				seq_puts(seq, "  TSA Algorithm\t\t  :\t");
++				for (pg = 0; pg < 8; pg++)
++					seq_printf(seq, " %3d", dcb->tsa[pg]);
++				seq_puts(seq, "\n");
++			}
++
++			seq_printf(seq, "  Max PG Traffic Classes  [%3d  ]\n",
++				   dcb->pg_num_tcs_supported);
++
++			seq_puts(seq, "\n");
++		}
++
++		if (dcb->msgs & CXGB4_DCB_FW_PRIORATE) {
++			int prio;
++
++			seq_puts(seq, "  Priority Rate\t:\t");
++			for (prio = 0; prio < 8; prio++)
++				seq_printf(seq, " %3d", dcb->priorate[prio]);
++			seq_puts(seq, "\n");
++		}
++
++		if (dcb->msgs & CXGB4_DCB_FW_PFC) {
++			int prio, pfcen;
++
++			seq_puts(seq, "  Priority Flow Control   :\t");
++			for (prio = 0; prio < 8; prio++) {
++				pfcen = (dcb->pfcen >> 1 * (7 - prio)) & 0x1;
++				seq_printf(seq, " %3d", pfcen);
++			}
++			seq_puts(seq, "\n");
++
++			seq_printf(seq, "  Max PFC Traffic Classes [%3d  ]\n",
++				   dcb->pfc_num_tcs_supported);
++
++			seq_puts(seq, "\n");
++		}
++
++		if (dcb->msgs & CXGB4_DCB_FW_APP_ID) {
++			int app, napps;
++
++			seq_puts(seq, "  Application Information:\n");
++			seq_puts(seq, "  App    Priority    Selection         Protocol\n");
++			seq_puts(seq, "  Index  Map         Field             ID\n");
++			for (app = 0, napps = 0;
++				app < CXGB4_MAX_DCBX_APP_SUPPORTED; app++) {
++				struct app_priority *ap =
++					&dcb->app_priority[app];
++				static const char * const sel_names[] = {
++					"Ethertype",
++					"Socket TCP",
++					"Socket UDP",
++					"Socket All",
++				};
++				const char *sel_name;
++
++				/* skip empty slots */
++				if (ap->protocolid == 0)
++					continue;
++				napps++;
++
++				if (ap->sel_field < ARRAY_SIZE(sel_names))
++					sel_name = sel_names[ap->sel_field];
++				else
++					sel_name = "UNKNOWN";
++
++				seq_printf(seq, "  %3d    %#04x        %-10s (%d)"
++					   "    %#06x (%d)\n",
++					   app,
++					   ap->user_prio_map,
++					   sel_name, ap->sel_field,
++					   ap->protocolid, ap->protocolid);
++			}
++			if (napps == 0)
++				seq_puts(seq, "    --- None ---\n");
++		}
++	}
++	return 0;
++}
++
++static inline void *dcb_info_get_idx(struct adapter *adap, loff_t pos)
++{
++	return (pos <= adap->params.nports
++		? (void *)((uintptr_t)pos + 1)
++		: NULL);
++}
++
++static void *dcb_info_start(struct seq_file *seq, loff_t *pos)
++{
++	struct adapter *adap = seq->private;
++
++	return (*pos
++		? dcb_info_get_idx(adap, *pos)
++		: SEQ_START_TOKEN);
++}
++
++static void dcb_info_stop(struct seq_file *seq, void *v)
++{
++}
++
++static void *dcb_info_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	struct adapter *adap = seq->private;
++
++	(*pos)++;
++	return dcb_info_get_idx(adap, *pos);
++}
++
++static const struct seq_operations dcb_info_seq_ops = {
++	.start = dcb_info_start,
++	.next  = dcb_info_next,
++	.stop  = dcb_info_stop,
++	.show  = dcb_info_show
++};
++
++static int dcb_info_open(struct inode *inode, struct file *file)
++{
++	int res = seq_open(file, &dcb_info_seq_ops);
++
++	if (!res) {
++		struct seq_file *seq = file->private_data;
++
++		seq->private = inode->i_private;
++	}
++	return res;
++}
++
++static const struct file_operations dcb_info_debugfs_fops = {
++	.owner   = THIS_MODULE,
++	.open    = dcb_info_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
++#endif /* CONFIG_CHELSIO_T4_DCB */
++
+ /**
+  * ethqset2pinfo - return port_info of an Ethernet Queue Set
+  * @adap: the adapter
+@@ -3049,6 +3237,9 @@ int t4_setup_debugfs(struct adapter *adap)
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		{ "clip_tbl", &clip_tbl_debugfs_fops, S_IRUSR, 0 },
+ #endif
++#ifdef CONFIG_CHELSIO_T4_DCB
++		{ "dcb_info", &dcb_info_debugfs_fops, S_IRUSR, 0 },
++#endif
+ 		{ "tids", &tid_info_debugfs_fops, S_IRUSR, 0},
+ 		{ "blocked_fl", &blocked_fl_fops, S_IRUSR | S_IWUSR, 0 },
+ 		{ "meminfo", &meminfo_fops, S_IRUSR, 0 },
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index cf711d5..4fd7f1a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -293,6 +293,7 @@ unsigned int cxgb4_port_chan(const struct net_device *dev);
+ unsigned int cxgb4_port_viid(const struct net_device *dev);
+ unsigned int cxgb4_tp_smt_idx(enum chip_type chip, unsigned int viid);
+ unsigned int cxgb4_port_idx(const struct net_device *dev);
++int cxgb4_dcb_enabled(const struct net_device *dev);
+ unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
+ 			    unsigned int *idx);
+ unsigned int cxgb4_best_aligned_mtu(const unsigned short *mtus,
 -- 
 2.3.4
