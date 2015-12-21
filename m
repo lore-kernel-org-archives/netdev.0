@@ -1,55 +1,82 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH] net: tcp: deal with listen sockets properly in tcp_abort.
-Date: Tue, 22 Dec 2015 00:03:44 +0900
-Message-ID: <1450710224-91722-1-git-send-email-lorenzo@google.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, tom@herbertland.com,
-	Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Antonio Quartulli <a@unstable.cc>
+Subject: Re: [PATCH 07/14] batman-adv: use list_for_each_entry_safe
+Date: Mon, 21 Dec 2015 22:42:39 +0800
+Message-ID: <56780FDF.10204__39300.8690014996$1450710355$gmane$org@unstable.cc>
+References: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
+ <b01d3ee936833e94fffa53f7a82fc46e20d877c1.1450451516.git.geliangtang@163.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="6X948h2CMWjxusk3cplXFHpJDsWael4Ev"
+Cc: Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Geliang Tang <geliangtang@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34236 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbbLUPD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 10:03:56 -0500
-Received: by mail-pf0-f172.google.com with SMTP id u7so43520769pfb.1
-        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 07:03:56 -0800 (PST)
+Received: from s1.neomailbox.net ([5.148.176.57]:15902 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750984AbbLUPFb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Dec 2015 10:05:31 -0500
+In-Reply-To: <b01d3ee936833e94fffa53f7a82fc46e20d877c1.1450451516.git.geliangtang@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When closing a listen socket, tcp_abort currently calls
-tcp_done without clearing the request queue. If the socket has a
-child socket that is established but not yet accepted, the child
-socket is then left without a parent, causing a leak.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--6X948h2CMWjxusk3cplXFHpJDsWael4Ev
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Fix this by setting the socket state to TCP_CLOSE and calling
-inet_csk_listen_stop with the socket lock held, like tcp_close
-does.
+Hi Geliang,
 
-Tested using net_test. With this patch, calling SOCK_DESTROY on a
-listen socket that has an established but not yet accepted child
-socket results in the parent and the child being closed, such
-that they no longer appear in sock_diag dumps.
+>  static int batadv_socket_release(struct inode *inode, struct file *fil=
+e)
+>  {
+> -	struct batadv_socket_client *socket_client =3D file->private_data;
+> -	struct batadv_socket_packet *socket_packet;
+> -	struct list_head *list_pos, *list_pos_tmp;
+> +	struct batadv_socket_client *client =3D file->private_data;
+> +	struct batadv_socket_packet *packet, *tmp;
+> =20
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv4/tcp.c | 5 +++++
- 1 file changed, 5 insertions(+)
+[...]
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index cc7aaa5..7bb1b09 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3099,6 +3099,11 @@ int tcp_abort(struct sock *sk, int err)
- 	/* Don't race with userspace socket closes such as tcp_close. */
- 	lock_sock(sk);
- 
-+	if (sk->sk_state == TCP_LISTEN) {
-+		tcp_set_state(sk, TCP_CLOSE);
-+		inet_csk_listen_stop(sk);
-+	}
-+
- 	/* Don't race with BH socket closes such as inet_csk_listen_stop. */
- 	local_bh_disable();
- 	bh_lock_sock(sk);
--- 
-2.6.0.rc2.230.g3dd15c0
+
+> +	list_for_each_entry_safe(packet, tmp, &client->queue_list, list) {
+
+I guess you renamed those variables to make sure that the statement
+above would fit in 80 chars.. in that case the patch looks good.
+
+
+Acked-by: Antonio Quartulli <a@unstable.cc>
+
+
+--=20
+Antonio Quartulli
+
+
+--6X948h2CMWjxusk3cplXFHpJDsWael4Ev
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJWeA/jAAoJENpFlCjNi1MRrgsP/2Y3mG/Hcl8TNBl4fyhVPGaB
+JtgpLbjrHblGgb2NHfWnPl/a1N/yGLolFF/QCXf5IHN2p8QcZW44g33Bxfo84342
+2tJ5OA6RwT1OKEm8/D3yxE9edt0TPwxGoGEKx2HxZlZGUvm5XdH3BYDjrGsvNBpK
+xttL/RvS0QtjsofWJX4U5IaAIeeF9sVXE0758QDiStG6ZL6zVqYHLo1FqMQIfC7K
+neIrBeUC3B75SgwuLRgkzZZ8LQNitFcPmVexL6LKJ+MfB9unIBHk5dVkVtZUdk9J
++3kQksWmUqjDpqK2kPgfUj5+wiIjbE/YRmmmp1UVVQYgDIUO9map1DpsnKgPiKWC
+P72FxQ5Wu1cALNCeuuAOlxTwB78RoQonjbf43PgbES7m/qXXyhgWmbZ+ulH04IqQ
+F1PygBJ8hgyhuSVcn6ECqJrVo4Q4Za2zC/0CZCmA+5jaj8EInXvEc6IX7Y8abkkQ
+AiBer0r8eHQVJEo/oUxh91hD2Qt28B2QAlNLhW6heZ+REO/ufcpINQ3KdswHWH1f
+YhggNdkiaqCwVfj96/OMwwu5hMXD4E7jZS2BGpi2aRzGqtGj3zVp7mWaUj0XqKX3
+I5A8it6ycUHBTNBU+66u0DUHtWQimLH9a+aX9Ek4zP9qwPR9RUEZwolD8P2duglS
+Xn8t9vzsBn82PoQ6pSN8
+=Of5E
+-----END PGP SIGNATURE-----
+
+--6X948h2CMWjxusk3cplXFHpJDsWael4Ev--
