@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] switchdev: bridge: Pass ageing time as clock_t
- instead of jiffies
-Date: Tue, 22 Dec 2015 15:57:25 -0500 (EST)
-Message-ID: <20151222.155725.1522363587231289331.davem@davemloft.net>
-References: <1450688161-4792-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH] ipv6/addrlabel: fix ip6addrlbl_get()
+Date: Tue, 22 Dec 2015 15:58:40 -0500 (EST)
+Message-ID: <20151222.155840.2274587303611570782.davem@davemloft.net>
+References: <1450691685-29413-1-git-send-email-aryabinin@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, stephen@networkplumber.org, jiri@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55226 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbLVU51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:57:27 -0500
-In-Reply-To: <1450688161-4792-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: aryabinin@virtuozzo.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450691685-29413-1-git-send-email-aryabinin@virtuozzo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 21 Dec 2015 09:56:01 +0100
+From: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Date: Mon, 21 Dec 2015 12:54:45 +0300
 
-> From: Ido Schimmel <idosch@mellanox.com>
+> ip6addrlbl_get() has never worked. If ip6addrlbl_hold() succeeded,
+> ip6addrlbl_get() will exit with '-ESRCH'. If ip6addrlbl_hold() failed,
+> ip6addrlbl_get() will use about to be free ip6addrlbl_entry pointer.
 > 
-> The bridge's ageing time is offloaded to hardware when:
-> 	1) A port joins a bridge
-> 	2) The ageing time of the bridge is changed
+> Fix this by inverting ip6addrlbl_hold() check.
 > 
-> In the first case the ageing time is offloaded as jiffies, but in the
-> second case it's offloaded as clock_t, which is what existing switchdev
-> drivers expect to receive.
-> 
-> Fixes: 6ac311ae8bfb ("Adding switchdev ageing notification on port bridged")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Fixes: 2a8cc6c89039 ("[IPV6] ADDRCONF: Support RFC3484 configurable address selection policy table.")
+> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
 
-Applied and queued up for -stable, thanks!
+Applied and queued up for -stable, thanks.
