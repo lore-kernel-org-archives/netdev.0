@@ -1,98 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2] mlxsw: core: Use devm_kzalloc to allocate mlxsw_hwmon structure
-Date: Tue, 22 Dec 2015 09:43:07 +0100
-Message-ID: <1450773787-2241-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36836 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178AbbLVInL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 03:43:11 -0500
-Received: by mail-wm0-f46.google.com with SMTP id p187so99408262wmp.1
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 00:43:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Souptick Joarder <jrdr.linux@gmail.com>
+Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
+Date: Tue, 22 Dec 2015 14:35:20 +0530
+Message-ID: <CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
+References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
+	<CAFqt6zaALx895c0BVrMpLdtfgYLz=-mmqaurtD28Nm1Ut2g1Dw@mail.gmail.com>
+	<CAP+RiCBK_iEOu27GzqqgG9Pn_MDP1m8JCnSqkGbPMAT7=P9V7g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	ath6kl@lists.infradead.org
+To: Brent Taylor <motobud@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP+RiCBK_iEOu27GzqqgG9Pn_MDP1m8JCnSqkGbPMAT7=P9V7g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+Hi Brent,
 
-KASan reported use-after-free for the hwmon structure. So fix this by
-using devm_kzalloc and let the core take care about freeing the memory
-during device dettach.
+On Tue, Dec 22, 2015 at 3:23 AM, Brent Taylor <motobud@gmail.com> wrote:
+> On Mon, Dec 21, 2015 at 1:23 PM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
+>> Hi Brent,
+>>
+>> On Tue, Dec 1, 2015 at 11:11 AM, Brent Taylor <motobud@gmail.com> wrote:
+>>> Since commit 8437754c83351d6213c1a47ff029c1126d6042a7, ar->fw is expected to be pointing to memory allocated by vmalloc.  If the api1 method (via ath6kl_fetch_fw_api1) is used to allocate memory for ar->fw, then kmemdup is used.  This patch checks if the firmware being loaded is the 'fw' image, then use vmalloc, otherwise use kmalloc.
+>>>
+>>> Signed-off-by: Brent Taylor <motobud@gmail.com>
+>>> ---
+>>>  drivers/net/wireless/ath/ath6kl/init.c | 7 ++++++-
+>>>  1 file changed, 6 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
+>>> index 6ae0734..4f2b124d 100644
+>>> --- a/drivers/net/wireless/ath/ath6kl/init.c
+>>> +++ b/drivers/net/wireless/ath/ath6kl/init.c
+>>> @@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
+>>>                 return ret;
+>>>
+>>>         *fw_len = fw_entry->size;
+>>> -       *fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
+>>> +   if (&ar->fw == fw)
+>>> +               *fw = vmalloc(fw_entry->size);
+>>> +   else
+>>> +               *fw = kmalloc(fw_entry->size, GFP_KERNEL)
+>>
+>>           Why vmalloc and kmalloc both are required? can't use either
+>> vmalloc or kmalloc?
+>
+> My original problem was that kmemdup (which uses kmalloc) could not
+> allocate enough memory
 
-Reported-by: Ido Schimmel <idosch@mellanox.com>
-Fixes: 89309da39 ("mlxsw: core: Implement temperature hwmon interface")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
-v1->v2:
-- remove missed kfree
----
- drivers/net/ethernet/mellanox/mlxsw/core.c       | 2 --
- drivers/net/ethernet/mellanox/mlxsw/core.h       | 4 ----
- drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c | 9 ++-------
- 3 files changed, 2 insertions(+), 13 deletions(-)
+If kmemdump ( which uses kmalloc) could not allocate memory then
+using kmalloc again can lead to same problem.
+I guess it will be correct to use
+            *fw = vmalloc(fw_entry->size);
+Correct me if i am wrong.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index af8a48b..22379eb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -855,7 +855,6 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- err_debugfs_init:
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
- err_driver_init:
--	mlxsw_hwmon_fini(mlxsw_core->hwmon);
- err_hwmon_init:
- 	mlxsw_emad_fini(mlxsw_core);
- err_emad_init:
-@@ -878,7 +877,6 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 
- 	mlxsw_core_debugfs_fini(mlxsw_core);
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
--	mlxsw_hwmon_fini(mlxsw_core->hwmon);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
- 	kfree(mlxsw_core->lag.mapping);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 4833fb3..a017236 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -239,10 +239,6 @@ static inline int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
- 	return 0;
- }
- 
--static inline void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
--{
--}
--
- #endif
- 
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-index 00ccf1c..5b9364f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-@@ -334,7 +334,8 @@ int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
- 	struct device *hwmon_dev;
- 	int err;
- 
--	mlxsw_hwmon = kzalloc(sizeof(*mlxsw_hwmon), GFP_KERNEL);
-+	mlxsw_hwmon = devm_kzalloc(mlxsw_bus_info->dev, sizeof(*mlxsw_hwmon),
-+				   GFP_KERNEL);
- 	if (!mlxsw_hwmon)
- 		return -ENOMEM;
- 	mlxsw_hwmon->core = mlxsw_core;
-@@ -367,11 +368,5 @@ int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
- err_hwmon_register:
- err_fans_init:
- err_temp_init:
--	kfree(mlxsw_hwmon);
- 	return err;
- }
--
--void mlxsw_hwmon_fini(struct mlxsw_hwmon *mlxsw_hwmon)
--{
--	kfree(mlxsw_hwmon);
--}
--- 
-1.9.3
+> to hold the firmware that is placed into "ar->fw".  In the function
+> ath6kl_core_cleanup (in core.c),
+> the "ar->fw" pointer is the only one that uses vfree which was changed in commit
+> 8437754c83351d6213c1a47ff029c1126d6042a7.
+>
+> I was trying to change as little as possible and I wasn't sure if
+> there was a reason that any of the
+> other firmware items needed to be allocated with kmalloc or if they
+> could be changed to use vmalloc.
+
+-Souptick
