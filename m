@@ -1,8 +1,7 @@
 From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: [RFC PATCH 08/17] ipv6: Add ipv6_renew_options_kern() that accepts a
- kernel mem pointer.
-Date: Tue, 22 Dec 2015 11:46:44 +0000
-Message-ID: <1450784813-18304-9-git-send-email-huw@codeweavers.com>
+Subject: [RFC PATCH 07/17] netlabel: Add support for removing a CALIPSO DOI.
+Date: Tue, 22 Dec 2015 11:46:43 +0000
+Message-ID: <1450784813-18304-8-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,241 +14,232 @@ Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
 Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The functionality is equivalent to ipv6_renew_options() except
-that the newopt pointer is in kernel, not user, memory
-
-The kernel memory implementation will be used by the CALIPSO network
-labelling engine, which needs to be able to set IPv6 hop-by-hop
-options.
+Remove a specified DOI through the NLBL_CALIPSO_C_REMOVE command.
+It requires the attribute:
+ NLBL_CALIPSO_A_DOI.
 
 Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
 ---
- include/net/ipv6.h |   6 +++
- net/ipv6/exthdrs.c | 131 ++++++++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 125 insertions(+), 12 deletions(-)
+ include/net/netlabel.h          |  1 +
+ net/ipv6/calipso.c              | 48 +++++++++++++++++++++
+ net/netlabel/netlabel_calipso.c | 92 +++++++++++++++++++++++++++++++++++++++++
+ net/netlabel/netlabel_calipso.h |  1 +
+ 4 files changed, 142 insertions(+)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 9a5c9f0..5a72ffd 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -304,6 +304,12 @@ struct ipv6_txoptions *ipv6_renew_options(struct sock *sk,
- 					  int newtype,
- 					  struct ipv6_opt_hdr __user *newopt,
- 					  int newoptlen);
-+struct ipv6_txoptions *
-+ipv6_renew_options_kern(struct sock *sk,
-+			struct ipv6_txoptions *opt,
-+			int newtype,
-+			struct ipv6_opt_hdr *newopt,
-+			int newoptlen);
- struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
- 					  struct ipv6_txoptions *opt);
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index c6e1ce9..0ffe32f 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -237,6 +237,7 @@ struct netlbl_calipso_ops {
+ 	int (*doi_add)(struct calipso_doi *doi_def,
+ 		       struct netlbl_audit *audit_info);
+ 	void (*doi_free)(struct calipso_doi *doi_def);
++	int (*doi_remove)(u32 doi, struct netlbl_audit *audit_info);
+ 	struct calipso_doi *(*doi_getdef)(u32 doi);
+ 	void (*doi_putdef)(struct calipso_doi *doi_def);
+ 	int (*doi_walk)(u32 *skip_cnt,
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index fa17c7a..d7df7a4 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -163,6 +163,53 @@ static void calipso_doi_free_rcu(struct rcu_head *entry)
+ }
  
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index ea7c4d6..9426b26 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -734,11 +734,16 @@ ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt)
- EXPORT_SYMBOL_GPL(ipv6_dup_options);
+ /**
++ * calipso_doi_remove - Remove an existing DOI from the CALIPSO protocol engine
++ * @doi: the DOI value
++ * @audit_secid: the LSM secid to use in the audit message
++ *
++ * Description:
++ * Removes a DOI definition from the CALIPSO engine.  The NetLabel routines will
++ * be called to release their own LSM domain mappings as well as our own
++ * domain list.  Returns zero on success and negative values on failure.
++ *
++ */
++static int calipso_doi_remove(u32 doi, struct netlbl_audit *audit_info)
++{
++	int ret_val;
++	struct calipso_doi *doi_def;
++	struct audit_buffer *audit_buf;
++
++	spin_lock(&calipso_doi_list_lock);
++	doi_def = calipso_doi_search(doi);
++	if (!doi_def) {
++		spin_unlock(&calipso_doi_list_lock);
++		ret_val = -ENOENT;
++		goto doi_remove_return;
++	}
++	if (!atomic_dec_and_test(&doi_def->refcount)) {
++		spin_unlock(&calipso_doi_list_lock);
++		ret_val = -EBUSY;
++		goto doi_remove_return;
++	}
++	list_del_rcu(&doi_def->list);
++	spin_unlock(&calipso_doi_list_lock);
++
++	call_rcu(&doi_def->rcu, calipso_doi_free_rcu);
++	ret_val = 0;
++
++doi_remove_return:
++	audit_buf = netlbl_audit_start(AUDIT_MAC_CALIPSO_DEL, audit_info);
++	if (audit_buf) {
++		audit_log_format(audit_buf,
++				 " calipso_doi=%u res=%u",
++				 doi, ret_val == 0 ? 1 : 0);
++		audit_log_end(audit_buf);
++	}
++
++	return ret_val;
++}
++
++/**
+  * calipso_doi_getdef - Returns a reference to a valid DOI definition
+  * @doi: the DOI value
+  *
+@@ -253,6 +300,7 @@ doi_walk_return:
+ static const struct netlbl_calipso_ops ops = {
+ 	.doi_add          = calipso_doi_add,
+ 	.doi_free         = calipso_doi_free,
++	.doi_remove       = calipso_doi_remove,
+ 	.doi_getdef       = calipso_doi_getdef,
+ 	.doi_putdef       = calipso_doi_putdef,
+ 	.doi_walk         = calipso_doi_walk,
+diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
+index a014ec2..2083b15 100644
+--- a/net/netlabel/netlabel_calipso.c
++++ b/net/netlabel/netlabel_calipso.c
+@@ -53,6 +53,12 @@ struct netlbl_calipso_doiwalk_arg {
+ 	u32 seq;
+ };
  
- static int ipv6_renew_option(void *ohdr,
--			     struct ipv6_opt_hdr __user *newopt, int newoptlen,
-+			     struct ipv6_opt_hdr __user *newopt_user,
-+			     struct ipv6_opt_hdr *newopt,
-+			     int newoptlen,
- 			     int inherit,
- 			     struct ipv6_opt_hdr **hdr,
- 			     char **p)
- {
-+	if (WARN_ON_ONCE(newopt_user && newopt))
++/* Argument struct for netlbl_domhsh_walk() */
++struct netlbl_domhsh_walk_arg {
++	struct netlbl_audit *audit_info;
++	u32 doi;
++};
++
+ /* NetLabel Generic NETLINK CALIPSO family */
+ static struct genl_family netlbl_calipso_gnl_family = {
+ 	.id = GENL_ID_GENERATE,
+@@ -261,6 +267,64 @@ static int netlbl_calipso_listall(struct sk_buff *skb,
+ 	return skb->len;
+ }
+ 
++/**
++ * netlbl_calipso_remove_cb - netlbl_calipso_remove() callback for REMOVE
++ * @entry: LSM domain mapping entry
++ * @arg: the netlbl_domhsh_walk_arg structure
++ *
++ * Description:
++ * This function is intended for use by netlbl_calipso_remove() as the callback
++ * for the netlbl_domhsh_walk() function; it removes LSM domain map entries
++ * which are associated with the CALIPSO DOI specified in @arg.  Returns zero on
++ * success, negative values on failure.
++ *
++ */
++static int netlbl_calipso_remove_cb(struct netlbl_dom_map *entry, void *arg)
++{
++	struct netlbl_domhsh_walk_arg *cb_arg = arg;
++
++	if (entry->def.type == NETLBL_NLTYPE_CALIPSO &&
++	    entry->def.calipso->doi == cb_arg->doi)
++		return netlbl_domhsh_remove_entry(entry, cb_arg->audit_info);
++
++	return 0;
++}
++
++/**
++ * netlbl_calipso_remove - Handle a REMOVE message
++ * @skb: the NETLINK buffer
++ * @info: the Generic NETLINK info block
++ *
++ * Description:
++ * Process a user generated REMOVE message and respond accordingly.  Returns
++ * zero on success, negative values on failure.
++ *
++ */
++static int netlbl_calipso_remove(struct sk_buff *skb, struct genl_info *info)
++{
++	int ret_val = -EINVAL;
++	struct netlbl_domhsh_walk_arg cb_arg;
++	struct netlbl_audit audit_info;
++	u32 skip_bkt = 0;
++	u32 skip_chain = 0;
++
++	if (!info->attrs[NLBL_CALIPSO_A_DOI])
 +		return -EINVAL;
 +
- 	if (inherit) {
- 		if (ohdr) {
- 			memcpy(*p, ohdr, ipv6_optlen((struct ipv6_opt_hdr *)ohdr));
-@@ -746,28 +751,65 @@ static int ipv6_renew_option(void *ohdr,
- 			*p += CMSG_ALIGN(ipv6_optlen(*hdr));
- 		}
- 	} else {
--		if (newopt) {
--			if (copy_from_user(*p, newopt, newoptlen))
-+		if (newopt_user) {
-+			if (copy_from_user(*p, newopt_user, newoptlen))
- 				return -EFAULT;
- 			*hdr = (struct ipv6_opt_hdr *)*p;
- 			if (ipv6_optlen(*hdr) > newoptlen)
- 				return -EINVAL;
- 			*p += CMSG_ALIGN(newoptlen);
-+		} else if (newopt) {
-+			memcpy(*p, newopt, newoptlen);
-+			*hdr = (struct ipv6_opt_hdr *)*p;
-+			if (ipv6_optlen(*hdr) > newoptlen)
-+				return -EINVAL;
-+			*p += CMSG_ALIGN(newoptlen);
- 		}
- 	}
- 	return 0;
- }
- 
--struct ipv6_txoptions *
--ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
--		   int newtype,
--		   struct ipv6_opt_hdr __user *newopt, int newoptlen)
-+/**
-+ * __ipv6_renew_options - replace a specific ext hdr with a new one.
-+ *
-+ * @sk: sock from which to allocate memory
-+ * @opt: original options
-+ * @newtype: option type to replace in @opt
-+ * @newopt_user: new option of type @newtype to replace (user-mem)
-+ * @newopt: new option of type @newtype to replace (kernel-mem)
-+ * @newoptlen: length of @newopt_user or @newopt
-+ *
-+ * The implementation of ipv6_renew_options() and
-+ * ipv6_renew_options_from_user().
-+ *
-+ * Returns a new set of options which is a copy of @opt with the
-+ * option type @newtype replaced with either @newopt_user or @newopt.
-+ * Only one of @newopt_user or @newopt may be non-NULL.
-+ *
-+ * @opt may be NULL, in which case a new set of options is returned
-+ * containing just @newopt_user or @newopt.
-+ *
-+ * Both @newopt_user and @newopt may be NULL, in which case the
-+ * specified option type is not copied into the new set of options.
-+ *
-+ * The new set of options is allocated from the socket option memory
-+ * buffer of @sk.
-+ */
-+static struct ipv6_txoptions *
-+__ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
-+		     int newtype,
-+		     struct ipv6_opt_hdr __user *newopt_user,
-+		     struct ipv6_opt_hdr *newopt,
-+		     int newoptlen)
- {
- 	int tot_len = 0;
- 	char *p;
- 	struct ipv6_txoptions *opt2;
- 	int err;
- 
-+	if (WARN_ON_ONCE(newopt_user && newopt))
-+		return NULL;
++	netlbl_netlink_auditinfo(skb, &audit_info);
++	cb_arg.doi = nla_get_u32(info->attrs[NLBL_CALIPSO_A_DOI]);
++	cb_arg.audit_info = &audit_info;
++	ret_val = netlbl_domhsh_walk(&skip_bkt, &skip_chain,
++				     netlbl_calipso_remove_cb, &cb_arg);
++	if (ret_val == 0 || ret_val == -ENOENT) {
++		ret_val = calipso_doi_remove(cb_arg.doi, &audit_info);
++		if (ret_val == 0)
++			atomic_dec(&netlabel_mgmt_protocount);
++	}
 +
- 	if (opt) {
- 		if (newtype != IPV6_HOPOPTS && opt->hopopt)
- 			tot_len += CMSG_ALIGN(ipv6_optlen(opt->hopopt));
-@@ -779,7 +821,7 @@ ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
- 			tot_len += CMSG_ALIGN(ipv6_optlen(opt->dst1opt));
- 	}
++	return ret_val;
++}
++
+ /* NetLabel Generic NETLINK Command Definitions
+  */
  
--	if (newopt && newoptlen)
-+	if ((newopt_user || newopt) && newoptlen)
- 		tot_len += CMSG_ALIGN(newoptlen);
- 
- 	if (!tot_len)
-@@ -795,25 +837,29 @@ ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
- 	opt2->tot_len = tot_len;
- 	p = (char *)(opt2 + 1);
- 
--	err = ipv6_renew_option(opt ? opt->hopopt : NULL, newopt, newoptlen,
-+	err = ipv6_renew_option(opt ? opt->hopopt : NULL, newopt_user,
-+				newopt, newoptlen,
- 				newtype != IPV6_HOPOPTS,
- 				&opt2->hopopt, &p);
- 	if (err)
- 		goto out;
- 
--	err = ipv6_renew_option(opt ? opt->dst0opt : NULL, newopt, newoptlen,
-+	err = ipv6_renew_option(opt ? opt->dst0opt : NULL, newopt_user,
-+				newopt, newoptlen,
- 				newtype != IPV6_RTHDRDSTOPTS,
- 				&opt2->dst0opt, &p);
- 	if (err)
- 		goto out;
- 
--	err = ipv6_renew_option(opt ? opt->srcrt : NULL, newopt, newoptlen,
-+	err = ipv6_renew_option(opt ? opt->srcrt : NULL, newopt_user,
-+				newopt, newoptlen,
- 				newtype != IPV6_RTHDR,
- 				(struct ipv6_opt_hdr **)&opt2->srcrt, &p);
- 	if (err)
- 		goto out;
- 
--	err = ipv6_renew_option(opt ? opt->dst1opt : NULL, newopt, newoptlen,
-+	err = ipv6_renew_option(opt ? opt->dst1opt : NULL, newopt_user,
-+				newopt, newoptlen,
- 				newtype != IPV6_DSTOPTS,
- 				&opt2->dst1opt, &p);
- 	if (err)
-@@ -830,6 +876,67 @@ out:
- 	return ERR_PTR(err);
+@@ -273,6 +337,13 @@ static const struct genl_ops netlbl_calipso_ops[] = {
+ 	.dumpit = NULL,
+ 	},
+ 	{
++	.cmd = NLBL_CALIPSO_C_REMOVE,
++	.flags = GENL_ADMIN_PERM,
++	.policy = calipso_genl_policy,
++	.doit = netlbl_calipso_remove,
++	.dumpit = NULL,
++	},
++	{
+ 	.cmd = NLBL_CALIPSO_C_LIST,
+ 	.flags = 0,
+ 	.policy = calipso_genl_policy,
+@@ -366,6 +437,27 @@ void calipso_doi_free(struct calipso_doi *doi_def)
  }
  
-+/**
-+ * ipv6_renew_options_kern - replace a specific ext hdr with a new one.
+ /**
++ * calipso_doi_remove - Remove an existing DOI from the CALIPSO protocol engine
++ * @doi: the DOI value
++ * @audit_secid: the LSM secid to use in the audit message
 + *
-+ * @sk: sock from which to allocate memory
-+ * @opt: original options
-+ * @newtype: option type to replace in @opt
-+ * @newopt: new option of type @newtype to replace (kernel-mem)
-+ * @newoptlen: length of or @newopt
++ * Description:
++ * Removes a DOI definition from the CALIPSO engine.  The NetLabel routines will
++ * be called to release their own LSM domain mappings as well as our own
++ * domain list.  Returns zero on success and negative values on failure.
 + *
-+ * Returns a new set of options which is a copy of @opt with the
-+ * option type @newtype replaced with @newopt.
-+ *
-+ * @opt may be NULL, in which case a new set of options is returned
-+ * containing just @newopt.
-+ *
-+ * @newopt may be NULL, in which case the specified option type is not
-+ * copied into the new set of options.
-+ *
-+ * The new set of options is allocated from the socket option memory
-+ * buffer of @sk.
 + */
-+struct ipv6_txoptions *
-+ipv6_renew_options_kern(struct sock *sk, struct ipv6_txoptions *opt,
-+			int newtype, struct ipv6_opt_hdr *newopt,
-+			int newoptlen)
++int calipso_doi_remove(u32 doi, struct netlbl_audit *audit_info)
 +{
-+	return __ipv6_renew_options(sk, opt, newtype,
-+				    NULL, newopt, newoptlen);
++	int ret_val = -ENOMSG;
++	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++
++	if (ops)
++		ret_val = ops->doi_remove(doi, audit_info);
++	return ret_val;
 +}
 +
 +/**
-+ * ipv6_renew_options - replace a specific ext hdr with a new one.
-+ *
-+ * @sk: sock from which to allocate memory
-+ * @opt: original options
-+ * @newtype: option type to replace in @opt
-+ * @newopt_user: new option of type @newtype to replace (user-mem)
-+ * @newoptlen: length of or @newopt
-+ *
-+ * Returns a new set of options which is a copy of @opt with the
-+ * option type @newtype replaced with @newopt_user.
-+ *
-+ * @opt may be NULL, in which case a new set of options is returned
-+ * containing just @newopt_user.
-+ *
-+ * @newopt_user may be NULL, in which case the specified option type is not
-+ * copied into the new set of options.
-+ *
-+ * The new set of options is allocated from the socket option memory
-+ * buffer of @sk.
-+ */
-+struct ipv6_txoptions *
-+ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
-+		   int newtype,
-+		   struct ipv6_opt_hdr __user *newopt_user,
-+		   int newoptlen)
-+{
-+	return __ipv6_renew_options(sk, opt, newtype,
-+				    newopt_user, NULL, newoptlen);
-+}
-+
- struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
- 					  struct ipv6_txoptions *opt)
- {
+  * calipso_doi_getdef - Returns a reference to a valid DOI definition
+  * @doi: the DOI value
+  *
+diff --git a/net/netlabel/netlabel_calipso.h b/net/netlabel/netlabel_calipso.h
+index 5d86752..b864480 100644
+--- a/net/netlabel/netlabel_calipso.h
++++ b/net/netlabel/netlabel_calipso.h
+@@ -124,6 +124,7 @@ static inline int netlbl_calipso_genl_init(void)
+ int calipso_doi_add(struct calipso_doi *doi_def,
+ 		    struct netlbl_audit *audit_info);
+ void calipso_doi_free(struct calipso_doi *doi_def);
++int calipso_doi_remove(u32 doi, struct netlbl_audit *audit_info);
+ struct calipso_doi *calipso_doi_getdef(u32 doi);
+ void calipso_doi_putdef(struct calipso_doi *doi_def);
+ int calipso_doi_walk(u32 *skip_cnt,
 -- 
 1.8.0
 
