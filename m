@@ -1,66 +1,70 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: Re: suspicious RCU usage (netlink/rhashtable)
-Date: Tue, 22 Dec 2015 16:47:34 -0500
-Message-ID: <20151222214734.GB13231@codemonkey.org.uk>
-References: <CAEfhGiwEhWqwtbAhbaVCEohePUyUC+f-Ap6b4oHk1Mdkg+ZKUA@mail.gmail.com>
- <20151222.162841.889225793486693960.davem@davemloft.net>
- <CAEfhGiz1FnghHRpcYUVKhWNV=4yjfU-pAsjynKTgwPctsNQ5Gw@mail.gmail.com>
- <20151222.164225.926367017579760543.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH 16/17] calipso: Add validation of CALIPSO option.
+Date: Tue, 22 Dec 2015 22:47:43 +0100
+Message-ID: <5679C4FF.4050505@stressinduktion.org>
+References: <1450784813-18304-17-git-send-email-huw@codeweavers.com>
+ <5679551C.4000105@stressinduktion.org> <20151222165919.GA31791@merlot>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kraigatgoog@gmail.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, Paul Moore <pmoore@redhat.com>
+To: Huw Davies <huw@codeweavers.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:58786 "EHLO
-	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932612AbbLVVrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 16:47:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20151222.164225.926367017579760543.davem@davemloft.net>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:41124 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933326AbbLVVrr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 16:47:47 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id BB8CA20812
+	for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 16:47:46 -0500 (EST)
+In-Reply-To: <20151222165919.GA31791@merlot>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 22, 2015 at 04:42:25PM -0500, David Miller wrote:
- > From: Craig Gallek <kraigatgoog@gmail.com>
- > Date: Tue, 22 Dec 2015 16:38:32 -0500
- > 
- > > On Tue, Dec 22, 2015 at 4:28 PM, David Miller <davem@davemloft.net> wrote:
- > >> From: Craig Gallek <kraigatgoog@gmail.com>
- > >> Date: Tue, 22 Dec 2015 15:51:19 -0500
- > >>
- > >>> I was actually just looking at this as well (though a slightly
- > >>> different stack).  The issue is with: c6ff5268293e rhashtable: Fix
- > >>> walker list corruption
- > >>>
- > >>> It changed the lock acquired in rhashtable_walk_init to use the new
- > >>> spinlock, but the rht_dereference macro expects the mutex.  I was
- > >>> still trying to track down which repository this change came in
- > >>> through, though...
- > >>
- > >> Both cam via my networking tree.
- > > Simple fix is below.  Though, I don't understand the history of the
- > > multiple locks in this structure to be sure it's correct.  I'll send
- > > it as a formal patch.  Please reject if it's not the right approach.
- > > 
- > > diff --git a/lib/rhashtable.c b/lib/rhashtable.c
- > > index 1c149e9..cc80870 100644
- > > --- a/lib/rhashtable.c
- > > +++ b/lib/rhashtable.c
- > > @@ -516,7 +516,8 @@ int rhashtable_walk_init(struct rhashtable *ht,
- > > struct rhashtable_iter *iter)
- > >                 return -ENOMEM;
- > > 
- > >         spin_lock(&ht->lock);
- > > -       iter->walker->tbl = rht_dereference(ht->tbl, ht);
- > > +       iter->walker->tbl =
- > > +               rcu_dereference_protected(ht->tbl, lockdep_is_held(&ht->lock));
- > >         list_add(&iter->walker->list, &iter->walker->tbl->walkers);
- > >         spin_unlock(&ht->lock);
- > 
- > How can this be the "fix"?  That's exactly what's in the tree.
+On 22.12.2015 17:59, Huw Davies wrote:
+> On Tue, Dec 22, 2015 at 02:50:20PM +0100, Hannes Frederic Sowa wrote:
+>> On 22.12.2015 12:46, Huw Davies wrote:
+>>>  
+>>> +/* CALIPSO RFC 5570 */
+>>> +
+>>> +static bool ipv6_hop_calipso(struct sk_buff *skb, int optoff)
+>>> +{
+>>> +	const unsigned char *nh = skb_network_header(skb);
+>>> +
+>>> +	if (nh[optoff + 1] < 8)
+>>> +		goto drop;
+>>> +
+>>> +	if (nh[optoff + 6] * 4 + 8 > nh[optoff + 1])
+>>> +		goto drop;
+>>> +
+>>> +	if (!calipso_validate(skb, nh + optoff))
+>>> +		goto drop;
+>>> +
+>>> +	return true;
+>>> +
+>>> +drop:
+>>> +	kfree_skb(skb);
+>>> +	return false;
+>>> +}
+>>> +
+>>
+>> Formally, if an extension header could not be processed, the packet
+>> should be discarded and an icmp error parameter extension should be
+>> send. I think we shouldn't let those packets pass here.
+> 
+> Thanks for your comments Hannes, I'm looking into your other
+> suggestions.
+> 
+> I'm confused about this one.  AFAICS, this will drop packets that we
+> can't process.  We don't send the icmp error, but I can certainly add
+> that.  Is that what you mean?
 
-I should have made clear, this is Linus' tree I'm hitting this on,
-which matches what Craig posted.
+Actually, the implementation of calipso_validate will accept the packets
+because it defaults to return true if we don't compile the module. At
+least we should drop the packet if it is not loaded. I am in favor of
+adding the parameter problem icmp error. So, yes, I think it should be
+added.
 
-	Dave
+Bye,
+Hannes
