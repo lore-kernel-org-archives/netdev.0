@@ -1,35 +1,66 @@
-From: Hariprasad S <hariprasad@chelsio.com>
-Subject: Re: [PATCH net-next 3/5] cxgb4: add dcb info node in debugfs
-Date: Tue, 22 Dec 2015 17:11:32 +0530
-Message-ID: <20151222113556.GA8043@hari-Latitude-E5550>
-References: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
- <1450682170-7106-4-git-send-email-hariprasad@chelsio.com>
- <CAJ3xEMjctGauyRjCKLV+wACkzDC5xF8J9khdhCm+YZXuEafU5Q@mail.gmail.com>
+From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
+Subject: [RFC PATCH 01/17] netlabel: Mark rcu pointers with __rcu.
+Date: Tue, 22 Dec 2015 11:46:37 +0000
+Message-ID: <1450784813-18304-2-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, leedom@chelsio.com,
-	nirranjan@chelsio.com, John Fastabend <john.r.fastabend@intel.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:28481 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752980AbbLVLlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 06:41:35 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMjctGauyRjCKLV+wACkzDC5xF8J9khdhCm+YZXuEafU5Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
+Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 21, 2015 at 09:33:22 +0200, Or Gerlitz wrote:
-> On Mon, Dec 21, 2015 at 9:16 AM, Hariprasad Shenai
-> <hariprasad@chelsio.com> wrote:
-> > Add new /sys/kernel/debug/cxgb4/*/dcb_info node to dump out
-> > various Data Center Bridging information.
-> 
-> why? what's wrong with using the lldp tool for that purpose?
+This fixes sparse errors of the form:
+ netlabel_domainhash.c:126:23: error: incompatible types in comparison expression (different address spaces)
 
-This is needed only for firmware managed DCBx. And when we are using
-open LLDP instead of firmware managing DCBx, lldp tool can be used.
+This patch also removes unnecessary initialization of static variables
+to NULL.
 
-Hari
+Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
+---
+ net/netlabel/netlabel_domainhash.c | 4 ++--
+ net/netlabel/netlabel_unlabeled.c  | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
+index f0cb92f..d4d6640 100644
+--- a/net/netlabel/netlabel_domainhash.c
++++ b/net/netlabel/netlabel_domainhash.c
+@@ -55,8 +55,8 @@ struct netlbl_domhsh_tbl {
+ static DEFINE_SPINLOCK(netlbl_domhsh_lock);
+ #define netlbl_domhsh_rcu_deref(p) \
+ 	rcu_dereference_check(p, lockdep_is_held(&netlbl_domhsh_lock))
+-static struct netlbl_domhsh_tbl *netlbl_domhsh = NULL;
+-static struct netlbl_dom_map *netlbl_domhsh_def = NULL;
++static struct netlbl_domhsh_tbl __rcu *netlbl_domhsh;
++static struct netlbl_dom_map __rcu *netlbl_domhsh_def;
+ 
+ /*
+  * Domain Hash Table Helper Functions
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index b038092..a323815 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -116,8 +116,8 @@ struct netlbl_unlhsh_walk_arg {
+ static DEFINE_SPINLOCK(netlbl_unlhsh_lock);
+ #define netlbl_unlhsh_rcu_deref(p) \
+ 	rcu_dereference_check(p, lockdep_is_held(&netlbl_unlhsh_lock))
+-static struct netlbl_unlhsh_tbl *netlbl_unlhsh = NULL;
+-static struct netlbl_unlhsh_iface *netlbl_unlhsh_def = NULL;
++static struct netlbl_unlhsh_tbl __rcu *netlbl_unlhsh;
++static struct netlbl_unlhsh_iface __rcu *netlbl_unlhsh_def;
+ 
+ /* Accept unlabeled packets flag */
+ static u8 netlabel_unlabel_acceptflg = 0;
+-- 
+1.8.0
+
+_______________________________________________
+Selinux mailing list
+Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+To unsubscribe, send email to Selinux-leave-+05T5uksL2pAGbPMOrvdOA@public.gmane.org
+To get help, send an email containing "help" to Selinux-request-+05T5uksL2pAGbPMOrvdOA@public.gmane.org
