@@ -1,24 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-sysfs: use to_net_dev in net_namespace()
-Date: Tue, 22 Dec 2015 15:04:29 -0500 (EST)
-Message-ID: <20151222.150429.2154037685806906363.davem@davemloft.net>
-References: <d010715aeba7ecc4421b06b20f19c1f3958772db.1450796865.git.geliangtang@163.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jiri@mellanox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geliangtang@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d010715aeba7ecc4421b06b20f19c1f3958772db.1450796865.git.geliangtang@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next 0/4] Faster SO_REUSEPORT
+Date: Tue, 22 Dec 2015 15:05:06 -0500
+Message-ID: <1450814710-17850-1-git-send-email-kraigatgoog@gmail.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:34370 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933665AbbLVUFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:05:13 -0500
+Received: by mail-qg0-f43.google.com with SMTP id 74so71376229qgh.1
+        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 12:05:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geliang Tang <geliangtang@163.com>
-Date: Tue, 22 Dec 2015 23:11:49 +0800
+From: Craig Gallek <kraig@google.com>
 
-> Use to_net_dev() instead of open-coding it.
-> 
-> Signed-off-by: Geliang Tang <geliangtang@163.com>
+This series contains two optimizations for the SO_REUSEPORT feature:
+Faster lookup when selecting a socket for an incoming packet and
+the ability to select the socket from the group using a BPF program.
 
-Applied to net-next, thanks.
+This series only includes the UDP path.  I plan to submit a follow-up
+including the TCP path if the implementation in this series is
+acceptable.
+
+Craig Gallek (4):
+  soreuseport: define reuseport groups
+  soreuseport: fast reuseport UDP socket selection
+  soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF
+  soreuseport: BPF selection functional test
+
+ arch/alpha/include/uapi/asm/socket.h        |   3 +
+ arch/avr32/include/uapi/asm/socket.h        |   3 +
+ arch/frv/include/uapi/asm/socket.h          |   3 +
+ arch/ia64/include/uapi/asm/socket.h         |   3 +
+ arch/m32r/include/uapi/asm/socket.h         |   3 +
+ arch/mips/include/uapi/asm/socket.h         |   3 +
+ arch/mn10300/include/uapi/asm/socket.h      |   3 +
+ arch/parisc/include/uapi/asm/socket.h       |   3 +
+ arch/powerpc/include/uapi/asm/socket.h      |   3 +
+ arch/s390/include/uapi/asm/socket.h         |   3 +
+ arch/sparc/include/uapi/asm/socket.h        |   3 +
+ arch/xtensa/include/uapi/asm/socket.h       |   3 +
+ include/linux/filter.h                      |   2 +
+ include/net/addrconf.h                      |   3 +-
+ include/net/sock.h                          |   2 +
+ include/net/sock_reuseport.h                |  29 ++
+ include/net/udp.h                           |   7 +-
+ include/uapi/asm-generic/socket.h           |   3 +
+ net/core/Makefile                           |   2 +-
+ net/core/filter.c                           | 120 +++++--
+ net/core/sock.c                             |  29 ++
+ net/core/sock_reuseport.c                   | 251 +++++++++++++++
+ net/ipv4/udp.c                              | 127 ++++++--
+ net/ipv4/udp_diag.c                         |   4 +-
+ net/ipv6/inet6_connection_sock.c            |   4 +-
+ net/ipv6/udp.c                              |  56 +++-
+ tools/testing/selftests/net/.gitignore      |   1 +
+ tools/testing/selftests/net/Makefile        |   2 +-
+ tools/testing/selftests/net/reuseport_bpf.c | 467 ++++++++++++++++++++++++++++
+ 29 files changed, 1077 insertions(+), 68 deletions(-)
+ create mode 100644 include/net/sock_reuseport.h
+ create mode 100644 net/core/sock_reuseport.c
+ create mode 100644 tools/testing/selftests/net/reuseport_bpf.c
+
+-- 
+2.6.0.rc2.230.g3dd15c0
