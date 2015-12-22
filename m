@@ -1,137 +1,367 @@
-From: "Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 3/8] cgroup: implement cgroup_get_from_path() and expose
- cgroup_put()
-Date: Mon, 21 Dec 2015 18:22:41 -0600
-Message-ID: <20151222002240.GA6682@mail.hallyn.com>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
- <1449527935-27056-4-git-send-email-tj@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1449527935-27056-4-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next] ip_tunnel: Move stats update to iptunnel_xmit()
+Date: Mon, 21 Dec 2015 16:34:36 -0800
+Message-ID: <1450744476-23539-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34019 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985AbbLVAel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 19:34:41 -0500
+Received: by mail-pf0-f177.google.com with SMTP id u7so50053056pfb.1
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 16:34:40 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2015 at 05:38:50PM -0500, Tejun Heo wrote:
-> Implement cgroup_get_from_path() using kernfs_walk_and_get() which
-> obtains a default hierarchy cgroup from its path.  This will be used
-> to allow cgroup path based matching from outside cgroup proper -
-> e.g. networking and perf.
+By moving stats update into iptunnel_xmit(), we can simplify
+iptunnel_xmit() usage. With this change there is no need to
+call another function (iptunnel_xmit_stats()) to update stats
+in tunnel xmit code path.
 
-Hi Tejun,
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ drivers/net/geneve.c      | 17 ++++++++---------
+ drivers/net/vxlan.c       |  9 ++++-----
+ include/net/ip6_tunnel.h  | 17 ++++-------------
+ include/net/ip_tunnels.h  | 18 ++++++++----------
+ include/net/udp_tunnel.h  |  8 ++++----
+ net/ipv4/ip_gre.c         |  7 +++----
+ net/ipv4/ip_tunnel.c      |  7 ++-----
+ net/ipv4/ip_tunnel_core.c |  9 +++++----
+ net/ipv4/ip_vti.c         |  2 +-
+ net/ipv4/udp_tunnel.c     | 11 +++++------
+ net/ipv6/sit.c            |  7 ++-----
+ net/tipc/udp_media.c      | 12 +++---------
+ 12 files changed, 49 insertions(+), 75 deletions(-)
 
-I'm trying to figure out how to handle this in the cgroup ns patchset.
-Is this going to be purely used internally?  From the user i see in
-this patchset it looks like I should leave it be (and have @path always
-be absolute)  Is that right?
-
-thanks,
--serge
-
-> v2: Add EXPORT_SYMBOL_GPL(cgroup_get_from_path).
-> 
-> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> ---
->  include/linux/cgroup.h |  7 +++++++
->  kernel/cgroup.c        | 39 ++++++++++++++++++++++++++++++++++-----
->  2 files changed, 41 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-> index b5ee2c4..4c3ffab 100644
-> --- a/include/linux/cgroup.h
-> +++ b/include/linux/cgroup.h
-> @@ -81,6 +81,8 @@ struct cgroup_subsys_state *cgroup_get_e_css(struct cgroup *cgroup,
->  struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
->  						       struct cgroup_subsys *ss);
->  
-> +struct cgroup *cgroup_get_from_path(const char *path);
-> +
->  int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
->  int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
->  
-> @@ -351,6 +353,11 @@ static inline void css_put_many(struct cgroup_subsys_state *css, unsigned int n)
->  		percpu_ref_put_many(&css->refcnt, n);
->  }
->  
-> +static inline void cgroup_put(struct cgroup *cgrp)
-> +{
-> +	css_put(&cgrp->self);
-> +}
-> +
->  /**
->   * task_css_set_check - obtain a task's css_set with extra access conditions
->   * @task: the task to obtain css_set for
-> diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-> index 3190040..3db5e8f 100644
-> --- a/kernel/cgroup.c
-> +++ b/kernel/cgroup.c
-> @@ -434,11 +434,6 @@ static bool cgroup_tryget(struct cgroup *cgrp)
->  	return css_tryget(&cgrp->self);
->  }
->  
-> -static void cgroup_put(struct cgroup *cgrp)
-> -{
-> -	css_put(&cgrp->self);
-> -}
-> -
->  struct cgroup_subsys_state *of_css(struct kernfs_open_file *of)
->  {
->  	struct cgroup *cgrp = of->kn->parent->priv;
-> @@ -5753,6 +5748,40 @@ struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss)
->  	return id > 0 ? idr_find(&ss->css_idr, id) : NULL;
->  }
->  
-> +/**
-> + * cgroup_get_from_path - lookup and get a cgroup from its default hierarchy path
-> + * @path: path on the default hierarchy
-> + *
-> + * Find the cgroup at @path on the default hierarchy, increment its
-> + * reference count and return it.  Returns pointer to the found cgroup on
-> + * success, ERR_PTR(-ENOENT) if @path doens't exist and ERR_PTR(-ENOTDIR)
-> + * if @path points to a non-directory.
-> + */
-> +struct cgroup *cgroup_get_from_path(const char *path)
-> +{
-> +	struct kernfs_node *kn;
-> +	struct cgroup *cgrp;
-> +
-> +	mutex_lock(&cgroup_mutex);
-> +
-> +	kn = kernfs_walk_and_get(cgrp_dfl_root.cgrp.kn, path);
-> +	if (kn) {
-> +		if (kernfs_type(kn) == KERNFS_DIR) {
-> +			cgrp = kn->priv;
-> +			cgroup_get(cgrp);
-> +		} else {
-> +			cgrp = ERR_PTR(-ENOTDIR);
-> +		}
-> +		kernfs_put(kn);
-> +	} else {
-> +		cgrp = ERR_PTR(-ENOENT);
-> +	}
-> +
-> +	mutex_unlock(&cgroup_mutex);
-> +	return cgrp;
-> +}
-> +EXPORT_SYMBOL_GPL(cgroup_get_from_path);
-> +
->  #ifdef CONFIG_CGROUP_DEBUG
->  static struct cgroup_subsys_state *
->  debug_css_alloc(struct cgroup_subsys_state *parent_css)
-> -- 
-> 2.5.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index e6e0092..20dd664 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -918,12 +918,11 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+ 		df = 0;
+ 	}
+-	err = udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
+-				  tos, ttl, df, sport, geneve->dst_port,
+-				  !net_eq(geneve->net, dev_net(geneve->dev)),
+-				  !(flags & GENEVE_F_UDP_CSUM));
++	udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
++			    tos, ttl, df, sport, geneve->dst_port,
++			    !net_eq(geneve->net, dev_net(geneve->dev)),
++			    !(flags & GENEVE_F_UDP_CSUM));
+ 
+-	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+ 	return NETDEV_TX_OK;
+ 
+ tx_error:
+@@ -1005,10 +1004,10 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 			ttl = 1;
+ 		ttl = ttl ? : ip6_dst_hoplimit(dst);
+ 	}
+-	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
+-				   &fl6.saddr, &fl6.daddr, prio, ttl,
+-				   sport, geneve->dst_port,
+-				   !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
++	udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
++			     &fl6.saddr, &fl6.daddr, prio, ttl,
++			     sport, geneve->dst_port,
++			     !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
+ 	return NETDEV_TX_OK;
+ 
+ tx_error:
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index ba363ce..fecf7b6 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1841,9 +1841,10 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
+ 
+ 	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+ 
+-	return udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos,
+-				   ttl, df, src_port, dst_port, xnet,
+-				   !(vxflags & VXLAN_F_UDP_CSUM));
++	udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos, ttl, df,
++			    src_port, dst_port, xnet,
++			    !(vxflags & VXLAN_F_UDP_CSUM));
++	return 0;
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -2056,8 +2057,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 			skb = NULL;
+ 			goto rt_tx_error;
+ 		}
+-
+-		iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	} else {
+ 		struct dst_entry *ndst;
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index ff788b6..a46769a 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -5,6 +5,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/ip6_tunnel.h>
++#include <net/ip_tunnels.h>
+ 
+ #define IP6TUNNEL_ERR_TIMEO (30*HZ)
+ 
+@@ -83,22 +84,12 @@ int ip6_tnl_get_iflink(const struct net_device *dev);
+ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+ 				  struct net_device *dev)
+ {
+-	struct net_device_stats *stats = &dev->stats;
+ 	int pkt_len, err;
+ 
+ 	pkt_len = skb->len - skb_inner_network_offset(skb);
+ 	err = ip6_local_out(dev_net(skb_dst(skb)->dev), sk, skb);
+-
+-	if (net_xmit_eval(err) == 0) {
+-		struct pcpu_sw_netstats *tstats = get_cpu_ptr(dev->tstats);
+-		u64_stats_update_begin(&tstats->syncp);
+-		tstats->tx_bytes += pkt_len;
+-		tstats->tx_packets++;
+-		u64_stats_update_end(&tstats->syncp);
+-		put_cpu_ptr(tstats);
+-	} else {
+-		stats->tx_errors++;
+-		stats->tx_aborted_errors++;
+-	}
++	if (unlikely(net_xmit_eval(err)))
++		pkt_len = 0;
++	iptunnel_xmit_stats(dev, pkt_len);
+ }
+ #endif
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 62a750a..8c86d66 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -273,32 +273,30 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
+ }
+ 
+ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
+-int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+-		  __be32 src, __be32 dst, u8 proto,
+-		  u8 tos, u8 ttl, __be16 df, bool xnet);
++void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
++		   __be32 src, __be32 dst, u8 proto,
++		   u8 tos, u8 ttl, __be16 df, bool xnet);
+ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
+ 					     gfp_t flags);
+ 
+ struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb, bool gre_csum,
+ 					 int gso_type_mask);
+ 
+-static inline void iptunnel_xmit_stats(int err,
+-				       struct net_device_stats *err_stats,
+-				       struct pcpu_sw_netstats __percpu *stats)
++static inline void iptunnel_xmit_stats(struct net_device *dev, int err)
+ {
+ 	if (err > 0) {
+-		struct pcpu_sw_netstats *tstats = get_cpu_ptr(stats);
++		struct pcpu_sw_netstats *tstats = get_cpu_ptr(dev->tstats);
+ 
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->tx_bytes += err;
+ 		tstats->tx_packets++;
+ 		u64_stats_update_end(&tstats->syncp);
+ 		put_cpu_ptr(tstats);
+-	} else if (err < 0) {
++	} else {
++		struct net_device_stats *err_stats = &dev->stats;
++
+ 		err_stats->tx_errors++;
+ 		err_stats->tx_aborted_errors++;
+-	} else {
+-		err_stats->tx_dropped++;
+ 	}
+ }
+ 
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index cb2f89f..cca2ad3 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -78,10 +78,10 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+ 			   struct udp_tunnel_sock_cfg *sock_cfg);
+ 
+ /* Transmit the skb using UDP encapsulation. */
+-int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+-			__be32 src, __be32 dst, __u8 tos, __u8 ttl,
+-			__be16 df, __be16 src_port, __be16 dst_port,
+-			bool xnet, bool nocheck);
++void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
++			 __be32 src, __be32 dst, __u8 tos, __u8 ttl,
++			 __be16 df, __be16 src_port, __be16 dst_port,
++			 bool xnet, bool nocheck);
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 04a48c0..7c51c4e 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -561,10 +561,9 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		     tunnel_id_to_key(tun_info->key.tun_id), 0);
+ 
+ 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
+-	err = iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
+-			    key->u.ipv4.dst, IPPROTO_GRE,
+-			    key->tos, key->ttl, df, false);
+-	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
++
++	iptunnel_xmit(skb->sk, rt, skb, fl.saddr, key->u.ipv4.dst, IPPROTO_GRE,
++		      key->tos, key->ttl, df, false);
+ 	return;
+ 
+ err_free_rt:
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 0f6e9ee..c7bd72e 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -656,7 +656,6 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	struct rtable *rt;		/* Route to the other host */
+ 	unsigned int max_headroom;	/* The extra header space needed */
+ 	__be32 dst;
+-	int err;
+ 	bool connected;
+ 
+ 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
+@@ -794,10 +793,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		return;
+ 	}
+ 
+-	err = iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol,
+-			    tos, ttl, df, !net_eq(tunnel->net, dev_net(dev)));
+-	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+-
++	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol, tos, ttl,
++		      df, !net_eq(tunnel->net, dev_net(dev)));
+ 	return;
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 1db8418..eb52ce9 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -47,12 +47,13 @@
+ #include <net/rtnetlink.h>
+ #include <net/dst_metadata.h>
+ 
+-int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+-		  __be32 src, __be32 dst, __u8 proto,
+-		  __u8 tos, __u8 ttl, __be16 df, bool xnet)
++void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
++		   __be32 src, __be32 dst, __u8 proto,
++		   __u8 tos, __u8 ttl, __be16 df, bool xnet)
+ {
+ 	int pkt_len = skb->len - skb_inner_network_offset(skb);
+ 	struct net *net = dev_net(rt->dst.dev);
++	struct net_device *dev = skb->dev;
+ 	struct iphdr *iph;
+ 	int err;
+ 
+@@ -81,7 +82,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	err = ip_local_out(net, sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
+ 		pkt_len = 0;
+-	return pkt_len;
++	iptunnel_xmit_stats(dev, pkt_len);
+ }
+ EXPORT_SYMBOL_GPL(iptunnel_xmit);
+ 
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 02d9c21..5cf10b7 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -199,7 +199,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	err = dst_output(tunnel->net, skb->sk, skb);
+ 	if (net_xmit_eval(err) == 0)
+ 		err = skb->len;
+-	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
++	iptunnel_xmit_stats(dev, err);
+ 	return NETDEV_TX_OK;
+ 
+ tx_error_icmp:
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index aba4286..0ec0881 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -74,10 +74,10 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+ }
+ EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
+ 
+-int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+-			__be32 src, __be32 dst, __u8 tos, __u8 ttl,
+-			__be16 df, __be16 src_port, __be16 dst_port,
+-			bool xnet, bool nocheck)
++void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
++			 __be32 src, __be32 dst, __u8 tos, __u8 ttl,
++			 __be16 df, __be16 src_port, __be16 dst_port,
++			 bool xnet, bool nocheck)
+ {
+ 	struct udphdr *uh;
+ 
+@@ -91,8 +91,7 @@ int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+ 
+ 	udp_set_csum(nocheck, skb, src, dst, skb->len);
+ 
+-	return iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP,
+-			     tos, ttl, df, xnet);
++	iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df, xnet);
+ }
+ EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
+ 
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index dcccae8..e794ef6 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -820,7 +820,6 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 	const struct in6_addr *addr6;
+ 	int addr_type;
+ 	u8 ttl;
+-	int err;
+ 	u8 protocol = IPPROTO_IPV6;
+ 	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
+ 
+@@ -983,10 +982,8 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
+ 
+-	err = iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr,
+-			    protocol, tos, ttl, df,
+-			    !net_eq(tunnel->net, dev_net(dev)));
+-	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
++	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol, tos, ttl,
++		      df, !net_eq(tunnel->net, dev_net(dev)));
+ 	return NETDEV_TX_OK;
+ 
+ tx_error_icmp:
+diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+index 6af78c6..d63a911 100644
+--- a/net/tipc/udp_media.c
++++ b/net/tipc/udp_media.c
+@@ -182,15 +182,9 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
+ 			goto tx_error;
+ 		}
+ 		ttl = ip4_dst_hoplimit(&rt->dst);
+-		err = udp_tunnel_xmit_skb(rt, ub->ubsock->sk, skb,
+-					  src->ipv4.s_addr,
+-					  dst->ipv4.s_addr, 0, ttl, 0,
+-					  src->udp_port, dst->udp_port,
+-					  false, true);
+-		if (err < 0) {
+-			ip_rt_put(rt);
+-			goto tx_error;
+-		}
++		udp_tunnel_xmit_skb(rt, ub->ubsock->sk, skb, src->ipv4.s_addr,
++				    dst->ipv4.s_addr, 0, ttl, 0, src->udp_port,
++				    dst->udp_port, false, true);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	} else {
+ 		struct dst_entry *ndst;
+-- 
+1.8.3.1
