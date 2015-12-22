@@ -1,97 +1,71 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible)
- division by zero
-Date: Mon, 21 Dec 2015 18:10:32 -0800
-Message-ID: <CAK6E8=d1FquYTtMXi6v+koruRhA2MUe693-DX5jbU8urRatUoQ@mail.gmail.com>
-References: <26396443.iDTTxgChSj@spock>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/2] [iproute2] tc/q_htb.c: remove printing of a
+ deprecated overhead value previously encoded as a part of mpu field
+Date: Mon, 21 Dec 2015 21:29:21 -0800
+Message-ID: <20151221212921.52d282a6@xeon-e3>
+References: <3134751450538752@web30j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7bf0d954aad8870527731e3e
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Oleksandr Natalenko <oleksandr@natalenko.name>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37410 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972AbbLVCLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2015 21:11:14 -0500
-Received: by mail-wm0-f43.google.com with SMTP id p187so92306312wmp.0
-        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 18:11:13 -0800 (PST)
-In-Reply-To: <26396443.iDTTxgChSj@spock>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35737 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753504AbbLVF3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 00:29:15 -0500
+Received: by mail-pa0-f44.google.com with SMTP id jx14so83348505pad.2
+        for <netdev@vger.kernel.org>; Mon, 21 Dec 2015 21:29:15 -0800 (PST)
+In-Reply-To: <3134751450538752@web30j.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---047d7bf0d954aad8870527731e3e
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Sat, 19 Dec 2015 18:25:52 +0300
+Dmitrii Shcherbakov <fw.dmitrii@yandex.com> wrote:
 
-On Mon, Dec 21, 2015 at 12:25 PM, Oleksandr Natalenko
-<oleksandr@natalenko.name> wrote:
-> Commit 3759824da87b30ce7a35b4873b62b0ba38905ef5 (tcp: PRR uses CRB mode b=
-y
-> default and SS mode conditionally) introduced changes to net/ipv4/tcp_inp=
-ut.c
-> tcp_cwnd_reduction() that, possibly, cause division by zero, and therefor=
-e,
-> kernel panic in interrupt handler [1].
->
-> Reverting 3759824da87b30ce7a35b4873b62b0ba38905ef5 seems to fix the issue=
-.
->
-> I'm able to reproduce the issue on 4.3.0=E2=80=934.3.3 once per several d=
-ay
-> (occasionally).
->
-> What could be done to help in debugging this issue?
-Do you have ECN enabled (i.e. sysctl net.ipv4.tcp_ecn > 0)?
+> Remove printing according to the previously used encoding of mpu and overhead values within the tc_ratespec's mpu field. This encoding is no longer being used as a separate 'overhead' field in the ratespec structure has been introduced.
+> 
+> Signed-off-by: Dmitrii Shcherbakov <fw.dmitrii@yandex.com>
+> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Acked-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  tc/q_htb.c | 11 ++++-------
+>  1 file changed, 4 insertions(+), 7 deletions(-)
+> 
+> diff --git a/tc/q_htb.c b/tc/q_htb.c
+> index 7075a4c..e76d20a 100644
+> --- a/tc/q_htb.c
+> +++ b/tc/q_htb.c
+> @@ -273,7 +273,6 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+>  	__u64 rate64, ceil64;
+>  	SPRINT_BUF(b1);
+>  	SPRINT_BUF(b2);
+> -	SPRINT_BUF(b3);
+>  	SPRINT_BUF(b4);
+>  
+>  	if (opt == NULL)
+> @@ -313,16 +312,14 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+>  		if (linklayer > TC_LINKLAYER_ETHERNET || show_details)
+>  			fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b4));
+>  		if (show_details) {
+> -			fprintf(f, "burst %s/%u mpu %s overhead %s ",
+> +			fprintf(f, "burst %s/%u mpu %s ",
+>  				sprint_size(buffer, b1),
+>  				1<<hopt->rate.cell_log,
+> -				sprint_size(hopt->rate.mpu&0xFF, b2),
+> -				sprint_size((hopt->rate.mpu>>8)&0xFF, b3));
+> -			fprintf(f, "cburst %s/%u mpu %s overhead %s ",
+> +				sprint_size(hopt->rate.mpu, b2));
+> +			fprintf(f, "cburst %s/%u mpu %s ",
+>  				sprint_size(cbuffer, b1),
+>  				1<<hopt->ceil.cell_log,
+> -				sprint_size(hopt->ceil.mpu&0xFF, b2),
+> -				sprint_size((hopt->ceil.mpu>>8)&0xFF, b3));
+> +				sprint_size(hopt->ceil.mpu, b2));
+>  			fprintf(f, "level %d ", (int)hopt->level);
+>  		} else {
+>  			fprintf(f, "burst %s ", sprint_size(buffer, b1));
 
-If so I suspect an ACK carrying ECE during CA_Loss causes entering CWR
-state w/o calling tcp_init_cwnd_reduct() to set tp->prior_cwnd. Can
-you try this debug / quick-fix patch and send me the error message if
-any?
-
-
->
-> Regards,
->   Oleksandr.
->
-> [1] http://i.piccy.info/
-> i9/6f5cb187c4ff282d189f78c63f95af43/1450729403/283985/951663/panic.jpg
-
---047d7bf0d954aad8870527731e3e
-Content-Type: application/octet-stream;
-	name="0001-tcp-debug-tcp_cwnd_reduction-div0.patch"
-Content-Disposition: attachment;
-	filename="0001-tcp-debug-tcp_cwnd_reduction-div0.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_iigr7l1t0
-
-RnJvbSAwMGM4MGJkZGFlOTNkNzEyZDFlNTFlMDIxMjY2YzAwNjdkMmUxMzBlIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBZdWNodW5nIENoZW5nIDx5Y2hlbmdAZ29vZ2xlLmNvbT4KRGF0
-ZTogTW9uLCAyMSBEZWMgMjAxNSAxNzozNzo1MSAtMDgwMApTdWJqZWN0OiBbUEFUQ0hdIHRjcDog
-ZGVidWcgdGNwX2N3bmRfcmVkdWN0aW9uIGRpdjAKCkl0J3MgYmVlbiByZXBvcnRlZCB0Y3BfY3du
-ZF9yZWR1Y3Rpb24oKSBtYXkgaGF2ZSBkaXYwIGJ1ZyBiL2MKdHAtPnByaW9yX2N3bmQgPT0gMC4g
-VG8gYXZvaWQgdGhpcywgdGhlIGJlc3Qgb3B0aW9uIGlzIHRvIHNpbXBseQp1c2UgcGFja2V0IGNv
-bnNlcnZhdGlvbiB0byBzZW5kIHBhY2tldHMgaW4gY3duZCByZWR1Y3Rpb24gc3RhdGVzLgpBbHNv
-IGFkZCBzb21lIHByX2VyciB0byBkZWJ1ZyB0aGlzLgoKU2lnbmVkLW9mZi1ieTogWXVjaHVuZyBD
-aGVuZyA8eWNoZW5nQGdvb2dsZS5jb20+Ci0tLQogbmV0L2lwdjQvdGNwX2lucHV0LmMgfCA2ICsr
-KysrLQogMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQoKZGlm
-ZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pbnB1dC5jIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMKaW5k
-ZXggN2IxZmRkYy4uYzI3ZmE4NCAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0LmMKKysr
-IGIvbmV0L2lwdjQvdGNwX2lucHV0LmMKQEAgLTI0NzgsOCArMjQ3OCwxMiBAQCBzdGF0aWMgdm9p
-ZCB0Y3BfY3duZF9yZWR1Y3Rpb24oc3RydWN0IHNvY2sgKnNrLCBjb25zdCBpbnQgcHJpb3JfdW5z
-YWNrZWQsCiAJaW50IG5ld2x5X2Fja2VkX3NhY2tlZCA9IHByaW9yX3Vuc2Fja2VkIC0KIAkJCQkg
-KHRwLT5wYWNrZXRzX291dCAtIHRwLT5zYWNrZWRfb3V0KTsKIAorCWlmIChXQVJOX09OKCF0cC0+
-cHJpb3JfY3duZCkpCisJCXByX2VycigiIGN3ciBwcmlvcl9jd25kMCAlZCBjd25kICV1ICVkICVk
-IDB4JXhcbiIsCisJCQlpbmV0X2NzayhzayktPmljc2tfY2Ffc3RhdGUsIHRwLT5zbmRfY3duZCwK
-KwkJCXRwLT5wcnJfb3V0LCB0cC0+cHJyX2RlbGl2ZXJlZCwgZmxhZyk7CiAJdHAtPnBycl9kZWxp
-dmVyZWQgKz0gbmV3bHlfYWNrZWRfc2Fja2VkOwotCWlmIChkZWx0YSA8IDApIHsKKwlpZiAoZGVs
-dGEgPCAwICYmIHRwLT5wcmlvcl9jd25kKSB7CiAJCXU2NCBkaXZpZGVuZCA9ICh1NjQpdHAtPnNu
-ZF9zc3RocmVzaCAqIHRwLT5wcnJfZGVsaXZlcmVkICsKIAkJCSAgICAgICB0cC0+cHJpb3JfY3du
-ZCAtIDE7CiAJCXNuZGNudCA9IGRpdl91NjQoZGl2aWRlbmQsIHRwLT5wcmlvcl9jd25kKSAtIHRw
-LT5wcnJfb3V0OwotLSAKMi42LjAucmMyLjIzMC5nM2RkMTVjMAoK
---047d7bf0d954aad8870527731e3e--
+Not sure if this a good thing to do. There are people who screenscrape the output of
+iproute2 commands, and this might break that.
