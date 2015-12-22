@@ -1,62 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] veth: =?iso-8859-7?B?ZG9uonQ=?= modify ip_summed;
- doing so treats packets with bad checksums as good.
-Date: Tue, 22 Dec 2015 15:16:12 -0500 (EST)
-Message-ID: <20151222.151612.206719325623084440.davem@davemloft.net>
-References: <CAM_iQpUOKGoNNDF2Nbut8a0q2rGY6pCXBm3NVkBMe=63K7L9bg@mail.gmail.com>
-	<1450467299-7188-1-git-send-email-vijayp@vijayp.ca>
+Subject: Re: [PATCH] sh_eth: fix 16-bit descriptor field access endianness
+ too
+Date: Tue, 22 Dec 2015 15:24:01 -0500 (EST)
+Message-ID: <20151222.152401.1350968132902705224.davem@davemloft.net>
+References: <16692899.McEvu8S87q@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: xiyou.wangcong@gmail.com, ej@evanjones.ca,
-	nicolas.dichtel@6wind.com, phil@nwl.cc,
-	makita.toshiaki@lab.ntt.co.jp, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: vijayp@vijayp.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450467299-7188-1-git-send-email-vijayp@vijayp.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <16692899.McEvu8S87q@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogVmlqYXkgUGFuZHVyYW5nYW4gPHZpamF5cEB2aWpheXAuY2E+DQpEYXRlOiBGcmksIDE4
-IERlYyAyMDE1IDE0OjM0OjU5IC0wNTAwDQoNCj4gUGFja2V0cyB0aGF0IGFycml2ZSBmcm9tIHJl
-YWwgaGFyZHdhcmUgZGV2aWNlcyBoYXZlIGlwX3N1bW1lZCA9PQ0KPiBDSEVDS1NVTV9VTk5FQ0VT
-U0FSWSBpZiB0aGUgaGFyZHdhcmUgdmVyaWZpZWQgdGhlIGNoZWNrc3Vtcywgb3INCj4gQ0hFQ0tT
-VU1fTk9ORSBpZiB0aGUgcGFja2V0IGlzIGJhZCBvciBpdCB3YXMgdW5hYmxlIHRvIHZlcmlmeSBp
-dC4gVGhlDQo+IGN1cnJlbnQgdmVyc2lvbiBvZiB2ZXRoIHdpbGwgcmVwbGFjZSBDSEVDS1NVTV9O
-T05FIHdpdGgNCj4gQ0hFQ0tTVU1fVU5ORUNFU1NBUlksIHdoaWNoIGNhdXNlcyBjb3JydXB0IHBh
-Y2tldHMgcm91dGVkIGZyb20gaGFyZHdhcmUgdG8NCj4gYSB2ZXRoIGRldmljZSB0byBiZSBkZWxp
-dmVyZWQgdG8gdGhlIGFwcGxpY2F0aW9uLiBUaGlzIGNhdXNlZCBhcHBsaWNhdGlvbnMNCj4gYXQg
-VHdpdHRlciB0byByZWNlaXZlIGNvcnJ1cHQgZGF0YSB3aGVuIG5ldHdvcmsgaGFyZHdhcmUgd2Fz
-IGNvcnJ1cHRpbmcNCj4gcGFja2V0cy4NCj4gDQo+IFdlIGJlbGlldmUgdGhpcyB3YXMgYWRkZWQg
-YXMgYW4gb3B0aW1pemF0aW9uIHRvIHNraXAgY29tcHV0aW5nIGFuZA0KPiB2ZXJpZnlpbmcgY2hl
-Y2tzdW1zIGZvciBjb21tdW5pY2F0aW9uIGJldHdlZW4gY29udGFpbmVycy4gSG93ZXZlciwgbG9j
-YWxseQ0KPiBnZW5lcmF0ZWQgcGFja2V0cyBoYXZlIGlwX3N1bW1lZCA9PSBDSEVDS1NVTV9QQVJU
-SUFMLCBzbyB0aGUgY29kZSBhcw0KPiB3cml0dGVuIGRvZXMgbm90aGluZyBmb3IgdGhlbS4gQXMg
-ZmFyIGFzIHdlIGNhbiB0ZWxsLCBhZnRlciByZW1vdmluZyB0aGlzDQo+IGNvZGUsIHRoZXNlIHBh
-Y2tldHMgYXJlIHRyYW5zbWl0dGVkIGZyb20gb25lIHN0YWNrIHRvIGFub3RoZXIgdW5tb2RpZmll
-ZA0KPiAodGNwZHVtcCBzaG93cyBpbnZhbGlkIGNoZWNrc3VtcyBvbiBib3RoIHNpZGVzLCBhcyBl
-eHBlY3RlZCksIGFuZCB0aGV5IGFyZQ0KPiBkZWxpdmVyZWQgY29ycmVjdGx5IHRvIGFwcGxpY2F0
-aW9ucy4gV2UgZGlkbqJ0IHRlc3QgZXZlcnkgcG9zc2libGUgbmV0d29yaw0KPiBjb25maWd1cmF0
-aW9uLCBidXQgd2UgdHJpZWQgYSBmZXcgY29tbW9uIG9uZXMgc3VjaCBhcyBicmlkZ2luZyBjb250
-YWluZXJzLA0KPiB1c2luZyBOQVQgYmV0d2VlbiB0aGUgaG9zdCBhbmQgYSBjb250YWluZXIsIGFu
-ZCByb3V0aW5nIGZyb20gaGFyZHdhcmUNCj4gZGV2aWNlcyB0byBjb250YWluZXJzLiBXZSBoYXZl
-IGVmZmVjdGl2ZWx5IGRlcGxveWVkIHRoaXMgaW4gcHJvZHVjdGlvbiBhdA0KPiBUd2l0dGVyIChi
-eSBkaXNhYmxpbmcgUlggY2hlY2tzdW0gb2ZmbG9hZGluZyBvbiB2ZXRoIGRldmljZXMpLg0KPiAN
-Cj4gVGhpcyBjb2RlIGRhdGVzIGJhY2sgdG8gdGhlIGZpcnN0IHZlcnNpb24gb2YgdGhlIGRyaXZl
-ciwgY29tbWl0DQo+IDxlMzE0ZGJkYzFjMGRjNmE1NDhlY2Y+ICgiW05FVF06IFZpcnR1YWwgZXRo
-ZXJuZXQgZGV2aWNlIGRyaXZlciIpLCBzbyBJDQo+IHN1c3BlY3QgdGhpcyBidWcgb2NjdXJyZWQg
-bW9zdGx5IGJlY2F1c2UgdGhlIGRyaXZlciBBUEkgaGFzIGV2b2x2ZWQNCj4gc2lnbmlmaWNhbnRs
-eSBzaW5jZSB0aGVuLiBDb21taXQgPDBiNzk2NzUwM2RjOTc4NjRmMjgzYT4gKCJuZXQvdmV0aDog
-Rml4DQo+IHBhY2tldCBjaGVja3N1bW1pbmciKSAoaW4gRGVjZW1iZXIgMjAxMCkgZml4ZWQgdGhp
-cyBmb3IgcGFja2V0cyB0aGF0IGdldA0KPiBjcmVhdGVkIGxvY2FsbHkgYW5kIHNlbnQgdG8gaGFy
-ZHdhcmUgZGV2aWNlcywgYnkgbm90IGNoYW5naW5nDQo+IENIRUNLU1VNX1BBUlRJQUwuIEhvd2V2
-ZXIsIHRoZSBzYW1lIGlzc3VlIHN0aWxsIG9jY3VycyBmb3IgcGFja2V0cyBjb21pbmcNCj4gaW4g
-ZnJvbSBoYXJkd2FyZSBkZXZpY2VzLg0KPiANCj4gQ28tYXV0aG9yZWQtYnk6IEV2YW4gSm9uZXMg
-PGVqQGV2YW5qb25lcy5jYT4NCj4gU2lnbmVkLW9mZi1ieTogRXZhbiBKb25lcyA8ZWpAZXZhbmpv
-bmVzLmNhPg0KPiBDYzogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29t
-Pg0KPiBDYzogUGhpbCBTdXR0ZXIgPHBoaWxAbndsLmNjPg0KPiBDYzogVG9zaGlha2kgTWFraXRh
-IDxtYWtpdGEudG9zaGlha2lAbGFiLm50dC5jby5qcD4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcNCj4gQ2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU2lnbmVkLW9mZi1i
-eTogVmlqYXkgUGFuZHVyYW5nYW4gPHZpamF5cEB2aWpheXAuY2E+DQoNCkFwcGxpZWQgYW5kIHF1
-ZXVlZCB1cCBmb3IgLXN0YWJsZSwgdGhhbmtzLg0K
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 20 Dec 2015 01:48:04 +0300
+
+> Commit 1299653affa4 ("sh_eth: fix descriptor access endianness") only
+> addressed the 32-bit buffer address field byte-swapping  but the driver
+> still accesses 16-bit frame/buffer length descriptor fields without the
+> necessary byte-swapping -- which should affect the big-endian kernels.
+> In order to be able to use {cpu|edmac}_to_{edmac|cpu}(), we need to declare
+> the RX/TX descriptor word 1 as a 32-bit field and use shifts/masking to
+> access the 16-bit subfields (which gets rid of the ugly #ifdef'ery too)...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+Applied, thanks Sergei.
