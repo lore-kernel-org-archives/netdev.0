@@ -1,68 +1,44 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: suspicious RCU usage (netlink/rhashtable)
-Date: Tue, 22 Dec 2015 15:45:39 -0500
-Message-ID: <20151222204539.GA10690@codemonkey.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/5] cxgb4: add dcb info node in debugfs
+Date: Tue, 22 Dec 2015 15:45:52 -0500 (EST)
+Message-ID: <20151222.154552.1762036210080562354.davem@davemloft.net>
+References: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
+	<1450682170-7106-4-git-send-email-hariprasad@chelsio.com>
+	<CAJ3xEMjctGauyRjCKLV+wACkzDC5xF8J9khdhCm+YZXuEafU5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org, leedom@chelsio.com,
+	nirranjan@chelsio.com, john.r.fastabend@intel.com
+To: gerlitz.or@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:58184 "EHLO
-	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753668AbbLVUpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:45:42 -0500
-Received: from [209.6.119.210] (helo=wopr.kernelslacker.org)
-	by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
-	(Exim 4.86)
-	(envelope-from <davej@codemonkey.org.uk>)
-	id 1aBToS-0000zk-F9
-	for netdev@vger.kernel.org; Tue, 22 Dec 2015 20:45:40 +0000
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:55139 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754626AbbLVUpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:45:54 -0500
+In-Reply-To: <CAJ3xEMjctGauyRjCKLV+wACkzDC5xF8J9khdhCm+YZXuEafU5Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-===============================
-[ INFO: suspicious RCU usage. ]
-4.4.0-rc6-think+ #1 Not tainted
--------------------------------
-lib/rhashtable.c:522 suspicious rcu_dereference_protected() usage!
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Date: Mon, 21 Dec 2015 09:33:22 +0200
 
-other info that might help us debug this:
+> On Mon, Dec 21, 2015 at 9:16 AM, Hariprasad Shenai
+> <hariprasad@chelsio.com> wrote:
+>> Add new /sys/kernel/debug/cxgb4/*/dcb_info node to dump out
+>> various Data Center Bridging information.
+> 
+> why? what's wrong with using the lldp tool for that purpose?
 
+Agreed, and I don't like your explanation.
 
-rcu_scheduler_active = 1, debug_locks = 0
-2 locks held by trinity-c1/3652:
- #0:  (&p->lock){+.+.+.}, at: [<ffffffff9a3335a7>] seq_read+0xd7/0x900
- #1:  (&(&ht->lock)->rlock){+.+...}, at: [<ffffffff9a56f29d>] rhashtable_walk_init+0x9d/0x170
+Even if you are using firmware managed DCB, the lldp tool should be
+usable for querying.
 
-stack backtrace:
-CPU: 0 PID: 3652 Comm: trinity-c1 Not tainted 4.4.0-rc6-think+ #1
- ffffffff9af6ac60 000000003fc014d4 ffff8800cff779e0 ffffffff9a548da1
- ffff880459b8b700 ffff8800cff77a10 ffffffff9a131068 ffff8800cdd32c48
- ffff880464af8000 ffff8800cdd32c58 ffff880464af8160 ffff8800cff77a48
-Call Trace:
- [<ffffffff9a548da1>] dump_stack+0x4e/0x7d
- [<ffffffff9a131068>] lockdep_rcu_suspicious+0xf8/0x110
- [<ffffffff9a56f363>] rhashtable_walk_init+0x163/0x170
- [<ffffffff9ab54399>] netlink_walk_start+0x49/0x90
- [<ffffffff9ab54ad0>] netlink_seq_start+0x40/0x90
- [<ffffffff9a33368f>] seq_read+0x1bf/0x900
- [<ffffffff9a3334d0>] ? seq_lseek+0x1b0/0x1b0
- [<ffffffff9a2a37b0>] ? __might_fault+0xe0/0xf0
- [<ffffffff9a2a3757>] ? __might_fault+0x87/0xf0
- [<ffffffff9a2f91a9>] ? rw_copy_check_uvector+0x139/0x170
- [<ffffffff9a3ab78f>] proc_reg_read+0x7f/0xc0
- [<ffffffff9a2f6a70>] do_loop_readv_writev+0xe0/0x110
- [<ffffffff9a3ab710>] ? proc_reg_write+0xc0/0xc0
- [<ffffffff9a2f7c2b>] do_readv_writev+0x38b/0x3c0
- [<ffffffff9a3ab710>] ? proc_reg_write+0xc0/0xc0
- [<ffffffff9a2f78a0>] ? vfs_write+0x260/0x260
- [<ffffffff9a12ecc5>] ? __lock_is_held+0x25/0xd0
- [<ffffffff9a133d73>] ? mark_held_locks+0x23/0xc0
- [<ffffffff9a25b1ba>] ? context_tracking_exit.part.5+0x2a/0x50
- [<ffffffff9a133f96>] ? trace_hardirqs_on_caller+0x186/0x280
- [<ffffffff9a13409d>] ? trace_hardirqs_on+0xd/0x10
- [<ffffffff9a2f7cb6>] vfs_readv+0x56/0x70
- [<ffffffff9a2f967d>] SyS_preadv+0x15d/0x180
- [<ffffffff9a2f9520>] ? SyS_writev+0x1a0/0x1a0
- [<ffffffff9a002017>] ? trace_hardirqs_on_thunk+0x17/0x19
- [<ffffffff9aceb4d7>] entry_SYSCALL_64_fastpath+0x12/0x6b
+People need to stop putting so much crap into debugfs, it's a serious
+pet peeve of mine.
+
+Every piece of driver unique interface crap you put into debugfs is a
+_HARDSHIP_ for the user.  Because they have to learn a unique way to
+do X in every driver that tries to export the same kind of
+functionality.
