@@ -1,60 +1,57 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
-Date: Tue, 22 Dec 2015 11:12:16 +0200
-Message-ID: <87poxy7spb.fsf@kamboji.qca.qualcomm.com>
-References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
-	<CAFqt6zaALx895c0BVrMpLdtfgYLz=-mmqaurtD28Nm1Ut2g1Dw@mail.gmail.com>
-	<CAP+RiCBK_iEOu27GzqqgG9Pn_MDP1m8JCnSqkGbPMAT7=P9V7g@mail.gmail.com>
-	<CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
+From: wenxu <wenxu-t3UIVg6hrfr/PtFMR13I2A@public.gmane.org>
+Subject: [PATCH] [stable 4.1.y PACTH] openvswitch: fix crash cause
+	by non-nvgre packet
+Date: Tue, 22 Dec 2015 17:15:59 +0800
+Message-ID: <1450775759-11059-1-git-send-email-wenxu@ucloud.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Brent Taylor <motobud@gmail.com>, <netdev@vger.kernel.org>,
-	<ath6kl@lists.infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Souptick Joarder <jrdr.linux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
-	(Souptick Joarder's message of "Tue, 22 Dec 2015 14:35:20 +0530")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ wenxu-t3UIVg6hrfr/PtFMR13I2A@public.gmane.org
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Souptick Joarder <jrdr.linux@gmail.com> writes:
-
-> Hi Brent,
->
-> On Tue, Dec 22, 2015 at 3:23 AM, Brent Taylor <motobud@gmail.com> wrote:
->> On Mon, Dec 21, 2015 at 1:23 PM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
->>> Hi Brent,
->>>
->>> On Tue, Dec 1, 2015 at 11:11 AM, Brent Taylor <motobud@gmail.com> wrote:
->>>
->>>> --- a/drivers/net/wireless/ath/ath6kl/init.c
->>>> +++ b/drivers/net/wireless/ath/ath6kl/init.c
->>>> @@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
->>>>                 return ret;
->>>>
->>>>         *fw_len = fw_entry->size;
->>>> -       *fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
->>>> +   if (&ar->fw == fw)
->>>> +               *fw = vmalloc(fw_entry->size);
->>>> +   else
->>>> +               *fw = kmalloc(fw_entry->size, GFP_KERNEL)
->>>
->>>           Why vmalloc and kmalloc both are required? can't use either
->>> vmalloc or kmalloc?
->>
->> My original problem was that kmemdup (which uses kmalloc) could not
->> allocate enough memory
->
-> If kmemdump ( which uses kmalloc) could not allocate memory then
-> using kmalloc again can lead to same problem.
-> I guess it will be correct to use
->             *fw = vmalloc(fw_entry->size);
-> Correct me if i am wrong.
-
-That sounds best. But remember take into account DMA requirements, IIRC
-you cannot DMA from vmalloc memory on all platforms.
-
--- 
-Kalle Valo
+a2VybmVsIEJVRyBhdCBpbmNsdWRlL2xpbnV4L3NrYnVmZi5oOjEyMTkhCmludmFsaWQgb3Bjb2Rl
+OiAwMDAwIFsjMV0gU01QClJJUDogMDAxMDpbPGZmZmZmZmZmYTAxZGM4OWQ+XSBvdnNfZmxvd19l
+eHRyYWN0KzB4OGVkLzB4YTQwIFtvcGVudnN3aXRjaF0KQ2FsbCBUcmFjZToKPElSUT4Kb3ZzX2Rw
+X3Byb2Nlc3NfcmVjZWl2ZWRfcGFja2V0KzB4NDQvMHg4MCBbb3BlbnZzd2l0Y2hdCm92c192cG9y
+dF9yZWNlaXZlKzB4MmUvMHgzMCBbb3BlbnZzd2l0Y2hdCmdyZV9yY3YrMHhhYy8weGQwIFtvcGVu
+dnN3aXRjaF0KZ3JlX2Npc2NvX3JjdisweDFjMi8weDMxMCBbb3BlbnZzd2l0Y2hdCmdyZV9yY3Yr
+MHg1OS8weDgwIFtvcGVudnN3aXRjaF0KCm92c19mbG93X2V4dHJhY3QgY2FsbCBfX3NrYl9wdWxs
+IHRvIGxlYWQgQlVHX09OKHNrYi0+bGVuIDwgc2tiLT5kYXRhX2xlbikKaWYgdGhlIGdyZSBoZWFk
+ZXIgcHJvdG9jb2wgaXMgbm90IFRFQiBhbmQgbW9zdCBwYXJ0IG9mIHRoZSBwYWNrZXQgaXMgaW4K
+dGhlIG5vbGluZWFyLXNwYXRpYWwuCgoxLiBncmVfcmN2OiBwc2tiX21heV9wdWxsKHNrYiwgMTIp
+CnB1bGwgdGhlIDEyIGJ5dGVzIHRvIGxpbmVhci1zcGF0aWFsKHNrYi0+ZGF0YSkuIFRoZSBncmUg
+aGVhZGVyIGlzIDggYnl0ZXMKb25seSB3aXRoIGtleS4KCjIuIGdyZV9jaXNjb19yY3YtLT5wYXJz
+ZV9ncmVfaGVhZGVyLS0+aXB0dW5uZWxfcHVsbF9oZWFkZXIKewogICAgaWYgKGlubmVyX3Byb3Rv
+ID09IGh0b25zKEVUSF9QX1RFQikpIHsKICAgICAgICBzdHJ1Y3QgZXRoaGRyICplaDsKCiAgICAg
+ICAgaWYgKHVubGlrZWx5KCFwc2tiX21heV9wdWxsKHNrYiwgRVRIX0hMRU4pKSkKICAgICAgICAg
+ICAgcmV0dXJuIC1FTk9NRU07CiAgICAgICAgLi4uLi4uCiAgICB9Cn0KVGhlIHdyb25nIGlubmVy
+X3Byb3RvIGxlYWRzIG5vIHB1bGwgdGhlIE1hYyBoZWFkZXIgdG8gbGluZWFyLXNwYXRpYWwKCjMu
+IGZpbmFsbHkgSXQgbWFkZSBhIGNyYXNoIGluIG92c19mbG93X2V4dHJhY3QtPl9fc2tiX3B1bGwK
+ClNpZ25lZC1vZmYtYnk6IHdlbnh1IDx3ZW54dUB1Y2xvdWQuY24+Ci0tLQogbmV0L29wZW52c3dp
+dGNoL3Zwb3J0LWdyZS5jIHwgMyArKysKIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKykK
+CmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMgYi9uZXQvb3BlbnZzd2l0
+Y2gvdnBvcnQtZ3JlLmMKaW5kZXggZjE3YWM5Ni4uNGE5OTNiNSAxMDA2NDQKLS0tIGEvbmV0L29w
+ZW52c3dpdGNoL3Zwb3J0LWdyZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYwpA
+QCAtMTA3LDYgKzEwNyw5IEBAIHN0YXRpYyBpbnQgZ3JlX3JjdihzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+LAogCWlmICh1bmxpa2VseSghdnBvcnQpKQogCQlyZXR1cm4gUEFDS0VUX1JFSkVDVDsKIAorCWlm
+ICh1bmxpa2VseSh0cGktPnByb3RvICE9IGh0b25zKEVUSF9QX1RFQikpKQorCQlyZXR1cm4gUEFD
+S0VUX1JFSkVDVDsKKwogCWtleSA9IGtleV90b190dW5uZWxfaWQodHBpLT5rZXksIHRwaS0+c2Vx
+KTsKIAlvdnNfZmxvd190dW5faW5mb19pbml0KCZ0dW5faW5mbywgaXBfaGRyKHNrYiksIDAsIDAs
+IGtleSwKIAkJCSAgICAgICBmaWx0ZXJfdG5sX2ZsYWdzKHRwaS0+ZmxhZ3MpLCBOVUxMLCAwKTsK
+LS0gCjEuOS4xCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
+aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
