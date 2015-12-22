@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] RDS: don't pretend to use cpu notifiers
-Date: Tue, 22 Dec 2015 15:23:34 -0500 (EST)
-Message-ID: <20151222.152334.1819747411852445574.davem@davemloft.net>
-References: <1450558543-3650-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH] dccp: fix use-after-free after cloning struct dccp_sock
+Date: Tue, 22 Dec 2015 15:34:25 -0500 (EST)
+Message-ID: <20151222.153425.727988801786072877.davem@davemloft.net>
+References: <1450644807-852-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bigeasy@linutronix.de
-To: santosh.shilimkar@oracle.com
+Cc: acme@kernel.org, edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: vegard.nossum@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450558543-3650-1-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <1450644807-852-1-git-send-email-vegard.nossum@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Sat, 19 Dec 2015 12:55:43 -0800
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Date: Sun, 20 Dec 2015 21:53:27 +0100
 
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> 
-> It looks like an attempt to use CPU notifier here which was never
-> completed. Nobody tried to wire it up completely since 2k9. So I unwind
-> this code and get rid of everything not required. Oh look! 19 lines were
-> removed while code still does the same thing.
-> 
-> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> Tested-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> @@ -115,6 +115,10 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
+>  		newdp->dccps_isr = dreq->dreq_isr;
+>  		newdp->dccps_gsr = dreq->dreq_gsr;
+>  
+> +		newdp->dccps_hc_rx_ackvec = NULL;
+> +		newdp->dccps_hc_rx_ccid = NULL;
+> +		newdp->dccps_hc_tx_ccid = NULL;
 
-Applied to net-next, thanks.
+->dccps_hc_rx_ackvec is set to NULL several lines above this, so you don't
+need to add that case here.
+
+WRT the ccid pointers, I don't think we can just NULL them out.
+
+If the parent socket has these CCID features enabled, we have to
+clone them into the child somehow.
