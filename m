@@ -1,34 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dccp: fix use-after-free after cloning struct dccp_sock
-Date: Tue, 22 Dec 2015 15:34:25 -0500 (EST)
-Message-ID: <20151222.153425.727988801786072877.davem@davemloft.net>
-References: <1450644807-852-1-git-send-email-vegard.nossum@oracle.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: suspicious RCU usage (netlink/rhashtable)
+Date: Tue, 22 Dec 2015 15:45:39 -0500
+Message-ID: <20151222204539.GA10690@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@kernel.org, edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: vegard.nossum@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450644807-852-1-git-send-email-vegard.nossum@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arcturus.aphlor.org ([188.246.204.175]:58184 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753668AbbLVUpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:45:42 -0500
+Received: from [209.6.119.210] (helo=wopr.kernelslacker.org)
+	by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.86)
+	(envelope-from <davej@codemonkey.org.uk>)
+	id 1aBToS-0000zk-F9
+	for netdev@vger.kernel.org; Tue, 22 Dec 2015 20:45:40 +0000
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Date: Sun, 20 Dec 2015 21:53:27 +0100
+===============================
+[ INFO: suspicious RCU usage. ]
+4.4.0-rc6-think+ #1 Not tainted
+-------------------------------
+lib/rhashtable.c:522 suspicious rcu_dereference_protected() usage!
 
-> @@ -115,6 +115,10 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
->  		newdp->dccps_isr = dreq->dreq_isr;
->  		newdp->dccps_gsr = dreq->dreq_gsr;
->  
-> +		newdp->dccps_hc_rx_ackvec = NULL;
-> +		newdp->dccps_hc_rx_ccid = NULL;
-> +		newdp->dccps_hc_tx_ccid = NULL;
+other info that might help us debug this:
 
-->dccps_hc_rx_ackvec is set to NULL several lines above this, so you don't
-need to add that case here.
 
-WRT the ccid pointers, I don't think we can just NULL them out.
+rcu_scheduler_active = 1, debug_locks = 0
+2 locks held by trinity-c1/3652:
+ #0:  (&p->lock){+.+.+.}, at: [<ffffffff9a3335a7>] seq_read+0xd7/0x900
+ #1:  (&(&ht->lock)->rlock){+.+...}, at: [<ffffffff9a56f29d>] rhashtable_walk_init+0x9d/0x170
 
-If the parent socket has these CCID features enabled, we have to
-clone them into the child somehow.
+stack backtrace:
+CPU: 0 PID: 3652 Comm: trinity-c1 Not tainted 4.4.0-rc6-think+ #1
+ ffffffff9af6ac60 000000003fc014d4 ffff8800cff779e0 ffffffff9a548da1
+ ffff880459b8b700 ffff8800cff77a10 ffffffff9a131068 ffff8800cdd32c48
+ ffff880464af8000 ffff8800cdd32c58 ffff880464af8160 ffff8800cff77a48
+Call Trace:
+ [<ffffffff9a548da1>] dump_stack+0x4e/0x7d
+ [<ffffffff9a131068>] lockdep_rcu_suspicious+0xf8/0x110
+ [<ffffffff9a56f363>] rhashtable_walk_init+0x163/0x170
+ [<ffffffff9ab54399>] netlink_walk_start+0x49/0x90
+ [<ffffffff9ab54ad0>] netlink_seq_start+0x40/0x90
+ [<ffffffff9a33368f>] seq_read+0x1bf/0x900
+ [<ffffffff9a3334d0>] ? seq_lseek+0x1b0/0x1b0
+ [<ffffffff9a2a37b0>] ? __might_fault+0xe0/0xf0
+ [<ffffffff9a2a3757>] ? __might_fault+0x87/0xf0
+ [<ffffffff9a2f91a9>] ? rw_copy_check_uvector+0x139/0x170
+ [<ffffffff9a3ab78f>] proc_reg_read+0x7f/0xc0
+ [<ffffffff9a2f6a70>] do_loop_readv_writev+0xe0/0x110
+ [<ffffffff9a3ab710>] ? proc_reg_write+0xc0/0xc0
+ [<ffffffff9a2f7c2b>] do_readv_writev+0x38b/0x3c0
+ [<ffffffff9a3ab710>] ? proc_reg_write+0xc0/0xc0
+ [<ffffffff9a2f78a0>] ? vfs_write+0x260/0x260
+ [<ffffffff9a12ecc5>] ? __lock_is_held+0x25/0xd0
+ [<ffffffff9a133d73>] ? mark_held_locks+0x23/0xc0
+ [<ffffffff9a25b1ba>] ? context_tracking_exit.part.5+0x2a/0x50
+ [<ffffffff9a133f96>] ? trace_hardirqs_on_caller+0x186/0x280
+ [<ffffffff9a13409d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff9a2f7cb6>] vfs_readv+0x56/0x70
+ [<ffffffff9a2f967d>] SyS_preadv+0x15d/0x180
+ [<ffffffff9a2f9520>] ? SyS_writev+0x1a0/0x1a0
+ [<ffffffff9a002017>] ? trace_hardirqs_on_thunk+0x17/0x19
+ [<ffffffff9aceb4d7>] entry_SYSCALL_64_fastpath+0x12/0x6b
