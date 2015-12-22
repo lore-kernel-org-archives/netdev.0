@@ -1,35 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Netfilter fixes for net
-Date: Tue, 22 Dec 2015 14:55:20 -0500 (EST)
-Message-ID: <20151222.145520.891923042793595638.davem@davemloft.net>
-References: <1450806797-21788-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] net-sysfs: use to_net_dev in net_namespace()
+Date: Tue, 22 Dec 2015 15:04:29 -0500 (EST)
+Message-ID: <20151222.150429.2154037685806906363.davem@davemloft.net>
+References: <d010715aeba7ecc4421b06b20f19c1f3958772db.1450796865.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54587 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754794AbbLVTzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 14:55:21 -0500
-In-Reply-To: <1450806797-21788-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfeldma@gmail.com, jiri@mellanox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geliangtang@163.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d010715aeba7ecc4421b06b20f19c1f3958772db.1450796865.git.geliangtang@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 22 Dec 2015 18:53:15 +0100
+From: Geliang Tang <geliangtang@163.com>
+Date: Tue, 22 Dec 2015 23:11:49 +0800
 
-> The following patchset contains two netfilter fixes:
+> Use to_net_dev() instead of open-coding it.
 > 
-> 1) Oneliner from Florian to dump missing NFT_CT_L3PROTOCOL netlink
->    attribute, from Florian Westphal.
-> 
-> 2) Another oneliner for nf_tables to use skb->protocol from the new
->    netdev family, we can't assume ethernet there.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
 
-Pulled, thanks Pablo.
+Applied to net-next, thanks.
