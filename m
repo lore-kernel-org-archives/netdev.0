@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] fm10k: cleanup mailbox code comments etc
-Date: Tue, 22 Dec 2015 06:02:11 -0800
-Message-ID: <1450792932-96015-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] fm10k: constify fm10k_mac_ops, fm10k_iov_ops and fm10k_info structures
+Date: Tue, 22 Dec 2015 06:02:08 -0800
+Message-ID: <1450792932-96015-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1450792932-96015-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:53515 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:17834 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753663AbbLVODP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753512AbbLVODP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 22 Dec 2015 09:03:15 -0500
 In-Reply-To: <1450792932-96015-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,290 +18,112 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Cleanup a number of issues with function header comments, lower-case
-acronyms (i.e. FIFO, TLV), duplicate comments and a stubbed-out header
-comment for fm10k_sm_mbx_init.
+These structures never change so declare them as const.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c | 50 +++++++++++++++++-----------
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.h |  4 +--
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.h |  4 +--
- 3 files changed, 34 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c   | 6 +++---
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h   | 2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h | 8 ++++----
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c   | 4 ++--
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.h   | 2 +-
+ 5 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-index c7fea47..98202c3 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-@@ -57,7 +57,7 @@ static u16 fm10k_fifo_unused(struct fm10k_mbx_fifo *fifo)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 606c0f1..62ccebc 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -1866,7 +1866,7 @@ static const struct fm10k_msg_data fm10k_msg_data_pf[] = {
+ 	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_tlv_msg_error),
+ };
+ 
+-static struct fm10k_mac_ops mac_ops_pf = {
++static const struct fm10k_mac_ops mac_ops_pf = {
+ 	.get_bus_info		= fm10k_get_bus_info_generic,
+ 	.reset_hw		= fm10k_reset_hw_pf,
+ 	.init_hw		= fm10k_init_hw_pf,
+@@ -1889,7 +1889,7 @@ static struct fm10k_mac_ops mac_ops_pf = {
+ 	.read_systime		= fm10k_read_systime_pf,
+ };
+ 
+-static struct fm10k_iov_ops iov_ops_pf = {
++static const struct fm10k_iov_ops iov_ops_pf = {
+ 	.assign_resources		= fm10k_iov_assign_resources_pf,
+ 	.configure_tc			= fm10k_iov_configure_tc_pf,
+ 	.assign_int_moderator		= fm10k_iov_assign_int_moderator_pf,
+@@ -1908,7 +1908,7 @@ static s32 fm10k_get_invariants_pf(struct fm10k_hw *hw)
+ 	return fm10k_sm_mbx_init(hw, &hw->mbx, fm10k_msg_data_pf);
  }
  
- /**
-- *  fm10k_fifo_empty - Test to verify if fifo is empty
-+ *  fm10k_fifo_empty - Test to verify if FIFO is empty
-  *  @fifo: pointer to FIFO
-  *
-  *  This function returns true if the FIFO is empty, else false
-@@ -72,7 +72,7 @@ static bool fm10k_fifo_empty(struct fm10k_mbx_fifo *fifo)
-  *  @fifo: pointer to FIFO
-  *  @offset: offset to add to head
-  *
-- *  This function returns the indices into the fifo based on head + offset
-+ *  This function returns the indices into the FIFO based on head + offset
-  **/
- static u16 fm10k_fifo_head_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
- {
-@@ -84,7 +84,7 @@ static u16 fm10k_fifo_head_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
-  *  @fifo: pointer to FIFO
-  *  @offset: offset to add to tail
-  *
-- *  This function returns the indices into the fifo based on tail + offset
-+ *  This function returns the indices into the FIFO based on tail + offset
-  **/
- static u16 fm10k_fifo_tail_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
- {
-@@ -160,7 +160,7 @@ static u16 fm10k_mbx_index_len(struct fm10k_mbx_info *mbx, u16 head, u16 tail)
- /**
-  *  fm10k_mbx_tail_add - Determine new tail value with added offset
-  *  @mbx: pointer to mailbox
-- *  @offset: length to add to head offset
-+ *  @offset: length to add to tail offset
-  *
-  *  This function takes the local tail index and recomputes it for
-  *  a given length added as an offset.
-@@ -176,7 +176,7 @@ static u16 fm10k_mbx_tail_add(struct fm10k_mbx_info *mbx, u16 offset)
- /**
-  *  fm10k_mbx_tail_sub - Determine new tail value with subtracted offset
-  *  @mbx: pointer to mailbox
-- *  @offset: length to add to head offset
-+ *  @offset: length to add to tail offset
-  *
-  *  This function takes the local tail index and recomputes it for
-  *  a given length added as an offset.
-@@ -240,7 +240,7 @@ static u16 fm10k_mbx_pushed_tail_len(struct fm10k_mbx_info *mbx)
+-struct fm10k_info fm10k_pf_info = {
++const struct fm10k_info fm10k_pf_info = {
+ 	.mac		= fm10k_mac_pf,
+ 	.get_invariants	= fm10k_get_invariants_pf,
+ 	.mac_ops	= &mac_ops_pf,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+index 3378592..b2d96b4 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+@@ -133,5 +133,5 @@ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *, u32 **,
+ s32 fm10k_iov_msg_lport_state_pf(struct fm10k_hw *, u32 **,
+ 				 struct fm10k_mbx_info *);
+ 
+-extern struct fm10k_info fm10k_pf_info;
++extern const struct fm10k_info fm10k_pf_info;
+ #endif /* _FM10K_PF_H */
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+index 098883d..bc27c75 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+@@ -660,10 +660,10 @@ enum fm10k_devices {
+ };
+ 
+ struct fm10k_info {
+-	enum fm10k_mac_type	mac;
+-	s32			(*get_invariants)(struct fm10k_hw *);
+-	struct fm10k_mac_ops	*mac_ops;
+-	struct fm10k_iov_ops	*iov_ops;
++	enum fm10k_mac_type		mac;
++	s32				(*get_invariants)(struct fm10k_hw *);
++	const struct fm10k_mac_ops	*mac_ops;
++	const struct fm10k_iov_ops	*iov_ops;
+ };
+ 
+ struct fm10k_hw {
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+index 38219f5..91f8d73 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+@@ -562,7 +562,7 @@ static const struct fm10k_msg_data fm10k_msg_data_vf[] = {
+ 	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_tlv_msg_error),
+ };
+ 
+-static struct fm10k_mac_ops mac_ops_vf = {
++static const struct fm10k_mac_ops mac_ops_vf = {
+ 	.get_bus_info		= fm10k_get_bus_info_generic,
+ 	.reset_hw		= fm10k_reset_hw_vf,
+ 	.init_hw		= fm10k_init_hw_vf,
+@@ -590,7 +590,7 @@ static s32 fm10k_get_invariants_vf(struct fm10k_hw *hw)
+ 	return fm10k_pfvf_mbx_init(hw, &hw->mbx, fm10k_msg_data_vf, 0);
  }
  
- /**
-- *  fm10k_fifo_write_copy - pulls data off of msg and places it in fifo
-+ *  fm10k_fifo_write_copy - pulls data off of msg and places it in FIFO
-  *  @fifo: pointer to FIFO
-  *  @msg: message array to populate
-  *  @tail_offset: additional offset to add to tail pointer
-@@ -336,6 +336,7 @@ static u16 fm10k_mbx_validate_msg_size(struct fm10k_mbx_info *mbx, u16 len)
+-struct fm10k_info fm10k_vf_info = {
++const struct fm10k_info fm10k_vf_info = {
+ 	.mac		= fm10k_mac_vf,
+ 	.get_invariants	= fm10k_get_invariants_vf,
+ 	.mac_ops	= &mac_ops_vf,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+index 06a99d7..c4439f1 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+@@ -74,5 +74,5 @@ extern const struct fm10k_tlv_attr fm10k_1588_msg_attr[];
+ #define FM10K_VF_MSG_1588_HANDLER(func) \
+ 	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_1588, fm10k_1588_msg_attr, func)
  
- /**
-  *  fm10k_mbx_write_copy - pulls data off of Tx FIFO and places it in mbmem
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-  *  This function will take a section of the Tx FIFO and copy it into the
-@@ -711,7 +712,7 @@ static bool fm10k_mbx_tx_complete(struct fm10k_mbx_info *mbx)
-  *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-- *  This function dequeues messages and hands them off to the tlv parser.
-+ *  This function dequeues messages and hands them off to the TLV parser.
-  *  It will return the number of messages processed when called.
-  **/
- static u16 fm10k_mbx_dequeue_rx(struct fm10k_hw *hw,
-@@ -924,7 +925,7 @@ static void fm10k_mbx_create_fake_disconnect_hdr(struct fm10k_mbx_info *mbx)
- }
- 
- /**
-- *  fm10k_mbx_create_error_msg - Generate a error message
-+ *  fm10k_mbx_create_error_msg - Generate an error message
-  *  @mbx: pointer to mailbox
-  *  @err: local error encountered
-  *
-@@ -957,7 +958,6 @@ static void fm10k_mbx_create_error_msg(struct fm10k_mbx_info *mbx, s32 err)
- /**
-  *  fm10k_mbx_validate_msg_hdr - Validate common fields in the message header
-  *  @mbx: pointer to mailbox
-- *  @msg: message array to read
-  *
-  *  This function will parse up the fields in the mailbox header and return
-  *  an error if the header contains any of a number of invalid configurations
-@@ -1021,11 +1021,12 @@ static s32 fm10k_mbx_validate_msg_hdr(struct fm10k_mbx_info *mbx)
- 
- /**
-  *  fm10k_mbx_create_reply - Generate reply based on state and remote head
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *  @head: acknowledgement number
-  *
-  *  This function will generate an outgoing message based on the current
-- *  mailbox state and the remote fifo head.  It will return the length
-+ *  mailbox state and the remote FIFO head.  It will return the length
-  *  of the outgoing message excluding header on success, and a negative value
-  *  on error.
-  **/
-@@ -1151,8 +1152,8 @@ static void fm10k_mbx_connect_reset(struct fm10k_mbx_info *mbx)
- 
- /**
-  *  fm10k_mbx_process_connect - Process connect header
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-- *  @msg: message array to process
-  *
-  *  This function will read an incoming connect header and reply with the
-  *  appropriate message.  It will return a value indicating the number of
-@@ -1198,6 +1199,7 @@ static s32 fm10k_mbx_process_connect(struct fm10k_hw *hw,
- 
- /**
-  *  fm10k_mbx_process_data - Process data header
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-  *  This function will read an incoming data header and reply with the
-@@ -1239,6 +1241,7 @@ static s32 fm10k_mbx_process_data(struct fm10k_hw *hw,
- 
- /**
-  *  fm10k_mbx_process_disconnect - Process disconnect header
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-  *  This function will read an incoming disconnect header and reply with the
-@@ -1291,6 +1294,7 @@ static s32 fm10k_mbx_process_disconnect(struct fm10k_hw *hw,
- 
- /**
-  *  fm10k_mbx_process_error - Process error header
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-  *  This function will read an incoming error header and reply with the
-@@ -1560,7 +1564,7 @@ static s32 fm10k_mbx_register_handlers(struct fm10k_mbx_info *mbx,
-  *  @id: ID reference for PF as it supports up to 64 PF/VF mailboxes
-  *
-  *  This function initializes the mailbox for use.  It will split the
-- *  buffer provided an use that th populate both the Tx and Rx FIFO by
-+ *  buffer provided and use that to populate both the Tx and Rx FIFO by
-  *  evenly splitting it.  In order to allow for easy masking of head/tail
-  *  the value reported in size must be a power of 2 and is reported in
-  *  DWORDs, not bytes.  Any invalid values will cause the mailbox to return
-@@ -1637,7 +1641,7 @@ s32 fm10k_pfvf_mbx_init(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx,
-  *  fm10k_sm_mbx_create_data_hdr - Generate a mailbox header for local FIFO
-  *  @mbx: pointer to mailbox
-  *
-- *  This function returns a connection mailbox header
-+ *  This function returns a data mailbox header
-  **/
- static void fm10k_sm_mbx_create_data_hdr(struct fm10k_mbx_info *mbx)
- {
-@@ -1730,8 +1734,6 @@ static s32 fm10k_sm_mbx_connect(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
- 	fm10k_sm_mbx_create_connect_hdr(mbx, 0);
- 	fm10k_mbx_write(hw, mbx);
- 
--	/* enable interrupt and notify other party of new message */
--
- 	return 0;
- }
- 
-@@ -1775,7 +1777,7 @@ static void fm10k_sm_mbx_disconnect(struct fm10k_hw *hw,
- }
- 
- /**
-- *  fm10k_mbx_validate_fifo_hdr - Validate fields in the remote FIFO header
-+ *  fm10k_sm_mbx_validate_fifo_hdr - Validate fields in the remote FIFO header
-  *  @mbx: pointer to mailbox
-  *
-  *  This function will parse up the fields in the mailbox header and return
-@@ -1853,7 +1855,7 @@ static void fm10k_sm_mbx_process_error(struct fm10k_mbx_info *mbx)
- }
- 
- /**
-- *  fm10k_sm_mbx_create_error_message - Process an error in FIFO hdr
-+ *  fm10k_sm_mbx_create_error_msg - Process an error in FIFO header
-  *  @mbx: pointer to mailbox
-  *  @err: local error encountered
-  *
-@@ -1883,6 +1885,7 @@ static void fm10k_sm_mbx_create_error_msg(struct fm10k_mbx_info *mbx, s32 err)
-  *  fm10k_sm_mbx_receive - Take message from Rx mailbox FIFO and put it in Rx
-  *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-+ *  @tail: tail index of message
-  *
-  *  This function will dequeue one message from the Rx switch manager mailbox
-  *  FIFO and place it in the Rx mailbox FIFO for processing by software.
-@@ -1922,6 +1925,7 @@ static s32 fm10k_sm_mbx_receive(struct fm10k_hw *hw,
-  *  fm10k_sm_mbx_transmit - Take message from Tx and put it in Tx mailbox FIFO
-  *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-+ *  @head: head index of message
-  *
-  *  This function will dequeue one message from the Tx mailbox FIFO and place
-  *  it in the Tx switch manager mailbox FIFO for processing by hardware.
-@@ -1961,11 +1965,12 @@ static void fm10k_sm_mbx_transmit(struct fm10k_hw *hw,
- 
- /**
-  *  fm10k_sm_mbx_create_reply - Generate reply based on state and remote head
-+ *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *  @head: acknowledgement number
-  *
-  *  This function will generate an outgoing message based on the current
-- *  mailbox state and the remote fifo head.  It will return the length
-+ *  mailbox state and the remote FIFO head.  It will return the length
-  *  of the outgoing message excluding header on success, and a negative value
-  *  on error.
-  **/
-@@ -2077,7 +2082,7 @@ send_reply:
- }
- 
- /**
-- *  fm10k_sm_mbx_process - Process mailbox switch mailbox interrupt
-+ *  fm10k_sm_mbx_process - Process switch manager mailbox interrupt
-  *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-@@ -2133,7 +2138,12 @@ fifo_err:
-  *  @mbx: pointer to mailbox
-  *  @msg_data: handlers for mailbox events
-  *
-- *  This function for now is used to stub out the PF/SM mailbox
-+ *  This function initializes the PF/SM mailbox for use.  It will split the
-+ *  buffer provided and use that to populate both the Tx and Rx FIFO by
-+ *  evenly splitting it.  In order to allow for easy masking of head/tail
-+ *  the value reported in size must be a power of 2 and is reported in
-+ *  DWORDs, not bytes.  Any invalid values will cause the mailbox to return
-+ *  error.
-  **/
- s32 fm10k_sm_mbx_init(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx,
- 		      const struct fm10k_msg_data *msg_data)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-index c4f18a8..245a0a3 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-@@ -128,11 +128,11 @@ enum fm10k_mbx_state {
-  *		The maximum message size is provided during connect to avoid
-  *		jamming the mailbox with messages that do not fit.
-  * Err_no: Error number - Applies only to error headers
-- *		The error number provides a indication of the type of error
-+ *		The error number provides an indication of the type of error
-  *		experienced.
-  */
- 
--/* macros for retriving and setting header values */
-+/* macros for retrieving and setting header values */
- #define FM10K_MSG_HDR_MASK(name) \
- 	((0x1u << FM10K_MSG_##name##_SIZE) - 1)
- #define FM10K_MSG_HDR_FIELD_SET(value, name) \
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-index d5ad359..e1845e0 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-@@ -38,9 +38,9 @@ struct fm10k_msg_data;
-  * mailbox size we will provide a message with the above header and it
-  * will be segmented and transported to the mailbox to the other side where
-  * it is reassembled.  It contains the following fields:
-- * Len: Length of the message in bytes excluding the message header
-+ * Length: Length of the message in bytes excluding the message header
-  * Flags: TBD
-- * Rule: These will be the message/argument types we pass
-+ * Type/ID: These will be the message/argument types we pass
-  */
- /* message data header */
- #define FM10K_TLV_ID_SHIFT		0
+-extern struct fm10k_info fm10k_vf_info;
++extern const struct fm10k_info fm10k_vf_info;
+ #endif /* _FM10K_VF_H */
 -- 
 2.5.0
