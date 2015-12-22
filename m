@@ -1,462 +1,834 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next 2/4] soreuseport: fast reuseport UDP socket selection
-Date: Tue, 22 Dec 2015 15:05:08 -0500
-Message-ID: <1450814710-17850-3-git-send-email-kraigatgoog@gmail.com>
+Subject: [PATCH net-next 3/4] soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF
+Date: Tue, 22 Dec 2015 15:05:09 -0500
+Message-ID: <1450814710-17850-4-git-send-email-kraigatgoog@gmail.com>
 References: <1450814710-17850-1-git-send-email-kraigatgoog@gmail.com>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:36677 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933667AbbLVUFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:05:16 -0500
-Received: by mail-qg0-f46.google.com with SMTP id c96so118753176qgd.3
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 12:05:15 -0800 (PST)
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:35032 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933665AbbLVUFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 15:05:17 -0500
+Received: by mail-qg0-f52.google.com with SMTP id o11so62697673qge.2
+        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 12:05:16 -0800 (PST)
 In-Reply-To: <1450814710-17850-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-Include a struct sock_reuseport instance when a UDP socket binds to
-a specific address for the first time with the reuseport flag set.
-When selecting a socket for an incoming UDP packet, use the information
-available in sock_reuseport if present.
+Expose socket options for setting a classic or extended BPF program
+for use when selecting sockets in an SO_REUSEPORT group.  These options
+can be used on the first socket to belong to a group before bind or
+on any socket in the group after bind.
 
-This required adding an additional field to the UDP source address
-equality function to differentiate between exact and wildcard matches.
-The original use case allowed wildcard matches when checking for
-existing port uses during bind.  The new use case of adding a socket
-to a reuseport group requires exact address matching.
-
-Performance test (using a machine with 2 CPU sockets and a total of
-48 cores):  Create reuseport groups of varying size.  Use one socket
-from this group per user thread (pinning each thread to a different
-core) calling recvmmsg in a tight loop.  Record number of messages
-received per second while saturating a 10G link.
-  10 sockets: 18% increase (~2.8M -> 3.3M pkts/s)
-  20 sockets: 14% increase (~2.9M -> 3.3M pkts/s)
-  40 sockets: 13% increase (~3.0M -> 3.4M pkts/s)
-
-This work is based off a similar implementation written by
-Ying Cai <ycai@google.com> for implementing policy-based reuseport
-selection.
+This change includes refactoring of the existing sk_filter code to
+allow reuse of the existing BPF filter validation checks.
 
 Signed-off-by: Craig Gallek <kraig@google.com>
 ---
- include/net/addrconf.h           |   3 +-
- include/net/udp.h                |   2 +-
- net/ipv4/udp.c                   | 119 +++++++++++++++++++++++++++++++--------
- net/ipv6/inet6_connection_sock.c |   4 +-
- net/ipv6/udp.c                   |  48 +++++++++++++---
- 5 files changed, 141 insertions(+), 35 deletions(-)
+ arch/alpha/include/uapi/asm/socket.h   |   3 +
+ arch/avr32/include/uapi/asm/socket.h   |   3 +
+ arch/frv/include/uapi/asm/socket.h     |   3 +
+ arch/ia64/include/uapi/asm/socket.h    |   3 +
+ arch/m32r/include/uapi/asm/socket.h    |   3 +
+ arch/mips/include/uapi/asm/socket.h    |   3 +
+ arch/mn10300/include/uapi/asm/socket.h |   3 +
+ arch/parisc/include/uapi/asm/socket.h  |   3 +
+ arch/powerpc/include/uapi/asm/socket.h |   3 +
+ arch/s390/include/uapi/asm/socket.h    |   3 +
+ arch/sparc/include/uapi/asm/socket.h   |   3 +
+ arch/xtensa/include/uapi/asm/socket.h  |   3 +
+ include/linux/filter.h                 |   2 +
+ include/net/sock_reuseport.h           |  10 ++-
+ include/net/udp.h                      |   5 +-
+ include/uapi/asm-generic/socket.h      |   3 +
+ net/core/filter.c                      | 120 +++++++++++++++++++++++++++------
+ net/core/sock.c                        |  29 ++++++++
+ net/core/sock_reuseport.c              |  88 ++++++++++++++++++++++--
+ net/ipv4/udp.c                         |  14 ++--
+ net/ipv4/udp_diag.c                    |   4 +-
+ net/ipv6/udp.c                         |  14 ++--
+ 22 files changed, 282 insertions(+), 43 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 78003df..47f52d3 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -87,7 +87,8 @@ int __ipv6_get_lladdr(struct inet6_dev *idev, struct in6_addr *addr,
- 		      u32 banned_flags);
- int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
- 		    u32 banned_flags);
--int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2);
-+int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+			 bool match_wildcard);
- void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr);
- void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr);
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 9a20821..c5fb9e6 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -92,4 +92,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
  
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 2b65ed6..9de0796 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -85,4 +85,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index 4823ad1..f02e484 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -85,5 +85,8 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index 59be3d8..bce2916 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -94,4 +94,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 7bc4cb2..14aa4a6 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -85,4 +85,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index dec3c85..5910fe2 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -103,4 +103,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index cab7d6d..58b1aa0 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -85,4 +85,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index a5cd40c..f9cf122 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -84,4 +84,7 @@
+ #define SO_ATTACH_BPF		0x402B
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	0x402C
++#define SO_ATTACH_REUSEPORT_EBPF	0x402D
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index c046666..dd54f28 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -92,4 +92,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index 296942d..d02e89d 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -91,4 +91,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index e6a16c4..d270ee9 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -81,6 +81,9 @@
+ #define SO_ATTACH_BPF		0x0034
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	0x0035
++#define SO_ATTACH_REUSEPORT_EBPF	0x0036
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 4120af0..fd3b96d 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -96,4 +96,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
+ 
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 4165e9a..3561d3a 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -447,6 +447,8 @@ void bpf_prog_destroy(struct bpf_prog *fp);
+ 
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+ int sk_attach_bpf(u32 ufd, struct sock *sk);
++int reuseport_attach_filter(struct sock_fprog *fprog, struct sock *sk);
++int reuseport_attach_bpf(u32 ufd, struct sock *sk);
+ int sk_detach_filter(struct sock *sk);
+ int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
+ 		  unsigned int len);
+diff --git a/include/net/sock_reuseport.h b/include/net/sock_reuseport.h
+index f17d190..0b85acb 100644
+--- a/include/net/sock_reuseport.h
++++ b/include/net/sock_reuseport.h
+@@ -1,6 +1,8 @@
+ #ifndef _SOCK_REUSEPORT_H
+ #define _SOCK_REUSEPORT_H
+ 
++#include <linux/filter.h>
++#include <linux/skbuff.h>
+ #include <linux/spinlock_types.h>
+ #include <linux/types.h>
+ #include <net/sock.h>
+@@ -10,12 +12,18 @@ struct sock_reuseport {
+ 
+ 	u16			max_socks;	/* length of socks */
+ 	u16			num_socks;	/* elements in socks */
++	struct bpf_prog __rcu	*prog;		/* optional BPF sock selector */
+ 	struct sock		*socks[0];	/* array of sock pointers */
+ };
+ 
+ extern int reuseport_alloc(struct sock *sk);
+ extern int reuseport_add_sock(struct sock *sk, const struct sock *sk2);
+ extern void reuseport_detach_sock(struct sock *sk);
+-extern struct sock *reuseport_select_sock(struct sock *sk, u32 hash);
++extern struct sock *reuseport_select_sock(struct sock *sk,
++					  u32 hash,
++					  struct sk_buff *skb,
++					  int hdr_len);
++extern struct bpf_prog *reuseport_attach_prog(struct sock *sk,
++					      struct bpf_prog *prog);
+ 
+ #endif  /* _SOCK_REUSEPORT_H */
 diff --git a/include/net/udp.h b/include/net/udp.h
-index 6d4ed18..3b5d7f9 100644
+index 3b5d7f9..2842541 100644
 --- a/include/net/udp.h
 +++ b/include/net/udp.h
-@@ -191,7 +191,7 @@ static inline void udp_lib_close(struct sock *sk, long timeout)
- }
+@@ -258,7 +258,7 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 			     __be32 daddr, __be16 dport, int dif);
+ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 			       __be32 daddr, __be16 dport, int dif,
+-			       struct udp_table *tbl);
++			       struct udp_table *tbl, struct sk_buff *skb);
+ struct sock *udp6_lib_lookup(struct net *net,
+ 			     const struct in6_addr *saddr, __be16 sport,
+ 			     const struct in6_addr *daddr, __be16 dport,
+@@ -266,7 +266,8 @@ struct sock *udp6_lib_lookup(struct net *net,
+ struct sock *__udp6_lib_lookup(struct net *net,
+ 			       const struct in6_addr *saddr, __be16 sport,
+ 			       const struct in6_addr *daddr, __be16 dport,
+-			       int dif, struct udp_table *tbl);
++			       int dif, struct udp_table *tbl,
++			       struct sk_buff *skb);
  
- int udp_lib_get_port(struct sock *sk, unsigned short snum,
--		     int (*)(const struct sock *, const struct sock *),
-+		     int (*)(const struct sock *, const struct sock *, bool),
- 		     unsigned int hash2_nulladdr);
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 5c15c2a..fb8a416 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -87,4 +87,7 @@
+ #define SO_ATTACH_BPF		50
+ #define SO_DETACH_BPF		SO_DETACH_FILTER
  
- u32 udp_flow_hashrnd(void);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8841e98..de2e1c0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -113,6 +113,7 @@
- #include <trace/events/skb.h>
- #include <net/busy_poll.h>
- #include "udp_impl.h"
++#define SO_ATTACH_REUSEPORT_CBPF	51
++#define SO_ATTACH_REUSEPORT_EBPF	52
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c770196..81eeeae 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -50,6 +50,7 @@
+ #include <net/cls_cgroup.h>
+ #include <net/dst_metadata.h>
+ #include <net/dst.h>
 +#include <net/sock_reuseport.h>
  
- struct udp_table udp_table __read_mostly;
- EXPORT_SYMBOL(udp_table);
-@@ -137,7 +138,8 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 			       unsigned long *bitmap,
- 			       struct sock *sk,
- 			       int (*saddr_comp)(const struct sock *sk1,
--						 const struct sock *sk2),
-+						 const struct sock *sk2,
-+						 bool match_wildcard),
- 			       unsigned int log)
- {
- 	struct sock *sk2;
-@@ -152,8 +154,9 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
- 		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
-+		     rcu_access_pointer(sk->sk_reuseport_cb) ||
- 		     !uid_eq(uid, sock_i_uid(sk2))) &&
--		    saddr_comp(sk, sk2)) {
-+		    saddr_comp(sk, sk2, true)) {
- 			if (!bitmap)
- 				return 1;
- 			__set_bit(udp_sk(sk2)->udp_port_hash >> log, bitmap);
-@@ -170,7 +173,8 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 				struct udp_hslot *hslot2,
- 				struct sock *sk,
- 				int (*saddr_comp)(const struct sock *sk1,
--						  const struct sock *sk2))
-+						  const struct sock *sk2,
-+						  bool match_wildcard))
- {
- 	struct sock *sk2;
- 	struct hlist_nulls_node *node;
-@@ -186,8 +190,9 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
- 		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
-+		     rcu_access_pointer(sk->sk_reuseport_cb) ||
- 		     !uid_eq(uid, sock_i_uid(sk2))) &&
--		    saddr_comp(sk, sk2)) {
-+		    saddr_comp(sk, sk2, true)) {
- 			res = 1;
- 			break;
- 		}
-@@ -196,6 +201,35 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 	return res;
+ /**
+  *	sk_filter - run a packet through a socket filter
+@@ -1167,17 +1168,32 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
+ 	return 0;
  }
  
-+static int udp_reuseport_add_sock(struct sock *sk, struct udp_hslot *hslot,
-+				  int (*saddr_same)(const struct sock *sk1,
-+						    const struct sock *sk2,
-+						    bool match_wildcard))
+-/**
+- *	sk_attach_filter - attach a socket filter
+- *	@fprog: the filter program
+- *	@sk: the socket to use
+- *
+- * Attach the user's filter code. We first run some sanity checks on
+- * it to make sure it does not explode on us later. If an error
+- * occurs or there is insufficient memory for the filter a negative
+- * errno code is returned. On success the return is zero.
+- */
+-int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
++static int __reuseport_attach_prog(struct bpf_prog *prog, struct sock *sk)
 +{
-+	struct net *net = sock_net(sk);
-+	struct hlist_nulls_node *node;
-+	kuid_t uid = sock_i_uid(sk);
-+	struct sock *sk2;
++	struct bpf_prog *old_prog;
++	int err;
 +
-+	sk_nulls_for_each(sk2, node, &hslot->head) {
-+		if (net_eq(sock_net(sk2), net) &&
-+		    sk2 != sk &&
-+		    sk2->sk_family == sk->sk_family &&
-+		    ipv6_only_sock(sk2) == ipv6_only_sock(sk) &&
-+		    (udp_sk(sk2)->udp_port_hash == udp_sk(sk)->udp_port_hash) &&
-+		    (sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
-+		    sk2->sk_reuseport && uid_eq(uid, sock_i_uid(sk2)) &&
-+		    (*saddr_same)(sk, sk2, false)) {
-+			return reuseport_add_sock(sk, sk2);
-+		}
++	if (bpf_prog_size(prog->len) > sysctl_optmem_max)
++		return -ENOMEM;
++
++	if (sk_unhashed(sk)) {
++		err = reuseport_alloc(sk);
++		if (err)
++			return err;
++	} else if (!rcu_access_pointer(sk->sk_reuseport_cb)) {
++		/* The socket wasn't bound with SO_REUSEPORT */
++		return -EINVAL;
 +	}
 +
-+	/* Initial allocation may have already happened via setsockopt */
-+	if (!rcu_access_pointer(sk->sk_reuseport_cb))
-+		return reuseport_alloc(sk);
++	old_prog = reuseport_attach_prog(sk, prog);
++	if (old_prog)
++		bpf_prog_destroy(old_prog);
++
 +	return 0;
 +}
 +
- /**
-  *  udp_lib_get_port  -  UDP/-Lite port lookup for IPv4 and IPv6
-  *
-@@ -207,7 +241,8 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
-  */
- int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 		     int (*saddr_comp)(const struct sock *sk1,
--				       const struct sock *sk2),
-+				       const struct sock *sk2,
-+				       bool match_wildcard),
- 		     unsigned int hash2_nulladdr)
++static
++struct bpf_prog *__get_filter(struct sock_fprog *fprog, struct sock *sk)
  {
- 	struct udp_hslot *hslot, *hslot2;
-@@ -290,6 +325,14 @@ found:
- 	udp_sk(sk)->udp_port_hash = snum;
- 	udp_sk(sk)->udp_portaddr_hash ^= snum;
- 	if (sk_unhashed(sk)) {
-+		if (sk->sk_reuseport &&
-+		    udp_reuseport_add_sock(sk, hslot, saddr_comp)) {
-+			inet_sk(sk)->inet_num = 0;
-+			udp_sk(sk)->udp_port_hash = 0;
-+			udp_sk(sk)->udp_portaddr_hash ^= snum;
-+			goto fail_unlock;
-+		}
+ 	unsigned int fsize = bpf_classic_proglen(fprog);
+ 	unsigned int bpf_fsize = bpf_prog_size(fprog->len);
+@@ -1185,19 +1201,19 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	int err;
+ 
+ 	if (sock_flag(sk, SOCK_FILTER_LOCKED))
+-		return -EPERM;
++		return ERR_PTR(-EPERM);
+ 
+ 	/* Make sure new filter is there and in the right amounts. */
+ 	if (fprog->filter == NULL)
+-		return -EINVAL;
++		return ERR_PTR(-EINVAL);
+ 
+ 	prog = bpf_prog_alloc(bpf_fsize, 0);
+ 	if (!prog)
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	if (copy_from_user(prog->insns, fprog->filter, fsize)) {
+ 		__bpf_prog_free(prog);
+-		return -EFAULT;
++		return ERR_PTR(-EFAULT);
+ 	}
+ 
+ 	prog->len = fprog->len;
+@@ -1205,13 +1221,31 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	err = bpf_prog_store_orig_filter(prog, fprog);
+ 	if (err) {
+ 		__bpf_prog_free(prog);
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 	}
+ 
+ 	/* bpf_prepare_filter() already takes care of freeing
+ 	 * memory in case something goes wrong.
+ 	 */
+ 	prog = bpf_prepare_filter(prog, NULL);
++	return prog;
++}
 +
- 		sk_nulls_add_node_rcu(sk, &hslot->head);
- 		hslot->count++;
- 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-@@ -309,13 +352,22 @@ fail:
- }
- EXPORT_SYMBOL(udp_lib_get_port);
- 
--static int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
-+/* match_wildcard == true:  0.0.0.0 equals to any IPv4 addresses
-+ * match_wildcard == false: addresses must be exactly the same, i.e.
-+ *                          0.0.0.0 only equals to 0.0.0.0
++/**
++ *	sk_attach_filter - attach a socket filter
++ *	@fprog: the filter program
++ *	@sk: the socket to use
++ *
++ * Attach the user's filter code. We first run some sanity checks on
++ * it to make sure it does not explode on us later. If an error
++ * occurs or there is insufficient memory for the filter a negative
++ * errno code is returned. On success the return is zero.
 + */
-+static int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2,
-+				bool match_wildcard)
- {
- 	struct inet_sock *inet1 = inet_sk(sk1), *inet2 = inet_sk(sk2);
++int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
++{
++	struct bpf_prog *prog = __get_filter(fprog, sk);
++	int err;
++
+ 	if (IS_ERR(prog))
+ 		return PTR_ERR(prog);
  
--	return 	(!ipv6_only_sock(sk2)  &&
--		 (!inet1->inet_rcv_saddr || !inet2->inet_rcv_saddr ||
--		   inet1->inet_rcv_saddr == inet2->inet_rcv_saddr));
-+	if (!ipv6_only_sock(sk2)) {
-+		if (inet1->inet_rcv_saddr == inet2->inet_rcv_saddr)
-+			return 1;
-+		if (!inet1->inet_rcv_saddr || !inet2->inet_rcv_saddr)
-+			return match_wildcard;
+@@ -1225,23 +1259,50 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sk_attach_filter);
+ 
+-int sk_attach_bpf(u32 ufd, struct sock *sk)
++int reuseport_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+-	struct bpf_prog *prog;
++	struct bpf_prog *prog = __get_filter(fprog, sk);
+ 	int err;
+ 
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
++
++	err = __reuseport_attach_prog(prog, sk);
++	if (err < 0) {
++		__bpf_prog_release(prog);
++		return err;
 +	}
++
 +	return 0;
++}
++
++static struct bpf_prog *__get_bpf(u32 ufd, struct sock *sk)
++{
++	struct bpf_prog *prog;
++
+ 	if (sock_flag(sk, SOCK_FILTER_LOCKED))
+-		return -EPERM;
++		return ERR_PTR(-EPERM);
+ 
+ 	prog = bpf_prog_get(ufd);
+ 	if (IS_ERR(prog))
+-		return PTR_ERR(prog);
++		return prog;
+ 
+ 	if (prog->type != BPF_PROG_TYPE_SOCKET_FILTER) {
+ 		bpf_prog_put(prog);
+-		return -EINVAL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
++	return prog;
++}
++
++int sk_attach_bpf(u32 ufd, struct sock *sk)
++{
++	struct bpf_prog *prog = __get_bpf(ufd, sk);
++	int err;
++
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
++
+ 	err = __sk_attach_prog(prog, sk);
+ 	if (err < 0) {
+ 		bpf_prog_put(prog);
+@@ -1251,6 +1312,23 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ 	return 0;
  }
  
- static u32 udp4_portaddr_hash(const struct net *net, __be32 saddr,
-@@ -459,8 +511,14 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-+				struct sock *sk2;
- 				hash = udp_ehashfn(net, daddr, hnum,
- 						   saddr, sport);
-+				sk2 = reuseport_select_sock(sk, hash);
-+				if (sk2) {
-+					result = sk2;
-+					goto found;
-+				}
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-@@ -478,6 +536,7 @@ begin:
- 	if (get_nulls_value(node) != slot2)
- 		goto begin;
- 	if (result) {
-+found:
- 		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
- 			result = NULL;
- 		else if (unlikely(compute_score2(result, net, saddr, sport,
-@@ -540,8 +599,14 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-+				struct sock *sk2;
- 				hash = udp_ehashfn(net, daddr, hnum,
- 						   saddr, sport);
-+				sk2 = reuseport_select_sock(sk, hash);
-+				if (sk2) {
-+					result = sk2;
-+					goto found;
-+				}
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-@@ -560,6 +625,7 @@ begin:
- 		goto begin;
++int reuseport_attach_bpf(u32 ufd, struct sock *sk)
++{
++	struct bpf_prog *prog = __get_bpf(ufd, sk);
++	int err;
++
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
++
++	err = __reuseport_attach_prog(prog, sk);
++	if (err < 0) {
++		bpf_prog_put(prog);
++		return err;
++	}
++
++	return 0;
++}
++
+ #define BPF_RECOMPUTE_CSUM(flags)	((flags) & 1)
+ #define BPF_LDST_LEN			16U
  
- 	if (result) {
-+found:
- 		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
- 			result = NULL;
- 		else if (unlikely(compute_score(result, net, saddr, hnum, sport,
-@@ -587,7 +653,8 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 565bab7..cc1709d 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -134,6 +134,7 @@
+ #include <linux/sock_diag.h>
+ 
+ #include <linux/filter.h>
++#include <net/sock_reuseport.h>
+ 
+ #include <trace/events/sock.h>
+ 
+@@ -932,6 +933,32 @@ set_rcvbuf:
+ 		}
+ 		break;
+ 
++	case SO_ATTACH_REUSEPORT_CBPF:
++		ret = -EINVAL;
++		if (optlen == sizeof(struct sock_fprog)) {
++			struct sock_fprog fprog;
++
++			ret = -EFAULT;
++			if (copy_from_user(&fprog, optval, sizeof(fprog)))
++				break;
++
++			ret = reuseport_attach_filter(&fprog, sk);
++		}
++		break;
++
++	case SO_ATTACH_REUSEPORT_EBPF:
++		ret = -EINVAL;
++		if (optlen == sizeof(u32)) {
++			u32 ufd;
++
++			ret = -EFAULT;
++			if (copy_from_user(&ufd, optval, sizeof(ufd)))
++				break;
++
++			ret = reuseport_attach_bpf(ufd, sk);
++		}
++		break;
++
+ 	case SO_DETACH_FILTER:
+ 		ret = sk_detach_filter(sk);
+ 		break;
+@@ -1443,6 +1470,8 @@ void sk_destruct(struct sock *sk)
+ 		sk_filter_uncharge(sk, filter);
+ 		RCU_INIT_POINTER(sk->sk_filter, NULL);
+ 	}
++	if (rcu_access_pointer(sk->sk_reuseport_cb))
++		reuseport_detach_sock(sk);
+ 
+ 	sock_disable_timestamp(sk, SK_FLAGS_TIMESTAMP);
+ 
+diff --git a/net/core/sock_reuseport.c b/net/core/sock_reuseport.c
+index 963c8d5..448699f 100644
+--- a/net/core/sock_reuseport.c
++++ b/net/core/sock_reuseport.c
+@@ -1,10 +1,12 @@
+ /*
+  * To speed up listener socket lookup, create an array to store all sockets
+  * listening on the same port.  This allows a decision to be made after finding
+- * the first socket.
++ * the first socket.  An optional BPF program can also be configured for
++ * selecting the socket index from the array of available sockets.
+  */
+ 
+ #include <net/sock_reuseport.h>
++#include <linux/bpf.h>
+ #include <linux/rcupdate.h>
+ 
+ #define INIT_SOCKS 128
+@@ -22,6 +24,7 @@ static struct sock_reuseport *__reuseport_alloc(u16 max_socks)
+ 
+ 	reuse->max_socks = max_socks;
+ 
++	RCU_INIT_POINTER(reuse->prog, NULL);
+ 	return reuse;
+ }
+ 
+@@ -67,6 +70,7 @@ static struct sock_reuseport *reuseport_grow(struct sock_reuseport *reuse)
+ 
+ 	more_reuse->max_socks = more_socks_size;
+ 	more_reuse->num_socks = reuse->num_socks;
++	more_reuse->prog = reuse->prog;
+ 
+ 	memcpy(more_reuse->socks, reuse->socks,
+ 	       reuse->num_socks * sizeof(struct sock *));
+@@ -75,6 +79,10 @@ static struct sock_reuseport *reuseport_grow(struct sock_reuseport *reuse)
+ 		rcu_assign_pointer(reuse->socks[i]->sk_reuseport_cb,
+ 				   more_reuse);
+ 
++	/* Note: we use kfree_rcu here instead of reuseport_free_rcu so
++	 * that reuse and more_reuse can temporarily share a reference
++	 * to prog.
++	 */
+ 	kfree_rcu(reuse, rcu);
+ 	return more_reuse;
+ }
+@@ -116,6 +124,16 @@ int reuseport_add_sock(struct sock *sk, const struct sock *sk2)
+ }
+ EXPORT_SYMBOL(reuseport_add_sock);
+ 
++static void reuseport_free_rcu(struct rcu_head *head)
++{
++	struct sock_reuseport *reuse;
++
++	reuse = container_of(head, struct sock_reuseport, rcu);
++	if (reuse->prog)
++		bpf_prog_destroy(reuse->prog);
++	kfree(reuse);
++}
++
+ void reuseport_detach_sock(struct sock *sk)
+ {
+ 	struct sock_reuseport *reuse;
+@@ -131,7 +149,7 @@ void reuseport_detach_sock(struct sock *sk)
+ 			reuse->socks[i] = reuse->socks[reuse->num_socks - 1];
+ 			reuse->num_socks--;
+ 			if (reuse->num_socks == 0)
+-				kfree_rcu(reuse, rcu);
++				call_rcu(&reuse->rcu, reuseport_free_rcu);
+ 			break;
+ 		}
+ 	}
+@@ -139,15 +157,53 @@ void reuseport_detach_sock(struct sock *sk)
+ }
+ EXPORT_SYMBOL(reuseport_detach_sock);
+ 
++static struct sock *run_bpf(struct sock_reuseport *reuse, u16 socks,
++			    struct bpf_prog *prog, struct sk_buff *skb,
++			    int hdr_len)
++{
++	struct sk_buff *nskb = NULL;
++	u32 index;
++
++	if (skb_shared(skb)) {
++		nskb = skb_clone(skb, GFP_ATOMIC);
++		if (!nskb)
++			return NULL;
++		skb = nskb;
++	}
++
++	/* temporarily advance data past protocol header */
++	if (skb_headlen(skb) < hdr_len || !skb_pull_inline(skb, hdr_len)) {
++		consume_skb(nskb);
++		return NULL;
++	}
++	index = bpf_prog_run_save_cb(prog, skb);
++	__skb_push(skb, hdr_len);
++
++	consume_skb(nskb);
++
++	if (index >= socks)
++		return NULL;
++
++	return reuse->socks[index];
++}
++
+ /**
+  *  reuseport_select_sock - Select a socket from an SO_REUSEPORT group.
+  *  @sk: First socket in the group.
+- *  @hash: Use this hash to select.
++ *  @hash: When no BPF filter is available, use this hash to select.
++ *  @skb: skb to run through BPF filter.
++ *  @hdr_len: BPF filter expects skb data pointer at payload data.  If
++ *    the skb does not yet point at the payload, this parameter represents
++ *    how far the pointer needs to advance to reach the payload.
+  *  Returns a socket that should receive the packet (or NULL on error).
+  */
+-struct sock *reuseport_select_sock(struct sock *sk, u32 hash)
++struct sock *reuseport_select_sock(struct sock *sk,
++				   u32 hash,
++				   struct sk_buff *skb,
++				   int hdr_len)
+ {
+ 	struct sock_reuseport *reuse;
++	struct bpf_prog *prog;
+ 	struct sock *sk2 = NULL;
+ 	u16 socks;
+ 
+@@ -158,12 +214,16 @@ struct sock *reuseport_select_sock(struct sock *sk, u32 hash)
+ 	if (!reuse)
+ 		goto out;
+ 
++	prog = rcu_dereference(reuse->prog);
+ 	socks = READ_ONCE(reuse->num_socks);
+ 	if (likely(socks)) {
+ 		/* paired with smp_wmb() in reuseport_add_sock() */
+ 		smp_rmb();
+ 
+-		sk2 = reuse->socks[reciprocal_scale(hash, socks)];
++		if (prog && skb)
++			sk2 = run_bpf(reuse, socks, prog, skb, hdr_len);
++		else
++			sk2 = reuse->socks[reciprocal_scale(hash, socks)];
+ 	}
+ 
+ out:
+@@ -171,3 +231,21 @@ out:
+ 	return sk2;
+ }
+ EXPORT_SYMBOL(reuseport_select_sock);
++
++struct bpf_prog *
++reuseport_attach_prog(struct sock *sk, struct bpf_prog *prog)
++{
++	struct sock_reuseport *reuse;
++	struct bpf_prog *old_prog;
++
++	spin_lock_bh(&reuseport_lock);
++	reuse = rcu_dereference_protected(sk->sk_reuseport_cb,
++					  lockdep_is_held(&reuseport_lock));
++	old_prog = rcu_dereference_protected(reuse->prog,
++					     lockdep_is_held(&reuseport_lock));
++	rcu_assign_pointer(reuse->prog, prog);
++	spin_unlock_bh(&reuseport_lock);
++
++	return old_prog;
++}
++EXPORT_SYMBOL(reuseport_attach_prog);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index de2e1c0..2c86e56 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -514,7 +514,7 @@ begin:
+ 				struct sock *sk2;
+ 				hash = udp_ehashfn(net, daddr, hnum,
+ 						   saddr, sport);
+-				sk2 = reuseport_select_sock(sk, hash);
++				sk2 = reuseport_select_sock(sk, hash, NULL, 0);
+ 				if (sk2) {
+ 					result = sk2;
+ 					goto found;
+@@ -553,7 +553,7 @@ found:
+  */
+ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 		__be16 sport, __be32 daddr, __be16 dport,
+-		int dif, struct udp_table *udptable)
++		int dif, struct udp_table *udptable, struct sk_buff *skb)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -602,7 +602,8 @@ begin:
+ 				struct sock *sk2;
+ 				hash = udp_ehashfn(net, daddr, hnum,
+ 						   saddr, sport);
+-				sk2 = reuseport_select_sock(sk, hash);
++				sk2 = reuseport_select_sock(sk, hash, skb,
++							sizeof(struct udphdr));
+ 				if (sk2) {
+ 					result = sk2;
+ 					goto found;
+@@ -647,14 +648,14 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
+ 
+ 	return __udp4_lib_lookup(dev_net(skb_dst(skb)->dev), iph->saddr, sport,
+ 				 iph->daddr, dport, inet_iif(skb),
+-				 udptable);
++				 udptable, skb);
+ }
+ 
  struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
  			     __be32 daddr, __be16 dport, int dif)
  {
--	return __udp4_lib_lookup(net, saddr, sport, daddr, dport, dif, &udp_table);
-+	return __udp4_lib_lookup(net, saddr, sport, daddr, dport, dif,
-+				 &udp_table);
+ 	return __udp4_lib_lookup(net, saddr, sport, daddr, dport, dif,
+-				 &udp_table);
++				 &udp_table, NULL);
  }
  EXPORT_SYMBOL_GPL(udp4_lib_lookup);
  
-@@ -1396,6 +1463,8 @@ void udp_lib_unhash(struct sock *sk)
- 		hslot2 = udp_hashslot2(udptable, udp_sk(sk)->udp_portaddr_hash);
- 
- 		spin_lock_bh(&hslot->lock);
-+		if (rcu_access_pointer(sk->sk_reuseport_cb))
-+			reuseport_detach_sock(sk);
- 		if (sk_nulls_del_node_init_rcu(sk)) {
- 			hslot->count--;
- 			inet_sk(sk)->inet_num = 0;
-@@ -1423,22 +1492,28 @@ void udp_lib_rehash(struct sock *sk, u16 newhash)
- 		hslot2 = udp_hashslot2(udptable, udp_sk(sk)->udp_portaddr_hash);
- 		nhslot2 = udp_hashslot2(udptable, newhash);
- 		udp_sk(sk)->udp_portaddr_hash = newhash;
--		if (hslot2 != nhslot2) {
-+
-+		if (hslot2 != nhslot2 ||
-+		    rcu_access_pointer(sk->sk_reuseport_cb)) {
- 			hslot = udp_hashslot(udptable, sock_net(sk),
- 					     udp_sk(sk)->udp_port_hash);
- 			/* we must lock primary chain too */
- 			spin_lock_bh(&hslot->lock);
--
--			spin_lock(&hslot2->lock);
--			hlist_nulls_del_init_rcu(&udp_sk(sk)->udp_portaddr_node);
--			hslot2->count--;
--			spin_unlock(&hslot2->lock);
--
--			spin_lock(&nhslot2->lock);
--			hlist_nulls_add_head_rcu(&udp_sk(sk)->udp_portaddr_node,
--						 &nhslot2->head);
--			nhslot2->count++;
--			spin_unlock(&nhslot2->lock);
-+			if (rcu_access_pointer(sk->sk_reuseport_cb))
-+				reuseport_detach_sock(sk);
-+
-+			if (hslot2 != nhslot2) {
-+				spin_lock(&hslot2->lock);
-+				hlist_nulls_del_init_rcu(&udp_sk(sk)->udp_portaddr_node);
-+				hslot2->count--;
-+				spin_unlock(&hslot2->lock);
-+
-+				spin_lock(&nhslot2->lock);
-+				hlist_nulls_add_head_rcu(&udp_sk(sk)->udp_portaddr_node,
-+							 &nhslot2->head);
-+				nhslot2->count++;
-+				spin_unlock(&nhslot2->lock);
-+			}
- 
- 			spin_unlock_bh(&hslot->lock);
- 		}
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index a7ca2cd..36c3f01 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -51,12 +51,12 @@ int inet6_csk_bind_conflict(const struct sock *sk,
- 			     (sk2->sk_state != TCP_TIME_WAIT &&
- 			      !uid_eq(uid,
- 				      sock_i_uid((struct sock *)sk2))))) {
--				if (ipv6_rcv_saddr_equal(sk, sk2))
-+				if (ipv6_rcv_saddr_equal(sk, sk2, true))
- 					break;
- 			}
- 			if (!relax && reuse && sk2->sk_reuse &&
- 			    sk2->sk_state != TCP_LISTEN &&
--			    ipv6_rcv_saddr_equal(sk, sk2))
-+			    ipv6_rcv_saddr_equal(sk, sk2, true))
- 				break;
- 		}
- 	}
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 9da3287..c593319 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -47,6 +47,7 @@
- #include <net/xfrm.h>
- #include <net/inet6_hashtables.h>
- #include <net/busy_poll.h>
-+#include <net/sock_reuseport.h>
- 
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-@@ -76,7 +77,14 @@ static u32 udp6_ehashfn(const struct net *net,
- 			       udp_ipv6_hash_secret + net_hash_mix(net));
- }
- 
--int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
-+/* match_wildcard == true:  IPV6_ADDR_ANY equals to any IPv6 addresses if IPv6
-+ *                          only, and any IPv4 addresses if not IPv6 only
-+ * match_wildcard == false: addresses must be exactly the same, i.e.
-+ *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
-+ *                          and 0.0.0.0 equals to 0.0.0.0 only
-+ */
-+int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+			 bool match_wildcard)
- {
- 	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
- 	int sk2_ipv6only = inet_v6_ipv6only(sk2);
-@@ -84,16 +92,24 @@ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
- 	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
- 
- 	/* if both are mapped, treat as IPv4 */
--	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED)
--		return (!sk2_ipv6only &&
--			(!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr ||
--			  sk->sk_rcv_saddr == sk2->sk_rcv_saddr));
-+	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
-+		if (!sk2_ipv6only) {
-+			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
-+				return 1;
-+			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
-+				return match_wildcard;
-+		}
-+		return 0;
-+	}
-+
-+	if (addr_type == IPV6_ADDR_ANY && addr_type2 == IPV6_ADDR_ANY)
-+		return 1;
- 
--	if (addr_type2 == IPV6_ADDR_ANY &&
-+	if (addr_type2 == IPV6_ADDR_ANY && match_wildcard &&
- 	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
- 		return 1;
- 
--	if (addr_type == IPV6_ADDR_ANY &&
-+	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
- 	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
- 		return 1;
- 
-@@ -253,8 +269,14 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-+				struct sock *sk2;
- 				hash = udp6_ehashfn(net, daddr, hnum,
- 						    saddr, sport);
-+				sk2 = reuseport_select_sock(sk, hash);
-+				if (sk2) {
-+					result = sk2;
-+					goto found;
-+				}
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-@@ -273,6 +295,7 @@ begin:
- 		goto begin;
- 
- 	if (result) {
-+found:
- 		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
- 			result = NULL;
- 		else if (unlikely(compute_score2(result, net, saddr, sport,
-@@ -332,8 +355,14 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-+				struct sock *sk2;
- 				hash = udp6_ehashfn(net, daddr, hnum,
- 						    saddr, sport);
-+				sk2 = reuseport_select_sock(sk, hash);
-+				if (sk2) {
-+					result = sk2;
-+					goto found;
-+				}
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-@@ -352,6 +381,7 @@ begin:
- 		goto begin;
- 
- 	if (result) {
-+found:
- 		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
- 			result = NULL;
- 		else if (unlikely(compute_score(result, net, hnum, saddr, sport,
-@@ -547,8 +577,8 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	int err;
+@@ -702,7 +703,8 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, struct udp_table *udptable)
  	struct net *net = dev_net(skb->dev);
  
--	sk = __udp6_lib_lookup(net, daddr, uh->dest,
--			       saddr, uh->source, inet6_iif(skb), udptable);
-+	sk = __udp6_lib_lookup(net, daddr, uh->dest, saddr, uh->source,
-+			       inet6_iif(skb), udptable);
+ 	sk = __udp4_lib_lookup(net, iph->daddr, uh->dest,
+-			iph->saddr, uh->source, skb->dev->ifindex, udptable);
++			iph->saddr, uh->source, skb->dev->ifindex, udptable,
++			NULL);
+ 	if (!sk) {
+ 		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+ 		return;	/* No socket for error */
+diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
+index 6116604..df1966f 100644
+--- a/net/ipv4/udp_diag.c
++++ b/net/ipv4/udp_diag.c
+@@ -44,7 +44,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
+ 		sk = __udp4_lib_lookup(net,
+ 				req->id.idiag_src[0], req->id.idiag_sport,
+ 				req->id.idiag_dst[0], req->id.idiag_dport,
+-				req->id.idiag_if, tbl);
++				req->id.idiag_if, tbl, NULL);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	else if (req->sdiag_family == AF_INET6)
+ 		sk = __udp6_lib_lookup(net,
+@@ -52,7 +52,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
+ 				req->id.idiag_sport,
+ 				(struct in6_addr *)req->id.idiag_dst,
+ 				req->id.idiag_dport,
+-				req->id.idiag_if, tbl);
++				req->id.idiag_if, tbl, NULL);
+ #endif
+ 	else
+ 		goto out_nosk;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index c593319..d483c6b 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -272,7 +272,7 @@ begin:
+ 				struct sock *sk2;
+ 				hash = udp6_ehashfn(net, daddr, hnum,
+ 						    saddr, sport);
+-				sk2 = reuseport_select_sock(sk, hash);
++				sk2 = reuseport_select_sock(sk, hash, NULL, 0);
+ 				if (sk2) {
+ 					result = sk2;
+ 					goto found;
+@@ -310,7 +310,8 @@ found:
+ struct sock *__udp6_lib_lookup(struct net *net,
+ 				      const struct in6_addr *saddr, __be16 sport,
+ 				      const struct in6_addr *daddr, __be16 dport,
+-				      int dif, struct udp_table *udptable)
++				      int dif, struct udp_table *udptable,
++				      struct sk_buff *skb)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -358,7 +359,8 @@ begin:
+ 				struct sock *sk2;
+ 				hash = udp6_ehashfn(net, daddr, hnum,
+ 						    saddr, sport);
+-				sk2 = reuseport_select_sock(sk, hash);
++				sk2 = reuseport_select_sock(sk, hash, skb,
++							sizeof(struct udphdr));
+ 				if (sk2) {
+ 					result = sk2;
+ 					goto found;
+@@ -407,13 +409,13 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
+ 		return sk;
+ 	return __udp6_lib_lookup(dev_net(skb_dst(skb)->dev), &iph->saddr, sport,
+ 				 &iph->daddr, dport, inet6_iif(skb),
+-				 udptable);
++				 udptable, skb);
+ }
+ 
+ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be16 sport,
+ 			     const struct in6_addr *daddr, __be16 dport, int dif)
+ {
+-	return __udp6_lib_lookup(net, saddr, sport, daddr, dport, dif, &udp_table);
++	return __udp6_lib_lookup(net, saddr, sport, daddr, dport, dif, &udp_table, NULL);
+ }
+ EXPORT_SYMBOL_GPL(udp6_lib_lookup);
+ 
+@@ -578,7 +580,7 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	struct net *net = dev_net(skb->dev);
+ 
+ 	sk = __udp6_lib_lookup(net, daddr, uh->dest, saddr, uh->source,
+-			       inet6_iif(skb), udptable);
++			       inet6_iif(skb), udptable, skb);
  	if (!sk) {
  		ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev),
  				   ICMP6_MIB_INERRORS);
