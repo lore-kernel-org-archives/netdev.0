@@ -1,7 +1,8 @@
 From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: [RFC PATCH 16/17] calipso: Add validation of CALIPSO option.
-Date: Tue, 22 Dec 2015 11:46:52 +0000
-Message-ID: <1450784813-18304-17-git-send-email-huw@codeweavers.com>
+Subject: [RFC PATCH 15/17] netlabel: Pass a family parameter to
+ netlbl_skbuff_err().
+Date: Tue, 22 Dec 2015 11:46:51 +0000
+Message-ID: <1450784813-18304-16-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,146 +15,153 @@ Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
 Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-We check lengths, checksum and the DOI.  We leave checking of the
-level and categories for the socket layer.
+This makes it possible to route the error to the appropriate
+labelling engine.  CALIPSO is far less verbose than CIPSO
+when encountering a bogus packet, so there is no need for a
+CALIPSO error handler.
 
 Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
 ---
- include/net/calipso.h |  6 ++++++
- net/ipv6/calipso.c    | 43 +++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/exthdrs.c    | 27 +++++++++++++++++++++++++++
- 3 files changed, 76 insertions(+)
+ include/net/netlabel.h              |  2 +-
+ net/netlabel/netlabel_kapi.c        | 11 ++++++++---
+ security/selinux/hooks.c            |  6 +++---
+ security/selinux/include/netlabel.h |  4 +++-
+ security/selinux/netlabel.c         |  6 +++---
+ security/smack/smack_lsm.c          |  2 +-
+ 6 files changed, 19 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/calipso.h b/include/net/calipso.h
-index ad4d653..99df89b 100644
---- a/include/net/calipso.h
-+++ b/include/net/calipso.h
-@@ -65,6 +65,7 @@ struct calipso_doi {
- #ifdef CONFIG_NETLABEL
- int __init calipso_init(void);
- void calipso_exit(void);
-+bool calipso_validate(const struct sk_buff *skb, const unsigned char *option);
- #else
- static inline int __init calipso_init(void)
- {
-@@ -74,6 +75,11 @@ static inline int __init calipso_init(void)
- static inline void calipso_exit(void)
- {
- }
-+static inline bool calipso_validate(const struct sk_buff *skb,
-+				    const unsigned char *option)
-+{
-+	return true;
-+}
- #endif /* CONFIG_NETLABEL */
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index d88bf4a..1aed135 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -488,7 +488,7 @@ int netlbl_skbuff_setattr(struct sk_buff *skb,
+ int netlbl_skbuff_getattr(const struct sk_buff *skb,
+ 			  u16 family,
+ 			  struct netlbl_lsm_secattr *secattr);
+-void netlbl_skbuff_err(struct sk_buff *skb, int error, int gateway);
++void netlbl_skbuff_err(struct sk_buff *skb, u16 family, int error, int gateway);
  
- #endif /* _CALIPSO_H */
-diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index a91d71d..f3b7c43 100644
---- a/net/ipv6/calipso.c
-+++ b/net/ipv6/calipso.c
-@@ -315,6 +315,49 @@ doi_walk_return:
+ /*
+  * LSM label mapping cache operations
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index bace474..35df8f5 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -1250,6 +1250,7 @@ int netlbl_skbuff_getattr(const struct sk_buff *skb,
+ /**
+  * netlbl_skbuff_err - Handle a LSM error on a sk_buff
+  * @skb: the packet
++ * @family: the family
+  * @error: the error code
+  * @gateway: true if host is acting as a gateway, false otherwise
+  *
+@@ -1259,10 +1260,14 @@ int netlbl_skbuff_getattr(const struct sk_buff *skb,
+  * according to the packet's labeling protocol.
+  *
+  */
+-void netlbl_skbuff_err(struct sk_buff *skb, int error, int gateway)
++void netlbl_skbuff_err(struct sk_buff *skb, u16 family, int error, int gateway)
+ {
+-	if (cipso_v4_optptr(skb))
+-		cipso_v4_error(skb, error, gateway);
++	switch (family) {
++	case AF_INET:
++		if (cipso_v4_optptr(skb))
++			cipso_v4_error(skb, error, gateway);
++		break;
++	}
  }
  
  /**
-+ * calipso_validate - Validate a CALIPSO option
-+ * @skb: the packet
-+ * @option: the start of the option
-+ *
-+ * Description:
-+ * This routine is called to validate a CALIPSO option.
-+ * If the option is valid then a zero value is returned.  If the
-+ * option is invalid then a non-zero value is returned and
-+ * representing the offset to the offending portion of the option.
-+ *
-+ * The caller should have already checked that the length of the
-+ * option (including the TLV header) is >= 10 and that the catmap
-+ * length is consistent with the option length.
-+ *
-+ * We leave checks on the level and categories to the socket layer.
-+ */
-+bool calipso_validate(const struct sk_buff *skb, const unsigned char *option)
-+{
-+	struct calipso_doi *doi_def;
-+	int ret_val;
-+	u16 crc, len = option[1] + 2;
-+	static const u8 zero[2];
-+
-+	/* The original CRC runs over the option including the TLV header
-+	 * with the CRC-16 field (at offset 8) zeroed out.
-+	 */
-+	crc = crc_ccitt(0xffff, option, 8);
-+	crc = crc_ccitt(crc, zero, sizeof(zero));
-+	if (len > 10)
-+		crc = crc_ccitt(crc, option + 10, len - 10);
-+	crc = ~crc;
-+	if (option[8] != (crc & 0xff) || option[9] != ((crc >> 8) & 0xff))
-+		return false;
-+
-+	rcu_read_lock();
-+	doi_def = calipso_doi_search(get_unaligned_be32(option + 2));
-+	ret_val = !!doi_def;
-+	rcu_read_unlock();
-+
-+	return ret_val;
-+}
-+
-+/**
-  * calipso_map_cat_hton - Perform a category mapping from host to network
-  * @doi_def: the DOI definition
-  * @secattr: the security attributes
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index e87c89b..3dc1d15 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -43,6 +43,7 @@
- #include <net/ndisc.h>
- #include <net/ip6_route.h>
- #include <net/addrconf.h>
-+#include <net/calipso.h>
- #if IS_ENABLED(CONFIG_IPV6_MIP6)
- #include <net/xfrm.h>
- #endif
-@@ -603,6 +604,28 @@ drop:
- 	return false;
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 6124da6..5301c9f 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4473,13 +4473,13 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		err = selinux_inet_sys_rcv_skb(sock_net(sk), skb->skb_iif,
+ 					       addrp, family, peer_sid, &ad);
+ 		if (err) {
+-			selinux_netlbl_err(skb, err, 0);
++			selinux_netlbl_err(skb, family, err, 0);
+ 			return err;
+ 		}
+ 		err = avc_has_perm(sk_sid, peer_sid, SECCLASS_PEER,
+ 				   PEER__RECV, &ad);
+ 		if (err) {
+-			selinux_netlbl_err(skb, err, 0);
++			selinux_netlbl_err(skb, family, err, 0);
+ 			return err;
+ 		}
+ 	}
+@@ -4843,7 +4843,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb,
+ 		err = selinux_inet_sys_rcv_skb(dev_net(indev), indev->ifindex,
+ 					       addrp, family, peer_sid, &ad);
+ 		if (err) {
+-			selinux_netlbl_err(skb, err, 1);
++			selinux_netlbl_err(skb, family, err, 1);
+ 			return NF_DROP;
+ 		}
+ 	}
+diff --git a/security/selinux/include/netlabel.h b/security/selinux/include/netlabel.h
+index 8c59b8f..75686d5 100644
+--- a/security/selinux/include/netlabel.h
++++ b/security/selinux/include/netlabel.h
+@@ -40,7 +40,8 @@
+ #ifdef CONFIG_NETLABEL
+ void selinux_netlbl_cache_invalidate(void);
+ 
+-void selinux_netlbl_err(struct sk_buff *skb, int error, int gateway);
++void selinux_netlbl_err(struct sk_buff *skb, u16 family, int error,
++			int gateway);
+ 
+ void selinux_netlbl_sk_security_free(struct sk_security_struct *sksec);
+ void selinux_netlbl_sk_security_reset(struct sk_security_struct *sksec);
+@@ -72,6 +73,7 @@ static inline void selinux_netlbl_cache_invalidate(void)
  }
  
-+/* CALIPSO RFC 5570 */
-+
-+static bool ipv6_hop_calipso(struct sk_buff *skb, int optoff)
-+{
-+	const unsigned char *nh = skb_network_header(skb);
-+
-+	if (nh[optoff + 1] < 8)
-+		goto drop;
-+
-+	if (nh[optoff + 6] * 4 + 8 > nh[optoff + 1])
-+		goto drop;
-+
-+	if (!calipso_validate(skb, nh + optoff))
-+		goto drop;
-+
-+	return true;
-+
-+drop:
-+	kfree_skb(skb);
-+	return false;
-+}
-+
- static const struct tlvtype_proc tlvprochopopt_lst[] = {
- 	{
- 		.type	= IPV6_TLV_ROUTERALERT,
-@@ -612,6 +635,10 @@ static const struct tlvtype_proc tlvprochopopt_lst[] = {
- 		.type	= IPV6_TLV_JUMBO,
- 		.func	= ipv6_hop_jumbo,
- 	},
-+	{
-+		.type	= IPV6_TLV_CALIPSO,
-+		.func	= ipv6_hop_calipso,
-+	},
- 	{ -1, }
- };
+ static inline void selinux_netlbl_err(struct sk_buff *skb,
++				      u16 family,
+ 				      int error,
+ 				      int gateway)
+ {
+diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
+index ca220c3..dfca50d 100644
+--- a/security/selinux/netlabel.c
++++ b/security/selinux/netlabel.c
+@@ -151,9 +151,9 @@ void selinux_netlbl_cache_invalidate(void)
+  * present on the packet, NetLabel is smart enough to only act when it should.
+  *
+  */
+-void selinux_netlbl_err(struct sk_buff *skb, int error, int gateway)
++void selinux_netlbl_err(struct sk_buff *skb, u16 family, int error, int gateway)
+ {
+-	netlbl_skbuff_err(skb, error, gateway);
++	netlbl_skbuff_err(skb, family, error, gateway);
+ }
  
+ /**
+@@ -405,7 +405,7 @@ int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
+ 		return 0;
+ 
+ 	if (nlbl_sid != SECINITSID_UNLABELED)
+-		netlbl_skbuff_err(skb, rc, 0);
++		netlbl_skbuff_err(skb, family, rc, 0);
+ 	return rc;
+ }
+ 
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index ff81026..a2c57563 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -3978,7 +3978,7 @@ access_check:
+ 		rc = smk_bu_note("IPv4 delivery", skp, ssp->smk_in,
+ 					MAY_WRITE, rc);
+ 		if (rc != 0)
+-			netlbl_skbuff_err(skb, rc, 0);
++			netlbl_skbuff_err(skb, sk->sk_family, rc, 0);
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case PF_INET6:
 -- 
 1.8.0
 
