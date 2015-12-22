@@ -1,129 +1,60 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [RFC v4 5/5] VSOCK: Add Makefile and Kconfig
-Date: Tue, 22 Dec 2015 17:07:38 +0800
-Message-ID: <1450775258-18287-6-git-send-email-stefanha@redhat.com>
-References: <1450775258-18287-1-git-send-email-stefanha@redhat.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
+Date: Tue, 22 Dec 2015 11:12:16 +0200
+Message-ID: <87poxy7spb.fsf@kamboji.qca.qualcomm.com>
+References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
+	<CAFqt6zaALx895c0BVrMpLdtfgYLz=-mmqaurtD28Nm1Ut2g1Dw@mail.gmail.com>
+	<CAP+RiCBK_iEOu27GzqqgG9Pn_MDP1m8JCnSqkGbPMAT7=P9V7g@mail.gmail.com>
+	<CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Hajnoczi <stefanha@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Matt Benjamin <mbenjamin@redhat.com>, Asias He <asias@redhat.com>,
-	Christoffer Dall <christoffer.dall@linaro.org>, matt.ma@linaro.org
-To: kvm@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1450775258-18287-1-git-send-email-stefanha@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Brent Taylor <motobud@gmail.com>, <netdev@vger.kernel.org>,
+	<ath6kl@lists.infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Souptick Joarder <jrdr.linux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
+	(Souptick Joarder's message of "Tue, 22 Dec 2015 14:35:20 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Asias He <asias@redhat.com>
+Souptick Joarder <jrdr.linux@gmail.com> writes:
 
-Enable virtio-vsock and vhost-vsock.
+> Hi Brent,
+>
+> On Tue, Dec 22, 2015 at 3:23 AM, Brent Taylor <motobud@gmail.com> wrote:
+>> On Mon, Dec 21, 2015 at 1:23 PM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
+>>> Hi Brent,
+>>>
+>>> On Tue, Dec 1, 2015 at 11:11 AM, Brent Taylor <motobud@gmail.com> wrote:
+>>>
+>>>> --- a/drivers/net/wireless/ath/ath6kl/init.c
+>>>> +++ b/drivers/net/wireless/ath/ath6kl/init.c
+>>>> @@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
+>>>>                 return ret;
+>>>>
+>>>>         *fw_len = fw_entry->size;
+>>>> -       *fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
+>>>> +   if (&ar->fw == fw)
+>>>> +               *fw = vmalloc(fw_entry->size);
+>>>> +   else
+>>>> +               *fw = kmalloc(fw_entry->size, GFP_KERNEL)
+>>>
+>>>           Why vmalloc and kmalloc both are required? can't use either
+>>> vmalloc or kmalloc?
+>>
+>> My original problem was that kmemdup (which uses kmalloc) could not
+>> allocate enough memory
+>
+> If kmemdump ( which uses kmalloc) could not allocate memory then
+> using kmalloc again can lead to same problem.
+> I guess it will be correct to use
+>             *fw = vmalloc(fw_entry->size);
+> Correct me if i am wrong.
 
-Signed-off-by: Asias He <asias@redhat.com>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
-v4:
- * Make checkpatch.pl happy with longer option description
- * Clarify dependency on virtio rather than QEMU as suggested by Alex
-   Bennee
-v3:
- * Don't put vhost vsock driver into staging
- * Add missing Kconfig dependencies (Arnd Bergmann <arnd@arndb.de>)
----
- drivers/vhost/Kconfig  | 15 +++++++++++++++
- drivers/vhost/Makefile |  4 ++++
- net/vmw_vsock/Kconfig  | 19 +++++++++++++++++++
- net/vmw_vsock/Makefile |  2 ++
- 4 files changed, 40 insertions(+)
+That sounds best. But remember take into account DMA requirements, IIRC
+you cannot DMA from vmalloc memory on all platforms.
 
-diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-index 533eaf0..d7aae9e 100644
---- a/drivers/vhost/Kconfig
-+++ b/drivers/vhost/Kconfig
-@@ -21,6 +21,21 @@ config VHOST_SCSI
- 	Say M here to enable the vhost_scsi TCM fabric module
- 	for use with virtio-scsi guests
- 
-+config VHOST_VSOCK
-+	tristate "vhost virtio-vsock driver"
-+	depends on VSOCKETS && EVENTFD
-+	select VIRTIO_VSOCKETS_COMMON
-+	select VHOST
-+	select VHOST_RING
-+	default n
-+	---help---
-+	This kernel module can be loaded in the host kernel to provide AF_VSOCK
-+	sockets for communicating with guests.  The guests must have the
-+	virtio_transport.ko driver loaded to use the virtio-vsock device.
-+
-+	To compile this driver as a module, choose M here: the module will be called
-+	vhost_vsock.
-+
- config VHOST_RING
- 	tristate
- 	---help---
-diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
-index e0441c3..6b012b9 100644
---- a/drivers/vhost/Makefile
-+++ b/drivers/vhost/Makefile
-@@ -4,5 +4,9 @@ vhost_net-y := net.o
- obj-$(CONFIG_VHOST_SCSI) += vhost_scsi.o
- vhost_scsi-y := scsi.o
- 
-+obj-$(CONFIG_VHOST_VSOCK) += vhost_vsock.o
-+vhost_vsock-y := vsock.o
-+
- obj-$(CONFIG_VHOST_RING) += vringh.o
-+
- obj-$(CONFIG_VHOST)	+= vhost.o
-diff --git a/net/vmw_vsock/Kconfig b/net/vmw_vsock/Kconfig
-index 14810ab..f27e74b 100644
---- a/net/vmw_vsock/Kconfig
-+++ b/net/vmw_vsock/Kconfig
-@@ -26,3 +26,22 @@ config VMWARE_VMCI_VSOCKETS
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called vmw_vsock_vmci_transport. If unsure, say N.
-+
-+config VIRTIO_VSOCKETS
-+	tristate "virtio transport for Virtual Sockets"
-+	depends on VSOCKETS && VIRTIO
-+	select VIRTIO_VSOCKETS_COMMON
-+	help
-+	  This module implements a virtio transport for Virtual Sockets.
-+
-+	  Enable this transport if your Virtual Machine host supports Virtual
-+	  Sockets over virtio.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called virtio_vsock_transport. If unsure, say N.
-+
-+config VIRTIO_VSOCKETS_COMMON
-+       tristate
-+       ---help---
-+         This option is selected by any driver which needs to access
-+         the virtio_vsock.
-diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-index 2ce52d7..cf4c294 100644
---- a/net/vmw_vsock/Makefile
-+++ b/net/vmw_vsock/Makefile
-@@ -1,5 +1,7 @@
- obj-$(CONFIG_VSOCKETS) += vsock.o
- obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
-+obj-$(CONFIG_VIRTIO_VSOCKETS) += virtio_transport.o
-+obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += virtio_transport_common.o
- 
- vsock-y += af_vsock.o vsock_addr.o
- 
 -- 
-2.5.0
+Kalle Valo
