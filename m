@@ -1,71 +1,62 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: suspicious RCU usage (netlink/rhashtable)
-Date: Tue, 22 Dec 2015 16:46:38 -0500
-Message-ID: <CAEfhGizBuy79qvUdOFtbpUHg-2NPb3=Lsms8Mhg4txQH6-CWyA@mail.gmail.com>
-References: <CAEfhGiwEhWqwtbAhbaVCEohePUyUC+f-Ap6b4oHk1Mdkg+ZKUA@mail.gmail.com>
-	<20151222.162841.889225793486693960.davem@davemloft.net>
-	<CAEfhGiz1FnghHRpcYUVKhWNV=4yjfU-pAsjynKTgwPctsNQ5Gw@mail.gmail.com>
-	<20151222.164225.926367017579760543.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 -next 3/3] tcp: honour SO_BINDTODEVICE for TW_RST case
+ too
+Date: Tue, 22 Dec 2015 22:47:00 +0100
+Message-ID: <5679C4D4.50804@stressinduktion.org>
+References: <1450729766-14926-1-git-send-email-fw@strlen.de>
+ <1450729766-14926-4-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f196.google.com ([209.85.217.196]:35512 "EHLO
-	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933232AbbLVVql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 16:46:41 -0500
-Received: by mail-lb0-f196.google.com with SMTP id tz10so3881964lbb.2
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 13:46:40 -0800 (PST)
-Received: from mail-lf0-f45.google.com (mail-lf0-f45.google.com. [209.85.215.45])
-        by smtp.gmail.com with ESMTPSA id n62sm2068584lfn.5.2015.12.22.13.46.39
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 22 Dec 2015 13:46:39 -0800 (PST)
-Received: by mail-lf0-f45.google.com with SMTP id l133so136455098lfd.2
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 13:46:39 -0800 (PST)
-In-Reply-To: <20151222.164225.926367017579760543.davem@davemloft.net>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49614 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932612AbbLVVrE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 16:47:04 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 86FB820D0E
+	for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 16:47:02 -0500 (EST)
+In-Reply-To: <1450729766-14926-4-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 22, 2015 at 4:42 PM, David Miller <davem@davemloft.net> wrote:
-> From: Craig Gallek <kraigatgoog@gmail.com>
-> Date: Tue, 22 Dec 2015 16:38:32 -0500
->
->> On Tue, Dec 22, 2015 at 4:28 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Craig Gallek <kraigatgoog@gmail.com>
->>> Date: Tue, 22 Dec 2015 15:51:19 -0500
->>>
->>>> I was actually just looking at this as well (though a slightly
->>>> different stack).  The issue is with: c6ff5268293e rhashtable: Fix
->>>> walker list corruption
->>>>
->>>> It changed the lock acquired in rhashtable_walk_init to use the new
->>>> spinlock, but the rht_dereference macro expects the mutex.  I was
->>>> still trying to track down which repository this change came in
->>>> through, though...
->>>
->>> Both cam via my networking tree.
->> Simple fix is below.  Though, I don't understand the history of the
->> multiple locks in this structure to be sure it's correct.  I'll send
->> it as a formal patch.  Please reject if it's not the right approach.
->>
->> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
->> index 1c149e9..cc80870 100644
->> --- a/lib/rhashtable.c
->> +++ b/lib/rhashtable.c
->> @@ -516,7 +516,8 @@ int rhashtable_walk_init(struct rhashtable *ht,
->> struct rhashtable_iter *iter)
->>                 return -ENOMEM;
->>
->>         spin_lock(&ht->lock);
->> -       iter->walker->tbl = rht_dereference(ht->tbl, ht);
->> +       iter->walker->tbl =
->> +               rcu_dereference_protected(ht->tbl, lockdep_is_held(&ht->lock));
->>         list_add(&iter->walker->list, &iter->walker->tbl->walkers);
->>         spin_unlock(&ht->lock);
->
-> How can this be the "fix"?  That's exactly what's in the tree.
-Ah, you're right, this fix was submitted to next in 179ccc0a7364 but
-hasn't made it into net-next yet.
+On 21.12.2015 21:29, Florian Westphal wrote:
+> Hannes points out that when we generate tcp reset for timewait sockets we
+> pretend we found no socket and pass NULL sk to tcp_vX_send_reset().
+> 
+> Make it cope with inet tw sockets and then provide tw sk.
+> 
+> This makes RSTs appear on correct interface when SO_BINDTODEVICE is used.
+> 
+> Packetdrill test case:
+> // want default route to be used, we rely on BINDTODEVICE
+> `ip route del 192.0.2.0/24 via 192.168.0.2 dev tun0`
+> 
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> // test case still works due to BINDTODEVICE
+> 0.001 setsockopt(3, SOL_SOCKET, SO_BINDTODEVICE, "tun0", 4) = 0
+> 0.100...0.200 connect(3, ..., ...) = 0
+> 
+> 0.100 > S 0:0(0) <mss 1460,sackOK,nop,nop>
+> 0.200 < S. 0:0(0) ack 1 win 32792 <mss 1460,sackOK,nop,nop>
+> 0.200 > . 1:1(0) ack 1
+> 
+> 0.210 close(3) = 0
+> 
+> 0.210 > F. 1:1(0) ack 1 win 29200
+> 0.300 < . 1:1(0) ack 2 win 46
+> 
+> // more data while in FIN_WAIT2, expect RST
+> 1.300 < P. 1:1001(1000) ack 1 win 46
+> 
+> // fails without this change -- default route is used
+> 1.301 > R 1:1(0) win 0
+> 
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Tested and works fine, thanks Florian and Eric!
