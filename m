@@ -1,7 +1,8 @@
 From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: [RFC PATCH 04/17] netlabel: Add support for querying a CALIPSO DOI.
-Date: Tue, 22 Dec 2015 11:46:40 +0000
-Message-ID: <1450784813-18304-5-git-send-email-huw@codeweavers.com>
+Subject: [RFC PATCH 03/17] netlabel: Initial support for the CALIPSO netlink
+ protocol.
+Date: Tue, 22 Dec 2015 11:46:39 +0000
+Message-ID: <1450784813-18304-4-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,261 +15,837 @@ Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
 Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Query a specified DOI through the NLBL_CALIPSO_C_LIST command.
-It requires the attribute:
+CALIPSO is a packet labelling protocol for IPv6 which is very similar
+to CIPSO.  It is specified in RFC 5570.  Much of the code is based on
+the current CIPSO code.
+
+This adds support for adding passthrough-type CALIPSO DOIs through the
+NLBL_CALIPSO_C_ADD command.  It requires attributes:
+
+ NLBL_CALIPSO_A_TYPE which must be CALIPSO_MAP_PASS.
  NLBL_CALIPSO_A_DOI.
 
-The reply will contain:
- NLBL_CALIPSO_A_MTYPE
+In passthrough mode the CALIPSO engine will map MLS secattr levels
+and categories directly to the packet label.
+
+At this stage, the major difference between this and the CIPSO
+code is that IPv6 may be compiled as a module.  To allow for
+this the CALIPSO functions are registered at module init time.
 
 Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
 ---
- include/net/netlabel.h          |   4 ++
- net/ipv6/calipso.c              |  68 +++++++++++++++++++++++++++
- net/netlabel/netlabel_calipso.c | 102 ++++++++++++++++++++++++++++++++++++++++
- net/netlabel/netlabel_calipso.h |   2 +
- 4 files changed, 176 insertions(+)
+ include/net/calipso.h           |  79 +++++++++++++++
+ include/net/netlabel.h          |  22 ++++
+ include/uapi/linux/audit.h      |   2 +
+ net/ipv6/Makefile               |   1 +
+ net/ipv6/af_inet6.c             |   9 +-
+ net/ipv6/calipso.c              | 169 +++++++++++++++++++++++++++++++
+ net/netlabel/Makefile           |   2 +-
+ net/netlabel/netlabel_calipso.c | 219 ++++++++++++++++++++++++++++++++++++++++
+ net/netlabel/netlabel_calipso.h | 128 +++++++++++++++++++++++
+ net/netlabel/netlabel_kapi.c    |   1 +
+ net/netlabel/netlabel_mgmt.c    |   9 ++
+ net/netlabel/netlabel_user.c    |   5 +
+ 12 files changed, 644 insertions(+), 2 deletions(-)
+ create mode 100644 include/net/calipso.h
+ create mode 100644 net/ipv6/calipso.c
+ create mode 100644 net/netlabel/netlabel_calipso.c
+ create mode 100644 net/netlabel/netlabel_calipso.h
 
+diff --git a/include/net/calipso.h b/include/net/calipso.h
+new file mode 100644
+index 0000000..ad4d653
+--- /dev/null
++++ b/include/net/calipso.h
+@@ -0,0 +1,79 @@
++/*
++ * CALIPSO - Common Architecture Label IPv6 Security Option
++ *
++ * This is an implementation of the CALIPSO protocol as specified in
++ * RFC 5570.
++ *
++ * Authors: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
++ *          Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
++ *
++ */
++
++/*
++ * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
++ * (c) Copyright Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>, 2015
++ *
++ * This program is free software;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
++ * the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program;  if not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#ifndef _CALIPSO_H
++#define _CALIPSO_H
++
++#include <linux/types.h>
++#include <linux/rcupdate.h>
++#include <linux/list.h>
++#include <linux/net.h>
++#include <linux/skbuff.h>
++#include <net/netlabel.h>
++#include <net/request_sock.h>
++#include <linux/atomic.h>
++#include <asm/unaligned.h>
++
++/* known doi values */
++#define CALIPSO_DOI_UNKNOWN          0x00000000
++
++/* doi mapping types */
++#define CALIPSO_MAP_UNKNOWN          0
++#define CALIPSO_MAP_PASS             1
++
++/*
++ * CALIPSO DOI definitions
++ */
++
++/* DOI definition struct */
++struct calipso_doi {
++	u32 doi;
++	u32 type;
++
++	atomic_t refcount;
++	struct list_head list;
++	struct rcu_head rcu;
++};
++
++#ifdef CONFIG_NETLABEL
++int __init calipso_init(void);
++void calipso_exit(void);
++#else
++static inline int __init calipso_init(void)
++{
++	return 0;
++}
++
++static inline void calipso_exit(void)
++{
++}
++#endif /* CONFIG_NETLABEL */
++
++#endif /* _CALIPSO_H */
 diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index ced56b0..e072350 100644
+index 7b5a300..ced56b0 100644
 --- a/include/net/netlabel.h
 +++ b/include/net/netlabel.h
-@@ -223,6 +223,8 @@ struct netlbl_lsm_secattr {
-  * struct netlbl_calipso_ops - NetLabel CALIPSO operations
-  * @doi_add: add a CALIPSO DOI
-  * @doi_free: free a CALIPSO DOI
-+ * @doi_getdef: returns a reference to a DOI
-+ * @doi_putdef: releases a reference of a DOI
-  *
-  * Description:
-  * This structure is filled out by the CALIPSO engine and passed
-@@ -234,6 +236,8 @@ struct netlbl_calipso_ops {
- 	int (*doi_add)(struct calipso_doi *doi_def,
- 		       struct netlbl_audit *audit_info);
- 	void (*doi_free)(struct calipso_doi *doi_def);
-+	struct calipso_doi *(*doi_getdef)(u32 doi);
-+	void (*doi_putdef)(struct calipso_doi *doi_def);
- };
+@@ -40,6 +40,7 @@
+ #include <linux/atomic.h>
+ 
+ struct cipso_v4_doi;
++struct calipso_doi;
  
  /*
-diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index aa44310..128cc69 100644
---- a/net/ipv6/calipso.c
-+++ b/net/ipv6/calipso.c
-@@ -144,9 +144,77 @@ static void calipso_doi_free(struct calipso_doi *doi_def)
- 	kfree(doi_def);
- }
+  * NetLabel - A management interface for maintaining network packet label
+@@ -94,6 +95,8 @@ struct cipso_v4_doi;
+ #define NETLBL_NLTYPE_UNLABELED_NAME    "NLBL_UNLBL"
+ #define NETLBL_NLTYPE_ADDRSELECT        6
+ #define NETLBL_NLTYPE_ADDRSELECT_NAME   "NLBL_ADRSEL"
++#define NETLBL_NLTYPE_CALIPSO           7
++#define NETLBL_NLTYPE_CALIPSO_NAME      "NLBL_CALIPSO"
+ 
+ /*
+  * NetLabel - Kernel API for accessing the network packet label mappings.
+@@ -216,6 +219,23 @@ struct netlbl_lsm_secattr {
+ 	} attr;
+ };
  
 +/**
-+ * calipso_doi_free_rcu - Frees a DOI definition via the RCU pointer
-+ * @entry: the entry's RCU field
++ * struct netlbl_calipso_ops - NetLabel CALIPSO operations
++ * @doi_add: add a CALIPSO DOI
++ * @doi_free: free a CALIPSO DOI
 + *
 + * Description:
-+ * This function is designed to be used as a callback to the call_rcu()
-+ * function so that the memory allocated to the DOI definition can be released
-+ * safely.
++ * This structure is filled out by the CALIPSO engine and passed
++ * to the NetLabel core via a call to netlbl_calipso_ops_register().
++ * It enables the CALIPSO engine (and hence IPv6) to be compiled
++ * as a module.
++ */
++struct netlbl_calipso_ops {
++	int (*doi_add)(struct calipso_doi *doi_def,
++		       struct netlbl_audit *audit_info);
++	void (*doi_free)(struct calipso_doi *doi_def);
++};
++
+ /*
+  * LSM security attribute operations (inline)
+  */
+@@ -598,4 +618,6 @@ static inline struct audit_buffer *netlbl_audit_start(int type,
+ }
+ #endif /* CONFIG_NETLABEL */
+ 
++void netlbl_calipso_ops_register(const struct netlbl_calipso_ops *ops);
++
+ #endif /* _NETLABEL_H */
+diff --git a/include/uapi/linux/audit.h b/include/uapi/linux/audit.h
+index 843540c..81033ce 100644
+--- a/include/uapi/linux/audit.h
++++ b/include/uapi/linux/audit.h
+@@ -129,6 +129,8 @@
+ #define AUDIT_MAC_IPSEC_EVENT	1415	/* Audit an IPSec event */
+ #define AUDIT_MAC_UNLBL_STCADD	1416	/* NetLabel: add a static label */
+ #define AUDIT_MAC_UNLBL_STCDEL	1417	/* NetLabel: del a static label */
++#define AUDIT_MAC_CALIPSO_ADD	1418	/* NetLabel: add CALIPSO DOI entry */
++#define AUDIT_MAC_CALIPSO_DEL	1419	/* NetLabel: del CALIPSO DOI entry */
+ 
+ #define AUDIT_FIRST_KERN_ANOM_MSG   1700
+ #define AUDIT_LAST_KERN_ANOM_MSG    1799
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 2c900c7..00462d6 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -21,6 +21,7 @@ ipv6-$(CONFIG_NETFILTER) += netfilter.o
+ ipv6-$(CONFIG_IPV6_MULTIPLE_TABLES) += fib6_rules.o
+ ipv6-$(CONFIG_PROC_FS) += proc.o
+ ipv6-$(CONFIG_SYN_COOKIES) += syncookies.o
++ipv6-$(CONFIG_NETLABEL) += calipso.o
+ 
+ ipv6-objs += $(ipv6-y)
+ 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 9f5137c..07214c7 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -60,6 +60,7 @@
+ #ifdef CONFIG_IPV6_TUNNEL
+ #include <net/ip6_tunnel.h>
+ #endif
++#include <net/calipso.h>
+ 
+ #include <asm/uaccess.h>
+ #include <linux/mroute6.h>
+@@ -971,13 +972,19 @@ static int __init inet6_init(void)
+ 	if (err)
+ 		goto sysctl_fail;
+ #endif
++
++	err = calipso_init();
++	if (err)
++		goto calipso_fail;
+ out:
+ 	return err;
+ 
++calipso_fail:
+ #ifdef CONFIG_SYSCTL
++	ipv6_sysctl_unregister();
+ sysctl_fail:
+-	pingv6_exit();
+ #endif
++	pingv6_exit();
+ pingv6_fail:
+ 	ipv6_packet_cleanup();
+ ipv6_packet_fail:
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+new file mode 100644
+index 0000000..aa44310
+--- /dev/null
++++ b/net/ipv6/calipso.c
+@@ -0,0 +1,169 @@
++/*
++ * CALIPSO - Common Architecture Label IPv6 Security Option
++ *
++ * This is an implementation of the CALIPSO protocol as specified in
++ * RFC 5570.
++ *
++ * Authors: Paul Moore <paul.moore-VXdhtT5mjnY@public.gmane.org>
++ *          Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
 + *
 + */
-+static void calipso_doi_free_rcu(struct rcu_head *entry)
-+{
-+	struct calipso_doi *doi_def;
 +
-+	doi_def = container_of(entry, struct calipso_doi, rcu);
-+	calipso_doi_free(doi_def);
++/* (c) Copyright Hewlett-Packard Development Company, L.P., 2006, 2008
++ * (c) Copyright Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>, 2015
++ *
++ * This program is free software;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
++ * the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program;  if not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include <linux/init.h>
++#include <linux/types.h>
++#include <linux/rcupdate.h>
++#include <linux/list.h>
++#include <linux/spinlock.h>
++#include <linux/string.h>
++#include <linux/jhash.h>
++#include <linux/audit.h>
++#include <linux/slab.h>
++#include <net/ip.h>
++#include <net/icmp.h>
++#include <net/tcp.h>
++#include <net/netlabel.h>
++#include <net/calipso.h>
++#include <linux/atomic.h>
++#include <linux/bug.h>
++#include <asm/unaligned.h>
++
++/* List of available DOI definitions */
++static DEFINE_SPINLOCK(calipso_doi_list_lock);
++static LIST_HEAD(calipso_doi_list);
++
++/* DOI List Functions
++ */
++
++/**
++ * calipso_doi_search - Searches for a DOI definition
++ * @doi: the DOI to search for
++ *
++ * Description:
++ * Search the DOI definition list for a DOI definition with a DOI value that
++ * matches @doi.  The caller is responsible for calling rcu_read_[un]lock().
++ * Returns a pointer to the DOI definition on success and NULL on failure.
++ */
++static struct calipso_doi *calipso_doi_search(u32 doi)
++{
++	struct calipso_doi *iter;
++
++	list_for_each_entry_rcu(iter, &calipso_doi_list, list)
++		if (iter->doi == doi && atomic_read(&iter->refcount))
++			return iter;
++	return NULL;
 +}
 +
 +/**
-+ * calipso_doi_getdef - Returns a reference to a valid DOI definition
-+ * @doi: the DOI value
++ * calipso_doi_add - Add a new DOI to the CALIPSO protocol engine
++ * @doi_def: the DOI structure
++ * @audit_info: NetLabel audit information
 + *
 + * Description:
-+ * Searches for a valid DOI definition and if one is found it is returned to
-+ * the caller.  Otherwise NULL is returned.  The caller must ensure that
-+ * calipso_doi_putdef() is called when the caller is done.
++ * The caller defines a new DOI for use by the CALIPSO engine and calls this
++ * function to add it to the list of acceptable domains.  The caller must
++ * ensure that the mapping table specified in @doi_def->map meets all of the
++ * requirements of the mapping type (see calipso.h for details).  Returns
++ * zero on success and non-zero on failure.
 + *
 + */
-+static struct calipso_doi *calipso_doi_getdef(u32 doi)
++static int calipso_doi_add(struct calipso_doi *doi_def,
++			   struct netlbl_audit *audit_info)
 +{
-+	struct calipso_doi *doi_def;
++	int ret_val = -EINVAL;
++	u32 doi;
++	u32 doi_type;
++	struct audit_buffer *audit_buf;
 +
-+	rcu_read_lock();
-+	doi_def = calipso_doi_search(doi);
-+	if (!doi_def)
-+		goto doi_getdef_return;
-+	if (!atomic_inc_not_zero(&doi_def->refcount))
-+		doi_def = NULL;
++	doi = doi_def->doi;
++	doi_type = doi_def->type;
 +
-+doi_getdef_return:
-+	rcu_read_unlock();
-+	return doi_def;
++	if (doi_def->doi == CALIPSO_DOI_UNKNOWN)
++		goto doi_add_return;
++
++	atomic_set(&doi_def->refcount, 1);
++
++	spin_lock(&calipso_doi_list_lock);
++	if (calipso_doi_search(doi_def->doi)) {
++		spin_unlock(&calipso_doi_list_lock);
++		ret_val = -EEXIST;
++		goto doi_add_return;
++	}
++	list_add_tail_rcu(&doi_def->list, &calipso_doi_list);
++	spin_unlock(&calipso_doi_list_lock);
++	ret_val = 0;
++
++doi_add_return:
++	audit_buf = netlbl_audit_start(AUDIT_MAC_CALIPSO_ADD, audit_info);
++	if (audit_buf) {
++		const char *type_str;
++
++		switch (doi_type) {
++		case CALIPSO_MAP_PASS:
++			type_str = "pass";
++			break;
++		default:
++			type_str = "(unknown)";
++		}
++		audit_log_format(audit_buf,
++				 " calipso_doi=%u calipso_type=%s res=%u",
++				 doi, type_str, ret_val == 0 ? 1 : 0);
++		audit_log_end(audit_buf);
++	}
++
++	return ret_val;
 +}
 +
 +/**
-+ * calipso_doi_putdef - Releases a reference for the given DOI definition
++ * calipso_doi_free - Frees a DOI definition
 + * @doi_def: the DOI definition
 + *
 + * Description:
-+ * Releases a DOI definition reference obtained from calipso_doi_getdef().
++ * This function frees all of the memory associated with a DOI definition.
 + *
 + */
-+static void calipso_doi_putdef(struct calipso_doi *doi_def)
++static void calipso_doi_free(struct calipso_doi *doi_def)
 +{
-+	if (!doi_def)
-+		return;
-+
-+	if (!atomic_dec_and_test(&doi_def->refcount))
-+		return;
-+	spin_lock(&calipso_doi_list_lock);
-+	list_del_rcu(&doi_def->list);
-+	spin_unlock(&calipso_doi_list_lock);
-+
-+	call_rcu(&doi_def->rcu, calipso_doi_free_rcu);
++	kfree(doi_def);
 +}
 +
- static const struct netlbl_calipso_ops ops = {
- 	.doi_add          = calipso_doi_add,
- 	.doi_free         = calipso_doi_free,
-+	.doi_getdef       = calipso_doi_getdef,
-+	.doi_putdef       = calipso_doi_putdef,
- };
- 
- /**
-diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
-index 013d1e2..1effc61 100644
---- a/net/netlabel/netlabel_calipso.c
-+++ b/net/netlabel/netlabel_calipso.c
-@@ -128,6 +128,65 @@ static int netlbl_calipso_add(struct sk_buff *skb, struct genl_info *info)
- 	return ret_val;
- }
- 
++static const struct netlbl_calipso_ops ops = {
++	.doi_add          = calipso_doi_add,
++	.doi_free         = calipso_doi_free,
++};
++
 +/**
-+ * netlbl_calipso_list - Handle a LIST message
++ * calipso_init - Initialize the CALIPSO module
++ *
++ * Description:
++ * Initialize the CALIPSO module and prepare it for use.  Returns zero on
++ * success and negative values on failure.
++ *
++ */
++int __init calipso_init(void)
++{
++	netlbl_calipso_ops_register(&ops);
++	return 0;
++}
++
++void calipso_exit(void)
++{
++	netlbl_calipso_ops_register(NULL);
++}
+diff --git a/net/netlabel/Makefile b/net/netlabel/Makefile
+index d2732fc..d341ede 100644
+--- a/net/netlabel/Makefile
++++ b/net/netlabel/Makefile
+@@ -12,4 +12,4 @@ obj-y	+= netlabel_mgmt.o
+ # protocol modules
+ obj-y	+= netlabel_unlabeled.o
+ obj-y	+= netlabel_cipso_v4.o
+-
++obj-$(subst m,y,$(CONFIG_IPV6)) += netlabel_calipso.o
+diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
+new file mode 100644
+index 0000000..013d1e2
+--- /dev/null
++++ b/net/netlabel/netlabel_calipso.c
+@@ -0,0 +1,219 @@
++/*
++ * NetLabel CALIPSO/IPv6 Support
++ *
++ * This file defines the CALIPSO/IPv6 functions for the NetLabel system.  The
++ * NetLabel system manages static and dynamic label mappings for network
++ * protocols such as CIPSO and CALIPSO.
++ *
++ * Authors: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
++ *          Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
++ *
++ */
++
++/* (c) Copyright Hewlett-Packard Development Company, L.P., 2006
++ * (c) Copyright Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>, 2015
++ *
++ * This program is free software;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
++ * the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program;  if not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include <linux/types.h>
++#include <linux/socket.h>
++#include <linux/string.h>
++#include <linux/skbuff.h>
++#include <linux/audit.h>
++#include <linux/slab.h>
++#include <net/sock.h>
++#include <net/netlink.h>
++#include <net/genetlink.h>
++#include <net/netlabel.h>
++#include <net/calipso.h>
++#include <linux/atomic.h>
++
++#include "netlabel_user.h"
++#include "netlabel_calipso.h"
++#include "netlabel_mgmt.h"
++#include "netlabel_domainhash.h"
++
++/* NetLabel Generic NETLINK CALIPSO family */
++static struct genl_family netlbl_calipso_gnl_family = {
++	.id = GENL_ID_GENERATE,
++	.hdrsize = 0,
++	.name = NETLBL_NLTYPE_CALIPSO_NAME,
++	.version = NETLBL_PROTO_VERSION,
++	.maxattr = NLBL_CALIPSO_A_MAX,
++};
++
++/* NetLabel Netlink attribute policy */
++static const struct nla_policy calipso_genl_policy[NLBL_CALIPSO_A_MAX + 1] = {
++	[NLBL_CALIPSO_A_DOI] = { .type = NLA_U32 },
++	[NLBL_CALIPSO_A_MTYPE] = { .type = NLA_U32 },
++};
++
++/* NetLabel Command Handlers
++ */
++/**
++ * netlbl_calipso_add_pass - Adds a CALIPSO pass DOI definition
++ * @info: the Generic NETLINK info block
++ * @audit_info: NetLabel audit information
++ *
++ * Description:
++ * Create a new CALIPSO_MAP_PASS DOI definition based on the given ADD message
++ * and add it to the CALIPSO engine.  Return zero on success and non-zero on
++ * error.
++ *
++ */
++static int netlbl_calipso_add_pass(struct genl_info *info,
++				   struct netlbl_audit *audit_info)
++{
++	int ret_val;
++	struct calipso_doi *doi_def = NULL;
++
++	doi_def = kmalloc(sizeof(*doi_def), GFP_KERNEL);
++	if (!doi_def)
++		return -ENOMEM;
++	doi_def->type = CALIPSO_MAP_PASS;
++	doi_def->doi = nla_get_u32(info->attrs[NLBL_CALIPSO_A_DOI]);
++
++	ret_val = calipso_doi_add(doi_def, audit_info);
++	if (ret_val != 0)
++		goto add_pass_failure;
++	return 0;
++
++add_pass_failure:
++	calipso_doi_free(doi_def);
++	return ret_val;
++}
++
++/**
++ * netlbl_calipso_add - Handle an ADD message
 + * @skb: the NETLINK buffer
 + * @info: the Generic NETLINK info block
 + *
 + * Description:
-+ * Process a user generated LIST message and respond accordingly.
-+ * Returns zero on success and negative values on error.
++ * Create a new DOI definition based on the given ADD message and add it to the
++ * CALIPSO engine.  Returns zero on success, negative values on failure.
 + *
 + */
-+static int netlbl_calipso_list(struct sk_buff *skb, struct genl_info *info)
++static int netlbl_calipso_add(struct sk_buff *skb, struct genl_info *info)
++
 +{
-+	int ret_val;
-+	struct sk_buff *ans_skb = NULL;
-+	void *data;
-+	u32 doi;
-+	struct calipso_doi *doi_def;
++	int ret_val = -EINVAL;
++	struct netlbl_audit audit_info;
 +
-+	if (!info->attrs[NLBL_CALIPSO_A_DOI]) {
-+		ret_val = -EINVAL;
-+		goto list_failure;
++	if (!info->attrs[NLBL_CALIPSO_A_DOI] ||
++	    !info->attrs[NLBL_CALIPSO_A_MTYPE])
++		return -EINVAL;
++
++	netlbl_netlink_auditinfo(skb, &audit_info);
++	switch (nla_get_u32(info->attrs[NLBL_CALIPSO_A_MTYPE])) {
++	case CALIPSO_MAP_PASS:
++		ret_val = netlbl_calipso_add_pass(info, &audit_info);
++		break;
 +	}
++	if (ret_val == 0)
++		atomic_inc(&netlabel_mgmt_protocount);
 +
-+	doi = nla_get_u32(info->attrs[NLBL_CALIPSO_A_DOI]);
-+
-+	doi_def = calipso_doi_getdef(doi);
-+	if (!doi_def) {
-+		ret_val = -EINVAL;
-+		goto list_failure;
-+	}
-+
-+	ans_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!ans_skb) {
-+		ret_val = -ENOMEM;
-+		goto list_failure_put;
-+	}
-+	data = genlmsg_put_reply(ans_skb, info, &netlbl_calipso_gnl_family,
-+				 0, NLBL_CALIPSO_C_LIST);
-+	if (!data) {
-+		ret_val = -ENOMEM;
-+		goto list_failure_put;
-+	}
-+
-+	ret_val = nla_put_u32(ans_skb, NLBL_CALIPSO_A_MTYPE, doi_def->type);
-+	if (ret_val != 0)
-+		goto list_failure_put;
-+
-+	calipso_doi_putdef(doi_def);
-+
-+	genlmsg_end(ans_skb, data);
-+	return genlmsg_reply(ans_skb, info);
-+
-+list_failure_put:
-+	calipso_doi_putdef(doi_def);
-+list_failure:
-+	kfree_skb(ans_skb);
 +	return ret_val;
 +}
 +
- /* NetLabel Generic NETLINK Command Definitions
-  */
- 
-@@ -139,6 +198,13 @@ static const struct genl_ops netlbl_calipso_ops[] = {
- 	.doit = netlbl_calipso_add,
- 	.dumpit = NULL,
- 	},
++/* NetLabel Generic NETLINK Command Definitions
++ */
++
++static const struct genl_ops netlbl_calipso_ops[] = {
 +	{
-+	.cmd = NLBL_CALIPSO_C_LIST,
-+	.flags = 0,
++	.cmd = NLBL_CALIPSO_C_ADD,
++	.flags = GENL_ADMIN_PERM,
 +	.policy = calipso_genl_policy,
-+	.doit = netlbl_calipso_list,
++	.doit = netlbl_calipso_add,
 +	.dumpit = NULL,
 +	},
- };
- 
- /* NetLabel Generic NETLINK Protocol Functions
-@@ -217,3 +283,39 @@ void calipso_doi_free(struct calipso_doi *doi_def)
- 	if (ops)
- 		ops->doi_free(doi_def);
- }
++};
++
++/* NetLabel Generic NETLINK Protocol Functions
++ */
 +
 +/**
-+ * calipso_doi_getdef - Returns a reference to a valid DOI definition
-+ * @doi: the DOI value
++ * netlbl_calipso_genl_init - Register the CALIPSO NetLabel component
 + *
 + * Description:
-+ * Searches for a valid DOI definition and if one is found it is returned to
-+ * the caller.  Otherwise NULL is returned.  The caller must ensure that
-+ * calipso_doi_putdef() is called when the caller is done.
++ * Register the CALIPSO packet NetLabel component with the Generic NETLINK
++ * mechanism.  Returns zero on success, negative values on failure.
 + *
 + */
-+struct calipso_doi *calipso_doi_getdef(u32 doi)
++int __init netlbl_calipso_genl_init(void)
 +{
-+	struct calipso_doi *ret_val = NULL;
++	return genl_register_family_with_ops(&netlbl_calipso_gnl_family,
++					     netlbl_calipso_ops);
++}
++
++static const struct netlbl_calipso_ops *calipso_ops;
++
++/**
++ * netlbl_calipso_ops_register - Register the CALIPSO operations
++ *
++ * Description:
++ * Register the CALIPSO packet engine operations.
++ *
++ */
++void netlbl_calipso_ops_register(const struct netlbl_calipso_ops *ops)
++{
++	xchg(&calipso_ops, ops);
++}
++EXPORT_SYMBOL(netlbl_calipso_ops_register);
++
++static const struct netlbl_calipso_ops *netlbl_calipso_ops_get(void)
++{
++	return ACCESS_ONCE(calipso_ops);
++}
++
++/**
++ * calipso_doi_add - Add a new DOI to the CALIPSO protocol engine
++ * @doi_def: the DOI structure
++ * @audit_info: NetLabel audit information
++ *
++ * Description:
++ * The caller defines a new DOI for use by the CALIPSO engine and calls this
++ * function to add it to the list of acceptable domains.  The caller must
++ * ensure that the mapping table specified in @doi_def->map meets all of the
++ * requirements of the mapping type (see calipso.h for details).  Returns
++ * zero on success and non-zero on failure.
++ *
++ */
++int calipso_doi_add(struct calipso_doi *doi_def,
++		    struct netlbl_audit *audit_info)
++{
++	int ret_val = -ENOMSG;
 +	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
 +
 +	if (ops)
-+		ret_val = ops->doi_getdef(doi);
++		ret_val = ops->doi_add(doi_def, audit_info);
 +	return ret_val;
 +}
 +
 +/**
-+ * calipso_doi_putdef - Releases a reference for the given DOI definition
++ * calipso_doi_free - Frees a DOI definition
 + * @doi_def: the DOI definition
 + *
 + * Description:
-+ * Releases a DOI definition reference obtained from calipso_doi_getdef().
++ * This function frees all of the memory associated with a DOI definition.
 + *
 + */
-+void calipso_doi_putdef(struct calipso_doi *doi_def)
++void calipso_doi_free(struct calipso_doi *doi_def)
 +{
 +	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
 +
 +	if (ops)
-+		ops->doi_putdef(doi_def);
++		ops->doi_free(doi_def);
 +}
 diff --git a/net/netlabel/netlabel_calipso.h b/net/netlabel/netlabel_calipso.h
-index 01bfd37..6cf1cad 100644
---- a/net/netlabel/netlabel_calipso.h
+new file mode 100644
+index 0000000..01bfd37
+--- /dev/null
 +++ b/net/netlabel/netlabel_calipso.h
-@@ -124,5 +124,7 @@ static inline int netlbl_calipso_genl_init(void)
- int calipso_doi_add(struct calipso_doi *doi_def,
- 		    struct netlbl_audit *audit_info);
- void calipso_doi_free(struct calipso_doi *doi_def);
-+struct calipso_doi *calipso_doi_getdef(u32 doi);
-+void calipso_doi_putdef(struct calipso_doi *doi_def);
+@@ -0,0 +1,128 @@
++/*
++ * NetLabel CALIPSO Support
++ *
++ * This file defines the CALIPSO functions for the NetLabel system.  The
++ * NetLabel system manages static and dynamic label mappings for network
++ * protocols such as CIPSO and RIPSO.
++ *
++ * Authors: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
++ *          Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
++ *
++ */
++
++/* (c) Copyright Hewlett-Packard Development Company, L.P., 2006
++ * (c) Copyright Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>, 2015
++ *
++ * This program is free software;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
++ * the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program;  if not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#ifndef _NETLABEL_CALIPSO
++#define _NETLABEL_CALIPSO
++
++#include <net/netlabel.h>
++#include <net/calipso.h>
++
++/* The following NetLabel payloads are supported by the CALIPSO subsystem.
++ *
++ * o ADD:
++ *   Sent by an application to add a new DOI mapping table.
++ *
++ *   Required attributes:
++ *
++ *     NLBL_CALIPSO_A_DOI
++ *     NLBL_CALIPSO_A_MTYPE
++ *
++ *   If using CALIPSO_MAP_PASS no additional attributes are required.
++ *
++ * o REMOVE:
++ *   Sent by an application to remove a specific DOI mapping table from the
++ *   CALIPSO system.
++ *
++ *   Required attributes:
++ *
++ *     NLBL_CALIPSO_A_DOI
++ *
++ * o LIST:
++ *   Sent by an application to list the details of a DOI definition.  On
++ *   success the kernel should send a response using the following format.
++ *
++ *   Required attributes:
++ *
++ *     NLBL_CALIPSO_A_DOI
++ *
++ *   The valid response message format depends on the type of the DOI mapping,
++ *   the defined formats are shown below.
++ *
++ *   Required attributes:
++ *
++ *     NLBL_CALIPSO_A_MTYPE
++ *
++ *   If using CALIPSO_MAP_PASS no additional attributes are required.
++ *
++ * o LISTALL:
++ *   This message is sent by an application to list the valid DOIs on the
++ *   system.  When sent by an application there is no payload and the
++ *   NLM_F_DUMP flag should be set.  The kernel should respond with a series of
++ *   the following messages.
++ *
++ *   Required attributes:
++ *
++ *    NLBL_CALIPSO_A_DOI
++ *    NLBL_CALIPSO_A_MTYPE
++ *
++ */
++
++/* NetLabel CALIPSO commands */
++enum {
++	NLBL_CALIPSO_C_UNSPEC,
++	NLBL_CALIPSO_C_ADD,
++	NLBL_CALIPSO_C_REMOVE,
++	NLBL_CALIPSO_C_LIST,
++	NLBL_CALIPSO_C_LISTALL,
++	__NLBL_CALIPSO_C_MAX,
++};
++
++/* NetLabel CALIPSO attributes */
++enum {
++	NLBL_CALIPSO_A_UNSPEC,
++	NLBL_CALIPSO_A_DOI,
++	/* (NLA_U32)
++	 * the DOI value
++	 */
++	NLBL_CALIPSO_A_MTYPE,
++	/* (NLA_U32)
++	 * the mapping table type (defined in the calipso.h header as
++	 * CALIPSO_MAP_*)
++	 */
++	__NLBL_CALIPSO_A_MAX,
++};
++
++#define NLBL_CALIPSO_A_MAX (__NLBL_CALIPSO_A_MAX - 1)
++
++/* NetLabel protocol functions */
++#if IS_ENABLED(CONFIG_IPV6)
++int netlbl_calipso_genl_init(void);
++#else
++static inline int netlbl_calipso_genl_init(void)
++{
++	return 0;
++}
++#endif
++
++int calipso_doi_add(struct calipso_doi *doi_def,
++		    struct netlbl_audit *audit_info);
++void calipso_doi_free(struct calipso_doi *doi_def);
++
++#endif
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 3b62707..55c59a0 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -1163,6 +1163,7 @@ struct audit_buffer *netlbl_audit_start(int type,
+ {
+ 	return netlbl_audit_start_common(type, audit_info);
+ }
++EXPORT_SYMBOL(netlbl_audit_start);
  
- #endif
+ /*
+  * Setup Functions
+diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+index b2aeb5d..975b1e9 100644
+--- a/net/netlabel/netlabel_mgmt.c
++++ b/net/netlabel/netlabel_mgmt.c
+@@ -674,6 +674,15 @@ static int netlbl_mgmt_protocols(struct sk_buff *skb,
+ 			goto protocols_return;
+ 		protos_sent++;
+ 	}
++#if IS_ENABLED(CONFIG_IPV6)
++	if (protos_sent == 2) {
++		if (netlbl_mgmt_protocols_cb(skb,
++					     cb,
++					     NETLBL_NLTYPE_CALIPSO) < 0)
++			goto protocols_return;
++		protos_sent++;
++	}
++#endif
+ 
+ protocols_return:
+ 	cb->args[0] = protos_sent;
+diff --git a/net/netlabel/netlabel_user.c b/net/netlabel/netlabel_user.c
+index adf8b79..58495f4 100644
+--- a/net/netlabel/netlabel_user.c
++++ b/net/netlabel/netlabel_user.c
+@@ -44,6 +44,7 @@
+ #include "netlabel_mgmt.h"
+ #include "netlabel_unlabeled.h"
+ #include "netlabel_cipso_v4.h"
++#include "netlabel_calipso.h"
+ #include "netlabel_user.h"
+ 
+ /*
+@@ -71,6 +72,10 @@ int __init netlbl_netlink_init(void)
+ 	if (ret_val != 0)
+ 		return ret_val;
+ 
++	ret_val = netlbl_calipso_genl_init();
++	if (ret_val != 0)
++		return ret_val;
++
+ 	return netlbl_unlabel_genl_init();
+ }
+ 
 -- 
 1.8.0
 
