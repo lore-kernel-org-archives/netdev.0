@@ -1,50 +1,41 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] Netfilter fixes for net
-Date: Tue, 22 Dec 2015 18:53:15 +0100
-Message-ID: <1450806797-21788-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/2] netfilter: nft_ct: include direction when dumping NFT_CT_L3PROTOCOL key
+Date: Tue, 22 Dec 2015 18:53:17 +0100
+Message-ID: <1450806797-21788-3-git-send-email-pablo@netfilter.org>
+References: <1450806797-21788-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1450806797-21788-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Florian Westphal <fw@strlen.de>
 
-The following patchset contains two netfilter fixes:
+one nft userspace test case fails with
 
-1) Oneliner from Florian to dump missing NFT_CT_L3PROTOCOL netlink
-   attribute, from Florian Westphal.
+'ct l3proto original ipv4' mismatches 'ct l3proto ipv4'
 
-2) Another oneliner for nf_tables to use skb->protocol from the new
-   netdev family, we can't assume ethernet there.
+... because NFTA_CT_DIRECTION attr is missing.
 
-You can pull these changes from:
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_ct.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 8cbca34..9399215 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -366,6 +366,7 @@ static int nft_ct_get_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ 		goto nla_put_failure;
+ 
+ 	switch (priv->key) {
++	case NFT_CT_L3PROTOCOL:
+ 	case NFT_CT_PROTOCOL:
+ 	case NFT_CT_SRC:
+ 	case NFT_CT_DST:
+-- 
+2.1.4
 
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 73796d8bf27372e26c2b79881947304c14c2d353:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-12-17 14:05:22 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to d5f79b6e4d169039903cc869e16e59ad861dd479:
-
-  netfilter: nft_ct: include direction when dumping NFT_CT_L3PROTOCOL key (2015-12-18 14:45:45 +0100)
-
-----------------------------------------------------------------
-Florian Westphal (1):
-      netfilter: nft_ct: include direction when dumping NFT_CT_L3PROTOCOL key
-
-Pablo Neira Ayuso (1):
-      netfilter: nf_tables: use skb->protocol instead of assuming ethernet header
-
- net/netfilter/nf_tables_netdev.c | 2 +-
- net/netfilter/nft_ct.c           | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
