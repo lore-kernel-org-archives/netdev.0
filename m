@@ -1,122 +1,70 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 22 Dec 2015 12:01:22 +0100
-Message-ID: <1450782082.8824.23.camel@suse.com>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
-	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
-	 <20151208143305.GB18728@al>
-	 <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
+From: Henri Roosen <henri.roosen@ginzinger.com>
+Subject: [PATCH 1/1] phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.
+Date: Tue, 22 Dec 2015 11:58:40 +0100
+Message-ID: <1450781920-26912-1-git-send-email-henri.roosen@ginzinger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Wu <peter@lekensteyn.nl>,
-	"David S . Miller" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Lu Baolu <baolu.lu@linux.intel.com>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<andrew@lunn.ch>, Henri Roosen <henri.roosen@ginzinger.com>
+To: <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ginzinger.com ([31.193.165.229]:6553 "EHLO
+	mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbbLVLFl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 06:05:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-12-22 at 09:48 +0000, Hayes Wang wrote:
->  Peter Wu [mailto:peter@lekensteyn.nl]
-> > Sent: Tuesday, December 08, 2015 10:33 PM
-> [...]
-> > I found another problem with runtime PM. When a device is suspended via
-> > autosuspend and a system suspend takes place, there is no network I/O
-> > after resume. Triggering a renegotiation (ethtool -r eth1) brings back
-> > network activity.
-> 
-> I think it is relative to the firmware. Could you try the driver from Realtek website?
+Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
+ node.") only fixes finding PHY properties in MAC node for KSZ9021. This
+commit applies the same fix for KSZ9031.
 
-Hi,
+Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
+---
+ drivers/net/phy/micrel.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-at the risk of repeating myself I must say that there is a logic flaw
-in the driver. If you look at this code:
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index e13ad6c..fc6c058 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -470,9 +470,18 @@ static int ksz9031_config_init(struct phy_device *phydev)
+                "txd2-skew-ps", "txd3-skew-ps"
+        };
+        static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
++       const struct device *dev_walker;
 
-static int rtl8152_resume(struct usb_interface *intf)
-{
-        struct r8152 *tp = usb_get_intfdata(intf);
+-       if (!of_node && dev->parent->of_node)
+-               of_node = dev->parent->of_node;
++       /* The Micrel driver has a deprecated option to place phy OF
++        * properties in the MAC node. Walk up the tree of devices to
++        * find a device with an OF node.
++        */
++       dev_walker = &phydev->dev;
++       do {
++               of_node = dev_walker->of_node;
++               dev_walker = dev_walker->parent;
++
++       } while (!of_node && dev_walker);
 
-        mutex_lock(&tp->control);
+        if (of_node) {
+                ksz9031_of_load_skew_values(phydev, of_node,
+--
+2.1.4
 
-        if (!test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-                tp->rtl_ops.init(tp);
-                netif_device_attach(tp->netdev);
-        }
 
-        if (netif_running(tp->netdev) && tp->netdev->flags & IFF_UP) {
-                if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-                        rtl_runtime_suspend_enable(tp, false);
-                        clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-                        napi_disable(&tp->napi);
-                        set_bit(WORK_ENABLE, &tp->flags);
-                        if (netif_carrier_ok(tp->netdev))
-                                rtl_start_rx(tp);
-                        napi_enable(&tp->napi);
-                } else {
-                        tp->rtl_ops.up(tp);
-                        rtl8152_set_speed(tp, AUTONEG_ENABLE,
-                                          tp->mii.supports_gmii ?
-                                          SPEED_1000 : SPEED_100,
-                                          DUPLEX_FULL);
-                        netif_carrier_off(tp->netdev);
-                        set_bit(WORK_ENABLE, &tp->flags);
-                }
+________________________________
 
-You need to understand that its use of the flag SELECTIVE_SUSPEND
-is invalid. SELECTIVE_SUSPEND is used at two places in the driver.
+Ginzinger electronic systems GmbH
+Gewerbegebiet Pirath 16
+4952 Weng im Innkreis
+www.ginzinger.com
 
-Once in rtl8152_start_xmit(), where it is working but misnamed.
-At that time you need to know whether the device is suspended.
-To the device it does not matter whether the suspension is selective
-or for the whole bus. It cannot tell. The driver just needs to know
-whether it should resume the device if a packet to be transmitted
-through it is given to the driver. So far all is well.
+Firmenbuchnummer: FN 364958d
+Firmenbuchgericht: Ried im Innkreis
+UID-Nr.: ATU66521089
 
-But at the time rtl8152_resume() is called the flag has become
-meaningless. It tells you whether the device was selectively suspended
-(we call that autosuspended, but the concept is the same), but you
-take it to mean that it was _only_ selectively suspended. It does not
-tell you that.
-That matters a lot because the behavior of the host regarding powering
-the bus during S3 and S4 is not defined. As I mentioned the device
-can't tell whether it is selectively suspended. But it does notice
-if its power supply is cut. In that case the driver must reinitialize
-the device.
-The current code does that conditional on
-!test_bit(SELECTIVE_SUSPEND ... )
-That is wrong because you need to do this if power was lost. The test
-only tells you whether the device was selectively suspend before
-power was lost (if power was lost). That is not the same thing at all.
-
-The way the USB subsystem is designed is that it tells you whether power
-had been cut by calling reset_resume() if power was cut or resume() if
-power was kept.
-If reset_resume() is called you must always execute this code:
-
-                tp->rtl_ops.init(tp);
-
-and
-
-                        tp->rtl_ops.up(tp);
-                        rtl8152_set_speed(tp, AUTONEG_ENABLE,
-                                          tp->mii.supports_gmii ?
-                                          SPEED_1000 : SPEED_100,
-                                          DUPLEX_FULL);
-
-The conditions used in rtl8152_resume() are wrong.
-That is the reason "ethtool -r eth1" is reported to restore the device.
-It triggers equivalent operations.
-
-It is clear to me that you cannot get away with using the same operation
-for resume() and reset_resume() in your driver. It is fundamentally
-impossible. Firmware cannot fix it.
-
-Sorry for the length of the explanation.
-
-	HTH
-		Oliver
+________________________________
+*** WEIHNACHTSURLAUB VON DONNERSTAG, DEN 24. DEZEMBER 2015 BIS MITTWOCH, DEN 6. JAENNER 2016 ***
+*** CHRISTMAS VACATION FROM THURSDAY, THE 24 DECEMBER 2015 TO WEDNESDAY, 6 JANUARY 2016 ***
