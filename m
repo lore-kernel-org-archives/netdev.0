@@ -1,7 +1,7 @@
 From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: [RFC PATCH 01/17] netlabel: Mark rcu pointers with __rcu.
-Date: Tue, 22 Dec 2015 11:46:37 +0000
-Message-ID: <1450784813-18304-2-git-send-email-huw@codeweavers.com>
+Subject: [RFC PATCH 00/17] CALIPSO implementation
+Date: Tue, 22 Dec 2015 11:46:36 +0000
+Message-ID: <1450784813-18304-1-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,51 +14,37 @@ Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
 Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This fixes sparse errors of the form:
- netlabel_domainhash.c:126:23: error: incompatible types in comparison expression (different address spaces)
+This patch series implements RFC 5570 - Common Architecture Label IPv6
+Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
+on IPv6 packets using a hop-by-hop option.  CALIPSO very similar to
+its IPv4 cousin CIPSO and much of this series is based on that code.
 
-This patch also removes unnecessary initialization of static variables
-to NULL.
+Most of this series involves adding support to NetLabel and adding a
+CALIPSO module within IPv6, and as such is fairly self-contained.
+There are however a few places where I've needed to add things to the
+core networking stack, so I'd be particularly interested in hearing
+comments about these:
 
-Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
----
- net/netlabel/netlabel_domainhash.c | 4 ++--
- net/netlabel/netlabel_unlabeled.c  | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+[PATCH 08/17] ipv6: Add ipv6_renew_options_kern() that accepts a kernel mem pointer.
+  Hopefully not too controversial - adds a kernel memory version of
+  ipv6_renew_options()
 
-diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
-index f0cb92f..d4d6640 100644
---- a/net/netlabel/netlabel_domainhash.c
-+++ b/net/netlabel/netlabel_domainhash.c
-@@ -55,8 +55,8 @@ struct netlbl_domhsh_tbl {
- static DEFINE_SPINLOCK(netlbl_domhsh_lock);
- #define netlbl_domhsh_rcu_deref(p) \
- 	rcu_dereference_check(p, lockdep_is_held(&netlbl_domhsh_lock))
--static struct netlbl_domhsh_tbl *netlbl_domhsh = NULL;
--static struct netlbl_dom_map *netlbl_domhsh_def = NULL;
-+static struct netlbl_domhsh_tbl __rcu *netlbl_domhsh;
-+static struct netlbl_dom_map __rcu *netlbl_domhsh_def;
- 
- /*
-  * Domain Hash Table Helper Functions
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index b038092..a323815 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -116,8 +116,8 @@ struct netlbl_unlhsh_walk_arg {
- static DEFINE_SPINLOCK(netlbl_unlhsh_lock);
- #define netlbl_unlhsh_rcu_deref(p) \
- 	rcu_dereference_check(p, lockdep_is_held(&netlbl_unlhsh_lock))
--static struct netlbl_unlhsh_tbl *netlbl_unlhsh = NULL;
--static struct netlbl_unlhsh_iface *netlbl_unlhsh_def = NULL;
-+static struct netlbl_unlhsh_tbl __rcu *netlbl_unlhsh;
-+static struct netlbl_unlhsh_iface __rcu *netlbl_unlhsh_def;
- 
- /* Accept unlabeled packets flag */
- static u8 netlabel_unlabel_acceptflg = 0;
--- 
-1.8.0
+[PATCH 12/17] ipv6: Allow request socks to contain IPv6 options.
+  We need a way to set the IPv6 options on request sockets, just like
+  we do for IPv4.  This is so that the LSM can ensure the SYN-ACK is
+  correctly labelled.
 
+The series is based off v4.4-rc6.
+
+Thoughts about these and any of the other patches are most welcome.
+
+If anybody actually wants to play with this, then you'll need some patches
+to netlabel-tools that are currently available on the 'calipso' branch at:
+https://github.com/hdmdavies/netlabel_tools.git
+
+Thanks to Paul Moore for his guidance in getting this far.
+
+Huw.
 _______________________________________________
 Selinux mailing list
 Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
