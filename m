@@ -1,8 +1,7 @@
 From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: [RFC PATCH 13/17] calipso: Allow request sockets to be relabelled by
- the lsm.
-Date: Tue, 22 Dec 2015 11:46:49 +0000
-Message-ID: <1450784813-18304-14-git-send-email-huw@codeweavers.com>
+Subject: [RFC PATCH 17/17] calipso: Add a label cache.
+Date: Tue, 22 Dec 2015 11:46:53 +0000
+Message-ID: <1450784813-18304-18-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,347 +14,575 @@ Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
 Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Request sockets need to have a label that takes into account the
-incoming connection as well as their parent's label.  This is used
-for the outgoing SYN-ACK and for their child full-socket.
+This works in exactly the same way as the CIPSO label cache.
+The idea is to allow the lsm to cache the result of a secattr
+lookup so that it doesn't need to perform the lookup for
+every skbuff.
+
+It introduces two sysctl controls:
+ calipso_cache_enable - enables/disables the cache.
+ calipso_cache_bucket_size - sets the size of a cache bucket.
 
 Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
 ---
- include/net/netlabel.h          |  6 ++++
- net/ipv6/calipso.c              | 78 +++++++++++++++++++++++++++++++++++++++++
- net/ipv6/exthdrs.c              | 16 ++++++---
- net/netlabel/netlabel_calipso.c | 40 +++++++++++++++++++++
- net/netlabel/netlabel_calipso.h |  4 +++
- net/netlabel/netlabel_kapi.c    | 39 ++++++++++++++++-----
- security/selinux/netlabel.c     |  2 +-
- 7 files changed, 171 insertions(+), 14 deletions(-)
+ include/net/calipso.h           |   6 +
+ include/net/netlabel.h          |   9 +-
+ net/ipv6/calipso.c              | 264 +++++++++++++++++++++++++++++++++++++++-
+ net/ipv6/sysctl_net_ipv6.c      |  19 +++
+ net/netlabel/netlabel_calipso.c |  38 ++++++
+ net/netlabel/netlabel_calipso.h |   3 +
+ net/netlabel/netlabel_kapi.c    |  24 +++-
+ security/selinux/netlabel.c     |   9 +-
+ 8 files changed, 360 insertions(+), 12 deletions(-)
 
+diff --git a/include/net/calipso.h b/include/net/calipso.h
+index 99df89b..dac6302 100644
+--- a/include/net/calipso.h
++++ b/include/net/calipso.h
+@@ -62,6 +62,12 @@ struct calipso_doi {
+ 	struct rcu_head rcu;
+ };
+ 
++/*
++ * Sysctl Variables
++ */
++extern int calipso_cache_enabled;
++extern int calipso_cache_bucketsize;
++
+ #ifdef CONFIG_NETLABEL
+ int __init calipso_init(void);
+ void calipso_exit(void);
 diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index b7ec76c..771a11c 100644
+index 1aed135..61e9c78 100644
 --- a/include/net/netlabel.h
 +++ b/include/net/netlabel.h
-@@ -229,6 +229,8 @@ struct netlbl_lsm_secattr {
-  * @sock_getattr: retrieve the socket's attr
-  * @sock_setattr: set the socket's attr
-  * @sock_delattr: remove the socket's attr
-+ * @req_setattr: set the req socket's attr
-+ * @req_delattr: remove the req socket's attr
+@@ -235,6 +235,8 @@ struct netlbl_lsm_secattr {
+  * @getattr: retrieve attr from memory block
+  * @skbuff_setattr: set the skbuff's attr
+  * @skbuff_delattr: remove the skbuff's attr
++ * @cache_invalidate: invalidate cache
++ * @cache_add: add cache entry
   *
   * Description:
   * This structure is filled out by the CALIPSO engine and passed
-@@ -252,6 +254,10 @@ struct netlbl_calipso_ops {
- 			    const struct calipso_doi *doi_def,
- 			    const struct netlbl_lsm_secattr *secattr);
- 	void (*sock_delattr)(struct sock *sk);
-+	int (*req_setattr)(struct request_sock *req,
-+			   const struct calipso_doi *doi_def,
-+			   const struct netlbl_lsm_secattr *secattr);
-+	void (*req_delattr)(struct request_sock *req);
+@@ -269,6 +271,9 @@ struct netlbl_calipso_ops {
+ 			      const struct calipso_doi *doi_def,
+ 			      const struct netlbl_lsm_secattr *secattr);
+ 	int (*skbuff_delattr)(struct sk_buff *skb);
++	void (*cache_invalidate)(void);
++	int (*cache_add)(const unsigned char *calipso_ptr,
++			 const struct netlbl_lsm_secattr *secattr);
  };
  
  /*
+@@ -494,7 +499,7 @@ void netlbl_skbuff_err(struct sk_buff *skb, u16 family, int error, int gateway);
+  * LSM label mapping cache operations
+  */
+ void netlbl_cache_invalidate(void);
+-int netlbl_cache_add(const struct sk_buff *skb,
++int netlbl_cache_add(const struct sk_buff *skb, u16 family,
+ 		     const struct netlbl_lsm_secattr *secattr);
+ 
+ /*
+@@ -647,7 +652,7 @@ static inline void netlbl_cache_invalidate(void)
+ {
+ 	return;
+ }
+-static inline int netlbl_cache_add(const struct sk_buff *skb,
++static inline int netlbl_cache_add(const struct sk_buff *skb, u16 family,
+ 				   const struct netlbl_lsm_secattr *secattr)
+ {
+ 	return 0;
 diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index ce803e2..5d72669 100644
+index f3b7c43..61979ee 100644
 --- a/net/ipv6/calipso.c
 +++ b/net/ipv6/calipso.c
-@@ -886,6 +886,82 @@ done:
- 	txopt_put(txopts);
- }
+@@ -66,6 +66,255 @@
+ static DEFINE_SPINLOCK(calipso_doi_list_lock);
+ static LIST_HEAD(calipso_doi_list);
  
-+/* request sock functions.
++/* Label mapping cache */
++int calipso_cache_enabled = 1;
++int calipso_cache_bucketsize = 10;
++#define CALIPSO_CACHE_BUCKETBITS     7
++#define CALIPSO_CACHE_BUCKETS        BIT(CALIPSO_CACHE_BUCKETBITS)
++#define CALIPSO_CACHE_REORDERLIMIT   10
++struct calipso_map_cache_bkt {
++	spinlock_t lock;
++	u32 size;
++	struct list_head list;
++};
++
++struct calipso_map_cache_entry {
++	u32 hash;
++	unsigned char *key;
++	size_t key_len;
++
++	struct netlbl_lsm_cache *lsm_data;
++
++	u32 activity;
++	struct list_head list;
++};
++
++static struct calipso_map_cache_bkt *calipso_cache;
++
++/* Label Mapping Cache Functions
 + */
 +
 +/**
-+ * calipso_req_setattr - Add a CALIPSO option to a connection request socket
-+ * @req: the connection request socket
-+ * @doi_def: the CALIPSO DOI to use
-+ * @secattr: the specific security attributes of the socket
++ * calipso_cache_entry_free - Frees a cache entry
++ * @entry: the entry to free
 + *
 + * Description:
-+ * Set the CALIPSO option on the given socket using the DOI definition and
-+ * security attributes passed to the function.  Returns zero on success and
-+ * negative values on failure.
++ * This function frees the memory associated with a cache entry including the
++ * LSM cache data if there are no longer any users, i.e. reference count == 0.
 + *
 + */
-+static int calipso_req_setattr(struct request_sock *req,
-+			       const struct calipso_doi *doi_def,
-+			       const struct netlbl_lsm_secattr *secattr)
++static void calipso_cache_entry_free(struct calipso_map_cache_entry *entry)
 +{
-+	struct ipv6_txoptions *txopts;
-+	struct inet_request_sock *req_inet = inet_rsk(req);
-+	struct ipv6_opt_hdr *old, *new;
++	if (entry->lsm_data)
++		netlbl_secattr_cache_free(entry->lsm_data);
++	kfree(entry->key);
++	kfree(entry);
++}
 +
-+	if (req_inet->ipv6_opt && req_inet->ipv6_opt->hopopt)
-+		old = req_inet->ipv6_opt->hopopt;
-+	else
-+		old = NULL;
++/**
++ * calipso_map_cache_hash - Hashing function for the CALIPSO cache
++ * @key: the hash key
++ * @key_len: the length of the key in bytes
++ *
++ * Description:
++ * The CALIPSO tag hashing function.  Returns a 32-bit hash value.
++ *
++ */
++static u32 calipso_map_cache_hash(const unsigned char *key, u32 key_len)
++{
++	return jhash(key, key_len, 0);
++}
 +
-+	new = calipso_opt_insert(old, doi_def, secattr);
-+	if (IS_ERR(new))
-+		return PTR_ERR(new);
++/**
++ * calipso_cache_init - Initialize the CALIPSO cache
++ *
++ * Description:
++ * Initializes the CALIPSO label mapping cache, this function should be called
++ * before any of the other functions defined in this file.  Returns zero on
++ * success, negative values on error.
++ *
++ */
++static int __init calipso_cache_init(void)
++{
++	u32 iter;
 +
-+	txopts = ipv6_renew_options_kern(NULL, req_inet->ipv6_opt, IPV6_HOPOPTS,
-+					 new, new ? ipv6_optlen(new) : 0);
++	calipso_cache = kcalloc(CALIPSO_CACHE_BUCKETS,
++				sizeof(struct calipso_map_cache_bkt),
++				GFP_KERNEL);
++	if (!calipso_cache)
++		return -ENOMEM;
 +
-+	kfree(new);
-+
-+	if (IS_ERR(txopts))
-+		return PTR_ERR(txopts);
-+
-+	txopts = xchg(&req_inet->ipv6_opt, txopts);
-+	txopt_put(txopts);
++	for (iter = 0; iter < CALIPSO_CACHE_BUCKETS; iter++) {
++		spin_lock_init(&calipso_cache[iter].lock);
++		calipso_cache[iter].size = 0;
++		INIT_LIST_HEAD(&calipso_cache[iter].list);
++	}
 +
 +	return 0;
 +}
 +
 +/**
-+ * calipso_req_delattr - Delete the CALIPSO option from a request socket
-+ * @reg: the request socket
++ * calipso_cache_invalidate - Invalidates the current CALIPSO cache
 + *
 + * Description:
-+ * Removes the CALIPSO option from a request socket, if present.
++ * Invalidates and frees any entries in the CALIPSO cache.  Returns zero on
++ * success and negative values on failure.
 + *
 + */
-+static void calipso_req_delattr(struct request_sock *req)
++static void calipso_cache_invalidate(void)
 +{
-+	struct inet_request_sock *req_inet = inet_rsk(req);
-+	struct ipv6_opt_hdr *new;
-+	struct ipv6_txoptions *txopts;
++	struct calipso_map_cache_entry *entry, *tmp_entry;
++	u32 iter;
 +
-+	if (!req_inet->ipv6_opt || !req_inet->ipv6_opt->hopopt)
-+		return;
-+
-+	if (calipso_opt_del(req_inet->ipv6_opt->hopopt, &new))
-+		return; /* Nothing to do */
-+
-+	txopts = ipv6_renew_options_kern(NULL, req_inet->ipv6_opt, IPV6_HOPOPTS,
-+					 new, new ? ipv6_optlen(new) : 0);
-+
-+	if (!IS_ERR(txopts)) {
-+		txopts = xchg(&req_inet->ipv6_opt, txopts);
-+		txopt_put(txopts);
++	for (iter = 0; iter < CALIPSO_CACHE_BUCKETS; iter++) {
++		spin_lock_bh(&calipso_cache[iter].lock);
++		list_for_each_entry_safe(entry,
++					 tmp_entry,
++					 &calipso_cache[iter].list, list) {
++			list_del(&entry->list);
++			calipso_cache_entry_free(entry);
++		}
++		calipso_cache[iter].size = 0;
++		spin_unlock_bh(&calipso_cache[iter].lock);
 +	}
-+	kfree(new);
 +}
 +
- static const struct netlbl_calipso_ops ops = {
- 	.doi_add          = calipso_doi_add,
- 	.doi_free         = calipso_doi_free,
-@@ -896,6 +972,8 @@ static const struct netlbl_calipso_ops ops = {
- 	.sock_getattr     = calipso_sock_getattr,
- 	.sock_setattr     = calipso_sock_setattr,
- 	.sock_delattr     = calipso_sock_delattr,
-+	.req_setattr      = calipso_req_setattr,
-+	.req_delattr      = calipso_req_delattr,
++/**
++ * calipso_cache_check - Check the CALIPSO cache for a label mapping
++ * @key: the buffer to check
++ * @key_len: buffer length in bytes
++ * @secattr: the security attribute struct to use
++ *
++ * Description:
++ * This function checks the cache to see if a label mapping already exists for
++ * the given key.  If there is a match then the cache is adjusted and the
++ * @secattr struct is populated with the correct LSM security attributes.  The
++ * cache is adjusted in the following manner if the entry is not already the
++ * first in the cache bucket:
++ *
++ *  1. The cache entry's activity counter is incremented
++ *  2. The previous (higher ranking) entry's activity counter is decremented
++ *  3. If the difference between the two activity counters is geater than
++ *     CALIPSO_CACHE_REORDERLIMIT the two entries are swapped
++ *
++ * Returns zero on success, -ENOENT for a cache miss, and other negative values
++ * on error.
++ *
++ */
++static int calipso_cache_check(const unsigned char *key,
++			       u32 key_len,
++			       struct netlbl_lsm_secattr *secattr)
++{
++	u32 bkt;
++	struct calipso_map_cache_entry *entry;
++	struct calipso_map_cache_entry *prev_entry = NULL;
++	u32 hash;
++
++	if (!calipso_cache_enabled)
++		return -ENOENT;
++
++	hash = calipso_map_cache_hash(key, key_len);
++	bkt = hash & (CALIPSO_CACHE_BUCKETS - 1);
++	spin_lock_bh(&calipso_cache[bkt].lock);
++	list_for_each_entry(entry, &calipso_cache[bkt].list, list) {
++		if (entry->hash == hash &&
++		    entry->key_len == key_len &&
++		    memcmp(entry->key, key, key_len) == 0) {
++			entry->activity += 1;
++			atomic_inc(&entry->lsm_data->refcount);
++			secattr->cache = entry->lsm_data;
++			secattr->flags |= NETLBL_SECATTR_CACHE;
++			secattr->type = NETLBL_NLTYPE_CALIPSO;
++			if (!prev_entry) {
++				spin_unlock_bh(&calipso_cache[bkt].lock);
++				return 0;
++			}
++
++			if (prev_entry->activity > 0)
++				prev_entry->activity -= 1;
++			if (entry->activity > prev_entry->activity &&
++			    entry->activity - prev_entry->activity >
++			    CALIPSO_CACHE_REORDERLIMIT) {
++				__list_del(entry->list.prev, entry->list.next);
++				__list_add(&entry->list,
++					   prev_entry->list.prev,
++					   &prev_entry->list);
++			}
++
++			spin_unlock_bh(&calipso_cache[bkt].lock);
++			return 0;
++		}
++		prev_entry = entry;
++	}
++	spin_unlock_bh(&calipso_cache[bkt].lock);
++
++	return -ENOENT;
++}
++
++/**
++ * calipso_cache_add - Add an entry to the CALIPSO cache
++ * @calipso_ptr: the CALIPSO option
++ * @secattr: the packet's security attributes
++ *
++ * Description:
++ * Add a new entry into the CALIPSO label mapping cache.  Add the new entry to
++ * head of the cache bucket's list, if the cache bucket is out of room remove
++ * the last entry in the list first.  It is important to note that there is
++ * currently no checking for duplicate keys.  Returns zero on success,
++ * negative values on failure.  The key stored starts at calipso_ptr + 2,
++ * i.e. the type and length bytes are not stored, this corresponds to
++ * calipso_ptr[1] bytes of data.
++ *
++ */
++static int calipso_cache_add(const unsigned char *calipso_ptr,
++			     const struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -EPERM;
++	u32 bkt;
++	struct calipso_map_cache_entry *entry = NULL;
++	struct calipso_map_cache_entry *old_entry = NULL;
++	u32 calipso_ptr_len;
++
++	if (!calipso_cache_enabled || calipso_cache_bucketsize <= 0)
++		return 0;
++
++	calipso_ptr_len = calipso_ptr[1];
++
++	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
++	if (!entry)
++		return -ENOMEM;
++	entry->key = kmemdup(calipso_ptr + 2, calipso_ptr_len, GFP_ATOMIC);
++	if (!entry->key) {
++		ret_val = -ENOMEM;
++		goto cache_add_failure;
++	}
++	entry->key_len = calipso_ptr_len;
++	entry->hash = calipso_map_cache_hash(calipso_ptr, calipso_ptr_len);
++	atomic_inc(&secattr->cache->refcount);
++	entry->lsm_data = secattr->cache;
++
++	bkt = entry->hash & (CALIPSO_CACHE_BUCKETS - 1);
++	spin_lock_bh(&calipso_cache[bkt].lock);
++	if (calipso_cache[bkt].size < calipso_cache_bucketsize) {
++		list_add(&entry->list, &calipso_cache[bkt].list);
++		calipso_cache[bkt].size += 1;
++	} else {
++		old_entry = list_entry(calipso_cache[bkt].list.prev,
++				       struct calipso_map_cache_entry, list);
++		list_del(&old_entry->list);
++		list_add(&entry->list, &calipso_cache[bkt].list);
++		calipso_cache_entry_free(old_entry);
++	}
++	spin_unlock_bh(&calipso_cache[bkt].lock);
++
++	return 0;
++
++cache_add_failure:
++	if (entry)
++		calipso_cache_entry_free(entry);
++	return ret_val;
++}
++
+ /* DOI List Functions
+  */
+ 
+@@ -789,6 +1038,9 @@ static int calipso_getattr(const unsigned char *calipso,
+ 	if (cat_len + 8 > len)
+ 		return -EINVAL;
+ 
++	if (calipso_cache_check(calipso + 2, calipso[1], secattr) == 0)
++		return 0;
++
+ 	doi = get_unaligned_be32(calipso + 2);
+ 	rcu_read_lock();
+ 	doi_def = calipso_doi_search(doi);
+@@ -1197,6 +1449,8 @@ static const struct netlbl_calipso_ops ops = {
+ 	.getattr          = calipso_getattr,
+ 	.skbuff_setattr   = calipso_skbuff_setattr,
+ 	.skbuff_delattr   = calipso_skbuff_delattr,
++	.cache_invalidate = calipso_cache_invalidate,
++	.cache_add        = calipso_cache_add
  };
  
  /**
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 9426b26..e87c89b 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -793,7 +793,7 @@ static int ipv6_renew_option(void *ohdr,
-  * specified option type is not copied into the new set of options.
-  *
-  * The new set of options is allocated from the socket option memory
-- * buffer of @sk.
-+ * buffer of @sk.  If @sk is NULL, then kmalloc() is used instead.
+@@ -1209,11 +1463,17 @@ static const struct netlbl_calipso_ops ops = {
   */
- static struct ipv6_txoptions *
- __ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
-@@ -828,7 +828,10 @@ __ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
- 		return NULL;
- 
- 	tot_len += sizeof(*opt2);
--	opt2 = sock_kmalloc(sk, tot_len, GFP_ATOMIC);
-+	if (sk)
-+		opt2 = sock_kmalloc(sk, tot_len, GFP_ATOMIC);
-+	else
-+		opt2 = kmalloc(tot_len, GFP_ATOMIC);
- 	if (!opt2)
- 		return ERR_PTR(-ENOBUFS);
- 
-@@ -872,7 +875,10 @@ __ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
- 
- 	return opt2;
- out:
--	sock_kfree_s(sk, opt2, opt2->tot_len);
-+	if (sk)
-+		sock_kfree_s(sk, opt2, opt2->tot_len);
-+	else
-+		kfree(opt2);
- 	return ERR_PTR(err);
+ int __init calipso_init(void)
+ {
+-	netlbl_calipso_ops_register(&ops);
+-	return 0;
++	int ret_val;
++
++	ret_val = calipso_cache_init();
++	if (!ret_val)
++		netlbl_calipso_ops_register(&ops);
++	return ret_val;
  }
  
-@@ -895,7 +901,7 @@ out:
-  * copied into the new set of options.
-  *
-  * The new set of options is allocated from the socket option memory
-- * buffer of @sk.
-+ * buffer of @sk.  If @sk is NULL, then kmalloc() is used instead.
-  */
- struct ipv6_txoptions *
- ipv6_renew_options_kern(struct sock *sk, struct ipv6_txoptions *opt,
-@@ -925,7 +931,7 @@ ipv6_renew_options_kern(struct sock *sk, struct ipv6_txoptions *opt,
-  * copied into the new set of options.
-  *
-  * The new set of options is allocated from the socket option memory
-- * buffer of @sk.
-+ * buffer of @sk.  If @sk is NULL, then kmalloc() is used instead.
-  */
- struct ipv6_txoptions *
- ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
+ void calipso_exit(void)
+ {
+ 	netlbl_calipso_ops_register(NULL);
++	calipso_cache_invalidate();
++	kfree(calipso_cache);
+ }
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 45243bb..69c50e7 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -15,6 +15,9 @@
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
+ #include <net/inet_frag.h>
++#ifdef CONFIG_NETLABEL
++#include <net/calipso.h>
++#endif
+ 
+ static int one = 1;
+ static int auto_flowlabels_min;
+@@ -106,6 +109,22 @@ static struct ctl_table ipv6_rotable[] = {
+ 		.proc_handler	= proc_dointvec_minmax,
+ 		.extra1		= &one
+ 	},
++#ifdef CONFIG_NETLABEL
++	{
++		.procname	= "calipso_cache_enable",
++		.data		= &calipso_cache_enabled,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
++		.procname	= "calipso_cache_bucket_size",
++		.data		= &calipso_cache_bucketsize,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++#endif /* CONFIG_NETLABEL */
+ 	{ }
+ };
+ 
 diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
-index 62e0b91..9a400b6 100644
+index ad16b47..89a3e52 100644
 --- a/net/netlabel/netlabel_calipso.c
 +++ b/net/netlabel/netlabel_calipso.c
-@@ -581,3 +581,43 @@ void calipso_sock_delattr(struct sock *sk)
- 	if (ops)
- 		ops->sock_delattr(sk);
+@@ -703,3 +703,41 @@ int calipso_skbuff_delattr(struct sk_buff *skb)
+ 		ret_val = ops->skbuff_delattr(skb);
+ 	return ret_val;
  }
 +
 +/**
-+ * calipso_req_setattr - Add a CALIPSO option to a connection request socket
-+ * @req: the connection request socket
-+ * @doi_def: the CALIPSO DOI to use
-+ * @secattr: the specific security attributes of the socket
++ * calipso_cache_invalidate - Invalidates the current CALIPSO cache
 + *
 + * Description:
-+ * Set the CALIPSO option on the given socket using the DOI definition and
-+ * security attributes passed to the function.  Returns zero on success and
-+ * negative values on failure.
++ * Invalidates and frees any entries in the CALIPSO cache.  Returns zero on
++ * success and negative values on failure.
 + *
 + */
-+int calipso_req_setattr(struct request_sock *req,
-+			const struct calipso_doi *doi_def,
-+			const struct netlbl_lsm_secattr *secattr)
++void calipso_cache_invalidate(void)
++{
++	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++
++	if (ops)
++		ops->cache_invalidate();
++}
++
++/**
++ * calipso_cache_add - Add an entry to the CALIPSO cache
++ * @calipso_ptr: the CALIPSO option
++ * @secattr: the packet's security attributes
++ *
++ * Description:
++ * Add a new entry into the CALIPSO label mapping cache.
++ * Returns zero on success, negative values on failure.
++ *
++ */
++int calipso_cache_add(const unsigned char *calipso_ptr,
++		      const struct netlbl_lsm_secattr *secattr)
++
 +{
 +	int ret_val = -ENOMSG;
 +	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
 +
 +	if (ops)
-+		ret_val = ops->req_setattr(req, doi_def, secattr);
++		ret_val = ops->cache_add(calipso_ptr, secattr);
 +	return ret_val;
 +}
-+
-+/**
-+ * calipso_req_delattr - Delete the CALIPSO option from a request socket
-+ * @reg: the request socket
-+ *
-+ * Description:
-+ * Removes the CALIPSO option from a request socket, if present.
-+ *
-+ */
-+void calipso_req_delattr(struct request_sock *req)
-+{
-+	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
-+
-+	if (ops)
-+		ops->req_delattr(req);
-+}
 diff --git a/net/netlabel/netlabel_calipso.h b/net/netlabel/netlabel_calipso.h
-index 214bbb1..9b8ef26 100644
+index 34a5f82..c3ef8bb 100644
 --- a/net/netlabel/netlabel_calipso.h
 +++ b/net/netlabel/netlabel_calipso.h
-@@ -135,5 +135,9 @@ int calipso_sock_setattr(struct sock *sk,
- 			 const struct calipso_doi *doi_def,
- 			 const struct netlbl_lsm_secattr *secattr);
- void calipso_sock_delattr(struct sock *sk);
-+int calipso_req_setattr(struct request_sock *req,
-+			const struct calipso_doi *doi_def,
-+			const struct netlbl_lsm_secattr *secattr);
-+void calipso_req_delattr(struct request_sock *req);
+@@ -146,5 +146,8 @@ int calipso_skbuff_setattr(struct sk_buff *skb,
+ 			   const struct calipso_doi *doi_def,
+ 			   const struct netlbl_lsm_secattr *secattr);
+ int calipso_skbuff_delattr(struct sk_buff *skb);
++void calipso_cache_invalidate(void);
++int calipso_cache_add(const unsigned char *calipso_ptr,
++		      const struct netlbl_lsm_secattr *secattr);
  
  #endif
 diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index ed35ad9..71ebef0 100644
+index 35df8f5..d534731 100644
 --- a/net/netlabel/netlabel_kapi.c
 +++ b/net/netlabel/netlabel_kapi.c
-@@ -1054,12 +1054,13 @@ int netlbl_req_setattr(struct request_sock *req,
+@@ -1282,11 +1282,15 @@ void netlbl_skbuff_err(struct sk_buff *skb, u16 family, int error, int gateway)
+ void netlbl_cache_invalidate(void)
  {
- 	int ret_val;
- 	struct netlbl_dommap_def *entry;
-+	struct inet_request_sock *ireq = inet_rsk(req);
- 
- 	rcu_read_lock();
- 	switch (req->rsk_ops->family) {
- 	case AF_INET:
- 		entry = netlbl_domhsh_getentry_af4(secattr->domain,
--						   inet_rsk(req)->ir_rmt_addr);
-+						   ireq->ir_rmt_addr);
- 		if (entry == NULL) {
- 			ret_val = -ENOENT;
- 			goto req_setattr_return;
-@@ -1070,9 +1071,7 @@ int netlbl_req_setattr(struct request_sock *req,
- 						       entry->cipso, secattr);
- 			break;
- 		case NETLBL_NLTYPE_UNLABELED:
--			/* just delete the protocols we support for right now
--			 * but we could remove other protocols if needed */
--			cipso_v4_req_delattr(req);
-+			netlbl_req_delattr(req);
- 			ret_val = 0;
- 			break;
- 		default:
-@@ -1081,9 +1080,24 @@ int netlbl_req_setattr(struct request_sock *req,
- 		break;
- #if IS_ENABLED(CONFIG_IPV6)
- 	case AF_INET6:
--		/* since we don't support any IPv6 labeling protocols right
--		 * now we can optimize everything away until we do */
--		ret_val = 0;
-+		entry = netlbl_domhsh_getentry_af6(secattr->domain,
-+						   &ireq->ir_v6_rmt_addr);
-+		if (entry == NULL) {
-+			ret_val = -ENOENT;
-+			goto req_setattr_return;
-+		}
-+		switch (entry->type) {
-+		case NETLBL_NLTYPE_CALIPSO:
-+			ret_val = calipso_req_setattr(req,
-+						      entry->calipso, secattr);
-+			break;
-+		case NETLBL_NLTYPE_UNLABELED:
-+			netlbl_req_delattr(req);
-+			ret_val = 0;
-+			break;
-+		default:
-+			ret_val = -ENOENT;
-+		}
- 		break;
- #endif /* IPv6 */
- 	default:
-@@ -1105,7 +1119,16 @@ req_setattr_return:
- */
- void netlbl_req_delattr(struct request_sock *req)
- {
--	cipso_v4_req_delattr(req);
-+	switch (req->rsk_ops->family) {
-+	case AF_INET:
-+		cipso_v4_req_delattr(req);
-+		break;
+ 	cipso_v4_cache_invalidate();
 +#if IS_ENABLED(CONFIG_IPV6)
-+	case AF_INET6:
-+		calipso_req_delattr(req);
-+		break;
++	calipso_cache_invalidate();
 +#endif /* IPv6 */
-+	}
  }
  
  /**
+  * netlbl_cache_add - Add an entry to a NetLabel protocol cache
+  * @skb: the packet
++ * @family: the family
+  * @secattr: the packet's security attributes
+  *
+  * Description:
+@@ -1295,7 +1299,7 @@ void netlbl_cache_invalidate(void)
+  * values on error.
+  *
+  */
+-int netlbl_cache_add(const struct sk_buff *skb,
++int netlbl_cache_add(const struct sk_buff *skb, u16 family,
+ 		     const struct netlbl_lsm_secattr *secattr)
+ {
+ 	unsigned char *ptr;
+@@ -1303,10 +1307,20 @@ int netlbl_cache_add(const struct sk_buff *skb,
+ 	if ((secattr->flags & NETLBL_SECATTR_CACHE) == 0)
+ 		return -ENOMSG;
+ 
+-	ptr = cipso_v4_optptr(skb);
+-	if (ptr)
+-		return cipso_v4_cache_add(ptr, secattr);
+-
++	switch (family) {
++	case AF_INET:
++		ptr = cipso_v4_optptr(skb);
++		if (ptr)
++			return cipso_v4_cache_add(ptr, secattr);
++		break;
++#if IS_ENABLED(CONFIG_IPV6)
++	case AF_INET6:
++		ptr = calipso_optptr(skb);
++		if (ptr)
++			return calipso_cache_add(ptr, secattr);
++		break;
++#endif /* IPv6 */
++	}
+ 	return -ENOMSG;
+ }
+ 
 diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index 2477a75..ca220c3 100644
+index dfca50d..aaba667 100644
 --- a/security/selinux/netlabel.c
 +++ b/security/selinux/netlabel.c
-@@ -284,7 +284,7 @@ int selinux_netlbl_inet_conn_request(struct request_sock *req, u16 family)
- 	int rc;
- 	struct netlbl_lsm_secattr secattr;
+@@ -54,6 +54,7 @@
+  *
+  */
+ static int selinux_netlbl_sidlookup_cached(struct sk_buff *skb,
++					   u16 family,
+ 					   struct netlbl_lsm_secattr *secattr,
+ 					   u32 *sid)
+ {
+@@ -63,7 +64,7 @@ static int selinux_netlbl_sidlookup_cached(struct sk_buff *skb,
+ 	if (rc == 0 &&
+ 	    (secattr->flags & NETLBL_SECATTR_CACHEABLE) &&
+ 	    (secattr->flags & NETLBL_SECATTR_CACHE))
+-		netlbl_cache_add(skb, secattr);
++		netlbl_cache_add(skb, family, secattr);
  
--	if (family != PF_INET)
-+	if (family != PF_INET && family != PF_INET6)
- 		return 0;
- 
+ 	return rc;
+ }
+@@ -214,7 +215,8 @@ int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
  	netlbl_secattr_init(&secattr);
+ 	rc = netlbl_skbuff_getattr(skb, family, &secattr);
+ 	if (rc == 0 && secattr.flags != NETLBL_SECATTR_NONE)
+-		rc = selinux_netlbl_sidlookup_cached(skb, &secattr, sid);
++		rc = selinux_netlbl_sidlookup_cached(skb, family,
++						     &secattr, sid);
+ 	else
+ 		*sid = SECSID_NULL;
+ 	*type = secattr.type;
+@@ -382,7 +384,8 @@ int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
+ 	netlbl_secattr_init(&secattr);
+ 	rc = netlbl_skbuff_getattr(skb, family, &secattr);
+ 	if (rc == 0 && secattr.flags != NETLBL_SECATTR_NONE)
+-		rc = selinux_netlbl_sidlookup_cached(skb, &secattr, &nlbl_sid);
++		rc = selinux_netlbl_sidlookup_cached(skb, family,
++						     &secattr, &nlbl_sid);
+ 	else
+ 		nlbl_sid = SECINITSID_UNLABELED;
+ 	netlbl_secattr_destroy(&secattr);
 -- 
 1.8.0
 
