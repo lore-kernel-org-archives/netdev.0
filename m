@@ -1,83 +1,56 @@
-From: Roosen Henri <Henri.Roosen@ginzinger.com>
-Subject: AW: Commit-8b63ec18 breaks setting PHY pad-skew settings
-Date: Tue, 22 Dec 2015 10:04:31 +0000
-Message-ID: <FC629F1A536C6F42B960B5E32E20BD356A969BC7@exc2.buero.ginzinger.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Commit-8b63ec18 breaks setting PHY pad-skew settings
+Date: Tue, 22 Dec 2015 11:18:36 +0100
+Message-ID: <20151222101836.GA2373@lunn.ch>
 References: <FC629F1A536C6F42B960B5E32E20BD356A967AF0@exc2.buero.ginzinger.com>
  <56785808.6050804@gmail.com>
+ <FC629F1A536C6F42B960B5E32E20BD356A969BC7@exc2.buero.ginzinger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Florian Fainelli' <f.fainelli@gmail.com>,
+	"david.daney@cavium.com" <david.daney@cavium.com>,
+	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
 	"grant.likely@secretlab.ca" <grant.likely@secretlab.ca>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>
-To: 'Florian Fainelli' <f.fainelli@gmail.com>,
-	"david.daney@cavium.com" <david.daney@cavium.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Roosen Henri <Henri.Roosen@ginzinger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ginzinger.com ([31.193.165.229]:58636 "EHLO
-	mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180AbbLVKKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 05:10:45 -0500
-In-Reply-To: <56785808.6050804@gmail.com>
-Content-Language: de-DE
+Received: from vps0.lunn.ch ([178.209.37.122]:47729 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932181AbbLVKSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Dec 2015 05:18:43 -0500
+Content-Disposition: inline
+In-Reply-To: <FC629F1A536C6F42B960B5E32E20BD356A969BC7@exc2.buero.ginzinger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLVVyc3Byw7xuZ2xpY2hlIE5hY2hyaWNodC0tLS0tDQo+IFZvbjogRmxvcmlhbiBGYWlu
-ZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPiBHZXNlbmRldDogTW9udGFnLCAy
-MS4gRGV6ZW1iZXIgMjAxNSAyMDo1MQ0KPiBBbjogUm9vc2VuIEhlbnJpOyBkYXZpZC5kYW5leUBj
-YXZpdW0uY29tDQo+IENjOiBidXl0ZW5oQHdhbnRzdG9mbHkub3JnOyBncmFudC5saWtlbHlAc2Vj
-cmV0bGFiLmNhOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-OyBBbmRyZXcgTHVubg0KPiBCZXRyZWZmOiBSZTogQ29tbWl0LThiNjNlYzE4IGJyZWFrcyBzZXR0
-aW5nIFBIWSBwYWQtc2tldyBzZXR0aW5ncw0KPg0KPiBPbiAyMS8xMi8xNSAwMjo0MCwgUm9vc2Vu
-IEhlbnJpIHdyb3RlOg0KPiA+IEhpIERhdmlkLA0KPiA+DQo+ID4gVW5mb3J0dW5hdGVseSBMaW51
-eCBrZXJuZWwgY29tbWl0LQ0KPiA4YjYzZWMxODM3ZmE0YzFlYTYwNGIyNzhkMjAxNDU0ZWIzYjg1
-MDY2IGJyZWFrcyBzZXR0aW5nIHBhZC1za2V3DQo+IHNldHRpbmdzIGZvciBNaWNyZWwgUEhZJ3Mu
-DQo+ID4NCj4gPiBQbGVhc2Ugc2VlIERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9u
-ZXQvbWljcmVsLWtzejkweDEudHh0OiBhdA0KPiB0aGUgZXhhbXBsZXMsIGl0IHByb3Bvc2VzIHRv
-IGRvIFBIWSBwYWQgc2tldyBzZXR0aW5ncyBhdCB0aGUgRXRoZXJuZXQNCj4gZGV2aWNlIGZvciBh
-dXRvZGV0ZWN0ZWQgUEhZJ3MuDQo+ID4NCj4gPiBNdWx0aXBsZSBib2FyZHMgYXJlIHVzaW5nIHRo
-aXMgYXQgdGhlIGRldmljZXRyZWUgZmlsZXM6IHNlZSBpbXg2cWRsLQ0KPiBuaXRyb2dlbjZ4LmR0
-c2ksIGlteDZxZGwtc2FicmVsaXRlLmR0c2ksIHNvY2ZwZ2FfYXJyaWE1X3NvY2RrLmR0cywNCj4g
-c29jZnBnYV9jeWNsb25lNV9zb2Nkay5kdHMgYW5kIHNvY2ZwZ2FfY3ljbG9uZTVfc29ja2l0LmR0
-cy4gQnV0IG9mIGNvdXJzZQ0KPiB0aGVyZSBtaWdodCBiZSBtb3JlIHVzZXJzIGRlcGVuZGluZyBv
-biB0aGlzIHRoYW4gdGhlIG9uZXMgd2hpY2ggaGF2ZSBhbg0KPiBpbi1rZXJuZWwgZHRzIGZpbGUu
-DQo+ID4NCj4gPiBUaGUgbWljcmVsLmMgZmlsZSBzZWFyY2hlcyBmb3IgdGhlIHBhcmVudCBvZiBp
-dHMgT3BlbkZpcm13YXJlIG5vZGUgZm9yIHRoZQ0KPiBza2V3IHNldHRpbmdzOiBzZWUga3N6OTAz
-MV9jb25maWdfaW5pdCgpOiBvZl9ub2RlID0gZGV2LT5wYXJlbnQtPm9mX25vZGU7DQo+IEkgZG9u
-J3QgdGhpbmsgdGhhdCB3YXMgYSBjbGVhbiBpbXBsZW1lbnRhdGlvbiB0byBzdGFydCB3aXRoLi4g
-QnV0IGZvciBzdXJlIGl0J3MNCj4gaW5jb21wYXRpYmxlIHdpdGggY29tbWl0LThiNjNlYzE4LCBi
-ZWNhdXNlIHRoZSBub2RlIG9mIHRoZSBFdGhlcm5ldA0KPiBkZXZpY2Ugd2hpY2ggaGFzIHRoZSBz
-ZXR0aW5ncyBpcyBub3QgZm91bmQgYW55bW9yZS4NCj4gPg0KPiA+IEknbSBub3Qgc3VyZSB3aG8g
-dG8gcHV0IG9uIHRoZSBjb3B5IGxpc3QgdG8gZGlzY3VzcyBhIHByb3BlciBzb2x1dGlvbiwgc28g
-ZmVlbA0KPiBmcmVlIHRvIGdldCB0aGVzZSBwZXJzb25zIGFuZCBsaXN0cyBpbiB0aGUgbG9vcC4N
-Cj4NCj4gVXN1YWxseSwgdGhlIGJlc3QgdGhpbmcgaXMgdG8gcmVwbHkgb24gdGhlIG1haWxpbmct
-bGlzdCBkaXJlY3RpdmUsIHNvIG1vcmUgcGVvcGxlDQo+IGNhbiBqdW1wIGluLg0KDQpUaGFua3Mg
-RmxvcmlhbiBmb3IgeW91ciByZXBseSBhbmQgZ2V0dGluZyB0aGUgbWFpbGluZy1saXN0IGludG8g
-dGhlIGxvb3AhDQoNCj4NCj4gVGhpcyBwYXJ0aWN1bGFyIGlzc3VlIGlzIGZpeGVkIHdpdGggdGhl
-IGZvbGxvd2luZyBjb21taXQ6DQo+DQo+IGh0dHA6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4
-L2tlcm5lbC9naXQvdG9ydmFsZHMvbGludXguZ2l0L2NvbW1pdC8/aWQ9NjUxDQo+IGRmMjE4MzU0
-M2JjOTJmNWRiY2Y5OWNkOWUyMzZlYWQwYmM0YzUNCg0KVW5mb3J0dW5hdGVseSB0aGUgcGF0Y2gg
-aXMgaW5jb21wbGV0ZTogaXQgb25seSBmaXhlcyB0aGUgaXNzdWUgZm9yIHRoZSBLU1o5MDIxLiBQ
-bGVhc2UgaGF2ZSBhIGxvb2sgYXQgdGhlIGZ1bmNpb24ga3N6OTAzMV9jb25maWdfaW5pdCgpIHdo
-aWNoIGhhcyB0aGUgdGhlIHNhbWUgKGJyb2tlbikgc2VhcmNoIGZvciB0aGUgcGFyZW50IG5vZGUu
-DQoNCkFzIGJvdGggdGhlIGNvZGUgZm9yIEtTWjkwMjEgYXMgd2VsbCBhcyB0aGUgY29kZSBmb3Ig
-S1NaOTAzMSBwYXJzZSB0aGUgc2FtZSBwYWQgc2tldyBzZXR0aW5ncyBmcm9tIHRoZSBPRiBub2Rl
-IChhbmQgdG8gcHJldmVudCBpbmNvbXBsZXRlIGZpeGVzIGluIHRoZSBmdXR1cmUpLCBJIHRoaW5r
-IHRoaXMgY29kZSBpcyBhIGNhbmRpZGF0ZSB0byBiZSBjbGVhbmVkIHVwLiBPciBpcyBjb29raW5n
-IHVwIGEgc2ltaWxhciBwYXRjaCBmb3IgdGhlIEtTWjkwMzEgYXMgZm9yIHRoZSBLU1o5MDIxIHBy
-ZWZlcnJlZD8NCg0KQWRkaXRpb25hbGx5LCBpZiB0aGlzIGlzIGEgZGVwcmVjYXRlZCBmZWF0dXJl
-IChsaWtlIHRoZSBjb21taXQgc3RhdGVzKSwgdGhlbiB0aGUgZGV2aWNldHJlZSBiaW5kaW5nIGRv
-Y3VtZW50YXRpb24gKERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvbWljcmVs
-LWtzejkweDEudHh0KSBzaG91bGQgYmUgdXBkYXRlZC4gQXQgbGVhc3QgdGhlIGRlcHJlY2F0ZWQg
-ZXhhbXBsZSBmb3IgYXV0b2RldGVjdGVkIFBIWSdzIHNob3VsZCBiZSBjb3JyZWN0ZWQvcmVtb3Zl
-ZC4NCg0KLS0NCkhlbnJpDQo+IC0tDQo+IEZsb3JpYW4NCg0KX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18NCg0KR2luemluZ2VyIGVsZWN0cm9uaWMgc3lzdGVtcyBHbWJIDQpHZXdlcmJl
-Z2ViaWV0IFBpcmF0aCAxNg0KNDk1MiBXZW5nIGltIElubmtyZWlzDQp3d3cuZ2luemluZ2VyLmNv
-bQ0KDQpGaXJtZW5idWNobnVtbWVyOiBGTiAzNjQ5NThkDQpGaXJtZW5idWNoZ2VyaWNodDogUmll
-ZCBpbSBJbm5rcmVpcw0KVUlELU5yLjogQVRVNjY1MjEwODkNCg0KX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18NCioqKiBXRUlITkFDSFRTVVJMQVVCIFZPTiBET05ORVJTVEFHLCBERU4g
-MjQuIERFWkVNQkVSIDIwMTUgQklTIE1JVFRXT0NILCBERU4gNi4gSkFFTk5FUiAyMDE2ICoqKg0K
-KioqIENIUklTVE1BUyBWQUNBVElPTiBGUk9NIFRIVVJTREFZLCBUSEUgMjQgREVDRU1CRVIgMjAx
-NSBUTyBXRURORVNEQVksIDYgSkFOVUFSWSAyMDE2ICoqKg0K
+> Unfortunately the patch is incomplete: it only fixes the issue for
+> the KSZ9021. Please have a look at the funcion ksz9031_config_init()
+> which has the the same (broken) search for the parent node.
+
+Ah, sorry missed that. I was a bit blinkered, the issue was report for
+KSZ9021 and i did not look further.
+
+> As both the code for KSZ9021 as well as the code for KSZ9031 parse
+> the same pad skew settings from the OF node (and to prevent
+> incomplete fixes in the future), I think this code is a candidate to
+> be cleaned up. Or is cooking up a similar patch for the KSZ9031 as
+> for the KSZ9021 preferred?
+
+Both would be best. We probably need a minimal fix we can get included
+fast, and then having a cleanup patch merged during the next merge
+window would be nice.
+
+> Additionally, if this is a deprecated feature (like the commit
+> states), then the devicetree binding documentation
+> (Documentation/devicetree/bindings/net/micrel-ksz90x1.txt) should be
+> updated. At least the deprecated example for autodetected PHY's
+> should be corrected/removed.
+
+I submitted a patch for that already.
+https://www.mail-archive.com/netdev@vger.kernel.org/msg90932.html
+
+It however does not seem to of made its way into net-next. If you
+agree with it, please send an reviewed-by, or an Acked-by...
+
+      Andrew
