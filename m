@@ -1,34 +1,52 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Tue, 22 Dec 2015 09:48:05 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
- <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
- <20151208143305.GB18728@al>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS) support
+Date: Tue, 22 Dec 2015 11:56:56 +0200
+Message-ID: <CALzJLG-cpwiaELzfVm2x879s88QEP7BD3_0KQ-ogd5MGxSfM-g@mail.gmail.com>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+	<1450647991-13736-4-git-send-email-saeedm@mellanox.com>
+	<20151221091509.GA2297@localhost.localdomain>
+	<CALzJLG-22OjP+CDjJuzm5_oHGRAvG1LZawBfi0UtGEEf5dbviQ@mail.gmail.com>
+	<20151221183508.GA13533@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S . Miller" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Lu Baolu <baolu.lu@linux.intel.com>
-To: Peter Wu <peter@lekensteyn.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151208143305.GB18728@al>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:36756 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932172AbbLVJ45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 04:56:57 -0500
+Received: by mail-yk0-f177.google.com with SMTP id x184so159759207yka.3
+        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 01:56:57 -0800 (PST)
+In-Reply-To: <20151221183508.GA13533@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- Peter Wu [mailto:peter@lekensteyn.nl]
-> Sent: Tuesday, December 08, 2015 10:33 PM
-[...]
-> I found another problem with runtime PM. When a device is suspended via
-> autosuspend and a system suspend takes place, there is no network I/O
-> after resume. Triggering a renegotiation (ethtool -r eth1) brings back
-> network activity.
+On Mon, Dec 21, 2015 at 8:35 PM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Mon, Dec 21, 2015 at 04:35:23PM +0200, Saeed Mahameed wrote:
+>> think of a case where:
+>> CPU1: is just about to call
+>> "schedule_delayed_work(&tstamp->overflow_work,
+>> tstamp->overflow_period);"
+>> CPU2: cancel_delayed_work
+>>
+>> In this case cancel_dalyed_work_sync (CPU2) will wait for CPU1 to
+>> complete but CPU1 will re-arm the work, and we will
+>> be left with tstamp->overflow_work running forever.
+>
+> This is my understanding:  Once the work becomes re-queued, it will be
+> canceled before running again.
+True, will fix this.
+Thanks
 
-I think it is relative to the firmware. Could you try the driver from Realtek website?
-
-Best Regards,
-Hayes
+>
+> Thanks,
+> Richard
+>
