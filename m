@@ -1,67 +1,31 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/2] can: sja1000: add documentation for Technologic
- Systems version
-Date: Tue, 22 Dec 2015 12:28:52 -0600
-Message-ID: <CAL_JsqJ3MM7DLFndhKA3GVrb-OtYJJDcCck_i4RZh-+V_RGynQ@mail.gmail.com>
-References: <1450469845-12900-1-git-send-email-damien.riegel@savoirfairelinux.com>
- <20151220033742.GA9883@rob-hp-laptop> <20151221150953.GA6434@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next 1/3] net: add inet_sk_transparent() helper
+Date: Tue, 22 Dec 2015 14:04:43 -0500
+Message-ID: <1450811083.8474.133.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1450729766-14926-1-git-send-email-fw@strlen.de>
+	 <1450729766-14926-2-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-can@vger.kernel.org,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	kernel@savoirfairelinux.com
-To: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151221150953.GA6434@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:34553 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933201AbbLVTEq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 14:04:46 -0500
+Received: by mail-qg0-f47.google.com with SMTP id 74so70118746qgh.1
+        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 11:04:45 -0800 (PST)
+In-Reply-To: <1450729766-14926-2-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 21, 2015 at 9:09 AM, Damien Riegel
-<damien.riegel@savoirfairelinux.com> wrote:
-> On Sat, Dec 19, 2015 at 09:37:42PM -0600, Rob Herring wrote:
->> On Fri, Dec 18, 2015 at 03:17:24PM -0500, Damien Riegel wrote:
->> > This commit adds documentation for the Technologic Systems version of
->> > SJA1000. The difference with the NXP version is in the way the registers
->> > are accessed.
->> >
->> > Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
->> > ---
->> >  Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
->> >  1 file changed, 2 insertions(+), 1 deletion(-)
->> >
->> > diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
->> > index b4a6d53..7a158d5 100644
->> > --- a/Documentation/devicetree/bindings/net/can/sja1000.txt
->> > +++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
->> > @@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
->> >
->> >  Required properties:
->> >
->> > -- compatible : should be "nxp,sja1000".
->> > +- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
->> >
->> >  - reg : should specify the chip select, address offset and size required
->> >     to map the registers of the SJA1000. The size is usually 0x80.
->> > @@ -14,6 +14,7 @@ Optional properties:
->> >
->> >  - reg-io-width : Specify the size (in bytes) of the IO accesses that
->> >     should be performed on the device.  Valid value is 1, 2 or 4.
->> > +   Must be set to 2 for technologic version.
->> >     Default to 1 (8 bits).
->>
->> Really, this should default to 2 for technologic version and not be
->> required.
->
-> Would something along the line of "This property is <not used|ignored>
-> for technologic version." be more appropriate?
+On Mon, 2015-12-21 at 21:29 +0100, Florian Westphal wrote:
+> Avoids cluttering tcp_v4_send_reset when followup patch extends
+> it to deal with timewait sockets.
+> 
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
 
-Yes, exactly.
-
-Rob
+Acked-by: Eric Dumazet <edumazet@google.com>
