@@ -1,37 +1,43 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH] net-sysfs: use to_net_dev in net_namespace()
-Date: Tue, 22 Dec 2015 23:11:49 +0800
-Message-ID: <d010715aeba7ecc4421b06b20f19c1f3958772db.1450796865.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
+ locally
+Date: Tue, 22 Dec 2015 16:15:14 +0100
+Message-ID: <56796902.8080703@stressinduktion.org>
+References: <20151212195830.GA18286@torres.zugschlus.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:36560 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753298AbbLVPPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 10:15:16 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 14BC020C86
+	for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 10:15:16 -0500 (EST)
+In-Reply-To: <20151212195830.GA18286@torres.zugschlus.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use to_net_dev() instead of open-coding it.
+On 12.12.2015 20:58, Marc Haber wrote:
+> Any hints would be appreciated.
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
- net/core/net-sysfs.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This sysctl should help:
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index bca8c35..b6c8a66 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1453,8 +1453,8 @@ static void netdev_release(struct device *d)
- 
- static const void *net_namespace(struct device *d)
- {
--	struct net_device *dev;
--	dev = container_of(d, struct net_device, dev);
-+	struct net_device *dev = to_net_dev(d);
-+
- 	return dev_net(dev);
- }
- 
--- 
-2.5.0
+accept_ra_from_local - BOOLEAN
+        Accept RA with source-address that is found on local machine
+        if the RA is otherwise proper and able to be accepted.
+        Default is to NOT accept these as it may be an un-intended
+        network loop.
+
+        Functional default:
+           enabled if accept_ra_from_local is enabled
+               on a specific interface.
+           disabled if accept_ra_from_local is disabled
+               on a specific interface.
+
+Anyway, this has to be fixed up in a clean way and should work by default.
+
+Thanks for the report,
+Hannes
