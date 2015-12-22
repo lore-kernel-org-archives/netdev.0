@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: fix 16-bit descriptor field access endianness
- too
-Date: Tue, 22 Dec 2015 15:24:01 -0500 (EST)
-Message-ID: <20151222.152401.1350968132902705224.davem@davemloft.net>
-References: <16692899.McEvu8S87q@wasted.cogentembedded.com>
+Subject: Re: [PATCH v2] RDS: don't pretend to use cpu notifiers
+Date: Tue, 22 Dec 2015 15:23:34 -0500 (EST)
+Message-ID: <20151222.152334.1819747411852445574.davem@davemloft.net>
+References: <1450558543-3650-1-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <16692899.McEvu8S87q@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bigeasy@linutronix.de
+To: santosh.shilimkar@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450558543-3650-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 20 Dec 2015 01:48:04 +0300
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Date: Sat, 19 Dec 2015 12:55:43 -0800
 
-> Commit 1299653affa4 ("sh_eth: fix descriptor access endianness") only
-> addressed the 32-bit buffer address field byte-swapping  but the driver
-> still accesses 16-bit frame/buffer length descriptor fields without the
-> necessary byte-swapping -- which should affect the big-endian kernels.
-> In order to be able to use {cpu|edmac}_to_{edmac|cpu}(), we need to declare
-> the RX/TX descriptor word 1 as a 32-bit field and use shifts/masking to
-> access the 16-bit subfields (which gets rid of the ugly #ifdef'ery too)...
+> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> It looks like an attempt to use CPU notifier here which was never
+> completed. Nobody tried to wire it up completely since 2k9. So I unwind
+> this code and get rid of everything not required. Oh look! 19 lines were
+> removed while code still does the same thing.
+> 
+> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Tested-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Applied, thanks Sergei.
+Applied to net-next, thanks.
