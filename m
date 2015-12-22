@@ -1,11 +1,11 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
+From: Julian Calaby <julian.calaby@gmail.com>
 Subject: Re: [PATCH] wlcore: consolidate kmalloc + memset 0 into kzalloc
-Date: Tue, 22 Dec 2015 07:29:51 +0000
-Message-ID: <20151222072951.GA31496@osadl.at>
+Date: Tue, 22 Dec 2015 18:52:33 +1100
+Message-ID: <CAGRGNgUsmx-nHEwykpFP5YbXVwrpNE1tRFs0hTuUea5Xvy1k-Q@mail.gmail.com>
 References: <1450716464-20759-1-git-send-email-hofrat@osadl.org>
- <CAGRGNgU+CA-jLAX=_qV27tfbyQ2cyjYo2NZOq3_7fFLc-VsCew@mail.gmail.com>
+ <CAGRGNgU+CA-jLAX=_qV27tfbyQ2cyjYo2NZOq3_7fFLc-VsCew@mail.gmail.com> <20151222072951.GA31496@osadl.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: Nicholas Mc Guire <hofrat@osadl.org>,
 	Kalle Valo <kvalo@codeaurora.org>,
 	Eliad Peller <eliad@wizery.com>,
@@ -18,68 +18,85 @@ Cc: Nicholas Mc Guire <hofrat@osadl.org>,
 	linux-wireless <linux-wireless@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Julian Calaby <julian.calaby@gmail.com>
+To: Nicholas Mc Guire <der.herr@hofr.at>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGRGNgU+CA-jLAX=_qV27tfbyQ2cyjYo2NZOq3_7fFLc-VsCew@mail.gmail.com>
+In-Reply-To: <20151222072951.GA31496@osadl.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 22, 2015 at 09:56:10AM +1100, Julian Calaby wrote:
-> Hi,
-> 
-> On Tue, Dec 22, 2015 at 3:47 AM, Nicholas Mc Guire <hofrat@osadl.org> wrote:
-> > This is an API consolidation only. The use of kmalloc + memset to 0
-> > is equivalent to kzalloc.
-> >
-> > Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-> > ---
-> >
-> > Found by coccinelle script (relaxed version of
-> > scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
-> >
-> > Patch was compile tested with: x86_64_defconfig +
-> > CONFIG_WL12XX=m (implies CONFIG_WLCORE=m)
-> >
-> > Patch is against linux-next (localversion-next is -next-20151221)
-> >
-> >  drivers/net/wireless/ti/wlcore/main.c | 3 +--
-> >  1 file changed, 1 insertion(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-> > index ec7f6af..dfc49bf 100644
-> > --- a/drivers/net/wireless/ti/wlcore/main.c
-> > +++ b/drivers/net/wireless/ti/wlcore/main.c
-> > @@ -838,7 +838,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
-> >
-> >         wl1271_info("Reading FW panic log");
-> >
-> > -       block = kmalloc(wl->fw_mem_block_size, GFP_KERNEL);
-> > +       block = kzalloc(wl->fw_mem_block_size, GFP_KERNEL);
-> >         if (!block)
-> >                 return;
-> >
-> > @@ -885,7 +885,6 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
-> >                         goto out;
-> >                 }
-> > -               memset(block, 0, wl->fw_mem_block_size);
-> 
-> I don't think you can't remove this line. It appears that the loop
-> this is part of resets block to be all zero, reads a chunk of data in,
-> then operates on it. I'm guessing that the code after the following
-> line expects that there isn't any data left over from previous runs
-> through the loop.
+Hi Nicholas,
+
+On Tue, Dec 22, 2015 at 6:29 PM, Nicholas Mc Guire <der.herr@hofr.at> wrote:
+> On Tue, Dec 22, 2015 at 09:56:10AM +1100, Julian Calaby wrote:
+>> Hi,
+>>
+>> On Tue, Dec 22, 2015 at 3:47 AM, Nicholas Mc Guire <hofrat@osadl.org> wrote:
+>> > This is an API consolidation only. The use of kmalloc + memset to 0
+>> > is equivalent to kzalloc.
+>> >
+>> > Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+>> > ---
+>> >
+>> > Found by coccinelle script (relaxed version of
+>> > scripts/coccinelle/api/alloc/kzalloc-simple.cocci)
+>> >
+>> > Patch was compile tested with: x86_64_defconfig +
+>> > CONFIG_WL12XX=m (implies CONFIG_WLCORE=m)
+>> >
+>> > Patch is against linux-next (localversion-next is -next-20151221)
+>> >
+>> >  drivers/net/wireless/ti/wlcore/main.c | 3 +--
+>> >  1 file changed, 1 insertion(+), 2 deletions(-)
+>> >
+>> > diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+>> > index ec7f6af..dfc49bf 100644
+>> > --- a/drivers/net/wireless/ti/wlcore/main.c
+>> > +++ b/drivers/net/wireless/ti/wlcore/main.c
+>> > @@ -838,7 +838,7 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
+>> >
+>> >         wl1271_info("Reading FW panic log");
+>> >
+>> > -       block = kmalloc(wl->fw_mem_block_size, GFP_KERNEL);
+>> > +       block = kzalloc(wl->fw_mem_block_size, GFP_KERNEL);
+>> >         if (!block)
+>> >                 return;
+>> >
+>> > @@ -885,7 +885,6 @@ static void wl12xx_read_fwlog_panic(struct wl1271 *wl)
+>> >                         goto out;
+>> >                 }
+>> > -               memset(block, 0, wl->fw_mem_block_size);
+>>
+>> I don't think you can't remove this line. It appears that the loop
+>> this is part of resets block to be all zero, reads a chunk of data in,
+>> then operates on it. I'm guessing that the code after the following
+>> line expects that there isn't any data left over from previous runs
+>> through the loop.
+>>
+> the rational for this being ok is thta the copy operation into block is:
+>                 ret = wlcore_read_hwaddr(wl, addr, block,
+>                                         wl->fw_mem_block_size, false);
 >
-the rational for this being ok is thta the copy operation into block is: 
-                ret = wlcore_read_hwaddr(wl, addr, block,
-                                        wl->fw_mem_block_size, false);
+> this will end up in the .read methods where block should be completely
+> overwritten (length == full block size), so within the loop if successful
+> this should be correct - if not successful it would "goto out" witout
+> using the content of block.
+>
+> Am I overlooking something here ?
 
-this will end up in the .read methods where block should be completely 
-overwritten (length == full block size), so within the loop if successful
-this should be correct - if not successful it would "goto out" witout 
-using the content of block.
+It's quite possible I am. I didn't look at the implementation of
+wlcore_read_hwaddr() so I'm only guessing that it could do partial
+reads.
 
-Am I overlooking something here ?
+That said, if it does overwrite the entire buffer each time, then
+there's no need to use kzalloc() to allocate the buffer in the first
+place.
 
-thx!
-hofrat
+Either way, it needs a review from someone more familiar with the code.
+
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
