@@ -1,49 +1,83 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS) support
-Date: Tue, 22 Dec 2015 12:00:52 +0200
-Message-ID: <CALzJLG_YKG+mO+H9Lv6kgMoYRdBjUBWQiAPzhehTe0vNaLmOwg@mail.gmail.com>
-References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
-	<1450647991-13736-4-git-send-email-saeedm@mellanox.com>
-	<20151221091509.GA2297@localhost.localdomain>
+From: Roosen Henri <Henri.Roosen@ginzinger.com>
+Subject: AW: Commit-8b63ec18 breaks setting PHY pad-skew settings
+Date: Tue, 22 Dec 2015 10:04:31 +0000
+Message-ID: <FC629F1A536C6F42B960B5E32E20BD356A969BC7@exc2.buero.ginzinger.com>
+References: <FC629F1A536C6F42B960B5E32E20BD356A967AF0@exc2.buero.ginzinger.com>
+ <56785808.6050804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+	"grant.likely@secretlab.ca" <grant.likely@secretlab.ca>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
+	"david.daney@cavium.com" <david.daney@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:34060 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932162AbbLVKBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 05:01:12 -0500
-Received: by mail-yk0-f176.google.com with SMTP id p130so158595475yka.1
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2015 02:00:52 -0800 (PST)
-In-Reply-To: <20151221091509.GA2297@localhost.localdomain>
+Received: from mail.ginzinger.com ([31.193.165.229]:58636 "EHLO
+	mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbbLVKKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2015 05:10:45 -0500
+In-Reply-To: <56785808.6050804@gmail.com>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 21, 2015 at 11:15 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Sun, Dec 20, 2015 at 11:46:30PM +0200, Saeed Mahameed wrote:
->> +/* Should run once every mlx5e_tstamp->overflow_period */
->> +static void mlx5e_timestamp_overflow(struct work_struct *work)
->> +{
->> +     struct delayed_work *dwork = to_delayed_work(work);
->> +     struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp, overflow_work);
->> +     unsigned long flags;
->> +
->> +     write_lock_irqsave(&tstamp->lock, flags);
->> +     timecounter_read(&tstamp->clock);
->> +     if (tstamp->overflow_period)
->> +             schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
->
-> You don't need this test, and the call to schedule_delayed_work can be
-> outside of the lock.
->
-Ok, but what will happen if somehow tstamp->overflow_period is zero ?
-the work will run too rapidly.
-don't we need to have protection against such case.
+PiAtLS0tLVVyc3Byw7xuZ2xpY2hlIE5hY2hyaWNodC0tLS0tDQo+IFZvbjogRmxvcmlhbiBGYWlu
+ZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPiBHZXNlbmRldDogTW9udGFnLCAy
+MS4gRGV6ZW1iZXIgMjAxNSAyMDo1MQ0KPiBBbjogUm9vc2VuIEhlbnJpOyBkYXZpZC5kYW5leUBj
+YXZpdW0uY29tDQo+IENjOiBidXl0ZW5oQHdhbnRzdG9mbHkub3JnOyBncmFudC5saWtlbHlAc2Vj
+cmV0bGFiLmNhOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBBbmRyZXcgTHVubg0KPiBCZXRyZWZmOiBSZTogQ29tbWl0LThiNjNlYzE4IGJyZWFrcyBzZXR0
+aW5nIFBIWSBwYWQtc2tldyBzZXR0aW5ncw0KPg0KPiBPbiAyMS8xMi8xNSAwMjo0MCwgUm9vc2Vu
+IEhlbnJpIHdyb3RlOg0KPiA+IEhpIERhdmlkLA0KPiA+DQo+ID4gVW5mb3J0dW5hdGVseSBMaW51
+eCBrZXJuZWwgY29tbWl0LQ0KPiA4YjYzZWMxODM3ZmE0YzFlYTYwNGIyNzhkMjAxNDU0ZWIzYjg1
+MDY2IGJyZWFrcyBzZXR0aW5nIHBhZC1za2V3DQo+IHNldHRpbmdzIGZvciBNaWNyZWwgUEhZJ3Mu
+DQo+ID4NCj4gPiBQbGVhc2Ugc2VlIERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9u
+ZXQvbWljcmVsLWtzejkweDEudHh0OiBhdA0KPiB0aGUgZXhhbXBsZXMsIGl0IHByb3Bvc2VzIHRv
+IGRvIFBIWSBwYWQgc2tldyBzZXR0aW5ncyBhdCB0aGUgRXRoZXJuZXQNCj4gZGV2aWNlIGZvciBh
+dXRvZGV0ZWN0ZWQgUEhZJ3MuDQo+ID4NCj4gPiBNdWx0aXBsZSBib2FyZHMgYXJlIHVzaW5nIHRo
+aXMgYXQgdGhlIGRldmljZXRyZWUgZmlsZXM6IHNlZSBpbXg2cWRsLQ0KPiBuaXRyb2dlbjZ4LmR0
+c2ksIGlteDZxZGwtc2FicmVsaXRlLmR0c2ksIHNvY2ZwZ2FfYXJyaWE1X3NvY2RrLmR0cywNCj4g
+c29jZnBnYV9jeWNsb25lNV9zb2Nkay5kdHMgYW5kIHNvY2ZwZ2FfY3ljbG9uZTVfc29ja2l0LmR0
+cy4gQnV0IG9mIGNvdXJzZQ0KPiB0aGVyZSBtaWdodCBiZSBtb3JlIHVzZXJzIGRlcGVuZGluZyBv
+biB0aGlzIHRoYW4gdGhlIG9uZXMgd2hpY2ggaGF2ZSBhbg0KPiBpbi1rZXJuZWwgZHRzIGZpbGUu
+DQo+ID4NCj4gPiBUaGUgbWljcmVsLmMgZmlsZSBzZWFyY2hlcyBmb3IgdGhlIHBhcmVudCBvZiBp
+dHMgT3BlbkZpcm13YXJlIG5vZGUgZm9yIHRoZQ0KPiBza2V3IHNldHRpbmdzOiBzZWUga3N6OTAz
+MV9jb25maWdfaW5pdCgpOiBvZl9ub2RlID0gZGV2LT5wYXJlbnQtPm9mX25vZGU7DQo+IEkgZG9u
+J3QgdGhpbmsgdGhhdCB3YXMgYSBjbGVhbiBpbXBsZW1lbnRhdGlvbiB0byBzdGFydCB3aXRoLi4g
+QnV0IGZvciBzdXJlIGl0J3MNCj4gaW5jb21wYXRpYmxlIHdpdGggY29tbWl0LThiNjNlYzE4LCBi
+ZWNhdXNlIHRoZSBub2RlIG9mIHRoZSBFdGhlcm5ldA0KPiBkZXZpY2Ugd2hpY2ggaGFzIHRoZSBz
+ZXR0aW5ncyBpcyBub3QgZm91bmQgYW55bW9yZS4NCj4gPg0KPiA+IEknbSBub3Qgc3VyZSB3aG8g
+dG8gcHV0IG9uIHRoZSBjb3B5IGxpc3QgdG8gZGlzY3VzcyBhIHByb3BlciBzb2x1dGlvbiwgc28g
+ZmVlbA0KPiBmcmVlIHRvIGdldCB0aGVzZSBwZXJzb25zIGFuZCBsaXN0cyBpbiB0aGUgbG9vcC4N
+Cj4NCj4gVXN1YWxseSwgdGhlIGJlc3QgdGhpbmcgaXMgdG8gcmVwbHkgb24gdGhlIG1haWxpbmct
+bGlzdCBkaXJlY3RpdmUsIHNvIG1vcmUgcGVvcGxlDQo+IGNhbiBqdW1wIGluLg0KDQpUaGFua3Mg
+RmxvcmlhbiBmb3IgeW91ciByZXBseSBhbmQgZ2V0dGluZyB0aGUgbWFpbGluZy1saXN0IGludG8g
+dGhlIGxvb3AhDQoNCj4NCj4gVGhpcyBwYXJ0aWN1bGFyIGlzc3VlIGlzIGZpeGVkIHdpdGggdGhl
+IGZvbGxvd2luZyBjb21taXQ6DQo+DQo+IGh0dHA6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4
+L2tlcm5lbC9naXQvdG9ydmFsZHMvbGludXguZ2l0L2NvbW1pdC8/aWQ9NjUxDQo+IGRmMjE4MzU0
+M2JjOTJmNWRiY2Y5OWNkOWUyMzZlYWQwYmM0YzUNCg0KVW5mb3J0dW5hdGVseSB0aGUgcGF0Y2gg
+aXMgaW5jb21wbGV0ZTogaXQgb25seSBmaXhlcyB0aGUgaXNzdWUgZm9yIHRoZSBLU1o5MDIxLiBQ
+bGVhc2UgaGF2ZSBhIGxvb2sgYXQgdGhlIGZ1bmNpb24ga3N6OTAzMV9jb25maWdfaW5pdCgpIHdo
+aWNoIGhhcyB0aGUgdGhlIHNhbWUgKGJyb2tlbikgc2VhcmNoIGZvciB0aGUgcGFyZW50IG5vZGUu
+DQoNCkFzIGJvdGggdGhlIGNvZGUgZm9yIEtTWjkwMjEgYXMgd2VsbCBhcyB0aGUgY29kZSBmb3Ig
+S1NaOTAzMSBwYXJzZSB0aGUgc2FtZSBwYWQgc2tldyBzZXR0aW5ncyBmcm9tIHRoZSBPRiBub2Rl
+IChhbmQgdG8gcHJldmVudCBpbmNvbXBsZXRlIGZpeGVzIGluIHRoZSBmdXR1cmUpLCBJIHRoaW5r
+IHRoaXMgY29kZSBpcyBhIGNhbmRpZGF0ZSB0byBiZSBjbGVhbmVkIHVwLiBPciBpcyBjb29raW5n
+IHVwIGEgc2ltaWxhciBwYXRjaCBmb3IgdGhlIEtTWjkwMzEgYXMgZm9yIHRoZSBLU1o5MDIxIHBy
+ZWZlcnJlZD8NCg0KQWRkaXRpb25hbGx5LCBpZiB0aGlzIGlzIGEgZGVwcmVjYXRlZCBmZWF0dXJl
+IChsaWtlIHRoZSBjb21taXQgc3RhdGVzKSwgdGhlbiB0aGUgZGV2aWNldHJlZSBiaW5kaW5nIGRv
+Y3VtZW50YXRpb24gKERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvbWljcmVs
+LWtzejkweDEudHh0KSBzaG91bGQgYmUgdXBkYXRlZC4gQXQgbGVhc3QgdGhlIGRlcHJlY2F0ZWQg
+ZXhhbXBsZSBmb3IgYXV0b2RldGVjdGVkIFBIWSdzIHNob3VsZCBiZSBjb3JyZWN0ZWQvcmVtb3Zl
+ZC4NCg0KLS0NCkhlbnJpDQo+IC0tDQo+IEZsb3JpYW4NCg0KX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18NCg0KR2luemluZ2VyIGVsZWN0cm9uaWMgc3lzdGVtcyBHbWJIDQpHZXdlcmJl
+Z2ViaWV0IFBpcmF0aCAxNg0KNDk1MiBXZW5nIGltIElubmtyZWlzDQp3d3cuZ2luemluZ2VyLmNv
+bQ0KDQpGaXJtZW5idWNobnVtbWVyOiBGTiAzNjQ5NThkDQpGaXJtZW5idWNoZ2VyaWNodDogUmll
+ZCBpbSBJbm5rcmVpcw0KVUlELU5yLjogQVRVNjY1MjEwODkNCg0KX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18NCioqKiBXRUlITkFDSFRTVVJMQVVCIFZPTiBET05ORVJTVEFHLCBERU4g
+MjQuIERFWkVNQkVSIDIwMTUgQklTIE1JVFRXT0NILCBERU4gNi4gSkFFTk5FUiAyMDE2ICoqKg0K
+KioqIENIUklTVE1BUyBWQUNBVElPTiBGUk9NIFRIVVJTREFZLCBUSEUgMjQgREVDRU1CRVIgMjAx
+NSBUTyBXRURORVNEQVksIDYgSkFOVUFSWSAyMDE2ICoqKg0K
