@@ -1,8 +1,7 @@
 From: Daniel J Blueman <daniel@numascale.com>
-Subject: [PATCH 2/2] ixgbe: Use core to device locality interface
-Date: Wed, 23 Dec 2015 18:01:41 +0800
-Message-ID: <1450864901-16712-2-git-send-email-daniel@numascale.com>
-References: <1450864901-16712-1-git-send-email-daniel@numascale.com>
+Subject: [PATCH 1/2] PCI: Add mechanism to find topologically near cores
+Date: Wed, 23 Dec 2015 18:01:40 +0800
+Message-ID: <1450864901-16712-1-git-send-email-daniel@numascale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Daniel J Blueman <daniel@numascale.com>,
@@ -21,56 +20,62 @@ To: Bjorn Helgaas <bhelgaas@google.com>,
 	John Ronciak <john.ronciak@intel.com>,
 	Mitch Williams <mitch.a.williams@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450864901-16712-1-git-send-email-daniel@numascale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rather than assuming cores starting from 0 are local to the ethernet
-device, use the introduced interface to find near cores.
+Some devices (eg ixgbe) make assumptions about device to core locality when
+specifying interrupts locality hints and allocate starting from core 0.
+Moreover, interrupts may not be routable to distant NUMA nodes due to the
+8-bit APIC ID space limitations.
 
-Not only does this improve performance due to spreading interrupts via near
-NUMA nodes, it prevents assigning cores on distant NUMA nodes, which aren't
-reachable by device interrupts due to the 8-bit APIC ID limitation.
-
-With Numascale NumaConnect2 systems with Intel ixgbe cards on
-non-primary PCI domains, all ixgbe NICs would previously revector
-interrupts to cores 0 to 63 (cores 0 to 47 would be considered
-near the primary PCI domain). Now, cores 48 to 95 are used, increasing
-performance and addressing interrupt delivery issues:
-
-do_IRQ: 79.180 No irq handler for vector (irq -1)
-do_IRQ: 78.42 No irq handler for vector (irq -1)
-do_IRQ: 71.172 No irq handler for vector (irq -1)
-do_IRQ: 70.236 No irq handler for vector (irq -1)
-do_IRQ: 69.109 No irq handler for vector (irq -1)
-do_IRQ: 68.189 No irq handler for vector (irq -1)
-do_IRQ: 72.92 No irq handler for vector (irq -1)
-do_IRQ: 73.235 No irq handler for vector (irq -1)
-do_IRQ: 66.185 No irq handler for vector (irq -1)
-do_IRQ: 67.62 No irq handler for vector (irq -1)
-do_IRQ: 197 callbacks suppressed
+Provide a mechanism drivers can use to find cores with reasonable locality
+to a device; use the existing precendent of RECLAIM_DISTANCE (30), wrapping
+the offset.
 
 Signed-off-by: Daniel J Blueman <daniel@numascale.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/pci/pci.c   | 15 +++++++++++++++
+ include/linux/pci.h |  1 +
+ 2 files changed, 16 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index f3168bc..12c4ce1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -817,10 +817,8 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 	if ((tcs <= 1) && !(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
- 		u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
- 		if (rss_i > 1 && adapter->atr_sample_rate) {
--			if (cpu_online(v_idx)) {
--				cpu = v_idx;
--				node = cpu_to_node(cpu);
--			}
-+			cpu = cpu_near_dev(adapter->pdev, v_idx);
-+			node = cpu_to_node(cpu);
- 		}
- 	}
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 314db8c..d5535d1 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -4833,6 +4833,22 @@ void __weak pci_fixup_cardbus(struct pci_bus *bus)
+ }
+ EXPORT_SYMBOL(pci_fixup_cardbus);
 
++int cpu_near_dev(const struct pci_dev *pdev, unsigned offset)
++{
++	/* Start search from node device is on for optimal locality */
++	int localnode = pcibus_to_node(pdev->bus);
++	int cpu = cpumask_first(cpumask_of_node(localnode));
++
++	while (offset--) {
++		do {
++			cpu = (cpu + 1) % nr_cpu_ids;
++		} while (!cpu_online(cpu) || node_distance(cpu_to_node(cpu),
++			localnode) > RECLAIM_DISTANCE);
++	}
++
++	return cpu;
++}
++
+ static int __init pci_setup(char *str)
+ {
+ 	while (str) {
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 6ae25aa..f7491bd 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -842,6 +842,7 @@ void pci_stop_root_bus(struct pci_bus *bus);
+ void pci_remove_root_bus(struct pci_bus *bus);
+ void pci_setup_cardbus(struct pci_bus *bus);
+ void pci_sort_breadthfirst(void);
++int cpu_near_dev(const struct pci_dev *pdev, unsigned offset);
+ #define dev_is_pci(d) ((d)->bus == &pci_bus_type)
+ #define dev_is_pf(d) ((dev_is_pci(d) ? to_pci_dev(d)->is_physfn : false))
+ #define dev_num_vf(d) ((dev_is_pci(d) ? pci_num_vf(to_pci_dev(d)) : 0))
 --
 2.5.0
