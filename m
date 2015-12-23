@@ -1,71 +1,62 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] ixgbe: force to synchronize reporting "link on" and getting speed and duplex
-Date: Wed, 23 Dec 2015 14:46:45 +0800
-Message-ID: <1450853205-27133-1-git-send-email-zyjzyj2000@gmail.com>
+From: Henri Roosen <henri.roosen@ginzinger.com>
+Subject: Re: [PATCH 1/1] phy: micrel: Fix finding PHY properties in MAC node
+ for KSZ9031.
+Date: Wed, 23 Dec 2015 09:11:22 +0100
+Message-ID: <567A572A.4030207@ginzinger.com>
+References: <1450781920-26912-1-git-send-email-henri.roosen@ginzinger.com>
+ <20151222110634.GC2373@lunn.ch>
+ <20151222.171444.1073714139867888727.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <venkat.viswanathan@windriver.com>,
-	<Boris.Shteinbock@windriver.com>, <Vincent.Bourg@windriver.com>
-To: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<shannon.nelson@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <bruce.w.allan@intel.com>,
-	<john.ronciak@intel.com>, <mitch.a.williams@intel.com>,
-	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 8BIT
+Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52952 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933064AbbLWGqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 01:46:36 -0500
+Received: from mail.ginzinger.com ([31.193.165.229]:17626 "EHLO
+	mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933475AbbLWIUl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 03:20:41 -0500
+In-Reply-To: <20151222.171444.1073714139867888727.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+On 12/22/2015 11:14 PM, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Tue, 22 Dec 2015 12:06:34 +0100
+>
+>> On Tue, Dec 22, 2015 at 11:58:40AM +0100, Henri Roosen wrote:
+>>> Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
+>>>   node.") only fixes finding PHY properties in MAC node for KSZ9021. This
+>>> commit applies the same fix for KSZ9031.
+>>>
+>>> Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
+>>
+>> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+>>
+>> Acked-by: Andrew Lunn <andrew@lunn.ch>
+>
+> This does not apply cleanly to any of my trees.
 
-In X540 NIC, there is a time span between reporting "link on" and
-getting the speed and duplex. To a bonding driver in 802.3ad mode,
-this time span will make it not work well if the time span is big
-enough. The big time span will make bonding driver change the state of
-the slave device to up while the speed and duplex of the slave device
-can not be gotten. Later the bonding driver will not have change to
-get the speed and duplex of the slave device. The speed and duplex of
-the slave device are important to a bonding driver in 802.3ad mode.
+David, does the original patch not apply cleanly or is your comment only
+on the message from Andrew?
 
-To 82599_SFP NIC and other kinds of NICs, this problem does
-not exist. As such, it is necessary for X540 to report"link on" when
-the link speed is not IXGBE_LINK_SPEED_UNKNOWN.
+Else please let me know what is wrong with the original patch. I've
+tested it applies cleanly to v4.4-rc6 and to v4.3.
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+>
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index aed8d02..cb9d310 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6479,7 +6479,21 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
- 	       (flow_rx ? "RX" :
- 	       (flow_tx ? "TX" : "None"))));
- 
--	netif_carrier_on(netdev);
-+	/*
-+	 * In X540 NIC, there is a time span between reporting "link on"
-+	 * and getting the speed and duplex. To a bonding driver in 802.3ad
-+	 * mode, this time span will make it not work well if the time span
-+	 * is big enough. To 82599_SFP NIC and other kinds of NICs, this
-+	 * problem does not exist. As such, it is better for X540 to report
-+	 * "link on" when the link speed is not IXGBE_LINK_SPEED_UNKNOWN.
-+	 */
-+	if ((hw->mac.type == ixgbe_mac_X540) &&
-+	    (link_speed != IXGBE_LINK_SPEED_UNKNOWN)) {
-+		netif_carrier_on(netdev);
-+	} else {
-+		netif_carrier_on(netdev);
-+	}
-+
- 	ixgbe_check_vf_rate_limit(adapter);
- 
- 	/* enable transmits */
--- 
-1.7.9.5
+________________________________
+
+Ginzinger electronic systems GmbH
+Gewerbegebiet Pirath 16
+4952 Weng im Innkreis
+www.ginzinger.com
+
+Firmenbuchnummer: FN 364958d
+Firmenbuchgericht: Ried im Innkreis
+UID-Nr.: ATU66521089
+
+________________________________
+*** WEIHNACHTSURLAUB VON DONNERSTAG, DEN 24. DEZEMBER 2015 BIS MITTWOCH, DEN 6. JAENNER 2016 ***
+*** CHRISTMAS VACATION FROM THURSDAY, THE 24 DECEMBER 2015 TO WEDNESDAY, 6 JANUARY 2016 ***
