@@ -1,73 +1,82 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC 11/28] net: dsa: Add slave component matches based on a phandle to the slave.
-Date: Wed, 23 Dec 2015 13:56:25 +0100
-Message-ID: <1450875402-20740-12-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC 23/28] net: dsa: Only setup platform switches, not device switches
+Date: Wed, 23 Dec 2015 13:56:37 +0100
+Message-ID: <1450875402-20740-24-git-send-email-andrew@lunn.ch>
 References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>, narmstrong@baylibre.com,
 	vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48758 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:48762 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751962AbbLWM6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2015 07:58:20 -0500
+	id S1752147AbbLWM6V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 07:58:21 -0500
 In-Reply-To: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch devices are component slaves. Such devices have a "switch"
-property in the DSA device tree which is a phandle to the switch
-device. Add a component match on the device node.
+Switches which are linux devices will register themselves with DSA.
+Such switches already have a dsa_switch in the dsa_switch_tree, and
+don't need to be probed using the old mechanism.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- net/dsa/dsa.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
+ net/dsa/dsa.c | 26 ++++++++++----------------
+ 1 file changed, 10 insertions(+), 16 deletions(-)
 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index be8e181f161b..8b89eece6b52 100644
+index fbb8fc852a3b..5e037772bb32 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -871,18 +871,25 @@ static int dsa_bind(struct device *dev)
- 	return dsa_setup_dst(dst, dst->master_netdev, dev);
- }
- 
-+static int compare_of(struct device *dev, void *data)
-+{
-+	return dev->of_node == data;
-+}
-+
- static int dsa_probe(struct platform_device *pdev)
+@@ -823,7 +823,6 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 			 struct device *parent)
  {
- 	struct dsa_platform_data *pd = pdev->dev.platform_data;
-+	struct device_node *np = pdev->dev.of_node;
- 	struct component_match *match = NULL;
-+	struct device_node *chip;
- 	struct net_device *dev;
- 	struct dsa_switch_tree *dst;
--	int ret;
-+	int i, ret;
+ 	int i, ret;
+-	unsigned configured = 0;
+ 	struct dsa_switch *ds;
+ 	struct dsa_platform_data *pd = dst->pd;
  
- 	pr_notice_once("Distributed Switch Architecture driver version %s\n",
- 		       dsa_driver_version);
+@@ -831,11 +830,16 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 	dst->cpu_port = -1;
  
--	if (pdev->dev.of_node) {
-+	if (np) {
- 		pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
- 		if (!pd)
- 			return -ENOMEM;
-@@ -926,6 +933,12 @@ static int dsa_probe(struct platform_device *pdev)
+ 	for (i = 0; i < pd->nr_chips; i++) {
+-		ds = dsa_switch_setup(dst, i, parent, pd->chip[i].host_dev);
+-		if (IS_ERR(ds)) {
+-			netdev_err(dev, "[%d]: couldn't create dsa switch instance (error %ld)\n",
+-				   i, PTR_ERR(ds));
+-			continue;
++		if (!dst->ds[i]) {
++			ds = dsa_switch_setup(dst, i, parent,
++					      pd->chip[i].host_dev);
++			if (IS_ERR(ds)) {
++				netdev_err(dev, "[%d]: couldn't create dsa switch instance (error %ld)\n",
++					   i, PTR_ERR(ds));
++				return PTR_ERR(ds);
++			}
++
++			dst->ds[i] = ds;
+ 		}
+ 	}
  
- 	platform_set_drvdata(pdev, dst);
+@@ -844,19 +848,9 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
+ 		ret = dsa_switch_setup_one(ds, parent);
+ 		if (ret)
+ 			return ret;
+-
+-		dst->ds[i] = ds;
+-
+-		++configured;
+ 	}
  
-+	for (i = 0; i < pd->nr_chips; i++) {
-+		chip = pd->chip[i].of_chip;
-+		if (chip)
-+			component_match_add(&pdev->dev, &match, compare_of,
-+					    chip);
-+	}
- 
- 	return component_master_add_with_match(&pdev->dev, &dsa_ops, match);
- 
+ 	/*
+-	 * If no switch was found, exit cleanly
+-	 */
+-	if (!configured)
+-		return -EPROBE_DEFER;
+-
+-	/*
+ 	 * If we use a tagging format that doesn't have an ethertype
+ 	 * field, make sure that all packets from this point on get
+ 	 * sent to the tag format's receive function.
 -- 
 2.6.3
