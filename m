@@ -1,40 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/4] Trivial enhancements for cxgb4
-Date: Wed, 23 Dec 2015 12:06:27 -0500 (EST)
-Message-ID: <20151223.120627.58881114140176817.davem@davemloft.net>
-References: <1450850396-24141-1-git-send-email-hariprasad@chelsio.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/9] cxgb4: Pass correct argument to t4_link_l1cfg()
+Date: Wed, 23 Dec 2015 22:47:11 +0530
+Message-ID: <1450891039-17196-2-git-send-email-hariprasad@chelsio.com>
+References: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36332 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932426AbbLWRGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 12:06:30 -0500
-In-Reply-To: <1450850396-24141-1-git-send-email-hariprasad@chelsio.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:23980 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751728AbbLWRP6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 12:15:58 -0500
+In-Reply-To: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed, 23 Dec 2015 11:29:52 +0530
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> This series adds a debug message if adapter isn't inserted in right PCI
-> slot. Changes naming conventions for iSCSI rx queues, use node info while
-> allocating rx queue and use napi_complete_done() api in napi handler.
-> 
-> This patch series has been created against net-next tree and includes
-> patches on cxgb4 driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
-> 
-> Thanks
-> 
-> V2: Dropped 'dcb_info' debug entry patch, since the same can be achieved
->     using lldp tool.
->     Based on review comments by Or Gerlitz <gerlitz.or@gmail.com> and
->     David Miller.
-
-Series applied, thanks.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+index 2a61a42..7a0b92b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+@@ -686,7 +686,7 @@ static int set_pauseparam(struct net_device *dev,
+ 	if (epause->tx_pause)
+ 		lc->requested_fc |= PAUSE_TX;
+ 	if (netif_running(dev))
+-		return t4_link_l1cfg(p->adapter, p->adapter->pf, p->tx_chan,
++		return t4_link_l1cfg(p->adapter, p->adapter->mbox, p->tx_chan,
+ 				     lc);
+ 	return 0;
+ }
+-- 
+2.3.4
