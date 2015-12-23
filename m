@@ -1,83 +1,352 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] ixgbe: force to synchronize reporting "link on" and
- getting speed and duplex
-Date: Wed, 23 Dec 2015 15:17:29 +0300
-Message-ID: <567A90D9.9040204@cogentembedded.com>
-References: <1450853205-27133-1-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: venkat.viswanathan@windriver.com, Boris.Shteinbock@windriver.com,
-	Vincent.Bourg@windriver.com
-To: zyjzyj2000@gmail.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	bruce.w.allan@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] dsa: mv88e6xxx: Add Second back of statistics
+Date: Wed, 23 Dec 2015 13:23:17 +0100
+Message-ID: <1450873397-19947-1-git-send-email-andrew@lunn.ch>
+Cc: vivian@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:33098 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbbLWMRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 07:17:34 -0500
-Received: by mail-lb0-f172.google.com with SMTP id sv6so38759668lbb.0
-        for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 04:17:33 -0800 (PST)
-In-Reply-To: <1450853205-27133-1-git-send-email-zyjzyj2000@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:48618 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754166AbbLWMX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 07:23:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The 6320 family of switch chips has a second bank for statistics, but
+is missing three statistics in the port registers. Generalise and
+extend the code:
 
-On 12/23/2015 9:46 AM, zyjzyj2000@gmail.com wrote:
+* adding a field to the statistics table indicating the bank/register
+  set where each statistics is.
+* add a function indicating if an individual statistics
+  is available on this device
+* calculate at run time the sset_count.
+* return strings based on the available statistics of the device
+* return statistics based on the available statistics of the device
+* Add support for reading from the second bank.
 
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
->
-> In X540 NIC, there is a time span between reporting "link on" and
-> getting the speed and duplex. To a bonding driver in 802.3ad mode,
-> this time span will make it not work well if the time span is big
-> enough. The big time span will make bonding driver change the state of
-> the slave device to up while the speed and duplex of the slave device
-> can not be gotten. Later the bonding driver will not have change to
-> get the speed and duplex of the slave device. The speed and duplex of
-> the slave device are important to a bonding driver in 802.3ad mode.
->
-> To 82599_SFP NIC and other kinds of NICs, this problem does
-> not exist. As such, it is necessary for X540 to report"link on" when
-> the link speed is not IXGBE_LINK_SPEED_UNKNOWN.
->
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   16 +++++++++++++++-
->   1 file changed, 15 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index aed8d02..cb9d310 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -6479,7 +6479,21 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
->   	       (flow_rx ? "RX" :
->   	       (flow_tx ? "TX" : "None"))));
->
-> -	netif_carrier_on(netdev);
-> +	/*
-> +	 * In X540 NIC, there is a time span between reporting "link on"
-> +	 * and getting the speed and duplex. To a bonding driver in 802.3ad
-> +	 * mode, this time span will make it not work well if the time span
-> +	 * is big enough. To 82599_SFP NIC and other kinds of NICs, this
-> +	 * problem does not exist. As such, it is better for X540 to report
-> +	 * "link on" when the link speed is not IXGBE_LINK_SPEED_UNKNOWN.
-> +	 */
-> +	if ((hw->mac.type == ixgbe_mac_X540) &&
-> +	    (link_speed != IXGBE_LINK_SPEED_UNKNOWN)) {
-> +		netif_carrier_on(netdev);
-> +	} else {
-> +		netif_carrier_on(netdev);
-> +	}
-> +
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx.c | 230 +++++++++++++++++++++++---------------------
+ drivers/net/dsa/mv88e6xxx.h |   8 ++
+ 2 files changed, 129 insertions(+), 109 deletions(-)
 
-    {} not needed here. And you do the same thing regardless of whether your 
-check succeeds or not, this doesn't make sense.
-
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 75e245c4235e..9fe33fc3c2b9 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -617,98 +617,112 @@ static void _mv88e6xxx_stats_read(struct dsa_switch *ds, int stat, u32 *val)
+ }
+ 
+ static struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
+-	{ "in_good_octets", 8, 0x00, },
+-	{ "in_bad_octets", 4, 0x02, },
+-	{ "in_unicast", 4, 0x04, },
+-	{ "in_broadcasts", 4, 0x06, },
+-	{ "in_multicasts", 4, 0x07, },
+-	{ "in_pause", 4, 0x16, },
+-	{ "in_undersize", 4, 0x18, },
+-	{ "in_fragments", 4, 0x19, },
+-	{ "in_oversize", 4, 0x1a, },
+-	{ "in_jabber", 4, 0x1b, },
+-	{ "in_rx_error", 4, 0x1c, },
+-	{ "in_fcs_error", 4, 0x1d, },
+-	{ "out_octets", 8, 0x0e, },
+-	{ "out_unicast", 4, 0x10, },
+-	{ "out_broadcasts", 4, 0x13, },
+-	{ "out_multicasts", 4, 0x12, },
+-	{ "out_pause", 4, 0x15, },
+-	{ "excessive", 4, 0x11, },
+-	{ "collisions", 4, 0x1e, },
+-	{ "deferred", 4, 0x05, },
+-	{ "single", 4, 0x14, },
+-	{ "multiple", 4, 0x17, },
+-	{ "out_fcs_error", 4, 0x03, },
+-	{ "late", 4, 0x1f, },
+-	{ "hist_64bytes", 4, 0x08, },
+-	{ "hist_65_127bytes", 4, 0x09, },
+-	{ "hist_128_255bytes", 4, 0x0a, },
+-	{ "hist_256_511bytes", 4, 0x0b, },
+-	{ "hist_512_1023bytes", 4, 0x0c, },
+-	{ "hist_1024_max_bytes", 4, 0x0d, },
+-	/* Not all devices have the following counters */
+-	{ "sw_in_discards", 4, 0x110, },
+-	{ "sw_in_filtered", 2, 0x112, },
+-	{ "sw_out_filtered", 2, 0x113, },
+-
++	{ "in_good_octets",	8, 0x00, BANK0, },
++	{ "in_bad_octets",	4, 0x02, BANK0, },
++	{ "in_unicast",		4, 0x04, BANK0, },
++	{ "in_broadcasts",	4, 0x06, BANK0, },
++	{ "in_multicasts",	4, 0x07, BANK0, },
++	{ "in_pause",		4, 0x16, BANK0, },
++	{ "in_undersize",	4, 0x18, BANK0, },
++	{ "in_fragments",	4, 0x19, BANK0, },
++	{ "in_oversize",	4, 0x1a, BANK0, },
++	{ "in_jabber",		4, 0x1b, BANK0, },
++	{ "in_rx_error",	4, 0x1c, BANK0, },
++	{ "in_fcs_error",	4, 0x1d, BANK0, },
++	{ "out_octets",		8, 0x0e, BANK0, },
++	{ "out_unicast",	4, 0x10, BANK0, },
++	{ "out_broadcasts",	4, 0x13, BANK0, },
++	{ "out_multicasts",	4, 0x12, BANK0, },
++	{ "out_pause",		4, 0x15, BANK0, },
++	{ "excessive",		4, 0x11, BANK0, },
++	{ "collisions",		4, 0x1e, BANK0, },
++	{ "deferred",		4, 0x05, BANK0, },
++	{ "single",		4, 0x14, BANK0, },
++	{ "multiple",		4, 0x17, BANK0, },
++	{ "out_fcs_error",	4, 0x03, BANK0, },
++	{ "late",		4, 0x1f, BANK0, },
++	{ "hist_64bytes",	4, 0x08, BANK0, },
++	{ "hist_65_127bytes",	4, 0x09, BANK0, },
++	{ "hist_128_255bytes",	4, 0x0a, BANK0, },
++	{ "hist_256_511bytes",	4, 0x0b, BANK0, },
++	{ "hist_512_1023bytes", 4, 0x0c, BANK0, },
++	{ "hist_1024_max_bytes", 4, 0x0d, BANK0, },
++	{ "sw_in_discards",	4, 0x10, PORT, },
++	{ "sw_in_filtered",	2, 0x12, PORT, },
++	{ "sw_out_filtered",	2, 0x13, PORT, },
++	{ "in_discards",	4, 0x00 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_filtered",	4, 0x01 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_accepted",	4, 0x02 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_bad_accepted",	4, 0x03 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_good_avb_class_a", 4, 0x04 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_good_avb_class_b", 4, 0x05 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_bad_avb_class_a", 4, 0x06 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_bad_avb_class_b", 4, 0x07 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "tcam_counter_0",	4, 0x08 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "tcam_counter_1",	4, 0x09 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "tcam_counter_2",	4, 0x0a | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "tcam_counter_3",	4, 0x0b | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_da_unknown",	4, 0x0e | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "in_management",	4, 0x0f | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_0",	4, 0x10 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_1",	4, 0x11 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_2",	4, 0x12 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_3",	4, 0x13 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_4",	4, 0x14 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_5",	4, 0x15 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_6",	4, 0x16 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_queue_7",	4, 0x17 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_cut_through",	4, 0x18 | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_octets_a",	4, 0x1a | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_octets_b",	4, 0x1b | GLOBAL_STATS_OP_BANK_1, BANK1, },
++	{ "out_management",	4, 0x1f | GLOBAL_STATS_OP_BANK_1, BANK1, },
+ };
+ 
+-static bool have_sw_in_discards(struct dsa_switch *ds)
++static bool mv88e6xxx_has_stat(struct dsa_switch *ds,
++			       struct mv88e6xxx_hw_stat *stat)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6095: case PORT_SWITCH_ID_6161:
+-	case PORT_SWITCH_ID_6165: case PORT_SWITCH_ID_6171:
+-	case PORT_SWITCH_ID_6172: case PORT_SWITCH_ID_6176:
+-	case PORT_SWITCH_ID_6182: case PORT_SWITCH_ID_6185:
+-	case PORT_SWITCH_ID_6352:
++	switch (stat->type) {
++	case BANK0:
+ 		return true;
+-	default:
+-		return false;
+-	}
+-}
+-
+-static void _mv88e6xxx_get_strings(struct dsa_switch *ds,
+-				   int nr_stats,
+-				   struct mv88e6xxx_hw_stat *stats,
+-				   int port, uint8_t *data)
+-{
+-	int i;
+-
+-	for (i = 0; i < nr_stats; i++) {
+-		memcpy(data + i * ETH_GSTRING_LEN,
+-		       stats[i].string, ETH_GSTRING_LEN);
++	case BANK1:
++		return mv88e6xxx_6320_family(ds);
++	case PORT:
++		return mv88e6xxx_6095_family(ds) ||
++			mv88e6xxx_6185_family(ds) ||
++			mv88e6xxx_6097_family(ds) ||
++			mv88e6xxx_6165_family(ds) ||
++			mv88e6xxx_6351_family(ds) ||
++			mv88e6xxx_6352_family(ds);
+ 	}
++	return false;
+ }
+ 
+ static uint64_t _mv88e6xxx_get_ethtool_stat(struct dsa_switch *ds,
+-					    int stat,
+-					    struct mv88e6xxx_hw_stat *stats,
++					    struct mv88e6xxx_hw_stat *s,
+ 					    int port)
+ {
+-	struct mv88e6xxx_hw_stat *s = stats + stat;
+ 	u32 low;
+ 	u32 high = 0;
+ 	int ret;
+ 	u64 value;
+ 
+-	if (s->reg >= 0x100) {
+-		ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
+-					  s->reg - 0x100);
++	switch (s->type) {
++	case PORT:
++		ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), s->reg);
+ 		if (ret < 0)
+ 			return UINT64_MAX;
+ 
+ 		low = ret;
+ 		if (s->sizeof_stat == 4) {
+ 			ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
+-						  s->reg - 0x100 + 1);
++						  s->reg + 1);
+ 			if (ret < 0)
+ 				return UINT64_MAX;
+ 			high = ret;
+ 		}
+-	} else {
++		break;
++	case BANK0:
++	case BANK1:
+ 		_mv88e6xxx_stats_read(ds, s->reg, &low);
+ 		if (s->sizeof_stat == 8)
+ 			_mv88e6xxx_stats_read(ds, s->reg + 1, &high);
+@@ -717,61 +731,59 @@ static uint64_t _mv88e6xxx_get_ethtool_stat(struct dsa_switch *ds,
+ 	return value;
+ }
+ 
+-static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
+-					 int nr_stats,
+-					 struct mv88e6xxx_hw_stat *stats,
+-					 int port, uint64_t *data)
++void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-	int i;
+-
+-	mutex_lock(&ps->smi_mutex);
++	struct mv88e6xxx_hw_stat *stat;
++	int i, j;
+ 
+-	ret = _mv88e6xxx_stats_snapshot(ds, port);
+-	if (ret < 0) {
+-		mutex_unlock(&ps->smi_mutex);
+-		return;
++	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
++		stat = &mv88e6xxx_hw_stats[i];
++		if (mv88e6xxx_has_stat(ds, stat)) {
++			memcpy(data + j * ETH_GSTRING_LEN, stat->string,
++			       ETH_GSTRING_LEN);
++			j++;
++		}
+ 	}
+-
+-	/* Read each of the counters. */
+-	for (i = 0; i < nr_stats; i++)
+-		data[i] = _mv88e6xxx_get_ethtool_stat(ds, i, stats, port);
+-
+-	mutex_unlock(&ps->smi_mutex);
+-}
+-
+-/* All the statistics in the table */
+-void
+-mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+-{
+-	if (have_sw_in_discards(ds))
+-		_mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6xxx_hw_stats),
+-				       mv88e6xxx_hw_stats, port, data);
+-	else
+-		_mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6xxx_hw_stats) - 3,
+-				       mv88e6xxx_hw_stats, port, data);
+ }
+ 
+ int mv88e6xxx_get_sset_count(struct dsa_switch *ds)
+ {
+-	if (have_sw_in_discards(ds))
+-		return ARRAY_SIZE(mv88e6xxx_hw_stats);
+-	return ARRAY_SIZE(mv88e6xxx_hw_stats) - 3;
++	struct mv88e6xxx_hw_stat *stat;
++	int i, j;
++
++	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
++		stat = &mv88e6xxx_hw_stats[i];
++		if (mv88e6xxx_has_stat(ds, stat))
++			j++;
++	}
++	return j;
+ }
+ 
+ void
+ mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
+ 			    int port, uint64_t *data)
+ {
+-	if (have_sw_in_discards(ds))
+-		_mv88e6xxx_get_ethtool_stats(
+-			ds, ARRAY_SIZE(mv88e6xxx_hw_stats),
+-			mv88e6xxx_hw_stats, port, data);
+-	else
+-		_mv88e6xxx_get_ethtool_stats(
+-			ds, ARRAY_SIZE(mv88e6xxx_hw_stats) - 3,
+-			mv88e6xxx_hw_stats, port, data);
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_hw_stat *stat;
++	int ret;
++	int i, j;
++
++	mutex_lock(&ps->smi_mutex);
++
++	ret = _mv88e6xxx_stats_snapshot(ds, port);
++	if (ret < 0) {
++		mutex_unlock(&ps->smi_mutex);
++		return;
++	}
++	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
++		stat = &mv88e6xxx_hw_stats[i];
++		if (mv88e6xxx_has_stat(ds, stat)) {
++			data[j] = _mv88e6xxx_get_ethtool_stat(ds, stat, port);
++			j++;
++		}
++	}
++
++	mutex_unlock(&ps->smi_mutex);
+ }
+ 
+ int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 21c8daa03f78..ca08f913d302 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -288,6 +288,7 @@
+ #define GLOBAL_STATS_OP_HIST_RX		((1 << 10) | GLOBAL_STATS_OP_BUSY)
+ #define GLOBAL_STATS_OP_HIST_TX		((2 << 10) | GLOBAL_STATS_OP_BUSY)
+ #define GLOBAL_STATS_OP_HIST_RX_TX	((3 << 10) | GLOBAL_STATS_OP_BUSY)
++#define GLOBAL_STATS_OP_BANK_1	BIT(9)
+ #define GLOBAL_STATS_COUNTER_32	0x1e
+ #define GLOBAL_STATS_COUNTER_01	0x1f
+ 
+@@ -420,10 +421,17 @@ struct mv88e6xxx_priv_state {
+ 	struct work_struct bridge_work;
+ };
+ 
++enum stat_type {
++	BANK0,
++	BANK1,
++	PORT,
++};
++
+ struct mv88e6xxx_hw_stat {
+ 	char string[ETH_GSTRING_LEN];
+ 	int sizeof_stat;
+ 	int reg;
++	enum stat_type type;
+ };
+ 
+ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
+-- 
+2.6.4
