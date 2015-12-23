@@ -1,102 +1,208 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 8/9] cxgb4: Update SGE context congestion map change for T6 adapter
-Date: Wed, 23 Dec 2015 22:47:18 +0530
-Message-ID: <1450891039-17196-9-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 7/9] cxgb4: Update mps_tcam output to include T6 fields
+Date: Wed, 23 Dec 2015 22:47:17 +0530
+Message-ID: <1450891039-17196-8-git-send-email-hariprasad@chelsio.com>
 References: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:30645 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:42965 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933296AbbLWRQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 12:16:13 -0500
+	by vger.kernel.org with ESMTP id S933213AbbLWRQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 12:16:11 -0500
 In-Reply-To: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGE context congestion map changed from 4 to 8 priority per port
-in T6 as there are only 2 channels.
+In T6, MPS classification has a 512 deep TCAM to do the match lookup.
+Each entry has 80x2b sets containing 48 bit MAC address, port number,
+VLAN Valid/ID, VNI, lookup type (outer or inner packet header).
+[71:48] bit locations are overloaded for outer vs. inner lookup types.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h | 1 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 7 ++++---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 9 +++++++++
- 3 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 100 +++++++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  24 +++++
+ 2 files changed, 105 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 5c193a5..ec6e849 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -302,6 +302,7 @@ struct devlog_params {
- struct arch_specific_params {
- 	u8 nchan;
- 	u8 pm_stats_cnt;
-+	u8 cng_ch_bits_log;		/* congestion channel map bits width */
- 	u16 mps_rplc_size;
- 	u16 vfcount;
- 	u32 sge_fl_db;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 5829c9c..b4eb468 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2670,8 +2670,9 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	 * simple (and hopefully less wrong).
- 	 */
- 	if (!is_t4(adap->params.chip) && cong >= 0) {
--		u32 param, val;
-+		u32 param, val, ch_map = 0;
- 		int i;
-+		u16 cng_ch_bits_log = adap->params.arch.cng_ch_bits_log;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 98965a4..1fe2db7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -1586,25 +1586,35 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
+ {
+ 	struct adapter *adap = seq->private;
+ 	unsigned int chip_ver = CHELSIO_CHIP_VERSION(adap->params.chip);
+-
+ 	if (v == SEQ_START_TOKEN) {
+-		if (adap->params.arch.mps_rplc_size > 128)
++		if (chip_ver > CHELSIO_T5) {
+ 			seq_puts(seq, "Idx  Ethernet address     Mask     "
++				 "  VNI   Mask   IVLAN Vld "
++				 "DIP_Hit   Lookup  Port "
+ 				 "Vld Ports PF  VF                           "
+ 				 "Replication                                "
+ 				 "    P0 P1 P2 P3  ML\n");
+-		else
+-			seq_puts(seq, "Idx  Ethernet address     Mask     "
+-				 "Vld Ports PF  VF              Replication"
+-				 "	         P0 P1 P2 P3  ML\n");
++		} else {
++			if (adap->params.arch.mps_rplc_size > 128)
++				seq_puts(seq, "Idx  Ethernet address     Mask     "
++					 "Vld Ports PF  VF                           "
++					 "Replication                                "
++					 "    P0 P1 P2 P3  ML\n");
++			else
++				seq_puts(seq, "Idx  Ethernet address     Mask     "
++					 "Vld Ports PF  VF              Replication"
++					 "	         P0 P1 P2 P3  ML\n");
++		}
+ 	} else {
+ 		u64 mask;
+ 		u8 addr[ETH_ALEN];
+-		bool replicate;
++		bool replicate, dip_hit = false, vlan_vld = false;
+ 		unsigned int idx = (uintptr_t)v - 2;
+ 		u64 tcamy, tcamx, val;
+-		u32 cls_lo, cls_hi, ctl;
++		u32 cls_lo, cls_hi, ctl, data2, vnix = 0, vniy = 0;
+ 		u32 rplc[8] = {0};
++		u8 lookup_type = 0, port_num = 0;
++		u16 ivlan = 0;
  
- 		param = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
- 			 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DMAQ_CONM_CTXT) |
-@@ -2683,9 +2684,9 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 			    CONMCTXT_CNGTPMODE_V(CONMCTXT_CNGTPMODE_CHANNEL_X);
- 			for (i = 0; i < 4; i++) {
- 				if (cong & (1 << i))
--					val |=
--					     CONMCTXT_CNGCHMAP_V(1 << (i << 2));
-+					ch_map |= 1 << (i << cng_ch_bits_log);
- 			}
-+			val |= CONMCTXT_CNGCHMAP_V(ch_map);
+ 		if (chip_ver > CHELSIO_T5) {
+ 			/* CtlCmdType - 0: Read, 1: Write
+@@ -1623,6 +1633,22 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
+ 			val = t4_read_reg(adap, MPS_CLS_TCAM_DATA1_A);
+ 			tcamy = DMACH_G(val) << 32;
+ 			tcamy |= t4_read_reg(adap, MPS_CLS_TCAM_DATA0_A);
++			data2 = t4_read_reg(adap, MPS_CLS_TCAM_DATA2_CTL_A);
++			lookup_type = DATALKPTYPE_G(data2);
++			/* 0 - Outer header, 1 - Inner header
++			 * [71:48] bit locations are overloaded for
++			 * outer vs. inner lookup types.
++			 */
++			if (lookup_type && (lookup_type != DATALKPTYPE_M)) {
++				/* Inner header VNI */
++				vniy = ((data2 & DATAVIDH2_F) << 23) |
++				       (DATAVIDH1_G(data2) << 16) | VIDL_G(val);
++				dip_hit = data2 & DATADIPHIT_F;
++			} else {
++				vlan_vld = data2 & DATAVIDH2_F;
++				ivlan = VIDL_G(val);
++			}
++			port_num = DATAPORTNUM_G(data2);
+ 
+ 			/* Read tcamx. Change the control param */
+ 			ctl |= CTLXYBITSEL_V(1);
+@@ -1630,6 +1656,12 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
+ 			val = t4_read_reg(adap, MPS_CLS_TCAM_DATA1_A);
+ 			tcamx = DMACH_G(val) << 32;
+ 			tcamx |= t4_read_reg(adap, MPS_CLS_TCAM_DATA0_A);
++			data2 = t4_read_reg(adap, MPS_CLS_TCAM_DATA2_CTL_A);
++			if (lookup_type && (lookup_type != DATALKPTYPE_M)) {
++				/* Inner header VNI mask */
++				vnix = ((data2 & DATAVIDH2_F) << 23) |
++				       (DATAVIDH1_G(data2) << 16) | VIDL_G(val);
++			}
+ 		} else {
+ 			tcamy = t4_read_reg64(adap, MPS_CLS_TCAM_Y_L(idx));
+ 			tcamx = t4_read_reg64(adap, MPS_CLS_TCAM_X_L(idx));
+@@ -1689,17 +1721,47 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
  		}
- 		ret = t4_set_params(adap, adap->mbox, adap->pf, 0, 1,
- 				    &param, &val);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 0132b64..636b469 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -7194,6 +7194,10 @@ int t4_prep_adapter(struct adapter *adapter)
- 		adapter->params.arch.nchan = NCHAN;
- 		adapter->params.arch.pm_stats_cnt = PM_NSTATS;
- 		adapter->params.arch.vfcount = 128;
-+		/* Congestion map is for 4 channels so that
-+		 * MPS can have 4 priority per port.
-+		 */
-+		adapter->params.arch.cng_ch_bits_log = 2;
- 		break;
- 	case CHELSIO_T5:
- 		adapter->params.chip |= CHELSIO_CHIP_CODE(CHELSIO_T5, pl_rev);
-@@ -7204,6 +7208,7 @@ int t4_prep_adapter(struct adapter *adapter)
- 		adapter->params.arch.nchan = NCHAN;
- 		adapter->params.arch.pm_stats_cnt = PM_NSTATS;
- 		adapter->params.arch.vfcount = 128;
-+		adapter->params.arch.cng_ch_bits_log = 2;
- 		break;
- 	case CHELSIO_T6:
- 		adapter->params.chip |= CHELSIO_CHIP_CODE(CHELSIO_T6, pl_rev);
-@@ -7214,6 +7219,10 @@ int t4_prep_adapter(struct adapter *adapter)
- 		adapter->params.arch.nchan = 2;
- 		adapter->params.arch.pm_stats_cnt = T6_PM_NSTATS;
- 		adapter->params.arch.vfcount = 256;
-+		/* Congestion map will be for 2 channels so that
-+		 * MPS can have 8 priority per port.
-+		 */
-+		adapter->params.arch.cng_ch_bits_log = 3;
- 		break;
- 	default:
- 		dev_err(adapter->pdev_dev, "Device %d is not supported\n",
+ 
+ 		tcamxy2valmask(tcamx, tcamy, addr, &mask);
+-		if (chip_ver > CHELSIO_T5)
+-			seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x "
+-				   "%012llx%3c   %#x%4u%4d",
+-				   idx, addr[0], addr[1], addr[2], addr[3],
+-				   addr[4], addr[5], (unsigned long long)mask,
+-				   (cls_lo & T6_SRAM_VLD_F) ? 'Y' : 'N',
+-				   PORTMAP_G(cls_hi),
+-				   T6_PF_G(cls_lo),
+-				   (cls_lo & T6_VF_VALID_F) ?
+-				   T6_VF_G(cls_lo) : -1);
+-		else
++		if (chip_ver > CHELSIO_T5) {
++			/* Inner header lookup */
++			if (lookup_type && (lookup_type != DATALKPTYPE_M)) {
++				seq_printf(seq,
++					   "%3u %02x:%02x:%02x:%02x:%02x:%02x "
++					   "%012llx %06x %06x    -    -   %3c"
++					   "      %3c  %4x   "
++					   "%3c   %#x%4u%4d", idx, addr[0],
++					   addr[1], addr[2], addr[3],
++					   addr[4], addr[5],
++					   (unsigned long long)mask,
++					   vniy, vnix, dip_hit ? 'Y' : 'N',
++					   lookup_type ? 'I' : 'O', port_num,
++					   (cls_lo & T6_SRAM_VLD_F) ? 'Y' : 'N',
++					   PORTMAP_G(cls_hi),
++					   T6_PF_G(cls_lo),
++					   (cls_lo & T6_VF_VALID_F) ?
++					   T6_VF_G(cls_lo) : -1);
++			} else {
++				seq_printf(seq,
++					   "%3u %02x:%02x:%02x:%02x:%02x:%02x "
++					   "%012llx    -       -   ",
++					   idx, addr[0], addr[1], addr[2],
++					   addr[3], addr[4], addr[5],
++					   (unsigned long long)mask);
++
++				if (vlan_vld)
++					seq_printf(seq, "%4u   Y     ", ivlan);
++				else
++					seq_puts(seq, "  -    N     ");
++
++				seq_printf(seq,
++					   "-      %3c  %4x   %3c   %#x%4u%4d",
++					   lookup_type ? 'I' : 'O', port_num,
++					   (cls_lo & T6_SRAM_VLD_F) ? 'Y' : 'N',
++					   PORTMAP_G(cls_hi),
++					   T6_PF_G(cls_lo),
++					   (cls_lo & T6_VF_VALID_F) ?
++					   T6_VF_G(cls_lo) : -1);
++			}
++		} else
+ 			seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x "
+ 				   "%012llx%3c   %#x%4u%4d",
+ 				   idx, addr[0], addr[1], addr[2], addr[3],
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 0971cc4..9fea255 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -2398,6 +2398,30 @@
+ #define MPS_CLS_TCAM_DATA0_A 0xf000
+ #define MPS_CLS_TCAM_DATA1_A 0xf004
+ 
++#define VIDL_S    16
++#define VIDL_M    0xffffU
++#define VIDL_G(x) (((x) >> VIDL_S) & VIDL_M)
++
++#define DATALKPTYPE_S    10
++#define DATALKPTYPE_M    0x3U
++#define DATALKPTYPE_G(x) (((x) >> DATALKPTYPE_S) & DATALKPTYPE_M)
++
++#define DATAPORTNUM_S    12
++#define DATAPORTNUM_M    0xfU
++#define DATAPORTNUM_G(x) (((x) >> DATAPORTNUM_S) & DATAPORTNUM_M)
++
++#define DATADIPHIT_S    8
++#define DATADIPHIT_V(x) ((x) << DATADIPHIT_S)
++#define DATADIPHIT_F    DATADIPHIT_V(1U)
++
++#define DATAVIDH2_S    7
++#define DATAVIDH2_V(x) ((x) << DATAVIDH2_S)
++#define DATAVIDH2_F    DATAVIDH2_V(1U)
++
++#define DATAVIDH1_S    0
++#define DATAVIDH1_M    0x7fU
++#define DATAVIDH1_G(x) (((x) >> DATAVIDH1_S) & DATAVIDH1_M)
++
+ #define USED_S    16
+ #define USED_M    0x7ffU
+ #define USED_G(x) (((x) >> USED_S) & USED_M)
 -- 
 2.3.4
