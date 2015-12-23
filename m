@@ -1,62 +1,49 @@
-From: Henri Roosen <henri.roosen@ginzinger.com>
-Subject: Re: [PATCH 1/1] phy: micrel: Fix finding PHY properties in MAC node
- for KSZ9031.
-Date: Wed, 23 Dec 2015 09:11:22 +0100
-Message-ID: <567A572A.4030207@ginzinger.com>
-References: <1450781920-26912-1-git-send-email-henri.roosen@ginzinger.com>
- <20151222110634.GC2373@lunn.ch>
- <20151222.171444.1073714139867888727.davem@davemloft.net>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
+Date: Wed, 23 Dec 2015 09:20:13 +0100
+Message-ID: <1450858813.6437.2.camel@suse.de>
+References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
+	 <20151208143305.GB18728@al>
+	 <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
+	 <1450782082.8824.23.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F94FFF@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ginzinger.com ([31.193.165.229]:17626 "EHLO
-	mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933475AbbLWIUl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 03:20:41 -0500
-In-Reply-To: <20151222.171444.1073714139867888727.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F94FFF@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/22/2015 11:14 PM, David Miller wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Tue, 22 Dec 2015 12:06:34 +0100
->
->> On Tue, Dec 22, 2015 at 11:58:40AM +0100, Henri Roosen wrote:
->>> Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
->>>   node.") only fixes finding PHY properties in MAC node for KSZ9021. This
->>> commit applies the same fix for KSZ9031.
->>>
->>> Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
->>
->> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
->>
->> Acked-by: Andrew Lunn <andrew@lunn.ch>
->
-> This does not apply cleanly to any of my trees.
+On Wed, 2015-12-23 at 03:31 +0000, Hayes Wang wrote:
+> Oliver Neukum [mailto:oneukum@suse.com]
+> [...]
+> > It is clear to me that you cannot get away with using the same operation
+> > for resume() and reset_resume() in your driver. It is fundamentally
+> > impossible. Firmware cannot fix it.
+> 
+> I would think how to fix it.
+> 
+> > Sorry for the length of the explanation.
+> 
+> Thanks for your response. I have some questions. What are the flows when
+> the system resume follows a system suspend which follows a autosuspend?
+> Are they as following?
+> 
+> 1. suspend() with PMSG_IS_AUTO for autosuspned.
+> 2. suspend() for system suspend.
+> 3. resume() for system resume.
+> 
+> And, should the device exist autosuspend before (2)? 
 
-David, does the original patch not apply cleanly or is your comment only
-on the message from Andrew?
+No, step (2) does not exist. Calls to suspend() and [reset_]resume()
+always balance. Usually a driver shouldn't care about system suspend.
+The way the driver is currently coded will also fail for Port-Power Off.
 
-Else please let me know what is wrong with the original patch. I've
-tested it applies cleanly to v4.4-rc6 and to v4.3.
-
->
-
-________________________________
-
-Ginzinger electronic systems GmbH
-Gewerbegebiet Pirath 16
-4952 Weng im Innkreis
-www.ginzinger.com
-
-Firmenbuchnummer: FN 364958d
-Firmenbuchgericht: Ried im Innkreis
-UID-Nr.: ATU66521089
-
-________________________________
-*** WEIHNACHTSURLAUB VON DONNERSTAG, DEN 24. DEZEMBER 2015 BIS MITTWOCH, DEN 6. JAENNER 2016 ***
-*** CHRISTMAS VACATION FROM THURSDAY, THE 24 DECEMBER 2015 TO WEDNESDAY, 6 JANUARY 2016 ***
+	Regards
+		Oliver
