@@ -1,44 +1,80 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Wed, 23 Dec 2015 09:20:25 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F9547E@RTITMBSV03.realtek.com.tw>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
-	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
-	 <20151208143305.GB18728@al>
-	 <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
-	 <1450782082.8824.23.camel@suse.com>
-	 <0835B3720019904CB8F7AA43166CEEB2F94FFF@RTITMBSV03.realtek.com.tw>
- <1450858813.6437.2.camel@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org" <peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450858813.6437.2.camel-l3A5Bk7waGM@public.gmane.org>
-Content-Language: zh-TW
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Xing Zheng <zhengxing@rock-chips.com>
+Subject: [PATCH 3/4] net: ethernet: arc: Add support emac for RK3036
+Date: Wed, 23 Dec 2015 17:19:49 +0800
+Message-ID: <1450862390-407-3-git-send-email-zhengxing@rock-chips.com>
+References: <1450862390-407-1-git-send-email-zhengxing@rock-chips.com>
+Cc: keescook@google.com, leozwang@google.com, heiko@sntech.de,
+	Xing Zheng <zhengxing@rock-chips.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: linux-rockchip@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from regular2.263xmail.com ([211.157.152.3]:40397 "EHLO
+	regular2.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754234AbbLWJUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 04:20:10 -0500
+Received: from regular1.263xmail.com (unknown [192.168.165.185])
+	by regular2.263xmail.com (Postfix) with ESMTP id 8923A1EBB5
+	for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 17:20:05 +0800 (CST)
+In-Reply-To: <1450862390-407-1-git-send-email-zhengxing@rock-chips.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5kZV0NCj4gU2VudDogV2VkbmVzZGF5
-LCBEZWNlbWJlciAyMywgMjAxNSA0OjIwIFBNDQpbLi4uXQ0KPiBObywgc3RlcCAoMikgZG9lcyBu
-b3QgZXhpc3QuIENhbGxzIHRvIHN1c3BlbmQoKSBhbmQgW3Jlc2V0X11yZXN1bWUoKQ0KPiBhbHdh
-eXMgYmFsYW5jZS4gVXN1YWxseSBhIGRyaXZlciBzaG91bGRuJ3QgY2FyZSBhYm91dCBzeXN0ZW0g
-c3VzcGVuZC4NCj4gVGhlIHdheSB0aGUgZHJpdmVyIGlzIGN1cnJlbnRseSBjb2RlZCB3aWxsIGFs
-c28gZmFpbCBmb3IgUG9ydC1Qb3dlciBPZmYuDQoNCkl0IGlzIGRpZmZlcmVudCB3aXRoIFdpbmRv
-d3MuIFRoZSBXaW5kb3dzIHdvdWxkIHJlc3VtZSB0aGUgZGV2aWNlIGJlZm9yZQ0Kc3lzdGVtIHN1
-c3BlbmQsIGlmIHRoZSBzeXN0ZW0gc3VzcGVuZCBmb2xsb3dzIHRoZSBhdXRvc3VzcGVuZC4NCg0K
-V291bGQgdGhpcyBiZSBhIHByb2JsZW0/IEFmdGVyIHN5c3RlbSBzdXNwZW5kLCB0aGUgZGV2aWNl
-IG1heSB3YWtlIHVwDQp0aGUgc3lzdGVtIHdoZW4gcmVjZWl2aW5nIGFueSBwYWNrZXQsIG5vdCBv
-bmx5IG1hZ2ljIHBhY2tldC4gVGhlIHdha2UNCmV2ZW50cyBhcmUgZGlmZmVyZW50IGZvciBzeXN0
-ZW0gc3VzcGVuZCBhbmQgYXV0b3N1c3BlbmQuIEhvd2V2ZXIsIEkNCmNvdWxkbid0IGNoYW5nZSB0
-aGUgd2FrZSBldmVudCwgYmVjYXVzZSB0aGUgYXV0b3N1c3BlbmQgb2NjdXJzIGZpcnN0LA0KYW5k
-IHRoZSBzdXNwZW5kKCkgaXMgb25seSBjYWxsZWQgb25jZS4NCg0KQmVzdCBSZWdhcmRzLA0KSGF5
-ZXMNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The RK3036's GRFs offset are different with RK3066/RK3188, and need to set
+mac TX/RX clock before probe emac.
+
+Signed-off-by: Xing Zheng <zhengxing@rock-chips.com>
+---
+
+ drivers/net/ethernet/arc/Kconfig         |    4 ++--
+ drivers/net/ethernet/arc/emac_rockchip.c |    9 +++++++--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/arc/Kconfig b/drivers/net/ethernet/arc/Kconfig
+index 52a6b16..6890451 100644
+--- a/drivers/net/ethernet/arc/Kconfig
++++ b/drivers/net/ethernet/arc/Kconfig
+@@ -34,9 +34,9 @@ config EMAC_ROCKCHIP
+ 	select ARC_EMAC_CORE
+ 	depends on OF_IRQ && OF_NET && REGULATOR && HAS_DMA
+ 	---help---
+-	  Support for Rockchip RK3066/RK3188 EMAC ethernet controllers.
++	  Support for Rockchip RK3036/RK3066/RK3188 EMAC ethernet controllers.
+ 	  This selects Rockchip SoC glue layer support for the
+-	  emac device driver. This driver is used for RK3066/RK3188
++	  emac device driver. This driver is used for RK3036/RK3066/RK3188
+ 	  EMAC ethernet controller.
+ 
+ endif # NET_VENDOR_ARC
+diff --git a/drivers/net/ethernet/arc/emac_rockchip.c b/drivers/net/ethernet/arc/emac_rockchip.c
+index d1a9c28..2433eeb 100644
+--- a/drivers/net/ethernet/arc/emac_rockchip.c
++++ b/drivers/net/ethernet/arc/emac_rockchip.c
+@@ -69,6 +69,10 @@ static void emac_rockchip_set_mac_speed(void *priv, unsigned int speed)
+ 
+ static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
+ 	{
++	  .grf_offset = 0x140,   .grf_mode_offset = 8,
++	  .grf_speed_offset = 9, .need_div_macclk = 1
++	}, /* rk3036 */
++	{
+ 	  .grf_offset = 0x154,   .grf_mode_offset = 0,
+ 	  .grf_speed_offset = 1, .need_div_macclk = 0
+ 	}, /* rk3066 */
+@@ -79,8 +83,9 @@ static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
+ };
+ 
+ static const struct of_device_id emac_rockchip_dt_ids[] = {
+-	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[0] },
+-	{ .compatible = "rockchip,rk3188-emac", .data = &emac_rockchip_dt_data[1] },
++	{ .compatible = "rockchip,rk3036-emac", .data = &emac_rockchip_dt_data[0] },
++	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[1] },
++	{ .compatible = "rockchip,rk3188-emac", .data = &emac_rockchip_dt_data[2] },
+ 	{ /* Sentinel */ }
+ };
+ 
+-- 
+1.7.9.5
