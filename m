@@ -1,55 +1,76 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] ip_tunnel: Move stats update to iptunnel_xmit()
-Date: Wed, 23 Dec 2015 10:49:07 +0100
-Message-ID: <567A6E13.3080909@6wind.com>
-References: <1450744476-23539-1-git-send-email-pshelar@nicira.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel J Blueman <daniel@numascale.com>
+Subject: [PATCH 2/2] ixgbe: Use core to device locality interface
+Date: Wed, 23 Dec 2015 18:01:41 +0800
+Message-ID: <1450864901-16712-2-git-send-email-daniel@numascale.com>
+References: <1450864901-16712-1-git-send-email-daniel@numascale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:33262 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbbLWJtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 04:49:10 -0500
-Received: by mail-wm0-f42.google.com with SMTP id p187so138109066wmp.0
-        for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 01:49:10 -0800 (PST)
-In-Reply-To: <1450744476-23539-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Daniel J Blueman <daniel@numascale.com>,
+	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
+	<linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Steffen Persvold <sp@numascale.com>,
+	Jiang Liu <jiang.liu@linux.intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Bjorn Helgaas <bhelgaas@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450864901-16712-1-git-send-email-daniel@numascale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 22/12/2015 01:34, Pravin B Shelar a =C3=A9crit :
-> By moving stats update into iptunnel_xmit(), we can simplify
-> iptunnel_xmit() usage. With this change there is no need to
-> call another function (iptunnel_xmit_stats()) to update stats
-> in tunnel xmit code path.
->
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-[snip]
-> +static inline void iptunnel_xmit_stats(struct net_device *dev, int e=
-rr)
->   {
->   	if (err > 0) {
-> -		struct pcpu_sw_netstats *tstats =3D get_cpu_ptr(stats);
-> +		struct pcpu_sw_netstats *tstats =3D get_cpu_ptr(dev->tstats);
->
->   		u64_stats_update_begin(&tstats->syncp);
->   		tstats->tx_bytes +=3D err;
->   		tstats->tx_packets++;
->   		u64_stats_update_end(&tstats->syncp);
->   		put_cpu_ptr(tstats);
-> -	} else if (err < 0) {
-> +	} else {
-> +		struct net_device_stats *err_stats =3D &dev->stats;
-> +
->   		err_stats->tx_errors++;
->   		err_stats->tx_aborted_errors++;
-> -	} else {
-> -		err_stats->tx_dropped++;
->   	}
->   }
-Why do you remove the case 'err =3D=3D 0'?
-At least, it needs an explanation in the commit log.
+Rather than assuming cores starting from 0 are local to the ethernet
+device, use the introduced interface to find near cores.
+
+Not only does this improve performance due to spreading interrupts via near
+NUMA nodes, it prevents assigning cores on distant NUMA nodes, which aren't
+reachable by device interrupts due to the 8-bit APIC ID limitation.
+
+With Numascale NumaConnect2 systems with Intel ixgbe cards on
+non-primary PCI domains, all ixgbe NICs would previously revector
+interrupts to cores 0 to 63 (cores 0 to 47 would be considered
+near the primary PCI domain). Now, cores 48 to 95 are used, increasing
+performance and addressing interrupt delivery issues:
+
+do_IRQ: 79.180 No irq handler for vector (irq -1)
+do_IRQ: 78.42 No irq handler for vector (irq -1)
+do_IRQ: 71.172 No irq handler for vector (irq -1)
+do_IRQ: 70.236 No irq handler for vector (irq -1)
+do_IRQ: 69.109 No irq handler for vector (irq -1)
+do_IRQ: 68.189 No irq handler for vector (irq -1)
+do_IRQ: 72.92 No irq handler for vector (irq -1)
+do_IRQ: 73.235 No irq handler for vector (irq -1)
+do_IRQ: 66.185 No irq handler for vector (irq -1)
+do_IRQ: 67.62 No irq handler for vector (irq -1)
+do_IRQ: 197 callbacks suppressed
+
+Signed-off-by: Daniel J Blueman <daniel@numascale.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index f3168bc..12c4ce1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -817,10 +817,8 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
+ 	if ((tcs <= 1) && !(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
+ 		u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
+ 		if (rss_i > 1 && adapter->atr_sample_rate) {
+-			if (cpu_online(v_idx)) {
+-				cpu = v_idx;
+-				node = cpu_to_node(cpu);
+-			}
++			cpu = cpu_near_dev(adapter->pdev, v_idx);
++			node = cpu_to_node(cpu);
+ 		}
+ 	}
+
+--
+2.5.0
