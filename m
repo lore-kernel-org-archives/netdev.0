@@ -1,352 +1,210 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] dsa: mv88e6xxx: Add Second back of statistics
-Date: Wed, 23 Dec 2015 13:23:17 +0100
-Message-ID: <1450873397-19947-1-git-send-email-andrew@lunn.ch>
-Cc: vivian@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>,
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next 1/3] ethtool: Add phy statistics
+Date: Wed, 23 Dec 2015 20:36:02 +0800
+Message-ID: <201512232020.SoHIUZvK%fengguang.wu@intel.com>
+References: <1450871618-19333-2-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="TB36FDmn/VVEgNH/"
+Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48618 "EHLO vps0.lunn.ch"
+Received: from mga02.intel.com ([134.134.136.20]:3782 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754166AbbLWMX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2015 07:23:29 -0500
+	id S1752474AbbLWMh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 07:37:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1450871618-19333-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 6320 family of switch chips has a second bank for statistics, but
-is missing three statistics in the port registers. Generalise and
-extend the code:
 
-* adding a field to the statistics table indicating the bank/register
-  set where each statistics is.
-* add a function indicating if an individual statistics
-  is available on this device
-* calculate at run time the sset_count.
-* return strings based on the available statistics of the device
-* return statistics based on the available statistics of the device
-* Add support for reading from the second bank.
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Hi Andrew,
+
+[auto build test ERROR on net-next/master]
+
+url:    https://github.com/0day-ci/linux/commits/Andrew-Lunn/ethtool-Add-phy-statistics/20151223-195714
+config: cris-etrax-100lx_v2_defconfig (attached as .config)
+reproduce:
+        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
+        # save the attached .config to linux build tree
+        make.cross ARCH=cris 
+
+All errors (new ones prefixed by >>):
+
+   net/built-in.o: In function `__ethtool_get_sset_count':
+   ethtool.c:(.text+0x18bf6): undefined reference to `phy_get_sset_count'
+   net/built-in.o: In function `ethtool_get_phy_stats.isra.8':
+   ethtool.c:(.text+0x18d98): undefined reference to `phy_get_sset_count'
+>> ethtool.c:(.text+0x18df4): undefined reference to `phy_get_stats'
+   net/built-in.o: In function `dev_ethtool':
+   (.text+0x1a374): undefined reference to `phy_get_strings'
+
 ---
- drivers/net/dsa/mv88e6xxx.c | 230 +++++++++++++++++++++++---------------------
- drivers/net/dsa/mv88e6xxx.h |   8 ++
- 2 files changed, 129 insertions(+), 109 deletions(-)
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 75e245c4235e..9fe33fc3c2b9 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -617,98 +617,112 @@ static void _mv88e6xxx_stats_read(struct dsa_switch *ds, int stat, u32 *val)
- }
- 
- static struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
--	{ "in_good_octets", 8, 0x00, },
--	{ "in_bad_octets", 4, 0x02, },
--	{ "in_unicast", 4, 0x04, },
--	{ "in_broadcasts", 4, 0x06, },
--	{ "in_multicasts", 4, 0x07, },
--	{ "in_pause", 4, 0x16, },
--	{ "in_undersize", 4, 0x18, },
--	{ "in_fragments", 4, 0x19, },
--	{ "in_oversize", 4, 0x1a, },
--	{ "in_jabber", 4, 0x1b, },
--	{ "in_rx_error", 4, 0x1c, },
--	{ "in_fcs_error", 4, 0x1d, },
--	{ "out_octets", 8, 0x0e, },
--	{ "out_unicast", 4, 0x10, },
--	{ "out_broadcasts", 4, 0x13, },
--	{ "out_multicasts", 4, 0x12, },
--	{ "out_pause", 4, 0x15, },
--	{ "excessive", 4, 0x11, },
--	{ "collisions", 4, 0x1e, },
--	{ "deferred", 4, 0x05, },
--	{ "single", 4, 0x14, },
--	{ "multiple", 4, 0x17, },
--	{ "out_fcs_error", 4, 0x03, },
--	{ "late", 4, 0x1f, },
--	{ "hist_64bytes", 4, 0x08, },
--	{ "hist_65_127bytes", 4, 0x09, },
--	{ "hist_128_255bytes", 4, 0x0a, },
--	{ "hist_256_511bytes", 4, 0x0b, },
--	{ "hist_512_1023bytes", 4, 0x0c, },
--	{ "hist_1024_max_bytes", 4, 0x0d, },
--	/* Not all devices have the following counters */
--	{ "sw_in_discards", 4, 0x110, },
--	{ "sw_in_filtered", 2, 0x112, },
--	{ "sw_out_filtered", 2, 0x113, },
--
-+	{ "in_good_octets",	8, 0x00, BANK0, },
-+	{ "in_bad_octets",	4, 0x02, BANK0, },
-+	{ "in_unicast",		4, 0x04, BANK0, },
-+	{ "in_broadcasts",	4, 0x06, BANK0, },
-+	{ "in_multicasts",	4, 0x07, BANK0, },
-+	{ "in_pause",		4, 0x16, BANK0, },
-+	{ "in_undersize",	4, 0x18, BANK0, },
-+	{ "in_fragments",	4, 0x19, BANK0, },
-+	{ "in_oversize",	4, 0x1a, BANK0, },
-+	{ "in_jabber",		4, 0x1b, BANK0, },
-+	{ "in_rx_error",	4, 0x1c, BANK0, },
-+	{ "in_fcs_error",	4, 0x1d, BANK0, },
-+	{ "out_octets",		8, 0x0e, BANK0, },
-+	{ "out_unicast",	4, 0x10, BANK0, },
-+	{ "out_broadcasts",	4, 0x13, BANK0, },
-+	{ "out_multicasts",	4, 0x12, BANK0, },
-+	{ "out_pause",		4, 0x15, BANK0, },
-+	{ "excessive",		4, 0x11, BANK0, },
-+	{ "collisions",		4, 0x1e, BANK0, },
-+	{ "deferred",		4, 0x05, BANK0, },
-+	{ "single",		4, 0x14, BANK0, },
-+	{ "multiple",		4, 0x17, BANK0, },
-+	{ "out_fcs_error",	4, 0x03, BANK0, },
-+	{ "late",		4, 0x1f, BANK0, },
-+	{ "hist_64bytes",	4, 0x08, BANK0, },
-+	{ "hist_65_127bytes",	4, 0x09, BANK0, },
-+	{ "hist_128_255bytes",	4, 0x0a, BANK0, },
-+	{ "hist_256_511bytes",	4, 0x0b, BANK0, },
-+	{ "hist_512_1023bytes", 4, 0x0c, BANK0, },
-+	{ "hist_1024_max_bytes", 4, 0x0d, BANK0, },
-+	{ "sw_in_discards",	4, 0x10, PORT, },
-+	{ "sw_in_filtered",	2, 0x12, PORT, },
-+	{ "sw_out_filtered",	2, 0x13, PORT, },
-+	{ "in_discards",	4, 0x00 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_filtered",	4, 0x01 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_accepted",	4, 0x02 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_bad_accepted",	4, 0x03 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_good_avb_class_a", 4, 0x04 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_good_avb_class_b", 4, 0x05 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_bad_avb_class_a", 4, 0x06 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_bad_avb_class_b", 4, 0x07 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "tcam_counter_0",	4, 0x08 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "tcam_counter_1",	4, 0x09 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "tcam_counter_2",	4, 0x0a | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "tcam_counter_3",	4, 0x0b | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_da_unknown",	4, 0x0e | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "in_management",	4, 0x0f | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_0",	4, 0x10 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_1",	4, 0x11 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_2",	4, 0x12 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_3",	4, 0x13 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_4",	4, 0x14 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_5",	4, 0x15 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_6",	4, 0x16 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_queue_7",	4, 0x17 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_cut_through",	4, 0x18 | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_octets_a",	4, 0x1a | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_octets_b",	4, 0x1b | GLOBAL_STATS_OP_BANK_1, BANK1, },
-+	{ "out_management",	4, 0x1f | GLOBAL_STATS_OP_BANK_1, BANK1, },
- };
- 
--static bool have_sw_in_discards(struct dsa_switch *ds)
-+static bool mv88e6xxx_has_stat(struct dsa_switch *ds,
-+			       struct mv88e6xxx_hw_stat *stat)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6095: case PORT_SWITCH_ID_6161:
--	case PORT_SWITCH_ID_6165: case PORT_SWITCH_ID_6171:
--	case PORT_SWITCH_ID_6172: case PORT_SWITCH_ID_6176:
--	case PORT_SWITCH_ID_6182: case PORT_SWITCH_ID_6185:
--	case PORT_SWITCH_ID_6352:
-+	switch (stat->type) {
-+	case BANK0:
- 		return true;
--	default:
--		return false;
--	}
--}
--
--static void _mv88e6xxx_get_strings(struct dsa_switch *ds,
--				   int nr_stats,
--				   struct mv88e6xxx_hw_stat *stats,
--				   int port, uint8_t *data)
--{
--	int i;
--
--	for (i = 0; i < nr_stats; i++) {
--		memcpy(data + i * ETH_GSTRING_LEN,
--		       stats[i].string, ETH_GSTRING_LEN);
-+	case BANK1:
-+		return mv88e6xxx_6320_family(ds);
-+	case PORT:
-+		return mv88e6xxx_6095_family(ds) ||
-+			mv88e6xxx_6185_family(ds) ||
-+			mv88e6xxx_6097_family(ds) ||
-+			mv88e6xxx_6165_family(ds) ||
-+			mv88e6xxx_6351_family(ds) ||
-+			mv88e6xxx_6352_family(ds);
- 	}
-+	return false;
- }
- 
- static uint64_t _mv88e6xxx_get_ethtool_stat(struct dsa_switch *ds,
--					    int stat,
--					    struct mv88e6xxx_hw_stat *stats,
-+					    struct mv88e6xxx_hw_stat *s,
- 					    int port)
- {
--	struct mv88e6xxx_hw_stat *s = stats + stat;
- 	u32 low;
- 	u32 high = 0;
- 	int ret;
- 	u64 value;
- 
--	if (s->reg >= 0x100) {
--		ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
--					  s->reg - 0x100);
-+	switch (s->type) {
-+	case PORT:
-+		ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), s->reg);
- 		if (ret < 0)
- 			return UINT64_MAX;
- 
- 		low = ret;
- 		if (s->sizeof_stat == 4) {
- 			ret = _mv88e6xxx_reg_read(ds, REG_PORT(port),
--						  s->reg - 0x100 + 1);
-+						  s->reg + 1);
- 			if (ret < 0)
- 				return UINT64_MAX;
- 			high = ret;
- 		}
--	} else {
-+		break;
-+	case BANK0:
-+	case BANK1:
- 		_mv88e6xxx_stats_read(ds, s->reg, &low);
- 		if (s->sizeof_stat == 8)
- 			_mv88e6xxx_stats_read(ds, s->reg + 1, &high);
-@@ -717,61 +731,59 @@ static uint64_t _mv88e6xxx_get_ethtool_stat(struct dsa_switch *ds,
- 	return value;
- }
- 
--static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
--					 int nr_stats,
--					 struct mv88e6xxx_hw_stat *stats,
--					 int port, uint64_t *data)
-+void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int ret;
--	int i;
--
--	mutex_lock(&ps->smi_mutex);
-+	struct mv88e6xxx_hw_stat *stat;
-+	int i, j;
- 
--	ret = _mv88e6xxx_stats_snapshot(ds, port);
--	if (ret < 0) {
--		mutex_unlock(&ps->smi_mutex);
--		return;
-+	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
-+		stat = &mv88e6xxx_hw_stats[i];
-+		if (mv88e6xxx_has_stat(ds, stat)) {
-+			memcpy(data + j * ETH_GSTRING_LEN, stat->string,
-+			       ETH_GSTRING_LEN);
-+			j++;
-+		}
- 	}
--
--	/* Read each of the counters. */
--	for (i = 0; i < nr_stats; i++)
--		data[i] = _mv88e6xxx_get_ethtool_stat(ds, i, stats, port);
--
--	mutex_unlock(&ps->smi_mutex);
--}
--
--/* All the statistics in the table */
--void
--mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
--{
--	if (have_sw_in_discards(ds))
--		_mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6xxx_hw_stats),
--				       mv88e6xxx_hw_stats, port, data);
--	else
--		_mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6xxx_hw_stats) - 3,
--				       mv88e6xxx_hw_stats, port, data);
- }
- 
- int mv88e6xxx_get_sset_count(struct dsa_switch *ds)
- {
--	if (have_sw_in_discards(ds))
--		return ARRAY_SIZE(mv88e6xxx_hw_stats);
--	return ARRAY_SIZE(mv88e6xxx_hw_stats) - 3;
-+	struct mv88e6xxx_hw_stat *stat;
-+	int i, j;
-+
-+	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
-+		stat = &mv88e6xxx_hw_stats[i];
-+		if (mv88e6xxx_has_stat(ds, stat))
-+			j++;
-+	}
-+	return j;
- }
- 
- void
- mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 			    int port, uint64_t *data)
- {
--	if (have_sw_in_discards(ds))
--		_mv88e6xxx_get_ethtool_stats(
--			ds, ARRAY_SIZE(mv88e6xxx_hw_stats),
--			mv88e6xxx_hw_stats, port, data);
--	else
--		_mv88e6xxx_get_ethtool_stats(
--			ds, ARRAY_SIZE(mv88e6xxx_hw_stats) - 3,
--			mv88e6xxx_hw_stats, port, data);
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_hw_stat *stat;
-+	int ret;
-+	int i, j;
-+
-+	mutex_lock(&ps->smi_mutex);
-+
-+	ret = _mv88e6xxx_stats_snapshot(ds, port);
-+	if (ret < 0) {
-+		mutex_unlock(&ps->smi_mutex);
-+		return;
-+	}
-+	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
-+		stat = &mv88e6xxx_hw_stats[i];
-+		if (mv88e6xxx_has_stat(ds, stat)) {
-+			data[j] = _mv88e6xxx_get_ethtool_stat(ds, stat, port);
-+			j++;
-+		}
-+	}
-+
-+	mutex_unlock(&ps->smi_mutex);
- }
- 
- int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 21c8daa03f78..ca08f913d302 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -288,6 +288,7 @@
- #define GLOBAL_STATS_OP_HIST_RX		((1 << 10) | GLOBAL_STATS_OP_BUSY)
- #define GLOBAL_STATS_OP_HIST_TX		((2 << 10) | GLOBAL_STATS_OP_BUSY)
- #define GLOBAL_STATS_OP_HIST_RX_TX	((3 << 10) | GLOBAL_STATS_OP_BUSY)
-+#define GLOBAL_STATS_OP_BANK_1	BIT(9)
- #define GLOBAL_STATS_COUNTER_32	0x1e
- #define GLOBAL_STATS_COUNTER_01	0x1f
- 
-@@ -420,10 +421,17 @@ struct mv88e6xxx_priv_state {
- 	struct work_struct bridge_work;
- };
- 
-+enum stat_type {
-+	BANK0,
-+	BANK1,
-+	PORT,
-+};
-+
- struct mv88e6xxx_hw_stat {
- 	char string[ETH_GSTRING_LEN];
- 	int sizeof_stat;
- 	int reg;
-+	enum stat_type type;
- };
- 
- int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
--- 
-2.6.4
+--TB36FDmn/VVEgNH/
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
+
+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
+eQAA
+
+--TB36FDmn/VVEgNH/--
