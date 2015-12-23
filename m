@@ -1,169 +1,138 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC 03/28] net: dsa: Move platform data allocation for OF
-Date: Wed, 23 Dec 2015 13:56:17 +0100
-Message-ID: <1450875402-20740-4-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC 05/28] net: dsa: Pass the dsa device to the switch drivers
+Date: Wed, 23 Dec 2015 13:56:19 +0100
+Message-ID: <1450875402-20740-6-git-send-email-andrew@lunn.ch>
 References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>, narmstrong@baylibre.com,
 	vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48665 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:48679 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755444AbbLWM5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2015 07:57:15 -0500
+	id S1757069AbbLWM5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 07:57:24 -0500
 In-Reply-To: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
+By passing a device structure to the switch devices, it allows them
+to use devm_* methods for resource management.
 
-Do not have dsa_of_probe() allocate and assign struct dsa_platform_data,
-but instead do this outside of this function such that we can control
-exactly the storage of that data structure.
-
-This is a preliminary change to allow multiple callers of dsa_of_probe()
-not to clobber an existing dsa_platform_data and later, control where
-this data structure is coming from.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- net/dsa/dsa.c | 48 +++++++++++++++++++-----------------------------
- 1 file changed, 19 insertions(+), 29 deletions(-)
+ drivers/net/dsa/bcm_sf2.c   | 2 +-
+ drivers/net/dsa/mv88e6060.c | 2 +-
+ drivers/net/dsa/mv88e6123.c | 2 +-
+ drivers/net/dsa/mv88e6131.c | 2 +-
+ drivers/net/dsa/mv88e6171.c | 2 +-
+ drivers/net/dsa/mv88e6352.c | 2 +-
+ include/net/dsa.h           | 2 +-
+ net/dsa/dsa.c               | 2 +-
+ 8 files changed, 8 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 6f946fedbb77..6925b3c13895 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -926,7 +926,7 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
+ 	}
+ }
+ 
+-static int bcm_sf2_sw_setup(struct dsa_switch *ds)
++static int bcm_sf2_sw_setup(struct dsa_switch *ds, struct device *dev)
+ {
+ 	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index 0527f485c3dc..34bc374882c7 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -172,7 +172,7 @@ static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
+ 	return 0;
+ }
+ 
+-static int mv88e6060_setup(struct dsa_switch *ds)
++static int mv88e6060_setup(struct dsa_switch *ds, struct device *dev)
+ {
+ 	int i;
+ 	int ret;
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 69a6f79dcb10..fab428bb7545 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -68,7 +68,7 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int mv88e6123_setup(struct dsa_switch *ds)
++static int mv88e6123_setup(struct dsa_switch *ds, struct device *dev)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index a92ca651c399..d82cf3d38455 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -86,7 +86,7 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int mv88e6131_setup(struct dsa_switch *ds)
++static int mv88e6131_setup(struct dsa_switch *ds, struct device *dev)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 6e18213b9c04..9635f14ec1fb 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -64,7 +64,7 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int mv88e6171_setup(struct dsa_switch *ds)
++static int mv88e6171_setup(struct dsa_switch *ds, struct device *dev)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index cc6c54553418..c2c4153e3423 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -75,7 +75,7 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int mv88e6352_setup(struct dsa_switch *ds)
++static int mv88e6352_setup(struct dsa_switch *ds, struct device *dev)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 26a0e86e611e..f5b4f1bcfdf3 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -213,7 +213,7 @@ struct dsa_switch_driver {
+ 	 * Probing and setup.
+ 	 */
+ 	char	*(*probe)(struct device *host_dev, int sw_addr);
+-	int	(*setup)(struct dsa_switch *ds);
++	int	(*setup)(struct dsa_switch *ds, struct device *dev);
+ 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+ 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+ 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 208d1b257194..704502c22306 100644
+index 704502c22306..7170c93637c8 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -651,13 +651,12 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
- 	kfree(pd->chip);
- }
+@@ -300,7 +300,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+ 	/*
+ 	 * Do basic register setup.
+ 	 */
+-	ret = drv->setup(ds);
++	ret = drv->setup(ds, parent);
+ 	if (ret < 0)
+ 		goto out;
  
--static int dsa_of_probe(struct device *dev)
-+static int dsa_of_probe(struct device *dev, struct dsa_platform_data *pd)
- {
- 	struct device_node *np = dev->of_node;
- 	struct device_node *child, *mdio, *ethernet, *port;
- 	struct mii_bus *mdio_bus, *mdio_bus_switch;
- 	struct net_device *ethernet_dev;
--	struct dsa_platform_data *pd;
- 	struct dsa_chip_data *cd;
- 	const char *port_name;
- 	int chip_index, port_index;
-@@ -666,7 +665,7 @@ static int dsa_of_probe(struct device *dev)
- 	enum of_gpio_flags of_flags;
- 	unsigned long flags;
- 	u32 eeprom_len;
--	int ret;
-+	int ret = 0;
- 
- 	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
- 	if (!mdio)
-@@ -688,13 +687,6 @@ static int dsa_of_probe(struct device *dev)
- 		goto out_put_mdio;
- 	}
- 
--	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
--	if (!pd) {
--		ret = -ENOMEM;
--		goto out_put_ethernet;
--	}
--
--	dev->platform_data = pd;
- 	pd->of_netdev = ethernet_dev;
- 	pd->nr_chips = of_get_available_child_count(np);
- 	if (pd->nr_chips > DSA_MAX_SWITCHES)
-@@ -702,10 +694,8 @@ static int dsa_of_probe(struct device *dev)
- 
- 	pd->chip = kcalloc(pd->nr_chips, sizeof(struct dsa_chip_data),
- 			   GFP_KERNEL);
--	if (!pd->chip) {
--		ret = -ENOMEM;
--		goto out_free;
--	}
-+	if (!pd->chip)
-+		goto out_put_mdio;
- 
- 	chip_index = -1;
- 	for_each_available_child_of_node(np, child) {
-@@ -795,34 +785,29 @@ static int dsa_of_probe(struct device *dev)
- 
- out_free_chip:
- 	dsa_of_free_platform_data(pd);
--out_free:
--	kfree(pd);
--	dev->platform_data = NULL;
--out_put_ethernet:
--	put_device(&ethernet_dev->dev);
-+
- out_put_mdio:
- 	put_device(&mdio_bus->dev);
- 	return ret;
- }
- 
--static void dsa_of_remove(struct device *dev)
-+static void dsa_of_remove(struct device *dev, struct dsa_platform_data *pd)
- {
--	struct dsa_platform_data *pd = dev->platform_data;
--
- 	if (!dev->of_node)
- 		return;
- 
- 	dsa_of_free_platform_data(pd);
- 	put_device(&pd->of_netdev->dev);
--	kfree(pd);
- }
- #else
--static inline int dsa_of_probe(struct device *dev)
-+static inline int dsa_of_probe(struct device *dev,
-+			       struct dsa_platform_data *pd)
- {
- 	return 0;
- }
- 
--static inline void dsa_of_remove(struct device *dev)
-+static inline void dsa_of_remove(struct device *dev,
-+				 struct dsa_platform_data *pd)
- {
- }
- #endif
-@@ -881,11 +866,15 @@ static int dsa_probe(struct platform_device *pdev)
- 		       dsa_driver_version);
- 
- 	if (pdev->dev.of_node) {
--		ret = dsa_of_probe(&pdev->dev);
-+		pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
-+		if (!pd)
-+			return -ENOMEM;
-+
-+		ret = dsa_of_probe(&pdev->dev, pd);
- 		if (ret)
- 			return ret;
- 
--		pd = pdev->dev.platform_data;
-+		pdev->dev.platform_data = pd;
- 	}
- 
- 	if (pd == NULL || (pd->netdev == NULL && pd->of_netdev == NULL))
-@@ -926,7 +915,7 @@ static int dsa_probe(struct platform_device *pdev)
- 	return 0;
- 
- out:
--	dsa_of_remove(&pdev->dev);
-+	dsa_of_remove(&pdev->dev, pd);
- 
- 	return ret;
- }
-@@ -948,9 +937,10 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- static int dsa_remove(struct platform_device *pdev)
- {
- 	struct dsa_switch_tree *dst = platform_get_drvdata(pdev);
-+	struct dsa_platform_data *pd = pdev->dev.platform_data;
- 
- 	dsa_remove_dst(dst);
--	dsa_of_remove(&pdev->dev);
-+	dsa_of_remove(&pdev->dev, pd);
- 
- 	return 0;
- }
 -- 
 2.6.3
