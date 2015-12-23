@@ -1,118 +1,127 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC 00/28] DSA: Restructure probing
-Date: Wed, 23 Dec 2015 13:56:14 +0100
-Message-ID: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH RFC 01/28] component: remove old add_components method
+Date: Wed, 23 Dec 2015 13:56:15 +0100
+Message-ID: <1450875402-20740-2-git-send-email-andrew@lunn.ch>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+	Russell King <rmk+kernel@arm.linux.org.uk>
 To: Florian Fainelli <f.fainelli@gmail.com>, narmstrong@baylibre.com,
 	vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48657 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:48667 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750854AbbLWM5E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2015 07:57:04 -0500
+	id S1755456AbbLWM5P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 07:57:15 -0500
+In-Reply-To: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As noted in Documentation/networking/dsa/dsa.txt, the current DSA
-architecture has a few architecture problems:
+From: Russell King <rmk+kernel@arm.linux.org.uk>
 
-DSA is implemented as a DSA platform device driver which is convenient because
-it will register the entire DSA switch tree attached to a master network device
-in one-shot, facilitating the device creation and simplifying the device driver
-model a bit, this comes however with a number of limitations:
+Now that drivers create an array of component matches at probe time, we
+can retire the old methods.  This involves removing the add_components
+master method, and removing component_master_add_child() from public
+view.  We also remove component_add_master() as that interface is no
+longer useful.
 
-- building DSA and its switch drivers as modules is currently not working
-- the device driver parenting does not necessarily reflect the original
-  bus/device the switch can be created from
-- supporting non-MDIO and non-MMIO (platform) switches is not possible
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ drivers/base/component.c  | 31 +++++--------------------------
+ include/linux/component.h |  5 -----
+ 2 files changed, 5 insertions(+), 31 deletions(-)
 
-This RFC patchset attempts to address this. It allows the switch
-device to be true Linux devices, and use of the device component
-framework to bind the switch devices to the DSA framework, similar to
-the way GPU engines are bound to the master GPU driver. The drivers
-are now modules, which can be loaded and unloaded. Reloading however
-currently causes an Opps, hence RFC.
-
-The code remains backwards compatible with the old binding, and adds a
-new property to facilitate the component framework. Switch drivers get
-there own binding, allowing them to be probed independent of DSA.
-
-Additionally, at this RFC stage, the DTS files for a development board
-with three switches is included, to demonstrate the new binding, and
-show that D in DSA is supported. At some point this DTS file will be
-submitted to arm-soc.
-
-Andrew Lunn (24):
-  dsa: Rename mv88e6123_61_65 to mv88e6123 to be consistent
-  net: dsa: Pass the dsa device to the switch drivers
-  net: dsa: Have the switch driver allocate there own private memory
-  net: dsa: Remove allocation of driver private memory
-  net: dsa: Keep the mii bus and address in the private structure
-  net: dsa: Add basic support for component master support
-  net: dsa: Keep a reference to the switch device for component matching
-  net: dsa: Add slave component matches based on a phandle to the slave.
-  net: dsa: Make dsa,mii-bus optional
-  net: dsa: Add register/unregister functions for switch drivers
-  net: dsa: Rename DSA probe function.
-  of_mdio: Add "mii-bus" and address property parser
-  dsa: mv88e6xxx: Use bus in mv88e6xxx_lookup_name()
-  dsa: mv88e6xxx: Add shared code for binding/unbinding a switch driver.
-  dsa: Add platform device support to Marvell switches
-  vf610: Zii: Convert rev b to switches as individual devices
-  net: dsa: Add some debug prints for error cases
-  net: dsa: Setup the switches after all have been probed
-  net: dsa: Only setup platform switches, not device switches
-  net: dsa: If a switch fails to probe, defer probing
-  Documentation: DSA: Describe how probe of DSA and switches work.
-  dsa: Convert mv88e6xxx into a library allowing driver modules
-  dsa: slave: Don't reference NULL pointer during phy_disconnect
-  dsa: Destroy fixed link phys after the phy has been disconnected
-
-Cory T. Tusar (1):
-  ARM: VF610: Add Zodiac Inflight Innovations development boards.
-
-Florian Fainelli (2):
-  net: dsa: Move platform data allocation for OF
-  net: dsa: bcm_sf2: make it a real platform driver
-
-Russell King (1):
-  component: remove old add_components method
-
- .../devicetree/bindings/net/dsa/broadcom.txt       |  48 +++
- Documentation/devicetree/bindings/net/dsa/dsa.txt  |   5 +-
- .../devicetree/bindings/net/dsa/marvell.txt        |  17 +
- Documentation/networking/dsa/dsa.txt               |  48 +++
- arch/arm/boot/dts/Makefile                         |   4 +-
- arch/arm/boot/dts/vf610-zii-dev-rev-a.dts          | 409 +++++++++++++++++++
- arch/arm/boot/dts/vf610-zii-dev-rev-b.dts          | 307 +++++++++++++++
- arch/arm/boot/dts/vf610-zii-dev.dtsi               | 436 +++++++++++++++++++++
- drivers/base/component.c                           |  31 +-
- drivers/net/dsa/Kconfig                            |   2 +-
- drivers/net/dsa/Makefile                           |  19 +-
- drivers/net/dsa/bcm_sf2.c                          | 249 +++++++-----
- drivers/net/dsa/mv88e6060.c                        | 130 +++++-
- drivers/net/dsa/mv88e6060.h                        |  11 +
- drivers/net/dsa/mv88e6123.c                        | 187 +++++++++
- drivers/net/dsa/mv88e6123_61_65.c                  | 124 ------
- drivers/net/dsa/mv88e6131.c                        |  83 +++-
- drivers/net/dsa/mv88e6171.c                        |  83 +++-
- drivers/net/dsa/mv88e6352.c                        |  83 +++-
- drivers/net/dsa/mv88e6xxx.c                        | 159 +++++---
- drivers/net/dsa/mv88e6xxx.h                        |  20 +-
- drivers/of/of_mdio.c                               |  38 ++
- include/linux/component.h                          |   5 -
- include/linux/of_mdio.h                            |  10 +
- include/net/dsa.h                                  |  17 +-
- net/dsa/dsa.c                                      | 262 ++++++++-----
- net/dsa/slave.c                                    |  12 +-
- 27 files changed, 2329 insertions(+), 470 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/dsa/broadcom.txt
- create mode 100644 Documentation/devicetree/bindings/net/dsa/marvell.txt
- create mode 100644 arch/arm/boot/dts/vf610-zii-dev-rev-a.dts
- create mode 100644 arch/arm/boot/dts/vf610-zii-dev-rev-b.dts
- create mode 100644 arch/arm/boot/dts/vf610-zii-dev.dtsi
- create mode 100644 drivers/net/dsa/mv88e6123.c
- delete mode 100644 drivers/net/dsa/mv88e6123_61_65.c
-
+diff --git a/drivers/base/component.c b/drivers/base/component.c
+index f748430bb654..2ca22738ae92 100644
+--- a/drivers/base/component.c
++++ b/drivers/base/component.c
+@@ -84,7 +84,7 @@ static void component_detach_master(struct master *master, struct component *c)
+  * function and compare data.  This is safe to call for duplicate matches
+  * and will not result in the same component being added multiple times.
+  */
+-int component_master_add_child(struct master *master,
++static int component_master_add_child(struct master *master,
+ 	int (*compare)(struct device *, void *), void *compare_data)
+ {
+ 	struct component *c;
+@@ -104,7 +104,6 @@ int component_master_add_child(struct master *master,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL_GPL(component_master_add_child);
+ 
+ static int find_components(struct master *master)
+ {
+@@ -112,14 +111,6 @@ static int find_components(struct master *master)
+ 	size_t i;
+ 	int ret = 0;
+ 
+-	if (!match) {
+-		/*
+-		 * Search the list of components, looking for components that
+-		 * belong to this master, and attach them to the master.
+-		 */
+-		return master->ops->add_components(master->dev, master);
+-	}
+-
+ 	/*
+ 	 * Scan the array of match functions and attach
+ 	 * any components which are found to this master.
+@@ -290,15 +281,10 @@ int component_master_add_with_match(struct device *dev,
+ 	struct master *master;
+ 	int ret;
+ 
+-	if (ops->add_components && match)
+-		return -EINVAL;
+-
+-	if (match) {
+-		/* Reallocate the match array for its true size */
+-		match = component_match_realloc(dev, match, match->num);
+-		if (IS_ERR(match))
+-			return PTR_ERR(match);
+-	}
++	/* Reallocate the match array for its true size */
++	match = component_match_realloc(dev, match, match->num);
++	if (IS_ERR(match))
++		return PTR_ERR(match);
+ 
+ 	master = kzalloc(sizeof(*master), GFP_KERNEL);
+ 	if (!master)
+@@ -326,13 +312,6 @@ int component_master_add_with_match(struct device *dev,
+ }
+ EXPORT_SYMBOL_GPL(component_master_add_with_match);
+ 
+-int component_master_add(struct device *dev,
+-	const struct component_master_ops *ops)
+-{
+-	return component_master_add_with_match(dev, ops, NULL);
+-}
+-EXPORT_SYMBOL_GPL(component_master_add);
+-
+ void component_master_del(struct device *dev,
+ 	const struct component_master_ops *ops)
+ {
+diff --git a/include/linux/component.h b/include/linux/component.h
+index c00dcc302611..71c434a6a5ee 100644
+--- a/include/linux/component.h
++++ b/include/linux/component.h
+@@ -17,18 +17,13 @@ void component_unbind_all(struct device *, void *);
+ struct master;
+ 
+ struct component_master_ops {
+-	int (*add_components)(struct device *, struct master *);
+ 	int (*bind)(struct device *);
+ 	void (*unbind)(struct device *);
+ };
+ 
+-int component_master_add(struct device *, const struct component_master_ops *);
+ void component_master_del(struct device *,
+ 	const struct component_master_ops *);
+ 
+-int component_master_add_child(struct master *master,
+-	int (*compare)(struct device *, void *), void *compare_data);
+-
+ struct component_match;
+ 
+ int component_master_add_with_match(struct device *,
 -- 
 2.6.3
