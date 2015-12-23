@@ -1,64 +1,44 @@
-From: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH 1/4] net: ethernet: arc: Probe emac after set RMII clock
-Date: Wed, 23 Dec 2015 17:19:47 +0800
-Message-ID: <1450862390-407-1-git-send-email-zhengxing@rock-chips.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH v2] r8152: fix lockup when runtime PM is enabled
+Date: Wed, 23 Dec 2015 09:20:25 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2F9547E@RTITMBSV03.realtek.com.tw>
+References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
+	 <20151208143305.GB18728@al>
+	 <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
+	 <1450782082.8824.23.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F94FFF@RTITMBSV03.realtek.com.tw>
+ <1450858813.6437.2.camel@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leozwang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org" <peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1450858813.6437.2.camel-l3A5Bk7waGM@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-After enter arc_emac_probe, emac will get_phy_id, phy_poll_reset and
-other connecting PHY via mdiobus_read, so we need to set correct
-ref clock rate for emac before probe emac.
-
-Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
-
- drivers/net/ethernet/arc/emac_rockchip.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/arc/emac_rockchip.c b/drivers/net/ethernet/arc/emac_rockchip.c
-index c31c740..36e9eb1 100644
---- a/drivers/net/ethernet/arc/emac_rockchip.c
-+++ b/drivers/net/ethernet/arc/emac_rockchip.c
-@@ -164,10 +164,6 @@ static int emac_rockchip_probe(struct platform_device *pdev)
- 		}
- 	}
- 
--	err = arc_emac_probe(ndev, interface);
--	if (err)
--		goto out_regulator_disable;
--
- 	/* write-enable bits */
- 	data = GRF_MODE_ENABLE_BIT | GRF_SPEED_ENABLE_BIT;
- 
-@@ -184,6 +180,13 @@ static int emac_rockchip_probe(struct platform_device *pdev)
- 	err = clk_set_rate(priv->refclk, 50000000);
- 	if (err)
- 		dev_err(dev, "failed to change reference clock rate (%d)\n", err);
-+
-+	err = arc_emac_probe(ndev, interface);
-+	if (err) {
-+		dev_err(dev, "failed to probe arc emac (%d)\n", err);
-+		goto out_regulator_disable;
-+	}
-+
- 	return 0;
- 
- out_regulator_disable:
--- 
-1.7.9.5
+T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5kZV0NCj4gU2VudDogV2VkbmVzZGF5
+LCBEZWNlbWJlciAyMywgMjAxNSA0OjIwIFBNDQpbLi4uXQ0KPiBObywgc3RlcCAoMikgZG9lcyBu
+b3QgZXhpc3QuIENhbGxzIHRvIHN1c3BlbmQoKSBhbmQgW3Jlc2V0X11yZXN1bWUoKQ0KPiBhbHdh
+eXMgYmFsYW5jZS4gVXN1YWxseSBhIGRyaXZlciBzaG91bGRuJ3QgY2FyZSBhYm91dCBzeXN0ZW0g
+c3VzcGVuZC4NCj4gVGhlIHdheSB0aGUgZHJpdmVyIGlzIGN1cnJlbnRseSBjb2RlZCB3aWxsIGFs
+c28gZmFpbCBmb3IgUG9ydC1Qb3dlciBPZmYuDQoNCkl0IGlzIGRpZmZlcmVudCB3aXRoIFdpbmRv
+d3MuIFRoZSBXaW5kb3dzIHdvdWxkIHJlc3VtZSB0aGUgZGV2aWNlIGJlZm9yZQ0Kc3lzdGVtIHN1
+c3BlbmQsIGlmIHRoZSBzeXN0ZW0gc3VzcGVuZCBmb2xsb3dzIHRoZSBhdXRvc3VzcGVuZC4NCg0K
+V291bGQgdGhpcyBiZSBhIHByb2JsZW0/IEFmdGVyIHN5c3RlbSBzdXNwZW5kLCB0aGUgZGV2aWNl
+IG1heSB3YWtlIHVwDQp0aGUgc3lzdGVtIHdoZW4gcmVjZWl2aW5nIGFueSBwYWNrZXQsIG5vdCBv
+bmx5IG1hZ2ljIHBhY2tldC4gVGhlIHdha2UNCmV2ZW50cyBhcmUgZGlmZmVyZW50IGZvciBzeXN0
+ZW0gc3VzcGVuZCBhbmQgYXV0b3N1c3BlbmQuIEhvd2V2ZXIsIEkNCmNvdWxkbid0IGNoYW5nZSB0
+aGUgd2FrZSBldmVudCwgYmVjYXVzZSB0aGUgYXV0b3N1c3BlbmQgb2NjdXJzIGZpcnN0LA0KYW5k
+IHRoZSBzdXNwZW5kKCkgaXMgb25seSBjYWxsZWQgb25jZS4NCg0KQmVzdCBSZWdhcmRzLA0KSGF5
+ZXMNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
