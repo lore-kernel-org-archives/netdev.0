@@ -1,57 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] phy: micrel: Fix finding PHY properties in MAC
- node for KSZ9031.
-Date: Wed, 23 Dec 2015 11:37:38 -0500 (EST)
-Message-ID: <20151223.113738.1936313727845564774.davem@davemloft.net>
-References: <20151222110634.GC2373@lunn.ch>
-	<20151222.171444.1073714139867888727.davem@davemloft.net>
-	<567A572A.4030207@ginzinger.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH V1 00/16] add Intel(R) X722 iWARP driver
+Date: Wed, 23 Dec 2015 18:39:32 +0200
+Message-ID: <567ACE44.20608@mellanox.com>
+References: <1450739596-23276-1-git-send-email-faisal.latif@intel.com>
+ <567AC754.5020508@redhat.com> <20151223163549.GA22244@flatif-MOBL1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: henri.roosen@ginzinger.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36119 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750969AbbLWQhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 11:37:40 -0500
-In-Reply-To: <567A572A.4030207@ginzinger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151223163549.GA22244@flatif-MOBL1>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Henri Roosen <henri.roosen@ginzinger.com>
-Date: Wed, 23 Dec 2015 09:11:22 +0100
+On 12/23/2015 6:35 PM, Faisal Latif wrote:
+> I will provide new patch series for latest k.o. Also will make sure of shallow threading for the series.
 
-> On 12/22/2015 11:14 PM, David Miller wrote:
->> From: Andrew Lunn <andrew@lunn.ch>
->> Date: Tue, 22 Dec 2015 12:06:34 +0100
->>
->>> On Tue, Dec 22, 2015 at 11:58:40AM +0100, Henri Roosen wrote:
->>>> Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
->>>>   node.") only fixes finding PHY properties in MAC node for
->>>>   KSZ9021. This
->>>> commit applies the same fix for KSZ9031.
->>>>
->>>> Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
->>>
->>> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus,
->>> not the bus' parent.")
->>>
->>> Acked-by: Andrew Lunn <andrew@lunn.ch>
->>
->> This does not apply cleanly to any of my trees.
-> 
-> David, does the original patch not apply cleanly or is your comment
-> only
-> on the message from Andrew?
-> 
-> Else please let me know what is wrong with the original patch. I've
-> tested it applies cleanly to v4.4-rc6 and to v4.3.
+Please make sure that the cover letter will include the full output of 
+the git generated cover-letter so we can see the location of changes you 
+did to the IB core and the overall LOC volume of the driver.
 
-Your original patch did not apply cleanly.
+Did you run the driver through 0-day testing to avoid zillion small 
+follow up patches in a later point when this isin?
 
-All patches must be against either my 'net' or 'net-next' trees.  And
-you must explicitly state what tree your patch is against and therefore
-which tree you expect me to apply it too.
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
