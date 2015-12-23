@@ -1,222 +1,122 @@
-From: Calvin Owens <calvinowens@fb.com>
-Subject: Re: [PATCH] netconsole: Initialize after all core networking drivers
-Date: Wed, 23 Dec 2015 15:03:28 -0800
-Message-ID: <20151223230328.GA967745@devbig337.prn1.facebook.com>
-References: <20151217235239.GA1444048@devbig337.prn1.facebook.com>
- <1450400894.8474.114.camel@edumazet-glaptop2.roam.corp.google.com>
- <20151218014615.GB1715233@devbig337.prn1.facebook.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 00/28] DSA: Restructure probing
+Date: Wed, 23 Dec 2015 15:13:13 -0800
+Message-ID: <567B2A89.7000803@gmail.com>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+ <567B07CB.5080308@gmail.com> <20151223223303.GD25485@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Cc: <davem@davemloft.net>, <shm@cumulusnetworks.com>,
-	<izumi.taku@jp.fujitsu.com>, <linville@tuxdriver.com>,
-	<dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <kernel-team@fb.com>,
-	Cong Wang <amwang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151218014615.GB1715233@devbig337.prn1.facebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: narmstrong@baylibre.com, vivien.didelot@savoirfairelinux.com,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:34219 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755134AbbLWXNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 18:13:16 -0500
+Received: by mail-ob0-f172.google.com with SMTP id iw8so174315358obc.1
+        for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 15:13:16 -0800 (PST)
+In-Reply-To: <20151223223303.GD25485@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12/17 at 17:46 -0800, Calvin Owens wrote:
-> On Thursday 12/17 at 17:08 -0800, Eric Dumazet wrote:
-> > On Thu, 2015-12-17 at 15:52 -0800, Calvin Owens wrote:
-> > > With built-in netconsole and IXGBE, configuring netconsole via the kernel
-> > > cmdline results in the following panic at boot:
-> > > 
-> > >     netpoll: netconsole: device eth0 not up yet, forcing it
-> > >     usb 2-1: new high-speed USB device number 2 using ehci-pci
-> > >     ixgbe 0000:03:00.0: registered PHC device on eth0
-> > >     BUG: unable to handle kernel NULL pointer dereference at 0000000000000810
-> > >     <snip>
-> > >     Call Trace:
-> > >      [<ffffffff81578661>] ? vxlan_get_rx_port+0x41/0xa0
-> > >      [<ffffffff81586828>] ixgbe_open+0x4e8/0x540
-> > >      [<ffffffff8168045c>] __dev_open+0xac/0x120
-> > >      [<ffffffff81680506>] dev_open+0x36/0x70
-> > >      [<ffffffff8169abec>] netpoll_setup+0x23c/0x300
-> > >      [<ffffffff8169a66a>] ? netpoll_parse_options+0x19a/0x200
-> > >      [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
-> > >      [<ffffffff81d79882>] init_netconsole+0xda/0x262
-> > >      [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
-> > >      [<ffffffff810003a8>] do_one_initcall+0x88/0x1b0
-> > >      [<ffffffff81d31144>] kernel_init_freeable+0x14a/0x1e3
-> > >      [<ffffffff81d308f1>] ? do_early_param+0x8c/0x8c
-> > >      [<ffffffff81778610>] ? rest_init+0x80/0x80
-> > >      [<ffffffff8177861e>] kernel_init+0xe/0xe0
-> > >      [<ffffffff8177dc5f>] ret_from_fork+0x3f/0x70
-> > >      [<ffffffff81778610>] ? rest_init+0x80/0x80
-> > > 
-> > > This happens because IXGBE assumes that vxlan has already been initialized.
-> > > The cleanest way to fix this is to just initialize netconsole after all the
-> > > other core networking stuff has completed.
-> > > 
-> > > Signed-off-by: Calvin Owens <calvinowens@fb.com>
-> > > ---
-> > >  drivers/net/Makefile | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-> > > index 900b0c5..31557d0 100644
-> > > --- a/drivers/net/Makefile
-> > > +++ b/drivers/net/Makefile
-> > > @@ -15,7 +15,6 @@ obj-$(CONFIG_MACVTAP) += macvtap.o
-> > >  obj-$(CONFIG_MII) += mii.o
-> > >  obj-$(CONFIG_MDIO) += mdio.o
-> > >  obj-$(CONFIG_NET) += Space.o loopback.o
-> > > -obj-$(CONFIG_NETCONSOLE) += netconsole.o
-> > >  obj-$(CONFIG_PHYLIB) += phy/
-> > >  obj-$(CONFIG_RIONET) += rionet.o
-> > >  obj-$(CONFIG_NET_TEAM) += team/
-> > > @@ -26,6 +25,7 @@ obj-$(CONFIG_VXLAN) += vxlan.o
-> > >  obj-$(CONFIG_GENEVE) += geneve.o
-> > >  obj-$(CONFIG_NLMON) += nlmon.o
-> > >  obj-$(CONFIG_NET_VRF) += vrf.o
-> > > +obj-$(CONFIG_NETCONSOLE) += netconsole.o
-> > >  
-> > >  #
-> > >  # Networking Drivers
-> > 
-> > 
-> > Looks odd to rely on link order, but we might already rely on this...
-> > 
-> > Have you considered using device_initcall() instead of late_initcall()
-> > in vxlan ?
-> 
-> I'll look.
+Le 23/12/2015 14:33, Andrew Lunn a =C3=A9crit :
+> On Wed, Dec 23, 2015 at 12:44:59PM -0800, Florian Fainelli wrote:
+>> Hi Andrew,
+>>
+>> Le 23/12/2015 04:56, Andrew Lunn a =C3=A9crit :
+>>> As noted in Documentation/networking/dsa/dsa.txt, the current DSA
+>>> architecture has a few architecture problems:
+>>>
+>>> DSA is implemented as a DSA platform device driver which is conveni=
+ent because
+>>> it will register the entire DSA switch tree attached to a master ne=
+twork device
+>>> in one-shot, facilitating the device creation and simplifying the d=
+evice driver
+>>> model a bit, this comes however with a number of limitations:
+>>>
+>>> - building DSA and its switch drivers as modules is currently not w=
+orking
+>>> - the device driver parenting does not necessarily reflect the orig=
+inal
+>>>   bus/device the switch can be created from
+>>> - supporting non-MDIO and non-MMIO (platform) switches is not possi=
+ble
+>>>
+>>> This RFC patchset attempts to address this. It allows the switch
+>>> device to be true Linux devices, and use of the device component
+>>> framework to bind the switch devices to the DSA framework, similar =
+to
+>>> the way GPU engines are bound to the master GPU driver. The drivers
+>>> are now modules, which can be loaded and unloaded. Reloading howeve=
+r
+>>> currently causes an Opps, hence RFC.
+>>>
+>>> The code remains backwards compatible with the old binding, and add=
+s a
+>>> new property to facilitate the component framework. Switch drivers =
+get
+>>> there own binding, allowing them to be probed independent of DSA.
+>=20
+> Hi Florian
+>=20
+>> Well, sort of, and that is the part that gives me mixed feelings rig=
+ht
+>> now. Your conversion of the bcm_sf2 driver, although it looks good a=
+nd
+>> gets us where we should go, still poses a major problem for my platf=
+orms
+>> where a wrong DTB is frozen (at least for some time).
+>=20
+> I hope i've not broken backwards compatibility, so your old DT blobs
+> should still work. If they don't work, we should debug why.
+>=20
+>> I still think that using a 'dsa' platform device and having to bind
+>> other drivers to it is just an artifact and relic from the original
+>> design that we do not necessarily need anymore but with the componen=
+ts
+>> framework, it seems to get us in a better shape.
+>=20
+> I don't really see how we can do without a dsa platform driver. We
+> need something that brings together all the switches in a cluster. We
+> need somewhere which holds the information about how these switches
+> are connected together and connected to the host.
 
-So this does work, but commit 7332a13b038be05c explicitly changed it to
-late_initcall() because of dependencies on IPv6:
+I do not think you need the platform device because ultimately what the
+DSA platform device does is bind some data to the master network device
+the DSA switch tree is hanging off. Sure you need some piece of code
+that is resident in kernel or module space to be able to parse and
+allocate that data structure and bind multiple switch drivers together,
+but that could be a consequence of probing switch driver using their bu=
+s
+probe function.
 
-  When vxlan is compiled as builtin, its init code
-  runs before IPv6 init, this could cause problems
-  if we create IPv6 socket in the latter patch.
+The way I would imagine this in a cluster configuration is that you
+probe switches in the order in which they should appear in the final
+switch tree (if this order cannot be guaranteed, then defer until it
+is), and as you parse Device Tree for these switches you allocate their
+resources and update the dsa_switch_tree structure "live".
 
-So I guess something like the following patch is needed to go that
-route? It's ugly, IMHO the Makefile patch is cleaner...
+So for the first switch in tree:
+- master network device has no dsa_ptr assigned yet, allocate
+dsa_platform_data and this switch's platform data, assign dev->dsa_ptr
+so subsequent switches can be attached
 
-Stephen / Cong, what do you think?
+=46or secondary switches in tree:
+- locate their index, fetch the master network device dsa_ptr and add
+them to the switch tree
 
-> As-is though, I think a similar problem would happen if you
-> tried to use a virtio_net device with netconsole= cmdline (although that
-> is admittedly a bizarre use case). The Makefile patch seemed like the
-> best way to ensure this can't recur elsewhere.
+If we are using Device Tree this is relatively easy since we can lookup
+the entire Device Tree to know the switch tree topology whenever we
+probe a switch device driver. If we are using platform data, then, we
+should have a way to associate a given MDIO bus address with
+supplementary information, very much like what this patch does:
 
-I misunderstood this, it works fine as is.
+https://dev.openwrt.org/browser/trunk/target/linux/generic/patches-4.3/=
+710-phy-add-mdio_register_board_info.patch
 
-
----8<---
-From: Calvin Owens <calvinowens@fb.com>
-Subject: [PATCH] vxlan: Properly depend on ipv6 and revert to module_init()
-
-Commit 7332a13b038be05c ("vxlan: defer vxlan init as late as possible")
-changed vxlan to use late_initcall(), because vxlan relies on ipv6 being
-loaded when a new device is opened.
-
-This causes netconsole to panic at boot when configured via the kernel
-cmdline on an IXGBE NIC, because ixgbe_open() assumes that vxlan has
-already been initialized:
-
-  netpoll: netconsole: device eth0 not up yet, forcing it
-  ixgbe 0000:03:00.0: registered PHC device on eth0
-  BUG: unable to handle kernel NULL pointer dereference at 0000000000000810
-  <snip>
-  Call Trace:
-  [<ffffffff81578661>] ? vxlan_get_rx_port+0x41/0xa0
-  [<ffffffff81586828>] ixgbe_open+0x4e8/0x540
-  [<ffffffff8168045c>] __dev_open+0xac/0x120
-  [<ffffffff81680506>] dev_open+0x36/0x70
-  [<ffffffff8169abec>] netpoll_setup+0x23c/0x300
-  [<ffffffff8169a66a>] ? netpoll_parse_options+0x19a/0x200
-  [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
-  [<ffffffff81d79882>] init_netconsole+0xda/0x262
-  [<ffffffff81d797a8>] ? option_setup+0x1f/0x1f
-  [<ffffffff810003a8>] do_one_initcall+0x88/0x1b0
-  [<ffffffff81d31144>] kernel_init_freeable+0x14a/0x1e3
-  [<ffffffff81d308f1>] ? do_early_param+0x8c/0x8c
-  [<ffffffff81778610>] ? rest_init+0x80/0x80
-  [<ffffffff8177861e>] kernel_init+0xe/0xe0
-  [<ffffffff8177dc5f>] ret_from_fork+0x3f/0x70
-  [<ffffffff81778610>] ? rest_init+0x80/0x80
-
-This patch addresses the issue cited in 7332a13b038be05c by making vxlan
-actually check if ipv6 is loaded, and reverts it to module_init() so
-that it becomes device_initcall() when built-in, eliminating the
-netconsole issue.
-
-The ipv6 module is permanent, so there's no need to actually do the
-usual module_get/module_put dance: once we find it loaded, we can just
-assume that it always will be.
-
-AFAICS, nothing actually ends up calling vxlan_open() during initcalls,
-so in the (IPV6=y && VXLAN=y) case we can't end up there before ipv6 has
-initialized.
-
-Signed-off-by: Calvin Owens <calvinowens@fb.com>
----
- drivers/net/vxlan.c | 35 ++++++++++++++++++++++++++++++++++-
- 1 file changed, 34 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ba363ce..e3061b7 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -158,6 +158,36 @@ static int vxlan_nla_put_addr(struct sk_buff *skb, int attr,
- 		return nla_put_in_addr(skb, attr, ip->sin.sin_addr.s_addr);
- }
- 
-+#if IS_MODULE(CONFIG_IPV6)
-+MODULE_SOFTDEP("pre: ipv6");
-+
-+/*
-+ * IPv6 is permanent, so once we find it loaded we can just assume it always
-+ * will be, and avoid walking the module_list every time we open a new vxlan
-+ * device.
-+ */
-+static bool vxlan_ipv6_is_loaded(void)
-+{
-+	static bool ipv6_loaded = false;
-+
-+	if (!ipv6_loaded) {
-+		mutex_lock(&module_mutex);
-+		ipv6_loaded = !!find_module("ipv6");
-+		mutex_unlock(&module_mutex);
-+	}
-+
-+	return ipv6_loaded;
-+}
-+
-+#elif IS_BUILTIN(CONFIG_IPV6)
-+
-+static bool vxlan_ipv6_is_loaded(void)
-+{
-+	return true;
-+}
-+
-+#endif /* IS_{MODULE,BUILTIN}(CONFIG_IPV6) */
-+
- #else /* !CONFIG_IPV6 */
- 
- static inline
-@@ -2628,6 +2658,9 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
- 	memset(&udp_conf, 0, sizeof(udp_conf));
- 
- 	if (ipv6) {
-+		if (!vxlan_ipv6_is_loaded())
-+			return ERR_PTR(-EAFNOSUPPORT);
-+
- 		udp_conf.family = AF_INET6;
- 		udp_conf.use_udp6_rx_checksums =
- 		    !(flags & VXLAN_F_UDP_ZERO_CSUM6_RX);
-@@ -3259,7 +3292,7 @@ out1:
- 	destroy_workqueue(vxlan_wq);
- 	return rc;
- }
--late_initcall(vxlan_init_module);
-+module_init(vxlan_init_module);
- 
- static void __exit vxlan_cleanup_module(void)
- {
--- 
-2.5.0
+Does that make sense?
+--=20
+=46lorian
