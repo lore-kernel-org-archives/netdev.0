@@ -1,208 +1,133 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 7/9] cxgb4: Update mps_tcam output to include T6 fields
-Date: Wed, 23 Dec 2015 22:47:17 +0530
-Message-ID: <1450891039-17196-8-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 4/9] cxgb4: Update register range and SGE registers for T6 adapter
+Date: Wed, 23 Dec 2015 22:47:14 +0530
+Message-ID: <1450891039-17196-5-git-send-email-hariprasad@chelsio.com>
 References: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:42965 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:38243 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933213AbbLWRQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 12:16:11 -0500
+	by vger.kernel.org with ESMTP id S933052AbbLWRQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 12:16:05 -0500
 In-Reply-To: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In T6, MPS classification has a 512 deep TCAM to do the match lookup.
-Each entry has 80x2b sets containing 48 bit MAC address, port number,
-VLAN Valid/ID, VNI, lookup type (outer or inner packet header).
-[71:48] bit locations are overloaded for outer vs. inner lookup types.
-
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 100 +++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  24 +++++
- 2 files changed, 105 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  5 +++--
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        | 15 +++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 16 +++++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  3 +++
+ 4 files changed, 30 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 98965a4..1fe2db7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -1586,25 +1586,35 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
- {
- 	struct adapter *adap = seq->private;
- 	unsigned int chip_ver = CHELSIO_CHIP_VERSION(adap->params.chip);
--
- 	if (v == SEQ_START_TOKEN) {
--		if (adap->params.arch.mps_rplc_size > 128)
-+		if (chip_ver > CHELSIO_T5) {
- 			seq_puts(seq, "Idx  Ethernet address     Mask     "
-+				 "  VNI   Mask   IVLAN Vld "
-+				 "DIP_Hit   Lookup  Port "
- 				 "Vld Ports PF  VF                           "
- 				 "Replication                                "
- 				 "    P0 P1 P2 P3  ML\n");
--		else
--			seq_puts(seq, "Idx  Ethernet address     Mask     "
--				 "Vld Ports PF  VF              Replication"
--				 "	         P0 P1 P2 P3  ML\n");
-+		} else {
-+			if (adap->params.arch.mps_rplc_size > 128)
-+				seq_puts(seq, "Idx  Ethernet address     Mask     "
-+					 "Vld Ports PF  VF                           "
-+					 "Replication                                "
-+					 "    P0 P1 P2 P3  ML\n");
-+			else
-+				seq_puts(seq, "Idx  Ethernet address     Mask     "
-+					 "Vld Ports PF  VF              Replication"
-+					 "	         P0 P1 P2 P3  ML\n");
-+		}
- 	} else {
- 		u64 mask;
- 		u8 addr[ETH_ALEN];
--		bool replicate;
-+		bool replicate, dip_hit = false, vlan_vld = false;
- 		unsigned int idx = (uintptr_t)v - 2;
- 		u64 tcamy, tcamx, val;
--		u32 cls_lo, cls_hi, ctl;
-+		u32 cls_lo, cls_hi, ctl, data2, vnix = 0, vniy = 0;
- 		u32 rplc[8] = {0};
-+		u8 lookup_type = 0, port_num = 0;
-+		u16 ivlan = 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 2642593..c0dd533 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4855,8 +4855,9 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 		if (chip_ver > CHELSIO_T5) {
- 			/* CtlCmdType - 0: Read, 1: Write
-@@ -1623,6 +1633,22 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
- 			val = t4_read_reg(adap, MPS_CLS_TCAM_DATA1_A);
- 			tcamy = DMACH_G(val) << 32;
- 			tcamy |= t4_read_reg(adap, MPS_CLS_TCAM_DATA0_A);
-+			data2 = t4_read_reg(adap, MPS_CLS_TCAM_DATA2_CTL_A);
-+			lookup_type = DATALKPTYPE_G(data2);
-+			/* 0 - Outer header, 1 - Inner header
-+			 * [71:48] bit locations are overloaded for
-+			 * outer vs. inner lookup types.
-+			 */
-+			if (lookup_type && (lookup_type != DATALKPTYPE_M)) {
-+				/* Inner header VNI */
-+				vniy = ((data2 & DATAVIDH2_F) << 23) |
-+				       (DATAVIDH1_G(data2) << 16) | VIDL_G(val);
-+				dip_hit = data2 & DATADIPHIT_F;
-+			} else {
-+				vlan_vld = data2 & DATAVIDH2_F;
-+				ivlan = VIDL_G(val);
-+			}
-+			port_num = DATAPORTNUM_G(data2);
+ 	/* configure SGE_STAT_CFG_A to read WC stats */
+ 	if (!is_t4(adapter->params.chip))
+-		t4_write_reg(adapter, SGE_STAT_CFG_A,
+-			     STATSOURCE_T5_V(7) | STATMODE_V(0));
++		t4_write_reg(adapter, SGE_STAT_CFG_A, STATSOURCE_T5_V(7) |
++			     (is_t5(adapter->params.chip) ? STATMODE_V(0) :
++			      T6_STATMODE_V(0)));
  
- 			/* Read tcamx. Change the control param */
- 			ctl |= CTLXYBITSEL_V(1);
-@@ -1630,6 +1656,12 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
- 			val = t4_read_reg(adap, MPS_CLS_TCAM_DATA1_A);
- 			tcamx = DMACH_G(val) << 32;
- 			tcamx |= t4_read_reg(adap, MPS_CLS_TCAM_DATA0_A);
-+			data2 = t4_read_reg(adap, MPS_CLS_TCAM_DATA2_CTL_A);
-+			if (lookup_type && (lookup_type != DATALKPTYPE_M)) {
-+				/* Inner header VNI mask */
-+				vnix = ((data2 & DATAVIDH2_F) << 23) |
-+				       (DATAVIDH1_G(data2) << 16) | VIDL_G(val);
-+			}
- 		} else {
- 			tcamy = t4_read_reg64(adap, MPS_CLS_TCAM_Y_L(idx));
- 			tcamx = t4_read_reg64(adap, MPS_CLS_TCAM_X_L(idx));
-@@ -1689,17 +1721,47 @@ static int mps_tcam_show(struct seq_file *seq, void *v)
- 		}
+ 	for_each_port(adapter, i) {
+ 		struct net_device *netdev;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 099b946..5829c9c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -3202,10 +3202,21 @@ int t4_sge_init(struct adapter *adap)
+ 	 * buffers.
+ 	 */
+ 	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL_A);
+-	if (is_t4(adap->params.chip))
++	switch (CHELSIO_CHIP_VERSION(adap->params.chip)) {
++	case CHELSIO_T4:
+ 		egress_threshold = EGRTHRESHOLD_G(sge_conm_ctrl);
+-	else
++		break;
++	case CHELSIO_T5:
+ 		egress_threshold = EGRTHRESHOLDPACKING_G(sge_conm_ctrl);
++		break;
++	case CHELSIO_T6:
++		egress_threshold = T6_EGRTHRESHOLDPACKING_G(sge_conm_ctrl);
++		break;
++	default:
++		dev_err(adap->pdev_dev, "Unsupported Chip version %d\n",
++			CHELSIO_CHIP_VERSION(adap->params.chip));
++		return -EINVAL;
++	}
+ 	s->fl_starve_thres = 2*egress_threshold + 1;
  
- 		tcamxy2valmask(tcamx, tcamy, addr, &mask);
--		if (chip_ver > CHELSIO_T5)
--			seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x "
--				   "%012llx%3c   %#x%4u%4d",
--				   idx, addr[0], addr[1], addr[2], addr[3],
--				   addr[4], addr[5], (unsigned long long)mask,
--				   (cls_lo & T6_SRAM_VLD_F) ? 'Y' : 'N',
--				   PORTMAP_G(cls_hi),
--				   T6_PF_G(cls_lo),
--				   (cls_lo & T6_VF_VALID_F) ?
--				   T6_VF_G(cls_lo) : -1);
--		else
-+		if (chip_ver > CHELSIO_T5) {
-+			/* Inner header lookup */
-+			if (lookup_type && (lookup_type != DATALKPTYPE_M)) {
-+				seq_printf(seq,
-+					   "%3u %02x:%02x:%02x:%02x:%02x:%02x "
-+					   "%012llx %06x %06x    -    -   %3c"
-+					   "      %3c  %4x   "
-+					   "%3c   %#x%4u%4d", idx, addr[0],
-+					   addr[1], addr[2], addr[3],
-+					   addr[4], addr[5],
-+					   (unsigned long long)mask,
-+					   vniy, vnix, dip_hit ? 'Y' : 'N',
-+					   lookup_type ? 'I' : 'O', port_num,
-+					   (cls_lo & T6_SRAM_VLD_F) ? 'Y' : 'N',
-+					   PORTMAP_G(cls_hi),
-+					   T6_PF_G(cls_lo),
-+					   (cls_lo & T6_VF_VALID_F) ?
-+					   T6_VF_G(cls_lo) : -1);
-+			} else {
-+				seq_printf(seq,
-+					   "%3u %02x:%02x:%02x:%02x:%02x:%02x "
-+					   "%012llx    -       -   ",
-+					   idx, addr[0], addr[1], addr[2],
-+					   addr[3], addr[4], addr[5],
-+					   (unsigned long long)mask);
-+
-+				if (vlan_vld)
-+					seq_printf(seq, "%4u   Y     ", ivlan);
-+				else
-+					seq_puts(seq, "  -    N     ");
-+
-+				seq_printf(seq,
-+					   "-      %3c  %4x   %3c   %#x%4u%4d",
-+					   lookup_type ? 'I' : 'O', port_num,
-+					   (cls_lo & T6_SRAM_VLD_F) ? 'Y' : 'N',
-+					   PORTMAP_G(cls_hi),
-+					   T6_PF_G(cls_lo),
-+					   (cls_lo & T6_VF_VALID_F) ?
-+					   T6_VF_G(cls_lo) : -1);
-+			}
-+		} else
- 			seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x "
- 				   "%012llx%3c   %#x%4u%4d",
- 				   idx, addr[0], addr[1], addr[2], addr[3],
+ 	t4_idma_monitor_init(adap, &s->idma_monitor);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 42754c0..c613bd6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -1942,8 +1942,12 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x1190, 0x1194,
+ 		0x11a0, 0x11a4,
+ 		0x11b0, 0x11b4,
+-		0x11fc, 0x1254,
+-		0x1280, 0x133c,
++		0x11fc, 0x1258,
++		0x1280, 0x12d4,
++		0x12d9, 0x12d9,
++		0x12de, 0x12de,
++		0x12e3, 0x12e3,
++		0x12e8, 0x133c,
+ 		0x1800, 0x18fc,
+ 		0x3000, 0x302c,
+ 		0x3060, 0x30b0,
+@@ -1973,7 +1977,7 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x5e50, 0x5e94,
+ 		0x5ea0, 0x5eb0,
+ 		0x5ec0, 0x5ec0,
+-		0x5ec8, 0x5ecc,
++		0x5ec8, 0x5ed0,
+ 		0x6000, 0x6020,
+ 		0x6028, 0x6040,
+ 		0x6058, 0x609c,
+@@ -2048,7 +2052,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x19150, 0x19194,
+ 		0x1919c, 0x191b0,
+ 		0x191d0, 0x191e8,
+-		0x19238, 0x192b0,
++		0x19238, 0x19290,
++		0x192a4, 0x192b0,
+ 		0x192bc, 0x192bc,
+ 		0x19348, 0x1934c,
+ 		0x193f8, 0x19418,
+@@ -2442,7 +2447,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x40280, 0x40280,
+ 		0x40304, 0x40304,
+ 		0x40330, 0x4033c,
+-		0x41304, 0x413c8,
++		0x41304, 0x413b8,
++		0x413c0, 0x413c8,
+ 		0x413d0, 0x413dc,
+ 		0x413f0, 0x413f0,
+ 		0x41400, 0x4140c,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 0971cc4..9fea255 100644
+index 91b52a2..0971cc4 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2398,6 +2398,30 @@
- #define MPS_CLS_TCAM_DATA0_A 0xf000
- #define MPS_CLS_TCAM_DATA1_A 0xf004
+@@ -492,6 +492,9 @@
+ #define STATSOURCE_T5_V(x) ((x) << STATSOURCE_T5_S)
+ #define STATSOURCE_T5_G(x) (((x) >> STATSOURCE_T5_S) & STATSOURCE_T5_M)
  
-+#define VIDL_S    16
-+#define VIDL_M    0xffffU
-+#define VIDL_G(x) (((x) >> VIDL_S) & VIDL_M)
++#define T6_STATMODE_S    0
++#define T6_STATMODE_V(x) ((x) << T6_STATMODE_S)
 +
-+#define DATALKPTYPE_S    10
-+#define DATALKPTYPE_M    0x3U
-+#define DATALKPTYPE_G(x) (((x) >> DATALKPTYPE_S) & DATALKPTYPE_M)
-+
-+#define DATAPORTNUM_S    12
-+#define DATAPORTNUM_M    0xfU
-+#define DATAPORTNUM_G(x) (((x) >> DATAPORTNUM_S) & DATAPORTNUM_M)
-+
-+#define DATADIPHIT_S    8
-+#define DATADIPHIT_V(x) ((x) << DATADIPHIT_S)
-+#define DATADIPHIT_F    DATADIPHIT_V(1U)
-+
-+#define DATAVIDH2_S    7
-+#define DATAVIDH2_V(x) ((x) << DATAVIDH2_S)
-+#define DATAVIDH2_F    DATAVIDH2_V(1U)
-+
-+#define DATAVIDH1_S    0
-+#define DATAVIDH1_M    0x7fU
-+#define DATAVIDH1_G(x) (((x) >> DATAVIDH1_S) & DATAVIDH1_M)
-+
- #define USED_S    16
- #define USED_M    0x7ffU
- #define USED_G(x) (((x) >> USED_S) & USED_M)
+ #define SGE_DBFIFO_STATUS2_A 0x1118
+ 
+ #define HP_INT_THRESH_T5_S    10
 -- 
 2.3.4
