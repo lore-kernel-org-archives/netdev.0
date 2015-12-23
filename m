@@ -1,55 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv6: honor ifindex in case we receive ll addresses in router advertisements
-Date: Wed, 23 Dec 2015 22:44:37 +0100
-Message-ID: <1450907077-19424-1-git-send-email-hannes@stressinduktion.org>
-Cc: Marc Haber <mh+netdev@zugschlus.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:43296 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753411AbbLWVop (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 16:44:45 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 7F04F20997
-	for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 16:44:44 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] mac802154: constify ieee802154_llsec_ops structure
+Date: Wed, 23 Dec 2015 22:36:32 +0100
+Message-ID: <1450906592-9203-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wpan@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Alexander Aring <alex.aring@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marc Haber reported we don't honor interface indexes when we receive link
-local router addresses in router advertisements. Luckily the non-strict
-version of ipv6_chk_addr already does the correct job here, so we can
-simply use it to lighten the checks and use those addresses by default
-without any configuration change.
+The ieee802154_llsec_ops structure is never modified, so declare it as
+const.
 
-Link: <http://permalink.gmane.org/gmane.linux.network/391348>
-Reported-by: Marc Haber <mh+netdev@zugschlus.de>
-Cc: Marc Haber <mh+netdev@zugschlus.de>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Done with the help of Coccinelle.
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
 ---
- net/ipv6/ndisc.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/net/ieee802154_netdev.h |    2 +-
+ net/mac802154/mac_cmd.c         |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index d6161e1c48c86f..84afb9a7727848 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1183,7 +1183,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 	 */
- 	if (!in6_dev->cnf.accept_ra_from_local &&
- 	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
--			  NULL, 0)) {
-+			  in6_dev->dev, 0)) {
- 		ND_PRINTK(2, info,
- 			  "RA from local address detected on dev: %s: default router ignored\n",
- 			  skb->dev->name);
-@@ -1337,7 +1337,7 @@ skip_linkparms:
- #ifdef CONFIG_IPV6_ROUTE_INFO
- 	if (!in6_dev->cnf.accept_ra_from_local &&
- 	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
--			  NULL, 0)) {
-+			  in6_dev->dev, 0)) {
- 		ND_PRINTK(2, info,
- 			  "RA from local address detected on dev: %s: router info ignored.\n",
- 			  skb->dev->name);
--- 
-2.5.0
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index a62a051..c4b3160 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -337,7 +337,7 @@ struct ieee802154_mlme_ops {
+ 	void (*get_mac_params)(struct net_device *dev,
+ 			       struct ieee802154_mac_params *params);
+ 
+-	struct ieee802154_llsec_ops *llsec;
++	const struct ieee802154_llsec_ops *llsec;
+ };
+ 
+ static inline struct ieee802154_mlme_ops *
+diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
+index 8606da4..3db1634 100644
+--- a/net/mac802154/mac_cmd.c
++++ b/net/mac802154/mac_cmd.c
+@@ -126,7 +126,7 @@ static void mac802154_get_mac_params(struct net_device *dev,
+ 	params->lbt = wpan_dev->lbt;
+ }
+ 
+-static struct ieee802154_llsec_ops mac802154_llsec_ops = {
++static const struct ieee802154_llsec_ops mac802154_llsec_ops = {
+ 	.get_params = mac802154_get_params,
+ 	.set_params = mac802154_set_params,
+ 	.add_key = mac802154_add_key,
