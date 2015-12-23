@@ -1,35 +1,50 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Wed, 23 Dec 2015 03:31:59 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F94FFF@RTITMBSV03.realtek.com.tw>
-References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
-	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
-	 <20151208143305.GB18728@al>
-	 <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
- <1450782082.8824.23.camel@suse.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next 3/5] cxgb4: add dcb info node in debugfs
+Date: Wed, 23 Dec 2015 10:37:52 +0530
+Message-ID: <20151223050750.GA23659@hari-Latitude-E5550>
+References: <1450682170-7106-1-git-send-email-hariprasad@chelsio.com>
+ <1450682170-7106-4-git-send-email-hariprasad@chelsio.com>
+ <CAJ3xEMjctGauyRjCKLV+wACkzDC5xF8J9khdhCm+YZXuEafU5Q@mail.gmail.com>
+ <20151222.154552.1762036210080562354.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450782082.8824.23.camel@suse.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: gerlitz.or@gmail.com, netdev@vger.kernel.org, leedom@chelsio.com,
+	nirranjan@chelsio.com, john.r.fastabend@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:40070 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751633AbbLWFIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 00:08:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20151222.154552.1762036210080562354.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQpbLi4uXQ0KPiBJdCBpcyBj
-bGVhciB0byBtZSB0aGF0IHlvdSBjYW5ub3QgZ2V0IGF3YXkgd2l0aCB1c2luZyB0aGUgc2FtZSBv
-cGVyYXRpb24NCj4gZm9yIHJlc3VtZSgpIGFuZCByZXNldF9yZXN1bWUoKSBpbiB5b3VyIGRyaXZl
-ci4gSXQgaXMgZnVuZGFtZW50YWxseQ0KPiBpbXBvc3NpYmxlLiBGaXJtd2FyZSBjYW5ub3QgZml4
-IGl0Lg0KDQpJIHdvdWxkIHRoaW5rIGhvdyB0byBmaXggaXQuDQoNCj4gU29ycnkgZm9yIHRoZSBs
-ZW5ndGggb2YgdGhlIGV4cGxhbmF0aW9uLg0KDQpUaGFua3MgZm9yIHlvdXIgcmVzcG9uc2UuIEkg
-aGF2ZSBzb21lIHF1ZXN0aW9ucy4gV2hhdCBhcmUgdGhlIGZsb3dzIHdoZW4NCnRoZSBzeXN0ZW0g
-cmVzdW1lIGZvbGxvd3MgYSBzeXN0ZW0gc3VzcGVuZCB3aGljaCBmb2xsb3dzIGEgYXV0b3N1c3Bl
-bmQ/DQpBcmUgdGhleSBhcyBmb2xsb3dpbmc/DQoNCjEuIHN1c3BlbmQoKSB3aXRoIFBNU0dfSVNf
-QVVUTyBmb3IgYXV0b3N1c3BuZWQuDQoyLiBzdXNwZW5kKCkgZm9yIHN5c3RlbSBzdXNwZW5kLg0K
-My4gcmVzdW1lKCkgZm9yIHN5c3RlbSByZXN1bWUuDQoNCkFuZCwgc2hvdWxkIHRoZSBkZXZpY2Ug
-ZXhpc3QgYXV0b3N1c3BlbmQgYmVmb3JlICgyKT8gDQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoN
-Cg==
+On Tue, Dec 22, 2015 at 15:45:52 -0500, David Miller wrote:
+> From: Or Gerlitz <gerlitz.or@gmail.com>
+> Date: Mon, 21 Dec 2015 09:33:22 +0200
+> 
+> > On Mon, Dec 21, 2015 at 9:16 AM, Hariprasad Shenai
+> > <hariprasad@chelsio.com> wrote:
+> >> Add new /sys/kernel/debug/cxgb4/*/dcb_info node to dump out
+> >> various Data Center Bridging information.
+> > 
+> > why? what's wrong with using the lldp tool for that purpose?
+> 
+> Agreed, and I don't like your explanation.
+> 
+> Even if you are using firmware managed DCB, the lldp tool should be
+> usable for querying.
+> 
+> People need to stop putting so much crap into debugfs, it's a serious
+> pet peeve of mine.
+> 
+> Every piece of driver unique interface crap you put into debugfs is a
+> _HARDSHIP_ for the user.  Because they have to learn a unique way to
+> do X in every driver that tries to export the same kind of
+> functionality.
+
+Will drop this from the series for now and send V2 for the same.
+Will send a separate series for adding lldptool support for firmware
+managed DCB.
