@@ -1,85 +1,99 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net 1/2] openvswitch: Fix helper reference leak
-Date: Wed, 23 Dec 2015 14:44:30 -0800
-Message-ID: <CAPWQB7HSO3xmSn+r-EsWnMvBsncLwH1m7yH=7t607ozzAqcGoQ@mail.gmail.com>
-References: <1449698860-20685-1-git-send-email-joe@ovn.org>
- <CALnjE+q7tXTD9=cywSg8qJY19DPbAb8Tpz8EaBuJRcW8ANZ9ZQ@mail.gmail.com>
- <CAPWQB7H5MR-ogQGk0hB=nj3YjxiuPLdoq68xO-KB63U0To-NHQ@mail.gmail.com> <CALnjE+puO2xGfGF4TD2zLwxcHfcnbChXttrizbeJpiLmTvYf5g@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 25/28] Documentation: DSA: Describe how probe of DSA
+ and switches work.
+Date: Wed, 23 Dec 2015 23:53:22 +0100
+Message-ID: <20151223225322.GE25485@lunn.ch>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+ <1450875402-20740-26-git-send-email-andrew@lunn.ch>
+ <567B089C.7030108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: narmstrong@baylibre.com, vivien.didelot@savoirfairelinux.com,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:57497 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754679AbbLWWow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 17:44:52 -0500
-Received: from mfilter34-d.gandi.net (mfilter34-d.gandi.net [217.70.178.165])
-	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 810811720A4
-	for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 23:44:51 +0100 (CET)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-	by mfilter34-d.gandi.net (mfilter34-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id 8VUcHQMeFYtp for <netdev@vger.kernel.org>;
-	Wed, 23 Dec 2015 23:44:50 +0100 (CET)
-Received: from mail-wm0-f54.google.com (mail-wm0-f54.google.com [74.125.82.54])
-	(Authenticated sender: joe@ovn.org)
-	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 327521720A3
-	for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 23:44:50 +0100 (CET)
-Received: by mail-wm0-f54.google.com with SMTP id p187so162389454wmp.1
-        for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 14:44:50 -0800 (PST)
-In-Reply-To: <CALnjE+puO2xGfGF4TD2zLwxcHfcnbChXttrizbeJpiLmTvYf5g@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:49126 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753536AbbLWWxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 17:53:25 -0500
+Content-Disposition: inline
+In-Reply-To: <567B089C.7030108@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9 December 2015 at 15:33, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Dec 9, 2015 at 3:10 PM, Joe Stringer <joe@ovn.org> wrote:
->> On 9 December 2015 at 14:50, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Wed, Dec 9, 2015 at 2:07 PM, Joe Stringer <joe@ovn.org> wrote:
->>>> If the actions (re)allocation fails, or the actions list is larger than the
->>>> maximum size, and the conntrack action is the last action when these
->>>> problems are hit, then references to helper modules may be leaked. Fix
->>>> the issue.
->>>>
->>>> Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
->>>> Signed-off-by: Joe Stringer <joe@ovn.org>
->>>> ---
->>>>  net/openvswitch/conntrack.c | 9 ++++++++-
->>>>  1 file changed, 8 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->>>> index c2cc11168fd5..585a5aa81f89 100644
->>>> --- a/net/openvswitch/conntrack.c
->>>> +++ b/net/openvswitch/conntrack.c
->>>> @@ -53,6 +53,8 @@ struct ovs_conntrack_info {
->>>>         struct md_labels labels;
->>>>  };
->>>>
->>>> +static void __ovs_ct_free_action(struct ovs_conntrack_info *ct_info);
->>>> +
->>>>  static u16 key_to_nfproto(const struct sw_flow_key *key)
->>>>  {
->>>>         switch (ntohs(key->eth.type)) {
->>>> @@ -708,7 +710,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
->>>>         nf_conntrack_get(&ct_info.ct->ct_general);
->>>
->>> I see another issue here. Updates to ct_info are done after it is
->>> copied to action list. ct action on the action list and ct_info are
->>> inconsistent, So it is still leaking nf-conntrack reference.
->>
->> You're referring to the below?
->>
->>          __set_bit(IPS_CONFIRMED_BIT, &ct_info.ct->status);
->>          nf_conntrack_get(&ct_info.ct->ct_general);
->>
->> ct_info.ct points to the same location as the version that has been
->> copied into the action list. I agree it's a bit misleading though. If
->> you're not seeing something else, it seems cosmetic so I can (should?)
->> follow up on net-next.
->
-> Right, there is no leak, cosmetic changes can be done later. I do not
-> have problem with this patch as it is.
->
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
+On Wed, Dec 23, 2015 at 12:48:28PM -0800, Florian Fainelli wrote:
+> Le 23/12/2015 04:56, Andrew Lunn a =E9crit :
+> > With the introduction of switches as linux devices and the use of t=
+he
+> > component framework, probing has become more complex. Add some
+> > documentation.
+> >=20
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> > ---
+> >  Documentation/networking/dsa/dsa.txt | 48 ++++++++++++++++++++++++=
+++++++++++++
+> >  1 file changed, 48 insertions(+)
+> >=20
+> > diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/n=
+etworking/dsa/dsa.txt
+> > index aa9c1f9313cd..376afa135a81 100644
+> > --- a/Documentation/networking/dsa/dsa.txt
+> > +++ b/Documentation/networking/dsa/dsa.txt
+> > @@ -398,6 +398,54 @@ Switch configuration
+> >    on the management interface and "hardcode"/"force" this MAC addr=
+ess for the
+> >    CPU/management interface as an optimization
+> > =20
+> > +Call flow
+> > +---------
+> > +
+> > +With the ability for switch devices to be true linux devices, the =
+call
+> > +flow is somewhat complex. The component framework is used to link =
+the
+> > +dsa framework as the master, with switch devices, as slaves.
+> > +
+> > +A switch device should add itself as a component in its probe
+> > +function.
+> > +
+> > +The DSA framework can either be configured using a platform_data
+> > +structure or from the device tree. If device tree is being used, t=
+he
+> > +dsa framework probe function will allocate a platform_data structu=
+re,
+> > +and populate it using the device tree, via the dsa_of_probe()
+> > +function.  Within the DSA device tree, switch devices are represen=
+ted
+> > +by a phandle to the switch device. These phandles are saved into t=
+he
+> > +platform data so that when switch slaves register themselves, they=
+ can
+> > +be correctly positioned in the DSA cluster.
+>=20
+> Humm, I guess I am still not clear on that, in a DT-only system, do I
+> still need to get the DSA platform device to be probed via DT, along
+> with references to the switches I want? If that is the case, that see=
+ms
+> a little awkward, could not we probe the individual switches, and see=
+ if
+> they need DSA instead? Or is that how the component framework works,
+> just being a bit confused here.
 
-Turns out that there wasn't a leak on nf-conntrack, but on the
-template. I sent a patch.
+The component framework needs one master device and a number of slave
+devices. The master device effectively gives the framework a list of
+slave devices it needs. When the slave devices probe they register
+with the component framework. The master then asks the framework if
+its slaves are present, and if not returns -EPRODE_DEFERS and tries
+again later.
+
+So the dsa platform device is the master, and the switch devices are
+the slaves.
+
+It sounds like you want to 'optimise' for a DSA cluster consisting of
+a single switch, throwing away the D in DSA. Now the SF2 is a bit
+'odd'. Since it is embedded in the SoC, you cannot have multiple of
+them in a cluster. So such an optimization could make sense for the
+SF2. But can we do this without adding too more complexity?
+
+     Andrew
