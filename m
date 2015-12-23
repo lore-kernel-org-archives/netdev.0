@@ -1,29 +1,61 @@
-From: lcdaccessory@gmail.com
-Subject: netdev antiblue protect eye for distributor
-Date: Wed, 23 Dec 2015 19:44:34 +0800
-Message-ID: <412-2201512323114434779@ericpc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=136
-Content-Transfer-Encoding: 8BIT
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] geneve: initialize needed_headroom
+Date: Wed, 23 Dec 2015 16:21:48 +0100
+Message-ID: <c891d011ef98267cd72157a5b01c78347ada8d8e.1450883640.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jiri Benc <jbenc@redhat.com>, Jesse Gross <jesse@nicira.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr4.hinet.net ([168.95.4.104]:59100 "EHLO msr4.hinet.net"
+Received: from mx1.redhat.com ([209.132.183.28]:58144 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933118AbbLWNtt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 08:49:49 -0500
-Received: from ericpc (1-172-87-214.dynamic.hinet.net [1.172.87.214])
-	by msr4.hinet.net (8.14.9/8.14.9) with ESMTP id tBNBhOM3012171
-	for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 19:43:27 +0800 (CST)
+	id S1753504AbbLWPWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2015 10:22:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear netdev  MD,
+Currently the needed_headroom field for the geneve device is left
+to the default value.
 
-New LCD/LED TV defender blocker for year 2016.
-huge profits reserve for first distributor there, a lots request from end-users especial for antiblue protector.
-New and hottest model refer to  http://www.emetal.tw/protect/p1-blue.htm 
+This patch set it to space required for basic geneve encapsulation,
+so that we can avoid the skb head re-allocation on xmit.
 
-inquire email to Eric from eMetal Technology
-www.lcdaccessory.com info@emetal.tw 
+This give a 6% speedup for unsegment traffic on geneve tunnel.
 
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ drivers/net/geneve.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index c2b79f5..bb3e6ed 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -1155,7 +1155,7 @@ static int geneve_configure(struct net *net, struct net_device *dev,
+ 	struct geneve_net *gn = net_generic(net, geneve_net_id);
+ 	struct geneve_dev *t, *geneve = netdev_priv(dev);
+ 	bool tun_collect_md, tun_on_same_port;
+-	int err;
++	int err, encap_len;
  
+ 	if (!remote)
+ 		return -EINVAL;
+@@ -1187,6 +1187,14 @@ static int geneve_configure(struct net *net, struct net_device *dev,
+ 	if (t)
+ 		return -EBUSY;
+ 
++	/* make enough headroom for basic scenario */
++	encap_len = GENEVE_BASE_HLEN + ETH_HLEN;
++	if (remote->sa.sa_family == AF_INET)
++		encap_len += sizeof(struct iphdr);
++	else
++		encap_len += sizeof(struct ipv6hdr);
++	dev->needed_headroom = encap_len;
++
+ 	if (metadata) {
+ 		if (tun_on_same_port)
+ 			return -EPERM;
+-- 
+1.8.3.1
