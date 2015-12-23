@@ -1,49 +1,51 @@
-From: Henri Roosen <henri.roosen@ginzinger.com>
-Subject: [PATCH v2 1/1] phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.
-Date: Wed, 23 Dec 2015 11:42:29 +0100
-Message-ID: <1450867349-9436-1-git-send-email-henri.roosen@ginzinger.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
+Date: Wed, 23 Dec 2015 11:45:58 +0100
+Message-ID: <1450867558.6437.10.camel@suse.com>
+References: <1449573462-28417-1-git-send-email-peter@lekensteyn.nl>
+	 <0835B3720019904CB8F7AA43166CEEB2F8DAD9@RTITMBSV03.realtek.com.tw>
+	 <20151208143305.GB18728@al>
+	 <0835B3720019904CB8F7AA43166CEEB2F94D11@RTITMBSV03.realtek.com.tw>
+	 <1450782082.8824.23.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F94FFF@RTITMBSV03.realtek.com.tw>
+	 <1450858813.6437.2.camel@suse.de>
+	 <0835B3720019904CB8F7AA43166CEEB2F9547E@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<andrew@lunn.ch>, Henri Roosen <henri.roosen@ginzinger.com>
-To: <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"peter@lekensteyn.nl" <peter@lekensteyn.nl>
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F9547E@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
- node.") only fixes finding PHY properties in MAC node for KSZ9021. This
-commit applies the same fix for KSZ9031.
+On Wed, 2015-12-23 at 09:20 +0000, Hayes Wang wrote:
+> Oliver Neukum [mailto:oneukum@suse.de]
+> > Sent: Wednesday, December 23, 2015 4:20 PM
+> [...]
+> > No, step (2) does not exist. Calls to suspend() and [reset_]resume()
+> > always balance. Usually a driver shouldn't care about system suspend.
+> > The way the driver is currently coded will also fail for Port-Power Off.
+> 
+> It is different with Windows. The Windows would resume the device before
+> system suspend, if the system suspend follows the autosuspend.
+> 
+> Would this be a problem? After system suspend, the device may wake up
+> the system when receiving any packet, not only magic packet. The wake
+> events are different for system suspend and autosuspend. However, I
+> couldn't change the wake event, because the autosuspend occurs first,
+> and the suspend() is only called once.
 
-Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
----
- drivers/net/phy/micrel.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+That is indeed a problem and I need to think a bit about finding
+a good solution. If you are happy with an inelegant solution, you can
+use a pm_notifier, which will tell you that the system is going
+to suspend. This is documented:
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index e13ad6c..fc6c058 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -470,9 +470,18 @@ static int ksz9031_config_init(struct phy_device *phydev)
- 		"txd2-skew-ps", "txd3-skew-ps"
- 	};
- 	static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
-+	const struct device *dev_walker;
- 
--	if (!of_node && dev->parent->of_node)
--		of_node = dev->parent->of_node;
-+	/* The Micrel driver has a deprecated option to place phy OF
-+	 * properties in the MAC node. Walk up the tree of devices to
-+	 * find a device with an OF node.
-+	 */
-+	dev_walker = &phydev->dev;
-+	do {
-+		of_node = dev_walker->of_node;
-+		dev_walker = dev_walker->parent;
-+
-+	} while (!of_node && dev_walker);
- 
- 	if (of_node) {
- 		ksz9031_of_load_skew_values(phydev, of_node,
--- 
-2.1.4
+https://www.kernel.org/doc/Documentation/power/notifiers.txt
+
+	HTH
+		Oliver
