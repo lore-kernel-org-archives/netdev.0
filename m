@@ -1,56 +1,51 @@
-From: Henri Roosen <henri.roosen@ginzinger.com>
-Subject: Re: [PATCH 1/1] phy: micrel: Fix finding PHY properties in MAC node
- for KSZ9031.
-Date: Wed, 23 Dec 2015 09:42:24 +0100
-Message-ID: <567A5E70.1010407@ginzinger.com>
-References: <1450781920-26912-1-git-send-email-henri.roosen@ginzinger.com>
- <20151222110634.GC2373@lunn.ch>
- <20151222.171444.1073714139867888727.davem@davemloft.net>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: =?UTF-8?Q?[PATCH_net-next_v2_0/5]_sfc:_additional_virtual_function_?=
+ =?UTF-8?Q?support=e2=80=8b?=
+Date: Wed, 23 Dec 2015 08:55:12 +0000
+Message-ID: <567A6170.6010104@solarflare.com>
+References: <5674274C.4020606@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151222.171444.1073714139867888727.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:28299 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751683AbbLWIzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 03:55:47 -0500
+In-Reply-To: <5674274C.4020606@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This introduces the client side of a mechanism to defer authorisation o=
+f
+operations, for example multicast subscription. Although primarily aime=
+d at
+SRIOV VFs this can also apply to unprivileged PFs.
 
+Also handle reboot ordering corner cases better and reduce the level of=
+ some
+logging.
 
-On 12/22/2015 11:14 PM, David Miller wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Tue, 22 Dec 2015 12:06:34 +0100
->
->> On Tue, Dec 22, 2015 at 11:58:40AM +0100, Henri Roosen wrote:
->>> Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
->>>   node.") only fixes finding PHY properties in MAC node for KSZ9021. This
->>> commit applies the same fix for KSZ9031.
->>>
->>> Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
->>
->> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
->>
->> Acked-by: Andrew Lunn <andrew@lunn.ch>
->
-> This does not apply cleanly to any of my trees.
+v2: remove #ifdef DEBUG around new WARN_ON in mcdi.c.
 
-Found the problem. It's the mail server. Will send a correct patch later.
+Bert Kenward (4):
+  sfc: Retry MCDI after NO_EVB_PORT error on a VF
+  sfc: Handle MCDI proxy authorisation
+  sfc: Make failed filter removal less noisy
+  sfc: Downgrade or remove some error messages
 
->
+Tom=C3=A1=C5=A1 Pila=C5=99 (1):
+  sfc: Downgrade EPERM messages from MCDI to debug
 
-________________________________
+ drivers/net/ethernet/sfc/ef10.c |  68 +++++++----
+ drivers/net/ethernet/sfc/efx.c  |   7 +-
+ drivers/net/ethernet/sfc/mcdi.c | 250 ++++++++++++++++++++++++++++++++=
+++++----
+ drivers/net/ethernet/sfc/mcdi.h |  10 ++
+ 4 files changed, 288 insertions(+), 47 deletions(-)
 
-Ginzinger electronic systems GmbH
-Gewerbegebiet Pirath 16
-4952 Weng im Innkreis
-www.ginzinger.com
-
-Firmenbuchnummer: FN 364958d
-Firmenbuchgericht: Ried im Innkreis
-UID-Nr.: ATU66521089
-
-________________________________
-*** WEIHNACHTSURLAUB VON DONNERSTAG, DEN 24. DEZEMBER 2015 BIS MITTWOCH, DEN 6. JAENNER 2016 ***
-*** CHRISTMAS VACATION FROM THURSDAY, THE 24 DECEMBER 2015 TO WEDNESDAY, 6 JANUARY 2016 ***
+--=20
+2.4.3
