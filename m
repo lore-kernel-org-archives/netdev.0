@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] Update support for T6 adapters
-Date: Wed, 23 Dec 2015 22:36:36 -0500 (EST)
-Message-ID: <20151223.223636.1850240863048187365.davem@davemloft.net>
-References: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net,stable] net: cdc_ncm: avoid changing RX/TX buffers
+ on MTU changes
+Date: Wed, 23 Dec 2015 22:52:40 -0500 (EST)
+Message-ID: <20151223.225240.1999351612611929837.davem@davemloft.net>
+References: <1450874563-21311-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	mrkiko.rs@gmail.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40747 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40832 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771AbbLXDgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:36:38 -0500
-In-Reply-To: <1450891039-17196-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1751719AbbLXDwm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:52:42 -0500
+In-Reply-To: <1450874563-21311-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed, 23 Dec 2015 22:47:10 +0530
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Wed, 23 Dec 2015 13:42:43 +0100
 
-> This patch changes updates the various code changes related to
-> register, stats and hardware related changes for T6 family of
-> adapters.
-> 
-> This patch series has been created against net-next tree and includes
-> patches on cxgb4 and cxgb4vf driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
+> NCM buffer sizes are negotiated with the device independently of
+> the network device MTU.  The RX buffers are allocated by the
+> usbnet framework based on the rx_urb_size value set by cdc_ncm. A
+> single RX buffer can hold a number of MTU sized packets.
+>=20
+> The default usbnet change_mtu ndo only modifies rx_urb_size if it
+> is equal to hard_mtu.  And the cdc_ncm driver will set rx_urb_size
+> and hard_mtu independently of each other, based on dwNtbInMaxSize
+> and dwNtbOutMaxSize respectively. It was therefore assumed that
+> usbnet_change_mtu() would never touch rx_urb_size.  This failed to
+> consider the case where dwNtbInMaxSize and dwNtbOutMaxSize happens
+> to be equal.
+>=20
+> Fix by implementing an NCM specific change_mtu ndo, modifying the
+> netdev MTU without touching the buffer size settings.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks!
