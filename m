@@ -1,38 +1,61 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next 1/2] r8169:Fix typo in setting RTL8168H PHY parameter
-Date: Thu, 24 Dec 2015 21:15:26 +0800
-Message-ID: <1450962927-19077-2-git-send-email-hau@realtek.com>
-References: <1450962927-19077-1-git-send-email-hau@realtek.com>
+From: eran ben elisha <eranlinuxmellanox@gmail.com>
+Subject: Re: [PATCH net-next V2 3/4] net/mlx5e: Add HW timestamping (TS) support
+Date: Thu, 24 Dec 2015 16:02:14 +0200
+Message-ID: <CAKHjkj=qr3vmLQW2jJc-7SECvV9GWM_A1Ydh2JxR8wEZm1=xeA@mail.gmail.com>
+References: <1450647991-13736-1-git-send-email-saeedm@mellanox.com>
+	<1450647991-13736-4-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450962927-19077-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34450 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754558AbbLXOCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 09:02:15 -0500
+Received: by mail-wm0-f67.google.com with SMTP id l126so33887087wml.1
+        for <netdev@vger.kernel.org>; Thu, 24 Dec 2015 06:02:14 -0800 (PST)
+In-Reply-To: <1450647991-13736-4-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In function "rtl8168h_2_hw_phy_config", there is a typo in setting
-RTL8168H PHY parameter.
+> +void mlx5e_fill_hwstamp(struct mlx5e_tstamp *tstamp,
+> +                       struct skb_shared_hwtstamps *hwts,
+> +                       u64 timestamp)
+> +{
+> +       unsigned long flags;
+> +       u64 nsec;
+> +
+> +       memset(hwts, 0, sizeof(struct skb_shared_hwtstamps));
+> +       read_lock_irqsave(&tstamp->lock, flags);
 
-Signed-off-by: Chunhao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Richard and others,
+Any special reason to use read_lock_irqsave and not just read_lock?
+On second thought could not see any good reason for that,
+but saw many other examples which uses irqsave.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 79ef799..11cc32b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3947,7 +3947,7 @@ static void rtl8168h_2_hw_phy_config(struct rtl8169_private *tp)
- 	data = (ioffset_p3<<12)|(ioffset_p2<<8)|(ioffset_p1<<4)|(ioffset_p0);
- 
- 	if ((ioffset_p3 != 0x0f) || (ioffset_p2 != 0x0f) ||
--	    (ioffset_p1 != 0x0f) || (ioffset_p0 == 0x0f)) {
-+	    (ioffset_p1 != 0x0f) || (ioffset_p0 != 0x0f)) {
- 		rtl_writephy(tp, 0x1f, 0x0bcf);
- 		rtl_writephy(tp, 0x16, data);
- 		rtl_writephy(tp, 0x1f, 0x0000);
--- 
-1.9.1
+thanks,
+Eran
+
+> +       nsec = timecounter_cyc2time(&tstamp->clock, timestamp);
+> +       read_unlock_irqrestore(&tstamp->lock, flags);
+> +
+> +       hwts->hwtstamp = ns_to_ktime(nsec);
+> +}
+> +
+> +static cycle_t mlx5e_read_clock(const struct cyclecounter *cc)
+> +{
+> +       struct mlx5e_tstamp *tstamp = container_of(cc, struct mlx5e_tstamp,
+> +                                                  cycles);
+> +       struct mlx5e_priv *priv = container_of(tstamp, struct mlx5e_priv,
+> +                                              tstamp);
+> +
+> +       return mlx5_core_read_clock(priv->mdev) & cc->mask;
+> +}
+> +
