@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] geneve: initialize needed_headroom
-Date: Wed, 23 Dec 2015 22:28:59 -0500 (EST)
-Message-ID: <20151223.222859.26644566083507428.davem@davemloft.net>
-References: <211eb876be50613e662c0f01c3de6735e23e9b97.1450885903.git.pabeni@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/2] new maintainers for Mellanox mlx4/mlx5
+ core and IB drivers
+Date: Wed, 23 Dec 2015 22:33:32 -0500 (EST)
+Message-ID: <20151223.223332.955113498193003697.davem@davemloft.net>
+References: <1450888258-19557-1-git-send-email-ogerlitz@mellanox.com>
+	<567AE86A.50803@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, jbenc@redhat.com,
-	jesse@nicira.com, hannes@stressinduktion.org
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40715 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750813AbbLXD3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:29:01 -0500
-In-Reply-To: <211eb876be50613e662c0f01c3de6735e23e9b97.1450885903.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <567AE86A.50803-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Wed, 23 Dec 2015 16:54:27 +0100
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 23 Dec 2015 13:31:06 -0500
 
-> Currently the needed_headroom field for the geneve device is left
-> to the default value.
+> On 12/23/2015 11:30 AM, Or Gerlitz wrote:
+>> Hi Dave, Doug
+>>  
+>> We're happily assigning new maintainers for mlx4/mlx5 core and IB drivers.
+>> 
+>> This is aligned with Eli (mlx5) and Roland (mlx4).
+>> 
+>> FWIW, I did the whole change to go through netdev. 
 > 
-> This patch set it to space required for basic geneve encapsulation,
-> so that we can avoid the skb head re-allocation on xmit.
-> 
-> This give a 6% speedup for unsegment traffic on geneve tunnel.
-> 
-> v1 -> v2:
->   - add ETH_HLEN for the lower device to the needed headroom
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Hi Dave, I've picked these up.
 
-Applied, thank you.
+Ok, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
