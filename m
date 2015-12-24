@@ -1,8 +1,8 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V5 7/9] Drivers: hv: vmbus: add a mechanism to pass hvsock
- events to the hvsock driver
-Date: Thu, 24 Dec 2015 06:14:51 -0800
-Message-ID: <1450966491-13276-1-git-send-email-decui@microsoft.com>
+Subject: [PATCH V5 8/9] Drivers: hv: vmbus: add an API
+ vmbus_hvsock_device_unregister()
+Date: Thu, 24 Dec 2015 06:14:57 -0800
+Message-ID: <1450966497-13310-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,89 +23,145 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-For now only 1 event is defined: HVSOCK_RESCIND_CHANNEL.
-We'll have more events in the future.
+The hvsock driver needs this API to release all the resources related
+to the channel.
 
 Signed-off-by: Dexuan Cui <decui@microsoft.com>
 ---
- drivers/hv/channel_mgmt.c | 18 ++++++++++++++++++
- include/linux/hyperv.h    | 17 +++++++++++++++++
- 2 files changed, 35 insertions(+)
+ drivers/hv/channel_mgmt.c | 33 ++++++++++++++++++++++++++++-----
+ drivers/hv/connection.c   |  4 ++--
+ include/linux/hyperv.h    |  2 ++
+ 3 files changed, 32 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
-index 4611b50..87fc7d2 100644
+index 87fc7d2..f963645 100644
 --- a/drivers/hv/channel_mgmt.c
 +++ b/drivers/hv/channel_mgmt.c
-@@ -608,6 +608,16 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
- 	spin_unlock_irqrestore(&channel->lock, flags);
+@@ -195,6 +195,7 @@ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+ 	vmbus_release_relid(relid);
  
- 	if (channel->device_obj) {
-+		if (is_hvsock_channel(channel) &&
-+		    channel->hvsock_event_callback) {
-+			channel->hvsock_event_callback(channel,
-+						       HVSOCK_RESCIND_CHANNEL);
-+			/*
-+			 * We can't invoke vmbus_device_unregister()
-+			 * until the socket fd is closed.
-+			 */
-+			return;
-+		}
+ 	BUG_ON(!channel->rescind);
++	BUG_ON(!mutex_is_locked(&vmbus_connection.channel_mutex));
+ 
+ 	if (channel->target_cpu != get_cpu()) {
+ 		put_cpu();
+@@ -206,9 +207,7 @@ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
+ 	}
+ 
+ 	if (channel->primary_channel == NULL) {
+-		mutex_lock(&vmbus_connection.channel_mutex);
+ 		list_del(&channel->listentry);
+-		mutex_unlock(&vmbus_connection.channel_mutex);
+ 
+ 		primary_channel = channel;
+ 	} else {
+@@ -251,6 +250,7 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 	struct vmbus_channel *channel;
+ 	bool fnew = true;
+ 	unsigned long flags;
++	int ret;
+ 
+ 	/* Make sure this is a new offer */
+ 	mutex_lock(&vmbus_connection.channel_mutex);
+@@ -330,7 +330,11 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
+ 	 * binding which eventually invokes the device driver's AddDevice()
+ 	 * method.
+ 	 */
+-	if (vmbus_device_register(newchannel->device_obj) != 0) {
++	mutex_lock(&vmbus_connection.channel_mutex);
++	ret = vmbus_device_register(newchannel->device_obj);
++	mutex_unlock(&vmbus_connection.channel_mutex);
++
++	if (ret != 0) {
+ 		pr_err("unable to add child device object (relid %d)\n",
+ 			newchannel->offermsg.child_relid);
+ 		kfree(newchannel->device_obj);
+@@ -592,6 +596,8 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 	struct device *dev;
+ 
+ 	rescind = (struct vmbus_channel_rescind_offer *)hdr;
++
++	mutex_lock(&vmbus_connection.channel_mutex);
+ 	channel = relid2channel(rescind->child_relid);
+ 
+ 	if (channel == NULL) {
+@@ -600,7 +606,7 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 		 * vmbus_process_offer(), we have already invoked
+ 		 * vmbus_release_relid() on error.
+ 		 */
+-		return;
++		goto out;
+ 	}
+ 
+ 	spin_lock_irqsave(&channel->lock, flags);
+@@ -616,7 +622,7 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 			 * We can't invoke vmbus_device_unregister()
+ 			 * until the socket fd is closed.
+ 			 */
+-			return;
++			goto out;
+ 		}
  		/*
  		 * We will have to unregister this device from the
- 		 * driver core.
-@@ -977,3 +987,11 @@ bool vmbus_are_subchannels_present(struct vmbus_channel *primary)
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(vmbus_are_subchannels_present);
+@@ -631,7 +637,24 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 		hv_process_channel_removal(channel,
+ 			channel->offermsg.child_relid);
+ 	}
 +
-+void vmbus_set_hvsock_event_callback(struct vmbus_channel *channel,
-+		void (*hvsock_event_callback)(struct vmbus_channel *,
-+					      enum hvsock_event))
-+{
-+	channel->hvsock_event_callback = hvsock_event_callback;
++out:
++	mutex_unlock(&vmbus_connection.channel_mutex);
 +}
-+EXPORT_SYMBOL_GPL(vmbus_set_hvsock_event_callback);
++
++
++void vmbus_hvsock_device_unregister(struct vmbus_channel *channel)
++{
++	mutex_lock(&vmbus_connection.channel_mutex);
++
++	BUG_ON(!is_hvsock_channel(channel));
++
++	channel->rescind = true;
++	vmbus_device_unregister(channel->device_obj);
++
++	mutex_unlock(&vmbus_connection.channel_mutex);
+ }
++EXPORT_SYMBOL_GPL(vmbus_hvsock_device_unregister);
+ 
+ /*
+  * vmbus_onoffers_delivered -
+diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
+index 3dc5a9c..deb48e6 100644
+--- a/drivers/hv/connection.c
++++ b/drivers/hv/connection.c
+@@ -288,7 +288,8 @@ struct vmbus_channel *relid2channel(u32 relid)
+ 	struct list_head *cur, *tmp;
+ 	struct vmbus_channel *cur_sc;
+ 
+-	mutex_lock(&vmbus_connection.channel_mutex);
++	BUG_ON(!mutex_is_locked(&vmbus_connection.channel_mutex));
++
+ 	list_for_each_entry(channel, &vmbus_connection.chn_list, listentry) {
+ 		if (channel->offermsg.child_relid == relid) {
+ 			found_channel = channel;
+@@ -307,7 +308,6 @@ struct vmbus_channel *relid2channel(u32 relid)
+ 			}
+ 		}
+ 	}
+-	mutex_unlock(&vmbus_connection.channel_mutex);
+ 
+ 	return found_channel;
+ }
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index b4cc44c..7e507bb 100644
+index 7e507bb..8e59f98 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -645,6 +645,12 @@ enum hv_signal_policy {
- 	HV_SIGNAL_POLICY_EXPLICIT,
- };
+@@ -1055,6 +1055,8 @@ int __must_check __vmbus_driver_register(struct hv_driver *hv_driver,
+ 					 const char *mod_name);
+ void vmbus_driver_unregister(struct hv_driver *hv_driver);
  
-+/* hvsock related definitions */
-+enum hvsock_event {
-+	/* The host application is close()-ing the connection */
-+	HVSOCK_RESCIND_CHANNEL,
-+};
++void vmbus_hvsock_device_unregister(struct vmbus_channel *channel);
 +
- struct vmbus_channel {
- 	/* Unique channel id */
- 	int id;
-@@ -740,6 +746,13 @@ struct vmbus_channel {
- 	void (*sc_creation_callback)(struct vmbus_channel *new_sc);
- 
- 	/*
-+	 * hvsock event callback.
-+	 * For now only 1 event is defined: HVSOCK_RESCIND_CHANNEL.
-+	 */
-+	void (*hvsock_event_callback)(struct vmbus_channel *channel,
-+				      enum hvsock_event event);
-+
-+	/*
- 	 * The spinlock to protect the structure. It is being used to protect
- 	 * test-and-set access to various attributes of the structure as well
- 	 * as all sc_list operations.
-@@ -825,6 +838,10 @@ int vmbus_request_offers(void);
- void vmbus_set_sc_create_callback(struct vmbus_channel *primary_channel,
- 			void (*sc_cr_cb)(struct vmbus_channel *new_sc));
- 
-+void vmbus_set_hvsock_event_callback(struct vmbus_channel *channel,
-+		void (*hvsock_event_callback)(struct vmbus_channel *,
-+					      enum hvsock_event));
-+
- /*
-  * Retrieve the (sub) channel on which to send an outgoing request.
-  * When a primary channel has multiple sub-channels, we choose a
+ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 			resource_size_t min, resource_size_t max,
+ 			resource_size_t size, resource_size_t align,
 -- 
 2.1.4
