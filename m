@@ -1,57 +1,54 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: Re: [PATCH net-next v2] ip_tunnel: Move stats update to
- iptunnel_xmit()
-Date: Thu, 24 Dec 2015 10:46:50 -0200
-Message-ID: <20151224124649.GB17571@indiana.gru.redhat.com>
-References: <1450914723-16452-1-git-send-email-pshelar@nicira.com>
- <567BB917.9090900@6wind.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 00/28] DSA: Restructure probing
+Date: Thu, 24 Dec 2015 13:58:12 +0100
+Message-ID: <20151224125812.GB29139@lunn.ch>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+ <567B07CB.5080308@gmail.com>
+ <20151223223303.GD25485@lunn.ch>
+ <567B2A89.7000803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: narmstrong@baylibre.com, vivien.didelot@savoirfairelinux.com,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49708 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:49348 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752215AbbLXMqz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Dec 2015 07:46:55 -0500
+	id S1750813AbbLXM6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Dec 2015 07:58:16 -0500
 Content-Disposition: inline
-In-Reply-To: <567BB917.9090900@6wind.com>
+In-Reply-To: <567B2A89.7000803@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 24, 2015 at 10:21:27AM +0100, Nicolas Dichtel wrote:
-> Le 24/12/2015 00:52, Pravin B Shelar a =C3=A9crit :
-> [snip]
-> >diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-> >index 6af78c6..d63a911 100644
-> >--- a/net/tipc/udp_media.c
-> >+++ b/net/tipc/udp_media.c
-> >@@ -182,15 +182,9 @@ static int tipc_udp_send_msg(struct net *net, s=
-truct sk_buff *skb,
-> >  			goto tx_error;
-> >  		}
-> >  		ttl =3D ip4_dst_hoplimit(&rt->dst);
-> >-		err =3D udp_tunnel_xmit_skb(rt, ub->ubsock->sk, skb,
-> >-					  src->ipv4.s_addr,
-> >-					  dst->ipv4.s_addr, 0, ttl, 0,
-> >-					  src->udp_port, dst->udp_port,
-> >-					  false, true);
-> >-		if (err < 0) {
-> >-			ip_rt_put(rt);
-> >-			goto tx_error;
-> >-		}
-> >+		udp_tunnel_xmit_skb(rt, ub->ubsock->sk, skb, src->ipv4.s_addr,
-> >+				    dst->ipv4.s_addr, 0, ttl, 0, src->udp_port,
-> >+				    dst->udp_port, false, true);
-> I don't know how tipc works, but this change is clearly suspect. What=
- make the
-> error path not needed anymore after your patch?
+> I do not think you need the platform device because ultimately what the
+> DSA platform device does is bind some data to the master network device
+> the DSA switch tree is hanging off. Sure you need some piece of code
+> that is resident in kernel or module space to be able to parse and
+> allocate that data structure and bind multiple switch drivers together,
+> but that could be a consequence of probing switch driver using their bus
+> probe function.
+> 
+> The way I would imagine this in a cluster configuration is that you
+> probe switches in the order in which they should appear in the final
+> switch tree (if this order cannot be guaranteed, then defer until it
+> is), and as you parse Device Tree for these switches you allocate their
+> resources and update the dsa_switch_tree structure "live".
 
-I looked into it as well. As far as I see, err could only be positive o=
-r 0, so
-if there is a tipc bug here, Pravin's patch introduces no regression. O=
-r did I
-fail to see how udp_tunnel_xmit_skb could return a negative value?
+How do you get this ordering? You cannot control the probe order in
+Linux.
 
-Cascardo.
+> If we are using Device Tree this is relatively easy since we can lookup
+> the entire Device Tree to know the switch tree topology whenever we
+> probe a switch device driver. If we are using platform data, then, we
+> should have a way to associate a given MDIO bus address with
+> supplementary information, very much like what this patch does:
+
+One of my aims is to abstract away the MDIO bus from DSA. How you talk
+to the switch is a switch device property. SF2 has a different way to
+talk to the switch, memory mapped IO, etc.
+
+Anyway, who do you think the device tree binding will look? Maybe take
+the .dts file in patches 2 and 20 to build an example?
+
+	Andrew
