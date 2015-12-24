@@ -1,34 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] sfc: additional virtual function
- =?utf-8?B?c3VwcG9ydOKAiw==?=
-Date: Wed, 23 Dec 2015 22:06:57 -0500 (EST)
-Message-ID: <20151223.220657.581690504804855533.davem@davemloft.net>
-References: <5674274C.4020606@solarflare.com>
-	<567A6170.6010104@solarflare.com>
+From: <zyjzyj2000@gmail.com>
+Subject: [V2 PATCH 1/1] ixgbe: force to synchronize reporting "link on" and
+Date: Thu, 24 Dec 2015 11:12:31 +0800
+Message-ID: <1450926752-11392-1-git-send-email-zyjzyj2000@gmail.com>
+References: <1450868046.3316.11.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bkenward@solarflare.com
+Content-Type: text/plain
+Cc: <venkat.viswanathan@windriver.com>,
+	<Boris.Shteinbock@windriver.com>, <Vincent.Bourg@windriver.com>
+To: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
+	<shannon.nelson@intel.com>, <carolyn.wyborny@intel.com>,
+	<donald.c.skidmore@intel.com>, <bruce.w.allan@intel.com>,
+	<john.ronciak@intel.com>, <mitch.a.williams@intel.com>,
+	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
+	<e1000-devel@lists.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40573 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752975AbbLXDG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:06:58 -0500
-In-Reply-To: <567A6170.6010104@solarflare.com>
+Received: from mail1.windriver.com ([147.11.146.13]:58538 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751977AbbLXDM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:12:28 -0500
+In-Reply-To: <1450868046.3316.11.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Wed, 23 Dec 2015 08:55:12 +0000
 
-> This introduces the client side of a mechanism to defer authorisation of
-> operations, for example multicast subscription. Although primarily aimed at
-> SRIOV VFs this can also apply to unprivileged PFs.
-> 
-> Also handle reboot ordering corner cases better and reduce the level of some
-> logging.
-> 
-> v2: remove #ifdef DEBUG around new WARN_ON in mcdi.c.
+Hi, Jeff
 
-Series applied, thanks.
+Thanks for your reply.
+
+Changes:
+Since there is a time span between link_up and link_speed to X540 NIC, it is not appropriate to continue in the function ixgbe_watchdog_link_is_up if only link_up is ready.
+
+Best Regards!
+Zhu Yanjun
