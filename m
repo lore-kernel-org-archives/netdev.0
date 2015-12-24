@@ -1,79 +1,131 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V5 6/9] Drivers: hv: vmbus: add a hvsock flag in struct
- hv_driver
-Date: Thu, 24 Dec 2015 06:14:46 -0800
-Message-ID: <1450966486-13243-1-git-send-email-decui@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pebolle@tiscali.nl, dan.carpenter@oracle.com, stefanha@redhat.com
+Subject: [PATCH V5 5/9] Drivers: hv: vmbus: add APIs to send/recv hvsock packets
+Date: Thu, 24 Dec 2015 06:14:41 -0800
+Message-ID: <1450966481-13208-1-git-send-email-decui@microsoft.com>
+Cc: pebolle@tiscali.nl, stefanha@redhat.com, vkuznets@redhat.com,
+	dan.carpenter@oracle.com
 To: gregkh@linuxfoundation.org, davem@davemloft.net,
- stephen@networkplumber.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
- olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com, kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Only the coming hv_sock driver has a "true" value for this flag.
-
-We treat the hvsock offers/channels as special VMBus devices.
-Since the hv_sock driver handles all the hvsock offers/channels, we need to
-tweak vmbus_match() for hv_sock driver, so we introduce this flag.
+This will be used by the coming net/hvsock driver.
 
 Signed-off-by: Dexuan Cui <decui@microsoft.com>
 ---
- drivers/hv/vmbus_drv.c |  4 ++++
- include/linux/hyperv.h | 14 ++++++++++++++
- 2 files changed, 18 insertions(+)
+ drivers/hv/channel.c   | 59 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/hyperv.h |  9 ++++++++
+ 2 files changed, 68 insertions(+)
 
-diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
-index 328e4c3..c1c9d71 100644
---- a/drivers/hv/vmbus_drv.c
-+++ b/drivers/hv/vmbus_drv.c
-@@ -562,6 +562,10 @@ static int vmbus_match(struct device *device, struct device_driver *driver)
- 	struct hv_driver *drv = drv_to_hv_drv(driver);
- 	struct hv_device *hv_dev = device_to_hv_device(device);
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index cc49966..ce1b885 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -924,6 +924,52 @@ int vmbus_sendpacket_multipagebuffer(struct vmbus_channel *channel,
+ }
+ EXPORT_SYMBOL_GPL(vmbus_sendpacket_multipagebuffer);
  
-+	/* The hv_sock driver handles all hv_sock offers. */
-+	if (is_hvsock_channel(hv_dev->channel))
-+		return drv->hvsock;
++/*
++ * vmbus_sendpacket_hvsock - Send the hvsock payload 'buf' of a length 'len'
++ */
++int vmbus_sendpacket_hvsock(struct vmbus_channel *channel, void *buf, u32 len)
++{
++	struct vmpipe_proto_header pipe_hdr;
++	struct vmpacket_descriptor desc;
++	struct kvec bufferlist[4];
++	u32 packetlen_aligned;
++	u32 packetlen;
++	u64 aligned_data = 0;
++	bool signal = false;
++	int ret;
 +
- 	if (hv_vmbus_get_id(drv->id_table, &hv_dev->dev_type))
- 		return 1;
- 
++	packetlen = HVSOCK_HEADER_LEN + len;
++	packetlen_aligned = ALIGN(packetlen, sizeof(u64));
++
++	/* Setup the descriptor */
++	desc.type = VM_PKT_DATA_INBAND;
++	/* in 8-bytes granularity */
++	desc.offset8 = sizeof(struct vmpacket_descriptor) >> 3;
++	desc.len8 = (u16)(packetlen_aligned >> 3);
++	desc.flags = 0;
++	desc.trans_id = 0;
++
++	pipe_hdr.pkt_type = 1;
++	pipe_hdr.data_size = len;
++
++	bufferlist[0].iov_base = &desc;
++	bufferlist[0].iov_len  = sizeof(struct vmpacket_descriptor);
++	bufferlist[1].iov_base = &pipe_hdr;
++	bufferlist[1].iov_len  = sizeof(struct vmpipe_proto_header);
++	bufferlist[2].iov_base = buf;
++	bufferlist[2].iov_len  = len;
++	bufferlist[3].iov_base = &aligned_data;
++	bufferlist[3].iov_len  = packetlen_aligned - packetlen;
++
++	ret = hv_ringbuffer_write(&channel->outbound, bufferlist, 4, &signal);
++
++	if (ret == 0 && signal)
++		vmbus_setevent(channel);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(vmbus_sendpacket_hvsock);
++
+ /**
+  * vmbus_recvpacket() - Retrieve the user packet on the specified channel
+  * @channel: Pointer to vmbus_channel structure.
+@@ -976,3 +1022,16 @@ int vmbus_recvpacket_raw(struct vmbus_channel *channel, void *buffer,
+ 				  HV_RINGBUFFER_READ_FLAG_RAW);
+ }
+ EXPORT_SYMBOL_GPL(vmbus_recvpacket_raw);
++
++/*
++ * vmbus_recvpacket_hvsock - Receive the hvsock payload from the vmbus
++ * ringbuffer into the 'buffer'.
++ */
++int vmbus_recvpacket_hvsock(struct vmbus_channel *channel, void *buffer,
++			    u32 bufferlen, u32 *buffer_actual_len)
++{
++	return __vmbus_recvpacket(channel, buffer, bufferlen,
++				  buffer_actual_len, NULL,
++				  HV_RINGBUFFER_READ_FLAG_HVSOCK);
++}
++EXPORT_SYMBOL_GPL(vmbus_recvpacket_hvsock);
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 646c20d..b4cc44c 100644
+index e005223..646c20d 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -970,6 +970,20 @@ extern void vmbus_ontimer(unsigned long data);
- struct hv_driver {
- 	const char *name;
+@@ -908,6 +908,9 @@ extern int vmbus_sendpacket_ctl(struct vmbus_channel *channel,
+ 				  u32 flags,
+ 				  bool kick_q);
  
-+	/*
-+	 * A hvsock offer, which has a VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER
-+	 * channel flag, actually doesn't mean a synthetic device because the
-+	 * offer's if_type/if_instance can change for every new hvsock
-+	 * connection.
-+	 *
-+	 * However, to facilitate the notification of new-offer/rescind-offer
-+	 * from vmbus driver to hvsock driver, we can handle hvsock offer as
-+	 * a special vmbus device, and hence we need the below flag to
-+	 * indicate if the driver is the hvsock driver or not: we need to
-+	 * specially treat the hvosck offer & driver in vmbus_match().
-+	 */
-+	bool hvsock;
++extern int vmbus_sendpacket_hvsock(struct vmbus_channel *channel,
++				   void *buf, u32 len);
 +
- 	/* the device type supported by this driver */
- 	uuid_le dev_type;
- 	const struct hv_vmbus_device_id *id_table;
+ extern int vmbus_sendpacket_pagebuffer(struct vmbus_channel *channel,
+ 					    struct hv_page_buffer pagebuffers[],
+ 					    u32 pagecount,
+@@ -958,6 +961,9 @@ extern int vmbus_recvpacket_raw(struct vmbus_channel *channel,
+ 				     u64 *requestid);
+ 
+ 
++extern int vmbus_recvpacket_hvsock(struct vmbus_channel *channel, void *buffer,
++				   u32 bufferlen, u32 *buffer_actual_len);
++
+ extern void vmbus_ontimer(unsigned long data);
+ 
+ /* Base driver object */
+@@ -1280,4 +1286,7 @@ struct vmpipe_proto_header {
+ 	};
+ } __packed;
+ 
++#define HVSOCK_HEADER_LEN	(sizeof(struct vmpacket_descriptor) + \
++				 sizeof(struct vmpipe_proto_header))
++
+ #endif /* _HYPERV_H */
 -- 
 2.1.4
