@@ -1,375 +1,193 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2] ip_tunnel: Move stats update to iptunnel_xmit()
-Date: Wed, 23 Dec 2015 15:52:03 -0800
-Message-ID: <1450914723-16452-1-git-send-email-pshelar@nicira.com>
-Cc: nicolas.dichtel@6wind.com, Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Subject: Re: [PATCH 0/3] drivers: net: cpsw: phy-handle fixes
+Date: Wed, 23 Dec 2015 20:18:16 -0500
+Message-ID: <20151223201816.1a4bd0f6.drivshin.allworx@gmail.com>
+References: <1450830994-5450-1-git-send-email-drivshin.allworx@gmail.com>
+	<CABr+WT=oDpp56jouAD57UM8_38geD1MMizZcDnx14maf2ohpCw@mail.gmail.com>
+	<20151223165454.6e4d5950.drivshin.allworx@gmail.com>
+	<CABr+WTm=Oo16=qB6dyO6ZhUUz0307ROi=o270Rac2R4W5-usjg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
+	devicetree@vger.kernel.org,
+	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>,
+	linux-omap@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+	Pascal Speck <kernel@iktek.de>, Heiko Schocher <hs@denx.de>,
+	David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Nicolas Chauvet <kwizart@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34205 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755051AbbLWXwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 18:52:09 -0500
-Received: by mail-pa0-f41.google.com with SMTP id uo6so34765961pac.1
-        for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 15:52:08 -0800 (PST)
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34892 "EHLO
+	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536AbbLXBSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 20:18:20 -0500
+In-Reply-To: <CABr+WTm=Oo16=qB6dyO6ZhUUz0307ROi=o270Rac2R4W5-usjg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By moving stats update into iptunnel_xmit(), we can simplify
-iptunnel_xmit() usage. With this change there is no need to
-call another function (iptunnel_xmit_stats()) to update stats
-in tunnel xmit code path.
+On Thu, 24 Dec 2015 00:34:49 +0100
+Nicolas Chauvet <kwizart@gmail.com> wrote:
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
-v1-v2:
-- keep iptunnel_xmit_stats() stats update same.
----
- drivers/net/geneve.c      | 17 ++++++++---------
- drivers/net/vxlan.c       |  9 ++++-----
- include/net/ip6_tunnel.h  | 17 ++++-------------
- include/net/ip_tunnels.h  | 24 +++++++++++++-----------
- include/net/udp_tunnel.h  |  8 ++++----
- net/ipv4/ip_gre.c         |  7 +++----
- net/ipv4/ip_tunnel.c      |  7 ++-----
- net/ipv4/ip_tunnel_core.c |  9 +++++----
- net/ipv4/ip_vti.c         |  2 +-
- net/ipv4/udp_tunnel.c     | 11 +++++------
- net/ipv6/sit.c            |  7 ++-----
- net/tipc/udp_media.c      | 12 +++---------
- 12 files changed, 54 insertions(+), 76 deletions(-)
+> 2015-12-23 22:54 GMT+01:00 David Rivshin (Allworx) <
+> drivshin.allworx@gmail.com>:
+> 
+> > On Wed, 23 Dec 2015 22:20:58 +0100
+> > Nicolas Chauvet <kwizart@gmail.com> wrote:
+> >
+> > > 2015-12-23 1:36 GMT+01:00 David Rivshin (Allworx) <
+> > > drivshin.allworx@gmail.com>:
+> > >
+> > > > From: David Rivshin <drivshin@allworx.com>
+> > > >
+> > > > This series is based on the tip of the net tree.
+> > > >
+> > > > The first patch fixes a bug that makes dual_emac mode break if
+> > > > either slave uses the phy-handle property in the devicetree.
+> > > >
+> > > > The second patch fixes some cosmetic problems with error
+> > > > messages, and also makes the binding documentation more
+> > > > explicit.
+> > > >
+> > > > The third patch cleans up the fixed-link case to work like
+> > > > the now-fixed phy-handle case.
+> > > >
+> > > > I have tested on the following hardware configurations:
+> > > >  - (EVMSK) dual emac, phy_id property in both slaves
+> > > >  - (BeagleBoneBlack) single emac, phy_id property
+> > > >  - (custom) single emac, fixed-link subnode
+> > > > Note that I don't have a board which would uses a phy-handle
+> > > > property, though I have used hacked devicetrees to exercise the
+> > > > code paths. Testing by anyone who has real hardware using
+> > > > phy-handle or dual_emac with fixed-link would be appreciated.
+> > > >
+> > > > David Rivshin (3):
+> > > >   drivers: net: cpsw: fix parsing of phy-handle DT property in
+> > > > dual_emac config
+> > > >   drivers: net: cpsw: fix error messages when using phy-handle
+> > > > DT property
+> > > >   drivers: net: cpsw: use of_phy_connect() in fixed-link case
+> > > >
+> > > >  Documentation/devicetree/bindings/net/cpsw.txt |  4 +--
+> > > >  drivers/net/ethernet/ti/cpsw.c                 | 40
+> > > > +++++++++++++-------------
+> > > >  drivers/net/ethernet/ti/cpsw.h                 |  1 +
+> > > >  3 files changed, 23 insertions(+), 22 deletions(-)
+> > > >
+> > > >
+> > > This serie failed with me on dm8418 hp-t410 on top of linux-next
+> > > from today whereas the same patch level and same methods without
+> > > this serie is working fine.
+> > > I wasn't able to ping anything on a minimal rootfs with static ip
+> > > set from cmdline from kernel.
+> > >
+> > > Sorry for  the lack of details, feel free to add me to any other
+> > > revision of the patch if any.
+> > > I will be able to do more testing next month.
+> >
+> > (Sorry for the duplicate, doing a reply-all this time. Not sure why
+> > it looked like a non-list email the first time)
+> >
+> My bad, I've replied twice, but only last on-list.
+> 
+> 
+> > Thanks for testing. I found the dm8148-t410.dts devicetree in the
+> > kernel source, and it uses the phy_id for both slaves, just like the
+> > EVMSK board I tested. So I can't think of an obvious reason for the
+> > problem.
+> > Would you be able to send the 'dmesg' log from right after bootup?
+> > I'm hoping there is an error message in there with some clue.
+> >
+> here is the full dmesg output with this serie applied to linux-next:
+> http://ur1.ca/ocvs6
+> 
+> [    2.281524] davinci_mdio 4a100800.mdio: davinci mdio revision 1.6
+> [    2.287909] davinci_mdio 4a100800.mdio: detected phy mask fffffffe
+> [    2.302663] Atheros 8031 ethernet 4a100800.mdio:00: GPIO lookup for
+> consumer reset
+> [    2.302686] Atheros 8031 ethernet 4a100800.mdio:00: using lookup
+> tables for GPIO lookup
+> [    2.302732] Atheros 8031 ethernet 4a100800.mdio:00: lookup for GPIO
+> reset failed
+> [    2.302860] libphy: 4a100800.mdio: probed
+> [    2.307063] davinci_mdio 4a100800.mdio: phy[0]: device
+> 4a100800.mdio:00, driver Atheros 8031 ethernet
+> [    2.317945] cpsw 4a100000.ethernet: Detected MACID =
+> 00:18:32:60:8e:38
+> 
+> * 19:06 < nchauvet> btw with this dmesg, I've tried to apply this
+> serie: http://marc.info/?l=linux-omap&m=145032865615589&w=2, but it
+> doesn't seem to work for me (I cannot ping my gateway anymore)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index e6e0092..20dd664 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -918,12 +918,11 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
- 		df = 0;
- 	}
--	err = udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
--				  tos, ttl, df, sport, geneve->dst_port,
--				  !net_eq(geneve->net, dev_net(geneve->dev)),
--				  !(flags & GENEVE_F_UDP_CSUM));
-+	udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
-+			    tos, ttl, df, sport, geneve->dst_port,
-+			    !net_eq(geneve->net, dev_net(geneve->dev)),
-+			    !(flags & GENEVE_F_UDP_CSUM));
- 
--	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
- 
- tx_error:
-@@ -1005,10 +1004,10 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 			ttl = 1;
- 		ttl = ttl ? : ip6_dst_hoplimit(dst);
- 	}
--	err = udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
--				   &fl6.saddr, &fl6.daddr, prio, ttl,
--				   sport, geneve->dst_port,
--				   !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
-+	udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
-+			     &fl6.saddr, &fl6.daddr, prio, ttl,
-+			     sport, geneve->dst_port,
-+			     !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
- 	return NETDEV_TX_OK;
- 
- tx_error:
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ba363ce..fecf7b6 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1841,9 +1841,10 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 
- 	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
- 
--	return udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos,
--				   ttl, df, src_port, dst_port, xnet,
--				   !(vxflags & VXLAN_F_UDP_CSUM));
-+	udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos, ttl, df,
-+			    src_port, dst_port, xnet,
-+			    !(vxflags & VXLAN_F_UDP_CSUM));
-+	return 0;
- }
- 
- #if IS_ENABLED(CONFIG_IPV6)
-@@ -2056,8 +2057,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			skb = NULL;
- 			goto rt_tx_error;
- 		}
--
--		iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
- 		struct dst_entry *ndst;
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index ff788b6..2ef06cd 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -5,6 +5,7 @@
- #include <linux/netdevice.h>
- #include <linux/if_tunnel.h>
- #include <linux/ip6_tunnel.h>
-+#include <net/ip_tunnels.h>
- 
- #define IP6TUNNEL_ERR_TIMEO (30*HZ)
- 
-@@ -83,22 +84,12 @@ int ip6_tnl_get_iflink(const struct net_device *dev);
- static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
- 				  struct net_device *dev)
- {
--	struct net_device_stats *stats = &dev->stats;
- 	int pkt_len, err;
- 
- 	pkt_len = skb->len - skb_inner_network_offset(skb);
- 	err = ip6_local_out(dev_net(skb_dst(skb)->dev), sk, skb);
--
--	if (net_xmit_eval(err) == 0) {
--		struct pcpu_sw_netstats *tstats = get_cpu_ptr(dev->tstats);
--		u64_stats_update_begin(&tstats->syncp);
--		tstats->tx_bytes += pkt_len;
--		tstats->tx_packets++;
--		u64_stats_update_end(&tstats->syncp);
--		put_cpu_ptr(tstats);
--	} else {
--		stats->tx_errors++;
--		stats->tx_aborted_errors++;
--	}
-+	if (likely(!net_xmit_eval(err)))
-+		err = pkt_len;
-+	iptunnel_xmit_stats(dev, err);
- }
- #endif
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 62a750a..4df8f4e 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -273,32 +273,34 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
- }
- 
- int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
--int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
--		  __be32 src, __be32 dst, u8 proto,
--		  u8 tos, u8 ttl, __be16 df, bool xnet);
-+void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
-+		   __be32 src, __be32 dst, u8 proto,
-+		   u8 tos, u8 ttl, __be16 df, bool xnet);
- struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
- 					     gfp_t flags);
- 
- struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb, bool gre_csum,
- 					 int gso_type_mask);
- 
--static inline void iptunnel_xmit_stats(int err,
--				       struct net_device_stats *err_stats,
--				       struct pcpu_sw_netstats __percpu *stats)
-+static inline void iptunnel_xmit_stats(struct net_device *dev, int err)
- {
- 	if (err > 0) {
--		struct pcpu_sw_netstats *tstats = get_cpu_ptr(stats);
-+		struct pcpu_sw_netstats *tstats = get_cpu_ptr(dev->tstats);
- 
- 		u64_stats_update_begin(&tstats->syncp);
- 		tstats->tx_bytes += err;
- 		tstats->tx_packets++;
- 		u64_stats_update_end(&tstats->syncp);
- 		put_cpu_ptr(tstats);
--	} else if (err < 0) {
--		err_stats->tx_errors++;
--		err_stats->tx_aborted_errors++;
- 	} else {
--		err_stats->tx_dropped++;
-+		struct net_device_stats *err_stats = &dev->stats;
-+
-+		if (err < 0) {
-+			err_stats->tx_errors++;
-+			err_stats->tx_aborted_errors++;
-+		} else {
-+			err_stats->tx_dropped++;
-+		}
- 	}
- }
- 
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index cb2f89f..cca2ad3 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -78,10 +78,10 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
- 			   struct udp_tunnel_sock_cfg *sock_cfg);
- 
- /* Transmit the skb using UDP encapsulation. */
--int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
--			__be32 src, __be32 dst, __u8 tos, __u8 ttl,
--			__be16 df, __be16 src_port, __be16 dst_port,
--			bool xnet, bool nocheck);
-+void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
-+			 __be32 src, __be32 dst, __u8 tos, __u8 ttl,
-+			 __be16 df, __be16 src_port, __be16 dst_port,
-+			 bool xnet, bool nocheck);
- 
- #if IS_ENABLED(CONFIG_IPV6)
- int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 04a48c0..7c51c4e 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -561,10 +561,9 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev)
- 		     tunnel_id_to_key(tun_info->key.tun_id), 0);
- 
- 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
--	err = iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
--			    key->u.ipv4.dst, IPPROTO_GRE,
--			    key->tos, key->ttl, df, false);
--	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-+
-+	iptunnel_xmit(skb->sk, rt, skb, fl.saddr, key->u.ipv4.dst, IPPROTO_GRE,
-+		      key->tos, key->ttl, df, false);
- 	return;
- 
- err_free_rt:
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 0f6e9ee..c7bd72e 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -656,7 +656,6 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 	struct rtable *rt;		/* Route to the other host */
- 	unsigned int max_headroom;	/* The extra header space needed */
- 	__be32 dst;
--	int err;
- 	bool connected;
- 
- 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
-@@ -794,10 +793,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		return;
- 	}
- 
--	err = iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol,
--			    tos, ttl, df, !net_eq(tunnel->net, dev_net(dev)));
--	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
--
-+	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol, tos, ttl,
-+		      df, !net_eq(tunnel->net, dev_net(dev)));
- 	return;
- 
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 1db8418..eb52ce9 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -47,12 +47,13 @@
- #include <net/rtnetlink.h>
- #include <net/dst_metadata.h>
- 
--int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
--		  __be32 src, __be32 dst, __u8 proto,
--		  __u8 tos, __u8 ttl, __be16 df, bool xnet)
-+void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
-+		   __be32 src, __be32 dst, __u8 proto,
-+		   __u8 tos, __u8 ttl, __be16 df, bool xnet)
- {
- 	int pkt_len = skb->len - skb_inner_network_offset(skb);
- 	struct net *net = dev_net(rt->dst.dev);
-+	struct net_device *dev = skb->dev;
- 	struct iphdr *iph;
- 	int err;
- 
-@@ -81,7 +82,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	err = ip_local_out(net, sk, skb);
- 	if (unlikely(net_xmit_eval(err)))
- 		pkt_len = 0;
--	return pkt_len;
-+	iptunnel_xmit_stats(dev, pkt_len);
- }
- EXPORT_SYMBOL_GPL(iptunnel_xmit);
- 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 02d9c21..5cf10b7 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -199,7 +199,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 	err = dst_output(tunnel->net, skb->sk, skb);
- 	if (net_xmit_eval(err) == 0)
- 		err = skb->len;
--	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-+	iptunnel_xmit_stats(dev, err);
- 	return NETDEV_TX_OK;
- 
- tx_error_icmp:
-diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-index aba4286..0ec0881 100644
---- a/net/ipv4/udp_tunnel.c
-+++ b/net/ipv4/udp_tunnel.c
-@@ -74,10 +74,10 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
- }
- EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
- 
--int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
--			__be32 src, __be32 dst, __u8 tos, __u8 ttl,
--			__be16 df, __be16 src_port, __be16 dst_port,
--			bool xnet, bool nocheck)
-+void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
-+			 __be32 src, __be32 dst, __u8 tos, __u8 ttl,
-+			 __be16 df, __be16 src_port, __be16 dst_port,
-+			 bool xnet, bool nocheck)
- {
- 	struct udphdr *uh;
- 
-@@ -91,8 +91,7 @@ int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
- 
- 	udp_set_csum(nocheck, skb, src, dst, skb->len);
- 
--	return iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP,
--			     tos, ttl, df, xnet);
-+	iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df, xnet);
- }
- EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
- 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index dcccae8..e794ef6 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -820,7 +820,6 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	const struct in6_addr *addr6;
- 	int addr_type;
- 	u8 ttl;
--	int err;
- 	u8 protocol = IPPROTO_IPV6;
- 	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
- 
-@@ -983,10 +982,8 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 
- 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
- 
--	err = iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr,
--			    protocol, tos, ttl, df,
--			    !net_eq(tunnel->net, dev_net(dev)));
--	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-+	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol, tos, ttl,
-+		      df, !net_eq(tunnel->net, dev_net(dev)));
- 	return NETDEV_TX_OK;
- 
- tx_error_icmp:
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 6af78c6..d63a911 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -182,15 +182,9 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
- 			goto tx_error;
- 		}
- 		ttl = ip4_dst_hoplimit(&rt->dst);
--		err = udp_tunnel_xmit_skb(rt, ub->ubsock->sk, skb,
--					  src->ipv4.s_addr,
--					  dst->ipv4.s_addr, 0, ttl, 0,
--					  src->udp_port, dst->udp_port,
--					  false, true);
--		if (err < 0) {
--			ip_rt_put(rt);
--			goto tx_error;
--		}
-+		udp_tunnel_xmit_skb(rt, ub->ubsock->sk, skb, src->ipv4.s_addr,
-+				    dst->ipv4.s_addr, 0, ttl, 0, src->udp_port,
-+				    dst->udp_port, false, true);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
- 		struct dst_entry *ndst;
--- 
-1.8.3.1
+That particular email was about a v1 patch, which was then replaced
+by a 3-patch series for v2:
+http://marc.info/?l=linux-netdev&m=145032497014944&w=2
+That is already in linux-next, and below you show that you have it.
+
+> So I've remembered that I've double checked the Ethernet wire, but I
+> agree it can also be another random issue.
+
+If it works without this series, but fails with it, that is strong
+evidence that something in this series either is a bug or exposes
+one.
+
+> > Just to verify, is your linux-next tree up-to-date? This series
+> > needs to be applied is based on another recent series of 3 patches
+> > to cpsw.c. Although I doubt it would apply cleanly at all without
+> > those.
+> 
+> From my linux-next base, related to cpsw, I have:
+> git log --oneline cpsw*
+> a6b257c Merge remote-tracking branch 'net-next/master'
+> dfc0a6d drivers: net: cpsw: increment reference count on fixed-link
+> PHY node 
+> f1eea5c drivers: net: cpsw: fix RMII/RGMII mode when used
+> with fixed-link PHY
+> 1873c58 ethernet:ti:cpsw: fix phy identification with multiple slaves
+> on fixed-phy
+> f188b95 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> 0db19b8 net: cpsw: Fix ethernet regression for dm814
+> 
+> Theses patches don't lead to any issue on the t410 device.
+
+Thanks for verifying. 1873c58, f1eea5, and cdfc0a6d are the previous
+patches I referred to.
+
+> Comparing a dmesg output where the driver work: it doesn't show any
+> difference from the quoted lines:
+> http://paste.fedoraproject.org/304248/45086839/
+
+Thanks for the additional info. I also don't see any red flags in the 
+dmesg output. 
+
+When I looked closer at the dm8148-t410 devicetree, I see that it's 
+actually more like the BeagleBones than an EVMSK. It specifies two 
+slaves, but is not in dual_emac mode. Other than using RGMII mode 
+instead of MII, the emac configuration in the DT looks the same to
+me. Further, your dmesg shows there is only one actual PHY, same as
+a BeagleBone. I assume that's historical, as specifying slaves=<1> 
+used to crash (fixed by 1973db0df7c3b in v4.2).
+
+Despite the similarities, I have been unable to reproduce a failure 
+on a BeagleBone-Black running linux-next plus this series. Things
+that I've checked in dmesg output look similar to yours, so I'm 
+currently out of ideas I can check myself. If I could ask you for
+some more assistance in debugging:
+
+Are you using the devicetree from the linux-next source, or is it 
+modified? If it's modified, can you send it?
+
+Could you check the phy_interface mode used? I know that being wrong
+would generate such symptoms. Quickest way to check that (and related
+bits) is probably:
+   grep -H . /sys/bus/mdio_bus/devices/*/phy*
+Based on the devicetree in the kernel source and your dmesg output, 
+I expect there to be a single PHY with phy_interface=rgmii and
+phy_id=0x4dd074. If any of those aspects don't match what sysfs 
+reports, then that's likely to be the cause.
+
+Failing that, I would next try to apply the 3 patches in this series
+one at a time (or bisect them) to identify the specific culprit. 
+
+Thanks.
