@@ -1,68 +1,57 @@
-From: Markus Brunner <systemprogrammierung.brunner@gmail.com>
-Subject: Re: [PATCH 0/3] drivers: net: cpsw: phy-handle fixes
-Date: Thu, 24 Dec 2015 10:10:28 +0100
-Message-ID: <15436621.qYLgeqbLMk@localhost>
-References: <1450830994-5450-1-git-send-email-drivshin.allworx@gmail.com> <CABr+WTm=Oo16=qB6dyO6ZhUUz0307ROi=o270Rac2R4W5-usjg@mail.gmail.com> <20151223201816.1a4bd0f6.drivshin.allworx@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] ip_tunnel: Move stats update to
+ iptunnel_xmit()
+Date: Thu, 24 Dec 2015 10:14:02 +0100
+Message-ID: <567BB75A.5040408@6wind.com>
+References: <1450914723-16452-1-git-send-email-pshelar@nicira.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Nicolas Chauvet <kwizart@gmail.com>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>,
-	linux-omap@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
-	Pascal Speck <kernel@iktek.de>, Heiko Schocher <hs@denx.de>,
-	David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33041 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753645AbbLXJM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 04:12:29 -0500
-In-Reply-To: <20151223201816.1a4bd0f6.drivshin.allworx@gmail.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35277 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753914AbbLXJOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 04:14:05 -0500
+Received: by mail-wm0-f50.google.com with SMTP id l126so175618231wml.0
+        for <netdev@vger.kernel.org>; Thu, 24 Dec 2015 01:14:04 -0800 (PST)
+In-Reply-To: <1450914723-16452-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 23 December 2015 20:18:16 David Rivshin wrote:
-> On Thu, 24 Dec 2015 00:34:49 +0100
-> 
-> Nicolas Chauvet <kwizart@gmail.com> wrote:
-> > 2015-12-23 22:54 GMT+01:00 David Rivshin (Allworx) <
-> > 
-> > here is the full dmesg output with this serie applied to linux-next:
-> > http://ur1.ca/ocvs6
-Linux version 4.4.0-rc6-next-20151223-00029-g858e234 (kwizart@nchauvet-
-desktop) (gcc version 5.2.1 20150716 (Red Hat Cross 5.2.1-3) (GCC) ) #15 SMP 
-Wed Dec 23 18:29:57 CET 2015
-
-I will refer to this as 0029
-
-> > Comparing a dmesg output where the driver work: it doesn't show any
-> > difference from the quoted lines:
-> > http://paste.fedoraproject.org/304248/45086839/
-Linux version 4.4.0-rc6-next-20151223-00023-g71d15d9 (kwizart@nchauvet-
-desktop) (gcc version 5.2.1 20150716 (Red Hat Cross 5.2.1-3) (GCC) ) #12 SMP 
-Wed Dec 23 10:36:46 CET 2015
-
-I will refer to this as 0023
-
-I made a "grep fail" on both dmesg and 0023 seems to lack edma, mmc and usb. I 
-wonder how ethernet could have worked. There seems also to be a problem with 
-the clocks.
-
-fails that are specific to 0023:
-
-ti_dt_clocks_register: failed to lookup clock node sysclk5_ck
-ti_dt_clocks_register: failed to lookup clock node sysclk8_ck
-platform 47400000.usb: clk_get for pll260dcoclkldo failed
-platform 48060000.mmc: clk_get for sysclk8_ck failed
-platform 481d8000.mmc: clk_get for sysclk8_ck failed
-platform 47810000.mmc: clk_get for sysclk8_ck failed
-edma 49000000.edma: pm_runtime_get_sync() failed
-edma: probe of 49000000.edma failed with error -22
-musb-dsps: probe of 47401400.usb failed with error -16
-musb-dsps: probe of 47401c00.usb failed with error -16
-cppi41-dma-engine: probe of 47400000.dma-controller failed with error -16
-omap_hsmmc: probe of 48060000.mmc failed with error -2
-omap_hsmmc: probe of 481d8000.mmc failed with error -2
-omap_hsmmc: probe of 47810000.mmc failed with error -2
+Le 24/12/2015 00:52, Pravin B Shelar a =C3=A9crit :
+[snip]
+> @@ -83,22 +84,12 @@ int ip6_tnl_get_iflink(const struct net_device *d=
+ev);
+>   static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *=
+skb,
+>   				  struct net_device *dev)
+>   {
+> -	struct net_device_stats *stats =3D &dev->stats;
+>   	int pkt_len, err;
+>
+>   	pkt_len =3D skb->len - skb_inner_network_offset(skb);
+>   	err =3D ip6_local_out(dev_net(skb_dst(skb)->dev), sk, skb);
+> -
+> -	if (net_xmit_eval(err) =3D=3D 0) {
+> -		struct pcpu_sw_netstats *tstats =3D get_cpu_ptr(dev->tstats);
+> -		u64_stats_update_begin(&tstats->syncp);
+> -		tstats->tx_bytes +=3D pkt_len;
+> -		tstats->tx_packets++;
+> -		u64_stats_update_end(&tstats->syncp);
+> -		put_cpu_ptr(tstats);
+> -	} else {
+> -		stats->tx_errors++;
+> -		stats->tx_aborted_errors++;
+> -	}
+> +	if (likely(!net_xmit_eval(err)))
+> +		err =3D pkt_len;
+> +	iptunnel_xmit_stats(dev, err);
+I don't think this is an equivalent change.
+=46or example, if err =3D=3D NET_XMIT_DROP, then '!net_xmit_eval(err)' =
+is false and
+iptunnel_xmit_stats() is called with err set to a positive value (NET_X=
+MIT_DROP
+value is 0x01), ie not an error.
