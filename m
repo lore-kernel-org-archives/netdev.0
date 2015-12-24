@@ -1,57 +1,87 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v2] r8152: fix lockup when runtime PM is enabled
-Date: Thu, 24 Dec 2015 11:08:38 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1512241100490.2785-100000@netrider.rowland.org>
-References: <1450972034.28243.18.camel@suse.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 3/4] soreuseport: setsockopt
+ SO_ATTACH_REUSEPORT_[CE]BPF
+Date: Thu, 24 Dec 2015 09:36:40 -0700
+Message-ID: <20151224163639.GA90724@ast-mbp.thefacebook.com>
+References: <1450814710-17850-1-git-send-email-kraigatgoog@gmail.com>
+ <1450814710-17850-4-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "peter@lekensteyn.nl" <peter@lekensteyn.nl>,
-	Hayes Wang <hayeswang@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1450972034.28243.18.camel@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34308 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933562AbbLXQgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 11:36:42 -0500
+Received: by mail-pf0-f177.google.com with SMTP id e65so17852475pfe.1
+        for <netdev@vger.kernel.org>; Thu, 24 Dec 2015 08:36:42 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1450814710-17850-4-git-send-email-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Dec 2015, Oliver Neukum wrote:
-
-> On Thu, 2015-12-24 at 10:14 -0500, Alan Stern wrote:
-> > On Thu, 24 Dec 2015, Oliver Neukum wrote:
-> > 
-> > > On Wed, 2015-12-23 at 20:32 -0500, Alan Stern wrote:
+On Tue, Dec 22, 2015 at 03:05:09PM -0500, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
 > 
-> > > But you cannot keep that setting if the system goes down
-> > > or any broadcast packet would resume the whole system.
-> > > Yet you cannot just disable remote wake up, as WoL packages
-> > > still must trigger a remote wake up.
-> > 
-> > This means that sometimes you want to avoid losing packets and other 
-> > times you do want to lose packets.  That is a policy decision, and 
-> > therefore it should be made by the user, not the kernel.
+> Expose socket options for setting a classic or extended BPF program
+> for use when selecting sockets in an SO_REUSEPORT group.  These options
+> can be used on the first socket to belong to a group before bind or
+> on any socket in the group after bind.
 > 
-> Indeed it is and there is a tool for this with a defined
-> interface called "ethtool"
-
-No; ethtool affects the wakeup setting for system suspend, but not
-for runtime suspend.  I was referring to something that would specify 
-the setting for both cases.  But perhaps that doesn't make sense, 
-because you never want to drop relevant packets during runtime suspend.  
-If you did, you would run "ifconfig down" instead.
-
-> > the PM core aren't adequate for what the driver needs.  The PM core 
-> > distinguishes between wakeup enabled or disabled; it doesn't 
-> > distinguish among different levels of wakekup.
+> This change includes refactoring of the existing sk_filter code to
+> allow reuse of the existing BPF filter validation checks.
 > 
-> True and sanely it cannot. We could only distinguish between drivers
-> which need their devices to be resumed before the system suspends and
-> the rest.
-> Or we tell driver coders to use the notifier chains.
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-"Resume before system suspend" sounds like a reasonable thing to
-implement, for devices that have multiple levels of wakeup settings.  
-Would you like to post a proposal on linux-pm for this?
+interesting stuff.
 
-Alan Stern
+> +static struct sock *run_bpf(struct sock_reuseport *reuse, u16 socks,
+> +			    struct bpf_prog *prog, struct sk_buff *skb,
+> +			    int hdr_len)
+> +{
+> +	struct sk_buff *nskb = NULL;
+> +	u32 index;
+> +
+> +	if (skb_shared(skb)) {
+> +		nskb = skb_clone(skb, GFP_ATOMIC);
+> +		if (!nskb)
+> +			return NULL;
+> +		skb = nskb;
+> +	}
+
+what is the typical case here skb_shared or not?
+
+> +	/* temporarily advance data past protocol header */
+> +	if (skb_headlen(skb) < hdr_len || !skb_pull_inline(skb, hdr_len)) {
+
+though bpf core will read just fine past linear part of the packet,
+here we're limiting this feature only to packets where udp header is
+part of headlen. Will it make it somewhat unreliable?
+May be we can avoid doing this pull/push and use negative load
+instructions with SKF_NET_OFF ? Something like:
+load_word(skb, SKF_NET_OFF + sizeof(struct udphdr)));
+
+>  /**
+>   *  reuseport_select_sock - Select a socket from an SO_REUSEPORT group.
+>   *  @sk: First socket in the group.
+> - *  @hash: Use this hash to select.
+> + *  @hash: When no BPF filter is available, use this hash to select.
+> + *  @skb: skb to run through BPF filter.
+> + *  @hdr_len: BPF filter expects skb data pointer at payload data.  If
+> + *    the skb does not yet point at the payload, this parameter represents
+> + *    how far the pointer needs to advance to reach the payload.
+
+what is the use case of this?
+Do you expect programs to be stateful?
+
+> +				sk2 = reuseport_select_sock(sk, hash, NULL, 0);
+...
+> +				sk2 = reuseport_select_sock(sk, hash, skb,
+> +							sizeof(struct udphdr));
+
+these are the cases that comment is trying to explain?
+Meaning the bpf program needs to understand well enough when udp stack
+is calling it ?
+
+Will do more careful review of bpf bits once I'm back from PTO.
