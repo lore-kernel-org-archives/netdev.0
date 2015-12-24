@@ -1,25 +1,27 @@
-From: "Richard" <nushev@playtime.bg>
-Subject: YOU NEED TO REPLY
-Date: Thu, 24 Dec 2015 00:47:35 -0500
-Message-ID: <20151224054802.0F32B468AD@smtp.playtime.bg>
-Reply-To: <rchmat1@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH linux-firmware] qed: Add firmware 8.7.3.0.
+Date: Thu, 24 Dec 2015 06:56:04 +0000
+Message-ID: <CO2PR11MB0088B6D09B49EB6D1E4D849F97E70@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1450429796-17998-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: My-mail-box <my-private-mail@mail-service.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: "linux-firmware@kernel.org" <linux-firmware@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.playtime.bg ([91.212.233.10]:31439 "EHLO smtp.playtime.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932423AbbLXGvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Dec 2015 01:51:52 -0500
+Received: from mail-bl2on0119.outbound.protection.outlook.com ([65.55.169.119]:30240
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932660AbbLXG4K convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 01:56:10 -0500
+In-Reply-To: <1450429796-17998-1-git-send-email-Yuval.Mintz@qlogic.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+> This patch pushes the next firmware for the QED module.
 
-My proposal will give us 2 million in seven days reply "YES" for details.
+Hi, any news about this one?
 
-Regards,
-
-Richard.
+Thanks,
+Yuval
