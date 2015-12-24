@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] dsa: mv88e6xxx: Add Second back of statistics
-Date: Wed, 23 Dec 2015 22:17:22 -0500 (EST)
-Message-ID: <20151223.221722.978052030657066229.davem@davemloft.net>
-References: <1450873397-19947-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH 2/2] bridge: use kobj_to_dev instead of to_dev
+Date: Wed, 23 Dec 2015 22:27:24 -0500 (EST)
+Message-ID: <20151223.222724.1927138905231368806.davem@davemloft.net>
+References: <2e7e038ba8b7872e9e510aecde073bf944924a51.1450874224.git.geliangtang@163.com>
+	<2e7e038ba8b7872e9e510aecde073bf944924a51.1450874224.git.geliangtang@163.com>
+	<544026a4b733db9633610b0744ec99075788157a.1450874224.git.geliangtang@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vivian@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40607 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755368AbbLXDRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:17:24 -0500
-In-Reply-To: <1450873397-19947-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: geliangtang@163.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <544026a4b733db9633610b0744ec99075788157a.1450874224.git.geliangtang@163.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed, 23 Dec 2015 13:23:17 +0100
+From: Geliang Tang <geliangtang@163.com>
+Date: Wed, 23 Dec 2015 20:42:21 +0800
 
-> The 6320 family of switch chips has a second bank for statistics, but
-> is missing three statistics in the port registers. Generalise and
-> extend the code:
+> kobj_to_dev has been defined in linux/device.h, so I replace to_dev
+> with it.
 > 
-> * adding a field to the statistics table indicating the bank/register
->   set where each statistics is.
-> * add a function indicating if an individual statistics
->   is available on this device
-> * calculate at run time the sset_count.
-> * return strings based on the available statistics of the device
-> * return statistics based on the available statistics of the device
-> * Add support for reading from the second bank.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
 
-Applied, thanks.
+Applied.
