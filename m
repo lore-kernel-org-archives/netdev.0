@@ -1,69 +1,293 @@
 From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [net-next PATCH 05/10] be2net: log digital signature errors while flashing FW image
-Date: Thu, 24 Dec 2015 04:26:27 -0500
-Message-ID: <1450949192-4574-6-git-send-email-sathya.perla@avagotech.com>
+Subject: [net-next PATCH 03/10] be2net: cleanup FW flash image related macro defines
+Date: Thu, 24 Dec 2015 04:26:25 -0500
+Message-ID: <1450949192-4574-4-git-send-email-sathya.perla@avagotech.com>
 References: <1450949192-4574-1-git-send-email-sathya.perla@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:64903 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753434AbbLXJno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 04:43:44 -0500
+	by vger.kernel.org with ESMTP id S1753059AbbLXJnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 04:43:40 -0500
 In-Reply-To: <1450949192-4574-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Suresh Reddy <suresh.reddy@avagotech.com>
 
->From FW version 11.0 onwards, the FW supports a new "secure mode" feature
-(based on a jumper setting on the adapter.) In this mode, the FW image when
-flashed is authenticated with a digital signature. This patch logs
-appropriate error messages and return a status to ethtool when errors
-relating to FW image authentication occur.
+Many constant definitions relating to the FW-image layout
+(such as section offset values) were defined in decimal format rather than
+hexa-decimal. This makes this part of the code un-readable. Also some
+defines related to BE2 are labeld "g2" and defines related to BE3 are
+labeled "g3".  This patch cleans up all of this to make this code more
+readable.
 
 Signed-off-by: Suresh Reddy <suresh.reddy@avagotech.com>
 Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c | 11 +++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |  4 +++-
- 2 files changed, 14 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.h | 141 ++++++++++++++++------------
+ drivers/net/ethernet/emulex/benet/be_main.c |  78 +++++++--------
+ 2 files changed, 118 insertions(+), 101 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index da3b398..6fb7873 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2959,6 +2959,17 @@ flash:
- 		} else if (status) {
- 			dev_err(dev, "Flashing section type 0x%x failed\n",
- 				img_type);
-+			if (addl_status(status) ==
-+			    MCC_ADDL_STATUS_MISSING_SIGNATURE) {
-+				dev_err(dev,
-+					"Digital signature missing in FW\n");
-+				return -EINVAL;
-+			} else if (addl_status(status) ==
-+				   MCC_ADDL_STATUS_INVALID_SIGNATURE) {
-+				dev_err(dev,
-+					"Invalid digital signature in FW\n");
-+				return -EINVAL;
-+			}
- 			return -EFAULT;
- 		}
- 	}
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 4b0ca99..16415ca 100644
+index 9690c3a..8c6b606 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -66,7 +66,9 @@ enum mcc_addl_status {
- 	MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES = 0x16,
- 	MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH = 0x4d,
- 	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a,
--	MCC_ADDL_STATUS_INSUFFICIENT_VLANS = 0xab
-+	MCC_ADDL_STATUS_INSUFFICIENT_VLANS = 0xab,
-+	MCC_ADDL_STATUS_INVALID_SIGNATURE = 0x56,
-+	MCC_ADDL_STATUS_MISSING_SIGNATURE = 0x57
- };
+@@ -1207,68 +1207,85 @@ struct be_cmd_resp_get_beacon_state {
+ /* Flashrom related descriptors */
+ #define MAX_FLASH_COMP			32
  
- #define CQE_BASE_STATUS_MASK		0xFFFF
+-#define OPTYPE_ISCSI_ACTIVE		0
+-#define OPTYPE_REDBOOT			1
+-#define OPTYPE_BIOS			2
+-#define OPTYPE_PXE_BIOS			3
+-#define OPTYPE_OFFSET_SPECIFIED		7
+-#define OPTYPE_FCOE_BIOS		8
+-#define OPTYPE_ISCSI_BACKUP		9
+-#define OPTYPE_FCOE_FW_ACTIVE		10
+-#define OPTYPE_FCOE_FW_BACKUP		11
+-#define OPTYPE_NCSI_FW			13
+-#define OPTYPE_REDBOOT_DIR		18
+-#define OPTYPE_REDBOOT_CONFIG		19
+-#define OPTYPE_SH_PHY_FW		21
+-#define OPTYPE_FLASHISM_JUMPVECTOR	22
+-#define OPTYPE_UFI_DIR			23
+-#define OPTYPE_PHY_FW			99
+-
+-#define FLASH_BIOS_IMAGE_MAX_SIZE_g2	262144  /* Max OPTION ROM image sz */
+-#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g2	262144  /* Max Redboot image sz    */
+-#define FLASH_IMAGE_MAX_SIZE_g2		1310720 /* Max firmware image size */
+-
+-#define FLASH_NCSI_IMAGE_MAX_SIZE_g3	262144
+-#define FLASH_PHY_FW_IMAGE_MAX_SIZE_g3	262144
+-#define FLASH_BIOS_IMAGE_MAX_SIZE_g3	524288  /* Max OPTION ROM image sz */
+-#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g3	1048576 /* Max Redboot image sz    */
+-#define FLASH_IMAGE_MAX_SIZE_g3		2097152 /* Max firmware image size */
+-
+-/* Offsets for components on Flash. */
+-#define FLASH_REDBOOT_START_g2			0
+-#define FLASH_FCoE_BIOS_START_g2		524288
+-#define FLASH_iSCSI_PRIMARY_IMAGE_START_g2	1048576
+-#define FLASH_iSCSI_BACKUP_IMAGE_START_g2	2359296
+-#define FLASH_FCoE_PRIMARY_IMAGE_START_g2	3670016
+-#define FLASH_FCoE_BACKUP_IMAGE_START_g2	4980736
+-#define FLASH_iSCSI_BIOS_START_g2		7340032
+-#define FLASH_PXE_BIOS_START_g2			7864320
+-
+-#define FLASH_REDBOOT_START_g3			262144
+-#define FLASH_PHY_FW_START_g3			1310720
+-#define FLASH_iSCSI_PRIMARY_IMAGE_START_g3	2097152
+-#define FLASH_iSCSI_BACKUP_IMAGE_START_g3	4194304
+-#define FLASH_FCoE_PRIMARY_IMAGE_START_g3	6291456
+-#define FLASH_FCoE_BACKUP_IMAGE_START_g3	8388608
+-#define FLASH_iSCSI_BIOS_START_g3		12582912
+-#define FLASH_PXE_BIOS_START_g3			13107200
+-#define FLASH_FCoE_BIOS_START_g3		13631488
+-#define FLASH_NCSI_START_g3			15990784
+-
+-#define IMAGE_NCSI			16
+-#define IMAGE_OPTION_ROM_PXE		32
+-#define IMAGE_OPTION_ROM_FCoE		33
+-#define IMAGE_OPTION_ROM_ISCSI		34
+-#define IMAGE_FLASHISM_JUMPVECTOR	48
+-#define IMAGE_FIRMWARE_iSCSI		160
+-#define IMAGE_FIRMWARE_FCoE		162
+-#define IMAGE_FIRMWARE_BACKUP_iSCSI	176
+-#define IMAGE_FIRMWARE_BACKUP_FCoE	178
+-#define IMAGE_FIRMWARE_PHY		192
+-#define IMAGE_REDBOOT_DIR		208
+-#define IMAGE_REDBOOT_CONFIG		209
+-#define IMAGE_UFI_DIR			210
+-#define IMAGE_BOOT_CODE			224
++/* Optypes of each component in the UFI */
++enum {
++	OPTYPE_ISCSI_ACTIVE = 0,
++	OPTYPE_REDBOOT = 1,
++	OPTYPE_BIOS = 2,
++	OPTYPE_PXE_BIOS = 3,
++	OPTYPE_OFFSET_SPECIFIED = 7,
++	OPTYPE_FCOE_BIOS = 8,
++	OPTYPE_ISCSI_BACKUP = 9,
++	OPTYPE_FCOE_FW_ACTIVE = 10,
++	OPTYPE_FCOE_FW_BACKUP = 11,
++	OPTYPE_NCSI_FW = 13,
++	OPTYPE_REDBOOT_DIR = 18,
++	OPTYPE_REDBOOT_CONFIG = 19,
++	OPTYPE_SH_PHY_FW = 21,
++	OPTYPE_FLASHISM_JUMPVECTOR = 22,
++	OPTYPE_UFI_DIR = 23,
++	OPTYPE_PHY_FW = 99
++};
++
++/* Maximum sizes of components in BE2 FW UFI */
++enum {
++	BE2_BIOS_COMP_MAX_SIZE = 0x40000,
++	BE2_REDBOOT_COMP_MAX_SIZE = 0x40000,
++	BE2_COMP_MAX_SIZE = 0x140000
++};
++
++/* Maximum sizes of components in BE3 FW UFI */
++enum {
++	BE3_NCSI_COMP_MAX_SIZE = 0x40000,
++	BE3_PHY_FW_COMP_MAX_SIZE = 0x40000,
++	BE3_BIOS_COMP_MAX_SIZE = 0x80000,
++	BE3_REDBOOT_COMP_MAX_SIZE = 0x100000,
++	BE3_COMP_MAX_SIZE = 0x200000
++};
++
++/* Offsets for components in BE2 FW UFI */
++enum {
++	BE2_REDBOOT_START = 0x8000,
++	BE2_FCOE_BIOS_START = 0x80000,
++	BE2_ISCSI_PRIMARY_IMAGE_START = 0x100000,
++	BE2_ISCSI_BACKUP_IMAGE_START = 0x240000,
++	BE2_FCOE_PRIMARY_IMAGE_START = 0x380000,
++	BE2_FCOE_BACKUP_IMAGE_START = 0x4c0000,
++	BE2_ISCSI_BIOS_START = 0x700000,
++	BE2_PXE_BIOS_START = 0x780000
++};
++
++/* Offsets for components in BE3 FW UFI */
++enum {
++	BE3_REDBOOT_START = 0x40000,
++	BE3_PHY_FW_START = 0x140000,
++	BE3_ISCSI_PRIMARY_IMAGE_START = 0x200000,
++	BE3_ISCSI_BACKUP_IMAGE_START = 0x400000,
++	BE3_FCOE_PRIMARY_IMAGE_START = 0x600000,
++	BE3_FCOE_BACKUP_IMAGE_START = 0x800000,
++	BE3_ISCSI_BIOS_START = 0xc00000,
++	BE3_PXE_BIOS_START = 0xc80000,
++	BE3_FCOE_BIOS_START = 0xd00000,
++	BE3_NCSI_START = 0xf40000
++};
++
++/* Component entry types */
++enum {
++	IMAGE_NCSI = 0x10,
++	IMAGE_OPTION_ROM_PXE = 0x20,
++	IMAGE_OPTION_ROM_FCOE = 0x21,
++	IMAGE_OPTION_ROM_ISCSI = 0x22,
++	IMAGE_FLASHISM_JUMPVECTOR = 0x30,
++	IMAGE_FIRMWARE_ISCSI = 0xa0,
++	IMAGE_FIRMWARE_FCOE = 0xa2,
++	IMAGE_FIRMWARE_BACKUP_ISCSI = 0xb0,
++	IMAGE_FIRMWARE_BACKUP_FCOE = 0xb2,
++	IMAGE_FIRMWARE_PHY = 0xc0,
++	IMAGE_REDBOOT_DIR = 0xd0,
++	IMAGE_REDBOOT_CONFIG = 0xd1,
++	IMAGE_UFI_DIR = 0xd2,
++	IMAGE_BOOT_CODE = 0xe2
++};
+ 
+ struct controller_id {
+ 	u32 vendor;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2f76cbe..0bb6e5a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4616,45 +4616,45 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 	const u8 *p;
+ 
+ 	struct flash_comp gen3_flash_types[] = {
+-		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, OPTYPE_ISCSI_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_iSCSI},
+-		{ FLASH_REDBOOT_START_g3, OPTYPE_REDBOOT,
+-			FLASH_REDBOOT_IMAGE_MAX_SIZE_g3, IMAGE_BOOT_CODE},
+-		{ FLASH_iSCSI_BIOS_START_g3, OPTYPE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_ISCSI},
+-		{ FLASH_PXE_BIOS_START_g3, OPTYPE_PXE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_PXE},
+-		{ FLASH_FCoE_BIOS_START_g3, OPTYPE_FCOE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_FCoE},
+-		{ FLASH_iSCSI_BACKUP_IMAGE_START_g3, OPTYPE_ISCSI_BACKUP,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_BACKUP_iSCSI},
+-		{ FLASH_FCoE_PRIMARY_IMAGE_START_g3, OPTYPE_FCOE_FW_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_FCoE},
+-		{ FLASH_FCoE_BACKUP_IMAGE_START_g3, OPTYPE_FCOE_FW_BACKUP,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_BACKUP_FCoE},
+-		{ FLASH_NCSI_START_g3, OPTYPE_NCSI_FW,
+-			FLASH_NCSI_IMAGE_MAX_SIZE_g3, IMAGE_NCSI},
+-		{ FLASH_PHY_FW_START_g3, OPTYPE_PHY_FW,
+-			FLASH_PHY_FW_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_PHY}
++		{ BE3_ISCSI_PRIMARY_IMAGE_START, OPTYPE_ISCSI_ACTIVE,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_ISCSI},
++		{ BE3_REDBOOT_START, OPTYPE_REDBOOT,
++			BE3_REDBOOT_COMP_MAX_SIZE, IMAGE_BOOT_CODE},
++		{ BE3_ISCSI_BIOS_START, OPTYPE_BIOS,
++			BE3_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_ISCSI},
++		{ BE3_PXE_BIOS_START, OPTYPE_PXE_BIOS,
++			BE3_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_PXE},
++		{ BE3_FCOE_BIOS_START, OPTYPE_FCOE_BIOS,
++			BE3_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_FCOE},
++		{ BE3_ISCSI_BACKUP_IMAGE_START, OPTYPE_ISCSI_BACKUP,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_ISCSI},
++		{ BE3_FCOE_PRIMARY_IMAGE_START, OPTYPE_FCOE_FW_ACTIVE,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_FCOE},
++		{ BE3_FCOE_BACKUP_IMAGE_START, OPTYPE_FCOE_FW_BACKUP,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_FCOE},
++		{ BE3_NCSI_START, OPTYPE_NCSI_FW,
++			BE3_NCSI_COMP_MAX_SIZE, IMAGE_NCSI},
++		{ BE3_PHY_FW_START, OPTYPE_PHY_FW,
++			BE3_PHY_FW_COMP_MAX_SIZE, IMAGE_FIRMWARE_PHY}
+ 	};
+ 
+ 	struct flash_comp gen2_flash_types[] = {
+-		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g2, OPTYPE_ISCSI_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_iSCSI},
+-		{ FLASH_REDBOOT_START_g2, OPTYPE_REDBOOT,
+-			FLASH_REDBOOT_IMAGE_MAX_SIZE_g2, IMAGE_BOOT_CODE},
+-		{ FLASH_iSCSI_BIOS_START_g2, OPTYPE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_ISCSI},
+-		{ FLASH_PXE_BIOS_START_g2, OPTYPE_PXE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_PXE},
+-		{ FLASH_FCoE_BIOS_START_g2, OPTYPE_FCOE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_FCoE},
+-		{ FLASH_iSCSI_BACKUP_IMAGE_START_g2, OPTYPE_ISCSI_BACKUP,
+-			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_iSCSI},
+-		{ FLASH_FCoE_PRIMARY_IMAGE_START_g2, OPTYPE_FCOE_FW_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_FCoE},
+-		{ FLASH_FCoE_BACKUP_IMAGE_START_g2, OPTYPE_FCOE_FW_BACKUP,
+-			 FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_FCoE}
++		{ BE2_ISCSI_PRIMARY_IMAGE_START, OPTYPE_ISCSI_ACTIVE,
++			BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_ISCSI},
++		{ BE2_REDBOOT_START, OPTYPE_REDBOOT,
++			BE2_REDBOOT_COMP_MAX_SIZE, IMAGE_BOOT_CODE},
++		{ BE2_ISCSI_BIOS_START, OPTYPE_BIOS,
++			BE2_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_ISCSI},
++		{ BE2_PXE_BIOS_START, OPTYPE_PXE_BIOS,
++			BE2_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_PXE},
++		{ BE2_FCOE_BIOS_START, OPTYPE_FCOE_BIOS,
++			BE2_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_FCOE},
++		{ BE2_ISCSI_BACKUP_IMAGE_START, OPTYPE_ISCSI_BACKUP,
++			BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_ISCSI},
++		{ BE2_FCOE_PRIMARY_IMAGE_START, OPTYPE_FCOE_FW_ACTIVE,
++			BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_FCOE},
++		{ BE2_FCOE_BACKUP_IMAGE_START, OPTYPE_FCOE_FW_BACKUP,
++			 BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_FCOE}
+ 	};
+ 
+ 	if (BE3_chip(adapter)) {
+@@ -4729,7 +4729,7 @@ static u16 be_get_img_optype(struct flash_section_entry fsec_entry)
+ 		return img_optype;
+ 
+ 	switch (img_type) {
+-	case IMAGE_FIRMWARE_iSCSI:
++	case IMAGE_FIRMWARE_ISCSI:
+ 		img_optype = OPTYPE_ISCSI_ACTIVE;
+ 		break;
+ 	case IMAGE_BOOT_CODE:
+@@ -4741,10 +4741,10 @@ static u16 be_get_img_optype(struct flash_section_entry fsec_entry)
+ 	case IMAGE_OPTION_ROM_PXE:
+ 		img_optype = OPTYPE_PXE_BIOS;
+ 		break;
+-	case IMAGE_OPTION_ROM_FCoE:
++	case IMAGE_OPTION_ROM_FCOE:
+ 		img_optype = OPTYPE_FCOE_BIOS;
+ 		break;
+-	case IMAGE_FIRMWARE_BACKUP_iSCSI:
++	case IMAGE_FIRMWARE_BACKUP_ISCSI:
+ 		img_optype = OPTYPE_ISCSI_BACKUP;
+ 		break;
+ 	case IMAGE_NCSI:
 -- 
 2.4.1
