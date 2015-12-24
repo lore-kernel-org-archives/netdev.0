@@ -1,43 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,stable] net: cdc_ncm: avoid changing RX/TX buffers
- on MTU changes
-Date: Wed, 23 Dec 2015 22:52:40 -0500 (EST)
-Message-ID: <20151223.225240.1999351612611929837.davem@davemloft.net>
-References: <1450874563-21311-1-git-send-email-bjorn@mork.no>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2] ip_tunnel: Move stats update to iptunnel_xmit()
+Date: Wed, 23 Dec 2015 20:37:57 -0800
+Message-ID: <CALnjE+riaFcG1V+c-cvHxErrNYLJsfFHOrhp7CNsoARNTyLOqA@mail.gmail.com>
+References: <1450914723-16452-1-git-send-email-pshelar@nicira.com>
+	<20151223.215712.2108576072504626201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	mrkiko.rs@gmail.com
-To: bjorn@mork.no
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40832 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719AbbLXDwm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 22:52:42 -0500
-In-Reply-To: <1450874563-21311-1-git-send-email-bjorn@mork.no>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:35823 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752284AbbLXEh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2015 23:37:58 -0500
+Received: by mail-ig0-f169.google.com with SMTP id to4so92934469igc.0
+        for <netdev@vger.kernel.org>; Wed, 23 Dec 2015 20:37:58 -0800 (PST)
+In-Reply-To: <20151223.215712.2108576072504626201.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Wed, 23 Dec 2015 13:42:43 +0100
+On Wed, Dec 23, 2015 at 6:57 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin B Shelar <pshelar@nicira.com>
+> Date: Wed, 23 Dec 2015 15:52:03 -0800
+>
+>>       } else {
+>> -             err_stats->tx_dropped++;
+>> +             struct net_device_stats *err_stats = &dev->stats;
+>> +
+>> +             if (err < 0) {
+>> +                     err_stats->tx_errors++;
+>> +                     err_stats->tx_aborted_errors++;
+>> +             } else {
+>> +                     err_stats->tx_dropped++;
+>> +             }
+>
+> The original code did not have this "tx_dropped" code path
+> and you aren't explaining in your commit message why you
+> are adding this new behavior.
 
-> NCM buffer sizes are negotiated with the device independently of
-> the network device MTU.  The RX buffers are allocated by the
-> usbnet framework based on the rx_urb_size value set by cdc_ncm. A
-> single RX buffer can hold a number of MTU sized packets.
->=20
-> The default usbnet change_mtu ndo only modifies rx_urb_size if it
-> is equal to hard_mtu.  And the cdc_ncm driver will set rx_urb_size
-> and hard_mtu independently of each other, based on dwNtbInMaxSize
-> and dwNtbOutMaxSize respectively. It was therefore assumed that
-> usbnet_change_mtu() would never touch rx_urb_size.  This failed to
-> consider the case where dwNtbInMaxSize and dwNtbOutMaxSize happens
-> to be equal.
->=20
-> Fix by implementing an NCM specific change_mtu ndo, modifying the
-> netdev MTU without touching the buffer size settings.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-
-Applied and queued up for -stable, thanks!
+There is "tx_dropped" code path in existing iptunnel_xmit_stats(). I
+have only moved err_stats variable definition to local block.
+There is no new behavior in this patch.
