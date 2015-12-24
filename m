@@ -1,40 +1,55 @@
-From: Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org>
-Subject: [PATCH] mac80211: Make addr const in SET_IEEE80211_PERM_ADDR()
-Date: Thu, 24 Dec 2015 00:33:26 -0800
-Message-ID: <1450946006-7498-1-git-send-email-bjorn.andersson@sonymobile.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] ip_tunnel: Move stats update to
+ iptunnel_xmit()
+Date: Thu, 24 Dec 2015 10:03:12 +0100
+Message-ID: <567BB4D0.8040203@6wind.com>
+References: <1450914723-16452-1-git-send-email-pshelar@nicira.com>
+ <20151223.215712.2108576072504626201.davem@davemloft.net>
+ <CALnjE+riaFcG1V+c-cvHxErrNYLJsfFHOrhp7CNsoARNTyLOqA@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:37424 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752535AbbLXJDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2015 04:03:15 -0500
+Received: by mail-wm0-f45.google.com with SMTP id p187so176118068wmp.0
+        for <netdev@vger.kernel.org>; Thu, 24 Dec 2015 01:03:14 -0800 (PST)
+In-Reply-To: <CALnjE+riaFcG1V+c-cvHxErrNYLJsfFHOrhp7CNsoARNTyLOqA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make the addr parameter const in SET_IEEE80211_PERM_ADDR() to save
-clients from having to cast away a const qualifier.
-
-Signed-off-by: Bjorn Andersson <bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
----
- include/net/mac80211.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index 7c30faff245f..a6f3c9c4b7c2 100644
---- a/include/net/mac80211.h
-+++ b/include/net/mac80211.h
-@@ -2167,7 +2167,7 @@ static inline void SET_IEEE80211_DEV(struct ieee80211_hw *hw, struct device *dev
-  * @hw: the &struct ieee80211_hw to set the MAC address for
-  * @addr: the address to set
-  */
--static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, u8 *addr)
-+static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, const u8 *addr)
- {
- 	memcpy(hw->wiphy->perm_addr, addr, ETH_ALEN);
- }
--- 
-2.5.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Le 24/12/2015 05:37, Pravin Shelar a =C3=A9crit :
+> On Wed, Dec 23, 2015 at 6:57 PM, David Miller <davem@davemloft.net> w=
+rote:
+>> From: Pravin B Shelar <pshelar@nicira.com>
+>> Date: Wed, 23 Dec 2015 15:52:03 -0800
+>>
+>>>        } else {
+>>> -             err_stats->tx_dropped++;
+>>> +             struct net_device_stats *err_stats =3D &dev->stats;
+>>> +
+>>> +             if (err < 0) {
+>>> +                     err_stats->tx_errors++;
+>>> +                     err_stats->tx_aborted_errors++;
+>>> +             } else {
+>>> +                     err_stats->tx_dropped++;
+>>> +             }
+>>
+>> The original code did not have this "tx_dropped" code path
+>> and you aren't explaining in your commit message why you
+>> are adding this new behavior.
+>
+> There is "tx_dropped" code path in existing iptunnel_xmit_stats(). I
+> have only moved err_stats variable definition to local block.
+> There is no new behavior in this patch.
+>
+Yes, I think it's ok now. There is no functional change. The prototype
+of the function has changed: err_stats is not provided anymore in the a=
+rguments.
