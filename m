@@ -1,58 +1,75 @@
-From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Subject: Re: [Intel-wired-lan] [PATCH v2] ixgbe: on recv increment rx.ring->stats.yields
-Date: Fri, 25 Dec 2015 19:26:12 +0300
-Message-ID: <567D6E24.3030302@virtuozzo.com>
-References: <566AD3F5.9050502@cogentembedded.com> <1449842714-10284-1-git-send-email-ptikhomirov@virtuozzo.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 26/28] dsa: Convert mv88e6xxx into a library allowing
+ driver modules
+Date: Fri, 25 Dec 2015 13:47:55 -0800
+Message-ID: <567DB98B.1070709@gmail.com>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+ <1450875402-20740-27-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <devel@openvz.org>
-To: <intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, narmstrong@baylibre.com,
+	vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:37510 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753048AbbLYQ0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2015 11:26:25 -0500
-In-Reply-To: <1449842714-10284-1-git-send-email-ptikhomirov@virtuozzo.com>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:32776 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753788AbbLYVr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2015 16:47:58 -0500
+Received: by mail-ob0-f181.google.com with SMTP id bx1so85032971obb.0
+        for <netdev@vger.kernel.org>; Fri, 25 Dec 2015 13:47:58 -0800 (PST)
+In-Reply-To: <1450875402-20740-27-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, please, let me know if I need to fix something else here.
-
-On 12/11/2015 05:05 PM, Pavel Tikhomirov wrote:
-> It seem to be non intentionaly changed to tx in
-> commit adc810900a70 ("ixgbe: Refactor busy poll socket code to address
-> multiple issues")
->
-> Lock is taken from ixgbe_low_latency_recv, and there under this
-> lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
-> tx counter.
->
-> Yield stats can be shown through ethtool:
-> ethtool -S enp129s0 | grep yield
->
-> v2: follow commit citing style
->
-> Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Le 23/12/2015 04:56, Andrew Lunn a =C3=A9crit :
+> Turn mv88e6xxx into a library module, by exporting its symbols.  Have
+> each driver register their own driver functions with the DSA core in
+> there init function.
+>=20
+> This results in each driver being a loadable module.
+>=20
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 > ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> index 1d21745..7656d46 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> @@ -451,7 +451,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
->   				IXGBE_QV_STATE_POLL);
->   #ifdef BP_EXTENDED_STATS
->   	if (rc != IXGBE_QV_STATE_IDLE)
-> -		q_vector->tx.ring->stats.yields++;
-> +		q_vector->rx.ring->stats.yields++;
->   #endif
->   	return rc == IXGBE_QV_STATE_IDLE;
->   }
->
 
--- 
-Best regards, Tikhomirov Pavel
-Software Developer, Virtuozzo.
+[snip]
+
+> +obj-$(CONFIG_NET_DSA_MV88E6XXX) +=3D mv88e6xxx.o
+> +obj-$(CONFIGNET_DSA_MV88E6131)  +=3D mv88e6123.o
+
+Missing underscore here between CONFIG and NET.
+
+> +obj-$(CONFIG_NET_DSA_MV88E6131) +=3D mv88e6131.o
+> +obj-$(CONFIG_NET_DSA_MV88E6352) +=3D mv88e6352.o
+> +obj-$(CONFIG_NET_DSA_MV88E6171) +=3D mv88e6171.o
+>  obj-$(CONFIG_NET_DSA_BCM_SF2)	+=3D bcm_sf2.o
+> diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.=
+c
+> index bb39720f3e8b..9680e59fd2ae 100644
+> --- a/drivers/net/dsa/mv88e6123.c
+> +++ b/drivers/net/dsa/mv88e6123.c
+> @@ -167,7 +167,21 @@ static struct platform_driver mv88e6123_driver =3D=
+ {
+>  		.of_match_table =3D mv88e6123_of_match,
+>  	},
+>  };
+> -module_platform_driver(mv88e6123_driver);
+> =20
+> +static int __init mv88e6123_init(void)
+> +{
+> +	register_switch_driver(&mv88e6123_switch_driver);
+> +
+> +	return platform_driver_register(&mv88e6123_driver);
+> +}
+> +
+> +static void __exit mv88e6123_exit(void)
+> +{
+> +	platform_driver_unregister(&mv88e6123_driver);
+> +	unregister_switch_driver(&mv88e6123_switch_driver);
+> +}
+
+I think Vivien had started something like this, but it could be nice to
+have a helper function/macro which reduces the boilerplate code, not
+critical for now though.
+--=20
+=46lorian
