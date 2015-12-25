@@ -1,92 +1,99 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] prism54: fix checks for dma mapping errors
-Date: Sat, 26 Dec 2015 01:42:41 +0300
-Message-ID: <1451083361-13141-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"John W . Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 00/28] DSA: Restructure probing
+Date: Sat, 26 Dec 2015 00:41:26 +0100
+Message-ID: <20151225234126.GA11083@lunn.ch>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+ <567B07CB.5080308@gmail.com>
+ <20151223223303.GD25485@lunn.ch>
+ <567B2A89.7000803@gmail.com>
+ <20151224125812.GB29139@lunn.ch>
+ <567CA01F.6010604@gmail.com>
+ <20151225113123.GA7422@lunn.ch>
+ <567DBC73.9040104@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: narmstrong@baylibre.com, vivien.didelot@savoirfairelinux.com,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ispras.ru ([83.149.199.45]:59968 "EHLO mail.ispras.ru"
+Received: from vps0.lunn.ch ([178.209.37.122]:49628 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753788AbbLYWnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Dec 2015 17:43:10 -0500
+	id S1754676AbbLYXl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Dec 2015 18:41:29 -0500
+Content-Disposition: inline
+In-Reply-To: <567DBC73.9040104@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-prism54 checks for dma mapping errors by comparison returned address
-with zero, while pci_dma_mapping_error() should be used.
+> I am not really questioning whether the abstraction is working, this
+> clearly does, what I am wondering is if the use of the component
+> framework requires us to have master and slaves be implemented as strict
+> platform devices, or if we have a choice in how we mix things together,
+> like master is a platform device, but slaves could be I2C, SPI client or
+> even platform devices themselves? That was not quite obvious to me by
+> looking at the patches, sorry.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+Slaves can be any sort of device. From what i've seen with GPU usage,
+they are sometimes i2c devices, e.g. HDMI and audio framers. The way i
+use slaves in the patches, is that all they need is a struct device
+and an of node for matching to the master. The master also needs a
+struct device. It makes no difference if these struct device are
+embedded in a plaform_device, an struct i2c_client, struct phy_device
+etc.
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/prism54/islpci_dev.c | 4 +++-
- drivers/net/wireless/prism54/islpci_eth.c | 5 +++--
- drivers/net/wireless/prism54/islpci_mgt.c | 4 ++--
- 3 files changed, 8 insertions(+), 5 deletions(-)
+> >> mdio_bus@deadbeef {
+> >> 	compatible = "acme,mdiobus";
+> >> 	..
+> >> 	switch0@0 {
+> >> 		compatible = "marvell,mv88e6131";
+> >> 		reg = <0>;
+> >> 		dsa,addr = <1>;
+> > 
+> > This is not sufficient. It does not tell you which DSA cluster this
+> > switch belongs to.
+> 
+> Would it work if we added an additional digit which is the cluster id or
+> do you need a node grouping switches in a cluster with each other like
+> you proposed in patch 20?
 
-diff --git a/drivers/net/wireless/prism54/islpci_dev.c b/drivers/net/wireless/prism54/islpci_dev.c
-index 931cf440ff18..84a42012aeae 100644
---- a/drivers/net/wireless/prism54/islpci_dev.c
-+++ b/drivers/net/wireless/prism54/islpci_dev.c
-@@ -707,7 +707,9 @@ islpci_alloc_memory(islpci_private *priv)
- 		    pci_map_single(priv->pdev, (void *) skb->data,
- 				   MAX_FRAGMENT_SIZE_RX + 2,
- 				   PCI_DMA_FROMDEVICE);
--		if (!priv->pci_map_rx_address[counter]) {
-+		if (pci_dma_mapping_error(priv->pdev,
-+					  priv->pci_map_rx_address[counter])) {
-+			priv->pci_map_rx_address[counter] = 0;
- 			/* error mapping the buffer to device
- 			   accessible memory address */
- 			printk(KERN_ERR "failed to map skb DMA'able\n");
-diff --git a/drivers/net/wireless/prism54/islpci_eth.c b/drivers/net/wireless/prism54/islpci_eth.c
-index 674658f2e6ef..d83f6332019e 100644
---- a/drivers/net/wireless/prism54/islpci_eth.c
-+++ b/drivers/net/wireless/prism54/islpci_eth.c
-@@ -190,7 +190,7 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
- 	pci_map_address = pci_map_single(priv->pdev,
- 					 (void *) skb->data, skb->len,
- 					 PCI_DMA_TODEVICE);
--	if (unlikely(pci_map_address == 0)) {
-+	if (pci_dma_mapping_error(priv->pdev, pci_map_address)) {
- 		printk(KERN_WARNING "%s: cannot map buffer to PCI\n",
- 		       ndev->name);
- 		goto drop_free;
-@@ -448,7 +448,8 @@ islpci_eth_receive(islpci_private *priv)
- 		    pci_map_single(priv->pdev, (void *) skb->data,
- 				   MAX_FRAGMENT_SIZE_RX + 2,
- 				   PCI_DMA_FROMDEVICE);
--		if (unlikely(!priv->pci_map_rx_address[index])) {
-+		if (pci_dma_mapping_error(priv->pdev,
-+					  priv->pci_map_rx_address[index])) {
- 			/* error mapping the buffer to device accessible memory address */
- 			DEBUG(SHOW_ERROR_MESSAGES,
- 			      "Error mapping DMA address\n");
-diff --git a/drivers/net/wireless/prism54/islpci_mgt.c b/drivers/net/wireless/prism54/islpci_mgt.c
-index 0de14dfa68cc..53d7a1705e8e 100644
---- a/drivers/net/wireless/prism54/islpci_mgt.c
-+++ b/drivers/net/wireless/prism54/islpci_mgt.c
-@@ -130,7 +130,7 @@ islpci_mgmt_rx_fill(struct net_device *ndev)
- 			buf->pci_addr = pci_map_single(priv->pdev, buf->mem,
- 						       MGMT_FRAME_SIZE,
- 						       PCI_DMA_FROMDEVICE);
--			if (!buf->pci_addr) {
-+			if (pci_dma_mapping_error(priv->pdev, buf->pci_addr)) {
- 				printk(KERN_WARNING
- 				       "Failed to make memory DMA'able.\n");
- 				return -ENOMEM;
-@@ -217,7 +217,7 @@ islpci_mgt_transmit(struct net_device *ndev, int operation, unsigned long oid,
- 	err = -ENOMEM;
- 	buf.pci_addr = pci_map_single(priv->pdev, buf.mem, frag_len,
- 				      PCI_DMA_TODEVICE);
--	if (!buf.pci_addr) {
-+	if (pci_dma_mapping_error(priv->pdev, buf.pci_addr)) {
- 		printk(KERN_WARNING "%s: cannot map PCI memory for mgmt\n",
- 		       ndev->name);
- 		goto error_free;
--- 
-1.9.1
+There is one cluster property at the moment, dsa,ethernet. So we could
+actually use that as the cluster identifier, if we assume each cluster
+has its own host ethernet.
+
+> 
+> The question being mostly, if we have the cluster id, address/index in
+> switch tree, and a double linked list using phandles, is that good
+> enough to figure out a topology or shall we really have nodes and
+> sub-nodes with that (we would still need a list one linked list of
+> phandles to figure out which ports are "dsa").
+
+The dsa ports tell us how switches are interconnected. So once we have
+all the switches we can determine the topology. What is not so clear
+yet is how you know you have all the switches. The binding i proposed
+meant the dsa platform device had a complete list of switch devices it
+needed to form the cluster. With the distributed binding you are
+suggesting, i don't see an easy way we can build the list of slave
+devices.
+
+> > Making MDIO controlled switches hang of MDIO can be done, but it does
+> > require some bigger changes to the mdio code. I will need to look at
+> > this again, but i think it starts in of_mdiobus_register_phy() which
+> > needs to look a the compatibility field, and do something different to
+> > phy_device_register(). mdio_unregister() will also need some work,
+> > since it only expects phy devices on the mdio bus.
+> 
+> Correct, and this is really where I would start before we go on with the
+> probing restructuring, because that could impact how the new DSA binding
+> will have to be (re)defined. Right now, converting the Marvell drivers
+> into individual platform devices is kind of a temporary solution because
+> we do not have have a proper MDIO device model which is not a PHY.
+
+Agreed. So i guess this is the next thing to work on.
+
+> There are lots of good patches in this series that should probably be
+> merged right away since they are all improvements.
+
+Care to make a list of which you think should be submitted now?
+
+Thanks
+	Andrew
