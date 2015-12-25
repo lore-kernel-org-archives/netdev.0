@@ -1,92 +1,75 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH net-next v5 2/8] netfilter: Factor out
-	nf_ct_get_info().
-Date: Fri, 25 Dec 2015 13:30:29 +0100
-Message-ID: <20151225123029.GA7352@salvia>
-References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
- <1450312607-44050-3-git-send-email-jarno@ovn.org>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 8/9] ixgbe: fix write to VLVFB in
+ ixgbe_clear_vf_vlans()
+Date: Fri, 25 Dec 2015 15:33:58 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992504F2FF5@FMSMSX105.amr.corp.intel.com>
+References: <1451021396-68858-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1451021396-68858-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1450312607-44050-3-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:59516 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751186AbbLYPeO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2015 10:34:14 -0500
+In-Reply-To: <1451021396-68858-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBEZWMgMTYsIDIwMTUgYXQgMDQ6MzY6NDFQTSAtMDgwMCwgSmFybm8gUmFqYWhhbG1l
-IHdyb3RlOgo+IERlZmluZSBhIG5ldyBpbmxpbmUgZnVuY3Rpb24gdG8gbWFwIGNvbm50cmFjayBz
-dGF0dXMgdG8gZW51bQo+IGlwX2Nvbm50cmFja19pbmZvLiAgVGhpcyByZW1vdmVzIHRoZSBuZWVk
-IHRvIG90aGVyd2lzZSBkdXBsaWNhdGUgdGhpcwo+IGNvZGUgaW4gYSBsYXRlciBwYXRjaCAoIm9w
-ZW52c3dpdGNoOiBGaW5kIGV4aXN0aW5nIGNvbm50cmFjayBlbnRyeQo+IGFmdGVyIHVwY2FsbC4i
-KS4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4g
-LS0tCj4gIGluY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaCB8IDE1ICsrKysrKysr
-KysrKysrKwo+ICBuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMgICAgfCAyOCArKysr
-KysrKystLS0tLS0tLS0tLS0tLS0tLS0tCj4gIDIgZmlsZXMgY2hhbmdlZCwgMjQgaW5zZXJ0aW9u
-cygrKSwgMTkgZGVsZXRpb25zKC0pCj4gCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldGZp
-bHRlci9uZl9jb25udHJhY2suaCBiL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2su
-aAo+IGluZGV4IGZkZTQwNjguLmIzZGUxMGUgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9uZXQvbmV0
-ZmlsdGVyL25mX2Nvbm50cmFjay5oCj4gKysrIGIvaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nv
-bm50cmFjay5oCj4gQEAgLTEyNSw2ICsxMjUsMjEgQEAgbmZfY3RfdHVwbGVoYXNoX3RvX2N0cmFj
-ayhjb25zdCBzdHJ1Y3QgbmZfY29ubnRyYWNrX3R1cGxlX2hhc2ggKmhhc2gpCj4gIAkJCSAgICB0
-dXBsZWhhc2hbaGFzaC0+dHVwbGUuZHN0LmRpcl0pOwo+ICB9Cj4gIAo+ICtzdGF0aWMgaW5saW5l
-IGVudW0gaXBfY29ubnRyYWNrX2luZm8KPiArbmZfY3RfZ2V0X2luZm8oY29uc3Qgc3RydWN0IG5m
-X2Nvbm50cmFja190dXBsZV9oYXNoICpoKQo+ICt7Cj4gKwljb25zdCBzdHJ1Y3QgbmZfY29ubiAq
-Y3QgPSBuZl9jdF90dXBsZWhhc2hfdG9fY3RyYWNrKGgpOwo+ICsKPiArCWlmIChORl9DVF9ESVJF
-Q1RJT04oaCkgPT0gSVBfQ1RfRElSX1JFUExZKQo+ICsJCXJldHVybiBJUF9DVF9FU1RBQkxJU0hF
-RF9SRVBMWTsKPiArCS8qIE9uY2Ugd2UndmUgaGFkIHR3byB3YXkgY29tbXMsIGFsd2F5cyBFU1RB
-QkxJU0hFRC4gKi8KPiArCWlmICh0ZXN0X2JpdChJUFNfU0VFTl9SRVBMWV9CSVQsICZjdC0+c3Rh
-dHVzKSkKPiArCQlyZXR1cm4gSVBfQ1RfRVNUQUJMSVNIRUQ7Cj4gKwlpZiAodGVzdF9iaXQoSVBT
-X0VYUEVDVEVEX0JJVCwgJmN0LT5zdGF0dXMpKQo+ICsJCXJldHVybiBJUF9DVF9SRUxBVEVEOwo+
-ICsJcmV0dXJuIElQX0NUX05FVzsKPiArfQo+ICsKPiAgc3RhdGljIGlubGluZSB1X2ludDE2X3Qg
-bmZfY3RfbDNudW0oY29uc3Qgc3RydWN0IG5mX2Nvbm4gKmN0KQo+ICB7Cj4gIAlyZXR1cm4gY3Qt
-PnR1cGxlaGFzaFtJUF9DVF9ESVJfT1JJR0lOQUxdLnR1cGxlLnNyYy5sM251bTsKPiBkaWZmIC0t
-Z2l0IGEvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29yZS5jIGIvbmV0L25ldGZpbHRlci9u
-Zl9jb25udHJhY2tfY29yZS5jCj4gaW5kZXggM2NiM2NiOC4uNzU0NmZjNyAxMDA2NDQKPiAtLS0g
-YS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMKPiArKysgYi9uZXQvbmV0ZmlsdGVy
-L25mX2Nvbm50cmFja19jb3JlLmMKPiBAQCAtMTA1NiwyNSArMTA1NiwxNSBAQCByZXNvbHZlX25v
-cm1hbF9jdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBuZl9jb25uICp0bXBsLAo+ICAJY3QgPSBu
-Zl9jdF90dXBsZWhhc2hfdG9fY3RyYWNrKGgpOwo+ICAKPiAgCS8qIEl0IGV4aXN0czsgd2UgaGF2
-ZSAobm9uLWV4Y2x1c2l2ZSkgcmVmZXJlbmNlLiAqLwo+IC0JaWYgKE5GX0NUX0RJUkVDVElPTiho
-KSA9PSBJUF9DVF9ESVJfUkVQTFkpIHsKPiAtCQkqY3RpbmZvID0gSVBfQ1RfRVNUQUJMSVNIRURf
-UkVQTFk7Cj4gLQkJLyogUGxlYXNlIHNldCByZXBseSBiaXQgaWYgdGhpcyBwYWNrZXQgT0sgKi8K
-PiAtCQkqc2V0X3JlcGx5ID0gMTsKPiAtCX0gZWxzZSB7Cj4gLQkJLyogT25jZSB3ZSd2ZSBoYWQg
-dHdvIHdheSBjb21tcywgYWx3YXlzIEVTVEFCTElTSEVELiAqLwo+IC0JCWlmICh0ZXN0X2JpdChJ
-UFNfU0VFTl9SRVBMWV9CSVQsICZjdC0+c3RhdHVzKSkgewo+IC0JCQlwcl9kZWJ1ZygibmZfY29u
-bnRyYWNrX2luOiBub3JtYWwgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+IC0JCQkqY3RpbmZvID0g
-SVBfQ1RfRVNUQUJMSVNIRUQ7Cj4gLQkJfSBlbHNlIGlmICh0ZXN0X2JpdChJUFNfRVhQRUNURURf
-QklULCAmY3QtPnN0YXR1cykpIHsKPiAtCQkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjogcmVs
-YXRlZCBwYWNrZXQgZm9yICVwXG4iLAo+IC0JCQkJIGN0KTsKPiAtCQkJKmN0aW5mbyA9IElQX0NU
-X1JFTEFURUQ7Cj4gLQkJfSBlbHNlIHsKPiAtCQkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjog
-bmV3IHBhY2tldCBmb3IgJXBcbiIsIGN0KTsKPiAtCQkJKmN0aW5mbyA9IElQX0NUX05FVzsKPiAt
-CQl9Cj4gLQkJKnNldF9yZXBseSA9IDA7Cj4gLQl9Cj4gKwkqY3RpbmZvID0gbmZfY3RfZ2V0X2lu
-Zm8oaCk7Cj4gKwlpZiAoKmN0aW5mbyA9PSBJUF9DVF9FU1RBQkxJU0hFRCkKPiArCQlwcl9kZWJ1
-ZygibmZfY29ubnRyYWNrX2luOiBub3JtYWwgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+ICsJZWxz
-ZSBpZiAoKmN0aW5mbyA9PSBJUF9DVF9SRUxBVEVEKQo+ICsJCXByX2RlYnVnKCJuZl9jb25udHJh
-Y2tfaW46IHJlbGF0ZWQgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+ICsJZWxzZSBpZiAoKmN0aW5m
-byA9PSBJUF9DVF9ORVcpCj4gKwkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjogbmV3IHBhY2tl
-dCBmb3IgJXBcbiIsIGN0KTsKPiArCSpzZXRfcmVwbHkgPSBORl9DVF9ESVJFQ1RJT04oaCkgPT0g
-SVBfQ1RfRElSX1JFUExZOwo+ICsKClRoaXMgcmVzdWx0cyBpbiB3b3JzZSBjb2RlIGZvciBvdXIg
-Y29kZWJhc2UuCgpHaXZlbiB0aGUgbGl0dGxlIGNvZGUgdGhhdCBpcyBjb25zb2xpZGF0ZWQgaW4g
-dGhpcyBwYXRjaHNldCAodGhlIGxhc3QKbGFyZ2VyIHBhdGNoIDgvOCBpcyBiYXNpY2FsbHkgYSBj
-b3B5IG9mIG91ciBOQVQgcGF0aCBidXQgYWRhcHRlZCB0bwp0aGUgb3BlbnZzd2l0Y2ggcGFja2V0
-IGZsb3cgbG9naWMpLCBJIGRvbid0IHRoaW5rIHRoaXMgbGl0dGxlIGVmZm9ydAppbiB0aGlzIHBh
-dGNoIHRvIGNvbnNvbGlkYXRlIHRoaXMgY29kZSBpcyB3b3J0aC4KClRoZSByaWdodCB3YXkgSU1P
-IHdvdWxkIGJlIHRvIGdldCBvcGVudnN3aXRjaCBwYWNrZXQgZmxvdyBjbG9zZXIgdG8Kb3VyIGNv
-ZGViYXNlLCB0aGVuIG1vcmUgY29kZSBjb3VsZCBiZSByZXVzZWQgYnV0IEkgdW5kZXJzdGFuZCB0
-aGF0IGlzCm5vdCBzaW1wbGUgdGhpbmcuCgpQbGVhc2UsIHJldmFtcCBhIG5ldyBwYXRjaHNldCB2
-ZXJzaW9uIGtlZXBpbmcgdGhpcyBmdW5jdGlvbiB0aGF0IHlvdQpuZWVkIGluIHlvdXIgZm9sZGVy
-LgoKVGhhbmtzLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+>-----Original Message-----
+>From: Kirsher, Jeffrey T
+>Sent: Thursday, December 24, 2015 9:30 PM
+>To: davem@davemloft.net
+>Cc: Tantilov, Emil S; netdev@vger.kernel.org; nhorman@redhat.com;
+>sassmann@redhat.com; jogreene@redhat.com; Kirsher, Jeffrey T
+>Subject: [net-next 8/9] ixgbe: fix write to VLVFB in ixgbe_clear_vf_vlans()
+>
+>From: Emil Tantilov <emil.s.tantilov@intel.com>
+>
+>Fix the write to the VLVFB register in ixgbe_clear_vf_vlans() where
+>word is the actual offset of the register and not the index for the
+>IXGBE_VLVFB macro.
+>
+>This was causing PCI AER errors on my system.
+>
+>Fixes: 4c7f35f679f592804736f9303051257de2c9f021
+>("ixgbe: Clean stale VLANs when changing port VLAN or resetting")
+>
+>Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+>Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>---
+> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>index eeff3d0..fd918da 100644
+>--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>@@ -640,7 +640,7 @@ update_vlvf:
+> 		IXGBE_WRITE_REG(hw, IXGBE_VLVF(i), 0);
+> update_vlvfb:
+> 		/* clear pool bits */
+>-		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), vlvfb);
+>+		IXGBE_WRITE_REG(hw, word, vlvfb);
+> 	}
+> }
+>
+>--
+>2.5.0
+
+Alex submitted another patch for this function that should've been
+used instead as it also resolves an issue with the mask.
+
+Thanks,
+Emil 
