@@ -1,46 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/9] ixgbevf: Fix handling of NAPI budget when multiple queues are enabled per vector
-Date: Thu, 24 Dec 2015 21:29:48 -0800
-Message-ID: <1451021396-68858-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1451021396-68858-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: William Dauchy <william@gandi.net>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 25/28] Documentation: DSA: Describe how probe of DSA
+ and switches work.
+Date: Fri, 25 Dec 2015 11:00:02 +0100
+Message-ID: <20151225100002.GA7136@lunn.ch>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
+ <1450875402-20740-26-git-send-email-andrew@lunn.ch>
+ <567B089C.7030108@gmail.com>
+ <20151223225322.GE25485@lunn.ch>
+ <567C9C16.5020005@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: narmstrong@baylibre.com, vivien.didelot@savoirfairelinux.com,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55539 "EHLO mga09.intel.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:49541 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752539AbbLYF36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Dec 2015 00:29:58 -0500
-In-Reply-To: <1451021396-68858-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751575AbbLYKAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Dec 2015 05:00:06 -0500
+Content-Disposition: inline
+In-Reply-To: <567C9C16.5020005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Dauchy <william@gandi.net>
+> > It sounds like you want to 'optimise' for a DSA cluster consisting of
+> > a single switch, throwing away the D in DSA. Now the SF2 is a bit
+> > 'odd'. Since it is embedded in the SoC, you cannot have multiple of
+> > them in a cluster. So such an optimization could make sense for the
+> > SF2. But can we do this without adding too more complexity?
+> 
+> The distributed case is the complex one, the one with a single switch
+> hanging off an Ethernet MAC is the most common one and is much simpler
+> to deal with.
 
-This is the same patch as for ixgbe but applied differently according to
-busy polling.  See commit 5d6002b7b822c74 ("ixgbe: Fix handling of NAPI
-budget when multiple queues are enabled per vector")
+Sure, boards with multiple switches don't happen very often, but they
+do exist. If we can solve the general case, a single switch just
+works. The reverse is not true. Which is why i've been doing all my
+development work on a board with three switches. And in theory, i
+could even partition these into two DSA clusters!
 
-Signed-off-by: William Dauchy <william@gandi.net>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index f098952..478c0f1 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1016,6 +1016,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
- 	ixgbevf_for_each_ring(ring, q_vector->tx)
- 		clean_complete &= ixgbevf_clean_tx_irq(q_vector, ring);
- 
-+	if (budget <= 0)
-+		return budget;
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	if (!ixgbevf_qv_lock_napi(q_vector))
- 		return budget;
--- 
-2.5.0
+	    Andrew
