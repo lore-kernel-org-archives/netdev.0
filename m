@@ -1,101 +1,92 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 00/28] DSA: Restructure probing
-Date: Fri, 25 Dec 2015 12:31:23 +0100
-Message-ID: <20151225113123.GA7422@lunn.ch>
-References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
- <567B07CB.5080308@gmail.com>
- <20151223223303.GD25485@lunn.ch>
- <567B2A89.7000803@gmail.com>
- <20151224125812.GB29139@lunn.ch>
- <567CA01F.6010604@gmail.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH net-next v5 2/8] netfilter: Factor out
+	nf_ct_get_info().
+Date: Fri, 25 Dec 2015 13:30:29 +0100
+Message-ID: <20151225123029.GA7352@salvia>
+References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
+ <1450312607-44050-3-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: narmstrong@baylibre.com, vivien.didelot@savoirfairelinux.com,
-	netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49549 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752204AbbLYLb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Dec 2015 06:31:26 -0500
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <567CA01F.6010604@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1450312607-44050-3-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-> > One of my aims is to abstract away the MDIO bus from DSA. How you talk
-> > to the switch is a switch device property. SF2 has a different way to
-> > talk to the switch, memory mapped IO, etc.
-> 
-> I appreciate you trying to see my point of view and mentioning the
-> driver that I care about, but I am not just after SF2 here, just any
-> kind of switch in general: PCIe, SPI, I2C, GPIO, MDIO, MMIO is precisely
-> what I would like to solve instead of narrow MDIO and distributed case
-> that DSA currently deals with, and MMIO with some help from the of_*
-> routines which do not need any kind of bus probing and struct device
-> creation (most often).
-
-And this is achieved with the new structure. How you access the switch
-is part of the switch device binding, be it an MDIO bus/addr, an MMIO
-reg property, or an i2c client, etc. The switch driver registers a set
-of ops which are neutral to the switch access mechanism.
-
-In the DSA node, the mdio bus is now only required when using
-backwards compatibility. The reg property is a bit odd, since it is
-used for linking DSA ports together. So currently it is kept, but only
-one of the two fields is used. We could in a later patchset change
-this, since there are currently no in kernel devices with multiple
-switches, so we don't have to worry about breaking the binding.
-
-> > Anyway, who do you think the device tree binding will look? Maybe take
-> > the .dts file in patches 2 and 20 to build an example?
-> 
-> The binding would look pretty much the same as what the current DSA and
-> your proposed binding look like, except that instead of encoding the
-> MDIO address *and* the switch index in tree in the same "reg" properties
-> (which was wrong along, but I did not really knew it back in 2009 or
-> so), the two would be different properties.
-
-Agreed, as explained above.
- 
-> When you parse the Device Tree you can determine what is the position of
-> the switch in the switch tree by looking at its ports sub-nodes and see
-> if they have a "link" property which links them to another device,
-> eventually, in case where there is not a one to one, but one to many
-> connection, an additional property can help you figure out how to
-> flatten things out.
-> 
-> So in practical terms, this could wind up looking like this:
-> 
-> mdio_bus@deadbeef {
-> 	compatible = "acme,mdiobus";
-> 	..
-> 	switch0@0 {
-> 		compatible = "marvell,mv88e6131";
-> 		reg = <0>;
-> 		dsa,addr = <1>;
-
-This is not sufficient. It does not tell you which DSA cluster this
-switch belongs to.
-
-> 
-> 		switch0port5: port@5 {
-> 				reg = <5>;
-> 				label = "dsa";
-> 				link = <&switch1port9>;
-> 			};
-> 		};
-> 	};
-> };
-
-Just for clarification, where are the cpu ports and normal user ports?
-Here as well?
-
-Making MDIO controlled switches hang of MDIO can be done, but it does
-require some bigger changes to the mdio code. I will need to look at
-this again, but i think it starts in of_mdiobus_register_phy() which
-needs to look a the compatibility field, and do something different to
-phy_device_register(). mdio_unregister() will also need some work,
-since it only expects phy devices on the mdio bus.
-
-	Andrew
+T24gV2VkLCBEZWMgMTYsIDIwMTUgYXQgMDQ6MzY6NDFQTSAtMDgwMCwgSmFybm8gUmFqYWhhbG1l
+IHdyb3RlOgo+IERlZmluZSBhIG5ldyBpbmxpbmUgZnVuY3Rpb24gdG8gbWFwIGNvbm50cmFjayBz
+dGF0dXMgdG8gZW51bQo+IGlwX2Nvbm50cmFja19pbmZvLiAgVGhpcyByZW1vdmVzIHRoZSBuZWVk
+IHRvIG90aGVyd2lzZSBkdXBsaWNhdGUgdGhpcwo+IGNvZGUgaW4gYSBsYXRlciBwYXRjaCAoIm9w
+ZW52c3dpdGNoOiBGaW5kIGV4aXN0aW5nIGNvbm50cmFjayBlbnRyeQo+IGFmdGVyIHVwY2FsbC4i
+KS4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4g
+LS0tCj4gIGluY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaCB8IDE1ICsrKysrKysr
+KysrKysrKwo+ICBuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMgICAgfCAyOCArKysr
+KysrKystLS0tLS0tLS0tLS0tLS0tLS0tCj4gIDIgZmlsZXMgY2hhbmdlZCwgMjQgaW5zZXJ0aW9u
+cygrKSwgMTkgZGVsZXRpb25zKC0pCj4gCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldGZp
+bHRlci9uZl9jb25udHJhY2suaCBiL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2su
+aAo+IGluZGV4IGZkZTQwNjguLmIzZGUxMGUgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9uZXQvbmV0
+ZmlsdGVyL25mX2Nvbm50cmFjay5oCj4gKysrIGIvaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nv
+bm50cmFjay5oCj4gQEAgLTEyNSw2ICsxMjUsMjEgQEAgbmZfY3RfdHVwbGVoYXNoX3RvX2N0cmFj
+ayhjb25zdCBzdHJ1Y3QgbmZfY29ubnRyYWNrX3R1cGxlX2hhc2ggKmhhc2gpCj4gIAkJCSAgICB0
+dXBsZWhhc2hbaGFzaC0+dHVwbGUuZHN0LmRpcl0pOwo+ICB9Cj4gIAo+ICtzdGF0aWMgaW5saW5l
+IGVudW0gaXBfY29ubnRyYWNrX2luZm8KPiArbmZfY3RfZ2V0X2luZm8oY29uc3Qgc3RydWN0IG5m
+X2Nvbm50cmFja190dXBsZV9oYXNoICpoKQo+ICt7Cj4gKwljb25zdCBzdHJ1Y3QgbmZfY29ubiAq
+Y3QgPSBuZl9jdF90dXBsZWhhc2hfdG9fY3RyYWNrKGgpOwo+ICsKPiArCWlmIChORl9DVF9ESVJF
+Q1RJT04oaCkgPT0gSVBfQ1RfRElSX1JFUExZKQo+ICsJCXJldHVybiBJUF9DVF9FU1RBQkxJU0hF
+RF9SRVBMWTsKPiArCS8qIE9uY2Ugd2UndmUgaGFkIHR3byB3YXkgY29tbXMsIGFsd2F5cyBFU1RB
+QkxJU0hFRC4gKi8KPiArCWlmICh0ZXN0X2JpdChJUFNfU0VFTl9SRVBMWV9CSVQsICZjdC0+c3Rh
+dHVzKSkKPiArCQlyZXR1cm4gSVBfQ1RfRVNUQUJMSVNIRUQ7Cj4gKwlpZiAodGVzdF9iaXQoSVBT
+X0VYUEVDVEVEX0JJVCwgJmN0LT5zdGF0dXMpKQo+ICsJCXJldHVybiBJUF9DVF9SRUxBVEVEOwo+
+ICsJcmV0dXJuIElQX0NUX05FVzsKPiArfQo+ICsKPiAgc3RhdGljIGlubGluZSB1X2ludDE2X3Qg
+bmZfY3RfbDNudW0oY29uc3Qgc3RydWN0IG5mX2Nvbm4gKmN0KQo+ICB7Cj4gIAlyZXR1cm4gY3Qt
+PnR1cGxlaGFzaFtJUF9DVF9ESVJfT1JJR0lOQUxdLnR1cGxlLnNyYy5sM251bTsKPiBkaWZmIC0t
+Z2l0IGEvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29yZS5jIGIvbmV0L25ldGZpbHRlci9u
+Zl9jb25udHJhY2tfY29yZS5jCj4gaW5kZXggM2NiM2NiOC4uNzU0NmZjNyAxMDA2NDQKPiAtLS0g
+YS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMKPiArKysgYi9uZXQvbmV0ZmlsdGVy
+L25mX2Nvbm50cmFja19jb3JlLmMKPiBAQCAtMTA1NiwyNSArMTA1NiwxNSBAQCByZXNvbHZlX25v
+cm1hbF9jdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBuZl9jb25uICp0bXBsLAo+ICAJY3QgPSBu
+Zl9jdF90dXBsZWhhc2hfdG9fY3RyYWNrKGgpOwo+ICAKPiAgCS8qIEl0IGV4aXN0czsgd2UgaGF2
+ZSAobm9uLWV4Y2x1c2l2ZSkgcmVmZXJlbmNlLiAqLwo+IC0JaWYgKE5GX0NUX0RJUkVDVElPTiho
+KSA9PSBJUF9DVF9ESVJfUkVQTFkpIHsKPiAtCQkqY3RpbmZvID0gSVBfQ1RfRVNUQUJMSVNIRURf
+UkVQTFk7Cj4gLQkJLyogUGxlYXNlIHNldCByZXBseSBiaXQgaWYgdGhpcyBwYWNrZXQgT0sgKi8K
+PiAtCQkqc2V0X3JlcGx5ID0gMTsKPiAtCX0gZWxzZSB7Cj4gLQkJLyogT25jZSB3ZSd2ZSBoYWQg
+dHdvIHdheSBjb21tcywgYWx3YXlzIEVTVEFCTElTSEVELiAqLwo+IC0JCWlmICh0ZXN0X2JpdChJ
+UFNfU0VFTl9SRVBMWV9CSVQsICZjdC0+c3RhdHVzKSkgewo+IC0JCQlwcl9kZWJ1ZygibmZfY29u
+bnRyYWNrX2luOiBub3JtYWwgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+IC0JCQkqY3RpbmZvID0g
+SVBfQ1RfRVNUQUJMSVNIRUQ7Cj4gLQkJfSBlbHNlIGlmICh0ZXN0X2JpdChJUFNfRVhQRUNURURf
+QklULCAmY3QtPnN0YXR1cykpIHsKPiAtCQkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjogcmVs
+YXRlZCBwYWNrZXQgZm9yICVwXG4iLAo+IC0JCQkJIGN0KTsKPiAtCQkJKmN0aW5mbyA9IElQX0NU
+X1JFTEFURUQ7Cj4gLQkJfSBlbHNlIHsKPiAtCQkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjog
+bmV3IHBhY2tldCBmb3IgJXBcbiIsIGN0KTsKPiAtCQkJKmN0aW5mbyA9IElQX0NUX05FVzsKPiAt
+CQl9Cj4gLQkJKnNldF9yZXBseSA9IDA7Cj4gLQl9Cj4gKwkqY3RpbmZvID0gbmZfY3RfZ2V0X2lu
+Zm8oaCk7Cj4gKwlpZiAoKmN0aW5mbyA9PSBJUF9DVF9FU1RBQkxJU0hFRCkKPiArCQlwcl9kZWJ1
+ZygibmZfY29ubnRyYWNrX2luOiBub3JtYWwgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+ICsJZWxz
+ZSBpZiAoKmN0aW5mbyA9PSBJUF9DVF9SRUxBVEVEKQo+ICsJCXByX2RlYnVnKCJuZl9jb25udHJh
+Y2tfaW46IHJlbGF0ZWQgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+ICsJZWxzZSBpZiAoKmN0aW5m
+byA9PSBJUF9DVF9ORVcpCj4gKwkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjogbmV3IHBhY2tl
+dCBmb3IgJXBcbiIsIGN0KTsKPiArCSpzZXRfcmVwbHkgPSBORl9DVF9ESVJFQ1RJT04oaCkgPT0g
+SVBfQ1RfRElSX1JFUExZOwo+ICsKClRoaXMgcmVzdWx0cyBpbiB3b3JzZSBjb2RlIGZvciBvdXIg
+Y29kZWJhc2UuCgpHaXZlbiB0aGUgbGl0dGxlIGNvZGUgdGhhdCBpcyBjb25zb2xpZGF0ZWQgaW4g
+dGhpcyBwYXRjaHNldCAodGhlIGxhc3QKbGFyZ2VyIHBhdGNoIDgvOCBpcyBiYXNpY2FsbHkgYSBj
+b3B5IG9mIG91ciBOQVQgcGF0aCBidXQgYWRhcHRlZCB0bwp0aGUgb3BlbnZzd2l0Y2ggcGFja2V0
+IGZsb3cgbG9naWMpLCBJIGRvbid0IHRoaW5rIHRoaXMgbGl0dGxlIGVmZm9ydAppbiB0aGlzIHBh
+dGNoIHRvIGNvbnNvbGlkYXRlIHRoaXMgY29kZSBpcyB3b3J0aC4KClRoZSByaWdodCB3YXkgSU1P
+IHdvdWxkIGJlIHRvIGdldCBvcGVudnN3aXRjaCBwYWNrZXQgZmxvdyBjbG9zZXIgdG8Kb3VyIGNv
+ZGViYXNlLCB0aGVuIG1vcmUgY29kZSBjb3VsZCBiZSByZXVzZWQgYnV0IEkgdW5kZXJzdGFuZCB0
+aGF0IGlzCm5vdCBzaW1wbGUgdGhpbmcuCgpQbGVhc2UsIHJldmFtcCBhIG5ldyBwYXRjaHNldCB2
+ZXJzaW9uIGtlZXBpbmcgdGhpcyBmdW5jdGlvbiB0aGF0IHlvdQpuZWVkIGluIHlvdXIgZm9sZGVy
+LgoKVGhhbmtzLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
