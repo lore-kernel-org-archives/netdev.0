@@ -1,117 +1,184 @@
-From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] net/rfkill: Create "airplane mode" LED trigger
-Date: Sat, 26 Dec 2015 10:05:03 -0500
-Message-ID: <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
-References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1451142303-1872-1-git-send-email-jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/7] fix error return code
+Date: Sat, 26 Dec 2015 16:28:39 +0100
+Message-ID: <1451143726-28195-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-fbdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46or platform drivers to be able to correctly drive the "Airplane Mode=
-"
-indicative LED there needs to be a RFKill LED trigger tied to the globa=
-l
-state of RFKILL_TYPE_ALL (instead of to a specific RFKill) and that
-works in an inverted manner of regular RFKill LED triggers, that is, th=
-e
-LED is ON when the state is blocked, and OFF otherwise.
+The complate semantic patch that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-This commit implements such a trigger, which will be used by the
-asus-wireless x86 platform driver.
+// <smpl>
+@ok exists@
+identifier f,ret,i;
+expression e;
+constant c;
+@@
 
-Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+// identify a function that returns a negative return value at least once.
+f(...) {
+... when any
+(
+return -c@i;
+|
+ret = -c@i;
+... when != ret = e
+return ret;
+|
+if (ret < 0) { ... return ret; }
+)
+... when any
+}
+
+@r exists@
+identifier ret,ok.f,fn;
+expression e1,e2,e3,e4,e5,e6,x;
+statement S,S1;
+position p1,p2,p3;
+@@
+
+// identify a case where the return variable is set to a non-negative value
+// and then returned in error-handling code
+f(...) {
+... when any
+(
+if@p1 (\(ret < 0\|ret != 0\))
+ { ... return ret; }
+|
+ret@p1 = 0
+)
+... when != \(ret = e1\|ret++\|ret--\|ret+=e1\|ret-=e1\)
+    when != &ret
+    when any
+(
+ if (<+... ret = e5 ...+>) S1
+|
+ if (<+... &ret ...+>) S1
+|
+if@p2(<+...x = fn(...)...+>)
+ {
+  ... when != ret = e6
+      when forall
+ return@p3 ret;
+}
+|
+break;
+|
+x = fn(...)
+... when != \(ret = e4\|ret++\|ret--\|ret+=e4\|ret-=e4\)
+    when != &ret
+(
+ if (<+... ret = e3 ...+>) S
+|
+ if (<+... &ret ...+>) S
+|
+if@p2(<+...\(x != 0\|x < 0\|x == NULL\|IS_ERR(x)\)...+>)
+ {
+  ... when != ret = e2
+      when forall
+ return@p3 ret;
+}
+)
+)
+... when any
+}
+
+@printer depends on r@
+position p;
+identifier ok.f,pr;
+constant char [] c;
+@@
+
+f(...) { <...pr@p(...,c,...)...> }
+
+@bad0 exists@
+identifier r.ret,ok.f,g != {ERR_PTR,IS_ERR};
+position p != printer.p;
+@@
+
+f(...) { ... when any
+g@p(...,ret,...)
+... when any
+ }
+
+@bad depends on !bad0 exists@
+position r.p1,r.p2;
+statement S1,S2;
+identifier r.ret;
+expression e1;
+@@
+
+// ignore the above if there is some path where the variable is set to
+// something else
+(
+if@p1 (\(ret < 0\|ret != 0\)) S1
+|
+ret@p1 = 0
+)
+... when any
+ \(ret = e1\|ret++\|ret--\|ret+=e1\|ret-=e1\|&ret\)
+... when any
+if@p2(...) S2
+
+@bad1 depends on !bad0 && !bad exists@
+position r.p2;
+statement S2;
+identifier r.ret;
+expression e1;
+constant c;
+@@
+
+ret = -c
+... when != \(ret = e1\|ret++\|ret--\|ret+=e1\|ret-=e1\)
+    when != &ret
+    when any
+if@p2(...) S2
+
+@bad2 depends on !bad0 && !bad && !bad1 exists@
+position r.p1,r.p2;
+identifier r.ret;
+expression e1;
+statement S2;
+constant c;
+@@
+
+// likewise ignore it if there has been an intervening return
+ret@p1 = 0
+... when != if (...) { ... ret = e1 ... return ret; }
+    when != if (...) { ... return -c; }
+    when any
+if@p2(...) S2
+
+@script:python depends on !bad0 && !bad && !bad1 && !bad2@
+p1 << r.p1;
+p2 << r.p2;
+p3 << r.p3;
+@@
+
+cocci.print_main("",p1)
+cocci.print_secs("",p2)
+cocci.print_secs("",p3)
+// </smpl>
+
 ---
- net/rfkill/core.c | 30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
 
-diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-index b41e9ea..3effc29 100644
---- a/net/rfkill/core.c
-+++ b/net/rfkill/core.c
-@@ -124,6 +124,26 @@ static bool rfkill_epo_lock_active;
-=20
-=20
- #ifdef CONFIG_RFKILL_LEDS
-+static void airplane_mode_led_trigger_activate(struct led_classdev *le=
-d);
-+
-+static struct led_trigger airplane_mode_led_trigger =3D {
-+	.name     =3D "rfkill-airplane-mode",
-+	.activate =3D airplane_mode_led_trigger_activate,
-+};
-+
-+static void airplane_mode_led_trigger_event(void)
-+{
-+	if (rfkill_global_states[RFKILL_TYPE_ALL].cur & RFKILL_BLOCK_ANY)
-+		led_trigger_event(&airplane_mode_led_trigger, LED_FULL);
-+	else
-+		led_trigger_event(&airplane_mode_led_trigger, LED_OFF);
-+}
-+
-+static void airplane_mode_led_trigger_activate(struct led_classdev *le=
-d)
-+{
-+	airplane_mode_led_trigger_event();
-+}
-+
- static void rfkill_led_trigger_event(struct rfkill *rfkill)
- {
- 	struct led_trigger *trigger;
-@@ -175,6 +195,10 @@ static void rfkill_led_trigger_unregister(struct r=
-fkill *rfkill)
- 	led_trigger_unregister(&rfkill->led_trigger);
- }
- #else
-+static void airplane_mode_led_trigger_event(void)
-+{
-+}
-+
- static void rfkill_led_trigger_event(struct rfkill *rfkill)
- {
- }
-@@ -346,6 +370,7 @@ static void __rfkill_switch_all(const enum rfkill_t=
-ype type, bool blocked)
-=20
- 		for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
- 			rfkill_global_states[i].cur =3D blocked;
-+		airplane_mode_led_trigger_event();
- 	} else {
- 		rfkill_global_states[type].cur =3D blocked;
- 	}
-@@ -1177,6 +1202,7 @@ static ssize_t rfkill_fop_write(struct file *file=
-, const char __user *buf,
- 			enum rfkill_type i;
- 			for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
- 				rfkill_global_states[i].cur =3D ev.soft;
-+			airplane_mode_led_trigger_event();
- 		} else {
- 			rfkill_global_states[ev.type].cur =3D ev.soft;
- 		}
-@@ -1293,6 +1319,10 @@ static int __init rfkill_init(void)
- 	}
- #endif
-=20
-+#ifdef CONFIG_RFKILL_LEDS
-+	led_trigger_register(&airplane_mode_led_trigger);
-+#endif
-+
-  out:
- 	return error;
- }
---=20
-2.5.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/block/rsxx/core.c                                     |    1 
+ drivers/block/umem.c                                          |    5 +++-
+ drivers/cdrom/gdrom.c                                         |    8 +++++-
+ drivers/net/ethernet/ti/cpsw.c                                |    8 +++++-
+ drivers/soc/ti/knav_qmss_queue.c                              |    1 
+ drivers/soc/ti/wkup_m3_ipc.c                                  |    1 
+ drivers/usb/gadget/legacy/acm_ms.c                            |    4 ++-
+ drivers/usb/gadget/legacy/audio.c                             |    4 ++-
+ drivers/usb/gadget/legacy/cdc2.c                              |    4 ++-
+ drivers/usb/gadget/legacy/ether.c                             |    4 ++-
+ drivers/usb/gadget/legacy/hid.c                               |    4 ++-
+ drivers/usb/gadget/legacy/mass_storage.c                      |    4 ++-
+ drivers/usb/gadget/legacy/ncm.c                               |    4 ++-
+ drivers/video/fbdev/omap2/omapfb/displays/encoder-tpd12s015.c |   12 +++++++---
+ 14 files changed, 49 insertions(+), 15 deletions(-)
