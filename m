@@ -1,51 +1,45 @@
 From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 4/6] bpf: hash: convert per-hashtable lock into per-bucket
- bit spinlock
-Date: Sat, 26 Dec 2015 16:58:45 +0800
-Message-ID: <CACVXFVNgkvuhVKo2PMbh2LM4t-A+r+Q+VLVnLe6XRsbeWRoCjw@mail.gmail.com>
-References: <1450178464-27721-1-git-send-email-tom.leiming@gmail.com>
-	<1450178464-27721-5-git-send-email-tom.leiming@gmail.com>
-	<20151215225118.GA67370@ast-mbp.thefacebook.com>
-	<CACVXFVMaRPSHCEi9BpA1R9FnQFhUODc6UVonE_SjiytmL2WAXQ@mail.gmail.com>
-	<CAHbLzkpW_seTrs+WgFqsriH5uhG4LMY_jiYC0iRQ-LAdJFiUjw@mail.gmail.com>
-	<CACVXFVOeh0D+Nf8AVw68-e-aSYtVVLiRoUoDCi89zYXXiUm4gA@mail.gmail.com>
-	<20151218062043.GB59584@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yang Shi <shy828301@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151218062043.GB59584@ast-mbp.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 0/3] bpf: hash: use per-bucket spinlock
+Date: Sat, 26 Dec 2015 17:31:31 +0800
+Message-ID: <1451122294-16524-1-git-send-email-tom.leiming@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36180 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbbLZJbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2015 04:31:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 18, 2015 at 2:20 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Wed, Dec 16, 2015 at 02:58:08PM +0800, Ming Lei wrote:
->> On Wed, Dec 16, 2015 at 1:01 PM, Yang Shi <shy828301@gmail.com> wrote:
->>
->> >
->> > I recalled Steven confirmed raw_spin_lock has the lockdep benefit too in the
->> > patch review for changing to raw lock.
->> >
->> > Please check this thread out
->> >  http://lists.openwall.net/netdev/2015/10/31/7
->>
->> OK, looks I was wrong about the lockdep benifit, :-(
->>
->> But for this lock, I think lockdep isn't such important, because it is the
->> intermost lock, and it can be used just for protecting the bucket list
->> and nothing else need to be covered.
->
-> I still think that overhead of normal spinlock per bucket is acceptable.
-> Makes the whole thing much easier to read.
+Hi,
 
-OK, let's use per-bucket spinlock first.
+This patchset tries to optimize ebpf hash map, and follows
+the idea:
 
---
-Ming Lei
+	Both htab_map_update_elem() and htab_map_delete_elem()
+	can be called from eBPF program, and they may be in kernel
+	hot path, it isn't efficient to use a per-hashtable lock
+	in this two helpers, so this patch converts the lock into
+	per-bucket spinlock.
+
+With this patchset, looks the performance penalty from eBPF
+decreased a lot, see the following test:
+
+	1) run 'tools/biolatency' of bcc before running block test;
+
+	2) run fio to test block throught over /dev/nullb0,
+	(randread, 16jobs, libaio, 4k bs) and the test box
+	is one 24cores(dual sockets) VM server:
+        - without patchset:  607K IOPS
+        - with this patchset: 1184K IOPS
+        - without running eBPF prog: 1492K IOPS
+
+TODO:
+	- remove the per-hashtable atomic counter 
+
+ kernel/bpf/hashtab.c | 49 +++++++++++++++++++++++++++++++------------------
+ 1 file changed, 31 insertions(+), 18 deletions(-)
+
+thanks,
+Ming
