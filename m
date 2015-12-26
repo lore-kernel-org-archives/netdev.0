@@ -1,391 +1,346 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH/RFC v2 net-next] ravb: Add dma queue interrupt support
-Date: Sat, 26 Dec 2015 20:26:35 +0900
-Message-ID: <CAH1o70JdmPDchbCnRjbt+SmW4juow+ConD96_BBv8u51-KEW6A@mail.gmail.com>
-References: <1450602948-6777-1-git-send-email-ykaneko0929@gmail.com>
-	<56796600.3010407@cogentembedded.com>
+From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence mode configuration
+Date: Sat, 26 Dec 2015 12:45:10 +0100
+Message-ID: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <56796600.3010407@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Port the bt_coex_mode sysfs interface from wl1251 driver version includ=
+ed
+in the Maemo Fremantle kernel to allow bt-coexistence mode configuratio=
+n.
+This enables userspace applications to set one of the modes
+WL1251_BT_COEX_OFF, WL1251_BT_COEX_ENABLE and WL1251_BT_COEX_MONOAUDIO.
+The default mode is WL1251_BT_COEX_OFF.
+It should be noted that this driver always enabled bt-coexistence befor=
+e
+and enabled bt-coexistence directly affects the receiving performance,
+rendering it unusable in some low-signal situations. Especially monitor
+mode is affected very badly with bt-coexistence enabled.
 
-2015-12-23 0:02 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
-> On 12/20/2015 12:15 PM, Yoshihiro Kaneko wrote:
->
->> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>
->> This patch supports the following interrupts.
->>
->> - One interrupt for multiple (descriptor, error, management)
->> - One interrupt for emac
->> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->
->
->    You still don't say why it's better than the current scheme...
+Signed-off-by: David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+Signed-off-by: Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+I'm resending this patch for review again as after two years there is n=
+o
+nl80211 interface for bt coex and wl1251 on Nokia N900 needs it. Once
+there will be common interface for bt coex I can rewrite my patches, bu=
+t
+I do not want to wait another 2 years...
 
-I missed the comment for some reason.
-I will think about updating the changelog.
+Changes:
+In v2 is sysfs node attached directly to wl1251 device instead of creat=
+ing
+new platform device for sysfs node. So sysfs node is now available at:
+/sys/class/net/wlan0/device/bt_coex_mode
+---
+ drivers/net/wireless/ti/wl1251/acx.c    |   43 ++++++++++++++--
+ drivers/net/wireless/ti/wl1251/acx.h    |    8 +--
+ drivers/net/wireless/ti/wl1251/init.c   |    6 +--
+ drivers/net/wireless/ti/wl1251/main.c   |   84 +++++++++++++++++++++++=
+++++++++
+ drivers/net/wireless/ti/wl1251/wl1251.h |    8 +++
+ 5 files changed, 137 insertions(+), 12 deletions(-)
 
->
->
->> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->> ---
->>
->> This patch is based on the master branch of David Miller's next networking
->> tree.
->>
->> v2 [Yoshihiro Kaneko]
->> * compile tested only
->> * As suggested by Sergei Shtylyov
->>    - add comment to CIE
->>    - remove comments from CIE bits
->>    - fix value of TIx_ALL
->>    - define each bits for CIE, GIE, GID, RIE0, RID0, RIE2, RID2, TIE, TID
->>    - reversed Christmas tree declaration ordered
->>    - rename _ravb_emac_interrupt() to ravb_emac_interrupt_unlocked()
->>    - remove unnecessary clearing of CIE
->>    - use a bit name corresponding to the target register, RIE0, RIE2, TIE,
->>      TID, RID2, GID, GIE
->>
->>   drivers/net/ethernet/renesas/ravb.h      | 213
->> ++++++++++++++++++++++++++
->>   drivers/net/ethernet/renesas/ravb_main.c | 247
->> +++++++++++++++++++++++++++----
->>   drivers/net/ethernet/renesas/ravb_ptp.c  |  45 ++++--
->>   3 files changed, 464 insertions(+), 41 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb.h
->> b/drivers/net/ethernet/renesas/ravb.h
->> index 9fbe92a..71badd6d 100644
->> --- a/drivers/net/ethernet/renesas/ravb.h
->> +++ b/drivers/net/ethernet/renesas/ravb.h
->> @@ -157,6 +157,7 @@ enum ravb_reg {
->>         TIC     = 0x0378,
->>         TIS     = 0x037C,
->>         ISS     = 0x0380,
->> +       CIE     = 0x0384,       /* R-Car Gen3 only */
->>         GCCR    = 0x0390,
->>         GMTT    = 0x0394,
->>         GPTC    = 0x0398,
->> @@ -170,6 +171,15 @@ enum ravb_reg {
->>         GCT0    = 0x03B8,
->>         GCT1    = 0x03BC,
->>         GCT2    = 0x03C0,
->> +       GIE     = 0x03CC,
->> +       GID     = 0x03D0,
->> +       DIL     = 0x0440,
->> +       RIE0    = 0x0460,
->> +       RID0    = 0x0464,
->> +       RIE2    = 0x0470,
->> +       RID2    = 0x0474,
->> +       TIE     = 0x0478,
->> +       TID     = 0x047c,
->
->
->    So you only commented on CIE and considered it done? :-)
+diff --git a/drivers/net/wireless/ti/wl1251/acx.c b/drivers/net/wireles=
+s/ti/wl1251/acx.c
+index d6fbdda..a119d77 100644
+--- a/drivers/net/wireless/ti/wl1251/acx.c
++++ b/drivers/net/wireless/ti/wl1251/acx.c
+@@ -539,7 +539,7 @@ out:
+ 	return ret;
+ }
+=20
+-int wl1251_acx_sg_enable(struct wl1251 *wl)
++int wl1251_acx_sg_enable(struct wl1251 *wl, u8 mode)
+ {
+ 	struct acx_bt_wlan_coex *pta;
+ 	int ret;
+@@ -550,7 +550,7 @@ int wl1251_acx_sg_enable(struct wl1251 *wl)
+ 	if (!pta)
+ 		return -ENOMEM;
+=20
+-	pta->enable =3D SG_ENABLE;
++	pta->enable =3D mode;
+=20
+ 	ret =3D wl1251_cmd_configure(wl, ACX_SG_ENABLE, pta, sizeof(*pta));
+ 	if (ret < 0) {
+@@ -563,7 +563,7 @@ out:
+ 	return ret;
+ }
+=20
+-int wl1251_acx_sg_cfg(struct wl1251 *wl)
++int wl1251_acx_sg_cfg(struct wl1251 *wl, u16 wake_up_beacon)
+ {
+ 	struct acx_bt_wlan_coex_param *param;
+ 	int ret;
+@@ -586,7 +586,7 @@ int wl1251_acx_sg_cfg(struct wl1251 *wl)
+ 	param->wlan_cycle_fast =3D PTA_CYCLE_TIME_FAST_DEF;
+ 	param->bt_anti_starvation_period =3D PTA_ANTI_STARVE_PERIOD_DEF;
+ 	param->next_bt_lp_packet =3D PTA_TIMEOUT_NEXT_BT_LP_PACKET_DEF;
+-	param->wake_up_beacon =3D PTA_TIME_BEFORE_BEACON_DEF;
++	param->wake_up_beacon =3D wake_up_beacon;
+ 	param->hp_dm_max_guard_time =3D PTA_HPDM_MAX_TIME_DEF;
+ 	param->next_wlan_packet =3D PTA_TIME_OUT_NEXT_WLAN_DEF;
+ 	param->antenna_type =3D PTA_ANTENNA_TYPE_DEF;
+@@ -615,6 +615,41 @@ out:
+ 	return ret;
+ }
+=20
++int wl1251_acx_sg_configure(struct wl1251 *wl, bool force)
++{
++	int ret;
++
++	if (wl->state =3D=3D WL1251_STATE_OFF && !force)
++		return 0;
++
++	switch (wl->bt_coex_mode) {
++	case WL1251_BT_COEX_OFF:
++		ret =3D wl1251_acx_sg_enable(wl, SG_DISABLE);
++		if (ret)
++			break;
++		ret =3D wl1251_acx_sg_cfg(wl, 0);
++		break;
++	case WL1251_BT_COEX_ENABLE:
++		ret =3D wl1251_acx_sg_enable(wl, SG_ENABLE);
++		if (ret)
++			break;
++		ret =3D wl1251_acx_sg_cfg(wl, PTA_TIME_BEFORE_BEACON_DEF);
++		break;
++	case WL1251_BT_COEX_MONOAUDIO:
++		ret =3D wl1251_acx_sg_enable(wl, SG_ENABLE);
++		if (ret)
++			break;
++		ret =3D wl1251_acx_sg_cfg(wl, PTA_TIME_BEFORE_BEACON_MONO_AUDIO);
++		break;
++	default:
++		wl1251_error("Invalid BT co-ex mode!");
++		ret =3D -EOPNOTSUPP;
++		break;
++	}
++
++	return ret;
++}
++
+ int wl1251_acx_cca_threshold(struct wl1251 *wl)
+ {
+ 	struct acx_energy_detection *detection;
+diff --git a/drivers/net/wireless/ti/wl1251/acx.h b/drivers/net/wireles=
+s/ti/wl1251/acx.h
+index 2bdec38..820573c 100644
+--- a/drivers/net/wireless/ti/wl1251/acx.h
++++ b/drivers/net/wireless/ti/wl1251/acx.h
+@@ -558,7 +558,8 @@ struct acx_bt_wlan_coex {
+ #define PTA_ANTI_STARVE_PERIOD_DEF	  (500)
+ #define PTA_ANTI_STARVE_NUM_CYCLE_DEF	  (4)
+ #define PTA_ALLOW_PA_SD_DEF		  (1)
+-#define PTA_TIME_BEFORE_BEACON_DEF	  (6300)
++#define PTA_TIME_BEFORE_BEACON_DEF	  (500)
++#define PTA_TIME_BEFORE_BEACON_MONO_AUDIO (6300)
+ #define PTA_HPDM_MAX_TIME_DEF		  (1600)
+ #define PTA_TIME_OUT_NEXT_WLAN_DEF	  (2550)
+ #define PTA_AUTO_MODE_NO_CTS_DEF	  (0)
+@@ -1470,8 +1471,9 @@ int wl1251_acx_rts_threshold(struct wl1251 *wl, u=
+16 rts_threshold);
+ int wl1251_acx_beacon_filter_opt(struct wl1251 *wl, bool enable_filter=
+);
+ int wl1251_acx_beacon_filter_table(struct wl1251 *wl);
+ int wl1251_acx_conn_monit_params(struct wl1251 *wl);
+-int wl1251_acx_sg_enable(struct wl1251 *wl);
+-int wl1251_acx_sg_cfg(struct wl1251 *wl);
++int wl1251_acx_sg_enable(struct wl1251 *wl, u8 mode);
++int wl1251_acx_sg_cfg(struct wl1251 *wl, u16 wake_up_beacon);
++int wl1251_acx_sg_configure(struct wl1251 *wl, bool force);
+ int wl1251_acx_cca_threshold(struct wl1251 *wl);
+ int wl1251_acx_bcn_dtim_options(struct wl1251 *wl);
+ int wl1251_acx_aid(struct wl1251 *wl, u16 aid);
+diff --git a/drivers/net/wireless/ti/wl1251/init.c b/drivers/net/wirele=
+ss/ti/wl1251/init.c
+index 1d799bf..f8a2ea9 100644
+--- a/drivers/net/wireless/ti/wl1251/init.c
++++ b/drivers/net/wireless/ti/wl1251/init.c
+@@ -162,11 +162,7 @@ int wl1251_hw_init_pta(struct wl1251 *wl)
+ {
+ 	int ret;
+=20
+-	ret =3D wl1251_acx_sg_enable(wl);
+-	if (ret < 0)
+-		return ret;
+-
+-	ret =3D wl1251_acx_sg_cfg(wl);
++	ret =3D wl1251_acx_sg_configure(wl, true);
+ 	if (ret < 0)
+ 		return ret;
+=20
+diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wirele=
+ss/ti/wl1251/main.c
+index cd47779..8f53e43 100644
+--- a/drivers/net/wireless/ti/wl1251/main.c
++++ b/drivers/net/wireless/ti/wl1251/main.c
+@@ -1383,6 +1383,77 @@ static const struct ieee80211_ops wl1251_ops =3D=
+ {
+ 	.get_survey =3D wl1251_op_get_survey,
+ };
+=20
++static ssize_t wl1251_sysfs_show_bt_coex_mode(struct device *dev,
++					      struct device_attribute *attr,
++					      char *buf)
++{
++	struct wl1251 *wl =3D dev_get_drvdata(dev);
++	ssize_t len;
++
++	/* FIXME: what's the maximum length of buf? page size?*/
++	len =3D 500;
++
++	mutex_lock(&wl->mutex);
++	len =3D snprintf(buf, len, "%d\n\n%d - off\n%d - on\n%d - monoaudio\n=
+",
++		       wl->bt_coex_mode,
++		       WL1251_BT_COEX_OFF,
++		       WL1251_BT_COEX_ENABLE,
++		       WL1251_BT_COEX_MONOAUDIO);
++	mutex_unlock(&wl->mutex);
++
++	return len;
++}
++
++static ssize_t wl1251_sysfs_store_bt_coex_mode(struct device *dev,
++					       struct device_attribute *attr,
++					       const char *buf, size_t count)
++{
++	struct wl1251 *wl =3D dev_get_drvdata(dev);
++	unsigned long res;
++	int ret;
++
++	ret =3D kstrtoul(buf, 10, &res);
++
++	if (ret < 0) {
++		wl1251_warning("incorrect value written to bt_coex_mode");
++		return count;
++	}
++
++	mutex_lock(&wl->mutex);
++
++	if (res =3D=3D wl->bt_coex_mode)
++		goto out;
++
++	switch (res) {
++	case WL1251_BT_COEX_OFF:
++	case WL1251_BT_COEX_ENABLE:
++	case WL1251_BT_COEX_MONOAUDIO:
++		wl->bt_coex_mode =3D res;
++		break;
++	default:
++		wl1251_warning("incorrect value written to bt_coex_mode");
++		goto out;
++	}
++
++	if (wl->state =3D=3D WL1251_STATE_OFF)
++		goto out;
++
++	ret =3D wl1251_ps_elp_wakeup(wl);
++	if (ret < 0)
++		goto out;
++
++	wl1251_acx_sg_configure(wl, false);
++	wl1251_ps_elp_sleep(wl);
++
++out:
++	mutex_unlock(&wl->mutex);
++	return count;
++}
++
++static DEVICE_ATTR(bt_coex_mode, S_IRUGO | S_IWUSR,
++		   wl1251_sysfs_show_bt_coex_mode,
++		   wl1251_sysfs_store_bt_coex_mode);
++
+ static int wl1251_read_eeprom_byte(struct wl1251 *wl, off_t offset, u8=
+ *data)
+ {
+ 	unsigned long timeout;
+@@ -1467,6 +1538,7 @@ static int wl1251_register_hw(struct wl1251 *wl)
+=20
+ int wl1251_init_ieee80211(struct wl1251 *wl)
+ {
++	struct device *dev =3D wiphy_dev(wl->hw->wiphy);
+ 	int ret;
+=20
+ 	/* The tx descriptor buffer and the TKIP space */
+@@ -1493,6 +1565,13 @@ int wl1251_init_ieee80211(struct wl1251 *wl)
+ 	if (ret)
+ 		goto out;
+=20
++	/* Create sysfs file to control bt coex state */
++	ret =3D device_create_file(dev, &dev_attr_bt_coex_mode);
++	if (ret < 0) {
++		wl1251_error("failed to create sysfs file bt_coex_mode");
++		goto out;
++	}
++
+ 	wl1251_debugfs_init(wl);
+ 	wl1251_notice("initialized");
+=20
+@@ -1549,6 +1628,7 @@ struct ieee80211_hw *wl1251_alloc_hw(void)
+ 	wl->beacon_int =3D WL1251_DEFAULT_BEACON_INT;
+ 	wl->dtim_period =3D WL1251_DEFAULT_DTIM_PERIOD;
+ 	wl->vif =3D NULL;
++	wl->bt_coex_mode =3D WL1251_BT_COEX_OFF;
+=20
+ 	for (i =3D 0; i < FW_TX_CMPLT_BLOCK_SIZE; i++)
+ 		wl->tx_frames[i] =3D NULL;
+@@ -1584,6 +1664,10 @@ EXPORT_SYMBOL_GPL(wl1251_alloc_hw);
+=20
+ int wl1251_free_hw(struct wl1251 *wl)
+ {
++	struct device *dev =3D wiphy_dev(wl->hw->wiphy);
++
++	device_remove_file(dev, &dev_attr_bt_coex_mode);
++
+ 	ieee80211_unregister_hw(wl->hw);
+=20
+ 	wl1251_debugfs_exit(wl);
+diff --git a/drivers/net/wireless/ti/wl1251/wl1251.h b/drivers/net/wire=
+less/ti/wl1251/wl1251.h
+index 16dae52..b8b7ab7 100644
+--- a/drivers/net/wireless/ti/wl1251/wl1251.h
++++ b/drivers/net/wireless/ti/wl1251/wl1251.h
+@@ -258,6 +258,12 @@ struct wl1251_debugfs {
+ 	struct dentry *excessive_retries;
+ };
+=20
++enum wl1251_bt_coex_mode {
++	WL1251_BT_COEX_OFF,
++	WL1251_BT_COEX_ENABLE,
++	WL1251_BT_COEX_MONOAUDIO
++};
++
+ struct wl1251_if_operations {
+ 	void (*read)(struct wl1251 *wl, int addr, void *buf, size_t len);
+ 	void (*write)(struct wl1251 *wl, int addr, void *buf, size_t len);
+@@ -394,6 +400,8 @@ struct wl1251 {
+=20
+ 	struct ieee80211_vif *vif;
+=20
++	enum wl1251_bt_coex_mode bt_coex_mode;
++
+ 	u32 chip_id;
+ 	char fw_ver[21];
+=20
+--=20
+1.7.9.5
 
-I will add comment to the added things above as well.
-
->
-> [...]
->
->> @@ -411,14 +422,27 @@ static int ravb_dmac_init(struct net_device *ndev)
->>         ravb_write(ndev, TCCR_TFEN, TCCR);
->>
->>         /* Interrupt init: */
->> -       /* Frame receive */
->> -       ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
->> -       /* Disable FIFO full warning */
->> -       ravb_write(ndev, 0, RIC1);
->> -       /* Receive FIFO full error, descriptor empty */
->> -       ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
->> -       /* Frame transmitted, timestamp FIFO updated */
->> -       ravb_write(ndev, TIC_FTE0 | TIC_FTE1 | TIC_TFUE, TIC);
->> +       if (priv->chip_id == RCAR_GEN2) {
->> +               /* Frame receive */
->> +               ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
->> +               /* Disable FIFO full warning */
->> +               ravb_write(ndev, 0, RIC1);
->> +               /* Receive FIFO full error, descriptor empty */
->> +               ravb_write(ndev, RIC2_QFE0 | RIC2_QFE1 | RIC2_RFFE, RIC2);
->> +               /* Frame transmitted, timestamp FIFO updated */
->> +               ravb_write(ndev, TIC_FTE0 | TIC_FTE1 | TIC_TFUE, TIC);
->> +       } else {
->> +               /* Clear DIL.DPLx */
->> +               ravb_write(ndev, 0, DIL);
->> +               /* Set queue specific interrupt */
->> +               ravb_write(ndev, CIE_CRIE | CIE_CTIE | CIE_CL0M, CIE);
->> +               /* Frame receive */
->> +               ravb_write(ndev, RIE0_FRS0 | RIE0_FRS1, RIE0);
->> +               /* Receive FIFO full error, descriptor empty */
->> +               ravb_write(ndev, RIE2_QFS0 | RIE2_QFS1 | RIE2_RFFS, RIE2);
->> +               /* Frame transmitted, timestamp FIFO updated */
->> +               ravb_write(ndev, TIE_FTS0 | TIE_FTS1 | TIE_TFUS, TIE);
->> +       }
->
->
->    So in this case for gen3 we enable interrupts we need in addition to
-> already
-> enabled (by a boot loader perhaps)? I don't think you actually want it...
-
-I agree.
-I will use the gen2 code except initializing of CIE and DIL.
-
->
-> [...]
->>
->> @@ -690,7 +726,10 @@ static void ravb_error_interrupt(struct net_device
->> *ndev)
->>         ravb_write(ndev, ~EIS_QFS, EIS);
->>         if (eis & EIS_QFS) {
->>                 ris2 = ravb_read(ndev, RIS2);
->> -               ravb_write(ndev, ~(RIS2_QFF0 | RIS2_RFFF), RIS2);
->> +               if (priv->chip_id == RCAR_GEN2)
->> +                       ravb_write(ndev, ~(RIS2_QFF0 | RIS2_RFFF), RIS2);
->> +               else
->> +                       ravb_write(ndev, RID2_QFD0 | RID2_RFFD, RID2);
->
->
->    Err, aren't you doing 2 different things for gen2 and gen3 here. For gen2
-> you're clearing the QFF0/RFFF interrupts, for gen3 you're disabling them,
-> no?
-
-nice catch.
-I will fix it.
-
->
-> [...]
->>
->> @@ -758,16 +797,43 @@ static irqreturn_t ravb_interrupt(int irq, void
->> *dev_id)
->
-> [...]
->>
->> +/* Descriptor IRQ/Error/Management interrupt handler */
->> +static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
->> +{
->> +       struct net_device *ndev = dev_id;
->> +       struct ravb_private *priv = netdev_priv(ndev);
->> +       irqreturn_t result = IRQ_NONE;
->> +       u32 iss;
->> +
->> +       spin_lock(&priv->lock);
->> +       /* Get interrupt status */
->> +       iss = ravb_read(ndev, ISS);
->> +
->>         /* Error status summary */
->>         if (iss & ISS_ES) {
->>                 ravb_error_interrupt(ndev);
->>                 result = IRQ_HANDLED;
->>         }
->>
->> +       /* Management */
->
->
->    I still doubt this comment is valid...
-
-OK, I will change the comment into "gPTP interrupt status summary".
-
->
->>         if (iss & ISS_CGIS)
->>                 result = ravb_ptp_interrupt(ndev);
->>
-> [...]
->
->> @@ -1223,23 +1343,68 @@ static const struct ethtool_ops ravb_ethtool_ops =
->> {
->>   static int ravb_open(struct net_device *ndev)
->>   {
->>         struct ravb_private *priv = netdev_priv(ndev);
->> -       int error;
->> +       struct platform_device *pdev = priv->pdev;
->> +       struct device *dev = &pdev->dev;
->> +       int error, i;
->> +       char *name;
->>
->>         napi_enable(&priv->napi[RAVB_BE]);
->>         napi_enable(&priv->napi[RAVB_NC]);
->>
->> -       error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
->> ndev->name,
->> -                           ndev);
->> -       if (error) {
->> -               netdev_err(ndev, "cannot request IRQ\n");
->> -               goto out_napi_off;
->> -       }
->> -
->> -       if (priv->chip_id == RCAR_GEN3) {
->> -               error = request_irq(priv->emac_irq, ravb_interrupt,
->> -                                   IRQF_SHARED, ndev->name, ndev);
->> +       if (priv->chip_id == RCAR_GEN2) {
->> +               error = request_irq(ndev->irq, ravb_interrupt,
->> IRQF_SHARED,
->> +                                   ndev->name, ndev);
->>                 if (error) {
->>                         netdev_err(ndev, "cannot request IRQ\n");
->> +                       goto out_napi_off;
->> +               }
->> +       } else {
->> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
->> +                                     ndev->name);
->> +               error = request_irq(ndev->irq, ravb_multi_interrupt,
->> +                                   IRQF_SHARED, name, ndev);
->> +               if (error) {
->> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->> +                       goto out_napi_off;
->> +               }
->> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch24:emac",
->> +                                     ndev->name);
->> +               error = request_irq(priv->emac_irq, ravb_emac_interrupt,
->> +                                   IRQF_SHARED, name, ndev);
->> +               if (error) {
->> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->> +                       goto out_free_irq;
->> +               }
->> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch0:rx_be",
->> +                                     ndev->name);
->> +               error = request_irq(priv->rx_irqs[RAVB_BE],
->> ravb_be_interrupt,
->> +                                   IRQF_SHARED, name, ndev);
->> +               if (error) {
->> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->> +                       goto out_free_irq;
->> +               }
->> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch18:tx_be",
->> +                                     ndev->name);
->> +               error = request_irq(priv->tx_irqs[RAVB_BE],
->> ravb_be_interrupt,
->> +                                   IRQF_SHARED, name, ndev);
->> +               if (error) {
->> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->> +                       goto out_free_irq;
->> +               }
->> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch1:rx_nc",
->> +                                     ndev->name);
->> +               error = request_irq(priv->rx_irqs[RAVB_NC],
->> ravb_nc_interrupt,
->> +                                   IRQF_SHARED, name, ndev);
->> +               if (error) {
->> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->> +                       goto out_free_irq;
->> +               }
->> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
->> +                                     ndev->name);
->> +               error = request_irq(priv->tx_irqs[RAVB_NC],
->> ravb_nc_interrupt,
->> +                                   IRQF_SHARED, name, ndev);
->> +               if (error) {
->> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>                         goto out_free_irq;
->>                 }
->
->
->    This error case is repetitive, couldn't you consolidate it somehow?
-
-It seems to be impossible to be solved by the simple change of the code.
-Do you intend to add macro or a small helper function?
-
->
-> [...]
->>
->> @@ -1494,10 +1663,15 @@ static int ravb_close(struct net_device *ndev)
->>         netif_tx_stop_all_queues(ndev);
->>
->>         /* Disable interrupts by clearing the interrupt masks. */
->> -       ravb_write(ndev, 0, RIC0);
->> -       ravb_write(ndev, 0, RIC2);
->> -       ravb_write(ndev, 0, TIC);
->> -
->> +       if (priv->chip_id == RCAR_GEN2) {
->> +               ravb_write(ndev, 0, RIC0);
->> +               ravb_write(ndev, 0, RIC2);
->> +               ravb_write(ndev, 0, TIC);
->> +       } else {
->> +               ravb_write(ndev, RID0_ALL, RID0);
->> +               ravb_write(ndev, RID2_ALL, RID2);
->> +               ravb_write(ndev, TID_ALL, TID);
->> +       }
->
->
->    Don't see why this is better than the old code. We don't care about
-> atomicity here AFAIU.
-
-I agree.
-
->
-> [...]
->>
->> @@ -1798,6 +1973,22 @@ static int ravb_probe(struct platform_device *pdev)
->>                         goto out_release;
->>                 }
->>                 priv->emac_irq = irq;
->> +               for (i = 0; i < NUM_RX_QUEUE; i++) {
->> +                       irq = platform_get_irq_byname(pdev,
->> ravb_rx_irqs[i]);
->> +                       if (irq < 0) {
->> +                               error = irq;
->> +                               goto out_release;
->> +                       }
->> +                       priv->rx_irqs[i] = irq;
->> +               }
->> +               for (i = 0; i < NUM_TX_QUEUE; i++) {
->> +                       irq = platform_get_irq_byname(pdev,
->> ravb_tx_irqs[i]);
->> +                       if (irq < 0) {
->> +                               error = irq;
->> +                               goto out_release;
->> +                       }
->> +                       priv->tx_irqs[i] = irq;
->> +               }
->
->
->    Perhaps it would better to use sprintf() here, in both loops...
-
-Could you give me some more details?
-
->
-> [...]
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb_ptp.c
->> b/drivers/net/ethernet/renesas/ravb_ptp.c
->> index 7a8ce92..870d7b7 100644
->> --- a/drivers/net/ethernet/renesas/ravb_ptp.c
->> +++ b/drivers/net/ethernet/renesas/ravb_ptp.c
->
-> [...]
->>
->> @@ -352,7 +367,11 @@ void ravb_ptp_stop(struct net_device *ndev)
->>   {
->>         struct ravb_private *priv = netdev_priv(ndev);
->>
->> -       ravb_write(ndev, 0, GIC);
->> +       if (priv->chip_id == RCAR_GEN2)
->> +               ravb_write(ndev, 0, GIC);
->> +       else
->> +               ravb_write(ndev, GID_ALL, GID);
->
->
->    Again, don't see why it's better than the old code.
-
-I agree.
-
->
-> [...]
->
-> MBR, Sergei
->
-
-Thanks,
-kaneko
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
