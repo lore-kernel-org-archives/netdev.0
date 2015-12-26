@@ -1,107 +1,207 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] coccinelle: api: check for propagation of error from
- platform_get_irq
-Date: Sun, 27 Dec 2015 01:36:27 +0300
-Message-ID: <567F166B.7030208@cogentembedded.com>
-References: <1451157891-24881-1-git-send-email-Julia.Lawall@lip6.fr>
- <567EF188.7020203@cogentembedded.com>
- <alpine.DEB.2.02.1512262107340.2070@localhost6.localdomain6>
- <alpine.DEB.2.02.1512262123500.2070@localhost6.localdomain6>
- <567EF895.6080702@cogentembedded.com>
- <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
- <567F141C.8010000@cogentembedded.com>
- <alpine.DEB.2.02.1512262330430.2070@localhost6.localdomain6>
+Subject: Re: [PATCH/RFC v2 net-next] ravb: Add dma queue interrupt support
+Date: Sun, 27 Dec 2015 02:09:21 +0300
+Message-ID: <567F1E21.2040900@cogentembedded.com>
+References: <1450602948-6777-1-git-send-email-ykaneko0929@gmail.com>
+ <56796600.3010407@cogentembedded.com>
+ <CAH1o70JdmPDchbCnRjbt+SmW4juow+ConD96_BBv8u51-KEW6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Gilles Muller <Gilles.Muller@lip6.fr>,
-	Nicolas Palix <nicolas.palix@imag.fr>,
-	Michal Marek <mmarek@suse.com>, cocci@systeme.lip6.fr,
-	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	netdev@vger.kernel.org, linux-i2c@vger.kernel.org,
-	linux-spi@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-i2c-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1512262330430.2070@localhost6.localdomain6>
-Sender: linux-i2c-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAH1o70JdmPDchbCnRjbt+SmW4juow+ConD96_BBv8u51-KEW6A@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/27/2015 01:32 AM, Julia Lawall wrote:
+Hello.
 
->>> The error return value of platform_get_irq seems to often get dropped.
+On 12/26/2015 02:26 PM, Yoshihiro Kaneko wrote:
+
+>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 >>>
->>> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+>>> This patch supports the following interrupts.
 >>>
->>> ---
->>>
->>> v2: Check for the direct return case also.  Added some mailing lists of
->>> common offenders.
->>>
->>> diff --git a/scripts/coccinelle/api/platform_get_irq_return.cocci
->>> b/scripts/coccinelle/api/platform_get_irq_return.cocci
->>> new file mode 100644
->>> index 0000000..44680d0
->>> --- /dev/null
->>> +++ b/scripts/coccinelle/api/platform_get_irq_return.cocci
->>> @@ -0,0 +1,58 @@
->>> +/// Propagate the return value of platform_get_irq.
->>> +//# Sometimes the return value of platform_get_irq is tested using <= 0,
->>> but 0
->>> +//# might not be an appropriate return value in an error case.
->>> +///
->>> +// Confidence: Moderate
->>> +// Copyright: (C) 2015 Julia Lawall, Inria. GPLv2.
->>> +// URL: http://coccinelle.lip6.fr/
->>> +// Options: --no-includes --include-headers
->>> +
->>> +virtual context
->>> +virtual org
->>> +virtual report
->>> +
->>> +//
->>> ----------------------------------------------------------------------------
->>> +
->>> +@r depends on context || org || report@
->>> +constant C;
->>> +statement S;
->>> +expression e, ret;
->>> +position j0, j1;
->>> +@@
->>> +
->>> +* e@j0 = platform_get_irq(...);
->>> +(
->>> +if@j1 (...) {
->>> +  ...
->>> +  return -C;
->>> +} else S
->>> +|
->>> +if@j1 (...) {
->>> +  ...
->>> +  ret = -C;
->>> +  ...
->>> +  return ret;
->>> +} else S
+>>> - One interrupt for multiple (descriptor, error, management)
+>>> - One interrupt for emac
+>>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
 >>
->>     Well, this seems to also cover the (e <= 0) checks which do make same sense
->> in the light of Linus considering IRQ0 invalid. So I'd be more specific about
->> the checks here -- 0 should indeed be overridden with something if it's
->> considered invalid.
+>>     You still don't say why it's better than the current scheme...
 >
-> That's what the limitations section says (lines with #).  This doesn't
+> I missed the comment for some reason.
+> I will think about updating the changelog.
 
-    Ah, failed to notice those, only saw after replying.
+    TIA.
 
-> make any changes, it only makes warnings, which should include the
-> limitations information, so perhaps people can consider what it is that
-> they really intend to do.
- >
-> If you think this is not a good idea, then I can make the test more
-> specific.
+>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+[...]
+>>> b/drivers/net/ethernet/renesas/ravb.h
+>>> index 9fbe92a..71badd6d 100644
+>>> --- a/drivers/net/ethernet/renesas/ravb.h
+>>> +++ b/drivers/net/ethernet/renesas/ravb.h
+[...]
+>>> @@ -1223,23 +1343,68 @@ static const struct ethtool_ops ravb_ethtool_ops =
+>>> {
+>>>    static int ravb_open(struct net_device *ndev)
+>>>    {
+>>>          struct ravb_private *priv = netdev_priv(ndev);
+>>> -       int error;
+>>> +       struct platform_device *pdev = priv->pdev;
+>>> +       struct device *dev = &pdev->dev;
+>>> +       int error, i;
+>>> +       char *name;
+>>>
+>>>          napi_enable(&priv->napi[RAVB_BE]);
+>>>          napi_enable(&priv->napi[RAVB_NC]);
+>>>
+>>> -       error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
+>>> ndev->name,
+>>> -                           ndev);
+>>> -       if (error) {
+>>> -               netdev_err(ndev, "cannot request IRQ\n");
+>>> -               goto out_napi_off;
+>>> -       }
+>>> -
+>>> -       if (priv->chip_id == RCAR_GEN3) {
+>>> -               error = request_irq(priv->emac_irq, ravb_interrupt,
+>>> -                                   IRQF_SHARED, ndev->name, ndev);
+>>> +       if (priv->chip_id == RCAR_GEN2) {
+>>> +               error = request_irq(ndev->irq, ravb_interrupt,
+>>> IRQF_SHARED,
+>>> +                                   ndev->name, ndev);
+>>>                  if (error) {
+>>>                          netdev_err(ndev, "cannot request IRQ\n");
+>>> +                       goto out_napi_off;
+>>> +               }
+>>> +       } else {
+>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
+>>> +                                     ndev->name);
+>>> +               error = request_irq(ndev->irq, ravb_multi_interrupt,
+>>> +                                   IRQF_SHARED, name, ndev);
+>>> +               if (error) {
+>>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
+>>> +                       goto out_napi_off;
+>>> +               }
+>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch24:emac",
+>>> +                                     ndev->name);
+>>> +               error = request_irq(priv->emac_irq, ravb_emac_interrupt,
+>>> +                                   IRQF_SHARED, name, ndev);
+>>> +               if (error) {
+>>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
+>>> +                       goto out_free_irq;
+>>> +               }
+>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch0:rx_be",
+>>> +                                     ndev->name);
+>>> +               error = request_irq(priv->rx_irqs[RAVB_BE],
+>>> ravb_be_interrupt,
+>>> +                                   IRQF_SHARED, name, ndev);
+>>> +               if (error) {
+>>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
+>>> +                       goto out_free_irq;
+>>> +               }
+>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch18:tx_be",
+>>> +                                     ndev->name);
+>>> +               error = request_irq(priv->tx_irqs[RAVB_BE],
+>>> ravb_be_interrupt,
+>>> +                                   IRQF_SHARED, name, ndev);
+>>> +               if (error) {
+>>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
+>>> +                       goto out_free_irq;
+>>> +               }
+>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch1:rx_nc",
+>>> +                                     ndev->name);
+>>> +               error = request_irq(priv->rx_irqs[RAVB_NC],
+>>> ravb_nc_interrupt,
+>>> +                                   IRQF_SHARED, name, ndev);
+>>> +               if (error) {
+>>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
+>>> +                       goto out_free_irq;
+>>> +               }
+>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
+>>> +                                     ndev->name);
+>>> +               error = request_irq(priv->tx_irqs[RAVB_NC],
+>>> ravb_nc_interrupt,
+>>> +                                   IRQF_SHARED, name, ndev);
+>>> +               if (error) {
+>>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
+>>>                          goto out_free_irq;
+>>>                  }
+>>
+>>
+>>     This error case is repetitive, couldn't you consolidate it somehow?
+>
+> It seems to be impossible to be solved by the simple change of the code.
+> Do you intend to add macro or a small helper function?
 
-    Well, looking again, the patch should be good. I just thought its goal was 
-to fix the code as well...
+    What I meant should look like this:
 
-> julia
+	} else {
+		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
+				      ndev->name);
+		error = request_irq(ndev->irq, ravb_multi_interrupt,
+				    IRQF_SHARED, name, ndev);
+		if (error)
+			goto out;
+[...]
+		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
+				      ndev->name);
+		error = request_irq(priv->tx_irqs[RAVB_NC], ravb_nc_interrupt,
+                                    IRQF_SHARED, name, ndev);
+		if (error)
+			goto out;
+	}
+
+out:
+	if (error) {
+		netdev_err(ndev, "cannot request IRQ %s\n", name);
+		goto out_free_irq;
+	}
+
+    Did it make things clearer?
+    But indeed, a helper function would probably be even better...
+
+[...]
+>>> @@ -1798,6 +1973,22 @@ static int ravb_probe(struct platform_device *pdev)
+>>>                          goto out_release;
+>>>                  }
+>>>                  priv->emac_irq = irq;
+>>> +               for (i = 0; i < NUM_RX_QUEUE; i++) {
+>>> +                       irq = platform_get_irq_byname(pdev,
+>>> ravb_rx_irqs[i]);
+>>> +                       if (irq < 0) {
+>>> +                               error = irq;
+>>> +                               goto out_release;
+>>> +                       }
+>>> +                       priv->rx_irqs[i] = irq;
+>>> +               }
+>>> +               for (i = 0; i < NUM_TX_QUEUE; i++) {
+>>> +                       irq = platform_get_irq_byname(pdev,
+>>> ravb_tx_irqs[i]);
+>>> +                       if (irq < 0) {
+>>> +                               error = irq;
+>>> +                               goto out_release;
+>>> +                       }
+>>> +                       priv->tx_irqs[i] = irq;
+>>> +               }
+>>
+>>
+>>     Perhaps it would better to use sprintf() here, in both loops...
+>
+> Could you give me some more details?
+
+    I think it would be better to use sprintf() to generate the IRQ names 
+passed to platfrom_get_irq_byname() instead of string literals grouped into 
+arrays. I may be wrong though...
+
+[...]
+
+> Thanks,
+> kaneko
 
 MBR, Sergei
+
