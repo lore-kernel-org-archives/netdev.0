@@ -1,83 +1,96 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 6/7] drivers: net: cpsw: fix error return code
-Date: Sat, 26 Dec 2015 23:11:03 +0300
-Message-ID: <567EF457.8020602@cogentembedded.com>
-References: <1451143726-28195-1-git-send-email-Julia.Lawall@lip6.fr>
- <1451143726-28195-7-git-send-email-Julia.Lawall@lip6.fr>
- <567ED019.3000407@cogentembedded.com>
- <alpine.DEB.2.02.1512261838330.2064@localhost6.localdomain6>
- <567ED36A.9000701@cogentembedded.com> <567EEFC2.4080800@cogentembedded.com>
- <alpine.DEB.2.02.1512262101430.2070@localhost6.localdomain6>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: [PATCH v2] coccinelle: api: check for propagation of error from
+ platform_get_irq
+Date: Sat, 26 Dec 2015 21:58:58 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
+References: <1451157891-24881-1-git-send-email-Julia.Lawall@lip6.fr> <567EF188.7020203@cogentembedded.com> <alpine.DEB.2.02.1512262107340.2070@localhost6.localdomain6> <alpine.DEB.2.02.1512262123500.2070@localhost6.localdomain6>
+ <567EF895.6080702@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1512262101430.2070@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kernel-janitors@vger.kernel.org
+To: Gilles Muller <Gilles.Muller@lip6.fr>,
+	Nicolas Palix <nicolas.palix@imag.fr>,
+	Michal Marek <mmarek@suse.com>, cocci@systeme.lip6.fr,
+	linux-kernel@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	linux-media@vger.kernel.org, netdev@vger.kernel.org,
+	linux-i2c@vger.kernel.org, linux-spi@vger.kernel.org,
+	dri-devel@lists.freedesktop.org
+Return-path: <linux-i2c-owner@vger.kernel.org>
+In-Reply-To: <567EF895.6080702@cogentembedded.com>
+Sender: linux-i2c-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/26/2015 11:07 PM, Julia Lawall wrote:
+The error return value of platform_get_irq seems to often get dropped.
 
->>>>>> diff --git a/drivers/net/ethernet/ti/cpsw.c
->>>>>> b/drivers/net/ethernet/ti/cpsw.c
->>>>>> index 3409e80..6a76992 100644
->>>>>> --- a/drivers/net/ethernet/ti/cpsw.c
->>>>>> +++ b/drivers/net/ethernet/ti/cpsw.c
->>>>>> @@ -2448,8 +2448,10 @@ static int cpsw_probe(struct platform_device
->>>>>> *pdev)
->>>>>>
->>>>>>         /* RX IRQ */
->>>>>>         irq = platform_get_irq(pdev, 1);
->>>>>> -    if (irq < 0)
->>>>>> +    if (irq < 0) {
->>>>>> +        ret = -ENOENT;
->>>>>
->>>>>      Why not just propagate an error returned by that function?
->>>>
->>>> OK, I did what was done a few lines before in the same function:
->>>>
->>>>           ndev->irq = platform_get_irq(pdev, 1);
->>>>           if (ndev->irq < 0) {
->>>>          dev_err(priv->dev, "error getting irq resource\n");
->>>>                   ret = -ENOENT;
->>>>                   goto clean_ale_ret;
->>>>           }
->>>>
->>>> Maybe they should all be changed?
->>>
->>>      Yeah, I'd vote for it. I'm seeing no sense in overriding an actual
->>> error.
->>
->>     Hm, I decided to check drivers/base/dd.c and I think I maybe know the
->> reason now: -ENXIO, usually returned by platform_get_irq(), is silently
->> "swallowed" by really_probe(); to be precise, -ENODEV and -ENXIO are only
->> reported with pr_debug(), while -ENOENT causes printk(KERN_WARNING, ...)...
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-> Sorry, I'm confused...  What should it be?  v1 or v2?  Here are the counts
-> of the different constants returned on failure of platform_get_irq:
+---
 
-    I was somewhat confused myself but then I remembered about the deferred 
-probing -- overriding error code basically just disables it in this case.
+v2: Check for the direct return case also.  Added some mailing lists of
+common offenders.
 
-> ENODEV: 84
-> ENXIO: 67
-
-   Those 2 totally make no sense. :-)
-
-> EINVAL: 61
-> ENOENT: 29
-> EBUSY: 11
-
-    Hm...
-
-> EIO: 2
-> EPROBE_DEFER: 1
-
-    Hm, and that last one is unconditional?
-
-> julia
-
-MBR, Sergei
+diff --git a/scripts/coccinelle/api/platform_get_irq_return.cocci b/scripts/coccinelle/api/platform_get_irq_return.cocci
+new file mode 100644
+index 0000000..44680d0
+--- /dev/null
++++ b/scripts/coccinelle/api/platform_get_irq_return.cocci
+@@ -0,0 +1,58 @@
++/// Propagate the return value of platform_get_irq.
++//# Sometimes the return value of platform_get_irq is tested using <= 0, but 0
++//# might not be an appropriate return value in an error case.
++///
++// Confidence: Moderate
++// Copyright: (C) 2015 Julia Lawall, Inria. GPLv2.
++// URL: http://coccinelle.lip6.fr/
++// Options: --no-includes --include-headers
++
++virtual context
++virtual org
++virtual report
++
++// ----------------------------------------------------------------------------
++
++@r depends on context || org || report@
++constant C;
++statement S;
++expression e, ret;
++position j0, j1;
++@@
++
++* e@j0 = platform_get_irq(...);
++(
++if@j1 (...) {
++  ...
++  return -C;
++} else S
++|
++if@j1 (...) {
++  ...
++  ret = -C;
++  ...
++  return ret;
++} else S
++)
++
++// ----------------------------------------------------------------------------
++
++@script:python r_org depends on org@
++j0 << r.j0;
++j1 << r.j1;
++@@
++
++msg = "Propagate return value of platform_get_irq."
++coccilib.org.print_todo(j0[0], msg)
++coccilib.org.print_link(j1[0], "")
++
++// ----------------------------------------------------------------------------
++
++@script:python r_report depends on report@
++j0 << r.j0;
++j1 << r.j1;
++@@
++
++msg = "Propagate return value of platform_get_irq around line %s." % (j1[0].line)
++coccilib.report.print_report(j0[0], msg)
++
