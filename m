@@ -1,87 +1,68 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: [PATCH 6/7 v2] drivers: net: cpsw: fix error return code
-Date: Sat, 26 Dec 2015 20:12:13 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1512262011220.2070@localhost6.localdomain6>
-References: <1451143726-28195-1-git-send-email-Julia.Lawall@lip6.fr> <1451143726-28195-7-git-send-email-Julia.Lawall@lip6.fr> <567ED019.3000407@cogentembedded.com> <alpine.DEB.2.02.1512261838330.2064@localhost6.localdomain6>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 6/7] drivers: net: cpsw: fix error return code
+Date: Sat, 26 Dec 2015 22:51:30 +0300
+Message-ID: <567EEFC2.4080800@cogentembedded.com>
+References: <1451143726-28195-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1451143726-28195-7-git-send-email-Julia.Lawall@lip6.fr>
+ <567ED019.3000407@cogentembedded.com>
+ <alpine.DEB.2.02.1512261838330.2064@localhost6.localdomain6>
  <567ED36A.9000701@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:33934 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751646AbbLZTve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2015 14:51:34 -0500
+Received: by mail-lb0-f170.google.com with SMTP id pv2so92609471lbb.1
+        for <netdev@vger.kernel.org>; Sat, 26 Dec 2015 11:51:34 -0800 (PST)
 In-Reply-To: <567ED36A.9000701@cogentembedded.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Propagate the return value of platform_get_irq on failure.
+Hello.
 
-A simplified version of the semantic match that finds the two cases where
-no error code is returned at all is as follows:
-(http://coccinelle.lip6.fr/)
+On 12/26/2015 08:50 PM, Sergei Shtylyov wrote:
 
-// <smpl>
-@@
-identifier ret; expression e1,e2;
-@@
-(
-if (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-// </smpl>
+>>>> diff --git a/drivers/net/ethernet/ti/cpsw.c
+>>>> b/drivers/net/ethernet/ti/cpsw.c
+>>>> index 3409e80..6a76992 100644
+>>>> --- a/drivers/net/ethernet/ti/cpsw.c
+>>>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>>>> @@ -2448,8 +2448,10 @@ static int cpsw_probe(struct platform_device *pdev)
+>>>>
+>>>>        /* RX IRQ */
+>>>>        irq = platform_get_irq(pdev, 1);
+>>>> -    if (irq < 0)
+>>>> +    if (irq < 0) {
+>>>> +        ret = -ENOENT;
+>>>
+>>>     Why not just propagate an error returned by that function?
+>>
+>> OK, I did what was done a few lines before in the same function:
+>>
+>>          ndev->irq = platform_get_irq(pdev, 1);
+>>          if (ndev->irq < 0) {
+>>         dev_err(priv->dev, "error getting irq resource\n");
+>>                  ret = -ENOENT;
+>>                  goto clean_ale_ret;
+>>          }
+>>
+>> Maybe they should all be changed?
+>
+>     Yeah, I'd vote for it. I'm seeing no sense in overriding an actual error.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+    Hm, I decided to check drivers/base/dd.c and I think I maybe know the 
+reason now: -ENXIO, usually returned by platform_get_irq(), is silently 
+"swallowed" by really_probe(); to be precise, -ENODEV and -ENXIO are only 
+reported with pr_debug(), while -ENOENT causes printk(KERN_WARNING, ...)...
 
----
-v2: propagate platform_get_irq return value, at all calls
+> [...]
+>
+>> julia
 
- drivers/net/ethernet/ti/cpsw.c |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 3409e80..34ce7dc 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2427,7 +2427,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	ndev->irq = platform_get_irq(pdev, 1);
- 	if (ndev->irq < 0) {
- 		dev_err(priv->dev, "error getting irq resource\n");
--		ret = -ENOENT;
-+		ret = ndev->irq;
- 		goto clean_ale_ret;
- 	}
- 
-@@ -2448,8 +2448,10 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	/* RX IRQ */
- 	irq = platform_get_irq(pdev, 1);
--	if (irq < 0)
-+	if (irq < 0) {
-+		ret = irq;
- 		goto clean_ale_ret;
-+	}
- 
- 	priv->irqs_table[0] = irq;
- 	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
-@@ -2461,8 +2463,10 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	/* TX IRQ */
- 	irq = platform_get_irq(pdev, 2);
--	if (irq < 0)
-+	if (irq < 0) {
-+		ret = irq;
- 		goto clean_ale_ret;
-+	}
- 
- 	priv->irqs_table[1] = irq;
- 	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+MBR, Sergei
