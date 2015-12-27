@@ -1,207 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v2 net-next] ravb: Add dma queue interrupt support
-Date: Sun, 27 Dec 2015 02:09:21 +0300
-Message-ID: <567F1E21.2040900@cogentembedded.com>
-References: <1450602948-6777-1-git-send-email-ykaneko0929@gmail.com>
- <56796600.3010407@cogentembedded.com>
- <CAH1o70JdmPDchbCnRjbt+SmW4juow+ConD96_BBv8u51-KEW6A@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/4] net: phy: at803x: Don't set gbit features for the
+ AR8030 phy
+Date: Sat, 26 Dec 2015 19:24:55 -0800
+Message-ID: <567F5A07.1000407@gmail.com>
+References: <1451089622-14957-1-git-send-email-martin.blumenstingl@googlemail.com>
+ <1451089622-14957-2-git-send-email-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAH1o70JdmPDchbCnRjbt+SmW4juow+ConD96_BBv8u51-KEW6A@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: slash.tmp@free.fr
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:33778 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754444AbbL0DY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2015 22:24:58 -0500
+Received: by mail-oi0-f51.google.com with SMTP id y66so160976133oig.0
+        for <netdev@vger.kernel.org>; Sat, 26 Dec 2015 19:24:58 -0800 (PST)
+In-Reply-To: <1451089622-14957-2-git-send-email-martin.blumenstingl@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Le 25/12/2015 16:26, Martin Blumenstingl a =C3=A9crit :
+> The 8030 is only a "RMII Fast Ethernet PHY", thus it must not have th=
+e
+> SUPPORTED_1000* bits set.
+>=20
+> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.co=
+m>
 
-On 12/26/2015 02:26 PM, Yoshihiro Kaneko wrote:
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
->>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>
->>> This patch supports the following interrupts.
->>>
->>> - One interrupt for multiple (descriptor, error, management)
->>> - One interrupt for emac
->>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->>
->>     You still don't say why it's better than the current scheme...
->
-> I missed the comment for some reason.
-> I will think about updating the changelog.
+> ---
+>  drivers/net/phy/at803x.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+> index 2d020a3..f566b6e 100644
+> --- a/drivers/net/phy/at803x.c
+> +++ b/drivers/net/phy/at803x.c
+> @@ -325,7 +325,7 @@ static struct phy_driver at803x_driver[] =3D {
+>  	.get_wol		=3D at803x_get_wol,
+>  	.suspend		=3D at803x_suspend,
+>  	.resume			=3D at803x_resume,
+> -	.features		=3D PHY_GBIT_FEATURES,
+> +	.features		=3D PHY_BASIC_FEATURES,
+>  	.flags			=3D PHY_HAS_INTERRUPT,
+>  	.config_aneg		=3D genphy_config_aneg,
+>  	.read_status		=3D genphy_read_status,
+>=20
 
-    TIA.
 
->>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-[...]
->>> b/drivers/net/ethernet/renesas/ravb.h
->>> index 9fbe92a..71badd6d 100644
->>> --- a/drivers/net/ethernet/renesas/ravb.h
->>> +++ b/drivers/net/ethernet/renesas/ravb.h
-[...]
->>> @@ -1223,23 +1343,68 @@ static const struct ethtool_ops ravb_ethtool_ops =
->>> {
->>>    static int ravb_open(struct net_device *ndev)
->>>    {
->>>          struct ravb_private *priv = netdev_priv(ndev);
->>> -       int error;
->>> +       struct platform_device *pdev = priv->pdev;
->>> +       struct device *dev = &pdev->dev;
->>> +       int error, i;
->>> +       char *name;
->>>
->>>          napi_enable(&priv->napi[RAVB_BE]);
->>>          napi_enable(&priv->napi[RAVB_NC]);
->>>
->>> -       error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
->>> ndev->name,
->>> -                           ndev);
->>> -       if (error) {
->>> -               netdev_err(ndev, "cannot request IRQ\n");
->>> -               goto out_napi_off;
->>> -       }
->>> -
->>> -       if (priv->chip_id == RCAR_GEN3) {
->>> -               error = request_irq(priv->emac_irq, ravb_interrupt,
->>> -                                   IRQF_SHARED, ndev->name, ndev);
->>> +       if (priv->chip_id == RCAR_GEN2) {
->>> +               error = request_irq(ndev->irq, ravb_interrupt,
->>> IRQF_SHARED,
->>> +                                   ndev->name, ndev);
->>>                  if (error) {
->>>                          netdev_err(ndev, "cannot request IRQ\n");
->>> +                       goto out_napi_off;
->>> +               }
->>> +       } else {
->>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
->>> +                                     ndev->name);
->>> +               error = request_irq(ndev->irq, ravb_multi_interrupt,
->>> +                                   IRQF_SHARED, name, ndev);
->>> +               if (error) {
->>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>> +                       goto out_napi_off;
->>> +               }
->>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch24:emac",
->>> +                                     ndev->name);
->>> +               error = request_irq(priv->emac_irq, ravb_emac_interrupt,
->>> +                                   IRQF_SHARED, name, ndev);
->>> +               if (error) {
->>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>> +                       goto out_free_irq;
->>> +               }
->>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch0:rx_be",
->>> +                                     ndev->name);
->>> +               error = request_irq(priv->rx_irqs[RAVB_BE],
->>> ravb_be_interrupt,
->>> +                                   IRQF_SHARED, name, ndev);
->>> +               if (error) {
->>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>> +                       goto out_free_irq;
->>> +               }
->>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch18:tx_be",
->>> +                                     ndev->name);
->>> +               error = request_irq(priv->tx_irqs[RAVB_BE],
->>> ravb_be_interrupt,
->>> +                                   IRQF_SHARED, name, ndev);
->>> +               if (error) {
->>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>> +                       goto out_free_irq;
->>> +               }
->>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch1:rx_nc",
->>> +                                     ndev->name);
->>> +               error = request_irq(priv->rx_irqs[RAVB_NC],
->>> ravb_nc_interrupt,
->>> +                                   IRQF_SHARED, name, ndev);
->>> +               if (error) {
->>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>> +                       goto out_free_irq;
->>> +               }
->>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
->>> +                                     ndev->name);
->>> +               error = request_irq(priv->tx_irqs[RAVB_NC],
->>> ravb_nc_interrupt,
->>> +                                   IRQF_SHARED, name, ndev);
->>> +               if (error) {
->>> +                       netdev_err(ndev, "cannot request IRQ %s\n", name);
->>>                          goto out_free_irq;
->>>                  }
->>
->>
->>     This error case is repetitive, couldn't you consolidate it somehow?
->
-> It seems to be impossible to be solved by the simple change of the code.
-> Do you intend to add macro or a small helper function?
-
-    What I meant should look like this:
-
-	} else {
-		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
-				      ndev->name);
-		error = request_irq(ndev->irq, ravb_multi_interrupt,
-				    IRQF_SHARED, name, ndev);
-		if (error)
-			goto out;
-[...]
-		name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
-				      ndev->name);
-		error = request_irq(priv->tx_irqs[RAVB_NC], ravb_nc_interrupt,
-                                    IRQF_SHARED, name, ndev);
-		if (error)
-			goto out;
-	}
-
-out:
-	if (error) {
-		netdev_err(ndev, "cannot request IRQ %s\n", name);
-		goto out_free_irq;
-	}
-
-    Did it make things clearer?
-    But indeed, a helper function would probably be even better...
-
-[...]
->>> @@ -1798,6 +1973,22 @@ static int ravb_probe(struct platform_device *pdev)
->>>                          goto out_release;
->>>                  }
->>>                  priv->emac_irq = irq;
->>> +               for (i = 0; i < NUM_RX_QUEUE; i++) {
->>> +                       irq = platform_get_irq_byname(pdev,
->>> ravb_rx_irqs[i]);
->>> +                       if (irq < 0) {
->>> +                               error = irq;
->>> +                               goto out_release;
->>> +                       }
->>> +                       priv->rx_irqs[i] = irq;
->>> +               }
->>> +               for (i = 0; i < NUM_TX_QUEUE; i++) {
->>> +                       irq = platform_get_irq_byname(pdev,
->>> ravb_tx_irqs[i]);
->>> +                       if (irq < 0) {
->>> +                               error = irq;
->>> +                               goto out_release;
->>> +                       }
->>> +                       priv->tx_irqs[i] = irq;
->>> +               }
->>
->>
->>     Perhaps it would better to use sprintf() here, in both loops...
->
-> Could you give me some more details?
-
-    I think it would be better to use sprintf() to generate the IRQ names 
-passed to platfrom_get_irq_byname() instead of string literals grouped into 
-arrays. I may be wrong though...
-
-[...]
-
-> Thanks,
-> kaneko
-
-MBR, Sergei
-
+--=20
+=46lorian
