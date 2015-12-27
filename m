@@ -1,46 +1,49 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 6/9] ssb: use to_pci_dev()
-Date: Sun, 27 Dec 2015 18:46:02 +0800
-Message-ID: <b08d4f25c027f69f5bba4c8ffed79c83a5e5e684.1451211133.git.geliangtang@163.com>
-References: <baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michael Buesch <m@bues.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
-In-Reply-To: <baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
-References: <baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] coccinelle: api: check for propagation of error from
+ platform_get_irq
+Date: Sun, 27 Dec 2015 14:18:44 +0300
+Message-ID: <567FC914.4080705@cogentembedded.com>
+References: <1451157891-24881-1-git-send-email-Julia.Lawall@lip6.fr>
+ <567EF188.7020203@cogentembedded.com>
+ <alpine.DEB.2.02.1512262107340.2070@localhost6.localdomain6>
+ <alpine.DEB.2.02.1512262123500.2070@localhost6.localdomain6>
+ <567EF895.6080702@cogentembedded.com>
+ <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
+ <567F141C.8010000@cogentembedded.com>
+ <alpine.DEB.2.02.1512262330430.2070@localhost6.localdomain6>
+ <567F166B.7030208@cogentembedded.com>
+ <alpine.DEB.2.02.1512270709420.2038@localhost6.localdomain6>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gilles Muller <Gilles.Muller@lip6.fr>,
+	Nicolas Palix <nicolas.palix@imag.fr>,
+	Michal Marek <mmarek@suse.com>, cocci@systeme.lip6.fr,
+	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	netdev@vger.kernel.org, linux-i2c@vger.kernel.org,
+	linux-spi@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1512270709420.2038@localhost6.localdomain6>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use to_pci_dev() instead of open-coding it.
+On 12/27/2015 9:13 AM, Julia Lawall wrote:
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
- drivers/ssb/pci.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+>>     Well, looking again, the patch should be good. I just thought its goal was
+>> to fix the code as well...
+>
+> I could do that for the irq < 0 case, but I think that in that case, kbuild
+> will only run the patch version, and the <= cases will not be reported on.
+> I don't have a general fix for the <= 0.  Is it even correct to have < in
+> some cases and <= in others?
 
-diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
-index 0f28c08..67428f4 100644
---- a/drivers/ssb/pci.c
-+++ b/drivers/ssb/pci.c
-@@ -1130,7 +1130,7 @@ static ssize_t ssb_pci_attr_sprom_show(struct device *pcidev,
- 				       struct device_attribute *attr,
- 				       char *buf)
- {
--	struct pci_dev *pdev = container_of(pcidev, struct pci_dev, dev);
-+	struct pci_dev *pdev = to_pci_dev(pcidev);
- 	struct ssb_bus *bus;
- 
- 	bus = ssb_pci_dev_to_bus(pdev);
-@@ -1144,7 +1144,7 @@ static ssize_t ssb_pci_attr_sprom_store(struct device *pcidev,
- 					struct device_attribute *attr,
- 					const char *buf, size_t count)
- {
--	struct pci_dev *pdev = container_of(pcidev, struct pci_dev, dev);
-+	struct pci_dev *pdev = to_pci_dev(pcidev);
- 	struct ssb_bus *bus;
- 
- 	bus = ssb_pci_dev_to_bus(pdev);
--- 
-2.5.0
+    That's a good question...
+    In my prior fixes of this case I preferred to consider IRQ0 valid and so 
+used 'irq < 0'. I myself don't share the "IRQ0 is invalid" sentiment...
+
+> julia
+
+MBR, Sergei
+
