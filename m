@@ -1,137 +1,108 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH net-next 07/12] bnxt_en: Check hardware resources before enabling NTUPLE.
-Date: Sun, 27 Dec 2015 18:19:24 -0500
-Message-ID: <1451258369-21543-8-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 08/12] bnxt_en: Cleanup bnxt_hwrm_func_cfg().
+Date: Sun, 27 Dec 2015 18:19:25 -0500
+Message-ID: <1451258369-21543-9-git-send-email-mchan@broadcom.com>
 References: <1451258369-21543-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:44954 "EHLO
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:4052 "EHLO
 	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754808AbbL0XTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2015 18:19:32 -0500
+	with ESMTP id S1754143AbbL0XTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2015 18:19:31 -0500
 In-Reply-To: <1451258369-21543-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware resources required to enable NTUPLE varies depending on
-how many rx channels are configured.  We need to make sure we have the
-resources before we enable NTUPLE.  Add bnxt_rfs_capable() to do the
-checking.
+1. Use local variable pf for repeated access to this pointer.
 
-In addition, we need to do the same checking in ndo_fix_features().  As
-the rx channels are changed using ethtool -L, we call
-netdev_update_features() to make the necessary adjustment for NTUPLE.
-
-Calling netdev_update_features() in netif_running() state but before
-calling bnxt_open_nic() would be a problem.  To make this work,
-bnxt_set_features() has to be modified to test for BNXT_STATE_OPEN for
-the true hardware state instead of checking netif_running().
+2.  The 2nd argument num_vfs was unnecessarily declared as pointer to int.
+This function doesn't change num_vfs so change the argument to int.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 41 ++++++++++++++++++-----
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  2 ++
- 2 files changed, 35 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 33 ++++++++++++-------------
+ 1 file changed, 16 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 082c1e9..8827b7b 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4916,9 +4916,32 @@ skip_uc:
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index ea044bb..95b9316 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -363,7 +363,7 @@ static int bnxt_hwrm_func_buf_rgtr(struct bnxt *bp)
+ }
+ 
+ /* only call by PF to reserve resources for VF */
+-static int bnxt_hwrm_func_cfg(struct bnxt *bp, int *num_vfs)
++static int bnxt_hwrm_func_cfg(struct bnxt *bp, int num_vfs)
+ {
+ 	u32 rc = 0, mtu, i;
+ 	u16 vf_tx_rings, vf_rx_rings, vf_cp_rings, vf_stat_ctx, vf_vnics;
+@@ -378,18 +378,17 @@ static int bnxt_hwrm_func_cfg(struct bnxt *bp, int *num_vfs)
+ 	 * be removed once new HWRM provides HW ring groups capability in
+ 	 * hwrm_func_qcap.
+ 	 */
+-	vf_cp_rings = min_t(u16, bp->pf.max_cp_rings, bp->pf.max_stat_ctxs);
+-	vf_cp_rings = (vf_cp_rings - bp->cp_nr_rings) / *num_vfs;
++	vf_cp_rings = min_t(u16, pf->max_cp_rings, pf->max_stat_ctxs);
++	vf_cp_rings = (vf_cp_rings - bp->cp_nr_rings) / num_vfs;
+ 	/* TODO: restore this logic below once the WA above is removed */
+-	/* vf_cp_rings = (bp->pf.max_cp_rings - bp->cp_nr_rings) / *num_vfs; */
+-	vf_stat_ctx = (bp->pf.max_stat_ctxs - bp->num_stat_ctxs) / *num_vfs;
++	/* vf_cp_rings = (pf->max_cp_rings - bp->cp_nr_rings) / num_vfs; */
++	vf_stat_ctx = (pf->max_stat_ctxs - bp->num_stat_ctxs) / num_vfs;
+ 	if (bp->flags & BNXT_FLAG_AGG_RINGS)
+-		vf_rx_rings = (bp->pf.max_rx_rings - bp->rx_nr_rings * 2) /
+-			      *num_vfs;
++		vf_rx_rings = (pf->max_rx_rings - bp->rx_nr_rings * 2) /
++			      num_vfs;
+ 	else
+-		vf_rx_rings = (bp->pf.max_rx_rings - bp->rx_nr_rings) /
+-			      *num_vfs;
+-	vf_tx_rings = (bp->pf.max_tx_rings - bp->tx_nr_rings) / *num_vfs;
++		vf_rx_rings = (pf->max_rx_rings - bp->rx_nr_rings) / num_vfs;
++	vf_tx_rings = (pf->max_tx_rings - bp->tx_nr_rings) / num_vfs;
+ 
+ 	req.enables = cpu_to_le32(FUNC_CFG_REQ_ENABLES_MTU |
+ 				  FUNC_CFG_REQ_ENABLES_MRU |
+@@ -417,22 +416,22 @@ static int bnxt_hwrm_func_cfg(struct bnxt *bp, int *num_vfs)
+ 	req.num_stat_ctxs = cpu_to_le16(vf_stat_ctx);
+ 
+ 	mutex_lock(&bp->hwrm_cmd_lock);
+-	for (i = 0; i < *num_vfs; i++) {
++	for (i = 0; i < num_vfs; i++) {
+ 		req.vf_id = cpu_to_le16(pf->first_vf_id + i);
+ 		rc = _hwrm_send_message(bp, &req, sizeof(req),
+ 					HWRM_CMD_TIMEOUT);
+ 		if (rc)
+ 			break;
+-		bp->pf.active_vfs = i + 1;
+-		bp->pf.vf[i].fw_fid = le16_to_cpu(req.vf_id);
++		pf->active_vfs = i + 1;
++		pf->vf[i].fw_fid = le16_to_cpu(req.vf_id);
+ 	}
+ 	mutex_unlock(&bp->hwrm_cmd_lock);
+ 	if (!rc) {
+-		bp->pf.max_pf_tx_rings = bp->tx_nr_rings;
++		pf->max_pf_tx_rings = bp->tx_nr_rings;
+ 		if (bp->flags & BNXT_FLAG_AGG_RINGS)
+-			bp->pf.max_pf_rx_rings = bp->rx_nr_rings * 2;
++			pf->max_pf_rx_rings = bp->rx_nr_rings * 2;
+ 		else
+-			bp->pf.max_pf_rx_rings = bp->rx_nr_rings;
++			pf->max_pf_rx_rings = bp->rx_nr_rings;
+ 	}
  	return rc;
  }
+@@ -492,7 +491,7 @@ static int bnxt_sriov_enable(struct bnxt *bp, int *num_vfs)
+ 		goto err_out1;
  
-+static bool bnxt_rfs_capable(struct bnxt *bp)
-+{
-+#ifdef CONFIG_RFS_ACCEL
-+	struct bnxt_pf_info *pf = &bp->pf;
-+	int vnics;
-+
-+	if (BNXT_VF(bp) || !(bp->flags & BNXT_FLAG_MSIX_CAP))
-+		return false;
-+
-+	vnics = 1 + bp->rx_nr_rings;
-+	if (vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics)
-+		return false;
-+
-+	return true;
-+#else
-+	return false;
-+#endif
-+}
-+
- static netdev_features_t bnxt_fix_features(struct net_device *dev,
- 					   netdev_features_t features)
- {
-+	struct bnxt *bp = netdev_priv(dev);
-+
-+	if (!bnxt_rfs_capable(bp))
-+		features &= ~NETIF_F_NTUPLE;
- 	return features;
- }
+ 	/* Reserve resources for VFs */
+-	rc = bnxt_hwrm_func_cfg(bp, num_vfs);
++	rc = bnxt_hwrm_func_cfg(bp, *num_vfs);
+ 	if (rc)
+ 		goto err_out2;
  
-@@ -4959,7 +4982,7 @@ static int bnxt_set_features(struct net_device *dev, netdev_features_t features)
- 
- 		bp->flags = flags;
- 
--		if (!netif_running(dev)) {
-+		if (!test_bit(BNXT_STATE_OPEN, &bp->state)) {
- 			if (update_tpa)
- 				bnxt_set_ring_params(bp);
- 			return rc;
-@@ -5639,11 +5662,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (bnxt_vf_pciid(ent->driver_data))
- 		bp->flags |= BNXT_FLAG_VF;
- 
--	if (pdev->msix_cap) {
-+	if (pdev->msix_cap)
- 		bp->flags |= BNXT_FLAG_MSIX_CAP;
--		if (BNXT_PF(bp))
--			bp->flags |= BNXT_FLAG_RFS;
--	}
- 
- 	rc = bnxt_init_board(pdev, dev);
- 	if (rc < 0)
-@@ -5662,9 +5682,6 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			   NETIF_F_RXHASH |
- 			   NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
- 
--	if (bp->flags & BNXT_FLAG_RFS)
--		dev->hw_features |= NETIF_F_NTUPLE;
--
- 	dev->hw_enc_features =
- 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
- 			NETIF_F_TSO | NETIF_F_TSO6 |
-@@ -5723,6 +5740,14 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	bp->cp_nr_rings = max_t(int, bp->rx_nr_rings, bp->tx_nr_rings);
- 	bp->num_stat_ctxs = bp->cp_nr_rings;
- 
-+	if (BNXT_PF(bp)) {
-+		dev->hw_features |= NETIF_F_NTUPLE;
-+		if (bnxt_rfs_capable(bp)) {
-+			bp->flags |= BNXT_FLAG_RFS;
-+			dev->features |= NETIF_F_NTUPLE;
-+		}
-+	}
-+
- 	if (dev->hw_features & NETIF_F_HW_VLAN_CTAG_RX)
- 		bp->flags |= BNXT_FLAG_STRIP_VLAN;
- 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index ea94450..a39511f 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -266,6 +266,8 @@ static int bnxt_set_channels(struct net_device *dev,
- 	bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
- 	bp->num_stat_ctxs = bp->cp_nr_rings;
- 
-+	/* After changing number of rx channels, update NTUPLE feature. */
-+	netdev_update_features(dev);
- 	if (netif_running(dev)) {
- 		rc = bnxt_open_nic(bp, true, false);
- 		if ((!rc) && BNXT_PF(bp)) {
 -- 
 1.8.3.1
