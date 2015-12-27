@@ -1,61 +1,56 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [Cocci] [PATCH v2] coccinelle: api: check for propagation of
- error from platform_get_irq
-Date: Sun, 27 Dec 2015 08:58:33 +0100
-Message-ID: <567F9A29.50202@users.sourceforge.net>
-References: <1451157891-24881-1-git-send-email-Julia.Lawall@lip6.fr>
- <567EF188.7020203@cogentembedded.com>
- <alpine.DEB.2.02.1512262107340.2070@localhost6.localdomain6>
- <alpine.DEB.2.02.1512262123500.2070@localhost6.localdomain6>
- <567EF895.6080702@cogentembedded.com>
- <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Coccinelle <cocci@systeme.lip6.fr>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, linux-media@vger.kernel.org,
-	netdev@vger.kernel.org, linux-i2c@vger.kernel.org,
-	linux-spi@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	Gilles Muller <Gilles.Muller@lip6.fr>,
-	Michal Marek <mmarek@suse.com>,
-	Nicolas Palix <nicolas.palix@imag.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Geliang Tang <geliangtang@163.com>
+Subject: [PATCH 1/9] atm: solos-pci: use to_pci_dev()
+Date: Sun, 27 Dec 2015 18:45:57 +0800
+Message-ID: <baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
+Cc: Geliang Tang <geliangtang@163.com>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chas Williams <3chas3@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-138.163.com ([123.125.50.138]:32922 "EHLO m50-138.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751103AbbL0Kq3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Dec 2015 05:46:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The error return value of platform_get_irq seems to often get dropped=
-=2E
+Use to_pci_dev() instead of open-coding it.
 
-How do you think about any more fine-tuning here?
+Signed-off-by: Geliang Tang <geliangtang@163.com>
+---
+ drivers/atm/solos-pci.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Commit message:
-* =85 of the platform_get_irq() function seems to get dropped too often=
-=2E
-
-* Why do you concentrate on a single function name?
-  Do you plan to extend this source code analysis approach?
-
-
-> +@script:python r_report depends on report@
-> +j0 << r.j0;
-> +j1 << r.j1;
-> +@@
-> +
-> +msg =3D "Propagate return value of platform_get_irq around line %s."=
- % (j1[0].line)
-
-Are there more unchecked return values which are interesting
-for further considerations?
-https://cwe.mitre.org/data/definitions/252.html
-
-Regards,
-Markus
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 0c2b4ba0..6ac2b2b 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -525,7 +525,7 @@ struct geos_gpio_attr {
+ static ssize_t geos_gpio_store(struct device *dev, struct device_attribute *attr,
+ 			       const char *buf, size_t count)
+ {
+-	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct geos_gpio_attr *gattr = container_of(attr, struct geos_gpio_attr, attr);
+ 	struct solos_card *card = pci_get_drvdata(pdev);
+ 	uint32_t data32;
+@@ -551,7 +551,7 @@ static ssize_t geos_gpio_store(struct device *dev, struct device_attribute *attr
+ static ssize_t geos_gpio_show(struct device *dev, struct device_attribute *attr,
+ 			      char *buf)
+ {
+-	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct geos_gpio_attr *gattr = container_of(attr, struct geos_gpio_attr, attr);
+ 	struct solos_card *card = pci_get_drvdata(pdev);
+ 	uint32_t data32;
+@@ -565,7 +565,7 @@ static ssize_t geos_gpio_show(struct device *dev, struct device_attribute *attr,
+ static ssize_t hardware_show(struct device *dev, struct device_attribute *attr,
+ 			     char *buf)
+ {
+-	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct geos_gpio_attr *gattr = container_of(attr, struct geos_gpio_attr, attr);
+ 	struct solos_card *card = pci_get_drvdata(pdev);
+ 	uint32_t data32;
+-- 
+2.5.0
