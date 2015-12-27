@@ -1,45 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Small improvements for the at803x PHY driver
-Date: Sat, 26 Dec 2015 19:29:50 -0800
-Message-ID: <567F5B2E.9050705@gmail.com>
-References: <1451089622-14957-1-git-send-email-martin.blumenstingl@googlemail.com>
- <567E809D.3000902@free.fr>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH v2] coccinelle: api: check for propagation of error from
+ platform_get_irq
+Date: Sun, 27 Dec 2015 07:13:48 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1512270709420.2038@localhost6.localdomain6>
+References: <1451157891-24881-1-git-send-email-Julia.Lawall@lip6.fr>
+ <567EF188.7020203@cogentembedded.com>
+ <alpine.DEB.2.02.1512262107340.2070@localhost6.localdomain6>
+ <alpine.DEB.2.02.1512262123500.2070@localhost6.localdomain6>
+ <567EF895.6080702@cogentembedded.com>
+ <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
+ <567F141C.8010000@cogentembedded.com>
+ <alpine.DEB.2.02.1512262330430.2070@localhost6.localdomain6>
+ <567F166B.7030208@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Mack <daniel@zonque.org>,
-	Fabio Estevam <festevam@gmail.com>,
-	Mans Rullgard <mans@mansr.com>
-To: Mason <slash.tmp@free.fr>,
-	Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:34832 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754451AbbL0D3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2015 22:29:52 -0500
-Received: by mail-ob0-f178.google.com with SMTP id 18so216167543obc.2
-        for <netdev@vger.kernel.org>; Sat, 26 Dec 2015 19:29:51 -0800 (PST)
-In-Reply-To: <567E809D.3000902@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: kernel-janitors@vger.kernel.org, Gilles Muller <Gilles.Muller@lip6.fr>,
+ netdev@vger.kernel.org, Nicolas Palix <nicolas.palix@imag.fr>,
+ linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-spi@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>,
+ Michal Marek <mmarek@suse.com>, linux-i2c@vger.kernel.org,
+ cocci@systeme.lip6.fr, linux-media@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <567F166B.7030208@cogentembedded.com>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Le 26/12/2015 03:57, Mason a =C3=A9crit :
-> [ CCing people who might be interested in this patch series ]
->=20
-> On 26/12/2015 01:26, Martin Blumenstingl wrote:
->=20
->> while trying to debug a problem on a board with an AR8030 PHY (which=
- turned
->> out to be an incorrectly configured MDC clock) I made a few changes =
-to the
->> at803x driver.
->> Due to lack of other hardware I could only test these changes with a=
-n
->> AR8030 chip.
->=20
-
-Overall, this looks pretty nice to me, few comments in individual patch=
-es.
---=20
-=46lorian
+PiAgICBXZWxsLCBsb29raW5nIGFnYWluLCB0aGUgcGF0Y2ggc2hvdWxkIGJlIGdvb2QuIEkganVz
+dCB0aG91Z2h0IGl0cyBnb2FsIHdhcwo+IHRvIGZpeCB0aGUgY29kZSBhcyB3ZWxsLi4uCgpJIGNv
+dWxkIGRvIHRoYXQgZm9yIHRoZSBpcnEgPCAwIGNhc2UsIGJ1dCBJIHRoaW5rIHRoYXQgaW4gdGhh
+dCBjYXNlLCBrYnVpbGQKd2lsbCBvbmx5IHJ1biB0aGUgcGF0Y2ggdmVyc2lvbiwgYW5kIHRoZSA8
+PSBjYXNlcyB3aWxsIG5vdCBiZSByZXBvcnRlZCBvbi4KSSBkb24ndCBoYXZlIGEgZ2VuZXJhbCBm
+aXggZm9yIHRoZSA8PSAwLiAgSXMgaXQgZXZlbiBjb3JyZWN0IHRvIGhhdmUgPCBpbgpzb21lIGNh
+c2VzIGFuZCA8PSBpbiBvdGhlcnM/CgpqdWxpYQpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0
+cy5mcmVlZGVza3RvcC5vcmcKaHR0cDovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL2RyaS1kZXZlbAo=
