@@ -1,37 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 0/3] Ethtool support for phy stats
-Date: Sun, 27 Dec 2015 12:58:25 +0100
-Message-ID: <1451217508-22276-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50861 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754003AbbL0L7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Dec 2015 06:59:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geliang Tang <geliangtang@163.com>
+Subject: [PATCH 06/10] net: hns: use to_platform_device()
+Date: Sun, 27 Dec 2015 21:15:44 +0800
+Message-ID: <0801535a0c35424d2fd2e91f6ed58058d884e147.1451221174.git.geliangtang@163.com>
+References: <a554e6af3a3528c2206c94dab62b7800f96caa4b.1451221174.git.geliangtang@163.com>
+Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Yisen Zhuang <yisen.zhuang@huawei.com>,
+	yankejian <yankejian@huawei.com>,
+	huangdaode <huangdaode@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a554e6af3a3528c2206c94dab62b7800f96caa4b.1451221174.git.geliangtang@163.com>
+In-Reply-To: <a554e6af3a3528c2206c94dab62b7800f96caa4b.1451221174.git.geliangtang@163.com>
+References: <a554e6af3a3528c2206c94dab62b7800f96caa4b.1451221174.git.geliangtang@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patchset add ethtool support for reading statistics from the PHY.
-The Marvell and Micrel Phys are then extended to report receiver
-packet errors and idle errors.
+Use to_platform_device() instead of open-coding it.
 
-v2:
-  Fix linking when phylib is not enabled.
+Signed-off-by: Geliang Tang <geliangtang@163.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Andrew Lunn (3):
-  ethtool: Add phy statistics
-  phy: marvell: Add ethtool statistics counters
-  phy: micrel: Add ethtool statistics counters
-
- drivers/net/phy/marvell.c    | 135 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/micrel.c     |  96 ++++++++++++++++++++++++++++++
- drivers/net/phy/phy.c        |  35 +++++++++++
- include/linux/phy.h          |  11 +++-
- include/uapi/linux/ethtool.h |   3 +
- net/core/ethtool.c           |  57 +++++++++++++++++-
- 6 files changed, 335 insertions(+), 2 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+index 8c30cec..d2263c7 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+@@ -499,8 +499,7 @@ void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
+ 	int base_irq_idx = hns_rcb_get_base_irq_idx(rcb_common);
+ 	struct device_node *np = rcb_common->dsaf_dev->dev->of_node;
+ 	struct platform_device *pdev =
+-		container_of(rcb_common->dsaf_dev->dev,
+-			     struct platform_device, dev);
++		to_platform_device(rcb_common->dsaf_dev->dev);
+ 	bool is_ver1 = AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver);
+ 
+ 	for (i = 0; i < ring_num; i++) {
 -- 
-2.6.4
+2.5.0
