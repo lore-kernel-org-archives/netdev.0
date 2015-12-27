@@ -1,47 +1,58 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [Cocci] [PATCH v2] coccinelle: api: check for propagation of
- error from platform_get_irq
-Date: Sun, 27 Dec 2015 17:24:02 +0100
-Message-ID: <568010A2.3000902@users.sourceforge.net>
-References: <1451157891-24881-1-git-send-email-Julia.Lawall@lip6.fr>
- <567EF188.7020203@cogentembedded.com>
- <alpine.DEB.2.02.1512262107340.2070@localhost6.localdomain6>
- <alpine.DEB.2.02.1512262123500.2070@localhost6.localdomain6>
- <567EF895.6080702@cogentembedded.com>
- <alpine.DEB.2.02.1512262156580.2070@localhost6.localdomain6>
- <567F9A29.50202@users.sourceforge.net>
- <alpine.DEB.2.02.1512271239460.2038@localhost6.localdomain6>
+From: Geliang Tang <geliangtang@163.com>
+Subject: Re: [PATCH 06/10] net: hns: use to_platform_device()
+Date: Mon, 28 Dec 2015 01:03:08 +0800
+Message-ID: <20151227170308.GA11778@bogon>
+References: <a554e6af3a3528c2206c94dab62b7800f96caa4b.1451221174.git.geliangtang@163.com>
+ <0801535a0c35424d2fd2e91f6ed58058d884e147.1451221174.git.geliangtang@163.com>
+ <CAHp75Vcsa=yWPXA6y27e1q2D37XVPd_87nYCdHNkkppv=3Ptgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- Gilles Muller <Gilles.Muller@lip6.fr>, netdev@vger.kernel.org,
- Nicolas Palix <nicolas.palix@imag.fr>, kernel-janitors@vger.kernel.org,
- LKML <linux-kernel@vger.kernel.org>, dri-devel@lists.freedesktop.org,
- linux-spi@vger.kernel.org, Michal Marek <mmarek@suse.com>,
- linux-i2c@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>,
- linux-media@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <alpine.DEB.2.02.1512271239460.2038@localhost6.localdomain6>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Yisen Zhuang <yisen.zhuang@huawei.com>,
+	yankejian <yankejian@huawei.com>,
+	huangdaode <huangdaode@hisilicon.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAHp75Vcsa=yWPXA6y27e1q2D37XVPd_87nYCdHNkkppv=3Ptgw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pj4gaHR0cHM6Ly9jd2UubWl0cmUub3JnL2RhdGEvZGVmaW5pdGlvbnMvMjUyLmh0bWwKPiAKPiBU
-aGUgdmFsdWUgaXMgbm90IHVuY2hlY2tlZC4KCldvdWxkIHlvdSBsaWtlIHRvIGV4cHJlc3MgYW55
-IHN0cm9uZ2VyIHJlbGF0aW9uc2hpcCBiZXR3ZWVuCnRoZSBmdW5jdGlvbiBjYWxsIGV4YW1wbGUg
-YW5kIHRoZSBvY2N1cnJlbmNlIG9mIGFuIGlmIHN0YXRlbWVudApieSB0aGUgZGlzY3Vzc2VkIFNt
-UEwgc2NyaXB0PwoKCj4gSSBtYWRlIGEgc3BlY2lmaWMgcnVsZSBiZWNhdXNlIHRoZSBzcGVjaWZp
-YyBwcm9ibGVtIGlzIHF1aXRlIGNvbW1vbi4KCkNhbiBpdCBiZWNvbWUgYWxzbyBpbnRlcmVzdGlu
-ZyB0byBnZW5lcmFsaXNlIHRoaXMgc2VhcmNoIHBhdHRlcm4/CgpSZWdhcmRzLApNYXJrdXMKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1h
-aWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHA6Ly9saXN0cy5m
-cmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+On Sun, Dec 27, 2015 at 03:23:30PM +0200, Andy Shevchenko wrote:
+> On Sun, Dec 27, 2015 at 3:15 PM, Geliang Tang <geliangtang@163.com> wrote:
+> > Use to_platform_device() instead of open-coding it.
+> >
+> > Signed-off-by: Geliang Tang <geliangtang@163.com>
+> > ---
+> >  drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 3 +--
+> >  1 file changed, 1 insertion(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+> > index 8c30cec..d2263c7 100644
+> > --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+> > +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+> > @@ -499,8 +499,7 @@ void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
+> >         int base_irq_idx = hns_rcb_get_base_irq_idx(rcb_common);
+> >         struct device_node *np = rcb_common->dsaf_dev->dev->of_node;
+> >         struct platform_device *pdev =
+> > -               container_of(rcb_common->dsaf_dev->dev,
+> > -                            struct platform_device, dev);
+> > +               to_platform_device(rcb_common->dsaf_dev->dev);
+> 
+> Can it be one line after all? Please, check this for all your patches
+> of such kind.
+> 
+
+Thanks for your review.
+
+It's over 80 characters in one line:
+
+ WARNING: line over 80 characters
+ #22: FILE: drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c:501:
+ +	struct platform_device *pdev = to_platform_device(rcb_common->dsaf_dev->dev);
+
+ total: 0 errors, 1 warnings, 0 checks, 10 lines checked
+
+	Geliang
