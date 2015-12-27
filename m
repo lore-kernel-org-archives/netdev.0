@@ -1,58 +1,24 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] qlcnic: constify qlcnic_dcb_ops structures
-Date: Sun, 27 Dec 2015 22:01:29 +0100
-Message-ID: <1451250089-6989-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Dept-GELinuxNICDev@qlogic.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 0/2] sh_eth: remove unused BE descriptor support
+Date: Mon, 28 Dec 2015 02:05:24 +0300
+Message-ID: <27915743.MLN0FvErP3@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The qlcnic_dcb_ops structures are never modified, so declare them as const.
+Hello.
 
-Done with the help of Coccinelle.
+   Here's a set of 2 patches against DaveM's 'net-next.git' repo plus the
+recently merged to 'net.git' repo fix for the 16-bit descriptor endianness.
+We get rid of ~30 LoCs and ~300 bytes of code.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+[1/2] sh_eth: remove EDMAC_BIG_ENDIAN
+[2/2] sh_eth: get rid of {cpu|edmac}_to_{edmac|cpu}()
 
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c |    4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-index a72bcdd..4b76c69 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-@@ -167,7 +167,7 @@ struct qlcnic_dcb_cfg {
- 	u32 version;
- };
- 
--static struct qlcnic_dcb_ops qlcnic_83xx_dcb_ops = {
-+static const struct qlcnic_dcb_ops qlcnic_83xx_dcb_ops = {
- 	.init_dcbnl_ops		= __qlcnic_init_dcbnl_ops,
- 	.free			= __qlcnic_dcb_free,
- 	.attach			= __qlcnic_dcb_attach,
-@@ -180,7 +180,7 @@ static struct qlcnic_dcb_ops qlcnic_83xx_dcb_ops = {
- 	.aen_handler		= qlcnic_83xx_dcb_aen_handler,
- };
- 
--static struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
-+static const struct qlcnic_dcb_ops qlcnic_82xx_dcb_ops = {
- 	.init_dcbnl_ops		= __qlcnic_init_dcbnl_ops,
- 	.free			= __qlcnic_dcb_free,
- 	.attach			= __qlcnic_dcb_attach,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-index 3cf4a10..9777e57 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-@@ -37,7 +37,7 @@ struct qlcnic_dcb {
- 	struct qlcnic_adapter		*adapter;
- 	struct delayed_work		aen_work;
- 	struct workqueue_struct		*wq;
--	struct qlcnic_dcb_ops		*ops;
-+	const struct qlcnic_dcb_ops	*ops;
- 	struct qlcnic_dcb_cfg		*cfg;
- 	unsigned long			state;
- };
+MBR, Sergei
 
