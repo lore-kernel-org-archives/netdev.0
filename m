@@ -1,58 +1,62 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: Re: [PATCH 06/10] net: hns: use to_platform_device()
-Date: Mon, 28 Dec 2015 01:03:08 +0800
-Message-ID: <20151227170308.GA11778@bogon>
-References: <a554e6af3a3528c2206c94dab62b7800f96caa4b.1451221174.git.geliangtang@163.com>
- <0801535a0c35424d2fd2e91f6ed58058d884e147.1451221174.git.geliangtang@163.com>
- <CAHp75Vcsa=yWPXA6y27e1q2D37XVPd_87nYCdHNkkppv=3Ptgw@mail.gmail.com>
+From: Nicolai Stange <nicstange@gmail.com>
+Subject: [PATCH] net, socket, socket_wq: fix missing initialization of flags
+Date: Sun, 27 Dec 2015 21:00:45 +0100
+Message-ID: <87ege73bma.fsf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Yisen Zhuang <yisen.zhuang@huawei.com>,
-	yankejian <yankejian@huawei.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHp75Vcsa=yWPXA6y27e1q2D37XVPd_87nYCdHNkkppv=3Ptgw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36504 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651AbbL0UAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2015 15:00:49 -0500
+CC: Nicolai Stange <nicstange@gmail.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 27, 2015 at 03:23:30PM +0200, Andy Shevchenko wrote:
-> On Sun, Dec 27, 2015 at 3:15 PM, Geliang Tang <geliangtang@163.com> wrote:
-> > Use to_platform_device() instead of open-coding it.
-> >
-> > Signed-off-by: Geliang Tang <geliangtang@163.com>
-> > ---
-> >  drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 3 +--
-> >  1 file changed, 1 insertion(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> > index 8c30cec..d2263c7 100644
-> > --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> > +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> > @@ -499,8 +499,7 @@ void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common)
-> >         int base_irq_idx = hns_rcb_get_base_irq_idx(rcb_common);
-> >         struct device_node *np = rcb_common->dsaf_dev->dev->of_node;
-> >         struct platform_device *pdev =
-> > -               container_of(rcb_common->dsaf_dev->dev,
-> > -                            struct platform_device, dev);
-> > +               to_platform_device(rcb_common->dsaf_dev->dev);
-> 
-> Can it be one line after all? Please, check this for all your patches
-> of such kind.
-> 
+Fixes: ceb5d58b2170 ("net: fix sock_wake_async() rcu protection")
 
-Thanks for your review.
+Commit ceb5d58b2170 ("net: fix sock_wake_async() rcu protection") from
+the current 4.4 release cycle introduces a new flags member in
+struct socket_wq and moved SOCKWQ_ASYNC_NOSPACE and SOCKWQ_ASYNC_WAITDATA
+from struct socket's flags member into that new place.
 
-It's over 80 characters in one line:
+Unfortunately, the new flags field is never initialized properly, at least
+not for the struct socket_wq instance created in sock_alloc_inode().
 
- WARNING: line over 80 characters
- #22: FILE: drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c:501:
- +	struct platform_device *pdev = to_platform_device(rcb_common->dsaf_dev->dev);
+One particular issue I encountered because of this is that my GNU Emacs
+failed to draw anything on my desktop -- i.e. what I got is a transparent
+window, including the title bar. Bisection lead to the commit mentioned
+above and further investigation by means of strace told me that Emacs
+is indeed speaking to my Xorg through an O_ASYNC AF_UNIX socket. This is
+reproducible 100% of times and the fact that properly initializing the
+struct socket_wq ->flags fixes the issue leads me to the conclusion that
+somehow SOCKWQ_ASYNC_NOSPACE got set in the uninitialized ->flags,
+preventing my Emacs from receiving any SIGIO's due to send space becoming
+available again and it got stuck.
 
- total: 0 errors, 1 warnings, 0 checks, 10 lines checked
+Make sock_alloc_inode() set the newly created struct socket_wq's ->flags
+member to zero.
 
-	Geliang
+Signed-off-by: Nicolai Stange <nicstange@gmail.com>
+---
+ net/socket.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/socket.c b/net/socket.c
+index 29822d6..d730ef9 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -257,6 +257,7 @@ static struct inode *sock_alloc_inode(struct super_block *sb)
+ 	}
+ 	init_waitqueue_head(&wq->wait);
+ 	wq->fasync_list = NULL;
++	wq->flags = 0;
+ 	RCU_INIT_POINTER(ei->socket.wq, wq);
+ 
+ 	ei->socket.state = SS_UNCONNECTED;
+-- 
+2.6.4
