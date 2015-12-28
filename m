@@ -1,193 +1,158 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 3/3] bpf: hash: use per-bucket spinlock
-Date: Mon, 28 Dec 2015 20:20:33 +0800
-Message-ID: <CACVXFVNPDAJ1hrx7xbp0z8kmCfzyphO_9qf-CYN0LxWeC9Uekw@mail.gmail.com>
-References: <1451122294-16524-1-git-send-email-tom.leiming@gmail.com>
-	<1451122294-16524-4-git-send-email-tom.leiming@gmail.com>
-	<5680FD21.30108@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5680FD21.30108@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [RFC PATCH net-next 0/3] MACsec IEEE 802.1AE implementation
+Date: Mon, 28 Dec 2015 13:38:27 +0100
+Message-ID: <cover.1450964358.git.sd@queasysnail.net>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59858 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751719AbbL1Mju (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2015 07:39:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 28, 2015 at 5:13 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 12/26/2015 10:31 AM, Ming Lei wrote:
->>
->> From: Ming Lei <ming.lei@canonical.com>
->>
->> Both htab_map_update_elem() and htab_map_delete_elem() can be
->> called from eBPF program, and they may be in kernel hot path,
->> so it isn't efficient to use a per-hashtable lock in this two
->> helpers.
->>
->> The per-hashtable spinlock is used just for protecting bucket's
->> hlist, and per-bucket lock should be enough. This patch converts
->> the per-hashtable lock into per-bucket spinlock, so that contention
->> can be decreased a lot.
->>
->> Signed-off-by: Ming Lei <ming.lei@canonical.com>
->> ---
->>   kernel/bpf/hashtab.c | 35 +++++++++++++++++++++++++----------
->>   1 file changed, 25 insertions(+), 10 deletions(-)
->>
->> diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
->> index d857fcb..66bad7a 100644
->> --- a/kernel/bpf/hashtab.c
->> +++ b/kernel/bpf/hashtab.c
->> @@ -14,9 +14,14 @@
->>   #include <linux/filter.h>
->>   #include <linux/vmalloc.h>
->>
->> +struct bucket {
->> +       struct hlist_head head;
->> +       raw_spinlock_t lock;
->> +};
->> +
->>   struct bpf_htab {
->>         struct bpf_map map;
->> -       struct hlist_head *buckets;
->> +       struct bucket *buckets;
->>         raw_spinlock_t lock;
->
->
-> Shouldn't the lock member be removed from here?
+MACsec (IEEE 802.1AE [0]) is a protocol that provides security for
+wired ethernet LANs.  MACsec offers two protection modes:
+authentication only, or authenticated encryption.
 
-Hammm, looks this one is a bad version, sorry for that, and will resend it.
+MACsec defines "secure channels" that allow transmission from one node
+to one or more others.  Communication on a channel is done over a
+succession of "secure associations", that each use a specific key.
+Secure associations are identified by their "association number" in
+the range 0..3.  A secure association is retired when its 32-bit
+packet number would wrap, and the same association number can later be
+reused with a new key and packet number.
 
->
->
->>         atomic_t count; /* number of elements in this hashtable */
->>         u32 n_buckets;  /* number of hash buckets */
->> @@ -88,24 +93,25 @@ static struct bpf_map *htab_map_alloc(union bpf_attr
->> *attr)
->>                 /* make sure page count doesn't overflow */
->>                 goto free_htab;
->>
->> -       htab->map.pages = round_up(htab->n_buckets * sizeof(struct
->> hlist_head) +
->> +       htab->map.pages = round_up(htab->n_buckets * sizeof(struct bucket)
->> +
->>                                    htab->elem_size *
->> htab->map.max_entries,
->>                                    PAGE_SIZE) >> PAGE_SHIFT;
->>
->>         err = -ENOMEM;
->> -       htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct
->> hlist_head),
->> +       htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct
->> bucket),
->>                                       GFP_USER | __GFP_NOWARN);
->>
->>         if (!htab->buckets) {
->> -               htab->buckets = vmalloc(htab->n_buckets * sizeof(struct
->> hlist_head));
->> +               htab->buckets = vmalloc(htab->n_buckets * sizeof(struct
->> bucket));
->>                 if (!htab->buckets)
->>                         goto free_htab;
->>         }
->>
->> -       for (i = 0; i < htab->n_buckets; i++)
->> -               INIT_HLIST_HEAD(&htab->buckets[i]);
->> +       for (i = 0; i < htab->n_buckets; i++) {
->> +               INIT_HLIST_HEAD(&htab->buckets[i].head);
->> +               raw_spin_lock_init(&htab->buckets[i].lock);
->> +       }
->>
->> -       raw_spin_lock_init(&htab->lock);
->>         atomic_set(&htab->count, 0);
->>
->>         return &htab->map;
->> @@ -120,11 +126,16 @@ static inline u32 htab_map_hash(const void *key, u32
->> key_len)
->>         return jhash(key, key_len, 0);
->>   }
->>
->> -static inline struct hlist_head *select_bucket(struct bpf_htab *htab, u32
->> hash)
->> +static inline struct bucket *__select_bucket(struct bpf_htab *htab, u32
->> hash)
->>   {
->>         return &htab->buckets[hash & (htab->n_buckets - 1)];
->>   }
->>
->> +static inline struct hlist_head *select_bucket(struct bpf_htab *htab, u32
->> hash)
->> +{
->> +       return &__select_bucket(htab, hash)->head;
->> +}
->> +
->>   static struct htab_elem *lookup_elem_raw(struct hlist_head *head, u32
->> hash,
->>                                          void *key, u32 key_size)
->>   {
->> @@ -227,6 +238,7 @@ static int htab_map_update_elem(struct bpf_map *map,
->> void *key, void *value,
->>         struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
->>         struct htab_elem *l_new, *l_old;
->>         struct hlist_head *head;
->> +       struct bucket *b;
->>         unsigned long flags;
->>         u32 key_size;
->>         int ret;
->> @@ -248,7 +260,8 @@ static int htab_map_update_elem(struct bpf_map *map,
->> void *key, void *value,
->>         memcpy(l_new->key + round_up(key_size, 8), value,
->> map->value_size);
->>
->>         l_new->hash = htab_map_hash(l_new->key, key_size);
->> -       head = select_bucket(htab, l_new->hash);
->> +       b = __select_bucket(htab, l_new->hash);
->> +       head = &b->head;
->>
->>         /* bpf_map_update_elem() can be called in_irq() */
->>         raw_spin_lock_irqsave(&htab->lock, flags);
->
->
-> I am a bit confused on this one, though.
->
-> The raw spin lock is still per hashtable (htab->lock), and has not been
-> converted in
-> this patch to the per bucket one (as opposed to what the commit message
-> says), so
-> this patch seems to go into the right direction, but is a bit incomplete?
-> Shouldn't
-> the above f.e. take b->lock, etc?
->
->> @@ -299,6 +312,7 @@ static int htab_map_delete_elem(struct bpf_map *map,
->> void *key)
->>   {
->>         struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
->>         struct hlist_head *head;
->> +       struct bucket *b;
->>         struct htab_elem *l;
->>         unsigned long flags;
->>         u32 hash, key_size;
->> @@ -309,7 +323,8 @@ static int htab_map_delete_elem(struct bpf_map *map,
->> void *key)
->>         key_size = map->key_size;
->>
->>         hash = htab_map_hash(key, key_size);
->> -       head = select_bucket(htab, hash);
->> +       b = __select_bucket(htab, hash);
->> +       head = &b->head;
->>
->>         raw_spin_lock_irqsave(&htab->lock, flags);
->>
->
-> Same here?
->
-> Thanks,
-> Daniel
+The standard mode of encryption is GCM AES with 128 bits keys,
+although an extension allows 256 bits keys [1] (not implemented in
+this submission).
+
+When using MACsec, an extra header, called "SecTAG", is added between
+the ethernet header and the original payload:
+
+ +---------------------------------+----------------+----------------+
+ |        (MACsec ethertype)       |     TCI_AN     |       SL       |
+ +---------------------------------+----------------+----------------+
+ |                           Packet Number                           |
+ +-------------------------------------------------------------------+
+ |                     Secure Channel Identifier                     |
+ |                            (optional)                             |
+ +-------------------------------------------------------------------+
+
+TCI_AN:
+ version
+ end_station
+ sci_present
+ scb
+ encrypted
+ changed_text
+ association_number (2 bits)
+SL:
+ short_length (6 bits)
+ unused (2 bits)
+
+The ethertype for the packet is set to 0x88E5, and the original
+ethertype becomes part of the secure payload, which may be encrypted.
+The ethernet header and the SecTAG are always transmitted in the
+clear, but are integrity-protected.
+
+MACsec supports optional replay protection with a configurable replay
+window.
+
+MACsec is designed to be used with the MKA extension to 802.1X (MACsec
+Key Agreement protocol) [2], which provides channel attribution and
+key distribution to the nodes, but can also be used with static keys
+getting fed manually by an administrator.
+
+Optional (not supported yet) features:
+ - confidentiality offset: in encryption mode, part of the payload may
+   be left unencrypted.
+ - choice of cipher suite: GCM AES with 256 bits has been standardised
+   [1].
 
 
+Implementation
+
+A netdevice is created on top of a real device for each TX secure
+channel, like we do for VLANs.  Multiple TX channels can be created on
+top of the same underlying device.
+
+Several other approaches were considered for the RX path:
+
+ - dev_add_pack: doesn't work, because we want to filter out
+   unprotected packets
+ - transparent mode: MACsec would be enabled directly on the real
+   netdevice.  For this, we cannot use a rx_handler directly because
+   MACsec must be available for underlying devices enslaved in a
+   bridge or in a bond, so we need a hook directly in
+   __netif_receive_skb_core.  This approach makes it harder to filter
+   non-encrypted packets on RX without forcing the user to setup some
+   rules, so the "transparent" mode is not so transparent after all.
+   It also makes TX more complex than with a dedicated netdevice.
+
+One issue with the proposed implementation is that the qdisc layer for
+the real device operates on already encrypted packets.
+
+
+Netlink API
+
+This is currently a mix of rtnetlink (to create the device and set up
+the TX channel) and genl (for RX channels, secure associations and
+their keys).  genl provides clean demultiplexing of the {TX,RX}{SC,SA}
+commands.
+
+
+Use cases
+
+The normal use case is wired LANs, including veth and slave devices
+for bonding/teaming or bridges.
+
+MACsec can also be used on any device that makes a full ethernet
+header visible, for example VXLAN.
+The VXLAN+MACsec setup would be:
+
+         hypervisor        |     virtual machine
+    <real_dev>---<VXLAN>---|---<dev>---<macsec_dev>
+
+And the packets would look like this:
+
+| eth | IP | UDP | VXLAN | eth | MACsec | IP | ... | MACsec ICV |
+
+One benefit on this approach to encryption in the cloud is that the
+payload is encrypted by the tenant, not by the tunnel provider, thus
+the tenant has full control over the keys.
+
+
+Future plans:
+ - offload to hardware, on nics that support it (at least some ixgbe)
+ - implement optional features
+
+The corresponding iproute code will be posted later.
+
+
+[0] http://standards.ieee.org/getieee802/download/802.1AE-2006.pdf
+[1] http://standards.ieee.org/getieee802/download/802.1AEbn-2011.pdf
+[2] http://standards.ieee.org/getieee802/download/802.1X-2010.pdf
+
+
+Sabrina Dubroca (3):
+  uapi: add MACsec bits
+  net: add MACsec netdevice priv_flags and helper
+  macsec: introduce IEEE 802.1AE driver
+
+ drivers/net/Kconfig            |    7 +
+ drivers/net/Makefile           |    1 +
+ drivers/net/macsec.c           | 2991 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/netdevice.h      |    7 +
+ include/uapi/linux/Kbuild      |    1 +
+ include/uapi/linux/if_ether.h  |    1 +
+ include/uapi/linux/if_link.h   |   21 +
+ include/uapi/linux/if_macsec.h |  160 +++
+ 8 files changed, 3189 insertions(+)
+ create mode 100644 drivers/net/macsec.c
+ create mode 100644 include/uapi/linux/if_macsec.h
 
 -- 
-Ming Lei
+2.6.4
