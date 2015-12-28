@@ -1,54 +1,34 @@
-From: Ivan Safonov <insafonov@gmail.com>
-Subject: Re: [PATCH] /drivers/net/wireless/ath/ath9k remove unnecessary ?:
- operator
-Date: Tue, 29 Dec 2015 01:38:02 +0700
-Message-ID: <5681818A.9060406@gmail.com>
-References: <20151228134852.GA10572@alpha.sfu-kras.ru>
- <1451325412.3219.12.camel@perches.com>
+From: "Jeff Skoll" <verna.viajar@icdd.uni-kassel.de>
+Subject: Charity Donation
+Date: Mon, 28 Dec 2015 13:20:26 -0500
+Message-ID: <auto-000005005793@mailadmin.uni-kassel.de>
+Reply-To: jeff.skoll@skollcharity.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>,
-	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451325412.3219.12.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Me <verna.viajar@icdd.uni-kassel.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.its.uni-kassel.de ([141.51.12.64]:30850 "EHLO
+	mx3.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491AbbL1TD0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 14:03:26 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/29/2015 12:56 AM, Joe Perches wrote:
-> On Mon, 2015-12-28 at 20:48 +0700, Ivan Safonov wrote:
->> ((thermometer < 0) ? 0 : (thermometer == X)) and (thermometer == X) are equal for X >= 0.
-> X is not guaranteed to be >= 0 here
+Hi,
+My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
+e largest private foundations in the world. I believe strongly in =E2=80=
+=98giving while living.=E2=80=99 I had one idea that never changed in m=
+y mind =E2=80=94 that you should use your wealth to help people and I h=
+ave decided to secretly give USD2.498 Million to a randomly selected in=
+dividual. On receipt of this email, you should count yourself as the in=
+dividual. Kindly get back to me at your earliest convenience, so I know=
+ your email address is valid.
 
-X is fixed constant. In this case X is {0, 1, 2}.
+Visit the web page to know more about me: http://www.theglobeandmail.co=
+m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
+rticle4209888/ or you can read an article of me on Wikipedia.
 
->> @@ -4097,16 +4097,16 @@ static void ar9003_hw_thermometer_apply(struct ath_hw *ah)
->>   		REG_RMW_FIELD(ah, AR_PHY_65NM_CH2_RXTX4,
->>   			      AR_PHY_65NM_CH0_RXTX4_THERM_ON_OVR, therm_on);
->>   
->> -	therm_on = (thermometer < 0) ? 0 : (thermometer == 0);
->> +	therm_on = thermometer == 0;
-> This code is not equivalent.
->
-> Check what happens when thermometer is -1.
-
-therm_on = (thermometer < 0) ? 0 : (thermometer == 0) =>
-therm_on = (true) ? 0 : (thermometer == 0) =>
-
-therm_on is 0
-
-
-therm_on = thermometer == 0 =>
-
-therm_on = false
-
-
-false is equal to 0
-
-
-Value of the thermometer variable isanerror code, or athermometercode. 
-The thermometercode is never equal to the error code (thermometercode >= 
-0, error code <0).
+Regards,
+Jeffrey Skoll.
