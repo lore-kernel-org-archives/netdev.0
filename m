@@ -1,68 +1,72 @@
-From: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [RESEND PATCH v1 1/4] net: ethernet: arc: Probe emac after set RMII
- clock
-Date: Mon, 28 Dec 2015 15:22:18 +0800
-Message-ID: <1451287341-16453-2-git-send-email-zhengxing@rock-chips.com>
+From: Xing Zheng <zhengxing@rock-chips.com>
+Subject: [RESEND PATCH v1 3/4] net: ethernet: arc: Add support emac for RK3036
+Date: Mon, 28 Dec 2015 15:22:20 +0800
+Message-ID: <1451287341-16453-4-git-send-email-zhengxing@rock-chips.com>
 References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- leozwang-hpIqsD4AKlcxg7vii5yOFA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1451287341-16453-1-git-send-email-zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: keescook@google.com, leozwang@google.comi, heiko@sntech.de,
+	davem@davemloft.net, Xing Zheng <zhengxing@rock-chips.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: linux-rockchip@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After enter arc_emac_probe, emac will get_phy_id, phy_poll_reset and
-other connecting PHY via mdiobus_read, so we need to set correct
-ref clock rate for emac before probe emac.
+The RK3036's GRFs offset are different with RK3066/RK3188, and need to set
+mac TX/RX clock before probe emac.
 
-Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Signed-off-by: Xing Zheng <zhengxing@rock-chips.com>
 ---
 
- drivers/net/ethernet/arc/emac_rockchip.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/arc/Kconfig         |    4 ++--
+ drivers/net/ethernet/arc/emac_rockchip.c |    9 +++++++--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/arc/Kconfig b/drivers/net/ethernet/arc/Kconfig
+index 52a6b16..6890451 100644
+--- a/drivers/net/ethernet/arc/Kconfig
++++ b/drivers/net/ethernet/arc/Kconfig
+@@ -34,9 +34,9 @@ config EMAC_ROCKCHIP
+ 	select ARC_EMAC_CORE
+ 	depends on OF_IRQ && OF_NET && REGULATOR && HAS_DMA
+ 	---help---
+-	  Support for Rockchip RK3066/RK3188 EMAC ethernet controllers.
++	  Support for Rockchip RK3036/RK3066/RK3188 EMAC ethernet controllers.
+ 	  This selects Rockchip SoC glue layer support for the
+-	  emac device driver. This driver is used for RK3066/RK3188
++	  emac device driver. This driver is used for RK3036/RK3066/RK3188
+ 	  EMAC ethernet controller.
+ 
+ endif # NET_VENDOR_ARC
 diff --git a/drivers/net/ethernet/arc/emac_rockchip.c b/drivers/net/ethernet/arc/emac_rockchip.c
-index c31c740..36e9eb1 100644
+index d1a9c28..2433eeb 100644
 --- a/drivers/net/ethernet/arc/emac_rockchip.c
 +++ b/drivers/net/ethernet/arc/emac_rockchip.c
-@@ -164,10 +164,6 @@ static int emac_rockchip_probe(struct platform_device *pdev)
- 		}
- 	}
+@@ -69,6 +69,10 @@ static void emac_rockchip_set_mac_speed(void *priv, unsigned int speed)
  
--	err = arc_emac_probe(ndev, interface);
--	if (err)
--		goto out_regulator_disable;
--
- 	/* write-enable bits */
- 	data = GRF_MODE_ENABLE_BIT | GRF_SPEED_ENABLE_BIT;
+ static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
+ 	{
++	  .grf_offset = 0x140,   .grf_mode_offset = 8,
++	  .grf_speed_offset = 9, .need_div_macclk = 1
++	}, /* rk3036 */
++	{
+ 	  .grf_offset = 0x154,   .grf_mode_offset = 0,
+ 	  .grf_speed_offset = 1, .need_div_macclk = 0
+ 	}, /* rk3066 */
+@@ -79,8 +83,9 @@ static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
+ };
  
-@@ -184,6 +180,13 @@ static int emac_rockchip_probe(struct platform_device *pdev)
- 	err = clk_set_rate(priv->refclk, 50000000);
- 	if (err)
- 		dev_err(dev, "failed to change reference clock rate (%d)\n", err);
-+
-+	err = arc_emac_probe(ndev, interface);
-+	if (err) {
-+		dev_err(dev, "failed to probe arc emac (%d)\n", err);
-+		goto out_regulator_disable;
-+	}
-+
- 	return 0;
+ static const struct of_device_id emac_rockchip_dt_ids[] = {
+-	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[0] },
+-	{ .compatible = "rockchip,rk3188-emac", .data = &emac_rockchip_dt_data[1] },
++	{ .compatible = "rockchip,rk3036-emac", .data = &emac_rockchip_dt_data[0] },
++	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[1] },
++	{ .compatible = "rockchip,rk3188-emac", .data = &emac_rockchip_dt_data[2] },
+ 	{ /* Sentinel */ }
+ };
  
- out_regulator_disable:
 -- 
 1.7.9.5
