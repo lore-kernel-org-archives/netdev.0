@@ -1,118 +1,99 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
- skb_copy_and_csum_datagram_iovec()
-Date: Mon, 28 Dec 2015 15:29:42 +0100
-Message-ID: <20151228142942.GA7394@bistromath.redhat.com>
-References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v1 3/3] bpf: hash: use per-bucket spinlock
+Date: Mon, 28 Dec 2015 15:43:29 +0100
+Message-ID: <56814A91.5000208@iogearbox.net>
+References: <1451307326-12807-1-git-send-email-tom.leiming@gmail.com> <1451307326-12807-4-git-send-email-tom.leiming@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: stable@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ming Lei <tom.leiming@gmail.com>, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55799 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750932AbbL1O3p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Dec 2015 09:29:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20151228140157.6F592A0C7D@unicorn.suse.cz>
+Received: from www62.your-server.de ([213.133.104.62]:33240 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbbL1Onn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 09:43:43 -0500
+In-Reply-To: <1451307326-12807-4-git-send-email-tom.leiming@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Michal,
-
-2015-12-28, 15:01:57 +0100, Michal Kubecek wrote:
-> Recent fix "net: add length argument to
-> skb_copy_and_csum_datagram_iovec" added to some pre-3.19 stable
-> branches, namely
-> 
->   stable-3.2.y: commit 127500d724f8
->   stable-3.12.y: commit 3e1ac3aafbd0
-> 
-> doesn't handle truncated reads correctly. If read length is shorter than
-> incoming datagram (but non-zero) and first segment of target iovec is
-> sufficient for read length, skb_copy_and_csum_datagram() is used to copy
-> checksum the data while copying it. For truncated reads this means only
-> the copied part is checksummed (rather than the whole datagram) so that
-> the check almost always fails.
-
-I just ran into this issue too, sorry I didn't notice it earlier :(
-
-
-> Add checksum of the remaining part so that the proper checksum of the
-> whole datagram is computed and checked. Special care must be taken if
-> the copied length is odd.
-> 
-> For zero read length, we don't have to copy anything but we still should
-> check the checksum so that a peek doesn't return with a datagram which
-> is invalid and wouldn't be returned by an actual read.
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+On 12/28/2015 01:55 PM, Ming Lei wrote:
+> Both htab_map_update_elem() and htab_map_delete_elem() can be
+> called from eBPF program, and they may be in kernel hot path,
+> so it isn't efficient to use a per-hashtable lock in this two
+> helpers.
+>
+> The per-hashtable spinlock is used for protecting bucket's
+> hlist, and per-bucket lock is just enough. This patch converts
+> the per-hashtable lock into per-bucket spinlock, so that
+> contention can be decreased a lot.
+>
+> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
 > ---
->  net/core/datagram.c | 26 +++++++++++++++++++++-----
->  1 file changed, 21 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index f22f120771ef..af4bf368257c 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -809,13 +809,14 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
->  				     int hlen, struct iovec *iov, int len)
->  {
->  	__wsum csum;
-> -	int chunk = skb->len - hlen;
-> +	int full_chunk = skb->len - hlen;
-> +	int chunk = min_t(int, full_chunk, len);
->  
-> -	if (chunk > len)
-> -		chunk = len;
-> -
-> -	if (!chunk)
-> +	if (!chunk) {
-> +		if (__skb_checksum_complete(skb))
-> +			goto csum_error;
->  		return 0;
-> +	}
->  
->  	/* Skip filled elements.
->  	 * Pretty silly, look at memcpy_toiovec, though 8)
-> @@ -833,6 +834,21 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
->  		if (skb_copy_and_csum_datagram(skb, hlen, iov->iov_base,
->  					       chunk, &csum))
->  			goto fault;
-> +		if (full_chunk > chunk) {
-> +			if (chunk % 2) {
-> +				__be16 odd = 0;
+>   kernel/bpf/hashtab.c | 46 ++++++++++++++++++++++++++++++----------------
+>   1 file changed, 30 insertions(+), 16 deletions(-)
+>
+> diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+> index d857fcb..67222a9 100644
+> --- a/kernel/bpf/hashtab.c
+> +++ b/kernel/bpf/hashtab.c
+> @@ -14,10 +14,14 @@
+>   #include <linux/filter.h>
+>   #include <linux/vmalloc.h>
+>
+> +struct bucket {
+> +	struct hlist_head head;
+> +	raw_spinlock_t lock;
+> +};
 > +
-> +				if (skb_copy_bits(skb, hlen + chunk,
-> +						  (char *)&odd + 1, 1))
-> +					goto fault;
-> +				csum = add32_with_carry(odd, csum);
-> +				csum = skb_checksum(skb, hlen + chunk + 1,
-> +						    full_chunk - chunk - 1,
-> +						    csum);
-> +			} else
-> +				csum = skb_checksum(skb, hlen + chunk,
-> +						    full_chunk - chunk, csum);
-> +		}
->  		if (csum_fold(csum))
->  			goto csum_error;
->  		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
-> -- 
-> 2.6.4
+>   struct bpf_htab {
+>   	struct bpf_map map;
+> -	struct hlist_head *buckets;
+> -	raw_spinlock_t lock;
+> +	struct bucket *buckets;
+>   	atomic_t count;	/* number of elements in this hashtable */
+>   	u32 n_buckets;	/* number of hash buckets */
+>   	u32 elem_size;	/* size of each element in bytes */
+> @@ -88,24 +92,25 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+>   		/* make sure page count doesn't overflow */
+>   		goto free_htab;
 
+When adapting memory accounting and allocation sizes below where you replace
+sizeof(struct hlist_head) with sizeof(struct bucket), is there a reason why
+you don't update the overflow checks along with it?
 
-This adds quite a bit of complexity.  I am considering a revert of my
-buggy patch, and use what Eric Dumazet suggested instead:
+[...]
+         /* prevent zero size kmalloc and check for u32 overflow */
+         if (htab->n_buckets == 0 ||
+             htab->n_buckets > U32_MAX / sizeof(struct hlist_head))
+                 goto free_htab;
 
-https://patchwork.ozlabs.org/patch/543562/
+         if ((u64) htab->n_buckets * sizeof(struct hlist_head) +
+             (u64) htab->elem_size * htab->map.max_entries >=
+             U32_MAX - PAGE_SIZE)
+                 /* make sure page count doesn't overflow */
+                 goto free_htab;
+[...]
 
-What do you think?
-Eric, would you submit your patch formally?
+> -	htab->map.pages = round_up(htab->n_buckets * sizeof(struct hlist_head) +
+> +	htab->map.pages = round_up(htab->n_buckets * sizeof(struct bucket) +
+>   				   htab->elem_size * htab->map.max_entries,
+>   				   PAGE_SIZE) >> PAGE_SHIFT;
+>
+>   	err = -ENOMEM;
+> -	htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct hlist_head),
+> +	htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct bucket),
+>   				      GFP_USER | __GFP_NOWARN);
+>
+>   	if (!htab->buckets) {
+> -		htab->buckets = vmalloc(htab->n_buckets * sizeof(struct hlist_head));
+> +		htab->buckets = vmalloc(htab->n_buckets * sizeof(struct bucket));
+>   		if (!htab->buckets)
+>   			goto free_htab;
+>   	}
 
+[...]
 
-Thanks
-
--- 
-Sabrina
+Thanks,
+Daniel
