@@ -1,41 +1,53 @@
-From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH net-next v2 02/10] be2net: avoid configuring VEPA mode on BE3
-Date: Mon, 28 Dec 2015 01:49:16 -0500
-Message-ID: <1451285364-9074-3-git-send-email-sathya.perla@avagotech.com>
-References: <1451285364-9074-1-git-send-email-sathya.perla@avagotech.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:54927 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751011AbbL1Gtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 01:49:31 -0500
-In-Reply-To: <1451285364-9074-1-git-send-email-sathya.perla@avagotech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [RESEND PATCH v1 0/4] Add support emac for the RK3036 SoC platform
+Date: Mon, 28 Dec 2015 15:22:17 +0800
+Message-ID: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org,
+ Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>,
+ Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+ keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+ leozwang-hpIqsD4AKlcxg7vii5yOFA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Suresh Reddy <suresh.reddy@avagotech.com>
 
-BE3 chip doesn't support VEPA mode.
+Hi,
+  We have supported the emac for RK3066/RK3188, but the RK3036 have some
+configuration different with them. We should let the driver of emac_rockchip
+compatible with other Rockchip SoCs.
 
-Signed-off-by: Suresh Reddy <suresh.reddy@avagotech.com>
-Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 3 +++
- 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 34e324f..2f76cbe 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5108,6 +5108,9 @@ static int be_ndo_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
- 			return -EINVAL;
- 
- 		mode = nla_get_u16(attr);
-+		if (BE3_chip(adapter) && mode == BRIDGE_MODE_VEPA)
-+			return -EOPNOTSUPP;
-+
- 		if (mode != BRIDGE_MODE_VEPA && mode != BRIDGE_MODE_VEB)
- 			return -EINVAL;
- 
+
+Xing Zheng (4):
+  net: ethernet: arc: Probe emac after set RMII clock
+  net: ethernet: arc: Keep emac compatibility for more Rockchip SoCs
+  net: ethernet: arc: Add support emac for RK3036
+  ARM: dts: rockchip: Add support emac for RK3036
+
+ arch/arm/boot/dts/rk3036-evb.dts         |   25 +++++++++
+ arch/arm/boot/dts/rk3036-kylin.dts       |   23 ++++++++
+ arch/arm/boot/dts/rk3036.dtsi            |   32 +++++++++++
+ drivers/net/ethernet/arc/Kconfig         |    4 +-
+ drivers/net/ethernet/arc/emac_rockchip.c |   86 ++++++++++++++++++++----------
+ 5 files changed, 140 insertions(+), 30 deletions(-)
+
 -- 
-2.4.1
+1.7.9.5
