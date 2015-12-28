@@ -1,56 +1,49 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH v1 2/3] bpf: hash: move select_bucket() out of htab's spinlock
-Date: Mon, 28 Dec 2015 20:55:25 +0800
-Message-ID: <1451307326-12807-3-git-send-email-tom.leiming@gmail.com>
-References: <1451307326-12807-1-git-send-email-tom.leiming@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Ming Lei <tom.leiming@gmail.com>
-To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
+From: Ivan Safonov <insafonov@gmail.com>
+Subject: [PATCH] /drivers/net/wireless/ath/ath9k remove unnecessary ?:
+ operator
+Date: Mon, 28 Dec 2015 20:48:52 +0700
+Message-ID: <20151228134852.GA10572@alpha.sfu-kras.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451307326-12807-1-git-send-email-tom.leiming@gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The spinlock is just used for protecting the per-bucket
-hlist, so it isn't needed for selecting bucket.
+((thermometer < 0) ? 0 : (thermometer == X)) and (thermometer == X) are equal for X >= 0.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+Signed-off-by: Ivan Safonov <insafonov@gmail.com>
 ---
- kernel/bpf/hashtab.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 2615388..d857fcb 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -248,12 +248,11 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	memcpy(l_new->key + round_up(key_size, 8), value, map->value_size);
+diff --git a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c b/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
+index 8b4561e..35e57f7 100644
+--- a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
++++ b/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
+@@ -4097,16 +4097,16 @@ static void ar9003_hw_thermometer_apply(struct ath_hw *ah)
+ 		REG_RMW_FIELD(ah, AR_PHY_65NM_CH2_RXTX4,
+ 			      AR_PHY_65NM_CH0_RXTX4_THERM_ON_OVR, therm_on);
  
- 	l_new->hash = htab_map_hash(l_new->key, key_size);
-+	head = select_bucket(htab, l_new->hash);
- 
- 	/* bpf_map_update_elem() can be called in_irq() */
- 	raw_spin_lock_irqsave(&htab->lock, flags);
- 
--	head = select_bucket(htab, l_new->hash);
--
- 	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
- 
- 	if (!l_old && unlikely(atomic_read(&htab->count) >= map->max_entries)) {
-@@ -310,11 +309,10 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
- 	key_size = map->key_size;
- 
- 	hash = htab_map_hash(key, key_size);
-+	head = select_bucket(htab, hash);
- 
- 	raw_spin_lock_irqsave(&htab->lock, flags);
- 
--	head = select_bucket(htab, hash);
--
- 	l = lookup_elem_raw(head, hash, key, key_size);
- 
- 	if (l) {
+-	therm_on = (thermometer < 0) ? 0 : (thermometer == 0);
++	therm_on = thermometer == 0;
+ 	REG_RMW_FIELD(ah, AR_PHY_65NM_CH0_RXTX4,
+ 		      AR_PHY_65NM_CH0_RXTX4_THERM_ON, therm_on);
+ 	if (pCap->chip_chainmask & BIT(1)) {
+-		therm_on = (thermometer < 0) ? 0 : (thermometer == 1);
++		therm_on = thermometer == 1;
+ 		REG_RMW_FIELD(ah, AR_PHY_65NM_CH1_RXTX4,
+ 			      AR_PHY_65NM_CH0_RXTX4_THERM_ON, therm_on);
+ 	}
+ 	if (pCap->chip_chainmask & BIT(2)) {
+-		therm_on = (thermometer < 0) ? 0 : (thermometer == 2);
++		therm_on = thermometer == 2;
+ 		REG_RMW_FIELD(ah, AR_PHY_65NM_CH2_RXTX4,
+ 			      AR_PHY_65NM_CH0_RXTX4_THERM_ON, therm_on);
+ 	}
 -- 
-1.9.1
+2.4.10
