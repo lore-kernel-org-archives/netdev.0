@@ -1,131 +1,72 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
- skb_copy_and_csum_datagram_iovec()
-Date: Mon, 28 Dec 2015 12:10:10 -0500
-Message-ID: <1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
-	 <20151228142942.GA7394@bistromath.redhat.com>
-	 <20151228153836.GA28529@unicorn.suse.cz>
+Subject: Re: [PATCH] net, socket, socket_wq: fix missing initialization of
+ flags
+Date: Mon, 28 Dec 2015 12:19:46 -0500
+Message-ID: <1451323186.8255.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87ege73bma.fsf@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sabrina Dubroca <sd@queasysnail.net>, stable@vger.kernel.org,
-	Jiri Slaby <jslaby@suse.cz>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20151228153836.GA28529@unicorn.suse.cz>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicolai Stange <nicstange@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35087 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbbL1RTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 12:19:48 -0500
+In-Reply-To: <87ege73bma.fsf@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-12-28 at 16:38 +0100, Michal Kubecek wrote:
-> On Mon, Dec 28, 2015 at 03:29:42PM +0100, Sabrina Dubroca wrote:
-> > 2015-12-28, 15:01:57 +0100, Michal Kubecek wrote:
-> > > Recent fix "net: add length argument to
-> > > skb_copy_and_csum_datagram_iovec" added to some pre-3.19 stable
-> > > branches, namely
-> > > 
-> > >   stable-3.2.y: commit 127500d724f8
-> > >   stable-3.12.y: commit 3e1ac3aafbd0
-> > > 
-> > > doesn't handle truncated reads correctly. If read length is shorter than
-> > > incoming datagram (but non-zero) and first segment of target iovec is
-> > > sufficient for read length, skb_copy_and_csum_datagram() is used to copy
-> > > checksum the data while copying it. For truncated reads this means only
-> > > the copied part is checksummed (rather than the whole datagram) so that
-> > > the check almost always fails.
-> > 
-> > I just ran into this issue too, sorry I didn't notice it earlier :(
-> > 
-> > > Add checksum of the remaining part so that the proper checksum of the
-> > > whole datagram is computed and checked. Special care must be taken if
-> > > the copied length is odd.
-> > > 
-> > > For zero read length, we don't have to copy anything but we still should
-> > > check the checksum so that a peek doesn't return with a datagram which
-> > > is invalid and wouldn't be returned by an actual read.
-> > > 
-> > > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> > > ---
-> > >  net/core/datagram.c | 26 +++++++++++++++++++++-----
-> > >  1 file changed, 21 insertions(+), 5 deletions(-)
-> > > 
-> > > diff --git a/net/core/datagram.c b/net/core/datagram.c
-> > > index f22f120771ef..af4bf368257c 100644
-> > > --- a/net/core/datagram.c
-> > > +++ b/net/core/datagram.c
-> > > @@ -809,13 +809,14 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
-> > >  				     int hlen, struct iovec *iov, int len)
-> > >  {
-> > >  	__wsum csum;
-> > > -	int chunk = skb->len - hlen;
-> > > +	int full_chunk = skb->len - hlen;
-> > > +	int chunk = min_t(int, full_chunk, len);
-> > >  
-> > > -	if (chunk > len)
-> > > -		chunk = len;
-> > > -
-> > > -	if (!chunk)
-> > > +	if (!chunk) {
-> > > +		if (__skb_checksum_complete(skb))
-> > > +			goto csum_error;
-> > >  		return 0;
-> > > +	}
-> > >  
-> > >  	/* Skip filled elements.
-> > >  	 * Pretty silly, look at memcpy_toiovec, though 8)
-> > > @@ -833,6 +834,21 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
-> > >  		if (skb_copy_and_csum_datagram(skb, hlen, iov->iov_base,
-> > >  					       chunk, &csum))
-> > >  			goto fault;
-> > > +		if (full_chunk > chunk) {
-> > > +			if (chunk % 2) {
-> > > +				__be16 odd = 0;
-> > > +
-> > > +				if (skb_copy_bits(skb, hlen + chunk,
-> > > +						  (char *)&odd + 1, 1))
-> > > +					goto fault;
-> > > +				csum = add32_with_carry(odd, csum);
-> > > +				csum = skb_checksum(skb, hlen + chunk + 1,
-> > > +						    full_chunk - chunk - 1,
-> > > +						    csum);
-> > > +			} else
-> > > +				csum = skb_checksum(skb, hlen + chunk,
-> > > +						    full_chunk - chunk, csum);
-> > > +		}
-> > >  		if (csum_fold(csum))
-> > >  			goto csum_error;
-> > >  		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
-> > > -- 
-> > > 2.6.4
-> > 
-> > 
-> > This adds quite a bit of complexity.
+On Sun, 2015-12-27 at 21:00 +0100, Nicolai Stange wrote:
+> Fixes: ceb5d58b2170 ("net: fix sock_wake_async() rcu protection")
 > 
-> I'm not really happy about it either. :-( Most of the complexity comes
-> from the corner case when one 16-bit word is divided between the copied
-> part and the rest - but I can't see a nicer way to handle it.
+> Commit ceb5d58b2170 ("net: fix sock_wake_async() rcu protection") from
+> the current 4.4 release cycle introduces a new flags member in
+> struct socket_wq and moved SOCKWQ_ASYNC_NOSPACE and SOCKWQ_ASYNC_WAITDATA
+> from struct socket's flags member into that new place.
 > 
-> There is another option: in the case of truncated read, we could simply
-> take the first branch where copying is separated from checksumming. This
-> would be less efficient, obviously, but I must admit I have no idea how
-> much.
+> Unfortunately, the new flags field is never initialized properly, at least
+> not for the struct socket_wq instance created in sock_alloc_inode().
 > 
-> > I am considering a revert of my
-> > buggy patch, and use what Eric Dumazet suggested instead:
-> > 
-> > https://patchwork.ozlabs.org/patch/543562/
-> > 
-> > What do you think?
+> One particular issue I encountered because of this is that my GNU Emacs
+> failed to draw anything on my desktop -- i.e. what I got is a transparent
+> window, including the title bar. Bisection lead to the commit mentioned
+> above and further investigation by means of strace told me that Emacs
+> is indeed speaking to my Xorg through an O_ASYNC AF_UNIX socket. This is
+> reproducible 100% of times and the fact that properly initializing the
+> struct socket_wq ->flags fixes the issue leads me to the conclusion that
+> somehow SOCKWQ_ASYNC_NOSPACE got set in the uninitialized ->flags,
+> preventing my Emacs from receiving any SIGIO's due to send space becoming
+> available again and it got stuck.
 > 
-> I believe that would work. I have a little bad feeling about such
-> solution as it would keep the function broken and just rely on not
-> hitting it in the case when it matters. But it worked that way for quite
-> some time so it's probably safe.
+> Make sock_alloc_inode() set the newly created struct socket_wq's ->flags
+> member to zero.
+> 
+> Signed-off-by: Nicolai Stange <nicstange@gmail.com>
+> ---
+>  net/socket.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/socket.c b/net/socket.c
+> index 29822d6..d730ef9 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -257,6 +257,7 @@ static struct inode *sock_alloc_inode(struct super_block *sb)
+>  	}
+>  	init_waitqueue_head(&wq->wait);
+>  	wq->fasync_list = NULL;
+> +	wq->flags = 0;
+>  	RCU_INIT_POINTER(ei->socket.wq, wq);
+>  
+>  	ei->socket.state = SS_UNCONNECTED;
 
-For the record, this is what we are using here at Google on our prod
-kernel.
+Thanks a lot Nicolai for finding this.
+I completely overlooked this initial value.
 
-Sabrina, I certainly can send the patch for net-next kernel, as this
-does not fix a bug for current kernels, but backporting it would be
-indeed a way to fix the issue for old kernels.
+I checked other places where 'struct socket_wq' were allocated and they
+look fine.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
