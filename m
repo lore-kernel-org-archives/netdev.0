@@ -1,92 +1,119 @@
 From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH net-next v2 00/10] be2net: patch set
-Date: Mon, 28 Dec 2015 01:49:14 -0500
-Message-ID: <1451285364-9074-1-git-send-email-sathya.perla@avagotech.com>
+Subject: [PATCH net-next v2 01/10] be2net: fix VF link state transition from disabled to auto
+Date: Mon, 28 Dec 2015 01:49:15 -0500
+Message-ID: <1451285364-9074-2-git-send-email-sathya.perla@avagotech.com>
+References: <1451285364-9074-1-git-send-email-sathya.perla@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:54924 "EHLO
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:54925 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751011AbbL1Gt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 01:49:28 -0500
+	by vger.kernel.org with ESMTP id S1751221AbbL1Gt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 01:49:29 -0500
+In-Reply-To: <1451285364-9074-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-The following patch set contains some feature additions, code re-organization
-and cleanup and a few non-critical fixes. Pls consider applying this to
-the net-next tree. Thanks.
+From: Suresh Reddy <suresh.reddy@avagotech.com>
 
-v2 changes: replaced an if/else block that checks for error values with a
-switch/case statement in patch 5.
+The VF link state setting transition from "disable" to "auto" does not work
+due to a bug in SET_LOGICAL_LINK_CONFIG_V1 cmd in FW. This issue could not
+be fixed in FW due to some backward compatibility issues it causes with
+some released drivers. The issue has been fixed by introducing a new
+version (v2) of the cmd from 10.6 FW onwards. In v2, to set the VF link
+state to auto, both PLINK_ENABLE and PLINK_TRACK bits have to be set to 1.
 
-Patch 1 fixes VF link state transition from disabled to auto that did
-not work due to an issue in the FW. This issue could not be fixed in FW due
-to some backward compatibility issues it causes with released drivers.
-The issue has been fixed by introducing a new version (v2) of the cmd
-from 10.6 FW onwards. This patch adds support for v2 version of this cmd.
+The VF link state setting feature now works on Lancer chips too from
+FW ver 10.6.315.0 onwards.
 
-Patch 2 reports a EOPNOTSUPP status to ethtool when the user tries to
-configure BE3/SRIOV in VEPA mode as it is not supported by the chip.
+Signed-off-by: Suresh Reddy <suresh.reddy@avagotech.com>
+Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 35 +++++++++++++++++++++--------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |  3 ++-
+ 2 files changed, 28 insertions(+), 10 deletions(-)
 
-Patch 3 cleansup FW flash image related constant definitions. Many of these
-definitions (such as section offset values) were defined in decimal format
-rather than hexa-decimal. This makes this part of the code un-readable.
-Also some defines related to BE2 are labeld "g2" and defines related to BE3
-are labeled "g3".  This patch cleans up all of this to make this code more
-readable.
-
-Patch 4 moves the FW cmd code to be_cmds.c. All code relating to FW cmds
-has been in be_cmds.[ch], excepting FW flash cmd related code.
-This patch moves these routines from be_main.c to be_cmds.c.
-
-Patch 5 adds a log message to report digital signature errors while
-flashing a FW image. From FW version 11.0 onwards, the FW supports a new
-"secure mode" feature (based on a jumper setting on the adapter.) In this
-mode, the FW image when flashed is authenticated with a digital signature.
-
-Patch 6 removes a line of code that has no effect.
-
-Patch 7 removes some unused variables.
-
-Patch 8 fixes port resource descriptor query via the GET_PROFILE FW cmd.
-An earlier commit passed a specific pf_num while issuing this cmd as FW
-returns descriptors for all functions when pf_num is zero. But, when pf_num
-is set to a non-zero value, FW does not return the port resource descriptor.
-This patch fixes this by setting pf_num to 0 while issuing the query cmd
-and adds code to pick the correct NIC resource descriptor from the list of
-descriptors returned by FW.
-
-Patch 9 adds support for ethtool get-dump feature. In the past when this
-option was not yet available, this feature was supported via the
---register-dump option as a workaround.  This patch removes support for
-FW-dump via --register-dump option as it is now available via --get-dump
-option. Even though the "ethtool --register-dump" cmd which used to work
-earlier, will now fail with ENOTSUPP error, we feel it is not an issue as
-this is used only for diagnostics purpose.
-
-Patch 10 bumps up the driver version.
-Sathya Perla (1):
-  be2net: remove a line of code that has no effect
-
-Suresh Reddy (7):
-  be2net: fix VF link state transition from disabled to auto
-  be2net: avoid configuring VEPA mode on BE3
-  be2net: cleanup FW flash image related macro defines
-  be2net: move FW flash cmd code to be_cmds.c
-  be2net: log digital signature errors while flashing FW image
-  be2net: fix port-res desc query of GET_PROFILE_CONFIG FW cmd
-  be2net: bump up the driver version to 11.0.0.0
-
-Venkat Duvvuru (2):
-  be2net: remove unused error variables
-  be2net: support ethtool get-dump option
-
- drivers/net/ethernet/emulex/benet/be.h         |  13 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c    | 755 ++++++++++++++++++++++---
- drivers/net/ethernet/emulex/benet/be_cmds.h    | 178 +++---
- drivers/net/ethernet/emulex/benet/be_ethtool.c |  82 ++-
- drivers/net/ethernet/emulex/benet/be_main.c    | 588 +------------------
- 5 files changed, 840 insertions(+), 776 deletions(-)
-
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 1795c93..8083eca 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -4260,16 +4260,13 @@ err:
+ 	return status;
+ }
+ 
+-int be_cmd_set_logical_link_config(struct be_adapter *adapter,
+-				   int link_state, u8 domain)
++int __be_cmd_set_logical_link_config(struct be_adapter *adapter,
++				     int link_state, int version, u8 domain)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_set_ll_link *req;
+ 	int status;
+ 
+-	if (BEx_chip(adapter) || lancer_chip(adapter))
+-		return -EOPNOTSUPP;
+-
+ 	spin_lock_bh(&adapter->mcc_lock);
+ 
+ 	wrb = wrb_from_mccq(adapter);
+@@ -4284,14 +4281,15 @@ int be_cmd_set_logical_link_config(struct be_adapter *adapter,
+ 			       OPCODE_COMMON_SET_LOGICAL_LINK_CONFIG,
+ 			       sizeof(*req), wrb, NULL);
+ 
+-	req->hdr.version = 1;
++	req->hdr.version = version;
+ 	req->hdr.domain = domain;
+ 
+-	if (link_state == IFLA_VF_LINK_STATE_ENABLE)
+-		req->link_config |= 1;
++	if (link_state == IFLA_VF_LINK_STATE_ENABLE ||
++	    link_state == IFLA_VF_LINK_STATE_AUTO)
++		req->link_config |= PLINK_ENABLE;
+ 
+ 	if (link_state == IFLA_VF_LINK_STATE_AUTO)
+-		req->link_config |= 1 << PLINK_TRACK_SHIFT;
++		req->link_config |= PLINK_TRACK;
+ 
+ 	status = be_mcc_notify_wait(adapter);
+ err:
+@@ -4299,6 +4297,25 @@ err:
+ 	return status;
+ }
+ 
++int be_cmd_set_logical_link_config(struct be_adapter *adapter,
++				   int link_state, u8 domain)
++{
++	int status;
++
++	if (BEx_chip(adapter))
++		return -EOPNOTSUPP;
++
++	status = __be_cmd_set_logical_link_config(adapter, link_state,
++						  2, domain);
++
++	/* Version 2 of the command will not be recognized by older FW.
++	 * On such a failure issue version 1 of the command.
++	 */
++	if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST)
++		status = __be_cmd_set_logical_link_config(adapter, link_state,
++							  1, domain);
++	return status;
++}
+ int be_roce_mcc_cmd(void *netdev_handle, void *wrb_payload,
+ 		    int wrb_payload_size, u16 *cmd_status, u16 *ext_status)
+ {
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 91155ea..9690c3a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -2246,7 +2246,8 @@ struct be_cmd_resp_get_iface_list {
+ };
+ 
+ /*************** Set logical link ********************/
+-#define PLINK_TRACK_SHIFT	8
++#define PLINK_ENABLE            BIT(0)
++#define PLINK_TRACK             BIT(8)
+ struct be_cmd_req_set_ll_link {
+ 	struct be_cmd_req_hdr hdr;
+ 	u32 link_config; /* Bit 0: UP_DOWN, Bit 9: PLINK */
 -- 
 2.4.1
