@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] Driver for IBM System i/p VNIC protocol
-Date: Mon, 28 Dec 2015 00:12:49 -0500 (EST)
-Message-ID: <20151228.001249.1417336567416640306.davem@davemloft.net>
-References: <1450718766-22605-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/4] net: ethernet: arc: Probe emac after set RMII clock
+Date: Mon, 28 Dec 2015 00:14:05 -0500 (EST)
+Message-ID: <20151228.001405.88987723928137143.davem@davemloft.net>
+References: <1450862390-407-1-git-send-email-zhengxing@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	nfont@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
-	nguyendo@us.ibm.com, formosa@us.ibm.com, tyreld@linux.vnet.ibm.com,
-	jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
+Cc: linux-rockchip@lists.infradead.org, keescook@google.com,
+	leozwang@google.com, heiko@sntech.de, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: zhengxing@rock-chips.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45462 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45472 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbbL1FNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 00:13:21 -0500
-In-Reply-To: <1450718766-22605-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+	with ESMTP id S1750717AbbL1FOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 00:14:08 -0500
+In-Reply-To: <1450862390-407-1-git-send-email-zhengxing@rock-chips.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Mon, 21 Dec 2015 11:26:06 -0600
 
-> This is a new device driver for a high performance SR-IOV assisted virtual
-> network for IBM System p and IBM System i systems.  The SR-IOV VF will be
-> attached to the VIOS partition and mapped to the Linux client via the
-> hypervisor's VNIC protocol that this driver implements.
-> 
-> This driver is able to perform basic tx and rx, new features
-> and improvements will be added as they are being developed and tested.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
+I only see 3 patches in this series.
 
-Applied, thanks.
+Furthermore, you failed to provide a proper "[PATCH 0/4] xxx" posting
+providing a high level description of what this series is doing, and
+how it is doing it, and why.
+
+Thanks.
