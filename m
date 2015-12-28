@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: use GFP_USER for user-controlled kmalloc
-Date: Mon, 28 Dec 2015 00:15:02 -0500 (EST)
-Message-ID: <20151228.001502.759949840855732365.davem@davemloft.net>
-References: <CACT4Y+Ztb5cw2SGqxHiOBq9FgDs3J12Wk9iG0NaNvdunM_ex-w@mail.gmail.com>
-	<e03c1ba5fef1bc2572475d7796290ca8acb95794.1450895185.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 0/2] r8169:Update RTL8168H PHY parameters
+Date: Mon, 28 Dec 2015 00:20:51 -0500 (EST)
+Message-ID: <20151228.002051.2028158375214836111.davem@davemloft.net>
+References: <1450962927-19077-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	vyasevich@gmail.com, nhorman@tuxdriver.com, dvyukov@google.com,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
-	edumazet@google.com
-To: marcelo.leitner@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e03c1ba5fef1bc2572475d7796290ca8acb95794.1450895185.git.marcelo.leitner@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45514 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763AbbL1FUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 00:20:53 -0500
+In-Reply-To: <1450962927-19077-1-git-send-email-hau@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Wed, 23 Dec 2015 16:28:40 -0200
+From: Chunhao Lin <hau@realtek.com>
+Date: Thu, 24 Dec 2015 21:15:25 +0800
 
-> Commit cacc06215271 ("sctp: use GFP_USER for user-controlled kmalloc")
-> missed two other spots.
-> 
-> For connectx, as it's more likely to be used by kernel users of the API,
-> it detects if GFP_USER should be used or not.
-> 
-> Fixes: cacc06215271 ("sctp: use GFP_USER for user-controlled kmalloc")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Fix typo in setting PHY parameter and update the way of reading PHY register
+> "rg_saw_cnt".
 
-Applied.
+Series applied, thanks.
