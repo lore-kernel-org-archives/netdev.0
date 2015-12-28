@@ -1,128 +1,120 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
- skb_copy_and_csum_datagram_iovec()
-Date: Mon, 28 Dec 2015 16:38:36 +0100
-Message-ID: <20151228153836.GA28529@unicorn.suse.cz>
-References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
- <20151228142942.GA7394@bistromath.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, stable@vger.kernel.org,
-	Jiri Slaby <jslaby@suse.cz>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
+From: Geliang Tang <geliangtang@163.com>
+Subject: [PATCH 1/3] batman-adv: use to_delayed_work
+Date: Mon, 28 Dec 2015 23:43:37 +0800
+Message-ID: <2c0e66fe07809e4069df34cbeba51583ad943c7a.1451317025.git.geliangtang@163.com>
+Cc: Geliang Tang <geliangtang@163.com>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Antonio Quartulli <a@unstable.cc>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:51738 "EHLO mx2.suse.de"
+Received: from m50-132.163.com ([123.125.50.132]:43705 "EHLO m50-132.163.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751548AbbL1Pii (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Dec 2015 10:38:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20151228142942.GA7394@bistromath.redhat.com>
+	id S1751288AbbL1Pp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2015 10:45:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 28, 2015 at 03:29:42PM +0100, Sabrina Dubroca wrote:
-> 2015-12-28, 15:01:57 +0100, Michal Kubecek wrote:
-> > Recent fix "net: add length argument to
-> > skb_copy_and_csum_datagram_iovec" added to some pre-3.19 stable
-> > branches, namely
-> > 
-> >   stable-3.2.y: commit 127500d724f8
-> >   stable-3.12.y: commit 3e1ac3aafbd0
-> > 
-> > doesn't handle truncated reads correctly. If read length is shorter than
-> > incoming datagram (but non-zero) and first segment of target iovec is
-> > sufficient for read length, skb_copy_and_csum_datagram() is used to copy
-> > checksum the data while copying it. For truncated reads this means only
-> > the copied part is checksummed (rather than the whole datagram) so that
-> > the check almost always fails.
-> 
-> I just ran into this issue too, sorry I didn't notice it earlier :(
-> 
-> > Add checksum of the remaining part so that the proper checksum of the
-> > whole datagram is computed and checked. Special care must be taken if
-> > the copied length is odd.
-> > 
-> > For zero read length, we don't have to copy anything but we still should
-> > check the checksum so that a peek doesn't return with a datagram which
-> > is invalid and wouldn't be returned by an actual read.
-> > 
-> > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> > ---
-> >  net/core/datagram.c | 26 +++++++++++++++++++++-----
-> >  1 file changed, 21 insertions(+), 5 deletions(-)
-> > 
-> > diff --git a/net/core/datagram.c b/net/core/datagram.c
-> > index f22f120771ef..af4bf368257c 100644
-> > --- a/net/core/datagram.c
-> > +++ b/net/core/datagram.c
-> > @@ -809,13 +809,14 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
-> >  				     int hlen, struct iovec *iov, int len)
-> >  {
-> >  	__wsum csum;
-> > -	int chunk = skb->len - hlen;
-> > +	int full_chunk = skb->len - hlen;
-> > +	int chunk = min_t(int, full_chunk, len);
-> >  
-> > -	if (chunk > len)
-> > -		chunk = len;
-> > -
-> > -	if (!chunk)
-> > +	if (!chunk) {
-> > +		if (__skb_checksum_complete(skb))
-> > +			goto csum_error;
-> >  		return 0;
-> > +	}
-> >  
-> >  	/* Skip filled elements.
-> >  	 * Pretty silly, look at memcpy_toiovec, though 8)
-> > @@ -833,6 +834,21 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
-> >  		if (skb_copy_and_csum_datagram(skb, hlen, iov->iov_base,
-> >  					       chunk, &csum))
-> >  			goto fault;
-> > +		if (full_chunk > chunk) {
-> > +			if (chunk % 2) {
-> > +				__be16 odd = 0;
-> > +
-> > +				if (skb_copy_bits(skb, hlen + chunk,
-> > +						  (char *)&odd + 1, 1))
-> > +					goto fault;
-> > +				csum = add32_with_carry(odd, csum);
-> > +				csum = skb_checksum(skb, hlen + chunk + 1,
-> > +						    full_chunk - chunk - 1,
-> > +						    csum);
-> > +			} else
-> > +				csum = skb_checksum(skb, hlen + chunk,
-> > +						    full_chunk - chunk, csum);
-> > +		}
-> >  		if (csum_fold(csum))
-> >  			goto csum_error;
-> >  		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
-> > -- 
-> > 2.6.4
-> 
-> 
-> This adds quite a bit of complexity.
+Use to_delayed_work() instead of open-coding it.
 
-I'm not really happy about it either. :-( Most of the complexity comes
-from the corner case when one 16-bit word is divided between the copied
-part and the rest - but I can't see a nicer way to handle it.
+Signed-off-by: Geliang Tang <geliangtang@163.com>
+---
+ net/batman-adv/bridge_loop_avoidance.c | 2 +-
+ net/batman-adv/distributed-arp-table.c | 2 +-
+ net/batman-adv/network-coding.c        | 2 +-
+ net/batman-adv/originator.c            | 2 +-
+ net/batman-adv/send.c                  | 4 ++--
+ net/batman-adv/translation-table.c     | 2 +-
+ 6 files changed, 7 insertions(+), 7 deletions(-)
 
-There is another option: in the case of truncated read, we could simply
-take the first branch where copying is separated from checksumming. This
-would be less efficient, obviously, but I must admit I have no idea how
-much.
-
-> I am considering a revert of my
-> buggy patch, and use what Eric Dumazet suggested instead:
-> 
-> https://patchwork.ozlabs.org/patch/543562/
-> 
-> What do you think?
-
-I believe that would work. I have a little bad feeling about such
-solution as it would keep the function broken and just rely on not
-hitting it in the case when it matters. But it worked that way for quite
-some time so it's probably safe.
-
-                                                          Michal Kubecek
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 99dcae3..4f47c82 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -1183,7 +1183,7 @@ static void batadv_bla_periodic_work(struct work_struct *work)
+ 	struct batadv_hard_iface *primary_if;
+ 	int i;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	priv_bla = container_of(delayed_work, struct batadv_priv_bla, work);
+ 	bat_priv = container_of(priv_bla, struct batadv_priv, bla);
+ 	primary_if = batadv_primary_if_get_selected(bat_priv);
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index a49c705..64facfc 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -138,7 +138,7 @@ static void batadv_dat_purge(struct work_struct *work)
+ 	struct batadv_priv_dat *priv_dat;
+ 	struct batadv_priv *bat_priv;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	priv_dat = container_of(delayed_work, struct batadv_priv_dat, work);
+ 	bat_priv = container_of(priv_dat, struct batadv_priv, dat);
+ 
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
+index f5276be..a5ffe20 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -700,7 +700,7 @@ static void batadv_nc_worker(struct work_struct *work)
+ 	struct batadv_priv *bat_priv;
+ 	unsigned long timeout;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	priv_nc = container_of(delayed_work, struct batadv_priv_nc, work);
+ 	bat_priv = container_of(priv_nc, struct batadv_priv, nc);
+ 
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 3c782a33..0eb5d01 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -1232,7 +1232,7 @@ static void batadv_purge_orig(struct work_struct *work)
+ 	struct delayed_work *delayed_work;
+ 	struct batadv_priv *bat_priv;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	bat_priv = container_of(delayed_work, struct batadv_priv, orig_work);
+ 	_batadv_purge_orig(bat_priv);
+ 	queue_delayed_work(batadv_event_workqueue,
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index f664324..848ce65 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -506,7 +506,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ 	struct net_device *soft_iface;
+ 	struct batadv_priv *bat_priv;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	forw_packet = container_of(delayed_work, struct batadv_forw_packet,
+ 				   delayed_work);
+ 	soft_iface = forw_packet->if_incoming->soft_iface;
+@@ -559,7 +559,7 @@ void batadv_send_outstanding_bat_ogm_packet(struct work_struct *work)
+ 	struct batadv_forw_packet *forw_packet;
+ 	struct batadv_priv *bat_priv;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	forw_packet = container_of(delayed_work, struct batadv_forw_packet,
+ 				   delayed_work);
+ 	bat_priv = netdev_priv(forw_packet->if_incoming->soft_iface);
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index ec67def..ed6fcc7 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -3157,7 +3157,7 @@ static void batadv_tt_purge(struct work_struct *work)
+ 	struct batadv_priv_tt *priv_tt;
+ 	struct batadv_priv *bat_priv;
+ 
+-	delayed_work = container_of(work, struct delayed_work, work);
++	delayed_work = to_delayed_work(work);
+ 	priv_tt = container_of(delayed_work, struct batadv_priv_tt, work);
+ 	bat_priv = container_of(priv_tt, struct batadv_priv, tt);
+ 
+-- 
+2.5.0
