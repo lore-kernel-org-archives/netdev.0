@@ -1,150 +1,36 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH] unix: properly account for FDs passed over unix sockets
-Date: Mon, 28 Dec 2015 15:14:35 +0100
-Message-ID: <20151228141435.GA13351@1wt.eu>
+From: pavi1729 <pavitra1729@gmail.com>
+Subject: skb_clone query
+Date: Mon, 28 Dec 2015 19:48:24 +0530
+Message-ID: <CAMf7+LgvSXpt98T5ty_yq-cZoGnRe5Hkz-5r7D3AyOwH27yxaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	socketpair@gmail.com
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:38196 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbbL1OSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 09:18:24 -0500
+Received: by mail-ig0-f173.google.com with SMTP id mw1so21770798igb.1
+        for <netdev@vger.kernel.org>; Mon, 28 Dec 2015 06:18:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is possible for a process to allocate and accumulate far more FDs than
-the process' limit by sending them over a unix socket then closing them
-to keep the process' fd count low.
+Hi,
+  Just out of curisity, I was looking at Kernel 3.14, skb_clone
+function in f_ncm.c
 
-This change addresses this problem by keeping track of the number of FDs
-in flight per user and preventing non-privileged processes from having
-more FDs in flight than their configured FD limit.
+http://lxr.free-electrons.com/source/drivers/usb/gadget/f_ncm.c?v=3.14#L1063
 
-Reported-by: socketpair@gmail.com
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Willy Tarreau <w@1wt.eu>
----
-It would be nice if (if accepted) it would be backported to -stable as the
-issue is currently exploitable.
----
- include/linux/sched.h |  1 +
- net/unix/af_unix.c    | 24 ++++++++++++++++++++----
- net/unix/garbage.c    | 13 ++++++++-----
- 3 files changed, 29 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index edad7a4..fbf25f1 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -830,6 +830,7 @@ struct user_struct {
- 	unsigned long mq_bytes;	/* How many bytes can be allocated to mqueue? */
- #endif
- 	unsigned long locked_shm; /* How many pages of mlocked shm ? */
-+	unsigned long unix_inflight;	/* How many files in flight in unix sockets */
- 
- #ifdef CONFIG_KEYS
- 	struct key *uid_keyring;	/* UID specific keyring */
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 45aebd9..d6d7b43 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1499,6 +1499,21 @@ static void unix_destruct_scm(struct sk_buff *skb)
- 	sock_wfree(skb);
- }
- 
-+/*
-+ * The "user->unix_inflight" variable is protected by the garbage
-+ * collection lock, and we just read it locklessly here. If you go
-+ * over the limit, there might be a tiny race in actually noticing
-+ * it across threads. Tough.
-+ */
-+static inline bool too_many_unix_fds(struct task_struct *p)
-+{
-+	struct user_struct *user = current_user();
-+
-+	if (unlikely(user->unix_inflight > task_rlimit(p, RLIMIT_NOFILE)))
-+		return !capable(CAP_SYS_RESOURCE) && !capable(CAP_SYS_ADMIN);
-+	return false;
-+}
-+
- #define MAX_RECURSION_LEVEL 4
- 
- static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
-@@ -1507,6 +1522,9 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	unsigned char max_level = 0;
- 	int unix_sock_count = 0;
- 
-+	if (too_many_unix_fds(current))
-+		return -ETOOMANYREFS;
-+
- 	for (i = scm->fp->count - 1; i >= 0; i--) {
- 		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
- 
-@@ -1528,10 +1546,8 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	if (!UNIXCB(skb).fp)
- 		return -ENOMEM;
- 
--	if (unix_sock_count) {
--		for (i = scm->fp->count - 1; i >= 0; i--)
--			unix_inflight(scm->fp->fp[i]);
--	}
-+	for (i = scm->fp->count - 1; i >= 0; i--)
-+		unix_inflight(scm->fp->fp[i]);
- 	return max_level;
- }
- 
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index a73a226..8fcdc22 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -120,11 +120,11 @@ void unix_inflight(struct file *fp)
- {
- 	struct sock *s = unix_get_socket(fp);
- 
-+	spin_lock(&unix_gc_lock);
-+
- 	if (s) {
- 		struct unix_sock *u = unix_sk(s);
- 
--		spin_lock(&unix_gc_lock);
--
- 		if (atomic_long_inc_return(&u->inflight) == 1) {
- 			BUG_ON(!list_empty(&u->link));
- 			list_add_tail(&u->link, &gc_inflight_list);
-@@ -132,25 +132,28 @@ void unix_inflight(struct file *fp)
- 			BUG_ON(list_empty(&u->link));
- 		}
- 		unix_tot_inflight++;
--		spin_unlock(&unix_gc_lock);
- 	}
-+	fp->f_cred->user->unix_inflight++;
-+	spin_unlock(&unix_gc_lock);
- }
- 
- void unix_notinflight(struct file *fp)
- {
- 	struct sock *s = unix_get_socket(fp);
- 
-+	spin_lock(&unix_gc_lock);
-+
- 	if (s) {
- 		struct unix_sock *u = unix_sk(s);
- 
--		spin_lock(&unix_gc_lock);
- 		BUG_ON(list_empty(&u->link));
- 
- 		if (atomic_long_dec_and_test(&u->inflight))
- 			list_del_init(&u->link);
- 		unix_tot_inflight--;
--		spin_unlock(&unix_gc_lock);
- 	}
-+	fp->f_cred->user->unix_inflight--;
-+	spin_unlock(&unix_gc_lock);
- }
- 
- static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
--- 
-1.7.12.1
+QUERY : Shouldn't a kfree_skb(skb2); happen before goto err @1070 ?
+              Is this not a memleak ?
+
+
+1068           if (!skb_pull(skb2, index)) {
+1069                         ret = -EOVERFLOW;
+1070                         goto err;
+1071           }
+
+
+Thanks,
+Pavi
