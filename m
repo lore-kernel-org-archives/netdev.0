@@ -1,27 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] r8169:Update RTL8168H PHY parameters
-Date: Mon, 28 Dec 2015 00:20:51 -0500 (EST)
-Message-ID: <20151228.002051.2028158375214836111.davem@davemloft.net>
-References: <1450962927-19077-1-git-send-email-hau@realtek.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] sh_eth: remove EDMAC_BIG_ENDIAN
+Date: Mon, 28 Dec 2015 16:32:21 +1100
+Message-ID: <20151228053220.GG1066@verge.net.au>
+References: <27915743.MLN0FvErP3@wasted.cogentembedded.com>
+ <1789816.9Rg3E9smcf@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: hau@realtek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45514 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbbL1FUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 00:20:53 -0500
-In-Reply-To: <1450962927-19077-1-git-send-email-hau@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1789816.9Rg3E9smcf@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chunhao Lin <hau@realtek.com>
-Date: Thu, 24 Dec 2015 21:15:25 +0800
+On Mon, Dec 28, 2015 at 02:07:08AM +0300, Sergei Shtylyov wrote:
+> Commit  71557a37adb5 ("[netdrvr] sh_eth: Add SH7619 support") added support
+> for the big-endian EDMAC descriptors. However, it was never used and never
+> worked right until the recent driver  fixes. I think we now  can just remove
+> this support,  it was only burdening the driver from the start. It should be
+> easy to do without disturbing the SH platform code, at least for now...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> Fix typo in setting PHY parameter and update the way of reading PHY register
-> "rg_saw_cnt".
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
 
-Series applied, thanks.
