@@ -1,53 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCHv2 net-next 0/3] Ethtool support for phy stats
-Date: Mon, 28 Dec 2015 09:27:25 -0800
-Message-ID: <ACCDAA4E-5186-4920-BC1E-4A5D4D55F4EE@gmail.com>
-References: <1451217508-22276-1-git-send-email-andrew@lunn.ch> <20151228.003243.762236700442924187.davem@davemloft.net> <20151228.004427.1444978630699405304.davem@davemloft.net> <20151228085825.GA30297@lunn.ch>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] /drivers/net/wireless/ath/ath9k remove unnecessary ?:
+ operator
+Date: Mon, 28 Dec 2015 09:56:52 -0800
+Message-ID: <1451325412.3219.12.camel@perches.com>
+References: <20151228134852.GA10572@alpha.sfu-kras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:34916 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbbL1Rut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 12:50:49 -0500
-Received: by mail-ob0-f170.google.com with SMTP id 18so238119341obc.2
-        for <netdev@vger.kernel.org>; Mon, 28 Dec 2015 09:50:49 -0800 (PST)
-In-Reply-To: <20151228085825.GA30297@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ivan Safonov <insafonov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151228134852.GA10572-99FyVxquhxHwodmfrJTGkIdd74u8MsAO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On December 28, 2015 12:58:25 AM PST, Andrew Lunn <andrew@lunn.ch> wrote:
->On Mon, Dec 28, 2015 at 12:44:27AM -0500, David Miller wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Mon, 28 Dec 2015 00:32:43 -0500 (EST)
->> 
->> > From: Andrew Lunn <andrew@lunn.ch>
->> > Date: Sun, 27 Dec 2015 12:58:25 +0100
->> > 
->> >> This patchset add ethtool support for reading statistics from the
->PHY.
->> >> The Marvell and Micrel Phys are then extended to report receiver
->> >> packet errors and idle errors.
->> >> 
->> >> v2:
->> >>   Fix linking when phylib is not enabled.
->> > 
->> > Series applied, thanks Andrew.
->> 
->> I have to revert this.
->> 
->> You can't call into PHY library code from net/core/ethtool.c,
->> because PHY lib can be modular.
->
->O.K.
->
->How about we change PHYLIB from a tristate to a bool?
+On Mon, 2015-12-28 at 20:48 +0700, Ivan Safonov wrote:
+> ((thermometer < 0) ? 0 : (thermometer =3D=3D X)) and (thermometer =3D=
+=3D X) are equal for X >=3D 0.
 
-Could we make this in a two layer design instead? Core ethtool changes call into getter functions which are implemented by the netdev driver, if the netdev driver happens to use PHYLIB, calls into the PHYLIB helpers with its phydev? That would also allow a network driver already supporting PHY stats to report them through your new interface.
+X is not guaranteed to be >=3D 0 here
 
--- 
-Florian
+> Signed-off-by: Ivan Safonov <insafonov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> =A0drivers/net/wireless/ath/ath9k/ar9003_eeprom.c | 6 +++---
+> =A01 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c b/drivers=
+/net/wireless/ath/ath9k/ar9003_eeprom.c
+[]
+> @@ -4097,16 +4097,16 @@ static void ar9003_hw_thermometer_apply(struc=
+t ath_hw *ah)
+> =A0		REG_RMW_FIELD(ah, AR_PHY_65NM_CH2_RXTX4,
+> =A0			=A0=A0=A0=A0=A0=A0AR_PHY_65NM_CH0_RXTX4_THERM_ON_OVR, therm_on)=
+;
+> =A0
+> -	therm_on =3D (thermometer < 0) ? 0 : (thermometer =3D=3D 0);
+> +	therm_on =3D thermometer =3D=3D 0;
+
+This code is not equivalent.
+
+Check what happens when thermometer is -1.
+
+> =A0	REG_RMW_FIELD(ah, AR_PHY_65NM_CH0_RXTX4,
+> =A0		=A0=A0=A0=A0=A0=A0AR_PHY_65NM_CH0_RXTX4_THERM_ON, therm_on);
+> =A0	if (pCap->chip_chainmask & BIT(1)) {
+> -		therm_on =3D (thermometer < 0) ? 0 : (thermometer =3D=3D 1);
+> +		therm_on =3D thermometer =3D=3D 1;
+> =A0		REG_RMW_FIELD(ah, AR_PHY_65NM_CH1_RXTX4,
+> =A0			=A0=A0=A0=A0=A0=A0AR_PHY_65NM_CH0_RXTX4_THERM_ON, therm_on);
+> =A0	}
+> =A0	if (pCap->chip_chainmask & BIT(2)) {
+> -		therm_on =3D (thermometer < 0) ? 0 : (thermometer =3D=3D 2);
+> +		therm_on =3D thermometer =3D=3D 2;
+> =A0		REG_RMW_FIELD(ah, AR_PHY_65NM_CH2_RXTX4,
+> =A0			=A0=A0=A0=A0=A0=A0AR_PHY_65NM_CH0_RXTX4_THERM_ON, therm_on);
+> =A0	}
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
