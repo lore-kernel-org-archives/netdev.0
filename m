@@ -1,47 +1,39 @@
-From: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] mwifiex: correctly handling kzalloc
-Date: Tue, 29 Dec 2015 14:55:25 -0500
-Message-ID: <1451418925-11735-1-git-send-email-wuninsu@gmail.com>
-Cc: taesoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, yeongjin.jang-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, insu-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org,
-	changwoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Insu Yun <wuninsu@gmail.com>
+Subject: [PATCH] qlcnic: correctly handle qlcnic_alloc_mbx_args
+Date: Tue, 29 Dec 2015 15:02:18 -0500
+Message-ID: <1451419338-15198-1-git-send-email-wuninsu@gmail.com>
+Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
+	changwoo@gatech.edu, Insu Yun <wuninsu@gmail.com>
+To: Dept-GELinuxNICDev@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since kzalloc can be failed in memory pressure,
-it needs to be handled as above kzalloc.
+Since qlcnic_alloc_mbx_args can be failed, 
+return value should be checked.
 
-Signed-off-by: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Insu Yun <wuninsu@gmail.com>
 ---
- drivers/net/wireless/mwifiex/sdio.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/mwifiex/sdio.c b/drivers/net/wireless/mwifiex/sdio.c
-index 78a8474..d114934 100644
---- a/drivers/net/wireless/mwifiex/sdio.c
-+++ b/drivers/net/wireless/mwifiex/sdio.c
-@@ -2053,8 +2053,14 @@ static int mwifiex_init_sdio(struct mwifiex_adapter *adapter)
- 	/* Allocate skb pointer buffers */
- 	card->mpa_rx.skb_arr = kzalloc((sizeof(void *)) *
- 				       card->mp_agg_pkt_limit, GFP_KERNEL);
-+	if (!card->mpa_rx.skb_arr)
-+		return -ENOMEM;
-+
- 	card->mpa_rx.len_arr = kzalloc(sizeof(*card->mpa_rx.len_arr) *
- 				       card->mp_agg_pkt_limit, GFP_KERNEL);
-+	if (!card->mpa_rx.len_arr)
-+		return -ENOMEM;
-+
- 	ret = mwifiex_alloc_sdio_mpa_buffers(adapter,
- 					     card->mp_tx_agg_buf_size,
- 					     card->mp_rx_agg_buf_size);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index a5f422f..daf0515 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -772,8 +772,10 @@ int qlcnic_82xx_config_intrpt(struct qlcnic_adapter *adapter, u8 op_type)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < ahw->num_msix; i++) {
+-		qlcnic_alloc_mbx_args(&cmd, adapter,
+-				      QLCNIC_CMD_MQ_TX_CONFIG_INTR);
++		err = qlcnic_alloc_mbx_args(&cmd, adapter,
++					    QLCNIC_CMD_MQ_TX_CONFIG_INTR);
++		if (err)
++			return err;
+ 		type = op_type ? QLCNIC_INTRPT_ADD : QLCNIC_INTRPT_DEL;
+ 		val = type | (ahw->intr_tbl[i].type << 4);
+ 		if (ahw->intr_tbl[i].type == QLCNIC_INTRPT_MSIX)
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
