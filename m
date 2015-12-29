@@ -1,202 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv3 net-next 1/3] ethtool: Add phy statistics
-Date: Tue, 29 Dec 2015 20:51:22 +0100
-Message-ID: <1451418684-9238-2-git-send-email-andrew@lunn.ch>
-References: <1451418684-9238-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52204 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753916AbbL2Tv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 14:51:57 -0500
-In-Reply-To: <1451418684-9238-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] mwifiex: correctly handling kzalloc
+Date: Tue, 29 Dec 2015 14:55:25 -0500
+Message-ID: <1451418925-11735-1-git-send-email-wuninsu@gmail.com>
+Cc: taesoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, yeongjin.jang-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, insu-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org,
+	changwoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ethernet PHYs can maintain statistics, for example errors while idle
-and receive errors. Add an ethtool mechanism to retrieve these
-statistics, using the same model as MAC statistics.
+Since kzalloc can be failed in memory pressure,
+it needs to be handled as above kzalloc.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/linux/phy.h          |  6 ++++
- include/uapi/linux/ethtool.h |  3 ++
- net/core/ethtool.c           | 81 +++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 89 insertions(+), 1 deletion(-)
+ drivers/net/wireless/mwifiex/sdio.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 05fde31b6dc6..a89cb0eef911 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -589,6 +589,12 @@ struct phy_driver {
- 	int (*module_eeprom)(struct phy_device *dev,
- 			     struct ethtool_eeprom *ee, u8 *data);
- 
-+	/* Get statistics from the phy using ethtool */
-+	int (*get_sset_count)(struct phy_device *dev);
-+	void (*get_strings)(struct phy_device *dev, u8 *data);
-+	void (*get_stats)(struct phy_device *dev,
-+			  struct ethtool_stats *stats, u64 *data);
-+
- 	struct device_driver driver;
- };
- #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index cd1629170103..57fa39005e79 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -542,6 +542,7 @@ struct ethtool_pauseparam {
-  *	now deprecated
-  * @ETH_SS_FEATURES: Device feature names
-  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
-+ * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
-  */
- enum ethtool_stringset {
- 	ETH_SS_TEST		= 0,
-@@ -551,6 +552,7 @@ enum ethtool_stringset {
- 	ETH_SS_FEATURES,
- 	ETH_SS_RSS_HASH_FUNCS,
- 	ETH_SS_TUNABLES,
-+	ETH_SS_PHY_STATS,
- };
- 
- /**
-@@ -1225,6 +1227,7 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_SRSSH		0x00000047 /* Set RX flow hash configuration */
- #define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
- #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
-+#define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 09948a726347..42b3be6c55a2 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -191,6 +191,23 @@ static int ethtool_set_features(struct net_device *dev, void __user *useraddr)
- 	return ret;
- }
- 
-+int phy_get_sset_count(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	if (phydev->drv->get_sset_count &&
-+	    phydev->drv->get_strings &&
-+	    phydev->drv->get_stats) {
-+		mutex_lock(&phydev->lock);
-+		ret = phydev->drv->get_sset_count(phydev);
-+		mutex_unlock(&phydev->lock);
-+
-+		return ret;
-+	}
-+
-+	return -EOPNOTSUPP;
-+}
-+
- static int __ethtool_get_sset_count(struct net_device *dev, int sset)
- {
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
-@@ -204,6 +221,13 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
- 	if (sset == ETH_SS_TUNABLES)
- 		return ARRAY_SIZE(tunable_strings);
- 
-+	if (sset == ETH_SS_PHY_STATS) {
-+		if (dev->phydev)
-+			return phy_get_sset_count(dev->phydev);
-+		else
-+			return -EOPNOTSUPP;
-+	}
-+
- 	if (ops->get_sset_count && ops->get_strings)
- 		return ops->get_sset_count(dev, sset);
- 	else
-@@ -223,7 +247,17 @@ static void __ethtool_get_strings(struct net_device *dev,
- 		       sizeof(rss_hash_func_strings));
- 	else if (stringset == ETH_SS_TUNABLES)
- 		memcpy(data, tunable_strings, sizeof(tunable_strings));
--	else
-+	else if (stringset == ETH_SS_PHY_STATS) {
-+		struct phy_device *phydev = dev->phydev;
-+
-+		if (phydev) {
-+			mutex_lock(&phydev->lock);
-+			phydev->drv->get_strings(phydev, data);
-+			mutex_unlock(&phydev->lock);
-+		} else {
-+			return;
-+		}
-+	} else
- 		/* ops->get_strings is valid because checked earlier */
- 		ops->get_strings(dev, stringset, data);
- }
-@@ -1401,6 +1435,47 @@ static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
- 	return ret;
- }
- 
-+static int ethtool_get_phy_stats(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_stats stats;
-+	struct phy_device *phydev = dev->phydev;
-+	u64 *data;
-+	int ret, n_stats;
-+
-+	if (!phydev)
-+		return -EOPNOTSUPP;
-+
-+	n_stats = phy_get_sset_count(phydev);
-+
-+	if (n_stats < 0)
-+		return n_stats;
-+	WARN_ON(n_stats == 0);
-+
-+	if (copy_from_user(&stats, useraddr, sizeof(stats)))
-+		return -EFAULT;
-+
-+	stats.n_stats = n_stats;
-+	data = kmalloc_array(n_stats, sizeof(u64), GFP_USER);
-+	if (!data)
+diff --git a/drivers/net/wireless/mwifiex/sdio.c b/drivers/net/wireless/mwifiex/sdio.c
+index 78a8474..d114934 100644
+--- a/drivers/net/wireless/mwifiex/sdio.c
++++ b/drivers/net/wireless/mwifiex/sdio.c
+@@ -2053,8 +2053,14 @@ static int mwifiex_init_sdio(struct mwifiex_adapter *adapter)
+ 	/* Allocate skb pointer buffers */
+ 	card->mpa_rx.skb_arr = kzalloc((sizeof(void *)) *
+ 				       card->mp_agg_pkt_limit, GFP_KERNEL);
++	if (!card->mpa_rx.skb_arr)
 +		return -ENOMEM;
 +
-+	mutex_lock(&phydev->lock);
-+	phydev->drv->get_stats(phydev, &stats, data);
-+	mutex_unlock(&phydev->lock);
+ 	card->mpa_rx.len_arr = kzalloc(sizeof(*card->mpa_rx.len_arr) *
+ 				       card->mp_agg_pkt_limit, GFP_KERNEL);
++	if (!card->mpa_rx.len_arr)
++		return -ENOMEM;
 +
-+	ret = -EFAULT;
-+	if (copy_to_user(useraddr, &stats, sizeof(stats)))
-+		goto out;
-+	useraddr += sizeof(stats);
-+	if (copy_to_user(useraddr, data, stats.n_stats * sizeof(u64)))
-+		goto out;
-+	ret = 0;
-+
-+ out:
-+	kfree(data);
-+	return ret;
-+}
-+
- static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_perm_addr epaddr;
-@@ -1779,6 +1854,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GSSET_INFO:
- 	case ETHTOOL_GSTRINGS:
- 	case ETHTOOL_GSTATS:
-+	case ETHTOOL_GPHYSTATS:
- 	case ETHTOOL_GTSO:
- 	case ETHTOOL_GPERMADDR:
- 	case ETHTOOL_GUFO:
-@@ -1991,6 +2067,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_STUNABLE:
- 		rc = ethtool_set_tunable(dev, useraddr);
- 		break;
-+	case ETHTOOL_GPHYSTATS:
-+		rc = ethtool_get_phy_stats(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+ 	ret = mwifiex_alloc_sdio_mpa_buffers(adapter,
+ 					     card->mp_tx_agg_buf_size,
+ 					     card->mp_rx_agg_buf_size);
 -- 
-2.6.4
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
