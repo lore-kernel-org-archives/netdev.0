@@ -1,56 +1,63 @@
-From: Romain Perier <romain.perier@gmail.com>
-Subject: [PATCH] stmmac: Don't exit mdio registration when mdio subnode is not found in the DTS
-Date: Tue, 29 Dec 2015 15:05:35 +0100
-Message-ID: <1451397935-23643-1-git-send-email-romain.perier@gmail.com>
-Cc: netdev@vger.kernel.org, linux-rockchip@lists.infradead.org
-To: peppe.cavallaro@st.com
+From: Chunhao Lin <hau@realtek.com>
+Subject: [PATCH net-next 3/3] r8169:Correct the way of setting RTL8168DP ephy
+Date: Tue, 29 Dec 2015 22:13:39 +0800
+Message-ID: <1451398419-4816-4-git-send-email-hau@realtek.com>
+References: <1451398419-4816-1-git-send-email-hau@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Chunhao Lin <hau@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37662 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817AbbL2OFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 09:05:38 -0500
-Received: by mail-wm0-f44.google.com with SMTP id f206so43226533wmf.0
-        for <netdev@vger.kernel.org>; Tue, 29 Dec 2015 06:05:38 -0800 (PST)
+Received: from rtits2.realtek.com ([60.250.210.242]:60664 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753354AbbL2ONu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 09:13:50 -0500
+In-Reply-To: <1451398419-4816-1-git-send-email-hau@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Originally, most of the platforms using this driver did not define an mdio subnode
-in the devicetree. Commit e34d65 ("stmmac: create of compatible mdio bus for stmmac driver")
-introduced a backward compatibily issue by using of_mdiobus_register explicitly
-with an mdio subnode. This patch fixes the issue by calling the function
-mdiobus_register, when mdio subnode is not found. The driver is now compatible
-with both modes.
+The original way is wrong, it always writes ephy reg 0x03.
 
-Signed-off-by: Romain Perier <romain.perier@gmail.com>
+Signed-off-by: Chunhao Lin <hau@realtek.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 17 +++++------------
+ 1 file changed, 5 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 16c85cc..0034de44 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -218,8 +218,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 		if (mdio_node) {
- 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
- 		} else {
--			netdev_err(ndev, "NO MDIO subnode\n");
--			return 0;
-+			netdev_warn(ndev, "No MDIO subnode found\n");
- 		}
- 	}
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 629f5e5..aa24ba9 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5818,11 +5818,10 @@ static void rtl_hw_start_8168d_4(struct rtl8169_private *tp)
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	struct pci_dev *pdev = tp->pci_dev;
+ 	static const struct ephy_info e_info_8168d_4[] = {
+-		{ 0x0b, ~0,	0x48 },
+-		{ 0x19, 0x20,	0x50 },
+-		{ 0x0c, ~0,	0x20 }
+-	};
+-	int i;
++		{ 0x0b, 0x0000,	0x0048 },
++		{ 0x19, 0x0020,	0x0050 },
++		{ 0x0c, 0x0100,	0x0020 }
++ 	};
  
-@@ -251,7 +250,10 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	new_bus->phy_mask = mdio_bus_data->phy_mask;
- 	new_bus->parent = priv->device;
+ 	rtl_csi_access_enable_1(tp);
  
--	err = of_mdiobus_register(new_bus, mdio_node);
-+	if (IS_ENABLED(CONFIG_OF) && mdio_node)
-+		err = of_mdiobus_register(new_bus, mdio_node);
-+	else
-+		err = mdiobus_register(new_bus);
- 	if (err != 0) {
- 		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
- 		goto bus_register_fail;
+@@ -5830,13 +5829,7 @@ static void rtl_hw_start_8168d_4(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+-	for (i = 0; i < ARRAY_SIZE(e_info_8168d_4); i++) {
+-		const struct ephy_info *e = e_info_8168d_4 + i;
+-		u16 w;
+-
+-		w = rtl_ephy_read(tp, e->offset);
+-		rtl_ephy_write(tp, 0x03, (w & e->mask) | e->bits);
+-	}
++	rtl_ephy_init(tp, e_info_8168d_4, ARRAY_SIZE(e_info_8168d_4));
+ 
+ 	rtl_enable_clock_request(pdev);
+ }
 -- 
-2.5.0
+1.9.1
