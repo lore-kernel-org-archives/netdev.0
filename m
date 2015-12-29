@@ -1,252 +1,121 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH net-next 3/3] macsec: introduce IEEE 802.1AE driver
-Date: Tue, 29 Dec 2015 02:14:06 +0100
-Message-ID: <20151229011406.GA21112@breakpoint.cc>
-References: <cover.1450964358.git.sd@queasysnail.net>
- <1910d94579a647d1c3b23a348778458d2f1f97a1.1450964358.git.sd@queasysnail.net>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: 4.4-rc7 failure report
+Date: Mon, 28 Dec 2015 20:26:44 -0500
+Message-ID: <5681E154.7040101@redhat.com>
+References: <5681AF69.4040204@redhat.com> <5681B594.70304@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="j7nvJ6MP6AtTeWGxLl38LJoq36kBqCXeW"
+Cc: David Miller <davem@davemloft.net>,
+	David Miller <davem@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56838 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752862AbbL2BOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 20:14:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1910d94579a647d1c3b23a348778458d2f1f97a1.1450964358.git.sd@queasysnail.net>
+Received: from mx1.redhat.com ([209.132.183.28]:37643 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752754AbbL2B0q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2015 20:26:46 -0500
+In-Reply-To: <5681B594.70304@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sabrina Dubroca <sd@queasysnail.net> wrote:
-> +		if (h->short_length)
-> +			return len == h->short_length + 24;
-> +		else
-> +			return len >= 72;
-[..]
-> +			return len == h->short_length + 32;
-[..]
-> +			return len >= 80;
-[..]
-> +			return len == 8 + icv_len + h->short_length;
-> +		else
-> +			return len >= 8 + icv_len + 48;
-[..]
-> +		if (h->short_length)
-> +			return len == 16 + icv_len + h->short_length;
-> +		else
-> +			return len >= 16 + icv_len + 48;
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--j7nvJ6MP6AtTeWGxLl38LJoq36kBqCXeW
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Could you add some defines instead of magic numbers?
+On 12/28/2015 05:20 PM, Daniel Borkmann wrote:
+> On 12/28/2015 10:53 PM, Doug Ledford wrote:
+>> The 4.4-rc7 kernel is failing for me.  In my case, all of my vlan
+>> interfaces are failing to obtain a dhcp address using dhclient.  I've
+>> tried a hand built 4.4-rc7, and the Fedora rawhide 4.4-rc7 kernel, bot=
+h
+>> failed.  I've tried NetworkManager and the old SysV network service,
+>> both fail.  I tried a working dhclient from rhel7 on the Fedora rawhid=
+e
+>> install and it failed too.  Running tcpdump on the interface shows the=
 
-> +	tx_sa->next_pn++;
-> +	if (tx_sa->next_pn == 0) {
-> +		pr_notice("PN wrapped, transitionning to !oper\n");
+>> dhcp request going out, and a dhcp response coming back in.  Running
+>> strace on dhclient shows that it writes the dhcp request, but it never=
 
-Is that _notice intentional?
-I'm only asking because it seems we printk unconditionally in response
-to network traffic & I don't get what operator should do in response to
-that message.
+>> recvs a dhcp response.  If I manually bring the interface up with a
+>> static IP address then I'm able to run typical IP traffic across the
+>> link (aka, ping).  It would seem that when dhclient registers a packet=
 
-> +static void macsec_encrypt_done(struct crypto_async_request *base, int err)
-> +{
-> +	struct sk_buff *skb = base->data;
-> +	struct net_device *dev = skb->dev;
-> +	struct macsec_dev *macsec = macsec_priv(dev);
-> +	struct macsec_tx_sa *sa = macsec_skb_cb(skb)->tx_sa;
-> +	int len, ret;
-> +
-> +	aead_request_free(macsec_skb_cb(skb)->req);
-> +
-> +	rcu_read_lock_bh();
-> +	macsec_encrypt_finish(skb, dev);
-> +	macsec_count_tx(skb, &macsec->secy.tx_sc, macsec_skb_cb(skb)->tx_sa);
-> +	len = skb->len;
-> +	ret = dev_queue_xmit(skb);
-> +	count_tx(dev, ret, len);
-> +	rcu_read_unlock_bh();
+>> filter on the socket, that filter is preventing it from ever getting t=
+he
+>> dhcp response.  The same dhclient works on any non-vlan interfaces in
+>> the system, so the filter must work for non-vlan interfaces.  Aside fr=
+om
+>> the fact that the interface is a vlan, we also use a priority egress m=
+ap
+>> on the interface, and we use PFC flow control.  Let me know if you nee=
+d
+>> anymore to debug the issue, or email me off list and I can get you
+>> logins to my reproducer machines.
+>=20
+> When you say 4.4-rc7 kernel is failing for you, what latest kernel vers=
+ion
+> was working, where the socket filter was properly receiving the respons=
+e on
+> your vlan iface?
 
-What was the rcu_read_lock_bh protecting?
+v4.3 final works.  I haven't bisected where in the 4.4 series it quits
+working.  I can do that tomorrow.
 
-> +static void macsec_decrypt_done(struct crypto_async_request *base, int err)
-> +{
-> +	struct sk_buff *skb = base->data;
-> +	struct net_device *dev = skb->dev;
-> +	struct macsec_dev *macsec = macsec_priv(dev);
-> +	struct macsec_rx_sa *rx_sa = macsec_skb_cb(skb)->rx_sa;
-> +	int len, ret;
-> +
-> +	aead_request_free(macsec_skb_cb(skb)->req);
-> +
-> +	rcu_read_lock_bh();
-> +	macsec_finalize_skb(skb, macsec->secy.icv_len,
-> +			    macsec_extra_len(macsec_skb_cb(skb)->has_sci));
-> +	macsec_reset_skb(skb, macsec->secy.netdev);
-> +
-> +	macsec_rxsa_put(rx_sa);
-> +	len = skb->len;
-> +	ret = netif_rx(skb);
-> +	if (ret == NET_RX_SUCCESS)
-> +		count_rx(dev, len);
-> +	else
-> +		macsec->secy.netdev->stats.rx_dropped++;
-> +
-> +	rcu_read_unlock_bh();
+> Are you reasonably sure that the skb is dropped at the BPF
+> filter attached to the dhcp's packet socket?
 
-Same question.
+No.  I'm only reasonably sure that without a filter it works, I don't
+know if it gets dropped at the BPF filter or something else when the
+filter is added.  It could be an interaction between the filter and PFC
+or vlan or anything else for all I know.  But I figured the level of
+detail I gave should make it easy to reproduce locally by interested
+parties.
 
-> +static void handle_not_macsec(struct sk_buff *skb)
-> +{
-> +	struct macsec_rxh_data *rxd = macsec_data_rcu(skb->dev);
-> +	struct macsec_dev *macsec;
-> +
-> +	/* 10.6 If the management control validateFrames is not
-> +	 * Strict, frames without a SecTAG are received, counted, and
-> +	 * delivered to the Controlled Port
-> +	 */
-> +	list_for_each_entry_rcu(macsec, &rxd->secys, secys) {
-> +		struct sk_buff *nskb;
-> +		int ret;
-> +		struct pcpu_secy_stats *secy_stats = this_cpu_ptr(macsec->stats);
-> +
-> +		if (macsec->secy.validate_frames == MACSEC_VALIDATE_STRICT) {
-> +			u64_stats_update_begin(&secy_stats->syncp);
-> +			secy_stats->stats.InPktsNoTag++;
-> +			u64_stats_update_end(&secy_stats->syncp);
-> +			continue;
-> +		}
-> +
-> +		/* deliver on this port */
-> +		nskb = skb_clone(skb, GFP_ATOMIC);
-> +		nskb->dev = macsec->secy.netdev;
+> Can you dump the BPF code of
+> the filter?
 
-nskb == NULL handling?
+It's whatever the filter is that dhclient uses.  I'm pretty sure that's
+a pretty standard filter.  And I tried known working dhclients in order
+to make sure it wasn't the latest dhclient's fault.
 
-> +static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
-> +{
-> +	struct sk_buff *skb = *pskb;
-> +	struct net_device *dev = skb->dev;
-> +	struct macsec_eth_header *hdr;
-> +	struct macsec_secy *secy = NULL;
-> +	struct macsec_rx_sc *rx_sc;
-> +	struct macsec_rx_sa *rx_sa;
-> +	struct macsec_rxh_data *rxd;
-> +	struct macsec_dev *macsec;
-> +	sci_t sci;
-> +	u32 pn, lowest_pn;
-> +	bool cbit;
-> +	struct pcpu_rx_sc_stats *rxsc_stats;
-> +	struct pcpu_secy_stats *secy_stats;
-> +	bool pulled_sci;
-> +
-> +	rcu_read_lock_bh();
+> Are there any vlan offloading settings the filter is not taking
+> into account (in the sense of classic BPF extensions, tcpdump/libpcap
+> finally
+> managed to cope with this)?
 
-Why?  Seems its because of
+Have no clue.
 
-> +	if (skb_headroom(skb) < ETH_HLEN)
-> +		goto drop_nosa;
-> +
-> +	rxd = macsec_data_rcu(skb->dev);
+--=20
+Doug Ledford <dledford@redhat.com>
+              GPG KeyID: 0E572FDD
 
-this, but rxd isn't dereferenced until a lot later in the function.
 
-Also: macsec_data_rcu uses rcu_dereference() but this used
-rcu_read_lock_bh, is that structure protected by RCU or RCU-bh?
 
-> +	pn = ntohl(hdr->packet_number);
-> +	if (secy->replay_protect) {
-> +		bool late;
-> +
-> +		spin_lock(&rx_sa->lock);
-> +		late = rx_sa->next_pn >= secy->replay_window &&
-> +		       pn < (rx_sa->next_pn - secy->replay_window);
-> +		spin_unlock(&rx_sa->lock);
-> +
-> +		if (late) {
-> +			u64_stats_update_begin(&rxsc_stats->syncp);
-> +			rxsc_stats->stats.InPktsLate++;
-> +			u64_stats_update_end(&rxsc_stats->syncp);
-> +			goto drop;
-> +		}
-> +	}
+--j7nvJ6MP6AtTeWGxLl38LJoq36kBqCXeW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-[..]
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-> +	spin_lock(&rx_sa->lock);
-> +	if (rx_sa->next_pn >= secy->replay_window)
-> +		lowest_pn = rx_sa->next_pn - secy->replay_window;
-> +	else
-> +		lowest_pn = 0;
-> +
-> +	if (secy->replay_protect && pn < lowest_pn) {
-> +		spin_unlock(&rx_sa->lock);
-> +		pr_debug("packet_number too small: %u < %u\n", pn, lowest_pn);
-> +		u64_stats_update_begin(&rxsc_stats->syncp);
-> +		rxsc_stats->stats.InPktsLate++;
-> +		u64_stats_update_end(&rxsc_stats->syncp);
-> +		goto drop;
-> +	}
+iQIcBAEBCAAGBQJWgeFUAAoJELgmozMOVy/dZcQQALE2k4+6YHdJcnxnr/13XFgI
+fwwX3FmCxp+LJs5si0DXr/tEKcfnOO5EtMGz86FE59yP17UV7zUHZAoTgT+Q/338
+GeBrigvqMw1e+ocG6CB1RZGt5VqzywjAdzAycUzDVjkGvf2+bmiYcmWph7pyNbCB
+9ORSBfoW0XoEqIBJ6IA0R6so5DoSmgHdsd+JMU2jt4KELb7MTlgIgJzRMLaBbi1M
+hrl9cOeXvYjvpqopXDVK7v2ioIEbj7THGGXDzOVm4559rjNdEK9U4RhiSDPsC4nF
+FNM5u2NBpHA0lXrM3/L9YJhhmGAFJNd0kDvrvj7WmnkFJykdB4naZwMq27EVpoTj
+qr+GP0Lsi6g+7LKcr6DG+h9b1UpDHpohTHZmEi4w9AwB9v0b2aM6hGgQMLVY5KP+
+p3CQw9WBByXlBVcUYLIRvPtzcHuea3z2HIt3CNjynlLtMXlsf8Cdf9W7IBaGJj6F
+gBC9fSwPGF7OMCafD3/F84K46N5SmZJjxhTOkkzTEow2ZQnTsjuYlItFRtZpLrwQ
+j4zaiBM88hAO9eyA5isRrDCeW1mmooejF65MzmixyScxfuYKB+4azXa4oykIiSWk
+kRtv7/5zB6KIlkDRJZjFS5+UfcMzcyEnPyLqDGHUms2WPK7yM/A/mtRrpQ08jWAQ
+yboRVwoyiOW/7sV6RiHS
+=NgSp
+-----END PGP SIGNATURE-----
 
-I don't understand why this seems to perform replay check twice?
-
-> +	if (secy->validate_frames != MACSEC_VALIDATE_DISABLED) {
-> +		u64_stats_update_begin(&rxsc_stats->syncp);
-> +		if (hdr->tci_an & MACSEC_TCI_E)
-> +			rxsc_stats->stats.InOctetsDecrypted += skb->len;
-> +		else
-> +			rxsc_stats->stats.InOctetsValidated += skb->len;
-> +		u64_stats_update_end(&rxsc_stats->syncp);
-> +	}
-
-> +	if (!macsec_skb_cb(skb)->valid) {
-> +		spin_unlock(&rx_sa->lock);
-> +
-> +		/* 10.6.5 */
-> +		if (hdr->tci_an & MACSEC_TCI_C ||
-> +		    secy->validate_frames == MACSEC_VALIDATE_STRICT) {
-> +			u64_stats_update_begin(&rxsc_stats->syncp);
-> +			rxsc_stats->stats.InPktsNotValid++;
-> +			u64_stats_update_end(&rxsc_stats->syncp);
-> +			goto drop;
-> +		}
-> +
-> +		u64_stats_update_begin(&rxsc_stats->syncp);
-> +		if (secy->validate_frames == MACSEC_VALIDATE_CHECK) {
-> +			rxsc_stats->stats.InPktsInvalid++;
-> +			this_cpu_inc(rx_sa->stats->InPktsInvalid);
-> +		} else if (pn < lowest_pn) {
-> +			rxsc_stats->stats.InPktsDelayed++;
-> +		} else {
-> +			rxsc_stats->stats.InPktsUnchecked++;
-> +		}
-> +		u64_stats_update_end(&rxsc_stats->syncp);
-> +	} else {
-> +		u64_stats_update_begin(&rxsc_stats->syncp);
-> +		if (pn < lowest_pn) {
-> +			rxsc_stats->stats.InPktsDelayed++;
-> +		} else {
-> +			rxsc_stats->stats.InPktsOK++;
-> +			this_cpu_inc(rx_sa->stats->InPktsOK);
-> +		}
-> +		u64_stats_update_end(&rxsc_stats->syncp);
-> +
-> +		if (pn >= rx_sa->next_pn)
-> +			rx_sa->next_pn = pn + 1;
-> +		spin_unlock(&rx_sa->lock);
-
-Do you think its feasible to rearrange the above so that
-rx_sa->lock/unlock (next_pn test and increment) are grouped more closesly?
-
-> +		/* not strict, the frame (with the SecTAG and ICV
-> +		 * removed) is delivered to the Controlled Port.
-> +		 */
-> +		nskb = skb_clone(skb, GFP_ATOMIC);
-> +		macsec_reset_skb(nskb, macsec->secy.netdev);
-
-nskb == NULL handling?
-
-I'll have another look at your patch set later this week.
-
-Thanks,
-Florian
+--j7nvJ6MP6AtTeWGxLl38LJoq36kBqCXeW--
