@@ -1,37 +1,39 @@
-From: Insu Yun <wuninsu@gmail.com>
-Subject: [PATCH] cxgb4: correctly handling failed allocation
-Date: Tue, 29 Dec 2015 17:20:11 -0500
-Message-ID: <1451427611-32338-1-git-send-email-wuninsu@gmail.com>
-Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
-	changwoo@gatech.edu, Insu Yun <wuninsu@gmail.com>
-To: hariprasad@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] include/uapi/linux/sockios.h: mark SIOCRTMSG unused
+Date: Tue, 29 Dec 2015 23:22:02 +0100
+Message-ID: <1451427722-2672-1-git-send-email-xypron.glpk@gmx.de>
+Cc: linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since t4_alloc_mem can be failed in memory pressure,
-if not properly handled, NULL dereference could be happened.
+IOCTL SIOCRTMSG does nothing but return EINVAL.
 
-Signed-off-by: Insu Yun <wuninsu@gmail.com>
+So comment it as unused.
+
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 ---
- drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ include/uapi/linux/sockios.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
-index c308429..11dd91e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
-@@ -295,6 +295,10 @@ struct clip_tbl *t4_init_clip_tbl(unsigned int clipt_start,
- 		INIT_LIST_HEAD(&ctbl->hash_list[i]);
+diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
+index e888b1a..8e7890b 100644
+--- a/include/uapi/linux/sockios.h
++++ b/include/uapi/linux/sockios.h
+@@ -27,7 +27,7 @@
+ /* Routing table calls. */
+ #define SIOCADDRT	0x890B		/* add routing table entry	*/
+ #define SIOCDELRT	0x890C		/* delete routing table entry	*/
+-#define SIOCRTMSG	0x890D		/* call to routing system	*/
++#define SIOCRTMSG	0x890D		/* unused			*/
  
- 	cl_list = t4_alloc_mem(clipt_size*sizeof(struct clip_entry));
-+	if (!cl_list) {
-+		t4_free_mem(ctbl);
-+		return NULL;
-+	}
- 	ctbl->cl_list = (void *)cl_list;
- 
- 	for (i = 0; i < clipt_size; i++) {
+ /* Socket configuration controls. */
+ #define SIOCGIFNAME	0x8910		/* get iface name		*/
 -- 
-1.9.1
+2.1.4
