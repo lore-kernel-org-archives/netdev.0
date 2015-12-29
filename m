@@ -1,217 +1,43 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V3 4/4] net/mlx5e: Add PTP Hardware Clock (PHC) support
-Date: Tue, 29 Dec 2015 14:58:32 +0200
-Message-ID: <1451393912-13736-5-git-send-email-saeedm@mellanox.com>
-References: <1451393912-13736-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: Q: bad routing table cache entries
+Date: Tue, 29 Dec 2015 16:19:21 +0300
+Message-ID: <56828859.1020009@list.ru>
+References: <5682665A.7090102@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37861 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752049AbbL2M7G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 07:59:06 -0500
-In-Reply-To: <1451393912-13736-1-git-send-email-saeedm@mellanox.com>
+Received: from smtp53.i.mail.ru ([94.100.177.113]:40407 "EHLO smtp53.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752156AbbL2NT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 08:19:29 -0500
+In-Reply-To: <5682665A.7090102@list.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+29.12.2015 13:54, Stas Sergeev =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> Hello.
+>=20
+> I was hitting a strange problem when some internet hosts
+> suddenly stops responding until I reboot. ping to these
+> host gives "Destination Host Unreachable". After the
+> initial confusion, I've finally got to
+> ip route get
+> and got something quite strange.
+Another observation:
 
-Add a PHC support to the mlx5_en driver. Use reader/writer spinlocks to
-protect the timecounter since every packet received needs to call
-timecounter_cycle2time() when timestamping is enabled.  This can become
-a performance bottleneck with RSS and multiple receive queues if normal
-spinlocks are used.
 
-The driver has been tested with both Documentation/ptp/testptp and the
-linuxptp project (http://linuxptp.sourceforge.net/) on a Mellanox
-ConnectX-4 card.
+# ip route get 91.189.90.236
+91.189.90.236 via 192.168.0.1 dev eth0  src 192.168.10.202
+    cache <redirected>
 
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |    3 +
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  100 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    3 +-
- 4 files changed, 106 insertions(+), 1 deletions(-)
+# cat /proc/net/rt_cache
+Iface	Destination	Gateway 	Flags		RefCnt	Use	Metric	Source		MTU	Window	=
+IRTT	TOS	HHRef	HHUptod	SpecDst
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index 158c88c..c503ea0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -13,6 +13,7 @@ config MLX5_CORE
- config MLX5_CORE_EN
- 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
- 	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
-+	select PTP_1588_CLOCK
- 	default n
- 	---help---
- 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 477e248..9ea49a8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -34,6 +34,7 @@
- #include <linux/etherdevice.h>
- #include <linux/timecounter.h>
- #include <linux/net_tstamp.h>
-+#include <linux/ptp_clock_kernel.h>
- #include <linux/mlx5/driver.h>
- #include <linux/mlx5/qp.h>
- #include <linux/mlx5/cq.h>
-@@ -295,6 +296,8 @@ struct mlx5e_tstamp {
- 	unsigned long              overflow_period;
- 	struct delayed_work        overflow_work;
- 	struct mlx5_core_dev      *mdev;
-+	struct ptp_clock          *ptp;
-+	struct ptp_clock_info      ptp_info;
- };
- 
- enum {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-index 49a8238..be65435 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-@@ -130,6 +130,89 @@ int mlx5e_hwstamp_get(struct net_device *dev, struct ifreq *ifr)
- 	return copy_to_user(ifr->ifr_data, cfg, sizeof(*cfg)) ? -EFAULT : 0;
- }
- 
-+static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
-+			     const struct timespec64 *ts)
-+{
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						   ptp_info);
-+	u64 ns = timespec64_to_ns(ts);
-+
-+	write_lock(&tstamp->lock);
-+	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
-+	write_unlock(&tstamp->lock);
-+
-+	return 0;
-+}
-+
-+static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
-+			     struct timespec64 *ts)
-+{
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						   ptp_info);
-+	u64 ns;
-+
-+	write_lock(&tstamp->lock);
-+	ns = timecounter_read(&tstamp->clock);
-+	write_unlock(&tstamp->lock);
-+
-+	*ts = ns_to_timespec64(ns);
-+
-+	return 0;
-+}
-+
-+static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-+{
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						   ptp_info);
-+
-+	write_lock(&tstamp->lock);
-+	timecounter_adjtime(&tstamp->clock, delta);
-+	write_unlock(&tstamp->lock);
-+
-+	return 0;
-+}
-+
-+static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
-+{
-+	u64 adj;
-+	u32 diff;
-+	int neg_adj = 0;
-+	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
-+						  ptp_info);
-+
-+	if (delta < 0) {
-+		neg_adj = 1;
-+		delta = -delta;
-+	}
-+
-+	adj = tstamp->nominal_c_mult;
-+	adj *= delta;
-+	diff = div_u64(adj, 1000000000ULL);
-+
-+	write_lock(&tstamp->lock);
-+	timecounter_read(&tstamp->clock);
-+	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
-+					tstamp->nominal_c_mult + diff;
-+	write_unlock(&tstamp->lock);
-+
-+	return 0;
-+}
-+
-+static const struct ptp_clock_info mlx5e_ptp_clock_info = {
-+	.owner		= THIS_MODULE,
-+	.max_adj	= 100000000,
-+	.n_alarm	= 0,
-+	.n_ext_ts	= 0,
-+	.n_per_out	= 0,
-+	.n_pins		= 0,
-+	.pps		= 0,
-+	.adjfreq	= mlx5e_ptp_adjfreq,
-+	.adjtime	= mlx5e_ptp_adjtime,
-+	.gettime64	= mlx5e_ptp_gettime,
-+	.settime64	= mlx5e_ptp_settime,
-+	.enable		= NULL,
-+};
-+
- static void mlx5e_timestamp_init_config(struct mlx5e_tstamp *tstamp)
- {
- 	tstamp->hwtstamp_config.tx_type = HWTSTAMP_TX_OFF;
-@@ -174,6 +257,18 @@ void mlx5e_timestamp_init(struct mlx5e_priv *priv)
- 		schedule_delayed_work(&tstamp->overflow_work, 0);
- 	else
- 		mlx5_core_warn(priv->mdev, "invalid overflow period, overflow_work is not scheduled\n");
-+
-+	/* Configure the PHC */
-+	tstamp->ptp_info = mlx5e_ptp_clock_info;
-+	snprintf(tstamp->ptp_info.name, 16, "mlx5 ptp");
-+
-+	tstamp->ptp = ptp_clock_register(&tstamp->ptp_info,
-+					 &priv->mdev->pdev->dev);
-+	if (IS_ERR_OR_NULL(tstamp->ptp)) {
-+		mlx5_core_warn(priv->mdev, "ptp_clock_register failed %ld\n",
-+			       PTR_ERR(tstamp->ptp));
-+		tstamp->ptp = NULL;
-+	}
- }
- 
- void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
-@@ -183,5 +278,10 @@ void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
- 	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
- 		return;
- 
-+	if (priv->tstamp.ptp) {
-+		ptp_clock_unregister(priv->tstamp.ptp);
-+		priv->tstamp.ptp = NULL;
-+	}
-+
- 	cancel_delayed_work_sync(&tstamp->overflow_work);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index a8a90f3..65624ac 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -865,7 +865,8 @@ static int mlx5e_get_ts_info(struct net_device *dev,
- 	if (ret)
- 		return ret;
- 
--	info->phc_index = -1;
-+	info->phc_index = priv->tstamp.ptp ?
-+			  ptp_clock_index(priv->tstamp.ptp) : -1;
- 
- 	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
- 		return 0;
--- 
-1.7.1
+
+So the redirection exists, but rt_cache doesn't show anything.
+Am I looking in the wrong place? Where can I get a list of all
+the redirections I have?
