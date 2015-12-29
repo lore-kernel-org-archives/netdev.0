@@ -1,31 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next 1/3] ethtool: Add phy statistics
-Date: Tue, 29 Dec 2015 15:12:02 -0500 (EST)
-Message-ID: <20151229.151202.766585486801107901.davem@davemloft.net>
-References: <1451418684-9238-1-git-send-email-andrew@lunn.ch>
-	<1451418684-9238-2-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH v2 0/3] bpf: hash: use per-bucket spinlock
+Date: Tue, 29 Dec 2015 15:14:05 -0500 (EST)
+Message-ID: <20151229.151405.518049202533460569.davem@davemloft.net>
+References: <1451400027-28892-1-git-send-email-tom.leiming@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59888 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753661AbbL2UMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 15:12:03 -0500
-In-Reply-To: <1451418684-9238-2-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, ast@kernel.org,
+	netdev@vger.kernel.org, daniel@iogearbox.net
+To: tom.leiming@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451400027-28892-1-git-send-email-tom.leiming@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 29 Dec 2015 20:51:22 +0100
+From: Ming Lei <tom.leiming@gmail.com>
+Date: Tue, 29 Dec 2015 22:40:24 +0800
 
-> @@ -191,6 +191,23 @@ static int ethtool_set_features(struct net_device *dev, void __user *useraddr)
->  	return ret;
->  }
->  
-> +int phy_get_sset_count(struct phy_device *phydev)
-> +{
+> Hi,
+> 
+> This patchset tries to optimize ebpf hash map, and follows
+> the idea:
+> 
+>         Both htab_map_update_elem() and htab_map_delete_elem()
+>         can be called from eBPF program, and they may be in kernel
+>         hot path, it isn't efficient to use a per-hashtable lock
+>         in this two helpers, so this patch converts the lock into
+>         per-bucket spinlock.
+> 
+> With this patchset, looks the performance penalty from eBPF
+> decreased a lot, see the following test:
+> 
+>         1) run 'tools/biolatency' of bcc before running block test;
+> 
+>         2) run fio to test block throught over /dev/nullb0,
+>         (randread, 16jobs, libaio, 4k bs) and the test box
+>         is one 24cores(dual sockets) VM server:
+>         - without patchset:  607K IOPS
+>         - with this patchset: 1184K IOPS
+>         - without running eBPF prog: 1492K IOPS
 
-This needs to be static.
+Series applied, thanks.
