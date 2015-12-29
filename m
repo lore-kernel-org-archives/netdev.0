@@ -1,51 +1,68 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: Q: bad routing table cache entries
-Date: Tue, 29 Dec 2015 20:40:34 +0300
-Message-ID: <5682C592.5070106@list.ru>
-References: <5682665A.7090102@list.ru> <20151229152208.GA22423@oracle.com>
- <5682A8D8.5040403@list.ru>
+From: Souptick Joarder <jrdr.linux@gmail.com>
+Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
+Date: Tue, 29 Dec 2015 23:46:43 +0530
+Message-ID: <CAFqt6zacF-n0pRxU0=pq79rKCt1Y-08taaZxBrFdre4JMH6tbQ@mail.gmail.com>
+References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
+	<CAFqt6zaALx895c0BVrMpLdtfgYLz=-mmqaurtD28Nm1Ut2g1Dw@mail.gmail.com>
+	<CAP+RiCBK_iEOu27GzqqgG9Pn_MDP1m8JCnSqkGbPMAT7=P9V7g@mail.gmail.com>
+	<CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
+	<87poxy7spb.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp40.i.mail.ru ([94.100.177.100]:51420 "EHLO smtp40.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753476AbbL2Rkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 12:40:40 -0500
-In-Reply-To: <5682A8D8.5040403@list.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, ath6kl@lists.infradead.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Kalle Valo <kvalo@qca.qualcomm.com>
+To: Brent Taylor <motobud@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87poxy7spb.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-29.12.2015 18:38, Stas Sergeev =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Likely the router's side is doing the right thing, but of
-Or maybe not?
-Here's the ifconfig of router:
+Brent,
 
-eth0      Link encap:Ethernet  HWaddr 00:1e:8c:a7:b5:36
-          inet addr:192.168.0.220  Bcast:192.168.3.255  Mask:255.255.25=
-2.0
+On Tue, Dec 22, 2015 at 2:42 PM, Kalle Valo <kvalo@qca.qualcomm.com> wrote:
+> Souptick Joarder <jrdr.linux@gmail.com> writes:
+>
+>> Hi Brent,
+>>
+>> On Tue, Dec 22, 2015 at 3:23 AM, Brent Taylor <motobud@gmail.com> wrote:
+>>> On Mon, Dec 21, 2015 at 1:23 PM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
+>>>> Hi Brent,
+>>>>
+>>>> On Tue, Dec 1, 2015 at 11:11 AM, Brent Taylor <motobud@gmail.com> wrote:
+>>>>
+>>>>> --- a/drivers/net/wireless/ath/ath6kl/init.c
+>>>>> +++ b/drivers/net/wireless/ath/ath6kl/init.c
+>>>>> @@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
+>>>>>                 return ret;
+>>>>>
+>>>>>         *fw_len = fw_entry->size;
+>>>>> -       *fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
+>>>>> +   if (&ar->fw == fw)
+>>>>> +               *fw = vmalloc(fw_entry->size);
+>>>>> +   else
+>>>>> +               *fw = kmalloc(fw_entry->size, GFP_KERNEL)
+>>>>
+>>>>           Why vmalloc and kmalloc both are required? can't use either
+>>>> vmalloc or kmalloc?
+>>>
+>>> My original problem was that kmemdup (which uses kmalloc) could not
+>>> allocate enough memory
+>>
+>> If kmemdump ( which uses kmalloc) could not allocate memory then
+>> using kmalloc again can lead to same problem.
+>> I guess it will be correct to use
+>>             *fw = vmalloc(fw_entry->size);
+>> Correct me if i am wrong.
+>
+> That sounds best. But remember take into account DMA requirements, IIRC
+> you cannot DMA from vmalloc memory on all platforms.
 
-eth0:1    Link encap:Ethernet  HWaddr 00:1e:8c:a7:b5:36
-          inet addr:192.168.8.1  Bcast:192.168.11.255  Mask:255.255.252=
-=2E0
+Is it possible to modify the patch as per feedback from Kalle.
 
+>
+> --
+> Kalle Valo
 
-# route
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use=
- Iface
-default         192.168.0.1     0.0.0.0         UG    0      0        0=
- eth0
-10.1.10.0       192.168.10.143  255.255.255.0   UG    0      0        0=
- eth0
-localnet        *               255.255.252.0   U     0      0        0=
- eth0
-192.168.8.0     *               255.255.252.0   U     0      0        0=
- eth0
-
-
-Masks look correct.
-So why would it send redirects to hosts of 192.168.8.0 subnet
-with the gateway of 192.168.0.0 subnet?
+-Souptick
