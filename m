@@ -1,62 +1,72 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next] l2tp: rely on ppp layer for skb scrubbing
-Date: Tue, 29 Dec 2015 13:06:59 +0100
-Message-ID: <bdce354dbc9292208473f47486f7aa28f518b4fc.1451390671.git.g.nault@alphalink.fr>
+From: Nicolai Stange <nicstange@gmail.com>
+Subject: [PATCH v2] net, socket, socket_wq: fix missing initialization of flags
+Date: Tue, 29 Dec 2015 13:29:55 +0100
+Message-ID: <87ziwtphdo.fsf_-_@gmail.com>
+References: <87ege73bma.fsf@gmail.com>
+	<1451323186.8255.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:35112 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753177AbbL2MHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 07:07:04 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Nicolai Stange <nicstange@gmail.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451323186.8255.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Mon, 28 Dec 2015 12:19:46 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since 79c441ae505c ("ppp: implement x-netns support"), the PPP layer
-calls skb_scrub_packet() whenever the skb is received on the PPP
-device. Manually resetting packet meta-data in the L2TP layer is thus
-redundant.
+Fixes: ceb5d58b2170 ("net: fix sock_wake_async() rcu protection")
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Commit ceb5d58b2170 ("net: fix sock_wake_async() rcu protection") from
+the current 4.4 release cycle introduced a new flags member in
+struct socket_wq and moved SOCKWQ_ASYNC_NOSPACE and SOCKWQ_ASYNC_WAITDATA
+from struct socket's flags member into that new place.
+
+Unfortunately, the new flags field is never initialized properly, at least
+not for the struct socket_wq instance created in sock_alloc_inode().
+
+One particular issue I encountered because of this is that my GNU Emacs
+failed to draw anything on my desktop -- i.e. what I got is a transparent
+window, including the title bar. Bisection lead to the commit mentioned
+above and further investigation by means of strace told me that Emacs
+is indeed speaking to my Xorg through an O_ASYNC AF_UNIX socket. This is
+reproducible 100% of times and the fact that properly initializing the
+struct socket_wq ->flags fixes the issue leads me to the conclusion that
+somehow SOCKWQ_ASYNC_WAITDATA got set in the uninitialized ->flags,
+preventing my Emacs from receiving any SIGIO's due to data becoming
+available and it got stuck.
+
+Make sock_alloc_inode() set the newly created struct socket_wq's ->flags
+member to zero.
+
+Signed-off-by: Nicolai Stange <nicstange@gmail.com>
 ---
- net/l2tp/l2tp_ppp.c | 17 +----------------
- 1 file changed, 1 insertion(+), 16 deletions(-)
+ Changes to V1 (only commit message changes):
+ - Uhm, I misread sock_wake_async(). The meaning of the flags is actually
+   inverted. My Ghostmacs wasn't waiting for free send space, but some
+   received data becoming available. This makes indeed more sense and I
+   replaced "SOCKWQ_ASYNC_NOSPACE" by "SOCKWQ_ASYNC_WAITDATA" in my
+   speculative explanation above.
+ - Furthermore I fixed some minor grammar issues.
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index d93f113..652c250 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -230,26 +230,11 @@ static void pppol2tp_recv(struct l2tp_session *session, struct sk_buff *skb, int
+ Sorry for any inconvenience this late-night induced brainfart might
+ have caused at your side...
+
+ net/socket.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/socket.c b/net/socket.c
+index 29822d6..d730ef9 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -257,6 +257,7 @@ static struct inode *sock_alloc_inode(struct super_block *sb)
+ 	}
+ 	init_waitqueue_head(&wq->wait);
+ 	wq->fasync_list = NULL;
++	wq->flags = 0;
+ 	RCU_INIT_POINTER(ei->socket.wq, wq);
  
- 	if (sk->sk_state & PPPOX_BOUND) {
- 		struct pppox_sock *po;
-+
- 		l2tp_dbg(session, PPPOL2TP_MSG_DATA,
- 			 "%s: recv %d byte data frame, passing to ppp\n",
- 			 session->name, data_len);
- 
--		/* We need to forget all info related to the L2TP packet
--		 * gathered in the skb as we are going to reuse the same
--		 * skb for the inner packet.
--		 * Namely we need to:
--		 * - reset xfrm (IPSec) information as it applies to
--		 *   the outer L2TP packet and not to the inner one
--		 * - release the dst to force a route lookup on the inner
--		 *   IP packet since skb->dst currently points to the dst
--		 *   of the UDP tunnel
--		 * - reset netfilter information as it doesn't apply
--		 *   to the inner packet either
--		 */
--		secpath_reset(skb);
--		skb_dst_drop(skb);
--		nf_reset(skb);
--
- 		po = pppox_sk(sk);
- 		ppp_input(&po->chan, skb);
- 	} else {
+ 	ei->socket.state = SS_UNCONNECTED;
 -- 
 2.6.4
