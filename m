@@ -1,35 +1,25 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH V3] ixgbe: force to synchronize link_up and speed as a slave
-Date: Tue, 29 Dec 2015 10:32:04 +0800
-Message-ID: <1451356326-2919-1-git-send-email-zyjzyj2000@gmail.com>
-References: <1450926752-11392-1-git-send-email-zyjzyj2000@gmail.com>
+From: "Zahra Robert" <jakonyvtar@pr.hu>
+Subject: Assalam o Alaikum
+Date: Tue, 29 Dec 2015 04:35:42 +0100
+Message-ID: <7b92fd4404768b371d856449c8a4246a.squirrel@oldwebmail.prtelecom.hu>
+Reply-To: zahrarobert@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <venkat.viswanathan@windriver.com>,
-	<Boris.Shteinbock@windriver.com>, <Vincent.Bourg@windriver.com>
-To: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<shannon.nelson@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <bruce.w.allan@intel.com>,
-	<john.ronciak@intel.com>, <mitch.a.williams@intel.com>,
-	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: jakonyvtar@pr.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50205 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959AbbL2Cc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 21:32:29 -0500
-In-Reply-To: <1450926752-11392-1-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail9.pr.hu ([87.242.0.9]:34498 "EHLO mail9.pr.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751162AbbL2DgA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2015 22:36:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi, all
 
-During the discussion with Emil, I think the time span between link_up 
-and link_speed is not important when the X540 NIC acts as an independent 
-interface. As such, a new patch is made to restrict synchronization 
-between link_up and link_speed.
 
-Any reply is appreciated.
-
-Zhu Yanjun
+Cordial greeting message from Eva Zahra, I am seeking for your help,I will
+be very glad if you do assist me to relocate a sum of (US$4 Million
+Dollars)into your Bank account in your country for the benefit of both of
+us i want to use this money for investment. I will give you more details
+as you reply Yours Eva Zahra Robert
