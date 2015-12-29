@@ -1,236 +1,44 @@
-From: Dustin Byford <dustin@cumulusnetworks.com>
-Subject: Re: [PATCH RFC 00/26] Phylink & SFP support
-Date: Mon, 28 Dec 2015 15:39:55 -0800
-Message-ID: <20151228233955.GB3796@cumulusnetworks.com>
-References: <20151207173553.GU8644@n2100.arm.linux.org.uk>
- <20151215072621.GA6953@cumulusnetworks.com>
- <25790BAC-5B24-4702-87AF-0772F12630E3@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] /drivers/net/wireless/ath/ath9k remove unnecessary ?:
+ operator
+Date: Mon, 28 Dec 2015 16:31:24 -0800
+Message-ID: <1451349084.3219.19.camel@perches.com>
+References: <20151228134852.GA10572@alpha.sfu-kras.ru>
+	 <1451325412.3219.12.camel@perches.com> <5681818A.9060406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ivan Safonov <insafonov@gmail.com>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33884 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752566AbbL1Xj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 18:39:57 -0500
-Received: by mail-pa0-f46.google.com with SMTP id uo6so93746085pac.1
-        for <netdev@vger.kernel.org>; Mon, 28 Dec 2015 15:39:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <25790BAC-5B24-4702-87AF-0772F12630E3@gmail.com>
+Received: from smtprelay0200.hostedemail.com ([216.40.44.200]:39758 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752813AbbL2Ab1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2015 19:31:27 -0500
+In-Reply-To: <5681818A.9060406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Tue, 2015-12-29 at 01:38 +0700, Ivan Safonov wrote:
+> On 12/29/2015 12:56 AM, Joe Perches wrote:
+> > On Mon, 2015-12-28 at 20:48 +0700, Ivan Safonov wrote:
+> > > ((thermometer < 0) ? 0 : (thermometer =3D=3D X)) and (thermometer=
+ =3D=3D
+> > > X) are equal for X >=3D 0.
+> > X is not guaranteed to be >=3D 0 here
+>=20
+> X is fixed constant. In this case X is {0, 1, 2}.
 
-On Sun Dec 27 18:08, Florian Fainelli wrote:
-> On December 14, 2015 11:26:21 PM PST, Dustin Byford <dustin@cumulusnetworks.com> wrote:
-> >On Mon Dec 07 17:35, Russell King - ARM Linux wrote:
-> >> Hi,
-> >
-> >Hello.
-> >
-> >> SFP modules are hot-pluggable ethernet transceivers; they can be
-> >> detected at runtime and accordingly configured.  There are a range of
-> >> modules offering many different features.
-> >> 
-> >> Some SFP modules have PHYs conventional integrated into them, others
-> >> drive a laser diode from the Serdes bus.  Some have monitoring,
-> >others
-> >> do not.
-> >> 
-> >> Some SFP modules want to use SGMII over the Serdes link, others want
-> >> to use 1000base-X over the Serdes link.
-> >> 
-> >> This makes it non-trivial to support with the existing code
-> >structure.
-> >> Not wanting to write something specific to the mvneta driver, I
-> >decided
-> >> to have a go at coming up with something more generic.
-> >> 
-> >> My initial attempts were to provide a PHY driver, but I found that
-> >> phylib's state machine got in the way, and it was hard to support two
-> >> chained PHYs.  Conversely, having a fixed DT specified setup (via
-> >> the fixed phy infrastructure) would allow some SFP modules to work,
-> >but
-> >> not others.  The same is true of the "managed" in-band status (which
-> >> is SGMII.)
-> >> 
-> >> The result is that I came up with phylink - an infrastructure layer
-> >> which sits between the network driver and any attached PHY, and a
-> >> SFP module layer detects the SFP module, and configures phylink
-> >> accordingly.
-> >> 
-> >> Overall, this supports:
-> >> 
-> >> * switching the serdes mode at the NIC driver
-> >> * controlling autonegotiation and autoneg results
-> >> * allowing PHYs to be hotplugged
-> >> * allowing SFP modules to be hotplugged with proper link indication
-> >> * fixed-mode links without involving phylib
-> >> * flow control
-> >> * EEE support
-> >> * reading SFP module EEPROMs
-> >> 
-> >> Overall, phylink supports several link modes, with dynamic switching
-> >> possible between these:
-> >> * A true fixed link mode, where the parameters are set by DT.
-> >> * PHY mode, where we read the negotiation results from the PHY
-> >registers
-> >>   and pass them to the NIC driver.
-> >> * SGMII mode, where the in-band status indicates the speed, duplex
-> >and
-> >>   flow control settings of the link partner.
-> >> * 1000base-X mode, where the in-band status indicates only duplex and
-> >>   flow control settings (different, incompatible bit layout from
-> >SGMII.)
-> >
-> >I've been working on some similar code to handle interactions with a
-> >wide range of SFF modules, 1G to 100G, on Linux network switches for
-> >some time.  For practical reasons a lot of that was in userspace but
-> >I've been planning and recently working on an SFF kernel driver that
-> >does some of what's done in this series.  I think the model you're
-> >proposing is right on, and since you're further along in implementation
-> >I'd like to help round out support for the other SFF modules if I can.
-> >Then make this work on the network ASICs I have access to.
-> >
-> >Any concrete plans for QSFP or the new 25G modules?
-> >
-> >> Ethtool support is included, as well as emulation of the MII
-> >registers
-> >> for situations where a PHY is not attached, giving compatible
-> >emulation
-> >> of existing user interfaces where required.
-> >> 
-> >> The patches here include modification of mvneta (against 4.4-rc1, so
-> >> probably won't apply to current development tips.)  It basically
-> >> hooks into the places where the phylib would hook into.
-> >> 
-> >> DT wise, the changes needed to support SFP look like this (example
-> >> taken from Clearfog):
-> >> 
-> >>  			ethernet@34000 {
-> >> +				managed = "in-band-status";
-> >>  				phy-mode = "sgmii";
-> >>  				status = "okay";
-> >> -
-> >> -				fixed-link {
-> >> -					speed = <1000>;
-> >> -					full-duplex;
-> >> -				};
-> >>  			};
-> >> ...
-> >> +	sfp: sfp {
-> >> +		compatible = "sff,sfp";
-> >> +		i2c-bus = <&i2c1>;
-> >> +		los-gpio = <&expander0 12 GPIO_ACTIVE_HIGH>;
-> >> +		moddef0-gpio = <&expander0 15 GPIO_ACTIVE_LOW>;
-> >> +		sfp,ethernet = <&eth2>;
-> >
-> >Using &eth2 is unambiguous in the this case because there's only one
-> >serdes and one mac involved.  To specify the mac/serdes/cage
-> >associations at the same level of detail as the gpios it might be nice
-> >(at least for some devices) to point to a serdes node (or 4 in the case
-> >of QSFP) instead of &eth2.  Any thoughts on that?
-> 
-> Using a phandle here allows for quite a lot of flexibility on how you want to associate a given SFP to its data plane partner. I do not think we need to get more strict than that strictly mandate an actual Ethernet controller node. These Marvell adapters typically have one or more " ports", each of them being backed by a netdev. The same could be true with a switch properly modeled.
+Looks like it can be -1 to me (range: -1, 0, 1, 2)
 
-On a switch though, the number of "ports" is often configurable.
-Physically the q/sfp cage to ASIC wiring is fixed, but when you've
-plugged in a breakout cable you get four "ports" for a single QSFP cage.
-They act like four separate devices in most ways, the notable exception
-is that they share a QSFP module eeprom and the discrete IOs to the cage
-like "reset" and "interrupt"  At the MAC layer, each port gets an
-independent set of resources and they act like separate netdevs.
+static int ar9003_hw_get_thermometer(struct ath_hw *ah)
+{
+	struct ar9300_eeprom *eep =3D &ah->eeprom.ar9300_eep;
+	struct ar9300_base_eep_hdr *pBase =3D &eep->baseEepHeader;
+	int thermometer =3D=A0=A0(pBase->miscConfiguration >> 1) & 0x3;
 
-A concrete proposal might be to add a "channel" or "lane" parameter to
-sfp,ethernet with a default of 0.
-
-sfp,ethernet = <&eth2>
-
-is equivalent to:
-sfp,ethernet = <&eth2 0>
-
-
-SFP on a switch0 device with 128 channels:
-
-sfp,ethernet = <&switch0 42>
-consumes channel 42
-
-qsfp,ethernet = <&switch0>
-consumes channels 0-3
-
-qsfp,ethernet = <&switch0 124 125 126 127>
-consumes channels 124-127
-
-alternatives:
-
-(less explicit, assume adjacent channels)
-qsfp,ethernet = <&switch0 124> // consumes 124-127
-
-(more explicit, don't assume the same device)
-qsfp,ethernet = <&switch0 124 &switch0 125 &switch0 126 &switch0 127>
-or:
-qsfp,ethernet0 = <&switch0 124>
-qsfp,ethernet1 = <&switch0 125>
-qsfp,ethernet2 = <&switch0 126>
-qsfp,ethernet3 = <&switch0 127>
-
-(move complexity to the NIC/ASIC, ensure one channel per handle on the
-NIC/ASIC side)
-qsfp,ethernet = <&switch0c124 &switch0c125 &switch0c126 &switch0c127>
-
-
-> >Switch ASICs, and I imagine at least some NICs, are really flexible in
-> >terms of how serdes are wired to a cage.  Both in the sense that the
-> >board designer gets to pick which wires route to the cage based on
-> >physical constraints and the user gets to pick which serdes or group of
-> >serdes compose the ethernet device.  For example, using a breakout
-> >cable
-> >to get 4xSFP out of a QSFP or the other way around.
-> >
-> >Perhaps the simple case (sfp,ethernet -> &eth2) can remain simple, but
-> >I'd be interested in any thoughts you have on introducing a serdes
-> >layer here.
-> >
-> >I think adding such a layer would make it easier to 1) make serdes to
-> >cage mappings part of the platform description (DT or ACPI) and 2)
-> >allow
-> >automatic reconfiguration of the mac based on the SFF module.  For
-> >example, if a user plugs in a QSFP->4xSFP breakout cable why not
-> >automatically create four netdevs instead of one?
-> 
-> Would this be something you expect to happen dynamically? Not that this does not seem reasonable but would these netdevs serve a different purpose than being control endpoints, or would they become real logical netdevs with separate data planes at the MAC they would be linked to?
-
-Real netdevs with separate data planes.  Reconfiguring them dynamically
-seems like a good theoretical goal but is probably impractical in most
-cases.  Even if it's not dynamic I think it's a good example of why you
-might want a QSFP device to have an ethernet handle that points to four
-things instead of one.
-
-> >> +		tx-disable-gpio = <&expander0 14 GPIO_ACTIVE_HIGH>;
-> >> +		tx-fault-gpio = <&expander0 13 GPIO_ACTIVE_HIGH>;
-> >> +	};
-> >> 
-> >> These DT changes are omitted from this patch set as the baseline DT
-> >> file is not in mainline yet (has been submitted.)
-> >
-> >Cool.  Do you have a link to the DT patches?
-> >
-> >
-> >In short, I think this is awesome, and I'd like to help where I can.
-> >I'll start by having a look at the rest of the series.  I'd like to
-> >apply it and see if I can make it work on one of my systems.
-> >
-> >Thanks,
-> >
-> >		--Dustin
-> 
-> 
-> -- 
-> Florian
-
-
-		--Dustin
+	return --thermometer;
+}
