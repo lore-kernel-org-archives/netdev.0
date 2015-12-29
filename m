@@ -1,51 +1,31 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [RESEND PATCH v1 0/4] Add support emac for the RK3036 SoC platform
-Date: Tue, 29 Dec 2015 23:27:55 +0100
-Message-ID: <3925713.yDzK1dvrIv@diego>
-References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com> <20151229.155314.1522114236952280828.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 1/3] r8169:Fix typo in setting RTL8168EP and
+ RTL8168H D3cold PFM mode
+Date: Tue, 29 Dec 2015 23:28:24 +0100
+Message-ID: <20151229222824.GA7626@electric-eye.fr.zoreil.com>
+References: <1451398419-4816-1-git-send-email-hau@realtek.com>
+ <1451398419-4816-2-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: zhengxing@rock-chips.com, linux-rockchip@lists.infradead.org,
-	keescook@google.com, leozwang@google.comi, linux@arm.linux.org.uk,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	paul.gortmaker@windriver.com, galak@codeaurora.org,
-	linux-kernel@vger.kernel.org, ijc+devicetree@hellion.org.uk,
-	pawel.moll@arm.com, geert@linux-m68k.org, mark.rutland@arm.com,
-	robh+dt@kernel.org, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151229.155314.1522114236952280828.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: Chunhao Lin <hau@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39855 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753792AbbL2W2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 17:28:33 -0500
+Content-Disposition: inline
+In-Reply-To: <1451398419-4816-2-git-send-email-hau@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-Am Dienstag, 29. Dezember 2015, 15:53:14 schrieb David Miller:
-> You have to submit this series properly, the same problem happend twice
-> now.
+Chunhao Lin <hau@realtek.com> :
+> The register for setting D3code PFM mode is  MISC_1, not DLLPR.
 > 
-> When you submit a series you should:
-> 
-> 1) Make it clear which tree you expect these changes to be applied
->    to.  Here it is completely ambiguous, do you want it to go into
->    my networking tree or some other subsystem tree?
-> 
-> 2) You MUST keep all parties informed about all patches for a series
->    like this.  That means you cannot drop netdev from patch #4 as
->    you did both times.  Doing this aggravates the situation for
->    #1 even more, because if a patch is not CC:'d to netdev it does
->    not enter patchwork.  And if it doesn't go into patchwork, I'm
->    not looking at it.
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
 
-I guess that is some unfortunate result of git send-email combined with 
-get_maintainer.pl . In general I also prefer to see the whole series, but have 
-gotten such partial series from other maintainers as well in the past, so it 
-seems to be depending on preferences somewhat.
+Reviewed-by: Francois Romieu <romieu@fr.zoreil.com>
 
-For the series at hand, the 4th patch is the devicetree addition, which the 
-expected way is me picking it up, after you are comfortable with the code-
-related changes.
-
-
-Heiko
+-- 
+Ueimor
