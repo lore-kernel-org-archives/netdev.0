@@ -1,46 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlcnic: correctly handle qlcnic_alloc_mbx_args
-Date: Tue, 29 Dec 2015 14:46:15 -0500 (EST)
-Message-ID: <20151229.144615.1025537000748350969.davem@davemloft.net>
-References: <1451417387-11321-1-git-send-email-wuninsu@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Dept-GELinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, taesoo@gatech.edu,
-	yeongjin.jang@gatech.edu, insu@gatech.edu, changwoo@gatech.edu
-To: wuninsu@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451417387-11321-1-git-send-email-wuninsu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv3 net-next 0/3] Ethtool support for phy stats
+Date: Tue, 29 Dec 2015 20:51:21 +0100
+Message-ID: <1451418684-9238-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52191 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753658AbbL2Tvl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 14:51:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Insu Yun <wuninsu@gmail.com>
-Date: Tue, 29 Dec 2015 14:29:47 -0500
+This patchset add ethtool support for reading statistics from the PHY.
+The Marvell and Micrel Phys are then extended to report receiver
+packet errors and idle errors.
 
-> Signed-off-by: Insu Yun <wuninsu@gmail.com>
-> ---
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-> index a5f422f..a9a2c33 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-> @@ -772,8 +772,10 @@ int qlcnic_82xx_config_intrpt(struct qlcnic_adapter *adapter, u8 op_type)
->  	int i, err = 0;
->  
->  	for (i = 0; i < ahw->num_msix; i++) {
-> -		qlcnic_alloc_mbx_args(&cmd, adapter,
-> +		err = qlcnic_alloc_mbx_args(&cmd, adapter,
->  				      QLCNIC_CMD_MQ_TX_CONFIG_INTR);
+v2:
+  Fix linking when phylib is not enabled.
+v3:
+  Inline helpers into ethtool.c, so fixing when phylib is a module.
+  
+Andrew Lunn (3):
+  ethtool: Add phy statistics
+  phy: marvell: Add ethtool statistics counters
+  phy: micrel: Add ethtool statistics counters
 
-You must fix the indentation of the second line of the function call when
-you made changes like this.  The first character on the second line of the
-call must be exactly at the first column after the openning parenthesis of
-the first line.
+ drivers/net/phy/marvell.c    | 135 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/micrel.c     |  96 ++++++++++++++++++++++++++++++
+ include/linux/phy.h          |   6 ++
+ include/uapi/linux/ethtool.h |   3 +
+ net/core/ethtool.c           |  81 +++++++++++++++++++++++++-
+ 5 files changed, 320 insertions(+), 1 deletion(-)
 
-You must must the appropriate number of TAB and then SPACE characters
-necessary to achieve this.
-
-Thanks.
+-- 
+2.6.4
