@@ -1,79 +1,66 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] sctp: sctp should release assoc when sctp_make_abort_user return NULL in sctp_close
-Date: Tue, 29 Dec 2015 17:49:25 +0800
-Message-ID: <038f05a2f35f3be88976ee1b59578bd5e5112112.1451382565.git.lucien.xin@gmail.com>
-Cc: marcelo.leitner@gmail.com, vyasevic@redhat.com,
-	daniel@iogearbox.net, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Stas Sergeev <stsp@list.ru>
+Subject: Q: bad routing table cache entries
+Date: Tue, 29 Dec 2015 13:54:18 +0300
+Message-ID: <5682665A.7090102@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36737 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbbL2Jtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 04:49:31 -0500
+Received: from fallback6.mail.ru ([94.100.181.147]:59048 "EHLO
+	fallback6.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198AbbL2Ky0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 05:54:26 -0500
+Received: from smtp53.i.mail.ru (smtp53.i.mail.ru [94.100.177.113])
+	by fallback6.mail.ru (mPOP.Fallback_MX) with ESMTP id B56EB1BC1C11
+	for <netdev@vger.kernel.org>; Tue, 29 Dec 2015 13:54:22 +0300 (MSK)
+Received: from [31.28.31.88] (port=34216 helo=[192.168.0.237])
+	by smtp53.i.mail.ru with esmtpa (envelope-from <stsp@list.ru>)
+	id 1aDrv1-0002HP-SM
+	for netdev@vger.kernel.org; Tue, 29 Dec 2015 13:54:20 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In sctp_close, sctp_make_abort_user may return NULL because of memory
-allocation failure. If this happens, it will bypass any state change
-and never free the assoc. The assoc has no chance to be freed and it
-will be kept in memory with the state it had even after the socket is
-closed by sctp_close().
+Hello.
 
-So if sctp_make_abort_user fails to allocate memory, we should abort
-the asoc via sctp_primitive_ABORT as well. Just like the annotation in
-sctp_sf_cookie_wait_prm_abort and sctp_sf_do_9_1_prm_abort said,
-"Even if we can't send the ABORT due to low memory delete the TCB.
-This is a departure from our typical NOMEM handling".
+I was hitting a strange problem when some internet hosts
+suddenly stops responding until I reboot. ping to these
+host gives "Destination Host Unreachable". After the
+initial confusion, I've finally got to
+ip route get
+and got something quite strange.
 
-But then the chunk is NULL (low memory) and the SCTP_CMD_REPLY cmd would
-dereference the chunk pointer, and system crash. So we should add
-SCTP_CMD_REPLY cmd only when the chunk is not NULL, just like other
-places where it adds SCTP_CMD_REPLY cmd.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/sm_statefuns.c | 6 ++++--
- net/sctp/socket.c       | 3 +--
- 2 files changed, 5 insertions(+), 4 deletions(-)
+Example for GOOD address (the one that I can ping):
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index cd34a4a..22c2bf3 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4829,7 +4829,8 @@ sctp_disposition_t sctp_sf_do_9_1_prm_abort(
- 
- 	retval = SCTP_DISPOSITION_CONSUME;
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-+	if (abort)
-+		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
- 
- 	/* Even if we can't send the ABORT due to low memory delete the
- 	 * TCB.  This is a departure from our typical NOMEM handling.
-@@ -4966,7 +4967,8 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
- 			SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
- 	retval = SCTP_DISPOSITION_CONSUME;
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-+	if (abort)
-+		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
- 
- 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
- 			SCTP_STATE(SCTP_STATE_CLOSED));
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9b6cc6d..6b2f901 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1513,8 +1513,7 @@ static void sctp_close(struct sock *sk, long timeout)
- 			struct sctp_chunk *chunk;
- 
- 			chunk = sctp_make_abort_user(asoc, NULL, 0);
--			if (chunk)
--				sctp_primitive_ABORT(net, asoc, chunk);
-+			sctp_primitive_ABORT(net, asoc, chunk);
- 		} else
- 			sctp_primitive_SHUTDOWN(net, asoc, NULL);
- 	}
--- 
-2.1.0
+ip route get 91.189.89.237
+91.189.89.237 via 192.168.8.1 dev eth0  src 192.168.10.202
+    cache
+
+
+Example for BAD address (the one that stopped responding):
+
+ip route get 91.189.89.238
+91.189.89.238 via 192.168.0.1 dev eth0  src 192.168.10.202
+    cache <redirected>
+
+
+Two things differ: the <redirected> mark appears, and the
+gateway changed from 192.168.8.1 to 192.168.0.1.
+Now, 192.168.0.1 is also a valid gateway, but it is outside
+of the network mask for the eth0 interface:
+
+ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr 00:50:43:00:0b:e0
+          inet addr:192.168.10.202  Bcast:192.168.11.255  Mask:255.255.252.0
+
+
+As a result, this route simply doesn't work.
+I checked with tcpdump - the icmp packets do not even go
+to eth0 - they instead can be captured on lo interface for
+some reason.
+
+So my question is: why does linux allow an invalid redirect
+entries? Is it a problem with my setup, or some kernel bug,
+or some router setup problem? Where should I look into, to
+nail this down?
