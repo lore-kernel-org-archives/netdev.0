@@ -1,39 +1,37 @@
 From: Insu Yun <wuninsu@gmail.com>
-Subject: [PATCH] ixgbe: correctly handling failed allocation
-Date: Tue, 29 Dec 2015 16:55:17 -0500
-Message-ID: <1451426117-30986-1-git-send-email-wuninsu@gmail.com>
+Subject: [PATCH] cxgb4: correctly handling failed allocation
+Date: Tue, 29 Dec 2015 17:20:11 -0500
+Message-ID: <1451427611-32338-1-git-send-email-wuninsu@gmail.com>
 Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
 	changwoo@gatech.edu, Insu Yun <wuninsu@gmail.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+To: hariprasad@chelsio.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since kzalloc can be failed in memory pressure,
-NULL derefence could be happened.
+Since t4_alloc_mem can be failed in memory pressure,
+if not properly handled, NULL dereference could be happened.
 
 Signed-off-by: Insu Yun <wuninsu@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index aed8d02..aa5eda0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5331,6 +5331,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->mac_table = kzalloc(sizeof(struct ixgbe_mac_addr) *
- 				     hw->mac.num_rar_entries,
- 				     GFP_ATOMIC);
-+	if (!adapter->mac_table)
-+		return -ENOMEM;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+index c308429..11dd91e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+@@ -295,6 +295,10 @@ struct clip_tbl *t4_init_clip_tbl(unsigned int clipt_start,
+ 		INIT_LIST_HEAD(&ctbl->hash_list[i]);
  
- 	/* Set MAC specific capability flags and exceptions */
- 	switch (hw->mac.type) {
+ 	cl_list = t4_alloc_mem(clipt_size*sizeof(struct clip_entry));
++	if (!cl_list) {
++		t4_free_mem(ctbl);
++		return NULL;
++	}
+ 	ctbl->cl_list = (void *)cl_list;
+ 
+ 	for (i = 0; i < clipt_size; i++) {
 -- 
 1.9.1
