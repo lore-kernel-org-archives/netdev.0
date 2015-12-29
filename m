@@ -1,179 +1,31 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH v2 3/3] bpf: hash: use per-bucket spinlock
-Date: Tue, 29 Dec 2015 22:40:27 +0800
-Message-ID: <1451400027-28892-4-git-send-email-tom.leiming@gmail.com>
-References: <1451400027-28892-1-git-send-email-tom.leiming@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Ming Lei <tom.leiming@gmail.com>
-To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451400027-28892-1-git-send-email-tom.leiming@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: Q: bad routing table cache entries
+Date: Tue, 29 Dec 2015 10:22:08 -0500
+Message-ID: <20151229152208.GA22423@oracle.com>
+References: <5682665A.7090102@list.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30543 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982AbbL2PWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 10:22:15 -0500
+Content-Disposition: inline
+In-Reply-To: <5682665A.7090102@list.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Both htab_map_update_elem() and htab_map_delete_elem() can be
-called from eBPF program, and they may be in kernel hot path,
-so it isn't efficient to use a per-hashtable lock in this two
-helpers.
 
-The per-hashtable spinlock is used for protecting bucket's
-hlist, and per-bucket lock is just enough. This patch converts
-the per-hashtable lock into per-bucket spinlock, so that
-contention can be decreased a lot.
+Do you have admin control over the ubuntu router?
+If yes, you might want to check the shared_media [#] setting 
+on that router for the interfaces with overlapping subnets.
+(it is on by default, I would try turning it off).
 
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
----
- kernel/bpf/hashtab.c | 50 ++++++++++++++++++++++++++++++++------------------
- 1 file changed, 32 insertions(+), 18 deletions(-)
+AFAICT, the code does the right thing per rfc1812 when setting
+IPSKB_DOREDIRECT if shared_media is turned off.
 
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index d857fcb..c5b30fd 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -14,10 +14,14 @@
- #include <linux/filter.h>
- #include <linux/vmalloc.h>
- 
-+struct bucket {
-+	struct hlist_head head;
-+	raw_spinlock_t lock;
-+};
-+
- struct bpf_htab {
- 	struct bpf_map map;
--	struct hlist_head *buckets;
--	raw_spinlock_t lock;
-+	struct bucket *buckets;
- 	atomic_t count;	/* number of elements in this hashtable */
- 	u32 n_buckets;	/* number of hash buckets */
- 	u32 elem_size;	/* size of each element in bytes */
-@@ -79,33 +83,34 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
- 
- 	/* prevent zero size kmalloc and check for u32 overflow */
- 	if (htab->n_buckets == 0 ||
--	    htab->n_buckets > U32_MAX / sizeof(struct hlist_head))
-+	    htab->n_buckets > U32_MAX / sizeof(struct bucket))
- 		goto free_htab;
- 
--	if ((u64) htab->n_buckets * sizeof(struct hlist_head) +
-+	if ((u64) htab->n_buckets * sizeof(struct bucket) +
- 	    (u64) htab->elem_size * htab->map.max_entries >=
- 	    U32_MAX - PAGE_SIZE)
- 		/* make sure page count doesn't overflow */
- 		goto free_htab;
- 
--	htab->map.pages = round_up(htab->n_buckets * sizeof(struct hlist_head) +
-+	htab->map.pages = round_up(htab->n_buckets * sizeof(struct bucket) +
- 				   htab->elem_size * htab->map.max_entries,
- 				   PAGE_SIZE) >> PAGE_SHIFT;
- 
- 	err = -ENOMEM;
--	htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct hlist_head),
-+	htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct bucket),
- 				      GFP_USER | __GFP_NOWARN);
- 
- 	if (!htab->buckets) {
--		htab->buckets = vmalloc(htab->n_buckets * sizeof(struct hlist_head));
-+		htab->buckets = vmalloc(htab->n_buckets * sizeof(struct bucket));
- 		if (!htab->buckets)
- 			goto free_htab;
- 	}
- 
--	for (i = 0; i < htab->n_buckets; i++)
--		INIT_HLIST_HEAD(&htab->buckets[i]);
-+	for (i = 0; i < htab->n_buckets; i++) {
-+		INIT_HLIST_HEAD(&htab->buckets[i].head);
-+		raw_spin_lock_init(&htab->buckets[i].lock);
-+	}
- 
--	raw_spin_lock_init(&htab->lock);
- 	atomic_set(&htab->count, 0);
- 
- 	return &htab->map;
-@@ -120,11 +125,16 @@ static inline u32 htab_map_hash(const void *key, u32 key_len)
- 	return jhash(key, key_len, 0);
- }
- 
--static inline struct hlist_head *select_bucket(struct bpf_htab *htab, u32 hash)
-+static inline struct bucket *__select_bucket(struct bpf_htab *htab, u32 hash)
- {
- 	return &htab->buckets[hash & (htab->n_buckets - 1)];
- }
- 
-+static inline struct hlist_head *select_bucket(struct bpf_htab *htab, u32 hash)
-+{
-+	return &__select_bucket(htab, hash)->head;
-+}
-+
- static struct htab_elem *lookup_elem_raw(struct hlist_head *head, u32 hash,
- 					 void *key, u32 key_size)
- {
-@@ -227,6 +237,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
- 	struct htab_elem *l_new, *l_old;
- 	struct hlist_head *head;
-+	struct bucket *b;
- 	unsigned long flags;
- 	u32 key_size;
- 	int ret;
-@@ -248,10 +259,11 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	memcpy(l_new->key + round_up(key_size, 8), value, map->value_size);
- 
- 	l_new->hash = htab_map_hash(l_new->key, key_size);
--	head = select_bucket(htab, l_new->hash);
-+	b = __select_bucket(htab, l_new->hash);
-+	head = &b->head;
- 
- 	/* bpf_map_update_elem() can be called in_irq() */
--	raw_spin_lock_irqsave(&htab->lock, flags);
-+	raw_spin_lock_irqsave(&b->lock, flags);
- 
- 	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
- 
-@@ -285,11 +297,11 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	} else {
- 		atomic_inc(&htab->count);
- 	}
--	raw_spin_unlock_irqrestore(&htab->lock, flags);
-+	raw_spin_unlock_irqrestore(&b->lock, flags);
- 
- 	return 0;
- err:
--	raw_spin_unlock_irqrestore(&htab->lock, flags);
-+	raw_spin_unlock_irqrestore(&b->lock, flags);
- 	kfree(l_new);
- 	return ret;
- }
-@@ -299,6 +311,7 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
- {
- 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
- 	struct hlist_head *head;
-+	struct bucket *b;
- 	struct htab_elem *l;
- 	unsigned long flags;
- 	u32 hash, key_size;
-@@ -309,9 +322,10 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
- 	key_size = map->key_size;
- 
- 	hash = htab_map_hash(key, key_size);
--	head = select_bucket(htab, hash);
-+	b = __select_bucket(htab, hash);
-+	head = &b->head;
- 
--	raw_spin_lock_irqsave(&htab->lock, flags);
-+	raw_spin_lock_irqsave(&b->lock, flags);
- 
- 	l = lookup_elem_raw(head, hash, key, key_size);
- 
-@@ -322,7 +336,7 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
- 		ret = 0;
- 	}
- 
--	raw_spin_unlock_irqrestore(&htab->lock, flags);
-+	raw_spin_unlock_irqrestore(&b->lock, flags);
- 	return ret;
- }
- 
--- 
-1.9.1
+--Sowmini
+
+[#] https://www.frozentux.net/ipsysctl-tutorial/chunkyhtml/theconfvariables.html
