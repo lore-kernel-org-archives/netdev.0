@@ -1,56 +1,45 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH v2 2/3] bpf: hash: move select_bucket() out of htab's spinlock
-Date: Tue, 29 Dec 2015 22:40:26 +0800
-Message-ID: <1451400027-28892-3-git-send-email-tom.leiming@gmail.com>
-References: <1451400027-28892-1-git-send-email-tom.leiming@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Ming Lei <tom.leiming@gmail.com>
-To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451400027-28892-1-git-send-email-tom.leiming@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] unix: properly account for FDs passed over unix sockets
+Date: Tue, 29 Dec 2015 15:48:45 +0100
+Message-ID: <56829D4D.4090109@stressinduktion.org>
+References: <20151228141435.GA13351@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, socketpair@gmail.com
+To: Willy Tarreau <w@1wt.eu>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:56400 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752690AbbL2Ost (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 09:48:49 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 6761A2080D
+	for <netdev@vger.kernel.org>; Tue, 29 Dec 2015 09:48:49 -0500 (EST)
+In-Reply-To: <20151228141435.GA13351@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The spinlock is just used for protecting the per-bucket
-hlist, so it isn't needed for selecting bucket.
+On 28.12.2015 15:14, Willy Tarreau wrote:
+> It is possible for a process to allocate and accumulate far more FDs than
+> the process' limit by sending them over a unix socket then closing them
+> to keep the process' fd count low.
+>
+> This change addresses this problem by keeping track of the number of FDs
+> in flight per user and preventing non-privileged processes from having
+> more FDs in flight than their configured FD limit.
+>
+> Reported-by: socketpair@gmail.com
+> Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
----
- kernel/bpf/hashtab.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Thanks for the patch!
 
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 2615388..d857fcb 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -248,12 +248,11 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	memcpy(l_new->key + round_up(key_size, 8), value, map->value_size);
- 
- 	l_new->hash = htab_map_hash(l_new->key, key_size);
-+	head = select_bucket(htab, l_new->hash);
- 
- 	/* bpf_map_update_elem() can be called in_irq() */
- 	raw_spin_lock_irqsave(&htab->lock, flags);
- 
--	head = select_bucket(htab, l_new->hash);
--
- 	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
- 
- 	if (!l_old && unlikely(atomic_read(&htab->count) >= map->max_entries)) {
-@@ -310,11 +309,10 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
- 	key_size = map->key_size;
- 
- 	hash = htab_map_hash(key, key_size);
-+	head = select_bucket(htab, hash);
- 
- 	raw_spin_lock_irqsave(&htab->lock, flags);
- 
--	head = select_bucket(htab, hash);
--
- 	l = lookup_elem_raw(head, hash, key, key_size);
- 
- 	if (l) {
--- 
-1.9.1
+I think this does not close the DoS attack completely as we duplicate 
+fds if the reader uses MSG_PEEK on the unix domain socket and thus 
+clones the fd. Have I overlooked something?
+
+Thanks,
+Hannes
