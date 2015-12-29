@@ -1,68 +1,47 @@
-From: Souptick Joarder <jrdr.linux@gmail.com>
-Subject: Re: [PATCH] ath6kl: Use vmalloc to allocate ar->fw for api1 method
-Date: Tue, 29 Dec 2015 23:46:43 +0530
-Message-ID: <CAFqt6zacF-n0pRxU0=pq79rKCt1Y-08taaZxBrFdre4JMH6tbQ@mail.gmail.com>
-References: <1448948470-31111-1-git-send-email-motobud@gmail.com>
-	<CAFqt6zaALx895c0BVrMpLdtfgYLz=-mmqaurtD28Nm1Ut2g1Dw@mail.gmail.com>
-	<CAP+RiCBK_iEOu27GzqqgG9Pn_MDP1m8JCnSqkGbPMAT7=P9V7g@mail.gmail.com>
-	<CAFqt6zZfmue6XVVno2Ho8UfEwz1Z3YxFzbcZ9ZMOn5Fe_zJLmQ@mail.gmail.com>
-	<87poxy7spb.fsf@kamboji.qca.qualcomm.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 4/4] dt: binding: Add Qualcomm wcn36xx WiFi binding
+Date: Tue, 29 Dec 2015 12:34:40 -0600
+Message-ID: <20151229183440.GC12450@rob-hp-laptop>
+References: <1451266467-15377-1-git-send-email-bjorn.andersson@sonymobile.com>
+ <1451266467-15377-5-git-send-email-bjorn.andersson@sonymobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, ath6kl@lists.infradead.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-To: Brent Taylor <motobud@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87poxy7spb.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>, devicetree@vger.kernel.org,
+	fengwei.yin@linaro.org, linux-arm-msm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, wcn36xx@lists.infradead.org
+To: Bjorn Andersson <bjorn@kryo.se>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1451266467-15377-5-git-send-email-bjorn.andersson@sonymobile.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brent,
+On Sun, Dec 27, 2015 at 05:34:27PM -0800, Bjorn Andersson wrote:
+> Add binding representing the Qualcomm wcn3620/60/80 WiFi block.
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+> ---
+>  .../bindings/net/wireless/qcom,wcn36xx-wifi.txt    | 76 ++++++++++++++++++++++
+>  1 file changed, 76 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt b/Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt
+> new file mode 100644
+> index 000000000000..7b314b9f30af
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt
+> @@ -0,0 +1,76 @@
+> +Qualcomm WCN36xx WiFi Binding
+> +
+> +This binding describes the Qualcomm WCN36xx WiFi hardware. The hardware block
+> +is part of the Qualcomm WCNSS core, a WiFi/BT/FM combo chip, found in a variety
+> +of Qualcomm platforms.
 
-On Tue, Dec 22, 2015 at 2:42 PM, Kalle Valo <kvalo@qca.qualcomm.com> wrote:
-> Souptick Joarder <jrdr.linux@gmail.com> writes:
->
->> Hi Brent,
->>
->> On Tue, Dec 22, 2015 at 3:23 AM, Brent Taylor <motobud@gmail.com> wrote:
->>> On Mon, Dec 21, 2015 at 1:23 PM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
->>>> Hi Brent,
->>>>
->>>> On Tue, Dec 1, 2015 at 11:11 AM, Brent Taylor <motobud@gmail.com> wrote:
->>>>
->>>>> --- a/drivers/net/wireless/ath/ath6kl/init.c
->>>>> +++ b/drivers/net/wireless/ath/ath6kl/init.c
->>>>> @@ -673,10 +673,15 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
->>>>>                 return ret;
->>>>>
->>>>>         *fw_len = fw_entry->size;
->>>>> -       *fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
->>>>> +   if (&ar->fw == fw)
->>>>> +               *fw = vmalloc(fw_entry->size);
->>>>> +   else
->>>>> +               *fw = kmalloc(fw_entry->size, GFP_KERNEL)
->>>>
->>>>           Why vmalloc and kmalloc both are required? can't use either
->>>> vmalloc or kmalloc?
->>>
->>> My original problem was that kmemdup (which uses kmalloc) could not
->>> allocate enough memory
->>
->> If kmemdump ( which uses kmalloc) could not allocate memory then
->> using kmalloc again can lead to same problem.
->> I guess it will be correct to use
->>             *fw = vmalloc(fw_entry->size);
->> Correct me if i am wrong.
->
-> That sounds best. But remember take into account DMA requirements, IIRC
-> you cannot DMA from vmalloc memory on all platforms.
+Are BT/FM functions completely separate? If so, separate bindings are 
+okay. If not, then we need to describe the full chip.
 
-Is it possible to modify the patch as per feedback from Kalle.
-
->
-> --
-> Kalle Valo
-
--Souptick
+Rob
