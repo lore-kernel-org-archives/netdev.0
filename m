@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] openvswitch: Fix template leak in error cases.
-Date: Tue, 29 Dec 2015 15:28:22 -0500 (EST)
-Message-ID: <20151229.152822.353618428420139342.davem@davemloft.net>
-References: <1450910367-61953-1-git-send-email-joe@ovn.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 2/3] drivers: net: cpsw: fix error messages when using
+ phy-handle DT property
+Date: Tue, 29 Dec 2015 14:30:34 -0600
+Message-ID: <20151229203034.GA18528@rob-hp-laptop>
+References: <1450830994-5450-1-git-send-email-drivshin.allworx@gmail.com>
+ <1450830994-5450-3-git-send-email-drivshin.allworx@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pshelar@nicira.com
-To: joe@ovn.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Heiko Schocher <hs@denx.de>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
+	Pascal Speck <kernel@iktek.de>,
+	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>
+To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59980 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704AbbL2U2X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 15:28:23 -0500
-In-Reply-To: <1450910367-61953-1-git-send-email-joe@ovn.org>
+Received: from mail.kernel.org ([198.145.29.136]:46546 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753785AbbL2Uaj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 15:30:39 -0500
+Content-Disposition: inline
+In-Reply-To: <1450830994-5450-3-git-send-email-drivshin.allworx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@ovn.org>
-Date: Wed, 23 Dec 2015 14:39:27 -0800
+On Tue, Dec 22, 2015 at 07:36:33PM -0500, David Rivshin (Allworx) wrote:
+> From: David Rivshin <drivshin@allworx.com>
+> 
+> The phy-handle, phy_id, and fixed-link properties are mutually exclusive,
+> and only one need be specified. However if phy-handle was specified, an
+> error message would complain about the lack of phy_id or fixed-link.
+> 
+> Also, if phy-handle was specified and the subsequent of_phy_connect()
+> failed, the error message still referenced slaved->data->phy_id, which
+> would be empty. Instead, use the name of the device_node as a useful
+> identifier.
+> 
+> Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
+> Signed-off-by: David Rivshin <drivshin@allworx.com>
+> ---
+> This would require some adjustments to backport to 4.3-stable due to
+> other changes in this area. Let me know if you want a version of this
+> against v4.3.3.
+> 
+>  Documentation/devicetree/bindings/net/cpsw.txt |  4 ++--
 
-> Commit 5b48bb8506c5 ("openvswitch: Fix helper reference leak") fixed a
-> reference leak on helper objects, but inadvertently introduced a leak on
-> the ct template.
-> 
-> Previously, ct_info.ct->general.use was initialized to 0 by
-> nf_ct_tmpl_alloc() and only incremented when ovs_ct_copy_action()
-> returned successful. If an error occurred while adding the helper or
-> adding the action to the actions buffer, the __ovs_ct_free_action()
-> cleanup would use nf_ct_put() to free the entry; However, this relies on
-> atomic_dec_and_test(ct_info.ct->general.use). This reference must be
-> incremented first, or nf_ct_put() will never free it.
-> 
-> Fix the issue by acquiring a reference to the template immediately after
-> allocation.
-> 
-> Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
-> Fixes: 5b48bb8506c5 ("openvswitch: Fix helper reference leak")
-> Signed-off-by: Joe Stringer <joe@ovn.org>
+For the binding:
 
-Looks good, applied, thanks Joe.
+Acked-by: Rob Herring <robh@kernel.org>
