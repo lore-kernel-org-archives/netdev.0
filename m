@@ -1,65 +1,58 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 4/4] dt: binding: Add Qualcomm wcn36xx WiFi binding
-Date: Tue, 29 Dec 2015 17:27:51 -0600
-Message-ID: <20151229232751.GA664@rob-hp-laptop>
-References: <1451266467-15377-1-git-send-email-bjorn.andersson@sonymobile.com>
- <1451266467-15377-5-git-send-email-bjorn.andersson@sonymobile.com>
- <20151229183440.GC12450@rob-hp-laptop>
- <20151229190357.GJ16437@tuxbot>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [RESEND PATCH v1 3/4] net: ethernet: arc: Add support emac for RK3036
+Date: Wed, 30 Dec 2015 00:32:04 +0100
+Message-ID: <10754282.l0GYzq0NWr@diego>
+References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com> <1451287341-16453-4-git-send-email-zhengxing@rock-chips.com> <FFCE9129-357E-4643-A350-9927A5AD5720@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>, devicetree@vger.kernel.org,
-	fengwei.yin@linaro.org, linux-arm-msm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, wcn36xx@lists.infradead.org
-To: Bjorn Andersson <bjorn@kryo.se>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20151229190357.GJ16437@tuxbot>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Xing Zheng <zhengxing@rock-chips.com>,
+	linux-rockchip@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>, keescook@google.com,
+	leozwang@google.comi, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <FFCE9129-357E-4643-A350-9927A5AD5720@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 29, 2015 at 11:03:57AM -0800, Bjorn Andersson wrote:
-> On Tue 29 Dec 10:34 PST 2015, Rob Herring wrote:
+Am Dienstag, 29. Dezember 2015, 14:59:59 schrieb Florian Fainelli:
+> On December 27, 2015 11:22:20 PM PST, Xing Zheng <zhengxing@rock-chips.com> 
+wrote:
+> >The RK3036's GRFs offset are different with RK3066/RK3188, and need to
+> >set
+> >mac TX/RX clock before probe emac.
+> >
+> >Signed-off-by: Xing Zheng <zhengxing@rock-chips.com>
+> >---
 > 
-> > On Sun, Dec 27, 2015 at 05:34:27PM -0800, Bjorn Andersson wrote:
-> > > Add binding representing the Qualcomm wcn3620/60/80 WiFi block.
-> > > Signed-off-by: Bjorn Andersson <bjorn.andersson@sonymobile.com>
-> > > ---
-> > >  .../bindings/net/wireless/qcom,wcn36xx-wifi.txt    | 76 ++++++++++++++++++++++
-> > >  1 file changed, 76 insertions(+)
-> > >  create mode 100644 Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt
-> > > 
-> > > diff --git a/Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt b/Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt
-> > > new file mode 100644
-> > > index 000000000000..7b314b9f30af
-> > > --- /dev/null
-> > > +++ b/Documentation/devicetree/bindings/net/wireless/qcom,wcn36xx-wifi.txt
-> > > @@ -0,0 +1,76 @@
-> > > +Qualcomm WCN36xx WiFi Binding
-> > > +
-> > > +This binding describes the Qualcomm WCN36xx WiFi hardware. The hardware block
-> > > +is part of the Qualcomm WCNSS core, a WiFi/BT/FM combo chip, found in a variety
-> > > +of Qualcomm platforms.
+> <snip>
+> 
+> > };
 > > 
-> > Are BT/FM functions completely separate? If so, separate bindings are 
-> > okay. If not, then we need to describe the full chip.
-> > 
+> > static const struct of_device_id emac_rockchip_dt_ids[] = {
+> >
+> >-	{ .compatible = "rockchip,rk3066-emac", .data =
+> >&emac_rockchip_dt_data[0] },
+> >-	{ .compatible = "rockchip,rk3188-emac", .data =
+> >&emac_rockchip_dt_data[1] },
+> >+	{ .compatible = "rockchip,rk3036-emac", .data =
+> >&emac_rockchip_dt_data[0] },
+> >+	{ .compatible = "rockchip,rk3066-emac", .data =
+> >&emac_rockchip_dt_data[1] },
+> >+	{ .compatible = "rockchip,rk3188-emac", .data =
+> >&emac_rockchip_dt_data[2] },
+> >
+> > 	{ /* Sentinel */ }
 > 
-> It's three different hardware blocks (WiFi, BT and FM-radio) with shared
-> RF-hardware and an ARM core for control logic.
-> 
-> There seems to be some control commands going towards the BT part that
-> controls coexistence properties of the RF-hardware, but other than that
-> I see it as logically separate blocks.
-> 
-> 
-> So I think it's fine to model this as separate pieces in DT.
+> Food for thought, you might want to use an enum here to index
+> emac_rockchip_dt_data which would be less error prone if you add/remove
+> entries in this structure.
 
-Okay.
+Or just have the structs separately and not in array-form at all, aka
+rk3066_emac_dt_data, rk3036_emac_dt_data.
 
-Acked-by: Rob Herring <robh@kernel.org>
+I don't think the original array really improves anything.
