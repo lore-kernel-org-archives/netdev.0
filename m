@@ -1,97 +1,297 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: Q: bad routing table cache entries
-Date: Tue, 29 Dec 2015 15:43:44 +0300
-Message-ID: <56828000.9040703@list.ru>
-References: <5682665A.7090102@list.ru> <20151229115821.GA9352@oracle.com>
- <56827759.8020605@list.ru> <20151229123229.GA22743@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V3 1/4] net/mlx5e: Do not modify the TX SKB
+Date: Tue, 29 Dec 2015 14:58:29 +0200
+Message-ID: <1451393912-13736-2-git-send-email-saeedm@mellanox.com>
+References: <1451393912-13736-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	saeedm@dev.mellanox.co.il, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback3.mail.ru ([94.100.181.189]:50403 "EHLO
-	fallback3.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392AbbL2Mva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 07:51:30 -0500
-Received: from smtp10.mail.ru (smtp10.mail.ru [94.100.181.92])
-	by fallback3.mail.ru (mPOP.Fallback_MX) with ESMTP id 152E2167FCEDF
-	for <netdev@vger.kernel.org>; Tue, 29 Dec 2015 15:43:55 +0300 (MSK)
-In-Reply-To: <20151229123229.GA22743@oracle.com>
+Received: from [193.47.165.129] ([193.47.165.129]:37837 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752049AbbL2M7E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 07:59:04 -0500
+In-Reply-To: <1451393912-13736-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-29.12.2015 15:32, Sowmini Varadhan =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On (12/29/15 15:06), Stas Sergeev wrote:
->> Router on 192.168.8.1 is just a PC with ubuntu, w/o any special
->> software. I'd be very surprised if it does so. As I understand,
->> linux would accept such ICMP redirect only from the router, or
->> could someone else also send them?
->=20
-> If someone elase can spoof redirects on your network, you have
-> a much bigger network management problem- at that point, how can you
-> trust anything, e.g., a default rdisc rtradv?
-Well, I have /proc/sys/net/ipv4/conf/all/secure_redirects set to 1,
-so it should be a router I suppose. But this is strange and I wonder
-why does it do so very rarely (but that's something for me to investiga=
-te).
+From: Achiad Shochat <achiad@mellanox.com>
 
->> But what worries me more, is the question:
->> Should the linux kernel really silently accept those, breaking
->> the routing in a completely unexpected ways? Isn't it a bug?
->=20
-> How is the receiver supposed to know that the redirect was "bad"?
->=20
-> In your example, you claimed that
->=20
-> a "good" redirect was:
->      ip route get 91.189.89.237
->      91.189.89.237 via 192.168.8.1 dev eth0  src 192.168.10.202
->          cache
->=20
-> but a "bad" one was:
->=20
->     ip route get 91.189.89.238
->     91.189.89.238 via 192.168.0.1 dev eth0  src 192.168.10.202
->         cache <redirected>
->=20
-> Its not clear to me what the netmask on eth0 is - is this a /16
-But I demonstrated the netmask in a very first posting, and here it is:
+If the SKB is cloned, or has an elevated users count, someone else
+can be looking at it at the same time.
 
-ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:50:43:00:0b:e0
-          inet addr:192.168.10.202  Bcast:192.168.11.255  Mask:255.255.=
-252.0
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    5 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   73 ++++++++++++---------
+ 3 files changed, 49 insertions(+), 34 deletions(-)
 
-
-> (in which case both redirs are "good" as far as the receiver can tell=
-)?
-> Are the 2 gws also on a /16? or something longer?
-Yes, the problem is exactly that: the mask is longer.
-So the route is bad, and the packets are routed to the "lo"
-interface instead - I checked that with tcpdump.
-
->> The sanity check against netmask looks trivial, so why it is not the=
-re?
->=20
-> According to rfc1812 (pg 82-84)
->=20
->    Routers MUST NOT generate a Redirect Message unless all the follow=
-ing
->    conditions are met:
->=20
->    o The packet is being forwarded out the same physical interface th=
-at
->       it was received from,
->=20
->    o The IP source address in the packet is on the same Logical IP
->       (sub)network as the next-hop IP address, and
->=20
->    o The packet does not contain an IP source route option.
->=20
-> The second condition seems to have been violated by the router. I=20
-> suppose it might not hurt if the receiver can do some sanity checking
-> on the redirect but this might not eliminate every error, since
-> it might not be possible to detect netmask mismatch in every case.
-Not sure what case you mean, but at least as simple error as I am
-having, should be possible to detect.
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index f689ce5..ae3f0e3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -328,14 +328,12 @@ struct mlx5e_rq {
+ 	struct mlx5e_priv     *priv;
+ } ____cacheline_aligned_in_smp;
+ 
+-struct mlx5e_tx_skb_cb {
++struct mlx5e_tx_wqe_info {
+ 	u32 num_bytes;
+ 	u8  num_wqebbs;
+ 	u8  num_dma;
+ };
+ 
+-#define MLX5E_TX_SKB_CB(__skb) ((struct mlx5e_tx_skb_cb *)__skb->cb)
+-
+ enum mlx5e_dma_map_type {
+ 	MLX5E_DMA_MAP_SINGLE,
+ 	MLX5E_DMA_MAP_PAGE
+@@ -371,6 +369,7 @@ struct mlx5e_sq {
+ 	/* pointers to per packet info: write@xmit, read@completion */
+ 	struct sk_buff           **skb;
+ 	struct mlx5e_sq_dma       *dma_fifo;
++	struct mlx5e_tx_wqe_info  *wqe_info;
+ 
+ 	/* read only */
+ 	struct mlx5_wq_cyc         wq;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index d4601a5..96775a2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -507,6 +507,7 @@ static void mlx5e_close_rq(struct mlx5e_rq *rq)
+ 
+ static void mlx5e_free_sq_db(struct mlx5e_sq *sq)
+ {
++	kfree(sq->wqe_info);
+ 	kfree(sq->dma_fifo);
+ 	kfree(sq->skb);
+ }
+@@ -519,8 +520,10 @@ static int mlx5e_alloc_sq_db(struct mlx5e_sq *sq, int numa)
+ 	sq->skb = kzalloc_node(wq_sz * sizeof(*sq->skb), GFP_KERNEL, numa);
+ 	sq->dma_fifo = kzalloc_node(df_sz * sizeof(*sq->dma_fifo), GFP_KERNEL,
+ 				    numa);
++	sq->wqe_info = kzalloc_node(wq_sz * sizeof(*sq->wqe_info), GFP_KERNEL,
++				    numa);
+ 
+-	if (!sq->skb || !sq->dma_fifo) {
++	if (!sq->skb || !sq->dma_fifo || !sq->wqe_info) {
+ 		mlx5e_free_sq_db(sq);
+ 		return -ENOMEM;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 1341b1d..aa037eb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -92,11 +92,11 @@ static inline struct mlx5e_sq_dma *mlx5e_dma_get(struct mlx5e_sq *sq, u32 i)
+ 	return &sq->dma_fifo[i & sq->dma_fifo_mask];
+ }
+ 
+-static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, struct sk_buff *skb)
++static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, u8 num_dma)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < MLX5E_TX_SKB_CB(skb)->num_dma; i++) {
++	for (i = 0; i < num_dma; i++) {
+ 		struct mlx5e_sq_dma *last_pushed_dma =
+ 			mlx5e_dma_get(sq, --sq->dma_fifo_pc);
+ 
+@@ -139,19 +139,28 @@ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
+ 	return MLX5E_MIN_INLINE;
+ }
+ 
+-static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs)
++static inline void mlx5e_tx_skb_pull_inline(unsigned char **skb_data,
++					    unsigned int *skb_len,
++					    unsigned int len)
++{
++	*skb_len -= len;
++	*skb_data += len;
++}
++
++static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs,
++				     unsigned char **skb_data,
++				     unsigned int *skb_len)
+ {
+ 	struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)start;
+ 	int cpy1_sz = 2 * ETH_ALEN;
+ 	int cpy2_sz = ihs - cpy1_sz;
+ 
+-	skb_copy_from_linear_data(skb, vhdr, cpy1_sz);
+-	skb_pull_inline(skb, cpy1_sz);
++	memcpy(vhdr, *skb_data, cpy1_sz);
++	mlx5e_tx_skb_pull_inline(skb_data, skb_len, cpy1_sz);
+ 	vhdr->h_vlan_proto = skb->vlan_proto;
+ 	vhdr->h_vlan_TCI = cpu_to_be16(skb_vlan_tag_get(skb));
+-	skb_copy_from_linear_data(skb, &vhdr->h_vlan_encapsulated_proto,
+-				  cpy2_sz);
+-	skb_pull_inline(skb, cpy2_sz);
++	memcpy(&vhdr->h_vlan_encapsulated_proto, *skb_data, cpy2_sz);
++	mlx5e_tx_skb_pull_inline(skb_data, skb_len, cpy2_sz);
+ }
+ 
+ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+@@ -160,11 +169,14 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	u16 pi = sq->pc & wq->sz_m1;
+ 	struct mlx5e_tx_wqe      *wqe  = mlx5_wq_cyc_get_wqe(wq, pi);
++	struct mlx5e_tx_wqe_info *wi   = &sq->wqe_info[pi];
+ 
+ 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
+ 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
+ 	struct mlx5_wqe_data_seg *dseg;
+ 
++	unsigned char *skb_data = skb->data;
++	unsigned int skb_len = skb->len;
+ 	u8  opcode = MLX5_OPCODE_SEND;
+ 	dma_addr_t dma_addr = 0;
+ 	bool bf = false;
+@@ -192,8 +204,8 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		opcode       = MLX5_OPCODE_LSO;
+ 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		payload_len  = skb->len - ihs;
+-		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
+-					(skb_shinfo(skb)->gso_segs - 1) * ihs;
++		wi->num_bytes = skb->len +
++				(skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 		sq->stats.tso_packets++;
+ 		sq->stats.tso_bytes += payload_len;
+ 	} else {
+@@ -201,16 +213,16 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		     !skb->xmit_more &&
+ 		     !skb_shinfo(skb)->nr_frags;
+ 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
+-		MLX5E_TX_SKB_CB(skb)->num_bytes = max_t(unsigned int, skb->len,
+-							ETH_ZLEN);
++		wi->num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 	}
+ 
+ 	if (skb_vlan_tag_present(skb)) {
+-		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs);
++		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
++				  &skb_len);
+ 		ihs += VLAN_HLEN;
+ 	} else {
+-		skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
+-		skb_pull_inline(skb, ihs);
++		memcpy(eseg->inline_hdr_start, skb_data, ihs);
++		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
+ 	}
+ 
+ 	eseg->inline_hdr_sz = cpu_to_be16(ihs);
+@@ -220,11 +232,11 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 			       MLX5_SEND_WQE_DS);
+ 	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
+ 
+-	MLX5E_TX_SKB_CB(skb)->num_dma = 0;
++	wi->num_dma = 0;
+ 
+-	headlen = skb_headlen(skb);
++	headlen = skb_len - skb->data_len;
+ 	if (headlen) {
+-		dma_addr = dma_map_single(sq->pdev, skb->data, headlen,
++		dma_addr = dma_map_single(sq->pdev, skb_data, headlen,
+ 					  DMA_TO_DEVICE);
+ 		if (unlikely(dma_mapping_error(sq->pdev, dma_addr)))
+ 			goto dma_unmap_wqe_err;
+@@ -234,7 +246,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		dseg->byte_count = cpu_to_be32(headlen);
+ 
+ 		mlx5e_dma_push(sq, dma_addr, headlen, MLX5E_DMA_MAP_SINGLE);
+-		MLX5E_TX_SKB_CB(skb)->num_dma++;
++		wi->num_dma++;
+ 
+ 		dseg++;
+ 	}
+@@ -253,23 +265,22 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		dseg->byte_count = cpu_to_be32(fsz);
+ 
+ 		mlx5e_dma_push(sq, dma_addr, fsz, MLX5E_DMA_MAP_PAGE);
+-		MLX5E_TX_SKB_CB(skb)->num_dma++;
++		wi->num_dma++;
+ 
+ 		dseg++;
+ 	}
+ 
+-	ds_cnt += MLX5E_TX_SKB_CB(skb)->num_dma;
++	ds_cnt += wi->num_dma;
+ 
+ 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
+ 	cseg->qpn_ds           = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+ 
+ 	sq->skb[pi] = skb;
+ 
+-	MLX5E_TX_SKB_CB(skb)->num_wqebbs = DIV_ROUND_UP(ds_cnt,
+-							MLX5_SEND_WQEBB_NUM_DS);
+-	sq->pc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++	wi->num_wqebbs = DIV_ROUND_UP(ds_cnt, MLX5_SEND_WQEBB_NUM_DS);
++	sq->pc += wi->num_wqebbs;
+ 
+-	netdev_tx_sent_queue(sq->txq, MLX5E_TX_SKB_CB(skb)->num_bytes);
++	netdev_tx_sent_queue(sq->txq, wi->num_bytes);
+ 
+ 	if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5E_SQ_STOP_ROOM))) {
+ 		netif_tx_stop_queue(sq->txq);
+@@ -280,7 +291,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		int bf_sz = 0;
+ 
+ 		if (bf && sq->uar_bf_map)
+-			bf_sz = MLX5E_TX_SKB_CB(skb)->num_wqebbs << 3;
++			bf_sz = wi->num_wqebbs << 3;
+ 
+ 		cseg->fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
+ 		mlx5e_tx_notify_hw(sq, wqe, bf_sz);
+@@ -297,7 +308,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ dma_unmap_wqe_err:
+ 	sq->stats.dropped++;
+-	mlx5e_dma_unmap_wqe_err(sq, skb);
++	mlx5e_dma_unmap_wqe_err(sq, wi->num_dma);
+ 
+ 	dev_kfree_skb_any(skb);
+ 
+@@ -352,6 +363,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 		wqe_counter = be16_to_cpu(cqe->wqe_counter);
+ 
+ 		do {
++			struct mlx5e_tx_wqe_info *wi;
+ 			struct sk_buff *skb;
+ 			u16 ci;
+ 			int j;
+@@ -360,6 +372,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 
+ 			ci = sqcc & sq->wq.sz_m1;
+ 			skb = sq->skb[ci];
++			wi = &sq->wqe_info[ci];
+ 
+ 			if (unlikely(!skb)) { /* nop */
+ 				sq->stats.nop++;
+@@ -367,7 +380,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 				continue;
+ 			}
+ 
+-			for (j = 0; j < MLX5E_TX_SKB_CB(skb)->num_dma; j++) {
++			for (j = 0; j < wi->num_dma; j++) {
+ 				struct mlx5e_sq_dma *dma =
+ 					mlx5e_dma_get(sq, dma_fifo_cc++);
+ 
+@@ -375,8 +388,8 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 			}
+ 
+ 			npkts++;
+-			nbytes += MLX5E_TX_SKB_CB(skb)->num_bytes;
+-			sqcc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++			nbytes += wi->num_bytes;
++			sqcc += wi->num_wqebbs;
+ 			dev_kfree_skb(skb);
+ 		} while (!last_wqe);
+ 	}
+-- 
+1.7.1
