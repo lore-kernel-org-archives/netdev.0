@@ -1,52 +1,48 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 2/3] drivers: net: cpsw: fix error messages when using
- phy-handle DT property
-Date: Tue, 29 Dec 2015 14:30:34 -0600
-Message-ID: <20151229203034.GA18528@rob-hp-laptop>
-References: <1450830994-5450-1-git-send-email-drivshin.allworx@gmail.com>
- <1450830994-5450-3-git-send-email-drivshin.allworx@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] unix: properly account for FDs passed over unix sockets
+Date: Tue, 29 Dec 2015 21:35:27 +0100
+Message-ID: <20151229203527.GA13826@1wt.eu>
+References: <20151228141435.GA13351@1wt.eu> <56829D4D.4090109@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Heiko Schocher <hs@denx.de>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	Pascal Speck <kernel@iktek.de>,
-	Daniel Trautmann <dtrautmann@ibhsoftec-sps.de>
-To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, socketpair@gmail.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46546 "EHLO mail.kernel.org"
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:21855 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753785AbbL2Uaj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 15:30:39 -0500
+	id S1753821AbbL2UhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 15:37:24 -0500
 Content-Disposition: inline
-In-Reply-To: <1450830994-5450-3-git-send-email-drivshin.allworx@gmail.com>
+In-Reply-To: <56829D4D.4090109@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 22, 2015 at 07:36:33PM -0500, David Rivshin (Allworx) wrote:
-> From: David Rivshin <drivshin@allworx.com>
+On Tue, Dec 29, 2015 at 03:48:45PM +0100, Hannes Frederic Sowa wrote:
+> On 28.12.2015 15:14, Willy Tarreau wrote:
+> >It is possible for a process to allocate and accumulate far more FDs than
+> >the process' limit by sending them over a unix socket then closing them
+> >to keep the process' fd count low.
+> >
+> >This change addresses this problem by keeping track of the number of FDs
+> >in flight per user and preventing non-privileged processes from having
+> >more FDs in flight than their configured FD limit.
+> >
+> >Reported-by: socketpair@gmail.com
+> >Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+> >Signed-off-by: Willy Tarreau <w@1wt.eu>
 > 
-> The phy-handle, phy_id, and fixed-link properties are mutually exclusive,
-> and only one need be specified. However if phy-handle was specified, an
-> error message would complain about the lack of phy_id or fixed-link.
+> Thanks for the patch!
 > 
-> Also, if phy-handle was specified and the subsequent of_phy_connect()
-> failed, the error message still referenced slaved->data->phy_id, which
-> would be empty. Instead, use the name of the device_node as a useful
-> identifier.
-> 
-> Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
-> Signed-off-by: David Rivshin <drivshin@allworx.com>
-> ---
-> This would require some adjustments to backport to 4.3-stable due to
-> other changes in this area. Let me know if you want a version of this
-> against v4.3.3.
-> 
->  Documentation/devicetree/bindings/net/cpsw.txt |  4 ++--
+> I think this does not close the DoS attack completely as we duplicate 
+> fds if the reader uses MSG_PEEK on the unix domain socket and thus 
+> clones the fd. Have I overlooked something?
 
-For the binding:
+I didn't know this behaviour. However, then the fd remains in flight, right ?
+So as long as it's not removed from the queue, the sender cannot add more
+than its FD limit. I may be missing something obvious though :-/
 
-Acked-by: Rob Herring <robh@kernel.org>
+Thanks,
+Willy
