@@ -1,109 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] udp: properly support MSG_PEEK with truncated
- buffers
-Date: Wed, 30 Dec 2015 08:51:12 -0500
-Message-ID: <1451483472.8255.16.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
-	 <20151228142942.GA7394@bistromath.redhat.com>
-	 <20151228153836.GA28529@unicorn.suse.cz>
-	 <1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: Linux 4.4-rc4 regression, bisected to "net: fix
+ sock_wake_async() rcu protection"
+Date: Wed, 30 Dec 2015 08:55:00 -0500
+Message-ID: <1451483700.8255.18.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CALCETrUHFDdfPymKfD2TJHL6w-C5dc675xuJfk=c=-twsPZqqA@mail.gmail.com>
+	 <8760zgnpe0.fsf@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sabrina Dubroca <sd@queasysnail.net>, stable@vger.kernel.org,
-	Jiri Slaby <jslaby@suse.cz>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: stable-owner@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Nicolai Stange <nicstange@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760zgnpe0.fsf@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2015-12-30 at 12:32 +0100, Nicolai Stange wrote:
+> Andy Lutomirski <luto@kernel.org> writes:
+> 
+> > On recent v4.4-rc releases, I can't run emacs.  No, really, running
+> > "emacs" in a GNOME 3 session makes gnome-shell think that emacs is
+> > running, but no window is drawn, and the overall system UI is a bit
+> > weird when the invisible emacs window is focused.
+> >
+> > This is 100% reproducible.
+> >
+> > There might be other symptoms involving gdb malfunctioning, but those
+> > are, at best, sporadic.  The emacs failure is entirely reliable.  I
+> > have no idea what the underlying failure mode is, but failure to wake
+> > a socket waiter seems plausible,  I also have no idea why oocalc,
+> > gimp, vim, gedit, firefox, etc aren't affected.
+> >
+> > A somewhat unorthodox "git bisect" run blames:
+> >
+> > commit ceb5d58b217098a657f3850b7a2640f995032e62
+> > Author: Eric Dumazet <edumazet@google.com>
+> > Date:   Sun Nov 29 20:03:11 2015 -0800
+> >
+> >     net: fix sock_wake_async() rcu protection
+> >
+> > I've confirmed that v4.4-rc7 with that patch reverted works fine.
+> >
+> > Since the offending commit was apparently a security fix, simply
+> > reverting it might not be the best idea.
+> 
+> Please have a look at https://lkml.kernel.org/g/87ege73bma.fsf@gmail.com
+> 
+> I ran into the same issue and this one fixes it for me.
 
-Backport of this upstream commit into stable kernels :
-89c22d8c3b27 ("net: Fix skb csum races when peeking")
-exposed a bug in udp stack vs MSG_PEEK support, when user provides
-a buffer smaller than skb payload.
-    
-In this case,
-skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr),
-                                 msg->msg_iov);
-returns -EFAULT.
-    
-This bug does not happen in upstream kernels since Al Viro did a great
-job to replace this into :
-skb_copy_and_csum_datagram_msg(skb, sizeof(struct udphdr), msg);
-This variant is safe vs short buffers.
-    
-For the time being, instead reverting Herbert Xu patch and add back
-skb->ip_summed invalid changes, simply store the result of
-udp_lib_checksum_complete() so that we avoid computing the checksum a
-second time, and avoid the problematic
-skb_copy_and_csum_datagram_iovec() call.
+Right, and the ozlabs pointers for this were :
 
-This patch can be applied on recent kernels as it avoids a double
-checksumming, then backported to stable kernels as a bug fix.
+v1:
+https://patchwork.ozlabs.org/patch/561194/
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/udp.c |    6 ++++--
- net/ipv6/udp.c |    6 ++++--
- 2 files changed, 8 insertions(+), 4 deletions(-)
+v2:
+https://patchwork.ozlabs.org/patch/561553/
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8841e984f8bf..ac14ae44390d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1271,6 +1271,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
- 	int peeked, off = 0;
- 	int err;
- 	int is_udplite = IS_UDPLITE(sk);
-+	bool checksum_valid = false;
- 	bool slow;
- 
- 	if (flags & MSG_ERRQUEUE)
-@@ -1296,11 +1297,12 @@ try_again:
- 	 */
- 
- 	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
--		if (udp_lib_checksum_complete(skb))
-+		checksum_valid = !udp_lib_checksum_complete(skb);
-+		if (!checksum_valid)
- 			goto csum_copy_err;
- 	}
- 
--	if (skb_csum_unnecessary(skb))
-+	if (checksum_valid || skb_csum_unnecessary(skb))
- 		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
- 					    msg, copied);
- 	else {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 9da3287a3923..00775ee27d86 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -402,6 +402,7 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
- 	int peeked, off = 0;
- 	int err;
- 	int is_udplite = IS_UDPLITE(sk);
-+	bool checksum_valid = false;
- 	int is_udp4;
- 	bool slow;
- 
-@@ -433,11 +434,12 @@ try_again:
- 	 */
- 
- 	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
--		if (udp_lib_checksum_complete(skb))
-+		checksum_valid = !udp_lib_checksum_complete(skb);
-+		if (!checksum_valid)
- 			goto csum_copy_err;
- 	}
- 
--	if (skb_csum_unnecessary(skb))
-+	if (checksum_valid || skb_csum_unnecessary(skb))
- 		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
- 					    msg, copied);
- 	else {
+Thanks.
