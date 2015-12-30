@@ -1,65 +1,36 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux 4.4-rc4 regression, bisected to "net: fix
- sock_wake_async() rcu protection"
-Date: Wed, 30 Dec 2015 08:55:00 -0500
-Message-ID: <1451483700.8255.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CALCETrUHFDdfPymKfD2TJHL6w-C5dc675xuJfk=c=-twsPZqqA@mail.gmail.com>
-	 <8760zgnpe0.fsf@gmail.com>
+Subject: Re: Q: bad routing table cache entries
+Date: Wed, 30 Dec 2015 09:17:42 -0500
+Message-ID: <1451485062.8255.20.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5682665A.7090102@list.ru> <20151229152208.GA22423@oracle.com>
+	 <5683D131.4090703@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Nicolai Stange <nicstange@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760zgnpe0.fsf@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33888 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752864AbbL3ORo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 09:17:44 -0500
+Received: by mail-pf0-f172.google.com with SMTP id e65so89997159pfe.1
+        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 06:17:44 -0800 (PST)
+In-Reply-To: <5683D131.4090703@list.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-30 at 12:32 +0100, Nicolai Stange wrote:
-> Andy Lutomirski <luto@kernel.org> writes:
-> 
-> > On recent v4.4-rc releases, I can't run emacs.  No, really, running
-> > "emacs" in a GNOME 3 session makes gnome-shell think that emacs is
-> > running, but no window is drawn, and the overall system UI is a bit
-> > weird when the invisible emacs window is focused.
-> >
-> > This is 100% reproducible.
-> >
-> > There might be other symptoms involving gdb malfunctioning, but those
-> > are, at best, sporadic.  The emacs failure is entirely reliable.  I
-> > have no idea what the underlying failure mode is, but failure to wake
-> > a socket waiter seems plausible,  I also have no idea why oocalc,
-> > gimp, vim, gedit, firefox, etc aren't affected.
-> >
-> > A somewhat unorthodox "git bisect" run blames:
-> >
-> > commit ceb5d58b217098a657f3850b7a2640f995032e62
-> > Author: Eric Dumazet <edumazet@google.com>
-> > Date:   Sun Nov 29 20:03:11 2015 -0800
-> >
-> >     net: fix sock_wake_async() rcu protection
-> >
-> > I've confirmed that v4.4-rc7 with that patch reverted works fine.
-> >
-> > Since the offending commit was apparently a security fix, simply
-> > reverting it might not be the best idea.
-> 
-> Please have a look at https://lkml.kernel.org/g/87ege73bma.fsf@gmail.com
-> 
-> I ran into the same issue and this one fixes it for me.
+On Wed, 2015-12-30 at 15:42 +0300, Stas Sergeev wrote:
+> 29.12.2015 18:22, Sowmini Varadhan =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> > Do you have admin control over the ubuntu router?
+> > If yes, you might want to check the shared_media [#] setting=20
+> > on that router for the interfaces with overlapping subnets.
+> > (it is on by default, I would try turning it off).
+> That didn't help, problem re-appears.
+> Thanks anyway, looks like I am going to disable accept_redirects then=
+=2E
+> It seems buggy and obviously no one cares.
 
-Right, and the ozlabs pointers for this were :
-
-v1:
-https://patchwork.ozlabs.org/patch/561194/
-
-v2:
-https://patchwork.ozlabs.org/patch/561553/
-
-Thanks.
+Obviously some people take vacations at this period of the year, and do
+stay away from netdev traffic.
