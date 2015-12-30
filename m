@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 00/10] be2net: patch set
-Date: Wed, 30 Dec 2015 16:32:50 -0500 (EST)
-Message-ID: <20151230.163250.1587406535655688970.davem@davemloft.net>
-References: <1451456945-31606-1-git-send-email-sathya.perla@avagotech.com>
+Subject: Re: [net-next v2 0/8][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2015-12-29
+Date: Wed, 30 Dec 2015 16:35:45 -0500 (EST)
+Message-ID: <20151230.163545.1292273402507213365.davem@davemloft.net>
+References: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@avagotech.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39637 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39660 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753466AbbL3Vcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 16:32:54 -0500
-In-Reply-To: <1451456945-31606-1-git-send-email-sathya.perla@avagotech.com>
+	with ESMTP id S1753520AbbL3Vfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 16:35:47 -0500
+In-Reply-To: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@avagotech.com>
-Date: Wed, 30 Dec 2015 01:28:55 -0500
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 29 Dec 2015 19:23:21 -0800
 
-> The following patch set contains some feature additions, code
-> re-organization and cleanup and a few non-critical fixes. Pls
-> consider applying this to the net-next tree. Thanks.
+> This series contains updates to ixgbe and ixgbevf.
 
-Series applied, thanks.
+Pulled, happy holidays Jeff.
