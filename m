@@ -1,43 +1,62 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
-Date: Wed, 30 Dec 2015 14:30:35 -0800
-Message-ID: <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
-	<87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
-	<20151229.150843.2021692616139434395.davem@davemloft.net>
-	<CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
-	<CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
-	<CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] udp: properly support MSG_PEEK with truncated
+ buffers
+Date: Thu, 31 Dec 2015 06:39:44 +0800
+Message-ID: <20151230223944.GA13450@gondor.apana.org.au>
+References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
+ <20151228142942.GA7394@bistromath.redhat.com>
+ <20151228153836.GA28529@unicorn.suse.cz>
+ <1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1451483472.8255.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Kubecek <mkubecek@suse.cz>,
 	David Miller <davem@davemloft.net>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jacob Siverskog <jacob@teenage.engineering>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Sabrina Dubroca <sd@queasysnail.net>, stable@vger.kernel.org,
+	Jiri Slaby <jslaby@suse.cz>,
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:33998 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750904AbbL3WkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 17:40:03 -0500
+Content-Disposition: inline
+In-Reply-To: <1451483472.8255.16.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 30, 2015 at 6:30 AM, Jacob Siverskog
-<jacob@teenage.engineering> wrote:
-> On Wed, Dec 30, 2015 at 2:26 PM, Eric Dumazet <edumazet@google.com> wrote:
->> How often can you trigger this bug ?
->
-> Ok. I don't have a good repro to trigger it unfortunately, I've seen it just a
-> few times when bringing up/down network interfaces. Does the trace
-> give any clue?
->
+On Wed, Dec 30, 2015 at 08:51:12AM -0500, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Backport of this upstream commit into stable kernels :
+> 89c22d8c3b27 ("net: Fix skb csum races when peeking")
+> exposed a bug in udp stack vs MSG_PEEK support, when user provides
+> a buffer smaller than skb payload.
+>     
+> In this case,
+> skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr),
+>                                  msg->msg_iov);
+> returns -EFAULT.
+>     
+> This bug does not happen in upstream kernels since Al Viro did a great
+> job to replace this into :
+> skb_copy_and_csum_datagram_msg(skb, sizeof(struct udphdr), msg);
+> This variant is safe vs short buffers.
+>     
+> For the time being, instead reverting Herbert Xu patch and add back
+> skb->ip_summed invalid changes, simply store the result of
+> udp_lib_checksum_complete() so that we avoid computing the checksum a
+> second time, and avoid the problematic
+> skb_copy_and_csum_datagram_iovec() call.
+> 
+> This patch can be applied on recent kernels as it avoids a double
+> checksumming, then backported to stable kernels as a bug fix.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-A little bit. You need to help people to narrow down the problem
-because there are too many places using skb->next and skb->prev.
-
-Since you mentioned it seems related to network interface flip,
-what network interfaces are you using? What's is your TC setup?
-
-Thanks.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
