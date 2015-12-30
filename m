@@ -1,81 +1,63 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: Re: [PATCH 1/1] include/uapi/linux/sockios.h: mark SIOCRTMSG unused
-Date: Wed, 30 Dec 2015 12:14:39 +0100
-Message-ID: <5683BC9F.7060603@gmx.de>
-References: <1451427722-2672-1-git-send-email-xypron.glpk@gmx.de>
- <5683B863.9010506@gmail.com>
+From: Jacob Siverskog <jacob@teenage.engineering>
+Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
+Date: Wed, 30 Dec 2015 12:14:42 +0100
+Message-ID: <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
+References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
+ <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com> <20151229.150843.2021692616139434395.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:63533 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754019AbbL3LPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Dec 2015 06:15:03 -0500
-In-Reply-To: <5683B863.9010506@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <edumazet@google.com>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151229.150843.2021692616139434395.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/30/2015 11:56 AM, Michael Kerrisk (man-pages) wrote:
-> Hi Heinrich,
-> 
-> On 12/29/2015 11:22 PM, Heinrich Schuchardt wrote:
->> IOCTL SIOCRTMSG does nothing but return EINVAL.
+On Tue, Dec 29, 2015 at 9:08 PM, David Miller <davem@davemloft.net> wrote:
+> From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> Date: Tue, 29 Dec 2015 19:42:36 +0000
+>
+>> Jacob Siverskog <jacob@teenage.engineering> writes:
+>>> This should fix a NULL pointer dereference I encountered (dump
+>>> below). Since __skb_unlink is called while walking,
+>>> skb_queue_walk_safe should be used.
 >>
->> So comment it as unused.
-> 
-> Can you say something about how you confirmed this?
-> It's not immediately obvious from the code.
-> 
-> Cheers,
-> 
-> Michael
+>> The code in question is:
+>  ...
+>> __skb_unlink is only called prior to returning from the function.
+>> Consequently, it won't affect the skb_queue_walk code.
+>
+> Agreed, this patch doesn't fix anything.
 
-grep -GHrn SIOCRTMSG
+Ok. Thanks for your feedback. How do you believe the issue could be
+solved? Investigating it gives:
 
-SIOCRTMSG is only used in:
-* net/ipv4/af_inet.c
-* include/uapi/linux/sockios.h
+static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
+{
+struct sk_buff *next, *prev;
 
-inet_ioctl calls ip_rt_ioctl.
+list->qlen--;
+     51c: e2433001 sub r3, r3, #1
+     520: e58b3074 str r3, [fp, #116] ; 0x74
+next   = skb->next;
+prev   = skb->prev;
+     524: e894000c ldm r4, {r2, r3}
+skb->next  = skb->prev = NULL;
+     528: e5841000 str r1, [r4]
+     52c: e5841004 str r1, [r4, #4]
+next->prev = prev;
+     530: e5823004 str r3, [r2, #4]                          <--
+trapping instruction (r2 NULL)
 
-ip_rt_ioctl only handles SIOCADDRT and SIOCDELRT and returns -EINVAL
-otherwise.
+Register contents:
+r7 : c58cfe1c  r6 : c06351d0  r5 : c77810ac  r4 : c583eac0
+r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 : 20000013
 
-cf.
-http://lkml.iu.edu/hypermail/linux/kernel/0911.0/02636.html
+If I understand this correctly, then r4 = skb, r2 = next, r3 = prev.
 
-Best regards
-
-Heinrich
-
-> 
-> 
->> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
->> ---
->>  include/uapi/linux/sockios.h | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
->> index e888b1a..8e7890b 100644
->> --- a/include/uapi/linux/sockios.h
->> +++ b/include/uapi/linux/sockios.h
->> @@ -27,7 +27,7 @@
->>  /* Routing table calls. */
->>  #define SIOCADDRT	0x890B		/* add routing table entry	*/
->>  #define SIOCDELRT	0x890C		/* delete routing table entry	*/
->> -#define SIOCRTMSG	0x890D		/* call to routing system	*/
->> +#define SIOCRTMSG	0x890D		/* unused			*/
->>  
->>  /* Socket configuration controls. */
->>  #define SIOCGIFNAME	0x8910		/* get iface name		*/
->>
-> 
-> 
+Should there be a check for this in __skb_try_recv_datagram?
