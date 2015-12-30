@@ -1,61 +1,58 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/5] sctp: use transport hashtable to replace
- association's with rhashtable
-Date: Wed, 30 Dec 2015 14:03:43 -0500
-Message-ID: <1451502223.8255.45.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1451490447.git.lucien.xin@gmail.com>
-	 <1451495979.8255.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151230.125204.1385006803109278855.davem@davemloft.net>
+Subject: Re: 4.4-rc7 failure report
+Date: Wed, 30 Dec 2015 14:08:46 -0500
+Message-ID: <1451502526.8255.48.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5683A630.2070401@iogearbox.net>
+	 <20151230151123.GB4874@codemonkey.org.uk>
+	 <1451494525.8255.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151230.125003.301825767708169401.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, mleitner@redhat.com,
-	vyasevic@redhat.com, daniel@iogearbox.net
+Cc: davej@codemonkey.org.uk, daniel@iogearbox.net,
+	alexei.starovoitov@gmail.com, dledford@redhat.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35362 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157AbbL3TDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 14:03:46 -0500
-In-Reply-To: <20151230.125204.1385006803109278855.davem@davemloft.net>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:36416 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754844AbbL3TIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 14:08:48 -0500
+Received: by mail-pf0-f175.google.com with SMTP id 65so100799460pff.3
+        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 11:08:48 -0800 (PST)
+In-Reply-To: <20151230.125003.301825767708169401.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-30 at 12:52 -0500, David Miller wrote:
+On Wed, 2015-12-30 at 12:50 -0500, David Miller wrote:
 > From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 30 Dec 2015 12:19:39 -0500
+> Date: Wed, 30 Dec 2015 11:55:25 -0500
 > 
-> > Switching SCTP to rhashtable at this moment is premature, it is
-> > still moving fast.
+> > On Wed, 2015-12-30 at 10:11 -0500, Dave Jones wrote:
+> >> On Wed, Dec 30, 2015 at 10:38:56AM +0100, Daniel Borkmann wrote:
+> >> 
+> >>  > Given that this drop doesn't strictly need to be caused by filter code,
+> >>  > it would be nice if you could pin the location down where the packet gets
+> >>  > dropped exactly. Perhaps dropwatch or perf with '-e skb:kfree_skb -a -g
+> >>  > dhclient <iface>', etc could help to get a first overview to dig into
+> >>  > details then.
+> >> 
+> >> Wild stab in the dark, but..
+> >> Could this bug be another symptom fixed by http://article.gmane.org/gmane.linux.network/392885 ?
+> > 
+> > dhclient does not use async io
 > 
-> I completely, and totally, disagree.
-> 
-> rhashtable actually _needs_ a strong active user like one of the
-> protocol socket hashes.
-> 
-> It's a step backwards to keep rhashtable in the shadows by only
-> allowing certain subsystems to convert to it.  That's really
-> incredibly stupid if you ask me.
-
-You sure can disagree with me, but calling my opinion 'incredily stupid'
-is not wise.
-
-Let me check how stable is rhashtable :
-
-# git log --oneline v4.2.. lib/rhashtable.c
-179ccc0a7364 rhashtable: Kill harmless RCU warning in rhashtable_walk_init
-c6ff5268293e rhashtable: Fix walker list corruption
-3a324606bbab rhashtable: Enforce minimum size on initial hash table
-a90099d9fabd Revert "rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation"
-d3716f18a7d8 rhashtable: Use __vmalloc with GFP_ATOMIC for table allocation
-3cf92222a39c rhashtable: Prevent spurious EBUSY errors on insertion
-7def0f952ecc lib: fix data race in rhashtable_rehash_one
+> But the bug causes requests to "LOOK" like async I/O, right?
 
 
-Seriously, I think we can wait one release before 'en masse'
-conversions.
+This is not how I understood the bug.
 
-I understand we would love to do that, but what is the hurry for SCTP,
-that needed rhashtable so desperately that it could not be done before
-2016 ?
+By having a bit set (because we lacked a clear of wq->flags), we have :
+
+sock_wake_async()
+...
+case SOCK_WAKE_WAITD:
+	if (test_bit(SOCKWQ_ASYNC_WAITDATA, &wq->flags))
+		break; 
+
+So we never call kill_fasync()
