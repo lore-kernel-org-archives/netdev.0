@@ -1,98 +1,40 @@
-From: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RESEND PATCH v1 0/4] Add support emac for the RK3036 SoC platform
-Date: Wed, 30 Dec 2015 09:03:11 -0600
-Message-ID: <CAL_JsqKP0QsbeP-8c5XusTcFEsgNgu==ca+5Z57Wq6Yq9EHVzA@mail.gmail.com>
-References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com>
- <20151229.155314.1522114236952280828.davem@davemloft.net> <3925713.yDzK1dvrIv@diego>
- <20151229.204847.578920480799799256.davem@davemloft.net> <CAMuHMdVEj6MGtUPYLmGCtMcLxKs4rLoh+if23_Bk1p=qwQM_Gg@mail.gmail.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: 4.4-rc7 failure report
+Date: Wed, 30 Dec 2015 10:11:23 -0500
+Message-ID: <20151230151123.GB4874@codemonkey.org.uk>
+References: <5681AF69.4040204@redhat.com>
+ <5681B594.70304@iogearbox.net>
+ <5681E154.7040101@redhat.com>
+ <20151230034300.GA8670@ast-mbp.thefacebook.com>
+ <5683531F.9000704@redhat.com>
+ <20151230041611.GA9209@ast-mbp.thefacebook.com>
+ <5683A630.2070401@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Kees Cook <keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, leozwang-hpIqsD4AKlcxg7vii5yOFA@public.gmane.org,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMuHMdVEj6MGtUPYLmGCtMcLxKs4rLoh+if23_Bk1p=qwQM_Gg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Doug Ledford <dledford@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arcturus.aphlor.org ([188.246.204.175]:51322 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbbL3PLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 10:11:35 -0500
+Content-Disposition: inline
+In-Reply-To: <5683A630.2070401@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 30, 2015 at 4:17 AM, Geert Uytterhoeven
-<geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> wrote:
-> Hi David,
->
-> On Wed, Dec 30, 2015 at 2:48 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> w=
-rote:
->> From: Heiko St=C3=BCbner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
->> Date: Tue, 29 Dec 2015 23:27:55 +0100
->>> Am Dienstag, 29. Dezember 2015, 15:53:14 schrieb David Miller:
->>>> You have to submit this series properly, the same problem happend =
-twice
->>>> now.
->>>>
->>>> When you submit a series you should:
->>>>
->>>> 1) Make it clear which tree you expect these changes to be applied
->>>>    to.  Here it is completely ambiguous, do you want it to go into
->>>>    my networking tree or some other subsystem tree?
->>>>
->>>> 2) You MUST keep all parties informed about all patches for a seri=
-es
->>>>    like this.  That means you cannot drop netdev from patch #4 as
->>>>    you did both times.  Doing this aggravates the situation for
->>>>    #1 even more, because if a patch is not CC:'d to netdev it does
->>>>    not enter patchwork.  And if it doesn't go into patchwork, I'm
->>>>    not looking at it.
->>>
->>> I guess that is some unfortunate result of git send-email combined =
-with
->>> get_maintainer.pl . In general I also prefer to see the whole serie=
-s, but have
->>> gotten such partial series from other maintainers as well in the pa=
-st, so it
->>> seems to be depending on preferences somewhat.
->>>
->>> For the series at hand, the 4th patch is the devicetree addition, w=
-hich the
->>> expected way is me picking it up, after you are comfortable with th=
-e code-
->>> related changes.
->>
->> Why would it not be appropriate for a DT file change to go into my t=
-ree
->> if it corresponds to functionality created by the rest of the patche=
-s
->> in the series?
->
-> Because the DT change is very likely to conflict with other DT change=
-s.
-> That's why typically all DT changes go in through the platform/archit=
-ecture
-> maintainer.
+On Wed, Dec 30, 2015 at 10:38:56AM +0100, Daniel Borkmann wrote:
 
-I assume you mean DTS changes only here. Send the DTS changes as a
-separate series/patch as there is not inter-dependency (if there is,
-there is a problem with the change) with DTS changes. I expect the
-sub-arch maintainers to be the main reviewers of DTS files anyway. If
-there is a binding doc change, then I'd prefer that to be merged with
-the driver.
+ > Given that this drop doesn't strictly need to be caused by filter code,
+ > it would be nice if you could pin the location down where the packet gets
+ > dropped exactly. Perhaps dropwatch or perf with '-e skb:kfree_skb -a -g
+ > dhclient <iface>', etc could help to get a first overview to dig into
+ > details then.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Wild stab in the dark, but..
+Could this bug be another symptom fixed by http://article.gmane.org/gmane.linux.network/392885 ?
+
+	Dave
