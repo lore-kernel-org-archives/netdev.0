@@ -1,58 +1,58 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 4.4-rc7 failure report
-Date: Wed, 30 Dec 2015 14:08:46 -0500
-Message-ID: <1451502526.8255.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5683A630.2070401@iogearbox.net>
-	 <20151230151123.GB4874@codemonkey.org.uk>
-	 <1451494525.8255.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20151230.125003.301825767708169401.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] sctp: use transport hashtable to replace
+ association's with rhashtable
+Date: Wed, 30 Dec 2015 14:11:20 -0500
+Message-ID: <1451502680.8255.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1451490447.git.lucien.xin@gmail.com>
+	 <1451495979.8255.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151230173202.GB16270@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davej@codemonkey.org.uk, daniel@iogearbox.net,
-	alexei.starovoitov@gmail.com, dledford@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org, mleitner@redhat.com,
+	vyasevic@redhat.com, daniel@iogearbox.net, davem@davemloft.net
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:36416 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754844AbbL3TIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 14:08:48 -0500
-Received: by mail-pf0-f175.google.com with SMTP id 65so100799460pff.3
-        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 11:08:48 -0800 (PST)
-In-Reply-To: <20151230.125003.301825767708169401.davem@davemloft.net>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34212 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbbL3TLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 14:11:22 -0500
+In-Reply-To: <20151230173202.GB16270@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-12-30 at 12:50 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 30 Dec 2015 11:55:25 -0500
-> 
-> > On Wed, 2015-12-30 at 10:11 -0500, Dave Jones wrote:
-> >> On Wed, Dec 30, 2015 at 10:38:56AM +0100, Daniel Borkmann wrote:
-> >> 
-> >>  > Given that this drop doesn't strictly need to be caused by filter code,
-> >>  > it would be nice if you could pin the location down where the packet gets
-> >>  > dropped exactly. Perhaps dropwatch or perf with '-e skb:kfree_skb -a -g
-> >>  > dhclient <iface>', etc could help to get a first overview to dig into
-> >>  > details then.
-> >> 
-> >> Wild stab in the dark, but..
-> >> Could this bug be another symptom fixed by http://article.gmane.org/gmane.linux.network/392885 ?
+On Wed, 2015-12-30 at 15:32 -0200, Marcelo Ricardo Leitner wrote:
+> On Wed, Dec 30, 2015 at 12:19:39PM -0500, Eric Dumazet wrote:
+> > On Wed, 2015-12-30 at 23:50 +0800, Xin Long wrote:
 > > 
-> > dhclient does not use async io
+> > > besides, this patchset will use transport hashtable to replace
+> > > association hashtable to lookup with rhashtable api. get transport
+> > > first then get association by t->asoc. and also it will make tcp
+> > > style work better.
+> > 
+> > SCTP already has a hash table, why not simply changing the way items are
+> > hashed into it ?
 > 
-> But the bug causes requests to "LOOK" like async I/O, right?
+> Because Vlad asked to split the patch so it gets easier to review. The
+> direct change was quite big.
+> 
+> > Sure, storing thousands of sockets in a single hash bucket is not wise.
+> > 
+> > Switching SCTP to rhashtable at this moment is premature, it is still
+> > moving fast.
+> 
+> Dave and Vlad had asked in the first review for considering using
+> rhashtable (ok, Dave didn't mention it by name).  We did, and it seemed
+> nice beside 1 issue Xin found, regarding multiple rehashing, which I'll
+> highlight in a reply right away. 
+> Said all this, I know this was your second email already against this
+> usage, but I have to ask, sorry: still really against it?
 
+Well, it seems that Dave is OK to fix all remaining bugs in rhashtable.
 
-This is not how I understood the bug.
+I was not aware that 'we' decided to force rhashtable all over the
+places, because it looks so sexy and fun.
 
-By having a bit set (because we lacked a clear of wq->flags), we have :
-
-sock_wake_async()
-...
-case SOCK_WAKE_WAITD:
-	if (test_bit(SOCKWQ_ASYNC_WAITDATA, &wq->flags))
-		break; 
-
-So we never call kill_fasync()
+Let see how funny it will be then.
