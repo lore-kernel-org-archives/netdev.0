@@ -1,5220 +1,1029 @@
-From: Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Tue, 29 Dec 2015 18:48:55 -0700
-Message-ID: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
-Cc: sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 30 Dec 2015 10:31:43 +0800
+Message-ID: <201512301027.8Rd6Bxc2%fengguang.wu@intel.com>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, timur@codeaurora.org,
+	gregkh@linuxfoundation.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, Gilad Avidov <gavidov@codeaurora.org>
+To: Gilad Avidov <gavidov@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add supports for ethernet controller HW on Qualcomm Technologies, Inc. SoC.
-This driver supports the following features:
-1) Checksum offload.
-2) Runtime power management support.
-3) Interrupt coalescing support.
-4) SGMII phy.
-5) SGMII direct connection without external phy.
 
-Based on a driver by Niranjana Vishwanathapura
-<nvishwan-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>.
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Changes since v1 (https://lkml.org/lkml/2015/12/7/1088)
- - replace hw bit fields to macros with bitwise operations.
- - change all iterators to unsized types (int)
- - some minor code flow improvements.
- - change return type to void for functions which return value is never
-   used.
- - replace instance of xxxxl_relaxed() io followed by mb() with a
-   readl()/writel().
+Hi Gilad,
 
-Changes since v2 (https://lwn.net/Articles/667876/)
- - remove most of the memory barriers by using the non xxx_relaxed() api.
- - remove RSS and WOL support.
- - correct comments from physical address to dma address.
- - rearrange structs to make them packed.
- - replace polling loops with readl_poll_timeout().
- - remove unnecessary wrapper functions from phy layer.
- - add blank line before return statements.
- - set to null clocks after clk_put().
- - use module_platform_driver() and dma_set_mask_and_coherent()
- - replace long hex bitmasks with BIT() macro.
+[auto build test WARNING on net/master]
+[also build test WARNING on v4.4-rc7 next-20151223]
+[if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
 
-Signed-off-by: Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+url:    https://github.com/0day-ci/linux/commits/Gilad-Avidov/net-emac-emac-gigabit-ethernet-controller-driver/20151230-095104
+config: x86_64-allmodconfig (attached as .config)
+reproduce:
+        # save the attached .config to linux build tree
+        make ARCH=x86_64 
+
+All warnings (new ones prefixed by >>):
+
+   drivers/net/ethernet/qualcomm/emac/emac-mac.c: In function 'emac_mac_up':
+>> drivers/net/ethernet/qualcomm/emac/emac-mac.c:1090:9: warning: large integer implicitly truncated to unsigned type [-Woverflow]
+     writel(~DIS_INT, adpt->base + EMAC_INT_STATUS);
+            ^
+
+vim +1090 drivers/net/ethernet/qualcomm/emac/emac-mac.c
+
+  1074			}
+  1075		}
+  1076	
+  1077		ret = request_irq(irq->irq, emac_isr, 0, EMAC_MAC_IRQ_RES, irq);
+  1078		if (ret) {
+  1079			netdev_err(adpt->netdev,
+  1080				   "error:%d on request_irq(%d:%s flags:0)\n", ret,
+  1081				   irq->irq, EMAC_MAC_IRQ_RES);
+  1082			goto err_request_irq;
+  1083		}
+  1084	
+  1085		emac_mac_rx_descs_refill(adpt, &adpt->rx_q);
+  1086	
+  1087		napi_enable(&adpt->rx_q.napi);
+  1088	
+  1089		/* enable mac irq */
+> 1090		writel(~DIS_INT, adpt->base + EMAC_INT_STATUS);
+  1091		writel(adpt->irq.mask, adpt->base + EMAC_INT_MASK);
+  1092	
+  1093		netif_start_queue(netdev);
+  1094		clear_bit(EMAC_STATUS_DOWN, &adpt->status);
+  1095	
+  1096		/* check link status */
+  1097		set_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status);
+  1098		adpt->link_chk_timeout = jiffies + EMAC_TRY_LINK_TIMEOUT;
+
 ---
- .../devicetree/bindings/net/qcom-emac.txt          |   68 +
- drivers/net/ethernet/qualcomm/Kconfig              |   11 +
- drivers/net/ethernet/qualcomm/Makefile             |    2 +
- drivers/net/ethernet/qualcomm/emac/Makefile        |    7 +
- drivers/net/ethernet/qualcomm/emac/emac-mac.c      | 1808 ++++++++++++++++++++
- drivers/net/ethernet/qualcomm/emac/emac-mac.h      |  286 ++++
- drivers/net/ethernet/qualcomm/emac/emac-phy.c      |  486 ++++++
- drivers/net/ethernet/qualcomm/emac/emac-phy.h      |   69 +
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.c    |  679 ++++++++
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.h    |   30 +
- drivers/net/ethernet/qualcomm/emac/emac.c          | 1228 +++++++++++++
- drivers/net/ethernet/qualcomm/emac/emac.h          |  388 +++++
- 12 files changed, 5062 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/qcom-emac.txt
- create mode 100644 drivers/net/ethernet/qualcomm/emac/Makefile
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-mac.c
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-mac.h
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-phy.c
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-phy.h
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac.c
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac.h
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
-diff --git a/Documentation/devicetree/bindings/net/qcom-emac.txt b/Documentation/devicetree/bindings/net/qcom-emac.txt
-new file mode 100644
-index 0000000..8d58a40
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/qcom-emac.txt
-@@ -0,0 +1,68 @@
-+Qualcomm EMAC Gigabit Ethernet Controller
-+
-+Required properties:
-+- cell-index : EMAC controller instance number.
-+- compatible : Should be "qcom,emac".
-+- reg : Offset and length of the register regions for the device
-+- reg-names : Register region names referenced in 'reg' above.
-+	Required register resource entries are:
-+	"base"   : EMAC controller base register block.
-+	"csr"    : EMAC wrapper register block.
-+	Optional register resource entries are:
-+	"ptp"    : EMAC PTP (1588) register block.
-+		   Required if 'qcom,emac-tstamp-en' is present.
-+	"sgmii"  : EMAC SGMII PHY register block.
-+- interrupts : Interrupt numbers used by this controller
-+- interrupt-names : Interrupt resource names referenced in 'interrupts' above.
-+	Required interrupt resource entries are:
-+	"emac_core0"   : EMAC core0 interrupt.
-+	"sgmii_irq"   : EMAC SGMII interrupt.
-+- qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
-+- qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
-+- phy-addr            : Specifies phy address on MDIO bus.
-+			Required if the optional property "qcom,no-external-phy"
-+			is not specified.
-+
-+Optional properties:
-+- qcom,emac-tstamp-en       : Enables the PTP (1588) timestamping feature.
-+			      Include this only if PTP (1588) timestamping
-+			      feature is needed. If included, "ptp" register
-+			      base should be specified.
-+- mac-address               : The 6-byte MAC address. If present, it is the
-+			      default MAC address.
-+- qcom,no-external-phy      : Indicates there is no external PHY connected to
-+			      EMAC. Include this only if the EMAC is directly
-+			      connected to the peer end without EPHY.
-+- qcom,emac-ptp-grandmaster : Enable the PTP (1588) grandmaster mode.
-+			      Include this only if PTP (1588) is configured as
-+			      grandmaster.
-+- qcom,emac-ptp-frac-ns-adj : The vector table to adjust the fractional ns per
-+			      RTC clock cycle.
-+			      Include this only if there is accuracy loss of
-+			      fractional ns per RTC clock cycle. For individual
-+			      table entry, the first field indicates the RTC
-+			      reference clock rate. The second field indicates
-+			      the number of adjustment in 2 ^ -26 ns.
-+Example:
-+	emac0: qcom,emac@feb20000 {
-+		cell-index = <0>;
-+		compatible = "qcom,emac";
-+		reg-names = "base", "csr", "ptp", "sgmii";
-+		reg =   <0xfeb20000 0x10000>,
-+			<0xfeb36000 0x1000>,
-+			<0xfeb3c000 0x4000>,
-+			<0xfeb38000 0x400>;
-+		#address-cells = <0>;
-+		interrupt-parent = <&emac0>;
-+		#interrupt-cells = <1>;
-+		interrupts = <0 1>;
-+		interrupt-map-mask = <0xffffffff>;
-+		interrupt-map = <0 &intc 0 76 0
-+				 1 &intc 0 80 0>;
-+		interrupt-names = "emac_core0", "sgmii_irq";
-+		qcom,emac-gpio-mdc = <&qcomgpio 123 0>;
-+		qcom,emac-gpio-mdio = <&qcomgpio 124 0>;
-+		qcom,emac-tstamp-en;
-+		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
-+		phy-addr = <0>;
-+	};
-diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
-index a76e380..85b599f 100644
---- a/drivers/net/ethernet/qualcomm/Kconfig
-+++ b/drivers/net/ethernet/qualcomm/Kconfig
-@@ -24,4 +24,15 @@ config QCA7000
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called qcaspi.
- 
-+config QCOM_EMAC
-+	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
-+	select CRC32
-+	---help---
-+	  This driver supports the Qualcomm Technologies, Inc. Gigabit
-+	  Ethernet Media Access Controller (EMAC). The controller
-+	  supports IEEE 802.3-2002, half-duplex mode at 10/100 Mb/s,
-+	  full-duplex mode at 10/100/1000Mb/s, Wake On LAN (WOL) for
-+	  low power, Receive-Side Scaling (RSS), and IEEE 1588-2008
-+	  Precision Clock Synchronization Protocol.
-+
- endif # NET_VENDOR_QUALCOMM
-diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
-index 9da2d75..b14686e 100644
---- a/drivers/net/ethernet/qualcomm/Makefile
-+++ b/drivers/net/ethernet/qualcomm/Makefile
-@@ -4,3 +4,5 @@
- 
- obj-$(CONFIG_QCA7000) += qcaspi.o
- qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
-+
-+obj-$(CONFIG_QCOM_EMAC) += emac/
-\ No newline at end of file
-diff --git a/drivers/net/ethernet/qualcomm/emac/Makefile b/drivers/net/ethernet/qualcomm/emac/Makefile
-new file mode 100644
-index 0000000..01ee144
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/Makefile
-@@ -0,0 +1,7 @@
-+#
-+# Makefile for the Qualcomm Technologies, Inc. EMAC Gigabit Ethernet driver
-+#
-+
-+obj-$(CONFIG_QCOM_EMAC) += qcom-emac.o
-+
-+qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-new file mode 100644
-index 0000000..36a7746
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -0,0 +1,1808 @@
-+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+/* Qualcomm Technologies, Inc. EMAC Ethernet Controller MAC layer support
-+ */
-+
-+#include <linux/tcp.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/crc32.h>
-+#include <linux/if_vlan.h>
-+#include <linux/jiffies.h>
-+#include <linux/phy.h>
-+#include <linux/of.h>
-+#include <linux/gpio.h>
-+#include <linux/pm_runtime.h>
-+#include "emac.h"
-+#include "emac-sgmii.h"
-+
-+/* EMAC base register offsets */
-+#define EMAC_MAC_CTRL                                         0x001480
-+#define EMAC_WOL_CTRL0                                        0x0014a0
-+#define EMAC_RSS_KEY0                                         0x0014b0
-+#define EMAC_H1TPD_BASE_ADDR_LO                               0x0014e0
-+#define EMAC_H2TPD_BASE_ADDR_LO                               0x0014e4
-+#define EMAC_H3TPD_BASE_ADDR_LO                               0x0014e8
-+#define EMAC_INTER_SRAM_PART9                                 0x001534
-+#define EMAC_DESC_CTRL_0                                      0x001540
-+#define EMAC_DESC_CTRL_1                                      0x001544
-+#define EMAC_DESC_CTRL_2                                      0x001550
-+#define EMAC_DESC_CTRL_10                                     0x001554
-+#define EMAC_DESC_CTRL_12                                     0x001558
-+#define EMAC_DESC_CTRL_13                                     0x00155c
-+#define EMAC_DESC_CTRL_3                                      0x001560
-+#define EMAC_DESC_CTRL_4                                      0x001564
-+#define EMAC_DESC_CTRL_5                                      0x001568
-+#define EMAC_DESC_CTRL_14                                     0x00156c
-+#define EMAC_DESC_CTRL_15                                     0x001570
-+#define EMAC_DESC_CTRL_16                                     0x001574
-+#define EMAC_DESC_CTRL_6                                      0x001578
-+#define EMAC_DESC_CTRL_8                                      0x001580
-+#define EMAC_DESC_CTRL_9                                      0x001584
-+#define EMAC_DESC_CTRL_11                                     0x001588
-+#define EMAC_TXQ_CTRL_0                                       0x001590
-+#define EMAC_TXQ_CTRL_1                                       0x001594
-+#define EMAC_TXQ_CTRL_2                                       0x001598
-+#define EMAC_RXQ_CTRL_0                                       0x0015a0
-+#define EMAC_RXQ_CTRL_1                                       0x0015a4
-+#define EMAC_RXQ_CTRL_2                                       0x0015a8
-+#define EMAC_RXQ_CTRL_3                                       0x0015ac
-+#define EMAC_BASE_CPU_NUMBER                                  0x0015b8
-+#define EMAC_DMA_CTRL                                         0x0015c0
-+#define EMAC_MAILBOX_0                                        0x0015e0
-+#define EMAC_MAILBOX_5                                        0x0015e4
-+#define EMAC_MAILBOX_6                                        0x0015e8
-+#define EMAC_MAILBOX_13                                       0x0015ec
-+#define EMAC_MAILBOX_2                                        0x0015f4
-+#define EMAC_MAILBOX_3                                        0x0015f8
-+#define EMAC_MAILBOX_11                                       0x00160c
-+#define EMAC_AXI_MAST_CTRL                                    0x001610
-+#define EMAC_MAILBOX_12                                       0x001614
-+#define EMAC_MAILBOX_9                                        0x001618
-+#define EMAC_MAILBOX_10                                       0x00161c
-+#define EMAC_ATHR_HEADER_CTRL                                 0x001620
-+#define EMAC_CLK_GATE_CTRL                                    0x001814
-+#define EMAC_MISC_CTRL                                        0x001990
-+#define EMAC_MAILBOX_7                                        0x0019e0
-+#define EMAC_MAILBOX_8                                        0x0019e4
-+#define EMAC_MAILBOX_15                                       0x001bd4
-+#define EMAC_MAILBOX_16                                       0x001bd8
-+
-+/* EMAC_MAC_CTRL */
-+#define SINGLE_PAUSE_MODE                                   0x10000000
-+#define DEBUG_MODE                                           0x8000000
-+#define BROAD_EN                                             0x4000000
-+#define MULTI_ALL                                            0x2000000
-+#define RX_CHKSUM_EN                                         0x1000000
-+#define HUGE                                                  0x800000
-+#define SPEED_BMSK                                            0x300000
-+#define SPEED_SHFT                                                  20
-+#define SIMR                                                   0x80000
-+#define TPAUSE                                                 0x10000
-+#define PROM_MODE                                               0x8000
-+#define VLAN_STRIP                                              0x4000
-+#define PRLEN_BMSK                                              0x3c00
-+#define PRLEN_SHFT                                                  10
-+#define HUGEN                                                    0x200
-+#define FLCHK                                                    0x100
-+#define PCRCE                                                     0x80
-+#define CRCE                                                      0x40
-+#define FULLD                                                     0x20
-+#define MAC_LP_EN                                                 0x10
-+#define RXFC                                                       0x8
-+#define TXFC                                                       0x4
-+#define RXEN                                                       0x2
-+#define TXEN                                                       0x1
-+
-+/* EMAC_WOL_CTRL0 */
-+#define LK_CHG_PME                                                0x20
-+#define LK_CHG_EN                                                 0x10
-+#define MG_FRAME_PME                                               0x8
-+#define MG_FRAME_EN                                                0x4
-+#define WK_FRAME_EN                                                0x1
-+
-+/* EMAC_DESC_CTRL_3 */
-+#define RFD_RING_SIZE_BMSK                                       0xfff
-+
-+/* EMAC_DESC_CTRL_4 */
-+#define RX_BUFFER_SIZE_BMSK                                     0xffff
-+
-+/* EMAC_DESC_CTRL_6 */
-+#define RRD_RING_SIZE_BMSK                                       0xfff
-+
-+/* EMAC_DESC_CTRL_9 */
-+#define TPD_RING_SIZE_BMSK                                      0xffff
-+
-+/* EMAC_TXQ_CTRL_0 */
-+#define NUM_TXF_BURST_PREF_BMSK                             0xffff0000
-+#define NUM_TXF_BURST_PREF_SHFT                                     16
-+#define LS_8023_SP                                                0x80
-+#define TXQ_MODE                                                  0x40
-+#define TXQ_EN                                                    0x20
-+#define IP_OP_SP                                                  0x10
-+#define NUM_TPD_BURST_PREF_BMSK                                    0xf
-+#define NUM_TPD_BURST_PREF_SHFT                                      0
-+
-+/* EMAC_TXQ_CTRL_1 */
-+#define JUMBO_TASK_OFFLOAD_THRESHOLD_BMSK                        0x7ff
-+
-+/* EMAC_TXQ_CTRL_2 */
-+#define TXF_HWM_BMSK                                         0xfff0000
-+#define TXF_LWM_BMSK                                             0xfff
-+
-+/* EMAC_RXQ_CTRL_0 */
-+#define RXQ_EN                                                 BIT(31)
-+#define CUT_THRU_EN                                            BIT(30)
-+#define RSS_HASH_EN                                            BIT(29)
-+#define NUM_RFD_BURST_PREF_BMSK                              0x3f00000
-+#define NUM_RFD_BURST_PREF_SHFT                                     20
-+#define IDT_TABLE_SIZE_BMSK                                    0x1ff00
-+#define IDT_TABLE_SIZE_SHFT                                          8
-+#define SP_IPV6                                                   0x80
-+
-+/* EMAC_RXQ_CTRL_1 */
-+#define JUMBO_1KAH_BMSK                                         0xf000
-+#define JUMBO_1KAH_SHFT                                             12
-+#define RFD_PREF_LOW_TH                                           0x10
-+#define RFD_PREF_LOW_THRESHOLD_BMSK                              0xfc0
-+#define RFD_PREF_LOW_THRESHOLD_SHFT                                  6
-+#define RFD_PREF_UP_TH                                            0x10
-+#define RFD_PREF_UP_THRESHOLD_BMSK                                0x3f
-+#define RFD_PREF_UP_THRESHOLD_SHFT                                   0
-+
-+/* EMAC_RXQ_CTRL_2 */
-+#define RXF_DOF_THRESFHOLD                                       0x1a0
-+#define RXF_DOF_THRESHOLD_BMSK                               0xfff0000
-+#define RXF_DOF_THRESHOLD_SHFT                                      16
-+#define RXF_UOF_THRESFHOLD                                        0xbe
-+#define RXF_UOF_THRESHOLD_BMSK                                   0xfff
-+#define RXF_UOF_THRESHOLD_SHFT                                       0
-+
-+/* EMAC_RXQ_CTRL_3 */
-+#define RXD_TIMER_BMSK                                      0xffff0000
-+#define RXD_THRESHOLD_BMSK                                       0xfff
-+#define RXD_THRESHOLD_SHFT                                           0
-+
-+/* EMAC_DMA_CTRL */
-+#define DMAW_DLY_CNT_BMSK                                      0xf0000
-+#define DMAW_DLY_CNT_SHFT                                           16
-+#define DMAR_DLY_CNT_BMSK                                       0xf800
-+#define DMAR_DLY_CNT_SHFT                                           11
-+#define DMAR_REQ_PRI                                             0x400
-+#define REGWRBLEN_BMSK                                           0x380
-+#define REGWRBLEN_SHFT                                               7
-+#define REGRDBLEN_BMSK                                            0x70
-+#define REGRDBLEN_SHFT                                               4
-+#define OUT_ORDER_MODE                                             0x4
-+#define ENH_ORDER_MODE                                             0x2
-+#define IN_ORDER_MODE                                              0x1
-+
-+/* EMAC_MAILBOX_13 */
-+#define RFD3_PROC_IDX_BMSK                                   0xfff0000
-+#define RFD3_PROC_IDX_SHFT                                          16
-+#define RFD3_PROD_IDX_BMSK                                       0xfff
-+#define RFD3_PROD_IDX_SHFT                                           0
-+
-+/* EMAC_MAILBOX_2 */
-+#define NTPD_CONS_IDX_BMSK                                  0xffff0000
-+#define NTPD_CONS_IDX_SHFT                                          16
-+
-+/* EMAC_MAILBOX_3 */
-+#define RFD0_CONS_IDX_BMSK                                       0xfff
-+#define RFD0_CONS_IDX_SHFT                                           0
-+
-+/* EMAC_MAILBOX_11 */
-+#define H3TPD_PROD_IDX_BMSK                                 0xffff0000
-+#define H3TPD_PROD_IDX_SHFT                                         16
-+
-+/* EMAC_AXI_MAST_CTRL */
-+#define DATA_BYTE_SWAP                                             0x8
-+#define MAX_BOUND                                                  0x2
-+#define MAX_BTYPE                                                  0x1
-+
-+/* EMAC_MAILBOX_12 */
-+#define H3TPD_CONS_IDX_BMSK                                 0xffff0000
-+#define H3TPD_CONS_IDX_SHFT                                         16
-+
-+/* EMAC_MAILBOX_9 */
-+#define H2TPD_PROD_IDX_BMSK                                     0xffff
-+#define H2TPD_PROD_IDX_SHFT                                          0
-+
-+/* EMAC_MAILBOX_10 */
-+#define H1TPD_CONS_IDX_BMSK                                 0xffff0000
-+#define H1TPD_CONS_IDX_SHFT                                         16
-+#define H2TPD_CONS_IDX_BMSK                                     0xffff
-+#define H2TPD_CONS_IDX_SHFT                                          0
-+
-+/* EMAC_ATHR_HEADER_CTRL */
-+#define HEADER_CNT_EN                                              0x2
-+#define HEADER_ENABLE                                              0x1
-+
-+/* EMAC_MAILBOX_0 */
-+#define RFD0_PROC_IDX_BMSK                                   0xfff0000
-+#define RFD0_PROC_IDX_SHFT                                          16
-+#define RFD0_PROD_IDX_BMSK                                       0xfff
-+#define RFD0_PROD_IDX_SHFT                                           0
-+
-+/* EMAC_MAILBOX_5 */
-+#define RFD1_PROC_IDX_BMSK                                   0xfff0000
-+#define RFD1_PROC_IDX_SHFT                                          16
-+#define RFD1_PROD_IDX_BMSK                                       0xfff
-+#define RFD1_PROD_IDX_SHFT                                           0
-+
-+/* EMAC_MISC_CTRL */
-+#define RX_UNCPL_INT_EN                                            0x1
-+
-+/* EMAC_MAILBOX_7 */
-+#define RFD2_CONS_IDX_BMSK                                   0xfff0000
-+#define RFD2_CONS_IDX_SHFT                                          16
-+#define RFD1_CONS_IDX_BMSK                                       0xfff
-+#define RFD1_CONS_IDX_SHFT                                           0
-+
-+/* EMAC_MAILBOX_8 */
-+#define RFD3_CONS_IDX_BMSK                                       0xfff
-+#define RFD3_CONS_IDX_SHFT                                           0
-+
-+/* EMAC_MAILBOX_15 */
-+#define NTPD_PROD_IDX_BMSK                                      0xffff
-+#define NTPD_PROD_IDX_SHFT                                           0
-+
-+/* EMAC_MAILBOX_16 */
-+#define H1TPD_PROD_IDX_BMSK                                     0xffff
-+#define H1TPD_PROD_IDX_SHFT                                          0
-+
-+#define RXQ0_RSS_HSTYP_IPV6_TCP_EN                                0x20
-+#define RXQ0_RSS_HSTYP_IPV6_EN                                    0x10
-+#define RXQ0_RSS_HSTYP_IPV4_TCP_EN                                 0x8
-+#define RXQ0_RSS_HSTYP_IPV4_EN                                     0x4
-+
-+/* DMA address */
-+#define DMA_ADDR_HI_MASK                         0xffffffff00000000ULL
-+#define DMA_ADDR_LO_MASK                         0x00000000ffffffffULL
-+
-+#define EMAC_DMA_ADDR_HI(_addr)                                      \
-+		((u32)(((u64)(_addr) & DMA_ADDR_HI_MASK) >> 32))
-+#define EMAC_DMA_ADDR_LO(_addr)                                      \
-+		((u32)((u64)(_addr) & DMA_ADDR_LO_MASK))
-+
-+/* EMAC_EMAC_WRAPPER_TX_TS_INX */
-+#define EMAC_WRAPPER_TX_TS_EMPTY                               BIT(31)
-+#define EMAC_WRAPPER_TX_TS_INX_BMSK                             0xffff
-+
-+struct emac_skb_cb {
-+	u32           tpd_idx;
-+	unsigned long jiffies;
-+};
-+
-+struct emac_tx_ts_cb {
-+	u32 sec;
-+	u32 ns;
-+};
-+
-+#define EMAC_SKB_CB(skb)	((struct emac_skb_cb *)(skb)->cb)
-+#define EMAC_TX_TS_CB(skb)	((struct emac_tx_ts_cb *)(skb)->cb)
-+#define EMAC_RSS_IDT_SIZE	256
-+#define JUMBO_1KAH		0x4
-+#define RXD_TH			0x100
-+#define EMAC_TPD_LAST_FRAGMENT	0x80000000
-+#define EMAC_TPD_TSTAMP_SAVE	0x80000000
-+
-+/* EMAC Errors in emac_rrd.word[3] */
-+#define EMAC_RRD_L4F		BIT(14)
-+#define EMAC_RRD_IPF		BIT(15)
-+#define EMAC_RRD_CRC		BIT(21)
-+#define EMAC_RRD_FAE		BIT(22)
-+#define EMAC_RRD_TRN		BIT(23)
-+#define EMAC_RRD_RNT		BIT(24)
-+#define EMAC_RRD_INC		BIT(25)
-+#define EMAC_RRD_FOV		BIT(29)
-+#define EMAC_RRD_LEN		BIT(30)
-+
-+/* Error bits that will result in a received frame being discarded */
-+#define EMAC_RRD_ERROR (EMAC_RRD_IPF | EMAC_RRD_CRC | EMAC_RRD_FAE | \
-+			EMAC_RRD_TRN | EMAC_RRD_RNT | EMAC_RRD_INC | \
-+			EMAC_RRD_FOV | EMAC_RRD_LEN)
-+#define EMAC_RRD_STATS_DW_IDX 3
-+
-+#define EMAC_RRD(RXQ, SIZE, IDX)	((RXQ)->rrd.v_addr + (SIZE * (IDX)))
-+#define EMAC_RFD(RXQ, SIZE, IDX)	((RXQ)->rfd.v_addr + (SIZE * (IDX)))
-+#define EMAC_TPD(TXQ, SIZE, IDX)	((TXQ)->tpd.v_addr + (SIZE * (IDX)))
-+
-+#define GET_RFD_BUFFER(RXQ, IDX)	(&((RXQ)->rfd.rfbuff[(IDX)]))
-+#define GET_TPD_BUFFER(RTQ, IDX)	(&((RTQ)->tpd.tpbuff[(IDX)]))
-+
-+#define EMAC_TX_POLL_HWTXTSTAMP_THRESHOLD	8
-+
-+#define ISR_RX_PKT      (\
-+	RX_PKT_INT0     |\
-+	RX_PKT_INT1     |\
-+	RX_PKT_INT2     |\
-+	RX_PKT_INT3)
-+
-+void emac_mac_multicast_addr_set(struct emac_adapter *adpt, u8 *addr)
-+{
-+	u32 crc32, bit, reg, mta;
-+
-+	/* Calculate the CRC of the MAC address */
-+	crc32 = ether_crc(ETH_ALEN, addr);
-+
-+	/* The HASH Table is an array of 2 32-bit registers. It is
-+	 * treated like an array of 64 bits (BitArray[hash_value]).
-+	 * Use the upper 6 bits of the above CRC as the hash value.
-+	 */
-+	reg = (crc32 >> 31) & 0x1;
-+	bit = (crc32 >> 26) & 0x1F;
-+
-+	mta = readl(adpt->base + EMAC_HASH_TAB_REG0 + (reg << 2));
-+	mta |= (0x1 << bit);
-+	writel(mta, adpt->base + EMAC_HASH_TAB_REG0 + (reg << 2));
-+}
-+
-+void emac_mac_multicast_addr_clear(struct emac_adapter *adpt)
-+{
-+	writel(0, adpt->base + EMAC_HASH_TAB_REG0);
-+	writel(0, adpt->base + EMAC_HASH_TAB_REG1);
-+}
-+
-+/* definitions for RSS */
-+#define EMAC_RSS_KEY(_i, _type) \
-+		(EMAC_RSS_KEY0 + ((_i) * sizeof(_type)))
-+#define EMAC_RSS_TBL(_i, _type) \
-+		(EMAC_IDT_TABLE0 + ((_i) * sizeof(_type)))
-+
-+/* Config MAC modes */
-+void emac_mac_mode_config(struct emac_adapter *adpt)
-+{
-+	u32 mac;
-+
-+	mac = readl(adpt->base + EMAC_MAC_CTRL);
-+
-+	if (test_bit(EMAC_STATUS_VLANSTRIP_EN, &adpt->status))
-+		mac |= VLAN_STRIP;
-+	else
-+		mac &= ~VLAN_STRIP;
-+
-+	if (test_bit(EMAC_STATUS_PROMISC_EN, &adpt->status))
-+		mac |= PROM_MODE;
-+	else
-+		mac &= ~PROM_MODE;
-+
-+	if (test_bit(EMAC_STATUS_MULTIALL_EN, &adpt->status))
-+		mac |= MULTI_ALL;
-+	else
-+		mac &= ~MULTI_ALL;
-+
-+	if (test_bit(EMAC_STATUS_LOOPBACK_EN, &adpt->status))
-+		mac |= MAC_LP_EN;
-+	else
-+		mac &= ~MAC_LP_EN;
-+
-+	writel(mac, adpt->base + EMAC_MAC_CTRL);
-+}
-+
-+/* Power Management */
-+void emac_mac_pm(struct emac_adapter *adpt)
-+{
-+	u32 dma_mas, mac;
-+
-+	dma_mas = readl(adpt->base + EMAC_DMA_MAS_CTRL);
-+	dma_mas &= ~LPW_CLK_SEL;
-+	dma_mas |= LPW_STATE | LPW_CLK_SEL;
-+
-+	mac = readl(adpt->base + EMAC_MAC_CTRL);
-+	mac &= ~(FULLD | RXEN | TXEN);
-+	mac = (mac & ~SPEED_BMSK) |
-+	  (((u32)emac_mac_speed_10_100 << SPEED_SHFT) & SPEED_BMSK);
-+
-+	writel(dma_mas, adpt->base + EMAC_DMA_MAS_CTRL);
-+	writel(mac, adpt->base + EMAC_MAC_CTRL);
-+}
-+
-+/* Config descriptor rings */
-+static void emac_mac_dma_rings_config(struct emac_adapter *adpt)
-+{
-+	static const unsigned int tpd_q_offset[] = {
-+		EMAC_DESC_CTRL_8,        EMAC_H1TPD_BASE_ADDR_LO,
-+		EMAC_H2TPD_BASE_ADDR_LO, EMAC_H3TPD_BASE_ADDR_LO};
-+	static const unsigned int rfd_q_offset[] = {
-+		EMAC_DESC_CTRL_2,        EMAC_DESC_CTRL_10,
-+		EMAC_DESC_CTRL_12,       EMAC_DESC_CTRL_13};
-+	static const unsigned int rrd_q_offset[] = {
-+		EMAC_DESC_CTRL_5,        EMAC_DESC_CTRL_14,
-+		EMAC_DESC_CTRL_15,       EMAC_DESC_CTRL_16};
-+
-+	if (adpt->timestamp_en)
-+		emac_reg_update32(adpt->csr + EMAC_EMAC_WRAPPER_CSR1,
-+				  0, ENABLE_RRD_TIMESTAMP);
-+
-+	/* TPD (Transmit Packet Descriptor) */
-+	writel(EMAC_DMA_ADDR_HI(adpt->tx_q.tpd.dma_addr),
-+	       adpt->base + EMAC_DESC_CTRL_1);
-+
-+	writel(EMAC_DMA_ADDR_LO(adpt->tx_q.tpd.dma_addr),
-+	       adpt->base + tpd_q_offset[0]);
-+
-+	writel(adpt->tx_q.tpd.count & TPD_RING_SIZE_BMSK,
-+	       adpt->base + EMAC_DESC_CTRL_9);
-+
-+	/* RFD (Receive Free Descriptor) & RRD (Receive Return Descriptor) */
-+	writel(EMAC_DMA_ADDR_HI(adpt->rx_q.rfd.dma_addr),
-+	       adpt->base + EMAC_DESC_CTRL_0);
-+
-+	writel(EMAC_DMA_ADDR_LO(adpt->rx_q.rfd.dma_addr),
-+	       adpt->base + rfd_q_offset[0]);
-+	writel(EMAC_DMA_ADDR_LO(adpt->rx_q.rrd.dma_addr),
-+	       adpt->base + rrd_q_offset[0]);
-+
-+	writel(adpt->rx_q.rfd.count & RFD_RING_SIZE_BMSK,
-+	       adpt->base + EMAC_DESC_CTRL_3);
-+	writel(adpt->rx_q.rrd.count & RRD_RING_SIZE_BMSK,
-+	       adpt->base + EMAC_DESC_CTRL_6);
-+
-+	writel(adpt->rxbuf_size & RX_BUFFER_SIZE_BMSK,
-+	       adpt->base + EMAC_DESC_CTRL_4);
-+
-+	writel(0, adpt->base + EMAC_DESC_CTRL_11);
-+
-+	/* Load all of the base addresses above and ensure that triggering HW to
-+	 * read ring pointers is flushed
-+	 */
-+	writel(1, adpt->base + EMAC_INTER_SRAM_PART9);
-+}
-+
-+/* Config transmit parameters */
-+static void emac_mac_tx_config(struct emac_adapter *adpt)
-+{
-+	u32 val;
-+
-+	writel((EMAC_MAX_TX_OFFLOAD_THRESH >> 3) &
-+	       JUMBO_TASK_OFFLOAD_THRESHOLD_BMSK, adpt->base + EMAC_TXQ_CTRL_1);
-+
-+	val = (adpt->tpd_burst << NUM_TPD_BURST_PREF_SHFT) &
-+	       NUM_TPD_BURST_PREF_BMSK;
-+
-+	val |= (TXQ_MODE | LS_8023_SP);
-+	val |= (0x0100 << NUM_TXF_BURST_PREF_SHFT) &
-+		NUM_TXF_BURST_PREF_BMSK;
-+
-+	writel(val, adpt->base + EMAC_TXQ_CTRL_0);
-+	emac_reg_update32(adpt->base + EMAC_TXQ_CTRL_2,
-+			  (TXF_HWM_BMSK | TXF_LWM_BMSK), 0);
-+}
-+
-+/* Config receive parameters */
-+static void emac_mac_rx_config(struct emac_adapter *adpt)
-+{
-+	u32 val;
-+
-+	val = ((adpt->rfd_burst << NUM_RFD_BURST_PREF_SHFT) &
-+	       NUM_RFD_BURST_PREF_BMSK);
-+	val |= (SP_IPV6 | CUT_THRU_EN);
-+
-+	writel(val, adpt->base + EMAC_RXQ_CTRL_0);
-+
-+	val = readl(adpt->base + EMAC_RXQ_CTRL_1);
-+	val &= ~(JUMBO_1KAH_BMSK | RFD_PREF_LOW_THRESHOLD_BMSK |
-+		 RFD_PREF_UP_THRESHOLD_BMSK);
-+	val |= (JUMBO_1KAH << JUMBO_1KAH_SHFT) |
-+		(RFD_PREF_LOW_TH << RFD_PREF_LOW_THRESHOLD_SHFT) |
-+		(RFD_PREF_UP_TH  << RFD_PREF_UP_THRESHOLD_SHFT);
-+	writel(val, adpt->base + EMAC_RXQ_CTRL_1);
-+
-+	val = readl(adpt->base + EMAC_RXQ_CTRL_2);
-+	val &= ~(RXF_DOF_THRESHOLD_BMSK | RXF_UOF_THRESHOLD_BMSK);
-+	val |= (RXF_DOF_THRESFHOLD  << RXF_DOF_THRESHOLD_SHFT) |
-+		(RXF_UOF_THRESFHOLD << RXF_UOF_THRESHOLD_SHFT);
-+	writel(val, adpt->base + EMAC_RXQ_CTRL_2);
-+
-+	val = readl(adpt->base + EMAC_RXQ_CTRL_3);
-+	val &= ~(RXD_TIMER_BMSK | RXD_THRESHOLD_BMSK);
-+	val |= RXD_TH << RXD_THRESHOLD_SHFT;
-+	writel(val, adpt->base + EMAC_RXQ_CTRL_3);
-+}
-+
-+/* Config dma */
-+static void emac_mac_dma_config(struct emac_adapter *adpt)
-+{
-+	u32 dma_ctrl;
-+
-+	dma_ctrl = DMAR_REQ_PRI;
-+
-+	switch (adpt->dma_order) {
-+	case emac_dma_ord_in:
-+		dma_ctrl |= IN_ORDER_MODE;
-+		break;
-+	case emac_dma_ord_enh:
-+		dma_ctrl |= ENH_ORDER_MODE;
-+		break;
-+	case emac_dma_ord_out:
-+		dma_ctrl |= OUT_ORDER_MODE;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	dma_ctrl |= (((u32)adpt->dmar_block) << REGRDBLEN_SHFT) &
-+						REGRDBLEN_BMSK;
-+	dma_ctrl |= (((u32)adpt->dmaw_block) << REGWRBLEN_SHFT) &
-+						REGWRBLEN_BMSK;
-+	dma_ctrl |= (((u32)adpt->dmar_dly_cnt) << DMAR_DLY_CNT_SHFT) &
-+						DMAR_DLY_CNT_BMSK;
-+	dma_ctrl |= (((u32)adpt->dmaw_dly_cnt) << DMAW_DLY_CNT_SHFT) &
-+						DMAW_DLY_CNT_BMSK;
-+
-+	/* config DMA and ensure that configuration is flushed to HW */
-+	writel(dma_ctrl, adpt->base + EMAC_DMA_CTRL);
-+}
-+
-+void emac_mac_config(struct emac_adapter *adpt)
-+{
-+	u32 val;
-+
-+	emac_mac_addr_clear(adpt, adpt->mac_addr);
-+
-+	emac_mac_dma_rings_config(adpt);
-+
-+	writel(adpt->mtu + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN,
-+	       adpt->base + EMAC_MAX_FRAM_LEN_CTRL);
-+
-+	emac_mac_tx_config(adpt);
-+	emac_mac_rx_config(adpt);
-+	emac_mac_dma_config(adpt);
-+
-+	val = readl(adpt->base + EMAC_AXI_MAST_CTRL);
-+	val &= ~(DATA_BYTE_SWAP | MAX_BOUND);
-+	val |= MAX_BTYPE;
-+	writel(val, adpt->base + EMAC_AXI_MAST_CTRL);
-+	writel(0, adpt->base + EMAC_CLK_GATE_CTRL);
-+	writel(RX_UNCPL_INT_EN, adpt->base + EMAC_MISC_CTRL);
-+}
-+
-+void emac_mac_reset(struct emac_adapter *adpt)
-+{
-+	writel(0, adpt->base + EMAC_INT_MASK);
-+	writel(DIS_INT, adpt->base + EMAC_INT_STATUS);
-+
-+	emac_mac_stop(adpt);
-+
-+	emac_reg_update32(adpt->base + EMAC_DMA_MAS_CTRL, 0, SOFT_RST);
-+	usleep_range(100, 150); /* reset may take upto 100usec */
-+
-+	/*  interrupt clear-on-read */
-+	emac_reg_update32(adpt->base + EMAC_DMA_MAS_CTRL, 0, INT_RD_CLR_EN);
-+}
-+
-+void emac_mac_start(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 mac, csr1;
-+
-+	/* enable tx queue */
-+	emac_reg_update32(adpt->base + EMAC_TXQ_CTRL_0, 0, TXQ_EN);
-+
-+	/* enable rx queue */
-+	emac_reg_update32(adpt->base + EMAC_RXQ_CTRL_0, 0, RXQ_EN);
-+
-+	/* enable mac control */
-+	mac = readl(adpt->base + EMAC_MAC_CTRL);
-+	csr1 = readl(adpt->csr + EMAC_EMAC_WRAPPER_CSR1);
-+
-+	mac |= TXEN | RXEN;     /* enable RX/TX */
-+
-+	/* enable RX/TX Flow Control */
-+	switch (phy->cur_fc_mode) {
-+	case EMAC_FC_FULL:
-+		mac |= (TXFC | RXFC);
-+		break;
-+	case EMAC_FC_RX_PAUSE:
-+		mac |= RXFC;
-+		break;
-+	case EMAC_FC_TX_PAUSE:
-+		mac |= TXFC;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	/* setup link speed */
-+	mac &= ~SPEED_BMSK;
-+	switch (phy->link_speed) {
-+	case EMAC_LINK_SPEED_1GB_FULL:
-+		mac |= ((emac_mac_speed_1000 << SPEED_SHFT) & SPEED_BMSK);
-+		csr1 |= FREQ_MODE;
-+		break;
-+	default:
-+		mac |= ((emac_mac_speed_10_100 << SPEED_SHFT) & SPEED_BMSK);
-+		csr1 &= ~FREQ_MODE;
-+		break;
-+	}
-+
-+	switch (phy->link_speed) {
-+	case EMAC_LINK_SPEED_1GB_FULL:
-+	case EMAC_LINK_SPEED_100_FULL:
-+	case EMAC_LINK_SPEED_10_FULL:
-+		mac |= FULLD;
-+		break;
-+	default:
-+		mac &= ~FULLD;
-+	}
-+
-+	/* other parameters */
-+	mac |= (CRCE | PCRCE);
-+	mac |= ((adpt->preamble << PRLEN_SHFT) & PRLEN_BMSK);
-+	mac |= BROAD_EN;
-+	mac |= FLCHK;
-+	mac &= ~RX_CHKSUM_EN;
-+	mac &= ~(HUGEN | VLAN_STRIP | TPAUSE | SIMR | HUGE | MULTI_ALL |
-+		 DEBUG_MODE | SINGLE_PAUSE_MODE);
-+
-+	writel_relaxed(csr1, adpt->csr + EMAC_EMAC_WRAPPER_CSR1);
-+
-+	writel_relaxed(mac, adpt->base + EMAC_MAC_CTRL);
-+
-+	/* enable interrupt read clear, low power sleep mode and
-+	 * the irq moderators
-+	 */
-+
-+	writel_relaxed(adpt->irq_mod, adpt->base + EMAC_IRQ_MOD_TIM_INIT);
-+	writel_relaxed(INT_RD_CLR_EN | LPW_MODE | IRQ_MODERATOR_EN |
-+			IRQ_MODERATOR2_EN, adpt->base + EMAC_DMA_MAS_CTRL);
-+
-+	emac_mac_mode_config(adpt);
-+
-+	emac_reg_update32(adpt->base + EMAC_ATHR_HEADER_CTRL,
-+			  (HEADER_ENABLE | HEADER_CNT_EN), 0);
-+
-+	emac_reg_update32(adpt->csr + EMAC_EMAC_WRAPPER_CSR2, 0, WOL_EN);
-+}
-+
-+void emac_mac_stop(struct emac_adapter *adpt)
-+{
-+	emac_reg_update32(adpt->base + EMAC_RXQ_CTRL_0, RXQ_EN, 0);
-+	emac_reg_update32(adpt->base + EMAC_TXQ_CTRL_0, TXQ_EN, 0);
-+	emac_reg_update32(adpt->base + EMAC_MAC_CTRL, (TXEN | RXEN), 0);
-+	usleep_range(1000, 1050); /* stopping mac may take upto 1msec */
-+}
-+
-+/* set MAC address */
-+void emac_mac_addr_clear(struct emac_adapter *adpt, u8 *addr)
-+{
-+	u32 sta;
-+
-+	/* for example: 00-A0-C6-11-22-33
-+	 * 0<-->C6112233, 1<-->00A0.
-+	 */
-+
-+	/* low 32bit word */
-+	sta = (((u32)addr[2]) << 24) | (((u32)addr[3]) << 16) |
-+	      (((u32)addr[4]) << 8)  | (((u32)addr[5]));
-+	writel(sta, adpt->base + EMAC_MAC_STA_ADDR0);
-+
-+	/* hight 32bit word */
-+	sta = (((u32)addr[0]) << 8) | (((u32)addr[1]));
-+	writel(sta, adpt->base + EMAC_MAC_STA_ADDR1);
-+}
-+
-+/* Read one entry from the HW tx timestamp FIFO */
-+static bool emac_mac_tx_ts_read(struct emac_adapter *adpt,
-+				struct emac_tx_ts *ts)
-+{
-+	u32 ts_idx;
-+
-+	ts_idx = readl_relaxed(adpt->csr + EMAC_EMAC_WRAPPER_TX_TS_INX);
-+
-+	if (ts_idx & EMAC_WRAPPER_TX_TS_EMPTY)
-+		return false;
-+
-+	ts->ns = readl_relaxed(adpt->csr + EMAC_EMAC_WRAPPER_TX_TS_LO);
-+	ts->sec = readl_relaxed(adpt->csr + EMAC_EMAC_WRAPPER_TX_TS_HI);
-+	ts->ts_idx = ts_idx & EMAC_WRAPPER_TX_TS_INX_BMSK;
-+
-+	return true;
-+}
-+
-+/* Free all descriptors of given transmit queue */
-+static void emac_tx_q_descs_free(struct emac_adapter *adpt)
-+{
-+	struct emac_tx_queue *tx_q = &adpt->tx_q;
-+	size_t size;
-+	int i;
-+
-+	/* ring already cleared, nothing to do */
-+	if (!tx_q->tpd.tpbuff)
-+		return;
-+
-+	for (i = 0; i < tx_q->tpd.count; i++) {
-+		struct emac_buffer *tpbuf = GET_TPD_BUFFER(tx_q, i);
-+
-+		if (tpbuf->dma_addr) {
-+			dma_unmap_single(adpt->netdev->dev.parent,
-+					 tpbuf->dma_addr, tpbuf->length,
-+					 DMA_TO_DEVICE);
-+			tpbuf->dma_addr = 0;
-+		}
-+		if (tpbuf->skb) {
-+			dev_kfree_skb_any(tpbuf->skb);
-+			tpbuf->skb = NULL;
-+		}
-+	}
-+
-+	size = sizeof(struct emac_buffer) * tx_q->tpd.count;
-+	memset(tx_q->tpd.tpbuff, 0, size);
-+
-+	/* clear the descriptor ring */
-+	memset(tx_q->tpd.v_addr, 0, tx_q->tpd.size);
-+
-+	tx_q->tpd.consume_idx = 0;
-+	tx_q->tpd.produce_idx = 0;
-+}
-+
-+/* Free all descriptors of given receive queue */
-+static void emac_rx_q_free_descs(struct emac_adapter *adpt)
-+{
-+	struct emac_rx_queue *rx_q = &adpt->rx_q;
-+	struct device *dev = adpt->netdev->dev.parent;
-+	size_t size;
-+	int i;
-+
-+	/* ring already cleared, nothing to do */
-+	if (!rx_q->rfd.rfbuff)
-+		return;
-+
-+	for (i = 0; i < rx_q->rfd.count; i++) {
-+		struct emac_buffer *rfbuf = GET_RFD_BUFFER(rx_q, i);
-+
-+		if (rfbuf->dma_addr) {
-+			dma_unmap_single(dev, rfbuf->dma_addr, rfbuf->length,
-+					 DMA_FROM_DEVICE);
-+			rfbuf->dma_addr = 0;
-+		}
-+		if (rfbuf->skb) {
-+			dev_kfree_skb(rfbuf->skb);
-+			rfbuf->skb = NULL;
-+		}
-+	}
-+
-+	size =  sizeof(struct emac_buffer) * rx_q->rfd.count;
-+	memset(rx_q->rfd.rfbuff, 0, size);
-+
-+	/* clear the descriptor rings */
-+	memset(rx_q->rrd.v_addr, 0, rx_q->rrd.size);
-+	rx_q->rrd.produce_idx = 0;
-+	rx_q->rrd.consume_idx = 0;
-+
-+	memset(rx_q->rfd.v_addr, 0, rx_q->rfd.size);
-+	rx_q->rfd.produce_idx = 0;
-+	rx_q->rfd.consume_idx = 0;
-+}
-+
-+/* Free all buffers associated with given transmit queue */
-+static void emac_tx_q_bufs_free(struct emac_adapter *adpt)
-+{
-+	struct emac_tx_queue *tx_q = &adpt->tx_q;
-+
-+	emac_tx_q_descs_free(adpt);
-+
-+	kfree(tx_q->tpd.tpbuff);
-+	tx_q->tpd.tpbuff = NULL;
-+	tx_q->tpd.v_addr = NULL;
-+	tx_q->tpd.dma_addr = 0;
-+	tx_q->tpd.size = 0;
-+}
-+
-+/* Allocate TX descriptor ring for the given transmit queue */
-+static int emac_tx_q_desc_alloc(struct emac_adapter *adpt,
-+				struct emac_tx_queue *tx_q)
-+{
-+	struct emac_ring_header *ring_header = &adpt->ring_header;
-+	size_t size;
-+
-+	size = sizeof(struct emac_buffer) * tx_q->tpd.count;
-+	tx_q->tpd.tpbuff = kzalloc(size, GFP_KERNEL);
-+	if (!tx_q->tpd.tpbuff)
-+		return -ENOMEM;
-+
-+	tx_q->tpd.size = tx_q->tpd.count * (adpt->tpd_size * 4);
-+	tx_q->tpd.dma_addr = ring_header->dma_addr + ring_header->used;
-+	tx_q->tpd.v_addr = ring_header->v_addr + ring_header->used;
-+	ring_header->used += ALIGN(tx_q->tpd.size, 8);
-+	tx_q->tpd.produce_idx = 0;
-+	tx_q->tpd.consume_idx = 0;
-+
-+	return 0;
-+}
-+
-+/* Free all buffers associated with given transmit queue */
-+static void emac_rx_q_bufs_free(struct emac_adapter *adpt)
-+{
-+	struct emac_rx_queue *rx_q = &adpt->rx_q;
-+
-+	emac_rx_q_free_descs(adpt);
-+
-+	kfree(rx_q->rfd.rfbuff);
-+	rx_q->rfd.rfbuff   = NULL;
-+
-+	rx_q->rfd.v_addr   = NULL;
-+	rx_q->rfd.dma_addr = 0;
-+	rx_q->rfd.size     = 0;
-+
-+	rx_q->rrd.v_addr   = NULL;
-+	rx_q->rrd.dma_addr = 0;
-+	rx_q->rrd.size     = 0;
-+}
-+
-+/* Allocate RX descriptor rings for the given receive queue */
-+static int emac_rx_descs_alloc(struct emac_adapter *adpt)
-+{
-+	struct emac_rx_queue *rx_q = &adpt->rx_q;
-+	struct emac_ring_header *ring_header = &adpt->ring_header;
-+	unsigned long size;
-+
-+	size = sizeof(struct emac_buffer) * rx_q->rfd.count;
-+	rx_q->rfd.rfbuff = kzalloc(size, GFP_KERNEL);
-+	if (!rx_q->rfd.rfbuff)
-+		return -ENOMEM;
-+
-+	rx_q->rrd.size = rx_q->rrd.count * (adpt->rrd_size * 4);
-+	rx_q->rfd.size = rx_q->rfd.count * (adpt->rfd_size * 4);
-+
-+	rx_q->rrd.dma_addr = ring_header->dma_addr + ring_header->used;
-+	rx_q->rrd.v_addr   = ring_header->v_addr + ring_header->used;
-+	ring_header->used += ALIGN(rx_q->rrd.size, 8);
-+
-+	rx_q->rfd.dma_addr = ring_header->dma_addr + ring_header->used;
-+	rx_q->rfd.v_addr   = ring_header->v_addr + ring_header->used;
-+	ring_header->used += ALIGN(rx_q->rfd.size, 8);
-+
-+	rx_q->rrd.produce_idx = 0;
-+	rx_q->rrd.consume_idx = 0;
-+
-+	rx_q->rfd.produce_idx = 0;
-+	rx_q->rfd.consume_idx = 0;
-+
-+	return 0;
-+}
-+
-+/* Allocate all TX and RX descriptor rings */
-+int emac_mac_rx_tx_rings_alloc_all(struct emac_adapter *adpt)
-+{
-+	struct emac_ring_header *ring_header = &adpt->ring_header;
-+	unsigned int num_tx_descs = adpt->tx_desc_cnt;
-+	unsigned int num_rx_descs = adpt->rx_desc_cnt;
-+	struct device *dev = adpt->netdev->dev.parent;
-+	int ret;
-+
-+	adpt->tx_q.tpd.count = adpt->tx_desc_cnt;
-+
-+	adpt->rx_q.rrd.count = adpt->rx_desc_cnt;
-+	adpt->rx_q.rfd.count = adpt->rx_desc_cnt;
-+
-+	/* Ring DMA buffer. Each ring may need up to 8 bytes for alignment,
-+	 * hence the additional padding bytes are allocated.
-+	 */
-+	ring_header->size = num_tx_descs * (adpt->tpd_size * 4) +
-+			    num_rx_descs * (adpt->rfd_size * 4) +
-+			    num_rx_descs * (adpt->rrd_size * 4) +
-+			    8 + 2 * 8; /* 8 byte per one Tx and two Rx rings */
-+
-+	ring_header->used = 0;
-+	ring_header->v_addr = dma_alloc_coherent(dev, ring_header->size,
-+						 &ring_header->dma_addr,
-+						 GFP_KERNEL);
-+	if (!ring_header->v_addr)
-+		return -ENOMEM;
-+
-+	memset(ring_header->v_addr, 0, ring_header->size);
-+	ring_header->used = ALIGN(ring_header->dma_addr, 8) -
-+							ring_header->dma_addr;
-+
-+	ret = emac_tx_q_desc_alloc(adpt, &adpt->tx_q);
-+	if (ret) {
-+		netdev_err(adpt->netdev, "error: Tx Queue alloc failed\n");
-+		goto err_alloc_tx;
-+	}
-+
-+	ret = emac_rx_descs_alloc(adpt);
-+	if (ret) {
-+		netdev_err(adpt->netdev, "error: Rx Queue alloc failed\n");
-+		goto err_alloc_rx;
-+	}
-+
-+	return 0;
-+
-+err_alloc_rx:
-+	emac_tx_q_bufs_free(adpt);
-+err_alloc_tx:
-+	dma_free_coherent(dev, ring_header->size,
-+			  ring_header->v_addr, ring_header->dma_addr);
-+
-+	ring_header->v_addr   = NULL;
-+	ring_header->dma_addr = 0;
-+	ring_header->size     = 0;
-+	ring_header->used     = 0;
-+
-+	return ret;
-+}
-+
-+/* Free all TX and RX descriptor rings */
-+void emac_mac_rx_tx_rings_free_all(struct emac_adapter *adpt)
-+{
-+	struct emac_ring_header *ring_header = &adpt->ring_header;
-+	struct device *dev = adpt->netdev->dev.parent;
-+
-+	emac_tx_q_bufs_free(adpt);
-+	emac_rx_q_bufs_free(adpt);
-+
-+	dma_free_coherent(dev, ring_header->size,
-+			  ring_header->v_addr, ring_header->dma_addr);
-+
-+	ring_header->v_addr   = NULL;
-+	ring_header->dma_addr = 0;
-+	ring_header->size     = 0;
-+	ring_header->used     = 0;
-+}
-+
-+/* Initialize descriptor rings */
-+static void emac_mac_rx_tx_ring_reset_all(struct emac_adapter *adpt)
-+{
-+	int i;
-+
-+	adpt->tx_q.tpd.produce_idx = 0;
-+	adpt->tx_q.tpd.consume_idx = 0;
-+	for (i = 0; i < adpt->tx_q.tpd.count; i++)
-+		adpt->tx_q.tpd.tpbuff[i].dma_addr = 0;
-+
-+	adpt->rx_q.rrd.produce_idx = 0;
-+	adpt->rx_q.rrd.consume_idx = 0;
-+	adpt->rx_q.rfd.produce_idx = 0;
-+	adpt->rx_q.rfd.consume_idx = 0;
-+	for (i = 0; i < adpt->rx_q.rfd.count; i++)
-+		adpt->rx_q.rfd.rfbuff[i].dma_addr = 0;
-+}
-+
-+/* Produce new receive free descriptor */
-+static void emac_mac_rx_rfd_create(struct emac_adapter *adpt,
-+				   struct emac_rx_queue *rx_q,
-+				   union emac_rfd *rfd)
-+{
-+	u32 *hw_rfd = EMAC_RFD(rx_q, adpt->rfd_size,
-+			       rx_q->rfd.produce_idx);
-+
-+	*(hw_rfd++) = rfd->word[0];
-+	*hw_rfd = rfd->word[1];
-+
-+	if (++rx_q->rfd.produce_idx == rx_q->rfd.count)
-+		rx_q->rfd.produce_idx = 0;
-+}
-+
-+/* Fill up receive queue's RFD with preallocated receive buffers */
-+static int emac_mac_rx_descs_refill(struct emac_adapter *adpt,
-+				    struct emac_rx_queue *rx_q)
-+{
-+	struct emac_buffer *curr_rxbuf;
-+	struct emac_buffer *next_rxbuf;
-+	union emac_rfd rfd;
-+	struct sk_buff *skb;
-+	void *skb_data = NULL;
-+	int count = 0;
-+	u32 next_produce_idx;
-+
-+	next_produce_idx = rx_q->rfd.produce_idx;
-+	if (++next_produce_idx == rx_q->rfd.count)
-+		next_produce_idx = 0;
-+	curr_rxbuf = GET_RFD_BUFFER(rx_q, rx_q->rfd.produce_idx);
-+	next_rxbuf = GET_RFD_BUFFER(rx_q, next_produce_idx);
-+
-+	/* this always has a blank rx_buffer*/
-+	while (!next_rxbuf->dma_addr) {
-+		skb = dev_alloc_skb(adpt->rxbuf_size + NET_IP_ALIGN);
-+		if (!skb)
-+			break;
-+
-+		/* Make buffer alignment 2 beyond a 16 byte boundary
-+		 * this will result in a 16 byte aligned IP header after
-+		 * the 14 byte MAC header is removed
-+		 */
-+		skb_reserve(skb, NET_IP_ALIGN);
-+		skb_data = skb->data;
-+		curr_rxbuf->skb = skb;
-+		curr_rxbuf->length = adpt->rxbuf_size;
-+		curr_rxbuf->dma_addr = dma_map_single(adpt->netdev->dev.parent,
-+						      skb_data,
-+						      curr_rxbuf->length,
-+						      DMA_FROM_DEVICE);
-+		rfd.addr = curr_rxbuf->dma_addr;
-+		emac_mac_rx_rfd_create(adpt, rx_q, &rfd);
-+		next_produce_idx = rx_q->rfd.produce_idx;
-+		if (++next_produce_idx == rx_q->rfd.count)
-+			next_produce_idx = 0;
-+
-+		curr_rxbuf = GET_RFD_BUFFER(rx_q, rx_q->rfd.produce_idx);
-+		next_rxbuf = GET_RFD_BUFFER(rx_q, next_produce_idx);
-+		count++;
-+	}
-+
-+	if (count) {
-+		u32 prod_idx = (rx_q->rfd.produce_idx << rx_q->produce_shift) &
-+				rx_q->produce_mask;
-+		emac_reg_update32(adpt->base + rx_q->produce_reg,
-+				  rx_q->produce_mask, prod_idx);
-+	}
-+
-+	return count;
-+}
-+
-+/* Bringup the interface/HW */
-+int emac_mac_up(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	struct emac_irq	*irq = &adpt->irq;
-+
-+	struct net_device *netdev = adpt->netdev;
-+	int ret = 0;
-+	int i;
-+
-+	emac_mac_rx_tx_ring_reset_all(adpt);
-+	emac_rx_mode_set(netdev);
-+
-+	emac_mac_config(adpt);
-+
-+	ret = emac_sgmii_up(adpt);
-+
-+	if (ret)
-+		return ret;
-+
-+	for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++) {
-+		ret = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
-+		if (ret) {
-+			netdev_err(adpt->netdev,
-+				   "error:%d on gpio_request(%d:%s)\n",
-+				   ret, adpt->gpio[i], emac_gpio_name[i]);
-+			while (--i >= 0)
-+				gpio_free(adpt->gpio[i]);
-+			goto err_request_gpio;
-+		}
-+	}
-+
-+	ret = request_irq(irq->irq, emac_isr, 0, EMAC_MAC_IRQ_RES, irq);
-+	if (ret) {
-+		netdev_err(adpt->netdev,
-+			   "error:%d on request_irq(%d:%s flags:0)\n", ret,
-+			   irq->irq, EMAC_MAC_IRQ_RES);
-+		goto err_request_irq;
-+	}
-+
-+	emac_mac_rx_descs_refill(adpt, &adpt->rx_q);
-+
-+	napi_enable(&adpt->rx_q.napi);
-+
-+	/* enable mac irq */
-+	writel(~DIS_INT, adpt->base + EMAC_INT_STATUS);
-+	writel(adpt->irq.mask, adpt->base + EMAC_INT_MASK);
-+
-+	netif_start_queue(netdev);
-+	clear_bit(EMAC_STATUS_DOWN, &adpt->status);
-+
-+	/* check link status */
-+	set_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status);
-+	adpt->link_chk_timeout = jiffies + EMAC_TRY_LINK_TIMEOUT;
-+	mod_timer(&adpt->timers, jiffies);
-+
-+	return ret;
-+
-+err_request_irq:
-+	for (i = 0; adpt->phy.uses_gpios && i < EMAC_GPIO_CNT; i++)
-+		gpio_free(adpt->gpio[i]);
-+err_request_gpio:
-+	emac_sgmii_down(adpt);
-+	return ret;
-+}
-+
-+/* Bring down the interface/HW */
-+void emac_mac_down(struct emac_adapter *adpt, bool reset)
-+{
-+	struct net_device *netdev = adpt->netdev;
-+	struct emac_phy *phy = &adpt->phy;
-+
-+	unsigned long flags;
-+	int i;
-+
-+	set_bit(EMAC_STATUS_DOWN, &adpt->status);
-+
-+	netif_stop_queue(netdev);
-+	netif_carrier_off(netdev);
-+
-+	/* disable mac irq */
-+	writel(DIS_INT, adpt->base + EMAC_INT_STATUS);
-+	writel(0, adpt->base + EMAC_INT_MASK);
-+	synchronize_irq(adpt->irq.irq);
-+
-+	napi_disable(&adpt->rx_q.napi);
-+
-+	emac_sgmii_down(adpt);
-+
-+	free_irq(adpt->irq.irq, &adpt->irq);
-+
-+	for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++)
-+		gpio_free(adpt->gpio[i]);
-+
-+	clear_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status);
-+	clear_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status);
-+	clear_bit(EMAC_STATUS_TASK_CHK_SGMII_REQ, &adpt->status);
-+	del_timer_sync(&adpt->timers);
-+
-+	cancel_work_sync(&adpt->tx_ts_task);
-+	spin_lock_irqsave(&adpt->tx_ts_lock, flags);
-+	__skb_queue_purge(&adpt->tx_ts_pending_queue);
-+	__skb_queue_purge(&adpt->tx_ts_ready_queue);
-+	spin_unlock_irqrestore(&adpt->tx_ts_lock, flags);
-+
-+	if (reset)
-+		emac_mac_reset(adpt);
-+
-+	pm_runtime_put_noidle(netdev->dev.parent);
-+	phy->link_speed = EMAC_LINK_SPEED_UNKNOWN;
-+	emac_tx_q_descs_free(adpt);
-+	netdev_reset_queue(adpt->netdev);
-+	emac_rx_q_free_descs(adpt);
-+}
-+
-+/* Consume next received packet descriptor */
-+static bool emac_rx_process_rrd(struct emac_adapter *adpt,
-+				struct emac_rx_queue *rx_q,
-+				struct emac_rrd *rrd)
-+{
-+	u32 *hw_rrd = EMAC_RRD(rx_q, adpt->rrd_size,
-+			       rx_q->rrd.consume_idx);
-+
-+	/* If time stamping is enabled, it will be added in the beginning of
-+	 * the hw rrd (hw_rrd). In sw rrd (rrd), 32bit words 4 & 5 are reserved
-+	 * for the time stamp; hence the conversion.
-+	 * Also, read the rrd word with update flag first; read rest of rrd
-+	 * only if update flag is set.
-+	 */
-+	if (adpt->timestamp_en)
-+		rrd->word[3] = *(hw_rrd + 5);
-+	else
-+		rrd->word[3] = *(hw_rrd + 3);
-+
-+	if (!RRD_UPDT(rrd))
-+		return false;
-+
-+	if (adpt->timestamp_en) {
-+		rrd->word[4] = *(hw_rrd++);
-+		rrd->word[5] = *(hw_rrd++);
-+	} else {
-+		rrd->word[4] = 0;
-+		rrd->word[5] = 0;
-+	}
-+
-+	rrd->word[0] = *(hw_rrd++);
-+	rrd->word[1] = *(hw_rrd++);
-+	rrd->word[2] = *(hw_rrd++);
-+
-+	if (unlikely(RRD_NOR(rrd) != 1)) {
-+		netdev_err(adpt->netdev,
-+			   "error: multi-RFD not support yet! nor:%lu\n",
-+			   RRD_NOR(rrd));
-+	}
-+
-+	/* mark rrd as processed */
-+	RRD_UPDT_SET(rrd, 0);
-+	*hw_rrd = rrd->word[3];
-+
-+	if (++rx_q->rrd.consume_idx == rx_q->rrd.count)
-+		rx_q->rrd.consume_idx = 0;
-+
-+	return true;
-+}
-+
-+/* Produce new transmit descriptor */
-+static bool emac_tx_tpd_create(struct emac_adapter *adpt,
-+			       struct emac_tx_queue *tx_q, struct emac_tpd *tpd)
-+{
-+	u32 *hw_tpd;
-+
-+	tx_q->tpd.last_produce_idx = tx_q->tpd.produce_idx;
-+	hw_tpd = EMAC_TPD(tx_q, adpt->tpd_size, tx_q->tpd.produce_idx);
-+
-+	if (++tx_q->tpd.produce_idx == tx_q->tpd.count)
-+		tx_q->tpd.produce_idx = 0;
-+
-+	*(hw_tpd++) = tpd->word[0];
-+	*(hw_tpd++) = tpd->word[1];
-+	*(hw_tpd++) = tpd->word[2];
-+	*hw_tpd = tpd->word[3];
-+
-+	return true;
-+}
-+
-+/* Mark the last transmit descriptor as such (for the transmit packet) */
-+static void emac_tx_tpd_mark_last(struct emac_adapter *adpt,
-+				  struct emac_tx_queue *tx_q)
-+{
-+	u32 tmp_tpd;
-+	u32 *hw_tpd = EMAC_TPD(tx_q, adpt->tpd_size,
-+			     tx_q->tpd.last_produce_idx);
-+
-+	tmp_tpd = *(hw_tpd + 1);
-+	tmp_tpd |= EMAC_TPD_LAST_FRAGMENT;
-+	*(hw_tpd + 1) = tmp_tpd;
-+}
-+
-+void emac_tx_tpd_ts_save(struct emac_adapter *adpt, struct emac_tx_queue *tx_q)
-+{
-+	u32 tmp_tpd;
-+	u32 *hw_tpd = EMAC_TPD(tx_q, adpt->tpd_size,
-+			       tx_q->tpd.last_produce_idx);
-+
-+	tmp_tpd = *(hw_tpd + 3);
-+	tmp_tpd |= EMAC_TPD_TSTAMP_SAVE;
-+	*(hw_tpd + 3) = tmp_tpd;
-+}
-+
-+static void emac_rx_rfd_clean(struct emac_rx_queue *rx_q,
-+			      struct emac_rrd *rrd)
-+{
-+	struct emac_buffer *rfbuf = rx_q->rfd.rfbuff;
-+	u32 consume_idx = RRD_SI(rrd);
-+	int i;
-+
-+	for (i = 0; i < RRD_NOR(rrd); i++) {
-+		rfbuf[consume_idx].skb = NULL;
-+		if (++consume_idx == rx_q->rfd.count)
-+			consume_idx = 0;
-+	}
-+
-+	rx_q->rfd.consume_idx = consume_idx;
-+	rx_q->rfd.process_idx = consume_idx;
-+}
-+
-+/* proper lock must be acquired before polling */
-+static void emac_tx_ts_poll(struct emac_adapter *adpt)
-+{
-+	struct sk_buff_head *pending_q = &adpt->tx_ts_pending_queue;
-+	struct sk_buff_head *q = &adpt->tx_ts_ready_queue;
-+	struct sk_buff *skb, *skb_tmp;
-+	struct emac_tx_ts tx_ts;
-+
-+	while (emac_mac_tx_ts_read(adpt, &tx_ts)) {
-+		bool found = false;
-+
-+		adpt->tx_ts_stats.rx++;
-+
-+		skb_queue_walk_safe(pending_q, skb, skb_tmp) {
-+			if (EMAC_SKB_CB(skb)->tpd_idx == tx_ts.ts_idx) {
-+				struct sk_buff *pskb;
-+
-+				EMAC_TX_TS_CB(skb)->sec = tx_ts.sec;
-+				EMAC_TX_TS_CB(skb)->ns = tx_ts.ns;
-+				/* the tx timestamps for all the pending
-+				 * packets before this one are lost
-+				 */
-+				while ((pskb = __skb_dequeue(pending_q))
-+				       != skb) {
-+					EMAC_TX_TS_CB(pskb)->sec = 0;
-+					EMAC_TX_TS_CB(pskb)->ns = 0;
-+					__skb_queue_tail(q, pskb);
-+					adpt->tx_ts_stats.lost++;
-+				}
-+				__skb_queue_tail(q, skb);
-+				found = true;
-+				break;
-+			}
-+		}
-+
-+		if (!found) {
-+			netif_dbg(adpt, tx_done, adpt->netdev,
-+				  "no entry(tpd=%d) found, drop tx timestamp\n",
-+				  tx_ts.ts_idx);
-+			adpt->tx_ts_stats.drop++;
-+		}
-+	}
-+
-+	skb_queue_walk_safe(pending_q, skb, skb_tmp) {
-+		/* No packet after this one expires */
-+		if (time_is_after_jiffies(EMAC_SKB_CB(skb)->jiffies +
-+					  msecs_to_jiffies(100)))
-+			break;
-+		adpt->tx_ts_stats.timeout++;
-+		netif_dbg(adpt, tx_done, adpt->netdev,
-+			  "tx timestamp timeout: tpd_idx=%d\n",
-+			  EMAC_SKB_CB(skb)->tpd_idx);
-+
-+		__skb_unlink(skb, pending_q);
-+		EMAC_TX_TS_CB(skb)->sec = 0;
-+		EMAC_TX_TS_CB(skb)->ns = 0;
-+		__skb_queue_tail(q, skb);
-+	}
-+}
-+
-+static void emac_schedule_tx_ts_task(struct emac_adapter *adpt)
-+{
-+	if (test_bit(EMAC_STATUS_DOWN, &adpt->status))
-+		return;
-+
-+	if (schedule_work(&adpt->tx_ts_task))
-+		adpt->tx_ts_stats.sched++;
-+}
-+
-+void emac_mac_tx_ts_periodic_routine(struct work_struct *work)
-+{
-+	struct emac_adapter *adpt = container_of(work, struct emac_adapter,
-+						 tx_ts_task);
-+	struct sk_buff *skb;
-+	struct sk_buff_head q;
-+	unsigned long flags;
-+
-+	adpt->tx_ts_stats.poll++;
-+
-+	__skb_queue_head_init(&q);
-+
-+	while (1) {
-+		spin_lock_irqsave(&adpt->tx_ts_lock, flags);
-+		if (adpt->tx_ts_pending_queue.qlen)
-+			emac_tx_ts_poll(adpt);
-+		skb_queue_splice_tail_init(&adpt->tx_ts_ready_queue, &q);
-+		spin_unlock_irqrestore(&adpt->tx_ts_lock, flags);
-+
-+		if (!q.qlen)
-+			break;
-+
-+		while ((skb = __skb_dequeue(&q))) {
-+			struct emac_tx_ts_cb *cb = EMAC_TX_TS_CB(skb);
-+
-+			if (cb->sec || cb->ns) {
-+				struct skb_shared_hwtstamps ts;
-+
-+				ts.hwtstamp = ktime_set(cb->sec, cb->ns);
-+				skb_tstamp_tx(skb, &ts);
-+				adpt->tx_ts_stats.deliver++;
-+			}
-+			dev_kfree_skb_any(skb);
-+		}
-+	}
-+
-+	if (adpt->tx_ts_pending_queue.qlen)
-+		emac_schedule_tx_ts_task(adpt);
-+}
-+
-+/* Push the received skb to upper layers */
-+static void emac_receive_skb(struct emac_rx_queue *rx_q,
-+			     struct sk_buff *skb,
-+			     u16 vlan_tag, bool vlan_flag)
-+{
-+	if (vlan_flag) {
-+		u16 vlan;
-+
-+		EMAC_TAG_TO_VLAN(vlan_tag, vlan);
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan);
-+	}
-+
-+	napi_gro_receive(&rx_q->napi, skb);
-+}
-+
-+/* Process receive event */
-+void emac_mac_rx_process(struct emac_adapter *adpt, struct emac_rx_queue *rx_q,
-+			 int *num_pkts, int max_pkts)
-+{
-+	struct net_device *netdev  = adpt->netdev;
-+
-+	struct emac_rrd rrd;
-+	struct emac_buffer *rfbuf;
-+	struct sk_buff *skb;
-+
-+	u32 hw_consume_idx, num_consume_pkts;
-+	unsigned int count = 0;
-+	u32 proc_idx;
-+	u32 reg = readl_relaxed(adpt->base + rx_q->consume_reg);
-+
-+	hw_consume_idx = (reg & rx_q->consume_mask) >> rx_q->consume_shift;
-+	num_consume_pkts = (hw_consume_idx >= rx_q->rrd.consume_idx) ?
-+		(hw_consume_idx -  rx_q->rrd.consume_idx) :
-+		(hw_consume_idx + rx_q->rrd.count - rx_q->rrd.consume_idx);
-+
-+	do {
-+		if (!num_consume_pkts)
-+			break;
-+
-+		if (!emac_rx_process_rrd(adpt, rx_q, &rrd))
-+			break;
-+
-+		if (likely(RRD_NOR(&rrd) == 1)) {
-+			/* good receive */
-+			rfbuf = GET_RFD_BUFFER(rx_q, RRD_SI(&rrd));
-+			dma_unmap_single(adpt->netdev->dev.parent,
-+					 rfbuf->dma_addr, rfbuf->length,
-+					 DMA_FROM_DEVICE);
-+			rfbuf->dma_addr = 0;
-+			skb = rfbuf->skb;
-+		} else {
-+			netdev_err(adpt->netdev,
-+				   "error: multi-RFD not support yet!\n");
-+			break;
-+		}
-+		emac_rx_rfd_clean(rx_q, &rrd);
-+		num_consume_pkts--;
-+		count++;
-+
-+		/* Due to a HW issue in L4 check sum detection (UDP/TCP frags
-+		 * with DF set are marked as error), drop packets based on the
-+		 * error mask rather than the summary bit (ignoring L4F errors)
-+		 */
-+		if (rrd.word[EMAC_RRD_STATS_DW_IDX] & EMAC_RRD_ERROR) {
-+			netif_dbg(adpt, rx_status, adpt->netdev,
-+				  "Drop error packet[RRD: 0x%x:0x%x:0x%x:0x%x]\n",
-+				  rrd.word[0], rrd.word[1],
-+				  rrd.word[2], rrd.word[3]);
-+
-+			dev_kfree_skb(skb);
-+			continue;
-+		}
-+
-+		skb_put(skb, RRD_PKT_SIZE(&rrd) - ETH_FCS_LEN);
-+		skb->dev = netdev;
-+		skb->protocol = eth_type_trans(skb, skb->dev);
-+		if (netdev->features & NETIF_F_RXCSUM)
-+			skb->ip_summed = (RRD_L4F(&rrd) ?
-+					  CHECKSUM_NONE : CHECKSUM_UNNECESSARY);
-+		else
-+			skb_checksum_none_assert(skb);
-+
-+		if (test_bit(EMAC_STATUS_TS_RX_EN, &adpt->status)) {
-+			struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
-+
-+			hwts->hwtstamp = ktime_set(RRD_TS_HI(&rrd),
-+						   RRD_TS_LOW(&rrd));
-+		}
-+
-+		emac_receive_skb(rx_q, skb, (u16)RRD_CVALN_TAG(&rrd),
-+				 (bool)RRD_CVTAG(&rrd));
-+
-+		netdev->last_rx = jiffies;
-+		(*num_pkts)++;
-+	} while (*num_pkts < max_pkts);
-+
-+	if (count) {
-+		proc_idx = (rx_q->rfd.process_idx << rx_q->process_shft) &
-+				rx_q->process_mask;
-+		emac_reg_update32(adpt->base + rx_q->process_reg,
-+				  rx_q->process_mask, proc_idx);
-+		emac_mac_rx_descs_refill(adpt, rx_q);
-+	}
-+}
-+
-+/* Process transmit event */
-+void emac_mac_tx_process(struct emac_adapter *adpt, struct emac_tx_queue *tx_q)
-+{
-+	struct emac_buffer *tpbuf;
-+	u32 hw_consume_idx;
-+	u32 pkts_compl = 0, bytes_compl = 0;
-+	u32 reg = readl_relaxed(adpt->base + tx_q->consume_reg);
-+
-+	hw_consume_idx = (reg & tx_q->consume_mask) >> tx_q->consume_shift;
-+
-+	while (tx_q->tpd.consume_idx != hw_consume_idx) {
-+		tpbuf = GET_TPD_BUFFER(tx_q, tx_q->tpd.consume_idx);
-+		if (tpbuf->dma_addr) {
-+			dma_unmap_single(adpt->netdev->dev.parent,
-+					 tpbuf->dma_addr, tpbuf->length,
-+					 DMA_TO_DEVICE);
-+			tpbuf->dma_addr = 0;
-+		}
-+
-+		if (tpbuf->skb) {
-+			pkts_compl++;
-+			bytes_compl += tpbuf->skb->len;
-+			dev_kfree_skb_irq(tpbuf->skb);
-+			tpbuf->skb = NULL;
-+		}
-+
-+		if (++tx_q->tpd.consume_idx == tx_q->tpd.count)
-+			tx_q->tpd.consume_idx = 0;
-+	}
-+
-+	if (pkts_compl || bytes_compl)
-+		netdev_completed_queue(adpt->netdev, pkts_compl, bytes_compl);
-+}
-+
-+/* Initialize all queue data structures */
-+void emac_mac_rx_tx_ring_init_all(struct platform_device *pdev,
-+				  struct emac_adapter *adpt)
-+{
-+	adpt->rx_q.netdev = adpt->netdev;
-+
-+	adpt->rx_q.produce_reg  = EMAC_MAILBOX_0;
-+	adpt->rx_q.produce_mask = RFD0_PROD_IDX_BMSK;
-+	adpt->rx_q.produce_shift = RFD0_PROD_IDX_SHFT;
-+
-+	adpt->rx_q.process_reg  = EMAC_MAILBOX_0;
-+	adpt->rx_q.process_mask = RFD0_PROC_IDX_BMSK;
-+	adpt->rx_q.process_shft = RFD0_PROC_IDX_SHFT;
-+
-+	adpt->rx_q.consume_reg  = EMAC_MAILBOX_3;
-+	adpt->rx_q.consume_mask = RFD0_CONS_IDX_BMSK;
-+	adpt->rx_q.consume_shift = RFD0_CONS_IDX_SHFT;
-+
-+	adpt->rx_q.irq          = &adpt->irq;
-+	adpt->rx_q.intr         = adpt->irq.mask & ISR_RX_PKT;
-+
-+	adpt->tx_q.produce_reg  = EMAC_MAILBOX_15;
-+	adpt->tx_q.produce_mask = NTPD_PROD_IDX_BMSK;
-+	adpt->tx_q.produce_shift = NTPD_PROD_IDX_SHFT;
-+
-+	adpt->tx_q.consume_reg  = EMAC_MAILBOX_2;
-+	adpt->tx_q.consume_mask = NTPD_CONS_IDX_BMSK;
-+	adpt->tx_q.consume_shift = NTPD_CONS_IDX_SHFT;
-+}
-+
-+/* get the number of free transmit descriptors */
-+static u32 emac_tpd_num_free_descs(struct emac_tx_queue *tx_q)
-+{
-+	u32 produce_idx = tx_q->tpd.produce_idx;
-+	u32 consume_idx = tx_q->tpd.consume_idx;
-+
-+	return (consume_idx > produce_idx) ?
-+		(consume_idx - produce_idx - 1) :
-+		(tx_q->tpd.count + consume_idx - produce_idx - 1);
-+}
-+
-+/* Check if enough transmit descriptors are available */
-+static bool emac_tx_has_enough_descs(struct emac_tx_queue *tx_q,
-+				     const struct sk_buff *skb)
-+{
-+	u32 num_required = 1;
-+	int i;
-+	u16 proto_hdr_len = 0;
-+
-+	if (skb_is_gso(skb)) {
-+		proto_hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+		if (proto_hdr_len < skb_headlen(skb))
-+			num_required++;
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+			num_required++;
-+	}
-+
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+		num_required++;
-+
-+	return num_required < emac_tpd_num_free_descs(tx_q);
-+}
-+
-+/* Fill up transmit descriptors with TSO and Checksum offload information */
-+static int emac_tso_csum(struct emac_adapter *adpt,
-+			 struct emac_tx_queue *tx_q,
-+			 struct sk_buff *skb,
-+			 struct emac_tpd *tpd)
-+{
-+	u8  hdr_len;
-+	int ret;
-+
-+	if (skb_is_gso(skb)) {
-+		if (skb_header_cloned(skb)) {
-+			ret = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+			if (unlikely(ret))
-+				return ret;
-+		}
-+
-+		if (skb->protocol == htons(ETH_P_IP)) {
-+			u32 pkt_len = ((unsigned char *)ip_hdr(skb) - skb->data)
-+				       + ntohs(ip_hdr(skb)->tot_len);
-+			if (skb->len > pkt_len)
-+				pskb_trim(skb, pkt_len);
-+		}
-+
-+		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+		if (unlikely(skb->len == hdr_len)) {
-+			/* we only need to do csum */
-+			netif_warn(adpt, tx_err, adpt->netdev,
-+				   "tso not needed for packet with 0 data\n");
-+			goto do_csum;
-+		}
-+
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
-+			ip_hdr(skb)->check = 0;
-+			tcp_hdr(skb)->check = ~csum_tcpudp_magic(
-+						ip_hdr(skb)->saddr,
-+						ip_hdr(skb)->daddr,
-+						0, IPPROTO_TCP, 0);
-+			TPD_IPV4_SET(tpd, 1);
-+		}
-+
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-+			/* ipv6 tso need an extra tpd */
-+			struct emac_tpd extra_tpd;
-+
-+			memset(tpd, 0, sizeof(*tpd));
-+			memset(&extra_tpd, 0, sizeof(extra_tpd));
-+
-+			ipv6_hdr(skb)->payload_len = 0;
-+			tcp_hdr(skb)->check = ~csum_ipv6_magic(
-+						&ipv6_hdr(skb)->saddr,
-+						&ipv6_hdr(skb)->daddr,
-+						0, IPPROTO_TCP, 0);
-+			TPD_PKT_LEN_SET(&extra_tpd, skb->len);
-+			TPD_LSO_SET(&extra_tpd, 1);
-+			TPD_LSOV_SET(&extra_tpd, 1);
-+			emac_tx_tpd_create(adpt, tx_q, &extra_tpd);
-+			TPD_LSOV_SET(tpd, 1);
-+		}
-+
-+		TPD_LSO_SET(tpd, 1);
-+		TPD_TCPHDR_OFFSET_SET(tpd, skb_transport_offset(skb));
-+		TPD_MSS_SET(tpd, skb_shinfo(skb)->gso_size);
-+		return 0;
-+	}
-+
-+do_csum:
-+	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
-+		u8 css, cso;
-+
-+		cso = skb_transport_offset(skb);
-+		if (unlikely(cso & 0x1)) {
-+			netdev_err(adpt->netdev,
-+				   "error: payload offset should be even\n");
-+			return -EINVAL;
-+		}
-+		css = cso + skb->csum_offset;
-+
-+		TPD_PAYLOAD_OFFSET_SET(tpd, cso >> 1);
-+		TPD_CXSUM_OFFSET_SET(tpd, css >> 1);
-+		TPD_CSX_SET(tpd, 1);
-+	}
-+
-+	return 0;
-+}
-+
-+/* Fill up transmit descriptors */
-+static void emac_tx_fill_tpd(struct emac_adapter *adpt,
-+			     struct emac_tx_queue *tx_q, struct sk_buff *skb,
-+			     struct emac_tpd *tpd)
-+{
-+	struct emac_buffer *tpbuf = NULL;
-+	u16 nr_frags = skb_shinfo(skb)->nr_frags;
-+	u32 len = skb_headlen(skb);
-+	u16 map_len = 0;
-+	u16 mapped_len = 0;
-+	u16 hdr_len = 0;
-+	int i;
-+
-+	/* if Large Segment Offload is (in TCP Segmentation Offload struct) */
-+	if (TPD_LSO(tpd)) {
-+		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+		map_len = hdr_len;
-+
-+		tpbuf = GET_TPD_BUFFER(tx_q, tx_q->tpd.produce_idx);
-+		tpbuf->length = map_len;
-+		tpbuf->dma_addr = dma_map_single(adpt->netdev->dev.parent,
-+						 skb->data, hdr_len,
-+						 DMA_TO_DEVICE);
-+		mapped_len += map_len;
-+		TPD_BUFFER_ADDR_L_SET(tpd, EMAC_DMA_ADDR_LO(tpbuf->dma_addr));
-+		TPD_BUFFER_ADDR_H_SET(tpd, EMAC_DMA_ADDR_HI(tpbuf->dma_addr));
-+		TPD_BUF_LEN_SET(tpd, tpbuf->length);
-+		emac_tx_tpd_create(adpt, tx_q, tpd);
-+	}
-+
-+	if (mapped_len < len) {
-+		tpbuf = GET_TPD_BUFFER(tx_q, tx_q->tpd.produce_idx);
-+		tpbuf->length = len - mapped_len;
-+		tpbuf->dma_addr = dma_map_single(adpt->netdev->dev.parent,
-+						 skb->data + mapped_len,
-+						 tpbuf->length, DMA_TO_DEVICE);
-+		TPD_BUFFER_ADDR_L_SET(tpd, EMAC_DMA_ADDR_LO(tpbuf->dma_addr));
-+		TPD_BUFFER_ADDR_H_SET(tpd, EMAC_DMA_ADDR_HI(tpbuf->dma_addr));
-+		TPD_BUF_LEN_SET(tpd, tpbuf->length);
-+		emac_tx_tpd_create(adpt, tx_q, tpd);
-+	}
-+
-+	for (i = 0; i < nr_frags; i++) {
-+		struct skb_frag_struct *frag;
-+
-+		frag = &skb_shinfo(skb)->frags[i];
-+
-+		tpbuf = GET_TPD_BUFFER(tx_q, tx_q->tpd.produce_idx);
-+		tpbuf->length = frag->size;
-+		tpbuf->dma_addr = dma_map_page(adpt->netdev->dev.parent,
-+					       frag->page.p, frag->page_offset,
-+					       tpbuf->length, DMA_TO_DEVICE);
-+		TPD_BUFFER_ADDR_L_SET(tpd, EMAC_DMA_ADDR_LO(tpbuf->dma_addr));
-+		TPD_BUFFER_ADDR_H_SET(tpd, EMAC_DMA_ADDR_HI(tpbuf->dma_addr));
-+		TPD_BUF_LEN_SET(tpd, tpbuf->length);
-+		emac_tx_tpd_create(adpt, tx_q, tpd);
-+	}
-+
-+	/* The last tpd */
-+	emac_tx_tpd_mark_last(adpt, tx_q);
-+
-+	if (test_bit(EMAC_STATUS_TS_TX_EN, &adpt->status) &&
-+	    (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
-+		struct sk_buff *skb_ts = skb_clone(skb, GFP_ATOMIC);
-+
-+		if (likely(skb_ts)) {
-+			unsigned long flags;
-+
-+			emac_tx_tpd_ts_save(adpt, tx_q);
-+			skb_ts->sk = skb->sk;
-+			EMAC_SKB_CB(skb_ts)->tpd_idx =
-+				tx_q->tpd.last_produce_idx;
-+			EMAC_SKB_CB(skb_ts)->jiffies = get_jiffies_64();
-+			skb_shinfo(skb_ts)->tx_flags |= SKBTX_IN_PROGRESS;
-+			spin_lock_irqsave(&adpt->tx_ts_lock, flags);
-+			if (adpt->tx_ts_pending_queue.qlen >=
-+			    EMAC_TX_POLL_HWTXTSTAMP_THRESHOLD) {
-+				emac_tx_ts_poll(adpt);
-+				adpt->tx_ts_stats.tx_poll++;
-+			}
-+			__skb_queue_tail(&adpt->tx_ts_pending_queue,
-+					 skb_ts);
-+			spin_unlock_irqrestore(&adpt->tx_ts_lock, flags);
-+			adpt->tx_ts_stats.tx++;
-+			emac_schedule_tx_ts_task(adpt);
-+		}
-+	}
-+
-+	/* The last buffer info contain the skb address,
-+	 * so it will be freed after unmap
-+	 */
-+	tpbuf->skb = skb;
-+}
-+
-+/* Transmit the packet using specified transmit queue */
-+int emac_mac_tx_buf_send(struct emac_adapter *adpt, struct emac_tx_queue *tx_q,
-+			 struct sk_buff *skb)
-+{
-+	struct emac_tpd tpd;
-+	u32 prod_idx;
-+
-+	if (test_bit(EMAC_STATUS_DOWN, &adpt->status)) {
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	if (!emac_tx_has_enough_descs(tx_q, skb)) {
-+		/* not enough descriptors, just stop queue */
-+		netif_stop_queue(adpt->netdev);
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	memset(&tpd, 0, sizeof(tpd));
-+
-+	if (emac_tso_csum(adpt, tx_q, skb, &tpd) != 0) {
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	if (skb_vlan_tag_present(skb)) {
-+		u16 tag;
-+
-+		EMAC_VLAN_TO_TAG(skb_vlan_tag_get(skb), tag);
-+		TPD_CVLAN_TAG_SET(&tpd, tag);
-+		TPD_INSTC_SET(&tpd, 1);
-+	}
-+
-+	if (skb_network_offset(skb) != ETH_HLEN)
-+		TPD_TYP_SET(&tpd, 1);
-+
-+	emac_tx_fill_tpd(adpt, tx_q, skb, &tpd);
-+
-+	netdev_sent_queue(adpt->netdev, skb->len);
-+
-+	/* update produce idx */
-+	prod_idx = (tx_q->tpd.produce_idx << tx_q->produce_shift) &
-+		    tx_q->produce_mask;
-+	emac_reg_update32(adpt->base + tx_q->produce_reg,
-+			  tx_q->produce_mask, prod_idx);
-+
-+	return NETDEV_TX_OK;
-+}
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.h b/drivers/net/ethernet/qualcomm/emac/emac-mac.h
-new file mode 100644
-index 0000000..23dcdb8
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.h
-@@ -0,0 +1,286 @@
-+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+/* EMAC DMA HW engine uses three rings:
-+ * Tx:
-+ *   TPD: Transmit Packet Descriptor ring.
-+ * Rx:
-+ *   RFD: Receive Free Descriptor ring.
-+ *     Ring of descriptors with empty buffers to be filled by Rx HW.
-+ *   RRD: Receive Return Descriptor ring.
-+ *     Ring of descriptors with buffers filled with received data.
-+ */
-+
-+#ifndef _EMAC_HW_H_
-+#define _EMAC_HW_H_
-+
-+/* EMAC_CSR register offsets */
-+#define EMAC_EMAC_WRAPPER_CSR1                                0x000000
-+#define EMAC_EMAC_WRAPPER_CSR2                                0x000004
-+#define EMAC_EMAC_WRAPPER_TX_TS_LO                            0x000104
-+#define EMAC_EMAC_WRAPPER_TX_TS_HI                            0x000108
-+#define EMAC_EMAC_WRAPPER_TX_TS_INX                           0x00010c
-+
-+#define EMAC_MAC_IRQ_RES                                    "core0_irq"
-+
-+/* DMA Order Settings */
-+enum emac_dma_order {
-+	emac_dma_ord_in = 1,
-+	emac_dma_ord_enh = 2,
-+	emac_dma_ord_out = 4
-+};
-+
-+enum emac_mac_speed {
-+	emac_mac_speed_0 = 0,
-+	emac_mac_speed_10_100 = 1,
-+	emac_mac_speed_1000 = 2
-+};
-+
-+enum emac_dma_req_block {
-+	emac_dma_req_128 = 0,
-+	emac_dma_req_256 = 1,
-+	emac_dma_req_512 = 2,
-+	emac_dma_req_1024 = 3,
-+	emac_dma_req_2048 = 4,
-+	emac_dma_req_4096 = 5
-+};
-+
-+/* Returns the value of bits idx...idx+n_bits */
-+#define BITS_MASK(idx, n_bits) (((((unsigned long)1) << (n_bits)) - 1) << (idx))
-+#define BITS_GET(val, idx, n_bits) (((val) & BITS_MASK(idx, n_bits)) >> idx)
-+#define BITS_SET(val, idx, n_bits, new_val)				\
-+	((val) = (((val) & (~BITS_MASK(idx, n_bits))) |			\
-+		(((new_val) << (idx)) & BITS_MASK(idx, n_bits))))
-+
-+/* RRD (Receive Return Descriptor) */
-+struct emac_rrd {
-+	u32	word[6];
-+
-+/* number of RFD */
-+#define RRD_NOR(rrd)			BITS_GET((rrd)->word[0], 16, 4)
-+/* start consumer index of rfd-ring */
-+#define RRD_SI(rrd)			BITS_GET((rrd)->word[0], 20, 12)
-+/* vlan-tag (CVID, CFI and PRI) */
-+#define RRD_CVALN_TAG(rrd)		BITS_GET((rrd)->word[2], 0, 16)
-+/* length of the packet */
-+#define RRD_PKT_SIZE(rrd)		BITS_GET((rrd)->word[3], 0, 14)
-+/* L4(TCP/UDP) checksum failed */
-+#define RRD_L4F(rrd)			BITS_GET((rrd)->word[3], 14, 1)
-+/* vlan tagged */
-+#define RRD_CVTAG(rrd)			BITS_GET((rrd)->word[3], 16, 1)
-+/* When set, indicates that the descriptor is updated by the IP core.
-+ * When cleared, indicates that the descriptor is invalid.
-+ */
-+#define RRD_UPDT(rrd)			BITS_GET((rrd)->word[3], 31, 1)
-+#define RRD_UPDT_SET(rrd, val)		BITS_SET((rrd)->word[3], 31, 1, val)
-+/* timestamp low */
-+#define RRD_TS_LOW(rrd)			BITS_GET((rrd)->word[4], 0, 30)
-+/* timestamp high */
-+#define RRD_TS_HI(rrd)			((rrd)->word[5])
-+};
-+
-+/* RFD (Receive Free Descriptor) */
-+union emac_rfd {
-+	u64	addr;
-+	u32	word[2];
-+};
-+
-+/* TPD (Transmit Packet Descriptor) */
-+struct emac_tpd {
-+	u32				word[4];
-+
-+/* Number of bytes of the transmit packet. (include 4-byte CRC) */
-+#define TPD_BUF_LEN_SET(tpd, val)	BITS_SET((tpd)->word[0], 0, 16, val)
-+/* Custom Checksum Offload: When set, ask IP core to offload custom checksum */
-+#define TPD_CSX_SET(tpd, val)		BITS_SET((tpd)->word[1], 8, 1, val)
-+/* TCP Large Send Offload: When set, ask IP core to do offload TCP Large Send */
-+#define TPD_LSO(tpd)			BITS_GET((tpd)->word[1], 12, 1)
-+#define TPD_LSO_SET(tpd, val)		BITS_SET((tpd)->word[1], 12, 1, val)
-+/*  Large Send Offload Version: When set, indicates this is an LSOv2
-+ * (for both IPv4 and IPv6). When cleared, indicates this is an LSOv1
-+ * (only for IPv4).
-+ */
-+#define TPD_LSOV_SET(tpd, val)		BITS_SET((tpd)->word[1], 13, 1, val)
-+/* IPv4 packet: When set, indicates this is an  IPv4 packet, this bit is only
-+ * for LSOV2 format.
-+ */
-+#define TPD_IPV4_SET(tpd, val)		BITS_SET((tpd)->word[1], 16, 1, val)
-+/* 0: Ethernet   frame (DA+SA+TYPE+DATA+CRC)
-+ * 1: IEEE 802.3 frame (DA+SA+LEN+DSAP+SSAP+CTL+ORG+TYPE+DATA+CRC)
-+ */
-+#define TPD_TYP_SET(tpd, val)		BITS_SET((tpd)->word[1], 17, 1, val)
-+/* Low-32bit Buffer Address */
-+#define TPD_BUFFER_ADDR_L_SET(tpd, val)	((tpd)->word[2] = (val))
-+/* CVLAN Tag to be inserted if INS_VLAN_TAG is set, CVLAN TPID based on global
-+ * register configuration.
-+ */
-+#define TPD_CVLAN_TAG_SET(tpd, val)	BITS_SET((tpd)->word[3], 0, 16, val)
-+/*  Insert CVlan Tag: When set, ask MAC to insert CVLAN TAG to outgoing packet
-+ */
-+#define TPD_INSTC_SET(tpd, val)		BITS_SET((tpd)->word[3], 17, 1, val)
-+/* High-14bit Buffer Address, So, the 64b-bit address is
-+ * {DESC_CTRL_11_TX_DATA_HIADDR[17:0],(register) BUFFER_ADDR_H, BUFFER_ADDR_L}
-+ */
-+#define TPD_BUFFER_ADDR_H_SET(tpd, val)	BITS_SET((tpd)->word[3], 18, 13, val)
-+/* Format D. Word offset from the 1st byte of this packet to start to calculate
-+ * the custom checksum.
-+ */
-+#define TPD_PAYLOAD_OFFSET_SET(tpd, val) BITS_SET((tpd)->word[1], 0, 8, val)
-+/*  Format D. Word offset from the 1st byte of this packet to fill the custom
-+ * checksum to
-+ */
-+#define TPD_CXSUM_OFFSET_SET(tpd, val)	BITS_SET((tpd)->word[1], 18, 8, val)
-+
-+/* Format C. TCP Header offset from the 1st byte of this packet. (byte unit) */
-+#define TPD_TCPHDR_OFFSET_SET(tpd, val)	BITS_SET((tpd)->word[1], 0, 8, val)
-+/* Format C. MSS (Maximum Segment Size) got from the protocol layer. (byte unit)
-+ */
-+#define TPD_MSS_SET(tpd, val)		BITS_SET((tpd)->word[1], 18, 13, val)
-+/* packet length in ext tpd */
-+#define TPD_PKT_LEN_SET(tpd, val)	((tpd)->word[2] = (val))
-+};
-+
-+/* emac_ring_header represents a single, contiguous block of DMA space
-+ * mapped for the three descriptor rings (tpd, rfd, rrd)
-+ */
-+struct emac_ring_header {
-+	void			*v_addr;	/* virtual address */
-+	dma_addr_t		dma_addr;	/* dma address */
-+	size_t			size;		/* length in bytes */
-+	size_t			used;
-+};
-+
-+/* emac_buffer is wrapper around a pointer to a socket buffer
-+ * so a DMA handle can be stored along with the skb
-+ */
-+struct emac_buffer {
-+	struct sk_buff		*skb;		/* socket buffer */
-+	u16			length;		/* rx buffer length */
-+	dma_addr_t		dma_addr;	/* dma address */
-+};
-+
-+/* receive free descriptor (rfd) ring */
-+struct emac_rfd_ring {
-+	struct emac_buffer	*rfbuff;
-+	u32 __iomem		*v_addr;	/* virtual address */
-+	dma_addr_t		dma_addr;	/* dma address */
-+	u64			size;		/* length in bytes */
-+	u32			count;		/* number of desc in the ring */
-+	u32			produce_idx;
-+	u32			process_idx;
-+	u32			consume_idx;	/* unused */
-+};
-+
-+/* Receive Return Desciptor (RRD) ring */
-+struct emac_rrd_ring {
-+	u32 __iomem		*v_addr;	/* virtual address */
-+	dma_addr_t		dma_addr;		/* physical address */
-+	u64			size;		/* length in bytes */
-+	u32			count;		/* number of desc in the ring */
-+	u32			produce_idx;	/* unused */
-+	u32			consume_idx;
-+};
-+
-+/* Rx queue */
-+struct emac_rx_queue {
-+	struct net_device	*netdev;	/* netdev ring belongs to */
-+	struct emac_rrd_ring	rrd;
-+	struct emac_rfd_ring	rfd;
-+	struct napi_struct	napi;
-+	struct emac_irq		*irq;
-+
-+	u32			intr;
-+	u32			produce_mask;
-+	u32			process_mask;
-+	u32			consume_mask;
-+
-+	u16			produce_reg;
-+	u16			process_reg;
-+	u16			consume_reg;
-+
-+	u8			produce_shift;
-+	u8			process_shft;
-+	u8			consume_shift;
-+};
-+
-+/* Transimit Packet Descriptor (tpd) ring */
-+struct emac_tpd_ring {
-+	struct emac_buffer	*tpbuff;
-+	u32 __iomem		*v_addr;	/* virtual address */
-+	dma_addr_t		dma_addr;	/* dma address */
-+
-+	u64			size;		/* length in bytes */
-+	u32			count;		/* number of desc in the ring */
-+	u32			produce_idx;
-+	u32			consume_idx;
-+	u32			last_produce_idx;
-+};
-+
-+/* Tx queue */
-+struct emac_tx_queue {
-+	struct emac_tpd_ring	tpd;
-+
-+	u32			produce_mask;
-+	u32			consume_mask;
-+
-+	u16			max_packets;	/* max packets per interrupt */
-+	u16			produce_reg;
-+	u16			consume_reg;
-+
-+	u8			produce_shift;
-+	u8			consume_shift;
-+};
-+
-+/* HW tx timestamp */
-+struct emac_tx_ts {
-+	u32			ts_idx;
-+	u32			sec;
-+	u32			ns;
-+};
-+
-+/* Tx timestamp statistics */
-+struct emac_tx_ts_stats {
-+	u32			tx;
-+	u32			rx;
-+	u32			deliver;
-+	u32			drop;
-+	u32			lost;
-+	u32			timeout;
-+	u32			sched;
-+	u32			poll;
-+	u32			tx_poll;
-+};
-+
-+struct emac_adapter;
-+
-+int  emac_mac_up(struct emac_adapter *adpt);
-+void emac_mac_down(struct emac_adapter *adpt, bool reset);
-+void emac_mac_reset(struct emac_adapter *adpt);
-+void emac_mac_start(struct emac_adapter *adpt);
-+void emac_mac_stop(struct emac_adapter *adpt);
-+void emac_mac_addr_clear(struct emac_adapter *adpt, u8 *addr);
-+void emac_mac_pm(struct emac_adapter *adpt);
-+void emac_mac_mode_config(struct emac_adapter *adpt);
-+void emac_mac_rx_process(struct emac_adapter *adpt, struct emac_rx_queue *rx_q,
-+			 int *num_pkts, int max_pkts);
-+int emac_mac_tx_buf_send(struct emac_adapter *adpt, struct emac_tx_queue *tx_q,
-+			 struct sk_buff *skb);
-+void emac_mac_tx_process(struct emac_adapter *adpt, struct emac_tx_queue *tx_q);
-+void emac_mac_rx_tx_ring_init_all(struct platform_device *pdev,
-+				  struct emac_adapter *adpt);
-+int  emac_mac_rx_tx_rings_alloc_all(struct emac_adapter *adpt);
-+void emac_mac_rx_tx_rings_free_all(struct emac_adapter *adpt);
-+void emac_mac_tx_ts_periodic_routine(struct work_struct *work);
-+void emac_mac_multicast_addr_clear(struct emac_adapter *adpt);
-+void emac_mac_multicast_addr_set(struct emac_adapter *adpt, u8 *addr);
-+
-+#endif /*_EMAC_HW_H_*/
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-new file mode 100644
-index 0000000..ef51b537
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-@@ -0,0 +1,486 @@
-+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+/* Qualcomm Technologies, Inc. EMAC PHY Controller driver.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
-+#include <linux/pm_runtime.h>
-+#include <linux/phy.h>
-+#include <linux/iopoll.h>
-+#include "emac.h"
-+#include "emac-mac.h"
-+#include "emac-phy.h"
-+#include "emac-sgmii.h"
-+
-+/* EMAC base register offsets */
-+#define EMAC_MDIO_CTRL                                        0x001414
-+#define EMAC_PHY_STS                                          0x001418
-+#define EMAC_MDIO_EX_CTRL                                     0x001440
-+
-+/* EMAC_MDIO_CTRL */
-+#define MDIO_MODE                                              BIT(30)
-+#define MDIO_PR                                                BIT(29)
-+#define MDIO_AP_EN                                             BIT(28)
-+#define MDIO_BUSY                                              BIT(27)
-+#define MDIO_CLK_SEL_BMSK                                    0x7000000
-+#define MDIO_CLK_SEL_SHFT                                           24
-+#define MDIO_START                                             BIT(23)
-+#define SUP_PREAMBLE                                           BIT(22)
-+#define MDIO_RD_NWR                                            BIT(21)
-+#define MDIO_REG_ADDR_BMSK                                    0x1f0000
-+#define MDIO_REG_ADDR_SHFT                                          16
-+#define MDIO_DATA_BMSK                                          0xffff
-+#define MDIO_DATA_SHFT                                               0
-+
-+/* EMAC_PHY_STS */
-+#define PHY_ADDR_BMSK                                         0x1f0000
-+#define PHY_ADDR_SHFT                                               16
-+
-+/* EMAC_MDIO_EX_CTRL */
-+#define DEVAD_BMSK                                            0x1f0000
-+#define DEVAD_SHFT                                                  16
-+#define EX_REG_ADDR_BMSK                                        0xffff
-+#define EX_REG_ADDR_SHFT                                             0
-+
-+#define MDIO_CLK_25_4                                                0
-+#define MDIO_CLK_25_28                                               7
-+
-+#define MDIO_WAIT_TIMES                                           1000
-+
-+/* PHY */
-+#define MII_PSSR                          0x11 /* PHY Specific Status Reg */
-+
-+/* MII_BMCR (0x00) */
-+#define BMCR_SPEED10                    0x0000
-+
-+/* MII_PSSR (0x11) */
-+#define PSSR_SPD_DPLX_RESOLVED          0x0800  /* 1=Speed & Duplex resolved */
-+#define PSSR_DPLX                       0x2000  /* 1=Duplex 0=Half Duplex */
-+#define PSSR_SPEED                      0xC000  /* Speed, bits 14:15 */
-+#define PSSR_10MBS                      0x0000  /* 00=10Mbs */
-+#define PSSR_100MBS                     0x4000  /* 01=100Mbs */
-+#define PSSR_1000MBS                    0x8000  /* 10=1000Mbs */
-+
-+#define EMAC_LINK_SPEED_DEFAULT (\
-+		EMAC_LINK_SPEED_10_HALF  |\
-+		EMAC_LINK_SPEED_10_FULL  |\
-+		EMAC_LINK_SPEED_100_HALF |\
-+		EMAC_LINK_SPEED_100_FULL |\
-+		EMAC_LINK_SPEED_1GB_FULL)
-+
-+static int emac_phy_mdio_autopoll_disable(struct emac_adapter *adpt)
-+{
-+	u32 val;
-+
-+	/* disable autopoll */
-+	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, MDIO_AP_EN, 0);
-+
-+	/* wait for any mdio polling to complete */
-+	if (!readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, val,
-+				!(val & MDIO_BUSY), 100, MDIO_WAIT_TIMES * 100))
-+		return 0;
-+
-+	/* failed to disable; ensure it is enabled before returning */
-+	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
-+
-+	return -EBUSY;
-+}
-+
-+static void emac_phy_mdio_autopoll_enable(struct emac_adapter *adpt)
-+{
-+	emac_reg_update32(adpt->base + EMAC_MDIO_CTRL, 0, MDIO_AP_EN);
-+}
-+
-+int emac_phy_read_reg(struct emac_adapter *adpt, bool ext, u8 dev, bool fast,
-+		      u16 reg_addr, u16 *phy_data)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 clk_sel, val = 0;
-+	int ret = 0;
-+
-+	*phy_data = 0;
-+	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
-+
-+	if (phy->external) {
-+		ret = emac_phy_mdio_autopoll_disable(adpt);
-+		if (ret)
-+			return ret;
-+	}
-+	/* set PHY address */
-+	emac_reg_update32(adpt->base + EMAC_PHY_STS, PHY_ADDR_BMSK,
-+			  (dev << PHY_ADDR_SHFT));
-+
-+	if (ext) {
-+		val = ((dev << DEVAD_SHFT) & DEVAD_BMSK) |
-+		      ((reg_addr << EX_REG_ADDR_SHFT) & EX_REG_ADDR_BMSK);
-+		writel(val, adpt->base + EMAC_MDIO_EX_CTRL);
-+
-+		val = SUP_PREAMBLE |
-+		      ((clk_sel << MDIO_CLK_SEL_SHFT) & MDIO_CLK_SEL_BMSK) |
-+		      MDIO_START | MDIO_MODE | MDIO_RD_NWR;
-+	} else {
-+		val = val & ~(MDIO_REG_ADDR_BMSK | MDIO_CLK_SEL_BMSK |
-+				MDIO_MODE | MDIO_PR);
-+		val = SUP_PREAMBLE |
-+		      ((clk_sel << MDIO_CLK_SEL_SHFT) & MDIO_CLK_SEL_BMSK) |
-+		      ((reg_addr << MDIO_REG_ADDR_SHFT) & MDIO_REG_ADDR_BMSK) |
-+		      MDIO_START | MDIO_RD_NWR;
-+	}
-+
-+	writel(val, adpt->base + EMAC_MDIO_CTRL);
-+
-+	if (readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, val,
-+			       !(val & (MDIO_START | MDIO_BUSY)),
-+			       100, MDIO_WAIT_TIMES * 100))
-+		ret = -EIO;
-+	else
-+		*phy_data = ((val >> MDIO_DATA_SHFT) & MDIO_DATA_BMSK);
-+
-+	if (phy->external)
-+		emac_phy_mdio_autopoll_enable(adpt);
-+
-+	return ret;
-+}
-+
-+int emac_phy_write_reg(struct emac_adapter *adpt, bool ext, u8 dev, bool fast,
-+		       u16 reg_addr, u16 phy_data)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 clk_sel, val = 0;
-+	int ret = 0;
-+
-+	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
-+
-+	if (phy->external) {
-+		ret = emac_phy_mdio_autopoll_disable(adpt);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* set PHY address */
-+	emac_reg_update32(adpt->base + EMAC_PHY_STS, PHY_ADDR_BMSK,
-+			  (dev << PHY_ADDR_SHFT));
-+
-+	if (ext) {
-+		val = ((dev << DEVAD_SHFT) & DEVAD_BMSK) |
-+		      ((reg_addr << EX_REG_ADDR_SHFT) & EX_REG_ADDR_BMSK);
-+		writel(val, adpt->base + EMAC_MDIO_EX_CTRL);
-+
-+		val = SUP_PREAMBLE |
-+			((clk_sel << MDIO_CLK_SEL_SHFT) & MDIO_CLK_SEL_BMSK) |
-+			((phy_data << MDIO_DATA_SHFT) & MDIO_DATA_BMSK) |
-+			MDIO_START | MDIO_MODE;
-+	} else {
-+		val = val & ~(MDIO_REG_ADDR_BMSK | MDIO_CLK_SEL_BMSK |
-+			MDIO_DATA_BMSK | MDIO_MODE | MDIO_PR);
-+		val = SUP_PREAMBLE |
-+		((clk_sel << MDIO_CLK_SEL_SHFT) & MDIO_CLK_SEL_BMSK) |
-+		((reg_addr << MDIO_REG_ADDR_SHFT) & MDIO_REG_ADDR_BMSK) |
-+		((phy_data << MDIO_DATA_SHFT) & MDIO_DATA_BMSK) |
-+		MDIO_START;
-+	}
-+
-+	writel(val, adpt->base + EMAC_MDIO_CTRL);
-+
-+	if (readl_poll_timeout(adpt->base + EMAC_MDIO_CTRL, val,
-+			       !(val & (MDIO_START | MDIO_BUSY)), 100,
-+			       MDIO_WAIT_TIMES * 100))
-+		ret = -EIO;
-+
-+	if (phy->external)
-+		emac_phy_mdio_autopoll_enable(adpt);
-+
-+	return ret;
-+}
-+
-+int emac_phy_read(struct emac_adapter *adpt, u16 phy_addr, u16 reg_addr,
-+		  u16 *phy_data)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int  ret;
-+
-+	mutex_lock(&phy->lock);
-+	ret = emac_phy_read_reg(adpt, false, phy_addr, true, reg_addr,
-+				phy_data);
-+	mutex_unlock(&phy->lock);
-+
-+	if (ret)
-+		netdev_err(adpt->netdev, "error: reading phy reg 0x%02x\n",
-+			   reg_addr);
-+	else
-+		netif_dbg(adpt,  hw, adpt->netdev,
-+			  "EMAC PHY RD: 0x%02x -> 0x%04x\n", reg_addr,
-+			  *phy_data);
-+
-+	return ret;
-+}
-+
-+int emac_phy_write(struct emac_adapter *adpt, u16 phy_addr, u16 reg_addr,
-+		   u16 phy_data)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int  ret;
-+
-+	mutex_lock(&phy->lock);
-+	ret = emac_phy_write_reg(adpt, false, phy_addr, true, reg_addr,
-+				 phy_data);
-+	mutex_unlock(&phy->lock);
-+
-+	if (ret)
-+		netdev_err(adpt->netdev, "error: writing phy reg 0x%02x\n",
-+			   reg_addr);
-+	else
-+		netif_dbg(adpt, hw,
-+			  adpt->netdev, "EMAC PHY WR: 0x%02x <- 0x%04x\n",
-+			  reg_addr, phy_data);
-+
-+	return ret;
-+}
-+
-+/* initialize external phy */
-+int emac_phy_external_init(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u16 phy_id[2];
-+	int ret = 0;
-+
-+	if (phy->external) {
-+		ret = emac_phy_read(adpt, phy->addr, MII_PHYSID1, &phy_id[0]);
-+		if (ret)
-+			return ret;
-+
-+		ret = emac_phy_read(adpt, phy->addr, MII_PHYSID2, &phy_id[1]);
-+		if (ret)
-+			return ret;
-+
-+		phy->id[0] = phy_id[0];
-+		phy->id[1] = phy_id[1];
-+	} else {
-+		emac_phy_mdio_autopoll_disable(adpt);
-+	}
-+
-+	return 0;
-+}
-+
-+static int emac_phy_link_setup_external(struct emac_adapter *adpt,
-+					enum emac_flow_ctrl req_fc_mode,
-+					u32 speed, bool autoneg, bool fc)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u16 adv, bmcr, ctrl1000 = 0;
-+	int ret = 0;
-+
-+	if (autoneg) {
-+		switch (req_fc_mode) {
-+		case EMAC_FC_FULL:
-+		case EMAC_FC_RX_PAUSE:
-+			adv = ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
-+			break;
-+		case EMAC_FC_TX_PAUSE:
-+			adv = ADVERTISE_PAUSE_ASYM;
-+			break;
-+		default:
-+			adv = 0;
-+			break;
-+		}
-+		if (!fc)
-+			adv &= ~(ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
-+
-+		if (speed & EMAC_LINK_SPEED_10_HALF)
-+			adv |= ADVERTISE_10HALF;
-+
-+		if (speed & EMAC_LINK_SPEED_10_FULL)
-+			adv |= ADVERTISE_10HALF | ADVERTISE_10FULL;
-+
-+		if (speed & EMAC_LINK_SPEED_100_HALF)
-+			adv |= ADVERTISE_100HALF;
-+
-+		if (speed & EMAC_LINK_SPEED_100_FULL)
-+			adv |= ADVERTISE_100HALF | ADVERTISE_100FULL;
-+
-+		if (speed & EMAC_LINK_SPEED_1GB_FULL)
-+			ctrl1000 |= ADVERTISE_1000FULL;
-+
-+		ret |= emac_phy_write(adpt, phy->addr, MII_ADVERTISE, adv);
-+		ret |= emac_phy_write(adpt, phy->addr, MII_CTRL1000, ctrl1000);
-+
-+		bmcr = BMCR_RESET | BMCR_ANENABLE | BMCR_ANRESTART;
-+		ret |= emac_phy_write(adpt, phy->addr, MII_BMCR, bmcr);
-+	} else {
-+		bmcr = BMCR_RESET;
-+		switch (speed) {
-+		case EMAC_LINK_SPEED_10_HALF:
-+			bmcr |= BMCR_SPEED10;
-+			break;
-+		case EMAC_LINK_SPEED_10_FULL:
-+			bmcr |= BMCR_SPEED10 | BMCR_FULLDPLX;
-+			break;
-+		case EMAC_LINK_SPEED_100_HALF:
-+			bmcr |= BMCR_SPEED100;
-+			break;
-+		case EMAC_LINK_SPEED_100_FULL:
-+			bmcr |= BMCR_SPEED100 | BMCR_FULLDPLX;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+
-+		ret |= emac_phy_write(adpt, phy->addr, MII_BMCR, bmcr);
-+	}
-+
-+	return ret;
-+}
-+
-+int emac_phy_link_setup(struct emac_adapter *adpt, u32 speed, bool autoneg,
-+			bool fc)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int ret = 0;
-+
-+	if (!phy->external)
-+		return emac_sgmii_no_ephy_link_setup(adpt, speed, autoneg);
-+
-+	if (emac_phy_link_setup_external(adpt, phy->req_fc_mode, speed, autoneg,
-+					 fc)) {
-+		netdev_err(adpt->netdev,
-+			   "error: on ephy setup speed:%d autoneg:%d fc:%d\n",
-+			   speed, autoneg, fc);
-+		ret = -EINVAL;
-+	} else {
-+		phy->autoneg = autoneg;
-+	}
-+
-+	return ret;
-+}
-+
-+int emac_phy_link_check(struct emac_adapter *adpt, u32 *speed, bool *link_up)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u16 bmsr, pssr;
-+	int ret;
-+
-+	if (!phy->external) {
-+		emac_sgmii_no_ephy_link_check(adpt, speed, link_up);
-+		return 0;
-+	}
-+
-+	ret = emac_phy_read(adpt, phy->addr, MII_BMSR, &bmsr);
-+	if (ret)
-+		return ret;
-+
-+	if (!(bmsr & BMSR_LSTATUS)) {
-+		*link_up = false;
-+		*speed = EMAC_LINK_SPEED_UNKNOWN;
-+		return 0;
-+	}
-+	*link_up = true;
-+	ret = emac_phy_read(adpt, phy->addr, MII_PSSR, &pssr);
-+	if (ret)
-+		return ret;
-+
-+	if (!(pssr & PSSR_SPD_DPLX_RESOLVED)) {
-+		netdev_err(adpt->netdev, "error: speed duplex resolved\n");
-+		return -EINVAL;
-+	}
-+
-+	switch (pssr & PSSR_SPEED) {
-+	case PSSR_1000MBS:
-+		if (pssr & PSSR_DPLX)
-+			*speed = EMAC_LINK_SPEED_1GB_FULL;
-+		else
-+			netdev_err(adpt->netdev,
-+				   "error: 1000M half duplex is invalid");
-+		break;
-+	case PSSR_100MBS:
-+		if (pssr & PSSR_DPLX)
-+			*speed = EMAC_LINK_SPEED_100_FULL;
-+		else
-+			*speed = EMAC_LINK_SPEED_100_HALF;
-+		break;
-+	case PSSR_10MBS:
-+		if (pssr & PSSR_DPLX)
-+			*speed = EMAC_LINK_SPEED_10_FULL;
-+		else
-+			*speed = EMAC_LINK_SPEED_10_HALF;
-+		break;
-+	default:
-+		*speed = EMAC_LINK_SPEED_UNKNOWN;
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+/* Read speed off the LPA (Link Partner Ability) register */
-+void emac_phy_link_speed_get(struct emac_adapter *adpt, u32 *speed)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int ret;
-+	u16 lpa, stat1000;
-+	bool link;
-+
-+	if (!phy->external) {
-+		emac_sgmii_no_ephy_link_check(adpt, speed, &link);
-+		return;
-+	}
-+
-+	ret = emac_phy_read(adpt, phy->addr, MII_LPA, &lpa);
-+	ret |= emac_phy_read(adpt, phy->addr, MII_STAT1000, &stat1000);
-+	if (ret)
-+		return;
-+
-+	*speed = EMAC_LINK_SPEED_10_HALF;
-+	if (lpa & LPA_10FULL)
-+		*speed = EMAC_LINK_SPEED_10_FULL;
-+	else if (lpa & LPA_10HALF)
-+		*speed = EMAC_LINK_SPEED_10_HALF;
-+	else if (lpa & LPA_100FULL)
-+		*speed = EMAC_LINK_SPEED_100_FULL;
-+	else if (lpa & LPA_100HALF)
-+		*speed = EMAC_LINK_SPEED_100_HALF;
-+	else if (stat1000 & LPA_1000FULL)
-+		*speed = EMAC_LINK_SPEED_1GB_FULL;
-+}
-+
-+/* Read phy configuration and initialize it */
-+int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	struct device_node *dt = pdev->dev.of_node;
-+	int ret;
-+
-+	phy->external = !of_property_read_bool(dt, "qcom,no-external-phy");
-+
-+	/* get phy address on MDIO bus */
-+	if (phy->external) {
-+		ret = of_property_read_u32(dt, "phy-addr", &phy->addr);
-+		if (ret)
-+			return ret;
-+	} else {
-+		phy->uses_gpios = false;
-+	}
-+
-+	ret = emac_sgmii_config(pdev, adpt);
-+	if (ret)
-+		return ret;
-+
-+	mutex_init(&phy->lock);
-+
-+	phy->autoneg = true;
-+	phy->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
-+
-+	return emac_sgmii_init(adpt);
-+}
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.h b/drivers/net/ethernet/qualcomm/emac/emac-phy.h
-new file mode 100644
-index 0000000..c40e1db
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.h
-@@ -0,0 +1,69 @@
-+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
-+*
-+* This program is free software; you can redistribute it and/or modify
-+* it under the terms of the GNU General Public License version 2 and
-+* only version 2 as published by the Free Software Foundation.
-+*
-+* This program is distributed in the hope that it will be useful,
-+* but WITHOUT ANY WARRANTY; without even the implied warranty of
-+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+* GNU General Public License for more details.
-+*/
-+
-+#ifndef _EMAC_PHY_H_
-+#define _EMAC_PHY_H_
-+
-+enum emac_flow_ctrl {
-+	EMAC_FC_NONE,
-+	EMAC_FC_RX_PAUSE,
-+	EMAC_FC_TX_PAUSE,
-+	EMAC_FC_FULL,
-+	EMAC_FC_DEFAULT
-+};
-+
-+/* emac_phy
-+ * @base register file base address space.
-+ * @irq phy interrupt number.
-+ * @external true when external phy is used.
-+ * @addr mii address.
-+ * @id vendor id.
-+ * @cur_fc_mode flow control mode in effect.
-+ * @req_fc_mode flow control mode requested by caller.
-+ * @disable_fc_autoneg Do not auto-negotiate flow control.
-+ */
-+struct emac_phy {
-+	void __iomem			*base;
-+	int				irq;
-+
-+	bool				external;
-+	bool				uses_gpios;
-+	u32				addr;
-+	u16				id[2];
-+	bool				autoneg;
-+	u32				autoneg_advertised;
-+	u32				link_speed;
-+	bool				link_up;
-+	/* lock - synchronize access to mdio bus */
-+	struct mutex			lock;
-+
-+	/* flow control configuration */
-+	enum emac_flow_ctrl		cur_fc_mode;
-+	enum emac_flow_ctrl		req_fc_mode;
-+	bool				disable_fc_autoneg;
-+};
-+
-+struct emac_adapter;
-+struct platform_device;
-+
-+int  emac_phy_read(struct emac_adapter *adpt, u16 phy_addr, u16 reg_addr,
-+		   u16 *phy_data);
-+int  emac_phy_write(struct emac_adapter *adpt, u16 phy_addr, u16 reg_addr,
-+		    u16 phy_data);
-+int  emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt);
-+int  emac_phy_external_init(struct emac_adapter *adpt);
-+int  emac_phy_link_setup(struct emac_adapter *adpt, u32 speed, bool autoneg,
-+			 bool fc);
-+int  emac_phy_link_check(struct emac_adapter *adpt, u32 *speed, bool *link_up);
-+void emac_phy_link_speed_get(struct emac_adapter *adpt, u32 *speed);
-+
-+#endif /* _EMAC_PHY_H_ */
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-new file mode 100644
-index 0000000..2f6a2ff
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-@@ -0,0 +1,679 @@
-+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+/* Qualcomm Technologies, Inc. EMAC SGMII Controller driver.
-+ */
-+
-+#include <linux/iopoll.h>
-+#include "emac.h"
-+#include "emac-mac.h"
-+#include "emac-sgmii.h"
-+
-+/* EMAC_QSERDES register offsets */
-+#define EMAC_QSERDES_COM_SYS_CLK_CTRL			    0x000000
-+#define EMAC_QSERDES_COM_PLL_CNTRL			    0x000014
-+#define EMAC_QSERDES_COM_PLL_IP_SETI			    0x000018
-+#define EMAC_QSERDES_COM_PLL_CP_SETI			    0x000024
-+#define EMAC_QSERDES_COM_PLL_IP_SETP			    0x000028
-+#define EMAC_QSERDES_COM_PLL_CP_SETP			    0x00002c
-+#define EMAC_QSERDES_COM_SYSCLK_EN_SEL			    0x000038
-+#define EMAC_QSERDES_COM_RESETSM_CNTRL			    0x000040
-+#define EMAC_QSERDES_COM_PLLLOCK_CMP1			    0x000044
-+#define EMAC_QSERDES_COM_PLLLOCK_CMP2			    0x000048
-+#define EMAC_QSERDES_COM_PLLLOCK_CMP3			    0x00004c
-+#define EMAC_QSERDES_COM_PLLLOCK_CMP_EN			    0x000050
-+#define EMAC_QSERDES_COM_DEC_START1			    0x000064
-+#define EMAC_QSERDES_COM_DIV_FRAC_START1		    0x000098
-+#define EMAC_QSERDES_COM_DIV_FRAC_START2		    0x00009c
-+#define EMAC_QSERDES_COM_DIV_FRAC_START3		    0x0000a0
-+#define EMAC_QSERDES_COM_DEC_START2			    0x0000a4
-+#define EMAC_QSERDES_COM_PLL_CRCTRL			    0x0000ac
-+#define EMAC_QSERDES_COM_RESET_SM			    0x0000bc
-+#define EMAC_QSERDES_TX_BIST_MODE_LANENO		    0x000100
-+#define EMAC_QSERDES_TX_TX_EMP_POST1_LVL		    0x000108
-+#define EMAC_QSERDES_TX_TX_DRV_LVL			    0x00010c
-+#define EMAC_QSERDES_TX_LANE_MODE			    0x000150
-+#define EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN		    0x000170
-+#define EMAC_QSERDES_RX_CDR_CONTROL			    0x000200
-+#define EMAC_QSERDES_RX_CDR_CONTROL2			    0x000210
-+#define EMAC_QSERDES_RX_RX_EQ_GAIN12			    0x000230
-+
-+/* EMAC_SGMII register offsets */
-+#define EMAC_SGMII_PHY_SERDES_START			    0x000300
-+#define EMAC_SGMII_PHY_CMN_PWR_CTRL			    0x000304
-+#define EMAC_SGMII_PHY_RX_PWR_CTRL			    0x000308
-+#define EMAC_SGMII_PHY_TX_PWR_CTRL			    0x00030C
-+#define EMAC_SGMII_PHY_LANE_CTRL1			    0x000318
-+#define EMAC_SGMII_PHY_AUTONEG_CFG2			    0x000348
-+#define EMAC_SGMII_PHY_CDR_CTRL0			    0x000358
-+#define EMAC_SGMII_PHY_SPEED_CFG1			    0x000374
-+#define EMAC_SGMII_PHY_POW_DWN_CTRL0			    0x000380
-+#define EMAC_SGMII_PHY_RESET_CTRL			    0x0003a8
-+#define EMAC_SGMII_PHY_IRQ_CMD				    0x0003ac
-+#define EMAC_SGMII_PHY_INTERRUPT_CLEAR			    0x0003b0
-+#define EMAC_SGMII_PHY_INTERRUPT_MASK			    0x0003b4
-+#define EMAC_SGMII_PHY_INTERRUPT_STATUS			    0x0003b8
-+#define EMAC_SGMII_PHY_RX_CHK_STATUS			    0x0003d4
-+#define EMAC_SGMII_PHY_AUTONEG0_STATUS			    0x0003e0
-+#define EMAC_SGMII_PHY_AUTONEG1_STATUS			    0x0003e4
-+
-+#define SGMII_CDR_MAX_CNT					0x0f
-+
-+#define QSERDES_PLL_IPSETI					0x01
-+#define QSERDES_PLL_CP_SETI					0x3b
-+#define QSERDES_PLL_IP_SETP					0x0a
-+#define QSERDES_PLL_CP_SETP					0x09
-+#define QSERDES_PLL_CRCTRL					0xfb
-+#define QSERDES_PLL_DEC						0x02
-+#define QSERDES_PLL_DIV_FRAC_START1				0x55
-+#define QSERDES_PLL_DIV_FRAC_START2				0x2a
-+#define QSERDES_PLL_DIV_FRAC_START3				0x03
-+#define QSERDES_PLL_LOCK_CMP1					0x2b
-+#define QSERDES_PLL_LOCK_CMP2					0x68
-+#define QSERDES_PLL_LOCK_CMP3					0x00
-+
-+#define QSERDES_RX_CDR_CTRL1_THRESH				0x03
-+#define QSERDES_RX_CDR_CTRL1_GAIN				0x02
-+#define QSERDES_RX_CDR_CTRL2_THRESH				0x03
-+#define QSERDES_RX_CDR_CTRL2_GAIN				0x04
-+#define QSERDES_RX_EQ_GAIN2					0x0f
-+#define QSERDES_RX_EQ_GAIN1					0x0f
-+
-+#define QSERDES_TX_BIST_MODE_LANENO				0x00
-+#define QSERDES_TX_DRV_LVL					0x0f
-+#define QSERDES_TX_EMP_POST1_LVL				0x01
-+#define QSERDES_TX_LANE_MODE					0x08
-+
-+/* EMAC_QSERDES_COM_SYS_CLK_CTRL */
-+#define SYSCLK_CM						0x10
-+#define SYSCLK_AC_COUPLE					0x08
-+
-+/* EMAC_QSERDES_COM_PLL_CNTRL */
-+#define OCP_EN							0x20
-+#define PLL_DIV_FFEN						0x04
-+#define PLL_DIV_ORD						0x02
-+
-+/* EMAC_QSERDES_COM_SYSCLK_EN_SEL */
-+#define SYSCLK_SEL_CMOS						0x8
-+
-+/* EMAC_QSERDES_COM_RESETSM_CNTRL */
-+#define FRQ_TUNE_MODE						0x10
-+
-+/* EMAC_QSERDES_COM_PLLLOCK_CMP_EN */
-+#define PLLLOCK_CMP_EN						0x01
-+
-+/* EMAC_QSERDES_COM_DEC_START1 */
-+#define DEC_START1_MUX						0x80
-+
-+/* EMAC_QSERDES_COM_DIV_FRAC_START1 */
-+#define DIV_FRAC_START1_MUX					0x80
-+
-+/* EMAC_QSERDES_COM_DIV_FRAC_START2 */
-+#define DIV_FRAC_START2_MUX					0x80
-+
-+/* EMAC_QSERDES_COM_DIV_FRAC_START3 */
-+#define DIV_FRAC_START3_MUX					0x10
-+
-+/* EMAC_QSERDES_COM_DEC_START2 */
-+#define DEC_START2_MUX						0x2
-+#define DEC_START2						0x1
-+
-+/* EMAC_QSERDES_COM_RESET_SM */
-+#define QSERDES_READY						0x20
-+
-+/* EMAC_QSERDES_TX_TX_EMP_POST1_LVL */
-+#define TX_EMP_POST1_LVL_MUX					0x20
-+#define TX_EMP_POST1_LVL_BMSK					0x1f
-+#define TX_EMP_POST1_LVL_SHFT					0
-+
-+/* EMAC_QSERDES_TX_TX_DRV_LVL */
-+#define TX_DRV_LVL_MUX						0x10
-+#define TX_DRV_LVL_BMSK						0x0f
-+#define TX_DRV_LVL_SHFT						   0
-+
-+/* EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN */
-+#define EMP_EN_MUX						0x02
-+#define EMP_EN							0x01
-+
-+/* EMAC_QSERDES_RX_CDR_CONTROL & EMAC_QSERDES_RX_CDR_CONTROL2 */
-+#define SECONDORDERENABLE					0x40
-+#define FIRSTORDER_THRESH_BMSK					0x38
-+#define FIRSTORDER_THRESH_SHFT					   3
-+#define SECONDORDERGAIN_BMSK					0x07
-+#define SECONDORDERGAIN_SHFT					   0
-+
-+/* EMAC_QSERDES_RX_RX_EQ_GAIN12 */
-+#define RX_EQ_GAIN2_BMSK					0xf0
-+#define RX_EQ_GAIN2_SHFT					   4
-+#define RX_EQ_GAIN1_BMSK					0x0f
-+#define RX_EQ_GAIN1_SHFT					   0
-+
-+/* EMAC_SGMII_PHY_SERDES_START */
-+#define SERDES_START						0x01
-+
-+/* EMAC_SGMII_PHY_CMN_PWR_CTRL */
-+#define BIAS_EN							0x40
-+#define PLL_EN							0x20
-+#define SYSCLK_EN						0x10
-+#define CLKBUF_L_EN						0x08
-+#define PLL_TXCLK_EN						0x02
-+#define PLL_RXCLK_EN						0x01
-+
-+/* EMAC_SGMII_PHY_RX_PWR_CTRL */
-+#define L0_RX_SIGDET_EN						0x80
-+#define L0_RX_TERM_MODE_BMSK					0x30
-+#define L0_RX_TERM_MODE_SHFT					   4
-+#define L0_RX_I_EN						0x02
-+
-+/* EMAC_SGMII_PHY_TX_PWR_CTRL */
-+#define L0_TX_EN						0x20
-+#define L0_CLKBUF_EN						0x10
-+#define L0_TRAN_BIAS_EN						0x02
-+
-+/* EMAC_SGMII_PHY_LANE_CTRL1 */
-+#define L0_RX_EQ_EN						0x40
-+#define L0_RESET_TSYNC_EN					0x10
-+#define L0_DRV_LVL_BMSK						0x0f
-+#define L0_DRV_LVL_SHFT						   0
-+
-+/* EMAC_SGMII_PHY_AUTONEG_CFG2 */
-+#define FORCE_AN_TX_CFG						0x20
-+#define FORCE_AN_RX_CFG						0x10
-+#define AN_ENABLE						0x01
-+
-+/* EMAC_SGMII_PHY_SPEED_CFG1 */
-+#define DUPLEX_MODE						0x10
-+#define SPDMODE_1000						0x02
-+#define SPDMODE_100						0x01
-+#define SPDMODE_10						0x00
-+#define SPDMODE_BMSK						0x03
-+#define SPDMODE_SHFT						   0
-+
-+/* EMAC_SGMII_PHY_POW_DWN_CTRL0 */
-+#define PWRDN_B							 0x01
-+
-+/* EMAC_SGMII_PHY_RESET_CTRL */
-+#define PHY_SW_RESET						 0x01
-+
-+/* EMAC_SGMII_PHY_IRQ_CMD */
-+#define IRQ_GLOBAL_CLEAR					 0x01
-+
-+/* EMAC_SGMII_PHY_INTERRUPT_MASK */
-+#define DECODE_CODE_ERR					       BIT(7)
-+#define DECODE_DISP_ERR					       BIT(6)
-+#define PLL_UNLOCK					       BIT(5)
-+#define AN_ILLEGAL_TERM					       BIT(4)
-+#define SYNC_FAIL					       BIT(3)
-+#define AN_START					       BIT(2)
-+#define AN_END						       BIT(1)
-+#define AN_REQUEST					       BIT(0)
-+
-+#define SGMII_PHY_IRQ_CLR_WAIT_TIME				   10
-+
-+#define SGMII_PHY_INTERRUPT_ERR (\
-+	DECODE_CODE_ERR         |\
-+	DECODE_DISP_ERR)
-+
-+#define SGMII_ISR_AN_MASK       (\
-+	AN_REQUEST              |\
-+	AN_START                |\
-+	AN_END                  |\
-+	AN_ILLEGAL_TERM         |\
-+	PLL_UNLOCK              |\
-+	SYNC_FAIL)
-+
-+#define SGMII_ISR_MASK          (\
-+	SGMII_PHY_INTERRUPT_ERR |\
-+	SGMII_ISR_AN_MASK)
-+
-+/* SGMII TX_CONFIG */
-+#define TXCFG_LINK					      0x8000
-+#define TXCFG_MODE_BMSK					      0x1c00
-+#define TXCFG_1000_FULL					      0x1800
-+#define TXCFG_100_FULL					      0x1400
-+#define TXCFG_100_HALF					      0x0400
-+#define TXCFG_10_FULL					      0x1000
-+#define TXCFG_10_HALF					      0x0000
-+
-+#define SERDES_START_WAIT_TIMES					 100
-+
-+#define SGMII_MEM_RES                                         "sgmii"
-+#define SGMII_IRQ_RES                                     "sgmii_irq"
-+
-+struct emac_reg_write {
-+	ulong		offset;
-+#define END_MARKER	0xffffffff
-+	u32		val;
-+};
-+
-+static void emac_reg_write_all(void __iomem *base,
-+			       const struct emac_reg_write *itr, size_t size)
-+{
-+	size_t i;
-+
-+	for (i = 0; i < size; ++itr, ++i)
-+		writel(itr->val, base + itr->offset);
-+}
-+
-+static const struct emac_reg_write physical_coding_sublayer_programming[] = {
-+{EMAC_SGMII_PHY_CDR_CTRL0,	SGMII_CDR_MAX_CNT},
-+{EMAC_SGMII_PHY_POW_DWN_CTRL0,	PWRDN_B},
-+{EMAC_SGMII_PHY_CMN_PWR_CTRL,	BIAS_EN | SYSCLK_EN | CLKBUF_L_EN |
-+				PLL_TXCLK_EN | PLL_RXCLK_EN},
-+{EMAC_SGMII_PHY_TX_PWR_CTRL,	L0_TX_EN | L0_CLKBUF_EN | L0_TRAN_BIAS_EN},
-+{EMAC_SGMII_PHY_RX_PWR_CTRL,	L0_RX_SIGDET_EN | (1 << L0_RX_TERM_MODE_SHFT) |
-+				L0_RX_I_EN},
-+{EMAC_SGMII_PHY_CMN_PWR_CTRL,	BIAS_EN | PLL_EN | SYSCLK_EN | CLKBUF_L_EN |
-+				PLL_TXCLK_EN | PLL_RXCLK_EN},
-+{EMAC_SGMII_PHY_LANE_CTRL1,	L0_RX_EQ_EN | L0_RESET_TSYNC_EN |
-+				L0_DRV_LVL_BMSK},
-+};
-+
-+static const struct emac_reg_write sysclk_refclk_setting[] = {
-+{EMAC_QSERDES_COM_SYSCLK_EN_SEL,	SYSCLK_SEL_CMOS},
-+{EMAC_QSERDES_COM_SYS_CLK_CTRL,		SYSCLK_CM | SYSCLK_AC_COUPLE},
-+};
-+
-+static const struct emac_reg_write pll_setting[] = {
-+{EMAC_QSERDES_COM_PLL_IP_SETI,		QSERDES_PLL_IPSETI},
-+{EMAC_QSERDES_COM_PLL_CP_SETI,		QSERDES_PLL_CP_SETI},
-+{EMAC_QSERDES_COM_PLL_IP_SETP,		QSERDES_PLL_IP_SETP},
-+{EMAC_QSERDES_COM_PLL_CP_SETP,		QSERDES_PLL_CP_SETP},
-+{EMAC_QSERDES_COM_PLL_CRCTRL,		QSERDES_PLL_CRCTRL},
-+{EMAC_QSERDES_COM_PLL_CNTRL,		OCP_EN | PLL_DIV_FFEN | PLL_DIV_ORD},
-+{EMAC_QSERDES_COM_DEC_START1,		DEC_START1_MUX | QSERDES_PLL_DEC},
-+{EMAC_QSERDES_COM_DEC_START2,		DEC_START2_MUX | DEC_START2},
-+{EMAC_QSERDES_COM_DIV_FRAC_START1,	DIV_FRAC_START1_MUX |
-+					QSERDES_PLL_DIV_FRAC_START1},
-+{EMAC_QSERDES_COM_DIV_FRAC_START2,	DIV_FRAC_START2_MUX |
-+					QSERDES_PLL_DIV_FRAC_START2},
-+{EMAC_QSERDES_COM_DIV_FRAC_START3,	DIV_FRAC_START3_MUX |
-+					QSERDES_PLL_DIV_FRAC_START3},
-+{EMAC_QSERDES_COM_PLLLOCK_CMP1,		QSERDES_PLL_LOCK_CMP1},
-+{EMAC_QSERDES_COM_PLLLOCK_CMP2,		QSERDES_PLL_LOCK_CMP2},
-+{EMAC_QSERDES_COM_PLLLOCK_CMP3,		QSERDES_PLL_LOCK_CMP3},
-+{EMAC_QSERDES_COM_PLLLOCK_CMP_EN,	PLLLOCK_CMP_EN},
-+{EMAC_QSERDES_COM_RESETSM_CNTRL,	FRQ_TUNE_MODE},
-+};
-+
-+static const struct emac_reg_write cdr_setting[] = {
-+{EMAC_QSERDES_RX_CDR_CONTROL,	SECONDORDERENABLE |
-+		(QSERDES_RX_CDR_CTRL1_THRESH << FIRSTORDER_THRESH_SHFT) |
-+		(QSERDES_RX_CDR_CTRL1_GAIN << SECONDORDERGAIN_SHFT)},
-+{EMAC_QSERDES_RX_CDR_CONTROL2,	SECONDORDERENABLE |
-+		(QSERDES_RX_CDR_CTRL2_THRESH << FIRSTORDER_THRESH_SHFT) |
-+		(QSERDES_RX_CDR_CTRL2_GAIN << SECONDORDERGAIN_SHFT)},
-+};
-+
-+static const struct emac_reg_write tx_rx_setting[] = {
-+{EMAC_QSERDES_TX_BIST_MODE_LANENO,	QSERDES_TX_BIST_MODE_LANENO},
-+{EMAC_QSERDES_TX_TX_DRV_LVL,		TX_DRV_LVL_MUX |
-+			(QSERDES_TX_DRV_LVL << TX_DRV_LVL_SHFT)},
-+{EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN,	EMP_EN_MUX | EMP_EN},
-+{EMAC_QSERDES_TX_TX_EMP_POST1_LVL,	TX_EMP_POST1_LVL_MUX |
-+			(QSERDES_TX_EMP_POST1_LVL << TX_EMP_POST1_LVL_SHFT)},
-+{EMAC_QSERDES_RX_RX_EQ_GAIN12,
-+				(QSERDES_RX_EQ_GAIN2 << RX_EQ_GAIN2_SHFT) |
-+				(QSERDES_RX_EQ_GAIN1 << RX_EQ_GAIN1_SHFT)},
-+{EMAC_QSERDES_TX_LANE_MODE,		QSERDES_TX_LANE_MODE},
-+};
-+
-+int emac_sgmii_link_init(struct emac_adapter *adpt, u32 speed, bool autoneg,
-+			 bool fc)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 val;
-+	u32 speed_cfg = 0;
-+
-+	val = readl(phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
-+
-+	if (autoneg) {
-+		val &= ~(FORCE_AN_RX_CFG | FORCE_AN_TX_CFG);
-+		val |= AN_ENABLE;
-+		writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
-+	} else {
-+		switch (speed) {
-+		case EMAC_LINK_SPEED_10_HALF:
-+			speed_cfg = SPDMODE_10;
-+			break;
-+		case EMAC_LINK_SPEED_10_FULL:
-+			speed_cfg = SPDMODE_10 | DUPLEX_MODE;
-+			break;
-+		case EMAC_LINK_SPEED_100_HALF:
-+			speed_cfg = SPDMODE_100;
-+			break;
-+		case EMAC_LINK_SPEED_100_FULL:
-+			speed_cfg = SPDMODE_100 | DUPLEX_MODE;
-+			break;
-+		case EMAC_LINK_SPEED_1GB_FULL:
-+			speed_cfg = SPDMODE_1000 | DUPLEX_MODE;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+		val &= ~AN_ENABLE;
-+		writel(speed_cfg, phy->base + EMAC_SGMII_PHY_SPEED_CFG1);
-+		writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
-+	}
-+
-+	return 0;
-+}
-+
-+int emac_sgmii_irq_clear(struct emac_adapter *adpt, u32 irq_bits)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 status;
-+
-+	writel_relaxed(irq_bits, phy->base + EMAC_SGMII_PHY_INTERRUPT_CLEAR);
-+	writel_relaxed(IRQ_GLOBAL_CLEAR, phy->base + EMAC_SGMII_PHY_IRQ_CMD);
-+	/* Ensure interrupt clear command is written to HW */
-+	wmb();
-+
-+	/* After set the IRQ_GLOBAL_CLEAR bit, the status clearing must
-+	 * be confirmed before clearing the bits in other registers.
-+	 * It takes a few cycles for hw to clear the interrupt status.
-+	 */
-+	if (readl_poll_timeout_atomic(phy->base +
-+				      EMAC_SGMII_PHY_INTERRUPT_STATUS,
-+				      status, !(status & irq_bits), 1,
-+				      SGMII_PHY_IRQ_CLR_WAIT_TIME)) {
-+		netdev_err(adpt->netdev,
-+			   "error: failed clear SGMII irq: status:0x%x bits:0x%x\n",
-+			   status, irq_bits);
-+		return -EIO;
-+	}
-+
-+	/* Finalize clearing procedure */
-+	writel_relaxed(0, phy->base + EMAC_SGMII_PHY_IRQ_CMD);
-+	writel_relaxed(0, phy->base + EMAC_SGMII_PHY_INTERRUPT_CLEAR);
-+	/* Ensure that clearing procedure finalization is written to HW */
-+	wmb();
-+
-+	return 0;
-+}
-+
-+int emac_sgmii_init(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int i;
-+	int ret;
-+
-+	ret = emac_sgmii_link_init(adpt, phy->autoneg_advertised, phy->autoneg,
-+				   !phy->disable_fc_autoneg);
-+	if (ret)
-+		return ret;
-+
-+	emac_reg_write_all(phy->base, physical_coding_sublayer_programming,
-+			   ARRAY_SIZE(physical_coding_sublayer_programming));
-+	emac_reg_write_all(phy->base, sysclk_refclk_setting,
-+			   ARRAY_SIZE(sysclk_refclk_setting));
-+	emac_reg_write_all(phy->base, pll_setting, ARRAY_SIZE(pll_setting));
-+	emac_reg_write_all(phy->base, cdr_setting, ARRAY_SIZE(cdr_setting));
-+	emac_reg_write_all(phy->base, tx_rx_setting,
-+			   ARRAY_SIZE(tx_rx_setting));
-+
-+	/* Power up the Ser/Des engine */
-+	writel(SERDES_START, phy->base + EMAC_SGMII_PHY_SERDES_START);
-+
-+	for (i = 0; i < SERDES_START_WAIT_TIMES; i++) {
-+		if (readl(phy->base + EMAC_QSERDES_COM_RESET_SM) &
-+			  QSERDES_READY)
-+			break;
-+		usleep_range(100, 200);
-+	}
-+
-+	if (i == SERDES_START_WAIT_TIMES) {
-+		netdev_err(adpt->netdev, "error: ser/des failed to start\n");
-+		return -EIO;
-+	}
-+	/* Mask out all the SGMII Interrupt */
-+	writel(0, phy->base + EMAC_SGMII_PHY_INTERRUPT_MASK);
-+
-+	emac_sgmii_irq_clear(adpt, SGMII_PHY_INTERRUPT_ERR);
-+
-+	return 0;
-+}
-+
-+void emac_sgmii_reset_prepare(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 val;
-+
-+	/* Reset PHY */
-+	val = readl(phy->base + EMAC_EMAC_WRAPPER_CSR2);
-+	writel(((val & ~PHY_RESET) | PHY_RESET), phy->base +
-+	       EMAC_EMAC_WRAPPER_CSR2);
-+	/* Ensure phy-reset command is written to HW before the release cmd */
-+	msleep(50);
-+	val = readl(phy->base + EMAC_EMAC_WRAPPER_CSR2);
-+	writel((val & ~PHY_RESET), phy->base + EMAC_EMAC_WRAPPER_CSR2);
-+	/* Ensure phy-reset release command is written to HW before initializing
-+	 * SGMII
-+	 */
-+	msleep(50);
-+}
-+
-+void emac_sgmii_reset(struct emac_adapter *adpt)
-+{
-+	clk_set_rate(adpt->clk[EMAC_CLK_HIGH_SPEED], EMC_CLK_RATE_19_2MHZ);
-+	emac_sgmii_reset_prepare(adpt);
-+	emac_sgmii_init(adpt);
-+	clk_set_rate(adpt->clk[EMAC_CLK_HIGH_SPEED], EMC_CLK_RATE_125MHZ);
-+}
-+
-+int emac_sgmii_no_ephy_link_setup(struct emac_adapter *adpt, u32 speed,
-+				  bool autoneg)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+
-+	phy->autoneg		= autoneg;
-+	phy->autoneg_advertised	= speed;
-+	/* The AN_ENABLE and SPEED_CFG can't change on fly. The SGMII_PHY has
-+	 * to be re-initialized.
-+	 */
-+	emac_sgmii_reset_prepare(adpt);
-+
-+	return emac_sgmii_init(adpt);
-+}
-+
-+int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	struct resource *res;
-+	int ret;
-+
-+	ret = platform_get_irq_byname(pdev, SGMII_IRQ_RES);
-+	if (ret < 0) {
-+		netdev_err(adpt->netdev, "error: missing '%s' resource\n",
-+			   SGMII_IRQ_RES);
-+		return ret;
-+	}
-+
-+	phy->irq = ret;
-+
-+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, SGMII_MEM_RES);
-+	if (!res) {
-+		netdev_err(adpt->netdev, "error: missing '%s' resource\n",
-+			   SGMII_MEM_RES);
-+		return -ENXIO;
-+	}
-+
-+	phy->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(phy->base))
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void emac_sgmii_autoneg_check(struct emac_adapter *adpt, u32 *speed,
-+			      bool *link_up)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 autoneg0, autoneg1, status;
-+
-+	autoneg0 = readl_relaxed(phy->base + EMAC_SGMII_PHY_AUTONEG0_STATUS);
-+	autoneg1 = readl_relaxed(phy->base + EMAC_SGMII_PHY_AUTONEG1_STATUS);
-+	status   = ((autoneg1 & 0xff) << 8) | (autoneg0 & 0xff);
-+
-+	if (!(status & TXCFG_LINK)) {
-+		*link_up = false;
-+		*speed = EMAC_LINK_SPEED_UNKNOWN;
-+		return;
-+	}
-+
-+	*link_up = true;
-+
-+	switch (status & TXCFG_MODE_BMSK) {
-+	case TXCFG_1000_FULL:
-+		*speed = EMAC_LINK_SPEED_1GB_FULL;
-+		break;
-+	case TXCFG_100_FULL:
-+		*speed = EMAC_LINK_SPEED_100_FULL;
-+		break;
-+	case TXCFG_100_HALF:
-+		*speed = EMAC_LINK_SPEED_100_HALF;
-+		break;
-+	case TXCFG_10_FULL:
-+		*speed = EMAC_LINK_SPEED_10_FULL;
-+		break;
-+	case TXCFG_10_HALF:
-+		*speed = EMAC_LINK_SPEED_10_HALF;
-+		break;
-+	default:
-+		*speed = EMAC_LINK_SPEED_UNKNOWN;
-+		break;
-+	}
-+}
-+
-+void emac_sgmii_no_ephy_link_check(struct emac_adapter *adpt, u32 *speed,
-+				   bool *link_up)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 val;
-+
-+	val = readl_relaxed(phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
-+	if (val & AN_ENABLE) {
-+		emac_sgmii_autoneg_check(adpt, speed, link_up);
-+		return;
-+	}
-+
-+	val = readl_relaxed(phy->base + EMAC_SGMII_PHY_SPEED_CFG1);
-+	switch (val & (DUPLEX_MODE | SPDMODE_BMSK)) {
-+	case DUPLEX_MODE | SPDMODE_1000:
-+		*speed = EMAC_LINK_SPEED_1GB_FULL;
-+		break;
-+	case DUPLEX_MODE | SPDMODE_100:
-+		*speed = EMAC_LINK_SPEED_100_FULL;
-+		break;
-+	case SPDMODE_100:
-+		*speed = EMAC_LINK_SPEED_100_HALF;
-+		break;
-+	case DUPLEX_MODE | SPDMODE_10:
-+		*speed = EMAC_LINK_SPEED_10_FULL;
-+		break;
-+	case SPDMODE_10:
-+		*speed = EMAC_LINK_SPEED_10_HALF;
-+		break;
-+	default:
-+		*speed = EMAC_LINK_SPEED_UNKNOWN;
-+		break;
-+	}
-+	*link_up = true;
-+}
-+
-+irqreturn_t emac_sgmii_isr(int _irq, void *data)
-+{
-+	struct emac_adapter *adpt = data;
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 status;
-+
-+	netif_dbg(adpt,  intr, adpt->netdev, "receive sgmii interrupt\n");
-+
-+	do {
-+		status = readl_relaxed(phy->base +
-+				       EMAC_SGMII_PHY_INTERRUPT_STATUS) &
-+				       SGMII_ISR_MASK;
-+		if (!status)
-+			break;
-+
-+		if (status & SGMII_PHY_INTERRUPT_ERR) {
-+			set_bit(EMAC_STATUS_TASK_CHK_SGMII_REQ, &adpt->status);
-+			if (!test_bit(EMAC_STATUS_DOWN, &adpt->status))
-+				emac_work_thread_reschedule(adpt);
-+		}
-+
-+		if (status & SGMII_ISR_AN_MASK)
-+			emac_lsc_schedule_check(adpt);
-+
-+		if (emac_sgmii_irq_clear(adpt, status) != 0) {
-+			/* reset */
-+			set_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status);
-+			emac_work_thread_reschedule(adpt);
-+			break;
-+		}
-+	} while (1);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+int emac_sgmii_up(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int ret;
-+
-+	ret = request_irq(phy->irq, emac_sgmii_isr, IRQF_TRIGGER_RISING,
-+			  "sgmii_irq", adpt);
-+	if (ret)
-+		netdev_err(adpt->netdev,
-+			   "error:%d on request_irq(%d:sgmii_irq)\n", ret,
-+			   phy->irq);
-+
-+	/* enable sgmii irq */
-+	writel_relaxed(SGMII_ISR_MASK,
-+		       phy->base + EMAC_SGMII_PHY_INTERRUPT_MASK);
-+
-+	return ret;
-+}
-+
-+void emac_sgmii_down(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+
-+	writel_relaxed(0, phy->base + EMAC_SGMII_PHY_INTERRUPT_MASK);
-+	synchronize_irq(phy->irq);
-+	free_irq(phy->irq, adpt);
-+}
-+
-+/* Check SGMII for error */
-+void emac_sgmii_periodic_check(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+
-+	if (!test_bit(EMAC_STATUS_TASK_CHK_SGMII_REQ, &adpt->status))
-+		return;
-+	clear_bit(EMAC_STATUS_TASK_CHK_SGMII_REQ, &adpt->status);
-+
-+	/* ensure that no reset is in progress while link task is running */
-+	while (test_and_set_bit(EMAC_STATUS_RESETTING, &adpt->status))
-+		msleep(20); /* Reset might take few 10s of ms */
-+
-+	if (test_bit(EMAC_STATUS_DOWN, &adpt->status))
-+		goto sgmii_task_done;
-+
-+	if (readl_relaxed(phy->base + EMAC_SGMII_PHY_RX_CHK_STATUS) & 0x40)
-+		goto sgmii_task_done;
-+
-+	netdev_err(adpt->netdev, "error: SGMII CDR not locked\n");
-+
-+sgmii_task_done:
-+	clear_bit(EMAC_STATUS_RESETTING, &adpt->status);
-+}
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
-new file mode 100644
-index 0000000..4d55915b
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
-@@ -0,0 +1,30 @@
-+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _EMAC_SGMII_H_
-+#define _EMAC_SGMII_H_
-+
-+struct emac_adapter;
-+struct platform_device;
-+
-+int  emac_sgmii_init(struct emac_adapter *adpt);
-+int  emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt);
-+void emac_sgmii_reset(struct emac_adapter *adpt);
-+int  emac_sgmii_up(struct emac_adapter *adpt);
-+void emac_sgmii_down(struct emac_adapter *adpt);
-+void emac_sgmii_periodic_check(struct emac_adapter *adpt);
-+int  emac_sgmii_no_ephy_link_setup(struct emac_adapter *adpt, u32 speed,
-+				   bool autoneg);
-+void emac_sgmii_no_ephy_link_check(struct emac_adapter *adpt, u32 *speed,
-+				   bool *link_up);
-+
-+#endif /*_EMAC_SGMII_H_*/
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-new file mode 100644
-index 0000000..17383f8
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -0,0 +1,1228 @@
-+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+/* Qualcomm Technologies, Inc. EMAC Gigabit Ethernet Driver
-+ * The EMAC driver supports following features:
-+ * 1) Receive Side Scaling (RSS).
-+ * 2) Checksum offload.
-+ * 3) Multiple PHY support on MDIO bus.
-+ * 4) Runtime power management support.
-+ * 5) Interrupt coalescing support.
-+ * 6) SGMII phy.
-+ * 7) SGMII direct connection (without external phy).
-+ */
-+
-+#include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
-+#include <linux/interrupt.h>
-+#include <linux/io.h>
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
-+#include <linux/of_gpio.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <linux/pm_runtime.h>
-+#include "emac.h"
-+#include "emac-mac.h"
-+#include "emac-phy.h"
-+#include "emac-sgmii.h"
-+
-+#define DRV_VERSION "1.3.0.0"
-+
-+static int debug = -1;
-+module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
-+
-+static int emac_irq_use_extended;
-+module_param(emac_irq_use_extended, int, S_IRUGO | S_IWUSR | S_IWGRP);
-+
-+const char emac_drv_name[] = "qcom-emac";
-+const char emac_drv_description[] =
-+			"Qualcomm Technologies, Inc. EMAC Ethernet Driver";
-+const char emac_drv_version[] = DRV_VERSION;
-+
-+#define EMAC_MSG_DEFAULT (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK |  \
-+		NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |         \
-+		NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR | NETIF_MSG_TX_QUEUED |   \
-+		NETIF_MSG_INTR | NETIF_MSG_TX_DONE | NETIF_MSG_RX_STATUS |    \
-+		NETIF_MSG_PKTDATA | NETIF_MSG_HW | NETIF_MSG_WOL)
-+
-+#define EMAC_RRD_SIZE					     4
-+#define EMAC_TS_RRD_SIZE				     6
-+#define EMAC_TPD_SIZE					     4
-+#define EMAC_RFD_SIZE					     2
-+
-+#define REG_MAC_RX_STATUS_BIN		 EMAC_RXMAC_STATC_REG0
-+#define REG_MAC_RX_STATUS_END		EMAC_RXMAC_STATC_REG22
-+#define REG_MAC_TX_STATUS_BIN		 EMAC_TXMAC_STATC_REG0
-+#define REG_MAC_TX_STATUS_END		EMAC_TXMAC_STATC_REG24
-+
-+#define RXQ0_NUM_RFD_PREF_DEF				     8
-+#define TXQ0_NUM_TPD_PREF_DEF				     5
-+
-+#define EMAC_PREAMBLE_DEF				     7
-+
-+#define DMAR_DLY_CNT_DEF				    15
-+#define DMAW_DLY_CNT_DEF				     4
-+
-+#define IMR_NORMAL_MASK         (\
-+		ISR_ERROR       |\
-+		ISR_GPHY_LINK   |\
-+		ISR_TX_PKT      |\
-+		GPHY_WAKEUP_INT)
-+
-+#define IMR_EXTENDED_MASK       (\
-+		SW_MAN_INT      |\
-+		ISR_OVER        |\
-+		ISR_ERROR       |\
-+		ISR_GPHY_LINK   |\
-+		ISR_TX_PKT      |\
-+		GPHY_WAKEUP_INT)
-+
-+#define ISR_TX_PKT      (\
-+	TX_PKT_INT      |\
-+	TX_PKT_INT1     |\
-+	TX_PKT_INT2     |\
-+	TX_PKT_INT3)
-+
-+#define ISR_GPHY_LINK        (\
-+	GPHY_LINK_UP_INT     |\
-+	GPHY_LINK_DOWN_INT)
-+
-+#define ISR_OVER        (\
-+	RFD0_UR_INT     |\
-+	RFD1_UR_INT     |\
-+	RFD2_UR_INT     |\
-+	RFD3_UR_INT     |\
-+	RFD4_UR_INT     |\
-+	RXF_OF_INT      |\
-+	TXF_UR_INT)
-+
-+#define ISR_ERROR       (\
-+	DMAR_TO_INT     |\
-+	DMAW_TO_INT     |\
-+	TXQ_TO_INT)
-+
-+const char * const emac_gpio_name[] = {
-+	"qcom,emac-gpio-mdc", "qcom,emac-gpio-mdio"
-+};
-+
-+/* in sync with enum emac_clk_id */
-+static const char * const emac_clk_name[] = {
-+	"axi_clk", "cfg_ahb_clk", "high_speed_clk", "mdio_clk", "tx_clk",
-+	"rx_clk", "sys_clk"
-+};
-+
-+void emac_reg_update32(void __iomem *addr, u32 mask, u32 val)
-+{
-+	u32 data = readl(addr);
-+
-+	writel(((data & ~mask) | val), addr);
-+}
-+
-+/* reinitialize */
-+void emac_reinit_locked(struct emac_adapter *adpt)
-+{
-+	WARN_ON(in_interrupt());
-+
-+	while (test_and_set_bit(EMAC_STATUS_RESETTING, &adpt->status))
-+		msleep(20); /* Reset might take few 10s of ms */
-+
-+	if (test_bit(EMAC_STATUS_DOWN, &adpt->status)) {
-+		clear_bit(EMAC_STATUS_RESETTING, &adpt->status);
-+		return;
-+	}
-+
-+	emac_mac_down(adpt, true);
-+
-+	emac_sgmii_reset(adpt);
-+	emac_mac_up(adpt);
-+
-+	clear_bit(EMAC_STATUS_RESETTING, &adpt->status);
-+}
-+
-+void emac_work_thread_reschedule(struct emac_adapter *adpt)
-+{
-+	if (!test_bit(EMAC_STATUS_DOWN, &adpt->status) &&
-+	    !test_bit(EMAC_STATUS_WATCH_DOG, &adpt->status)) {
-+		set_bit(EMAC_STATUS_WATCH_DOG, &adpt->status);
-+		schedule_work(&adpt->work_thread);
-+	}
-+}
-+
-+void emac_lsc_schedule_check(struct emac_adapter *adpt)
-+{
-+	set_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status);
-+	adpt->link_chk_timeout = jiffies + EMAC_TRY_LINK_TIMEOUT;
-+
-+	if (!test_bit(EMAC_STATUS_DOWN, &adpt->status))
-+		emac_work_thread_reschedule(adpt);
-+}
-+
-+/* Change MAC address */
-+static int emac_set_mac_address(struct net_device *netdev, void *p)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	struct sockaddr *addr = p;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	if (netif_running(netdev))
-+		return -EBUSY;
-+
-+	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+	memcpy(adpt->mac_addr, addr->sa_data, netdev->addr_len);
-+
-+	emac_mac_addr_clear(adpt, adpt->mac_addr);
-+
-+	return 0;
-+}
-+
-+/* NAPI */
-+static int emac_napi_rtx(struct napi_struct *napi, int budget)
-+{
-+	struct emac_rx_queue *rx_q = container_of(napi, struct emac_rx_queue,
-+						   napi);
-+	struct emac_adapter *adpt = netdev_priv(rx_q->netdev);
-+	struct emac_irq *irq = rx_q->irq;
-+
-+	int work_done = 0;
-+
-+	/* Keep link state information with original netdev */
-+	if (!netif_carrier_ok(adpt->netdev))
-+		goto quit_polling;
-+
-+	emac_mac_rx_process(adpt, rx_q, &work_done, budget);
-+
-+	if (work_done < budget) {
-+quit_polling:
-+		napi_complete(napi);
-+
-+		irq->mask |= rx_q->intr;
-+		writel(irq->mask, adpt->base + EMAC_INT_MASK);
-+	}
-+
-+	return work_done;
-+}
-+
-+/* Transmit the packet */
-+static int emac_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	return emac_mac_tx_buf_send(adpt, &adpt->tx_q, skb);
-+}
-+
-+irqreturn_t emac_isr(int _irq, void *data)
-+{
-+	struct emac_irq *irq = data;
-+	struct emac_adapter *adpt = container_of(irq, struct emac_adapter, irq);
-+	struct emac_rx_queue *rx_q = &adpt->rx_q;
-+
-+	int max_ints = 1;
-+	u32 isr, status;
-+
-+	/* disable the interrupt */
-+	writel(0, adpt->base + EMAC_INT_MASK);
-+
-+	do {
-+		isr = readl_relaxed(adpt->base + EMAC_INT_STATUS);
-+		status = isr & irq->mask;
-+
-+		if (status == 0)
-+			break;
-+
-+		if (status & ISR_ERROR) {
-+			netif_warn(adpt,  intr, adpt->netdev,
-+				   "warning: error irq status 0x%lx\n",
-+				   status & ISR_ERROR);
-+			/* reset MAC */
-+			set_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status);
-+			emac_work_thread_reschedule(adpt);
-+		}
-+
-+		/* Schedule the napi for receive queue with interrupt
-+		 * status bit set
-+		 */
-+		if ((status & rx_q->intr)) {
-+			if (napi_schedule_prep(&rx_q->napi)) {
-+				irq->mask &= ~rx_q->intr;
-+				__napi_schedule(&rx_q->napi);
-+			}
-+		}
-+
-+		if (status & TX_PKT_INT)
-+			emac_mac_tx_process(adpt, &adpt->tx_q);
-+
-+		if (status & ISR_OVER)
-+			netif_warn(adpt, intr, adpt->netdev,
-+				   "warning: TX/RX overflow status 0x%lx\n",
-+				   status & ISR_OVER);
-+
-+		/* link event */
-+		if (status & (ISR_GPHY_LINK | SW_MAN_INT)) {
-+			emac_lsc_schedule_check(adpt);
-+			break;
-+		}
-+	} while (--max_ints > 0);
-+
-+	/* enable the interrupt */
-+	writel(irq->mask, adpt->base + EMAC_INT_MASK);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+/* Configure VLAN tag strip/insert feature */
-+static int emac_set_features(struct net_device *netdev,
-+			     netdev_features_t features)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	netdev_features_t changed = features ^ netdev->features;
-+
-+	if (!(changed & (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX)))
-+		return 0;
-+
-+	netdev->features = features;
-+	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
-+		set_bit(EMAC_STATUS_VLANSTRIP_EN, &adpt->status);
-+	else
-+		clear_bit(EMAC_STATUS_VLANSTRIP_EN, &adpt->status);
-+
-+	if (netif_running(netdev))
-+		emac_reinit_locked(adpt);
-+
-+	return 0;
-+}
-+
-+/* Configure Multicast and Promiscuous modes */
-+void emac_rx_mode_set(struct net_device *netdev)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	struct netdev_hw_addr *ha;
-+
-+	/* Check for Promiscuous and All Multicast modes */
-+	if (netdev->flags & IFF_PROMISC) {
-+		set_bit(EMAC_STATUS_PROMISC_EN, &adpt->status);
-+	} else if (netdev->flags & IFF_ALLMULTI) {
-+		set_bit(EMAC_STATUS_MULTIALL_EN, &adpt->status);
-+		clear_bit(EMAC_STATUS_PROMISC_EN, &adpt->status);
-+	} else {
-+		clear_bit(EMAC_STATUS_MULTIALL_EN, &adpt->status);
-+		clear_bit(EMAC_STATUS_PROMISC_EN, &adpt->status);
-+	}
-+	emac_mac_mode_config(adpt);
-+
-+	/* update multicast address filtering */
-+	emac_mac_multicast_addr_clear(adpt);
-+	netdev_for_each_mc_addr(ha, netdev)
-+		emac_mac_multicast_addr_set(adpt, ha->addr);
-+}
-+
-+/* Change the Maximum Transfer Unit (MTU) */
-+static int emac_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	int old_mtu   = netdev->mtu;
-+	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+
-+	if ((max_frame < EMAC_MIN_ETH_FRAME_SIZE) ||
-+	    (max_frame > EMAC_MAX_ETH_FRAME_SIZE)) {
-+		netdev_err(adpt->netdev, "error: invalid MTU setting\n");
-+		return -EINVAL;
-+	}
-+
-+	if ((old_mtu != new_mtu) && netif_running(netdev)) {
-+		netif_info(adpt, hw, adpt->netdev,
-+			   "changing MTU from %d to %d\n", netdev->mtu,
-+			   new_mtu);
-+		netdev->mtu = new_mtu;
-+		adpt->mtu = new_mtu;
-+		adpt->rxbuf_size = new_mtu > EMAC_DEF_RX_BUF_SIZE ?
-+			ALIGN(max_frame, 8) : EMAC_DEF_RX_BUF_SIZE;
-+		emac_reinit_locked(adpt);
-+	}
-+
-+	return 0;
-+}
-+
-+/* Called when the network interface is made active */
-+static int emac_open(struct net_device *netdev)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	int ret;
-+
-+	netif_carrier_off(netdev);
-+
-+	/* allocate rx/tx dma buffer & descriptors */
-+	ret = emac_mac_rx_tx_rings_alloc_all(adpt);
-+	if (ret) {
-+		netdev_err(adpt->netdev, "error allocating rx/tx rings\n");
-+		return ret;
-+	}
-+
-+	pm_runtime_set_active(netdev->dev.parent);
-+	pm_runtime_enable(netdev->dev.parent);
-+
-+	ret = emac_mac_up(adpt);
-+	if (ret)
-+		emac_mac_rx_tx_rings_free_all(adpt);
-+
-+	return ret;
-+}
-+
-+/* Called when the network interface is disabled */
-+static int emac_close(struct net_device *netdev)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	/* ensure no task is running and no reset is in progress */
-+	while (test_and_set_bit(EMAC_STATUS_RESETTING, &adpt->status))
-+		msleep(20); /* Reset might take few 10s of ms */
-+
-+	pm_runtime_disable(netdev->dev.parent);
-+	if (!test_bit(EMAC_STATUS_DOWN, &adpt->status))
-+		emac_mac_down(adpt, true);
-+	else
-+		emac_mac_reset(adpt);
-+
-+	emac_mac_rx_tx_rings_free_all(adpt);
-+
-+	clear_bit(EMAC_STATUS_RESETTING, &adpt->status);
-+
-+	return 0;
-+}
-+
-+/* PHY related IOCTLs */
-+static int emac_mii_ioctl(struct net_device *netdev,
-+			  struct ifreq *ifr, int cmd)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	struct emac_phy *phy = &adpt->phy;
-+	struct mii_ioctl_data *data = if_mii(ifr);
-+
-+	switch (cmd) {
-+	case SIOCGMIIPHY:
-+		data->phy_id = phy->addr;
-+		return 0;
-+
-+	case SIOCGMIIREG:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+
-+		if (data->reg_num & ~(0x1F))
-+			return -EFAULT;
-+
-+		if (data->phy_id >= PHY_MAX_ADDR)
-+			return -EFAULT;
-+
-+		if (phy->external && data->phy_id != phy->addr)
-+			return -EFAULT;
-+
-+		return emac_phy_read(adpt, data->phy_id, data->reg_num,
-+				     &data->val_out);
-+
-+	case SIOCSMIIREG:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+
-+		if (data->reg_num & ~(0x1F))
-+			return -EFAULT;
-+
-+		if (data->phy_id >= PHY_MAX_ADDR)
-+			return -EFAULT;
-+
-+		if (phy->external && data->phy_id != phy->addr)
-+			return -EFAULT;
-+
-+		return emac_phy_write(adpt, data->phy_id, data->reg_num,
-+				      data->val_in);
-+	default:
-+		return -EFAULT;
-+	}
-+}
-+
-+/* Respond to a TX hang */
-+static void emac_tx_timeout(struct net_device *netdev)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	if (!test_bit(EMAC_STATUS_DOWN, &adpt->status)) {
-+		set_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status);
-+		emac_work_thread_reschedule(adpt);
-+	}
-+}
-+
-+/* IOCTL support for the interface */
-+static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-+{
-+	switch (cmd) {
-+	case SIOCGMIIPHY:
-+	case SIOCGMIIREG:
-+	case SIOCSMIIREG:
-+		return emac_mii_ioctl(netdev, ifr, cmd);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+/* Provide network statistics info for the interface */
-+struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
-+					   struct rtnl_link_stats64 *net_stats)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	struct emac_stats *stats = &adpt->stats;
-+	u16 addr = REG_MAC_RX_STATUS_BIN;
-+	u64 *stats_itr = &adpt->stats.rx_ok;
-+	u32 val;
-+
-+	while (addr <= REG_MAC_RX_STATUS_END) {
-+		val = readl_relaxed(adpt->base + addr);
-+		*stats_itr += val;
-+		++stats_itr;
-+		addr += sizeof(u32);
-+	}
-+
-+	/* additional rx status */
-+	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG23);
-+	adpt->stats.rx_crc_align += val;
-+	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG24);
-+	adpt->stats.rx_jubbers += val;
-+
-+	/* update tx status */
-+	addr = REG_MAC_TX_STATUS_BIN;
-+	stats_itr = &adpt->stats.tx_ok;
-+
-+	while (addr <= REG_MAC_TX_STATUS_END) {
-+		val = readl_relaxed(adpt->base + addr);
-+		*stats_itr += val;
-+		++stats_itr;
-+		addr += sizeof(u32);
-+	}
-+
-+	/* additional tx status */
-+	val = readl_relaxed(adpt->base + EMAC_TXMAC_STATC_REG25);
-+	adpt->stats.tx_col += val;
-+
-+	/* return parsed statistics */
-+	net_stats->rx_packets = stats->rx_ok;
-+	net_stats->tx_packets = stats->tx_ok;
-+	net_stats->rx_bytes = stats->rx_byte_cnt;
-+	net_stats->tx_bytes = stats->tx_byte_cnt;
-+	net_stats->multicast = stats->rx_mcast;
-+	net_stats->collisions = stats->tx_1_col + stats->tx_2_col * 2 +
-+				stats->tx_late_col + stats->tx_abort_col;
-+
-+	net_stats->rx_errors = stats->rx_frag + stats->rx_fcs_err +
-+			       stats->rx_len_err + stats->rx_sz_ov +
-+			       stats->rx_align_err;
-+	net_stats->rx_fifo_errors = stats->rx_rxf_ov;
-+	net_stats->rx_length_errors = stats->rx_len_err;
-+	net_stats->rx_crc_errors = stats->rx_fcs_err;
-+	net_stats->rx_frame_errors = stats->rx_align_err;
-+	net_stats->rx_over_errors = stats->rx_rxf_ov;
-+	net_stats->rx_missed_errors = stats->rx_rxf_ov;
-+
-+	net_stats->tx_errors = stats->tx_late_col + stats->tx_abort_col +
-+			       stats->tx_underrun + stats->tx_trunc;
-+	net_stats->tx_fifo_errors = stats->tx_underrun;
-+	net_stats->tx_aborted_errors = stats->tx_abort_col;
-+	net_stats->tx_window_errors = stats->tx_late_col;
-+
-+	return net_stats;
-+}
-+
-+static const struct net_device_ops emac_netdev_ops = {
-+	.ndo_open		= &emac_open,
-+	.ndo_stop		= &emac_close,
-+	.ndo_validate_addr	= &eth_validate_addr,
-+	.ndo_start_xmit		= &emac_start_xmit,
-+	.ndo_set_mac_address	= &emac_set_mac_address,
-+	.ndo_change_mtu		= &emac_change_mtu,
-+	.ndo_do_ioctl		= &emac_ioctl,
-+	.ndo_tx_timeout		= &emac_tx_timeout,
-+	.ndo_get_stats64	= &emac_get_stats64,
-+	.ndo_set_features       = emac_set_features,
-+	.ndo_set_rx_mode        = emac_rx_mode_set,
-+};
-+
-+static char *emac_link_speed_to_str(u32 speed)
-+{
-+	switch (speed) {
-+	case EMAC_LINK_SPEED_1GB_FULL:
-+		return  "1 Gbps Duplex Full";
-+	case EMAC_LINK_SPEED_100_FULL:
-+		return "100 Mbps Duplex Full";
-+	case EMAC_LINK_SPEED_100_HALF:
-+		return "100 Mbps Duplex Half";
-+	case EMAC_LINK_SPEED_10_FULL:
-+		return "10 Mbps Duplex Full";
-+	case EMAC_LINK_SPEED_10_HALF:
-+		return "10 Mbps Duplex HALF";
-+	default:
-+		return "unknown speed";
-+	}
-+}
-+
-+/* Check link status and handle link state changes */
-+static void emac_work_thread_link_check(struct emac_adapter *adpt)
-+{
-+	struct net_device *netdev = adpt->netdev;
-+	struct emac_phy *phy = &adpt->phy;
-+	const char *speed;
-+
-+	if (!test_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status))
-+		return;
-+	clear_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status);
-+
-+	/* ensure that no reset is in progress while link task is running */
-+	while (test_and_set_bit(EMAC_STATUS_RESETTING, &adpt->status))
-+		msleep(20); /* Reset might take few 10s of ms */
-+
-+	if (test_bit(EMAC_STATUS_DOWN, &adpt->status))
-+		goto link_task_done;
-+
-+	emac_phy_link_check(adpt, &phy->link_speed, &phy->link_up);
-+	speed = emac_link_speed_to_str(phy->link_speed);
-+
-+	if (phy->link_up) {
-+		if (netif_carrier_ok(netdev))
-+			goto link_task_done;
-+
-+		pm_runtime_get_sync(netdev->dev.parent);
-+		netif_info(adpt, timer, adpt->netdev, "NIC Link is Up %s\n",
-+			   speed);
-+
-+		emac_mac_start(adpt);
-+		netif_carrier_on(netdev);
-+		netif_wake_queue(netdev);
-+	} else {
-+		if (time_after(adpt->link_chk_timeout, jiffies))
-+			set_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status);
-+
-+		/* only continue if link was up previously */
-+		if (!netif_carrier_ok(netdev))
-+			goto link_task_done;
-+
-+		phy->link_speed = 0;
-+		netif_info(adpt,  timer, adpt->netdev, "NIC Link is Down\n");
-+		netif_stop_queue(netdev);
-+		netif_carrier_off(netdev);
-+
-+		emac_mac_stop(adpt);
-+		pm_runtime_put_sync(netdev->dev.parent);
-+	}
-+
-+	/* link state transition, kick timer */
-+	mod_timer(&adpt->timers, jiffies);
-+
-+link_task_done:
-+	clear_bit(EMAC_STATUS_RESETTING, &adpt->status);
-+}
-+
-+/* Watchdog task routine */
-+static void emac_work_thread(struct work_struct *work)
-+{
-+	struct emac_adapter *adpt = container_of(work, struct emac_adapter,
-+						 work_thread);
-+
-+	if (!test_bit(EMAC_STATUS_WATCH_DOG, &adpt->status))
-+		netif_warn(adpt,  timer, adpt->netdev,
-+			   "warning: WATCH_DOG flag isn't set\n");
-+
-+	if (test_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status)) {
-+		clear_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status);
-+
-+		if ((!test_bit(EMAC_STATUS_DOWN, &adpt->status)) &&
-+		    (!test_bit(EMAC_STATUS_RESETTING, &adpt->status)))
-+			emac_reinit_locked(adpt);
-+	}
-+
-+	emac_work_thread_link_check(adpt);
-+	emac_sgmii_periodic_check(adpt);
-+	clear_bit(EMAC_STATUS_WATCH_DOG, &adpt->status);
-+}
-+
-+/* Timer routine */
-+static void emac_timer_thread(unsigned long data)
-+{
-+	struct emac_adapter *adpt = (struct emac_adapter *)data;
-+	unsigned long delay;
-+
-+	if (pm_runtime_status_suspended(adpt->netdev->dev.parent))
-+		return;
-+
-+	/* poll faster when waiting for link */
-+	if (test_bit(EMAC_STATUS_TASK_LSC_REQ, &adpt->status))
-+		delay = HZ / 10;
-+	else
-+		delay = 2 * HZ;
-+
-+	/* Reset the timer */
-+	mod_timer(&adpt->timers, delay + jiffies);
-+
-+	emac_work_thread_reschedule(adpt);
-+}
-+
-+/* Initialize various data structures  */
-+static void emac_init_adapter(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	int max_frame;
-+	u32 reg;
-+
-+	/* ids */
-+	reg =  readl_relaxed(adpt->base + EMAC_DMA_MAS_CTRL);
-+	adpt->devid = (reg & DEV_ID_NUM_BMSK)  >> DEV_ID_NUM_SHFT;
-+	adpt->revid = (reg & DEV_REV_NUM_BMSK) >> DEV_REV_NUM_SHFT;
-+
-+	/* descriptors */
-+	adpt->tx_desc_cnt = EMAC_DEF_TX_DESCS;
-+	adpt->rx_desc_cnt = EMAC_DEF_RX_DESCS;
-+
-+	/* mtu */
-+	adpt->netdev->mtu = ETH_DATA_LEN;
-+	adpt->mtu = adpt->netdev->mtu;
-+	max_frame = adpt->netdev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+	adpt->rxbuf_size = adpt->netdev->mtu > EMAC_DEF_RX_BUF_SIZE ?
-+			   ALIGN(max_frame, 8) : EMAC_DEF_RX_BUF_SIZE;
-+
-+	/* dma */
-+	adpt->dma_order = emac_dma_ord_out;
-+	adpt->dmar_block = emac_dma_req_4096;
-+	adpt->dmaw_block = emac_dma_req_128;
-+	adpt->dmar_dly_cnt = DMAR_DLY_CNT_DEF;
-+	adpt->dmaw_dly_cnt = DMAW_DLY_CNT_DEF;
-+	adpt->tpd_burst = TXQ0_NUM_TPD_PREF_DEF;
-+	adpt->rfd_burst = RXQ0_NUM_RFD_PREF_DEF;
-+
-+	/* link */
-+	phy->link_up = false;
-+	phy->link_speed = EMAC_LINK_SPEED_UNKNOWN;
-+
-+	/* flow control */
-+	phy->req_fc_mode = EMAC_FC_FULL;
-+	phy->cur_fc_mode = EMAC_FC_FULL;
-+	phy->disable_fc_autoneg = false;
-+
-+	/* irq moderator */
-+	reg = ((EMAC_DEF_RX_IRQ_MOD >> 1) << IRQ_MODERATOR2_INIT_SHFT) |
-+	      ((EMAC_DEF_TX_IRQ_MOD >> 1) << IRQ_MODERATOR_INIT_SHFT);
-+	adpt->irq_mod = reg;
-+
-+	/* others */
-+	adpt->preamble = EMAC_PREAMBLE_DEF;
-+}
-+
-+#ifdef CONFIG_PM
-+static int emac_runtime_suspend(struct device *device)
-+{
-+	struct platform_device *pdev = to_platform_device(device);
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	emac_mac_pm(adpt);
-+
-+	return 0;
-+}
-+
-+static int emac_runtime_idle(struct device *device)
-+{
-+	struct platform_device *pdev = to_platform_device(device);
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-+
-+	/* schedule to enter runtime suspend state if the link does
-+	 * not come back up within the specified time
-+	 */
-+	pm_schedule_suspend(netdev->dev.parent,
-+			    jiffies_to_msecs(EMAC_TRY_LINK_TIMEOUT));
-+
-+	return -EBUSY;
-+}
-+#endif /* CONFIG_PM */
-+
-+#ifdef CONFIG_PM_SLEEP
-+static int emac_suspend(struct device *device)
-+{
-+	struct platform_device *pdev = to_platform_device(device);
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	struct emac_phy *phy = &adpt->phy;
-+	int i;
-+	u32 speed, adv_speed;
-+	bool link_up = false;
-+	int ret = 0;
-+
-+	netif_device_detach(netdev);
-+	if (netif_running(netdev)) {
-+		/* ensure no task is running and no reset is in progress */
-+		while (test_and_set_bit(EMAC_STATUS_RESETTING, &adpt->status))
-+			msleep(20); /* Reset might take few 10s of ms */
-+
-+		emac_mac_down(adpt, false);
-+
-+		clear_bit(EMAC_STATUS_RESETTING, &adpt->status);
-+	}
-+
-+	emac_phy_link_check(adpt, &speed, &link_up);
-+
-+	if (link_up) {
-+		adv_speed = EMAC_LINK_SPEED_10_HALF;
-+		emac_phy_link_speed_get(adpt, &adv_speed);
-+
-+		ret = emac_phy_link_setup(adpt, adv_speed, true,
-+					  !adpt->phy.disable_fc_autoneg);
-+		if (ret)
-+			return ret;
-+
-+		link_up = false;
-+		for (i = 0; i < EMAC_MAX_SETUP_LNK_CYCLE; i++) {
-+			ret = emac_phy_link_check(adpt, &speed, &link_up);
-+			if ((!ret) && link_up)
-+				break;
-+
-+			/* link can take upto few seconds to come up */
-+			msleep(100);
-+		}
-+	}
-+
-+	if (!link_up)
-+		speed = EMAC_LINK_SPEED_10_HALF;
-+
-+	phy->link_speed = speed;
-+	phy->link_up = link_up;
-+
-+	emac_mac_pm(adpt);
-+
-+	return 0;
-+}
-+
-+static int emac_resume(struct device *device)
-+{
-+	struct platform_device *pdev = to_platform_device(device);
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	struct emac_phy *phy = &adpt->phy;
-+	u32 ret;
-+
-+	emac_mac_reset(adpt);
-+	ret = emac_phy_link_setup(adpt, phy->autoneg_advertised, true,
-+				  !phy->disable_fc_autoneg);
-+	if (ret)
-+		return ret;
-+
-+	if (netif_running(netdev)) {
-+		ret = emac_mac_up(adpt);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	netif_device_attach(netdev);
-+
-+	return 0;
-+}
-+#endif /* CONFIG_PM_SLEEP */
-+
-+/* Get the clock */
-+static int emac_clks_get(struct platform_device *pdev,
-+			 struct emac_adapter *adpt)
-+{
-+	struct clk *clk;
-+	int i;
-+
-+	for (i = 0; i < EMAC_CLK_CNT; i++) {
-+		clk = clk_get(&pdev->dev, emac_clk_name[i]);
-+
-+		if (IS_ERR(clk)) {
-+			netdev_err(adpt->netdev, "error:%ld on clk_get(%s)\n",
-+				   PTR_ERR(clk), emac_clk_name[i]);
-+
-+			while (--i >= 0)
-+				if (adpt->clk[i]) {
-+					clk_put(adpt->clk[i]);
-+					adpt->clk[i] = NULL;
-+				}
-+			return PTR_ERR(clk);
-+		}
-+
-+		adpt->clk[i] = clk;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Initialize clocks */
-+static int emac_clks_phase1_init(struct emac_adapter *adpt)
-+{
-+	int ret;
-+
-+	ret = clk_prepare_enable(adpt->clk[EMAC_CLK_AXI]);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_prepare_enable(adpt->clk[EMAC_CLK_CFG_AHB]);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_set_rate(adpt->clk[EMAC_CLK_HIGH_SPEED],
-+			   EMC_CLK_RATE_19_2MHZ);
-+	if (ret)
-+		return ret;
-+
-+	return clk_prepare_enable(adpt->clk[EMAC_CLK_HIGH_SPEED]);
-+}
-+
-+/* Enable clocks; needs emac_clks_phase1_init to be called before */
-+static int emac_clks_phase2_init(struct emac_adapter *adpt)
-+{
-+	int ret;
-+
-+	ret = clk_set_rate(adpt->clk[EMAC_CLK_TX], EMC_CLK_RATE_125MHZ);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_prepare_enable(adpt->clk[EMAC_CLK_TX]);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_set_rate(adpt->clk[EMAC_CLK_HIGH_SPEED], EMC_CLK_RATE_125MHZ);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_set_rate(adpt->clk[EMAC_CLK_MDIO], EMC_CLK_RATE_25MHZ);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_prepare_enable(adpt->clk[EMAC_CLK_MDIO]);
-+	if (ret)
-+		return ret;
-+
-+	ret = clk_prepare_enable(adpt->clk[EMAC_CLK_RX]);
-+	if (ret)
-+		return ret;
-+
-+	return clk_prepare_enable(adpt->clk[EMAC_CLK_SYS]);
-+}
-+
-+static void emac_clks_phase1_teardown(struct emac_adapter *adpt)
-+{
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_AXI]);
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_CFG_AHB]);
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_HIGH_SPEED]);
-+}
-+
-+static void emac_clks_phase2_teardown(struct emac_adapter *adpt)
-+{
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_TX]);
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_MDIO]);
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_RX]);
-+	clk_disable_unprepare(adpt->clk[EMAC_CLK_SYS]);
-+}
-+
-+/* Get the resources */
-+static int emac_probe_resources(struct platform_device *pdev,
-+				struct emac_adapter *adpt)
-+{
-+	struct net_device *netdev = adpt->netdev;
-+	struct device_node *node = pdev->dev.of_node;
-+	struct resource *res;
-+	const void *maddr;
-+	int ret = 0;
-+	int i;
-+
-+	if (!node)
-+		return -ENODEV;
-+
-+	/* get id */
-+	ret = of_property_read_u32(node, "cell-index", &pdev->id);
-+	if (ret)
-+		return ret;
-+
-+	/* get time stamp enable flag */
-+	adpt->timestamp_en = of_property_read_bool(node, "qcom,emac-tstamp-en");
-+
-+	/* get gpios */
-+	for (i = 0; adpt->phy.uses_gpios && i < EMAC_GPIO_CNT; i++) {
-+		ret = of_get_named_gpio(node, emac_gpio_name[i], 0);
-+		if (ret < 0)
-+			return ret;
-+
-+		adpt->gpio[i] = ret;
-+	}
-+
-+	/* get mac address */
-+	maddr = of_get_mac_address(node);
-+	if (!maddr)
-+		return -ENODEV;
-+
-+	memcpy(adpt->mac_perm_addr, maddr, netdev->addr_len);
-+
-+	ret = platform_get_irq_byname(pdev, EMAC_MAC_IRQ_RES);
-+	if (ret < 0) {
-+		netdev_err(adpt->netdev,
-+			   "error: missing %s resource\n", EMAC_MAC_IRQ_RES);
-+		return ret;
-+	}
-+	adpt->irq.irq = ret;
-+
-+	ret = emac_clks_get(pdev, adpt);
-+	if (ret)
-+		return ret;
-+
-+	/* get register addresses */
-+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
-+	if (!res) {
-+		netdev_err(adpt->netdev, "error: missing 'base' resource\n");
-+		ret = -ENXIO;
-+		goto err_reg_res;
-+	}
-+
-+	adpt->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (!adpt->base) {
-+		ret = -ENOMEM;
-+		goto err_reg_res;
-+	}
-+
-+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "csr");
-+	if (!res) {
-+		netdev_err(adpt->netdev, "error: missing 'csr' resource\n");
-+		ret = -ENXIO;
-+		goto err_reg_res;
-+	}
-+
-+	adpt->csr = devm_ioremap_resource(&pdev->dev, res);
-+	if (!adpt->csr) {
-+		ret = -ENOMEM;
-+		goto err_reg_res;
-+	}
-+
-+	netdev->base_addr = (unsigned long)adpt->base;
-+	return 0;
-+
-+err_reg_res:
-+	for (i = 0; i < EMAC_CLK_CNT; i++) {
-+		if (adpt->clk[i]) {
-+			clk_put(adpt->clk[i]);
-+			adpt->clk[i] = NULL;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-+/* Release resources */
-+static void emac_release_resources(struct emac_adapter *adpt)
-+{
-+	int i;
-+
-+	for (i = 0; i < EMAC_CLK_CNT; i++)
-+		if (adpt->clk[i]) {
-+			clk_put(adpt->clk[i]);
-+			adpt->clk[i] = NULL;
-+		}
-+}
-+
-+/* Probe function */
-+static int emac_probe(struct platform_device *pdev)
-+{
-+	struct net_device *netdev;
-+	struct emac_adapter *adpt;
-+	struct emac_phy *phy;
-+	int ret = 0;
-+	u32 hw_ver;
-+	u32 extended_irq_mask = emac_irq_use_extended ? IMR_EXTENDED_MASK :
-+							IMR_NORMAL_MASK;
-+
-+	netdev = alloc_etherdev(sizeof(struct emac_adapter));
-+	if (!netdev)
-+		return -ENOMEM;
-+
-+	dev_set_drvdata(&pdev->dev, netdev);
-+	SET_NETDEV_DEV(netdev, &pdev->dev);
-+
-+	adpt = netdev_priv(netdev);
-+	adpt->netdev = netdev;
-+	phy = &adpt->phy;
-+	adpt->msg_enable = netif_msg_init(debug, EMAC_MSG_DEFAULT);
-+
-+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-+
-+	dma_set_max_seg_size(&pdev->dev, 65536);
-+	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
-+
-+	adpt->irq.mask = RX_PKT_INT0 | extended_irq_mask;
-+
-+	ret = emac_probe_resources(pdev, adpt);
-+	if (ret)
-+		goto err_undo_netdev;
-+
-+	/* initialize clocks */
-+	ret = emac_clks_phase1_init(adpt);
-+	if (ret)
-+		goto err_undo_resources;
-+
-+	hw_ver = readl_relaxed(adpt->base + EMAC_CORE_HW_VERSION);
-+
-+	netdev->watchdog_timeo = EMAC_WATCHDOG_TIME;
-+	netdev->irq = adpt->irq.irq;
-+
-+	if (adpt->timestamp_en)
-+		adpt->rrd_size = EMAC_TS_RRD_SIZE;
-+	else
-+		adpt->rrd_size = EMAC_RRD_SIZE;
-+
-+	adpt->tpd_size = EMAC_TPD_SIZE;
-+	adpt->rfd_size = EMAC_RFD_SIZE;
-+
-+	/* init netdev */
-+	netdev->netdev_ops = &emac_netdev_ops;
-+
-+	/* init adapter */
-+	emac_init_adapter(adpt);
-+
-+	/* init phy */
-+	ret = emac_phy_config(pdev, adpt);
-+	if (ret)
-+		goto err_undo_clk_phase1;
-+
-+	/* enable clocks */
-+	ret = emac_clks_phase2_init(adpt);
-+	if (ret)
-+		goto err_undo_clk_phase1;
-+
-+	/* init external phy */
-+	ret = emac_phy_external_init(adpt);
-+	if (ret)
-+		goto err_undo_clk_phase2;
-+
-+	/* reset mac */
-+	emac_mac_reset(adpt);
-+
-+	/* setup link to put it in a known good starting state */
-+	ret = emac_phy_link_setup(adpt, phy->autoneg_advertised, true,
-+				  !phy->disable_fc_autoneg);
-+	if (ret)
-+		goto err_undo_clk_phase2;
-+
-+	/* set mac address */
-+	memcpy(adpt->mac_addr, adpt->mac_perm_addr, netdev->addr_len);
-+	memcpy(netdev->dev_addr, adpt->mac_addr, netdev->addr_len);
-+	emac_mac_addr_clear(adpt, adpt->mac_addr);
-+
-+	/* set hw features */
-+	netdev->features = NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
-+			NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_RX |
-+			NETIF_F_HW_VLAN_CTAG_TX;
-+	netdev->hw_features = netdev->features;
-+
-+	netdev->vlan_features |= NETIF_F_SG | NETIF_F_HW_CSUM |
-+				 NETIF_F_TSO | NETIF_F_TSO6;
-+
-+	setup_timer(&adpt->timers, &emac_timer_thread,
-+		    (unsigned long)adpt);
-+	INIT_WORK(&adpt->work_thread, emac_work_thread);
-+
-+	/* Initialize queues */
-+	emac_mac_rx_tx_ring_init_all(pdev, adpt);
-+
-+	netif_napi_add(netdev, &adpt->rx_q.napi, emac_napi_rtx, 64);
-+
-+	spin_lock_init(&adpt->tx_ts_lock);
-+	skb_queue_head_init(&adpt->tx_ts_pending_queue);
-+	skb_queue_head_init(&adpt->tx_ts_ready_queue);
-+	INIT_WORK(&adpt->tx_ts_task, emac_mac_tx_ts_periodic_routine);
-+
-+	set_bit(EMAC_STATUS_VLANSTRIP_EN, &adpt->status);
-+	set_bit(EMAC_STATUS_DOWN, &adpt->status);
-+	strlcpy(netdev->name, "eth%d", sizeof(netdev->name));
-+
-+	ret = register_netdev(netdev);
-+	if (ret)
-+		goto err_undo_clk_phase2;
-+
-+	dev_info(&pdev->dev, "%s - version %s\n", emac_drv_description,
-+		 emac_drv_version);
-+	netif_dbg(adpt, probe, adpt->netdev, "EMAC HW ID %d.%d\n", adpt->devid,
-+		  adpt->revid);
-+	netif_dbg(adpt, probe, adpt->netdev, "EMAC HW version %d.%d.%d\n",
-+		  (hw_ver & MAJOR_BMSK) >> MAJOR_SHFT,
-+		  (hw_ver & MINOR_BMSK) >> MINOR_SHFT,
-+		  (hw_ver & STEP_BMSK)  >> STEP_SHFT);
-+
-+	return 0;
-+
-+err_undo_clk_phase2:
-+	emac_clks_phase2_teardown(adpt);
-+err_undo_clk_phase1:
-+	emac_clks_phase1_teardown(adpt);
-+err_undo_resources:
-+	emac_release_resources(adpt);
-+err_undo_netdev:
-+	free_netdev(netdev);
-+
-+	return ret;
-+}
-+
-+static int emac_remove(struct platform_device *pdev)
-+{
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	dev_dbg(&pdev->dev, "removing %s\n", emac_drv_name);
-+
-+	unregister_netdev(netdev);
-+	emac_clks_phase2_teardown(adpt);
-+	emac_clks_phase1_teardown(adpt);
-+	emac_release_resources(adpt);
-+	free_netdev(netdev);
-+	dev_set_drvdata(&pdev->dev, NULL);
-+
-+	return 0;
-+}
-+
-+static const struct dev_pm_ops emac_pm_ops = {
-+	SET_SYSTEM_SLEEP_PM_OPS(
-+		emac_suspend,
-+		emac_resume
-+	)
-+	SET_RUNTIME_PM_OPS(
-+		emac_runtime_suspend,
-+		NULL,
-+		emac_runtime_idle
-+	)
-+};
-+
-+static const struct of_device_id emac_dt_match[] = {
-+	{
-+		.compatible = "qcom,emac",
-+	},
-+	{}
-+};
-+
-+static struct platform_driver emac_platform_driver = {
-+	.probe	= emac_probe,
-+	.remove	= emac_remove,
-+	.driver = {
-+		.owner		= THIS_MODULE,
-+		.name		= emac_drv_name,
-+		.pm		= &emac_pm_ops,
-+		.of_match_table = emac_dt_match,
-+	},
-+};
-+
-+module_platform_driver(emac_platform_driver);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_ALIAS("platform:qcom-emac");
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
-new file mode 100644
-index 0000000..9982617
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.h
-@@ -0,0 +1,388 @@
-+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _EMAC_H_
-+#define _EMAC_H_
-+
-+#include <asm/byteorder.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/clk.h>
-+#include <linux/platform_device.h>
-+#include "emac-mac.h"
-+#include "emac-phy.h"
-+
-+/* EMAC base register offsets */
-+#define EMAC_DMA_MAS_CTRL                                     0x001400
-+#define EMAC_IRQ_MOD_TIM_INIT                                 0x001408
-+#define EMAC_BLK_IDLE_STS                                     0x00140c
-+#define EMAC_PHY_LINK_DELAY                                   0x00141c
-+#define EMAC_SYS_ALIV_CTRL                                    0x001434
-+#define EMAC_MAC_IPGIFG_CTRL                                  0x001484
-+#define EMAC_MAC_STA_ADDR0                                    0x001488
-+#define EMAC_MAC_STA_ADDR1                                    0x00148c
-+#define EMAC_HASH_TAB_REG0                                    0x001490
-+#define EMAC_HASH_TAB_REG1                                    0x001494
-+#define EMAC_MAC_HALF_DPLX_CTRL                               0x001498
-+#define EMAC_MAX_FRAM_LEN_CTRL                                0x00149c
-+#define EMAC_INT_STATUS                                       0x001600
-+#define EMAC_INT_MASK                                         0x001604
-+#define EMAC_RXMAC_STATC_REG0                                 0x001700
-+#define EMAC_RXMAC_STATC_REG22                                0x001758
-+#define EMAC_TXMAC_STATC_REG0                                 0x001760
-+#define EMAC_TXMAC_STATC_REG24                                0x0017c0
-+#define EMAC_CORE_HW_VERSION                                  0x001974
-+#define EMAC_IDT_TABLE0                                       0x001b00
-+#define EMAC_RXMAC_STATC_REG23                                0x001bc8
-+#define EMAC_RXMAC_STATC_REG24                                0x001bcc
-+#define EMAC_TXMAC_STATC_REG25                                0x001bd0
-+#define EMAC_INT1_MASK                                        0x001bf0
-+#define EMAC_INT1_STATUS                                      0x001bf4
-+#define EMAC_INT2_MASK                                        0x001bf8
-+#define EMAC_INT2_STATUS                                      0x001bfc
-+#define EMAC_INT3_MASK                                        0x001c00
-+#define EMAC_INT3_STATUS                                      0x001c04
-+
-+/* EMAC_DMA_MAS_CTRL */
-+#define DEV_ID_NUM_BMSK                                     0x7f000000
-+#define DEV_ID_NUM_SHFT                                             24
-+#define DEV_REV_NUM_BMSK                                      0xff0000
-+#define DEV_REV_NUM_SHFT                                            16
-+#define INT_RD_CLR_EN                                           0x4000
-+#define IRQ_MODERATOR2_EN                                        0x800
-+#define IRQ_MODERATOR_EN                                         0x400
-+#define LPW_CLK_SEL                                               0x80
-+#define LPW_STATE                                                 0x20
-+#define LPW_MODE                                                  0x10
-+#define SOFT_RST                                                   0x1
-+
-+/* EMAC_IRQ_MOD_TIM_INIT */
-+#define IRQ_MODERATOR2_INIT_BMSK                            0xffff0000
-+#define IRQ_MODERATOR2_INIT_SHFT                                    16
-+#define IRQ_MODERATOR_INIT_BMSK                                 0xffff
-+#define IRQ_MODERATOR_INIT_SHFT                                      0
-+
-+/* EMAC_INT_STATUS */
-+#define DIS_INT                                                BIT(31)
-+#define PTP_INT                                                BIT(30)
-+#define RFD4_UR_INT                                            BIT(29)
-+#define TX_PKT_INT3                                            BIT(26)
-+#define TX_PKT_INT2                                            BIT(25)
-+#define TX_PKT_INT1                                            BIT(24)
-+#define RX_PKT_INT3                                            BIT(19)
-+#define RX_PKT_INT2                                            BIT(18)
-+#define RX_PKT_INT1                                            BIT(17)
-+#define RX_PKT_INT0                                            BIT(16)
-+#define TX_PKT_INT                                             BIT(15)
-+#define TXQ_TO_INT                                             BIT(14)
-+#define GPHY_WAKEUP_INT                                        BIT(13)
-+#define GPHY_LINK_DOWN_INT                                     BIT(12)
-+#define GPHY_LINK_UP_INT                                       BIT(11)
-+#define DMAW_TO_INT                                            BIT(10)
-+#define DMAR_TO_INT                                             BIT(9)
-+#define TXF_UR_INT                                              BIT(8)
-+#define RFD3_UR_INT                                             BIT(7)
-+#define RFD2_UR_INT                                             BIT(6)
-+#define RFD1_UR_INT                                             BIT(5)
-+#define RFD0_UR_INT                                             BIT(4)
-+#define RXF_OF_INT                                              BIT(3)
-+#define SW_MAN_INT                                              BIT(2)
-+
-+/* EMAC_MAILBOX_6 */
-+#define RFD2_PROC_IDX_BMSK                                   0xfff0000
-+#define RFD2_PROC_IDX_SHFT                                          16
-+#define RFD2_PROD_IDX_BMSK                                       0xfff
-+#define RFD2_PROD_IDX_SHFT                                           0
-+
-+/* EMAC_CORE_HW_VERSION */
-+#define MAJOR_BMSK                                          0xf0000000
-+#define MAJOR_SHFT                                                  28
-+#define MINOR_BMSK                                           0xfff0000
-+#define MINOR_SHFT                                                  16
-+#define STEP_BMSK                                               0xffff
-+#define STEP_SHFT                                                    0
-+
-+/* EMAC_EMAC_WRAPPER_CSR1 */
-+#define TX_INDX_FIFO_SYNC_RST                                  BIT(23)
-+#define TX_TS_FIFO_SYNC_RST                                    BIT(22)
-+#define RX_TS_FIFO2_SYNC_RST                                   BIT(21)
-+#define RX_TS_FIFO1_SYNC_RST                                   BIT(20)
-+#define TX_TS_ENABLE                                           BIT(16)
-+#define DIS_1588_CLKS                                          BIT(11)
-+#define FREQ_MODE                                               BIT(9)
-+#define ENABLE_RRD_TIMESTAMP                                    BIT(3)
-+
-+/* EMAC_EMAC_WRAPPER_CSR2 */
-+#define HDRIVE_BMSK                                             0x3000
-+#define HDRIVE_SHFT                                                 12
-+#define SLB_EN                                                  BIT(9)
-+#define PLB_EN                                                  BIT(8)
-+#define WOL_EN                                                  BIT(3)
-+#define PHY_RESET                                               BIT(0)
-+
-+#define EMAC_DEV_ID                                             0x0040
-+
-+/* mdio/mdc gpios */
-+#define EMAC_GPIO_CNT                                                2
-+
-+enum emac_clk_id {
-+	EMAC_CLK_AXI,
-+	EMAC_CLK_CFG_AHB,
-+	EMAC_CLK_HIGH_SPEED,
-+	EMAC_CLK_MDIO,
-+	EMAC_CLK_TX,
-+	EMAC_CLK_RX,
-+	EMAC_CLK_SYS,
-+	EMAC_CLK_CNT
-+};
-+
-+#define KHz(RATE)	((RATE)    * 1000)
-+#define MHz(RATE)	(KHz(RATE) * 1000)
-+
-+enum emac_clk_rate {
-+	EMC_CLK_RATE_2_5MHZ	= KHz(2500),
-+	EMC_CLK_RATE_19_2MHZ	= KHz(19200),
-+	EMC_CLK_RATE_25MHZ	= MHz(25),
-+	EMC_CLK_RATE_125MHZ	= MHz(125),
-+};
-+
-+#define EMAC_LINK_SPEED_UNKNOWN                                    0x0
-+#define EMAC_LINK_SPEED_10_HALF                                 BIT(0)
-+#define EMAC_LINK_SPEED_10_FULL                                 BIT(1)
-+#define EMAC_LINK_SPEED_100_HALF                                BIT(2)
-+#define EMAC_LINK_SPEED_100_FULL                                BIT(3)
-+#define EMAC_LINK_SPEED_1GB_FULL                                BIT(5)
-+
-+#define EMAC_MAX_SETUP_LNK_CYCLE                                   100
-+
-+/* Wake On Lan */
-+#define EMAC_WOL_PHY                     0x00000001 /* PHY Status Change */
-+#define EMAC_WOL_MAGIC                   0x00000002 /* Magic Packet */
-+
-+struct emac_stats {
-+	/* rx */
-+	u64 rx_ok;              /* good packets */
-+	u64 rx_bcast;           /* good broadcast packets */
-+	u64 rx_mcast;           /* good multicast packets */
-+	u64 rx_pause;           /* pause packet */
-+	u64 rx_ctrl;            /* control packets other than pause frame. */
-+	u64 rx_fcs_err;         /* packets with bad FCS. */
-+	u64 rx_len_err;         /* packets with length mismatch */
-+	u64 rx_byte_cnt;        /* good bytes count (without FCS) */
-+	u64 rx_runt;            /* runt packets */
-+	u64 rx_frag;            /* fragment count */
-+	u64 rx_sz_64;	        /* packets that are 64 bytes */
-+	u64 rx_sz_65_127;       /* packets that are 65-127 bytes */
-+	u64 rx_sz_128_255;      /* packets that are 128-255 bytes */
-+	u64 rx_sz_256_511;      /* packets that are 256-511 bytes */
-+	u64 rx_sz_512_1023;     /* packets that are 512-1023 bytes */
-+	u64 rx_sz_1024_1518;    /* packets that are 1024-1518 bytes */
-+	u64 rx_sz_1519_max;     /* packets that are 1519-MTU bytes*/
-+	u64 rx_sz_ov;           /* packets that are >MTU bytes (truncated) */
-+	u64 rx_rxf_ov;          /* packets dropped due to RX FIFO overflow */
-+	u64 rx_align_err;       /* alignment errors */
-+	u64 rx_bcast_byte_cnt;  /* broadcast packets byte count (without FCS) */
-+	u64 rx_mcast_byte_cnt;  /* multicast packets byte count (without FCS) */
-+	u64 rx_err_addr;        /* packets dropped due to address filtering */
-+	u64 rx_crc_align;       /* CRC align errors */
-+	u64 rx_jubbers;         /* jubbers */
-+
-+	/* tx */
-+	u64 tx_ok;              /* good packets */
-+	u64 tx_bcast;           /* good broadcast packets */
-+	u64 tx_mcast;           /* good multicast packets */
-+	u64 tx_pause;           /* pause packets */
-+	u64 tx_exc_defer;       /* packets with excessive deferral */
-+	u64 tx_ctrl;            /* control packets other than pause frame */
-+	u64 tx_defer;           /* packets that are deferred. */
-+	u64 tx_byte_cnt;        /* good bytes count (without FCS) */
-+	u64 tx_sz_64;           /* packets that are 64 bytes */
-+	u64 tx_sz_65_127;       /* packets that are 65-127 bytes */
-+	u64 tx_sz_128_255;      /* packets that are 128-255 bytes */
-+	u64 tx_sz_256_511;      /* packets that are 256-511 bytes */
-+	u64 tx_sz_512_1023;     /* packets that are 512-1023 bytes */
-+	u64 tx_sz_1024_1518;    /* packets that are 1024-1518 bytes */
-+	u64 tx_sz_1519_max;     /* packets that are 1519-MTU bytes */
-+	u64 tx_1_col;           /* packets single prior collision */
-+	u64 tx_2_col;           /* packets with multiple prior collisions */
-+	u64 tx_late_col;        /* packets with late collisions */
-+	u64 tx_abort_col;       /* packets aborted due to excess collisions */
-+	u64 tx_underrun;        /* packets aborted due to FIFO underrun */
-+	u64 tx_rd_eop;          /* count of reads beyond EOP */
-+	u64 tx_len_err;         /* packets with length mismatch */
-+	u64 tx_trunc;           /* packets truncated due to size >MTU */
-+	u64 tx_bcast_byte;      /* broadcast packets byte count (without FCS) */
-+	u64 tx_mcast_byte;      /* multicast packets byte count (without FCS) */
-+	u64 tx_col;             /* collisions */
-+};
-+
-+enum emac_status_bits {
-+	EMAC_STATUS_PROMISC_EN,
-+	EMAC_STATUS_VLANSTRIP_EN,
-+	EMAC_STATUS_MULTIALL_EN,
-+	EMAC_STATUS_LOOPBACK_EN,
-+	EMAC_STATUS_TS_RX_EN,
-+	EMAC_STATUS_TS_TX_EN,
-+	EMAC_STATUS_RESETTING,
-+	EMAC_STATUS_DOWN,
-+	EMAC_STATUS_WATCH_DOG,
-+	EMAC_STATUS_TASK_REINIT_REQ,
-+	EMAC_STATUS_TASK_LSC_REQ,
-+	EMAC_STATUS_TASK_CHK_SGMII_REQ,
-+};
-+
-+/* RSS hstype Definitions */
-+#define EMAC_RSS_HSTYP_IPV4_EN				    0x00000001
-+#define EMAC_RSS_HSTYP_TCP4_EN				    0x00000002
-+#define EMAC_RSS_HSTYP_IPV6_EN				    0x00000004
-+#define EMAC_RSS_HSTYP_TCP6_EN				    0x00000008
-+#define EMAC_RSS_HSTYP_ALL_EN (\
-+		EMAC_RSS_HSTYP_IPV4_EN   |\
-+		EMAC_RSS_HSTYP_TCP4_EN   |\
-+		EMAC_RSS_HSTYP_IPV6_EN   |\
-+		EMAC_RSS_HSTYP_TCP6_EN)
-+
-+#define EMAC_VLAN_TO_TAG(_vlan, _tag) \
-+		(_tag =  ((((_vlan) >> 8) & 0xFF) | (((_vlan) & 0xFF) << 8)))
-+
-+#define EMAC_TAG_TO_VLAN(_tag, _vlan) \
-+		(_vlan = ((((_tag) >> 8) & 0xFF) | (((_tag) & 0xFF) << 8)))
-+
-+#define EMAC_DEF_RX_BUF_SIZE					  1536
-+#define EMAC_MAX_JUMBO_PKT_SIZE				    (9 * 1024)
-+#define EMAC_MAX_TX_OFFLOAD_THRESH			    (9 * 1024)
-+
-+#define EMAC_MAX_ETH_FRAME_SIZE		       EMAC_MAX_JUMBO_PKT_SIZE
-+#define EMAC_MIN_ETH_FRAME_SIZE					    68
-+
-+#define EMAC_DEF_TX_QUEUES					     1
-+#define EMAC_DEF_RX_QUEUES					     1
-+
-+#define EMAC_MIN_TX_DESCS					   128
-+#define EMAC_MIN_RX_DESCS					   128
-+
-+#define EMAC_MAX_TX_DESCS					 16383
-+#define EMAC_MAX_RX_DESCS					  2047
-+
-+#define EMAC_DEF_TX_DESCS					   512
-+#define EMAC_DEF_RX_DESCS					   256
-+
-+#define EMAC_DEF_RX_IRQ_MOD					   250
-+#define EMAC_DEF_TX_IRQ_MOD					   250
-+
-+#define EMAC_WATCHDOG_TIME				      (5 * HZ)
-+
-+/* by default check link every 4 seconds */
-+#define EMAC_TRY_LINK_TIMEOUT				      (4 * HZ)
-+
-+/* emac_irq per-device (per-adapter) irq properties.
-+ * @idx:	index of this irq entry in the adapter irq array.
-+ * @irq:	irq number.
-+ * @mask	mask to use over status register.
-+ */
-+struct emac_irq {
-+	int		idx;
-+	unsigned int	irq;
-+	u32		mask;
-+};
-+
-+/* emac_irq_config irq properties which are common to all devices of this driver
-+ * @name	name in configuration (devicetree).
-+ * @handler	ISR.
-+ * @status_reg	status register offset.
-+ * @mask_reg	mask   register offset.
-+ * @init_mask	initial value for mask to use over status register.
-+ * @irqflags	request_irq() flags.
-+ */
-+struct emac_irq_config {
-+	char		*name;
-+	irq_handler_t	handler;
-+
-+	u32		status_reg;
-+	u32		mask_reg;
-+	u32		init_mask;
-+
-+	unsigned long	irqflags;
-+};
-+
-+/* The device's main data structure */
-+struct emac_adapter {
-+	struct net_device		*netdev;
-+
-+	void __iomem			*base;
-+	void __iomem			*csr;
-+
-+	struct emac_phy			phy;
-+	struct emac_stats		stats;
-+
-+	struct emac_irq			irq;
-+	unsigned int			gpio[EMAC_GPIO_CNT];
-+	struct clk			*clk[EMAC_CLK_CNT];
-+
-+	/* All Descriptor memory */
-+	struct emac_ring_header		ring_header;
-+	struct emac_tx_queue		tx_q;
-+	struct emac_rx_queue		rx_q;
-+	unsigned int			tx_desc_cnt;
-+	unsigned int			rx_desc_cnt;
-+	unsigned int			rrd_size; /* in quad words */
-+	unsigned int			rfd_size; /* in quad words */
-+	unsigned int			tpd_size; /* in quad words */
-+
-+	unsigned int			rxbuf_size;
-+
-+	u16				devid;
-+	u16				revid;
-+
-+	/* Ring parameter */
-+	u8				tpd_burst;
-+	u8				rfd_burst;
-+	unsigned int			dmaw_dly_cnt;
-+	unsigned int			dmar_dly_cnt;
-+	enum emac_dma_req_block		dmar_block;
-+	enum emac_dma_req_block		dmaw_block;
-+	enum emac_dma_order		dma_order;
-+
-+	/* MAC parameter */
-+	u8				mac_addr[ETH_ALEN];
-+	u8				mac_perm_addr[ETH_ALEN];
-+	u32				mtu;
-+
-+	u32				irq_mod;
-+	u32				preamble;
-+
-+	/* Tx time-stamping queue */
-+	struct sk_buff_head		tx_ts_pending_queue;
-+	struct sk_buff_head		tx_ts_ready_queue;
-+	struct work_struct		tx_ts_task;
-+	spinlock_t			tx_ts_lock; /* Tx timestamp que lock */
-+	struct emac_tx_ts_stats		tx_ts_stats;
-+
-+	struct work_struct		work_thread;
-+	struct timer_list		timers;
-+	unsigned long			link_chk_timeout;
-+
-+	bool				timestamp_en;
-+	u16				msg_enable;
-+	unsigned long			status;
-+};
-+
-+void emac_reinit_locked(struct emac_adapter *adpt);
-+void emac_work_thread_reschedule(struct emac_adapter *adpt);
-+void emac_lsc_schedule_check(struct emac_adapter *adpt);
-+void emac_rx_mode_set(struct net_device *netdev);
-+void emac_reg_update32(void __iomem *addr, u32 mask, u32 val);
-+irqreturn_t emac_isr(int irq, void *data);
-+
-+extern const char * const emac_gpio_name[];
-+
-+#endif /* _EMAC_H_ */
--- 
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-hosted by The Linux Foundation
+--fUYQa+Pmc3FrFX/N
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+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
+RZw5BgOGL+ABs3sSiqxtZ372f2RyMKZkGwMA
+
+--fUYQa+Pmc3FrFX/N--
