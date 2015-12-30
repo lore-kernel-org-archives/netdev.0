@@ -1,44 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] sctp: use transport hashtable to replace
- association's with rhashtable
-Date: Wed, 30 Dec 2015 15:40:14 -0500 (EST)
-Message-ID: <20151230.154014.1155079588447705262.davem@davemloft.net>
-References: <1451495979.8255.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20151230.125204.1385006803109278855.davem@davemloft.net>
-	<1451502223.8255.45.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 05/12] net: sched: per cpu gso handlers
+Date: Wed, 30 Dec 2015 12:42:09 -0800
+Message-ID: <568441A1.2030302@gmail.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>	<20151230175249.26257.99.stgit@john-Precision-Tower-5810> <20151230212633.23fc9b7c@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, mleitner@redhat.com,
-	vyasevic@redhat.com, daniel@iogearbox.net
-To: eric.dumazet@gmail.com
+Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
+	aduyck@mirantis.com, davem@davemloft.net,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39295 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755063AbbL3UkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 15:40:18 -0500
-In-Reply-To: <1451502223.8255.45.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:32831 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753983AbbL3UmX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 15:42:23 -0500
+Received: by mail-pa0-f42.google.com with SMTP id cy9so142757508pac.0
+        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 12:42:23 -0800 (PST)
+In-Reply-To: <20151230212633.23fc9b7c@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Dec 2015 14:03:43 -0500
+On 15-12-30 12:26 PM, Jesper Dangaard Brouer wrote:
+> On Wed, 30 Dec 2015 09:52:49 -0800
+> John Fastabend <john.fastabend@gmail.com> wrote:
+> 
+>> The net sched infrastructure has a gso ptr that points to skb structs
+>> that have failed to be enqueued by the device driver.
+> 
+> What about fixing up the naming "gso" to something else like "requeue",
+> in the process (or by an pre-patch) ?
 
-> You sure can disagree with me, but calling my opinion 'incredily
-> stupid' is not wise.
+Sure I'll throw a patch in front of this to rename it.
 
-I think fundamentally giving facilities less rather than more coverage
-is not a smart approach at all.
+> 
+> 
+>> This can happen when multiple cores try to push a skb onto the same
+>> underlying hardware queue resulting in lock contention. This case is
+>> handled by a cpu collision handler handle_dev_cpu_collision(). Another
+>> case occurs when the stack overruns the drivers low level tx queues
+>> capacity. Ideally these should be a rare occurrence in a well-tuned
+>> system but they do happen.
+>>
+>> To handle this in the lockless case use a per cpu gso field to park
+>> the skb until the conflict can be resolved. Note at this point the
+>> skb has already been popped off the qdisc so it has to be handled
+>> by the infrastructure.
+> 
+> I generally like this idea of resolving this per cpu.  (I stalled here,
+> on the requeue issue, last time I implemented a lockless qdisc
+> approach).
+> 
 
-If the code is that bad that people are discouraged from even using
-it, then it should be moved to drivers/staging or removed.  Otherwise
-it must work and we must be able to make use of it.
+Great, this approach seems to work OK.
 
-> I understand we would love to do that, but what is the hurry for
-> SCTP, that needed rhashtable so desperately that it could not be
-> done before 2016 ?
+On another note even if we only get a single skb dequeued at a time in
+the initial implementation this is still a win as soon as we start
+running classifiers/actions. Even if doing simple pfifo_fast sans
+classifiers raw throughput net gain is minimal.
 
-There is no rush, but quite frankly finding people to do serious
-work on SCTP is no easy task so I'm hesitant to "defer" someone's
-work in this area... :-)
+.John
