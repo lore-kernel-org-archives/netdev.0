@@ -1,77 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 8/8] ixgbe: Fix bugs in ixgbe_clear_vf_vlans()
-Date: Tue, 29 Dec 2015 19:23:29 -0800
-Message-ID: <1451445809-70497-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 5/8] ixgbe: Clean up redundancy in hw_enc_features
+Date: Tue, 29 Dec 2015 19:23:26 -0800
+Message-ID: <1451445809-70497-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:27320 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754070AbbL3DXg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 22:23:36 -0500
+	id S1754040AbbL3DXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 22:23:35 -0500
 In-Reply-To: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-When I had rewritten the code for ixgbe_clear_vf_vlans() it looks like I
-had transitioned back and forth between using word as an offset and using
-word as a register offset.  As a result I honestly don't see how the code
-was working before other than the fact that resetting the VLANs on the VF
-like didn't do much to clear them.
+Clean up minor redundancy in the setting of hw_enc_features that
+makes it appears that X550 uniquely has more encapsulation features
+than other devices. The driver only supports one more feature, so
+make it look that way. No longer set NETIF_F_SG since that is set
+by the register_netdev call. Thanks to Alex Duyck for noticing this
+slight confusion.
 
-Another issue found is that the mask was using a divide instead of a
-modulus.  As a result the mask bit was incorrectly being set to either bit
-0 or 1 based on the value of the VF being tested.  As a result the wrong
-VFs were having their VLANs cleared if they were enabled.
-
-I have updated the code so that word represents the offset in the array.
-This way we can use the modulus and xor operations and they will make sense
-instead of being performed on a 4 byte aligned value.
-
-I replaced the statement "(word % 2) ^ 1" with "~word % 2" in order to
-reduce the line length as the line exceeded 80 characters with the register
-name inserted.  The two should be equivalent so the change should be safe.
-
-Reported-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Reported-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index eeff3d0..8025a3f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -593,11 +593,11 @@ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c5c0fb4..ea9537d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9015,8 +9015,7 @@ skip_sriov:
+ 	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
+ 	netdev->vlan_features |= NETIF_F_SG;
  
- 	/* post increment loop, covers VLVF_ENTRIES - 1 to 0 */
- 	for (i = IXGBE_VLVF_ENTRIES; i--;) {
--		u32 word = IXGBE_VLVFB(i * 2 + vf / 32);
- 		u32 bits[2], vlvfb, vid, vfta, vlvf;
--		u32 mask = 1 << (vf / 32);
-+		u32 word = i * 2 + vf / 32;
-+		u32 mask = 1 << (vf % 32);
+-	netdev->hw_enc_features |= NETIF_F_SG | NETIF_F_IP_CSUM |
+-				   NETIF_F_IPV6_CSUM;
++	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
  
--		vlvfb = IXGBE_READ_REG(hw, word);
-+		vlvfb = IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
- 
- 		/* if our bit isn't set we can skip it */
- 		if (!(vlvfb & mask))
-@@ -608,7 +608,7 @@ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
- 
- 		/* create 64b mask to chedk to see if we should clear VLVF */
- 		bits[word % 2] = vlvfb;
--		bits[(word % 2) ^ 1] = IXGBE_READ_REG(hw, word ^ 1);
-+		bits[~word % 2] = IXGBE_READ_REG(hw, IXGBE_VLVFB(word ^ 1));
- 
- 		/* if promisc is enabled, PF will be present, leave VFTA */
- 		if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC) {
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+@@ -9025,9 +9024,7 @@ skip_sriov:
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_X550:
+ 	case ixgbe_mac_X550EM_x:
+-		netdev->hw_enc_features |= NETIF_F_RXCSUM |
+-					   NETIF_F_IP_CSUM |
+-					   NETIF_F_IPV6_CSUM;
++		netdev->hw_enc_features |= NETIF_F_RXCSUM;
+ 		break;
+ 	default:
+ 		break;
 -- 
 2.5.0
