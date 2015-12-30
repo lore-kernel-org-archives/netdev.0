@@ -1,47 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 3/8] ixgbe: add support for QSFP PHY types in ixgbe_get_settings()
-Date: Tue, 29 Dec 2015 19:23:24 -0800
-Message-ID: <1451445809-70497-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: 4.4-rc7 failure report
+Date: Tue, 29 Dec 2015 19:43:01 -0800
+Message-ID: <20151230034300.GA8670@ast-mbp.thefacebook.com>
+References: <5681AF69.4040204@redhat.com>
+ <5681B594.70304@iogearbox.net>
+ <5681E154.7040101@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:27547 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753916AbbL3DXe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 22:23:34 -0500
-In-Reply-To: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33962 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752664AbbL3DnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 22:43:05 -0500
+Received: by mail-pf0-f181.google.com with SMTP id e65so83297016pfe.1
+        for <netdev@vger.kernel.org>; Tue, 29 Dec 2015 19:43:04 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5681E154.7040101@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+On Mon, Dec 28, 2015 at 08:26:44PM -0500, Doug Ledford wrote:
+> On 12/28/2015 05:20 PM, Daniel Borkmann wrote:
+> > On 12/28/2015 10:53 PM, Doug Ledford wrote:
+> >> The 4.4-rc7 kernel is failing for me.  In my case, all of my vlan
+> >> interfaces are failing to obtain a dhcp address using dhclient.  I've
+> >> tried a hand built 4.4-rc7, and the Fedora rawhide 4.4-rc7 kernel, both
+> >> failed.  I've tried NetworkManager and the old SysV network service,
+> >> both fail.  I tried a working dhclient from rhel7 on the Fedora rawhide
+> >> install and it failed too.  Running tcpdump on the interface shows the
+> >> dhcp request going out, and a dhcp response coming back in.  Running
+> >> strace on dhclient shows that it writes the dhcp request, but it never
+> >> recvs a dhcp response.  If I manually bring the interface up with a
+> >> static IP address then I'm able to run typical IP traffic across the
+> >> link (aka, ping).  It would seem that when dhclient registers a packet
+> >> filter on the socket, that filter is preventing it from ever getting the
+> >> dhcp response.  The same dhclient works on any non-vlan interfaces in
+> >> the system, so the filter must work for non-vlan interfaces.  Aside from
+> >> the fact that the interface is a vlan, we also use a priority egress map
+> >> on the interface, and we use PFC flow control.  Let me know if you need
+> >> anymore to debug the issue, or email me off list and I can get you
+> >> logins to my reproducer machines.
+> > 
+> > When you say 4.4-rc7 kernel is failing for you, what latest kernel version
+> > was working, where the socket filter was properly receiving the response on
+> > your vlan iface?
+> 
+> v4.3 final works.  I haven't bisected where in the 4.4 series it quits
+> working.  I can do that tomorrow.
 
-Add missing QSFP PHY types to allow for more accurate reporting of
-port settings.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 1ed4c9a..e10d197 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -225,6 +225,10 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 	case ixgbe_phy_sfp_avago:
- 	case ixgbe_phy_sfp_intel:
- 	case ixgbe_phy_sfp_unknown:
-+	case ixgbe_phy_qsfp_passive_unknown:
-+	case ixgbe_phy_qsfp_active_unknown:
-+	case ixgbe_phy_qsfp_intel:
-+	case ixgbe_phy_qsfp_unknown:
- 		/* SFP+ devices, further checking needed */
- 		switch (adapter->hw.phy.sfp_type) {
- 		case ixgbe_sfp_type_da_cu:
--- 
-2.5.0
+I've tried to reproduce, but cannot seem to make dnsmasq work properly
+over vlan, so bisect would be great.
