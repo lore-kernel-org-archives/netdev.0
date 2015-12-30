@@ -1,42 +1,55 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] unix: properly account for FDs passed over unix sockets
-Date: Wed, 30 Dec 2015 12:23:17 +0100
-Message-ID: <20151230112317.GC14049@1wt.eu>
-References: <20151228141435.GA13351@1wt.eu> <56829D4D.4090109@stressinduktion.org> <20151229203527.GA13826@1wt.eu> <56839CC2.9080000@stressinduktion.org>
+From: Nicolai Stange <nicstange@gmail.com>
+Subject: Re: Linux 4.4-rc4 regression, bisected to "net: fix sock_wake_async() rcu protection"
+Date: Wed, 30 Dec 2015 12:32:07 +0100
+Message-ID: <8760zgnpe0.fsf@gmail.com>
+References: <CALCETrUHFDdfPymKfD2TJHL6w-C5dc675xuJfk=c=-twsPZqqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, socketpair@gmail.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Andy Lutomirski <luto@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56839CC2.9080000@stressinduktion.org>
+In-Reply-To: <CALCETrUHFDdfPymKfD2TJHL6w-C5dc675xuJfk=c=-twsPZqqA@mail.gmail.com>
+	(Andy Lutomirski's message of "Wed, 30 Dec 2015 03:18:11 -0800")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 30, 2015 at 09:58:42AM +0100, Hannes Frederic Sowa wrote:
-> The MSG_PEEK code should not be harmful and the patch is good as is. I 
-> first understood from the published private thread, that it is possible 
-> for a program to exceed the rlimit of fds. But the DoS is only by 
-> keeping the fds in flight and not attaching them to any program.
+Andy Lutomirski <luto@kernel.org> writes:
 
-Exactly. The real issue is when these FDs become very expensive such as
-pipes full of data.
+> On recent v4.4-rc releases, I can't run emacs.  No, really, running
+> "emacs" in a GNOME 3 session makes gnome-shell think that emacs is
+> running, but no window is drawn, and the overall system UI is a bit
+> weird when the invisible emacs window is focused.
+>
+> This is 100% reproducible.
+>
+> There might be other symptoms involving gdb malfunctioning, but those
+> are, at best, sporadic.  The emacs failure is entirely reliable.  I
+> have no idea what the underlying failure mode is, but failure to wake
+> a socket waiter seems plausible,  I also have no idea why oocalc,
+> gimp, vim, gedit, firefox, etc aren't affected.
+>
+> A somewhat unorthodox "git bisect" run blames:
+>
+> commit ceb5d58b217098a657f3850b7a2640f995032e62
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Sun Nov 29 20:03:11 2015 -0800
+>
+>     net: fix sock_wake_async() rcu protection
+>
+> I've confirmed that v4.4-rc7 with that patch reverted works fine.
+>
+> Since the offending commit was apparently a security fix, simply
+> reverting it might not be the best idea.
 
-> __alloc_fd, called on the receiver side, does check for the rlimit 
-> maximum anyway, so I don't see a loophole anymore:
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Please have a look at https://lkml.kernel.org/g/87ege73bma.fsf@gmail.com
 
-Thanks!
+I ran into the same issue and this one fixes it for me.
 
-> Another idea would be to add the amount of memory used to manage the fds 
-> to sock_rmem/wmem but I don't see any advantages or disadvantages.
+Best,
 
-Compared to the impact of the pending data in pipes themselves in flight,
-this would remain fairly minimal.
-
-Thanks,
-Willy
+Nicolai
