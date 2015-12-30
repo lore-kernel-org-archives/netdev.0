@@ -1,250 +1,221 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp global transport hashtable
-Date: Wed, 30 Dec 2015 23:50:46 +0800
-Message-ID: <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 2/5] sctp: apply rhashtable api to send/recv path
+Date: Wed, 30 Dec 2015 23:50:47 +0800
+Message-ID: <8d89800920719b527dbd6e36dbbcf3c0804fbd7c.1451490447.git.lucien.xin@gmail.com>
 References: <cover.1451490447.git.lucien.xin@gmail.com>
+ <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
 Cc: mleitner@redhat.com, vyasevic@redhat.com, daniel@iogearbox.net,
 	davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36749 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751184AbbL3PvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 10:51:03 -0500
-In-Reply-To: <cover.1451490447.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35926 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184AbbL3PvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 10:51:07 -0500
+In-Reply-To: <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1451490447.git.lucien.xin@gmail.com>
 References: <cover.1451490447.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tranport hashtbale will replace the association hashtable to do the
-lookup for transport, and then get association by t->assoc, rhashtable
-apis will be used because of it's resizable, scalable and using rcu.
-
-lport + rport + paddr will be the base hashkey to locate the chain,
-with net to protect one netns from another, then plus the laddr to
-compare to get the target.
-
-this patch will provider the lookup functions:
-- sctp_epaddr_lookup_transport
-- sctp_addrs_lookup_transport
-
-hash/unhash functions:
-- sctp_hash_transport
-- sctp_unhash_transport
-
-init/destroy functions:
-- sctp_transport_hashtable_init
-- sctp_transport_hashtable_destroy
+apply lookup apis to two functions, for __sctp_endpoint_lookup_assoc
+and __sctp_lookup_association, it's invoked in the protection of sock
+lock, it will be safe, but sctp_lookup_association need to call
+rcu_read_lock() and to detect the t->dead to protect it.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- include/net/sctp/sctp.h    |  11 ++++
- include/net/sctp/structs.h |   5 ++
- net/sctp/input.c           | 131 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 147 insertions(+)
+ net/sctp/associola.c   |  5 +++++
+ net/sctp/endpointola.c | 35 ++++++++---------------------------
+ net/sctp/input.c       | 39 ++++++++++-----------------------------
+ net/sctp/protocol.c    |  6 ++++++
+ 4 files changed, 29 insertions(+), 56 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index ce13cf2..7bbdfba 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -143,6 +143,17 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
- 				 struct sctp_transport *t);
- void sctp_backlog_migrate(struct sctp_association *assoc,
- 			  struct sock *oldsk, struct sock *newsk);
-+int sctp_transport_hashtable_init(void);
-+void sctp_transport_hashtable_destroy(void);
-+void sctp_hash_transport(struct sctp_transport *t);
-+void sctp_unhash_transport(struct sctp_transport *t);
-+struct sctp_transport *sctp_addrs_lookup_transport(
-+				struct net *net,
-+				const union sctp_addr *laddr,
-+				const union sctp_addr *paddr);
-+struct sctp_transport *sctp_epaddr_lookup_transport(
-+				const struct sctp_endpoint *ep,
-+				const union sctp_addr *paddr);
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 559afd0..2bf8ec9 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -383,6 +383,7 @@ void sctp_association_free(struct sctp_association *asoc)
+ 	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+ 		transport = list_entry(pos, struct sctp_transport, transports);
+ 		list_del_rcu(pos);
++		sctp_unhash_transport(transport);
+ 		sctp_transport_free(transport);
+ 	}
  
- /*
-  * sctp/proc.c
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index eea9bde..4ab87d0 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -48,6 +48,7 @@
- #define __sctp_structs_h__
+@@ -500,6 +501,8 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
  
- #include <linux/ktime.h>
-+#include <linux/rhashtable.h>
- #include <linux/socket.h>	/* linux/in.h needs this!!    */
- #include <linux/in.h>		/* We get struct sockaddr_in. */
- #include <linux/in6.h>		/* We get struct in6_addr     */
-@@ -123,6 +124,8 @@ extern struct sctp_globals {
- 	struct sctp_hashbucket *assoc_hashtable;
- 	/* This is the sctp port control hash.	*/
- 	struct sctp_bind_hashbucket *port_hashtable;
-+	/* This is the hash of all transports. */
-+	struct rhashtable transport_hashtable;
+ 	/* Remove this peer from the list. */
+ 	list_del_rcu(&peer->transports);
++	/* Remove this peer from the transport hashtable */
++	sctp_unhash_transport(peer);
  
- 	/* Sizes of above hashtables. */
- 	int ep_hashsize;
-@@ -147,6 +150,7 @@ extern struct sctp_globals {
- #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
- #define sctp_port_hashsize		(sctp_globals.port_hashsize)
- #define sctp_port_hashtable		(sctp_globals.port_hashtable)
-+#define sctp_transport_hashtable	(sctp_globals.transport_hashtable)
- #define sctp_checksum_disable		(sctp_globals.checksum_disable)
+ 	/* Get the first transport of asoc. */
+ 	pos = asoc->peer.transport_addr_list.next;
+@@ -699,6 +702,8 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+ 	/* Attach the remote transport to our asoc.  */
+ 	list_add_tail_rcu(&peer->transports, &asoc->peer.transport_addr_list);
+ 	asoc->peer.transport_count++;
++	/* Add this peer into the transport hashtable */
++	sctp_hash_transport(peer);
  
- /* SCTP Socket type: UDP or TCP style. */
-@@ -753,6 +757,7 @@ static inline int sctp_packet_empty(struct sctp_packet *packet)
- struct sctp_transport {
- 	/* A list of transports. */
- 	struct list_head transports;
-+	struct rhash_head node;
- 
- 	/* Reference counting. */
- 	atomic_t refcnt;
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index b6493b3..bac8278 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -782,6 +782,137 @@ hit:
- 	return ep;
+ 	/* If we do not yet have a primary path, set one.  */
+ 	if (!asoc->peer.primary_path) {
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 9da76ba..8838bf4 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -314,8 +314,8 @@ struct sctp_endpoint *sctp_endpoint_is_match(struct sctp_endpoint *ep,
  }
  
-+/* rhashtable for transport */
-+struct sctp_hash_cmp_arg {
-+	const union sctp_addr		*laddr;
-+	const union sctp_addr		*paddr;
-+	const struct net		*net;
-+};
-+
-+static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
-+				const void *ptr)
-+{
-+	const struct sctp_hash_cmp_arg *x = arg->key;
-+	const struct sctp_transport *t = ptr;
-+	struct sctp_association *asoc = t->asoc;
-+	const struct net *net = x->net;
-+
-+	if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
-+		return 1;
-+	if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
-+		return 1;
-+	if (!net_eq(sock_net(asoc->base.sk), net))
-+		return 1;
-+	if (!sctp_bind_addr_match(&asoc->base.bind_addr,
-+				  x->laddr, sctp_sk(asoc->base.sk)))
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
-+{
-+	const struct sctp_transport *t = data;
-+	const union sctp_addr *paddr = &t->ipaddr;
-+	const struct net *net = sock_net(t->asoc->base.sk);
-+	u16 lport = htons(t->asoc->base.bind_addr.port);
-+	u32 addr;
-+
-+	if (paddr->sa.sa_family == AF_INET6)
-+		addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-+	else
-+		addr = paddr->v4.sin_addr.s_addr;
-+
-+	return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-+			     (__force __u32)lport, net_hash_mix(net), seed);
-+}
-+
-+static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
-+{
-+	const struct sctp_hash_cmp_arg *x = data;
-+	const union sctp_addr *paddr = x->paddr;
-+	const struct net *net = x->net;
-+	u16 lport = x->laddr->v4.sin_port;
-+	u32 addr;
-+
-+	if (paddr->sa.sa_family == AF_INET6)
-+		addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-+	else
-+		addr = paddr->v4.sin_addr.s_addr;
-+
-+	return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-+			     (__force __u32)lport, net_hash_mix(net), seed);
-+}
-+
-+static const struct rhashtable_params sctp_hash_params = {
-+	.head_offset		= offsetof(struct sctp_transport, node),
-+	.hashfn			= sctp_hash_key,
-+	.obj_hashfn		= sctp_hash_obj,
-+	.obj_cmpfn		= sctp_hash_cmp,
-+	.automatic_shrinking	= true,
-+};
-+
-+int sctp_transport_hashtable_init(void)
-+{
-+	return rhashtable_init(&sctp_transport_hashtable, &sctp_hash_params);
-+}
-+
-+void sctp_transport_hashtable_destroy(void)
-+{
-+	rhashtable_destroy(&sctp_transport_hashtable);
-+}
-+
-+void sctp_hash_transport(struct sctp_transport *t)
-+{
-+	struct sctp_sockaddr_entry *addr;
-+	struct sctp_hash_cmp_arg arg;
-+
-+	addr = list_entry(t->asoc->base.bind_addr.address_list.next,
-+			  struct sctp_sockaddr_entry, list);
-+	arg.laddr = &addr->a;
-+	arg.paddr = &t->ipaddr;
-+	arg.net   = sock_net(t->asoc->base.sk);
-+
-+reinsert:
-+	if (rhashtable_lookup_insert_key(&sctp_transport_hashtable, &arg,
-+					 &t->node, sctp_hash_params) == -EBUSY)
-+		goto reinsert;
-+}
-+
-+void sctp_unhash_transport(struct sctp_transport *t)
-+{
-+	rhashtable_remove_fast(&sctp_transport_hashtable, &t->node,
-+			       sctp_hash_params);
-+}
-+
-+struct sctp_transport *sctp_addrs_lookup_transport(
-+				struct net *net,
-+				const union sctp_addr *laddr,
-+				const union sctp_addr *paddr)
-+{
-+	struct sctp_hash_cmp_arg arg = {
-+		.laddr = laddr,
-+		.paddr = paddr,
-+		.net   = net,
-+	};
-+
-+	return rhashtable_lookup_fast(&sctp_transport_hashtable, &arg,
-+				      sctp_hash_params);
-+}
-+
-+struct sctp_transport *sctp_epaddr_lookup_transport(
-+				const struct sctp_endpoint *ep,
-+				const union sctp_addr *paddr)
-+{
-+	struct sctp_sockaddr_entry *addr;
-+	struct net *net = sock_net(ep->base.sk);
-+
-+	addr = list_entry(ep->base.bind_addr.address_list.next,
-+			  struct sctp_sockaddr_entry, list);
-+
-+	return sctp_addrs_lookup_transport(net, &addr->a, paddr);
-+}
-+
- /* Insert association into the hash table.  */
- static void __sctp_hash_established(struct sctp_association *asoc)
+ /* Find the association that goes with this chunk.
+- * We do a linear search of the associations for this endpoint.
+- * We return the matching transport address too.
++ * We lookup the transport from hashtable at first, then get association
++ * through t->assoc.
+  */
+ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+ 	const struct sctp_endpoint *ep,
+@@ -323,12 +323,7 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+ 	struct sctp_transport **transport)
  {
+ 	struct sctp_association *asoc = NULL;
+-	struct sctp_association *tmp;
+-	struct sctp_transport *t = NULL;
+-	struct sctp_hashbucket *head;
+-	struct sctp_ep_common *epb;
+-	int hash;
+-	int rport;
++	struct sctp_transport *t;
+ 
+ 	*transport = NULL;
+ 
+@@ -337,26 +332,12 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+ 	 */
+ 	if (!ep->base.bind_addr.port)
+ 		goto out;
++	t = sctp_epaddr_lookup_transport(ep, paddr);
++	if (!t || t->asoc->temp)
++		goto out;
+ 
+-	rport = ntohs(paddr->v4.sin_port);
+-
+-	hash = sctp_assoc_hashfn(sock_net(ep->base.sk), ep->base.bind_addr.port,
+-				 rport);
+-	head = &sctp_assoc_hashtable[hash];
+-	read_lock(&head->lock);
+-	sctp_for_each_hentry(epb, &head->chain) {
+-		tmp = sctp_assoc(epb);
+-		if (tmp->ep != ep || rport != tmp->peer.port)
+-			continue;
+-
+-		t = sctp_assoc_lookup_paddr(tmp, paddr);
+-		if (t) {
+-			asoc = tmp;
+-			*transport = t;
+-			break;
+-		}
+-	}
+-	read_unlock(&head->lock);
++	*transport = t;
++	asoc = t->asoc;
+ out:
+ 	return asoc;
+ }
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index bac8278..6f075d8 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -981,38 +981,19 @@ static struct sctp_association *__sctp_lookup_association(
+ 					const union sctp_addr *peer,
+ 					struct sctp_transport **pt)
+ {
+-	struct sctp_hashbucket *head;
+-	struct sctp_ep_common *epb;
+-	struct sctp_association *asoc;
+-	struct sctp_transport *transport;
+-	int hash;
++	struct sctp_transport *t;
+ 
+-	/* Optimize here for direct hit, only listening connections can
+-	 * have wildcards anyways.
+-	 */
+-	hash = sctp_assoc_hashfn(net, ntohs(local->v4.sin_port),
+-				 ntohs(peer->v4.sin_port));
+-	head = &sctp_assoc_hashtable[hash];
+-	read_lock(&head->lock);
+-	sctp_for_each_hentry(epb, &head->chain) {
+-		asoc = sctp_assoc(epb);
+-		transport = sctp_assoc_is_match(asoc, net, local, peer);
+-		if (transport)
+-			goto hit;
+-	}
++	t = sctp_addrs_lookup_transport(net, local, peer);
++	if (!t || t->dead || t->asoc->temp)
++		return NULL;
+ 
+-	read_unlock(&head->lock);
++	sctp_association_hold(t->asoc);
++	*pt = t;
+ 
+-	return NULL;
+-
+-hit:
+-	*pt = transport;
+-	sctp_association_hold(asoc);
+-	read_unlock(&head->lock);
+-	return asoc;
++	return t->asoc;
+ }
+ 
+-/* Look up an association. BH-safe. */
++/* Look up an association. protected by RCU read lock */
+ static
+ struct sctp_association *sctp_lookup_association(struct net *net,
+ 						 const union sctp_addr *laddr,
+@@ -1021,9 +1002,9 @@ struct sctp_association *sctp_lookup_association(struct net *net,
+ {
+ 	struct sctp_association *asoc;
+ 
+-	local_bh_disable();
++	rcu_read_lock();
+ 	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
+-	local_bh_enable();
++	rcu_read_unlock();
+ 
+ 	return asoc;
+ }
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 010aced..631cfb3 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1467,6 +1467,9 @@ static __init int sctp_init(void)
+ 		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
+ 	}
+ 
++	if (sctp_transport_hashtable_init())
++		goto err_thash_alloc;
++
+ 	pr_info("Hash tables configured (established %d bind %d)\n",
+ 		sctp_assoc_hashsize, sctp_port_hashsize);
+ 
+@@ -1521,6 +1524,8 @@ err_register_defaults:
+ 		   get_order(sctp_port_hashsize *
+ 			     sizeof(struct sctp_bind_hashbucket)));
+ err_bhash_alloc:
++	sctp_transport_hashtable_destroy();
++err_thash_alloc:
+ 	kfree(sctp_ep_hashtable);
+ err_ehash_alloc:
+ 	free_pages((unsigned long)sctp_assoc_hashtable,
+@@ -1567,6 +1572,7 @@ static __exit void sctp_exit(void)
+ 	free_pages((unsigned long)sctp_port_hashtable,
+ 		   get_order(sctp_port_hashsize *
+ 			     sizeof(struct sctp_bind_hashbucket)));
++	sctp_transport_hashtable_destroy();
+ 
+ 	percpu_counter_destroy(&sctp_sockets_allocated);
+ 
 -- 
 2.1.0
