@@ -1,80 +1,72 @@
-From: Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] mwifiex: correctly handling kzalloc
-Date: Wed, 30 Dec 2015 03:37:06 +0200
-Message-ID: <CAHp75VdZHrXbUytAcXzitH8zzELjimNihG5LfLqX85u4y502SA@mail.gmail.com>
-References: <1451420268-15862-1-git-send-email-wuninsu@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND PATCH v1 0/4] Add support emac for the RK3036 SoC
+ platform
+Date: Tue, 29 Dec 2015 20:48:47 -0500 (EST)
+Message-ID: <20151229.204847.578920480799799256.davem@davemloft.net>
+References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com>
+	<20151229.155314.1522114236952280828.davem@davemloft.net>
+	<3925713.yDzK1dvrIv@diego>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"open list:TI WILINK WIRELES..." <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	taesoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, yeongjin.jang-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, insu-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org,
-	changwoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org
-To: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1451420268-15862-1-git-send-email-wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zhengxing@rock-chips.com, linux-rockchip@lists.infradead.org,
+	keescook@google.com, leozwang@google.comi, linux@arm.linux.org.uk,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	paul.gortmaker@windriver.com, galak@codeaurora.org,
+	linux-kernel@vger.kernel.org, ijc+devicetree@hellion.org.uk,
+	pawel.moll@arm.com, geert@linux-m68k.org, mark.rutland@arm.com,
+	robh+dt@kernel.org, linux-arm-kernel@lists.infradead.org
+To: heiko@sntech.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33417 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753903AbbL3Bsw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2015 20:48:52 -0500
+In-Reply-To: <3925713.yDzK1dvrIv@diego>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 29, 2015 at 10:17 PM, Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+=46rom: Heiko St=FCbner <heiko@sntech.de>
+Date: Tue, 29 Dec 2015 23:27:55 +0100
 
-Empty commit message?
+> Hi Dave,
+>=20
+> Am Dienstag, 29. Dezember 2015, 15:53:14 schrieb David Miller:
+>> You have to submit this series properly, the same problem happend tw=
+ice
+>> now.
+>>=20
+>> When you submit a series you should:
+>>=20
+>> 1) Make it clear which tree you expect these changes to be applied
+>>    to.  Here it is completely ambiguous, do you want it to go into
+>>    my networking tree or some other subsystem tree?
+>>=20
+>> 2) You MUST keep all parties informed about all patches for a series
+>>    like this.  That means you cannot drop netdev from patch #4 as
+>>    you did both times.  Doing this aggravates the situation for
+>>    #1 even more, because if a patch is not CC:'d to netdev it does
+>>    not enter patchwork.  And if it doesn't go into patchwork, I'm
+>>    not looking at it.
+>=20
+> I guess that is some unfortunate result of git send-email combined wi=
+th=20
+> get_maintainer.pl . In general I also prefer to see the whole series,=
+ but have=20
+> gotten such partial series from other maintainers as well in the past=
+, so it=20
+> seems to be depending on preferences somewhat.
+>=20
+> For the series at hand, the 4th patch is the devicetree addition, whi=
+ch the=20
+> expected way is me picking it up, after you are comfortable with the =
+code-
+> related changes.
 
-> Signed-off-by: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/wireless/mwifiex/sdio.c | 11 +++++++++++
->  1 file changed, 11 insertions(+)
->
-> diff --git a/drivers/net/wireless/mwifiex/sdio.c b/drivers/net/wireless/mwifiex/sdio.c
-> index 78a8474..a8af72d 100644
-> --- a/drivers/net/wireless/mwifiex/sdio.c
-> +++ b/drivers/net/wireless/mwifiex/sdio.c
-> @@ -2053,8 +2053,19 @@ static int mwifiex_init_sdio(struct mwifiex_adapter *adapter)
->         /* Allocate skb pointer buffers */
->         card->mpa_rx.skb_arr = kzalloc((sizeof(void *)) *
->                                        card->mp_agg_pkt_limit, GFP_KERNEL);
+Why would it not be appropriate for a DT file change to go into my tree
+if it corresponds to functionality created by the rest of the patches
+in the series?
 
-Just noticed: Looks like good candidate for kcalloc or kmalloc_array,
-whichever is suitable.
-
-> +       if (!card->mpa_rx.skb_arr) {
-> +               kfree(card->mp_regs);
-> +               return -ENOMEM;
-> +       }
-> +
->         card->mpa_rx.len_arr = kzalloc(sizeof(*card->mpa_rx.len_arr) *
->                                        card->mp_agg_pkt_limit, GFP_KERNEL);
-
-Ditto.
-
-> +       if (!card->mpa_rx.len_arr) {
-> +               kfree(card->mp_regs);
-> +               kfree(card->mpa_rx.skb_arr);
-
-
-> +               return -ENOMEM;
-> +       }
-> +
->         ret = mwifiex_alloc_sdio_mpa_buffers(adapter,
->                                              card->mp_tx_agg_buf_size,
->                                              card->mp_rx_agg_buf_size);
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
-
-
--- 
-With Best Regards,
-Andy Shevchenko
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It looks better to put it all together as a unit, via one series, with
+a merge commit containing your "[PATCH 0/N]" description in the commit
+message.
