@@ -1,185 +1,79 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: =?UTF-8?Q?nf=5Funregister=5Fnet=5Fhook=3A=20hook=20not=20foun?=
- =?UTF-8?Q?d!?=
-Date: Wed, 30 Dec 2015 19:15:09 +0100
-Message-ID: <52794c2a10ac78199c3912ccf1f97990@eikelenboom.it>
-References: <8312456317d37de2b445bbece288b268@eikelenboom.it>
- <20151230001259.GA1637@salvia> <874mf0d5i1.fsf@x220.int.ebiederm.org>
+From: Souptick Joarder <jrdr.linux@gmail.com>
+Subject: Re: [PATCH] mac80211: Make addr const in SET_IEEE80211_PERM_ADDR()
+Date: Thu, 31 Dec 2015 00:00:46 +0530
+Message-ID: <CAFqt6zYfQwBN1in2dwYRY6CE1vf9-Kznc0z5UhBGxJzvEs7-kw@mail.gmail.com>
+References: <1450946006-7498-1-git-send-email-bjorn.andersson@sonymobile.com>
+	<CAFqt6zam7maK4wFrKo=yqWxaBkVDJhZGbKAFAdmcZPQonXTcxA@mail.gmail.com>
+	<CAJAp7Oinz993CQgA81SifcJoeHicD9YNhBv0HHkiav3rD5=M4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <874mf0d5i1.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bjorn Andersson <bjorn@kryo.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:36652 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157AbbL3Sar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 13:30:47 -0500
+In-Reply-To: <CAJAp7Oinz993CQgA81SifcJoeHicD9YNhBv0HHkiav3rD5=M4Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015-12-30 03:39, ebiederm@xmission.com wrote:
-> Pablo Neira Ayuso <pablo@netfilter.org> writes:
-> 
->> On Mon, Dec 28, 2015 at 09:05:03PM +0100, Sander Eikelenboom wrote:
->>> Hi,
->>> 
->>> Running a 4.4.0-rc6 kernel i encountered the warning below.
->> 
->> Cc'ing Eric Biederman.
->> 
->> @Sander, could you provide a way to reproduce this?
-> 
-> I am on vacation until the new year, but if this is reproducible we
-> should be able to print out reg, reg->pf, reg->hooknum, reg->hook
-> to figure out which hook is having something very weird happen to it.
-> 
-> This is happening in some network namespace exit.
-> 
-> Eric
-> 
+On Wed, Dec 30, 2015 at 10:35 PM, Bjorn Andersson <bjorn@kryo.se> wrote:
+> On Wed, Dec 30, 2015 at 8:47 AM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
+>>
+>> HI Bjorn,
+>>
+>> On Thu, Dec 24, 2015 at 2:03 PM, Bjorn Andersson <bjorn@kryo.se> wrote:
+>> > Make the addr parameter const in SET_IEEE80211_PERM_ADDR() to save
+>> > clients from having to cast away a const qualifier.
+>> >
+>> > Signed-off-by: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+>> > ---
+>> >  include/net/mac80211.h | 2 +-
+>> >  1 file changed, 1 insertion(+), 1 deletion(-)
+>> >
+>> > diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+>> > index 7c30faff245f..a6f3c9c4b7c2 100644
+>> > --- a/include/net/mac80211.h
+>> > +++ b/include/net/mac80211.h
+>> > @@ -2167,7 +2167,7 @@ static inline void SET_IEEE80211_DEV(struct ieee80211_hw *hw, struct device *dev
+>> >   * @hw: the &struct ieee80211_hw to set the MAC address for
+>> >   * @addr: the address to set
+>> >   */
+>> > -static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, u8 *addr)
+>> > +static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, const u8 *addr)
+>>
+>> I guess without const or with const doesn't make much difference here.
+>> Correct me if I am wrong.
+>
+> For most cases it doesn't make any difference, but in my driver I
+> acquire the mac address as a const u8 *. Therefor I need to cast away
+> the const part when calling this API.
+>
+> There's an existing example of this in
+> drivers/net/wireless/st/cw1200/main.c line 601.
 
-Unfortunately i have found no way to reproduce,
-13 seconds implies it was at boot, but i only have seen this once.
+Is the path correct ? I think path is
+drivers/net/wireless/cw1200/main.c line 334
 
---
-Sander
+> I think it's safe to assume that this API won't ever modify the passed
+> addr buffer, so there would be no future issues of marking the
+> parameter const either.
 
->> Thanks.
->> 
->>> [   13.740472] ip_tables: (C) 2000-2006 Netfilter Core Team
->>> [   13.936237] iwlwifi 0000:03:00.0: L1 Enabled - LTR Disabled
->>> [   13.945391] iwlwifi 0000:03:00.0: L1 Enabled - LTR Disabled
->>> [   13.947434] iwlwifi 0000:03:00.0: Radio type=0x2-0x1-0x0
->>> [   14.223990] iwlwifi 0000:03:00.0: L1 Enabled - LTR Disabled
->>> [   14.232065] iwlwifi 0000:03:00.0: L1 Enabled - LTR Disabled
->>> [   14.233570] iwlwifi 0000:03:00.0: Radio type=0x2-0x1-0x0
->>> [   14.328141] systemd-logind[2485]: Failed to start user service: 
->>> Unknown
->>> unit: user@117.service
->>> [   14.356634] systemd-logind[2485]: New session c1 of user lightdm.
->>> [   14.357320] ------------[ cut here ]------------
->>> [   14.357327] WARNING: CPU: 2 PID: 102 at net/netfilter/core.c:143
->>> netfilter_net_exit+0x25/0x50()
->>> [   14.357328] nf_unregister_net_hook: hook not found!
->>> [   14.357371] Modules linked in: iptable_security(+) iptable_raw
->>> iptable_filter ip_tables x_tables input_polldev bnep binfmt_misc nfsd
->>> auth_rpcgss oid_registry nfs_acl nfs lockd grace fscache sunrpc 
->>> uvcvideo
->>> videobuf2_vmalloc iTCO_wdt arc4 videobuf2_memops iTCO_vendor_support
->>> intel_rapl iosf_mbi videobuf2_v4l2 x86_pkg_temp_thermal 
->>> intel_powerclamp
->>> btusb coretemp snd_hda_codec_hdmi iwldvm videobuf2_core btrtl 
->>> kvm_intel
->>> v4l2_common mac80211 videodev btbcm snd_hda_codec_conexant btintel 
->>> media kvm
->>> snd_hda_codec_generic bluetooth psmouse thinkpad_acpi iwlwifi 
->>> snd_hda_intel
->>> pcspkr serio_raw snd_hda_codec nvram cfg80211 snd_hwdep snd_hda_core 
->>> rfkill
->>> i2c_i801 lpc_ich snd_pcm mfd_core snd_timer evdev snd soundcore 
->>> shpchp
->>> tpm_tis tpm algif_skcipher af_alg crct10dif_pclmul crc32_pclmul 
->>> crc32c_intel
->>> aesni_intel
->>> [   14.357380]  ehci_pci sdhci_pci aes_x86_64 glue_helper ehci_hcd 
->>> e1000e
->>> lrw ablk_helper sg sdhci cryptd sd_mod ptp mmc_core usbcore 
->>> usb_common
->>> pps_core
->>> [   14.357383] CPU: 2 PID: 102 Comm: kworker/u16:3 Tainted: G     U
->>> 4.4.0-rc6-x220-20151224+ #1
->>> [   14.357384] Hardware name: LENOVO 42912ZU/42912ZU, BIOS 8DET69WW 
->>> (1.39 )
->>> 07/18/2013
->>> [   14.357390] Workqueue: netns cleanup_net
->>> [   14.357393]  ffffffff81a27dfd ffffffff81359c69 ffff88030e7cbd40
->>> ffffffff81060297
->>> [   14.357395]  ffff88030e820d80 ffff88030e7cbd90 ffffffff81c962d8
->>> ffffffff81c962e0
->>> [   14.357397]  ffff88030e7cbdf8 ffffffff81060317 ffffffff81a2c010
->>> ffff880300000018
->>> [   14.357398] Call Trace:
->>> [   14.357405]  [<ffffffff81359c69>] ? dump_stack+0x40/0x57
->>> [   14.357408]  [<ffffffff81060297>] ? warn_slowpath_common+0x77/0xb0
->>> [   14.357410]  [<ffffffff81060317>] ? warn_slowpath_fmt+0x47/0x50
->>> [   14.357416]  [<ffffffff816f9549>] ? mutex_lock+0x9/0x30
->>> [   14.357418]  [<ffffffff81641b35>] ? netfilter_net_exit+0x25/0x50
->>> [   14.357421]  [<ffffffff8160b78e>] ? ops_exit_list.isra.6+0x2e/0x60
->>> [   14.357424]  [<ffffffff8160c3eb>] ? cleanup_net+0x1ab/0x280
->>> [   14.357427]  [<ffffffff81074b33>] ? process_one_work+0x133/0x330
->>> [   14.357429]  [<ffffffff81074d90>] ? worker_thread+0x60/0x470
->>> [   14.357430]  [<ffffffff81074d30>] ? process_one_work+0x330/0x330
->>> [   14.357434]  [<ffffffff81079c0a>] ? kthread+0xca/0xe0
->>> [   14.357436]  [<ffffffff81079b40>] ? 
->>> kthread_create_on_node+0x170/0x170
->>> [   14.357439]  [<ffffffff816fb5cf>] ? ret_from_fork+0x3f/0x70
->>> [   14.357441]  [<ffffffff81079b40>] ? 
->>> kthread_create_on_node+0x170/0x170
->>> [   14.357443] ---[ end trace 9984cc4b0e89f818 ]---
->>> [   14.357443] ------------[ cut here ]------------
->>> [   14.357446] WARNING: CPU: 2 PID: 102 at net/netfilter/core.c:143
->>> netfilter_net_exit+0x25/0x50()
->>> [   14.357446] nf_unregister_net_hook: hook not found!
->>> [   14.357472] Modules linked in: iptable_security(+) iptable_raw
->>> iptable_filter ip_tables x_tables input_polldev bnep binfmt_misc nfsd
->>> auth_rpcgss oid_registry nfs_acl nfs lockd grace fscache sunrpc 
->>> uvcvideo
->>> videobuf2_vmalloc iTCO_wdt arc4 videobuf2_memops iTCO_vendor_support
->>> intel_rapl iosf_mbi videobuf2_v4l2 x86_pkg_temp_thermal 
->>> intel_powerclamp
->>> btusb coretemp snd_hda_codec_hdmi iwldvm videobuf2_core btrtl 
->>> kvm_intel
->>> v4l2_common mac80211 videodev btbcm snd_hda_codec_conexant btintel 
->>> media kvm
->>> snd_hda_codec_generic bluetooth psmouse thinkpad_acpi iwlwifi 
->>> snd_hda_intel
->>> pcspkr serio_raw snd_hda_codec nvram cfg80211 snd_hwdep snd_hda_core 
->>> rfkill
->>> i2c_i801 lpc_ich snd_pcm mfd_core snd_timer evdev snd soundcore 
->>> shpchp
->>> tpm_tis tpm algif_skcipher af_alg crct10dif_pclmul crc32_pclmul 
->>> crc32c_intel
->>> aesni_intel
->>> [   14.357478]  ehci_pci sdhci_pci aes_x86_64 glue_helper ehci_hcd 
->>> e1000e
->>> lrw ablk_helper sg sdhci cryptd sd_mod ptp mmc_core usbcore 
->>> usb_common
->>> pps_core
->>> [   14.357480] CPU: 2 PID: 102 Comm: kworker/u16:3 Tainted: G     U  
->>> W
->>> 4.4.0-rc6-x220-20151224+ #1
->>> [   14.357481] Hardware name: LENOVO 42912ZU/42912ZU, BIOS 8DET69WW 
->>> (1.39 )
->>> 07/18/2013
->>> [   14.357484] Workqueue: netns cleanup_net
->>> [   14.357486]  ffffffff81a27dfd ffffffff81359c69 ffff88030e7cbd40
->>> ffffffff81060297
->>> [   14.357488]  ffff88030e820db8 ffff88030e7cbd90 ffffffff81c962d8
->>> ffffffff81c962e0
->>> [   14.357489]  ffff88030e7cbdf8 ffffffff81060317 ffffffff81a2c010
->>> ffff880300000018
->>> [   14.357490] Call Trace:
->>> [   14.357493]  [<ffffffff81359c69>] ? dump_stack+0x40/0x57
->>> [   14.357495]  [<ffffffff81060297>] ? warn_slowpath_common+0x77/0xb0
->>> [   14.357497]  [<ffffffff81060317>] ? warn_slowpath_fmt+0x47/0x50
->>> [   14.357499]  [<ffffffff816f9549>] ? mutex_lock+0x9/0x30
->>> [   14.357501]  [<ffffffff81641b35>] ? netfilter_net_exit+0x25/0x50
->>> [   14.357504]  [<ffffffff8160b78e>] ? ops_exit_list.isra.6+0x2e/0x60
->>> [   14.357507]  [<ffffffff8160c3eb>] ? cleanup_net+0x1ab/0x280
->>> [   14.357509]  [<ffffffff81074b33>] ? process_one_work+0x133/0x330
->>> [   14.357511]  [<ffffffff81074d90>] ? worker_thread+0x60/0x470
->>> [   14.357512]  [<ffffffff81074d30>] ? process_one_work+0x330/0x330
->>> [   14.357514]  [<ffffffff81079c0a>] ? kthread+0xca/0xe0
->>> [   14.357517]  [<ffffffff81079b40>] ? 
->>> kthread_create_on_node+0x170/0x170
->>> [   14.357519]  [<ffffffff816fb5cf>] ? ret_from_fork+0x3f/0x70
->>> [   14.357521]  [<ffffffff81079b40>] ? 
->>> kthread_create_on_node+0x170/0x170
->>> [   14.357522] ---[ end trace 9984cc4b0e89f819 ]---
->>> [   14.357523] ------------[ cut here ]------------
->>> 
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I agree with you.
+
+>
+>>
+>> >  {
+>> >         memcpy(hw->wiphy->perm_addr, addr, ETH_ALEN);
+>> >  }
+>>
+>
+> Regards,
+> Bjorn
+
+-Souptick
