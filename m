@@ -1,239 +1,203 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv4 net-next 3/3] phy: micrel: Add ethtool statistics counters
-Date: Wed, 30 Dec 2015 16:28:27 +0100
-Message-ID: <1451489307-17048-4-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv4 net-next 1/3] ethtool: Add phy statistics
+Date: Wed, 30 Dec 2015 16:28:25 +0100
+Message-ID: <1451489307-17048-2-git-send-email-andrew@lunn.ch>
 References: <1451489307-17048-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52518 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:52523 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754873AbbL3P2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Dec 2015 10:28:41 -0500
+	id S1754923AbbL3P2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Dec 2015 10:28:49 -0500
 In-Reply-To: <1451489307-17048-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY counters receiver errors and errors while idle.
+Ethernet PHYs can maintain statistics, for example errors while idle
+and receive errors. Add an ethtool mechanism to retrieve these
+statistics, using the same model as MAC statistics.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/micrel.c | 96 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 96 insertions(+)
+ include/linux/phy.h          |  6 ++++
+ include/uapi/linux/ethtool.h |  3 ++
+ net/core/ethtool.c           | 81 +++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 89 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index e13ad6cdcc22..1a6048a8c29d 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -73,6 +73,17 @@
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 05fde31b6dc6..a89cb0eef911 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -589,6 +589,12 @@ struct phy_driver {
+ 	int (*module_eeprom)(struct phy_device *dev,
+ 			     struct ethtool_eeprom *ee, u8 *data);
  
- #define PS_TO_REG				200
- 
-+struct kszphy_hw_stat {
-+	const char *string;
-+	u8 reg;
-+	u8 bits;
-+};
++	/* Get statistics from the phy using ethtool */
++	int (*get_sset_count)(struct phy_device *dev);
++	void (*get_strings)(struct phy_device *dev, u8 *data);
++	void (*get_stats)(struct phy_device *dev,
++			  struct ethtool_stats *stats, u64 *data);
 +
-+static struct kszphy_hw_stat kszphy_hw_stats[] = {
-+	{ "phy_receive_errors", 21, 16},
-+	{ "phy_idle_errors", 10, 8 },
-+};
-+
- struct kszphy_type {
- 	u32 led_mode_reg;
- 	u16 interrupt_level_mask;
-@@ -86,6 +97,7 @@ struct kszphy_priv {
- 	int led_mode;
- 	bool rmii_ref_clk_sel;
- 	bool rmii_ref_clk_sel_val;
-+	u64 stats[ARRAY_SIZE(kszphy_hw_stats)];
+ 	struct device_driver driver;
+ };
+ #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index cd1629170103..57fa39005e79 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -542,6 +542,7 @@ struct ethtool_pauseparam {
+  *	now deprecated
+  * @ETH_SS_FEATURES: Device feature names
+  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
++ * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
+  */
+ enum ethtool_stringset {
+ 	ETH_SS_TEST		= 0,
+@@ -551,6 +552,7 @@ enum ethtool_stringset {
+ 	ETH_SS_FEATURES,
+ 	ETH_SS_RSS_HASH_FUNCS,
+ 	ETH_SS_TUNABLES,
++	ETH_SS_PHY_STATS,
  };
  
- static const struct kszphy_type ksz8021_type = {
-@@ -569,6 +581,51 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
- {
+ /**
+@@ -1225,6 +1227,7 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_SRSSH		0x00000047 /* Set RX flow hash configuration */
+ #define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
+ #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
++#define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 09948a726347..daf04709dd3c 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -191,6 +191,23 @@ static int ethtool_set_features(struct net_device *dev, void __user *useraddr)
+ 	return ret;
  }
  
-+static int kszphy_get_sset_count(struct phy_device *phydev)
++static int phy_get_sset_count(struct phy_device *phydev)
 +{
-+	return ARRAY_SIZE(kszphy_hw_stats);
-+}
++	int ret;
 +
-+static void kszphy_get_strings(struct phy_device *phydev, u8 *data)
-+{
-+	int i;
++	if (phydev->drv->get_sset_count &&
++	    phydev->drv->get_strings &&
++	    phydev->drv->get_stats) {
++		mutex_lock(&phydev->lock);
++		ret = phydev->drv->get_sset_count(phydev);
++		mutex_unlock(&phydev->lock);
 +
-+	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++) {
-+		memcpy(data + i * ETH_GSTRING_LEN,
-+		       kszphy_hw_stats[i].string, ETH_GSTRING_LEN);
-+	}
-+}
-+
-+#ifndef UINT64_MAX
-+#define UINT64_MAX              (u64)(~((u64)0))
-+#endif
-+static u64 kszphy_get_stat(struct phy_device *phydev, int i)
-+{
-+	struct kszphy_hw_stat stat = kszphy_hw_stats[i];
-+	struct kszphy_priv *priv = phydev->priv;
-+	u64 val;
-+
-+	val = phy_read(phydev, stat.reg);
-+	if (val < 0) {
-+		val = UINT64_MAX;
-+	} else {
-+		val = val & ((1 << stat.bits) - 1);
-+		priv->stats[i] += val;
-+		val = priv->stats[i];
++		return ret;
 +	}
 +
-+	return val;
++	return -EOPNOTSUPP;
 +}
 +
-+static void kszphy_get_stats(struct phy_device *phydev,
-+			     struct ethtool_stats *stats, u64 *data)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++)
-+		data[i] = kszphy_get_stat(phydev, i);
-+}
-+
- static int kszphy_probe(struct phy_device *phydev)
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
  {
- 	const struct kszphy_type *type = phydev->drv->driver_data;
-@@ -642,6 +699,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -659,6 +719,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -676,6 +739,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -693,6 +759,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -710,6 +779,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -727,6 +799,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -743,6 +818,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -759,6 +837,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -773,6 +854,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
-@@ -788,6 +872,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.read_mmd_indirect = ksz9021_rd_mmd_phyreg,
-@@ -805,6 +892,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= ksz9031_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
-@@ -817,6 +907,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= ksz8873mll_config_aneg,
- 	.read_status	= ksz8873mll_read_status,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
-@@ -829,6 +922,9 @@ static struct phy_driver ksphy_driver[] = {
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+@@ -204,6 +221,13 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ 	if (sset == ETH_SS_TUNABLES)
+ 		return ARRAY_SIZE(tunable_strings);
+ 
++	if (sset == ETH_SS_PHY_STATS) {
++		if (dev->phydev)
++			return phy_get_sset_count(dev->phydev);
++		else
++			return -EOPNOTSUPP;
++	}
++
+ 	if (ops->get_sset_count && ops->get_strings)
+ 		return ops->get_sset_count(dev, sset);
+ 	else
+@@ -223,7 +247,17 @@ static void __ethtool_get_strings(struct net_device *dev,
+ 		       sizeof(rss_hash_func_strings));
+ 	else if (stringset == ETH_SS_TUNABLES)
+ 		memcpy(data, tunable_strings, sizeof(tunable_strings));
+-	else
++	else if (stringset == ETH_SS_PHY_STATS) {
++		struct phy_device *phydev = dev->phydev;
++
++		if (phydev) {
++			mutex_lock(&phydev->lock);
++			phydev->drv->get_strings(phydev, data);
++			mutex_unlock(&phydev->lock);
++		} else {
++			return;
++		}
++	} else
+ 		/* ops->get_strings is valid because checked earlier */
+ 		ops->get_strings(dev, stringset, data);
+ }
+@@ -1401,6 +1435,47 @@ static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
+ 	return ret;
+ }
+ 
++static int ethtool_get_phy_stats(struct net_device *dev, void __user *useraddr)
++{
++	struct ethtool_stats stats;
++	struct phy_device *phydev = dev->phydev;
++	u64 *data;
++	int ret, n_stats;
++
++	if (!phydev)
++		return -EOPNOTSUPP;
++
++	n_stats = phy_get_sset_count(phydev);
++
++	if (n_stats < 0)
++		return n_stats;
++	WARN_ON(n_stats == 0);
++
++	if (copy_from_user(&stats, useraddr, sizeof(stats)))
++		return -EFAULT;
++
++	stats.n_stats = n_stats;
++	data = kmalloc_array(n_stats, sizeof(u64), GFP_USER);
++	if (!data)
++		return -ENOMEM;
++
++	mutex_lock(&phydev->lock);
++	phydev->drv->get_stats(phydev, &stats, data);
++	mutex_unlock(&phydev->lock);
++
++	ret = -EFAULT;
++	if (copy_to_user(useraddr, &stats, sizeof(stats)))
++		goto out;
++	useraddr += sizeof(stats);
++	if (copy_to_user(useraddr, data, stats.n_stats * sizeof(u64)))
++		goto out;
++	ret = 0;
++
++ out:
++	kfree(data);
++	return ret;
++}
++
+ static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_perm_addr epaddr;
+@@ -1779,6 +1854,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GSSET_INFO:
+ 	case ETHTOOL_GSTRINGS:
+ 	case ETHTOOL_GSTATS:
++	case ETHTOOL_GPHYSTATS:
+ 	case ETHTOOL_GTSO:
+ 	case ETHTOOL_GPERMADDR:
+ 	case ETHTOOL_GUFO:
+@@ -1991,6 +2067,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_STUNABLE:
+ 		rc = ethtool_set_tunable(dev, useraddr);
+ 		break;
++	case ETHTOOL_GPHYSTATS:
++		rc = ethtool_get_phy_stats(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 2.6.4
