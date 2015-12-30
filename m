@@ -1,28 +1,44 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next 1/2] iproute2: ip-route.8.in: Add
- missing '[' before 'pref'
-Date: Wed, 30 Dec 2015 12:35:34 -0800
-Message-ID: <20151230123534.4b582c95@xeon-e3>
-References: <1451013136-13251-1-git-send-email-liuhangbin@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] sctp: use transport hashtable to replace
+ association's with rhashtable
+Date: Wed, 30 Dec 2015 15:40:14 -0500 (EST)
+Message-ID: <20151230.154014.1155079588447705262.davem@davemloft.net>
+References: <1451495979.8255.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20151230.125204.1385006803109278855.davem@davemloft.net>
+	<1451502223.8255.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Xin Long <lucien.xin@gmail.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, mleitner@redhat.com,
+	vyasevic@redhat.com, daniel@iogearbox.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33381 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753338AbbL3UfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 15:35:25 -0500
-Received: by mail-pf0-f175.google.com with SMTP id q63so110378269pfb.0
-        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 12:35:25 -0800 (PST)
-In-Reply-To: <1451013136-13251-1-git-send-email-liuhangbin@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39295 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755063AbbL3UkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 15:40:18 -0500
+In-Reply-To: <1451502223.8255.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 25 Dec 2015 11:12:15 +0800
-Hangbin Liu <liuhangbin@gmail.com> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 30 Dec 2015 14:03:43 -0500
 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> You sure can disagree with me, but calling my opinion 'incredily
+> stupid' is not wise.
 
-Both applied, thank  you
+I think fundamentally giving facilities less rather than more coverage
+is not a smart approach at all.
+
+If the code is that bad that people are discouraged from even using
+it, then it should be moved to drivers/staging or removed.  Otherwise
+it must work and we must be able to make use of it.
+
+> I understand we would love to do that, but what is the hurry for
+> SCTP, that needed rhashtable so desperately that it could not be
+> done before 2016 ?
+
+There is no rush, but quite frankly finding people to do serious
+work on SCTP is no easy task so I'm hesitant to "defer" someone's
+work in this area... :-)
