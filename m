@@ -1,72 +1,38 @@
 From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH net-next v3 05/10] be2net: log digital signature errors while flashing FW image
-Date: Wed, 30 Dec 2015 01:29:00 -0500
-Message-ID: <1451456945-31606-6-git-send-email-sathya.perla@avagotech.com>
+Subject: [PATCH net-next v3 10/10] be2net: bump up the driver version to 11.0.0.0
+Date: Wed, 30 Dec 2015 01:29:05 -0500
+Message-ID: <1451456945-31606-11-git-send-email-sathya.perla@avagotech.com>
 References: <1451456945-31606-1-git-send-email-sathya.perla@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:50633 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754350AbbL3G3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 01:29:19 -0500
+	by vger.kernel.org with ESMTP id S1754350AbbL3G3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 01:29:23 -0500
 In-Reply-To: <1451456945-31606-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Suresh Reddy <suresh.reddy@avagotech.com>
 
->From FW version 11.0 onwards, the FW supports a new "secure mode" feature
-(based on a jumper setting on the adapter.) In this mode, the FW image when
-flashed is authenticated with a digital signature. This patch logs
-appropriate error messages and return a status to ethtool when errors
-relating to FW image authentication occur.
-
 Signed-off-by: Suresh Reddy <suresh.reddy@avagotech.com>
 Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c | 14 +++++++++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.h |  4 +++-
- 2 files changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index da3b398..451f9ea 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2959,7 +2959,19 @@ flash:
- 		} else if (status) {
- 			dev_err(dev, "Flashing section type 0x%x failed\n",
- 				img_type);
--			return -EFAULT;
-+
-+			switch (addl_status(status)) {
-+			case MCC_ADDL_STATUS_MISSING_SIGNATURE:
-+				dev_err(dev,
-+					"Digital signature missing in FW\n");
-+				return -EINVAL;
-+			case MCC_ADDL_STATUS_INVALID_SIGNATURE:
-+				dev_err(dev,
-+					"Invalid digital signature in FW\n");
-+				return -EINVAL;
-+			default:
-+				return -EFAULT;
-+			}
- 		}
- 	}
- 	return 0;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 4b0ca99..16415ca 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -66,7 +66,9 @@ enum mcc_addl_status {
- 	MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES = 0x16,
- 	MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH = 0x4d,
- 	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a,
--	MCC_ADDL_STATUS_INSUFFICIENT_VLANS = 0xab
-+	MCC_ADDL_STATUS_INSUFFICIENT_VLANS = 0xab,
-+	MCC_ADDL_STATUS_INVALID_SIGNATURE = 0x56,
-+	MCC_ADDL_STATUS_MISSING_SIGNATURE = 0x57
- };
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 8b8212f..22bf7af 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -37,7 +37,7 @@
+ #include "be_hw.h"
+ #include "be_roce.h"
  
- #define CQE_BASE_STATUS_MASK		0xFFFF
+-#define DRV_VER			"10.6.0.3"
++#define DRV_VER			"11.0.0.0"
+ #define DRV_NAME		"be2net"
+ #define BE_NAME			"Emulex BladeEngine2"
+ #define BE3_NAME		"Emulex BladeEngine3"
 -- 
 2.4.1
