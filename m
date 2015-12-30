@@ -1,106 +1,150 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [RESEND PATCH v1 0/4] Add support emac for the RK3036 SoC platform
-Date: Wed, 30 Dec 2015 11:17:59 +0100
-Message-ID: <CAMuHMdVEj6MGtUPYLmGCtMcLxKs4rLoh+if23_Bk1p=qwQM_Gg@mail.gmail.com>
-References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com>
-	<20151229.155314.1522114236952280828.davem@davemloft.net>
-	<3925713.yDzK1dvrIv@diego>
-	<20151229.204847.578920480799799256.davem@davemloft.net>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net/nfc: user-controllable kmalloc size in nfc_llcp_send_ui_frame
+Date: Wed, 30 Dec 2015 11:52:55 +0100
+Message-ID: <CACT4Y+b6A+Fb0QpOa+as66U3u28KYK7woD7JCABr3ndiaDHrqw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Kees Cook <keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, leozwang-hpIqsD4AKlcxg7vii5yOFA@public.gmane.org,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20151229.204847.578920480799799256.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Samuel Ortiz <sameo@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Thierry Escande <thierry.escande@linux.intel.com>,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hello,
 
-On Wed, Dec 30, 2015 at 2:48 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wro=
-te:
-> From: Heiko St=C3=BCbner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-> Date: Tue, 29 Dec 2015 23:27:55 +0100
->> Am Dienstag, 29. Dezember 2015, 15:53:14 schrieb David Miller:
->>> You have to submit this series properly, the same problem happend t=
-wice
->>> now.
->>>
->>> When you submit a series you should:
->>>
->>> 1) Make it clear which tree you expect these changes to be applied
->>>    to.  Here it is completely ambiguous, do you want it to go into
->>>    my networking tree or some other subsystem tree?
->>>
->>> 2) You MUST keep all parties informed about all patches for a serie=
-s
->>>    like this.  That means you cannot drop netdev from patch #4 as
->>>    you did both times.  Doing this aggravates the situation for
->>>    #1 even more, because if a patch is not CC:'d to netdev it does
->>>    not enter patchwork.  And if it doesn't go into patchwork, I'm
->>>    not looking at it.
->>
->> I guess that is some unfortunate result of git send-email combined w=
-ith
->> get_maintainer.pl . In general I also prefer to see the whole series=
-, but have
->> gotten such partial series from other maintainers as well in the pas=
-t, so it
->> seems to be depending on preferences somewhat.
->>
->> For the series at hand, the 4th patch is the devicetree addition, wh=
-ich the
->> expected way is me picking it up, after you are comfortable with the=
- code-
->> related changes.
->
-> Why would it not be appropriate for a DT file change to go into my tr=
-ee
-> if it corresponds to functionality created by the rest of the patches
-> in the series?
+The following program triggers WARNING In kmalloc:
 
-Because the DT change is very likely to conflict with other DT changes.
-That's why typically all DT changes go in through the platform/architec=
-ture
-maintainer.
 
-> It looks better to put it all together as a unit, via one series, wit=
-h
-> a merge commit containing your "[PATCH 0/N]" description in the commi=
-t
-> message.
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 6754 at mm/page_alloc.c:2989
+__alloc_pages_nodemask+0x771/0x15f0()
+Modules linked in:
+CPU: 2 PID: 6754 Comm: a.out Not tainted 4.4.0-rc7+ #181
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff88006275f5e0 ffffffff8289d9dd 0000000000000000
+ ffff8800621c8000 ffffffff85dbab40 ffff88006275f620 ffffffff812ebbb9
+ ffffffff815fc6b1 ffffffff85dbab40 0000000000000bad ffff88006275f8a8
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff8289d9dd>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
+ [<ffffffff812ebbb9>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:460
+ [<ffffffff812ebde9>] warn_slowpath_null+0x29/0x30 kernel/panic.c:493
+ [<     inline     >] __alloc_pages_slowpath mm/page_alloc.c:2989
+ [<ffffffff815fc6b1>] __alloc_pages_nodemask+0x771/0x15f0 mm/page_alloc.c:3235
+ [<ffffffff816bd74e>] alloc_pages_current+0xee/0x340 mm/mempolicy.c:2055
+ [<     inline     >] alloc_pages include/linux/gfp.h:451
+ [<ffffffff815f8866>] alloc_kmem_pages+0x16/0xf0 mm/page_alloc.c:3414
+ [<ffffffff8164842f>] kmalloc_order+0x1f/0x80 mm/slab_common.c:1007
+ [<ffffffff816484af>] kmalloc_order_trace+0x1f/0x140 mm/slab_common.c:1018
+ [<     inline     >] kmalloc_large include/linux/slab.h:390
+ [<ffffffff816ccf0e>] __kmalloc+0x2de/0x330 mm/slub.c:3555
+ [<     inline     >] kmalloc include/linux/slab.h:463
+ [<     inline     >] kzalloc include/linux/slab.h:602
+ [<ffffffff85bea75c>] nfc_llcp_send_ui_frame+0xdc/0x3d0
+net/nfc/llcp_commands.c:732
+ [<ffffffff85bebbb0>] llcp_sock_sendmsg+0x250/0x310 net/nfc/llcp_sock.c:782
+ [<     inline     >] sock_sendmsg_nosec net/socket.c:610
+ [<ffffffff84b5cc9a>] sock_sendmsg+0xca/0x110 net/socket.c:620
+ [<ffffffff84b5eaea>] ___sys_sendmsg+0x72a/0x840 net/socket.c:1946
+ [<ffffffff84b60aae>] __sys_sendmsg+0xce/0x170 net/socket.c:1980
+ [<     inline     >] SYSC_sendmsg net/socket.c:1991
+ [<ffffffff84b60b7d>] SyS_sendmsg+0x2d/0x50 net/socket.c:1987
+ [<ffffffff85c8eb36>] entry_SYSCALL_64_fastpath+0x16/0x7a
+arch/x86/entry/entry_64.S:185
+---[ end trace 62962d1ed2b9f41a ]---
 
-Gr{oetje,eeting}s,
 
-                        Geert
+// autogenerated by syzkaller (http://github.com/google/syzkaller)
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <string.h>
+#include <stdint.h>
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+long r[68];
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+int main()
+{
+        memset(r, -1, sizeof(r));
+        r[0] = syscall(SYS_mmap, 0x20000000ul, 0x20000ul, 0x3ul,
+0x32ul, 0xfffffffffffffffful, 0x0ul);
+        r[1] = syscall(SYS_socket, 0x27ul, 0x2ul, 0x1ul, 0, 0, 0);
+        *(uint16_t*)0x2000cfa0 = (uint16_t)0x27;
+        *(uint32_t*)0x2000cfa4 = (uint32_t)0x1;
+        *(uint32_t*)0x2000cfa8 = (uint32_t)0x8;
+        *(uint32_t*)0x2000cfac = (uint32_t)0x7;
+        *(uint8_t*)0x2000cfb0 = (uint8_t)0x0;
+        *(uint8_t*)0x2000cfb1 = (uint8_t)0x38;
+        *(uint8_t*)0x2000cfb2 = (uint8_t)0x6;
+        *(uint8_t*)0x2000cfb3 = (uint8_t)0x0;
+        *(uint32_t*)0x2000cfb4 = (uint32_t)0x9;
+        *(uint32_t*)0x2000cfb8 = (uint32_t)0x7;
+        *(uint32_t*)0x2000cfbc = (uint32_t)0x9;
+        *(uint32_t*)0x2000cfc0 = (uint32_t)0xfffffffffffffff7;
+        *(uint32_t*)0x2000cfc4 = (uint32_t)0x8;
+        *(uint32_t*)0x2000cfc8 = (uint32_t)0xcf77;
+        *(uint32_t*)0x2000cfcc = (uint32_t)0x39;
+        *(uint32_t*)0x2000cfd0 = (uint32_t)0x6;
+        *(uint32_t*)0x2000cfd4 = (uint32_t)0x8;
+        *(uint32_t*)0x2000cfd8 = (uint32_t)0x4;
+        *(uint32_t*)0x2000cfdc = (uint32_t)0x4b;
+        *(uint32_t*)0x2000cfe0 = (uint32_t)0x9;
+        *(uint32_t*)0x2000cfe4 = (uint32_t)0x5;
+        *(uint32_t*)0x2000cfe8 = (uint32_t)0x4;
+        *(uint32_t*)0x2000cfec = (uint32_t)0x7;
+        *(uint8_t*)0x2000cff0 = (uint8_t)0xfffffffffffffffd;
+        *(uint64_t*)0x2000cff8 = (uint64_t)0x8;
+        r[27] = syscall(SYS_bind, r[1], 0x2000cfa0ul, 0x60ul, 0, 0, 0);
+        *(uint64_t*)0x20014fc8 = (uint64_t)0x20014000;
+        *(uint32_t*)0x20014fd0 = (uint32_t)0x60;
+        *(uint64_t*)0x20014fd8 = (uint64_t)0x20014000;
+        *(uint64_t*)0x20014fe0 = (uint64_t)0x1;
+        *(uint64_t*)0x20014fe8 = (uint64_t)0x20014000;
+        *(uint64_t*)0x20014ff0 = (uint64_t)0x11;
+        *(uint32_t*)0x20014ff8 = (uint32_t)0x0;
+        *(uint16_t*)0x20014000 = (uint16_t)0x27;
+        *(uint32_t*)0x20014004 = (uint32_t)0x3;
+        *(uint32_t*)0x20014008 = (uint32_t)0x0;
+        *(uint32_t*)0x2001400c = (uint32_t)0x0;
+        *(uint8_t*)0x20014010 = (uint8_t)0x2;
+        *(uint8_t*)0x20014011 = (uint8_t)0x52;
+        *(uint8_t*)0x20014012 = (uint8_t)0x7;
+        *(uint8_t*)0x20014013 = (uint8_t)0x2;
+        *(uint32_t*)0x20014014 = (uint32_t)0x3;
+        *(uint32_t*)0x20014018 = (uint32_t)0x8;
+        *(uint32_t*)0x2001401c = (uint32_t)0x9;
+        *(uint32_t*)0x20014020 = (uint32_t)0xde4;
+        *(uint32_t*)0x20014024 = (uint32_t)0x8;
+        *(uint32_t*)0x20014028 = (uint32_t)0x6;
+        *(uint32_t*)0x2001402c = (uint32_t)0x6850;
+        *(uint32_t*)0x20014030 = (uint32_t)0x24;
+        *(uint32_t*)0x20014034 = (uint32_t)0x0;
+        *(uint32_t*)0x20014038 = (uint32_t)0xffffffffffffffe4;
+        *(uint32_t*)0x2001403c = (uint32_t)0x6;
+        *(uint32_t*)0x20014040 = (uint32_t)0x4e;
+        *(uint32_t*)0x20014044 = (uint32_t)0x6;
+        *(uint32_t*)0x20014048 = (uint32_t)0xf14c;
+        *(uint32_t*)0x2001404c = (uint32_t)0x2;
+        *(uint8_t*)0x20014050 = (uint8_t)0x1;
+        *(uint64_t*)0x20014058 = (uint64_t)0x3e;
+        *(uint64_t*)0x20014000 = (uint64_t)0x20014000;
+        *(uint64_t*)0x20014008 = (uint64_t)0xd2;
+        *(uint64_t*)0x20014000 = (uint64_t)0x11;
+        *(uint32_t*)0x20014008 = (uint32_t)0x4;
+        *(uint32_t*)0x2001400c = (uint32_t)0x9;
+        *(uint8_t*)0x20014010 = (uint8_t)0x0;
+        r[67] = syscall(SYS_sendmsg, r[1], 0x20014fc8ul, 0x80ul, 0, 0, 0);
+        return 0;
+}
+
+On commit 8513342170278468bac126640a5d2d12ffbff106 (Dec 28).
