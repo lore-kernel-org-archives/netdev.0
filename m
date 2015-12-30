@@ -1,91 +1,55 @@
-From: Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org>
-Subject: Re: [PATCH] mac80211: Make addr const in SET_IEEE80211_PERM_ADDR()
-Date: Wed, 30 Dec 2015 12:01:53 -0800
-Message-ID: <CAJAp7OisPmCGbMUjjAR_30TLXD1Wm_gOMRp-xfXWEVz-R2yUOA@mail.gmail.com>
-References: <1450946006-7498-1-git-send-email-bjorn.andersson@sonymobile.com>
-	<CAFqt6zam7maK4wFrKo=yqWxaBkVDJhZGbKAFAdmcZPQonXTcxA@mail.gmail.com>
-	<CAJAp7Oinz993CQgA81SifcJoeHicD9YNhBv0HHkiav3rD5=M4Q@mail.gmail.com>
-	<CAFqt6zYfQwBN1in2dwYRY6CE1vf9-Kznc0z5UhBGxJzvEs7-kw@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 05/12] net: sched: per cpu gso handlers
+Date: Wed, 30 Dec 2015 21:26:33 +0100
+Message-ID: <20151230212633.23fc9b7c@redhat.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>
+	<20151230175249.26257.99.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAFqt6zYfQwBN1in2dwYRY6CE1vf9-Kznc0z5UhBGxJzvEs7-kw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
+	aduyck@mirantis.com, davem@davemloft.net,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43595 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754506AbbL3U0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Dec 2015 15:26:39 -0500
+In-Reply-To: <20151230175249.26257.99.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 30, 2015 at 10:30 AM, Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Dec 30, 2015 at 10:35 PM, Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org> wrote:
->> On Wed, Dec 30, 2015 at 8:47 AM, Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>>
->>> HI Bjorn,
->>>
->>> On Thu, Dec 24, 2015 at 2:03 PM, Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org> wrote:
->>> > Make the addr parameter const in SET_IEEE80211_PERM_ADDR() to save
->>> > clients from having to cast away a const qualifier.
->>> >
->>> > Signed-off-by: Bjorn Andersson <bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
->>> > ---
->>> >  include/net/mac80211.h | 2 +-
->>> >  1 file changed, 1 insertion(+), 1 deletion(-)
->>> >
->>> > diff --git a/include/net/mac80211.h b/include/net/mac80211.h
->>> > index 7c30faff245f..a6f3c9c4b7c2 100644
->>> > --- a/include/net/mac80211.h
->>> > +++ b/include/net/mac80211.h
->>> > @@ -2167,7 +2167,7 @@ static inline void SET_IEEE80211_DEV(struct ieee80211_hw *hw, struct device *dev
->>> >   * @hw: the &struct ieee80211_hw to set the MAC address for
->>> >   * @addr: the address to set
->>> >   */
->>> > -static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, u8 *addr)
->>> > +static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, const u8 *addr)
->>>
->>> I guess without const or with const doesn't make much difference here.
->>> Correct me if I am wrong.
->>
->> For most cases it doesn't make any difference, but in my driver I
->> acquire the mac address as a const u8 *. Therefor I need to cast away
->> the const part when calling this API.
->>
->> There's an existing example of this in
->> drivers/net/wireless/st/cw1200/main.c line 601.
->
-> Is the path correct ? I think path is
-> drivers/net/wireless/cw1200/main.c line 334
->
+On Wed, 30 Dec 2015 09:52:49 -0800
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-It's apparently being relocated in linux-next, and I'm not sure where
-I got that line number from. But that's the example I tried to refer
-to ;)
+> The net sched infrastructure has a gso ptr that points to skb structs
+> that have failed to be enqueued by the device driver.
 
-Sorry about that.
+What about fixing up the naming "gso" to something else like "requeue",
+in the process (or by an pre-patch) ?
 
-Regards,
-Bjorn
 
->> I think it's safe to assume that this API won't ever modify the passed
->> addr buffer, so there would be no future issues of marking the
->> parameter const either.
->
-> I agree with you.
->
->>
->>>
->>> >  {
->>> >         memcpy(hw->wiphy->perm_addr, addr, ETH_ALEN);
->>> >  }
->>>
->>
->> Regards,
->> Bjorn
->
-> -Souptick
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This can happen when multiple cores try to push a skb onto the same
+> underlying hardware queue resulting in lock contention. This case is
+> handled by a cpu collision handler handle_dev_cpu_collision(). Another
+> case occurs when the stack overruns the drivers low level tx queues
+> capacity. Ideally these should be a rare occurrence in a well-tuned
+> system but they do happen.
+> 
+> To handle this in the lockless case use a per cpu gso field to park
+> the skb until the conflict can be resolved. Note at this point the
+> skb has already been popped off the qdisc so it has to be handled
+> by the infrastructure.
+
+I generally like this idea of resolving this per cpu.  (I stalled here,
+on the requeue issue, last time I implemented a lockless qdisc
+approach).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
