@@ -1,66 +1,36 @@
-From: Bjorn Andersson <bjorn@kryo.se>
-Subject: Re: [PATCH] mac80211: Make addr const in SET_IEEE80211_PERM_ADDR()
-Date: Wed, 30 Dec 2015 09:05:32 -0800
-Message-ID: <CAJAp7Oinz993CQgA81SifcJoeHicD9YNhBv0HHkiav3rD5=M4Q@mail.gmail.com>
-References: <1450946006-7498-1-git-send-email-bjorn.andersson@sonymobile.com>
-	<CAFqt6zam7maK4wFrKo=yqWxaBkVDJhZGbKAFAdmcZPQonXTcxA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/5] sctp: use transport hashtable to replace
+ association's with rhashtable
+Date: Wed, 30 Dec 2015 12:19:39 -0500
+Message-ID: <1451495979.8255.32.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1451490447.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Souptick Joarder <jrdr.linux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFqt6zam7maK4wFrKo=yqWxaBkVDJhZGbKAFAdmcZPQonXTcxA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	mleitner@redhat.com, vyasevic@redhat.com, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34903 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752046AbbL3RTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 12:19:41 -0500
+In-Reply-To: <cover.1451490447.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 30, 2015 at 8:47 AM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
->
-> HI Bjorn,
->
-> On Thu, Dec 24, 2015 at 2:03 PM, Bjorn Andersson <bjorn@kryo.se> wrote:
-> > Make the addr parameter const in SET_IEEE80211_PERM_ADDR() to save
-> > clients from having to cast away a const qualifier.
-> >
-> > Signed-off-by: Bjorn Andersson <bjorn.andersson@sonymobile.com>
-> > ---
-> >  include/net/mac80211.h | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >
-> > diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-> > index 7c30faff245f..a6f3c9c4b7c2 100644
-> > --- a/include/net/mac80211.h
-> > +++ b/include/net/mac80211.h
-> > @@ -2167,7 +2167,7 @@ static inline void SET_IEEE80211_DEV(struct ieee80211_hw *hw, struct device *dev
-> >   * @hw: the &struct ieee80211_hw to set the MAC address for
-> >   * @addr: the address to set
-> >   */
-> > -static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, u8 *addr)
-> > +static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, const u8 *addr)
->
-> I guess without const or with const doesn't make much difference here.
-> Correct me if I am wrong.
+On Wed, 2015-12-30 at 23:50 +0800, Xin Long wrote:
 
-For most cases it doesn't make any difference, but in my driver I
-acquire the mac address as a const u8 *. Therefor I need to cast away
-the const part when calling this API.
+> besides, this patchset will use transport hashtable to replace
+> association hashtable to lookup with rhashtable api. get transport
+> first then get association by t->asoc. and also it will make tcp
+> style work better.
 
-There's an existing example of this in
-drivers/net/wireless/st/cw1200/main.c line 601.
+SCTP already has a hash table, why not simply changing the way items are
+hashed into it ?
 
+Sure, storing thousands of sockets in a single hash bucket is not wise.
 
-I think it's safe to assume that this API won't ever modify the passed
-addr buffer, so there would be no future issues of marking the
-parameter const either.
-
->
-> >  {
-> >         memcpy(hw->wiphy->perm_addr, addr, ETH_ALEN);
-> >  }
->
-
-Regards,
-Bjorn
+Switching SCTP to rhashtable at this moment is premature, it is still
+moving fast.
