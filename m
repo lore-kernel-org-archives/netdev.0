@@ -1,60 +1,109 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
-Date: Wed, 30 Dec 2015 08:26:55 -0500
-Message-ID: <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
-	<87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
-	<20151229.150843.2021692616139434395.davem@davemloft.net>
-	<CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] udp: properly support MSG_PEEK with truncated
+ buffers
+Date: Wed, 30 Dec 2015 08:51:12 -0500
+Message-ID: <1451483472.8255.16.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
+	 <20151228142942.GA7394@bistromath.redhat.com>
+	 <20151228153836.GA28529@unicorn.suse.cz>
+	 <1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jacob Siverskog <jacob@teenage.engineering>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sabrina Dubroca <sd@queasysnail.net>, stable@vger.kernel.org,
+	Jiri Slaby <jslaby@suse.cz>,
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 30, 2015 at 6:14 AM, Jacob Siverskog
-<jacob@teenage.engineering> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> Ok. Thanks for your feedback. How do you believe the issue could be
-> solved? Investigating it gives:
->
-> static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
-> {
-> struct sk_buff *next, *prev;
->
-> list->qlen--;
->      51c: e2433001 sub r3, r3, #1
->      520: e58b3074 str r3, [fp, #116] ; 0x74
-> next   = skb->next;
-> prev   = skb->prev;
->      524: e894000c ldm r4, {r2, r3}
-> skb->next  = skb->prev = NULL;
->      528: e5841000 str r1, [r4]
->      52c: e5841004 str r1, [r4, #4]
-> next->prev = prev;
->      530: e5823004 str r3, [r2, #4]                          <--
-> trapping instruction (r2 NULL)
->
-> Register contents:
-> r7 : c58cfe1c  r6 : c06351d0  r5 : c77810ac  r4 : c583eac0
-> r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 : 20000013
->
-> If I understand this correctly, then r4 = skb, r2 = next, r3 = prev.
->
-> Should there be a check for this in __skb_try_recv_datagram?
+Backport of this upstream commit into stable kernels :
+89c22d8c3b27 ("net: Fix skb csum races when peeking")
+exposed a bug in udp stack vs MSG_PEEK support, when user provides
+a buffer smaller than skb payload.
+    
+In this case,
+skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr),
+                                 msg->msg_iov);
+returns -EFAULT.
+    
+This bug does not happen in upstream kernels since Al Viro did a great
+job to replace this into :
+skb_copy_and_csum_datagram_msg(skb, sizeof(struct udphdr), msg);
+This variant is safe vs short buffers.
+    
+For the time being, instead reverting Herbert Xu patch and add back
+skb->ip_summed invalid changes, simply store the result of
+udp_lib_checksum_complete() so that we avoid computing the checksum a
+second time, and avoid the problematic
+skb_copy_and_csum_datagram_iovec() call.
 
-At this point corruption already happened.
-We can not possibly detect every possible corruption caused by bugs
-elsewhere in the kernel and just 'recover' at this point.
-We must indeed find the root cause and fix it, instead of trying to hide it.
+This patch can be applied on recent kernels as it avoids a double
+checksumming, then backported to stable kernels as a bug fix.
 
-How often can you trigger this bug ?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/udp.c |    6 ++++--
+ net/ipv6/udp.c |    6 ++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8841e984f8bf..ac14ae44390d 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1271,6 +1271,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 	int peeked, off = 0;
+ 	int err;
+ 	int is_udplite = IS_UDPLITE(sk);
++	bool checksum_valid = false;
+ 	bool slow;
+ 
+ 	if (flags & MSG_ERRQUEUE)
+@@ -1296,11 +1297,12 @@ try_again:
+ 	 */
+ 
+ 	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
+-		if (udp_lib_checksum_complete(skb))
++		checksum_valid = !udp_lib_checksum_complete(skb);
++		if (!checksum_valid)
+ 			goto csum_copy_err;
+ 	}
+ 
+-	if (skb_csum_unnecessary(skb))
++	if (checksum_valid || skb_csum_unnecessary(skb))
+ 		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
+ 					    msg, copied);
+ 	else {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 9da3287a3923..00775ee27d86 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -402,6 +402,7 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+ 	int peeked, off = 0;
+ 	int err;
+ 	int is_udplite = IS_UDPLITE(sk);
++	bool checksum_valid = false;
+ 	int is_udp4;
+ 	bool slow;
+ 
+@@ -433,11 +434,12 @@ try_again:
+ 	 */
+ 
+ 	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
+-		if (udp_lib_checksum_complete(skb))
++		checksum_valid = !udp_lib_checksum_complete(skb);
++		if (!checksum_valid)
+ 			goto csum_copy_err;
+ 	}
+ 
+-	if (skb_csum_unnecessary(skb))
++	if (checksum_valid || skb_csum_unnecessary(skb))
+ 		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
+ 					    msg, copied);
+ 	else {
