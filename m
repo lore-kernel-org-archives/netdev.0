@@ -1,48 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 6/8] ixgbe: fix RSS limit for X550
-Date: Tue, 29 Dec 2015 19:23:27 -0800
-Message-ID: <1451445809-70497-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 1/8] ixgbevf: Fix handling of NAPI budget when multiple queues are enabled per vector
+Date: Tue, 29 Dec 2015 19:23:22 -0800
+Message-ID: <1451445809-70497-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: William Dauchy <william@gandi.net>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:59463 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:27547 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754050AbbL3DXg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2015 22:23:36 -0500
+	id S1752158AbbL3DXc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2015 22:23:32 -0500
 In-Reply-To: <1451445809-70497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: William Dauchy <william@gandi.net>
 
-X550 allows for up to 64 RSS queues, but the driver can have max
-of 63 (-1 MSIX vector for link).
+This is the same patch as for ixgbe but applied differently according to
+busy polling.  See commit 5d6002b7b822c74 ("ixgbe: Fix handling of NAPI
+budget when multiple queues are enabled per vector")
 
-On systems with >= 64 CPUs the driver will set the redirection table
-for all 64 queues which will result in packets being dropped.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: William Dauchy <william@gandi.net>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index f4c9a42..4b9156c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -317,7 +317,7 @@ enum ixgbe_ring_f_enum {
- };
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index f098952..478c0f1 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1016,6 +1016,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
+ 	ixgbevf_for_each_ring(ring, q_vector->tx)
+ 		clean_complete &= ixgbevf_clean_tx_irq(q_vector, ring);
  
- #define IXGBE_MAX_RSS_INDICES		16
--#define IXGBE_MAX_RSS_INDICES_X550	64
-+#define IXGBE_MAX_RSS_INDICES_X550	63
- #define IXGBE_MAX_VMDQ_INDICES		64
- #define IXGBE_MAX_FDIR_INDICES		63	/* based on q_vector limit */
- #define IXGBE_MAX_FCOE_INDICES		8
++	if (budget <= 0)
++		return budget;
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	if (!ixgbevf_qv_lock_napi(q_vector))
+ 		return budget;
 -- 
 2.5.0
