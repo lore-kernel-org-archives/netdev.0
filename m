@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 03/12] net: sched: allow qdiscs to handle locking
-Date: Wed, 30 Dec 2015 09:51:59 -0800
-Message-ID: <20151230175159.26257.51130.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 04/12] net: sched: provide per cpu qstat helpers
+Date: Wed, 30 Dec 2015 09:52:27 -0800
+Message-ID: <20151230175227.26257.577.stgit@john-Precision-Tower-5810>
 References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,114 +11,86 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
 To: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
 	aduyck@mirantis.com, brouer@redhat.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33620 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754423AbbL3RwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 12:52:22 -0500
-Received: by mail-pa0-f54.google.com with SMTP id cy9so141170409pac.0
-        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 09:52:21 -0800 (PST)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:32898 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754423AbbL3Rwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 12:52:44 -0500
+Received: by mail-pf0-f180.google.com with SMTP id q63so108819343pfb.0
+        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 09:52:44 -0800 (PST)
 In-Reply-To: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a flag for queueing disciplines to indicate
-the stack does not need to use the qdisc lock to protect
-operations. This can be used to build lockless scheduling
-algorithms and improving performance.
-
-The flag is checked in the tx path and the qdisc lock is
-only taken if it is not set. For now use a conditional
-if statement. Later we could be more aggressive if it
-proves worthwhile and use a static key or wrap this in
-a likely().
+The per cpu qstats support was added with per cpu bstat support
+which is currently used by the ingress qdisc. This patch adds
+a set of helpers needed to make other qdiscs that use qstats
+per cpu as well.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/sch_generic.h |    1 +
- net/core/dev.c            |   20 ++++++++++++--------
- net/sched/sch_generic.c   |    7 +++++--
- 3 files changed, 18 insertions(+), 10 deletions(-)
+ include/net/sch_generic.h |   39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index b2a8e63..c8d42c3 100644
+index c8d42c3..9966c17 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -64,6 +64,7 @@ struct Qdisc {
- #define TCQ_F_NOPARENT		0x40 /* root of its hierarchy :
- 				      * qdisc_tree_decrease_qlen() should stop.
- 				      */
-+#define TCQ_F_NOLOCK		0x80 /* qdisc does not require locking */
- 	u32			limit;
- 	const struct Qdisc_ops	*ops;
- 	struct qdisc_size_table	__rcu *stab;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 914b4a2..7a51609 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3004,7 +3004,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 				 struct netdev_queue *txq)
- {
- 	spinlock_t *root_lock = qdisc_lock(q);
--	bool contended;
-+	bool contended = false;
- 	int rc;
- 
- 	qdisc_pkt_len_init(skb);
-@@ -3015,11 +3015,13 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 	 * This permits __QDISC___STATE_RUNNING owner to get the lock more
- 	 * often and dequeue packets faster.
- 	 */
--	contended = qdisc_is_running(q);
--	if (unlikely(contended))
--		spin_lock(&q->busylock);
-+	if (!(q->flags & TCQ_F_NOLOCK)) {
-+		contended = qdisc_is_running(q);
-+		if (unlikely(contended))
-+			spin_lock(&q->busylock);
-+		spin_lock(root_lock);
-+	}
- 
--	spin_lock(root_lock);
- 	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
- 		kfree_skb(skb);
- 		rc = NET_XMIT_DROP;
-@@ -3053,9 +3055,11 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 			__qdisc_run(q);
- 		}
- 	}
--	spin_unlock(root_lock);
--	if (unlikely(contended))
--		spin_unlock(&q->busylock);
-+	if (!(q->flags & TCQ_F_NOLOCK)) {
-+		spin_unlock(root_lock);
-+		if (unlikely(contended))
-+			spin_unlock(&q->busylock);
-+	}
- 	return rc;
+@@ -545,12 +545,43 @@ static inline void qdisc_qstats_backlog_dec(struct Qdisc *sch,
+ 	sch->qstats.backlog -= qdisc_pkt_len(skb);
  }
  
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 16bc83b..37dfa4a 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -153,7 +153,8 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
- 	int ret = NETDEV_TX_BUSY;
- 
- 	/* And release qdisc */
--	spin_unlock(root_lock);
-+	if (!(q->flags & TCQ_F_NOLOCK))
-+		spin_unlock(root_lock);
- 
- 	/* Note that we validate skb (GSO, checksum, ...) outside of locks */
- 	if (validate)
-@@ -166,7 +167,9 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
- 
- 		HARD_TX_UNLOCK(dev, txq);
- 	}
--	spin_lock(root_lock);
++static inline void qdisc_qstats_cpu_backlog_dec(struct Qdisc *sch,
++						const struct sk_buff *skb)
++{
++	struct gnet_stats_queue *q = this_cpu_ptr(sch->cpu_qstats);
 +
-+	if (!(q->flags & TCQ_F_NOLOCK))
-+		spin_lock(root_lock);
++	q->backlog -= qdisc_pkt_len(skb);
++}
++
+ static inline void qdisc_qstats_backlog_inc(struct Qdisc *sch,
+ 					    const struct sk_buff *skb)
+ {
+ 	sch->qstats.backlog += qdisc_pkt_len(skb);
+ }
  
- 	if (dev_xmit_complete(ret)) {
- 		/* Driver sent out skb successfully or skb was consumed */
++static inline void qdisc_qstats_cpu_backlog_inc(struct Qdisc *sch,
++						const struct sk_buff *skb)
++{
++	struct gnet_stats_queue *q = this_cpu_ptr(sch->cpu_qstats);
++
++	q->backlog += qdisc_pkt_len(skb);
++}
++
++static inline void qdisc_qstats_cpu_qlen_inc(struct Qdisc *sch)
++{
++	this_cpu_ptr(sch->cpu_qstats)->qlen++;
++}
++
++static inline void qdisc_qstats_cpu_qlen_dec(struct Qdisc *sch)
++{
++	this_cpu_ptr(sch->cpu_qstats)->qlen--;
++}
++
++static inline void qdisc_qstats_cpu_requeues_inc(struct Qdisc *sch)
++{
++	this_cpu_ptr(sch->cpu_qstats)->requeues++;
++}
++
+ static inline void __qdisc_qstats_drop(struct Qdisc *sch, int count)
+ {
+ 	sch->qstats.drops += count;
+@@ -726,6 +757,14 @@ static inline int qdisc_drop(struct sk_buff *skb, struct Qdisc *sch)
+ 	return NET_XMIT_DROP;
+ }
+ 
++static inline int qdisc_drop_cpu(struct sk_buff *skb, struct Qdisc *sch)
++{
++	kfree_skb(skb);
++	qdisc_qstats_cpu_drop(sch);
++
++	return NET_XMIT_DROP;
++}
++
+ static inline int qdisc_reshape_fail(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	qdisc_qstats_drop(sch);
