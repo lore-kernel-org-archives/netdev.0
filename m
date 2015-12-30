@@ -1,57 +1,43 @@
-From: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] mac80211: Make addr const in SET_IEEE80211_PERM_ADDR()
-Date: Wed, 30 Dec 2015 22:17:04 +0530
-Message-ID: <CAFqt6zam7maK4wFrKo=yqWxaBkVDJhZGbKAFAdmcZPQonXTcxA@mail.gmail.com>
-References: <1450946006-7498-1-git-send-email-bjorn.andersson@sonymobile.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 4.4-rc7 failure report
+Date: Wed, 30 Dec 2015 11:55:25 -0500
+Message-ID: <1451494525.8255.21.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5681AF69.4040204@redhat.com> <5681B594.70304@iogearbox.net>
+	 <5681E154.7040101@redhat.com>
+	 <20151230034300.GA8670@ast-mbp.thefacebook.com>
+	 <5683531F.9000704@redhat.com>
+	 <20151230041611.GA9209@ast-mbp.thefacebook.com>
+	 <5683A630.2070401@iogearbox.net> <20151230151123.GB4874@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450946006-7498-1-git-send-email-bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Doug Ledford <dledford@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Dave Jones <davej@codemonkey.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35170 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753360AbbL3Qz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 11:55:28 -0500
+Received: by mail-pf0-f173.google.com with SMTP id 78so144184321pfw.2
+        for <netdev@vger.kernel.org>; Wed, 30 Dec 2015 08:55:28 -0800 (PST)
+In-Reply-To: <20151230151123.GB4874@codemonkey.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-HI Bjorn,
+On Wed, 2015-12-30 at 10:11 -0500, Dave Jones wrote:
+> On Wed, Dec 30, 2015 at 10:38:56AM +0100, Daniel Borkmann wrote:
+> 
+>  > Given that this drop doesn't strictly need to be caused by filter code,
+>  > it would be nice if you could pin the location down where the packet gets
+>  > dropped exactly. Perhaps dropwatch or perf with '-e skb:kfree_skb -a -g
+>  > dhclient <iface>', etc could help to get a first overview to dig into
+>  > details then.
+> 
+> Wild stab in the dark, but..
+> Could this bug be another symptom fixed by http://article.gmane.org/gmane.linux.network/392885 ?
 
-On Thu, Dec 24, 2015 at 2:03 PM, Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org> wrote:
-> Make the addr parameter const in SET_IEEE80211_PERM_ADDR() to save
-> clients from having to cast away a const qualifier.
->
-> Signed-off-by: Bjorn Andersson <bjorn.andersson-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org>
-> ---
->  include/net/mac80211.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-> index 7c30faff245f..a6f3c9c4b7c2 100644
-> --- a/include/net/mac80211.h
-> +++ b/include/net/mac80211.h
-> @@ -2167,7 +2167,7 @@ static inline void SET_IEEE80211_DEV(struct ieee80211_hw *hw, struct device *dev
->   * @hw: the &struct ieee80211_hw to set the MAC address for
->   * @addr: the address to set
->   */
-> -static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, u8 *addr)
-> +static inline void SET_IEEE80211_PERM_ADDR(struct ieee80211_hw *hw, const u8 *addr)
-
-I guess without const or with const doesn't make much difference here.
-Correct me if I am wrong.
->  {
->         memcpy(hw->wiphy->perm_addr, addr, ETH_ALEN);
->  }
-> --
-> 2.5.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--Souptick
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+dhclient does not use async io
