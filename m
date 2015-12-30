@@ -1,283 +1,293 @@
 From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH net-next v3 09/10] be2net: support ethtool get-dump option
-Date: Wed, 30 Dec 2015 01:29:04 -0500
-Message-ID: <1451456945-31606-10-git-send-email-sathya.perla@avagotech.com>
+Subject: [PATCH net-next v3 03/10] be2net: cleanup FW flash image related macro defines
+Date: Wed, 30 Dec 2015 01:28:58 -0500
+Message-ID: <1451456945-31606-4-git-send-email-sathya.perla@avagotech.com>
 References: <1451456945-31606-1-git-send-email-sathya.perla@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:50633 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754327AbbL3G3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 01:29:23 -0500
+	by vger.kernel.org with ESMTP id S1754327AbbL3G3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2015 01:29:14 -0500
 In-Reply-To: <1451456945-31606-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Venkat Duvvuru <venkatkumar.duvvuru@avagotech.com>
+From: Suresh Reddy <suresh.reddy@avagotech.com>
 
-This patch adds support for ethtool's --get-dump option in be2net,
-to retrieve FW dump. In the past when this option was not yet available,
-this feature was supported via the --register-dump option as a workaround.
-This patch removes support for FW-dump via --register-dump option as it is
-now available via --get-dump option. Even though the
-"ethtool --register-dump" cmd which used to work earlier, will now fail
-with ENOTSUPP error, we feel it is not an issue as this is used only
-for diagnostics purpose.
+Many constant definitions relating to the FW-image layout
+(such as section offset values) were defined in decimal format rather than
+hexa-decimal. This makes this part of the code un-readable. Also some
+defines related to BE2 are labeld "g2" and defines related to BE3 are
+labeled "g3".  This patch cleans up all of this to make this code more
+readable.
 
-Signed-off-by: Venkat Duvvuru <venkatkumar.duvvuru@avagotech.com>
+Signed-off-by: Suresh Reddy <suresh.reddy@avagotech.com>
 Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |  1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c    | 38 ++++--------
- drivers/net/ethernet/emulex/benet/be_cmds.h    |  4 +-
- drivers/net/ethernet/emulex/benet/be_ethtool.c | 82 ++++++++++++++++----------
- drivers/net/ethernet/emulex/benet/be_main.c    |  3 +
- 5 files changed, 71 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.h | 141 ++++++++++++++++------------
+ drivers/net/ethernet/emulex/benet/be_main.c |  78 +++++++--------
+ 2 files changed, 118 insertions(+), 101 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 66988f4..8b8212f 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -592,6 +592,7 @@ struct be_adapter {
- 	struct rss_info rss_info;
- 	/* Filters for packets that need to be sent to BMC */
- 	u32 bmc_filt_mask;
-+	u32 fat_dump_len;
- 	u16 serial_num[CNTL_SERIAL_NUM_WORDS];
- };
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index b92ee06..b63d8ad 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1712,49 +1712,40 @@ err:
- }
- 
- /* Uses synchronous mcc */
--int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size)
-+int be_cmd_get_fat_dump_len(struct be_adapter *adapter, u32 *dump_size)
- {
--	struct be_mcc_wrb *wrb;
-+	struct be_mcc_wrb wrb = {0};
- 	struct be_cmd_req_get_fat *req;
- 	int status;
- 
--	spin_lock_bh(&adapter->mcc_lock);
--
--	wrb = wrb_from_mccq(adapter);
--	if (!wrb) {
--		status = -EBUSY;
--		goto err;
--	}
--	req = embedded_payload(wrb);
-+	req = embedded_payload(&wrb);
- 
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
--			       OPCODE_COMMON_MANAGE_FAT, sizeof(*req), wrb,
--			       NULL);
-+			       OPCODE_COMMON_MANAGE_FAT, sizeof(*req),
-+			       &wrb, NULL);
- 	req->fat_operation = cpu_to_le32(QUERY_FAT);
--	status = be_mcc_notify_wait(adapter);
-+	status = be_cmd_notify_wait(adapter, &wrb);
- 	if (!status) {
--		struct be_cmd_resp_get_fat *resp = embedded_payload(wrb);
-+		struct be_cmd_resp_get_fat *resp = embedded_payload(&wrb);
- 
--		if (log_size && resp->log_size)
--			*log_size = le32_to_cpu(resp->log_size) -
-+		if (dump_size && resp->log_size)
-+			*dump_size = le32_to_cpu(resp->log_size) -
- 					sizeof(u32);
- 	}
--err:
--	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
- 
--int be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
-+int be_cmd_get_fat_dump(struct be_adapter *adapter, u32 buf_len, void *buf)
- {
- 	struct be_dma_mem get_fat_cmd;
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_get_fat *req;
- 	u32 offset = 0, total_size, buf_size,
- 				log_offset = sizeof(u32), payload_len;
--	int status = 0;
-+	int status;
- 
- 	if (buf_len == 0)
--		return -EIO;
-+		return 0;
- 
- 	total_size = buf_len;
- 
-@@ -1762,11 +1753,8 @@ int be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
- 	get_fat_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev,
- 					     get_fat_cmd.size,
- 					     &get_fat_cmd.dma, GFP_ATOMIC);
--	if (!get_fat_cmd.va) {
--		dev_err(&adapter->pdev->dev,
--			"Memory allocation failure while reading FAT data\n");
-+	if (!get_fat_cmd.va)
- 		return -ENOMEM;
--	}
- 
- 	spin_lock_bh(&adapter->mcc_lock);
- 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 5098170..241819b 100644
+index 9690c3a..8c6b606 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -2365,9 +2365,9 @@ int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate,
- void be_detect_error(struct be_adapter *adapter);
- int be_cmd_get_die_temperature(struct be_adapter *adapter);
- int be_cmd_get_cntl_attributes(struct be_adapter *adapter);
-+int be_cmd_get_fat_dump_len(struct be_adapter *adapter, u32 *dump_size);
-+int be_cmd_get_fat_dump(struct be_adapter *adapter, u32 buf_len, void *buf);
- int be_cmd_req_native_mode(struct be_adapter *adapter);
--int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size);
--int be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf);
- int be_cmd_get_fn_privileges(struct be_adapter *adapter, u32 *privilege,
- 			     u32 domain);
- int be_cmd_set_fn_privileges(struct be_adapter *adapter, u32 privileges,
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index d2a5baf..a19ac44 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -250,6 +250,19 @@ static u32 lancer_cmd_get_file_len(struct be_adapter *adapter, u8 *file_name)
- 	return data_read;
- }
+@@ -1207,68 +1207,85 @@ struct be_cmd_resp_get_beacon_state {
+ /* Flashrom related descriptors */
+ #define MAX_FLASH_COMP			32
  
-+static int be_get_dump_len(struct be_adapter *adapter)
-+{
-+	u32 dump_size = 0;
-+
-+	if (lancer_chip(adapter))
-+		dump_size = lancer_cmd_get_file_len(adapter,
-+						    LANCER_FW_DUMP_FILE);
-+	else
-+		dump_size = adapter->fat_dump_len;
-+
-+	return dump_size;
-+}
-+
- static int lancer_cmd_read_file(struct be_adapter *adapter, u8 *file_name,
- 				u32 buf_len, void *buf)
- {
-@@ -291,37 +304,18 @@ static int lancer_cmd_read_file(struct be_adapter *adapter, u8 *file_name,
- 	return status;
- }
- 
--static int be_get_reg_len(struct net_device *netdev)
-+static int be_read_dump_data(struct be_adapter *adapter, u32 dump_len,
-+			     void *buf)
- {
--	struct be_adapter *adapter = netdev_priv(netdev);
--	u32 log_size = 0;
+-#define OPTYPE_ISCSI_ACTIVE		0
+-#define OPTYPE_REDBOOT			1
+-#define OPTYPE_BIOS			2
+-#define OPTYPE_PXE_BIOS			3
+-#define OPTYPE_OFFSET_SPECIFIED		7
+-#define OPTYPE_FCOE_BIOS		8
+-#define OPTYPE_ISCSI_BACKUP		9
+-#define OPTYPE_FCOE_FW_ACTIVE		10
+-#define OPTYPE_FCOE_FW_BACKUP		11
+-#define OPTYPE_NCSI_FW			13
+-#define OPTYPE_REDBOOT_DIR		18
+-#define OPTYPE_REDBOOT_CONFIG		19
+-#define OPTYPE_SH_PHY_FW		21
+-#define OPTYPE_FLASHISM_JUMPVECTOR	22
+-#define OPTYPE_UFI_DIR			23
+-#define OPTYPE_PHY_FW			99
 -
--	if (!check_privilege(adapter, MAX_PRIVILEGES))
--		return 0;
+-#define FLASH_BIOS_IMAGE_MAX_SIZE_g2	262144  /* Max OPTION ROM image sz */
+-#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g2	262144  /* Max Redboot image sz    */
+-#define FLASH_IMAGE_MAX_SIZE_g2		1310720 /* Max firmware image size */
 -
--	if (be_physfn(adapter)) {
--		if (lancer_chip(adapter))
--			log_size = lancer_cmd_get_file_len(adapter,
--							   LANCER_FW_DUMP_FILE);
--		else
--			be_cmd_get_reg_len(adapter, &log_size);
--	}
--	return log_size;
--}
-+	int status = 0;
+-#define FLASH_NCSI_IMAGE_MAX_SIZE_g3	262144
+-#define FLASH_PHY_FW_IMAGE_MAX_SIZE_g3	262144
+-#define FLASH_BIOS_IMAGE_MAX_SIZE_g3	524288  /* Max OPTION ROM image sz */
+-#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g3	1048576 /* Max Redboot image sz    */
+-#define FLASH_IMAGE_MAX_SIZE_g3		2097152 /* Max firmware image size */
+-
+-/* Offsets for components on Flash. */
+-#define FLASH_REDBOOT_START_g2			0
+-#define FLASH_FCoE_BIOS_START_g2		524288
+-#define FLASH_iSCSI_PRIMARY_IMAGE_START_g2	1048576
+-#define FLASH_iSCSI_BACKUP_IMAGE_START_g2	2359296
+-#define FLASH_FCoE_PRIMARY_IMAGE_START_g2	3670016
+-#define FLASH_FCoE_BACKUP_IMAGE_START_g2	4980736
+-#define FLASH_iSCSI_BIOS_START_g2		7340032
+-#define FLASH_PXE_BIOS_START_g2			7864320
+-
+-#define FLASH_REDBOOT_START_g3			262144
+-#define FLASH_PHY_FW_START_g3			1310720
+-#define FLASH_iSCSI_PRIMARY_IMAGE_START_g3	2097152
+-#define FLASH_iSCSI_BACKUP_IMAGE_START_g3	4194304
+-#define FLASH_FCoE_PRIMARY_IMAGE_START_g3	6291456
+-#define FLASH_FCoE_BACKUP_IMAGE_START_g3	8388608
+-#define FLASH_iSCSI_BIOS_START_g3		12582912
+-#define FLASH_PXE_BIOS_START_g3			13107200
+-#define FLASH_FCoE_BIOS_START_g3		13631488
+-#define FLASH_NCSI_START_g3			15990784
+-
+-#define IMAGE_NCSI			16
+-#define IMAGE_OPTION_ROM_PXE		32
+-#define IMAGE_OPTION_ROM_FCoE		33
+-#define IMAGE_OPTION_ROM_ISCSI		34
+-#define IMAGE_FLASHISM_JUMPVECTOR	48
+-#define IMAGE_FIRMWARE_iSCSI		160
+-#define IMAGE_FIRMWARE_FCoE		162
+-#define IMAGE_FIRMWARE_BACKUP_iSCSI	176
+-#define IMAGE_FIRMWARE_BACKUP_FCoE	178
+-#define IMAGE_FIRMWARE_PHY		192
+-#define IMAGE_REDBOOT_DIR		208
+-#define IMAGE_REDBOOT_CONFIG		209
+-#define IMAGE_UFI_DIR			210
+-#define IMAGE_BOOT_CODE			224
++/* Optypes of each component in the UFI */
++enum {
++	OPTYPE_ISCSI_ACTIVE = 0,
++	OPTYPE_REDBOOT = 1,
++	OPTYPE_BIOS = 2,
++	OPTYPE_PXE_BIOS = 3,
++	OPTYPE_OFFSET_SPECIFIED = 7,
++	OPTYPE_FCOE_BIOS = 8,
++	OPTYPE_ISCSI_BACKUP = 9,
++	OPTYPE_FCOE_FW_ACTIVE = 10,
++	OPTYPE_FCOE_FW_BACKUP = 11,
++	OPTYPE_NCSI_FW = 13,
++	OPTYPE_REDBOOT_DIR = 18,
++	OPTYPE_REDBOOT_CONFIG = 19,
++	OPTYPE_SH_PHY_FW = 21,
++	OPTYPE_FLASHISM_JUMPVECTOR = 22,
++	OPTYPE_UFI_DIR = 23,
++	OPTYPE_PHY_FW = 99
++};
++
++/* Maximum sizes of components in BE2 FW UFI */
++enum {
++	BE2_BIOS_COMP_MAX_SIZE = 0x40000,
++	BE2_REDBOOT_COMP_MAX_SIZE = 0x40000,
++	BE2_COMP_MAX_SIZE = 0x140000
++};
++
++/* Maximum sizes of components in BE3 FW UFI */
++enum {
++	BE3_NCSI_COMP_MAX_SIZE = 0x40000,
++	BE3_PHY_FW_COMP_MAX_SIZE = 0x40000,
++	BE3_BIOS_COMP_MAX_SIZE = 0x80000,
++	BE3_REDBOOT_COMP_MAX_SIZE = 0x100000,
++	BE3_COMP_MAX_SIZE = 0x200000
++};
++
++/* Offsets for components in BE2 FW UFI */
++enum {
++	BE2_REDBOOT_START = 0x8000,
++	BE2_FCOE_BIOS_START = 0x80000,
++	BE2_ISCSI_PRIMARY_IMAGE_START = 0x100000,
++	BE2_ISCSI_BACKUP_IMAGE_START = 0x240000,
++	BE2_FCOE_PRIMARY_IMAGE_START = 0x380000,
++	BE2_FCOE_BACKUP_IMAGE_START = 0x4c0000,
++	BE2_ISCSI_BIOS_START = 0x700000,
++	BE2_PXE_BIOS_START = 0x780000
++};
++
++/* Offsets for components in BE3 FW UFI */
++enum {
++	BE3_REDBOOT_START = 0x40000,
++	BE3_PHY_FW_START = 0x140000,
++	BE3_ISCSI_PRIMARY_IMAGE_START = 0x200000,
++	BE3_ISCSI_BACKUP_IMAGE_START = 0x400000,
++	BE3_FCOE_PRIMARY_IMAGE_START = 0x600000,
++	BE3_FCOE_BACKUP_IMAGE_START = 0x800000,
++	BE3_ISCSI_BIOS_START = 0xc00000,
++	BE3_PXE_BIOS_START = 0xc80000,
++	BE3_FCOE_BIOS_START = 0xd00000,
++	BE3_NCSI_START = 0xf40000
++};
++
++/* Component entry types */
++enum {
++	IMAGE_NCSI = 0x10,
++	IMAGE_OPTION_ROM_PXE = 0x20,
++	IMAGE_OPTION_ROM_FCOE = 0x21,
++	IMAGE_OPTION_ROM_ISCSI = 0x22,
++	IMAGE_FLASHISM_JUMPVECTOR = 0x30,
++	IMAGE_FIRMWARE_ISCSI = 0xa0,
++	IMAGE_FIRMWARE_FCOE = 0xa2,
++	IMAGE_FIRMWARE_BACKUP_ISCSI = 0xb0,
++	IMAGE_FIRMWARE_BACKUP_FCOE = 0xb2,
++	IMAGE_FIRMWARE_PHY = 0xc0,
++	IMAGE_REDBOOT_DIR = 0xd0,
++	IMAGE_REDBOOT_CONFIG = 0xd1,
++	IMAGE_UFI_DIR = 0xd2,
++	IMAGE_BOOT_CODE = 0xe2
++};
  
--static void
--be_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *buf)
--{
--	struct be_adapter *adapter = netdev_priv(netdev);
-+	if (lancer_chip(adapter))
-+		status = lancer_cmd_read_file(adapter, LANCER_FW_DUMP_FILE,
-+					      dump_len, buf);
-+	else
-+		status = be_cmd_get_fat_dump(adapter, dump_len, buf);
- 
--	if (be_physfn(adapter)) {
--		memset(buf, 0, regs->len);
--		if (lancer_chip(adapter))
--			lancer_cmd_read_file(adapter, LANCER_FW_DUMP_FILE,
--					     regs->len, buf);
--		else
--			be_cmd_get_regs(adapter, regs->len, buf);
--	}
-+	return status;
- }
- 
- static int be_get_coalesce(struct net_device *netdev,
-@@ -914,6 +908,34 @@ static int be_do_flash(struct net_device *netdev, struct ethtool_flash *efl)
- 	return be_load_fw(adapter, efl->data);
- }
- 
-+static int
-+be_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+
-+	if (!check_privilege(adapter, MAX_PRIVILEGES))
-+		return -EOPNOTSUPP;
-+
-+	dump->len = be_get_dump_len(adapter);
-+	dump->version = 1;
-+	dump->flag = 0x1;	/* FW dump is enabled */
-+	return 0;
-+}
-+
-+static int
-+be_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
-+		 void *buf)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status;
-+
-+	if (!check_privilege(adapter, MAX_PRIVILEGES))
-+		return -EOPNOTSUPP;
-+
-+	status = be_read_dump_data(adapter, dump->len, buf);
-+	return be_cmd_status(status);
-+}
-+
- static int be_get_eeprom_len(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-@@ -1311,8 +1333,6 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.set_msglevel = be_set_msg_level,
- 	.get_sset_count = be_get_sset_count,
- 	.get_ethtool_stats = be_get_ethtool_stats,
--	.get_regs_len = be_get_reg_len,
--	.get_regs = be_get_regs,
- 	.flash_device = be_do_flash,
- 	.self_test = be_self_test,
- 	.get_rxnfc = be_get_rxnfc,
-@@ -1321,6 +1341,8 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.get_rxfh_key_size = be_get_rxfh_key_size,
- 	.get_rxfh = be_get_rxfh,
- 	.set_rxfh = be_set_rxfh,
-+	.get_dump_flag = be_get_dump_flag,
-+	.get_dump_data = be_get_dump_data,
- 	.get_channels = be_get_channels,
- 	.set_channels = be_set_channels,
- 	.get_module_info = be_get_module_info,
+ struct controller_id {
+ 	u32 vendor;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 7039870..00059af 100644
+index 2f76cbe..0bb6e5a 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4212,6 +4212,9 @@ static int be_get_config(struct be_adapter *adapter)
- 	if (status)
- 		return status;
+@@ -4616,45 +4616,45 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 	const u8 *p;
  
-+	if (!lancer_chip(adapter) && be_physfn(adapter))
-+		be_cmd_get_fat_dump_len(adapter, &adapter->fat_dump_len);
-+
- 	if (BEx_chip(adapter)) {
- 		level = be_cmd_get_fw_log_level(adapter);
- 		adapter->msg_enable =
+ 	struct flash_comp gen3_flash_types[] = {
+-		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, OPTYPE_ISCSI_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_iSCSI},
+-		{ FLASH_REDBOOT_START_g3, OPTYPE_REDBOOT,
+-			FLASH_REDBOOT_IMAGE_MAX_SIZE_g3, IMAGE_BOOT_CODE},
+-		{ FLASH_iSCSI_BIOS_START_g3, OPTYPE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_ISCSI},
+-		{ FLASH_PXE_BIOS_START_g3, OPTYPE_PXE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_PXE},
+-		{ FLASH_FCoE_BIOS_START_g3, OPTYPE_FCOE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_FCoE},
+-		{ FLASH_iSCSI_BACKUP_IMAGE_START_g3, OPTYPE_ISCSI_BACKUP,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_BACKUP_iSCSI},
+-		{ FLASH_FCoE_PRIMARY_IMAGE_START_g3, OPTYPE_FCOE_FW_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_FCoE},
+-		{ FLASH_FCoE_BACKUP_IMAGE_START_g3, OPTYPE_FCOE_FW_BACKUP,
+-			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_BACKUP_FCoE},
+-		{ FLASH_NCSI_START_g3, OPTYPE_NCSI_FW,
+-			FLASH_NCSI_IMAGE_MAX_SIZE_g3, IMAGE_NCSI},
+-		{ FLASH_PHY_FW_START_g3, OPTYPE_PHY_FW,
+-			FLASH_PHY_FW_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_PHY}
++		{ BE3_ISCSI_PRIMARY_IMAGE_START, OPTYPE_ISCSI_ACTIVE,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_ISCSI},
++		{ BE3_REDBOOT_START, OPTYPE_REDBOOT,
++			BE3_REDBOOT_COMP_MAX_SIZE, IMAGE_BOOT_CODE},
++		{ BE3_ISCSI_BIOS_START, OPTYPE_BIOS,
++			BE3_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_ISCSI},
++		{ BE3_PXE_BIOS_START, OPTYPE_PXE_BIOS,
++			BE3_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_PXE},
++		{ BE3_FCOE_BIOS_START, OPTYPE_FCOE_BIOS,
++			BE3_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_FCOE},
++		{ BE3_ISCSI_BACKUP_IMAGE_START, OPTYPE_ISCSI_BACKUP,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_ISCSI},
++		{ BE3_FCOE_PRIMARY_IMAGE_START, OPTYPE_FCOE_FW_ACTIVE,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_FCOE},
++		{ BE3_FCOE_BACKUP_IMAGE_START, OPTYPE_FCOE_FW_BACKUP,
++			BE3_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_FCOE},
++		{ BE3_NCSI_START, OPTYPE_NCSI_FW,
++			BE3_NCSI_COMP_MAX_SIZE, IMAGE_NCSI},
++		{ BE3_PHY_FW_START, OPTYPE_PHY_FW,
++			BE3_PHY_FW_COMP_MAX_SIZE, IMAGE_FIRMWARE_PHY}
+ 	};
+ 
+ 	struct flash_comp gen2_flash_types[] = {
+-		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g2, OPTYPE_ISCSI_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_iSCSI},
+-		{ FLASH_REDBOOT_START_g2, OPTYPE_REDBOOT,
+-			FLASH_REDBOOT_IMAGE_MAX_SIZE_g2, IMAGE_BOOT_CODE},
+-		{ FLASH_iSCSI_BIOS_START_g2, OPTYPE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_ISCSI},
+-		{ FLASH_PXE_BIOS_START_g2, OPTYPE_PXE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_PXE},
+-		{ FLASH_FCoE_BIOS_START_g2, OPTYPE_FCOE_BIOS,
+-			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_FCoE},
+-		{ FLASH_iSCSI_BACKUP_IMAGE_START_g2, OPTYPE_ISCSI_BACKUP,
+-			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_iSCSI},
+-		{ FLASH_FCoE_PRIMARY_IMAGE_START_g2, OPTYPE_FCOE_FW_ACTIVE,
+-			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_FCoE},
+-		{ FLASH_FCoE_BACKUP_IMAGE_START_g2, OPTYPE_FCOE_FW_BACKUP,
+-			 FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_FCoE}
++		{ BE2_ISCSI_PRIMARY_IMAGE_START, OPTYPE_ISCSI_ACTIVE,
++			BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_ISCSI},
++		{ BE2_REDBOOT_START, OPTYPE_REDBOOT,
++			BE2_REDBOOT_COMP_MAX_SIZE, IMAGE_BOOT_CODE},
++		{ BE2_ISCSI_BIOS_START, OPTYPE_BIOS,
++			BE2_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_ISCSI},
++		{ BE2_PXE_BIOS_START, OPTYPE_PXE_BIOS,
++			BE2_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_PXE},
++		{ BE2_FCOE_BIOS_START, OPTYPE_FCOE_BIOS,
++			BE2_BIOS_COMP_MAX_SIZE, IMAGE_OPTION_ROM_FCOE},
++		{ BE2_ISCSI_BACKUP_IMAGE_START, OPTYPE_ISCSI_BACKUP,
++			BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_ISCSI},
++		{ BE2_FCOE_PRIMARY_IMAGE_START, OPTYPE_FCOE_FW_ACTIVE,
++			BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_FCOE},
++		{ BE2_FCOE_BACKUP_IMAGE_START, OPTYPE_FCOE_FW_BACKUP,
++			 BE2_COMP_MAX_SIZE, IMAGE_FIRMWARE_BACKUP_FCOE}
+ 	};
+ 
+ 	if (BE3_chip(adapter)) {
+@@ -4729,7 +4729,7 @@ static u16 be_get_img_optype(struct flash_section_entry fsec_entry)
+ 		return img_optype;
+ 
+ 	switch (img_type) {
+-	case IMAGE_FIRMWARE_iSCSI:
++	case IMAGE_FIRMWARE_ISCSI:
+ 		img_optype = OPTYPE_ISCSI_ACTIVE;
+ 		break;
+ 	case IMAGE_BOOT_CODE:
+@@ -4741,10 +4741,10 @@ static u16 be_get_img_optype(struct flash_section_entry fsec_entry)
+ 	case IMAGE_OPTION_ROM_PXE:
+ 		img_optype = OPTYPE_PXE_BIOS;
+ 		break;
+-	case IMAGE_OPTION_ROM_FCoE:
++	case IMAGE_OPTION_ROM_FCOE:
+ 		img_optype = OPTYPE_FCOE_BIOS;
+ 		break;
+-	case IMAGE_FIRMWARE_BACKUP_iSCSI:
++	case IMAGE_FIRMWARE_BACKUP_ISCSI:
+ 		img_optype = OPTYPE_ISCSI_BACKUP;
+ 		break;
+ 	case IMAGE_NCSI:
 -- 
 2.4.1
