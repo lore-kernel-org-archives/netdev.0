@@ -1,70 +1,40 @@
-From: Jacob Siverskog <jacob@teenage.engineering>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
-Date: Wed, 30 Dec 2015 15:30:22 +0100
-Message-ID: <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
- <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com> <20151229.150843.2021692616139434395.davem@davemloft.net>
- <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com> <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] mwifiex: correctly handling kzalloc
+Date: Wed, 30 Dec 2015 16:37:20 +0200
+Message-ID: <87k2nwovdr.fsf@kamboji.qca.qualcomm.com>
+References: <1451420268-15862-1-git-send-email-wuninsu@gmail.com>
+	<CAHp75VdZHrXbUytAcXzitH8zzELjimNihG5LfLqX85u4y502SA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	"open list\:TI WILINK WIRELES..." <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	taesoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, yeongjin.jang-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, insu-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org,
+	changwoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org
+To: Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHp75VdZHrXbUytAcXzitH8zzELjimNihG5LfLqX85u4y502SA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Andy Shevchenko's message of "Wed, 30 Dec 2015 03:37:06 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 30, 2015 at 2:26 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Wed, Dec 30, 2015 at 6:14 AM, Jacob Siverskog
-> <jacob@teenage.engineering> wrote:
->
->> Ok. Thanks for your feedback. How do you believe the issue could be
->> solved? Investigating it gives:
->>
->> static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
->> {
->> struct sk_buff *next, *prev;
->>
->> list->qlen--;
->>      51c: e2433001 sub r3, r3, #1
->>      520: e58b3074 str r3, [fp, #116] ; 0x74
->> next   = skb->next;
->> prev   = skb->prev;
->>      524: e894000c ldm r4, {r2, r3}
->> skb->next  = skb->prev = NULL;
->>      528: e5841000 str r1, [r4]
->>      52c: e5841004 str r1, [r4, #4]
->> next->prev = prev;
->>      530: e5823004 str r3, [r2, #4]                          <--
->> trapping instruction (r2 NULL)
->>
->> Register contents:
->> r7 : c58cfe1c  r6 : c06351d0  r5 : c77810ac  r4 : c583eac0
->> r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 : 20000013
->>
->> If I understand this correctly, then r4 = skb, r2 = next, r3 = prev.
->>
->> Should there be a check for this in __skb_try_recv_datagram?
->
-> At this point corruption already happened.
-> We can not possibly detect every possible corruption caused by bugs
-> elsewhere in the kernel and just 'recover' at this point.
-> We must indeed find the root cause and fix it, instead of trying to hide it.
->
-> How often can you trigger this bug ?
+Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Ok. I don't have a good repro to trigger it unfortunately, I've seen it just a
-few times when bringing up/down network interfaces. Does the trace
-give any clue?
+> On Tue, Dec 29, 2015 at 10:17 PM, Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>
+> Empty commit message?
 
-[<c02fc0a8>] (__skb_recv_datagram) from [<c0398f1c>] (udpv6_recvmsg+0x1d0/0x6d0)
-[<c0398f1c>] (udpv6_recvmsg) from [<c0367a2c>] (inet_recvmsg+0x38/0x4c)
-[<c0367a2c>] (inet_recvmsg) from [<c02efff4>] (___sys_recvmsg+0x94/0x170)
-[<c02efff4>] (___sys_recvmsg) from [<c02f0d74>] (__sys_recvmsg+0x3c/0x6c)
-[<c02f0d74>] (__sys_recvmsg) from [<c000f1e0>] (ret_fast_syscall+0x0/0x3c)
+Yeah, no empty commit log, please.
+
+And then you submit a new version remember to add v2, v3 and so on:
+
+http://kernelnewbies.org/FirstKernelPatch#head-5c81b3c517a1d0bbc24f92594cb734e155fcbbcb
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
