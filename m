@@ -1,55 +1,52 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH V6 1/1] ixgbe: synchronize link_up and link_speed of a slave interface
-Date: Thu, 31 Dec 2015 15:11:39 +0800
-Message-ID: <1451545899-16584-2-git-send-email-zyjzyj2000@gmail.com>
-References: <1451540268.3348.108.camel@intel.com>
- <1451545899-16584-1-git-send-email-zyjzyj2000@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] unix: properly account for FDs passed over unix sockets
+Date: Thu, 31 Dec 2015 08:12:53 +0100
+Message-ID: <20151231071253.GG14369@1wt.eu>
+References: <20151228141435.GA13351@1wt.eu> <56829D4D.4090109@stressinduktion.org> <20151229203527.GA13826@1wt.eu> <56839CC2.9080000@stressinduktion.org> <20151230112317.GC14049@1wt.eu> <201512311508.EJC90618.VtSOFFLQHFOJOM@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <venkat.viswanathan@windriver.com>,
-	<Boris.Shteinbock@windriver.com>, <Vincent.Bourg@windriver.com>
-To: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<shannon.nelson@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <bruce.w.allan@intel.com>,
-	<john.ronciak@intel.com>, <mitch.a.williams@intel.com>,
-	<intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>, <mark.d.rustad@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:57260 "EHLO mail5.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751769AbbLaHLo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Dec 2015 02:11:44 -0500
-In-Reply-To: <1451545899-16584-1-git-send-email-zyjzyj2000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, edumazet@google.com,
+	socketpair@gmail.com
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201512311508.EJC90618.VtSOFFLQHFOJOM@I-love.SAKURA.ne.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <yanjun.zhu@windriver.com>
+On Thu, Dec 31, 2015 at 03:08:53PM +0900, Tetsuo Handa wrote:
+> Willy Tarreau wrote:
+> > On Wed, Dec 30, 2015 at 09:58:42AM +0100, Hannes Frederic Sowa wrote:
+> > > The MSG_PEEK code should not be harmful and the patch is good as is. I 
+> > > first understood from the published private thread, that it is possible 
+> > > for a program to exceed the rlimit of fds. But the DoS is only by 
+> > > keeping the fds in flight and not attaching them to any program.
+> > 
+> > Exactly. The real issue is when these FDs become very expensive such as
+> > pipes full of data.
+> > 
+> 
+> As you wrote how to abuse this vulnerability which exists in Linux 2.0
+> and later kernel, I quote a short description from private thread.
+> 
+>   "an unprivileged user consumes all file descriptors so that other
+>   unprivileged user cannot work" and "an unprivileged user consumes all
+>   kernel memory so that the OOM killer kills almost all processes before
+>   the culprit process is killed (CVE-2013-4312)".
+> 
+> Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Mitigates: CVE-2013-4312 (Linux 2.0+)
 
-According to the suggestions from Rustad, Mark D, to all the slave 
-interfaces, the link_speed and link_up should be synchronized since
-the time span between link_up and link_speed will make some virtual
-NICs not work well, such as a bonding driver in 802.3ad mode.
+Well I didn't reveal any secret as it was publicly reported first
+in 2010, it's only that Mark sent us the proof of concept exploit
+on the security list recently :-)
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+    https://bugzilla.kernel.org/show_bug.cgi?id=20402
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index aed8d02..fc461b9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6426,6 +6426,11 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
- 	if (netif_carrier_ok(netdev))
- 		return;
- 
-+	/* For all slave interfaces, wait for the link_speed to be known. */
-+	if ((netdev->flags & IFF_SLAVE) &&
-+	    (link_speed == IXGBE_LINK_SPEED_UNKNOWN))
-+		return;
-+
- 	adapter->flags2 &= ~IXGBE_FLAG2_SEARCH_FOR_SFP;
- 
- 	switch (hw->mac.type) {
--- 
-1.9.1
+Anyway I'll resend the patch with your reported-by, the CVE and
+Hannes' ACK.
+
+Thanks!
+Willy
