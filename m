@@ -1,40 +1,77 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH] ath9k_htc: fix handling return value of ath9k_hw_calibrate
-Date: Thu, 31 Dec 2015 15:12:46 +0200
-Message-ID: <87ege2oj75.fsf@kamboji.qca.qualcomm.com>
-References: <1450087564-28441-1-git-send-email-a.hajda@samsung.com>
-	<1450087564-28441-4-git-send-email-a.hajda@samsung.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] connector: bump skb->users before callback invocation
+Date: Thu, 31 Dec 2015 14:26:33 +0100
+Message-ID: <20151231132633.GA30790@breakpoint.cc>
+References: <CACT4Y+bKYO2XfY74tgUiOC7WotQ8DRBcMT=2yy3S=Ubz8bnj_g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Marek Szyprowski <m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1450087564-28441-4-git-send-email-a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org> (Andrzej
-	Hajda's message of "Mon, 14 Dec 2015 11:06:01 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Florian Westphal <fw@strlen.de>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>, zbr@ioremap.net
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:60090 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751471AbbLaN0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2015 08:26:45 -0500
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+bKYO2XfY74tgUiOC7WotQ8DRBcMT=2yy3S=Ubz8bnj_g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org> writes:
+Dmitry reports memleak with syskaller program.
+Problem is that connector bumps skb usecount but might not invoke callback.
 
-> The function can return negative values in case of error.
-> Its result should be then tested for such case.
->
-> The problem has been detected using proposed semantic patch
-> scripts/coccinelle/tests/assign_signed_to_unsigned.cocci [1].
->
-> [1]: http://permalink.gmane.org/gmane.linux.kernel/2046107
->
-> Signed-off-by: Andrzej Hajda <a.hajda-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+So move skb_get to where we invoke the callback.
 
-Applied to ath.git, thanks.
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ I wonder wth userspace can cram skb->len < NLMSG_HDRLEN
+ down the kernel, it seems to beg for trouble...
 
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index d7373ca..25693b0 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -179,26 +179,21 @@ static int cn_call_callback(struct sk_buff *skb)
+  *
+  * It checks skb, netlink header and msg sizes, and calls callback helper.
+  */
+-static void cn_rx_skb(struct sk_buff *__skb)
++static void cn_rx_skb(struct sk_buff *skb)
+ {
+ 	struct nlmsghdr *nlh;
+-	struct sk_buff *skb;
+ 	int len, err;
+ 
+-	skb = skb_get(__skb);
+-
+ 	if (skb->len >= NLMSG_HDRLEN) {
+ 		nlh = nlmsg_hdr(skb);
+ 		len = nlmsg_len(nlh);
+ 
+ 		if (len < (int)sizeof(struct cn_msg) ||
+ 		    skb->len < nlh->nlmsg_len ||
+-		    len > CONNECTOR_MAX_MSG_SIZE) {
+-			kfree_skb(skb);
++		    len > CONNECTOR_MAX_MSG_SIZE)
+ 			return;
+-		}
+ 
+-		err = cn_call_callback(skb);
++		err = cn_call_callback(skb_get(skb));
+ 		if (err < 0)
+ 			kfree_skb(skb);
+ 	}
