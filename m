@@ -1,28 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] ppp: rtnetlink device handling
-Date: Thu, 31 Dec 2015 12:10:18 -0500 (EST)
-Message-ID: <20151231.121018.1309884445756401167.davem@davemloft.net>
-References: <CA+icZUU5z_sgYTOSBGazJU9VSm6qZxfA=PXcRQ5bwj-7rOU6fQ@mail.gmail.com>
-	<20151231125818.GN18510@alphalink.fr>
-	<CA+icZUW3vDp3HzjoXWtVz_zRa0TwACc1p2EV0c4W=jeWScZUuQ@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2015-12-31
+Date: Thu, 31 Dec 2015 12:23:03 -0500 (EST)
+Message-ID: <20151231.122303.385851345022706134.davem@davemloft.net>
+References: <20151231162832.GA2124@t440s>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: g.nault@alphalink.fr, netdev@vger.kernel.org
-To: sedat.dilek@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45134 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbLaRKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2015 12:10:22 -0500
-In-Reply-To: <CA+icZUW3vDp3HzjoXWtVz_zRa0TwACc1p2EV0c4W=jeWScZUuQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20151231162832.GA2124@t440s>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Date: Thu, 31 Dec 2015 15:06:18 +0100
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 31 Dec 2015 18:28:32 +0200
 
-> Just off-topic...
+> Here's (probably) the last bluetooth-next pull request for the 4.5
+> kernel:
+> 
+>  - Add support for BCM2E65 ACPI ID
+>  - Minor fixes/cleanups in the bcm203x & bfusb drivers
+>  - Minor debugfs related fix in 6lowpan code
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Please do not hijack a thread discussing a patch series like this to
-talk about something completely unrelated.
+Pulled, thanks Johan.
