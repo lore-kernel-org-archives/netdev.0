@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next 0/3] Ethtool support for phy stats
-Date: Thu, 31 Dec 2015 00:53:30 -0500 (EST)
-Message-ID: <20151231.005330.2167119813455840522.davem@davemloft.net>
-References: <1451489307-17048-1-git-send-email-andrew@lunn.ch>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] unix: properly account for FDs passed over unix sockets
+Date: Thu, 31 Dec 2015 15:08:53 +0900
+Message-ID: <201512311508.EJC90618.VtSOFFLQHFOJOM@I-love.SAKURA.ne.jp>
+References: <20151228141435.GA13351@1wt.eu>
+	<56829D4D.4090109@stressinduktion.org>
+	<20151229203527.GA13826@1wt.eu>
+	<56839CC2.9080000@stressinduktion.org>
+	<20151230112317.GC14049@1wt.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	edumazet@google.com, socketpair@gmail.com
+To: w@1wt.eu, hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41944 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbbLaFxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2015 00:53:34 -0500
-In-Reply-To: <1451489307-17048-1-git-send-email-andrew@lunn.ch>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:61935 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751266AbbLaGIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2015 01:08:55 -0500
+In-Reply-To: <20151230112317.GC14049@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed, 30 Dec 2015 16:28:24 +0100
-
-> This patchset add ethtool support for reading statistics from the PHY.
-> The Marvell and Micrel Phys are then extended to report receiver
-> packet errors and idle errors.
+Willy Tarreau wrote:
+> On Wed, Dec 30, 2015 at 09:58:42AM +0100, Hannes Frederic Sowa wrote:
+> > The MSG_PEEK code should not be harmful and the patch is good as is. I 
+> > first understood from the published private thread, that it is possible 
+> > for a program to exceed the rlimit of fds. But the DoS is only by 
+> > keeping the fds in flight and not attaching them to any program.
 > 
-> v2:
->   Fix linking when phylib is not enabled.
-> v3:
->   Inline helpers into ethtool.c, so fixing when phylib is a module.
-> v4:
->   Add missing static
+> Exactly. The real issue is when these FDs become very expensive such as
+> pipes full of data.
+> 
 
-Series applied, thanks Andrew.
+As you wrote how to abuse this vulnerability which exists in Linux 2.0
+and later kernel, I quote a short description from private thread.
+
+  "an unprivileged user consumes all file descriptors so that other
+  unprivileged user cannot work" and "an unprivileged user consumes all
+  kernel memory so that the OOM killer kills almost all processes before
+  the culprit process is killed (CVE-2013-4312)".
+
+Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Mitigates: CVE-2013-4312 (Linux 2.0+)
