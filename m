@@ -1,37 +1,60 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 5/9] ipw2x00: sdhci-pci: use to_pci_dev()
-Date: Thu, 31 Dec 2015 10:30:12 +0200
-Message-ID: <87r3i3nhpn.fsf@kamboji.qca.qualcomm.com>
-References: <baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
-	<baf4e17c993f197cc31f8a0e5736ee8a558ba44c.1451211133.git.geliangtang@163.com>
-	<896b7d080610c5417a2f09a3bf9d0e20636fcc52.1451211133.git.geliangtang@163.com>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] unix: properly account for FDs passed over unix sockets
+Date: Thu, 31 Dec 2015 10:27:34 +0000
+Message-ID: <20151231102734.6414538a@lxorguk.ukuu.org.uk>
+References: <20151228141435.GA13351@1wt.eu>
+	<56829D4D.4090109@stressinduktion.org>
+	<20151229203527.GA13826@1wt.eu>
+	<56839CC2.9080000@stressinduktion.org>
+	<20151230112317.GC14049@1wt.eu>
+	<201512311508.EJC90618.VtSOFFLQHFOJOM@I-love.SAKURA.ne.jp>
+	<20151231071253.GG14369@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <896b7d080610c5417a2f09a3bf9d0e20636fcc52.1451211133.git.geliangtang-9Onoh4P/yGk@public.gmane.org>
-	(Geliang Tang's message of "Sun, 27 Dec 2015 18:46:01 +0800")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	hannes@stressinduktion.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, edumazet@google.com,
+	socketpair@gmail.com
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151231071253.GG14369@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org> writes:
+On Thu, 31 Dec 2015 08:12:53 +0100
+Willy Tarreau <w@1wt.eu> wrote:
 
-> Use to_pci_dev() instead of open-coding it.
->
-> Signed-off-by: Geliang Tang <geliangtang-9Onoh4P/yGk@public.gmane.org>
+> On Thu, Dec 31, 2015 at 03:08:53PM +0900, Tetsuo Handa wrote:
+> > Willy Tarreau wrote:
+> > > On Wed, Dec 30, 2015 at 09:58:42AM +0100, Hannes Frederic Sowa wrote:
+> > > > The MSG_PEEK code should not be harmful and the patch is good as is. I 
+> > > > first understood from the published private thread, that it is possible 
+> > > > for a program to exceed the rlimit of fds. But the DoS is only by 
+> > > > keeping the fds in flight and not attaching them to any program.
+> > > 
+> > > Exactly. The real issue is when these FDs become very expensive such as
+> > > pipes full of data.
+> > > 
+> > 
+> > As you wrote how to abuse this vulnerability which exists in Linux 2.0
+> > and later kernel, I quote a short description from private thread.
+> > 
+> >   "an unprivileged user consumes all file descriptors so that other
+> >   unprivileged user cannot work" and "an unprivileged user consumes all
+> >   kernel memory so that the OOM killer kills almost all processes before
+> >   the culprit process is killed (CVE-2013-4312)".
+> > 
+> > Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> > Mitigates: CVE-2013-4312 (Linux 2.0+)
+> 
+> Well I didn't reveal any secret as it was publicly reported first
+> in 2010, it's only that Mark sent us the proof of concept exploit
+> on the security list recently :-)
 
-The title is wrong, it should be just "ipw2x00: use to_pci_dev()".
+There were demonstrations of this bug posted for BSD unixes before Linux
+even existed. It and "run the box out of socket buffers" are older than
+Linux 8)
 
-And please state clearly to what tree you are planning to submit these.
-I only saw this patch 5, not rest of the patches, so I have no clue
-what's going to happen with this patchset. Please resend.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alan
