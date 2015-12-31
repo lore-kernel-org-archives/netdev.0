@@ -1,139 +1,100 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: [GIT] [4.5] NFC update
-Date: Thu, 31 Dec 2015 20:26:37 +0100
-Message-ID: <20151231192637.GA3247@zurbaran.home>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] af_unix: Fix splice-bind deadlock
+Date: Thu, 31 Dec 2015 19:36:50 +0000
+Message-ID: <87ege2xve5.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87y4cftztp.fsf@doppelsaurus.mobileactivedefense.com>
+	<56826754.2060003@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Linux NFC <linux-nfc@lists.01.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:45899 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751628AbbLaT0o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Dec 2015 14:26:44 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	David Miller <davem@davemloft.net>, dvyukov@google.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	viro@ZenIV.linux.org.uk
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56826754.2060003@stressinduktion.org> (Hannes Frederic Sowa's
+	message of "Tue, 29 Dec 2015 11:58:28 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> On 27.12.2015 21:13, Rainer Weikusat wrote:
+>> -static int unix_mknod(const char *sun_path, umode_t mode, struct path *res)
+>> +static int unix_mknod(struct dentry *dentry, struct path *path, umode_t mode,
+>> +		      struct path *res)
+>>   {
+>> -	struct dentry *dentry;
+>> -	struct path path;
+>> -	int err = 0;
+>> -	/*
+>> -	 * Get the parent directory, calculate the hash for last
+>> -	 * component.
+>> -	 */
+>> -	dentry = kern_path_create(AT_FDCWD, sun_path, &path, 0);
+>> -	err = PTR_ERR(dentry);
+>> -	if (IS_ERR(dentry))
+>> -		return err;
+>> +	int err;
+>>
+>> -	/*
+>> -	 * All right, let's create it.
+>> -	 */
+>> -	err = security_path_mknod(&path, dentry, mode, 0);
+>> +	err = security_path_mknod(path, dentry, mode, 0);
+>>   	if (!err) {
+>> -		err = vfs_mknod(d_inode(path.dentry), dentry, mode, 0);
+>> +		err = vfs_mknod(d_inode(path->dentry), dentry, mode, 0);
+>>   		if (!err) {
+>> -			res->mnt = mntget(path.mnt);
+>> +			res->mnt = mntget(path->mnt);
+>>   			res->dentry = dget(dentry);
+>>   		}
+>>   	}
+>> -	done_path_create(&path, dentry);
+>> +
+>
+> The reordered call to done_path_create will change the locking
+> ordering between the i_mutexes and the unix readlock. Can you comment
+> on this? On a first sight this looks like a much more dangerous change
+> than the original deadlock report. Can't this also conflict with
+> splice code deep down in vfs layer?
 
-This is the first NFC pull request for 4.5 and it brings:
+Practical consideration
+-----------------------
 
-- A new driver for the STMicroelectronics ST95HF NFC chipset.
-  The ST95HF is an NFC digital transceiver with an embedded analog
-  front-end and as such relies on the Linux NFC digital
-  implementation. This is the 3rd user of the NFC digital stack.
+kern_path_create acquires the i_mutex of the parent directory of the
+to-be-created directory entry (via filename_create/ namei.c), as
+required for reading a directory or creating a new entry in a directory
+(as per Documentation/filesystems/directory-locking). A deadlock was
+possible here if the thread doing the bind then blocked when trying to
+acquire the readlock while the thread holding the readlock is blocked on
+another lock held by a thread trying to perform an operation on the same
+directory as the bind (possibly with some indirection). The only 'other
+lock' which could come into play here is the pipe lock of a pipe
+partaking in a splice_to_pipe from the same AF_UNIX socket. But the idea
+that some thread would need to take a pipe lock prior to performing a
+directory operation is quite odd (splice_from_pipe_to_directory?
+openatparentoffifo?). I've also checked all existing users
+of pipe_lock and at least, I didn't find one performing a directory
+operation.
 
-- ACPI support for the ST st-nci and st21nfca drivers.
 
-- A small improvement for the nfcsim driver, as we can now tune
-  the Rx delay through sysfs.
+Theoretical consideration
+-------------------------
 
-- A bunch of minor cleanups and small fixes from Christophe Ricard,
-  for a few drivers and the NFC core code.
+NB: The text below represents my opinion on this after spending a few
+days thinking about it (on and of, of course). Making an argument for
+the opposite position is also possible.
 
-
-The following changes since commit 7f151f1d8abb7d5930b49d4796b463dca1673cb7:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-11-17 13:52:59 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-4.5-1
-
-for you to fetch changes up to c6dc65d885b98898bf287aaf44e020077b41769f:
-
-  NFC: nci: memory leak in nci_core_conn_create() (2015-12-29 19:06:23 +0100)
-
-----------------------------------------------------------------
-Christophe Ricard (27):
-      nfc: st-nci: Remove useless #include "ndlc.h"
-      nfc: st-nci: Remove unneeded CONFIG_OF switches
-      nfc: st21nfca: Remove unneeded CONFIG_OF switches
-      nfc: nxp-nci: Remove #ifdef CONFIG_OF
-      nfc: pn544: Remove #ifdef CONFIG_OF
-      nfc: st-nci: Group device table together
-      nfc: st21nfca: Group device table together
-      nfc: st-nci: Add macro for gpio name
-      nfc: st21nfca: Add macro for gpio name
-      nfc: st-nci: Add support for acpi probing for i2c device.
-      nfc: st-nci: Add support for acpi probing for spi device.
-      nfc: st21nfca: Add support for acpi probing for i2c device.
-      nfc: st-nci: Code cleanup
-      nfc: st21nfca: Code cleanup
-      nfc: st21nfca: Remove useless pr_info in st21nfca_hci_i2c_disable
-      NFC: nci: Fix error check of nci_hci_create_pipe() result
-      NFC: st-nci: Auto-select core module
-      NFC: st21nfca: Auto-select core module
-      nfc: netlink: HCI event connectivity implementation
-      nfc: st-nci: Add support for HCI event connectivity
-      nfc: st21nfca: Add support for HCI event connectivity
-      MAINTAINERS: nfc: Add missing platform_data files references
-      nfc: fdp: Move i2c client irq checking
-      nfc: microread: Remove useless irq field
-      nfc: microread: Fix header comment
-      nfc: nxp-nci: Remove i2c client gpio irq configuration
-      nfc: pn544: Remove i2c client gpio irq configuration
-
-Dan Carpenter (1):
-      NFC: nci: memory leak in nci_core_conn_create()
-
-Fabio Estevam (1):
-      nxp-nci: i2c: Do not check specifically for -EREMOTEIO error
-
-Geliang Tang (1):
-      NFC: trf7970a: use to_spi_device
-
-Julia Lawall (1):
-      nfc: s3fwrn5: constify s3fwrn5_phy_ops structures
-
-Saurabh Sengar (1):
-      NFC: add rx delay sysfs parameter for nfcsim workqueue
-
-Shikha Singh (4):
-      NFC: digital: Add Type4A tags support
-      NFC: Add STMicroelectronics ST95HF driver
-      DT: bindings: net: nfc: Add ST95HF binding doc
-      NFC: st95hf: Fix build error
-
- .../devicetree/bindings/net/nfc/st95hf.txt         |   50 +
- MAINTAINERS                                        |    5 +
- drivers/nfc/Kconfig                                |    1 +
- drivers/nfc/Makefile                               |    1 +
- drivers/nfc/fdp/i2c.c                              |   12 +-
- drivers/nfc/microread/i2c.c                        |    2 -
- drivers/nfc/nfcsim.c                               |   10 +-
- drivers/nfc/nxp-nci/i2c.c                          |   34 +-
- drivers/nfc/pn544/i2c.c                            |   46 +-
- drivers/nfc/s3fwrn5/core.c                         |    2 +-
- drivers/nfc/s3fwrn5/i2c.c                          |    2 +-
- drivers/nfc/s3fwrn5/s3fwrn5.h                      |    4 +-
- drivers/nfc/st-nci/Kconfig                         |   18 +-
- drivers/nfc/st-nci/i2c.c                           |   80 +-
- drivers/nfc/st-nci/ndlc.c                          |    1 -
- drivers/nfc/st-nci/se.c                            |    3 +-
- drivers/nfc/st-nci/spi.c                           |   81 +-
- drivers/nfc/st21nfca/Kconfig                       |   13 +-
- drivers/nfc/st21nfca/i2c.c                         |   80 +-
- drivers/nfc/st21nfca/se.c                          |    5 +-
- drivers/nfc/st95hf/Kconfig                         |   10 +
- drivers/nfc/st95hf/Makefile                        |    6 +
- drivers/nfc/st95hf/core.c                          | 1273 ++++++++++++++++++++
- drivers/nfc/st95hf/spi.c                           |  167 +++
- drivers/nfc/st95hf/spi.h                           |   64 +
- drivers/nfc/trf7970a.c                             |    8 +-
- include/linux/platform_data/microread.h            |    2 +-
- include/net/nfc/nfc.h                              |    1 +
- net/nfc/core.c                                     |   13 +
- net/nfc/digital_core.c                             |    3 +-
- net/nfc/nci/core.c                                 |    6 +-
- net/nfc/nci/hci.c                                  |    2 +-
- net/nfc/netlink.c                                  |   37 +
- net/nfc/nfc.h                                      |    1 +
- 34 files changed, 1862 insertions(+), 181 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/nfc/st95hf.txt
- create mode 100644 drivers/nfc/st95hf/Kconfig
- create mode 100644 drivers/nfc/st95hf/Makefile
- create mode 100644 drivers/nfc/st95hf/core.c
- create mode 100644 drivers/nfc/st95hf/spi.c
- create mode 100644 drivers/nfc/st95hf/spi.h
+The filesystem (namespace) is a shared namespace accessible to all
+currently running threads/ processes. Whoever uses the filesystem may
+have to wait for other filesystem users but threads not using it
+shouldn't have to. Because of this and because the filesystem is a
+pretty central facility, an operation needing 'some filesystem lock' and
+also some other lock (or locks) should always acquire the filesystem
+ones before any more specialized locks (as do_splice does when splicing
+to a file). If 'filesystem locks' are always acquired first, there's
+also no risk of a deadlock because code holding a filesystem lock is
+blocked on a more specialized lock (eg, a pipe lock or the readlock
+mutx) while some other thread holding the/ a more specialized lock wants
+the already held filesystem lock.
