@@ -1,7 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/3] net-iwlegacy: Refactoring for il_eeprom_init()
-Date: Fri, 1 Jan 2016 21:30:10 +0100
-Message-ID: <5686E1D2.60107@users.sourceforge.net>
+Subject: [PATCH 2/3] net-iwlegacy: One check less in il_eeprom_init() after
+ error detection
+Date: Fri, 1 Jan 2016 21:31:26 +0100
+Message-ID: <5686E21E.4090901@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <5686E13F.2010309@users.sourceforge.net>
 Mime-Version: 1.0
@@ -13,46 +14,63 @@ Cc: LKML <linux-kernel@vger.kernel.org>,
 To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	Kalle Valo <kvalo@codeaurora.org>,
 	Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.17.12]:50717 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752331AbcAAUbf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jan 2016 15:31:35 -0500
 In-Reply-To: <5686E13F.2010309@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 1 Jan 2016 20:54:25 +0100
+Date: Fri, 1 Jan 2016 21:12:29 +0100
 
-Return directly if a memory allocation failed at the beginning.
+This issue was detected by using the Coccinelle software.
+
+Adjust a jump target to avoid a check repetition before the function
+call "il_eeprom_free".
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wireless/intel/iwlegacy/common.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/wireless/intel/iwlegacy/common.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/wireless/intel/iwlegacy/common.c b/drivers/net/wireless/intel/iwlegacy/common.c
-index eb5cb60..c3afaf7 100644
+index c3afaf7..ae45fd3 100644
 --- a/drivers/net/wireless/intel/iwlegacy/common.c
 +++ b/drivers/net/wireless/intel/iwlegacy/common.c
-@@ -723,10 +723,9 @@ il_eeprom_init(struct il_priv *il)
- 	sz = il->cfg->eeprom_size;
- 	D_EEPROM("NVM size = %d\n", sz);
- 	il->eeprom = kzalloc(sz, GFP_KERNEL);
--	if (!il->eeprom) {
--		ret = -ENOMEM;
--		goto alloc_err;
--	}
-+	if (!il->eeprom)
-+		return -ENOMEM;
-+
- 	e = (__le16 *) il->eeprom;
+@@ -734,7 +734,7 @@ il_eeprom_init(struct il_priv *il)
+ 	if (ret < 0) {
+ 		IL_ERR("EEPROM not found, EEPROM_GP=0x%08x\n", gp);
+ 		ret = -ENOENT;
+-		goto err;
++		goto free_eeprom;
+ 	}
  
- 	il->ops->apm_init(il);
-@@ -778,7 +777,6 @@ err:
+ 	/* Make sure driver (instead of uCode) is allowed to read EEPROM */
+@@ -742,7 +742,7 @@ il_eeprom_init(struct il_priv *il)
+ 	if (ret < 0) {
+ 		IL_ERR("Failed to acquire EEPROM semaphore.\n");
+ 		ret = -ENOENT;
+-		goto err;
++		goto free_eeprom;
+ 	}
+ 
+ 	/* eeprom is an array of 16bit values */
+@@ -772,9 +772,11 @@ il_eeprom_init(struct il_priv *il)
+ done:
+ 	il->ops->eeprom_release_semaphore(il);
+ 
+-err:
+-	if (ret)
++	if (ret) {
++free_eeprom:
  		il_eeprom_free(il);
++	}
++
  	/* Reset chip to save power until we load uCode during "up". */
  	il_apm_stop(il);
--alloc_err:
  	return ret;
- }
- EXPORT_SYMBOL(il_eeprom_init);
 -- 
 2.6.3
