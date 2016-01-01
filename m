@@ -1,93 +1,109 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] net-libertas: Better exception handling in
- if_spi_host_to_card_worker()
-Date: Fri, 1 Jan 2016 22:41:28 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1601012240380.2077@localhost6.localdomain6>
-References: <566ABCD9.1060404@users.sourceforge.net> <5686F0B2.5000000@users.sourceforge.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: hns: avoid uninitialized variable warning:
+Date: Fri, 01 Jan 2016 23:27:57 +0100
+Message-ID: <6649249.INrAY8KJG0@wuerfel>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:40908 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751288AbcAAVlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jan 2016 16:41:31 -0500
-In-Reply-To: <5686F0B2.5000000@users.sourceforge.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Yisen Zhuang <yisen.zhuang@huawei.com>, yankejian@huawei.com,
+	lisheng011@huawei.com, huangdaode@hisilicon.com,
+	salil.mehta@huawei.com, linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+gcc fails to see that the use of the 'last_offset' variable
+in hns_nic_reuse_page() is used correctly and issues a bogus
+warning:
 
+drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_nic_reuse_page':
+drivers/net/ethernet/hisilicon/hns/hns_enet.c:541:6: warning: 'last_offset' may be used uninitialized in this function [-Wmaybe-uninitialized]
 
-On Fri, 1 Jan 2016, SF Markus Elfring wrote:
+This simplifies the function to make it more obvious what is
+going on to both readers and compilers, which makes the warning
+go away.
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 1 Jan 2016 22:27:20 +0100
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Move the jump label directly before the desired log statement
-> so that the variable "err" will not be checked once more
-> after it was determined that a function call failed.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+Compile-tested only, and complex enough that this requires a proper
+review and testing before it gets apply. Please have a look at this.
 
-Putting a label inside an if is ugly.
-
-julia
-
-> Use the identifier "report_failure" instead of the label "err".
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
->  drivers/net/wireless/marvell/libertas/if_spi.c | 11 ++++++-----
->  1 file changed, 6 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/marvell/libertas/if_spi.c b/drivers/net/wireless/marvell/libertas/if_spi.c
-> index 82c0796..c9ae27e 100644
-> --- a/drivers/net/wireless/marvell/libertas/if_spi.c
-> +++ b/drivers/net/wireless/marvell/libertas/if_spi.c
-> @@ -880,18 +880,18 @@ static void if_spi_host_to_card_worker(struct work_struct *work)
->  				&hiStatus);
->  	if (err) {
->  		netdev_err(priv->dev, "I/O error\n");
-> -		goto err;
-> +		goto report_failure;
->  	}
->  
->  	if (hiStatus & IF_SPI_HIST_CMD_UPLOAD_RDY) {
->  		err = if_spi_c2h_cmd(card);
->  		if (err)
-> -			goto err;
-> +			goto report_failure;
->  	}
->  	if (hiStatus & IF_SPI_HIST_RX_UPLOAD_RDY) {
->  		err = if_spi_c2h_data(card);
->  		if (err)
-> -			goto err;
-> +			goto report_failure;
->  	}
->  
->  	/*
-> @@ -940,9 +940,10 @@ static void if_spi_host_to_card_worker(struct work_struct *work)
->  	if (hiStatus & IF_SPI_HIST_CARD_EVENT)
->  		if_spi_e2h(card);
->  
-> -err:
-> -	if (err)
-> +	if (err) {
-> +report_failure:
->  		netdev_err(priv->dev, "%s: got error %d\n", __func__, err);
-> +	}
->  
->  	lbs_deb_leave(LBS_DEB_SPI);
->  }
-> -- 
-> 2.6.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 5a81dafd725e..0e30846a24f8 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -499,50 +499,47 @@ static void hns_nic_reuse_page(struct sk_buff *skb, int i,
+ 	struct hnae_desc *desc;
+ 	int truesize, size;
+ 	int last_offset;
++	bool twobufs;
++
++	twobufs = ((PAGE_SIZE < 8192) && hnae_buf_size(ring) == HNS_BUFFER_SIZE_2048);
+ 
+ 	desc = &ring->desc[ring->next_to_clean];
+ 	size = le16_to_cpu(desc->rx.size);
+ 
+-#if (PAGE_SIZE < 8192)
+-	if (hnae_buf_size(ring) == HNS_BUFFER_SIZE_2048) {
++	if (twobufs) {
+ 		truesize = hnae_buf_size(ring);
+ 	} else {
+ 		truesize = ALIGN(size, L1_CACHE_BYTES);
+ 		last_offset = hnae_page_size(ring) - hnae_buf_size(ring);
+ 	}
+ 
+-#else
+-	truesize = ALIGN(size, L1_CACHE_BYTES);
+-	last_offset = hnae_page_size(ring) - hnae_buf_size(ring);
+-#endif
+-
+ 	skb_add_rx_frag(skb, i, desc_cb->priv, desc_cb->page_offset + pull_len,
+ 			size - pull_len, truesize - pull_len);
+ 
+ 	 /* avoid re-using remote pages,flag default unreuse */
+-	if (likely(page_to_nid(desc_cb->priv) == numa_node_id())) {
+-#if (PAGE_SIZE < 8192)
+-		if (hnae_buf_size(ring) == HNS_BUFFER_SIZE_2048) {
+-			/* if we are only owner of page we can reuse it */
+-			if (likely(page_count(desc_cb->priv) == 1)) {
+-				/* flip page offset to other buffer */
+-				desc_cb->page_offset ^= truesize;
+-
+-				desc_cb->reuse_flag = 1;
+-				/* bump ref count on page before it is given*/
+-				get_page(desc_cb->priv);
+-			}
+-			return;
+-		}
+-#endif
+-		/* move offset up to the next cache line */
+-		desc_cb->page_offset += truesize;
++	if (unlikely(page_to_nid(desc_cb->priv) != numa_node_id()))
++		return;
++
++	if (twobufs) {
++		/* if we are only owner of page we can reuse it */
++		if (likely(page_count(desc_cb->priv) == 1)) {
++			/* flip page offset to other buffer */
++			desc_cb->page_offset ^= truesize;
+ 
+-		if (desc_cb->page_offset <= last_offset) {
+ 			desc_cb->reuse_flag = 1;
+ 			/* bump ref count on page before it is given*/
+ 			get_page(desc_cb->priv);
+ 		}
++		return;
++	}
++
++	/* move offset up to the next cache line */
++	desc_cb->page_offset += truesize;
++
++	if (desc_cb->page_offset <= last_offset) {
++		desc_cb->reuse_flag = 1;
++		/* bump ref count on page before it is given*/
++		get_page(desc_cb->priv);
+ 	}
+ }
+ 
