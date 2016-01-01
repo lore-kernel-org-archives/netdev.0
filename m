@@ -1,62 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: refactor icmp_global_allow to improve readability
- and performance.
-Date: Fri, 01 Jan 2016 18:07:15 -0500
-Message-ID: <1451689635.8255.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1451635091-109673-1-git-send-email-mikedanese@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	open list <linux-kernel@vger.kernel.org>
-To: Mike Danese <mikedanese@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451635091-109673-1-git-send-email-mikedanese@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] ipw2x00: add checks for dma mapping errors
+Date: Sat,  2 Jan 2016 02:12:38 +0300
+Message-ID: <1451689958-8005-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ispras.ru ([83.149.199.45]:34831 "EHLO mail.ispras.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751354AbcAAXMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jan 2016 18:12:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-12-31 at 23:58 -0800, Mike Danese wrote:
-> We can reduce the number of operations performed by icmp_global_allow
-> and make the routine more readable by refactoring it in two ways:
-> 
-> First, this patch refactors the meaning of the "delta" variable. Before
-> this change, it meant min("time since last refill of token bucket", HZ).
-> After this change, it means "time since last refill". The original
-> definition is required only once but was being calculated twice. The new
-> meaning is also more intuitive for a variable named "delta".
-> 
-> Second, by calculating "delta" (time since last refill of token bucket)
-> and "cbr" (token bucket can be refilled) at the beginning of the
-> routine, we reduce the number of repeated calculations of these two
-> variables.
-> 
-> There should be no functional difference.
-> 
-> Signed-off-by: Mike Danese <mikedanese@google.com>
-> ---
->  net/ipv4/icmp.c | 17 ++++++++---------
->  1 file changed, 8 insertions(+), 9 deletions(-)
+ipw2100_alloc_skb() and ipw2100_tx_send_data() do not check if mapping
+dma memory succeed. The patch adds the checks and failure handling.
 
-Hi Mike
+Found by Linux Driver Verification project (linuxtesting.org).
 
-Sorry, this is a very broken patch.
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wireless/ipw2x00/ipw2100.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-There is a comment you apparently missed completely :
-
-/* Check if token bucket is empty and cannot be refilled
- * without taking the spinlock.
- */
-
-There is a reason we compute 'delta' two times.
-
-One without the spinlock held, and a second time with the spinlock held.
-
-This is an opportunistic way to exit early without false sharing in the
-stress case where many cpus might enter this code.
-
-Really I do not think current code needs any 'refactoring', especially
-around December 31th at midnight ;)
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 36818c7f30b9..f93a7f71c047 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -2311,8 +2311,10 @@ static int ipw2100_alloc_skb(struct ipw2100_priv *priv,
+ 	packet->dma_addr = pci_map_single(priv->pci_dev, packet->skb->data,
+ 					  sizeof(struct ipw2100_rx),
+ 					  PCI_DMA_FROMDEVICE);
+-	/* NOTE: pci_map_single does not return an error code, and 0 is a valid
+-	 *       dma_addr */
++	if (pci_dma_mapping_error(priv->pci_dev, packet->dma_addr)) {
++		dev_kfree_skb(packet->skb);
++		return -ENOMEM;
++	}
+ 
+ 	return 0;
+ }
+@@ -3183,6 +3185,11 @@ static void ipw2100_tx_send_data(struct ipw2100_priv *priv)
+ 							LIBIPW_3ADDR_LEN,
+ 							tbd->buf_length,
+ 							PCI_DMA_TODEVICE);
++			if (pci_dma_mapping_error(priv->pci_dev,
++						  tbd->host_addr)) {
++				IPW_DEBUG_TX("dma mapping error\n");
++				break;
++			}
+ 
+ 			IPW_DEBUG_TX("data frag tbd TX%d P=%08x L=%d\n",
+ 				     txq->next, tbd->host_addr,
+-- 
+1.9.1
