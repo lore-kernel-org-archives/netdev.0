@@ -1,60 +1,110 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] net-gianfar: Extend an initialisation clause of a for
- loop in gfar_ethflow_to_filer_table()
-Date: Fri, 1 Jan 2016 13:24:27 +0100
-Message-ID: <56866FFB.7060909@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <56866E7F.8080609@users.sourceforge.net>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH 1/3] net-gianfar: Less function calls in
+ gfar_ethflow_to_filer_table() after error detection
+Date: Fri, 1 Jan 2016 13:35:14 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1601011334200.2054@localhost6.localdomain6>
+References: <566ABCD9.1060404@users.sourceforge.net> <56866E7F.8080609@users.sourceforge.net> <56866F68.6070904@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: netdev@vger.kernel.org,
-	Claudiu Manoil <claudiu.manoil@freescale.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.12]:60311 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751682AbcAAMYe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jan 2016 07:24:34 -0500
-In-Reply-To: <56866E7F.8080609@users.sourceforge.net>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:2931 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751689AbcAAMfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jan 2016 07:35:17 -0500
+In-Reply-To: <56866F68.6070904@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 1 Jan 2016 13:00:06 +0100
 
-Move the assignment for the variable "j" from the beginning
-into an initialisation clause of a for loop.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/freescale/gianfar_ethtool.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+On Fri, 1 Jan 2016, SF Markus Elfring wrote:
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 508be89..6a7b035 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -772,8 +772,7 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
- 	unsigned int cmp_rqfpr;
- 	unsigned int *local_rqfpr;
- 	unsigned int *local_rqfcr;
--	int i, k, l;
--	int j = MAX_FILER_IDX;
-+	int i, j, k, l;
- 	int ret = 1;
- 
- 	local_rqfpr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
-@@ -807,7 +806,7 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
- 		goto free_fcr;
- 	}
- 
--	for (i = 0; i < MAX_FILER_IDX + 1; i++) {
-+	for (i = 0, j = MAX_FILER_IDX; i < MAX_FILER_IDX + 1; i++) {
- 		local_rqfpr[j] = priv->ftp_rqfpr[i];
- 		local_rqfcr[j] = priv->ftp_rqfcr[i];
- 		j--;
--- 
-2.6.3
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 1 Jan 2016 11:16:04 +0100
+> 
+> The kfree() function was called in one case by the
+> gfar_ethflow_to_filer_table() function during error handling
+> even if a passed variable contained a null pointer.
+> 
+> * Return directly if a memory allocation failed at the beginning.
+> 
+> * Adjust jump targets according to the Linux coding style convention.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  drivers/net/ethernet/freescale/gianfar_ethtool.c | 14 ++++++++------
+>  1 file changed, 8 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> index 4b0ee85..be4941e 100644
+> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> @@ -778,11 +778,13 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+>  
+>  	local_rqfpr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
+>  				    GFP_KERNEL);
+> +	if (!local_rqfpr)
+> +		return 1;
+
+Why return 1?  Previously 0 was returned.
+
+Normally, one returns -ENOMEM for this case, but it looks like this 
+function is returning 0 on failure.
+
+julia
+
+>  	local_rqfcr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
+>  				    GFP_KERNEL);
+> -	if (!local_rqfpr || !local_rqfcr) {
+> +	if (!local_rqfcr) {
+>  		ret = 0;
+> -		goto err;
+> +		goto free_fpr;
+>  	}
+>  
+>  	switch (class) {
+> @@ -802,7 +804,7 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+>  		netdev_err(priv->ndev,
+>  			   "Right now this class is not supported\n");
+>  		ret = 0;
+> -		goto err;
+> +		goto free_fcr;
+>  	}
+>  
+>  	for (i = 0; i < MAX_FILER_IDX + 1; i++) {
+> @@ -819,7 +821,7 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+>  		netdev_err(priv->ndev,
+>  			   "No parse rule found, can't create hash rules\n");
+>  		ret = 0;
+> -		goto err;
+> +		goto free_fcr;
+>  	}
+>  
+>  	/* If a match was found, then it begins the starting of a cluster rule
+> @@ -862,9 +864,9 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+>  			break;
+>  		priv->cur_filer_idx = priv->cur_filer_idx - 1;
+>  	}
+> -
+> -err:
+> +free_fcr:
+>  	kfree(local_rqfcr);
+> +free_fpr:
+>  	kfree(local_rqfpr);
+>  	return ret;
+>  }
+> -- 
+> 2.6.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
