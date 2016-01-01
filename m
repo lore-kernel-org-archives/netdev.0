@@ -1,83 +1,70 @@
-From: Oleksij Rempel <linux@rempel-privat.de>
-Subject: Re: [PATCH 2/2] net-ath9k_htc: Replace a variable initialisation by
- an assignment in ath9k_htc_set_channel()
-Date: Fri, 1 Jan 2016 20:14:24 +0100
-Message-ID: <5686D010.1060401@rempel-privat.de>
+From: Oleksij Rempel <linux-YEK0n+YFykbzxQdaRaTXBw@public.gmane.org>
+Subject: Re: [PATCH 1/2] net-ath9k_htc: Delete an unnecessary variable
+ initialisation in ath9k_hif_usb_rx_stream()
+Date: Fri, 1 Jan 2016 20:14:46 +0100
+Message-ID: <5686D026.6000706@rempel-privat.de>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <5686C390.5060600@users.sourceforge.net>
- <5686C47E.1040906@users.sourceforge.net>
+ <5686C42A.5000405@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
  protocol="application/pgp-signature";
- boundary="iIDs71WpC9nd6brTonQTiKvAI0rg09UA7"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	ath9k-devel@lists.ath9k.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, ath9k-devel@qca.qualcomm.com,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5686C47E.1040906@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+ boundary="8WhpjSiebErDkk2wTiJrdvjCVeaF7cdQR"
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5686C42A.5000405-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---iIDs71WpC9nd6brTonQTiKvAI0rg09UA7
+--8WhpjSiebErDkk2wTiJrdvjCVeaF7cdQR
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
-Am 01.01.2016 um 19:25 schrieb SF Markus Elfring:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 1 Jan 2016 19:09:32 +0100
+Am 01.01.2016 um 19:23 schrieb SF Markus Elfring:
+> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> Date: Fri, 1 Jan 2016 19:00:53 +0100
 >=20
-> Replace an explicit initialisation for one local variable at the beginn=
-ing
-> by a conditional assignment.
+> Omit explicit initialisation at the beginning for one local variable
+> that is redefined before its first use.
 >=20
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 > ---
->  drivers/net/wireless/ath/ath9k/htc_drv_main.c | 7 ++-----
->  1 file changed, 2 insertions(+), 5 deletions(-)
+>  drivers/net/wireless/ath/ath9k/hif_usb.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >=20
-> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/ne=
-t/wireless/ath/ath9k/htc_drv_main.c
-> index a680a97..30bd59e 100644
-> --- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-> @@ -246,7 +246,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_p=
-riv *priv,
->  	struct ieee80211_conf *conf =3D &common->hw->conf;
->  	bool fastcc;
->  	struct ieee80211_channel *channel =3D hw->conf.chandef.chan;
-> -	struct ath9k_hw_cal_data *caldata =3D NULL;
-> +	struct ath9k_hw_cal_data *caldata;
->  	enum htc_phymode mode;
->  	__be16 htc_mode;
->  	u8 cmd_rsp;
-> @@ -274,10 +274,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_=
-priv *priv,
->  		priv->ah->curchan->channel,
->  		channel->center_freq, conf_is_ht(conf), conf_is_ht40(conf),
->  		fastcc);
-> -
-> -	if (!fastcc)
-> -		caldata =3D &priv->caldata;
-> -
-> +	caldata =3D fastcc ? NULL : &priv->caldata;
->  	ret =3D ath9k_hw_reset(ah, hchan, caldata, fastcc);
->  	if (ret) {
->  		ath_err(common,
+> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wir=
+eless/ath/ath9k/hif_usb.c
+> index 165dd20..51bd61b 100644
+> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
+> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+> @@ -525,7 +525,7 @@ static void ath9k_hif_usb_rx_stream(struct hif_devi=
+ce_usb *hif_dev,
+>  				    struct sk_buff *skb)
+>  {
+>  	struct sk_buff *nskb, *skb_pool[MAX_PKT_NUM_IN_TRANSFER];
+> -	int index =3D 0, i =3D 0, len =3D skb->len;
+> +	int index =3D 0, i, len =3D skb->len;
+>  	int rx_remain_len, rx_pkt_len;
+>  	u16 pool_index =3D 0;
+>  	u8 *ptr;
 >=20
 
-Reviewed-by: Oleksij Rempel <linux@rempel-privat.de>
+
+Reviewed-by: Oleksij Rempel <linux-YEK0n+YFykbzxQdaRaTXBw@public.gmane.org>
 
 --=20
 Regards,
 Oleksij
 
 
---iIDs71WpC9nd6brTonQTiKvAI0rg09UA7
+--8WhpjSiebErDkk2wTiJrdvjCVeaF7cdQR
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -85,9 +72,13 @@ Content-Disposition: attachment; filename="signature.asc"
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iF4EAREIAAYFAlaG0BUACgkQHwImuRkmbWmbIAD/atiZa0Xy3ThlaQHLJVSFBLkS
-ypnkjeykyF5QClTNPRsA/R2K1RddEZFk+dMfjZdq5iuOaz6oUaz5qvPS2G55rsE2
-=KzYR
+iF4EAREIAAYFAlaG0CYACgkQHwImuRkmbWmDhAD+KNPibYR3y8scvydLtCLRK6Im
+gug4CSunNSk9VLB7NmsA/RdOCOMFBzf9KhnRFhdFDyP7RxRTyCDmKKiyjXmhgigV
+=FDRM
 -----END PGP SIGNATURE-----
 
---iIDs71WpC9nd6brTonQTiKvAI0rg09UA7--
+--8WhpjSiebErDkk2wTiJrdvjCVeaF7cdQR--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
