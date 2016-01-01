@@ -1,46 +1,41 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/2] net-qmi_wwan: Delete an unnecessary variable
- initialisation in qmi_wwan_register_subdriver()
-Date: Fri, 1 Jan 2016 17:56:14 +0100
-Message-ID: <5686AFAE.7020401@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <5686AE52.1020008@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	=?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5686AE52.1020008@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chas Williams <3chas3@gmail.com>
+Subject: [PATCH net-next] ixgbe: Extend trust to allow guest to set unicast address
+Date: Fri,  1 Jan 2016 12:34:20 -0500
+Message-ID: <1451669660-3628-1-git-send-email-3chas3@gmail.com>
+Cc: netdev@vger.kernel.org, Chas Williams <3chas3@gmail.com>
+To: intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:34339 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752051AbcAARe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jan 2016 12:34:26 -0500
+Received: by mail-qg0-f47.google.com with SMTP id 6so139618107qgy.1
+        for <netdev@vger.kernel.org>; Fri, 01 Jan 2016 09:34:26 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 1 Jan 2016 17:35:03 +0100
+When running certain routing protocols like VRRP, VF guests need the
+ability to set the unicast address of the interface.  Extend the new ndo
+trust feature to let the hypervisor trust a guest to set/update its own
+unicast address.
 
-Omit explicit initialisation at the beginning for one local variable
-that is redefined before its first use.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Chas Williams <3chas3@gmail.com>
 ---
- drivers/net/usb/qmi_wwan.c | 2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 5b8af06..5962099 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -286,7 +286,7 @@ static int qmi_wwan_cdc_wdm_manage_power(struct usb_interface *intf, int on)
- static int qmi_wwan_register_subdriver(struct usbnet *dev)
- {
- 	int rv;
--	struct usb_driver *subdriver = NULL;
-+	struct usb_driver *subdriver;
- 	struct qmi_wwan_state *info = (void *)&dev->data;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index eeff3d0..63cff17 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -887,7 +887,7 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
+ 		return -1;
+ 	}
  
- 	/* collect bulk endpoints */
+-	if (adapter->vfinfo[vf].pf_set_mac &&
++	if (adapter->vfinfo[vf].pf_set_mac && !adapter->vfinfo[vf].trusted &&
+ 	    !ether_addr_equal(adapter->vfinfo[vf].vf_mac_addresses, new_mac)) {
+ 		e_warn(drv,
+ 		       "VF %d attempted to override administratively set MAC address\n"
 -- 
-2.6.3
+2.5.0
