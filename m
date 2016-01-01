@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/2] net-ath9k_htc: Delete an unnecessary variable
- initialisation in ath9k_hif_usb_rx_stream()
-Date: Fri, 1 Jan 2016 19:23:38 +0100
-Message-ID: <5686C42A.5000405@users.sourceforge.net>
+Subject: [PATCH 2/2] net-ath9k_htc: Replace a variable initialisation by an
+ assignment in ath9k_htc_set_channel()
+Date: Fri, 1 Jan 2016 19:25:02 +0100
+Message-ID: <5686C47E.1040906@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <5686C390.5060600@users.sourceforge.net>
 Mime-Version: 1.0
@@ -14,38 +14,47 @@ Cc: LKML <linux-kernel@vger.kernel.org>,
 To: ath9k-devel@lists.ath9k.org, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, ath9k-devel@qca.qualcomm.com,
 	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.12]:52085 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752102AbcAASXp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jan 2016 13:23:45 -0500
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 In-Reply-To: <5686C390.5060600@users.sourceforge.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 1 Jan 2016 19:00:53 +0100
+Date: Fri, 1 Jan 2016 19:09:32 +0100
 
-Omit explicit initialisation at the beginning for one local variable
-that is redefined before its first use.
+Replace an explicit initialisation for one local variable at the beginning
+by a conditional assignment.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wireless/ath/ath9k/hif_usb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 165dd20..51bd61b 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -525,7 +525,7 @@ static void ath9k_hif_usb_rx_stream(struct hif_device_usb *hif_dev,
- 				    struct sk_buff *skb)
- {
- 	struct sk_buff *nskb, *skb_pool[MAX_PKT_NUM_IN_TRANSFER];
--	int index = 0, i = 0, len = skb->len;
-+	int index = 0, i, len = skb->len;
- 	int rx_remain_len, rx_pkt_len;
- 	u16 pool_index = 0;
- 	u8 *ptr;
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+index a680a97..30bd59e 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+@@ -246,7 +246,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
+ 	struct ieee80211_conf *conf = &common->hw->conf;
+ 	bool fastcc;
+ 	struct ieee80211_channel *channel = hw->conf.chandef.chan;
+-	struct ath9k_hw_cal_data *caldata = NULL;
++	struct ath9k_hw_cal_data *caldata;
+ 	enum htc_phymode mode;
+ 	__be16 htc_mode;
+ 	u8 cmd_rsp;
+@@ -274,10 +274,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
+ 		priv->ah->curchan->channel,
+ 		channel->center_freq, conf_is_ht(conf), conf_is_ht40(conf),
+ 		fastcc);
+-
+-	if (!fastcc)
+-		caldata = &priv->caldata;
+-
++	caldata = fastcc ? NULL : &priv->caldata;
+ 	ret = ath9k_hw_reset(ah, hchan, caldata, fastcc);
+ 	if (ret) {
+ 		ath_err(common,
 -- 
 2.6.3
+
