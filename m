@@ -1,39 +1,39 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH v2] ipw2x00: use to_pci_dev()
-Date: Fri,  1 Jan 2016 20:03:43 +0800
-Message-ID: <b9596d8ac5e81b9334408de148a810b2931ec4a2.1451649453.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/3] net-gianfar: Fine-tuning for
+ gfar_ethflow_to_filer_table()
+Date: Fri, 1 Jan 2016 13:18:07 +0100
+Message-ID: <56866E7F.8080609@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: netdev@vger.kernel.org,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.15.3]:52866 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751661AbcAAMS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jan 2016 07:18:27 -0500
+In-Reply-To: <566ABCD9.1060404@users.sourceforge.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use to_pci_dev() instead of open-coding it.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 1 Jan 2016 13:15:34 +0100
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
----
-This patch is against net-next tree.
+A few update suggestions were taken into account
+from static source code analysis.
 
-Changes in v2:
- - fix wrong title.
----
- drivers/net/wireless/intel/ipw2x00/ipw2100.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Markus Elfring (3):
+  Less function calls after error detection
+  Delete unnecessary variable initialisations
+  Extend an initialisation clause of a for loop
 
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2100.c b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-index 36818c7..121294f 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-@@ -3514,7 +3514,7 @@ static void ipw2100_msg_free(struct ipw2100_priv *priv)
- static ssize_t show_pci(struct device *d, struct device_attribute *attr,
- 			char *buf)
- {
--	struct pci_dev *pci_dev = container_of(d, struct pci_dev, dev);
-+	struct pci_dev *pci_dev = to_pci_dev(d);
- 	char *out = buf;
- 	int i, j;
- 	u32 val;
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
 -- 
-2.5.0
+2.6.3
