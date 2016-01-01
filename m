@@ -1,52 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/3] net-gianfar: Less function calls in
- gfar_ethflow_to_filer_table() after error detection
-Date: Fri, 1 Jan 2016 15:45:15 +0100
-Message-ID: <20160101144515.GA2273@electric-eye.fr.zoreil.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: net-i40e: Reconsider further usage of variable "i" in
+ i40e_vc_get_vf_resources_msg()
+Date: Fri, 1 Jan 2016 15:51:11 +0100
+Message-ID: <5686925F.5020508@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
- <56866E7F.8080609@users.sourceforge.net>
- <56866F68.6070904@users.sourceforge.net>
- <alpine.DEB.2.02.1601011334200.2054@localhost6.localdomain6>
- <56867607.4090907@users.sourceforge.net>
- <alpine.DEB.2.02.1601011405000.2054@localhost6.localdomain6>
+ <56868E0B.5040602@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1601011405000.2054@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <56868E0B.5040602@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Julia Lawall <julia.lawall@lip6.fr> :
-> On Fri, 1 Jan 2016, SF Markus Elfring wrote:
-[...]
-> > > Normally, one returns -ENOMEM for this case, but it looks like this 
-> > > function is returning 0 on failure.
-> > 
-> > Should a symbol like "false" be used instead of such a special number?
-> 
-> Maybe it's better than 0 and 1...
+Hello,
 
-Your suggestion about -ENOMEM is consistent with the callchain. Nothing
-else is needed.
+I have taken another look at the implementation of the
+function "i40e_vc_get_vf_resources_msg". I find the use of the variable "i"
+strange there. It seems that the value from the increment operation in an
+if branch is not reused so far.
 
-Btw:
-1. kfree does not care about NULL parameter, especially in this hardly
-   timing sensitive path.
-2. kmalloc_array for small kernel controlled arrays of integers (see
-   drivers/net/ethernet/freescale/gianfar.h), seriously ?
+I would appreciate a further clarification.
+Can this variable be eventually deleted?
 
-   I'd suggest the janitor to introduce a dedicated struct to embed both
-   gfar_private.ftp_rqf{p, c}r then use a single, plain kmalloc in
-   gfar_ethflow_to_filer_table.
-
-Happy tasteful 2016 :o)
-
--- 
-Ueimor
+Regards,
+Markus
