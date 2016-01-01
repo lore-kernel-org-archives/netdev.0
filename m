@@ -1,58 +1,62 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] ipw2x00: add checks for dma mapping errors
-Date: Sat,  2 Jan 2016 02:12:38 +0300
-Message-ID: <1451689958-8005-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/3] net-iwlegacy: One check less in il_eeprom_init()
+ after error detection
+Date: Sat, 2 Jan 2016 02:13:07 +0300
+Message-ID: <56870803.7010807@cogentembedded.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <5686E13F.2010309@users.sourceforge.net>
+ <5686E21E.4090901@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ispras.ru ([83.149.199.45]:34831 "EHLO mail.ispras.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751354AbcAAXMu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jan 2016 18:12:50 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Kalle Valo <kvalo@codeaurora.org>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5686E21E.4090901@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ipw2100_alloc_skb() and ipw2100_tx_send_data() do not check if mapping
-dma memory succeed. The patch adds the checks and failure handling.
+Hello.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+On 1/1/2016 11:31 PM, SF Markus Elfring wrote:
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/ipw2x00/ipw2100.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 1 Jan 2016 21:12:29 +0100
+>
+> This issue was detected by using the Coccinelle software.
+>
+> Adjust a jump target to avoid a check repetition before the function
+> call "il_eeprom_free".
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index 36818c7f30b9..f93a7f71c047 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -2311,8 +2311,10 @@ static int ipw2100_alloc_skb(struct ipw2100_priv *priv,
- 	packet->dma_addr = pci_map_single(priv->pci_dev, packet->skb->data,
- 					  sizeof(struct ipw2100_rx),
- 					  PCI_DMA_FROMDEVICE);
--	/* NOTE: pci_map_single does not return an error code, and 0 is a valid
--	 *       dma_addr */
-+	if (pci_dma_mapping_error(priv->pci_dev, packet->dma_addr)) {
-+		dev_kfree_skb(packet->skb);
-+		return -ENOMEM;
-+	}
- 
- 	return 0;
- }
-@@ -3183,6 +3185,11 @@ static void ipw2100_tx_send_data(struct ipw2100_priv *priv)
- 							LIBIPW_3ADDR_LEN,
- 							tbd->buf_length,
- 							PCI_DMA_TODEVICE);
-+			if (pci_dma_mapping_error(priv->pci_dev,
-+						  tbd->host_addr)) {
-+				IPW_DEBUG_TX("dma mapping error\n");
-+				break;
-+			}
- 
- 			IPW_DEBUG_TX("data frag tbd TX%d P=%08x L=%d\n",
- 				     txq->next, tbd->host_addr,
--- 
-1.9.1
+    One question: why?
+
+>
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>   drivers/net/wireless/intel/iwlegacy/common.c | 10 ++++++----
+>   1 file changed, 6 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/wireless/intel/iwlegacy/common.c b/drivers/net/wireless/intel/iwlegacy/common.c
+> index c3afaf7..ae45fd3 100644
+> --- a/drivers/net/wireless/intel/iwlegacy/common.c
+> +++ b/drivers/net/wireless/intel/iwlegacy/common.c
+[...]
+> @@ -772,9 +772,11 @@ il_eeprom_init(struct il_priv *il)
+>   done:
+>   	il->ops->eeprom_release_semaphore(il);
+>
+> -err:
+> -	if (ret)
+> +	if (ret) {
+> +free_eeprom:
+
+    This is ugly, I'd say.
+
+[...]
+
+MBR, Sergei
