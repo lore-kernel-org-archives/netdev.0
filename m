@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/3] net-gianfar: Less function calls in
- gfar_ethflow_to_filer_table() after error detection
-Date: Fri, 1 Jan 2016 13:22:00 +0100
-Message-ID: <56866F68.6070904@users.sourceforge.net>
+Subject: [PATCH 2/3] net-gianfar: Delete unnecessary variable initialisations
+ in gfar_ethflow_to_filer_table()
+Date: Fri, 1 Jan 2016 13:23:19 +0100
+Message-ID: <56866FB7.7080008@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <56866E7F.8080609@users.sourceforge.net>
 Mime-Version: 1.0
@@ -19,72 +19,35 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 1 Jan 2016 11:16:04 +0100
+Date: Fri, 1 Jan 2016 12:56:23 +0100
 
-The kfree() function was called in one case by the
-gfar_ethflow_to_filer_table() function during error handling
-even if a passed variable contained a null pointer.
-
-* Return directly if a memory allocation failed at the beginning.
-
-* Adjust jump targets according to the Linux coding style convention.
-
-This issue was detected by using the Coccinelle software.
+Omit explicit initialisation at the beginning for four local variables
+which are redefined before their first use.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/freescale/gianfar_ethtool.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 4b0ee85..be4941e 100644
+index be4941e..508be89 100644
 --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
 +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -778,11 +778,13 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+@@ -768,12 +768,12 @@ static void ethflow_to_filer_rules (struct gfar_private *priv, u64 ethflow)
+ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+ 				       u64 class)
+ {
+-	unsigned int last_rule_idx = priv->cur_filer_idx;
++	unsigned int last_rule_idx;
+ 	unsigned int cmp_rqfpr;
+ 	unsigned int *local_rqfpr;
+ 	unsigned int *local_rqfcr;
+-	int i = 0x0, k = 0x0;
+-	int j = MAX_FILER_IDX, l = 0x0;
++	int i, k, l;
++	int j = MAX_FILER_IDX;
+ 	int ret = 1;
  
  	local_rqfpr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
- 				    GFP_KERNEL);
-+	if (!local_rqfpr)
-+		return 1;
- 	local_rqfcr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
- 				    GFP_KERNEL);
--	if (!local_rqfpr || !local_rqfcr) {
-+	if (!local_rqfcr) {
- 		ret = 0;
--		goto err;
-+		goto free_fpr;
- 	}
- 
- 	switch (class) {
-@@ -802,7 +804,7 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
- 		netdev_err(priv->ndev,
- 			   "Right now this class is not supported\n");
- 		ret = 0;
--		goto err;
-+		goto free_fcr;
- 	}
- 
- 	for (i = 0; i < MAX_FILER_IDX + 1; i++) {
-@@ -819,7 +821,7 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
- 		netdev_err(priv->ndev,
- 			   "No parse rule found, can't create hash rules\n");
- 		ret = 0;
--		goto err;
-+		goto free_fcr;
- 	}
- 
- 	/* If a match was found, then it begins the starting of a cluster rule
-@@ -862,9 +864,9 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
- 			break;
- 		priv->cur_filer_idx = priv->cur_filer_idx - 1;
- 	}
--
--err:
-+free_fcr:
- 	kfree(local_rqfcr);
-+free_fpr:
- 	kfree(local_rqfpr);
- 	return ret;
- }
 -- 
 2.6.3
