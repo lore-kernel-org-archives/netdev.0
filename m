@@ -1,42 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net-libertas: Better exception handling in
- if_spi_host_to_card_worker()
-Date: Sat, 2 Jan 2016 02:14:46 +0300
-Message-ID: <56870866.7020000@cogentembedded.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <5686F0B2.5000000@users.sourceforge.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/nfc: GPF in llcp_sock_getname
+Date: Fri, 1 Jan 2016 15:28:53 -0800
+Message-ID: <CAM_iQpWYqhOQZWB0Oo=Oa2GWGhy_HxunfpEPzjwha3iz9jJ9UQ@mail.gmail.com>
+References: <CACT4Y+baorktL_dBHEWcz_jHYTzhM_-DJoms81bzVx8FbYk63w@mail.gmail.com>
+	<CAM_iQpX-vHywG6DJb=5wLCouNAXXqA1wo=tKJ1S78MDyZfkNCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5686F0B2.5000000@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpX-vHywG6DJb=5wLCouNAXXqA1wo=tKJ1S78MDyZfkNCw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello
-
-On 1/2/2016 12:33 AM, SF Markus Elfring wrote:
-
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 1 Jan 2016 22:27:20 +0100
+On Fri, Jan 1, 2016 at 12:58 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 >
-> This issue was detected by using the Coccinelle software.
->
-> Move the jump label directly before the desired log statement
-> so that the variable "err" will not be checked once more
-> after it was determined that a function call failed.
-> Use the identifier "report_failure" instead of the label "err".
+> It looks like we forget to initialize ->service_name_len
+> and ->servicce_name before bind().
 
-    Why? The code was smart enough and you're making it uglier that it needs 
-to be.
-
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-
-MBR, Sergei
-
+Never mind, __GFP_ZERO is passed in sk_alloc()...
