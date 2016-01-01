@@ -1,41 +1,41 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: [PATCH net-next] ixgbe: Extend trust to allow guest to set unicast address
-Date: Fri,  1 Jan 2016 12:34:20 -0500
-Message-ID: <1451669660-3628-1-git-send-email-3chas3@gmail.com>
-Cc: netdev@vger.kernel.org, Chas Williams <3chas3@gmail.com>
-To: intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:34339 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051AbcAARe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jan 2016 12:34:26 -0500
-Received: by mail-qg0-f47.google.com with SMTP id 6so139618107qgy.1
-        for <netdev@vger.kernel.org>; Fri, 01 Jan 2016 09:34:26 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: [PATCH 0/2] net-ath9k_htc: Fine-tuning for two function
+ implementations
+Date: Fri, 1 Jan 2016 19:21:04 +0100
+Message-ID: <5686C390.5060600@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+To: ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <566ABCD9.1060404-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When running certain routing protocols like VRRP, VF guests need the
-ability to set the unicast address of the interface.  Extend the new ndo
-trust feature to let the hypervisor trust a guest to set/update its own
-unicast address.
+From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Fri, 1 Jan 2016 19:16:05 +0100
 
-Signed-off-by: Chas Williams <3chas3@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+A few update suggestions were taken into account
+from static source code analysis.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index eeff3d0..63cff17 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -887,7 +887,7 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 		return -1;
- 	}
- 
--	if (adapter->vfinfo[vf].pf_set_mac &&
-+	if (adapter->vfinfo[vf].pf_set_mac && !adapter->vfinfo[vf].trusted &&
- 	    !ether_addr_equal(adapter->vfinfo[vf].vf_mac_addresses, new_mac)) {
- 		e_warn(drv,
- 		       "VF %d attempted to override administratively set MAC address\n"
+Markus Elfring (2):
+  Delete an unnecessary variable initialisation in ath9k_hif_usb_rx_stream()
+  Replace a variable initialisation by an assignment in ath9k_htc_set_channel()
+
+ drivers/net/wireless/ath/ath9k/hif_usb.c      | 2 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c | 7 ++-----
+ 2 files changed, 3 insertions(+), 6 deletions(-)
+
 -- 
-2.5.0
+2.6.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
