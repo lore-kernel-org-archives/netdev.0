@@ -1,42 +1,44 @@
-From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 6/6] tilepro: use to_delayed_work
-Date: Fri,  1 Jan 2016 23:48:57 +0800
-Message-ID: <de283954b255f02130170f4e362d92ef95a7cf79.1451661580.git.geliangtang@163.com>
-References: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@ezchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-138.163.com ([123.125.50.138]:56261 "EHLO m50-138.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752055AbcAAPtw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jan 2016 10:49:52 -0500
-In-Reply-To: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
-In-Reply-To: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
-References: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] net-huawei_cdc_ncm: Delete an unnecessary variable
+ initialisation in huawei_cdc_ncm_bind()
+Date: Fri, 1 Jan 2016 16:57:49 +0100
+Message-ID: <5686A1FD.1060207@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <566ABCD9.1060404@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use to_delayed_work() instead of open-coding it.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 1 Jan 2016 16:54:13 +0100
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
+Omit explicit initialisation at the beginning for one local variable
+that is redefined before its first use.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/tile/tilepro.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/usb/huawei_cdc_ncm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
-index 6f0a449..298e059 100644
---- a/drivers/net/ethernet/tile/tilepro.c
-+++ b/drivers/net/ethernet/tile/tilepro.c
-@@ -1349,8 +1349,7 @@ static int tile_net_open_inner(struct net_device *dev)
-  */
- static void tile_net_open_retry(struct work_struct *w)
+diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+index 2680a65..53caeb3 100644
+--- a/drivers/net/usb/huawei_cdc_ncm.c
++++ b/drivers/net/usb/huawei_cdc_ncm.c
+@@ -71,7 +71,7 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
  {
--	struct delayed_work *dw =
--		container_of(w, struct delayed_work, work);
-+	struct delayed_work *dw = to_delayed_work(w);
+ 	struct cdc_ncm_ctx *ctx;
+ 	struct usb_driver *subdriver = ERR_PTR(-ENODEV);
+-	int ret = -ENODEV;
++	int ret;
+ 	struct huawei_cdc_ncm_state *drvstate = (void *)&usbnet_dev->data;
+ 	int drvflags = 0;
  
- 	struct tile_net_priv *priv =
- 		container_of(dw, struct tile_net_priv, retry_work);
 -- 
-2.5.0
+2.6.3
