@@ -1,50 +1,42 @@
 From: Geliang Tang <geliangtang@163.com>
-Subject: [PATCH 5/6] mwifiex: use to_delayed_work
-Date: Fri,  1 Jan 2016 23:48:56 +0800
-Message-ID: <2ae1e4a43ac4e78a747ffd52320ca4c7c275a4a7.1451661580.git.geliangtang@163.com>
+Subject: [PATCH 6/6] tilepro: use to_delayed_work
+Date: Fri,  1 Jan 2016 23:48:57 +0800
+Message-ID: <de283954b255f02130170f4e362d92ef95a7cf79.1451661580.git.geliangtang@163.com>
 References: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
-Cc: Geliang Tang <geliangtang@163.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Geliang Tang <geliangtang@163.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chris Metcalf <cmetcalf@ezchip.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-138.163.com ([123.125.50.138]:56261 "EHLO m50-138.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752055AbcAAPtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jan 2016 10:49:52 -0500
 In-Reply-To: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
 In-Reply-To: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
 References: <5df0633bd7779dd21192f7a41c634efd78f8606c.1451661580.git.geliangtang@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Use to_delayed_work() instead of open-coding it.
 
 Signed-off-by: Geliang Tang <geliangtang@163.com>
 ---
- drivers/net/wireless/marvell/mwifiex/11h.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/tile/tilepro.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/11h.c b/drivers/net/wireless/marvell/mwifiex/11h.c
-index 71a1b58..81c60d0 100644
---- a/drivers/net/wireless/marvell/mwifiex/11h.c
-+++ b/drivers/net/wireless/marvell/mwifiex/11h.c
-@@ -123,8 +123,7 @@ void mwifiex_11h_process_join(struct mwifiex_private *priv, u8 **buffer,
- void mwifiex_dfs_cac_work_queue(struct work_struct *work)
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index 6f0a449..298e059 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -1349,8 +1349,7 @@ static int tile_net_open_inner(struct net_device *dev)
+  */
+ static void tile_net_open_retry(struct work_struct *w)
  {
- 	struct cfg80211_chan_def chandef;
--	struct delayed_work *delayed_work =
--			container_of(work, struct delayed_work, work);
-+	struct delayed_work *delayed_work = to_delayed_work(work);
- 	struct mwifiex_private *priv =
- 			container_of(delayed_work, struct mwifiex_private,
- 				     dfs_cac_work);
-@@ -289,8 +288,7 @@ int mwifiex_11h_handle_radar_detected(struct mwifiex_private *priv,
- void mwifiex_dfs_chan_sw_work_queue(struct work_struct *work)
- {
- 	struct mwifiex_uap_bss_param *bss_cfg;
--	struct delayed_work *delayed_work =
--			container_of(work, struct delayed_work, work);
-+	struct delayed_work *delayed_work = to_delayed_work(work);
- 	struct mwifiex_private *priv =
- 			container_of(delayed_work, struct mwifiex_private,
- 				     dfs_chan_sw_work);
+-	struct delayed_work *dw =
+-		container_of(w, struct delayed_work, work);
++	struct delayed_work *dw = to_delayed_work(w);
+ 
+ 	struct tile_net_priv *priv =
+ 		container_of(dw, struct tile_net_priv, retry_work);
 -- 
 2.5.0
