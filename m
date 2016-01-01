@@ -1,42 +1,62 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 1/3] net-gianfar: Less function calls in
- gfar_ethflow_to_filer_table() after error detection
-Date: Fri, 1 Jan 2016 14:05:15 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1601011405000.2054@localhost6.localdomain6>
-References: <566ABCD9.1060404@users.sourceforge.net> <56866E7F.8080609@users.sourceforge.net> <56866F68.6070904@users.sourceforge.net> <alpine.DEB.2.02.1601011334200.2054@localhost6.localdomain6> <56867607.4090907@users.sourceforge.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] ip_tunnel: make ip6tunnel_xmit definition conditional
+Date: Fri, 01 Jan 2016 14:48:59 +0100
+Message-ID: <12586917.ah4bPMnYUH@wuerfel>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56867607.4090907@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, linux-kernel@vger.kernel.org,
+ James Morris <jmorris@namei.org>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+ Patrick McHardy <kaber@trash.net>, linux-arm-kernel@lists.infradead.org
+To: Pravin B Shelar <pshelar@nicira.com>,
+ "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 1 Jan 2016, SF Markus Elfring wrote:
+>From 433df301cf49624871346fa63f3fc65033caeda3 Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 1 Jan 2016 13:18:48 +0100
+Subject: [PATCH] net: make ip6tunnel_xmit definition conditional
 
-> >> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> >> @@ -778,11 +778,13 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
-> >>  
-> >>  	local_rqfpr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
-> >>  				    GFP_KERNEL);
-> >> +	if (!local_rqfpr)
-> >> +		return 1;
-> > 
-> > Why return 1?  Previously 0 was returned.
-> 
-> You are right. - Unfortunately, I made a mistake at this place
-> of my update suggestion.
-> 
-> 
-> > Normally, one returns -ENOMEM for this case, but it looks like this 
-> > function is returning 0 on failure.
-> 
-> Should a symbol like "false" be used instead of such a special number?
+Moving the caller of iptunnel_xmit_stats causes a build error in
+randconfig builds that disable CONFIG_INET:
 
-Maybe it's better than 0 and 1...
+In file included from ../net/xfrm/xfrm_input.c:17:0:
+../include/net/ip6_tunnel.h: In function 'ip6tunnel_xmit':
+../include/net/ip6_tunnel.h:93:2: error: implicit declaration of function 'iptunnel_xmit_stats' [-Werror=implicit-function-declaration]
+  iptunnel_xmit_stats(dev, pkt_len);
 
-julia
+The reason is that the iptunnel_xmit_stats definition is hidden
+inside #ifdef CONFIG_INET but the caller is not. We can change
+one or the other to fix it, and this patch adds a second #ifdef
+around ip6tunnel_xmit() to avoid seeing the invalid call.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 039f50629b7f ("ip_tunnel: Move stats update to iptunnel_xmit()")
+
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index ae07e94778d8..0d0ce0b2d870 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -81,6 +81,7 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
+ struct net *ip6_tnl_get_link_net(const struct net_device *dev);
+ int ip6_tnl_get_iflink(const struct net_device *dev);
+ 
++#ifdef CONFIG_INET
+ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+ 				  struct net_device *dev)
+ {
+@@ -93,3 +94,4 @@ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+ 	iptunnel_xmit_stats(dev, pkt_len);
+ }
+ #endif
++#endif
