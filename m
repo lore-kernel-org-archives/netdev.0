@@ -1,62 +1,35 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] be2net: Delete an unnecessary check in two functions
-Date: Fri, 1 Jan 2016 00:22:21 +0100
-Message-ID: <5685B8AD.7010900@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ixgbe: Extend trust to allow guest to set
+ unicast address
+Date: Thu, 31 Dec 2015 16:03:29 -0800
+Message-ID: <CAL3LdT6OZ0F4oH1geii8K73EBGahNhhtbfYOW4d1RFUYaaO2Fw@mail.gmail.com>
+References: <1451560331-21378-1-git-send-email-3chas3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: netdev@vger.kernel.org,
-	Ajit Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sathya Perla <sathya.perla@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <566ABCD9.1060404@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Chas Williams <3chas3@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33848 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbcAAADa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2015 19:03:30 -0500
+Received: by mail-io0-f177.google.com with SMTP id 1so56429593ion.1
+        for <netdev@vger.kernel.org>; Thu, 31 Dec 2015 16:03:29 -0800 (PST)
+In-Reply-To: <1451560331-21378-1-git-send-email-3chas3@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 1 Jan 2016 00:11:57 +0100
+On Thu, Dec 31, 2015 at 3:12 AM, Chas Williams <3chas3@gmail.com> wrote:
+> When running certain routing protocols like VRRP, VF guests need the
+> ability to set the unicast address of the interface.  Extend the new ndo
+> trust feature to let the hypervisor trust a guest to set/update its own
+> unicast address.
+>
+> Signed-off-by: Chas Williams <3chas3@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Remove two checks for null pointers which would be handled by usual
-error detection before.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index b63d8ad..ba98297 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -4366,9 +4366,7 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
- 	if (vf_res)
- 		res->vf_if_cap_flags = vf_res->cap_flags;
- err:
--	if (cmd.va)
--		dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
--				  cmd.dma);
-+	dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va, cmd.dma);
- 	return status;
- }
- 
-@@ -4398,10 +4396,7 @@ static int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
- 	memcpy(req->desc, desc, size);
- 
- 	status = be_cmd_notify_wait(adapter, &wrb);
--
--	if (cmd.va)
--		dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
--				  cmd.dma);
-+	dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va, cmd.dma);
- 	return status;
- }
- 
--- 
-2.6.3
-
+Please send this to intel-wired-lan@lists.osuosl.org mailing list, or
+at least CC the list since all Wired Ethernet Intel driver patches are
+handled through that list.
