@@ -1,15 +1,13 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ip_tunnel: make ip6tunnel_xmit definition conditional
-Date: Fri, 01 Jan 2016 14:48:59 +0100
-Message-ID: <12586917.ah4bPMnYUH@wuerfel>
+Subject: [PATCH] fsl/fman: allow modular build
+Date: Fri, 01 Jan 2016 14:55:24 +0100
+Message-ID: <4109142.02mezJXbJM@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, linux-kernel@vger.kernel.org,
- James Morris <jmorris@namei.org>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
- Patrick McHardy <kaber@trash.net>, linux-arm-kernel@lists.infradead.org
-To: Pravin B Shelar <pshelar@nicira.com>,
- "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Igal Liberman <Igal.Liberman@freescale.com>, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
@@ -22,41 +20,46 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
->From 433df301cf49624871346fa63f3fc65033caeda3 Mon Sep 17 00:00:00 2001
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 1 Jan 2016 13:18:48 +0100
-Subject: [PATCH] net: make ip6tunnel_xmit definition conditional
+ARM allmodconfig fails because of the addition of the FMAN driver:
 
-Moving the caller of iptunnel_xmit_stats causes a build error in
-randconfig builds that disable CONFIG_INET:
+drivers/built-in.o: In function `dtsec_restart_autoneg':
+binder.c:(.text+0x173328): undefined reference to `mdiobus_read'
+binder.c:(.text+0x173348): undefined reference to `mdiobus_write'
+drivers/built-in.o: In function `dtsec_config':
+binder.c:(.text+0x173d24): undefined reference to `of_phy_find_device'
+drivers/built-in.o: In function `init_phy':
+binder.c:(.text+0x1763b0): undefined reference to `of_phy_connect'
+drivers/built-in.o: In function `stop':
+binder.c:(.text+0x176014): undefined reference to `phy_stop'
+drivers/built-in.o: In function `start':
+binder.c:(.text+0x176078): undefined reference to `phy_start'
 
-In file included from ../net/xfrm/xfrm_input.c:17:0:
-../include/net/ip6_tunnel.h: In function 'ip6tunnel_xmit':
-../include/net/ip6_tunnel.h:93:2: error: implicit declaration of function 'iptunnel_xmit_stats' [-Werror=implicit-function-declaration]
-  iptunnel_xmit_stats(dev, pkt_len);
+The reason is that the driver uses PHYLIB, but that is a loadable
+module here, and fman itself is built-in.
 
-The reason is that the iptunnel_xmit_stats definition is hidden
-inside #ifdef CONFIG_INET but the caller is not. We can change
-one or the other to fix it, and this patch adds a second #ifdef
-around ip6tunnel_xmit() to avoid seeing the invalid call.
+This patch makes it possible to configure fman as a module as well
+so we don't change the status of PHYLIB in an allmodconfig kernel,
+and it adds a 'select PHYLIB' statement to ensure that phylib is
+always built-in when fman is.
+
+The driver uses "builtin_platform_driver(fman_driver);", which means
+it cannot be unloaded, but it's still possible to have it as a loadable
+module that gets loaded once and never removed.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 039f50629b7f ("ip_tunnel: Move stats update to iptunnel_xmit()")
+Fixes: 5adae51a64b8 ("fsl/fman: Add FMan MURAM support")
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index ae07e94778d8..0d0ce0b2d870 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -81,6 +81,7 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
- struct net *ip6_tnl_get_link_net(const struct net_device *dev);
- int ip6_tnl_get_iflink(const struct net_device *dev);
- 
-+#ifdef CONFIG_INET
- static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
- 				  struct net_device *dev)
- {
-@@ -93,3 +94,4 @@ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
- 	iptunnel_xmit_stats(dev, pkt_len);
- }
- #endif
-+#endif
+diff --git a/drivers/net/ethernet/freescale/fman/Kconfig b/drivers/net/ethernet/freescale/fman/Kconfig
+index 66b729692b48..79b7c84b7869 100644
+--- a/drivers/net/ethernet/freescale/fman/Kconfig
++++ b/drivers/net/ethernet/freescale/fman/Kconfig
+@@ -1,7 +1,8 @@
+ config FSL_FMAN
+-	bool "FMan support"
++	tristate "FMan support"
+ 	depends on FSL_SOC || COMPILE_TEST
+ 	select GENERIC_ALLOCATOR
++	select PHYLIB
+ 	default n
+ 	help
+ 		Freescale Data-Path Acceleration Architecture Frame Manager
