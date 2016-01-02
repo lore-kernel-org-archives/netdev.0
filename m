@@ -1,34 +1,39 @@
-From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
-Subject: Charity Donation
-Date: Sat, 02 Jan 2016 12:16:38 -0500
-Message-ID: <auto-000000215992@mailadmin.uni-kassel.de>
-Reply-To: jeff.skoll@skollcharity.org
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/5] xen-netback: Fine-tuning for three function
+ implementations
+Date: Sat, 2 Jan 2016 18:50:12 +0100
+Message-ID: <56880DD4.2090806@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Me <s_w9gc9x@uni-kassel.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.its.uni-kassel.de ([141.51.12.63]:53870 "EHLO
-	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743AbcABR1r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 12:27:47 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <566ABCD9.1060404@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
-e largest private foundations in the world. I believe strongly in =E2=80=
-=98giving while living.=E2=80=99 I had one idea that never changed in m=
-y mind =E2=80=94 that you should use your wealth to help people and I h=
-ave decided to secretly give USD2.498 Million to a randomly selected in=
-dividual. On receipt of this email, you should count yourself as the in=
-dividual. Kindly get back to me at your earliest convenience, so I know=
- your email address is valid.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 2 Jan 2016 18:46:45 +0100
 
-Visit the web page to know more about me: http://www.theglobeandmail.co=
-m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
-rticle4209888/ or you can read an article of me on Wikipedia.
+A few update suggestions were taken into account
+from static source code analysis.
 
-Regards,
-Jeffrey Skoll.
+Markus Elfring (5):
+  Delete an unnecessary assignment in connect_rings()
+  Delete an unnecessary goto statement in connect_rings()
+  Replace a variable initialisation by an assignment in read_xenbus_vif_flags()
+  Replace a variable initialisation by an assignment in xen_register_watchers()
+  Delete an unnecessary variable initialisation in xen_register_watchers()
+
+ drivers/net/xen-netback/xenbus.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
+
+-- 
+2.6.3
+
