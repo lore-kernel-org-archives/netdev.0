@@ -1,85 +1,77 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] stmmac: Don't exit mdio registration when mdio subnode is
- not found in the DTS
-Date: Fri, 01 Jan 2016 21:51:17 -0800
-Message-ID: <0E6F98A1-B9F1-48B0-B5CA-A215803E827F@gmail.com>
-References: <1451397935-23643-1-git-send-email-romain.perier@gmail.com>
+From: =?UTF-8?Q?Fl=c3=a1vio_Silveira?= <fggs@terra.com.br>
+Subject: Attansic L1 driver issue
+Date: Sat, 2 Jan 2016 03:58:43 -0200
+Message-ID: <56876713.9090100@terra.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,peppe.cavallaro-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1451397935-23643-1-git-send-email-romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, Chris Snook <chris.snook@gmail.com>,
+	jcliburn@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from if01-mail-fb01-mia.mta.terra.com ([208.84.243.145]:52782 "EHLO
+	if01-mail-fb01-mia.mta.terra.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751099AbcABGTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 01:19:13 -0500
+Received: from if01-mail-sr04-mia.mta.terra.com (unknown [208.84.243.21])
+	by mail-fb01-mia.tpn.terra.com (Postfix) with ESMTP id 82BA118006578
+	for <netdev@vger.kernel.org>; Sat,  2 Jan 2016 05:58:50 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On December 29, 2015 6:05:35 AM PST, Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->Originally, most of the platforms using this driver did not define an
->mdio subnode
->in the devicetree. Commit e34d65 ("stmmac: create of compatible mdio
->bus for stmmac driver")
->introduced a backward compatibily issue by using of_mdiobus_register
->explicitly
->with an mdio subnode. This patch fixes the issue by calling the
->function
->mdiobus_register, when mdio subnode is not found. The driver is now
->compatible
->with both modes.
+Good morning,
 
-Looks reasonable to me, though you will want to make sure the different DTSes get updated to include the proper compatible node for the MDIO bus.
+   I'm investigating a possible issue with atl1 driver used by Attansic L1.
 
->
->Signed-off-by: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+   During my tests with iperf3 I saw a performance drop when the 
+computer is client.
 
-Please include a Fixes tag to help keep track of changes.
+   I can hit only about 580~600Mbit/s, if I disable 
+generic-segmentation-offload (GSO) I can hit 660~670Mbit/s.
 
->---
-> drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 8 +++++---
-> 1 file changed, 5 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->index 16c85cc..0034de44 100644
->--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->@@ -218,8 +218,7 @@ int stmmac_mdio_register(struct net_device *ndev)
-> 		if (mdio_node) {
-> 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
-> 		} else {
->-			netdev_err(ndev, "NO MDIO subnode\n");
->-			return 0;
->+			netdev_warn(ndev, "No MDIO subnode found\n");
-> 		}
-> 	}
-> 
->@@ -251,7 +250,10 @@ int stmmac_mdio_register(struct net_device *ndev)
-> 	new_bus->phy_mask = mdio_bus_data->phy_mask;
-> 	new_bus->parent = priv->device;
-> 
->-	err = of_mdiobus_register(new_bus, mdio_node);
->+	if (IS_ENABLED(CONFIG_OF) && mdio_node)
+   When the computer is server, I can hit 940~950Mbit/s.
 
-You should be able to drop the IS_ENABLED part since there is an inline provided in the non-OF case which does a fallback to mdiobus_register().
+   My tests are done with 2 computers directly connected with a cat6 
+cable, static addresses on both, no iptables rules and commands below:
 
->+		err = of_mdiobus_register(new_bus, mdio_node);
->+	else
->+		err = mdiobus_register(new_bus);
-> 	if (err != 0) {
+   # for the server
+   iperf3 -s
 
-This looks reasonable, does it work if we just assign mdio_node to the pdev->dev.of_node to be backwards compatible with DTSes which have not yet been updated?
+   # for the client
+   iperf3 -c <server ip> -P 1 -i 1 -p 5201 -f m -t 10
 
-> 		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
-> 		goto bus_register_fail;
+   To rule out a few things, I've tested with Fedora 23 live usb (kernel 
+4.2.7) and Debian 8 Jessie (kernels 3.16.7 and latest stable 4.3.3).
 
+   The other computer on the test ran Fedora 23 live usb and Windows 7 
+SP1 x64, same results.
 
--- 
-Florian
+   I've been talking to Chris Snook (in CC), one of the maintainers of 
+this driver and he suspects of a PCI regression. Unfortunately I 
+couldn't git bisect for him, I'm actually thinking about installing 
+Debian 6 Squeeze which ships with kernel 2.6.32 and it is close to the 
+kernel this driver was mainlined (2.6.21 IIRC) and do the git bisect there.
+
+   What I could do so far is enable debug in the driver and when I run 
+iperf I see "tx busy" message. This message comes from this part of the 
+driver:
+
+# This is inside atl1_xmit_frame function and count is initialized with 1
+
+if (atl1_tpd_avail(&adapter->tpd_ring) < count) {
+         /* not enough descriptors */
+         netif_stop_queue(netdev);
+         if (netif_msg_tx_queued(adapter))
+             dev_printk(KERN_DEBUG, &adapter->pdev->dev,
+                 "tx busy\n");
+         return NETDEV_TX_BUSY;
+     }
+
+   So I thought it could be TX ring too small, but I've played with 
+available values and no change. Default value is 256 for TX ring and up 
+to 1024 as max value.
+
+   As you could notice I'm not knowledgeable, but I hope to get some 
+insight on this, so it can hopefully be fixed.
+
+Regards,
+   Flavio Silveira
