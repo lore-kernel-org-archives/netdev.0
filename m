@@ -1,60 +1,34 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/2] net-qmi_wwan: Refactoring for qmi_wwan_bind()
-Date: Sat, 02 Jan 2016 22:38:30 +0100
-Message-ID: <87vb7bpsq1.fsf@nemi.mork.no>
-References: <566ABCD9.1060404@users.sourceforge.net>
-	<5686AE52.1020008@users.sourceforge.net>
-	<5686AF55.5020801@users.sourceforge.net>
+From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
+Subject: Charity Donation
+Date: Sat, 02 Jan 2016 16:07:31 -0500
+Message-ID: <auto-000000437071@mailadmin.uni-kassel.de>
+Reply-To: jeff.skoll@skollcharity.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5686AF55.5020801@users.sourceforge.net> (SF Markus Elfring's
-	message of "Fri, 1 Jan 2016 17:54:45 +0100")
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Me <s_w9gc9x@uni-kassel.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx4.its.uni-kassel.de ([141.51.12.63]:55150 "EHLO
+	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751924AbcABWCS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 17:02:18 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SF Markus Elfring <elfring@users.sourceforge.net> writes:
+Hi,
+My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
+e largest private foundations in the world. I believe strongly in =E2=80=
+=98giving while living.=E2=80=99 I had one idea that never changed in m=
+y mind =E2=80=94 that you should use your wealth to help people and I h=
+ave decided to secretly give USD2.498 Million to a randomly selected in=
+dividual. On receipt of this email, you should count yourself as the in=
+dividual. Kindly get back to me at your earliest convenience, so I know=
+ your email address is valid.
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 1 Jan 2016 17:32:07 +0100
->
-> Reduce the scope for the local variable "desc" to one branch
-> of an if statement.
+Visit the web page to know more about me: http://www.theglobeandmail.co=
+m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
+rticle4209888/ or you can read an article of me on Wikipedia.
 
-This patch is harmless.  But is also pointless.
-
-You could at least try to explain why this must be changed.  I'm not
-interested in why you think it is better this way - I might agree with
-that.  what I am interested in is the advantage changing the code gives
-us.  Some analysis of the risk and work involved would also be nice.  I=
-s
-this change really worth it?
-
-Personally I am convinced that I wasted any time I used writing this,
-and you wasted any time you used reading it.  Sorry.
-
-Note:  This patch would have been fine if it was a natural part of some
-*improvement* of the driver, i.e. a bugfix or feaure addition. As a
-standalone patch I see it as noise.
-
-Please stop the noise and start writing something useful.  I'm sure you
-can fix bugs instead.  Wouldn't that be more interesting?  More
-challenging?  These mindless robotic code refactoring patches are reall=
-y
-best left for robots.
-
-
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Jeffrey Skoll.
