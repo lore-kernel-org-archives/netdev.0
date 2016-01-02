@@ -1,47 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/nfc: GPF in llcp_sock_getname
-Date: Fri, 1 Jan 2016 15:48:59 -0800
-Message-ID: <CAM_iQpWarm-m1ZNZTEJ24i+O_JuaeJyQ--EzFADvuQJdZPJz7Q@mail.gmail.com>
-References: <CACT4Y+baorktL_dBHEWcz_jHYTzhM_-DJoms81bzVx8FbYk63w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:33281 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752114AbcAAXtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jan 2016 18:49:01 -0500
-In-Reply-To: <CACT4Y+baorktL_dBHEWcz_jHYTzhM_-DJoms81bzVx8FbYk63w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [Patch net] nfc: use GFP_USER for user-controlled kmalloc
+Date: Fri,  1 Jan 2016 16:34:16 -0800
+Message-ID: <1451694857-21873-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 1, 2016 at 5:58 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> GPF seems to be caused by a data race on socket state.
+Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/nfc/llcp_commands.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Seems you are right, I think the following patch should work:
+diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
+index 3621a90..5d94055 100644
+--- a/net/nfc/llcp_commands.c
++++ b/net/nfc/llcp_commands.c
+@@ -729,7 +729,7 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
+ 	if (local == NULL)
+ 		return -ENODEV;
+ 
+-	msg_data = kzalloc(len, GFP_KERNEL);
++	msg_data = kzalloc(len, GFP_USER | __GFP_NOWARN);
+ 	if (msg_data == NULL)
+ 		return -ENOMEM;
+ 
+-- 
+1.8.3.1
 
-diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
-index ecf0a01..5a91997 100644
---- a/net/nfc/llcp_sock.c
-+++ b/net/nfc/llcp_sock.c
-@@ -500,7 +500,7 @@ static int llcp_sock_getname(struct socket *sock,
-struct sockaddr *uaddr,
-        struct nfc_llcp_sock *llcp_sock = nfc_llcp_sock(sk);
-        DECLARE_SOCKADDR(struct sockaddr_nfc_llcp *, llcp_addr, uaddr);
-
--       if (llcp_sock == NULL || llcp_sock->dev == NULL)
-+       if (llcp_sock == NULL || sk->sk_state == LLCP_CLOSED)
-                return -EBADFD;
-
-        pr_debug("%p %d %d %d\n", sk, llcp_sock->target_idx,
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
