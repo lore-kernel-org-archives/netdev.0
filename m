@@ -1,10 +1,10 @@
 From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2] net-qmi_wwan: Delete an unnecessary variable initialisation in qmi_wwan_register_subdriver()
-Date: Sat, 02 Jan 2016 22:30:48 +0100
-Message-ID: <87ziwnpt2v.fsf@nemi.mork.no>
+Subject: Re: [PATCH 1/2] net-qmi_wwan: Refactoring for qmi_wwan_bind()
+Date: Sat, 02 Jan 2016 22:38:30 +0100
+Message-ID: <87vb7bpsq1.fsf@nemi.mork.no>
 References: <566ABCD9.1060404@users.sourceforge.net>
 	<5686AE52.1020008@users.sourceforge.net>
-	<5686AFAE.7020401@users.sourceforge.net>
+	<5686AF55.5020801@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -14,37 +14,42 @@ Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
 	Julia Lawall <julia.lawall@lip6.fr>
 To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5686AFAE.7020401@users.sourceforge.net> (SF Markus Elfring's
-	message of "Fri, 1 Jan 2016 17:56:14 +0100")
+In-Reply-To: <5686AF55.5020801@users.sourceforge.net> (SF Markus Elfring's
+	message of "Fri, 1 Jan 2016 17:54:45 +0100")
 Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 SF Markus Elfring <elfring@users.sourceforge.net> writes:
 
 > From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 1 Jan 2016 17:35:03 +0100
+> Date: Fri, 1 Jan 2016 17:32:07 +0100
 >
-> Omit explicit initialisation at the beginning for one local variable
-> that is redefined before its first use.
+> Reduce the scope for the local variable "desc" to one branch
+> of an if statement.
 
+This patch is harmless.  But is also pointless.
 
-This patch is unnecessary. The variable initialisation is redundant.
-See the difference?  Sending an unnecessary patch causes unnecessary
-load on reviewers and maintainers.  Keeping redundant code has no
-measurable cost, and can save the same maintainers a lot of trouble
-later.
+You could at least try to explain why this must be changed.  I'm not
+interested in why you think it is better this way - I might agree with
+that.  what I am interested in is the advantage changing the code gives
+us.  Some analysis of the risk and work involved would also be nice.  I=
+s
+this change really worth it?
 
-I'd like to keep this particular redundant initialisation as a safe
-guard against future code refactoring, causing for example the err labe=
-l
-to move up.  Yes, I do understand that any patch with such a bug should
-be rejected, but I do know what happens in the real world and how easy
-it is for something like that to slip through in a stream of unnecessar=
+Personally I am convinced that I wasted any time I used writing this,
+and you wasted any time you used reading it.  Sorry.
+
+Note:  This patch would have been fine if it was a natural part of some
+*improvement* of the driver, i.e. a bugfix or feaure addition. As a
+standalone patch I see it as noise.
+
+Please stop the noise and start writing something useful.  I'm sure you
+can fix bugs instead.  Wouldn't that be more interesting?  More
+challenging?  These mindless robotic code refactoring patches are reall=
 y
-"cleanup" patches.
+best left for robots.
 
-Reducing redundancy in the kernel is only making the code less robust.
-It is harmful. Please stop.  Thanks.
+
 
 
 Bj=C3=B8rn
