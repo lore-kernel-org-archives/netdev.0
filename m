@@ -1,62 +1,49 @@
-From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] net-brcmfmac: Delete an unnecessary variable initialisation
- in brcmf_sdio_download_firmware()
-Date: Sat, 2 Jan 2016 09:50:26 +0100
-Message-ID: <56878F52.5070308@broadcom.com>
-References: <566ABCD9.1060404@users.sourceforge.net> <5686D2E0.2010309@users.sourceforge.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: net-libertas: Better exception handling in
+ if_spi_host_to_card_worker()
+Date: Sat, 2 Jan 2016 10:08:46 +0100
+Message-ID: <5687939E.7010701@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <5686F0B2.5000000@users.sourceforge.net>
+ <56870866.7020000@cogentembedded.com>
+ <568785B3.5000905@users.sourceforge.net>
+ <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5686D2E0.2010309-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/01/2016 08:26 PM, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> Date: Fri, 1 Jan 2016 20:20:15 +0100
+>> I assume that a software development taste can evolve, can't it?
+> 
+> So far, you have gotten several down votes for this kind of change,
 
-I think it has been said over and over, but please use driver name only 
-as prefix. I don't see value to prepend it with 'net-'.
+I am curious when more contributors will share corresponding opinions.
 
-> Omit explicit initialisation at the beginning for one local variable
-> that is redefined before its first use.
->
 
-That being said here is my....
+> and no enthusiasm.
 
-Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> ---
->   drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> index ceb2a75..c21eeb1 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> @@ -3260,7 +3260,7 @@ static int brcmf_sdio_download_firmware(struct brcmf_sdio *bus,
->   					const struct firmware *fw,
->   					void *nvram, u32 nvlen)
->   {
-> -	int bcmerror = -EFAULT;
-> +	int bcmerror;
->   	u32 rstvec;
->
->   	sdio_claim_host(bus->sdiodev->func[1]);
->
+How many software designers and developers can become enthusiastic
+about better exception handling to some degree?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> The code that is performance critical, you should probably not touch, ever.
+
+I imagine that technical evolution will result in further considerations
+so that "unchangeable" components can be adjusted once more.
+
+
+> The people who wrote it knew what was important and what was not.
+
+I might come along at some places where the affected knowledge will also evolve.
+
+Regards,
+Markus
