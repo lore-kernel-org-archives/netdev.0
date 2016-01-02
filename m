@@ -1,56 +1,34 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v2 1/3] rsi: Delete unnecessary variable initialisations in
- rsi_send_mgmt_pkt()
-Date: Sat, 2 Jan 2016 19:27:33 +0100
-Message-ID: <56881695.4030308@users.sourceforge.net>
-References: <201601030008.47CwzW9c%fengguang.wu@intel.com>
+From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
+Subject: Charity Donation
+Date: Sat, 02 Jan 2016 14:05:08 -0500
+Message-ID: <auto-000000333352@mailadmin.uni-kassel.de>
+Reply-To: jeff.skoll@skollcharity.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201601030008.47CwzW9c%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Me <s_w9gc9x@uni-kassel.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx4.its.uni-kassel.de ([141.51.12.63]:55348 "EHLO
+	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751055AbcABTF4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 14:05:56 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 2 Jan 2016 19:22:36 +0100
+Hi,
+My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
+e largest private foundations in the world. I believe strongly in =E2=80=
+=98giving while living.=E2=80=99 I had one idea that never changed in m=
+y mind =E2=80=94 that you should use your wealth to help people and I h=
+ave decided to secretly give USD2.498 Million to a randomly selected in=
+dividual. On receipt of this email, you should count yourself as the in=
+dividual. Kindly get back to me at your earliest convenience, so I know=
+ your email address is valid.
 
-Omit explicit initialisation at the beginning for four local variables
-which are redefined before their first use.
+Visit the web page to know more about me: http://www.theglobeandmail.co=
+m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
+rticle4209888/ or you can read an article of me on Wikipedia.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/wireless/rsi/rsi_91x_pkt.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/wireless/rsi/rsi_91x_pkt.c b/drivers/net/wireless/rsi/rsi_91x_pkt.c
-index 702593f..571eaba 100644
---- a/drivers/net/wireless/rsi/rsi_91x_pkt.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_pkt.c
-@@ -123,15 +123,15 @@ int rsi_send_mgmt_pkt(struct rsi_common *common,
- 		      struct sk_buff *skb)
- {
- 	struct rsi_hw *adapter = common->priv;
--	struct ieee80211_hdr *wh = NULL;
-+	struct ieee80211_hdr *wh;
- 	struct ieee80211_tx_info *info;
--	struct ieee80211_bss_conf *bss = NULL;
-+	struct ieee80211_bss_conf *bss;
- 	struct ieee80211_hw *hw = adapter->hw;
- 	struct ieee80211_conf *conf = &hw->conf;
- 	struct skb_info *tx_params;
- 	int status = -E2BIG;
--	__le16 *msg = NULL;
--	u8 extnd_size = 0;
-+	__le16 *msg;
-+	u8 extnd_size;
- 	u8 vap_id = 0;
- 
- 	info = IEEE80211_SKB_CB(skb);
--- 
-2.6.3
+Regards,
+Jeffrey Skoll.
