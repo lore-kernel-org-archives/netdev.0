@@ -1,57 +1,47 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: net-libertas: Better exception handling in
- if_spi_host_to_card_worker()
-Date: Sat, 2 Jan 2016 12:21:32 +0100
-Message-ID: <5687B2BC.8090901@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <5686F0B2.5000000@users.sourceforge.net>
- <56870866.7020000@cogentembedded.com>
- <568785B3.5000905@users.sourceforge.net>
- <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
- <5687939E.7010701@users.sourceforge.net> <5687A2C7.3000704@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Julia Lawall <julia.lawall@lip6.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Arend van Spriel <aspriel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5687A2C7.3000704@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] phy: add HAS_IOMEM/OF_MDIO dependencies to MDIO_OCTEON
+Date: Sat,  2 Jan 2016 14:06:28 +0100
+Message-ID: <1451739988-14351-1-git-send-email-vegard.nossum@oracle.com>
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46816 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbcABNGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 08:06:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I have never seen much evolution going on in this area.
+Ran into this on UML:
 
-I can get an other impression from a specific document for example.
-https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/Documentation/CodingStyle
+drivers/built-in.o: In function `octeon_mdiobus_probe':
+drivers/net/phy/mdio-octeon.c:295: undefined reference to `devm_ioremap'
+drivers/net/phy/mdio-octeon.c:320: undefined reference to `of_mdiobus_register'
+collect2: error: ld returned 1 exit status
 
+devm_ioremap() is defined only when HAS_IOMEM is selected.
 
-> What the patch tries to do is avoid the extra 'if (err)'.
+of_mdiobus_register() is defined only when OF_MDIO is selected.
 
-Yes. - I propose to look at related consequences together with the usage
-of a popular short jump label once more.
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/phy/Kconfig | 2 ++
+ 1 file changed, 2 insertions(+)
 
-
-> Setting coding style aside, the question is whether there is
-> a good metric for the patch.
-
-A software development challenge is to accept changes also around a topic
-like "error handling". My update suggestion for the source file
-"drivers/net/wireless/marvell/libertas/if_spi.c" should only improve
-exception handling. (I came along other source files where more improvements
-will eventually be possible.)
-
-When will the run-time behaviour matter also for exceptional situations?
-
-
-> Did you look at the resulting assembly code for different target architectures?
-
-Not yet. - Which execution system variants would you recommend for
-further comparisons?
-
-Regards,
-Markus
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 60994a8..19314bb 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -186,6 +186,8 @@ config MDIO_GPIO
+ config MDIO_OCTEON
+ 	tristate "Support for MDIO buses on Octeon and ThunderX SOCs"
+ 	depends on 64BIT
++	depends on HAS_IOMEM
++	depends on OF_MDIO
+ 	help
+ 
+ 	  This module provides a driver for the Octeon and ThunderX MDIO
+-- 
+1.9.1
