@@ -1,17 +1,17 @@
 From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
 Subject: Charity Donation
-Date: Sat, 02 Jan 2016 16:07:31 -0500
-Message-ID: <auto-000000437071@mailadmin.uni-kassel.de>
+Date: Sat, 02 Jan 2016 17:50:09 -0500
+Message-ID: <auto-000000473624@mailadmin.uni-kassel.de>
 Reply-To: jeff.skoll@skollcharity.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: Me <s_w9gc9x@uni-kassel.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.its.uni-kassel.de ([141.51.12.63]:55150 "EHLO
+Received: from mx4.its.uni-kassel.de ([141.51.12.63]:2500 "EHLO
 	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924AbcABWCS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 17:02:18 -0500
+	with ESMTP id S1750972AbcABXeY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 18:34:24 -0500
 Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
