@@ -1,76 +1,45 @@
-From: Xing Zheng <zhengxing@rock-chips.com>
-Subject: Re: [RESEND PATCH v1 3/4] net: ethernet: arc: Add support emac for RK3036
-Date: Sat, 2 Jan 2016 10:38:28 +0800
-Message-ID: <6ADB598D-07E0-4E51-A9FE-25B47FD87F7E@rock-chips.com>
-References: <1451287341-16453-1-git-send-email-zhengxing@rock-chips.com> <1451287341-16453-4-git-send-email-zhengxing@rock-chips.com> <FFCE9129-357E-4643-A350-9927A5AD5720@gmail.com> <3169681.aSJgN2TRic@wuerfel>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain; charset=gb2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-rockchip@lists.infradead.org, heiko@sntech.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>, keescook@google.com,
-	leozwang@google.com, davem@davemloft.net, xing.zheng@rock-chips.com
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] ip_tunnel: make ip6tunnel_xmit definition conditional
+Date: Fri, 1 Jan 2016 18:58:10 -0800
+Message-ID: <CALnjE+ptYadm5btYd3jFvd7h70-FJAh1Bm0nS4fRTa+5w8j+mg@mail.gmail.com>
+References: <12586917.ah4bPMnYUH@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-arm-kernel@lists.infradead.org
 To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3169681.aSJgN2TRic@wuerfel>
+In-Reply-To: <12586917.ah4bPMnYUH@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jan 1, 2016 at 5:48 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> From 433df301cf49624871346fa63f3fc65033caeda3 Mon Sep 17 00:00:00 2001
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Fri, 1 Jan 2016 13:18:48 +0100
+> Subject: [PATCH] net: make ip6tunnel_xmit definition conditional
+>
+> Moving the caller of iptunnel_xmit_stats causes a build error in
+> randconfig builds that disable CONFIG_INET:
+>
+> In file included from ../net/xfrm/xfrm_input.c:17:0:
+> ../include/net/ip6_tunnel.h: In function 'ip6tunnel_xmit':
+> ../include/net/ip6_tunnel.h:93:2: error: implicit declaration of function 'iptunnel_xmit_stats' [-Werror=implicit-function-declaration]
+>   iptunnel_xmit_stats(dev, pkt_len);
+>
+> The reason is that the iptunnel_xmit_stats definition is hidden
+> inside #ifdef CONFIG_INET but the caller is not. We can change
+> one or the other to fix it, and this patch adds a second #ifdef
+> around ip6tunnel_xmit() to avoid seeing the invalid call.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 039f50629b7f ("ip_tunnel: Move stats update to iptunnel_xmit()")
 
-
-OK, I think I will use named structures.
-
-Thanks.
-
-> =D4=DA 2016=C4=EA1=D4=C21=C8=D5=A3=AC20:55=A3=ACArnd Bergmann <arnd@a=
-rndb.de> =D0=B4=B5=C0=A3=BA
->=20
->> On Tuesday 29 December 2015 14:59:59 Florian Fainelli wrote:
->>> On December 27, 2015 11:22:20 PM PST, Xing Zheng <zhengxing@rock-ch=
-ips.com> wrote:
->>> The RK3036's GRFs offset are different with RK3066/RK3188, and need=
- to
->>> set
->>> mac TX/RX clock before probe emac.
->>>=20
->>> Signed-off-by: Xing Zheng <zhengxing@rock-chips.com>
->>> ---
->> <snip>
->>> };
->>>=20
->>> static const struct of_device_id emac_rockchip_dt_ids[] =3D {
->>> -      { .compatible =3D "rockchip,rk3066-emac", .data =3D
->>> &emac_rockchip_dt_data[0] },
->>> -      { .compatible =3D "rockchip,rk3188-emac", .data =3D
->>> &emac_rockchip_dt_data[1] },
->>> +      { .compatible =3D "rockchip,rk3036-emac", .data =3D
->>> &emac_rockchip_dt_data[0] },
->>> +      { .compatible =3D "rockchip,rk3066-emac", .data =3D
->>> &emac_rockchip_dt_data[1] },
->>> +      { .compatible =3D "rockchip,rk3188-emac", .data =3D
->>> &emac_rockchip_dt_data[2] },
->>>      { /* Sentinel */ }
->>=20
->> Food for thought, you might want to use an enum here to index emac_r=
-ockchip_dt_data which would be less error prone if you add/remove entri=
-es in this structure.
->=20
-> I would use named structures instead:
->=20
-> static const struct emac_rockchip_soc_data emac_rk3066_emac_data =3D =
-{
->    .grf_offset =3D 0x154,
-> };
->=20
-> static const struct of_device_id emac_rockchip_dt_ids[] =3D {
->    { .compatible =3D "rockchip,rk3066-emac", .data =3D &emac_rk3066_e=
-mac_data,
->    ...
-> };
->=20
->    Armd
->=20
->=20
+Thanks for the fix.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
