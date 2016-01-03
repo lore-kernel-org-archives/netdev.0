@@ -1,63 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/5] xen-netback: Fine-tuning for three function
- implementations
-Date: Sat, 02 Jan 2016 17:34:18 -0800
-Message-ID: <1451784858.4334.12.camel@perches.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-	 <56880DD4.2090806@users.sourceforge.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] net-qmi_wwan: Delete an unnecessary variable
+ initialisation in qmi_wwan_register_subdriver()
+Date: Sat, 02 Jan 2016 20:45:35 -0500 (EST)
+Message-ID: <20160102.204535.816844219039778167.davem@davemloft.net>
+References: <5686AE52.1020008@users.sourceforge.net>
+	<5686AFAE.7020401@users.sourceforge.net>
+	<87ziwnpt2v.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56880DD4.2090806@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, julia.lawall-L2FTfq7BK8M@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87ziwnpt2v.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-01-02 at 18:50 +0100, SF Markus Elfring wrote:
-> A few update suggestions were taken into account
-> from static source code analysis.
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Sat, 02 Jan 2016 22:30:48 +0100
 
-While static analysis can be useful, I don't think these
-specific conversions are generally useful.
+> SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org> writes:
+>=20
+>> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+>> Date: Fri, 1 Jan 2016 17:35:03 +0100
+>>
+>> Omit explicit initialisation at the beginning for one local variable
+>> that is redefined before its first use.
+>=20
+>=20
+> This patch is unnecessary. The variable initialisation is redundant.
+> See the difference?  Sending an unnecessary patch causes unnecessary
+> load on reviewers and maintainers.  Keeping redundant code has no
+> measurable cost, and can save the same maintainers a lot of trouble
+> later.
 
-Perhaps it would be more useful to convert the string
-duplication or snprintf logic to kstrdup/kasprintf
++1
 
-This:
-
-	if (num_queues =3D=3D 1) {
-		xspath =3D kzalloc(strlen(dev->otherend) + 1, GFP_KERNEL);
-		if (!xspath) {
-			xenbus_dev_fatal(dev, -ENOMEM,
-					=A0"reading ring references");
-			return -ENOMEM;
-		}
-		strcpy(xspath, dev->otherend);
-	} else {
-		xspathsize =3D strlen(dev->otherend) + xenstore_path_ext_size;
-		xspath =3D kzalloc(xspathsize, GFP_KERNEL);
-		if (!xspath) {
-			xenbus_dev_fatal(dev, -ENOMEM,
-					=A0"reading ring references");
-			return -ENOMEM;
-		}
-		snprintf(xspath, xspathsize, "%s/queue-%u", dev->otherend,
-			=A0queue->id);
-	}
-
-could be simplified to something like:
-
-	if (num_queues =3D=3D 1)
-		xspath =3D kstrdup(dev->otherend, GFP_KERNEL);
-	else
-		xspath =3D kasprintf(GFP_KERNEL, "%s/queue-%u",
-				   dev->otherend, queue->id);
-	if (!xspath)
-		etc...
+I'm getting really tired of these changes.  And a lot of them are
+coming in right now...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
