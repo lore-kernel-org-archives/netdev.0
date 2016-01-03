@@ -1,7 +1,7 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH 10/12] net-next: mediatek: add support for mt7621
-Date: Sun,  3 Jan 2016 16:26:13 +0100
-Message-ID: <1451834775-15789-10-git-send-email-blogic@openwrt.org>
+Subject: [PATCH 11/12] net-next: mediatek: add Kconfig and Makefile
+Date: Sun,  3 Jan 2016 16:26:14 +0100
+Message-ID: <1451834775-15789-11-git-send-email-blogic@openwrt.org>
 References: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	linux-mediatek@lists.infradead.org,
@@ -13,193 +13,145 @@ Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	<Fred.Chang@mediatek.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:55365 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:55388 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752073AbcACP1S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jan 2016 10:27:18 -0500
+	id S1752073AbcACP12 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jan 2016 10:27:28 -0500
 In-Reply-To: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for SoCs from the mt7621 family. These all have 2 GMAC ports,
-both of which are attached to the same internal 1000MBit switch. Currently
-we only support GMAC1 as the sole CPU port.
+This patch adds the Makefile and Kconfig required to make the driver build.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 Signed-off-by: Michael Lee <igvtee@gmail.com>
 ---
- drivers/net/ethernet/mediatek/soc_mt7621.c |  162 ++++++++++++++++++++++++++++
- 1 file changed, 162 insertions(+)
- create mode 100644 drivers/net/ethernet/mediatek/soc_mt7621.c
+ drivers/net/ethernet/Kconfig           |    1 +
+ drivers/net/ethernet/Makefile          |    1 +
+ drivers/net/ethernet/mediatek/Kconfig  |   62 ++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/mediatek/Makefile |   20 +++++++++++
+ 4 files changed, 84 insertions(+)
+ create mode 100644 drivers/net/ethernet/mediatek/Kconfig
+ create mode 100644 drivers/net/ethernet/mediatek/Makefile
 
-diff --git a/drivers/net/ethernet/mediatek/soc_mt7621.c b/drivers/net/ethernet/mediatek/soc_mt7621.c
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 955d06b..5302f81 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -105,6 +105,7 @@ config LANTIQ_ETOP
+ 	  Support for the MII0 inside the Lantiq SoC
+ 
+ source "drivers/net/ethernet/marvell/Kconfig"
++source "drivers/net/ethernet/mediatek/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
+ source "drivers/net/ethernet/micrel/Kconfig"
+ source "drivers/net/ethernet/microchip/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index 4a2ee98..ecc16c2 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -45,6 +45,7 @@ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_KORINA) += korina.o
+ obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
+ obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
++obj-$(CONFIG_NET_VENDOR_MEDIATEK) += mediatek/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+ obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
+ obj-$(CONFIG_NET_VENDOR_MICROCHIP) += microchip/
+diff --git a/drivers/net/ethernet/mediatek/Kconfig b/drivers/net/ethernet/mediatek/Kconfig
 new file mode 100644
-index 0000000..4f4141c
+index 0000000..cf883c4
 --- /dev/null
-+++ b/drivers/net/ethernet/mediatek/soc_mt7621.c
-@@ -0,0 +1,162 @@
-+/*   This program is free software; you can redistribute it and/or modify
-+ *   it under the terms of the GNU General Public License as published by
-+ *   the Free Software Foundation; version 2 of the License
-+ *
-+ *   This program is distributed in the hope that it will be useful,
-+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *   GNU General Public License for more details.
-+ *
-+ *   Copyright (C) 2009-2015 John Crispin <blogic@openwrt.org>
-+ *   Copyright (C) 2009-2015 Felix Fietkau <nbd@openwrt.org>
-+ *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
-+ */
++++ b/drivers/net/ethernet/mediatek/Kconfig
+@@ -0,0 +1,62 @@
++config NET_VENDOR_MEDIATEK
++	tristate "Mediatek/Ralink ethernet driver"
++	depends on RALINK
++	help
++	  This driver supports the ethernet mac inside the Mediatek and Ralink WiSoCs
 +
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
-+#include <linux/if_vlan.h>
-+#include <linux/of_net.h>
++config NET_MEDIATEK_SOC
++	def_tristate NET_VENDOR_MEDIATEK
 +
-+#include <asm/mach-ralink/ralink_regs.h>
++if NET_MEDIATEK_SOC
++choice
++	prompt "MAC type"
 +
-+#include "mtk_eth_soc.h"
-+#include "gsw_mt7620.h"
-+#include "mt7530.h"
-+#include "mdio.h"
++config NET_MEDIATEK_RT2880
++	bool "RT2882"
++	depends on MIPS && SOC_RT288X
 +
-+#define MT7620A_CDMA_CSG_CFG	0x400
-+#define MT7621_CDMP_IG_CTRL	(MT7620A_CDMA_CSG_CFG + 0x00)
-+#define MT7621_CDMP_EG_CTRL	(MT7620A_CDMA_CSG_CFG + 0x04)
-+#define MT7621_RESET_FE		BIT(6)
-+#define MT7621_L4_VALID		BIT(24)
++config NET_MEDIATEK_RT3050
++	bool "RT3050/MT7628"
++	depends on MIPS && (SOC_RT305X || SOC_MT7620)
 +
-+#define MT7621_TX_DMA_UDF	BIT(19)
-+#define MT7621_TX_DMA_FPORT	BIT(25)
++config NET_MEDIATEK_RT3883
++	bool "RT3883"
++	depends on MIPS && SOC_RT3883
 +
-+#define CDMA_ICS_EN		BIT(2)
-+#define CDMA_UCS_EN		BIT(1)
-+#define CDMA_TCS_EN		BIT(0)
++config NET_MEDIATEK_MT7620
++	bool "MT7620"
++	depends on MIPS && SOC_MT7620
 +
-+#define GDMA_ICS_EN		BIT(22)
-+#define GDMA_TCS_EN		BIT(21)
-+#define GDMA_UCS_EN		BIT(20)
++config NET_MEDIATEK_MT7621
++	bool "MT7621"
++	depends on MIPS && SOC_MT7621
 +
-+/* frame engine counters */
-+#define MT7621_REG_MIB_OFFSET	0x2000
-+#define MT7621_PPE_AC_BCNT0	(MT7621_REG_MIB_OFFSET + 0x00)
-+#define MT7621_GDM1_TX_GBCNT	(MT7621_REG_MIB_OFFSET + 0x400)
-+#define MT7621_GDM2_TX_GBCNT	(MT7621_GDM1_TX_GBCNT + 0x40)
++endchoice
 +
-+#define GSW_REG_GDMA1_MAC_ADRL	0x508
-+#define GSW_REG_GDMA1_MAC_ADRH	0x50C
++config NET_MEDIATEK_MDIO
++	def_bool NET_MEDIATEK_SOC
++	depends on (NET_MEDIATEK_RT2880 || NET_MEDIATEK_RT3883 || NET_MEDIATEK_MT7620 || NET_MEDIATEK_MT7621)
++	select PHYLIB
 +
-+#define MT7621_FE_RST_GL	(FE_FE_OFFSET + 0x04)
-+#define MT7620_FE_INT_STATUS2	(FE_FE_OFFSET + 0x08)
++config NET_MEDIATEK_MDIO_RT2880
++	def_bool NET_MEDIATEK_SOC
++	depends on (NET_MEDIATEK_RT2880 || NET_MEDIATEK_RT3883)
++	select NET_MEDIATEK_MDIO
 +
-+/* FE_INT_STATUS reg on mt7620 define CNT_GDM1_AF at BIT(29)
-+ * but after test it should be BIT(13).
-+ */
-+#define MT7621_FE_GDM1_AF	BIT(28)
-+#define MT7621_FE_GDM2_AF	BIT(29)
++config NET_MEDIATEK_MDIO_MT7620
++	def_bool NET_MEDIATEK_SOC
++	depends on (NET_MEDIATEK_MT7620 || NET_MEDIATEK_MT7621)
++	select NET_MEDIATEK_MDIO
 +
-+static const u16 mt7621_reg_table[FE_REG_COUNT] = {
-+	[FE_REG_PDMA_GLO_CFG] = RT5350_PDMA_GLO_CFG,
-+	[FE_REG_PDMA_RST_CFG] = RT5350_PDMA_RST_CFG,
-+	[FE_REG_DLY_INT_CFG] = RT5350_DLY_INT_CFG,
-+	[FE_REG_TX_BASE_PTR0] = RT5350_TX_BASE_PTR0,
-+	[FE_REG_TX_MAX_CNT0] = RT5350_TX_MAX_CNT0,
-+	[FE_REG_TX_CTX_IDX0] = RT5350_TX_CTX_IDX0,
-+	[FE_REG_TX_DTX_IDX0] = RT5350_TX_DTX_IDX0,
-+	[FE_REG_RX_BASE_PTR0] = RT5350_RX_BASE_PTR0,
-+	[FE_REG_RX_MAX_CNT0] = RT5350_RX_MAX_CNT0,
-+	[FE_REG_RX_CALC_IDX0] = RT5350_RX_CALC_IDX0,
-+	[FE_REG_RX_DRX_IDX0] = RT5350_RX_DRX_IDX0,
-+	[FE_REG_FE_INT_ENABLE] = RT5350_FE_INT_ENABLE,
-+	[FE_REG_FE_INT_STATUS] = RT5350_FE_INT_STATUS,
-+	[FE_REG_FE_DMA_VID_BASE] = 0,
-+	[FE_REG_FE_COUNTER_BASE] = MT7621_GDM1_TX_GBCNT,
-+	[FE_REG_FE_RST_GL] = MT7621_FE_RST_GL,
-+	[FE_REG_FE_INT_STATUS2] = MT7620_FE_INT_STATUS2,
-+};
++config NET_MEDIATEK_ESW_RT3050
++	def_tristate NET_MEDIATEK_SOC
++	depends on NET_MEDIATEK_RT3050
 +
-+static int mt7621_gsw_config(struct fe_priv *priv)
-+{
-+	if (priv->mii_bus && priv->mii_bus->phy_map[0x1f])
-+		mt7530_probe(priv->device, NULL, priv->mii_bus, 1);
++config NET_MEDIATEK_GSW_MT7620
++	def_tristate NET_MEDIATEK_SOC
++	depends on NET_MEDIATEK_MT7620
 +
-+	return 0;
-+}
++config NET_MEDIATEK_GSW_MT7621
++	def_tristate NET_MEDIATEK_SOC
++	depends on NET_MEDIATEK_MT7621
++endif
+diff --git a/drivers/net/ethernet/mediatek/Makefile b/drivers/net/ethernet/mediatek/Makefile
+new file mode 100644
+index 0000000..c4d2dfb
+--- /dev/null
++++ b/drivers/net/ethernet/mediatek/Makefile
+@@ -0,0 +1,20 @@
++#
++# Makefile for the Ralink SoCs built-in ethernet macs
++#
 +
-+static void mt7621_fe_reset(void)
-+{
-+	fe_reset(MT7621_RESET_FE);
-+}
++mtk-eth-soc-y					+= mtk_eth_soc.o ethtool.o
 +
-+static int mt7621_fwd_config(struct fe_priv *priv)
-+{
-+	/* Setup GMAC1 only, there is no support for GMAC2 yet */
-+	fe_w32(fe_r32(MT7620A_GDMA1_FWD_CFG) & ~0xffff,
-+	       MT7620A_GDMA1_FWD_CFG);
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_MDIO)		+= mdio.o
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_MDIO_RT2880)	+= mdio_rt2880.o
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_MDIO_MT7620)	+= mdio_mt7620.o
 +
-+	/* Enable RX checksum */
-+	fe_w32(fe_r32(MT7620A_GDMA1_FWD_CFG) | (GDMA_ICS_EN |
-+		       GDMA_TCS_EN | GDMA_UCS_EN),
-+		       MT7620A_GDMA1_FWD_CFG);
-+	/* Enable RX VLan Offloading */
-+	fe_w32(1, MT7621_CDMP_EG_CTRL);
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_RT2880)	+= soc_rt2880.o
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_RT3050)	+= soc_rt3050.o
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_RT3883)	+= soc_rt3883.o
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_MT7620)	+= soc_mt7620.o
++mtk-eth-soc-$(CONFIG_NET_MEDIATEK_MT7621)	+= soc_mt7621.o
 +
-+	return 0;
-+}
-+
-+static void mt7621_init_data(struct fe_soc_data *data,
-+			     struct net_device *netdev)
-+{
-+	struct fe_priv *priv = netdev_priv(netdev);
-+
-+	priv->flags = FE_FLAG_PADDING_64B | FE_FLAG_RX_2B_OFFSET |
-+		FE_FLAG_RX_SG_DMA | FE_FLAG_NAPI_WEIGHT |
-+		FE_FLAG_HAS_SWITCH;
-+
-+	netdev->hw_features = NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
-+		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
-+		NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_IPV6_CSUM;
-+}
-+
-+static void mt7621_set_mac(struct fe_priv *priv, unsigned char *mac)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->page_lock, flags);
-+	fe_w32((mac[0] << 8) | mac[1], GSW_REG_GDMA1_MAC_ADRH);
-+	fe_w32((mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5],
-+	       GSW_REG_GDMA1_MAC_ADRL);
-+	spin_unlock_irqrestore(&priv->page_lock, flags);
-+}
-+
-+static struct fe_soc_data mt7621_data = {
-+	.dma_type = FE_PDMA_RX_QDMA_TX,
-+	.txd4 = MT7621_TX_DMA_FPORT,
-+	.init_data = mt7621_init_data,
-+	.reset_fe = mt7621_fe_reset,
-+	.set_mac = mt7621_set_mac,
-+	.fwd_config = mt7621_fwd_config,
-+	.switch_init = mtk_gsw_init,
-+	.switch_config = mt7621_gsw_config,
-+	.reg_table = mt7621_reg_table,
-+	.pdma_glo_cfg = FE_PDMA_SIZE_16DWORDS,
-+	.rx_int = RT5350_RX_DONE_INT,
-+	.tx_int = RT5350_TX_DONE_INT,
-+	.status_int = (MT7621_FE_GDM1_AF | MT7621_FE_GDM2_AF),
-+	.checksum_bit = MT7621_L4_VALID,
-+	.has_carrier = mt7620_has_carrier,
-+	.mdio_read = mt7620_mdio_read,
-+	.mdio_write = mt7620_mdio_write,
-+	.mdio_adjust_link = mt7620_mdio_link_adjust,
-+};
-+
-+const struct of_device_id of_fe_match[] = {
-+	{ .compatible = "mediatek,mt7621-eth", .data = &mt7621_data },
-+	{},
-+};
-+
-+MODULE_DEVICE_TABLE(of, of_fe_match);
++obj-$(CONFIG_NET_MEDIATEK_ESW_RT3050)		+= esw_rt3050.o
++obj-$(CONFIG_NET_MEDIATEK_GSW_MT7620)		+= gsw_mt7620.o
++obj-$(CONFIG_NET_MEDIATEK_GSW_MT7621)		+= gsw_mt7621.o
++obj-$(CONFIG_NET_MEDIATEK_SOC)			+= mtk-eth-soc.o
 -- 
 1.7.10.4
