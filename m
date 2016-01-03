@@ -1,61 +1,66 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V5 4/9] Drivers: hv: ring_buffer: enhance
- hv_ringbuffer_read() to support hvsock
-Date: Sun, 3 Jan 2016 11:55:35 +0000
-Message-ID: <464cd084f1a0499587c91ea5b0e75b09@HKXPR3004MB0088.064d.mgd.msft.net>
-References: <1450966476-13175-1-git-send-email-decui@microsoft.com>
- <20160101.232952.740480728119960077.davem@davemloft.net>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: Re: net-libertas: Better exception handling in
+ if_spi_host_to_card_worker()
+Date: Sun, 3 Jan 2016 13:13:15 +0100
+Message-ID: <5689105B.50005@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <5686F0B2.5000000@users.sourceforge.net>
+ <56870866.7020000@cogentembedded.com>
+ <568785B3.5000905@users.sourceforge.net>
+ <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
+ <5687939E.7010701@users.sourceforge.net> <5687A2C7.3000704@gmail.com>
+ <5687B2BC.8090901@users.sourceforge.net> <5688EBAC.5000701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20160101.232952.740480728119960077.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arend van Spriel <aspriel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5688EBAC.5000701-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, January 2, 2016 12:30
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: gregkh@linuxfoundation.org; stephen@networkplumber.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com; KY Srinivasan <kys@microsoft.com>; pebolle@tiscali.nl;
-> stefanha@redhat.com; vkuznets@redhat.com; dan.carpenter@oracle.com
-> Subject: Re: [PATCH V5 4/9] Drivers: hv: ring_buffer: enhance
-> hv_ringbuffer_read() to support hvsock
+>>> What the patch tries to do is avoid the extra 'if (err)'.
+>>
+>> Yes. - I propose to look at related consequences together with the usage
+>> of a popular short jump label once more.
 > 
-> From: Dexuan Cui <decui@microsoft.com>
-> Date: Thu, 24 Dec 2015 06:14:36 -0800
-> 
-> > +#define HV_RINGBUFFER_READ_FLAG_RAW		(1 << 0)
-> > +#define HV_RINGBUFFER_READ_FLAG_HVSOCK		(1 << 1)
-> 
-> Please use BIT().
+> When I read a subject saying "Better exception handling" it sounds like
+> a functional improvement. Your change does not change anything
+> functionally and may or may not save a bit of execution time depending
+> on how smart the compiler is.
 
-Hi David, 
-Thanks for the suggestion!  I'll fix it.
+Can it eventually matter to skip another condition check in three cases?
 
--- Dexuan
+
+> What you change does is confuse people reading the code.
+
+A few software developers might find this proposal unusual.
+
+
+> So please explain why your update improves exception handling here.
+> I don't see it.
+
+How does this feedback fit to the mentioned check avoidance?
+
+
+> The code is not making the driver more robust against failures
+
+That's true for this update suggestion.
+
+
+> in this function, which is what I think of reading "better exception handling".
+
+Other implementation details are affected by the shown fine-tuning.
+
+Regards,
+Markus
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
