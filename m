@@ -1,55 +1,53 @@
-From: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] stmmac: Don't exit mdio registration when mdio subnode is
- not found in the DTS
-Date: Sun, 3 Jan 2016 15:36:06 +0100
-Message-ID: <CABgxDo+EOVW-RJ1WVY+oHt1tbW7qq9Q_+wK3ywiexh+auEebaA@mail.gmail.com>
-References: <1451397935-23643-1-git-send-email-romain.perier@gmail.com>
- <0E6F98A1-B9F1-48B0-B5CA-A215803E827F@gmail.com>
- <CABgxDoLNWEtYtRTrYhp7T=tk3n-aPMCgOP2SL7+DoxFqTk7GuQ@mail.gmail.com>
- <56880E46.4050206@gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: net-libertas: Better exception handling in if_spi_host_to_card_worker()
+Date: Sun, 3 Jan 2016 16:18:11 +0100
+Message-ID: <CACna6rzoJLRuTTDi3JjXg1roDbk3HXcBhhe0iOUH9xRaGU5p7A@mail.gmail.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	<5686F0B2.5000000@users.sourceforge.net>
+	<56870866.7020000@cogentembedded.com>
+	<568785B3.5000905@users.sourceforge.net>
+	<alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
+	<5687939E.7010701@users.sourceforge.net>
+	<5687A2C7.3000704@gmail.com>
+	<5687B2BC.8090901@users.sourceforge.net>
+	<5688EBAC.5000701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- "open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <56880E46.4050206-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arend van Spriel <aspriel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5688EBAC.5000701-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-2016-01-02 18:52 GMT+01:00 Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->
->>> This looks reasonable, does it work if we just assign mdio_node to the pdev->dev.of_node to be backwards compatible with DTSes which have not yet been updated?
->>>
+On 3 January 2016 at 10:36, Arend van Spriel <aspriel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On 02-01-16 12:21, SF Markus Elfring wrote:
+>>> Did you look at the resulting assembly code for different target ar=
+chitectures?
 >>
->> I don't understand what you mean. Instead of defining mdio_node with
->> NULL, you propose to assign it to pdev->dev.of_node as its default
->> value... then it would be reassigned with "child_nod" if a subnode
->> with the compatible string "snps,dwmac-mdio" is found, or kept with
->> its default value otherwise... and in this case we could call
->> of_mdiobus_register(new_bus, mdio_node) all the time ? (it removes the
->> conditonnal branch)
+>> Not yet. - Which execution system variants would you recommend for
+>> further comparisons?
 >
-> Your understanding is correct, this is what I was suggesting, thanks
+> Guess x86{,_64} and arm would be good candidates, ie. CISC vs. RISC.
 
-So in this case, I already tested this yesterday, it does not work,
-basically because the for loop just after of_mdiobus_register is never
-executed, probably because new_bus->phy_map is not populated, which is
-not the case by calling mdiobus_register for example.
-of_mdiobus_register seems to populate this array of phys only for
-subnodes found in the devicetree...
+Oh, don't forget about MIPS with its fancy branches handling. You know
+about it, don't you?
 
-Regards,
-Romain
+I'm against this patch as well.
+
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
