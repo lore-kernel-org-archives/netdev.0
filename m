@@ -1,74 +1,34 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] ixgbe: constify ixgbe_mbx_operations structure
-Date: Sun,  3 Jan 2016 07:55:29 +0100
-Message-ID: <1451804129-32213-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
+Subject: Charity Donation
+Date: Sun, 03 Jan 2016 04:23:23 -0500
+Message-ID: <auto-000000658406@mailadmin.uni-kassel.de>
+Reply-To: jeff.skoll@skollcharity.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Me <s_w9gc9x@uni-kassel.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:21940 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750855AbcACHIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 02:08:15 -0500
+Received: from mx4.its.uni-kassel.de ([141.51.12.63]:21023 "EHLO
+	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293AbcACJY7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 04:24:59 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ixgbe_mbx_operations structure is never modified, so declare it as
-const.  The other structure of this type is already const.
+Hi,
+My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
+e largest private foundations in the world. I believe strongly in =E2=80=
+=98giving while living.=E2=80=99 I had one idea that never changed in m=
+y mind =E2=80=94 that you should use your wealth to help people and I h=
+ave decided to secretly give USD2.498 Million to a randomly selected in=
+dividual. On receipt of this email, you should count yourself as the in=
+dividual. Kindly get back to me at your earliest convenience, so I know=
+ your email address is valid.
 
-Done with the help of Coccinelle.
+Visit the web page to know more about me: http://www.theglobeandmail.co=
+m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
+rticle4209888/ or you can read an article of me on Wikipedia.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c  |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h  |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-index 9993a47..4a769db 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-@@ -446,7 +446,7 @@ void ixgbe_init_mbx_params_pf(struct ixgbe_hw *hw)
- }
- #endif /* CONFIG_PCI_IOV */
- 
--struct ixgbe_mbx_operations mbx_ops_generic = {
-+const struct ixgbe_mbx_operations mbx_ops_generic = {
- 	.read                   = ixgbe_read_mbx_pf,
- 	.write                  = ixgbe_write_mbx_pf,
- 	.read_posted            = ixgbe_read_posted_mbx,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index 8daa95f..9119cb8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -123,6 +123,6 @@ s32 ixgbe_check_for_rst(struct ixgbe_hw *, u16);
- void ixgbe_init_mbx_params_pf(struct ixgbe_hw *);
- #endif /* CONFIG_PCI_IOV */
- 
--extern struct ixgbe_mbx_operations mbx_ops_generic;
-+extern const struct ixgbe_mbx_operations mbx_ops_generic;
- 
- #endif /* _IXGBE_MBX_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 5f53cc6..0edc2c2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3477,7 +3477,7 @@ struct ixgbe_info {
- 	struct ixgbe_mac_operations	*mac_ops;
- 	struct ixgbe_eeprom_operations	*eeprom_ops;
- 	struct ixgbe_phy_operations	*phy_ops;
--	struct ixgbe_mbx_operations	*mbx_ops;
-+	const struct ixgbe_mbx_operations *mbx_ops;
- 	const u32			*mvals;
- };
- 
+Regards,
+Jeffrey Skoll.
