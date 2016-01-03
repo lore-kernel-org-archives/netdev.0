@@ -1,46 +1,34 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH next] net/core/dev: Warn on an impossibly short offload frame
-Date: Sat,  2 Jan 2016 19:25:13 -0500
-Message-ID: <1451780713-4098-1-git-send-email-aconole@bytheb.org>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Aaron Conole <aconole@bytheb.org>
-To: netdev@vger.kernel.org
+From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
+Subject: Charity Donation
+Date: Sat, 02 Jan 2016 19:16:40 -0500
+Message-ID: <auto-000000547780@mailadmin.uni-kassel.de>
+Reply-To: jeff.skoll@skollcharity.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Me <s_w9gc9x@uni-kassel.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:35792 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbcACAZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 19:25:36 -0500
-Received: by mail-qk0-f174.google.com with SMTP id n135so118307770qka.2
-        for <netdev@vger.kernel.org>; Sat, 02 Jan 2016 16:25:36 -0800 (PST)
+Received: from mx4.its.uni-kassel.de ([141.51.12.63]:27171 "EHLO
+	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751117AbcACAm6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2016 19:42:58 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When signaling that a GRO frame is ready to be processed, the network stack
-correctly checks length and aborts processing when a frame is less than 14
-bytes. However, such a condition is really indicative of a broken driver,
-and should be loudly signaled, rather than silently dropped as the case is
-today.
+Hi,
+My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
+e largest private foundations in the world. I believe strongly in =E2=80=
+=98giving while living.=E2=80=99 I had one idea that never changed in m=
+y mind =E2=80=94 that you should use your wealth to help people and I h=
+ave decided to secretly give USD2.498 Million to a randomly selected in=
+dividual. On receipt of this email, you should count yourself as the in=
+dividual. Kindly get back to me at your earliest convenience, so I know=
+ your email address is valid.
 
-Convert the condition to use WARN_ON() to ensure that the stack loudly
-complains about such broken drivers.
+Visit the web page to know more about me: http://www.theglobeandmail.co=
+m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
+rticle4209888/ or you can read an article of me on Wikipedia.
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 914b4a2..8af4e29 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4579,7 +4579,7 @@ static struct sk_buff *napi_frags_skb(struct napi_struct *napi)
- 	eth = skb_gro_header_fast(skb, 0);
- 	if (unlikely(skb_gro_header_hard(skb, hlen))) {
- 		eth = skb_gro_header_slow(skb, hlen, 0);
--		if (unlikely(!eth)) {
-+		if (WARN_ON(!eth)) {
- 			napi_reuse_skb(napi, skb);
- 			return NULL;
- 		}
--- 
-2.6.4
+Regards,
+Jeffrey Skoll.
