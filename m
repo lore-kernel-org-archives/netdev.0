@@ -1,162 +1,187 @@
-From: hmsjwzb <zhengbowang2015@gmail.com>
-Subject: [PATCH] Net: irda: actisys-sir: fixed coding style issue
-Date: Sun,  3 Jan 2016 20:57:53 +0800
-Message-ID: <1451825873-3248-1-git-send-email-zhengbowang2015@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	hmsjwzb <zhengbowang2015@gmail.com>
-To: samuel@sortiz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35753 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751830AbcACM6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 07:58:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] chelsio: constify cphy_ops structures
+Date: Sun,  3 Jan 2016 14:09:37 +0100
+Message-ID: <1451826577-21403-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Santosh Raspatur <santosh@chelsio.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fixed trail white space
+The cphy_ops structures are never modified, so declare them as const.
 
-Signed-off-by: ZhengboWang <zhengbowang2015@gmail.com>
+Done with the help of Coccinelle.
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
 ---
- drivers/net/irda/actisys-sir.c | 44 ++++++++++++++++++----------------=
---------
- 1 file changed, 19 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb/cphy.h      |    2 +-
+ drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c |    2 +-
+ drivers/net/ethernet/chelsio/cxgb/mv88x201x.c |    2 +-
+ drivers/net/ethernet/chelsio/cxgb/my3126.c    |    2 +-
+ drivers/net/ethernet/chelsio/cxgb3/ael1002.c  |   12 ++++++------
+ drivers/net/ethernet/chelsio/cxgb3/aq100x.c   |    2 +-
+ drivers/net/ethernet/chelsio/cxgb3/common.h   |    2 +-
+ drivers/net/ethernet/chelsio/cxgb3/vsc8211.c  |    4 ++--
+ 8 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/irda/actisys-sir.c b/drivers/net/irda/actisys-=
-sir.c
-index e224b8b..c201361 100644
---- a/drivers/net/irda/actisys-sir.c
-+++ b/drivers/net/irda/actisys-sir.c
-@@ -1,8 +1,8 @@
- /*********************************************************************
-- *               =20
-+ *
-  * Filename:      actisys.c
-  * Version:       1.1
-- * Description:   Implementation for the ACTiSYS IR-220L and IR-220L+=20
-+ * Description:   Implementation for the ACTiSYS IR-220L and IR-220L+
-  *                dongles
-  * Status:        Beta.
-  * Authors:       Dag Brattli <dagb@cs.uit.no> (initially)
-@@ -11,24 +11,23 @@
-  * Created at:    Wed Oct 21 20:02:35 1998
-  * Modified at:   Sun Oct 27 22:02:13 2002
-  * Modified by:   Martin Diehl <mad@mdiehl.de>
-- *=20
-+ *
-  *     Copyright (c) 1998-1999 Dag Brattli, All Rights Reserved.
-  *     Copyright (c) 1999 Jean Tourrilhes
-  *     Copyright (c) 2002 Martin Diehl
-- *     =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-+ *
-+ *     This program is free software; you can redistribute it and/or
-+ *     modify it under the terms of the GNU General Public License as
-+ *     published by the Free Software Foundation; either version 2 of
-  *     the License, or (at your option) any later version.
-- * =20
-+ *
-  *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
-ty nor
-- *     provide warranty for any of this software. This material is=20
-+ *     provide warranty for any of this software. This material is
-  *     provided "AS-IS" and at no charge.
-- *    =20
-+ *
-  ********************************************************************/
-=20
--/*
-- * Changelog
-+/* Changelog
-  *
-  * 0.8 -> 0.9999 - Jean
-  *	o New initialisation procedure : much safer and correct
-@@ -48,8 +47,7 @@
-=20
- #include "sir-dev.h"
-=20
--/*=20
-- * Define the timing of the pulses we send to the dongle (to reset it,=
- and
-+/* Define the timing of the pulses we send to the dongle (to reset it,=
- and
-  * to toggle speeds). Basically, the limit here is the propagation spe=
-ed of
-  * the signals through the serial port, the dongle being much faster. =
- Any
-  * serial port support 115 kb/s, so we are sure that pulses 8.5 us wid=
-e can
-@@ -121,7 +119,7 @@ static int actisys_open(struct sir_dev *dev)
- 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
-=20
- 	/* Set the speeds we can accept */
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
-+	qos->baud_rate.bits &=3D IR_9600 | IR_19200 | IR_38400 | IR_57600 | I=
-R_115200;
-=20
- 	/* Remove support for 38400 if this is not a 220L+ dongle */
- 	if (dev->dongle_drv->type =3D=3D IRDA_ACTISYS_DONGLE)
-@@ -143,8 +141,7 @@ static int actisys_close(struct sir_dev *dev)
+diff --git a/drivers/net/ethernet/chelsio/cxgb/cphy.h b/drivers/net/ethernet/chelsio/cxgb/cphy.h
+index a4d2a4c..bf43da6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/cphy.h
++++ b/drivers/net/ethernet/chelsio/cxgb/cphy.h
+@@ -137,7 +137,7 @@ static inline int simple_mdio_write(struct cphy *cphy, int reg,
+ 
+ /* Convenience initializer */
+ static inline void cphy_init(struct cphy *phy, struct net_device *dev,
+-			     int phy_addr, struct cphy_ops *phy_ops,
++			     int phy_addr, const struct cphy_ops *phy_ops,
+ 			     const struct mdio_ops *mdio_ops)
+ {
+ 	struct adapter *adapter = netdev_priv(dev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c b/drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c
+index 71018a4..76ce6e5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c
++++ b/drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c
+@@ -337,7 +337,7 @@ static void mv88e1xxx_destroy(struct cphy *cphy)
+ 	kfree(cphy);
+ }
+ 
+-static struct cphy_ops mv88e1xxx_ops = {
++static const struct cphy_ops mv88e1xxx_ops = {
+ 	.destroy              = mv88e1xxx_destroy,
+ 	.reset                = mv88e1xxx_reset,
+ 	.interrupt_enable     = mv88e1xxx_interrupt_enable,
+diff --git a/drivers/net/ethernet/chelsio/cxgb/mv88x201x.c b/drivers/net/ethernet/chelsio/cxgb/mv88x201x.c
+index d0cf611..7ddb301 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/mv88x201x.c
++++ b/drivers/net/ethernet/chelsio/cxgb/mv88x201x.c
+@@ -195,7 +195,7 @@ static void mv88x201x_destroy(struct cphy *cphy)
+ 	kfree(cphy);
+ }
+ 
+-static struct cphy_ops mv88x201x_ops = {
++static const struct cphy_ops mv88x201x_ops = {
+ 	.destroy           = mv88x201x_destroy,
+ 	.reset             = mv88x201x_reset,
+ 	.interrupt_enable  = mv88x201x_interrupt_enable,
+diff --git a/drivers/net/ethernet/chelsio/cxgb/my3126.c b/drivers/net/ethernet/chelsio/cxgb/my3126.c
+index a683fd3..d546f46 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/my3126.c
++++ b/drivers/net/ethernet/chelsio/cxgb/my3126.c
+@@ -154,7 +154,7 @@ static void my3126_destroy(struct cphy *cphy)
+ 	kfree(cphy);
+ }
+ 
+-static struct cphy_ops my3126_ops = {
++static const struct cphy_ops my3126_ops = {
+ 	.destroy		= my3126_destroy,
+ 	.reset			= my3126_reset,
+ 	.interrupt_enable	= my3126_interrupt_enable,
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/ael1002.c b/drivers/net/ethernet/chelsio/cxgb3/ael1002.c
+index 2028da9..dadf11e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/ael1002.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/ael1002.c
+@@ -198,7 +198,7 @@ static int get_link_status_r(struct cphy *phy, int *link_ok, int *speed,
  	return 0;
  }
-=20
--/*
-- * Function actisys_change_speed (task)
-+/* Function actisys_change_speed (task)
-  *
-  *    Change speed of the ACTiSYS IR-220L and IR-220L+ type IrDA dongl=
-es.
-  *    To cycle through the available baud rates, pulse RTS low for a f=
-ew us.
-@@ -169,11 +166,9 @@ static int actisys_change_speed(struct sir_dev *de=
-v, unsigned speed)
-=20
- 	/* dongle was already resetted from irda_request state machine,
- 	 * we are in known state (dongle default)
--	 */
--
--	/*=20
-+	 *
- 	 * Now, we can set the speed requested. Send RTS pulses until we
--         * reach the target speed=20
-+	 * reach the target speed
- 	 */
- 	for (i =3D 0; i < MAX_SPEEDS; i++) {
- 		if (speed =3D=3D baud_rates[i]) {
-@@ -199,8 +194,7 @@ static int actisys_change_speed(struct sir_dev *dev=
-, unsigned speed)
- 	return ret;
+ 
+-static struct cphy_ops ael1002_ops = {
++static const struct cphy_ops ael1002_ops = {
+ 	.reset = ael1002_reset,
+ 	.intr_enable = ael1002_intr_noop,
+ 	.intr_disable = ael1002_intr_noop,
+@@ -224,7 +224,7 @@ static int ael1006_reset(struct cphy *phy, int wait)
+ 	return t3_phy_reset(phy, MDIO_MMD_PMAPMD, wait);
  }
-=20
--/*
-- * Function actisys_reset (task)
-+/* Function actisys_reset (task)
-  *
-  *      Reset the Actisys type dongle. Warning, this function must onl=
-y be
-  *      called with a process context!
-@@ -229,14 +223,14 @@ static int actisys_reset(struct sir_dev *dev)
-=20
- 	/* Go back to normal mode */
- 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
--=09
-+
- 	dev->speed =3D 9600;	/* That's the default */
-=20
+ 
+-static struct cphy_ops ael1006_ops = {
++static const struct cphy_ops ael1006_ops = {
+ 	.reset = ael1006_reset,
+ 	.intr_enable = t3_phy_lasi_intr_enable,
+ 	.intr_disable = t3_phy_lasi_intr_disable,
+@@ -495,7 +495,7 @@ static int ael2005_intr_handler(struct cphy *phy)
+ 	return ret ? ret : cphy_cause_link_change;
+ }
+ 
+-static struct cphy_ops ael2005_ops = {
++static const struct cphy_ops ael2005_ops = {
+ 	.reset           = ael2005_reset,
+ 	.intr_enable     = ael2005_intr_enable,
+ 	.intr_disable    = ael2005_intr_disable,
+@@ -801,7 +801,7 @@ static int ael2020_intr_handler(struct cphy *phy)
+ 	return ret ? ret : cphy_cause_link_change;
+ }
+ 
+-static struct cphy_ops ael2020_ops = {
++static const struct cphy_ops ael2020_ops = {
+ 	.reset           = ael2020_reset,
+ 	.intr_enable     = ael2020_intr_enable,
+ 	.intr_disable    = ael2020_intr_disable,
+@@ -856,7 +856,7 @@ static int get_link_status_x(struct cphy *phy, int *link_ok, int *speed,
  	return 0;
  }
-=20
- MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no> - Jean Tourrilhes <jt@hpl.=
-hp.com>");
--MODULE_DESCRIPTION("ACTiSYS IR-220L and IR-220L+ dongle driver");=09
-+MODULE_DESCRIPTION("ACTiSYS IR-220L and IR-220L+ dongle driver");
- MODULE_LICENSE("GPL");
- MODULE_ALIAS("irda-dongle-2"); /* IRDA_ACTISYS_DONGLE */
- MODULE_ALIAS("irda-dongle-3"); /* IRDA_ACTISYS_PLUS_DONGLE */
---=20
-1.9.1
+ 
+-static struct cphy_ops qt2045_ops = {
++static const struct cphy_ops qt2045_ops = {
+ 	.reset = ael1006_reset,
+ 	.intr_enable = t3_phy_lasi_intr_enable,
+ 	.intr_disable = t3_phy_lasi_intr_disable,
+@@ -921,7 +921,7 @@ static int xaui_direct_power_down(struct cphy *phy, int enable)
+ 	return 0;
+ }
+ 
+-static struct cphy_ops xaui_direct_ops = {
++static const struct cphy_ops xaui_direct_ops = {
+ 	.reset = xaui_direct_reset,
+ 	.intr_enable = ael1002_intr_noop,
+ 	.intr_disable = ael1002_intr_noop,
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/aq100x.c b/drivers/net/ethernet/chelsio/cxgb3/aq100x.c
+index 341b7ef..6af5d20 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/aq100x.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/aq100x.c
+@@ -247,7 +247,7 @@ static int aq100x_get_link_status(struct cphy *phy, int *link_ok,
+ 	return 0;
+ }
+ 
+-static struct cphy_ops aq100x_ops = {
++static const struct cphy_ops aq100x_ops = {
+ 	.reset             = aq100x_reset,
+ 	.intr_enable       = aq100x_intr_enable,
+ 	.intr_disable      = aq100x_intr_disable,
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/common.h b/drivers/net/ethernet/chelsio/cxgb3/common.h
+index 4424809..1bd7d89 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/common.h
++++ b/drivers/net/ethernet/chelsio/cxgb3/common.h
+@@ -575,7 +575,7 @@ static inline int t3_mdio_write(struct cphy *phy, int mmd, int reg,
+ 
+ /* Convenience initializer */
+ static inline void cphy_init(struct cphy *phy, struct adapter *adapter,
+-			     int phy_addr, struct cphy_ops *phy_ops,
++			     int phy_addr, const struct cphy_ops *phy_ops,
+ 			     const struct mdio_ops *mdio_ops,
+ 			      unsigned int caps, const char *desc)
+ {
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/vsc8211.c b/drivers/net/ethernet/chelsio/cxgb3/vsc8211.c
+index 4f9a1c2..8638ad4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/vsc8211.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/vsc8211.c
+@@ -336,7 +336,7 @@ static int vsc8211_intr_handler(struct cphy *cphy)
+ 	return cphy_cause;
+ }
+ 
+-static struct cphy_ops vsc8211_ops = {
++static const struct cphy_ops vsc8211_ops = {
+ 	.reset = vsc8211_reset,
+ 	.intr_enable = vsc8211_intr_enable,
+ 	.intr_disable = vsc8211_intr_disable,
+@@ -350,7 +350,7 @@ static struct cphy_ops vsc8211_ops = {
+ 	.power_down = vsc8211_power_down,
+ };
+ 
+-static struct cphy_ops vsc8211_fiber_ops = {
++static const struct cphy_ops vsc8211_fiber_ops = {
+ 	.reset = vsc8211_reset,
+ 	.intr_enable = vsc8211_intr_enable,
+ 	.intr_disable = vsc8211_intr_disable,
+
