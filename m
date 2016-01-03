@@ -1,7 +1,7 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH 03/12] net-next: mediatek: add switch driver for rt3050
-Date: Sun,  3 Jan 2016 16:26:06 +0100
-Message-ID: <1451834775-15789-3-git-send-email-blogic@openwrt.org>
+Subject: [PATCH 04/12] net-next: mediatek: add switch driver for mt7620
+Date: Sun,  3 Jan 2016 16:26:07 +0100
+Message-ID: <1451834775-15789-4-git-send-email-blogic@openwrt.org>
 References: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	linux-mediatek@lists.infradead.org,
@@ -13,10 +13,10 @@ Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	<Fred.Chang@mediatek.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:55274 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:55284 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751405AbcACP0q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jan 2016 10:26:46 -0500
+	id S1751830AbcACP0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jan 2016 10:26:49 -0500
 In-Reply-To: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,18 +27,18 @@ support possible.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 ---
- drivers/net/ethernet/mediatek/esw_rt3050.c |  621 ++++++++++++++++++++++++++++
- drivers/net/ethernet/mediatek/esw_rt3050.h |   29 ++
- 2 files changed, 650 insertions(+)
- create mode 100644 drivers/net/ethernet/mediatek/esw_rt3050.c
- create mode 100644 drivers/net/ethernet/mediatek/esw_rt3050.h
+ drivers/net/ethernet/mediatek/gsw_mt7620.c |  256 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/mediatek/gsw_mt7620.h |  117 +++++++++++++
+ 2 files changed, 373 insertions(+)
+ create mode 100644 drivers/net/ethernet/mediatek/gsw_mt7620.c
+ create mode 100644 drivers/net/ethernet/mediatek/gsw_mt7620.h
 
-diff --git a/drivers/net/ethernet/mediatek/esw_rt3050.c b/drivers/net/ethernet/mediatek/esw_rt3050.c
+diff --git a/drivers/net/ethernet/mediatek/gsw_mt7620.c b/drivers/net/ethernet/mediatek/gsw_mt7620.c
 new file mode 100644
-index 0000000..6811340
+index 0000000..08c774b
 --- /dev/null
-+++ b/drivers/net/ethernet/mediatek/esw_rt3050.c
-@@ -0,0 +1,621 @@
++++ b/drivers/net/ethernet/mediatek/gsw_mt7620.c
+@@ -0,0 +1,256 @@
 +/*   This program is free software; you can redistribute it and/or modify
 + *   it under the terms of the GNU General Public License as published by
 + *   the Free Software Foundation; version 2 of the License
@@ -55,617 +55,252 @@ index 0000000..6811340
 +
 +#include <linux/module.h>
 +#include <linux/kernel.h>
++#include <linux/types.h>
 +#include <linux/platform_device.h>
-+#include <asm/mach-ralink/ralink_regs.h>
++#include <linux/of_device.h>
 +#include <linux/of_irq.h>
 +
++#include <ralink_regs.h>
++
 +#include "mtk_eth_soc.h"
++#include "gsw_mt7620.h"
 +
-+/* HW limitations for this switch:
-+ * - No large frame support (PKT_MAX_LEN at most 1536)
-+ * - Can't have untagged vlan and tagged vlan on one port at the same time,
-+ *   though this might be possible using the undocumented PPE.
-+ */
-+
-+#define RT305X_ESW_REG_ISR		0x00
-+#define RT305X_ESW_REG_IMR		0x04
-+#define RT305X_ESW_REG_FCT0		0x08
-+#define RT305X_ESW_REG_PFC1		0x14
-+#define RT305X_ESW_REG_ATS		0x24
-+#define RT305X_ESW_REG_ATS0		0x28
-+#define RT305X_ESW_REG_ATS1		0x2c
-+#define RT305X_ESW_REG_ATS2		0x30
-+#define RT305X_ESW_REG_PVIDC(_n)	(0x40 + 4 * (_n))
-+#define RT305X_ESW_REG_VLANI(_n)	(0x50 + 4 * (_n))
-+#define RT305X_ESW_REG_VMSC(_n)		(0x70 + 4 * (_n))
-+#define RT305X_ESW_REG_POA		0x80
-+#define RT305X_ESW_REG_FPA		0x84
-+#define RT305X_ESW_REG_SOCPC		0x8c
-+#define RT305X_ESW_REG_POC0		0x90
-+#define RT305X_ESW_REG_POC1		0x94
-+#define RT305X_ESW_REG_POC2		0x98
-+#define RT305X_ESW_REG_SGC		0x9c
-+#define RT305X_ESW_REG_STRT		0xa0
-+#define RT305X_ESW_REG_PCR0		0xc0
-+#define RT305X_ESW_REG_PCR1		0xc4
-+#define RT305X_ESW_REG_FPA2		0xc8
-+#define RT305X_ESW_REG_FCT2		0xcc
-+#define RT305X_ESW_REG_SGC2		0xe4
-+#define RT305X_ESW_REG_P0LED		0xa4
-+#define RT305X_ESW_REG_P1LED		0xa8
-+#define RT305X_ESW_REG_P2LED		0xac
-+#define RT305X_ESW_REG_P3LED		0xb0
-+#define RT305X_ESW_REG_P4LED		0xb4
-+#define RT305X_ESW_REG_PXPC(_x)		(0xe8 + (4 * _x))
-+#define RT305X_ESW_REG_P1PC		0xec
-+#define RT305X_ESW_REG_P2PC		0xf0
-+#define RT305X_ESW_REG_P3PC		0xf4
-+#define RT305X_ESW_REG_P4PC		0xf8
-+#define RT305X_ESW_REG_P5PC		0xfc
-+
-+#define RT305X_ESW_LED_LINK		0
-+#define RT305X_ESW_LED_100M		1
-+#define RT305X_ESW_LED_DUPLEX		2
-+#define RT305X_ESW_LED_ACTIVITY		3
-+#define RT305X_ESW_LED_COLLISION	4
-+#define RT305X_ESW_LED_LINKACT		5
-+#define RT305X_ESW_LED_DUPLCOLL		6
-+#define RT305X_ESW_LED_10MACT		7
-+#define RT305X_ESW_LED_100MACT		8
-+/* Additional led states not in datasheet: */
-+#define RT305X_ESW_LED_BLINK		10
-+#define RT305X_ESW_LED_ON		12
-+
-+#define RT305X_ESW_LINK_S		25
-+#define RT305X_ESW_DUPLEX_S		9
-+#define RT305X_ESW_SPD_S		0
-+
-+#define RT305X_ESW_PCR0_WT_NWAY_DATA_S	16
-+#define RT305X_ESW_PCR0_WT_PHY_CMD	BIT(13)
-+#define RT305X_ESW_PCR0_CPU_PHY_REG_S	8
-+
-+#define RT305X_ESW_PCR1_WT_DONE		BIT(0)
-+
-+#define RT305X_ESW_ATS_TIMEOUT		(5 * HZ)
-+#define RT305X_ESW_PHY_TIMEOUT		(5 * HZ)
-+
-+#define RT305X_ESW_PVIDC_PVID_M		0xfff
-+#define RT305X_ESW_PVIDC_PVID_S		12
-+
-+#define RT305X_ESW_VLANI_VID_M		0xfff
-+#define RT305X_ESW_VLANI_VID_S		12
-+
-+#define RT305X_ESW_VMSC_MSC_M		0xff
-+#define RT305X_ESW_VMSC_MSC_S		8
-+
-+#define RT305X_ESW_SOCPC_DISUN2CPU_S	0
-+#define RT305X_ESW_SOCPC_DISMC2CPU_S	8
-+#define RT305X_ESW_SOCPC_DISBC2CPU_S	16
-+#define RT305X_ESW_SOCPC_CRC_PADDING	BIT(25)
-+
-+#define RT305X_ESW_POC0_EN_BP_S		0
-+#define RT305X_ESW_POC0_EN_FC_S		8
-+#define RT305X_ESW_POC0_DIS_RMC2CPU_S	16
-+#define RT305X_ESW_POC0_DIS_PORT_M	0x7f
-+#define RT305X_ESW_POC0_DIS_PORT_S	23
-+
-+#define RT305X_ESW_POC2_UNTAG_EN_M	0xff
-+#define RT305X_ESW_POC2_UNTAG_EN_S	0
-+#define RT305X_ESW_POC2_ENAGING_S	8
-+#define RT305X_ESW_POC2_DIS_UC_PAUSE_S	16
-+
-+#define RT305X_ESW_SGC2_DOUBLE_TAG_M	0x7f
-+#define RT305X_ESW_SGC2_DOUBLE_TAG_S	0
-+#define RT305X_ESW_SGC2_LAN_PMAP_M	0x3f
-+#define RT305X_ESW_SGC2_LAN_PMAP_S	24
-+
-+#define RT305X_ESW_PFC1_EN_VLAN_M	0xff
-+#define RT305X_ESW_PFC1_EN_VLAN_S	16
-+#define RT305X_ESW_PFC1_EN_TOS_S	24
-+
-+#define RT305X_ESW_VLAN_NONE		0xfff
-+
-+#define RT305X_ESW_GSC_BC_STROM_MASK	0x3
-+#define RT305X_ESW_GSC_BC_STROM_SHIFT	4
-+
-+#define RT305X_ESW_GSC_LED_FREQ_MASK	0x3
-+#define RT305X_ESW_GSC_LED_FREQ_SHIFT	23
-+
-+#define RT305X_ESW_POA_LINK_MASK	0x1f
-+#define RT305X_ESW_POA_LINK_SHIFT	25
-+
-+#define RT305X_ESW_PORT_ST_CHG		BIT(26)
-+#define RT305X_ESW_PORT0		0
-+#define RT305X_ESW_PORT1		1
-+#define RT305X_ESW_PORT2		2
-+#define RT305X_ESW_PORT3		3
-+#define RT305X_ESW_PORT4		4
-+#define RT305X_ESW_PORT5		5
-+#define RT305X_ESW_PORT6		6
-+
-+#define RT305X_ESW_PMAP_LLLLLL		0x3f
-+#define RT305X_ESW_PMAP_LLLLWL		0x2f
-+#define RT305X_ESW_PMAP_WLLLLL		0x3e
-+
-+#define RT305X_ESW_PORTS_INTERNAL					\
-+		(BIT(RT305X_ESW_PORT0) | BIT(RT305X_ESW_PORT1) |	\
-+		 BIT(RT305X_ESW_PORT2) | BIT(RT305X_ESW_PORT3) |	\
-+		 BIT(RT305X_ESW_PORT4))
-+
-+#define RT305X_ESW_PORTS_NOCPU						\
-+		(RT305X_ESW_PORTS_INTERNAL | BIT(RT305X_ESW_PORT5))
-+
-+#define RT305X_ESW_PORTS_CPU	BIT(RT305X_ESW_PORT6)
-+
-+#define RT305X_ESW_PORTS_ALL						\
-+		(RT305X_ESW_PORTS_NOCPU | RT305X_ESW_PORTS_CPU)
-+
-+#define RT305X_ESW_NUM_PORTS		7
-+#define RT305X_ESW_NUM_LEDS		5
-+
-+#define RT5350_EWS_REG_LED_POLARITY	0x168
-+#define RT5350_RESET_EPHY		BIT(24)
-+
-+struct esw_port {
-+	bool	disable;
-+	u8	led;
-+};
-+
-+struct rt305x_esw {
-+	struct device		*dev;
-+	void __iomem		*base;
-+	int			irq;
-+
-+	/* Protects against concurrent register r/w operations. */
-+	spinlock_t		reg_rw_lock;
-+
-+	unsigned char		port_map;
-+	unsigned int		reg_led_polarity;
-+
-+	struct esw_port ports[RT305X_ESW_NUM_PORTS];
-+
-+};
-+
-+static inline void esw_w32(struct rt305x_esw *esw, u32 val, unsigned reg)
++void mtk_switch_w32(struct mt7620_gsw *gsw, u32 val, unsigned reg)
 +{
-+	__raw_writel(val, esw->base + reg);
++	iowrite32(val, gsw->base + reg);
 +}
 +
-+static inline u32 esw_r32(struct rt305x_esw *esw, unsigned reg)
++u32 mtk_switch_r32(struct mt7620_gsw *gsw, unsigned reg)
 +{
-+	return __raw_readl(esw->base + reg);
++	return ioread32(gsw->base + reg);
 +}
 +
-+static inline void esw_rmw_raw(struct rt305x_esw *esw, unsigned reg,
-+			       unsigned long mask, unsigned long val)
++static irqreturn_t gsw_interrupt_mt7620(int irq, void *_priv)
 +{
-+	unsigned long t;
-+
-+	t = __raw_readl(esw->base + reg) & ~mask;
-+	__raw_writel(t | val, esw->base + reg);
-+}
-+
-+static void esw_rmw(struct rt305x_esw *esw, unsigned reg,
-+		    unsigned long mask, unsigned long val)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&esw->reg_rw_lock, flags);
-+	esw_rmw_raw(esw, reg, mask, val);
-+	spin_unlock_irqrestore(&esw->reg_rw_lock, flags);
-+}
-+
-+static u32 rt305x_mii_write(struct rt305x_esw *esw, u32 phy_addr,
-+			    u32 phy_register, u32 write_data)
-+{
-+	unsigned long t_start = jiffies;
-+	int ret = 0;
-+
-+	while (1) {
-+		if (!(esw_r32(esw, RT305X_ESW_REG_PCR1) &
-+		      RT305X_ESW_PCR1_WT_DONE))
-+			break;
-+		if (time_after(jiffies, t_start + RT305X_ESW_PHY_TIMEOUT)) {
-+			ret = 1;
-+			goto out;
-+		}
-+	}
-+
-+	write_data &= 0xffff;
-+	esw_w32(esw, (write_data << RT305X_ESW_PCR0_WT_NWAY_DATA_S) |
-+		      (phy_register << RT305X_ESW_PCR0_CPU_PHY_REG_S) |
-+		      (phy_addr) | RT305X_ESW_PCR0_WT_PHY_CMD,
-+		RT305X_ESW_REG_PCR0);
-+
-+	t_start = jiffies;
-+	while (1) {
-+		if (esw_r32(esw, RT305X_ESW_REG_PCR1) &
-+			    RT305X_ESW_PCR1_WT_DONE)
-+			break;
-+
-+		if (time_after(jiffies, t_start + RT305X_ESW_PHY_TIMEOUT)) {
-+			ret = 1;
-+			break;
-+		}
-+	}
-+out:
-+	if (ret)
-+		dev_err(esw->dev, "ramips_eth: MDIO timeout\n");
-+	return ret;
-+}
-+
-+static unsigned esw_get_port_disable(struct rt305x_esw *esw)
-+{
-+	unsigned reg;
-+
-+	reg = esw_r32(esw, RT305X_ESW_REG_POC0);
-+	return (reg >> RT305X_ESW_POC0_DIS_PORT_S) &
-+	       RT305X_ESW_POC0_DIS_PORT_M;
-+}
-+
-+static void esw_hw_init(struct rt305x_esw *esw)
-+{
-+	int i;
-+	u8 port_disable = 0;
-+	u8 port_map = RT305X_ESW_PMAP_LLLLLL;
-+
-+	/* vodoo from original driver */
-+	esw_w32(esw, 0xC8A07850, RT305X_ESW_REG_FCT0);
-+	esw_w32(esw, 0x00000000, RT305X_ESW_REG_SGC2);
-+	/* Port priority 1 for all ports, vlan enabled. */
-+	esw_w32(esw, 0x00005555 |
-+		     (RT305X_ESW_PORTS_ALL << RT305X_ESW_PFC1_EN_VLAN_S),
-+		RT305X_ESW_REG_PFC1);
-+
-+	/* Enable Back Pressure, and Flow Control */
-+	esw_w32(esw, ((RT305X_ESW_PORTS_ALL << RT305X_ESW_POC0_EN_BP_S) |
-+		      (RT305X_ESW_PORTS_ALL << RT305X_ESW_POC0_EN_FC_S)),
-+		RT305X_ESW_REG_POC0);
-+
-+	/* Enable Aging, and VLAN TAG removal */
-+	esw_w32(esw, ((RT305X_ESW_PORTS_ALL << RT305X_ESW_POC2_ENAGING_S) |
-+		      (RT305X_ESW_PORTS_NOCPU << RT305X_ESW_POC2_UNTAG_EN_S)),
-+		RT305X_ESW_REG_POC2);
-+
-+	esw_w32(esw, 0x00d6500c, RT305X_ESW_REG_FCT2);
-+
-+	/* 300s aging timer, max packet len 1536, broadcast storm prevention
-+	 * disabled, disable collision abort, mac xor48 hash, 10 packet back
-+	 * pressure jam, GMII disable was_transmit, back pressure disabled,
-+	 * 30ms led flash, unmatched IGMP as broadcast, rmc tb fault to all
-+	 * ports.
-+	 */
-+	esw_w32(esw, 0x0008a301, RT305X_ESW_REG_SGC);
-+
-+	/* Setup SoC Port control register */
-+	esw_w32(esw,
-+		(RT305X_ESW_SOCPC_CRC_PADDING |
-+		(RT305X_ESW_PORTS_CPU << RT305X_ESW_SOCPC_DISUN2CPU_S) |
-+		(RT305X_ESW_PORTS_CPU << RT305X_ESW_SOCPC_DISMC2CPU_S) |
-+		(RT305X_ESW_PORTS_CPU << RT305X_ESW_SOCPC_DISBC2CPU_S)),
-+		RT305X_ESW_REG_SOCPC);
-+
-+	/* ext phy base addr 31, enable port 5 polling, rx/tx clock skew 1,
-+	 * turbo mii off, rgmi 3.3v off
-+	 * port5: disabled
-+	 * port6: enabled, gige, full-duplex, rx/tx-flow-control
-+	 */
-+	esw_w32(esw, 0x3f502b28, RT305X_ESW_REG_FPA2);
-+	esw_w32(esw, 0x00000000, RT305X_ESW_REG_FPA);
-+
-+	/* Force Link/Activity on ports */
-+	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P0LED);
-+	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P1LED);
-+	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P2LED);
-+	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P3LED);
-+	esw_w32(esw, 0x00000005, RT305X_ESW_REG_P4LED);
-+
-+	/* Copy disabled port configuration from bootloader setup */
-+	port_disable = esw_get_port_disable(esw);
-+	for (i = 0; i < 6; i++)
-+		esw->ports[i].disable = (port_disable & (1 << i)) != 0;
-+
-+	if (ralink_soc == RT305X_SOC_RT3352) {
-+		/* reset EPHY */
-+		fe_reset(RT5350_RESET_EPHY);
-+
-+		rt305x_mii_write(esw, 0, 31, 0x8000);
-+		for (i = 0; i < 5; i++) {
-+			if (esw->ports[i].disable) {
-+				rt305x_mii_write(esw, i, MII_BMCR, BMCR_PDOWN);
-+			} else {
-+				rt305x_mii_write(esw, i, MII_BMCR,
-+						 BMCR_FULLDPLX |
-+						 BMCR_ANENABLE |
-+						 BMCR_SPEED100);
-+			}
-+			/* TX10 waveform coefficient LSB=0 disable PHY */
-+			rt305x_mii_write(esw, i, 26, 0x1601);
-+			/* TX100/TX10 AD/DA current bias */
-+			rt305x_mii_write(esw, i, 29, 0x7016);
-+			/* TX100 slew rate control */
-+			rt305x_mii_write(esw, i, 30, 0x0038);
-+		}
-+
-+		/* select global register */
-+		rt305x_mii_write(esw, 0, 31, 0x0);
-+		/* enlarge agcsel threshold 3 and threshold 2 */
-+		rt305x_mii_write(esw, 0, 1, 0x4a40);
-+		/* enlarge agcsel threshold 5 and threshold 4 */
-+		rt305x_mii_write(esw, 0, 2, 0x6254);
-+		/* enlarge agcsel threshold  */
-+		rt305x_mii_write(esw, 0, 3, 0xa17f);
-+		rt305x_mii_write(esw, 0, 12, 0x7eaa);
-+		/* longer TP_IDL tail length */
-+		rt305x_mii_write(esw, 0, 14, 0x65);
-+		/* increased squelch pulse count threshold. */
-+		rt305x_mii_write(esw, 0, 16, 0x0684);
-+		/* set TX10 signal amplitude threshold to minimum */
-+		rt305x_mii_write(esw, 0, 17, 0x0fe0);
-+		/* set squelch amplitude to higher threshold */
-+		rt305x_mii_write(esw, 0, 18, 0x40ba);
-+		/* tune TP_IDL tail and head waveform, enable power
-+		 * down slew rate control
-+		 */
-+		rt305x_mii_write(esw, 0, 22, 0x253f);
-+		/* set PLL/Receive bias current are calibrated */
-+		rt305x_mii_write(esw, 0, 27, 0x2fda);
-+		/* change PLL/Receive bias current to internal(RT3350) */
-+		rt305x_mii_write(esw, 0, 28, 0xc410);
-+		/* change PLL bias current to internal(RT3052_MP3) */
-+		rt305x_mii_write(esw, 0, 29, 0x598b);
-+		/* select local register */
-+		rt305x_mii_write(esw, 0, 31, 0x8000);
-+	} else if (ralink_soc == RT305X_SOC_RT5350) {
-+		/* reset EPHY */
-+		fe_reset(RT5350_RESET_EPHY);
-+
-+		/* set the led polarity */
-+		esw_w32(esw, esw->reg_led_polarity & 0x1F,
-+			RT5350_EWS_REG_LED_POLARITY);
-+
-+		/* local registers */
-+		rt305x_mii_write(esw, 0, 31, 0x8000);
-+		for (i = 0; i < 5; i++) {
-+			if (esw->ports[i].disable) {
-+				rt305x_mii_write(esw, i, MII_BMCR, BMCR_PDOWN);
-+			} else {
-+				rt305x_mii_write(esw, i, MII_BMCR,
-+						 BMCR_FULLDPLX |
-+						 BMCR_ANENABLE |
-+						 BMCR_SPEED100);
-+			}
-+			/* TX10 waveform coefficient LSB=0 disable PHY */
-+			rt305x_mii_write(esw, i, 26, 0x1601);
-+			/* TX100/TX10 AD/DA current bias */
-+			rt305x_mii_write(esw, i, 29, 0x7015);
-+			/* TX100 slew rate control */
-+			rt305x_mii_write(esw, i, 30, 0x0038);
-+		}
-+
-+		/* global registers */
-+		rt305x_mii_write(esw, 0, 31, 0x0);
-+		/* enlarge agcsel threshold 3 and threshold 2 */
-+		rt305x_mii_write(esw, 0, 1, 0x4a40);
-+		/* enlarge agcsel threshold 5 and threshold 4 */
-+		rt305x_mii_write(esw, 0, 2, 0x6254);
-+		/* enlarge agcsel threshold 6 */
-+		rt305x_mii_write(esw, 0, 3, 0xa17f);
-+		rt305x_mii_write(esw, 0, 12, 0x7eaa);
-+		/* longer TP_IDL tail length */
-+		rt305x_mii_write(esw, 0, 14, 0x65);
-+		/* increased squelch pulse count threshold. */
-+		rt305x_mii_write(esw, 0, 16, 0x0684);
-+		/* set TX10 signal amplitude threshold to minimum */
-+		rt305x_mii_write(esw, 0, 17, 0x0fe0);
-+		/* set squelch amplitude to higher threshold */
-+		rt305x_mii_write(esw, 0, 18, 0x40ba);
-+		/* tune TP_IDL tail and head waveform, enable power
-+		 * down slew rate control
-+		 */
-+		rt305x_mii_write(esw, 0, 22, 0x253f);
-+		/* set PLL/Receive bias current are calibrated */
-+		rt305x_mii_write(esw, 0, 27, 0x2fda);
-+		/* change PLL/Receive bias current to internal(RT3350) */
-+		rt305x_mii_write(esw, 0, 28, 0xc410);
-+		/* change PLL bias current to internal(RT3052_MP3) */
-+		rt305x_mii_write(esw, 0, 29, 0x598b);
-+		/* select local register */
-+		rt305x_mii_write(esw, 0, 31, 0x8000);
-+	} else if (ralink_soc == MT762X_SOC_MT7628AN ||
-+		   ralink_soc == MT762X_SOC_MT7688) {
-+		int i;
-+
-+		/* reset EPHY */
-+		fe_reset(RT5350_RESET_EPHY);
-+
-+		rt305x_mii_write(esw, 0, 31, 0x2000); /* change G2 page */
-+		rt305x_mii_write(esw, 0, 26, 0x0020);
-+
-+		for (i = 0; i < 5; i++) {
-+			rt305x_mii_write(esw, i, 31, 0x8000);
-+			rt305x_mii_write(esw, i,  0, 0x3100);
-+			rt305x_mii_write(esw, i, 30, 0xa000);
-+			rt305x_mii_write(esw, i, 31, 0xa000);
-+			rt305x_mii_write(esw, i, 16, 0x0606);
-+			rt305x_mii_write(esw, i, 23, 0x0f0e);
-+			rt305x_mii_write(esw, i, 24, 0x1610);
-+			rt305x_mii_write(esw, i, 30, 0x1f15);
-+			rt305x_mii_write(esw, i, 28, 0x6111);
-+			rt305x_mii_write(esw, i, 31, 0x2000);
-+			rt305x_mii_write(esw, i, 26, 0x0000);
-+		}
-+
-+		/* 100Base AOI setting */
-+		rt305x_mii_write(esw, 0, 31, 0x5000);
-+		rt305x_mii_write(esw, 0, 19, 0x004a);
-+		rt305x_mii_write(esw, 0, 20, 0x015a);
-+		rt305x_mii_write(esw, 0, 21, 0x00ee);
-+		rt305x_mii_write(esw, 0, 22, 0x0033);
-+		rt305x_mii_write(esw, 0, 23, 0x020a);
-+		rt305x_mii_write(esw, 0, 24, 0x0000);
-+		rt305x_mii_write(esw, 0, 25, 0x024a);
-+		rt305x_mii_write(esw, 0, 26, 0x035a);
-+		rt305x_mii_write(esw, 0, 27, 0x02ee);
-+		rt305x_mii_write(esw, 0, 28, 0x0233);
-+		rt305x_mii_write(esw, 0, 29, 0x000a);
-+		rt305x_mii_write(esw, 0, 30, 0x0000);
-+	} else {
-+		rt305x_mii_write(esw, 0, 31, 0x8000);
-+		for (i = 0; i < 5; i++) {
-+			if (esw->ports[i].disable) {
-+				rt305x_mii_write(esw, i, MII_BMCR, BMCR_PDOWN);
-+			} else {
-+				rt305x_mii_write(esw, i, MII_BMCR,
-+						 BMCR_FULLDPLX |
-+						 BMCR_ANENABLE |
-+						 BMCR_SPEED100);
-+			}
-+			/* TX10 waveform coefficient */
-+			rt305x_mii_write(esw, i, 26, 0x1601);
-+			/* TX100/TX10 AD/DA current bias */
-+			rt305x_mii_write(esw, i, 29, 0x7058);
-+			/* TX100 slew rate control */
-+			rt305x_mii_write(esw, i, 30, 0x0018);
-+		}
-+
-+		/* PHY IOT */
-+		/* select global register */
-+		rt305x_mii_write(esw, 0, 31, 0x0);
-+		/* tune TP_IDL tail and head waveform */
-+		rt305x_mii_write(esw, 0, 22, 0x052f);
-+		/* set TX10 signal amplitude threshold to minimum */
-+		rt305x_mii_write(esw, 0, 17, 0x0fe0);
-+		/* set squelch amplitude to higher threshold */
-+		rt305x_mii_write(esw, 0, 18, 0x40ba);
-+		/* longer TP_IDL tail length */
-+		rt305x_mii_write(esw, 0, 14, 0x65);
-+		/* select local register */
-+		rt305x_mii_write(esw, 0, 31, 0x8000);
-+	}
-+
-+	if (esw->port_map)
-+		port_map = esw->port_map;
-+	else
-+		port_map = RT305X_ESW_PMAP_LLLLLL;
-+
-+	/* Unused HW feature, but still nice to be consistent here...
-+	 * This is also exported to userspace ('lan' attribute) so it's
-+	 * conveniently usable to decide which ports go into the wan vlan by
-+	 * default.
-+	 */
-+	esw_rmw(esw, RT305X_ESW_REG_SGC2,
-+		RT305X_ESW_SGC2_LAN_PMAP_M << RT305X_ESW_SGC2_LAN_PMAP_S,
-+		port_map << RT305X_ESW_SGC2_LAN_PMAP_S);
-+
-+	/* make the switch leds blink */
-+	for (i = 0; i < RT305X_ESW_NUM_LEDS; i++)
-+		esw->ports[i].led = 0x05;
-+
-+	/* Only unmask the port change interrupt */
-+	esw_w32(esw, ~RT305X_ESW_PORT_ST_CHG, RT305X_ESW_REG_IMR);
-+}
-+
-+static irqreturn_t esw_interrupt(int irq, void *_esw)
-+{
-+	struct rt305x_esw *esw = (struct rt305x_esw *)_esw;
++	struct fe_priv *priv = (struct fe_priv *)_priv;
++	struct mt7620_gsw *gsw = (struct mt7620_gsw *)priv->soc->swpriv;
 +	u32 status;
++	int i, max = (gsw->port4 == PORT4_EPHY) ? (4) : (3);
 +
-+	status = esw_r32(esw, RT305X_ESW_REG_ISR);
-+	if (status & RT305X_ESW_PORT_ST_CHG) {
-+		u32 link = esw_r32(esw, RT305X_ESW_REG_POA);
++	status = mtk_switch_r32(gsw, GSW_REG_ISR);
++	if (status & PORT_IRQ_ST_CHG)
++		for (i = 0; i <= max; i++) {
++			u32 status = mtk_switch_r32(gsw,
++						    GSW_REG_PORT_STATUS(i));
++			int link = status & 0x1;
 +
-+		link >>= RT305X_ESW_POA_LINK_SHIFT;
-+		link &= RT305X_ESW_POA_LINK_MASK;
-+		dev_info(esw->dev, "link changed 0x%02X\n", link);
-+	}
-+	esw_w32(esw, status, RT305X_ESW_REG_ISR);
++			if (link != priv->link[i])
++				mt7620_print_link_state(priv, i, link,
++							(status >> 2) & 3,
++							(status & 0x2));
++
++			priv->link[i] = link;
++		}
++	mtk_switch_w32(gsw, status, GSW_REG_ISR);
 +
 +	return IRQ_HANDLED;
 +}
 +
-+static int esw_probe(struct platform_device *pdev)
++static void mt7620_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 +{
-+	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	struct device_node *np = pdev->dev.of_node;
-+	const __be32 *port_map, *reg_init;
-+	struct rt305x_esw *esw;
-+	int ret;
++	u32 is_BGA = (rt_sysc_r32(0x0c) >> 16) & 1;
 +
-+	esw = devm_kzalloc(&pdev->dev, sizeof(*esw), GFP_KERNEL);
-+	if (!esw)
-+		return -ENOMEM;
++	rt_sysc_w32(rt_sysc_r32(SYSC_REG_CFG1) | BIT(8), SYSC_REG_CFG1);
++	mtk_switch_w32(gsw, mtk_switch_r32(gsw, GSW_REG_CKGCR) & ~(0x3 << 4),
++		       GSW_REG_CKGCR);
 +
-+	esw->dev = &pdev->dev;
-+	esw->irq = irq_of_parse_and_map(np, 0);
-+	esw->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (!esw->base)
-+		return -EADDRNOTAVAIL;
++	if (of_property_read_bool(np, "mediatek,mt7530")) {
++		u32 val;
 +
-+	port_map = of_get_property(np, "mediatek,portmap", NULL);
-+	if (port_map)
-+		esw->port_map = be32_to_cpu(*port_map);
++		/* turn off ephy and set phy base addr to 12 */
++		mtk_switch_w32(gsw, mtk_switch_r32(gsw, GSW_REG_GPC1) |
++			(0x1f << 24) | (0xc << 16),
++			GSW_REG_GPC1);
 +
-+	reg_init = of_get_property(np, "mediatek,led_polarity", NULL);
-+	if (reg_init)
-+		esw->reg_led_polarity = be32_to_cpu(*reg_init);
++		/* set MT7530 central align */
++		val = mt7530_mdio_r32(gsw, 0x7830);
++		val &= ~BIT(0);
++		val |= BIT(1);
++		mt7530_mdio_w32(gsw, 0x7830, val);
 +
-+	platform_set_drvdata(pdev, esw);
++		val = mt7530_mdio_r32(gsw, 0x7a40);
++		val &= ~BIT(30);
++		mt7530_mdio_w32(gsw, 0x7a40, val);
 +
-+	spin_lock_init(&esw->reg_rw_lock);
++		mt7530_mdio_w32(gsw, 0x7a78, 0x855);
++	} else {
++		/* global page 4 */
++		_mt7620_mii_write(gsw, 1, 31, 0x4000);
 +
-+	esw_hw_init(esw);
++		_mt7620_mii_write(gsw, 1, 17, 0x7444);
++		if (is_BGA)
++			_mt7620_mii_write(gsw, 1, 19, 0x0114);
++		else
++			_mt7620_mii_write(gsw, 1, 19, 0x0117);
 +
-+	ret = devm_request_irq(&pdev->dev, esw->irq, esw_interrupt, 0, "esw",
-+			       esw);
++		_mt7620_mii_write(gsw, 1, 22, 0x10cf);
++		_mt7620_mii_write(gsw, 1, 25, 0x6212);
++		_mt7620_mii_write(gsw, 1, 26, 0x0777);
++		_mt7620_mii_write(gsw, 1, 29, 0x4000);
++		_mt7620_mii_write(gsw, 1, 28, 0xc077);
++		_mt7620_mii_write(gsw, 1, 24, 0x0000);
 +
-+	if (!ret) {
-+		esw_w32(esw, RT305X_ESW_PORT_ST_CHG, RT305X_ESW_REG_ISR);
-+		esw_w32(esw, ~RT305X_ESW_PORT_ST_CHG, RT305X_ESW_REG_IMR);
++		/* global page 3 */
++		_mt7620_mii_write(gsw, 1, 31, 0x3000);
++		_mt7620_mii_write(gsw, 1, 17, 0x4838);
++
++		/* global page 2 */
++		_mt7620_mii_write(gsw, 1, 31, 0x2000);
++		if (is_BGA) {
++			_mt7620_mii_write(gsw, 1, 21, 0x0515);
++			_mt7620_mii_write(gsw, 1, 22, 0x0053);
++			_mt7620_mii_write(gsw, 1, 23, 0x00bf);
++			_mt7620_mii_write(gsw, 1, 24, 0x0aaf);
++			_mt7620_mii_write(gsw, 1, 25, 0x0fad);
++			_mt7620_mii_write(gsw, 1, 26, 0x0fc1);
++		} else {
++			_mt7620_mii_write(gsw, 1, 21, 0x0517);
++			_mt7620_mii_write(gsw, 1, 22, 0x0fd2);
++			_mt7620_mii_write(gsw, 1, 23, 0x00bf);
++			_mt7620_mii_write(gsw, 1, 24, 0x0aab);
++			_mt7620_mii_write(gsw, 1, 25, 0x00ae);
++			_mt7620_mii_write(gsw, 1, 26, 0x0fff);
++		}
++		/* global page 1 */
++		_mt7620_mii_write(gsw, 1, 31, 0x1000);
++		_mt7620_mii_write(gsw, 1, 17, 0xe7f8);
 +	}
 +
-+	return ret;
++	/* global page 0 */
++	_mt7620_mii_write(gsw, 1, 31, 0x8000);
++	_mt7620_mii_write(gsw, 0, 30, 0xa000);
++	_mt7620_mii_write(gsw, 1, 30, 0xa000);
++	_mt7620_mii_write(gsw, 2, 30, 0xa000);
++	_mt7620_mii_write(gsw, 3, 30, 0xa000);
++
++	_mt7620_mii_write(gsw, 0, 4, 0x05e1);
++	_mt7620_mii_write(gsw, 1, 4, 0x05e1);
++	_mt7620_mii_write(gsw, 2, 4, 0x05e1);
++	_mt7620_mii_write(gsw, 3, 4, 0x05e1);
++
++	/* global page 2 */
++	_mt7620_mii_write(gsw, 1, 31, 0xa000);
++	_mt7620_mii_write(gsw, 0, 16, 0x1111);
++	_mt7620_mii_write(gsw, 1, 16, 0x1010);
++	_mt7620_mii_write(gsw, 2, 16, 0x1515);
++	_mt7620_mii_write(gsw, 3, 16, 0x0f0f);
++
++	/* CPU Port6 Force Link 1G, FC ON */
++	mtk_switch_w32(gsw, 0x5e33b, GSW_REG_PORT_PMCR(6));
++
++	/* Set Port 6 as CPU Port */
++	mtk_switch_w32(gsw, 0x7f7f7fe0, 0x0010);
++
++	/* setup port 4 */
++	if (gsw->port4 == PORT4_EPHY) {
++		u32 val = rt_sysc_r32(SYSC_REG_CFG1);
++
++		val |= 3 << 14;
++		rt_sysc_w32(val, SYSC_REG_CFG1);
++		_mt7620_mii_write(gsw, 4, 30, 0xa000);
++		_mt7620_mii_write(gsw, 4, 4, 0x05e1);
++		_mt7620_mii_write(gsw, 4, 16, 0x1313);
++		pr_info("gsw: setting port4 to ephy mode\n");
++	}
 +}
 +
-+static int esw_remove(struct platform_device *pdev)
-+{
-+	struct rt305x_esw *esw = platform_get_drvdata(pdev);
++static const struct of_device_id mediatek_gsw_match[] = {
++	{ .compatible = "mediatek,mt7620-gsw" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, mediatek_gsw_match);
 +
-+	if (esw) {
-+		esw_w32(esw, ~0, RT305X_ESW_REG_IMR);
-+		platform_set_drvdata(pdev, NULL);
++int mtk_gsw_init(struct fe_priv *priv)
++{
++	struct device_node *np = priv->switch_np;
++	struct platform_device *pdev = of_find_device_by_node(np);
++	struct mt7620_gsw *gsw;
++
++	if (!pdev)
++		return -ENODEV;
++
++	if (!of_device_is_compatible(np, mediatek_gsw_match->compatible))
++		return -EINVAL;
++
++	gsw = platform_get_drvdata(pdev);
++	priv->soc->swpriv = gsw;
++
++	mt7620_hw_init(gsw, np);
++
++	if (gsw->irq) {
++		request_irq(gsw->irq, gsw_interrupt_mt7620, 0,
++			    "gsw", priv);
++		mtk_switch_w32(gsw, ~PORT_IRQ_ST_CHG, GSW_REG_IMR);
 +	}
 +
 +	return 0;
 +}
 +
-+static const struct of_device_id ralink_esw_match[] = {
-+	{ .compatible = "ralink,rt3050-esw" },
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, ralink_esw_match);
++static int mt7620_gsw_probe(struct platform_device *pdev)
++{
++	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	const char *port4 = NULL;
++	struct mt7620_gsw *gsw;
++	struct device_node *np;
 +
-+static struct platform_driver esw_driver = {
-+	.probe = esw_probe,
-+	.remove = esw_remove,
++	gsw = devm_kzalloc(&pdev->dev, sizeof(struct mt7620_gsw), GFP_KERNEL);
++	if (!gsw)
++		return -ENOMEM;
++
++	gsw->base = devm_ioremap_resource(&pdev->dev, res);
++	if (!gsw->base)
++		return -EADDRNOTAVAIL;
++
++	gsw->dev = &pdev->dev;
++
++	of_property_read_string(np, "mediatek,port4", &port4);
++	if (port4 && !strcmp(port4, "ephy"))
++		gsw->port4 = PORT4_EPHY;
++	else if (port4 && !strcmp(port4, "gmac"))
++		gsw->port4 = PORT4_EXT;
++	else
++		gsw->port4 = PORT4_EPHY;
++
++	gsw->irq = irq_of_parse_and_map(np, 0);
++
++	platform_set_drvdata(pdev, gsw);
++
++	return 0;
++}
++
++static int mt7620_gsw_remove(struct platform_device *pdev)
++{
++	platform_set_drvdata(pdev, NULL);
++
++	return 0;
++}
++
++static struct platform_driver gsw_driver = {
++	.probe = mt7620_gsw_probe,
++	.remove = mt7620_gsw_remove,
 +	.driver = {
-+		.name = "rt3050-esw",
++		.name = "mt7620-gsw",
 +		.owner = THIS_MODULE,
-+		.of_match_table = ralink_esw_match,
++		.of_match_table = mediatek_gsw_match,
 +	},
 +};
 +
-+module_platform_driver(esw_driver);
++module_platform_driver(gsw_driver);
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("John Crispin <blogic@openwrt.org>");
-+MODULE_DESCRIPTION("Switch driver for RT305X SoC");
-diff --git a/drivers/net/ethernet/mediatek/esw_rt3050.h b/drivers/net/ethernet/mediatek/esw_rt3050.h
++MODULE_DESCRIPTION("GBit switch driver for Mediatek MT7620 SoC");
+diff --git a/drivers/net/ethernet/mediatek/gsw_mt7620.h b/drivers/net/ethernet/mediatek/gsw_mt7620.h
 new file mode 100644
-index 0000000..455107a
+index 0000000..9f4057c
 --- /dev/null
-+++ b/drivers/net/ethernet/mediatek/esw_rt3050.h
-@@ -0,0 +1,29 @@
++++ b/drivers/net/ethernet/mediatek/gsw_mt7620.h
+@@ -0,0 +1,117 @@
 +/*   This program is free software; you can redistribute it and/or modify
 + *   it under the terms of the GNU General Public License as published by
 + *   the Free Software Foundation; version 2 of the License
@@ -680,20 +315,108 @@ index 0000000..455107a
 + *   Copyright (C) 2013-2015 Michael Lee <igvtee@gmail.com>
 + */
 +
-+#ifndef _RALINK_ESW_RT3052_H__
-+#define _RALINK_ESW_RT3052_H__
++#ifndef _RALINK_GSW_MT7620_H__
++#define _RALINK_GSW_MT7620_H__
 +
-+#ifdef CONFIG_NET_MEDIATEK_ESW_RT3052
++#define GSW_REG_PHY_TIMEOUT	(5 * HZ)
 +
-+int __init mtk_switch_init(void);
-+void mtk_switch_exit(void);
-+
++#ifdef CONFIG_SOC_MT7621
++#define MT7620A_GSW_REG_PIAC	0x0004
 +#else
-+
-+static inline int __init mtk_switch_init(void) { return 0; }
-+static inline void mtk_switch_exit(void) { }
-+
++#define MT7620A_GSW_REG_PIAC	0x7004
 +#endif
++
++#define GSW_NUM_VLANS		16
++#define GSW_NUM_VIDS		4096
++#define GSW_NUM_PORTS		7
++#define GSW_PORT6		6
++
++#define GSW_MDIO_ACCESS		BIT(31)
++#define GSW_MDIO_READ		BIT(19)
++#define GSW_MDIO_WRITE		BIT(18)
++#define GSW_MDIO_START		BIT(16)
++#define GSW_MDIO_ADDR_SHIFT	20
++#define GSW_MDIO_REG_SHIFT	25
++
++#define GSW_REG_PORT_PMCR(x)	(0x3000 + (x * 0x100))
++#define GSW_REG_PORT_STATUS(x)	(0x3008 + (x * 0x100))
++#define GSW_REG_SMACCR0		0x3fE4
++#define GSW_REG_SMACCR1		0x3fE8
++#define GSW_REG_CKGCR		0x3ff0
++
++#define GSW_REG_IMR		0x7008
++#define GSW_REG_ISR		0x700c
++#define GSW_REG_GPC1		0x7014
++
++#define SYSC_REG_CHIP_REV_ID	0x0c
++#define SYSC_REG_CFG1		0x14
++#define RST_CTRL_MCM		BIT(2)
++#define SYSC_PAD_RGMII2_MDIO	0x58
++#define SYSC_GPIO_MODE		0x60
++
++#define PORT_IRQ_ST_CHG		0x7f
++
++#ifdef CONFIG_SOC_MT7621
++#define ESW_PHY_POLLING		0x0000
++#else
++#define ESW_PHY_POLLING		0x7000
++#endif
++
++#define	PMCR_IPG		BIT(18)
++#define	PMCR_MAC_MODE		BIT(16)
++#define	PMCR_FORCE		BIT(15)
++#define	PMCR_TX_EN		BIT(14)
++#define	PMCR_RX_EN		BIT(13)
++#define	PMCR_BACKOFF		BIT(9)
++#define	PMCR_BACKPRES		BIT(8)
++#define	PMCR_RX_FC		BIT(5)
++#define	PMCR_TX_FC		BIT(4)
++#define	PMCR_SPEED(_x)		(_x << 2)
++#define	PMCR_DUPLEX		BIT(1)
++#define	PMCR_LINK		BIT(0)
++
++#define PHY_AN_EN		BIT(31)
++#define PHY_PRE_EN		BIT(30)
++#define PMY_MDC_CONF(_x)	((_x & 0x3f) << 24)
++
++enum {
++	/* Global attributes. */
++	GSW_ATTR_ENABLE_VLAN,
++	/* Port attributes. */
++	GSW_ATTR_PORT_UNTAG,
++};
++
++enum {
++	PORT4_EPHY = 0,
++	PORT4_EXT,
++};
++
++struct mt7620_gsw {
++	struct device		*dev;
++	void __iomem		*base;
++	int			irq;
++	int			port4;
++	unsigned long int	autopoll;
++};
++
++void mtk_switch_w32(struct mt7620_gsw *gsw, u32 val, unsigned reg);
++u32 mtk_switch_r32(struct mt7620_gsw *gsw, unsigned reg);
++int mtk_gsw_init(struct fe_priv *priv);
++
++int mt7620_mdio_write(struct mii_bus *bus, int phy_addr, int phy_reg, u16 val);
++int mt7620_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg);
++void mt7620_mdio_link_adjust(struct fe_priv *priv, int port);
++int mt7620_has_carrier(struct fe_priv *priv);
++void mt7620_print_link_state(struct fe_priv *priv, int port, int link,
++			     int speed, int duplex);
++
++void mt7530_mdio_w32(struct mt7620_gsw *gsw, u32 reg, u32 val);
++u32 mt7530_mdio_r32(struct mt7620_gsw *gsw, u32 reg);
++
++u32 _mt7620_mii_write(struct mt7620_gsw *gsw, u32 phy_addr,
++		      u32 phy_register, u32 write_data);
++u32 _mt7620_mii_read(struct mt7620_gsw *gsw, int phy_addr, int phy_reg);
++
 +#endif
 -- 
 1.7.10.4
