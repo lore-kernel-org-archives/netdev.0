@@ -1,88 +1,102 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 05/12] net-next: mediatek: add switch driver for mt7621
-Date: Sun, 03 Jan 2016 11:18:47 -0800
-Message-ID: <1451848727.4334.55.camel@perches.com>
-References: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
-         <1451834775-15789-5-git-send-email-blogic@openwrt.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 06/12] net: sched: support qdisc_reset on NOLOCK qdisc
+Date: Sun, 03 Jan 2016 11:37:06 -0800
+Message-ID: <56897862.6080803@gmail.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810> <20151230175313.26257.46445.stgit@john-Precision-Tower-5810> <20160101023003.GA17287@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-        linux-mediatek@lists.infradead.org, Felix Fietkau <nbd@nbd.name>,
-        Michael Lee <igvtee@gmail.com>,
-        Steven Liu =?UTF-8?Q?=28=E5=8A=89=E4=BA=BA=E8=B1=AA=29?=
-        <steven.liu@mediatek.com>,
-        Fred Chang =?UTF-8?Q?=28=E5=BC=B5=E5=98=89=E5=AE=8F=29?=
-        <Fred.Chang@mediatek.com>
-To: John Crispin <blogic@openwrt.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1451834775-15789-5-git-send-email-blogic@openwrt.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
+	aduyck@mirantis.com, brouer@redhat.com, davem@davemloft.net,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33222 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbcACThY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 14:37:24 -0500
+Received: by mail-pa0-f42.google.com with SMTP id cy9so186007117pac.0
+        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 11:37:23 -0800 (PST)
+In-Reply-To: <20160101023003.GA17287@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-01-03 at 16:26 +0100, John Crispin wrote:
-> This driver is very basic and only provides basic init and irq suppor=
-t.
-> The SoC and switch core both have support for a special tag making DS=
-A
-> support possible.
+On 15-12-31 06:30 PM, Alexei Starovoitov wrote:
+> On Wed, Dec 30, 2015 at 09:53:13AM -0800, John Fastabend wrote:
+>> The qdisc_reset operation depends on the qdisc lock at the moment
+>> to halt any additions to gso_skb and statistics while the list is
+>> free'd and the stats zeroed.
+>>
+>> Without the qdisc lock we can not guarantee another cpu is not in
+>> the process of adding a skb to one of the "cells". Here are the
+>> two cases we have to handle.
+>>
+>>  case 1: qdisc_graft operation. In this case a "new" qdisc is attached
+>> 	 and the 'qdisc_destroy' operation is called on the old qdisc.
+>> 	 The destroy operation will wait a rcu grace period and call
+>> 	 qdisc_rcu_free(). At which point gso_cpu_skb is free'd along
+>> 	 with all stats so no need to zero stats and gso_cpu_skb from
+>> 	 the reset operation itself.
+>>
+>> 	 Because we can not continue to call qdisc_reset before waiting
+>> 	 an rcu grace period so that the qdisc is detached from all
+>> 	 cpus simply do not call qdisc_reset() at all and let the
+>> 	 qdisc_destroy operation clean up the qdisc. Note, a refcnt
+>> 	 greater than 1 would cause the destroy operation to be
+>> 	 aborted however if this ever happened the reference to the
+>> 	 qdisc would be lost and we would have a memory leak.
+>>
+>>  case 2: dev_deactivate sequence. This can come from a user bringing
+>> 	 the interface down which causes the gso_skb list to be flushed
+>> 	 and the qlen zero'd. At the moment this is protected by the
+>> 	 qdisc lock so while we clear the qlen/gso_skb fields we are
+>> 	 guaranteed no new skbs are added. For the lockless case
+>> 	 though this is not true. To resolve this move the qdisc_reset
+>> 	 call after the new qdisc is assigned and a grace period is
+>> 	 exercised to ensure no new skbs can be enqueued. Further
+>> 	 the RTNL lock is held so we can not get another call to
+>> 	 activate the qdisc while the skb lists are being free'd.
+>>
+>> 	 Finally, fix qdisc_reset to handle the per cpu stats and
+>> 	 skb lists.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ...
+>> -	/* Prune old scheduler */
+>> -	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
+>> -		qdisc_reset(oqdisc);
+>> -
+> ...
+>> -		sync_needed |= !dev->dismantle;
+>> +		sync_needed = true;
+> 
+> I think killing above <=1 check and forcing synchronize_net() will
+> make qdisc destruction more reliable than it's right now.
 
-trivia:
+I'll probably do that in a follow up series. Its a bit tricky and
+actually I'm not convinced we aren't leaking memory as it is before
+this series when we transition from per txq qdiscs and the more
+traditional single big qdisc in a few cases. I'll take a look tomorrow
+with kmemleak and tools. My guess is in practice people load a qdisc
+and don't change it much and better setups for those types of things
+is to load your favorite qdisc under mq or mqprio when using
+multiqueue devices.
 
-> diff --git a/drivers/net/ethernet/mediatek/gsw_mt7621.c b/drivers/net=
-/ethernet/mediatek/gsw_mt7621.c
-[]
-> +static irqreturn_t gsw_interrupt_mt7621(int irq, void *_priv)
-> +{
-> +	struct fe_priv *priv =3D (struct fe_priv *)_priv;
-> +	struct mt7620_gsw *gsw =3D (struct mt7620_gsw *)priv->soc->swpriv;
-> +	u32 reg, i;
-> +
-> +	reg =3D mt7530_mdio_r32(gsw, 0x700c);
-> +
-> +	for (i =3D 0; i < 5; i++)
-> +		if (reg & BIT(i)) {
-> +			unsigned int link;
-> +
-> +			link =3D mt7530_mdio_r32(gsw,
-> +					=A0=A0=A0=A0=A0=A0=A00x3008 + (i * 0x100)) & 0x1;
-> +
-> +			if (link !=3D priv->link[i]) {
-> +				priv->link[i] =3D link;
-> +				if (link)
-> +					netdev_info(priv->netdev,
-> +						=A0=A0=A0=A0"port %d link up\n", i);
-> +				else
-> +					netdev_info(priv->netdev,
-> +						=A0=A0=A0=A0"port %d link down\n", i);
-> +			}
-> +		}
+> Your commit log sounds too pessimistic :)
+> 
+> btw, sync_needed variable can be removed as well.
 
-It's more common to use braces after the for loop.
-Perhaps this could be written with a continue; to reduce
-indentation and also use a single netdev_info().
+Yep thanks good catch.
 
-	for (i =3D 0; i < 5; i++) {
-		unsigned int link;
+> 
+> All other patches look good. Great stuff overall!
+> 
 
-		if (!(reg & BIT(i)))
-			continue;
+Thanks, I'm going to add mqprio and multiq support, do some testing and
+some perf work then submit it. The alf_queue bits can be optimized
+further later.
 
-		link =3D=A0mt7530_mdio_r32(gsw, 0x3008 + (i * 0x100)) & 0x1;
+Also after we get multiq support lockless we can run filters on egress
+side without the qdisc lock overhead.
 
-		if (link =3D=3D priv->link[i])
-			continue;
-
-		priv->link[i] =3D link;
-		netdev_info(priv->netdev, "port %d link %s\n",
-			    i, link ? "up" : "down");
-	}
+.John
