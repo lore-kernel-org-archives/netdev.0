@@ -1,46 +1,44 @@
-From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Patch net] nfc: check sock state in llcp_sock_getname()
-Date: Sun, 3 Jan 2016 14:36:17 -0800
-Message-ID: <CAM_iQpVMk5nutJ=F=mGR9vw4n0A8JJMODfpN_wt=_k5mwa+MBA@mail.gmail.com>
-References: <1451694857-21873-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1451694857-21873-2-git-send-email-xiyou.wangcong@gmail.com>
-	<CACT4Y+Y6YCYA_v=--spYpPDYj3Jo0cXcntFRe8XzYS3NJFUwqQ@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2 2/2] arpd: fix parsing of unlikely long
+ comments
+Date: Sun, 3 Jan 2016 15:04:25 -0800
+Message-ID: <20160103150425.79f05a52@xeon-e3>
+References: <20160103090404.054e724b@xeon-e3>
+	<1451846374-2665-1-git-send-email-andreas@fatal.se>
+	<1451846374-2665-2-git-send-email-andreas@fatal.se>
+	<20160103184429.GA2713@fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACT4Y+Y6YCYA_v=--spYpPDYj3Jo0cXcntFRe8XzYS3NJFUwqQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35345 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750904AbcACXEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 18:04:16 -0500
+Received: by mail-pa0-f49.google.com with SMTP id do7so2039038pab.2
+        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 15:04:16 -0800 (PST)
+In-Reply-To: <20160103184429.GA2713@fatal.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 2, 2016 at 12:03 AM, Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
-> On Sat, Jan 2, 2016 at 1:34 AM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> llcp_sock_getname() checks llcp_sock->dev to make sure
->> llcp_sock is already connected or bound, however, we could
->> be in the middle of llcp_sock_bind() where llcp_sock->dev
->> is bound and llcp_sock->service_name_len is set,
->> but llcp_sock->service_name is not, in this case we would
->> lead to copy some bytes from a NULL pointer.
->>
->> We should just check if sk->sk_state is still closed since
->> both connect() and bind() will update this state at the end.
->
-> Hi Cong,
->
-> This is still racy. If you want to play lock-free then you also need
-> proper memory barriers. Stores to sk_state need to be
-> smp_store_release, while the load needs to be smp_load_acquire.
-> Otherwise getname still can see partially initialized socket.
->
+On Sun, 3 Jan 2016 19:44:29 +0100
+Andreas Henriksson <andreas@fatal.se> wrote:
 
-Right... Or just lock sock perhaps. I will update my patch.
+> Hello Stephen Hemminger.
+> 
+> Please beware that this has been compile-tested only.
+> Submitting it like this was what I was trying to avoid
+> by just throwing in a FIXME comment in the initial submission.
+> Sorry in advance if I managed to screw something up, but
+> hopefully I didn't...
+> 
+> Regards,
+> Andreas Henriksson
+> 
 
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+All this seems like overkill. The file format for arpd is very simple:
+ifindex, IPv4, MAC
+and really should never be too long. If it is the input is garbage and the
+whole input should just be rejected, logged, and arpd should exit.
