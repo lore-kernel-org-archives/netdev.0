@@ -1,34 +1,71 @@
-From: "Jeff Skoll" <s_w9gc9x@uni-kassel.de>
-Subject: Charity Donation
-Date: Sun, 03 Jan 2016 04:32:01 -0500
-Message-ID: <auto-000000698312@mailadmin.uni-kassel.de>
-Reply-To: jeff.skoll@skollcharity.org
+From: Arend van Spriel <aspriel@gmail.com>
+Subject: Re: net-libertas: Better exception handling in
+ if_spi_host_to_card_worker()
+Date: Sun, 3 Jan 2016 10:36:44 +0100
+Message-ID: <5688EBAC.5000701@gmail.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <5686F0B2.5000000@users.sourceforge.net>
+ <56870866.7020000@cogentembedded.com>
+ <568785B3.5000905@users.sourceforge.net>
+ <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
+ <5687939E.7010701@users.sourceforge.net> <5687A2C7.3000704@gmail.com>
+ <5687B2BC.8090901@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Me <s_w9gc9x@uni-kassel.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.its.uni-kassel.de ([141.51.12.63]:11085 "EHLO
-	mx4.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751393AbcACJeG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 04:34:06 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Julia Lawall <julia.lawall@lip6.fr>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5687B2BC.8090901@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
-e largest private foundations in the world. I believe strongly in =E2=80=
-=98giving while living.=E2=80=99 I had one idea that never changed in m=
-y mind =E2=80=94 that you should use your wealth to help people and I h=
-ave decided to secretly give USD2.498 Million to a randomly selected in=
-dividual. On receipt of this email, you should count yourself as the in=
-dividual. Kindly get back to me at your earliest convenience, so I know=
- your email address is valid.
 
-Visit the web page to know more about me: http://www.theglobeandmail.co=
-m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
-rticle4209888/ or you can read an article of me on Wikipedia.
+
+On 02-01-16 12:21, SF Markus Elfring wrote:
+>> I have never seen much evolution going on in this area.
+> 
+> I can get an other impression from a specific document for example.
+> https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/Documentation/CodingStyle
+> 
+> 
+>> What the patch tries to do is avoid the extra 'if (err)'.
+> 
+> Yes. - I propose to look at related consequences together with the usage
+> of a popular short jump label once more.
+
+When I read a subject saying "Better exception handling" it sounds like
+a functional improvement. Your change does not change anything
+functionally and may or may not save a bit of execution time depending
+on how smart the compiler is. What you change does is confuse people
+reading the code. So please explain why your update improves exception
+handling here. I don't see it. The code is not making the driver more
+robust against failures in this function, which is what I think of
+reading "better exception handling".
+
+>> Setting coding style aside, the question is whether there is
+>> a good metric for the patch.
+> 
+> A software development challenge is to accept changes also around a topic
+> like "error handling". My update suggestion for the source file
+> "drivers/net/wireless/marvell/libertas/if_spi.c" should only improve
+> exception handling. (I came along other source files where more improvements
+> will eventually be possible.)
+> 
+> When will the run-time behaviour matter also for exceptional situations?
+> 
+> 
+>> Did you look at the resulting assembly code for different target architectures?
+> 
+> Not yet. - Which execution system variants would you recommend for
+> further comparisons?
+
+Guess x86{,_64} and arm would be good candidates, ie. CISC vs. RISC.
 
 Regards,
-Jeffrey Skoll.
+Arend
