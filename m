@@ -1,44 +1,41 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2 2/2] arpd: fix parsing of unlikely long
- comments
-Date: Sun, 3 Jan 2016 15:04:25 -0800
-Message-ID: <20160103150425.79f05a52@xeon-e3>
-References: <20160103090404.054e724b@xeon-e3>
-	<1451846374-2665-1-git-send-email-andreas@fatal.se>
-	<1451846374-2665-2-git-send-email-andreas@fatal.se>
-	<20160103184429.GA2713@fatal.se>
+Subject: Re: [PATCH iproute2 1/2] Avoid in6_addr redefinition
+Date: Sun, 3 Jan 2016 15:16:34 -0800
+Message-ID: <20160103151634.37e1070e@xeon-e3>
+References: <20160103201028.GA4210@nyan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org
+To: Felix Janda <felix.janda@posteo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35345 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbcACXEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 18:04:16 -0500
-Received: by mail-pa0-f49.google.com with SMTP id do7so2039038pab.2
-        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 15:04:16 -0800 (PST)
-In-Reply-To: <20160103184429.GA2713@fatal.se>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34956 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027AbcACXQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 18:16:25 -0500
+Received: by mail-pf0-f181.google.com with SMTP id 78so193770601pfw.2
+        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 15:16:25 -0800 (PST)
+In-Reply-To: <20160103201028.GA4210@nyan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 3 Jan 2016 19:44:29 +0100
-Andreas Henriksson <andreas@fatal.se> wrote:
+On Sun, 3 Jan 2016 21:10:28 +0100
+Felix Janda <felix.janda@posteo.de> wrote:
 
-> Hello Stephen Hemminger.
+> On 2015-11-19 22:32:50 GMT Stephen Hemminger <stephen@networkplumber.org> wrote:
+> > This header file comes from iptables. Please fix there, otherwise
+> > on next time someone does merge from there it will break.
 > 
-> Please beware that this has been compile-tested only.
-> Submitting it like this was what I was trying to avoid
-> by just throwing in a FIXME comment in the initial submission.
-> Sorry in advance if I managed to screw something up, but
-> hopefully I didn't...
+> It is already fixed in iptables:
 > 
-> Regards,
-> Andreas Henriksson
+> https://git.netfilter.org/iptables/commit/include/libiptc/ipt_kernel_headers.h?id=0bb1859e2d6dd79a0a59c3ee65f6a78cba118b86
 > 
+> Please sync the header with iptables.
+> 
+> Felix
 
-All this seems like overkill. The file format for arpd is very simple:
-ifindex, IPv4, MAC
-and really should never be too long. If it is the input is garbage and the
-whole input should just be rejected, logged, and arpd should exit.
+Ok, I resynced all the iptables headers (into net-next branch).
+
+Compile tested only. I don't use this, it would be good if someone
+who actually uses xtables would test.
