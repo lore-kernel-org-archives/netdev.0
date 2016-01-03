@@ -1,7 +1,7 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH 05/12] net-next: mediatek: add switch driver for mt7621
-Date: Sun,  3 Jan 2016 16:26:08 +0100
-Message-ID: <1451834775-15789-5-git-send-email-blogic@openwrt.org>
+Subject: [PATCH 07/12] net-next: mediatek: add support for rt3050
+Date: Sun,  3 Jan 2016 16:26:10 +0100
+Message-ID: <1451834775-15789-7-git-send-email-blogic@openwrt.org>
 References: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	linux-mediatek@lists.infradead.org,
@@ -13,30 +13,31 @@ Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	<Fred.Chang@mediatek.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:55293 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:55312 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751979AbcACP0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jan 2016 10:26:53 -0500
+	id S1752014AbcACP1A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jan 2016 10:27:00 -0500
 In-Reply-To: <1451834775-15789-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver is very basic and only provides basic init and irq support.
-The SoC and switch core both have support for a special tag making DSA
-support possible.
+Add support for SoCs from the rt3050 family. This include rt3050, rt3052,
+rt3352 and rt5350. These all have a builtin 5 port 100mbit switch.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+Signed-off-by: Michael Lee <igvtee@gmail.com>
 ---
- drivers/net/ethernet/mediatek/gsw_mt7621.c |  283 ++++++++++++++++++++++++++++
- 1 file changed, 283 insertions(+)
- create mode 100644 drivers/net/ethernet/mediatek/gsw_mt7621.c
+ drivers/net/ethernet/mediatek/soc_rt3050.c |  154 ++++++++++++++++++++++++++++
+ 1 file changed, 154 insertions(+)
+ create mode 100644 drivers/net/ethernet/mediatek/soc_rt3050.c
 
-diff --git a/drivers/net/ethernet/mediatek/gsw_mt7621.c b/drivers/net/ethernet/mediatek/gsw_mt7621.c
+diff --git a/drivers/net/ethernet/mediatek/soc_rt3050.c b/drivers/net/ethernet/mediatek/soc_rt3050.c
 new file mode 100644
-index 0000000..6f3327e
+index 0000000..8364c4a
 --- /dev/null
-+++ b/drivers/net/ethernet/mediatek/gsw_mt7621.c
-@@ -0,0 +1,283 @@
++++ b/drivers/net/ethernet/mediatek/soc_rt3050.c
+@@ -0,0 +1,154 @@
 +/*   This program is free software; you can redistribute it and/or modify
 + *   it under the terms of the GNU General Public License as published by
 + *   the Free Software Foundation; version 2 of the License
@@ -52,273 +53,144 @@ index 0000000..6f3327e
 + */
 +
 +#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/platform_device.h>
-+#include <linux/of_device.h>
-+#include <linux/of_irq.h>
 +
-+#include <ralink_regs.h>
++#include <asm/mach-ralink/ralink_regs.h>
 +
 +#include "mtk_eth_soc.h"
-+#include "gsw_mt7620.h"
++#include "mdio_rt2880.h"
 +
-+void mtk_switch_w32(struct mt7620_gsw *gsw, u32 val, unsigned reg)
++#define RT305X_RESET_FE         BIT(21)
++#define RT305X_RESET_ESW        BIT(23)
++
++static const u16 rt5350_reg_table[FE_REG_COUNT] = {
++	[FE_REG_PDMA_GLO_CFG] = RT5350_PDMA_GLO_CFG,
++	[FE_REG_PDMA_RST_CFG] = RT5350_PDMA_RST_CFG,
++	[FE_REG_DLY_INT_CFG] = RT5350_DLY_INT_CFG,
++	[FE_REG_TX_BASE_PTR0] = RT5350_TX_BASE_PTR0,
++	[FE_REG_TX_MAX_CNT0] = RT5350_TX_MAX_CNT0,
++	[FE_REG_TX_CTX_IDX0] = RT5350_TX_CTX_IDX0,
++	[FE_REG_TX_DTX_IDX0] = RT5350_TX_DTX_IDX0,
++	[FE_REG_RX_BASE_PTR0] = RT5350_RX_BASE_PTR0,
++	[FE_REG_RX_MAX_CNT0] = RT5350_RX_MAX_CNT0,
++	[FE_REG_RX_CALC_IDX0] = RT5350_RX_CALC_IDX0,
++	[FE_REG_RX_DRX_IDX0] = RT5350_RX_DRX_IDX0,
++	[FE_REG_FE_INT_ENABLE] = RT5350_FE_INT_ENABLE,
++	[FE_REG_FE_INT_STATUS] = RT5350_FE_INT_STATUS,
++	[FE_REG_FE_RST_GL] = 0,
++	[FE_REG_FE_DMA_VID_BASE] = 0,
++};
++
++static void rt305x_init_data(struct fe_soc_data *data,
++			     struct net_device *netdev)
 +{
-+	iowrite32(val, gsw->base + reg);
++	struct fe_priv *priv = netdev_priv(netdev);
++
++	priv->flags = FE_FLAG_PADDING_64B | FE_FLAG_PADDING_BUG |
++		FE_FLAG_CALIBRATE_CLK | FE_FLAG_HAS_SWITCH;
++	netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
++		NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_TX;
 +}
 +
-+u32 mtk_switch_r32(struct mt7620_gsw *gsw, unsigned reg)
++static int rt3050_fwd_config(struct fe_priv *priv)
 +{
-+	return ioread32(gsw->base + reg);
++	int ret;
++
++	if (ralink_soc != RT305X_SOC_RT3052) {
++		ret = fe_set_clock_cycle(priv);
++		if (ret)
++			return ret;
++	}
++
++	fe_fwd_config(priv);
++	if (ralink_soc != RT305X_SOC_RT3352)
++		fe_w32(FE_PSE_FQFC_CFG_INIT, FE_PSE_FQ_CFG);
++	fe_csum_config(priv);
++
++	return 0;
 +}
 +
-+static irqreturn_t gsw_interrupt_mt7621(int irq, void *_priv)
++static void rt305x_fe_reset(void)
 +{
-+	struct fe_priv *priv = (struct fe_priv *)_priv;
-+	struct mt7620_gsw *gsw = (struct mt7620_gsw *)priv->soc->swpriv;
-+	u32 reg, i;
-+
-+	reg = mt7530_mdio_r32(gsw, 0x700c);
-+
-+	for (i = 0; i < 5; i++)
-+		if (reg & BIT(i)) {
-+			unsigned int link;
-+
-+			link = mt7530_mdio_r32(gsw,
-+					       0x3008 + (i * 0x100)) & 0x1;
-+
-+			if (link != priv->link[i]) {
-+				priv->link[i] = link;
-+				if (link)
-+					netdev_info(priv->netdev,
-+						    "port %d link up\n", i);
-+				else
-+					netdev_info(priv->netdev,
-+						    "port %d link down\n", i);
-+			}
-+		}
-+
-+	mt7530_mdio_w32(gsw, 0x700c, 0x1f);
-+
-+	return IRQ_HANDLED;
++	fe_reset(RT305X_RESET_FE);
 +}
 +
-+static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
++static void rt5350_init_data(struct fe_soc_data *data,
++			     struct net_device *netdev)
 +{
-+	u32 i;
-+	u32 val;
++	struct fe_priv *priv = netdev_priv(netdev);
 +
-+	/* wardware reset the switch */
-+	fe_reset(RST_CTRL_MCM);
-+	mdelay(10);
-+
-+	/* reduce RGMII2 PAD driving strength */
-+	rt_sysc_m32(3 << 4, 0, SYSC_PAD_RGMII2_MDIO);
-+
-+	/* gpio mux - RGMII1=Normal mode */
-+	rt_sysc_m32(BIT(14), 0, SYSC_GPIO_MODE);
-+
-+	/* set GMAC1 RGMII mode */
-+	rt_sysc_m32(3 << 12, 0, SYSC_REG_CFG1);
-+
-+	/* enable MDIO to control MT7530 */
-+	rt_sysc_m32(3 << 12, 0, SYSC_GPIO_MODE);
-+
-+	/* turn off all PHYs */
-+	for (i = 0; i <= 4; i++) {
-+		val = _mt7620_mii_read(gsw, i, 0x0);
-+		val |= BIT(11);
-+		_mt7620_mii_write(gsw, i, 0x0, val);
-+	}
-+
-+	/* reset the switch */
-+	mt7530_mdio_w32(gsw, 0x7000, 0x3);
-+	usleep_range(10, 20);
-+
-+	if ((rt_sysc_r32(SYSC_REG_CHIP_REV_ID) & 0xFFFF) == 0x0101) {
-+		/* (GE1, Force 1000M/FD, FC ON, MAX_RX_LENGTH 1536) */
-+		mtk_switch_w32(gsw, 0x2105e30b, 0x100);
-+		mt7530_mdio_w32(gsw, 0x3600, 0x5e30b);
-+	} else {
-+		/* (GE1, Force 1000M/FD, FC ON, MAX_RX_LENGTH 1536) */
-+		mtk_switch_w32(gsw, 0x2105e33b, 0x100);
-+		mt7530_mdio_w32(gsw, 0x3600, 0x5e33b);
-+	}
-+
-+	/* (GE2, Link down) */
-+	mtk_switch_w32(gsw, 0x8000, 0x200);
-+
-+	/* Enable Port 6, P5 as GMAC5, P5 disable */
-+	val = mt7530_mdio_r32(gsw, 0x7804);
-+	val &= ~BIT(8);
-+	val |= BIT(6) | BIT(13) | BIT(16);
-+	mt7530_mdio_w32(gsw, 0x7804, val);
-+
-+	val = rt_sysc_r32(0x10);
-+	val = (val >> 6) & 0x7;
-+	if (val >= 6) {
-+		/* 25Mhz Xtal - do nothing */
-+	} else if (val >= 3) {
-+		/* 40Mhz */
-+
-+		/* disable MT7530 core clock */
-+		_mt7620_mii_write(gsw, 0, 13, 0x1f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x410);
-+		_mt7620_mii_write(gsw, 0, 13, 0x401f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x0);
-+
-+		/* disable MT7530 PLL */
-+		_mt7620_mii_write(gsw, 0, 13, 0x1f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x40d);
-+		_mt7620_mii_write(gsw, 0, 13, 0x401f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x2020);
-+
-+		/* for MT7530 core clock = 500Mhz */
-+		_mt7620_mii_write(gsw, 0, 13, 0x1f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x40e);
-+		_mt7620_mii_write(gsw, 0, 13, 0x401f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x119);
-+
-+		/* enable MT7530 PLL */
-+		_mt7620_mii_write(gsw, 0, 13, 0x1f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x40d);
-+		_mt7620_mii_write(gsw, 0, 13, 0x401f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x2820);
-+
-+		usleep_range(20, 40);
-+
-+		/* enable MT7530 core clock */
-+		_mt7620_mii_write(gsw, 0, 13, 0x1f);
-+		_mt7620_mii_write(gsw, 0, 14, 0x410);
-+		_mt7620_mii_write(gsw, 0, 13, 0x401f);
-+	} else {
-+		/* 20Mhz Xtal - TODO */
-+	}
-+
-+	/* RGMII */
-+	_mt7620_mii_write(gsw, 0, 14, 0x1);
-+
-+	/* set MT7530 central align */
-+	val = mt7530_mdio_r32(gsw, 0x7830);
-+	val &= ~BIT(0);
-+	val |= BIT(1);
-+	mt7530_mdio_w32(gsw, 0x7830, val);
-+	val = mt7530_mdio_r32(gsw, 0x7a40);
-+	val &= ~BIT(30);
-+	mt7530_mdio_w32(gsw, 0x7a40, val);
-+	mt7530_mdio_w32(gsw, 0x7a78, 0x855);
-+
-+	/* delay setting for 10/1000M */
-+	mt7530_mdio_w32(gsw, 0x7b00, 0x102);
-+	mt7530_mdio_w32(gsw, 0x7b04, 0x14);
-+
-+	/* lower Tx Driving*/
-+	mt7530_mdio_w32(gsw, 0x7a54, 0x44);
-+	mt7530_mdio_w32(gsw, 0x7a5c, 0x44);
-+	mt7530_mdio_w32(gsw, 0x7a64, 0x44);
-+	mt7530_mdio_w32(gsw, 0x7a6c, 0x44);
-+	mt7530_mdio_w32(gsw, 0x7a74, 0x44);
-+	mt7530_mdio_w32(gsw, 0x7a7c, 0x44);
-+
-+	/* turn on all PHYs */
-+	for (i = 0; i <= 4; i++) {
-+		val = _mt7620_mii_read(gsw, i, 0);
-+		val &= ~BIT(11);
-+		_mt7620_mii_write(gsw, i, 0, val);
-+	}
-+
-+	/* enable irq */
-+	val = mt7530_mdio_r32(gsw, 0x7808);
-+	val |= 3 << 16;
-+	mt7530_mdio_w32(gsw, 0x7808, val);
++	priv->flags = FE_FLAG_HAS_SWITCH;
++	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
 +}
 +
-+static const struct of_device_id mediatek_gsw_match[] = {
-+	{ .compatible = "mediatek,mt7621-gsw" },
++static void rt5350_set_mac(struct fe_priv *priv, unsigned char *mac)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->page_lock, flags);
++	fe_w32((mac[0] << 8) | mac[1], RT5350_SDM_MAC_ADRH);
++	fe_w32((mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5],
++	       RT5350_SDM_MAC_ADRL);
++	spin_unlock_irqrestore(&priv->page_lock, flags);
++}
++
++static void rt5350_rxcsum_config(bool enable)
++{
++	if (enable)
++		fe_w32(fe_r32(RT5350_SDM_CFG) | (RT5350_SDM_ICS_EN |
++				RT5350_SDM_TCS_EN | RT5350_SDM_UCS_EN),
++				RT5350_SDM_CFG);
++	else
++		fe_w32(fe_r32(RT5350_SDM_CFG) & ~(RT5350_SDM_ICS_EN |
++				RT5350_SDM_TCS_EN | RT5350_SDM_UCS_EN),
++				RT5350_SDM_CFG);
++}
++
++static int rt5350_fwd_config(struct fe_priv *priv)
++{
++	struct net_device *dev = priv_netdev(priv);
++
++	rt5350_rxcsum_config((dev->features & NETIF_F_RXCSUM));
++
++	return 0;
++}
++
++static void rt5350_fe_reset(void)
++{
++	fe_reset(RT305X_RESET_FE | RT305X_RESET_ESW);
++}
++
++static struct fe_soc_data rt3050_data = {
++	.dma_type = FE_PDMA,
++	.init_data = rt305x_init_data,
++	.reset_fe = rt305x_fe_reset,
++	.fwd_config = rt3050_fwd_config,
++	.pdma_glo_cfg = FE_PDMA_SIZE_8DWORDS,
++	.checksum_bit = RX_DMA_L4VALID,
++	.rx_int = FE_RX_DONE_INT,
++	.tx_int = FE_TX_DONE_INT,
++	.status_int = FE_CNT_GDM_AF,
++};
++
++static struct fe_soc_data rt5350_data = {
++	.dma_type = FE_PDMA,
++	.init_data = rt5350_init_data,
++	.reg_table = rt5350_reg_table,
++	.reset_fe = rt5350_fe_reset,
++	.set_mac = rt5350_set_mac,
++	.fwd_config = rt5350_fwd_config,
++	.pdma_glo_cfg = FE_PDMA_SIZE_8DWORDS,
++	.checksum_bit = RX_DMA_L4VALID,
++	.rx_int = RT5350_RX_DONE_INT,
++	.tx_int = RT5350_TX_DONE_INT,
++};
++
++const struct of_device_id of_fe_match[] = {
++	{ .compatible = "ralink,rt3050-eth", .data = &rt3050_data },
++	{ .compatible = "ralink,rt5350-eth", .data = &rt5350_data },
 +	{},
 +};
-+MODULE_DEVICE_TABLE(of, mediatek_gsw_match);
 +
-+int mtk_gsw_init(struct fe_priv *priv)
-+{
-+	struct device_node *np = priv->switch_np;
-+	struct platform_device *pdev = of_find_device_by_node(np);
-+	struct mt7620_gsw *gsw;
-+
-+	if (!pdev)
-+		return -ENODEV;
-+
-+	if (!of_device_is_compatible(np, mediatek_gsw_match->compatible))
-+		return -EINVAL;
-+
-+	gsw = platform_get_drvdata(pdev);
-+	priv->soc->swpriv = gsw;
-+
-+	mt7621_hw_init(gsw, np);
-+
-+	if (gsw->irq) {
-+		request_irq(gsw->irq, gsw_interrupt_mt7621, 0,
-+			    "gsw", priv);
-+		mt7530_mdio_w32(gsw, 0x7008, 0x1f);
-+	}
-+
-+	return 0;
-+}
-+
-+static int mt7621_gsw_probe(struct platform_device *pdev)
-+{
-+	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	const char *port4 = NULL;
-+	struct mt7620_gsw *gsw;
-+	struct device_node *np;
-+
-+	gsw = devm_kzalloc(&pdev->dev, sizeof(struct mt7620_gsw), GFP_KERNEL);
-+	if (!gsw)
-+		return -ENOMEM;
-+
-+	gsw->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (!gsw->base)
-+		return -EADDRNOTAVAIL;
-+
-+	gsw->dev = &pdev->dev;
-+
-+	of_property_read_string(np, "mediatek,port4", &port4);
-+	if (port4 && !strcmp(port4, "ephy"))
-+		gsw->port4 = PORT4_EPHY;
-+	else if (port4 && !strcmp(port4, "gmac"))
-+		gsw->port4 = PORT4_EXT;
-+	else
-+		gsw->port4 = PORT4_EPHY;
-+
-+	gsw->irq = irq_of_parse_and_map(np, 0);
-+
-+	platform_set_drvdata(pdev, gsw);
-+
-+	return 0;
-+}
-+
-+static int mt7621_gsw_remove(struct platform_device *pdev)
-+{
-+	platform_set_drvdata(pdev, NULL);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver gsw_driver = {
-+	.probe = mt7621_gsw_probe,
-+	.remove = mt7621_gsw_remove,
-+	.driver = {
-+		.name = "mt7621-gsw",
-+		.owner = THIS_MODULE,
-+		.of_match_table = mediatek_gsw_match,
-+	},
-+};
-+
-+module_platform_driver(gsw_driver);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("John Crispin <blogic@openwrt.org>");
-+MODULE_DESCRIPTION("GBit switch driver for Mediatek MT7621 SoC");
++MODULE_DEVICE_TABLE(of, of_fe_match);
 -- 
 1.7.10.4
