@@ -1,61 +1,69 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: Disable "received packet with own address as source" check
-Date: Sun, 3 Jan 2016 09:27:57 -0700
-Message-ID: <56894C0D.9060401@cumulusnetworks.com>
-References: <CADGFtMWL+G+Tq_qrtQ3iQ6QeJBk_vetZin5Wqh8RPpykADOJ=Q@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] arpd: drop unnecessary explicit null
+ termination
+Date: Sun, 3 Jan 2016 09:04:04 -0800
+Message-ID: <20160103090404.054e724b@xeon-e3>
+References: <1451837384-2177-1-git-send-email-andreas@fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Luca Dionisi <luca.dionisi@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:33627 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbcACQ2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 11:28:00 -0500
-Received: by mail-ob0-f176.google.com with SMTP id bx1so207271458obb.0
-        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 08:28:00 -0800 (PST)
-In-Reply-To: <CADGFtMWL+G+Tq_qrtQ3iQ6QeJBk_vetZin5Wqh8RPpykADOJ=Q@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35529 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751117AbcACRDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 12:03:55 -0500
+Received: by mail-pa0-f44.google.com with SMTP id ho8so915618pac.2
+        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 09:03:55 -0800 (PST)
+In-Reply-To: <1451837384-2177-1-git-send-email-andreas@fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/2/16 9:25 AM, Luca Dionisi wrote:
-> My linux box has a duty. It has to forward IP packets for a "private"
-> network which it doesn't belong to.
->
-> The network is "private" has the meaning that the hosts that belong to
-> the network have IP addresses that are unique only between them.
->
-> Say that the network is formed by 4 nodes: "a", "b", "c", "d", with
-> their IP addresses: 10.0.1.1, ..., 10.0.1.4.
->
-> The nodes "a", "b" and "c" are connected, but the only way from "c" to
-> "d" is through my box, let's call it "x".
->
-> The problem is that "x" has to live inside another "private" network,
-> and in this other network the address of "x" is 10.0.1.4.
->
-> When I send a PING-request from "c" to "d" the packet goes to a
-> specific NIC of "x". Thanks to some carefully designed
-> iptables+ip-rule tricks in "x", the PING-request is effectively
-> relayed from "x" to the node "d", although "x" has the same IP as the
-> destination of the packet.
->
-> Now the node "d" sends a PING-reply to "c". This packet goes to a
-> specific NIC of "x". There, the same tricks would send the packet to
-> "c". But this is not happening.
->
-> I suspect that the problem is that the box "x" refuses to relay a
-> packet that has an IP source equal to one of its local IP addresses,
-> although this IP is assigned to another NIC.
->
-> I have this suspect because of the tcpdump traces that I have
-> collected. But I don't seem to succeed in finding other evidences (I
-> looked into dmesg and /var/log/syslog).
->
-> Is there a tunable in linux to change this behaviour? I want to say to
-> "x": When a packet comes in through NIC0, relay it without bothering
-> if it has your IP as source address.
+On Sun,  3 Jan 2016 17:09:44 +0100
+Andreas Henriksson <andreas@fatal.se> wrote:
 
+> This is a followup to a previous commit 61170fd88d264c
+> "get rid of unnecessary fgets() buffer size limitation".
+> 
+> If fgets guarantees buffer will be null terminated in the
+> given size, then we can also drop the explicit termination.
+> 
+> While at it, also add an unrelated FIXME comment about
+> potential unlikely long comment handling bug spotted in
+> nearby code.
+> 
+> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+> ---
+>  misc/arpd.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/misc/arpd.c b/misc/arpd.c
+> index 6bb9bd1..3be700d 100644
+> --- a/misc/arpd.c
+> +++ b/misc/arpd.c
+> @@ -702,12 +702,16 @@ int main(int argc, char **argv)
+>  			goto do_abort;
+>  		}
+>  
+> -		buf[sizeof(buf)-1] = 0;
+>  		while (fgets(buf, sizeof(buf), fp)) {
+>  			__u8 b1[6];
+>  			char ipbuf[128];
+>  			char macbuf[128];
+>  
+> +			/* FIXME: this does not properly handle the case where
+> +			 * the comment line is longer than sizeof(buf).
+> +			 * Should check if buf contains '\n' or skip upcoming
+> +			 * bufs until '\n' is found.
+> +			 */
+>  			if (buf[0] == '#')
+>  				continue;
+>  
 
-The VRF device added in 4.3 solves this problem.
-https://www.kernel.org/doc/Documentation/networking/vrf.txt
+Rather than adding a big FIXME, please fix the problem.
+
+Easiest fix would be just increase sizeof(buf) to BUFSIZ (4k) which
+should fix any rational use of the file.
+
+Other alternatives would be to use fscanf or getline.
