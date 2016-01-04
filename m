@@ -1,44 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] bnxt_en: Support combined and rx/tx
- channels.
-Date: Mon, 04 Jan 2016 15:55:31 -0500 (EST)
-Message-ID: <20160104.155531.474952993170321598.davem@davemloft.net>
-References: <1451796304-23220-1-git-send-email-mchan@broadcom.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 12/24] of: phy: Only register a phy device
+ for phys
+Date: Mon, 4 Jan 2016 22:04:51 +0100
+Message-ID: <20160104210451.GB7485@lunn.ch>
+References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
+ <1451929022-5580-13-git-send-email-andrew@lunn.ch>
+ <568ACF80.5070105@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48179 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751990AbcADUzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 15:55:35 -0500
-In-Reply-To: <1451796304-23220-1-git-send-email-mchan@broadcom.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:35203 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751908AbcADVEw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2016 16:04:52 -0500
+Content-Disposition: inline
+In-Reply-To: <568ACF80.5070105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <mchan@broadcom.com>
-Date: Sat, 2 Jan 2016 23:44:57 -0500
+On Mon, Jan 04, 2016 at 12:01:04PM -0800, Florian Fainelli wrote:
+> On 04/01/16 09:36, Andrew Lunn wrote:
+> > We will soon support devices other than phys on the mdio bus. Look at
+> > a child's compatibility string to determine if it is a phy, before
+> > registering a phy device.
+> > 
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> > ---
+> 
+> [snip]
+> 
+> > +	if (of_get_phy_id(child, &phy_id) != -EINVAL)
+> > +		return true;
+> > +
+> > +	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c45"))
+> > +		return true;
+> 
+> Is there a particular reason not to check for
+> "ethernet-phy-ieee802.3-c22 here?
 
-> The bnxt hardware uses a completion ring for rx and tx events.  The driver
-> has to process the completion ring entries sequentially for the events.
-> The current code only supports an rx/tx ring pair for each completion ring.
-> This patch series add support for using a dedicated completion ring for
-> rx only or tx only as an option configuarble using ethtool -L.
-> 
-> The benefits for using dedicated completion rings are:
-> 
-> 1. A burst of rx packets can cause delay in processing tx events if the
-> completion ring is shared.  If tx queue is stopped by BQL, this can cause
-> delay in re-starting the tx queue.
-> 
-> 2. A completion ring is sized according to the rx and tx ring size rounded
-> up to the nearest power of 2.  When the completion ring is shared, it is
-> sized by adding the rx and tx ring sizes and then rounded to the next power
-> of 2, often with a lot of wasted space.
-> 
-> 3. Using dedicated completion ring, we can adjust the tx and rx coalescing
-> parameters independently for rx and tx.
+Humm interesting. Didn't even know it was a valid compatible string.
+Also, Linux does not know it is a valid compatible string:
 
-Series applied, thanks Michael.
+~/linux$ grep -r "ethernet-phy-ieee802.3-c22" ./drivers
+~/linux$
+
+It is however used in a number of DT files and is documented in
+Documentation/devicetree/bindings/net/phy.txt.
+
+I will add it here as well.
+ 
+> > +
+> > +	if (!of_find_property(child, "compatible", NULL))
+> > +		return true;
+> 
+> That seems reasonable, we should probably make the compatible string for
+> PHY Device Tree nodes not an optional property anymore though, but
+> that's for a separate change and topic.
+
+Yes, printing a warning here would be good.
+
+     Andrew
