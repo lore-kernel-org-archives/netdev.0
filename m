@@ -1,214 +1,116 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCHv2 (net-next.git) 16/18] stmmac: do not perform zero-copy for rx frames
-Date: Mon, 4 Jan 2016 14:07:01 +0100
-Message-ID: <1451912823-5245-17-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net-next.git) 13/18] stmmac: perf, remove modulo in stmmac_rx()
+Date: Mon, 4 Jan 2016 14:06:58 +0100
+Message-ID: <1451912823-5245-14-git-send-email-peppe.cavallaro@st.com>
 References: <1451912823-5245-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <alexandre.torgue@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Fabrice Gasnier <fabrice.gasnier@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:35478 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:18837 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753766AbcADMy3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 07:54:29 -0500
+	by vger.kernel.org with ESMTP id S1753766AbcADMyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 07:54:20 -0500
 Received: from pps.filterd (m0046660.ppops.net [127.0.0.1])
-	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id u04CrCpO022577
-	for <netdev@vger.kernel.org>; Mon, 4 Jan 2016 13:54:28 +0100
+	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id u04CrGRT022844
+	for <netdev@vger.kernel.org>; Mon, 4 Jan 2016 13:54:19 +0100
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx08-00178001.pphosted.com with ESMTP id 2034vyx795-1
+	by mx08-00178001.pphosted.com with ESMTP id 2034vyx78p-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 13:54:28 +0100
+	for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 13:54:19 +0100
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1025938
-	for <netdev@vger.kernel.org>; Mon,  4 Jan 2016 12:53:45 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6844431
+	for <netdev@vger.kernel.org>; Mon,  4 Jan 2016 12:53:35 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 48ACD50FA
-	for <netdev@vger.kernel.org>; Mon,  4 Jan 2016 12:54:27 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id A1A3250F6
+	for <netdev@vger.kernel.org>; Mon,  4 Jan 2016 12:54:17 +0000 (GMT)
 In-Reply-To: <1451912823-5245-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to allow this driver to copy tiny frames during the reception
-process. This is giving more stability while stressing the driver on STi
-embedded systems.
+The indexes into the ring buffer are always incremented, and
+the entry is accessed via doing a modulo to find the "real" index.
+Modulo is an expensive operation.
 
+This patch replaces the modulo with a simple if clamp.
+It helps improve stmmac RX path as it's being called inside RX loop.
+
+Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   28 ++++++++++++++++++---
+ 1 files changed, 24 insertions(+), 4 deletions(-)
 
-V2: rx_copybreak tunable by using ethtool
-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    1 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   39 +++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   61 +++++++++++++++-----
- 3 files changed, 86 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index b73e8d8..c94ae65 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -76,6 +76,7 @@ struct stmmac_priv {
- 	unsigned int dirty_rx;
- 	unsigned int dma_rx_size;
- 	unsigned int dma_buf_sz;
-+	unsigned int rx_copybreak;
- 	u32 rx_riwt;
- 	int hwts_rx_en;
- 	dma_addr_t *rx_skbuff_dma;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index c803d4c..3c7928e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -781,6 +781,43 @@ static int stmmac_get_ts_info(struct net_device *dev,
- 		return ethtool_op_get_ts_info(dev, info);
- }
- 
-+static int stmmac_get_tunable(struct net_device *dev,
-+			      const struct ethtool_tunable *tuna, void *data)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		*(u32 *)data = priv->rx_copybreak;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int stmmac_set_tunable(struct net_device *dev,
-+			      const struct ethtool_tunable *tuna,
-+			      const void *data)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		priv->rx_copybreak = *(u32 *)data;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.begin = stmmac_check_if_running,
- 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
-@@ -803,6 +840,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_ts_info = stmmac_get_ts_info,
- 	.get_coalesce = stmmac_get_coalesce,
- 	.set_coalesce = stmmac_set_coalesce,
-+	.get_tunable = stmmac_get_tunable,
-+	.set_tunable = stmmac_set_tunable,
- };
- 
- void stmmac_set_ethtool_ops(struct net_device *netdev)
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 879cf77..b431046 100644
+index 5bb2804..4a75f79 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -99,6 +99,8 @@ static int buf_sz = DEFAULT_BUFSIZE;
- module_param(buf_sz, int, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(buf_sz, "DMA buffer size");
+@@ -212,6 +212,18 @@ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ 	return avail;
+ }
  
-+#define	STMMAC_RX_COPYBREAK	256
++static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
++{
++	unsigned dirty;
 +
- static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
- 				      NETIF_MSG_LINK | NETIF_MSG_IFUP |
- 				      NETIF_MSG_IFDOWN | NETIF_MSG_TIMER);
-@@ -1842,6 +1844,7 @@ static int stmmac_open(struct net_device *dev)
- 	priv->dma_tx_size = STMMAC_ALIGN(dma_txsize);
- 	priv->dma_rx_size = STMMAC_ALIGN(dma_rxsize);
- 	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
-+	priv->rx_copybreak = STMMAC_RX_COPYBREAK;
- 
- 	ret = alloc_dma_desc_resources(priv);
- 	if (ret < 0) {
-@@ -2195,8 +2198,7 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- 			struct sk_buff *skb;
- 
- 			skb = netdev_alloc_skb_ip_align(priv->dev, bfsize);
--
--			if (unlikely(skb == NULL))
-+			if (unlikely(!skb))
- 				break;
- 
- 			priv->rx_skbuff[entry] = skb;
-@@ -2319,23 +2321,52 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 					pr_debug("\tframe size %d, COE: %d\n",
- 						 frame_len, status);
- 			}
--			skb = priv->rx_skbuff[entry];
--			if (unlikely(!skb)) {
--				pr_err("%s: Inconsistent Rx descriptor chain\n",
--				       priv->dev->name);
--				priv->dev->stats.rx_dropped++;
--				break;
++	if (priv->dirty_rx <= priv->cur_rx)
++		dirty = priv->cur_rx - priv->dirty_rx;
++	else
++		dirty = priv->dma_rx_size - priv->dirty_rx + priv->cur_rx;
 +
-+			if (unlikely(frame_len < priv->rx_copybreak)) {
-+				skb = netdev_alloc_skb_ip_align(priv->dev,
-+								frame_len);
-+				if (unlikely(!skb)) {
-+					if (net_ratelimit())
-+						dev_warn(priv->device,
-+							 "packet dropped\n");
-+					priv->dev->stats.rx_dropped++;
-+					break;
-+				}
++	return dirty;
++}
 +
-+				dma_sync_single_for_cpu(priv->device,
-+							priv->rx_skbuff_dma
-+							[entry], frame_len,
-+							DMA_FROM_DEVICE);
-+				skb_copy_to_linear_data(skb,
-+							priv->
-+							rx_skbuff[entry]->data,
-+							frame_len);
-+
-+				skb_put(skb, frame_len);
-+				dma_sync_single_for_device(priv->device,
-+							   priv->rx_skbuff_dma
-+							   [entry], frame_len,
-+							   DMA_FROM_DEVICE);
-+			} else {
-+				skb = priv->rx_skbuff[entry];
-+				if (unlikely(!skb)) {
-+					pr_err("%s: Inconsistent Rx chain\n",
-+					       priv->dev->name);
-+					priv->dev->stats.rx_dropped++;
-+					break;
-+				}
-+				prefetch(skb->data - NET_IP_ALIGN);
-+				priv->rx_skbuff[entry] = NULL;
-+
-+				skb_put(skb, frame_len);
-+				dma_unmap_single(priv->device,
-+						 priv->rx_skbuff_dma[entry],
-+						 priv->dma_buf_sz,
-+						 DMA_FROM_DEVICE);
- 			}
--			prefetch(skb->data - NET_IP_ALIGN);
--			priv->rx_skbuff[entry] = NULL;
+ /**
+  * stmmac_hw_fix_mac_speed - callback for speed selection
+  * @priv: driver private structure
+@@ -2162,9 +2174,10 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+ {
+ 	unsigned int rxsize = priv->dma_rx_size;
+ 	int bfsize = priv->dma_buf_sz;
++	unsigned int entry = priv->dirty_rx;
++	int dirty = stmmac_rx_dirty(priv);
  
- 			stmmac_get_rx_hwtstamp(priv, entry, skb);
+-	for (; priv->cur_rx - priv->dirty_rx > 0; priv->dirty_rx++) {
+-		unsigned int entry = priv->dirty_rx % rxsize;
++	while (dirty-- > 0) {
+ 		struct dma_desc *p;
  
--			skb_put(skb, frame_len);
--			dma_unmap_single(priv->device,
--					 priv->rx_skbuff_dma[entry],
--					 priv->dma_buf_sz, DMA_FROM_DEVICE);
--
- 			if (netif_msg_pktdata(priv)) {
- 				pr_debug("frame received (%dbytes)", frame_len);
- 				print_pkt(skb->data, frame_len);
+ 		if (priv->extend_desc)
+@@ -2200,6 +2213,10 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+ 		wmb();
+ 		priv->hw->desc->set_rx_owner(p);
+ 		wmb();
++
++		if (unlikely(++priv->dirty_rx >= rxsize))
++			priv->dirty_rx = 0;
++		entry = priv->dirty_rx;
+ 	}
+ }
+ 
+@@ -2213,7 +2230,7 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ {
+ 	unsigned int rxsize = priv->dma_rx_size;
+-	unsigned int entry = priv->cur_rx % rxsize;
++	unsigned int entry = priv->cur_rx;
+ 	unsigned int next_entry;
+ 	unsigned int count = 0;
+ 	int coe = priv->hw->rx_csum;
+@@ -2243,7 +2260,10 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ 
+ 		count++;
+ 
+-		next_entry = (++priv->cur_rx) % rxsize;
++		if (unlikely(++priv->cur_rx >= rxsize))
++			priv->cur_rx = 0;
++		next_entry = priv->cur_rx;
++
+ 		if (priv->extend_desc)
+ 			prefetch(priv->dma_erx + next_entry);
+ 		else
 -- 
 1.7.4.4
