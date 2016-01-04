@@ -1,59 +1,31 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net] r8152: add reset_resume function
-Date: Mon, 4 Jan 2016 14:38:46 +0800
-Message-ID: <1394712342-15778-169-Taiwan-albertk@realtek.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [1/2] ppp: define reusable device creation functions
+Date: Mon, 4 Jan 2016 08:28:54 +0100
+Message-ID: <CA+icZUVRrMx87dS4dp=+--iakGr83USXnat2i1cW-KZA2DBg_g@mail.gmail.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f44.google.com ([209.85.213.44]:35817 "EHLO
+	mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752852AbcADH2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 02:28:55 -0500
+Received: by mail-vk0-f44.google.com with SMTP id k1so118101508vkb.2
+        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 23:28:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the reset_resume() is called, the flag of SELECTIVE_SUSPEND should be
-cleared and reinitialize the device, whether the SELECTIVE_SUSPEND is set
-or not. If reset_resume() is called, it means the power supply is cut or the
-device is reset. That is, the device wouldn't be in runtime suspend state and
-the reinitialization is necessary.
+Built up and ran successfully on my Ubuntu/precise AMD64 box on top of
+net-next.git#master up to ("c07f30ad6805: Merge
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net").
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+Feel free to add my...
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 2e32c41..2fb637a 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3525,6 +3525,14 @@ static int rtl8152_resume(struct usb_interface *intf)
- 	return 0;
- }
- 
-+static int rtl8152_reset_resume(struct usb_interface *intf)
-+{
-+	struct r8152 *tp = usb_get_intfdata(intf);
-+
-+	clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-+	return rtl8152_resume(intf);
-+}
-+
- static void rtl8152_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	struct r8152 *tp = netdev_priv(dev);
-@@ -4276,7 +4284,7 @@ static struct usb_driver rtl8152_driver = {
- 	.disconnect =	rtl8152_disconnect,
- 	.suspend =	rtl8152_suspend,
- 	.resume =	rtl8152_resume,
--	.reset_resume =	rtl8152_resume,
-+	.reset_resume =	rtl8152_reset_resume,
- 	.pre_reset =	rtl8152_pre_reset,
- 	.post_reset =	rtl8152_post_reset,
- 	.supports_autosuspend = 1,
--- 
-2.4.3
+Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Sedat -
+
+[1] https://patchwork.ozlabs.org/patch/560702/
