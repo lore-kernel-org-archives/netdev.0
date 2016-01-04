@@ -1,54 +1,35 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: Re: commit e34d65696d2e broke stmmac ethernet on socfpga
-Date: Mon, 4 Jan 2016 09:19:02 -0600
-Message-ID: <568A8D66.3080000@opensource.altera.com>
-References: <56744625.8040209@opensource.altera.com> <CABgxDo+uTgYVYE-E6gQCoeWaeV=GKZVw-99JEHChDr3QAs9TkA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <preid@electromag.com.au>, "David S. Miller" <davem@davemloft.net>,
-	robh <robh@kernel.org>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	<peppe.cavallaro@st.com>
-To: Romain Perier <romain.perier@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABgxDo+uTgYVYE-E6gQCoeWaeV=GKZVw-99JEHChDr3QAs9TkA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/3] nfp: MTU changes and other fixes
+Date: Mon,  4 Jan 2016 16:03:12 +0000
+Message-ID: <1451923395-24533-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: simon.horman@netronome.com, rolf.neugebauer@netronome.com,
+	Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33653 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752515AbcADQDX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 11:03:23 -0500
+Received: by mail-wm0-f41.google.com with SMTP id f206so178562529wmf.0
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 08:03:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/01/2016 02:49 AM, Romain Perier wrote:
-> Hi all,
-> 
-> Same here on rockchip.
-> See "[PATCH] stmmac: Don't exit mdio registration when mdio subnode is
-> not found in the DTS"
-> 
-> Regards,
-> Romain
-> 
-> 2015-12-18 18:45 GMT+01:00 Dinh Nguyen <dinguyen@opensource.altera.com>:
->> Hi,
->>
->> It appears that commit e34d65696d2e 'stmmac: create of compatible mdio
->> bus for
->> stmmac driver' is causing this error on the SoCFPGA platform:
->>
->> [    1.767246] libphy: PHY stmmac-0:ffffffff not found
->> [    1.772106] eth0: Could not attach to PHY
->> [    1.776129] stmmac_open: Cannot attach to PHY (error: -19)
->> [    1.781590] IP-Config: Failed to open eth0
->> [    1.785681] IP-Config: No network devices available
->>
->> Doing a revert of this commit fixes the issue. Will try to debug further.
->>
+Hi!
 
-There error is here:
+Three small fixes around RX buffer sizing.  First one corrects
+the length used for unmapping DMA buffers when MTU is changed,
+second makes sure buffers are big enough to meet FW's expectations.
+Third change corrects packet length validation on RX.
 
-[    0.663275] socfpga-dwmac ff702000.ethernet eth0: NO MDIO subnode
 
-It appears that his commit requires an update to DTS files, which will
-subsequently break legacy DTS.
+Jakub Kicinski (3):
+  nfp: free buffers before changing MTU
+  nfp: correct RX buffer length calculation
+  nfp: fix RX buffer length validation
 
-Also, this commit is only in linux-next.
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 37 +++++++++-------------
+ 1 file changed, 15 insertions(+), 22 deletions(-)
 
-Dinh
+-- 
+1.9.1
