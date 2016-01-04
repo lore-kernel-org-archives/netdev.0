@@ -1,89 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in
- __skb_try_recv_datagram
-Date: Mon, 04 Jan 2016 08:45:25 -0800
-Message-ID: <1451925925.8255.75.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
-	 <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
-	 <20151229.150843.2021692616139434395.davem@davemloft.net>
-	 <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
-	 <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
-	 <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
-	 <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
-	 <CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
-	 <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87wprptj93.fsf@doppelsaurus.mobileactivedefense.com>
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Subject: Re: [PATCH] rt2x00pci: Disable memory-write-invalidate when the
+ driver exits
+Date: Mon, 4 Jan 2016 17:50:36 +0100
+Message-ID: <CAGXE3d9tTr6hyOjh==Mn5tNQSy-hMBhxtmsWNY_tLgJqE=B38A@mail.gmail.com>
+References: <1451894138-3482-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jacob Siverskog <jacob@teenage.engineering>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
 	LKML <linux-kernel@vger.kernel.org>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+To: Jia-Ju Bai <baijiaju1990@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wprptj93.fsf@doppelsaurus.mobileactivedefense.com>
+In-Reply-To: <1451894138-3482-1-git-send-email-baijiaju1990@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-01-04 at 16:14 +0000, Rainer Weikusat wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> > On Mon, 2016-01-04 at 10:10 +0100, Jacob Siverskog wrote:
-> 
-> [...]
-> 
-> >> I believe the crash occurred between these two actions. I just saw
-> >> that there are some interesting events in the log prior to the crash:
-> >> kernel: Bluetooth: Unable to push skb to HCI core(-6)
-> >> kernel: (stc):  proto stack 4's ->recv failed
-> >> kernel: (stc): remove_channel_from_table: id 3
-> >> kernel: (stc): remove_channel_from_table: id 2
-> >> kernel: (stc): remove_channel_from_table: id 4
-> >> kernel: (stc):  all chnl_ids unregistered
-> >> kernel: (stk) :ldisc_install = 0(stc): st_tty_close
-> >> 
-> >> The first print is from btwilink.c. However, I can't see the
-> >> connection between Bluetooth (BLE) and UDP/IPv6 (we're not using
-> >> 6LoWPAN or anything similar).
-> >> 
-> >> Thanks, Jacob
-> >
-> > Definitely these details are useful ;)
-> >
-> > Could you try :
-> >
-> > diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
-> > index 6e3af8b42cdd..0c99a74fb895 100644
-> > --- a/drivers/misc/ti-st/st_core.c
-> > +++ b/drivers/misc/ti-st/st_core.c
-> > @@ -912,7 +912,9 @@ void st_core_exit(struct st_data_s *st_gdata)
-> >  		skb_queue_purge(&st_gdata->txq);
-> >  		skb_queue_purge(&st_gdata->tx_waitq);
-> >  		kfree_skb(st_gdata->rx_skb);
-> > +		st_gdata->rx_skb = NULL;
-> >  		kfree_skb(st_gdata->tx_skb);
-> > +		st_gdata->tx_skb = NULL;
-> >  		/* TTY ldisc cleanup */
-> >  		err = tty_unregister_ldisc(N_TI_WL);
-> >  		if (err)
-> 
-> Hmm ... the code continues with
-> 
-> 		err = tty_unregister_ldisc(N_TI_WL);
-> 		if (err)
-> 			pr_err("unable to un-register ldisc %ld", err);
-> 		/* free the global data pointer */
-> 		kfree(st_gdata);
-> 
-> So who would ever see that the rx_skb and tx_skb pointers were cleared
-> prior to freeing the data structure containing them?
+On Mon, Jan 4, 2016 at 8:55 AM, Jia-Ju Bai <baijiaju1990@163.com> wrote:
+> The driver calls pci_set_mwi to enable memory-write-invalidate when it
+> is initialized, but does not call pci_clear_mwi when it is removed. Many
+> other drivers calls pci_clear_mwi when pci_set_mwi is called, such as
+> r8169, 8139cp and e1000.
+>
+> This patch adds pci_clear_mwi in error handling and removal procedure,
+> which can fix the problem.
+>
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 
-This is the theory, but I suspect a use after free.
+Looks good to me.
+Does this fix any actual issue?
+If yes it might we worth to mention it in the commit message.
+Helmut
 
-kfree(st_gdata) does not clear all content with 0, unless you use
-special SLUB/SLAB debugging features.
+
+> ---
+>  drivers/net/wireless/rt2x00/rt2x00pci.c |    2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
+> index d93db4b..eb6dbcd 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00pci.c
+> +++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+> @@ -149,6 +149,7 @@ exit_free_device:
+>         ieee80211_free_hw(hw);
+>
+>  exit_release_regions:
+> +       pci_clear_mwi(pci_dev);
+>         pci_release_regions(pci_dev);
+>
+>  exit_disable_device:
+> @@ -173,6 +174,7 @@ void rt2x00pci_remove(struct pci_dev *pci_dev)
+>         /*
+>          * Free the PCI device data.
+>          */
+> +       pci_clear_mwi(pci_dev);
+>         pci_disable_device(pci_dev);
+>         pci_release_regions(pci_dev);
+>  }
+> --
+> 1.7.9.5
+>
+>
