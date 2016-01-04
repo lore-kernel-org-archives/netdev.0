@@ -1,49 +1,171 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC PATCH net-next] net: Add l3mdev cgroup
-Date: Mon, 4 Jan 2016 13:59:36 -0500
-Message-ID: <20160104185936.GA3807@mtj.duckdns.org>
-References: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
- <20160104175836.GA11668@mtj.duckdns.org>
- <568ABFC3.3010803@cumulusnetworks.com>
+From: Saurabh Mohan <saurabh@cplanenetworks.com>
+Subject: [PATCH net-next 1/2] Support outside netns for tunnels.
+Date: Mon, 4 Jan 2016 10:45:46 -0800
+Message-ID: <1451933147-17266-1-git-send-email-saurabh@cplanenetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
-To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <568ABFC3.3010803-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Saurabh Mohan <saurabh@cplanenetworks.com>
+To: <netdev@vger.kernel.org>, <stephen@networkplumber.org>,
+	<davem@davemloft.net>, <pshelar@nicira.com>, <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0135.outbound.protection.outlook.com ([65.55.169.135]:33175
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752090AbcADTBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2016 14:01:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, David.
 
-On Mon, Jan 04, 2016 at 11:53:55AM -0700, David Ahern wrote:
-> On 1/4/16 10:58 AM, Tejun Heo wrote:
-> >Please don't create any new controller whose sole purpose is
-> >identifying group membership.  Please take a look at how libxt_cgroup
-> >handles identification w/o creating a new controller.
-> >
-> >  http://lkml.kernel.org/g/1449527935-27056-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-> >
-> 
-> This controller applies a cgroup specific setting to tasks associated with
-> an instance (similar to cpuset restricting tasks to specifics CPUs), so it
-> is more than just identifying membership.
+This patch enchances a tunnel interface, like gre, to have the tunnel
+encap/decap be in the context of a network namespace that is different from 
+the namespace of the tunnel interface.
 
-Any identification can be mapped back and forth to setting configs to
-a set of tasks.  That doesn't change the fact that all the controller
-is doing is identifying cgroup membership and the proposed controller
-shares exatly the same problems as netprio or netcls controllers.
+>From userspace this feature may be configured using the new 'onetns' keyword:
+ip netns exec custa ip link add dev tun1 type gre local 10.0.0.1 \
+ remote 10.0.0.2 onetns outside 
 
-> I looked at the commits referenced above and net/netfilter/xt_cgroup.c code
-> in particular and I don't see how it applies to this use case. Can you
-> elaborate?
+In the above example the tunnel would be in the 'custa' namespace and the 
+tunnel endpoints would be in the 'outside' namespace.
 
-Match cgroup membership in whatever subsystem that cares about it and
-apply the policy there.
+Also, proposing the use of netns name 'global' to specify the global namespace.
 
-Thanks.
+If this patch set is accepted then I will add support for other tunnels as 
+well.
 
+Signed-off-by: Saurabh Mohan <saurabh@cplanenetworks.com>
+---
+ include/uapi/linux/if_tunnel.h | 19 +++++++++++++++++++
+ net/ipv4/ip_tunnel.c           | 24 +++++++++++++++++++++---
+ 2 files changed, 40 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index af4de90..2e43753 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -3,6 +3,7 @@
+ 
+ #include <linux/types.h>
+ #include <asm/byteorder.h>
++#include <linux/limits.h>
+ 
+ 
+ #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
+@@ -27,6 +28,14 @@
+ #define GRE_FLAGS	__cpu_to_be16(0x00F8)
+ #define GRE_VERSION	__cpu_to_be16(0x0007)
+ 
++struct o_netns_parm {
++	__u8			o_netns_flag;
++	__u32			o_netns_fd;
++	char			netns[NAME_MAX];
++};
++#define TUNNEL_ONETNS_FLAG_GLOBAL	(1<<0)
++#define TUNNEL_ONETNS_FLAG_NETNS	(1<<1)
++
+ struct ip_tunnel_parm {
+ 	char			name[IFNAMSIZ];
+ 	int			link;
+@@ -35,6 +44,7 @@ struct ip_tunnel_parm {
+ 	__be32			i_key;
+ 	__be32			o_key;
+ 	struct iphdr		iph;
++	struct o_netns_parm	o_net;
+ };
+ 
+ enum {
+@@ -57,6 +67,9 @@ enum {
+ 	IFLA_IPTUN_ENCAP_FLAGS,
+ 	IFLA_IPTUN_ENCAP_SPORT,
+ 	IFLA_IPTUN_ENCAP_DPORT,
++	IFLA_IPTUN_ONETNS_FLAGS,
++	IFLA_IPTUN_ONETNS_FD,
++	IFLA_IPTUN_ONETNS_NAME,
+ 	__IFLA_IPTUN_MAX,
+ };
+ #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
+@@ -113,6 +126,9 @@ enum {
+ 	IFLA_GRE_ENCAP_SPORT,
+ 	IFLA_GRE_ENCAP_DPORT,
+ 	IFLA_GRE_COLLECT_METADATA,
++	IFLA_GRE_ONETNS_FLAGS,
++	IFLA_GRE_ONETNS_FD,
++	IFLA_GRE_ONETNS_NAME,
+ 	__IFLA_GRE_MAX,
+ };
+ 
+@@ -128,6 +144,9 @@ enum {
+ 	IFLA_VTI_OKEY,
+ 	IFLA_VTI_LOCAL,
+ 	IFLA_VTI_REMOTE,
++	IFLA_VTI_ONETNS_FLAGS,
++	IFLA_VTI_ONETNS_FD,
++	IFLA_VTI_ONETNS_NAME,
+ 	__IFLA_VTI_MAX,
+ };
+ 
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index c7bd72e..f8dd717 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -259,6 +259,16 @@ static struct hlist_head *ip_bucket(struct ip_tunnel_net *itn,
+ 	return &itn->tunnels[h];
+ }
+ 
++static struct net *ip_tunnel_get_onet(struct net *inet,
++				      struct ip_tunnel_parm *parms)
++{
++	if (parms->o_net.o_netns_flag == 0)
++		return inet;
++	if (parms->o_net.o_netns_flag & TUNNEL_ONETNS_FLAG_GLOBAL)
++		return &init_net;
++	return get_net_ns_by_fd(parms->o_net.o_netns_fd);
++}
++
+ static void ip_tunnel_add(struct ip_tunnel_net *itn, struct ip_tunnel *t)
+ {
+ 	struct hlist_head *head = ip_bucket(itn, &t->parms);
+@@ -330,7 +340,7 @@ static struct net_device *__ip_tunnel_create(struct net *net,
+ 
+ 	tunnel = netdev_priv(dev);
+ 	tunnel->parms = *parms;
+-	tunnel->net = net;
++	tunnel->net = ip_tunnel_get_onet(net, &tunnel->parms);
+ 
+ 	err = register_netdevice(dev);
+ 	if (err)
+@@ -818,6 +828,14 @@ static void ip_tunnel_update(struct ip_tunnel_net *itn,
+ 	t->parms.iph.daddr = p->iph.daddr;
+ 	t->parms.i_key = p->i_key;
+ 	t->parms.o_key = p->o_key;
++	if (strcmp(p->o_net.netns, t->parms.o_net.netns)) {
++		/* change the itn */
++		struct net *o_net = ip_tunnel_get_onet(dev_net(dev), p);
++
++		itn = net_generic(o_net, t->ip_tnl_net_id);
++		t->parms.o_net = p->o_net;
++		t->net = o_net;
++	}
+ 	if (dev->type != ARPHRD_ETHER) {
+ 		memcpy(dev->dev_addr, &p->iph.saddr, 4);
+ 		memcpy(dev->broadcast, &p->iph.daddr, 4);
+@@ -1071,7 +1089,7 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p)
+ {
+ 	struct ip_tunnel *nt;
+-	struct net *net = dev_net(dev);
++	struct net *net = ip_tunnel_get_onet(dev_net(dev), p);
+ 	struct ip_tunnel_net *itn;
+ 	int mtu;
+ 	int err;
+@@ -1169,7 +1187,7 @@ int ip_tunnel_init(struct net_device *dev)
+ 	}
+ 
+ 	tunnel->dev = dev;
+-	tunnel->net = dev_net(dev);
++	tunnel->net = ip_tunnel_get_onet(dev_net(dev), &tunnel->parms);
+ 	strcpy(tunnel->parms.name, dev->name);
+ 	iph->version		= 4;
+ 	iph->ihl		= 5;
 -- 
-tejun
+1.9.1
