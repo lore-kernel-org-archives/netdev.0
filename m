@@ -1,209 +1,157 @@
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [RFC v5 5/6] Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
-Date: Mon,  4 Jan 2016 04:45:22 -0800
-Message-ID: <1451911523-8534-6-git-send-email-christopher.s.hall@intel.com>
+Subject: [RFC v5 2/6] Always Running Timer (ART) correlated clocksource
+Date: Mon,  4 Jan 2016 04:45:19 -0800
+Message-ID: <1451911523-8534-3-git-send-email-christopher.s.hall@intel.com>
 References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	x86@kernel.org, linux-kernel@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
 	kevin.b.stanton@intel.com
 To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
 	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12949 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752974AbcADTup (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2016 14:50:45 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, network /system cross-timestamping is performed in the
-PTP_SYS_OFFSET ioctl. The PTP clock driver reads gettimeofday() and
-the gettime64() callback provided by the driver. The cross-timestamp
-is best effort where the latency between the capture of system time
-(getnstimeofday()) and the device time (driver callback) may be
-significant.
+On modern Intel systems TSC is derived from the new Always Running Time=
+r
+(ART). ART can be captured simultaneous to the capture of
+audio and network device clocks, allowing a correlation between timebas=
+es
+to be constructed. Upon capture, the driver converts the captured ART
+value to the appropriate system clock using the correlated clocksource
+mechanism.
 
-The getsynctime() callback and corresponding PTP_SYS_OFFSET_PRECISE
-ioctl allows the driver to perform this device/system correlation when
-for example cross timestamp hardware is available. Modern Intel
-systems can do this for onboard Ethernet controllers using the ART
-counter. There is virtually zero latency between captures of the ART
-and network device clock.
+On systems that support ART a new CPUID leaf (0x15) returns parameters
+=E2=80=9Cm=E2=80=9D and =E2=80=9Cn=E2=80=9D such that:
 
-The capabilities ioctl (PTP_CLOCK_GETCAPS), is augmented allowing
-applications to query whether or not drivers implement the getsynctime
-callback, providing more precise cross timestamping.
+TSC_value =3D (ART_value * m) / n + k [n >=3D 2]
+
+[k is an offset that can adjusted by a privileged agent. The
+IA32_TSC_ADJUST MSR is an example of an interface to adjust k.
+See 17.14.4 of the Intel SDM for more details]
 
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
 ---
- Documentation/ptp/testptp.c      |  6 ++++--
- drivers/ptp/ptp_chardev.c        | 31 +++++++++++++++++++++++++++++++
- include/linux/ptp_clock_kernel.h |  8 ++++++++
- include/uapi/linux/ptp_clock.h   | 13 ++++++++++++-
- 4 files changed, 55 insertions(+), 3 deletions(-)
+ arch/x86/include/asm/cpufeature.h |  2 +-
+ arch/x86/include/asm/tsc.h        |  2 ++
+ arch/x86/kernel/tsc.c             | 46 +++++++++++++++++++++++++++++++=
+++++++++
+ 3 files changed, 49 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index 6c6247a..d99012f 100644
---- a/Documentation/ptp/testptp.c
-+++ b/Documentation/ptp/testptp.c
-@@ -277,13 +277,15 @@ int main(int argc, char *argv[])
- 			       "  %d external time stamp channels\n"
- 			       "  %d programmable periodic signals\n"
- 			       "  %d pulse per second\n"
--			       "  %d programmable pins\n",
-+			       "  %d programmable pins\n"
-+			       "  %d cross timestamping\n",
- 			       caps.max_adj,
- 			       caps.n_alarm,
- 			       caps.n_ext_ts,
- 			       caps.n_per_out,
- 			       caps.pps,
--			       caps.n_pins);
-+			       caps.n_pins,
-+			       caps.cross_timestamping);
- 		}
- 	}
- 
-diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-index da7bae9..f39ee73 100644
---- a/drivers/ptp/ptp_chardev.c
-+++ b/drivers/ptp/ptp_chardev.c
-@@ -22,6 +22,7 @@
- #include <linux/poll.h>
- #include <linux/sched.h>
- #include <linux/slab.h>
-+#include <linux/timekeeping.h>
- 
- #include "ptp_private.h"
- 
-@@ -120,11 +121,14 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 	struct ptp_clock_caps caps;
- 	struct ptp_clock_request req;
- 	struct ptp_sys_offset *sysoff = NULL;
-+	struct ptp_sys_offset_precise precise_offset;
- 	struct ptp_pin_desc pd;
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
- 	struct ptp_clock_info *ops = ptp->info;
- 	struct ptp_clock_time *pct;
- 	struct timespec64 ts;
-+	struct system_device_crosststamp xtstamp;
-+	u32 rem;
- 	int enable, err = 0;
- 	unsigned int i, pin_index;
- 
-@@ -138,6 +142,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		caps.n_per_out = ptp->info->n_per_out;
- 		caps.pps = ptp->info->pps;
- 		caps.n_pins = ptp->info->n_pins;
-+		caps.cross_timestamping = ptp->info->getsynctime != NULL;
- 		if (copy_to_user((void __user *)arg, &caps, sizeof(caps)))
- 			err = -EFAULT;
- 		break;
-@@ -180,6 +185,32 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		err = ops->enable(ops, &req, enable);
- 		break;
- 
-+	case PTP_SYS_OFFSET_PRECISE:
-+		if (!ptp->info->getsynctime) {
-+			err = -EINVAL;
-+			break;
-+		}
-+		err = ptp->info->getsynctime(ptp->info, &xtstamp);
-+		if (err)
-+			break;
+diff --git a/arch/x86/include/asm/cpufeature.h b/arch/x86/include/asm/c=
+pufeature.h
+index e4f8010..58c799e 100644
+--- a/arch/x86/include/asm/cpufeature.h
++++ b/arch/x86/include/asm/cpufeature.h
+@@ -85,7 +85,7 @@
+ #define X86_FEATURE_P4		( 3*32+ 7) /* "" P4 */
+ #define X86_FEATURE_CONSTANT_TSC ( 3*32+ 8) /* TSC ticks at a constant=
+ rate */
+ #define X86_FEATURE_UP		( 3*32+ 9) /* smp kernel running on up */
+-/* free, was #define X86_FEATURE_FXSAVE_LEAK ( 3*32+10) * "" FXSAVE le=
+aks FOP/FIP/FOP */
++#define X86_FEATURE_ART		(3*32+10) /* Platform has always running time=
+r (ART) */
+ #define X86_FEATURE_ARCH_PERFMON ( 3*32+11) /* Intel Architectural Per=
+fMon */
+ #define X86_FEATURE_PEBS	( 3*32+12) /* Precise-Event Based Sampling */
+ #define X86_FEATURE_BTS		( 3*32+13) /* Branch Trace Store */
+diff --git a/arch/x86/include/asm/tsc.h b/arch/x86/include/asm/tsc.h
+index 6d7c547..9474c9c 100644
+--- a/arch/x86/include/asm/tsc.h
++++ b/arch/x86/include/asm/tsc.h
+@@ -29,6 +29,8 @@ static inline cycles_t get_cycles(void)
+ 	return rdtsc();
+ }
+=20
++extern struct correlated_cs art_timestamper;
 +
-+		precise_offset.sys_real.sec =
-+			div_u64_rem(ktime_to_ns(xtstamp.sys_realtime),
-+				    NSEC_PER_SEC, &rem);
-+		precise_offset.sys_real.nsec = rem;
-+		precise_offset.sys_raw.sec =
-+			div_u64_rem(ktime_to_ns(xtstamp.sys_monoraw),
-+				    NSEC_PER_SEC, &rem);
-+		precise_offset.sys_raw.nsec = rem;
-+		precise_offset.dev.sec =
-+			div_u64_rem(ktime_to_ns(xtstamp.device), NSEC_PER_SEC,
-+				    &rem);
-+		precise_offset.dev.nsec = rem;
-+		if (copy_to_user((void __user *)arg, &precise_offset,
-+				 sizeof(precise_offset)))
-+			err = -EFAULT;
-+		break;
+ extern void tsc_init(void);
+ extern void mark_tsc_unstable(char *reason);
+ extern int unsynchronized_tsc(void);
+diff --git a/arch/x86/kernel/tsc.c b/arch/x86/kernel/tsc.c
+index c7c4d9c..26dcf63 100644
+--- a/arch/x86/kernel/tsc.c
++++ b/arch/x86/kernel/tsc.c
+@@ -949,10 +949,36 @@ static struct notifier_block time_cpufreq_notifie=
+r_block =3D {
+ 	.notifier_call  =3D time_cpufreq_notifier
+ };
+=20
++#define ART_CPUID_LEAF (0x15)
++/* The denominator will never be less that 2 */
++#define ART_MIN_DENOMINATOR (2)
 +
- 	case PTP_SYS_OFFSET:
- 		sysoff = kmalloc(sizeof(*sysoff), GFP_KERNEL);
- 		if (!sysoff) {
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index b8b7306..b1c8d48 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -38,6 +38,7 @@ struct ptp_clock_request {
- 	};
- };
- 
-+struct system_device_crosststamp;
- /**
-  * struct ptp_clock_info - decribes a PTP hardware clock
-  *
-@@ -67,6 +68,11 @@ struct ptp_clock_request {
-  * @gettime64:  Reads the current time from the hardware clock.
-  *              parameter ts: Holds the result.
-  *
-+ * @getsynctime:  Reads the current time from the hardware clock and
-+ *                system clock simultaneously.
-+ *                parameter cts: Contains timestamp (device,system) pair,
-+ *                where system time is realtime and monotonic.
-+ *
-  * @settime64:  Set the current time on the hardware clock.
-  *              parameter ts: Time value to set.
-  *
-@@ -105,6 +111,8 @@ struct ptp_clock_info {
- 	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
- 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
- 	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
-+	int (*getsynctime)(struct ptp_clock_info *ptp,
-+			   struct system_device_crosststamp *cts);
- 	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
- 	int (*enable)(struct ptp_clock_info *ptp,
- 		      struct ptp_clock_request *request, int on);
-diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
-index f0b7bfe..c6ed818 100644
---- a/include/uapi/linux/ptp_clock.h
-+++ b/include/uapi/linux/ptp_clock.h
-@@ -51,7 +51,9 @@ struct ptp_clock_caps {
- 	int n_per_out; /* Number of programmable periodic signals. */
- 	int pps;       /* Whether the clock supports a PPS callback. */
- 	int n_pins;    /* Number of input/output pins. */
--	int rsv[14];   /* Reserved for future use. */
-+	/* Whether the clock supports precise system-device cross timestamps */
-+	int cross_timestamping;
-+	int rsv[13];   /* Reserved for future use. */
- };
- 
- struct ptp_extts_request {
-@@ -81,6 +83,13 @@ struct ptp_sys_offset {
- 	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
- };
- 
-+struct ptp_sys_offset_precise {
-+	struct ptp_clock_time dev;
-+	struct ptp_clock_time sys_real;
-+	struct ptp_clock_time sys_raw;
-+	unsigned int rsv[4];    /* Reserved for future use. */
++static u32 art_to_tsc_numerator;
++static u32 art_to_tsc_denominator;
++
++/*
++ * If ART is present detect the numerator:denominator to convert to TS=
+C
++ */
++static void detect_art(void)
++{
++	unsigned int unused[2];
++
++	if (boot_cpu_data.cpuid_level >=3D ART_CPUID_LEAF) {
++		cpuid(ART_CPUID_LEAF, &art_to_tsc_denominator,
++		      &art_to_tsc_numerator, unused, unused+1);
++
++		if (art_to_tsc_denominator >=3D ART_MIN_DENOMINATOR)
++			set_cpu_cap(&boot_cpu_data, X86_FEATURE_ART);
++	}
++}
++
+ static int __init cpufreq_tsc(void)
+ {
+ 	if (!cpu_has_tsc)
+ 		return 0;
++
++	detect_art();
++
+ 	if (boot_cpu_has(X86_FEATURE_CONSTANT_TSC))
+ 		return 0;
+ 	cpufreq_register_notifier(&time_cpufreq_notifier_block,
+@@ -1071,6 +1097,24 @@ int unsynchronized_tsc(void)
+ 	return 0;
+ }
+=20
++/*
++ * Convert ART to TSC given numerator/denominator found in detect_art(=
+)
++ */
++static u64 convert_art_to_tsc(struct correlated_cs *cs, u64 cycles)
++{
++	u64 tmp, res;
++
++	res =3D (cycles / art_to_tsc_denominator) * art_to_tsc_numerator;
++	tmp =3D (cycles % art_to_tsc_denominator) * art_to_tsc_numerator;
++	res +=3D tmp / art_to_tsc_denominator;
++
++	return res;
++}
++
++struct correlated_cs art_timestamper =3D {
++	.convert	=3D convert_art_to_tsc,
 +};
-+
- enum ptp_pin_function {
- 	PTP_PF_NONE,
- 	PTP_PF_EXTTS,
-@@ -124,6 +133,8 @@ struct ptp_pin_desc {
- #define PTP_SYS_OFFSET     _IOW(PTP_CLK_MAGIC, 5, struct ptp_sys_offset)
- #define PTP_PIN_GETFUNC    _IOWR(PTP_CLK_MAGIC, 6, struct ptp_pin_desc)
- #define PTP_PIN_SETFUNC    _IOW(PTP_CLK_MAGIC, 7, struct ptp_pin_desc)
-+#define PTP_SYS_OFFSET_PRECISE \
-+	_IOWR(PTP_CLK_MAGIC, 8, struct ptp_sys_offset_precise)
- 
- struct ptp_extts_event {
- 	struct ptp_clock_time t; /* Time event occured. */
--- 
++EXPORT_SYMBOL(art_timestamper);
+=20
+ static void tsc_refine_calibration_work(struct work_struct *work);
+ static DECLARE_DELAYED_WORK(tsc_irqwork, tsc_refine_calibration_work);
+@@ -1142,6 +1186,8 @@ static void tsc_refine_calibration_work(struct wo=
+rk_struct *work)
+ 		(unsigned long)tsc_khz % 1000);
+=20
+ out:
++	if (boot_cpu_has(X86_FEATURE_ART))
++		art_timestamper.related_cs =3D &clocksource_tsc;
+ 	clocksource_register_khz(&clocksource_tsc, tsc_khz);
+ }
+=20
+--=20
 2.1.4
