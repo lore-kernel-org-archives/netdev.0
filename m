@@ -1,42 +1,38 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC PATCH net-next] net: Add l3mdev cgroup
-Date: Mon, 4 Jan 2016 14:23:01 -0500
-Message-ID: <20160104192301.GC3807@mtj.duckdns.org>
-References: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
- <20160104175836.GA11668@mtj.duckdns.org>
- <568ABFC3.3010803@cumulusnetworks.com>
- <20160104185936.GA3807@mtj.duckdns.org>
- <568AC534.1070308@cumulusnetworks.com>
-Mime-Version: 1.0
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] mac802154: constify ieee802154_llsec_ops structure
+Date: Mon, 4 Jan 2016 11:41:10 -0800
+Message-ID: <7E0080F5-62E2-475F-A861-7B58DC87131E@holtmann.org>
+References: <1450906592-9203-1-git-send-email-Julia.Lawall@lip6.fr>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	shm@cumulusnetworks.com, roopa@cumulusnetworks.com
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f196.google.com ([209.85.160.196]:33240 "EHLO
-	mail-yk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751408AbcADTXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 14:23:04 -0500
-Content-Disposition: inline
-In-Reply-To: <568AC534.1070308@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Aring <alex.aring@gmail.com>,
+	kernel-janitors@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-wpan@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450906592-9203-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello, David.
+Hi Julia,
 
-On Mon, Jan 04, 2016 at 12:17:08PM -0700, David Ahern wrote:
-> None of the existing subsystems are relevant for configuring an L3
-> networking domain, and it does not make sense to tie net_cls and net_prio to
-> an L3 domain.
+> The ieee802154_llsec_ops structure is never modified, so declare it as
+> const.
+> 
+> Done with the help of Coccinelle.
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> 
+> ---
+> include/net/ieee802154_netdev.h |    2 +-
+> net/mac802154/mac_cmd.c         |    2 +-
+> 2 files changed, 2 insertions(+), 2 deletions(-)
 
-I don't have an answer for that but cgroup isn't a place to put such
-stray configurations either.  Please figure out where the
-configuration belongs first.  What you're proposing really isn't a
-resource controller.  There's no resource being distributed
-hierarchically.  It's just dumping configuration which hasn't found
-its proper place into cgroup.
+patch has been applied to bluetooth-next tree.
 
-Thanks.
+Regards
 
--- 
-tejun
+Marcel
