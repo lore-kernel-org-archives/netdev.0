@@ -1,46 +1,50 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next] net: Add l3mdev cgroup
-Date: Mon, 4 Jan 2016 12:59:15 -0700
-Message-ID: <568ACF13.3030007@cumulusnetworks.com>
-References: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
- <20160104175836.GA11668@mtj.duckdns.org>
- <568ABFC3.3010803@cumulusnetworks.com>
- <20160104185936.GA3807@mtj.duckdns.org>
- <568AC534.1070308@cumulusnetworks.com>
- <20160104192301.GC3807@mtj.duckdns.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH net-next 12/24] of: phy: Only register a phy device
+ for phys
+Date: Mon, 04 Jan 2016 12:01:04 -0800
+Message-ID: <568ACF80.5070105@gmail.com>
+References: <1451929022-5580-1-git-send-email-andrew@lunn.ch> <1451929022-5580-13-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	shm@cumulusnetworks.com, roopa@cumulusnetworks.com
-To: Tejun Heo <tj@kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:33975 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbcADT7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 14:59:32 -0500
-Received: by mail-ob0-f179.google.com with SMTP id wp13so122311242obc.1
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 11:59:31 -0800 (PST)
-In-Reply-To: <20160104192301.GC3807@mtj.duckdns.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35889 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751970AbcADUBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 15:01:38 -0500
+Received: by mail-pf0-f195.google.com with SMTP id q63so18471206pfb.3
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 12:01:37 -0800 (PST)
+In-Reply-To: <1451929022-5580-13-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/4/16 12:23 PM, Tejun Heo wrote:
-> I don't have an answer for that but cgroup isn't a place to put such
-> stray configurations either.  Please figure out where the
-> configuration belongs first.  What you're proposing really isn't a
-> resource controller.  There's no resource being distributed
-> hierarchically.  It's just dumping configuration which hasn't found
-> its proper place into cgroup.
+On 04/01/16 09:36, Andrew Lunn wrote:
+> We will soon support devices other than phys on the mdio bus. Look at
+> a child's compatibility string to determine if it is a phy, before
+> registering a phy device.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
 
-cgroups have very nice properties that I want to leverage such as 
-parent-child inheritance and easy tracking which subsystem instance a 
-task belongs. This provides a great kernel foundation for building easy 
-to use management tools.
+[snip]
 
-The documentation for cgroups does not restrict a controller to physical 
-resources but rather "it may be anything that wants to act on a group of 
-processes." That is exactly what I am doing here - I have a network 
-config that is applied to a group of processes similar to net_cls and 
-net_prio (but as I stated before those are orthogonal, independent 
-settings from the L3 domain).
+> +	if (of_get_phy_id(child, &phy_id) != -EINVAL)
+> +		return true;
+> +
+> +	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c45"))
+> +		return true;
+
+Is there a particular reason not to check for
+"ethernet-phy-ieee802.3-c22 here?
+
+> +
+> +	if (!of_find_property(child, "compatible", NULL))
+> +		return true;
+
+That seems reasonable, we should probably make the compatible string for
+PHY Device Tree nodes not an optional property anymore though, but
+that's for a separate change and topic.
+-- 
+Florian
