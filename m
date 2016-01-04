@@ -1,34 +1,35 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/3] rsi: Delete unnecessary variable initialisations in
- rsi_send_mgmt_pkt()
-Date: Mon, 4 Jan 2016 12:28:57 +0300
-Message-ID: <20160104092857.GD5284@mwanda>
+From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/3] net-iwlegacy: Refactoring for il_eeprom_init()
+Date: Mon, 4 Jan 2016 10:33:06 +0100
+Message-ID: <20160104093305.GA2588@redhat.com>
 References: <566ABCD9.1060404@users.sourceforge.net>
- <5687E169.4070704@users.sourceforge.net>
- <5687E203.1070404@users.sourceforge.net>
+ <5686E13F.2010309@users.sourceforge.net>
+ <5686E1D2.60107@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Kalle Valo <kvalo@codeaurora.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5687E203.1070404@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <5686E1D2.60107-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-These patches are labour intensive to review because you can't just do
-it in the email client.  Also you were not able to review it properly
-yourself and introduced a bug.
+On Fri, Jan 01, 2016 at 09:30:10PM +0100, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> Date: Fri, 1 Jan 2016 20:54:25 +0100
+> 
+> Return directly if a memory allocation failed at the beginning.
+> 
+> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 
-I am often remove initializers but it's normally because I am changing
-something else which makes it worthwhile.  This patch is the correct
-thing but it's not "worthwhile".  It is not a good use of my time.
+Acked-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Please stop sending cleanup patches, Markus.  Just send fixes.
-
-regards,
-dan carpenter
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
