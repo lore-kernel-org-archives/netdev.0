@@ -1,65 +1,44 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: net-libertas: Better exception handling in if_spi_host_to_card_worker()
-Date: Mon, 4 Jan 2016 12:18:30 +0100
-Message-ID: <CACna6rwAVhKX0KnW=BTBDvNe8aaSvQiuMSnMmbQ64Benm50g9w@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 1/3] rsi: Delete unnecessary variable initialisations in
+ rsi_send_mgmt_pkt()
+Date: Mon, 4 Jan 2016 14:48:49 +0300
+Message-ID: <20160104114849.GH5284@mwanda>
 References: <566ABCD9.1060404@users.sourceforge.net>
-	<5686F0B2.5000000@users.sourceforge.net>
-	<56870866.7020000@cogentembedded.com>
-	<568785B3.5000905@users.sourceforge.net>
-	<alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
-	<5687939E.7010701@users.sourceforge.net>
-	<5687A2C7.3000704@gmail.com>
-	<5687B2BC.8090901@users.sourceforge.net>
-	<5688EBAC.5000701@gmail.com>
-	<CACna6rzoJLRuTTDi3JjXg1roDbk3HXcBhhe0iOUH9xRaGU5p7A@mail.gmail.com>
-	<568A4403.8020701@gmail.com>
+ <5687E169.4070704@users.sourceforge.net>
+ <5687E203.1070404@users.sourceforge.net>
+ <20160104092857.GD5284@mwanda>
+ <568A4CFF.8060600@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	libertas-dev@lists.infradead.org,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	Kalle Valo <kvalo@codeaurora.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Arend van Spriel <aspriel@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <568A4403.8020701@gmail.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <568A4CFF.8060600@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4 January 2016 at 11:05, Arend van Spriel <aspriel@gmail.com> wrote:
-> On 03-01-16 16:18, Rafa=C5=82 Mi=C5=82ecki wrote:
->> On 3 January 2016 at 10:36, Arend van Spriel <aspriel@gmail.com> wro=
-te:
->>> On 02-01-16 12:21, SF Markus Elfring wrote:
->>>>> Did you look at the resulting assembly code for different target =
-architectures?
->>>>
->>>> Not yet. - Which execution system variants would you recommend for
->>>> further comparisons?
->>>
->>> Guess x86{,_64} and arm would be good candidates, ie. CISC vs. RISC=
-=2E
->>
->> Oh, don't forget about MIPS with its fancy branches handling. You kn=
-ow
->> about it, don't you?
->
-> You are asking me, right ;-) ? I have come across my share of MIPS
-> platforms here at Broadcom, but I still try to avoid them as much as
-> possible.
+On Mon, Jan 04, 2016 at 11:44:15AM +0100, SF Markus Elfring wrote:
+> > Please stop sending cleanup patches, Markus.  Just send fixes.
+> 
+> How often will source code clean-up fix something?
+> 
+> 
+> May I resend a consistent patch series for the source file
+> "drivers/net/wireless/rsi/rsi_91x_pkt.c" in the near future?
 
-I was more thinking about author on this patch. But it's indeed an
-interesting thing, just to know, how MIPS CPU handles branches ;)
+If you were sending checkpatch.pl fixes that would be easier to deal
+with but you are sending hundreds of "controversial" cleanups.  They are
+controversial in the sense that they don't fix anything against official
+kernel style and they go against the author's original intention.  I
+tend to agree that useless initializers are bad and disable GCCs
+uninitialized variable warnings but just because I agree with you
+doesn't make it official kernel style.  It's slightly rude to go against
+the author's intention.
 
---=20
-Rafa=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+regards,
+dan carpenter
