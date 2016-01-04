@@ -1,7 +1,7 @@
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [RFC v5 1/6] Timekeeping cross timestamp interface for device drivers
-Date: Mon,  4 Jan 2016 04:45:18 -0800
-Message-ID: <1451911523-8534-2-git-send-email-christopher.s.hall@intel.com>
+Subject: [RFC v5 6/6] Adds hardware supported cross timestamp
+Date: Mon,  4 Jan 2016 04:45:23 -0800
+Message-ID: <1451911523-8534-7-git-send-email-christopher.s.hall@intel.com>
 References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	x86@kernel.org, linux-kernel@vger.kernel.org,
@@ -14,248 +14,189 @@ In-Reply-To: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ACKNOWLEDGMENT: The original correlated clock source and cross
-timestamp code was developed by Thomas Gleixner
-<tglx@linutronix.de>. It has changed considerably and any mistakes are
-mine.
-
-The precision with which events on multiple networked systems can be
-synchronized using, as an example, PTP (IEEE 1588, 802.1AS) is limited
-by the precision of the cross timestamps between the system clock and
-the device (timestamp) clock. Precision here is the degree of
-simultaneity when capturing the cross timestamp.
-
-Currently the PTP cross timestamp is captured in software using the
-PTP device driver ioctl PTP_SYS_OFFSET. Reads of the device clock are
-interleaved with reads of the realtime clock. At best, the precision
-of this cross timestamp is on the order of several microseconds due to
-software latencies. Sub-microsecond precision is required for
-industrial control and some media applications. To achieve this level
-of precision hardware supported cross timestamping is needed.
-
-Hardware cross timestamps are derived from simultaneously capturing
-the device clock and the system clock. Applications use timestamps in
-nanoseconds rather than clock ticks. The device driver can scale
-device clock ticks to device time in nanoseconds, but cannot transform
-system clock ticks. Only the kernel timekeeping code can do this. The
-function get_device_system_crosststamp() allows device drivers to
-return a cross timestamp with system time properly scaled to
-nanoseconds.
-
-The cross timestamps contain the realtime and monotonic raw clock
-times. The realtime value is needed to discipline that clock using PTP
-and the monotonic raw value is used for applications that don't
-require a "real" time, but need an unadjusted clock time.
-
-The get_device_system_crosststamp() code calls back into the driver
-to ensure that the system counter is within the current timekeeping
-update interval. Because of possible NTP/PTP frequency adjustments,
-extrapolating a realtime clock time outside the current interval with
-a potentially different scaling factor can result in a small amount of
-error.
-
-Modern Intel hardware provides an Always Running Timer (ART) which is
-exactly related to TSC through a known frequency ratio. The ART is
-routed to devices on the system and is used to precisely and
-simultaneously capture the device clock with the ART. The kernel
-timekeeping code requires a system clock value from the current clock
-source to calculate the system time. The correlated clocksource adds a
-means to transform a clock (in this case ART) exactly to the system
-clock (TSC clocksource) that is used to calculate system time.
+Modern Intel systems supports cross timestamping of the network device
+clock and Always Running Timer (ART) in hardware.  This allows the
+device time and system time to be precisely correlated. The timestamp
+pair is returned through e1000e_phc_get_sync_devicetime() used by
+get_device_system_crosststamp().  The hardware cross-timestamp result
+is made available to applications through the PTP_SYS_OFFSET_PRECISE
+ioctl which call e1000e_phc_getsynctime().
 
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
 ---
- include/linux/clocksource.h | 27 ++++++++++++++++
- include/linux/timekeeping.h | 35 +++++++++++++++++++++
- kernel/time/timekeeping.c   | 77 ++++++++++++++++++++++++++++++++++++++++++---
- 3 files changed, 135 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/Kconfig          |  9 +++
+ drivers/net/ethernet/intel/e1000e/defines.h |  5 ++
+ drivers/net/ethernet/intel/e1000e/ptp.c     | 92 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |  4 ++
+ 4 files changed, 110 insertions(+)
 
-diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
-index 7784b59..4b7973d 100644
---- a/include/linux/clocksource.h
-+++ b/include/linux/clocksource.h
-@@ -255,4 +255,31 @@ static inline void clocksource_probe(void) {}
- #define CLOCKSOURCE_ACPI_DECLARE(name, table_id, fn)		\
- 	ACPI_DECLARE_PROBE_ENTRY(clksrc, name, table_id, 0, NULL, 0, fn)
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 4163b16..62bbddc 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -83,6 +83,15 @@ config E1000E
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called e1000e.
  
-+/*
-+ * struct correlated_cs - Descriptor for a clocksource correlated to another
-+ *	clocksource
-+ * @related_cs:		Pointer to the related timekeeping clocksource
-+ * @convert:		Conversion function to convert a timestamp from
-+ *			the correlated clocksource to cycles of the related
-+ *			timekeeping clocksource
-+ */
-+struct correlated_cs {
-+	struct clocksource	*related_cs;
-+	cycle_t			(*convert)(struct correlated_cs *cs,
-+					   cycle_t cycles);
-+};
++config E1000E_HWTS
++	bool "Support HW cross-timestamp on PCH devices"
++	default y
++	depends on E1000E && X86
++	---help---
++	 Say Y to enable hardware supported cross-timestamping on PCH
++	 devices. The cross-timestamp is available through the PTP clock
++	 driver precise cross-timestamp ioctl (PTP_SYS_OFFSET_PRECISE).
 +
-+/*
-+ * struct raw_system_counterval - system counter value captured in device
-+ *	driver used to produce system/device cross-timestamp
-+ * @system:	System counter value
-+ * @cs:		Clocksource related to system counter value. This is used by
-+ *		timekeeping code to verify validity of counter for system time
-+ *		conversion
-+ */
-+struct raw_system_counterval {
-+	cycle_t			cycles;
-+	struct clocksource	*cs;
-+};
-+
- #endif /* _LINUX_CLOCKSOURCE_H */
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index ec89d84..2209943 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -266,6 +266,41 @@ extern void timekeeping_inject_sleeptime64(struct timespec64 *delta);
- extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
- 				        struct timespec64 *ts_real);
+ config IGB
+ 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 133d407..13cff75 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -527,6 +527,11 @@
+ #define E1000_RXCW_C          0x20000000        /* Receive config */
+ #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
  
++/* HH Time Sync */
++#define E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK	0x0000F000 /* max delay */
++#define E1000_TSYNCTXCTL_SYNC_COMP		0x40000000 /* sync complete */
++#define E1000_TSYNCTXCTL_START_SYNC		0x80000000 /* initiate sync */
 +
-+/*
-+ * struct system_device_crosststamp - system/device cross-timestamp
-+ *	(syncronized capture)
-+ * @device:	Device time
-+ * @realtime:	Realtime simultaneous with device time
-+ * @monoraw:	Monotonic raw simultaneous with device time
-+ */
-+struct system_device_crosststamp {
-+	ktime_t device;
-+	ktime_t sys_realtime;
-+	ktime_t sys_monoraw;
-+};
-+
-+struct raw_system_counterval;
-+/*
-+ * struct get_sync_device_time - Provides method to capture device time
-+ *	synchronized with raw system counter value
-+ * @get_time:	Callback providing synchronized capture of device time
-+ *		and system counter. Returns 0 on success, < 0 on failure
-+ * @ctx:	Context provided to callback function
-+ */
-+struct get_sync_device_time {
-+	int	(*get_time)(ktime_t *device,
-+			    struct raw_system_counterval *system,
-+			    void *ctx);
-+	void	 *ctx;
-+};
-+
-+/*
-+ * Get cross timestamp between system clock and device clock
-+ */
-+extern int get_device_system_crosststamp(struct system_device_crosststamp *ct,
-+					 struct get_sync_device_time *dt);
-+
- /*
-  * Persistent clock related interfaces
-  */
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index d563c19..9c1ddc3 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -298,13 +298,11 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
- static inline u32 arch_gettimeoffset(void) { return 0; }
- #endif
+ #define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
+ #define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
  
--static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
-+static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
-+					  cycle_t delta)
- {
--	cycle_t delta;
- 	s64 nsec;
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+index 25a0ad5..44d2caa 100644
+--- a/drivers/net/ethernet/intel/e1000e/ptp.c
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -26,6 +26,11 @@
  
--	delta = timekeeping_get_delta(tkr);
--
- 	nsec = delta * tkr->mult + tkr->xtime_nsec;
- 	nsec >>= tkr->shift;
+ #include "e1000.h"
  
-@@ -312,6 +310,24 @@ static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
- 	return nsec + arch_gettimeoffset();
++#ifdef CONFIG_E1000E_HWTS
++#include <asm/tsc.h>
++#include <linux/ktime.h>
++#endif
++
+ /**
+  * e1000e_phc_adjfreq - adjust the frequency of the hardware clock
+  * @ptp: ptp clock structure
+@@ -98,6 +103,87 @@ static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
  }
  
-+static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
-+{
-+	cycle_t delta;
-+
-+	delta = timekeeping_get_delta(tkr);
-+	return timekeeping_delta_to_ns(tkr, delta);
-+}
-+
-+static inline s64 timekeeping_cycles_to_ns(struct tk_read_base *tkr,
-+					    cycle_t cycles)
-+{
-+	cycle_t delta;
-+
-+	/* calculate the delta since the last update_wall_time */
-+	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
-+	return timekeeping_delta_to_ns(tkr, delta);
-+}
-+
- /**
-  * update_fast_timekeeper - Update the fast and NMI safe monotonic timekeeper.
-  * @tkr: Timekeeping readout base from which we take the update
-@@ -885,6 +901,59 @@ EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
- #endif /* CONFIG_NTP_PPS */
- 
- /**
-+ * get_device_system_crosststamp - Synchronously capture system/device timestamp
-+ * @xtstamp:		Receives simultaneously captured system and device time
-+ * @sync_devicetime:	Callback to get simultaneous device time and
-+ *	system counter from the device driver
-+ *
-+ * Reads a timestamp from a device and correlates it to system time
-+ */
-+int get_device_system_crosststamp(struct system_device_crosststamp *xtstamp,
-+				  struct get_sync_device_time *sync_devicetime)
-+{
-+	struct timekeeper *tk = &tk_core.timekeeper;
-+	unsigned long seq;
-+	struct raw_system_counterval raw_sys;
-+	ktime_t base_raw;
-+	ktime_t base_real;
-+	s64 nsec_raw;
-+	s64 nsec_real;
-+	int ret;
-+
-+	do {
-+		seq = read_seqcount_begin(&tk_core.seq);
-+		/*
-+		 * Try to get a timestamp from the device driver.
-+		 */
-+		ret = sync_devicetime->get_time(&xtstamp->device, &raw_sys,
-+						sync_devicetime->ctx);
-+		if (ret)
-+			return ret;
-+
-+		/*
-+		 * Verify that the correlated clocksource is related to
-+		 * the currently installed timekeeper clocksource
-+		 */
-+		if (tk->tkr_mono.clock != raw_sys.cs)
-+			return -ENODEV;
-+
-+		base_real = ktime_add(tk->tkr_mono.base,
-+				      tk_core.timekeeper.offs_real);
-+		base_raw = tk->tkr_raw.base;
-+
-+		nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,
-+						     raw_sys.cycles);
-+		nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,
-+						    raw_sys.cycles);
-+	} while (read_seqcount_retry(&tk_core.seq, seq));
-+
-+	xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
-+	xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(get_device_system_crosststamp);
++#ifdef CONFIG_E1000E_HWTS
++#define MAX_HW_WAIT_COUNT (3)
 +
 +/**
-  * do_gettimeofday - Returns the time of day in a timeval
-  * @tv:		pointer to the timeval to be set
-  *
++ * e1000e_phc_get_sync_devicetime - Callback given to timekeeping code reads system/device registers
++ * @device: current device time
++ * @system: raw system counter value read synchronously with device time
++ * @ctx: context provided by timekeeping code
++ *
++ * Read device and system (ART) clock simultaneously and return the corrected
++ * clock values in ns.
++ **/
++static int e1000e_phc_get_sync_devicetime(ktime_t *device,
++					  struct raw_system_counterval *system,
++					  void *ctx)
++{
++	struct e1000_adapter *adapter = (struct e1000_adapter *)ctx;
++	struct e1000_hw *hw = &adapter->hw;
++	unsigned long flags;
++	int i;
++	u32 tsync_ctrl;
++	cycle_t dev_cycles;
++	int ret;
++
++	tsync_ctrl = er32(TSYNCTXCTL);
++	tsync_ctrl |= E1000_TSYNCTXCTL_START_SYNC |
++		E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK;
++	ew32(TSYNCTXCTL, tsync_ctrl);
++	for (i = 0; i < MAX_HW_WAIT_COUNT; ++i) {
++		udelay(1);
++		tsync_ctrl = er32(TSYNCTXCTL);
++		if (tsync_ctrl & E1000_TSYNCTXCTL_SYNC_COMP)
++			break;
++	}
++
++	if (i == MAX_HW_WAIT_COUNT) {
++		ret = -ETIMEDOUT;
++	} else {
++		ret = 0;
++		system->cycles = er32(PLTSTMPH);
++		system->cycles <<= 32;
++		system->cycles |= er32(PLTSTMPL);
++		system->cs = art_timestamper.related_cs;
++		system->cycles = art_timestamper.convert(&art_timestamper,
++							 system->cycles);
++
++		dev_cycles = er32(SYSSTMPH);
++		dev_cycles <<= 32;
++		dev_cycles |= er32(SYSSTMPL);
++		spin_lock_irqsave(&adapter->systim_lock, flags);
++		device->tv64 = timecounter_cyc2time(&adapter->tc, dev_cycles);
++		spin_unlock_irqrestore(&adapter->systim_lock, flags);
++	}
++
++	return ret;
++}
++
++/**
++ * e1000e_phc_getsynctime - Reads the current system/device cross timestamp
++ * @ptp: ptp clock structure
++ * @cts: structure containing timestamp
++ *
++ * Read device and system (ART) clock simultaneously and return the scaled
++ * clock values in ns.
++ **/
++static int e1000e_phc_getsynctime(struct ptp_clock_info *ptp,
++				  struct system_device_crosststamp *xtstamp)
++{
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
++	struct get_sync_device_time get_sync_devicetime;
++	int ret;
++
++	get_sync_devicetime.get_time = e1000e_phc_get_sync_devicetime;
++	get_sync_devicetime.ctx = adapter;
++	ret = get_device_system_crosststamp(xtstamp, &get_sync_devicetime,
++					    NULL);
++	return ret;
++}
++#endif/*CONFIG_E1000E_HWTS*/
++
+ /**
+  * e1000e_phc_gettime - Reads the current time from the hardware clock
+  * @ptp: ptp clock structure
+@@ -236,6 +322,12 @@ void e1000e_ptp_init(struct e1000_adapter *adapter)
+ 		break;
+ 	}
+ 
++#ifdef CONFIG_E1000E_HWTS
++	/* CPU must have ART and GBe must be from Sunrise Point or greater */
++	if (hw->mac.type >= e1000_pch_spt && boot_cpu_has(X86_FEATURE_ART))
++		adapter->ptp_clock_info.getsynctime = e1000e_phc_getsynctime;
++#endif/*CONFIG_E1000E_HWTS*/
++
+ 	INIT_DELAYED_WORK(&adapter->systim_overflow_work,
+ 			  e1000e_systim_overflow_work);
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
+index 1d5e0b7..0cb4d36 100644
+--- a/drivers/net/ethernet/intel/e1000e/regs.h
++++ b/drivers/net/ethernet/intel/e1000e/regs.h
+@@ -245,6 +245,10 @@
+ #define E1000_SYSTIML	0x0B600	/* System time register Low - RO */
+ #define E1000_SYSTIMH	0x0B604	/* System time register High - RO */
+ #define E1000_TIMINCA	0x0B608	/* Increment attributes register - RW */
++#define E1000_SYSSTMPL  0x0B648 /* HH Timesync system stamp low register */
++#define E1000_SYSSTMPH  0x0B64C /* HH Timesync system stamp hi register */
++#define E1000_PLTSTMPL  0x0B640 /* HH Timesync platform stamp low register */
++#define E1000_PLTSTMPH  0x0B644 /* HH Timesync platform stamp hi register */
+ #define E1000_RXMTRL	0x0B634	/* Time sync Rx EtherType and Msg Type - RW */
+ #define E1000_RXUDP	0x0B638	/* Time Sync Rx UDP Port - RW */
+ 
 -- 
 2.1.4
