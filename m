@@ -1,82 +1,63 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
-Date: Mon, 04 Jan 2016 16:14:00 +0000
-Message-ID: <87wprptj93.fsf@doppelsaurus.mobileactivedefense.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
-	<87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
-	<20151229.150843.2021692616139434395.davem@davemloft.net>
-	<CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
-	<CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
-	<CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
-	<CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
-	<CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
-	<1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/4] soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF
+Date: Mon, 4 Jan 2016 11:22:24 -0500
+Message-ID: <CAEfhGiwiuJv+qBgNS8ObbJExBnbjyH=dWw5tLWpc_FcBdemKHQ@mail.gmail.com>
+References: <1451410150-15466-1-git-send-email-kraigatgoog@gmail.com>
+	<1451410150-15466-4-git-send-email-kraigatgoog@gmail.com>
+	<20151229235057.GA5396@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jacob Siverskog <jacob@teenage.engineering>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Mon, 04 Jan 2016 10:25:08 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:34172 "EHLO
+	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752482AbcADQW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 11:22:26 -0500
+Received: by mail-lf0-f67.google.com with SMTP id n70so10802769lfn.1
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 08:22:26 -0800 (PST)
+Received: from mail-lf0-f42.google.com (mail-lf0-f42.google.com. [209.85.215.42])
+        by smtp.gmail.com with ESMTPSA id f186sm4563738lfd.26.2016.01.04.08.22.24
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 04 Jan 2016 08:22:24 -0800 (PST)
+Received: by mail-lf0-f42.google.com with SMTP id p203so280480170lfa.0
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 08:22:24 -0800 (PST)
+In-Reply-To: <20151229235057.GA5396@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> On Mon, 2016-01-04 at 10:10 +0100, Jacob Siverskog wrote:
-
-[...]
-
->> I believe the crash occurred between these two actions. I just saw
->> that there are some interesting events in the log prior to the crash:
->> kernel: Bluetooth: Unable to push skb to HCI core(-6)
->> kernel: (stc):  proto stack 4's ->recv failed
->> kernel: (stc): remove_channel_from_table: id 3
->> kernel: (stc): remove_channel_from_table: id 2
->> kernel: (stc): remove_channel_from_table: id 4
->> kernel: (stc):  all chnl_ids unregistered
->> kernel: (stk) :ldisc_install = 0(stc): st_tty_close
->> 
->> The first print is from btwilink.c. However, I can't see the
->> connection between Bluetooth (BLE) and UDP/IPv6 (we're not using
->> 6LoWPAN or anything similar).
->> 
->> Thanks, Jacob
+On Tue, Dec 29, 2015 at 6:50 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Tue, Dec 29, 2015 at 12:29:09PM -0500, Craig Gallek wrote:
+>> From: Craig Gallek <kraig@google.com>
+>> +static struct sock *run_bpf(struct sock_reuseport *reuse, u16 socks,
+>> +                         struct bpf_prog *prog, struct sk_buff *skb,
+>> +                         int hdr_len)
+>> +{
+>> +     struct sk_buff *nskb = NULL;
+>> +     u32 index;
+>> +
+>> +     if (skb_shared(skb)) {
+>> +             nskb = skb_clone(skb, GFP_ATOMIC);
+>> +             if (!nskb)
+>> +                     return NULL;
+>> +             skb = nskb;
+>> +     }
+>> +
+>> +     /* temporarily advance data past protocol header */
+>> +     if (!pskb_may_pull(skb, hdr_len) || !skb_pull_inline(skb, hdr_len)) {
 >
-> Definitely these details are useful ;)
+> pskb_pull() would be cleaner.
+ACK -> v3
+
+>> +             consume_skb(nskb);
+>> +             return NULL;
+>> +     }
+>> +     index = bpf_prog_run_save_cb(prog, skb);
+>> +     __skb_push(skb, hdr_len);
 >
-> Could you try :
->
-> diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
-> index 6e3af8b42cdd..0c99a74fb895 100644
-> --- a/drivers/misc/ti-st/st_core.c
-> +++ b/drivers/misc/ti-st/st_core.c
-> @@ -912,7 +912,9 @@ void st_core_exit(struct st_data_s *st_gdata)
->  		skb_queue_purge(&st_gdata->txq);
->  		skb_queue_purge(&st_gdata->tx_waitq);
->  		kfree_skb(st_gdata->rx_skb);
-> +		st_gdata->rx_skb = NULL;
->  		kfree_skb(st_gdata->tx_skb);
-> +		st_gdata->tx_skb = NULL;
->  		/* TTY ldisc cleanup */
->  		err = tty_unregister_ldisc(N_TI_WL);
->  		if (err)
-
-Hmm ... the code continues with
-
-		err = tty_unregister_ldisc(N_TI_WL);
-		if (err)
-			pr_err("unable to un-register ldisc %ld", err);
-		/* free the global data pointer */
-		kfree(st_gdata);
-
-So who would ever see that the rx_skb and tx_skb pointers were cleared
-prior to freeing the data structure containing them?
+> This indeed matches what normal bpf filters see with udp sockets, so
+> I guess that's fine.
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+Thanks for the review!
