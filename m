@@ -1,1275 +1,427 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [RFC PATCH net-next 11/24] phy: Add an mdio_device structure
-Date: Mon,  4 Jan 2016 18:36:49 +0100
-Message-ID: <1451929022-5580-12-git-send-email-andrew@lunn.ch>
+Subject: [RFC PATCH net-next 08/24] phy: Centralise print about attached phy
+Date: Mon,  4 Jan 2016 18:36:46 +0100
+Message-ID: <1451929022-5580-9-git-send-email-andrew@lunn.ch>
 References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34964 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:34971 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752025AbcADRiF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2016 12:38:05 -0500
+	id S1752913AbcADRiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2016 12:38:19 -0500
 In-Reply-To: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not all devices attached to an MDIO bus are phys. So add an
-mdio_device structure to represent the generic parts of an mdio
-device, and place this structure into the phy_device.
+Many Ethernet drivers contain the same netdev_info() print statement
+about the attached phy. Move it into the phy device code.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/ethernet/agere/et131x.c              | 30 ++++++------
- drivers/net/ethernet/altera/altera_tse_main.c    |  2 +-
- drivers/net/ethernet/broadcom/b44.c              |  2 +-
- drivers/net/ethernet/broadcom/genet/bcmmii.c     |  2 +-
- drivers/net/ethernet/broadcom/sb1250-mac.c       |  4 +-
- drivers/net/ethernet/freescale/fman/fman_dtsec.c |  6 +--
- drivers/net/ethernet/freescale/fman/fman_memac.c |  6 +--
- drivers/net/ethernet/freescale/fs_enet/mac-fec.c |  2 +-
- drivers/net/ethernet/freescale/gianfar.c         |  4 +-
- drivers/net/ethernet/freescale/ucc_geth.c        |  4 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |  2 +-
- drivers/net/ethernet/marvell/mv643xx_eth.c       |  2 +-
- drivers/net/ethernet/marvell/mvneta.c            |  2 +-
- drivers/net/ethernet/smsc/smsc911x.c             | 11 +++--
- drivers/net/ethernet/smsc/smsc9420.c             |  3 +-
- drivers/net/ethernet/ti/cpsw.c                   |  3 +-
- drivers/net/ethernet/ti/davinci_mdio.c           |  2 +-
- drivers/net/ethernet/xilinx/xilinx_emaclite.c    |  2 +-
- drivers/net/phy/at803x.c                         |  2 +-
- drivers/net/phy/bcm87xx.c                        |  4 +-
- drivers/net/phy/dp83640.c                        | 22 +++++----
- drivers/net/phy/dp83867.c                        |  4 +-
- drivers/net/phy/fixed_phy.c                      | 10 ++--
- drivers/net/phy/icplus.c                         | 18 ++++----
- drivers/net/phy/marvell.c                        |  7 +--
- drivers/net/phy/mdio_bus.c                       | 12 ++---
- drivers/net/phy/micrel.c                         | 12 ++---
- drivers/net/phy/microchip.c                      |  4 +-
- drivers/net/phy/phy.c                            | 20 ++++----
- drivers/net/phy/phy_device.c                     | 58 ++++++++++++------------
- drivers/net/phy/smsc.c                           |  2 +-
- drivers/of/of_mdio.c                             |  6 +--
- include/linux/mdio.h                             |  9 ++++
- include/linux/phy.h                              | 26 +++++------
- net/dsa/dsa.c                                    |  2 +-
- 35 files changed, 160 insertions(+), 147 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c          |  5 -----
+ drivers/net/ethernet/agere/et131x.c          |  4 ----
+ drivers/net/ethernet/amd/au1000_eth.c        |  4 ----
+ drivers/net/ethernet/broadcom/b44.c          |  3 ---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c |  3 ---
+ drivers/net/ethernet/broadcom/sb1250-mac.c   |  4 ----
+ drivers/net/ethernet/broadcom/tg3.c          |  8 +-------
+ drivers/net/ethernet/cadence/macb.c          |  2 --
+ drivers/net/ethernet/dnet.c                  |  3 ---
+ drivers/net/ethernet/freescale/fec_main.c    |  4 ----
+ drivers/net/ethernet/lantiq_etop.c           |  3 ---
+ drivers/net/ethernet/nxp/lpc_eth.c           |  3 ---
+ drivers/net/ethernet/rdc/r6040.c             |  4 ----
+ drivers/net/ethernet/renesas/ravb_main.c     |  3 ---
+ drivers/net/ethernet/renesas/sh_eth.c        |  3 ---
+ drivers/net/ethernet/smsc/smsc911x.c         |  4 ----
+ drivers/net/ethernet/smsc/smsc9420.c         |  7 -------
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c  | 13 -------------
+ drivers/net/ethernet/ti/cpsw.c               |  2 --
+ drivers/net/ethernet/ti/davinci_emac.c       |  5 -----
+ drivers/net/ethernet/toshiba/tc35815.c       |  4 ----
+ drivers/net/phy/phy_device.c                 |  4 ++++
+ drivers/staging/netlogic/xlr_net.c           |  2 --
+ net/dsa/slave.c                              |  3 ---
+ 24 files changed, 5 insertions(+), 95 deletions(-)
 
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 5f8a5182b8dc..4c6f7a7f9352 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -444,11 +444,6 @@ static int mii_probe(struct net_device *dev, int phy_mode)
+ 	lp->old_duplex = -1;
+ 	lp->phydev = phydev;
+ 
+-	pr_info("attached PHY driver [%s] "
+-	        "(mii_bus:phy_addr=%s, irq=%d, mdc_clk=%dHz(mdc_div=%d)@sclk=%dMHz)\n",
+-		phydev->drv->name, phydev_name(phydev), phydev->irq,
+-	        MDC_CLK, mdc_div, sclk/1000000);
+-
+ 	return 0;
+ }
+ 
 diff --git a/drivers/net/ethernet/agere/et131x.c b/drivers/net/ethernet/agere/et131x.c
-index 04b639781f1c..ac83e3ef5252 100644
+index 80b706f0fc97..8c49b97ed19b 100644
 --- a/drivers/net/ethernet/agere/et131x.c
 +++ b/drivers/net/ethernet/agere/et131x.c
-@@ -1235,7 +1235,7 @@ static int et131x_mii_read(struct et131x_adapter *adapter, u8 reg, u16 *value)
- 	if (!phydev)
- 		return -EIO;
+@@ -3289,10 +3289,6 @@ static int et131x_mii_probe(struct net_device *netdev)
+ 	phydev->autoneg = AUTONEG_ENABLE;
+ 	adapter->phydev = phydev;
  
--	return et131x_phy_mii_read(adapter, phydev->addr, reg, value);
-+	return et131x_phy_mii_read(adapter, phydev->mdio.addr, reg, value);
- }
- 
- static int et131x_mii_write(struct et131x_adapter *adapter, u8 addr, u8 reg,
-@@ -1462,7 +1462,7 @@ static void et1310_phy_power_switch(struct et131x_adapter *adapter, bool down)
- 	data &= ~BMCR_PDOWN;
- 	if (down)
- 		data |= BMCR_PDOWN;
--	et131x_mii_write(adapter, phydev->addr, MII_BMCR, data);
-+	et131x_mii_write(adapter, phydev->mdio.addr, MII_BMCR, data);
- }
- 
- /* et131x_xcvr_init - Init the phy if we are setting it into force mode */
-@@ -1490,7 +1490,7 @@ static void et131x_xcvr_init(struct et131x_adapter *adapter)
- 		else
- 			lcr2 |= (LED_VAL_LINKON << LED_TXRX_SHIFT);
- 
--		et131x_mii_write(adapter, phydev->addr, PHY_LED_2, lcr2);
-+		et131x_mii_write(adapter, phydev->mdio.addr, PHY_LED_2, lcr2);
- 	}
- }
- 
-@@ -3192,14 +3192,14 @@ static void et131x_adjust_link(struct net_device *netdev)
- 
- 			et131x_mii_read(adapter, PHY_MPHY_CONTROL_REG,
- 					&register18);
--			et131x_mii_write(adapter, phydev->addr,
-+			et131x_mii_write(adapter, phydev->mdio.addr,
- 					 PHY_MPHY_CONTROL_REG,
- 					 register18 | 0x4);
--			et131x_mii_write(adapter, phydev->addr, PHY_INDEX_REG,
--					 register18 | 0x8402);
--			et131x_mii_write(adapter, phydev->addr, PHY_DATA_REG,
--					 register18 | 511);
--			et131x_mii_write(adapter, phydev->addr,
-+			et131x_mii_write(adapter, phydev->mdio.addr,
-+					 PHY_INDEX_REG, register18 | 0x8402);
-+			et131x_mii_write(adapter, phydev->mdio.addr,
-+					 PHY_DATA_REG, register18 | 511);
-+			et131x_mii_write(adapter, phydev->mdio.addr,
- 					 PHY_MPHY_CONTROL_REG, register18);
- 		}
- 
-@@ -3212,8 +3212,8 @@ static void et131x_adjust_link(struct net_device *netdev)
- 			et131x_mii_read(adapter, PHY_CONFIG, &reg);
- 			reg &= ~ET_PHY_CONFIG_TX_FIFO_DEPTH;
- 			reg |= ET_PHY_CONFIG_FIFO_DEPTH_32;
--			et131x_mii_write(adapter, phydev->addr, PHY_CONFIG,
--					 reg);
-+			et131x_mii_write(adapter, phydev->mdio.addr,
-+					 PHY_CONFIG, reg);
- 		}
- 
- 		et131x_set_rx_dma_timer(adapter);
-@@ -3226,14 +3226,14 @@ static void et131x_adjust_link(struct net_device *netdev)
- 
- 			et131x_mii_read(adapter, PHY_MPHY_CONTROL_REG,
- 					&register18);
--			et131x_mii_write(adapter, phydev->addr,
-+			et131x_mii_write(adapter, phydev->mdio.addr,
- 					 PHY_MPHY_CONTROL_REG,
- 					 register18 | 0x4);
--			et131x_mii_write(adapter, phydev->addr,
-+			et131x_mii_write(adapter, phydev->mdio.addr,
- 					 PHY_INDEX_REG, register18 | 0x8402);
--			et131x_mii_write(adapter, phydev->addr,
-+			et131x_mii_write(adapter, phydev->mdio.addr,
- 					 PHY_DATA_REG, register18 | 511);
--			et131x_mii_write(adapter, phydev->addr,
-+			et131x_mii_write(adapter, phydev->mdio.addr,
- 					 PHY_MPHY_CONTROL_REG, register18);
- 		}
- 
-diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-index 10d51e8aefe0..17472851674f 100644
---- a/drivers/net/ethernet/altera/altera_tse_main.c
-+++ b/drivers/net/ethernet/altera/altera_tse_main.c
-@@ -844,7 +844,7 @@ static int init_phy(struct net_device *dev)
- 	}
- 
- 	netdev_dbg(dev, "attached to PHY %d UID 0x%08x Link = %d\n",
--		   phydev->addr, phydev->phy_id, phydev->link);
-+		   phydev->mdio.addr, phydev->phy_id, phydev->link);
- 
- 	priv->phydev = phydev;
+-	dev_info(&adapter->pdev->dev,
+-		 "attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
+-		 phydev->drv->name, phydev_name(phydev));
+-
  	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
+index 8a8d6f2a0f6f..edd85664b1c7 100644
+--- a/drivers/net/ethernet/amd/au1000_eth.c
++++ b/drivers/net/ethernet/amd/au1000_eth.c
+@@ -583,10 +583,6 @@ static int au1000_mii_probe(struct net_device *dev)
+ 	aup->old_duplex = -1;
+ 	aup->phy_dev = phydev;
+ 
+-	netdev_info(dev, "attached PHY driver [%s] "
+-	       "(mii_bus:phy_addr=%s, irq=%d)\n",
+-	       phydev->drv->name, phydev_name(phydev), phydev->irq);
+-
+ 	return 0;
+ }
+ 
 diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 93118752c73b..15f3ccaef8b7 100644
+index 928a2210e788..9d009c540729 100644
 --- a/drivers/net/ethernet/broadcom/b44.c
 +++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -2305,7 +2305,7 @@ static int b44_register_phy_one(struct b44 *bp)
- 
- 	bp->phydev = phydev;
+@@ -2315,9 +2315,6 @@ static int b44_register_phy_one(struct b44 *bp)
  	bp->old_link = 0;
--	bp->phy_addr = phydev->addr;
-+	bp->phy_addr = phydev->mdio.addr;
+ 	bp->phy_addr = phydev->addr;
  
+-	dev_info(sdev->dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
+-		 phydev->drv->name, phydev_name(phydev));
+-
  	return 0;
  
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 4523acd8c1c2..633b59db813a 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -401,7 +401,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
- 	 * Ethernet MAC ISRs
- 	 */
- 	if (priv->internal_phy)
--		priv->mii_bus->irq[phydev->addr] = PHY_IGNORE_INTERRUPT;
-+		priv->mii_bus->irq[phydev->mdio.addr] = PHY_IGNORE_INTERRUPT;
+ err_out_mdiobus_unregister:
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index a54bafad3538..ac29e91e6e02 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -908,9 +908,6 @@ static int bcm_enet_open(struct net_device *dev)
+ 		else
+ 			phydev->advertising &= ~SUPPORTED_Pause;
  
- 	return 0;
- }
+-		dev_info(kdev, "attached PHY at address %d [%s]\n",
+-			 phydev->addr, phydev->drv->name);
+-
+ 		priv->old_link = 0;
+ 		priv->old_duplex = -1;
+ 		priv->old_pause = -1;
 diff --git a/drivers/net/ethernet/broadcom/sb1250-mac.c b/drivers/net/ethernet/broadcom/sb1250-mac.c
-index 4d6749478c1b..07a29439c4f4 100644
+index f557a2aaec23..51eaf55b8827 100644
 --- a/drivers/net/ethernet/broadcom/sb1250-mac.c
 +++ b/drivers/net/ethernet/broadcom/sb1250-mac.c
-@@ -2366,8 +2366,8 @@ static int sbmac_mii_probe(struct net_device *dev)
- 		return -ENXIO;
- 	}
+@@ -2390,10 +2390,6 @@ static int sbmac_mii_probe(struct net_device *dev)
+ 			      SUPPORTED_Asym_Pause;
+ 	phy_dev->advertising = phy_dev->supported;
  
--	phy_dev = phy_connect(dev, dev_name(&phy_dev->dev), &sbmac_mii_poll,
--			      PHY_INTERFACE_MODE_GMII);
-+	phy_dev = phy_connect(dev, dev_name(&phy_dev->mdio.dev),
-+			      &sbmac_mii_poll, PHY_INTERFACE_MODE_GMII);
- 	if (IS_ERR(phy_dev)) {
- 		printk(KERN_ERR "%s: could not attach to PHY\n", dev->name);
- 		return PTR_ERR(phy_dev);
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-index d78e2ba73ffa..1bd89f7b3dcc 100644
---- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-@@ -1295,7 +1295,7 @@ int dtsec_init(struct fman_mac *dtsec)
+-	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		dev->name, phy_dev->drv->name,
+-		dev_name(&phy_dev->dev), phy_dev->irq);
+-
+ 	sc->phy_dev = phy_dev;
  
- 	err = init(dtsec->regs, dtsec_drv_param, dtsec->phy_if,
- 		   dtsec->max_speed, (u8 *)eth_addr, dtsec->exceptions,
--		   dtsec->tbiphy->addr);
-+		   dtsec->tbiphy->mdio.addr);
- 	if (err) {
- 		free_init_resources(dtsec);
- 		pr_err("DTSEC version doesn't support this i/f mode\n");
-@@ -1434,11 +1434,11 @@ struct fman_mac *dtsec_config(struct fman_mac_params *params)
- 	dtsec->tbiphy = of_phy_find_device(params->internal_phy_node);
- 	if (!dtsec->tbiphy) {
- 		pr_err("of_phy_find_device (TBI PHY) failed\n");
--		put_device(&dtsec->tbiphy->dev);
-+		put_device(&dtsec->tbiphy->mdio.dev);
- 		goto err_dtsec_drv_param;
- 	}
+ 	return 0;
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 69d84d67f09a..28a9887397b8 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -17898,13 +17898,7 @@ static int tg3_init_one(struct pci_dev *pdev,
+ 		    tg3_bus_string(tp, str),
+ 		    dev->dev_addr);
  
--	put_device(&dtsec->tbiphy->dev);
-+	put_device(&dtsec->tbiphy->mdio.dev);
+-	if (tp->phy_flags & TG3_PHYFLG_IS_CONNECTED) {
+-		struct phy_device *phydev;
+-		phydev = tp->mdio_bus->phy_map[tp->phy_addr];
+-		netdev_info(dev,
+-			    "attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
+-			    phydev->drv->name, phydev_name(phydev));
+-	} else {
++	if (!(tp->phy_flags & TG3_PHYFLG_IS_CONNECTED)) {
+ 		char *ethtype;
  
- 	/* Save FMan revision */
- 	fman_get_revision(dtsec->fm, &dtsec->fm_rev_info);
-diff --git a/drivers/net/ethernet/freescale/fman/fman_memac.c b/drivers/net/ethernet/freescale/fman/fman_memac.c
-index 58bb72071c14..45e98fd8b79e 100644
---- a/drivers/net/ethernet/freescale/fman/fman_memac.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_memac.c
-@@ -1054,15 +1054,15 @@ int memac_init(struct fman_mac *memac)
- 			 * register address space and access each one of 4
- 			 * ports inside QSGMII.
- 			 */
--			phy_addr = memac->pcsphy->addr;
-+			phy_addr = memac->pcsphy->mdio.addr;
- 			qsmgii_phy_addr = (u8)((phy_addr << 2) | i);
--			memac->pcsphy->addr = qsmgii_phy_addr;
-+			memac->pcsphy->mdio.addr = qsmgii_phy_addr;
- 			if (memac->basex_if)
- 				setup_sgmii_internal_phy_base_x(memac);
- 			else
- 				setup_sgmii_internal_phy(memac, fixed_link);
+ 		if (tp->phy_flags & TG3_PHYFLG_10_100_ONLY)
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 001d60c5521c..9771aaa8aaa6 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2950,8 +2950,6 @@ static int macb_probe(struct platform_device *pdev)
+ 		    dev->base_addr, dev->irq, dev->dev_addr);
  
--			memac->pcsphy->addr = phy_addr;
-+			memac->pcsphy->mdio.addr = phy_addr;
- 		}
- 	}
+ 	phydev = bp->phy_dev;
+-	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		    phydev->drv->name, phydev_name(phydev), phydev->irq);
  
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-index 016743e355de..c158d409f6af 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-@@ -254,7 +254,7 @@ static void restart(struct net_device *dev)
- 	int r;
- 	u32 addrhi, addrlo;
+ 	return 0;
  
--	struct mii_bus* mii = fep->phydev->bus;
-+	struct mii_bus *mii = fep->phydev->mdio.bus;
- 	struct fec_info* fec_inf = mii->priv;
+diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
+index 0ec367521354..87e93df35b62 100644
+--- a/drivers/net/ethernet/dnet.c
++++ b/drivers/net/ethernet/dnet.c
+@@ -886,9 +886,6 @@ static int dnet_probe(struct platform_device *pdev)
+ 	       (bp->capabilities & DNET_HAS_GIGABIT) ? "" : "no ",
+ 	       (bp->capabilities & DNET_HAS_DMA) ? "" : "no ");
+ 	phydev = bp->phy_dev;
+-	dev_info(&pdev->dev, "attached PHY driver [%s] "
+-	       "(mii_bus:phy_addr=%s, irq=%d)\n",
+-	       phydev->drv->name, phydev_name(phydev), phydev->irq);
  
- 	r = whack_reset(fep->fec.fecp);
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4e394f75261e..2aa7b401cc3b 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1834,7 +1834,7 @@ static void gfar_configure_serdes(struct net_device *dev)
- 	 * several seconds for it to come back.
- 	 */
- 	if (phy_read(tbiphy, MII_BMSR) & BMSR_LSTATUS) {
--		put_device(&tbiphy->dev);
-+		put_device(&tbiphy->mdio.dev);
- 		return;
- 	}
+ 	return 0;
  
-@@ -1849,7 +1849,7 @@ static void gfar_configure_serdes(struct net_device *dev)
- 		  BMCR_ANENABLE | BMCR_ANRESTART | BMCR_FULLDPLX |
- 		  BMCR_SPEED1000);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index d2328fc5da57..9bbc1b8e8646 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1972,10 +1972,6 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 	fep->link = 0;
+ 	fep->full_duplex = 0;
  
--	put_device(&tbiphy->dev);
-+	put_device(&tbiphy->mdio.dev);
+-	netdev_info(ndev, "Freescale FEC PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		    fep->phy_dev->drv->name, dev_name(&fep->phy_dev->dev),
+-		    fep->phy_dev->irq);
+-
+ 	return 0;
  }
  
- static int __gfar_is_rx_idle(struct gfar_private *priv)
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 650f7888e32b..0e7f24ec3239 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -1385,7 +1385,7 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
- 		value &= ~0x1000;	/* Turn off autonegotiation */
- 		phy_write(tbiphy, ENET_TBI_MII_CR, value);
+diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+index 274a3cec84c2..32d78d63074e 100644
+--- a/drivers/net/ethernet/lantiq_etop.c
++++ b/drivers/net/ethernet/lantiq_etop.c
+@@ -408,9 +408,6 @@ ltq_etop_mdio_probe(struct net_device *dev)
  
--		put_device(&tbiphy->dev);
-+		put_device(&tbiphy->mdio.dev);
+ 	phydev->advertising = phydev->supported;
+ 	priv->phydev = phydev;
+-	pr_info("%s: attached PHY [%s] (phy_addr=%s, irq=%d)\n",
+-	       dev->name, phydev->drv->name,
+-	       phydev_name(phydev), phydev->irq);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index 5801aa197697..1fe7514346a8 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -816,9 +816,6 @@ static int lpc_mii_probe(struct net_device *ndev)
+ 	pldat->duplex = -1;
+ 	pldat->phy_dev = phydev;
+ 
+-	netdev_info(ndev,
+-		"attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		phydev->drv->name, phydev_name(phydev), phydev->irq);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 86a0887811c7..70e335731849 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1061,10 +1061,6 @@ static int r6040_mii_probe(struct net_device *dev)
+ 	lp->old_link = 0;
+ 	lp->old_duplex = -1;
+ 
+-	dev_info(&lp->pdev->dev, "attached PHY driver [%s] "
+-		"(mii_bus:phy_addr=%s)\n",
+-		phydev->drv->name, phydev_name(phydev));
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 2f6c974e4a6d..9cea8e950361 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -927,9 +927,6 @@ static int ravb_phy_init(struct net_device *ndev)
+ 	/* 10BASE is not supported */
+ 	phydev->supported &= ~PHY_10BT_FEATURES;
+ 
+-	netdev_info(ndev, "attached PHY %d (IRQ %d) to driver %s\n",
+-		    phydev->addr, phydev->irq, phydev_name(phydev));
+-
+ 	priv->phydev = phydev;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index bb3b66696e94..767222390f93 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1852,9 +1852,6 @@ static int sh_eth_phy_init(struct net_device *ndev)
+ 		return PTR_ERR(phydev);
  	}
  
- 	init_check_frame_length_mode(ug_info->lengthCheckRx, &ug_regs->maccfg2);
-@@ -1705,7 +1705,7 @@ static void uec_configure_serdes(struct net_device *dev)
- 	 * several seconds for it to come back.
- 	 */
- 	if (phy_read(tbiphy, ENET_TBI_MII_SR) & TBISR_LSTATUS) {
--		put_device(&tbiphy->dev);
-+		put_device(&tbiphy->mdio.dev);
- 		return;
- 	}
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 4eddbeb19307..3df22840fcd1 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -71,7 +71,7 @@ static void hns_get_mdix_mode(struct net_device *net_dev,
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
- 	struct phy_device *phy_dev = priv->phy;
- 
--	if (!phy_dev || !phy_dev->bus) {
-+	if (!phy_dev || !phy_dev->mdio.bus) {
- 		cmd->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
- 		cmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
- 		return;
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 4eba2ed53052..a0c03834a2f7 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -3133,7 +3133,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 		if (!mp->phy)
- 			err = -ENODEV;
- 		else
--			phy_addr_set(mp, mp->phy->addr);
-+			phy_addr_set(mp, mp->phy->mdio.addr);
- 	} else if (pd->phy_addr != MV643XX_ETH_PHY_NONE) {
- 		mp->phy = phy_scan(mp, pd->phy_addr);
- 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 15b1f6bbd92d..fabc8df40392 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3714,7 +3714,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 		mvneta_fixed_link_update(pp, phy);
- 
--		put_device(&phy->dev);
-+		put_device(&phy->mdio.dev);
- 	}
+-	netdev_info(ndev, "attached PHY %d (IRQ %d) to driver %s\n",
+-		    phydev->addr, phydev->irq, phydev_name(phydev));
+-
+ 	mdp->phydev = phydev;
  
  	return 0;
 diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 337cb68db9f4..51e468e0bb69 100644
+index 067346d3209d..1646e09b173e 100644
 --- a/drivers/net/ethernet/smsc/smsc911x.c
 +++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -864,8 +864,8 @@ static int smsc911x_phy_loopbacktest(struct net_device *dev)
- 
- 	for (i = 0; i < 10; i++) {
- 		/* Set PHY to 10/FD, no ANEG, and loopback mode */
--		smsc911x_mii_write(phy_dev->bus, phy_dev->addr,	MII_BMCR,
--			BMCR_LOOPBACK | BMCR_FULLDPLX);
-+		smsc911x_mii_write(phy_dev->mdio.bus, phy_dev->mdio.addr,
-+				   MII_BMCR, BMCR_LOOPBACK | BMCR_FULLDPLX);
- 
- 		/* Enable MAC tx/rx, FD */
- 		spin_lock_irqsave(&pdata->mac_lock, flags);
-@@ -893,7 +893,7 @@ static int smsc911x_phy_loopbacktest(struct net_device *dev)
- 	spin_unlock_irqrestore(&pdata->mac_lock, flags);
- 
- 	/* Cancel PHY loopback mode */
--	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_BMCR, 0);
-+	smsc911x_mii_write(phy_dev->mdio.bus, phy_dev->mdio.addr, MII_BMCR, 0);
- 
- 	smsc911x_reg_write(pdata, TX_CFG, 0);
- 	smsc911x_reg_write(pdata, RX_CFG, 0);
-@@ -1021,7 +1021,7 @@ static int smsc911x_mii_probe(struct net_device *dev)
+@@ -1031,10 +1031,6 @@ static int smsc911x_mii_probe(struct net_device *dev)
+ 		return ret;
  	}
  
- 	SMSC_TRACE(pdata, probe, "PHY: addr %d, phy_id 0x%08X",
--		   phydev->addr, phydev->phy_id);
-+		   phydev->mdio.addr, phydev->phy_id);
- 
- 	ret = phy_connect_direct(dev, phydev, &smsc911x_phy_adjust_link,
- 				 pdata->config.phy_interface);
-@@ -1986,7 +1986,8 @@ smsc911x_ethtool_getregs(struct net_device *dev, struct ethtool_regs *regs,
- 	}
- 
- 	for (i = 0; i <= 31; i++)
--		data[j++] = smsc911x_mii_read(phy_dev->bus, phy_dev->addr, i);
-+		data[j++] = smsc911x_mii_read(phy_dev->mdio.bus,
-+					      phy_dev->mdio.addr, i);
- }
- 
- static void smsc911x_eeprom_enable_access(struct smsc911x_data *pdata)
+-	netdev_info(dev,
+-		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		    phydev->drv->name, phydev_name(phydev), phydev->irq);
+-
+ 	/* mask with MAC supported features */
+ 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+ 			      SUPPORTED_Asym_Pause);
 diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
-index 28a94e9fbccd..a7fa004a28a6 100644
+index a02ed6b63064..78eaf34d7f06 100644
 --- a/drivers/net/ethernet/smsc/smsc9420.c
 +++ b/drivers/net/ethernet/smsc/smsc9420.c
-@@ -315,7 +315,8 @@ smsc9420_ethtool_getregs(struct net_device *dev, struct ethtool_regs *regs,
- 		return;
+@@ -1163,10 +1163,6 @@ static int smsc9420_mii_probe(struct net_device *dev)
+ 		return -ENODEV;
+ 	}
  
- 	for (i = 0; i <= 31; i++)
--		data[j++] = smsc9420_mii_read(phy_dev->bus, phy_dev->addr, i);
-+		data[j++] = smsc9420_mii_read(phy_dev->mdio.bus,
-+					      phy_dev->mdio.addr, i);
+-	phydev = pd->mii_bus->phy_map[1];
+-	netif_info(pd, probe, pd->dev, "PHY addr %d, phy_id 0x%08X\n",
+-		   phydev->addr, phydev->phy_id);
+-
+ 	phydev = phy_connect(dev, phydev_name(phydev),
+ 			     smsc9420_phy_adjust_link, PHY_INTERFACE_MODE_MII);
+ 
+@@ -1175,9 +1171,6 @@ static int smsc9420_mii_probe(struct net_device *dev)
+ 		return PTR_ERR(phydev);
+ 	}
+ 
+-	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		    phydev->drv->name, phydev_name(phydev), phydev->irq);
+-
+ 	/* mask with MAC supported features */
+ 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+ 			      SUPPORTED_Asym_Pause);
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 9066d7a8483c..8a5fa76eae1c 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -971,11 +971,6 @@ static int dwceqos_mii_probe(struct net_device *ndev)
+ 		return -ENODEV;
+ 	}
+ 
+-	if (netif_msg_probe(lp))
+-		netdev_dbg(lp->ndev,
+-			   "phydev %p, phydev->phy_id 0xa%x, phydev->addr 0x%x\n",
+-			   phydev, phydev->phy_id, phydev->addr);
+-
+ 	phydev->supported &= PHY_GBIT_FEATURES;
+ 
+ 	lp->link    = 0;
+@@ -983,14 +978,6 @@ static int dwceqos_mii_probe(struct net_device *ndev)
+ 	lp->duplex  = DUPLEX_UNKNOWN;
+ 	lp->phy_dev = phydev;
+ 
+-	if (netif_msg_probe(lp)) {
+-		netdev_dbg(lp->ndev, "phy_addr 0x%x, phy_id 0x%08x\n",
+-			   lp->phy_dev->addr, lp->phy_dev->phy_id);
+-
+-		netdev_dbg(lp->ndev, "attach [%s] phy driver\n",
+-			   lp->phy_dev->drv->name);
+-	}
+-
+ 	return 0;
  }
  
- static void smsc9420_eeprom_enable_access(struct smsc9420_pdata *pd)
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 4d2384c9c54f..c36a9d5f9db9 100644
+index 34ce7dce8c9d..4d2384c9c54f 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2048,7 +2048,8 @@ static int cpsw_probe_dt(struct cpsw_priv *priv,
- 			if (!phy_dev)
- 				return -ENODEV;
- 			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
--				 PHY_ID_FMT, phy_dev->bus->id, phy_dev->addr);
-+				 PHY_ID_FMT, phy_dev->mdio.bus->id,
-+				 phy_dev->mdio.addr);
- 		} else if (parp) {
- 			u32 phyid;
- 			struct device_node *mdio_node;
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 88e8e6055b9f..78299c1592c1 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -396,7 +396,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 		phy = data->bus->phy_map[addr];
- 		if (phy) {
- 			dev_info(dev, "phy[%d]: device %s, driver %s\n",
--				 phy->addr, phydev_name(phy),
-+				 phy->mdio.addr, phydev_name(phy),
- 				 phy->drv ? phy->drv->name : "unknown");
- 		}
- 	}
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index d1a0167dff84..e324b3092380 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -827,7 +827,7 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 			dev_info(dev,
- 				 "MDIO of the phy is not registered yet\n");
- 		else
--			put_device(&phydev->dev);
-+			put_device(&phydev->mdio.dev);
- 		return 0;
+@@ -1159,8 +1159,6 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 			slave->data->phy_id, slave->slave_num);
+ 		slave->phy = NULL;
+ 	} else {
+-		dev_info(priv->dev, "phy found : id is : 0x%x\n",
+-			 slave->phy->phy_id);
+ 		phy_start(slave->phy);
+ 
+ 		/* Configure GMII_SEL register */
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 5a40b0256327..7fba4411bad4 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1643,11 +1643,6 @@ static int emac_dev_open(struct net_device *ndev)
+ 		priv->link = 0;
+ 		priv->speed = 0;
+ 		priv->duplex = ~0;
+-
+-		dev_info(emac_dev, "attached PHY driver [%s] "
+-			"(mii_bus:phy_addr=%s, id=%x)\n",
+-			priv->phydev->drv->name, phydev_name(priv->phydev),
+-			priv->phydev->phy_id);
  	}
  
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index 62361f8af375..b76ac09a554f 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -190,7 +190,7 @@ static int at803x_resume(struct phy_device *phydev)
- 
- static int at803x_probe(struct phy_device *phydev)
- {
--	struct device *dev = &phydev->dev;
-+	struct device *dev = &phydev->mdio.dev;
- 	struct at803x_priv *priv;
- 	struct gpio_desc *gpiod_reset;
- 
-diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
-index 71b491c7bf96..e536e30d1643 100644
---- a/drivers/net/phy/bcm87xx.c
-+++ b/drivers/net/phy/bcm87xx.c
-@@ -40,10 +40,10 @@ static int bcm87xx_of_reg_init(struct phy_device *phydev)
- 	const __be32 *paddr_end;
- 	int len, ret;
- 
--	if (!phydev->dev.of_node)
-+	if (!phydev->mdio.dev.of_node)
- 		return 0;
- 
--	paddr = of_get_property(phydev->dev.of_node,
-+	paddr = of_get_property(phydev->mdio.dev.of_node,
- 				"broadcom,c45-reg-init", &len);
- 	if (!paddr)
- 		return 0;
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 47b711739ba9..39da6fc6a85e 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -220,9 +220,10 @@ static void rx_timestamp_work(struct work_struct *work);
- 
- #define BROADCAST_ADDR 31
- 
--static inline int broadcast_write(struct mii_bus *bus, u32 regnum, u16 val)
-+static inline int broadcast_write(struct phy_device *phydev, u32 regnum,
-+				  u16 val)
- {
--	return mdiobus_write(bus, BROADCAST_ADDR, regnum, val);
-+	return mdiobus_write(phydev->mdio.bus, BROADCAST_ADDR, regnum, val);
- }
- 
- /* Caller must hold extreg_lock. */
-@@ -232,7 +233,7 @@ static int ext_read(struct phy_device *phydev, int page, u32 regnum)
- 	int val;
- 
- 	if (dp83640->clock->page != page) {
--		broadcast_write(phydev->bus, PAGESEL, page);
-+		broadcast_write(phydev, PAGESEL, page);
- 		dp83640->clock->page = page;
+ 	if (!priv->phydev) {
+diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
+index 8df6072ac78d..385c0a44db74 100644
+--- a/drivers/net/ethernet/toshiba/tc35815.c
++++ b/drivers/net/ethernet/toshiba/tc35815.c
+@@ -638,10 +638,6 @@ static int tc_mii_probe(struct net_device *dev)
+ 		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
+ 		return PTR_ERR(phydev);
  	}
- 	val = phy_read(phydev, regnum);
-@@ -247,11 +248,11 @@ static void ext_write(int broadcast, struct phy_device *phydev,
- 	struct dp83640_private *dp83640 = phydev->priv;
+-	printk(KERN_INFO "%s: attached PHY driver [%s] "
+-		"(mii_bus:phy_addr=%s, id=%x)\n",
+-		dev->name, phydev->drv->name, phydev_name(phydev),
+-		phydev->phy_id);
  
- 	if (dp83640->clock->page != page) {
--		broadcast_write(phydev->bus, PAGESEL, page);
-+		broadcast_write(phydev, PAGESEL, page);
- 		dp83640->clock->page = page;
- 	}
- 	if (broadcast)
--		broadcast_write(phydev->bus, regnum, val);
-+		broadcast_write(phydev, regnum, val);
- 	else
- 		phy_write(phydev, regnum, val);
- }
-@@ -1039,7 +1040,7 @@ static int choose_this_phy(struct dp83640_clock *clock,
- 	if (chosen_phy == -1 && !clock->chosen)
- 		return 1;
- 
--	if (chosen_phy == phydev->addr)
-+	if (chosen_phy == phydev->mdio.addr)
- 		return 1;
- 
- 	return 0;
-@@ -1103,10 +1104,10 @@ static int dp83640_probe(struct phy_device *phydev)
- 	struct dp83640_private *dp83640;
- 	int err = -ENOMEM, i;
- 
--	if (phydev->addr == BROADCAST_ADDR)
-+	if (phydev->mdio.addr == BROADCAST_ADDR)
- 		return 0;
- 
--	clock = dp83640_clock_get_bus(phydev->bus);
-+	clock = dp83640_clock_get_bus(phydev->mdio.bus);
- 	if (!clock)
- 		goto no_clock;
- 
-@@ -1132,7 +1133,8 @@ static int dp83640_probe(struct phy_device *phydev)
- 
- 	if (choose_this_phy(clock, phydev)) {
- 		clock->chosen = dp83640;
--		clock->ptp_clock = ptp_clock_register(&clock->caps, &phydev->dev);
-+		clock->ptp_clock = ptp_clock_register(&clock->caps,
-+						      &phydev->mdio.dev);
- 		if (IS_ERR(clock->ptp_clock)) {
- 			err = PTR_ERR(clock->ptp_clock);
- 			goto no_register;
-@@ -1158,7 +1160,7 @@ static void dp83640_remove(struct phy_device *phydev)
- 	struct list_head *this, *next;
- 	struct dp83640_private *tmp, *dp83640 = phydev->priv;
- 
--	if (phydev->addr == BROADCAST_ADDR)
-+	if (phydev->mdio.addr == BROADCAST_ADDR)
- 		return;
- 
- 	enable_status_frames(phydev, false);
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index e4c0b0c0af02..74e4521bd2d3 100644
---- a/drivers/net/phy/dp83867.c
-+++ b/drivers/net/phy/dp83867.c
-@@ -103,7 +103,7 @@ static int dp83867_config_intr(struct phy_device *phydev)
- static int dp83867_of_init(struct phy_device *phydev)
- {
- 	struct dp83867_private *dp83867 = phydev->priv;
--	struct device *dev = &phydev->dev;
-+	struct device *dev = &phydev->mdio.dev;
- 	struct device_node *of_node = dev->of_node;
- 	int ret;
- 
-@@ -137,7 +137,7 @@ static int dp83867_config_init(struct phy_device *phydev)
- 	u16 val, delay;
- 
- 	if (!phydev->priv) {
--		dp83867 = devm_kzalloc(&phydev->dev, sizeof(*dp83867),
-+		dp83867 = devm_kzalloc(&phydev->mdio.dev, sizeof(*dp83867),
- 				       GFP_KERNEL);
- 		if (!dp83867)
- 			return -ENOMEM;
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index 0a1cde6803b0..ab9c473d75ea 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -197,11 +197,11 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
- 	struct fixed_phy *fp;
- 
--	if (!phydev || !phydev->bus)
-+	if (!phydev || !phydev->mdio.bus)
- 		return -EINVAL;
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->addr == phydev->addr) {
-+		if (fp->addr == phydev->mdio.addr) {
- 			fp->link_update = link_update;
- 			fp->phydev = phydev;
- 			return 0;
-@@ -219,11 +219,11 @@ int fixed_phy_update_state(struct phy_device *phydev,
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
- 	struct fixed_phy *fp;
- 
--	if (!phydev || phydev->bus != fmb->mii_bus)
-+	if (!phydev || phydev->mdio.bus != fmb->mii_bus)
- 		return -EINVAL;
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->addr == phydev->addr) {
-+		if (fp->addr == phydev->mdio.addr) {
- #define _UPD(x) if (changed->x) \
- 	fp->status.x = status->x
- 			_UPD(link);
-@@ -344,7 +344,7 @@ struct phy_device *fixed_phy_register(unsigned int irq,
- 	}
- 
- 	of_node_get(np);
--	phy->dev.of_node = np;
-+	phy->mdio.dev.of_node = np;
- 	phy->is_pseudo_fixed_link = true;
- 
- 	switch (status->speed) {
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-index 0dbc445a5fa0..c12170d07b62 100644
---- a/drivers/net/phy/icplus.c
-+++ b/drivers/net/phy/icplus.c
-@@ -53,43 +53,43 @@ static int ip175c_config_init(struct phy_device *phydev)
- 	if (full_reset_performed == 0) {
- 
- 		/* master reset */
--		err = mdiobus_write(phydev->bus, 30, 0, 0x175c);
-+		err = mdiobus_write(phydev->mdio.bus, 30, 0, 0x175c);
- 		if (err < 0)
- 			return err;
- 
- 		/* ensure no bus delays overlap reset period */
--		err = mdiobus_read(phydev->bus, 30, 0);
-+		err = mdiobus_read(phydev->mdio.bus, 30, 0);
- 
- 		/* data sheet specifies reset period is 2 msec */
- 		mdelay(2);
- 
- 		/* enable IP175C mode */
--		err = mdiobus_write(phydev->bus, 29, 31, 0x175c);
-+		err = mdiobus_write(phydev->mdio.bus, 29, 31, 0x175c);
- 		if (err < 0)
- 			return err;
- 
- 		/* Set MII0 speed and duplex (in PHY mode) */
--		err = mdiobus_write(phydev->bus, 29, 22, 0x420);
-+		err = mdiobus_write(phydev->mdio.bus, 29, 22, 0x420);
- 		if (err < 0)
- 			return err;
- 
- 		/* reset switch ports */
- 		for (i = 0; i < 5; i++) {
--			err = mdiobus_write(phydev->bus, i,
-+			err = mdiobus_write(phydev->mdio.bus, i,
- 					    MII_BMCR, BMCR_RESET);
- 			if (err < 0)
- 				return err;
- 		}
- 
- 		for (i = 0; i < 5; i++)
--			err = mdiobus_read(phydev->bus, i, MII_BMCR);
-+			err = mdiobus_read(phydev->mdio.bus, i, MII_BMCR);
- 
- 		mdelay(2);
- 
- 		full_reset_performed = 1;
- 	}
- 
--	if (phydev->addr != 4) {
-+	if (phydev->mdio.addr != 4) {
- 		phydev->state = PHY_RUNNING;
- 		phydev->speed = SPEED_100;
- 		phydev->duplex = DUPLEX_FULL;
-@@ -184,7 +184,7 @@ static int ip101a_g_config_init(struct phy_device *phydev)
- 
- static int ip175c_read_status(struct phy_device *phydev)
- {
--	if (phydev->addr == 4) /* WAN port */
-+	if (phydev->mdio.addr == 4) /* WAN port */
- 		genphy_read_status(phydev);
- 	else
- 		/* Don't need to read status for switch ports */
-@@ -195,7 +195,7 @@ static int ip175c_read_status(struct phy_device *phydev)
- 
- static int ip175c_config_aneg(struct phy_device *phydev)
- {
--	if (phydev->addr == 4) /* WAN port */
-+	if (phydev->mdio.addr == 4) /* WAN port */
- 		genphy_config_aneg(phydev);
- 
- 	return 0;
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 50b5eac75854..f96c93c9819a 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -300,10 +300,11 @@ static int marvell_of_reg_init(struct phy_device *phydev)
- 	const __be32 *paddr;
- 	int len, i, saved_page, current_page, page_changed, ret;
- 
--	if (!phydev->dev.of_node)
-+	if (!phydev->mdio.dev.of_node)
- 		return 0;
- 
--	paddr = of_get_property(phydev->dev.of_node, "marvell,reg-init", &len);
-+	paddr = of_get_property(phydev->mdio.dev.of_node,
-+				"marvell,reg-init", &len);
- 	if (!paddr || len < (4 * sizeof(*paddr)))
- 		return 0;
- 
-@@ -1060,7 +1061,7 @@ static int marvell_probe(struct phy_device *phydev)
- {
- 	struct marvell_priv *priv;
- 
--	priv = devm_kzalloc(&phydev->dev, sizeof(*priv), GFP_KERNEL);
-+	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
- 	if (!priv)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 05381d0f559c..e5b1ccde835b 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -200,16 +200,16 @@ EXPORT_SYMBOL(of_mdio_find_bus);
-  * the phy. This allows auto-probed pyh devices to be supplied with information
-  * passed in via DT.
-  */
--static void of_mdiobus_link_phydev(struct mii_bus *mdio,
-+static void of_mdiobus_link_phydev(struct mii_bus *bus,
- 				   struct phy_device *phydev)
- {
--	struct device *dev = &phydev->dev;
-+	struct device *dev = &phydev->mdio.dev;
- 	struct device_node *child;
- 
--	if (dev->of_node || !mdio->dev.of_node)
-+	if (dev->of_node || !bus->dev.of_node)
- 		return;
- 
--	for_each_available_child_of_node(mdio->dev.of_node, child) {
-+	for_each_available_child_of_node(bus->dev.of_node, child) {
- 		int addr;
- 		int ret;
- 
-@@ -227,7 +227,7 @@ static void of_mdiobus_link_phydev(struct mii_bus *mdio,
- 			continue;
- 		}
- 
--		if (addr == phydev->addr) {
-+		if (addr == phydev->mdio.addr) {
- 			dev->of_node = child;
- 			return;
- 		}
-@@ -522,7 +522,7 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
- 
- static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
- {
--	struct device_driver *drv = phydev->dev.driver;
-+	struct device_driver *drv = phydev->mdio.dev.driver;
- 	struct phy_driver *phydrv = to_phy_driver(drv);
- 	struct net_device *netdev = phydev->attached_dev;
- 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index bf72365e90bc..b51505be1fa9 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -350,7 +350,7 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 
- static int ksz9021_config_init(struct phy_device *phydev)
- {
--	const struct device *dev = &phydev->dev;
-+	const struct device *dev = &phydev->mdio.dev;
- 	const struct device_node *of_node = dev->of_node;
- 	const struct device *dev_walker;
- 
-@@ -358,7 +358,7 @@ static int ksz9021_config_init(struct phy_device *phydev)
- 	 * properties in the MAC node. Walk up the tree of devices to
- 	 * find a device with an OF node.
- 	 */
--	dev_walker = &phydev->dev;
-+	dev_walker = &phydev->mdio.dev;
- 	do {
- 		of_node = dev_walker->of_node;
- 		dev_walker = dev_walker->parent;
-@@ -471,7 +471,7 @@ static int ksz9031_center_flp_timing(struct phy_device *phydev)
- 
- static int ksz9031_config_init(struct phy_device *phydev)
- {
--	const struct device *dev = &phydev->dev;
-+	const struct device *dev = &phydev->mdio.dev;
- 	const struct device_node *of_node = dev->of_node;
- 	static const char *clk_skews[2] = {"rxc-skew-ps", "txc-skew-ps"};
- 	static const char *rx_data_skews[4] = {
-@@ -630,12 +630,12 @@ static void kszphy_get_stats(struct phy_device *phydev,
- static int kszphy_probe(struct phy_device *phydev)
- {
- 	const struct kszphy_type *type = phydev->drv->driver_data;
--	const struct device_node *np = phydev->dev.of_node;
-+	const struct device_node *np = phydev->mdio.dev.of_node;
- 	struct kszphy_priv *priv;
- 	struct clk *clk;
- 	int ret;
- 
--	priv = devm_kzalloc(&phydev->dev, sizeof(*priv), GFP_KERNEL);
-+	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
- 	if (!priv)
- 		return -ENOMEM;
- 
-@@ -658,7 +658,7 @@ static int kszphy_probe(struct phy_device *phydev)
- 		priv->led_mode = -1;
- 	}
- 
--	clk = devm_clk_get(&phydev->dev, "rmii-ref");
-+	clk = devm_clk_get(&phydev->mdio.dev, "rmii-ref");
- 	/* NOTE: clk may be NULL if building without CONFIG_HAVE_CLK */
- 	if (!IS_ERR_OR_NULL(clk)) {
- 		unsigned long rate = clk_get_rate(clk);
-diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
-index 99df5bc47424..5e34b49be0b3 100644
---- a/drivers/net/phy/microchip.c
-+++ b/drivers/net/phy/microchip.c
-@@ -68,7 +68,7 @@ int lan88xx_suspend(struct phy_device *phydev)
- 
- static int lan88xx_probe(struct phy_device *phydev)
- {
--	struct device *dev = &phydev->dev;
-+	struct device *dev = &phydev->mdio.dev;
- 	struct lan88xx_priv *priv;
- 
- 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-@@ -89,7 +89,7 @@ static int lan88xx_probe(struct phy_device *phydev)
- 
- static void lan88xx_remove(struct phy_device *phydev)
- {
--	struct device *dev = &phydev->dev;
-+	struct device *dev = &phydev->mdio.dev;
- 	struct lan88xx_priv *priv = phydev->priv;
- 
- 	if (priv)
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 1522042f8e01..a63e4b5c81bc 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -319,7 +319,7 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- {
- 	u32 speed = ethtool_cmd_speed(cmd);
- 
--	if (cmd->phy_address != phydev->addr)
-+	if (cmd->phy_address != phydev->mdio.addr)
- 		return -EINVAL;
- 
- 	/* We make sure that we don't pass unsupported values in to the PHY */
-@@ -375,7 +375,7 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- 		cmd->port = PORT_BNC;
- 	else
- 		cmd->port = PORT_MII;
--	cmd->phy_address = phydev->addr;
-+	cmd->phy_address = phydev->mdio.addr;
- 	cmd->transceiver = phy_is_internal(phydev) ?
- 		XCVR_INTERNAL : XCVR_EXTERNAL;
- 	cmd->autoneg = phydev->autoneg;
-@@ -403,7 +403,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- 
- 	switch (cmd) {
- 	case SIOCGMIIPHY:
--		mii_data->phy_id = phydev->addr;
-+		mii_data->phy_id = phydev->mdio.addr;
- 		/* fall through */
- 
- 	case SIOCGMIIREG:
-@@ -411,7 +411,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- 		return 0;
- 
- 	case SIOCSMIIREG:
--		if (mii_data->phy_id == phydev->addr) {
-+		if (mii_data->phy_id == phydev->mdio.addr) {
- 			switch (mii_data->reg_num) {
- 			case MII_BMCR:
- 				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0) {
-@@ -446,7 +446,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- 
- 		phy_write(phydev, mii_data->reg_num, val);
- 
--		if (mii_data->phy_id == phydev->addr &&
-+		if (mii_data->phy_id == phydev->mdio.addr &&
- 		    mii_data->reg_num == MII_BMCR &&
- 		    val & BMCR_RESET)
- 			return phy_init_hw(phydev);
-@@ -641,7 +641,7 @@ int phy_start_interrupts(struct phy_device *phydev)
- 	if (request_irq(phydev->irq, phy_interrupt, 0, "phy_interrupt",
- 			phydev) < 0) {
- 		pr_warn("%s: Can't get IRQ %d (PHY)\n",
--			phydev->bus->name, phydev->irq);
-+			phydev->mdio.bus->name, phydev->irq);
- 		phydev->irq = PHY_POLL;
- 		return 0;
- 	}
-@@ -1039,11 +1039,11 @@ static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
- int phy_read_mmd_indirect(struct phy_device *phydev, int prtad, int devad)
- {
- 	struct phy_driver *phydrv = phydev->drv;
--	int addr = phydev->addr;
-+	int addr = phydev->mdio.addr;
- 	int value = -1;
- 
- 	if (!phydrv->read_mmd_indirect) {
--		struct mii_bus *bus = phydev->bus;
-+		struct mii_bus *bus = phydev->mdio.bus;
- 
- 		mutex_lock(&bus->mdio_lock);
- 		mmd_phy_indirect(bus, prtad, devad, addr);
-@@ -1077,10 +1077,10 @@ void phy_write_mmd_indirect(struct phy_device *phydev, int prtad,
- 				   int devad, u32 data)
- {
- 	struct phy_driver *phydrv = phydev->drv;
--	int addr = phydev->addr;
-+	int addr = phydev->mdio.addr;
- 
- 	if (!phydrv->write_mmd_indirect) {
--		struct mii_bus *bus = phydev->bus;
-+		struct mii_bus *bus = phydev->mdio.bus;
- 
- 		mutex_lock(&bus->mdio_lock);
- 		mmd_phy_indirect(bus, prtad, devad, addr);
+ 	/* mask with MAC supported features */
+ 	phydev->supported &= PHY_BASIC_FEATURES;
 diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index e41bea8e898d..f16de04b65b6 100644
+index 0f179709a289..e41bea8e898d 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
-@@ -43,7 +43,7 @@ MODULE_LICENSE("GPL");
+@@ -662,6 +662,10 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	phydev->attached_dev = dev;
+ 	dev->phydev = phydev;
  
- void phy_device_free(struct phy_device *phydev)
- {
--	put_device(&phydev->dev);
-+	put_device(&phydev->mdio.dev);
++	netdev_info(dev,
++		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
++		    phydev->drv->name, phydev_name(phydev), phydev->irq);
++
+ 	phydev->dev_flags = flags;
+ 
+ 	phydev->interface = interface;
+diff --git a/drivers/staging/netlogic/xlr_net.c b/drivers/staging/netlogic/xlr_net.c
+index b939c4b5f229..77ac6ec564fb 100644
+--- a/drivers/staging/netlogic/xlr_net.c
++++ b/drivers/staging/netlogic/xlr_net.c
+@@ -854,8 +854,6 @@ static int xlr_mii_probe(struct xlr_net_priv *priv)
+ 				| ADVERTISED_MII);
+ 
+ 	phydev->advertising = phydev->supported;
+-	pr_info("attached PHY driver [%s] (mii_bus:phy_addr=%s\n",
+-		phydev->drv->name, phydev_name(phydev));
+ 	return 0;
  }
- EXPORT_SYMBOL(phy_device_free);
  
-@@ -65,7 +65,7 @@ static DEFINE_MUTEX(phy_fixup_lock);
- 
- /**
-  * phy_register_fixup - creates a new phy_fixup and adds it to the list
-- * @bus_id: A string which matches phydev->dev.bus_id (or PHY_ANY_ID)
-+ * @bus_id: A string which matches phydev->mdio.dev.bus_id (or PHY_ANY_ID)
-  * @phy_uid: Used to match against phydev->phy_id (the UID of the PHY)
-  *	It can also be PHY_ANY_UID
-  * @phy_uid_mask: Applied to phydev->phy_id and fixup->phy_uid before
-@@ -153,13 +153,19 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 				     struct phy_c45_device_ids *c45_ids)
- {
- 	struct phy_device *dev;
-+	struct mdio_device *mdiodev;
- 
- 	/* We allocate the device, and initialize the default values */
- 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
- 	if (!dev)
- 		return ERR_PTR(-ENOMEM);
- 
--	dev->dev.release = phy_device_release;
-+	mdiodev = &dev->mdio;
-+	mdiodev->dev.release = phy_device_release;
-+	mdiodev->dev.parent = &bus->dev;
-+	mdiodev->dev.bus = &mdio_bus_type;
-+	mdiodev->bus = bus;
-+	mdiodev->addr = addr;
- 
- 	dev->speed = 0;
- 	dev->duplex = -1;
-@@ -171,15 +177,11 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 	dev->autoneg = AUTONEG_ENABLE;
- 
- 	dev->is_c45 = is_c45;
--	dev->addr = addr;
- 	dev->phy_id = phy_id;
- 	if (c45_ids)
- 		dev->c45_ids = *c45_ids;
--	dev->bus = bus;
--	dev->dev.parent = &bus->dev;
--	dev->dev.bus = &mdio_bus_type;
- 	dev->irq = bus->irq ? bus->irq[addr] : PHY_POLL;
--	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
-+	dev_set_name(&mdiodev->dev, PHY_ID_FMT, bus->id, addr);
- 
- 	dev->state = PHY_DOWN;
- 
-@@ -199,7 +201,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 	 */
- 	request_module(MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
- 
--	device_initialize(&dev->dev);
-+	device_initialize(&mdiodev->dev);
- 
- 	return dev;
- }
-@@ -382,27 +384,27 @@ int phy_device_register(struct phy_device *phydev)
- 	int err;
- 
- 	/* Don't register a phy if one is already registered at this address */
--	if (phydev->bus->phy_map[phydev->addr])
-+	if (phydev->mdio.bus->phy_map[phydev->mdio.addr])
- 		return -EINVAL;
--	phydev->bus->phy_map[phydev->addr] = phydev;
-+	phydev->mdio.bus->phy_map[phydev->mdio.addr] = phydev;
- 
- 	/* Run all of the fixups for this PHY */
- 	err = phy_scan_fixups(phydev);
- 	if (err) {
--		pr_err("PHY %d failed to initialize\n", phydev->addr);
-+		pr_err("PHY %d failed to initialize\n", phydev->mdio.addr);
- 		goto out;
- 	}
- 
--	err = device_add(&phydev->dev);
-+	err = device_add(&phydev->mdio.dev);
- 	if (err) {
--		pr_err("PHY %d failed to add\n", phydev->addr);
-+		pr_err("PHY %d failed to add\n", phydev->mdio.addr);
- 		goto out;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 1e9e9424a33d..ee1114613847 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1080,9 +1080,6 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 			netdev_err(slave_dev, "failed to connect to port %d: %d\n", p->port, ret);
+ 			return ret;
+ 		}
+-	} else {
+-		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
+-			    p->phy->addr, p->phy->drv->name);
  	}
  
  	return 0;
- 
-  out:
--	phydev->bus->phy_map[phydev->addr] = NULL;
-+	phydev->mdio.bus->phy_map[phydev->mdio.addr] = NULL;
- 	return err;
- }
- EXPORT_SYMBOL(phy_device_register);
-@@ -417,10 +419,10 @@ EXPORT_SYMBOL(phy_device_register);
-  */
- void phy_device_remove(struct phy_device *phydev)
- {
--	struct mii_bus *bus = phydev->bus;
--	int addr = phydev->addr;
-+	struct mii_bus *bus = phydev->mdio.bus;
-+	int addr = phydev->mdio.addr;
- 
--	device_del(&phydev->dev);
-+	device_del(&phydev->mdio.dev);
- 	bus->phy_map[addr] = NULL;
- }
- EXPORT_SYMBOL(phy_device_remove);
-@@ -625,8 +627,8 @@ EXPORT_SYMBOL(phy_init_hw);
- int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		      u32 flags, phy_interface_t interface)
- {
--	struct mii_bus *bus = phydev->bus;
--	struct device *d = &phydev->dev;
-+	struct mii_bus *bus = phydev->mdio.bus;
-+	struct device *d = &phydev->mdio.dev;
- 	int err;
- 
- 	if (!try_module_get(bus->owner)) {
-@@ -748,8 +750,8 @@ void phy_detach(struct phy_device *phydev)
- 	 * real driver could be loaded
- 	 */
- 	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
--		if (phydev->dev.driver == &genphy_driver[i].driver) {
--			device_release_driver(&phydev->dev);
-+		if (phydev->mdio.dev.driver == &genphy_driver[i].driver) {
-+			device_release_driver(&phydev->mdio.dev);
- 			break;
- 		}
- 	}
-@@ -758,16 +760,16 @@ void phy_detach(struct phy_device *phydev)
- 	 * The phydev might go away on the put_device() below, so avoid
- 	 * a use-after-free bug by reading the underlying bus first.
- 	 */
--	bus = phydev->bus;
-+	bus = phydev->mdio.bus;
- 
--	put_device(&phydev->dev);
-+	put_device(&phydev->mdio.dev);
- 	module_put(bus->owner);
- }
- EXPORT_SYMBOL(phy_detach);
- 
- int phy_suspend(struct phy_device *phydev)
- {
--	struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
-+	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
- 	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
- 	int ret = 0;
- 
-@@ -790,7 +792,7 @@ EXPORT_SYMBOL(phy_suspend);
- 
- int phy_resume(struct phy_device *phydev)
- {
--	struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
-+	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
- 	int ret = 0;
- 
- 	if (phydrv->resume)
-@@ -1307,7 +1309,7 @@ EXPORT_SYMBOL(phy_set_max_speed);
- 
- static void of_set_phy_supported(struct phy_device *phydev)
- {
--	struct device_node *node = phydev->dev.of_node;
-+	struct device_node *node = phydev->mdio.dev.of_node;
- 	u32 max_speed;
- 
- 	if (!IS_ENABLED(CONFIG_OF_MDIO))
-@@ -1331,7 +1333,7 @@ static void of_set_phy_supported(struct phy_device *phydev)
- static int phy_probe(struct device *dev)
- {
- 	struct phy_device *phydev = to_phy_device(dev);
--	struct device_driver *drv = phydev->dev.driver;
-+	struct device_driver *drv = phydev->mdio.dev.driver;
- 	struct phy_driver *phydrv = to_phy_driver(drv);
- 	int err = 0;
- 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index dc2da8770918..18c981b95910 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -44,7 +44,7 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
- static int smsc_phy_config_init(struct phy_device *phydev)
- {
- 	int __maybe_unused len;
--	struct device *dev __maybe_unused = &phydev->dev;
-+	struct device *dev __maybe_unused = &phydev->mdio.dev;
- 	struct device_node *of_node __maybe_unused = dev->of_node;
- 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
- 	int enable_energy = 1;
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index a87a868fed64..25bace4db85a 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -75,7 +75,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- 	/* Associate the OF node with the device structure so it
- 	 * can be looked up later */
- 	of_node_get(child);
--	phy->dev.of_node = child;
-+	phy->mdio.dev.of_node = child;
- 
- 	/* All data is now stored in the phy struct;
- 	 * register it */
-@@ -238,7 +238,7 @@ struct phy_device *of_phy_connect(struct net_device *dev,
- 	ret = phy_connect_direct(dev, phy, hndlr, iface);
- 
- 	/* refcount is held by phy_connect_direct() on success */
--	put_device(&phy->dev);
-+	put_device(&phy->mdio.dev);
- 
- 	return ret ? NULL : phy;
- }
-@@ -268,7 +268,7 @@ struct phy_device *of_phy_attach(struct net_device *dev,
- 	ret = phy_attach_direct(dev, phy, flags, iface);
- 
- 	/* refcount is held by phy_attach_direct() on success */
--	put_device(&phy->dev);
-+	put_device(&phy->mdio.dev);
- 
- 	return ret ? NULL : phy;
- }
-diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index 0d073c23c10d..94f9f1491cde 100644
---- a/include/linux/mdio.h
-+++ b/include/linux/mdio.h
-@@ -13,6 +13,15 @@
- 
- struct mii_bus;
- 
-+struct mdio_device {
-+	struct device dev;
-+
-+	struct mii_bus *bus;
-+	/* Bus address of the MDIO device (0-31) */
-+	int addr;
-+};
-+#define to_mdio_device(d) container_of(d, struct mdio_device, dev)
-+
- static inline bool mdio_phy_id_is_c45(int phy_id)
- {
- 	return (phy_id & MDIO_PHY_ID_C45) && !(phy_id & ~MDIO_PHY_ID_C45_MASK);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index e154277b7bf5..46e725be6730 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -357,14 +357,12 @@ struct phy_c45_device_ids {
-  * handling, as well as handling shifts in PHY hardware state
-  */
- struct phy_device {
-+	struct mdio_device mdio;
-+
- 	/* Information about the PHY type */
- 	/* And management functions */
- 	struct phy_driver *drv;
- 
--	struct mii_bus *bus;
--
--	struct device dev;
--
- 	u32 phy_id;
- 
- 	struct phy_c45_device_ids c45_ids;
-@@ -380,9 +378,6 @@ struct phy_device {
- 
- 	phy_interface_t interface;
- 
--	/* Bus address of the PHY (0-31) */
--	int addr;
--
- 	/*
- 	 * forced speed & duplex (no autoneg)
- 	 * partner speed & duplex & pause (autoneg)
-@@ -431,7 +426,8 @@ struct phy_device {
- 
- 	void (*adjust_link)(struct net_device *dev);
- };
--#define to_phy_device(d) container_of(d, struct phy_device, dev)
-+#define to_phy_device(d) container_of(to_mdio_device(d), \
-+				      struct phy_device, mdio)
- 
- /* struct phy_driver: Driver structure for a particular PHY type
-  *
-@@ -621,7 +617,7 @@ static inline int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
- 	if (!phydev->is_c45)
- 		return -EOPNOTSUPP;
- 
--	return mdiobus_read(phydev->bus, phydev->addr,
-+	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr,
- 			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
- }
- 
-@@ -647,7 +643,7 @@ int phy_read_mmd_indirect(struct phy_device *phydev, int prtad, int devad);
-  */
- static inline int phy_read(struct phy_device *phydev, u32 regnum)
- {
--	return mdiobus_read(phydev->bus, phydev->addr, regnum);
-+	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, regnum);
- }
- 
- /**
-@@ -662,7 +658,7 @@ static inline int phy_read(struct phy_device *phydev, u32 regnum)
-  */
- static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
- {
--	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
-+	return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr, regnum, val);
- }
- 
- /**
-@@ -725,7 +721,7 @@ static inline int phy_write_mmd(struct phy_device *phydev, int devad,
- 
- 	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
- 
--	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
-+	return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr, regnum, val);
- }
- 
- /**
-@@ -775,12 +771,12 @@ static inline int phy_read_status(struct phy_device *phydev)
- }
- 
- #define phydev_err(_phydev, format, args...)	\
--	dev_err(&_phydev->dev, format, ##args)
-+	dev_err(&_phydev->mdio.dev, format, ##args)
- 
- #define phydev_dbg(_phydev, format, args...)	\
--	dev_dbg(&_phydev->dev, format, ##args)
-+	dev_dbg(&_phydev->mdio.dev, format, ##args);
- 
--#define phydev_name(_phydev) dev_name(&_phydev->dev)
-+#define phydev_name(_phydev) dev_name(&_phydev->mdio.dev)
- 
- int genphy_config_init(struct phy_device *phydev);
- int genphy_setup_forced(struct phy_device *phydev);
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 208d1b257194..fa4daba8db55 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -439,7 +439,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 		if (of_phy_is_fixed_link(port_dn)) {
- 			phydev = of_phy_find_device(port_dn);
- 			if (phydev) {
--				int addr = phydev->addr;
-+				int addr = phydev->mdio.addr;
- 
- 				phy_device_free(phydev);
- 				of_node_put(port_dn);
 -- 
 2.6.4
