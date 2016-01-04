@@ -1,72 +1,82 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/3] nfp: fix RX buffer length validation
-Date: Mon,  4 Jan 2016 16:03:15 +0000
-Message-ID: <1451923395-24533-4-git-send-email-jakub.kicinski@netronome.com>
-References: <1451923395-24533-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: simon.horman@netronome.com, rolf.neugebauer@netronome.com,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33696 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752531AbcADQD0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 11:03:26 -0500
-Received: by mail-wm0-f43.google.com with SMTP id f206so178564251wmf.0
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 08:03:25 -0800 (PST)
-In-Reply-To: <1451923395-24533-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
+Date: Mon, 04 Jan 2016 16:14:00 +0000
+Message-ID: <87wprptj93.fsf@doppelsaurus.mobileactivedefense.com>
+References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
+	<87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
+	<20151229.150843.2021692616139434395.davem@davemloft.net>
+	<CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
+	<CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
+	<CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
+	<CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
+	<CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
+	<1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jacob Siverskog <jacob@teenage.engineering>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Mon, 04 Jan 2016 10:25:08 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Meaning of data_len and meta_len RX WB descriptor fields depend
-slightly on whether rx_offset is dynamic or not.  For dynamic
-offsets data_len includes mata_len.  This makes the code harder
-to follow, in fact our RX buffer length check is incorrect -
-we are comparing allocation length to data_len while we should
-also account for meta_len.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+> On Mon, 2016-01-04 at 10:10 +0100, Jacob Siverskog wrote:
 
-Let's adjust the values of data_len and meta_len to their natural
-meaning and simplify the logic.
+[...]
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+>> I believe the crash occurred between these two actions. I just saw
+>> that there are some interesting events in the log prior to the crash:
+>> kernel: Bluetooth: Unable to push skb to HCI core(-6)
+>> kernel: (stc):  proto stack 4's ->recv failed
+>> kernel: (stc): remove_channel_from_table: id 3
+>> kernel: (stc): remove_channel_from_table: id 2
+>> kernel: (stc): remove_channel_from_table: id 4
+>> kernel: (stc):  all chnl_ids unregistered
+>> kernel: (stk) :ldisc_install = 0(stc): st_tty_close
+>> 
+>> The first print is from btwilink.c. However, I can't see the
+>> connection between Bluetooth (BLE) and UDP/IPv6 (we're not using
+>> 6LoWPAN or anything similar).
+>> 
+>> Thanks, Jacob
+>
+> Definitely these details are useful ;)
+>
+> Could you try :
+>
+> diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
+> index 6e3af8b42cdd..0c99a74fb895 100644
+> --- a/drivers/misc/ti-st/st_core.c
+> +++ b/drivers/misc/ti-st/st_core.c
+> @@ -912,7 +912,9 @@ void st_core_exit(struct st_data_s *st_gdata)
+>  		skb_queue_purge(&st_gdata->txq);
+>  		skb_queue_purge(&st_gdata->tx_waitq);
+>  		kfree_skb(st_gdata->rx_skb);
+> +		st_gdata->rx_skb = NULL;
+>  		kfree_skb(st_gdata->tx_skb);
+> +		st_gdata->tx_skb = NULL;
+>  		/* TTY ldisc cleanup */
+>  		err = tty_unregister_ldisc(N_TI_WL);
+>  		if (err)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index bfc522474820..ee4b99373e33 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1259,22 +1259,19 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 
- 		meta_len = rxd->rxd.meta_len_dd & PCIE_DESC_RX_META_LEN_MASK;
- 		data_len = le16_to_cpu(rxd->rxd.data_len);
-+		/* For dynamic offset data_len includes meta_len, adjust */
-+		if (nn->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC)
-+			data_len -= meta_len;
-+		else
-+			meta_len = nn->rx_offset;
- 
--		if (WARN_ON_ONCE(data_len > nn->fl_bufsz)) {
-+		if (WARN_ON_ONCE(meta_len + data_len > nn->fl_bufsz)) {
- 			dev_kfree_skb_any(skb);
- 			continue;
- 		}
- 
--		if (nn->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC) {
--			/* The packet data starts after the metadata */
--			skb_reserve(skb, meta_len);
--		} else {
--			/* The packet data starts at a fixed offset */
--			skb_reserve(skb, nn->rx_offset);
--		}
--
--		/* Adjust the SKB for the dynamic meta data pre-pended */
--		skb_put(skb, data_len - meta_len);
-+		skb_reserve(skb, meta_len);
-+		skb_put(skb, data_len);
- 
- 		nfp_net_set_hash(nn->netdev, skb, rxd);
- 
--- 
-1.9.1
+Hmm ... the code continues with
+
+		err = tty_unregister_ldisc(N_TI_WL);
+		if (err)
+			pr_err("unable to un-register ldisc %ld", err);
+		/* free the global data pointer */
+		kfree(st_gdata);
+
+So who would ever see that the rx_skb and tx_skb pointers were cleared
+prior to freeing the data structure containing them?
