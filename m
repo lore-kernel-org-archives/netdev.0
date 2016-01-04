@@ -1,71 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 08/24] phy: Centralise print about attached
- phy
-Date: Mon, 4 Jan 2016 22:16:20 +0100
-Message-ID: <20160104211620.GC7485@lunn.ch>
-References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
- <1451929022-5580-9-git-send-email-andrew@lunn.ch>
- <568AD2F6.2090006@gmail.com>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: Re: [PATCH 2/4] net: phy: at803x: Allow specifying the RGMII RX clock
+ delay via phy mode
+Date: Mon, 4 Jan 2016 22:17:53 +0100
+Message-ID: <CAFBinCC7yOvw=e7tn=TNcJj4tSwuKpaT5KrtGBF1_CoxaDwknQ@mail.gmail.com>
+References: <1451089622-14957-1-git-send-email-martin.blumenstingl@googlemail.com>
+ <1451089622-14957-3-git-send-email-martin.blumenstingl@googlemail.com>
+ <567F5AD5.40004@gmail.com> <56804898.1030902@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	Mans Rullgard <mans@mansr.com>
+To: Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35212 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751908AbcADVQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2016 16:16:21 -0500
-Content-Disposition: inline
-In-Reply-To: <568AD2F6.2090006@gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36874 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752764AbcADVSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 16:18:14 -0500
+Received: by mail-wm0-f47.google.com with SMTP id f206so1296558wmf.0
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 13:18:13 -0800 (PST)
+In-Reply-To: <56804898.1030902@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 04, 2016 at 12:15:50PM -0800, Florian Fainelli wrote:
-> On 04/01/16 09:36, Andrew Lunn wrote:
-> > Many Ethernet drivers contain the same netdev_info() print statement
-> > about the attached phy. Move it into the phy device code.
-> > 
-> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> > ---
-> 
-> [snip]
-> 
-> > diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> > index 5f8a5182b8dc..4c6f7a7f9352 100644
-> > --- a/drivers/net/ethernet/adi/bfin_mac.c
-> > +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> > @@ -444,11 +444,6 @@ static int mii_probe(struct net_device *dev, int phy_mode)
-> >  	lp->old_duplex = -1;
-> >  	lp->phydev = phydev;
-> >  
-> > -	pr_info("attached PHY driver [%s] "
-> > -	        "(mii_bus:phy_addr=%s, irq=%d, mdc_clk=%dHz(mdc_div=%d)@sclk=%dMHz)\n",
-> > -		phydev->drv->name, phydev_name(phydev), phydev->irq,
-> > -	        MDC_CLK, mdc_div, sclk/1000000);
-> 
-> Removing this gets rid of the bus clocking information that is displayed
-> here.
+On Sun, Dec 27, 2015 at 9:22 PM, Mason <slash.tmp@free.fr> wrote:
+> On 27/12/2015 04:28, Florian Fainelli wrote:
+>
+>> Le 25/12/2015 16:27, Martin Blumenstingl wrote:
+>>
+>>> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+>>> index f566b6e..0b262a2 100644
+>>> --- a/drivers/net/phy/at803x.c
+>>> +++ b/drivers/net/phy/at803x.c
+>>> @@ -36,8 +36,10 @@
+>>>  #define AT803X_INSR                         0x0013
+>>>  #define AT803X_DEBUG_ADDR                   0x1D
+>>>  #define AT803X_DEBUG_DATA                   0x1E
+>>> -#define AT803X_DEBUG_SYSTEM_MODE_CTRL               0x05
+>>> -#define AT803X_DEBUG_RGMII_TX_CLK_DLY               BIT(8)
+>>> +#define AT803X_DEBUG_REG_0                  0x00
+>>
+>> Seems like the previous register name might have been clearer that the
+>> new name you suggest here, did that come from a different GPL tarball or
+>> documentation?
+>
+> http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
+>
+> According to the 8035 data sheet, the debug register at offset 0
+> is just "Debug register 0". In fact, the only non-reserved bit is
+> "rgmii rx clock delay enable/disable"
+Thanks for verifying this.
 
-Yes, but how useful is that information?
-
-I'm unsure what to do with all these prints. How useful are they? The
-information is already in /sys. Are we really interested in seeing
-this at boot time?
-
-My main issue with them is that i need to touch them all when moving
-members out of phydev into the common mdio device structure. So having
-it once in a central place is good.
- 
-> Maybe something ala
-> phy_print_status() which takes variadic arguments?
-
-O.K. that works, since in most cases it will be a call like:
-
-phy_print_attached(phydev);
-
-and sometimes
-
-phy_print_attached(phydev, "mdc_clk=%dHz(mdc_div=%d)@sclk=%dMHz)",
-                   MDC_CLK, mdc_div, sclk/1000000);
-
-	   Andrew
+@Florian: Did you already have time to look at my comments? I know
+it's vacation season, but I'd like to fix all remaining issues soon.
