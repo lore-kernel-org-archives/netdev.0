@@ -1,45 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH net-next 05/24] phy: add phydev_name() macro
-Date: Mon, 04 Jan 2016 09:48:47 -0800
-Message-ID: <1451929727.4334.100.camel@perches.com>
-References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
-	 <1451929022-5580-6-git-send-email-andrew@lunn.ch>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC PATCH net-next] net: Add l3mdev cgroup
+Date: Mon, 4 Jan 2016 12:58:36 -0500
+Message-ID: <20160104175836.GA11668@mtj.duckdns.org>
+References: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0002.hostedemail.com ([216.40.44.2]:42721 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752025AbcADRsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 12:48:50 -0500
-In-Reply-To: <1451929022-5580-6-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
+To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1451925136-13327-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-01-04 at 18:36 +0100, Andrew Lunn wrote:
-> Add a phydev_name() macro, to help with moving some structure members
-> from phy_device.
-[]
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-[]
-> @@ -783,6 +783,8 @@static inline int phy_read_status(struct phy_devic=
-e *phydev)
-> =A0#define phydev_dbg(_phydev, format, args...)	\
-> =A0	dev_dbg(&_phydev->dev, format, ##args)
-> =A0
-> +#define phydev_name(_phydev) dev_name(&_phydev->dev)
-> +
+Hello, David.
 
-This should use parentheses around phydev
+On Mon, Jan 04, 2016 at 08:32:16AM -0800, David Ahern wrote:
+> Add cgroup to assoicate tasks with L3 networking domains. AF_INET{6}
+> sockets opened by tasks associated with an l3mdev cgroup are bound to
+> the associated master device when the socket is created. This allows a
+> user to run a command (and its children) within an L3 networking context.
+> 
+> The master-device for an l3mdev cgroup must be an L3 master device
+> (e.g., VRF), and it must be set before attaching tasks to the cgroup. Once
+> set the master-device can not change. Nested l3mdev cgroups are not
+> supported. The root (aka default) l3mdev cgroup can not be bound to a
+> master device.
+> 
+> Example:
+>     ip link add vrf-red type vrf table vrf-red
+>     ip link set dev vrf-red up
+>     ip link set dev eth1 master vrf-red
+> 
+>     cgcreate -g l3mdev:vrf-red
+>     cgset -r l3mdev.master-device=vrf-red vrf-red
+>     cgexec -g l3mdev:vrf-red bash
 
-#define phydev_name(phydev)	dev_name(&(phydev)->dev)
+Please don't create any new controller whose sole purpose is
+identifying group membership.  Please take a look at how libxt_cgroup
+handles identification w/o creating a new controller.
 
-or likely even better be a static inline
+ http://lkml.kernel.org/g/1449527935-27056-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
 
-static inline const char * phydev_name(const struct phy_device *phydev)
-{
-	return dev_name(&phydev->dev);
-}
+Thanks.
+
+-- 
+tejun
