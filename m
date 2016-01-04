@@ -1,56 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: properly support MSG_PEEK with truncated
- buffers
-Date: Mon, 04 Jan 2016 17:25:13 -0500 (EST)
-Message-ID: <20160104.172513.383473031591056204.davem@davemloft.net>
-References: <20151228153836.GA28529@unicorn.suse.cz>
-	<1451322610.8255.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1451483472.8255.16.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next 0/5] sctp: use transport hashtable to replace
+ association's with rhashtable
+Date: Mon, 04 Jan 2016 17:30:00 -0500 (EST)
+Message-ID: <20160104.173000.1748782946936467170.davem@davemloft.net>
+References: <cover.1451490447.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, sd@queasysnail.net, stable@vger.kernel.org,
-	jslaby@suse.cz, ben@decadent.org.uk, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	mleitner@redhat.com, vyasevic@redhat.com, daniel@iogearbox.net
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48961 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48996 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913AbcADWZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 17:25:15 -0500
-In-Reply-To: <1451483472.8255.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752106AbcADWaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 17:30:03 -0500
+In-Reply-To: <cover.1451490447.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Dec 2015 08:51:12 -0500
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 30 Dec 2015 23:50:45 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> for telecom center, the usual case is that a server is connected by thousands
+> of clients. but if the server with only one enpoint(udp style) use the same
+> sport and dport to communicate with every clients, and every assoc in server
+> will be hashed in the same chain of global assoc hashtable due to currently we
+> choose dport and sport as the hash key.
 > 
-> Backport of this upstream commit into stable kernels :
-> 89c22d8c3b27 ("net: Fix skb csum races when peeking")
-> exposed a bug in udp stack vs MSG_PEEK support, when user provides
-> a buffer smaller than skb payload.
->     
-> In this case,
-> skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr),
->                                  msg->msg_iov);
-> returns -EFAULT.
->     
-> This bug does not happen in upstream kernels since Al Viro did a great
-> job to replace this into :
-> skb_copy_and_csum_datagram_msg(skb, sizeof(struct udphdr), msg);
-> This variant is safe vs short buffers.
->     
-> For the time being, instead reverting Herbert Xu patch and add back
-> skb->ip_summed invalid changes, simply store the result of
-> udp_lib_checksum_complete() so that we avoid computing the checksum a
-> second time, and avoid the problematic
-> skb_copy_and_csum_datagram_iovec() call.
+> when a packet is received, sctp_rcv try to find the assoc with sport and dport,
+> since that chain is too long to find it fast, it make the performance turn to
+> very low, some test data is as follow:
+ ...
+> we need to change the way to calculate the hash key, to use lport +
+> rport + paddr as the hash key can avoid this issue.
 > 
-> This patch can be applied on recent kernels as it avoids a double
-> checksumming, then backported to stable kernels as a bug fix.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> besides, this patchset will use transport hashtable to replace
+> association hashtable to lookup with rhashtable api. get transport
+> first then get association by t->asoc. and also it will make tcp
+> style work better.
+ ...
 
-Applied, thanks Eric.
+I've applied this series, but...
+
+If anything regresses and is not dealt with in a timely manner I
+will revert this series.
+
+Thanks.
