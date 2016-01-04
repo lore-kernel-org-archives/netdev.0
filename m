@@ -1,43 +1,54 @@
-From: Yang Zhang <yang.zhang.wz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC] vhost: basic device IOTLB support
-Date: Mon, 4 Jan 2016 09:39:37 +0800
-Message-ID: <5689CD59.6030900@gmail.com>
-References: <1451546025-15955-1-git-send-email-jasowang@redhat.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [iproute PATCH v3 2/2] ss: support closing inet sockets via SOCK_DESTROY.
+Date: Mon, 4 Jan 2016 10:54:33 +0900
+Message-ID: <CAKD1Yr1VQxVkQKpGxrtGmWd=_Z9Q2eBp1L313bqSddDXG9nNxg@mail.gmail.com>
+References: <20151221214222.5ee87383@xeon-e3> <1450773094-7978-1-git-send-email-lorenzo@google.com>
+ <1450773094-7978-3-git-send-email-lorenzo@google.com> <20151230123414.008f5e35@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1451546025-15955-1-git-send-email-jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f179.google.com ([209.85.160.179]:33096 "EHLO
+	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751894AbcADByx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2016 20:54:53 -0500
+Received: by mail-yk0-f179.google.com with SMTP id k129so212506823yke.0
+        for <netdev@vger.kernel.org>; Sun, 03 Jan 2016 17:54:53 -0800 (PST)
+In-Reply-To: <20151230123414.008f5e35@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/12/31 15:13, Jason Wang wrote:
-> This patch tries to implement an device IOTLB for vhost. This could be
-> used with for co-operation with userspace(qemu) implementation of
-> iommu for a secure DMA environment in guest.
+On Thu, Dec 31, 2015 at 5:34 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>> +     req.nlh.nlmsg_type = SOCK_DESTROY;
+>> +     req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+>> +     req.nlh.nlmsg_seq = ++rth->seq;
+>> +     req.r.sdiag_family = d->idiag_family;
+>> +     req.r.sdiag_protocol = diag_arg->protocol;
+>> +     req.r.id = d->id;
+>> +
+>> +     return rtnl_send_check_ack(rth, &req.nlh, req.nlh.nlmsg_len, 1);
 >
-> The idea is simple. When vhost meets an IOTLB miss, it will request
-> the assistance of userspace to do the translation, this is done
-> through:
->
-> - Fill the translation request in a preset userspace address (This
->    address is set through ioctl VHOST_SET_IOTLB_REQUEST_ENTRY).
-> - Notify userspace through eventfd (This eventfd was set through ioctl
->    VHOST_SET_IOTLB_FD).
->
-> When userspace finishes the translation, it will update the vhost
-> IOTLB through VHOST_UPDATE_IOTLB ioctl. Userspace is also in charge of
-> snooping the IOTLB invalidation of IOMMU IOTLB and use
-> VHOST_UPDATE_IOTLB to invalidate the possible entry in vhost.
+> Just use rtnl_talk() instead, it does request/reply.
 
-Is there any performance data shows the difference with IOTLB 
-supporting? I doubt we may see performance decrease since the flush code 
-path is longer than before.
+The reason I did not use rtnl_talk is that it prints all errors to
+stderr. This does not
+fit well with SOCK_DESTROY, for which it is expected that some
+operations will fail.
 
--- 
-best regards
-yang
+For example, if you type "ss -a -K dport = :443", you probably don't
+want to see one "RTNETLINK answers: Operation not supported" error for
+every TIME-WAIT socket to port 443, and you don't want to see
+"RTNETLINK answers: No such file or directory" if one of those sockets
+happens to be closed during the scan. Silently ignoring these errors
+seemed best.
+
+I could also add a parameter to rtnl_talk to suppress printing errors,
+though the patch to do so would be roughly equivalent to the patch
+where I added rtnl_send_check_ack. I can also just use rtnl_talk as
+you suggest and not care about the errors.
+
+Let me know what you prefer.
