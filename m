@@ -1,7 +1,7 @@
 From: Salam Noureddine <noureddine@arista.com>
-Subject: [PATCH net-next 3/4] net: core: introduce neigh_ifdown_all for all down interfaces
-Date: Mon,  4 Jan 2016 15:10:55 -0800
-Message-ID: <1451949056-15500-4-git-send-email-noureddine@arista.com>
+Subject: [PATCH net-next 2/4] net: dev: add batching to net_device notifiers
+Date: Mon,  4 Jan 2016 15:10:54 -0800
+Message-ID: <1451949056-15500-3-git-send-email-noureddine@arista.com>
 References: <1451949056-15500-1-git-send-email-noureddine@arista.com>
 Cc: Salam Noureddine <noureddine@arista.com>
 To: "David S. Miller" <davem@davemloft.net>,
@@ -11,162 +11,153 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Daniel Borkmann <daniel@iogearbox.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:24013 "EHLO
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:20692 "EHLO
 	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753421AbcADXSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 18:18:03 -0500
+	by vger.kernel.org with ESMTP id S1753368AbcADXSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 18:18:02 -0500
 In-Reply-To: <1451949056-15500-1-git-send-email-noureddine@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This cleans up neighbour entries for all interfaces in the down
-state, avoiding walking the whole neighbour table for each interface
-being brought down.
+This can be used to optimize bringing down and unregsitering
+net_devices by running certain cleanup operations only on the
+net namespace instead of on each net_device.
 
 Signed-off-by: Salam Noureddine <noureddine@arista.com>
 ---
- include/net/arp.h       |  1 +
- include/net/neighbour.h |  1 +
- net/core/neighbour.c    | 38 +++++++++++++++++++++++++++++++-------
- net/ipv4/arp.c          |  4 ++++
- 4 files changed, 37 insertions(+), 7 deletions(-)
+ include/linux/netdevice.h |  2 ++
+ net/core/dev.c            | 39 ++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 38 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 5e0f891..0efee66 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -43,6 +43,7 @@ void arp_send(int type, int ptype, __be32 dest_ip,
- 	      const unsigned char *src_hw, const unsigned char *th);
- int arp_mc_map(__be32 addr, u8 *haddr, struct net_device *dev, int dir);
- void arp_ifdown(struct net_device *dev);
-+void arp_ifdown_all(void);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c20b814..1b12269 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2183,6 +2183,8 @@ struct netdev_lag_lower_state_info {
+ #define NETDEV_BONDING_INFO	0x0019
+ #define NETDEV_PRECHANGEUPPER	0x001A
+ #define NETDEV_CHANGELOWERSTATE	0x001B
++#define NETDEV_UNREGISTER_BATCH	0x001C
++#define NETDEV_DOWN_BATCH	0x001D
  
- struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
- 			   struct net_device *dev, __be32 src_ip,
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 8b68384..8785d7b 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -318,6 +318,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new, u32 flags);
- void __neigh_set_probe_once(struct neighbour *neigh);
- void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
- int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
-+int neigh_ifdown_all(struct neigh_table *tbl);
- int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb);
- int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb);
- int neigh_direct_output(struct neighbour *neigh, struct sk_buff *skb);
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index f18ae91..bfbd97a 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -54,7 +54,8 @@ do {						\
- static void neigh_timer_handler(unsigned long arg);
- static void __neigh_notify(struct neighbour *n, int type, int flags);
- static void neigh_update_notify(struct neighbour *neigh);
--static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
-+static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev,
-+			 bool all_down);
+ int register_netdevice_notifier(struct notifier_block *nb);
+ int unregister_netdevice_notifier(struct notifier_block *nb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 914b4a2..77410a3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1439,11 +1439,16 @@ static int __dev_close(struct net_device *dev)
+ int dev_close_many(struct list_head *head, bool unlink)
+ {
+ 	struct net_device *dev, *tmp;
++	struct net *net, *net_tmp;
++	LIST_HEAD(net_head);
  
- #ifdef CONFIG_PROC_FS
- static const struct file_operations neigh_stat_seq_fops;
-@@ -192,7 +193,8 @@ static void pneigh_queue_purge(struct sk_buff_head *list)
+ 	/* Remove the devices that don't need to be closed */
+-	list_for_each_entry_safe(dev, tmp, head, close_list)
++	list_for_each_entry_safe(dev, tmp, head, close_list) {
+ 		if (!(dev->flags & IFF_UP))
+ 			list_del_init(&dev->close_list);
++		else
++			net_add_event_list(&net_head, dev_net(dev));
++	}
+ 
+ 	__dev_close_many(head);
+ 
+@@ -1454,6 +1459,11 @@ int dev_close_many(struct list_head *head, bool unlink)
+ 			list_del_init(&dev->close_list);
  	}
- }
  
--static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
-+static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev,
-+			    bool all_down)
- {
- 	int i;
- 	struct neigh_hash_table *nht;
-@@ -210,6 +212,12 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
- 				np = &n->next;
- 				continue;
++	list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
++		call_netdevice_notifiers(NETDEV_DOWN_BATCH, net->loopback_dev);
++		net_del_event_list(net);
++	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(dev_close_many);
+@@ -1572,8 +1582,12 @@ rollback:
+ 				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
+ 							dev);
+ 				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
++				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
++							dev);
  			}
-+			if (!dev && n->dev && all_down) {
-+				if (n->dev->flags & IFF_UP) {
-+					np = &n->next;
-+					continue;
-+				}
-+			}
- 			rcu_assign_pointer(*np,
- 				   rcu_dereference_protected(n->next,
- 						lockdep_is_held(&tbl->lock)));
-@@ -245,7 +253,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
- void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev)
- {
- 	write_lock_bh(&tbl->lock);
--	neigh_flush_dev(tbl, dev);
-+	neigh_flush_dev(tbl, dev, false);
- 	write_unlock_bh(&tbl->lock);
- }
- EXPORT_SYMBOL(neigh_changeaddr);
-@@ -253,8 +261,8 @@ EXPORT_SYMBOL(neigh_changeaddr);
- int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev)
- {
- 	write_lock_bh(&tbl->lock);
--	neigh_flush_dev(tbl, dev);
--	pneigh_ifdown(tbl, dev);
-+	neigh_flush_dev(tbl, dev, false);
-+	pneigh_ifdown(tbl, dev, false);
- 	write_unlock_bh(&tbl->lock);
+ 			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
++			call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
++						dev);
+ 		}
+ 	}
  
- 	del_timer_sync(&tbl->proxy_timer);
-@@ -263,6 +271,19 @@ int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev)
- }
- EXPORT_SYMBOL(neigh_ifdown);
+@@ -1614,8 +1628,12 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
+ 				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
+ 							dev);
+ 				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
++				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
++							dev);
+ 			}
+ 			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
++			call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
++						dev);
+ 		}
+ 	}
+ unlock:
+@@ -6187,10 +6205,12 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges, GFP_ATOMIC);
  
-+int neigh_ifdown_all(struct neigh_table *tbl)
-+{
-+	write_lock_bh(&tbl->lock);
-+	neigh_flush_dev(tbl, NULL, true);
-+	pneigh_ifdown(tbl, NULL, true);
-+	write_unlock_bh(&tbl->lock);
+ 	if (changes & IFF_UP) {
+-		if (dev->flags & IFF_UP)
++		if (dev->flags & IFF_UP) {
+ 			call_netdevice_notifiers(NETDEV_UP, dev);
+-		else
++		} else {
+ 			call_netdevice_notifiers(NETDEV_DOWN, dev);
++			call_netdevice_notifiers(NETDEV_DOWN_BATCH, dev);
++		}
+ 	}
+ 
+ 	if (dev->flags & IFF_UP &&
+@@ -6427,7 +6447,9 @@ static void net_set_todo(struct net_device *dev)
+ static void rollback_registered_many(struct list_head *head)
+ {
+ 	struct net_device *dev, *tmp;
++	struct net *net, *net_tmp;
+ 	LIST_HEAD(close_head);
++	LIST_HEAD(net_head);
+ 
+ 	BUG_ON(dev_boot_phase);
+ 	ASSERT_RTNL();
+@@ -6504,6 +6526,15 @@ static void rollback_registered_many(struct list_head *head)
+ #endif
+ 	}
+ 
++	list_for_each_entry(dev, head, unreg_list) {
++		net_add_event_list(&net_head, dev_net(dev));
++	}
++	list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
++		call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
++					 net->loopback_dev);
++		net_del_event_list(net);
++	}
 +
-+	del_timer_sync(&tbl->proxy_timer);
-+	pneigh_queue_purge(&tbl->proxy_queue);
-+	return 0;
-+}
-+EXPORT_SYMBOL(neigh_ifdown_all);
-+
- static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device *dev)
- {
- 	struct neighbour *n = NULL;
-@@ -645,7 +666,8 @@ int pneigh_delete(struct neigh_table *tbl, struct net *net, const void *pkey,
- 	return -ENOENT;
- }
+ 	synchronize_net();
  
--static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev)
-+static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev,
-+			 bool all_down)
- {
- 	struct pneigh_entry *n, **np;
- 	u32 h;
-@@ -653,7 +675,9 @@ static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev)
- 	for (h = 0; h <= PNEIGH_HASHMASK; h++) {
- 		np = &tbl->phash_buckets[h];
- 		while ((n = *np) != NULL) {
--			if (!dev || n->dev == dev) {
-+			if ((!dev && !all_down) || (all_down && n->dev &&
-+						    !(n->dev->flags & IFF_UP)) ||
-+			    n->dev == dev) {
- 				*np = n->next;
- 				if (tbl->pdestructor)
- 					tbl->pdestructor(n);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 59b3e0e..1328244 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1219,6 +1219,10 @@ void arp_ifdown(struct net_device *dev)
- 	neigh_ifdown(&arp_tbl, dev);
- }
+ 	list_for_each_entry(dev, head, unreg_list)
+@@ -7065,6 +7096,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
  
-+void arp_ifdown_all(void)
-+{
-+	neigh_ifdown_all(&arp_tbl);
-+}
+ 			/* Rebroadcast unregister notification */
+ 			call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
++			call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
  
- /*
-  *	Called once on startup.
+ 			__rtnl_unlock();
+ 			rcu_barrier();
+@@ -7581,6 +7613,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	   the device is just moving and can keep their slaves up.
+ 	*/
+ 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
++	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+ 	rcu_barrier();
+ 	call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
+ 	rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
 -- 
 1.8.1.4
