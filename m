@@ -1,78 +1,37 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: [ANNOUNCE] NetDev 1.1 is approaching...
-Date: Mon, 4 Jan 2016 18:32:17 +0100
-Message-ID: <20160104173217.GA3239@salvia>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 02/12] net: sched: free per cpu bstats
+Date: Mon, 04 Jan 2016 09:32:38 -0800
+Message-ID: <1451928758.8255.76.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>
+	 <20151230175130.26257.98195.stgit@john-Precision-Tower-5810>
+	 <568A8DF5.7030505@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, jhs@mojatatu.com,
+	aduyck@mirantis.com, brouer@redhat.com, davem@davemloft.net,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35026 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752261AbcADRck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 12:32:40 -0500
+Received: by mail-pf0-f176.google.com with SMTP id 78so207224206pfw.2
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 09:32:40 -0800 (PST)
+In-Reply-To: <568A8DF5.7030505@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Mon, 2016-01-04 at 16:21 +0100, Daniel Borkmann wrote:
+> On 12/30/2015 06:51 PM, John Fastabend wrote:
+> > When a qdisc is using per cpu stats only the bstats are being
+> > freed. This also free's the qstats.
+> >
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> 
+> Seems like a bug fix, current code seems to free this only in error
+> path in qdisc_create(). Should this go to -net as an individual one?
 
-=46or those that still didn't hear about us, Netdev 1.1 is the
-community-driven Linux networking conference. This event will be again
-held back-to-back with NetConf in Sevilla, Spain, February 10-12, 2016.
-
-After the holidays break (happy new year everyone!), we would like to
-make a quick summary on what's been accepted meanwhile.
-
-=3D BoF =3D
-
-* Switchdev (Roopa Prabhu & Shrijeet Mukherjee)
-
-* IPsec performance (Steffen Klassert)
-
-=3D Talks =3D
-
-* Zebra 2.0 and Lagopus: newly-designed routing stack on high-performan=
-ce
-  packet forwarder (Yoshihiro Nakajima, Kunihiro Ishiguro, Masaru Oki,
-  Hirokazu Takahashi)
-
-* Reducing Latency in Linux Wireless Network Drivers" (Tim Shepard)
-
-* Deterministic network emulation using KauNet" (Per Hurtig & Johan Gar=
-cia)
-
-* Suricata IDPS and its interaction with Linux kernel" (Eric Leblond &
-  Giuseppe Longo)
-
-* The CLASShoFIREs: who's got your back?" (Jamal Hadi Salim)
-
-* MACsec: encryption for the wired LAN" (Sabrina Dubroca)
-
-* Bridge filtering with nftables" (Florian Westphal)
-
-* Deploying MPLS with Linux" (Roopa Prabhu)
-
-* IPv6 route lookup performance and scaling" (Michal Kube=C4=8Dek)
-
-* Namespaces and CGroups, the basis of Linux containers" (Rami Rosen)
-
-             ________________________________
-            / We still have more sessions to \
-            \    be announced, stay tuned!   /
-             --------------------------------
-                \   ^__^
-                 \  (oo)\_______
-                    (__)\       )\/\
-                        ||----w |
-                        ||     ||
-
-=46or more info, visit:
-* netdev 1.1: https://www.netdevconf.org/1.1/
-* netconf 2016: http://vger.kernel.org/netconf2016.html
-
-We would also like to thank those that already confirmed sponsorship:
-Cumulus Networks, Facebook, VmWare, Google, Cisco, Mellanox,
-Mojatatu Networks, OISF/Suricata, Zen Load Balancer and LWN.net.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Absolutely, this is needed in -net as ingress qdisc uses this stuff
+already.
