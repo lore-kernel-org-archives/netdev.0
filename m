@@ -1,530 +1,350 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH v3 net-next 4/4] soreuseport: BPF selection functional test
-Date: Mon,  4 Jan 2016 11:26:38 -0500
-Message-ID: <1451924798-15136-5-git-send-email-kraigatgoog@gmail.com>
-References: <1451924798-15136-1-git-send-email-kraigatgoog@gmail.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:36592 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbcADQ0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 11:26:48 -0500
-Received: by mail-qk0-f172.google.com with SMTP id q19so75132799qke.3
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 08:26:47 -0800 (PST)
-In-Reply-To: <1451924798-15136-1-git-send-email-kraigatgoog@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: [RFC PATCH net-next] net: Add l3mdev cgroup
+Date: Mon,  4 Jan 2016 08:32:16 -0800
+Message-ID: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+	roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Craig Gallek <kraig@google.com>
+Add cgroup to assoicate tasks with L3 networking domains. AF_INET{6}
+sockets opened by tasks associated with an l3mdev cgroup are bound to
+the associated master device when the socket is created. This allows a
+user to run a command (and its children) within an L3 networking context.
 
-This program will build classic and extended BPF programs and
-validate the socket selection logic when used with
-SO_ATTACH_REUSEPORT_CBPF and SO_ATTACH_REUSEPORT_EBPF.
+The master-device for an l3mdev cgroup must be an L3 master device
+(e.g., VRF), and it must be set before attaching tasks to the cgroup. Once
+set the master-device can not change. Nested l3mdev cgroups are not
+supported. The root (aka default) l3mdev cgroup can not be bound to a
+master device.
 
-It also validates the re-programing flow and several edge cases.
+Example:
+    ip link add vrf-red type vrf table vrf-red
+    ip link set dev vrf-red up
+    ip link set dev eth1 master vrf-red
 
-Signed-off-by: Craig Gallek <kraig@google.com>
+    cgcreate -g l3mdev:vrf-red
+    cgset -r l3mdev.master-device=vrf-red vrf-red
+    cgexec -g l3mdev:vrf-red bash
+
+At this point the current shell and its child processes are attached to
+the vrf-red L3 domain. Any AF_INET and AF_INET6 sockets opened by the
+tasks are bound to the vrf-red device.
+
+TO-DO:
+- how to auto-create the cgroup when a VRF device is created and auto-deleted
+  when a VRF device is destroyed
+
+Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- tools/testing/selftests/net/.gitignore      |   1 +
- tools/testing/selftests/net/Makefile        |   2 +-
- tools/testing/selftests/net/reuseport_bpf.c | 467 ++++++++++++++++++++++++++++
- 3 files changed, 469 insertions(+), 1 deletion(-)
- create mode 100644 tools/testing/selftests/net/reuseport_bpf.c
+ include/linux/cgroup_subsys.h |   3 +
+ include/net/l3mdev_cgroup.h   |  27 ++++++
+ net/core/sock.c               |   2 +
+ net/l3mdev/Kconfig            |  12 +++
+ net/l3mdev/Makefile           |   1 +
+ net/l3mdev/l3mdev_cgroup.c    | 195 ++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 240 insertions(+)
+ create mode 100644 include/net/l3mdev_cgroup.h
+ create mode 100644 net/l3mdev/l3mdev_cgroup.c
 
-diff --git a/tools/testing/selftests/net/.gitignore b/tools/testing/selftests/net/.gitignore
-index 0032662..6fb2336 100644
---- a/tools/testing/selftests/net/.gitignore
-+++ b/tools/testing/selftests/net/.gitignore
-@@ -1,3 +1,4 @@
- socket
- psock_fanout
- psock_tpacket
-+reuseport_bpf
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index fac4782..41449b5 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -4,7 +4,7 @@ CFLAGS = -Wall -O2 -g
+diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
+index 1a96fdaa33d5..507df40f11de 100644
+--- a/include/linux/cgroup_subsys.h
++++ b/include/linux/cgroup_subsys.h
+@@ -58,6 +58,9 @@ SUBSYS(net_prio)
+ SUBSYS(hugetlb)
+ #endif
  
- CFLAGS += -I../../../../usr/include/
- 
--NET_PROGS = socket psock_fanout psock_tpacket
-+NET_PROGS = socket psock_fanout psock_tpacket reuseport_bpf
- 
- all: $(NET_PROGS)
- %: %.c
-diff --git a/tools/testing/selftests/net/reuseport_bpf.c b/tools/testing/selftests/net/reuseport_bpf.c
++#if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
++SUBSYS(l3mdev)
++#endif
+ /*
+  * Subsystems that implement the can_fork() family of callbacks.
+  */
+diff --git a/include/net/l3mdev_cgroup.h b/include/net/l3mdev_cgroup.h
 new file mode 100644
-index 0000000..74ff099
+index 000000000000..c20fbb0a7f46
 --- /dev/null
-+++ b/tools/testing/selftests/net/reuseport_bpf.c
-@@ -0,0 +1,467 @@
++++ b/include/net/l3mdev_cgroup.h
+@@ -0,0 +1,27 @@
 +/*
-+ * Test functionality of BPF filters for SO_REUSEPORT.  The tests below will use
-+ * a BPF program (both classic and extended) to read the first word from an
-+ * incoming packet (expected to be in network byte-order), calculate a modulus
-+ * of that number, and then dispatch the packet to the Nth socket using the
-+ * result.  These tests are run for each supported address family and protocol.
-+ * Additionally, a few edge cases in the implementation are tested.
++ * l3mdev_cgroup.h		Control Group for L3 Master Device
++ *
++ * Copyright (c) 2015 Cumulus Networks. All rights reserved.
++ * Copyright (c) 2015 David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + */
 +
-+#include <errno.h>
-+#include <error.h>
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+#include <linux/unistd.h>
-+#include <netinet/in.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/epoll.h>
-+#include <sys/types.h>
-+#include <sys/socket.h>
-+#include <unistd.h>
++#ifndef _L3MDEV_CGROUP_H
++#define _L3MDEV_CGROUP_H
 +
-+#ifndef ARRAY_SIZE
-+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-+#endif
++#if IS_ENABLED(CONFIG_CGROUP_L3MDEV)
 +
-+struct test_params {
-+	int recv_family;
-+	int send_family;
-+	int protocol;
-+	size_t recv_socks;
-+	uint16_t recv_port;
-+	uint16_t send_port_min;
++void sock_update_l3mdev(struct sock *sk);
++
++#else /* !CONFIG_CGROUP_L3MDEV */
++
++static inline void sock_update_l3mdev(struct sock *sk)
++{
++}
++
++#endif /* CONFIG_CGROUP_L3MDEV */
++#endif /* _L3MDEV_CGROUP_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 565bab7baca9..19ce06674dd9 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -131,6 +131,7 @@
+ #include <linux/ipsec.h>
+ #include <net/cls_cgroup.h>
+ #include <net/netprio_cgroup.h>
++#include <net/l3mdev_cgroup.h>
+ #include <linux/sock_diag.h>
+ 
+ #include <linux/filter.h>
+@@ -1424,6 +1425,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 
+ 		sock_update_classid(&sk->sk_cgrp_data);
+ 		sock_update_netprioidx(&sk->sk_cgrp_data);
++		sock_update_l3mdev(sk);
+ 	}
+ 
+ 	return sk;
+diff --git a/net/l3mdev/Kconfig b/net/l3mdev/Kconfig
+index 5d47325037bc..3142d810e222 100644
+--- a/net/l3mdev/Kconfig
++++ b/net/l3mdev/Kconfig
+@@ -8,3 +8,15 @@ config NET_L3_MASTER_DEV
+ 	---help---
+ 	  This module provides glue between core networking code and device
+ 	  drivers to support L3 master devices like VRF.
++
++config CGROUP_L3MDEV
++	bool "L3 Master Device cgroup"
++	depends on CGROUPS
++	depends on NET_L3_MASTER_DEV
++	---help---
++	  Cgroup subsystem for assigning processes to an L3 domain.
++	  When a process is assigned to an l3mdev domain all AF_INET and
++	  AF_INET6 sockets opened by the process are bound to the L3 master
++	  device.
++
++
+diff --git a/net/l3mdev/Makefile b/net/l3mdev/Makefile
+index 84a53a6f609a..ae74ebad8db7 100644
+--- a/net/l3mdev/Makefile
++++ b/net/l3mdev/Makefile
+@@ -3,3 +3,4 @@
+ #
+ 
+ obj-$(CONFIG_NET_L3_MASTER_DEV) += l3mdev.o
++obj-$(CONFIG_CGROUP_L3MDEV) += l3mdev_cgroup.o
+diff --git a/net/l3mdev/l3mdev_cgroup.c b/net/l3mdev/l3mdev_cgroup.c
+new file mode 100644
+index 000000000000..0326c06bfe02
+--- /dev/null
++++ b/net/l3mdev/l3mdev_cgroup.c
+@@ -0,0 +1,195 @@
++/*
++ * net/l3mdev/l3mdev_cgroup.c	Control Group for L3 Master Devices
++ *
++ * Copyright (c) 2015 Cumulus Networks. All rights reserved.
++ * Copyright (c) 2015 David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/string.h>
++#include <linux/cgroup.h>
++#include <net/sock.h>
++#include <net/l3mdev_cgroup.h>
++
++struct l3mdev_cgroup {
++	struct cgroup_subsys_state      css;
++	struct net			*net;
++	int				dev_idx;
 +};
 +
-+static size_t sockaddr_size(void)
++static inline struct l3mdev_cgroup *css_l3mdev(struct cgroup_subsys_state *css)
 +{
-+	return sizeof(struct sockaddr_storage);
++	return css ? container_of(css, struct l3mdev_cgroup, css) : NULL;
 +}
 +
-+static struct sockaddr *new_any_sockaddr(int family, uint16_t port)
++static void l3mdev_set_bound_dev(struct sock *sk)
 +{
-+	struct sockaddr_storage *addr;
-+	struct sockaddr_in *addr4;
-+	struct sockaddr_in6 *addr6;
++	struct task_struct *tsk = current;
++	struct l3mdev_cgroup *l3mdev_cgrp;
 +
-+	addr = malloc(sizeof(struct sockaddr_storage));
-+	memset(addr, 0, sizeof(struct sockaddr_storage));
++	rcu_read_lock();
 +
-+	switch (family) {
++	l3mdev_cgrp = css_l3mdev(task_css(tsk, l3mdev_cgrp_id));
++	if (l3mdev_cgrp && l3mdev_cgrp->dev_idx)
++		sk->sk_bound_dev_if = l3mdev_cgrp->dev_idx;
++
++	rcu_read_unlock();
++}
++
++void sock_update_l3mdev(struct sock *sk)
++{
++	switch (sk->sk_family) {
 +	case AF_INET:
-+		addr4 = (struct sockaddr_in *)addr;
-+		addr4->sin_family = AF_INET;
-+		addr4->sin_addr.s_addr = htonl(INADDR_ANY);
-+		addr4->sin_port = htons(port);
-+		break;
 +	case AF_INET6:
-+		addr6 = (struct sockaddr_in6 *)addr;
-+		addr6->sin6_family = AF_INET6;
-+		addr6->sin6_addr = in6addr_any;
-+		addr6->sin6_port = htons(port);
++		l3mdev_set_bound_dev(sk);
 +		break;
-+	default:
-+		error(1, 0, "Unsupported family %d", family);
-+	}
-+	return (struct sockaddr *)addr;
-+}
-+
-+static struct sockaddr *new_loopback_sockaddr(int family, uint16_t port)
-+{
-+	struct sockaddr *addr = new_any_sockaddr(family, port);
-+	struct sockaddr_in *addr4;
-+	struct sockaddr_in6 *addr6;
-+
-+	switch (family) {
-+	case AF_INET:
-+		addr4 = (struct sockaddr_in *)addr;
-+		addr4->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-+		break;
-+	case AF_INET6:
-+		addr6 = (struct sockaddr_in6 *)addr;
-+		addr6->sin6_addr = in6addr_loopback;
-+		break;
-+	default:
-+		error(1, 0, "Unsupported family %d", family);
-+	}
-+	return addr;
-+}
-+
-+static void attach_ebpf(int fd, uint16_t mod)
-+{
-+	static char bpf_log_buf[65536];
-+	static const char bpf_license[] = "GPL";
-+
-+	int bpf_fd;
-+	const struct bpf_insn prog[] = {
-+		/* BPF_MOV64_REG(BPF_REG_6, BPF_REG_1) */
-+		{ BPF_ALU64 | BPF_MOV | BPF_X, BPF_REG_6, BPF_REG_1, 0, 0 },
-+		/* BPF_LD_ABS(BPF_W, 0) R0 = (uint32_t)skb[0] */
-+		{ BPF_LD | BPF_ABS | BPF_W, 0, 0, 0, 0 },
-+		/* BPF_ALU64_IMM(BPF_MOD, BPF_REG_0, mod) */
-+		{ BPF_ALU64 | BPF_MOD | BPF_K, BPF_REG_0, 0, 0, mod },
-+		/* BPF_EXIT_INSN() */
-+		{ BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
-+	};
-+	union bpf_attr attr;
-+
-+	memset(&attr, 0, sizeof(attr));
-+	attr.prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
-+	attr.insn_cnt = ARRAY_SIZE(prog);
-+	attr.insns = (uint64_t)prog;
-+	attr.license = (uint64_t)bpf_license;
-+	attr.log_buf = (uint64_t)bpf_log_buf;
-+	attr.log_size = sizeof(bpf_log_buf);
-+	attr.log_level = 1;
-+	attr.kern_version = 0;
-+
-+	bpf_fd = syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
-+	if (bpf_fd < 0)
-+		error(1, errno, "ebpf error. log:\n%s\n", bpf_log_buf);
-+
-+	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_EBPF, &bpf_fd,
-+			sizeof(bpf_fd)))
-+		error(1, errno, "failed to set SO_ATTACH_REUSEPORT_EBPF");
-+}
-+
-+static void attach_cbpf(int fd, uint16_t mod)
-+{
-+	struct sock_filter code[] = {
-+		/* A = (uint32_t)skb[0] */
-+		{ BPF_LD  | BPF_W | BPF_ABS, 0, 0, 0 },
-+		/* A = A % mod */
-+		{ BPF_ALU | BPF_MOD, 0, 0, mod },
-+		/* return A */
-+		{ BPF_RET | BPF_A, 0, 0, 0 },
-+	};
-+	struct sock_fprog p = {
-+		.len = ARRAY_SIZE(code),
-+		.filter = code,
-+	};
-+
-+	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, &p, sizeof(p)))
-+		error(1, errno, "failed to set SO_ATTACH_REUSEPORT_CBPF");
-+}
-+
-+static void build_recv_group(const struct test_params p, int fd[], uint16_t mod,
-+			     void (*attach_bpf)(int, uint16_t))
-+{
-+	struct sockaddr * const addr =
-+		new_any_sockaddr(p.recv_family, p.recv_port);
-+	int i, opt;
-+
-+	for (i = 0; i < p.recv_socks; ++i) {
-+		fd[i] = socket(p.recv_family, p.protocol, 0);
-+		if (fd[i] < 0)
-+			error(1, errno, "failed to create recv %d", i);
-+
-+		opt = 1;
-+		if (setsockopt(fd[i], SOL_SOCKET, SO_REUSEPORT, &opt,
-+			       sizeof(opt)))
-+			error(1, errno, "failed to set SO_REUSEPORT on %d", i);
-+
-+		if (i == 0)
-+			attach_bpf(fd[i], mod);
-+
-+		if (bind(fd[i], addr, sockaddr_size()))
-+			error(1, errno, "failed to bind recv socket %d", i);
-+
-+		if (p.protocol == SOCK_STREAM)
-+			if (listen(fd[i], p.recv_socks * 10))
-+				error(1, errno, "failed to listen on socket");
-+	}
-+	free(addr);
-+}
-+
-+static void send_from(struct test_params p, uint16_t sport, char *buf,
-+		      size_t len)
-+{
-+	struct sockaddr * const saddr = new_any_sockaddr(p.send_family, sport);
-+	struct sockaddr * const daddr =
-+		new_loopback_sockaddr(p.send_family, p.recv_port);
-+	const int fd = socket(p.send_family, p.protocol, 0);
-+
-+	if (fd < 0)
-+		error(1, errno, "failed to create send socket");
-+
-+	if (bind(fd, saddr, sockaddr_size()))
-+		error(1, errno, "failed to bind send socket");
-+	if (connect(fd, daddr, sockaddr_size()))
-+		error(1, errno, "failed to connect");
-+
-+	if (send(fd, buf, len, 0) < 0)
-+		error(1, errno, "failed to send message");
-+
-+	close(fd);
-+	free(saddr);
-+	free(daddr);
-+}
-+
-+static void test_recv_order(const struct test_params p, int fd[], int mod)
-+{
-+	char recv_buf[8], send_buf[8];
-+	struct msghdr msg;
-+	struct iovec recv_io = { recv_buf, 8 };
-+	struct epoll_event ev;
-+	int epfd, conn, i, sport, expected;
-+	uint32_t data, ndata;
-+
-+	epfd = epoll_create(1);
-+	if (epfd < 0)
-+		error(1, errno, "failed to create epoll");
-+	for (i = 0; i < p.recv_socks; ++i) {
-+		ev.events = EPOLLIN;
-+		ev.data.fd = fd[i];
-+		if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd[i], &ev))
-+			error(1, errno, "failed to register sock %d epoll", i);
-+	}
-+
-+	memset(&msg, 0, sizeof(msg));
-+	msg.msg_iov = &recv_io;
-+	msg.msg_iovlen = 1;
-+
-+	for (data = 0; data < p.recv_socks * 2; ++data) {
-+		sport = p.send_port_min + data;
-+		ndata = htonl(data);
-+		memcpy(send_buf, &ndata, sizeof(ndata));
-+		send_from(p, sport, send_buf, sizeof(ndata));
-+
-+		i = epoll_wait(epfd, &ev, 1, -1);
-+		if (i < 0)
-+			error(1, errno, "epoll wait failed");
-+
-+		if (p.protocol == SOCK_STREAM) {
-+			conn = accept(ev.data.fd, NULL, NULL);
-+			if (conn < 0)
-+				error(1, errno, "error accepting");
-+			i = recvmsg(conn, &msg, 0);
-+			close(conn);
-+		} else {
-+			i = recvmsg(ev.data.fd, &msg, 0);
-+		}
-+		if (i < 0)
-+			error(1, errno, "recvmsg error");
-+		if (i != sizeof(ndata))
-+			error(1, 0, "expected size %zd got %d",
-+			      sizeof(ndata), i);
-+
-+		for (i = 0; i < p.recv_socks; ++i)
-+			if (ev.data.fd == fd[i])
-+				break;
-+		memcpy(&ndata, recv_buf, sizeof(ndata));
-+		fprintf(stderr, "Socket %d: %d\n", i, ntohl(ndata));
-+
-+		expected = (sport % mod);
-+		if (i != expected)
-+			error(1, 0, "expected socket %d", expected);
 +	}
 +}
 +
-+static void test_reuseport_ebpf(const struct test_params p)
++static bool is_root_cgroup(struct cgroup_subsys_state *css)
 +{
-+	int i, fd[p.recv_socks];
-+
-+	fprintf(stderr, "Testing EBPF mod %zd...\n", p.recv_socks);
-+	build_recv_group(p, fd, p.recv_socks, attach_ebpf);
-+	test_recv_order(p, fd, p.recv_socks);
-+
-+	fprintf(stderr, "Reprograming, testing mod %zd...\n", p.recv_socks / 2);
-+	attach_ebpf(fd[0], p.recv_socks / 2);
-+	test_recv_order(p, fd, p.recv_socks / 2);
-+
-+	for (i = 0; i < p.recv_socks; ++i)
-+		close(fd[i]);
++	return !css || !css->parent;
 +}
 +
-+static void test_reuseport_cbpf(const struct test_params p)
++static struct cgroup_subsys_state *
++l3mdev_css_alloc(struct cgroup_subsys_state *parent_css)
 +{
-+	int i, fd[p.recv_socks];
++	struct l3mdev_cgroup *l3mdev_cgrp;
 +
-+	fprintf(stderr, "Testing CBPF mod %zd...\n", p.recv_socks);
-+	build_recv_group(p, fd, p.recv_socks, attach_cbpf);
-+	test_recv_order(p, fd, p.recv_socks);
++	/* nested l3mdev domains are not supportd */
++	if (!is_root_cgroup(parent_css))
++		return ERR_PTR(-EINVAL);
 +
-+	fprintf(stderr, "Reprograming, testing mod %zd...\n", p.recv_socks / 2);
-+	attach_cbpf(fd[0], p.recv_socks / 2);
-+	test_recv_order(p, fd, p.recv_socks / 2);
++	l3mdev_cgrp = kzalloc(sizeof(*l3mdev_cgrp), GFP_KERNEL);
++	if (!l3mdev_cgrp)
++		return ERR_PTR(-ENOMEM);
 +
-+	for (i = 0; i < p.recv_socks; ++i)
-+		close(fd[i]);
++	return &l3mdev_cgrp->css;
 +}
 +
-+static void test_extra_filter(const struct test_params p)
++static int l3mdev_css_online(struct cgroup_subsys_state *css)
 +{
-+	struct sockaddr * const addr =
-+		new_any_sockaddr(p.recv_family, p.recv_port);
-+	int fd1, fd2, opt;
-+
-+	fprintf(stderr, "Testing too many filters...\n");
-+	fd1 = socket(p.recv_family, p.protocol, 0);
-+	if (fd1 < 0)
-+		error(1, errno, "failed to create socket 1");
-+	fd2 = socket(p.recv_family, p.protocol, 0);
-+	if (fd2 < 0)
-+		error(1, errno, "failed to create socket 2");
-+
-+	opt = 1;
-+	if (setsockopt(fd1, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)))
-+		error(1, errno, "failed to set SO_REUSEPORT on socket 1");
-+	if (setsockopt(fd2, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)))
-+		error(1, errno, "failed to set SO_REUSEPORT on socket 2");
-+
-+	attach_ebpf(fd1, 10);
-+	attach_ebpf(fd2, 10);
-+
-+	if (bind(fd1, addr, sockaddr_size()))
-+		error(1, errno, "failed to bind recv socket 1");
-+
-+	if (!bind(fd2, addr, sockaddr_size()) && errno != EADDRINUSE)
-+		error(1, errno, "bind socket 2 should fail with EADDRINUSE");
-+
-+	free(addr);
-+}
-+
-+static void test_filter_no_reuseport(const struct test_params p)
-+{
-+	struct sockaddr * const addr =
-+		new_any_sockaddr(p.recv_family, p.recv_port);
-+	const char bpf_license[] = "GPL";
-+	struct bpf_insn ecode[] = {
-+		{ BPF_ALU64 | BPF_MOV | BPF_K, BPF_REG_0, 0, 0, 10 },
-+		{ BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
-+	};
-+	struct sock_filter ccode[] = {{ BPF_RET | BPF_A, 0, 0, 0 }};
-+	union bpf_attr eprog;
-+	struct sock_fprog cprog;
-+	int fd, bpf_fd;
-+
-+	fprintf(stderr, "Testing filters on non-SO_REUSEPORT socket...\n");
-+
-+	memset(&eprog, 0, sizeof(eprog));
-+	eprog.prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
-+	eprog.insn_cnt = ARRAY_SIZE(ecode);
-+	eprog.insns = (uint64_t)ecode;
-+	eprog.license = (uint64_t)bpf_license;
-+	eprog.kern_version = 0;
-+
-+	memset(&cprog, 0, sizeof(cprog));
-+	cprog.len = ARRAY_SIZE(ccode);
-+	cprog.filter = ccode;
-+
-+
-+	bpf_fd = syscall(__NR_bpf, BPF_PROG_LOAD, &eprog, sizeof(eprog));
-+	if (bpf_fd < 0)
-+		error(1, errno, "ebpf error");
-+	fd = socket(p.recv_family, p.protocol, 0);
-+	if (fd < 0)
-+		error(1, errno, "failed to create socket 1");
-+
-+	if (bind(fd, addr, sockaddr_size()))
-+		error(1, errno, "failed to bind recv socket 1");
-+
-+	errno = 0;
-+	if (!setsockopt(fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_EBPF, &bpf_fd,
-+			sizeof(bpf_fd)) || errno != EINVAL)
-+		error(1, errno, "setsockopt should have returned EINVAL");
-+
-+	errno = 0;
-+	if (!setsockopt(fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, &cprog,
-+		       sizeof(cprog)) || errno != EINVAL)
-+		error(1, errno, "setsockopt should have returned EINVAL");
-+
-+	free(addr);
-+}
-+
-+static void test_filter_without_bind(void)
-+{
-+	int fd1, fd2;
-+
-+	fprintf(stderr, "Testing filter add without bind...\n");
-+	fd1 = socket(AF_INET, SOCK_DGRAM, 0);
-+	if (fd1 < 0)
-+		error(1, errno, "failed to create socket 1");
-+	fd2 = socket(AF_INET, SOCK_DGRAM, 0);
-+	if (fd2 < 0)
-+		error(1, errno, "failed to create socket 2");
-+
-+	attach_ebpf(fd1, 10);
-+	attach_cbpf(fd2, 10);
-+
-+	close(fd1);
-+	close(fd2);
-+}
-+
-+
-+int main(void)
-+{
-+	fprintf(stderr, "---- IPv4 UDP ----\n");
-+	test_reuseport_ebpf((struct test_params) {
-+		.recv_family = AF_INET,
-+		.send_family = AF_INET,
-+		.protocol = SOCK_DGRAM,
-+		.recv_socks = 10,
-+		.recv_port = 8000,
-+		.send_port_min = 9000});
-+	test_reuseport_cbpf((struct test_params) {
-+		.recv_family = AF_INET,
-+		.send_family = AF_INET,
-+		.protocol = SOCK_DGRAM,
-+		.recv_socks = 10,
-+		.recv_port = 8001,
-+		.send_port_min = 9020});
-+	test_extra_filter((struct test_params) {
-+		.recv_family = AF_INET,
-+		.protocol = SOCK_DGRAM,
-+		.recv_port = 8002});
-+	test_filter_no_reuseport((struct test_params) {
-+		.recv_family = AF_INET,
-+		.protocol = SOCK_DGRAM,
-+		.recv_port = 8008});
-+
-+	fprintf(stderr, "---- IPv6 UDP ----\n");
-+	test_reuseport_ebpf((struct test_params) {
-+		.recv_family = AF_INET6,
-+		.send_family = AF_INET6,
-+		.protocol = SOCK_DGRAM,
-+		.recv_socks = 10,
-+		.recv_port = 8003,
-+		.send_port_min = 9040});
-+	test_reuseport_cbpf((struct test_params) {
-+		.recv_family = AF_INET6,
-+		.send_family = AF_INET6,
-+		.protocol = SOCK_DGRAM,
-+		.recv_socks = 10,
-+		.recv_port = 8004,
-+		.send_port_min = 9060});
-+	test_extra_filter((struct test_params) {
-+		.recv_family = AF_INET6,
-+		.protocol = SOCK_DGRAM,
-+		.recv_port = 8005});
-+	test_filter_no_reuseport((struct test_params) {
-+		.recv_family = AF_INET6,
-+		.protocol = SOCK_DGRAM,
-+		.recv_port = 8009});
-+
-+	fprintf(stderr, "---- IPv6 UDP w/ mapped IPv4 ----\n");
-+	test_reuseport_ebpf((struct test_params) {
-+		.recv_family = AF_INET6,
-+		.send_family = AF_INET,
-+		.protocol = SOCK_DGRAM,
-+		.recv_socks = 10,
-+		.recv_port = 8006,
-+		.send_port_min = 9080});
-+	test_reuseport_cbpf((struct test_params) {
-+		.recv_family = AF_INET6,
-+		.send_family = AF_INET,
-+		.protocol = SOCK_DGRAM,
-+		.recv_socks = 10,
-+		.recv_port = 8007,
-+		.send_port_min = 9100});
-+
-+
-+	test_filter_without_bind();
-+
-+	fprintf(stderr, "SUCCESS\n");
 +	return 0;
 +}
++
++static void l3mdev_css_free(struct cgroup_subsys_state *css)
++{
++	kfree(css_l3mdev(css));
++}
++
++static int l3mdev_read(struct seq_file *sf, void *v)
++{
++	struct cgroup_subsys_state *css = seq_css(sf);
++	struct l3mdev_cgroup *l3mdev_cgrp = css_l3mdev(css);
++
++	if (!l3mdev_cgrp)
++		return -EINVAL;
++
++	if (l3mdev_cgrp->net) {
++		struct net_device *dev;
++
++		dev = dev_get_by_index(l3mdev_cgrp->net, l3mdev_cgrp->dev_idx);
++
++		seq_printf(sf, "net[%u]: device index %d ==> %s\n",
++			   l3mdev_cgrp->net->ns.inum, l3mdev_cgrp->dev_idx,
++			   dev ? dev->name : "<none>");
++
++		if (dev)
++			dev_put(dev);
++	}
++	return 0;
++}
++
++static ssize_t l3mdev_write(struct kernfs_open_file *of,
++			    char *buf, size_t nbytes, loff_t off)
++{
++	struct cgroup_subsys_state *css = of_css(of);
++	struct l3mdev_cgroup *l3mdev_cgrp = css_l3mdev(css);
++	struct net *net = current->nsproxy->net_ns;
++	struct net_device *dev;
++	char name[IFNAMSIZ];
++	int rc = -EINVAL;
++
++	/* once master device is set can not undo. Must delete
++	 * cgroup and reset
++	 */
++	if (l3mdev_cgrp->dev_idx)
++		goto out;
++
++	/* root cgroup does not bind to an L3 domain */
++	if (is_root_cgroup(css))
++		goto out;
++
++	if (sscanf(buf, "%" __stringify(IFNAMSIZ) "s", name) != 1)
++		goto out;
++
++	dev = dev_get_by_name(net, name);
++	if (!dev) {
++		rc = -ENODEV;
++		goto out;
++	}
++
++	if (netif_is_l3_master(dev)) {
++		l3mdev_cgrp->net = net;
++		l3mdev_cgrp->dev_idx = dev->ifindex;
++		rc = 0;
++	}
++
++	dev_put(dev);
++out:
++	return rc ? : nbytes;
++}
++
++/* make master device is set for non-root cgroups before tasks can be added */
++static int l3mdev_can_attach(struct cgroup_taskset *tset)
++{
++	struct cgroup_subsys_state *dst_css;
++	struct task_struct *tsk;
++	int rc = 0;
++
++	cgroup_taskset_for_each(tsk, dst_css, tset) {
++		struct l3mdev_cgroup *l3mdev_cgrp;
++
++		l3mdev_cgrp = css_l3mdev(dst_css);
++		if (!is_root_cgroup(dst_css) && !l3mdev_cgrp->dev_idx) {
++			rc = -ENODEV;
++			break;
++		}
++	}
++
++	return rc;
++}
++
++static struct cftype ss_files[] = {
++	{
++		.name     = "master-device",
++		.seq_show = l3mdev_read,
++		.write    = l3mdev_write,
++	},
++	{ }	/* terminate */
++};
++
++struct cgroup_subsys l3mdev_cgrp_subsys = {
++	.css_alloc	= l3mdev_css_alloc,
++	.css_online	= l3mdev_css_online,
++	.css_free	= l3mdev_css_free,
++	.can_attach	= l3mdev_can_attach,
++	.legacy_cftypes	= ss_files,
++};
++
++static int __init init_cgroup_l3mdev(void)
++{
++	return 0;
++}
++
++subsys_initcall(init_cgroup_l3mdev);
++MODULE_AUTHOR("David Ahern");
++MODULE_DESCRIPTION("Control Group for L3 Networking Domains");
++MODULE_LICENSE("GPL");
 -- 
-2.6.0.rc2.230.g3dd15c0
+1.9.1
