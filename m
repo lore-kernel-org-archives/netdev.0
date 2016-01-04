@@ -1,31 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH net-next 02/24] mdio: Move mdiobus_read/write operatings
- into mdio.h
-Date: Mon, 04 Jan 2016 12:02:09 -0800
-Message-ID: <568ACFC1.2080608@gmail.com>
-References: <1451929022-5580-1-git-send-email-andrew@lunn.ch> <1451929022-5580-3-git-send-email-andrew@lunn.ch>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC PATCH net-next] net: Add l3mdev cgroup
+Date: Mon, 4 Jan 2016 15:05:18 -0500
+Message-ID: <20160104200518.GD3807@mtj.duckdns.org>
+References: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
+ <20160104175836.GA11668@mtj.duckdns.org>
+ <568ABFC3.3010803@cumulusnetworks.com>
+ <20160104185936.GA3807@mtj.duckdns.org>
+ <568AC534.1070308@cumulusnetworks.com>
+ <20160104192301.GC3807@mtj.duckdns.org>
+ <568ACF13.3030007@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35105 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbcADUCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 15:02:40 -0500
-Received: by mail-pf0-f196.google.com with SMTP id e65so19610941pfe.2
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 12:02:40 -0800 (PST)
-In-Reply-To: <1451929022-5580-3-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
+To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <568ACF13.3030007-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/01/16 09:36, Andrew Lunn wrote:
-> These are logically MDIO operations, not phy operations, so move them
-> into the mdio header.
+Hello,
+
+On Mon, Jan 04, 2016 at 12:59:15PM -0700, David Ahern wrote:
+> cgroups have very nice properties that I want to leverage such as
+> parent-child inheritance and easy tracking which subsystem instance a task
+> belongs. This provides a great kernel foundation for building easy to use
+> management tools.
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> The documentation for cgroups does not restrict a controller to physical
+> resources but rather "it may be anything that wants to act on a group of
+> processes." That is exactly what I am doing here - I have a network config
+> that is applied to a group of processes similar to net_cls and net_prio (but
+> as I stated before those are orthogonal, independent settings from the L3
+> domain).
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Please read the new version of cgroup documentation.
+
+  https://git.kernel.org/cgit/linux/kernel/git/tj/cgroup.git/tree/Documentation/cgroup.txt?h=for-4.5
+
+cgroup has experienced a lot of problems doing its main job -
+hierarchical resource control - from trying to support random things
+which want to group threads.  As shown with xt_cgroup, such
+identifying usages can be implemented in a way where the subsystem
+matches the membership rather than cgroup taking in configurations
+which belong to the subsystem, so please investigate that direction.
+
+Thanks.
+
 -- 
-Florian
+tejun
