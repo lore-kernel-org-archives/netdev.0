@@ -1,49 +1,41 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC PATCH net-next] net: Add l3mdev cgroup
-Date: Mon, 4 Jan 2016 12:58:36 -0500
-Message-ID: <20160104175836.GA11668@mtj.duckdns.org>
-References: <1451925136-13327-1-git-send-email-dsa@cumulusnetworks.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 02/12] net: sched: free per cpu bstats
+Date: Mon, 04 Jan 2016 10:08:05 -0800
+Message-ID: <568AB505.9000508@gmail.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>	 <20151230175130.26257.98195.stgit@john-Precision-Tower-5810>	 <568A8DF5.7030505@iogearbox.net> <1451928758.8255.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
-To: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1451925136-13327-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, aduyck@mirantis.com, brouer@redhat.com,
+	davem@davemloft.net, john.r.fastabend@intel.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36186 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064AbcADSIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 13:08:21 -0500
+Received: by mail-pa0-f65.google.com with SMTP id a20so10338677pag.3
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 10:08:21 -0800 (PST)
+In-Reply-To: <1451928758.8255.76.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, David.
-
-On Mon, Jan 04, 2016 at 08:32:16AM -0800, David Ahern wrote:
-> Add cgroup to assoicate tasks with L3 networking domains. AF_INET{6}
-> sockets opened by tasks associated with an l3mdev cgroup are bound to
-> the associated master device when the socket is created. This allows a
-> user to run a command (and its children) within an L3 networking context.
+On 16-01-04 09:32 AM, Eric Dumazet wrote:
+> On Mon, 2016-01-04 at 16:21 +0100, Daniel Borkmann wrote:
+>> On 12/30/2015 06:51 PM, John Fastabend wrote:
+>>> When a qdisc is using per cpu stats only the bstats are being
+>>> freed. This also free's the qstats.
+>>>
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>
+>> Seems like a bug fix, current code seems to free this only in error
+>> path in qdisc_create(). Should this go to -net as an individual one?
 > 
-> The master-device for an l3mdev cgroup must be an L3 master device
-> (e.g., VRF), and it must be set before attaching tasks to the cgroup. Once
-> set the master-device can not change. Nested l3mdev cgroups are not
-> supported. The root (aka default) l3mdev cgroup can not be bound to a
-> master device.
+> Absolutely, this is needed in -net as ingress qdisc uses this stuff
+> already.
 > 
-> Example:
->     ip link add vrf-red type vrf table vrf-red
->     ip link set dev vrf-red up
->     ip link set dev eth1 master vrf-red
 > 
->     cgcreate -g l3mdev:vrf-red
->     cgset -r l3mdev.master-device=vrf-red vrf-red
->     cgexec -g l3mdev:vrf-red bash
 
-Please don't create any new controller whose sole purpose is
-identifying group membership.  Please take a look at how libxt_cgroup
-handles identification w/o creating a new controller.
-
- http://lkml.kernel.org/g/1449527935-27056-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-
-Thanks.
-
--- 
-tejun
+Yep, I'll push a patch for -net today.
