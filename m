@@ -1,64 +1,80 @@
-From: Arend van Spriel <aspriel@gmail.com>
-Subject: Re: net-libertas: Better exception handling in
- if_spi_host_to_card_worker()
-Date: Mon, 4 Jan 2016 11:05:55 +0100
-Message-ID: <568A4403.8020701@gmail.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <5686F0B2.5000000@users.sourceforge.net>
- <56870866.7020000@cogentembedded.com>
- <568785B3.5000905@users.sourceforge.net>
- <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
- <5687939E.7010701@users.sourceforge.net> <5687A2C7.3000704@gmail.com>
- <5687B2BC.8090901@users.sourceforge.net> <5688EBAC.5000701@gmail.com>
- <CACna6rzoJLRuTTDi3JjXg1roDbk3HXcBhhe0iOUH9xRaGU5p7A@mail.gmail.com>
+From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 net-next 2/3] net: macb: Add NPx macb config using
+ USRIO_DISABLED cap
+Date: Mon, 4 Jan 2016 11:38:56 +0100
+Message-ID: <568A4BC0.2090005@atmel.com>
+References: <1451898103-21868-1-git-send-email-narmstrong@baylibre.com>
+ <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
+ <1451900573-22657-3-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	libertas-dev@lists.infradead.org,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <CACna6rzoJLRuTTDi3JjXg1roDbk3HXcBhhe0iOUH9xRaGU5p7A@mail.gmail.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<joshc-acOepvfBmUk@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Rob Herring" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1451900573-22657-3-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 03-01-16 16:18, Rafa=C5=82 Mi=C5=82ecki wrote:
-> On 3 January 2016 at 10:36, Arend van Spriel <aspriel@gmail.com> wrot=
-e:
->> On 02-01-16 12:21, SF Markus Elfring wrote:
->>>> Did you look at the resulting assembly code for different target a=
-rchitectures?
->>>
->>> Not yet. - Which execution system variants would you recommend for
->>> further comparisons?
->>
->> Guess x86{,_64} and arm would be good candidates, ie. CISC vs. RISC.
+Le 04/01/2016 10:42, Neil Armstrong a =E9crit :
+> Declare a new SoC variant for NPx SoCs having USRIO_DISABLED as
+> capability bit.
 >=20
-> Oh, don't forget about MIPS with its fancy branches handling. You kno=
-w
-> about it, don't you?
+> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index fa53bc3..a9e27a7 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2781,6 +2781,11 @@ static const struct macb_config emac_config =3D=
+ {
+>  	.init =3D at91ether_init,
+>  };
+> =20
+> +static const struct macb_config npx_config =3D {
+> +	.caps =3D MACB_CAPS_USRIO_DISABLED,
+> +	.clk_init =3D macb_clk_init,
+> +	.init =3D macb_init,
+> +};
+> =20
+>  static const struct macb_config zynqmp_config =3D {
+>  	.caps =3D MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO,
+> @@ -2801,6 +2806,7 @@ static const struct of_device_id macb_dt_ids[] =
+=3D {
+>  	{ .compatible =3D "cdns,at32ap7000-macb" },
+>  	{ .compatible =3D "cdns,at91sam9260-macb", .data =3D &at91sam9260_c=
+onfig },
+>  	{ .compatible =3D "cdns,macb" },
+> +	{ .compatible =3D "cdns,npx-macb", .data =3D &npx_config },
 
-You are asking me, right ;-) ? I have come across my share of MIPS
-platforms here at Broadcom, but I still try to avoid them as much as
-possible.
+I can accept that, but I think that you'd better make your device tree
+compatibility string *not* generic. Name it by the first NPx SoC or
+perfectly compatible SoC family that has this configuration and you'll
+be able to make the NP(x+1) compatible with it.
 
-> I'm against this patch as well.
+It has proven to be much more future proof and even if in the early day=
+s
+of DT on ARM we accepted some binding with generic strings like this on=
+e
+below, It has proven to be a mistake.
 
-and counting... :-p
+>  	{ .compatible =3D "cdns,gem", .data =3D &pc302gem_config },
+>  	{ .compatible =3D "atmel,sama5d2-gem", .data =3D &sama5d2_config },
+>=20
 
-Regards,
-Arend
+
+--=20
+Nicolas Ferre
 --
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
