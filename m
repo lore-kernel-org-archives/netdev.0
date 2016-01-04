@@ -1,63 +1,65 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH] rt2x00pci: Disable memory-write-invalidate when the
- driver exits
-Date: Mon, 4 Jan 2016 17:50:36 +0100
-Message-ID: <CAGXE3d9tTr6hyOjh==Mn5tNQSy-hMBhxtmsWNY_tLgJqE=B38A@mail.gmail.com>
-References: <1451894138-3482-1-git-send-email-baijiaju1990@163.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: next-20160104 build: 3 failures 15 warnings (next-20160104)
+Date: Mon, 4 Jan 2016 16:50:25 +0000
+Message-ID: <20160104165025.GN16023@sirena.org.uk>
+References: <E1aG3zo-0000gt-2t@optimist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jia-Ju Bai <baijiaju1990@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451894138-3482-1-git-send-email-baijiaju1990@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Mon, Jan 4, 2016 at 8:55 AM, Jia-Ju Bai <baijiaju1990@163.com> wrote:
-> The driver calls pci_set_mwi to enable memory-write-invalidate when it
-> is initialized, but does not call pci_clear_mwi when it is removed. Many
-> other drivers calls pci_clear_mwi when pci_set_mwi is called, such as
-> r8169, 8139cp and e1000.
->
-> This patch adds pci_clear_mwi in error handling and removal procedure,
-> which can fix the problem.
->
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-
-Looks good to me.
-Does this fix any actual issue?
-If yes it might we worth to mention it in the commit message.
-Helmut
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="oWj5HoUXCVjyUFuT"
+Cc: kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Igal Liberman <igal.liberman@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:35649 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889AbcADQun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 11:50:43 -0500
+Content-Disposition: inline
+In-Reply-To: <E1aG3zo-0000gt-2t@optimist>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> ---
->  drivers/net/wireless/rt2x00/rt2x00pci.c |    2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
-> index d93db4b..eb6dbcd 100644
-> --- a/drivers/net/wireless/rt2x00/rt2x00pci.c
-> +++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
-> @@ -149,6 +149,7 @@ exit_free_device:
->         ieee80211_free_hw(hw);
->
->  exit_release_regions:
-> +       pci_clear_mwi(pci_dev);
->         pci_release_regions(pci_dev);
->
->  exit_disable_device:
-> @@ -173,6 +174,7 @@ void rt2x00pci_remove(struct pci_dev *pci_dev)
->         /*
->          * Free the PCI device data.
->          */
-> +       pci_clear_mwi(pci_dev);
->         pci_disable_device(pci_dev);
->         pci_release_regions(pci_dev);
->  }
-> --
-> 1.7.9.5
->
->
+--oWj5HoUXCVjyUFuT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Mon, Jan 04, 2016 at 12:12:20PM +0000, Build bot for Mark Brown wrote:
+
+Today's linux-next fails to build an arm allmodconfig (and probably also
+at least arm64 though other errors prevent that getting to linking
+currently) due to:
+
+| drivers/built-in.o: In function `dtsec_restart_autoneg':
+| :(.text+0x30f86c): undefined reference to `mdiobus_read'
+| :(.text+0x30f89c): undefined reference to `mdiobus_write'
+| drivers/built-in.o: In function `dtsec_init':
+| :(.text+0x31008c): undefined reference to `mdiobus_write'
+| :(.text+0x3100b4): undefined reference to `mdiobus_write'
+| :(.text+0x3100dc): undefined reference to `mdiobus_write'
+| :(.text+0x310128): undefined reference to `mdiobus_write'
+| drivers/built-in.o::(.text+0x310150): more undefined references to `mdiobus_write' follow
+| drivers/built-in.o: In function `dtsec_config':
+| :(.text+0x310804): undefined reference to `of_phy_find_device'
+
+and various other linker errors caused by the fact that the new fman
+driver uses PHYLIB but does not depend on or select it.
+
+--oWj5HoUXCVjyUFuT
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJWiqLQAAoJECTWi3JdVIfQw+YH/2jMB/LT8N+DFrTooXClhCbo
+pEYG/jkc3xZzOI9aCg2GjCMBq51hc+eRMJUc8KrT1OU6N1HH/qONBCktlgkvW5JV
+xsXCFwHZr26IOrKysfXAYn5oSxnF0KmUlR7zy4t8imUh++REhal9D4k3bkWC8tqx
+K5NX+tHl3gZtKmznlmbgMgB+foMMZRK9ziftiymtWujtHzwdycyip4q3YLmA2Krz
+Q81jnxUYH1KmH9MCySLekl+nOH3uFzjVyFCtAkhapEYYYK3HaLk3dpzw/mYBrdQB
+dUsku8mMV3soSAgsCsW/GXVPFqrzA5RL+LMgUXmgznwIktu7La0AK7xMgyxq9dE=
+=U39K
+-----END PGP SIGNATURE-----
+
+--oWj5HoUXCVjyUFuT--
