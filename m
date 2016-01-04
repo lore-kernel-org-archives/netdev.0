@@ -1,42 +1,57 @@
-From: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v4 net-next 3/3] dt-bindings: net: macb: Add NPx macb variant
-Date: Mon,  4 Jan 2016 10:42:53 +0100
-Message-ID: <1451900573-22657-4-git-send-email-narmstrong@baylibre.com>
-References: <1451898103-21868-1-git-send-email-narmstrong@baylibre.com>
- <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-To: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joshc-acOepvfBmUk@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1451900573-22657-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH iproute2 2/4] iplink: support setting addrgenmode stable_secret
+Date: Mon,  4 Jan 2016 10:58:04 +0100
+Message-ID: <1451901486-3497-3-git-send-email-bjorn@mork.no>
+References: <1451901486-3497-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:44418 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752624AbcADJ6d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2016 04:58:33 -0500
+In-Reply-To: <1451901486-3497-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add NPx macb variant for NPx SoCs.
+It is possible to switch to another addrgenmode after setting a
+valid secret.  Allow switching back without reconfiguring the
+secret for completeness.
 
-Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- Documentation/devicetree/bindings/net/macb.txt | 1 +
- 1 file changed, 1 insertion(+)
+ ip/iplink.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index 38c8e84..638cdde 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -4,6 +4,7 @@ Required properties:
- - compatible: Should be "cdns,[<chip>-]{macb|gem}"
-   Use "cdns,at91sam9260-macb" for Atmel at91sam9 SoCs or the 10/100Mbit IP
-   available on sama5d3 SoCs.
-+  Use "cdns,npx-macb" for NPX SoCs devices.
-   Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb".
-   Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later devices based on
-   the Cadence GEM, or the generic form: "cdns,gem".
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/ip/iplink.c b/ip/iplink.c
+index f30de86d1858..e824082f7d81 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -84,7 +84,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
+-	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
++	fprintf(stderr, "			  [ addrgenmode { eui64 | none | stable_secret } =
+]\n");
+ 	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [m=
+aster DEV] [type TYPE]\n");
+=20
+@@ -176,6 +176,8 @@ static int get_addr_gen_mode(const char *mode)
+ 		return IN6_ADDR_GEN_MODE_EUI64;
+ 	if (strcasecmp(mode, "none") =3D=3D 0)
+ 		return IN6_ADDR_GEN_MODE_NONE;
++	if (strcasecmp(mode, "stable_secret") =3D=3D 0)
++		return IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+ 	return -1;
+ }
+=20
+--=20
+2.1.4
