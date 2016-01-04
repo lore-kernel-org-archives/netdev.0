@@ -1,51 +1,176 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] rt2x00pci: Disable memory-write-invalidate when the driver exits
-Date: Mon,  4 Jan 2016 15:55:38 +0800
-Message-ID: <1451894138-3482-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
-To: sgruszka@redhat.com, helmut.schaa@googlemail.com,
-	kvalo@codeaurora.org
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+Subject: [PATCH 1/1] net/ipv6: add sysctl option accept_ra_min_hop_limit
+Date: Mon, 4 Jan 2016 17:37:44 +0900
+Message-ID: <1451896664-14271-1-git-send-email-machida.yuki@jp.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Yuki Machida <machida.yuki@jp.fujitsu.com>,
+	Hangbin Liu <liuhangbin@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-13.163.com ([220.181.12.13]:43980 "EHLO m12-13.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941AbcADH4N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2016 02:56:13 -0500
+Received: from mgwym04.jp.fujitsu.com ([211.128.242.43]:58222 "EHLO
+	mgwym04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbcADIsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 03:48:01 -0500
+Received: from g01jpfmpwyt02.exch.g01.fujitsu.local (g01jpfmpwyt02.exch.g01.fujitsu.local [10.128.193.56])
+	by yt-mxoi1.gw.nic.fujitsu.com (Postfix) with ESMTP id 72B5FAC01A6
+	for <netdev@vger.kernel.org>; Mon,  4 Jan 2016 17:37:46 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver calls pci_set_mwi to enable memory-write-invalidate when it
-is initialized, but does not call pci_clear_mwi when it is removed. Many
-other drivers calls pci_clear_mwi when pci_set_mwi is called, such as
-r8169, 8139cp and e1000.
+Please apply the following patch to v4.1.x.
 
-This patch adds pci_clear_mwi in error handling and removal procedure, 
-which can fix the problem.
+By ommit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
+that have been added in the 4.0-rc7, it no longer comply with RFC4861.
+This problem has been fixed in the commit 8013d1d7eafb 
+("net/ipv6: add sysctl option accept_ra_min_hop_limit") 
+in 4.3-rc1, but 4.1.x is still.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+[ Upstream 8013d1d7eafb0589ca766db6b74026f76b7f5cb4 ]
+
+Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
+disabled accept hop limit from RA if it is smaller than the current hop
+limit for security stuff. But this behavior kind of break the RFC definition.
+
+RFC 4861, 6.3.4.  Processing Received Router Advertisements
+   A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
+   and Retrans Timer) may contain a value denoting that it is
+   unspecified.  In such cases, the parameter should be ignored and the
+   host should continue using whatever value it is already using.
+
+   If the received Cur Hop Limit value is non-zero, the host SHOULD set
+   its CurHopLimit variable to the received value.
+
+So add sysctl option accept_ra_min_hop_limit to let user choose the minimum
+hop limit value they can accept from RA. And set default to 1 to meet RFC
+standards.
+
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/wireless/rt2x00/rt2x00pci.c |    2 ++
- 1 file changed, 2 insertions(+)
+ Documentation/networking/ip-sysctl.txt |  8 ++++++++
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 10 ++++++++++
+ net/ipv6/ndisc.c                       | 16 +++++++---------
+ 5 files changed, 27 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
-index d93db4b..eb6dbcd 100644
---- a/drivers/net/wireless/rt2x00/rt2x00pci.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
-@@ -149,6 +149,7 @@ exit_free_device:
- 	ieee80211_free_hw(hw);
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 071fb18..07fad3d 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1321,6 +1321,14 @@ accept_ra_from_local - BOOLEAN
+ 	   disabled if accept_ra_from_local is disabled
+                on a specific interface.
  
- exit_release_regions:
-+	pci_clear_mwi(pci_dev);
- 	pci_release_regions(pci_dev);
++accept_ra_min_hop_limit - INTEGER
++	Minimum hop limit Information in Router Advertisement.
++
++	Hop limit Information in Router Advertisement less than this
++	variable shall be ignored.
++
++	Default: 1
++
+ accept_ra_pinfo - BOOLEAN
+ 	Learn Prefix Information in Router Advertisement.
  
- exit_disable_device:
-@@ -173,6 +174,7 @@ void rt2x00pci_remove(struct pci_dev *pci_dev)
- 	/*
- 	 * Free the PCI device data.
- 	 */
-+	pci_clear_mwi(pci_dev);
- 	pci_disable_device(pci_dev);
- 	pci_release_regions(pci_dev);
- }
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e4b4649..01c2592 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -29,6 +29,7 @@ struct ipv6_devconf {
+ 	__s32		max_desync_factor;
+ 	__s32		max_addresses;
+ 	__s32		accept_ra_defrtr;
++	__s32		accept_ra_min_hop_limit;
+ 	__s32		accept_ra_pinfo;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	__s32		accept_ra_rtr_pref;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 5efa54a..68094e33 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -171,6 +171,7 @@ enum {
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
+ 	DEVCONF_STABLE_SECRET,
++	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index fd3aa61..366d010 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -195,6 +195,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.max_addresses		= IPV6_MAX_ADDRESSES,
+ 	.accept_ra_defrtr	= 1,
+ 	.accept_ra_from_local	= 0,
++	.accept_ra_min_hop_limit= 1,
+ 	.accept_ra_pinfo	= 1,
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	.accept_ra_rtr_pref	= 1,
+@@ -236,6 +237,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.max_addresses		= IPV6_MAX_ADDRESSES,
+ 	.accept_ra_defrtr	= 1,
+ 	.accept_ra_from_local	= 0,
++	.accept_ra_min_hop_limit= 1,
+ 	.accept_ra_pinfo	= 1,
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	.accept_ra_rtr_pref	= 1,
+@@ -4559,6 +4561,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_MAX_DESYNC_FACTOR] = cnf->max_desync_factor;
+ 	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
+ 	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
++	array[DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT] = cnf->accept_ra_min_hop_limit;
+ 	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
+@@ -5455,6 +5458,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= proc_dointvec,
+ 		},
+ 		{
++			.procname	= "accept_ra_min_hop_limit",
++			.data		= &ipv6_devconf.accept_ra_min_hop_limit,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec,
++		},
++		{
+ 			.procname	= "accept_ra_pinfo",
+ 			.data		= &ipv6_devconf.accept_ra_pinfo,
+ 			.maxlen		= sizeof(int),
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 96f153c..abb0bdd 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1225,18 +1225,16 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 
+ 	if (rt)
+ 		rt6_set_expires(rt, jiffies + (HZ * lifetime));
+-	if (ra_msg->icmph.icmp6_hop_limit) {
+-		/* Only set hop_limit on the interface if it is higher than
+-		 * the current hop_limit.
+-		 */
+-		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
++	if (in6_dev->cnf.accept_ra_min_hop_limit < 256 &&
++	    ra_msg->icmph.icmp6_hop_limit) {
++		if (in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit) {
+ 			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
++			if (rt)
++				dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
++					       ra_msg->icmph.icmp6_hop_limit);
+ 		} else {
+-			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
++			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
+ 		}
+-		if (rt)
+-			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
+-				       ra_msg->icmph.icmp6_hop_limit);
+ 	}
+ 
+ skip_defrtr:
 -- 
-1.7.9.5
+1.9.1
