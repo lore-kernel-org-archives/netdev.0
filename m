@@ -1,70 +1,123 @@
-From: Jacob Siverskog <jacob@teenage.engineering>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
-Date: Mon, 4 Jan 2016 10:10:34 +0100
-Message-ID: <CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
- <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com> <20151229.150843.2021692616139434395.davem@davemloft.net>
- <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
- <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
- <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com> <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v3 net-next] net: ethernet: cadence-macb: Add disabled
+ usrio caps
+Date: Mon, 4 Jan 2016 10:25:13 +0100
+Message-ID: <568A3A79.5070502@atmel.com>
+References: <1449582726-6148-1-git-send-email-narmstrong@baylibre.com>
+ <1451898103-21868-1-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Neil Armstrong <narmstrong@baylibre.com>, <davem@davemloft.net>,
+	<harini.katakam@xilinx.com>, <boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<joshc@ni.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:57165 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340AbcADJYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 04:24:36 -0500
+In-Reply-To: <1451898103-21868-1-git-send-email-narmstrong@baylibre.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 30, 2015 at 11:30 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Dec 30, 2015 at 6:30 AM, Jacob Siverskog
-> <jacob@teenage.engineering> wrote:
->> On Wed, Dec 30, 2015 at 2:26 PM, Eric Dumazet <edumazet@google.com> wrote:
->>> How often can you trigger this bug ?
->>
->> Ok. I don't have a good repro to trigger it unfortunately, I've seen it just a
->> few times when bringing up/down network interfaces. Does the trace
->> give any clue?
->>
->
-> A little bit. You need to help people to narrow down the problem
-> because there are too many places using skb->next and skb->prev.
->
-> Since you mentioned it seems related to network interface flip,
-> what network interfaces are you using? What's is your TC setup?
->
-> Thanks.
+Le 04/01/2016 10:01, Neil Armstrong a =E9crit :
+> On some platforms, the macb integration does not use the USRIO
+> register to configure the (R)MII port and clocks.
+> When the register is not implemented and the MACB error signal
+> is connected to the bus error, reading or writing to the USRIO
+> register can trigger some Imprecise External Aborts on ARM platforms.
+>=20
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 27 +++++++++++++++------------
+>  drivers/net/ethernet/cadence/macb.h |  1 +
+>  2 files changed, 16 insertions(+), 12 deletions(-)
+>=20
+> Nicolas,
+> I post only the first patch of the previous set posted here :
+> http://lkml.kernel.org/r/1449582726-6148-1-git-send-email-narmstrong@=
+baylibre.com
+> to hopefully make it into the 4.5 merge time,
+> I'll post the vendor prefix once this patch will hit mainline.
 
-The system contains only one physical network interface (TI WL1837,
-wl18xx module).
-The state prior to the crash was as follows:
-- One virtual network interface active (as STA, associated with access point)
-- Bluetooth (BLE only) active (same physical chip, co-existence,
-btwilink/st_drv modules)
+Okay, but I don't see how you will activate this capability (or I lost
+track of it). So, before I can accept one solution, can you please
+repost the whole solution as a v4.
 
-Actions made around the time of the crash:
-- Bluetooth disabled
-- One additional virtual network interface brought up (also as STA)
+Thanks. Bye,
 
-I believe the crash occurred between these two actions. I just saw
-that there are some interesting events in the log prior to the crash:
-kernel: Bluetooth: Unable to push skb to HCI core(-6)
-kernel: (stc):  proto stack 4's ->recv failed
-kernel: (stc): remove_channel_from_table: id 3
-kernel: (stc): remove_channel_from_table: id 2
-kernel: (stc): remove_channel_from_table: id 4
-kernel: (stc):  all chnl_ids unregistered
-kernel: (stk) :ldisc_install = 0(stc): st_tty_close
 
-The first print is from btwilink.c. However, I can't see the
-connection between Bluetooth (BLE) and UDP/IPv6 (we're not using
-6LoWPAN or anything similar).
+>=20
+> Regards,
+> Neil
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 8b45bc9..fa53bc3 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2124,7 +2124,8 @@ static void macb_get_regs(struct net_device *de=
+v, struct ethtool_regs *regs,
+>  	regs_buff[10] =3D macb_tx_dma(&bp->queues[0], tail);
+>  	regs_buff[11] =3D macb_tx_dma(&bp->queues[0], head);
+> =20
+> -	regs_buff[12] =3D macb_or_gem_readl(bp, USRIO);
+> +	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
+> +		regs_buff[12] =3D macb_or_gem_readl(bp, USRIO);
+>  	if (macb_is_gem(bp)) {
+>  		regs_buff[13] =3D gem_readl(bp, DMACFG);
+>  	}
+> @@ -2403,19 +2404,21 @@ static int macb_init(struct platform_device *=
+pdev)
+>  		dev->hw_features &=3D ~NETIF_F_SG;
+>  	dev->features =3D dev->hw_features;
+> =20
+> -	val =3D 0;
+> -	if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII)
+> -		val =3D GEM_BIT(RGMII);
+> -	else if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII &&
+> -		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> -		val =3D MACB_BIT(RMII);
+> -	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> -		val =3D MACB_BIT(MII);
+> +	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED)) {
+> +		val =3D 0;
+> +		if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII)
+> +			val =3D GEM_BIT(RGMII);
+> +		else if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII &&
+> +			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> +			val =3D MACB_BIT(RMII);
+> +		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> +			val =3D MACB_BIT(MII);
+> =20
+> -	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+> -		val |=3D MACB_BIT(CLKEN);
+> +		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+> +			val |=3D MACB_BIT(CLKEN);
+> =20
+> -	macb_or_gem_writel(bp, USRIO, val);
+> +		macb_or_gem_writel(bp, USRIO, val);
+> +	}
+> =20
+>  	/* Set MII management clock divider */
+>  	val =3D macb_mdc_clk_div(bp);
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index 5c03e81..0d4ecfc 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -400,6 +400,7 @@
+>  #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
+>  #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
+>  #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+> +#define MACB_CAPS_USRIO_DISABLED		0x00000010
+>  #define MACB_CAPS_FIFO_MODE			0x10000000
+>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+>  #define MACB_CAPS_SG_DISABLED			0x40000000
+>=20
 
-Thanks, Jacob
+
+--=20
+Nicolas Ferre
