@@ -1,64 +1,114 @@
-From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v5 net-next 3/3] dt-bindings: net: macb: Add NP4 macb
- variant
-Date: Tue, 5 Jan 2016 14:46:33 +0100
-Message-ID: <568BC939.1050400@atmel.com>
-References: <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
- <1452001158-20585-1-git-send-email-narmstrong@baylibre.com>
- <1452001158-20585-4-git-send-email-narmstrong@baylibre.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in
+ __skb_try_recv_datagram
+Date: Tue, 05 Jan 2016 06:14:59 -0800
+Message-ID: <1452003299.8255.87.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
+	 <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
+	 <20151229.150843.2021692616139434395.davem@davemloft.net>
+	 <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
+	 <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
+	 <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
+	 <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
+	 <CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
+	 <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEnXRPu8As9sr44JcjqVW-omN8BshtzhZZd73cr7vFXLTVPFWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<joshc-acOepvfBmUk@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1452001158-20585-4-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jacob Siverskog <jacob@teenage.engineering>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEnXRPu8As9sr44JcjqVW-omN8BshtzhZZd73cr7vFXLTVPFWQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 05/01/2016 14:39, Neil Armstrong a =E9crit :
-> Add NP4 macb SoC variant.
->=20
-> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+On Tue, 2016-01-05 at 12:07 +0100, Jacob Siverskog wrote:
+> On Mon, Jan 4, 2016 at 4:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Mon, 2016-01-04 at 10:10 +0100, Jacob Siverskog wrote:
+> >> On Wed, Dec 30, 2015 at 11:30 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> >> > On Wed, Dec 30, 2015 at 6:30 AM, Jacob Siverskog
+> >> > <jacob@teenage.engineering> wrote:
+> >> >> On Wed, Dec 30, 2015 at 2:26 PM, Eric Dumazet <edumazet@google.com> wrote:
+> >> >>> How often can you trigger this bug ?
+> >> >>
+> >> >> Ok. I don't have a good repro to trigger it unfortunately, I've seen it just a
+> >> >> few times when bringing up/down network interfaces. Does the trace
+> >> >> give any clue?
+> >> >>
+> >> >
+> >> > A little bit. You need to help people to narrow down the problem
+> >> > because there are too many places using skb->next and skb->prev.
+> >> >
+> >> > Since you mentioned it seems related to network interface flip,
+> >> > what network interfaces are you using? What's is your TC setup?
+> >> >
+> >> > Thanks.
+> >>
+> >> The system contains only one physical network interface (TI WL1837,
+> >> wl18xx module).
+> >> The state prior to the crash was as follows:
+> >> - One virtual network interface active (as STA, associated with access point)
+> >> - Bluetooth (BLE only) active (same physical chip, co-existence,
+> >> btwilink/st_drv modules)
+> >>
+> >> Actions made around the time of the crash:
+> >> - Bluetooth disabled
+> >> - One additional virtual network interface brought up (also as STA)
+> >>
+> >> I believe the crash occurred between these two actions. I just saw
+> >> that there are some interesting events in the log prior to the crash:
+> >> kernel: Bluetooth: Unable to push skb to HCI core(-6)
+> >> kernel: (stc):  proto stack 4's ->recv failed
+> >> kernel: (stc): remove_channel_from_table: id 3
+> >> kernel: (stc): remove_channel_from_table: id 2
+> >> kernel: (stc): remove_channel_from_table: id 4
+> >> kernel: (stc):  all chnl_ids unregistered
+> >> kernel: (stk) :ldisc_install = 0(stc): st_tty_close
+> >>
+> >> The first print is from btwilink.c. However, I can't see the
+> >> connection between Bluetooth (BLE) and UDP/IPv6 (we're not using
+> >> 6LoWPAN or anything similar).
+> >>
+> >> Thanks, Jacob
+> >
+> > Definitely these details are useful ;)
+> >
+> > Could you try :
+> >
+> > diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
+> > index 6e3af8b42cdd..0c99a74fb895 100644
+> > --- a/drivers/misc/ti-st/st_core.c
+> > +++ b/drivers/misc/ti-st/st_core.c
+> > @@ -912,7 +912,9 @@ void st_core_exit(struct st_data_s *st_gdata)
+> >                 skb_queue_purge(&st_gdata->txq);
+> >                 skb_queue_purge(&st_gdata->tx_waitq);
+> >                 kfree_skb(st_gdata->rx_skb);
+> > +               st_gdata->rx_skb = NULL;
+> >                 kfree_skb(st_gdata->tx_skb);
+> > +               st_gdata->tx_skb = NULL;
+> >                 /* TTY ldisc cleanup */
+> >                 err = tty_unregister_ldisc(N_TI_WL);
+> >                 if (err)
+> >
+> >
+> 
+> Sure. Since I don't have a good way to trigger the initial issue, I
+> can't really know if there is a difference with your patch. However,
+> normal usage seems to work as expected with your patch. I've tried to
+> reproduce the initial issue with and without your patch repeatedly for
+> hours and have not seen any crash in any of the runs so far.
+> --
 
-Acked-by: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+You might build a kernel with KASAN support to get maybe more chances to
+trigger the bug.
 
-Neil, thanks for your understanding and reactivity concerning this patc=
-h
-series.
-
-Bye,
-
-> ---
->  Documentation/devicetree/bindings/net/macb.txt | 1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documen=
-tation/devicetree/bindings/net/macb.txt
-> index 38c8e84..5c397ca 100644
-> --- a/Documentation/devicetree/bindings/net/macb.txt
-> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> @@ -4,6 +4,7 @@ Required properties:
->  - compatible: Should be "cdns,[<chip>-]{macb|gem}"
->    Use "cdns,at91sam9260-macb" for Atmel at91sam9 SoCs or the 10/100M=
-bit IP
->    available on sama5d3 SoCs.
-> +  Use "cdns,np4-macb" for NP4 SoC devices.
->    Use "cdns,at32ap7000-macb" for other 10/100 usage or use the gener=
-ic form: "cdns,macb".
->    Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later device=
-s based on
->    the Cadence GEM, or the generic form: "cdns,gem".
->=20
-
-
---=20
-Nicolas Ferre
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+( https://www.kernel.org/doc/Documentation/kasan.txt )
