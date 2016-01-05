@@ -1,241 +1,158 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 2/5] sctp: apply rhashtable api to send/recv path
-Date: Tue, 5 Jan 2016 14:07:11 -0500
-Message-ID: <568C145F.5040009@gmail.com>
-References: <cover.1451490447.git.lucien.xin@gmail.com>
- <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
- <8d89800920719b527dbd6e36dbbcf3c0804fbd7c.1451490447.git.lucien.xin@gmail.com>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH net-next] soreuseport: change consume_skb to kfree_skb in
+ error case
+Date: Tue, 5 Jan 2016 14:12:00 -0500
+Message-ID: <CAEfhGiym3O8PaZdbReHHRQ1Cnq2OuOQfmbjSf2x1bTyqvdNPuw@mail.gmail.com>
+References: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
+	<1452015516.8255.106.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAEfhGiyu0iRJcnOUiippoOtRZzUwoSihGVb3240G9hBSh0t5bw@mail.gmail.com>
+	<1452018666.8255.115.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: mleitner@redhat.com, vyasevic@redhat.com, daniel@iogearbox.net,
-	davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:34436 "EHLO
-	mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751960AbcAETHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 14:07:14 -0500
-In-Reply-To: <8d89800920719b527dbd6e36dbbcf3c0804fbd7c.1451490447.git.lucien.xin@gmail.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33029 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751663AbcAETME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 14:12:04 -0500
+Received: by mail-lf0-f48.google.com with SMTP id p203so302286128lfa.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 11:12:02 -0800 (PST)
+Received: from mail-lf0-f44.google.com (mail-lf0-f44.google.com. [209.85.215.44])
+        by smtp.gmail.com with ESMTPSA id pf5sm16701018lbc.19.2016.01.05.11.12.01
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 05 Jan 2016 11:12:01 -0800 (PST)
+Received: by mail-lf0-f44.google.com with SMTP id y184so299920339lfc.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 11:12:01 -0800 (PST)
+In-Reply-To: <1452018666.8255.115.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/30/2015 10:50 AM, Xin Long wrote:
-> apply lookup apis to two functions, for __sctp_endpoint_lookup_assoc
-> and __sctp_lookup_association, it's invoked in the protection of sock
-> lock, it will be safe, but sctp_lookup_association need to call
-> rcu_read_lock() and to detect the t->dead to protect it.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/associola.c   |  5 +++++
->  net/sctp/endpointola.c | 35 ++++++++---------------------------
->  net/sctp/input.c       | 39 ++++++++++-----------------------------
->  net/sctp/protocol.c    |  6 ++++++
->  4 files changed, 29 insertions(+), 56 deletions(-)
-> 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 559afd0..2bf8ec9 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -383,6 +383,7 @@ void sctp_association_free(struct sctp_association *asoc)
->  	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
->  		transport = list_entry(pos, struct sctp_transport, transports);
->  		list_del_rcu(pos);
-> +		sctp_unhash_transport(transport);
->  		sctp_transport_free(transport);
->  	}
->  
-> @@ -500,6 +501,8 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
->  
->  	/* Remove this peer from the list. */
->  	list_del_rcu(&peer->transports);
-> +	/* Remove this peer from the transport hashtable */
-> +	sctp_unhash_transport(peer);
->  
->  	/* Get the first transport of asoc. */
->  	pos = asoc->peer.transport_addr_list.next;
-> @@ -699,6 +702,8 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
->  	/* Attach the remote transport to our asoc.  */
->  	list_add_tail_rcu(&peer->transports, &asoc->peer.transport_addr_list);
->  	asoc->peer.transport_count++;
-> +	/* Add this peer into the transport hashtable */
-> +	sctp_hash_transport(peer);
+On Tue, Jan 5, 2016 at 1:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-01-05 at 12:47 -0500, Craig Gallek wrote:
+>> On Tue, Jan 5, 2016 at 12:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>> >
+>> > BTW, why UDP calls reuseport_select_sock() with hdr_len == 0 sometimes ?
+>> hdr_len only matters when you have an skb to work with.  In both of
+>> the call sites of your suggested patch, NULL is passed for the skb
+>> parameter so hdr_len is never used.  When no skb is available, the
+>> code falls back to the hash-based method used in the non-BPF case.
+>
+> But skb _is_ available !
+>
+> We expect the BPF to always be run to get consistent selection.
+>
+> udp4_lib_lookup2() can be used if the hash bucket has more than 10
+> sockets. SO_REUSEPORT should work the same way, ie BPF filter shoulw
+> work regardless of number of sockets in hash table.
+OK, I can buy that an skb should be piped through udp4|6_lib_lookup2,
+but I don't think it's safe to remove the skb NULL check in
+reuseport_select_sock.  There's at least one path (udp_diag.c:
+udp_dump_one) which does a lookup without an skb.  I'll start with
+your patch in a separate thread and we can discuss outside the context
+of the kfree_skb change.
 
-This is actually problematic.  The issue is that transports are unhashed when removed.
-however, transport removal happens after the association has been declared dead and
-should have been removed from the hash and marked unreachable.
-
-As a result, with the code above, you can now find and return a dead association.
-Checking for 'dead' state is racy.
-
-The best solution I've come up with is to hash the transports in sctp_hash_established()
-and clean-up in __sctp_unhash_established(), and then handle ADD-IP case separately.
-
-The above would also remove the necessity to check for temporary associations, since they
-should never be hashed.
-
--vlad
-
->  
->  	/* If we do not yet have a primary path, set one.  */
->  	if (!asoc->peer.primary_path) {
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 9da76ba..8838bf4 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -314,8 +314,8 @@ struct sctp_endpoint *sctp_endpoint_is_match(struct sctp_endpoint *ep,
->  }
->  
->  /* Find the association that goes with this chunk.
-> - * We do a linear search of the associations for this endpoint.
-> - * We return the matching transport address too.
-> + * We lookup the transport from hashtable at first, then get association
-> + * through t->assoc.
->   */
->  static struct sctp_association *__sctp_endpoint_lookup_assoc(
->  	const struct sctp_endpoint *ep,
-> @@ -323,12 +323,7 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
->  	struct sctp_transport **transport)
+> diff --git a/net/core/sock_reuseport.c b/net/core/sock_reuseport.c
+> index ae0969c0fc2e..2b0bbecbc4b5 100644
+> --- a/net/core/sock_reuseport.c
+> +++ b/net/core/sock_reuseport.c
+> @@ -220,7 +220,7 @@ struct sock *reuseport_select_sock(struct sock *sk,
+>                 /* paired with smp_wmb() in reuseport_add_sock() */
+>                 smp_rmb();
+>
+> -               if (prog && skb)
+> +               if (prog)
+>                         sk2 = run_bpf(reuse, socks, prog, skb, hdr_len);
+>                 else
+>                         sk2 = reuse->socks[reciprocal_scale(hash, socks)];
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 835378365f25..3a66731e3af6 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -493,7 +493,8 @@ static u32 udp_ehashfn(const struct net *net, const __be32 laddr,
+>  static struct sock *udp4_lib_lookup2(struct net *net,
+>                 __be32 saddr, __be16 sport,
+>                 __be32 daddr, unsigned int hnum, int dif,
+> -               struct udp_hslot *hslot2, unsigned int slot2)
+> +               struct udp_hslot *hslot2, unsigned int slot2,
+> +               struct sk_buff *skb)
 >  {
->  	struct sctp_association *asoc = NULL;
-> -	struct sctp_association *tmp;
-> -	struct sctp_transport *t = NULL;
-> -	struct sctp_hashbucket *head;
-> -	struct sctp_ep_common *epb;
-> -	int hash;
-> -	int rport;
-> +	struct sctp_transport *t;
->  
->  	*transport = NULL;
->  
-> @@ -337,26 +332,12 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
->  	 */
->  	if (!ep->base.bind_addr.port)
->  		goto out;
-> +	t = sctp_epaddr_lookup_transport(ep, paddr);
-> +	if (!t || t->asoc->temp)
-> +		goto out;
->  
-> -	rport = ntohs(paddr->v4.sin_port);
-> -
-> -	hash = sctp_assoc_hashfn(sock_net(ep->base.sk), ep->base.bind_addr.port,
-> -				 rport);
-> -	head = &sctp_assoc_hashtable[hash];
-> -	read_lock(&head->lock);
-> -	sctp_for_each_hentry(epb, &head->chain) {
-> -		tmp = sctp_assoc(epb);
-> -		if (tmp->ep != ep || rport != tmp->peer.port)
-> -			continue;
-> -
-> -		t = sctp_assoc_lookup_paddr(tmp, paddr);
-> -		if (t) {
-> -			asoc = tmp;
-> -			*transport = t;
-> -			break;
-> -		}
-> -	}
-> -	read_unlock(&head->lock);
-> +	*transport = t;
-> +	asoc = t->asoc;
->  out:
->  	return asoc;
->  }
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index bac8278..6f075d8 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -981,38 +981,19 @@ static struct sctp_association *__sctp_lookup_association(
->  					const union sctp_addr *peer,
->  					struct sctp_transport **pt)
+>         struct sock *sk, *result;
+>         struct hlist_nulls_node *node;
+> @@ -514,7 +515,8 @@ begin:
+>                                 struct sock *sk2;
+>                                 hash = udp_ehashfn(net, daddr, hnum,
+>                                                    saddr, sport);
+> -                               sk2 = reuseport_select_sock(sk, hash, NULL, 0);
+> +                               sk2 = reuseport_select_sock(sk, hash, skb,
+> +                                                           sizeof(struct udphdr));
+>                                 if (sk2) {
+>                                         result = sk2;
+>                                         goto found;
+> @@ -573,7 +575,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+>
+>                 result = udp4_lib_lookup2(net, saddr, sport,
+>                                           daddr, hnum, dif,
+> -                                         hslot2, slot2);
+> +                                         hslot2, slot2, skb);
+>                 if (!result) {
+>                         hash2 = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum);
+>                         slot2 = hash2 & udptable->mask;
+> @@ -583,7 +585,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+>
+>                         result = udp4_lib_lookup2(net, saddr, sport,
+>                                                   htonl(INADDR_ANY), hnum, dif,
+> -                                                 hslot2, slot2);
+> +                                                 hslot2, slot2, skb);
+>                 }
+>                 rcu_read_unlock();
+>                 return result;
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 56fcb55fda31..5d2c2afffe7b 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -251,7 +251,8 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+>  static struct sock *udp6_lib_lookup2(struct net *net,
+>                 const struct in6_addr *saddr, __be16 sport,
+>                 const struct in6_addr *daddr, unsigned int hnum, int dif,
+> -               struct udp_hslot *hslot2, unsigned int slot2)
+> +               struct udp_hslot *hslot2, unsigned int slot2,
+> +               struct sk_buff *skb)
 >  {
-> -	struct sctp_hashbucket *head;
-> -	struct sctp_ep_common *epb;
-> -	struct sctp_association *asoc;
-> -	struct sctp_transport *transport;
-> -	int hash;
-> +	struct sctp_transport *t;
->  
-> -	/* Optimize here for direct hit, only listening connections can
-> -	 * have wildcards anyways.
-> -	 */
-> -	hash = sctp_assoc_hashfn(net, ntohs(local->v4.sin_port),
-> -				 ntohs(peer->v4.sin_port));
-> -	head = &sctp_assoc_hashtable[hash];
-> -	read_lock(&head->lock);
-> -	sctp_for_each_hentry(epb, &head->chain) {
-> -		asoc = sctp_assoc(epb);
-> -		transport = sctp_assoc_is_match(asoc, net, local, peer);
-> -		if (transport)
-> -			goto hit;
-> -	}
-> +	t = sctp_addrs_lookup_transport(net, local, peer);
-> +	if (!t || t->dead || t->asoc->temp)
-> +		return NULL;
->  
-> -	read_unlock(&head->lock);
-> +	sctp_association_hold(t->asoc);
-> +	*pt = t;
->  
-> -	return NULL;
-> -
-> -hit:
-> -	*pt = transport;
-> -	sctp_association_hold(asoc);
-> -	read_unlock(&head->lock);
-> -	return asoc;
-> +	return t->asoc;
->  }
->  
-> -/* Look up an association. BH-safe. */
-> +/* Look up an association. protected by RCU read lock */
->  static
->  struct sctp_association *sctp_lookup_association(struct net *net,
->  						 const union sctp_addr *laddr,
-> @@ -1021,9 +1002,9 @@ struct sctp_association *sctp_lookup_association(struct net *net,
->  {
->  	struct sctp_association *asoc;
->  
-> -	local_bh_disable();
-> +	rcu_read_lock();
->  	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
-> -	local_bh_enable();
-> +	rcu_read_unlock();
->  
->  	return asoc;
->  }
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 010aced..631cfb3 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1467,6 +1467,9 @@ static __init int sctp_init(void)
->  		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
->  	}
->  
-> +	if (sctp_transport_hashtable_init())
-> +		goto err_thash_alloc;
-> +
->  	pr_info("Hash tables configured (established %d bind %d)\n",
->  		sctp_assoc_hashsize, sctp_port_hashsize);
->  
-> @@ -1521,6 +1524,8 @@ err_register_defaults:
->  		   get_order(sctp_port_hashsize *
->  			     sizeof(struct sctp_bind_hashbucket)));
->  err_bhash_alloc:
-> +	sctp_transport_hashtable_destroy();
-> +err_thash_alloc:
->  	kfree(sctp_ep_hashtable);
->  err_ehash_alloc:
->  	free_pages((unsigned long)sctp_assoc_hashtable,
-> @@ -1567,6 +1572,7 @@ static __exit void sctp_exit(void)
->  	free_pages((unsigned long)sctp_port_hashtable,
->  		   get_order(sctp_port_hashsize *
->  			     sizeof(struct sctp_bind_hashbucket)));
-> +	sctp_transport_hashtable_destroy();
->  
->  	percpu_counter_destroy(&sctp_sockets_allocated);
->  
-> 
+>         struct sock *sk, *result;
+>         struct hlist_nulls_node *node;
+> @@ -272,7 +273,8 @@ begin:
+>                                 struct sock *sk2;
+>                                 hash = udp6_ehashfn(net, daddr, hnum,
+>                                                     saddr, sport);
+> -                               sk2 = reuseport_select_sock(sk, hash, NULL, 0);
+> +                               sk2 = reuseport_select_sock(sk, hash, skb,
+> +                                                           sizeof(struct udphdr));
+>                                 if (sk2) {
+>                                         result = sk2;
+>                                         goto found;
+> @@ -331,7 +333,7 @@ struct sock *__udp6_lib_lookup(struct net *net,
+>
+>                 result = udp6_lib_lookup2(net, saddr, sport,
+>                                           daddr, hnum, dif,
+> -                                         hslot2, slot2);
+> +                                         hslot2, slot2, skb);
+>                 if (!result) {
+>                         hash2 = udp6_portaddr_hash(net, &in6addr_any, hnum);
+>                         slot2 = hash2 & udptable->mask;
+> @@ -341,7 +343,7 @@ struct sock *__udp6_lib_lookup(struct net *net,
+>
+>                         result = udp6_lib_lookup2(net, saddr, sport,
+>                                                   &in6addr_any, hnum, dif,
+> -                                                 hslot2, slot2);
+> +                                                 hslot2, slot2, skb);
+>                 }
+>                 rcu_read_unlock();
+>                 return result;
+>
+>
+>
+>
+>
