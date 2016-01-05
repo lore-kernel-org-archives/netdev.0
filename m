@@ -1,71 +1,198 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH net-next 00/24] Support MDIO devices
-Date: Mon, 04 Jan 2016 18:21:47 -0800
-Message-ID: <568B28BB.60804@gmail.com>
-References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36792 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753791AbcAECWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 21:22:18 -0500
-Received: by mail-pf0-f178.google.com with SMTP id 65so166593211pff.3
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 18:22:18 -0800 (PST)
-In-Reply-To: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] netfilter: nf_conntrack: use safer way to lock all buckets
+Date: Mon,  4 Jan 2016 21:25:46 -0500
+Message-ID: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+When we need to lock all buckets in the connection hashtable we'd attempt to
+lock 1024 spinlocks, which is way more preemption levels than supported by
+the kernel. Furthermore, this behavior was hidden by checking if lockdep is
+enabled, and if it was - use only 8 buckets(!).
 
-On 04/01/16 09:36, Andrew Lunn wrote:
-> The discussions about changing the way DSA probes switches resulted in
-> the wish to have switches attached to an MDIO bus to be represented as
-> an MDIO device. However the current code only supports PHYs on MDIO
-> busses. This patchset remedies this problem. It consists of a number
-> of cleanups, abstraction for accessing structure members, and
-> refactoring, as well as adding the concept of a generic MDIO device
-> and MDIO driver. The last two patches then make use of this facility
-> with a simple test driver, which will be discarded once we are past
-> RFC stage.
-> 
+Fix this by using a global lock and synchronize all buckets on it when we
+need to lock them all. This is pretty heavyweight, but is only done when we
+need to resize the hashtable, and that doesn't happen often enough (or at all).
 
-Happy new year! Thanks a lot for getting this out both quickly and in an
-excellent shape and quality.
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ include/net/netfilter/nf_conntrack_core.h |    8 ++---
+ net/netfilter/nf_conntrack_core.c         |   55 +++++++++++++++++++++--------
+ net/netfilter/nf_conntrack_helper.c       |    2 +-
+ net/netfilter/nf_conntrack_netlink.c      |    2 +-
+ net/netfilter/nfnetlink_cttimeout.c       |    4 +--
+ 5 files changed, 48 insertions(+), 23 deletions(-)
 
-Here are few questions that come to mind with the new MDIO device model:
-
-- what kind of API do we need to offer to Ethernet MAC driver? Would
-attach/detach and maybe adjust_link be good enough?
-
-- should we consider modeling a MDIO connected switch as a MDIO device
-(responding at the pseudo PHY address on the MDIO bus) which then
-eventually creates a child MDIO bus and per-port individual PHY devices?
-
-- for MDIO switches with a data-path to an Ethernet MAC (which is
-probably 99% of the cases, are there some which do not have such a thing
-and are still managed switches?), how much of the existing PHY device
-properties (speed, duplex, interface, pause capability) should we think
-about moving to the common MDIO device structure? Then this kind of
-circles back to the first question about the Ethernet MAC interface API [1]
-
-[1]: One could imagine that the MDIO device with a data-path to an
-Ethernet MAC would need at least (RGS)MII knowledge, speed, duplex, and
-pause capability, all of that could come from a fixed-link (or similar)
-property in DT/platform_data, or as a last resort, the MDIO device
-driver, after successful probing could define these parameters.
-
-The Ethernet MAC attaching to that MDIO device would need to be fed with
-that information somehow such that we do not have to put too much
-knowledge into the MAC driver and still preserve a good layering. Using
-something similar to phy_{attach,connect}() (without starting a state
-machine here) and phy_{detach,disconnect}() as well as an adjust_link
-callback could help minimize the churn on the Ethernet driver side.
-Would that seem sensible?
-
-Thanks!
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index 788ef58..62e17d1 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -79,12 +79,10 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
+             const struct nf_conntrack_l3proto *l3proto,
+             const struct nf_conntrack_l4proto *proto);
+ 
+-#ifdef CONFIG_LOCKDEP
+-# define CONNTRACK_LOCKS 8
+-#else
+-# define CONNTRACK_LOCKS 1024
+-#endif
++#define CONNTRACK_LOCKS 1024
++
+ extern spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
++void nf_conntrack_lock(spinlock_t *lock);
+ 
+ extern spinlock_t nf_conntrack_expect_lock;
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 3cb3cb8..3c008ce 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -66,6 +66,32 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
+ __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
+ EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
+ 
++spinlock_t nf_conntrack_locks_all_lock;
++bool nf_conntrack_locks_all;
++
++void nf_conntrack_lock(spinlock_t *lock)
++{
++	spin_lock(lock);
++	while (unlikely(nf_conntrack_locks_all)) {
++		spin_unlock(lock);
++		spin_lock(&nf_conntrack_locks_all_lock);
++		spin_unlock(&nf_conntrack_locks_all_lock);
++		spin_lock(lock);
++	}
++}
++EXPORT_SYMBOL_GPL(nf_conntrack_lock);
++
++static void nf_conntrack_lock_nested(spinlock_t *lock)
++{
++	spin_lock_nested(lock, SINGLE_DEPTH_NESTING);
++	while (unlikely(nf_conntrack_locks_all)) {
++		spin_unlock(lock);
++		spin_lock(&nf_conntrack_locks_all_lock);
++		spin_unlock(&nf_conntrack_locks_all_lock);
++		spin_lock_nested(lock, SINGLE_DEPTH_NESTING);
++	}
++}
++
+ static void nf_conntrack_double_unlock(unsigned int h1, unsigned int h2)
+ {
+ 	h1 %= CONNTRACK_LOCKS;
+@@ -82,14 +108,12 @@ static bool nf_conntrack_double_lock(struct net *net, unsigned int h1,
+ 	h1 %= CONNTRACK_LOCKS;
+ 	h2 %= CONNTRACK_LOCKS;
+ 	if (h1 <= h2) {
+-		spin_lock(&nf_conntrack_locks[h1]);
++		nf_conntrack_lock(&nf_conntrack_locks[h1]);
+ 		if (h1 != h2)
+-			spin_lock_nested(&nf_conntrack_locks[h2],
+-					 SINGLE_DEPTH_NESTING);
++			nf_conntrack_lock_nested(&nf_conntrack_locks[h2]);
+ 	} else {
+-		spin_lock(&nf_conntrack_locks[h2]);
+-		spin_lock_nested(&nf_conntrack_locks[h1],
+-				 SINGLE_DEPTH_NESTING);
++		nf_conntrack_lock(&nf_conntrack_locks[h2]);
++		nf_conntrack_lock_nested(&nf_conntrack_locks[h1]);
+ 	}
+ 	if (read_seqcount_retry(&net->ct.generation, sequence)) {
+ 		nf_conntrack_double_unlock(h1, h2);
+@@ -102,16 +126,19 @@ static void nf_conntrack_all_lock(void)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < CONNTRACK_LOCKS; i++)
+-		spin_lock_nested(&nf_conntrack_locks[i], i);
++	spin_lock(&nf_conntrack_locks_all_lock);
++	nf_conntrack_locks_all = true;
++
++	for (i = 0; i < CONNTRACK_LOCKS; i++) {
++		spin_lock(&nf_conntrack_locks[i]);
++		spin_unlock(&nf_conntrack_locks[i]);
++	}
+ }
+ 
+ static void nf_conntrack_all_unlock(void)
+ {
+-	int i;
+-
+-	for (i = 0; i < CONNTRACK_LOCKS; i++)
+-		spin_unlock(&nf_conntrack_locks[i]);
++	nf_conntrack_locks_all = false;
++	spin_unlock(&nf_conntrack_locks_all_lock);
+ }
+ 
+ unsigned int nf_conntrack_htable_size __read_mostly;
+@@ -757,7 +784,7 @@ restart:
+ 	hash = hash_bucket(_hash, net);
+ 	for (; i < net->ct.htable_size; i++) {
+ 		lockp = &nf_conntrack_locks[hash % CONNTRACK_LOCKS];
+-		spin_lock(lockp);
++		nf_conntrack_lock(lockp);
+ 		if (read_seqcount_retry(&net->ct.generation, sequence)) {
+ 			spin_unlock(lockp);
+ 			goto restart;
+@@ -1382,7 +1409,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
+ 	for (; *bucket < net->ct.htable_size; (*bucket)++) {
+ 		lockp = &nf_conntrack_locks[*bucket % CONNTRACK_LOCKS];
+ 		local_bh_disable();
+-		spin_lock(lockp);
++		nf_conntrack_lock(lockp);
+ 		if (*bucket < net->ct.htable_size) {
+ 			hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
+ 				if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index bd9d315..3b40ec5 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -425,7 +425,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
+ 	}
+ 	local_bh_disable();
+ 	for (i = 0; i < net->ct.htable_size; i++) {
+-		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
++		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
+ 		if (i < net->ct.htable_size) {
+ 			hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
+ 				unhelp(h, me);
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 9f52729..81e3f70 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -840,7 +840,7 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
+ 	for (; cb->args[0] < net->ct.htable_size; cb->args[0]++) {
+ restart:
+ 		lockp = &nf_conntrack_locks[cb->args[0] % CONNTRACK_LOCKS];
+-		spin_lock(lockp);
++		nf_conntrack_lock(lockp);
+ 		if (cb->args[0] >= net->ct.htable_size) {
+ 			spin_unlock(lockp);
+ 			goto out;
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 3921d54..8a30ca6 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -309,12 +309,12 @@ static void ctnl_untimeout(struct net *net, struct ctnl_timeout *timeout)
+ 
+ 	local_bh_disable();
+ 	for (i = 0; i < net->ct.htable_size; i++) {
+-		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
++		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
+ 		if (i < net->ct.htable_size) {
+ 			hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
+ 				untimeout(h, timeout);
+ 		}
+-		spin_unlock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
++		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
+ 	}
+ 	local_bh_enable();
+ }
 -- 
-Florian
+1.7.10.4
