@@ -1,51 +1,62 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net: Implement fast csum_partial for x86_64
-Date: Mon, 4 Jan 2016 15:58:22 -0800
-Message-ID: <CALx6S34YosSQV6HSWcJh1Z7mJ_15u=7-rcJQFfmqKPtocvkX7g@mail.gmail.com>
-References: <1451863347-1832521-1-git-send-email-tom@herbertland.com>
-	<1451946988.8255.78.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S370tAh1g5q9trDuFxc84qOozT6XjdSKB94dvGRTUikfvA@mail.gmail.com>
-	<1451951576.8255.82.camel@edumazet-glaptop2.roam.corp.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 0/4] batch calls to fib_flush and arp_ifdown
+Date: Mon, 04 Jan 2016 18:35:15 -0600
+Message-ID: <87oad0rhh8.fsf@x220.int.ebiederm.org>
+References: <1451949056-15500-1-git-send-email-noureddine@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Salam Noureddine <noureddine@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:33191 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753448AbcADX6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 18:58:23 -0500
-Received: by mail-io0-f178.google.com with SMTP id q21so170651900iod.0
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 15:58:23 -0800 (PST)
-In-Reply-To: <1451951576.8255.82.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:32989 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753472AbcAEAoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 19:44:07 -0500
+In-Reply-To: <1451949056-15500-1-git-send-email-noureddine@arista.com> (Salam
+	Noureddine's message of "Mon, 4 Jan 2016 15:10:52 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 4, 2016 at 3:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2016-01-04 at 15:34 -0800, Tom Herbert wrote:
->> On Mon, Jan 4, 2016 at 2:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Sun, 2016-01-03 at 15:22 -0800, Tom Herbert wrote:
->> > \...
->> >> +402: /* Length 2, align is 1, 3, or 5 */
->> >> +     movb    (%rdi), %al
->> >> +     movb    1(%rdi), %ah
->> >
->> > Looks like a movw (%rdi),%ax
->> >
->> Wouldn't that be an unaligned access?
->
-> x86 does not care. (This is why we have
-> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
->
-> I bet it is faster using a single instruction.
->
-Okay, I'll re-implement without worrying about alignment. If it's not
-an issue at all (even for eight bytes) then that will be a speedup.
+Salam Noureddine <noureddine@arista.com> writes:
 
-Thanks,
-Tom
+> fib_flush walks the whole fib in a net_namespace and is called for
+> each net_device being closed or unregistered. This can be very expensive
+> when dealing with 100k or more routes in the fib and removal of a lot
+> of interfaces. These four patches deal with this issue by calling fib_flush
+> just once for each net namespace and introduce a new function arp_ifdown_all
+> that does a similar optimization for the neighbour table.
 
+Two things would be very valuable with this patchset.
+
+Some numbers on how much your changes have improved the code in the case
+you care about.  I suspect the improvements are not subtle so this
+should not be hard.
+
+Can you please provide a justification for event_list.  Just skimming
+through it appears that event_list because a duplicate of the list of
+batched network devices that are passed to dev_close_many and friends.
+If the list is actually a duplicate it appears foolish to create it.
+
+Eric
+
+> Salam Noureddine (4):
+>   net: add event_list to struct net and provide utility functions
+>   net: dev: add batching to net_device notifiers
+>   net: core: introduce neigh_ifdown_all for all down interfaces
+>   net: fib: avoid calling fib_flush for each device when doing batch
+>     close     and unregister
 >
->
+>  include/linux/netdevice.h   |  2 ++
+>  include/net/arp.h           |  1 +
+>  include/net/neighbour.h     |  1 +
+>  include/net/net_namespace.h | 22 ++++++++++++++++++++++
+>  include/net/netns/ipv4.h    |  1 +
+>  net/core/dev.c              | 39 ++++++++++++++++++++++++++++++++++++---
+>  net/core/neighbour.c        | 38 +++++++++++++++++++++++++++++++-------
+>  net/ipv4/arp.c              |  4 ++++
+>  net/ipv4/fib_frontend.c     | 16 ++++++++++++++--
+>  9 files changed, 112 insertions(+), 12 deletions(-)
