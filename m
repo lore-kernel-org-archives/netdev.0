@@ -1,42 +1,79 @@
-From: "Mr. Wang Zhiqiang" <cartellecliniche@santobonopausilipon.it>
-Subject: MY LAST RESPONSE
-Date: Tue, 05 Jan 2016 20:33:05 +0100
-Message-ID: <20160105203305.183817c5u5ryqbg1__24227.0769821063$1452024361$gmane$org@webmail.santobonopausilipon.it>
-Reply-To: wangzhiqiang47@yahoo.com.hk
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 09/12] net/mlx5_core: Make ipv4/ipv6 location more clear
+Date: Tue,  5 Jan 2016 22:04:10 +0200
+Message-ID: <1452024253-21193-10-git-send-email-saeedm@mellanox.com>
+References: <1452024253-21193-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>, saeedm@dev.mellanox.co.il,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.santobonopausilipon.it ([5.97.192.70]:46650 "EHLO
-	webmail.santobonopausilipon.it" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752513AbcAEUF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 15:05:26 -0500
-Content-Disposition: inline
+Received: from [193.47.165.129] ([193.47.165.129]:41914 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753941AbcAEUFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2016 15:05:12 -0500
+In-Reply-To: <1452024253-21193-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Maor Gottlieb <maorg@mellanox.com>
 
+Change the mlx5 firmware interface header to make it
+more clear which bytes should be used by IPv4 or
+IPv6 addresses.
 
-I am Mr. Wang Zhiqiang working with Wing Lung Bank Hong Kong; I have a
-highly mutual and legitimate Bequest for you to handle with me. This fund
-was deposited in our bank by an Oil Magnate who lived in Hong Kong for
-Twenty Eight years. He died along with his family during the Tsunami which
-occurred Dec 2004. You can contact me for more details if interested.
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ include/linux/mlx5/mlx5_ifc.h |   20 ++++++++++++++++++--
+ 1 files changed, 18 insertions(+), 2 deletions(-)
 
-Best regards,
-Mr. Wang Zhiqiang
-Private Email:wangzhiqiang47@yahoo.com.hk
-
-I am Mr. Wang Zhiqiang working with Wing Lung Bank Hong Kong; I have a
-highly mutual and legitimate Bequest for you to handle with me. This fund
-was deposited in our bank by an Oil Magnate who lived in Hong Kong for
-Twenty Eight years. He died along with his family during the Tsunami which
-occurred Dec 2004. You can contact me for more details if interested.
-
-Best regards,
-Mr. Wang Zhiqiang
-Private Email:wangzhiqiang47@yahoo.com.hk
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 7f16695..68d73f8 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -298,6 +298,22 @@ struct mlx5_ifc_odp_per_transport_service_cap_bits {
+ 	u8         reserved_1[0x1a];
+ };
+ 
++struct mlx5_ifc_ipv4_layout_bits {
++	u8         reserved_0[0x60];
++
++	u8         ipv4[0x20];
++};
++
++struct mlx5_ifc_ipv6_layout_bits {
++	u8         ipv6[16][0x8];
++};
++
++union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits {
++	struct mlx5_ifc_ipv6_layout_bits ipv6_layout;
++	struct mlx5_ifc_ipv4_layout_bits ipv4_layout;
++	u8         reserved_0[0x80];
++};
++
+ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         smac_47_16[0x20];
+ 
+@@ -328,9 +344,9 @@ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         udp_sport[0x10];
+ 	u8         udp_dport[0x10];
+ 
+-	u8         src_ip[4][0x20];
++	union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits src_ipv4_src_ipv6;
+ 
+-	u8         dst_ip[4][0x20];
++	union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits dst_ipv4_dst_ipv6;
+ };
+ 
+ struct mlx5_ifc_fte_match_set_misc_bits {
+-- 
+1.7.1
