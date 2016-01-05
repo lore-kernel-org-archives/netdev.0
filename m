@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] [4.5] NFC update
-Date: Mon, 04 Jan 2016 21:48:46 -0500 (EST)
-Message-ID: <20160104.214846.1353809846289549017.davem@davemloft.net>
-References: <20151231192637.GA3247@zurbaran.home>
+Subject: Re: [PATCH] ip_tunnel: make ip6tunnel_xmit definition conditional
+Date: Mon, 04 Jan 2016 21:51:32 -0500 (EST)
+Message-ID: <20160104.215132.601618412229369596.davem@davemloft.net>
+References: <12586917.ah4bPMnYUH@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-nfc@lists.01.org
-To: sameo@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50716 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842AbcAECss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 21:48:48 -0500
-In-Reply-To: <20151231192637.GA3247@zurbaran.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pshelar@nicira.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <12586917.ah4bPMnYUH@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <sameo@linux.intel.com>
-Date: Thu, 31 Dec 2015 20:26:37 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 01 Jan 2016 14:48:59 +0100
 
-> This is the first NFC pull request for 4.5 and it brings:
+> From 433df301cf49624871346fa63f3fc65033caeda3 Mon Sep 17 00:00:00 2001
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Fri, 1 Jan 2016 13:18:48 +0100
+> Subject: [PATCH] net: make ip6tunnel_xmit definition conditional
 > 
-> - A new driver for the STMicroelectronics ST95HF NFC chipset.
->   The ST95HF is an NFC digital transceiver with an embedded analog
->   front-end and as such relies on the Linux NFC digital
->   implementation. This is the 3rd user of the NFC digital stack.
+> Moving the caller of iptunnel_xmit_stats causes a build error in
+> randconfig builds that disable CONFIG_INET:
 > 
-> - ACPI support for the ST st-nci and st21nfca drivers.
+> In file included from ../net/xfrm/xfrm_input.c:17:0:
+> ../include/net/ip6_tunnel.h: In function 'ip6tunnel_xmit':
+> ../include/net/ip6_tunnel.h:93:2: error: implicit declaration of function 'iptunnel_xmit_stats' [-Werror=implicit-function-declaration]
+>   iptunnel_xmit_stats(dev, pkt_len);
 > 
-> - A small improvement for the nfcsim driver, as we can now tune
->   the Rx delay through sysfs.
+> The reason is that the iptunnel_xmit_stats definition is hidden
+> inside #ifdef CONFIG_INET but the caller is not. We can change
+> one or the other to fix it, and this patch adds a second #ifdef
+> around ip6tunnel_xmit() to avoid seeing the invalid call.
 > 
-> - A bunch of minor cleanups and small fixes from Christophe Ricard,
->   for a few drivers and the NFC core code.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 039f50629b7f ("ip_tunnel: Move stats update to iptunnel_xmit()")
 
-Pulled, thanks Samuel.
+Applied, thanks.
