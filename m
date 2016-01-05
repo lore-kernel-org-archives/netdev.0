@@ -1,39 +1,36 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next] soreuseport: change consume_skb to kfree_skb in error case
-Date: Tue,  5 Jan 2016 10:57:13 -0500
-Message-ID: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:36411 "EHLO
-	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846AbcAEP5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 10:57:16 -0500
-Received: by mail-qk0-f178.google.com with SMTP id q19so86668186qke.3
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 07:57:15 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: filter: make JITs zero A for SKF_AD_ALU_XOR_X
+Date: Tue, 05 Jan 2016 08:00:45 -0800
+Message-ID: <1452009645.8255.96.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452007387-626-1-git-send-email-rabin@rab.in>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+	ast@kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+	sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rabin Vincent <rabin@rab.in>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452007387-626-1-git-send-email-rabin@rab.in>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Craig Gallek <kraig@google.com>
+On Tue, 2016-01-05 at 16:23 +0100, Rabin Vincent wrote:
+> The SKF_AD_ALU_XOR_X ancillary is not like the other ancillary data
+> instructions since it XORs A with X while all the others replace A with
+> some loaded value.  All the BPF JITs fail to clear A if this is used as
+> the first instruction in a filter.
 
-Fixes: 538950a1b752 ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
-Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Craig Gallek <kraig@google.com>
----
- net/core/sock_reuseport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Is x86_64 part of this 'All' subset ? ;)
 
-diff --git a/net/core/sock_reuseport.c b/net/core/sock_reuseport.c
-index ae0969c0fc2e..1df98c557440 100644
---- a/net/core/sock_reuseport.c
-+++ b/net/core/sock_reuseport.c
-@@ -173,7 +173,7 @@ static struct sock *run_bpf(struct sock_reuseport *reuse, u16 socks,
- 
- 	/* temporarily advance data past protocol header */
- 	if (!pskb_pull(skb, hdr_len)) {
--		consume_skb(nskb);
-+		kfree_skb(nskb);
- 		return NULL;
- 	}
- 	index = bpf_prog_run_save_cb(prog, skb);
--- 
-2.6.0.rc2.230.g3dd15c0
+>   This was found using american fuzzy
+> lop.
+> 
+> Add a helper to determine if A needs to be cleared given the first
+> instruction in a filter, and use this in the JITs.  Except for ARM, the
+> rest have only been compile-tested.
+> 
+> Fixes: 3480593131e0 ("net: filter: get rid of BPF_S_* enum")
+> Signed-off-by: Rabin Vincent <rabin@rab.in>
+> ---
