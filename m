@@ -1,46 +1,31 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V3 4/4] net/mlx5e: Add PTP Hardware Clock (PHC)
- support
-Date: Tue, 5 Jan 2016 13:49:39 +0100
-Message-ID: <20160105124939.GB5433@localhost.localdomain>
+Subject: Re: [PATCH net-next V3 0/4] Introduce mlx5 ethernet timestamping
+Date: Tue, 5 Jan 2016 13:51:18 +0100
+Message-ID: <20160105125118.GC5433@localhost.localdomain>
 References: <1451393912-13736-1-git-send-email-saeedm@mellanox.com>
- <1451393912-13736-5-git-send-email-saeedm@mellanox.com>
+ <20160104.164703.651409223983114411.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>, saeedm@dev.mellanox.co.il
-To: Saeed Mahameed <saeedm@mellanox.com>
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	eranbe@mellanox.com, talal@mellanox.com, majd@mellanox.com,
+	achiad@mellanox.com, saeedm@dev.mellanox.co.il
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:34052 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751572AbcAEMtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 07:49:46 -0500
-Received: by mail-wm0-f43.google.com with SMTP id u188so21877494wmu.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 04:49:45 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35686 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbcAEMvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 07:51:24 -0500
+Received: by mail-wm0-f50.google.com with SMTP id f206so21718045wmf.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 04:51:23 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1451393912-13736-5-git-send-email-saeedm@mellanox.com>
+In-Reply-To: <20160104.164703.651409223983114411.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 29, 2015 at 02:58:32PM +0200, Saeed Mahameed wrote:
-> From: Eran Ben Elisha <eranbe@mellanox.com>
-> 
-> Add a PHC support to the mlx5_en driver. Use reader/writer spinlocks to
-> protect the timecounter since every packet received needs to call
-> timecounter_cycle2time() when timestamping is enabled.  This can become
-> a performance bottleneck with RSS and multiple receive queues if normal
-> spinlocks are used.
-> 
-> The driver has been tested with both Documentation/ptp/testptp and the
-> linuxptp project (http://linuxptp.sourceforge.net/) on a Mellanox
-> ConnectX-4 card.
-> 
-> Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+On Mon, Jan 04, 2016 at 04:47:03PM -0500, David Miller wrote:
+> Richard, please review this series.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+It looks fine to me now, and I acked the timestamping/phc bits.
+
+Thanks,
+Richard
