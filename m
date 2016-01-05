@@ -1,50 +1,22 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1 v2] include/uapi/linux/sockios.h: mark SIOCRTMSG unused
-Date: Tue,  5 Jan 2016 10:12:49 +0100
-Message-ID: <1451985169-4622-1-git-send-email-xypron.glpk@gmx.de>
-References: <20160104.171953.1963808714374349079.davem@davemloft.net>
-Cc: linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160104.171953.1963808714374349079.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Tom" <jewelry.watch@139.com>
+Subject: cobalt ring
+Date: Tue, 5 Jan 2016 17:12:38 +0800
+Message-ID: <201601051712382841235@a.shuanbin.com>
+Reply-To: jewelry.watch@139.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [175.165.180.73] ([175.165.180.73]:2496 "HELO a.shuanbin.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
+	id S1751251AbcAEJPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2016 04:15:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IOCTL SIOCRTMSG does nothing but return EINVAL.
-
-So comment it as unused.
-
-SIOCRTMSG is only used in:
-* net/ipv4/af_inet.c
-* include/uapi/linux/sockios.h
-
-inet_ioctl calls ip_rt_ioctl.
-ip_rt_ioctl only handles SIOCADDRT and SIOCDELRT and returns -EINVAL
-otherwise.
-
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
----
- include/uapi/linux/sockios.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
-index e888b1a..8e7890b 100644
---- a/include/uapi/linux/sockios.h
-+++ b/include/uapi/linux/sockios.h
-@@ -27,7 +27,7 @@
- /* Routing table calls. */
- #define SIOCADDRT	0x890B		/* add routing table entry	*/
- #define SIOCDELRT	0x890C		/* delete routing table entry	*/
--#define SIOCRTMSG	0x890D		/* call to routing system	*/
-+#define SIOCRTMSG	0x890D		/* unused			*/
- 
- /* Socket configuration controls. */
- #define SIOCGIFNAME	0x8910		/* get iface name		*/
--- 
-2.1.4
+RGVhciBTaXIgb3IgTWFkYW0NCg0KV2UgaGF2ZSBzb21lIHN0b2NrIG9mIGl0ZW1zLiBpZiB5b3Ug
+YXJlIHJldGFpbGVyIHRoYXQgd2lsbCBiZSBnb29kIGZvciB5b3UuIE5vIE1PUSBkZW1hbmQuIHBy
+b21wdCBzaGlwbWVudC4NCg0KSWYgeW91IGFyZSBpbnRlcmVzdGVkIHBscyBkbyBmZWVsIGZyZWUg
+dG8gY29udGFjdCB1cw0KDQpCZXN0IHdoaXNoZXMgDQoNCg0KVG9t
