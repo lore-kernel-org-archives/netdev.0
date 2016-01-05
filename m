@@ -1,57 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
-Date: Tue, 05 Jan 2016 14:18:33 -0800
-Message-ID: <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+Subject: Re: [PATCH net-next] udp_diag: fix udp_dump_one() vs SO_REUSEPORT
+Date: Tue, 05 Jan 2016 14:22:14 -0800
+Message-ID: <1452032534.8255.137.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452024487-2909-1-git-send-email-kraigatgoog@gmail.com>
+	 <1452031738.8255.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org
-To: Tom Herbert <tom@herbertland.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Craig Gallek <kraigatgoog@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33231 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbcAEWSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 17:18:36 -0500
-Received: by mail-pa0-f45.google.com with SMTP id cy9so221766981pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 14:18:35 -0800 (PST)
-In-Reply-To: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36497 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815AbcAEWWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 17:22:16 -0500
+Received: by mail-pa0-f52.google.com with SMTP id yy13so129273941pab.3
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 14:22:15 -0800 (PST)
+In-Reply-To: <1452031738.8255.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-05 at 10:41 -0800, Tom Herbert wrote:
-> Implement assembly routine for csum_partial for 64 bit x86. This
-> primarily speeds up checksum calculation for smaller lengths such as
-> those that are present when doing skb_postpull_rcsum when getting
-> CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY
-> conversion.
+On Tue, 2016-01-05 at 14:08 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> udp_dump_one() uses __udp4_lib_lookup() & __udp6_lib_lookup()
+> which cannot properly handle the provided cookie when SO_REUSEPORT
+> is used, as many sockets share the same 4-tuple
+> 
+> Instead, let's use the provided 64bit cookie to uniquely identify
+> the socket.
+> 
+> This will allow us to remove a check against skb being NULL in
+> reuseport_select_sock(), as we no longer share __udp4_lib_lookup() &
+> __udp6_lib_lookup() with packet processing path.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-Very nice !
+I'll send a v2, removing the EXPORT_SYMBOL(__udp4_lib_lookup) and add a
+static qualifier. (Same for v6)
 
-
-You might add a comment telling the '4' comes from length of 'adcq
-6*8(%rdi),%rax' instruction, and that the 'nop' is to compensate that
-'adcq    0*8(%rdi),%rax' is using 3 bytes instead.
-
-We also could use .byte 0x48, 0x13, 0x47, 0x00 to force a 4 bytes
-instruction and remove the nop.
-
-
-+       lea     20f(, %rcx, 4), %r11
-+       clc
-+       jmp     *%r11
-+
-+.align 8
-+       adcq    6*8(%rdi),%rax
-+       adcq    5*8(%rdi),%rax
-+       adcq    4*8(%rdi),%rax
-+       adcq    3*8(%rdi),%rax
-+       adcq    2*8(%rdi),%rax
-+       adcq    1*8(%rdi),%rax
-+       adcq    0*8(%rdi),%rax // could force a 4 byte instruction (.byte 0x48, 0x13, 0x47, 0x00)
-+       nop
-+20:    /* #quads % 8 jump table base */
-
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Also, INET_UDP_DIAG can depends on INET_DIAG instead of "depends on
+INET_DIAG && (IPV6 || IPV6=n)"
