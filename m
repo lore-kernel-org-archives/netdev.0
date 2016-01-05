@@ -1,63 +1,135 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH v2 net-next] udp_diag: fix udp_dump_one() vs SO_REUSEPORT
-Date: Tue, 5 Jan 2016 17:56:06 -0500
-Message-ID: <CAEfhGiwB6=oPm7uMMazkCZ5G+tijkq1PLCSgm1G4ES-7Hodp6Q@mail.gmail.com>
-References: <1452024487-2909-1-git-send-email-kraigatgoog@gmail.com>
-	<1452031738.8255.127.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1452032534.8255.137.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1452033208.8255.140.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next] ethernet/atheros/alx: sanitize buffer sizing and padding
+Date: Tue,  5 Jan 2016 18:12:34 -0500
+Message-ID: <1452035554-26145-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	"Eugene A. Shatokhin" <eugene.shatokhin@rosalab.ru>,
+	Przemek Rudy <prudy1@o2.pl>, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f196.google.com ([209.85.217.196]:34560 "EHLO
-	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbcAEW4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 17:56:08 -0500
-Received: by mail-lb0-f196.google.com with SMTP id jk7so15145187lbc.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 14:56:07 -0800 (PST)
-Received: from mail-lf0-f52.google.com (mail-lf0-f52.google.com. [209.85.215.52])
-        by smtp.gmail.com with ESMTPSA id o5sm16510500lbw.16.2016.01.05.14.56.06
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 05 Jan 2016 14:56:06 -0800 (PST)
-Received: by mail-lf0-f52.google.com with SMTP id c192so126930638lfe.2
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 14:56:06 -0800 (PST)
-In-Reply-To: <1452033208.8255.140.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35592 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751663AbcAEXMq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2016 18:12:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 5, 2016 at 5:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> +       unsigned short hnum = ntohs(req->id.idiag_dport);
-> +       unsigned int slot = udp_hashfn(net, hnum, tbl->mask);
-> +       struct udp_hslot *hslot = &tbl->hash[slot];
-> +       struct hlist_nulls_node *node;
-> +       int err = -ENOENT;
-> +
-> +       spin_lock_bh(&hslot->lock);
-> +       sk_nulls_for_each(aux, node, &hslot->head) {
-> +               if (net_eq(sock_net(aux), net) &&
-> +                   !sock_diag_check_cookie(aux, req->id.idiag_cookie) &&
-> +                   (req->sdiag_family == AF_UNSPEC ||
-> +                    req->sdiag_family == aux->sk_family)) {
-> +                       sk = aux;
-> +                       sock_hold(sk);
-> +                       break;
-> +               }
-> +       }
-> +       spin_unlock_bh(&hslot->lock);
->         if (!sk)
->                 goto out_nosk;
->
-> -       err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
-> -       if (err)
-> -               goto out;
-> -
-sock_diag_check_cookie will return successfully if the cookie in the
-request is INET_DIAG_NOCOOKIE before even considering the socket.  I
-think this could cause this loop to prematurely terminate.
+This is based on the work done by Przemek Rudy in bug 70761 at
+bugzilla.kernel.org, but with some work done to disentagle and clarify
+things a bit.
 
-Also, previously this would return ESTALE on a cookie error, now it
-returns ENOENT.  Not sure if this is a big deal or not, though...
+Similar to Przemek's work and other drivers, we're adding a padding of 16
+here, but we're also disentangling mtu size calculations from max buffer
+size calculations a bit, and adding ETH_HLEN to the value written into
+ALX_MTU. Hopefully, with a bit more consistency and clarity, things behave
+better here. Sadly, I can only test in my alx-driven E2200, which worked
+just fine before this patch.
+
+In comment #58 of bug 70761, Eugene A. Shatokhin reports that this patch
+does help considerably for a ROSA Linux user of his with an AR8162 network
+adapter when patched into a 4.1.x-based kernel, with several days of
+normal operation where wired network previously wasn't usable without
+setting MTU to 9000 as a work-around. Other users report less substatial
+improvements, but no regressions thus far.
+
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=70761
+CC: "Eugene A. Shatokhin" <eugene.shatokhin@rosalab.ru>
+CC: Przemek Rudy <prudy1@o2.pl>
+CC: Jay Cliburn <jcliburn@gmail.com>
+CC: Chris Snook <chris.snook@gmail.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/atheros/alx/hw.c   | 10 +++++-----
+ drivers/net/ethernet/atheros/alx/hw.h   |  9 ++++++---
+ drivers/net/ethernet/atheros/alx/main.c |  7 +++----
+ 3 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
+index 7712f06..841bc0d 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.c
++++ b/drivers/net/ethernet/atheros/alx/hw.c
+@@ -958,13 +958,13 @@ void alx_configure_basic(struct alx_hw *hw)
+ 	alx_write_mem32(hw, ALX_TINT_TPD_THRSHLD, hw->ith_tpd);
+ 	alx_write_mem32(hw, ALX_TINT_TIMER, hw->imt);
+ 
+-	raw_mtu = hw->mtu + ETH_HLEN;
+-	alx_write_mem32(hw, ALX_MTU, raw_mtu + 8);
+-	if (raw_mtu > ALX_MTU_JUMBO_TH)
++	raw_mtu = ALX_RAW_MTU(hw->mtu);
++	alx_write_mem32(hw, ALX_MTU, raw_mtu);
++	if (raw_mtu > (ALX_MTU_JUMBO_TH + ETH_FCS_LEN + VLAN_HLEN))
+ 		hw->rx_ctrl &= ~ALX_MAC_CTRL_FAST_PAUSE;
+ 
+-	if ((raw_mtu + 8) < ALX_TXQ1_JUMBO_TSO_TH)
+-		val = (raw_mtu + 8 + 7) >> 3;
++	if ((raw_mtu) < ALX_TXQ1_JUMBO_TSO_TH)
++		val = (raw_mtu + 7) >> 3;
+ 	else
+ 		val = ALX_TXQ1_JUMBO_TSO_TH >> 3;
+ 	alx_write_mem32(hw, ALX_TXQ1, val | ALX_TXQ1_ERRLGPKT_DROP_EN);
+diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
+index 1554880..f289c05 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.h
++++ b/drivers/net/ethernet/atheros/alx/hw.h
+@@ -37,6 +37,7 @@
+ #include <linux/types.h>
+ #include <linux/mdio.h>
+ #include <linux/pci.h>
++#include <linux/if_vlan.h>
+ #include "reg.h"
+ 
+ /* Transmit Packet Descriptor, contains 4 32-bit words.
+@@ -343,12 +344,14 @@ struct alx_rrd {
+ 					 ALX_RSS_HASH_TYPE_IPV4_TCP | \
+ 					 ALX_RSS_HASH_TYPE_IPV6 | \
+ 					 ALX_RSS_HASH_TYPE_IPV6_TCP)
+-#define ALX_DEF_RXBUF_SIZE	1536
++#define ALX_FRAME_PAD		16
++#define ALX_RAW_MTU(_mtu)	(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
++#define ALX_MAX_FRAME_LEN(_mtu)	(ALIGN((ALX_RAW_MTU(_mtu) + ALX_FRAME_PAD), 8))
++#define ALX_DEF_RXBUF_SIZE	ALX_MAX_FRAME_LEN(1500)
+ #define ALX_MAX_JUMBO_PKT_SIZE	(9*1024)
+ #define ALX_MAX_TSO_PKT_SIZE	(7*1024)
+ #define ALX_MAX_FRAME_SIZE	ALX_MAX_JUMBO_PKT_SIZE
+-#define ALX_MIN_FRAME_SIZE	68
+-#define ALX_RAW_MTU(_mtu)	(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
++#define ALX_MIN_FRAME_SIZE	(ETH_ZLEN + ETH_FCS_LEN + VLAN_HLEN)
+ 
+ #define ALX_MAX_RX_QUEUES	8
+ #define ALX_MAX_TX_QUEUES	4
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index d3763bc..55b118e 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -704,7 +704,7 @@ static int alx_init_sw(struct alx_priv *alx)
+ 
+ 	hw->smb_timer = 400;
+ 	hw->mtu = alx->dev->mtu;
+-	alx->rxbuf_size = ALIGN(ALX_RAW_MTU(hw->mtu), 8);
++	alx->rxbuf_size = ALX_MAX_FRAME_LEN(hw->mtu);
+ 	alx->tx_ringsz = 256;
+ 	alx->rx_ringsz = 512;
+ 	hw->imt = 200;
+@@ -805,7 +805,7 @@ static void alx_reinit(struct alx_priv *alx)
+ static int alx_change_mtu(struct net_device *netdev, int mtu)
+ {
+ 	struct alx_priv *alx = netdev_priv(netdev);
+-	int max_frame = mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
++	int max_frame = ALX_MAX_FRAME_LEN(mtu);
+ 
+ 	if ((max_frame < ALX_MIN_FRAME_SIZE) ||
+ 	    (max_frame > ALX_MAX_FRAME_SIZE))
+@@ -816,8 +816,7 @@ static int alx_change_mtu(struct net_device *netdev, int mtu)
+ 
+ 	netdev->mtu = mtu;
+ 	alx->hw.mtu = mtu;
+-	alx->rxbuf_size = mtu > ALX_DEF_RXBUF_SIZE ?
+-			   ALIGN(max_frame, 8) : ALX_DEF_RXBUF_SIZE;
++	alx->rxbuf_size = max(max_frame, ALX_DEF_RXBUF_SIZE);
+ 	netdev_update_features(netdev);
+ 	if (netif_running(netdev))
+ 		alx_reinit(alx);
+-- 
+1.8.3.1
