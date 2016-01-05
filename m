@@ -1,99 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] udp_diag: fix udp_dump_one() vs SO_REUSEPORT
-Date: Tue, 05 Jan 2016 14:08:58 -0800
-Message-ID: <1452031738.8255.127.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452024487-2909-1-git-send-email-kraigatgoog@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Tue, 05 Jan 2016 14:18:33 -0800
+Message-ID: <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Craig Gallek <kraigatgoog@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
+	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33175 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbcAEWI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 17:08:59 -0500
-Received: by mail-pa0-f43.google.com with SMTP id cy9so221651987pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 14:08:59 -0800 (PST)
-In-Reply-To: <1452024487-2909-1-git-send-email-kraigatgoog@gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33231 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbcAEWSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 17:18:36 -0500
+Received: by mail-pa0-f45.google.com with SMTP id cy9so221766981pac.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 14:18:35 -0800 (PST)
+In-Reply-To: <1452019261-449449-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, 2016-01-05 at 10:41 -0800, Tom Herbert wrote:
+> Implement assembly routine for csum_partial for 64 bit x86. This
+> primarily speeds up checksum calculation for smaller lengths such as
+> those that are present when doing skb_postpull_rcsum when getting
+> CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY
+> conversion.
 
-udp_dump_one() uses __udp4_lib_lookup() & __udp6_lib_lookup()
-which cannot properly handle the provided cookie when SO_REUSEPORT
-is used, as many sockets share the same 4-tuple
+Very nice !
 
-Instead, let's use the provided 64bit cookie to uniquely identify
-the socket.
 
-This will allow us to remove a check against skb being NULL in
-reuseport_select_sock(), as we no longer share __udp4_lib_lookup() &
-__udp6_lib_lookup() with packet processing path.
+You might add a comment telling the '4' comes from length of 'adcq
+6*8(%rdi),%rax' instruction, and that the 'nop' is to compensate that
+'adcq    0*8(%rdi),%rax' is using 3 bytes instead.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/udp_diag.c |   44 ++++++++++++++++++------------------------
- 1 file changed, 19 insertions(+), 25 deletions(-)
+We also could use .byte 0x48, 0x13, 0x47, 0x00 to force a 4 bytes
+instruction and remove the nop.
 
-diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
-index df1966f3b6ec..09d0e1cffeb4 100644
---- a/net/ipv4/udp_diag.c
-+++ b/net/ipv4/udp_diag.c
-@@ -35,36 +35,30 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
- 			const struct nlmsghdr *nlh,
- 			const struct inet_diag_req_v2 *req)
- {
--	int err = -EINVAL;
--	struct sock *sk;
-+	struct sock *aux, *sk = NULL;
- 	struct sk_buff *rep;
- 	struct net *net = sock_net(in_skb->sk);
--
--	if (req->sdiag_family == AF_INET)
--		sk = __udp4_lib_lookup(net,
--				req->id.idiag_src[0], req->id.idiag_sport,
--				req->id.idiag_dst[0], req->id.idiag_dport,
--				req->id.idiag_if, tbl, NULL);
--#if IS_ENABLED(CONFIG_IPV6)
--	else if (req->sdiag_family == AF_INET6)
--		sk = __udp6_lib_lookup(net,
--				(struct in6_addr *)req->id.idiag_src,
--				req->id.idiag_sport,
--				(struct in6_addr *)req->id.idiag_dst,
--				req->id.idiag_dport,
--				req->id.idiag_if, tbl, NULL);
--#endif
--	else
--		goto out_nosk;
--
--	err = -ENOENT;
-+	unsigned short hnum = ntohs(req->id.idiag_dport);
-+	unsigned int slot = udp_hashfn(net, hnum, tbl->mask);
-+	struct udp_hslot *hslot = &tbl->hash[slot];
-+	struct hlist_nulls_node *node;
-+	int err = -ENOENT;
+
++       lea     20f(, %rcx, 4), %r11
++       clc
++       jmp     *%r11
 +
-+	spin_lock_bh(&hslot->lock);
-+	sk_nulls_for_each(aux, node, &hslot->head) {
-+		if (net_eq(sock_net(aux), net) &&
-+		    !sock_diag_check_cookie(aux, req->id.idiag_cookie) &&
-+		    (req->sdiag_family == AF_UNSPEC ||
-+		     req->sdiag_family == aux->sk_family)) {
-+			sk = aux;
-+			sock_hold(sk);
-+			break;
-+		}
-+	}
-+	spin_unlock_bh(&hslot->lock);
- 	if (!sk)
- 		goto out_nosk;
- 
--	err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
--	if (err)
--		goto out;
--
- 	err = -ENOMEM;
- 	rep = nlmsg_new(sizeof(struct inet_diag_msg) +
- 			sizeof(struct inet_diag_meminfo) + 64,
++.align 8
++       adcq    6*8(%rdi),%rax
++       adcq    5*8(%rdi),%rax
++       adcq    4*8(%rdi),%rax
++       adcq    3*8(%rdi),%rax
++       adcq    2*8(%rdi),%rax
++       adcq    1*8(%rdi),%rax
++       adcq    0*8(%rdi),%rax // could force a 4 byte instruction (.byte 0x48, 0x13, 0x47, 0x00)
++       nop
++20:    /* #quads % 8 jump table base */
+
+
+Acked-by: Eric Dumazet <edumazet@google.com>
