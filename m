@@ -1,58 +1,47 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Re: [PATCH net-next 0/4] batch calls to fib_flush and arp_ifdown
-Date: Mon, 4 Jan 2016 17:12:08 -0800
-Message-ID: <CAO7SqHBhkSFi77-ys5zs_dKsU=62kLZYCb0jhetnJddbL8gFuA@mail.gmail.com>
-References: <1451949056-15500-1-git-send-email-noureddine@arista.com>
-	<87oad0rhh8.fsf@x220.int.ebiederm.org>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: Re: [PATCH] rt2x00pci: Disable memory-write-invalidate when the driver
+ exits
+Date: Tue, 05 Jan 2016 09:27:47 +0800
+Message-ID: <568B1C13.9050900@163.com>
+References: <1451894138-3482-1-git-send-email-baijiaju1990@163.com> <CAGXE3d9tTr6hyOjh==Mn5tNQSy-hMBhxtmsWNY_tLgJqE=B38A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Helmut Schaa <helmut.schaa@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36281 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753898AbcAEBMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 20:12:10 -0500
-Received: by mail-wm0-f41.google.com with SMTP id l65so5606660wmf.1
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 17:12:10 -0800 (PST)
-In-Reply-To: <87oad0rhh8.fsf@x220.int.ebiederm.org>
+Received: from m12-14.163.com ([220.181.12.14]:47350 "EHLO m12-14.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753681AbcAEB2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2016 20:28:15 -0500
+In-Reply-To: <CAGXE3d9tTr6hyOjh==Mn5tNQSy-hMBhxtmsWNY_tLgJqE=B38A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 4, 2016 at 4:35 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
-
-> Two things would be very valuable with this patchset.
+On 01/05/2016 12:50 AM, Helmut Schaa wrote:
+> On Mon, Jan 4, 2016 at 8:55 AM, Jia-Ju Bai<baijiaju1990@163.com>  wrote:
+>> The driver calls pci_set_mwi to enable memory-write-invalidate when it
+>> is initialized, but does not call pci_clear_mwi when it is removed. Many
+>> other drivers calls pci_clear_mwi when pci_set_mwi is called, such as
+>> r8169, 8139cp and e1000.
+>>
+>> This patch adds pci_clear_mwi in error handling and removal procedure,
+>> which can fix the problem.
+>>
+>> Signed-off-by: Jia-Ju Bai<baijiaju1990@163.com>
+> Looks good to me.
+> Does this fix any actual issue?
+> If yes it might we worth to mention it in the commit message.
+> Helmut
 >
-> Some numbers on how much your changes have improved the code in the case
-> you care about.  I suspect the improvements are not subtle so this
-> should not be hard.
->
-> Can you please provide a justification for event_list.  Just skimming
-> through it appears that event_list because a duplicate of the list of
-> batched network devices that are passed to dev_close_many and friends.
-> If the list is actually a duplicate it appears foolish to create it.
->
-> Eric
 
-The performance test I ran tries to unregister 1000 dummy interfaces
-with 512K routes in the fib.
-Without the patch I could unregister 35 interfaces per second and with
-the patch it jumped to 620
-interfaces per second. 512K is a lot of routes but I am assuming we
-would get a good improvement
-even with 100K routes in the fib.
+Lacking pci_clear_mwi may cause a resource-release omission,
+but this omission may not cause obvious issues.
+For reliability, it is better to add pci_clear_mwi in the driver.
+Many other drivers do so, such as r8169, 8139cp and e1000.
 
-I am using event_list to put all the net namespaces in the current
-net_device batch on a list and only
-call the NETDEV_UNREGISTER_BATCH on those namespaces. It would be
-possible to just call the
-notifier for NETDEV_DOWN/UNREGISTER_BATCH for all the devices on the
-list and rely on the
-needs_fib_flush flag to only call fib_flush once per namespace but it
-seems like a waste to me.
 
-Salam
+Jia-Ju Bai
