@@ -1,11 +1,11 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v5 net-next 1/3] net: ethernet: cadence-macb: Add disabled
- usrio caps
-Date: Tue, 5 Jan 2016 14:45:15 +0100
-Message-ID: <568BC8EB.1040102@atmel.com>
+Subject: Re: [PATCH v5 net-next 2/3] net: macb: Add NP4 macb config using
+ USRIO_DISABLED
+Date: Tue, 5 Jan 2016 14:45:31 +0100
+Message-ID: <568BC8FB.30005@atmel.com>
 References: <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
  <1452001158-20585-1-git-send-email-narmstrong@baylibre.com>
- <1452001158-20585-2-git-send-email-narmstrong@baylibre.com>
+ <1452001158-20585-3-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -15,91 +15,51 @@ To: Neil Armstrong <narmstrong@baylibre.com>, <davem@davemloft.net>,
 	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<joshc@ni.com>, <devicetree@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452001158-20585-2-git-send-email-narmstrong@baylibre.com>
+In-Reply-To: <1452001158-20585-3-git-send-email-narmstrong@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Le 05/01/2016 14:39, Neil Armstrong a =E9crit :
-> On some platforms, the macb integration does not use the USRIO
-> register to configure the (R)MII port and clocks.
-> When the register is not implemented and the MACB error signal
-> is connected to the bus error, reading or writing to the USRIO
-> register can trigger some Imprecise External Aborts on ARM platforms.
+> Declare a new NP4 SoC variant having USRIO_DISABLED as capability bit=
+=2E
 >=20
 > Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 
 Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Thanks!
 
 > ---
->  drivers/net/ethernet/cadence/macb.c | 27 +++++++++++++++------------
->  drivers/net/ethernet/cadence/macb.h |  1 +
->  2 files changed, 16 insertions(+), 12 deletions(-)
+>  drivers/net/ethernet/cadence/macb.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 >=20
 > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
 et/cadence/macb.c
-> index 8b45bc9..fa53bc3 100644
+> index fa53bc3..d12ee07 100644
 > --- a/drivers/net/ethernet/cadence/macb.c
 > +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2124,7 +2124,8 @@ static void macb_get_regs(struct net_device *de=
-v, struct ethtool_regs *regs,
->  	regs_buff[10] =3D macb_tx_dma(&bp->queues[0], tail);
->  	regs_buff[11] =3D macb_tx_dma(&bp->queues[0], head);
+> @@ -2781,6 +2781,11 @@ static const struct macb_config emac_config =3D=
+ {
+>  	.init =3D at91ether_init,
+>  };
 > =20
-> -	regs_buff[12] =3D macb_or_gem_readl(bp, USRIO);
-> +	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
-> +		regs_buff[12] =3D macb_or_gem_readl(bp, USRIO);
->  	if (macb_is_gem(bp)) {
->  		regs_buff[13] =3D gem_readl(bp, DMACFG);
->  	}
-> @@ -2403,19 +2404,21 @@ static int macb_init(struct platform_device *=
-pdev)
->  		dev->hw_features &=3D ~NETIF_F_SG;
->  	dev->features =3D dev->hw_features;
+> +static const struct macb_config np4_config =3D {
+> +	.caps =3D MACB_CAPS_USRIO_DISABLED,
+> +	.clk_init =3D macb_clk_init,
+> +	.init =3D macb_init,
+> +};
 > =20
-> -	val =3D 0;
-> -	if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII)
-> -		val =3D GEM_BIT(RGMII);
-> -	else if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII &&
-> -		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-> -		val =3D MACB_BIT(RMII);
-> -	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-> -		val =3D MACB_BIT(MII);
-> +	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED)) {
-> +		val =3D 0;
-> +		if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII)
-> +			val =3D GEM_BIT(RGMII);
-> +		else if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII &&
-> +			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-> +			val =3D MACB_BIT(RMII);
-> +		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-> +			val =3D MACB_BIT(MII);
-> =20
-> -	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-> -		val |=3D MACB_BIT(CLKEN);
-> +		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-> +			val |=3D MACB_BIT(CLKEN);
-> =20
-> -	macb_or_gem_writel(bp, USRIO, val);
-> +		macb_or_gem_writel(bp, USRIO, val);
-> +	}
-> =20
->  	/* Set MII management clock divider */
->  	val =3D macb_mdc_clk_div(bp);
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
-et/cadence/macb.h
-> index 5c03e81..0d4ecfc 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -400,6 +400,7 @@
->  #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
->  #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
->  #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
-> +#define MACB_CAPS_USRIO_DISABLED		0x00000010
->  #define MACB_CAPS_FIFO_MODE			0x10000000
->  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
->  #define MACB_CAPS_SG_DISABLED			0x40000000
+>  static const struct macb_config zynqmp_config =3D {
+>  	.caps =3D MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO,
+> @@ -2801,6 +2806,7 @@ static const struct of_device_id macb_dt_ids[] =
+=3D {
+>  	{ .compatible =3D "cdns,at32ap7000-macb" },
+>  	{ .compatible =3D "cdns,at91sam9260-macb", .data =3D &at91sam9260_c=
+onfig },
+>  	{ .compatible =3D "cdns,macb" },
+> +	{ .compatible =3D "cdns,np4-macb", .data =3D &np4_config },
+>  	{ .compatible =3D "cdns,pc302-gem", .data =3D &pc302gem_config },
+>  	{ .compatible =3D "cdns,gem", .data =3D &pc302gem_config },
+>  	{ .compatible =3D "atmel,sama5d2-gem", .data =3D &sama5d2_config },
 >=20
 
 
