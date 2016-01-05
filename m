@@ -1,65 +1,55 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
- skb_copy_and_csum_datagram_iovec()
-Date: Tue, 5 Jan 2016 17:41:09 +0100
-Message-ID: <568BF225.7050907@suse.cz>
-References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
- <568BF0FD.4010208@suse.cz> <1452012008.2768.82.camel@decadent.org.uk>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 1/2] Support outside netns for tunnels.
+Date: Tue, 5 Jan 2016 17:47:09 +0100
+Message-ID: <568BF38D.4060803@6wind.com>
+References: <1451933147-17266-1-git-send-email-saurabh@cplanenetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>,
-	Michal Kubecek <mkubecek@suse.cz>, stable@vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Saurabh Mohan <saurabh@cplanenetworks.com>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, davem@davemloft.net,
+	pshelar@nicira.com, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:33294 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751840AbcAEQlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 11:41:12 -0500
-In-Reply-To: <1452012008.2768.82.camel@decadent.org.uk>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:38483 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846AbcAEQr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 11:47:28 -0500
+Received: by mail-wm0-f43.google.com with SMTP id b14so38090749wmb.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 08:47:27 -0800 (PST)
+In-Reply-To: <1451933147-17266-1-git-send-email-saurabh@cplanenetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA256
+Le 04/01/2016 19:45, Saurabh Mohan a =C3=A9crit :
+>
+> This patch enchances a tunnel interface, like gre, to have the tunnel
+> encap/decap be in the context of a network namespace that is differen=
+t from
+> the namespace of the tunnel interface.
+>
+>  From userspace this feature may be configured using the new 'onetns'=
+ keyword:
+> ip netns exec custa ip link add dev tun1 type gre local 10.0.0.1 \
+>   remote 10.0.0.2 onetns outside
+>
+> In the above example the tunnel would be in the 'custa' namespace and=
+ the
+> tunnel endpoints would be in the 'outside' namespace.
+What is the difference with the following commands?
 
-On 01/05/2016, 05:40 PM, Ben Hutchings wrote:
-> On Tue, 2016-01-05 at 17:36 +0100, Jiri Slaby wrote:
->> On 12/28/2015, 03:01 PM, Michal Kubecek wrote:
->>> Recent fix "net: add length argument to 
->>> skb_copy_and_csum_datagram_iovec" added to some pre-3.19
->>> stable branches, namely
->>> 
->>> stable-3.2.y: commit 127500d724f8 stable-3.12.y: commit
->>> 3e1ac3aafbd0
->> 
->> Applied this fix to 3.12. Thanks!
-> [...]
-> 
-> You don't want this, you want Eric's fix (commit 197c949e7, "udp: 
-> properly support MSG_PEEK with truncated buffers") although that's
-> not upstream yet.
+ip netns exec outside ip link add dev tun1 type gre local 10.0.0.1 \
+    remote 10.0.0.2
+ip netns exec outside ip link set tun1 netns custa
 
-Dropped then. Thanks!
+or
+
+ip exec custa ip netns set outside 1234
+ip exec custa ip link add tun1 link-netnsid 1234 type gre local 10.0.0.=
+1 \
+    remote 10.0.0.2
 
 
-- -- 
-js
-suse labs
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJWi/IlAAoJEL0lsQQGtHBJ+HkP/RSxEleW2xhvRXBVz9S5iTgR
-U5dDY3gdpajVuouc8S8ZC8o6/BT+rx0LwzrCcb8RDkIOPad3dFVrcPn5uwZvCZ+b
-JSNKvNLTLgtn/jvSu5ZhjlL0F4zXu2Pl37KZpaimwEgGAEmfKAvLL52mdHWURGRq
-AD7qD5UJxybejt8VNpExX6Oo+Q6nsRJtbrXXSRbalpeCwUhMxu+A/0vWFQ+bFR4M
-GPMw6GqhCoCTy1fcpI4csyvEJImg91PAnNc2+37vOUqxrpr4hqBtNnVerampaI1N
-u6QGl5WxfqvX+sDeYv7JDCR+2D750EixcfI6PYFdINSgTBn/7veKTsN1buj9JzlU
-LBVFKXLILX3pOj16rIiwVtmqapinyJB9c3vCUDP19opn7LtkR16a5wDOTD3T59zs
-KX6FZ0mO3uRacJNpVqeAcYQ8MVFIN6JRCCokJoTgFmia19rSpxV3Th1MoFy/bafX
-yc5T+n0CYguTVirME2hn2vt2JHvUzUCcabktT0chY8EhXTc6XMBefRGWnhL3raBe
-zRCn8tnGUbawr46ZbwMggpavfzUg3lGE6Y5/g5l5dNmdrLfU5SnNmid769Uvlrad
-MFf56DMfMFHmojcqOukcN1v97jvmaK9eY2xXRvuoGnzYexL2JCiPEKfB21NQfZhW
-NZSya8PXfCtyAnUS+56r
-=hGxr
------END PGP SIGNATURE-----
+Regards,
+Nicolas
