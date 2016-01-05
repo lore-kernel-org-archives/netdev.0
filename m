@@ -1,266 +1,393 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
- global transport hashtable
-Date: Tue, 5 Jan 2016 13:38:27 -0500
-Message-ID: <568C0DA3.1090604@gmail.com>
-References: <cover.1451490447.git.lucien.xin@gmail.com>
- <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Tue, 5 Jan 2016 10:41:01 -0800
+Message-ID: <1452019261-449449-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: mleitner@redhat.com, vyasevic@redhat.com, daniel@iogearbox.net,
-	davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <tglx@linutronix.de>, <mingo@redhat.com>,
+	<hpa@zytor.com>, <x86@kernel.org>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:32772 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389AbcAESia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 13:38:30 -0500
-In-Reply-To: <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:16271 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751598AbcAESmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 13:42:17 -0500
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u05IdIUs002759
+	for <netdev@vger.kernel.org>; Tue, 5 Jan 2016 10:42:17 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 208gycrnnb-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 10:42:17 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.102.107.97) with ESMTP	id
+ 0adda3e8b3dc11e587c00002c99331b0-8e3f91f0 for <netdev@vger.kernel.org>;	Tue,
+ 05 Jan 2016 10:42:16 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/30/2015 10:50 AM, Xin Long wrote:
-> tranport hashtbale will replace the association hashtable to do the
-> lookup for transport, and then get association by t->assoc, rhashtable
-> apis will be used because of it's resizable, scalable and using rcu.
-> 
-> lport + rport + paddr will be the base hashkey to locate the chain,
-> with net to protect one netns from another, then plus the laddr to
-> compare to get the target.
-> 
-> this patch will provider the lookup functions:
-> - sctp_epaddr_lookup_transport
-> - sctp_addrs_lookup_transport
-> 
-> hash/unhash functions:
-> - sctp_hash_transport
-> - sctp_unhash_transport
-> 
-> init/destroy functions:
-> - sctp_transport_hashtable_init
-> - sctp_transport_hashtable_destroy
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  include/net/sctp/sctp.h    |  11 ++++
->  include/net/sctp/structs.h |   5 ++
->  net/sctp/input.c           | 131 +++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 147 insertions(+)
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index ce13cf2..7bbdfba 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -143,6 +143,17 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
->  				 struct sctp_transport *t);
->  void sctp_backlog_migrate(struct sctp_association *assoc,
->  			  struct sock *oldsk, struct sock *newsk);
-> +int sctp_transport_hashtable_init(void);
-> +void sctp_transport_hashtable_destroy(void);
-> +void sctp_hash_transport(struct sctp_transport *t);
-> +void sctp_unhash_transport(struct sctp_transport *t);
-> +struct sctp_transport *sctp_addrs_lookup_transport(
-> +				struct net *net,
-> +				const union sctp_addr *laddr,
-> +				const union sctp_addr *paddr);
-> +struct sctp_transport *sctp_epaddr_lookup_transport(
-> +				const struct sctp_endpoint *ep,
-> +				const union sctp_addr *paddr);
->  
->  /*
->   * sctp/proc.c
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index eea9bde..4ab87d0 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -48,6 +48,7 @@
->  #define __sctp_structs_h__
->  
->  #include <linux/ktime.h>
-> +#include <linux/rhashtable.h>
->  #include <linux/socket.h>	/* linux/in.h needs this!!    */
->  #include <linux/in.h>		/* We get struct sockaddr_in. */
->  #include <linux/in6.h>		/* We get struct in6_addr     */
-> @@ -123,6 +124,8 @@ extern struct sctp_globals {
->  	struct sctp_hashbucket *assoc_hashtable;
->  	/* This is the sctp port control hash.	*/
->  	struct sctp_bind_hashbucket *port_hashtable;
-> +	/* This is the hash of all transports. */
-> +	struct rhashtable transport_hashtable;
->  
->  	/* Sizes of above hashtables. */
->  	int ep_hashsize;
-> @@ -147,6 +150,7 @@ extern struct sctp_globals {
->  #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
->  #define sctp_port_hashsize		(sctp_globals.port_hashsize)
->  #define sctp_port_hashtable		(sctp_globals.port_hashtable)
-> +#define sctp_transport_hashtable	(sctp_globals.transport_hashtable)
->  #define sctp_checksum_disable		(sctp_globals.checksum_disable)
->  
->  /* SCTP Socket type: UDP or TCP style. */
-> @@ -753,6 +757,7 @@ static inline int sctp_packet_empty(struct sctp_packet *packet)
->  struct sctp_transport {
->  	/* A list of transports. */
->  	struct list_head transports;
-> +	struct rhash_head node;
->  
->  	/* Reference counting. */
->  	atomic_t refcnt;
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index b6493b3..bac8278 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -782,6 +782,137 @@ hit:
->  	return ep;
->  }
->  
-> +/* rhashtable for transport */
-> +struct sctp_hash_cmp_arg {
-> +	const union sctp_addr		*laddr;
-> +	const union sctp_addr		*paddr;
-> +	const struct net		*net;
-> +};
-> +
-> +static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
-> +				const void *ptr)
-> +{
-> +	const struct sctp_hash_cmp_arg *x = arg->key;
-> +	const struct sctp_transport *t = ptr;
-> +	struct sctp_association *asoc = t->asoc;
-> +	const struct net *net = x->net;
-> +
-> +	if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
-> +		return 1;
-> +	if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
-> +		return 1;
-> +	if (!net_eq(sock_net(asoc->base.sk), net))
-> +		return 1;
-> +	if (!sctp_bind_addr_match(&asoc->base.bind_addr,
-> +				  x->laddr, sctp_sk(asoc->base.sk)))
-> +		return 1;
-> +
-> +	return 0;
-> +}
-> +
-> +static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
-> +{
-> +	const struct sctp_transport *t = data;
-> +	const union sctp_addr *paddr = &t->ipaddr;
-> +	const struct net *net = sock_net(t->asoc->base.sk);
-> +	u16 lport = htons(t->asoc->base.bind_addr.port);
-> +	u32 addr;
-> +
-> +	if (paddr->sa.sa_family == AF_INET6)
-> +		addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-> +	else
-> +		addr = paddr->v4.sin_addr.s_addr;
-> +
-> +	return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-> +			     (__force __u32)lport, net_hash_mix(net), seed);
-> +}
-> +
-> +static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
-> +{
-> +	const struct sctp_hash_cmp_arg *x = data;
-> +	const union sctp_addr *paddr = x->paddr;
-> +	const struct net *net = x->net;
-> +	u16 lport = x->laddr->v4.sin_port;
-> +	u32 addr;
-> +
-> +	if (paddr->sa.sa_family == AF_INET6)
-> +		addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-> +	else
-> +		addr = paddr->v4.sin_addr.s_addr;
-> +
-> +	return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-> +			     (__force __u32)lport, net_hash_mix(net), seed);
-> +}
-> +
-> +static const struct rhashtable_params sctp_hash_params = {
-> +	.head_offset		= offsetof(struct sctp_transport, node),
-> +	.hashfn			= sctp_hash_key,
-> +	.obj_hashfn		= sctp_hash_obj,
-> +	.obj_cmpfn		= sctp_hash_cmp,
-> +	.automatic_shrinking	= true,
-> +};
-> +
-> +int sctp_transport_hashtable_init(void)
-> +{
-> +	return rhashtable_init(&sctp_transport_hashtable, &sctp_hash_params);
-> +}
-> +
-> +void sctp_transport_hashtable_destroy(void)
-> +{
-> +	rhashtable_destroy(&sctp_transport_hashtable);
-> +}
-> +
-> +void sctp_hash_transport(struct sctp_transport *t)
-> +{
-> +	struct sctp_sockaddr_entry *addr;
-> +	struct sctp_hash_cmp_arg arg;
-> +
-> +	addr = list_entry(t->asoc->base.bind_addr.address_list.next,
-> +			  struct sctp_sockaddr_entry, list);
-> +	arg.laddr = &addr->a;
-> +	arg.paddr = &t->ipaddr;
-> +	arg.net   = sock_net(t->asoc->base.sk);
-> +
-> +reinsert:
-> +	if (rhashtable_lookup_insert_key(&sctp_transport_hashtable, &arg,
-> +					 &t->node, sctp_hash_params) == -EBUSY)
-> +		goto reinsert;
-> +}
-> +
-> +void sctp_unhash_transport(struct sctp_transport *t)
-> +{
-> +	rhashtable_remove_fast(&sctp_transport_hashtable, &t->node,
-> +			       sctp_hash_params);
-> +}
-> +
-> +struct sctp_transport *sctp_addrs_lookup_transport(
-> +				struct net *net,
-> +				const union sctp_addr *laddr,
-> +				const union sctp_addr *paddr)
-> +{
-> +	struct sctp_hash_cmp_arg arg = {
-> +		.laddr = laddr,
-> +		.paddr = paddr,
-> +		.net   = net,
-> +	};
-> +
-> +	return rhashtable_lookup_fast(&sctp_transport_hashtable, &arg,
-> +				      sctp_hash_params);
-> +}
-> +
-> +struct sctp_transport *sctp_epaddr_lookup_transport(
-> +				const struct sctp_endpoint *ep,
-> +				const union sctp_addr *paddr)
-> +{
-> +	struct sctp_sockaddr_entry *addr;
-> +	struct net *net = sock_net(ep->base.sk);
-> +
-> +	addr = list_entry(ep->base.bind_addr.address_list.next,
-> +			  struct sctp_sockaddr_entry, list);
-> +
-> +	return sctp_addrs_lookup_transport(net, &addr->a, paddr);
-> +} 
-> +
+Implement assembly routine for csum_partial for 64 bit x86. This
+primarily speeds up checksum calculation for smaller lengths such as
+those that are present when doing skb_postpull_rcsum when getting
+CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY
+conversion.
 
-I don't think that this right, mainly because not all endpoint
-addresses will be copied to association bind_addr list.   As a result,
-you may actually have an association on this endpoint to a given
-peer, but may not be using the first address from the endpoint..
+This implementation is similar to csum_partial implemented in
+checksum_32.S, however since we are dealing with 8 bytes at a time
+there are more cases for small lengths-- for that we employ a jump
+table. Also, we don't do anything special for alignment, unaligned
+accesses on x86 do not appear to be a performance issue.
 
-What might work is to pick an endpoint address that would be usable within
-the scope of the peer address.
+Testing:
 
--vlad
+Verified correctness by testing arbitrary length buffer filled with
+random data. For each buffer I compared the computed checksum
+using the original algorithm for each possible alignment (0-7 bytes).
 
->  /* Insert association into the hash table.  */
->  static void __sctp_hash_established(struct sctp_association *asoc)
->  {
-> 
+Checksum performance:
+
+Isolating old and new implementation for some common cases:
+
+                        Old      New
+Case                    nsecs    nsecs     Improvement
+---------------------+--------+--------+-----------------------------
+1400 bytes (0 align)    194.5    174.3     10%    (Big packet)
+40 bytes (0 align)      13.8     5.8       57%    (Ipv6 hdr common case)
+8 bytes (4 align)       8.4      2.9       65%    (UDP, VXLAN in IPv4)
+14 bytes (0 align)      10.6     5.8       45%    (Eth hdr)
+14 bytes (4 align)      10.8     5.8       46%    (Eth hdr in IPv4)
+
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ arch/x86/include/asm/checksum_64.h |   5 ++
+ arch/x86/lib/csum-partial_64.S     | 147 ++++++++++++++++++++++++++++++++++++
+ arch/x86/lib/csum-partial_64.c     | 148 -------------------------------------
+ 3 files changed, 152 insertions(+), 148 deletions(-)
+ create mode 100644 arch/x86/lib/csum-partial_64.S
+ delete mode 100644 arch/x86/lib/csum-partial_64.c
+
+diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
+index cd00e17..a888f65 100644
+--- a/arch/x86/include/asm/checksum_64.h
++++ b/arch/x86/include/asm/checksum_64.h
+@@ -128,6 +128,11 @@ static inline __sum16 csum_tcpudp_magic(__be32 saddr, __be32 daddr,
+  */
+ extern __wsum csum_partial(const void *buff, int len, __wsum sum);
+ 
++static inline __sum16 ip_compute_csum(const void *buff, int len)
++{
++	return csum_fold(csum_partial(buff, len, 0));
++}
++
+ #define  _HAVE_ARCH_COPY_AND_CSUM_FROM_USER 1
+ #define HAVE_CSUM_COPY_USER 1
+ 
+diff --git a/arch/x86/lib/csum-partial_64.S b/arch/x86/lib/csum-partial_64.S
+new file mode 100644
+index 0000000..8e387bb
+--- /dev/null
++++ b/arch/x86/lib/csum-partial_64.S
+@@ -0,0 +1,147 @@
++/* Copyright 2016 Tom Herbert <tom@herbertland.com>
++ *
++ * Checksum partial calculation
++ *
++ * __wsum csum_partial(const void *buff, int len, __wsum sum)
++ *
++ * Computes the checksum of a memory block at buff, length len,
++ * and adds in "sum" (32-bit)
++ *
++ * Returns a 32-bit number suitable for feeding into itself
++ * or csum_tcpudp_magic
++ *
++ * Register usage:
++ *   %rdi: argument 1, buff
++ *   %rsi: argument 2, length
++ *   %rdx: argument 3, add in value
++ *   %rax,%eax: accumulator and return value
++ *   %rcx,%ecx: counter and tmp
++ *   %r11: tmp
++ *
++ * Basic algorithm:
++ *   1) Sum 8 bytes at a time using adcq (unroll main loop
++ *      to do 64 bytes at a time)
++ *   2) Sum remaining length (less than 8 bytes)
++ *
++ * Note that buffer aligment is not considered, unaligned accesses on x86 don't
++ * seem to be a performance hit (CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set).
++ */
++
++#include <linux/linkage.h>
++#include <asm/errno.h>
++#include <asm/asm.h>
++
++#define branch_tbl_len		.L_branch_tbl_len
++
++ENTRY(csum_partial)
++	movl	%edx, %eax	/* Initialize with initial sum argument */
++
++	/* Check length */
++	cmpl	$8, %esi
++	jg	10f
++	jl	20f
++
++	/* Exactly 8 bytes length */
++	addl	(%rdi), %eax
++	adcl	4(%rdi), %eax
++	adcl	$0, %eax
++	ret
++
++	/* Less than 8 bytes length */
++20:	clc
++	jmpq *branch_tbl_len(, %rsi, 8)
++
++	/* Greater than 8 bytes length. Determine number of quads (n). Sum
++	 * over first n % 8 quads
++	 */
++10:	movl	%esi, %ecx
++	shrl	$3, %ecx
++	andl	$0x7, %ecx
++	negq	%rcx
++	lea	20f(, %rcx, 4), %r11
++	clc
++	jmp	*%r11
++
++.align 8
++	adcq	6*8(%rdi),%rax
++	adcq	5*8(%rdi),%rax
++	adcq	4*8(%rdi),%rax
++	adcq	3*8(%rdi),%rax
++	adcq	2*8(%rdi),%rax
++	adcq	1*8(%rdi),%rax
++	adcq	0*8(%rdi),%rax
++	nop
++20:	/* #quads % 8 jump table base */
++
++	adcq	$0, %rax
++	shlq	$3, %rcx
++	subq	%rcx, %rdi /* %rcx is already negative length */
++
++	/* Now determine number of blocks of 8 quads. Sum 64 bytes at a time
++	 * using unrolled loop.
++	 */
++	movl	%esi, %ecx
++	shrl	$6, %ecx
++	jz	30f
++	clc
++
++	/* Main loop */
++40:	adcq	0*8(%rdi),%rax
++	adcq	1*8(%rdi),%rax
++	adcq	2*8(%rdi),%rax
++	adcq	3*8(%rdi),%rax
++	adcq	4*8(%rdi),%rax
++	adcq	5*8(%rdi),%rax
++	adcq	6*8(%rdi),%rax
++	adcq	7*8(%rdi),%rax
++	lea	64(%rdi), %rdi
++	loop	40b
++
++	adcq	$0, %rax
++
++	/* Handle remaining length which is < 8 bytes */
++30:	andl	$0x7, %esi
++
++	/* Fold 64 bit sum to 32 bits */
++	movq	%rax, %rcx
++	shrq	$32, %rcx
++	addl	%ecx, %eax
++
++	jmpq *branch_tbl_len(, %rsi, 8)
++
++/* Length table targets */
++
++107:	/* Length 7 */
++	adcw	4(%rdi), %ax
++105:	/* Length 5 */
++	adcw	2(%rdi), %ax
++103:	/* Length 3 */
++	adcw	(%rdi), %ax
++101:	/* Length 1, grab the odd byte */
++	adcb	-1(%rdi, %rsi), %al
++	adcb	$0, %ah
++	adcl	$0, %eax
++	ret
++106:	/* Length 6 */
++	adcw	4(%rdi), %ax
++104:	/* Length 4 */
++	adcl	(%rdi), %eax
++	adcl	$0, %eax
++	ret
++102:	/* Length 2 */
++	adcw	(%rdi), %ax
++100:	/* Length 0 */
++	adcl	$0, %eax
++	ret
++
++.section .rodata
++.align 64
++.L_branch_tbl_len:
++	.quad	100b
++	.quad	101b
++	.quad	102b
++	.quad	103b
++	.quad	104b
++	.quad	105b
++	.quad	106b
++	.quad	107b
+diff --git a/arch/x86/lib/csum-partial_64.c b/arch/x86/lib/csum-partial_64.c
+deleted file mode 100644
+index 9845371..0000000
+--- a/arch/x86/lib/csum-partial_64.c
++++ /dev/null
+@@ -1,148 +0,0 @@
+-/*
+- * arch/x86_64/lib/csum-partial.c
+- *
+- * This file contains network checksum routines that are better done
+- * in an architecture-specific manner due to speed.
+- */
+- 
+-#include <linux/compiler.h>
+-#include <linux/module.h>
+-#include <asm/checksum.h>
+-
+-static inline unsigned short from32to16(unsigned a) 
+-{
+-	unsigned short b = a >> 16; 
+-	asm("addw %w2,%w0\n\t"
+-	    "adcw $0,%w0\n" 
+-	    : "=r" (b)
+-	    : "0" (b), "r" (a));
+-	return b;
+-}
+-
+-/*
+- * Do a 64-bit checksum on an arbitrary memory area.
+- * Returns a 32bit checksum.
+- *
+- * This isn't as time critical as it used to be because many NICs
+- * do hardware checksumming these days.
+- * 
+- * Things tried and found to not make it faster:
+- * Manual Prefetching
+- * Unrolling to an 128 bytes inner loop.
+- * Using interleaving with more registers to break the carry chains.
+- */
+-static unsigned do_csum(const unsigned char *buff, unsigned len)
+-{
+-	unsigned odd, count;
+-	unsigned long result = 0;
+-
+-	if (unlikely(len == 0))
+-		return result; 
+-	odd = 1 & (unsigned long) buff;
+-	if (unlikely(odd)) {
+-		result = *buff << 8;
+-		len--;
+-		buff++;
+-	}
+-	count = len >> 1;		/* nr of 16-bit words.. */
+-	if (count) {
+-		if (2 & (unsigned long) buff) {
+-			result += *(unsigned short *)buff;
+-			count--;
+-			len -= 2;
+-			buff += 2;
+-		}
+-		count >>= 1;		/* nr of 32-bit words.. */
+-		if (count) {
+-			unsigned long zero;
+-			unsigned count64;
+-			if (4 & (unsigned long) buff) {
+-				result += *(unsigned int *) buff;
+-				count--;
+-				len -= 4;
+-				buff += 4;
+-			}
+-			count >>= 1;	/* nr of 64-bit words.. */
+-
+-			/* main loop using 64byte blocks */
+-			zero = 0;
+-			count64 = count >> 3;
+-			while (count64) { 
+-				asm("addq 0*8(%[src]),%[res]\n\t"
+-				    "adcq 1*8(%[src]),%[res]\n\t"
+-				    "adcq 2*8(%[src]),%[res]\n\t"
+-				    "adcq 3*8(%[src]),%[res]\n\t"
+-				    "adcq 4*8(%[src]),%[res]\n\t"
+-				    "adcq 5*8(%[src]),%[res]\n\t"
+-				    "adcq 6*8(%[src]),%[res]\n\t"
+-				    "adcq 7*8(%[src]),%[res]\n\t"
+-				    "adcq %[zero],%[res]"
+-				    : [res] "=r" (result)
+-				    : [src] "r" (buff), [zero] "r" (zero),
+-				    "[res]" (result));
+-				buff += 64;
+-				count64--;
+-			}
+-
+-			/* last up to 7 8byte blocks */
+-			count %= 8; 
+-			while (count) { 
+-				asm("addq %1,%0\n\t"
+-				    "adcq %2,%0\n" 
+-					    : "=r" (result)
+-				    : "m" (*(unsigned long *)buff), 
+-				    "r" (zero),  "0" (result));
+-				--count; 
+-					buff += 8;
+-			}
+-			result = add32_with_carry(result>>32,
+-						  result&0xffffffff); 
+-
+-			if (len & 4) {
+-				result += *(unsigned int *) buff;
+-				buff += 4;
+-			}
+-		}
+-		if (len & 2) {
+-			result += *(unsigned short *) buff;
+-			buff += 2;
+-		}
+-	}
+-	if (len & 1)
+-		result += *buff;
+-	result = add32_with_carry(result>>32, result & 0xffffffff); 
+-	if (unlikely(odd)) { 
+-		result = from32to16(result);
+-		result = ((result >> 8) & 0xff) | ((result & 0xff) << 8);
+-	}
+-	return result;
+-}
+-
+-/*
+- * computes the checksum of a memory block at buff, length len,
+- * and adds in "sum" (32-bit)
+- *
+- * returns a 32-bit number suitable for feeding into itself
+- * or csum_tcpudp_magic
+- *
+- * this function must be called with even lengths, except
+- * for the last fragment, which may be odd
+- *
+- * it's best to have buff aligned on a 64-bit boundary
+- */
+-__wsum csum_partial(const void *buff, int len, __wsum sum)
+-{
+-	return (__force __wsum)add32_with_carry(do_csum(buff, len),
+-						(__force u32)sum);
+-}
+-
+-/*
+- * this routine is used for miscellaneous IP-like checksums, mainly
+- * in icmp.c
+- */
+-__sum16 ip_compute_csum(const void *buff, int len)
+-{
+-	return csum_fold(csum_partial(buff,len,0));
+-}
+-EXPORT_SYMBOL(ip_compute_csum);
+-
+-- 
+2.4.6
