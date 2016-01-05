@@ -1,35 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sched: fix missing free per cpu on qstats
-Date: Tue, 05 Jan 2016 09:44:11 -0800
-Message-ID: <1452015851.8255.108.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] ARM: net: bpf: fix zero right shift
+Date: Tue, 5 Jan 2016 09:50:39 -0800
+Message-ID: <20160105175038.GB83548@ast-mbp.thefacebook.com>
+References: <1452015244-1230-1-git-send-email-rabin@rab.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org
+To: Rabin Vincent <rabin@rab.in>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:36000 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbcAERoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:44:13 -0500
-Received: by mail-pf0-f177.google.com with SMTP id 65so178556743pff.3
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 09:44:13 -0800 (PST)
-In-Reply-To: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:32962 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859AbcAERum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:50:42 -0500
+Received: by mail-pa0-f52.google.com with SMTP id cy9so218525355pac.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 09:50:41 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1452015244-1230-1-git-send-email-rabin@rab.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-05 at 09:11 -0800, John Fastabend wrote:
-> When a qdisc is using per cpu stats (currently just the ingress
-> qdisc) only the bstats are being freed. This also free's the qstats.
+On Tue, Jan 05, 2016 at 06:34:04PM +0100, Rabin Vincent wrote:
+> The LSR instruction cannot be used to perform a zero right shift since a
+> 0 as the immediate value (imm5) in the LSR instruction encoding means
+> that a shift of 32 is perfomed.  See DecodeIMMShift() in the ARM ARM.
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
+> Make the JIT skip generation of the LSR if a zero-shift is requested.
+> 
+> This was found using american fuzzy lop.
+> 
+> Signed-off-by: Rabin Vincent <rabin@rab.in>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Looks good as a fix for classic jit. For eBPF we would want to check
+this in verifier.
 
-David, please add the following tag to ease backports to stable kernels:
-
-Fixes: 22e0f8b9322cb ("net: sched: make bstats per cpu and estimator RCU safe")
-
-Thanks !
+Acked-by: Alexei Starovoitov <ast@kernel.org>
