@@ -1,56 +1,43 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Tue, 5 Jan 2016 19:05:24 +0200
-Message-ID: <568BF7D4.8080304@mellanox.com>
-References: <20160105125154.36d9a0c4@canb.auug.org.au>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [PATCH] net: sched: fix missing free per cpu on qstats
+Date: Tue, 05 Jan 2016 09:11:36 -0800
+Message-ID: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Doug Ledford <dledford@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160105125154.36d9a0c4@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, davem@davemloft.net, daniel@iogearbox.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34659 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbcAERL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:11:57 -0500
+Received: by mail-pf0-f169.google.com with SMTP id e65so170226856pfe.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 09:11:56 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/5/2016 3:51 AM, Stephen Rothwell wrote:
-> Hi Doug,
->
-> Today's linux-next merge of the rdma tree got conflicts in:
->
->    drivers/net/ethernet/mellanox/mlx5/core/vport.c
->    include/linux/mlx5/mlx5_ifc.h
->    include/linux/mlx5/vport.h
->
-> between commits:
->
->    e1d7d349c69d ("net/mlx5: Update access functions to Query/Modify vport MAC address")
->    e75465148b7d ("net/mlx5: Introduce access functions to modify/query vport state")
->
-> from the net-next tree and commit:
->
->    e5f6175c5b66 ("net/mlx5_core: Break down the vport mac address query function")
->
-> from the rdma tree and maybe some others.
->
-> I have no hope of fixing this stuff up, so I have dropped the rdma tree
-> again for today.  There is similar functionality being introduced in
-> both trees ... please sort this mess out ...
+When a qdisc is using per cpu stats (currently just the ingress
+qdisc) only the bstats are being freed. This also free's the qstats.
 
-Hi Stephen,
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/sch_generic.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Saeed/Matan and Co are working here on a fix which would solve the 
-conflict.
-
-We have the basic patch and people will be testing it later/tomorrow.
-
-Could you please advice how would it be possible to provide you the
-git rerere output -- the pre-image and post-images files from .git/rr-cache?
-
-Or.
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index e82a1ad..16bc83b 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -658,8 +658,10 @@ static void qdisc_rcu_free(struct rcu_head *head)
+ {
+ 	struct Qdisc *qdisc = container_of(head, struct Qdisc, rcu_head);
+ 
+-	if (qdisc_is_percpu_stats(qdisc))
++	if (qdisc_is_percpu_stats(qdisc)) {
+ 		free_percpu(qdisc->cpu_bstats);
++		free_percpu(qdisc->cpu_qstats);
++	}
+ 
+ 	kfree((char *) qdisc - qdisc->padded);
+ }
