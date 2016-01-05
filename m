@@ -1,93 +1,120 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: rsi: Delete unnecessary variable initialisations in rsi_send_mgmt_pkt()
-Date: Tue, 5 Jan 2016 20:47:42 +1100
-Message-ID: <CAGRGNgVVnFGt_mHV+ZrZW0HuGuuh++ohkkNMHPBFt73-+X3L8Q@mail.gmail.com>
-References: <566ABCD9.1060404@users.sourceforge.net> <5687E169.4070704@users.sourceforge.net>
- <5687E203.1070404@users.sourceforge.net> <20160104092857.GD5284@mwanda>
- <568A4CFF.8060600@users.sourceforge.net> <20160104114849.GH5284@mwanda>
- <568A668D.8090007@users.sourceforge.net> <CAGRGNgXw+G6ZcmFmM=VWZT_jibuZyxe-kSvPSF8W7hPueLhNrw@mail.gmail.com>
- <568B7F06.1010500@users.sourceforge.net>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH V5 9/9] hvsock: introduce Hyper-V VM Sockets feature
+Date: Tue, 05 Jan 2016 10:51:45 +0100
+Message-ID: <87vb781hhq.fsf@vitty.brq.redhat.com>
+References: <1450966503-13345-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <568B7F06.1010500@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: gregkh@linuxfoundation.org, davem@davemloft.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+	pebolle@tiscali.nl, stefanha@redhat.com, dan.carpenter@oracle.com
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450966503-13345-1-git-send-email-decui@microsoft.com> (Dexuan
+	Cui's message of "Thu, 24 Dec 2015 06:15:03 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Markus,
+Dexuan Cui <decui@microsoft.com> writes:
 
-On Tue, Jan 5, 2016 at 7:29 PM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
->> That said, if you figure out some change that produces significant
->> reductions in code or binary size on multiple architectures without
->> making things more complicated, less readable or making the code or
->> binary size larger, then by all means propose it.
->
-> Are you looking also for "a proof" that such changes are worthwhile?
+Just some minor nitpicks below -- I have to admit I didn't test the feature.
 
-It'd be better than "I think doing things this way is better", which
-is the hallmark of most of your patch sets. (Admittedly not this one,
-but this one is where the discussion is now, so that's where we're
-discussing it.)
+[..skip..] 
 
->> "This makes things smaller" carries much more weight than
->> "I think this is better".
->
-> Can the discussed implementation of a function like "rsi_send_mgmt_pkt"
-> become a bit smaller by the deletion of extra variable initialisations
+> +
+> +	if (sk->sk_err) {
+> +		ret = -sk->sk_err;
+> +		goto out_wait_error;
+> +	} else {
+> +		ret = 0;
+> +	}
+> +
+> +out_wait:
+> +	finish_wait(sk_sleep(sk), &wait);
+> +out:
+> +	release_sock(sk);
+> +	return ret;
+> +
+> +out_wait_error:
+> +	sk->sk_state = SS_UNCONNECTED;
+> +	sock->state = SS_UNCONNECTED;
+> +	goto out_wait;
+> +}
 
-I'm talking in general.
+Why not just place out_wait_error label before out_wait (and do 'goto
+out_wait' in ret = 0 case instead of 'goto out_wait_error' in the error
+case)?
 
-In this case you're asking people to review a patch which requires a
-lot of careful review for a fairly minor improvement. I must also note
-that you haven't CC'd the people who wrote this driver, so it's
-possible that the only people who have reviewed it aren't experts in
-the code.
+[..skip..]
 
-The patches you sent recently which moved labels into if statements
-were a clear case of "I think this is better" where any actual benefit
-from the changes was eclipsed by the style and readability issues they
-introduced.
+> +
+> +static int __init hvsock_init(void)
+> +{
+> +	int ret;
+> +
+> +	/* Hyper-V socket requires at least VMBus 4.0 */
+> +	if ((vmbus_proto_version >> 16) < 4) {
+> +		pr_err("failed to load: VMBus 4 or later is required\n");
+> +		return -ENODEV;
 
->> Almost all of the changes you've proposed that have seen any
->> discussion whatsoever fall into the latter category.
->
-> Thanks for your interesting feedback.
+(Let me pretend I'm Dan :-) So here we return ...
 
-No problem.
+> +	}
+> +
+> +	ret = vmbus_driver_register(&hvsock_drv);
+> +	if (ret) {
+> +		pr_err("failed to register hv_sock driver\n");
+> +		goto out;
 
-> Can a further constructive dialogue evolve from the presented information?
+... and here we goto where we just return. I suggest we bring some
+consistency by directly returning ret here and eliminating 'out' label. 
 
-Part of the issue here is that you don't seem to be listening to the
-discussion of your patches, or if you are, you're not significantly
-changing your approach or attitude in response.
+> +	}
+> +
+> +	ret = proto_register(&hvsock_proto, 0);
+> +	if (ret) {
+> +		pr_err("failed to register protocol\n");
+> +		goto unreg_hvsock_drv;
+> +	}
+> +
+> +	ret = sock_register(&hvsock_family_ops);
+> +	if (ret) {
+> +		pr_err("failed to register address family\n");
+> +		goto unreg_proto;
+> +	}
+> +
+> +	return 0;
+> +
+> +unreg_proto:
+> +	proto_unregister(&hvsock_proto);
+> +unreg_hvsock_drv:
+> +	vmbus_driver_unregister(&hvsock_drv);
+> +out:
+> +	return ret;
+> +}
+> +
+> +static void __exit hvsock_exit(void)
+> +{
+> +	sock_unregister(AF_HYPERV);
+> +	proto_unregister(&hvsock_proto);
+> +	vmbus_driver_unregister(&hvsock_drv);
+> +}
+> +
+> +module_init(hvsock_init);
+> +module_exit(hvsock_exit);
+> +
+> +MODULE_DESCRIPTION("Microsoft Hyper-V Virtual Socket Family");
+> +MODULE_VERSION("0.1");
 
-Every time you send a set of patches, there are legitimate issues
-which people raise, and every time they are discussed, you assert that
-your patches improve things and seem to ignore the concerns people
-raise.
+Do we really need it? When the driver is commited we won't probably be
+updating it with v0.2 as a whole, we'll be sending patches addressing
+issues and there always will be a question when to swtich to 0.2, 0.3,
+... And we don't have MODULE_VERSION for other Hyper-V drivers.
 
-I've seen this same pattern of discussion here with these patches,
-with your patches to move labels into if statements, with the patches
-you sent late June last year, your patches to remove conditions before
-kfree() and friends, etc.
-
-You need to change you attitude: just because you can see some benefit
-from your patches doesn't mean others do and it doesn't mean that
-they're willing to accept them.
-
-Thanks,
+> +MODULE_LICENSE("Dual BSD/GPL");
 
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+  Vitaly
