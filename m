@@ -1,102 +1,83 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH] net: lan78xx: Fix to write to OTP(One Time Programmable)
- per magic number.
-Date: Tue, 5 Jan 2016 17:29:59 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4049271B@CHN-SV-EXMX02.mchp-main.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] soreuseport: change consume_skb to kfree_skb
+ in error case
+Date: Tue, 05 Jan 2016 09:38:36 -0800
+Message-ID: <1452015516.8255.106.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Craig Gallek <kraigatgoog@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:47440 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752359AbcAERfL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:35:11 -0500
-Content-Language: en-US
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35341 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792AbcAERij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:38:39 -0500
+Received: by mail-pf0-f176.google.com with SMTP id 78so226148198pfw.2
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 09:38:39 -0800 (PST)
+In-Reply-To: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug writing to EEPROM in lan78xx_ethtool_set_eeprom()
-when asked to write to OTP.
+On Tue, 2016-01-05 at 10:57 -0500, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
+> 
+> Fixes: 538950a1b752 ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
+> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Craig Gallek <kraig@google.com>
+> ---
+>  net/core/sock_reuseport.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/sock_reuseport.c b/net/core/sock_reuseport.c
+> index ae0969c0fc2e..1df98c557440 100644
+> --- a/net/core/sock_reuseport.c
+> +++ b/net/core/sock_reuseport.c
+> @@ -173,7 +173,7 @@ static struct sock *run_bpf(struct sock_reuseport *reuse, u16 socks,
+>  
+>  	/* temporarily advance data past protocol header */
+>  	if (!pskb_pull(skb, hdr_len)) {
+> -		consume_skb(nskb);
+> +		kfree_skb(nskb);
+>  		return NULL;
+>  	}
+>  	index = bpf_prog_run_save_cb(prog, skb);
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/usb/lan78xx.c | 55 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 54 insertions(+), 1 deletion(-)
+Note that we always call reuseport_select_sock() after pulling the
+headers in skb->head anyway, so the pskb_pull() can never fail.
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 226668e..d54f536 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -603,6 +603,59 @@ static int lan78xx_read_raw_otp(struct lan78xx_net *dev, u32 offset,
- 	return 0;
- }
- 
-+static int lan78xx_write_raw_otp(struct lan78xx_net *dev, u32 offset,
-+				 u32 length, u8 *data)
-+{
-+	int i;
-+	int ret;
-+	u32 buf;
-+	unsigned long timeout;
-+
-+	ret = lan78xx_read_reg(dev, OTP_PWR_DN, &buf);
-+
-+	if (buf & OTP_PWR_DN_PWRDN_N_) {
-+		/* clear it and wait to be cleared */
-+		ret = lan78xx_write_reg(dev, OTP_PWR_DN, 0);
-+
-+		timeout = jiffies + HZ;
-+		do {
-+			udelay(1);
-+			ret = lan78xx_read_reg(dev, OTP_PWR_DN, &buf);
-+			if (time_after(jiffies, timeout)) {
-+				netdev_warn(dev->net,
-+					    "timeout on OTP_PWR_DN completion");
-+				return -EIO;
-+			}
-+		} while (buf & OTP_PWR_DN_PWRDN_N_);
-+	}
-+
-+	/* set to BYTE program mode */
-+	ret = lan78xx_write_reg(dev, OTP_PRGM_MODE, OTP_PRGM_MODE_BYTE_);
-+
-+	for (i = 0; i < length; i++) {
-+		ret = lan78xx_write_reg(dev, OTP_ADDR1,
-+					((offset + i) >> 8) & OTP_ADDR1_15_11);
-+		ret = lan78xx_write_reg(dev, OTP_ADDR2,
-+					((offset + i) & OTP_ADDR2_10_3));
-+		ret = lan78xx_write_reg(dev, OTP_PRGM_DATA, data[i]);
-+		ret = lan78xx_write_reg(dev, OTP_TST_CMD, OTP_TST_CMD_PRGVRFY_);
-+		ret = lan78xx_write_reg(dev, OTP_CMD_GO, OTP_CMD_GO_GO_);
-+
-+		timeout = jiffies + HZ;
-+		do {
-+			udelay(1);
-+			ret = lan78xx_read_reg(dev, OTP_STATUS, &buf);
-+			if (time_after(jiffies, timeout)) {
-+				netdev_warn(dev->net,
-+					    "Timeout on OTP_STATUS completion");
-+				return -EIO;
-+			}
-+		} while (buf & OTP_STATUS_BUSY_);
-+	}
-+
-+	return 0;
-+}
-+
- static int lan78xx_read_otp(struct lan78xx_net *dev, u32 offset,
- 			    u32 length, u8 *data)
- {
-@@ -969,7 +1022,7 @@ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
- 		 (ee->offset == 0) &&
- 		 (ee->len == 512) &&
- 		 (data[0] == OTP_INDICATOR_1))
--		return lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
-+		return lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
- 
- 	return -EINVAL;
- }
--- 
-2.1.4
+It really could be __skb_pull()
+
+BTW, why UDP calls reuseport_select_sock() with hdr_len == 0 sometimes ?
+
+I believe the following patch is needed.
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 835378365f25..52387096dbba 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -514,7 +514,8 @@ begin:
+ 				struct sock *sk2;
+ 				hash = udp_ehashfn(net, daddr, hnum,
+ 						   saddr, sport);
+-				sk2 = reuseport_select_sock(sk, hash, NULL, 0);
++				sk2 = reuseport_select_sock(sk, hash, NULL,
++							    sizeof(struct udphdr));
+ 				if (sk2) {
+ 					result = sk2;
+ 					goto found;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 56fcb55fda31..da0a5fa02b0f 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -272,7 +272,8 @@ begin:
+ 				struct sock *sk2;
+ 				hash = udp6_ehashfn(net, daddr, hnum,
+ 						    saddr, sport);
+-				sk2 = reuseport_select_sock(sk, hash, NULL, 0);
++				sk2 = reuseport_select_sock(sk, hash, NULL,
++							    sizeof(struct udphdr));
+ 				if (sk2) {
+ 					result = sk2;
+ 					goto found;
