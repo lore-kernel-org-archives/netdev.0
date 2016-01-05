@@ -1,54 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fsl/fman: allow modular build
-Date: Mon, 04 Jan 2016 21:54:59 -0500 (EST)
-Message-ID: <20160104.215459.1264934689312091785.davem@davemloft.net>
-References: <4109142.02mezJXbJM@wuerfel>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 00/24] Support MDIO devices
+Date: Tue, 5 Jan 2016 03:57:53 +0100
+Message-ID: <20160105025753.GH7485@lunn.ch>
+References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
+ <568B28BB.60804@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Igal.Liberman@freescale.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50767 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842AbcAECzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 21:55:01 -0500
-In-Reply-To: <4109142.02mezJXbJM@wuerfel>
+Received: from vps0.lunn.ch ([178.209.37.122]:35910 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751925AbcAEC5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2016 21:57:54 -0500
+Content-Disposition: inline
+In-Reply-To: <568B28BB.60804@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 01 Jan 2016 14:55:24 +0100
+> - what kind of API do we need to offer to Ethernet MAC driver? Would
+> attach/detach and maybe adjust_link be good enough?
 
-> ARM allmodconfig fails because of the addition of the FMAN driver:
-> 
-> drivers/built-in.o: In function `dtsec_restart_autoneg':
-> binder.c:(.text+0x173328): undefined reference to `mdiobus_read'
-> binder.c:(.text+0x173348): undefined reference to `mdiobus_write'
-> drivers/built-in.o: In function `dtsec_config':
-> binder.c:(.text+0x173d24): undefined reference to `of_phy_find_device'
-> drivers/built-in.o: In function `init_phy':
-> binder.c:(.text+0x1763b0): undefined reference to `of_phy_connect'
-> drivers/built-in.o: In function `stop':
-> binder.c:(.text+0x176014): undefined reference to `phy_stop'
-> drivers/built-in.o: In function `start':
-> binder.c:(.text+0x176078): undefined reference to `phy_start'
-> 
-> The reason is that the driver uses PHYLIB, but that is a loadable
-> module here, and fman itself is built-in.
-> 
-> This patch makes it possible to configure fman as a module as well
-> so we don't change the status of PHYLIB in an allmodconfig kernel,
-> and it adds a 'select PHYLIB' statement to ensure that phylib is
-> always built-in when fman is.
-> 
-> The driver uses "builtin_platform_driver(fman_driver);", which means
-> it cannot be unloaded, but it's still possible to have it as a loadable
-> module that gets loaded once and never removed.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 5adae51a64b8 ("fsl/fman: Add FMan MURAM support")
+I was not going to offer it any! At least not at the MDIO layer.
 
-Applied, sorry I didn't catch this but nobody else was even attempting
-to review that huge patch series so I did the best that I could... :-/
+Maybe i have DSA too much in mind. But all we need for DSA is probe
+and remove. When the MDIO device is probed, based on DT information,
+it registers its DSA OPs with the DSA framework. When the device is
+removed, it unregisters its DSA ops. Nothing else is needed.
+
+Also, don't forget you can have an MDIO bus without an MII bus. The
+classic examples are using a couple of gpio lines to bit bang, or
+using a mux to give you multiple MDIO busses from one real MDIO bus
+and some gpio pins.
+ 
+> - should we consider modeling a MDIO connected switch as a MDIO device
+> (responding at the pseudo PHY address on the MDIO bus) which then
+> eventually creates a child MDIO bus and per-port individual PHY devices?
+
+Sort of. The Marvell switch actually take up quite a few addresses on
+the MDIO bus, not just the one listed in the DT. By convention, if the
+address is zero, the switch is assumed to be in single chip mode, and
+will respond to 10 or more different addresses. Depending on the
+switch model, some of those addresses are actually phys, and should be
+listed in DT as phys.
+
+If the address is not zero, the switch is in multi-chip mode, and it
+will respond to registers 0x00 and 0x01 on that one address. These two
+registers give an indirect access to all the other registers.
+ 
+> - for MDIO switches with a data-path to an Ethernet MAC (which is
+> probably 99% of the cases, are there some which do not have such a thing
+> and are still managed switches?), how much of the existing PHY device
+> properties (speed, duplex, interface, pause capability) should we think
+> about moving to the common MDIO device structure? Then this kind of
+> circles back to the first question about the Ethernet MAC interface API [1]
+
+To me, MII and MDIO are separate busses and should not be mixed
+together. Think about the case of a switch with two MII busses for
+greater frame throughput, but only one MDIO bus for management?  Some
+of the Marvell switches can also be manged using messages in Ethernet
+frames. So you could even have a switch with only MII and no MDIO!
+
+What also comes to play here is Russell Kings phylink code.
+
+We have this 20+ part patchset. This gives us enough we can look at
+integrating the 20+ part DSA probing patchset and then look at RMKs
+20+ patchset. That alone should keep us busy for a while without
+needed to add yet more.
+
+       Andrew
