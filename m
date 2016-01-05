@@ -1,26 +1,25 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] net: sched: fix missing free per cpu on qstats
-Date: Tue, 05 Jan 2016 19:00:02 +0100
-Message-ID: <568C04A2.7020804@iogearbox.net>
-References: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH 0/2] ppp: add netlink support
+Date: Tue, 5 Jan 2016 19:10:20 +0100
+Message-ID: <20160105181020.GB1259@alphalink.fr>
+References: <cover.1450900138.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50576 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbcAESAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 13:00:05 -0500
-In-Reply-To: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-ppp@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Paul Mackerras <paulus@samba.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1450900138.git.g.nault@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/05/2016 06:11 PM, John Fastabend wrote:
-> When a qdisc is using per cpu stats (currently just the ingress
-> qdisc) only the bstats are being freed. This also free's the qstats.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+On Wed, Dec 23, 2015 at 09:04:46PM +0100, Guillaume Nault wrote:
+> This series adds netlink support for creating PPP devices.
+> 
+Any feedback on this series? I can see that it has been marked
+"Deferred" in patchwork, so I'm unsure about what to do with this patch
+set now.
+Should I repost later (e.g. after the end of the merge window)? Are
+there any concern/issues with the series itself? Or should the idea of
+implementing netlink handlers for ppp devices be entirely dropped?
