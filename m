@@ -1,43 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_tunnel: make ip6tunnel_xmit definition conditional
-Date: Mon, 04 Jan 2016 21:51:32 -0500 (EST)
-Message-ID: <20160104.215132.601618412229369596.davem@davemloft.net>
-References: <12586917.ah4bPMnYUH@wuerfel>
+From: "Skoll, Jeff" <uk038853@student.uni-kassel.de>
+Subject: Charity/Donation
+Date: Mon, 04 Jan 2016 21:40:01 -0500
+Message-ID: <auto-000000074659__14975.2550678842$1451962379$gmane$org@mailadmin.uni-kassel.de>
+Reply-To: jeff.skoll@skollcharity.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <12586917.ah4bPMnYUH@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Me <uk038853@student.uni-kassel.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.its.uni-kassel.de ([141.51.12.52]:54958 "EHLO
+	mx2.its.uni-kassel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753842AbcAECw2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 21:52:28 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 01 Jan 2016 14:48:59 +0100
+Hi,
+My name is Jeffrey Skoll, a philanthropist and the founder of one of th=
+e largest private foundations in the world. I believe strongly in =E2=80=
+=98giving while living.=E2=80=99 I had one idea that never changed in m=
+y mind =E2=80=94 that you should use your wealth to help people and I h=
+ave decided to secretly give USD2.498 Million to a randomly selected in=
+dividual. On receipt of this email, you should count yourself as the in=
+dividual. Kindly get back to me at your earliest convenience, so I know=
+ your email address is valid.
 
-> From 433df301cf49624871346fa63f3fc65033caeda3 Mon Sep 17 00:00:00 2001
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Fri, 1 Jan 2016 13:18:48 +0100
-> Subject: [PATCH] net: make ip6tunnel_xmit definition conditional
-> 
-> Moving the caller of iptunnel_xmit_stats causes a build error in
-> randconfig builds that disable CONFIG_INET:
-> 
-> In file included from ../net/xfrm/xfrm_input.c:17:0:
-> ../include/net/ip6_tunnel.h: In function 'ip6tunnel_xmit':
-> ../include/net/ip6_tunnel.h:93:2: error: implicit declaration of function 'iptunnel_xmit_stats' [-Werror=implicit-function-declaration]
->   iptunnel_xmit_stats(dev, pkt_len);
-> 
-> The reason is that the iptunnel_xmit_stats definition is hidden
-> inside #ifdef CONFIG_INET but the caller is not. We can change
-> one or the other to fix it, and this patch adds a second #ifdef
-> around ip6tunnel_xmit() to avoid seeing the invalid call.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 039f50629b7f ("ip_tunnel: Move stats update to iptunnel_xmit()")
+Visit the web page to know more about me: http://www.theglobeandmail.co=
+m/news/national/meet-the-canadian-billionaire-whos-giving-it-all-away/a=
+rticle4209888/ or you can read an article of me on Wikipedia.
 
-Applied, thanks.
+Regards,
+Jeffrey Skoll.
