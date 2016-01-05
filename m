@@ -1,55 +1,56 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 1/2] Support outside netns for tunnels.
-Date: Tue, 5 Jan 2016 17:47:09 +0100
-Message-ID: <568BF38D.4060803@6wind.com>
-References: <1451933147-17266-1-git-send-email-saurabh@cplanenetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
+Date: Tue, 5 Jan 2016 19:05:24 +0200
+Message-ID: <568BF7D4.8080304@mellanox.com>
+References: <20160105125154.36d9a0c4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Saurabh Mohan <saurabh@cplanenetworks.com>, netdev@vger.kernel.org,
-	stephen@networkplumber.org, davem@davemloft.net,
-	pshelar@nicira.com, tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38483 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbcAEQr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 11:47:28 -0500
-Received: by mail-wm0-f43.google.com with SMTP id b14so38090749wmb.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 08:47:27 -0800 (PST)
-In-Reply-To: <1451933147-17266-1-git-send-email-saurabh@cplanenetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	Doug Ledford <dledford@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160105125154.36d9a0c4@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 04/01/2016 19:45, Saurabh Mohan a =C3=A9crit :
+On 1/5/2016 3:51 AM, Stephen Rothwell wrote:
+> Hi Doug,
 >
-> This patch enchances a tunnel interface, like gre, to have the tunnel
-> encap/decap be in the context of a network namespace that is differen=
-t from
-> the namespace of the tunnel interface.
+> Today's linux-next merge of the rdma tree got conflicts in:
 >
->  From userspace this feature may be configured using the new 'onetns'=
- keyword:
-> ip netns exec custa ip link add dev tun1 type gre local 10.0.0.1 \
->   remote 10.0.0.2 onetns outside
+>    drivers/net/ethernet/mellanox/mlx5/core/vport.c
+>    include/linux/mlx5/mlx5_ifc.h
+>    include/linux/mlx5/vport.h
 >
-> In the above example the tunnel would be in the 'custa' namespace and=
- the
-> tunnel endpoints would be in the 'outside' namespace.
-What is the difference with the following commands?
+> between commits:
+>
+>    e1d7d349c69d ("net/mlx5: Update access functions to Query/Modify vport MAC address")
+>    e75465148b7d ("net/mlx5: Introduce access functions to modify/query vport state")
+>
+> from the net-next tree and commit:
+>
+>    e5f6175c5b66 ("net/mlx5_core: Break down the vport mac address query function")
+>
+> from the rdma tree and maybe some others.
+>
+> I have no hope of fixing this stuff up, so I have dropped the rdma tree
+> again for today.  There is similar functionality being introduced in
+> both trees ... please sort this mess out ...
 
-ip netns exec outside ip link add dev tun1 type gre local 10.0.0.1 \
-    remote 10.0.0.2
-ip netns exec outside ip link set tun1 netns custa
+Hi Stephen,
 
-or
+Saeed/Matan and Co are working here on a fix which would solve the 
+conflict.
 
-ip exec custa ip netns set outside 1234
-ip exec custa ip link add tun1 link-netnsid 1234 type gre local 10.0.0.=
-1 \
-    remote 10.0.0.2
+We have the basic patch and people will be testing it later/tomorrow.
 
+Could you please advice how would it be possible to provide you the
+git rerere output -- the pre-image and post-images files from .git/rr-cache?
 
-Regards,
-Nicolas
+Or.
