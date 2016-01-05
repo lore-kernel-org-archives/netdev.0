@@ -1,76 +1,78 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V5 7/9] Drivers: hv: vmbus: add a mechanism to pass hvsock
- events to the hvsock driver
-Date: Tue, 5 Jan 2016 16:04:36 +0000
-Message-ID: <2c7b181ef9a44ef0ac11c81ccc23ee5d@HKXPR3004MB0088.064d.mgd.msft.net>
-References: <1450966491-13276-1-git-send-email-decui@microsoft.com>
- <87io3819dj.fsf@vitty.brq.redhat.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: rsi: Delete unnecessary variable initialisations in
+ rsi_send_mgmt_pkt()
+Date: Tue, 5 Jan 2016 17:23:04 +0100
+Message-ID: <568BEDE8.4010203@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <5687E169.4070704@users.sourceforge.net>
+ <5687E203.1070404@users.sourceforge.net> <20160104092857.GD5284@mwanda>
+ <568A4CFF.8060600@users.sourceforge.net> <20160104114849.GH5284@mwanda>
+ <568A668D.8090007@users.sourceforge.net>
+ <CAGRGNgXw+G6ZcmFmM=VWZT_jibuZyxe-kSvPSF8W7hPueLhNrw@mail.gmail.com>
+ <568B7F06.1010500@users.sourceforge.net>
+ <CAGRGNgVVnFGt_mHV+ZrZW0HuGuuh++ohkkNMHPBFt73-+X3L8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <87io3819dj.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Julian Calaby <julian.calaby@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGRGNgVVnFGt_mHV+ZrZW0HuGuuh++ohkkNMHPBFt73-+X3L8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> > diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
-> >
-> > +/* hvsock related definitions */
-> > +enum hvsock_event {
-> > +	/* The host application is close()-ing the connection */
-> > +	HVSOCK_RESCIND_CHANNEL,
-> > +};
-> > +
-> >  struct vmbus_channel {
-> >  	/* Unique channel id */
-> >  	int id;
-> > @@ -740,6 +746,13 @@ struct vmbus_channel {
-> >  	void (*sc_creation_callback)(struct vmbus_channel *new_sc);
-> >
-> >  	/*
-> > +	 * hvsock event callback.
-> > +	 * For now only 1 event is defined: HVSOCK_RESCIND_CHANNEL.
-> > +	 */
-> > +	void (*hvsock_event_callback)(struct vmbus_channel *channel,
-> > +				      enum hvsock_event event);
-> 
-> Would it make sense to rename it to something more general,
-> e.g. sc_rescind_callback and call it for all drivers (even if we don't
-> need it now) intead of introducing enum hvsock_event? When new events
-Your suggestion is good: channel->hvsock_event_callback != NULL implies
-is_hvsock_channel(channel) is true.
+> Every time you send a set of patches,
 
-> arrive we'll just add new callbacks (or, alternatively, we could unify
-> it to 'channel_event_callback' and merging with sc_creation_callback()
-> but I'd say it is uglier).
+I suggested some updates for Linux source files since October 2014.
 
-I'm OK to use the idea "when new events arrive we'll just add new callbacks".
 
-Let me make a new patch.
+> there are legitimate issues which people raise,
 
-Thanks,
--- Dexuan
+There was usual feedback.
+
+
+> and every time they are discussed,
+
+The discussion results were mixed between acceptance
+and usual disagreement.
+
+
+> you assert that your patches improve things
+
+I guess that should be the default intention of every patch, shouldn't it?
+
+
+> and seem to ignore the concerns people raise.
+
+I hope not. - But I can imagine that you might understand some responses
+from contributors in this way.
+Are you waiting for another clarification on a specific issue?
+
+
+> I've seen this same pattern of discussion here with these patches,
+> with your patches to move labels into if statements, with the patches
+> you sent late June last year, your patches to remove conditions before
+> kfree() and friends, etc.
+
+It seems that communication difficulties come partly from the fact
+that I chose search patterns from static source code analysis so far
+which belong to an error category that gets a lower priority.
+
+
+> You need to change you attitude: just because you can see some benefit
+> from your patches doesn't mean others do and it doesn't mean that
+> they're willing to accept them.
+
+I understand your advice.
+
+Further update suggestions with higher importance might follow for various
+software areas in the future.
+
+Regards,
+Markus
