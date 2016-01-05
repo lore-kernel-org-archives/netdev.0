@@ -1,43 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Tue, 5 Jan 2016 12:51:54 +1100
-Message-ID: <20160105125154.36d9a0c4@canb.auug.org.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH net-next 11/24] phy: Add an mdio_device structure
+Date: Mon, 04 Jan 2016 17:53:12 -0800
+Message-ID: <568B2208.3060502@gmail.com>
+References: <1451929022-5580-1-git-send-email-andrew@lunn.ch> <1451929022-5580-12-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33192 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753859AbcAEBxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 20:53:45 -0500
+Received: by mail-pa0-f44.google.com with SMTP id cy9so206189507pac.0
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 17:53:44 -0800 (PST)
+In-Reply-To: <1451929022-5580-12-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Doug,
+On 04/01/16 09:36, Andrew Lunn wrote:
+> Not all devices attached to an MDIO bus are phys. So add an
+> mdio_device structure to represent the generic parts of an mdio
+> device, and place this structure into the phy_device.
 
-Today's linux-next merge of the rdma tree got conflicts in:
+This looks good to me, I am just wondering if it would make sense to
+introduce another patch, prior to this one which does something like:
 
-  drivers/net/ethernet/mellanox/mlx5/core/vport.c
-  include/linux/mlx5/mlx5_ifc.h
-  include/linux/mlx5/vport.h
+- expose phydev_addr(phydev) to encapsulate the phy device's addr member
+and convert all drivers listed here to that helper, do the same thing
+with phydev_bus(phydev) to get the mii_bus of a given PHY device
 
-between commits:
+- have a subsequent patch which relocates phydev->{addr,bus} to the
+common MDIO device structure?
 
-  e1d7d349c69d ("net/mlx5: Update access functions to Query/Modify vport MAC address")
-  e75465148b7d ("net/mlx5: Introduce access functions to modify/query vport state")
+Other than that:
 
-from the net-next tree and commit:
-
-  e5f6175c5b66 ("net/mlx5_core: Break down the vport mac address query function")
-
-from the rdma tree and maybe some others.
-
-I have no hope of fixing this stuff up, so I have dropped the rdma tree
-again for today.  There is similar functionality being introduced in
-both trees ... please sort this mess out ...
-
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Florian
