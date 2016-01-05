@@ -1,55 +1,93 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] bridge: Only call /sbin/bridge-stp for the initial network namespace
-Date: Tue,  5 Jan 2016 10:46:00 +0100
-Message-ID: <1451987160-6273-1-git-send-email-hannes@stressinduktion.org>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:38713 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751510AbcAEJqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 04:46:07 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 84DBB209AB
-	for <netdev@vger.kernel.org>; Tue,  5 Jan 2016 04:46:06 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: rsi: Delete unnecessary variable initialisations in rsi_send_mgmt_pkt()
+Date: Tue, 5 Jan 2016 20:47:42 +1100
+Message-ID: <CAGRGNgVVnFGt_mHV+ZrZW0HuGuuh++ohkkNMHPBFt73-+X3L8Q@mail.gmail.com>
+References: <566ABCD9.1060404@users.sourceforge.net> <5687E169.4070704@users.sourceforge.net>
+ <5687E203.1070404@users.sourceforge.net> <20160104092857.GD5284@mwanda>
+ <568A4CFF.8060600@users.sourceforge.net> <20160104114849.GH5284@mwanda>
+ <568A668D.8090007@users.sourceforge.net> <CAGRGNgXw+G6ZcmFmM=VWZT_jibuZyxe-kSvPSF8W7hPueLhNrw@mail.gmail.com>
+ <568B7F06.1010500@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <568B7F06.1010500@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[I stole this patch from Eric Biederman. He wrote:]
+Hi Markus,
 
-> There is no defined mechanism to pass network namespace information
-> into /sbin/bridge-stp therefore don't even try to invoke it except
-> for bridge devices in the initial network namespace.
+On Tue, Jan 5, 2016 at 7:29 PM, SF Markus Elfring
+<elfring@users.sourceforge.net> wrote:
+>> That said, if you figure out some change that produces significant
+>> reductions in code or binary size on multiple architectures without
+>> making things more complicated, less readable or making the code or
+>> binary size larger, then by all means propose it.
 >
-> It is possible for unprivileged users to cause /sbin/bridge-stp to be
-> invoked for any network device name which if /sbin/bridge-stp does not
-> guard against unreasonable arguments or being invoked twice on the
-> same network device could cause problems.
+> Are you looking also for "a proof" that such changes are worthwhile?
 
-[Hannes: changed patch using netns_eq]
+It'd be better than "I think doing things this way is better", which
+is the hallmark of most of your patch sets. (Admittedly not this one,
+but this one is where the discussion is now, so that's where we're
+discussing it.)
 
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/bridge/br_stp_if.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+>> "This makes things smaller" carries much more weight than
+>> "I think this is better".
+>
+> Can the discussed implementation of a function like "rsi_send_mgmt_pkt"
+> become a bit smaller by the deletion of extra variable initialisations
 
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 905cedd37a0539..a31ac6ad76a223 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -143,7 +143,10 @@ static void br_stp_start(struct net_bridge *br)
- 	char *envp[] = { NULL };
- 	struct net_bridge_port *p;
- 
--	r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
-+	if (net_eq(dev_net(br->dev), &init_net))
-+		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
-+	else
-+		r = -ENOENT;
- 
- 	spin_lock_bh(&br->lock);
- 
+I'm talking in general.
+
+In this case you're asking people to review a patch which requires a
+lot of careful review for a fairly minor improvement. I must also note
+that you haven't CC'd the people who wrote this driver, so it's
+possible that the only people who have reviewed it aren't experts in
+the code.
+
+The patches you sent recently which moved labels into if statements
+were a clear case of "I think this is better" where any actual benefit
+from the changes was eclipsed by the style and readability issues they
+introduced.
+
+>> Almost all of the changes you've proposed that have seen any
+>> discussion whatsoever fall into the latter category.
+>
+> Thanks for your interesting feedback.
+
+No problem.
+
+> Can a further constructive dialogue evolve from the presented information?
+
+Part of the issue here is that you don't seem to be listening to the
+discussion of your patches, or if you are, you're not significantly
+changing your approach or attitude in response.
+
+Every time you send a set of patches, there are legitimate issues
+which people raise, and every time they are discussed, you assert that
+your patches improve things and seem to ignore the concerns people
+raise.
+
+I've seen this same pattern of discussion here with these patches,
+with your patches to move labels into if statements, with the patches
+you sent late June last year, your patches to remove conditions before
+kfree() and friends, etc.
+
+You need to change you attitude: just because you can see some benefit
+from your patches doesn't mean others do and it doesn't mean that
+they're willing to accept them.
+
+Thanks,
+
 -- 
-2.5.0
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
