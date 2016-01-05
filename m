@@ -1,95 +1,54 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH v5 net-next 1/3] net: ethernet: cadence-macb: Add disabled usrio caps
-Date: Tue,  5 Jan 2016 14:39:16 +0100
-Message-ID: <1452001158-20585-2-git-send-email-narmstrong@baylibre.com>
+From: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v5 net-next 2/3] net: macb: Add NP4 macb config using USRIO_DISABLED
+Date: Tue,  5 Jan 2016 14:39:17 +0100
+Message-ID: <1452001158-20585-3-git-send-email-narmstrong@baylibre.com>
 References: <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
  <1452001158-20585-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net,
-	harini.katakam@xilinx.com, boris.brezillon@free-electrons.com,
-	alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, joshc@ni.com, devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37712 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846AbcAENjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 08:39:32 -0500
-Received: by mail-wm0-f54.google.com with SMTP id f206so29551647wmf.0
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 05:39:31 -0800 (PST)
-In-Reply-To: <1452001158-20585-1-git-send-email-narmstrong@baylibre.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+To: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joshc-acOepvfBmUk@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1452001158-20585-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On some platforms, the macb integration does not use the USRIO
-register to configure the (R)MII port and clocks.
-When the register is not implemented and the MACB error signal
-is connected to the bus error, reading or writing to the USRIO
-register can trigger some Imprecise External Aborts on ARM platforms.
+Declare a new NP4 SoC variant having USRIO_DISABLED as capability bit.
 
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/cadence/macb.c | 27 +++++++++++++++------------
- drivers/net/ethernet/cadence/macb.h |  1 +
- 2 files changed, 16 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 8b45bc9..fa53bc3 100644
+index fa53bc3..d12ee07 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2124,7 +2124,8 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	regs_buff[10] = macb_tx_dma(&bp->queues[0], tail);
- 	regs_buff[11] = macb_tx_dma(&bp->queues[0], head);
+@@ -2781,6 +2781,11 @@ static const struct macb_config emac_config = {
+ 	.init = at91ether_init,
+ };
  
--	regs_buff[12] = macb_or_gem_readl(bp, USRIO);
-+	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
-+		regs_buff[12] = macb_or_gem_readl(bp, USRIO);
- 	if (macb_is_gem(bp)) {
- 		regs_buff[13] = gem_readl(bp, DMACFG);
- 	}
-@@ -2403,19 +2404,21 @@ static int macb_init(struct platform_device *pdev)
- 		dev->hw_features &= ~NETIF_F_SG;
- 	dev->features = dev->hw_features;
++static const struct macb_config np4_config = {
++	.caps = MACB_CAPS_USRIO_DISABLED,
++	.clk_init = macb_clk_init,
++	.init = macb_init,
++};
  
--	val = 0;
--	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
--		val = GEM_BIT(RGMII);
--	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
--		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
--		val = MACB_BIT(RMII);
--	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
--		val = MACB_BIT(MII);
-+	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED)) {
-+		val = 0;
-+		if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
-+			val = GEM_BIT(RGMII);
-+		else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
-+			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			val = MACB_BIT(RMII);
-+		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			val = MACB_BIT(MII);
- 
--	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
--		val |= MACB_BIT(CLKEN);
-+		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-+			val |= MACB_BIT(CLKEN);
- 
--	macb_or_gem_writel(bp, USRIO, val);
-+		macb_or_gem_writel(bp, USRIO, val);
-+	}
- 
- 	/* Set MII management clock divider */
- 	val = macb_mdc_clk_div(bp);
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 5c03e81..0d4ecfc 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -400,6 +400,7 @@
- #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
- #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
- #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
-+#define MACB_CAPS_USRIO_DISABLED		0x00000010
- #define MACB_CAPS_FIFO_MODE			0x10000000
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
+ static const struct macb_config zynqmp_config = {
+ 	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO,
+@@ -2801,6 +2806,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,at32ap7000-macb" },
+ 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
+ 	{ .compatible = "cdns,macb" },
++	{ .compatible = "cdns,np4-macb", .data = &np4_config },
+ 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
+ 	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
