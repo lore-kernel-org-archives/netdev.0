@@ -1,49 +1,67 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] skbuff: Fix skb checksum flag on skb pull
-Date: Mon, 04 Jan 2016 23:08:04 -0500 (EST)
-Message-ID: <20160104.230804.2220774053197810472.davem@davemloft.net>
-References: <1442951873-4803-1-git-send-email-pshelar@nicira.com>
-	<20150924.140931.1967362456389755405.davem@davemloft.net>
-	<1451498745.8255.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] af_unix: Fix splice-bind deadlock
+Date: Mon, 04 Jan 2016 23:23:28 -0500 (EST)
+Message-ID: <20160104.232328.2119620215364418586.davem@davemloft.net>
+References: <87y4cftztp.fsf@doppelsaurus.mobileactivedefense.com>
+	<87vb7ak08l.fsf@doppelsaurus.mobileactivedefense.com>
+	<87d1ti1ogp.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org,
-	willemdebruijn.kernel@gmail.com
-To: eric.dumazet@gmail.com
+Cc: dvyukov@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, viro@ZenIV.linux.org.uk
+To: rweikusat@mobileactivedefense.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51442 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51515 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753884AbcAEEIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 23:08:07 -0500
-In-Reply-To: <1451498745.8255.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1753884AbcAEEXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 23:23:30 -0500
+In-Reply-To: <87d1ti1ogp.fsf@doppelsaurus.mobileactivedefense.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Dec 2015 13:05:45 -0500
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Date: Sun, 03 Jan 2016 18:56:38 +0000
 
-> On Thu, 2015-09-24 at 14:09 -0700, David Miller wrote:
->> From: Pravin B Shelar <pshelar@nicira.com>
->> Date: Tue, 22 Sep 2015 12:57:53 -0700
->> 
->> > VXLAN device can receive skb with checksum partial. But the checksum
->> > offset could be in outer header which is pulled on receive. This results
->> > in negative checksum offset for the skb. Such skb can cause the assert
->> > failure in skb_checksum_help(). Following patch fixes the bug by setting
->> > checksum-none while pulling outer header.
->> > 
->> > Following is the kernel panic msg from old kernel hitting the bug.
->>  ...
->> > Reported-by: Anupam Chanda <achanda@vmware.com>
->> > Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> 
->> Applied, thanks.
+> On 2015/11/06, Dmitry Vyukov reported a deadlock involving the splice
+> system call and AF_UNIX sockets, 
 > 
+> http://lists.openwall.net/netdev/2015/11/06/24
 > 
-> It looks like we also should clear skb->csum ?
+> The situation was analyzed as
 > 
-> __skb_checksum_complete() definitely would be confused by garbage in
-> skb->csum
+> (a while ago) A: socketpair()
+> B: splice() from a pipe to /mnt/regular_file
+> 	does sb_start_write() on /mnt
+> C: try to freeze /mnt
+> 	wait for B to finish with /mnt
+> A: bind() try to bind our socket to /mnt/new_socket_name
+> 	lock our socket, see it not bound yet
+> 	decide that it needs to create something in /mnt
+> 	try to do sb_start_write() on /mnt, block (it's
+> 	waiting for C).
+> D: splice() from the same pipe to our socket
+> 	lock the pipe, see that socket is connected
+> 	try to lock the socket, block waiting for A
+> B:	get around to actually feeding a chunk from
+> 	pipe to file, try to lock the pipe.  Deadlock.
+> 
+> on 2015/11/10 by Al Viro,
+> 
+> http://lists.openwall.net/netdev/2015/11/10/4
+> 
+> The patch fixes this by removing the kern_path_create related code from
+> unix_mknod and executing it as part of unix_bind prior acquiring the
+> readlock of the socket in question. This means that A (as used above)
+> will sb_start_write on /mnt before it acquires the readlock, hence, it
+> won't indirectly block B which first did a sb_start_write and then
+> waited for a thread trying to acquire the readlock. Consequently, A
+> being blocked by C waiting for B won't cause a deadlock anymore
+> (effectively, both A and B acquire two locks in opposite order in the
+> situation described above).
+> 
+> Dmitry Vyukov(<dvyukov@google.com>) tested the original patch.
+> 
+> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 
-Pravin, please take a look at this.
+Applied and queued up for -stable, thanks Rainer.
