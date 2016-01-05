@@ -1,40 +1,338 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] soreuseport: change consume_skb to kfree_skb
- in error case
-Date: Tue, 05 Jan 2016 11:34:40 -0800
-Message-ID: <1452022480.8255.118.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
-	 <1452015516.8255.106.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAEfhGiyu0iRJcnOUiippoOtRZzUwoSihGVb3240G9hBSh0t5bw@mail.gmail.com>
-	 <1452018666.8255.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAEfhGiym3O8PaZdbReHHRQ1Cnq2OuOQfmbjSf2x1bTyqvdNPuw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Craig Gallek <kraigatgoog@gmail.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 01/12] net/mlx5_core: Introduce flow steering autogrouped flow table
+Date: Tue,  5 Jan 2016 22:04:02 +0200
+Message-ID: <1452024253-21193-2-git-send-email-saeedm@mellanox.com>
+References: <1452024253-21193-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>, saeedm@dev.mellanox.co.il,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34975 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667AbcAETem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 14:34:42 -0500
-Received: by mail-pa0-f44.google.com with SMTP id do7so1083100pab.2
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 11:34:41 -0800 (PST)
-In-Reply-To: <CAEfhGiym3O8PaZdbReHHRQ1Cnq2OuOQfmbjSf2x1bTyqvdNPuw@mail.gmail.com>
+Received: from [193.47.165.129] ([193.47.165.129]:41786 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752688AbcAEUEm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2016 15:04:42 -0500
+In-Reply-To: <1452024253-21193-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-05 at 14:12 -0500, Craig Gallek wrote:
+From: Maor Gottlieb <maorg@mellanox.com>
 
-> OK, I can buy that an skb should be piped through udp4|6_lib_lookup2,
-> but I don't think it's safe to remove the skb NULL check in
-> reuseport_select_sock.  There's at least one path (udp_diag.c:
-> udp_dump_one) which does a lookup without an skb.  I'll start with
-> your patch in a separate thread and we can discuss outside the context
-> of the kfree_skb change.
+When user add rule to autogrouped flow table, we search
+for flow group with the same match criteria, if we don't
+find such group then we create new flow group with the
+required match criteria and insert the rule to this group.
 
-Well, udp_dump_one() is broken vs SO_REUSEPORT. Fortunately iproute2
-does not use it (yet)
+We divide the flow table into required_groups + 1,
+in order to reserve a part of the flow table for rules
+which don't match any existing group.
 
-We need to to get the socket designated by req->id.idiag_cookie,
-ie ignoring reusport hash or BPF completely.
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |  170 ++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |    5 +
+ include/linux/mlx5/fs.h                           |    6 +
+ 3 files changed, 160 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index f7d62fe..743a475 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -85,6 +85,12 @@ static struct init_tree_node {
+ 	}
+ };
+ 
++enum fs_i_mutex_lock_class {
++	FS_MUTEX_GRANDPARENT,
++	FS_MUTEX_PARENT,
++	FS_MUTEX_CHILD
++};
++
+ static void del_rule(struct fs_node *node);
+ static void del_flow_table(struct fs_node *node);
+ static void del_flow_group(struct fs_node *node);
+@@ -119,10 +125,11 @@ static void tree_get_node(struct fs_node *node)
+ 	atomic_inc(&node->refcount);
+ }
+ 
+-static void nested_lock_ref_node(struct fs_node *node)
++static void nested_lock_ref_node(struct fs_node *node,
++				 enum fs_i_mutex_lock_class class)
+ {
+ 	if (node) {
+-		mutex_lock_nested(&node->lock, SINGLE_DEPTH_NESTING);
++		mutex_lock_nested(&node->lock, class);
+ 		atomic_inc(&node->refcount);
+ 	}
+ }
+@@ -481,9 +488,7 @@ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+ 	list_add_tail(&ft->node.list, &fs_prio->node.children);
+ 	fs_prio->num_ft++;
+ 	unlock_ref_node(&fs_prio->node);
+-
+ 	return ft;
+-
+ free_ft:
+ 	kfree(ft);
+ unlock_prio:
+@@ -491,8 +496,32 @@ unlock_prio:
+ 	return ERR_PTR(err);
+ }
+ 
+-struct mlx5_flow_group *mlx5_create_flow_group(struct mlx5_flow_table *ft,
+-					       u32 *fg_in)
++struct mlx5_flow_table *mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
++							    int prio,
++							    int num_flow_table_entries,
++							    int max_num_groups)
++{
++	struct mlx5_flow_table *ft;
++
++	if (max_num_groups > num_flow_table_entries)
++		return ERR_PTR(-EINVAL);
++
++	ft = mlx5_create_flow_table(ns, prio, num_flow_table_entries);
++	if (IS_ERR(ft))
++		return ft;
++
++	ft->autogroup.active = true;
++	ft->autogroup.required_groups = max_num_groups;
++
++	return ft;
++}
++
++/* Flow table should be locked */
++static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *ft,
++							u32 *fg_in,
++							struct list_head
++							*prev_fg,
++							bool is_auto_fg)
+ {
+ 	struct mlx5_flow_group *fg;
+ 	struct mlx5_core_dev *dev = get_dev(&ft->node);
+@@ -505,18 +534,33 @@ struct mlx5_flow_group *mlx5_create_flow_group(struct mlx5_flow_table *ft,
+ 	if (IS_ERR(fg))
+ 		return fg;
+ 
+-	lock_ref_node(&ft->node);
+ 	err = mlx5_cmd_create_flow_group(dev, ft, fg_in, &fg->id);
+ 	if (err) {
+ 		kfree(fg);
+-		unlock_ref_node(&ft->node);
+ 		return ERR_PTR(err);
+ 	}
+-	/* Add node to tree */
+-	tree_init_node(&fg->node, 1, del_flow_group);
++
++	if (ft->autogroup.active)
++		ft->autogroup.num_groups++;
++	/*Add node to tree*/
++	tree_init_node(&fg->node, !is_auto_fg, del_flow_group);
+ 	tree_add_node(&fg->node, &ft->node);
+-	/* Add node to group list */
++	/*Add node to group list*/
+ 	list_add(&fg->node.list, ft->node.children.prev);
++
++	return fg;
++}
++
++struct mlx5_flow_group *mlx5_create_flow_group(struct mlx5_flow_table *ft,
++					       u32 *fg_in)
++{
++	struct mlx5_flow_group *fg;
++
++	if (ft->autogroup.active)
++		return ERR_PTR(-EPERM);
++
++	lock_ref_node(&ft->node);
++	fg = create_flow_group_common(ft, fg_in, &ft->node.children, false);
+ 	unlock_ref_node(&ft->node);
+ 
+ 	return fg;
+@@ -614,7 +658,63 @@ static struct fs_fte *create_fte(struct mlx5_flow_group *fg,
+ 	return fte;
+ }
+ 
+-/* Assuming parent fg(flow table) is locked */
++static struct mlx5_flow_group *create_autogroup(struct mlx5_flow_table *ft,
++						u8 match_criteria_enable,
++						u32 *match_criteria)
++{
++	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	struct list_head *prev = &ft->node.children;
++	unsigned int candidate_index = 0;
++	struct mlx5_flow_group *fg;
++	void *match_criteria_addr;
++	unsigned int group_size = 0;
++	u32 *in;
++
++	if (!ft->autogroup.active)
++		return ERR_PTR(-ENOENT);
++
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return ERR_PTR(-ENOMEM);
++
++	if (ft->autogroup.num_groups < ft->autogroup.required_groups)
++		/* We save place for flow groups in addition to max types */
++		group_size = ft->max_fte / (ft->autogroup.required_groups + 1);
++
++	/*  ft->max_fte == ft->autogroup.max_types */
++	if (group_size == 0)
++		group_size = 1;
++
++	/* sorted by start_index */
++	fs_for_each_fg(fg, ft) {
++		if (candidate_index + group_size > fg->start_index)
++			candidate_index = fg->start_index + fg->max_ftes;
++		else
++			break;
++		prev = &fg->node.list;
++	}
++
++	if (candidate_index + group_size > ft->max_fte) {
++		fg = ERR_PTR(-ENOSPC);
++		goto out;
++	}
++
++	MLX5_SET(create_flow_group_in, in, match_criteria_enable,
++		 match_criteria_enable);
++	MLX5_SET(create_flow_group_in, in, start_flow_index, candidate_index);
++	MLX5_SET(create_flow_group_in, in, end_flow_index,   candidate_index +
++		 group_size - 1);
++	match_criteria_addr = MLX5_ADDR_OF(create_flow_group_in,
++					   in, match_criteria);
++	memcpy(match_criteria_addr, match_criteria,
++	       MLX5_ST_SZ_BYTES(fte_match_param));
++
++	fg = create_flow_group_common(ft, in, prev, true);
++out:
++	kvfree(in);
++	return fg;
++}
++
+ static struct mlx5_flow_rule *add_rule_fg(struct mlx5_flow_group *fg,
+ 					  u32 *match_value,
+ 					  u8 action,
+@@ -626,9 +726,9 @@ static struct mlx5_flow_rule *add_rule_fg(struct mlx5_flow_group *fg,
+ 	struct mlx5_flow_table *ft;
+ 	struct list_head *prev;
+ 
+-	lock_ref_node(&fg->node);
++	nested_lock_ref_node(&fg->node, FS_MUTEX_PARENT);
+ 	fs_for_each_fte(fte, fg) {
+-		nested_lock_ref_node(&fte->node);
++		nested_lock_ref_node(&fte->node, FS_MUTEX_CHILD);
+ 		if (compare_match_value(&fg->mask, match_value, &fte->val) &&
+ 		    action == fte->action && flow_tag == fte->flow_tag) {
+ 			rule = add_rule_fte(fte, fg, dest);
+@@ -669,6 +769,33 @@ unlock_fg:
+ 	return rule;
+ }
+ 
++static struct mlx5_flow_rule *add_rule_to_auto_fg(struct mlx5_flow_table *ft,
++						  u8 match_criteria_enable,
++						  u32 *match_criteria,
++						  u32 *match_value,
++						  u8 action,
++						  u32 flow_tag,
++						  struct mlx5_flow_destination *dest)
++{
++	struct mlx5_flow_rule *rule;
++	struct mlx5_flow_group *g;
++
++	g = create_autogroup(ft, match_criteria_enable, match_criteria);
++	if (IS_ERR(g))
++		return (void *)g;
++
++	rule = add_rule_fg(g, match_value,
++			   action, flow_tag, dest);
++	if (IS_ERR(rule)) {
++		/* Remove assumes refcount > 0 and autogroup creates a group
++		 * with a refcount = 0.
++		 */
++		tree_get_node(&g->node);
++		tree_remove_node(&g->node);
++	}
++	return rule;
++}
++
+ struct mlx5_flow_rule *
+ mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 		   u8 match_criteria_enable,
+@@ -679,23 +806,24 @@ mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 		   struct mlx5_flow_destination *dest)
+ {
+ 	struct mlx5_flow_group *g;
+-	struct mlx5_flow_rule *rule = ERR_PTR(-EINVAL);
++	struct mlx5_flow_rule *rule;
+ 
+-	tree_get_node(&ft->node);
+-	lock_ref_node(&ft->node);
++	nested_lock_ref_node(&ft->node, FS_MUTEX_GRANDPARENT);
+ 	fs_for_each_fg(g, ft)
+ 		if (compare_match_criteria(g->mask.match_criteria_enable,
+ 					   match_criteria_enable,
+ 					   g->mask.match_criteria,
+ 					   match_criteria)) {
+-			unlock_ref_node(&ft->node);
+ 			rule = add_rule_fg(g, match_value,
+ 					   action, flow_tag, dest);
+-			goto put;
++			if (!IS_ERR(rule) || PTR_ERR(rule) != -ENOSPC)
++				goto unlock;
+ 		}
++
++	rule = add_rule_to_auto_fg(ft, match_criteria_enable, match_criteria,
++				   match_value, action, flow_tag, dest);
++unlock:
+ 	unlock_ref_node(&ft->node);
+-put:
+-	tree_put_node(&ft->node);
+ 	return rule;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index 4ebb97f..0f98257 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -77,6 +77,11 @@ struct mlx5_flow_table {
+ 	unsigned int			max_fte;
+ 	unsigned int			level;
+ 	enum fs_flow_table_type		type;
++	struct {
++		bool			active;
++		unsigned int		required_groups;
++		unsigned int		num_groups;
++	} autogroup;
+ };
+ 
+ /* Type of children is mlx5_flow_rule */
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index bc7ad01..06ac6e8 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -62,6 +62,12 @@ mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
+ 			enum mlx5_flow_namespace_type type);
+ 
+ struct mlx5_flow_table *
++mlx5_create_auto_grouped_flow_table(struct mlx5_flow_namespace *ns,
++				    int prio,
++				    int num_flow_table_entries,
++				    int max_num_groups);
++
++struct mlx5_flow_table *
+ mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+ 		       int prio,
+ 		       int num_flow_table_entries);
+-- 
+1.7.1
