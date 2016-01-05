@@ -1,46 +1,117 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V3 3/4] net/mlx5e: Add HW timestamping (TS)
- support
-Date: Tue, 5 Jan 2016 13:43:46 +0100
-Message-ID: <20160105124346.GA5433@localhost.localdomain>
-References: <1451393912-13736-1-git-send-email-saeedm@mellanox.com>
- <1451393912-13736-4-git-send-email-saeedm@mellanox.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH V5 7/9] Drivers: hv: vmbus: add a mechanism to pass hvsock events to the hvsock driver
+Date: Tue, 05 Jan 2016 13:47:04 +0100
+Message-ID: <87io3819dj.fsf@vitty.brq.redhat.com>
+References: <1450966491-13276-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>, saeedm@dev.mellanox.co.il
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36371 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927AbcAEMnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 07:43:52 -0500
-Received: by mail-wm0-f47.google.com with SMTP id l65so21326913wmf.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 04:43:52 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1451393912-13736-4-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: gregkh@linuxfoundation.org, davem@davemloft.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
+	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+	pebolle@tiscali.nl, stefanha@redhat.com, dan.carpenter@oracle.com
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1450966491-13276-1-git-send-email-decui@microsoft.com> (Dexuan
+	Cui's message of "Thu, 24 Dec 2015 06:14:51 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 29, 2015 at 02:58:31PM +0200, Saeed Mahameed wrote:
-> From: Eran Ben Elisha <eranbe@mellanox.com>
-> 
-> Add support for enable/disable HW timestamping for incoming and/or
-> outgoing packets. To enable/disable HW timestamping appropriate
-> ioctl should be used. Currently HWTSTAMP_FILTER_ALL/NONE and
-> HWTSAMP_TX_ON/OFF only are supported. Make all relevant changes in
-> RX/TX flows to consider TS request and plant HW timestamps into
-> relevant structures.
-> 
-> Add internal clock for converting hardware timestamp to nanoseconds. In
-> addition, add a service task to catch internal clock overflow, to make
-> sure timestamping is accurate.
-> 
-> Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Dexuan Cui <decui@microsoft.com> writes:
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+> For now only 1 event is defined: HVSOCK_RESCIND_CHANNEL.
+> We'll have more events in the future.
+>
+> Signed-off-by: Dexuan Cui <decui@microsoft.com>
+> ---
+>  drivers/hv/channel_mgmt.c | 18 ++++++++++++++++++
+>  include/linux/hyperv.h    | 17 +++++++++++++++++
+>  2 files changed, 35 insertions(+)
+>
+> diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+> index 4611b50..87fc7d2 100644
+> --- a/drivers/hv/channel_mgmt.c
+> +++ b/drivers/hv/channel_mgmt.c
+> @@ -608,6 +608,16 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+>  	spin_unlock_irqrestore(&channel->lock, flags);
+>
+>  	if (channel->device_obj) {
+> +		if (is_hvsock_channel(channel) &&
+> +		    channel->hvsock_event_callback) {
+> +			channel->hvsock_event_callback(channel,
+> +						       HVSOCK_RESCIND_CHANNEL);
+> +			/*
+> +			 * We can't invoke vmbus_device_unregister()
+> +			 * until the socket fd is closed.
+> +			 */
+> +			return;
+> +		}
+>  		/*
+>  		 * We will have to unregister this device from the
+>  		 * driver core.
+> @@ -977,3 +987,11 @@ bool vmbus_are_subchannels_present(struct vmbus_channel *primary)
+>  	return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(vmbus_are_subchannels_present);
+> +
+> +void vmbus_set_hvsock_event_callback(struct vmbus_channel *channel,
+> +		void (*hvsock_event_callback)(struct vmbus_channel *,
+> +					      enum hvsock_event))
+> +{
+> +	channel->hvsock_event_callback = hvsock_event_callback;
+> +}
+> +EXPORT_SYMBOL_GPL(vmbus_set_hvsock_event_callback);
+> diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+> index b4cc44c..7e507bb 100644
+> --- a/include/linux/hyperv.h
+> +++ b/include/linux/hyperv.h
+> @@ -645,6 +645,12 @@ enum hv_signal_policy {
+>  	HV_SIGNAL_POLICY_EXPLICIT,
+>  };
+>
+> +/* hvsock related definitions */
+> +enum hvsock_event {
+> +	/* The host application is close()-ing the connection */
+> +	HVSOCK_RESCIND_CHANNEL,
+> +};
+> +
+>  struct vmbus_channel {
+>  	/* Unique channel id */
+>  	int id;
+> @@ -740,6 +746,13 @@ struct vmbus_channel {
+>  	void (*sc_creation_callback)(struct vmbus_channel *new_sc);
+>
+>  	/*
+> +	 * hvsock event callback.
+> +	 * For now only 1 event is defined: HVSOCK_RESCIND_CHANNEL.
+> +	 */
+> +	void (*hvsock_event_callback)(struct vmbus_channel *channel,
+> +				      enum hvsock_event event);
+
+Would it make sense to rename it to something more general,
+e.g. sc_rescind_callback and call it for all drivers (even if we don't
+need it now) intead of introducing enum hvsock_event? When new events
+arrive we'll just add new callbacks (or, alternatively, we could unify
+it to 'channel_event_callback' and merging with sc_creation_callback()
+but I'd say it is uglier).
+
+> +
+> +	/*
+>  	 * The spinlock to protect the structure. It is being used to protect
+>  	 * test-and-set access to various attributes of the structure as well
+>  	 * as all sc_list operations.
+> @@ -825,6 +838,10 @@ int vmbus_request_offers(void);
+>  void vmbus_set_sc_create_callback(struct vmbus_channel *primary_channel,
+>  			void (*sc_cr_cb)(struct vmbus_channel *new_sc));
+>
+> +void vmbus_set_hvsock_event_callback(struct vmbus_channel *channel,
+> +		void (*hvsock_event_callback)(struct vmbus_channel *,
+> +					      enum hvsock_event));
+> +
+>  /*
+>   * Retrieve the (sub) channel on which to send an outgoing request.
+>   * When a primary channel has multiple sub-channels, we choose a
+
+-- 
+  Vitaly
