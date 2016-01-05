@@ -1,48 +1,35 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] net: filter: make JITs zero A for SKF_AD_ALU_XOR_X
-Date: Tue, 5 Jan 2016 09:43:10 -0800
-Message-ID: <20160105174309.GA83548@ast-mbp.thefacebook.com>
-References: <1452007387-626-1-git-send-email-rabin@rab.in>
- <568BF11F.1060507@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sched: fix missing free per cpu on qstats
+Date: Tue, 05 Jan 2016 09:44:11 -0800
+Message-ID: <1452015851.8255.108.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-mips@linux-mips.org,
-	linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:32883 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbcAERnP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:43:15 -0500
-Content-Disposition: inline
-In-Reply-To: <568BF11F.1060507@iogearbox.net>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:36000 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbcAERoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:44:13 -0500
+Received: by mail-pf0-f177.google.com with SMTP id 65so178556743pff.3
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 09:44:13 -0800 (PST)
+In-Reply-To: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 05, 2016 at 05:36:47PM +0100, Daniel Borkmann wrote:
-> On 01/05/2016 04:23 PM, Rabin Vincent wrote:
-> >The SKF_AD_ALU_XOR_X ancillary is not like the other ancillary data
-> >instructions since it XORs A with X while all the others replace A with
-> >some loaded value.  All the BPF JITs fail to clear A if this is used as
-> >the first instruction in a filter.  This was found using american fuzzy
-> >lop.
-> >
-> >Add a helper to determine if A needs to be cleared given the first
-> >instruction in a filter, and use this in the JITs.  Except for ARM, the
-> >rest have only been compile-tested.
-> >
-> >Fixes: 3480593131e0 ("net: filter: get rid of BPF_S_* enum")
-> >Signed-off-by: Rabin Vincent <rabin@rab.in>
+On Tue, 2016-01-05 at 09:11 -0800, John Fastabend wrote:
+> When a qdisc is using per cpu stats (currently just the ingress
+> qdisc) only the bstats are being freed. This also free's the qstats.
 > 
-> Excellent catch, thanks a lot! The fix looks good to me and should
-> go to -net tree.
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
 
-good catch indeed.
-Classic bpf jits didn't have much love. Great to see this work.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+David, please add the following tag to ease backports to stable kernels:
+
+Fixes: 22e0f8b9322cb ("net: sched: make bstats per cpu and estimator RCU safe")
+
+Thanks !
