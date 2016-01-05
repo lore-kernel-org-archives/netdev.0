@@ -1,198 +1,73 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] netfilter: nf_conntrack: use safer way to lock all buckets
-Date: Mon,  4 Jan 2016 21:25:46 -0500
-Message-ID: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8192U: Fix check pointer after usage problem
+Date: Mon,  4 Jan 2016 20:30:58 -0600
+Message-ID: <1451961058-5235-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Yong Shi <brave_shi@163.com>
+To: gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:36211 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913AbcAECbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 21:31:15 -0500
+Received: by mail-ob0-f173.google.com with SMTP id ba1so263706624obb.3
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2016 18:31:15 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When we need to lock all buckets in the connection hashtable we'd attempt to
-lock 1024 spinlocks, which is way more preemption levels than supported by
-the kernel. Furthermore, this behavior was hidden by checking if lockdep is
-enabled, and if it was - use only 8 buckets(!).
+In routine rtl8192_tx_isr(), pointer skb is dereferenced before it is
+checked for NULL. This patch has only been compile-tested, as I do not
+have the hardware. This problem was reported at
+https://bugzilla.kernel.org/show_bug.cgi?id=109951.
 
-Fix this by using a global lock and synchronize all buckets on it when we
-need to lock them all. This is pretty heavyweight, but is only done when we
-need to resize the hashtable, and that doesn't happen often enough (or at all).
-
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+Fixes: bugzilla.kernel.org: #109951
+Reported-by: Yong Shi <brave_shi@163.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Yong Shi <brave_shi@163.com>
 ---
- include/net/netfilter/nf_conntrack_core.h |    8 ++---
- net/netfilter/nf_conntrack_core.c         |   55 +++++++++++++++++++++--------
- net/netfilter/nf_conntrack_helper.c       |    2 +-
- net/netfilter/nf_conntrack_netlink.c      |    2 +-
- net/netfilter/nfnetlink_cttimeout.c       |    4 +--
- 5 files changed, 48 insertions(+), 23 deletions(-)
+ drivers/staging/rtl8192u/r8192U_core.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index 788ef58..62e17d1 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -79,12 +79,10 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
-             const struct nf_conntrack_l3proto *l3proto,
-             const struct nf_conntrack_l4proto *proto);
- 
--#ifdef CONFIG_LOCKDEP
--# define CONNTRACK_LOCKS 8
--#else
--# define CONNTRACK_LOCKS 1024
--#endif
-+#define CONNTRACK_LOCKS 1024
-+
- extern spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
-+void nf_conntrack_lock(spinlock_t *lock);
- 
- extern spinlock_t nf_conntrack_expect_lock;
- 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 3cb3cb8..3c008ce 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -66,6 +66,32 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
- __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
- EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
- 
-+spinlock_t nf_conntrack_locks_all_lock;
-+bool nf_conntrack_locks_all;
-+
-+void nf_conntrack_lock(spinlock_t *lock)
-+{
-+	spin_lock(lock);
-+	while (unlikely(nf_conntrack_locks_all)) {
-+		spin_unlock(lock);
-+		spin_lock(&nf_conntrack_locks_all_lock);
-+		spin_unlock(&nf_conntrack_locks_all_lock);
-+		spin_lock(lock);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(nf_conntrack_lock);
-+
-+static void nf_conntrack_lock_nested(spinlock_t *lock)
-+{
-+	spin_lock_nested(lock, SINGLE_DEPTH_NESTING);
-+	while (unlikely(nf_conntrack_locks_all)) {
-+		spin_unlock(lock);
-+		spin_lock(&nf_conntrack_locks_all_lock);
-+		spin_unlock(&nf_conntrack_locks_all_lock);
-+		spin_lock_nested(lock, SINGLE_DEPTH_NESTING);
-+	}
-+}
-+
- static void nf_conntrack_double_unlock(unsigned int h1, unsigned int h2)
+diff --git a/drivers/staging/rtl8192u/r8192U_core.c b/drivers/staging/rtl8192u/r8192U_core.c
+index f4a4eae..87093c0 100644
+--- a/drivers/staging/rtl8192u/r8192U_core.c
++++ b/drivers/staging/rtl8192u/r8192U_core.c
+@@ -1092,10 +1092,17 @@ static int rtl8192_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ static void rtl8192_tx_isr(struct urb *tx_urb)
  {
- 	h1 %= CONNTRACK_LOCKS;
-@@ -82,14 +108,12 @@ static bool nf_conntrack_double_lock(struct net *net, unsigned int h1,
- 	h1 %= CONNTRACK_LOCKS;
- 	h2 %= CONNTRACK_LOCKS;
- 	if (h1 <= h2) {
--		spin_lock(&nf_conntrack_locks[h1]);
-+		nf_conntrack_lock(&nf_conntrack_locks[h1]);
- 		if (h1 != h2)
--			spin_lock_nested(&nf_conntrack_locks[h2],
--					 SINGLE_DEPTH_NESTING);
-+			nf_conntrack_lock_nested(&nf_conntrack_locks[h2]);
- 	} else {
--		spin_lock(&nf_conntrack_locks[h2]);
--		spin_lock_nested(&nf_conntrack_locks[h1],
--				 SINGLE_DEPTH_NESTING);
-+		nf_conntrack_lock(&nf_conntrack_locks[h2]);
-+		nf_conntrack_lock_nested(&nf_conntrack_locks[h1]);
- 	}
- 	if (read_seqcount_retry(&net->ct.generation, sequence)) {
- 		nf_conntrack_double_unlock(h1, h2);
-@@ -102,16 +126,19 @@ static void nf_conntrack_all_lock(void)
- {
- 	int i;
- 
--	for (i = 0; i < CONNTRACK_LOCKS; i++)
--		spin_lock_nested(&nf_conntrack_locks[i], i);
-+	spin_lock(&nf_conntrack_locks_all_lock);
-+	nf_conntrack_locks_all = true;
+ 	struct sk_buff *skb = (struct sk_buff *)tx_urb->context;
+-	struct net_device *dev = (struct net_device *)(skb->cb);
++	struct net_device *dev;
+ 	struct r8192_priv *priv = NULL;
+-	cb_desc *tcb_desc = (cb_desc *)(skb->cb + MAX_DEV_ADDR_SIZE);
+-	u8  queue_index = tcb_desc->queue_index;
++	cb_desc *tcb_desc;
++	u8  queue_index;
 +
-+	for (i = 0; i < CONNTRACK_LOCKS; i++) {
-+		spin_lock(&nf_conntrack_locks[i]);
-+		spin_unlock(&nf_conntrack_locks[i]);
-+	}
- }
++	if (!skb)
++		return;
++
++	dev = (struct net_device *)(skb->cb);
++	tcb_desc = (cb_desc *)(skb->cb + MAX_DEV_ADDR_SIZE);
++	queue_index = tcb_desc->queue_index;
  
- static void nf_conntrack_all_unlock(void)
- {
--	int i;
--
--	for (i = 0; i < CONNTRACK_LOCKS; i++)
--		spin_unlock(&nf_conntrack_locks[i]);
-+	nf_conntrack_locks_all = false;
-+	spin_unlock(&nf_conntrack_locks_all_lock);
- }
+ 	priv = ieee80211_priv(dev);
  
- unsigned int nf_conntrack_htable_size __read_mostly;
-@@ -757,7 +784,7 @@ restart:
- 	hash = hash_bucket(_hash, net);
- 	for (; i < net->ct.htable_size; i++) {
- 		lockp = &nf_conntrack_locks[hash % CONNTRACK_LOCKS];
--		spin_lock(lockp);
-+		nf_conntrack_lock(lockp);
- 		if (read_seqcount_retry(&net->ct.generation, sequence)) {
- 			spin_unlock(lockp);
- 			goto restart;
-@@ -1382,7 +1409,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 	for (; *bucket < net->ct.htable_size; (*bucket)++) {
- 		lockp = &nf_conntrack_locks[*bucket % CONNTRACK_LOCKS];
- 		local_bh_disable();
--		spin_lock(lockp);
-+		nf_conntrack_lock(lockp);
- 		if (*bucket < net->ct.htable_size) {
- 			hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
- 				if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index bd9d315..3b40ec5 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -425,7 +425,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
+@@ -1113,11 +1120,9 @@ static void rtl8192_tx_isr(struct urb *tx_urb)
  	}
- 	local_bh_disable();
- 	for (i = 0; i < net->ct.htable_size; i++) {
--		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
-+		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
- 		if (i < net->ct.htable_size) {
- 			hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
- 				unhelp(h, me);
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 9f52729..81e3f70 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -840,7 +840,7 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
- 	for (; cb->args[0] < net->ct.htable_size; cb->args[0]++) {
- restart:
- 		lockp = &nf_conntrack_locks[cb->args[0] % CONNTRACK_LOCKS];
--		spin_lock(lockp);
-+		nf_conntrack_lock(lockp);
- 		if (cb->args[0] >= net->ct.htable_size) {
- 			spin_unlock(lockp);
- 			goto out;
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 3921d54..8a30ca6 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -309,12 +309,12 @@ static void ctnl_untimeout(struct net *net, struct ctnl_timeout *timeout)
  
- 	local_bh_disable();
- 	for (i = 0; i < net->ct.htable_size; i++) {
--		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
-+		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
- 		if (i < net->ct.htable_size) {
- 			hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
- 				untimeout(h, timeout);
- 		}
--		spin_unlock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
-+		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
- 	}
- 	local_bh_enable();
- }
+ 	/* free skb and tx_urb */
+-	if (skb != NULL) {
+-		dev_kfree_skb_any(skb);
+-		usb_free_urb(tx_urb);
+-		atomic_dec(&priv->tx_pending[queue_index]);
+-	}
++	dev_kfree_skb_any(skb);
++	usb_free_urb(tx_urb);
++	atomic_dec(&priv->tx_pending[queue_index]);
+ 
+ 	/*
+ 	 * Handle HW Beacon:
 -- 
-1.7.10.4
+2.1.4
