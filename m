@@ -1,45 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: Propagate lookup failure in l3mdev_get_saddr
- to caller
-Date: Mon, 04 Jan 2016 22:58:54 -0500 (EST)
-Message-ID: <20160104.225854.1644508041816573984.davem@davemloft.net>
-References: <1451927367-14527-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net v2] skbuff: Fix skb checksum flag on skb pull
+Date: Mon, 04 Jan 2016 23:08:04 -0500 (EST)
+Message-ID: <20160104.230804.2220774053197810472.davem@davemloft.net>
+References: <1442951873-4803-1-git-send-email-pshelar@nicira.com>
+	<20150924.140931.1967362456389755405.davem@davemloft.net>
+	<1451498745.8255.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: pshelar@nicira.com, netdev@vger.kernel.org,
+	willemdebruijn.kernel@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51399 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51442 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753884AbcAED64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 22:58:56 -0500
-In-Reply-To: <1451927367-14527-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1753884AbcAEEIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 23:08:07 -0500
+In-Reply-To: <1451498745.8255.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon,  4 Jan 2016 09:09:27 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 30 Dec 2015 13:05:45 -0500
 
-> Commands run in a vrf context are not failing as expected on a route lookup:
->     root@kenny:~# ip ro ls table vrf-red
->     unreachable default
+> On Thu, 2015-09-24 at 14:09 -0700, David Miller wrote:
+>> From: Pravin B Shelar <pshelar@nicira.com>
+>> Date: Tue, 22 Sep 2015 12:57:53 -0700
+>> 
+>> > VXLAN device can receive skb with checksum partial. But the checksum
+>> > offset could be in outer header which is pulled on receive. This results
+>> > in negative checksum offset for the skb. Such skb can cause the assert
+>> > failure in skb_checksum_help(). Following patch fixes the bug by setting
+>> > checksum-none while pulling outer header.
+>> > 
+>> > Following is the kernel panic msg from old kernel hitting the bug.
+>>  ...
+>> > Reported-by: Anupam Chanda <achanda@vmware.com>
+>> > Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> 
+>> Applied, thanks.
 > 
->     root@kenny:~# ping -I vrf-red -c1 -w1 10.100.1.254
->     ping: Warning: source address might be selected on device other than vrf-red.
->     PING 10.100.1.254 (10.100.1.254) from 0.0.0.0 vrf-red: 56(84) bytes of data.
 > 
->     --- 10.100.1.254 ping statistics ---
->     2 packets transmitted, 0 received, 100% packet loss, time 999ms
+> It looks like we also should clear skb->csum ?
 > 
-> Since the vrf table does not have a route for 10.100.1.254 the ping
-> should have failed. The saddr lookup causes a full VRF table lookup.
-> Propogating a lookup failure to the user allows the command to fail as
-> expected:
-> 
->     root@kenny:~# ping -I vrf-red -c1 -w1 10.100.1.254
->     connect: No route to host
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> __skb_checksum_complete() definitely would be confused by garbage in
+> skb->csum
 
-Applied, thanks David.
+Pravin, please take a look at this.
