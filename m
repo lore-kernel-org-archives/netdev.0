@@ -1,43 +1,50 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH (net-next.git) 01/18] stmmac: share reset function between
- dwmac100 and dwmac1000
-Date: Tue, 5 Jan 2016 10:03:28 +0100
-Message-ID: <568B86E0.6000400@st.com>
-References: <1451912823-5245-1-git-send-email-peppe.cavallaro@st.com>	<1451912823-5245-2-git-send-email-peppe.cavallaro@st.com> <20160104.222549.839329360046336198.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <alexandre.torgue@st.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:38305 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751221AbcAEJDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 04:03:33 -0500
-In-Reply-To: <20160104.222549.839329360046336198.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1 v2] include/uapi/linux/sockios.h: mark SIOCRTMSG unused
+Date: Tue,  5 Jan 2016 10:12:49 +0100
+Message-ID: <1451985169-4622-1-git-send-email-xypron.glpk@gmx.de>
+References: <20160104.171953.1963808714374349079.davem@davemloft.net>
+Cc: linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160104.171953.1963808714374349079.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/5/2016 4:25 AM, David Miller wrote:
-> From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Date: Mon, 4 Jan 2016 14:06:46 +0100
->
->> @@ -376,7 +376,8 @@ extern const struct stmmac_desc_ops ndesc_ops;
->>   /* Specific DMA helpers */
->>   struct stmmac_dma_ops {
->>   	/* DMA core initialization */
->> -	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
->> +	int (*reset)(void __iomem *ioaddr);
->> +	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
->>   		     int burst_len, u32 dma_tx, u32 dma_rx, int atds);
->
-> Since you change the return type of the 'init' method, and this
-> changes the column of the openning parenthesis, you have to fix the
-> indentation of the argument list on the next line.
->
+IOCTL SIOCRTMSG does nothing but return EINVAL.
 
-hmm, lines are well aligned.
+So comment it as unused.
 
-I will check again, in case of I introduced some indentation problem.
+SIOCRTMSG is only used in:
+* net/ipv4/af_inet.c
+* include/uapi/linux/sockios.h
 
-peppe
+inet_ioctl calls ip_rt_ioctl.
+ip_rt_ioctl only handles SIOCADDRT and SIOCDELRT and returns -EINVAL
+otherwise.
+
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+---
+ include/uapi/linux/sockios.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
+index e888b1a..8e7890b 100644
+--- a/include/uapi/linux/sockios.h
++++ b/include/uapi/linux/sockios.h
+@@ -27,7 +27,7 @@
+ /* Routing table calls. */
+ #define SIOCADDRT	0x890B		/* add routing table entry	*/
+ #define SIOCDELRT	0x890C		/* delete routing table entry	*/
+-#define SIOCRTMSG	0x890D		/* call to routing system	*/
++#define SIOCRTMSG	0x890D		/* unused			*/
+ 
+ /* Socket configuration controls. */
+ #define SIOCGIFNAME	0x8910		/* get iface name		*/
+-- 
+2.1.4
