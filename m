@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] connector: bump skb->users before callback invocation
-Date: Mon, 04 Jan 2016 21:47:33 -0500 (EST)
-Message-ID: <20160104.214733.921867451376206917.davem@davemloft.net>
-References: <CACT4Y+bKYO2XfY74tgUiOC7WotQ8DRBcMT=2yy3S=Ubz8bnj_g@mail.gmail.com>
-	<20151231132633.GA30790@breakpoint.cc>
+Subject: Re: [GIT] [4.5] NFC update
+Date: Mon, 04 Jan 2016 21:48:46 -0500 (EST)
+Message-ID: <20160104.214846.1353809846289549017.davem@davemloft.net>
+References: <20151231192637.GA3247@zurbaran.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, herbert@gondor.apana.org.au, tgraf@suug.ch,
-	daniel@iogearbox.net, chamaken@gmail.com,
-	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
-	edumazet@google.com, zbr@ioremap.net
-To: fw@strlen.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151231132633.GA30790@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-nfc@lists.01.org
+To: sameo@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50716 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753842AbcAECss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2016 21:48:48 -0500
+In-Reply-To: <20151231192637.GA3247@zurbaran.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 31 Dec 2015 14:26:33 +0100
+From: Samuel Ortiz <sameo@linux.intel.com>
+Date: Thu, 31 Dec 2015 20:26:37 +0100
 
-> Dmitry reports memleak with syskaller program.
-> Problem is that connector bumps skb usecount but might not invoke callback.
+> This is the first NFC pull request for 4.5 and it brings:
 > 
-> So move skb_get to where we invoke the callback.
+> - A new driver for the STMicroelectronics ST95HF NFC chipset.
+>   The ST95HF is an NFC digital transceiver with an embedded analog
+>   front-end and as such relies on the Linux NFC digital
+>   implementation. This is the 3rd user of the NFC digital stack.
 > 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> - ACPI support for the ST st-nci and st21nfca drivers.
+> 
+> - A small improvement for the nfcsim driver, as we can now tune
+>   the Rx delay through sysfs.
+> 
+> - A bunch of minor cleanups and small fixes from Christophe Ricard,
+>   for a few drivers and the NFC core code.
 
-Applied and queued up for -stable, thanks.
+Pulled, thanks Samuel.
