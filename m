@@ -1,59 +1,107 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 03/24] phy: Use phy_read() instead of
- mdiobus_read()
-Date: Tue, 5 Jan 2016 14:40:33 +0100
-Message-ID: <20160105134033.GE20108@lunn.ch>
-References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
- <1451929022-5580-4-git-send-email-andrew@lunn.ch>
- <568AD10F.7070005@gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v5 net-next 1/3] net: ethernet: cadence-macb: Add disabled
+ usrio caps
+Date: Tue, 5 Jan 2016 14:45:15 +0100
+Message-ID: <568BC8EB.1040102@atmel.com>
+References: <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
+ <1452001158-20585-1-git-send-email-narmstrong@baylibre.com>
+ <1452001158-20585-2-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36196 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752388AbcAENkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jan 2016 08:40:35 -0500
-Content-Disposition: inline
-In-Reply-To: <568AD10F.7070005@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Neil Armstrong <narmstrong@baylibre.com>, <davem@davemloft.net>,
+	<harini.katakam@xilinx.com>, <boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<joshc@ni.com>, <devicetree@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452001158-20585-2-git-send-email-narmstrong@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 04, 2016 at 12:07:43PM -0800, Florian Fainelli wrote:
-> On 04/01/16 09:36, Andrew Lunn wrote:
-> > Since we have a phydev, make use of it and the phy_read() function.
-> > This will help with later refactoring.
-> > 
-> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> > ---
-> 
-> [snip]
-> 
-> 
-> > diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> > index 47cd306dbb3c..67a77956ae6f 100644
-> > --- a/drivers/net/phy/phy.c
-> > +++ b/drivers/net/phy/phy.c
-> > @@ -407,8 +407,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
-> >  		/* fall through */
-> >  
-> >  	case SIOCGMIIREG:
-> > -		mii_data->val_out = mdiobus_read(phydev->bus, mii_data->phy_id,
-> > -						 mii_data->reg_num);
-> > +		mii_data->val_out = phy_read(phydev, mii_data->reg_num);
-> >  		return 0;
-> 
-> Do we have any guarantee that users of this interface do a prior
-> SIOCGMIIPHY ioctl() to select the PHY address? If not, then this change
-> forces it. Arguably, you are current allowed to issue MII reads/writes
-> using a PHY device that can be different from the intent, that does not
-> sound like a robust interface...
+Le 05/01/2016 14:39, Neil Armstrong a =E9crit :
+> On some platforms, the macb integration does not use the USRIO
+> register to configure the (R)MII port and clocks.
+> When the register is not implemented and the MACB error signal
+> is connected to the bus error, reading or writing to the USRIO
+> register can trigger some Imprecise External Aborts on ARM platforms.
+>=20
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 
-This and the following hunk are wrong, and i will drop them. You are
-supposed to be able to read/write any address on the bus, and i
-removed this ability.
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Thanks for pointing this out.
+Thanks!
 
-       Andrew
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 27 +++++++++++++++------------
+>  drivers/net/ethernet/cadence/macb.h |  1 +
+>  2 files changed, 16 insertions(+), 12 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 8b45bc9..fa53bc3 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2124,7 +2124,8 @@ static void macb_get_regs(struct net_device *de=
+v, struct ethtool_regs *regs,
+>  	regs_buff[10] =3D macb_tx_dma(&bp->queues[0], tail);
+>  	regs_buff[11] =3D macb_tx_dma(&bp->queues[0], head);
+> =20
+> -	regs_buff[12] =3D macb_or_gem_readl(bp, USRIO);
+> +	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
+> +		regs_buff[12] =3D macb_or_gem_readl(bp, USRIO);
+>  	if (macb_is_gem(bp)) {
+>  		regs_buff[13] =3D gem_readl(bp, DMACFG);
+>  	}
+> @@ -2403,19 +2404,21 @@ static int macb_init(struct platform_device *=
+pdev)
+>  		dev->hw_features &=3D ~NETIF_F_SG;
+>  	dev->features =3D dev->hw_features;
+> =20
+> -	val =3D 0;
+> -	if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII)
+> -		val =3D GEM_BIT(RGMII);
+> -	else if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII &&
+> -		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> -		val =3D MACB_BIT(RMII);
+> -	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> -		val =3D MACB_BIT(MII);
+> +	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED)) {
+> +		val =3D 0;
+> +		if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII)
+> +			val =3D GEM_BIT(RGMII);
+> +		else if (bp->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII &&
+> +			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> +			val =3D MACB_BIT(RMII);
+> +		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> +			val =3D MACB_BIT(MII);
+> =20
+> -	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+> -		val |=3D MACB_BIT(CLKEN);
+> +		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+> +			val |=3D MACB_BIT(CLKEN);
+> =20
+> -	macb_or_gem_writel(bp, USRIO, val);
+> +		macb_or_gem_writel(bp, USRIO, val);
+> +	}
+> =20
+>  	/* Set MII management clock divider */
+>  	val =3D macb_mdc_clk_div(bp);
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index 5c03e81..0d4ecfc 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -400,6 +400,7 @@
+>  #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
+>  #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
+>  #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+> +#define MACB_CAPS_USRIO_DISABLED		0x00000010
+>  #define MACB_CAPS_FIFO_MODE			0x10000000
+>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+>  #define MACB_CAPS_SG_DISABLED			0x40000000
+>=20
+
+
+--=20
+Nicolas Ferre
