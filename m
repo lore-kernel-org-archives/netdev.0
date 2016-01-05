@@ -1,46 +1,102 @@
-From: Rabin Vincent <rabin@rab.in>
-Subject: [PATCH] ARM: net: bpf: fix zero right shift
-Date: Tue,  5 Jan 2016 18:34:04 +0100
-Message-ID: <1452015244-1230-1-git-send-email-rabin@rab.in>
-Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.infradead.org, Rabin Vincent <rabin@rab.in>
-To: davem@davemloft.net
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH] net: lan78xx: Fix to write to OTP(One Time Programmable)
+ per magic number.
+Date: Tue, 5 Jan 2016 17:29:59 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4049271B@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:33811 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487AbcAEReb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:34:31 -0500
-Received: by mail-wm0-f54.google.com with SMTP id u188so31967576wmu.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 09:34:31 -0800 (PST)
+Received: from exsmtp01.microchip.com ([198.175.253.37]:47440 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752359AbcAERfL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 12:35:11 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The LSR instruction cannot be used to perform a zero right shift since a
-0 as the immediate value (imm5) in the LSR instruction encoding means
-that a shift of 32 is perfomed.  See DecodeIMMShift() in the ARM ARM.
+This patch fixes a bug writing to EEPROM in lan78xx_ethtool_set_eeprom()
+when asked to write to OTP.
 
-Make the JIT skip generation of the LSR if a zero-shift is requested.
-
-This was found using american fuzzy lop.
-
-Signed-off-by: Rabin Vincent <rabin@rab.in>
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- arch/arm/net/bpf_jit_32.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/usb/lan78xx.c | 55 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 54 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index e153eb065fe4..93d0b6d0b63e 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -756,7 +756,8 @@ load_ind:
- 		case BPF_ALU | BPF_RSH | BPF_K:
- 			if (unlikely(k > 31))
- 				return -1;
--			emit(ARM_LSR_I(r_A, r_A, k), ctx);
-+			if (k)
-+				emit(ARM_LSR_I(r_A, r_A, k), ctx);
- 			break;
- 		case BPF_ALU | BPF_RSH | BPF_X:
- 			update_on_xread(ctx);
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 226668e..d54f536 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -603,6 +603,59 @@ static int lan78xx_read_raw_otp(struct lan78xx_net *dev, u32 offset,
+ 	return 0;
+ }
+ 
++static int lan78xx_write_raw_otp(struct lan78xx_net *dev, u32 offset,
++				 u32 length, u8 *data)
++{
++	int i;
++	int ret;
++	u32 buf;
++	unsigned long timeout;
++
++	ret = lan78xx_read_reg(dev, OTP_PWR_DN, &buf);
++
++	if (buf & OTP_PWR_DN_PWRDN_N_) {
++		/* clear it and wait to be cleared */
++		ret = lan78xx_write_reg(dev, OTP_PWR_DN, 0);
++
++		timeout = jiffies + HZ;
++		do {
++			udelay(1);
++			ret = lan78xx_read_reg(dev, OTP_PWR_DN, &buf);
++			if (time_after(jiffies, timeout)) {
++				netdev_warn(dev->net,
++					    "timeout on OTP_PWR_DN completion");
++				return -EIO;
++			}
++		} while (buf & OTP_PWR_DN_PWRDN_N_);
++	}
++
++	/* set to BYTE program mode */
++	ret = lan78xx_write_reg(dev, OTP_PRGM_MODE, OTP_PRGM_MODE_BYTE_);
++
++	for (i = 0; i < length; i++) {
++		ret = lan78xx_write_reg(dev, OTP_ADDR1,
++					((offset + i) >> 8) & OTP_ADDR1_15_11);
++		ret = lan78xx_write_reg(dev, OTP_ADDR2,
++					((offset + i) & OTP_ADDR2_10_3));
++		ret = lan78xx_write_reg(dev, OTP_PRGM_DATA, data[i]);
++		ret = lan78xx_write_reg(dev, OTP_TST_CMD, OTP_TST_CMD_PRGVRFY_);
++		ret = lan78xx_write_reg(dev, OTP_CMD_GO, OTP_CMD_GO_GO_);
++
++		timeout = jiffies + HZ;
++		do {
++			udelay(1);
++			ret = lan78xx_read_reg(dev, OTP_STATUS, &buf);
++			if (time_after(jiffies, timeout)) {
++				netdev_warn(dev->net,
++					    "Timeout on OTP_STATUS completion");
++				return -EIO;
++			}
++		} while (buf & OTP_STATUS_BUSY_);
++	}
++
++	return 0;
++}
++
+ static int lan78xx_read_otp(struct lan78xx_net *dev, u32 offset,
+ 			    u32 length, u8 *data)
+ {
+@@ -969,7 +1022,7 @@ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
+ 		 (ee->offset == 0) &&
+ 		 (ee->len == 512) &&
+ 		 (data[0] == OTP_INDICATOR_1))
+-		return lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
++		return lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
+ 
+ 	return -EINVAL;
+ }
 -- 
-2.6.4
+2.1.4
