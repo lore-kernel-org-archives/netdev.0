@@ -1,135 +1,75 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next] ethernet/atheros/alx: sanitize buffer sizing and padding
-Date: Tue,  5 Jan 2016 18:12:34 -0500
-Message-ID: <1452035554-26145-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	"Eugene A. Shatokhin" <eugene.shatokhin@rosalab.ru>,
-	Przemek Rudy <prudy1@o2.pl>, Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Wed, 6 Jan 2016 00:35:18 +0100
+Message-ID: <568C5336.9090907@stressinduktion.org>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kernel-team@fb.com, tglx@linutronix.de, mingo@redhat.com,
+	hpa@zytor.com, x86@kernel.org
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35592 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751663AbcAEXMq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jan 2016 18:12:46 -0500
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42599 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750822AbcAEXfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 18:35:22 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 6A7B4204A9
+	for <netdev@vger.kernel.org>; Tue,  5 Jan 2016 18:35:21 -0500 (EST)
+In-Reply-To: <1452019261-449449-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is based on the work done by Przemek Rudy in bug 70761 at
-bugzilla.kernel.org, but with some work done to disentagle and clarify
-things a bit.
+Hi,
 
-Similar to Przemek's work and other drivers, we're adding a padding of 16
-here, but we're also disentangling mtu size calculations from max buffer
-size calculations a bit, and adding ETH_HLEN to the value written into
-ALX_MTU. Hopefully, with a bit more consistency and clarity, things behave
-better here. Sadly, I can only test in my alx-driven E2200, which worked
-just fine before this patch.
+On 05.01.2016 19:41, Tom Herbert wrote:
+> Implement assembly routine for csum_partial for 64 bit x86. This
+> primarily speeds up checksum calculation for smaller lengths such as
+> those that are present when doing skb_postpull_rcsum when getting
+> CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY
+> conversion.
+>
+> This implementation is similar to csum_partial implemented in
+> checksum_32.S, however since we are dealing with 8 bytes at a time
+> there are more cases for small lengths-- for that we employ a jump
+> table. Also, we don't do anything special for alignment, unaligned
+> accesses on x86 do not appear to be a performance issue.
+>
+> Testing:
+>
+> Verified correctness by testing arbitrary length buffer filled with
+> random data. For each buffer I compared the computed checksum
+> using the original algorithm for each possible alignment (0-7 bytes).
+>
+> Checksum performance:
+>
+> Isolating old and new implementation for some common cases:
+>
+>                          Old      New
+> Case                    nsecs    nsecs     Improvement
+> ---------------------+--------+--------+-----------------------------
+> 1400 bytes (0 align)    194.5    174.3     10%    (Big packet)
+> 40 bytes (0 align)      13.8     5.8       57%    (Ipv6 hdr common case)
+> 8 bytes (4 align)       8.4      2.9       65%    (UDP, VXLAN in IPv4)
+> 14 bytes (0 align)      10.6     5.8       45%    (Eth hdr)
+> 14 bytes (4 align)      10.8     5.8       46%    (Eth hdr in IPv4)
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-In comment #58 of bug 70761, Eugene A. Shatokhin reports that this patch
-does help considerably for a ROSA Linux user of his with an AR8162 network
-adapter when patched into a 4.1.x-based kernel, with several days of
-normal operation where wired network previously wasn't usable without
-setting MTU to 9000 as a work-around. Other users report less substatial
-improvements, but no regressions thus far.
+Also,
 
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=70761
-CC: "Eugene A. Shatokhin" <eugene.shatokhin@rosalab.ru>
-CC: Przemek Rudy <prudy1@o2.pl>
-CC: Jay Cliburn <jcliburn@gmail.com>
-CC: Chris Snook <chris.snook@gmail.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/ethernet/atheros/alx/hw.c   | 10 +++++-----
- drivers/net/ethernet/atheros/alx/hw.h   |  9 ++++++---
- drivers/net/ethernet/atheros/alx/main.c |  7 +++----
- 3 files changed, 14 insertions(+), 12 deletions(-)
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-index 7712f06..841bc0d 100644
---- a/drivers/net/ethernet/atheros/alx/hw.c
-+++ b/drivers/net/ethernet/atheros/alx/hw.c
-@@ -958,13 +958,13 @@ void alx_configure_basic(struct alx_hw *hw)
- 	alx_write_mem32(hw, ALX_TINT_TPD_THRSHLD, hw->ith_tpd);
- 	alx_write_mem32(hw, ALX_TINT_TIMER, hw->imt);
- 
--	raw_mtu = hw->mtu + ETH_HLEN;
--	alx_write_mem32(hw, ALX_MTU, raw_mtu + 8);
--	if (raw_mtu > ALX_MTU_JUMBO_TH)
-+	raw_mtu = ALX_RAW_MTU(hw->mtu);
-+	alx_write_mem32(hw, ALX_MTU, raw_mtu);
-+	if (raw_mtu > (ALX_MTU_JUMBO_TH + ETH_FCS_LEN + VLAN_HLEN))
- 		hw->rx_ctrl &= ~ALX_MAC_CTRL_FAST_PAUSE;
- 
--	if ((raw_mtu + 8) < ALX_TXQ1_JUMBO_TSO_TH)
--		val = (raw_mtu + 8 + 7) >> 3;
-+	if ((raw_mtu) < ALX_TXQ1_JUMBO_TSO_TH)
-+		val = (raw_mtu + 7) >> 3;
- 	else
- 		val = ALX_TXQ1_JUMBO_TSO_TH >> 3;
- 	alx_write_mem32(hw, ALX_TXQ1, val | ALX_TXQ1_ERRLGPKT_DROP_EN);
-diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
-index 1554880..f289c05 100644
---- a/drivers/net/ethernet/atheros/alx/hw.h
-+++ b/drivers/net/ethernet/atheros/alx/hw.h
-@@ -37,6 +37,7 @@
- #include <linux/types.h>
- #include <linux/mdio.h>
- #include <linux/pci.h>
-+#include <linux/if_vlan.h>
- #include "reg.h"
- 
- /* Transmit Packet Descriptor, contains 4 32-bit words.
-@@ -343,12 +344,14 @@ struct alx_rrd {
- 					 ALX_RSS_HASH_TYPE_IPV4_TCP | \
- 					 ALX_RSS_HASH_TYPE_IPV6 | \
- 					 ALX_RSS_HASH_TYPE_IPV6_TCP)
--#define ALX_DEF_RXBUF_SIZE	1536
-+#define ALX_FRAME_PAD		16
-+#define ALX_RAW_MTU(_mtu)	(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
-+#define ALX_MAX_FRAME_LEN(_mtu)	(ALIGN((ALX_RAW_MTU(_mtu) + ALX_FRAME_PAD), 8))
-+#define ALX_DEF_RXBUF_SIZE	ALX_MAX_FRAME_LEN(1500)
- #define ALX_MAX_JUMBO_PKT_SIZE	(9*1024)
- #define ALX_MAX_TSO_PKT_SIZE	(7*1024)
- #define ALX_MAX_FRAME_SIZE	ALX_MAX_JUMBO_PKT_SIZE
--#define ALX_MIN_FRAME_SIZE	68
--#define ALX_RAW_MTU(_mtu)	(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
-+#define ALX_MIN_FRAME_SIZE	(ETH_ZLEN + ETH_FCS_LEN + VLAN_HLEN)
- 
- #define ALX_MAX_RX_QUEUES	8
- #define ALX_MAX_TX_QUEUES	4
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index d3763bc..55b118e 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -704,7 +704,7 @@ static int alx_init_sw(struct alx_priv *alx)
- 
- 	hw->smb_timer = 400;
- 	hw->mtu = alx->dev->mtu;
--	alx->rxbuf_size = ALIGN(ALX_RAW_MTU(hw->mtu), 8);
-+	alx->rxbuf_size = ALX_MAX_FRAME_LEN(hw->mtu);
- 	alx->tx_ringsz = 256;
- 	alx->rx_ringsz = 512;
- 	hw->imt = 200;
-@@ -805,7 +805,7 @@ static void alx_reinit(struct alx_priv *alx)
- static int alx_change_mtu(struct net_device *netdev, int mtu)
- {
- 	struct alx_priv *alx = netdev_priv(netdev);
--	int max_frame = mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+	int max_frame = ALX_MAX_FRAME_LEN(mtu);
- 
- 	if ((max_frame < ALX_MIN_FRAME_SIZE) ||
- 	    (max_frame > ALX_MAX_FRAME_SIZE))
-@@ -816,8 +816,7 @@ static int alx_change_mtu(struct net_device *netdev, int mtu)
- 
- 	netdev->mtu = mtu;
- 	alx->hw.mtu = mtu;
--	alx->rxbuf_size = mtu > ALX_DEF_RXBUF_SIZE ?
--			   ALIGN(max_frame, 8) : ALX_DEF_RXBUF_SIZE;
-+	alx->rxbuf_size = max(max_frame, ALX_DEF_RXBUF_SIZE);
- 	netdev_update_features(netdev);
- 	if (netif_running(netdev))
- 		alx_reinit(alx);
--- 
-1.8.3.1
+Tested with the same test cases as the old patch and showed no problems 
+and same improvements.
+
+Tom, did you have a look if it makes sense to add a second carry 
+addition train with the adcx instruction, which does not signal carry 
+via the carry flag but with the overflow flag? This instruction should 
+not have any dependencies with the adc instructions and could help the 
+CPU to parallelize the code even more (increased instructions per cycle).
+
+Thanks,
+Hannes
