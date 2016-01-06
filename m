@@ -1,65 +1,134 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
-Date: Wed, 06 Jan 2016 06:25:07 -0800
-Message-ID: <1452090307.8255.173.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
-	 <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36676 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926AbcAFOZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 09:25:10 -0500
-Received: by mail-pf0-f174.google.com with SMTP id 65so194669353pff.3
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 06:25:09 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH v2 net-next] ethernet/atheros/alx: sanitize buffer sizing and padding
+Date: Wed,  6 Jan 2016 09:36:37 -0500
+Message-ID: <1452090997-27683-1-git-send-email-jarod@redhat.com>
+References: <20160106.012326.1058946039396006074.davem@davemloft.net>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	"Eugene A. Shatokhin" <eugene.shatokhin@rosalab.ru>,
+	Przemek Rudy <prudy1@o2.pl>, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160106.012326.1058946039396006074.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-01-06 at 10:16 +0000, David Laight wrote:
-> From: Eric Dumazet
-> > Sent: 05 January 2016 22:19
-> > To: Tom Herbert
-> > You might add a comment telling the '4' comes from length of 'adcq
-> > 6*8(%rdi),%rax' instruction, and that the 'nop' is to compensate that
-> > 'adcq    0*8(%rdi),%rax' is using 3 bytes instead.
-> > 
-> > We also could use .byte 0x48, 0x13, 0x47, 0x00 to force a 4 bytes
-> > instruction and remove the nop.
-> > 
-> > 
-> > +       lea     20f(, %rcx, 4), %r11
-> > +       clc
-> > +       jmp     *%r11
-> > +
-> > +.align 8
-> > +       adcq    6*8(%rdi),%rax
-> > +       adcq    5*8(%rdi),%rax
-> > +       adcq    4*8(%rdi),%rax
-> > +       adcq    3*8(%rdi),%rax
-> > +       adcq    2*8(%rdi),%rax
-> > +       adcq    1*8(%rdi),%rax
-> > +       adcq    0*8(%rdi),%rax // could force a 4 byte instruction (.byte 0x48, 0x13, 0x47, 0x00)
-> > +       nop
-> > +20:    /* #quads % 8 jump table base */
-> 
-> Or move label at the top (after the .align) and adjust the maths.
-> You could add a second label after the first adcq and use the
-> difference between them for the '4'.
+This is based on the work done by Przemek Rudy in bug 70761 at
+bugzilla.kernel.org, but with some work done to disentagle and clarify
+things a bit.
 
-Not really.
+Similar to Przemek's work and other drivers, we're adding a padding of 16
+here, but we're also disentangling mtu size calculations from max buffer
+size calculations a bit, and adding ETH_HLEN to the value written into
+ALX_MTU. Hopefully, with a bit more consistency and clarity, things behave
+better here. Sadly, I can only test in my alx-driven E2200, which worked
+just fine before this patch.
 
-We could not use the trick it the length was 5.
+In comment #58 of bug 70761, Eugene A. Shatokhin reports that this patch
+does help considerably for a ROSA Linux user of his with an AR8162 network
+adapter when patched into a 4.1.x-based kernel, with several days of
+normal operation where wired network previously wasn't usable without
+setting MTU to 9000 as a work-around.
 
-Only 1, 2, 4 and 8 are supported.
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=70761
+CC: "Eugene A. Shatokhin" <eugene.shatokhin@rosalab.ru>
+CC: Przemek Rudy <prudy1@o2.pl>
+CC: Jay Cliburn <jcliburn@gmail.com>
+CC: Chris Snook <chris.snook@gmail.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+v2: remove superfluous parens around raw_mtu, pointed out by davem
+
+ drivers/net/ethernet/atheros/alx/hw.c   | 10 +++++-----
+ drivers/net/ethernet/atheros/alx/hw.h   |  9 ++++++---
+ drivers/net/ethernet/atheros/alx/main.c |  7 +++----
+ 3 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
+index 7712f06..1fe35e4 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.c
++++ b/drivers/net/ethernet/atheros/alx/hw.c
+@@ -958,13 +958,13 @@ void alx_configure_basic(struct alx_hw *hw)
+ 	alx_write_mem32(hw, ALX_TINT_TPD_THRSHLD, hw->ith_tpd);
+ 	alx_write_mem32(hw, ALX_TINT_TIMER, hw->imt);
+ 
+-	raw_mtu = hw->mtu + ETH_HLEN;
+-	alx_write_mem32(hw, ALX_MTU, raw_mtu + 8);
+-	if (raw_mtu > ALX_MTU_JUMBO_TH)
++	raw_mtu = ALX_RAW_MTU(hw->mtu);
++	alx_write_mem32(hw, ALX_MTU, raw_mtu);
++	if (raw_mtu > (ALX_MTU_JUMBO_TH + ETH_FCS_LEN + VLAN_HLEN))
+ 		hw->rx_ctrl &= ~ALX_MAC_CTRL_FAST_PAUSE;
+ 
+-	if ((raw_mtu + 8) < ALX_TXQ1_JUMBO_TSO_TH)
+-		val = (raw_mtu + 8 + 7) >> 3;
++	if (raw_mtu < ALX_TXQ1_JUMBO_TSO_TH)
++		val = (raw_mtu + 7) >> 3;
+ 	else
+ 		val = ALX_TXQ1_JUMBO_TSO_TH >> 3;
+ 	alx_write_mem32(hw, ALX_TXQ1, val | ALX_TXQ1_ERRLGPKT_DROP_EN);
+diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
+index 1554880..f289c05 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.h
++++ b/drivers/net/ethernet/atheros/alx/hw.h
+@@ -37,6 +37,7 @@
+ #include <linux/types.h>
+ #include <linux/mdio.h>
+ #include <linux/pci.h>
++#include <linux/if_vlan.h>
+ #include "reg.h"
+ 
+ /* Transmit Packet Descriptor, contains 4 32-bit words.
+@@ -343,12 +344,14 @@ struct alx_rrd {
+ 					 ALX_RSS_HASH_TYPE_IPV4_TCP | \
+ 					 ALX_RSS_HASH_TYPE_IPV6 | \
+ 					 ALX_RSS_HASH_TYPE_IPV6_TCP)
+-#define ALX_DEF_RXBUF_SIZE	1536
++#define ALX_FRAME_PAD		16
++#define ALX_RAW_MTU(_mtu)	(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
++#define ALX_MAX_FRAME_LEN(_mtu)	(ALIGN((ALX_RAW_MTU(_mtu) + ALX_FRAME_PAD), 8))
++#define ALX_DEF_RXBUF_SIZE	ALX_MAX_FRAME_LEN(1500)
+ #define ALX_MAX_JUMBO_PKT_SIZE	(9*1024)
+ #define ALX_MAX_TSO_PKT_SIZE	(7*1024)
+ #define ALX_MAX_FRAME_SIZE	ALX_MAX_JUMBO_PKT_SIZE
+-#define ALX_MIN_FRAME_SIZE	68
+-#define ALX_RAW_MTU(_mtu)	(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
++#define ALX_MIN_FRAME_SIZE	(ETH_ZLEN + ETH_FCS_LEN + VLAN_HLEN)
+ 
+ #define ALX_MAX_RX_QUEUES	8
+ #define ALX_MAX_TX_QUEUES	4
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index d3763bc..55b118e 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -704,7 +704,7 @@ static int alx_init_sw(struct alx_priv *alx)
+ 
+ 	hw->smb_timer = 400;
+ 	hw->mtu = alx->dev->mtu;
+-	alx->rxbuf_size = ALIGN(ALX_RAW_MTU(hw->mtu), 8);
++	alx->rxbuf_size = ALX_MAX_FRAME_LEN(hw->mtu);
+ 	alx->tx_ringsz = 256;
+ 	alx->rx_ringsz = 512;
+ 	hw->imt = 200;
+@@ -805,7 +805,7 @@ static void alx_reinit(struct alx_priv *alx)
+ static int alx_change_mtu(struct net_device *netdev, int mtu)
+ {
+ 	struct alx_priv *alx = netdev_priv(netdev);
+-	int max_frame = mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
++	int max_frame = ALX_MAX_FRAME_LEN(mtu);
+ 
+ 	if ((max_frame < ALX_MIN_FRAME_SIZE) ||
+ 	    (max_frame > ALX_MAX_FRAME_SIZE))
+@@ -816,8 +816,7 @@ static int alx_change_mtu(struct net_device *netdev, int mtu)
+ 
+ 	netdev->mtu = mtu;
+ 	alx->hw.mtu = mtu;
+-	alx->rxbuf_size = mtu > ALX_DEF_RXBUF_SIZE ?
+-			   ALIGN(max_frame, 8) : ALX_DEF_RXBUF_SIZE;
++	alx->rxbuf_size = max(max_frame, ALX_DEF_RXBUF_SIZE);
+ 	netdev_update_features(netdev);
+ 	if (netif_running(netdev))
+ 		alx_reinit(alx);
+-- 
+1.8.3.1
