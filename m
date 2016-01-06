@@ -1,63 +1,45 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 15/22] dsa: Register netdev before phy
-Date: Wed,  6 Jan 2016 20:11:20 +0100
-Message-ID: <1452107487-475-16-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 01/22] phy: Consistently use addr for address on an MII bus
+Date: Wed,  6 Jan 2016 20:11:06 +0100
+Message-ID: <1452107487-475-2-git-send-email-andrew@lunn.ch>
 References: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42372 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:42378 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998AbcAFTNk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 14:13:40 -0500
+	id S1752055AbcAFTNs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 14:13:48 -0500
 In-Reply-To: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the phy is connected, an info message is printed. If the netdev
-it is attached to has not been registered yet, the name
-'uninitialised' in the output. By registering the netdev first, then
-connecting they phy, we can avoid this.
+Within phy.h, an address on an MII bus has been called both addr and
+phy_id. phy_id is particularly confusion, since it also means the ID
+found in register 3, if the device on the bus is a phy. Consistently
+use addr.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
-v2: call netif_carrier_off() before dsa_slave_phy_setup()
----
- net/dsa/slave.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ include/linux/phy.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 2771713714f1..40b9ca72aae3 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1189,13 +1189,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	p->old_link = -1;
- 	p->old_duplex = -1;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index a89cb0eef911..77b5e56e2a92 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -158,8 +158,8 @@ struct mii_bus {
+ 	const char *name;
+ 	char id[MII_BUS_ID_SIZE];
+ 	void *priv;
+-	int (*read)(struct mii_bus *bus, int phy_id, int regnum);
+-	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
++	int (*read)(struct mii_bus *bus, int addr, int regnum);
++	int (*write)(struct mii_bus *bus, int addr, int regnum, u16 val);
+ 	int (*reset)(struct mii_bus *bus);
  
--	ret = dsa_slave_phy_setup(p, slave_dev);
--	if (ret) {
--		netdev_err(master, "error %d setting up slave phy\n", ret);
--		free_netdev(slave_dev);
--		return ret;
--	}
--
- 	ds->ports[port] = slave_dev;
- 	ret = register_netdev(slave_dev);
- 	if (ret) {
-@@ -1209,6 +1202,13 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 
- 	netif_carrier_off(slave_dev);
- 
-+	ret = dsa_slave_phy_setup(p, slave_dev);
-+	if (ret) {
-+		netdev_err(master, "error %d setting up slave phy\n", ret);
-+		free_netdev(slave_dev);
-+		return ret;
-+	}
-+
- 	return 0;
- }
- 
+ 	/*
 -- 
 2.6.4
