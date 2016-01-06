@@ -1,52 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sched: fix missing free per cpu on qstats
-Date: Wed, 06 Jan 2016 01:41:21 -0500 (EST)
-Message-ID: <20160106.014121.2086606632987547429.davem@davemloft.net>
-References: <1452015851.8255.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAM_iQpW9qCOuFGAKDY0e=qsT_PY-CdU3FyNK0tA2cRVkxAwAZw@mail.gmail.com>
-	<1452049669.8255.157.camel@edumazet-glaptop2.roam.corp.google.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key
+Date: Wed, 6 Jan 2016 14:44:59 +0800
+Message-ID: <568CB7EB.7080705@gmail.com>
+References: <1452059368-7527-1-git-send-email-wen.gang.wang@oracle.com>
+ <20160106.011835.39198953316515142.davem@davemloft.net>
+ <568CB501.1010106@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, john.fastabend@gmail.com,
-	netdev@vger.kernel.org, daniel@iogearbox.net
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Wengang Wang <wen.gang.wang@oracle.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34126 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbcAFGlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:41:24 -0500
-In-Reply-To: <1452049669.8255.157.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35162 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbcAFGpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:45:06 -0500
+Received: by mail-pa0-f48.google.com with SMTP id do7so506122pab.2
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 22:45:06 -0800 (PST)
+In-Reply-To: <568CB501.1010106@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 05 Jan 2016 19:07:49 -0800
+IMHO, the following comments will help us all.
 
-> On Tue, 2016-01-05 at 18:49 -0800, Cong Wang wrote:
->> On Tue, Jan 5, 2016 at 9:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Tue, 2016-01-05 at 09:11 -0800, John Fastabend wrote:
->> >> When a qdisc is using per cpu stats (currently just the ingress
->> >> qdisc) only the bstats are being freed. This also free's the qstats.
->> >>
->> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> >> ---
->> >
->> > Acked-by: Eric Dumazet <edumazet@google.com>
->> >
->> > David, please add the following tag to ease backports to stable kernels:
->> >
->> > Fixes: 22e0f8b9322cb ("net: sched: make bstats per cpu and estimator RCU safe")
->> >
->> 
->> Not a big deal at all but... doesn't that fix commit b0ab6f92752b9f9d8
->> instead of 22e0f8b9322cb?
-> 
-> Hmmm... you may be right. Both were added in 3.18.
-> 
-> My search was based on commit adding qdisc_is_percpu_stats()
+         case NETDEV_CHANGEMTU:
+                 /* TODO: Should slaves be allowed to
+                  * independently alter their MTU?  For
+                  * an active-backup bond, slaves need
+                  * not be the same type of device, so
+                  * MTUs may vary.  For other modes,
+                  * slaves arguably should have the
+                  * same MTUs. To do this, we'd need to
+                  * take over the slave's change_mtu
+                  * function for the duration of their
+                  * servitude.
+                  */
+                 break;
 
-The right commit looks to be b0ab6f92752b9f9d8, so that's what I've
-used in the Fixes: tag.
+Best Regards!
+Zhu Yanjun
 
-Applied and queued up for -stable, thanks!
+On 01/06/2016 02:32 PM, Wengang Wang wrote:
+>
+>
+> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8806=E6=97=A5 14:18, David Miller =E5=
+=86=99=E9=81=93:
+>> From: Wengang Wang <wen.gang.wang@oracle.com>
+>> Date: Wed,  6 Jan 2016 13:49:28 +0800
+>>
+>>> @@ -523,11 +523,20 @@ static void build_skb_flow_key(struct flowi4=20
+>>> *fl4, const struct sk_buff *skb,
+>>>                      const struct sock *sk)
+>>>   {
+>>>       const struct iphdr *iph =3D ip_hdr(skb);
+>>> -    int oif =3D skb->dev->ifindex;
+>>> +    int oif;
+>>> +    struct net_device *master =3D NULL;
+>>> +
+>>>       u8 tos =3D RT_TOS(iph->tos);
+>>>       u8 prot =3D iph->protocol;
+>>>       u32 mark =3D skb->mark;
+>> Please fix the stlye of these variable declarations:
+>>
+>> 1) Order them from longest line to shortest line, also known
+>>     as "reverse christmas tree" layout.
+>>
+>> 2) Do not add an empty line in the middle of these variable
+>>     declarations.
+> OK, will do in second drop.
+>
+> thanks,
+> wengang
+> --=20
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
