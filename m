@@ -1,92 +1,60 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible)
- division by zero
-Date: Wed, 6 Jan 2016 10:43:45 -0800
-Message-ID: <CAK6E8=chikkT02ygDHzHN9xP7q7kzWUqHEVgj7g0oW_RUPcuoA@mail.gmail.com>
-References: <26396443.iDTTxgChSj@spock> <CAK6E8=d1FquYTtMXi6v+koruRhA2MUe693-DX5jbU8urRatUoQ@mail.gmail.com>
- <DDC4BD3D-A5F5-4EBF-8461-7C63ABC9F852@natalenko.name> <CAK6E8=dSRmf35AaC6mOcRaGSxn81CE76WiOfNx6jb5X8uhDGqw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Oleksandr Natalenko <oleksandr@natalenko.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK6E8=dSRmf35AaC6mOcRaGSxn81CE76WiOfNx6jb5X8uhDGqw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net] Driver: Vmxnet3: Fix regression caused by 5738a09
+Date: Wed,  6 Jan 2016 10:44:27 -0800
+Message-ID: <1452105867-12598-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>
+To: pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, khoroshilov@ispras.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:37096 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751954AbcAFSof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 13:44:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 6, 2016 at 10:19 AM, Yuchung Cheng <ycheng@google.com> wrot=
-e:
-> On Wed, Jan 6, 2016 at 8:50 AM, Oleksandr Natalenko
-> <oleksandr@natalenko.name> wrote:
->>
->> Unfortunately, the patch didn't help -- I've got the same stacktrace=
- with slightly different offset (+3) within the function.
->>
->> Now trying to get full stacktrace via netconsole. Need more time.
->>
->> Meanwhile, any other ideas on what went wrong?
->
-> That's odd b/c the patch already checks and avoids div0. Can post me
-> the stacktrace and kernel warnings if any ...
->
-> One possibility is that tcp_cwnd_reduction() may set a cwnd of 0,
-> which then gets used to start another recovery phase. This may or may
-> not be the culprit of this div0 issue because I wasn't able to
-> reproduce exactly your issue on our servers. But I will post the fix
-> today and CC you.
-Could you turn off ecn (sysctl net.ipv4.tcp_ecn=3D0) to see if this sti=
-ll happen?
+Reported-by: Bingkuo Liu <bingkuol@vmware.com>
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 8 ++++----
+ drivers/net/vmxnet3/vmxnet3_int.h | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
->
->>
->>
->> On December 22, 2015 4:10:32 AM EET, Yuchung Cheng <ycheng@google.co=
-m> wrote:
->> >On Mon, Dec 21, 2015 at 12:25 PM, Oleksandr Natalenko
->> ><oleksandr@natalenko.name> wrote:
->> >> Commit 3759824da87b30ce7a35b4873b62b0ba38905ef5 (tcp: PRR uses CR=
-B
->> >mode by
->> >> default and SS mode conditionally) introduced changes to
->> >net/ipv4/tcp_input.c
->> >> tcp_cwnd_reduction() that, possibly, cause division by zero, and
->> >therefore,
->> >> kernel panic in interrupt handler [1].
->> >>
->> >> Reverting 3759824da87b30ce7a35b4873b62b0ba38905ef5 seems to fix t=
-he
->> >issue.
->> >>
->> >> I'm able to reproduce the issue on 4.3.0=E2=80=934.3.3 once per s=
-everal day
->> >> (occasionally).
->> >>
->> >> What could be done to help in debugging this issue?
->> >Do you have ECN enabled (i.e. sysctl net.ipv4.tcp_ecn > 0)?
->> >
->> >If so I suspect an ACK carrying ECE during CA_Loss causes entering =
-CWR
->> >state w/o calling tcp_init_cwnd_reduct() to set tp->prior_cwnd. Can
->> >you try this debug / quick-fix patch and send me the error message =
-if
->> >any?
->> >
->> >
->> >>
->> >> Regards,
->> >>   Oleksandr.
->> >>
->> >> [1] http://i.piccy.info/
->> >>
->> >i9/6f5cb187c4ff282d189f78c63f95af43/1450729403/283985/951663/panic.=
-jpg
->>
->> --
->> Sent from my Android device with K-9 Mail. Please excuse my brevity.
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 4179037..0cbf520 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1380,10 +1380,10 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 					skip_page_frags = true;
+ 					goto rcd_done;
+ 				}
+-				new_dma_addr = dma_map_page(&adapter->pdev->dev
+-							, rbi->page,
+-							0, PAGE_SIZE,
+-							PCI_DMA_FROMDEVICE);
++				new_dma_addr = dma_map_page(&adapter->pdev->dev,
++							    new_page,
++							    0, PAGE_SIZE,
++							    PCI_DMA_FROMDEVICE);
+ 				if (dma_mapping_error(&adapter->pdev->dev,
+ 						      new_dma_addr)) {
+ 					put_page(new_page);
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 4c58c83..bdb8a6c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.4.4.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.4.5.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01040400
++#define VMXNET3_DRIVER_VERSION_NUM      0x01040500
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+-- 
+1.8.5.6
