@@ -1,46 +1,72 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 5/8] mlxsw: Fixing vlans init range
-Date: Wed,  6 Jan 2016 13:01:08 +0100
-Message-ID: <1452081671-8476-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 7/8] mlxsw: Disable vlan_filtering for non .1D bridge
+Date: Wed,  6 Jan 2016 13:01:10 +0100
+Message-ID: <1452081671-8476-8-git-send-email-jiri@resnulli.us>
 References: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36448 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752231AbcAFMBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 07:01:20 -0500
-Received: by mail-wm0-f46.google.com with SMTP id l65so56680454wmf.1
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 04:01:20 -0800 (PST)
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:33403 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752102AbcAFMBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 07:01:22 -0500
+Received: by mail-wm0-f43.google.com with SMTP id f206so57174076wmf.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 04:01:22 -0800 (PST)
 In-Reply-To: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Elad Raz <eladr@mellanox.com>
 
-Initialize VLANs 0..4095 (Remove init for VID 4096).
+When a port is bridged, the bridge must be vlan aware bridge (.1Q)
+or the bridging should be on top of VLAN interfaces (.1D bridge).
 
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c    | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 6215954..dcf77c9 100644
+index ad1bf7f..d6242cf 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -1201,7 +1201,8 @@ int mlxsw_sp_port_vlan_init(struct mlxsw_sp_port *mlxsw_sp_port)
- 	 * with VID 1.
- 	 */
- 	mlxsw_sp_port->pvid = 1;
--	err = __mlxsw_sp_port_vlans_del(mlxsw_sp_port, 0, VLAN_N_VID, true);
-+	err = __mlxsw_sp_port_vlans_del(mlxsw_sp_port, 0, VLAN_N_VID - 1,
-+					true);
- 	if (err) {
- 		netdev_err(dev, "Unable to init VLANs\n");
- 		return err;
+@@ -299,6 +299,22 @@ static int mlxsw_sp_port_attr_br_ageing_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return mlxsw_sp_ageing_set(mlxsw_sp, ageing_time);
+ }
+ 
++static int mlxsw_sp_port_attr_br_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port,
++					  struct switchdev_trans *trans,
++					  struct net_device *orig_dev,
++					  bool vlan_enabled)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++
++	/* SWITCHDEV_TRANS_PREPARE phase */
++	if ((!vlan_enabled) && (mlxsw_sp->master_bridge.dev == orig_dev)) {
++		netdev_err(mlxsw_sp_port->dev, "Bridge must be vlan-aware\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 				  const struct switchdev_attr *attr,
+ 				  struct switchdev_trans *trans)
+@@ -323,6 +339,11 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 		err = mlxsw_sp_port_attr_br_ageing_set(mlxsw_sp_port, trans,
+ 						       attr->u.ageing_time);
+ 		break;
++	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
++		err = mlxsw_sp_port_attr_br_vlan_set(mlxsw_sp_port, trans,
++						     attr->orig_dev,
++						     attr->u.vlan_filtering);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
 -- 
 1.9.3
