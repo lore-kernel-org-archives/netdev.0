@@ -1,62 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: possible use after free in dst_release
-Date: Wed, 06 Jan 2016 05:57:24 -0800
-Message-ID: <1452088644.8255.165.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160106081848.4532F6340189@us105.sjc.aristanetworks.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: add per device sg_max_frags for skb
+Date: Wed, 6 Jan 2016 13:59:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
+References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: fruggeri@arista.com, edumazet@google.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35017 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862AbcAFN50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 08:57:26 -0500
-Received: by mail-pf0-f180.google.com with SMTP id 78so242516491pfw.2
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 05:57:26 -0800 (PST)
-In-Reply-To: <20160106081848.4532F6340189@us105.sjc.aristanetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"\"\"Eric W. Biederman\"\"" <ebiederm@xmission.com>,
+	Salam Noureddine <noureddine@arista.com>,
+	Jarod Wilson <jarod@redhat.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Julian Anastasov <ja@ssi.bg>,
+	Ying Xue <ying.xue@windriver.com>,
+	Craig Gallek <kraig@google.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	"\"\"hannes@stressinduktion.org\"\"" <hannes@stressinduktion.org>,
+	Edward Jee <edjee@google.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel
+To: 'Hans Westgaard Ry' <hans.westgaard.ry@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-01-06 at 00:18 -0800, Francesco Ruggeri wrote:
-> dst_release should not access dst->flags after decrementing
-> __refcnt to 0. The dst_entry may be in dst_busy_list and
-> dst_gc_task may dst_destroy it before dst_release gets a chance
-> to access dst->flags.
-> 
-> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
-> ---
->  net/core/dst.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dst.c b/net/core/dst.c
-> index e6dc772..a1656e3 100644
-> --- a/net/core/dst.c
-> +++ b/net/core/dst.c
-> @@ -301,12 +301,13 @@ void dst_release(struct dst_entry *dst)
->  {
->  	if (dst) {
->  		int newrefcnt;
-> +		unsigned short nocache = dst->flags & DST_NOCACHE;
->  
->  		newrefcnt = atomic_dec_return(&dst->__refcnt);
->  		if (unlikely(newrefcnt < 0))
->  			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
->  					     __func__, dst, newrefcnt);
-> -		if (!newrefcnt && unlikely(dst->flags & DST_NOCACHE))
-> +		if (!newrefcnt && unlikely(nocache))
->  			call_rcu(&dst->rcu_head, dst_destroy_rcu);
->  	}
->  }
-
-You're right.
-
-My previous fix (commit d69bbf88c8d0) was okay only for DST_NOCACHE dst.
-
-Fixes: d69bbf88c8d0 ("net: fix a race in dst_release()")
-Fixes: 27b75c95f10d ("net: avoid RCU for NOCACHE dst")
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+RnJvbTogSGFucyBXZXN0Z2FhcmQgUnkNCj4gU2VudDogMDYgSmFudWFyeSAyMDE2IDEzOjE2DQo+
+IERldmljZXMgbWF5IGhhdmUgbGltaXRzIG9uIHRoZSBudW1iZXIgb2YgZnJhZ21lbnRzIGluIGFu
+IHNrYiB0aGV5DQo+IHN1cHBvcnQuIEN1cnJlbnQgY29kZWJhc2UgdXNlcyBhIGNvbnN0YW50IGFz
+IG1heGltdW0gZm9yIG51bWJlciBvZg0KPiBmcmFnbWVudHMgKE1BWF9TS0JfRlJBR1MpIG9uZSBz
+a2IgY2FuIGhvbGQgYW5kIHVzZS4NCj4gDQo+IFdoZW4gZW5hYmxpbmcgc2NhdHRlci9nYXRoZXIg
+YW5kIHJ1bm5pbmcgdHJhZmZpYyB3aXRoIG1hbnkgc21hbGwNCj4gbWVzc2FnZXMgdGhlIGNvZGVi
+YXNlIHVzZXMgdGhlIG1heGltdW0gbnVtYmVyIG9mIGZyYWdtZW50cyBhbmQgdGhlcmVieQ0KPiB2
+aW9sYXRlcyB0aGUgbWF4IGZvciBjZXJ0YWluIGRldmljZXMuDQo+IA0KPiBBbiBleGFtcGxlIG9m
+IHN1Y2ggYSB2aW9sYXRpb24gaXMgd2hlbiBydW5uaW5nIElQb0lCIG9uIGEgSENBDQo+IHN1cHBv
+cnRpbmcgMTYgU0dFIG9uIGFuIGFyY2hpdGVjdHVyZSB3aXRoIDRLIHBhZ2VzaXplLiBUaGUNCj4g
+TUFYX1NLQl9GUkFHUyB3aWxsIGJlIDE3ICg2NEsvNEsrMSkgYW5kIGJlY2F1c2UgSVBvSUIgYWRk
+cyB5ZXQgYW5vdGhlcg0KPiBzZWdtZW50IHdlIGVuZCB1cCB3aXRoIHNlbmRfcmVxdWVzdHMgd2l0
+aCAxOCBTR0UgcmVzdWx0aW5nIGluDQo+IGtlcm5lbC1wYW5pYy4NCj4gDQo+IFRoZSBwYXRjaCBh
+bGxvd3MgdGhlIGRldmljZSB0byBsaW1pdCB0aGUgbWF4aW11bSBudW1iZXIgZnJhZ21lbnRzIHVz
+ZWQNCj4gaW4gb25lIHNrYi4NCg0KVGhpcyBkb2Vzbid0IHNlZW0gdG8gbWUgdG8gYmUgdGhlIGNv
+cnJlY3Qgd2F5IHRvIGZpeCB0aGlzLg0KQW55dGhpbmcgdGhhdCBhZGRzIGFuIGV4dHJhIGZyYWdt
+ZW50IChpbiB0aGlzIGNhc2UgSVBvSUIpIHNob3VsZCBhbGxvdw0KZm9yIHRoZSBza2IgYWxyZWFk
+eSBoYXZpbmcgdGhlIG1heGltdW0gbnVtYmVyIG9mIGZyYWdtZW50cy4NCkZ1bGx5IGxpbmVhcmlz
+aW5nIHRoZSBza2IgaXMgb3ZlcmtpbGwsIGJ1dCBJIHRoaW5rIHRoZSBmaXJzdCBmcmFnbWVudA0K
+Y2FuIGJlIGFkZGVkIHRvIHRoZSBsaW5lYXIgcGFydCBvZiB0aGUgc2tiLg0KDQoJRGF2aWQNCg0K
+DQo=
