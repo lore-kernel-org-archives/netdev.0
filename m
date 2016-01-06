@@ -1,67 +1,89 @@
-From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Subject: [PATCH net 1/2] vxlan: Relax the MTU constraint on vxlan
-	devices
-Date: Wed,  6 Jan 2016 13:33:05 +0000
-Message-ID: <1452087186-12926-2-git-send-email-david@weave.works>
+From: David Wragg <david@weave.works>
+Subject: [PATCH net 2/2] vxlan: Set a large MTU on ovs-created vxlan devices
+Date: Wed,  6 Jan 2016 13:33:06 +0000
+Message-ID: <1452087186-12926-3-git-send-email-david@weave.works>
 References: <1452087186-12926-1-git-send-email-david@weave.works>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1452087186-12926-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: David Wragg <david@weave.works>
+To: netdev@vger.kernel.org, dev@openvswitch.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:35055 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752556AbcAFNdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 08:33:20 -0500
+Received: by mail-wm0-f45.google.com with SMTP id f206so59615020wmf.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 05:33:19 -0800 (PST)
+In-Reply-To: <1452087186-12926-1-git-send-email-david@weave.works>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QWxsb3cgdGhlIE1UVSBvZiB2eGxhbiBkZXZpY2VzIHdpdGhvdXQgYW4gdW5kZXJseWluZyBkZXZp
-Y2UgdG8gYmUgc2V0IHRvCmxhcmdlciB2YWx1ZXMgKHVwIHRvIGEgbWF4aW11bSBiYXNlZCBvbiBJ
-UCBwYWNrZXQgbGltaXRzIGFuZCB2eGxhbgpvdmVyaGVhZCkuCgpQcmV2aW91c2x5LCB0aGVpciBN
-VFVzIGNvdWxkIG5vdCBiZSBzZXQgdG8gaGlnaGVyIHRoYW4gdGhlIGNvbnZlbnRpb25hbApldGhl
-cm5ldCB2YWx1ZSBvZiAxNTAwLiAgVGhpcyBpcyBhIHZlcnkgYXJiaXRyYXJ5IHZhbHVlIGluIHRo
-ZSBjb250ZXh0Cm9mIHZ4bGFuLCBhbmQgcHJldmVudGVkIHN1Y2ggdnhsYW4gZGV2aWNlcyBmcm9t
-IGJlaW5nIGFibGUgdG8gdGFrZQphZHZhbnRhZ2Ugb2YganVtYm8gZnJhbWVzIGV0Yy4KClRoZSBk
-ZWZhdWx0IE1UVSByZW1haW5zIDE1MDAsIGZvciBjb21wYXRpYmlsaXR5LgoKU2lnbmVkLW9mZi1i
-eTogRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZlLndvcmtzPgotLS0KIGRyaXZlcnMvbmV0L3Z4bGFu
-LmMgfCAyNyArKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxNyBp
-bnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92
-eGxhbi5jIGIvZHJpdmVycy9uZXQvdnhsYW4uYwppbmRleCBiYTM2M2NlLi45NmQxYzU1IDEwMDY0
-NAotLS0gYS9kcml2ZXJzL25ldC92eGxhbi5jCisrKyBiL2RyaXZlcnMvbmV0L3Z4bGFuLmMKQEAg
-LTIzNTksMjEgKzIzNTksMTkgQEAgc3RhdGljIHZvaWQgdnhsYW5fc2V0X211bHRpY2FzdF9saXN0
-KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiB7CiB9CiAKLXN0YXRpYyBpbnQgdnhsYW5fY2hhbmdl
-X210dShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgbmV3X210dSkKK3N0YXRpYyBpbnQgX192
-eGxhbl9jaGFuZ2VfbXR1KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCisJCQkgICAgICBzdHJ1Y3Qg
-bmV0X2RldmljZSAqbG93ZXJkZXYsCisJCQkgICAgICBzdHJ1Y3QgdnhsYW5fcmRzdCAqZHN0LCBp
-bnQgbmV3X210dSkKIHsKLQlzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiA9IG5ldGRldl9wcml2KGRl
-dik7Ci0Jc3RydWN0IHZ4bGFuX3Jkc3QgKmRzdCA9ICZ2eGxhbi0+ZGVmYXVsdF9kc3Q7Ci0Jc3Ry
-dWN0IG5ldF9kZXZpY2UgKmxvd2VyZGV2OwotCWludCBtYXhfbXR1OworCWludCBtYXhfbXR1ID0g
-NjU1MzU7CiAKLQlsb3dlcmRldiA9IF9fZGV2X2dldF9ieV9pbmRleCh2eGxhbi0+bmV0LCBkc3Qt
-PnJlbW90ZV9pZmluZGV4KTsKLQlpZiAobG93ZXJkZXYgPT0gTlVMTCkKLQkJcmV0dXJuIGV0aF9j
-aGFuZ2VfbXR1KGRldiwgbmV3X210dSk7CisJaWYgKGxvd2VyZGV2KQorCQltYXhfbXR1ID0gbG93
-ZXJkZXYtPm10dTsKIAogCWlmIChkc3QtPnJlbW90ZV9pcC5zYS5zYV9mYW1pbHkgPT0gQUZfSU5F
-VDYpCi0JCW1heF9tdHUgPSBsb3dlcmRldi0+bXR1IC0gVlhMQU42X0hFQURST09NOworCQltYXhf
-bXR1IC09IFZYTEFONl9IRUFEUk9PTTsKIAllbHNlCi0JCW1heF9tdHUgPSBsb3dlcmRldi0+bXR1
-IC0gVlhMQU5fSEVBRFJPT007CisJCW1heF9tdHUgLT0gVlhMQU5fSEVBRFJPT007CiAKIAlpZiAo
-bmV3X210dSA8IDY4IHx8IG5ld19tdHUgPiBtYXhfbXR1KQogCQlyZXR1cm4gLUVJTlZBTDsKQEAg
-LTIzODIsNiArMjM4MCwxNSBAQCBzdGF0aWMgaW50IHZ4bGFuX2NoYW5nZV9tdHUoc3RydWN0IG5l
-dF9kZXZpY2UgKmRldiwgaW50IG5ld19tdHUpCiAJcmV0dXJuIDA7CiB9CiAKK3N0YXRpYyBpbnQg
-dnhsYW5fY2hhbmdlX210dShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgbmV3X210dSkKK3sK
-KwlzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiA9IG5ldGRldl9wcml2KGRldik7CisJc3RydWN0IHZ4
-bGFuX3Jkc3QgKmRzdCA9ICZ2eGxhbi0+ZGVmYXVsdF9kc3Q7CisJc3RydWN0IG5ldF9kZXZpY2Ug
-Kmxvd2VyZGV2ID0gX19kZXZfZ2V0X2J5X2luZGV4KHZ4bGFuLT5uZXQsCisJCQkJCQkJIGRzdC0+
-cmVtb3RlX2lmaW5kZXgpOworCXJldHVybiBfX3Z4bGFuX2NoYW5nZV9tdHUoZGV2LCBsb3dlcmRl
-diwgZHN0LCBuZXdfbXR1KTsKK30KKwogc3RhdGljIGludCBlZ3Jlc3NfaXB2NF90dW5faW5mbyhz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJCXN0cnVjdCBp
-cF90dW5uZWxfaW5mbyAqaW5mbywKIAkJCQlfX2JlMTYgc3BvcnQsIF9fYmUxNiBkcG9ydCkKLS0g
-CjIuNS4wCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Prior to 4.3, vxlan vports could transmit vxlan packets of any size,
+constrained only by the ability to transmit the resulting UDP packets.
+4.3 introduced vxlan netdevs corresponding to vxlan vports.  These
+netdevs have an MTU, which limits the size of a packet that can be
+successfully vxlan-encapsulated.  The default value for this MTU is
+1500, which is awkwardly small, and leads to a conspicuous change in
+behaviour for userspace.
+
+This sets the MTU on openvswitch-created vxlan devices to be 65465
+(the maximum IP packet size minus the vxlan-on-IPv6 overhead),
+effectively restoring the behaviour prior to 4.3.  Although the
+vxlan_config struct already had a mtu field for this,
+vxlan_dev_configure mostly ignored it; that is also addressed here.
+
+Signed-off-by: David Wragg <david@weave.works>
+---
+ drivers/net/vxlan.c           | 11 ++++++++---
+ net/openvswitch/vport-vxlan.c |  2 ++
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 96d1c55..a15d300 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2764,6 +2764,7 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+ 	int err;
+ 	bool use_ipv6 = false;
+ 	__be16 default_port = vxlan->cfg.dst_port;
++	struct net_device *lowerdev = NULL;
+ 
+ 	vxlan->net = src_net;
+ 
+@@ -2784,9 +2785,7 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+ 	}
+ 
+ 	if (conf->remote_ifindex) {
+-		struct net_device *lowerdev
+-			 = __dev_get_by_index(src_net, conf->remote_ifindex);
+-
++		lowerdev = __dev_get_by_index(src_net, conf->remote_ifindex);
+ 		dst->remote_ifindex = conf->remote_ifindex;
+ 
+ 		if (!lowerdev) {
+@@ -2810,6 +2809,12 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+ 		needed_headroom = lowerdev->hard_header_len;
+ 	}
+ 
++	if (conf->mtu) {
++		err = __vxlan_change_mtu(dev, lowerdev, dst, conf->mtu);
++		if (err)
++			return err;
++	}
++
+ 	if (use_ipv6 || conf->flags & VXLAN_F_COLLECT_METADATA)
+ 		needed_headroom += VXLAN6_HEADROOM;
+ 	else
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index 1605691..a97279f 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -91,6 +91,8 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
+ 	struct vxlan_config conf = {
+ 		.no_share = true,
+ 		.flags = VXLAN_F_COLLECT_METADATA,
++		/* The maximum VXLAN payload to fit in an IPv6 packet */
++		.mtu = 65535 - VXLAN6_HEADROOM,
+ 	};
+ 
+ 	if (!options) {
+-- 
+2.5.0
