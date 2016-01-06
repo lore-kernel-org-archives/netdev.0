@@ -1,66 +1,34 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
-Date: Wed, 6 Jan 2016 14:49:14 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCBE614@AcuExch.aculab.com>
-References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
-	 <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
- <1452090307.8255.173.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v5 net-next 3/3] dt-bindings: net: macb: Add NP4 macb
+ variant
+Date: Wed, 6 Jan 2016 08:52:09 -0600
+Message-ID: <20160106145209.GA26921@rob-hp-laptop>
+References: <1451900573-22657-1-git-send-email-narmstrong@baylibre.com>
+ <1452001158-20585-1-git-send-email-narmstrong@baylibre.com>
+ <1452001158-20585-4-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tom Herbert <tom@herbertland.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.ferre@atmel.com, davem@davemloft.net,
+	harini.katakam@xilinx.com, boris.brezillon@free-electrons.com,
+	alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, joshc@ni.com, devicetree@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:62243 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905AbcAFOvw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 09:51:52 -0500
-In-Reply-To: <1452090307.8255.173.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail.kernel.org ([198.145.29.136]:45435 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751989AbcAFOwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 09:52:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1452001158-20585-4-git-send-email-narmstrong@baylibre.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDA2IEphbnVhcnkgMjAxNiAxNDoyNQ0KPiBPbiBX
-ZWQsIDIwMTYtMDEtMDYgYXQgMTA6MTYgKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBG
-cm9tOiBFcmljIER1bWF6ZXQNCj4gPiA+IFNlbnQ6IDA1IEphbnVhcnkgMjAxNiAyMjoxOQ0KPiA+
-ID4gVG86IFRvbSBIZXJiZXJ0DQo+ID4gPiBZb3UgbWlnaHQgYWRkIGEgY29tbWVudCB0ZWxsaW5n
-IHRoZSAnNCcgY29tZXMgZnJvbSBsZW5ndGggb2YgJ2FkY3ENCj4gPiA+IDYqOCglcmRpKSwlcmF4
-JyBpbnN0cnVjdGlvbiwgYW5kIHRoYXQgdGhlICdub3AnIGlzIHRvIGNvbXBlbnNhdGUgdGhhdA0K
-PiA+ID4gJ2FkY3EgICAgMCo4KCVyZGkpLCVyYXgnIGlzIHVzaW5nIDMgYnl0ZXMgaW5zdGVhZC4N
-Cj4gPiA+DQo+ID4gPiBXZSBhbHNvIGNvdWxkIHVzZSAuYnl0ZSAweDQ4LCAweDEzLCAweDQ3LCAw
-eDAwIHRvIGZvcmNlIGEgNCBieXRlcw0KPiA+ID4gaW5zdHJ1Y3Rpb24gYW5kIHJlbW92ZSB0aGUg
-bm9wLg0KPiA+ID4NCj4gPiA+DQo+ID4gPiArICAgICAgIGxlYSAgICAgMjBmKCwgJXJjeCwgNCks
-ICVyMTENCj4gPiA+ICsgICAgICAgY2xjDQo+ID4gPiArICAgICAgIGptcCAgICAgKiVyMTENCj4g
-PiA+ICsNCj4gPiA+ICsuYWxpZ24gOA0KPiA+ID4gKyAgICAgICBhZGNxICAgIDYqOCglcmRpKSwl
-cmF4DQo+ID4gPiArICAgICAgIGFkY3EgICAgNSo4KCVyZGkpLCVyYXgNCj4gPiA+ICsgICAgICAg
-YWRjcSAgICA0KjgoJXJkaSksJXJheA0KPiA+ID4gKyAgICAgICBhZGNxICAgIDMqOCglcmRpKSwl
-cmF4DQo+ID4gPiArICAgICAgIGFkY3EgICAgMio4KCVyZGkpLCVyYXgNCj4gPiA+ICsgICAgICAg
-YWRjcSAgICAxKjgoJXJkaSksJXJheA0KPiA+ID4gKyAgICAgICBhZGNxICAgIDAqOCglcmRpKSwl
-cmF4IC8vIGNvdWxkIGZvcmNlIGEgNCBieXRlIGluc3RydWN0aW9uICguYnl0ZSAweDQ4LCAweDEz
-LCAweDQ3LCAweDAwKQ0KPiA+ID4gKyAgICAgICBub3ANCj4gPiA+ICsyMDogICAgLyogI3F1YWRz
-ICUgOCBqdW1wIHRhYmxlIGJhc2UgKi8NCj4gPg0KPiA+IE9yIG1vdmUgbGFiZWwgYXQgdGhlIHRv
-cCAoYWZ0ZXIgdGhlIC5hbGlnbikgYW5kIGFkanVzdCB0aGUgbWF0aHMuDQo+ID4gWW91IGNvdWxk
-IGFkZCBhIHNlY29uZCBsYWJlbCBhZnRlciB0aGUgZmlyc3QgYWRjcSBhbmQgdXNlIHRoZQ0KPiA+
-IGRpZmZlcmVuY2UgYmV0d2VlbiB0aGVtIGZvciB0aGUgJzQnLg0KPiANCj4gTm90IHJlYWxseS4N
-Cj4gDQo+IFdlIGNvdWxkIG5vdCB1c2UgdGhlIHRyaWNrIGl0IHRoZSBsZW5ndGggd2FzIDUuDQo+
-IA0KPiBPbmx5IDEsIDIsIDQgYW5kIDggYXJlIHN1cHBvcnRlZC4NCg0KSW5kZWVkLCBhbmQgJ2xl
-YSAgMjBmKCwgJXJjeCwgNSksICVyMTEnIHdpbGwgZ2VuZXJhdGUgYW4gZXJyb3IgZnJvbSB0aGUN
-CmFzc2VtYmxlci4NClNlZW1zIGFwcHJvcHJpYXRlIHRvIGdldCB0aGUgYXNzZW1ibGVyIHRvIHZl
-cmlmeSB0aGlzIGZvciB5b3UuDQoNCkFzc3VtaW5nIHRoaXMgY29kZSBibG9jayBpcyBjb21wbGV0
-ZWx5IHNraXBwZWQgZm9yIGFsaWduZWQgbGVuZ3Rocw0KdGhlIG5vcCBpc24ndCBuZWVkZWQgcHJv
-dmlkZWQgdGhlICcyMDonIGxhYmVsIGlzIGF0IHRoZSByaWdodCBwbGFjZS4NCg0KU29tZW9uZSBh
-bHNvIHBvaW50ZWQgb3V0IHRoYXQgdGhlIGNvZGUgaXMgbWVtb3J5IGxpbWl0ZWQgKGR1YWwgYWRk
-DQpjaGFpbnMgbWFraW5nIG5vIGRpZmZlcmVuY2UpLCBzbyB3aHkgaXMgaXQgdW5yb2xsZWQgYXQg
-YWxsPw0KDQpPVE9IIEknbSBzdXJlIEkgcmVtZW1iZXIgc29tZXRoaW5nIGFib3V0IGZhbHNlIGRl
-cGVuZGVuY2llcyBvbiB0aGUNCng4NiBmbGFncyByZWdpc3RlciBiZWNhdXNlIG9mIGluc3RydWN0
-aW9ucyBvbmx5IGNoYW5naW5nIHNvbWUgYml0cy4NClNvIGl0IG1pZ2h0IGJlIHRoYXQgeW91IGNh
-bid0IChvciBjb3VsZG4ndCkgZ2V0IGNvbmN1cnJlbmN5IGJldHdlZW4NCmluc3RydWN0aW9ucyB0
-aGF0IHVwZGF0ZSBkaWZmZXJlbnQgcGFydHMgb2YgdGhlIGZsYWdzIHJlZ2lzdGVyLg0KDQoJRGF2
-aWQNCg0KDQo=
+On Tue, Jan 05, 2016 at 02:39:18PM +0100, Neil Armstrong wrote:
+> Add NP4 macb SoC variant.
+> 
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> ---
+>  Documentation/devicetree/bindings/net/macb.txt | 1 +
+>  1 file changed, 1 insertion(+)
+
+Acked-by: Rob Herring <robh@kernel.org>
