@@ -1,32 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch -next] mlxsw: core: remove an unnecessary condition
-Date: Wed, 6 Jan 2016 11:15:47 +0100
-Message-ID: <20160106101547.GB2295@nanopsycho.orion>
-References: <20160106095630.GB23185@mwanda>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Wed, 6 Jan 2016 10:16:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+ <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37498 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751985AbcAFKPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 05:15:49 -0500
-Received: by mail-wm0-f49.google.com with SMTP id f206so68369494wmf.0
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 02:15:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160106095630.GB23185@mwanda>
+Received: from smtp-out4.electric.net ([192.162.216.184]:50082 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbcAFKSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 05:18:41 -0500
+In-Reply-To: <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jan 06, 2016 at 10:56:30AM CET, dan.carpenter@oracle.com wrote:
->We checked "err" on the lines before so we know it's zero here.
->
->These cause a static checker warning because checking known things can
->indicate a bug.  Maybe there is a missing assignment or we are checking
->the wrong variable.
->
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDA1IEphbnVhcnkgMjAxNiAyMjoxOQ0KPiBUbzog
+VG9tIEhlcmJlcnQNCj4gWW91IG1pZ2h0IGFkZCBhIGNvbW1lbnQgdGVsbGluZyB0aGUgJzQnIGNv
+bWVzIGZyb20gbGVuZ3RoIG9mICdhZGNxDQo+IDYqOCglcmRpKSwlcmF4JyBpbnN0cnVjdGlvbiwg
+YW5kIHRoYXQgdGhlICdub3AnIGlzIHRvIGNvbXBlbnNhdGUgdGhhdA0KPiAnYWRjcSAgICAwKjgo
+JXJkaSksJXJheCcgaXMgdXNpbmcgMyBieXRlcyBpbnN0ZWFkLg0KPiANCj4gV2UgYWxzbyBjb3Vs
+ZCB1c2UgLmJ5dGUgMHg0OCwgMHgxMywgMHg0NywgMHgwMCB0byBmb3JjZSBhIDQgYnl0ZXMNCj4g
+aW5zdHJ1Y3Rpb24gYW5kIHJlbW92ZSB0aGUgbm9wLg0KPiANCj4gDQo+ICsgICAgICAgbGVhICAg
+ICAyMGYoLCAlcmN4LCA0KSwgJXIxMQ0KPiArICAgICAgIGNsYw0KPiArICAgICAgIGptcCAgICAg
+KiVyMTENCj4gKw0KPiArLmFsaWduIDgNCj4gKyAgICAgICBhZGNxICAgIDYqOCglcmRpKSwlcmF4
+DQo+ICsgICAgICAgYWRjcSAgICA1KjgoJXJkaSksJXJheA0KPiArICAgICAgIGFkY3EgICAgNCo4
+KCVyZGkpLCVyYXgNCj4gKyAgICAgICBhZGNxICAgIDMqOCglcmRpKSwlcmF4DQo+ICsgICAgICAg
+YWRjcSAgICAyKjgoJXJkaSksJXJheA0KPiArICAgICAgIGFkY3EgICAgMSo4KCVyZGkpLCVyYXgN
+Cj4gKyAgICAgICBhZGNxICAgIDAqOCglcmRpKSwlcmF4IC8vIGNvdWxkIGZvcmNlIGEgNCBieXRl
+IGluc3RydWN0aW9uICguYnl0ZSAweDQ4LCAweDEzLCAweDQ3LCAweDAwKQ0KPiArICAgICAgIG5v
+cA0KPiArMjA6ICAgIC8qICNxdWFkcyAlIDgganVtcCB0YWJsZSBiYXNlICovDQoNCk9yIG1vdmUg
+bGFiZWwgYXQgdGhlIHRvcCAoYWZ0ZXIgdGhlIC5hbGlnbikgYW5kIGFkanVzdCB0aGUgbWF0aHMu
+DQpZb3UgY291bGQgYWRkIGEgc2Vjb25kIGxhYmVsIGFmdGVyIHRoZSBmaXJzdCBhZGNxIGFuZCB1
+c2UgdGhlDQpkaWZmZXJlbmNlIGJldHdlZW4gdGhlbSBmb3IgdGhlICc0Jy4NCg0KCURhdmlkDQoN
+Cg==
