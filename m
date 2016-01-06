@@ -1,270 +1,83 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
- global transport hashtable
-Date: Thu, 7 Jan 2016 01:01:11 +0800
-Message-ID: <CADvbK_eu13b9RQ9eMLkBJZyTuQLOwThyuyzgDpwg9RbupXBN5A@mail.gmail.com>
-References: <cover.1451490447.git.lucien.xin@gmail.com>
-	<2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
-	<568C0DA3.1090604@gmail.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: header conflict introduced by change to netfilter_ipv4/ip_tables.h
+Date: Wed, 6 Jan 2016 09:20:07 -0800
+Message-ID: <20160106092007.1c5a0c75@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Vlad Yasevich <vyasevic@redhat.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Mikko Rapeli <mikko.rapeli@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:35624 "EHLO
-	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751755AbcAFRBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 12:01:12 -0500
-In-Reply-To: <568C0DA3.1090604@gmail.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:30935 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751582AbcAFRUJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 12:20:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 6, 2016 at 2:38 AM, Vlad Yasevich <vyasevich@gmail.com> wrote:
-> On 12/30/2015 10:50 AM, Xin Long wrote:
->> tranport hashtbale will replace the association hashtable to do the
->> lookup for transport, and then get association by t->assoc, rhashtable
->> apis will be used because of it's resizable, scalable and using rcu.
->>
->> lport + rport + paddr will be the base hashkey to locate the chain,
->> with net to protect one netns from another, then plus the laddr to
->> compare to get the target.
->>
->> this patch will provider the lookup functions:
->> - sctp_epaddr_lookup_transport
->> - sctp_addrs_lookup_transport
->>
->> hash/unhash functions:
->> - sctp_hash_transport
->> - sctp_unhash_transport
->>
->> init/destroy functions:
->> - sctp_transport_hashtable_init
->> - sctp_transport_hashtable_destroy
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->> ---
->>  include/net/sctp/sctp.h    |  11 ++++
->>  include/net/sctp/structs.h |   5 ++
->>  net/sctp/input.c           | 131 +++++++++++++++++++++++++++++++++++++++++++++
->>  3 files changed, 147 insertions(+)
->>
->> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
->> index ce13cf2..7bbdfba 100644
->> --- a/include/net/sctp/sctp.h
->> +++ b/include/net/sctp/sctp.h
->> @@ -143,6 +143,17 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
->>                                struct sctp_transport *t);
->>  void sctp_backlog_migrate(struct sctp_association *assoc,
->>                         struct sock *oldsk, struct sock *newsk);
->> +int sctp_transport_hashtable_init(void);
->> +void sctp_transport_hashtable_destroy(void);
->> +void sctp_hash_transport(struct sctp_transport *t);
->> +void sctp_unhash_transport(struct sctp_transport *t);
->> +struct sctp_transport *sctp_addrs_lookup_transport(
->> +                             struct net *net,
->> +                             const union sctp_addr *laddr,
->> +                             const union sctp_addr *paddr);
->> +struct sctp_transport *sctp_epaddr_lookup_transport(
->> +                             const struct sctp_endpoint *ep,
->> +                             const union sctp_addr *paddr);
->>
->>  /*
->>   * sctp/proc.c
->> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
->> index eea9bde..4ab87d0 100644
->> --- a/include/net/sctp/structs.h
->> +++ b/include/net/sctp/structs.h
->> @@ -48,6 +48,7 @@
->>  #define __sctp_structs_h__
->>
->>  #include <linux/ktime.h>
->> +#include <linux/rhashtable.h>
->>  #include <linux/socket.h>    /* linux/in.h needs this!!    */
->>  #include <linux/in.h>                /* We get struct sockaddr_in. */
->>  #include <linux/in6.h>               /* We get struct in6_addr     */
->> @@ -123,6 +124,8 @@ extern struct sctp_globals {
->>       struct sctp_hashbucket *assoc_hashtable;
->>       /* This is the sctp port control hash.  */
->>       struct sctp_bind_hashbucket *port_hashtable;
->> +     /* This is the hash of all transports. */
->> +     struct rhashtable transport_hashtable;
->>
->>       /* Sizes of above hashtables. */
->>       int ep_hashsize;
->> @@ -147,6 +150,7 @@ extern struct sctp_globals {
->>  #define sctp_assoc_hashtable         (sctp_globals.assoc_hashtable)
->>  #define sctp_port_hashsize           (sctp_globals.port_hashsize)
->>  #define sctp_port_hashtable          (sctp_globals.port_hashtable)
->> +#define sctp_transport_hashtable     (sctp_globals.transport_hashtable)
->>  #define sctp_checksum_disable                (sctp_globals.checksum_disable)
->>
->>  /* SCTP Socket type: UDP or TCP style. */
->> @@ -753,6 +757,7 @@ static inline int sctp_packet_empty(struct sctp_packet *packet)
->>  struct sctp_transport {
->>       /* A list of transports. */
->>       struct list_head transports;
->> +     struct rhash_head node;
->>
->>       /* Reference counting. */
->>       atomic_t refcnt;
->> diff --git a/net/sctp/input.c b/net/sctp/input.c
->> index b6493b3..bac8278 100644
->> --- a/net/sctp/input.c
->> +++ b/net/sctp/input.c
->> @@ -782,6 +782,137 @@ hit:
->>       return ep;
->>  }
->>
->> +/* rhashtable for transport */
->> +struct sctp_hash_cmp_arg {
->> +     const union sctp_addr           *laddr;
->> +     const union sctp_addr           *paddr;
->> +     const struct net                *net;
->> +};
->> +
->> +static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
->> +                             const void *ptr)
->> +{
->> +     const struct sctp_hash_cmp_arg *x = arg->key;
->> +     const struct sctp_transport *t = ptr;
->> +     struct sctp_association *asoc = t->asoc;
->> +     const struct net *net = x->net;
->> +
->> +     if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
->> +             return 1;
->> +     if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
->> +             return 1;
->> +     if (!net_eq(sock_net(asoc->base.sk), net))
->> +             return 1;
->> +     if (!sctp_bind_addr_match(&asoc->base.bind_addr,
->> +                               x->laddr, sctp_sk(asoc->base.sk)))
->> +             return 1;
->> +
->> +     return 0;
->> +}
->> +
->> +static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
->> +{
->> +     const struct sctp_transport *t = data;
->> +     const union sctp_addr *paddr = &t->ipaddr;
->> +     const struct net *net = sock_net(t->asoc->base.sk);
->> +     u16 lport = htons(t->asoc->base.bind_addr.port);
->> +     u32 addr;
->> +
->> +     if (paddr->sa.sa_family == AF_INET6)
->> +             addr = jhash(&paddr->v6.sin6_addr, 16, seed);
->> +     else
->> +             addr = paddr->v4.sin_addr.s_addr;
->> +
->> +     return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
->> +                          (__force __u32)lport, net_hash_mix(net), seed);
->> +}
->> +
->> +static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
->> +{
->> +     const struct sctp_hash_cmp_arg *x = data;
->> +     const union sctp_addr *paddr = x->paddr;
->> +     const struct net *net = x->net;
->> +     u16 lport = x->laddr->v4.sin_port;
->> +     u32 addr;
->> +
->> +     if (paddr->sa.sa_family == AF_INET6)
->> +             addr = jhash(&paddr->v6.sin6_addr, 16, seed);
->> +     else
->> +             addr = paddr->v4.sin_addr.s_addr;
->> +
->> +     return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
->> +                          (__force __u32)lport, net_hash_mix(net), seed);
->> +}
->> +
->> +static const struct rhashtable_params sctp_hash_params = {
->> +     .head_offset            = offsetof(struct sctp_transport, node),
->> +     .hashfn                 = sctp_hash_key,
->> +     .obj_hashfn             = sctp_hash_obj,
->> +     .obj_cmpfn              = sctp_hash_cmp,
->> +     .automatic_shrinking    = true,
->> +};
->> +
->> +int sctp_transport_hashtable_init(void)
->> +{
->> +     return rhashtable_init(&sctp_transport_hashtable, &sctp_hash_params);
->> +}
->> +
->> +void sctp_transport_hashtable_destroy(void)
->> +{
->> +     rhashtable_destroy(&sctp_transport_hashtable);
->> +}
->> +
->> +void sctp_hash_transport(struct sctp_transport *t)
->> +{
->> +     struct sctp_sockaddr_entry *addr;
->> +     struct sctp_hash_cmp_arg arg;
->> +
->> +     addr = list_entry(t->asoc->base.bind_addr.address_list.next,
->> +                       struct sctp_sockaddr_entry, list);
->> +     arg.laddr = &addr->a;
->> +     arg.paddr = &t->ipaddr;
->> +     arg.net   = sock_net(t->asoc->base.sk);
->> +
->> +reinsert:
->> +     if (rhashtable_lookup_insert_key(&sctp_transport_hashtable, &arg,
->> +                                      &t->node, sctp_hash_params) == -EBUSY)
->> +             goto reinsert;
->> +}
->> +
->> +void sctp_unhash_transport(struct sctp_transport *t)
->> +{
->> +     rhashtable_remove_fast(&sctp_transport_hashtable, &t->node,
->> +                            sctp_hash_params);
->> +}
->> +
->> +struct sctp_transport *sctp_addrs_lookup_transport(
->> +                             struct net *net,
->> +                             const union sctp_addr *laddr,
->> +                             const union sctp_addr *paddr)
->> +{
->> +     struct sctp_hash_cmp_arg arg = {
->> +             .laddr = laddr,
->> +             .paddr = paddr,
->> +             .net   = net,
->> +     };
->> +
->> +     return rhashtable_lookup_fast(&sctp_transport_hashtable, &arg,
->> +                                   sctp_hash_params);
->> +}
->> +
->> +struct sctp_transport *sctp_epaddr_lookup_transport(
->> +                             const struct sctp_endpoint *ep,
->> +                             const union sctp_addr *paddr)
->> +{
->> +     struct sctp_sockaddr_entry *addr;
->> +     struct net *net = sock_net(ep->base.sk);
->> +
->> +     addr = list_entry(ep->base.bind_addr.address_list.next,
->> +                       struct sctp_sockaddr_entry, list);
->> +
->> +     return sctp_addrs_lookup_transport(net, &addr->a, paddr);
->> +}
->> +
->
-> I don't think that this right, mainly because not all endpoint
-> addresses will be copied to association bind_addr list.   As a result,
-> you may actually have an association on this endpoint to a given
-> peer, but may not be using the first address from the endpoint..
->
-> What might work is to pick an endpoint address that would be usable within
-> the scope of the peer address.
-it's not that easy, does it make sense to you if I change
+This commit breaks compilation of iproute2 with net-next.
 
-     if (!sctp_bind_addr_match(&asoc->base.bind_addr,
-                               x->laddr, sctp_sk(asoc->base.sk)))
+commit 1ffad83dffd675cd742286ae82dca7d746cb0da8
+Author: Mikko Rapeli <mikko.rapeli@iki.fi>
+Date:   Thu Oct 15 07:56:30 2015 +0200
 
-to
-     if (!sctp_bind_addr_match(&asoc->ep->base.bind_addr,
-                               x->laddr, sctp_sk(asoc->base.sk)))
+    netfilter: fix include files for compilation
+   =20
+    Add missing header dependencies and other small changes so that eac=
+h file
+    compiles alone in userspace.
+   =20
+    Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-in sctp_hash_cmp() ?
+=46or iproute2, a copy of kernel headers (from make install_headers) is=
+ used.
+After this change. the build of x_tables.c fails because IFNAMSIZ is al=
+ready
+defined in net/if.h
+
+gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declarati=
+ons -Wold-style-definition -Wformat=3D2 -O2 -I../include -DRESOLVE_HOST=
+NAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2\" -D_GNU_SOUR=
+CE -D_FILE_OFFSET_BITS=3D64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE  =
+-DHAVE_SETNS -DHAVE_ELF -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=3D=
+\"/lib/xtables\" -DYY_NO_INPUT -Wl,-export-dynamic -shared -fpic -o q_a=
+tm.so q_atm.c -latm
+gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declarati=
+ons -Wold-style-definition -Wformat=3D2 -O2 -I../include -DRESOLVE_HOST=
+NAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2\" -D_GNU_SOUR=
+CE -D_FILE_OFFSET_BITS=3D64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE  =
+-DHAVE_SETNS -DHAVE_ELF -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=3D=
+\"/lib/xtables\" -DYY_NO_INPUT -Wl,-export-dynamic -shared -fpic -o m_x=
+t.so m_xt.c $(pkg-config xtables --cflags --libs)
+In file included from ../include/linux/netfilter_ipv4/ip_tables.h:20:0,
+                 from m_xt.c:20:
+=2E./include/linux/if.h:26:0: warning: "IFNAMSIZ" redefined
+ #define IFNAMSIZ 16
+ ^
+In file included from m_xt.c:17:0:
+/usr/include/net/if.h:129:0: note: this is the location of the previous=
+ definition
+ # define IFNAMSIZ IF_NAMESIZE
+ ^
+=2E./include/linux/if.h:71:2: error: redeclaration of enumerator =E2=80=
+=98IFF_UP=E2=80=99
+  IFF_UP    =3D 1<<0,  /* sysfs */
+  ^
+/usr/include/net/if.h:44:5: note: previous definition of =E2=80=98IFF_U=
+P=E2=80=99 was here
+     IFF_UP =3D 0x1,  /* Interface is up.  */
+     ^
+=2E./include/linux/if.h:72:2: error: redeclaration of enumerator =E2=80=
+=98IFF_BROADCAST=E2=80=99
+  IFF_BROADCAST   =3D 1<<1,  /* __volatile__ */
+  ^
+/usr/include/net/if.h:46:5: note: previous definition of =E2=80=98IFF_B=
+ROADCAST=E2=80=99 was here
+     IFF_BROADCAST =3D 0x2, /* Broadcast address valid.  */
+     ^
+=2E./include/linux/if.h:73:2: error: redeclaration of enumerator =E2=80=
+=98IFF_DEBUG=E2=80=99
+  IFF_DEBUG   =3D 1<<2,  /* sysfs */
