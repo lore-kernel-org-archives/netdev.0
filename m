@@ -1,92 +1,119 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [BUG] skb corruption and kernel panic at forwarding with
- fragmentation
-Date: Wed, 6 Jan 2016 23:03:34 +0100
-Message-ID: <20160106220334.GA23789@breakpoint.cc>
-References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
- <CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
- <CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
- <20160106210532.GE27290@indiana.gru.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Wed, 06 Jan 2016 17:09:51 -0500 (EST)
+Message-ID: <20160106.170951.2079594647063843612.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Konstantin Khlebnikov <koct9i@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160106210532.GE27290@indiana.gru.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thadeu Lima de Souza Cascardo <cascardo@redhat.com> wrote:
-> On Wed, Jan 06, 2016 at 11:11:41PM +0300, Konstantin Khlebnikov wrote:
-> > On Wed, Jan 6, 2016 at 10:59 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > > On Wed, Jan 6, 2016 at 11:15 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
-> > >> Looks like this happens because ip_options_fragment() relies on
-> > >> correct ip options length in ip control block in skb. But in
-> > >> ip_finish_output_gso() control block in segments is reused by
-> > >> skb_gso_segment(). following ip_fragment() sees some garbage.
-> > >>
-> > >> In my case there was no ip options but length becomes non-zero and
-> > >> ip_options_fragment() picked some bytes from payload and decides to
-> > >> fill huge range with IPOPT_NOOP (1). One of that ones flipped nr_frags
-> > >> in skb_shared_info at the end of data =)
-> > >>
-> > >
-> > > Hmm, it looks like SKB_GSO_CB should be cleared after skb_gso_segment()
-> > > since all the gso information should be saved in shared_info after it finishes.
-> > >
-> > > Does a memset(0) on SKB_GSO_CB after skb_gso_segment() work as well?
-> > 
-> > This will break present logic around ip_options_fragment() - it clears
-> > options from
-> > second and following fragments. With zeroed cb it will do nothing.
-> > 
-> > ip_options_fragment() can get required information directly from ip header but
-> > it also resets fields in IPCB -- probably it should stay valid here
-> > and somebody else will use it later.
-[..]
-> I have hit this as well, this fixes it for me on an older kernel. Can you try it
-> on latest kernel?
 
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index d8a1745..f44bc91 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -216,6 +216,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
->  	netdev_features_t features;
->  	struct sk_buff *segs;
->  	int ret = 0;
-> +	struct inet_skb_parm ipcb;
->  
->  	if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
->  		return ip_finish_output2(skb);
-> @@ -227,6 +228,10 @@ static int ip_finish_output_gso(struct sk_buff *skb)
->  	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
->  	 * from host network stack.
->  	 */
-> +	/* We need to save IPCB here because skb_gso_segment will use
-> +	 * SKB_GSO_CB.
-> +	 */
-> +	ipcb = *IPCB(skb);
->  	features = netif_skb_features(skb);
->  	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
->  	if (IS_ERR_OR_NULL(segs)) {
-> @@ -241,6 +246,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
->  		int err;
->  
->  		segs->next = NULL;
-> +		*IPCB(segs) = ipcb;
->  		err = ip_fragment(segs, ip_finish_output2);
->  
->  		if (err && ret == 0)
+As usual, there are a couple straggler bug fixes:
 
-I'm worried that this doesn't solve all cases. f.e. xfrm may also
-call skb_gso_segment(), and it will call into ipv4/ipv6 netfilter
-postrouting + ipv4 output functions...
+1) qlcnic_alloc_mbx_args() error returns are not checked in qlcnic driver.
+   Fix from Insu Yun.
 
-nfqnl_enqueue_packet() is also affected.
+2) SKB refcounting bug in connector, from Florian Westphal.
+
+3) vrf_get_saddr() has to propagate fib_lookup() errors to it's callers,
+   from David Ahern.
+
+4) Fix AF_UNIX splice/bind deadlock, from Rainer Weikusat.
+
+5) qdisc_rcu_free() fails to free the per-cpu qstats.  Fix from John
+   Fastabend.
+
+6) vmxnet3 driver passes wrong page to dma_map_page(), fix from
+   Shrikrishna Khare.
+
+7) Don't allow zero cwnd in tcp_cwnd_reduction(), from Yuchung Cheng.
+
+Please pull, thanks a lot!
+
+The following changes since commit 9c982e86dbdbaa3fb248dfc776dddda32cbc8927:
+
+  Merge tag 'pci-v4.4-fixes-3' of git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci (2015-12-31 14:59:21 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
+
+for you to fetch changes up to 8b8a321ff72c785ed5e8b4cf6eda20b35d427390:
+
+  tcp: fix zero cwnd in tcp_cwnd_reduction (2016-01-06 16:39:56 -0500)
+
+----------------------------------------------------------------
+Alan (1):
+      mkiss: fix scribble on freed memory
+
+David Ahern (1):
+      net: Propagate lookup failure in l3mdev_get_saddr to caller
+
+Florian Westphal (1):
+      connector: bump skb->users before callback invocation
+
+Francesco Ruggeri (1):
+      net: possible use after free in dst_release
+
+Hannes Frederic Sowa (1):
+      bridge: Only call /sbin/bridge-stp for the initial network namespace
+
+Insu Yun (2):
+      qlcnic: correctly handle qlcnic_alloc_mbx_args
+      cxgb4: correctly handling failed allocation
+
+John Fastabend (1):
+      net: sched: fix missing free per cpu on qstats
+
+Kristian Evensen (1):
+      net: qmi_wwan: Add WeTelecom-WPD600N
+
+One Thousand Gnomes (1):
+      6pack: fix free memory scribbles
+
+Rabin Vincent (2):
+      net: filter: make JITs zero A for SKF_AD_ALU_XOR_X
+      ARM: net: bpf: fix zero right shift
+
+Rainer Weikusat (1):
+      af_unix: Fix splice-bind deadlock
+
+Shrikrishna Khare (1):
+      Driver: Vmxnet3: Fix regression caused by 5738a09
+
+Yuchung Cheng (1):
+      tcp: fix zero cwnd in tcp_cwnd_reduction
+
+hayeswang (1):
+      r8152: add reset_resume function
+
+ arch/arm/net/bpf_jit_32.c                       | 19 +++----------------
+ arch/mips/net/bpf_jit.c                         | 16 +---------------
+ arch/powerpc/net/bpf_jit_comp.c                 | 13 ++-----------
+ arch/sparc/net/bpf_jit_comp.c                   | 17 ++---------------
+ drivers/connector/connector.c                   | 11 +++--------
+ drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c   |  4 ++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c |  6 ++++--
+ drivers/net/hamradio/6pack.c                    |  6 ++++++
+ drivers/net/hamradio/mkiss.c                    |  5 +++++
+ drivers/net/usb/qmi_wwan.c                      |  1 +
+ drivers/net/usb/r8152.c                         | 10 +++++++++-
+ drivers/net/vmxnet3/vmxnet3_drv.c               |  8 ++++----
+ drivers/net/vmxnet3/vmxnet3_int.h               |  4 ++--
+ drivers/net/vrf.c                               | 10 +++++++---
+ include/linux/filter.h                          | 19 +++++++++++++++++++
+ include/net/l3mdev.h                            | 16 ++++++++++------
+ include/net/route.h                             |  7 ++++++-
+ net/bridge/br_stp_if.c                          |  5 ++++-
+ net/core/dst.c                                  |  3 ++-
+ net/ipv4/raw.c                                  |  7 +++++--
+ net/ipv4/tcp_input.c                            |  3 +++
+ net/ipv4/udp.c                                  |  7 +++++--
+ net/sched/sch_generic.c                         |  4 +++-
+ net/unix/af_unix.c                              | 66 ++++++++++++++++++++++++++++++++++++++++--------------------------
+ 24 files changed, 150 insertions(+), 117 deletions(-)
