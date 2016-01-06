@@ -1,69 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: add per device sg_max_frags for skb
-Date: Wed, 06 Jan 2016 06:05:15 -0800
-Message-ID: <1452089115.8255.171.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
+Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Wed, 06 Jan 2016 06:25:07 -0800
+Message-ID: <1452090307.8255.173.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+	 <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"\"\"Eric W. Biederman\"\"" <ebiederm@xmission.com>,
-	Salam Noureddine <noureddine@arista.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Julian Anastasov <ja@ssi.bg>,
-	Ying Xue <ying.xue@windriver.com>,
-	Craig Gallek <kraig@google.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	"\"\"hannes@stressinduktion.org\"\"" <hannes@stressinduktion.org>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
-	linux-kerne
-To: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34903 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbcAFOFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 09:05:17 -0500
-In-Reply-To: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36676 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926AbcAFOZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 09:25:10 -0500
+Received: by mail-pf0-f174.google.com with SMTP id 65so194669353pff.3
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 06:25:09 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-01-06 at 14:16 +0100, Hans Westgaard Ry wrote:
-> Devices may have limits on the number of fragments in an skb they
-> support. Current codebase uses a constant as maximum for number of
-> fragments (MAX_SKB_FRAGS) one skb can hold and use.
+On Wed, 2016-01-06 at 10:16 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > Sent: 05 January 2016 22:19
+> > To: Tom Herbert
+> > You might add a comment telling the '4' comes from length of 'adcq
+> > 6*8(%rdi),%rax' instruction, and that the 'nop' is to compensate that
+> > 'adcq    0*8(%rdi),%rax' is using 3 bytes instead.
+> > 
+> > We also could use .byte 0x48, 0x13, 0x47, 0x00 to force a 4 bytes
+> > instruction and remove the nop.
+> > 
+> > 
+> > +       lea     20f(, %rcx, 4), %r11
+> > +       clc
+> > +       jmp     *%r11
+> > +
+> > +.align 8
+> > +       adcq    6*8(%rdi),%rax
+> > +       adcq    5*8(%rdi),%rax
+> > +       adcq    4*8(%rdi),%rax
+> > +       adcq    3*8(%rdi),%rax
+> > +       adcq    2*8(%rdi),%rax
+> > +       adcq    1*8(%rdi),%rax
+> > +       adcq    0*8(%rdi),%rax // could force a 4 byte instruction (.byte 0x48, 0x13, 0x47, 0x00)
+> > +       nop
+> > +20:    /* #quads % 8 jump table base */
 > 
-> When enabling scatter/gather and running traffic with many small
-> messages the codebase uses the maximum number of fragments and thereby
-> violates the max for certain devices.
-> 
-> An example of such a violation is when running IPoIB on a HCA
-> supporting 16 SGE on an architecture with 4K pagesize. The
-> MAX_SKB_FRAGS will be 17 (64K/4K+1) and because IPoIB adds yet another
-> segment we end up with send_requests with 18 SGE resulting in
-> kernel-panic.
-> 
-> The patch allows the device to limit the maximum number fragments used
-> in one skb.
-> 
-> The functionality corresponds to gso_max_size/gso_max_segs for gso.
+> Or move label at the top (after the .align) and adjust the maths.
+> You could add a second label after the first adcq and use the
+> difference between them for the '4'.
 
-Unfortunately this is not the right place to fix this issue.
+Not really.
 
-Think about forwarding workloads, where the SKB is cooked by GRO engine.
+We could not use the trick it the length was 5.
 
-Anyway, local TCP stack uses 32KB page fragments, so typical skb has no
-more than 3 frags.
-
-Look at ndo_features_check(), where the problematic device driver can
-add its logic.
+Only 1, 2, 4 and 8 are supported.
