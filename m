@@ -1,39 +1,33 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] mlxsw: core: remove an unnecessary condition
-Date: Wed, 6 Jan 2016 12:56:30 +0300
-Message-ID: <20160106095630.GB23185@mwanda>
+Subject: [patch -next] fsl/fman: fix the pause_time test
+Date: Wed, 6 Jan 2016 12:58:09 +0300
+Message-ID: <20160106095809.GC23185@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Jiri Pirko <jiri@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:41958 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752098AbcAFJ4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 04:56:42 -0500
+To: Igal Liberman <igal.liberman@freescale.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We checked "err" on the lines before so we know it's zero here.
+pause_time is unsigned so it can't be less than zero.  The bug means
+that we allow invalid pause-times.
 
-These cause a static checker warning because checking known things can
-indicate a bug.  Maybe there is a missing assignment or we are checking
-the wrong variable.
-
+Fixes: 57ba4c9b56d8 ('fsl/fman: Add FMan MAC support')
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-index 5b9364f..1ac8bf1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c
-@@ -130,7 +130,7 @@ static ssize_t mlxsw_hwmon_temp_rst_store(struct device *dev,
- 		dev_err(mlxsw_hwmon->bus_info->dev, "Failed to reset temp sensor history\n");
- 		return err;
- 	}
--	return err ? err : len;
-+	return len;
- }
+diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
+index d78e2ba..587f9b4 100644
+--- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
++++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
+@@ -934,7 +934,7 @@ int dtsec_set_tx_pause_frames(struct fman_mac *dtsec,
  
- static ssize_t mlxsw_hwmon_fan_rpm_show(struct device *dev,
+ 	/* FM_BAD_TX_TS_IN_B_2_B_ERRATA_DTSEC_A003 Errata workaround */
+ 	if (dtsec->fm_rev_info.major == 2)
+-		if (pause_time < 0 && pause_time <= 320) {
++		if (pause_time <= 320) {
+ 			pr_warn("pause-time: %d illegal.Should be > 320\n",
+ 				pause_time);
+ 			return -EINVAL;
