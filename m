@@ -1,52 +1,36 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: Re: [PATCH] net: hns: avoid uninitialized variable warning:
-Date: Wed, 6 Jan 2016 15:35:46 +0000
-Message-ID: <568D3452.80508@huawei.com>
-References: <6649249.INrAY8KJG0@wuerfel> <20160105.164320.2255971055498857833.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<lisheng011@huawei.com>, <huangdaode@hisilicon.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: David Miller <davem@davemloft.net>, <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160105.164320.2255971055498857833.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next 0/2] net: break dependency of drivers on geneve and vxlan
+Date: Wed,  6 Jan 2016 16:41:41 +0100
+Message-ID: <1452094903-12934-1-git-send-email-hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:60769 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751330AbcAFPlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 10:41:50 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id A5A7E20B0D
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 10:41:49 -0500 (EST)
+Received: from z.localhost.localdomain (unknown [217.192.177.51])
+	by mail.messagingengine.com (Postfix) with ESMTPA id 213A2C013FE
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 10:41:49 -0500 (EST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Device drivers which support geneve or vxlan offloading have a dependency
+on the correlating kernel modules. Thus those drivers automatically loaded
+the geneve or vxlan modules. Break this dependency with this small series.
 
-On 1/5/2016 9:43 PM, David Miller wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Fri, 01 Jan 2016 23:27:57 +0100
->
->> gcc fails to see that the use of the 'last_offset' variable
->> in hns_nic_reuse_page() is used correctly and issues a bogus
->> warning:
->>
->> drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_nic_reuse_page':
->> drivers/net/ethernet/hisilicon/hns/hns_enet.c:541:6: warning: 'last_offset' may be used uninitialized in this function [-Wmaybe-uninitialized]
->>
->> This simplifies the function to make it more obvious what is
->> going on to both readers and compilers, which makes the warning
->> go away.
->>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> ---
->> Compile-tested only, and complex enough that this requires a proper
->> review and testing before it gets apply. Please have a look at this.
-> If this goes yet another day without being reviewed, I'm just applying
-> it.
->
-> You hisilicon folks can't just let patches rot, you must review them
-> in a timely manner or else I'm applying them without waiting for you
-> to look at them.
-Hi David and Arnd,
-Apologies for the delay in response and the review. Most of us were on 
-the Annual Holidays and have just returned back.
+Hannes Frederic Sowa (2):
+  vxlan: break dependency to network drivers
+  geneve: break dependency to network drivers
 
-Change looks good to me!
+ drivers/net/geneve.c      | 30 +++++++++++++++++++++++++++---
+ drivers/net/vxlan.c       | 17 +++++++++++------
+ include/linux/netdevice.h |  2 ++
+ include/net/geneve.h      |  7 +++----
+ include/net/vxlan.h       |  5 +----
+ 5 files changed, 44 insertions(+), 17 deletions(-)
 
-Best Regards
-Salil
+-- 
+2.5.0
