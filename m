@@ -1,49 +1,69 @@
-From: fruggeri@aristanetworks.com (Francesco Ruggeri)
-Subject: [PATCH 1/1] net: possible use after free in dst_release
-Date: Wed, 06 Jan 2016 00:18:48 -0800
-Message-ID: <20160106081848.4532F6340189@us105.sjc.aristanetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: fruggeri@arista.com, edumazet@google.com, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: [PATCH] net: take care of bonding in build_skb_flow_key (v2)
+Date: Wed,  6 Jan 2016 17:03:17 +0800
+Message-ID: <1452070997-10395-1-git-send-email-wen.gang.wang@oracle.com>
+Cc: wen.gang.wang@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:2817 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752043AbcAFI2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 03:28:03 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:28288 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963AbcAFI75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 03:59:57 -0500
+Received: from userv0022.oracle.com (userv0022.oracle.com [156.151.31.74])
+	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u068xuIM030801
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 08:59:56 GMT
+Received: from aserv0122.oracle.com (aserv0122.oracle.com [141.146.126.236])
+	by userv0022.oracle.com (8.13.8/8.13.8) with ESMTP id u068xtsL028521
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 08:59:56 GMT
+Received: from abhmp0011.oracle.com (abhmp0011.oracle.com [141.146.116.17])
+	by aserv0122.oracle.com (8.13.8/8.13.8) with ESMTP id u068xtbi028890
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 08:59:55 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In a bonding setting, we determines fragment size according to MTU and
+PMTU associated to the bonding master. If the slave finds the fragment
+size is too big, it drops the fragment and calls ip_rt_update_pmtu(),
+passing _skb_ and _pmtu_, trying to update the path MTU.
+Problem is that the target device that function ip_rt_update_pmtu actually
+tries to update is the slave (skb->dev), not the master. Thus since no
+PMTU change happens on master, the fragment size for later packets doesn't
+change so all later fragments/packets are dropped too.
 
-dst_release should not access dst->flags after decrementing
-__refcnt to 0. The dst_entry may be in dst_busy_list and
-dst_gc_task may dst_destroy it before dst_release gets a chance
-to access dst->flags.
+The fix is letting build_skb_flow_key() take care of the transition of
+device index from bonding slave to the master. That makes the master become
+the target device that ip_rt_update_pmtu tries to update PMTU to.
 
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
 ---
- net/core/dst.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv4/route.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index e6dc772..a1656e3 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -301,12 +301,13 @@ void dst_release(struct dst_entry *dst)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 85f184e..fffc7e6 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -523,10 +523,18 @@ static void build_skb_flow_key(struct flowi4 *fl4, const struct sk_buff *skb,
+ 			       const struct sock *sk)
  {
- 	if (dst) {
- 		int newrefcnt;
-+		unsigned short nocache = dst->flags & DST_NOCACHE;
+ 	const struct iphdr *iph = ip_hdr(skb);
+-	int oif = skb->dev->ifindex;
+ 	u8 tos = RT_TOS(iph->tos);
++	struct net_device *master;
+ 	u8 prot = iph->protocol;
+ 	u32 mark = skb->mark;
++	int oif;
++
++	if (skb->dev->flags & IFF_SLAVE) {
++		master = netdev_master_upper_dev_get(skb->dev);
++		oif = master->ifindex;
++	} else {
++		oif = skb->dev->ifindex;
++	}
  
- 		newrefcnt = atomic_dec_return(&dst->__refcnt);
- 		if (unlikely(newrefcnt < 0))
- 			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
- 					     __func__, dst, newrefcnt);
--		if (!newrefcnt && unlikely(dst->flags & DST_NOCACHE))
-+		if (!newrefcnt && unlikely(nocache))
- 			call_rcu(&dst->rcu_head, dst_destroy_rcu);
- 	}
+ 	__build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
  }
 -- 
-1.8.1.4
+2.1.0
