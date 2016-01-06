@@ -1,428 +1,92 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 12/12] IB/mlx5: Add flow steering support
-Date: Wed,  6 Jan 2016 23:52:31 +0200
-Message-ID: <1452117151-28572-13-git-send-email-saeedm@mellanox.com>
-References: <1452117151-28572-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>, saeedm@dev.mellanox.co.il,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:43973 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752450AbcAFVyK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 16:54:10 -0500
-In-Reply-To: <1452117151-28572-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [BUG] skb corruption and kernel panic at forwarding with
+ fragmentation
+Date: Wed, 6 Jan 2016 23:03:34 +0100
+Message-ID: <20160106220334.GA23789@breakpoint.cc>
+References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
+ <CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
+ <CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
+ <20160106210532.GE27290@indiana.gru.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Konstantin Khlebnikov <koct9i@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160106210532.GE27290@indiana.gru.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maor Gottlieb <maorg@mellanox.com>
+Thadeu Lima de Souza Cascardo <cascardo@redhat.com> wrote:
+> On Wed, Jan 06, 2016 at 11:11:41PM +0300, Konstantin Khlebnikov wrote:
+> > On Wed, Jan 6, 2016 at 10:59 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > > On Wed, Jan 6, 2016 at 11:15 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
+> > >> Looks like this happens because ip_options_fragment() relies on
+> > >> correct ip options length in ip control block in skb. But in
+> > >> ip_finish_output_gso() control block in segments is reused by
+> > >> skb_gso_segment(). following ip_fragment() sees some garbage.
+> > >>
+> > >> In my case there was no ip options but length becomes non-zero and
+> > >> ip_options_fragment() picked some bytes from payload and decides to
+> > >> fill huge range with IPOPT_NOOP (1). One of that ones flipped nr_frags
+> > >> in skb_shared_info at the end of data =)
+> > >>
+> > >
+> > > Hmm, it looks like SKB_GSO_CB should be cleared after skb_gso_segment()
+> > > since all the gso information should be saved in shared_info after it finishes.
+> > >
+> > > Does a memset(0) on SKB_GSO_CB after skb_gso_segment() work as well?
+> > 
+> > This will break present logic around ip_options_fragment() - it clears
+> > options from
+> > second and following fragments. With zeroed cb it will do nothing.
+> > 
+> > ip_options_fragment() can get required information directly from ip header but
+> > it also resets fields in IPCB -- probably it should stay valid here
+> > and somebody else will use it later.
+[..]
+> I have hit this as well, this fixes it for me on an older kernel. Can you try it
+> on latest kernel?
 
-Adding flow steering support by creating a flow-table per
-priority (if rules exist in the priority).
-mlx5_ib uses autogrouping and thus only creates the
-required destinations.
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index d8a1745..f44bc91 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -216,6 +216,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
+>  	netdev_features_t features;
+>  	struct sk_buff *segs;
+>  	int ret = 0;
+> +	struct inet_skb_parm ipcb;
+>  
+>  	if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
+>  		return ip_finish_output2(skb);
+> @@ -227,6 +228,10 @@ static int ip_finish_output_gso(struct sk_buff *skb)
+>  	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
+>  	 * from host network stack.
+>  	 */
+> +	/* We need to save IPCB here because skb_gso_segment will use
+> +	 * SKB_GSO_CB.
+> +	 */
+> +	ipcb = *IPCB(skb);
+>  	features = netif_skb_features(skb);
+>  	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
+>  	if (IS_ERR_OR_NULL(segs)) {
+> @@ -241,6 +246,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
+>  		int err;
+>  
+>  		segs->next = NULL;
+> +		*IPCB(segs) = ipcb;
+>  		err = ip_fragment(segs, ip_finish_output2);
+>  
+>  		if (err && ret == 0)
 
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Moni Shoua <monis@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/infiniband/hw/mlx5/main.c    |  285 ++++++++++++++++++++++++++++++++++
- drivers/infiniband/hw/mlx5/mlx5_ib.h |   45 +++++-
- 2 files changed, 329 insertions(+), 1 deletions(-)
+I'm worried that this doesn't solve all cases. f.e. xfrm may also
+call skb_gso_segment(), and it will call into ipv4/ipv6 netfilter
+postrouting + ipv4 output functions...
 
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index e16f13f..01f7ef5 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -45,6 +45,7 @@
- #include <rdma/ib_umem.h>
- #include <linux/in.h>
- #include <linux/etherdevice.h>
-+#include <linux/mlx5/fs.h>
- #include "user.h"
- #include "mlx5_ib.h"
- 
-@@ -1012,6 +1013,281 @@ static bool is_valid_attr(struct ib_flow_attr *flow_attr)
- 	return !has_ipv4_spec || eth_type_ipv4;
- }
- 
-+static void put_flow_table(struct mlx5_ib_dev *dev,
-+			   struct mlx5_ib_flow_prio *prio, bool ft_added)
-+{
-+	prio->refcount -= !!ft_added;
-+	if (!prio->refcount) {
-+		mlx5_destroy_flow_table(prio->flow_table);
-+		prio->flow_table = NULL;
-+	}
-+}
-+
-+static int mlx5_ib_destroy_flow(struct ib_flow *flow_id)
-+{
-+	struct mlx5_ib_dev *dev = to_mdev(flow_id->qp->device);
-+	struct mlx5_ib_flow_handler *handler = container_of(flow_id,
-+							  struct mlx5_ib_flow_handler,
-+							  ibflow);
-+	struct mlx5_ib_flow_handler *iter, *tmp;
-+
-+	mutex_lock(&dev->flow_db.lock);
-+
-+	list_for_each_entry_safe(iter, tmp, &handler->list, list) {
-+		mlx5_del_flow_rule(iter->rule);
-+		list_del(&iter->list);
-+		kfree(iter);
-+	}
-+
-+	mlx5_del_flow_rule(handler->rule);
-+	put_flow_table(dev, &dev->flow_db.prios[handler->prio], true);
-+	mutex_unlock(&dev->flow_db.lock);
-+
-+	kfree(handler);
-+
-+	return 0;
-+}
-+
-+#define MLX5_FS_MAX_TYPES	 10
-+#define MLX5_FS_MAX_ENTRIES	 32000UL
-+static struct mlx5_ib_flow_prio *get_flow_table(struct mlx5_ib_dev *dev,
-+						struct ib_flow_attr *flow_attr)
-+{
-+	struct mlx5_flow_namespace *ns = NULL;
-+	struct mlx5_ib_flow_prio *prio;
-+	struct mlx5_flow_table *ft;
-+	int num_entries;
-+	int num_groups;
-+	int priority;
-+	int err = 0;
-+
-+	if (flow_attr->type == IB_FLOW_ATTR_NORMAL) {
-+		if (flow_is_multicast_only(flow_attr))
-+			priority = MLX5_IB_FLOW_MCAST_PRIO;
-+		else
-+			priority = flow_attr->priority;
-+		ns = mlx5_get_flow_namespace(dev->mdev,
-+					     MLX5_FLOW_NAMESPACE_BYPASS);
-+		num_entries = MLX5_FS_MAX_ENTRIES;
-+		num_groups = MLX5_FS_MAX_TYPES;
-+		prio = &dev->flow_db.prios[priority];
-+	} else if (flow_attr->type == IB_FLOW_ATTR_ALL_DEFAULT ||
-+		   flow_attr->type == IB_FLOW_ATTR_MC_DEFAULT) {
-+		ns = mlx5_get_flow_namespace(dev->mdev,
-+					     MLX5_FLOW_NAMESPACE_LEFTOVERS);
-+		build_leftovers_ft_param(&priority,
-+					 &num_entries,
-+					 &num_groups);
-+		prio = &dev->flow_db.prios[MLX5_IB_FLOW_LEFTOVERS_PRIO];
-+	}
-+
-+	if (!ns)
-+		return ERR_PTR(-ENOTSUPP);
-+
-+	ft = prio->flow_table;
-+	if (!ft) {
-+		ft = mlx5_create_auto_grouped_flow_table(ns, priority,
-+							 num_entries,
-+							 num_groups);
-+
-+		if (!IS_ERR(ft)) {
-+			prio->refcount = 0;
-+			prio->flow_table = ft;
-+		} else {
-+			err = PTR_ERR(ft);
-+		}
-+	}
-+
-+	return err ? ERR_PTR(err) : prio;
-+}
-+
-+static struct mlx5_ib_flow_handler *create_flow_rule(struct mlx5_ib_dev *dev,
-+						     struct mlx5_ib_flow_prio *ft_prio,
-+						     struct ib_flow_attr *flow_attr,
-+						     struct mlx5_flow_destination *dst)
-+{
-+	struct mlx5_flow_table	*ft = ft_prio->flow_table;
-+	struct mlx5_ib_flow_handler *handler;
-+	void *ib_flow = flow_attr + 1;
-+	u8 match_criteria_enable = 0;
-+	unsigned int spec_index;
-+	u32 *match_c;
-+	u32 *match_v;
-+	int err = 0;
-+
-+	if (!is_valid_attr(flow_attr))
-+		return ERR_PTR(-EINVAL);
-+
-+	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
-+	if (!handler || !match_c || !match_v) {
-+		err = -ENOMEM;
-+		goto free;
-+	}
-+
-+	INIT_LIST_HEAD(&handler->list);
-+
-+	for (spec_index = 0; spec_index < flow_attr->num_of_specs; spec_index++) {
-+		err = parse_flow_attr(match_c, match_v, ib_flow);
-+		if (err < 0)
-+			goto free;
-+
-+		ib_flow += ((union ib_flow_spec *)ib_flow)->size;
-+	}
-+
-+	/* Outer header support only */
-+	match_criteria_enable = (!outer_header_zero(match_c)) << 0;
-+	handler->rule = mlx5_add_flow_rule(ft, match_criteria_enable,
-+					   match_c, match_v,
-+					   MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
-+					   MLX5_FS_DEFAULT_FLOW_TAG,
-+					   dst);
-+
-+	if (IS_ERR(handler->rule)) {
-+		err = PTR_ERR(handler->rule);
-+		goto free;
-+	}
-+
-+	handler->prio = ft_prio - dev->flow_db.prios;
-+
-+	ft_prio->flow_table = ft;
-+free:
-+	if (err)
-+		kfree(handler);
-+	kfree(match_c);
-+	kfree(match_v);
-+	return err ? ERR_PTR(err) : handler;
-+}
-+
-+enum {
-+	LEFTOVERS_MC,
-+	LEFTOVERS_UC,
-+};
-+
-+static struct mlx5_ib_flow_handler *create_leftovers_rule(struct mlx5_ib_dev *dev,
-+							  struct mlx5_ib_flow_prio *ft_prio,
-+							  struct ib_flow_attr *flow_attr,
-+							  struct mlx5_flow_destination *dst)
-+{
-+	struct mlx5_ib_flow_handler *handler_ucast = NULL;
-+	struct mlx5_ib_flow_handler *handler = NULL;
-+
-+	static struct {
-+		struct ib_flow_attr	flow_attr;
-+		struct ib_flow_spec_eth eth_flow;
-+	} leftovers_specs[] = {
-+		[LEFTOVERS_MC] = {
-+			.flow_attr = {
-+				.num_of_specs = 1,
-+				.size = sizeof(leftovers_specs[0])
-+			},
-+			.eth_flow = {
-+				.type = IB_FLOW_SPEC_ETH,
-+				.size = sizeof(struct ib_flow_spec_eth),
-+				.mask = {.dst_mac = {0x1} },
-+				.val =  {.dst_mac = {0x1} }
-+			}
-+		},
-+		[LEFTOVERS_UC] = {
-+			.flow_attr = {
-+				.num_of_specs = 1,
-+				.size = sizeof(leftovers_specs[0])
-+			},
-+			.eth_flow = {
-+				.type = IB_FLOW_SPEC_ETH,
-+				.size = sizeof(struct ib_flow_spec_eth),
-+				.mask = {.dst_mac = {0x1} },
-+				.val = {.dst_mac = {} }
-+			}
-+		}
-+	};
-+
-+	handler = create_flow_rule(dev, ft_prio,
-+				   &leftovers_specs[LEFTOVERS_MC].flow_attr,
-+				   dst);
-+	if (!IS_ERR(handler) &&
-+	    flow_attr->type == IB_FLOW_ATTR_ALL_DEFAULT) {
-+		handler_ucast = create_flow_rule(dev, ft_prio,
-+						 &leftovers_specs[LEFTOVERS_UC].flow_attr,
-+						 dst);
-+		if (IS_ERR(handler_ucast)) {
-+			kfree(handler);
-+			handler = handler_ucast;
-+		} else {
-+			list_add(&handler_ucast->list, &handler->list);
-+		}
-+	}
-+
-+	return handler;
-+}
-+
-+static struct ib_flow *mlx5_ib_create_flow(struct ib_qp *qp,
-+					   struct ib_flow_attr *flow_attr,
-+					   int domain)
-+{
-+	struct mlx5_ib_dev *dev = to_mdev(qp->device);
-+	struct mlx5_ib_flow_handler *handler = NULL;
-+	struct mlx5_flow_destination *dst = NULL;
-+	struct mlx5_ib_flow_prio *ft_prio;
-+	int err;
-+
-+	if (flow_attr->priority > MLX5_IB_FLOW_LAST_PRIO)
-+		return ERR_PTR(-ENOSPC);
-+
-+	if (domain != IB_FLOW_DOMAIN_USER ||
-+	    flow_attr->port > MLX5_CAP_GEN(dev->mdev, num_ports) ||
-+	    flow_attr->flags)
-+		return ERR_PTR(-EINVAL);
-+
-+	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-+	if (!dst)
-+		return ERR_PTR(-ENOMEM);
-+
-+	mutex_lock(&dev->flow_db.lock);
-+
-+	ft_prio = get_flow_table(dev, flow_attr);
-+	if (IS_ERR(ft_prio)) {
-+		err = PTR_ERR(ft_prio);
-+		goto unlock;
-+	}
-+
-+	dst->type = MLX5_FLOW_DESTINATION_TYPE_TIR;
-+	dst->tir_num = to_mqp(qp)->raw_packet_qp.rq.tirn;
-+
-+	if (flow_attr->type == IB_FLOW_ATTR_NORMAL) {
-+		handler = create_flow_rule(dev, ft_prio, flow_attr,
-+					   dst);
-+	} else if (flow_attr->type == IB_FLOW_ATTR_ALL_DEFAULT ||
-+		   flow_attr->type == IB_FLOW_ATTR_MC_DEFAULT) {
-+		handler = create_leftovers_rule(dev, ft_prio, flow_attr,
-+						dst);
-+	} else {
-+		err = -EINVAL;
-+		goto destroy_ft;
-+	}
-+
-+	if (IS_ERR(handler)) {
-+		err = PTR_ERR(handler);
-+		handler = NULL;
-+		goto destroy_ft;
-+	}
-+
-+	ft_prio->refcount++;
-+	mutex_unlock(&dev->flow_db.lock);
-+	kfree(dst);
-+
-+	return &handler->ibflow;
-+
-+destroy_ft:
-+	put_flow_table(dev, ft_prio, false);
-+unlock:
-+	mutex_unlock(&dev->flow_db.lock);
-+	kfree(dst);
-+	kfree(handler);
-+	return ERR_PTR(err);
-+}
-+
- static int mlx5_ib_mcg_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
- {
- 	struct mlx5_ib_dev *dev = to_mdev(ibqp->device);
-@@ -1616,10 +1892,19 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
- 			(1ull << IB_USER_VERBS_CMD_CLOSE_XRCD);
- 	}
- 
-+	if (mlx5_ib_port_link_layer(&dev->ib_dev) ==
-+	    IB_LINK_LAYER_ETHERNET) {
-+		dev->ib_dev.create_flow	= mlx5_ib_create_flow;
-+		dev->ib_dev.destroy_flow = mlx5_ib_destroy_flow;
-+		dev->ib_dev.uverbs_ex_cmd_mask |=
-+			(1ull << IB_USER_VERBS_EX_CMD_CREATE_FLOW) |
-+			(1ull << IB_USER_VERBS_EX_CMD_DESTROY_FLOW);
-+	}
- 	err = init_node_data(dev);
- 	if (err)
- 		goto err_dealloc;
- 
-+	mutex_init(&dev->flow_db.lock);
- 	mutex_init(&dev->cap_mask_mutex);
- 
- 	err = create_dev_resources(&dev->devr);
-diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-index 6333472..1474ccc 100644
---- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
-+++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-@@ -105,6 +105,36 @@ struct mlx5_ib_pd {
- 	u32			pdn;
- };
- 
-+#define MLX5_IB_FLOW_MCAST_PRIO		(MLX5_BY_PASS_NUM_PRIOS - 1)
-+#define MLX5_IB_FLOW_LAST_PRIO		(MLX5_IB_FLOW_MCAST_PRIO - 1)
-+#if (MLX5_IB_FLOW_LAST_PRIO <= 0)
-+#error "Invalid number of bypass priorities"
-+#endif
-+#define MLX5_IB_FLOW_LEFTOVERS_PRIO	(MLX5_IB_FLOW_MCAST_PRIO + 1)
-+
-+#define MLX5_IB_NUM_FLOW_FT		(MLX5_IB_FLOW_LEFTOVERS_PRIO + 1)
-+struct mlx5_ib_flow_prio {
-+	struct mlx5_flow_table		*flow_table;
-+	unsigned int			refcount;
-+};
-+
-+struct mlx5_ib_flow_handler {
-+	struct list_head		list;
-+	struct ib_flow			ibflow;
-+	unsigned int			prio;
-+	struct mlx5_flow_rule	*rule;
-+};
-+
-+struct mlx5_ib_flow_db {
-+	struct mlx5_ib_flow_prio	prios[MLX5_IB_NUM_FLOW_FT];
-+	/* Protect flow steering bypass flow tables
-+	 * when add/del flow rules.
-+	 * only single add/removal of flow steering rule could be done
-+	 * simultaneously.
-+	 */
-+	struct mutex			lock;
-+};
-+
- /* Use macros here so that don't have to duplicate
-  * enum ib_send_flags and enum ib_qp_type for low-level driver
-  */
-@@ -171,9 +201,21 @@ struct mlx5_ib_pfault {
- 	struct mlx5_pagefault	mpfault;
- };
- 
-+struct mlx5_ib_rq {
-+	u32			tirn;
-+};
-+
-+struct mlx5_ib_raw_packet_qp {
-+	struct mlx5_ib_rq rq;
-+};
-+
- struct mlx5_ib_qp {
- 	struct ib_qp		ibqp;
--	struct mlx5_core_qp	mqp;
-+	union {
-+		struct mlx5_core_qp		mqp;
-+		struct mlx5_ib_raw_packet_qp	raw_packet_qp;
-+	};
-+
- 	struct mlx5_buf		buf;
- 
- 	struct mlx5_db		db;
-@@ -431,6 +473,7 @@ struct mlx5_ib_dev {
- 	 */
- 	struct srcu_struct      mr_srcu;
- #endif
-+	struct mlx5_ib_flow_db	flow_db;
- };
- 
- static inline struct mlx5_ib_cq *to_mibcq(struct mlx5_core_cq *mcq)
--- 
-1.7.1
+nfqnl_enqueue_packet() is also affected.
