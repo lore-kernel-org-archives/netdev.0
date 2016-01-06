@@ -1,79 +1,75 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key
-Date: Wed, 6 Jan 2016 14:44:59 +0800
-Message-ID: <568CB7EB.7080705@gmail.com>
-References: <1452059368-7527-1-git-send-email-wen.gang.wang@oracle.com>
- <20160106.011835.39198953316515142.davem@davemloft.net>
- <568CB501.1010106@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Wengang Wang <wen.gang.wang@oracle.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35162 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbcAFGpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:45:06 -0500
-Received: by mail-pa0-f48.google.com with SMTP id do7so506122pab.2
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 22:45:06 -0800 (PST)
-In-Reply-To: <568CB501.1010106@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] rfcomm: fix information leak in rfcomm_sock_bind
+Date: Tue, 5 Jan 2016 22:48:18 -0800
+Message-ID: <62ADF1E9-4974-4F54-8D86-CE0E38CC4619@holtmann.org>
+References: <1452054993-76111-1-git-send-email-wuninsu@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Peter Hurley <peter@hurleysoftware.com>,
+	JAGANATH KANAKKASSERY <jaganath.k@samsung.com>,
+	ying.xue@windriver.com,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	BlueZ development <linux-bluetooth@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, taesoo@gatech.edu,
+	yeongjin.jang@gatech.edu, insu@gatech.edu, changwoo@gatech.edu
+To: Insu Yun <wuninsu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452054993-76111-1-git-send-email-wuninsu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IMHO, the following comments will help us all.
+Hi Insu,
 
-         case NETDEV_CHANGEMTU:
-                 /* TODO: Should slaves be allowed to
-                  * independently alter their MTU?  For
-                  * an active-backup bond, slaves need
-                  * not be the same type of device, so
-                  * MTUs may vary.  For other modes,
-                  * slaves arguably should have the
-                  * same MTUs. To do this, we'd need to
-                  * take over the slave's change_mtu
-                  * function for the duration of their
-                  * servitude.
-                  */
-                 break;
+> if addr_len < sizeof(sa), sa.rc_bdaddr(4bytes) can be leaked 
+> by using rfcomm_sock_getname()
+> 
+> Signed-off-by: Insu Yun <wuninsu@gmail.com>
+> ---
+> net/bluetooth/rfcomm/sock.c | 9 +++++----
+> 1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+> index 7511df7..d61dfdc 100644
+> --- a/net/bluetooth/rfcomm/sock.c
+> +++ b/net/bluetooth/rfcomm/sock.c
+> @@ -336,14 +336,15 @@ static int rfcomm_sock_bind(struct socket *sock, struct sockaddr *addr, int addr
+> {
+> 	struct sockaddr_rc sa;
+> 	struct sock *sk = sock->sk;
+> -	int len, err = 0;
+> +	int err = 0;
+> 
+> 	if (!addr || addr->sa_family != AF_BLUETOOTH)
+> 		return -EINVAL;
+> 
+> -	memset(&sa, 0, sizeof(sa));
+> -	len = min_t(unsigned int, sizeof(sa), addr_len);
+> -	memcpy(&sa, addr, len);
 
-Best Regards!
-Zhu Yanjun
+what are we leaking here?
 
-On 01/06/2016 02:32 PM, Wengang Wang wrote:
->
->
-> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8806=E6=97=A5 14:18, David Miller =E5=
-=86=99=E9=81=93:
->> From: Wengang Wang <wen.gang.wang@oracle.com>
->> Date: Wed,  6 Jan 2016 13:49:28 +0800
->>
->>> @@ -523,11 +523,20 @@ static void build_skb_flow_key(struct flowi4=20
->>> *fl4, const struct sk_buff *skb,
->>>                      const struct sock *sk)
->>>   {
->>>       const struct iphdr *iph =3D ip_hdr(skb);
->>> -    int oif =3D skb->dev->ifindex;
->>> +    int oif;
->>> +    struct net_device *master =3D NULL;
->>> +
->>>       u8 tos =3D RT_TOS(iph->tos);
->>>       u8 prot =3D iph->protocol;
->>>       u32 mark =3D skb->mark;
->> Please fix the stlye of these variable declarations:
->>
->> 1) Order them from longest line to shortest line, also known
->>     as "reverse christmas tree" layout.
->>
->> 2) Do not add an empty line in the middle of these variable
->>     declarations.
-> OK, will do in second drop.
->
-> thanks,
-> wengang
-> --=20
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you make addr_len (controlled by userspace) smaller than struct sockaddr_rc, the kernel will only copy addr_len of sockaddr_rc to userspace. What is the kernel leaking again? We are happy to hand out the full sockaddr_rc in the first place.
+
+> +	if (addr_len != sizeof(sa))
+> +		return -EINVAL;
+> +
+> +	memcpy(&sa, addr, addr_len);
+> 
+> 	BT_DBG("sk %p %pMR", sk, &sa.rc_bdaddr);
+
+While I give you the fact that we should require at minimum to provide bdaddr_t and channel just as a good safe guard, but even if you don't, then it just means you try to bind to a truncated address, which will fail when calling connect().
+
+So the sockaddr_rc sa will be memset to zero. Which means if you provide less than sockaddr_rc you get a truncated rc_bdaddr and rc_channel set to zero. So what is getname() leaking now. It will leak zeros. It will not leak random kernel memory.
+
+Please help me to understand where this is an information leak. Since leaking memory that is explicitly set to zero is not an information leak.
+
+And just FYI you can bind a RFCOMM socket to a truncated address and channel 0 in a valid way with the full size of sockaddr_rc. That is still valid. We do not discriminate any addresses. If some company manages to get the IEEE to assign that address to them, than that is a valid address.
+
+Regards
+
+Marcel
