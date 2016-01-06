@@ -1,91 +1,168 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next 0/2] Local checksum offload for VXLAN
-Date: Wed, 6 Jan 2016 19:23:41 +0000
-Message-ID: <568D69BD.6070504@solarflare.com>
-References: <5672D466.6050900@solarflare.com>
- <CALx6S360nGbiD0fV4ggE_XT9SVcP4MZy-yR0Gma4jMdNuSKkug@mail.gmail.com>
- <5673E2F6.2000209@solarflare.com>
- <CALx6S35n+dt-F6m3TvW6KfbDq883Uzvi_unduDgPcT2H-Cf7ZQ@mail.gmail.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [RFC v5 3/6] Add history to cross timestamp interface supporting
+ slower devices
+Date: Wed, 6 Jan 2016 11:37:23 -0800
+Message-ID: <CALAqxLVACLP1_PGWh5Ha9P6DT+HfDu9vg-B5NCShuFvNu21WUQ@mail.gmail.com>
+References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
+	<1451911523-8534-4-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:23857 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751653AbcAFTYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 14:24:06 -0500
-In-Reply-To: <CALx6S35n+dt-F6m3TvW6KfbDq883Uzvi_unduDgPcT2H-Cf7ZQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
+To: "Christopher S. Hall" <christopher.s.hall@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451911523-8534-4-git-send-email-christopher.s.hall@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18/12/15 19:41, Tom Herbert wrote:
-> Drivers indicate that can do NETIF_F_IP[V6]_CSUM for encapsulation by
-> setting enc_features. This is checked in validate_xmit_skb so that if
-> drive can't handle encapsulated checksum skb_checksum_help is called
-> there.
-In that case, why is udp_set_csum ever looking at skb_dst(skb)->dev->features
- in the first place?  Shouldn't it just always set up checksum offload, and
- rely on it getting fixed up in validate_xmit_skb()?
-> On Fri, Dec 18, 2015 at 2:41 AM, Edward Cree <ecree@solarflare.com> wrote:
->> On 17/12/15 18:06, Tom Herbert wrote:
->>> I'm not sure that we need bits in VXLAN or any other encapsulation. It
->>> should be sufficient in udp_set_csum that if we already have
->>> CHECKSUM_PARTIAL that can always be used to do local checksum offload.
->> My understandingis that otherwise iptunnel_handle_offloads() will do the
->>  inner checksum in sw, because csum_help will be passed as true.  It will
->>  call skb_checksum_help().
-I'm beginning to think that csum_help should just go away, and all tunnels
- that have both inner and outer checksums should make sure they support LCO.
- I don't see any situation in which it should be necessary for
- iptunnel_handle_offloads to call skb_checksum_help, now that we never need
- to offload the outer checksum.
-As far as I can tell from a quick LXR search, the protocols which sometimes
- pass csum_help as true are:
-* FOU.  Calls udp_set_csum, so will get LCO support for free.
-* GRE.  The GRE header has its own checksum, but it uses ones complement, so
- ip_gre.c:build_header needs to implement LCO.  Probably we want a helper
- function for LCO, that does everything except fill in the outer pseudo-
- header sum, which can then be called by both GRE and udp_set_csum.
-* Geneve.  This goes through udp_tunnel_xmit_skb, so udp_set_csum gets
- called, so Geneve will get LCO support for free.
-* VXLAN.  Like Geneve, goes through udp_tunnel_xmit_skb, so gets LCO support
- for free.
-So, if we implement LCO for GRE, we can then drop the csum_help argument to
- iptunnel_handle_offloads() entirely, and act as though it's always false.
-Also, of course, we need to do the same stuff for the IPv6 versions: add LCO
- to udp6_set_csum(), and to the IPv6-GRE implementation, which appears to be
- the call to ip_compute_csum() inside ip6gre_xmit2().  Although, it looks
- like IPv6-GRE has so little in common with other tunnel code, that simply
- leaving it as it is wouldn't break anything.  If anyone is actually *using*
- GRE over IPv6 (the spec explicitly says it doesn't cover IPv6) and wants
- the performance boost, they can implement LCO for it themselves :)
-The only remaining problem is GSO: I haven't got quite as far yet with
- understanding that path.  But I don't _think_ implementing LCO for non-GSO
- will break GSO.  In which case we can get the non-GSO side working first,
- then try to implement the GSO version later.
-> I don't think this right for skbuff.h that should just describe the
-> interface. LCO has no interface like checksum-unnecessary conversion.
-> Checksumming, encapsulation, segmentation offloads are complex enough
-> now there should really be a Linux doc on this maybe modeled after
-> scaling.txt. That's probably more than you bargained for in this
-> patch, but if someone wants to learn how this infrastructure really
-> works, writing a doc is a good way! :-)
-I'm making some attempt to write a doc for checksumming and encapsulation.
- But I'd prefer to punt on segmentation because that's a whole other thing
- and I don't know any of the code yet - and I don't think it blocks any of
- the csum/encap work.  (Though that work will need to be done again for the
- segmentation offload path, I think.)  So I'll leave that bit for someone
- else to document ;)
-Can I claim that canonically the only part of the TX stack that should look
- at the netdev offload features is validate_xmit_skb(), and everything else
- should just assume all features are supported?  (Like the udp_set_csum bit
- I started this email with.)  This would seem like the Right Thing, as it
- mirrors the new rule for device drivers that they should have sw fallbacks
- rather than trying to tell the stack exactly what they support.
-Of course, that does include all the functions validate_xmit_skb() _calls_,
- which appears to include the entirety of GSO.  But like I say, I'm
- pretending GSO doesn't exist for now...
+On Mon, Jan 4, 2016 at 4:45 AM, Christopher S. Hall
+<christopher.s.hall@intel.com> wrote:
+> @@ -13,6 +13,9 @@
+>  /**
+>   * struct tk_read_base - base structure for timekeeping readout
+>   * @clock:     Current clocksource used for timekeeping.
+> + * @cs_seq:    Clocksource sequence is incremented per clocksource change.
+> + *     It's used to determine whether past system time can be related to
+> + *     current system time
+>   * @read:      Read function of @clock
+>   * @mask:      Bitmask for two's complement subtraction of non 64bit clocks
+>   * @cycle_last: @clock cycle value at last update
+> @@ -29,6 +32,7 @@
+>   */
+>  struct tk_read_base {
+>         struct clocksource      *clock;
+> +       u8                      cs_seq;
+>         cycle_t                 (*read)(struct clocksource *cs);
+>         cycle_t                 mask;
+>         cycle_t                 cycle_last;
 
--Edward
+
+So Thomas optimized the tk_read_bases to fit in a cacheline, and so I
+worry about the u8 being added there. I'm also cautious about
+exporting these seq values out further via the system_time_snapshot.
+But I may just need some more time to warm up to the idea.
+
+
+> diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+> index 9c1ddc3..5a7f784 100644
+> --- a/kernel/time/timekeeping.c
+> +++ b/kernel/time/timekeeping.c
+> @@ -235,11 +235,13 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
+>
+>         old_clock = tk->tkr_mono.clock;
+>         tk->tkr_mono.clock = clock;
+> +       ++tk->tkr_mono.cs_seq;
+>         tk->tkr_mono.read = clock->read;
+>         tk->tkr_mono.mask = clock->mask;
+>         tk->tkr_mono.cycle_last = tk->tkr_mono.read(clock);
+>
+>         tk->tkr_raw.clock = clock;
+> +       ++tk->tkr_raw.cs_seq;
+>         tk->tkr_raw.read = clock->read;
+>         tk->tkr_raw.mask = clock->mask;
+>         tk->tkr_raw.cycle_last = tk->tkr_mono.cycle_last;
+> @@ -862,6 +864,39 @@ time64_t ktime_get_real_seconds(void)
+>  }
+>  EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
+>
+> +/**
+> + * ktime_get_snapshot - snapshots the realtime/monotonic raw clocks with counter
+> + * @snapshot:  pointer to struct receiving the system time snapshot
+> + */
+> +void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
+> +{
+> +       struct timekeeper *tk = &tk_core.timekeeper;
+> +       unsigned long seq;
+> +       ktime_t base_raw;
+> +       ktime_t base_real;
+> +       s64 nsec_raw;
+> +       s64 nsec_real;
+> +       cycle_t now;
+> +
+> +       do {
+> +               seq = read_seqcount_begin(&tk_core.seq);
+> +
+> +               now = tk->tkr_mono.read(tk->tkr_mono.clock);
+> +               systime_snapshot->cs_seq = tk->tkr_mono.cs_seq;
+> +               systime_snapshot->clock_set_seq = tk->clock_was_set_seq;
+> +               base_real = ktime_add(tk->tkr_mono.base,
+> +                                     tk_core.timekeeper.offs_real);
+> +               base_raw = tk->tkr_raw.base;
+> +               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono, now);
+> +               nsec_raw  = timekeeping_cycles_to_ns(&tk->tkr_raw, now);
+> +       } while (read_seqcount_retry(&tk_core.seq, seq));
+> +
+> +       systime_snapshot->cycles = now;
+> +       systime_snapshot->real = ktime_add_ns(base_real, nsec_real);
+> +       systime_snapshot->raw = ktime_add_ns(base_raw, nsec_raw);
+> +}
+> +EXPORT_SYMBOL_GPL(ktime_get_snapshot);
+
+
+So can you split out this adding of ktime_get_snapshot()  (maybe
+skipping the seqcount bits initially) into a separate patch?
+
+> @@ -936,19 +1044,63 @@ int get_device_system_crosststamp(struct system_device_crosststamp *xtstamp,
+>                  */
+>                 if (tk->tkr_mono.clock != raw_sys.cs)
+>                         return -ENODEV;
+> +               cycles = raw_sys.cycles;
+> +
+> +               /*
+> +                * Check whether the system counter value provided by the
+> +                * device driver is on the current interval.
+> +                */
+> +               now = tk->tkr_mono.read(tk->tkr_mono.clock);
+> +               interval_start = tk->tkr_mono.cycle_last;
+> +               if (!cycle_between(interval_start, cycles, now)) {
+> +                       cs_seq = tk->tkr_mono.cs_seq;
+> +                       clock_was_set_seq = tk->clock_was_set_seq;
+> +                       cycles = interval_start;
+> +                       do_interp = true;
+> +               } else {
+> +                       do_interp = false;
+> +               }
+>
+>                 base_real = ktime_add(tk->tkr_mono.base,
+>                                       tk_core.timekeeper.offs_real);
+>                 base_raw = tk->tkr_raw.base;
+>
+> -               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,
+> -                                                    raw_sys.cycles);
+> -               nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,
+> -                                                   raw_sys.cycles);
+> +               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono, cycles);
+> +               nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw, cycles);
+>         } while (read_seqcount_retry(&tk_core.seq, seq));
+>
+>         xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
+>         xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
+> +
+> +       /*
+> +        * Interpolate if necessary, working back from the start of the current
+> +        * interval
+> +        */
+> +       if (do_interp) {
+> +               cycle_t total_history_cycles;
+> +               ktime_t history_monoraw;
+> +               ktime_t history_realtime;
+> +               bool discontinuity;
+> +               cycle_t partial_history_cycles = cycles - raw_sys.cycles;
+> +
+> +               if (!history_ref || history_ref->cs_seq != cs_seq ||
+
+I've not done a super close reading here. But is it very likely the
+the history_ref->cs_seq is the same as the captured seq? I thought
+this history_ref was to allow old cross stamps to be used to improve
+the back-calculation of the time at the given cycle value. So throwing
+them out if they are older then the last tick seems strange.
+
+thanks
+-john
