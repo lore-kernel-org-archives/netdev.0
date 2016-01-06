@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 04/12] net/mlx5_core: Introduce modify flow table command
-Date: Wed,  6 Jan 2016 23:52:23 +0200
-Message-ID: <1452117151-28572-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 05/12] net/mlx5_core: Connect flow tables
+Date: Wed,  6 Jan 2016 23:52:24 +0200
+Message-ID: <1452117151-28572-6-git-send-email-saeedm@mellanox.com>
 References: <1452117151-28572-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -14,174 +14,228 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:43987 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:43959 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752471AbcAFVyL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 16:54:11 -0500
+	id S1752422AbcAFVyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 16:54:09 -0500
 In-Reply-To: <1452117151-28572-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Introduce the modify flow table command. This command is used when
-we want to change the next flow table of an existing flow table.
-The next flow table is defined as the table we search (in order
-to find a match), if we couldn't find a match in any of the flow table
-entries in the current flow table.
+Flow tables from different priorities should be chained together.
+When a packet arrives we search for a match in the
+by-pass flow tables (first we search for a match in priority 0
+and if we don't find a match we move to the next priority).
+If we can't find a match in any of the bypass flow-tables, we continue
+searching in the flow-tables of the next priority, which are the
+kernel's flow tables.
+
+Setting the miss flow table in a new flow table to be the next one in
+the list is performed via create flow table API. If we want to change an
+existing flow table, for example in order to point from an
+existing flow table to the new next-in-list flow table, we use the
+modify flow table API.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c |   27 ++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h |    4 ++
- include/linux/mlx5/mlx5_ifc.h                    |   56 ++++++++++++++++++++--
- 3 files changed, 83 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |    7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |    3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |  104 +++++++++++++++++++--
+ 3 files changed, 104 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index d8b1195..2b55625 100644
+index 2b55625..a9894d2 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -101,6 +101,33 @@ int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
- 					  sizeof(out));
- }
+@@ -58,7 +58,8 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
  
-+int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
-+			       struct mlx5_flow_table *ft,
-+			       struct mlx5_flow_table *next_ft)
-+{
-+	u32 in[MLX5_ST_SZ_DW(modify_flow_table_in)];
-+	u32 out[MLX5_ST_SZ_DW(modify_flow_table_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(modify_flow_table_in, in, opcode,
-+		 MLX5_CMD_OP_MODIFY_FLOW_TABLE);
-+	MLX5_SET(modify_flow_table_in, in, table_type, ft->type);
-+	MLX5_SET(modify_flow_table_in, in, table_id, ft->id);
-+	MLX5_SET(modify_flow_table_in, in, modify_field_select,
-+		 MLX5_MODIFY_FLOW_TABLE_MISS_TABLE_ID);
+ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ 			       enum fs_flow_table_type type, unsigned int level,
+-			       unsigned int log_size, unsigned int *table_id)
++			       unsigned int log_size, struct mlx5_flow_table
++			       *next_ft, unsigned int *table_id)
+ {
+ 	u32 out[MLX5_ST_SZ_DW(create_flow_table_out)];
+ 	u32 in[MLX5_ST_SZ_DW(create_flow_table_in)];
+@@ -69,6 +70,10 @@ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ 	MLX5_SET(create_flow_table_in, in, opcode,
+ 		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
+ 
 +	if (next_ft) {
-+		MLX5_SET(modify_flow_table_in, in, table_miss_mode, 1);
-+		MLX5_SET(modify_flow_table_in, in, table_miss_id, next_ft->id);
-+	} else {
-+		MLX5_SET(modify_flow_table_in, in, table_miss_mode, 0);
++		MLX5_SET(create_flow_table_in, in, table_miss_mode, 1);
++		MLX5_SET(create_flow_table_in, in, table_miss_id, next_ft->id);
 +	}
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
- int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
- 			       struct mlx5_flow_table *ft,
- 			       u32 *in,
+ 	MLX5_SET(create_flow_table_in, in, table_type, type);
+ 	MLX5_SET(create_flow_table_in, in, level, level);
+ 	MLX5_SET(create_flow_table_in, in, log_size, log_size);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-index 70d18ec..1ae9b68 100644
+index 1ae9b68..9814d47 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -40,6 +40,10 @@ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+@@ -35,7 +35,8 @@
+ 
+ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ 			       enum fs_flow_table_type type, unsigned int level,
+-			       unsigned int log_size, unsigned int *table_id);
++			       unsigned int log_size, struct mlx5_flow_table
++			       *next_ft, unsigned int *table_id);
+ 
  int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
  				struct mlx5_flow_table *ft);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 64bdb54..c6f864d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -510,6 +510,48 @@ static struct mlx5_flow_table *find_prev_chained_ft(struct fs_prio *prio)
+ 	return find_closest_ft(prio, true);
+ }
  
-+int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
-+			       struct mlx5_flow_table *ft,
-+			       struct mlx5_flow_table *next_ft);
++static int connect_fts_in_prio(struct mlx5_core_dev *dev,
++			       struct fs_prio *prio,
++			       struct mlx5_flow_table *ft)
++{
++	struct mlx5_flow_table *iter;
++	int i = 0;
++	int err;
 +
- int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
- 			       struct mlx5_flow_table *ft,
- 			       u32 *in, unsigned int *group_id);
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 323e713..7f16695 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -194,7 +194,8 @@ enum {
- 	MLX5_CMD_OP_QUERY_FLOW_GROUP              = 0x935,
- 	MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY          = 0x936,
- 	MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY        = 0x937,
--	MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY       = 0x938
-+	MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY       = 0x938,
-+	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c
- };
++	fs_for_each_ft(iter, prio) {
++		i++;
++		err = mlx5_cmd_modify_flow_table(dev,
++						 iter,
++						 ft);
++		if (err) {
++			mlx5_core_warn(dev, "Failed to modify flow table %d\n",
++				       iter->id);
++			/* The driver is out of sync with the FW */
++			if (i > 1)
++				WARN_ON(true);
++			return err;
++		}
++	}
++	return 0;
++}
++
++/* Connect flow tables from previous priority of prio to ft */
++static int connect_prev_fts(struct mlx5_core_dev *dev,
++			    struct mlx5_flow_table *ft,
++			    struct fs_prio *prio)
++{
++	struct mlx5_flow_table *prev_ft;
++
++	prev_ft = find_prev_chained_ft(prio);
++	if (prev_ft) {
++		struct fs_prio *prev_prio;
++
++		fs_get_obj(prev_prio, prev_ft->node.parent);
++		return connect_fts_in_prio(dev, prev_prio, ft);
++	}
++	return 0;
++}
++
+ static int update_root_ft_create(struct mlx5_flow_table *ft, struct fs_prio
+ 				 *prio)
+ {
+@@ -533,10 +575,30 @@ static int update_root_ft_create(struct mlx5_flow_table *ft, struct fs_prio
+ 	return err;
+ }
  
- struct mlx5_ifc_flow_table_fields_supported_bits {
-@@ -260,7 +261,9 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
- 	u8         reserved_0[0x2];
- 	u8	   flow_modify_en[0x1];
- 	u8         modify_root[0x1];
--	u8         reserved_1[0x1b];
-+	u8         identified_miss_table_mode[0x1];
-+	u8         flow_table_modify[0x1];
-+	u8         reserved_1[0x19];
++static int connect_flow_table(struct mlx5_core_dev *dev, struct mlx5_flow_table *ft,
++			      struct fs_prio *prio)
++{
++	int err = 0;
++
++	/* Connect_prev_fts and update_root_ft_create are mutually exclusive */
++
++	if (list_empty(&prio->node.children)) {
++		err = connect_prev_fts(dev, ft, prio);
++		if (err)
++			return err;
++	}
++
++	if (MLX5_CAP_FLOWTABLE(dev,
++			       flow_table_properties_nic_receive.modify_root))
++		err = update_root_ft_create(ft, prio);
++	return err;
++}
++
+ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+ 					       int prio,
+ 					       int max_fte)
+ {
++	struct mlx5_flow_table *next_ft = NULL;
+ 	struct mlx5_flow_table *ft;
+ 	int err;
+ 	int log_table_sz;
+@@ -570,17 +632,15 @@ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
  
- 	u8         reserved_2[0x2];
- 	u8         log_max_ft_size[0x6];
-@@ -5669,12 +5672,16 @@ struct mlx5_ifc_create_flow_table_in_bits {
+ 	tree_init_node(&ft->node, 1, del_flow_table);
+ 	log_table_sz = ilog2(ft->max_fte);
++	next_ft = find_next_chained_ft(fs_prio);
+ 	err = mlx5_cmd_create_flow_table(root->dev, ft->type, ft->level,
+-					 log_table_sz, &ft->id);
++					 log_table_sz, next_ft, &ft->id);
+ 	if (err)
+ 		goto free_ft;
  
- 	u8         reserved_4[0x20];
+-	if (MLX5_CAP_FLOWTABLE(root->dev,
+-			       flow_table_properties_nic_receive.modify_root)) {
+-		err = update_root_ft_create(ft, fs_prio);
+-		if (err)
+-			goto destroy_ft;
+-	}
++	err = connect_flow_table(root->dev, ft, fs_prio);
++	if (err)
++		goto destroy_ft;
+ 	lock_ref_node(&fs_prio->node);
+ 	tree_add_node(&ft->node, &fs_prio->node);
+ 	list_add_tail(&ft->node.list, &fs_prio->node.children);
+@@ -967,13 +1027,41 @@ static int update_root_ft_destroy(struct mlx5_flow_table *ft)
+ 	return 0;
+ }
  
--	u8         reserved_5[0x8];
-+	u8         reserved_5[0x4];
-+	u8         table_miss_mode[0x4];
- 	u8         level[0x8];
- 	u8         reserved_6[0x8];
- 	u8         log_size[0x8];
++/* Connect flow table from previous priority to
++ * the next flow table.
++ */
++static int disconnect_flow_table(struct mlx5_flow_table *ft)
++{
++	struct mlx5_core_dev *dev = get_dev(&ft->node);
++	struct mlx5_flow_table *next_ft;
++	struct fs_prio *prio;
++	int err = 0;
++
++	err = update_root_ft_destroy(ft);
++	if (err)
++		return err;
++
++	fs_get_obj(prio, ft->node.parent);
++	if  (!(list_first_entry(&prio->node.children,
++				struct mlx5_flow_table,
++				node.list) == ft))
++		return 0;
++
++	next_ft = find_next_chained_ft(prio);
++	err = connect_prev_fts(dev, next_ft, prio);
++	if (err)
++		mlx5_core_warn(dev, "Failed to disconnect flow table %d\n",
++			       ft->id);
++	return err;
++}
++
+ int mlx5_destroy_flow_table(struct mlx5_flow_table *ft)
+ {
+ 	struct mlx5_flow_root_namespace *root = find_root(&ft->node);
+ 	int err = 0;
  
--	u8         reserved_7[0x120];
-+	u8         reserved_7[0x8];
-+	u8         table_miss_id[0x18];
-+
-+	u8         reserved_8[0x100];
- };
- 
- struct mlx5_ifc_create_flow_group_out_bits {
-@@ -6975,4 +6982,45 @@ struct mlx5_ifc_set_flow_table_root_in_bits {
- 	u8         reserved_5[0x140];
- };
- 
-+enum {
-+	MLX5_MODIFY_FLOW_TABLE_MISS_TABLE_ID = 0x1,
-+};
-+
-+struct mlx5_ifc_modify_flow_table_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_0[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_1[0x40];
-+};
-+
-+struct mlx5_ifc_modify_flow_table_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_0[0x10];
-+
-+	u8         reserved_1[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_2[0x20];
-+
-+	u8         reserved_3[0x10];
-+	u8         modify_field_select[0x10];
-+
-+	u8         table_type[0x8];
-+	u8         reserved_4[0x18];
-+
-+	u8         reserved_5[0x8];
-+	u8         table_id[0x18];
-+
-+	u8         reserved_6[0x4];
-+	u8         table_miss_mode[0x4];
-+	u8         reserved_7[0x18];
-+
-+	u8         reserved_8[0x8];
-+	u8         table_miss_id[0x18];
-+
-+	u8         reserved_9[0x100];
-+};
-+
- #endif /* MLX5_IFC_H */
+ 	mutex_lock(&root->chain_lock);
+-	err = update_root_ft_destroy(ft);
++	err = disconnect_flow_table(ft);
+ 	if (err) {
+ 		mutex_unlock(&root->chain_lock);
+ 		return err;
 -- 
 1.7.1
