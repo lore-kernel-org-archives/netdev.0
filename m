@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/12] net/mlx5_core: Introduce flow steering
- autogrouped flow table
-Date: Tue, 05 Jan 2016 23:58:25 -0500 (EST)
-Message-ID: <20160105.235825.203310986288483393.davem@davemloft.net>
-References: <1452024253-21193-1-git-send-email-saeedm@mellanox.com>
-	<1452024253-21193-2-git-send-email-saeedm@mellanox.com>
+Subject: Re: [PATCH] net: hns: avoid uninitialized variable warning:
+Date: Wed, 06 Jan 2016 00:01:12 -0500 (EST)
+Message-ID: <20160106.000112.1783241133330740168.davem@davemloft.net>
+References: <6649249.INrAY8KJG0@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dledford@redhat.com, ogerlitz@mellanox.com,
-	eranbe@mellanox.com, talal@mellanox.com, majd@mellanox.com,
-	matanb@mellanox.com, maorg@mellanox.com, monis@mellanox.com,
-	saeedm@dev.mellanox.co.il
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33626 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbcAFE6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 23:58:43 -0500
-In-Reply-To: <1452024253-21193-2-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	lisheng011@huawei.com, huangdaode@hisilicon.com,
+	salil.mehta@huawei.com, linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6649249.INrAY8KJG0@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Tue,  5 Jan 2016 22:04:02 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 01 Jan 2016 23:27:57 +0100
 
-> -	/* Add node to tree */
-> -	tree_init_node(&fg->node, 1, del_flow_group);
+> gcc fails to see that the use of the 'last_offset' variable
+> in hns_nic_reuse_page() is used correctly and issues a bogus
+> warning:
+> 
+> drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_nic_reuse_page':
+> drivers/net/ethernet/hisilicon/hns/hns_enet.c:541:6: warning: 'last_offset' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> 
+> This simplifies the function to make it more obvious what is
+> going on to both readers and compilers, which makes the warning
+> go away.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Why in the world would you take a properly formatted comment:
-
-> +	/*Add node to tree*/
-
-And proceed to molest it like this?
-
-Please don't do this.
+Applied, thanks.
