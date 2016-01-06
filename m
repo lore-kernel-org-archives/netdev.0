@@ -1,68 +1,157 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 20/22] mdio_bus: Add comment to mdiobus_scan() and __mdiobus_register()
-Date: Wed,  6 Jan 2016 20:11:25 +0100
-Message-ID: <1452107487-475-21-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 22/22] mdio: Abstract device_remove() and device_free()
+Date: Wed,  6 Jan 2016 20:11:27 +0100
+Message-ID: <1452107487-475-23-git-send-email-andrew@lunn.ch>
 References: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42397 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:42405 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752517AbcAFTO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 14:14:28 -0500
+	id S1752162AbcAFTOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 14:14:44 -0500
 In-Reply-To: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make it clear that mdiobus_scan () will only find devices which have a
-vendor/product ID in registers 2 and 3. These are typically PHY
-devices. Other sort of MDIO devices, such as switches, are not
-expected to be found during the scan.
-
-Similarly, __mdiobus_register(), which calls mdiobus_scan() will only
-find PHY devices, and other sorts of MDIO devices are expected to be
-instantiated from device tree.
+Make device_free and device_remove operations in the mdio device
+structure, so the core code does not need to differentiate between
+phy devices and generic mdio devices.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/mdio_bus.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/phy/mdio_bus.c    | 23 +++++++++--------------
+ drivers/net/phy/mdio_device.c |  2 ++
+ drivers/net/phy/phy_device.c  | 18 ++++++++++++++++++
+ include/linux/mdio.h          |  4 ++++
+ 4 files changed, 33 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 0d369ad19d17..6f9ca51446db 100644
+index 0573cfd2116f..0be7b3d65f0f 100644
 --- a/drivers/net/phy/mdio_bus.c
 +++ b/drivers/net/phy/mdio_bus.c
-@@ -291,7 +291,9 @@ static inline void of_mdiobus_link_mdiodev(struct mii_bus *mdio,
-  * Description: Called by a bus driver to bring up all the PHYs
-  *   on a given bus, and attach them to the bus. Drivers should use
-  *   mdiobus_register() rather than __mdiobus_register() unless they
-- *   need to pass a specific owner module.
-+ *   need to pass a specific owner module. MDIO devices which are not
-+ *   PHYs will not be brought up by this function. They are expected to
-+ *   to be explicitly listed in DT and instantiated by of_mdiobus_register().
-  *
-  * Returns 0 on success or < 0 on error.
+@@ -299,6 +299,7 @@ static inline void of_mdiobus_link_mdiodev(struct mii_bus *mdio,
   */
-@@ -394,6 +396,18 @@ void mdiobus_free(struct mii_bus *bus)
- }
- EXPORT_SYMBOL(mdiobus_free);
- 
-+/**
-+ * mdiobus_scan - scan a bus for MDIO devices.
-+ * @bus: mii_bus to scan
-+ * @addr: address on bus to scan
-+ *
-+ * This function scans the MDIO bus, looking for devices which can be
-+ * identified using a vendor/product ID in registers 2 and 3. Not all
-+ * MDIO devices have such registers, but PHY devices typically
-+ * do. Hence this function assumes anything found is a PHY, or can be
-+ * treated as a PHY. Other MDIO devices, such as switches, will
-+ * probably not be found during the scan.
-+ */
- struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
+ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
  {
- 	struct phy_device *phydev;
++	struct mdio_device *mdiodev;
+ 	int i, err;
+ 
+ 	if (NULL == bus || NULL == bus->name ||
+@@ -344,11 +345,12 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 
+ error:
+ 	while (--i >= 0) {
+-		struct phy_device *phydev = mdiobus_get_phy(bus, i);
+-		if (phydev) {
+-			phy_device_remove(phydev);
+-			phy_device_free(phydev);
+-		}
++		mdiodev = bus->mdio_map[i];
++		if (!mdiodev)
++			continue;
++
++		mdiodev->device_remove(mdiodev);
++		mdiodev->device_free(mdiodev);
+ 	}
+ 	device_del(&bus->dev);
+ 	return err;
+@@ -358,7 +360,6 @@ EXPORT_SYMBOL(__mdiobus_register);
+ void mdiobus_unregister(struct mii_bus *bus)
+ {
+ 	struct mdio_device *mdiodev;
+-	struct phy_device *phydev;
+ 	int i;
+ 
+ 	BUG_ON(bus->state != MDIOBUS_REGISTERED);
+@@ -369,14 +370,8 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 		if (!mdiodev)
+ 			continue;
+ 
+-		if (!(mdiodev->flags & MDIO_DEVICE_FLAG_PHY)) {
+-			phydev = container_of(mdiodev, struct phy_device, mdio);
+-			phy_device_remove(phydev);
+-			phy_device_free(phydev);
+-		} else {
+-			mdio_device_remove(mdiodev);
+-			mdio_device_free(mdiodev);
+-		}
++		mdiodev->device_remove(mdiodev);
++		mdiodev->device_free(mdiodev);
+ 	}
+ 	device_del(&bus->dev);
+ }
+diff --git a/drivers/net/phy/mdio_device.c b/drivers/net/phy/mdio_device.c
+index 64e3777c85b4..9c88e6749b9a 100644
+--- a/drivers/net/phy/mdio_device.c
++++ b/drivers/net/phy/mdio_device.c
+@@ -46,6 +46,8 @@ struct mdio_device *mdio_device_create(struct mii_bus *bus, int addr)
+ 	mdiodev->dev.release = mdio_device_release;
+ 	mdiodev->dev.parent = &bus->dev;
+ 	mdiodev->dev.bus = &mdio_bus_type;
++	mdiodev->device_free = mdio_device_free;
++	mdiodev->device_remove = mdio_device_remove;
+ 	mdiodev->bus = bus;
+ 	mdiodev->addr = addr;
+ 
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index af6cb6556cf9..319300627c0b 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -47,11 +47,27 @@ void phy_device_free(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_device_free);
+ 
++static void phy_mdio_device_free(struct mdio_device *mdiodev)
++{
++	struct phy_device *phydev;
++
++	phydev = container_of(mdiodev, struct phy_device, mdio);
++	phy_device_free(phydev);
++}
++
+ static void phy_device_release(struct device *dev)
+ {
+ 	kfree(to_phy_device(dev));
+ }
+ 
++static void phy_mdio_device_remove(struct mdio_device *mdiodev)
++{
++	struct phy_device *phydev;
++
++	phydev = container_of(mdiodev, struct phy_device, mdio);
++	phy_device_remove(phydev);
++}
++
+ enum genphy_driver {
+ 	GENPHY_DRV_1G,
+ 	GENPHY_DRV_10G,
+@@ -308,6 +324,8 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ 	mdiodev->bus_match = phy_bus_match;
+ 	mdiodev->addr = addr;
+ 	mdiodev->flags = MDIO_DEVICE_FLAG_PHY;
++	mdiodev->device_free = phy_mdio_device_free;
++	mdiodev->device_remove = phy_mdio_device_remove;
+ 
+ 	dev->speed = 0;
+ 	dev->duplex = -1;
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index 75f7fad0af4f..5bfd99d1a40a 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -18,7 +18,11 @@ struct mdio_device {
+ 
+ 	const struct dev_pm_ops *pm_ops;
+ 	struct mii_bus *bus;
++
+ 	int (*bus_match)(struct device *dev, struct device_driver *drv);
++	void (*device_free)(struct mdio_device *mdiodev);
++	void (*device_remove)(struct mdio_device *mdiodev);
++
+ 	/* Bus address of the MDIO device (0-31) */
+ 	int addr;
+ 	int flags;
 -- 
 2.6.4
