@@ -1,154 +1,52 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict synchronization
- of link_up and speed
-Date: Wed, 6 Jan 2016 15:30:36 +0000
-Message-ID: <87618083B2453E4A8714035B62D6799250503F00@FMSMSX105.amr.corp.intel.com>
-References: <1450926752-11392-1-git-send-email-zyjzyj2000@gmail.com>
- <1451356326-2919-1-git-send-email-zyjzyj2000@gmail.com>
- <1451356326-2919-3-git-send-email-zyjzyj2000@gmail.com>
- <87618083B2453E4A8714035B62D67992504FB5FF@FMSMSX105.amr.corp.intel.com>
- <5683462C.3020801@gmail.com>
- <87618083B2453E4A8714035B62D67992504FD7FB@FMSMSX105.amr.corp.intel.com>
- <568393C6.1060105@gmail.com>
- <87618083B2453E4A8714035B62D67992504FD8D5@FMSMSX105.amr.corp.intel.com>
- <568CA913.3030901@gmail.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: Re: [PATCH] net: hns: avoid uninitialized variable warning:
+Date: Wed, 6 Jan 2016 15:35:46 +0000
+Message-ID: <568D3452.80508@huawei.com>
+References: <6649249.INrAY8KJG0@wuerfel> <20160105.164320.2255971055498857833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Viswanathan, Ven (Wind River)" <venkat.viswanathan@windriver.com>,
-	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>,
-	"Bourg, Vincent (Wind River)" <vincent.bourg@windriver.com>
-To: zhuyj <zyjzyj2000@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:4117 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777AbcAFPai convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 10:30:38 -0500
-In-Reply-To: <568CA913.3030901@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<lisheng011@huawei.com>, <huangdaode@hisilicon.com>,
+	<linux-arm-kernel@lists.infradead.org>
+To: David Miller <davem@davemloft.net>, <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160105.164320.2255971055498857833.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: zhuyj [mailto:zyjzyj2000@gmail.com]
->Sent: Tuesday, January 05, 2016 9:42 PM
->To: Tantilov, Emil S; Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson,
->Shannon; Wyborny, Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak,
->John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org;
->netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
->Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River); Bourg,
->Vincent (Wind River)
->Subject: Re: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict synchronization
->of link_up and speed
+
+On 1/5/2016 9:43 PM, David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Fri, 01 Jan 2016 23:27:57 +0100
 >
->On 12/31/2015 12:37 AM, Tantilov, Emil S wrote:
->>> -----Original Message-----
->>> From: zhuyj [mailto:zyjzyj2000@gmail.com]
->>> Sent: Wednesday, December 30, 2015 12:20 AM
->>> To: Tantilov, Emil S; Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson,
->>> Shannon; Wyborny, Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak,
->>> John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org;
->>> netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
->>> Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River);
->Bourg,
->>> Vincent (Wind River)
->>> Subject: Re: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict
->synchronization
->>> of link_up and speed
->>>
->>> On 12/30/2015 02:55 PM, Tantilov, Emil S wrote:
->>>>> -----Original Message-----
->>>>> From: zhuyj [mailto:zyjzyj2000@gmail.com]
->>>>> Sent: Tuesday, December 29, 2015 6:49 PM
->>>>> To: Tantilov, Emil S; Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson,
->>>>> Shannon; Wyborny, Carolyn; Skidmore, Donald C; Allan, Bruce W;
->Ronciak,
->>>>> John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org;
->>>>> netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
->>>>> Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River);
->>> Bourg,
->>>>> Vincent (Wind River)
->>>>> Subject: Re: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict
->>> synchronization
->>>>> of link_up and speed
->>>>>
->>>>> On 12/30/2015 12:18 AM, Tantilov, Emil S wrote:
->>>>>>> -----Original Message-----
->>>>>>> From: Intel-wired-lan [mailto:intel-wired-lan-
->>> bounces@lists.osuosl.org]
->>>>> On
->>>>>>> Behalf Of zyjzyj2000@gmail.com
->>>>>>> Sent: Monday, December 28, 2015 6:32 PM
->>>>>>> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson, Shannon; Wyborny,
->>>>>>> Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak, John;
->Williams,
->>>>> Mitch
->>>>>>> A; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; e1000-
->>>>>>> devel@lists.sourceforge.net
->>>>>>> Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River);
->>>>> Bourg,
->>>>>>> Vincent (Wind River)
->>>>>>> Subject: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict
->synchronization
->>>>> of
->>>>>>> link_up and speed
->>>>>>>
->>>>>>> From: Zhu Yanjun <yanjun.zhu@windriver.com>
->>>>>>>
->>>>>>> When the X540 NIC acts as a slave of some virtual NICs, it is very
->>>>>>> important to synchronize link_up and link_speed, such as a bonding
->>>>>>> driver in 802.3ad mode. When X540 NIC acts as an independent
->>> interface,
->>>>>>> it is not necessary to synchronize link_up and link_speed. That is,
->>>>>>> the time span between link_up and link_speed is acceptable.
->>>>>> What exactly do you mean by "time span between link_up and
->link_speed"?
->>>>> In the previous mail, I show you some ethtool logs. In these logs,
->there
->>>>> is some
->>>>> time with NIC up while speed is unknown. I think this "some time" is
->>>>> time span between
->>>>> link_up and link_speed. Please see the previous mail for details.
->>>> Was this when reporting the link state from check_link() (reading the
->>> LINKS
->>>> register) or reporting the adapter->link_speed?
->>>>
->>>>>> Where is it you think the de-synchronization occurs?
->>>>> When a NIC interface acts as a slave, a flag "IFF_SLAVE" is set in
->>>>> netdevice struct.
->>>>> Before we enter this function, we check IFF_SLAVE flag. If this flag
->is
->>>>> set, we continue to check
->>>>> link_speed. If not, this function is executed whether this link_speed
->is
->>>>> unknown or not.
->>>> I can already see this in your patch. I was asking about the reason why
->>>> your change is needed.
->>> an extreme example, let us assume this scenario:
->> Is this the scenario you are trying to fix?
->Sure. If IFF_SLAVE is checked, this scenario will not happen.
+>> gcc fails to see that the use of the 'last_offset' variable
+>> in hns_nic_reuse_page() is used correctly and issues a bogus
+>> warning:
+>>
+>> drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_nic_reuse_page':
+>> drivers/net/ethernet/hisilicon/hns/hns_enet.c:541:6: warning: 'last_offset' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>>
+>> This simplifies the function to make it more obvious what is
+>> going on to both readers and compilers, which makes the warning
+>> go away.
+>>
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> ---
+>> Compile-tested only, and complex enough that this requires a proper
+>> review and testing before it gets apply. Please have a look at this.
+> If this goes yet another day without being reviewed, I'm just applying
+> it.
+>
+> You hisilicon folks can't just let patches rot, you must review them
+> in a timely manner or else I'm applying them without waiting for you
+> to look at them.
+Hi David and Arnd,
+Apologies for the delay in response and the review. Most of us were on 
+the Annual Holidays and have just returned back.
 
-I already explained why this is not a valid scenario, but if you were able
-to set it up somehow I'd like to know how you did it
+Change looks good to me!
 
-If we are to enter ixgbe_watchdog_link_is_up() with unknown link this would
-be an issue regardless of whether the interface is a part of a bond or not, 
-but you haven't provided any proof that this is the case. Do you have a
-dmesg log that shows ixgbe reporting unknown speed?
-
-Was your patch tested by the customer that reported this issue?
-
-Thanks,
-Emil
+Best Regards
+Salil
