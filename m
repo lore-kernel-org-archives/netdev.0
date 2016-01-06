@@ -1,85 +1,257 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible) division by zero
-Date: Wed, 06 Jan 2016 20:49:43 +0200
-Message-ID: <1533097.OpR5vDjqc2@spock>
-References: <26396443.iDTTxgChSj@spock> <CAK6E8=dSRmf35AaC6mOcRaGSxn81CE76WiOfNx6jb5X8uhDGqw@mail.gmail.com> <CAK6E8=chikkT02ygDHzHN9xP7q7kzWUqHEVgj7g0oW_RUPcuoA@mail.gmail.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [RFC v5 1/6] Timekeeping cross timestamp interface for device drivers
+Date: Wed, 6 Jan 2016 10:55:22 -0800
+Message-ID: <CALAqxLXThwiibfoxEvWMZWMDTeFi2EqEU6i2tBvF5H89B3Pzxw@mail.gmail.com>
+References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
+	<1451911523-8534-2-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Yuchung Cheng <ycheng@google.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
+To: "Christopher S. Hall" <christopher.s.hall@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK6E8=chikkT02ygDHzHN9xP7q7kzWUqHEVgj7g0oW_RUPcuoA@mail.gmail.com>
+In-Reply-To: <1451911523-8534-2-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sure, but after catching the stacktrace.
+On Mon, Jan 4, 2016 at 4:45 AM, Christopher S. Hall
+<christopher.s.hall@intel.com> wrote:
+> ACKNOWLEDGMENT: The original correlated clock source and cross
+> timestamp code was developed by Thomas Gleixner
+> <tglx@linutronix.de>. It has changed considerably and any mistakes are
+> mine.
+>
+> The precision with which events on multiple networked systems can be
+> synchronized using, as an example, PTP (IEEE 1588, 802.1AS) is limited
+> by the precision of the cross timestamps between the system clock and
+> the device (timestamp) clock. Precision here is the degree of
+> simultaneity when capturing the cross timestamp.
+>
+> Currently the PTP cross timestamp is captured in software using the
+> PTP device driver ioctl PTP_SYS_OFFSET. Reads of the device clock are
+> interleaved with reads of the realtime clock. At best, the precision
+> of this cross timestamp is on the order of several microseconds due to
+> software latencies. Sub-microsecond precision is required for
+> industrial control and some media applications. To achieve this level
+> of precision hardware supported cross timestamping is needed.
+>
+> Hardware cross timestamps are derived from simultaneously capturing
+> the device clock and the system clock. Applications use timestamps in
+> nanoseconds rather than clock ticks. The device driver can scale
+> device clock ticks to device time in nanoseconds, but cannot transform
+> system clock ticks. Only the kernel timekeeping code can do this. The
+> function get_device_system_crosststamp() allows device drivers to
+> return a cross timestamp with system time properly scaled to
+> nanoseconds.
+>
+> The cross timestamps contain the realtime and monotonic raw clock
+> times. The realtime value is needed to discipline that clock using PTP
+> and the monotonic raw value is used for applications that don't
+> require a "real" time, but need an unadjusted clock time.
+>
+> The get_device_system_crosststamp() code calls back into the driver
+> to ensure that the system counter is within the current timekeeping
+> update interval. Because of possible NTP/PTP frequency adjustments,
+> extrapolating a realtime clock time outside the current interval with
+> a potentially different scaling factor can result in a small amount of
+> error.
+>
+> Modern Intel hardware provides an Always Running Timer (ART) which is
+> exactly related to TSC through a known frequency ratio. The ART is
+> routed to devices on the system and is used to precisely and
+> simultaneously capture the device clock with the ART. The kernel
+> timekeeping code requires a system clock value from the current clock
+> source to calculate the system time. The correlated clocksource adds a
+> means to transform a clock (in this case ART) exactly to the system
+> clock (TSC clocksource) that is used to calculate system time.
+>
+> Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+> ---
+>  include/linux/clocksource.h | 27 ++++++++++++++++
+>  include/linux/timekeeping.h | 35 +++++++++++++++++++++
+>  kernel/time/timekeeping.c   | 77 ++++++++++++++++++++++++++++++++++++++++++---
+>  3 files changed, 135 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
+> index 7784b59..4b7973d 100644
+> --- a/include/linux/clocksource.h
+> +++ b/include/linux/clocksource.h
+> @@ -255,4 +255,31 @@ static inline void clocksource_probe(void) {}
+>  #define CLOCKSOURCE_ACPI_DECLARE(name, table_id, fn)           \
+>         ACPI_DECLARE_PROBE_ENTRY(clksrc, name, table_id, 0, NULL, 0, fn)
+>
+> +/*
+> + * struct correlated_cs - Descriptor for a clocksource correlated to another
+> + *     clocksource
+> + * @related_cs:                Pointer to the related timekeeping clocksource
+> + * @convert:           Conversion function to convert a timestamp from
+> + *                     the correlated clocksource to cycles of the related
+> + *                     timekeeping clocksource
+> + */
+> +struct correlated_cs {
+> +       struct clocksource      *related_cs;
+> +       cycle_t                 (*convert)(struct correlated_cs *cs,
+> +                                          cycle_t cycles);
+> +};
+> +
+> +/*
+> + * struct raw_system_counterval - system counter value captured in device
+> + *     driver used to produce system/device cross-timestamp
+> + * @system:    System counter value
+> + * @cs:                Clocksource related to system counter value. This is used by
+> + *             timekeeping code to verify validity of counter for system time
+> + *             conversion
+> + */
+> +struct raw_system_counterval {
+> +       cycle_t                 cycles;
+> +       struct clocksource      *cs;
+> +};
+> +
+>  #endif /* _LINUX_CLOCKSOURCE_H */
+> diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+> index ec89d84..2209943 100644
+> --- a/include/linux/timekeeping.h
+> +++ b/include/linux/timekeeping.h
+> @@ -266,6 +266,41 @@ extern void timekeeping_inject_sleeptime64(struct timespec64 *delta);
+>  extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
+>                                         struct timespec64 *ts_real);
+>
+> +
+> +/*
+> + * struct system_device_crosststamp - system/device cross-timestamp
+> + *     (syncronized capture)
+> + * @device:    Device time
+> + * @realtime:  Realtime simultaneous with device time
+> + * @monoraw:   Monotonic raw simultaneous with device time
+> + */
+> +struct system_device_crosststamp {
+> +       ktime_t device;
+> +       ktime_t sys_realtime;
+> +       ktime_t sys_monoraw;
+> +};
+> +
+> +struct raw_system_counterval;
+> +/*
+> + * struct get_sync_device_time - Provides method to capture device time
+> + *     synchronized with raw system counter value
+> + * @get_time:  Callback providing synchronized capture of device time
+> + *             and system counter. Returns 0 on success, < 0 on failure
+> + * @ctx:       Context provided to callback function
+> + */
+> +struct get_sync_device_time {
+> +       int     (*get_time)(ktime_t *device,
+> +                           struct raw_system_counterval *system,
+> +                           void *ctx);
+> +       void     *ctx;
+> +};
+> +
+> +/*
+> + * Get cross timestamp between system clock and device clock
+> + */
+> +extern int get_device_system_crosststamp(struct system_device_crosststamp *ct,
+> +                                        struct get_sync_device_time *dt);
 
-On =D1=81=D0=B5=D1=80=D0=B5=D0=B4=D0=B0, 6 =D1=81=D1=96=D1=87=D0=BD=D1=8F=
- 2016 =D1=80. 10:43:45 EET Yuchung Cheng wrote:
-> Could you turn off ecn (sysctl net.ipv4.tcp_ecn=3D0) to see if this s=
-till
-> happen?
+
+I feel like this is introducing a lot of very small structures, which
+to the casual reviewer aren't immediately obvious how they interlink
+and are used.  It also adds to the number of types we have to keep in
+our head. I dunno, maybe its just the correlated_cs is added but isn't
+used in this patch, but I keep feeling like these should be more
+obvious somehow.
+
+That's terribly vague feedback, so I'm sorry.  Maybe some concrete suggestions?
+
+* Maybe try renaming get_sync_device_time as just  crosststamp_device/struct ?
+
+* raw_system_counterval feels like its of limited value. Maybe just
+pass the clocksource and cycle value to the functions separately?
 
 
-> >> On December 22, 2015 4:10:32 AM EET, Yuchung Cheng <ycheng@google.=
-com>=20
-wrote:
-> >> >On Mon, Dec 21, 2015 at 12:25 PM, Oleksandr Natalenko
-> >> >
-> >> ><oleksandr@natalenko.name> wrote:
-> >> >> Commit 3759824da87b30ce7a35b4873b62b0ba38905ef5 (tcp: PRR uses =
-CRB
-> >> >
-> >> >mode by
-> >> >
-> >> >> default and SS mode conditionally) introduced changes to
-> >> >
-> >> >net/ipv4/tcp_input.c
-> >> >
-> >> >> tcp_cwnd_reduction() that, possibly, cause division by zero, an=
-d
-> >> >
-> >> >therefore,
-> >> >
-> >> >> kernel panic in interrupt handler [1].
-> >> >>=20
-> >> >> Reverting 3759824da87b30ce7a35b4873b62b0ba38905ef5 seems to fix=
- the
-> >> >
-> >> >issue.
-> >> >
-> >> >> I'm able to reproduce the issue on 4.3.0=E2=80=934.3.3 once per=
- several day
-> >> >> (occasionally).
-> >> >>=20
-> >> >> What could be done to help in debugging this issue?
-> >> >
-> >> >Do you have ECN enabled (i.e. sysctl net.ipv4.tcp_ecn > 0)?
-> >> >
-> >> >If so I suspect an ACK carrying ECE during CA_Loss causes enterin=
-g CWR
-> >> >state w/o calling tcp_init_cwnd_reduct() to set tp->prior_cwnd. C=
-an
-> >> >you try this debug / quick-fix patch and send me the error messag=
-e if
-> >> >any?
-> >> >
-> >> >> Regards,
-> >> >>=20
-> >> >>   Oleksandr.
-> >> >>=20
-> >> >> [1] http://i.piccy.info/
-> >> >
-> >> >i9/6f5cb187c4ff282d189f78c63f95af43/1450729403/283985/951663/pani=
-c.jpg
-> >>=20
-> >> --
-> >> Sent from my Android device with K-9 Mail. Please excuse my brevit=
-y.
+
+
+>  /*
+>   * Persistent clock related interfaces
+>   */
+> diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+> index d563c19..9c1ddc3 100644
+> --- a/kernel/time/timekeeping.c
+> +++ b/kernel/time/timekeeping.c
+> @@ -298,13 +298,11 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
+>  static inline u32 arch_gettimeoffset(void) { return 0; }
+>  #endif
+>
+> -static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
+> +static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
+> +                                         cycle_t delta)
+>  {
+> -       cycle_t delta;
+>         s64 nsec;
+>
+> -       delta = timekeeping_get_delta(tkr);
+> -
+>         nsec = delta * tkr->mult + tkr->xtime_nsec;
+>         nsec >>= tkr->shift;
+>
+> @@ -312,6 +310,24 @@ static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
+>         return nsec + arch_gettimeoffset();
+>  }
+>
+> +static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
+> +{
+> +       cycle_t delta;
+> +
+> +       delta = timekeeping_get_delta(tkr);
+> +       return timekeeping_delta_to_ns(tkr, delta);
+> +}
+> +
+> +static inline s64 timekeeping_cycles_to_ns(struct tk_read_base *tkr,
+> +                                           cycle_t cycles)
+> +{
+> +       cycle_t delta;
+> +
+> +       /* calculate the delta since the last update_wall_time */
+> +       delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
+> +       return timekeeping_delta_to_ns(tkr, delta);
+> +}
+>
+
+Mind splitting the above out into its own small patch?
+
+
+
+>  /**
+>   * update_fast_timekeeper - Update the fast and NMI safe monotonic timekeeper.
+>   * @tkr: Timekeeping readout base from which we take the update
+> @@ -885,6 +901,59 @@ EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
+>  #endif /* CONFIG_NTP_PPS */
+>
+>  /**
+> + * get_device_system_crosststamp - Synchronously capture system/device timestamp
+> + * @xtstamp:           Receives simultaneously captured system and device time
+> + * @sync_devicetime:   Callback to get simultaneous device time and
+> + *     system counter from the device driver
+> + *
+> + * Reads a timestamp from a device and correlates it to system time
+> + */
+> +int get_device_system_crosststamp(struct system_device_crosststamp *xtstamp,
+> +                                 struct get_sync_device_time *sync_devicetime)
+
+Another nit, but to me something like:
+int get_device_system_crosststamp(struct get_sync_device_time *sync_devicetime,
+                                                          struct
+system_device_crosststamp *ret)
+
+Reads better to me. ie: use this device_time -> return that crosststamp.
+
+
+Otherwise this is looking pretty good.
+
+thanks
+-john
