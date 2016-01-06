@@ -1,79 +1,112 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] net/rfkill: Create "airplane mode" LED trigger
-Date: Tue, 5 Jan 2016 22:55:46 -0800
-Message-ID: <6DC3AA8C-DDE9-44B8-91C5-94B1EB0DBE9A@holtmann.org>
-References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com> <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=utf-8
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key
+Date: Wed, 6 Jan 2016 15:06:18 +0800
+Message-ID: <568CBCEA.20702@oracle.com>
+References: <1452059368-7527-1-git-send-email-wen.gang.wang@oracle.com>
+ <568CB1FD.4030907@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	=?utf-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
-To: =?utf-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: zhuyj <zyjzyj2000@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:47057 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbcAFHCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 02:02:53 -0500
+In-Reply-To: <568CB1FD.4030907@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joao,
+Hi Yanjun,
 
-> For platform drivers to be able to correctly drive the "Airplane Mode=
-"
-> indicative LED there needs to be a RFKill LED trigger tied to the glo=
-bal
-> state of RFKILL_TYPE_ALL (instead of to a specific RFKill) and that
-> works in an inverted manner of regular RFKill LED triggers, that is, =
-the
-> LED is ON when the state is blocked, and OFF otherwise.
->=20
-> This commit implements such a trigger, which will be used by the
-> asus-wireless x86 platform driver.
->=20
-> Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@endlessm.com>
-> ---
-> net/rfkill/core.c | 30 ++++++++++++++++++++++++++++++
-> 1 file changed, 30 insertions(+)
->=20
-> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-> index b41e9ea..3effc29 100644
-> --- a/net/rfkill/core.c
-> +++ b/net/rfkill/core.c
-> @@ -124,6 +124,26 @@ static bool rfkill_epo_lock_active;
->=20
->=20
-> #ifdef CONFIG_RFKILL_LEDS
-> +static void airplane_mode_led_trigger_activate(struct led_classdev *=
-led);
-> +
-> +static struct led_trigger airplane_mode_led_trigger =3D {
-> +	.name     =3D "rfkill-airplane-mode",
-> +	.activate =3D airplane_mode_led_trigger_activate,
-> +};
+Thanks for your review.
+Master MTU is same as that for slaves.
+Maybe fixing in bonding driver is a good idea, but I don't find a good=20
+place to do that.
+Let's go through the simplified follow:
 
-so I am not convinced the kernel should have the concept of airplane mo=
-de at all. It is kinda of a term that keeps changing since airlines do =
-now allow WiFi and Bluetooth short range transmissions during flight. W=
-e stayed away from calling it airplane mode since by the nature of it b=
-eing governed by local regulations it will change over time.
+=2E..
+1) Fragmentation.
+    --This is is done is against the bonding master device(device MTU=20
+and path MTU)
+2) bond_start_xmit
+3) ipoib_start_xmit(slaves are IPoIB interfaces)
 
-The RFKILL subsystem got away with not labeling it by just saying RFKIL=
-L_CHANGE_ALL and if we want a trigger for that action we better find a =
-more general term to describe the fact that all RF devices are shut off=
-=2E
+=46or the first send
+1) fragment size is 7000(in my case)
+2) bond_start_xmit its self is fine
+3) ipoib_start_xmit sees the packet size 7000 is larger than the=20
+internal limit 2044, drops the packet and try to update PMTU.
+     without the patch, it tried update PMTU on slave device(no changes=
+=20
+to master).
 
-Keep in mind that even with airplane mode on, you can re-activate Bluet=
-ooth and WiFi these days. So while you are in airplane mode, then RFKIL=
-L switches for these two technologies can be taken back off. If we want=
-ed to model that in the kernel we would be putting policy in the kernel=
- and I think that is a bad idea.
+the seconds send comes, since no changes happen on bonding master(PMTU)=
+,=20
+the fragment size is still 7000 and the behavior is just the same as th=
+e=20
+first send.
 
-That is pretty much the main reason why ConnMan never tried to push the=
- information about flight mode back into the kernel. It is not a policy=
- that the kernel can determine in the first place.
+With the patch, the bonding master PMTU is changed to 2044 after the=20
+first send(hopefully), for the seconds send the fragment size is set to=
+=20
+2044.
 
-Regards
+To fix in bonding code, I don't find where we can.
 
-Marcel
+thanks,
+wengang
+
+=E5=9C=A8 2016=E5=B9=B401=E6=9C=8806=E6=97=A5 14:19, zhuyj =E5=86=99=E9=
+=81=93:
+>
+> IMHO, this should fix in bonding driver because the active slave mtu=20
+> should be the same with the master.
+> bonding master's mtu is changed to path MTU, then slave dev's MTU=20
+> should be changed, too.
+>
+> Zhu Yanjun
+> On 01/06/2016 01:49 PM, Wengang Wang wrote:
+>> A problem is found that we are looking for route basing a bonding=20
+>> device and
+>> deal with path MTU there: The path MTU is set to the active slave=20
+>> device, not
+>> the bonding master.
+>>
+>> The patch tries to fix the issue by letting build_skb_flow_key() tak=
+e=20
+>> care
+>> of the transition of device index from bonding slave to the master.
+>>
+>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>> ---
+>>   net/ipv4/route.c | 11 ++++++++++-
+>>   1 file changed, 10 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>> index 85f184e..3053f10 100644
+>> --- a/net/ipv4/route.c
+>> +++ b/net/ipv4/route.c
+>> @@ -523,11 +523,20 @@ static void build_skb_flow_key(struct flowi4=20
+>> *fl4, const struct sk_buff *skb,
+>>                      const struct sock *sk)
+>>   {
+>>       const struct iphdr *iph =3D ip_hdr(skb);
+>> -    int oif =3D skb->dev->ifindex;
+>> +    int oif;
+>> +    struct net_device *master =3D NULL;
+>> +
+>>       u8 tos =3D RT_TOS(iph->tos);
+>>       u8 prot =3D iph->protocol;
+>>       u32 mark =3D skb->mark;
+>>   +    if (skb->dev->flags & IFF_SLAVE)
+>> +        master =3D netdev_master_upper_dev_get(skb->dev);
+>> +    if (master)
+>> +        oif =3D master->ifindex;
+>> +    else
+>> +        oif =3D skb->dev->ifindex;
+>> +
+>>       __build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
+>>   }
+>
