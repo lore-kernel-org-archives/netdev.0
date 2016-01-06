@@ -1,99 +1,158 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 19/22] mdio_bus: Generalise of_mdiobus_link_phydev()
-Date: Wed,  6 Jan 2016 20:11:24 +0100
-Message-ID: <1452107487-475-20-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 04/22] phy: Add phydev_err() and phydev_dbg() macros
+Date: Wed,  6 Jan 2016 20:11:09 +0100
+Message-ID: <1452107487-475-5-git-send-email-andrew@lunn.ch>
 References: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42327 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:42333 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751653AbcAFTM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 14:12:27 -0500
+	id S1751653AbcAFTMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 14:12:36 -0500
 In-Reply-To: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function should work with any sort of MDIO device which can be
-probed on the bus, not just PHY devices. So generalise it.
+In preparation for moving some of the phy_device structure members,
+add macros for printing errors and debug information.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/mdio_bus.c | 29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+ drivers/net/phy/at803x.c  |  4 ++--
+ drivers/net/phy/bcm87xx.c |  5 +++--
+ drivers/net/phy/micrel.c  | 16 +++++++++-------
+ drivers/net/phy/phy.c     |  5 +++--
+ include/linux/phy.h       |  6 ++++++
+ 5 files changed, 23 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index bd523b2c6331..0d369ad19d17 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -237,15 +237,16 @@ struct mii_bus *of_mdio_find_bus(struct device_node *mdio_bus_np)
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index 2d020a3ec0b5..62361f8af375 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -281,8 +281,8 @@ static void at803x_link_change_notify(struct phy_device *phydev)
+ 
+ 				at803x_context_restore(phydev, &context);
+ 
+-				dev_dbg(&phydev->dev, "%s(): phy was reset\n",
+-					__func__);
++				phydev_dbg(phydev, "%s(): phy was reset\n",
++					   __func__);
+ 				priv->phy_reset = true;
+ 			}
+ 		} else {
+diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
+index 1eca20452f03..71b491c7bf96 100644
+--- a/drivers/net/phy/bcm87xx.c
++++ b/drivers/net/phy/bcm87xx.c
+@@ -163,8 +163,9 @@ static int bcm87xx_did_interrupt(struct phy_device *phydev)
+ 	reg = phy_read(phydev, BCM87XX_LASI_STATUS);
+ 
+ 	if (reg < 0) {
+-		dev_err(&phydev->dev,
+-			"Error: Read of BCM87XX_LASI_STATUS failed: %d\n", reg);
++		phydev_err(phydev,
++			   "Error: Read of BCM87XX_LASI_STATUS failed: %d\n",
++			   reg);
+ 		return 0;
+ 	}
+ 	return (reg & 1) != 0;
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 1a6048a8c29d..bf72365e90bc 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -224,7 +224,7 @@ static int kszphy_setup_led(struct phy_device *phydev, u32 reg, int val)
+ 	rc = phy_write(phydev, reg, temp);
+ out:
+ 	if (rc < 0)
+-		dev_err(&phydev->dev, "failed to set led mode\n");
++		phydev_err(phydev, "failed to set led mode\n");
+ 
+ 	return rc;
  }
- EXPORT_SYMBOL(of_mdio_find_bus);
+@@ -243,7 +243,7 @@ static int kszphy_broadcast_disable(struct phy_device *phydev)
+ 	ret = phy_write(phydev, MII_KSZPHY_OMSO, ret | KSZPHY_OMSO_B_CAST_OFF);
+ out:
+ 	if (ret)
+-		dev_err(&phydev->dev, "failed to disable broadcast address\n");
++		phydev_err(phydev, "failed to disable broadcast address\n");
  
--/* Walk the list of subnodes of a mdio bus and look for a node that matches the
-- * phy's address with its 'reg' property. If found, set the of_node pointer for
-- * the phy. This allows auto-probed pyh devices to be supplied with information
-- * passed in via DT.
-+/* Walk the list of subnodes of a mdio bus and look for a node that
-+ * matches the mdio device's address with its 'reg' property. If
-+ * found, set the of_node pointer for the mdio device. This allows
-+ * auto-probed phy devices to be supplied with information passed in
-+ * via DT.
-  */
--static void of_mdiobus_link_phydev(struct mii_bus *bus,
--				   struct phy_device *phydev)
-+static void of_mdiobus_link_mdiodev(struct mii_bus *bus,
-+				    struct mdio_device *mdiodev)
- {
--	struct device *dev = &phydev->mdio.dev;
-+	struct device *dev = &mdiodev->dev;
- 	struct device_node *child;
+ 	return ret;
+ }
+@@ -263,7 +263,7 @@ static int kszphy_nand_tree_disable(struct phy_device *phydev)
+ 			ret & ~KSZPHY_OMSO_NAND_TREE_ON);
+ out:
+ 	if (ret)
+-		dev_err(&phydev->dev, "failed to disable NAND tree mode\n");
++		phydev_err(phydev, "failed to disable NAND tree mode\n");
  
- 	if (dev->of_node || !bus->dev.of_node)
-@@ -257,27 +258,27 @@ static void of_mdiobus_link_phydev(struct mii_bus *bus,
- 
- 		ret = of_property_read_u32(child, "reg", &addr);
- 		if (ret < 0) {
--			dev_err(dev, "%s has invalid PHY address\n",
-+			dev_err(dev, "%s has invalid MDIO address\n",
- 				child->full_name);
- 			continue;
- 		}
- 
--		/* A PHY must have a reg property in the range [0-31] */
-+		/* A MDIO device must have a reg property in the range [0-31] */
- 		if (addr >= PHY_MAX_ADDR) {
--			dev_err(dev, "%s PHY address %i is too large\n",
-+			dev_err(dev, "%s MDIO address %i is too large\n",
- 				child->full_name, addr);
- 			continue;
- 		}
- 
--		if (addr == phydev->mdio.addr) {
-+		if (addr == mdiodev->addr) {
- 			dev->of_node = child;
- 			return;
+ 	return ret;
+ }
+@@ -288,7 +288,8 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 	if (priv->rmii_ref_clk_sel) {
+ 		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
+ 		if (ret) {
+-			dev_err(&phydev->dev, "failed to set rmii reference clock\n");
++			phydev_err(phydev,
++				   "failed to set rmii reference clock\n");
+ 			return ret;
  		}
  	}
- }
- #else /* !IS_ENABLED(CONFIG_OF_MDIO) */
--static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
--					  struct phy_device *phydev)
-+static inline void of_mdiobus_link_mdiodev(struct mii_bus *mdio,
-+					   struct mdio_device *mdiodev)
- {
- }
- #endif
-@@ -406,7 +407,7 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
- 	 * For DT, see if the auto-probed phy has a correspoding child
- 	 * in the bus node, and set the of_node pointer in this case.
- 	 */
--	of_mdiobus_link_phydev(bus, phydev);
-+	of_mdiobus_link_mdiodev(bus, &phydev->mdio);
+@@ -649,8 +650,8 @@ static int kszphy_probe(struct phy_device *phydev)
+ 			priv->led_mode = -1;
  
- 	err = phy_device_register(phydev);
- 	if (err) {
+ 		if (priv->led_mode > 3) {
+-			dev_err(&phydev->dev, "invalid led mode: 0x%02x\n",
+-					priv->led_mode);
++			phydev_err(phydev, "invalid led mode: 0x%02x\n",
++				   priv->led_mode);
+ 			priv->led_mode = -1;
+ 		}
+ 	} else {
+@@ -672,7 +673,8 @@ static int kszphy_probe(struct phy_device *phydev)
+ 		} else if (rate > 49500000 && rate < 50500000) {
+ 			priv->rmii_ref_clk_sel_val = !rmii_ref_clk_sel_25_mhz;
+ 		} else {
+-			dev_err(&phydev->dev, "Clock rate out of range: %ld\n", rate);
++			phydev_err(phydev, "Clock rate out of range: %ld\n",
++				   rate);
+ 			return -EINVAL;
+ 		}
+ 	}
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 47cd306dbb3c..9771941cf0ee 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -995,8 +995,9 @@ void phy_state_machine(struct work_struct *work)
+ 	if (err < 0)
+ 		phy_error(phydev);
+ 
+-	dev_dbg(&phydev->dev, "PHY state change %s -> %s\n",
+-		phy_state_to_str(old_state), phy_state_to_str(phydev->state));
++	phydev_dbg(phydev, "PHY state change %s -> %s\n",
++		   phy_state_to_str(old_state),
++		   phy_state_to_str(phydev->state));
+ 
+ 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue,
+ 			   PHY_STATE_TIME * HZ);
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 8ca161a37e8a..dbcf9fdd960c 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -777,6 +777,12 @@ static inline int phy_read_status(struct phy_device *phydev)
+ 	return phydev->drv->read_status(phydev);
+ }
+ 
++#define phydev_err(_phydev, format, args...)	\
++	dev_err(&_phydev->dev, format, ##args)
++
++#define phydev_dbg(_phydev, format, args...)	\
++	dev_dbg(&_phydev->dev, format, ##args)
++
+ int genphy_config_init(struct phy_device *phydev);
+ int genphy_setup_forced(struct phy_device *phydev);
+ int genphy_restart_aneg(struct phy_device *phydev);
 -- 
 2.6.4
