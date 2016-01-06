@@ -1,57 +1,48 @@
-From: Shaohui Xie <shaohui.xie@nxp.com>
-Subject: RE: [RFC PATCH net-next 10/24] mdio: Move allocation of interrupts
- into core
-Date: Wed, 6 Jan 2016 14:07:31 +0000
-Message-ID: <VI1PR04MB1664C211E5C7BD0BCDA1DF6AE8F40@VI1PR04MB1664.eurprd04.prod.outlook.com>
-References: <1451929022-5580-1-git-send-email-andrew@lunn.ch>
- <1451929022-5580-11-git-send-email-andrew@lunn.ch>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] af_unix: Fix splice-bind deadlock
+Date: Wed, 06 Jan 2016 14:45:55 +0000
+Message-ID: <87ziwizrz0.fsf@doppelsaurus.mobileactivedefense.com>
+References: <87y4cftztp.fsf@doppelsaurus.mobileactivedefense.com>
+	<56826754.2060003@stressinduktion.org>
+	<87ege2xve5.fsf@doppelsaurus.mobileactivedefense.com>
+	<87ziwmk0b7.fsf@doppelsaurus.mobileactivedefense.com>
+	<1451949906.2606240.482870994.43973946@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0072.outbound.protection.outlook.com ([157.56.112.72]:37696
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751777AbcAFOk3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 09:40:29 -0500
-In-Reply-To: <1451929022-5580-11-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	David Miller <davem@davemloft.net>, dvyukov@google.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	viro@ZenIV.linux.org.uk
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451949906.2606240.482870994.43973946@webmail.messagingengine.com>
+	(Hannes Frederic Sowa's message of "Tue, 05 Jan 2016 00:25:06 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Have mdio_alloc() create the array of interrupt numbers, and
-> initialize it to POLLING. This is what most MDIO drivers want, so
-> allowing code to be removed from the drivers.
-> 
-[S.H] Snip.
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> On Sun, Jan 3, 2016, at 19:03, Rainer Weikusat wrote:
 
-> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-> index 88cb4592b6fb..05381d0f559c 100644
-> --- a/drivers/net/phy/mdio_bus.c
-> +++ b/drivers/net/phy/mdio_bus.c
-> @@ -51,6 +51,7 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
->  	struct mii_bus *bus;
->  	size_t aligned_size = ALIGN(sizeof(*bus), NETDEV_ALIGN);
->  	size_t alloc_size;
-> +	int i;
-> 
->  	/* If we alloc extra space, it should be aligned */
->  	if (size)
-> @@ -65,6 +66,10 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
->  			bus->priv = (void *)bus + aligned_size;
->  	}
-> 
-> +	/* Initialise the interrupts to polling */
-> +	for (i = 0; i < PHY_MAX_ADDR; i++)
-> +		bus->irq[i] = PHY_POLL;
-> +
->  	return bus;
->  }
-[S.H] Should similar code in of_mdiobus_register() to remove?
+[reorder i_mutex and readlock locking]
 
-Thanks,
+> I was concerned because of the comment in skb_socket_splice:
+>
+>         /* Drop the socket lock, otherwise we have reverse
+>          * locking dependencies between sk_lock and i_mutex
+>          * here as compared to sendfile(). We enter here
+>          * with the socket lock held, and splice_to_pipe() will
+>          * grab the pipe inode lock. For sendfile() emulation,
+>          * we call into ->sendpage() with the i_mutex lock held
+>          * and networking will grab the socket lock.
+>          */
 
-Shaohui
+AFAICT, this comment is "a bit misleading": sendfile (from file to
+socket) is internally implemented as 'splice from file to pipe' +
+'splice from pipe to socket'. The later acquires the pipe lock of the
+pipe and then invokes the sendpage method of the socket which acquires
+the appropiate socket lock (for an AF_UNIX socket, it's
+u->readlock). But 'pipe lock' and 'i_mutex' are two completely
+different things: The former is the mutex in a struct pipe_inode_info
+(pipe_fs_u.h), the latter is the i_mutex in a struct inode (fs.h).
+
+"Code explains comment" :-)
