@@ -1,52 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC PATCH 00/12] drop the qdisc lock for pfifo_fast/mq
-Date: Wed, 6 Jan 2016 08:14:44 -0500
-Message-ID: <568D1344.1090602@mojatatu.com>
-References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATCH] net: qmi_wwan: Add WeTelecom-WPD600N
+Date: Wed,  6 Jan 2016 14:15:50 +0100
+Message-ID: <1452086150-14754-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>, daniel@iogearbox.net,
-	eric.dumazet@gmail.com, aduyck@mirantis.com, brouer@redhat.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kristian Evensen <kristian.evensen@gmail.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35308 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbcAFNOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 08:14:53 -0500
-Received: by mail-io0-f181.google.com with SMTP id 77so186691200ioc.2
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 05:14:52 -0800 (PST)
-In-Reply-To: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:36489 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751601AbcAFNQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 08:16:08 -0500
+Received: by mail-lb0-f171.google.com with SMTP id oh2so190753549lbb.3
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 05:16:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Kristian Evensen <kristian.evensen@gmail.com>
 
-Sorry for not being as responsive as i would like to be
-(theman calls and i have to go).
-This looks like a good (tc workshop) candidate discussion, if still
-active by netdev11 time.
+The WeTelecom-WPD600N is an LTE module that, in addition to supporting =
+most
+"normal" bands, also supports LTE over 450MHz. Manual testing showed th=
+at
+only interface number three replies to QMI messages.
 
-On 15-12-30 12:50 PM, John Fastabend wrote:
-> Hi,
->
-> This is a first take at removing the qdisc lock on the xmit path
-> where qdiscs actually have queues of skbs. The ingress qdisc
-> which is already lockless was "easy" at least in the sense that
-> we did not need any lock-free data structures to hold skbs.
->
+Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
 
-I did some testing over the holidays for a netdev11 paper submission
-and the ingress qdisc side of things looks very impressive (on
-an average packet size) on a single (i7 class) cpu.
-It can handle about 3x what an egress side pktgen type test (not
-very real life) can handle. Analysis shows the lock is killing us.
-So if you are looking at low hanging fruit, the egress is
-the place to look.
-I have a pktgen change that may be useful for you - I will post
-it next time i get cycles.
-I am also a willing guinea pig (given upcoming netdev11) to do
-some perf testing ;->
+---
+ drivers/net/usb/qmi_wwan.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-cheers,
-jamal
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 9a5be8b..5fccc5a 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -742,6 +742,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) =
+4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x413c, 0x81b1, 8)},	/* Dell Wireless 5809e Gobi(TM) =
+4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x03f0, 0x4e1d, 8)},	/* HP lt4111 LTE/EV-DO/HSPA+ Gob=
+i 4G Module */
++	{QMI_FIXED_INTF(0x22de, 0x9061, 3)},	/* WeTelecom WPD-600N */
+=20
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+--=20
+2.5.0
