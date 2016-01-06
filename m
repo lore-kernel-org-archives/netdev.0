@@ -1,35 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: filter: make JITs zero A for SKF_AD_ALU_XOR_X
-Date: Wed, 06 Jan 2016 00:44:42 -0500 (EST)
-Message-ID: <20160106.004442.109655096478479740.davem@davemloft.net>
-References: <1452007387-626-1-git-send-email-rabin@rab.in>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-mips@linux-mips.org,
-	linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rabin@rab.in
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1452007387-626-1-git-send-email-rabin@rab.in>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: [PATCH] net: take care of bonding in build_skb_flow_key
+Date: Wed,  6 Jan 2016 13:49:28 +0800
+Message-ID: <1452059368-7527-1-git-send-email-wen.gang.wang@oracle.com>
+Cc: wen.gang.wang@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:30331 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbcAFFqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 00:46:19 -0500
+Received: from aserv0022.oracle.com (aserv0022.oracle.com [141.146.126.234])
+	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u065kI7L025637
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 05:46:19 GMT
+Received: from aserv0122.oracle.com (aserv0122.oracle.com [141.146.126.236])
+	by aserv0022.oracle.com (8.13.8/8.13.8) with ESMTP id u065kILn023203
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 05:46:18 GMT
+Received: from abhmp0006.oracle.com (abhmp0006.oracle.com [141.146.116.12])
+	by aserv0122.oracle.com (8.13.8/8.13.8) with ESMTP id u065kILx018038
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 05:46:18 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rabin Vincent <rabin@rab.in>
-Date: Tue,  5 Jan 2016 16:23:07 +0100
+A problem is found that we are looking for route basing a bonding device and
+deal with path MTU there: The path MTU is set to the active slave device, not
+the bonding master.
 
-> The SKF_AD_ALU_XOR_X ancillary is not like the other ancillary data
-> instructions since it XORs A with X while all the others replace A with
-> some loaded value.  All the BPF JITs fail to clear A if this is used as
-> the first instruction in a filter.  This was found using american fuzzy
-> lop.
-> 
-> Add a helper to determine if A needs to be cleared given the first
-> instruction in a filter, and use this in the JITs.  Except for ARM, the
-> rest have only been compile-tested.
-> 
-> Fixes: 3480593131e0 ("net: filter: get rid of BPF_S_* enum")
-> Signed-off-by: Rabin Vincent <rabin@rab.in>
+The patch tries to fix the issue by letting build_skb_flow_key() take care
+of the transition of device index from bonding slave to the master.
 
-Applied and queued up for -stable, thanks!
+Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+---
+ net/ipv4/route.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 85f184e..3053f10 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -523,11 +523,20 @@ static void build_skb_flow_key(struct flowi4 *fl4, const struct sk_buff *skb,
+ 			       const struct sock *sk)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+-	int oif = skb->dev->ifindex;
++	int oif;
++	struct net_device *master = NULL;
++
+ 	u8 tos = RT_TOS(iph->tos);
+ 	u8 prot = iph->protocol;
+ 	u32 mark = skb->mark;
+ 
++	if (skb->dev->flags & IFF_SLAVE)
++		master = netdev_master_upper_dev_get(skb->dev);
++	if (master)
++		oif = master->ifindex;
++	else
++		oif = skb->dev->ifindex;
++
+ 	__build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
+ }
+ 
+-- 
+2.1.0
