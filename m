@@ -1,68 +1,53 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/8] bridge: add vlan filtering change for new bridged device
-Date: Wed,  6 Jan 2016 13:01:07 +0100
-Message-ID: <1452081671-8476-5-git-send-email-jiri@resnulli.us>
-References: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 0/8] mlxsw: add offload support for vlan_filtering option
+Date: Wed,  6 Jan 2016 13:01:03 +0100
+Message-ID: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:34019 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752359AbcAFMBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 07:01:19 -0500
-Received: by mail-wm0-f48.google.com with SMTP id u188so57540260wmu.1
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 04:01:18 -0800 (PST)
-In-Reply-To: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36355 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752094AbcAFMBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 07:01:14 -0500
+Received: by mail-wm0-f44.google.com with SMTP id l65so56677222wmf.1
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 04:01:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Raz <eladr@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Notifying hardware about newly bridged port vlan-aware changes.
+Elad says:
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+This patch adds SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING port attribute.
+When a bridge is offloaded to hardware, the hardware can learn if the bridge is
+.1Q bridge (VLAN-aware) or not VLAN aware bridge.
+In order to toggle the mode a user can use sysfs:
+$ echo 1 > /sys/devices/virtual/net/br0/bridge/vlan_filtering
+or via iproute2:
+$ ip link set dev br0 type bridge vlan_filtering 1
+
 ---
- net/bridge/br_vlan.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+v1->v2: small fix in patch #1
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 190fb33..85e43af 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -907,6 +907,12 @@ err_rhtbl:
- 
- int nbp_vlan_init(struct net_bridge_port *p)
- {
-+	struct switchdev_attr attr = {
-+		.orig_dev = p->br->dev,
-+		.id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
-+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-+		.u.vlan_filtering = p->br->vlan_enabled,
-+	};
- 	struct net_bridge_vlan_group *vg;
- 	int ret = -ENOMEM;
- 
-@@ -914,6 +920,10 @@ int nbp_vlan_init(struct net_bridge_port *p)
- 	if (!vg)
- 		goto out;
- 
-+	ret = switchdev_port_attr_set(p->dev, &attr);
-+	if (ret && ret != -EOPNOTSUPP)
-+		goto err_vlan_enabled;
-+
- 	ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
- 	if (ret)
- 		goto err_rhtbl;
-@@ -933,6 +943,7 @@ err_vlan_add:
- 	RCU_INIT_POINTER(p->vlgrp, NULL);
- 	synchronize_rcu();
- 	rhashtable_destroy(&vg->vlan_hash);
-+err_vlan_enabled:
- err_rhtbl:
- 	kfree(vg);
- 
+Elad Raz (8):
+  bridge: Propagate vlan add failure to user
+  switchdev: add bridge vlan_filtering attribute
+  bridge: add vlan filtering change notification
+  bridge: add vlan filtering change for new bridged device
+  mlxsw: Fixing vlans init range
+  mlxsw: Renaming local variable names for consistency
+  mlxsw: Disable vlan_filtering for non .1D bridge
+  mlxsw: Remember untagged VLANs
+
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  8 +++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  1 +
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 39 +++++++++++++++++++---
+ include/net/switchdev.h                            |  2 ++
+ net/bridge/br_if.c                                 | 11 +++++-
+ net/bridge/br_vlan.c                               | 29 ++++++++++++++--
+ 6 files changed, 82 insertions(+), 8 deletions(-)
+
 -- 
 1.9.3
