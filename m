@@ -1,91 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] Bluetooth: avoid rebuilding hci_sock all the time
-Date: Wed,  6 Jan 2016 11:59:57 +0100
-Message-ID: <1452077997-13596-1-git-send-email-johannes@sipsolutions.net>
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 2/8] switchdev: add bridge vlan_filtering attribute
+Date: Wed,  6 Jan 2016 13:01:05 +0100
+Message-ID: <1452081671-8476-3-git-send-email-jiri@resnulli.us>
+References: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:42492 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752844AbcAFLAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 06:00:07 -0500
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35138 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300AbcAFMBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 07:01:17 -0500
+Received: by mail-wm0-f44.google.com with SMTP id f206so56882452wmf.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 04:01:16 -0800 (PST)
+In-Reply-To: <1452081671-8476-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+From: Elad Raz <eladr@mellanox.com>
 
-Instead, allow using string formatting with send_monitor_note()
-and access init_utsname().
+Adding vlan_filtering attribute to allow hardware vendor to support
+vlan-aware bridges. Vlan_filtering is a per-bridge attribute.
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/bluetooth/hci_sock.c | 28 ++++++++++++++++++----------
- 1 file changed, 18 insertions(+), 10 deletions(-)
+ include/net/switchdev.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index 41f579ba447b..c7026e8f0af1 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -25,9 +25,8 @@
- /* Bluetooth HCI sockets. */
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 6612946..603ae2f 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -47,6 +47,7 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+ 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
++	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+ };
  
- #include <linux/export.h>
-+#include <linux/utsname.h>
- #include <asm/unaligned.h>
--#include <generated/compile.h>
--#include <generated/utsrelease.h>
+ struct switchdev_attr {
+@@ -58,6 +59,7 @@ struct switchdev_attr {
+ 		u8 stp_state;				/* PORT_STP_STATE */
+ 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
+ 		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
++		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
+ 	} u;
+ };
  
- #include <net/bluetooth/bluetooth.h>
- #include <net/bluetooth/hci_core.h>
-@@ -385,18 +384,26 @@ static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
- 	return skb;
- }
- 
--static void send_monitor_note(struct sock *sk, const char *text)
-+static void __printf(2, 3)
-+send_monitor_note(struct sock *sk, const char *fmt, ...)
- {
--	size_t len = strlen(text);
-+	size_t len;
- 	struct hci_mon_hdr *hdr;
- 	struct sk_buff *skb;
-+	va_list args;
- 
-+	va_start(args, fmt);
-+	len = vsnprintf(NULL, 0, fmt, args);
- 	skb = bt_skb_alloc(len + 1, GFP_ATOMIC);
-+	if (skb) {
-+		*skb_put(skb, 1) = 0;
-+		vsprintf(skb_put(skb, len), fmt, args);
-+	}
-+	va_end(args);
-+
- 	if (!skb)
- 		return;
- 
--	strcpy(skb_put(skb, len + 1), text);
--
- 	__net_timestamp(skb);
- 
- 	hdr = (void *)skb_push(skb, HCI_MON_HDR_SIZE);
-@@ -897,10 +904,11 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr,
- 		 */
- 		hci_sock_set_flag(sk, HCI_SOCK_TRUSTED);
- 
--		send_monitor_note(sk, "Linux version " UTS_RELEASE
--				      " (" UTS_MACHINE ")");
--		send_monitor_note(sk, "Bluetooth subsystem version "
--				      BT_SUBSYS_VERSION);
-+		send_monitor_note(sk, "Linux version %s (%s)",
-+				  init_utsname()->release,
-+				  init_utsname()->machine);
-+		send_monitor_note(sk, "Bluetooth subsystem version %s",
-+				  BT_SUBSYS_VERSION);
- 		send_monitor_replay(sk);
- 
- 		atomic_inc(&monitor_promisc);
 -- 
-2.6.2
+1.9.3
