@@ -1,80 +1,50 @@
-From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
-	vxlan devices
-Date: Wed, 06 Jan 2016 23:25:56 +0000
-Message-ID: <8660z6qohn.fsf@weave.works>
-References: <1452087186-12926-1-git-send-email-david@weave.works>
- <20160106.155950.1007160228570301281.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v2] net: Add eth_platform_get_mac_address() helper.
+Date: Thu, 07 Jan 2016 00:26:37 +0100
+Message-ID: <87vb76b87m.fsf@nemi.mork.no>
+References: <20160106.163309.111867454969344145.davem@davemloft.net>
+	<1452121966.24575.52.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160106.155950.1007160228570301281.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
- Miller's message of "Wed, 06 Jan 2016 15:59:50 -0500 (EST)")
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	sowmini.varadhan@oracle.com
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:57149 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752230AbcAFX0y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:26:54 -0500
+In-Reply-To: <1452121966.24575.52.camel@perches.com> (Joe Perches's message of
+	"Wed, 06 Jan 2016 15:12:46 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cml0ZXM6Cj4+IFByaW9yIHRvIDQu
-Mywgb3BlbnZzd2l0Y2ggdnhsYW4gdnBvcnRzIGNvdWxkIHRyYW5zbWl0IHZ4bGFuIHBhY2tldHMg
-b2YKPj4gYW55IHNpemUsIGNvbnN0cmFpbmVkIG9ubHkgYnkgdGhlIGFiaWxpdHkgdG8gdHJhbnNt
-aXQgdGhlIHJlc3VsdGluZwo+PiBVRFAgcGFja2V0cy4gIDQuMyBpbnRyb2R1Y2VkIHZ4bGFuIG5l
-dGRldnMgY29ycmVzcG9uZGluZyB0byB2eGxhbgo+PiB2cG9ydHMuICBUaGVzZSBuZXRkZXZzIGhh
-dmUgYW4gTVRVLCB3aGljaCBsaW1pdHMgdGhlIHNpemUgb2YgYSBwYWNrZXQKPj4gdGhhdCBjYW4g
-YmUgc3VjY2Vzc2Z1bGx5IHZ4bGFuLWVuY2Fwc3VsYXRlZC4gIFRoZSBkZWZhdWx0IHZhbHVlIGZv
-cgo+PiB0aGlzIE1UVSBpcyAxNTAwLCB3aGljaCBpcyBhd2t3YXJkbHkgc21hbGwsIGFuZCBsZWFk
-cyB0byBhIGNvbnNwaWN1b3VzCj4+IGNoYW5nZSBpbiBiZWhhdmlvdXIgZm9yIHVzZXJzcGFjZS4K
-Pj4gCj4+IFRoZXNlIHR3byBwYXRjaGVzIHNldCB0aGUgTVRVIG9uIG9wZW52c3dpdGNoLWNyYXRl
-ZCB2eGxhbiBkZXZpY2VzIHRvCj4+IGJlIDY1NDY1ICh0aGUgbWF4aW11bSBJUCBwYWNrZXQgc2l6
-ZSBtaW51cyB0aGUgdnhsYW4tb24tSVB2Ngo+PiBvdmVyaGVhZCksIGVmZmVjdGl2ZWx5IHJlc3Rv
-cmluZyB0aGUgYmVoYXZpb3VyIHByaW9yIHRvIDQuMy4gIEluIG9yZGVyCj4+IHRvIGFjY29tcGxp
-c2ggdGhpcywgdGhlIGZpcnN0IHBhdGNoIHJlbW92ZXMgdGhlIE1UVSBjb25zdHJhaW50IG9mIDE1
-MDAKPj4gZm9yIHZ4bGFuIG5ldGRldnMgd2l0aG91dCBhbiB1bmRlcmx5aW5nIGRldmljZS4KPgo+
-IElzIHRoaXMgcmVhbGx5IHRoZSByaWdodCB0aGluZyB0byBkbz8KCkknbSBjZXJ0YWlubHkgb3Bl
-biB0byBzdWdnZXN0aW9ucyBvZiBiZXR0ZXIgd2F5cyB0byBzb2x2ZSB0aGUgcHJvYmxlbS4KClRv
-IGJlIGNsZWFyLCB0aGUgcHJvYmxlbSBmcm9tIG91ciBwZXJzcGVjdGl2ZSBpcyB0aGF0IGEgdXNl
-IG9mIHRoZQprZXJuZWwgb3BlbnZzd2l0Y2ggdGhhdCB3b3JrZWQgZmluZSBpbiA0LjIgYW5kIGVh
-cmxpZXIgaXMgaG9iYmxlZCBpbgo0LjMuICBQcmV2aW91c2x5IHRoZSBNVFUgb2YgYW4gb3BlbnZz
-d2l0Y2gtYmFzZWQgdnhsYW4gb3ZlcmxheSBuZXR3b3JrCndhcyBjb25zdHJhaW5lZCBvbmx5IGJ5
-IHRoZSBNVFUgb2YgdGhlIHBoeXNpY2FsIG5ldHdvcmsuICBJbiA0LjMsIHdlCmNhbid0IHRha2Ug
-YWR2YW50YWdlIG9mIHBoeXNpY2FsIG5ldHdvcmtzIHRoYXQgc3VwcG9ydCBqdW1ibyBmcmFtZXMs
-CmNhdXNpbmcgYSBodWdlIGhpdCB0byB0aHJvdWdocHV0IGFjcm9zcyB0aGUgb3ZlcmxheSBuZXR3
-b3JrLgoKVGhlIHNwZWNpZmljIGxpbWl0IG9mIDE1MDAgc2VlbXMgdmVyeSBhcmJpdHJhcnkuICBG
-b3IgYSB2eGxhbiBvdmVybGF5Cm5ldHdvcmsgb24gdG9wIG9mIGEgdHJhZGl0aW9uYWwgZXRoZXJu
-ZXQgbmV0d29yaywgdGhlICJjb3JyZWN0IiBNVFUgZm9yCnRoZSB2eGxhbiBuZXRkZXZzIGlzIDE0
-NTAgcmF0aGVyIHRoYW4gMTUwMC4gIEFuZCBpbiBnZW5lcmFsIHdpdGgKb3BlbnZzd2l0Y2gsIHRo
-ZSBkZXN0aW5hdGlvbiBmb3IgdnhsYW4gcGFja2V0cyBpcyBkZXRlcm1pbmVkIG9uIGEKcGFja2V0
-LWJ5LXBhY2tldCBiYXNpcywgcG9zc2libHkgaW52b2x2aW5nIGRpZmZlcmVudCBwYXRoIE1UVXMg
-b2YgdGhlCnVuZGVybHlpbmcgbmV0d29yay4gIFRoZXJlIGlzIG5vIHNpbmdsZSAiY29ycmVjdCIg
-dmFsdWUuCgo+IFdvbid0IHdlIGdldCBhIGxvdCBvZiBmcmFnbWVudGF0aW9uCj4gYnkgdXNpbmcg
-c3VjaCBhIGxhcmdlIE1UVSwgZXNwZWNpYWxseSBzaW5jZSB5b3UncmUgbWFraW5nIGl0IHRoZSBk
-ZWZhdWx0Cj4gZm9yIE9WUyBzZXR1cHM/CgpJbiB0aGUgY29udGV4dCBvZiB0aGUgb3BlbnZzd2l0
-Y2ggdnhsYW4gdnBvcnQgdHJhbnNtaXQgcGF0aCwgSSBjYW4ndApmaW5kIGEgcGxhY2Ugd2hlcmUg
-dGhlIGRldi0+bXR1IGlzIHVzZWQgKGFuZCBpdCB3b3VsZCBiZSBzdXJwcmlzaW5nLCBvbgp0aGUg
-YmFzaXMgdGhhdCB0aGUgcmVsZXZhbnQgcGFydHMgb2YgdnhsYW4uYyBoYXZlIG5vdCBjaGFuZ2Vk
-IHRoYXQgbXVjaApzaW5jZSA0LjIsIHdoZW4gbm8gbmV0ZGV2IHdhcyBpbnZvbHZlZCBpbiB0aGF0
-IHBhdGgpLgoKQ29uc2lkZXJpbmcgbm9uLW9wZW52c3dpdGNoIHNjZW5hcmlvcywgd2hlbiB1c2lu
-ZyB2eGxhbiBuZXRkZXZzCmRpcmVjdGx5LCBhIHZ4bGFuIG5ldGRldiBsb2NrZWQgdG8gYW4gdW5k
-ZXJseWluZyBkZXZpY2Ugc3VwcG9ydGluZyBqdW1ibwpmcmFtZXMgY2FuIHVzZSBhIGxhcmdlciBN
-VFUuICBJdCdzIG9ubHkgdnhsYW4gbmV0ZGV2cyB3aXRob3V0IGFuCnVuZGVybHlpbmcgZGV2aWNl
-IHRoYXQgaGF2ZSB0aGUgbGltaXQgb2YgMTUwMCBpbXBvc2VkLiAgQnV0IHdoeQpzaG91bGRuJ3Qg
-dGhlcmUgYmUgdGhlIHNhbWUgZmxleGliaWxpdHkgdG8gc2VsZWN0IGFuIE1UVSBmb3IgYmVzdApw
-ZXJmb3JtYW5jZSBpbiBib3RoIGNhc2VzPyAgQXJlbid0IHRoZSBmcmFnbWVudGF0aW9uIGNvbmNl
-cm5zIHRoZSBzYW1lPwoKPiBUaGluZ3MgbGlrZSBwYXRoIE1UVSBkaXNjb3ZlcnkgaGluZ2Ugc3Ry
-b25nbHkgdXBvbiBhY2N1cmF0ZSBNVFUgc2V0dGluZ3MuCj4gT3RoZXJ3aXNlIHRoZXkgd29uJ3Qg
-ZnVuY3Rpb24gcHJvcGVybHkuCgpUcnVlLiAgQnV0IGluIHdoYXQgc2Vuc2UgaXMgMTUwMCBhY2N1
-cmF0ZT8gIFVzZXMvdXNlcnMgb2YgdGhlIGtlcm5lbApvcGVudnN3aXRjaCBjb2RlIGhhdmUgYWx3
-YXlzIGhhZCB0byBnZXQgdGhpcyByaWdodCwgbWFraW5nIHN1cmUgdGhhdCB0aGUKTVRVIHNldCBv
-biBhIHZ4bGFuIG92ZXJsYXkgbmV0d29yayBjb25mb3JtcyB0byB0aGUgdW5kZXJseWluZyBuZXR3
-b3JrCnBhdGhzIGludm9sdmVkLgoKRGF2aWQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0
-dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Joe Perches <joe@perches.com> writes:
+> On Wed, 2016-01-06 at 16:33 -0500, David Miller wrote:
+>> A repeating pattern in drivers has become to use OF node information
+>> and, if not found, platform specific host information to extract the
+>> ethernet address for a given device.
+> []
+>> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice=
+=2Eh
+> []
+>> @@ -485,3 +487,32 @@ static int __init eth_offload_init(void)
+>> =C2=A0}
+>> =C2=A0
+>> =C2=A0fs_initcall(eth_offload_init);
+>> +
+>> +unsigned char * __weak arch_get_platform_mac_address(void)
+>> +{
+>> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0return NULL;
+>
+> WARN_ON_ONCE ?
+
+That would prevent a driver from using this with additional fallback
+methods.  For what reason?
+
+I don't have a specific usecase, but I can imagine drivers falling back
+to e.g a random address without wanting to be noisy about it.
+
+
+Bj=C3=B8rn
