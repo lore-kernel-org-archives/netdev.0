@@ -1,48 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sched: fix missing free per cpu on qstats
-Date: Tue, 05 Jan 2016 19:07:49 -0800
-Message-ID: <1452049669.8255.157.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160105171136.9063.98710.stgit@john-Precision-Tower-5810>
-	 <1452015851.8255.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpW9qCOuFGAKDY0e=qsT_PY-CdU3FyNK0tA2cRVkxAwAZw@mail.gmail.com>
+Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Tue, 05 Jan 2016 19:21:11 -0800
+Message-ID: <1452050471.8255.161.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+	 <568C5336.9090907@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, kernel-team@fb.com, tglx@linutronix.de,
+	mingo@redhat.com, hpa@zytor.com, x86@kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34289 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137AbcAFDHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 22:07:51 -0500
-Received: by mail-pa0-f48.google.com with SMTP id uo6so206416700pac.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 19:07:50 -0800 (PST)
-In-Reply-To: <CAM_iQpW9qCOuFGAKDY0e=qsT_PY-CdU3FyNK0tA2cRVkxAwAZw@mail.gmail.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33304 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411AbcAFDVN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 22:21:13 -0500
+Received: by mail-pf0-f182.google.com with SMTP id q63so194933462pfb.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 19:21:12 -0800 (PST)
+In-Reply-To: <568C5336.9090907@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-05 at 18:49 -0800, Cong Wang wrote:
-> On Tue, Jan 5, 2016 at 9:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Tue, 2016-01-05 at 09:11 -0800, John Fastabend wrote:
-> >> When a qdisc is using per cpu stats (currently just the ingress
-> >> qdisc) only the bstats are being freed. This also free's the qstats.
-> >>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >> ---
-> >
-> > Acked-by: Eric Dumazet <edumazet@google.com>
-> >
-> > David, please add the following tag to ease backports to stable kernels:
-> >
-> > Fixes: 22e0f8b9322cb ("net: sched: make bstats per cpu and estimator RCU safe")
-> >
+On Wed, 2016-01-06 at 00:35 +0100, Hannes Frederic Sowa wrote:
+
 > 
-> Not a big deal at all but... doesn't that fix commit b0ab6f92752b9f9d8
-> instead of 22e0f8b9322cb?
+> Tom, did you have a look if it makes sense to add a second carry 
+> addition train with the adcx instruction, which does not signal carry 
+> via the carry flag but with the overflow flag? This instruction should 
+> not have any dependencies with  the adc instructions and could help the 
+> CPU to parallelize the code even more (increased instructions per cycle).
 
-Hmmm... you may be right. Both were added in 3.18.
+I guess adcx would (possibly) bring improvements for large areas, but
+for this case the bottleneck is to bring data from memory.
 
-My search was based on commit adding qdisc_is_percpu_stats()
+Note this topic was discussed 2 years ago and no conclusive action was
+taken.
+
+https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg529610.html
