@@ -1,86 +1,91 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: question about vrf-lite
-Date: Wed, 6 Jan 2016 09:18:04 -0700
-Message-ID: <568D3E3C.2030301@cumulusnetworks.com>
-References: <1452074022-11816-1-git-send-email-roy.qing.li@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next 2/5] sctp: apply rhashtable api to send/recv path
+Date: Thu, 7 Jan 2016 00:18:59 +0800
+Message-ID: <CADvbK_e5BL47T1EPDDog72yrPNijeH45W6odba8R07HeUd1Diw@mail.gmail.com>
+References: <cover.1451490447.git.lucien.xin@gmail.com>
+	<2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
+	<8d89800920719b527dbd6e36dbbcf3c0804fbd7c.1451490447.git.lucien.xin@gmail.com>
+	<568C145F.5040009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: roy.qing.li@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Vlad Yasevich <vyasevic@redhat.com>, daniel@iogearbox.net,
+	davem <davem@davemloft.net>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:35349 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbcAFQSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 11:18:07 -0500
-Received: by mail-ob0-f169.google.com with SMTP id xn1so29353606obc.2
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 08:18:07 -0800 (PST)
-In-Reply-To: <1452074022-11816-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34838 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbcAFQS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 11:18:59 -0500
+In-Reply-To: <568C145F.5040009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/6/16 2:53 AM, roy.qing.li@gmail.com wrote:
-> Hi David Ahern:
+On Wed, Jan 6, 2016 at 3:07 AM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+> On 12/30/2015 10:50 AM, Xin Long wrote:
+>> apply lookup apis to two functions, for __sctp_endpoint_lookup_assoc
+>> and __sctp_lookup_association, it's invoked in the protection of sock
+>> lock, it will be safe, but sctp_lookup_association need to call
+>> rcu_read_lock() and to detect the t->dead to protect it.
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+>> ---
+>>  net/sctp/associola.c   |  5 +++++
+>>  net/sctp/endpointola.c | 35 ++++++++---------------------------
+>>  net/sctp/input.c       | 39 ++++++++++-----------------------------
+>>  net/sctp/protocol.c    |  6 ++++++
+>>  4 files changed, 29 insertions(+), 56 deletions(-)
+>>
+>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+>> index 559afd0..2bf8ec9 100644
+>> --- a/net/sctp/associola.c
+>> +++ b/net/sctp/associola.c
+>> @@ -383,6 +383,7 @@ void sctp_association_free(struct sctp_association *asoc)
+>>       list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+>>               transport = list_entry(pos, struct sctp_transport, transports);
+>>               list_del_rcu(pos);
+>> +             sctp_unhash_transport(transport);
+>>               sctp_transport_free(transport);
+>>       }
+>>
+>> @@ -500,6 +501,8 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
+>>
+>>       /* Remove this peer from the list. */
+>>       list_del_rcu(&peer->transports);
+>> +     /* Remove this peer from the transport hashtable */
+>> +     sctp_unhash_transport(peer);
+>>
+>>       /* Get the first transport of asoc. */
+>>       pos = asoc->peer.transport_addr_list.next;
+>> @@ -699,6 +702,8 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+>>       /* Attach the remote transport to our asoc.  */
+>>       list_add_tail_rcu(&peer->transports, &asoc->peer.transport_addr_list);
+>>       asoc->peer.transport_count++;
+>> +     /* Add this peer into the transport hashtable */
+>> +     sctp_hash_transport(peer);
 >
-> when I test vrf-lite, I meet a question, could you help me?
+> This is actually problematic.  The issue is that transports are unhashed when removed.
+> however, transport removal happens after the association has been declared dead and
+> should have been removed from the hash and marked unreachable.
 >
-> the envirnment is below:
->                                                   N2
->             N1 (all configs here)          +---------------+
->      +--------------+                      |               |
->      |              |                      |               |
->      |eth0 :10.0.2.1+----------------------+eth0 :10.0.2.2 |
->      |              |                      +---------------+
->      | VRF 1        |
->      | table 5      |
->      |              |
->      +---------------+
->      |              |
->      | VRF 2        |                             N3
->      | table 6      |                      +---------------+
->      |              |                      |               |
->      |eth1 :10.0.2.1+----------------------+eth0 :10.0.2.2 |
->      +--------------+                      +---------------+
+> As a result, with the code above, you can now find and return a dead association.
+> Checking for 'dead' state is racy.
 >
-> and configuration on N1 is below:
+> The best solution I've come up with is to hash the transports in sctp_hash_established()
+> and clean-up in __sctp_unhash_established(), and then handle ADD-IP case separately.
 >
-> ip link add vrf1 type vrf table 5
-> ip link add vrf2 type vrf table 6
-> ip rule add pref 200 oif vrf1 lookup 5
-> ip rule add pref 200 iif vrf1 lookup 5
-> ip rule add pref 200 oif vrf2 lookup 6
-> ip rule add pref 200 iif vrf2 lookup 6
-> ip link set vrf1 up
-> ip link set vrf2 up
-> ip link set eth0 master vrf1
-> ip link set eth1 master vrf2
+> The above would also remove the necessity to check for temporary associations, since they
+> should never be hashed.
 >
-> the route information is below:
+> -vlad
 >
-> # ip route get 10.0.2.2 oif vrf1
-> 10.0.2.2 dev eth0  table 5  src 10.0.2.1
->      cache
-> #
-> # ip route get 10.0.2.2 oif vrf2
-> 10.0.2.2 dev eth1  table 6  src 10.0.2.1
->      cache
-> #
-> #uname -r
-> 4.4.0-rc5
-> #
->
-> when run the ping with different interfaces on N1, I expect
-> "ping -I vrf1 10.0.2.2" send to/receive from packets with N2,
-> "ping -I vrf2 10.0.2.2" send to/receive from packets with N3,
->
-> but I found whether the interface is vrf1 or vrf2, the packets always
-> is sent out through eth0, N2 reply; and no packets sent out through
-> eth1.
->
-> is it right?
+yes, you're right, im thinking if we can unhash transport before the association
+declares dead in sctp_association_free, like:
 
-no. The above works fine for me. I literally copied and pasted all of 
-the commands except the master ones which were adapted to my setup -- 
-eth9 and eth11 for me instead of eth0 and eth1. tcpdump on N2, N3 show 
-the right one is receiving packets based on which 'ping -I vrf<N>' is run.
-
-Do tables 5 and 6 have the right routes?
+       list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+               transport = list_entry(pos, struct sctp_transport, transports);
+               sctp_unhash_transport(transport);
+       }
+       asoc->base.dead = true;
