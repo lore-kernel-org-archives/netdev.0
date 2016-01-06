@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] mlxsw: core: remove an unnecessary condition
-Date: Wed, 06 Jan 2016 15:08:06 -0500 (EST)
-Message-ID: <20160106.150806.1402674809005659001.davem@davemloft.net>
-References: <20160106095630.GB23185@mwanda>
+Subject: Re: [PATCH] mkiss: fix scribble on freed memory
+Date: Wed, 06 Jan 2016 15:08:18 -0500 (EST)
+Message-ID: <20160106.150818.1539288359464258183.davem@davemloft.net>
+References: <20160106145449.28695.13562.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, davem@vger.kernel.org
+To: gnomes@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39463 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39468 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981AbcAFUIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:08:10 -0500
-In-Reply-To: <20160106095630.GB23185@mwanda>
+	with ESMTP id S1752079AbcAFUIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:08:19 -0500
+In-Reply-To: <20160106145449.28695.13562.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 6 Jan 2016 12:56:30 +0300
+From: Alan <gnomes@lxorguk.ukuu.org.uk>
+Date: Wed, 06 Jan 2016 14:55:02 +0000
 
-> We checked "err" on the lines before so we know it's zero here.
+> commit d79f16c046086f4fe0d42184a458e187464eb83e fixed a user triggerable
+> scribble on free memory but added a new one which allows the user to
+> scribble even more and user controlled data into freed space.
 > 
-> These cause a static checker warning because checking known things can
-> indicate a bug.  Maybe there is a missing assignment or we are checking
-> the wrong variable.
+> As with 6pack we need to halt the queue before we free the buffers, because
+> the transmit logic is not protected by the semaphore.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
-Applied, thanks Dan.
+Applied and queued up for -stable, thanks Alan.
