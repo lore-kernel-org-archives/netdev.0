@@ -1,143 +1,121 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 2/3] vxlan: use netdev_atomic notifier chain to remove dependency from drivers
-Date: Wed,  6 Jan 2016 21:20:29 +0100
-Message-ID: <1452111630-16322-3-git-send-email-hannes@stressinduktion.org>
-References: <1452111630-16322-1-git-send-email-hannes@stressinduktion.org>
-Cc: jesse@kernel.org
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next 2/2] geneve: break dependency to network drivers
+Date: Wed, 6 Jan 2016 21:25:17 +0100
+Message-ID: <568D782D.4000602@stressinduktion.org>
+References: <1452094903-12934-1-git-send-email-hannes@stressinduktion.org>
+ <1452094903-12934-3-git-send-email-hannes@stressinduktion.org>
+ <CAEh+42j2w6t7+WNN9y0k6M5Ld+14B2txCkfLw6zwrR04+i8Xqw@mail.gmail.com>
+ <568D6188.4090705@stressinduktion.org>
+ <CAEh+42iA+ReWfxLHHXOx5cYCDhrFyRkFwvPqrMfbGj+UK-nxYw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:50985 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60564 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751959AbcAFUUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:20:45 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id AB3F721AD1
-	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 15:20:44 -0500 (EST)
-In-Reply-To: <1452111630-16322-1-git-send-email-hannes@stressinduktion.org>
+	by vger.kernel.org with ESMTP id S1752003AbcAFUZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:25:21 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id DB75821BE7
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 15:25:20 -0500 (EST)
+In-Reply-To: <CAEh+42iA+ReWfxLHHXOx5cYCDhrFyRkFwvPqrMfbGj+UK-nxYw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- drivers/net/vxlan.c       | 35 ++++++++++++++++++++++++++++++-----
- include/linux/netdevice.h |  2 +-
- include/net/vxlan.h       |  6 ++----
- 3 files changed, 33 insertions(+), 10 deletions(-)
+Hi Jesse,
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index fecf7b6c732e96..47da2045ca1b19 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2468,7 +2468,7 @@ static struct device_type vxlan_type = {
-  * supply the listening VXLAN udp ports. Callers are expected
-  * to implement the ndo_add_vxlan_port.
-  */
--void vxlan_get_rx_port(struct net_device *dev)
-+static void vxlan_netdev_refresh_offload(struct net_device *dev)
- {
- 	struct vxlan_sock *vs;
- 	struct net *net = dev_net(dev);
-@@ -2488,7 +2488,6 @@ void vxlan_get_rx_port(struct net_device *dev)
- 	}
- 	spin_unlock(&vn->sock_lock);
- }
--EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
- 
- /* Initialize the device structure. */
- static void vxlan_setup(struct net_device *dev)
-@@ -3180,6 +3179,24 @@ static struct notifier_block vxlan_notifier_block __read_mostly = {
- 	.notifier_call = vxlan_lowerdev_event,
- };
- 
-+static int vxlan_atomic_event(struct notifier_block *unused,
-+			      unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = ptr;
-+
-+	switch (event) {
-+	case NETDEV_OFFLOAD_REFRESH_VXLAN:
-+		vxlan_netdev_refresh_offload(dev);
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block vxlan_atomic_notifier_block __read_mostly = {
-+	.notifier_call = vxlan_atomic_event,
-+};
-+
- static __net_init int vxlan_init_net(struct net *net)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-@@ -3241,17 +3258,24 @@ static int __init vxlan_init_module(void)
- 	if (rc)
- 		goto out1;
- 
--	rc = register_netdevice_notifier(&vxlan_notifier_block);
-+	rc = register_netdev_atomic_notifier(&vxlan_atomic_notifier_block);
- 	if (rc)
- 		goto out2;
- 
--	rc = rtnl_link_register(&vxlan_link_ops);
-+	rc = register_netdevice_notifier(&vxlan_notifier_block);
- 	if (rc)
- 		goto out3;
- 
-+	rc = rtnl_link_register(&vxlan_link_ops);
-+	if (rc)
-+		goto out4;
-+
- 	return 0;
--out3:
-+
-+out4:
- 	unregister_netdevice_notifier(&vxlan_notifier_block);
-+out3:
-+	unregister_netdev_atomic_notifier(&vxlan_atomic_notifier_block);
- out2:
- 	unregister_pernet_subsys(&vxlan_net_ops);
- out1:
-@@ -3263,6 +3287,7 @@ late_initcall(vxlan_init_module);
- static void __exit vxlan_cleanup_module(void)
- {
- 	rtnl_link_unregister(&vxlan_link_ops);
-+	unregister_netdev_atomic_notifier(&vxlan_atomic_notifier_block);
- 	unregister_netdevice_notifier(&vxlan_notifier_block);
- 	destroy_workqueue(vxlan_wq);
- 	unregister_pernet_subsys(&vxlan_net_ops);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fb6064c88fc259..b2b943b1896c57 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2224,7 +2224,7 @@ netdev_notifier_info_to_dev(const struct netdev_notifier_info *info)
- int call_netdevice_notifiers(unsigned long val, struct net_device *dev);
- 
- enum netdev_atomic_callback_type {
--	PLACEHOLDER = 0x1UL,
-+	NETDEV_OFFLOAD_REFRESH_VXLAN = 0x1UL,
- };
- 
- int register_netdev_atomic_notifier(struct notifier_block *nb);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 0fb86442544b26..cebe08569b5129 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -242,13 +242,11 @@ static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
- /* IPv6 header + UDP + VXLAN + Ethernet header */
- #define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
- 
--#if IS_ENABLED(CONFIG_VXLAN)
--void vxlan_get_rx_port(struct net_device *netdev);
--#else
- static inline void vxlan_get_rx_port(struct net_device *netdev)
- {
-+	call_netdev_atomic_notifiers(NETDEV_OFFLOAD_REFRESH_VXLAN,
-+				     netdev);
- }
--#endif
- 
- static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
- {
--- 
-2.5.0
+hmpf, I saw your mail too late and send out another series just now.
+
+On 06.01.2016 20:52, Jesse Gross wrote:
+> On Wed, Jan 6, 2016 at 10:48 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On 06.01.2016 19:00, Jesse Gross wrote:
+>>>
+>>> On Wed, Jan 6, 2016 at 7:41 AM, Hannes Frederic Sowa
+>>> <hannes@stressinduktion.org> wrote:
+>>>>
+>>>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+>>>> index 24b077a32c1c9c..548925d1571cb1 100644
+>>>> --- a/drivers/net/geneve.c
+>>>> +++ b/drivers/net/geneve.c
+>>>> +static int geneve_notifier(struct notifier_block *unused,
+>>>> +                          unsigned long event, void *ptr)
+>>>> +{
+>>>> +       struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+>>>> +
+>>>> +       switch (event) {
+>>>> +       case NETDEV_REFRESH_OFFLOAD_VXLAN:
+>>>> +               geneve_notify_refresh_netdev(dev);
+>>>
+>>>
+>>> Presumably this should be NETDEV_REFRESH_OFFLOAD_GENEVE, not VXLAN.
+>>> However, rather than having a notifier for each protocol, it seems
+>>> like it might be cleaner to just have a single one that triggers for
+>>> all protocols and drivers that don't have the corresponding NDO
+>>> wouldn't get called, similar to what happens when the port gets added
+>>> in the first place.
+>>
+>>
+>> Ah, thanks for noticing the typo.
+>>
+>> The reason why I went with several types is that I didn't want to change the
+>> behavior and wasn't sure if driver tested with reoccurring offload refreshes
+>> to the driver. What you described was my first patch but because I couldn't
+>> see if that works for all drivers I went this way.
+>
+> Hmm, I see what you mean but I think it should be safe. All drivers
+> that have both Geneve and VXLAN offloads make calls to refresh them
+> back to back, which is a pattern that I would expect to continue. In
+> that case, having a single notifier that triggers multiple protocols
+> would have the same effect and is simpler.
+
+My new series adds a new netdev_notifier which is atomic and can deal 
+with non locked rtnl events. I thought maybe it would be useful for 
+future callbacks, too. I am currently looking into ptp and reduce the 
+dependency there, if possible.
+
+>>>> diff --git a/include/net/geneve.h b/include/net/geneve.h
+>>>> index e6c23dc765f7ec..36245115143652 100644
+>>>> --- a/include/net/geneve.h
+>>>> +++ b/include/net/geneve.h
+>>>
+>>> [...]
+>>>>
+>>>>    static inline void geneve_get_rx_port(struct net_device *netdev)
+>>>>    {
+>>>> +       call_netdevice_notifiers(NETDEV_REFRESH_OFFLOAD_GENEVE, netdev);
+>>>>    }
+>>>
+>>>
+>>> Unfortunately, I don't think that we can assume that RTNL is held
+>>> here. It actually is for the drivers that implement Geneve at this
+>>> point but not in all cases for VXLAN. For example, ixgbe refreshes the
+>>> offloads in a service task in addition to when it is opened. There's
+>>> only a couple instances of things like this, so I guess it's probably
+>>> not too hard to through and make sure that we hold RTNL in those
+>>> cases.
+>>
+>>
+>> Hmm, I am tempted to switch over to the netevent atomic notifier chain and
+>> install those events there. It does not need rtnl lock at all, so we can
+>> preserve the current semantics. What do you think?
+>
+> I think that holding RTNL while we do these updates is actually the
+> right thing to do. The current situation of having calls from
+> different protocols protected by different locks is not really a great
+> model given that at the driver level these are usually shared data
+> structures. RTNL is already held in the majority of cases already, so
+> I think it is better to just convert the rest.
+
+The refreshes from each module are completely synchronous and don't get 
+interleaved, so as long as the driver is correctly handling the locking 
+internally rtnl lock shouldn't be needed. But as I don't know too much 
+about driver developing I can revisit this.
+
+As a advantage I see that the driver developers don't need to worry 
+about the rtnl lock at all when adding new events. Is this realistic?
+
+Thanks,
+Hannes
