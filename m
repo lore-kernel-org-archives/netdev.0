@@ -1,7 +1,7 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] fsl/fman: fix the pause_time test
-Date: Wed, 6 Jan 2016 12:58:09 +0300
-Message-ID: <20160106095809.GC23185@mwanda>
+Subject: [patch -next] fsl/fman: double free on probe failure
+Date: Wed, 6 Jan 2016 12:59:10 +0300
+Message-ID: <20160106095910.GD23185@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -12,22 +12,21 @@ Content-Disposition: inline
 Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pause_time is unsigned so it can't be less than zero.  The bug means
-that we allow invalid pause-times.
+"priv" is allocated with devm_kzalloc() so freeing it here with kfree()
+will lead to a double free.
 
-Fixes: 57ba4c9b56d8 ('fsl/fman: Add FMan MAC support')
+Fixes: 3933961682a3 ('fsl/fman: Add FMan MAC driver')
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-index d78e2ba..587f9b4 100644
---- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-@@ -934,7 +934,7 @@ int dtsec_set_tx_pause_frames(struct fman_mac *dtsec,
- 
- 	/* FM_BAD_TX_TS_IN_B_2_B_ERRATA_DTSEC_A003 Errata workaround */
- 	if (dtsec->fm_rev_info.major == 2)
--		if (pause_time < 0 && pause_time <= 320) {
-+		if (pause_time <= 320) {
- 			pr_warn("pause-time: %d illegal.Should be > 320\n",
- 				pause_time);
- 			return -EINVAL;
+diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
+index 743a393..e33d9d2 100644
+--- a/drivers/net/ethernet/freescale/fman/mac.c
++++ b/drivers/net/ethernet/freescale/fman/mac.c
+@@ -961,7 +961,6 @@ _return_of_node_put:
+ 	of_node_put(dev_node);
+ _return_dev_set_drvdata:
+ 	kfree(priv->fixed_link);
+-	kfree(priv);
+ 	dev_set_drvdata(dev, NULL);
+ _return:
+ 	return err;
