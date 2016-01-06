@@ -1,75 +1,496 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 02/22] mdio: Move mdiobus_read/write operatings into mdio.h
-Date: Wed,  6 Jan 2016 20:11:07 +0100
-Message-ID: <1452107487-475-3-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 21/22] mdio: Add support for mdio drivers.
+Date: Wed,  6 Jan 2016 20:11:26 +0100
+Message-ID: <1452107487-475-22-git-send-email-andrew@lunn.ch>
 References: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42338 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:42343 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751653AbcAFTMo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 14:12:44 -0500
+	id S1751653AbcAFTMx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 14:12:53 -0500
 In-Reply-To: <1452107487-475-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These are logically MDIO operations, not phy operations, so move them
-into the mdio header.
+Not all devices on an MDIO bus are PHYs. Meaning not all MDIO drivers
+are PHY drivers. Add support for generic MDIO drivers.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/linux/mdio.h | 6 ++++++
- include/linux/phy.h  | 6 +-----
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/phy/Makefile      |   2 +-
+ drivers/net/phy/mdio_bus.c    |  13 +++-
+ drivers/net/phy/mdio_device.c | 169 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/phy_device.c  |  27 ++++---
+ drivers/of/of_mdio.c          |  33 +++++++++
+ include/linux/mdio.h          |  50 +++++++++++++
+ include/linux/phy.h           |   9 ++-
+ 7 files changed, 286 insertions(+), 17 deletions(-)
+ create mode 100644 drivers/net/phy/mdio_device.c
 
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index f31a4e25cf15..680e88f9915a 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,6 +1,6 @@
+ # Makefile for Linux PHY drivers
+ 
+-libphy-objs			:= phy.o phy_device.o mdio_bus.o
++libphy-objs			:= phy.o phy_device.o mdio_bus.o mdio_device.o
+ 
+ obj-$(CONFIG_PHYLIB)		+= libphy.o
+ obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 6f9ca51446db..0573cfd2116f 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -357,16 +357,25 @@ EXPORT_SYMBOL(__mdiobus_register);
+ 
+ void mdiobus_unregister(struct mii_bus *bus)
+ {
++	struct mdio_device *mdiodev;
++	struct phy_device *phydev;
+ 	int i;
+ 
+ 	BUG_ON(bus->state != MDIOBUS_REGISTERED);
+ 	bus->state = MDIOBUS_UNREGISTERED;
+ 
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		struct phy_device *phydev = mdiobus_get_phy(bus, i);
+-		if (phydev) {
++		mdiodev = bus->mdio_map[i];
++		if (!mdiodev)
++			continue;
++
++		if (!(mdiodev->flags & MDIO_DEVICE_FLAG_PHY)) {
++			phydev = container_of(mdiodev, struct phy_device, mdio);
+ 			phy_device_remove(phydev);
+ 			phy_device_free(phydev);
++		} else {
++			mdio_device_remove(mdiodev);
++			mdio_device_free(mdiodev);
+ 		}
+ 	}
+ 	device_del(&bus->dev);
+diff --git a/drivers/net/phy/mdio_device.c b/drivers/net/phy/mdio_device.c
+new file mode 100644
+index 000000000000..64e3777c85b4
+--- /dev/null
++++ b/drivers/net/phy/mdio_device.c
+@@ -0,0 +1,169 @@
++/* Framework for MDIO devices, other than PHYs.
++ *
++ * Copyright (c) 2016 Andrew Lunn <andrew@lunn.ch>
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/errno.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/mdio.h>
++#include <linux/mii.h>
++#include <linux/module.h>
++#include <linux/phy.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/unistd.h>
++
++void mdio_device_free(struct mdio_device *mdiodev)
++{
++	put_device(&mdiodev->dev);
++}
++EXPORT_SYMBOL(mdio_device_free);
++
++static void mdio_device_release(struct device *dev)
++{
++	kfree(to_mdio_device(dev));
++}
++
++struct mdio_device *mdio_device_create(struct mii_bus *bus, int addr)
++{
++	struct mdio_device *mdiodev;
++
++	/* We allocate the device, and initialize the default values */
++	mdiodev = kzalloc(sizeof(*mdiodev), GFP_KERNEL);
++	if (!mdiodev)
++		return ERR_PTR(-ENOMEM);
++
++	mdiodev->dev.release = mdio_device_release;
++	mdiodev->dev.parent = &bus->dev;
++	mdiodev->dev.bus = &mdio_bus_type;
++	mdiodev->bus = bus;
++	mdiodev->addr = addr;
++
++	dev_set_name(&mdiodev->dev, PHY_ID_FMT, bus->id, addr);
++
++	device_initialize(&mdiodev->dev);
++
++	return mdiodev;
++}
++EXPORT_SYMBOL(mdio_device_create);
++
++/**
++ * mdio_device_register - Register the mdio device on the MDIO bus
++ * @mdiodev: mdio_device structure to be added to the MDIO bus
++ */
++int mdio_device_register(struct mdio_device *mdiodev)
++{
++	int err;
++
++	dev_info(&mdiodev->dev, "mdio_device_register\n");
++
++	err = mdiobus_register_device(mdiodev);
++	if (err)
++		return err;
++
++	err = device_add(&mdiodev->dev);
++	if (err) {
++		pr_err("MDIO %d failed to add\n", mdiodev->addr);
++		goto out;
++	}
++
++	return 0;
++
++ out:
++	mdiobus_unregister_device(mdiodev);
++	return err;
++}
++EXPORT_SYMBOL(mdio_device_register);
++
++/**
++ * mdio_device_remove - Remove a previously registered mdio device from the
++ *			MDIO bus
++ * @mdiodev: mdio_device structure to remove
++ *
++ * This doesn't free the mdio_device itself, it merely reverses the effects
++ * of mdio_device_register(). Use mdio_device_free() to free the device
++ * after calling this function.
++ */
++void mdio_device_remove(struct mdio_device *mdiodev)
++{
++	device_del(&mdiodev->dev);
++	mdiobus_unregister_device(mdiodev);
++}
++EXPORT_SYMBOL(mdio_device_remove);
++
++/**
++ * mdio_probe - probe an MDIO device
++ * @dev: device to probe
++ *
++ * Description: Take care of setting up the mdio_device structure
++ * and calling the driver to probe the device.
++ */
++static int mdio_probe(struct device *dev)
++{
++	struct mdio_device *mdiodev = to_mdio_device(dev);
++	struct device_driver *drv = mdiodev->dev.driver;
++	struct mdio_driver *mdiodrv = to_mdio_driver(drv);
++	int err = 0;
++
++	if (mdiodrv->probe)
++		err = mdiodrv->probe(mdiodev);
++
++	return err;
++}
++
++static int mdio_remove(struct device *dev)
++{
++	struct mdio_device *mdiodev = to_mdio_device(dev);
++	struct device_driver *drv = mdiodev->dev.driver;
++	struct mdio_driver *mdiodrv = to_mdio_driver(drv);
++
++	if (mdiodrv->remove)
++		mdiodrv->remove(mdiodev);
++
++	return 0;
++}
++
++/**
++ * mdio_driver_register - register an mdio_driver with the MDIO layer
++ * @new_driver: new mdio_driver to register
++ */
++int mdio_driver_register(struct mdio_driver *drv)
++{
++	struct mdio_driver_common *mdiodrv = &drv->mdiodrv;
++	int retval;
++
++	pr_info("mdio_driver_register: %s\n", mdiodrv->driver.name);
++
++	mdiodrv->driver.bus = &mdio_bus_type;
++	mdiodrv->driver.probe = mdio_probe;
++	mdiodrv->driver.remove = mdio_remove;
++
++	retval = driver_register(&mdiodrv->driver);
++	if (retval) {
++		pr_err("%s: Error %d in registering driver\n",
++		       mdiodrv->driver.name, retval);
++
++		return retval;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(mdio_driver_register);
++
++void mdio_driver_unregister(struct mdio_driver *drv)
++{
++	struct mdio_driver_common *mdiodrv = &drv->mdiodrv;
++
++	driver_unregister(&mdiodrv->driver);
++}
++EXPORT_SYMBOL(mdio_driver_unregister);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 78628428ee28..af6cb6556cf9 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -264,6 +264,9 @@ static int phy_bus_match(struct device *dev, struct device_driver *drv)
+ 	const int num_ids = ARRAY_SIZE(phydev->c45_ids.device_ids);
+ 	int i;
+ 
++	if (!(phydrv->mdiodrv.flags & MDIO_DEVICE_IS_PHY))
++		return 0;
++
+ 	if (phydrv->match_phy_device)
+ 		return phydrv->match_phy_device(phydev);
+ 
+@@ -851,9 +854,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	 */
+ 	if (!d->driver) {
+ 		if (phydev->is_c45)
+-			d->driver = &genphy_driver[GENPHY_DRV_10G].driver;
++			d->driver =
++				&genphy_driver[GENPHY_DRV_10G].mdiodrv.driver;
+ 		else
+-			d->driver = &genphy_driver[GENPHY_DRV_1G].driver;
++			d->driver =
++				&genphy_driver[GENPHY_DRV_1G].mdiodrv.driver;
+ 
+ 		err = d->driver->probe(d);
+ 		if (err >= 0)
+@@ -954,7 +959,8 @@ void phy_detach(struct phy_device *phydev)
+ 	 * real driver could be loaded
+ 	 */
+ 	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
+-		if (phydev->mdio.dev.driver == &genphy_driver[i].driver) {
++		if (phydev->mdio.dev.driver ==
++		    &genphy_driver[i].mdiodrv.driver) {
+ 			device_release_driver(&phydev->mdio.dev);
+ 			break;
+ 		}
+@@ -1598,13 +1604,14 @@ int phy_driver_register(struct phy_driver *new_driver, struct module *owner)
+ {
+ 	int retval;
+ 
+-	new_driver->driver.name = new_driver->name;
+-	new_driver->driver.bus = &mdio_bus_type;
+-	new_driver->driver.probe = phy_probe;
+-	new_driver->driver.remove = phy_remove;
+-	new_driver->driver.owner = owner;
++	new_driver->mdiodrv.flags |= MDIO_DEVICE_IS_PHY;
++	new_driver->mdiodrv.driver.name = new_driver->name;
++	new_driver->mdiodrv.driver.bus = &mdio_bus_type;
++	new_driver->mdiodrv.driver.probe = phy_probe;
++	new_driver->mdiodrv.driver.remove = phy_remove;
++	new_driver->mdiodrv.driver.owner = owner;
+ 
+-	retval = driver_register(&new_driver->driver);
++	retval = driver_register(&new_driver->mdiodrv.driver);
+ 	if (retval) {
+ 		pr_err("%s: Error %d in registering driver\n",
+ 		       new_driver->name, retval);
+@@ -1637,7 +1644,7 @@ EXPORT_SYMBOL(phy_drivers_register);
+ 
+ void phy_driver_unregister(struct phy_driver *drv)
+ {
+-	driver_unregister(&drv->driver);
++	driver_unregister(&drv->mdiodrv.driver);
+ }
+ EXPORT_SYMBOL(phy_driver_unregister);
+ 
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 6febe2df76f9..c0a8f84d92db 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -92,6 +92,37 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+ 	return 0;
+ }
+ 
++static int of_mdiobus_register_device(struct mii_bus *mdio,
++				      struct device_node *child,
++				      u32 addr)
++{
++	struct mdio_device *mdiodev;
++	int rc;
++
++	mdiodev = mdio_device_create(mdio, addr);
++	if (!mdiodev || IS_ERR(mdiodev))
++		return 1;
++
++	/* Associate the OF node with the device structure so it
++	 * can be looked up later.
++	 */
++	of_node_get(child);
++	mdiodev->dev.of_node = child;
++
++	/* All data is now stored in the mdiodev struct; register it. */
++	rc = mdio_device_register(mdiodev);
++	if (rc) {
++		mdio_device_free(mdiodev);
++		of_node_put(child);
++		return 1;
++	}
++
++	dev_dbg(&mdio->dev, "registered mdio device %s at address %i\n",
++		child->name, addr);
++
++	return 0;
++}
++
+ int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
+ {
+ 	u32 addr;
+@@ -179,6 +210,8 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 
+ 		if (of_mdiobus_child_is_phy(child))
+ 			of_mdiobus_register_phy(mdio, child, addr);
++		else
++			of_mdiobus_register_device(mdio, child, addr);
+ 	}
+ 
+ 	if (!scanphys)
 diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index b42963bc81dd..0d073c23c10d 100644
+index 0690359e55a5..75f7fad0af4f 100644
 --- a/include/linux/mdio.h
 +++ b/include/linux/mdio.h
-@@ -11,6 +11,7 @@
+@@ -15,6 +15,7 @@ struct mii_bus;
  
- #include <uapi/linux/mdio.h>
+ struct mdio_device {
+ 	struct device dev;
++
+ 	const struct dev_pm_ops *pm_ops;
+ 	struct mii_bus *bus;
+ 	int (*bus_match)(struct device *dev, struct device_driver *drv);
+@@ -24,7 +25,37 @@ struct mdio_device {
+ };
+ #define to_mdio_device(d) container_of(d, struct mdio_device, dev)
  
-+struct mii_bus;
++/* struct mdio_driver_common: Common to all MDIO drivers */
++struct mdio_driver_common {
++	struct device_driver driver;
++	int flags;
++};
+ #define MDIO_DEVICE_FLAG_PHY		1
++#define to_mdio_common_driver(d) \
++	container_of(d, struct mdio_driver_common, driver)
++
++/* struct mdio_driver: Generic MDIO driver */
++struct mdio_driver {
++	struct mdio_driver_common mdiodrv;
++
++	/*
++	 * Called during discovery.  Used to set
++	 * up device-specific structures, if any
++	 */
++	int (*probe)(struct mdio_device *mdiodev);
++
++	/* Clears up any memory if needed */
++	void (*remove)(struct mdio_device *mdiodev);
++};
++#define to_mdio_driver(d)						\
++	container_of(to_mdio_common_driver(d), struct mdio_driver, mdiodrv)
++
++void mdio_device_free(struct mdio_device *mdiodev);
++struct mdio_device *mdio_device_create(struct mii_bus *bus, int addr);
++int mdio_device_register(struct mdio_device *mdiodev);
++void mdio_device_remove(struct mdio_device *mdiodev);
++int mdio_driver_register(struct mdio_driver *drv);
++void mdio_driver_unregister(struct mdio_driver *drv);
  
  static inline bool mdio_phy_id_is_c45(int phy_id)
  {
-@@ -173,4 +174,9 @@ static inline u16 ethtool_adv_to_mmd_eee_adv_t(u32 adv)
- 	return reg;
- }
+@@ -197,4 +228,23 @@ int mdiobus_unregister_device(struct mdio_device *mdiodev);
+ bool mdiobus_is_registered_device(struct mii_bus *bus, int addr);
+ struct phy_device *mdiobus_get_phy(struct mii_bus *bus, int addr);
  
-+int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
-+int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum);
-+int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
-+int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val);
++/**
++ * module_mdio_driver() - Helper macro for registering mdio drivers
++ *
++ * Helper macro for MDIO drivers which do not do anything special in module
++ * init/exit. Each module may only use this macro once, and calling it
++ * replaces module_init() and module_exit().
++ */
++#define mdio_module_driver(_mdio_driver)				\
++static int __init mdio_module_init(void)				\
++{									\
++	return mdio_driver_register(&_mdio_driver);			\
++}									\
++module_init(mdio_module_init);						\
++static void __exit mdio_module_exit(void)				\
++{									\
++	mdio_driver_unregister(&_mdio_driver);				\
++}									\
++module_exit(mdio_module_exit)
 +
  #endif /* __LINUX_MDIO_H__ */
 diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 77b5e56e2a92..8ca161a37e8a 100644
+index 49e4418822b3..d6f3641e7933 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -18,6 +18,7 @@
+@@ -60,6 +60,7 @@
+ #define PHY_HAS_INTERRUPT	0x00000001
+ #define PHY_HAS_MAGICANEG	0x00000002
+ #define PHY_IS_INTERNAL		0x00000004
++#define MDIO_DEVICE_IS_PHY	0x80000000
  
- #include <linux/spinlock.h>
- #include <linux/ethtool.h>
-+#include <linux/mdio.h>
- #include <linux/mii.h>
- #include <linux/module.h>
- #include <linux/timer.h>
-@@ -212,11 +213,6 @@ static inline struct mii_bus *devm_mdiobus_alloc(struct device *dev)
+ /* Interface Mode definitions */
+ typedef enum {
+@@ -432,6 +433,7 @@ struct phy_device {
  
- void devm_mdiobus_free(struct device *dev, struct mii_bus *bus);
- struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
--int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
--int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum);
--int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
--int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val);
+ /* struct phy_driver: Driver structure for a particular PHY type
+  *
++ * driver_data: static driver data
+  * phy_id: The result of reading the UID registers of this PHY
+  *   type, and ANDing them with the phy_id_mask.  This driver
+  *   only works for PHYs with IDs which match this field
+@@ -441,7 +443,6 @@ struct phy_device {
+  *   by this PHY
+  * flags: A bitfield defining certain other features this PHY
+  *   supports (like interrupts)
+- * driver_data: static driver data
+  *
+  * The drivers must implement config_aneg and read_status.  All
+  * other functions are optional. Note that none of these
+@@ -452,6 +453,7 @@ struct phy_device {
+  * supported in the driver).
+  */
+ struct phy_driver {
++	struct mdio_driver_common mdiodrv;
+ 	u32 phy_id;
+ 	char *name;
+ 	unsigned int phy_id_mask;
+@@ -587,10 +589,9 @@ struct phy_driver {
+ 	void (*get_strings)(struct phy_device *dev, u8 *data);
+ 	void (*get_stats)(struct phy_device *dev,
+ 			  struct ethtool_stats *stats, u64 *data);
 -
+-	struct device_driver driver;
+ };
+-#define to_phy_driver(d) container_of(d, struct phy_driver, driver)
++#define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
++				      struct phy_driver, mdiodrv)
  
- #define PHY_INTERRUPT_DISABLED	0x0
- #define PHY_INTERRUPT_ENABLED	0x80000000
+ #define PHY_ANY_ID "MATCH ANY PHY"
+ #define PHY_ANY_UID 0xffffffff
 -- 
 2.6.4
