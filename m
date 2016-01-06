@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: Add WeTelecom-WPD600N
-Date: Wed, 06 Jan 2016 15:50:27 -0500 (EST)
-Message-ID: <20160106.155027.1626588228741324386.davem@davemloft.net>
-References: <1452086150-14754-1-git-send-email-kristian.evensen@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
+ vxlan devices
+Date: Wed, 06 Jan 2016 15:59:50 -0500 (EST)
+Message-ID: <20160106.155950.1007160228570301281.davem@davemloft.net>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bjorn@mork.no
-To: kristian.evensen@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39749 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708AbcAFUu3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:50:29 -0500
-In-Reply-To: <1452086150-14754-1-git-send-email-kristian.evensen@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1452087186-12926-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-=46rom: Kristian Evensen <kristian.evensen@gmail.com>
-Date: Wed,  6 Jan 2016 14:15:50 +0100
-
-> From: Kristian Evensen <kristian.evensen@gmail.com>
->=20
-> The WeTelecom-WPD600N is an LTE module that, in addition to supportin=
-g most
-> "normal" bands, also supports LTE over 450MHz. Manual testing showed =
-that
-> only interface number three replies to QMI messages.
->=20
-> Cc: Bj=F8rn Mork <bjorn@mork.no>
-> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
-
-Applied, thanks.
+RnJvbTogRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZlLndvcmtzPgpEYXRlOiBXZWQsICA2IEphbiAy
+MDE2IDEzOjMzOjA0ICswMDAwCgo+IFByaW9yIHRvIDQuMywgb3BlbnZzd2l0Y2ggdnhsYW4gdnBv
+cnRzIGNvdWxkIHRyYW5zbWl0IHZ4bGFuIHBhY2tldHMgb2YKPiBhbnkgc2l6ZSwgY29uc3RyYWlu
+ZWQgb25seSBieSB0aGUgYWJpbGl0eSB0byB0cmFuc21pdCB0aGUgcmVzdWx0aW5nCj4gVURQIHBh
+Y2tldHMuICA0LjMgaW50cm9kdWNlZCB2eGxhbiBuZXRkZXZzIGNvcnJlc3BvbmRpbmcgdG8gdnhs
+YW4KPiB2cG9ydHMuICBUaGVzZSBuZXRkZXZzIGhhdmUgYW4gTVRVLCB3aGljaCBsaW1pdHMgdGhl
+IHNpemUgb2YgYSBwYWNrZXQKPiB0aGF0IGNhbiBiZSBzdWNjZXNzZnVsbHkgdnhsYW4tZW5jYXBz
+dWxhdGVkLiAgVGhlIGRlZmF1bHQgdmFsdWUgZm9yCj4gdGhpcyBNVFUgaXMgMTUwMCwgd2hpY2gg
+aXMgYXdrd2FyZGx5IHNtYWxsLCBhbmQgbGVhZHMgdG8gYSBjb25zcGljdW91cwo+IGNoYW5nZSBp
+biBiZWhhdmlvdXIgZm9yIHVzZXJzcGFjZS4KPiAKPiBUaGVzZSB0d28gcGF0Y2hlcyBzZXQgdGhl
+IE1UVSBvbiBvcGVudnN3aXRjaC1jcmF0ZWQgdnhsYW4gZGV2aWNlcyB0bwo+IGJlIDY1NDY1ICh0
+aGUgbWF4aW11bSBJUCBwYWNrZXQgc2l6ZSBtaW51cyB0aGUgdnhsYW4tb24tSVB2Ngo+IG92ZXJo
+ZWFkKSwgZWZmZWN0aXZlbHkgcmVzdG9yaW5nIHRoZSBiZWhhdmlvdXIgcHJpb3IgdG8gNC4zLiAg
+SW4gb3JkZXIKPiB0byBhY2NvbXBsaXNoIHRoaXMsIHRoZSBmaXJzdCBwYXRjaCByZW1vdmVzIHRo
+ZSBNVFUgY29uc3RyYWludCBvZiAxNTAwCj4gZm9yIHZ4bGFuIG5ldGRldnMgd2l0aG91dCBhbiB1
+bmRlcmx5aW5nIGRldmljZS4KCklzIHRoaXMgcmVhbGx5IHRoZSByaWdodCB0aGluZyB0byBkbz8g
+IFdvbid0IHdlIGdldCBhIGxvdCBvZiBmcmFnbWVudGF0aW9uCmJ5IHVzaW5nIHN1Y2ggYSBsYXJn
+ZSBNVFUsIGVzcGVjaWFsbHkgc2luY2UgeW91J3JlIG1ha2luZyBpdCB0aGUgZGVmYXVsdApmb3Ig
+T1ZTIHNldHVwcz8KClRoaW5ncyBsaWtlIHBhdGggTVRVIGRpc2NvdmVyeSBoaW5nZSBzdHJvbmds
+eSB1cG9uIGFjY3VyYXRlIE1UVSBzZXR0aW5ncy4KT3RoZXJ3aXNlIHRoZXkgd29uJ3QgZnVuY3Rp
+b24gcHJvcGVybHkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
+Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
