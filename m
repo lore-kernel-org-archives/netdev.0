@@ -1,128 +1,98 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v3 8/8] geneve: break dependency to network drivers
-Date: Thu,  7 Jan 2016 00:39:31 +0100
-Message-ID: <1452123571-19140-9-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 7/8] vxlan: break dependency to network drivers
+Date: Thu,  7 Jan 2016 00:39:30 +0100
+Message-ID: <1452123571-19140-8-git-send-email-hannes@stressinduktion.org>
 References: <1452123571-19140-1-git-send-email-hannes@stressinduktion.org>
 Cc: jesse@kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:56444 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:52394 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752515AbcAFXjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:39:52 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 7EB9B201AB
-	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 18:39:51 -0500 (EST)
+	by vger.kernel.org with ESMTP id S1752709AbcAFXju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:39:50 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 3CCEC20566
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 18:39:50 -0500 (EST)
 In-Reply-To: <1452123571-19140-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/geneve.c | 30 +++++++++++++++++++++++++++---
- include/net/geneve.h |  7 +++----
- 2 files changed, 30 insertions(+), 7 deletions(-)
+ drivers/net/vxlan.c | 17 +++++++++++------
+ include/net/vxlan.h |  5 +----
+ 2 files changed, 12 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 24b077a32c1c9c..5b8d728b1204be 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -1110,7 +1110,7 @@ static struct device_type geneve_type = {
-  * supply the listening GENEVE udp ports. Callers are expected
-  * to implement the ndo_add_geneve_port.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index fecf7b6c732e96..10f1304d58e1ea 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2468,7 +2468,7 @@ static struct device_type vxlan_type = {
+  * supply the listening VXLAN udp ports. Callers are expected
+  * to implement the ndo_add_vxlan_port.
   */
--void geneve_get_rx_port(struct net_device *dev)
-+static void geneve_notify_refresh_netdev(struct net_device *dev)
+-void vxlan_get_rx_port(struct net_device *dev)
++static void vxlan_notify_refresh_netdev(struct net_device *dev)
  {
+ 	struct vxlan_sock *vs;
  	struct net *net = dev_net(dev);
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
-@@ -1128,7 +1128,6 @@ void geneve_get_rx_port(struct net_device *dev)
+@@ -2488,7 +2488,6 @@ void vxlan_get_rx_port(struct net_device *dev)
  	}
- 	rcu_read_unlock();
+ 	spin_unlock(&vn->sock_lock);
  }
--EXPORT_SYMBOL_GPL(geneve_get_rx_port);
+-EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
  
  /* Initialize the device structure. */
- static void geneve_setup(struct net_device *dev)
-@@ -1450,6 +1449,24 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ static void vxlan_setup(struct net_device *dev)
+@@ -3164,20 +3163,26 @@ static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
+ 	unregister_netdevice_many(&list_kill);
  }
- EXPORT_SYMBOL_GPL(geneve_dev_create_fb);
  
-+static int geneve_notifier(struct notifier_block *unused,
-+			   unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+
+-static int vxlan_lowerdev_event(struct notifier_block *unused,
+-				unsigned long event, void *ptr)
++static int vxlan_notifier(struct notifier_block *unused,
++			  unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+ 
+-	if (event == NETDEV_UNREGISTER)
 +	switch (event) {
 +	case NETDEV_REFRESH_OFFLOADS:
-+		geneve_notify_refresh_netdev(dev);
++		vxlan_notify_refresh_netdev(dev);
++		break;
++	case NETDEV_UNREGISTER:
+ 		vxlan_handle_lowerdev_unregister(vn, dev);
 +		break;
 +	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block geneve_notifier_block __read_mostly = {
-+	.notifier_call = geneve_notifier,
-+};
-+
- static __net_init int geneve_init_net(struct net *net)
- {
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
-@@ -1502,11 +1519,17 @@ static int __init geneve_init_module(void)
- 	if (rc)
- 		goto out1;
  
--	rc = rtnl_link_register(&geneve_link_ops);
-+	rc = register_netdevice_notifier(&geneve_notifier_block);
- 	if (rc)
- 		goto out2;
- 
-+	rc = rtnl_link_register(&geneve_link_ops);
-+	if (rc)
-+		goto out3;
-+
- 	return 0;
-+out3:
-+	unregister_netdevice_notifier(&geneve_notifier_block);
- out2:
- 	unregister_pernet_subsys(&geneve_net_ops);
- out1:
-@@ -1517,6 +1540,7 @@ late_initcall(geneve_init_module);
- static void __exit geneve_cleanup_module(void)
- {
- 	rtnl_link_unregister(&geneve_link_ops);
-+	unregister_netdevice_notifier(&geneve_notifier_block);
- 	unregister_pernet_subsys(&geneve_net_ops);
+ 	return NOTIFY_DONE;
  }
- module_exit(geneve_cleanup_module);
-diff --git a/include/net/geneve.h b/include/net/geneve.h
-index e6c23dc765f7ec..7d52077b72faa3 100644
---- a/include/net/geneve.h
-+++ b/include/net/geneve.h
-@@ -1,6 +1,8 @@
- #ifndef __NET_GENEVE_H
- #define __NET_GENEVE_H  1
  
-+#include <linux/netdevice.h>
-+
- #ifdef CONFIG_INET
- #include <net/udp_tunnel.h>
- #endif
-@@ -62,13 +64,10 @@ struct genevehdr {
- 	struct geneve_opt options[];
+ static struct notifier_block vxlan_notifier_block __read_mostly = {
+-	.notifier_call = vxlan_lowerdev_event,
++	.notifier_call = vxlan_notifier,
  };
  
--#if IS_ENABLED(CONFIG_GENEVE)
--void geneve_get_rx_port(struct net_device *netdev);
+ static __net_init int vxlan_init_net(struct net *net)
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 0fb86442544b26..48d0450160c91f 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -242,13 +242,10 @@ static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
+ /* IPv6 header + UDP + VXLAN + Ethernet header */
+ #define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
+ 
+-#if IS_ENABLED(CONFIG_VXLAN)
+-void vxlan_get_rx_port(struct net_device *netdev);
 -#else
- static inline void geneve_get_rx_port(struct net_device *netdev)
+ static inline void vxlan_get_rx_port(struct net_device *netdev)
  {
 +	call_netdevice_notifiers(NETDEV_REFRESH_OFFLOADS, netdev);
  }
 -#endif
  
- #ifdef CONFIG_INET
- struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
+ {
 -- 
 2.5.0
