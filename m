@@ -1,34 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ARM: net: bpf: fix zero right shift
-Date: Wed, 06 Jan 2016 01:32:29 -0500 (EST)
-Message-ID: <20160106.013229.122000813125865535.davem@davemloft.net>
-References: <1452015244-1230-1-git-send-email-rabin@rab.in>
+Subject: Re: [PATCH] net: sched: fix missing free per cpu on qstats
+Date: Wed, 06 Jan 2016 01:41:21 -0500 (EST)
+Message-ID: <20160106.014121.2086606632987547429.davem@davemloft.net>
+References: <1452015851.8255.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAM_iQpW9qCOuFGAKDY0e=qsT_PY-CdU3FyNK0tA2cRVkxAwAZw@mail.gmail.com>
+	<1452049669.8255.157.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.infradead.org
-To: rabin@rab.in
+Cc: xiyou.wangcong@gmail.com, john.fastabend@gmail.com,
+	netdev@vger.kernel.org, daniel@iogearbox.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34093 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34126 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751140AbcAFGcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:32:31 -0500
-In-Reply-To: <1452015244-1230-1-git-send-email-rabin@rab.in>
+	with ESMTP id S1750845AbcAFGlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:41:24 -0500
+In-Reply-To: <1452049669.8255.157.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rabin Vincent <rabin@rab.in>
-Date: Tue,  5 Jan 2016 18:34:04 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 05 Jan 2016 19:07:49 -0800
 
-> The LSR instruction cannot be used to perform a zero right shift since a
-> 0 as the immediate value (imm5) in the LSR instruction encoding means
-> that a shift of 32 is perfomed.  See DecodeIMMShift() in the ARM ARM.
+> On Tue, 2016-01-05 at 18:49 -0800, Cong Wang wrote:
+>> On Tue, Jan 5, 2016 at 9:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Tue, 2016-01-05 at 09:11 -0800, John Fastabend wrote:
+>> >> When a qdisc is using per cpu stats (currently just the ingress
+>> >> qdisc) only the bstats are being freed. This also free's the qstats.
+>> >>
+>> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> >> ---
+>> >
+>> > Acked-by: Eric Dumazet <edumazet@google.com>
+>> >
+>> > David, please add the following tag to ease backports to stable kernels:
+>> >
+>> > Fixes: 22e0f8b9322cb ("net: sched: make bstats per cpu and estimator RCU safe")
+>> >
+>> 
+>> Not a big deal at all but... doesn't that fix commit b0ab6f92752b9f9d8
+>> instead of 22e0f8b9322cb?
 > 
-> Make the JIT skip generation of the LSR if a zero-shift is requested.
+> Hmmm... you may be right. Both were added in 3.18.
 > 
-> This was found using american fuzzy lop.
-> 
-> Signed-off-by: Rabin Vincent <rabin@rab.in>
+> My search was based on commit adding qdisc_is_percpu_stats()
 
-Applied, thanks.
+The right commit looks to be b0ab6f92752b9f9d8, so that's what I've
+used in the Fixes: tag.
+
+Applied and queued up for -stable, thanks!
