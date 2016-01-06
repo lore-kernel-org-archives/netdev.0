@@ -1,62 +1,91 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net/rfkill: Create "airplane mode" LED trigger
-Date: Wed, 06 Jan 2016 11:31:59 +0100
-Message-ID: <1452076319.2541.3.camel@sipsolutions.net>
-References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com>
-	 <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
-	 <6DC3AA8C-DDE9-44B8-91C5-94B1EB0DBE9A@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
+Subject: [PATCH] Bluetooth: avoid rebuilding hci_sock all the time
+Date: Wed,  6 Jan 2016 11:59:57 +0100
+Message-ID: <1452077997-13596-1-git-send-email-johannes@sipsolutions.net>
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>
 To: Marcel Holtmann <marcel@holtmann.org>,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:42284 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:42492 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751985AbcAFKcI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 05:32:08 -0500
-In-Reply-To: <6DC3AA8C-DDE9-44B8-91C5-94B1EB0DBE9A@holtmann.org>
+	id S1752844AbcAFLAH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 06:00:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-05 at 22:55 -0800, Marcel Holtmann wrote:
->=C2=A0
-> so I am not convinced the kernel should have the concept of airplane
-> mode at all.
+From: Johannes Berg <johannes.berg@intel.com>
 
-[snip long story]
+Instead, allow using string formatting with send_monitor_note()
+and access init_utsname().
 
-This is true, but that doesn't mean the patch is bad, just the naming
-could be different.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/bluetooth/hci_sock.c | 28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
 
-I think the patch could name this "rfkill-all" (or so) instead, and
-replace all the "airplane_mode" identifiers as well.
-
-Then the driver can still default to "rfkill-all" trigger, or a
-suitably interested userspace could remove the trigger and manage the
-LED state itself.
-
-Then again - if I think about that more - perhaps the kernel *should*
-have a concept of airplane mode, just one that's not necessarily tied
-to the "rfkill_all" setting, but could be controlled by userspace. That
-way, userspace wouldn't have to know about the LED, just about the
-airplane mode indicator (for which rfkill would probably be an
-appropriate place)
-
-Two comments on the patch itself:
-
-> +#ifdef CONFIG_RFKILL_LEDS
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0led_trigger_register(&amp;=
-airplane_mode_led_trigger);
-> +#endif
-
-Everything else uses inlines to avoid ifdefs, you can do the same here.
-Also, error handling seems necessary.
-
-johannes
+diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+index 41f579ba447b..c7026e8f0af1 100644
+--- a/net/bluetooth/hci_sock.c
++++ b/net/bluetooth/hci_sock.c
+@@ -25,9 +25,8 @@
+ /* Bluetooth HCI sockets. */
+ 
+ #include <linux/export.h>
++#include <linux/utsname.h>
+ #include <asm/unaligned.h>
+-#include <generated/compile.h>
+-#include <generated/utsrelease.h>
+ 
+ #include <net/bluetooth/bluetooth.h>
+ #include <net/bluetooth/hci_core.h>
+@@ -385,18 +384,26 @@ static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
+ 	return skb;
+ }
+ 
+-static void send_monitor_note(struct sock *sk, const char *text)
++static void __printf(2, 3)
++send_monitor_note(struct sock *sk, const char *fmt, ...)
+ {
+-	size_t len = strlen(text);
++	size_t len;
+ 	struct hci_mon_hdr *hdr;
+ 	struct sk_buff *skb;
++	va_list args;
+ 
++	va_start(args, fmt);
++	len = vsnprintf(NULL, 0, fmt, args);
+ 	skb = bt_skb_alloc(len + 1, GFP_ATOMIC);
++	if (skb) {
++		*skb_put(skb, 1) = 0;
++		vsprintf(skb_put(skb, len), fmt, args);
++	}
++	va_end(args);
++
+ 	if (!skb)
+ 		return;
+ 
+-	strcpy(skb_put(skb, len + 1), text);
+-
+ 	__net_timestamp(skb);
+ 
+ 	hdr = (void *)skb_push(skb, HCI_MON_HDR_SIZE);
+@@ -897,10 +904,11 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr,
+ 		 */
+ 		hci_sock_set_flag(sk, HCI_SOCK_TRUSTED);
+ 
+-		send_monitor_note(sk, "Linux version " UTS_RELEASE
+-				      " (" UTS_MACHINE ")");
+-		send_monitor_note(sk, "Bluetooth subsystem version "
+-				      BT_SUBSYS_VERSION);
++		send_monitor_note(sk, "Linux version %s (%s)",
++				  init_utsname()->release,
++				  init_utsname()->machine);
++		send_monitor_note(sk, "Bluetooth subsystem version %s",
++				  BT_SUBSYS_VERSION);
+ 		send_monitor_replay(sk);
+ 
+ 		atomic_inc(&monitor_promisc);
+-- 
+2.6.2
