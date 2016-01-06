@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] soreuseport: change consume_skb to kfree_skb
- in error case
-Date: Wed, 06 Jan 2016 01:31:01 -0500 (EST)
-Message-ID: <20160106.013101.571224779528590357.davem@davemloft.net>
-References: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
+Subject: Re: [PATCH] ARM: net: bpf: fix zero right shift
+Date: Wed, 06 Jan 2016 01:32:29 -0500 (EST)
+Message-ID: <20160106.013229.122000813125865535.davem@davemloft.net>
+References: <1452015244-1230-1-git-send-email-rabin@rab.in>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
+Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.infradead.org
+To: rabin@rab.in
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34075 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34093 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341AbcAFGbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:31:03 -0500
-In-Reply-To: <1452009433-22171-1-git-send-email-kraigatgoog@gmail.com>
+	with ESMTP id S1751140AbcAFGcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:32:31 -0500
+In-Reply-To: <1452015244-1230-1-git-send-email-rabin@rab.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Tue,  5 Jan 2016 10:57:13 -0500
+From: Rabin Vincent <rabin@rab.in>
+Date: Tue,  5 Jan 2016 18:34:04 +0100
 
-> From: Craig Gallek <kraig@google.com>
+> The LSR instruction cannot be used to perform a zero right shift since a
+> 0 as the immediate value (imm5) in the LSR instruction encoding means
+> that a shift of 32 is perfomed.  See DecodeIMMShift() in the ARM ARM.
 > 
-> Fixes: 538950a1b752 ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
-> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Craig Gallek <kraig@google.com>
+> Make the JIT skip generation of the LSR if a zero-shift is requested.
+> 
+> This was found using american fuzzy lop.
+> 
+> Signed-off-by: Rabin Vincent <rabin@rab.in>
 
-Also applied, thanks again Craig.
+Applied, thanks.
