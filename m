@@ -1,35 +1,34 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] ixgbe: Fix for RAR0 not being set to default
- MAC addr
-Date: Wed, 6 Jan 2016 15:48:46 -0500
-Message-ID: <20160106204846.GE23622@oracle.com>
-References: <1452110729-15659-1-git-send-email-tushar.n.dave@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: qmi_wwan: Add WeTelecom-WPD600N
+Date: Wed, 06 Jan 2016 15:50:27 -0500 (EST)
+Message-ID: <20160106.155027.1626588228741324386.davem@davemloft.net>
+References: <1452086150-14754-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	donald.c.skidmore@intel.com, carolyn.wyborny@intel.com,
-	netdev@vger.kernel.org, duyck@mirantis.com, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
-To: Tushar Dave <tushar.n.dave@oracle.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bjorn@mork.no
+To: kristian.evensen@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:20001 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708AbcAFUtC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:49:02 -0500
-Content-Disposition: inline
-In-Reply-To: <1452110729-15659-1-git-send-email-tushar.n.dave@oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39749 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751708AbcAFUu3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:50:29 -0500
+In-Reply-To: <1452086150-14754-1-git-send-email-kristian.evensen@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/06/16 12:05), Tushar Dave wrote:
+=46rom: Kristian Evensen <kristian.evensen@gmail.com>
+Date: Wed,  6 Jan 2016 14:15:50 +0100
 
-> commit c9f53e63c208 ("ixgbe: Refactor MAC address configuration code")
-> introduced code that doesn't set HW register RAR0 to default mac address
-> but FF:FF:FF:FF:FF:FF. Due to this, ixgbe HW discards all incoming packets
-> that doesn't have destination mac address equals to FF:FF:FF:FF:FF:FF.
-> 
-> This commit sets RAR0 correctly to default HW mac address.
-> 
-> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+> From: Kristian Evensen <kristian.evensen@gmail.com>
+>=20
+> The WeTelecom-WPD600N is an LTE module that, in addition to supportin=
+g most
+> "normal" bands, also supports LTE over 450MHz. Manual testing showed =
+that
+> only interface number three replies to QMI messages.
+>=20
+> Cc: Bj=F8rn Mork <bjorn@mork.no>
+> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
 
-Tested-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Applied, thanks.
