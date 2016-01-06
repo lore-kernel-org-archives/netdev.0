@@ -1,33 +1,34 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf: cleanup bpf_prog_run_{save,clear}_cb
- helpers
-Date: Wed, 6 Jan 2016 14:13:53 -0800
-Message-ID: <20160106221352.GB95332@ast-mbp.thefacebook.com>
-References: <aaa1eb34322115d06f15946989f4ebd3e399a56e.1452115518.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net 0/3] ipv4: fix various issues reported by sparse
+Date: Wed,  6 Jan 2016 17:22:44 -0500
+Message-ID: <1452118967-32123-1-git-send-email-lrichard@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33682 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752243AbcAFWN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 17:13:58 -0500
-Received: by mail-pa0-f54.google.com with SMTP id cy9so241233801pac.0
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 14:13:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <aaa1eb34322115d06f15946989f4ebd3e399a56e.1452115518.git.daniel@iogearbox.net>
+Received: from mx1.redhat.com ([209.132.183.28]:44313 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752483AbcAFWWs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 17:22:48 -0500
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (Postfix) with ESMTPS id 005158C1B0
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 22:22:47 +0000 (UTC)
+Received: from dhcp129-205.rdu.redhat.com (dhcp129-10.rdu.redhat.com [10.13.129.10])
+	by int-mx10.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u06MMlZn005846
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2016 17:22:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 06, 2016 at 10:32:16PM +0100, Daniel Borkmann wrote:
-> Move the details behind the cb[] access into a small helper to decouple
-> and make them generic for bpf_prog_run_save_cb()/bpf_prog_run_clear_cb()
-> that was introduced via commit ff936a04e5f2 ("bpf: fix cb access in socket
-> filter programs"). Also add a comment to better clarify what is done in
-> bpf_skb_cb().
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+This trivial patch series addresses a number of endianness- and
+lock-related issues reported by sparse.
 
-Thanks. Great catch.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Lance Richardson (3):
+  ipv4: fix endianness warnings in ip_tunnel_core.c
+  ipv4: eliminate endianness warnings in ip_fib.h
+  ipv4: eliminate lock count warnings in ping.c
+
+ include/net/ip_fib.h      |  3 ++-
+ net/ipv4/ip_tunnel_core.c | 16 ++++++++--------
+ net/ipv4/ping.c           |  2 ++
+ 3 files changed, 12 insertions(+), 9 deletions(-)
+
+-- 
+2.5.0
