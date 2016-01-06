@@ -1,33 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [BUG] skb corruption and kernel panic at forwarding with fragmentation
-Date: Wed, 6 Jan 2016 11:59:23 -0800
-Message-ID: <CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
-References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: possible use after free in dst_release
+Date: Wed, 06 Jan 2016 15:00:53 -0500 (EST)
+Message-ID: <20160106.150053.1977206705679836394.davem@davemloft.net>
+References: <20160106081848.4532F6340189@us105.sjc.aristanetworks.com>
+	<1452088644.8255.165.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Konstantin Khlebnikov <koct9i@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fruggeri@aristanetworks.com, fruggeri@arista.com,
+	edumazet@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751906AbcAFUAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 15:00:55 -0500
+In-Reply-To: <1452088644.8255.165.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 6, 2016 at 11:15 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
-> Looks like this happens because ip_options_fragment() relies on
-> correct ip options length in ip control block in skb. But in
-> ip_finish_output_gso() control block in segments is reused by
-> skb_gso_segment(). following ip_fragment() sees some garbage.
->
-> In my case there was no ip options but length becomes non-zero and
-> ip_options_fragment() picked some bytes from payload and decides to
-> fill huge range with IPOPT_NOOP (1). One of that ones flipped nr_frags
-> in skb_shared_info at the end of data =)
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 06 Jan 2016 05:57:24 -0800
 
-Hmm, it looks like SKB_GSO_CB should be cleared after skb_gso_segment()
-since all the gso information should be saved in shared_info after it finishes.
+> On Wed, 2016-01-06 at 00:18 -0800, Francesco Ruggeri wrote:
+>> dst_release should not access dst->flags after decrementing
+>> __refcnt to 0. The dst_entry may be in dst_busy_list and
+>> dst_gc_task may dst_destroy it before dst_release gets a chance
+>> to access dst->flags.
+>> 
+>> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+>> ---
+>>  net/core/dst.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/net/core/dst.c b/net/core/dst.c
+>> index e6dc772..a1656e3 100644
+>> --- a/net/core/dst.c
+>> +++ b/net/core/dst.c
+>> @@ -301,12 +301,13 @@ void dst_release(struct dst_entry *dst)
+>>  {
+>>  	if (dst) {
+>>  		int newrefcnt;
+>> +		unsigned short nocache = dst->flags & DST_NOCACHE;
+>>  
+>>  		newrefcnt = atomic_dec_return(&dst->__refcnt);
+>>  		if (unlikely(newrefcnt < 0))
+>>  			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
+>>  					     __func__, dst, newrefcnt);
+>> -		if (!newrefcnt && unlikely(dst->flags & DST_NOCACHE))
+>> +		if (!newrefcnt && unlikely(nocache))
+>>  			call_rcu(&dst->rcu_head, dst_destroy_rcu);
+>>  	}
+>>  }
+> 
+> You're right.
+> 
+> My previous fix (commit d69bbf88c8d0) was okay only for DST_NOCACHE dst.
+> 
+> Fixes: d69bbf88c8d0 ("net: fix a race in dst_release()")
+> Fixes: 27b75c95f10d ("net: avoid RCU for NOCACHE dst")
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Does a memset(0) on SKB_GSO_CB after skb_gso_segment() work as well?
+Applied and queued up for -stable, thanks everyone!
