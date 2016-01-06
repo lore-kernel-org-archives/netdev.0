@@ -1,53 +1,49 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
-	vxlan devices
-Date: Wed, 6 Jan 2016 14:53:02 -0800
-Message-ID: <CAEh+42hHR==wFWveA8CVnetU0DnVpXWWunM8RKwNZprnPbU+0A@mail.gmail.com>
-References: <1452087186-12926-1-git-send-email-david@weave.works>
- <20160106.155950.1007160228570301281.davem@davemloft.net>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Fwd: [PATCH net 0/3] ipv4: fix various issues reported by sparse
+Date: Wed, 6 Jan 2016 18:08:34 -0500 (EST)
+Message-ID: <1921532308.9305704.1452121714559.JavaMail.zimbra@redhat.com>
+References: <1452118967-32123-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160106.155950.1007160228570301281.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx5-phx2.redhat.com ([209.132.183.37]:36893 "EHLO
+	mx5-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbcAFXJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:09:16 -0500
+In-Reply-To: <1452118967-32123-1-git-send-email-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBKYW4gNiwgMjAxNiBhdCAxMjo1OSBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZl
-bWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBEYXZpZCBXcmFnZyA8ZGF2aWRAd2VhdmUud29ya3M+
-Cj4gRGF0ZTogV2VkLCAgNiBKYW4gMjAxNiAxMzozMzowNCArMDAwMAo+Cj4+IFByaW9yIHRvIDQu
-Mywgb3BlbnZzd2l0Y2ggdnhsYW4gdnBvcnRzIGNvdWxkIHRyYW5zbWl0IHZ4bGFuIHBhY2tldHMg
-b2YKPj4gYW55IHNpemUsIGNvbnN0cmFpbmVkIG9ubHkgYnkgdGhlIGFiaWxpdHkgdG8gdHJhbnNt
-aXQgdGhlIHJlc3VsdGluZwo+PiBVRFAgcGFja2V0cy4gIDQuMyBpbnRyb2R1Y2VkIHZ4bGFuIG5l
-dGRldnMgY29ycmVzcG9uZGluZyB0byB2eGxhbgo+PiB2cG9ydHMuICBUaGVzZSBuZXRkZXZzIGhh
-dmUgYW4gTVRVLCB3aGljaCBsaW1pdHMgdGhlIHNpemUgb2YgYSBwYWNrZXQKPj4gdGhhdCBjYW4g
-YmUgc3VjY2Vzc2Z1bGx5IHZ4bGFuLWVuY2Fwc3VsYXRlZC4gIFRoZSBkZWZhdWx0IHZhbHVlIGZv
-cgo+PiB0aGlzIE1UVSBpcyAxNTAwLCB3aGljaCBpcyBhd2t3YXJkbHkgc21hbGwsIGFuZCBsZWFk
-cyB0byBhIGNvbnNwaWN1b3VzCj4+IGNoYW5nZSBpbiBiZWhhdmlvdXIgZm9yIHVzZXJzcGFjZS4K
-Pj4KPj4gVGhlc2UgdHdvIHBhdGNoZXMgc2V0IHRoZSBNVFUgb24gb3BlbnZzd2l0Y2gtY3JhdGVk
-IHZ4bGFuIGRldmljZXMgdG8KPj4gYmUgNjU0NjUgKHRoZSBtYXhpbXVtIElQIHBhY2tldCBzaXpl
-IG1pbnVzIHRoZSB2eGxhbi1vbi1JUHY2Cj4+IG92ZXJoZWFkKSwgZWZmZWN0aXZlbHkgcmVzdG9y
-aW5nIHRoZSBiZWhhdmlvdXIgcHJpb3IgdG8gNC4zLiAgSW4gb3JkZXIKPj4gdG8gYWNjb21wbGlz
-aCB0aGlzLCB0aGUgZmlyc3QgcGF0Y2ggcmVtb3ZlcyB0aGUgTVRVIGNvbnN0cmFpbnQgb2YgMTUw
-MAo+PiBmb3IgdnhsYW4gbmV0ZGV2cyB3aXRob3V0IGFuIHVuZGVybHlpbmcgZGV2aWNlLgo+Cj4g
-SXMgdGhpcyByZWFsbHkgdGhlIHJpZ2h0IHRoaW5nIHRvIGRvPyAgV29uJ3Qgd2UgZ2V0IGEgbG90
-IG9mIGZyYWdtZW50YXRpb24KPiBieSB1c2luZyBzdWNoIGEgbGFyZ2UgTVRVLCBlc3BlY2lhbGx5
-IHNpbmNlIHlvdSdyZSBtYWtpbmcgaXQgdGhlIGRlZmF1bHQKPiBmb3IgT1ZTIHNldHVwcz8KPgo+
-IFRoaW5ncyBsaWtlIHBhdGggTVRVIGRpc2NvdmVyeSBoaW5nZSBzdHJvbmdseSB1cG9uIGFjY3Vy
-YXRlIE1UVSBzZXR0aW5ncy4KPiBPdGhlcndpc2UgdGhleSB3b24ndCBmdW5jdGlvbiBwcm9wZXJs
-eS4KCkF0IGEgbWluaW11bSwgSSBkb24ndCB0aGluayB0aGlzIHNob3VsZCBiZSBWWExBTiBzcGVj
-aWZpYy4gQnV0IEkgYWdyZWUKdGhhdCBJJ20gbm90IHN1cmUgdGhpcyBpcyB0aGUgcmlnaHQgdGhp
-bmcgdG8gZG8uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-CmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gu
-b3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+----- Forwarded Message -----
+> This trivial patch series addresses a number of endianness- and
+> lock-related issues reported by sparse.
+> 
+> Lance Richardson (3):
+>   ipv4: fix endianness warnings in ip_tunnel_core.c
+>   ipv4: eliminate endianness warnings in ip_fib.h
+>   ipv4: eliminate lock count warnings in ping.c
+> 
+>  include/net/ip_fib.h      |  3 ++-
+>  net/ipv4/ip_tunnel_core.c | 16 ++++++++--------
+>  net/ipv4/ping.c           |  2 ++
+>  3 files changed, 12 insertions(+), 9 deletions(-)
+> 
+> --
+> 2.5.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+Apologies, I must have fumbled the "--cc-cmd=" option to git send-email.
+
+Resending cover letter with cc: list.
