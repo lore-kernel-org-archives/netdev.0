@@ -1,141 +1,146 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V5 9/9] hvsock: introduce Hyper-V VM Sockets feature
-Date: Wed, 6 Jan 2016 05:27:17 +0000
-Message-ID: <b50191f71b0f432593553cf23fab20ce@HKXPR3004MB0088.064d.mgd.msft.net>
-References: <1450966503-13345-1-git-send-email-decui@microsoft.com>
- <87vb781hhq.fsf@vitty.brq.redhat.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict
+ synchronization of link_up and speed
+Date: Wed, 6 Jan 2016 13:41:39 +0800
+Message-ID: <568CA913.3030901@gmail.com>
+References: <1450926752-11392-1-git-send-email-zyjzyj2000@gmail.com>
+	<1451356326-2919-1-git-send-email-zyjzyj2000@gmail.com>
+	<1451356326-2919-3-git-send-email-zyjzyj2000@gmail.com>
+	<87618083B2453E4A8714035B62D67992504FB5FF@FMSMSX105.amr.corp.intel.com>
+	<5683462C.3020801@gmail.com>
+	<87618083B2453E4A8714035B62D67992504FD7FB@FMSMSX105.amr.corp.intel.com>
+	<568393C6.1060105@gmail.com>
+	<87618083B2453E4A8714035B62D67992504FD8D5@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <87vb781hhq.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: "Viswanathan, Ven \(Wind River\)" <venkat.viswanathan@windriver.com>,
+	"Shteinbock,
+	Boris \(Wind River\)" <boris.shteinbock@windriver.com>, "Bourg,
+	Vincent \(Wind River\)" <vincent.bourg@windriver.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <87618083B2453E4A8714035B62D67992504FD8D5@FMSMSX105.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> Sent: Tuesday, January 5, 2016 17:52
-> 
-> Just some minor nitpicks below -- I have to admit I didn't test the feature.
-> 
-> [..skip..]
-> 
-> > +
-> > +	if (sk->sk_err) {
-> > +		ret = -sk->sk_err;
-> > +		goto out_wait_error;
-> > +	} else {
-> > +		ret = 0;
-> > +	}
-> > +
-> > +out_wait:
-> > +	finish_wait(sk_sleep(sk), &wait);
-> > +out:
-> > +	release_sock(sk);
-> > +	return ret;
-> > +
-> > +out_wait_error:
-> > +	sk->sk_state = SS_UNCONNECTED;
-> > +	sock->state = SS_UNCONNECTED;
-> > +	goto out_wait;
-> > +}
-> 
-> Why not just place out_wait_error label before out_wait (and do 'goto
-> out_wait' in ret = 0 case instead of 'goto out_wait_error' in the error
-> case)?
-Good point.  I'll update the code.
+On 12/31/2015 12:37 AM, Tantilov, Emil S wrote:
+>> -----Original Message-----
+>> From: zhuyj [mailto:zyjzyj2000@gmail.com]
+>> Sent: Wednesday, December 30, 2015 12:20 AM
+>> To: Tantilov, Emil S; Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson,
+>> Shannon; Wyborny, Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak,
+>> John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org;
+>> netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
+>> Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River); Bourg,
+>> Vincent (Wind River)
+>> Subject: Re: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict synchronization
+>> of link_up and speed
+>>
+>> On 12/30/2015 02:55 PM, Tantilov, Emil S wrote:
+>>>> -----Original Message-----
+>>>> From: zhuyj [mailto:zyjzyj2000@gmail.com]
+>>>> Sent: Tuesday, December 29, 2015 6:49 PM
+>>>> To: Tantilov, Emil S; Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson,
+>>>> Shannon; Wyborny, Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak,
+>>>> John; Williams, Mitch A; intel-wired-lan@lists.osuosl.org;
+>>>> netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
+>>>> Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River);
+>> Bourg,
+>>>> Vincent (Wind River)
+>>>> Subject: Re: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict
+>> synchronization
+>>>> of link_up and speed
+>>>>
+>>>> On 12/30/2015 12:18 AM, Tantilov, Emil S wrote:
+>>>>>> -----Original Message-----
+>>>>>> From: Intel-wired-lan [mailto:intel-wired-lan-
+>> bounces@lists.osuosl.org]
+>>>> On
+>>>>>> Behalf Of zyjzyj2000@gmail.com
+>>>>>> Sent: Monday, December 28, 2015 6:32 PM
+>>>>>> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson, Shannon; Wyborny,
+>>>>>> Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak, John; Williams,
+>>>> Mitch
+>>>>>> A; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; e1000-
+>>>>>> devel@lists.sourceforge.net
+>>>>>> Cc: Viswanathan, Ven (Wind River); Shteinbock, Boris (Wind River);
+>>>> Bourg,
+>>>>>> Vincent (Wind River)
+>>>>>> Subject: [Intel-wired-lan] [PATCH 2/2] ixgbe: restrict synchronization
+>>>> of
+>>>>>> link_up and speed
+>>>>>>
+>>>>>> From: Zhu Yanjun <yanjun.zhu@windriver.com>
+>>>>>>
+>>>>>> When the X540 NIC acts as a slave of some virtual NICs, it is very
+>>>>>> important to synchronize link_up and link_speed, such as a bonding
+>>>>>> driver in 802.3ad mode. When X540 NIC acts as an independent
+>> interface,
+>>>>>> it is not necessary to synchronize link_up and link_speed. That is,
+>>>>>> the time span between link_up and link_speed is acceptable.
+>>>>> What exactly do you mean by "time span between link_up and link_speed"?
+>>>> In the previous mail, I show you some ethtool logs. In these logs, there
+>>>> is some
+>>>> time with NIC up while speed is unknown. I think this "some time" is
+>>>> time span between
+>>>> link_up and link_speed. Please see the previous mail for details.
+>>> Was this when reporting the link state from check_link() (reading the
+>> LINKS
+>>> register) or reporting the adapter->link_speed?
+>>>
+>>>>> Where is it you think the de-synchronization occurs?
+>>>> When a NIC interface acts as a slave, a flag "IFF_SLAVE" is set in
+>>>> netdevice struct.
+>>>> Before we enter this function, we check IFF_SLAVE flag. If this flag is
+>>>> set, we continue to check
+>>>> link_speed. If not, this function is executed whether this link_speed is
+>>>> unknown or not.
+>>> I can already see this in your patch. I was asking about the reason why
+>>> your change is needed.
+>> an extreme example, let us assume this scenario:
+> Is this the scenario you are trying to fix?
+Sure. If IFF_SLAVE is checked, this scenario will not happen.
 
-> [..skip..]
-> 
-> > +
-> > +static int __init hvsock_init(void)
-> > +{
-> > +	int ret;
-> > +
-> > +	/* Hyper-V socket requires at least VMBus 4.0 */
-> > +	if ((vmbus_proto_version >> 16) < 4) {
-> > +		pr_err("failed to load: VMBus 4 or later is required\n");
-> > +		return -ENODEV;
-> 
-> (Let me pretend I'm Dan :-) So here we return ...
-> 
-> > +	}
-> > +
-> > +	ret = vmbus_driver_register(&hvsock_drv);
-> > +	if (ret) {
-> > +		pr_err("failed to register hv_sock driver\n");
-> > +		goto out;
-> 
-> ... and here we goto where we just return. I suggest we bring some
-> consistency by directly returning ret here and eliminating 'out' label.
+Zhu Yanjun
+>
+>> An ixgbe NIC directly connects to another NIC (let us call it NIC-a).
+>> And auto-negotiate is off while no static speed is set in the 2 NICs.
+> The ixgbe driver does not support disabling auto-negotiation directly.
+> The only time this is true is when the advertised speed is restricted,
+> so the above scenario is not possible (you either have autoneg or
+> advertised speed set) with the current driver.
+>
+> Is this example in theory or do you have your interface configured this
+> way somehow?
+>
+> Thanks,
+> Emil
+>
+>
 
-Thanks! I'll update the code.
 
-> > +	}
-> > +
-> > +	ret = proto_register(&hvsock_proto, 0);
-> > +	if (ret) {
-> > +		pr_err("failed to register protocol\n");
-> > +		goto unreg_hvsock_drv;
-> > +	}
-> > +
-> > +	ret = sock_register(&hvsock_family_ops);
-> > +	if (ret) {
-> > +		pr_err("failed to register address family\n");
-> > +		goto unreg_proto;
-> > +	}
-> > +
-> > +	return 0;
-> > +
-> > +unreg_proto:
-> > +	proto_unregister(&hvsock_proto);
-> > +unreg_hvsock_drv:
-> > +	vmbus_driver_unregister(&hvsock_drv);
-> > +out:
-> > +	return ret;
-> > +}
-> > +
-> > +static void __exit hvsock_exit(void)
-> > +{
-> > +	sock_unregister(AF_HYPERV);
-> > +	proto_unregister(&hvsock_proto);
-> > +	vmbus_driver_unregister(&hvsock_drv);
-> > +}
-> > +
-> > +module_init(hvsock_init);
-> > +module_exit(hvsock_exit);
-> > +
-> > +MODULE_DESCRIPTION("Microsoft Hyper-V Virtual Socket Family");
-> > +MODULE_VERSION("0.1");
-> 
-> Do we really need it? When the driver is commited we won't probably be
-> updating it with v0.2 as a whole, we'll be sending patches addressing
-> issues and there always will be a question when to swtich to 0.2, 0.3,
-> ... And we don't have MODULE_VERSION for other Hyper-V drivers.
-
-Good point. I'll remove the line MODULE_VERSION.
- 
-Thanks,
--- Dexuan
+------------------------------------------------------------------------------
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
