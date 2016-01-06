@@ -1,92 +1,62 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [BUG] skb corruption and kernel panic at forwarding with
- fragmentation
-Date: Thu, 7 Jan 2016 00:49:43 +0100
-Message-ID: <20160106234943.GB23789@breakpoint.cc>
-References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
- <CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
- <CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
- <20160106210532.GE27290@indiana.gru.redhat.com>
- <20160106220334.GA23789@breakpoint.cc>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [ovs-dev] [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
+ vxlan devices
+Date: Wed, 6 Jan 2016 15:57:32 -0800
+Message-ID: <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+ <20160106.155950.1007160228570301281.davem@davemloft.net> <8660z6qohn.fsf@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, dev@openvswitch.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Wragg <david@weave.works>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43533 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752196AbcAFXtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:49:49 -0500
-Content-Disposition: inline
-In-Reply-To: <20160106220334.GA23789@breakpoint.cc>
+Received: from mail.kernel.org ([198.145.29.136]:45254 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752585AbcAFX5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2016 18:57:49 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 457C72017D
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 23:57:48 +0000 (UTC)
+Received: from mail-qg0-f51.google.com (mail-qg0-f51.google.com [209.85.192.51])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 6264820154
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 23:57:47 +0000 (UTC)
+Received: by mail-qg0-f51.google.com with SMTP id b35so186001233qge.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 15:57:47 -0800 (PST)
+In-Reply-To: <8660z6qohn.fsf@weave.works>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Westphal <fw@strlen.de> wrote:
-> Thadeu Lima de Souza Cascardo <cascardo@redhat.com> wrote:
-> > On Wed, Jan 06, 2016 at 11:11:41PM +0300, Konstantin Khlebnikov wrote:
+On Wed, Jan 6, 2016 at 3:25 PM, David Wragg <david@weave.works> wrote:
+> David Miller <davem@davemloft.net> writes:
+>>> Prior to 4.3, openvswitch vxlan vports could transmit vxlan packets of
+>>> any size, constrained only by the ability to transmit the resulting
+>>> UDP packets.  4.3 introduced vxlan netdevs corresponding to vxlan
+>>> vports.  These netdevs have an MTU, which limits the size of a packet
+>>> that can be successfully vxlan-encapsulated.  The default value for
+>>> this MTU is 1500, which is awkwardly small, and leads to a conspicuous
+>>> change in behaviour for userspace.
+>>>
+>>> These two patches set the MTU on openvswitch-crated vxlan devices to
+>>> be 65465 (the maximum IP packet size minus the vxlan-on-IPv6
+>>> overhead), effectively restoring the behaviour prior to 4.3.  In order
+>>> to accomplish this, the first patch removes the MTU constraint of 1500
+>>> for vxlan netdevs without an underlying device.
+>>
+>> Is this really the right thing to do?
+>
+> I'm certainly open to suggestions of better ways to solve the problem.
 
-[ skb_gso_segment uses skb->cb[], causes oops if ip_fragment is invoked
-  on segmented skbs ]
+One option is to simply set the MTU on the device from userspace.
 
-> > I have hit this as well, this fixes it for me on an older kernel. Can you try it
-> > on latest kernel?
-> 
-> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> > index d8a1745..f44bc91 100644
-> > --- a/net/ipv4/ip_output.c
-> > +++ b/net/ipv4/ip_output.c
-> > @@ -216,6 +216,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
-> >  	netdev_features_t features;
-> >  	struct sk_buff *segs;
-> >  	int ret = 0;
-> > +	struct inet_skb_parm ipcb;
-> >  
-> >  	if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
-> >  		return ip_finish_output2(skb);
-> > @@ -227,6 +228,10 @@ static int ip_finish_output_gso(struct sk_buff *skb)
-> >  	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
-> >  	 * from host network stack.
-> >  	 */
-> > +	/* We need to save IPCB here because skb_gso_segment will use
-> > +	 * SKB_GSO_CB.
-> > +	 */
-> > +	ipcb = *IPCB(skb);
-> >  	features = netif_skb_features(skb);
-> >  	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
-> >  	if (IS_ERR_OR_NULL(segs)) {
-> > @@ -241,6 +246,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
-> >  		int err;
-> >  
-> >  		segs->next = NULL;
-> > +		*IPCB(segs) = ipcb;
-> >  		err = ip_fragment(segs, ip_finish_output2);
-> >  
-> >  		if (err && ret == 0)
-> 
-> I'm worried that this doesn't solve all cases. f.e. xfrm may also
-> call skb_gso_segment(), and it will call into ipv4/ipv6 netfilter
-> postrouting + ipv4 output functions...
-> 
-> nfqnl_enqueue_packet() is also affected.
+The reality is that the code you're modifying is compatibility code.
+Maybe we should make this change to preserve the old behavior for old
+callers (although, again, it should not be just for VXLAN). But no new
+features or tunnel types will be supported in this manner.
 
-... but it seems that those three are the only affected callers
-of skb_gso_segment (tbf is ok since skb isn't owned by anyone,
-ovs does save/restore already).
-
-I think this patch is the right way, we just need similar
-save/restore in nfqnl_enqueue_packet and xfrm_output_gso().
-
-The latter two can be used by either ipv4 or ipv6 so it might
-be preferable to just save/restore sizeof(struct skb_gso_cb);
-or a union of inet_skb_parm+inet6_skb_parm.
-
-Cascardo, can you cook a patch?
-
-Thanks!
+New or updated userspace programs should work by simply creating and
+adding tunnel devices to OVS. That won't go through this path at all
+so you're going to need to find another approach in the near future in
+any case.
