@@ -1,33 +1,47 @@
-From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: Re: [PATCH] be2net: Delete an unnecessary check in two functions
-Date: Wed, 6 Jan 2016 11:55:11 +0530
-Message-ID: <CAKvpyk1WPROG=FH0Wcvfdum3YTFprELNftzX0pT9-PU7TDz8jQ@mail.gmail.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-	<5685B8AD.7010900@users.sourceforge.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 6pack: fix free memory scribbles
+Date: Wed, 06 Jan 2016 01:25:55 -0500 (EST)
+Message-ID: <20160106.012555.1410677211527515710.davem@davemloft.net>
+References: <20160105115042.8134.4926.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Ajit Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5685B8AD.7010900@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gnomes@lxorguk.ukuu.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34044 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbcAFGZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 01:25:57 -0500
+In-Reply-To: <20160105115042.8134.4926.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 1, 2016 at 4:52 AM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 1 Jan 2016 00:11:57 +0100
->
-> Remove two checks for null pointers which would be handled by usual
-> error detection before.
->
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+From: Alan <gnomes@lxorguk.ukuu.org.uk>
+Date: Tue, 05 Jan 2016 11:51:25 +0000
 
-Acked-by: Sathya Perla <sathya.perla@avagotech.com>
+> commit acf673a3187edf72068ee2f92f4dc47d66baed47 fixed a user triggerable free
+> memory scribble but in doing so replaced it with a different one that allows
+> the user to control the data and scribble even more.
+> 
+> sixpack_close is called by the tty layer in tty context. The tty context is
+> protected by sp_get() and sp_put(). However network layer activity via
+> sp_xmit() is not protected this way. We must therefore stop the queue
+> otherwise the user gets to dump a buffer mostly of their choice into freed
+> kernel pages.
+> 
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
-This patch is suitable for the net-next tree. Thanks!
+Applied, thanks Alan.
+
+> +	/* We must stop the queue to avoid potentially scribbling
+> +	   on the free buffers. The sp->dead_sem is not sufficient
+> +	   to protect us from sp->xbuff access */
+
+Please next time format comments:
+
+	/* Like
+	 * this.
+	 */
+
+Thanks again!
