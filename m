@@ -1,48 +1,66 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] af_unix: Fix splice-bind deadlock
-Date: Wed, 06 Jan 2016 14:45:55 +0000
-Message-ID: <87ziwizrz0.fsf@doppelsaurus.mobileactivedefense.com>
-References: <87y4cftztp.fsf@doppelsaurus.mobileactivedefense.com>
-	<56826754.2060003@stressinduktion.org>
-	<87ege2xve5.fsf@doppelsaurus.mobileactivedefense.com>
-	<87ziwmk0b7.fsf@doppelsaurus.mobileactivedefense.com>
-	<1451949906.2606240.482870994.43973946@webmail.messagingengine.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Wed, 6 Jan 2016 14:49:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCBE614@AcuExch.aculab.com>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+	 <1452032313.8255.135.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CCBE431@AcuExch.aculab.com>
+ <1452090307.8255.173.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	David Miller <davem@davemloft.net>, dvyukov@google.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	viro@ZenIV.linux.org.uk
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451949906.2606240.482870994.43973946@webmail.messagingengine.com>
-	(Hannes Frederic Sowa's message of "Tue, 05 Jan 2016 00:25:06 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tom Herbert <tom@herbertland.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.186]:62243 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751905AbcAFOvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 09:51:52 -0500
+In-Reply-To: <1452090307.8255.173.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-> On Sun, Jan 3, 2016, at 19:03, Rainer Weikusat wrote:
-
-[reorder i_mutex and readlock locking]
-
-> I was concerned because of the comment in skb_socket_splice:
->
->         /* Drop the socket lock, otherwise we have reverse
->          * locking dependencies between sk_lock and i_mutex
->          * here as compared to sendfile(). We enter here
->          * with the socket lock held, and splice_to_pipe() will
->          * grab the pipe inode lock. For sendfile() emulation,
->          * we call into ->sendpage() with the i_mutex lock held
->          * and networking will grab the socket lock.
->          */
-
-AFAICT, this comment is "a bit misleading": sendfile (from file to
-socket) is internally implemented as 'splice from file to pipe' +
-'splice from pipe to socket'. The later acquires the pipe lock of the
-pipe and then invokes the sendpage method of the socket which acquires
-the appropiate socket lock (for an AF_UNIX socket, it's
-u->readlock). But 'pipe lock' and 'i_mutex' are two completely
-different things: The former is the mutex in a struct pipe_inode_info
-(pipe_fs_u.h), the latter is the i_mutex in a struct inode (fs.h).
-
-"Code explains comment" :-)
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDA2IEphbnVhcnkgMjAxNiAxNDoyNQ0KPiBPbiBX
+ZWQsIDIwMTYtMDEtMDYgYXQgMTA6MTYgKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBG
+cm9tOiBFcmljIER1bWF6ZXQNCj4gPiA+IFNlbnQ6IDA1IEphbnVhcnkgMjAxNiAyMjoxOQ0KPiA+
+ID4gVG86IFRvbSBIZXJiZXJ0DQo+ID4gPiBZb3UgbWlnaHQgYWRkIGEgY29tbWVudCB0ZWxsaW5n
+IHRoZSAnNCcgY29tZXMgZnJvbSBsZW5ndGggb2YgJ2FkY3ENCj4gPiA+IDYqOCglcmRpKSwlcmF4
+JyBpbnN0cnVjdGlvbiwgYW5kIHRoYXQgdGhlICdub3AnIGlzIHRvIGNvbXBlbnNhdGUgdGhhdA0K
+PiA+ID4gJ2FkY3EgICAgMCo4KCVyZGkpLCVyYXgnIGlzIHVzaW5nIDMgYnl0ZXMgaW5zdGVhZC4N
+Cj4gPiA+DQo+ID4gPiBXZSBhbHNvIGNvdWxkIHVzZSAuYnl0ZSAweDQ4LCAweDEzLCAweDQ3LCAw
+eDAwIHRvIGZvcmNlIGEgNCBieXRlcw0KPiA+ID4gaW5zdHJ1Y3Rpb24gYW5kIHJlbW92ZSB0aGUg
+bm9wLg0KPiA+ID4NCj4gPiA+DQo+ID4gPiArICAgICAgIGxlYSAgICAgMjBmKCwgJXJjeCwgNCks
+ICVyMTENCj4gPiA+ICsgICAgICAgY2xjDQo+ID4gPiArICAgICAgIGptcCAgICAgKiVyMTENCj4g
+PiA+ICsNCj4gPiA+ICsuYWxpZ24gOA0KPiA+ID4gKyAgICAgICBhZGNxICAgIDYqOCglcmRpKSwl
+cmF4DQo+ID4gPiArICAgICAgIGFkY3EgICAgNSo4KCVyZGkpLCVyYXgNCj4gPiA+ICsgICAgICAg
+YWRjcSAgICA0KjgoJXJkaSksJXJheA0KPiA+ID4gKyAgICAgICBhZGNxICAgIDMqOCglcmRpKSwl
+cmF4DQo+ID4gPiArICAgICAgIGFkY3EgICAgMio4KCVyZGkpLCVyYXgNCj4gPiA+ICsgICAgICAg
+YWRjcSAgICAxKjgoJXJkaSksJXJheA0KPiA+ID4gKyAgICAgICBhZGNxICAgIDAqOCglcmRpKSwl
+cmF4IC8vIGNvdWxkIGZvcmNlIGEgNCBieXRlIGluc3RydWN0aW9uICguYnl0ZSAweDQ4LCAweDEz
+LCAweDQ3LCAweDAwKQ0KPiA+ID4gKyAgICAgICBub3ANCj4gPiA+ICsyMDogICAgLyogI3F1YWRz
+ICUgOCBqdW1wIHRhYmxlIGJhc2UgKi8NCj4gPg0KPiA+IE9yIG1vdmUgbGFiZWwgYXQgdGhlIHRv
+cCAoYWZ0ZXIgdGhlIC5hbGlnbikgYW5kIGFkanVzdCB0aGUgbWF0aHMuDQo+ID4gWW91IGNvdWxk
+IGFkZCBhIHNlY29uZCBsYWJlbCBhZnRlciB0aGUgZmlyc3QgYWRjcSBhbmQgdXNlIHRoZQ0KPiA+
+IGRpZmZlcmVuY2UgYmV0d2VlbiB0aGVtIGZvciB0aGUgJzQnLg0KPiANCj4gTm90IHJlYWxseS4N
+Cj4gDQo+IFdlIGNvdWxkIG5vdCB1c2UgdGhlIHRyaWNrIGl0IHRoZSBsZW5ndGggd2FzIDUuDQo+
+IA0KPiBPbmx5IDEsIDIsIDQgYW5kIDggYXJlIHN1cHBvcnRlZC4NCg0KSW5kZWVkLCBhbmQgJ2xl
+YSAgMjBmKCwgJXJjeCwgNSksICVyMTEnIHdpbGwgZ2VuZXJhdGUgYW4gZXJyb3IgZnJvbSB0aGUN
+CmFzc2VtYmxlci4NClNlZW1zIGFwcHJvcHJpYXRlIHRvIGdldCB0aGUgYXNzZW1ibGVyIHRvIHZl
+cmlmeSB0aGlzIGZvciB5b3UuDQoNCkFzc3VtaW5nIHRoaXMgY29kZSBibG9jayBpcyBjb21wbGV0
+ZWx5IHNraXBwZWQgZm9yIGFsaWduZWQgbGVuZ3Rocw0KdGhlIG5vcCBpc24ndCBuZWVkZWQgcHJv
+dmlkZWQgdGhlICcyMDonIGxhYmVsIGlzIGF0IHRoZSByaWdodCBwbGFjZS4NCg0KU29tZW9uZSBh
+bHNvIHBvaW50ZWQgb3V0IHRoYXQgdGhlIGNvZGUgaXMgbWVtb3J5IGxpbWl0ZWQgKGR1YWwgYWRk
+DQpjaGFpbnMgbWFraW5nIG5vIGRpZmZlcmVuY2UpLCBzbyB3aHkgaXMgaXQgdW5yb2xsZWQgYXQg
+YWxsPw0KDQpPVE9IIEknbSBzdXJlIEkgcmVtZW1iZXIgc29tZXRoaW5nIGFib3V0IGZhbHNlIGRl
+cGVuZGVuY2llcyBvbiB0aGUNCng4NiBmbGFncyByZWdpc3RlciBiZWNhdXNlIG9mIGluc3RydWN0
+aW9ucyBvbmx5IGNoYW5naW5nIHNvbWUgYml0cy4NClNvIGl0IG1pZ2h0IGJlIHRoYXQgeW91IGNh
+bid0IChvciBjb3VsZG4ndCkgZ2V0IGNvbmN1cnJlbmN5IGJldHdlZW4NCmluc3RydWN0aW9ucyB0
+aGF0IHVwZGF0ZSBkaWZmZXJlbnQgcGFydHMgb2YgdGhlIGZsYWdzIHJlZ2lzdGVyLg0KDQoJRGF2
+aWQNCg0KDQo=
