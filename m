@@ -1,78 +1,41 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Re: [PATCH 1/1] net/ipv6: add sysctl option accept_ra_min_hop_limit
-Date: Wed, 6 Jan 2016 11:23:09 +0900
-Message-ID: <568C7A8D.1060000@jp.fujitsu.com>
-References: <1451896664-14271-1-git-send-email-machida.yuki@jp.fujitsu.com>
- <568B9836.1000202@miraclelinux.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net, sched: add clsact qdisc
+Date: Tue, 5 Jan 2016 18:40:42 -0800
+Message-ID: <CAM_iQpWzQQQaQYZZPg3yvnkm_KZWD26jm_Xo1KN6ugjKAJLixA@mail.gmail.com>
+References: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"YOSHIFUJI Hideaki (USAGI Project)" <yoshfuji@linux-ipv6.org>,
-	Yuki Machida <machida.yuki@jp.fujitsu.com>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm02.jp.fujitsu.com ([202.219.69.169]:15622 "EHLO
-	mgwkm02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbcAFCda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 21:33:30 -0500
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 68E03AC02D1
-	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 11:23:09 +0900 (JST)
-In-Reply-To: <568B9836.1000202@miraclelinux.com>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:33725 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846AbcAFCkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 21:40:42 -0500
+Received: by mail-yk0-f170.google.com with SMTP id k129so280315681yke.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 18:40:42 -0800 (PST)
+In-Reply-To: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Yoshifuji-san.
+On Tue, Jan 5, 2016 at 5:00 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index c20b814..752c0d2 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1739,7 +1739,9 @@ struct net_device {
+>  #ifdef CONFIG_XPS
+>         struct xps_dev_maps __rcu *xps_maps;
+>  #endif
+> -
+> +#ifdef CONFIG_NET_CLS_ACT
+> +       struct tcf_proto __rcu  *egress_cl_list;
+> +#endif
 
-Thanks for your kindly check.
-I will correct it in Patch v2.
 
-Best Regards,
-Yuki Machida
-
-On 2016年01月05日 19:17, YOSHIFUJI Hideaki wrote:
-> Hi, Machida-san.
-> 
-> Yuki Machida wrote:
->> Please apply the following patch to v4.1.x.
->>
->> By ommit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
-> 
-> s/ommit/commit/
-> 
-> Futher comment below.
-> 
-> :
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->> Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->> ---
->>   Documentation/networking/ip-sysctl.txt |  8 ++++++++
->>   include/linux/ipv6.h                   |  1 +
->>   include/uapi/linux/ipv6.h              |  1 +
->>   net/ipv6/addrconf.c                    | 10 ++++++++++
->>   net/ipv6/ndisc.c                       | 16 +++++++---------
->>   5 files changed, 27 insertions(+), 9 deletions(-)
->>
->> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->> index 071fb18..07fad3d 100644
-> :
->> --- a/include/uapi/linux/ipv6.h
->> +++ b/include/uapi/linux/ipv6.h
->> @@ -171,6 +171,7 @@ enum {
->>   	DEVCONF_USE_OPTIMISTIC,
->>   	DEVCONF_ACCEPT_RA_MTU,
->>   	DEVCONF_STABLE_SECRET,
-> 
-> You have to add a hole for DEVCONF_USE_OIF_ADDRS_ONLY.
-> 
-> --yoshfuji
-> 
->> +	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
->>   	DEVCONF_MAX
->>   };
->>   
-> 
+Next time you add a qdisc will you need another pointer in netdevice? ;)
