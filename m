@@ -1,63 +1,92 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v2] net: Add eth_platform_get_mac_address() helper.
-Date: Thu, 07 Jan 2016 00:41:29 +0100
-Message-ID: <87r3hub7iu.fsf@nemi.mork.no>
-References: <20160106.163309.111867454969344145.davem@davemloft.net>
-	<1452121966.24575.52.camel@perches.com> <87vb76b87m.fsf@nemi.mork.no>
-	<1452123144.24575.57.camel@perches.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [BUG] skb corruption and kernel panic at forwarding with
+ fragmentation
+Date: Thu, 7 Jan 2016 00:49:43 +0100
+Message-ID: <20160106234943.GB23789@breakpoint.cc>
+References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
+ <CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
+ <CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
+ <20160106210532.GE27290@indiana.gru.redhat.com>
+ <20160106220334.GA23789@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	sowmini.varadhan@oracle.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:35907 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192AbcAFXlj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:41:39 -0500
-In-Reply-To: <1452123144.24575.57.camel@perches.com> (Joe Perches's message of
-	"Wed, 06 Jan 2016 15:32:24 -0800")
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43533 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752196AbcAFXtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 18:49:49 -0500
+Content-Disposition: inline
+In-Reply-To: <20160106220334.GA23789@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> writes:
-> On Thu, 2016-01-07 at 00:26 +0100, Bj=C3=B8rn Mork wrote:
->> Joe Perches <joe@perches.com> writes:
->> > On Wed, 2016-01-06 at 16:33 -0500, David Miller wrote:
->> > > A repeating pattern in drivers has become to use OF node informa=
-tion
->> > > and, if not found, platform specific host information to extract=
- the
->> > > ethernet address for a given device.
->> > []
->> > > diff --git a/include/linux/etherdevice.h b/include/linux/etherde=
-vice.h
->> > []
->> > > @@ -485,3 +487,32 @@ static int __init eth_offload_init(void)
->> > > =C2=A0}
->> > > =C2=A0
->> > > =C2=A0fs_initcall(eth_offload_init);
->> > > +
->> > > +unsigned char * __weak arch_get_platform_mac_address(void)
->> > > +{
->> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0return NULL;
->> >=20
->> > WARN_ON_ONCE ?
->>=20
->> That would prevent a driver from using this with additional fallback
->> methods.=C2=A0=C2=A0For what reason?
->
-> It's declared __weak and should be overridden by
-> an arch specific function.
+Florian Westphal <fw@strlen.de> wrote:
+> Thadeu Lima de Souza Cascardo <cascardo@redhat.com> wrote:
+> > On Wed, Jan 06, 2016 at 11:11:41PM +0300, Konstantin Khlebnikov wrote:
 
-"should"?  Why?  Do you have a suggested implementation for - say - x86=
-?
+[ skb_gso_segment uses skb->cb[], causes oops if ip_fragment is invoked
+  on segmented skbs ]
 
-> A NULL address would cause a fault when using
-> a function like copy_ether_addr.
+> > I have hit this as well, this fixes it for me on an older kernel. Can you try it
+> > on latest kernel?
+> 
+> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> > index d8a1745..f44bc91 100644
+> > --- a/net/ipv4/ip_output.c
+> > +++ b/net/ipv4/ip_output.c
+> > @@ -216,6 +216,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
+> >  	netdev_features_t features;
+> >  	struct sk_buff *segs;
+> >  	int ret = 0;
+> > +	struct inet_skb_parm ipcb;
+> >  
+> >  	if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
+> >  		return ip_finish_output2(skb);
+> > @@ -227,6 +228,10 @@ static int ip_finish_output_gso(struct sk_buff *skb)
+> >  	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
+> >  	 * from host network stack.
+> >  	 */
+> > +	/* We need to save IPCB here because skb_gso_segment will use
+> > +	 * SKB_GSO_CB.
+> > +	 */
+> > +	ipcb = *IPCB(skb);
+> >  	features = netif_skb_features(skb);
+> >  	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
+> >  	if (IS_ERR_OR_NULL(segs)) {
+> > @@ -241,6 +246,7 @@ static int ip_finish_output_gso(struct sk_buff *skb)
+> >  		int err;
+> >  
+> >  		segs->next = NULL;
+> > +		*IPCB(segs) = ipcb;
+> >  		err = ip_fragment(segs, ip_finish_output2);
+> >  
+> >  		if (err && ret == 0)
+> 
+> I'm worried that this doesn't solve all cases. f.e. xfrm may also
+> call skb_gso_segment(), and it will call into ipv4/ipv6 netfilter
+> postrouting + ipv4 output functions...
+> 
+> nfqnl_enqueue_packet() is also affected.
 
-You should not do that then :)
+... but it seems that those three are the only affected callers
+of skb_gso_segment (tbf is ok since skb isn't owned by anyone,
+ovs does save/restore already).
 
+I think this patch is the right way, we just need similar
+save/restore in nfqnl_enqueue_packet and xfrm_output_gso().
 
-Bj=C3=B8rn
+The latter two can be used by either ipv4 or ipv6 so it might
+be preferable to just save/restore sizeof(struct skb_gso_cb);
+or a union of inet_skb_parm+inet6_skb_parm.
+
+Cascardo, can you cook a patch?
+
+Thanks!
