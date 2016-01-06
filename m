@@ -1,90 +1,138 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
-Date: Wed, 6 Jan 2016 01:26:19 +0000
-Message-ID: <87618083B2453E4A8714035B62D6799250503CE1@FMSMSX105.amr.corp.intel.com>
-References: <1450339417-31254-1-git-send-email-zyjzyj2000@gmail.com>
- <1586.1450389436@famine> <20151228084331.GA22747@unicorn.suse.cz>
- <5680FE85.60200@gmail.com>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net/rfkill: Create "airplane mode" LED trigger
+Date: Tue, 5 Jan 2016 21:22:59 -0500
+Message-ID: <CA+A7VXXVn0fJSookH9W1J-nkmdnpneRT75yra1-00z=cLrJh=A@mail.gmail.com>
+References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com> <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "vfalico@gmail.com" <vfalico@gmail.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>
-To: zhuyj <zyjzyj2000@gmail.com>, Michal Kubecek <mkubecek@suse.cz>,
-	"Jay Vosburgh" <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:57750 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998AbcAFB0V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 20:26:21 -0500
-In-Reply-To: <5680FE85.60200@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1451142303-1872-2-git-send-email-jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of zhuyj
->Sent: Monday, December 28, 2015 1:19 AM
->To: Michal Kubecek; Jay Vosburgh
->Cc: vfalico@gmail.com; gospo@cumulusnetworks.com; netdev@vger.kernel.org;
->Shteinbock, Boris (Wind River)
->Subject: Re: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
+Hello Johannes,
+
+On 26 December 2015 at 10:05, Jo=C3=A3o Paulo Rechi Vita <jprvita@gmail=
+=2Ecom> wrote:
+> For platform drivers to be able to correctly drive the "Airplane Mode=
+"
+> indicative LED there needs to be a RFKill LED trigger tied to the glo=
+bal
+> state of RFKILL_TYPE_ALL (instead of to a specific RFKill) and that
+> works in an inverted manner of regular RFKill LED triggers, that is, =
+the
+> LED is ON when the state is blocked, and OFF otherwise.
 >
->On 12/28/2015 04:43 PM, Michal Kubecek wrote:
->> On Thu, Dec 17, 2015 at 01:57:16PM -0800, Jay Vosburgh wrote:
->>> <zyjzyj2000@gmail.com> wrote:
->>>> In 802.3ad mode, the speed and duplex is needed. But in some NIC,
->>>> there is a time span between NIC up state and getting speed and duplex.
->>>> As such, sometimes a slave in 802.3ad mode is in up state without
->>>> speed and duplex. This will make bonding in 802.3ad mode can not
->>>> work well.
->>>> To make bonding driver be compatible with more NICs, it is
->>>> necessary to restrict the up state in 802.3ad mode.
->>> 	What device is this?  It seems a bit odd that an Ethernet device
->>> can be carrier up but not have the duplex and speed available.
->> ...
->>> 	In general, though, bonding expects a speed or duplex change to
->>> be announced via a NETDEV_UPDATE or NETDEV_UP notifier, which would
->>> propagate to the 802.3ad logic.
->>>
->>> 	If the device here is going carrier up prior to having speed or
->>> duplex available, then maybe it should call netdev_state_change() when
->>> the duplex and speed are available, or delay calling netif_carrier_on().
->> I have encountered this problem (NIC having carrier on before being able
->> to detect speed/duplex and driver not notifying when speed/duplex
->> becomes available) with netxen cards earlier. But it was eventually
->> fixed in the driver by commit 9d01412ae76f ("netxen: Fix link event
->> handling.") so this example rather supports what you said.
->>
->>                                                            Michal Kubecek
->Thanks a lot.
->I checked the commit 9d01412ae76f ("netxen: Fix link event
->handling."). The symptoms are the same with mine.
+> This commit implements such a trigger, which will be used by the
+> asus-wireless x86 platform driver.
 >
->The root cause is different. In my problem, the root cause is that LINKS
->register[]  can not provide link_up and link_speed at the same time.
->There is a time span between link_up and link_speed.
 
-The LINK_UP and LINK_SPEED bits in the LINKS register for ixgbe HW are updated
-simultaneously. Do you have any proof to show the delay you are referring to
-as I am sure our HW engineers would like to know about it.
+The initial patches of the asus-wireless driver have been queue on the
+platform-drivers-x86 tree. Do you have any comments on this one? It
+would be great to have it in for 4.5, since the airplane mode LED
+management in asus-wireless' pending patches depend on this one.
 
-What we have seen in the case of bonding is that with some link partners there
-may be a rapid link flap (up, down, up) and as result the bonding driver may
-report the speed as unknown if just so happens that the speed is checked during
-the period in which the interface is re-negotiating.
-
-Thanks,
-Emil
- 
->My solution is to force to synchronize link_up and link_speed in ixgbe X540 NIC.
+> Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+> ---
+>  net/rfkill/core.c | 30 ++++++++++++++++++++++++++++++
+>  1 file changed, 30 insertions(+)
 >
->Best Regards!
->Zhu Yanjun
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+> index b41e9ea..3effc29 100644
+> --- a/net/rfkill/core.c
+> +++ b/net/rfkill/core.c
+> @@ -124,6 +124,26 @@ static bool rfkill_epo_lock_active;
+>
+>
+>  #ifdef CONFIG_RFKILL_LEDS
+> +static void airplane_mode_led_trigger_activate(struct led_classdev *=
+led);
+> +
+> +static struct led_trigger airplane_mode_led_trigger =3D {
+> +       .name     =3D "rfkill-airplane-mode",
+> +       .activate =3D airplane_mode_led_trigger_activate,
+> +};
+> +
+> +static void airplane_mode_led_trigger_event(void)
+> +{
+> +       if (rfkill_global_states[RFKILL_TYPE_ALL].cur & RFKILL_BLOCK_=
+ANY)
+> +               led_trigger_event(&airplane_mode_led_trigger, LED_FUL=
+L);
+> +       else
+> +               led_trigger_event(&airplane_mode_led_trigger, LED_OFF=
+);
+> +}
+> +
+> +static void airplane_mode_led_trigger_activate(struct led_classdev *=
+led)
+> +{
+> +       airplane_mode_led_trigger_event();
+> +}
+> +
+>  static void rfkill_led_trigger_event(struct rfkill *rfkill)
+>  {
+>         struct led_trigger *trigger;
+> @@ -175,6 +195,10 @@ static void rfkill_led_trigger_unregister(struct=
+ rfkill *rfkill)
+>         led_trigger_unregister(&rfkill->led_trigger);
+>  }
+>  #else
+> +static void airplane_mode_led_trigger_event(void)
+> +{
+> +}
+> +
+>  static void rfkill_led_trigger_event(struct rfkill *rfkill)
+>  {
+>  }
+> @@ -346,6 +370,7 @@ static void __rfkill_switch_all(const enum rfkill=
+_type type, bool blocked)
+>
+>                 for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
+>                         rfkill_global_states[i].cur =3D blocked;
+> +               airplane_mode_led_trigger_event();
+>         } else {
+>                 rfkill_global_states[type].cur =3D blocked;
+>         }
+> @@ -1177,6 +1202,7 @@ static ssize_t rfkill_fop_write(struct file *fi=
+le, const char __user *buf,
+>                         enum rfkill_type i;
+>                         for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
+>                                 rfkill_global_states[i].cur =3D ev.so=
+ft;
+> +                       airplane_mode_led_trigger_event();
+>                 } else {
+>                         rfkill_global_states[ev.type].cur =3D ev.soft=
+;
+>                 }
+> @@ -1293,6 +1319,10 @@ static int __init rfkill_init(void)
+>         }
+>  #endif
+>
+> +#ifdef CONFIG_RFKILL_LEDS
+> +       led_trigger_register(&airplane_mode_led_trigger);
+> +#endif
+> +
+>   out:
+>         return error;
+>  }
+> --
+> 2.5.0
+>
+
+Thanks and best regards,
+
+--
+Jo=C3=A3o Paulo Rechi Vita
+http://about.me/jprvita
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
