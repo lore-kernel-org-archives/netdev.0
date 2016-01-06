@@ -1,10 +1,9 @@
 From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [RFC v5 3/6] Add history to cross timestamp interface supporting
- slower devices
-Date: Wed, 6 Jan 2016 11:37:23 -0800
-Message-ID: <CALAqxLVACLP1_PGWh5Ha9P6DT+HfDu9vg-B5NCShuFvNu21WUQ@mail.gmail.com>
+Subject: Re: [RFC v5 4/6] Remove duplicate code from ktime_get_raw_and_real code
+Date: Wed, 6 Jan 2016 11:42:58 -0800
+Message-ID: <CALAqxLVmQEXLGoq1k7S-Y97gLb_FSMbxzkZ6bFmnPH_sKt5X1A@mail.gmail.com>
 References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
-	<1451911523-8534-4-git-send-email-christopher.s.hall@intel.com>
+	<1451911523-8534-5-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Thomas Gleixner <tglx@linutronix.de>,
@@ -18,151 +17,61 @@ Cc: Thomas Gleixner <tglx@linutronix.de>,
 	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
 To: "Christopher S. Hall" <christopher.s.hall@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451911523-8534-4-git-send-email-christopher.s.hall@intel.com>
+In-Reply-To: <1451911523-8534-5-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, Jan 4, 2016 at 4:45 AM, Christopher S. Hall
 <christopher.s.hall@intel.com> wrote:
-> @@ -13,6 +13,9 @@
->  /**
->   * struct tk_read_base - base structure for timekeeping readout
->   * @clock:     Current clocksource used for timekeeping.
-> + * @cs_seq:    Clocksource sequence is incremented per clocksource change.
-> + *     It's used to determine whether past system time can be related to
-> + *     current system time
->   * @read:      Read function of @clock
->   * @mask:      Bitmask for two's complement subtraction of non 64bit clocks
->   * @cycle_last: @clock cycle value at last update
-> @@ -29,6 +32,7 @@
->   */
->  struct tk_read_base {
->         struct clocksource      *clock;
-> +       u8                      cs_seq;
->         cycle_t                 (*read)(struct clocksource *cs);
->         cycle_t                 mask;
->         cycle_t                 cycle_last;
-
-
-So Thomas optimized the tk_read_bases to fit in a cacheline, and so I
-worry about the u8 being added there. I'm also cautious about
-exporting these seq values out further via the system_time_snapshot.
-But I may just need some more time to warm up to the idea.
-
-
+> The code in ktime_get_snapshot() is a superset of the code in
+> ktime_get_raw_and_real() code. Changes the latter to call the former. A
+> side effect of this is that ktime_get_raw_and_real() returns two clock
+> times corresponding to the *exact* same clock tick. Previously, this
+> code read the underlying counter twice.
+>
+> Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+> ---
+>  kernel/time/timekeeping.c | 20 ++++----------------
+>  1 file changed, 4 insertions(+), 16 deletions(-)
+>
 > diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-> index 9c1ddc3..5a7f784 100644
+> index 5a7f784..a0f096c 100644
 > --- a/kernel/time/timekeeping.c
 > +++ b/kernel/time/timekeeping.c
-> @@ -235,11 +235,13 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
+> @@ -910,26 +910,14 @@ EXPORT_SYMBOL_GPL(ktime_get_snapshot);
+>   */
+>  void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw, struct timespec64 *ts_real)
+>  {
+> -       struct timekeeper *tk = &tk_core.timekeeper;
+> -       unsigned long seq;
+> -       s64 nsecs_raw, nsecs_real;
+> +       struct system_time_snapshot snap;
 >
->         old_clock = tk->tkr_mono.clock;
->         tk->tkr_mono.clock = clock;
-> +       ++tk->tkr_mono.cs_seq;
->         tk->tkr_mono.read = clock->read;
->         tk->tkr_mono.mask = clock->mask;
->         tk->tkr_mono.cycle_last = tk->tkr_mono.read(clock);
+>         WARN_ON_ONCE(timekeeping_suspended);
 >
->         tk->tkr_raw.clock = clock;
-> +       ++tk->tkr_raw.cs_seq;
->         tk->tkr_raw.read = clock->read;
->         tk->tkr_raw.mask = clock->mask;
->         tk->tkr_raw.cycle_last = tk->tkr_mono.cycle_last;
-> @@ -862,6 +864,39 @@ time64_t ktime_get_real_seconds(void)
+> -       do {
+> -               seq = read_seqcount_begin(&tk_core.seq);
+> -
+> -               *ts_raw = tk->raw_time;
+> -               ts_real->tv_sec = tk->xtime_sec;
+> -               ts_real->tv_nsec = 0;
+> -
+> -               nsecs_raw  = timekeeping_get_ns(&tk->tkr_raw);
+> -               nsecs_real = timekeeping_get_ns(&tk->tkr_mono);
+> -
+> -       } while (read_seqcount_retry(&tk_core.seq, seq));
+> +       ktime_get_snapshot(&snap);
+>
+> -       timespec64_add_ns(ts_raw, nsecs_raw);
+> -       timespec64_add_ns(ts_real, nsecs_real);
+> +       *ts_raw = ktime_to_timespec64(snap.raw);
+> +       *ts_real = ktime_to_timespec64(snap.real);
 >  }
->  EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
->
-> +/**
-> + * ktime_get_snapshot - snapshots the realtime/monotonic raw clocks with counter
-> + * @snapshot:  pointer to struct receiving the system time snapshot
-> + */
-> +void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
-> +{
-> +       struct timekeeper *tk = &tk_core.timekeeper;
-> +       unsigned long seq;
-> +       ktime_t base_raw;
-> +       ktime_t base_real;
-> +       s64 nsec_raw;
-> +       s64 nsec_real;
-> +       cycle_t now;
-> +
-> +       do {
-> +               seq = read_seqcount_begin(&tk_core.seq);
-> +
-> +               now = tk->tkr_mono.read(tk->tkr_mono.clock);
-> +               systime_snapshot->cs_seq = tk->tkr_mono.cs_seq;
-> +               systime_snapshot->clock_set_seq = tk->clock_was_set_seq;
-> +               base_real = ktime_add(tk->tkr_mono.base,
-> +                                     tk_core.timekeeper.offs_real);
-> +               base_raw = tk->tkr_raw.base;
-> +               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono, now);
-> +               nsec_raw  = timekeeping_cycles_to_ns(&tk->tkr_raw, now);
-> +       } while (read_seqcount_retry(&tk_core.seq, seq));
-> +
-> +       systime_snapshot->cycles = now;
-> +       systime_snapshot->real = ktime_add_ns(base_real, nsec_real);
-> +       systime_snapshot->raw = ktime_add_ns(base_raw, nsec_raw);
-> +}
-> +EXPORT_SYMBOL_GPL(ktime_get_snapshot);
+>  EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
 
-
-So can you split out this adding of ktime_get_snapshot()  (maybe
-skipping the seqcount bits initially) into a separate patch?
-
-> @@ -936,19 +1044,63 @@ int get_device_system_crosststamp(struct system_device_crosststamp *xtstamp,
->                  */
->                 if (tk->tkr_mono.clock != raw_sys.cs)
->                         return -ENODEV;
-> +               cycles = raw_sys.cycles;
-> +
-> +               /*
-> +                * Check whether the system counter value provided by the
-> +                * device driver is on the current interval.
-> +                */
-> +               now = tk->tkr_mono.read(tk->tkr_mono.clock);
-> +               interval_start = tk->tkr_mono.cycle_last;
-> +               if (!cycle_between(interval_start, cycles, now)) {
-> +                       cs_seq = tk->tkr_mono.cs_seq;
-> +                       clock_was_set_seq = tk->clock_was_set_seq;
-> +                       cycles = interval_start;
-> +                       do_interp = true;
-> +               } else {
-> +                       do_interp = false;
-> +               }
->
->                 base_real = ktime_add(tk->tkr_mono.base,
->                                       tk_core.timekeeper.offs_real);
->                 base_raw = tk->tkr_raw.base;
->
-> -               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,
-> -                                                    raw_sys.cycles);
-> -               nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,
-> -                                                   raw_sys.cycles);
-> +               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono, cycles);
-> +               nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw, cycles);
->         } while (read_seqcount_retry(&tk_core.seq, seq));
->
->         xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
->         xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
-> +
-> +       /*
-> +        * Interpolate if necessary, working back from the start of the current
-> +        * interval
-> +        */
-> +       if (do_interp) {
-> +               cycle_t total_history_cycles;
-> +               ktime_t history_monoraw;
-> +               ktime_t history_realtime;
-> +               bool discontinuity;
-> +               cycle_t partial_history_cycles = cycles - raw_sys.cycles;
-> +
-> +               if (!history_ref || history_ref->cs_seq != cs_seq ||
-
-I've not done a super close reading here. But is it very likely the
-the history_ref->cs_seq is the same as the captured seq? I thought
-this history_ref was to allow old cross stamps to be used to improve
-the back-calculation of the time at the given cycle value. So throwing
-them out if they are older then the last tick seems strange.
+Looks sane, but you might even be able to get rid of this function
+entirely and modify the one user (pps_get_ts()) to use
+ktime_get_snapshot().
 
 thanks
 -john
