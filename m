@@ -1,91 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH v2] Bluetooth: avoid rebuilding hci_sock all the time
-Date: Wed,  6 Jan 2016 14:38:40 +0100
-Message-ID: <1452087520-29599-1-git-send-email-johannes@sipsolutions.net>
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: possible use after free in dst_release
+Date: Wed, 06 Jan 2016 05:57:24 -0800
+Message-ID: <1452088644.8255.165.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160106081848.4532F6340189@us105.sjc.aristanetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: fruggeri@arista.com, edumazet@google.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Francesco Ruggeri <fruggeri@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:43511 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751140AbcAFNiq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 08:38:46 -0500
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35017 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbcAFN50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 08:57:26 -0500
+Received: by mail-pf0-f180.google.com with SMTP id 78so242516491pfw.2
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 05:57:26 -0800 (PST)
+In-Reply-To: <20160106081848.4532F6340189@us105.sjc.aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+On Wed, 2016-01-06 at 00:18 -0800, Francesco Ruggeri wrote:
+> dst_release should not access dst->flags after decrementing
+> __refcnt to 0. The dst_entry may be in dst_busy_list and
+> dst_gc_task may dst_destroy it before dst_release gets a chance
+> to access dst->flags.
+> 
+> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+> ---
+>  net/core/dst.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index e6dc772..a1656e3 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -301,12 +301,13 @@ void dst_release(struct dst_entry *dst)
+>  {
+>  	if (dst) {
+>  		int newrefcnt;
+> +		unsigned short nocache = dst->flags & DST_NOCACHE;
+>  
+>  		newrefcnt = atomic_dec_return(&dst->__refcnt);
+>  		if (unlikely(newrefcnt < 0))
+>  			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
+>  					     __func__, dst, newrefcnt);
+> -		if (!newrefcnt && unlikely(dst->flags & DST_NOCACHE))
+> +		if (!newrefcnt && unlikely(nocache))
+>  			call_rcu(&dst->rcu_head, dst_destroy_rcu);
+>  	}
+>  }
 
-Instead, allow using string formatting with send_monitor_note()
-and access init_utsname().
+You're right.
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/bluetooth/hci_sock.c | 28 ++++++++++++++++++----------
- 1 file changed, 18 insertions(+), 10 deletions(-)
+My previous fix (commit d69bbf88c8d0) was okay only for DST_NOCACHE dst.
 
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index 41f579ba447b..15702bad33bb 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -25,9 +25,8 @@
- /* Bluetooth HCI sockets. */
- 
- #include <linux/export.h>
-+#include <linux/utsname.h>
- #include <asm/unaligned.h>
--#include <generated/compile.h>
--#include <generated/utsrelease.h>
- 
- #include <net/bluetooth/bluetooth.h>
- #include <net/bluetooth/hci_core.h>
-@@ -385,18 +384,26 @@ static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
- 	return skb;
- }
- 
--static void send_monitor_note(struct sock *sk, const char *text)
-+static void __printf(2, 3)
-+send_monitor_note(struct sock *sk, const char *fmt, ...)
- {
--	size_t len = strlen(text);
-+	size_t len;
- 	struct hci_mon_hdr *hdr;
- 	struct sk_buff *skb;
-+	va_list args;
- 
-+	va_start(args, fmt);
-+	len = vsnprintf(NULL, 0, fmt, args);
- 	skb = bt_skb_alloc(len + 1, GFP_ATOMIC);
-+	if (skb) {
-+		vsprintf(skb_put(skb, len), fmt, args);
-+		*skb_put(skb, 1) = 0;
-+	}
-+	va_end(args);
-+
- 	if (!skb)
- 		return;
- 
--	strcpy(skb_put(skb, len + 1), text);
--
- 	__net_timestamp(skb);
- 
- 	hdr = (void *)skb_push(skb, HCI_MON_HDR_SIZE);
-@@ -897,10 +904,11 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr,
- 		 */
- 		hci_sock_set_flag(sk, HCI_SOCK_TRUSTED);
- 
--		send_monitor_note(sk, "Linux version " UTS_RELEASE
--				      " (" UTS_MACHINE ")");
--		send_monitor_note(sk, "Bluetooth subsystem version "
--				      BT_SUBSYS_VERSION);
-+		send_monitor_note(sk, "Linux version %s (%s)",
-+				  init_utsname()->release,
-+				  init_utsname()->machine);
-+		send_monitor_note(sk, "Bluetooth subsystem version %s",
-+				  BT_SUBSYS_VERSION);
- 		send_monitor_replay(sk);
- 
- 		atomic_inc(&monitor_promisc);
--- 
-2.6.2
+Fixes: d69bbf88c8d0 ("net: fix a race in dst_release()")
+Fixes: 27b75c95f10d ("net: avoid RCU for NOCACHE dst")
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
