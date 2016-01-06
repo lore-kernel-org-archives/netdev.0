@@ -1,28 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] inet: kill unused skb_free op
-Date: Tue, 05 Jan 2016 22:27:07 -0500 (EST)
-Message-ID: <20160105.222707.384316051245980512.davem@davemloft.net>
-References: <1452028675-30450-1-git-send-email-fw@strlen.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33161 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751809AbcAFD1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 22:27:12 -0500
-In-Reply-To: <1452028675-30450-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] rfcomm: fix information leak in rfcomm_sock_bind
+Date: Tue,  5 Jan 2016 23:36:33 -0500
+Message-ID: <1452054993-76111-1-git-send-email-wuninsu@gmail.com>
+Cc: taesoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, yeongjin.jang-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, insu-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org,
+	changwoo-/4noJB3qBVQ3uPMLIKxrzw@public.gmane.org, Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, peter-WaGBZJeGNqdsbIuE7sb01tBPR1lH4CV8@public.gmane.org,
+	jaganath.k-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org, ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue,  5 Jan 2016 22:17:55 +0100
+if addr_len < sizeof(sa), sa.rc_bdaddr(4bytes) can be leaked 
+by using rfcomm_sock_getname()
 
-> The only user was removed in commit
-> 029f7f3b8701cc7a ("netfilter: ipv6: nf_defrag: avoid/free clone operations").
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Insu Yun <wuninsu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/bluetooth/rfcomm/sock.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-Thanks for noticing this, applied, thanks Florian.
+diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+index 7511df7..d61dfdc 100644
+--- a/net/bluetooth/rfcomm/sock.c
++++ b/net/bluetooth/rfcomm/sock.c
+@@ -336,14 +336,15 @@ static int rfcomm_sock_bind(struct socket *sock, struct sockaddr *addr, int addr
+ {
+ 	struct sockaddr_rc sa;
+ 	struct sock *sk = sock->sk;
+-	int len, err = 0;
++	int err = 0;
+ 
+ 	if (!addr || addr->sa_family != AF_BLUETOOTH)
+ 		return -EINVAL;
+ 
+-	memset(&sa, 0, sizeof(sa));
+-	len = min_t(unsigned int, sizeof(sa), addr_len);
+-	memcpy(&sa, addr, len);
++	if (addr_len != sizeof(sa))
++		return -EINVAL;
++
++	memcpy(&sa, addr, addr_len);
+ 
+ 	BT_DBG("sk %p %pMR", sk, &sa.rc_bdaddr);
+ 
+-- 
+1.9.1
