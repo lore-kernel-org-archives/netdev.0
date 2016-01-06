@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethernet/atheros/alx: sanitize buffer sizing
- and padding
-Date: Wed, 06 Jan 2016 01:23:26 -0500 (EST)
-Message-ID: <20160106.012326.1058946039396006074.davem@davemloft.net>
-References: <1452035554-26145-1-git-send-email-jarod@redhat.com>
+From: Sathya Perla <sathya.perla@avagotech.com>
+Subject: Re: [PATCH] be2net: Delete an unnecessary check in two functions
+Date: Wed, 6 Jan 2016 11:55:11 +0530
+Message-ID: <CAKvpyk1WPROG=FH0Wcvfdum3YTFprELNftzX0pT9-PU7TDz8jQ@mail.gmail.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	<5685B8AD.7010900@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, eugene.shatokhin@rosalab.ru,
-	prudy1@o2.pl, jcliburn@gmail.com, chris.snook@gmail.com,
-	netdev@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452035554-26145-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	Ajit Khaparde <ajit.khaparde@avagotech.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5685B8AD.7010900@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Tue,  5 Jan 2016 18:12:34 -0500
+On Fri, Jan 1, 2016 at 4:52 AM, SF Markus Elfring
+<elfring@users.sourceforge.net> wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 1 Jan 2016 00:11:57 +0100
+>
+> Remove two checks for null pointers which would be handled by usual
+> error detection before.
+>
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-> -	if ((raw_mtu + 8) < ALX_TXQ1_JUMBO_TSO_TH)
-> -		val = (raw_mtu + 8 + 7) >> 3;
-> +	if ((raw_mtu) < ALX_TXQ1_JUMBO_TSO_TH)
-> +		val = (raw_mtu + 7) >> 3;
+Acked-by: Sathya Perla <sathya.perla@avagotech.com>
 
-The parenthesis around 'raw_mtu' is superfluous, please
-remove it.
-
-Otherwise this looks great, please resubmit with that fixed
-up.
-
-Thanks.
+This patch is suitable for the net-next tree. Thanks!
