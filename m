@@ -1,35 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hns: avoid uninitialized variable warning:
-Date: Wed, 06 Jan 2016 00:01:12 -0500 (EST)
-Message-ID: <20160106.000112.1783241133330740168.davem@davemloft.net>
-References: <6649249.INrAY8KJG0@wuerfel>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2016-01-05
+Date: Wed, 06 Jan 2016 00:06:02 -0500 (EST)
+Message-ID: <20160106.000602.2170127689559433177.davem@davemloft.net>
+References: <87y4c4l3qj.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yisen.zhuang@huawei.com, yankejian@huawei.com,
-	lisheng011@huawei.com, huangdaode@hisilicon.com,
-	salil.mehta@huawei.com, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6649249.INrAY8KJG0@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87y4c4l3qj.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 01 Jan 2016 23:27:57 +0100
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Tue, 05 Jan 2016 12:28:36 +0200
 
-> gcc fails to see that the use of the 'last_offset' variable
-> in hns_nic_reuse_page() is used correctly and issues a bogus
-> warning:
+> here's a big pull request for 4.5, which I should have sent to you
+> earlier but instead I was wasting my time with eating way too much
+> chocolate and keeping my brains in low power mode :)
 > 
-> drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_nic_reuse_page':
-> drivers/net/ethernet/hisilicon/hns/hns_enet.c:541:6: warning: 'last_offset' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> Once again 'git request-pull' got diffstat wrong so I had to manually
+> fix it, but at least based on my investigation the pull request seems to
+> be ok. Lots of new features and bugfixes as well as a new kconfig option
+> CONFIG_ATH9K_HWRNG to enable the new ath9k random number generator.
 > 
-> This simplifies the function to make it more obvious what is
-> going on to both readers and compilers, which makes the warning
-> go away.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> I'm hoping to send one more pull request later this week. Please let me
+> know if there are any problems.
 
-Applied, thanks.
+Pulled, thanks Kalle.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
