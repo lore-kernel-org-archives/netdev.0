@@ -1,75 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
-Date: Wed, 6 Jan 2016 00:35:18 +0100
-Message-ID: <568C5336.9090907@stressinduktion.org>
-References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] udp_diag: fix udp_dump_one() vs SO_REUSEPORT
+Date: Tue, 05 Jan 2016 16:08:04 -0800
+Message-ID: <1452038884.8255.154.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452024487-2909-1-git-send-email-kraigatgoog@gmail.com>
+	 <1452031738.8255.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1452032534.8255.137.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1452033208.8255.140.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEfhGiwB6=oPm7uMMazkCZ5G+tijkq1PLCSgm1G4ES-7Hodp6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-team@fb.com, tglx@linutronix.de, mingo@redhat.com,
-	hpa@zytor.com, x86@kernel.org
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Craig Gallek <kraigatgoog@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42599 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750822AbcAEXfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 18:35:22 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 6A7B4204A9
-	for <netdev@vger.kernel.org>; Tue,  5 Jan 2016 18:35:21 -0500 (EST)
-In-Reply-To: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35989 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817AbcAFAIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2016 19:08:07 -0500
+Received: by mail-pa0-f53.google.com with SMTP id yy13so130538303pab.3
+        for <netdev@vger.kernel.org>; Tue, 05 Jan 2016 16:08:06 -0800 (PST)
+In-Reply-To: <CAEfhGiwB6=oPm7uMMazkCZ5G+tijkq1PLCSgm1G4ES-7Hodp6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, 2016-01-05 at 17:56 -0500, Craig Gallek wrote:
+> On Tue, Jan 5, 2016 at 5:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > +       unsigned short hnum = ntohs(req->id.idiag_dport);
+> > +       unsigned int slot = udp_hashfn(net, hnum, tbl->mask);
+> > +       struct udp_hslot *hslot = &tbl->hash[slot];
+> > +       struct hlist_nulls_node *node;
+> > +       int err = -ENOENT;
+> > +
+> > +       spin_lock_bh(&hslot->lock);
+> > +       sk_nulls_for_each(aux, node, &hslot->head) {
+> > +               if (net_eq(sock_net(aux), net) &&
+> > +                   !sock_diag_check_cookie(aux, req->id.idiag_cookie) &&
+> > +                   (req->sdiag_family == AF_UNSPEC ||
+> > +                    req->sdiag_family == aux->sk_family)) {
+> > +                       sk = aux;
+> > +                       sock_hold(sk);
+> > +                       break;
+> > +               }
+> > +       }
+> > +       spin_unlock_bh(&hslot->lock);
+> >         if (!sk)
+> >                 goto out_nosk;
+> >
+> > -       err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
+> > -       if (err)
+> > -               goto out;
+> > -
+> sock_diag_check_cookie will return successfully if the cookie in the
+> request is INET_DIAG_NOCOOKIE before even considering the socket.  I
+> think this could cause this loop to prematurely terminate.
 
-On 05.01.2016 19:41, Tom Herbert wrote:
-> Implement assembly routine for csum_partial for 64 bit x86. This
-> primarily speeds up checksum calculation for smaller lengths such as
-> those that are present when doing skb_postpull_rcsum when getting
-> CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY
-> conversion.
->
-> This implementation is similar to csum_partial implemented in
-> checksum_32.S, however since we are dealing with 8 bytes at a time
-> there are more cases for small lengths-- for that we employ a jump
-> table. Also, we don't do anything special for alignment, unaligned
-> accesses on x86 do not appear to be a performance issue.
->
-> Testing:
->
-> Verified correctness by testing arbitrary length buffer filled with
-> random data. For each buffer I compared the computed checksum
-> using the original algorithm for each possible alignment (0-7 bytes).
->
-> Checksum performance:
->
-> Isolating old and new implementation for some common cases:
->
->                          Old      New
-> Case                    nsecs    nsecs     Improvement
-> ---------------------+--------+--------+-----------------------------
-> 1400 bytes (0 align)    194.5    174.3     10%    (Big packet)
-> 40 bytes (0 align)      13.8     5.8       57%    (Ipv6 hdr common case)
-> 8 bytes (4 align)       8.4      2.9       65%    (UDP, VXLAN in IPv4)
-> 14 bytes (0 align)      10.6     5.8       45%    (Eth hdr)
-> 14 bytes (4 align)      10.8     5.8       46%    (Eth hdr in IPv4)
->
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+Hmmm...
 
-Also,
+I never considered passing a INET_DIAG_NOCOOKIE there.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+(Actually I am not sure if this interface is used. It is not in
+iproute2)
 
-Tested with the same test cases as the old patch and showed no problems 
-and same improvements.
 
-Tom, did you have a look if it makes sense to add a second carry 
-addition train with the adcx instruction, which does not signal carry 
-via the carry flag but with the overflow flag? This instruction should 
-not have any dependencies with the adc instructions and could help the 
-CPU to parallelize the code even more (increased instructions per cycle).
+> 
+> Also, previously this would return ESTALE on a cookie error, now it
+> returns ENOENT.  Not sure if this is a big deal or not, though...
 
-Thanks,
-Hannes
+Probably not a big deal.
+
+I'll send a V3, thanks.
