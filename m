@@ -1,53 +1,55 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH] cdc-acm: fix NULL pointer reference
-Date: Thu,  7 Jan 2016 11:01:00 +0100
-Message-ID: <1452160860-2752-1-git-send-email-oneukum@suse.com>
-Cc: Oliver Neukum <oneukum@suse.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, galkin-vv@yandex.ru
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net, sched: add clsact qdisc
+Date: Thu, 7 Jan 2016 11:09:35 +0100
+Message-ID: <568E395F.8020504@stressinduktion.org>
+References: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net>
+ <20160107035334.GA99020@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jhs@mojatatu.com, john.fastabend@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47590 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752806AbcAGKDN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2016 05:03:13 -0500
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:59871 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750707AbcAGKJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 05:09:39 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id C4CC920F7B
+	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 05:09:38 -0500 (EST)
+In-Reply-To: <20160107035334.GA99020@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The union descriptor must be checked. Its usage was conditional
-before the parser was introduced. This is important, because
-many RNDIS device, which also use the common parser, have
-bogus extra descriptors.
+Hi Daniel and Alexei,
 
-Signed-off-by: Oliver Neukum <oneukum@suse.com>
-Tested-by: Vasily Galkin <galkin-vv@yandex.ru>
----
- drivers/net/usb/cdc_ether.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+On 07.01.2016 04:53, Alexei Starovoitov wrote:
+> On Wed, Jan 06, 2016 at 02:00:56AM +0100, Daniel Borkmann wrote:
+>>
+>> I decided to extend the sch_ingress module with clsact functionality so
+>> that commonly used code can be reused, the module is being aliased with
+>> sch_clsact so that it can be auto-loaded properly. Alternative would have been
+>> to add a flag when initializing ingress to alter its behaviour plus aliasing
+>> to a different name (as it's more than just ingress). However, the first would
+>> end up, based on the flag, choosing the new/old behaviour by calling different
+>> function implementations to handle each anyway, the latter would require to
+>> register ingress qdisc once again under different alias. So, this really begs
+>> to provide a minimal, cleaner approach to have Qdisc_ops and Qdisc_class_ops
+>> by its own that share callbacks used by both.
+> ...
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+> we've been going back and forth on the design and this final approach
+> presented seems to be the best, since pros outweigh the cons.
+>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 3da70bf..7cba2c3 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -160,6 +160,12 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 	info->u = header.usb_cdc_union_desc;
- 	info->header = header.usb_cdc_header_desc;
- 	info->ether = header.usb_cdc_ether_desc;
-+	if (!info->u) {
-+		if (rndis)
-+			goto skip;
-+		else /* in that case a quirk is mandatory */
-+			goto bad_desc;
-+	}
- 	/* we need a master/control interface (what we're
- 	 * probed with) and a slave/data interface; union
- 	 * descriptors sort this all out.
-@@ -256,7 +262,7 @@ skip:
- 			goto bad_desc;
- 		}
- 
--	} else if (!info->header || !info->u || (!rndis && !info->ether)) {
-+	} else if (!info->header || (!rndis && !info->ether)) {
- 		dev_dbg(&intf->dev, "missing cdc %s%s%sdescriptor\n",
- 			info->header ? "" : "header ",
- 			info->u ? "" : "union ",
--- 
-2.1.4
+One question:
+
+With the advance in lockless qdiscs by John Fastabend, is it possible to 
+push the handle_egress hook further down into sched layer?
+
+Bye,
+Hannes
