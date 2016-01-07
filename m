@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 00/22] Support MDIO devices
-Date: Thu, 07 Jan 2016 16:30:25 -0500 (EST)
-Message-ID: <20160107.163025.1888067065782470018.davem@davemloft.net>
-References: <1452107487-475-1-git-send-email-andrew@lunn.ch>
-	<20160107.143357.139530014387548318.davem@davemloft.net>
-	<20160107201434.GD1356@lunn.ch>
+Subject: Re: [PATCHv2 net-next 0/4] MTU changes and other fixes
+Date: Thu, 07 Jan 2016 16:33:14 -0500 (EST)
+Message-ID: <20160107.163314.666536912327323086.davem@davemloft.net>
+References: <1451995051-21920-1-git-send-email-jakub.kicinski@netronome.com>
+	<20160107.145750.213741381921685070.davem@davemloft.net>
+	<20160107204928.0cd91c16@jkicinski-Precision-T1700>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+	rolf.neugebauer@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52669 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52680 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752015AbcAGVa2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:30:28 -0500
-In-Reply-To: <20160107201434.GD1356@lunn.ch>
+	with ESMTP id S1752015AbcAGVdR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:33:17 -0500
+In-Reply-To: <20160107204928.0cd91c16@jkicinski-Precision-T1700>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Thu, 7 Jan 2016 21:14:34 +0100
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 7 Jan 2016 20:49:28 +0000
 
-> You might get some build failures from less well used
-> architectures/drivers.  I've got a couple of 0-day emails i need to
-> send fixups for.
+> I know this is not what you asked for but, since we are using FW
+> commands to disable/enable RX, even if we allocate all required
+> resources before freeing old ones we still cannot guarantee that
+> the reenabling operation will not fail.  Should we refuse to do
+> MTU changes while the interface is running altogether?
 
-Ok, I'll apply those fixups as soon as I see them.
+If you issue the MTU change command and it fails, then you're still
+configured at the old MTU.  There should therefore be no problem
+rewinding in that case.
+
+> All drivers I've seen ...
+
+Bad practice in other drivers should be ignored, not copied.
