@@ -1,61 +1,49 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: Re: Question regarding {G,S}CHANNELS API
-Date: Thu, 7 Jan 2016 13:24:24 -0800
-Message-ID: <1452201864.13470.27.camel@prashant>
-References: <20160107154324.4081743c@jkicinski-Precision-T1700>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created vxlan
+ devices
+Date: Thu, 07 Jan 2016 16:47:46 -0500 (EST)
+Message-ID: <20160107.164746.548558171283936394.davem@davemloft.net>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+	<20160106.155950.1007160228570301281.davem@davemloft.net>
+	<8660z6qohn.fsf@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	"Amit Kumar Salecha" <amit.salecha@qlogic.com>,
-	Ben Hutchings <ben@decadent.org.uk>, <siva.kallam@broadcom.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: david@weave.works
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:18972 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbcAGVra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:47:30 -0500
-In-Reply-To: <20160107154324.4081743c@jkicinski-Precision-T1700>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52745 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552AbcAGVrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:47:48 -0500
+In-Reply-To: <8660z6qohn.fsf@weave.works>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-01-07 at 15:43 +0000, Jakub Kicinski wrote:
-> Hi!
-> 
-> I'm trying to understand how number of "separate" rx/tx vs combined
-> channels should be configured.  I'd like to express asymmetric but
-> mostly combined queue configuration (i.e. min(rx, tx) is combined the
-> rest is separate).  Since default number of RX queues is just 8 it is
-> tempting to allocate 8 RX queues but num_online_cpus() TX queues.  Does
-> this configuration make sense?  What should ethtool -l report?
-> 
-> I had a look through the drivers and it seems that most of them fall
-> nicely into the all combined and all separate categories. Two
-> exceptions I found are bnxt_en (recent Michael's changes) and tg3.
-> bnxt_en can switch between combined and separate mode.  tg3 is more
-> interesting, it uses separate rx/tx parameters but combines first
-> min(rx, tx) of the queues as I would like to.
+From: David Wragg <david@weave.works>
+Date: Wed, 06 Jan 2016 23:25:56 +0000
 
-It does not combine it takes the max(rx, tx)
-u32 irq_cnt = max(tp->rxq_cnt, tp->txq_cnt);
+> Considering non-openvswitch scenarios, when using vxlan netdevs
+> directly, a vxlan netdev locked to an underlying device supporting jumbo
+> frames can use a larger MTU.  It's only vxlan netdevs without an
+> underlying device that have the limit of 1500 imposed.  But why
+> shouldn't there be the same flexibility to select an MTU for best
+> performance in both cases?  Aren't the fragmentation concerns the same?
 
-> 
-> The problem is if I hijack the "separate" rx/tx queues parameters like
-> tg3 does there is no way for the user to express that (s)he truly wants
-> them separate.  Also it seems that tg3 goes against the ethtool manual
-> which states:
-> >  rx N   Changes the number of channels with only receive queues.
-> >  tx N   Changes the number of channels with only transmit queues.
-> Which indicates that if user wants 8 rx, 12 tx and combining (s)he
-> should do:
->   ethtool -L ethX combined 8 tx 4
+When there is an underlying device, there are no fragmentation concerns
+and PMTU will function properly because the MTU will be set accurately.
 
-there is no combined option only separate tx/rx option is supported by
-tg3 driver. And at max only 4 RX, 4 TX rings are supported by the tg3
-family of chips in non-iov mode.
+> True.  But in what sense is 1500 accurate?  Uses/users of the kernel
+> openvswitch code have always had to get this right, making sure that
+> the MTU set on a vxlan overlay network conforms to the underlying
+> network paths involved.
 
-Each status block (which is similar to completion ring) supports 1 RX or
-1 TX or both. So at max there are 4 status blocks plus 1 additional
-status block for async events. And each status block is assigned a irq.
+"right" is a subjective thing.
+
+Here, once again, the poorly thought out amount of flexibility
+openvswitch provides is going to have a serious negative consequence
+for our implementation.
+
+I'm really tired of seeing this happen over and over again.
+Openvswitch's growth and the expansion of it's feature set was
+extremely poorly managed.
