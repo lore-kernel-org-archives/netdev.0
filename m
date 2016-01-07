@@ -1,47 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: net-thunder: One check less in nicvf_register_interrupts()
- after error detection
-Date: Thu, 07 Jan 2016 11:59:50 -0800
-Message-ID: <1452196790.4028.33.camel@perches.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-	 <5685A273.6070607@users.sourceforge.net>
-	 <20160107110701.GE25086@rric.localdomain>
-	 <568EBCE7.4060502@users.sourceforge.net>
-	 <1452195846.4028.24.camel@perches.com>
-	 <568EC2FD.9000702@users.sourceforge.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 12/26] phylink: add hooks for SFP support
+Date: Thu, 07 Jan 2016 12:05:51 -0800
+Message-ID: <568EC51F.1020809@gmail.com>
+References: <20151207173553.GU8644@n2100.arm.linux.org.uk> <E1a5zjo-00075h-UD@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Sunil Goutham <sgoutham@cavium.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <568EC2FD.9000702@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34033 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753067AbcAGUG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 15:06:28 -0500
+Received: by mail-pa0-f52.google.com with SMTP id uo6so248294708pac.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 12:06:28 -0800 (PST)
+In-Reply-To: <E1a5zjo-00075h-UD@rmk-PC.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-01-07 at 20:56 +0100, SF Markus Elfring wrote:
-> > > Is it a bit more efficient to avoid a double check for the
-> > > variable "ret" at the end of the current implementation for the
-> > > discussed function?
-> >=20
-> > Before asking questions you could answer yourself,
-> > please look at object code produced by the compiler
-> > before and after your proposed changes.
->=20
-> * Do any more source code reviewers wonder about the need
-> =A0 for such a double check?
+On 07/12/15 09:38, Russell King wrote:
+> Add support to phylink for SFP, which needs to control and configure
+> the ethernet MAC link state.  Specifically, SFP needs to:
+> 
+> 1. set the negotiation mode between SGMII and 1000base-X
+> 2. attach and detach the module PHY
+> 3. prevent the link coming up when errors are reported
+> 
+> In the absence of a PHY, we also need to set the ethtool port type
+> according to the module plugged in.
+> 
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Given the feedback you've already received,
-it seems so.
-
-> * Which object code representations would you find representative
-> =A0 for a further constructive discussion around this
-> =A0 software component?
-
-Evidence of actual object code improvement when
-with compiled with optimizations.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
