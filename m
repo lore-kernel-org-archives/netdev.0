@@ -1,73 +1,64 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
-Date: Thu, 7 Jan 2016 07:53:40 +0100
-Message-ID: <20160107065340.GB27753@unicorn.suse.cz>
-References: <87618083B2453E4A8714035B62D6799250504549@FMSMSX105.amr.corp.intel.com>
- <1452147313-22886-1-git-send-email-zyjzyj2000@gmail.com>
+Subject: Re: WARN trace - skb_warn_bad_offload - vxlan - large udp packet -
+ udp checksum disabled
+Date: Thu, 7 Jan 2016 08:27:42 +0100
+Message-ID: <20160107072742.GC27753@unicorn.suse.cz>
+References: <FC41C24E35F18A40888AACA1A36F3E418AFD00B5@fmsmsx115.amr.corp.intel.com>
+ <568DCF2B.2090502@stressinduktion.org>
+ <20160107064640.GA27753@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: emil.s.tantilov@intel.com, jay.vosburgh@canonical.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, boris.shteinbock@windriver.com
-To: zyjzyj2000@gmail.com
+Cc: "Nelson, Shannon" <shannon.nelson@intel.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:38494 "EHLO mx2.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:39604 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750747AbcAGGxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2016 01:53:43 -0500
+	id S1750745AbcAGH1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2016 02:27:45 -0500
 Content-Disposition: inline
-In-Reply-To: <1452147313-22886-1-git-send-email-zyjzyj2000@gmail.com>
+In-Reply-To: <20160107064640.GA27753@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2016 at 02:15:13PM +0800, zyjzyj2000@gmail.com wrote:
-> From: Zhu Yanjun <yanjun.zhu@windriver.com>
+On Thu, Jan 07, 2016 at 07:46:40AM +0100, Michal Kubecek wrote:
+> On Thu, Jan 07, 2016 at 03:36:27AM +0100, Hannes Frederic Sowa wrote:
+> > On 15.12.2015 02:35, Nelson, Shannon wrote:
+> > >Using a slightly modified version of udpspam (see diff below -
+> > >hopefully not mangled by corporate email servers), where I set the
+> > >SO_NO_CHECK socket option and can specify a large buffer size, I can
+> > >reliably get the following WARN trace.  I have reproduced this on
+> > >both ixgbe and i40e drivers using "udpspam-no-check <target-ip>
+> > >6000".
+> > >
+> > >It looks to me like this is in the Tx path before we get to the
+> > >actual NIC drivers, but I may be wrong.
+> > 
+> > Does UFO offloading on the tunnel interface fix this error?
+> > 
+> > ethtool -K vxlan ufo off
+> > 
+> > If yes we can't feed SO_NO_CHECK udp packets into UFO as gso/ufo
+> > requires CHECKSUM_PARTIAL (or add some more logic into the skb or
+> > query socket status from skb_gso_segment).
 > 
-> In 802.3ad mode, the speed and duplex is needed. But in some NIC,
-> there is a time span between NIC up state and getting speed and duplex.
-> As such, sometimes a slave in 802.3ad mode is in up state without
-> speed and duplex. This will make bonding in 802.3ad mode can not
-> work well.
-> To make bonding driver be compatible with more NICs, it is
-> necessary to restrict the up state in 802.3ad mode.
+> I believe you are right. This sounds like the issue addressed by commit
+> acf8dd0a9d0b ("udp: only allow UFO for packets from SOCK_DGRAM sockets")
+> except for a regular SOCK_DGRAM socket with SO_NO_CHECK option. If so,
+> changing both instances of the check
 > 
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
-> ---
->  drivers/net/bonding/bond_main.c |   11 +++++++++++
->  1 file changed, 11 insertions(+)
+> 	    (sk->sk_type == SOCK_DGRAM)
 > 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 09f8a48..7df8af5 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1991,6 +1991,17 @@ static int bond_miimon_inspect(struct bonding *bond)
->  
->  		link_state = bond_check_dev_link(bond, slave->dev, 0);
->  
-> +		if ((BMSR_LSTATUS == link_state) &&
-> +		    (BOND_MODE(bond) == BOND_MODE_8023AD)) {
-> +			rtnl_lock();
-> +			bond_update_speed_duplex(slave);
-> +			rtnl_unlock();
-> +			if ((slave->speed == SPEED_UNKNOWN) ||
-> +			    (slave->duplex == DUPLEX_UNKNOWN)) {
-> +				link_state = 0;
-> +				netdev_info(bond->dev, "In 802.3ad mode, it is not enough to up without speed and duplex");
+> added by this commit to
+> 
+> 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx
+> 
+> should fix the problem (and it should be done even if the issue reported
+> here is caused by something else).
 
-If I read this right, whenever this state (link up but speed/duplex
-unknown) is entered, you'll keep writing this message into kernel log
-every miimon milliseconds until something changes. I'm not sure how long
-a NIC can stay in such state but it might get quite annoying (even more
-if something really goes wrong and NIC stays that way which can't be
-completely ruled out, IMHO).
+Correction: the IPv6 case will need "!udp_get_no_check6_tx(sk)" instead.
 
-
-> +			}
-> +		}
->  		switch (slave->link) {
->  		case BOND_LINK_UP:
->  			if (link_state)
-
-BtW, you accidentally submitted this patch twice.
-
-                                                          Michal Kubecek
+Michal Kubecek
