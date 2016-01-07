@@ -1,42 +1,94 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: header conflict introduced by change to
- netfilter_ipv4/ip_tables.h
-Date: Thu, 7 Jan 2016 10:30:40 -0800
-Message-ID: <20160107103040.649ab878@xeon-e3>
-References: <20160106092007.1c5a0c75@xeon-e3>
-	<88a455d4b6dc4d4398553e6529d7b94a@HQ1WP-EXMB11.corp.brocade.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
+ vxlan devices
+Date: Thu, 7 Jan 2016 19:40:42 +0100
+Message-ID: <20160107184042.GB24672@pox.localdomain>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+ <20160106.155950.1007160228570301281.davem@davemloft.net>
+ <8660z6qohn.fsf@weave.works>
+ <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
+ <568DADEE.1050206@stressinduktion.org>
+ <CAEh+42h_dH5-AYBN+L=+LMfNLXhSfs-AwWh_aZ_oLfZ1NV48Zg@mail.gmail.com>
+ <20160107114935.GJ32456@pox.localdomain>
+ <CAEh+42hA69_e1HRGzsfzc2yGNgr6d8Bg4+pD8EQPdou5LzUegA@mail.gmail.com>
+ <20160107172137.GA24672@pox.localdomain>
+ <568EA55A.7070305@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Mikko Rapeli <mikko.rapeli@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:13633 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752401AbcAGSal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 13:30:41 -0500
-In-Reply-To: <88a455d4b6dc4d4398553e6529d7b94a@HQ1WP-EXMB11.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <568EA55A.7070305-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Jan 2016 07:29:50 +0000
-Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
-
-> On Wed, Jan 06, 2016 at 09:20:07AM -0800, Stephen Hemminger wrote:
-> > This commit breaks compilation of iproute2 with net-next.
-> 
-> Ok, linux/if.h and libc net/if.h have overlapping defines, and this is not
-> the only one. I saw lots of them in the core dump headers.
-> 
-> How should we handle them? Another ifndef for IFNAMSIZ into kernel uapi
-> headers?
-> 
-> -Mikko
-
-Probably need to do the same thing that was done previously for these
-kind of conflicts.  This makes make linux/if.h change to adapt to net/if.h
-being included before it.
-
-Or revert your patch.
+T24gMDEvMDcvMTYgYXQgMDY6NTBwbSwgSGFubmVzIEZyZWRlcmljIFNvd2Egd3JvdGU6Cj4gT24g
+MDcuMDEuMjAxNiAxODoyMSwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gPk9uIDAxLzA3LzE2IGF0IDA4
+OjM1YW0sIEplc3NlIEdyb3NzIHdyb3RlOgo+ID4+T24gVGh1LCBKYW4gNywgMjAxNiBhdCAzOjQ5
+IEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4gd3JvdGU6Cj4gPj4+QSBzaW1wbGUgc3Rh
+cnQgY291bGQgYmUgdG8gYWRkIGEgbmV3IHJldHVybiBjb2RlIGZvciA+IE1UVSBkcm9wcyBpbgo+
+ID4+PnRoZSBkZXZfcXVldWVfeG1pdCgpIHBhdGggYW5kIGNoZWNrIGZvciBORVRfWE1JVF9EUk9Q
+X01UVSBpbgo+ID4+Pm92c192cG9ydF9zZW5kKCkgYW5kIGVtaXQgcHJvcGVyIElDTVBzLgo+ID4+
+Cj4gPj5UaGF0IGNvdWxkIGJlIGludGVyZXN0aW5nLiBUaGUgcHJvYmxlbSBpbiB0aGUgcGFzdCB3
+YXMgbWFraW5nIHN1cmUKPiA+PnRoYXQgSUNNUHMgdGhhdCBhcmUgZ2VuZXJhdGVkIGZpdCBpbiB0
+aGUgdmlydHVhbCBuZXR3b3JrIGFwcHJvcHJpYXRlbHkKPiA+Pi0gcmlnaHQgYWRkcmVzc2VzLCBl
+dGMuIFRoaXMgcmVxdWlyZXMgZWl0aGVyIHNwb29maW5nIGFkZHJlc3NlcyBvcgo+ID4+c29tZSBh
+ZGRpdGlvbmFsIGtub3dsZWRnZSBhYm91dCB0aGUgdG9wb2xvZ3kgdGhhdCB3ZSBkb24ndCBjdXJy
+ZW50bHkKPiA+PmhhdmUgaW4gdGhlIGtlcm5lbC4KPiA+Cj4gPkFyZSB5b3Ugd29ycmllZCBhYm91
+dCBlbWl0dGluZyBhbiBJQ01QIHdpdGggYSBzb3VyY2Ugd2hpY2ggaXMgbm90Cj4gPmEgbG9jYWwg
+aG9zdCBhZGRyZXNzPwo+IAo+IFdlIGhhdmUgdVJQRiBlbmFibGVkIGZvciBJUHY0IGJ5IGRlZmF1
+bHQgb24gYWxsIGtlcm5lbHMuIFRodXMgaWYgd2UgZ2VuZXJhdGUKPiBhbiBJUHY0IElDTVAgcGFj
+a2V0IGJhY2sgd2l0aCBhbiBlcnJvciBtZXNzYWdlIGl0IG11c3QgaGF2ZSBhIHNvdXJjZSBhZGRy
+ZXNzCj4gd2hpY2ggdGhlIHJlY2VpdmluZyBrZXJuZWwgY29uc2lkZXJzIHZhbGlkLiBWYWxpZCBt
+ZWFucyB0aGF0IHNlbmRpbmcgdG8gdGhlCj4gc291cmNlIGFkZHJlc3Mgd291bGQgaGF2ZSB1c2Vk
+IHRoZSBzYW1lIG91dGdvaW5nIGludGVyZmFjZSB0aGUgSUNNUCBlcnJvcgo+IGNhbWUgaW4gZnJv
+bS4KCkFncmVlZC4gSSB0aGluayB0aGlzIGlzIGdpdmVuIHRob3VnaCBhcyB3ZSB3b3VsZCByZXZl
+cnNlIHRoZSBhZGRyZXNzZXMKYXMgaWNtcF9zZW5kKCkgYWxyZWFkeSBkb2VzOgoKICAgICAgICBz
+YWRkciA9IGlwaC0+ZGFkZHI7Cgo+ID5DYW4ndCB3ZSBqdXN0IHVzZSBpY21wX3NlbmQoKSBpbiB0
+aGUgY29udGV4dCBvZiB0aGUgaW5uZXIgaGVhZGVyIGFuZAo+ID5mZWVkIGl0IHRvIHRoZSBmbG93
+IHRhYmxlIHRvIHNlbmQgaXQgYmFjaz8gSXQgc2hvdWxkIGJlIHRoZSBzYW1lIGFzCj4gPmZvciBp
+cF9mb3J3YXJkKCkuCj4gCj4gVGhlIGJyaWRnZSdzIGlwIGFkZHJlc3Mgb2Z0ZW4gaGFzIG5vIHZh
+bGlkIHBhdGggYXMgc2VlbiBmcm9tIHRoZSBlbmQgaG9zdAo+IHN5c3RlbSByZWNlaXZpbmcgdGhl
+IGljbXAgZXJyb3IsIGJlY2F1c2UgdGhlIG9wZW52c3dpdGNoIGlzIG5vdCByZWFsbHkgcGFydAo+
+IG9mIHRoZSBMMyBmb3J3YXJkaW5nIGNoYWluLgoKSSBkb24ndCB0aGluayB0aGUgSVAgb2YgdGhl
+IGJyaWRnZSBldmVyIGNvbWVzIGludG8gcGxheS4gSXQgc2hvdWxkbid0LgpJJ20gbm90IGV2ZW4g
+c3VyZSB3aGF0IGNvdWxkIGJlIGNvbnNpZGVyZWQgdGhlIGFkZHJlc3Mgb2YgdGhlIGJyaWRnZQo7
+LSkKCj4gRmFraW5nIHRoZSBhZGRyZXNzIGZyb20gdGhlIHBhY2tldCAoZS5nLiB1c2luZyB0aGUg
+ZGVzdGluYXRpb24gYWRkcmVzcyBvZgo+IHRoZSBvcmlnaW5hbCBwYWNrZXQpIHdpbGwgbWFrZSB0
+cmFjZXJvdXRlIGdvIG51dHMuCgpJIHRoaW5rIHlvdSBhcmUgd29ycmllZCBhYm91dCBhbiBJQ01Q
+IGVycm9yIGZyb20gYSBob3Agd2hpY2ggZG9lcyBub3QKZGVjcmVtZW50IFRUTC4gSSB0aGluayB0
+aGF0J3MgYSBnb29kIHBvaW50IGFuZCBJIHRoaW5rIHdlIHNob3VsZCBvbmx5CnNlbmQgYW4gSUNN
+UCBlcnJvciBpZiB0aGUgVFRMIGlzIGRlY3JlbWVudGVkIGluIHRoZSBhY3Rpb24gbGlzdCBvZgp0
+aGUgZmxvdyBmb3Igd2hpY2ggd2UgaGF2ZSBzZWVuIGEgTVRVIGJhc2VkIGRyb3AgKG9yIFRUTD0w
+KS4KCkkgZG9uJ3QgcmVhbGx5IHNlZSBhIGRpZmZlcmVuY2UgYmV0d2VlbiBpcF9mb3J3YXJkKCks
+IHNvbWUKc29waGlzdGljYXRlZCB0YyBhY3Rpb24gb3IgT1ZTLiBBcyBzb29uIGFzIHRoZXkgZGVj
+cmVtZW50ZWQgVFRMIGFuZApwZXJmb3JtIEwzIGZvcndhcmRpbmcsIHRoZW4gdGhleSBzaG91bGQg
+c2VuZCBvdXQgSUNNUCBlcnJvcnMgdG8gYWxsb3cKZm9yIHByb3BlciBQTVRVLgoKPiBOb3JtYWxs
+eSBldGhlcm5ldCBkZXZpY2VzIGRvbid0IHJldHVybiBpY21wIGVycm9yIG1lc3NhZ2VzLiBFLmcu
+IGJyb2tlbgo+IGp1bWJvIGZyYW1lIGNvbmZpZ3VyYXRpb24ganVzdCBsZWFkcyB0byBzaWxlbnQg
+cGFja2V0IGxvc3MgYmVjYXVzZSB0aGUKPiBwYWNrZXQgaXMgZGlzY2FyZGVkIGJlZm9yZSBhIHJv
+dXRlciBjYW4gaGFuZGxlIGl0LiBUaHVzIGl0IHdvdWxkIGJlIGJlc3QgaW4KPiBjYXNlIG9mIGxv
+Y2FsIG92cyBpbnN0YWxsYXRpb24gaWYgdGhlIGVycm9yIGlzIGFscmVhZHkgdHJhbnNwb3J0ZWQg
+YmFjayB0bwo+IHRoZSBjbGllbnQgYXBwbGljYXRpb24gdmlhIHRoZSBuZXR3b3JrIGNhbGwgc3Rh
+Y2suIFRoaXMgbWlnaHQgYmUgdmVyeQo+IGRpZmZpY3VsdCBpbiBjYXNlIHdlIGVucXVldWUgdGhl
+IHBhY2tldCB0byBhIGJhY2tsb2cgcXVldWUgYW5kIHJlc2NoZWR1bGUKPiBzb2Z0aXJxcy4gUHJv
+YmFibHkgd2UgbmVlZCBzb21lIHdheSBvZiBmYWtpbmcgc291cmNlIGFkZHJlc3NlcyBmcm9tIGJy
+aWRnZXMKPiBub3cuLi4uIDovCgpJIHRoaW5rIHRoZSBtYWpvciBjb21wbGljYXRpb25zIGNvbWVz
+IGZyb20gdGhlIGFzc3VtcHRpb24gdGhhdCBPVlMgaXMKYSBicmlkZ2UuIFRoaXMgaXMgbm90IG5l
+Y2Vzc2FyaWx5IHRoZSBjYXNlIGFzIHN0YXRlZCBhYm92ZS4gSWYgYSBmbG93CmlzIGRvaW5nIEwz
+IGZvcndhcmRpbmcsIHdlIHNob3VsZCBzZW5kIElDTVBzIGFzIGV4cGVjdGVkIGZyb20gYQpyb3V0
+ZXIuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
+YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
+aWxtYW4vbGlzdGluZm8vZGV2Cg==
