@@ -1,94 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 11/26] phylink: add phylink infrastructure
-Date: Thu, 07 Jan 2016 12:09:35 -0800
-Message-ID: <568EC5FF.8030803@gmail.com>
-References: <20151207173553.GU8644@n2100.arm.linux.org.uk> <E1a5zjj-00075Z-Q1@rmk-PC.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Russell King <rmk+kernel@arm.linux.org.uk>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Romain Perier <romain.perier@gmail.com>
+Subject: [PATCH v2] stmmac: Don't exit mdio registration when mdio subnode is not found in the DTS
+Date: Thu,  7 Jan 2016 21:13:28 +0100
+Message-ID: <1452197608-29060-1-git-send-email-romain.perier@gmail.com>
+Cc: netdev@vger.kernel.org, linux-rockchip@lists.infradead.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35005 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752283AbcAGUKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 15:10:09 -0500
-Received: by mail-pa0-f44.google.com with SMTP id ho8so5814644pac.2
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 12:10:09 -0800 (PST)
-In-Reply-To: <E1a5zjj-00075Z-Q1@rmk-PC.arm.linux.org.uk>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:33533 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752356AbcAGUNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 15:13:33 -0500
+Received: by mail-wm0-f48.google.com with SMTP id f206so111944884wmf.0
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 12:13:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/12/15 09:38, Russell King wrote:
-[snip]
-> +void phylink_phy_change(struct phy_device *phy, bool up, bool do_carrier)
-> +{
-> +	struct phylink *pl = phy->phylink;
-> +
-> +	mutex_lock(&pl->state_mutex);
-> +	pl->phy_state.speed = phy->speed;
-> +	pl->phy_state.duplex = phy->duplex;
-> +	pl->phy_state.pause = MLO_PAUSE_NONE;
-> +	if (phy->pause)
-> +		pl->phy_state.pause |= MLO_PAUSE_SYM;
-> +	if (phy->asym_pause)
-> +		pl->phy_state.pause |= MLO_PAUSE_ASYM;
-> +	pl->phy_state.link = up;
-> +	mutex_unlock(&pl->state_mutex);
-> +
-> +	phylink_run_resolve(pl);
-> +
-> +	netdev_dbg(pl->netdev, "phy link %s\n", up ? "up" : "down");
-> +}
+Originally, most of the platforms using this driver did not define an mdio subnode
+in the devicetree. Commit e34d65 ("stmmac: create of compatible mdio bus for stmmac driver")
+introduced a backward compatibily issue by using of_mdiobus_register explicitly
+with an mdio subnode. This patch fixes the issue by calling the function
+mdiobus_register, when mdio subnode is not found. The driver is now compatible
+with both modes.
 
-Should this function be exported?
+Fixes: e34d65696d2e ("stmmac: create of compatible mdio bus for stmmac driver")
+Signed-off-by: Romain Perier <romain.perier@gmail.com>
+---
 
-[snip]
+Changes in v2:
+	- Removed IS_ENABLED macro from the if statement before calling
+	  of_mdiobus_register.
+	- Added Fixes tag in commit message
 
-> +
-> +	phy_node = of_parse_phandle(dn, "phy-handle", 0);
-> +	if (!phy_node)
-> +		phy_node = of_parse_phandle(dn, "phy", 0);
-> +	if (!phy_node)
-> +		phy_node = of_parse_phandle(dn, "phy-device", 0);
-> +
-> +	if (!phy_node) {
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-This could be worth becoming a helper function that drivers could use,
-as a subsequent patch for instance.
-
-
-> +		if (pl->link_an_mode == MLO_AN_PHY) {
-> +			netdev_err(pl->netdev, "unable to find PHY node\n");
-> +			return -ENODEV;
-> +		}
-> +		return 0;
-> +	}
-
-
-> +
-> +	phy_dev = of_phy_attach(pl->netdev, phy_node, 0, pl->link_interface);
-> +	/* We're done with the phy_node handle */
-> +	of_node_put(phy_node);
-> +
-> +	if (!phy_dev)
-> +		return -ENODEV;
-> +
-> +	ret = phylink_bringup_phy(pl, phy_dev);
-> +	if (ret)
-> +		phy_detach(phy_dev);
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(phylink_of_phy_connect);
-
-Overall, this looks good to me, I am not very comfortable with the API
-similarities between PHY link and traditional PHY devices, since that
-forces PHY link to duplicate a bit of code (ioctl among other things).
-
-Would it be better to have a generic PHY device have the option to be
-overloaded with PHY link operations such that drivers do not have to
-absorb API changes?
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 16c85cc..648488d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -218,8 +218,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (mdio_node) {
+ 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
+ 		} else {
+-			netdev_err(ndev, "NO MDIO subnode\n");
+-			return 0;
++			netdev_warn(ndev, "No MDIO subnode found\n");
+ 		}
+ 	}
+ 
+@@ -251,7 +250,10 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	new_bus->phy_mask = mdio_bus_data->phy_mask;
+ 	new_bus->parent = priv->device;
+ 
+-	err = of_mdiobus_register(new_bus, mdio_node);
++	if (mdio_node)
++		err = of_mdiobus_register(new_bus, mdio_node);
++	else
++		err = mdiobus_register(new_bus);
+ 	if (err != 0) {
+ 		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
+ 		goto bus_register_fail;
 -- 
-Florian
+2.5.0
