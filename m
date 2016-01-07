@@ -1,38 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/4] MTU changes and other fixes
-Date: Thu, 07 Jan 2016 16:33:14 -0500 (EST)
-Message-ID: <20160107.163314.666536912327323086.davem@davemloft.net>
-References: <1451995051-21920-1-git-send-email-jakub.kicinski@netronome.com>
-	<20160107.145750.213741381921685070.davem@davemloft.net>
-	<20160107204928.0cd91c16@jkicinski-Precision-T1700>
+Subject: Re: [PATCH net-next V1 11/12] IB/mlx5: Add flow steering utilities
+Date: Thu, 07 Jan 2016 16:36:35 -0500 (EST)
+Message-ID: <20160107.163635.666507309041930170.davem@davemloft.net>
+References: <1452117151-28572-1-git-send-email-saeedm@mellanox.com>
+	<1452117151-28572-12-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
-	rolf.neugebauer@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: netdev@vger.kernel.org, dledford@redhat.com, ogerlitz@mellanox.com,
+	eranbe@mellanox.com, talal@mellanox.com, majd@mellanox.com,
+	matanb@mellanox.com, maorg@mellanox.com, monis@mellanox.com,
+	saeedm@dev.mellanox.co.il
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52680 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52694 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752015AbcAGVdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:33:17 -0500
-In-Reply-To: <20160107204928.0cd91c16@jkicinski-Precision-T1700>
+	with ESMTP id S1750768AbcAGVgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:36:38 -0500
+In-Reply-To: <1452117151-28572-12-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Thu, 7 Jan 2016 20:49:28 +0000
 
-> I know this is not what you asked for but, since we are using FW
-> commands to disable/enable RX, even if we allocate all required
-> resources before freeing old ones we still cannot guarantee that
-> the reenabling operation will not fail.  Should we refuse to do
-> MTU changes while the interface is running altogether?
-
-If you issue the MTU change command and it fails, then you're still
-configured at the old MTU.  There should therefore be no problem
-rewinding in that case.
-
-> All drivers I've seen ...
-
-Bad practice in other drivers should be ignored, not copied.
+This patch should cause compiler warnings because the static functions
+are not used until patch #12.
