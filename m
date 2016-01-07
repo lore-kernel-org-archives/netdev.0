@@ -1,9 +1,9 @@
 From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [PATCH V2 4/5] i40e/ethtool: support coalesce getting by queue
-Date: Thu, 7 Jan 2016 22:19:19 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFE2A29@fmsmsx115.amr.corp.intel.com>
+Subject: RE: [PATCH V2 5/5] i40e/ethtool: support coalesce setting by queue
+Date: Thu, 7 Jan 2016 22:25:58 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFE2A3B@fmsmsx115.amr.corp.intel.com>
 References: <1451912041-8860-1-git-send-email-kan.liang@intel.com>
- <1451912041-8860-4-git-send-email-kan.liang@intel.com>
+ <1451912041-8860-5-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -31,30 +31,55 @@ To: "Liang, Kan" <kan.liang@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"bwh@kernel.org" <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43343 "EHLO mga11.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55696 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753194AbcAGWTV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 17:19:21 -0500
-In-Reply-To: <1451912041-8860-4-git-send-email-kan.liang@intel.com>
+	id S1753366AbcAGW0A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 17:26:00 -0500
+In-Reply-To: <1451912041-8860-5-git-send-email-kan.liang@intel.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
+> -	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
+> -		u16 intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
+> +	if (queue < 0) {
+> +		for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
+> +			intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
 > +
+> +			q_vector = vsi->q_vectors[i];
+> +			q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
+> +			wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector-
+> >rx.itr);
+> +			q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
+> +			wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector-
+> >tx.itr);
+
+Use I40E_RX_ITR and I40E_TX_ITR rather than the hardcoded 0 and 1
+
+> +			wr32(hw, I40E_PFINT_RATEN(vector - 1), intrl);
+> +			i40e_flush(hw);
+> +		}
+> +	} else {
+> +		if (queue >= vsi->num_queue_pairs) {
+> +			netif_info(pf, drv, netdev, "Invalid queue value, queue
+> range is 0 - %d\n", vsi->num_queue_pairs - 1);
+> +			return -EINVAL;
+> +		}
+> +		intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
+> 
+> -		q_vector = vsi->q_vectors[i];
 > +		q_vector = vsi->rx_rings[queue]->q_vector;
 > +		vector = vsi->base_vector + q_vector->v_idx;
-> +		ec->rx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw, I40E_PFINT_ITRN(0, vector - 1)));
-
-Use I40E_RX_ITR rather than the hardcoded 0
-
+>  		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
+>  		wr32(hw, I40E_PFINT_ITRN(0, vector - 1), q_vector->rx.itr);
 > +
 > +		q_vector = vsi->tx_rings[queue]->q_vector;
 > +		vector = vsi->base_vector + q_vector->v_idx;
-> +		ec->tx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw, I40E_PFINT_ITRN(1, vector - 1)));
+>  		q_vector->tx.itr = ITR_TO_REG(vsi->tx_itr_setting);
+>  		wr32(hw, I40E_PFINT_ITRN(1, vector - 1), q_vector->tx.itr);
 
-Use I40E_TX_ITR rather than the hardcoded 1
+Of course, we should have had the I40E_RX_ITR and I40E_TX_ITR here to begin with.
 
-Other than that, yes, this looks like the right translation to get to the itr register you want.
+This looks reasonable, but be aware that since there's no concept of queue-specific settings in the driver proper, these settings will get lost on the next reset - see i40e_vsi_configure_msix().  A reset can be driven by a number of things such as MTU changes, LLDP events, tx timeout recovery, promiscuous on/off, and various other configuration changes.  This might not be acceptable for your needs.
 
 sln
