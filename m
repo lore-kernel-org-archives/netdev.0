@@ -1,27 +1,37 @@
-From: Holger Schurig <holgerschurig@gmail.com>
-Subject: Re: [BUG 4.4-rc4]: oops around sock_recvmsg
-Date: Thu, 07 Jan 2016 15:50:35 +0100
-Message-ID: <878u414f5w.fsf@gmail.com>
-References: <87d1td6a1l.fsf@gmail.com>
-	<20160107094249.GD19062@n2100.arm.linux.org.uk>
-	<87d1td4fbt.fsf@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2 0/2] BPF update
+Date: Thu,  7 Jan 2016 15:50:21 +0100
+Message-ID: <cover.1452176592.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33180 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221AbcAGOui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 09:50:38 -0500
-Received: by mail-wm0-f43.google.com with SMTP id f206so100745593wmf.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 06:50:37 -0800 (PST)
-In-Reply-To: <87d1td4fbt.fsf@gmail.com> (Holger Schurig's message of "Thu, 07
-	Jan 2016 15:47:02 +0100")
+Received: from www62.your-server.de ([213.133.104.62]:42951 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752045AbcAGOu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 09:50:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Holger Schurig <holgerschurig@gmail.com> writes:
-> scripts/extract-vmlinux didn't liked the vmlinux file, I reverted my
+Fixes a csum issue on ingress. As mentioned previously, net-next
+seems just fine imho. Later on, will follow up with couple of
+replacements like ovs_skb_postpush_rcsum() etc.
 
-I meant "didn't liked the vmlinu*Z* file" (with a z) ...
+Thanks!
+
+v1 -> v2:
+  - Added patch 1 with helper
+  - Implemented Hannes' idea to just use csum_partial, thanks!
+
+Daniel Borkmann (2):
+  net, sched: add skb_at_tc_ingress helper
+  bpf: add skb_postpush_rcsum and fix dev_forward_skb occasions
+
+ include/linux/skbuff.h    | 17 +++++++++++++++++
+ include/net/sch_generic.h |  9 +++++++++
+ net/core/filter.c         | 17 +++++++++++++----
+ net/sched/cls_bpf.c       |  6 +-----
+ 4 files changed, 40 insertions(+), 9 deletions(-)
+
+-- 
+1.9.3
