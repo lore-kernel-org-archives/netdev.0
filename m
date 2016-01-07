@@ -1,100 +1,73 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
-Date: Thu, 7 Jan 2016 15:27:02 +0000
-Message-ID: <87618083B2453E4A8714035B62D679925050462F@FMSMSX105.amr.corp.intel.com>
-References: <87618083B2453E4A8714035B62D6799250504549@FMSMSX105.amr.corp.intel.com>
- <1452147313-22886-1-git-send-email-zyjzyj2000@gmail.com>
- <16587.1452148421@famine>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: suspicious rcu_dereference in tcp_v6_send_synack
+Date: Thu, 7 Jan 2016 10:32:48 -0500
+Message-ID: <20160107153248.GA30472@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "mkubecek@suse.cz" <mkubecek@suse.cz>,
-	"vfalico@gmail.com" <vfalico@gmail.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	"zyjzyj2000@gmail.com" <zyjzyj2000@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:27497 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751651AbcAGP1E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 10:27:04 -0500
-In-Reply-To: <16587.1452148421@famine>
-Content-Language: en-US
+Received: from arcturus.aphlor.org ([188.246.204.175]:48622 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752849AbcAGPcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 10:32:50 -0500
+Received: from [209.6.119.210] (helo=wopr.kernelslacker.org)
+	by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.86)
+	(envelope-from <davej@codemonkey.org.uk>)
+	id 1aHCYT-0008I8-CT
+	for netdev@vger.kernel.org; Thu, 07 Jan 2016 15:32:49 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Jay Vosburgh [mailto:jay.vosburgh@canonical.com]
->Sent: Wednesday, January 06, 2016 10:34 PM
->To: zyjzyj2000@gmail.com
->Cc: Tantilov, Emil S; mkubecek@suse.cz; vfalico@gmail.com;
->gospo@cumulusnetworks.com; netdev@vger.kernel.org; Shteinbock, Boris (Wind
->River)
->Subject: Re: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
->
-><zyjzyj2000@gmail.com> wrote:
->
->>From: Zhu Yanjun <yanjun.zhu@windriver.com>
->>
->>In 802.3ad mode, the speed and duplex is needed. But in some NIC,
->>there is a time span between NIC up state and getting speed and duplex.
->>As such, sometimes a slave in 802.3ad mode is in up state without
->>speed and duplex. This will make bonding in 802.3ad mode can not
->>work well.
->
->	From my reading of Emil's comments in the discussion, I'm not
->sure the above is an accurate description of the problem.  If I'm
->understanding correctly, the cause is due to link flaps racing with the
->bonding monitor workqueue polling the state.  Is this correct?
+===============================
+[ INFO: suspicious RCU usage. ]
+4.4.0-rc8-firewall+ #1 Not tainted
+-------------------------------
+net/ipv6/tcp_ipv6.c:465 suspicious rcu_dereference_check() usage!
 
-That is correct.
+other info that might help us debug this:
 
->>To make bonding driver be compatible with more NICs, it is
->>necessary to restrict the up state in 802.3ad mode.
->>
->>Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
->>---
->> drivers/net/bonding/bond_main.c |   11 +++++++++++
->> 1 file changed, 11 insertions(+)
->>
->>diff --git a/drivers/net/bonding/bond_main.c
->b/drivers/net/bonding/bond_main.c
->>index 09f8a48..7df8af5 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -1991,6 +1991,17 @@ static int bond_miimon_inspect(struct bonding
->*bond)
->>
->> 		link_state = bond_check_dev_link(bond, slave->dev, 0);
->>
->>+		if ((BMSR_LSTATUS == link_state) &&
->>+		    (BOND_MODE(bond) == BOND_MODE_8023AD)) {
->>+			rtnl_lock();
->>+			bond_update_speed_duplex(slave);
->>+			rtnl_unlock();
->
->	This will add a round trip on the RTNL mutex for every miimon
->interval when the slave is carrier up.  At common miimon rates (10 - 50
->ms), this will hit RTNL between 20 and 100 times per second.  I do not
->see how this is acceptable.
->
->	I believe the proper solution here is to supplant the periodic
->miimon polling from bonding with link state detection based on notifiers
->(As Stephen suggested, not for the first time).
->
->	My suggestion is to have bonding set slave link state based on
->notifiers if miimon is set to zero, and poll as usual if it is not.
->This would preserve any backwards compatibility with any device out
->there that might possibly still be doing netif_carrier_on/off
->incorrectly or not at all.  The only minor complication is synchronizing
->notifier carrier state detection with the ARP monitor.
->
->	This should have been done a long time ago; I'll work something
->up tomorrow (it's late here right now) and post a patch for testing.
 
-That would be awesome. Looking forward to it.
+rcu_scheduler_active = 1, debug_locks = 1
+1 lock held by swapper/1/0:
+ #0:  (((&req->rsk_timer))){+.-...}, at: [<ffffffff99113285>] call_timer_fn+0x5/0x3f0
 
-Thanks,
-Emil
+stack backtrace:
+CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.4.0-rc8-firewall+ #1
+ 0000000000000000 ffff8801d7a07b28 ffffffff9948b3b5 ffff8801d6046500
+ ffff8801d7a07b58 ffffffff990e9b7a ffff8801cd356240 0000000000000000
+ ffff8801d23b1698 ffff8801d23b0c40 ffff8801d7a07ba8 ffffffff99b635d2
+Call Trace:
+ <IRQ>  [<ffffffff9948b3b5>] dump_stack+0x4e/0x79
+ [<ffffffff990e9b7a>] lockdep_rcu_suspicious+0xea/0x110
+ [<ffffffff99b635d2>] tcp_v6_send_synack+0x2c2/0x350
+ [<ffffffff99a8550d>] tcp_rtx_synack+0xdd/0x180
+ [<ffffffff99a85430>] ? tcp_send_probe0+0x1a0/0x1a0
+ [<ffffffff99a5f0a4>] reqsk_timer_handler+0x4c4/0x530
+ [<ffffffff99a5ebe0>] ? inet_csk_reqsk_queue_drop+0x3a0/0x3a0
+ [<ffffffff990e0f2b>] ? __lock_is_held+0x9b/0xd0
+ [<ffffffff991133b2>] call_timer_fn+0x132/0x3f0
+ [<ffffffff99113285>] ? call_timer_fn+0x5/0x3f0
+ [<ffffffff99a5ebe0>] ? inet_csk_reqsk_queue_drop+0x3a0/0x3a0
+ [<ffffffff99113280>] ? process_timeout+0x10/0x10
+ [<ffffffff990e44d2>] ? trace_hardirqs_on_caller+0x192/0x2a0
+ [<ffffffff990b52ea>] ? preempt_count_sub+0x1a/0x130
+ [<ffffffff99113cab>] run_timer_softirq+0x47b/0x590
+ [<ffffffff99a5ebe0>] ? inet_csk_reqsk_queue_drop+0x3a0/0x3a0
+ [<ffffffff99113830>] ? internal_add_timer+0x110/0x110
+ [<ffffffff990e0eb8>] ? __lock_is_held+0x28/0xd0
+ [<ffffffff99076fd2>] __do_softirq+0x1b2/0x5c0
+ [<ffffffff9907762c>] irq_exit+0xfc/0x110
+ [<ffffffff99c12abf>] smp_apic_timer_interrupt+0x5f/0x70
+ [<ffffffff99c112bb>] apic_timer_interrupt+0x8b/0x90
+ <EOI>  [<ffffffff998dd547>] ? cpuidle_enter_state+0x1c7/0x460
+ [<ffffffff998dd542>] ? cpuidle_enter_state+0x1c2/0x460
+ [<ffffffff99107289>] ? rcu_eqs_enter_common+0x139/0x280
+ [<ffffffff998dd847>] cpuidle_enter+0x17/0x20
+ [<ffffffff990dbd92>] cpu_startup_entry+0x4d2/0x5b0
+ [<ffffffff990db8c0>] ? default_idle_call+0x60/0x60
+ [<ffffffff9912d714>] ? clockevents_config_and_register+0x64/0x70
+ [<ffffffff9904d785>] ? setup_APIC_timer+0x115/0x120
+ [<ffffffff9904be1a>] start_secondary+0x23a/0x2a0
+ [<ffffffff9904bbe0>] ? set_cpu_sibling_map+0x9c0/0x9c0
