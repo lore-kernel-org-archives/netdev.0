@@ -1,47 +1,59 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATCH] net: qmi_wwan: Add SIMCom 7230E
-Date: Thu,  7 Jan 2016 16:41:33 +0100
-Message-ID: <1452181293-32703-1-git-send-email-kristian.evensen@gmail.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Question regarding {G,S}CHANNELS API
+Date: Thu, 7 Jan 2016 15:43:24 +0000
+Message-ID: <20160107154324.4081743c@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kristian Evensen <kristian.evensen@gmail.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:34940 "EHLO
-	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031AbcAGPlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 10:41:45 -0500
-Received: by mail-lf0-f44.google.com with SMTP id c192so158382825lfe.2
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 07:41:44 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36527 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753489AbcAGPna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 10:43:30 -0500
+Received: by mail-wm0-f50.google.com with SMTP id l65so102028755wmf.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 07:43:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Kristian Evensen <kristian.evensen@gmail.com>
+Hi!
 
-SIMCom 7230E is a QMI LTE module with support for most "normal" bands.
-Manual testing has showed that only interface five works.
+I'm trying to understand how number of "separate" rx/tx vs combined
+channels should be configured.  I'd like to express asymmetric but
+mostly combined queue configuration (i.e. min(rx, tx) is combined the
+rest is separate).  Since default number of RX queues is just 8 it is
+tempting to allocate 8 RX queues but num_online_cpus() TX queues.  Does
+this configuration make sense?  What should ethtool -l report?
 
-Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
----
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+I had a look through the drivers and it seems that most of them fall
+nicely into the all combined and all separate categories. Two
+exceptions I found are bnxt_en (recent Michael's changes) and tg3.
+bnxt_en can switch between combined and separate mode.  tg3 is more
+interesting, it uses separate rx/tx parameters but combines first
+min(rx, tx) of the queues as I would like to.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 5fccc5a..772b9d0 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -743,6 +743,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x413c, 0x81b1, 8)},	/* Dell Wireless 5809e Gobi(TM) =
-4G LTE Mobile Broadband Card */
- 	{QMI_FIXED_INTF(0x03f0, 0x4e1d, 8)},	/* HP lt4111 LTE/EV-DO/HSPA+ Gob=
-i 4G Module */
- 	{QMI_FIXED_INTF(0x22de, 0x9061, 3)},	/* WeTelecom WPD-600N */
-+	{QMI_FIXED_INTF(0x1e0e, 0x9001, 5)},	/* SIMCom 7230E */
-=20
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
---=20
-2.5.0
+The problem is if I hijack the "separate" rx/tx queues parameters like
+tg3 does there is no way for the user to express that (s)he truly wants
+them separate.  Also it seems that tg3 goes against the ethtool manual
+which states:
+>  rx N   Changes the number of channels with only receive queues.
+>  tx N   Changes the number of channels with only transmit queues.
+Which indicates that if user wants 8 rx, 12 tx and combining (s)he
+should do:
+  ethtool -L ethX combined 8 tx 4
+
+This, however, makes the max_* info from SCHANNLES quite imprecise
+since device which has 16 IRQs and 16 queues in each directions would
+probably report:
+max_rx:       16
+max_tx:       16
+max_combined: 16
+But setting 'ethtool -L ethX combined 16 tx 8' would obviously
+fail even though parameters are within 1..max limits.
+
+Any comments/advice would be much appreciated.
