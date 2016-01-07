@@ -1,61 +1,53 @@
-From: "Christopher Hall" <christopher.s.hall@intel.com>
-Subject: Re: [RFC v5 5/6] Add PTP_SYS_OFFSET_PRECISE for driver
- crosstimestamping
-Date: Wed, 06 Jan 2016 17:42:53 -0800
-Message-ID: <op.yauhpruq1774gr@chall-mobl2.amr.corp.intel.com>
-References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
- <1451911523-8534-6-git-send-email-christopher.s.hall@intel.com>
- <20160105152731.GA24372@netboy>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 7 Jan 2016 02:52:04 +0100
+Message-ID: <568DC4C4.2050908@stressinduktion.org>
+References: <1452019261-449449-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, mingo@redhat.com, john.stultz@linaro.org,
-	hpa@zytor.com, jeffrey.t.kirsher@intel.com, x86@kernel.org,
-	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, kevin.b.stanton@intel.com
-To: "Richard Cochran" <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160105152731.GA24372@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel-team@fb.com, tglx@linutronix.de, mingo@redhat.com,
+	hpa@zytor.com, x86@kernel.org
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:48142 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751905AbcAGBwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 20:52:08 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 052F020AD2
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 20:52:07 -0500 (EST)
+In-Reply-To: <1452019261-449449-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+Hi Tom,
 
-This all sounds fine.  Thanks for the feedback.  I'll roll this into the  
-next patchset.
+On 05.01.2016 19:41, Tom Herbert wrote:
+> --- /dev/null
+> +++ b/arch/x86/lib/csum-partial_64.S
+> @@ -0,0 +1,147 @@
+> +/* Copyright 2016 Tom Herbert <tom@herbertland.com>
+> + *
+> + * Checksum partial calculation
+> + *
+> + * __wsum csum_partial(const void *buff, int len, __wsum sum)
+> + *
+> + * Computes the checksum of a memory block at buff, length len,
+> + * and adds in "sum" (32-bit)
+> + *
+> + * Returns a 32-bit number suitable for feeding into itself
+> + * or csum_tcpudp_magic
+> + *
+> + * Register usage:
+> + *   %rdi: argument 1, buff
+> + *   %rsi: argument 2, length
+> + *   %rdx: argument 3, add in value
 
-Chris
+I think you forgot to carry-add-in the %rdx register.
 
-On Tue, 05 Jan 2016 07:27:32 -0800, Richard Cochran  
-<richardcochran@gmail.com> wrote:
-> On Mon, Jan 04, 2016 at 04:45:22AM -0800, Christopher S. Hall wrote:
->> +	case PTP_SYS_OFFSET_PRECISE:
->> +		if (!ptp->info->getsynctime) {
->> +			err = -EINVAL;
->
-> -EOPNOTSUPP would be better here.
->
->> +		precise_offset.sys_real.sec =
->> +			div_u64_rem(ktime_to_ns(xtstamp.sys_realtime),
->> +				    NSEC_PER_SEC, &rem);
->> +		precise_offset.sys_real.nsec = rem;
->
-> How about this instead:
->
-> 		ts = ktime_to_timespec64(xtstamp.sys_realtime);
-> 		precise_offset.sys_real.sec = ts.tv_sec;
-> 		precise_offset.sys_real.nsec = ts.tv_nsec;
->
->> +		precise_offset.sys_raw.sec =
->> +			div_u64_rem(ktime_to_ns(xtstamp.sys_monoraw),
->> +				    NSEC_PER_SEC, &rem);
->> +		precise_offset.sys_raw.nsec = rem;
->> +		precise_offset.dev.sec =
->> +			div_u64_rem(ktime_to_ns(xtstamp.device), NSEC_PER_SEC,
->> +				    &rem);
->> +		precise_offset.dev.nsec = rem;
->
-> And for these as well.
->
-> Thanks,
-> Richard
+The assembly code replaces do_csum but not csum_partial.
+
+Bye,
+Hannes
