@@ -1,43 +1,69 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: question about vrf-lite
-Date: Thu, 7 Jan 2016 09:04:05 +0800
-Message-ID: <CAJFZqHwpEeQce1SyqZLecehMa9hBKKc-J2r0WurAS+qRdXw_2w@mail.gmail.com>
-References: <1452074022-11816-1-git-send-email-roy.qing.li@gmail.com>
-	<568D3E3C.2030301@cumulusnetworks.com>
+From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
+ vxlan devices
+Date: Wed, 6 Jan 2016 17:10:40 -0800
+Message-ID: <CAEh+42gOGrhnky8NBaOYKCE6MB1SntLSoTZzJSe-HRZvb1ao_A@mail.gmail.com>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+ <20160106.155950.1007160228570301281.davem@davemloft.net>
+ <8660z6qohn.fsf@weave.works>
+ <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
+ <86wprmp6z6.fsf@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:36282 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbcAGBEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 20:04:05 -0500
-Received: by mail-qg0-f43.google.com with SMTP id e32so226910570qgf.3
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 17:04:05 -0800 (PST)
-In-Reply-To: <568D3E3C.2030301@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <86wprmp6z6.fsf-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
->>
->> is it right?
->
->
-> no. The above works fine for me. I literally copied and pasted all of the
-> commands except the master ones which were adapted to my setup -- eth9 and
-> eth11 for me instead of eth0 and eth1. tcpdump on N2, N3 show the right one
-> is receiving packets based on which 'ping -I vrf<N>' is run.
->
-> Do tables 5 and 6 have the right routes?
-
-
-Thanks, David;
-
-it is not VRF issue, it is my configuration issue about qemu;
-
-I am testing VRF on qemu, and the issue/solution is same as issue
-under below link
-
-https://lists.gnu.org/archive/html/qemu-discuss/2014-06/msg00059.html
-
--Roy
+T24gV2VkLCBKYW4gNiwgMjAxNiBhdCA0OjI5IFBNLCBEYXZpZCBXcmFnZyA8ZGF2aWRAd2VhdmUu
+d29ya3M+IHdyb3RlOgo+IEplc3NlIEdyb3NzIDxqZXNzZUBrZXJuZWwub3JnPiB3cml0ZXM6Cj4+
+IE9uIFdlZCwgSmFuIDYsIDIwMTYgYXQgMzoyNSBQTSwgRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZl
+LndvcmtzPiB3cm90ZToKPj4+IEknbSBjZXJ0YWlubHkgb3BlbiB0byBzdWdnZXN0aW9ucyBvZiBi
+ZXR0ZXIgd2F5cyB0byBzb2x2ZSB0aGUgcHJvYmxlbS4KPj4KPj4gT25lIG9wdGlvbiBpcyB0byBz
+aW1wbHkgc2V0IHRoZSBNVFUgb24gdGhlIGRldmljZSBmcm9tIHVzZXJzcGFjZS4KPgo+IElmIHRo
+YXQgd29ya2VkIEkgd291bGRuJ3QgYmUgc3VibWl0dGluZyBhIHBhdGNoLgo+Cj4gVGhlIE1UVSB2
+YWx1ZSBvZiAxNTAwIGlzIG5vdCBtZXJlbHkgdGhlIGRlZmF1bHQuICBJdCBpcyBhbHNvIHRoZSBt
+YXhpbXVtCj4gYWxsb3dlZCBmb3IgYSB2eGxhbiBuZXRkZXYgbm90IGFzc29jaWF0ZWQgd2l0aCBh
+biB1bmRlcmx5aW5nIG5ldGRldi4gIElmCj4geW91IGRvIGUuZy4gImlwIGxpbmsgc2V0IGRldiB2
+eGxhbi02Nzg0IG10dSA4OTUwIiwgd2hlcmUgdnhsYW4tNjc4NAo+IHdhcyBjcmVhdGVkIGJ5IGFu
+IG92cyB2cG9ydCwgaXQgZmFpbHMgd2l0aCBFSU5WQUwuCj4KPiBUaGUgZmlyc3QgcGF0Y2ggb2Yg
+dGhlIHR3byBzdWJtaXR0ZWQgcmVtb3ZlcyB0aGF0IGxpbWl0LgoKSSBzYXcgeW91ciBmaXJzdCBw
+YXRjaCBhbmQgSSBhZ3JlZSB0aGF0IGl0IGZpeGVzIGEgcHJvYmxlbS4gSSB3YXMKcmVmZXJyaW5n
+IHRvIHRoZSBzZWNvbmQgcGF0Y2guCgo+PiBUaGUgcmVhbGl0eSBpcyB0aGF0IHRoZSBjb2RlIHlv
+dSdyZSBtb2RpZnlpbmcgaXMgY29tcGF0aWJpbGl0eSBjb2RlLgo+PiBNYXliZSB3ZSBzaG91bGQg
+bWFrZSB0aGlzIGNoYW5nZSB0byBwcmVzZXJ2ZSB0aGUgb2xkIGJlaGF2aW9yIG9yIG9sZAo+PiBj
+YWxsZXJzIChhbHRob3VnaCwgYWdhaW4sIGl0IHNob3VsZCBub3QgYmUganVzdCBmb3IgVlhMQU4p
+LiBCdXQgbm8gbmV3Cj4+IGZlYXR1cmVzIG9yIHR1bm5lbCB0eXBlcyB3aWxsIGJlIHN1cHBvcnRl
+ZCBpbiB0aGlzIG1hbm5lci4KPgo+IFRoYXQncyBmaW5lLiAgTmF0dXJhbGx5LCB0aGUgaWRlYWwg
+ZnJvbSBvdXIgcG9pbnQgb2YgdmlldyBpcyBpZiB0aGUKPiBjb21wYXRpYmlsaXR5IGNvZGUgaXMg
+ZnVsbHkgY29tcGF0aWJsZSwgc28gd2UgZG9uJ3QgaGF2ZSB0byBtYWtlIGNoYW5nZXMKPiBvbiBv
+dXIgc2lkZSB0aGF0IGludm9sdmUgZGlmZmVyZW50IGNvZGUgcGF0aHMgZm9yIGRpZmZlcmVudCBr
+ZXJuZWwKPiB2ZXJzaW9ucy4gIFRoYXQncyB3aGF0IG15IHBhdGNoZXMgYXJlIGludGVuZGVkIHRv
+IGFjaGlldmUuCgpUaGUgaW50ZW50aW9uIGlzIHRvIGJlIGZ1bGx5IGJhY2t3YXJkcyBjb21wYXRp
+YmxlIHdpdGggZXhpc3RpbmcKc29mdHdhcmUuIElmIHlvdSB3YW50IHRvIHRha2UgYWR2YW50YWdl
+IG9mIGZ1dHVyZSBmdW5jdGlvbmFsaXR5IHRoZW4sCnllcywgeW91IHdpbGwgbmVlZCB0byBjaGFu
+Z2UgdG8gdGhlIG5ldyBtb2RlbC4KCkkgYWdyZWUgdGhhdCBiZWhhdmlvciBjaGFuZ2VkIHdpdGgg
+ZXhpc3RpbmcgY29tcGF0aWJpbGl0eSBjb2RlLiBJJ20KZmluZSB3aXRoIHlvdXIgc2VyaWVzIGFz
+IGxvbmcgYXMgeW91IGdlbmVyYWxpemUgaXQgdG8gYWxsIHR1bm5lbCB0eXBlcwphbmQgbm90IGp1
+c3QgVlhMQU4uIEp1c3QgYmUgYXdhcmUgdGhhdCB5b3UncmUgZ29pbmcgdG8gaGF2ZSB0byBmaW5k
+CmFub3RoZXIgc29sdXRpb24gbG9uZyB0ZXJtLgoKPiBPay4gIEJ1dCBwbGVhc2UgdHJ5IHRvIGJl
+IGdlbnRsZSBvbiB0aGUgcG9vciBzb3VscyB3aG8gaGF2ZSB0byBjb21lIHVwCj4gd2l0aCBhIHNp
+bmdsZSBjb2RlYmFzZSB0aGF0IHdvcmtzIG9uIGEgcmFuZ2Ugb2Yga2VybmVsIHZlcnNpb25zIGdv
+aW5nCj4gYmFjayBhIGZldyB5ZWFycy4KCkkgbWFpbnRhaW4gYSBsYXJnZSBwcm9ncmFtIHRoYXQg
+bmVlZHMgdG8gZG8gdGhpcyBteXNlbGYsIHNvIEkgYW0gYXdhcmUKdGhhdCBpdCBjYW4gYmUgY2hh
+bGxlbmdpbmcuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gu
+b3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
