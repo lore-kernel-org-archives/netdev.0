@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 3/4] bpf: bpf_htab: Add syscall to iterate percpu value of a key
-Date: Thu, 7 Jan 2016 14:35:54 -0800
-Message-ID: <1452206155-1492617-4-git-send-email-kafai@fb.com>
+Subject: [PATCH net-next 2/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
+Date: Thu, 7 Jan 2016 14:35:53 -0800
+Message-ID: <1452206155-1492617-3-git-send-email-kafai@fb.com>
 References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,174 +9,267 @@ Cc: FB Kernel Team <kernel-team@fb.com>,
 	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37859 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:4833 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753723AbcAGWgQ (ORCPT
+	by vger.kernel.org with ESMTP id S1753732AbcAGWgQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 17:36:16 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u07MVS48025891
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u07MVi92015027
 	for <netdev@vger.kernel.org>; Thu, 7 Jan 2016 14:36:14 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 209dvyuxac-1
+	by m0001303.ppops.net with ESMTP id 209wxs0tgd-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 14:36:14 -0800
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
  mx-out.facebook.com (10.102.107.97) with ESMTP	id
- 0e07de8ab58f11e5ad530002c99331b0-957fd2d0 for <netdev@vger.kernel.org>;	Thu,
+ 0dfbaa66b58f11e5ad530002c99331b0-957fd2d0 for <netdev@vger.kernel.org>;	Thu,
  07 Jan 2016 14:36:12 -0800
 In-Reply-To: <1452206155-1492617-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add map_lookup_percpu_elem() syscall to lookup value
-of a particular CPU.
-
-The user is expected to loop through all CPU values by:
-for (cpu = 0; cpu < sysconf(_SC_NPROCESSORS_CONF); cpu++) {
-	if (!bpf_map_lookup_percpu_elem(map, &key, &value, cpu))
-		total_value += value;
-}
-
-* If the cpu is offline, errno == ENXIO
-* If the key is deleted before the iteration is done,
-  errno == ENOENT.
+This patch adds BPFMAP_TYPE_PERCPU_HASH map type and its
+htab_map_ops implementation.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- include/uapi/linux/bpf.h |  2 ++
- kernel/bpf/syscall.c     | 93 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 95 insertions(+)
+ include/uapi/linux/bpf.h |   1 +
+ kernel/bpf/hashtab.c     | 201 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 201 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index e4f8060..96ce561 100644
+index 8bed7f1..e4f8060 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -73,6 +73,7 @@ enum bpf_cmd {
- 	BPF_PROG_LOAD,
- 	BPF_OBJ_PIN,
- 	BPF_OBJ_GET,
-+	BPF_MAP_LOOKUP_PERCPU_ELEM,
+@@ -81,6 +81,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_ARRAY,
+ 	BPF_MAP_TYPE_PROG_ARRAY,
+ 	BPF_MAP_TYPE_PERF_EVENT_ARRAY,
++	BPF_MAP_TYPE_PERCPU_HASH,
  };
  
- enum bpf_map_type {
-@@ -115,6 +116,7 @@ union bpf_attr {
- 			__aligned_u64 next_key;
- 		};
- 		__u64		flags;
-+		__u32		cpu;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_PROG_LOAD command */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 6373970..ba1172b 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -289,6 +289,96 @@ err_put:
- 	return err;
+ enum bpf_prog_type {
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index d55df8c..63f2945 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -278,7 +278,7 @@ find_first_elem:
  }
  
-+/* last field in 'union bpf_attr' used by this command */
-+#define BPF_MAP_LOOKUP_PERCPU_ELEM_LAST_FIELD cpu
-+
-+struct percpu_map_value_info {
-+	struct bpf_map *map;
-+	void *key;
-+	void *value;
-+	bool found;
+ static struct htab_elem_common *htab_elem_common_alloc(struct bpf_htab *htab,
+-							void *key)
++						       void *key)
+ {
+ 	struct htab_elem_common *l;
+ 
+@@ -451,9 +451,208 @@ static struct bpf_map_type_list htab_type __read_mostly = {
+ 	.type = BPF_MAP_TYPE_HASH,
+ };
+ 
++/* each htab_percpu_elem is struct htab_percpu_elem + key  */
++struct htab_percpu_elem {
++	struct htab_elem_common common;
++	void * __percpu value;
++	char key[0] __aligned(8);
 +};
 +
-+static void percpu_map_lookup_value(void *i)
++static struct htab_percpu_elem *htab_percpu_elem(struct htab_elem_common *l)
 +{
-+	struct percpu_map_value_info *info = (struct percpu_map_value_info *)i;
-+	struct bpf_map *map = info->map;
-+	void *ptr;
-+
-+	rcu_read_lock();
-+	ptr = map->ops->map_lookup_elem(map, info->key);
-+	if (ptr) {
-+		memcpy(info->value, ptr, map->value_size);
-+		info->found = true;
-+	} else {
-+		info->found = false;
-+	}
-+	rcu_read_unlock();
++	return (struct htab_percpu_elem *)l;
 +}
 +
-+static int map_lookup_percpu_elem(union bpf_attr *attr)
++static void htab_percpu_elem_free(struct htab_percpu_elem *l)
 +{
-+	void __user *ukey = u64_to_ptr(attr->key);
-+	void __user *uvalue = u64_to_ptr(attr->value);
-+	u32 __user ucpu = attr->cpu;
-+	int ufd = attr->map_fd;
-+	struct percpu_map_value_info value_info;
-+	struct bpf_map *map;
-+	void *key, *value;
-+	struct fd f;
-+	int err;
++	free_percpu(l->value);
++	kfree(l);
++}
 +
-+	if (CHECK_ATTR(BPF_MAP_LOOKUP_PERCPU_ELEM) ||
-+	    ucpu >= num_possible_cpus())
++static void htab_percpu_elem_rcu_free(struct rcu_head *head)
++{
++	struct htab_elem_common *l = container_of(head,
++						  struct htab_elem_common,
++						  rcu);
++
++	htab_percpu_elem_free(htab_percpu_elem(l));
++}
++
++static void htab_percpu_map_flush(struct bpf_htab *htab)
++{
++	int i;
++
++	for (i = 0; i < htab->n_buckets; i++) {
++		struct hlist_head *head = select_bucket(htab, i);
++		struct hlist_node *n;
++		struct htab_elem_common *l;
++
++		hlist_for_each_entry_safe(l, n, head, hash_node) {
++			hlist_del_rcu(&l->hash_node);
++			atomic_dec(&htab->count);
++			htab_percpu_elem_free(htab_percpu_elem(l));
++		}
++	}
++}
++
++/* Called from syscall */
++static struct bpf_map *htab_percpu_map_alloc(union bpf_attr *attr)
++{
++	u32 elem_size = sizeof(struct htab_percpu_elem) +
++		round_up(attr->key_size, 8);
++	u32 elem_value_size = elem_size +
++		num_possible_cpus() * attr->value_size;
++
++	return __htab_map_alloc(attr, elem_size, elem_value_size,
++				offsetof(struct htab_percpu_elem, key),
++				htab_percpu_map_flush);
++}
++
++/* Called from syscall or from eBPF program */
++static int htab_percpu_map_delete_elem(struct bpf_map *map, void *key)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct htab_elem_common *l;
++	struct hlist_head *head;
++	unsigned long flags;
++	u32 hash, key_size;
++	struct bucket *b;
++	int ret = -ENOENT;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++	b = __select_bucket(htab, hash);
++	head = &b->head;
++
++	raw_spin_lock_irqsave(&b->lock, flags);
++
++	l = lookup_elem_raw(htab, head, hash, key);
++
++	if (l) {
++		hlist_del_rcu(&l->hash_node);
++		atomic_dec(&htab->count);
++		call_rcu(&l->rcu, htab_percpu_elem_rcu_free);
++		ret = 0;
++	}
++
++	raw_spin_unlock_irqrestore(&b->lock, flags);
++	return ret;
++}
++
++/* Called from syscall or eBPF program */
++static void *htab_percpu_map_lookup_elem(struct bpf_map *map, void *key)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct htab_elem_common *l;
++
++	l = __htab_map_lookup_elem(htab, key);
++	if (l) {
++		void *value = per_cpu_ptr(htab_percpu_elem(l)->value,
++					  smp_processor_id());
++		return value;
++	}
++
++	return NULL;
++
++}
++
++/* Called from syscall or from eBPF program */
++static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
++				       void *value, u64 map_flags)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct htab_percpu_elem *l_new, *l_old;
++	struct hlist_head *head;
++	struct bucket *b;
++	unsigned long flags;
++	int ret;
++
++	if (map_flags > BPF_EXIST)
++		/* unknown flags */
 +		return -EINVAL;
 +
-+	f = fdget(ufd);
-+	map = __bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
++	WARN_ON_ONCE(!rcu_read_lock_held());
 +
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
++	/* allocate new element outside of lock */
++	l_new = htab_percpu_elem(htab_elem_common_alloc(htab, key));
++	if (!l_new)
++		return -ENOMEM;
 +
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
++	l_new->value = __alloc_percpu_gfp(htab->map.value_size, 8,
++					  GFP_ATOMIC | __GFP_NOWARN);
++	if (!l_new->value) {
++		htab_percpu_elem_free(l_new);
++		return -ENOMEM;
++	}
 +
-+	err = -ENOMEM;
-+	value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
-+	if (!value)
-+		goto free_key;
++	memcpy(raw_cpu_ptr(l_new->value), value, map->value_size);
 +
-+	value_info.map = map;
-+	value_info.key = key;
-+	value_info.value = value;
++	b = __select_bucket(htab, l_new->common.hash);
++	head = &b->head;
 +
-+	err = smp_call_function_single(ucpu, percpu_map_lookup_value,
-+				       &value_info, 1);
-+	if (err)
-+		goto free_value;
++	/* bpf_map_update_elem() can be called in_irq() */
++	raw_spin_lock_irqsave(&b->lock, flags);
 +
-+	err = -ENOENT;
-+	if (!value_info.found)
-+		goto free_value;
++	l_old = htab_percpu_elem(lookup_elem_raw(htab, head, l_new->common.hash,
++						 key));
 +
-+	err = -EFAULT;
-+	if (copy_to_user(uvalue, value, map->value_size) != 0)
-+		goto free_value;
++	if (!l_old && unlikely(atomic_read(&htab->count) >= map->max_entries)) {
++		/* if elem with this 'key' doesn't exist and we've reached
++		 * max_entries limit, fail insertion of new elem
++		 */
++		ret = -E2BIG;
++		goto err;
++	}
 +
-+	err = 0;
++	if (l_old && map_flags == BPF_NOEXIST) {
++		/* elem already exists */
++		ret = -EEXIST;
++		goto err;
++	}
 +
-+free_value:
-+	kfree(value);
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
++	if (!l_old && map_flags == BPF_EXIST) {
++		/* elem doesn't exist, cannot update it */
++		ret = -ENOENT;
++		goto err;
++	}
++
++	if (l_old) {
++		memcpy(this_cpu_ptr(l_old->value), value, map->value_size);
++	} else {
++		hlist_add_head_rcu(&l_new->common.hash_node, head);
++		atomic_inc(&htab->count);
++	}
++
++	raw_spin_unlock_irqrestore(&b->lock, flags);
++
++	return 0;
++err:
++	raw_spin_unlock_irqrestore(&b->lock, flags);
++	htab_percpu_elem_free(l_new);
++	return ret;
 +}
 +
- #define BPF_MAP_UPDATE_ELEM_LAST_FIELD flags
- 
- static int map_update_elem(union bpf_attr *attr)
-@@ -792,6 +882,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_OBJ_GET:
- 		err = bpf_obj_get(&attr);
- 		break;
-+	case BPF_MAP_LOOKUP_PERCPU_ELEM:
-+		err = map_lookup_percpu_elem(&attr);
-+		break;
- 	default:
- 		err = -EINVAL;
- 		break;
++static const struct bpf_map_ops htab_percpu_ops = {
++	.map_alloc = htab_percpu_map_alloc,
++	.map_free = htab_map_free,
++	.map_get_next_key = htab_map_get_next_key,
++	.map_lookup_elem = htab_percpu_map_lookup_elem,
++	.map_update_elem = htab_percpu_map_update_elem,
++	.map_delete_elem = htab_percpu_map_delete_elem,
++};
++
++static struct bpf_map_type_list htab_percpu_type __read_mostly = {
++	.ops = &htab_percpu_ops,
++	.type = BPF_MAP_TYPE_PERCPU_HASH,
++};
++
+ static int __init register_htab_map(void)
+ {
+ 	bpf_register_map_type(&htab_type);
++	bpf_register_map_type(&htab_percpu_type);
+ 	return 0;
+ }
+ late_initcall(register_htab_map);
 -- 
 2.5.1
