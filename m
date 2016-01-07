@@ -1,69 +1,61 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
- vxlan devices
-Date: Wed, 6 Jan 2016 17:10:40 -0800
-Message-ID: <CAEh+42gOGrhnky8NBaOYKCE6MB1SntLSoTZzJSe-HRZvb1ao_A@mail.gmail.com>
-References: <1452087186-12926-1-git-send-email-david@weave.works>
- <20160106.155950.1007160228570301281.davem@davemloft.net>
- <8660z6qohn.fsf@weave.works>
- <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
- <86wprmp6z6.fsf@weave.works>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [RFC v5 5/6] Add PTP_SYS_OFFSET_PRECISE for driver
+ crosstimestamping
+Date: Wed, 06 Jan 2016 17:42:53 -0800
+Message-ID: <op.yauhpruq1774gr@chall-mobl2.amr.corp.intel.com>
+References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
+ <1451911523-8534-6-git-send-email-christopher.s.hall@intel.com>
+ <20160105152731.GA24372@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <86wprmp6z6.fsf-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, mingo@redhat.com, john.stultz@linaro.org,
+	hpa@zytor.com, jeffrey.t.kirsher@intel.com, x86@kernel.org,
+	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, kevin.b.stanton@intel.com
+To: "Richard Cochran" <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160105152731.GA24372@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBKYW4gNiwgMjAxNiBhdCA0OjI5IFBNLCBEYXZpZCBXcmFnZyA8ZGF2aWRAd2VhdmUu
-d29ya3M+IHdyb3RlOgo+IEplc3NlIEdyb3NzIDxqZXNzZUBrZXJuZWwub3JnPiB3cml0ZXM6Cj4+
-IE9uIFdlZCwgSmFuIDYsIDIwMTYgYXQgMzoyNSBQTSwgRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZl
-LndvcmtzPiB3cm90ZToKPj4+IEknbSBjZXJ0YWlubHkgb3BlbiB0byBzdWdnZXN0aW9ucyBvZiBi
-ZXR0ZXIgd2F5cyB0byBzb2x2ZSB0aGUgcHJvYmxlbS4KPj4KPj4gT25lIG9wdGlvbiBpcyB0byBz
-aW1wbHkgc2V0IHRoZSBNVFUgb24gdGhlIGRldmljZSBmcm9tIHVzZXJzcGFjZS4KPgo+IElmIHRo
-YXQgd29ya2VkIEkgd291bGRuJ3QgYmUgc3VibWl0dGluZyBhIHBhdGNoLgo+Cj4gVGhlIE1UVSB2
-YWx1ZSBvZiAxNTAwIGlzIG5vdCBtZXJlbHkgdGhlIGRlZmF1bHQuICBJdCBpcyBhbHNvIHRoZSBt
-YXhpbXVtCj4gYWxsb3dlZCBmb3IgYSB2eGxhbiBuZXRkZXYgbm90IGFzc29jaWF0ZWQgd2l0aCBh
-biB1bmRlcmx5aW5nIG5ldGRldi4gIElmCj4geW91IGRvIGUuZy4gImlwIGxpbmsgc2V0IGRldiB2
-eGxhbi02Nzg0IG10dSA4OTUwIiwgd2hlcmUgdnhsYW4tNjc4NAo+IHdhcyBjcmVhdGVkIGJ5IGFu
-IG92cyB2cG9ydCwgaXQgZmFpbHMgd2l0aCBFSU5WQUwuCj4KPiBUaGUgZmlyc3QgcGF0Y2ggb2Yg
-dGhlIHR3byBzdWJtaXR0ZWQgcmVtb3ZlcyB0aGF0IGxpbWl0LgoKSSBzYXcgeW91ciBmaXJzdCBw
-YXRjaCBhbmQgSSBhZ3JlZSB0aGF0IGl0IGZpeGVzIGEgcHJvYmxlbS4gSSB3YXMKcmVmZXJyaW5n
-IHRvIHRoZSBzZWNvbmQgcGF0Y2guCgo+PiBUaGUgcmVhbGl0eSBpcyB0aGF0IHRoZSBjb2RlIHlv
-dSdyZSBtb2RpZnlpbmcgaXMgY29tcGF0aWJpbGl0eSBjb2RlLgo+PiBNYXliZSB3ZSBzaG91bGQg
-bWFrZSB0aGlzIGNoYW5nZSB0byBwcmVzZXJ2ZSB0aGUgb2xkIGJlaGF2aW9yIG9yIG9sZAo+PiBj
-YWxsZXJzIChhbHRob3VnaCwgYWdhaW4sIGl0IHNob3VsZCBub3QgYmUganVzdCBmb3IgVlhMQU4p
-LiBCdXQgbm8gbmV3Cj4+IGZlYXR1cmVzIG9yIHR1bm5lbCB0eXBlcyB3aWxsIGJlIHN1cHBvcnRl
-ZCBpbiB0aGlzIG1hbm5lci4KPgo+IFRoYXQncyBmaW5lLiAgTmF0dXJhbGx5LCB0aGUgaWRlYWwg
-ZnJvbSBvdXIgcG9pbnQgb2YgdmlldyBpcyBpZiB0aGUKPiBjb21wYXRpYmlsaXR5IGNvZGUgaXMg
-ZnVsbHkgY29tcGF0aWJsZSwgc28gd2UgZG9uJ3QgaGF2ZSB0byBtYWtlIGNoYW5nZXMKPiBvbiBv
-dXIgc2lkZSB0aGF0IGludm9sdmUgZGlmZmVyZW50IGNvZGUgcGF0aHMgZm9yIGRpZmZlcmVudCBr
-ZXJuZWwKPiB2ZXJzaW9ucy4gIFRoYXQncyB3aGF0IG15IHBhdGNoZXMgYXJlIGludGVuZGVkIHRv
-IGFjaGlldmUuCgpUaGUgaW50ZW50aW9uIGlzIHRvIGJlIGZ1bGx5IGJhY2t3YXJkcyBjb21wYXRp
-YmxlIHdpdGggZXhpc3RpbmcKc29mdHdhcmUuIElmIHlvdSB3YW50IHRvIHRha2UgYWR2YW50YWdl
-IG9mIGZ1dHVyZSBmdW5jdGlvbmFsaXR5IHRoZW4sCnllcywgeW91IHdpbGwgbmVlZCB0byBjaGFu
-Z2UgdG8gdGhlIG5ldyBtb2RlbC4KCkkgYWdyZWUgdGhhdCBiZWhhdmlvciBjaGFuZ2VkIHdpdGgg
-ZXhpc3RpbmcgY29tcGF0aWJpbGl0eSBjb2RlLiBJJ20KZmluZSB3aXRoIHlvdXIgc2VyaWVzIGFz
-IGxvbmcgYXMgeW91IGdlbmVyYWxpemUgaXQgdG8gYWxsIHR1bm5lbCB0eXBlcwphbmQgbm90IGp1
-c3QgVlhMQU4uIEp1c3QgYmUgYXdhcmUgdGhhdCB5b3UncmUgZ29pbmcgdG8gaGF2ZSB0byBmaW5k
-CmFub3RoZXIgc29sdXRpb24gbG9uZyB0ZXJtLgoKPiBPay4gIEJ1dCBwbGVhc2UgdHJ5IHRvIGJl
-IGdlbnRsZSBvbiB0aGUgcG9vciBzb3VscyB3aG8gaGF2ZSB0byBjb21lIHVwCj4gd2l0aCBhIHNp
-bmdsZSBjb2RlYmFzZSB0aGF0IHdvcmtzIG9uIGEgcmFuZ2Ugb2Yga2VybmVsIHZlcnNpb25zIGdv
-aW5nCj4gYmFjayBhIGZldyB5ZWFycy4KCkkgbWFpbnRhaW4gYSBsYXJnZSBwcm9ncmFtIHRoYXQg
-bmVlZHMgdG8gZG8gdGhpcyBteXNlbGYsIHNvIEkgYW0gYXdhcmUKdGhhdCBpdCBjYW4gYmUgY2hh
-bGxlbmdpbmcuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-CmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gu
-b3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Hi Richard,
+
+This all sounds fine.  Thanks for the feedback.  I'll roll this into the  
+next patchset.
+
+Chris
+
+On Tue, 05 Jan 2016 07:27:32 -0800, Richard Cochran  
+<richardcochran@gmail.com> wrote:
+> On Mon, Jan 04, 2016 at 04:45:22AM -0800, Christopher S. Hall wrote:
+>> +	case PTP_SYS_OFFSET_PRECISE:
+>> +		if (!ptp->info->getsynctime) {
+>> +			err = -EINVAL;
+>
+> -EOPNOTSUPP would be better here.
+>
+>> +		precise_offset.sys_real.sec =
+>> +			div_u64_rem(ktime_to_ns(xtstamp.sys_realtime),
+>> +				    NSEC_PER_SEC, &rem);
+>> +		precise_offset.sys_real.nsec = rem;
+>
+> How about this instead:
+>
+> 		ts = ktime_to_timespec64(xtstamp.sys_realtime);
+> 		precise_offset.sys_real.sec = ts.tv_sec;
+> 		precise_offset.sys_real.nsec = ts.tv_nsec;
+>
+>> +		precise_offset.sys_raw.sec =
+>> +			div_u64_rem(ktime_to_ns(xtstamp.sys_monoraw),
+>> +				    NSEC_PER_SEC, &rem);
+>> +		precise_offset.sys_raw.nsec = rem;
+>> +		precise_offset.dev.sec =
+>> +			div_u64_rem(ktime_to_ns(xtstamp.device), NSEC_PER_SEC,
+>> +				    &rem);
+>> +		precise_offset.dev.nsec = rem;
+>
+> And for these as well.
+>
+> Thanks,
+> Richard
