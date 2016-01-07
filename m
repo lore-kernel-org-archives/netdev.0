@@ -1,58 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Add eth_platform_get_mac_address() helper.
-Date: Wed, 06 Jan 2016 19:01:07 -0500 (EST)
-Message-ID: <20160106.190107.1969093816791419629.davem@davemloft.net>
-References: <1452121966.24575.52.camel@perches.com>
-	<87vb76b87m.fsf@nemi.mork.no>
-	<1452123144.24575.57.camel@perches.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [ovs-dev] [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
+ vxlan devices
+Date: Thu, 7 Jan 2016 01:14:38 +0100
+Message-ID: <568DADEE.1050206@stressinduktion.org>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+ <20160106.155950.1007160228570301281.davem@davemloft.net>
+ <8660z6qohn.fsf@weave.works>
+ <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn@mork.no, netdev@vger.kernel.org, sowmini.varadhan@oracle.com
-To: joe@perches.com
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, dev@openvswitch.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@kernel.org>, David Wragg <david@weave.works>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41356 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752794AbcAGABQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 19:01:16 -0500
-In-Reply-To: <1452123144.24575.57.camel@perches.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:53163 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752163AbcAGAOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 19:14:43 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 22B18207D3
+	for <netdev@vger.kernel.org>; Wed,  6 Jan 2016 19:14:41 -0500 (EST)
+In-Reply-To: <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Joe Perches <joe@perches.com>
-Date: Wed, 06 Jan 2016 15:32:24 -0800
+Hi,
 
-> On Thu, 2016-01-07 at 00:26 +0100, Bj=F8rn Mork wrote:
->> Joe Perches <joe@perches.com> writes:
->> > On Wed, 2016-01-06 at 16:33 -0500, David Miller wrote:
->> > > A repeating pattern in drivers has become to use OF node informa=
-tion
->> > > and, if not found, platform specific host information to extract=
- the
->> > > ethernet address for a given device.
->> > []
->> > > diff --git a/include/linux/etherdevice.h b/include/linux/etherde=
-vice.h
->> > []
->> > > @@ -485,3 +487,32 @@ static int __init eth_offload_init(void)
->> > > =A0}
->> > > =A0
->> > > =A0fs_initcall(eth_offload_init);
->> > > +
->> > > +unsigned char * __weak arch_get_platform_mac_address(void)
->> > > +{
->> > > +=A0=A0=A0=A0=A0=A0=A0return NULL;
->> >=20
->> > WARN_ON_ONCE ?
->>=20
->> That would prevent a driver from using this with additional fallback
->> methods.=A0=A0For what reason?
->=20
-> It's declared __weak and should be overridden by
-> an arch specific function.
->=20
-> A NULL address would cause a fault when using
-> a function like copy_ether_addr.
+On 07.01.2016 00:57, Jesse Gross wrote:
+> On Wed, Jan 6, 2016 at 3:25 PM, David Wragg <david@weave.works> wrote:
+>> David Miller <davem@davemloft.net> writes:
+>>>> Prior to 4.3, openvswitch vxlan vports could transmit vxlan packets of
+>>>> any size, constrained only by the ability to transmit the resulting
+>>>> UDP packets.  4.3 introduced vxlan netdevs corresponding to vxlan
+>>>> vports.  These netdevs have an MTU, which limits the size of a packet
+>>>> that can be successfully vxlan-encapsulated.  The default value for
+>>>> this MTU is 1500, which is awkwardly small, and leads to a conspicuous
+>>>> change in behaviour for userspace.
+>>>>
+>>>> These two patches set the MTU on openvswitch-crated vxlan devices to
+>>>> be 65465 (the maximum IP packet size minus the vxlan-on-IPv6
+>>>> overhead), effectively restoring the behaviour prior to 4.3.  In order
+>>>> to accomplish this, the first patch removes the MTU constraint of 1500
+>>>> for vxlan netdevs without an underlying device.
+>>>
+>>> Is this really the right thing to do?
+>>
+>> I'm certainly open to suggestions of better ways to solve the problem.
+>
+> One option is to simply set the MTU on the device from userspace.
+>
+> The reality is that the code you're modifying is compatibility code.
+> Maybe we should make this change to preserve the old behavior for old
+> callers (although, again, it should not be just for VXLAN). But no new
+> features or tunnel types will be supported in this manner.
+>
+> New or updated userspace programs should work by simply creating and
+> adding tunnel devices to OVS. That won't go through this path at all
+> so you're going to need to find another approach in the near future in
+> any case.
 
-The caller checks for NULL, and this is the default implementation
-doing precisely what it is meant to do.
+I don't see any other way as to make MTUs part of the flow if we want to 
+have correct ip_local_error notifications. And those must also work 
+across VMs, so openvswitch in quasi brouting mode would need to emit 
+ICMP PtBs (hopefully with a correct source address, otherwise uRPF kills 
+them before reaching the applications) or do error signaling via virtio_net.
+
+Either the openvswitch user space can feed those information to the 
+datapath or the ovs dataplane can do a lookup on the outer ip address 
+while filling out the metadata_dst and caching it in the flow or we just 
+keep the dst in the flow anyway. So a net_device used by ovs has no real 
+mtu anymore.
+
+Bye,
+Hannes
