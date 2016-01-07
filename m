@@ -1,141 +1,75 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 2/2] bpf: add skb_postpush_rcsum and fix dev_forward_skb occasions
-Date: Thu,  7 Jan 2016 15:50:23 +0100
-Message-ID: <ea76eeeaed015a797cef5df2533bae1ebd62aa05.1452176592.git.daniel@iogearbox.net>
-References: <cover.1452176592.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+Subject: Re: [PATCH net-next] net, sched: add clsact qdisc
+Date: Thu, 07 Jan 2016 16:16:55 +0100
+Message-ID: <568E8167.8040507@iogearbox.net>
+References: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net> <20160107035334.GA99020@ast-mbp.thefacebook.com> <568E395F.8020504@stressinduktion.org> <568E52E8.1010804@iogearbox.net> <568E794C.7050601@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jhs@mojatatu.com, john.fastabend@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42947 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:45639 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbcAGOu1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 09:50:27 -0500
-In-Reply-To: <cover.1452176592.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1452176592.git.daniel@iogearbox.net>
-References: <cover.1452176592.git.daniel@iogearbox.net>
+	with ESMTP id S1750741AbcAGPQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 10:16:59 -0500
+In-Reply-To: <568E794C.7050601@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a small helper skb_postpush_rcsum() and fix up redirect locations
-that need CHECKSUM_COMPLETE fixups on ingress. dev_forward_skb() expects
-a proper csum that covers also Ethernet header, f.e. since 2c26d34bbcc0
-("net/core: Handle csum for CHECKSUM_COMPLETE VXLAN forwarding"), we
-also do skb_postpull_rcsum() after pulling Ethernet header off via
-eth_type_trans().
+On 01/07/2016 03:42 PM, Hannes Frederic Sowa wrote:
+> On 07.01.2016 12:58, Daniel Borkmann wrote:
+>> On 01/07/2016 11:09 AM, Hannes Frederic Sowa wrote:
+>>> Hi Daniel and Alexei,
+>>>
+>>> On 07.01.2016 04:53, Alexei Starovoitov wrote:
+>>>> On Wed, Jan 06, 2016 at 02:00:56AM +0100, Daniel Borkmann wrote:
+>>>>>
+>>>>> I decided to extend the sch_ingress module with clsact functionality so
+>>>>> that commonly used code can be reused, the module is being aliased with
+>>>>> sch_clsact so that it can be auto-loaded properly. Alternative would
+>>>>> have been
+>>>>> to add a flag when initializing ingress to alter its behaviour plus
+>>>>> aliasing
+>>>>> to a different name (as it's more than just ingress). However, the
+>>>>> first would
+>>>>> end up, based on the flag, choosing the new/old behaviour by calling
+>>>>> different
+>>>>> function implementations to handle each anyway, the latter would
+>>>>> require to
+>>>>> register ingress qdisc once again under different alias. So, this
+>>>>> really begs
+>>>>> to provide a minimal, cleaner approach to have Qdisc_ops and
+>>>>> Qdisc_class_ops
+>>>>> by its own that share callbacks used by both.
+>>>> ...
+>>>>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>>>>
+>>>> we've been going back and forth on the design and this final approach
+>>>> presented seems to be the best, since pros outweigh the cons.
+>>>>
+>>>> Acked-by: Alexei Starovoitov <ast@kernel.org>
+>>>
+>>> One question:
+>>>
+>>> With the advance in lockless qdiscs by John Fastabend, is it possible
+>>> to push the handle_egress hook further down into sched layer?
+>>
+>> Idea was that this is done before we pick txq as stated. F.e., could also
+>> be that we end up not having enqueue handler, thus moving this further down
+>> (not sure if there's a good place?), might make it all more scattered resp.
+>> complex to cover all parts.
+>
+> My understanding is that using redirects and something like ifb/imq-alike could already solve some of those problems while not adding yet another handler to the stack?
 
-When using eBPF in a netns setup f.e. with vxlan in collect metadata mode,
-I can trigger the following csum issue with an IPv6 setup:
+Hmm, imq at least is not even upstream [1], quick glance over the code, I'm
+also not sure it's a clean or minimal solution. Certainly you need to go
+through another dev_queue_xmit() pass, need an additional netdev with extra
+classful qdisc just for exec of tc_classify() for the lower dev_queue_xmit().
 
-  [  505.144065] dummy1: hw csum failure
-  [...]
-  [  505.144108] Call Trace:
-  [  505.144112]  <IRQ>  [<ffffffff81372f08>] dump_stack+0x44/0x5c
-  [  505.144134]  [<ffffffff81607cea>] netdev_rx_csum_fault+0x3a/0x40
-  [  505.144142]  [<ffffffff815fee3f>] __skb_checksum_complete+0xcf/0xe0
-  [  505.144149]  [<ffffffff816f0902>] nf_ip6_checksum+0xb2/0x120
-  [  505.144161]  [<ffffffffa08c0e0e>] icmpv6_error+0x17e/0x328 [nf_conntrack_ipv6]
-  [  505.144170]  [<ffffffffa0898eca>] ? ip6t_do_table+0x2fa/0x645 [ip6_tables]
-  [  505.144177]  [<ffffffffa08c0725>] ? ipv6_get_l4proto+0x65/0xd0 [nf_conntrack_ipv6]
-  [  505.144189]  [<ffffffffa06c9a12>] nf_conntrack_in+0xc2/0x5a0 [nf_conntrack]
-  [  505.144196]  [<ffffffffa08c039c>] ipv6_conntrack_in+0x1c/0x20 [nf_conntrack_ipv6]
-  [  505.144204]  [<ffffffff8164385d>] nf_iterate+0x5d/0x70
-  [  505.144210]  [<ffffffff816438d6>] nf_hook_slow+0x66/0xc0
-  [  505.144218]  [<ffffffff816bd302>] ipv6_rcv+0x3f2/0x4f0
-  [  505.144225]  [<ffffffff816bca40>] ? ip6_make_skb+0x1b0/0x1b0
-  [  505.144232]  [<ffffffff8160b77b>] __netif_receive_skb_core+0x36b/0x9a0
-  [  505.144239]  [<ffffffff8160bdc8>] ? __netif_receive_skb+0x18/0x60
-  [  505.144245]  [<ffffffff8160bdc8>] __netif_receive_skb+0x18/0x60
-  [  505.144252]  [<ffffffff8160ccff>] process_backlog+0x9f/0x140
-  [  505.144259]  [<ffffffff8160c4a5>] net_rx_action+0x145/0x320
-  [...]
+Thanks,
+Daniel
 
-What happens is that on ingress, we push Ethernet header back in, either
-from cls_bpf or right before skb_do_redirect(), but without updating csum.
-The "hw csum failure" can be fixed by using the new skb_postpush_rcsum()
-helper for the dev_forward_skb() case to correct the csum diff again.
-
-Thanks to Hannes Frederic Sowa for the csum_partial() idea!
-
-Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
-Fixes: 27b29f63058d ("bpf: add bpf_redirect() helper")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/linux/skbuff.h | 17 +++++++++++++++++
- net/core/filter.c      | 17 +++++++++++++----
- 2 files changed, 30 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6b6bd42..07f9ccd 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2805,6 +2805,23 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
- 
- unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
- 
-+static inline void skb_postpush_rcsum(struct sk_buff *skb,
-+				      const void *start, unsigned int len)
-+{
-+	/* For performing the reverse operation to skb_postpull_rcsum(),
-+	 * we can instead of ...
-+	 *
-+	 *   skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
-+	 *
-+	 * ... just use this equivalent version here to save a few
-+	 * instructions. Feeding csum of 0 in csum_partial() and later
-+	 * on adding skb->csum is equivalent to feed skb->csum in the
-+	 * first place.
-+	 */
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_partial(start, len, skb->csum);
-+}
-+
- /**
-  *	pskb_trim_rcsum - trim received skb and update checksum
-  *	@skb: buffer to trim
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 35e6fed..0db92b5 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1368,8 +1368,9 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
- 		/* skb_store_bits cannot return -EFAULT here */
- 		skb_store_bits(skb, offset, ptr, len);
- 
--	if (BPF_RECOMPUTE_CSUM(flags) && skb->ip_summed == CHECKSUM_COMPLETE)
--		skb->csum = csum_add(skb->csum, csum_partial(ptr, len, 0));
-+	if (BPF_RECOMPUTE_CSUM(flags))
-+		skb_postpush_rcsum(skb, ptr, len);
-+
- 	return 0;
- }
- 
-@@ -1525,8 +1526,12 @@ static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
- 	if (unlikely(!skb2))
- 		return -ENOMEM;
- 
--	if (BPF_IS_REDIRECT_INGRESS(flags))
-+	if (BPF_IS_REDIRECT_INGRESS(flags)) {
-+		if (skb_at_tc_ingress(skb2))
-+			skb_postpush_rcsum(skb2, skb_mac_header(skb2),
-+					   skb2->mac_len);
- 		return dev_forward_skb(dev, skb2);
-+	}
- 
- 	skb2->dev = dev;
- 	skb_sender_cpu_clear(skb2);
-@@ -1569,8 +1574,12 @@ int skb_do_redirect(struct sk_buff *skb)
- 		return -EINVAL;
- 	}
- 
--	if (BPF_IS_REDIRECT_INGRESS(ri->flags))
-+	if (BPF_IS_REDIRECT_INGRESS(ri->flags)) {
-+		if (skb_at_tc_ingress(skb))
-+			skb_postpush_rcsum(skb, skb_mac_header(skb),
-+					   skb->mac_len);
- 		return dev_forward_skb(dev, skb);
-+	}
- 
- 	skb->dev = dev;
- 	skb_sender_cpu_clear(skb);
--- 
-1.9.3
+   [1] https://github.com/imq/linuximq/tree/master/kernel/v4.x
