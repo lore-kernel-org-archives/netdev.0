@@ -1,50 +1,31 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCHv2 net-next 00/22] Support MDIO devices
-Date: Thu, 7 Jan 2016 21:14:34 +0100
-Message-ID: <20160107201434.GD1356@lunn.ch>
-References: <1452107487-475-1-git-send-email-andrew@lunn.ch>
- <20160107.143357.139530014387548318.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 16/26] phy: fixed-phy: remove fixed_phy_update_state()
+Date: Thu, 07 Jan 2016 12:15:40 -0800
+Message-ID: <568EC76C.40803@gmail.com>
+References: <20151207173553.GU8644@n2100.arm.linux.org.uk> <E1a5zk9-000765-Dl@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43453 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752733AbcAGUOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2016 15:14:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20160107.143357.139530014387548318.davem@davemloft.net>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35333 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380AbcAGUQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 15:16:14 -0500
+Received: by mail-pa0-f42.google.com with SMTP id ho8so5925422pac.2
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 12:16:14 -0800 (PST)
+In-Reply-To: <E1a5zk9-000765-Dl@rmk-PC.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2016 at 02:33:57PM -0500, David Miller wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Wed,  6 Jan 2016 20:11:05 +0100
+On 07/12/15 09:38, Russell King wrote:
+> mvneta is the only user of fixed_phy_update_state(), which has been
+> converted to use phylink instead.  Remove fixed_phy_update_state().
 > 
-> > The discussions about changing the way DSA probes switches resulted in
-> > the wish to have switches attached to an MDIO bus to be represented as
-> > an MDIO device. However the current code only supports PHYs on MDIO
-> > busses. This patchset remedies this problem. It consists of a number
-> > of cleanups, abstraction for accessing structure members, and
-> > refactoring, as well as adding the concept of a generic MDIO device
-> > and MDIO driver.
-> > 
-> > v2:
-> > Added Reviewed-by from Florian
-> > Made phydev_name() an inline function
-> > Added phy_attached_info/phy_attached_print() for information about
-> > the attached phy.
-> > Removed now redundant irq setup from of_mdio.c
-> > Dropped hunks from PHYMII ioctl which prevented access to any address
-> > DSA carrier off before phy setup
-> 
-> Series applied, thanks Andrew.
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Hi Dave
-
-You might get some build failures from less well used
-architectures/drivers.  I've got a couple of 0-day emails i need to
-send fixups for.
-
-     Andrew
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
