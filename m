@@ -1,47 +1,56 @@
-From: David Wragg <david@weave.works>
-Subject: Re: [PATCH net 1/2] vxlan: Relax the MTU constraint on vxlan devices
-Date: Thu, 07 Jan 2016 11:31:38 +0000
-Message-ID: <86lh81pqw5.fsf@weave.works>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [PATCH net 2/2] vxlan: Set a large MTU on ovs-created
+ vxlan devices
+Date: Thu, 7 Jan 2016 12:36:41 +0100
+Message-ID: <20160107113641.GI32456@pox.localdomain>
 References: <1452087186-12926-1-git-send-email-david@weave.works>
-	<1452087186-12926-2-git-send-email-david@weave.works>
-	<20160107112414.GH32456@pox.localdomain>
+ <1452087186-12926-3-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:38613 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752246AbcAGLbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 06:31:41 -0500
-Received: by mail-wm0-f49.google.com with SMTP id b14so118439567wmb.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 03:31:40 -0800 (PST)
-In-Reply-To: <20160107112414.GH32456@pox.localdomain> (Thomas Graf's message
-	of "Thu, 7 Jan 2016 12:24:14 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1452087186-12926-3-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> writes:
->> +	int max_mtu = 65535;
->
-> This should probably be represented as a new const DEV_MAX_MTU which
-> can be used by veth, tun, and virtio as well instead of hardcoding
-> this separately in each driver.
-
-I discovered IP_MAX_MTU in net/route.h after putting the patch together.
-Seems appropriate to use that?
-
->> +static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
->> +{
->> +	struct vxlan_dev *vxlan = netdev_priv(dev);
->> +	struct vxlan_rdst *dst = &vxlan->default_dst;
->> +	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
->> +							 dst->remote_ifindex);
->> +	return __vxlan_change_mtu(dev, lowerdev, dst, new_mtu);
->
-> Any particular reason for the indirection?
-
-To make patch 2/2 simpler.  I can rearrange to eliminate the indirection
-here if that is preferred.
-
-David
+T24gMDEvMDYvMTYgYXQgMDE6MzNwbSwgRGF2aWQgV3JhZ2cgd3JvdGU6Cj4gUHJpb3IgdG8gNC4z
+LCB2eGxhbiB2cG9ydHMgY291bGQgdHJhbnNtaXQgdnhsYW4gcGFja2V0cyBvZiBhbnkgc2l6ZSwK
+PiBjb25zdHJhaW5lZCBvbmx5IGJ5IHRoZSBhYmlsaXR5IHRvIHRyYW5zbWl0IHRoZSByZXN1bHRp
+bmcgVURQIHBhY2tldHMuCj4gNC4zIGludHJvZHVjZWQgdnhsYW4gbmV0ZGV2cyBjb3JyZXNwb25k
+aW5nIHRvIHZ4bGFuIHZwb3J0cy4gIFRoZXNlCj4gbmV0ZGV2cyBoYXZlIGFuIE1UVSwgd2hpY2gg
+bGltaXRzIHRoZSBzaXplIG9mIGEgcGFja2V0IHRoYXQgY2FuIGJlCj4gc3VjY2Vzc2Z1bGx5IHZ4
+bGFuLWVuY2Fwc3VsYXRlZC4gIFRoZSBkZWZhdWx0IHZhbHVlIGZvciB0aGlzIE1UVSBpcwo+IDE1
+MDAsIHdoaWNoIGlzIGF3a3dhcmRseSBzbWFsbCwgYW5kIGxlYWRzIHRvIGEgY29uc3BpY3VvdXMg
+Y2hhbmdlIGluCj4gYmVoYXZpb3VyIGZvciB1c2Vyc3BhY2UuCj4gCj4gVGhpcyBzZXRzIHRoZSBN
+VFUgb24gb3BlbnZzd2l0Y2gtY3JlYXRlZCB2eGxhbiBkZXZpY2VzIHRvIGJlIDY1NDY1Cj4gKHRo
+ZSBtYXhpbXVtIElQIHBhY2tldCBzaXplIG1pbnVzIHRoZSB2eGxhbi1vbi1JUHY2IG92ZXJoZWFk
+KSwKPiBlZmZlY3RpdmVseSByZXN0b3JpbmcgdGhlIGJlaGF2aW91ciBwcmlvciB0byA0LjMuICBB
+bHRob3VnaCB0aGUKPiB2eGxhbl9jb25maWcgc3RydWN0IGFscmVhZHkgaGFkIGEgbXR1IGZpZWxk
+IGZvciB0aGlzLAo+IHZ4bGFuX2Rldl9jb25maWd1cmUgbW9zdGx5IGlnbm9yZWQgaXQ7IHRoYXQg
+aXMgYWxzbyBhZGRyZXNzZWQgaGVyZS4KCkkgYWdyZWUgd2l0aCBKZXNzZSB0aGF0IHRoaXMgaXMg
+ZmluZS4gVGhlIHR1bm5lbCBuZXRfZGV2aWNlIGlzIGEKbG9naWNhbCBkZXZpY2UgYW55d2F5IGFu
+ZCB0aGUgcmVhbCBNVFUgaXMgbm90IGtub3duIGF0IHRoaXMgcG9pbnQKdW50aWwgdGhlIHVuZGVy
+bGF5IHJvdXRlIGhhcyBiZWVuIHJlc29sdmVkLgoKSXQgaXMgcmVhbGx5IGEgbW9kZWwgd2Ugc2hv
+dWxkIG1vdmUgYXdheSBmcm9tIHRob3VnaC4gVW5sZXNzIHRoZQplbmRwb2ludHMgbmVnb3RpYXRl
+IGEgcHJvcGVyIE1UVSwgdGhlIHVuZGVybGF5IGNhbid0IHBvc3NpYmxlCmNvcGUgd2l0aCB0aGlz
+IGNvcnJlY3RseSB3aXRob3V0IG1ham9yIHBlcmZvcm1hbmNlIHByb2JsZW1zIGR1ZQp0byBmcmFn
+bWVudGF0aW9uLgoKPiBAQCAtMjgxMCw2ICsyODA5LDEyIEBAIHN0YXRpYyBpbnQgdnhsYW5fZGV2
+X2NvbmZpZ3VyZShzdHJ1Y3QgbmV0ICpzcmNfbmV0LCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+
+ICAJCW5lZWRlZF9oZWFkcm9vbSA9IGxvd2VyZGV2LT5oYXJkX2hlYWRlcl9sZW47Cj4gIAl9Cj4g
+IAo+ICsJaWYgKGNvbmYtPm10dSkgewo+ICsJCWVyciA9IF9fdnhsYW5fY2hhbmdlX210dShkZXYs
+IGxvd2VyZGV2LCBkc3QsIGNvbmYtPm10dSk7CgpPSywgSSBzZWUgdGhlIHJlYXNvbiBmb3IgdGhl
+IGluZGlyZWN0aW9uIGluIHRoZSBmaXJzdCBwYXRjaC4gTmV2ZXIKbWluZC4KX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
+b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
+ZXYK
