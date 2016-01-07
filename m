@@ -1,56 +1,37 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] net, sched: add clsact qdisc
-Date: Thu, 07 Jan 2016 12:58:32 +0100
-Message-ID: <568E52E8.1010804@iogearbox.net>
-References: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net> <20160107035334.GA99020@ast-mbp.thefacebook.com> <568E395F.8020504@stressinduktion.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [BUG] skb corruption and kernel panic at forwarding with fragmentation
+Date: Thu, 7 Jan 2016 06:59:03 -0500
+Message-ID: <CANn89iLDRxh4x9hLyis2w7DfdA+0XZBhygN5gKFVA8nAgS-URQ@mail.gmail.com>
+References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
+	<CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
+	<CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
+	<20160106210532.GE27290@indiana.gru.redhat.com>
+	<20160106220334.GA23789@breakpoint.cc>
+	<20160106234943.GB23789@breakpoint.cc>
+	<CALYGNiObS1fuDNi7Q69BwoWmU8xOnndzy7Z-m35aphjQWUuEnQ@mail.gmail.com>
+	<CALYGNiN-cGxcEwiN-aPH7W1Pa7bLc2UY5LY98mXr+yZK+q5_BA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jhs@mojatatu.com, john.fastabend@gmail.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54807 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752013AbcAGL6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 06:58:38 -0500
-In-Reply-To: <568E395F.8020504@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Konstantin Khlebnikov <koct9i@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALYGNiN-cGxcEwiN-aPH7W1Pa7bLc2UY5LY98mXr+yZK+q5_BA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/07/2016 11:09 AM, Hannes Frederic Sowa wrote:
-> Hi Daniel and Alexei,
+On Thu, Jan 7, 2016 at 6:38 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
 >
-> On 07.01.2016 04:53, Alexei Starovoitov wrote:
->> On Wed, Jan 06, 2016 at 02:00:56AM +0100, Daniel Borkmann wrote:
->>>
->>> I decided to extend the sch_ingress module with clsact functionality so
->>> that commonly used code can be reused, the module is being aliased with
->>> sch_clsact so that it can be auto-loaded properly. Alternative would have been
->>> to add a flag when initializing ingress to alter its behaviour plus aliasing
->>> to a different name (as it's more than just ingress). However, the first would
->>> end up, based on the flag, choosing the new/old behaviour by calling different
->>> function implementations to handle each anyway, the latter would require to
->>> register ingress qdisc once again under different alias. So, this really begs
->>> to provide a minimal, cleaner approach to have Qdisc_ops and Qdisc_class_ops
->>> by its own that share callbacks used by both.
->> ...
->>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->>
->> we've been going back and forth on the design and this final approach
->> presented seems to be the best, since pros outweigh the cons.
->>
->> Acked-by: Alexei Starovoitov <ast@kernel.org>
->
-> One question:
->
-> With the advance in lockless qdiscs by John Fastabend, is it possible to push the handle_egress hook further down into sched layer?
+> Also I've found strange thing: reason of expanding skb->cb from 40 to
+> 48 bypes in 2006
+> 3e3850e989c5d2eb1aab6f0fd9257759f0f4cbc6 was that struct inet6_skb_parm does
+> not fit. But it's is only 24 bytes. Does some arches add pad after
+> each _u16 field?
 
-Idea was that this is done before we pick txq as stated. F.e., could also
-be that we end up not having enqueue handler, thus moving this further down
-(not sure if there's a good place?), might make it all more scattered resp.
-complex to cover all parts.
+"struct inet6_skb_parm" is part of struct tcp_skb_cb
 
-Thanks,
-Daniel
+This is why Patrick had to increase skb->cb[]
