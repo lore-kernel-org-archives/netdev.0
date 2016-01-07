@@ -1,105 +1,53 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH] net: phy: Support for non-HW interrupt devices
-Date: Thu, 7 Jan 2016 23:14:19 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next v2] net, sched: add clsact qdisc
+Date: Thu, 07 Jan 2016 15:21:44 -0800
+Message-ID: <568EF308.1060505@gmail.com>
+References: <61198814638d88ce3555dbecf8ef875523b95743.1452197856.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, jhs@mojatatu.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:62895 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752593AbcAGXOV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 18:14:21 -0500
-Content-Language: en-US
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34932 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753532AbcAGXV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 18:21:58 -0500
+Received: by mail-pf0-f182.google.com with SMTP id 65so414208pff.2
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 15:21:58 -0800 (PST)
+In-Reply-To: <61198814638d88ce3555dbecf8ef875523b95743.1452197856.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces PHY_PSEUDO_INTERRUPT and routines to
-handle pseudo (not-real-hardware) interrupt such as USB interrupt pipe for
-USB-to-Ethernet device.
+On 16-01-07 01:29 PM, Daniel Borkmann wrote:
+> This work adds a generalization of the ingress qdisc as a qdisc holding
+> only classifiers. The clsact qdisc works on ingress, but also on egress.
+> In both cases, it's execution happens without taking the qdisc lock, and
+> the main difference for the egress part compared to prior version of [1]
+> is that this can be applied with _any_ underlying real egress qdisc (also
+> classless ones).
+> 
 
-Unless having real hardware interrupt handler registered by request_irq(),
-phy_state_machine() can't avoid calling phy_read_status()
-to monitor link changes. This especially prevents USB-to-Ethernet device
-from going to auto suspend to save power.
+[...]
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/phy/phy.c | 31 +++++++++++++++++++++++++++++--
- include/linux/phy.h   |  6 ++++++
- 2 files changed, 35 insertions(+), 2 deletions(-)
+> Prior work on a mqprio prequeue() facility [1] was done mainly by John Fastabend.
+> 
+>   [1] http://patchwork.ozlabs.org/patch/512949/
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 47cd306..8f678e9 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -588,6 +588,25 @@ static irqreturn_t phy_interrupt(int irq, void *phy_dat)
- }
- 
- /**
-+ * phy_pseudo_interrupt - PHY pseudo interrupt handler
-+ * @phydev: target phy_device struct
-+ *
-+ * Description: This is for phy pseudo interrupt such as
-+ * USB interrupt pipe for USB-to-Ethernet devices.
-+ * When a PHY pseudo interrupt occurs, i.e, USB interrupt pipe completion,
-+ * the handler schedules a work task to clear the interrupt.
-+ */
-+void phy_pseudo_interrupt(struct phy_device *phydev)
-+{
-+	if (phydev->state != PHY_HALTED) {
-+		atomic_inc(&phydev->irq_disable);
-+
-+		queue_work(system_power_efficient_wq, &phydev->phy_queue);
-+	}
-+}
-+EXPORT_SYMBOL(phy_pseudo_interrupt);
-+
-+/**
-  * phy_enable_interrupts - Enable the interrupts from the PHY side
-  * @phydev: target phy_device struct
-  */
-@@ -640,12 +659,20 @@ phy_err:
- int phy_start_interrupts(struct phy_device *phydev)
- {
- 	atomic_set(&phydev->irq_disable, 0);
--	if (request_irq(phydev->irq, phy_interrupt, 0, "phy_interrupt",
--			phydev) < 0) {
-+
-+	/* phydev->irq is bigger than zero when real H/W interrupt.
-+	 * This avoids calling request_irq when pseudo interrupt such as
-+	 * USB interrupt pipe for USB-to-Ethernet device.
-+	 */
-+	if ((phydev->irq > 0) &&
-+	    (request_irq(phydev->irq, phy_interrupt, 0, "phy_interrupt",
-+			 phydev) < 0)) {
- 		pr_warn("%s: Can't get IRQ %d (PHY)\n",
- 			phydev->bus->name, phydev->irq);
- 		phydev->irq = PHY_POLL;
- 		return 0;
-+	} else if (phydev->irq == PHY_PSEUDO_INTERRUPT) {
-+		phy_pseudo_interrupt(phydev);
- 	}
- 
- 	return phy_enable_interrupts(phydev);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 05fde31..a68e690 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -55,6 +55,12 @@
- #define PHY_POLL		-1
- #define PHY_IGNORE_INTERRUPT	-2
- 
-+/*
-+ * Set to PHY_PSEUDO_INTERRUPT when the attached driver uses
-+ * not real hardware interrupt such as USB interrupt pipe.
-+ */
-+#define PHY_PSEUDO_INTERRUPT	-100
-+
- #define PHY_HAS_INTERRUPT	0x00000001
- #define PHY_HAS_MAGICANEG	0x00000002
- #define PHY_IS_INTERNAL		0x00000004
--- 
-2.1.4
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
+
+Looks good to me and is a better implementation then my initial take
+with the mqprio perqueue() stuff.
+
+I think this complements the lockless work and also putting it in front
+of the qdisc bypass logic lets us skip the qdisc but also still use
+this for queue selection. Further we can build interesting queue
+select logic now and maybe remove select_queue() from the ndo ops
+eventually? With this and xps there really is no reason to have drivers
+implementing some under-the-covers logic anymore.
+
+Thanks,
+John
