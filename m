@@ -1,94 +1,195 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
- vxlan devices
-Date: Thu, 7 Jan 2016 19:40:42 +0100
-Message-ID: <20160107184042.GB24672@pox.localdomain>
-References: <1452087186-12926-1-git-send-email-david@weave.works>
- <20160106.155950.1007160228570301281.davem@davemloft.net>
- <8660z6qohn.fsf@weave.works>
- <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
- <568DADEE.1050206@stressinduktion.org>
- <CAEh+42h_dH5-AYBN+L=+LMfNLXhSfs-AwWh_aZ_oLfZ1NV48Zg@mail.gmail.com>
- <20160107114935.GJ32456@pox.localdomain>
- <CAEh+42hA69_e1HRGzsfzc2yGNgr6d8Bg4+pD8EQPdou5LzUegA@mail.gmail.com>
- <20160107172137.GA24672@pox.localdomain>
- <568EA55A.7070305@stressinduktion.org>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next 1/5] net: local checksum offload for encapsulation
+Date: Thu, 7 Jan 2016 10:42:26 -0800
+Message-ID: <CALx6S35_-JSix_VjreXbyWCj5jfB-Pu0xaDKzTBNrtkrnijqLA@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C64.6090305@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <568EA55A.7070305-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:34364 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbcAGSm1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 13:42:27 -0500
+Received: by mail-io0-f169.google.com with SMTP id 1so214714077ion.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 10:42:27 -0800 (PST)
+In-Reply-To: <568E9C64.6090305@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDEvMDcvMTYgYXQgMDY6NTBwbSwgSGFubmVzIEZyZWRlcmljIFNvd2Egd3JvdGU6Cj4gT24g
-MDcuMDEuMjAxNiAxODoyMSwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gPk9uIDAxLzA3LzE2IGF0IDA4
-OjM1YW0sIEplc3NlIEdyb3NzIHdyb3RlOgo+ID4+T24gVGh1LCBKYW4gNywgMjAxNiBhdCAzOjQ5
-IEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4gd3JvdGU6Cj4gPj4+QSBzaW1wbGUgc3Rh
-cnQgY291bGQgYmUgdG8gYWRkIGEgbmV3IHJldHVybiBjb2RlIGZvciA+IE1UVSBkcm9wcyBpbgo+
-ID4+PnRoZSBkZXZfcXVldWVfeG1pdCgpIHBhdGggYW5kIGNoZWNrIGZvciBORVRfWE1JVF9EUk9Q
-X01UVSBpbgo+ID4+Pm92c192cG9ydF9zZW5kKCkgYW5kIGVtaXQgcHJvcGVyIElDTVBzLgo+ID4+
-Cj4gPj5UaGF0IGNvdWxkIGJlIGludGVyZXN0aW5nLiBUaGUgcHJvYmxlbSBpbiB0aGUgcGFzdCB3
-YXMgbWFraW5nIHN1cmUKPiA+PnRoYXQgSUNNUHMgdGhhdCBhcmUgZ2VuZXJhdGVkIGZpdCBpbiB0
-aGUgdmlydHVhbCBuZXR3b3JrIGFwcHJvcHJpYXRlbHkKPiA+Pi0gcmlnaHQgYWRkcmVzc2VzLCBl
-dGMuIFRoaXMgcmVxdWlyZXMgZWl0aGVyIHNwb29maW5nIGFkZHJlc3NlcyBvcgo+ID4+c29tZSBh
-ZGRpdGlvbmFsIGtub3dsZWRnZSBhYm91dCB0aGUgdG9wb2xvZ3kgdGhhdCB3ZSBkb24ndCBjdXJy
-ZW50bHkKPiA+PmhhdmUgaW4gdGhlIGtlcm5lbC4KPiA+Cj4gPkFyZSB5b3Ugd29ycmllZCBhYm91
-dCBlbWl0dGluZyBhbiBJQ01QIHdpdGggYSBzb3VyY2Ugd2hpY2ggaXMgbm90Cj4gPmEgbG9jYWwg
-aG9zdCBhZGRyZXNzPwo+IAo+IFdlIGhhdmUgdVJQRiBlbmFibGVkIGZvciBJUHY0IGJ5IGRlZmF1
-bHQgb24gYWxsIGtlcm5lbHMuIFRodXMgaWYgd2UgZ2VuZXJhdGUKPiBhbiBJUHY0IElDTVAgcGFj
-a2V0IGJhY2sgd2l0aCBhbiBlcnJvciBtZXNzYWdlIGl0IG11c3QgaGF2ZSBhIHNvdXJjZSBhZGRy
-ZXNzCj4gd2hpY2ggdGhlIHJlY2VpdmluZyBrZXJuZWwgY29uc2lkZXJzIHZhbGlkLiBWYWxpZCBt
-ZWFucyB0aGF0IHNlbmRpbmcgdG8gdGhlCj4gc291cmNlIGFkZHJlc3Mgd291bGQgaGF2ZSB1c2Vk
-IHRoZSBzYW1lIG91dGdvaW5nIGludGVyZmFjZSB0aGUgSUNNUCBlcnJvcgo+IGNhbWUgaW4gZnJv
-bS4KCkFncmVlZC4gSSB0aGluayB0aGlzIGlzIGdpdmVuIHRob3VnaCBhcyB3ZSB3b3VsZCByZXZl
-cnNlIHRoZSBhZGRyZXNzZXMKYXMgaWNtcF9zZW5kKCkgYWxyZWFkeSBkb2VzOgoKICAgICAgICBz
-YWRkciA9IGlwaC0+ZGFkZHI7Cgo+ID5DYW4ndCB3ZSBqdXN0IHVzZSBpY21wX3NlbmQoKSBpbiB0
-aGUgY29udGV4dCBvZiB0aGUgaW5uZXIgaGVhZGVyIGFuZAo+ID5mZWVkIGl0IHRvIHRoZSBmbG93
-IHRhYmxlIHRvIHNlbmQgaXQgYmFjaz8gSXQgc2hvdWxkIGJlIHRoZSBzYW1lIGFzCj4gPmZvciBp
-cF9mb3J3YXJkKCkuCj4gCj4gVGhlIGJyaWRnZSdzIGlwIGFkZHJlc3Mgb2Z0ZW4gaGFzIG5vIHZh
-bGlkIHBhdGggYXMgc2VlbiBmcm9tIHRoZSBlbmQgaG9zdAo+IHN5c3RlbSByZWNlaXZpbmcgdGhl
-IGljbXAgZXJyb3IsIGJlY2F1c2UgdGhlIG9wZW52c3dpdGNoIGlzIG5vdCByZWFsbHkgcGFydAo+
-IG9mIHRoZSBMMyBmb3J3YXJkaW5nIGNoYWluLgoKSSBkb24ndCB0aGluayB0aGUgSVAgb2YgdGhl
-IGJyaWRnZSBldmVyIGNvbWVzIGludG8gcGxheS4gSXQgc2hvdWxkbid0LgpJJ20gbm90IGV2ZW4g
-c3VyZSB3aGF0IGNvdWxkIGJlIGNvbnNpZGVyZWQgdGhlIGFkZHJlc3Mgb2YgdGhlIGJyaWRnZQo7
-LSkKCj4gRmFraW5nIHRoZSBhZGRyZXNzIGZyb20gdGhlIHBhY2tldCAoZS5nLiB1c2luZyB0aGUg
-ZGVzdGluYXRpb24gYWRkcmVzcyBvZgo+IHRoZSBvcmlnaW5hbCBwYWNrZXQpIHdpbGwgbWFrZSB0
-cmFjZXJvdXRlIGdvIG51dHMuCgpJIHRoaW5rIHlvdSBhcmUgd29ycmllZCBhYm91dCBhbiBJQ01Q
-IGVycm9yIGZyb20gYSBob3Agd2hpY2ggZG9lcyBub3QKZGVjcmVtZW50IFRUTC4gSSB0aGluayB0
-aGF0J3MgYSBnb29kIHBvaW50IGFuZCBJIHRoaW5rIHdlIHNob3VsZCBvbmx5CnNlbmQgYW4gSUNN
-UCBlcnJvciBpZiB0aGUgVFRMIGlzIGRlY3JlbWVudGVkIGluIHRoZSBhY3Rpb24gbGlzdCBvZgp0
-aGUgZmxvdyBmb3Igd2hpY2ggd2UgaGF2ZSBzZWVuIGEgTVRVIGJhc2VkIGRyb3AgKG9yIFRUTD0w
-KS4KCkkgZG9uJ3QgcmVhbGx5IHNlZSBhIGRpZmZlcmVuY2UgYmV0d2VlbiBpcF9mb3J3YXJkKCks
-IHNvbWUKc29waGlzdGljYXRlZCB0YyBhY3Rpb24gb3IgT1ZTLiBBcyBzb29uIGFzIHRoZXkgZGVj
-cmVtZW50ZWQgVFRMIGFuZApwZXJmb3JtIEwzIGZvcndhcmRpbmcsIHRoZW4gdGhleSBzaG91bGQg
-c2VuZCBvdXQgSUNNUCBlcnJvcnMgdG8gYWxsb3cKZm9yIHByb3BlciBQTVRVLgoKPiBOb3JtYWxs
-eSBldGhlcm5ldCBkZXZpY2VzIGRvbid0IHJldHVybiBpY21wIGVycm9yIG1lc3NhZ2VzLiBFLmcu
-IGJyb2tlbgo+IGp1bWJvIGZyYW1lIGNvbmZpZ3VyYXRpb24ganVzdCBsZWFkcyB0byBzaWxlbnQg
-cGFja2V0IGxvc3MgYmVjYXVzZSB0aGUKPiBwYWNrZXQgaXMgZGlzY2FyZGVkIGJlZm9yZSBhIHJv
-dXRlciBjYW4gaGFuZGxlIGl0LiBUaHVzIGl0IHdvdWxkIGJlIGJlc3QgaW4KPiBjYXNlIG9mIGxv
-Y2FsIG92cyBpbnN0YWxsYXRpb24gaWYgdGhlIGVycm9yIGlzIGFscmVhZHkgdHJhbnNwb3J0ZWQg
-YmFjayB0bwo+IHRoZSBjbGllbnQgYXBwbGljYXRpb24gdmlhIHRoZSBuZXR3b3JrIGNhbGwgc3Rh
-Y2suIFRoaXMgbWlnaHQgYmUgdmVyeQo+IGRpZmZpY3VsdCBpbiBjYXNlIHdlIGVucXVldWUgdGhl
-IHBhY2tldCB0byBhIGJhY2tsb2cgcXVldWUgYW5kIHJlc2NoZWR1bGUKPiBzb2Z0aXJxcy4gUHJv
-YmFibHkgd2UgbmVlZCBzb21lIHdheSBvZiBmYWtpbmcgc291cmNlIGFkZHJlc3NlcyBmcm9tIGJy
-aWRnZXMKPiBub3cuLi4uIDovCgpJIHRoaW5rIHRoZSBtYWpvciBjb21wbGljYXRpb25zIGNvbWVz
-IGZyb20gdGhlIGFzc3VtcHRpb24gdGhhdCBPVlMgaXMKYSBicmlkZ2UuIFRoaXMgaXMgbm90IG5l
-Y2Vzc2FyaWx5IHRoZSBjYXNlIGFzIHN0YXRlZCBhYm92ZS4gSWYgYSBmbG93CmlzIGRvaW5nIEwz
-IGZvcndhcmRpbmcsIHdlIHNob3VsZCBzZW5kIElDTVBzIGFzIGV4cGVjdGVkIGZyb20gYQpyb3V0
-ZXIuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
-YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
-aWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Thu, Jan 7, 2016 at 9:12 AM, Edward Cree <ecree@solarflare.com> wrote:
+> The arithmetic properties of the ones-complement checksum mean that a
+>  correctly checksummed inner packet, including its checksum, has a ones
+>  complement sum depending only on whatever value was used to initialise
+>  the checksum field before checksumming (in the case of TCP and UDP,
+>  this is the ones complement sum of the pseudo header, complemented).
+> Consequently, if we are going to offload the inner checksum with
+>  CHECKSUM_PARTIAL, we can compute the outer checksum based only on the
+>  packed data not covered by the inner checksum, and the initial value of
+>  the inner checksum field.
+>
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+>  include/linux/skbuff.h    | 26 ++++++++++++++++++++++++++
+>  net/ipv4/ip_tunnel_core.c |  4 ++++
+>  net/ipv4/udp.c            | 29 ++++++++++-------------------
+>  net/ipv6/ip6_checksum.c   | 24 ++++++++----------------
+>  4 files changed, 48 insertions(+), 35 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 6b6bd42..6590d08 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -3665,5 +3665,31 @@ static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
+>         return hdr_len + skb_gso_transport_seglen(skb);
+>  }
+>
+> +/* Local Checksum Offload.
+> + * Compute outer checksum based on the assumption that the
+> + * inner checksum will be offloaded later.
+> + * See Documentation/networking/tx-offloads.txt for
+> + * explanation of how this works.
+> + * Fill in outer checksum adjustment (e.g. with sum of outer
+> + * pseudo-header) before calling.
+> + * Also ensure that inner checksum is in linear data area.
+> + */
+> +static inline __wsum lco_csum(struct sk_buff *skb)
+> +{
+> +       char *inner_csum_field;
+> +       __wsum csum;
+> +
+> +       /* Start with complement of inner checksum adjustment */
+> +       inner_csum_field = skb->data + skb_checksum_start_offset(skb) +
+> +                               skb->csum_offset;
+> +       csum = ~csum_unfold(*(__force __sum16 *)inner_csum_field);
+> +       /* Add in checksum of our headers (incl. outer checksum
+> +        * adjustment filled in by caller)
+> +        */
+> +       csum = skb_checksum(skb, 0, skb_checksum_start_offset(skb), csum);
+> +       /* The result is the outer checksum */
+
+Specifically packet checksum starting from skb->data.
+
+> +       return csum;
+> +}
+> +
+>  #endif /* __KERNEL__ */
+>  #endif /* _LINUX_SKBUFF_H */
+> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+> index 1db8418..f39b064 100644
+> --- a/net/ipv4/ip_tunnel_core.c
+> +++ b/net/ipv4/ip_tunnel_core.c
+> @@ -146,6 +146,10 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
+>  }
+>  EXPORT_SYMBOL_GPL(iptunnel_metadata_reply);
+>
+> +/* csum_help should only be ever true if the protocol doesn't support LCO.
+> + * If the tunnel uses udp_tunnel_xmit_skb(), then it gets LCO for free, and
+> + * should always set csum_help to false.
+> + */
+This comment probably isn't necessary.
+
+>  struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
+>                                          bool csum_help,
+>                                          int gso_type_mask)
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 8841e98..c1c73be 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -767,32 +767,23 @@ void udp_set_csum(bool nocheck, struct sk_buff *skb,
+>  {
+>         struct udphdr *uh = udp_hdr(skb);
+>
+> -       if (nocheck)
+> +       if (nocheck) {
+>                 uh->check = 0;
+> -       else if (skb_is_gso(skb))
+> +       } else if (skb_is_gso(skb)) {
+>                 uh->check = ~udp_v4_check(len, saddr, daddr, 0);
+> -       else if (skb_dst(skb) && skb_dst(skb)->dev &&
+> -                (skb_dst(skb)->dev->features &
+> -                 (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
+> -
+I think getting rid of this check is correct, but maybe it should be
+in a separate patch?
+
+> -               BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+> +       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +               __wsum csum;
+>
+> +               uh->check = ~udp_v4_check(len, saddr, daddr, 0);
+> +               csum = lco_csum(skb);
+> +               uh->check = csum_fold(csum);
+> +               if (uh->check == 0)
+> +                       uh->check = CSUM_MANGLED_0;
+> +       } else {
+>                 skb->ip_summed = CHECKSUM_PARTIAL;
+>                 skb->csum_start = skb_transport_header(skb) - skb->head;
+>                 skb->csum_offset = offsetof(struct udphdr, check);
+>                 uh->check = ~udp_v4_check(len, saddr, daddr, 0);
+> -       } else {
+> -               __wsum csum;
+> -
+> -               BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+> -
+> -               uh->check = 0;
+> -               csum = skb_checksum(skb, 0, len, 0);
+> -               uh->check = udp_v4_check(len, saddr, daddr, csum);
+> -               if (uh->check == 0)
+> -                       uh->check = CSUM_MANGLED_0;
+> -
+> -               skb->ip_summed = CHECKSUM_UNNECESSARY;
+>         }
+>  }
+>  EXPORT_SYMBOL(udp_set_csum);
+> diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+> index 9a4d732..19e564a 100644
+> --- a/net/ipv6/ip6_checksum.c
+> +++ b/net/ipv6/ip6_checksum.c
+> @@ -98,27 +98,19 @@ void udp6_set_csum(bool nocheck, struct sk_buff *skb,
+>                 uh->check = 0;
+>         else if (skb_is_gso(skb))
+>                 uh->check = ~udp_v6_check(len, saddr, daddr, 0);
+> -       else if (skb_dst(skb) && skb_dst(skb)->dev &&
+> -                (skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
+> -
+> -               BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+> +       else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +               __wsum csum;
+>
+> +               uh->check = ~udp_v6_check(len, saddr, daddr, 0);
+> +               csum = lco_csum(skb);
+> +               uh->check = csum_fold(csum);
+
+Just do uh->check = csum_fold(loc)csum(skb)) to eliminate need for
+local csum variable.
+
+> +               if (uh->check == 0)
+> +                       uh->check = CSUM_MANGLED_0;
+> +       } else {
+>                 skb->ip_summed = CHECKSUM_PARTIAL;
+>                 skb->csum_start = skb_transport_header(skb) - skb->head;
+>                 skb->csum_offset = offsetof(struct udphdr, check);
+>                 uh->check = ~udp_v6_check(len, saddr, daddr, 0);
+> -       } else {
+> -               __wsum csum;
+> -
+> -               BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+> -
+> -               uh->check = 0;
+> -               csum = skb_checksum(skb, 0, len, 0);
+> -               uh->check = udp_v6_check(len, saddr, daddr, csum);
+> -               if (uh->check == 0)
+> -                       uh->check = CSUM_MANGLED_0;
+> -
+> -               skb->ip_summed = CHECKSUM_UNNECESSARY;
+>         }
+>  }
+>  EXPORT_SYMBOL(udp6_set_csum);
+>
+> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
