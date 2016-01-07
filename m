@@ -1,59 +1,97 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: pull request [net]: 20160107
-Date: Thu,  7 Jan 2016 15:26:26 +0800
-Message-ID: <1452151587-25547-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: Re: header conflict introduced by change to
+ netfilter_ipv4/ip_tables.h
+Date: Thu, 7 Jan 2016 09:29:50 +0200
+Message-ID: <20160107072950.GB6104@lakka.kapsi.fi>
+References: <20160106092007.1c5a0c75@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:28830 "EHLO s1.neomailbox.net"
+Received: from mail.kapsi.fi ([217.30.184.167]:42012 "EHLO mail.kapsi.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750773AbcAGH2O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2016 02:28:14 -0500
+	id S1750745AbcAGH35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2016 02:29:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20160106092007.1c5a0c75@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+On Wed, Jan 06, 2016 at 09:20:07AM -0800, Stephen Hemminger wrote:
+> This commit breaks compilation of iproute2 with net-next.
 
-I know it is extremely late in the release cycle, but please accept this
-single (and small) change intended for net.
+Ok, linux/if.h and libc net/if.h have overlapping defines, and this is =
+not
+the only one. I saw lots of them in the core dump headers.
 
-This bug-fix provided by Sven Eckelmann prevents a wrong memory access
-in setups with multiple interfaces enslaved in batman-adv (very common
-nowadays).
+How should we handle them? Another ifndef for IFNAMSIZ into kernel uapi
+headers?
 
-When such bad access is performed the code ends up filling with random
-data an internal data structure used to compute the links metric, thus
-leading to undefined behaviours.
+-Mikko
 
-
-This bug is there since ever, therefore it would be really nice if could
-get it queued for inclusion in stable.
-
-
-Please pull or let me know of any problem!
-Thanks a lot,
-	Antonio
-
-
-The following changes since commit 51cb67c0b0fcb91581b15bd2e85f29af4d4b2df6:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-01-06 16:15:03 -0800)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to 13bbdd370f67aef3351ad7bbc2fb624e3c23f905:
-
-  batman-adv: Fix invalid read while copying bat_iv.bcast_own (2016-01-07 14:24:05 +0800)
-
-----------------------------------------------------------------
-Included change:
-- Fix invalid read while copying bat_iv.bcast_own by Sven Eckelmann
-
-----------------------------------------------------------------
-Sven Eckelmann (1):
-      batman-adv: Fix invalid read while copying bat_iv.bcast_own
-
- net/batman-adv/bat_iv_ogm.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+> commit 1ffad83dffd675cd742286ae82dca7d746cb0da8
+> Author: Mikko Rapeli <mikko.rapeli@iki.fi>
+> Date:   Thu Oct 15 07:56:30 2015 +0200
+>=20
+>     netfilter: fix include files for compilation
+>    =20
+>     Add missing header dependencies and other small changes so that e=
+ach file
+>     compiles alone in userspace.
+>    =20
+>     Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+>     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+>=20
+> For iproute2, a copy of kernel headers (from make install_headers) is=
+ used.
+> After this change. the build of x_tables.c fails because IFNAMSIZ is =
+already
+> defined in net/if.h
+>=20
+> gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declara=
+tions -Wold-style-definition -Wformat=3D2 -O2 -I../include -DRESOLVE_HO=
+STNAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2\" -D_GNU_SO=
+URCE -D_FILE_OFFSET_BITS=3D64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE=
+  -DHAVE_SETNS -DHAVE_ELF -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DI=
+R=3D\"/lib/xtables\" -DYY_NO_INPUT -Wl,-export-dynamic -shared -fpic -o=
+ q_atm.so q_atm.c -latm
+> gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declara=
+tions -Wold-style-definition -Wformat=3D2 -O2 -I../include -DRESOLVE_HO=
+STNAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2\" -D_GNU_SO=
+URCE -D_FILE_OFFSET_BITS=3D64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE=
+  -DHAVE_SETNS -DHAVE_ELF -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DI=
+R=3D\"/lib/xtables\" -DYY_NO_INPUT -Wl,-export-dynamic -shared -fpic -o=
+ m_xt.so m_xt.c $(pkg-config xtables --cflags --libs)
+> In file included from ../include/linux/netfilter_ipv4/ip_tables.h:20:=
+0,
+>                  from m_xt.c:20:
+> ../include/linux/if.h:26:0: warning: "IFNAMSIZ" redefined
+>  #define IFNAMSIZ 16
+>  ^
+> In file included from m_xt.c:17:0:
+> /usr/include/net/if.h:129:0: note: this is the location of the previo=
+us definition
+>  # define IFNAMSIZ IF_NAMESIZE
+>  ^
+> ../include/linux/if.h:71:2: error: redeclaration of enumerator =E2=80=
+=98IFF_UP=E2=80=99
+>   IFF_UP    =3D 1<<0,  /* sysfs */
+>   ^
+> /usr/include/net/if.h:44:5: note: previous definition of =E2=80=98IFF=
+_UP=E2=80=99 was here
+>      IFF_UP =3D 0x1,  /* Interface is up.  */
+>      ^
+> ../include/linux/if.h:72:2: error: redeclaration of enumerator =E2=80=
+=98IFF_BROADCAST=E2=80=99
+>   IFF_BROADCAST   =3D 1<<1,  /* __volatile__ */
+>   ^
+> /usr/include/net/if.h:46:5: note: previous definition of =E2=80=98IFF=
+_BROADCAST=E2=80=99 was here
+>      IFF_BROADCAST =3D 0x2, /* Broadcast address valid.  */
+>      ^
+> ../include/linux/if.h:73:2: error: redeclaration of enumerator =E2=80=
+=98IFF_DEBUG=E2=80=99
+>   IFF_DEBUG   =3D 1<<2,  /* sysfs */
