@@ -1,96 +1,123 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net/rfkill: Create "airplane mode" LED trigger
-Date: Thu, 07 Jan 2016 22:01:01 +0100
-Message-ID: <1452200461.3141.19.camel@sipsolutions.net>
-References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com>
-	 <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
-	 <6DC3AA8C-DDE9-44B8-91C5-94B1EB0DBE9A@holtmann.org>
-	 <1452076319.2541.3.camel@sipsolutions.net>
-	 <CA+A7VXW3Fsf2O_xnnZAWxieMMhSP2ngTbhtuJEB1JpMc6EFPxQ@mail.gmail.com>
-	 (sfid-20160107_172007_086281_804D2523)
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Network Development <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>, LKML <linux-kernel@vger.kernel.org>,
-	Darren Hart <dvhart@infradead.org>,
-	platform-driver-x86@vger.kernel.org
-To: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <CA+A7VXW3Fsf2O_xnnZAWxieMMhSP2ngTbhtuJEB1JpMc6EFPxQ@mail.gmail.com> (sfid-20160107_172007_086281_804D2523)
-Sender: platform-driver-x86-owner@vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: [PATCH v2] net: prevent corruption of skb when using skb_gso_segment
+Date: Thu,  7 Jan 2016 19:16:37 -0200
+Message-ID: <1452201397-28790-1-git-send-email-cascardo@redhat.com>
+References: <20160107193126.GE23789@breakpoint.cc>
+Cc: fw@strlen.de, cascardo@redhat.com, koct9i@gmail.com,
+	xiyou.wangcong@gmail.com, davem@davemloft.net, edumazet@google.com,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160107193126.GE23789@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-01-07 at 11:19 -0500, Jo=C3=A3o Paulo Rechi Vita wrote:
+skb_gso_segment uses skb->cb, which may be owned by the caller. This may
+cause IPCB(skb)->opt.optlen to be overwritten, which will make
+ip_fragment overwrite skb data and possibly skb_shinfo with IPOPT_NOOP,
+thus causing a crash.
 
-> Trying to answer both Marcel's and your comments, I think we should
-> rather have a trigger which fires when the global state of
-> RFKILL_TYPE_ALL changes, instead of tied to the op
-> RFKILL_OP_CHANGE_ALL. Then we should also update the global states on
-> every set block operation instead of only on RFKILL_OP_CHANGE_ALL.
-> This part does not look like policy to me (please correct me if I'm
-> wrong).
+This patch saves skb->cb before calling skb_gso_segment for those users
+that have anything to save, then restore it for each GSO segment.
 
-Yeah, this seems fine. I'm not sure really quite what the difference
-between the state and OP_CHANGE_ALL would be, but using the state does
-seem reasonable to me. I also agree it's not really policy. In a sense
-though, one might argue that it encourages the wrong policy.
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+---
+ net/ipv4/ip_output.c            | 3 +++
+ net/netfilter/nfnetlink_queue.c | 7 +++++++
+ net/xfrm/xfrm_output.c          | 6 ++++++
+ 3 files changed, 16 insertions(+)
 
-> The platform driver can default this trigger and have the LED reflect
-> the global state of RFKILL_TYPE_ALL. This indeed looks like policy,
-> but mostly because the physical LED label is an airplane icon, what
-> the LED will be representing is "all radios are off". If that is not
-> acceptable in the kernel, I can expose the LED to userspace instead
-> and different userspaces can decide when to trigger it (in which case
-> we don't need this patch at all). But considering this is a laptop
-> platform driver, the only way I can see this being used is having the
-> LED lit when all the radios are off, and unlit otherwise (maybe I'm
-> being a bit short-visioned).
-
-As Marcel said, the question is whether or not a physical LED with an
-airplane icon really should be lit when all the radios are off, or
-should instead be lit when the system is in an "airplane safe" mode.
-Consider, for example, an Android phone: You can quite easily display
-both the WiFi connection icon and the airplane icon.
-
-> If I'm following this correctly, your suggestion is to have an
-> "airplane mode indicator" switch in the RFKill subsystem, which would
-> be driven by userspace and will be tied to a trigger that could be
-> used by platform drivers to drive physical airplane mode LEDs and
-> similar. That's an interesting idea and probably better than
-> expecting
-> userspaces to know about platform details like LED presence. If this
-> is feasible looks like a nice generic solution for this problem.
-
-Mostly correct, yes. I'd argue that it should come with the following
-semantics:
-=C2=A0* default to the state of all as you described, so that without a=
-ny
-=C2=A0 =C2=A0userspace you still get some kind of sane default behaviou=
-r
-=C2=A0* allow only a single userspace owner, and require that owner to
-=C2=A0 =C2=A0toggle it as required, to avoid multiple userspace applica=
-tions
-=C2=A0 =C2=A0stepping on each others' toes. This could be implemented b=
-y making
-=C2=A0 =C2=A0this a new /dev/rfkill command, and requiring the fd to be=
- held
-=C2=A0 =C2=A0open while controlling the airplane mode state.
-
-This would be the most generic solution, starting with the default
-behaviour you implemented but allowing userspace to implement its own
-airplane mode semantics without having to know about the platform LEDs
-etc.
-
-We could even do that in two stages, with your (updated) patch as the
-first stage.
-
-I would want to see some interest from userspace (e.g. Marcel for
-connman) though before implementing that.
-
-
-johannes
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 4233cbe..37b41f6 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -226,6 +226,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 	netdev_features_t features;
+ 	struct sk_buff *segs;
+ 	int ret = 0;
++	struct inet_skb_parm ipcb;
+ 
+ 	/* common case: locally created skb or seglen is <= mtu */
+ 	if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
+@@ -239,6 +240,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
+ 	 * from host network stack.
+ 	 */
++	ipcb = *IPCB(skb);
+ 	features = netif_skb_features(skb);
+ 	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
+ 	if (IS_ERR_OR_NULL(segs)) {
+@@ -253,6 +255,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 		int err;
+ 
+ 		segs->next = NULL;
++		*IPCB(segs) = ipcb;
+ 		err = ip_fragment(net, sk, segs, mtu, ip_finish_output2);
+ 
+ 		if (err && ret == 0)
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 861c661..426f61d 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -34,6 +34,7 @@
+ #include <net/tcp_states.h>
+ #include <net/netfilter/nf_queue.h>
+ #include <net/netns/generic.h>
++#include <net/ip.h>
+ 
+ #include <linux/atomic.h>
+ 
+@@ -678,6 +679,10 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 	int err = -ENOBUFS;
+ 	struct net *net = entry->state.net;
+ 	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
++	union {
++		struct inet_skb_parm h4;
++		struct inet6_skb_parm h6;
++	} header;
+ 
+ 	/* rcu_read_lock()ed by nf_hook_slow() */
+ 	queue = instance_lookup(q, queuenum);
+@@ -702,6 +707,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 		return __nfqnl_enqueue_packet(net, queue, entry);
+ 
+ 	nf_bridge_adjust_skb_data(skb);
++	memcpy(&header, skb->cb, sizeof(header));
+ 	segs = skb_gso_segment(skb, 0);
+ 	/* Does not use PTR_ERR to limit the number of error codes that can be
+ 	 * returned by nf_queue.  For instance, callers rely on -ESRCH to
+@@ -713,6 +719,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 	err = 0;
+ 	do {
+ 		struct sk_buff *nskb = segs->next;
++		memcpy(segs->cb, &header, sizeof(header));
+ 		if (err == 0)
+ 			err = __nfqnl_enqueue_packet_gso(net, queue,
+ 							segs, entry);
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index cc3676e..27384b2 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -166,7 +166,12 @@ static int xfrm_output2(struct net *net, struct sock *sk, struct sk_buff *skb)
+ static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct sk_buff *segs;
++	union {
++		struct inet_skb_parm h4;
++		struct inet6_skb_parm h6;
++	} header;
+ 
++	memcpy(&header, skb->cb, sizeof(header));
+ 	segs = skb_gso_segment(skb, 0);
+ 	kfree_skb(skb);
+ 	if (IS_ERR(segs))
+@@ -179,6 +184,7 @@ static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb
+ 		int err;
+ 
+ 		segs->next = NULL;
++		memcpy(segs->cb, &header, sizeof(header));
+ 		err = xfrm_output2(net, sk, segs);
+ 
+ 		if (unlikely(err)) {
+-- 
+2.5.0
