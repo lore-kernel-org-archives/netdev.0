@@ -1,96 +1,128 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [ovs-dev] [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
- vxlan devices
-Date: Wed, 6 Jan 2016 16:46:30 -0800
-Message-ID: <CAEh+42h_dH5-AYBN+L=+LMfNLXhSfs-AwWh_aZ_oLfZ1NV48Zg@mail.gmail.com>
-References: <1452087186-12926-1-git-send-email-david@weave.works>
- <20160106.155950.1007160228570301281.davem@davemloft.net> <8660z6qohn.fsf@weave.works>
- <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com> <568DADEE.1050206@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Wragg <david@weave.works>,
-	David Miller <davem@davemloft.net>, dev@openvswitch.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf: add skb_postpush_rcsum and fix dev_forward_skb occasions
+Date: Thu,  7 Jan 2016 02:01:45 +0100
+Message-ID: <02f04a0cd04748df932912bac36afeccc4ee7755.1452125392.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:47849 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752111AbcAGAqs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 19:46:48 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 51494201C0
-	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 00:46:47 +0000 (UTC)
-Received: from mail-qg0-f45.google.com (mail-qg0-f45.google.com [209.85.192.45])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id D351320138
-	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 00:46:45 +0000 (UTC)
-Received: by mail-qg0-f45.google.com with SMTP id e32so226652830qgf.3
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 16:46:45 -0800 (PST)
-In-Reply-To: <568DADEE.1050206@stressinduktion.org>
+Received: from www62.your-server.de ([213.133.104.62]:36047 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752194AbcAGBBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 20:01:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 6, 2016 at 4:14 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hi,
->
->
-> On 07.01.2016 00:57, Jesse Gross wrote:
->>
->> On Wed, Jan 6, 2016 at 3:25 PM, David Wragg <david@weave.works> wrote:
->>>
->>> David Miller <davem@davemloft.net> writes:
->>>>>
->>>>> Prior to 4.3, openvswitch vxlan vports could transmit vxlan packets of
->>>>> any size, constrained only by the ability to transmit the resulting
->>>>> UDP packets.  4.3 introduced vxlan netdevs corresponding to vxlan
->>>>> vports.  These netdevs have an MTU, which limits the size of a packet
->>>>> that can be successfully vxlan-encapsulated.  The default value for
->>>>> this MTU is 1500, which is awkwardly small, and leads to a conspicuous
->>>>> change in behaviour for userspace.
->>>>>
->>>>> These two patches set the MTU on openvswitch-crated vxlan devices to
->>>>> be 65465 (the maximum IP packet size minus the vxlan-on-IPv6
->>>>> overhead), effectively restoring the behaviour prior to 4.3.  In order
->>>>> to accomplish this, the first patch removes the MTU constraint of 1500
->>>>> for vxlan netdevs without an underlying device.
->>>>
->>>>
->>>> Is this really the right thing to do?
->>>
->>>
->>> I'm certainly open to suggestions of better ways to solve the problem.
->>
->>
->> One option is to simply set the MTU on the device from userspace.
->>
->> The reality is that the code you're modifying is compatibility code.
->> Maybe we should make this change to preserve the old behavior for old
->> callers (although, again, it should not be just for VXLAN). But no new
->> features or tunnel types will be supported in this manner.
->>
->> New or updated userspace programs should work by simply creating and
->> adding tunnel devices to OVS. That won't go through this path at all
->> so you're going to need to find another approach in the near future in
->> any case.
->
->
-> I don't see any other way as to make MTUs part of the flow if we want to
-> have correct ip_local_error notifications. And those must also work across
-> VMs, so openvswitch in quasi brouting mode would need to emit ICMP PtBs
-> (hopefully with a correct source address, otherwise uRPF kills them before
-> reaching the applications) or do error signaling via virtio_net.
+Add a small helper skb_postpush_rcsum() and fix up redirect locations
+that need CHECKSUM_COMPLETE fixups on ingress. dev_forward_skb() expects
+a proper csum that covers also Ethernet header, f.e. since 2c26d34bbcc0
+("net/core: Handle csum for CHECKSUM_COMPLETE VXLAN forwarding"), we
+also do skb_postpull_rcsum() after pulling Ethernet header off via
+eth_type_trans().
 
-I actually implemented this a long time ago and then there was some
-additional discussion on this about a year ago. I agree it's the right
-solution overall but it's not entirely clearly to me how to get the
-details correct.
+When using eBPF in a netns setup f.e. with vxlan in collect metadata mode,
+I can trigger the following csum issue with an IPv6 setup:
 
-> Either the openvswitch user space can feed those information to the datapath
-> or the ovs dataplane can do a lookup on the outer ip address while filling
-> out the metadata_dst and caching it in the flow or we just keep the dst in
-> the flow anyway. So a net_device used by ovs has no real mtu anymore.
+  [  505.144065] dummy1: hw csum failure
+  [...]
+  [  505.144108] Call Trace:
+  [  505.144112]  <IRQ>  [<ffffffff81372f08>] dump_stack+0x44/0x5c
+  [  505.144134]  [<ffffffff81607cea>] netdev_rx_csum_fault+0x3a/0x40
+  [  505.144142]  [<ffffffff815fee3f>] __skb_checksum_complete+0xcf/0xe0
+  [  505.144149]  [<ffffffff816f0902>] nf_ip6_checksum+0xb2/0x120
+  [  505.144161]  [<ffffffffa08c0e0e>] icmpv6_error+0x17e/0x328 [nf_conntrack_ipv6]
+  [  505.144170]  [<ffffffffa0898eca>] ? ip6t_do_table+0x2fa/0x645 [ip6_tables]
+  [  505.144177]  [<ffffffffa08c0725>] ? ipv6_get_l4proto+0x65/0xd0 [nf_conntrack_ipv6]
+  [  505.144189]  [<ffffffffa06c9a12>] nf_conntrack_in+0xc2/0x5a0 [nf_conntrack]
+  [  505.144196]  [<ffffffffa08c039c>] ipv6_conntrack_in+0x1c/0x20 [nf_conntrack_ipv6]
+  [  505.144204]  [<ffffffff8164385d>] nf_iterate+0x5d/0x70
+  [  505.144210]  [<ffffffff816438d6>] nf_hook_slow+0x66/0xc0
+  [  505.144218]  [<ffffffff816bd302>] ipv6_rcv+0x3f2/0x4f0
+  [  505.144225]  [<ffffffff816bca40>] ? ip6_make_skb+0x1b0/0x1b0
+  [  505.144232]  [<ffffffff8160b77b>] __netif_receive_skb_core+0x36b/0x9a0
+  [  505.144239]  [<ffffffff8160bdc8>] ? __netif_receive_skb+0x18/0x60
+  [  505.144245]  [<ffffffff8160bdc8>] __netif_receive_skb+0x18/0x60
+  [  505.144252]  [<ffffffff8160ccff>] process_backlog+0x9f/0x140
+  [  505.144259]  [<ffffffff8160c4a5>] net_rx_action+0x145/0x320
+  [...]
 
-I agree that the concept of MTU is much more complicated than a single
-number on a device, we just have to find the right way to model it.
+What happens is that on ingress, we push Ethernet header back in, either
+from cls_bpf or right before skb_do_redirect(), but without updating csum.
+The "hw csum failure" can be fixed by using the new skb_postpush_rcsum()
+helper for the dev_forward_skb() case to correct the csum diff again.
+
+Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
+Fixes: 27b29f63058d ("bpf: add bpf_redirect() helper")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ ( Given -net pull req is already out and nobody seemed to have triggered
+   this so far, net-next seems just fine imho. )
+
+ include/linux/skbuff.h |  7 +++++++
+ net/core/filter.c      | 17 +++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6b6bd42..f8fad71 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2805,6 +2805,13 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
+ 
+ unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
+ 
++static inline void skb_postpush_rcsum(struct sk_buff *skb,
++				      const void *start, unsigned int len)
++{
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
++}
++
+ /**
+  *	pskb_trim_rcsum - trim received skb and update checksum
+  *	@skb: buffer to trim
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 35e6fed..c6160ce 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1368,8 +1368,9 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ 		/* skb_store_bits cannot return -EFAULT here */
+ 		skb_store_bits(skb, offset, ptr, len);
+ 
+-	if (BPF_RECOMPUTE_CSUM(flags) && skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_add(skb->csum, csum_partial(ptr, len, 0));
++	if (BPF_RECOMPUTE_CSUM(flags))
++		skb_postpush_rcsum(skb, ptr, len);
++
+ 	return 0;
+ }
+ 
+@@ -1525,8 +1526,12 @@ static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
+ 	if (unlikely(!skb2))
+ 		return -ENOMEM;
+ 
+-	if (BPF_IS_REDIRECT_INGRESS(flags))
++	if (BPF_IS_REDIRECT_INGRESS(flags)) {
++		if (G_TC_AT(skb2->tc_verd) & AT_INGRESS)
++			skb_postpush_rcsum(skb2, skb_mac_header(skb2),
++					   skb2->mac_len);
+ 		return dev_forward_skb(dev, skb2);
++	}
+ 
+ 	skb2->dev = dev;
+ 	skb_sender_cpu_clear(skb2);
+@@ -1569,8 +1574,12 @@ int skb_do_redirect(struct sk_buff *skb)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (BPF_IS_REDIRECT_INGRESS(ri->flags))
++	if (BPF_IS_REDIRECT_INGRESS(ri->flags)) {
++		if (G_TC_AT(skb->tc_verd) & AT_INGRESS)
++			skb_postpush_rcsum(skb, skb_mac_header(skb),
++					   skb->mac_len);
+ 		return dev_forward_skb(dev, skb);
++	}
+ 
+ 	skb->dev = dev;
+ 	skb_sender_cpu_clear(skb);
+-- 
+1.9.3
