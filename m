@@ -1,55 +1,44 @@
-From: Konstantin Khlebnikov <koct9i@gmail.com>
-Subject: Re: [BUG] skb corruption and kernel panic at forwarding with fragmentation
-Date: Thu, 7 Jan 2016 22:35:26 +0300
-Message-ID: <CALYGNiMUVjH4K3xtzHjf3o5XujFvVFrEvbL90o_fzEU8bWoQgg@mail.gmail.com>
-References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
-	<CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
-	<CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
-	<20160106210532.GE27290@indiana.gru.redhat.com>
-	<20160106220334.GA23789@breakpoint.cc>
-	<20160106234943.GB23789@breakpoint.cc>
-	<CALYGNiObS1fuDNi7Q69BwoWmU8xOnndzy7Z-m35aphjQWUuEnQ@mail.gmail.com>
-	<CALYGNiN-cGxcEwiN-aPH7W1Pa7bLc2UY5LY98mXr+yZK+q5_BA@mail.gmail.com>
-	<CANn89iLDRxh4x9hLyis2w7DfdA+0XZBhygN5gKFVA8nAgS-URQ@mail.gmail.com>
-	<CALYGNiOLhaY8mom01REK45O0fO=xLNgQUt4_tox9ymrqraNfAQ@mail.gmail.com>
-	<CANn89iJA=mJ+Jz-03p8yBtp6oCBE6ShwW-KW-0bpMx8OdA8whg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net-thunder: One check less in
+ nicvf_register_interrupts() after error detection
+Date: Thu, 07 Jan 2016 11:44:06 -0800
+Message-ID: <1452195846.4028.24.camel@perches.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	 <5685A273.6070607@users.sourceforge.net>
+	 <20160107110701.GE25086@rric.localdomain>
+	 <568EBCE7.4060502@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sunil Goutham <sgoutham@cavium.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	Robert Richter <rric@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iJA=mJ+Jz-03p8yBtp6oCBE6ShwW-KW-0bpMx8OdA8whg@mail.gmail.com>
+In-Reply-To: <568EBCE7.4060502@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 7, 2016 at 3:54 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Thu, Jan 7, 2016 at 7:04 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
->> On Thu, Jan 7, 2016 at 2:59 PM, Eric Dumazet <edumazet@google.com> wrote:
->>> On Thu, Jan 7, 2016 at 6:38 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
->>>>
->>>> Also I've found strange thing: reason of expanding skb->cb from 40 to
->>>> 48 bypes in 2006
->>>> 3e3850e989c5d2eb1aab6f0fd9257759f0f4cbc6 was that struct inet6_skb_parm does
->>>> not fit. But it's is only 24 bytes. Does some arches add pad after
->>>> each _u16 field?
->>>
->>> "struct inet6_skb_parm" is part of struct tcp_skb_cb
->>>
->>> This is why Patrick had to increase skb->cb[]
->>
->> Whoa. Funny. TCP moves that chunk back and forward instead of just
->> putting it at the first place in struct.
->
-> You probably want to look at git history to find out why it is done this way.
->
-> TCP performance is critical for some of us, and doing such trick avoid
-> one cache miss per skb in some critical list traversals.
+On Thu, 2016-01-07 at 20:30 +0100, SF Markus Elfring wrote:
+> > > Adjust a jump target to eliminate a check before error logging.
+> > > Use the identifier "report_failure" instead of "err".
+> > I don't see much value in those changes
+> Thanks for your feedback.
+> > Using the 'err' label is ok as it is not misleading and common use.
+> Is such a short jump label enough explanation for the information
+> "what" and "why"?
 
-Right. This way tcp stuff perfectly fits into leftovers of first cache line.
-Then probably it's better to put ipv4/ipv6 cb into second line from
-the beginning.
+When there is only one type of error possible, yes.
+
+> > And, there is no need to optimize the check since this is not the
+> > fast path
+> Really? - Is it a bit more efficient to avoid a double check for the
+> variable "ret" at the end of the current implementation for the
+> discussed function?
+
+Before asking questions you could answer yourself,
+please look at object code produced by the compiler
+before and after your proposed changes.
