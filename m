@@ -1,159 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net RESEND] udp: restrict offloads to one namespace
-Date: Thu,  7 Jan 2016 14:28:39 +0100
-Message-ID: <1452173319-13610-1-git-send-email-hannes@stressinduktion.org>
-Cc: Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:37180 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752465AbcAGN2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 08:28:45 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8229D20986
-	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 08:28:44 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH] wlcore: fix error handling in wlcore_event_fw_logger
+Date: Thu, 07 Jan 2016 14:28:50 +0100
+Message-ID: <1452173330-19963-1-git-send-email-a.hajda@samsung.com>
+Cc: Andrzej Hajda <a.hajda@samsung.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: Kalle Valo <kvalo@codeaurora.org>, Shahar Patury <shaharp@ti.com>,
+	linux-wireless@vger.kernel.org (open list:TI WILINK WIRELESS DRIVERS)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-udp tunnel offloads tend to aggregate datagrams based on inner
-headers. gro engine gets notified by tunnel implementations about
-possible offloads. The match is solely based on the port number.
+wlcore_read/wlcore_write can return negative values so it should
+be assigned to signed variable.
 
-Imagine a tunnel bound to port 53, the offloading will look into all
-DNS packets and tries to aggregate them based on the inner data found
-within. This could lead to data corruption and malformed DNS packets.
+The problem has been detected using proposed semantic patch
+scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci [1].
 
-While this patch minimizes the problem and helps an administrator to find
-the issue by querying ip tunnel/fou, a better way would be to match on
-the specific destination ip address so if a user space socket is bound
-to the same address it will conflict.
+[1]: http://permalink.gmane.org/gmane.linux.kernel/2120705
 
-Cc: Tom Herbert <tom@herbertland.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Fixes: 3719c17e1816 ("wlcore/wl18xx: fw logger over sdio")
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 ---
-I am resubmitting this patch as is, because I do think the netns equality
-checks are the right thing to do:
+ drivers/net/wireless/ti/wlcore/event.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-* I do not see any reason why we should restrict this to the initial
-  namespace only. I would like to adapt the same behaviour for hardware
-  offloads and tunnel offloads
-
-* I want to add support for matching ip addresses, they are actually only
-  really useful within a netns, especially if one wants to verify if
-  the ip address is correct bound etc.
-
-* This version is easily enhancable
-
-* targetting net tree as it fixes a bug IMHO
-
- drivers/net/geneve.c   |  2 +-
- drivers/net/vxlan.c    |  2 +-
- include/net/protocol.h |  2 +-
- net/ipv4/fou.c         |  2 +-
- net/ipv4/udp_offload.c | 10 +++++++---
- 5 files changed, 11 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 58efdec12f300d..db96b0cbb8ba62 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -376,7 +376,7 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
- 	int err;
+diff --git a/drivers/net/wireless/ti/wlcore/event.c b/drivers/net/wireless/ti/wlcore/event.c
+index c964054..4b59f67 100644
+--- a/drivers/net/wireless/ti/wlcore/event.c
++++ b/drivers/net/wireless/ti/wlcore/event.c
+@@ -38,7 +38,7 @@
  
- 	if (sa_family == AF_INET) {
--		err = udp_add_offload(&gs->udp_offloads);
-+		err = udp_add_offload(sock_net(sk), &gs->udp_offloads);
- 		if (err)
- 			pr_warn("geneve: udp_add_offload failed with status %d\n",
- 				err);
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ba363cedef8082..2428175c4dd4bb 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -621,7 +621,7 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
- 	int err;
- 
- 	if (sa_family == AF_INET) {
--		err = udp_add_offload(&vs->udp_offloads);
-+		err = udp_add_offload(net, &vs->udp_offloads);
- 		if (err)
- 			pr_warn("vxlan: udp_add_offload failed with status %d\n", err);
- 	}
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index d6fcc1fcdb5b09..da689f5432dee2 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -107,7 +107,7 @@ int inet_del_offload(const struct net_offload *prot, unsigned char num);
- void inet_register_protosw(struct inet_protosw *p);
- void inet_unregister_protosw(struct inet_protosw *p);
- 
--int  udp_add_offload(struct udp_offload *prot);
-+int  udp_add_offload(struct net *net, struct udp_offload *prot);
- void udp_del_offload(struct udp_offload *prot);
- 
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index bd903fe0f7508d..976f0dcf699197 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -498,7 +498,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 	sk->sk_allocation = GFP_ATOMIC;
- 
- 	if (cfg->udp_config.family == AF_INET) {
--		err = udp_add_offload(&fou->udp_offloads);
-+		err = udp_add_offload(net, &fou->udp_offloads);
- 		if (err)
- 			goto error;
- 	}
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index f9386160cbee02..5d396b96ae8bb9 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -21,6 +21,7 @@ static struct udp_offload_priv __rcu *udp_offload_base __read_mostly;
- 
- struct udp_offload_priv {
- 	struct udp_offload	*offload;
-+	possible_net_t	net;
- 	struct rcu_head		rcu;
- 	struct udp_offload_priv __rcu *next;
- };
-@@ -241,13 +242,14 @@ out:
- 	return segs;
- }
- 
--int udp_add_offload(struct udp_offload *uo)
-+int udp_add_offload(struct net *net, struct udp_offload *uo)
+ int wlcore_event_fw_logger(struct wl1271 *wl)
  {
- 	struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_ATOMIC);
- 
- 	if (!new_offload)
- 		return -ENOMEM;
- 
-+	write_pnet(&new_offload->net, net);
- 	new_offload->offload = uo;
- 
- 	spin_lock(&udp_offload_lock);
-@@ -311,7 +313,8 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
- 	rcu_read_lock();
- 	uo_priv = rcu_dereference(udp_offload_base);
- 	for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
--		if (uo_priv->offload->port == uh->dest &&
-+		if (net_eq(read_pnet(&uo_priv->net), dev_net(skb->dev)) &&
-+		    uo_priv->offload->port == uh->dest &&
- 		    uo_priv->offload->callbacks.gro_receive)
- 			goto unflush;
- 	}
-@@ -389,7 +392,8 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 
- 	uo_priv = rcu_dereference(udp_offload_base);
- 	for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
--		if (uo_priv->offload->port == uh->dest &&
-+		if (net_eq(read_pnet(&uo_priv->net), dev_net(skb->dev)) &&
-+		    uo_priv->offload->port == uh->dest &&
- 		    uo_priv->offload->callbacks.gro_complete)
- 			break;
- 	}
+-	u32 ret;
++	int ret;
+ 	struct fw_logger_information fw_log;
+ 	u8  *buffer;
+ 	u32 internal_fw_addrbase = WL18XX_DATA_RAM_BASE_ADDRESS;
 -- 
-2.5.0
+1.9.1
