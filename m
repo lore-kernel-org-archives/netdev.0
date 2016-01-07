@@ -1,49 +1,104 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [BUG] skb corruption and kernel panic at forwarding with fragmentation
-Date: Thu, 7 Jan 2016 07:54:08 -0500
-Message-ID: <CANn89iJA=mJ+Jz-03p8yBtp6oCBE6ShwW-KW-0bpMx8OdA8whg@mail.gmail.com>
-References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
-	<CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
-	<CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
-	<20160106210532.GE27290@indiana.gru.redhat.com>
-	<20160106220334.GA23789@breakpoint.cc>
-	<20160106234943.GB23789@breakpoint.cc>
-	<CALYGNiObS1fuDNi7Q69BwoWmU8xOnndzy7Z-m35aphjQWUuEnQ@mail.gmail.com>
-	<CALYGNiN-cGxcEwiN-aPH7W1Pa7bLc2UY5LY98mXr+yZK+q5_BA@mail.gmail.com>
-	<CANn89iLDRxh4x9hLyis2w7DfdA+0XZBhygN5gKFVA8nAgS-URQ@mail.gmail.com>
-	<CALYGNiOLhaY8mom01REK45O0fO=xLNgQUt4_tox9ymrqraNfAQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Konstantin Khlebnikov <koct9i@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALYGNiOLhaY8mom01REK45O0fO=xLNgQUt4_tox9ymrqraNfAQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] tc: fix compilation with old gcc (< 4.6)
+Date: Thu,  7 Jan 2016 14:03:13 +0100
+Message-ID: <1452171793-5829-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+	Julien Floret <julien.floret@6wind.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:59707 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752745AbcAGNDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 08:03:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 7, 2016 at 7:04 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
-> On Thu, Jan 7, 2016 at 2:59 PM, Eric Dumazet <edumazet@google.com> wrote:
->> On Thu, Jan 7, 2016 at 6:38 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
->>>
->>> Also I've found strange thing: reason of expanding skb->cb from 40 to
->>> 48 bypes in 2006
->>> 3e3850e989c5d2eb1aab6f0fd9257759f0f4cbc6 was that struct inet6_skb_parm does
->>> not fit. But it's is only 24 bytes. Does some arches add pad after
->>> each _u16 field?
->>
->> "struct inet6_skb_parm" is part of struct tcp_skb_cb
->>
->> This is why Patrick had to increase skb->cb[]
->
-> Whoa. Funny. TCP moves that chunk back and forward instead of just
-> putting it at the first place in struct.
+From: Julien Floret <julien.floret@6wind.com>
 
-You probably want to look at git history to find out why it is done this way.
+gcc < 4.6 does not handle C11 syntax for the static initialization of
+anonymous struct/union, hence the following error:
 
-TCP performance is critical for some of us, and doing such trick avoid
-one cache miss per skb in some critical list traversals.
+tc_bpf.c:260: error: unknown field map_type specified in initializer
+
+Signed-off-by: Julien Floret <julien.floret@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ tc/tc_bpf.c | 48 +++++++++++++++++++++++++++---------------------
+ 1 file changed, 27 insertions(+), 21 deletions(-)
+
+diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
+index 276871a5c0a5..47993bad81ca 100644
+--- a/tc/tc_bpf.c
++++ b/tc/tc_bpf.c
+@@ -257,12 +257,14 @@ static bool bpf_may_skip_map_creation(int file_fd)
+ static int bpf_create_map(enum bpf_map_type type, unsigned int size_key,
+ 			  unsigned int size_value, unsigned int max_elem)
+ {
+-	union bpf_attr attr = {
+-		.map_type	= type,
+-		.key_size	= size_key,
+-		.value_size	= size_value,
+-		.max_entries	= max_elem,
+-	};
++	union bpf_attr attr;
++
++	memset(&attr, 0, sizeof(attr));
++
++	attr.map_type = type;
++	attr.key_size = size_key;
++	attr.value_size = size_value;
++	attr.max_entries = max_elem;
+ 
+ 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+ }
+@@ -270,12 +272,14 @@ static int bpf_create_map(enum bpf_map_type type, unsigned int size_key,
+ static int bpf_update_map(int fd, const void *key, const void *value,
+ 			  uint64_t flags)
+ {
+-	union bpf_attr attr = {
+-		.map_fd		= fd,
+-		.key		= bpf_ptr_to_u64(key),
+-		.value		= bpf_ptr_to_u64(value),
+-		.flags		= flags,
+-	};
++	union bpf_attr attr;
++
++	memset(&attr, 0, sizeof(attr));
++
++	attr.map_fd = fd;
++	attr.key = bpf_ptr_to_u64(key);
++	attr.value = bpf_ptr_to_u64(value);
++	attr.flags = flags;
+ 
+ 	return bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
+ }
+@@ -283,15 +287,17 @@ static int bpf_update_map(int fd, const void *key, const void *value,
+ static int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
+ 			 unsigned int len, const char *license)
+ {
+-	union bpf_attr attr = {
+-		.prog_type	= type,
+-		.insns		= bpf_ptr_to_u64(insns),
+-		.insn_cnt	= len / sizeof(struct bpf_insn),
+-		.license	= bpf_ptr_to_u64(license),
+-		.log_buf	= bpf_ptr_to_u64(bpf_log_buf),
+-		.log_size	= sizeof(bpf_log_buf),
+-		.log_level	= 1,
+-	};
++	union bpf_attr attr;
++
++	memset(&attr, 0, sizeof(attr));
++
++	attr.prog_type = type;
++	attr.insns = bpf_ptr_to_u64(insns);
++	attr.insn_cnt = len / sizeof(struct bpf_insn);
++	attr.license = bpf_ptr_to_u64(license);
++	attr.log_buf = bpf_ptr_to_u64(bpf_log_buf);
++	attr.log_size = sizeof(bpf_log_buf);
++	attr.log_level = 1;
+ 
+ 	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+ }
+-- 
+2.4.2
