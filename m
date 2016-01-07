@@ -1,58 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/4] MTU changes and other fixes
-Date: Thu, 07 Jan 2016 14:57:50 -0500 (EST)
-Message-ID: <20160107.145750.213741381921685070.davem@davemloft.net>
-References: <1451995051-21920-1-git-send-email-jakub.kicinski@netronome.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: net-thunder: One check less in nicvf_register_interrupts()
+ after error detection
+Date: Thu, 07 Jan 2016 11:59:50 -0800
+Message-ID: <1452196790.4028.33.camel@perches.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	 <5685A273.6070607@users.sourceforge.net>
+	 <20160107110701.GE25086@rric.localdomain>
+	 <568EBCE7.4060502@users.sourceforge.net>
+	 <1452195846.4028.24.camel@perches.com>
+	 <568EC2FD.9000702@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
-	rolf.neugebauer@netronome.com
-To: jakub.kicinski@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752427AbcAGT5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 14:57:54 -0500
-In-Reply-To: <1451995051-21920-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Sunil Goutham <sgoutham@cavium.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <568EC2FD.9000702@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Tue,  5 Jan 2016 11:57:27 +0000
+On Thu, 2016-01-07 at 20:56 +0100, SF Markus Elfring wrote:
+> > > Is it a bit more efficient to avoid a double check for the
+> > > variable "ret" at the end of the current implementation for the
+> > > discussed function?
+> >=20
+> > Before asking questions you could answer yourself,
+> > please look at object code produced by the compiler
+> > before and after your proposed changes.
+>=20
+> * Do any more source code reviewers wonder about the need
+> =A0 for such a double check?
 
-> v2:
->  - add first patch (return error on fail).
+Given the feedback you've already received,
+it seems so.
 
-You didn't read my feedback, so I'm not going to read your patches.
+> * Which object code representations would you find representative
+> =A0 for a further constructive discussion around this
+> =A0 software component?
 
-Is that OK with you?  I personally think it's fair.
-
-I said that you need to reorganize how you do the MTU
-changes.
-
-You _MUST_ try to allocate the resources (queues, data
-structures, whatever) for the new MTU size.
-
-And if that fails, release those new resources and leave
-the device exactly in the state it was in prior to the MTU
-change call.
-
-This means you can't use the close/open scheme, I'm explicitly
-telling you not to use that mechanism to change the MTU because
-it can leave the device inoperative if the re-open fails.
-
-That is completely unexpected behavior for the user.
-
-The interface must remain up and functioning at the original
-MTU if the MTU change operation fails.  Your code does not
-do this.
-
-Yes, this is a lot of more work, but that's the only correct
-way to implement this.
-
-If you fail to implement this properly one more time I will start
-simply ignoring your patch submissions for a while because you will be
-completely wasting my time.
-
-Thanks.
+Evidence of actual object code improvement when
+with compiled with optimizations.
