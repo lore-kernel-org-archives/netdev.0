@@ -1,185 +1,39 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 5/5] Documentation/networking: add
- tx-offloads.txt to explain LCO
-Date: Thu, 7 Jan 2016 10:58:48 -0800
-Message-ID: <CALx6S371yxTGTTw3jrxeyke_pa3DFLKdMzSL=HURROhu+FMA2w@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v2 net-next 4/5] fou: enable LCO in FOU and GUE
+Date: Thu, 7 Jan 2016 19:00:07 +0000
+Message-ID: <568EB5B7.9090304@solarflare.com>
 References: <568E9BF9.2050001@solarflare.com>
-	<568E9CE2.4080501@solarflare.com>
+ <568E9CAC.6070906@solarflare.com>
+ <CALx6S36K+bXH+U5eGys3aKvxfHOtDAkZEQc1pPgDCiDGdXTw2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	linux-net-drivers@solarflare.com
-To: Edward Cree <ecree@solarflare.com>
+	<linux-net-drivers@solarflare.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:34688 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752788AbcAGS6t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 13:58:49 -0500
-Received: by mail-io0-f178.google.com with SMTP id 1so215182994ion.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 10:58:49 -0800 (PST)
-In-Reply-To: <568E9CE2.4080501@solarflare.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:63246 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752189AbcAGTAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 14:00:34 -0500
+In-Reply-To: <CALx6S36K+bXH+U5eGys3aKvxfHOtDAkZEQc1pPgDCiDGdXTw2g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 7, 2016 at 9:14 AM, Edward Cree <ecree@solarflare.com> wrote:
-> It would also be a good place to explain GSO if someone wants to do that...
->
+On 07/01/16 18:51, Tom Herbert wrote:
+> On Thu, Jan 7, 2016 at 9:13 AM, Edward Cree <ecree@solarflare.com> wrote:
+>> @@ -787,7 +786,7 @@ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+>>         int type = csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+>>         __be16 sport;
+>>
+>> -       skb = iptunnel_handle_offloads(skb, csum, type);
+>> +       skb = iptunnel_handle_offloads(skb, false, type);
+> It might good to have another iptunnel_handle_offloads (lifke
+> iptunnel_handle_offloads_nocsum) function that doesn't have csum
+> parameter for readability.
+I hope to follow up soon with a patch to use LCO for GRE, at which point I
+ believe that all callers will be passing false anyway, so the csum_help
+ parameter can be removed from the function entirely.
 
-This looks great! Maybe the title should be checksum-offload.txt
-though. We can add the material from skbuff.h to describe all about RX
-and TX checksum later on. Segmentation offload could be another doc in
-itself.
-
-Tom
-
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> ---
->  Documentation/networking/00-INDEX        |   2 +
->  Documentation/networking/tx-offloads.txt | 122 +++++++++++++++++++++++++++++++
->  2 files changed, 124 insertions(+)
->  create mode 100644 Documentation/networking/tx-offloads.txt
->
-> diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-> index df27a1a..1fcf432 100644
-> --- a/Documentation/networking/00-INDEX
-> +++ b/Documentation/networking/00-INDEX
-> @@ -216,6 +216,8 @@ tproxy.txt
->         - Transparent proxy support user guide.
->  tuntap.txt
->         - TUN/TAP device driver, allowing user space Rx/Tx of packets.
-> +tx-offloads.txt
-> +       - Explanation of Transmit Offloads: Checksums, LCO, RCO
->  udplite.txt
->         - UDP-Lite protocol (RFC 3828) introduction.
->  vortex.txt
-> diff --git a/Documentation/networking/tx-offloads.txt b/Documentation/networking/tx-offloads.txt
-> new file mode 100644
-> index 0000000..1a51993
-> --- /dev/null
-> +++ b/Documentation/networking/tx-offloads.txt
-> @@ -0,0 +1,122 @@
-> +Transmit Offloads in the Linux Networking Stack
-> +
-> +
-> +Introduction
-> +============
-> +
-> +This document describes a set of techniques in the Linux networking stack
-> + to take advantage of offload capabilities of various NICs.
-> +
-> +The following technologies are described:
-> + * TX Checksum Offload
-> + * LCO: Local Checksum Offload
-> + * RCO: Remote Checksum Offload
-> +
-> +Things that should be documented here but aren't yet:
-> + * Encapsulation offloads
-> +   - hardware VLAN acceleration
-> +   - hardware VXLAN/GRE/GENEVE/etc. encapsulation
-> + * Segmentation offloads
-> +   - GSO: Generic Segmentation Offload
-> +   - TSO: TCP Segmentation Offload
-> +
-> +
-> +TX Checksum Offload
-> +===================
-> +
-> +The interface for offloading a transmit checksum to a device is explained
-> + in detail in comments near the top of include/linux/skbuff.h.
-> +In brief, it allows to request the device fill in a single ones-complement
-> + checksum defined by the sk_buff fields skb->csum_start and
-> + skb->csum_offset.  The device should compute the 16-bit ones-complement
-> + checksum (i.e. the 'IP-style' checksum) from csum_start to the end of the
-> + packet, and fill in the result at (csum_start + csum_offset).
-> +Because csum_offset cannot be negative, this ensures that the previous
-> + value of the checksum field is included in the checksum computation, thus
-> + it can be used to supply any needed corrections to the checksum (such as
-> + the sum of the pseudo-header for UDP or TCP).
-> +This interface only allows a single checksum to be offloaded.  Where
-> + encapsulation is used, the packet may have multiple checksum fields in
-> + different header layers, and the rest will have to be handled by another
-> + mechanism such as LCO or RCO.
-> +No offloading of the IP header checksum is performed; it is always done in
-> + software.  This is OK because when we build the IP header, we obviously
-> + have it in cache, so summing it isn't expensive.  It's also rather short.
-> +The requirements for GSO are more complicated, because when segmenting an
-> + encapsulated packet both the inner and outer checksums may need to be
-> + edited or recomputed for each resulting segment.  See the skbuff.h comment
-> + (section 'E') for more details.
-> +
-> +A driver declares its offload capabilities in netdev->hw_features; see
-> + Documentation/networking/netdev-features for more.  Note that a device
-> + which only advertises NETIF_F_IP[V6]_CSUM must still obey the csum_start
-> + and csum_offset given in the SKB; if it tries to deduce these itself in
-> + hardware (as some NICs do) the driver should check that the values in the
-> + SKB match those which the hardware will deduce, and if not, fall back to
-> + checksumming in software instead (with skb_checksum_help or one of the
-> + skb_csum_off_chk* functions as mentioned in include/linux/skbuff.h).  This
-> + is a pain, but that's what you get when hardware tries to be clever.
-> +
-> +The stack should, for the most part, assume that checksum offload is
-> + supported by the underlying device.  The only place that should check is
-> + validate_xmit_skb(), and the functions it calls directly or indirectly.
-> + That function compares the offload features requested by the SKB (which
-> + may include other offloads besides TX Checksum Offload) and, if they are
-> + not supported or enabled on the device (determined by netdev->features),
-> + performs the corresponding offload in software.  In the case of TX
-> + Checksum Offload, that means calling skb_checksum_help(skb).
-> +
-> +
-> +LCO: Local Checksum Offload
-> +===========================
-> +
-> +LCO is a technique for efficiently computing the outer checksum of an
-> + encapsulated datagram when the inner checksum is due to be offloaded.
-> +The ones-complement sum of a correctly checksummed TCP or UDP packet is
-> + equal to the sum of the pseudo header, because everything else gets
-> + 'cancelled out' by the checksum field.  This is because the sum was
-> + complemented before being written to the checksum field.
-> +More generally, this holds in any case where the 'IP-style' ones complement
-> + checksum is used, and thus any checksum that TX Checksum Offload supports.
-> +That is, if we have set up TX Checksum Offload with a start/offset pair, we
-> + know that _after the device has filled in that checksum_, the ones
-> + complement sum from csum_start to the end of the packet will be equal to
-> + _whatever value we put in the checksum field beforehand_.  This allows us
-> + to compute the outer checksum without looking at the payload: we simply
-> + stop summing when we get to csum_start, then add the 16-bit word at
-> + (csum_start + csum_offset).
-> +Then, when the true inner checksum is filled in (either by hardware or by
-> + skb_checksum_help()), the outer checksum will become correct by virtue of
-> + the arithmetic.
-> +
-> +LCO is performed by the stack when constructing an outer UDP header for an
-> + encapsulation such as VXLAN or GENEVE, in udp_set_csum().  Similarly for
-> + the IPv6 equivalents, in udp6_set_csum().
-> +It is *not* currently performed when constructing a GRE header; the
-> + GRE checksum is computed over the whole packet in either
-> + net/ipv4/ip_gre.c:build_header() or net/ipv6/ip6_gre.c:ip6gre_xmit2(), but
-> + it should be possible to use LCO here as GRE uses an IP-style checksum.
-> +There is a helper function lco_csum(), in include/linux/skbuff.h, which may
-> + be useful for this.
-> +
-> +LCO can safely be used for nested encapsulations; in this case, the outer
-> + encapsulation layer will sum over both its own header and the 'middle'
-> + header.  This does mean that the 'middle' header will get summed multiple
-> + times, but there doesn't seem to be a way to avoid that without incurring
-> + bigger costs (e.g. in SKB bloat).
-> +
-> +
-> +RCO: Remote Checksum Offload
-> +============================
-> +
-> +RCO is a technique for eliding the inner checksum of an encapsulated
-> + datagram, allowing the outer checksum to be offloaded.  It does, however,
-> + involve a change to the encapsulation protocols, which the receiver must
-> + also support.  For this reason, it is disabled by default.
-> +RCO is detailed in the following Internet-Drafts:
-> +https://tools.ietf.org/html/draft-herbert-remotecsumoffload-00
-> +https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
-> +In Linux, RCO is implemented individually in each encapsulation protocol,
-> + and most tunnel types have flags controlling its use.  For instance, VXLAN
-> + has the flag VXLAN_F_REMCSUM_TX (per struct vxlan_rdst) to indicate that
-> + RCO should be used when transmitting to a given remote destination.
-> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+-ed
