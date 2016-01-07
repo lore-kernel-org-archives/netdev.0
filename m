@@ -1,104 +1,189 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 1/2] r8152: use test_and_clear_bit
-Date: Thu, 7 Jan 2016 17:51:11 +0800
-Message-ID: <1394712342-15778-172-Taiwan-albertk@realtek.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 2/2] r8152: adjust ALDPS function
+Date: Thu, 7 Jan 2016 17:51:12 +0800
+Message-ID: <1394712342-15778-173-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-171-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-171-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-171-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace test_bit() followed by clear_bit() with test_and_clear_bit().
+Replace disable_aldps() and enable_aldps() with aldps_en().
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 20 ++++++--------------
- 1 file changed, 6 insertions(+), 14 deletions(-)
+ drivers/net/usb/r8152.c | 72 +++++++++++++++++++++++--------------------------
+ 1 file changed, 34 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 975e917..4f0bb67 100644
+index 4f0bb67..230c73c 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -1938,7 +1938,6 @@ static void _rtl8152_set_rx_mode(struct net_device *netdev)
- 	__le32 tmp[2];
- 	u32 ocp_data;
- 
--	clear_bit(RTL8152_SET_RX_MODE, &tp->flags);
- 	netif_stop_queue(netdev);
- 	ocp_data = ocp_read_dword(tp, MCU_TYPE_PLA, PLA_RCR);
- 	ocp_data &= ~RCR_ACPT_ALL;
-@@ -2424,8 +2423,6 @@ static void rtl_phy_reset(struct r8152 *tp)
- 	u16 data;
- 	int i;
- 
--	clear_bit(PHY_RESET, &tp->flags);
--
- 	data = r8152_mdio_read(tp, MII_BMCR);
- 
- 	/* don't reset again before the previous one complete */
-@@ -2884,10 +2881,9 @@ static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
- 	r8152_mdio_write(tp, MII_ADVERTISE, anar);
- 	r8152_mdio_write(tp, MII_BMCR, bmcr);
- 
--	if (test_bit(PHY_RESET, &tp->flags)) {
-+	if (test_and_clear_bit(PHY_RESET, &tp->flags)) {
- 		int i;
- 
--		clear_bit(PHY_RESET, &tp->flags);
- 		for (i = 0; i < 50; i++) {
- 			msleep(20);
- 			if ((r8152_mdio_read(tp, MII_BMCR) & BMCR_RESET) == 0)
-@@ -2896,7 +2892,6 @@ static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
- 	}
- 
- out:
--
- 	return ret;
+@@ -2452,23 +2452,23 @@ static void r8153_teredo_off(struct r8152 *tp)
+ 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_TEREDO_TIMER, 0);
  }
  
-@@ -2983,7 +2978,6 @@ static void set_carrier(struct r8152 *tp)
- 	struct net_device *netdev = tp->netdev;
- 	u8 speed;
+-static void r8152b_disable_aldps(struct r8152 *tp)
++static void r8152_aldps_en(struct r8152 *tp, bool enable)
+ {
+-	ocp_reg_write(tp, OCP_ALDPS_CONFIG, ENPDNPS | LINKENA | DIS_SDSAVE);
+-	msleep(20);
+-}
+-
+-static inline void r8152b_enable_aldps(struct r8152 *tp)
+-{
+-	ocp_reg_write(tp, OCP_ALDPS_CONFIG, ENPWRSAVE | ENPDNPS |
+-					    LINKENA | DIS_SDSAVE);
++	if (enable) {
++		ocp_reg_write(tp, OCP_ALDPS_CONFIG, ENPWRSAVE | ENPDNPS |
++						    LINKENA | DIS_SDSAVE);
++	} else {
++		ocp_reg_write(tp, OCP_ALDPS_CONFIG, ENPDNPS | LINKENA |
++						    DIS_SDSAVE);
++		msleep(20);
++	}
+ }
  
--	clear_bit(RTL8152_LINK_CHG, &tp->flags);
- 	speed = rtl8152_get_speed(tp);
+ static void rtl8152_disable(struct r8152 *tp)
+ {
+-	r8152b_disable_aldps(tp);
++	r8152_aldps_en(tp, false);
+ 	rtl_disable(tp);
+-	r8152b_enable_aldps(tp);
++	r8152_aldps_en(tp, true);
+ }
  
- 	if (speed & LINK_STATUS) {
-@@ -3026,20 +3020,18 @@ static void rtl_work_func_t(struct work_struct *work)
- 		goto out1;
+ static void r8152b_hw_phy_cfg(struct r8152 *tp)
+@@ -2780,30 +2780,26 @@ static void r8153_enter_oob(struct r8152 *tp)
+ 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, ocp_data);
+ }
+ 
+-static void r8153_disable_aldps(struct r8152 *tp)
++static void r8153_aldps_en(struct r8152 *tp, bool enable)
+ {
+ 	u16 data;
+ 
+ 	data = ocp_reg_read(tp, OCP_POWER_CFG);
+-	data &= ~EN_ALDPS;
+-	ocp_reg_write(tp, OCP_POWER_CFG, data);
+-	msleep(20);
+-}
+-
+-static void r8153_enable_aldps(struct r8152 *tp)
+-{
+-	u16 data;
+-
+-	data = ocp_reg_read(tp, OCP_POWER_CFG);
+-	data |= EN_ALDPS;
+-	ocp_reg_write(tp, OCP_POWER_CFG, data);
++	if (enable) {
++		data |= EN_ALDPS;
++		ocp_reg_write(tp, OCP_POWER_CFG, data);
++	} else {
++		data &= ~EN_ALDPS;
++		ocp_reg_write(tp, OCP_POWER_CFG, data);
++		msleep(20);
++	}
+ }
+ 
+ static void rtl8153_disable(struct r8152 *tp)
+ {
+-	r8153_disable_aldps(tp);
++	r8153_aldps_en(tp, false);
+ 	rtl_disable(tp);
+-	r8153_enable_aldps(tp);
++	r8153_aldps_en(tp, true);
+ 	usb_enable_lpm(tp->udev);
+ }
+ 
+@@ -2900,9 +2896,9 @@ static void rtl8152_up(struct r8152 *tp)
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return;
+ 
+-	r8152b_disable_aldps(tp);
++	r8152_aldps_en(tp, false);
+ 	r8152b_exit_oob(tp);
+-	r8152b_enable_aldps(tp);
++	r8152_aldps_en(tp, true);
+ }
+ 
+ static void rtl8152_down(struct r8152 *tp)
+@@ -2913,9 +2909,9 @@ static void rtl8152_down(struct r8152 *tp)
  	}
  
--	if (test_bit(RTL8152_LINK_CHG, &tp->flags))
-+	if (test_and_clear_bit(RTL8152_LINK_CHG, &tp->flags))
- 		set_carrier(tp);
+ 	r8152_power_cut_en(tp, false);
+-	r8152b_disable_aldps(tp);
++	r8152_aldps_en(tp, false);
+ 	r8152b_enter_oob(tp);
+-	r8152b_enable_aldps(tp);
++	r8152_aldps_en(tp, true);
+ }
  
--	if (test_bit(RTL8152_SET_RX_MODE, &tp->flags))
-+	if (test_and_clear_bit(RTL8152_SET_RX_MODE, &tp->flags))
- 		_rtl8152_set_rx_mode(tp->netdev);
+ static void rtl8153_up(struct r8152 *tp)
+@@ -2924,9 +2920,9 @@ static void rtl8153_up(struct r8152 *tp)
+ 		return;
  
- 	/* don't schedule napi before linking */
--	if (test_bit(SCHEDULE_NAPI, &tp->flags) &&
--	    netif_carrier_ok(tp->netdev)) {
--		clear_bit(SCHEDULE_NAPI, &tp->flags);
-+	if (test_and_clear_bit(SCHEDULE_NAPI, &tp->flags) &&
-+	    netif_carrier_ok(tp->netdev))
- 		napi_schedule(&tp->napi);
--	}
+ 	r8153_u1u2en(tp, false);
+-	r8153_disable_aldps(tp);
++	r8153_aldps_en(tp, false);
+ 	r8153_first_init(tp);
+-	r8153_enable_aldps(tp);
++	r8153_aldps_en(tp, true);
+ 	r8153_u2p3en(tp, true);
+ 	r8153_u1u2en(tp, true);
+ 	usb_enable_lpm(tp->udev);
+@@ -2942,9 +2938,9 @@ static void rtl8153_down(struct r8152 *tp)
+ 	r8153_u1u2en(tp, false);
+ 	r8153_u2p3en(tp, false);
+ 	r8153_power_cut_en(tp, false);
+-	r8153_disable_aldps(tp);
++	r8153_aldps_en(tp, false);
+ 	r8153_enter_oob(tp);
+-	r8153_enable_aldps(tp);
++	r8153_aldps_en(tp, true);
+ }
  
--	if (test_bit(PHY_RESET, &tp->flags))
-+	if (test_and_clear_bit(PHY_RESET, &tp->flags))
- 		rtl_phy_reset(tp);
+ static bool rtl8152_in_nway(struct r8152 *tp)
+@@ -3230,7 +3226,7 @@ static void r8152b_init(struct r8152 *tp)
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return;
  
- 	mutex_unlock(&tp->control);
+-	r8152b_disable_aldps(tp);
++	r8152_aldps_en(tp, false);
+ 
+ 	if (tp->version == RTL_VER_01) {
+ 		ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_LED_FEATURE);
+@@ -3252,7 +3248,7 @@ static void r8152b_init(struct r8152 *tp)
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_GPHY_INTR_IMR, ocp_data);
+ 
+ 	r8152b_enable_eee(tp);
+-	r8152b_enable_aldps(tp);
++	r8152_aldps_en(tp, true);
+ 	r8152b_enable_fc(tp);
+ 	rtl_tally_reset(tp);
+ 
+@@ -3270,7 +3266,7 @@ static void r8153_init(struct r8152 *tp)
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return;
+ 
+-	r8153_disable_aldps(tp);
++	r8153_aldps_en(tp, false);
+ 	r8153_u1u2en(tp, false);
+ 
+ 	for (i = 0; i < 500; i++) {
+@@ -3359,7 +3355,7 @@ static void r8153_init(struct r8152 *tp)
+ 		       EEE_SPDWN_EN);
+ 
+ 	r8153_enable_eee(tp);
+-	r8153_enable_aldps(tp);
++	r8153_aldps_en(tp, true);
+ 	r8152b_enable_fc(tp);
+ 	rtl_tally_reset(tp);
+ 	r8153_u2p3en(tp, true);
 -- 
 2.4.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
