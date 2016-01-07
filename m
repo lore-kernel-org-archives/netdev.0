@@ -1,65 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 00/12] drop the qdisc lock for pfifo_fast/mq
-Date: Thu, 07 Jan 2016 15:30:58 -0800
-Message-ID: <568EF532.4040307@gmail.com>
-References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810> <568D1344.1090602@mojatatu.com>
+From: David Wragg <david@weave.works>
+Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created vxlan devices
+Date: Thu, 07 Jan 2016 23:42:52 +0000
+Message-ID: <86d1tdot1f.fsf@weave.works>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+	<20160106.155950.1007160228570301281.davem@davemloft.net>
+	<8660z6qohn.fsf@weave.works>
+	<20160107.164746.548558171283936394.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>, daniel@iogearbox.net,
-	eric.dumazet@gmail.com, aduyck@mirantis.com, brouer@redhat.com,
-	davem@davemloft.net
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34660 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752181AbcAGXbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 18:31:16 -0500
-Received: by mail-pf0-f176.google.com with SMTP id q63so519849pfb.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 15:31:16 -0800 (PST)
-In-Reply-To: <568D1344.1090602@mojatatu.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:32836 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753427AbcAGXm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 18:42:56 -0500
+Received: by mail-wm0-f49.google.com with SMTP id f206so117109160wmf.0
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 15:42:55 -0800 (PST)
+In-Reply-To: <20160107.164746.548558171283936394.davem@davemloft.net> (David
+	Miller's message of "Thu, 07 Jan 2016 16:47:46 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-06 05:14 AM, Jamal Hadi Salim wrote:
-> 
-> Sorry for not being as responsive as i would like to be
-> (theman calls and i have to go).
-> This looks like a good (tc workshop) candidate discussion, if still
-> active by netdev11 time.
-> 
-> On 15-12-30 12:50 PM, John Fastabend wrote:
->> Hi,
->>
->> This is a first take at removing the qdisc lock on the xmit path
->> where qdiscs actually have queues of skbs. The ingress qdisc
->> which is already lockless was "easy" at least in the sense that
->> we did not need any lock-free data structures to hold skbs.
->>
-> 
-> I did some testing over the holidays for a netdev11 paper submission
-> and the ingress qdisc side of things looks very impressive (on
-> an average packet size) on a single (i7 class) cpu.
-> It can handle about 3x what an egress side pktgen type test (not
-> very real life) can handle. Analysis shows the lock is killing us.
-> So if you are looking at low hanging fruit, the egress is
-> the place to look.
+David Miller <davem@davemloft.net> writes:
+>> Considering non-openvswitch scenarios, when using vxlan netdevs
+>> directly, a vxlan netdev locked to an underlying device supporting jumbo
+>> frames can use a larger MTU.  It's only vxlan netdevs without an
+>> underlying device that have the limit of 1500 imposed.  But why
+>> shouldn't there be the same flexibility to select an MTU for best
+>> performance in both cases?  Aren't the fragmentation concerns the same?
+>
+> When there is an underlying device, there are no fragmentation concerns
+> and PMTU will function properly because the MTU will be set
+> accurately.
 
-So this series drops the qdisc lock which should hopefully per
-some older data I have bring it on par with the ingress side. But
-I need to retest this latest patch series.
+I can see how that works in the case where the vxlan endpoints are on
+the same subnet of the underlying network.  But in the general case, the
+"accurate" vxlan MTU to avoid fragmentation concerns should correspond
+to the path MTU between the endpoints.  How does knowing an underlying
+device help with that?  It's reasonable to calculate a default MTU for
+the vxlan device based on an underlying device, if one is specified.
+But unless the endpoints are on the same subnet, that's just a guess.
 
-> I have a pktgen change that may be useful for you - I will post
-> it next time i get cycles.
-> I am also a willing guinea pig (given upcoming netdev11) to do
-> some perf testing ;->
-> 
+(In the case of our application, we have openvswitch configured to set
+DF on the vxlan packets.  So we know we are not getting inadvertent
+fragmentation.)
 
-I typically test this by putting vlan's on top of a dev with the
-qdisc I want to test and running pktgen on the vlans the entry point
-of the skb is pretty much where I want it in this case.
+>> True.  But in what sense is 1500 accurate?  Uses/users of the kernel
+>> openvswitch code have always had to get this right, making sure that
+>> the MTU set on a vxlan overlay network conforms to the underlying
+>> network paths involved.
+>
+> "right" is a subjective thing.
+>
+> Here, once again, the poorly thought out amount of flexibility
+> openvswitch provides is going to have a serious negative consequence
+> for our implementation.
+>
+> I'm really tired of seeing this happen over and over again.
+> Openvswitch's growth and the expansion of it's feature set was
+> extremely poorly managed.
 
-> cheers,
-> jamal
-> 
-> 
+I'm sorry that there is some angst around the openvswitch kernel
+subsystem.  I wasn't involved in its development, so I have no strong
+opinion on those issues.  But we use it in our application, and we'd
+like to find a way to restore the ability to perform vxlan encapsulation
+of packets greater than 1500 bytes from openvswitch, as we could prior
+to 4.3.
+
+Is there another path to that same goal that is less contentious than my
+proposal?
+
+I'm willing to follow up on Jesse's request to look into the other
+tunnel types too, but at the moment I'm wondering what the chances are
+that the resulting submission would get accepted.
+
+David
