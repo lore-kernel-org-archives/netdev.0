@@ -1,54 +1,60 @@
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Subject: [PATCH v2 net-next] ixgbe: Fix for RAR0 not being set to default MAC addr
-Date: Thu,  7 Jan 2016 14:17:03 -0800
-Message-ID: <1452205023-23499-1-git-send-email-tushar.n.dave@oracle.com>
-Cc: Tushar Dave <tushar.n.dave@oracle.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org (open list:INTEL ETHERNET DRIVERS),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH V2 4/5] i40e/ethtool: support coalesce getting by queue
+Date: Thu, 7 Jan 2016 22:19:19 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFE2A29@fmsmsx115.amr.corp.intel.com>
+References: <1451912041-8860-1-git-send-email-kan.liang@intel.com>
+ <1451912041-8860-4-git-send-email-kan.liang@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"andi@firstfloor.org" <andi@firstfloor.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
+	"dsahern@gmail.com" <dsahern@gmail.com>,
+	"tj@kernel.org" <tj@kernel.org>,
+	"cascardo@redhat.com" <cascardo@redhat.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"ben@decadent.org.uk" <ben@decadent.org
+To: "Liang, Kan" <kan.liang@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"bwh@kernel.org" <bwh@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:43343 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753194AbcAGWTV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 17:19:21 -0500
+In-Reply-To: <1451912041-8860-4-git-send-email-kan.liang@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit c9f53e63c208 ("ixgbe: Refactor MAC address configuration code")
-introduced code that doesn't set HW register RAR0 to default mac address
-but FF:FF:FF:FF:FF:FF. Due to this, ixgbe HW discards all incoming packets
-that doesn't have destination mac address equals to FF:FF:FF:FF:FF:FF.
 
-This commit sets RAR0 correctly to default HW mac address.
+> +
+> +		q_vector = vsi->rx_rings[queue]->q_vector;
+> +		vector = vsi->base_vector + q_vector->v_idx;
+> +		ec->rx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw, I40E_PFINT_ITRN(0, vector - 1)));
 
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
-Tested-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
+Use I40E_RX_ITR rather than the hardcoded 0
 
-v2:
-Minor change in code comment
-This time send to all ixgbe maintainers as per get_maintainer.pl
+> +
+> +		q_vector = vsi->tx_rings[queue]->q_vector;
+> +		vector = vsi->base_vector + q_vector->v_idx;
+> +		ec->tx_coalesce_usecs = ITR_REG_TO_USEC(rd32(hw, I40E_PFINT_ITRN(1, vector - 1)));
 
+Use I40E_TX_ITR rather than the hardcoded 1
 
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+Other than that, yes, this looks like the right translation to get to the itr register you want.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ea9537d..3e6b208 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9084,6 +9084,8 @@ skip_sriov:
- 		goto err_sw_init;
- 	}
- 
-+	/* Set hw->mac.addr to permanent MAC address */
-+	ether_addr_copy(hw->mac.addr, hw->mac.perm_addr);
- 	ixgbe_mac_set_default_filter(adapter);
- 
- 	setup_timer(&adapter->service_timer, &ixgbe_service_timer,
--- 
-1.9.1
+sln
