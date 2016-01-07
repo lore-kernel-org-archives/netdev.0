@@ -1,128 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf: add skb_postpush_rcsum and fix dev_forward_skb occasions
-Date: Thu,  7 Jan 2016 02:01:45 +0100
-Message-ID: <02f04a0cd04748df932912bac36afeccc4ee7755.1452125392.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Li RongQing <roy.qing.li@gmail.com>
+Subject: Re: question about vrf-lite
+Date: Thu, 7 Jan 2016 09:04:05 +0800
+Message-ID: <CAJFZqHwpEeQce1SyqZLecehMa9hBKKc-J2r0WurAS+qRdXw_2w@mail.gmail.com>
+References: <1452074022-11816-1-git-send-email-roy.qing.li@gmail.com>
+	<568D3E3C.2030301@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36047 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752194AbcAGBBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 20:01:49 -0500
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:36282 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472AbcAGBEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2016 20:04:05 -0500
+Received: by mail-qg0-f43.google.com with SMTP id e32so226910570qgf.3
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 17:04:05 -0800 (PST)
+In-Reply-To: <568D3E3C.2030301@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a small helper skb_postpush_rcsum() and fix up redirect locations
-that need CHECKSUM_COMPLETE fixups on ingress. dev_forward_skb() expects
-a proper csum that covers also Ethernet header, f.e. since 2c26d34bbcc0
-("net/core: Handle csum for CHECKSUM_COMPLETE VXLAN forwarding"), we
-also do skb_postpull_rcsum() after pulling Ethernet header off via
-eth_type_trans().
+>>
+>> is it right?
+>
+>
+> no. The above works fine for me. I literally copied and pasted all of the
+> commands except the master ones which were adapted to my setup -- eth9 and
+> eth11 for me instead of eth0 and eth1. tcpdump on N2, N3 show the right one
+> is receiving packets based on which 'ping -I vrf<N>' is run.
+>
+> Do tables 5 and 6 have the right routes?
 
-When using eBPF in a netns setup f.e. with vxlan in collect metadata mode,
-I can trigger the following csum issue with an IPv6 setup:
 
-  [  505.144065] dummy1: hw csum failure
-  [...]
-  [  505.144108] Call Trace:
-  [  505.144112]  <IRQ>  [<ffffffff81372f08>] dump_stack+0x44/0x5c
-  [  505.144134]  [<ffffffff81607cea>] netdev_rx_csum_fault+0x3a/0x40
-  [  505.144142]  [<ffffffff815fee3f>] __skb_checksum_complete+0xcf/0xe0
-  [  505.144149]  [<ffffffff816f0902>] nf_ip6_checksum+0xb2/0x120
-  [  505.144161]  [<ffffffffa08c0e0e>] icmpv6_error+0x17e/0x328 [nf_conntrack_ipv6]
-  [  505.144170]  [<ffffffffa0898eca>] ? ip6t_do_table+0x2fa/0x645 [ip6_tables]
-  [  505.144177]  [<ffffffffa08c0725>] ? ipv6_get_l4proto+0x65/0xd0 [nf_conntrack_ipv6]
-  [  505.144189]  [<ffffffffa06c9a12>] nf_conntrack_in+0xc2/0x5a0 [nf_conntrack]
-  [  505.144196]  [<ffffffffa08c039c>] ipv6_conntrack_in+0x1c/0x20 [nf_conntrack_ipv6]
-  [  505.144204]  [<ffffffff8164385d>] nf_iterate+0x5d/0x70
-  [  505.144210]  [<ffffffff816438d6>] nf_hook_slow+0x66/0xc0
-  [  505.144218]  [<ffffffff816bd302>] ipv6_rcv+0x3f2/0x4f0
-  [  505.144225]  [<ffffffff816bca40>] ? ip6_make_skb+0x1b0/0x1b0
-  [  505.144232]  [<ffffffff8160b77b>] __netif_receive_skb_core+0x36b/0x9a0
-  [  505.144239]  [<ffffffff8160bdc8>] ? __netif_receive_skb+0x18/0x60
-  [  505.144245]  [<ffffffff8160bdc8>] __netif_receive_skb+0x18/0x60
-  [  505.144252]  [<ffffffff8160ccff>] process_backlog+0x9f/0x140
-  [  505.144259]  [<ffffffff8160c4a5>] net_rx_action+0x145/0x320
-  [...]
+Thanks, David;
 
-What happens is that on ingress, we push Ethernet header back in, either
-from cls_bpf or right before skb_do_redirect(), but without updating csum.
-The "hw csum failure" can be fixed by using the new skb_postpush_rcsum()
-helper for the dev_forward_skb() case to correct the csum diff again.
+it is not VRF issue, it is my configuration issue about qemu;
 
-Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
-Fixes: 27b29f63058d ("bpf: add bpf_redirect() helper")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- ( Given -net pull req is already out and nobody seemed to have triggered
-   this so far, net-next seems just fine imho. )
+I am testing VRF on qemu, and the issue/solution is same as issue
+under below link
 
- include/linux/skbuff.h |  7 +++++++
- net/core/filter.c      | 17 +++++++++++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+https://lists.gnu.org/archive/html/qemu-discuss/2014-06/msg00059.html
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6b6bd42..f8fad71 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2805,6 +2805,13 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
- 
- unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
- 
-+static inline void skb_postpush_rcsum(struct sk_buff *skb,
-+				      const void *start, unsigned int len)
-+{
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
-+}
-+
- /**
-  *	pskb_trim_rcsum - trim received skb and update checksum
-  *	@skb: buffer to trim
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 35e6fed..c6160ce 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1368,8 +1368,9 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
- 		/* skb_store_bits cannot return -EFAULT here */
- 		skb_store_bits(skb, offset, ptr, len);
- 
--	if (BPF_RECOMPUTE_CSUM(flags) && skb->ip_summed == CHECKSUM_COMPLETE)
--		skb->csum = csum_add(skb->csum, csum_partial(ptr, len, 0));
-+	if (BPF_RECOMPUTE_CSUM(flags))
-+		skb_postpush_rcsum(skb, ptr, len);
-+
- 	return 0;
- }
- 
-@@ -1525,8 +1526,12 @@ static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
- 	if (unlikely(!skb2))
- 		return -ENOMEM;
- 
--	if (BPF_IS_REDIRECT_INGRESS(flags))
-+	if (BPF_IS_REDIRECT_INGRESS(flags)) {
-+		if (G_TC_AT(skb2->tc_verd) & AT_INGRESS)
-+			skb_postpush_rcsum(skb2, skb_mac_header(skb2),
-+					   skb2->mac_len);
- 		return dev_forward_skb(dev, skb2);
-+	}
- 
- 	skb2->dev = dev;
- 	skb_sender_cpu_clear(skb2);
-@@ -1569,8 +1574,12 @@ int skb_do_redirect(struct sk_buff *skb)
- 		return -EINVAL;
- 	}
- 
--	if (BPF_IS_REDIRECT_INGRESS(ri->flags))
-+	if (BPF_IS_REDIRECT_INGRESS(ri->flags)) {
-+		if (G_TC_AT(skb->tc_verd) & AT_INGRESS)
-+			skb_postpush_rcsum(skb, skb_mac_header(skb),
-+					   skb->mac_len);
- 		return dev_forward_skb(dev, skb);
-+	}
- 
- 	skb->dev = dev;
- 	skb_sender_cpu_clear(skb);
--- 
-1.9.3
+-Roy
