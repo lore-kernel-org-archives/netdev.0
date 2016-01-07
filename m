@@ -1,51 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/4] MTU changes and other fixes
-Date: Thu, 07 Jan 2016 16:55:26 -0500 (EST)
-Message-ID: <20160107.165526.1258840836259244024.davem@davemloft.net>
-References: <20160107204928.0cd91c16@jkicinski-Precision-T1700>
-	<20160107.163314.666536912327323086.davem@davemloft.net>
-	<20160107215011.607779cc@jkicinski-Precision-T1700>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RESEND] net:8021q:Fix error handling in the function
+ vlan_changelink
+Date: Thu, 7 Jan 2016 21:56:53 +0000
+Message-ID: <20160107215652.GA10494@macbook.localdomain>
+References: <1452203271-9310-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
-	rolf.neugebauer@netronome.com
-To: jakub.kicinski@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52826 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbcAGVz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 16:55:28 -0500
-In-Reply-To: <20160107215011.607779cc@jkicinski-Precision-T1700>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1452203271-9310-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Thu, 7 Jan 2016 21:50:11 +0000
-
-> On Thu, 07 Jan 2016 16:33:14 -0500 (EST), David Miller wrote:
->> From: Jakub Kicinski <jakub.kicinski@netronome.com>
->> Date: Thu, 7 Jan 2016 20:49:28 +0000
->> 
->> > I know this is not what you asked for but, since we are using FW
->> > commands to disable/enable RX, even if we allocate all required
->> > resources before freeing old ones we still cannot guarantee that
->> > the reenabling operation will not fail.  Should we refuse to do
->> > MTU changes while the interface is running altogether?
->> 
->> If you issue the MTU change command and it fails, then you're still
->> configured at the old MTU.  There should therefore be no problem
->> rewinding in that case.
+On 07.01, Nicholas Krause wrote:
+> This fixes error handling in the function vlan_changelink to properly
+> check if its internal calls to the functions vlan_dev_change_flags
+> and vlan_dev_set_egress_priority have failed by returning a error
+> code which if this occurs return immediately to the caller of
+> vlan_changelink to signal to the caller that a failure has occurred
+> when calling this particular function.
 > 
-> No, no...  The FW command is to stop and start the RX path in
-> the NIC.  Our NIC is NPU-based, it has a ton of programmability
-> so even though we try to make it work like a run-of-the-mill
-> NIC there are some gotchas.
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+> ---
+>  net/8021q/vlan_netlink.c | 12 +++++++++---
+>  1 file changed, 9 insertions(+), 3 deletions(-)
 > 
-> Unless there is a way to change MTU without stopping RX which
-> escapes me.
+> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+> index c92b52f..10e79b8 100644
+> --- a/net/8021q/vlan_netlink.c
+> +++ b/net/8021q/vlan_netlink.c
+> @@ -93,10 +93,13 @@ static int vlan_changelink(struct net_device *dev,
+>  	struct ifla_vlan_qos_mapping *m;
+>  	struct nlattr *attr;
+>  	int rem;
+> +	int err = 0;
+>  
+>  	if (data[IFLA_VLAN_FLAGS]) {
+>  		flags = nla_data(data[IFLA_VLAN_FLAGS]);
+> -		vlan_dev_change_flags(dev, flags->flags, flags->mask);
+> +		err = vlan_dev_change_flags(dev, flags->flags, flags->mask);
+> +		if (err)
+> +			goto err;
+>  	}
+>  	if (data[IFLA_VLAN_INGRESS_QOS]) {
+>  		nla_for_each_nested(attr, data[IFLA_VLAN_INGRESS_QOS], rem) {
+> @@ -107,10 +110,13 @@ static int vlan_changelink(struct net_device *dev,
+>  	if (data[IFLA_VLAN_EGRESS_QOS]) {
+>  		nla_for_each_nested(attr, data[IFLA_VLAN_EGRESS_QOS], rem) {
+>  			m = nla_data(attr);
+> -			vlan_dev_set_egress_priority(dev, m->from, m->to);
+> +			err = vlan_dev_set_egress_priority(dev, m->from, m->to);
+> +			if (err)
+> +				break;
 
-Then the best you can do is retry the FW configuration using the
-original MTU, and if _that_ fails you must return and error as well as
-emit a kernel log message because this is a failure that cannot be
-recovered from and the user must be able to figure out what happened.
+The netlink interface is supposed to provide transactional semantics. If you
+want to handle this case properly, you need to unroll previous configuration
+changes.
+
+>  		}
+>  	}
+> -	return 0;
+> +err:
+> +	return err;
+>  }
+>  
+>  static int vlan_newlink(struct net *src_net, struct net_device *dev,
+> -- 
+> 2.1.4
+> 
