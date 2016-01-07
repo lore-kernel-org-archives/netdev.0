@@ -1,49 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: net-thunder: One check less in nicvf_register_interrupts()
- after error detection
-Date: Thu, 07 Jan 2016 12:28:50 -0800
-Message-ID: <1452198530.4028.43.camel@perches.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-	 <5685A273.6070607@users.sourceforge.net>
-	 <20160107110701.GE25086@rric.localdomain>
-	 <568EBCE7.4060502@users.sourceforge.net>
-	 <1452195846.4028.24.camel@perches.com>
-	 <568EC2FD.9000702@users.sourceforge.net>
-	 <1452196790.4028.33.camel@perches.com> <568EC56A.402@users.sourceforge.net>
+From: Saurabh Mohan <saurabh@cplanenetworks.com>
+Subject: Re: [PATCH net-next 1/2] Support outside netns for tunnels.
+Date: Thu, 7 Jan 2016 10:59:01 -0800
+Message-ID: <568EB575.6010309@cplanenetworks.com>
+References: <1451933147-17266-1-git-send-email-saurabh@cplanenetworks.com> <568BF38D.4060803@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Sunil Goutham <sgoutham@cavium.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <568EC56A.402@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>,
+	<stephen@networkplumber.org>, <davem@davemloft.net>,
+	<pshelar@nicira.com>, <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0120.outbound.protection.outlook.com ([65.55.169.120]:57152
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751534AbcAGUbj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2016 15:31:39 -0500
+In-Reply-To: <568BF38D.4060803@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-01-07 at 21:07 +0100, SF Markus Elfring wrote:
-> > > * Which object code representations would you find representative
-> > > =A0 for a further constructive discussion around this
-> > > =A0 software component?
-> >=20
-> > Evidence of actual object code improvement
->=20
-> How do you think about to provide a function implementation
-> which looks a bit more efficient by default?
+On 01/05/2016 08:47 AM, Nicolas Dichtel wrote:
+> Le 04/01/2016 19:45, Saurabh Mohan a =C3=A9crit :
+>>
+>> This patch enchances a tunnel interface, like gre, to have the tunne=
+l
+>> encap/decap be in the context of a network namespace that is differe=
+nt from
+>> the namespace of the tunnel interface.
+>>
+>>   From userspace this feature may be configured using the new 'onetn=
+s' keyword:
+>> ip netns exec custa ip link add dev tun1 type gre local 10.0.0.1 \
+>>    remote 10.0.0.2 onetns outside
+>>
+>> In the above example the tunnel would be in the 'custa' namespace an=
+d the
+>> tunnel endpoints would be in the 'outside' namespace.
+> What is the difference with the following commands?
+>
+> ip netns exec outside ip link add dev tun1 type gre local 10.0.0.1 \
+>      remote 10.0.0.2
+> ip netns exec outside ip link set tun1 netns custa
+>
+> or
+>
+> ip exec custa ip netns set outside 1234
+> ip exec custa ip link add tun1 link-netnsid 1234 type gre local 10.0.=
+0.1 \
+>      remote 10.0.0.2
+>
+>
 
-It's not a matter of "looks a bit more efficient".
-it's taste, style, and repetition for various functions.
-
-Some prefer that source code be "templatized" regardless
-of the number of exit points that any particular use of a
-specific function type.
-
-Some of your patches are converting these templatized
-functions to a different form for no added value.
-
-These patches make the local source code inconsistent
-and generally goes against the authors preferred style.
+these methods would be functionally equivalent to what this patch does.
+no point in adding a third way to do the same.
