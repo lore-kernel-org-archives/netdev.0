@@ -1,192 +1,39 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 4/4] bpf: bpf_htab: Test for BPF_MAP_TYPE_PERCPU_HASH
-Date: Thu, 7 Jan 2016 14:35:55 -0800
-Message-ID: <1452206155-1492617-5-git-send-email-kafai@fb.com>
-References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH] net-i40e: Replace variable initialisations by
+ assignments in i40e_vc_get_vf_resources_msg()
+Date: Thu, 7 Jan 2016 22:43:20 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFE2AAD@fmsmsx115.amr.corp.intel.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <56868E0B.5040602@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: FB Kernel Team <kernel-team@fb.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452206155-1492617-1-git-send-email-kafai@fb.com>
+In-Reply-To: <56868E0B.5040602@users.sourceforge.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A sanity test for BPF_MAP_TYPE_PERCPU_HASH.
-
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
----
- samples/bpf/libbpf.c    |  13 ++++++
- samples/bpf/libbpf.h    |   1 +
- samples/bpf/test_maps.c | 112 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 126 insertions(+)
-
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index 65a8d48..a9c5e61 100644
---- a/samples/bpf/libbpf.c
-+++ b/samples/bpf/libbpf.c
-@@ -54,6 +54,19 @@ int bpf_lookup_elem(int fd, void *key, void *value)
- 	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
- }
- 
-+int bpf_lookup_percpu_elem(int fd, void *key, void *value, unsigned int cpu)
-+{
-+	union bpf_attr attr = {
-+		.map_fd = fd,
-+		.key = ptr_to_u64(key),
-+		.value = ptr_to_u64(value),
-+		.cpu = cpu,
-+	};
-+
-+	return syscall(__NR_bpf, BPF_MAP_LOOKUP_PERCPU_ELEM, &attr,
-+		       sizeof(attr));
-+}
-+
- int bpf_delete_elem(int fd, void *key)
- {
- 	union bpf_attr attr = {
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index 014aacf..7759517 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -8,6 +8,7 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
- 		   int max_entries);
- int bpf_update_elem(int fd, void *key, void *value, unsigned long long flags);
- int bpf_lookup_elem(int fd, void *key, void *value);
-+int bpf_lookup_percpu_elem(int fd, void *key, void *value, unsigned int cpu);
- int bpf_delete_elem(int fd, void *key);
- int bpf_get_next_key(int fd, void *key, void *next_key);
- 
-diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
-index 6299ee9..d0638aa 100644
---- a/samples/bpf/test_maps.c
-+++ b/samples/bpf/test_maps.c
-@@ -89,6 +89,117 @@ static void test_hashmap_sanity(int i, void *data)
- 	close(map_fd);
- }
- 
-+/* sanity tests for percpu map API */
-+static void test_percpu_hashmap_sanity(int i, void *data)
-+{
-+	long long key, next_key, value;
-+	int expected_key_mask = 0;
-+	unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	int map_fd;
-+
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
-+				sizeof(value), 2);
-+	if (map_fd < 0) {
-+		printf("failed to create hashmap '%s'\n", strerror(errno));
-+		exit(1);
-+	}
-+
-+	key = 1;
-+	value = 1234;
-+	/* insert key=1 element */
-+	assert(!(expected_key_mask & key));
-+	assert(bpf_update_elem(map_fd, &key, &value, BPF_ANY) == 0);
-+	expected_key_mask |= key;
-+
-+	/* BPF_NOEXIST means: add new element if it doesn't exist */
-+	assert(bpf_update_elem(map_fd, &key, &value, BPF_NOEXIST) == -1 &&
-+	       /* key=1 already exists */
-+	       errno == EEXIST);
-+
-+	/* -1 is an invalid flag */
-+	assert(bpf_update_elem(map_fd, &key, &value, -1) == -1
-+	       && errno == EINVAL);
-+
-+	/* check that key=1 can be found. value could be 0 if the lookup
-+	 * was run from a different cpu.
-+	 */
-+	assert(bpf_lookup_elem(map_fd, &key, &value) == 0 &&
-+	       (value == 0 || value == 1234));
-+
-+	key = 2;
-+	/* check that key=2 is not found */
-+	assert(bpf_lookup_elem(map_fd, &key, &value) == -1 && errno == ENOENT);
-+
-+	/* BPF_EXIST means: update existing element */
-+	assert(bpf_update_elem(map_fd, &key, &value, BPF_EXIST) == -1 &&
-+	       /* key=2 is not there */
-+	       errno == ENOENT);
-+
-+	/* insert key=2 element */
-+	assert(!(expected_key_mask & key));
-+	assert(bpf_update_elem(map_fd, &key, &value, BPF_NOEXIST) == 0);
-+	expected_key_mask |= key;
-+
-+	/* key=1 and key=2 were inserted, check that key=0 cannot be inserted
-+	 * due to max_entries limit
-+	 */
-+	key = 0;
-+	assert(bpf_update_elem(map_fd, &key, &value, BPF_NOEXIST) == -1
-+	       && errno == E2BIG);
-+
-+	/* check that key = 0 doesn't exist */
-+	assert(bpf_delete_elem(map_fd, &key) == -1 && errno == ENOENT);
-+
-+	/* iterate over two elements */
-+	while (!bpf_get_next_key(map_fd, &key, &next_key)) {
-+		unsigned int cpu;
-+		int found;
-+
-+		assert((expected_key_mask & next_key) == next_key);
-+		expected_key_mask &= ~next_key;
-+
-+		found = 0;
-+		for (cpu = 0; cpu < nr_cpus; cpu++) {
-+			if (!bpf_lookup_percpu_elem(map_fd, &next_key,
-+						    &value, cpu)) {
-+				if (value == 1234) {
-+					assert(!found);
-+					found = 1;
-+				} else {
-+					assert(value == 0);
-+				}
-+			} else {
-+				assert(errno == ENXIO);
-+			}
-+		}
-+		assert(found);
-+
-+		key = next_key;
-+	}
-+	assert(errno == ENOENT);
-+
-+	/* Look up the value with an invalid CPU */
-+	key = 1;
-+	assert(bpf_lookup_percpu_elem(map_fd, &key, &value, nr_cpus) == -1 && errno == EINVAL);
-+
-+	/* Update with BPF_EXIST */
-+	key = 1;
-+	assert(bpf_update_elem(map_fd, &key, &value, BPF_EXIST) == 0);
-+
-+	/* delete both elements */
-+	key = 1;
-+	assert(bpf_delete_elem(map_fd, &key) == 0);
-+	key = 2;
-+	assert(bpf_delete_elem(map_fd, &key) == 0);
-+	assert(bpf_delete_elem(map_fd, &key) == -1 && errno == ENOENT);
-+
-+	key = 0;
-+	/* check that map is empty */
-+	assert(bpf_get_next_key(map_fd, &key, &next_key) == -1 &&
-+	       errno == ENOENT);
-+	close(map_fd);
-+}
-+
- static void test_arraymap_sanity(int i, void *data)
- {
- 	int key, next_key, map_fd;
-@@ -282,6 +393,7 @@ static void test_map_parallel(void)
- int main(void)
- {
- 	test_hashmap_sanity(0, NULL);
-+	test_percpu_hashmap_sanity(0, NULL);
- 	test_arraymap_sanity(0, NULL);
- 	test_map_large();
- 	test_map_parallel();
--- 
-2.5.1
+PiBGcm9tOiBTRiBNYXJrdXMgRWxmcmluZyBbbWFpbHRvOmVsZnJpbmdAdXNlcnMuc291cmNlZm9y
+Z2UubmV0XQ0KPiBTZW50OiBGcmlkYXksIEphbnVhcnkgMDEsIDIwMTYgNjozMyBBTQ0KPiANCj4g
+RnJvbTogTWFya3VzIEVsZnJpbmcgPGVsZnJpbmdAdXNlcnMuc291cmNlZm9yZ2UubmV0Pg0KPiBE
+YXRlOiBGcmksIDEgSmFuIDIwMTYgMTU6MTE6MDkgKzAxMDANCj4gDQo+IFJlcGxhY2UgZXhwbGlj
+aXQgaW5pdGlhbGlzYXRpb25zIGZvciBmb3VyIGxvY2FsIHZhcmlhYmxlcyBhdCB0aGUgYmVnaW5u
+aW5nDQo+IGJ5IGFzc2lnbm1lbnRzIHRoYXQgd2lsbCBvbmx5IGJlIHBlcmZvcm1lZCBpZiB0aGUg
+Y29ycmVzcG9uZGluZyBjb2RlDQo+IHdpbGwgcmVhbGx5IGJlIGV4ZWN1dGVkLg0KPiANCj4gU2ln
+bmVkLW9mZi1ieTogTWFya3VzIEVsZnJpbmcgPGVsZnJpbmdAdXNlcnMuc291cmNlZm9yZ2UubmV0
+Pg0KPiAtLS0NCg0KVGhpcyBzZWVtcyB0byBtZSB0byBiZSB1bm5lY2Vzc2FyeSBmdXNzaW5nIHdp
+dGggdGhlIGNvZGUuDQoNCnNsbg0KDQo=
