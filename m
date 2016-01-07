@@ -1,70 +1,185 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] bpf: add skb_postpush_rcsum and fix
- dev_forward_skb occasions
-Date: Thu, 7 Jan 2016 10:52:40 -0800
-Message-ID: <20160107185239.GA3880@ast-mbp.thefacebook.com>
-References: <cover.1452176592.git.daniel@iogearbox.net>
- <ea76eeeaed015a797cef5df2533bae1ebd62aa05.1452176592.git.daniel@iogearbox.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next 5/5] Documentation/networking: add
+ tx-offloads.txt to explain LCO
+Date: Thu, 7 Jan 2016 10:58:48 -0800
+Message-ID: <CALx6S371yxTGTTw3jrxeyke_pa3DFLKdMzSL=HURROhu+FMA2w@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9CE2.4080501@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34819 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752015AbcAGSwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 13:52:42 -0500
-Received: by mail-pa0-f53.google.com with SMTP id ho8so4353228pac.2
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 10:52:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <ea76eeeaed015a797cef5df2533bae1ebd62aa05.1452176592.git.daniel@iogearbox.net>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:34688 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752788AbcAGS6t convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 13:58:49 -0500
+Received: by mail-io0-f178.google.com with SMTP id 1so215182994ion.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 10:58:49 -0800 (PST)
+In-Reply-To: <568E9CE2.4080501@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2016 at 03:50:23PM +0100, Daniel Borkmann wrote:
-> Add a small helper skb_postpush_rcsum() and fix up redirect locations
-> that need CHECKSUM_COMPLETE fixups on ingress. dev_forward_skb() expects
-> a proper csum that covers also Ethernet header, f.e. since 2c26d34bbcc0
-> ("net/core: Handle csum for CHECKSUM_COMPLETE VXLAN forwarding"), we
-> also do skb_postpull_rcsum() after pulling Ethernet header off via
-> eth_type_trans().
-> 
-> When using eBPF in a netns setup f.e. with vxlan in collect metadata mode,
-> I can trigger the following csum issue with an IPv6 setup:
-> 
->   [  505.144065] dummy1: hw csum failure
->   [...]
->   [  505.144108] Call Trace:
->   [  505.144112]  <IRQ>  [<ffffffff81372f08>] dump_stack+0x44/0x5c
->   [  505.144134]  [<ffffffff81607cea>] netdev_rx_csum_fault+0x3a/0x40
->   [  505.144142]  [<ffffffff815fee3f>] __skb_checksum_complete+0xcf/0xe0
->   [  505.144149]  [<ffffffff816f0902>] nf_ip6_checksum+0xb2/0x120
->   [  505.144161]  [<ffffffffa08c0e0e>] icmpv6_error+0x17e/0x328 [nf_conntrack_ipv6]
->   [  505.144170]  [<ffffffffa0898eca>] ? ip6t_do_table+0x2fa/0x645 [ip6_tables]
->   [  505.144177]  [<ffffffffa08c0725>] ? ipv6_get_l4proto+0x65/0xd0 [nf_conntrack_ipv6]
->   [  505.144189]  [<ffffffffa06c9a12>] nf_conntrack_in+0xc2/0x5a0 [nf_conntrack]
->   [  505.144196]  [<ffffffffa08c039c>] ipv6_conntrack_in+0x1c/0x20 [nf_conntrack_ipv6]
->   [  505.144204]  [<ffffffff8164385d>] nf_iterate+0x5d/0x70
->   [  505.144210]  [<ffffffff816438d6>] nf_hook_slow+0x66/0xc0
->   [  505.144218]  [<ffffffff816bd302>] ipv6_rcv+0x3f2/0x4f0
->   [  505.144225]  [<ffffffff816bca40>] ? ip6_make_skb+0x1b0/0x1b0
->   [  505.144232]  [<ffffffff8160b77b>] __netif_receive_skb_core+0x36b/0x9a0
->   [  505.144239]  [<ffffffff8160bdc8>] ? __netif_receive_skb+0x18/0x60
->   [  505.144245]  [<ffffffff8160bdc8>] __netif_receive_skb+0x18/0x60
->   [  505.144252]  [<ffffffff8160ccff>] process_backlog+0x9f/0x140
->   [  505.144259]  [<ffffffff8160c4a5>] net_rx_action+0x145/0x320
->   [...]
-> 
-> What happens is that on ingress, we push Ethernet header back in, either
-> from cls_bpf or right before skb_do_redirect(), but without updating csum.
-> The "hw csum failure" can be fixed by using the new skb_postpush_rcsum()
-> helper for the dev_forward_skb() case to correct the csum diff again.
-> 
-> Thanks to Hannes Frederic Sowa for the csum_partial() idea!
-> 
-> Fixes: 3896d655f4d4 ("bpf: introduce bpf_clone_redirect() helper")
-> Fixes: 27b29f63058d ("bpf: add bpf_redirect() helper")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+On Thu, Jan 7, 2016 at 9:14 AM, Edward Cree <ecree@solarflare.com> wrote:
+> It would also be a good place to explain GSO if someone wants to do that...
+>
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+This looks great! Maybe the title should be checksum-offload.txt
+though. We can add the material from skbuff.h to describe all about RX
+and TX checksum later on. Segmentation offload could be another doc in
+itself.
+
+Tom
+
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+>  Documentation/networking/00-INDEX        |   2 +
+>  Documentation/networking/tx-offloads.txt | 122 +++++++++++++++++++++++++++++++
+>  2 files changed, 124 insertions(+)
+>  create mode 100644 Documentation/networking/tx-offloads.txt
+>
+> diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
+> index df27a1a..1fcf432 100644
+> --- a/Documentation/networking/00-INDEX
+> +++ b/Documentation/networking/00-INDEX
+> @@ -216,6 +216,8 @@ tproxy.txt
+>         - Transparent proxy support user guide.
+>  tuntap.txt
+>         - TUN/TAP device driver, allowing user space Rx/Tx of packets.
+> +tx-offloads.txt
+> +       - Explanation of Transmit Offloads: Checksums, LCO, RCO
+>  udplite.txt
+>         - UDP-Lite protocol (RFC 3828) introduction.
+>  vortex.txt
+> diff --git a/Documentation/networking/tx-offloads.txt b/Documentation/networking/tx-offloads.txt
+> new file mode 100644
+> index 0000000..1a51993
+> --- /dev/null
+> +++ b/Documentation/networking/tx-offloads.txt
+> @@ -0,0 +1,122 @@
+> +Transmit Offloads in the Linux Networking Stack
+> +
+> +
+> +Introduction
+> +============
+> +
+> +This document describes a set of techniques in the Linux networking stack
+> + to take advantage of offload capabilities of various NICs.
+> +
+> +The following technologies are described:
+> + * TX Checksum Offload
+> + * LCO: Local Checksum Offload
+> + * RCO: Remote Checksum Offload
+> +
+> +Things that should be documented here but aren't yet:
+> + * Encapsulation offloads
+> +   - hardware VLAN acceleration
+> +   - hardware VXLAN/GRE/GENEVE/etc. encapsulation
+> + * Segmentation offloads
+> +   - GSO: Generic Segmentation Offload
+> +   - TSO: TCP Segmentation Offload
+> +
+> +
+> +TX Checksum Offload
+> +===================
+> +
+> +The interface for offloading a transmit checksum to a device is explained
+> + in detail in comments near the top of include/linux/skbuff.h.
+> +In brief, it allows to request the device fill in a single ones-complement
+> + checksum defined by the sk_buff fields skb->csum_start and
+> + skb->csum_offset.  The device should compute the 16-bit ones-complement
+> + checksum (i.e. the 'IP-style' checksum) from csum_start to the end of the
+> + packet, and fill in the result at (csum_start + csum_offset).
+> +Because csum_offset cannot be negative, this ensures that the previous
+> + value of the checksum field is included in the checksum computation, thus
+> + it can be used to supply any needed corrections to the checksum (such as
+> + the sum of the pseudo-header for UDP or TCP).
+> +This interface only allows a single checksum to be offloaded.  Where
+> + encapsulation is used, the packet may have multiple checksum fields in
+> + different header layers, and the rest will have to be handled by another
+> + mechanism such as LCO or RCO.
+> +No offloading of the IP header checksum is performed; it is always done in
+> + software.  This is OK because when we build the IP header, we obviously
+> + have it in cache, so summing it isn't expensive.  It's also rather short.
+> +The requirements for GSO are more complicated, because when segmenting an
+> + encapsulated packet both the inner and outer checksums may need to be
+> + edited or recomputed for each resulting segment.  See the skbuff.h comment
+> + (section 'E') for more details.
+> +
+> +A driver declares its offload capabilities in netdev->hw_features; see
+> + Documentation/networking/netdev-features for more.  Note that a device
+> + which only advertises NETIF_F_IP[V6]_CSUM must still obey the csum_start
+> + and csum_offset given in the SKB; if it tries to deduce these itself in
+> + hardware (as some NICs do) the driver should check that the values in the
+> + SKB match those which the hardware will deduce, and if not, fall back to
+> + checksumming in software instead (with skb_checksum_help or one of the
+> + skb_csum_off_chk* functions as mentioned in include/linux/skbuff.h).  This
+> + is a pain, but that's what you get when hardware tries to be clever.
+> +
+> +The stack should, for the most part, assume that checksum offload is
+> + supported by the underlying device.  The only place that should check is
+> + validate_xmit_skb(), and the functions it calls directly or indirectly.
+> + That function compares the offload features requested by the SKB (which
+> + may include other offloads besides TX Checksum Offload) and, if they are
+> + not supported or enabled on the device (determined by netdev->features),
+> + performs the corresponding offload in software.  In the case of TX
+> + Checksum Offload, that means calling skb_checksum_help(skb).
+> +
+> +
+> +LCO: Local Checksum Offload
+> +===========================
+> +
+> +LCO is a technique for efficiently computing the outer checksum of an
+> + encapsulated datagram when the inner checksum is due to be offloaded.
+> +The ones-complement sum of a correctly checksummed TCP or UDP packet is
+> + equal to the sum of the pseudo header, because everything else gets
+> + 'cancelled out' by the checksum field.  This is because the sum was
+> + complemented before being written to the checksum field.
+> +More generally, this holds in any case where the 'IP-style' ones complement
+> + checksum is used, and thus any checksum that TX Checksum Offload supports.
+> +That is, if we have set up TX Checksum Offload with a start/offset pair, we
+> + know that _after the device has filled in that checksum_, the ones
+> + complement sum from csum_start to the end of the packet will be equal to
+> + _whatever value we put in the checksum field beforehand_.  This allows us
+> + to compute the outer checksum without looking at the payload: we simply
+> + stop summing when we get to csum_start, then add the 16-bit word at
+> + (csum_start + csum_offset).
+> +Then, when the true inner checksum is filled in (either by hardware or by
+> + skb_checksum_help()), the outer checksum will become correct by virtue of
+> + the arithmetic.
+> +
+> +LCO is performed by the stack when constructing an outer UDP header for an
+> + encapsulation such as VXLAN or GENEVE, in udp_set_csum().  Similarly for
+> + the IPv6 equivalents, in udp6_set_csum().
+> +It is *not* currently performed when constructing a GRE header; the
+> + GRE checksum is computed over the whole packet in either
+> + net/ipv4/ip_gre.c:build_header() or net/ipv6/ip6_gre.c:ip6gre_xmit2(), but
+> + it should be possible to use LCO here as GRE uses an IP-style checksum.
+> +There is a helper function lco_csum(), in include/linux/skbuff.h, which may
+> + be useful for this.
+> +
+> +LCO can safely be used for nested encapsulations; in this case, the outer
+> + encapsulation layer will sum over both its own header and the 'middle'
+> + header.  This does mean that the 'middle' header will get summed multiple
+> + times, but there doesn't seem to be a way to avoid that without incurring
+> + bigger costs (e.g. in SKB bloat).
+> +
+> +
+> +RCO: Remote Checksum Offload
+> +============================
+> +
+> +RCO is a technique for eliding the inner checksum of an encapsulated
+> + datagram, allowing the outer checksum to be offloaded.  It does, however,
+> + involve a change to the encapsulation protocols, which the receiver must
+> + also support.  For this reason, it is disabled by default.
+> +RCO is detailed in the following Internet-Drafts:
+> +https://tools.ietf.org/html/draft-herbert-remotecsumoffload-00
+> +https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
+> +In Linux, RCO is implemented individually in each encapsulation protocol,
+> + and most tunnel types have flags controlling its use.  For instance, VXLAN
+> + has the flag VXLAN_F_REMCSUM_TX (per struct vxlan_rdst) to indicate that
+> + RCO should be used when transmitting to a given remote destination.
+> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
