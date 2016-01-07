@@ -1,32 +1,38 @@
-From: ADMINISTRATOR <librarian1@bahria.edu.pk>
-Subject: Dear:  Account User,
-Date: Thu, 07 Jan 2016 02:13:29 +0100
-Message-ID: <20160107011305.8DC356387A@mail.baliprov.go.id>
-Reply-To: No-reply@mail.baliprov.go.id
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <librarian1@bahria.edu.pk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.baliprov.go.id ([182.23.65.58]:42993 "EHLO
-	mail.baliprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753038AbcAGMHE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 07:07:04 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH] iwl4965: Fix a memory leak in error handling code of __il4965_up
+Date: Thu,  7 Jan 2016 20:17:39 +0800
+Message-ID: <1452169059-20617-1-git-send-email-baijiaju1990@163.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
+To: sgruszka@redhat.com, kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear:  Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account. To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://webmail-newupdate2016.ezweb123.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2016.
+When il4965_hw_nic_init in __il4965_up fails, the memory allocated by 
+iwl4965_sta_alloc_lq in iwl4965_alloc_bcast_station is not freed.
+
+This patches adds il_dealloc_bcast_stations in the error handling code of 
+__il4965_up to fix this problem.
+
+This patch has been tested in real device, and it actually fixes the bug.
+
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/wireless/iwlegacy/4965-mac.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
+index 6656215..fd7b5c7 100644
+--- a/drivers/net/wireless/iwlegacy/4965-mac.c
++++ b/drivers/net/wireless/iwlegacy/4965-mac.c
+@@ -5577,6 +5577,7 @@ __il4965_up(struct il_priv *il)
+ 	ret = il4965_hw_nic_init(il);
+ 	if (ret) {
+ 		IL_ERR("Unable to init nic\n");
++		il_dealloc_bcast_stations(il);
+ 		return ret;
+ 	}
+ 
+-- 
+1.7.9.5
