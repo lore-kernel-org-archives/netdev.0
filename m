@@ -1,100 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: suspicious rcu_dereference in tcp_v6_send_synack
-Date: Thu, 07 Jan 2016 07:52:53 -0800
-Message-ID: <1452181973.8255.213.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160107153248.GA30472@codemonkey.org.uk>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
+Subject: Re: [PATCH] net/rfkill: Create "airplane mode" LED trigger
+Date: Thu, 7 Jan 2016 11:19:25 -0500
+Message-ID: <CA+A7VXW3Fsf2O_xnnZAWxieMMhSP2ngTbhtuJEB1JpMc6EFPxQ@mail.gmail.com>
+References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com>
+ <1451142303-1872-2-git-send-email-jprvita@endlessm.com> <6DC3AA8C-DDE9-44B8-91C5-94B1EB0DBE9A@holtmann.org>
+ <1452076319.2541.3.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@codemonkey.org.uk>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33008 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753064AbcAGPw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 10:52:56 -0500
-Received: by mail-pa0-f51.google.com with SMTP id cy9so261659315pac.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 07:52:55 -0800 (PST)
-In-Reply-To: <20160107153248.GA30472@codemonkey.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Network Development <netdev@vger.kernel.org>,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Darren Hart <dvhart@infradead.org>,
+	platform-driver-x86@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452076319.2541.3.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-01-07 at 10:32 -0500, Dave Jones wrote:
-> ===============================
-> [ INFO: suspicious RCU usage. ]
-> 4.4.0-rc8-firewall+ #1 Not tainted
-> -------------------------------
-> net/ipv6/tcp_ipv6.c:465 suspicious rcu_dereference_check() usage!
-> 
-> other info that might help us debug this:
-> 
-> 
-> rcu_scheduler_active = 1, debug_locks = 1
-> 1 lock held by swapper/1/0:
->  #0:  (((&req->rsk_timer))){+.-...}, at: [<ffffffff99113285>] call_timer_fn+0x5/0x3f0
-> 
-> stack backtrace:
-> CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.4.0-rc8-firewall+ #1
->  0000000000000000 ffff8801d7a07b28 ffffffff9948b3b5 ffff8801d6046500
->  ffff8801d7a07b58 ffffffff990e9b7a ffff8801cd356240 0000000000000000
->  ffff8801d23b1698 ffff8801d23b0c40 ffff8801d7a07ba8 ffffffff99b635d2
-> Call Trace:
->  <IRQ>  [<ffffffff9948b3b5>] dump_stack+0x4e/0x79
->  [<ffffffff990e9b7a>] lockdep_rcu_suspicious+0xea/0x110
->  [<ffffffff99b635d2>] tcp_v6_send_synack+0x2c2/0x350
->  [<ffffffff99a8550d>] tcp_rtx_synack+0xdd/0x180
->  [<ffffffff99a85430>] ? tcp_send_probe0+0x1a0/0x1a0
->  [<ffffffff99a5f0a4>] reqsk_timer_handler+0x4c4/0x530
->  [<ffffffff99a5ebe0>] ? inet_csk_reqsk_queue_drop+0x3a0/0x3a0
->  [<ffffffff990e0f2b>] ? __lock_is_held+0x9b/0xd0
->  [<ffffffff991133b2>] call_timer_fn+0x132/0x3f0
->  [<ffffffff99113285>] ? call_timer_fn+0x5/0x3f0
->  [<ffffffff99a5ebe0>] ? inet_csk_reqsk_queue_drop+0x3a0/0x3a0
->  [<ffffffff99113280>] ? process_timeout+0x10/0x10
->  [<ffffffff990e44d2>] ? trace_hardirqs_on_caller+0x192/0x2a0
->  [<ffffffff990b52ea>] ? preempt_count_sub+0x1a/0x130
->  [<ffffffff99113cab>] run_timer_softirq+0x47b/0x590
->  [<ffffffff99a5ebe0>] ? inet_csk_reqsk_queue_drop+0x3a0/0x3a0
->  [<ffffffff99113830>] ? internal_add_timer+0x110/0x110
->  [<ffffffff990e0eb8>] ? __lock_is_held+0x28/0xd0
->  [<ffffffff99076fd2>] __do_softirq+0x1b2/0x5c0
->  [<ffffffff9907762c>] irq_exit+0xfc/0x110
->  [<ffffffff99c12abf>] smp_apic_timer_interrupt+0x5f/0x70
->  [<ffffffff99c112bb>] apic_timer_interrupt+0x8b/0x90
->  <EOI>  [<ffffffff998dd547>] ? cpuidle_enter_state+0x1c7/0x460
->  [<ffffffff998dd542>] ? cpuidle_enter_state+0x1c2/0x460
->  [<ffffffff99107289>] ? rcu_eqs_enter_common+0x139/0x280
->  [<ffffffff998dd847>] cpuidle_enter+0x17/0x20
->  [<ffffffff990dbd92>] cpu_startup_entry+0x4d2/0x5b0
->  [<ffffffff990db8c0>] ? default_idle_call+0x60/0x60
->  [<ffffffff9912d714>] ? clockevents_config_and_register+0x64/0x70
->  [<ffffffff9904d785>] ? setup_APIC_timer+0x115/0x120
->  [<ffffffff9904be1a>] start_secondary+0x23a/0x2a0
->  [<ffffffff9904bbe0>] ? set_cpu_sibling_map+0x9c0/0x9c0
-> 
++ Darren Hart and platform-drivers-x86 (sorry, I was trying to avoid
+too much cross-posting and ended up leaving interested parties out).
 
-Apparently RCU lockdep thinks a softirq handler (timer soft irq) needs
-rcu_read_lock() before rcu_dereference()
+On 6 Jan 2016 05:32, "Johannes Berg" <johannes@sipsolutions.net> wrote:
+>
+> On Tue, 2016-01-05 at 22:55 -0800, Marcel Holtmann wrote:
+> >
+> > so I am not convinced the kernel should have the concept of airplan=
+e
+> > mode at all.
+>
+> [snip long story]
+>
+> This is true, but that doesn't mean the patch is bad, just the naming
+> could be different.
+>
+> I think the patch could name this "rfkill-all" (or so) instead, and
+> replace all the "airplane_mode" identifiers as well.
+>
 
-This is not clear if this is a lockdep false positive.
+I agree "airplane mode" is not the best name here and I can change in
+an updated version.
 
-Paul, can you remind me why it is needed, as a softirq handler is not
-allowed to schedule or be preempted ?
+> Then the driver can still default to "rfkill-all" trigger, or a
+> suitably interested userspace could remove the trigger and manage the
+> LED state itself.
+>
 
+Trying to answer both Marcel's and your comments, I think we should
+rather have a trigger which fires when the global state of
+RFKILL_TYPE_ALL changes, instead of tied to the op
+RFKILL_OP_CHANGE_ALL. Then we should also update the global states on
+every set block operation instead of only on RFKILL_OP_CHANGE_ALL.
+This part does not look like policy to me (please correct me if I'm
+wrong).
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 6b8a8a9091fa..bd100b47c717 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -462,8 +462,10 @@ static int tcp_v6_send_synack(const struct sock *sk, struct dst_entry *dst,
- 		if (np->repflow && ireq->pktopts)
- 			fl6->flowlabel = ip6_flowlabel(ipv6_hdr(ireq->pktopts));
- 
-+		rcu_read_lock();
- 		err = ip6_xmit(sk, skb, fl6, rcu_dereference(np->opt),
- 			       np->tclass);
-+		rcu_read_unlock();
- 		err = net_xmit_eval(err);
- 	}
- 
+The platform driver can default this trigger and have the LED reflect
+the global state of RFKILL_TYPE_ALL. This indeed looks like policy,
+but mostly because the physical LED label is an airplane icon, what
+the LED will be representing is "all radios are off". If that is not
+acceptable in the kernel, I can expose the LED to userspace instead
+and different userspaces can decide when to trigger it (in which case
+we don't need this patch at all). But considering this is a laptop
+platform driver, the only way I can see this being used is having the
+LED lit when all the radios are off, and unlit otherwise (maybe I'm
+being a bit short-visioned).
+
+In any case, I think we should update the global states on every set
+block operation, to have them consistent with the individual states. I
+can provide a patch for that.
+
+> Then again - if I think about that more - perhaps the kernel *should*
+> have a concept of airplane mode, just one that's not necessarily tied
+> to the "rfkill_all" setting, but could be controlled by userspace. Th=
+at
+> way, userspace wouldn't have to know about the LED, just about the
+> airplane mode indicator (for which rfkill would probably be an
+> appropriate place)
+>
+
+If I'm following this correctly, your suggestion is to have an
+"airplane mode indicator" switch in the RFKill subsystem, which would
+be driven by userspace and will be tied to a trigger that could be
+used by platform drivers to drive physical airplane mode LEDs and
+similar. That's an interesting idea and probably better than expecting
+userspaces to know about platform details like LED presence. If this
+is feasible looks like a nice generic solution for this problem.
+
+Please let me know what you guys think is the best solution so I can wo=
+rk on it.
+
+> Two comments on the patch itself:
+>
+> > +#ifdef CONFIG_RFKILL_LEDS
+> > +       led_trigger_register(&amp;airplane_mode_led_trigger);
+> > +#endif
+>
+> Everything else uses inlines to avoid ifdefs, you can do the same her=
+e.
+> Also, error handling seems necessary.
+>
+
+Ok, I can fix this if there is an updated version of this patch.
+
+--
+Jo=C3=A3o Paulo Rechi Vita
+http://about.me/jprvita
