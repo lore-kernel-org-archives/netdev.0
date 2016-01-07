@@ -1,55 +1,96 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net, sched: add clsact qdisc
-Date: Thu, 7 Jan 2016 11:09:35 +0100
-Message-ID: <568E395F.8020504@stressinduktion.org>
-References: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net>
- <20160107035334.GA99020@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jhs@mojatatu.com, john.fastabend@gmail.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:59871 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750707AbcAGKJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 05:09:39 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id C4CC920F7B
-	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 05:09:38 -0500 (EST)
-In-Reply-To: <20160107035334.GA99020@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] net: plip: use new parport device model
+Date: Thu,  7 Jan 2016 15:42:37 +0530
+Message-ID: <1452161557-6840-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Daniel and Alexei,
+Modify plip driver to use the new parallel port device model.
 
-On 07.01.2016 04:53, Alexei Starovoitov wrote:
-> On Wed, Jan 06, 2016 at 02:00:56AM +0100, Daniel Borkmann wrote:
->>
->> I decided to extend the sch_ingress module with clsact functionality so
->> that commonly used code can be reused, the module is being aliased with
->> sch_clsact so that it can be auto-loaded properly. Alternative would have been
->> to add a flag when initializing ingress to alter its behaviour plus aliasing
->> to a different name (as it's more than just ingress). However, the first would
->> end up, based on the flag, choosing the new/old behaviour by calling different
->> function implementations to handle each anyway, the latter would require to
->> register ingress qdisc once again under different alias. So, this really begs
->> to provide a minimal, cleaner approach to have Qdisc_ops and Qdisc_class_ops
->> by its own that share callbacks used by both.
-> ...
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> we've been going back and forth on the design and this final approach
-> presented seems to be the best, since pros outweigh the cons.
->
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+---
+ drivers/net/plip/plip.c | 36 ++++++++++++++++++++++++++++--------
+ 1 file changed, 28 insertions(+), 8 deletions(-)
 
-One question:
-
-With the advance in lockless qdiscs by John Fastabend, is it possible to 
-push the handle_egress hook further down into sched layer?
-
-Bye,
-Hannes
+diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
+index 040b897..9c4b41a 100644
+--- a/drivers/net/plip/plip.c
++++ b/drivers/net/plip/plip.c
+@@ -1249,6 +1249,7 @@ static void plip_attach (struct parport *port)
+ 	struct net_device *dev;
+ 	struct net_local *nl;
+ 	char name[IFNAMSIZ];
++	struct pardev_cb plip_cb;
+ 
+ 	if ((parport[0] == -1 && (!timid || !port->devices)) ||
+ 	    plip_searchfor(parport, port->number)) {
+@@ -1273,9 +1274,15 @@ static void plip_attach (struct parport *port)
+ 
+ 		nl = netdev_priv(dev);
+ 		nl->dev = dev;
+-		nl->pardev = parport_register_device(port, dev->name, plip_preempt,
+-						 plip_wakeup, plip_interrupt,
+-						 0, dev);
++
++		memset(&plip_cb, 0, sizeof(plip_cb));
++		plip_cb.private = dev;
++		plip_cb.preempt = plip_preempt;
++		plip_cb.wakeup = plip_wakeup;
++		plip_cb.irq_func = plip_interrupt;
++
++		nl->pardev = parport_register_dev_model(port, dev->name,
++							&plip_cb, unit);
+ 
+ 		if (!nl->pardev) {
+ 			printk(KERN_ERR "%s: parport_register failed\n", name);
+@@ -1315,10 +1322,23 @@ static void plip_detach (struct parport *port)
+ 	/* Nothing to do */
+ }
+ 
++static int plip_probe(struct pardevice *par_dev)
++{
++	struct device_driver *drv = par_dev->dev.driver;
++	int len = strlen(drv->name);
++
++	if (strncmp(par_dev->name, drv->name, len))
++		return -ENODEV;
++
++	return 0;
++}
++
+ static struct parport_driver plip_driver = {
+-	.name	= "plip",
+-	.attach = plip_attach,
+-	.detach = plip_detach
++	.name		= "plip",
++	.probe		= plip_probe,
++	.match_port	= plip_attach,
++	.detach		= plip_detach,
++	.devmodel	= true,
+ };
+ 
+ static void __exit plip_cleanup_module (void)
+@@ -1326,8 +1346,6 @@ static void __exit plip_cleanup_module (void)
+ 	struct net_device *dev;
+ 	int i;
+ 
+-	parport_unregister_driver (&plip_driver);
+-
+ 	for (i=0; i < PLIP_MAX; i++) {
+ 		if ((dev = dev_plip[i])) {
+ 			struct net_local *nl = netdev_priv(dev);
+@@ -1339,6 +1357,8 @@ static void __exit plip_cleanup_module (void)
+ 			dev_plip[i] = NULL;
+ 		}
+ 	}
++
++	parport_unregister_driver(&plip_driver);
+ }
+ 
+ #ifndef MODULE
+-- 
+1.9.1
