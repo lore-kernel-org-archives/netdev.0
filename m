@@ -1,49 +1,47 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH net 1/2] vxlan: Relax the MTU constraint on
-	vxlan devices
-Date: Thu, 7 Jan 2016 12:24:14 +0100
-Message-ID: <20160107112414.GH32456@pox.localdomain>
+From: David Wragg <david@weave.works>
+Subject: Re: [PATCH net 1/2] vxlan: Relax the MTU constraint on vxlan devices
+Date: Thu, 07 Jan 2016 11:31:38 +0000
+Message-ID: <86lh81pqw5.fsf@weave.works>
 References: <1452087186-12926-1-git-send-email-david@weave.works>
- <1452087186-12926-2-git-send-email-david@weave.works>
+	<1452087186-12926-2-git-send-email-david@weave.works>
+	<20160107112414.GH32456@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1452087186-12926-2-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:38613 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752246AbcAGLbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 06:31:41 -0500
+Received: by mail-wm0-f49.google.com with SMTP id b14so118439567wmb.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 03:31:40 -0800 (PST)
+In-Reply-To: <20160107112414.GH32456@pox.localdomain> (Thomas Graf's message
+	of "Thu, 7 Jan 2016 12:24:14 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDEvMDYvMTYgYXQgMDE6MzNwbSwgRGF2aWQgV3JhZ2cgd3JvdGU6Cj4gQWxsb3cgdGhlIE1U
-VSBvZiB2eGxhbiBkZXZpY2VzIHdpdGhvdXQgYW4gdW5kZXJseWluZyBkZXZpY2UgdG8gYmUgc2V0
-IHRvCj4gbGFyZ2VyIHZhbHVlcyAodXAgdG8gYSBtYXhpbXVtIGJhc2VkIG9uIElQIHBhY2tldCBs
-aW1pdHMgYW5kIHZ4bGFuCj4gb3ZlcmhlYWQpLgo+IAo+IFByZXZpb3VzbHksIHRoZWlyIE1UVXMg
-Y291bGQgbm90IGJlIHNldCB0byBoaWdoZXIgdGhhbiB0aGUgY29udmVudGlvbmFsCj4gZXRoZXJu
-ZXQgdmFsdWUgb2YgMTUwMC4gIFRoaXMgaXMgYSB2ZXJ5IGFyYml0cmFyeSB2YWx1ZSBpbiB0aGUg
-Y29udGV4dAo+IG9mIHZ4bGFuLCBhbmQgcHJldmVudGVkIHN1Y2ggdnhsYW4gZGV2aWNlcyBmcm9t
-IGJlaW5nIGFibGUgdG8gdGFrZQo+IGFkdmFudGFnZSBvZiBqdW1ibyBmcmFtZXMgZXRjLgo+IAo+
-IFRoZSBkZWZhdWx0IE1UVSByZW1haW5zIDE1MDAsIGZvciBjb21wYXRpYmlsaXR5Lgo+IAo+IFNp
-Z25lZC1vZmYtYnk6IERhdmlkIFdyYWdnIDxkYXZpZEB3ZWF2ZS53b3Jrcz4KCkEgcmVtYWluIG9m
-IGV0aF9jaGFuZ2VfbXR1Cgo+ICsJaW50IG1heF9tdHUgPSA2NTUzNTsKClRoaXMgc2hvdWxkIHBy
-b2JhYmx5IGJlIHJlcHJlc2VudGVkIGFzIGEgbmV3IGNvbnN0IERFVl9NQVhfTVRVIHdoaWNoCmNh
-biBiZSB1c2VkIGJ5IHZldGgsIHR1biwgYW5kIHZpcnRpbyBhcyB3ZWxsIGluc3RlYWQgb2YgaGFy
-ZGNvZGluZwp0aGlzIHNlcGFyYXRlbHkgaW4gZWFjaCBkcml2ZXIuCgo+ICtzdGF0aWMgaW50IHZ4
-bGFuX2NoYW5nZV9tdHUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IG5ld19tdHUpCj4gK3sK
-PiArCXN0cnVjdCB2eGxhbl9kZXYgKnZ4bGFuID0gbmV0ZGV2X3ByaXYoZGV2KTsKPiArCXN0cnVj
-dCB2eGxhbl9yZHN0ICpkc3QgPSAmdnhsYW4tPmRlZmF1bHRfZHN0Owo+ICsJc3RydWN0IG5ldF9k
-ZXZpY2UgKmxvd2VyZGV2ID0gX19kZXZfZ2V0X2J5X2luZGV4KHZ4bGFuLT5uZXQsCj4gKwkJCQkJ
-CQkgZHN0LT5yZW1vdGVfaWZpbmRleCk7Cj4gKwlyZXR1cm4gX192eGxhbl9jaGFuZ2VfbXR1KGRl
-diwgbG93ZXJkZXYsIGRzdCwgbmV3X210dSk7CgpBbnkgcGFydGljdWxhciByZWFzb24gZm9yIHRo
-ZSBpbmRpcmVjdGlvbj8KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
-aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Thomas Graf <tgraf@suug.ch> writes:
+>> +	int max_mtu = 65535;
+>
+> This should probably be represented as a new const DEV_MAX_MTU which
+> can be used by veth, tun, and virtio as well instead of hardcoding
+> this separately in each driver.
+
+I discovered IP_MAX_MTU in net/route.h after putting the patch together.
+Seems appropriate to use that?
+
+>> +static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
+>> +{
+>> +	struct vxlan_dev *vxlan = netdev_priv(dev);
+>> +	struct vxlan_rdst *dst = &vxlan->default_dst;
+>> +	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
+>> +							 dst->remote_ifindex);
+>> +	return __vxlan_change_mtu(dev, lowerdev, dst, new_mtu);
+>
+> Any particular reason for the indirection?
+
+To make patch 2/2 simpler.  I can rearrange to eliminate the indirection
+here if that is preferred.
+
+David
