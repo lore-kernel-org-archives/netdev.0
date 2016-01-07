@@ -1,42 +1,58 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: net-thunder: One check less in nicvf_register_interrupts() after
- error detection
-Date: Thu, 7 Jan 2016 20:56:45 +0100
-Message-ID: <568EC2FD.9000702@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <5685A273.6070607@users.sourceforge.net>
- <20160107110701.GE25086@rric.localdomain>
- <568EBCE7.4060502@users.sourceforge.net>
- <1452195846.4028.24.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 0/4] MTU changes and other fixes
+Date: Thu, 07 Jan 2016 14:57:50 -0500 (EST)
+Message-ID: <20160107.145750.213741381921685070.davem@davemloft.net>
+References: <1451995051-21920-1-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Sunil Goutham <sgoutham@cavium.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452195846.4028.24.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+	rolf.neugebauer@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51814 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbcAGT5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 14:57:54 -0500
+In-Reply-To: <1451995051-21920-1-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> Is it a bit more efficient to avoid a double check for the
->> variable "ret" at the end of the current implementation for the
->> discussed function?
-> 
-> Before asking questions you could answer yourself,
-> please look at object code produced by the compiler
-> before and after your proposed changes.
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Tue,  5 Jan 2016 11:57:27 +0000
 
-* Do any more source code reviewers wonder about the need
-  for such a double check?
+> v2:
+>  - add first patch (return error on fail).
 
-* Which object code representations would you find representative
-  for a further constructive discussion around this
-  software component?
+You didn't read my feedback, so I'm not going to read your patches.
 
-Regards,
-Markus
+Is that OK with you?  I personally think it's fair.
+
+I said that you need to reorganize how you do the MTU
+changes.
+
+You _MUST_ try to allocate the resources (queues, data
+structures, whatever) for the new MTU size.
+
+And if that fails, release those new resources and leave
+the device exactly in the state it was in prior to the MTU
+change call.
+
+This means you can't use the close/open scheme, I'm explicitly
+telling you not to use that mechanism to change the MTU because
+it can leave the device inoperative if the re-open fails.
+
+That is completely unexpected behavior for the user.
+
+The interface must remain up and functioning at the original
+MTU if the MTU change operation fails.  Your code does not
+do this.
+
+Yes, this is a lot of more work, but that's the only correct
+way to implement this.
+
+If you fail to implement this properly one more time I will start
+simply ignoring your patch submissions for a while because you will be
+completely wasting my time.
+
+Thanks.
