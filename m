@@ -1,211 +1,159 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Thu, 07 Jan 2016 14:28:26 +0100
-Message-ID: <877fjlfrid.fsf@vitty.brq.redhat.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
- <1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: Tom Herbert <tom@herbertland.com>, Haiyang Zhang <haiyangz@microsoft.com>,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- devel@linuxdriverproject.org, David Miller <davem@davemloft.net>
-To: Simon Xiao <sixiao@microsoft.com>, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
- (Eric Dumazet's message of "Thu, 07 Jan 2016 04:52:30 -0800")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net RESEND] udp: restrict offloads to one namespace
+Date: Thu,  7 Jan 2016 14:28:39 +0100
+Message-ID: <1452173319-13610-1-git-send-email-hannes@stressinduktion.org>
+Cc: Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:37180 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752465AbcAGN2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 08:28:45 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 8229D20986
+	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 08:28:44 -0500 (EST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
+udp tunnel offloads tend to aggregate datagrams based on inner
+headers. gro engine gets notified by tunnel implementations about
+possible offloads. The match is solely based on the port number.
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+Imagine a tunnel bound to port 53, the offloading will look into all
+DNS packets and tries to aggregate them based on the inner data found
+within. This could lead to data corruption and malformed DNS packets.
 
-> On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
->> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
->>  VLAN ID to flow_keys")) introduced a performance regression in netvsc
->> driver. Is problem is, however, not the above mentioned commit but the
->> fact that netvsc_set_hash() function did some assumptions on the struct
->> flow_keys data layout and this is wrong. We need to extract the data we
->> need (src/dst addresses and ports) after the dissect.
->> 
->> The issue could also be solved in a completely different way: as suggested
->> by Eric instead of our own homegrown netvsc_set_hash() we could use
->> skb_get_hash() which does more or less the same. Unfortunately, the
->> testing done by Simon showed that Hyper-V hosts are not happy with our
->> Jenkins hash, selecting the output queue with the current algorithm based
->> on Toeplitz hash works significantly better.
->
-> Were tests done on IPv6 traffic ?
->
+While this patch minimizes the problem and helps an administrator to find
+the issue by querying ip tunnel/fou, a better way would be to match on
+the specific destination ip address so if a user space socket is bound
+to the same address it will conflict.
 
-Simon, could you please test this patch for IPv6 and show us the numbers?
-
-> Toeplitz hash takes at least 100 ns to hash 12 bytes (one iteration per
-> bit : 96 iterations)
->
-> For IPv6 it is 3 times this, since we have to hash 36 bytes.
->
-> I do not see how it can compete with skb_get_hash() that directly gives
-> skb->hash for local TCP flows.
->
-
-My guess is that this is not the bottleneck, something is happening
-behind the scene with out packets in Hyper-V host (e.g. re-distributing
-them to hardware queues?) but I don't know the internals, Microsoft
-folks could probably comment.
-
-
-> See commits b73c3d0e4f0e1961e15bec18720e48aabebe2109
-> ("net: Save TX flow hash in sock and set in skbuf on xmit")
-> and 877d1f6291f8e391237e324be58479a3e3a7407c
-> ("net: Set sk_txhash from a random number")
->
-> I understand Microsoft loves Toeplitz, but this looks not well placed
-> here.
->
-> I suspect there is another problem.
->
-> Please share your numbers and test methodology, and the alternative
-> patch Simon tested so that we can double check it.
->
-
-Alternative patch which uses skb_get_hash() attached. Simon, could you
-please share the rest (environment, metodology, numbers) with us here?
-Thanks!
-
-> Thanks.
->
-> PS: For the time being this patch can probably be applied on -net tree,
-> as it fixes a real bug.
-
--- 
-  Vitaly
-
-
---=-=-=
-Content-Type: text/x-patch
-Content-Disposition: inline;
- filename=0001-hv_netvsc-use-skb_get_hash-instead-of-a-homegrown-im.patch
-
->From 0040e79c1303bd225ddbbce679ea944ea11ad0bd Mon Sep 17 00:00:00 2001
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Wed, 6 Jan 2016 12:14:10 +0100
-Subject: [PATCH] hv_netvsc: use skb_get_hash() instead of a homegrown
- implementation
-
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Cc: Tom Herbert <tom@herbertland.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/hyperv/netvsc_drv.c | 67 ++---------------------------------------
- 1 file changed, 3 insertions(+), 64 deletions(-)
+I am resubmitting this patch as is, because I do think the netns equality
+checks are the right thing to do:
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 409b48e..038bf4f 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -195,65 +195,6 @@ static void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
- 	return ppi;
+* I do not see any reason why we should restrict this to the initial
+  namespace only. I would like to adapt the same behaviour for hardware
+  offloads and tunnel offloads
+
+* I want to add support for matching ip addresses, they are actually only
+  really useful within a netns, especially if one wants to verify if
+  the ip address is correct bound etc.
+
+* This version is easily enhancable
+
+* targetting net tree as it fixes a bug IMHO
+
+ drivers/net/geneve.c   |  2 +-
+ drivers/net/vxlan.c    |  2 +-
+ include/net/protocol.h |  2 +-
+ net/ipv4/fou.c         |  2 +-
+ net/ipv4/udp_offload.c | 10 +++++++---
+ 5 files changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 58efdec12f300d..db96b0cbb8ba62 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -376,7 +376,7 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+ 	int err;
+ 
+ 	if (sa_family == AF_INET) {
+-		err = udp_add_offload(&gs->udp_offloads);
++		err = udp_add_offload(sock_net(sk), &gs->udp_offloads);
+ 		if (err)
+ 			pr_warn("geneve: udp_add_offload failed with status %d\n",
+ 				err);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index ba363cedef8082..2428175c4dd4bb 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -621,7 +621,7 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+ 	int err;
+ 
+ 	if (sa_family == AF_INET) {
+-		err = udp_add_offload(&vs->udp_offloads);
++		err = udp_add_offload(net, &vs->udp_offloads);
+ 		if (err)
+ 			pr_warn("vxlan: udp_add_offload failed with status %d\n", err);
+ 	}
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index d6fcc1fcdb5b09..da689f5432dee2 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -107,7 +107,7 @@ int inet_del_offload(const struct net_offload *prot, unsigned char num);
+ void inet_register_protosw(struct inet_protosw *p);
+ void inet_unregister_protosw(struct inet_protosw *p);
+ 
+-int  udp_add_offload(struct udp_offload *prot);
++int  udp_add_offload(struct net *net, struct udp_offload *prot);
+ void udp_del_offload(struct udp_offload *prot);
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index bd903fe0f7508d..976f0dcf699197 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -498,7 +498,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
+ 	if (cfg->udp_config.family == AF_INET) {
+-		err = udp_add_offload(&fou->udp_offloads);
++		err = udp_add_offload(net, &fou->udp_offloads);
+ 		if (err)
+ 			goto error;
+ 	}
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index f9386160cbee02..5d396b96ae8bb9 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -21,6 +21,7 @@ static struct udp_offload_priv __rcu *udp_offload_base __read_mostly;
+ 
+ struct udp_offload_priv {
+ 	struct udp_offload	*offload;
++	possible_net_t	net;
+ 	struct rcu_head		rcu;
+ 	struct udp_offload_priv __rcu *next;
+ };
+@@ -241,13 +242,14 @@ out:
+ 	return segs;
  }
  
--union sub_key {
--	u64 k;
--	struct {
--		u8 pad[3];
--		u8 kb;
--		u32 ka;
--	};
--};
--
--/* Toeplitz hash function
-- * data: network byte order
-- * return: host byte order
-- */
--static u32 comp_hash(u8 *key, int klen, void *data, int dlen)
--{
--	union sub_key subk;
--	int k_next = 4;
--	u8 dt;
--	int i, j;
--	u32 ret = 0;
--
--	subk.k = 0;
--	subk.ka = ntohl(*(u32 *)key);
--
--	for (i = 0; i < dlen; i++) {
--		subk.kb = key[k_next];
--		k_next = (k_next + 1) % klen;
--		dt = ((u8 *)data)[i];
--		for (j = 0; j < 8; j++) {
--			if (dt & 0x80)
--				ret ^= subk.ka;
--			dt <<= 1;
--			subk.k <<= 1;
--		}
--	}
--
--	return ret;
--}
--
--static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
--{
--	struct flow_keys flow;
--	int data_len;
--
--	if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
--	    !(flow.basic.n_proto == htons(ETH_P_IP) ||
--	      flow.basic.n_proto == htons(ETH_P_IPV6)))
--		return false;
--
--	if (flow.basic.ip_proto == IPPROTO_TCP)
--		data_len = 12;
--	else
--		data_len = 8;
--
--	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
--
--	return true;
--}
--
- static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- 			void *accel_priv, select_queue_fallback_t fallback)
+-int udp_add_offload(struct udp_offload *uo)
++int udp_add_offload(struct net *net, struct udp_offload *uo)
  {
-@@ -266,11 +207,9 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- 	if (nvsc_dev == NULL || ndev->real_num_tx_queues <= 1)
- 		return 0;
+ 	struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_ATOMIC);
  
--	if (netvsc_set_hash(&hash, skb)) {
--		q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
--			ndev->real_num_tx_queues;
--		skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
--	}
-+	hash = skb_get_hash(skb);
-+	q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
-+		ndev->real_num_tx_queues;
+ 	if (!new_offload)
+ 		return -ENOMEM;
  
- 	return q_idx;
- }
++	write_pnet(&new_offload->net, net);
+ 	new_offload->offload = uo;
+ 
+ 	spin_lock(&udp_offload_lock);
+@@ -311,7 +313,8 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+ 	rcu_read_lock();
+ 	uo_priv = rcu_dereference(udp_offload_base);
+ 	for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
+-		if (uo_priv->offload->port == uh->dest &&
++		if (net_eq(read_pnet(&uo_priv->net), dev_net(skb->dev)) &&
++		    uo_priv->offload->port == uh->dest &&
+ 		    uo_priv->offload->callbacks.gro_receive)
+ 			goto unflush;
+ 	}
+@@ -389,7 +392,8 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+ 
+ 	uo_priv = rcu_dereference(udp_offload_base);
+ 	for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
+-		if (uo_priv->offload->port == uh->dest &&
++		if (net_eq(read_pnet(&uo_priv->net), dev_net(skb->dev)) &&
++		    uo_priv->offload->port == uh->dest &&
+ 		    uo_priv->offload->callbacks.gro_complete)
+ 			break;
+ 	}
 -- 
-2.4.3
-
-
---=-=-=
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
---=-=-=--
+2.5.0
