@@ -1,42 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next 1/5] net: local checksum offload for
- encapsulation
-Date: Thu, 7 Jan 2016 17:22:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCBF46D@AcuExch.aculab.com>
-References: <568E9BF9.2050001@solarflare.com>
- <568E9C64.6090305@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: suspicious rcu_dereference in tcp_v6_send_synack
+Date: Thu, 07 Jan 2016 09:37:46 -0800
+Message-ID: <1452188266.8255.220.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160107153248.GA30472@codemonkey.org.uk>
+	 <1452181973.8255.213.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160107162030.GO3818@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"Tom Herbert" <tom@herbertland.com>
-To: 'Edward Cree' <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@codemonkey.org.uk>, netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:50535 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbcAGRZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 12:25:33 -0500
-In-Reply-To: <568E9C64.6090305@solarflare.com>
-Content-Language: en-US
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34117 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756AbcAGRhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 12:37:48 -0500
+Received: by mail-pa0-f51.google.com with SMTP id uo6so245379068pac.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 09:37:48 -0800 (PST)
+In-Reply-To: <20160107162030.GO3818@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRWR3YXJkIENyZWUNCj4gU2VudDogMDcgSmFudWFyeSAyMDE2IDE3OjEyDQo+IFRoZSBh
-cml0aG1ldGljIHByb3BlcnRpZXMgb2YgdGhlIG9uZXMtY29tcGxlbWVudCBjaGVja3N1bSBtZWFu
-IHRoYXQgYQ0KPiAgY29ycmVjdGx5IGNoZWNrc3VtbWVkIGlubmVyIHBhY2tldCwgaW5jbHVkaW5n
-IGl0cyBjaGVja3N1bSwgaGFzIGEgb25lcw0KPiAgY29tcGxlbWVudCBzdW0gZGVwZW5kaW5nIG9u
-bHkgb24gd2hhdGV2ZXIgdmFsdWUgd2FzIHVzZWQgdG8gaW5pdGlhbGlzZQ0KPiAgdGhlIGNoZWNr
-c3VtIGZpZWxkIGJlZm9yZSBjaGVja3N1bW1pbmcgKGluIHRoZSBjYXNlIG9mIFRDUCBhbmQgVURQ
-LA0KPiAgdGhpcyBpcyB0aGUgb25lcyBjb21wbGVtZW50IHN1bSBvZiB0aGUgcHNldWRvIGhlYWRl
-ciwgY29tcGxlbWVudGVkKS4NCj4gQ29uc2VxdWVudGx5LCBpZiB3ZSBhcmUgZ29pbmcgdG8gb2Zm
-bG9hZCB0aGUgaW5uZXIgY2hlY2tzdW0gd2l0aA0KPiAgQ0hFQ0tTVU1fUEFSVElBTCwgd2UgY2Fu
-IGNvbXB1dGUgdGhlIG91dGVyIGNoZWNrc3VtIGJhc2VkIG9ubHkgb24gdGhlDQo+ICBwYWNrZWQg
-ZGF0YSBub3QgY292ZXJlZCBieSB0aGUgaW5uZXIgY2hlY2tzdW0sIGFuZCB0aGUgaW5pdGlhbCB2
-YWx1ZSBvZg0KPiAgdGhlIGlubmVyIGNoZWNrc3VtIGZpZWxkLg0KDQpJc24ndCBpdCBldmVuIHNp
-bXBsZXIgdGhhbiB0aGF0Pw0KVGhlIGNoZWNrc3VtIG9mIHRoZSBpbm5lciBwYWNrZXQgKGluY2x1
-ZGluZyBpdHMgaGVhZGVyKSBpcyB+MCAoaWUgMCkuDQpTbyB0aGUgY2hlY2tzdW0gb2YgdGhlIHdo
-b2xlIHBhY2tldCAoZm9yIHRoZSBvdXRlciBoZWFkZXIpIGlzIHRoZSBzYW1lDQphcyB0aGF0IG9m
-IHRoZSBwYWNrZXQgZG93biB0byB0aGUgc3RhcnQgb2YgdGhlIGlubmVyIGhlYWRlci4NCg0KCURh
-dmlkDQoNCg==
+On Thu, 2016-01-07 at 08:20 -0800, Paul E. McKenney wrote:
+>  This is not clear if this is a lockdep false positive.
+> > 
+> > Paul, can you remind me why it is needed, as a softirq handler is not
+> > allowed to schedule or be preempted ?
+> 
+> Hello, Eric!
+> 
+> If this were rcu_dereference_bh(), then you would be OK as is, given that
+> you are in a softirq handler.  But for rcu_dereference(), lockdep does
+> indeed insist on an rcu_read_lock().  Yes, you would in fact be OK with
+> the current implementation (I think, anyway), even with preemptible RCU,
+> but that is an accident of implementation.
+> 
+> Is the required rcu_read_lock() and rcu_read_unlock() resulting in a
+> performance problem?
+
+No performance problem.
+
+This comes from my 45f6fad84cc305103b28d73482b344d7f5b76f39
+commit ("ipv6: add complete rcu protection around np->opt")
+
+I added the rcu_read_lock()/unlock() sections where I thought they were
+needed, and when I considered tcp_v6_send_synack() case, my reasoning
+was that we were holding rcu_read_lock() in the normal non retransmit
+case, since the SYN packet is processed under rcu_read_lock()
+protection, and wrongly assumed the timer irq was also holding
+rcu_read_lock()
+
+Also my RCU lockdep enabled tests did not trigger the warning seen by
+Dave Jones.... Strange...
+
+I will submit a formal patch.
+
+Thanks !
