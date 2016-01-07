@@ -1,41 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: add skb_postpush_rcsum and fix dev_forward_skb
- occasions
-Date: Thu, 07 Jan 2016 11:02:11 +0100
-Message-ID: <568E37A3.5070104@iogearbox.net>
-References: <02f04a0cd04748df932912bac36afeccc4ee7755.1452125392.git.daniel@iogearbox.net> <568DC506.6020200@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net
+From: Oliver Neukum <oneukum@suse.com>
+Subject: [PATCH] cdc-acm: fix NULL pointer reference
+Date: Thu,  7 Jan 2016 11:01:00 +0100
+Message-ID: <1452160860-2752-1-git-send-email-oneukum@suse.com>
+Cc: Oliver Neukum <oneukum@suse.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, galkin-vv@yandex.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45975 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935AbcAGKCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 05:02:15 -0500
-In-Reply-To: <568DC506.6020200@stressinduktion.org>
+Received: from mx2.suse.de ([195.135.220.15]:47590 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752806AbcAGKDN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2016 05:03:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2016 02:53 AM, Hannes Frederic Sowa wrote:
-> On 07.01.2016 02:01, Daniel Borkmann wrote:
->> +static inline void skb_postpush_rcsum(struct sk_buff *skb,
->> +                      const void *start, unsigned int len)
->> +{
->> +    if (skb->ip_summed == CHECKSUM_COMPLETE)
->> +        skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
->
-> skb->csum = csum_partial(start, len, skb->csum);
->
-> should work without calling carry-add twice, no?
+The union descriptor must be checked. Its usage was conditional
+before the parser was introduced. This is important, because
+many RNDIS device, which also use the common parser, have
+bogus extra descriptors.
 
-Hmm, indeed, seems you're right. Since the csum_partial() only covers
-this particular fragment with feeding initial csum as 0, the result
-from the do_csum() stays as is for the first part, and the csum_add()
-does effectively the same as if we've fed skb->csum already into
-csum_partial().
+Signed-off-by: Oliver Neukum <oneukum@suse.com>
+Tested-by: Vasily Galkin <galkin-vv@yandex.ru>
+---
+ drivers/net/usb/cdc_ether.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-There are btw couple of other places where this generic helper could be
-used as well.
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 3da70bf..7cba2c3 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -160,6 +160,12 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	info->u = header.usb_cdc_union_desc;
+ 	info->header = header.usb_cdc_header_desc;
+ 	info->ether = header.usb_cdc_ether_desc;
++	if (!info->u) {
++		if (rndis)
++			goto skip;
++		else /* in that case a quirk is mandatory */
++			goto bad_desc;
++	}
+ 	/* we need a master/control interface (what we're
+ 	 * probed with) and a slave/data interface; union
+ 	 * descriptors sort this all out.
+@@ -256,7 +262,7 @@ skip:
+ 			goto bad_desc;
+ 		}
+ 
+-	} else if (!info->header || !info->u || (!rndis && !info->ether)) {
++	} else if (!info->header || (!rndis && !info->ether)) {
+ 		dev_dbg(&intf->dev, "missing cdc %s%s%sdescriptor\n",
+ 			info->header ? "" : "header ",
+ 			info->u ? "" : "union ",
+-- 
+2.1.4
