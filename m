@@ -1,42 +1,54 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
-Date: Thu, 7 Jan 2016 08:59:52 +0100
-Message-ID: <20160107075951.GD27753@unicorn.suse.cz>
-References: <87618083B2453E4A8714035B62D6799250504549@FMSMSX105.amr.corp.intel.com>
- <1452147313-22886-1-git-send-email-zyjzyj2000@gmail.com>
- <20160107065340.GB27753@unicorn.suse.cz>
- <568E15B6.8010301@gmail.com>
+From: Henri Roosen <henri.roosen@ginzinger.com>
+Subject: [PATCH v3 1/1] phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.
+Date: Thu, 7 Jan 2016 09:31:15 +0100
+Message-ID: <1452155475-7742-1-git-send-email-henri.roosen@ginzinger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: emil.s.tantilov@intel.com, jay.vosburgh@canonical.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, boris.shteinbock@windriver.com
-To: zhuyj <zyjzyj2000@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:41138 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750707AbcAGH7z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2016 02:59:55 -0500
-Content-Disposition: inline
-In-Reply-To: <568E15B6.8010301@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<andrew@lunn.ch>, Henri Roosen <henri.roosen@ginzinger.com>
+To: <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 07, 2016 at 03:37:26PM +0800, zhuyj wrote:
-> >If I read this right, whenever this state (link up but speed/duplex
-> >unknown) is entered, you'll keep writing this message into kernel log
-> >every miimon milliseconds until something changes. I'm not sure how long
-> >a NIC can stay in such state but it might get quite annoying (even more
-> >if something really goes wrong and NIC stays that way which can't be
-> >completely ruled out, IMHO).
-> 
-> Sure, Thanks a lot. I want to confirm link_up without link_speed. It
-> is not usual. So I think this only lasts for several seconds.
-> It is very important to us since it can help us to find the root cause.
+Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
+ node.") only fixes finding PHY properties in MAC node for KSZ9021. This
+commit applies the same fix for KSZ9031.
 
-For debugging purposes it's fine, of course. But this looked like an
-officially submitted patch so I didn't like the idea of log spamming
-(even one second could result in 10-100 messages and admins certainly
-would hate that).
+Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+Acked-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
+---
 
-                                                       Michal Kubecek
+Changes since v2:
+ - removed unnecessary empty line
+
+ drivers/net/phy/micrel.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index e13ad6c..7a56799 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -470,9 +470,17 @@ static int ksz9031_config_init(struct phy_device *phydev)
+ 		"txd2-skew-ps", "txd3-skew-ps"
+ 	};
+ 	static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
++	const struct device *dev_walker;
+ 
+-	if (!of_node && dev->parent->of_node)
+-		of_node = dev->parent->of_node;
++	/* The Micrel driver has a deprecated option to place phy OF
++	 * properties in the MAC node. Walk up the tree of devices to
++	 * find a device with an OF node.
++	 */
++	dev_walker = &phydev->dev;
++	do {
++		of_node = dev_walker->of_node;
++		dev_walker = dev_walker->parent;
++	} while (!of_node && dev_walker);
+ 
+ 	if (of_node) {
+ 		ksz9031_of_load_skew_values(phydev, of_node,
+-- 
+2.1.4
