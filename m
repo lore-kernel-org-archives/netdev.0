@@ -1,7 +1,8 @@
 From: <zyjzyj2000@gmail.com>
 Subject: [PATCH 1/1] bonding: restrict up state in 802.3ad mode
-Date: Thu, 7 Jan 2016 14:13:57 +0800
-Message-ID: <1452147237-22839-1-git-send-email-zyjzyj2000@gmail.com>
+Date: Thu, 7 Jan 2016 14:15:13 +0800
+Message-ID: <1452147313-22886-1-git-send-email-zyjzyj2000@gmail.com>
+References: <87618083B2453E4A8714035B62D6799250504549@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <vfalico@gmail.com>, <gospo@cumulusnetworks.com>,
@@ -9,10 +10,11 @@ Cc: <vfalico@gmail.com>, <gospo@cumulusnetworks.com>,
 To: <emil.s.tantilov@intel.com>, <mkubecek@suse.cz>,
 	<jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39758 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbcAGGNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 01:13:32 -0500
+Received: from mail5.windriver.com ([192.103.53.11]:33260 "EHLO mail5.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750707AbcAGGOa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2016 01:14:30 -0500
+In-Reply-To: <87618083B2453E4A8714035B62D6799250504549@FMSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
