@@ -1,124 +1,74 @@
-From: Nikolay Borisov <kernel@kyup.com>
-Subject: [PATCH 1/3] ipv4: Namespaceify tcp_keepalive_time sysctl knob
-Date: Thu,  7 Jan 2016 16:38:43 +0200
-Message-ID: <1452177525-13244-2-git-send-email-kernel@kyup.com>
-References: <1452177525-13244-1-git-send-email-kernel@kyup.com>
-Cc: edumazet@google.com, ebiederm@xmission.com, fan.du@intel.com,
-	kaber@trash.net, jmorris@namei.org, alexander.h.duyck@redhat.com,
-	kuznet@ms2.inr.ac.ru, operations@siteground.com
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452177525-13244-1-git-send-email-kernel@kyup.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net, sched: add clsact qdisc
+Date: Thu, 7 Jan 2016 15:42:20 +0100
+Message-ID: <568E794C.7050601@stressinduktion.org>
+References: <d091709bf1a93c65cdadc9a990c9065e065840b8.1452041153.git.daniel@iogearbox.net>
+ <20160107035334.GA99020@ast-mbp.thefacebook.com>
+ <568E395F.8020504@stressinduktion.org> <568E52E8.1010804@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jhs@mojatatu.com, john.fastabend@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:33191 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752530AbcAGOmX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 09:42:23 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 653B920CD0
+	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 09:42:22 -0500 (EST)
+In-Reply-To: <568E52E8.1010804@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Different net namespaces might have different requirements as to
-the keepalive time of tcp sockets. This might be required in cases
-where different firewall rules are in place which require tcp
-timeout sockets to be increased/decreased independently of the host.
+On 07.01.2016 12:58, Daniel Borkmann wrote:
+> On 01/07/2016 11:09 AM, Hannes Frederic Sowa wrote:
+>> Hi Daniel and Alexei,
+>>
+>> On 07.01.2016 04:53, Alexei Starovoitov wrote:
+>>> On Wed, Jan 06, 2016 at 02:00:56AM +0100, Daniel Borkmann wrote:
+>>>>
+>>>> I decided to extend the sch_ingress module with clsact functionality so
+>>>> that commonly used code can be reused, the module is being aliased with
+>>>> sch_clsact so that it can be auto-loaded properly. Alternative would
+>>>> have been
+>>>> to add a flag when initializing ingress to alter its behaviour plus
+>>>> aliasing
+>>>> to a different name (as it's more than just ingress). However, the
+>>>> first would
+>>>> end up, based on the flag, choosing the new/old behaviour by calling
+>>>> different
+>>>> function implementations to handle each anyway, the latter would
+>>>> require to
+>>>> register ingress qdisc once again under different alias. So, this
+>>>> really begs
+>>>> to provide a minimal, cleaner approach to have Qdisc_ops and
+>>>> Qdisc_class_ops
+>>>> by its own that share callbacks used by both.
+>>> ...
+>>>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>>>
+>>> we've been going back and forth on the design and this final approach
+>>> presented seems to be the best, since pros outweigh the cons.
+>>>
+>>> Acked-by: Alexei Starovoitov <ast@kernel.org>
+>>
+>> One question:
+>>
+>> With the advance in lockless qdiscs by John Fastabend, is it possible
+>> to push the handle_egress hook further down into sched layer?
+>
+> Idea was that this is done before we pick txq as stated. F.e., could also
+> be that we end up not having enqueue handler, thus moving this further down
+> (not sure if there's a good place?), might make it all more scattered resp.
+> complex to cover all parts.
 
-Signed-off-by: Nikolay Borisov <kernel@kyup.com>
----
- include/net/netns/ipv4.h   |  2 ++
- include/net/tcp.h          |  5 +++--
- net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
- net/ipv4/tcp_ipv4.c        |  2 ++
- net/ipv4/tcp_timer.c       |  1 -
- 5 files changed, 14 insertions(+), 10 deletions(-)
+My understanding is that using redirects and something like 
+ifb/imq-alike could already solve some of those problems while not 
+adding yet another handler to the stack?
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index c68926b4899c..d7ee5120e3ec 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -91,6 +91,8 @@ struct netns_ipv4 {
- 	int sysctl_tcp_probe_threshold;
- 	u32 sysctl_tcp_probe_interval;
- 
-+	int sysctl_tcp_keepalive_time;
-+
- 	struct ping_group_range ping_group_range;
- 
- 	atomic_t dev_addr_genid;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f80e74c5ad18..1145f890f55c 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -240,7 +240,6 @@ extern int sysctl_tcp_timestamps;
- extern int sysctl_tcp_window_scaling;
- extern int sysctl_tcp_sack;
- extern int sysctl_tcp_fin_timeout;
--extern int sysctl_tcp_keepalive_time;
- extern int sysctl_tcp_keepalive_probes;
- extern int sysctl_tcp_keepalive_intvl;
- extern int sysctl_tcp_syn_retries;
-@@ -1228,7 +1227,9 @@ static inline int keepalive_intvl_when(const struct tcp_sock *tp)
- 
- static inline int keepalive_time_when(const struct tcp_sock *tp)
- {
--	return tp->keepalive_time ? : sysctl_tcp_keepalive_time;
-+	struct net *net = sock_net((struct sock *)tp);
-+
-+	return tp->keepalive_time ? : net->ipv4.sysctl_tcp_keepalive_time;
- }
- 
- static inline int keepalive_probes(const struct tcp_sock *tp)
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index a0bd7a55193e..8755825b92a5 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -337,13 +337,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "tcp_keepalive_time",
--		.data		= &sysctl_tcp_keepalive_time,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
- 		.procname	= "tcp_keepalive_probes",
- 		.data		= &sysctl_tcp_keepalive_probes,
- 		.maxlen		= sizeof(int),
-@@ -950,6 +943,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "tcp_keepalive_time",
-+		.data		= &init_net.ipv4.sysctl_tcp_keepalive_time,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_jiffies,
-+	},
- 	{ }
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d8841a2f1569..ca8d98de7846 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2378,6 +2378,8 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.sysctl_tcp_probe_threshold = TCP_PROBE_THRESHOLD;
- 	net->ipv4.sysctl_tcp_probe_interval = TCP_PROBE_INTERVAL;
- 
-+	net->ipv4.sysctl_tcp_keepalive_time = TCP_KEEPALIVE_TIME;
-+
- 	return 0;
- fail:
- 	tcp_sk_exit(net);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 193ba1fa8a9a..166f27b43cc0 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -24,7 +24,6 @@
- 
- int sysctl_tcp_syn_retries __read_mostly = TCP_SYN_RETRIES;
- int sysctl_tcp_synack_retries __read_mostly = TCP_SYNACK_RETRIES;
--int sysctl_tcp_keepalive_time __read_mostly = TCP_KEEPALIVE_TIME;
- int sysctl_tcp_keepalive_probes __read_mostly = TCP_KEEPALIVE_PROBES;
- int sysctl_tcp_keepalive_intvl __read_mostly = TCP_KEEPALIVE_INTVL;
- int sysctl_tcp_retries1 __read_mostly = TCP_RETR1;
--- 
-2.5.0
+Bye,
+Hannes
