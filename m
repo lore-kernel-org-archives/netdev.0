@@ -1,81 +1,63 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH net-next v3 8/8] geneve: break dependency to network drivers
-Date: Wed, 6 Jan 2016 16:18:30 -0800
-Message-ID: <CAEh+42h79Sxc4JwzH_zMm+MZ-CmQWGdX1Qiz7epJmj2nCiAAVQ@mail.gmail.com>
-References: <1452123571-19140-1-git-send-email-hannes@stressinduktion.org> <1452123571-19140-9-git-send-email-hannes@stressinduktion.org>
+From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
+	vxlan devices
+Date: Thu, 07 Jan 2016 00:29:33 +0000
+Message-ID: <86wprmp6z6.fsf@weave.works>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+ <20160106.155950.1007160228570301281.davem@davemloft.net>
+ <8660z6qohn.fsf@weave.works>
+ <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:47109 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751500AbcAGASr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2016 19:18:47 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 00F652015E
-	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 00:18:46 +0000 (UTC)
-Received: from mail-qg0-f50.google.com (mail-qg0-f50.google.com [209.85.192.50])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 1C36D20108
-	for <netdev@vger.kernel.org>; Thu,  7 Jan 2016 00:18:45 +0000 (UTC)
-Received: by mail-qg0-f50.google.com with SMTP id b35so186335931qge.0
-        for <netdev@vger.kernel.org>; Wed, 06 Jan 2016 16:18:45 -0800 (PST)
-In-Reply-To: <1452123571-19140-9-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+ (Jesse Gross's message of "Wed, 6 Jan 2016 15:57:32 -0800")
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 6, 2016 at 3:39 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  drivers/net/geneve.c | 30 +++++++++++++++++++++++++++---
->  include/net/geneve.h |  7 +++----
->  2 files changed, 30 insertions(+), 7 deletions(-)
-
-Thanks a lot for going through all the drivers! You found more things
-than I thought. I noticed just a couple new things with this version
-but overall I think it is a good direction.
-
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index 24b077a32c1c9c..5b8d728b1204be 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -1110,7 +1110,7 @@ static struct device_type geneve_type = {
->   * supply the listening GENEVE udp ports. Callers are expected
->   * to implement the ndo_add_geneve_port.
->   */
-> -void geneve_get_rx_port(struct net_device *dev)
-> +static void geneve_notify_refresh_netdev(struct net_device *dev)
->  {
->         struct net *net = dev_net(dev);
->         struct geneve_net *gn = net_generic(net, geneve_net_id);
-
-Both this function and the corresponding one in VXLAN assume that the
-add port NDO is implemented and blindly dereference the pointer. Now
-that all protocols get refreshed at the same time, we should check
-first. There's also a comment above the function that says this, which
-we can remove now.
-
-I also think we can update the comments in netdevice.h for the
-VXLAN/Geneve add/remove NDOs to say that they are protected by RTNL.
-
-> diff --git a/include/net/geneve.h b/include/net/geneve.h
-> index e6c23dc765f7ec..7d52077b72faa3 100644
-> --- a/include/net/geneve.h
-> +++ b/include/net/geneve.h
-> -#if IS_ENABLED(CONFIG_GENEVE)
-> -void geneve_get_rx_port(struct net_device *netdev);
-> -#else
->  static inline void geneve_get_rx_port(struct net_device *netdev)
->  {
-> +       call_netdevice_notifiers(NETDEV_REFRESH_OFFLOADS, netdev);
->  }
-> -#endif
-
-I think we should merge vxlan_get_rx_port() and geneve_get_rx_port()
-into a single generic function. For drivers that support both, they
-now have two calls to get notified for all offloaded ports. This
-actually can cause problems related to duplicates, similar to what you
-feared before.
+SmVzc2UgR3Jvc3MgPGplc3NlQGtlcm5lbC5vcmc+IHdyaXRlczoKPiBPbiBXZWQsIEphbiA2LCAy
+MDE2IGF0IDM6MjUgUE0sIERhdmlkIFdyYWdnIDxkYXZpZEB3ZWF2ZS53b3Jrcz4gd3JvdGU6Cj4+
+IEknbSBjZXJ0YWlubHkgb3BlbiB0byBzdWdnZXN0aW9ucyBvZiBiZXR0ZXIgd2F5cyB0byBzb2x2
+ZSB0aGUgcHJvYmxlbS4KPgo+IE9uZSBvcHRpb24gaXMgdG8gc2ltcGx5IHNldCB0aGUgTVRVIG9u
+IHRoZSBkZXZpY2UgZnJvbSB1c2Vyc3BhY2UuCgpJZiB0aGF0IHdvcmtlZCBJIHdvdWxkbid0IGJl
+IHN1Ym1pdHRpbmcgYSBwYXRjaC4KClRoZSBNVFUgdmFsdWUgb2YgMTUwMCBpcyBub3QgbWVyZWx5
+IHRoZSBkZWZhdWx0LiAgSXQgaXMgYWxzbyB0aGUgbWF4aW11bQphbGxvd2VkIGZvciBhIHZ4bGFu
+IG5ldGRldiBub3QgYXNzb2NpYXRlZCB3aXRoIGFuIHVuZGVybHlpbmcgbmV0ZGV2LiAgSWYKeW91
+IGRvIGUuZy4gImlwIGxpbmsgc2V0IGRldiB2eGxhbi02Nzg0IG10dSA4OTUwIiwgd2hlcmUgdnhs
+YW4tNjc4NAp3YXMgY3JlYXRlZCBieSBhbiBvdnMgdnBvcnQsIGl0IGZhaWxzIHdpdGggRUlOVkFM
+LgoKVGhlIGZpcnN0IHBhdGNoIG9mIHRoZSB0d28gc3VibWl0dGVkIHJlbW92ZXMgdGhhdCBsaW1p
+dC4KCj4gVGhlIHJlYWxpdHkgaXMgdGhhdCB0aGUgY29kZSB5b3UncmUgbW9kaWZ5aW5nIGlzIGNv
+bXBhdGliaWxpdHkgY29kZS4KPiBNYXliZSB3ZSBzaG91bGQgbWFrZSB0aGlzIGNoYW5nZSB0byBw
+cmVzZXJ2ZSB0aGUgb2xkIGJlaGF2aW9yIG9yIG9sZAo+IGNhbGxlcnMgKGFsdGhvdWdoLCBhZ2Fp
+biwgaXQgc2hvdWxkIG5vdCBiZSBqdXN0IGZvciBWWExBTikuIEJ1dCBubyBuZXcKPiBmZWF0dXJl
+cyBvciB0dW5uZWwgdHlwZXMgd2lsbCBiZSBzdXBwb3J0ZWQgaW4gdGhpcyBtYW5uZXIuCgpUaGF0
+J3MgZmluZS4gIE5hdHVyYWxseSwgdGhlIGlkZWFsIGZyb20gb3VyIHBvaW50IG9mIHZpZXcgaXMg
+aWYgdGhlCmNvbXBhdGliaWxpdHkgY29kZSBpcyBmdWxseSBjb21wYXRpYmxlLCBzbyB3ZSBkb24n
+dCBoYXZlIHRvIG1ha2UgY2hhbmdlcwpvbiBvdXIgc2lkZSB0aGF0IGludm9sdmUgZGlmZmVyZW50
+IGNvZGUgcGF0aHMgZm9yIGRpZmZlcmVudCBrZXJuZWwKdmVyc2lvbnMuICBUaGF0J3Mgd2hhdCBt
+eSBwYXRjaGVzIGFyZSBpbnRlbmRlZCB0byBhY2hpZXZlLgoKQnV0IHdlIGNhbiBsaXZlIHdpdGgg
+c3VjaCBjaGFuZ2VzIG9uIG91ciBzaWRlLCBhcyBsb25nIGFzIHRoZXJlIGlzIHNvbWUKcmVhc29u
+YWJsZSB3YXkgdG8gZG8gc28uICBJbiB0aGUgY2FzZSBvZiB0aGlzIHZ4bGFuIE1UVSBpc3N1ZSwg
+dGhlcmUKZG9lc24ndCBzZWVtIHRvIGJlIG9uZS4KCj4gTmV3IG9yIHVwZGF0ZWQgdXNlcnNwYWNl
+IHByb2dyYW1zIHNob3VsZCB3b3JrIGJ5IHNpbXBseSBjcmVhdGluZyBhbmQKPiBhZGRpbmcgdHVu
+bmVsIGRldmljZXMgdG8gT1ZTLiBUaGF0IHdvbid0IGdvIHRocm91Z2ggdGhpcyBwYXRoIGF0IGFs
+bAo+IHNvIHlvdSdyZSBnb2luZyB0byBuZWVkIHRvIGZpbmQgYW5vdGhlciBhcHByb2FjaCBpbiB0
+aGUgbmVhciBmdXR1cmUgaW4KPiBhbnkgY2FzZS4KCk9rLiAgQnV0IHBsZWFzZSB0cnkgdG8gYmUg
+Z2VudGxlIG9uIHRoZSBwb29yIHNvdWxzIHdobyBoYXZlIHRvIGNvbWUgdXAKd2l0aCBhIHNpbmds
+ZSBjb2RlYmFzZSB0aGF0IHdvcmtzIG9uIGEgcmFuZ2Ugb2Yga2VybmVsIHZlcnNpb25zIGdvaW5n
+CmJhY2sgYSBmZXcgeWVhcnMuCgpEYXZpZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
+cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
