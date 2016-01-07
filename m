@@ -1,62 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Thu, 07 Jan 2016 04:52:30 -0800
-Message-ID: <1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [BUG] skb corruption and kernel panic at forwarding with fragmentation
+Date: Thu, 7 Jan 2016 07:54:08 -0500
+Message-ID: <CANn89iJA=mJ+Jz-03p8yBtp6oCBE6ShwW-KW-0bpMx8OdA8whg@mail.gmail.com>
+References: <CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com>
+	<CAM_iQpWsx6w2tFvSAy66M69FNi5iSp===EFCrO=4EPjy7y3iSg@mail.gmail.com>
+	<CALYGNiOjeh4Jfvmc6fJHaZYJyinXmZjTHXcacNreBXvzB1ajtQ@mail.gmail.com>
+	<20160106210532.GE27290@indiana.gru.redhat.com>
+	<20160106220334.GA23789@breakpoint.cc>
+	<20160106234943.GB23789@breakpoint.cc>
+	<CALYGNiObS1fuDNi7Q69BwoWmU8xOnndzy7Z-m35aphjQWUuEnQ@mail.gmail.com>
+	<CALYGNiN-cGxcEwiN-aPH7W1Pa7bLc2UY5LY98mXr+yZK+q5_BA@mail.gmail.com>
+	<CANn89iLDRxh4x9hLyis2w7DfdA+0XZBhygN5gKFVA8nAgS-URQ@mail.gmail.com>
+	<CALYGNiOLhaY8mom01REK45O0fO=xLNgQUt4_tox9ymrqraNfAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "K. Y. Srinivasan" <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>,
-	Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Konstantin Khlebnikov <koct9i@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
+In-Reply-To: <CALYGNiOLhaY8mom01REK45O0fO=xLNgQUt4_tox9ymrqraNfAQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
-> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
->  VLAN ID to flow_keys")) introduced a performance regression in netvsc
-> driver. Is problem is, however, not the above mentioned commit but the
-> fact that netvsc_set_hash() function did some assumptions on the struct
-> flow_keys data layout and this is wrong. We need to extract the data we
-> need (src/dst addresses and ports) after the dissect.
-> 
-> The issue could also be solved in a completely different way: as suggested
-> by Eric instead of our own homegrown netvsc_set_hash() we could use
-> skb_get_hash() which does more or less the same. Unfortunately, the
-> testing done by Simon showed that Hyper-V hosts are not happy with our
-> Jenkins hash, selecting the output queue with the current algorithm based
-> on Toeplitz hash works significantly better.
+On Thu, Jan 7, 2016 at 7:04 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
+> On Thu, Jan 7, 2016 at 2:59 PM, Eric Dumazet <edumazet@google.com> wrote:
+>> On Thu, Jan 7, 2016 at 6:38 AM, Konstantin Khlebnikov <koct9i@gmail.com> wrote:
+>>>
+>>> Also I've found strange thing: reason of expanding skb->cb from 40 to
+>>> 48 bypes in 2006
+>>> 3e3850e989c5d2eb1aab6f0fd9257759f0f4cbc6 was that struct inet6_skb_parm does
+>>> not fit. But it's is only 24 bytes. Does some arches add pad after
+>>> each _u16 field?
+>>
+>> "struct inet6_skb_parm" is part of struct tcp_skb_cb
+>>
+>> This is why Patrick had to increase skb->cb[]
+>
+> Whoa. Funny. TCP moves that chunk back and forward instead of just
+> putting it at the first place in struct.
 
-Were tests done on IPv6 traffic ?
+You probably want to look at git history to find out why it is done this way.
 
-Toeplitz hash takes at least 100 ns to hash 12 bytes (one iteration per
-bit : 96 iterations)
-
-For IPv6 it is 3 times this, since we have to hash 36 bytes.
-
-I do not see how it can compete with skb_get_hash() that directly gives
-skb->hash for local TCP flows.
-
-See commits b73c3d0e4f0e1961e15bec18720e48aabebe2109
-("net: Save TX flow hash in sock and set in skbuf on xmit")
-and 877d1f6291f8e391237e324be58479a3e3a7407c
-("net: Set sk_txhash from a random number")
-
-I understand Microsoft loves Toeplitz, but this looks not well placed
-here.
-
-I suspect there is another problem.
-
-Please share your numbers and test methodology, and the alternative
-patch Simon tested so that we can double check it.
-
-Thanks.
-
-PS: For the time being this patch can probably be applied on -net tree,
-as it fixes a real bug.
+TCP performance is critical for some of us, and doing such trick avoid
+one cache miss per skb in some critical list traversals.
