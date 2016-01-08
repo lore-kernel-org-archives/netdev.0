@@ -1,36 +1,84 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
-Date: Fri, 8 Jan 2016 20:24:36 +0100
-Message-ID: <20160108192436.GB26321@lunn.ch>
-References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
- <20160108004238.GD4389@lunn.ch>
- <568F1A1B.1040808@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Woojung.Huh@microchip.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Karl Heiss <kheiss@gmail.com>
+Subject: [PATCH net] bonding: Prevent IPv6 link local address on enslaved devices
+Date: Fri,  8 Jan 2016 14:33:36 -0500
+Message-ID: <1452281616-14447-1-git-send-email-kheiss@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44223 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753526AbcAHTYk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 14:24:40 -0500
-Content-Disposition: inline
-In-Reply-To: <568F1A1B.1040808@gmail.com>
+Received: from mail-qg0-f68.google.com ([209.85.192.68]:35062 "EHLO
+	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069AbcAHTdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:33:41 -0500
+Received: by mail-qg0-f68.google.com with SMTP id b35so34971177qge.2
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 11:33:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> That seems like an elegant way to solve the problem, without adding code
-> in the PHY library that does not use the interrupt API, but it also
-> seems to me like there are some other potential issues associated with
-> doing that:
+Upstream commit 1f718f0f4f97 ("bonding: populate neighbour's private on
+enslave") undoes the fix provided by commit c2edacf80e15 ("bonding / ipv6: no
+addrconf for slaves separately from master") by effectively setting
+the slave flag after the slave has been opened.  If the slave comes up quickly
+enough, it will go through the IPv6 addrconf before the slave flag has been
+set and will get a link local IPv6 address.
 
-Hi Florian
+Set IFF_SLAVE before dev_open() and clear it after dev_close() to ensure that
+addrconf knows to ignore on state change.
 
-I don't want to hijack this thread with DSA stuff. Plus you gave me
-some ideas for improvements :-)
+Fixes: 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
 
-Lets come back to this in a couple of weeks once i have the DSA
-proposal patches rebased on mdio device, and i've played a bit more.
+Signed-off-by: Karl Heiss <kheiss@gmail.com>
+---
+ drivers/net/bonding/bond_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-	 Andrew
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 9e0f8a7..200358e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1207,7 +1207,6 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+ 	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
+ 	if (err)
+ 		return err;
+-	slave_dev->flags |= IFF_SLAVE;
+ 	rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE, GFP_KERNEL);
+ 	return 0;
+ }
+@@ -1216,7 +1215,6 @@ static void bond_upper_dev_unlink(struct net_device *bond_dev,
+ 				  struct net_device *slave_dev)
+ {
+ 	netdev_upper_dev_unlink(slave_dev, bond_dev);
+-	slave_dev->flags &= ~IFF_SLAVE;
+ 	rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE, GFP_KERNEL);
+ }
+ 
+@@ -1465,6 +1463,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
+ 	}
+ 
++	/* set slave flag before open to prevent IPv6 addrconf */
++	slave_dev->flags |= IFF_SLAVE;
++
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+@@ -1725,6 +1726,7 @@ err_close:
+ 	dev_close(slave_dev);
+ 
+ err_restore_mac:
++	slave_dev->flags &= ~IFF_SLAVE;
+ 	if (!bond->params.fail_over_mac ||
+ 	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
+ 		/* XXX TODO - fom follow mode needs to change master's
+@@ -1906,6 +1908,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
+ 
++	slave_dev->flags &= ~IFF_SLAVE;
++
+ 	if (bond->params.fail_over_mac != BOND_FOM_ACTIVE ||
+ 	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
+ 		/* restore original ("permanent") mac address */
+-- 
+1.7.1
