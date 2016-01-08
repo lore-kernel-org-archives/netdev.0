@@ -1,45 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 8/8] geneve: break dependency to network
- drivers
-Date: Fri, 8 Jan 2016 21:47:07 +0100
-Message-ID: <5690204B.7000004@stressinduktion.org>
-References: <1452123571-19140-1-git-send-email-hannes@stressinduktion.org>
- <1452123571-19140-9-git-send-email-hannes@stressinduktion.org>
- <CAEh+42h79Sxc4JwzH_zMm+MZ-CmQWGdX1Qiz7epJmj2nCiAAVQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@kernel.org>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net] bonding: Prevent IPv6 link local address on enslaved devices
+Date: Fri, 08 Jan 2016 12:51:17 -0800
+Message-ID: <5842.1452286277@famine>
+References: <1452281616-14447-1-git-send-email-kheiss@gmail.com> <4679.1452282961@famine> <CAGugRbXT3jXw1-42Nz6ci-PS7z+HUj_fG2zcwK45dM6pb+RnqQ@mail.gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: Karl Heiss <kheiss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:59040 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755923AbcAHUrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 15:47:11 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 53565202D5
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:47:10 -0500 (EST)
-In-Reply-To: <CAEh+42h79Sxc4JwzH_zMm+MZ-CmQWGdX1Qiz7epJmj2nCiAAVQ@mail.gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:57139 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753703AbcAHUvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 15:51:21 -0500
+In-reply-to: <CAGugRbXT3jXw1-42Nz6ci-PS7z+HUj_fG2zcwK45dM6pb+RnqQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07.01.2016 01:18, Jesse Gross wrote:
-> I think we should merge vxlan_get_rx_port() and geneve_get_rx_port()
-> into a single generic function. For drivers that support both, they
-> now have two calls to get notified for all offloaded ports. This
-> actually can cause problems related to duplicates, similar to what you
-> feared before.
+Karl Heiss <kheiss@gmail.com> wrote:
 
-Checking out the ndo_add_vxlan_port callbacks, we cannot change how we 
-refresh the ports unfortunately. For some drivers it might be easy to 
-update, some look a little bit more complicated.
+>On Fri, Jan 8, 2016 at 2:56 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+>> Karl Heiss <kheiss@gmail.com> wrote:
+[...]
+>>>@@ -1216,7 +1215,6 @@ static void bond_upper_dev_unlink(struct net_device *bond_dev,
+>>>                                 struct net_device *slave_dev)
+>>> {
+>>>       netdev_upper_dev_unlink(slave_dev, bond_dev);
+>>>-      slave_dev->flags &= ~IFF_SLAVE;
+>>>       rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE, GFP_KERNEL);
+>>> }
+>>
+>>         Will this change cause issues for user space monitoring of the
+>> RTM_NEWLINKs, as now the message will have IFF_SLAVE in the flags for
+>> both the "link" and "unlink" cases?  How would link be distinguished
+>> from unlink?
+>>
+>>         Since the unlink happens only in __bond_release_one or in the
+>> case of a failure within bond_enslave, does clearing the flag in
+>> bond_upper_dev_unlink cause any actual issues?
+>>
+>>         -J
+>>
+>
+>Oops.  You are correct that the RTM_NEWLINK would appear to be identical to
+>the link case.  I had originally done this to prevent any NETDEV_CHANGE events
+>from causing the link local address and subsequent neighbor advertisements just
+>as the device is unlinked.  However, the bond_upper_dev_unlink() changes were a
+>result of speculation, not actual observation.
+>
+>If we feel that we are safe from any NETDEV_CHANGE events and/or the
+>consequences during unlink, I am fine with leaving the bond_upper_dev_unlink()
+>code as-is.
 
-I guess we should try to keep more complexity in the core and make sure 
-we only call those functions if necessary for the particular type of 
-offload than to replicate the logic in each driver.
+	I looked briefly, and I don't see a source of NETDEV_CHANGE
+notifiers between the bond_upper_dev_unlink and dev_close calls in
+__bond_release_one.  Note that dev_set_promiscuity / allmulti do end up
+in __dev_notify_flags, but it excludes NETDEV_CHANGE for PROMISC and
+ALLMULTI, so I think that's not an issue.
 
-If you agree I prepare this series with the changes to have separate 
-callbacks, address your other feedback and send it out.
+	-J
 
-Thanks,
-Hannes
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
