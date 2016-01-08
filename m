@@ -1,86 +1,54 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH RESEND] bluetooth:hicp:Fix error handling in the function hidp_connection_del
-Date: Fri, 8 Jan 2016 13:16:13 +0100
-Message-ID: <CANq1E4R7TtQ2ckSF3GYHMoDihCfDKO5EX8kQGHH=VB9xrdhtjQ@mail.gmail.com>
-References: <1451422549-22071-1-git-send-email-xerofoify@gmail.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: Re: [PATCH] net: preserve IP control block during GSO
+	segmentation
+Date: Fri, 8 Jan 2016 12:13:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC01BA@AcuExch.aculab.com>
+References: <145225444176.22215.2003378381077166898.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, tedd.an@intel.com,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451422549-22071-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: 'Konstantin Khlebnikov' <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+ <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <145225444176.22215.2003378381077166898.stgit@zurg>
+Content-Language: en-US
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi
-
-On Tue, Dec 29, 2015 at 9:55 PM, Nicholas Krause <xerofoify@gmail.com> wrote:
-> This fixes error handling in the function hidp_connection_del to
-> properly check if the internal call to hidp_send_ctrl_message has
-> failed by returning a error code and if so immediately return this
-> error code to the caller of hidp_connection_del to signal that a
-> failed call has occurred that needs to be handled by this function's
-> caller.
->
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->  net/bluetooth/hidp/core.c | 17 ++++++++++-------
->  1 file changed, 10 insertions(+), 7 deletions(-)
->
-> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-> index f1a117f..13aa6d0 100644
-> --- a/net/bluetooth/hidp/core.c
-> +++ b/net/bluetooth/hidp/core.c
-> @@ -1360,6 +1360,7 @@ int hidp_connection_del(struct hidp_conndel_req *req)
->  {
->         u32 valid_flags = BIT(HIDP_VIRTUAL_CABLE_UNPLUG);
->         struct hidp_session *session;
-> +       int err;
->
->         if (req->flags & ~valid_flags)
->                 return -EINVAL;
-> @@ -1368,14 +1369,16 @@ int hidp_connection_del(struct hidp_conndel_req *req)
->         if (!session)
->                 return -ENOENT;
->
-> -       if (req->flags & BIT(HIDP_VIRTUAL_CABLE_UNPLUG))
-> -               hidp_send_ctrl_message(session,
-> -                                      HIDP_TRANS_HID_CONTROL |
-> -                                        HIDP_CTRL_VIRTUAL_CABLE_UNPLUG,
-> -                                      NULL, 0);
-> -       else
-> +       if (req->flags & BIT(HIDP_VIRTUAL_CABLE_UNPLUG)) {
-> +               err = hidp_send_ctrl_message(session,
-> +                                            HIDP_TRANS_HID_CONTROL |
-> +                                            HIDP_CTRL_VIRTUAL_CABLE_UNPLUG,
-> +                                            NULL, 0);
-> +               if (err)
-> +                       return err;
-
-This leaks a reference to 'session'.
-
-> +       } else {
->                 l2cap_unregister_user(session->conn, &session->user);
-> -
-> +       }
->         hidp_session_put(session);
-
-I'm not very convinced that this is a good idea. Transmission is
-handled async, hence all you catch here is OOM. Nothing interesting
-can be returned, and there's nothing sane the caller can do to handle
-the error. I'd keep the code as is.
-
-Thanks
-David
-
->
->         return 0;
-> --
-> 2.1.4
->
+RnJvbTogT2YgS29uc3RhbnRpbiBLaGxlYm5pa292DQo+IFNlbnQ6IDA4IEphbnVhcnkgMjAxNiAx
+MjowMQ0KPiBTa2JfZ3NvX3NlZ21lbnQoKSB1c2VzIHNrYiBjb250cm9sIGJsb2NrIGR1cmluZyBz
+ZWdtZW50YXRpb24uDQo+IFRoaXMgcGF0Y2ggYWRkcyAzMi1ieXRlcyByb29tIGZvciBwcmV2aW91
+cyBjb250cm9sIGJsb2NrIHdoaWNoDQo+IHdpbGwgYmUgY29waWVkIGludG8gYWxsIHJlc3VsdGlu
+ZyBzZWdtZW50cy4NCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXMga2VybmVsIGNyYXNoIGR1cmluZyBm
+cmFnbWVudGluZyBmb3J3YXJkZWQgcGFja2V0cy4NCj4gRnJhZ21lbnRhdGlvbiByZXF1aXJlcyB2
+YWxpZCBJUCBDQiBpbiBza2IgZm9yIGNsZWFyaW5nIGlwIG9wdGlvbnMuDQo+IEFsc28gcGF0Y2gg
+cmVtb3ZlcyBjdXN0b20gc2F2ZS9yZXN0b3JlIGluIG92cyBjb2RlLCBub3cgaXQncyByZWR1bmRh
+bnQuDQo+IA0KLi4uDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oIGIvaW5j
+bHVkZS9saW51eC9za2J1ZmYuaA0KPiBpbmRleCA0MzU1MTI5ZmZmOTEuLjkxNDdmOWYzNGNiZSAx
+MDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9saW51eC9za2J1ZmYuaA0KPiArKysgYi9pbmNsdWRlL2xp
+bnV4L3NrYnVmZi5oDQo+IEBAIC0zNDQ2LDcgKzM0NDYsOCBAQCBzdHJ1Y3Qgc2tiX2dzb19jYiB7
+DQo+ICAJaW50CWVuY2FwX2xldmVsOw0KPiAgCV9fdTE2CWNzdW1fc3RhcnQ7DQo+ICB9Ow0KPiAt
+I2RlZmluZSBTS0JfR1NPX0NCKHNrYikgKChzdHJ1Y3Qgc2tiX2dzb19jYiAqKShza2IpLT5jYikN
+Cj4gKyNkZWZpbmUgU0tCX1NHT19DQl9PRkZTRVQJMzINCj4gKyNkZWZpbmUgU0tCX0dTT19DQihz
+a2IpICgoc3RydWN0IHNrYl9nc29fY2IgKikoKHNrYiktPmNiICsgU0tCX1NHT19DQl9PRkZTRVQp
+KQ0KDQpZb3UgY291bGQgc2V0IFNLQl9TR09fQ0JfT0ZGU0VUIHRvIHNpemVvZiAoKHNrYiktPmNi
+KSAtIHNpemVvZiAoc3RydWN0IHNrYl9nc29fY2IpDQpzbyB0aGF0IHRoZSBlbmQgb2YgJ2NiJyBp
+cyBhbHdheXMgdXNlZC4NCihBc3N1bWluZyB0aGUgZm9ybWVyIGlzIGEgbXVsdGlwbGUgb2YgNC4p
+DQoNCkl0IG1pZ2h0IGJlIHdvcnRoIHVzaW5nIGFuIG9uLXN0YWNrIHN0cnVjdHVyZSBwYXNzZWQg
+dGhyb3VnaCBhcyBhIHNlcGFyYXRlDQpwYXJhbWV0ZXIgLSBpdCBkb2Vzbid0IGxvb2sgYXMgdGhv
+dWdoIGl0IGhhcyB0byBiZSBxdWV1ZWQgd2l0aCB0aGUgc2tiLg0KKENsZWFybHkgYSBiaWdnZXIg
+Y2hhbmdlLikNCg0KCURhdmlkDQoNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
+b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
