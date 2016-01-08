@@ -1,183 +1,205 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [RFC v5 1/6] Timekeeping cross timestamp interface for device drivers
-Date: Thu, 7 Jan 2016 17:05:24 -0800
-Message-ID: <CALAqxLVY=u1S8qy0fox6Fmkkb8yDS3yHu+UioQe9-qNraM7ngQ@mail.gmail.com>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [RFC v5 3/6] Add history to cross timestamp interface supporting
+ slower devices
+Date: Thu, 07 Jan 2016 17:07:16 -0800
+Message-ID: <op.yawaqe0i1774gr@chall-mobl2.amr.corp.intel.com>
 References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
-	<1451911523-8534-2-git-send-email-christopher.s.hall@intel.com>
-	<CALAqxLXThwiibfoxEvWMZWMDTeFi2EqEU6i2tBvF5H89B3Pzxw@mail.gmail.com>
-	<op.yav9khd91774gr@chall-mobl2.amr.corp.intel.com>
+ <1451911523-8534-4-git-send-email-christopher.s.hall@intel.com>
+ <CALAqxLVACLP1_PGWh5Ha9P6DT+HfDu9vg-B5NCShuFvNu21WUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: "Thomas Gleixner" <tglx@linutronix.de>,
+	"Richard Cochran" <richardcochran@gmail.com>,
+	"Ingo Molnar" <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
 	"x86@kernel.org" <x86@kernel.org>,
 	lkml <linux-kernel@vger.kernel.org>,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
 	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
-To: Christopher Hall <christopher.s.hall@intel.com>
+To: "John Stultz" <john.stultz@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <op.yav9khd91774gr@chall-mobl2.amr.corp.intel.com>
+In-Reply-To: <CALAqxLVACLP1_PGWh5Ha9P6DT+HfDu9vg-B5NCShuFvNu21WUQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 7, 2016 at 4:42 PM, Christopher Hall
-<christopher.s.hall@intel.com> wrote:
-> Hi John,
+On Wed, 06 Jan 2016 11:37:23 -0800, John Stultz <john.stultz@linaro.org>  
+wrote:
+> On Mon, Jan 4, 2016 at 4:45 AM, Christopher S. Hall
+> <christopher.s.hall@intel.com> wrote:
+>> @@ -13,6 +13,9 @@
+>>  /**
+>>   * struct tk_read_base - base structure for timekeeping readout
+>>   * @clock:     Current clocksource used for timekeeping.
+>> + * @cs_seq:    Clocksource sequence is incremented per clocksource  
+>> change.
+>> + *     It's used to determine whether past system time can be related  
+>> to
+>> + *     current system time
+>>   * @read:      Read function of @clock
+>>   * @mask:      Bitmask for two's complement subtraction of non 64bit  
+>> clocks
+>>   * @cycle_last: @clock cycle value at last update
+>> @@ -29,6 +32,7 @@
+>>   */
+>>  struct tk_read_base {
+>>         struct clocksource      *clock;
+>> +       u8                      cs_seq;
+>>         cycle_t                 (*read)(struct clocksource *cs);
+>>         cycle_t                 mask;
+>>         cycle_t                 cycle_last;
 >
-> On Wed, 06 Jan 2016 10:55:22 -0800, John Stultz <john.stultz@linaro.org>
-> wrote:
+>
+> So Thomas optimized the tk_read_bases to fit in a cacheline, and so I
+> worry about the u8 being added there. I'm also cautious about
+> exporting these seq values out further via the system_time_snapshot.
+> But I may just need some more time to warm up to the idea.
+
+I think I missed the reason for the existence tk_read_base. Now I know.  
+The clocksource sequence doesn't belong there. It should be moved  
+timekeeper struct.  Below there is more discussion of why the sequence  
+number needs to exist at all. I think it does.
+
+Would it make more sense to take the sequence out of the snapshot struct  
+and make it an additional argument? it makes the snapshot struct more  
+intuitive but the arguments to ktime_get_snapshot() maybe less so.
+
+>
+>
+>> diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+>> index 9c1ddc3..5a7f784 100644
+>> --- a/kernel/time/timekeeping.c
+>> +++ b/kernel/time/timekeeping.c
+>> @@ -235,11 +235,13 @@ static void tk_setup_internals(struct timekeeper  
+>> *tk, struct clocksource *clock)
 >>
->> On Mon, Jan 4, 2016 at 4:45 AM, Christopher S. Hall
->> <christopher.s.hall@intel.com> wrote:
->>>
->>> +/*
->>> + * struct correlated_cs - Descriptor for a clocksource correlated to
->>> another
->>> + *     clocksource
->>> + * @related_cs:                Pointer to the related timekeeping
->>> clocksource
->>> + * @convert:           Conversion function to convert a timestamp from
->>> + *                     the correlated clocksource to cycles of the
->>> related
->>> + *                     timekeeping clocksource
->>> + */
->>> +struct correlated_cs {
->>> +       struct clocksource      *related_cs;
->>> +       cycle_t                 (*convert)(struct correlated_cs *cs,
->>> +                                          cycle_t cycles);
->>> +};
->
->
-> How about making this another patch? It's not directly related to the cross
-> timestamp. I would lean toward making it its own patch leaving the ART
-> correlated clocksource patch touching arch/ only.
-
-Sure. Tying it more closely (via explicit commit message) to the
-change that uses it would be better then kind of slipping it in here.
-
-
->> I feel like this is introducing a lot of very small structures, which
->> to the casual reviewer aren't immediately obvious how they interlink
->> and are used.  It also adds to the number of types we have to keep in
->> our head. I dunno, maybe its just the correlated_cs is added but isn't
->> used in this patch, but I keep feeling like these should be more
->> obvious somehow.
+>>         old_clock = tk->tkr_mono.clock;
+>>         tk->tkr_mono.clock = clock;
+>> +       ++tk->tkr_mono.cs_seq;
+>>         tk->tkr_mono.read = clock->read;
+>>         tk->tkr_mono.mask = clock->mask;
+>>         tk->tkr_mono.cycle_last = tk->tkr_mono.read(clock);
 >>
->> That's terribly vague feedback, so I'm sorry.  Maybe some concrete
->> suggestions?
+>>         tk->tkr_raw.clock = clock;
+>> +       ++tk->tkr_raw.cs_seq;
+>>         tk->tkr_raw.read = clock->read;
+>>         tk->tkr_raw.mask = clock->mask;
+>>         tk->tkr_raw.cycle_last = tk->tkr_mono.cycle_last;
+>> @@ -862,6 +864,39 @@ time64_t ktime_get_real_seconds(void)
+>>  }
+>>  EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
 >>
->> * Maybe try renaming get_sync_device_time as just
->> crosststamp_device/struct ?
+>> +/**
+>> + * ktime_get_snapshot - snapshots the realtime/monotonic raw clocks  
+>> with counter
+>> + * @snapshot:  pointer to struct receiving the system time snapshot
+>> + */
+>> +void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
+>> +{
+>> +       struct timekeeper *tk = &tk_core.timekeeper;
+>> +       unsigned long seq;
+>> +       ktime_t base_raw;
+>> +       ktime_t base_real;
+>> +       s64 nsec_raw;
+>> +       s64 nsec_real;
+>> +       cycle_t now;
+>> +
+>> +       do {
+>> +               seq = read_seqcount_begin(&tk_core.seq);
+>> +
+>> +               now = tk->tkr_mono.read(tk->tkr_mono.clock);
+>> +               systime_snapshot->cs_seq = tk->tkr_mono.cs_seq;
+>> +               systime_snapshot->clock_set_seq = tk->clock_was_set_seq;
+>> +               base_real = ktime_add(tk->tkr_mono.base,
+>> +                                     tk_core.timekeeper.offs_real);
+>> +               base_raw = tk->tkr_raw.base;
+>> +               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,  
+>> now);
+>> +               nsec_raw  = timekeeping_cycles_to_ns(&tk->tkr_raw, now);
+>> +       } while (read_seqcount_retry(&tk_core.seq, seq));
+>> +
+>> +       systime_snapshot->cycles = now;
+>> +       systime_snapshot->real = ktime_add_ns(base_real, nsec_real);
+>> +       systime_snapshot->raw = ktime_add_ns(base_raw, nsec_raw);
+>> +}
+>> +EXPORT_SYMBOL_GPL(ktime_get_snapshot);
 >
+> So can you split out this adding of ktime_get_snapshot()  (maybe
+> skipping the seqcount bits initially) into a separate patch?
+
+Yes.  This should be fine.
+
 >
-> My goal here is to differentiate between the cross timestamp (final result)
-> and the synchronized capture (intermediate value). Maybe it isn't
-> particularly useful (or worse additionally confusing), but when reading the
-> code I found it confusing to call everything a cross timestamp. I think it's
-> the units - cycles and nanoseconds - that are the source of my confusion in
-> this case. The units are obvious from the struct member types, but it seemed
-> more straightforward to differentiate in the struct name.  Does this make
-> sense?  If I missed the mark maybe it should be changed.
-
-Sure. I think having a different type then just cycles here is good,
-and counterval is fine for an alternate name, but get_sync_device_time
-looks like a function, not a structure name to me. The fact that the
-structure is mostly an accessor to the hardware is fine, but maybe
-counterval_device or something would be better? counterval_source? I
-dunno.
-
-
->> * raw_system_counterval feels like its of limited value. Maybe just
->> pass the clocksource and cycle value to the functions separately?
->
->
-> I agree it is of somewhat limited value, but I think it makes the cross
-> timestamp code more intuitive (the header file, as you pointed out, not as
-> much). Maybe better commenting of the struct declaration would be useful
-> here? To your comment above, I can keep more structs in my head than
-> arguments. Also, to my thinking there isn't any intuitive ordering if these
-> struct members are changed to individual arguments which might make the
-> driver callback confusing.
-
-Yea. I just feel like lots of structures add extra abstraction that
-makes the code harder to learn or re-learn. Not only is one trying to
-remember the base types that are being passed around, but you also
-have to remember what all the meta-structures are for. Especially for
-these two-value structures.
-
-And I apologize. I know this sort of nit-picking is sort of the worst.
-"Its great you named your child that, but I'd prefer to call them..."
-;)  But for long-term maintenance, under the fog of time, obviousness
-is really important.
-
-
->>> -static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
->>> +static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
->>> +                                         cycle_t delta)
->>>  {
->>> -       cycle_t delta;
->>>         s64 nsec;
->>>
->>> -       delta = timekeeping_get_delta(tkr);
->>> -
->>>         nsec = delta * tkr->mult + tkr->xtime_nsec;
->>>         nsec >>= tkr->shift;
->>>
->>> @@ -312,6 +310,24 @@ static inline s64 timekeeping_get_ns(struct
->>> tk_read_base *tkr)
->>>         return nsec + arch_gettimeoffset();
->>>  }
->
->
->> Mind splitting the above out into its own small patch?
->
->
-> Makes sense. To be clear your suggestion is to make this patch 1 of X and
-> then 2 of X will be the cross timestamp patch.  Is that right?
-
-Yep.
-
-
->>>  /**
->>>   * update_fast_timekeeper - Update the fast and NMI safe monotonic
->>> timekeeper.
->>>   * @tkr: Timekeeping readout base from which we take the update
->>> @@ -885,6 +901,59 @@ EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
->>>  #endif /* CONFIG_NTP_PPS */
->>>
->>>  /**
->>> + * get_device_system_crosststamp - Synchronously capture system/device
->>> timestamp
->>> + * @xtstamp:           Receives simultaneously captured system and
->>> device time
->>> + * @sync_devicetime:   Callback to get simultaneous device time and
->>> + *     system counter from the device driver
->>> + *
->>> + * Reads a timestamp from a device and correlates it to system time
->>> + */
->>> +int get_device_system_crosststamp(struct system_device_crosststamp
->>> *xtstamp,
->>> +                                 struct get_sync_device_time
->>> *sync_devicetime)
+>> @@ -936,19 +1044,63 @@ int get_device_system_crosststamp(struct  
+>> system_device_crosststamp *xtstamp,
+>>                  */
+>>                 if (tk->tkr_mono.clock != raw_sys.cs)
+>>                         return -ENODEV;
+>> +               cycles = raw_sys.cycles;
+>> +
+>> +               /*
+>> +                * Check whether the system counter value provided by  
+>> the
+>> +                * device driver is on the current interval.
+>> +                */
+>> +               now = tk->tkr_mono.read(tk->tkr_mono.clock);
+>> +               interval_start = tk->tkr_mono.cycle_last;
+>> +               if (!cycle_between(interval_start, cycles, now)) {
+>> +                       cs_seq = tk->tkr_mono.cs_seq;
+>> +                       clock_was_set_seq = tk->clock_was_set_seq;
+>> +                       cycles = interval_start;
+>> +                       do_interp = true;
+>> +               } else {
+>> +                       do_interp = false;
+>> +               }
 >>
+>>                 base_real = ktime_add(tk->tkr_mono.base,
+>>                                       tk_core.timekeeper.offs_real);
+>>                 base_raw = tk->tkr_raw.base;
 >>
->> Another nit, but to me something like:
->> int get_device_system_crosststamp(struct get_sync_device_time
->> *sync_devicetime,
->>                                                           struct
->> system_device_crosststamp *ret)
+>> -               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,
+>> -                                                    raw_sys.cycles);
+>> -               nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,
+>> -                                                   raw_sys.cycles);
+>> +               nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,  
+>> cycles);
+>> +               nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,  
+>> cycles);
+>>         } while (read_seqcount_retry(&tk_core.seq, seq));
 >>
->> Reads better to me. ie: use this device_time -> return that crosststamp.
+>>         xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
+>>         xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
+>> +
+>> +       /*
+>> +        * Interpolate if necessary, working back from the start of the  
+>> current
+>> +        * interval
+>> +        */
+>> +       if (do_interp) {
+>> +               cycle_t total_history_cycles;
+>> +               ktime_t history_monoraw;
+>> +               ktime_t history_realtime;
+>> +               bool discontinuity;
+>> +               cycle_t partial_history_cycles = cycles -  
+>> raw_sys.cycles;
+>> +
+>> +               if (!history_ref || history_ref->cs_seq != cs_seq ||
 >
+> I've not done a super close reading here. But is it very likely the
+> the history_ref->cs_seq is the same as the captured seq? I thought
+> this history_ref was to allow old cross stamps to be used to improve
+> the back-calculation of the time at the given cycle value. So throwing
+> them out if they are older then the last tick seems strange.
+
+Maybe this needs more explanation. The clocksource sequence (cs_seq) is  
+incremented for each change in clocksource. I use this to detect a rare  
+corner case where the clocksource is changed from (on x86 anyway) TSC and  
+then back. If the history crosses one of these changes then interpolation  
+shouldn't be attempted (return error). It's not really enough when using  
+the history to just check that the current clocksource is equal to the one  
+used at the start of the history. The clocksource must not have changed at  
+all. To answer your question, it's not at all likely that this would occur.
+
 >
-> OK.  My brain "works" the opposite way, but I think (after a small amount of
-> research) I'm in the minority:)
-
-Yea. memcpy and others do work the other way, but my left-to-right
-bias is pretty strong. :)
-
-thanks
--john
+> thanks
+> -john
