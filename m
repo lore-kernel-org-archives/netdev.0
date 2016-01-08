@@ -1,63 +1,53 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
-Date: Fri, 8 Jan 2016 11:40:26 -0800
-Message-ID: <CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
-References: <568E9BF9.2050001@solarflare.com> <568E9C9B.3090408@solarflare.com>
- <CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
- <568FD844.3020101@solarflare.com> <CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] netlink: fix null pointer dereference on nlk->groups
+Date: Fri, 8 Jan 2016 22:43:22 +0300
+Message-ID: <5690115A.4070405@cogentembedded.com>
+References: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Baozeng Ding <sploving1@gmail.com>, davem@davemloft.net,
+	herbert@gondor.apana.org.au, daniel@iogearbox.net, tgraf@suug.ch,
+	pablo@netfilter.org, chamaken@gmail.com, nicolas.dichtel@6wind.com,
+	fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:40391 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755582AbcAHTkn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 14:40:43 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 042B420204
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 19:40:43 +0000 (UTC)
-Received: from mail-qg0-f42.google.com (mail-qg0-f42.google.com [209.85.192.42])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 627F0201F4
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 19:40:41 +0000 (UTC)
-Received: by mail-qg0-f42.google.com with SMTP id o11so360295718qge.2
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 11:40:41 -0800 (PST)
-In-Reply-To: <CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:35165 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932444AbcAHTn0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:43:26 -0500
+Received: by mail-lb0-f175.google.com with SMTP id bc4so229366867lbc.2
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 11:43:26 -0800 (PST)
+In-Reply-To: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 8, 2016 at 10:03 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Fri, Jan 8, 2016 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
->> On 08/01/16 03:46, Alexander Duyck wrote:
->>> So I just tried testing your patches and as it turns out you are still
->>> missing some bits.  In this patch for instance the calls to
->>> udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
->>> that you pass false for the last parameter and allow the use of your
->>> udp_set_csum modifications.
->>>
->>> - Alex
->> Are you remembering to enable outer checksums on your vxlan tunnel?  It's
->>  the vxflags & VXLAN_F_UDP_CSUM check, and to enable it you need a recent
->>  iproute2 so you can use the 'udpcsum' option when creating the vxlan device.
->
-> No I hadn't done that.  I kind of assumed that the checksums were just
-> being enabled by default.  That might explain the some of the issues I
-> had..  ;-)
->
->> It would be nice if that could just default to enabled now that we have LCO,
->>  but I don't think we can change that now (ABIs set in stone and all that),
->>  so I think it would have to be iproute2 that turned it on by default.
->
-> If anything we might want to expose the capabilities of the kernel so
-> that iproute2 could make an informed decision on if it want to enable
-> the outer checksum by default or not.
+Hello.
 
-Keep in mind that protocols like VXLAN specify that the UDP checksum
-should be set to zero. As a result, enabling the checksum is not a
-purely local decision and it probably shouldn't be on by default.
+On 01/08/2016 08:46 AM, Baozeng Ding wrote:
+
+> If groups is not 0 and nlk->groups is NULL, it will not return
+> immediately and cause a null pointer dereference later.
+>
+> Signed-off-by: Baozeng Ding <sploving1@gmail.com>
+> ---
+>   net/netlink/af_netlink.c | 10 +++++++---
+>   1 file changed, 7 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 59651af..38efde0 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+[...]
+> @@ -1576,14 +1577,17 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+>   		}
+>   	}
+>
+> -	if (!groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+> +	if (nlk->groups == NULL)
+
+    '!nlk->groups' is preferred in the networking code.
+
+[...]
+
+MBR, Sergei
