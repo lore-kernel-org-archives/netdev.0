@@ -1,60 +1,74 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: add per device sg_max_frags for skb
-Date: Fri, 8 Jan 2016 10:33:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC00C7@AcuExch.aculab.com>
-References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
- <568F87AC.60405@oracle.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] net-i40e: Replace variable initialisations by
+ assignments in i40e_vc_get_vf_resources_msg()
+Date: Fri, 08 Jan 2016 02:42:50 -0800
+Message-ID: <1452249770.19358.34.camel@intel.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	 <56868E0B.5040602@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman " <ebiederm@xmission.com>,
-	Salam Noureddine <noureddine@arista.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Julian Anastasov <ja@ssi.bg>,
-	Ying Xue <ying.xue@windriver.com>,
-	Craig Gallek <kraig@google.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	"\" hannes\"@stressinduktion.org " <hannes@stressinduktion.org>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <li
-To: 'Hans Westgaard Ry' <hans.westgaard.ry@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <568F87AC.60405@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-lN5SgUWDmEYPt25O9lRx"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <56868E0B.5040602@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGFucyBXZXN0Z2FhcmQNCj4gU2VudDogMDggSmFudWFyeSAyMDE2IDA5OjU2DQouLi4N
-Cj4gPj4gVGhlIHBhdGNoIGFsbG93cyB0aGUgZGV2aWNlIHRvIGxpbWl0IHRoZSBtYXhpbXVtIG51
-bWJlciBmcmFnbWVudHMgdXNlZA0KPiA+PiBpbiBvbmUgc2tiLg0KPiA+DQo+ID4gVGhpcyBkb2Vz
-bid0IHNlZW0gdG8gbWUgdG8gYmUgdGhlIGNvcnJlY3Qgd2F5IHRvIGZpeCB0aGlzLg0KPiA+IEFu
-eXRoaW5nIHRoYXQgYWRkcyBhbiBleHRyYSBmcmFnbWVudCAoaW4gdGhpcyBjYXNlIElQb0lCKSBz
-aG91bGQgYWxsb3cNCj4gPiBmb3IgdGhlIHNrYiBhbHJlYWR5IGhhdmluZyB0aGUgbWF4aW11bSBu
-dW1iZXIgb2YgZnJhZ21lbnRzLg0KPiA+IEZ1bGx5IGxpbmVhcmlzaW5nIHRoZSBza2IgaXMgb3Zl
-cmtpbGwsIGJ1dCBJIHRoaW5rIHRoZSBmaXJzdCBmcmFnbWVudA0KPiA+IGNhbiBiZSBhZGRlZCB0
-byB0aGUgbGluZWFyIHBhcnQgb2YgdGhlIHNrYi4NCj4gPg0KPiA+IAlEYXZpZA0KPiA+DQo+ID4N
-Cj4gV2hlbiBJcG9JQiBoYW5kbGVzIGEgc2tiLXJlcXVlc3QgaXQgY29udmVydHMgZnJhZ21lbnRz
-IHRvIFNHRXMgdG8NCj4gYmUgaGFuZGxlZCBieSBhIEhDQS4NCj4gVGhlIHByb2JsZW0gYXJpc2Vz
-IHdoZW4gdGhlIEhDQSBoYXZlIGEgbGltaXRlZCBudW1iZXIgb2YgU0dFcyBsZXNzIHRoYW4NCj4g
-TUFYX1NLQl9GUkFHUy4NCj4gKGl0IGdldHMgYSBsaXR0bGUgd29yc2Ugc2luY2UgSVBvSUIgbmVl
-ZCB0byB5ZXQgYW5vdGhlciBzZWdtZW50KQ0KPiBJIGhhdmUgbm90IGZvdW5kIGFueSBlYXN5IHdh
-eSBvZiBmaXhpbmcgdGhpcyB3aXRoIGN1cnJlbmN0IGNvZGViYXNlLg0KDQpJIHRoaW5rIG9uZSBv
-ZiB0aGUgeGVuIGV0aGVybmV0IGludGVyZmFjZXMgaGFkIGEgc2ltaWxhciBwcm9ibGVtLg0KDQpK
-dXN0IHJlZHVjZSB0aGUgbnVtYmVyIG9mIGZyYWdtZW50cyBieSBjb3B5aW5nIHR3byAob3IgbW9y
-ZSkgb2YgdGhlbQ0KaW50byBhIHNpbmdsZSBmcmFnbWVudC4NCkluIGVmZmVjdCwgYW55dGhpbmcg
-dGhhdCByZWR1Y2VzIHRoZSBudW1iZXIgb2YgZnJhZ21lbnRzIHdpbGwgZG8gYSBjb3B5Lg0KDQoJ
-RGF2aWQNCg0K
+
+--=-lN5SgUWDmEYPt25O9lRx
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2016-01-01 at 15:32 +0100, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 1 Jan 2016 15:11:09 +0100
+>=20
+> Replace explicit initialisations for four local variables at the
+> beginning
+> by assignments that will only be performed if the corresponding code
+> will really be executed.
+>=20
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+> =C2=A0drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 15 +++++++++--=
+-
+> ---
+> =C2=A01 file changed, 9 insertions(+), 6 deletions(-)
+
+Dropping this patch based on feedback from Shannon.
+--=-lN5SgUWDmEYPt25O9lRx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJWj5KqAAoJEOVv75VaS+3OGMwP/0F3ODML8eXK6HdmMVIPwGR5
+qIJv+5c0CBIPcRBEfT9OhMgY1b2To2GYBIvE4PXoDzPF7IhpB89ekSjXRehn06Qg
+J3rlRh+msCzGYNLrGh1a92MfsMHAi91g2U/WBLEyrnkyP+W9Vvd9AeYczyEz/IEs
+7VdDZqQ68uRTUj6VaExjhowMgJxXps/GHbLelZrOYrskLam1cXofqJCNLMcIAZdE
+SL6PNPV3vOKThOvUfoxokVvPrTEONsyn/QdBhEJiatwMXiyAc/fssBUH//9GbeTA
+dmVgbi6hPz9PqgQuIrLC6HCmYB/++JWCcNxvwe/bpVeR6Wh/j4dN52KJTwLE9RbQ
+FIcE0rMBDq3GbFvLKo73BlL8afMSyNvBwunmPJkBdKcPIVB8F5sKlnPi6GXWPN0E
+f8+RaiWNT341d7a9jL9BtD5OQSBh2QeY2nnoe5bIR0owNHB/gX4J+TDfBVEJt1jH
+YLcUKCoCZ7LPghu5ykR3oZEBxb2Uj9m9qplrIkktrzkNBiYW2y3rofPy309zMIkJ
+Zg8Eajlj4AhAyMRreJ/VPCjkp4Ch48ZX+Io1hrKJIF+x6BM/Kv/XE7Nx0bC04urR
+6/fuAjryJMqsz4PryVSZi2uOwCN6FXOmBrTxo3QS3vj0NWMA7pQHb7yRUE01tMF/
+VgkDG0wm9ReUad16AjLx
+=1Uqp
+-----END PGP SIGNATURE-----
+
+--=-lN5SgUWDmEYPt25O9lRx--
+
