@@ -1,65 +1,67 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/2] phy: fix blackfin build failure
-Date: Fri, 8 Jan 2016 16:57:23 +0100
-Message-ID: <20160108155723.GG4389@lunn.ch>
-References: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] net: lpc_eth: Remove unused variables
+Date: Fri, 8 Jan 2016 16:58:32 +0100
+Message-ID: <20160108155832.GH4389@lunn.ch>
+References: <1452255556-21827-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@nxp.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:44097 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755406AbcAHP6d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 10:58:33 -0500
 Content-Disposition: inline
-In-Reply-To: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1452255556-21827-1-git-send-email-festevam@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, Jan 08, 2016 at 04:58:14PM +0530, Sudip Mukherjee wrote:
-> The build of blackfin defconfig is failing with the error:
-> error: 'struct mii_bus' has no member named 'phy_map'
+On Fri, Jan 08, 2016 at 10:19:16AM -0200, Fabio Estevam wrote:
+> From: Fabio Estevam <fabio.estevam@nxp.com>
 > 
-> A new API mdiobus_get_phy() was introduced and phy_map was removed but
-> it was not changed here.
+> Commit e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+> introduced the following build warnings:
 > 
-> Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus.")
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
-> ---
-
-Hi David.
+> drivers/net/ethernet/nxp/lpc_eth.c: In function 'lpc_mii_init':
+> drivers/net/ethernet/nxp/lpc_eth.c:865:1: warning: label 'err_out_1' defined but not used [-Wunused-label]
+> drivers/net/ethernet/nxp/lpc_eth.c:826:20: warning: unused variable 'i' [-Wunused-variable]
+> 
+> Remove the unused variables to fix them.
+> 
+> Reported-by: Olof's autobuilder <build@lixom.net>
+> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
 
 Acked-by: Andrew Lunn <andrew@lunn.ch>
 
-This is one more of the late 0-day reports i got. Please take these
-two, along with the two fixes i posted yesterday.
+	  Andrew
 
-     Andrew
-
+> ---
+>  drivers/net/ethernet/nxp/lpc_eth.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 > 
-> build log of next-20160108 is at:
-> https://travis-ci.org/sudipm-mukherjee/parport/jobs/101006125
-> 
->  drivers/net/ethernet/adi/bfin_mac.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 6286274..6f3432a 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -398,7 +398,8 @@ static int mii_probe(struct net_device *dev, int phy_mode)
+> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+> index a9ce37f..b1ce7aa 100644
+> --- a/drivers/net/ethernet/nxp/lpc_eth.c
+> +++ b/drivers/net/ethernet/nxp/lpc_eth.c
+> @@ -823,7 +823,7 @@ static int lpc_mii_probe(struct net_device *ndev)
 >  
->  	/* search for connected PHY device */
->  	for (i = 0; i < PHY_MAX_ADDR; ++i) {
-> -		struct phy_device *const tmp_phydev = lp->mii_bus->phy_map[i];
-> +		struct phy_device *const tmp_phydev =
-> +			mdiobus_get_phy(lp->mii_bus, i);
+>  static int lpc_mii_init(struct netdata_local *pldat)
+>  {
+> -	int err = -ENXIO, i;
+> +	int err = -ENXIO;
 >  
->  		if (!tmp_phydev)
->  			continue; /* no PHY here... */
+>  	pldat->mii_bus = mdiobus_alloc();
+>  	if (!pldat->mii_bus) {
+> @@ -862,7 +862,6 @@ static int lpc_mii_init(struct netdata_local *pldat)
+>  
+>  err_out_unregister_bus:
+>  	mdiobus_unregister(pldat->mii_bus);
+> -err_out_1:
+>  	mdiobus_free(pldat->mii_bus);
+>  err_out:
+>  	return err;
 > -- 
 > 1.9.1
 > 
