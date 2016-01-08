@@ -1,81 +1,67 @@
-From: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
-Subject: Re: [PATCH] net: add per device sg_max_frags for skb
-Date: Fri, 8 Jan 2016 11:01:49 +0100
-Message-ID: <568F890D.70004@oracle.com>
-References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
- <1452089115.8255.171.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman " <ebiederm@xmission.com>,
-	Salam Noureddine <noureddine@arista.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Julian Anastasov <ja@ssi.bg>,
-	Ying Xue <ying.xue@windriver.com>,
-	Craig Gallek <kraig@google.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	"\" hannes\"@stressinduktion.org " <hannes@stressinduktion.org>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
-	linux-kernel@vger.ke
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452089115.8255.171.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/5][pull request] 40GbE Intel Wired LAN Driver Updates 2016-01-08
+Date: Fri,  8 Jan 2016 02:14:38 -0800
+Message-ID: <1452248083-78628-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:48697 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753153AbcAHKO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 05:14:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series contains updates to i40e and i40evf only.
 
+Mitch adds a useful error message and return value when the VFs are being
+reset, since there is a brief window of time when the VF cannot be
+configured because they do not have a VSI to configure.  Also made a driver
+change to allow the user to specify a zero MAC address for VFs, which
+causes the existing MAC address to be removed and allows the VF to use a
+random address (like libvirt).
 
-On 01/06/2016 03:05 PM, Eric Dumazet wrote:
-> On Wed, 2016-01-06 at 14:16 +0100, Hans Westgaard Ry wrote:
->> Devices may have limits on the number of fragments in an skb they
->> support. Current codebase uses a constant as maximum for number of
->> fragments (MAX_SKB_FRAGS) one skb can hold and use.
->>
->> When enabling scatter/gather and running traffic with many small
->> messages the codebase uses the maximum number of fragments and thereby
->> violates the max for certain devices.
->>
->> An example of such a violation is when running IPoIB on a HCA
->> supporting 16 SGE on an architecture with 4K pagesize. The
->> MAX_SKB_FRAGS will be 17 (64K/4K+1) and because IPoIB adds yet another
->> segment we end up with send_requests with 18 SGE resulting in
->> kernel-panic.
->>
->> The patch allows the device to limit the maximum number fragments used
->> in one skb.
->>
->> The functionality corresponds to gso_max_size/gso_max_segs for gso.
-> Unfortunately this is not the right place to fix this issue.
->
-> Think about forwarding workloads, where the SKB is cooked by GRO engine.
->
-> Anyway, local TCP stack uses 32KB page fragments, so typical skb has no
-> more than 3 frags.
->
-> Look at ndo_features_check(), where the problematic device driver can
-> add its logic.
->
->
->
-I've had a look at ndo_features_check and understand that I could supply 
-my own
-version of the routine, but I wasn't able to figure out how that would 
-solve my problem.
-As far as I can see the routine is not called in the part of code 
-handling scatter/gather.
-Could you help out with more info?
+Sowmini Varadhan from Oracle adds similar functionality/fix to i40e that
+was added to ixgbe earlier.  The fix attempts to look up the MAC address
+in the Open Firmware on systems that support it and use IDPROM on SPARC
+if no OF address is found.
 
+Anjali provides a fix the code path so that we do not call skb_set_hash()
+if the feature is disabled.
 
-Hans
+Jesse removes a device ID that has never been productized and there are
+no plans to use it, so just remove it.
+
+The following are changes since commit 24759daa018f0fc8cccebc89d3dee0953e73785a:
+  Merge branch 'macb-usrio-cap'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Anjali Singhai Jain (1):
+  i40e: Fix Rx hash reported to the stack by our driver
+
+Jesse Brandeburg (1):
+  i40e: remove forever unused ID
+
+Mitch Williams (2):
+  i40e: change log messages and error returns
+  i40e: allow zero MAC address for VFs
+
+Sowmini Varadhan (1):
+  i40e: Look up MAC address in Open Firmware or IDPROM
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_devids.h      |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 91 +++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 54 +++++++------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 38 +++++----
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_devids.h    |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 54 +++++++------
+ 9 files changed, 173 insertions(+), 69 deletions(-)
+
+-- 
+2.5.0
