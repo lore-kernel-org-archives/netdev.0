@@ -1,67 +1,92 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [Linux-v4.4-LTS] ppp: Backport of rtnetlink device handling
-Date: Fri, 8 Jan 2016 12:54:35 +0100
-Message-ID: <20160108115435.GT18510@alphalink.fr>
-References: <CA+icZUXJwvr7k1xrEy1w_Fw4D3V-LA7dKfDa0gxHHmNu3XY=kw@mail.gmail.com>
- <20160104125528.GB1267@alphalink.fr>
- <CA+icZUWrK+jO7PBkvRqHQoNJEDsGgzHnM1fod+zzXdKXWHdHCg@mail.gmail.com>
+From: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net: preserve IP control block during GSO
+	segmentation
+Date: Fri, 08 Jan 2016 15:00:41 +0300
+Message-ID: <145225444176.22215.2003378381077166898.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Sedat Dilek <sedat.dilek@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:49265 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794AbcAHLyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 06:54:38 -0500
-Content-Disposition: inline
-In-Reply-To: <CA+icZUWrK+jO7PBkvRqHQoNJEDsGgzHnM1fod+zzXdKXWHdHCg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 08, 2016 at 10:28:39AM +0100, Sedat Dilek wrote:
-> On Mon, Jan 4, 2016 at 1:55 PM, Guillaume Nault <g.nault@alphalink.fr> wrote:
-> > On Mon, Jan 04, 2016 at 08:47:30AM +0100, Sedat Dilek wrote:
-> >> Hi Guillaume,
-> >>
-> >> which patches do I need to backport "ppp: rtnetlink device handling"
-> >> to Linux v4.4 which will be a LongTerm-Supported (LTS) Linux-kernel
-> >> [0]?
-> >>
-> > Quite frankly, backporting this series doesn't look like a good idea.
-> > It only provides a new ABI for creating ppp devices and your control
-> > plane most likely hasn't been updated to use it. So it won't bring any
-> > benefit.
-> >
-> 
-> What do you mean by "control plane"?
-> 
-For the purpose of this discussion, I mean the PPP daemon running in
-user space (programs like pppd or accel-ppp).
-
-They implement control protocols like LCP, authentication and various
-NCPs, used to negociate PPP encapsulation parameters. They also have to
-report on these parameters to the kernel, so that it can properly
-handle data exchanged over the established PPP connections. This
-generally includes creating a ppp device.
-
-My patch set allows user space to create ppp devices using rtnetlink,
-which is more flexible than the current PPP specific ioctl(). But the
-PPP daemon needs to be updated or it won't know about the new rtnetlink
-and will continue to use the ioctl (which is fine as long as the added
-features brought by rtnetlink aren't necessary). That's why I wonder
-why do you want to backport this series. I brings no value if user
-space isn't able to take advantage of PPP's rtnetlink API.
-
-FYI, the plan is to use the rtnl interface to handle things like
-network isolation (with network namespaces) and deterministic ppp
-device names in accel-ppp.
-
-> Does anything speak against to have these patches for upcoming Linux v4.5?
-> AFAICS, the merge-window will open next week.
-> 
-The patch set has been deferred due to lack of external reviews. I'll
-repost after the merge window, so that interested people will have
-enough time to comment on it. Therefore it won't be in v4.5. If
-everything goes fine with the new submission, it could go into v4.6.
+U2tiX2dzb19zZWdtZW50KCkgdXNlcyBza2IgY29udHJvbCBibG9jayBkdXJpbmcgc2VnbWVudGF0
+aW9uLgpUaGlzIHBhdGNoIGFkZHMgMzItYnl0ZXMgcm9vbSBmb3IgcHJldmlvdXMgY29udHJvbCBi
+bG9jayB3aGljaAp3aWxsIGJlIGNvcGllZCBpbnRvIGFsbCByZXN1bHRpbmcgc2VnbWVudHMuCgpU
+aGlzIHBhdGNoIGZpeGVzIGtlcm5lbCBjcmFzaCBkdXJpbmcgZnJhZ21lbnRpbmcgZm9yd2FyZGVk
+IHBhY2tldHMuCkZyYWdtZW50YXRpb24gcmVxdWlyZXMgdmFsaWQgSVAgQ0IgaW4gc2tiIGZvciBj
+bGVhcmluZyBpcCBvcHRpb25zLgpBbHNvIHBhdGNoIHJlbW92ZXMgY3VzdG9tIHNhdmUvcmVzdG9y
+ZSBpbiBvdnMgY29kZSwgbm93IGl0J3MgcmVkdW5kYW50LgoKU2lnbmVkLW9mZi1ieTogS29uc3Rh
+bnRpbiBLaGxlYm5pa292IDxrb2N0OWlAZ21haWwuY29tPgpMaW5rOiBodHRwOi8vbGttbC5rZXJu
+ZWwub3JnL3IvQ0FMWUdOaVAtME1aLUZFeFYySHV0VHZFOVUtUVF0a0tTb0UtLUtOPUpRRTVTVFlz
+akFBQG1haWwuZ21haWwuY29tCi0tLQogaW5jbHVkZS9saW51eC9za2J1ZmYuaCAgICAgfCAgICAz
+ICsrLQogbmV0L2NvcmUvZGV2LmMgICAgICAgICAgICAgfCAgICA1ICsrKysrCiBuZXQvaXB2NC9p
+cF9vdXRwdXQuYyAgICAgICB8ICAgIDEgKwogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgfCAg
+ICA0ICstLS0KIG5ldC94ZnJtL3hmcm1fb3V0cHV0LmMgICAgIHwgICAgMiArKwogNSBmaWxlcyBj
+aGFuZ2VkLCAxMSBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2lu
+Y2x1ZGUvbGludXgvc2tidWZmLmggYi9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCmluZGV4IDQzNTUx
+MjlmZmY5MS4uOTE0N2Y5ZjM0Y2JlIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L3NrYnVmZi5o
+CisrKyBiL2luY2x1ZGUvbGludXgvc2tidWZmLmgKQEAgLTM0NDYsNyArMzQ0Niw4IEBAIHN0cnVj
+dCBza2JfZ3NvX2NiIHsKIAlpbnQJZW5jYXBfbGV2ZWw7CiAJX191MTYJY3N1bV9zdGFydDsKIH07
+Ci0jZGVmaW5lIFNLQl9HU09fQ0Ioc2tiKSAoKHN0cnVjdCBza2JfZ3NvX2NiICopKHNrYiktPmNi
+KQorI2RlZmluZSBTS0JfU0dPX0NCX09GRlNFVAkzMgorI2RlZmluZSBTS0JfR1NPX0NCKHNrYikg
+KChzdHJ1Y3Qgc2tiX2dzb19jYiAqKSgoc2tiKS0+Y2IgKyBTS0JfU0dPX0NCX09GRlNFVCkpCiAK
+IHN0YXRpYyBpbmxpbmUgaW50IHNrYl90bmxfaGVhZGVyX2xlbihjb25zdCBzdHJ1Y3Qgc2tfYnVm
+ZiAqaW5uZXJfc2tiKQogewpkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9k
+ZXYuYwppbmRleCBhZTAwYjg5NGU2NzUuLjdmMDBmMjQzOTc3MCAxMDA2NDQKLS0tIGEvbmV0L2Nv
+cmUvZGV2LmMKKysrIGIvbmV0L2NvcmUvZGV2LmMKQEAgLTI1NDIsNiArMjU0Miw4IEBAIHN0YXRp
+YyBpbmxpbmUgYm9vbCBza2JfbmVlZHNfY2hlY2soc3RydWN0IHNrX2J1ZmYgKnNrYiwgYm9vbCB0
+eF9wYXRoKQogICoKICAqCUl0IG1heSByZXR1cm4gTlVMTCBpZiB0aGUgc2tiIHJlcXVpcmVzIG5v
+IHNlZ21lbnRhdGlvbi4gIFRoaXMgaXMKICAqCW9ubHkgcG9zc2libGUgd2hlbiBHU08gaXMgdXNl
+ZCBmb3IgdmVyaWZ5aW5nIGhlYWRlciBpbnRlZ3JpdHkuCisgKgorICoJU2VnbWVudGF0aW9uIHBy
+ZXNlcnZlcyBTS0JfU0dPX0NCX09GRlNFVCBieXRlcyBvZiBwcmV2aW91cyBza2IgY2IuCiAgKi8K
+IHN0cnVjdCBza19idWZmICpfX3NrYl9nc29fc2VnbWVudChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAog
+CQkJCSAgbmV0ZGV2X2ZlYXR1cmVzX3QgZmVhdHVyZXMsIGJvb2wgdHhfcGF0aCkKQEAgLTI1NTYs
+NiArMjU1OCw5IEBAIHN0cnVjdCBza19idWZmICpfX3NrYl9nc29fc2VnbWVudChzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiLAogCQkJcmV0dXJuIEVSUl9QVFIoZXJyKTsKIAl9CiAKKwlCVUlMRF9CVUdfT04o
+U0tCX1NHT19DQl9PRkZTRVQgKworCQkgICAgIHNpemVvZigqU0tCX0dTT19DQihza2IpKSA+IHNp
+emVvZihza2ItPmNiKSk7CisKIAlTS0JfR1NPX0NCKHNrYiktPm1hY19vZmZzZXQgPSBza2JfaGVh
+ZHJvb20oc2tiKTsKIAlTS0JfR1NPX0NCKHNrYiktPmVuY2FwX2xldmVsID0gMDsKIApkaWZmIC0t
+Z2l0IGEvbmV0L2lwdjQvaXBfb3V0cHV0LmMgYi9uZXQvaXB2NC9pcF9vdXRwdXQuYwppbmRleCA0
+MjMzY2JlNDcwNTIuLjU5ZWQ0Yjg5YjY3YSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBfb3V0cHV0
+LmMKKysrIGIvbmV0L2lwdjQvaXBfb3V0cHV0LmMKQEAgLTI0MCw2ICsyNDAsNyBAQCBzdGF0aWMg
+aW50IGlwX2ZpbmlzaF9vdXRwdXRfZ3NvKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHNvY2sgKnNr
+LAogCSAqIGZyb20gaG9zdCBuZXR3b3JrIHN0YWNrLgogCSAqLwogCWZlYXR1cmVzID0gbmV0aWZf
+c2tiX2ZlYXR1cmVzKHNrYik7CisJQlVJTERfQlVHX09OKHNpemVvZigqSVBDQihza2IpKSA+IFNL
+Ql9TR09fQ0JfT0ZGU0VUKTsKIAlzZWdzID0gc2tiX2dzb19zZWdtZW50KHNrYiwgZmVhdHVyZXMg
+JiB+TkVUSUZfRl9HU09fTUFTSyk7CiAJaWYgKElTX0VSUl9PUl9OVUxMKHNlZ3MpKSB7CiAJCWtm
+cmVlX3NrYihza2IpOwpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgYi9u
+ZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwppbmRleCA5MWE4YjAwNGRjNTEuLmIxYjM4MGVlNjY3
+ZCAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKKysrIGIvbmV0L29wZW52
+c3dpdGNoL2RhdGFwYXRoLmMKQEAgLTMzNiwxMiArMzM2LDEwIEBAIHN0YXRpYyBpbnQgcXVldWVf
+Z3NvX3BhY2tldHMoc3RydWN0IGRhdGFwYXRoICpkcCwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAl1
+bnNpZ25lZCBzaG9ydCBnc29fdHlwZSA9IHNrYl9zaGluZm8oc2tiKS0+Z3NvX3R5cGU7CiAJc3Ry
+dWN0IHN3X2Zsb3dfa2V5IGxhdGVyX2tleTsKIAlzdHJ1Y3Qgc2tfYnVmZiAqc2VncywgKm5za2I7
+Ci0Jc3RydWN0IG92c19za2JfY2Igb3ZzX2NiOwogCWludCBlcnI7CiAKLQlvdnNfY2IgPSAqT1ZT
+X0NCKHNrYik7CisJQlVJTERfQlVHX09OKHNpemVvZigqT1ZTX0NCKHNrYikpID4gU0tCX1NHT19D
+Ql9PRkZTRVQpOwogCXNlZ3MgPSBfX3NrYl9nc29fc2VnbWVudChza2IsIE5FVElGX0ZfU0csIGZh
+bHNlKTsKLQkqT1ZTX0NCKHNrYikgPSBvdnNfY2I7CiAJaWYgKElTX0VSUihzZWdzKSkKIAkJcmV0
+dXJuIFBUUl9FUlIoc2Vncyk7CiAJaWYgKHNlZ3MgPT0gTlVMTCkKZGlmZiAtLWdpdCBhL25ldC94
+ZnJtL3hmcm1fb3V0cHV0LmMgYi9uZXQveGZybS94ZnJtX291dHB1dC5jCmluZGV4IGNjMzY3NmVi
+NjIzOS4uZmY0YTkxZmNhYjlmIDEwMDY0NAotLS0gYS9uZXQveGZybS94ZnJtX291dHB1dC5jCisr
+KyBiL25ldC94ZnJtL3hmcm1fb3V0cHV0LmMKQEAgLTE2Nyw2ICsxNjcsOCBAQCBzdGF0aWMgaW50
+IHhmcm1fb3V0cHV0X2dzbyhzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzb2NrICpzaywgc3RydWN0
+IHNrX2J1ZmYgKnNrYgogewogCXN0cnVjdCBza19idWZmICpzZWdzOwogCisJQlVJTERfQlVHX09O
+KHNpemVvZigqSVBDQihza2IpKSA+IFNLQl9TR09fQ0JfT0ZGU0VUKTsKKwlCVUlMRF9CVUdfT04o
+c2l6ZW9mKCpJUDZDQihza2IpKSA+IFNLQl9TR09fQ0JfT0ZGU0VUKTsKIAlzZWdzID0gc2tiX2dz
+b19zZWdtZW50KHNrYiwgMCk7CiAJa2ZyZWVfc2tiKHNrYik7CiAJaWYgKElTX0VSUihzZWdzKSkK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
