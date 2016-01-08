@@ -1,58 +1,59 @@
 From: Huw Davies <huw@codeweavers.com>
-Subject: [RFC PATCH v2 11/18] netlabel: Prevent setsockopt() from changing the hop-by-hop option.
-Date: Fri,  8 Jan 2016 09:52:47 +0000
-Message-ID: <1452246774-13241-12-git-send-email-huw@codeweavers.com>
+Subject: [RFC PATCH v2 01/18] netlabel: Mark rcu pointers with __rcu.
+Date: Fri,  8 Jan 2016 09:52:37 +0000
+Message-ID: <1452246774-13241-2-git-send-email-huw@codeweavers.com>
 Cc: Paul Moore <pmoore@redhat.com>
 To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.codeweavers.com ([216.251.189.131]:38296 "EHLO
+	mail.codeweavers.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752272AbcAHJw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 04:52:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If a socket has a netlabel in place then don't let setsockopt() alter
-the socket's IPv6 hop-by-hop option.  This is in the same spirit as
-the existing check for IPv4.
+This fixes sparse errors of the form:
+  incompatible types in comparison expression (different address spaces)
+
+This patch also removes unnecessary initialization of static variables
+to NULL.
 
 Signed-off-by: Huw Davies <huw@codeweavers.com>
 ---
- security/selinux/netlabel.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ net/netlabel/netlabel_domainhash.c | 4 ++--
+ net/netlabel/netlabel_unlabeled.c  | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index 5470f32..2477a75 100644
---- a/security/selinux/netlabel.c
-+++ b/security/selinux/netlabel.c
-@@ -410,6 +410,21 @@ int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
- }
+diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
+index f0cb92f..d4d6640 100644
+--- a/net/netlabel/netlabel_domainhash.c
++++ b/net/netlabel/netlabel_domainhash.c
+@@ -55,8 +55,8 @@ struct netlbl_domhsh_tbl {
+ static DEFINE_SPINLOCK(netlbl_domhsh_lock);
+ #define netlbl_domhsh_rcu_deref(p) \
+ 	rcu_dereference_check(p, lockdep_is_held(&netlbl_domhsh_lock))
+-static struct netlbl_domhsh_tbl *netlbl_domhsh = NULL;
+-static struct netlbl_dom_map *netlbl_domhsh_def = NULL;
++static struct netlbl_domhsh_tbl __rcu *netlbl_domhsh;
++static struct netlbl_dom_map __rcu *netlbl_domhsh_def;
  
- /**
-+ * selinux_netlbl_option - Is this a NetLabel option
-+ * @level: the socket level or protocol
-+ * @optname: the socket option name
-+ *
-+ * Description:
-+ * Returns true if @level and @optname refer to a NetLabel option.
-+ * Helper for selinux_netlbl_socket_setsockopt().
-+ */
-+static inline int selinux_netlbl_option(int level, int optname)
-+{
-+	return (level == IPPROTO_IP && optname == IP_OPTIONS) ||
-+		(level == IPPROTO_IPV6 && optname == IPV6_HOPOPTS);
-+}
-+
-+/**
-  * selinux_netlbl_socket_setsockopt - Do not allow users to remove a NetLabel
-  * @sock: the socket
-  * @level: the socket level or protocol
-@@ -431,7 +446,7 @@ int selinux_netlbl_socket_setsockopt(struct socket *sock,
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	struct netlbl_lsm_secattr secattr;
+ /*
+  * Domain Hash Table Helper Functions
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index b038092..a323815 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -116,8 +116,8 @@ struct netlbl_unlhsh_walk_arg {
+ static DEFINE_SPINLOCK(netlbl_unlhsh_lock);
+ #define netlbl_unlhsh_rcu_deref(p) \
+ 	rcu_dereference_check(p, lockdep_is_held(&netlbl_unlhsh_lock))
+-static struct netlbl_unlhsh_tbl *netlbl_unlhsh = NULL;
+-static struct netlbl_unlhsh_iface *netlbl_unlhsh_def = NULL;
++static struct netlbl_unlhsh_tbl __rcu *netlbl_unlhsh;
++static struct netlbl_unlhsh_iface __rcu *netlbl_unlhsh_def;
  
--	if (level == IPPROTO_IP && optname == IP_OPTIONS &&
-+	if (selinux_netlbl_option(level, optname) &&
- 	    (sksec->nlbl_state == NLBL_LABELED ||
- 	     sksec->nlbl_state == NLBL_CONNLABELED)) {
- 		netlbl_secattr_init(&secattr);
+ /* Accept unlabeled packets flag */
+ static u8 netlabel_unlabel_acceptflg = 0;
 -- 
 1.8.0
-
