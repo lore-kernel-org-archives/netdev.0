@@ -1,98 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/5] i40e: remove forever unused ID
-Date: Fri,  8 Jan 2016 02:14:43 -0800
-Message-ID: <1452248083-78628-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/5] i40e: Look up MAC address in Open Firmware or IDPROM
+Date: Fri,  8 Jan 2016 02:14:41 -0800
+Message-ID: <1452248083-78628-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1452248083-78628-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16868 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:48697 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751780AbcAHKO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754310AbcAHKO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 8 Jan 2016 05:14:58 -0500
 In-Reply-To: <1452248083-78628-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-Somehow an ID that has never been productized is in the
-code.  There are no plans to use it, so just get
-rid of it.
+This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
+address in Open Firmware or IDPROM").
 
-Change-ID: I59117d48ea9ee0360b0fe33833ac8092f8a24b4c
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+As with that fix, attempt to look up the MAC address in Open Firmware
+on systems that support it, and use IDPROM on SPARC if no OF address
+is found.
+
+In the case of the i40e there is an assumption that the default mac
+address has already been set up as the primary mac filter on probe,
+so if this filter is obtained from the Open Firmware or IDPROM, an
+explicit write is needed via i40e_aq_mac_address_write() and
+i40e_aq_add_macvlan() invocation.
+
+The I40E_FLAG_PF_MAC flag in the platform-private i40e_pf structure
+tracks whether a platform-specific mac address was found, in which
+case calls to i40e_aq_mac_address_write() and i40e_aq_add_macvlan()
+will be triggered.
+
+Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c   | 1 -
- drivers/net/ethernet/intel/i40e/i40e_devids.h   | 1 -
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 1 -
- drivers/net/ethernet/intel/i40evf/i40e_common.c | 1 -
- drivers/net/ethernet/intel/i40evf/i40e_devids.h | 1 -
- 5 files changed, 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 90 +++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 2d74c6e..6a034dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -44,7 +44,6 @@ static i40e_status i40e_set_mac_type(struct i40e_hw *hw)
- 		switch (hw->device_id) {
- 		case I40E_DEV_ID_SFP_XL710:
- 		case I40E_DEV_ID_QEMU:
--		case I40E_DEV_ID_KX_A:
- 		case I40E_DEV_ID_KX_B:
- 		case I40E_DEV_ID_KX_C:
- 		case I40E_DEV_ID_QSFP_A:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_devids.h b/drivers/net/ethernet/intel/i40e/i40e_devids.h
-index c601ca4..448ef4c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_devids.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_devids.h
-@@ -30,7 +30,6 @@
- /* Device IDs */
- #define I40E_DEV_ID_SFP_XL710		0x1572
- #define I40E_DEV_ID_QEMU		0x1574
--#define I40E_DEV_ID_KX_A		0x157F
- #define I40E_DEV_ID_KX_B		0x1580
- #define I40E_DEV_ID_KX_C		0x1581
- #define I40E_DEV_ID_QSFP_A		0x1583
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index c202f9b..68f2204 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -339,6 +339,7 @@ struct i40e_pf {
+ #define I40E_FLAG_VEB_MODE_ENABLED		BIT_ULL(40)
+ #define I40E_FLAG_GENEVE_OFFLOAD_CAPABLE	BIT_ULL(41)
+ #define I40E_FLAG_NO_PCI_LINK_CHECK		BIT_ULL(42)
++#define I40E_FLAG_PF_MAC			BIT_ULL(50)
+ 
+ 	/* tracks features that get auto disabled by errors */
+ 	u64 auto_disable_flags;
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2914806..bb4612c 100644
+index 1598fb3..2914806 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -82,7 +82,6 @@ static int i40e_veb_get_bw_info(struct i40e_veb *veb);
- static const struct pci_device_id i40e_pci_tbl[] = {
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_SFP_XL710), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QEMU), 0},
--	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_A), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_B), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_C), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QSFP_A), 0},
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 72b1942..938783e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -44,7 +44,6 @@ i40e_status i40e_set_mac_type(struct i40e_hw *hw)
- 		switch (hw->device_id) {
- 		case I40E_DEV_ID_SFP_XL710:
- 		case I40E_DEV_ID_QEMU:
--		case I40E_DEV_ID_KX_A:
- 		case I40E_DEV_ID_KX_B:
- 		case I40E_DEV_ID_KX_C:
- 		case I40E_DEV_ID_QSFP_A:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_devids.h b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-index e6a39c9..ca8b58c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-@@ -30,7 +30,6 @@
- /* Device IDs */
- #define I40E_DEV_ID_SFP_XL710		0x1572
- #define I40E_DEV_ID_QEMU		0x1574
--#define I40E_DEV_ID_KX_A		0x157F
- #define I40E_DEV_ID_KX_B		0x1580
- #define I40E_DEV_ID_KX_C		0x1581
- #define I40E_DEV_ID_QSFP_A		0x1583
+@@ -24,6 +24,15 @@
+  *
+  ******************************************************************************/
+ 
++#include <linux/etherdevice.h>
++#include <linux/of_net.h>
++#include <linux/pci.h>
++
++#ifdef CONFIG_SPARC
++#include <asm/idprom.h>
++#include <asm/prom.h>
++#endif
++
+ /* Local includes */
+ #include "i40e.h"
+ #include "i40e_diag.h"
+@@ -9522,6 +9531,44 @@ err_vsi:
+ }
+ 
+ /**
++ * i40e_macaddr_init - explicitly write the mac address filters.
++ *
++ * @vsi: pointer to the vsi.
++ * @macaddr: the MAC address
++ *
++ * This is needed when the macaddr has been obtained by other
++ * means than the default, e.g., from Open Firmware or IDPROM.
++ * Returns 0 on success, negative on failure
++ **/
++static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
++{
++	int ret;
++	struct i40e_aqc_add_macvlan_element_data element;
++
++	ret = i40e_aq_mac_address_write(&vsi->back->hw,
++					I40E_AQC_WRITE_TYPE_LAA_WOL,
++					macaddr, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "Addr change for VSI failed: %d\n", ret);
++		return -EADDRNOTAVAIL;
++	}
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
++	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "add filter failed err %s aq_err %s\n",
++			 i40e_stat_str(&vsi->back->hw, ret),
++			 i40e_aq_str(&vsi->back->hw,
++				     vsi->back->hw.aq.asq_last_status));
++	}
++	return ret;
++}
++
++/**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+  * @type: VSI type
+@@ -9645,6 +9692,17 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 	switch (vsi->type) {
+ 	/* setup the netdev if needed */
+ 	case I40E_VSI_MAIN:
++		/* Apply relevant filters if a platform-specific mac
++		 * address was selected.
++		 */
++		if (!!(pf->flags & I40E_FLAG_PF_MAC)) {
++			ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
++			if (ret) {
++				dev_warn(&pf->pdev->dev,
++					 "could not set up macaddr; err %d\n",
++					 ret);
++			}
++		}
+ 	case I40E_VSI_VMDQ2:
+ 	case I40E_VSI_FCOE:
+ 		ret = i40e_config_netdev(vsi);
+@@ -10474,6 +10532,36 @@ static void i40e_print_features(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_get_platform_mac_addr - get platform-specific MAC address
++ *
++ * @pdev: PCI device information struct
++ * @pf: board private structure
++ *
++ * Look up the MAC address in Open Firmware  on systems that support it,
++ * and use IDPROM on SPARC if no OF address is found. On return, the
++ * I40E_FLAG_PF_MAC will be wset in pf->flags if a platform-specific value
++ * has been selected.
++ **/
++static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
++{
++	struct device_node *dp = pci_device_to_OF_node(pdev);
++	const unsigned char *addr;
++	u8 *mac_addr = pf->hw.mac.addr;
++
++	pf->flags &= ~I40E_FLAG_PF_MAC;
++	addr = of_get_mac_address(dp);
++	if (addr) {
++		ether_addr_copy(mac_addr, addr);
++		pf->flags |= I40E_FLAG_PF_MAC;
++#ifdef CONFIG_SPARC
++	} else {
++		ether_addr_copy(mac_addr, idprom->id_ethaddr);
++		pf->flags |= I40E_FLAG_PF_MAC;
++#endif /* CONFIG_SPARC */
++	}
++}
++
++/**
+  * i40e_probe - Device initialization routine
+  * @pdev: PCI device information struct
+  * @ent: entry in i40e_pci_tbl
+@@ -10683,6 +10771,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	i40e_get_mac_addr(hw, hw->mac.addr);
++	/* allow a platform config to override the HW addr */
++	i40e_get_platform_mac_addr(pdev, pf);
+ 	if (!is_valid_ether_addr(hw->mac.addr)) {
+ 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
+ 		err = -EIO;
 -- 
 2.5.0
