@@ -1,88 +1,67 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: add per device sg_max_frags for skb
-Date: Fri, 8 Jan 2016 12:47:49 +0100
-Message-ID: <568FA1E5.7060204@stressinduktion.org>
-References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
- <568F87AC.60405@oracle.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [Linux-v4.4-LTS] ppp: Backport of rtnetlink device handling
+Date: Fri, 8 Jan 2016 12:54:35 +0100
+Message-ID: <20160108115435.GT18510@alphalink.fr>
+References: <CA+icZUXJwvr7k1xrEy1w_Fw4D3V-LA7dKfDa0gxHHmNu3XY=kw@mail.gmail.com>
+ <20160104125528.GB1267@alphalink.fr>
+ <CA+icZUWrK+jO7PBkvRqHQoNJEDsGgzHnM1fod+zzXdKXWHdHCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman " <ebiederm@xmission.com>,
-	Salam Noureddine <noureddine@arista.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Julian Anastasov <ja@ssi.bg>,
-	Ying Xue <ying.xue@windriver.com>,
-	Craig Gallek <kraig@google.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Haakon Bugge <haakon.bugge@oracle.co
-To: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <568F87AC.60405@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Sedat Dilek <sedat.dilek@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:49265 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbcAHLyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 06:54:38 -0500
+Content-Disposition: inline
+In-Reply-To: <CA+icZUWrK+jO7PBkvRqHQoNJEDsGgzHnM1fod+zzXdKXWHdHCg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08.01.2016 10:55, Hans Westgaard Ry wrote:
->
->
-> On 01/06/2016 02:59 PM, David Laight wrote:
->> From: Hans Westgaard Ry
->>> Sent: 06 January 2016 13:16
->>> Devices may have limits on the number of fragments in an skb they
->>> support. Current codebase uses a constant as maximum for number of
->>> fragments (MAX_SKB_FRAGS) one skb can hold and use.
->>>
->>> When enabling scatter/gather and running traffic with many small
->>> messages the codebase uses the maximum number of fragments and thereby
->>> violates the max for certain devices.
->>>
->>> An example of such a violation is when running IPoIB on a HCA
->>> supporting 16 SGE on an architecture with 4K pagesize. The
->>> MAX_SKB_FRAGS will be 17 (64K/4K+1) and because IPoIB adds yet another
->>> segment we end up with send_requests with 18 SGE resulting in
->>> kernel-panic.
->>>
->>> The patch allows the device to limit the maximum number fragments used
->>> in one skb.
->> This doesn't seem to me to be the correct way to fix this.
->> Anything that adds an extra fragment (in this case IPoIB) should allow
->> for the skb already having the maximum number of fragments.
->> Fully linearising the skb is overkill, but I think the first fragment
->> can be added to the linear part of the skb.
->>
->>     David
->>
->>
-> When IpoIB handles a skb-request it converts fragments to SGEs to
-> be handled by a HCA.
-> The problem arises when the HCA have a limited number of SGEs less than
-> MAX_SKB_FRAGS.
-> (it gets a little worse since IPoIB need to yet another segment)
-> I have not found any easy way of fixing this with currenct codebase.
+On Fri, Jan 08, 2016 at 10:28:39AM +0100, Sedat Dilek wrote:
+> On Mon, Jan 4, 2016 at 1:55 PM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> > On Mon, Jan 04, 2016 at 08:47:30AM +0100, Sedat Dilek wrote:
+> >> Hi Guillaume,
+> >>
+> >> which patches do I need to backport "ppp: rtnetlink device handling"
+> >> to Linux v4.4 which will be a LongTerm-Supported (LTS) Linux-kernel
+> >> [0]?
+> >>
+> > Quite frankly, backporting this series doesn't look like a good idea.
+> > It only provides a new ABI for creating ppp devices and your control
+> > plane most likely hasn't been updated to use it. So it won't bring any
+> > benefit.
+> >
+> 
+> What do you mean by "control plane"?
+> 
+For the purpose of this discussion, I mean the PPP daemon running in
+user space (programs like pppd or accel-ppp).
 
-I think because of the complex forwarding nature, a global counter which 
-driver's can reduce during initialization time is the only solution I 
-see right now without changing the layout of the skb later on.
+They implement control protocols like LCP, authentication and various
+NCPs, used to negociate PPP encapsulation parameters. They also have to
+report on these parameters to the kernel, so that it can properly
+handle data exchanged over the established PPP connections. This
+generally includes creating a ppp device.
 
-Unfortunately this doesn't resolve the cases were virtual machines 
-inject gso skbs, for those there still needs to be a slow path to do the 
-reformatting of the skb. :/
+My patch set allows user space to create ppp devices using rtnetlink,
+which is more flexible than the current PPP specific ioctl(). But the
+PPP daemon needs to be updated or it won't know about the new rtnetlink
+and will continue to use the ioctl (which is fine as long as the added
+features brought by rtnetlink aren't necessary). That's why I wonder
+why do you want to backport this series. I brings no value if user
+space isn't able to take advantage of PPP's rtnetlink API.
 
-Bye,
-Hannes
+FYI, the plan is to use the rtnl interface to handle things like
+network isolation (with network namespaces) and deterministic ppp
+device names in accel-ppp.
+
+> Does anything speak against to have these patches for upcoming Linux v4.5?
+> AFAICS, the merge-window will open next week.
+> 
+The patch set has been deferred due to lack of external reviews. I'll
+repost after the merge window, so that interested people will have
+enough time to comment on it. Therefore it won't be in v4.5. If
+everything goes fine with the new submission, it could go into v4.6.
