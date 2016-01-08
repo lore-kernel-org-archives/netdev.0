@@ -1,45 +1,30 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: Configure ICMP error source address
-Date: Fri, 8 Jan 2016 17:11:43 +0100
-Message-ID: <568FDFBF.3010300@stressinduktion.org>
+Date: Fri, 8 Jan 2016 17:21:13 +0100
+Message-ID: <568FE1F9.9020101@stressinduktion.org>
 References: <568F8207.9040305@heinlein-support.de>
- <20160108152448.5251154.50977.21786@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: prmarino1@gmail.com, Robert Sander <r.sander@heinlein-support.de>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Robert Sander <r.sander@heinlein-support.de>,
 	netfilter@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:51302 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932349AbcAHQLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 11:11:45 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id AEB4A20D4E
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 11:11:44 -0500 (EST)
-In-Reply-To: <20160108152448.5251154.50977.21786@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <568F8207.9040305@heinlein-support.de>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08.01.2016 16:24, prmarino1@gmail.com wrote:
-> Don't put a public address on a lo device use a dummy eth interface i=
-nstead=E2=80=8E. Any IP address and it's subnet assigned to a lo device=
- is  marked as a marcian address and the traffic is dropped if it tries=
- to leave the lo device.
+On 08.01.2016 10:31, Robert Sander wrote:
+> Is it a good idea to develop a kernel patch that makes it possible to
+> select the first IPv4 address on dev lo with scope global as the source
+> address for ICMP errors? Would that do any harm to the Internet at large?
 
-O_o
+I think the way to go is to have a ip rule option in which the admin can 
+add routes which get consulted only by the icmp source address 
+determination logic. I can assume that some other installations use 
+other interface number logic or multiple public addresses. This kind of 
+lookup seems to allow all possible lookup scenarios.
 
-> I know that there is som old documentation out there (for example qua=
-gga's documentation) that says you can do it =E2=80=8Ebut it's been wro=
-ng since the 2.4 version off the kernel.
-> Linux treats the lo device differently that what routers call a loopb=
-ack device. The dummy driver is the linux equivalent of what routers ca=
-ll a loopback device.
+Thoughts?
 
-What you write seems odd to me, we don't treat lo devices differently t=
-o=20
-dummy devices in respect if you bind a public ip address on it.
-
-Bye,
 Hannes
+
