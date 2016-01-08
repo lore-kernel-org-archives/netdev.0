@@ -1,88 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 8/8] geneve: break dependency to network
- drivers
-Date: Fri, 8 Jan 2016 22:18:06 +0100
-Message-ID: <5690278E.5090903@stressinduktion.org>
-References: <1452123571-19140-1-git-send-email-hannes@stressinduktion.org>
- <1452123571-19140-9-git-send-email-hannes@stressinduktion.org>
- <CAEh+42h79Sxc4JwzH_zMm+MZ-CmQWGdX1Qiz7epJmj2nCiAAVQ@mail.gmail.com>
- <5690204B.7000004@stressinduktion.org>
- <CAEh+42izmdn5hHBxQWfSQEduWE2OeY0puM-5DEU-iHTWYXdobQ@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Fri, 8 Jan 2016 13:22:47 -0800
+Message-ID: <CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C9B.3090408@solarflare.com>
+	<CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
+	<568FD844.3020101@solarflare.com>
+	<CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+	<CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
 To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:37740 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752162AbcAHVSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 16:18:09 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id DB7C7209FA
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 16:18:08 -0500 (EST)
-In-Reply-To: <CAEh+42izmdn5hHBxQWfSQEduWE2OeY0puM-5DEU-iHTWYXdobQ@mail.gmail.com>
+Received: from mail-ig0-f193.google.com ([209.85.213.193]:33109 "EHLO
+	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932315AbcAHVWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 16:22:48 -0500
+Received: by mail-ig0-f193.google.com with SMTP id y8so9010344igw.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 13:22:47 -0800 (PST)
+In-Reply-To: <CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08.01.2016 22:12, Jesse Gross wrote:
-> On Fri, Jan 8, 2016 at 12:47 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> On 07.01.2016 01:18, Jesse Gross wrote:
->>>
->>> I think we should merge vxlan_get_rx_port() and geneve_get_rx_port()
->>> into a single generic function. For drivers that support both, they
->>> now have two calls to get notified for all offloaded ports. This
->>> actually can cause problems related to duplicates, similar to what you
->>> feared before.
+On Fri, Jan 8, 2016 at 11:40 AM, Jesse Gross <jesse@kernel.org> wrote:
+> On Fri, Jan 8, 2016 at 10:03 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Fri, Jan 8, 2016 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
+>>> On 08/01/16 03:46, Alexander Duyck wrote:
+>>>> So I just tried testing your patches and as it turns out you are still
+>>>> missing some bits.  In this patch for instance the calls to
+>>>> udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
+>>>> that you pass false for the last parameter and allow the use of your
+>>>> udp_set_csum modifications.
+>>>>
+>>>> - Alex
+>>> Are you remembering to enable outer checksums on your vxlan tunnel?  It's
+>>>  the vxflags & VXLAN_F_UDP_CSUM check, and to enable it you need a recent
+>>>  iproute2 so you can use the 'udpcsum' option when creating the vxlan device.
 >>
+>> No I hadn't done that.  I kind of assumed that the checksums were just
+>> being enabled by default.  That might explain the some of the issues I
+>> had..  ;-)
 >>
->> Checking out the ndo_add_vxlan_port callbacks, we cannot change how we
->> refresh the ports unfortunately. For some drivers it might be easy to
->> update, some look a little bit more complicated.
+>>> It would be nice if that could just default to enabled now that we have LCO,
+>>>  but I don't think we can change that now (ABIs set in stone and all that),
+>>>  so I think it would have to be iproute2 that turned it on by default.
 >>
->> I guess we should try to keep more complexity in the core and make sure we
->> only call those functions if necessary for the particular type of offload
->> than to replicate the logic in each driver.
->>
->> If you agree I prepare this series with the changes to have separate
->> callbacks, address your other feedback and send it out.
+>> If anything we might want to expose the capabilities of the kernel so
+>> that iproute2 could make an informed decision on if it want to enable
+>> the outer checksum by default or not.
 >
-> I'm not sure that I totally understand, do you have an example of a
-> problematic driver?
+> Keep in mind that protocols like VXLAN specify that the UDP checksum
+> should be set to zero. As a result, enabling the checksum is not a
+> purely local decision and it probably shouldn't be on by default.
 
-bnx2x e.g. does refcounting on the port. So when it will implement 
-geneve offloading, it will refcount the vxlan port multiple times with 
-the current schema. Currently this is safe, as bnx2x doesn't care about 
-geneve and thus no further callbacks will happen. But I fear drivers 
-being broken as soon as they implement geneve additionally with the 
-current schema.
+Yes, but the RFC allows for a non-zero checksum.  The key difference
+here is the wording between SHOULD and MUST.  We aren't requiring the
+other endpoint to enable outer checksum on its end, and we don't
+require the remote end to validate the outer checksum.  We have made
+that purely optional.  If however the other end is also a Linux client
+it can make use of the outer checksum and hardware offloads to greatly
+improve the performance.
 
-> I think what I was proposing is fairly simple, so maybe I wasn't
-> totally clear. Here's what I think we can do:
->
-> In your most recent series, vxlan_get_rx_port() and
-> geneve_get_rx_port() have the same implementation. I think we can
-> merge them into a single function (i.e. udp_tunnel_get_rx_port()). For
-> all of the drivers that only implement VXLAN offloads, this is just a
-> 1:1 switch so there should be no functionality change. There's only
-> one driver than currently implements both (i40e) and it calls both
-> vxlan_get_rx_port() and geneve_get_rx_port() back to back. We can just
-> collapse this into a single call and since that will trigger both
-> offloads to refresh, the behavior should again be the same as we have.
-
-I totally understood that. I am just fearing future additions of offload 
-while not updating the current vxlan offloading then as well.
-
-My current series ATM implements just what you proposed.
-
-> I do know that there are so drivers that try to do clever things as
-> far as refcounting, etc. However, since the callbacks are the same as
-> we did before, it shouldn't introduce any issues.
-
-Agreed. I can push the series out now as you proposed and we have to 
-intercept all upcoming driver changes in regard to geneve offloading and 
-review them. :)
-
-Bye,
-Hannes
+It is essentially all the goodness of remote checksum offload without
+the compatibility negatives, assuming of course everyone implemented
+things according to the RFC and didn't make the 0 checksum mandatory..
