@@ -1,69 +1,50 @@
-From: tim.gardner@canonical.com
-Subject: [PATCH v4.4-rc8 3/7] isdn: eicon: idifunc: Silence frame size warning
-Date: Fri,  8 Jan 2016 05:32:51 -0700
-Message-ID: <1452256375-24223-4-git-send-email-tim.gardner@canonical.com>
-References: <1452256375-24223-1-git-send-email-tim.gardner@canonical.com>
-Cc: Tim Gardner <tim.gardner@canonical.com>
-To: Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: [PATCH] ipv6: always add flag an address that failed DAD with DADFAILED
+Date: Fri,  8 Jan 2016 13:47:23 +0100
+Message-ID: <1452257243-19389-1-git-send-email-lkundrak@v3.sk>
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Lubomir Rintel <lkundrak@v3.sk>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452256375-24223-1-git-send-email-tim.gardner@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tim Gardner <tim.gardner@canonical.com>
+The userspace needs to know why is the address being removed so that it can
+perhaps obtain a new address.
 
-drivers/isdn/hardware/eicon/idifunc.c: In function 'connect_didd':
-drivers/isdn/hardware/eicon/idifunc.c:223:1: warning: the frame size of 1152 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+Without the DADFAILED flag it's impossible to distinguish removal of a
+temporary and tentative address due to DAD failure from other reasons (device
+removed, manual address removal).
 
-gcc version 5.3.1 20151219 (Ubuntu 5.3.1-4ubuntu1)
-
-Cc: Armin Schindler <mac@melware.de>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 ---
- drivers/isdn/hardware/eicon/idifunc.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ net/ipv6/addrconf.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/hardware/eicon/idifunc.c b/drivers/isdn/hardware/eicon/idifunc.c
-index fef6586..e7ca4bc 100644
---- a/drivers/isdn/hardware/eicon/idifunc.c
-+++ b/drivers/isdn/hardware/eicon/idifunc.c
-@@ -186,9 +186,13 @@ static int __init connect_didd(void)
- 	int x = 0;
- 	int dadapter = 0;
- 	IDI_SYNC_REQ req;
--	DESCRIPTOR DIDD_Table[MAX_DESCRIPTORS];
-+	DESCRIPTOR *DIDD_Table;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 1f21087..9342240 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1772,12 +1772,13 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
  
--	DIVA_DIDD_Read(DIDD_Table, sizeof(DIDD_Table));
-+	DIDD_Table = kcalloc(MAX_DESCRIPTORS, sizeof(*DIDD_Table), GFP_KERNEL);
-+	if (!DIDD_Table)
-+		goto out;
+ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
+ {
++	if (dad_failed)
++		ifp->flags |= IFA_F_DADFAILED;
 +
-+	DIVA_DIDD_Read(DIDD_Table, MAX_DESCRIPTORS * sizeof(*DIDD_Table));
- 
- 	for (x = 0; x < MAX_DESCRIPTORS; x++) {
- 		if (DIDD_Table[x].type == IDI_DADAPTER) {	/* DADAPTER found */
-@@ -202,7 +206,8 @@ static int __init connect_didd(void)
- 			DAdapter.request((ENTITY *)&req);
- 			if (req.didd_notify.e.Rc != 0xff) {
- 				stop_dbg();
--				return (0);
-+				dadapter = 0;
-+				goto out;
- 			}
- 			notify_handle = req.didd_notify.info.handle;
- 		} else if (DIDD_Table[x].type == IDI_DIMAINT) {	/* MAINT found */
-@@ -219,6 +224,8 @@ static int __init connect_didd(void)
- 		stop_dbg();
- 	}
- 
-+out:
-+	kfree(DIDD_Table);
- 	return (dadapter);
- }
- 
+ 	if (ifp->flags&IFA_F_PERMANENT) {
+ 		spin_lock_bh(&ifp->lock);
+ 		addrconf_del_dad_work(ifp);
+ 		ifp->flags |= IFA_F_TENTATIVE;
+-		if (dad_failed)
+-			ifp->flags |= IFA_F_DADFAILED;
+ 		spin_unlock_bh(&ifp->lock);
+ 		if (dad_failed)
+ 			ipv6_ifa_notify(0, ifp);
 -- 
-1.9.1
+2.5.0
