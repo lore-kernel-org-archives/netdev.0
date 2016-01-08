@@ -1,54 +1,74 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
-Date: Fri, 8 Jan 2016 14:07:09 -0800
-Message-ID: <CALx6S35dtd8Pg4zvhZk2v5pNr_RqYG1Nk6zSyxFq6+8OChDpNA@mail.gmail.com>
-References: <568E9BF9.2050001@solarflare.com>
-	<568E9C9B.3090408@solarflare.com>
-	<CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
-	<568FD844.3020101@solarflare.com>
-	<CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
-	<CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
-	<CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
-	<56902BF8.6080004@hpe.com>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: Re: [PATCH v4.4-rc8 6/7] isdn: eicon: diddfunc: Silence frame size
+ warning
+Date: Fri, 8 Jan 2016 15:05:10 -0700
+Message-ID: <56903296.3090701@canonical.com>
+References: <1452256375-24223-1-git-send-email-tim.gardner@canonical.com>
+ <1452256375-24223-7-git-send-email-tim.gardner@canonical.com>
+ <5690163B.7050808@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: Rick Jones <rick.jones2@hpe.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34168 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207AbcAHWHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 17:07:10 -0500
-Received: by mail-io0-f194.google.com with SMTP id k127so38635435iok.1
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 14:07:10 -0800 (PST)
-In-Reply-To: <56902BF8.6080004@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5690163B.7050808@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 8, 2016 at 1:36 PM, Rick Jones <rick.jones2@hpe.com> wrote:
-> On 01/08/2016 01:22 PM, Alexander Duyck wrote:
+On 01/08/2016 01:04 PM, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 01/08/2016 03:32 PM, tim.gardner@canonical.com wrote:
+> 
+>> From: Tim Gardner <tim.gardner@canonical.com>
 >>
->>  and we don't require the remote end to validate the outer checksum.
->
->
-> Doesn't the UDP specification require validating a non-zero checksum on
-> receipt?
->
-Yes, VXLAN RFC is broken in this regard since it allows a receiver to
-ignore a non-zero checksums. In Linux we always validate non-zero
-checksums.
+>> drivers/isdn/hardware/eicon/diddfunc.c: In function 'connect_didd':
+>> drivers/isdn/hardware/eicon/diddfunc.c:77:1: warning: the frame size
+>> of 1152 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+>>
+>> gcc version 5.3.1 20151219 (Ubuntu 5.3.1-4ubuntu1)
+>>
+>> Cc: Armin Schindler <mac@melware.de>
+>> Cc: Karsten Keil <isdn@linux-pingi.de>
+>> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+>> ---
+>>   drivers/isdn/hardware/eicon/diddfunc.c | 17 +++++++++++++----
+>>   1 file changed, 13 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/isdn/hardware/eicon/diddfunc.c
+>> b/drivers/isdn/hardware/eicon/diddfunc.c
+>> index b0b23ed..a9feb4f 100644
+>> --- a/drivers/isdn/hardware/eicon/diddfunc.c
+>> +++ b/drivers/isdn/hardware/eicon/diddfunc.c
+>> @@ -52,9 +52,13 @@ static int __init connect_didd(void)
+>>       int x = 0;
+>>       int dadapter = 0;
+>>       IDI_SYNC_REQ req;
+>> -    DESCRIPTOR DIDD_Table[MAX_DESCRIPTORS];
+>> +    DESCRIPTOR *DIDD_Table;
+>>
+>> -    DIVA_DIDD_Read(DIDD_Table, sizeof(DIDD_Table));
+>> +    DIDD_Table = kcalloc(MAX_DESCRIPTORS, sizeof(*DIDD_Table),
+>> GFP_KERNEL);
+> 
+>   Previously the array didn't seem to be zeroed, perhaps it's better to
+> use kmalloc_array()?
+> 
+> [...]
+> 
+> MHR, Sergei
+> 
 
-For VXLAN, UDP checksums are not enabled for IPv4 by default, but are
-enabled by default for IPv6. Checksums are required for UDP/IPv6,
-however RFC6935 and RFC6936 relax this requirement a bit for tunnels,
-although IMO not enough to make disabling UDP checksums for VXLAN/IPv6
-the default.
+The last patch in the series (isdn: eicon: consolidate descriptor
+allocation) consolidates the allocation code into one function. I used
+kmalloc() there because I noticed that diva_didd_read_adapter_array()
+does zero the buffer before using it.
 
-Tom
+Do you think that is sufficient ?
 
-> rick jones
->
+rtg
+-- 
+Tim Gardner tim.gardner@canonical.com
