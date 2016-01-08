@@ -1,68 +1,18 @@
-From: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: preserve IP control block during GSO
-	segmentation
-Date: Fri, 8 Jan 2016 20:24:15 +0800
-Message-ID: <201601082038.ZxmHT2Iu%fengguang.wu@intel.com>
-References: <145225444176.22215.2003378381077166898.stgit@zurg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, kbuild-all-JC7UmRfGjtg@public.gmane.org,
- Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <145225444176.22215.2003378381077166898.stgit@zurg>
-Content-Disposition: inline
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: tim.gardner@canonical.com
+Subject: [PATCH v4.4-rc8 0/7] isdn: eicon: Silence frame size warnings
+Date: Fri,  8 Jan 2016 05:32:48 -0700
+Message-ID: <1452256375-24223-1-git-send-email-tim.gardner@canonical.com>
+To: Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgS29uc3RhbnRpbiwKClthdXRvIGJ1aWxkIHRlc3QgRVJST1Igb24gbmV0L21hc3Rlcl0KW2Fs
-c28gYnVpbGQgdGVzdCBFUlJPUiBvbiB2NC40LXJjOCBuZXh0LTIwMTYwMTA4XQpbaWYgeW91ciBw
-YXRjaCBpcyBhcHBsaWVkIHRvIHRoZSB3cm9uZyBnaXQgdHJlZSwgcGxlYXNlIGRyb3AgdXMgYSBu
-b3RlIHRvIGhlbHAgaW1wcm92aW5nIHRoZSBzeXN0ZW1dCgp1cmw6ICAgIGh0dHBzOi8vZ2l0aHVi
-LmNvbS8wZGF5LWNpL2xpbnV4L2NvbW1pdHMvS29uc3RhbnRpbi1LaGxlYm5pa292L25ldC1wcmVz
-ZXJ2ZS1JUC1jb250cm9sLWJsb2NrLWR1cmluZy1HU08tc2VnbWVudGF0aW9uLzIwMTYwMTA4LTIw
-MDMzNQpjb25maWc6IHh0ZW5zYS1hbGx5ZXNjb25maWcgKGF0dGFjaGVkIGFzIC5jb25maWcpCnJl
-cHJvZHVjZToKICAgICAgICB3Z2V0IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9r
-ZXJuZWwvZ2l0L3dmZy9sa3AtdGVzdHMuZ2l0L3BsYWluL3NiaW4vbWFrZS5jcm9zcyAtTyB+L2Jp
-bi9tYWtlLmNyb3NzCiAgICAgICAgY2htb2QgK3ggfi9iaW4vbWFrZS5jcm9zcwogICAgICAgICMg
-c2F2ZSB0aGUgYXR0YWNoZWQgLmNvbmZpZyB0byBsaW51eCBidWlsZCB0cmVlCiAgICAgICAgbWFr
-ZS5jcm9zcyBBUkNIPXh0ZW5zYSAKCkFsbCBlcnJvcnMgKG5ldyBvbmVzIHByZWZpeGVkIGJ5ID4+
-KToKCiAgIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jOiBJbiBmdW5jdGlvbiAncXVldWVfZ3Nv
-X3BhY2tldHMnOgo+PiBuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYzozNjA6MTg6IGVycm9yOiAn
-b3ZzX2NiJyB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikKICAgICAgKk9W
-U19DQihza2IpID0gb3ZzX2NiOwogICAgICAgICAgICAgICAgICAgICBeCiAgIG5ldC9vcGVudnN3
-aXRjaC9kYXRhcGF0aC5jOjM2MDoxODogbm90ZTogZWFjaCB1bmRlY2xhcmVkIGlkZW50aWZpZXIg
-aXMgcmVwb3J0ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0aW9uIGl0IGFwcGVhcnMgaW4KCnZp
-bSArL292c19jYiArMzYwIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCgplOGVlZGI4NSBQcmF2
-aW4gQiBTaGVsYXIgMjAxNC0xMS0wNiAgMzU0ICAJCWxhdGVyX2tleS5pcC5mcmFnID0gT1ZTX0ZS
-QUdfVFlQRV9MQVRFUjsKZThlZWRiODUgUHJhdmluIEIgU2hlbGFyIDIwMTQtMTEtMDYgIDM1NSAg
-CX0KZThlZWRiODUgUHJhdmluIEIgU2hlbGFyIDIwMTQtMTEtMDYgIDM1NiAgCmNjYjEzNTJlIEpl
-c3NlIEdyb3NzICAgICAyMDExLTEwLTI1ICAzNTcgIAkvKiBRdWV1ZSBhbGwgb2YgdGhlIHNlZ21l
-bnRzLiAqLwpjY2IxMzUyZSBKZXNzZSBHcm9zcyAgICAgMjAxMS0xMC0yNSAgMzU4ICAJc2tiID0g
-c2VnczsKY2NiMTM1MmUgSmVzc2UgR3Jvc3MgICAgIDIwMTEtMTAtMjUgIDM1OSAgCWRvIHsKZThl
-ZWRiODUgUHJhdmluIEIgU2hlbGFyIDIwMTQtMTEtMDYgQDM2MCAgCQkqT1ZTX0NCKHNrYikgPSBv
-dnNfY2I7CmU4ZWVkYjg1IFByYXZpbiBCIFNoZWxhciAyMDE0LTExLTA2ICAzNjEgIAkJaWYgKGdz
-b190eXBlICYgU0tCX0dTT19VRFAgJiYgc2tiICE9IHNlZ3MpCmU4ZWVkYjg1IFByYXZpbiBCIFNo
-ZWxhciAyMDE0LTExLTA2ICAzNjIgIAkJCWtleSA9ICZsYXRlcl9rZXk7CmU4ZWVkYjg1IFByYXZp
-biBCIFNoZWxhciAyMDE0LTExLTA2ICAzNjMgIAoKOjo6Ojo6IFRoZSBjb2RlIGF0IGxpbmUgMzYw
-IHdhcyBmaXJzdCBpbnRyb2R1Y2VkIGJ5IGNvbW1pdAo6Ojo6OjogZThlZWRiODViZDIzODYxMzMz
-MjU3MGFjNmFlNjgzZmVlOTRmYmUzNiBvcGVudnN3aXRjaDogUmVtb3ZlIHJlZHVuZGFudCBrZXkg
-cmVmIGZyb20gdXBjYWxsX2luZm8uCgo6Ojo6OjogVE86IFByYXZpbiBCIFNoZWxhciA8cHNoZWxh
-ckBuaWNpcmEuY29tPgo6Ojo6OjogQ0M6IFByYXZpbiBCIFNoZWxhciA8cHNoZWxhckBuaWNpcmEu
-Y29tPgoKLS0tCjAtREFZIGtlcm5lbCB0ZXN0IGluZnJhc3RydWN0dXJlICAgICAgICAgICAgICAg
-IE9wZW4gU291cmNlIFRlY2hub2xvZ3kgQ2VudGVyCmh0dHBzOi8vbGlzdHMuMDEub3JnL3BpcGVy
-bWFpbC9rYnVpbGQtYWxsICAgICAgICAgICAgICAgICAgIEludGVsIENvcnBvcmF0aW9uCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxp
-c3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlz
-dGluZm8vZGV2Cg==
+Following is a patch set to recode various functions within the eicon driver in
+order to silence frame size warnings. The final patch consolidates some of this
+code into a single function which hopefully reduces complexity and the amount
+of code.
+
+-- 
+Tim Gardner tim.gardner@canonical.com
