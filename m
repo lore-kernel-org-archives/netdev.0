@@ -1,62 +1,65 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH] net: phy: Support for non-HW interrupt devices
-Date: Fri, 8 Jan 2016 15:58:48 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404944FF@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
- <20160108004238.GD4389@lunn.ch> <568F1A1B.1040808@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D4049389F@CHN-SV-EXMX02.mchp-main.com>
- <20160108155111.GF4389@lunn.ch>
+From: Rabin Vincent <rabin@rab.in>
+Subject: Re: [PATCH] arm64: net: bpf: don't BUG() on large shifts
+Date: Fri, 8 Jan 2016 16:58:37 +0100
+Message-ID: <20160108155837.GA28291@debian>
+References: <1452015543-6790-1-git-send-email-rabin@rab.in>
+ <20160105175557.GC83548@ast-mbp.thefacebook.com>
+ <20160106203127.GA16059@debian>
+ <20160106221247.GA95332@ast-mbp.thefacebook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCBF08E@AcuExch.aculab.com>
+ <568E5EB0.8020102@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-To: <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"zlim.lnx@gmail.com" <zlim.lnx@gmail.com>,
+	"yang.shi@linaro.org" <yang.shi@linaro.org>,
+	"will.deacon@arm.com" <will.deacon@arm.com>,
+	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:49432 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755370AbcAHP6u convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 10:58:50 -0500
-In-Reply-To: <20160108155111.GF4389@lunn.ch>
-Content-Language: en-US
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:36608 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755602AbcAHP66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 10:58:58 -0500
+Received: by mail-wm0-f54.google.com with SMTP id l65so139980658wmf.1
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 07:58:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <568E5EB0.8020102@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for your information. I'll take a look.
+On Thu, Jan 07, 2016 at 01:48:48PM +0100, Daniel Borkmann wrote:
+> The question is what is less risky in terms of uabi. To reject such
+> filters with such K shift vals upfront in verifier, or to just allow
+> [0, reg_size - 1] values and handle outliers silently. I think both
+> might be possible, the latter just needs to be clearly specified in
+> the documentation somewhere. If we go for the latter, then probably
+> just rewriting that K value as masked one might seem better. Broken
+> programs might then still be loadable (and still be broken) ... afaik
+> in case of register (case of shifts with X) with large shift vals
+> ARM64 is doing 'modulo reg_size' implicitly.
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Friday, January 08, 2016 10:51 AM
-> To: Woojung Huh - C21699
-> Cc: f.fainelli@gmail.com; netdev@vger.kernel.org; davem@davemloft.net
-> Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
-> 
-> > As you may already know, USB Interrupt Pipe is not actual interrupt and
-> > USB driver is beyond USB Host driver which deals with HW interrupt directly
-> over
-> > request_irq(). So even we can put some code in USB Host driver to
-> interface with
-> > PHYLIB, it is more likely adding another USB stack to handle this pseudo
-> interrupt.
-> > I don't think it's good approach to solve this problem.
-> 
-> You don't need any code in the USB irq handler.
-> 
-> I'm not too familiar with USB networking, but looking at usbnet.c, it
-> looks like intr_complete() gets called when there is a USB Interrupt
-> Pipe event. That calls into the drivers status() method.
-> 
-> In this status method, you need to trigger a Linux interrupt. By that,
-> i mean you need to call handle_nested_irq().
-> 
-> What i found useful was looking at how drivers/gpio/gpip-pca953x.c
-> works. That is an i2c GPIO expander, which supports GPIO
-> interrupts. When the device indicates an interrupt event, you need to
-> read an i2c register on the device to see which GPIO line has
-> triggered it, and then call handle_nestd_irq() for the corresponding
-> interrupt.
-> 
-> Humm, in fact, take a look at drivers/gpio/gpio-dln2.c It is a USB
-> GPIO expander, with interrupt support.
-> 
-> 	Andrew
+The case of what happens with such shifts with X is also already
+architecture-specific, even when using the interpreters.  For example, the
+following program returns 1 on ARM64 but 0 on ARM.
+
+	BPF_STMT(BPF_LD | BPF_IMM, 1),
+	BPF_STMT(BPF_LDX | BPF_IMM, 32),
+	BPF_STMT(BPF_ALU | BPF_LSH | BPF_X, 0),
+	BPF_STMT(BPF_RET | BPF_A, 0)
+
+To start rejecting large K shifts in the verifier because they are
+architecture-specific while continuing to allow the equally
+architecture-specific large X shifts (because we can't verify them
+statically) would be rather inconsistent.
+
+If it is desired to enforce uniformity across architectures despite the
+risk for subtly changing the behaviour of existing programs, then the
+desired uniform semantics of these shifts should really be implemented
+both for the K and X shifts, which would mean modifiying the interpreter
+and the various arch JITs too.
