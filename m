@@ -1,117 +1,82 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: WARN trace - skb_warn_bad_offload - vxlan - large udp packet -
- udp checksum disabled
-Date: Fri, 8 Jan 2016 20:14:58 +0100
-Message-ID: <20160108191458.GA7266@unicorn.suse.cz>
-References: <FC41C24E35F18A40888AACA1A36F3E418AFD00B5@fmsmsx115.amr.corp.intel.com>
- <568DCF2B.2090502@stressinduktion.org>
- <20160107064640.GA27753@unicorn.suse.cz>
- <20160107072742.GC27753@unicorn.suse.cz>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] arm64: net: bpf: don't BUG() on large shifts
+Date: Fri, 8 Jan 2016 11:18:25 -0800
+Message-ID: <20160108191824.GB11561@ast-mbp.thefacebook.com>
+References: <1452015543-6790-1-git-send-email-rabin@rab.in>
+ <20160105175557.GC83548@ast-mbp.thefacebook.com>
+ <20160106203127.GA16059@debian>
+ <20160106221247.GA95332@ast-mbp.thefacebook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCBF08E@AcuExch.aculab.com>
+ <568E5EB0.8020102@iogearbox.net>
+ <20160108155837.GA28291@debian>
+ <568FE77A.3090107@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Jesse Gross <jesse@nicira.com>, Jiri Benc <jbenc@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Cc: Rabin Vincent <rabin@rab.in>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"zlim.lnx@gmail.com" <zlim.lnx@gmail.com>,
+	"yang.shi@linaro.org" <yang.shi@linaro.org>,
+	"will.deacon@arm.com" <will.deacon@arm.com>,
+	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33083 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751213AbcAHTPC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 14:15:02 -0500
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33462 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbcAHTSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:18:30 -0500
+Received: by mail-pa0-f51.google.com with SMTP id cy9so286647662pac.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 11:18:30 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20160107072742.GC27753@unicorn.suse.cz>
+In-Reply-To: <568FE77A.3090107@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2016 at 08:27:42AM +0100, Michal Kubecek wrote:
-> On Thu, Jan 07, 2016 at 07:46:40AM +0100, Michal Kubecek wrote:
-> > On Thu, Jan 07, 2016 at 03:36:27AM +0100, Hannes Frederic Sowa wrote:
-> > > On 15.12.2015 02:35, Nelson, Shannon wrote:
-> > > >Using a slightly modified version of udpspam (see diff below -
-> > > >hopefully not mangled by corporate email servers), where I set the
-> > > >SO_NO_CHECK socket option and can specify a large buffer size, I can
-> > > >reliably get the following WARN trace.  I have reproduced this on
-> > > >both ixgbe and i40e drivers using "udpspam-no-check <target-ip>
-> > > >6000".
-> > > >
-> > > >It looks to me like this is in the Tx path before we get to the
-> > > >actual NIC drivers, but I may be wrong.
-> > > 
-> > > Does UFO offloading on the tunnel interface fix this error?
-> > > 
-> > > ethtool -K vxlan ufo off
-> > > 
-> > > If yes we can't feed SO_NO_CHECK udp packets into UFO as gso/ufo
-> > > requires CHECKSUM_PARTIAL (or add some more logic into the skb or
-> > > query socket status from skb_gso_segment).
-> > 
-> > I believe you are right. This sounds like the issue addressed by commit
-> > acf8dd0a9d0b ("udp: only allow UFO for packets from SOCK_DGRAM sockets")
-> > except for a regular SOCK_DGRAM socket with SO_NO_CHECK option. If so,
-> > changing both instances of the check
-> > 
-> > 	    (sk->sk_type == SOCK_DGRAM)
-> > 
-> > added by this commit to
-> > 
-> > 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx
-> > 
-> > should fix the problem (and it should be done even if the issue reported
-> > here is caused by something else).
+On Fri, Jan 08, 2016 at 05:44:42PM +0100, Daniel Borkmann wrote:
+> On 01/08/2016 04:58 PM, Rabin Vincent wrote:
+> >On Thu, Jan 07, 2016 at 01:48:48PM +0100, Daniel Borkmann wrote:
+> >>The question is what is less risky in terms of uabi. To reject such
+> >>filters with such K shift vals upfront in verifier, or to just allow
+> >>[0, reg_size - 1] values and handle outliers silently. I think both
+> >>might be possible, the latter just needs to be clearly specified in
+> >>the documentation somewhere. If we go for the latter, then probably
+> >>just rewriting that K value as masked one might seem better. Broken
+> >>programs might then still be loadable (and still be broken) ... afaik
+> >>in case of register (case of shifts with X) with large shift vals
+> >>ARM64 is doing 'modulo reg_size' implicitly.
+> >
+> >The case of what happens with such shifts with X is also already
+> >architecture-specific, even when using the interpreters.  For example, the
+> >following program returns 1 on ARM64 but 0 on ARM.
+> >
+> >	BPF_STMT(BPF_LD | BPF_IMM, 1),
+> >	BPF_STMT(BPF_LDX | BPF_IMM, 32),
+> >	BPF_STMT(BPF_ALU | BPF_LSH | BPF_X, 0),
+> >	BPF_STMT(BPF_RET | BPF_A, 0)
+> >
+> >To start rejecting large K shifts in the verifier because they are
+> >architecture-specific while continuing to allow the equally
+> >architecture-specific large X shifts (because we can't verify them
+> >statically) would be rather inconsistent.
 > 
-> Correction: the IPv6 case will need "!udp_get_no_check6_tx(sk)" instead.
+> Hmm, yeah, agree with you that this would be inconsistent. Last time we
+> actually had this topic [1], I believe the consensus was that such BPF
+> programs are to be considered "undefined".
+> 
+> In that case, I think just masking the K value silently into its allowed
+> range for classic and eBPF might be better. It would eventually not be
+> uniform with regards to shifts where X is involved, but if we consider
+> it "undefined" behaviour, such uniformity is probably not needed.
 
-Shannon, if disabling UFO works around the problem, please check if this
-patch helps:
-
-
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Fri, 8 Jan 2016 18:23:40 +0100
-Subject: [PATCH] udp: disallow UFO for sockets with SO_NO_CHECK option
-
-Commit acf8dd0a9d0b ("udp: only allow UFO for packets from SOCK_DGRAM
-sockets") disallows UFO for packets sent from raw sockets. We need to do
-the same also for SOCK_DGRAM sockets with SO_NO_CHECK option, even if
-for a bit different reason: while such socket would override the
-CHECKSUM_PARTIAL set by ip_ufo_append_data(), gso_size is still set and
-bad offloading flags warning is triggered in __skb_gso_segment().
-
-In the IPv6 case, SO_NO_CHECK option is ignored but we need to disallow
-UFO for packets sent by sockets with UDP_NO_CHECK6_TX option.
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/ip_output.c  | 2 +-
- net/ipv6/ip6_output.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4233cbe47052..36ac9f3a6451 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -921,7 +921,7 @@ static int __ip_append_data(struct sock *sk,
- 	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
--	    (sk->sk_type == SOCK_DGRAM)) {
-+	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
- 					 hh_len, fragheaderlen, transhdrlen,
- 					 maxfraglen, flags);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e6a7bd15b9b7..6473889f1736 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1353,7 +1353,7 @@ emsgsize:
- 	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) &&
--	    (sk->sk_type == SOCK_DGRAM)) {
-+	    (sk->sk_type == SOCK_DGRAM) && !udp_get_no_check6_tx(sk)) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen,
- 					  transhdrlen, mtu, flags, fl6);
--- 
-2.7.0
+I don't think masking the K makes it any more 'consistent'.
+As was shown arm and arm64 cpus are inconsistent between themselves
+and it's not a job of sw to cover up such things.
+imo rejecting broken programs at the load time for both cBPF and eBPF
+is better for users, program authors and compiler writers in
+the first place. If llvm (due to a bug) generates a shift with constant>32,
+I'd prefer verifier to tell me about it instead of silently doing the mask
+which likely will be much harder to discover and program going to stay
+broken anyway.
