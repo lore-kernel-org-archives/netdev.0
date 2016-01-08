@@ -1,113 +1,32 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH net 0/2] vxlan: Set a large MTU on ovs-created
- vxlan devices
-Date: Fri, 8 Jan 2016 22:29:33 +0100
-Message-ID: <56902A3D.4090508@stressinduktion.org>
-References: <1452087186-12926-1-git-send-email-david@weave.works>
- <20160106.155950.1007160228570301281.davem@davemloft.net>
- <8660z6qohn.fsf@weave.works>
- <CAEh+42iWSZOyikNydU2Bs8meqYfrKfUJLDGFJ8HzQ06k64LP0g@mail.gmail.com>
- <568DADEE.1050206@stressinduktion.org>
- <CAEh+42h_dH5-AYBN+L=+LMfNLXhSfs-AwWh_aZ_oLfZ1NV48Zg@mail.gmail.com>
- <20160107114935.GJ32456@pox.localdomain>
- <CAEh+42hA69_e1HRGzsfzc2yGNgr6d8Bg4+pD8EQPdou5LzUegA@mail.gmail.com>
- <20160107172137.GA24672@pox.localdomain>
- <568EA55A.7070305@stressinduktion.org>
- <20160107184042.GB24672@pox.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
+Date: Fri, 08 Jan 2016 13:36:04 -0800
+Message-ID: <1452288964.8255.234.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810>
+	 <568FD5B7.2060602@gmail.com> <568FD7FC.8020005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160107184042.GB24672-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, jhs@mojatatu.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36645 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754351AbcAHVgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 16:36:06 -0500
+Received: by mail-pa0-f46.google.com with SMTP id yy13so195673518pab.3
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 13:36:06 -0800 (PST)
+In-Reply-To: <568FD7FC.8020005@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDcuMDEuMjAxNiAxOTo0MCwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gT24gMDEvMDcvMTYgYXQg
-MDY6NTBwbSwgSGFubmVzIEZyZWRlcmljIFNvd2Egd3JvdGU6Cj4+IE9uIDA3LjAxLjIwMTYgMTg6
-MjEsIFRob21hcyBHcmFmIHdyb3RlOgo+Pj4gT24gMDEvMDcvMTYgYXQgMDg6MzVhbSwgSmVzc2Ug
-R3Jvc3Mgd3JvdGU6Cj4+Pj4gT24gVGh1LCBKYW4gNywgMjAxNiBhdCAzOjQ5IEFNLCBUaG9tYXMg
-R3JhZiA8dGdyYWZAc3V1Zy5jaD4gd3JvdGU6Cj4+Pj4+IEEgc2ltcGxlIHN0YXJ0IGNvdWxkIGJl
-IHRvIGFkZCBhIG5ldyByZXR1cm4gY29kZSBmb3IgPiBNVFUgZHJvcHMgaW4KPj4+Pj4gdGhlIGRl
-dl9xdWV1ZV94bWl0KCkgcGF0aCBhbmQgY2hlY2sgZm9yIE5FVF9YTUlUX0RST1BfTVRVIGluCj4+
-Pj4+IG92c192cG9ydF9zZW5kKCkgYW5kIGVtaXQgcHJvcGVyIElDTVBzLgo+Pj4+Cj4+Pj4gVGhh
-dCBjb3VsZCBiZSBpbnRlcmVzdGluZy4gVGhlIHByb2JsZW0gaW4gdGhlIHBhc3Qgd2FzIG1ha2lu
-ZyBzdXJlCj4+Pj4gdGhhdCBJQ01QcyB0aGF0IGFyZSBnZW5lcmF0ZWQgZml0IGluIHRoZSB2aXJ0
-dWFsIG5ldHdvcmsgYXBwcm9wcmlhdGVseQo+Pj4+IC0gcmlnaHQgYWRkcmVzc2VzLCBldGMuIFRo
-aXMgcmVxdWlyZXMgZWl0aGVyIHNwb29maW5nIGFkZHJlc3NlcyBvcgo+Pj4+IHNvbWUgYWRkaXRp
-b25hbCBrbm93bGVkZ2UgYWJvdXQgdGhlIHRvcG9sb2d5IHRoYXQgd2UgZG9uJ3QgY3VycmVudGx5
-Cj4+Pj4gaGF2ZSBpbiB0aGUga2VybmVsLgo+Pj4KPj4+IEFyZSB5b3Ugd29ycmllZCBhYm91dCBl
-bWl0dGluZyBhbiBJQ01QIHdpdGggYSBzb3VyY2Ugd2hpY2ggaXMgbm90Cj4+PiBhIGxvY2FsIGhv
-c3QgYWRkcmVzcz8KPj4KPj4gV2UgaGF2ZSB1UlBGIGVuYWJsZWQgZm9yIElQdjQgYnkgZGVmYXVs
-dCBvbiBhbGwga2VybmVscy4gVGh1cyBpZiB3ZSBnZW5lcmF0ZQo+PiBhbiBJUHY0IElDTVAgcGFj
-a2V0IGJhY2sgd2l0aCBhbiBlcnJvciBtZXNzYWdlIGl0IG11c3QgaGF2ZSBhIHNvdXJjZSBhZGRy
-ZXNzCj4+IHdoaWNoIHRoZSByZWNlaXZpbmcga2VybmVsIGNvbnNpZGVycyB2YWxpZC4gVmFsaWQg
-bWVhbnMgdGhhdCBzZW5kaW5nIHRvIHRoZQo+PiBzb3VyY2UgYWRkcmVzcyB3b3VsZCBoYXZlIHVz
-ZWQgdGhlIHNhbWUgb3V0Z29pbmcgaW50ZXJmYWNlIHRoZSBJQ01QIGVycm9yCj4+IGNhbWUgaW4g
-ZnJvbS4KPgo+IEFncmVlZC4gSSB0aGluayB0aGlzIGlzIGdpdmVuIHRob3VnaCBhcyB3ZSB3b3Vs
-ZCByZXZlcnNlIHRoZSBhZGRyZXNzZXMKPiBhcyBpY21wX3NlbmQoKSBhbHJlYWR5IGRvZXM6Cj4K
-PiAgICAgICAgICBzYWRkciA9IGlwaC0+ZGFkZHI7Cj4KPj4+IENhbid0IHdlIGp1c3QgdXNlIGlj
-bXBfc2VuZCgpIGluIHRoZSBjb250ZXh0IG9mIHRoZSBpbm5lciBoZWFkZXIgYW5kCj4+PiBmZWVk
-IGl0IHRvIHRoZSBmbG93IHRhYmxlIHRvIHNlbmQgaXQgYmFjaz8gSXQgc2hvdWxkIGJlIHRoZSBz
-YW1lIGFzCj4+PiBmb3IgaXBfZm9yd2FyZCgpLgo+Pgo+PiBUaGUgYnJpZGdlJ3MgaXAgYWRkcmVz
-cyBvZnRlbiBoYXMgbm8gdmFsaWQgcGF0aCBhcyBzZWVuIGZyb20gdGhlIGVuZCBob3N0Cj4+IHN5
-c3RlbSByZWNlaXZpbmcgdGhlIGljbXAgZXJyb3IsIGJlY2F1c2UgdGhlIG9wZW52c3dpdGNoIGlz
-IG5vdCByZWFsbHkgcGFydAo+PiBvZiB0aGUgTDMgZm9yd2FyZGluZyBjaGFpbi4KPgo+IEkgZG9u
-J3QgdGhpbmsgdGhlIElQIG9mIHRoZSBicmlkZ2UgZXZlciBjb21lcyBpbnRvIHBsYXkuIEl0IHNo
-b3VsZG4ndC4KPiBJJ20gbm90IGV2ZW4gc3VyZSB3aGF0IGNvdWxkIGJlIGNvbnNpZGVyZWQgdGhl
-IGFkZHJlc3Mgb2YgdGhlIGJyaWRnZQo+IDstKQoKWWVzLCBleGFjdGx5LiA6KQoKPgo+PiBGYWtp
-bmcgdGhlIGFkZHJlc3MgZnJvbSB0aGUgcGFja2V0IChlLmcuIHVzaW5nIHRoZSBkZXN0aW5hdGlv
-biBhZGRyZXNzIG9mCj4+IHRoZSBvcmlnaW5hbCBwYWNrZXQpIHdpbGwgbWFrZSB0cmFjZXJvdXRl
-IGdvIG51dHMuCj4KPiBJIHRoaW5rIHlvdSBhcmUgd29ycmllZCBhYm91dCBhbiBJQ01QIGVycm9y
-IGZyb20gYSBob3Agd2hpY2ggZG9lcyBub3QKPiBkZWNyZW1lbnQgVFRMLiBJIHRoaW5rIHRoYXQn
-cyBhIGdvb2QgcG9pbnQgYW5kIEkgdGhpbmsgd2Ugc2hvdWxkIG9ubHkKPiBzZW5kIGFuIElDTVAg
-ZXJyb3IgaWYgdGhlIFRUTCBpcyBkZWNyZW1lbnRlZCBpbiB0aGUgYWN0aW9uIGxpc3Qgb2YKPiB0
-aGUgZmxvdyBmb3Igd2hpY2ggd2UgaGF2ZSBzZWVuIGEgTVRVIGJhc2VkIGRyb3AgKG9yIFRUTD0w
-KS4KCkFsc28gYWdyZWVkLCBvdnMgbXVzdCBhY3QgaW4gcm91dGluZyBtb2RlIGJ1dCBhdCB0aGUg
-c2FtZSB0aW1lIG11c3QgaGF2ZSAKYW4gSVAgYWRkcmVzcyBvbiB0aGUgcGF0aC4gSSB0aGluayB0
-aGlzIGlzIGFjdHVhbGx5IHRoZSBwcm9ibGVtLgoKQ3VycmVudGx5IHdlIGhhdmUgbm8gd2F5IHRv
-IGZlZWRiYWNrIGFuIGVycm9yIGluIGN1cnJlbnQgY29uZmlndXJhdGlvbnMgCndpdGggb3ZzIHNp
-dHRpbmcgaW4gYW5vdGhlciBuYW1lc3BhY2UgZm9yIGUuZy4gZG9ja2VyIGNvbnRhaW5lcnM6CgpX
-ZSB0cmF2ZXJzZSBhIG5ldCBuYW1lc3BhY2Ugc28gd2UgZHJvcCBza2ItPnNrLCB3ZSBkb24ndCBo
-b2xkIGFueSBzb2NrZXQgCnJlZmVyZW5jZSB0byBlbnF1ZXVlIGFuIFB0QiBlcnJvciB0byB0aGUg
-b3JpZ2luYWwgc29ja2V0LgoKV2UgbW9zdGx5IHVzZSBuZXRpZl9yeF9pbnRlcm5hbCBxdWV1ZXMg
-dGhlIHNvY2tldCBvbiB0aGUgYmFja2xvZywgc28gd2UgCmNhbid0IHNpZ25hbCBhbiBlcnJvciBv
-dmVyIHRoZSBjYWxsc3RhY2sgZWl0aGVyLgoKQW5kIG92cyBkb2VzIG5vdCBuZWNlc3NhcmlseSBo
-YXZlIGFuIGlwIGFkZHJlc3MgYXMgdGhlIGZpcnN0IGhvcCBvZiB0aGUgCm5hbWVzcGFjZSBvciB0
-aGUgdmlydHVhbCBtYWNoaW5lLCBzbyBpdCBjYW5ub3Qga25vdyBhIHZhbGlkIGlwIGFkZHJlc3Mg
-CndpdGggd2hpY2ggdG8gcmVwbHksIG5vPwoKPiBJIGRvbid0IHJlYWxseSBzZWUgYSBkaWZmZXJl
-bmNlIGJldHdlZW4gaXBfZm9yd2FyZCgpLCBzb21lCj4gc29waGlzdGljYXRlZCB0YyBhY3Rpb24g
-b3IgT1ZTLiBBcyBzb29uIGFzIHRoZXkgZGVjcmVtZW50ZWQgVFRMIGFuZAo+IHBlcmZvcm0gTDMg
-Zm9yd2FyZGluZywgdGhlbiB0aGV5IHNob3VsZCBzZW5kIG91dCBJQ01QIGVycm9ycyB0byBhbGxv
-dwo+IGZvciBwcm9wZXIgUE1UVS4KClllcywgYnV0IGRlcGVuZGluZyBvbiB0aGUgaXAgY29uZmln
-dXJhdGlvbiwgdGhvc2UgaWNtcHMgd2lsbCB0aGVuIGJlIApkcm9wcGVkIGluIHRoZSByZXZlcnNl
-IHBhdGggZmlsdGVyLgoKPj4gTm9ybWFsbHkgZXRoZXJuZXQgZGV2aWNlcyBkb24ndCByZXR1cm4g
-aWNtcCBlcnJvciBtZXNzYWdlcy4gRS5nLiBicm9rZW4KPj4ganVtYm8gZnJhbWUgY29uZmlndXJh
-dGlvbiBqdXN0IGxlYWRzIHRvIHNpbGVudCBwYWNrZXQgbG9zcyBiZWNhdXNlIHRoZQo+PiBwYWNr
-ZXQgaXMgZGlzY2FyZGVkIGJlZm9yZSBhIHJvdXRlciBjYW4gaGFuZGxlIGl0LiBUaHVzIGl0IHdv
-dWxkIGJlIGJlc3QgaW4KPj4gY2FzZSBvZiBsb2NhbCBvdnMgaW5zdGFsbGF0aW9uIGlmIHRoZSBl
-cnJvciBpcyBhbHJlYWR5IHRyYW5zcG9ydGVkIGJhY2sgdG8KPj4gdGhlIGNsaWVudCBhcHBsaWNh
-dGlvbiB2aWEgdGhlIG5ldHdvcmsgY2FsbCBzdGFjay4gVGhpcyBtaWdodCBiZSB2ZXJ5Cj4+IGRp
-ZmZpY3VsdCBpbiBjYXNlIHdlIGVucXVldWUgdGhlIHBhY2tldCB0byBhIGJhY2tsb2cgcXVldWUg
-YW5kIHJlc2NoZWR1bGUKPj4gc29mdGlycXMuIFByb2JhYmx5IHdlIG5lZWQgc29tZSB3YXkgb2Yg
-ZmFraW5nIHNvdXJjZSBhZGRyZXNzZXMgZnJvbSBicmlkZ2VzCj4+IG5vdy4uLi4gOi8KPgo+IEkg
-dGhpbmsgdGhlIG1ham9yIGNvbXBsaWNhdGlvbnMgY29tZXMgZnJvbSB0aGUgYXNzdW1wdGlvbiB0
-aGF0IE9WUyBpcwo+IGEgYnJpZGdlLiBUaGlzIGlzIG5vdCBuZWNlc3NhcmlseSB0aGUgY2FzZSBh
-cyBzdGF0ZWQgYWJvdmUuIElmIGEgZmxvdwo+IGlzIGRvaW5nIEwzIGZvcndhcmRpbmcsIHdlIHNo
-b3VsZCBzZW5kIElDTVBzIGFzIGV4cGVjdGVkIGZyb20gYQo+IHJvdXRlci4KCklmIHdlIGFyZSBk
-b2luZyBMMyBmb3J3YXJkaW5nIGludG8gYSB0dW5uZWwsIHRoaXMgaXMgYWJzb2x1dGVseSBjb3Jy
-ZWN0IAphbmQgY2FuIGJlIGVhc2lseSBkb25lLgoKQnllLApIYW5uZXMKCgpfX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
-cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
-dgo=
+On Fri, 2016-01-08 at 07:38 -0800, John Fastabend wrote:
+
+> Also I'll respin this with a change so xmit_{drop|cn|policed} are not
+> counted as tx_bytes and pkts sent (idea from Jamal). However I won't
+> abort the burst because I do like this stressing the entry point of my
+> qdisc.
+
+This reminds me that bonding/team drivers always return NETDEV_TX_OK
+status, even if the chosen slave could not queue or send the packet.
