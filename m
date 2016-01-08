@@ -1,41 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
-Date: Fri, 8 Jan 2016 22:36:40 +0100
-Message-ID: <20160108213640.GA28440@lunn.ch>
-References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
- <20160108004238.GD4389@lunn.ch>
- <568F1A1B.1040808@gmail.com>
- <20160108192436.GB26321@lunn.ch>
- <56901B96.8020606@gmail.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Fri, 8 Jan 2016 13:36:56 -0800
+Message-ID: <56902BF8.6080004@hpe.com>
+References: <568E9BF9.2050001@solarflare.com>
+ <568E9C9B.3090408@solarflare.com>
+ <CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
+ <568FD844.3020101@solarflare.com>
+ <CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+ <CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
+ <CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Woojung.Huh@microchip.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44284 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754560AbcAHVgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 16:36:43 -0500
-Content-Disposition: inline
-In-Reply-To: <56901B96.8020606@gmail.com>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:30333 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754560AbcAHVg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 16:36:59 -0500
+Received: from g1t5425.austin.hp.com (g1t5425.austin.hp.com [15.216.225.55])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 597F9A4D
+	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 21:36:59 +0000 (UTC)
+In-Reply-To: <CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Sounds good, I will send some patches shortly which really fix the PHY
-> state machine not to poll PHYs configured with PHY_IGNORE_INTERRUPT and
-> fixing phy_mac_interrupt() to be callable in hard IRQ context (finally).
+On 01/08/2016 01:22 PM, Alexander Duyck wrote:
+>  and we don't require the remote end to validate the outer checksum.
 
-This last be could be interesting. One of the things i needed to do
-was change request_irq to request_threaded_irq(). Because i need to do
-MDIO reads to determine what PHY causes the interrupts, the code is in
-thread context when it actually fires the interrupt.
+Doesn't the UDP specification require validating a non-zero checksum on 
+receipt?
 
-The core IRQ code is happy to turn an interrupt context interrupt into
-a threaded context interrupt, but it cannot do it the other way
-around.
-
-Using threaded interrupts would also allow the phylib code to be
-simplified, but i didn't get that far yet.
-
-	    Andrew
+rick jones
