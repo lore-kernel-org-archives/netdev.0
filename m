@@ -1,59 +1,98 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net] openvswitch: compute needed headroom for internal vports
-Date: Fri, 8 Jan 2016 14:53:42 -0800
-Message-ID: <CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
-References: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Flavio Leitner <fbl@sysclose.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:44057 "EHLO
-	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752279AbcAHWyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 17:54:06 -0500
-Received: from relay5-d.mail.gandi.net (relay5-d.mail.gandi.net [217.70.183.197])
-	by slow1-d.mail.gandi.net (Postfix) with ESMTP id D731A47E98F
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 23:53:46 +0100 (CET)
-Received: from mfilter33-d.gandi.net (mfilter33-d.gandi.net [217.70.178.164])
-	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 2A48C41C074
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 23:53:45 +0100 (CET)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-	by mfilter33-d.gandi.net (mfilter33-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id YDYwS1kTUGEX for <netdev@vger.kernel.org>;
-	Fri,  8 Jan 2016 23:53:43 +0100 (CET)
-Received: from mail-io0-f174.google.com (mail-io0-f174.google.com [209.85.223.174])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id C8FA341C07F
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 23:53:43 +0100 (CET)
-Received: by mail-io0-f174.google.com with SMTP id g73so103613832ioe.3
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 14:53:43 -0800 (PST)
-In-Reply-To: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v5 2/8] netfilter: Factor out
+	nf_ct_get_info().
+Date: Fri, 8 Jan 2016 15:32:42 -0800
+Message-ID: <75B5A5C7-4BA2-4B6A-9328-663BC2E40AB6@ovn.org>
+References: <1450312607-44050-1-git-send-email-jarno@ovn.org>
+ <1450312607-44050-3-git-send-email-jarno@ovn.org>
+ <20151225123029.GA7352@salvia>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20151225123029.GA7352@salvia>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 8, 2016 at 1:50 PM, Paolo Abeni <pabeni@redhat.com> wrote:
-> Currently the ovs internal vports always use a default needed_headroom.
-> This leads to a skb head copy while xmitting on ovs swith via vport
-> that add some kind of encapsulation (gre, geneve, etc.).
->
-> This patch add book-keeping for the maximum needed_headroom used by
-> the non internal vports in any dp, updating it on vport creation and
-> deletion.
->
-> Said value is than used as needed_headroom for internal vports,
-> avoiding the above copy.
->
-Why is this done only for internal devices? In most common case of
-traffic the packet enters OVS from tap or other netdev type vport
-device.
-
-> With ~1000 bytes long frames, this give about a 6% xmit performance
-> improvement in case of vxlan tunnels and about 8% when using geneve
-> tunnels.
->
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> Acked-by: Flavio Leitner <fbl@sysclose.org>
-> --
+Cj4gT24gRGVjIDI1LCAyMDE1LCBhdCA0OjMwIEFNLCBQYWJsbyBOZWlyYSBBeXVzbyA8cGFibG9A
+bmV0ZmlsdGVyLm9yZz4gd3JvdGU6Cj4gCj4gT24gV2VkLCBEZWMgMTYsIDIwMTUgYXQgMDQ6MzY6
+NDFQTSAtMDgwMCwgSmFybm8gUmFqYWhhbG1lIHdyb3RlOgo+PiBEZWZpbmUgYSBuZXcgaW5saW5l
+IGZ1bmN0aW9uIHRvIG1hcCBjb25udHJhY2sgc3RhdHVzIHRvIGVudW0KPj4gaXBfY29ubnRyYWNr
+X2luZm8uICBUaGlzIHJlbW92ZXMgdGhlIG5lZWQgdG8gb3RoZXJ3aXNlIGR1cGxpY2F0ZSB0aGlz
+Cj4+IGNvZGUgaW4gYSBsYXRlciBwYXRjaCAoIm9wZW52c3dpdGNoOiBGaW5kIGV4aXN0aW5nIGNv
+bm50cmFjayBlbnRyeQo+PiBhZnRlciB1cGNhbGwuIikuCj4+IAo+PiBTaWduZWQtb2ZmLWJ5OiBK
+YXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Cj4+IC0tLQo+PiBpbmNsdWRlL25ldC9uZXRm
+aWx0ZXIvbmZfY29ubnRyYWNrLmggfCAxNSArKysrKysrKysrKysrKysKPj4gbmV0L25ldGZpbHRl
+ci9uZl9jb25udHJhY2tfY29yZS5jICAgIHwgMjggKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0t
+LQo+PiAyIGZpbGVzIGNoYW5nZWQsIDI0IGluc2VydGlvbnMoKyksIDE5IGRlbGV0aW9ucygtKQo+
+PiAKPj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaCBi
+L2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2suaAo+PiBpbmRleCBmZGU0MDY4Li5i
+M2RlMTBlIDEwMDY0NAo+PiAtLS0gYS9pbmNsdWRlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
+LmgKPj4gKysrIGIvaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFjay5oCj4+IEBAIC0x
+MjUsNiArMTI1LDIxIEBAIG5mX2N0X3R1cGxlaGFzaF90b19jdHJhY2soY29uc3Qgc3RydWN0IG5m
+X2Nvbm50cmFja190dXBsZV9oYXNoICpoYXNoKQo+PiAJCQkgICAgdHVwbGVoYXNoW2hhc2gtPnR1
+cGxlLmRzdC5kaXJdKTsKPj4gfQo+PiAKPj4gK3N0YXRpYyBpbmxpbmUgZW51bSBpcF9jb25udHJh
+Y2tfaW5mbwo+PiArbmZfY3RfZ2V0X2luZm8oY29uc3Qgc3RydWN0IG5mX2Nvbm50cmFja190dXBs
+ZV9oYXNoICpoKQo+PiArewo+PiArCWNvbnN0IHN0cnVjdCBuZl9jb25uICpjdCA9IG5mX2N0X3R1
+cGxlaGFzaF90b19jdHJhY2soaCk7Cj4+ICsKPj4gKwlpZiAoTkZfQ1RfRElSRUNUSU9OKGgpID09
+IElQX0NUX0RJUl9SRVBMWSkKPj4gKwkJcmV0dXJuIElQX0NUX0VTVEFCTElTSEVEX1JFUExZOwo+
+PiArCS8qIE9uY2Ugd2UndmUgaGFkIHR3byB3YXkgY29tbXMsIGFsd2F5cyBFU1RBQkxJU0hFRC4g
+Ki8KPj4gKwlpZiAodGVzdF9iaXQoSVBTX1NFRU5fUkVQTFlfQklULCAmY3QtPnN0YXR1cykpCj4+
+ICsJCXJldHVybiBJUF9DVF9FU1RBQkxJU0hFRDsKPj4gKwlpZiAodGVzdF9iaXQoSVBTX0VYUEVD
+VEVEX0JJVCwgJmN0LT5zdGF0dXMpKQo+PiArCQlyZXR1cm4gSVBfQ1RfUkVMQVRFRDsKPj4gKwly
+ZXR1cm4gSVBfQ1RfTkVXOwo+PiArfQo+PiArCj4+IHN0YXRpYyBpbmxpbmUgdV9pbnQxNl90IG5m
+X2N0X2wzbnVtKGNvbnN0IHN0cnVjdCBuZl9jb25uICpjdCkKPj4gewo+PiAJcmV0dXJuIGN0LT50
+dXBsZWhhc2hbSVBfQ1RfRElSX09SSUdJTkFMXS50dXBsZS5zcmMubDNudW07Cj4+IGRpZmYgLS1n
+aXQgYS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMgYi9uZXQvbmV0ZmlsdGVyL25m
+X2Nvbm50cmFja19jb3JlLmMKPj4gaW5kZXggM2NiM2NiOC4uNzU0NmZjNyAxMDA2NDQKPj4gLS0t
+IGEvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29yZS5jCj4+ICsrKyBiL25ldC9uZXRmaWx0
+ZXIvbmZfY29ubnRyYWNrX2NvcmUuYwo+PiBAQCAtMTA1NiwyNSArMTA1NiwxNSBAQCByZXNvbHZl
+X25vcm1hbF9jdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBuZl9jb25uICp0bXBsLAo+PiAJY3Qg
+PSBuZl9jdF90dXBsZWhhc2hfdG9fY3RyYWNrKGgpOwo+PiAKPj4gCS8qIEl0IGV4aXN0czsgd2Ug
+aGF2ZSAobm9uLWV4Y2x1c2l2ZSkgcmVmZXJlbmNlLiAqLwo+PiAtCWlmIChORl9DVF9ESVJFQ1RJ
+T04oaCkgPT0gSVBfQ1RfRElSX1JFUExZKSB7Cj4+IC0JCSpjdGluZm8gPSBJUF9DVF9FU1RBQkxJ
+U0hFRF9SRVBMWTsKPj4gLQkJLyogUGxlYXNlIHNldCByZXBseSBiaXQgaWYgdGhpcyBwYWNrZXQg
+T0sgKi8KPj4gLQkJKnNldF9yZXBseSA9IDE7Cj4+IC0JfSBlbHNlIHsKPj4gLQkJLyogT25jZSB3
+ZSd2ZSBoYWQgdHdvIHdheSBjb21tcywgYWx3YXlzIEVTVEFCTElTSEVELiAqLwo+PiAtCQlpZiAo
+dGVzdF9iaXQoSVBTX1NFRU5fUkVQTFlfQklULCAmY3QtPnN0YXR1cykpIHsKPj4gLQkJCXByX2Rl
+YnVnKCJuZl9jb25udHJhY2tfaW46IG5vcm1hbCBwYWNrZXQgZm9yICVwXG4iLCBjdCk7Cj4+IC0J
+CQkqY3RpbmZvID0gSVBfQ1RfRVNUQUJMSVNIRUQ7Cj4+IC0JCX0gZWxzZSBpZiAodGVzdF9iaXQo
+SVBTX0VYUEVDVEVEX0JJVCwgJmN0LT5zdGF0dXMpKSB7Cj4+IC0JCQlwcl9kZWJ1ZygibmZfY29u
+bnRyYWNrX2luOiByZWxhdGVkIHBhY2tldCBmb3IgJXBcbiIsCj4+IC0JCQkJIGN0KTsKPj4gLQkJ
+CSpjdGluZm8gPSBJUF9DVF9SRUxBVEVEOwo+PiAtCQl9IGVsc2Ugewo+PiAtCQkJcHJfZGVidWco
+Im5mX2Nvbm50cmFja19pbjogbmV3IHBhY2tldCBmb3IgJXBcbiIsIGN0KTsKPj4gLQkJCSpjdGlu
+Zm8gPSBJUF9DVF9ORVc7Cj4+IC0JCX0KPj4gLQkJKnNldF9yZXBseSA9IDA7Cj4+IC0JfQo+PiAr
+CSpjdGluZm8gPSBuZl9jdF9nZXRfaW5mbyhoKTsKPj4gKwlpZiAoKmN0aW5mbyA9PSBJUF9DVF9F
+U1RBQkxJU0hFRCkKPj4gKwkJcHJfZGVidWcoIm5mX2Nvbm50cmFja19pbjogbm9ybWFsIHBhY2tl
+dCBmb3IgJXBcbiIsIGN0KTsKPj4gKwllbHNlIGlmICgqY3RpbmZvID09IElQX0NUX1JFTEFURUQp
+Cj4+ICsJCXByX2RlYnVnKCJuZl9jb25udHJhY2tfaW46IHJlbGF0ZWQgcGFja2V0IGZvciAlcFxu
+IiwgY3QpOwo+PiArCWVsc2UgaWYgKCpjdGluZm8gPT0gSVBfQ1RfTkVXKQo+PiArCQlwcl9kZWJ1
+ZygibmZfY29ubnRyYWNrX2luOiBuZXcgcGFja2V0IGZvciAlcFxuIiwgY3QpOwo+PiArCSpzZXRf
+cmVwbHkgPSBORl9DVF9ESVJFQ1RJT04oaCkgPT0gSVBfQ1RfRElSX1JFUExZOwo+PiArCj4gCj4g
+VGhpcyByZXN1bHRzIGluIHdvcnNlIGNvZGUgZm9yIG91ciBjb2RlYmFzZS4KPiAKCkkgYWdyZWUg
+dGhhdCB0aGUgc2VwYXJhdGUgY29tcGFyaXNvbnMgZm9yIGRlYnVnZ2luZyBvdXRwdXQgbWFrZXMg
+dGhlIGNvZGUgdWdsaWVyLgoKPiBHaXZlbiB0aGUgbGl0dGxlIGNvZGUgdGhhdCBpcyBjb25zb2xp
+ZGF0ZWQgaW4gdGhpcyBwYXRjaHNldCAodGhlIGxhc3QKPiBsYXJnZXIgcGF0Y2ggOC84IGlzIGJh
+c2ljYWxseSBhIGNvcHkgb2Ygb3VyIE5BVCBwYXRoIGJ1dCBhZGFwdGVkIHRvCj4gdGhlIG9wZW52
+c3dpdGNoIHBhY2tldCBmbG93IGxvZ2ljKSwgSSBkb24ndCB0aGluayB0aGlzIGxpdHRsZSBlZmZv
+cnQKPiBpbiB0aGlzIHBhdGNoIHRvIGNvbnNvbGlkYXRlIHRoaXMgY29kZSBpcyB3b3J0aC4KPiAK
+PiBUaGUgcmlnaHQgd2F5IElNTyB3b3VsZCBiZSB0byBnZXQgb3BlbnZzd2l0Y2ggcGFja2V0IGZs
+b3cgY2xvc2VyIHRvCj4gb3VyIGNvZGViYXNlLCB0aGVuIG1vcmUgY29kZSBjb3VsZCBiZSByZXVz
+ZWQgYnV0IEkgdW5kZXJzdGFuZCB0aGF0IGlzCj4gbm90IHNpbXBsZSB0aGluZy4KPiAKPiBQbGVh
+c2UsIHJldmFtcCBhIG5ldyBwYXRjaHNldCB2ZXJzaW9uIGtlZXBpbmcgdGhpcyBmdW5jdGlvbiB0
+aGF0IHlvdQo+IG5lZWQgaW4geW91ciBmb2xkZXIuCj4gCgpJIGp1c3QgcG9zdGVkIGEgdjYgcmVt
+b3ZpbmcgdGhpcyBzbWFsbCBjb25zb2xpZGF0aW9uLCBhcyB5b3UgcmVxdWVzdGVkIGhlcmUuCgpU
+aGFua3MgZm9yIHRoZSByZXZpZXcsCgogIEphcm5vCgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
+cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
