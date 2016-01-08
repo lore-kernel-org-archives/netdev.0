@@ -1,30 +1,40 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdn: act200: fix MODULE_PARM_DESC() typo
-Date: Fri, 8 Jan 2016 13:58:50 +0300
-Message-ID: <20160108105850.GD32195@mwanda>
+Subject: [patch] irda: toim3232-sir: delete some dead code
+Date: Fri, 8 Jan 2016 14:04:04 +0300
+Message-ID: <20160108110404.GL32195@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no "membase", it was "act_port" that was intended.
+I noticed this code because it has a typo in the module_param(),
+the "trs" at the end of "toim3232fliptrs" should be "rts".  But it's
+dead code so instead of fixing it, I just deleted it.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/isdn/act2000/module.c b/drivers/isdn/act2000/module.c
-index c3a1b06..68073d0 100644
---- a/drivers/isdn/act2000/module.c
-+++ b/drivers/isdn/act2000/module.c
-@@ -37,7 +37,7 @@ MODULE_DESCRIPTION("ISDN4Linux: Driver for IBM Active 2000 ISDN card");
- MODULE_AUTHOR("Fritz Elfert");
- MODULE_LICENSE("GPL");
- MODULE_PARM_DESC(act_bus, "BusType of first card, 1=ISA, 2=MCA, 3=PCMCIA, currently only ISA");
--MODULE_PARM_DESC(membase, "Base port address of first card");
-+MODULE_PARM_DESC(act_port, "Base port address of first card");
- MODULE_PARM_DESC(act_irq, "IRQ of first card");
- MODULE_PARM_DESC(act_id, "ID-String of first card");
- module_param(act_bus, int, 0);
+diff --git a/drivers/net/irda/toim3232-sir.c b/drivers/net/irda/toim3232-sir.c
+index 6d2f559..b977d6d 100644
+--- a/drivers/net/irda/toim3232-sir.c
++++ b/drivers/net/irda/toim3232-sir.c
+@@ -130,16 +130,6 @@ static int toim3232delay = 150;	/* default is 150 ms */
+ module_param(toim3232delay, int, 0);
+ MODULE_PARM_DESC(toim3232delay, "toim3232 dongle write complete delay");
+ 
+-#if 0
+-static int toim3232flipdtr = 0;	/* default is DTR high to reset */
+-module_param(toim3232flipdtr, int, 0);
+-MODULE_PARM_DESC(toim3232flipdtr, "toim3232 dongle invert DTR (Reset)");
+-
+-static int toim3232fliprts = 0;	/* default is RTS high for baud change */
+-module_param(toim3232fliptrs, int, 0);
+-MODULE_PARM_DESC(toim3232fliprts, "toim3232 dongle invert RTS (BR/D)");
+-#endif
+-
+ static int toim3232_open(struct sir_dev *);
+ static int toim3232_close(struct sir_dev *);
+ static int toim3232_change_speed(struct sir_dev *, unsigned);
