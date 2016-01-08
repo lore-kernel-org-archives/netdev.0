@@ -1,59 +1,133 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 16/17] netfilter: nft_byteorder: provide 64bit le/be
- conversion
-Date: Fri, 8 Jan 2016 14:26:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC043B@AcuExch.aculab.com>
-References: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
- <1452261737-7475-17-git-send-email-pablo@netfilter.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
+Date: Fri, 8 Jan 2016 09:38:48 -0500
+Message-ID: <568FC9F8.8040201@mojatatu.com>
+References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810>
+ <568F1EE2.7020107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------010800090302080704000809"
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:62645 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932201AbcAHO3Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 09:29:16 -0500
-In-Reply-To: <1452261737-7475-17-git-send-email-pablo@netfilter.org>
-Content-Language: en-US
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:38421 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951AbcAHOi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 09:38:56 -0500
+Received: by mail-ig0-f175.google.com with SMTP id mw1so74880046igb.1
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 06:38:56 -0800 (PST)
+In-Reply-To: <568F1EE2.7020107@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso
-> Sent: 08 January 2016 14:02
-> From: Florian Westphal <fw@strlen.de>
-> 
-> Needed to convert the (64bit) conntrack counters to BE ordering.
-> 
-...
->  	switch (priv->size) {
-> +	case 8: {
-> +		u64 src64;
-> +
-> +		switch (priv->op) {
-> +		case NFT_BYTEORDER_NTOH:
-> +			for (i = 0; i < priv->len / 8; i++) {
-> +				src64 = get_unaligned_be64(&src[i]);
-> +				src64 = be64_to_cpu((__force __be64)src64);
-> +				put_unaligned_be64(src64, &dst[i]);
-> +			}
-> +			break;
-> +		case NFT_BYTEORDER_HTON:
-> +			for (i = 0; i < priv->len / 8; i++) {
-> +				src64 = get_unaligned_be64(&src[i]);
-> +				src64 = (__force u64)cpu_to_be64(src64);
-> +				put_unaligned_be64(src64, &dst[i]);
-> +			}
-> +			break;
-> +		}
-> +		break;
+This is a multi-part message in MIME format.
+--------------010800090302080704000809
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-That is horrid.
-On a little-endian system you are byteswapping the data 3 times.
-Image the code on a cpu that doesn't support misaligned transfers
-and doesn't have a byteswap instruction.
+On 16-01-07 09:28 PM, John Fastabend wrote:
+>
+> Hi Jamal,
+>
+> per your comment about using pktgen to test qdiscs here is the
+> patch I've been using most the day which has been working well.
+> I'm guessing this is more or less what you had in mind.
+>
 
-	David
+I have attached the one i used over the holidays - see if there are
+any differences(sorry dont have much time right now).
+
+cheers,
+jamal
+
+--------------010800090302080704000809
+Content-Type: text/plain; charset=UTF-8;
+ name="pktgen-patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="pktgen-patch"
+
+ZGlmZiAtLWdpdCBhL25ldC9jb3JlL3BrdGdlbi5jIGIvbmV0L2NvcmUvcGt0Z2VuLmMKaW5k
+ZXggZGU4ZDVjYy4uMzA3NzRmMSAxMDA2NDQKLS0tIGEvbmV0L2NvcmUvcGt0Z2VuLmMKKysr
+IGIvbmV0L2NvcmUvcGt0Z2VuLmMKQEAgLTIxMiw3ICsyMTIsOCBAQAogCiAvKiBYbWl0IG1v
+ZGVzICovCiAjZGVmaW5lIE1fU1RBUlRfWE1JVAkJMAkvKiBEZWZhdWx0IG5vcm1hbCBUWCAq
+LwotI2RlZmluZSBNX05FVElGX1JFQ0VJVkUgCTEJLyogSW5qZWN0IHBhY2tldHMgaW50byBz
+dGFjayAqLworI2RlZmluZSBNX05FVElGX1JFQ0VJVkUJCTEJLyogSW5qZWN0IHBhY2tldHMg
+aW50byBzdGFjayAqLworI2RlZmluZSBNX05FVElGX1FVRVVFX1hNSVQJMgkvKiBJbmplY3Qg
+cGFja2V0cyBpbnRvIHFkaXNjICovCiAKIC8qIElmIGxvY2sgLS0gcHJvdGVjdHMgdXBkYXRp
+bmcgb2YgaWZfbGlzdCAqLwogI2RlZmluZSAgIGlmX2xvY2sodCkgICAgICAgICAgIHNwaW5f
+bG9jaygmKHQtPmlmX2xvY2spKTsKQEAgLTYxNiw3ICs2MTcsOCBAQCBzdGF0aWMgaW50IHBr
+dGdlbl9pZl9zaG93KHN0cnVjdCBzZXFfZmlsZSAqc2VxLCB2b2lkICp2KQogCQlzZXFfcHJp
+bnRmKHNlcSwgIiAgICAgdG9zOiAweCUwMnhcbiIsIHBrdF9kZXYtPnRvcyk7CiAKIAlpZiAo
+cGt0X2Rldi0+dHJhZmZpY19jbGFzcykKLQkJc2VxX3ByaW50ZihzZXEsICIgICAgIHRyYWZm
+aWNfY2xhc3M6IDB4JTAyeFxuIiwgcGt0X2Rldi0+dHJhZmZpY19jbGFzcyk7CisJCXNlcV9w
+cmludGYoc2VxLCAiICAgICB0cmFmZmljX2NsYXNzOiAweCUwMnhcbiIsCisJCQkgICBwa3Rf
+ZGV2LT50cmFmZmljX2NsYXNzKTsKIAogCWlmIChwa3RfZGV2LT5idXJzdCA+IDEpCiAJCXNl
+cV9wcmludGYoc2VxLCAiICAgICBidXJzdDogJWRcbiIsIHBrdF9kZXYtPmJ1cnN0KTsKQEAg
+LTYyNCw4ICs2MjYsMTIgQEAgc3RhdGljIGludCBwa3RnZW5faWZfc2hvdyhzdHJ1Y3Qgc2Vx
+X2ZpbGUgKnNlcSwgdm9pZCAqdikKIAlpZiAocGt0X2Rldi0+bm9kZSA+PSAwKQogCQlzZXFf
+cHJpbnRmKHNlcSwgIiAgICAgbm9kZTogJWRcbiIsIHBrdF9kZXYtPm5vZGUpOwogCisJaWYg
+KHBrdF9kZXYtPnhtaXRfbW9kZSA9PSBNX1NUQVJUX1hNSVQpCisJCXNlcV9wdXRzKHNlcSwg
+IiAgICAgeG1pdF9tb2RlOiBxZGlzY19ieXBhc3NcbiIpOwogCWlmIChwa3RfZGV2LT54bWl0
+X21vZGUgPT0gTV9ORVRJRl9SRUNFSVZFKQogCQlzZXFfcHV0cyhzZXEsICIgICAgIHhtaXRf
+bW9kZTogbmV0aWZfcmVjZWl2ZVxuIik7CisJaWYgKHBrdF9kZXYtPnhtaXRfbW9kZSA9PSBN
+X05FVElGX1FVRVVFX1hNSVQpCisJCXNlcV9wdXRzKHNlcSwgIiAgICAgeG1pdF9tb2RlOiBx
+ZGlzY194bWl0XG4iKTsKIAogCXNlcV9wdXRzKHNlcSwgIiAgICAgRmxhZ3M6ICIpOwogCkBA
+IC0xMTk4LDYgKzEyMDQsMjIgQEAgc3RhdGljIHNzaXplX3QgcGt0Z2VuX2lmX3dyaXRlKHN0
+cnVjdCBmaWxlICpmaWxlLAogCQkJICogYXQgbW9kdWxlIGxvYWRpbmcgdGltZQogCQkJICov
+CiAJCQlwa3RfZGV2LT5jbG9uZV9za2IgPSAwOworCQl9IGVsc2UgaWYgKHN0cmNtcChmLCAi
+cWRpc2NfeG1pdCIpID09IDApIHsKKwkJCS8qIGNsb25lX3NrYiBzZXQgZWFybGllciwgbm90
+IHN1cHBvcnRlZCBpbiB0aGlzIG1vZGUgKi8KKwkJCWlmIChwa3RfZGV2LT5jbG9uZV9za2Ig
+PiAwKQorCQkJCXJldHVybiAtRU5PVFNVUFA7CisKKwkJCXBrdF9kZXYtPnhtaXRfbW9kZSA9
+IE1fTkVUSUZfUVVFVUVfWE1JVDsKKworCQkJLyogbWFrZSBzdXJlIG5ldyBwYWNrZXQgaXMg
+YWxsb2NhdGVkIGV2ZXJ5IHRpbWUKKwkJCSAqIHBrdGdlbl94bWl0KCkgaXMgY2FsbGVkCisJ
+CQkgKi8KKwkJCXBrdF9kZXYtPmxhc3Rfb2sgPSAxOworCisJCQkvKiBvdmVycmlkZSBjbG9u
+ZV9za2IgaWYgdXNlciBwYXNzZWQgZGVmYXVsdCB2YWx1ZQorCQkJICogYXQgbW9kdWxlIGxv
+YWRpbmcgdGltZQorCQkJICovCisJCQlwa3RfZGV2LT5jbG9uZV9za2IgPSAwOwogCQl9IGVs
+c2UgewogCQkJc3ByaW50ZihwZ19yZXN1bHQsCiAJCQkJInhtaXRfbW9kZSAtOiVzOi0gdW5r
+bm93blxuQXZhaWxhYmxlIG1vZGVzOiAlcyIsCkBAIC0zMzYxLDYgKzMzODMsMjMgQEAgc3Rh
+dGljIHZvaWQgcGt0Z2VuX3dhaXRfZm9yX3NrYihzdHJ1Y3QgcGt0Z2VuX2RldiAqcGt0X2Rl
+dikKIAlwa3RfZGV2LT5pZGxlX2FjYyArPSBrdGltZV90b19ucyhrdGltZV9zdWIoa3RpbWVf
+Z2V0KCksIGlkbGVfc3RhcnQpKTsKIH0KIAorc3RhdGljIGlubGluZSBuZXRkZXZfdHhfdCBu
+ZXRkZXZxX3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwKKwkJCQkJICAgIHN0cnVj
+dCBuZXRfZGV2aWNlICpkZXYsCisJCQkJCSAgICBzdHJ1Y3QgbmV0ZGV2X3F1ZXVlICp0eHEs
+IGJvb2wgbW9yZSkKK3sKKwljb25zdCBzdHJ1Y3QgbmV0X2RldmljZV9vcHMgKm9wcyA9IGRl
+di0+bmV0ZGV2X29wczsKKwlpbnQgcmM7CisKKwlza2ItPnhtaXRfbW9yZSA9IG1vcmUgPyAx
+IDogMDsKKwlza2ItPmRldiA9IGRldjsKKwlyYyA9IGRldl9xdWV1ZV94bWl0KHNrYik7CisJ
+aWYgKGxpa2VseShyYyA9PSBORVRfWE1JVF9TVUNDRVNTIHx8IHJjID09IE5FVF9YTUlUX0NO
+KSkgeworCQl0eHFfdHJhbnNfdXBkYXRlKHR4cSk7CisJfQorCisJcmV0dXJuIHJjOworfQor
+CiBzdGF0aWMgdm9pZCBwa3RnZW5feG1pdChzdHJ1Y3QgcGt0Z2VuX2RldiAqcGt0X2RldikK
+IHsKIAl1bnNpZ25lZCBpbnQgYnVyc3QgPSBBQ0NFU1NfT05DRShwa3RfZGV2LT5idXJzdCk7
+CkBAIC0zNDMyLDggKzM0NzEsNTQgQEAgc3RhdGljIHZvaWQgcGt0Z2VuX3htaXQoc3RydWN0
+IHBrdGdlbl9kZXYgKnBrdF9kZXYpCiAjZW5kaWYKIAkJfSB3aGlsZSAoLS1idXJzdCA+IDAp
+OwogCQlnb3RvIG91dDsgLyogU2tpcHMgeG1pdF9tb2RlIE1fU1RBUlRfWE1JVCAqLworCX0g
+ZWxzZSBpZiAocGt0X2Rldi0+eG1pdF9tb2RlID09IE1fTkVUSUZfUVVFVUVfWE1JVCkgewor
+CisJCXR4cSA9IHNrYl9nZXRfdHhfcXVldWUob2RldiwgcGt0X2Rldi0+c2tiKTsKKwkJbG9j
+YWxfYmhfZGlzYWJsZSgpOworCisJCWlmICh1bmxpa2VseShuZXRpZl94bWl0X2Zyb3plbl9v
+cl9kcnZfc3RvcHBlZCh0eHEpKSkgeworCQkJcmV0ID0gTkVUREVWX1RYX0JVU1k7CisJCQlw
+a3RfZGV2LT5sYXN0X29rID0gMDsKKwkJCWdvdG8gb3V0OworCQl9CisJCWF0b21pY19hZGQo
+YnVyc3QsICZwa3RfZGV2LT5za2ItPnVzZXJzKTsKKworcXhtaXRfbW9yZToKKwkJcmV0ID0g
+bmV0ZGV2cV9zdGFydF94bWl0KHBrdF9kZXYtPnNrYiwgb2RldiwgdHhxLCAtLWJ1cnN0ID4g
+MCk7CisKKwkJc3dpdGNoIChyZXQpIHsKKwkJY2FzZSBORVRERVZfVFhfT0s6CisJCQlwa3Rf
+ZGV2LT5sYXN0X29rID0gMTsKKwkJCXBrdF9kZXYtPnNvZmFyKys7CisJCQlwa3RfZGV2LT5z
+ZXFfbnVtKys7CisJCQlwa3RfZGV2LT50eF9ieXRlcyArPSBwa3RfZGV2LT5sYXN0X3BrdF9z
+aXplOworCQkJaWYgKGJ1cnN0ID4gMCAmJiAhbmV0aWZfeG1pdF9mcm96ZW5fb3JfZHJ2X3N0
+b3BwZWQodHhxKSkKKwkJCQlnb3RvIHF4bWl0X21vcmU7CisJCQlicmVhazsKKwkJY2FzZSBO
+RVRfWE1JVF9EUk9QOgorCQljYXNlIE5FVF9YTUlUX0NOOgorCQljYXNlIE5FVF9YTUlUX1BP
+TElDRUQ6CisJCQkvKiBza2IgaGFzIGJlZW4gY29uc3VtZWQgKi8KKwkJCXBrdF9kZXYtPmVy
+cm9ycysrOworCQkJYnJlYWs7CisJCWRlZmF1bHQ6IC8qIERyaXZlcnMgYXJlIG5vdCBzdXBw
+b3NlZCB0byByZXR1cm4gb3RoZXIgdmFsdWVzISAqLworCQkJbmV0X2luZm9fcmF0ZWxpbWl0
+ZWQoIiVzIHhtaXQgZXJyb3I6ICVkXG4iLAorCQkJCQkgICAgIHBrdF9kZXYtPm9kZXZuYW1l
+LCByZXQpOworCQkJcGt0X2Rldi0+ZXJyb3JzKys7CisJCQkvKiBmYWxsdGhydSAqLworCQlj
+YXNlIE5FVERFVl9UWF9MT0NLRUQ6CisJCWNhc2UgTkVUREVWX1RYX0JVU1k6CisJCQkvKiBS
+ZXRyeSBpdCBuZXh0IHRpbWUgKi8KKwkJCWF0b21pY19kZWMoJihwa3RfZGV2LT5za2ItPnVz
+ZXJzKSk7CisJCQlwa3RfZGV2LT5sYXN0X29rID0gMDsKKwkJfQorCQlpZiAodW5saWtlbHko
+YnVyc3QpKQorCQkJYXRvbWljX3N1YihidXJzdCwgJnBrdF9kZXYtPnNrYi0+dXNlcnMpOwor
+CisJCWdvdG8gb3V0OyAvKiBTa2lwcyB4bWl0X21vZGUgTV9TVEFSVF9YTUlUICovCiAJfQog
+CisJLypNX1NUQVJUX1hNSVQqLwogCXR4cSA9IHNrYl9nZXRfdHhfcXVldWUob2RldiwgcGt0
+X2Rldi0+c2tiKTsKIAogCWxvY2FsX2JoX2Rpc2FibGUoKTsKQEAgLTM0NzgsNiArMzU2Myw3
+IEBAIHhtaXRfbW9yZToKIAl9CiAJaWYgKHVubGlrZWx5KGJ1cnN0KSkKIAkJYXRvbWljX3N1
+YihidXJzdCwgJnBrdF9kZXYtPnNrYi0+dXNlcnMpOworCiB1bmxvY2s6CiAJSEFSRF9UWF9V
+TkxPQ0sob2RldiwgdHhxKTsKIAo=
+--------------010800090302080704000809--
