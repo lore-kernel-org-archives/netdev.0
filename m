@@ -1,96 +1,40 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Thu, 07 Jan 2016 17:02:08 -0800
-Message-ID: <568F0A90.8040109@gmail.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>	<1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com> <877fjlfrid.fsf@vitty.brq.redhat.com>
+Subject: Re: [PATCH net-next v2] net, sched: add clsact qdisc
+Date: Thu, 07 Jan 2016 17:03:36 -0800
+Message-ID: <568F0AE8.9060408@gmail.com>
+References: <61198814638d88ce3555dbecf8ef875523b95743.1452197856.git.daniel@iogearbox.net>	 <568EF308.1060505@gmail.com> <1452211279.8255.221.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>,
-	Simon Xiao <sixiao@microsoft.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <877fjlfrid.fsf@vitty.brq.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
+	alexei.starovoitov@gmail.com, jhs@mojatatu.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36587 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbcAHBDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 20:03:50 -0500
+Received: by mail-pa0-f47.google.com with SMTP id yy13so179767953pab.3
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 17:03:50 -0800 (PST)
+In-Reply-To: <1452211279.8255.221.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-01-07 05:28 AM, Vitaly Kuznetsov wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
+On 16-01-07 04:01 PM, Eric Dumazet wrote:
+> On Thu, 2016-01-07 at 15:21 -0800, John Fastabend wrote:
+>>  Further we can build interesting queue
+>> select logic now and maybe remove select_queue() from the ndo ops
+>> eventually? With this and xps there really is no reason to have drivers
+>> implementing some under-the-covers logic anymore.
 > 
->> On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
->>> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
->>>  VLAN ID to flow_keys")) introduced a performance regression in netvsc
->>> driver. Is problem is, however, not the above mentioned commit but the
->>> fact that netvsc_set_hash() function did some assumptions on the struct
->>> flow_keys data layout and this is wrong. We need to extract the data we
->>> need (src/dst addresses and ports) after the dissect.
->>>
->>> The issue could also be solved in a completely different way: as suggested
->>> by Eric instead of our own homegrown netvsc_set_hash() we could use
->>> skb_get_hash() which does more or less the same. Unfortunately, the
->>> testing done by Simon showed that Hyper-V hosts are not happy with our
->>> Jenkins hash, selecting the output queue with the current algorithm based
->>> on Toeplitz hash works significantly better.
->>
+> I guess you missed the "hv_netvsc: don't make assumptions on struct
+> flow_keys layout" thread today ;)
+> 
+> 
+> 
 
-Also can I ask the maybe naive question. It looks like the hypervisor
-is populating some table via a mailbox msg and this is used to select
-the queues I guess with some sort of weighting function?
+Ah thanks for the pointer. That seems a bit odd to me at least I can't
+parse out what that table is useful for.
 
-What happens if you just remove select_queue altogether? Or maybe just
-what is this 16 entry table doing? How does this work on my larger
-systems with 64+ cores can I only use 16 cores? Sorry I really have
-no experience with hyperV and this got me curious.
-
-Thanks,
-John
-
->> Were tests done on IPv6 traffic ?
->>
-> 
-> Simon, could you please test this patch for IPv6 and show us the numbers?
-> 
->> Toeplitz hash takes at least 100 ns to hash 12 bytes (one iteration per
->> bit : 96 iterations)
->>
->> For IPv6 it is 3 times this, since we have to hash 36 bytes.
->>
->> I do not see how it can compete with skb_get_hash() that directly gives
->> skb->hash for local TCP flows.
->>
-> 
-> My guess is that this is not the bottleneck, something is happening
-> behind the scene with out packets in Hyper-V host (e.g. re-distributing
-> them to hardware queues?) but I don't know the internals, Microsoft
-> folks could probably comment.
-> 
-> 
->> See commits b73c3d0e4f0e1961e15bec18720e48aabebe2109
->> ("net: Save TX flow hash in sock and set in skbuf on xmit")
->> and 877d1f6291f8e391237e324be58479a3e3a7407c
->> ("net: Set sk_txhash from a random number")
->>
->> I understand Microsoft loves Toeplitz, but this looks not well placed
->> here.
->>
->> I suspect there is another problem.
->>
->> Please share your numbers and test methodology, and the alternative
->> patch Simon tested so that we can double check it.
->>
-> 
-> Alternative patch which uses skb_get_hash() attached. Simon, could you
-> please share the rest (environment, metodology, numbers) with us here?
-> Thanks!
-> 
->> Thanks.
->>
->> PS: For the time being this patch can probably be applied on -net tree,
->> as it fixes a real bug.
-> 
+.John
