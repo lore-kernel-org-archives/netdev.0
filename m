@@ -1,32 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
-Date: Fri, 08 Jan 2016 13:36:04 -0800
-Message-ID: <1452288964.8255.234.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810>
-	 <568FD5B7.2060602@gmail.com> <568FD7FC.8020005@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
+Date: Fri, 8 Jan 2016 22:36:40 +0100
+Message-ID: <20160108213640.GA28440@lunn.ch>
+References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
+ <20160108004238.GD4389@lunn.ch>
+ <568F1A1B.1040808@gmail.com>
+ <20160108192436.GB26321@lunn.ch>
+ <56901B96.8020606@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net, jhs@mojatatu.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Woojung.Huh@microchip.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36645 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754351AbcAHVgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 16:36:06 -0500
-Received: by mail-pa0-f46.google.com with SMTP id yy13so195673518pab.3
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 13:36:06 -0800 (PST)
-In-Reply-To: <568FD7FC.8020005@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44284 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754560AbcAHVgn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 16:36:43 -0500
+Content-Disposition: inline
+In-Reply-To: <56901B96.8020606@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-01-08 at 07:38 -0800, John Fastabend wrote:
+> Sounds good, I will send some patches shortly which really fix the PHY
+> state machine not to poll PHYs configured with PHY_IGNORE_INTERRUPT and
+> fixing phy_mac_interrupt() to be callable in hard IRQ context (finally).
 
-> Also I'll respin this with a change so xmit_{drop|cn|policed} are not
-> counted as tx_bytes and pkts sent (idea from Jamal). However I won't
-> abort the burst because I do like this stressing the entry point of my
-> qdisc.
+This last be could be interesting. One of the things i needed to do
+was change request_irq to request_threaded_irq(). Because i need to do
+MDIO reads to determine what PHY causes the interrupts, the code is in
+thread context when it actually fires the interrupt.
 
-This reminds me that bonding/team drivers always return NETDEV_TX_OK
-status, even if the chosen slave could not queue or send the packet.
+The core IRQ code is happy to turn an interrupt context interrupt into
+a threaded context interrupt, but it cannot do it the other way
+around.
+
+Using threaded interrupts would also allow the phylib code to be
+simplified, but i didn't get that far yet.
+
+	    Andrew
