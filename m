@@ -1,51 +1,99 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
-Date: Fri, 8 Jan 2016 10:03:18 -0800
-Message-ID: <CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
-References: <568E9BF9.2050001@solarflare.com>
-	<568E9C9B.3090408@solarflare.com>
-	<CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
-	<568FD844.3020101@solarflare.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [RFC PATCH net-next 3/3] macsec: introduce IEEE 802.1AE driver
+Date: Fri, 8 Jan 2016 19:06:48 +0100
+Message-ID: <20160108180648.GA30814@bistromath.redhat.com>
+References: <cover.1450964358.git.sd@queasysnail.net>
+ <1910d94579a647d1c3b23a348778458d2f1f97a1.1450964358.git.sd@queasysnail.net>
+ <1451988280.7710.28.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f194.google.com ([209.85.214.194]:33268 "EHLO
-	mail-ob0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbcAHSDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 13:03:18 -0500
-Received: by mail-ob0-f194.google.com with SMTP id oj9so934169obc.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 10:03:18 -0800 (PST)
-In-Reply-To: <568FD844.3020101@solarflare.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42047 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753972AbcAHSGv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 13:06:51 -0500
+Content-Disposition: inline
+In-Reply-To: <1451988280.7710.28.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 8, 2016 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 08/01/16 03:46, Alexander Duyck wrote:
->> So I just tried testing your patches and as it turns out you are still
->> missing some bits.  In this patch for instance the calls to
->> udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
->> that you pass false for the last parameter and allow the use of your
->> udp_set_csum modifications.
->>
->> - Alex
-> Are you remembering to enable outer checksums on your vxlan tunnel?  It's
->  the vxflags & VXLAN_F_UDP_CSUM check, and to enable it you need a recent
->  iproute2 so you can use the 'udpcsum' option when creating the vxlan device.
+Hi Paolo,
 
-No I hadn't done that.  I kind of assumed that the checksums were just
-being enabled by default.  That might explain the some of the issues I
-had..  ;-)
+2016-01-05, 11:04:40 +0100, Paolo Abeni wrote:
+> On Mon, 2015-12-28 at 13:38 +0100, Sabrina Dubroca wrote:
+> > +#define MACSEC_SCI_LEN 8
+> > +
+> > +/* SecTAG length = macsec_eth_header without the optional SCI */
+> > +#define MACSEC_TAG_LEN 6
+> > +
+> > +struct macsec_eth_header {
+> > +	struct ethhdr eth;
+> > +	/* SecTAG */
+> > +	u8  tci_an;
+> > +#if defined(__LITTLE_ENDIAN_BITFIELD)
+> > +	u8  short_length:6,
+> > +		  unused:2;
+> > +#elif defined(__BIG_ENDIAN_BITFIELD)
+> > +	u8        unused:2,
+> > +	    short_length:6;
+> > +#else
+> > +#error	"Please fix <asm/byteorder.h>"
+> > +#endif
+> > +	__be32 packet_number;
+> > +	u8 secure_channel_id[8]; /* optional */
+> > +} __packed;
+> 
+> > +#define MACSEC_NEEDED_HEADROOM sizeof(struct macsec_eth_header)
+> 
+> The needed_headroom field does not need to include the hard_header_len,
+> which, for macsec devices, is set to ETH_HLEN by ether_setup().
+> 
+> Since on xmit path you can push up to MACSEC_TAG_LEN + MACSEC_SCI_LEN +
+> sizeof(__be16) bytes on the skb head, possibly that should be a better
+> MACSEC_NEEDED_HEADROOM value.
 
-> It would be nice if that could just default to enabled now that we have LCO,
->  but I don't think we can change that now (ABIs set in stone and all that),
->  so I think it would have to be iproute2 that turned it on by default.
+It seems you're right, I will change that.
 
-If anything we might want to expose the capabilities of the kernel so
-that iproute2 could make an informed decision on if it want to enable
-the outer checksum by default or not.
 
-- Alex
+> > +static void macsec_count_tx(struct sk_buff *skb, struct macsec_tx_sc *tx_sc,
+> > +			    struct macsec_tx_sa *tx_sa)
+> > +{
+> > +	struct pcpu_tx_sc_stats *txsc_stats = this_cpu_ptr(tx_sc->stats);
+> > +
+> > +	u64_stats_update_begin(&txsc_stats->syncp);
+> > +	if (tx_sc->encrypt) {
+> > +		txsc_stats->stats.OutOctetsEncrypted += skb->len;
+> > +		txsc_stats->stats.OutPktsEncrypted++;
+> > +		this_cpu_inc(tx_sa->stats->OutPktsEncrypted);
+> 
+> The last line is probably a duplicate
+
+Actually no, we keep separate stats for the secure channel (SC) and
+each individual secure association (SA) within the channel.
+
+
+> > +		struct pcpu_secy_stats *secy_stats = this_cpu_ptr(macsec->stats);
+> > +
+> > +		if (macsec->secy.validate_frames == MACSEC_VALIDATE_STRICT) {
+> > +			u64_stats_update_begin(&secy_stats->syncp);
+> > +			secy_stats->stats.InPktsNoTag++;
+> > +			u64_stats_update_end(&secy_stats->syncp);
+> > +			continue;
+> > +		}
+> 
+> Can the 64_stats_update block be replaced by a single:
+> this_cpu_inc(macsec->stats->InPktsNoTag) ?
+> 
+> There are a few others similar blocks below.
+
+I don't think so.  this_cpu_inc doesn't include the protection that
+u64_stats_update_begin provides.
+
+
+Thanks.
+
+-- 
+Sabrina
