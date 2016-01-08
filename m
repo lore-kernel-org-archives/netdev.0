@@ -1,40 +1,48 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH] arm64: net: bpf: don't BUG() on large shifts
-Date: Fri, 8 Jan 2016 15:44:23 +0000
-Message-ID: <20160108154423.GC11228@arm.com>
-References: <1452015543-6790-1-git-send-email-rabin@rab.in>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
+Date: Fri, 8 Jan 2016 16:51:11 +0100
+Message-ID: <20160108155111.GF4389@lunn.ch>
+References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
+ <20160108004238.GD4389@lunn.ch>
+ <568F1A1B.1040808@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D4049389F@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, zlim.lnx@gmail.com,
-	yang.shi@linaro.org, catalin.marinas@arm.com,
-	linux-arm-kernel@lists.infradead.org
-To: Rabin Vincent <rabin@rab.in>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+To: Woojung.Huh@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:46133 "EHLO foss.arm.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:44082 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750860AbcAHPoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 10:44:25 -0500
+	id S1750860AbcAHPvP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 10:51:15 -0500
 Content-Disposition: inline
-In-Reply-To: <1452015543-6790-1-git-send-email-rabin@rab.in>
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D4049389F@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 05, 2016 at 06:39:03PM +0100, Rabin Vincent wrote:
-> Attempting to generate UBFM/SBFM instructions with shifts that can't be
-> encoded in the immediate fields of the opcodes leads to a trigger of a
-> BUG() in the instruction generation code.  As the ARMv8 ARM says: "The
-> shift amounts must be in the range 0 to one less than the register width
-> of the instruction, inclusive."  Make the JIT reject unencodable shifts
-> instead of crashing.
+> As you may already know, USB Interrupt Pipe is not actual interrupt and
+> USB driver is beyond USB Host driver which deals with HW interrupt directly over
+> request_irq(). So even we can put some code in USB Host driver to interface with 
+> PHYLIB, it is more likely adding another USB stack to handle this pseudo interrupt.
+> I don't think it's good approach to solve this problem.
 
-I moaned about those BUG_ONs when they were introduced:
+You don't need any code in the USB irq handler.
 
-  https://lkml.org/lkml/2014/7/17/438
+I'm not too familiar with USB networking, but looking at usbnet.c, it
+looks like intr_complete() gets called when there is a USB Interrupt
+Pipe event. That calls into the drivers status() method.
 
-The response then was that the verifier would catch these issues so
-there was nothing to worry about. Has something changed so that is no
-longer the case? Do we need to consider a different way of rejecting
-invalid instructions at the encoding stage rather than bringing down the
-kernel?
+In this status method, you need to trigger a Linux interrupt. By that,
+i mean you need to call handle_nested_irq().
 
-Will
+What i found useful was looking at how drivers/gpio/gpip-pca953x.c
+works. That is an i2c GPIO expander, which supports GPIO
+interrupts. When the device indicates an interrupt event, you need to
+read an i2c register on the device to see which GPIO line has
+triggered it, and then call handle_nestd_irq() for the corresponding
+interrupt.
+
+Humm, in fact, take a look at drivers/gpio/gpio-dln2.c It is a USB
+GPIO expander, with interrupt support.
+
+	Andrew
