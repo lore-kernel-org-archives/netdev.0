@@ -1,139 +1,86 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: Re: [PATCH] net: preserve IP control block during GSO segmentation
-Date: Fri, 8 Jan 2016 10:11:31 -0200
-Message-ID: <20160108121130.GL27290@indiana.gru.redhat.com>
-References: <145225444176.22215.2003378381077166898.stgit@zurg>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: Re: [PATCH RESEND] bluetooth:hicp:Fix error handling in the function hidp_connection_del
+Date: Fri, 8 Jan 2016 13:16:13 +0100
+Message-ID: <CANq1E4R7TtQ2ckSF3GYHMoDihCfDKO5EX8kQGHH=VB9xrdhtjQ@mail.gmail.com>
+References: <1451422549-22071-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	dev@openvswitch.org, Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	Pravin Shelar <pshelar@nicira.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Konstantin Khlebnikov <koct9i@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56194 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932105AbcAHMLh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 07:11:37 -0500
-Content-Disposition: inline
-In-Reply-To: <145225444176.22215.2003378381077166898.stgit@zurg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, tedd.an@intel.com,
+	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1451422549-22071-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 08, 2016 at 03:00:41PM +0300, Konstantin Khlebnikov wrote:
-> Skb_gso_segment() uses skb control block during segmentation.
-> This patch adds 32-bytes room for previous control block which
-> will be copied into all resulting segments.
-> 
-> This patch fixes kernel crash during fragmenting forwarded packets.
-> Fragmentation requires valid IP CB in skb for clearing ip options.
-> Also patch removes custom save/restore in ovs code, now it's redundant.
-> 
-> Signed-off-by: Konstantin Khlebnikov <koct9i@gmail.com>
-> Link: http://lkml.kernel.org/r/CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com
+Hi
+
+On Tue, Dec 29, 2015 at 9:55 PM, Nicholas Krause <xerofoify@gmail.com> wrote:
+> This fixes error handling in the function hidp_connection_del to
+> properly check if the internal call to hidp_send_ctrl_message has
+> failed by returning a error code and if so immediately return this
+> error code to the caller of hidp_connection_del to signal that a
+> failed call has occurred that needs to be handled by this function's
+> caller.
+>
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 > ---
->  include/linux/skbuff.h     |    3 ++-
->  net/core/dev.c             |    5 +++++
->  net/ipv4/ip_output.c       |    1 +
->  net/openvswitch/datapath.c |    4 +---
->  net/xfrm/xfrm_output.c     |    2 ++
->  5 files changed, 11 insertions(+), 4 deletions(-)
-> 
-
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 4355129fff91..9147f9f34cbe 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -3446,7 +3446,8 @@ struct skb_gso_cb {
->  	int	encap_level;
->  	__u16	csum_start;
->  };
-> -#define SKB_GSO_CB(skb) ((struct skb_gso_cb *)(skb)->cb)
-> +#define SKB_SGO_CB_OFFSET	32
-> +#define SKB_GSO_CB(skb) ((struct skb_gso_cb *)((skb)->cb + SKB_SGO_CB_OFFSET))
->  
->  static inline int skb_tnl_header_len(const struct sk_buff *inner_skb)
+>  net/bluetooth/hidp/core.c | 17 ++++++++++-------
+>  1 file changed, 10 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+> index f1a117f..13aa6d0 100644
+> --- a/net/bluetooth/hidp/core.c
+> +++ b/net/bluetooth/hidp/core.c
+> @@ -1360,6 +1360,7 @@ int hidp_connection_del(struct hidp_conndel_req *req)
 >  {
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index ae00b894e675..7f00f2439770 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2542,6 +2542,8 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
->   *
->   *	It may return NULL if the skb requires no segmentation.  This is
->   *	only possible when GSO is used for verifying header integrity.
-> + *
-> + *	Segmentation preserves SKB_SGO_CB_OFFSET bytes of previous skb cb.
->   */
->  struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
->  				  netdev_features_t features, bool tx_path)
-> @@ -2556,6 +2558,9 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
->  			return ERR_PTR(err);
->  	}
->  
-> +	BUILD_BUG_ON(SKB_SGO_CB_OFFSET +
-> +		     sizeof(*SKB_GSO_CB(skb)) > sizeof(skb->cb));
-> +
->  	SKB_GSO_CB(skb)->mac_offset = skb_headroom(skb);
->  	SKB_GSO_CB(skb)->encap_level = 0;
->  
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index 4233cbe47052..59ed4b89b67a 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -240,6 +240,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
->  	 * from host network stack.
->  	 */
->  	features = netif_skb_features(skb);
-> +	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
->  	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
->  	if (IS_ERR_OR_NULL(segs)) {
->  		kfree_skb(skb);
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 91a8b004dc51..b1b380ee667d 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -336,12 +336,10 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
->  	unsigned short gso_type = skb_shinfo(skb)->gso_type;
->  	struct sw_flow_key later_key;
->  	struct sk_buff *segs, *nskb;
-> -	struct ovs_skb_cb ovs_cb;
->  	int err;
->  
-> -	ovs_cb = *OVS_CB(skb);
-> +	BUILD_BUG_ON(sizeof(*OVS_CB(skb)) > SKB_SGO_CB_OFFSET);
->  	segs = __skb_gso_segment(skb, NETIF_F_SG, false);
-> -	*OVS_CB(skb) = ovs_cb;
->  	if (IS_ERR(segs))
->  		return PTR_ERR(segs);
->  	if (segs == NULL)
+>         u32 valid_flags = BIT(HIDP_VIRTUAL_CABLE_UNPLUG);
+>         struct hidp_session *session;
+> +       int err;
+>
+>         if (req->flags & ~valid_flags)
+>                 return -EINVAL;
+> @@ -1368,14 +1369,16 @@ int hidp_connection_del(struct hidp_conndel_req *req)
+>         if (!session)
+>                 return -ENOENT;
+>
+> -       if (req->flags & BIT(HIDP_VIRTUAL_CABLE_UNPLUG))
+> -               hidp_send_ctrl_message(session,
+> -                                      HIDP_TRANS_HID_CONTROL |
+> -                                        HIDP_CTRL_VIRTUAL_CABLE_UNPLUG,
+> -                                      NULL, 0);
+> -       else
+> +       if (req->flags & BIT(HIDP_VIRTUAL_CABLE_UNPLUG)) {
+> +               err = hidp_send_ctrl_message(session,
+> +                                            HIDP_TRANS_HID_CONTROL |
+> +                                            HIDP_CTRL_VIRTUAL_CABLE_UNPLUG,
+> +                                            NULL, 0);
+> +               if (err)
+> +                       return err;
 
-You are missing this hunk.
+This leaks a reference to 'session'.
 
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -359,7 +359,6 @@ static int queue_gso_packets(struct datapath *dp, struct
-sk_buff *skb,
-        /* Queue all of the segments. */
-        skb = segs;
-        do {
--               *OVS_CB(skb) = ovs_cb;
-                if (gso_type & SKB_GSO_UDP && skb != segs)
-                        key = &later_key;
+> +       } else {
+>                 l2cap_unregister_user(session->conn, &session->user);
+> -
+> +       }
+>         hidp_session_put(session);
 
+I'm not very convinced that this is a good idea. Transmission is
+handled async, hence all you catch here is OOM. Nothing interesting
+can be returned, and there's nothing sane the caller can do to handle
+the error. I'd keep the code as is.
 
-> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-> index cc3676eb6239..ff4a91fcab9f 100644
-> --- a/net/xfrm/xfrm_output.c
-> +++ b/net/xfrm/xfrm_output.c
-> @@ -167,6 +167,8 @@ static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb
->  {
->  	struct sk_buff *segs;
->  
-> +	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
-> +	BUILD_BUG_ON(sizeof(*IP6CB(skb)) > SKB_SGO_CB_OFFSET);
->  	segs = skb_gso_segment(skb, 0);
->  	kfree_skb(skb);
->  	if (IS_ERR(segs))
-> 
+Thanks
+David
+
+>
+>         return 0;
+> --
+> 2.1.4
+>
