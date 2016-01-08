@@ -1,208 +1,160 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/17] netfilter: nf_tables: release objects on netns destruction
-Date: Fri,  8 Jan 2016 15:02:01 +0100
-Message-ID: <1452261737-7475-2-git-send-email-pablo@netfilter.org>
-References: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/17] Netfilter updates for net-next
+Date: Fri,  8 Jan 2016 15:02:00 +0100
+Message-ID: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We have to release the existing objects on netns removal otherwise we
-leak them. Chains are unregistered in first place to make sure no
-packets are walking on our rules and sets anymore.
+Hi David,
 
-The object release happens by when we unregister the family via
-nft_release_afinfo() which is called from nft_unregister_afinfo() from
-the corresponding __net_exit path in every family.
+The following patchset contains Netfilter updates for net-next, they ar=
+e:
 
-Reported-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/net/netfilter/nf_tables.h       |  2 +-
- net/bridge/netfilter/nf_tables_bridge.c |  2 +-
- net/ipv4/netfilter/nf_tables_arp.c      |  2 +-
- net/ipv4/netfilter/nf_tables_ipv4.c     |  2 +-
- net/ipv6/netfilter/nf_tables_ipv6.c     |  2 +-
- net/netfilter/nf_tables_api.c           | 47 +++++++++++++++++++++++++++++++--
- net/netfilter/nf_tables_inet.c          |  2 +-
- net/netfilter/nf_tables_netdev.c        |  2 +-
- 8 files changed, 52 insertions(+), 9 deletions(-)
+1) Release nf_tables objects on netns destructions via
+   nft_release_afinfo().
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index b313cda..a50f139 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -880,7 +880,7 @@ struct nft_af_info {
- };
- 
- int nft_register_afinfo(struct net *, struct nft_af_info *);
--void nft_unregister_afinfo(struct nft_af_info *);
-+void nft_unregister_afinfo(struct net *, struct nft_af_info *);
- 
- int nft_register_chain_type(const struct nf_chain_type *);
- void nft_unregister_chain_type(const struct nf_chain_type *);
-diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
-index 62f6b1b..7fcdd72 100644
---- a/net/bridge/netfilter/nf_tables_bridge.c
-+++ b/net/bridge/netfilter/nf_tables_bridge.c
-@@ -141,7 +141,7 @@ err:
- 
- static void nf_tables_bridge_exit_net(struct net *net)
- {
--	nft_unregister_afinfo(net->nft.bridge);
-+	nft_unregister_afinfo(net, net->nft.bridge);
- 	kfree(net->nft.bridge);
- }
- 
-diff --git a/net/ipv4/netfilter/nf_tables_arp.c b/net/ipv4/netfilter/nf_tables_arp.c
-index 9d09d4f..cd84d42 100644
---- a/net/ipv4/netfilter/nf_tables_arp.c
-+++ b/net/ipv4/netfilter/nf_tables_arp.c
-@@ -57,7 +57,7 @@ err:
- 
- static void nf_tables_arp_exit_net(struct net *net)
- {
--	nft_unregister_afinfo(net->nft.arp);
-+	nft_unregister_afinfo(net, net->nft.arp);
- 	kfree(net->nft.arp);
- }
- 
-diff --git a/net/ipv4/netfilter/nf_tables_ipv4.c b/net/ipv4/netfilter/nf_tables_ipv4.c
-index ca9dc3c..e44ba3b 100644
---- a/net/ipv4/netfilter/nf_tables_ipv4.c
-+++ b/net/ipv4/netfilter/nf_tables_ipv4.c
-@@ -78,7 +78,7 @@ err:
- 
- static void nf_tables_ipv4_exit_net(struct net *net)
- {
--	nft_unregister_afinfo(net->nft.ipv4);
-+	nft_unregister_afinfo(net, net->nft.ipv4);
- 	kfree(net->nft.ipv4);
- }
- 
-diff --git a/net/ipv6/netfilter/nf_tables_ipv6.c b/net/ipv6/netfilter/nf_tables_ipv6.c
-index 120ea91..30b22f4 100644
---- a/net/ipv6/netfilter/nf_tables_ipv6.c
-+++ b/net/ipv6/netfilter/nf_tables_ipv6.c
-@@ -77,7 +77,7 @@ err:
- 
- static void nf_tables_ipv6_exit_net(struct net *net)
- {
--	nft_unregister_afinfo(net->nft.ipv6);
-+	nft_unregister_afinfo(net, net->nft.ipv6);
- 	kfree(net->nft.ipv6);
- }
- 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 4a23f77..8522731 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -41,6 +41,8 @@ int nft_register_afinfo(struct net *net, struct nft_af_info *afi)
- }
- EXPORT_SYMBOL_GPL(nft_register_afinfo);
- 
-+static void __nft_release_afinfo(struct net *net, struct nft_af_info *afi);
-+
- /**
-  *	nft_unregister_afinfo - unregister nf_tables address family info
-  *
-@@ -48,9 +50,10 @@ EXPORT_SYMBOL_GPL(nft_register_afinfo);
-  *
-  *	Unregister the address family for use with nf_tables.
-  */
--void nft_unregister_afinfo(struct nft_af_info *afi)
-+void nft_unregister_afinfo(struct net *net, struct nft_af_info *afi)
- {
- 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
-+	__nft_release_afinfo(net, afi);
- 	list_del_rcu(&afi->list);
- 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
- }
-@@ -4579,7 +4582,7 @@ int nft_data_dump(struct sk_buff *skb, int attr, const struct nft_data *data,
- }
- EXPORT_SYMBOL_GPL(nft_data_dump);
- 
--static int nf_tables_init_net(struct net *net)
-+static int __net_init nf_tables_init_net(struct net *net)
- {
- 	INIT_LIST_HEAD(&net->nft.af_info);
- 	INIT_LIST_HEAD(&net->nft.commit_list);
-@@ -4587,6 +4590,46 @@ static int nf_tables_init_net(struct net *net)
- 	return 0;
- }
- 
-+/* Called by nft_unregister_afinfo() from __net_exit path, nfnl_lock is held. */
-+static void __nft_release_afinfo(struct net *net, struct nft_af_info *afi)
-+{
-+	struct nft_table *table, *nt;
-+	struct nft_chain *chain, *nc;
-+	struct nft_rule *rule, *nr;
-+	struct nft_set *set, *ns;
-+	struct nft_ctx ctx = {
-+		.net	= net,
-+		.afi	= afi,
-+	};
-+
-+	list_for_each_entry_safe(table, nt, &afi->tables, list) {
-+		list_for_each_entry(chain, &table->chains, list)
-+			nf_tables_unregister_hooks(table, chain, afi->nops);
-+		/* No packets are walking on these chains anymore. */
-+		ctx.table = table;
-+		list_for_each_entry(chain, &table->chains, list) {
-+			ctx.chain = chain;
-+			list_for_each_entry_safe(rule, nr, &chain->rules, list) {
-+				list_del(&rule->list);
-+				chain->use--;
-+				nf_tables_rule_destroy(&ctx, rule);
-+			}
-+		}
-+		list_for_each_entry_safe(set, ns, &table->sets, list) {
-+			list_del(&set->list);
-+			table->use--;
-+			nft_set_destroy(set);
-+		}
-+		list_for_each_entry_safe(chain, nc, &table->chains, list) {
-+			list_del(&chain->list);
-+			table->use--;
-+			nf_tables_chain_destroy(chain);
-+		}
-+		list_del(&table->list);
-+		nf_tables_table_destroy(&ctx);
-+	}
-+}
-+
- static struct pernet_operations nf_tables_net_ops = {
- 	.init	= nf_tables_init_net,
- };
-diff --git a/net/netfilter/nf_tables_inet.c b/net/netfilter/nf_tables_inet.c
-index 9dd2d21..6b5f762 100644
---- a/net/netfilter/nf_tables_inet.c
-+++ b/net/netfilter/nf_tables_inet.c
-@@ -57,7 +57,7 @@ err:
- 
- static void __net_exit nf_tables_inet_exit_net(struct net *net)
- {
--	nft_unregister_afinfo(net->nft.inet);
-+	nft_unregister_afinfo(net, net->nft.inet);
- 	kfree(net->nft.inet);
- }
- 
-diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
-index 7b9c053..2bfd1fb 100644
---- a/net/netfilter/nf_tables_netdev.c
-+++ b/net/netfilter/nf_tables_netdev.c
-@@ -139,7 +139,7 @@ err:
- 
- static void nf_tables_netdev_exit_net(struct net *net)
- {
--	nft_unregister_afinfo(net->nft.netdev);
-+	nft_unregister_afinfo(net, net->nft.netdev);
- 	kfree(net->nft.netdev);
- }
- 
--- 
-2.1.4
+2) Destroy basechain and rules on netdevice removal in the new netdev
+   family.
 
+3) Get rid of defensive check against removal of inactive objects in
+   nf_tables.
+
+4) Pass down netns pointer to our existing nfnetlink callbacks, as well
+   as commit() and abort() nfnetlink callbacks.
+
+5) Allow to invert limit expression in nf_tables, so we can throttle
+   overlimit traffic.
+
+6) Add packet duplication for the netdev family.
+
+7) Add forward expression for the netdev family.
+
+8) Define pr_fmt() in conntrack helpers.
+
+9) Don't leave nfqueue configuration on inconsistent state in case of
+   errors, from Ken-ichirou MATSUZAWA, follow up patches are also from
+   him.
+
+10) Skip queue option handling after unbind.
+
+11) Return error on unknown both in nfqueue and nflog command.
+
+12) Autoload ctnetlink when NFQA_CFG_F_CONNTRACK is set.
+
+13) Add new NFTA_SET_USERDATA attribute to store user data in sets,
+    from Carlos Falgueras.
+
+14) Add support for 64 bit byteordering changes nf_tables, from Florian
+    Westphal.
+
+15) Add conntrack byte/packet counter matching support to nf_tables,
+    also from Florian.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 26a4d063b1357e3ad81b776eb89d4d82f101=
+da2c:
+
+  Merge branch 'bnxt_en-next' (2015-12-28 00:57:29 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
+
+for you to fetch changes up to 48f66c905a976bf0ff092fc24f08d9addd82a245=
+:
+
+  netfilter: nft_ct: add byte/packet counter support (2016-01-08 14:44:=
+09 +0100)
+
+----------------------------------------------------------------
+Carlos Falgueras Garc=C3=ADa (1):
+      netfilter: nf_tables: Add new attributes into nft_set to store us=
+er data.
+
+=46lorian Westphal (2):
+      netfilter: nft_byteorder: provide 64bit le/be conversion
+      netfilter: nft_ct: add byte/packet counter support
+
+Ken-ichirou MATSUZAWA (5):
+      netfilter: nfnetlink_queue: validate dependencies to avoid breaki=
+ng atomicity
+      netfilter: nfnetlink_queue: don't handle options after unbind
+      netfilter: nfnetlink_queue: just returns error for unknown comman=
+d
+      netfilter: nfnetlink_queue: autoload nf_conntrack_netlink module =
+NFQA_CFG_F_CONNTRACK config flag
+      netfilter: nfnetlink_log: just returns error for unknown command
+
+Pablo Neira Ayuso (9):
+      netfilter: nf_tables: release objects on netns destruction
+      netfilter: nf_tables: destroy basechain and rules on netdevice re=
+moval
+      netfilter: nf_tables: remove check against removal of inactive ob=
+jects
+      netfilter: nfnetlink: pass down netns pointer to call() and call_=
+rcu()
+      netfilter: nfnetlink: pass down netns pointer to commit() and abo=
+rt() callbacks
+      netfilter: nft_limit: allow to invert matching criteria
+      netfilter: nf_tables: add packet duplication to the netdev family
+      netfilter: nf_tables: add forward expression to the netdev family
+      netfilter: nf_ct_helper: define pr_fmt()
+
+ include/linux/netfilter/nfnetlink.h      |  12 +--
+ include/net/netfilter/nf_dup_netdev.h    |   6 ++
+ include/net/netfilter/nf_tables.h        |  11 ++-
+ include/uapi/linux/netfilter/nf_tables.h |  22 +++++
+ net/bridge/netfilter/nf_tables_bridge.c  |   2 +-
+ net/ipv4/netfilter/nf_tables_arp.c       |   2 +-
+ net/ipv4/netfilter/nf_tables_ipv4.c      |   2 +-
+ net/ipv6/netfilter/nf_tables_ipv6.c      |   2 +-
+ net/netfilter/Kconfig                    |  22 +++++
+ net/netfilter/Makefile                   |   7 ++
+ net/netfilter/ipset/ip_set_core.c        | 108 +++++++++-----------
+ net/netfilter/nf_conntrack_ftp.c         |  17 ++--
+ net/netfilter/nf_conntrack_irc.c         |   7 +-
+ net/netfilter/nf_conntrack_netlink.c     |  96 ++++++++----------
+ net/netfilter/nf_conntrack_sane.c        |  19 ++--
+ net/netfilter/nf_conntrack_sip.c         |   5 +-
+ net/netfilter/nf_conntrack_tftp.c        |   7 +-
+ net/netfilter/nf_dup_netdev.c            |  40 ++++++++
+ net/netfilter/nf_tables_api.c            | 164 +++++++++++++++++++++--=
+--------
+ net/netfilter/nf_tables_inet.c           |   2 +-
+ net/netfilter/nf_tables_netdev.c         |  47 ++++-----
+ net/netfilter/nfnetlink.c                |  12 +--
+ net/netfilter/nfnetlink_acct.c           |  21 ++--
+ net/netfilter/nfnetlink_cthelper.c       |  18 ++--
+ net/netfilter/nfnetlink_cttimeout.c      |  42 ++++----
+ net/netfilter/nfnetlink_log.c            |  17 ++--
+ net/netfilter/nfnetlink_queue.c          | 123 +++++++++++------------
+ net/netfilter/nft_byteorder.c            |  23 +++++
+ net/netfilter/nft_compat.c               |   6 +-
+ net/netfilter/nft_ct.c                   |  38 +++++++
+ net/netfilter/nft_dup_netdev.c           |  97 ++++++++++++++++++
+ net/netfilter/nft_fwd_netdev.c           |  98 ++++++++++++++++++
+ net/netfilter/nft_limit.c                |  16 ++-
+ net/netfilter/xt_osf.c                   |   7 +-
+ 34 files changed, 749 insertions(+), 369 deletions(-)
+ create mode 100644 include/net/netfilter/nf_dup_netdev.h
+ create mode 100644 net/netfilter/nf_dup_netdev.c
+ create mode 100644 net/netfilter/nft_dup_netdev.c
+ create mode 100644 net/netfilter/nft_fwd_netdev.c
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
