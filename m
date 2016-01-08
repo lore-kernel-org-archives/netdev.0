@@ -1,78 +1,189 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/8][pull request] 10GbE Intel Wired LAN Driver Updates 2016-01-08
-Date: Fri,  8 Jan 2016 05:00:22 -0800
-Message-ID: <1452258030-63996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
-To: davem@davemloft.net
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH] sctp: fix use-after-free in pr_debug statement
+Date: Fri,  8 Jan 2016 11:00:54 -0200
+Message-ID: <51dffdfdb37c240ff7e9b0b2a93433f217fa4d2c.1452257700.git.marcelo.leitner@gmail.com>
+References: <566AF20F.9060504@gmail.com>
+Cc: linux-sctp@vger.kernel.org, dvyukov@google.com,
+	vyasevich@gmail.com, eric.dumazet@gmail.com,
+	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
+	sasha.levin@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26376 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57917 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751211AbcAHNAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 08:00:32 -0500
+	id S1752863AbcAHNBE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 08:01:04 -0500
+In-Reply-To: <566AF20F.9060504@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+Couldn't get syzkaller working over here, so I still need your help on
+testing this. I expect this will be the last cycle, though.
 
-Vasu provides three fixes for ixgbe, first assigns a minimum credit to
-a traffic class to resolve a Tx hang for CEE mode configuration.  Second
-fix changes the driver to use netdev->fcoe_ddp_xid instead of our local
-IXGBE_FCOE_DDP_MAX, since it is correctly set for our different devices
-and avoids a DDP skip error on X550.  Lastly fix the PFC configuration
-to include X550 devices.
+If it does generate another trace, I'll need the reproducer too because
+I can't find anything else just with code review.
 
-Emil provides a fix for reporting the speed in ethtool by using the
-stored value in out adapter structure.  This is due to external drivers
-may end up with unknown speed when calling ethtool_get_settings().
+Thanks
 
-Mark fixes the handling of any outer UDP checksum, by passing the
-skb up with CHECKSUM_NONE when an outer UDP checksum is set.  This
-will cause the stack to check the checksum, also do not increment an
-error counter because we do not really know if there is an actual error.
-Ixgbe ATR was not handling IPv6 extended headers, so ATR is not being
-performed on such packets.  Fix this by skipping extended headers
-when they are present.
+--8<--
 
-Usha fixes an issue with X550 and getting FDMI HBA attributes when
-FCoE support is enabled.
+Dmitry Vyukov reported a use-after-free in the code expanded by the
+macro debug_post_sfx, which is caused by the use of the asoc pointer
+after it was freed within sctp_side_effect() scope.
 
-Neerav fixes an issue for X550 when FCoE and SR-IOV are enabled, which
-the hardware generates MDD events.  Resolve this by setting the expected
-values in the transmit context descriptors for FCoE/FIP frames and
-adding a flush after writing the RDLEN register.
+This patch fixes it by allowing sctp_side_effect to clear that asoc
+pointer when the TCB is freed.
 
-The following are changes since commit 24759daa018f0fc8cccebc89d3dee0953e73785a:
-  Merge branch 'macb-usrio-cap'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+As Vlad explained, we also have to cover the SCTP_DISPOSITION_ABORT case
+because it will trigger DELETE_TCB too on that same loop.
 
-Emil Tantilov (1):
-  ixgbe: do not call check_link for ethtool in ixgbe_get_settings()
+Also, there were places issuing SCTP_CMD_INIT_FAILED and ASSOC_FAILED
+but returning SCTP_DISPOSITION_CONSUME, which would fool the scheme
+above. Fix it by returning SCTP_DISPOSITION_ABORT instead.
 
-Mark Rustad (2):
-  ixgbe: Correct handling of any outer UDP checksum setting
-  ixgbe: Make ATR recognize IPv6 extended headers
+The macro is already prepared to handle such NULL pointer.
 
-Neerav Parikh (1):
-  ixgbe: Fix MDD events generated when FCoE+SRIOV are enabled
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/sm_sideeffect.c | 11 ++++++-----
+ net/sctp/sm_statefuns.c  | 17 ++++-------------
+ 2 files changed, 10 insertions(+), 18 deletions(-)
 
-Usha Ketineni (1):
-  ixgbe: Fix to get FDMI HBA attributes information with X550
-
-Vasu Dev (3):
-  ixgbe: Fill at least min credits to a TC credit refills
-  ixgbe: use correct FCoE DDP max check
-  ixgbe: fix broken PFC with X550
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |  7 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |  6 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  7 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      | 16 ++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 52 +++++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |  1 +
- 6 files changed, 64 insertions(+), 25 deletions(-)
-
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 4f170ad38ff4f7d345d8e3a3fee7d691df64d9cb..2e21384697c2a6a5fd045142bcd9c39992d3867f 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -63,7 +63,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
+ 			     sctp_state_t state,
+ 			     struct sctp_endpoint *ep,
+-			     struct sctp_association *asoc,
++			     struct sctp_association **asoc,
+ 			     void *event_arg,
+ 			     sctp_disposition_t status,
+ 			     sctp_cmd_seq_t *commands,
+@@ -1125,7 +1125,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
+ 	debug_post_sfn();
+ 
+ 	error = sctp_side_effects(event_type, subtype, state,
+-				  ep, asoc, event_arg, status,
++				  ep, &asoc, event_arg, status,
+ 				  &commands, gfp);
+ 	debug_post_sfx();
+ 
+@@ -1138,7 +1138,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
+ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
+ 			     sctp_state_t state,
+ 			     struct sctp_endpoint *ep,
+-			     struct sctp_association *asoc,
++			     struct sctp_association **asoc,
+ 			     void *event_arg,
+ 			     sctp_disposition_t status,
+ 			     sctp_cmd_seq_t *commands,
+@@ -1153,7 +1153,7 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
+ 	 * disposition SCTP_DISPOSITION_CONSUME.
+ 	 */
+ 	if (0 != (error = sctp_cmd_interpreter(event_type, subtype, state,
+-					       ep, asoc,
++					       ep, *asoc,
+ 					       event_arg, status,
+ 					       commands, gfp)))
+ 		goto bail;
+@@ -1176,11 +1176,12 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
+ 		break;
+ 
+ 	case SCTP_DISPOSITION_DELETE_TCB:
++	case SCTP_DISPOSITION_ABORT:
+ 		/* This should now be a command. */
++		*asoc = NULL;
+ 		break;
+ 
+ 	case SCTP_DISPOSITION_CONSUME:
+-	case SCTP_DISPOSITION_ABORT:
+ 		/*
+ 		 * We should no longer have much work to do here as the
+ 		 * real work has been done as explicit commands above.
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 22c2bf367d7e8c7025065f33eabfd7e93a7f4021..f1f08c8f277bd8719299d1ed21eb23e36d55f7e2 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -2976,7 +2976,7 @@ sctp_disposition_t sctp_sf_eat_data_6_2(struct net *net,
+ 		SCTP_INC_STATS(net, SCTP_MIB_IN_DATA_CHUNK_DISCARDS);
+ 		goto discard_force;
+ 	case SCTP_IERROR_NO_DATA:
+-		goto consume;
++		return SCTP_DISPOSITION_ABORT;
+ 	case SCTP_IERROR_PROTO_VIOLATION:
+ 		return sctp_sf_abort_violation(net, ep, asoc, chunk, commands,
+ 			(u8 *)chunk->subh.data_hdr, sizeof(sctp_datahdr_t));
+@@ -3043,9 +3043,6 @@ discard_noforce:
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, force);
+ 
+ 	return SCTP_DISPOSITION_DISCARD;
+-consume:
+-	return SCTP_DISPOSITION_CONSUME;
+-
+ }
+ 
+ /*
+@@ -3093,7 +3090,7 @@ sctp_disposition_t sctp_sf_eat_data_fast_4_4(struct net *net,
+ 	case SCTP_IERROR_BAD_STREAM:
+ 		break;
+ 	case SCTP_IERROR_NO_DATA:
+-		goto consume;
++		return SCTP_DISPOSITION_ABORT;
+ 	case SCTP_IERROR_PROTO_VIOLATION:
+ 		return sctp_sf_abort_violation(net, ep, asoc, chunk, commands,
+ 			(u8 *)chunk->subh.data_hdr, sizeof(sctp_datahdr_t));
+@@ -3119,7 +3116,6 @@ sctp_disposition_t sctp_sf_eat_data_fast_4_4(struct net *net,
+ 				SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
+ 	}
+ 
+-consume:
+ 	return SCTP_DISPOSITION_CONSUME;
+ }
+ 
+@@ -4825,9 +4821,6 @@ sctp_disposition_t sctp_sf_do_9_1_prm_abort(
+ 	 * if necessary to fill gaps.
+ 	 */
+ 	struct sctp_chunk *abort = arg;
+-	sctp_disposition_t retval;
+-
+-	retval = SCTP_DISPOSITION_CONSUME;
+ 
+ 	if (abort)
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
+@@ -4845,7 +4838,7 @@ sctp_disposition_t sctp_sf_do_9_1_prm_abort(
+ 	SCTP_INC_STATS(net, SCTP_MIB_ABORTEDS);
+ 	SCTP_DEC_STATS(net, SCTP_MIB_CURRESTAB);
+ 
+-	return retval;
++	return SCTP_DISPOSITION_ABORT;
+ }
+ 
+ /* We tried an illegal operation on an association which is closed.  */
+@@ -4960,12 +4953,10 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
+ 	sctp_cmd_seq_t *commands)
+ {
+ 	struct sctp_chunk *abort = arg;
+-	sctp_disposition_t retval;
+ 
+ 	/* Stop T1-init timer */
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+ 			SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
+-	retval = SCTP_DISPOSITION_CONSUME;
+ 
+ 	if (abort)
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
+@@ -4985,7 +4976,7 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_INIT_FAILED,
+ 			SCTP_PERR(SCTP_ERROR_USER_ABORT));
+ 
+-	return retval;
++	return SCTP_DISPOSITION_ABORT;
+ }
+ 
+ /*
 -- 
 2.5.0
