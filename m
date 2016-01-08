@@ -1,191 +1,220 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/5] i40e: Look up MAC address in Open Firmware or IDPROM
-Date: Fri,  8 Jan 2016 02:14:41 -0800
-Message-ID: <1452248083-78628-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/5] i40e: Fix Rx hash reported to the stack by our driver
+Date: Fri,  8 Jan 2016 02:14:42 -0800
+Message-ID: <1452248083-78628-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1452248083-78628-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:48697 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:38757 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754310AbcAHKO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754400AbcAHKO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 8 Jan 2016 05:14:58 -0500
 In-Reply-To: <1452248083-78628-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This is the i40e equivalent of commit c762dff24c06 ("ixgbe: Look up MAC
-address in Open Firmware or IDPROM").
+If the driver calls skb_set_hash even with a zero hash, that
+indicates to the stack that the hash calculation is offloaded
+in hardware. So the Stack doesn't do a SW hash which is required
+for load balancing if the user decides to turn of rx-hashing
+on our device.
 
-As with that fix, attempt to look up the MAC address in Open Firmware
-on systems that support it, and use IDPROM on SPARC if no OF address
-is found.
+This patch fixes the path so that we do not call skb_set_hash
+if the feature is disabled.
 
-In the case of the i40e there is an assumption that the default mac
-address has already been set up as the primary mac filter on probe,
-so if this filter is obtained from the Open Firmware or IDPROM, an
-explicit write is needed via i40e_aq_mac_address_write() and
-i40e_aq_add_macvlan() invocation.
-
-The I40E_FLAG_PF_MAC flag in the platform-private i40e_pf structure
-tracks whether a platform-specific mac address was found, in which
-case calls to i40e_aq_mac_address_write() and i40e_aq_add_macvlan()
-will be triggered.
-
-Reviewed-by: Martin K. Petersen <martin.petersen@oracle.com>
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Ic4debfa4ff91b5a72e447348a75768ed7a2d3e1b
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 90 +++++++++++++++++++++++++++++
- 2 files changed, 91 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 54 ++++++++++++++-------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 54 ++++++++++++++-------------
+ 2 files changed, 58 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index c202f9b..68f2204 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -339,6 +339,7 @@ struct i40e_pf {
- #define I40E_FLAG_VEB_MODE_ENABLED		BIT_ULL(40)
- #define I40E_FLAG_GENEVE_OFFLOAD_CAPABLE	BIT_ULL(41)
- #define I40E_FLAG_NO_PCI_LINK_CHECK		BIT_ULL(42)
-+#define I40E_FLAG_PF_MAC			BIT_ULL(50)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index e9e9a37..720516b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1422,31 +1422,12 @@ checksum_fail:
+ }
  
- 	/* tracks features that get auto disabled by errors */
- 	u64 auto_disable_flags;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1598fb3..2914806 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -24,6 +24,15 @@
+ /**
+- * i40e_rx_hash - returns the hash value from the Rx descriptor
+- * @ring: descriptor ring
+- * @rx_desc: specific descriptor
+- **/
+-static inline u32 i40e_rx_hash(struct i40e_ring *ring,
+-			       union i40e_rx_desc *rx_desc)
+-{
+-	const __le64 rss_mask =
+-		cpu_to_le64((u64)I40E_RX_DESC_FLTSTAT_RSS_HASH <<
+-			    I40E_RX_DESC_STATUS_FLTSTAT_SHIFT);
+-
+-	if ((ring->netdev->features & NETIF_F_RXHASH) &&
+-	    (rx_desc->wb.qword1.status_error_len & rss_mask) == rss_mask)
+-		return le32_to_cpu(rx_desc->wb.qword0.hi_dword.rss);
+-	else
+-		return 0;
+-}
+-
+-/**
+- * i40e_ptype_to_hash - get a hash type
++ * i40e_ptype_to_htype - get a hash type
+  * @ptype: the ptype value from the descriptor
   *
-  ******************************************************************************/
+  * Returns a hash type to be used by skb_set_hash
+  **/
+-static inline enum pkt_hash_types i40e_ptype_to_hash(u8 ptype)
++static inline enum pkt_hash_types i40e_ptype_to_htype(u8 ptype)
+ {
+ 	struct i40e_rx_ptype_decoded decoded = decode_rx_desc_ptype(ptype);
  
-+#include <linux/etherdevice.h>
-+#include <linux/of_net.h>
-+#include <linux/pci.h>
-+
-+#ifdef CONFIG_SPARC
-+#include <asm/idprom.h>
-+#include <asm/prom.h>
-+#endif
-+
- /* Local includes */
- #include "i40e.h"
- #include "i40e_diag.h"
-@@ -9522,6 +9531,44 @@ err_vsi:
+@@ -1464,6 +1445,30 @@ static inline enum pkt_hash_types i40e_ptype_to_hash(u8 ptype)
  }
  
  /**
-+ * i40e_macaddr_init - explicitly write the mac address filters.
-+ *
-+ * @vsi: pointer to the vsi.
-+ * @macaddr: the MAC address
-+ *
-+ * This is needed when the macaddr has been obtained by other
-+ * means than the default, e.g., from Open Firmware or IDPROM.
-+ * Returns 0 on success, negative on failure
++ * i40e_rx_hash - set the hash value in the skb
++ * @ring: descriptor ring
++ * @rx_desc: specific descriptor
 + **/
-+static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
++static inline void i40e_rx_hash(struct i40e_ring *ring,
++				union i40e_rx_desc *rx_desc,
++				struct sk_buff *skb,
++				u8 rx_ptype)
 +{
-+	int ret;
-+	struct i40e_aqc_add_macvlan_element_data element;
++	u32 hash;
++	const __le64 rss_mask  =
++		cpu_to_le64((u64)I40E_RX_DESC_FLTSTAT_RSS_HASH <<
++			    I40E_RX_DESC_STATUS_FLTSTAT_SHIFT);
 +
-+	ret = i40e_aq_mac_address_write(&vsi->back->hw,
-+					I40E_AQC_WRITE_TYPE_LAA_WOL,
-+					macaddr, NULL);
-+	if (ret) {
-+		dev_info(&vsi->back->pdev->dev,
-+			 "Addr change for VSI failed: %d\n", ret);
-+		return -EADDRNOTAVAIL;
-+	}
++	if (ring->netdev->features & NETIF_F_RXHASH)
++		return;
 +
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
-+	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
-+	if (ret) {
-+		dev_info(&vsi->back->pdev->dev,
-+			 "add filter failed err %s aq_err %s\n",
-+			 i40e_stat_str(&vsi->back->hw, ret),
-+			 i40e_aq_str(&vsi->back->hw,
-+				     vsi->back->hw.aq.asq_last_status));
-+	}
-+	return ret;
-+}
-+
-+/**
-  * i40e_vsi_setup - Set up a VSI by a given type
-  * @pf: board private structure
-  * @type: VSI type
-@@ -9645,6 +9692,17 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 	switch (vsi->type) {
- 	/* setup the netdev if needed */
- 	case I40E_VSI_MAIN:
-+		/* Apply relevant filters if a platform-specific mac
-+		 * address was selected.
-+		 */
-+		if (!!(pf->flags & I40E_FLAG_PF_MAC)) {
-+			ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
-+			if (ret) {
-+				dev_warn(&pf->pdev->dev,
-+					 "could not set up macaddr; err %d\n",
-+					 ret);
-+			}
-+		}
- 	case I40E_VSI_VMDQ2:
- 	case I40E_VSI_FCOE:
- 		ret = i40e_config_netdev(vsi);
-@@ -10474,6 +10532,36 @@ static void i40e_print_features(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_get_platform_mac_addr - get platform-specific MAC address
-+ *
-+ * @pdev: PCI device information struct
-+ * @pf: board private structure
-+ *
-+ * Look up the MAC address in Open Firmware  on systems that support it,
-+ * and use IDPROM on SPARC if no OF address is found. On return, the
-+ * I40E_FLAG_PF_MAC will be wset in pf->flags if a platform-specific value
-+ * has been selected.
-+ **/
-+static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
-+{
-+	struct device_node *dp = pci_device_to_OF_node(pdev);
-+	const unsigned char *addr;
-+	u8 *mac_addr = pf->hw.mac.addr;
-+
-+	pf->flags &= ~I40E_FLAG_PF_MAC;
-+	addr = of_get_mac_address(dp);
-+	if (addr) {
-+		ether_addr_copy(mac_addr, addr);
-+		pf->flags |= I40E_FLAG_PF_MAC;
-+#ifdef CONFIG_SPARC
-+	} else {
-+		ether_addr_copy(mac_addr, idprom->id_ethaddr);
-+		pf->flags |= I40E_FLAG_PF_MAC;
-+#endif /* CONFIG_SPARC */
++	if ((rx_desc->wb.qword1.status_error_len & rss_mask) == rss_mask) {
++		hash = le32_to_cpu(rx_desc->wb.qword0.hi_dword.rss);
++		skb_set_hash(skb, hash, i40e_ptype_to_htype(rx_ptype));
 +	}
 +}
 +
 +/**
-  * i40e_probe - Device initialization routine
-  * @pdev: PCI device information struct
-  * @ent: entry in i40e_pci_tbl
-@@ -10683,6 +10771,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
+  * i40e_clean_rx_irq_ps - Reclaim resources after receive; packet split
+  * @rx_ring:  rx ring to clean
+  * @budget:   how many cleans we're allowed
+@@ -1612,8 +1617,8 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
  
- 	i40e_get_mac_addr(hw, hw->mac.addr);
-+	/* allow a platform config to override the HW addr */
-+	i40e_get_platform_mac_addr(pdev, pf);
- 	if (!is_valid_ether_addr(hw->mac.addr)) {
- 		dev_info(&pdev->dev, "invalid MAC address %pM\n", hw->mac.addr);
- 		err = -EIO;
+-		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+-			     i40e_ptype_to_hash(rx_ptype));
++		i40e_rx_hash(rx_ring, rx_desc, skb, rx_ptype);
++
+ 		if (unlikely(rx_status & I40E_RXD_QW1_STATUS_TSYNVALID_MASK)) {
+ 			i40e_ptp_rx_hwtstamp(vsi->back, skb, (rx_status &
+ 					   I40E_RXD_QW1_STATUS_TSYNINDX_MASK) >>
+@@ -1741,8 +1746,7 @@ static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
+-		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+-			     i40e_ptype_to_hash(rx_ptype));
++		i40e_rx_hash(rx_ring, rx_desc, skb, rx_ptype);
+ 		if (unlikely(rx_status & I40E_RXD_QW1_STATUS_TSYNVALID_MASK)) {
+ 			i40e_ptp_rx_hwtstamp(vsi->back, skb, (rx_status &
+ 					   I40E_RXD_QW1_STATUS_TSYNINDX_MASK) >>
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 4ca4065..7a00657 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -886,31 +886,12 @@ checksum_fail:
+ }
+ 
+ /**
+- * i40e_rx_hash - returns the hash value from the Rx descriptor
+- * @ring: descriptor ring
+- * @rx_desc: specific descriptor
+- **/
+-static inline u32 i40e_rx_hash(struct i40e_ring *ring,
+-			       union i40e_rx_desc *rx_desc)
+-{
+-	const __le64 rss_mask =
+-		cpu_to_le64((u64)I40E_RX_DESC_FLTSTAT_RSS_HASH <<
+-			    I40E_RX_DESC_STATUS_FLTSTAT_SHIFT);
+-
+-	if ((ring->netdev->features & NETIF_F_RXHASH) &&
+-	    (rx_desc->wb.qword1.status_error_len & rss_mask) == rss_mask)
+-		return le32_to_cpu(rx_desc->wb.qword0.hi_dword.rss);
+-	else
+-		return 0;
+-}
+-
+-/**
+- * i40e_ptype_to_hash - get a hash type
++ * i40e_ptype_to_htype - get a hash type
+  * @ptype: the ptype value from the descriptor
+  *
+  * Returns a hash type to be used by skb_set_hash
+  **/
+-static inline enum pkt_hash_types i40e_ptype_to_hash(u8 ptype)
++static inline enum pkt_hash_types i40e_ptype_to_htype(u8 ptype)
+ {
+ 	struct i40e_rx_ptype_decoded decoded = decode_rx_desc_ptype(ptype);
+ 
+@@ -928,6 +909,30 @@ static inline enum pkt_hash_types i40e_ptype_to_hash(u8 ptype)
+ }
+ 
+ /**
++ * i40e_rx_hash - set the hash value in the skb
++ * @ring: descriptor ring
++ * @rx_desc: specific descriptor
++ **/
++static inline void i40e_rx_hash(struct i40e_ring *ring,
++				union i40e_rx_desc *rx_desc,
++				struct sk_buff *skb,
++				u8 rx_ptype)
++{
++	u32 hash;
++	const __le64 rss_mask  =
++		cpu_to_le64((u64)I40E_RX_DESC_FLTSTAT_RSS_HASH <<
++			    I40E_RX_DESC_STATUS_FLTSTAT_SHIFT);
++
++	if (ring->netdev->features & NETIF_F_RXHASH)
++		return;
++
++	if ((rx_desc->wb.qword1.status_error_len & rss_mask) == rss_mask) {
++		hash = le32_to_cpu(rx_desc->wb.qword0.hi_dword.rss);
++		skb_set_hash(skb, hash, i40e_ptype_to_htype(rx_ptype));
++	}
++}
++
++/**
+  * i40e_clean_rx_irq_ps - Reclaim resources after receive; packet split
+  * @rx_ring:  rx ring to clean
+  * @budget:   how many cleans we're allowed
+@@ -1068,8 +1073,8 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
+-		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+-			     i40e_ptype_to_hash(rx_ptype));
++		i40e_rx_hash(rx_ring, rx_desc, skb, rx_ptype);
++
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
+@@ -1185,8 +1190,7 @@ static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
+-		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+-			     i40e_ptype_to_hash(rx_ptype));
++		i40e_rx_hash(rx_ring, rx_desc, skb, rx_ptype);
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
 -- 
 2.5.0
