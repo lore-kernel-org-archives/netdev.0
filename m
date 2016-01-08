@@ -1,70 +1,88 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] arm64: net: bpf: don't BUG() on large shifts
-Date: Fri, 08 Jan 2016 17:44:42 +0100
-Message-ID: <568FE77A.3090107@iogearbox.net>
-References: <1452015543-6790-1-git-send-email-rabin@rab.in> <20160105175557.GC83548@ast-mbp.thefacebook.com> <20160106203127.GA16059@debian> <20160106221247.GA95332@ast-mbp.thefacebook.com> <063D6719AE5E284EB5DD2968C1650D6D1CCBF08E@AcuExch.aculab.com> <568E5EB0.8020102@iogearbox.net> <20160108155837.GA28291@debian>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 16/17] netfilter: nft_byteorder: provide 64bit le/be
+ conversion
+Date: Fri, 8 Jan 2016 17:55:36 +0100
+Message-ID: <20160108165536.GE26058@breakpoint.cc>
+References: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
+ <1452261737-7475-17-git-send-email-pablo@netfilter.org>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCC043B@AcuExch.aculab.com>
+ <20160108162351.GD26058@breakpoint.cc>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCC05A4@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Florian Westphal' <fw@strlen.de>,
+	'Pablo Neira Ayuso' <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zlim.lnx@gmail.com" <zlim.lnx@gmail.com>,
-	"yang.shi@linaro.org" <yang.shi@linaro.org>,
-	"will.deacon@arm.com" <will.deacon@arm.com>,
-	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Rabin Vincent <rabin@rab.in>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57062 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932266AbcAHQoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 11:44:55 -0500
-In-Reply-To: <20160108155837.GA28291@debian>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:49149 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755203AbcAHQzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 11:55:42 -0500
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCC05A4@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2016 04:58 PM, Rabin Vincent wrote:
-> On Thu, Jan 07, 2016 at 01:48:48PM +0100, Daniel Borkmann wrote:
->> The question is what is less risky in terms of uabi. To reject such
->> filters with such K shift vals upfront in verifier, or to just allow
->> [0, reg_size - 1] values and handle outliers silently. I think both
->> might be possible, the latter just needs to be clearly specified in
->> the documentation somewhere. If we go for the latter, then probably
->> just rewriting that K value as masked one might seem better. Broken
->> programs might then still be loadable (and still be broken) ... afaik
->> in case of register (case of shifts with X) with large shift vals
->> ARM64 is doing 'modulo reg_size' implicitly.
->
-> The case of what happens with such shifts with X is also already
-> architecture-specific, even when using the interpreters.  For example, the
-> following program returns 1 on ARM64 but 0 on ARM.
->
-> 	BPF_STMT(BPF_LD | BPF_IMM, 1),
-> 	BPF_STMT(BPF_LDX | BPF_IMM, 32),
-> 	BPF_STMT(BPF_ALU | BPF_LSH | BPF_X, 0),
-> 	BPF_STMT(BPF_RET | BPF_A, 0)
->
-> To start rejecting large K shifts in the verifier because they are
-> architecture-specific while continuing to allow the equally
-> architecture-specific large X shifts (because we can't verify them
-> statically) would be rather inconsistent.
+David Laight <David.Laight@ACULAB.COM> wrote:
+> From: Florian Westphal
+> > Sent: 08 January 2016 16:24
+> > To: David Laight
+> > David Laight <David.Laight@ACULAB.COM> wrote:
+> > > From: Pablo Neira Ayuso
+> > > > Sent: 08 January 2016 14:02
+> > > > From: Florian Westphal <fw@strlen.de>
+> > > >
+> > > > Needed to convert the (64bit) conntrack counters to BE ordering.
+> > > >
+> > > ...
+> > > >  	switch (priv->size) {
+> > > > +	case 8: {
+> > > > +		u64 src64;
+> > > > +
+> > > > +		switch (priv->op) {
+> > > > +		case NFT_BYTEORDER_NTOH:
+> > > > +			for (i = 0; i < priv->len / 8; i++) {
+> > > > +				src64 = get_unaligned_be64(&src[i]);
+> > > > +				src64 = be64_to_cpu((__force __be64)src64);
+> > > > +				put_unaligned_be64(src64, &dst[i]);
+> > > > +			}
+> > > > +			break;
+> > > > +		case NFT_BYTEORDER_HTON:
+> > > > +			for (i = 0; i < priv->len / 8; i++) {
+> > > > +				src64 = get_unaligned_be64(&src[i]);
+> > > > +				src64 = (__force u64)cpu_to_be64(src64);
+> > > > +				put_unaligned_be64(src64, &dst[i]);
+> > > > +			}
+> > > > +			break;
+> > > > +		}
+> > > > +		break;
+> > >
+> > > That is horrid.
+> > 
+> > Yes, sorry for this, however ...
+> > 
+> > > On a little-endian system you are byteswapping the data 3 times.
+> > > Image the code on a cpu that doesn't support misaligned transfers
+> > > and doesn't have a byteswap instruction.
+> > 
+> > diff --git a/net/netfilter/nft_byteorder.c b/net/netfilter/nft_byteorder.c
+> > --- a/net/netfilter/nft_byteorder.c
+> > +++ b/net/netfilter/nft_byteorder.c
+> > @@ -46,16 +46,16 @@ static void nft_byteorder_eval(const struct nft_expr *expr,
+> >  		switch (priv->op) {
+> >  		case NFT_BYTEORDER_NTOH:
+> >  			for (i = 0; i < priv->len / 8; i++) {
+> > -				src64 = get_unaligned_be64(&src[i]);
+> > +				src64 = get_unaligned((u64 *)&src[i]);
+> >  				src64 = be64_to_cpu((__force __be64)src64);
+> > -				put_unaligned_be64(src64, &dst[i]);
+> > +				put_unaligned(src64, (u64 *)&dst[i]);
+> 
+> Why not just:
+> 				src64 = get_unaligned_be64(&src[i]);
+> 				put_unaligned(src64, (u64 *)&dst[i]);
 
-Hmm, yeah, agree with you that this would be inconsistent. Last time we
-actually had this topic [1], I believe the consensus was that such BPF
-programs are to be considered "undefined".
-
-In that case, I think just masking the K value silently into its allowed
-range for classic and eBPF might be better. It would eventually not be
-uniform with regards to shifts where X is involved, but if we consider
-it "undefined" behaviour, such uniformity is probably not needed.
-
-> If it is desired to enforce uniformity across architectures despite the
-> risk for subtly changing the behaviour of existing programs, then the
-> desired uniform semantics of these shifts should really be implemented
-> both for the K and X shifts, which would mean modifiying the interpreter
-> and the various arch JITs too.
-
-   [1] https://lkml.org/lkml/2015/12/4/148
+Sure.
