@@ -1,63 +1,96 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: Re: [PATCH] stmmac: Don't exit mdio registration when mdio subnode is
- not found in the DTS
-Date: Fri, 8 Jan 2016 09:00:09 +0800
-Message-ID: <568F0A19.7010208@electromag.com.au>
-References: <1451397935-23643-1-git-send-email-romain.perier@gmail.com>
- <0E6F98A1-B9F1-48B0-B5CA-A215803E827F@gmail.com>
- <CABgxDoLNWEtYtRTrYhp7T=tk3n-aPMCgOP2SL7+DoxFqTk7GuQ@mail.gmail.com>
- <56880E46.4050206@gmail.com>
- <CABgxDo+EOVW-RJ1WVY+oHt1tbW7qq9Q_+wK3ywiexh+auEebaA@mail.gmail.com>
- <568EC072.6050803@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
+ flow_keys layout
+Date: Thu, 07 Jan 2016 17:02:08 -0800
+Message-ID: <568F0A90.8040109@gmail.com>
+References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>	<1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com> <877fjlfrid.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev <netdev@vger.kernel.org>,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Romain Perier <romain.perier@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchovy3.45ru.net.au ([203.30.46.155]:39940 "EHLO
-	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753498AbcAHBAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 20:00:12 -0500
-In-Reply-To: <568EC072.6050803@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
+	"K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>,
+	Simon Xiao <sixiao@microsoft.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <877fjlfrid.fsf@vitty.brq.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/01/2016 3:45 AM, Florian Fainelli wrote:
-> On 03/01/16 06:36, Romain Perier wrote:
->> Hi,
->>
->> 2016-01-02 18:52 GMT+01:00 Florian Fainelli <f.fainelli@gmail.com>:
+On 16-01-07 05:28 AM, Vitaly Kuznetsov wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> 
+>> On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
+>>> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
+>>>  VLAN ID to flow_keys")) introduced a performance regression in netvsc
+>>> driver. Is problem is, however, not the above mentioned commit but the
+>>> fact that netvsc_set_hash() function did some assumptions on the struct
+>>> flow_keys data layout and this is wrong. We need to extract the data we
+>>> need (src/dst addresses and ports) after the dissect.
 >>>
->>>>> This looks reasonable, does it work if we just assign mdio_node to the pdev->dev.of_node to be backwards compatible with DTSes which have not yet been updated?
->>>>>
->>>>
->>>> I don't understand what you mean. Instead of defining mdio_node with
->>>> NULL, you propose to assign it to pdev->dev.of_node as its default
->>>> value... then it would be reassigned with "child_nod" if a subnode
->>>> with the compatible string "snps,dwmac-mdio" is found, or kept with
->>>> its default value otherwise... and in this case we could call
->>>> of_mdiobus_register(new_bus, mdio_node) all the time ? (it removes the
->>>> conditonnal branch)
->>>
->>> Your understanding is correct, this is what I was suggesting, thanks
+>>> The issue could also be solved in a completely different way: as suggested
+>>> by Eric instead of our own homegrown netvsc_set_hash() we could use
+>>> skb_get_hash() which does more or less the same. Unfortunately, the
+>>> testing done by Simon showed that Hyper-V hosts are not happy with our
+>>> Jenkins hash, selecting the output queue with the current algorithm based
+>>> on Toeplitz hash works significantly better.
 >>
->> So in this case, I already tested this yesterday, it does not work,
->> basically because the for loop just after of_mdiobus_register is never
->> executed, probably because new_bus->phy_map is not populated, which is
->> not the case by calling mdiobus_register for example.
->> of_mdiobus_register seems to populate this array of phys only for
->> subnodes found in the devicetree...
->
-> Fair enough, then you initial patch with dropping IS_ENABLED() and
-> adding a "Fixes" tag should be resubmitted.
->
-Looks reasonable.
 
+Also can I ask the maybe naive question. It looks like the hypervisor
+is populating some table via a mailbox msg and this is used to select
+the queues I guess with some sort of weighting function?
 
+What happens if you just remove select_queue altogether? Or maybe just
+what is this 16 entry table doing? How does this work on my larger
+systems with 64+ cores can I only use 16 cores? Sorry I really have
+no experience with hyperV and this got me curious.
 
--- 
-Regards
-Phil Reid
+Thanks,
+John
+
+>> Were tests done on IPv6 traffic ?
+>>
+> 
+> Simon, could you please test this patch for IPv6 and show us the numbers?
+> 
+>> Toeplitz hash takes at least 100 ns to hash 12 bytes (one iteration per
+>> bit : 96 iterations)
+>>
+>> For IPv6 it is 3 times this, since we have to hash 36 bytes.
+>>
+>> I do not see how it can compete with skb_get_hash() that directly gives
+>> skb->hash for local TCP flows.
+>>
+> 
+> My guess is that this is not the bottleneck, something is happening
+> behind the scene with out packets in Hyper-V host (e.g. re-distributing
+> them to hardware queues?) but I don't know the internals, Microsoft
+> folks could probably comment.
+> 
+> 
+>> See commits b73c3d0e4f0e1961e15bec18720e48aabebe2109
+>> ("net: Save TX flow hash in sock and set in skbuf on xmit")
+>> and 877d1f6291f8e391237e324be58479a3e3a7407c
+>> ("net: Set sk_txhash from a random number")
+>>
+>> I understand Microsoft loves Toeplitz, but this looks not well placed
+>> here.
+>>
+>> I suspect there is another problem.
+>>
+>> Please share your numbers and test methodology, and the alternative
+>> patch Simon tested so that we can double check it.
+>>
+> 
+> Alternative patch which uses skb_get_hash() attached. Simon, could you
+> please share the rest (environment, metodology, numbers) with us here?
+> Thanks!
+> 
+>> Thanks.
+>>
+>> PS: For the time being this patch can probably be applied on -net tree,
+>> as it fixes a real bug.
+> 
