@@ -1,7 +1,7 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 5/8] fou: enable LCO in FOU and GUE
-Date: Fri, 8 Jan 2016 19:46:43 +0000
-Message-ID: <56901223.7090503@solarflare.com>
+Subject: [PATCH net-next 6/8] net: gre: Implement LCO for GRE over IPv4
+Date: Fri, 8 Jan 2016 19:47:01 +0000
+Message-ID: <56901235.1010800@solarflare.com>
 References: <56901197.8040808@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,71 +10,60 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	<tom@herbertland.com>, <alexander.duyck@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:15262 "EHLO
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:14471 "EHLO
 	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932778AbcAHTqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:46:54 -0500
+	by vger.kernel.org with ESMTP id S932778AbcAHTrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:47:12 -0500
 In-Reply-To: <56901197.8040808@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- net/ipv4/fou.c | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ net/ipv4/ip_gre.c | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index e0fcbbb..3d4c9a7 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -773,7 +773,6 @@ static void fou_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 	uh->dest = e->dport;
- 	uh->source = sport;
- 	uh->len = htons(skb->len);
--	uh->check = 0;
- 	udp_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM), skb,
- 		     fl4->saddr, fl4->daddr, skb->len);
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 04a48c0..8a589d3 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -440,6 +440,20 @@ drop:
+ 	return 0;
+ }
  
-@@ -783,11 +782,11 @@ static void fou_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
- int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 		     u8 *protocol, struct flowi4 *fl4)
++static __sum16 gre_checksum(struct sk_buff *skb)
++{
++	__sum16 csum;
++
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		csum = csum_fold(lco_csum(skb));
++		if (csum == 0)
++			csum = CSUM_MANGLED_0;
++		return csum;
++	} else {
++		return csum_fold(skb_checksum(skb, 0, skb->len, 0));
++	}
++}
++
+ static void build_header(struct sk_buff *skb, int hdr_len, __be16 flags,
+ 			 __be16 proto, __be32 key, __be32 seq)
  {
--	bool csum = !!(e->flags & TUNNEL_ENCAP_FLAG_CSUM);
--	int type = csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
-+						       SKB_GSO_UDP_TUNNEL;
- 	__be16 sport;
- 
--	skb = iptunnel_handle_offloads(skb, csum, type);
-+	skb = iptunnel_handle_offloads(skb, false, type);
- 
- 	if (IS_ERR(skb))
- 		return PTR_ERR(skb);
-@@ -803,8 +802,8 @@ EXPORT_SYMBOL(fou_build_header);
- int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 		     u8 *protocol, struct flowi4 *fl4)
+@@ -467,8 +481,7 @@ static void build_header(struct sk_buff *skb, int hdr_len, __be16 flags,
+ 		    !(skb_shinfo(skb)->gso_type &
+ 		      (SKB_GSO_GRE | SKB_GSO_GRE_CSUM))) {
+ 			*ptr = 0;
+-			*(__sum16 *)ptr = csum_fold(skb_checksum(skb, 0,
+-								 skb->len, 0));
++			*(__sum16 *)ptr = gre_checksum(skb);
+ 		}
+ 	}
+ }
+@@ -493,7 +506,7 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
+ static struct sk_buff *gre_handle_offloads(struct sk_buff *skb,
+ 					   bool csum)
  {
--	bool csum = !!(e->flags & TUNNEL_ENCAP_FLAG_CSUM);
--	int type = csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
-+						       SKB_GSO_UDP_TUNNEL;
- 	struct guehdr *guehdr;
- 	size_t hdrlen, optlen = 0;
- 	__be16 sport;
-@@ -813,7 +812,6 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-	return iptunnel_handle_offloads(skb, csum,
++	return iptunnel_handle_offloads(skb, false,
+ 					csum ? SKB_GSO_GRE_CSUM : SKB_GSO_GRE);
+ }
  
- 	if ((e->flags & TUNNEL_ENCAP_FLAG_REMCSUM) &&
- 	    skb->ip_summed == CHECKSUM_PARTIAL) {
--		csum = false;
- 		optlen += GUE_PLEN_REMCSUM;
- 		type |= SKB_GSO_TUNNEL_REMCSUM;
- 		need_priv = true;
-@@ -821,7 +819,7 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 
- 	optlen += need_priv ? GUE_LEN_PRIV : 0;
- 
--	skb = iptunnel_handle_offloads(skb, csum, type);
-+	skb = iptunnel_handle_offloads(skb, false, type);
- 
- 	if (IS_ERR(skb))
- 		return PTR_ERR(skb);
