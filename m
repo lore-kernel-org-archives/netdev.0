@@ -1,280 +1,98 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH v1] ethtool: properly indent man sub-options
-Date: Thu,  7 Jan 2016 17:50:43 -0800
-Message-ID: <1452217843-18254-1-git-send-email-jesse.brandeburg@intel.com>
-Cc: netdev@vger.kernel.org, bwh@kernel.org
-To: ben@decadent.org.uk
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
+Date: Thu, 07 Jan 2016 18:08:27 -0800
+Message-ID: <568F1A1B.1040808@gmail.com>
+References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com> <20160108004238.GD4389@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Andrew Lunn <andrew@lunn.ch>, Woojung.Huh@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7587 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753000AbcAHBxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2016 20:53:14 -0500
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36240 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753721AbcAHCJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 21:09:02 -0500
+Received: by mail-pf0-f171.google.com with SMTP id n128so2196028pfn.3
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 18:09:01 -0800 (PST)
+In-Reply-To: <20160108004238.GD4389@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool.8 file was full of lots of incorrectly indented
-bits.  This fixes the arguments to options to be indented in
-a visually appealing way.
+On 07/01/16 16:42, Andrew Lunn wrote:
+> On Thu, Jan 07, 2016 at 11:14:19PM +0000, Woojung.Huh@microchip.com wrote:
+>> This patch introduces PHY_PSEUDO_INTERRUPT and routines to
+>> handle pseudo (not-real-hardware) interrupt such as USB interrupt pipe for
+>> USB-to-Ethernet device.
+>>
+>> Unless having real hardware interrupt handler registered by request_irq(),
+>> phy_state_machine() can't avoid calling phy_read_status()
+>> to monitor link changes. This especially prevents USB-to-Ethernet device
+>> from going to auto suspend to save power.
 
-Before:
-       -K --features --offload
-              Changes the offload parameters and other features of the
-              specified network device.  The following feature names
-              are built-in and others may be defined by the kernel.
+Well, this surely is something that can be fixed.
 
-       rx on|off
-              Specifies whether RX checksumming should be enabled.
+> 
+> Hi Woojung
+> 
+> Do you have an example PHY driver making use of this. At the moment i
+> don't see how it works.
 
-       tx on|off
-              Specifies whether TX checksumming should be enabled.
+I would assume that the changes would be in the Ethernet portion of the
+driver and maybe also in the PHY driver to ack/configure interrupts. As
+Andrew indicated, you probably want to post the full patch series to
+show how this will be used.
 
-After:
-       -K --features --offload
-              Changes  the  offload parameters and other features of the
-              specified network device.  The following feature names are
-              built-in and others may be defined by the kernel.
+> 
+> There is possibly a cleaner way to do this. I've some unpublished work
+> where i added interrupt support for the Marvell switches. These
+> switches can have embedded PHYs, and the interrupts from these PHYs go
+> into the switchers interrupt controller. From that one line comes out
+> and is connected to a GPIO line. To support this, i've implemented a
+> Linux chained interrupt driver within the switch driver. PHY
+> interrupts then become normal Linux interrupts which the PHY library
+> can make use of.
 
-           rx on|off
-                  Specifies whether RX checksumming should be enabled.
+That seems like an elegant way to solve the problem, without adding code
+in the PHY library that does not use the interrupt API, but it also
+seems to me like there are some other potential issues associated with
+doing that:
 
-           tx on|off
-                  Specifies whether TX checksumming should be enabled.
+- if a Switch/Ethernet controller has several interrupt bits
+corresponding to a built-in PHY (link UP, DOWN, Energy detect), PHYLIB
+still requests only one interrupt, and expects it to be able to read the
+interrupt cause and do something with it, if you interface an interrupt
+controller in the middle, that might go against being able to do that?
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
- ethtool.8.in | 41 +++++++++++++++++++++++++++++++++++++----
- 1 file changed, 37 insertions(+), 4 deletions(-)
+- does that scheme work well with Device Tree if you dynamically
+register an interrupt domain? of_mdiobus_register_phy() will try to
+parse a standard "interrupts" property for the PHY device, and fill in
+the mii_bus->irq for that PHY address, sure you could still override
+that later with an interrupt domain, but that sounds a little error probe
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index eeffa70..38739c7 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -365,6 +365,7 @@ Queries the specified Ethernet device for pause parameter information.
- .TP
- .B \-A \-\-pause
- Changes the pause parameters of the specified Ethernet device.
-+.RS 4
- .TP
- .A2 autoneg on off
- Specifies whether pause autonegotiation should be enabled.
-@@ -374,6 +375,7 @@ Specifies whether RX pause should be enabled.
- .TP
- .A2 tx on off
- Specifies whether TX pause should be enabled.
-+.RE
- .TP
- .B \-c \-\-show\-coalesce
- Queries the specified network device for coalescing information.
-@@ -386,6 +388,7 @@ Queries the specified network device for rx/tx ring parameter information.
- .TP
- .B \-G \-\-set\-ring
- Changes the rx/tx ring parameters of the specified network device.
-+.RS 4
- .TP
- .BI rx \ N
- Changes the number of ring entries for the Rx ring.
-@@ -398,6 +401,7 @@ Changes the number of ring entries for the Rx Jumbo ring.
- .TP
- .BI tx \ N
- Changes the number of ring entries for the Tx ring.
-+.RE
- .TP
- .B \-i \-\-driver
- Queries the specified network device for associated driver information.
-@@ -419,6 +423,14 @@ Retrieves and prints an EEPROM dump for the specified network device.
- When raw is enabled, then it dumps the raw EEPROM data to stdout. The
- length and offset parameters allow dumping certain portions of the EEPROM.
- Default is to dump the entire EEPROM.
-+.RS 4
-+.TP
-+.BI raw \ on|off
-+.TP
-+.BI offset \ N
-+.TP
-+.BI length \ N
-+.RE
- .TP
- .B \-E \-\-change\-eeprom
- If value is specified, changes EEPROM byte for the specified network device.
-@@ -436,6 +448,7 @@ offload and other features.
- Changes the offload parameters and other features of the specified
- network device.  The following feature names are built-in and others
- may be defined by the kernel.
-+.RS 4
- .TP
- .A2 rx on off
- Specifies whether RX checksumming should be enabled.
-@@ -472,14 +485,17 @@ Specifies whether Rx ntuple filters and actions should be enabled
- .TP
- .A2 rxhash on off
- Specifies whether receive hashing offload should be enabled
-+.RE
- .TP
- .B \-p \-\-identify
- Initiates adapter-specific action intended to enable an operator to
- easily identify the adapter by sight.  Typically this involves
- blinking one or more LEDs on the specific network port.
-+.RS 4
- .TP
--.B N
-+.BN
- Length of time to perform phys-id, in seconds.
-+.RE
- .TP
- .B \-P \-\-show\-permaddr
- Queries the specified network device for permanent hardware address.
-@@ -494,6 +510,7 @@ statistics.
- .TP
- .B \-t \-\-test
- Executes adapter selftest on the specified network device. Possible test modes are:
-+.RS 4
- .TP
- .B offline
- Perform full set of tests, possibly interrupting normal operation
-@@ -505,12 +522,14 @@ Perform limited set of tests, not interrupting normal operation,
- .B external_lb
- Perform full set of tests, as for \fBoffline\fR, and additionally an
- external-loopback test.
-+.RE
- .TP
- .B \-s \-\-change
- Allows changing some or all settings of the specified network device.
- All following options only apply if
- .B \-s
- was specified.
-+.RS 4
- .TP
- .BI speed \ N
- Set speed in Mb/s.
-@@ -620,11 +639,13 @@ wol	0x4000  Wake-on-LAN status
- .TE
- .PP
- The precise meanings of these type flags differ between drivers.
-+.RE
- .PD
- .RE
- .TP
- .B \-n \-u \-\-show\-nfc \-\-show\-ntuple
- Retrieves receive network flow classification options or rules.
-+.RS 4
- .TP
- .BR rx\-flow\-hash \ \*(FL
- Retrieves the hash options for the specified flow type.
-@@ -645,11 +666,13 @@ sctp6	SCTP over IPv6
- .TP
- .BI rule \ N
- Retrieves the RX classification rule with the given ID.
-+.RE
- .PD
- .RE
- .TP
- .B \-N \-U \-\-config\-nfc \-\-config\-ntuple
- Configures receive network flow classification options or rules.
-+.RS 4
- .TP
- .BR rx\-flow\-hash \ \*(FL \: \*(HO
- Configures the hash options for the specified flow type.
-@@ -688,7 +711,6 @@ mask may be specified immediately after the value using the \fBm\fR
- keyword, or separately using the field name keyword with \fB-mask\fR
- appended, e.g. \fBsrc-mask\fR.
- .PD
--.RE
- .TP
- .BR src \ \*(MA\ [ m \ \*(MA]
- Includes the source MAC address, specified as 6 bytes in hexadecimal
-@@ -769,6 +791,7 @@ of the rule ordering process.
- .TP
- .BI delete \ N
- Deletes the RX classification rule with the given ID.
-+.RE
- .TP
- .B \-w \-\-get\-dump
- Retrieves and prints firmware dump for the specified network device.
-@@ -790,6 +813,7 @@ Retrieves the receive flow hash indirection table and/or RSS hash key.
- .TP
- .B \-X \-\-set\-rxfh\-indir \-\-rxfh
- Configures the receive flow hash indirection table and/or RSS hash key.
-+.RS 4
- .TP
- .BI hkey
- Sets RSS hash key of the specified network device. RSS hash key should be of device supported length.
-@@ -804,10 +828,12 @@ between the first \fIN\fR receive queues.
- Sets the receive flow hash indirection table to spread flows between
- receive queues according to the given weights.  The sum of the weights
- must be non-zero and must not exceed the size of the indirection table.
-+.RE
- .TP
- .B \-f \-\-flash
- Write a firmware image to flash or other non-volatile memory on the
- device.
-+.RS 4
- .TP
- .I file
- Specifies the filename of the firmware image.  The firmware must first
-@@ -819,8 +845,8 @@ If the device stores multiple firmware images in separate regions of
- non-volatile memory, this parameter may be used to specify which
- region is to be written.  The default is 0, requesting that all
- regions are written.  All other values are driver-dependent.
--.PD
- .RE
-+.PD
- .TP
- .B \-l \-\-show\-channels
- Queries the specified network device for the numbers of channels it has.
-@@ -828,6 +854,7 @@ A channel is an IRQ and the set of queues that can trigger that IRQ.
- .TP
- .B \-L \-\-set\-channels
- Changes the numbers of channels of the specified network device.
-+.RS 4
- .TP
- .BI rx \ N
- Changes the number of channels with only receive queues.
-@@ -840,6 +867,7 @@ Changes the number of channels used only for other purposes e.g. link interrupts
- .TP
- .BI combined \ N
- Changes the number of multi-purpose channels.
-+.RE
- .TP
- .B \-m \-\-dump\-module\-eeprom \-\-module\-info
- Retrieves and if possible decodes the EEPROM from plugin modules, e.g SFP+, QSFP.
-@@ -853,10 +881,12 @@ network device driver.
- .TP
- .B \-\-set\-priv\-flags
- Sets the device's private flags as specified.
-+.RS 4
- .PP
- .I flag
- .A1 on off
- Sets the state of the named private flag.
-+.RE
- .TP
- .B \-\-show\-eee
- Queries the specified network device for its support of Energy-Efficient
-@@ -864,6 +894,7 @@ Ethernet (according to the IEEE 802.3az specifications)
- .TP
- .B \-\-set\-eee
- Sets the device EEE behaviour.
-+.RS 4
- .TP
- .A2 eee on off
- Enables/disables the device support of EEE.
-@@ -879,6 +910,7 @@ Values are as for
- .BI tx-timer \ N
- Sets the amount of time the device should stay in idle mode prior to asserting
- its Tx LPI (in microseconds). This has meaning only when Tx LPI is enabled.
-+.RE
- .SH BUGS
- Not supported (in part or whole) on all network drivers.
- .SH AUTHOR
-@@ -894,7 +926,8 @@ Eli Kupermann,
- Scott Feldman,
- Andi Kleen,
- Alexander Duyck,
--Sucheta Chakraborty.
-+Sucheta Chakraborty,
-+Jesse Brandeburg.
- .SH AVAILABILITY
- .B ethtool
- is available from
+- this adds a bit of complexity to an Ethernet/Switch driver to get PHY
+devices to be probed successfully, since you now need to register an
+interrupt controller driver/domain, and do that before your MDIO bus
+driver is probed and your Ethernet MAC issues a phy_connect(), not
+impossible to get right, just a bit more complex
+
+Do not get me wrong, I do believe using the existing interrupt
+abstraction is the right answer, I am just wondering how we should be
+dealing with that at the PHY library level, in the case where there are
+different interrupt sources available (the most common being link
+UP/DOWN events) and how nice would that play with different drivers out
+there.
+
+> 
+> So, maybe your USB driver should implemented a Linux interrupt
+> controller. USB interrupt pipe transactions result in the interrupt
+> controller triggering the normal Linux interrupt mechanism, and so no
+> need to change PHYLIB.
+
+Right, that seems like a potential option here. phy_mac_interrupt() was
+intended to be used for that kind of situation where the interrupt for
+the PHY is outside of the control of the PHY driver, but unfortunately I
+think it still makes the PHY library poll the PHY, which should
+definitively be fixed.
 -- 
-1.8.3.1
+Florian
