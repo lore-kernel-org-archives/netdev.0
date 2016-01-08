@@ -1,54 +1,57 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: Re: [PATCH] net: preserve IP control block during GSO
-	segmentation
-Date: Fri, 8 Jan 2016 12:13:49 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC01BA@AcuExch.aculab.com>
-References: <145225444176.22215.2003378381077166898.stgit@zurg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
- "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: 'Konstantin Khlebnikov' <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
- <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <145225444176.22215.2003378381077166898.stgit@zurg>
-Content-Language: en-US
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] net: lpc_eth: Remove unused variables
+Date: Fri,  8 Jan 2016 10:19:16 -0200
+Message-ID: <1452255556-21827-1-git-send-email-festevam@gmail.com>
+Cc: andrew@lunn.ch, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@nxp.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:33604 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754898AbcAHMTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 07:19:35 -0500
+Received: by mail-yk0-f173.google.com with SMTP id k129so337496032yke.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 04:19:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogT2YgS29uc3RhbnRpbiBLaGxlYm5pa292DQo+IFNlbnQ6IDA4IEphbnVhcnkgMjAxNiAx
-MjowMQ0KPiBTa2JfZ3NvX3NlZ21lbnQoKSB1c2VzIHNrYiBjb250cm9sIGJsb2NrIGR1cmluZyBz
-ZWdtZW50YXRpb24uDQo+IFRoaXMgcGF0Y2ggYWRkcyAzMi1ieXRlcyByb29tIGZvciBwcmV2aW91
-cyBjb250cm9sIGJsb2NrIHdoaWNoDQo+IHdpbGwgYmUgY29waWVkIGludG8gYWxsIHJlc3VsdGlu
-ZyBzZWdtZW50cy4NCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXMga2VybmVsIGNyYXNoIGR1cmluZyBm
-cmFnbWVudGluZyBmb3J3YXJkZWQgcGFja2V0cy4NCj4gRnJhZ21lbnRhdGlvbiByZXF1aXJlcyB2
-YWxpZCBJUCBDQiBpbiBza2IgZm9yIGNsZWFyaW5nIGlwIG9wdGlvbnMuDQo+IEFsc28gcGF0Y2gg
-cmVtb3ZlcyBjdXN0b20gc2F2ZS9yZXN0b3JlIGluIG92cyBjb2RlLCBub3cgaXQncyByZWR1bmRh
-bnQuDQo+IA0KLi4uDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oIGIvaW5j
-bHVkZS9saW51eC9za2J1ZmYuaA0KPiBpbmRleCA0MzU1MTI5ZmZmOTEuLjkxNDdmOWYzNGNiZSAx
-MDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9saW51eC9za2J1ZmYuaA0KPiArKysgYi9pbmNsdWRlL2xp
-bnV4L3NrYnVmZi5oDQo+IEBAIC0zNDQ2LDcgKzM0NDYsOCBAQCBzdHJ1Y3Qgc2tiX2dzb19jYiB7
-DQo+ICAJaW50CWVuY2FwX2xldmVsOw0KPiAgCV9fdTE2CWNzdW1fc3RhcnQ7DQo+ICB9Ow0KPiAt
-I2RlZmluZSBTS0JfR1NPX0NCKHNrYikgKChzdHJ1Y3Qgc2tiX2dzb19jYiAqKShza2IpLT5jYikN
-Cj4gKyNkZWZpbmUgU0tCX1NHT19DQl9PRkZTRVQJMzINCj4gKyNkZWZpbmUgU0tCX0dTT19DQihz
-a2IpICgoc3RydWN0IHNrYl9nc29fY2IgKikoKHNrYiktPmNiICsgU0tCX1NHT19DQl9PRkZTRVQp
-KQ0KDQpZb3UgY291bGQgc2V0IFNLQl9TR09fQ0JfT0ZGU0VUIHRvIHNpemVvZiAoKHNrYiktPmNi
-KSAtIHNpemVvZiAoc3RydWN0IHNrYl9nc29fY2IpDQpzbyB0aGF0IHRoZSBlbmQgb2YgJ2NiJyBp
-cyBhbHdheXMgdXNlZC4NCihBc3N1bWluZyB0aGUgZm9ybWVyIGlzIGEgbXVsdGlwbGUgb2YgNC4p
-DQoNCkl0IG1pZ2h0IGJlIHdvcnRoIHVzaW5nIGFuIG9uLXN0YWNrIHN0cnVjdHVyZSBwYXNzZWQg
-dGhyb3VnaCBhcyBhIHNlcGFyYXRlDQpwYXJhbWV0ZXIgLSBpdCBkb2Vzbid0IGxvb2sgYXMgdGhv
-dWdoIGl0IGhhcyB0byBiZSBxdWV1ZWQgd2l0aCB0aGUgc2tiLg0KKENsZWFybHkgYSBiaWdnZXIg
-Y2hhbmdlLikNCg0KCURhdmlkDQoNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Fabio Estevam <fabio.estevam@nxp.com>
+
+Commit e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+introduced the following build warnings:
+
+drivers/net/ethernet/nxp/lpc_eth.c: In function 'lpc_mii_init':
+drivers/net/ethernet/nxp/lpc_eth.c:865:1: warning: label 'err_out_1' defined but not used [-Wunused-label]
+drivers/net/ethernet/nxp/lpc_eth.c:826:20: warning: unused variable 'i' [-Wunused-variable]
+
+Remove the unused variables to fix them.
+
+Reported-by: Olof's autobuilder <build@lixom.net>
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+---
+ drivers/net/ethernet/nxp/lpc_eth.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index a9ce37f..b1ce7aa 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -823,7 +823,7 @@ static int lpc_mii_probe(struct net_device *ndev)
+ 
+ static int lpc_mii_init(struct netdata_local *pldat)
+ {
+-	int err = -ENXIO, i;
++	int err = -ENXIO;
+ 
+ 	pldat->mii_bus = mdiobus_alloc();
+ 	if (!pldat->mii_bus) {
+@@ -862,7 +862,6 @@ static int lpc_mii_init(struct netdata_local *pldat)
+ 
+ err_out_unregister_bus:
+ 	mdiobus_unregister(pldat->mii_bus);
+-err_out_1:
+ 	mdiobus_free(pldat->mii_bus);
+ err_out:
+ 	return err;
+-- 
+1.9.1
