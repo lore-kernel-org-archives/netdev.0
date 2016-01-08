@@ -1,189 +1,54 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH] sctp: fix use-after-free in pr_debug statement
-Date: Fri,  8 Jan 2016 11:00:54 -0200
-Message-ID: <51dffdfdb37c240ff7e9b0b2a93433f217fa4d2c.1452257700.git.marcelo.leitner@gmail.com>
-References: <566AF20F.9060504@gmail.com>
-Cc: linux-sctp@vger.kernel.org, dvyukov@google.com,
-	vyasevich@gmail.com, eric.dumazet@gmail.com,
-	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
-	sasha.levin@oracle.com
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/8] ixgbe: use correct FCoE DDP max check
+Date: Fri,  8 Jan 2016 05:00:24 -0800
+Message-ID: <1452258030-63996-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1452258030-63996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57917 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:55493 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752863AbcAHNBE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 08:01:04 -0500
-In-Reply-To: <566AF20F.9060504@gmail.com>
+	id S1752863AbcAHNAd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 08:00:33 -0500
+In-Reply-To: <1452258030-63996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Couldn't get syzkaller working over here, so I still need your help on
-testing this. I expect this will be the last cycle, though.
+From: Vasu Dev <vasu.dev@intel.com>
 
-If it does generate another trace, I'll need the reproducer too because
-I can't find anything else just with code review.
+Use fcoe_ddp_xid from netdev as this is correctly set for different
+device IDs to avoid DDP skip error on X550 as "xid=0x20b out-of-range"
 
-Thanks
-
---8<--
-
-Dmitry Vyukov reported a use-after-free in the code expanded by the
-macro debug_post_sfx, which is caused by the use of the asoc pointer
-after it was freed within sctp_side_effect() scope.
-
-This patch fixes it by allowing sctp_side_effect to clear that asoc
-pointer when the TCB is freed.
-
-As Vlad explained, we also have to cover the SCTP_DISPOSITION_ABORT case
-because it will trigger DELETE_TCB too on that same loop.
-
-Also, there were places issuing SCTP_CMD_INIT_FAILED and ASSOC_FAILED
-but returning SCTP_DISPOSITION_CONSUME, which would fool the scheme
-above. Fix it by returning SCTP_DISPOSITION_ABORT instead.
-
-The macro is already prepared to handle such NULL pointer.
-
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/sctp/sm_sideeffect.c | 11 ++++++-----
- net/sctp/sm_statefuns.c  | 17 ++++-------------
- 2 files changed, 10 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 4f170ad38ff4f7d345d8e3a3fee7d691df64d9cb..2e21384697c2a6a5fd045142bcd9c39992d3867f 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -63,7 +63,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
- 			     sctp_state_t state,
- 			     struct sctp_endpoint *ep,
--			     struct sctp_association *asoc,
-+			     struct sctp_association **asoc,
- 			     void *event_arg,
- 			     sctp_disposition_t status,
- 			     sctp_cmd_seq_t *commands,
-@@ -1125,7 +1125,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
- 	debug_post_sfn();
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 5f98870..5982937 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -77,7 +77,7 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
+ 	if (!netdev)
+ 		return 0;
  
- 	error = sctp_side_effects(event_type, subtype, state,
--				  ep, asoc, event_arg, status,
-+				  ep, &asoc, event_arg, status,
- 				  &commands, gfp);
- 	debug_post_sfx();
+-	if (xid >= IXGBE_FCOE_DDP_MAX)
++	if (xid >= netdev->fcoe_ddp_xid)
+ 		return 0;
  
-@@ -1138,7 +1138,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
- static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
- 			     sctp_state_t state,
- 			     struct sctp_endpoint *ep,
--			     struct sctp_association *asoc,
-+			     struct sctp_association **asoc,
- 			     void *event_arg,
- 			     sctp_disposition_t status,
- 			     sctp_cmd_seq_t *commands,
-@@ -1153,7 +1153,7 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
- 	 * disposition SCTP_DISPOSITION_CONSUME.
- 	 */
- 	if (0 != (error = sctp_cmd_interpreter(event_type, subtype, state,
--					       ep, asoc,
-+					       ep, *asoc,
- 					       event_arg, status,
- 					       commands, gfp)))
- 		goto bail;
-@@ -1176,11 +1176,12 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
- 		break;
+ 	adapter = netdev_priv(netdev);
+@@ -177,7 +177,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 		return 0;
  
- 	case SCTP_DISPOSITION_DELETE_TCB:
-+	case SCTP_DISPOSITION_ABORT:
- 		/* This should now be a command. */
-+		*asoc = NULL;
- 		break;
- 
- 	case SCTP_DISPOSITION_CONSUME:
--	case SCTP_DISPOSITION_ABORT:
- 		/*
- 		 * We should no longer have much work to do here as the
- 		 * real work has been done as explicit commands above.
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 22c2bf367d7e8c7025065f33eabfd7e93a7f4021..f1f08c8f277bd8719299d1ed21eb23e36d55f7e2 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -2976,7 +2976,7 @@ sctp_disposition_t sctp_sf_eat_data_6_2(struct net *net,
- 		SCTP_INC_STATS(net, SCTP_MIB_IN_DATA_CHUNK_DISCARDS);
- 		goto discard_force;
- 	case SCTP_IERROR_NO_DATA:
--		goto consume;
-+		return SCTP_DISPOSITION_ABORT;
- 	case SCTP_IERROR_PROTO_VIOLATION:
- 		return sctp_sf_abort_violation(net, ep, asoc, chunk, commands,
- 			(u8 *)chunk->subh.data_hdr, sizeof(sctp_datahdr_t));
-@@ -3043,9 +3043,6 @@ discard_noforce:
- 		sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, force);
- 
- 	return SCTP_DISPOSITION_DISCARD;
--consume:
--	return SCTP_DISPOSITION_CONSUME;
--
- }
- 
- /*
-@@ -3093,7 +3090,7 @@ sctp_disposition_t sctp_sf_eat_data_fast_4_4(struct net *net,
- 	case SCTP_IERROR_BAD_STREAM:
- 		break;
- 	case SCTP_IERROR_NO_DATA:
--		goto consume;
-+		return SCTP_DISPOSITION_ABORT;
- 	case SCTP_IERROR_PROTO_VIOLATION:
- 		return sctp_sf_abort_violation(net, ep, asoc, chunk, commands,
- 			(u8 *)chunk->subh.data_hdr, sizeof(sctp_datahdr_t));
-@@ -3119,7 +3116,6 @@ sctp_disposition_t sctp_sf_eat_data_fast_4_4(struct net *net,
- 				SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
+ 	adapter = netdev_priv(netdev);
+-	if (xid >= IXGBE_FCOE_DDP_MAX) {
++	if (xid >= netdev->fcoe_ddp_xid) {
+ 		e_warn(drv, "xid=0x%x out-of-range\n", xid);
+ 		return 0;
  	}
- 
--consume:
- 	return SCTP_DISPOSITION_CONSUME;
- }
- 
-@@ -4825,9 +4821,6 @@ sctp_disposition_t sctp_sf_do_9_1_prm_abort(
- 	 * if necessary to fill gaps.
- 	 */
- 	struct sctp_chunk *abort = arg;
--	sctp_disposition_t retval;
--
--	retval = SCTP_DISPOSITION_CONSUME;
- 
- 	if (abort)
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-@@ -4845,7 +4838,7 @@ sctp_disposition_t sctp_sf_do_9_1_prm_abort(
- 	SCTP_INC_STATS(net, SCTP_MIB_ABORTEDS);
- 	SCTP_DEC_STATS(net, SCTP_MIB_CURRESTAB);
- 
--	return retval;
-+	return SCTP_DISPOSITION_ABORT;
- }
- 
- /* We tried an illegal operation on an association which is closed.  */
-@@ -4960,12 +4953,10 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
- 	sctp_cmd_seq_t *commands)
- {
- 	struct sctp_chunk *abort = arg;
--	sctp_disposition_t retval;
- 
- 	/* Stop T1-init timer */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
- 			SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
--	retval = SCTP_DISPOSITION_CONSUME;
- 
- 	if (abort)
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-@@ -4985,7 +4976,7 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
- 	sctp_add_cmd_sf(commands, SCTP_CMD_INIT_FAILED,
- 			SCTP_PERR(SCTP_ERROR_USER_ABORT));
- 
--	return retval;
-+	return SCTP_DISPOSITION_ABORT;
- }
- 
- /*
 -- 
 2.5.0
