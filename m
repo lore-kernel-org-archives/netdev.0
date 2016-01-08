@@ -1,57 +1,64 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] net: lpc_eth: Remove unused variables
-Date: Fri,  8 Jan 2016 10:19:16 -0200
-Message-ID: <1452255556-21827-1-git-send-email-festevam@gmail.com>
-Cc: andrew@lunn.ch, netdev@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@nxp.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:33604 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754898AbcAHMTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 07:19:35 -0500
-Received: by mail-yk0-f173.google.com with SMTP id k129so337496032yke.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 04:19:34 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] net: preserve IP control block during GSO
+	segmentation
+Date: Fri, 8 Jan 2016 10:20:17 -0200
+Message-ID: <20160108122016.GM27290@indiana.gru.redhat.com>
+References: <145225444176.22215.2003378381077166898.stgit@zurg>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCC01BA@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ 'Konstantin Khlebnikov' <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCC01BA-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <fabio.estevam@nxp.com>
-
-Commit e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
-introduced the following build warnings:
-
-drivers/net/ethernet/nxp/lpc_eth.c: In function 'lpc_mii_init':
-drivers/net/ethernet/nxp/lpc_eth.c:865:1: warning: label 'err_out_1' defined but not used [-Wunused-label]
-drivers/net/ethernet/nxp/lpc_eth.c:826:20: warning: unused variable 'i' [-Wunused-variable]
-
-Remove the unused variables to fix them.
-
-Reported-by: Olof's autobuilder <build@lixom.net>
-Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
----
- drivers/net/ethernet/nxp/lpc_eth.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index a9ce37f..b1ce7aa 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -823,7 +823,7 @@ static int lpc_mii_probe(struct net_device *ndev)
- 
- static int lpc_mii_init(struct netdata_local *pldat)
- {
--	int err = -ENXIO, i;
-+	int err = -ENXIO;
- 
- 	pldat->mii_bus = mdiobus_alloc();
- 	if (!pldat->mii_bus) {
-@@ -862,7 +862,6 @@ static int lpc_mii_init(struct netdata_local *pldat)
- 
- err_out_unregister_bus:
- 	mdiobus_unregister(pldat->mii_bus);
--err_out_1:
- 	mdiobus_free(pldat->mii_bus);
- err_out:
- 	return err;
--- 
-1.9.1
+T24gRnJpLCBKYW4gMDgsIDIwMTYgYXQgMTI6MTM6NDlQTSArMDAwMCwgRGF2aWQgTGFpZ2h0IHdy
+b3RlOgo+IEZyb206IE9mIEtvbnN0YW50aW4gS2hsZWJuaWtvdgo+ID4gU2VudDogMDggSmFudWFy
+eSAyMDE2IDEyOjAxCj4gPiBTa2JfZ3NvX3NlZ21lbnQoKSB1c2VzIHNrYiBjb250cm9sIGJsb2Nr
+IGR1cmluZyBzZWdtZW50YXRpb24uCj4gPiBUaGlzIHBhdGNoIGFkZHMgMzItYnl0ZXMgcm9vbSBm
+b3IgcHJldmlvdXMgY29udHJvbCBibG9jayB3aGljaAo+ID4gd2lsbCBiZSBjb3BpZWQgaW50byBh
+bGwgcmVzdWx0aW5nIHNlZ21lbnRzLgo+ID4gCj4gPiBUaGlzIHBhdGNoIGZpeGVzIGtlcm5lbCBj
+cmFzaCBkdXJpbmcgZnJhZ21lbnRpbmcgZm9yd2FyZGVkIHBhY2tldHMuCj4gPiBGcmFnbWVudGF0
+aW9uIHJlcXVpcmVzIHZhbGlkIElQIENCIGluIHNrYiBmb3IgY2xlYXJpbmcgaXAgb3B0aW9ucy4K
+PiA+IEFsc28gcGF0Y2ggcmVtb3ZlcyBjdXN0b20gc2F2ZS9yZXN0b3JlIGluIG92cyBjb2RlLCBu
+b3cgaXQncyByZWR1bmRhbnQuCj4gPiAKPiAuLi4KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xp
+bnV4L3NrYnVmZi5oIGIvaW5jbHVkZS9saW51eC9za2J1ZmYuaAo+ID4gaW5kZXggNDM1NTEyOWZm
+ZjkxLi45MTQ3ZjlmMzRjYmUgMTAwNjQ0Cj4gPiAtLS0gYS9pbmNsdWRlL2xpbnV4L3NrYnVmZi5o
+Cj4gPiArKysgYi9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCj4gPiBAQCAtMzQ0Niw3ICszNDQ2LDgg
+QEAgc3RydWN0IHNrYl9nc29fY2Igewo+ID4gIAlpbnQJZW5jYXBfbGV2ZWw7Cj4gPiAgCV9fdTE2
+CWNzdW1fc3RhcnQ7Cj4gPiAgfTsKPiA+IC0jZGVmaW5lIFNLQl9HU09fQ0Ioc2tiKSAoKHN0cnVj
+dCBza2JfZ3NvX2NiICopKHNrYiktPmNiKQo+ID4gKyNkZWZpbmUgU0tCX1NHT19DQl9PRkZTRVQJ
+MzIKPiA+ICsjZGVmaW5lIFNLQl9HU09fQ0Ioc2tiKSAoKHN0cnVjdCBza2JfZ3NvX2NiICopKChz
+a2IpLT5jYiArIFNLQl9TR09fQ0JfT0ZGU0VUKSkKPiAKPiBZb3UgY291bGQgc2V0IFNLQl9TR09f
+Q0JfT0ZGU0VUIHRvIHNpemVvZiAoKHNrYiktPmNiKSAtIHNpemVvZiAoc3RydWN0IHNrYl9nc29f
+Y2IpCj4gc28gdGhhdCB0aGUgZW5kIG9mICdjYicgaXMgYWx3YXlzIHVzZWQuCj4gKEFzc3VtaW5n
+IHRoZSBmb3JtZXIgaXMgYSBtdWx0aXBsZSBvZiA0LikKPiAKPiBJdCBtaWdodCBiZSB3b3J0aCB1
+c2luZyBhbiBvbi1zdGFjayBzdHJ1Y3R1cmUgcGFzc2VkIHRocm91Z2ggYXMgYSBzZXBhcmF0ZQo+
+IHBhcmFtZXRlciAtIGl0IGRvZXNuJ3QgbG9vayBhcyB0aG91Z2ggaXQgaGFzIHRvIGJlIHF1ZXVl
+ZCB3aXRoIHRoZSBza2IuCj4gKENsZWFybHkgYSBiaWdnZXIgY2hhbmdlLikKPiAKCkkgY29uc2lk
+ZXJlZCB0aGF0IGFzIGFuIG9wdGlvbi4gQnV0IHRoZSBiaWdnZXIgY2hhbmdlIGFuZCB0aGUgdXNl
+IG9mIHRoZSBleHRyYQpzdGFjayBmb3IgYWxsIHVzZXJzLCBwbHVzIHRoZSBleHRyYSBwYXJhbWV0
+ZXJzIGluZGljYXRlZCBJIHNob3VsZCBnbyB0aGUgb3RoZXIKd2F5LgoKSW4gbXkgb3Bpbmlvbiwg
+YXQgbGVhc3QgaW4gdGhlIElQIGZyYWdtZW50YXRpb24gY2FzZSwgc2F2aW5nL3Jlc3RvcmluZyBj
+YiBpcyBub3QKc3VjaCBhIGJpZyBwcm9ibGVtIHNpbmNlIHdlIGFyZSBpbiBzbG93IHBhdGggYWxy
+ZWFkeS4KCkNhc2NhcmRvLgoKPiAJRGF2aWQKPiAKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
+Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
