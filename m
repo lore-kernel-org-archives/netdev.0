@@ -1,92 +1,42 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: [PATCH net-next v6 2/7] netfilter: Allow calling into nat
-	helper without skb_dst.
-Date: Fri,  8 Jan 2016 10:29:55 -0800
-Message-ID: <1452277800-46541-3-git-send-email-jarno@ovn.org>
-References: <1452277800-46541-1-git-send-email-jarno@ovn.org>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: Question regarding {G,S}CHANNELS API
+Date: Fri, 8 Jan 2016 10:17:13 -0800
+Message-ID: <1452277033.13470.43.camel@prashant>
+References: <20160107154324.4081743c@jkicinski-Precision-T1700>
+	 <1452201864.13470.27.camel@prashant>
+	 <20160108114139.74a35521@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1452277800-46541-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <ben@decadent.org.uk>, <siva.kallam@broadcom.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:54122 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754891AbcAHSk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 13:40:27 -0500
+In-Reply-To: <20160108114139.74a35521@jkicinski-Precision-T1700>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TkFUIGNoZWNrc3VtIHJlY2FsY3VsYXRpb24gY29kZSBhc3N1bWVzIGV4aXN0ZW5jZSBvZiBza2Jf
-ZHN0LCB3aGljaApiZWNvbWVzIGEgcHJvYmxlbSBmb3IgYSBsYXRlciBwYXRjaCBpbiB0aGUgc2Vy
-aWVzICgib3BlbnZzd2l0Y2g6CkludGVyZmFjZSB3aXRoIE5BVC4iKS4gIFNpbXBsaWZ5IHRoaXMg
-YnkgcmVtb3ZpbmcgdGhlIGNoZWNrIG9uCnNrYl9kc3QsIGFzIHRoZSBjaGVja3N1bSB3aWxsIGJl
-IGRlYWx0IHdpdGggbGF0ZXIgaW4gdGhlIHN0YWNrLgoKU3VnZ2VzdGVkLWJ5OiBQcmF2aW4gU2hl
-bGFyIDxwc2hlbGFyQG5pY2lyYS5jb20+ClNpZ25lZC1vZmYtYnk6IEphcm5vIFJhamFoYWxtZSA8
-amFybm9Ab3ZuLm9yZz4KLS0tCiBuZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2
-NC5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBuZXQvaXB2Ni9uZXRmaWx0
-ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tCiAyIGZpbGVzIGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDQ0IGRlbGV0aW9ucygtKQoK
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0LmMgYi9u
-ZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2NC5jCmluZGV4IDYxYzdjYzIuLmY4
-YWFkMDMgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0
-LmMKKysrIGIvbmV0L2lwdjQvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjQuYwpAQCAtMTI3
-LDI5ICsxMjcsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjRfY3N1bV9yZWNhbGMoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
-ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
-aXBoZHIgKmlwaCA9IGlwX2hkcihza2IpOwotCXN0cnVjdCBydGFibGUgKnJ0ID0gc2tiX3J0YWJs
-ZShza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJ
-aWYgKCEocnQtPnJ0X2ZsYWdzICYgUlRDRl9MT0NBTCkgJiYKLQkJICAgICghc2tiLT5kZXYgfHwg
-c2tiLT5kZXYtPmZlYXR1cmVzICYKLQkJICAgICAoTkVUSUZfRl9JUF9DU1VNIHwgTkVUSUZfRl9I
-V19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNr
-Yi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShza2IpICsKLQkJCQkJICBza2JfbmV0d29ya19v
-ZmZzZXQoc2tiKSArCi0JCQkJCSAgaXBfaGRybGVuKHNrYik7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0
-ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV90Y3B1ZHBfbWFnaWMo
-aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgICBkYXRhbGVuLCBwcm90bywgMCk7Ci0J
-CX0gZWxzZSB7Ci0JCQkqY2hlY2sgPSAwOwotCQkJKmNoZWNrID0gY3N1bV90Y3B1ZHBfbWFnaWMo
-aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgIGRhdGFsZW4sIHByb3RvLAotCQkJCQkJ
-ICAgY3N1bV9wYXJ0aWFsKGRhdGEsIGRhdGFsZW4sCi0JCQkJCQkJCTApKTsKLQkJCWlmIChwcm90
-byA9PSBJUFBST1RPX1VEUCAmJiAhKmNoZWNrKQotCQkJCSpjaGVjayA9IENTVU1fTUFOR0xFRF8w
-OwotCQl9CisJCWNvbnN0IHN0cnVjdCBpcGhkciAqaXBoID0gaXBfaGRyKHNrYik7CisKKwkJc2ti
-LT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9QQVJUSUFMOworCQlza2ItPmNzdW1fc3RhcnQgPSBza2Jf
-aGVhZHJvb20oc2tiKSArIHNrYl9uZXR3b3JrX29mZnNldChza2IpICsKKwkJCWlwX2hkcmxlbihz
-a2IpOworCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7CisJCSpjaGVj
-ayA9IH5jc3VtX3RjcHVkcF9tYWdpYyhpcGgtPnNhZGRyLCBpcGgtPmRhZGRyLCBkYXRhbGVuLAor
-CQkJCQkgICAgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1fcmVwbGFjZTIo
-Y2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4pLCB0cnVlKTsK
-ZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2LmMgYi9u
-ZXQvaXB2Ni9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jCmluZGV4IDZjZTMwOTkuLmUw
-YmU5N2UgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2
-LmMKKysrIGIvbmV0L2lwdjYvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYwpAQCAtMTMx
-LDI5ICsxMzEsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjZfY3N1bV9yZWNhbGMoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
-ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
-aXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOwotCXN0cnVjdCBydDZfaW5mbyAqcnQgPSAo
-c3RydWN0IHJ0Nl9pbmZvICopc2tiX2RzdChza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9
-IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJaWYgKCEocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfTE9DQUwp
-ICYmCi0JCSAgICAoIXNrYi0+ZGV2IHx8IHNrYi0+ZGV2LT5mZWF0dXJlcyAmCi0JCSAgICAgKE5F
-VElGX0ZfSVBWNl9DU1VNIHwgTkVUSUZfRl9IV19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVk
-ID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNrYi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShz
-a2IpICsKLQkJCQkJICBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCi0JCQkJCSAgKGRhdGEgLSAo
-dm9pZCAqKXNrYi0+ZGF0YSk7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAt
-IGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2
-aC0+ZGFkZHIsCi0JCQkJCQkgIGRhdGFsZW4sIHByb3RvLCAwKTsKLQkJfSBlbHNlIHsKLQkJCSpj
-aGVjayA9IDA7Ci0JCQkqY2hlY2sgPSBjc3VtX2lwdjZfbWFnaWMoJmlwdjZoLT5zYWRkciwgJmlw
-djZoLT5kYWRkciwKLQkJCQkJCSBkYXRhbGVuLCBwcm90bywKLQkJCQkJCSBjc3VtX3BhcnRpYWwo
-ZGF0YSwgZGF0YWxlbiwKLQkJCQkJCQkgICAgICAwKSk7Ci0JCQlpZiAocHJvdG8gPT0gSVBQUk9U
-T19VRFAgJiYgISpjaGVjaykKLQkJCQkqY2hlY2sgPSBDU1VNX01BTkdMRURfMDsKLQkJfQorCQlj
-b25zdCBzdHJ1Y3QgaXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOworCisJCXNrYi0+aXBf
-c3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKKwkJc2tiLT5jc3VtX3N0YXJ0ID0gc2tiX2hlYWRy
-b29tKHNrYikgKyBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCisJCQkoZGF0YSAtICh2b2lkICop
-c2tiLT5kYXRhKTsKKwkJc2tiLT5jc3VtX29mZnNldCA9ICh2b2lkICopY2hlY2sgLSBkYXRhOwor
-CQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2aC0+ZGFkZHIs
-CisJCQkJCSAgZGF0YWxlbiwgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1f
-cmVwbGFjZTIoY2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4p
-LCB0cnVlKTsKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
-ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Fri, 2016-01-08 at 11:41 +0000, Jakub Kicinski wrote:
+
+> The point of my email was that it's a bit cumbersome to express such
+> configuration with the current ethtool API.  Therefore I'm asking if
+> it's preferred to use:
+>   ethtool ethX -L rx N tx M
+For tg3 driver this is the preferred way
+
+> in this case, or:
+>   ethtool ethX -L combined N tx/rx abs(M-N)
+tg3 will ignore the combined option and only consider separate tx / rx
+values here. Combined will always be displayed as 0 to the user.
+
+We understand your concern, and agree that the internal implementation
+does not assign separate irq's to each tx, rx rings when tx/rx option is
+used by user. With limited number of status blocks (max 4) and a HW bug
+due to which not more than 1 TX ring is recommended to be enabled, it
+was implemented in this manner.
