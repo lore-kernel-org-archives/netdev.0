@@ -1,45 +1,139 @@
-From: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: preserve IP control block during GSO
-	segmentation
-Date: Fri, 8 Jan 2016 15:10:31 +0300
-Message-ID: <CALYGNiMDqQyZYivuWahMkaqbJs0aLvzZGj0pUnxbd_XhkHLvUA@mail.gmail.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: Re: [PATCH] net: preserve IP control block during GSO segmentation
+Date: Fri, 8 Jan 2016 10:11:31 -0200
+Message-ID: <20160108121130.GL27290@indiana.gru.redhat.com>
 References: <145225444176.22215.2003378381077166898.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
- Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	dev@openvswitch.org, Eric Dumazet <edumazet@google.com>,
+	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
+	Pravin Shelar <pshelar@nicira.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: Konstantin Khlebnikov <koct9i@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56194 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932105AbcAHMLh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 07:11:37 -0500
+Content-Disposition: inline
 In-Reply-To: <145225444176.22215.2003378381077166898.stgit@zurg>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBKYW4gOCwgMjAxNiBhdCAzOjAwIFBNLCBLb25zdGFudGluIEtobGVibmlrb3YgPGtv
-Y3Q5aUBnbWFpbC5jb20+IHdyb3RlOgo+IFNrYl9nc29fc2VnbWVudCgpIHVzZXMgc2tiIGNvbnRy
-b2wgYmxvY2sgZHVyaW5nIHNlZ21lbnRhdGlvbi4KPiBUaGlzIHBhdGNoIGFkZHMgMzItYnl0ZXMg
-cm9vbSBmb3IgcHJldmlvdXMgY29udHJvbCBibG9jayB3aGljaAo+IHdpbGwgYmUgY29waWVkIGlu
-dG8gYWxsIHJlc3VsdGluZyBzZWdtZW50cy4KPgo+IFRoaXMgcGF0Y2ggZml4ZXMga2VybmVsIGNy
-YXNoIGR1cmluZyBmcmFnbWVudGluZyBmb3J3YXJkZWQgcGFja2V0cy4KPiBGcmFnbWVudGF0aW9u
-IHJlcXVpcmVzIHZhbGlkIElQIENCIGluIHNrYiBmb3IgY2xlYXJpbmcgaXAgb3B0aW9ucy4KPiBB
-bHNvIHBhdGNoIHJlbW92ZXMgY3VzdG9tIHNhdmUvcmVzdG9yZSBpbiBvdnMgY29kZSwgbm93IGl0
-J3MgcmVkdW5kYW50Lgo+Cj4gU2lnbmVkLW9mZi1ieTogS29uc3RhbnRpbiBLaGxlYm5pa292IDxr
-b2N0OWlAZ21haWwuY29tPgo+IExpbms6IGh0dHA6Ly9sa21sLmtlcm5lbC5vcmcvci9DQUxZR05p
-UC0wTVotRkV4VjJIdXRUdkU5VS1RUXRrS1NvRS0tS049SlFFNVNUWXNqQUFAbWFpbC5nbWFpbC5j
-b20KClRoaXMgcGF0Y2ggaXMgYWx0ZXJuYXRpdmUgZm9yIFtQQVRDSF0gbmV0OiBwcmV2ZW50IGNv
-cnJ1cHRpb24gb2Ygc2tiIHdoZW4gdXNpbmcKc2tiX2dzb19zZWdtZW50IGJ5IFRoYWRldSBMaW1h
-IGRlIFNvdXphIENhc2NhcmRvLiBUaGlzIHZlcnNpb24gaGF2ZQpubyBzdGFjayBhbGxvY2F0aW9u
-cyBhbmQgbm8gY2hhbmdlcyBpbiBjb2RlLiBJdCBqdXN0IHNoaWZ0cyBnc28gY2IuCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
-ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
-Zm8vZGV2Cg==
+On Fri, Jan 08, 2016 at 03:00:41PM +0300, Konstantin Khlebnikov wrote:
+> Skb_gso_segment() uses skb control block during segmentation.
+> This patch adds 32-bytes room for previous control block which
+> will be copied into all resulting segments.
+> 
+> This patch fixes kernel crash during fragmenting forwarded packets.
+> Fragmentation requires valid IP CB in skb for clearing ip options.
+> Also patch removes custom save/restore in ovs code, now it's redundant.
+> 
+> Signed-off-by: Konstantin Khlebnikov <koct9i@gmail.com>
+> Link: http://lkml.kernel.org/r/CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com
+> ---
+>  include/linux/skbuff.h     |    3 ++-
+>  net/core/dev.c             |    5 +++++
+>  net/ipv4/ip_output.c       |    1 +
+>  net/openvswitch/datapath.c |    4 +---
+>  net/xfrm/xfrm_output.c     |    2 ++
+>  5 files changed, 11 insertions(+), 4 deletions(-)
+> 
+
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 4355129fff91..9147f9f34cbe 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -3446,7 +3446,8 @@ struct skb_gso_cb {
+>  	int	encap_level;
+>  	__u16	csum_start;
+>  };
+> -#define SKB_GSO_CB(skb) ((struct skb_gso_cb *)(skb)->cb)
+> +#define SKB_SGO_CB_OFFSET	32
+> +#define SKB_GSO_CB(skb) ((struct skb_gso_cb *)((skb)->cb + SKB_SGO_CB_OFFSET))
+>  
+>  static inline int skb_tnl_header_len(const struct sk_buff *inner_skb)
+>  {
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index ae00b894e675..7f00f2439770 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2542,6 +2542,8 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
+>   *
+>   *	It may return NULL if the skb requires no segmentation.  This is
+>   *	only possible when GSO is used for verifying header integrity.
+> + *
+> + *	Segmentation preserves SKB_SGO_CB_OFFSET bytes of previous skb cb.
+>   */
+>  struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+>  				  netdev_features_t features, bool tx_path)
+> @@ -2556,6 +2558,9 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+>  			return ERR_PTR(err);
+>  	}
+>  
+> +	BUILD_BUG_ON(SKB_SGO_CB_OFFSET +
+> +		     sizeof(*SKB_GSO_CB(skb)) > sizeof(skb->cb));
+> +
+>  	SKB_GSO_CB(skb)->mac_offset = skb_headroom(skb);
+>  	SKB_GSO_CB(skb)->encap_level = 0;
+>  
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 4233cbe47052..59ed4b89b67a 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -240,6 +240,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+>  	 * from host network stack.
+>  	 */
+>  	features = netif_skb_features(skb);
+> +	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
+>  	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
+>  	if (IS_ERR_OR_NULL(segs)) {
+>  		kfree_skb(skb);
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 91a8b004dc51..b1b380ee667d 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -336,12 +336,10 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+>  	unsigned short gso_type = skb_shinfo(skb)->gso_type;
+>  	struct sw_flow_key later_key;
+>  	struct sk_buff *segs, *nskb;
+> -	struct ovs_skb_cb ovs_cb;
+>  	int err;
+>  
+> -	ovs_cb = *OVS_CB(skb);
+> +	BUILD_BUG_ON(sizeof(*OVS_CB(skb)) > SKB_SGO_CB_OFFSET);
+>  	segs = __skb_gso_segment(skb, NETIF_F_SG, false);
+> -	*OVS_CB(skb) = ovs_cb;
+>  	if (IS_ERR(segs))
+>  		return PTR_ERR(segs);
+>  	if (segs == NULL)
+
+You are missing this hunk.
+
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -359,7 +359,6 @@ static int queue_gso_packets(struct datapath *dp, struct
+sk_buff *skb,
+        /* Queue all of the segments. */
+        skb = segs;
+        do {
+-               *OVS_CB(skb) = ovs_cb;
+                if (gso_type & SKB_GSO_UDP && skb != segs)
+                        key = &later_key;
+
+
+> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+> index cc3676eb6239..ff4a91fcab9f 100644
+> --- a/net/xfrm/xfrm_output.c
+> +++ b/net/xfrm/xfrm_output.c
+> @@ -167,6 +167,8 @@ static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb
+>  {
+>  	struct sk_buff *segs;
+>  
+> +	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
+> +	BUILD_BUG_ON(sizeof(*IP6CB(skb)) > SKB_SGO_CB_OFFSET);
+>  	segs = skb_gso_segment(skb, 0);
+>  	kfree_skb(skb);
+>  	if (IS_ERR(segs))
+> 
