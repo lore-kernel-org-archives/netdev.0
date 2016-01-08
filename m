@@ -1,89 +1,53 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 16/17] netfilter: nft_byteorder: provide 64bit le/be
- conversion
-Date: Fri, 8 Jan 2016 17:23:51 +0100
-Message-ID: <20160108162351.GD26058@breakpoint.cc>
-References: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
- <1452261737-7475-17-git-send-email-pablo@netfilter.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CCC043B@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: add scheduling point in recvmmsg/sendmmsg
+Date: Fri, 08 Jan 2016 08:37:20 -0800
+Message-ID: <1452271040.8255.226.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:49089 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751213AbcAHQX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 11:23:58 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCC043B@AcuExch.aculab.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36442 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754420AbcAHQhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 11:37:23 -0500
+Received: by mail-pa0-f52.google.com with SMTP id yy13so192086980pab.3
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 08:37:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> wrote:
-> From: Pablo Neira Ayuso
-> > Sent: 08 January 2016 14:02
-> > From: Florian Westphal <fw@strlen.de>
-> > 
-> > Needed to convert the (64bit) conntrack counters to BE ordering.
-> > 
-> ...
-> >  	switch (priv->size) {
-> > +	case 8: {
-> > +		u64 src64;
-> > +
-> > +		switch (priv->op) {
-> > +		case NFT_BYTEORDER_NTOH:
-> > +			for (i = 0; i < priv->len / 8; i++) {
-> > +				src64 = get_unaligned_be64(&src[i]);
-> > +				src64 = be64_to_cpu((__force __be64)src64);
-> > +				put_unaligned_be64(src64, &dst[i]);
-> > +			}
-> > +			break;
-> > +		case NFT_BYTEORDER_HTON:
-> > +			for (i = 0; i < priv->len / 8; i++) {
-> > +				src64 = get_unaligned_be64(&src[i]);
-> > +				src64 = (__force u64)cpu_to_be64(src64);
-> > +				put_unaligned_be64(src64, &dst[i]);
-> > +			}
-> > +			break;
-> > +		}
-> > +		break;
-> 
-> That is horrid.
+From: Eric Dumazet <edumazet@google.com>
 
-Yes, sorry for this, however ...
+Applications often have to reduce number of datagrams
+they receive or send per system call to avoid starvation problems.
 
-> On a little-endian system you are byteswapping the data 3 times.
-> Image the code on a cpu that doesn't support misaligned transfers
-> and doesn't have a byteswap instruction.
+Really the kernel should take care of this by using cond_resched(),
+so that applications can experiment bigger batch sizes.
 
-diff --git a/net/netfilter/nft_byteorder.c b/net/netfilter/nft_byteorder.c
---- a/net/netfilter/nft_byteorder.c
-+++ b/net/netfilter/nft_byteorder.c
-@@ -46,16 +46,16 @@ static void nft_byteorder_eval(const struct nft_expr *expr,
- 		switch (priv->op) {
- 		case NFT_BYTEORDER_NTOH:
- 			for (i = 0; i < priv->len / 8; i++) {
--				src64 = get_unaligned_be64(&src[i]);
-+				src64 = get_unaligned((u64 *)&src[i]);
- 				src64 = be64_to_cpu((__force __be64)src64);
--				put_unaligned_be64(src64, &dst[i]);
-+				put_unaligned(src64, (u64 *)&dst[i]);
- 			}
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/socket.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/socket.c b/net/socket.c
+index d730ef9dfbf0..91c2de6f5020 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2041,6 +2041,7 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 		if (err)
  			break;
- 		case NFT_BYTEORDER_HTON:
- 			for (i = 0; i < priv->len / 8; i++) {
--				src64 = get_unaligned_be64(&src[i]);
-+				src64 = get_unaligned((u64 *)&src[i]);
- 				src64 = (__force u64)cpu_to_be64(src64);
--				put_unaligned_be64(src64, &dst[i]);
-+				put_unaligned(src64, (u64 *)&dst[i]);
- 			}
+ 		++datagrams;
++		cond_resched();
+ 	}
+ 
+ 	fput_light(sock->file, fput_needed);
+@@ -2236,6 +2237,7 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 		/* Out of band data, return right away */
+ 		if (msg_sys.msg_flags & MSG_OOB)
  			break;
- 		}
-
-Results in identical object code.
++		cond_resched();
+ 	}
+ 
+ out_put:
