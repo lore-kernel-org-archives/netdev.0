@@ -1,85 +1,129 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/17] netfilter: nft_byteorder: provide 64bit le/be conversion
-Date: Fri,  8 Jan 2016 15:02:16 +0100
-Message-ID: <1452261737-7475-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/17] netfilter: nft_ct: add byte/packet counter support
+Date: Fri,  8 Jan 2016 15:02:17 +0100
+Message-ID: <1452261737-7475-18-git-send-email-pablo@netfilter.org>
 References: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54196 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:54144 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755283AbcAHODd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 09:03:33 -0500
+	id S1755279AbcAHODc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 09:03:32 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id AC51FDA88C
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:03:32 +0100 (CET)
+	by mail.us.es (Postfix) with ESMTP id 83F46DA88B
+	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:03:31 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 9D2A0DA86D
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:03:32 +0100 (CET)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 6C572DA86D
+	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:03:31 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 3E8B4DA86E
-	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:03:27 +0100 (CET)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 69686EBAF0
+	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 15:03:29 +0100 (CET)
 In-Reply-To: <1452261737-7475-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-Needed to convert the (64bit) conntrack counters to BE ordering.
+If the accounting extension isn't present, we'll return a counter
+value of 0.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_byteorder.c | 23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+ include/uapi/linux/netfilter/nf_tables.h |  2 ++
+ net/netfilter/nft_ct.c                   | 38 ++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
 
-diff --git a/net/netfilter/nft_byteorder.c b/net/netfilter/nft_byteorder.c
-index fde5145..383c171 100644
---- a/net/netfilter/nft_byteorder.c
-+++ b/net/netfilter/nft_byteorder.c
-@@ -8,6 +8,7 @@
-  * Development of this code funded by Astaro AG (http://www.astaro.com/)
-  */
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 03c28a4..be41ffc 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -757,6 +757,8 @@ enum nft_ct_keys {
+ 	NFT_CT_PROTO_SRC,
+ 	NFT_CT_PROTO_DST,
+ 	NFT_CT_LABELS,
++	NFT_CT_PKTS,
++	NFT_CT_BYTES,
+ };
  
-+#include <asm/unaligned.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/module.h>
-@@ -39,6 +40,27 @@ static void nft_byteorder_eval(const struct nft_expr *expr,
- 	d = (void *)dst;
+ /**
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 8cbca34..6f74109 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -16,6 +16,7 @@
+ #include <linux/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_acct.h>
+ #include <net/netfilter/nf_conntrack_tuple.h>
+ #include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_conntrack_ecache.h>
+@@ -30,6 +31,18 @@ struct nft_ct {
+ 	};
+ };
  
- 	switch (priv->size) {
-+	case 8: {
-+		u64 src64;
++static u64 nft_ct_get_eval_counter(const struct nf_conn_counter *c,
++				   enum nft_ct_keys k,
++				   enum ip_conntrack_dir d)
++{
++	if (d < IP_CT_DIR_MAX)
++		return k == NFT_CT_BYTES ? atomic64_read(&c[d].bytes) :
++					   atomic64_read(&c[d].packets);
 +
-+		switch (priv->op) {
-+		case NFT_BYTEORDER_NTOH:
-+			for (i = 0; i < priv->len / 8; i++) {
-+				src64 = get_unaligned_be64(&src[i]);
-+				src64 = be64_to_cpu((__force __be64)src64);
-+				put_unaligned_be64(src64, &dst[i]);
-+			}
-+			break;
-+		case NFT_BYTEORDER_HTON:
-+			for (i = 0; i < priv->len / 8; i++) {
-+				src64 = get_unaligned_be64(&src[i]);
-+				src64 = (__force u64)cpu_to_be64(src64);
-+				put_unaligned_be64(src64, &dst[i]);
-+			}
-+			break;
-+		}
-+		break;
++	return nft_ct_get_eval_counter(c, k, IP_CT_DIR_ORIGINAL) +
++	       nft_ct_get_eval_counter(c, k, IP_CT_DIR_REPLY);
++}
++
+ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 			    struct nft_regs *regs,
+ 			    const struct nft_pktinfo *pkt)
+@@ -114,6 +127,17 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 			       NF_CT_LABELS_MAX_SIZE - size);
+ 		return;
+ 	}
++	case NFT_CT_BYTES: /* fallthrough */
++	case NFT_CT_PKTS: {
++		const struct nf_conn_acct *acct = nf_conn_acct_find(ct);
++		u64 count = 0;
++
++		if (acct)
++			count = nft_ct_get_eval_counter(acct->counter,
++							priv->key, priv->dir);
++		memcpy(dest, &count, sizeof(count));
++		return;
 +	}
- 	case 4:
- 		switch (priv->op) {
- 		case NFT_BYTEORDER_NTOH:
-@@ -101,6 +123,7 @@ static int nft_byteorder_init(const struct nft_ctx *ctx,
- 	switch (priv->size) {
- 	case 2:
- 	case 4:
-+	case 8:
- 		break;
+ #endif
  	default:
- 		return -EINVAL;
+ 		break;
+@@ -291,6 +315,13 @@ static int nft_ct_get_init(const struct nft_ctx *ctx,
+ 			return -EINVAL;
+ 		len = FIELD_SIZEOF(struct nf_conntrack_tuple, src.u.all);
+ 		break;
++	case NFT_CT_BYTES:
++	case NFT_CT_PKTS:
++		/* no direction? return sum of original + reply */
++		if (tb[NFTA_CT_DIRECTION] == NULL)
++			priv->dir = IP_CT_DIR_MAX;
++		len = sizeof(u64);
++		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -373,6 +404,13 @@ static int nft_ct_get_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ 	case NFT_CT_PROTO_DST:
+ 		if (nla_put_u8(skb, NFTA_CT_DIRECTION, priv->dir))
+ 			goto nla_put_failure;
++		break;
++	case NFT_CT_BYTES:
++	case NFT_CT_PKTS:
++		if (priv->dir < IP_CT_DIR_MAX &&
++		    nla_put_u8(skb, NFTA_CT_DIRECTION, priv->dir))
++			goto nla_put_failure;
++		break;
+ 	default:
+ 		break;
+ 	}
 -- 
 2.1.4
