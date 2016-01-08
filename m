@@ -1,32 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] net, sched: add clsact qdisc
-Date: Thu, 07 Jan 2016 16:01:19 -0800
-Message-ID: <1452211279.8255.221.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <61198814638d88ce3555dbecf8ef875523b95743.1452197856.git.daniel@iogearbox.net>
-	 <568EF308.1060505@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Thu, 7 Jan 2016 16:15:22 -0800
+Message-ID: <CAKgT0UePUo+qN+gv3R_4Uge=q=GUd4-39BxgecXmYCXLohLt2w@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C9B.3090408@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	alexei.starovoitov@gmail.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34221 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753061AbcAHABV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 19:01:21 -0500
-Received: by mail-pf0-f170.google.com with SMTP id q63so827237pfb.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 16:01:21 -0800 (PST)
-In-Reply-To: <568EF308.1060505@gmail.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:34113 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753341AbcAHAPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 19:15:23 -0500
+Received: by mail-io0-f177.google.com with SMTP id 1so223751971ion.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 16:15:22 -0800 (PST)
+In-Reply-To: <568E9C9B.3090408@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-01-07 at 15:21 -0800, John Fastabend wrote:
->  Further we can build interesting queue
-> select logic now and maybe remove select_queue() from the ndo ops
-> eventually? With this and xps there really is no reason to have drivers
-> implementing some under-the-covers logic anymore.
+On Thu, Jan 7, 2016 at 9:12 AM, Edward Cree <ecree@solarflare.com> wrote:
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+>  drivers/net/vxlan.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 6369a57..d4acbc9 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1733,7 +1733,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+>                 goto err;
+>         }
+>
 
-I guess you missed the "hv_netvsc: don't make assumptions on struct
-flow_keys layout" thread today ;)
+A few lines up from here there is a "udp_sum = false" that can be
+dropped for the remote checksum stuff.
+
+> -       skb = iptunnel_handle_offloads(skb, udp_sum, type);
+> +       skb = iptunnel_handle_offloads(skb, false, type);
+>         if (IS_ERR(skb)) {
+>                 err = -EINVAL;
+>                 goto err;
+> @@ -1814,7 +1814,7 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
+>         if (WARN_ON(!skb))
+>                 return -ENOMEM;
+>
+
+Same thing for this one.  If you aren't passing it there is no point
+in updating it a few lines above here.
+
+> -       skb = iptunnel_handle_offloads(skb, udp_sum, type);
+> +       skb = iptunnel_handle_offloads(skb, false, type);
+>         if (IS_ERR(skb))
+>                 return PTR_ERR(skb);
+>
