@@ -1,53 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] netlink: fix null pointer dereference on nlk->groups
-Date: Fri, 8 Jan 2016 22:43:22 +0300
-Message-ID: <5690115A.4070405@cogentembedded.com>
-References: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH v3 net-next 0/8] Local Checksum Offload
+Date: Fri, 8 Jan 2016 19:44:23 +0000
+Message-ID: <56901197.8040808@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Baozeng Ding <sploving1@gmail.com>, davem@davemloft.net,
-	herbert@gondor.apana.org.au, daniel@iogearbox.net, tgraf@suug.ch,
-	pablo@netfilter.org, chamaken@gmail.com, nicolas.dichtel@6wind.com,
-	fw@strlen.de
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	<tom@herbertland.com>, <alexander.duyck@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:35165 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932444AbcAHTn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:43:26 -0500
-Received: by mail-lb0-f175.google.com with SMTP id bc4so229366867lbc.2
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 11:43:26 -0800 (PST)
-In-Reply-To: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:26610 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755933AbcAHTow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 14:44:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Tested with a VXLAN tunnel over a device that doesn't support inner checksum
+ offload (so the checksum will have been done in sw by validate_xmit_skb()).
 
-On 01/08/2016 08:46 AM, Baozeng Ding wrote:
+Changes from v2:
+ * Added support for IPv4 GRE.
+ * Split out 'always set up for checksum offload' into its own patch.
+ * Removed csum_help from iptunnel_handle_offloads.
+ * Rewrote LCO callers to only fold once.
+ * Simplified nocheck handling.
 
-> If groups is not 0 and nlk->groups is NULL, it will not return
-> immediately and cause a null pointer dereference later.
->
-> Signed-off-by: Baozeng Ding <sploving1@gmail.com>
-> ---
->   net/netlink/af_netlink.c | 10 +++++++---
->   1 file changed, 7 insertions(+), 3 deletions(-)
->
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 59651af..38efde0 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-[...]
-> @@ -1576,14 +1577,17 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
->   		}
->   	}
->
-> -	if (!groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
-> +	if (nlk->groups == NULL)
+Changes from v1:
+ * Enabled support in more encapsulation protocols.
+   I think it now covers everything except GRE.
+ * Wrote up some documentation covering TX checksum offload, LCO and RCO.
 
-    '!nlk->groups' is preferred in the networking code.
+Edward Cree (8):
+  net: local checksum offload for encapsulation
+  net: udp: always set up for CHECKSUM_PARTIAL offload
+  net: enable LCO for udp_tunnel_handle_offloads() users
+  net: vxlan: enable local checksum offload
+  fou: enable LCO in FOU and GUE
+  net: gre: Implement LCO for GRE over IPv4
+  net: ip_tunnel: remove 'csum_help' argument to
+    iptunnel_handle_offloads
+  Documentation/networking: add checksum-offloads.txt to explain LCO
 
-[...]
-
-MBR, Sergei
+ Documentation/networking/00-INDEX              |   2 +
+ Documentation/networking/checksum-offloads.txt | 119 +++++++++++++++++++++++++
+ drivers/net/vxlan.c                            |  18 ++--
+ include/linux/skbuff.h                         |  26 ++++++
+ include/net/ip_tunnels.h                       |   3 +-
+ include/net/udp_tunnel.h                       |   2 +-
+ net/ipv4/fou.c                                 |  14 ++-
+ net/ipv4/ip_gre.c                              |  20 ++++-
+ net/ipv4/ip_tunnel_core.c                      |  15 +---
+ net/ipv4/ipip.c                                |   2 +-
+ net/ipv4/udp.c                                 |  28 ++----
+ net/ipv6/ip6_checksum.c                        |  23 ++---
+ net/ipv6/sit.c                                 |   4 +-
+ net/netfilter/ipvs/ip_vs_xmit.c                |   6 +-
+ 14 files changed, 197 insertions(+), 85 deletions(-)
+ create mode 100644 Documentation/networking/checksum-offloads.txt
