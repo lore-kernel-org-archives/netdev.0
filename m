@@ -1,116 +1,60 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH] net: phy: Support for non-HW interrupt devices
-Date: Fri, 8 Jan 2016 03:25:58 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4049389F@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
- <20160108004238.GD4389@lunn.ch>,<568F1A1B.1040808@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Thu, 7 Jan 2016 19:46:05 -0800
+Message-ID: <CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C9B.3090408@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: <f.fainelli@gmail.com>, <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:20953 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753983AbcAHDZ7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 22:25:59 -0500
-In-Reply-To: <568F1A1B.1040808@gmail.com>
-Content-Language: en-US
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35349 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbcAHDqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2016 22:46:07 -0500
+Received: by mail-io0-f194.google.com with SMTP id 77so5233982ioc.2
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2016 19:46:06 -0800 (PST)
+In-Reply-To: <568E9C9B.3090408@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian & Andrew,
-
-Thanks for your feedback and I'm glad that there are requests to expand PHYLIB.
-I'm sorry not to post sample code to use this patch. I'll post another patch with
-sample I'm testing.
-
-As you may already know, USB Interrupt Pipe is not actual interrupt and
-USB driver is beyond USB Host driver which deals with HW interrupt directly over
-request_irq(). So even we can put some code in USB Host driver to interface with 
-PHYLIB, it is more likely adding another USB stack to handle this pseudo interrupt.
-I don't think it's good approach to solve this problem.
-
-Woojung
-________________________________________
-From: Florian Fainelli [f.fainelli@gmail.com]
-Sent: Thursday, January 07, 2016 9:08 PM
-To: Andrew Lunn; Woojung Huh - C21699
-Cc: netdev@vger.kernel.org; davem@davemloft.net
-Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
-
-On 07/01/16 16:42, Andrew Lunn wrote:
-> On Thu, Jan 07, 2016 at 11:14:19PM +0000, Woojung.Huh@microchip.com wrote:
->> This patch introduces PHY_PSEUDO_INTERRUPT and routines to
->> handle pseudo (not-real-hardware) interrupt such as USB interrupt pipe for
->> USB-to-Ethernet device.
->>
->> Unless having real hardware interrupt handler registered by request_irq(),
->> phy_state_machine() can't avoid calling phy_read_status()
->> to monitor link changes. This especially prevents USB-to-Ethernet device
->> from going to auto suspend to save power.
-
-Well, this surely is something that can be fixed.
-
+On Thu, Jan 7, 2016 at 9:12 AM, Edward Cree <ecree@solarflare.com> wrote:
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+>  drivers/net/vxlan.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 >
-> Hi Woojung
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 6369a57..d4acbc9 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1733,7 +1733,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+>                 goto err;
+>         }
 >
-> Do you have an example PHY driver making use of this. At the moment i
-> don't see how it works.
-
-I would assume that the changes would be in the Ethernet portion of the
-driver and maybe also in the PHY driver to ack/configure interrupts. As
-Andrew indicated, you probably want to post the full patch series to
-show how this will be used.
-
+> -       skb = iptunnel_handle_offloads(skb, udp_sum, type);
+> +       skb = iptunnel_handle_offloads(skb, false, type);
+>         if (IS_ERR(skb)) {
+>                 err = -EINVAL;
+>                 goto err;
+> @@ -1814,7 +1814,7 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
+>         if (WARN_ON(!skb))
+>                 return -ENOMEM;
 >
-> There is possibly a cleaner way to do this. I've some unpublished work
-> where i added interrupt support for the Marvell switches. These
-> switches can have embedded PHYs, and the interrupts from these PHYs go
-> into the switchers interrupt controller. From that one line comes out
-> and is connected to a GPIO line. To support this, i've implemented a
-> Linux chained interrupt driver within the switch driver. PHY
-> interrupts then become normal Linux interrupts which the PHY library
-> can make use of.
-
-That seems like an elegant way to solve the problem, without adding code
-in the PHY library that does not use the interrupt API, but it also
-seems to me like there are some other potential issues associated with
-doing that:
-
-- if a Switch/Ethernet controller has several interrupt bits
-corresponding to a built-in PHY (link UP, DOWN, Energy detect), PHYLIB
-still requests only one interrupt, and expects it to be able to read the
-interrupt cause and do something with it, if you interface an interrupt
-controller in the middle, that might go against being able to do that?
-
-- does that scheme work well with Device Tree if you dynamically
-register an interrupt domain? of_mdiobus_register_phy() will try to
-parse a standard "interrupts" property for the PHY device, and fill in
-the mii_bus->irq for that PHY address, sure you could still override
-that later with an interrupt domain, but that sounds a little error probe
-
-- this adds a bit of complexity to an Ethernet/Switch driver to get PHY
-devices to be probed successfully, since you now need to register an
-interrupt controller driver/domain, and do that before your MDIO bus
-driver is probed and your Ethernet MAC issues a phy_connect(), not
-impossible to get right, just a bit more complex
-
-Do not get me wrong, I do believe using the existing interrupt
-abstraction is the right answer, I am just wondering how we should be
-dealing with that at the PHY library level, in the case where there are
-different interrupt sources available (the most common being link
-UP/DOWN events) and how nice would that play with different drivers out
-there.
-
+> -       skb = iptunnel_handle_offloads(skb, udp_sum, type);
+> +       skb = iptunnel_handle_offloads(skb, false, type);
+>         if (IS_ERR(skb))
+>                 return PTR_ERR(skb);
 >
-> So, maybe your USB driver should implemented a Linux interrupt
-> controller. USB interrupt pipe transactions result in the interrupt
-> controller triggering the normal Linux interrupt mechanism, and so no
-> need to change PHYLIB.
+>
 
-Right, that seems like a potential option here. phy_mac_interrupt() was
-intended to be used for that kind of situation where the interrupt for
-the PHY is outside of the control of the PHY driver, but unfortunately I
-think it still makes the PHY library poll the PHY, which should
-definitively be fixed.
+So I just tried testing your patches and as it turns out you are still
+missing some bits.  In this patch for instance the calls to
+udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
+that you pass false for the last parameter and allow the use of your
+udp_set_csum modifications.
+
+- Alex
