@@ -1,48 +1,65 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: Support for non-HW interrupt devices
-Date: Fri, 8 Jan 2016 16:51:11 +0100
-Message-ID: <20160108155111.GF4389@lunn.ch>
-References: <9235D6609DB808459E95D78E17F2E43D40493795@CHN-SV-EXMX02.mchp-main.com>
- <20160108004238.GD4389@lunn.ch>
- <568F1A1B.1040808@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D4049389F@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH 1/2] phy: fix blackfin build failure
+Date: Fri, 8 Jan 2016 16:57:23 +0100
+Message-ID: <20160108155723.GG4389@lunn.ch>
+References: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Woojung.Huh@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44082 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750860AbcAHPvP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2016 10:51:15 -0500
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D4049389F@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> As you may already know, USB Interrupt Pipe is not actual interrupt and
-> USB driver is beyond USB Host driver which deals with HW interrupt directly over
-> request_irq(). So even we can put some code in USB Host driver to interface with 
-> PHYLIB, it is more likely adding another USB stack to handle this pseudo interrupt.
-> I don't think it's good approach to solve this problem.
 
-You don't need any code in the USB irq handler.
 
-I'm not too familiar with USB networking, but looking at usbnet.c, it
-looks like intr_complete() gets called when there is a USB Interrupt
-Pipe event. That calls into the drivers status() method.
+On Fri, Jan 08, 2016 at 04:58:14PM +0530, Sudip Mukherjee wrote:
+> The build of blackfin defconfig is failing with the error:
+> error: 'struct mii_bus' has no member named 'phy_map'
+> 
+> A new API mdiobus_get_phy() was introduced and phy_map was removed but
+> it was not changed here.
+> 
+> Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus.")
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> ---
 
-In this status method, you need to trigger a Linux interrupt. By that,
-i mean you need to call handle_nested_irq().
+Hi David.
 
-What i found useful was looking at how drivers/gpio/gpip-pca953x.c
-works. That is an i2c GPIO expander, which supports GPIO
-interrupts. When the device indicates an interrupt event, you need to
-read an i2c register on the device to see which GPIO line has
-triggered it, and then call handle_nestd_irq() for the corresponding
-interrupt.
+Acked-by: Andrew Lunn <andrew@lunn.ch>
 
-Humm, in fact, take a look at drivers/gpio/gpio-dln2.c It is a USB
-GPIO expander, with interrupt support.
+This is one more of the late 0-day reports i got. Please take these
+two, along with the two fixes i posted yesterday.
 
-	Andrew
+     Andrew
+
+> 
+> build log of next-20160108 is at:
+> https://travis-ci.org/sudipm-mukherjee/parport/jobs/101006125
+> 
+>  drivers/net/ethernet/adi/bfin_mac.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+> index 6286274..6f3432a 100644
+> --- a/drivers/net/ethernet/adi/bfin_mac.c
+> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+> @@ -398,7 +398,8 @@ static int mii_probe(struct net_device *dev, int phy_mode)
+>  
+>  	/* search for connected PHY device */
+>  	for (i = 0; i < PHY_MAX_ADDR; ++i) {
+> -		struct phy_device *const tmp_phydev = lp->mii_bus->phy_map[i];
+> +		struct phy_device *const tmp_phydev =
+> +			mdiobus_get_phy(lp->mii_bus, i);
+>  
+>  		if (!tmp_phydev)
+>  			continue; /* no PHY here... */
+> -- 
+> 1.9.1
+> 
