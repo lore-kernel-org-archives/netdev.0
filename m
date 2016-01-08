@@ -1,98 +1,71 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Fri, 8 Jan 2016 21:07:58 +0000
-Message-ID: <DM2PR0301MB0784EBC7C507C17E596D87C0CAF60@DM2PR0301MB0784.namprd03.prod.outlook.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
- <1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
- <877fjlfrid.fsf@vitty.brq.redhat.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net-next v3 8/8] geneve: break dependency to network drivers
+Date: Fri, 8 Jan 2016 13:12:40 -0800
+Message-ID: <CAEh+42izmdn5hHBxQWfSQEduWE2OeY0puM-5DEU-iHTWYXdobQ@mail.gmail.com>
+References: <1452123571-19140-1-git-send-email-hannes@stressinduktion.org>
+ <1452123571-19140-9-git-send-email-hannes@stressinduktion.org>
+ <CAEh+42h79Sxc4JwzH_zMm+MZ-CmQWGdX1Qiz7epJmj2nCiAAVQ@mail.gmail.com> <5690204B.7000004@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- David Miller <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>, Simon Xiao <sixiao@microsoft.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <877fjlfrid.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:45274 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755999AbcAHVM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 16:12:56 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id D7B4B201DD
+	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 21:12:55 +0000 (UTC)
+Received: from mail-qk0-f169.google.com (mail-qk0-f169.google.com [209.85.220.169])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 2546B201C7
+	for <netdev@vger.kernel.org>; Fri,  8 Jan 2016 21:12:55 +0000 (UTC)
+Received: by mail-qk0-f169.google.com with SMTP id p186so125588330qke.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 13:12:55 -0800 (PST)
+In-Reply-To: <5690204B.7000004@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 8, 2016 at 12:47 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 07.01.2016 01:18, Jesse Gross wrote:
+>>
+>> I think we should merge vxlan_get_rx_port() and geneve_get_rx_port()
+>> into a single generic function. For drivers that support both, they
+>> now have two calls to get notified for all offloaded ports. This
+>> actually can cause problems related to duplicates, similar to what you
+>> feared before.
+>
+>
+> Checking out the ndo_add_vxlan_port callbacks, we cannot change how we
+> refresh the ports unfortunately. For some drivers it might be easy to
+> update, some look a little bit more complicated.
+>
+> I guess we should try to keep more complexity in the core and make sure we
+> only call those functions if necessary for the particular type of offload
+> than to replicate the logic in each driver.
+>
+> If you agree I prepare this series with the changes to have separate
+> callbacks, address your other feedback and send it out.
 
+I'm not sure that I totally understand, do you have an example of a
+problematic driver?
 
-> -----Original Message-----
-> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> Sent: Thursday, January 7, 2016 8:28 AM
-> To: Simon Xiao <sixiao@microsoft.com>; Eric Dumazet
-> <eric.dumazet@gmail.com>
-> Cc: Tom Herbert <tom@herbertland.com>; netdev@vger.kernel.org; KY
-> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
-> devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; David Miller
-> <davem@davemloft.net>
-> Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on
-> struct flow_keys layout
-> 
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> 
-> > On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
-> >> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net:
-> Add
-> >>  VLAN ID to flow_keys")) introduced a performance regression in
-> netvsc
-> >> driver. Is problem is, however, not the above mentioned commit but
-> the
-> >> fact that netvsc_set_hash() function did some assumptions on the
-> struct
-> >> flow_keys data layout and this is wrong. We need to extract the data
-> we
-> >> need (src/dst addresses and ports) after the dissect.
-> >>
-> >> The issue could also be solved in a completely different way: as
-> suggested
-> >> by Eric instead of our own homegrown netvsc_set_hash() we could use
-> >> skb_get_hash() which does more or less the same. Unfortunately, the
-> >> testing done by Simon showed that Hyper-V hosts are not happy with
-> our
-> >> Jenkins hash, selecting the output queue with the current algorithm
-> based
-> >> on Toeplitz hash works significantly better.
-> >
-> > Were tests done on IPv6 traffic ?
-> >
-> 
-> Simon, could you please test this patch for IPv6 and show us the numbers?
-> 
-> > Toeplitz hash takes at least 100 ns to hash 12 bytes (one iteration
-> per
-> > bit : 96 iterations)
-> >
-> > For IPv6 it is 3 times this, since we have to hash 36 bytes.
-> >
-> > I do not see how it can compete with skb_get_hash() that directly
-> gives
-> > skb->hash for local TCP flows.
-> >
-> 
-> My guess is that this is not the bottleneck, something is happening
-> behind the scene with out packets in Hyper-V host (e.g. re-distributing
-> them to hardware queues?) but I don't know the internals, Microsoft
-> folks could probably comment.
+I think what I was proposing is fairly simple, so maybe I wasn't
+totally clear. Here's what I think we can do:
 
-The Hyper-V vRSS protocol lets us use the Toeplitz hash algorithm. We are
-currently running further tests, including IPv6 too, and will share the 
-results when available.
+In your most recent series, vxlan_get_rx_port() and
+geneve_get_rx_port() have the same implementation. I think we can
+merge them into a single function (i.e. udp_tunnel_get_rx_port()). For
+all of the drivers that only implement VXLAN offloads, this is just a
+1:1 switch so there should be no functionality change. There's only
+one driver than currently implements both (i40e) and it calls both
+vxlan_get_rx_port() and geneve_get_rx_port() back to back. We can just
+collapse this into a single call and since that will trigger both
+offloads to refresh, the behavior should again be the same as we have.
 
-Thanks,
-- Haiyang
+I do know that there are so drivers that try to do clever things as
+far as refcounting, etc. However, since the callbacks are the same as
+we did before, it shouldn't introduce any issues.
