@@ -1,138 +1,51 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Fri, 8 Jan 2016 18:01:32 +0000
-Message-ID: <BY2PR0301MB1654E8066F70C37FDA5E3911A0F60@BY2PR0301MB1654.namprd03.prod.outlook.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
-	<1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
- <877fjlfrid.fsf@vitty.brq.redhat.com> <568F0A90.8040109@gmail.com>
- <BY2PR0301MB1654E8D1527055DCF31139D2A0F60@BY2PR0301MB1654.namprd03.prod.outlook.com>
- <568F544E.3010702@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Fri, 8 Jan 2016 10:03:18 -0800
+Message-ID: <CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C9B.3090408@solarflare.com>
+	<CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
+	<568FD844.3020101@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Tom Herbert <tom@herbertland.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>,
-	Vitaly Kuznetsov <vkuznets@redhat.com>,
-	Simon Xiao <sixiao@microsoft.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <568F544E.3010702@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f194.google.com ([209.85.214.194]:33268 "EHLO
+	mail-ob0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbcAHSDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 13:03:18 -0500
+Received: by mail-ob0-f194.google.com with SMTP id oj9so934169obc.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 10:03:18 -0800 (PST)
+In-Reply-To: <568FD844.3020101@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 8, 2016 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 08/01/16 03:46, Alexander Duyck wrote:
+>> So I just tried testing your patches and as it turns out you are still
+>> missing some bits.  In this patch for instance the calls to
+>> udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
+>> that you pass false for the last parameter and allow the use of your
+>> udp_set_csum modifications.
+>>
+>> - Alex
+> Are you remembering to enable outer checksums on your vxlan tunnel?  It's
+>  the vxflags & VXLAN_F_UDP_CSUM check, and to enable it you need a recent
+>  iproute2 so you can use the 'udpcsum' option when creating the vxlan device.
 
+No I hadn't done that.  I kind of assumed that the checksums were just
+being enabled by default.  That might explain the some of the issues I
+had..  ;-)
 
-> -----Original Message-----
-> From: John Fastabend [mailto:john.fastabend@gmail.com]
-> Sent: Thursday, January 7, 2016 10:17 PM
-> To: KY Srinivasan <kys@microsoft.com>; Vitaly Kuznetsov
-> <vkuznets@redhat.com>; Simon Xiao <sixiao@microsoft.com>; Eric Dumazet
-> <eric.dumazet@gmail.com>
-> Cc: Tom Herbert <tom@herbertland.com>; netdev@vger.kernel.org;
-> Haiyang Zhang <haiyangz@microsoft.com>; devel@linuxdriverproject.org;
-> linux-kernel@vger.kernel.org; David Miller <davem@davemloft.net>
-> Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
-> flow_keys layout
-> 
-> On 16-01-07 07:49 PM, KY Srinivasan wrote:
-> >
-> >
-> >> -----Original Message-----
-> >> From: John Fastabend [mailto:john.fastabend@gmail.com]
-> >> Sent: Thursday, January 7, 2016 5:02 PM
-> >> To: Vitaly Kuznetsov <vkuznets@redhat.com>; Simon Xiao
-> >> <sixiao@microsoft.com>; Eric Dumazet <eric.dumazet@gmail.com>
-> >> Cc: Tom Herbert <tom@herbertland.com>; netdev@vger.kernel.org; KY
-> >> Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>;
-> >> devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; David Miller
-> >> <davem@davemloft.net>
-> >> Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on
-> struct
-> >> flow_keys layout
-> >>
-> >> On 16-01-07 05:28 AM, Vitaly Kuznetsov wrote:
-> >>> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> >>>
-> >>>> On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
-> >>>>> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net:
-> Add
-> >>>>>  VLAN ID to flow_keys")) introduced a performance regression in
-> netvsc
-> >>>>> driver. Is problem is, however, not the above mentioned commit but
-> the
-> >>>>> fact that netvsc_set_hash() function did some assumptions on the
-> struct
-> >>>>> flow_keys data layout and this is wrong. We need to extract the data
-> we
-> >>>>> need (src/dst addresses and ports) after the dissect.
-> >>>>>
-> >>>>> The issue could also be solved in a completely different way: as
-> suggested
-> >>>>> by Eric instead of our own homegrown netvsc_set_hash() we could
-> use
-> >>>>> skb_get_hash() which does more or less the same. Unfortunately,
-> the
-> >>>>> testing done by Simon showed that Hyper-V hosts are not happy with
-> our
-> >>>>> Jenkins hash, selecting the output queue with the current algorithm
-> based
-> >>>>> on Toeplitz hash works significantly better.
-> >>>>
-> >>
-> >> Also can I ask the maybe naive question. It looks like the hypervisor
-> >> is populating some table via a mailbox msg and this is used to select
-> >> the queues I guess with some sort of weighting function?
-> >>
-> >> What happens if you just remove select_queue altogether? Or maybe
-> just
-> >> what is this 16 entry table doing? How does this work on my larger
-> >> systems with 64+ cores can I only use 16 cores? Sorry I really have
-> >> no experience with hyperV and this got me curious.
-> >
-> > We will limit the number of VRSS channels to the number of CPUs in
-> > a NUMA node. If the number of CPUs in a NUMA node exceeds 8, we
-> > will only open up 8 VRSS channels. On the host side currently traffic
-> > spreading is done in software and we have found that limiting to 8 CPUs
-> > gives us the best throughput. In Windows Server 2016, we will be
-> > distributing traffic on the host in hardware; the heuristics in the guest
-> > may change.
-> >
-> > Regards,
-> >
-> > K. Y
-> 
-> I think a better way to do this would be to query the numa node when
-> the interface comes online via dev_to_node() and then use cpu_to_node()
-> or create/find some better variant to get a list of cpus on the numa
-> node.
-> 
-> At this point you can use the xps mapping interface
-> netif_set_xps_queue() to get the right queue to cpu binding. If you want
-> to cap it to max 8 queues that works as well. I don't think there is
-> any value to have more tx queues than number of cpus in use.
-> 
-> If you do it this way all the normal mechanisms to setup queue mappings
-> will work for users who are doing some special configuration and the
-> default will still be what you want.
-> 
-> I guess I should go do this numa mapping for ixgbe and friends now that
-> I mention it. Last perf numbers I had showed cross numa affinitizing
-> was pretty bad.
-> 
-> Thanks,
-> John
-John,
+> It would be nice if that could just default to enabled now that we have LCO,
+>  but I don't think we can change that now (ABIs set in stone and all that),
+>  so I think it would have to be iproute2 that turned it on by default.
 
-I am little confused. In the guest, we need to first open the sub-channels (VRSS queues) based on what the host is offering. While we cannot open more sub-channels than what the host is offering, the guest can certainly open fewer sub-channels. I was describing the heuristics for how many sub-channels the guest currently opens. This is based on the NUMA topology presented to the guest and the number of VCPUs provisioned for the guest. The binding of VCPUs to the channels occur at the point of opening these channels.
+If anything we might want to expose the capabilities of the kernel so
+that iproute2 could make an informed decision on if it want to enable
+the outer checksum by default or not.
 
-Regards,
-
-K. Y 
+- Alex
