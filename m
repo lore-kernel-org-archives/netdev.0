@@ -1,70 +1,73 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4.4-rc8 6/7] isdn: eicon: diddfunc: Silence frame size
- warning
-Date: Sat, 9 Jan 2016 01:20:42 +0300
-Message-ID: <5690363A.1050400@cogentembedded.com>
-References: <1452256375-24223-1-git-send-email-tim.gardner@canonical.com>
- <1452256375-24223-7-git-send-email-tim.gardner@canonical.com>
- <5690163B.7050808@cogentembedded.com> <56903296.3090701@canonical.com>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [RFC v5 3/6] Add history to cross timestamp interface supporting
+ slower devices
+Date: Fri, 08 Jan 2016 14:28:56 -0800
+Message-ID: <op.yaxx2ivm1774gr@chall-mobl2.amr.corp.intel.com>
+References: <1451911523-8534-1-git-send-email-christopher.s.hall@intel.com>
+ <1451911523-8534-4-git-send-email-christopher.s.hall@intel.com>
+ <CALAqxLVACLP1_PGWh5Ha9P6DT+HfDu9vg-B5NCShuFvNu21WUQ@mail.gmail.com>
+ <op.yawaqe0i1774gr@chall-mobl2.amr.corp.intel.com>
+ <alpine.DEB.2.11.1601081503210.3575@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tim Gardner <tim.gardner@canonical.com>
+Cc: "John Stultz" <john.stultz@linaro.org>,
+	"Richard Cochran" <richardcochran@gmail.com>,
+	"Ingo Molnar" <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56903296.3090701@canonical.com>
+In-Reply-To: <alpine.DEB.2.11.1601081503210.3575@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/09/2016 01:05 AM, Tim Gardner wrote:
-
->>> From: Tim Gardner <tim.gardner@canonical.com>
->>>
->>> drivers/isdn/hardware/eicon/diddfunc.c: In function 'connect_didd':
->>> drivers/isdn/hardware/eicon/diddfunc.c:77:1: warning: the frame size
->>> of 1152 bytes is larger than 1024 bytes [-Wframe-larger-than=]
->>>
->>> gcc version 5.3.1 20151219 (Ubuntu 5.3.1-4ubuntu1)
->>>
->>> Cc: Armin Schindler <mac@melware.de>
->>> Cc: Karsten Keil <isdn@linux-pingi.de>
->>> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
->>> ---
->>>    drivers/isdn/hardware/eicon/diddfunc.c | 17 +++++++++++++----
->>>    1 file changed, 13 insertions(+), 4 deletions(-)
->>>
->>> diff --git a/drivers/isdn/hardware/eicon/diddfunc.c
->>> b/drivers/isdn/hardware/eicon/diddfunc.c
->>> index b0b23ed..a9feb4f 100644
->>> --- a/drivers/isdn/hardware/eicon/diddfunc.c
->>> +++ b/drivers/isdn/hardware/eicon/diddfunc.c
->>> @@ -52,9 +52,13 @@ static int __init connect_didd(void)
->>>        int x = 0;
->>>        int dadapter = 0;
->>>        IDI_SYNC_REQ req;
->>> -    DESCRIPTOR DIDD_Table[MAX_DESCRIPTORS];
->>> +    DESCRIPTOR *DIDD_Table;
->>>
->>> -    DIVA_DIDD_Read(DIDD_Table, sizeof(DIDD_Table));
->>> +    DIDD_Table = kcalloc(MAX_DESCRIPTORS, sizeof(*DIDD_Table),
->>> GFP_KERNEL);
+On Fri, 08 Jan 2016 06:04:28 -0800, Thomas Gleixner <tglx@linutronix.de>  
+wrote:
+> On Thu, 7 Jan 2016, Christopher Hall wrote:
+>> On Wed, 06 Jan 2016 11:37:23 -0800, John Stultz <john.stultz@linaro.org>
+>> wrote:
+>> > I've not done a super close reading here. But is it very likely the
+>> > the history_ref->cs_seq is the same as the captured seq? I thought
+>> > this history_ref was to allow old cross stamps to be used to improve
+>> > the back-calculation of the time at the given cycle value. So throwing
+>> > them out if they are older then the last tick seems strange.
 >>
->>    Previously the array didn't seem to be zeroed, perhaps it's better to
->> use kmalloc_array()?
-
->> [...]
-
-> The last patch in the series (isdn: eicon: consolidate descriptor
-> allocation) consolidates the allocation code into one function. I used
-> kmalloc() there because I noticed that diva_didd_read_adapter_array()
-> does zero the buffer before using it.
+>> Maybe this needs more explanation. The clocksource sequence (cs_seq) is
+>> incremented for each change in clocksource. I use this to detect a rare  
+>> corner
+>> case where the clocksource is changed from (on x86 anyway) TSC and then  
+>> back.
+>> If the history crosses one of these changes then interpolation  
+>> shouldn't be
+>> attempted (return error). It's not really enough when using the history  
+>> to
+>> just check that the current clocksource is equal to the one used at the  
+>> start
+>> of the history. The clocksource must not have changed at all. To answer  
+>> your
+>> question, it's not at all likely that this would occur.
 >
-> Do you think that is sufficient ?
+> You can flush the history when a clocksource change happens. No need to  
+> add
+> extra data to the core structures.
 
-    If it worked before your patch, yes.
+Hi Thomas,
 
-> rtg
+For slower devices like Intel's audio DSP, it's the responsibility of the  
+driver to manage the history which is supplied as an argument to  
+get_device_system_crosststamp(). The history is a triple (counter value,  
+mono-raw time, real time). The clocksource change sequence number allows  
+the timekeeping code to determine whether the supplied history is stale  
+(returning an error if it is). I'm calling any history stale that crosses  
+a clocksource change boundary.
 
-MBR, Sergei
+Logically, the keeping of the history is split between the driver and  
+timekeeping code with most of the burden on the driver. This introduces a  
+small amount of redundancy in the form of the clocksource change sequence,  
+but on balance results in a lot simpler timekeeping code.
+
+Chris
