@@ -1,59 +1,66 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: [PATCH net-next v6 1/7] netfilter: Remove IP_CT_NEW_REPLY
-	definition.
-Date: Fri,  8 Jan 2016 10:29:54 -0800
-Message-ID: <1452277800-46541-2-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next v6 3/7] openvswitch: Update the CT state key only after nf_conntrack_in().
+Date: Fri,  8 Jan 2016 10:29:56 -0800
+Message-ID: <1452277800-46541-4-git-send-email-jarno@ovn.org>
 References: <1452277800-46541-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1452277800-46541-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: netfilter-devel@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1452277800-46541-1-git-send-email-jarno@ovn.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-UmVtb3ZlIHRoZSBkZWZpbml0aW9uIG9mIElQX0NUX05FV19SRVBMWSBmcm9tIHRoZSBrZXJuZWwg
-YXMgaXQgZG9lcwpub3QgbWFrZSBzZW5zZS4gIFRoaXMgYWxsb3dzIHRoZSBkZWZpbml0aW9uIG9m
-IElQX0NUX05VTUJFUiB0byBiZQpzaW1wbGlmaWVkIGFzIHdlbGwuCgpTaWduZWQtb2ZmLWJ5OiBK
-YXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L25l
-dGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggfCAxMiArKysrKysrKystLS0KIG5ldC9vcGVu
-dnN3aXRjaC9jb25udHJhY2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgLS0KIDIgZmls
-ZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBh
-L2luY2x1ZGUvdWFwaS9saW51eC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2NvbW1vbi5oIGIvaW5j
-bHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmgKaW5kZXggMzE5
-ZjQ3MS4uNmQwNzRkMSAxMDA2NDQKLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
-Zl9jb25udHJhY2tfY29tbW9uLmgKKysrIGIvaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
-Zl9jb25udHJhY2tfY29tbW9uLmgKQEAgLTIwLDkgKzIwLDE1IEBAIGVudW0gaXBfY29ubnRyYWNr
-X2luZm8gewogCiAJSVBfQ1RfRVNUQUJMSVNIRURfUkVQTFkgPSBJUF9DVF9FU1RBQkxJU0hFRCAr
-IElQX0NUX0lTX1JFUExZLAogCUlQX0NUX1JFTEFURURfUkVQTFkgPSBJUF9DVF9SRUxBVEVEICsg
-SVBfQ1RfSVNfUkVQTFksCi0JSVBfQ1RfTkVXX1JFUExZID0gSVBfQ1RfTkVXICsgSVBfQ1RfSVNf
-UkVQTFksCQotCS8qIE51bWJlciBvZiBkaXN0aW5jdCBJUF9DVCB0eXBlcyAobm8gTkVXIGluIHJl
-cGx5IGRpcm4pLiAqLwotCUlQX0NUX05VTUJFUiA9IElQX0NUX0lTX1JFUExZICogMiAtIDEKKwkv
-KiBObyBORVcgaW4gcmVwbHkgZGlyZWN0aW9uLiAqLworCisJLyogTnVtYmVyIG9mIGRpc3RpbmN0
-IElQX0NUIHR5cGVzLiAqLworCUlQX0NUX05VTUJFUiwKKworCS8qIG9ubHkgZm9yIHVzZXJzcGFj
-ZSBjb21wYXRpYmlsaXR5ICovCisjaWZuZGVmIF9fS0VSTkVMX18KKwlJUF9DVF9ORVdfUkVQTFkg
-PSBJUF9DVF9OVU1CRVIsCisjZW5kaWYKIH07CiAKICNkZWZpbmUgTkZfQ1RfU1RBVEVfSU5WQUxJ
-RF9CSVQJCQkoMSA8PCAwKQpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5j
-IGIvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCmluZGV4IGVlNmZmOGYuLjMwNDUyOTAgMTAw
-NjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYworKysgYi9uZXQvb3BlbnZzd2l0
-Y2gvY29ubnRyYWNrLmMKQEAgLTc1LDcgKzc1LDYgQEAgc3RhdGljIHU4IG92c19jdF9nZXRfc3Rh
-dGUoZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm8pCiAJc3dpdGNoIChjdGluZm8pIHsKIAlj
-YXNlIElQX0NUX0VTVEFCTElTSEVEX1JFUExZOgogCWNhc2UgSVBfQ1RfUkVMQVRFRF9SRVBMWToK
-LQljYXNlIElQX0NUX05FV19SRVBMWToKIAkJY3Rfc3RhdGUgfD0gT1ZTX0NTX0ZfUkVQTFlfRElS
-OwogCQlicmVhazsKIAlkZWZhdWx0OgpAQCAtOTIsNyArOTEsNiBAQCBzdGF0aWMgdTggb3ZzX2N0
-X2dldF9zdGF0ZShlbnVtIGlwX2Nvbm50cmFja19pbmZvIGN0aW5mbykKIAkJY3Rfc3RhdGUgfD0g
-T1ZTX0NTX0ZfUkVMQVRFRDsKIAkJYnJlYWs7CiAJY2FzZSBJUF9DVF9ORVc6Ci0JY2FzZSBJUF9D
-VF9ORVdfUkVQTFk6CiAJCWN0X3N0YXRlIHw9IE9WU19DU19GX05FVzsKIAkJYnJlYWs7CiAJZGVm
-YXVsdDoKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
-c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Only a successful nf_conntrack_in() call can effect a connection state
+change, so if suffices to update the key only after the
+nf_conntrack_in() returns.
+
+This change is needed for the later NAT patches.
+
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/openvswitch/conntrack.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 3045290..51df4eb 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -199,7 +199,6 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
+ 	struct nf_conn *ct;
+ 	u32 new_mark;
+ 
+-
+ 	/* The connection could be invalid, in which case set_mark is no-op. */
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	if (!ct)
+@@ -375,6 +374,10 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
+ 	return true;
+ }
+ 
++/* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
++ * not done already.  Update key with new CT state after passing the packet
++ * through conntrack.
++ */
+ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			   const struct ovs_conntrack_info *info,
+ 			   struct sk_buff *skb)
+@@ -400,14 +403,14 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 				    skb) != NF_ACCEPT)
+ 			return -ENOENT;
+ 
++		ovs_ct_update_key(skb, info, key, true);
++
+ 		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+ 			WARN_ONCE(1, "helper rejected packet");
+ 			return -EINVAL;
+ 		}
+ 	}
+ 
+-	ovs_ct_update_key(skb, info, key, true);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.1.4
+
