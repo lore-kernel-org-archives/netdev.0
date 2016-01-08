@@ -1,46 +1,48 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 1/2] phy: fix blackfin build failure
-Date: Fri,  8 Jan 2016 16:58:14 +0530
-Message-ID: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 2/2] bfin_mac: fix error path
+Date: Fri,  8 Jan 2016 16:58:15 +0530
+Message-ID: <1452252495-20961-2-git-send-email-sudipm.mukherjee@gmail.com>
+References: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
 	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33629 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753490AbcAHL20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 06:28:26 -0500
+In-Reply-To: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The build of blackfin defconfig is failing with the error:
-error: 'struct mii_bus' has no member named 'phy_map'
+While building blackfin defconfig we were getting a build warning:
+warning: label 'out_err_irq_alloc' defined but not used.
 
-A new API mdiobus_get_phy() was introduced and phy_map was removed but
-it was not changed here.
+Commit e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
+removed the label out_err_mdiobus_register but then mistakenly jumped to
+out_err_alloc. But it was actually supposed to jump to out_err_irq_alloc.
 
-Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus.")
+Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
 Cc: Andrew Lunn <andrew@lunn.ch>
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
-
-build log of next-20160108 is at:
-https://travis-ci.org/sudipm-mukherjee/parport/jobs/101006125
-
- drivers/net/ethernet/adi/bfin_mac.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/adi/bfin_mac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index 6286274..6f3432a 100644
+index 6f3432a..5ddfd0e 100644
 --- a/drivers/net/ethernet/adi/bfin_mac.c
 +++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -398,7 +398,8 @@ static int mii_probe(struct net_device *dev, int phy_mode)
+@@ -1857,7 +1857,7 @@ static int bfin_mii_bus_probe(struct platform_device *pdev)
+ 	rc = mdiobus_register(miibus);
+ 	if (rc) {
+ 		dev_err(&pdev->dev, "Cannot register MDIO bus!\n");
+-		goto out_err_alloc;
++		goto out_err_irq_alloc;
+ 	}
  
- 	/* search for connected PHY device */
- 	for (i = 0; i < PHY_MAX_ADDR; ++i) {
--		struct phy_device *const tmp_phydev = lp->mii_bus->phy_map[i];
-+		struct phy_device *const tmp_phydev =
-+			mdiobus_get_phy(lp->mii_bus, i);
- 
- 		if (!tmp_phydev)
- 			continue; /* no PHY here... */
+ 	platform_set_drvdata(pdev, miibus);
 -- 
 1.9.1
