@@ -1,13 +1,14 @@
 From: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
 Subject: Re: [PATCH] net: add per device sg_max_frags for skb
-Date: Fri, 8 Jan 2016 10:55:56 +0100
-Message-ID: <568F87AC.60405@oracle.com>
+Date: Fri, 8 Jan 2016 11:01:49 +0100
+Message-ID: <568F890D.70004@oracle.com>
 References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
+ <1452089115.8255.171.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>,
@@ -26,21 +27,18 @@ Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	Mel Gorman <mgorman@techsingularity.net>,
 	"\" hannes\"@stressinduktion.org " <hannes@stressinduktion.org>,
 	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <li
-To: David Laight <David.Laight@ACULAB.COM>,
-	"David S. Miller" <davem@davemloft.net>
+	Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
+	linux-kernel@vger.ke
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
+In-Reply-To: <1452089115.8255.171.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 01/06/2016 02:59 PM, David Laight wrote:
-> From: Hans Westgaard Ry
->> Sent: 06 January 2016 13:16
+On 01/06/2016 03:05 PM, Eric Dumazet wrote:
+> On Wed, 2016-01-06 at 14:16 +0100, Hans Westgaard Ry wrote:
 >> Devices may have limits on the number of fragments in an skb they
 >> support. Current codebase uses a constant as maximum for number of
 >> fragments (MAX_SKB_FRAGS) one skb can hold and use.
@@ -57,20 +55,27 @@ On 01/06/2016 02:59 PM, David Laight wrote:
 >>
 >> The patch allows the device to limit the maximum number fragments used
 >> in one skb.
-> This doesn't seem to me to be the correct way to fix this.
-> Anything that adds an extra fragment (in this case IPoIB) should allow
-> for the skb already having the maximum number of fragments.
-> Fully linearising the skb is overkill, but I think the first fragment
-> can be added to the linear part of the skb.
+>>
+>> The functionality corresponds to gso_max_size/gso_max_segs for gso.
+> Unfortunately this is not the right place to fix this issue.
 >
-> 	David
+> Think about forwarding workloads, where the SKB is cooked by GRO engine.
+>
+> Anyway, local TCP stack uses 32KB page fragments, so typical skb has no
+> more than 3 frags.
+>
+> Look at ndo_features_check(), where the problematic device driver can
+> add its logic.
 >
 >
-When IpoIB handles a skb-request it converts fragments to SGEs to
-be handled by a HCA.
-The problem arises when the HCA have a limited number of SGEs less than 
-MAX_SKB_FRAGS.
-(it gets a little worse since IPoIB need to yet another segment)
-I have not found any easy way of fixing this with currenct codebase.
+>
+I've had a look at ndo_features_check and understand that I could supply 
+my own
+version of the routine, but I wasn't able to figure out how that would 
+solve my problem.
+As far as I can see the routine is not called in the part of code 
+handling scatter/gather.
+Could you help out with more info?
+
 
 Hans
