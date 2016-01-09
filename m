@@ -1,30 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] net: phy: Add support for SMSC LAN8740 PHY
-Date: Sat, 9 Jan 2016 17:00:15 +0100
-Message-ID: <20160109160015.GC28813@lunn.ch>
-References: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Joshua Henderson <joshua.henderson@microchip.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe function
+Date: Sat,  9 Jan 2016 08:37:06 -0800
+Message-ID: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
+Cc: adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 09, 2016 at 04:54:21AM -0700, Joshua Henderson wrote:
-> LAN8740 has a different phy_id than LAN8710/LAN8720.
-> 
-> Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
-> ---
-> Changes from v1:
-> 	+ Remove explicitly setting .driver and apply against net-next
+Commit e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
+removed interrupt allocation code. While doing so, error handling got
+messed up a bit, resulting in the following build warning and a missed
+call to mdiobus_free() in the probe function error path.
 
-Thanks.
+drivers/net/ethernet/adi/bfin_mac.c: In function 'bfin_mii_bus_probe':
+drivers/net/ethernet/adi/bfin_mac.c:1865:1: warning:
+	label 'out_err_irq_alloc' defined but not used
 
-FYI: It is normal to put in the subject line if the patch is against
-net or net-next.
+Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
+Cc: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/net/ethernet/adi/bfin_mac.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-    Andrew
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 62862744c870..8c5132624510 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -1856,13 +1856,13 @@ static int bfin_mii_bus_probe(struct platform_device *pdev)
+ 	rc = mdiobus_register(miibus);
+ 	if (rc) {
+ 		dev_err(&pdev->dev, "Cannot register MDIO bus!\n");
+-		goto out_err_alloc;
++		goto out_err_mdiobus_register;
+ 	}
+ 
+ 	platform_set_drvdata(pdev, miibus);
+ 	return 0;
+ 
+-out_err_irq_alloc:
++out_err_mdiobus_register:
+ 	mdiobus_free(miibus);
+ out_err_alloc:
+ 	peripheral_free_list(pin_req);
+-- 
+2.1.4
