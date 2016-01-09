@@ -1,80 +1,289 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Configure ICMP error source address
-Date: Sat, 9 Jan 2016 10:57:31 +0100
-Message-ID: <5690D98B.7070003@stressinduktion.org>
-References: <568F8207.9040305@heinlein-support.de>
- <20160108152448.5251154.50977.21786@gmail.com>
- <568FDFBF.3010300@stressinduktion.org>
- <20160109035708.5251154.82433.21820@gmail.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH net-next 2/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
+Date: Sat, 9 Jan 2016 18:06:15 +0800
+Message-ID: <CACVXFVNg_3j0T8WCmtVR8XEb9xRd0qJBEZcsW3_OJ+HYZHNvEg@mail.gmail.com>
+References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
+	<1452206155-1492617-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: prmarino1@gmail.com, Robert Sander <r.sander@heinlein-support.de>,
-	netfilter@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	FB Kernel Team <kernel-team@fb.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42668 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753983AbcAIJ5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 04:57:34 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 6B33620853
-	for <netdev@vger.kernel.org>; Sat,  9 Jan 2016 04:57:33 -0500 (EST)
-In-Reply-To: <20160109035708.5251154.82433.21820@gmail.com>
+Received: from mail-yk0-f196.google.com ([209.85.160.196]:35192 "EHLO
+	mail-yk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752271AbcAIKGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 05:06:16 -0500
+In-Reply-To: <1452206155-1492617-3-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.01.2016 04:57, prmarino1@gmail.com wrote:
->   The reason why is in the kernel documentation distributed with the =
-source code.
-> =E2=80=8EIts not all immediately obvious why and where the kernel doe=
-s this
-unless you were involved in the original debates about it. The problems
-with binding a public ip address to a loopback address are more
-recently is partialy selinux but mostly of it is because of how routing
-changed when iproute2 was introduced in the 2.2 kernel (if I remember
-the versions correctly it was so long ago). The reason is security,
-many processes bind to the loopback interface for IPC and just grab the
-first address on the first lo device they find, some of the developers
-of the applications weren't even aware they were doing it because in
-some cases it was C libraries several layers deep doing it because odd
-loopback addresses were common on UNIX ( I remember an AIX admin back
-in the early 90's telling me I should always use addresses like
-127.1.0.2 on the loopback because it was valid made it harder for
-script kiddies to attack processes ). This was fine when additional
-addresses would need additiona
-l alias on the interface for ifconfig (lo:1 for example) but with iprou=
-te2 you could now assign multiple ip addresses to an interface without =
-creating an alias (commonly seen on the keepalived mailing list "why do=
-esn't my VIP show up in ifconfig?")
-> So there was a decision made to declare all subnets assigned to the l=
-oopback interface as unroutable to prevent a lot of very common securit=
-y holes that were being seen in the wild.
+On Fri, Jan 8, 2016 at 6:35 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> This patch adds BPFMAP_TYPE_PERCPU_HASH map type and its
+> htab_map_ops implementation.
+>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+>  include/uapi/linux/bpf.h |   1 +
+>  kernel/bpf/hashtab.c     | 201 ++++++++++++++++++++++++++++++++++++++++++++++-
+>  2 files changed, 201 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 8bed7f1..e4f8060 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -81,6 +81,7 @@ enum bpf_map_type {
+>         BPF_MAP_TYPE_ARRAY,
+>         BPF_MAP_TYPE_PROG_ARRAY,
+>         BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+> +       BPF_MAP_TYPE_PERCPU_HASH,
+>  };
+>
+>  enum bpf_prog_type {
+> diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+> index d55df8c..63f2945 100644
+> --- a/kernel/bpf/hashtab.c
+> +++ b/kernel/bpf/hashtab.c
+> @@ -278,7 +278,7 @@ find_first_elem:
+>  }
+>
+>  static struct htab_elem_common *htab_elem_common_alloc(struct bpf_htab *htab,
+> -                                                       void *key)
+> +                                                      void *key)
 
-selinux can only affect what happens between user space and kernel=20
-space, it cannot install policy what happens during forwarding if no=20
-user space is involved.
+better to not introduce the above change.
 
-In general the kernel makes sure nothing leaves or enters the system=20
-with an address in the 127.0.0.0/8 subnet. Albeit we have a sysctl=20
-nowadays to lift this restriction, sysctl_route_localnet.
+>  {
+>         struct htab_elem_common *l;
+>
+> @@ -451,9 +451,208 @@ static struct bpf_map_type_list htab_type __read_mostly = {
+>         .type = BPF_MAP_TYPE_HASH,
+>  };
+>
+> +/* each htab_percpu_elem is struct htab_percpu_elem + key  */
+> +struct htab_percpu_elem {
+> +       struct htab_elem_common common;
+> +       void * __percpu value;
+> +       char key[0] __aligned(8);
+> +};
+> +
+> +static struct htab_percpu_elem *htab_percpu_elem(struct htab_elem_common *l)
+> +{
+> +       return (struct htab_percpu_elem *)l;
+> +}
+> +
+> +static void htab_percpu_elem_free(struct htab_percpu_elem *l)
+> +{
+> +       free_percpu(l->value);
+> +       kfree(l);
+> +}
+> +
+> +static void htab_percpu_elem_rcu_free(struct rcu_head *head)
+> +{
+> +       struct htab_elem_common *l = container_of(head,
+> +                                                 struct htab_elem_common,
+> +                                                 rcu);
+> +
+> +       htab_percpu_elem_free(htab_percpu_elem(l));
+> +}
+> +
+> +static void htab_percpu_map_flush(struct bpf_htab *htab)
+> +{
+> +       int i;
+> +
+> +       for (i = 0; i < htab->n_buckets; i++) {
+> +               struct hlist_head *head = select_bucket(htab, i);
+> +               struct hlist_node *n;
+> +               struct htab_elem_common *l;
+> +
+> +               hlist_for_each_entry_safe(l, n, head, hash_node) {
+> +                       hlist_del_rcu(&l->hash_node);
+> +                       atomic_dec(&htab->count);
+> +                       htab_percpu_elem_free(htab_percpu_elem(l));
+> +               }
+> +       }
+> +}
 
-Besides that I don't see any differences, as I bind addresses to the=20
-loopback interface from time to time and it works.
+The above helper should have been saved by introduce percpu_map
+flag in bpf_htab.
 
-One must just be careful if the kernel is switched from weak end mode=20
-into a stong end mode by enabling more strict arp filters, but this=20
-would also break setups with dummy interfaces.
+> +
+> +/* Called from syscall */
+> +static struct bpf_map *htab_percpu_map_alloc(union bpf_attr *attr)
+> +{
+> +       u32 elem_size = sizeof(struct htab_percpu_elem) +
+> +               round_up(attr->key_size, 8);
+> +       u32 elem_value_size = elem_size +
+> +               num_possible_cpus() * attr->value_size;
+> +
+> +       return __htab_map_alloc(attr, elem_size, elem_value_size,
+> +                               offsetof(struct htab_percpu_elem, key),
+> +                               htab_percpu_map_flush);
+> +}
+> +
+> +/* Called from syscall or from eBPF program */
+> +static int htab_percpu_map_delete_elem(struct bpf_map *map, void *key)
+> +{
+> +       struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
+> +       struct htab_elem_common *l;
+> +       struct hlist_head *head;
+> +       unsigned long flags;
+> +       u32 hash, key_size;
+> +       struct bucket *b;
+> +       int ret = -ENOENT;
+> +
+> +       WARN_ON_ONCE(!rcu_read_lock_held());
+> +
+> +       key_size = map->key_size;
+> +
+> +       hash = htab_map_hash(key, key_size);
+> +       b = __select_bucket(htab, hash);
+> +       head = &b->head;
+> +
+> +       raw_spin_lock_irqsave(&b->lock, flags);
+> +
+> +       l = lookup_elem_raw(htab, head, hash, key);
+> +
+> +       if (l) {
+> +               hlist_del_rcu(&l->hash_node);
+> +               atomic_dec(&htab->count);
+> +               call_rcu(&l->rcu, htab_percpu_elem_rcu_free);
+> +               ret = 0;
+> +       }
+> +
+> +       raw_spin_unlock_irqrestore(&b->lock, flags);
+> +       return ret;
+> +}
+> +
+> +/* Called from syscall or eBPF program */
+> +static void *htab_percpu_map_lookup_elem(struct bpf_map *map, void *key)
+> +{
+> +       struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
+> +       struct htab_elem_common *l;
+> +
+> +       l = __htab_map_lookup_elem(htab, key);
+> +       if (l) {
+> +               void *value = per_cpu_ptr(htab_percpu_elem(l)->value,
+> +                                         smp_processor_id());
+> +               return value;
+> +       }
+> +
+> +       return NULL;
+> +
+> +}
+> +
+> +/* Called from syscall or from eBPF program */
+> +static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
+> +                                      void *value, u64 map_flags)
+> +{
+> +       struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
+> +       struct htab_percpu_elem *l_new, *l_old;
+> +       struct hlist_head *head;
+> +       struct bucket *b;
+> +       unsigned long flags;
+> +       int ret;
+> +
+> +       if (map_flags > BPF_EXIST)
+> +               /* unknown flags */
+> +               return -EINVAL;
+> +
+> +       WARN_ON_ONCE(!rcu_read_lock_held());
+> +
+> +       /* allocate new element outside of lock */
+> +       l_new = htab_percpu_elem(htab_elem_common_alloc(htab, key));
+> +       if (!l_new)
+> +               return -ENOMEM;
+> +
+> +       l_new->value = __alloc_percpu_gfp(htab->map.value_size, 8,
+> +                                         GFP_ATOMIC | __GFP_NOWARN);
 
-> That said you can make it work but you have to do a lot of things you=
- should never do on a firewall like turn off selinux.=E2=80=8E Or you c=
-an simply use the dummy driver and bind your public IP's to that and th=
-e problems magically go away. And it makes a lot of sense why else woul=
-d there be a need for the dummy network driver?
+Looks not good to introduce another memory allocation in eBPF prog,
+it is a bit heavy to run, and it is in my TODO list to remove allocation of
+htab_elem in eBPF prog.
 
-I would also use dummy interfaces in production systems, merely to spli=
-t=20
-the statistics from dummy.
+> +       if (!l_new->value) {
+> +               htab_percpu_elem_free(l_new);
+> +               return -ENOMEM;
+> +       }
+> +
+> +       memcpy(raw_cpu_ptr(l_new->value), value, map->value_size);
+> +
+> +       b = __select_bucket(htab, l_new->common.hash);
+> +       head = &b->head;
+> +
+> +       /* bpf_map_update_elem() can be called in_irq() */
+> +       raw_spin_lock_irqsave(&b->lock, flags);
+> +
+> +       l_old = htab_percpu_elem(lookup_elem_raw(htab, head, l_new->common.hash,
+> +                                                key));
+> +
+> +       if (!l_old && unlikely(atomic_read(&htab->count) >= map->max_entries)) {
+> +               /* if elem with this 'key' doesn't exist and we've reached
+> +                * max_entries limit, fail insertion of new elem
+> +                */
+> +               ret = -E2BIG;
+> +               goto err;
+> +       }
+> +
+> +       if (l_old && map_flags == BPF_NOEXIST) {
+> +               /* elem already exists */
+> +               ret = -EEXIST;
+> +               goto err;
+> +       }
+> +
+> +       if (!l_old && map_flags == BPF_EXIST) {
+> +               /* elem doesn't exist, cannot update it */
+> +               ret = -ENOENT;
+> +               goto err;
+> +       }
+> +
+> +       if (l_old) {
+> +               memcpy(this_cpu_ptr(l_old->value), value, map->value_size);
+> +       } else {
+> +               hlist_add_head_rcu(&l_new->common.hash_node, head);
+> +               atomic_inc(&htab->count);
+> +       }
+> +
+> +       raw_spin_unlock_irqrestore(&b->lock, flags);
+> +
+> +       return 0;
+> +err:
+> +       raw_spin_unlock_irqrestore(&b->lock, flags);
+> +       htab_percpu_elem_free(l_new);
+> +       return ret;
+> +}
 
-Thanks,
-Hannes
+It isn't good to introduce so much code duplication.
+
+> +
+> +static const struct bpf_map_ops htab_percpu_ops = {
+> +       .map_alloc = htab_percpu_map_alloc,
+> +       .map_free = htab_map_free,
+> +       .map_get_next_key = htab_map_get_next_key,
+> +       .map_lookup_elem = htab_percpu_map_lookup_elem,
+> +       .map_update_elem = htab_percpu_map_update_elem,
+> +       .map_delete_elem = htab_percpu_map_delete_elem,
+> +};
+> +
+> +static struct bpf_map_type_list htab_percpu_type __read_mostly = {
+> +       .ops = &htab_percpu_ops,
+> +       .type = BPF_MAP_TYPE_PERCPU_HASH,
+> +};
+> +
+>  static int __init register_htab_map(void)
+>  {
+>         bpf_register_map_type(&htab_type);
+> +       bpf_register_map_type(&htab_percpu_type);
+>         return 0;
+>  }
+>  late_initcall(register_htab_map);
+> --
+> 2.5.1
+>
+
+
+
+-- 
+Ming Lei
