@@ -1,85 +1,82 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Fri, 8 Jan 2016 16:17:47 -0800
-Message-ID: <CALx6S37pbZCmw+BNowzfmHwfpUKKMABvYs11ka0=314cZPXMSg@mail.gmail.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
- <1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 7/8] net: ip_tunnel: remove 'csum_help' argument
+ to iptunnel_handle_offloads
+Date: Fri, 8 Jan 2016 16:35:44 -0800
+Message-ID: <CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
+References: <56901197.8040808@solarflare.com>
+	<56901244.8060809@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
- Haiyang Zhang <haiyangz@microsoft.com>, LKML <linux-kernel@vger.kernel.org>,
- devel@linuxdriverproject.org, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1452171150.8255.207.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34133 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755406AbcAIAfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 19:35:45 -0500
+Received: by mail-io0-f196.google.com with SMTP id k127so38794827iok.1
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 16:35:44 -0800 (PST)
+In-Reply-To: <56901244.8060809@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 7, 2016 at 4:52 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-01-07 at 10:33 +0100, Vitaly Kuznetsov wrote:
->> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
->>  VLAN ID to flow_keys")) introduced a performance regression in netvsc
->> driver. Is problem is, however, not the above mentioned commit but the
->> fact that netvsc_set_hash() function did some assumptions on the struct
->> flow_keys data layout and this is wrong. We need to extract the data we
->> need (src/dst addresses and ports) after the dissect.
->>
->> The issue could also be solved in a completely different way: as suggested
->> by Eric instead of our own homegrown netvsc_set_hash() we could use
->> skb_get_hash() which does more or less the same. Unfortunately, the
->> testing done by Simon showed that Hyper-V hosts are not happy with our
->> Jenkins hash, selecting the output queue with the current algorithm based
->> on Toeplitz hash works significantly better.
+On Fri, Jan 8, 2016 at 11:47 AM, Edward Cree <ecree@solarflare.com> wrote:
+> All users now pass false, so we can remove it, and remove the code that
+>  was conditional upon it.
 >
-> Were tests done on IPv6 traffic ?
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+>  drivers/net/vxlan.c             |  4 ++--
+>  include/net/ip_tunnels.h        |  3 +--
+>  include/net/udp_tunnel.h        |  3 +--
+>  net/ipv4/fou.c                  |  4 ++--
+>  net/ipv4/ip_gre.c               |  3 +--
+>  net/ipv4/ip_tunnel_core.c       | 15 +--------------
+>  net/ipv4/ipip.c                 |  2 +-
+>  net/ipv6/sit.c                  |  4 ++--
+>  net/netfilter/ipvs/ip_vs_xmit.c |  6 ++----
+>  9 files changed, 13 insertions(+), 31 deletions(-)
 >
-> Toeplitz hash takes at least 100 ns to hash 12 bytes (one iteration per
-> bit : 96 iterations)
->
-> For IPv6 it is 3 times this, since we have to hash 36 bytes.
->
-> I do not see how it can compete with skb_get_hash() that directly gives
-> skb->hash for local TCP flows.
->
-> See commits b73c3d0e4f0e1961e15bec18720e48aabebe2109
-> ("net: Save TX flow hash in sock and set in skbuf on xmit")
-> and 877d1f6291f8e391237e324be58479a3e3a7407c
-> ("net: Set sk_txhash from a random number")
->
-> I understand Microsoft loves Toeplitz, but this looks not well placed
-> here.
->
-+1
 
-We need a little more of an explanation on why "Toeplitz hash works
-significantly better" than Jenkins hash. We already know that Toeplitz
-is expensive to do in SW and there has been some proposals to optimize
-it which don't seem to have been applied to hv_netvsc (I believe Eric
-had a good implementation). Assuming skb_get_hash isn't sufficient the
-Toeplitz hash should be in a common library anyway, we really don't
-want drivers or modules inventing new ways to hash packets this point!
 
-Tom
+> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+> index 1db8418..f98bd53 100644
+> --- a/net/ipv4/ip_tunnel_core.c
+> +++ b/net/ipv4/ip_tunnel_core.c
+> @@ -147,7 +147,6 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
+>  EXPORT_SYMBOL_GPL(iptunnel_metadata_reply);
+>
+>  struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
+> -                                        bool csum_help,
+>                                          int gso_type_mask)
+>  {
+>         int err;
+> @@ -165,19 +164,7 @@ struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
+>                 return skb;
+>         }
+>
+> -       /* If packet is not gso and we are resolving any partial checksum,
+> -        * clear encapsulation flag. This allows setting CHECKSUM_PARTIAL
+> -        * on the outer header without confusing devices that implement
+> -        * NETIF_F_IP_CSUM with encapsulation.
+> -        */
+> -       if (csum_help)
+> -               skb->encapsulation = 0;
+> -
+> -       if (skb->ip_summed == CHECKSUM_PARTIAL && csum_help) {
+> -               err = skb_checksum_help(skb);
+> -               if (unlikely(err))
+> -                       goto error;
+> -       } else if (skb->ip_summed != CHECKSUM_PARTIAL)
+> +       if (skb->ip_summed != CHECKSUM_PARTIAL)
+>                 skb->ip_summed = CHECKSUM_NONE;
+>
 
-> I suspect there is another problem.
->
-> Please share your numbers and test methodology, and the alternative
-> patch Simon tested so that we can double check it.
->
-> Thanks.
->
-> PS: For the time being this patch can probably be applied on -net tree,
-> as it fixes a real bug.
->
->
->
+So this patch is a bit broken here.  We should be clearing
+skb->encapsulation if CHECKSUM_PARTIAL is not set.  That way we don't
+incorrectly pull in the inner headers when computing the outer
+checksum.
+
+- Alex
