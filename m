@@ -1,50 +1,96 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH -next 1/2] net: tc35815: Fix build error due to missed
- API change
-Date: Sat, 9 Jan 2016 23:09:24 +0100
-Message-ID: <20160109220924.GF6877@lunn.ch>
-References: <1452374494-18752-1-git-send-email-linux@roeck-us.net>
- <20160109213614.GC6877@lunn.ch>
- <5691808A.1010301@roeck-us.net>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [PATCH] [net] phy: micrel: Fix build failure in ksz9031_config_init()
+Date: Sat, 9 Jan 2016 23:24:27 +0100
+Message-ID: <CA+icZUVVvHa+K_EBKsYcVdMLApLfnha13CCvbA58VZfjLYZy0A@mail.gmail.com>
+References: <1452340757-29507-1-git-send-email-sedat.dilek@gmail.com>
+	<20160109155524.GB28813@lunn.ch>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Roosen Henri <Henri.Roosen@ginzinger.com>,
+	David Daney <david.daney@cavium.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44652 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756083AbcAIWJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jan 2016 17:09:26 -0500
-Content-Disposition: inline
-In-Reply-To: <5691808A.1010301@roeck-us.net>
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:36349 "EHLO
+	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756068AbcAIWY2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 17:24:28 -0500
+Received: by mail-vk0-f46.google.com with SMTP id n1so54011465vkb.3
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 14:24:28 -0800 (PST)
+In-Reply-To: <20160109155524.GB28813@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >Hi Guenter
-> >
-> >You fix looks right, but i'm wondering about the code which is being
-> >fixed.
-> >
-> >How can phydev ever evaluate to true, given the break statement?  Can
-> >this code every detect multiple PHYs? I think not.
-> >
-> >Either the break needs to be removed, or we just replace the whole lot
-> >with phy_find_first().
-> >
-> 
-> Hi Andrew,
-> 
-> you are right, the current code is pretty pointless.
-> 
-> I would suggest to use phy_find_first().
+On Sat, Jan 9, 2016 at 4:55 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Sat, Jan 09, 2016 at 12:59:17PM +0100, Sedat Dilek wrote:
+>> This fixes the following build failure seen in net.git#master on top of
+>> Linux v4.4-rc8+:
+>
+> I'm pretty sure this is wrong. Here is why...
+>
+> net.git has the fix:
+>
+> commit b4c19f71252e3b6b8c6478fd712c592f00b11438
+> Author: Roosen Henri <Henri.Roosen@ginzinger.com>
+> Date:   Thu Jan 7 09:31:15 2016 +0100
+>
+>     phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.
+>
+>     Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
+>      node.") only fixes finding PHY properties in MAC node for KSZ9021. This
+>     commit applies the same fix for KSZ9031.
+>
+>     Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+>     Acked-by: Andrew Lunn <andrew@lunn.ch>
+>     Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index e13ad6cdcc22..7a5679982c03 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -470,9 +470,17 @@ static int ksz9031_config_init(struct phy_device *phydev)
+>                 "txd2-skew-ps", "txd3-skew-ps"
+>         };
+>         static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
+> +       const struct device *dev_walker;
+>
+> -       if (!of_node && dev->parent->of_node)
+> -               of_node = dev->parent->of_node;
+> +       /* The Micrel driver has a deprecated option to place phy OF
+> +        * properties in the MAC node. Walk up the tree of devices to
+> +        * find a device with an OF node.
+> +        */
+> +       dev_walker = &phydev->dev;
+> +       do {
+> +               of_node = dev_walker->of_node;
+> +               dev_walker = dev_walker->parent;
+> +       } while (!of_node && dev_walker);
+>
+>
+> This brings in the dev_walker, which uses phydev->dev. In net, that is
+> correct. My patches introducing MDIO device are not in net. They are
+> only in net-next.
+>
+> In net-next, this fix does not yet appear. Hence it does not yet have
+> the change of ->dev to ->mdio.dev.
+>
+> Somehow, next.git has both net.git and net-next.git. Hence you get the
+> build error.
+>
+> Unfortunately, we cannot fix this yet. Your fix needs to go to
+> net-next. But first Dave needs to merge net.git into net-next.git, so
+> bringing in Henri's fix. Only then can your fix be applied. My guess
+> is, Dave will do that Sunday when Linus makes the release and opens
+> the merge window.
+>
 
-Me too.
+Oops, you are right.
+I have both recent net.git and net-next.git on top of Linux v4.4-rc8
+and was unsure where to fix it.
+So, let's wait till net-next.git has merged net.git.
 
-> Should I submit a separate patch, or replace my patch with v2 ?
-
-I say a v2 which uses phy_find_first() and include in the changelog
-why the current code is pointless and so the change to
-phy_find_first().
-
-	Thanks
-		Andrew
+- Sedat -
