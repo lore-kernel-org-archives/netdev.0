@@ -1,66 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
- function
-Date: Sat, 9 Jan 2016 17:58:02 +0100
-Message-ID: <20160109165802.GD28813@lunn.ch>
-References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v4 06/10] netdev: add netdevice notifier type to
+ trigger a reprogramming of offloads
+Date: Sat, 9 Jan 2016 09:25:13 -0800
+Message-ID: <CALx6S357fYzhCRHsPAjX+NH+5Wc1tnUuNwcZ5oy3WiAMASjOEA@mail.gmail.com>
+References: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
+	<1452352052-27574-7-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f194.google.com ([209.85.213.194]:35645 "EHLO
+	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753482AbcAIRZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 12:25:14 -0500
+Received: by mail-ig0-f194.google.com with SMTP id mw1so9883913igb.2
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 09:25:14 -0800 (PST)
+In-Reply-To: <1452352052-27574-7-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Guenter
-
-Same fix was submitted yesterday by Sudip Mukherjee.
-
-Thanks
-	Andrew
-
-
-On Sat, Jan 09, 2016 at 08:37:06AM -0800, Guenter Roeck wrote:
-> Commit e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
-> removed interrupt allocation code. While doing so, error handling got
-> messed up a bit, resulting in the following build warning and a missed
-> call to mdiobus_free() in the probe function error path.
-> 
-> drivers/net/ethernet/adi/bfin_mac.c: In function 'bfin_mii_bus_probe':
-> drivers/net/ethernet/adi/bfin_mac.c:1865:1: warning:
-> 	label 'out_err_irq_alloc' defined but not used
-> 
-> Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+On Sat, Jan 9, 2016 at 7:07 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
->  drivers/net/ethernet/adi/bfin_mac.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 62862744c870..8c5132624510 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -1856,13 +1856,13 @@ static int bfin_mii_bus_probe(struct platform_device *pdev)
->  	rc = mdiobus_register(miibus);
->  	if (rc) {
->  		dev_err(&pdev->dev, "Cannot register MDIO bus!\n");
-> -		goto out_err_alloc;
-> +		goto out_err_mdiobus_register;
->  	}
->  
->  	platform_set_drvdata(pdev, miibus);
->  	return 0;
->  
-> -out_err_irq_alloc:
-> +out_err_mdiobus_register:
->  	mdiobus_free(miibus);
->  out_err_alloc:
->  	peripheral_free_list(pin_req);
-> -- 
-> 2.1.4
-> 
+>  include/linux/netdevice.h | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 8d8e5ca951b493..9750e46760695d 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2183,6 +2183,7 @@ struct netdev_lag_lower_state_info {
+>  #define NETDEV_BONDING_INFO    0x0019
+>  #define NETDEV_PRECHANGEUPPER  0x001A
+>  #define NETDEV_CHANGELOWERSTATE        0x001B
+> +#define NETDEV_REFRESH_OFFLOADS        0x001C
+>
+Per previous discussion we don't want to generalize this current
+offload interface. Can we just NETDEV_UP as the notifier?
+
+>  int register_netdevice_notifier(struct notifier_block *nb);
+>  int unregister_netdevice_notifier(struct notifier_block *nb);
+> --
+> 2.5.0
+>
