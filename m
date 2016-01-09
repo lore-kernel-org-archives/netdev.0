@@ -1,87 +1,80 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH net-next 0/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
-Date: Sat, 9 Jan 2016 17:39:16 +0800
-Message-ID: <CACVXFVPbsqBoAvgRjrm7A3S2G0kUrEt=e64FyRpoSqO2ukHncQ@mail.gmail.com>
-References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
-	<CACVXFVNhEOrroAfiEOC32dB3ZV=73WYJxUtNrpqEE94tvY2fXw@mail.gmail.com>
-	<20160109004443.GA33292@kafai-mba.local>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Configure ICMP error source address
+Date: Sat, 9 Jan 2016 10:57:31 +0100
+Message-ID: <5690D98B.7070003@stressinduktion.org>
+References: <568F8207.9040305@heinlein-support.de>
+ <20160108152448.5251154.50977.21786@gmail.com>
+ <568FDFBF.3010300@stressinduktion.org>
+ <20160109035708.5251154.82433.21820@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	FB Kernel Team <kernel-team@fb.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160109004443.GA33292@kafai-mba.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: prmarino1@gmail.com, Robert Sander <r.sander@heinlein-support.de>,
+	netfilter@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42668 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753983AbcAIJ5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 04:57:34 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 6B33620853
+	for <netdev@vger.kernel.org>; Sat,  9 Jan 2016 04:57:33 -0500 (EST)
+In-Reply-To: <20160109035708.5251154.82433.21820@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Martin,
+On 09.01.2016 04:57, prmarino1@gmail.com wrote:
+>   The reason why is in the kernel documentation distributed with the =
+source code.
+> =E2=80=8EIts not all immediately obvious why and where the kernel doe=
+s this
+unless you were involved in the original debates about it. The problems
+with binding a public ip address to a loopback address are more
+recently is partialy selinux but mostly of it is because of how routing
+changed when iproute2 was introduced in the 2.2 kernel (if I remember
+the versions correctly it was so long ago). The reason is security,
+many processes bind to the loopback interface for IPC and just grab the
+first address on the first lo device they find, some of the developers
+of the applications weren't even aware they were doing it because in
+some cases it was C libraries several layers deep doing it because odd
+loopback addresses were common on UNIX ( I remember an AIX admin back
+in the early 90's telling me I should always use addresses like
+127.1.0.2 on the loopback because it was valid made it harder for
+script kiddies to attack processes ). This was fine when additional
+addresses would need additiona
+l alias on the interface for ifconfig (lo:1 for example) but with iprou=
+te2 you could now assign multiple ip addresses to an interface without =
+creating an alias (commonly seen on the keepalived mailing list "why do=
+esn't my VIP show up in ifconfig?")
+> So there was a decision made to declare all subnets assigned to the l=
+oopback interface as unroutable to prevent a lot of very common securit=
+y holes that were being seen in the wild.
 
-On Sat, Jan 9, 2016 at 8:44 AM, Martin KaFai Lau <kafai@fb.com> wrote:
-> On Fri, Jan 08, 2016 at 02:55:32PM +0800, Ming Lei wrote:
->> On Fri, Jan 8, 2016 at 6:35 AM, Martin KaFai Lau <kafai@fb.com> wrote:
->> > This patchset adds BPF_MAP_TYPE_PERCPU_HASH map type which allows
->> > percpu value.
->>
->> I am also thinking about using percpu variable to ebpf map, but IMO it
->> should be better for ARRAY map instead of HASH map, then we can
->> avoid the atomic op in eBPF program, see example of tracex3, sockex1
->> and sockex3 in sample/bpf/ of kernel tree.  Also looks the ARRAY map
->> usage in bcc is wrong, strictly speaking.
-> array and hash are two different use cases. May be we should have percpu
-> value for array map too.
+selinux can only affect what happens between user space and kernel=20
+space, it cannot install policy what happens during forwarding if no=20
+user space is involved.
 
-Atomic operations are definitely expensive, which should have been avoided
-in eBPF prog by percpu way. I think ARRAY map does need percpu way more, :-)
+In general the kernel makes sure nothing leaves or enters the system=20
+with an address in the 127.0.0.0/8 subnet. Albeit we have a sysctl=20
+nowadays to lift this restriction, sysctl_route_localnet.
 
-But for hash map, I am still not 100% sure if percpu is needed:
+Besides that I don't see any differences, as I bind addresses to the=20
+loopback interface from time to time and it works.
 
-- key plus cpu_id is ok
-- key often can be chosed so that the mapped value is accessed without
-race(such as, req is used as key in biolatency, ...)
-- percpu hash can cause huge memory consumption compared with the way
-of key plus cpu_id without obvious performance advantage
+One must just be careful if the kernel is switched from weak end mode=20
+into a stong end mode by enabling more strict arp filters, but this=20
+would also break setups with dummy interfaces.
 
->
->>
->> For HASH map, it is easy to make cpu id as part of key, then the map
->> can be thought as percpu too, and atomic op isn't needed in eBPF program.
-> Putting the cpu id as part of the key was indeed the first hack I did
-> to get a sense of potential benefit.
->
-> However, by extending the real-key with cpu-id, it is not intuitive to
-> use and it is prone to error.  For example, how to delete a real-key for
-> all cpus?  Iterating a particular real-key for all cpu is also tricky.  What
-> does it mean if a real-key exists for cpu#0 but not cpu#1? The real-key
+> That said you can make it work but you have to do a lot of things you=
+ should never do on a firewall like turn off selinux.=E2=80=8E Or you c=
+an simply use the dummy driver and bind your public IP's to that and th=
+e problems magically go away. And it makes a lot of sense why else woul=
+d there be a need for the dummy network driver?
 
-lookup returns NULL if the key(real key plus cpu id) doesn't exist.
+I would also use dummy interfaces in production systems, merely to spli=
+t=20
+the statistics from dummy.
 
-> got deleted from all cpu while iterating? or something else?  I believe
-> there are ways to get around but it is better to provide a clean
-> implementation instead.
-
-It might be true, but I hope there is one real example, in which we can
-see the obvious disadvantage of real key plus cpu_id. In the other way,
-we still can improve current hash map to make this case easier to use.
-
-Also in reality, it is often true that the mapped value from chosed key
-can't be accessed concurrently from other CPUs, so percpu isn't needed.
-
->
->> Given it is always related with performance, could you provide some data
->> about the improvement? Also you can compare this patchset with the
->> approach of providing cpu id as hash key.
-> In my test (bpf+kprobe at tcp_rcv_established()), both this patchset and
-> extend(real_key, cpu_id) approach save ~3% CPU while receiving ~4Mpps
-> in a 40cores machine.  The bpf is mostly bumping some counters for
-> each received packet.
-
-That sounds not a good result, 40X memory consumption only save %3 CPU,
-and the approach(real_key, cpu_id) still can save %3 without extra memory
-consumption(or much less than percpu MAP)
-
-
--- 
-Ming Lei
+Thanks,
+Hannes
