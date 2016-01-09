@@ -1,74 +1,48 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v4 00/10] net: break dependency of drivers on geneve and vxlan
-Date: Sat,  9 Jan 2016 16:07:22 +0100
-Message-ID: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
-Cc: jesse@kernel.org
+Subject: [PATCH net-next v4 01/10] qlcnic: protect qlcnic_82xx_io_slot_reset with rtnl lock
+Date: Sat,  9 Jan 2016 16:07:23 +0100
+Message-ID: <1452352052-27574-2-git-send-email-hannes@stressinduktion.org>
+References: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
+Cc: jesse@kernel.org, Dept-GELinuxNICDev@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:41662 "EHLO
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:41132 "EHLO
 	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752207AbcAIPHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 10:07:40 -0500
+	by vger.kernel.org with ESMTP id S1754033AbcAIPHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 10:07:41 -0500
 Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id CE1F020A68
-	for <netdev@vger.kernel.org>; Sat,  9 Jan 2016 10:07:39 -0500 (EST)
+	by mailout.nyi.internal (Postfix) with ESMTP id 4568E209D8
+	for <netdev@vger.kernel.org>; Sat,  9 Jan 2016 10:07:41 -0500 (EST)
+In-Reply-To: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device drivers which support geneve or vxlan offloading have a dependency
-on the correlating tunnel kernel modules. Thus those drivers automatically
-load the geneve or vxlan modules. Break this dependency with this
-small series.
+Cc: Dept-GELinuxNICDev@qlogic.com
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-Additionally this series features a review of the respective ->ndo_open
-and other functions around vxlan_get_rx_port and geneve_get_rx_port.
-
-* Result:
-$ cd drivers/net/ethernet/
-$ find . -name '*.ko' | xargs modinfo | egrep  '^depends:.*(vxlan|geneve)'  | wc -l
-0
-
-I also incorporated feedback from Jesse Gross to only use one new
-netdevice notifiers type, namely NETDEV_REFRESH_OFFLOADS. Otherwise this
-series is very much the same as v1.
-
-This series (v4) incorperates further feedback from Jesse Gross:
-* before calling down to the ndo_add_{vxlan,geneve}_port, check if the
-  driver has actually installed the function
-* provide only one callback function, namely netdev_refresh_offloads
-* provide updates to the comments in netdevice.h how driver should handle
-  those functions
-
-Hannes Frederic Sowa (10):
-  qlcnic: protect qlcnic_82xx_io_slot_reset with rtnl lock
-  mlx4: add rtnl lock protection in mlx4_en_restart
-  ixgbe: add rtnl locking in service task around vxlan_get_rx_port
-  benet: add rtnl lock protection around be_open in be_resume
-  fm10k: add rtnl lock protection in fm10k_io_resume
-  netdev: add netdevice notifier type to trigger a reprogramming of
-    offloads
-  vxlan: break dependency to network drivers
-  geneve: break dependency to network drivers
-  net: harmonize vxlan_get_rx_port and geneve_get_rx_port to
-    netdev_refresh_offloads
-  netdev: update comments and explain idempotency and rtnl locking
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  4 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  2 +-
- drivers/net/ethernet/emulex/benet/be_main.c        | 11 +++---
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c       |  2 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  7 +---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  6 ++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  4 +-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |  2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 12 ++++--
- drivers/net/geneve.c                               | 37 ++++++++++++++----
- drivers/net/vxlan.c                                | 20 +++++++---
- include/linux/netdevice.h                          | 45 ++++++++++++++--------
- include/net/geneve.h                               | 10 +----
- include/net/vxlan.h                                |  8 ----
- 15 files changed, 105 insertions(+), 67 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 1205f6f9c94173..1c29105b6c364f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3952,8 +3952,14 @@ static pci_ers_result_t qlcnic_82xx_io_error_detected(struct pci_dev *pdev,
+ 
+ static pci_ers_result_t qlcnic_82xx_io_slot_reset(struct pci_dev *pdev)
+ {
+-	return qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
+-				PCI_ERS_RESULT_RECOVERED;
++	pci_ers_result_t res;
++
++	rtnl_lock();
++	res = qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
++					 PCI_ERS_RESULT_RECOVERED;
++	rtnl_unlock();
++
++	return res;
+ }
+ 
+ static void qlcnic_82xx_io_resume(struct pci_dev *pdev)
 -- 
 2.5.0
