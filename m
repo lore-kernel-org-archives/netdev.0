@@ -1,115 +1,89 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible) division by zero
-Date: Sat, 09 Jan 2016 19:34:47 +0200
-Message-ID: <2440018.ccxNiMU8Fd@spock>
-References: <26396443.iDTTxgChSj@spock> <CAK6E8=dSRmf35AaC6mOcRaGSxn81CE76WiOfNx6jb5X8uhDGqw@mail.gmail.com> <CAK6E8=chikkT02ygDHzHN9xP7q7kzWUqHEVgj7g0oW_RUPcuoA@mail.gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
+ function
+Date: Sat, 9 Jan 2016 10:10:41 -0800
+Message-ID: <56914D21.9050804@roeck-us.net>
+References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
+ <20160109165802.GD28813@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK6E8=chikkT02ygDHzHN9xP7q7kzWUqHEVgj7g0oW_RUPcuoA@mail.gmail.com>
+In-Reply-To: <20160109165802.GD28813@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Here is stacktrace got via netconsole with ECN enabled and first patch=20
-applied:
+Hi Andrew,
 
-https://gist.github.com/57fd5e2795b86c40eb80
+On 01/09/2016 08:58 AM, Andrew Lunn wrote:
+> Hi Guenter
+>
+> Same fix was submitted yesterday by Sudip Mukherjee.
+>
 
-Now will recompile kernel with patch you've sent to upstream and test i=
-t with=20
-ECN enabled again.
+I missed that one, sorry.
 
-On =D1=81=D0=B5=D1=80=D0=B5=D0=B4=D0=B0, 6 =D1=81=D1=96=D1=87=D0=BD=D1=8F=
- 2016 =D1=80. 10:43:45 EET Yuchung Cheng wrote:
-> On Wed, Jan 6, 2016 at 10:19 AM, Yuchung Cheng <ycheng@google.com> wr=
-ote:
-> > On Wed, Jan 6, 2016 at 8:50 AM, Oleksandr Natalenko
-> >=20
-> > <oleksandr@natalenko.name> wrote:
-> >> Unfortunately, the patch didn't help -- I've got the same stacktra=
-ce with
-> >> slightly different offset (+3) within the function.
-> >>=20
-> >> Now trying to get full stacktrace via netconsole. Need more time.
-> >>=20
-> >> Meanwhile, any other ideas on what went wrong?
-> >=20
-> > That's odd b/c the patch already checks and avoids div0. Can post m=
-e
-> > the stacktrace and kernel warnings if any ...
-> >=20
-> > One possibility is that tcp_cwnd_reduction() may set a cwnd of 0,
-> > which then gets used to start another recovery phase. This may or m=
-ay
-> > not be the culprit of this div0 issue because I wasn't able to
-> > reproduce exactly your issue on our servers. But I will post the fi=
-x
-> > today and CC you.
->=20
-> Could you turn off ecn (sysctl net.ipv4.tcp_ecn=3D0) to see if this s=
-till
-> happen?
-> >> On December 22, 2015 4:10:32 AM EET, Yuchung Cheng <ycheng@google.=
-com>=20
-wrote:
-> >> >On Mon, Dec 21, 2015 at 12:25 PM, Oleksandr Natalenko
-> >> >
-> >> ><oleksandr@natalenko.name> wrote:
-> >> >> Commit 3759824da87b30ce7a35b4873b62b0ba38905ef5 (tcp: PRR uses =
-CRB
-> >> >
-> >> >mode by
-> >> >
-> >> >> default and SS mode conditionally) introduced changes to
-> >> >
-> >> >net/ipv4/tcp_input.c
-> >> >
-> >> >> tcp_cwnd_reduction() that, possibly, cause division by zero, an=
-d
-> >> >
-> >> >therefore,
-> >> >
-> >> >> kernel panic in interrupt handler [1].
-> >> >>=20
-> >> >> Reverting 3759824da87b30ce7a35b4873b62b0ba38905ef5 seems to fix=
- the
-> >> >
-> >> >issue.
-> >> >
-> >> >> I'm able to reproduce the issue on 4.3.0=E2=80=934.3.3 once per=
- several day
-> >> >> (occasionally).
-> >> >>=20
-> >> >> What could be done to help in debugging this issue?
-> >> >
-> >> >Do you have ECN enabled (i.e. sysctl net.ipv4.tcp_ecn > 0)?
-> >> >
-> >> >If so I suspect an ACK carrying ECE during CA_Loss causes enterin=
-g CWR
-> >> >state w/o calling tcp_init_cwnd_reduct() to set tp->prior_cwnd. C=
-an
-> >> >you try this debug / quick-fix patch and send me the error messag=
-e if
-> >> >any?
-> >> >
-> >> >> Regards,
-> >> >>=20
-> >> >>   Oleksandr.
-> >> >>=20
-> >> >> [1] http://i.piccy.info/
-> >> >
-> >> >i9/6f5cb187c4ff282d189f78c63f95af43/1450729403/283985/951663/pani=
-c.jpg
-> >>=20
-> >> --
-> >> Sent from my Android device with K-9 Mail. Please excuse my brevit=
-y.
+How about drivers/net/ethernet/toshiba/tc35815.c ? It now has an unused
+variable due to e7f4dc3536a4, and it fails to build because of 7f854420fbfe.
+
+Which leads to the question which of the other build failures due to
+7f854420fbfe have been addressed already. In addition to the toshiba driver,
+I see build failures in drivers/net/ethernet/ti/cpmac.c and possibly
+drivers/staging/octeon/ethernet-rgmii.c (the error message is different,
+so it may be something else).
+
+I don't see patches for those, but I guess I must be blind, so I figure I
+better ask before I send out mine.
+
+Thanks,
+Guenter
+
+> Thanks
+> 	Andrew
+>
+>
+> On Sat, Jan 09, 2016 at 08:37:06AM -0800, Guenter Roeck wrote:
+>> Commit e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
+>> removed interrupt allocation code. While doing so, error handling got
+>> messed up a bit, resulting in the following build warning and a missed
+>> call to mdiobus_free() in the probe function error path.
+>>
+>> drivers/net/ethernet/adi/bfin_mac.c: In function 'bfin_mii_bus_probe':
+>> drivers/net/ethernet/adi/bfin_mac.c:1865:1: warning:
+>> 	label 'out_err_irq_alloc' defined but not used
+>>
+>> Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
+>> Cc: Andrew Lunn <andrew@lunn.ch>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>> ---
+>>   drivers/net/ethernet/adi/bfin_mac.c | 4 ++--
+>>   1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+>> index 62862744c870..8c5132624510 100644
+>> --- a/drivers/net/ethernet/adi/bfin_mac.c
+>> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+>> @@ -1856,13 +1856,13 @@ static int bfin_mii_bus_probe(struct platform_device *pdev)
+>>   	rc = mdiobus_register(miibus);
+>>   	if (rc) {
+>>   		dev_err(&pdev->dev, "Cannot register MDIO bus!\n");
+>> -		goto out_err_alloc;
+>> +		goto out_err_mdiobus_register;
+>>   	}
+>>
+>>   	platform_set_drvdata(pdev, miibus);
+>>   	return 0;
+>>
+>> -out_err_irq_alloc:
+>> +out_err_mdiobus_register:
+>>   	mdiobus_free(miibus);
+>>   out_err_alloc:
+>>   	peripheral_free_list(pin_req);
+>> --
+>> 2.1.4
+>>
+>
