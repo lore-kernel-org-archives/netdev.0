@@ -1,62 +1,51 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
-Date: Fri, 08 Jan 2016 16:41:30 -0800
-Message-ID: <5690573A.6090305@gmail.com>
-References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810> <568F1EE2.7020107@gmail.com> <568FC9F8.8040201@mojatatu.com> <568FD498.5030401@gmail.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net] openvswitch: compute needed headroom for internal vports
+Date: Fri, 8 Jan 2016 16:42:54 -0800
+Message-ID: <CAEh+42hN8wL7bbALB8SGCKvum2pzT3R0kXUtMfQPg-XP-QZ7Dg@mail.gmail.com>
+References: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
+ <CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Paolo Abeni <pabeni@redhat.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Flavio Leitner <fbl@sysclose.org>
+To: pravin shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33944 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753366AbcAIAll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 19:41:41 -0500
-Received: by mail-pa0-f43.google.com with SMTP id uo6so272464291pac.1
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 16:41:41 -0800 (PST)
-In-Reply-To: <568FD498.5030401@gmail.com>
+Received: from mail.kernel.org ([198.145.29.136]:53641 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753672AbcAIAnL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jan 2016 19:43:11 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 81636201C8
+	for <netdev@vger.kernel.org>; Sat,  9 Jan 2016 00:43:10 +0000 (UTC)
+Received: from mail-qg0-f41.google.com (mail-qg0-f41.google.com [209.85.192.41])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 49A48201EC
+	for <netdev@vger.kernel.org>; Sat,  9 Jan 2016 00:43:09 +0000 (UTC)
+Received: by mail-qg0-f41.google.com with SMTP id o11so365426174qge.2
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 16:43:09 -0800 (PST)
+In-Reply-To: <CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-08 07:24 AM, John Fastabend wrote:
-> On 16-01-08 06:38 AM, Jamal Hadi Salim wrote:
->> On 16-01-07 09:28 PM, John Fastabend wrote:
->>>
->>> Hi Jamal,
->>>
->>> per your comment about using pktgen to test qdiscs here is the
->>> patch I've been using most the day which has been working well.
->>> I'm guessing this is more or less what you had in mind.
->>>
+On Fri, Jan 8, 2016 at 2:53 PM, pravin shelar <pshelar@ovn.org> wrote:
+> On Fri, Jan 8, 2016 at 1:50 PM, Paolo Abeni <pabeni@redhat.com> wrote:
+>> Currently the ovs internal vports always use a default needed_headroom.
+>> This leads to a skb head copy while xmitting on ovs swith via vport
+>> that add some kind of encapsulation (gre, geneve, etc.).
 >>
->> I have attached the one i used over the holidays - see if there are
->> any differences(sorry dont have much time right now).
+>> This patch add book-keeping for the maximum needed_headroom used by
+>> the non internal vports in any dp, updating it on vport creation and
+>> deletion.
 >>
->> cheers,
->> jamal
-> 
-> Close except I don't back off the qdisc when I get
-> xmit_{drop|cn|policed} return codes because I'm trying to
-> stress the qdisc.
-> 
-> Also I don't see the point to doing the skb_get_tx_queue and
-> txq_trans_update() this should be called by dev_queue_xmit
-> anyways.
-> 
-> If its all the same to you I would just assume have my version in
-> pktgen and later if its useful for you add an option to back-off
-> when the qdisc throws an error.
-> 
-> Thanks,
-> John
-> 
-> 
+>> Said value is than used as needed_headroom for internal vports,
+>> avoiding the above copy.
+>>
+> Why is this done only for internal devices? In most common case of
+> traffic the packet enters OVS from tap or other netdev type vport
+> device.
 
-And burst > 1 will cause a panic as well when injecting the packet
-into dev_queue_xmit(). It seems skb->users > 1 which is what the
-burst value is tuning in pktgen will stop the skb from being free'd
-but the stack doesn't check skb_shared().
-
-.John
+How would you influence the allocation for non-internal devices?
