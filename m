@@ -1,143 +1,229 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 7/8] net: ip_tunnel: remove 'csum_help' argument
- to iptunnel_handle_offloads
-Date: Fri, 8 Jan 2016 23:59:43 -0800
-Message-ID: <CAKgT0UcUmbEsXj5PAWee0JufENG=XMYQbgQzUap7rfxX=oZJBQ@mail.gmail.com>
-References: <56901197.8040808@solarflare.com>
-	<56901244.8060809@solarflare.com>
-	<CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
-	<CALx6S34MRoLw_JiHuyDANwoF9+u7k9R-UDb_RGP+L-d9D=f3WQ@mail.gmail.com>
-	<CAKgT0UeZwSm4oKoydXWU3iWmjL5m6H=K=hJ2wAkp_GugbZJwjA@mail.gmail.com>
-	<CALx6S35RV8UJi+fUoZ0HTc6T2oNh-HF_0iofAEaFEaZDGoJZ+Q@mail.gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: pull-request: wireless-drivers-next 2016-01-09
+Date: Sat, 09 Jan 2016 10:44:51 +0200
+Message-ID: <87k2nji1ks.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f195.google.com ([209.85.213.195]:36153 "EHLO
-	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642AbcAIH7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 02:59:44 -0500
-Received: by mail-ig0-f195.google.com with SMTP id o2so9657586iga.3
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 23:59:43 -0800 (PST)
-In-Reply-To: <CALx6S35RV8UJi+fUoZ0HTc6T2oNh-HF_0iofAEaFEaZDGoJZ+Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 8, 2016 at 7:00 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Fri, Jan 8, 2016 at 6:05 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Fri, Jan 8, 2016 at 4:44 PM, Tom Herbert <tom@herbertland.com> wrote:
->>> On Fri, Jan 8, 2016 at 4:35 PM, Alexander Duyck
->>> <alexander.duyck@gmail.com> wrote:
->>>> On Fri, Jan 8, 2016 at 11:47 AM, Edward Cree <ecree@solarflare.com> wrote:
->>>>> All users now pass false, so we can remove it, and remove the code that
->>>>>  was conditional upon it.
->>>>>
->>>>> Signed-off-by: Edward Cree <ecree@solarflare.com>
->>>>> ---
->>>>>  drivers/net/vxlan.c             |  4 ++--
->>>>>  include/net/ip_tunnels.h        |  3 +--
->>>>>  include/net/udp_tunnel.h        |  3 +--
->>>>>  net/ipv4/fou.c                  |  4 ++--
->>>>>  net/ipv4/ip_gre.c               |  3 +--
->>>>>  net/ipv4/ip_tunnel_core.c       | 15 +--------------
->>>>>  net/ipv4/ipip.c                 |  2 +-
->>>>>  net/ipv6/sit.c                  |  4 ++--
->>>>>  net/netfilter/ipvs/ip_vs_xmit.c |  6 ++----
->>>>>  9 files changed, 13 insertions(+), 31 deletions(-)
->>>>>
->>>>
->>>>
->>>>> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
->>>>> index 1db8418..f98bd53 100644
->>>>> --- a/net/ipv4/ip_tunnel_core.c
->>>>> +++ b/net/ipv4/ip_tunnel_core.c
->>>>> @@ -147,7 +147,6 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
->>>>>  EXPORT_SYMBOL_GPL(iptunnel_metadata_reply);
->>>>>
->>>>>  struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
->>>>> -                                        bool csum_help,
->>>>>                                          int gso_type_mask)
->>>>>  {
->>>>>         int err;
->>>>> @@ -165,19 +164,7 @@ struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
->>>>>                 return skb;
->>>>>         }
->>>>>
->>>>> -       /* If packet is not gso and we are resolving any partial checksum,
->>>>> -        * clear encapsulation flag. This allows setting CHECKSUM_PARTIAL
->>>>> -        * on the outer header without confusing devices that implement
->>>>> -        * NETIF_F_IP_CSUM with encapsulation.
->>>>> -        */
->>>>> -       if (csum_help)
->>>>> -               skb->encapsulation = 0;
->>>>> -
->>>>> -       if (skb->ip_summed == CHECKSUM_PARTIAL && csum_help) {
->>>>> -               err = skb_checksum_help(skb);
->>>>> -               if (unlikely(err))
->>>>> -                       goto error;
->>>>> -       } else if (skb->ip_summed != CHECKSUM_PARTIAL)
->>>>> +       if (skb->ip_summed != CHECKSUM_PARTIAL)
->>>>>                 skb->ip_summed = CHECKSUM_NONE;
->>>>>
->>>>
->>>> So this patch is a bit broken here.  We should be clearing
->>>> skb->encapsulation if CHECKSUM_PARTIAL is not set.  That way we don't
->>>> incorrectly pull in the inner headers when computing the outer
->>>> checksum.
->>>>
->>> In the original code this is done in csum_help argument is true in
->>> iptunnel_handle_offloads. These patches essentially imply that
->>> csum_help would always be false so we shouldn't need to clear
->>> skb->encapsulation any more?
->>
->> Actually it is causing me to throw warnings on an ixgbe NIC because it
->> implies that we want to offload the inner checksum, but we are setting
->> things up to offload the outer checksum.  For example if the inner is
->> just an ARP or ICMP frame I don't need to checksum the inner headers,
->> but skb->encapsulation is still set so the inner headers are being
->> evaluated instead of the outer ones in the Tx checksum routine in the
->> driver.
->>
->> If we clear skb->encapsulation if we don't have CHECKSUM_PARTIAL set
->> then we don't have the issue.  Really the addition of the line
->> clearing skb->encapsulation should probably be added to the first
->> patch so that we don't leave skb->encapsulation set when we aren't
->> requesting offloads.
->>
-> As I pointed out previously drivers that use skb->encapsulation to
-> determine that an inner checksum is being offloaded are not correct.
-> The checksum to be offloaded is indicated solely in csum_start and
-> csum_offset, skb->encapulation really should have nothing to do with
-> checksum. This is just and indication that the inner headers are valid
-> for the skbuf. We can retain clearing of skb->encapasulation for
-> compatibility until the drivers that handle encapsulated checksums
-> based on skb->encapsulation (I think there's like six of them) are
-> converted to read csum_start/csum_offset (i.e. using
-> skb_csum_offload_chk). New driver implemenation should not be using
-> skb->encapsulation in the checksum offload interface.
+Hi Dave,
 
-Well part of the problem is that the stack is doing some of this as
-well.  In validate_xmit_skb what is happening is that the
-inner_transport_hdr is being reset with the csum_start value.
+these are the last -next patches I would like to get to 4.5. Only few
+new features, mostly bugfixes. Please let me know if there are any
+problems.
 
-Odds are the quickest way to fix most of the drivers would be to drop
-their checks for skb->encapsulation and instead add a function to
-determine if skb_checksum_start_offset is equal to
-skb_transport_offset.  If it is not then we can assume we are doing
-checksums for an inner header instead of the outer one.
+Kalle
 
-I was actually looking over the code for the Intel drivers tonight
-while sorting this out.  I realized the drivers were far more complex
-then they needed to be based on their datasheets.  I should have
-patches next week that will convert igb, ixgbe, igbvf, and ixgbevf
-over to using NETIF_F_HW_CSUM instead of the IP/IPV6_CSUM logic they
-do now.  The only real snag I am sorting out is how to deal with
-SCTP_CRC.  I'm wondering if it is okay for me to simply assume that if
-skb->csum_offset is 8 we are dealing with an SCTP crc32c request or do
-you think I should look into another way of identifying SCTP frames?
+The following changes since commit 00ce3a15d811978fcb204a1a3f5f8c059096fa5e:
 
-- Alex
+  soreuseport: change consume_skb to kfree_skb in error case (2016-01-06 01:30:27 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git tags/wireless-drivers-next-for-davem-2016-01-09
+
+for you to fetch changes up to 42e0ed0d454c6ad7be67f2c18828391ecfdc9a62:
+
+  brcmfmac: Do not handle link downs for ibss. (2016-01-08 10:44:48 +0200)
+
+----------------------------------------------------------------
+brcmfmac
+
+* query features through firmware command
+* ARP offload through inet notifier
+* force probe to succeed for debugging purposes
+* random mac support for scheduled scan
+* support wowl upon net detect
+
+iwlwifi
+
+* bug fixes and improvements for firmware debug system
+* advertise support for Rx A-MSDU in A-MPDU
+* support -20.ucode
+* fix WoWLAN for iwldvm
+* preparations towards multiple Rx queues
+* platform power improvements for GO mode when no clients are associated
+
+----------------------------------------------------------------
+Alexey Khoroshilov (1):
+      ipw2x00: add checks for dma mapping errors
+
+Amitkumar Karwar (1):
+      mwifiex: reduce cloned skb queue size
+
+Andrzej Hajda (1):
+      ath9k_htc: fix handling return value of ath9k_hw_calibrate
+
+Arend van Spriel (5):
+      brcmfmac: obtain feature info using 'cap' firmware command
+      brcmfmac: introduce module parameter to force successful probe
+      brcmfmac: change brcmf_sdio_wd_timer() prototype
+      brcmfmac: use msecs_to_jiffies() in macro definitions
+      brcmfmac: use jiffies for timeout in btcoex
+
+Ayala Beker (1):
+      iwlwifi: mvm: don't ask beacons when P2P GO vif and no assoc sta
+
+Dan Carpenter (2):
+      wil6210: fix a warning message condition
+      ath9k: fix ath9k_hw_nvram_check_version()
+
+David Spinadel (1):
+      iwlwifi: mvm: fix extended dwell time
+
+Eliad Peller (1):
+      iwlwifi: mvm: initialize gtkdata->mvm correctly
+
+Emmanuel Grumbach (10):
+      iwlwifi: dvm: fix WoWLAN
+      iwlwifi: mvm: let the firmware choose the antenna for beacons
+      iwlwifi: mvm: reset mvm->scan_type when firmware is started
+      iwlwifi: set max firmware version of 7265 to 17
+      iwlwifi: mvm: bump max API to 20
+      iwlwifi: mvm: dump the radio registers when the firmware crashes
+      iwlwifi: mvm: remove useless WARN_ON and rely on cfg80211's combination
+      iwlwifi: mvm: constify the parameters of a few functions in fw-dbg.c
+      iwlwifi: mvm: fix memory leaks in error paths upon fw error dump
+      iwlwifi: pcie: properly configure the debug buffer size for 8000
+
+Fengwei Yin (2):
+      wcn36xx: handle rx skb allocation failure to avoid system crash
+      wcn36xx: split DMA mask register writing.
+
+Franky Lin (1):
+      brcmfmac: add arp offload ip address table configuration support
+
+Golan Ben-Ami (1):
+      iwlwifi: mvm: add a non-trigger window to fw dbg triggers
+
+Hamad Kadmany (1):
+      wil6210: fix kernel OOPS when stopping interface during Rx traffic
+
+Hante Meuleman (7):
+      brcmfmac: Add get_station support for IBSS
+      brcmfmac: Add support for scheduled scan mac randomization
+      brcmfmac: Fix warn trace on module unload while in ibss mode
+      brcmfmac: Move all module parameters to one place
+      brcmfmac: Add wowl net detect support
+      brcmfmac: Reshuffle functions to avoid forward declarations
+      brcmfmac: Do not handle link downs for ibss.
+
+Insu Yun (1):
+      mwifiex: correctly handling kzalloc
+
+Jia-Ju Bai (1):
+      rt2x00pci: Disable memory-write-invalidate when the driver exits
+
+Johannes Berg (4):
+      iwlwifi: mvm: support A-MSDU in A-MPDU
+      iwlwifi: mvm: prevent multiple stations with the same address
+      iwlwifi: mvm: check PN for CCMP/GCMP in the driver
+      iwlwifi: mvm: check minimum temperature notification length
+
+Julia Lawall (1):
+      iwlegacy: 4965-mac: constify il_sensitivity_ranges structure
+
+Kalle Valo (2):
+      Merge ath-next from ath.git
+      Merge tag 'iwlwifi-next-for-kalle-2016-01-07_2' of https://git.kernel.org/.../iwlwifi/iwlwifi-next
+
+Lior David (1):
+      wil6210: support for platform specific crash recovery
+
+Matti Gottlieb (1):
+      iwlwifi: mvm: change mcc update API
+
+Oren Givon (2):
+      iwlwifi: update and fix 7265 series PCI IDs
+      iwlwifi: nvm: fix loading default NVM file
+
+Pawel Kulakowski (1):
+      ath9k: Enable support for cloned SKBS
+
+Peter Oh (1):
+      ath10k: set SM power save disabled to default value
+
+Rajkumar Manoharan (2):
+      ath10k: wake up device before accessing registers
+      ath10k: reduce indentation by moving powersave check within function
+
+Xinming Hu (2):
+      mwifiex: fix missing debug messages
+      mwifiex: increase priority for critical message
+
+ drivers/net/wireless/ath/ath10k/mac.c              |    3 +-
+ drivers/net/wireless/ath/ath10k/pci.c              |   38 +-
+ drivers/net/wireless/ath/ath9k/eeprom.c            |    2 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c      |    2 +-
+ drivers/net/wireless/ath/ath9k/init.c              |    1 +
+ drivers/net/wireless/ath/wcn36xx/dxe.c             |   43 +-
+ drivers/net/wireless/ath/wil6210/interrupt.c       |    8 +-
+ drivers/net/wireless/ath/wil6210/main.c            |    2 +-
+ drivers/net/wireless/ath/wil6210/pcie_bus.c        |   30 +-
+ drivers/net/wireless/ath/wil6210/rx_reorder.c      |   12 +-
+ drivers/net/wireless/ath/wil6210/wil6210.h         |    1 +
+ drivers/net/wireless/ath/wil6210/wil_crash_dump.c  |    3 +-
+ drivers/net/wireless/ath/wil6210/wil_platform.c    |    3 +-
+ drivers/net/wireless/ath/wil6210/wil_platform.h    |   38 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c  |   12 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/btcoex.c  |   12 +-
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         | 1173 ++++++++++++--------
+ .../broadcom/brcm80211/brcmfmac/cfg80211.h         |   29 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/common.c  |   72 ++
+ .../wireless/broadcom/brcm80211/brcmfmac/common.h  |   56 +
+ .../wireless/broadcom/brcm80211/brcmfmac/core.c    |  136 ++-
+ .../wireless/broadcom/brcm80211/brcmfmac/core.h    |    7 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/feature.c |   76 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/feature.h |    4 +-
+ .../broadcom/brcm80211/brcmfmac/firmware.c         |   16 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/fwil.h    |    1 +
+ .../broadcom/brcm80211/brcmfmac/fwil_types.h       |   36 +
+ .../broadcom/brcm80211/brcmfmac/fwsignal.c         |    9 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/msgbuf.c  |    4 +-
+ .../net/wireless/broadcom/brcm80211/brcmfmac/p2p.c |   18 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/pcie.c    |    7 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |   51 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/sdio.h    |    6 +-
+ .../net/wireless/broadcom/brcm80211/brcmfmac/usb.c |    5 +-
+ drivers/net/wireless/intel/ipw2x00/ipw2100.c       |   11 +-
+ drivers/net/wireless/intel/iwlegacy/4965-mac.c     |    2 +-
+ drivers/net/wireless/intel/iwlwifi/dvm/lib.c       |    3 +
+ drivers/net/wireless/intel/iwlwifi/iwl-7000.c      |    4 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-8000.c      |    2 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-9000.c      |    2 +-
+ .../net/wireless/intel/iwlwifi/iwl-fw-error-dump.h |    2 +
+ drivers/net/wireless/intel/iwlwifi/iwl-fw-file.h   |   12 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-prph.h      |    6 +
+ drivers/net/wireless/intel/iwlwifi/iwl-trans.h     |    4 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/d3.c        |  115 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api.h    |   60 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.c    |   62 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.h    |   30 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw.c        |    1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c  |   53 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |   49 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |    9 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/nvm.c       |   55 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/power.c     |    2 -
+ drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |  106 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |   13 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.h       |   12 +
+ drivers/net/wireless/intel/iwlwifi/mvm/tt.c        |    2 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |    5 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/trans.c    |   17 +-
+ drivers/net/wireless/marvell/mwifiex/main.c        |    2 +-
+ drivers/net/wireless/marvell/mwifiex/pcie.c        |   32 +-
+ drivers/net/wireless/marvell/mwifiex/sdio.c        |   15 +-
+ drivers/net/wireless/ralink/rt2x00/rt2x00pci.c     |    2 +
+ 64 files changed, 1783 insertions(+), 823 deletions(-)
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
