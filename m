@@ -1,69 +1,58 @@
 From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [PATCH] phy: micrel: Fix build failure in ksz9031_config_init()
-Date: Sat, 9 Jan 2016 12:55:30 +0100
-Message-ID: <CA+icZUW3ay_c5_x2yjovnP=WK2_CUEsO5s4i45hc4RCmOpdSvA@mail.gmail.com>
-References: <1452338674-3353-1-git-send-email-sedat.dilek@gmail.com>
-	<201601091926.s6AqeVJk%fengguang.wu@intel.com>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org, Roosen Henri <Henri.Roosen@ginzinger.com>,
+Subject: [PATCH] [net] phy: micrel: Fix build failure in ksz9031_config_init()
+Date: Sat,  9 Jan 2016 12:59:17 +0100
+Message-ID: <1452340757-29507-1-git-send-email-sedat.dilek@gmail.com>
+Cc: Sedat Dilek <sedat.dilek@gmail.com>,
+	Roosen Henri <Henri.Roosen@ginzinger.com>,
 	Andrew Lunn <andrew@lunn.ch>,
 	David Daney <david.daney@cavium.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	"David S . Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: kbuild test robot <lkp@intel.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:35959 "EHLO
-	mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753850AbcAILzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 06:55:31 -0500
-Received: by mail-vk0-f51.google.com with SMTP id n1so50113630vkb.3
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 03:55:31 -0800 (PST)
-In-Reply-To: <201601091926.s6AqeVJk%fengguang.wu@intel.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:34422 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754008AbcAIL6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 06:58:09 -0500
+Received: by mail-wm0-f41.google.com with SMTP id u188so164864816wmu.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 03:58:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 9, 2016 at 12:49 PM, kbuild test robot <lkp@intel.com> wrote:
-> Hi Sedat,
->
-> [auto build test ERROR on net/master]
-> [cannot apply to net-next/master v4.4-rc8 next-20160108]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
->
+This fixes the following build failure seen in net.git#master on top of
+Linux v4.4-rc8+:
 
-This patch is for net.git#master not net-next or Linux-next.
-I should have add a proper label, Sorry.
+drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
+drivers/net/phy/micrel.c:492:22: error: 'struct phy_device' has no member named 'dev'
+  dev_walker = &phydev->dev;
 
-- Sedat -
+Fixes: b4c19f71252e ("phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.")
+CC: Roosen Henri <Henri.Roosen@ginzinger.com>
+CC: Andrew Lunn <andrew@lunn.ch>
+CC: David Daney <david.daney@cavium.com>
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
+---
+[ dileks: v2: Add "[net]" to the subject-line ]
 
-> url:    https://github.com/0day-ci/linux/commits/Sedat-Dilek/phy-micrel-Fix-build-failure-in-ksz9031_config_init/20160109-192630
-> config: x86_64-randconfig-x000-01060743 (attached as .config)
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64
->
-> All errors (new ones prefixed by >>):
->
->    drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
->>> drivers/net/phy/micrel.c:479:22: error: 'struct phy_device' has no member named 'mdio'
->      dev_walker = &phydev->mdio.dev;
->                          ^
->
-> vim +479 drivers/net/phy/micrel.c
->
->    473          const struct device *dev_walker;
->    474
->    475          /* The Micrel driver has a deprecated option to place phy OF
->    476           * properties in the MAC node. Walk up the tree of devices to
->    477           * find a device with an OF node.
->    478           */
->  > 479          dev_walker = &phydev->mdio.dev;
->    480          do {
->    481                  of_node = dev_walker->of_node;
->    482                  dev_walker = dev_walker->parent;
->
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ drivers/net/phy/micrel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 7a5679982c03..a7e17eabec37 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -476,7 +476,7 @@ static int ksz9031_config_init(struct phy_device *phydev)
+ 	 * properties in the MAC node. Walk up the tree of devices to
+ 	 * find a device with an OF node.
+ 	 */
+-	dev_walker = &phydev->dev;
++	dev_walker = &phydev->mdio.dev;
+ 	do {
+ 		of_node = dev_walker->of_node;
+ 		dev_walker = dev_walker->parent;
+-- 
+2.7.0
