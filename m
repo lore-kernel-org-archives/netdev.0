@@ -1,48 +1,30 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: [PATCH v2] netlink: fix null pointer dereference on nlk->groups
-Date: Sat,  9 Jan 2016 23:56:41 +0800
-Message-ID: <1452355001-30295-1-git-send-email-sploving1@gmail.com>
-References: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
-Cc: netdev@vger.kernel.org, Baozeng Ding <sploving1@gmail.com>
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35287 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754033AbcAIP4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 10:56:50 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 65so1913575pff.2
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 07:56:49 -0800 (PST)
-In-Reply-To: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net: phy: Add support for SMSC LAN8740 PHY
+Date: Sat, 9 Jan 2016 17:00:15 +0100
+Message-ID: <20160109160015.GC28813@lunn.ch>
+References: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Joshua Henderson <joshua.henderson@microchip.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If groups is not 0 and nlk->groups is NULL, it will not return
-immediately and cause a null pointer dereference later.
+On Sat, Jan 09, 2016 at 04:54:21AM -0700, Joshua Henderson wrote:
+> LAN8740 has a different phy_id than LAN8710/LAN8720.
+> 
+> Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
+> ---
+> Changes from v1:
+> 	+ Remove explicitly setting .driver and apply against net-next
 
-Signed-off-by: Baozeng Ding <sploving1@gmail.com>
----
-This version uses the preferred networking coding style. Thanks
-for Sergei's feedback. Also the patch keeps the original author's
-coding style as much as possible.
----
- net/netlink/af_netlink.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Thanks.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 59651af..eeff14a 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1576,7 +1576,10 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 		}
- 	}
- 
--	if (!groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
-+	if (!nlk->groups)
-+		return 0;
-+
-+	if (!groups && !(u32)nlk->groups[0])
- 		return 0;
- 
- 	netlink_table_grab();
--- 
-1.9.1
+FYI: It is normal to put in the subject line if the patch is against
+net or net-next.
+
+    Andrew
