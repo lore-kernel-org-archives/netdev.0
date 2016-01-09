@@ -1,77 +1,47 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 06/16] batman-adv: only call post function if something changed
-Date: Sat,  9 Jan 2016 21:20:11 +0800
-Message-ID: <1452345621-15908-7-git-send-email-a@unstable.cc>
+Subject: [PATCH 02/16] batman-adv: Fix lockdep annotation of batadv_tlv_container_remove
+Date: Sat,  9 Jan 2016 21:20:07 +0800
+Message-ID: <1452345621-15908-3-git-send-email-a__49770.9259194837$1452345762$gmane$org@unstable.cc>
 References: <1452345621-15908-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon@open-mesh.com>,
+	Sven Eckelmann <sven@open-mesh.com>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:44241 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:23192 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755240AbcAINWd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jan 2016 08:22:33 -0500
+	id S1754490AbcAINWT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jan 2016 08:22:19 -0500
 In-Reply-To: <1452345621-15908-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon@open-mesh.com>
+From: Sven Eckelmann <sven@open-mesh.com>
 
-Currently, the post function is also called on errors or if there were
-no changes, which is redundant for the functions currently using these
-facilities.
+The function handles tlv containers and not tlv handlers. Thus the
+lockdep_assert_held has to check for the container_list lock.
 
-Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+Fixes: 2c72d655b044 ("batman-adv: Annotate deleting functions with external lock via lockdep")
+Signed-off-by: Sven Eckelmann <sven@open-mesh.com>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/sysfs.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ net/batman-adv/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index 48e2aaddda49..fe87777fda8a 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -242,10 +242,13 @@ ssize_t batadv_show_vlan_##_name(struct kobject *kobj,			\
- 
- static int batadv_store_bool_attr(char *buff, size_t count,
- 				  struct net_device *net_dev,
--				  const char *attr_name, atomic_t *attr)
-+				  const char *attr_name, atomic_t *attr,
-+				  bool *changed)
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 5dbcb2e2b497..95fd418e9567 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -747,7 +747,7 @@ static u16 batadv_tvlv_container_list_size(struct batadv_priv *bat_priv)
+ static void batadv_tvlv_container_remove(struct batadv_priv *bat_priv,
+ 					 struct batadv_tvlv_container *tvlv)
  {
- 	int enabled = -1;
+-	lockdep_assert_held(&bat_priv->tvlv.handler_list_lock);
++	lockdep_assert_held(&bat_priv->tvlv.container_list_lock);
  
-+	*changed = false;
-+
- 	if (buff[count - 1] == '\n')
- 		buff[count - 1] = '\0';
- 
-@@ -272,6 +275,8 @@ static int batadv_store_bool_attr(char *buff, size_t count,
- 		    atomic_read(attr) == 1 ? "enabled" : "disabled",
- 		    enabled == 1 ? "enabled" : "disabled");
- 
-+	*changed = true;
-+
- 	atomic_set(attr, (unsigned int)enabled);
- 	return count;
- }
-@@ -282,11 +287,12 @@ __batadv_store_bool_attr(char *buff, size_t count,
- 			 struct attribute *attr,
- 			 atomic_t *attr_store, struct net_device *net_dev)
- {
-+	bool changed;
- 	int ret;
- 
- 	ret = batadv_store_bool_attr(buff, count, net_dev, attr->name,
--				     attr_store);
--	if (post_func && ret)
-+				     attr_store, &changed);
-+	if (post_func && changed)
- 		post_func(net_dev);
- 
- 	return ret;
+ 	if (!tvlv)
+ 		return;
 -- 
 2.7.0
