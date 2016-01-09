@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 08/16] batman-adv: Delete unnecessary checks before the function call "kfree_skb"
-Date: Sat,  9 Jan 2016 21:20:13 +0800
-Message-ID: <1452345621-15908-9-git-send-email-a@unstable.cc>
+Subject: [PATCH 09/16] batman-adv: Less checks in batadv_tvlv_unicast_send()
+Date: Sat,  9 Jan 2016 21:20:14 +0800
+Message-ID: <1452345621-15908-10-git-send-email-a@unstable.cc>
 References: <1452345621-15908-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Markus Elfring <elfring@users.sourceforge.net>,
@@ -9,71 +9,70 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:2060 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:37112 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755263AbcAINWn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jan 2016 08:22:43 -0500
+	id S1755263AbcAINWr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jan 2016 08:22:47 -0500
 In-Reply-To: <1452345621-15908-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Markus Elfring <elfring@users.sourceforge.net>
 
-The kfree_skb() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the calls is not needed.
+* Let us return directly if a call of the batadv_orig_hash_find() function
+  returned a null pointer.
 
-This issue was detected by using the Coccinelle software.
+* Omit the initialisation for the variable "skb" at the beginning.
+
+* Replace an assignment by a call of the kfree_skb() function
+  and delete the affected variable "ret" then.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/main.c           | 2 +-
- net/batman-adv/network-coding.c | 4 +---
- net/batman-adv/send.c           | 3 +--
- 3 files changed, 3 insertions(+), 6 deletions(-)
+ net/batman-adv/main.c | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
 
 diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 95fd418e9567..5b678f3471fc 100644
+index 5b678f3471fc..4b5d61fbadb1 100644
 --- a/net/batman-adv/main.c
 +++ b/net/batman-adv/main.c
-@@ -1184,7 +1184,7 @@ void batadv_tvlv_unicast_send(struct batadv_priv *bat_priv, u8 *src,
- 		ret = true;
+@@ -1143,15 +1143,14 @@ void batadv_tvlv_unicast_send(struct batadv_priv *bat_priv, u8 *src,
+ 	struct batadv_unicast_tvlv_packet *unicast_tvlv_packet;
+ 	struct batadv_tvlv_hdr *tvlv_hdr;
+ 	struct batadv_orig_node *orig_node;
+-	struct sk_buff *skb = NULL;
++	struct sk_buff *skb;
+ 	unsigned char *tvlv_buff;
+ 	unsigned int tvlv_len;
+ 	ssize_t hdr_len = sizeof(*unicast_tvlv_packet);
+-	bool ret = false;
  
- out:
--	if (skb && !ret)
-+	if (!ret)
- 		kfree_skb(skb);
- 	if (orig_node)
- 		batadv_orig_node_free_ref(orig_node);
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index f5276be2c77c..c98b0ab85449 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -244,9 +244,7 @@ static void batadv_nc_path_free_ref(struct batadv_nc_path *nc_path)
-  */
- static void batadv_nc_packet_free(struct batadv_nc_packet *nc_packet)
- {
--	if (nc_packet->skb)
--		kfree_skb(nc_packet->skb);
+ 	orig_node = batadv_orig_hash_find(bat_priv, dst);
+ 	if (!orig_node)
+-		goto out;
++		return;
+ 
+ 	tvlv_len = sizeof(*tvlv_hdr) + tvlv_value_len;
+ 
+@@ -1180,14 +1179,10 @@ void batadv_tvlv_unicast_send(struct batadv_priv *bat_priv, u8 *src,
+ 	tvlv_buff += sizeof(*tvlv_hdr);
+ 	memcpy(tvlv_buff, tvlv_value, tvlv_value_len);
+ 
+-	if (batadv_send_skb_to_orig(skb, orig_node, NULL) != NET_XMIT_DROP)
+-		ret = true;
 -
-+	kfree_skb(nc_packet->skb);
- 	batadv_nc_path_free_ref(nc_packet->nc_path);
- 	kfree(nc_packet);
+-out:
+-	if (!ret)
++	if (batadv_send_skb_to_orig(skb, orig_node, NULL) == NET_XMIT_DROP)
+ 		kfree_skb(skb);
+-	if (orig_node)
+-		batadv_orig_node_free_ref(orig_node);
++out:
++	batadv_orig_node_free_ref(orig_node);
  }
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index f664324805eb..782fa33ec296 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -407,8 +407,7 @@ void batadv_schedule_bat_ogm(struct batadv_hard_iface *hard_iface)
  
- static void batadv_forw_packet_free(struct batadv_forw_packet *forw_packet)
- {
--	if (forw_packet->skb)
--		kfree_skb(forw_packet->skb);
-+	kfree_skb(forw_packet->skb);
- 	if (forw_packet->if_incoming)
- 		batadv_hardif_free_ref(forw_packet->if_incoming);
- 	if (forw_packet->if_outgoing)
+ /**
 -- 
 2.7.0
