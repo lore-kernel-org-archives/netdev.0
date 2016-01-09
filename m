@@ -1,96 +1,65 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [PATCH] [net] phy: micrel: Fix build failure in ksz9031_config_init()
-Date: Sat, 9 Jan 2016 23:24:27 +0100
-Message-ID: <CA+icZUVVvHa+K_EBKsYcVdMLApLfnha13CCvbA58VZfjLYZy0A@mail.gmail.com>
-References: <1452340757-29507-1-git-send-email-sedat.dilek@gmail.com>
-	<20160109155524.GB28813@lunn.ch>
-Reply-To: sedat.dilek@gmail.com
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v4 06/10] netdev: add netdevice notifier type to
+ trigger a reprogramming of offloads
+Date: Sat, 9 Jan 2016 14:27:07 -0800
+Message-ID: <CALx6S37rhc+xiOZfk2F4=AXWK4jxu7BP3VMBjSCFoOMjLdLaZw@mail.gmail.com>
+References: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
+	<1452352052-27574-7-git-send-email-hannes@stressinduktion.org>
+	<CALx6S357fYzhCRHsPAjX+NH+5Wc1tnUuNwcZ5oy3WiAMASjOEA@mail.gmail.com>
+	<5691439F.5090500@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Roosen Henri <Henri.Roosen@ginzinger.com>,
-	David Daney <david.daney@cavium.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:36349 "EHLO
-	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756068AbcAIWY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 17:24:28 -0500
-Received: by mail-vk0-f46.google.com with SMTP id n1so54011465vkb.3
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 14:24:28 -0800 (PST)
-In-Reply-To: <20160109155524.GB28813@lunn.ch>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:34052 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756068AbcAIW1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 17:27:08 -0500
+Received: by mail-io0-f174.google.com with SMTP id 1so270993899ion.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 14:27:07 -0800 (PST)
+In-Reply-To: <5691439F.5090500@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 9, 2016 at 4:55 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Sat, Jan 09, 2016 at 12:59:17PM +0100, Sedat Dilek wrote:
->> This fixes the following build failure seen in net.git#master on top of
->> Linux v4.4-rc8+:
->
-> I'm pretty sure this is wrong. Here is why...
->
-> net.git has the fix:
->
-> commit b4c19f71252e3b6b8c6478fd712c592f00b11438
-> Author: Roosen Henri <Henri.Roosen@ginzinger.com>
-> Date:   Thu Jan 7 09:31:15 2016 +0100
->
->     phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.
->
->     Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
->      node.") only fixes finding PHY properties in MAC node for KSZ9021. This
->     commit applies the same fix for KSZ9031.
->
->     Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
->     Acked-by: Andrew Lunn <andrew@lunn.ch>
->     Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index e13ad6cdcc22..7a5679982c03 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -470,9 +470,17 @@ static int ksz9031_config_init(struct phy_device *phydev)
->                 "txd2-skew-ps", "txd3-skew-ps"
->         };
->         static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
-> +       const struct device *dev_walker;
->
-> -       if (!of_node && dev->parent->of_node)
-> -               of_node = dev->parent->of_node;
-> +       /* The Micrel driver has a deprecated option to place phy OF
-> +        * properties in the MAC node. Walk up the tree of devices to
-> +        * find a device with an OF node.
-> +        */
-> +       dev_walker = &phydev->dev;
-> +       do {
-> +               of_node = dev_walker->of_node;
-> +               dev_walker = dev_walker->parent;
-> +       } while (!of_node && dev_walker);
+On Sat, Jan 9, 2016 at 9:30 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 09.01.2016 18:25, Tom Herbert wrote:
+>>
+>> On Sat, Jan 9, 2016 at 7:07 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>>>
+>>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>> ---
+>>>   include/linux/netdevice.h | 1 +
+>>>   1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>> index 8d8e5ca951b493..9750e46760695d 100644
+>>> --- a/include/linux/netdevice.h
+>>> +++ b/include/linux/netdevice.h
+>>> @@ -2183,6 +2183,7 @@ struct netdev_lag_lower_state_info {
+>>>   #define NETDEV_BONDING_INFO    0x0019
+>>>   #define NETDEV_PRECHANGEUPPER  0x001A
+>>>   #define NETDEV_CHANGELOWERSTATE        0x001B
+>>> +#define NETDEV_REFRESH_OFFLOADS        0x001C
+>>>
+>> Per previous discussion we don't want to generalize this current
+>> offload interface. Can we just NETDEV_UP as the notifier?
 >
 >
-> This brings in the dev_walker, which uses phydev->dev. In net, that is
-> correct. My patches introducing MDIO device are not in net. They are
-> only in net-next.
+> The problem with only using NETDEV_UP/REGISTER is that some drivers need to
+> reconfigure their offloads during operation while keeping the netdevice in
+> UP state. One example is ixgbe. This was my first idea also.
 >
-> In net-next, this fix does not yet appear. Hence it does not yet have
-> the change of ->dev to ->mdio.dev.
->
-> Somehow, next.git has both net.git and net-next.git. Hence you get the
-> build error.
->
-> Unfortunately, we cannot fix this yet. Your fix needs to go to
-> net-next. But first Dave needs to merge net.git into net-next.git, so
-> bringing in Henri's fix. Only then can your fix be applied. My guess
-> is, Dave will do that Sunday when Linus makes the release and opens
-> the merge window.
->
+It's configuration. Just get it once and save the port number(s) in
+the driver. Configure the device only when
+IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE is set.
 
-Oops, you are right.
-I have both recent net.git and net-next.git on top of Linux v4.4-rc8
-and was unsure where to fix it.
-So, let's wait till net-next.git has merged net.git.
-
-- Sedat -
+> I am fine with both approaches, my initial submission had two types to
+> notify geneve and vxlan so their doesn't happen any "cross-over".
+>
+> Bye,
+> Hannes
+>
