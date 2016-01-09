@@ -1,89 +1,43 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
- function
-Date: Sat, 9 Jan 2016 10:10:41 -0800
-Message-ID: <56914D21.9050804@roeck-us.net>
-References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
- <20160109165802.GD28813@lunn.ch>
+From: roopa <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: Re: [PATCH net 1/2] vxlan: Relax the MTU constraint on
+	vxlan devices
+Date: Sat, 09 Jan 2016 10:39:52 -0800
+Message-ID: <569153F8.4070500@cumulusnetworks.com>
+References: <1452087186-12926-1-git-send-email-david@weave.works>
+ <1452087186-12926-2-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160109165802.GD28813@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1452087186-12926-2-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
-
-On 01/09/2016 08:58 AM, Andrew Lunn wrote:
-> Hi Guenter
->
-> Same fix was submitted yesterday by Sudip Mukherjee.
->
-
-I missed that one, sorry.
-
-How about drivers/net/ethernet/toshiba/tc35815.c ? It now has an unused
-variable due to e7f4dc3536a4, and it fails to build because of 7f854420fbfe.
-
-Which leads to the question which of the other build failures due to
-7f854420fbfe have been addressed already. In addition to the toshiba driver,
-I see build failures in drivers/net/ethernet/ti/cpmac.c and possibly
-drivers/staging/octeon/ethernet-rgmii.c (the error message is different,
-so it may be something else).
-
-I don't see patches for those, but I guess I must be blind, so I figure I
-better ask before I send out mine.
-
-Thanks,
-Guenter
-
-> Thanks
-> 	Andrew
->
->
-> On Sat, Jan 09, 2016 at 08:37:06AM -0800, Guenter Roeck wrote:
->> Commit e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
->> removed interrupt allocation code. While doing so, error handling got
->> messed up a bit, resulting in the following build warning and a missed
->> call to mdiobus_free() in the probe function error path.
->>
->> drivers/net/ethernet/adi/bfin_mac.c: In function 'bfin_mii_bus_probe':
->> drivers/net/ethernet/adi/bfin_mac.c:1865:1: warning:
->> 	label 'out_err_irq_alloc' defined but not used
->>
->> Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
->> Cc: Andrew Lunn <andrew@lunn.ch>
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->> ---
->>   drivers/net/ethernet/adi/bfin_mac.c | 4 ++--
->>   1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
->> index 62862744c870..8c5132624510 100644
->> --- a/drivers/net/ethernet/adi/bfin_mac.c
->> +++ b/drivers/net/ethernet/adi/bfin_mac.c
->> @@ -1856,13 +1856,13 @@ static int bfin_mii_bus_probe(struct platform_device *pdev)
->>   	rc = mdiobus_register(miibus);
->>   	if (rc) {
->>   		dev_err(&pdev->dev, "Cannot register MDIO bus!\n");
->> -		goto out_err_alloc;
->> +		goto out_err_mdiobus_register;
->>   	}
->>
->>   	platform_set_drvdata(pdev, miibus);
->>   	return 0;
->>
->> -out_err_irq_alloc:
->> +out_err_mdiobus_register:
->>   	mdiobus_free(miibus);
->>   out_err_alloc:
->>   	peripheral_free_list(pin_req);
->> --
->> 2.1.4
->>
->
+T24gMS82LzE2LCA1OjMzIEFNLCBEYXZpZCBXcmFnZyB3cm90ZToKPiBBbGxvdyB0aGUgTVRVIG9m
+IHZ4bGFuIGRldmljZXMgd2l0aG91dCBhbiB1bmRlcmx5aW5nIGRldmljZSB0byBiZSBzZXQgdG8K
+PiBsYXJnZXIgdmFsdWVzICh1cCB0byBhIG1heGltdW0gYmFzZWQgb24gSVAgcGFja2V0IGxpbWl0
+cyBhbmQgdnhsYW4KPiBvdmVyaGVhZCkuCj4KPiBQcmV2aW91c2x5LCB0aGVpciBNVFVzIGNvdWxk
+IG5vdCBiZSBzZXQgdG8gaGlnaGVyIHRoYW4gdGhlIGNvbnZlbnRpb25hbAo+IGV0aGVybmV0IHZh
+bHVlIG9mIDE1MDAuICBUaGlzIGlzIGEgdmVyeSBhcmJpdHJhcnkgdmFsdWUgaW4gdGhlIGNvbnRl
+eHQKPiBvZiB2eGxhbiwgYW5kIHByZXZlbnRlZCBzdWNoIHZ4bGFuIGRldmljZXMgZnJvbSBiZWlu
+ZyBhYmxlIHRvIHRha2UKPiBhZHZhbnRhZ2Ugb2YganVtYm8gZnJhbWVzIGV0Yy4KPgo+IFRoZSBk
+ZWZhdWx0IE1UVSByZW1haW5zIDE1MDAsIGZvciBjb21wYXRpYmlsaXR5Lgo+Cj4gU2lnbmVkLW9m
+Zi1ieTogRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZlLndvcmtzPgo+CkFja2VkLWJ5OiBSb29wYSBQ
+cmFiaHUgPHJvb3BhQGN1bXVsdXNuZXR3b3Jrcy5jb20+CgpJIGhhdmUgYW4gaW50ZXJuYWwgcGF0
+Y2ggd2hpY2ggZG9lcyB0aGUgc2FtZSB0aGluZyBhbmQKd2FzIGhvcGluZyB0byBwb3N0IGl0IHNv
+b24uCkkgYW0gbm90IHVzaW5nIG92cy4gc28sIEkgYW0gbm90IGNsb3NlbHkgZm9sbG93aW5nIHRo
+ZSB0aHJlYWQgb24gdGhlIG90aGVyCnBhdGNoIGluIHRoZSBzZXJpZXMuIEJ1dCwgdGhpcyBwYXRj
+aCBjZXJ0YWlubHkgc3RhbmRzIG9uIGl0cyBvd24gYW5kIGlzIHJlcXVpcmVkLgoKVGhhbmtzIQoK
+CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
+aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
+bG1hbi9saXN0aW5mby9kZXYK
