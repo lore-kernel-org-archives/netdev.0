@@ -1,103 +1,71 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [net-next] ksz9031_config_init(): error: 'struct phy_device' has
- no member named 'dev' dev_walker = &phydev->dev;
-Date: Sat, 9 Jan 2016 12:30:49 +0100
-Message-ID: <CA+icZUV=Hs2Mz5DdDYmg9T4x7n9AN-xsLerUkCiueBuuZ3WEmQ@mail.gmail.com>
-References: <CA+icZUVUB7YtodE5shsMtB83BYF3fMEL2ypK5YFqZapC8dqeNQ@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: Joshua Henderson <joshua.henderson@microchip.com>
+Subject: Re: [PATCH] net: phy: Add support for SMSC LAN8740 PHY
+Date: Sat, 9 Jan 2016 04:43:54 -0700
+Message-ID: <5690F27A.6090500@microchip.com>
+References: <1452301040-4392-1-git-send-email-joshua.henderson@microchip.com>
+ <20160109013655.GA28813@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Daney <david.daney@cavium.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>
 To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f54.google.com ([209.85.213.54]:34406 "EHLO
-	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753607AbcAILau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 06:30:50 -0500
-Received: by mail-vk0-f54.google.com with SMTP id a123so173433384vkh.1
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 03:30:50 -0800 (PST)
-In-Reply-To: <CA+icZUVUB7YtodE5shsMtB83BYF3fMEL2ypK5YFqZapC8dqeNQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160109013655.GA28813@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 9, 2016 at 11:19 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> Just FYI...
->
-> With recent net-next.git#master up to commit
-> d86cdfcd5d7e1179e695977b7088882822f365c4 ("Merge branch
-> 'r8152-adjustments'")...
-> ...and...
-> CONFIG_NET_VENDOR_MICREL=y
-> CONFIG_MICREL_PHY=y
-> # CONFIG_MICREL_KS8995MA is not set
-> ...
-> I get the following build-error:
->
-> $ mycompiler -Wp,-MD,drivers/net/phy/.micrel.o.d  -nostdinc -isystem
-> /usr/lib/gcc/x86_64-linux-gnu/4.9/include -nostdinc -isystem
-> /usr/lib/gcc/x86_64-linux-gnu/4.9/include -I./arch/x86/include
-> -Iarch/x86/include/generated/uapi -Iarch/x86/include/generated
-> -Iinclude -I./arch/x86/include/uapi -Iarch/x86/include/generated/uapi
-> -I./include/uapi -Iinclude/generated/uapi -include
-> ./include/linux/kconfig.h -D__KERNEL__ -Wall -Wundef
-> -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common
-> -Werror-implicit-function-declaration -Wno-format-security -std=gnu89
-> -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -m64 -falign-jumps=1
-> -falign-loops=1 -mno-80387 -mno-fp-ret-in-387
-> -mpreferred-stack-boundary=3 -mtune=generic -mno-red-zone
-> -mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args
-> -DCONFIG_X86_X32_ABI -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1
-> -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1
-> -DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -pipe
-> -Wno-sign-compare -fno-asynchronous-unwind-tables
-> -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0
-> -Wframe-larger-than=1024 -fno-stack-protector
-> -Wno-unused-but-set-variable -fno-omit-frame-pointer
-> -fno-optimize-sibling-calls -fno-var-tracking-assignments -pg -mfentry
-> -DCC_USING_FENTRY -Wdeclaration-after-statement -Wno-pointer-sign
-> -fno-strict-overflow -fconserve-stack -Werror=implicit-int
-> -Werror=strict-prototypes -Werror=date-time -DCC_HAVE_ASM_GOTO
-> -D"KBUILD_STR(s)=#s" -D"KBUILD_BASENAME=KBUILD_STR(micrel)"
-> -D"KBUILD_MODNAME=KBUILD_STR(micrel)" -c -o
-> drivers/net/phy/.tmp_micrel.o drivers/net/phy/micrel.c
-> drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
-> drivers/net/phy/micrel.c:492:22: error: 'struct phy_device' has no
-> member named 'dev'
->   dev_walker = &phydev->dev;
->                       ^
-> make[5]: *** [drivers/net/phy/micrel.o] Error 1
-> make[4]: *** [drivers/net/phy] Error 2
-> make[3]: *** [drivers/net] Error 2
-> make[2]: *** [drivers] Error 2
->
-> That's the hunk of changes in micrel.c:
->
-> @@ -276,7 +288,8 @@ static int kszphy_config_init(struct phy_device *phydev)
->         if (priv->rmii_ref_clk_sel) {
->                 ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
->                 if (ret) {
-> -                       dev_err(&phydev->dev, "failed to set rmii
-> reference clock\n");
-> +                       phydev_err(phydev,
-> +                                  "failed to set rmii reference clock\n");
->                         return ret;
->                 }
->         }
->
-> I saw no patches on patchwork.
->
-> Hope this helps...
->
-> Regards,
-> - Sedat -
->
-> [1] https://patchwork.ozlabs.org/project/netdev/list/
+On 1/8/2016 6:36 PM, Andrew Lunn wrote:
+> On Fri, Jan 08, 2016 at 05:57:20PM -0700, Joshua Henderson wrote:
+>> LAN8740 has a different phy_id than LAN8710/LAN8720.
+>>
+>> Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
+>> ---
+>>  drivers/net/phy/smsc.c |   24 ++++++++++++++++++++++++
+>>  1 file changed, 24 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+>> index dc2da87..34021a5 100644
+>> --- a/drivers/net/phy/smsc.c
+>> +++ b/drivers/net/phy/smsc.c
+>> @@ -264,6 +264,29 @@ static struct phy_driver smsc_phy_driver[] = {
+>>  	.resume		= genphy_resume,
+>>  
+>>  	.driver		= { .owner = THIS_MODULE, }
+>> +}, {
+>> +	.phy_id		= 0x0007c110,
+>> +	.phy_id_mask	= 0xfffffff0,
+>> +	.name		= "SMSC LAN8740",
+>> +
+>> +	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+>> +				| SUPPORTED_Asym_Pause),
+>> +	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+>> +
+>> +	/* basic functions */
+>> +	.config_aneg	= genphy_config_aneg,
+>> +	.read_status	= lan87xx_read_status,
+>> +	.config_init	= smsc_phy_config_init,
+>> +	.soft_reset	= smsc_phy_reset,
+>> +
+>> +	/* IRQ related */
+>> +	.ack_interrupt	= smsc_phy_ack_interrupt,
+>> +	.config_intr	= smsc_phy_config_intr,
+>> +
+>> +	.suspend	= genphy_suspend,
+>> +	.resume		= genphy_resume,
+>> +
+>> +	.driver		= { .owner = THIS_MODULE, }
+>>  } };
+> 
+> Hi Joshua
+> 
+> You should remove this .driver line. The core sets it now.
+> 
+>     Andrew
+> 
 
-I have sent a fix for that (the problem is in net.git not net-next.git).
+Got it.  I'll apply against net-next.
 
-- Sedat -
-
-[1] https://patchwork.ozlabs.org/patch/565142/
+Thanks,
+Josh
