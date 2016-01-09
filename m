@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request [net]: 20160107
-Date: Fri, 08 Jan 2016 21:47:18 -0500 (EST)
-Message-ID: <20160108.214718.227819472802633711.davem@davemloft.net>
-References: <1452151587-25547-1-git-send-email-a@unstable.cc>
+Subject: Re: [PATCH v3 1/1] phy: micrel: Fix finding PHY properties in MAC
+ node for KSZ9031.
+Date: Fri, 08 Jan 2016 21:49:08 -0500 (EST)
+Message-ID: <20160108.214908.1776832581595314892.davem@davemloft.net>
+References: <1452155475-7742-1-git-send-email-henri.roosen@ginzinger.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: a@unstable.cc
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35796 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754909AbcAICrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 21:47:21 -0500
-In-Reply-To: <1452151587-25547-1-git-send-email-a@unstable.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, andrew@lunn.ch
+To: henri.roosen@ginzinger.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452155475-7742-1-git-send-email-henri.roosen@ginzinger.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Thu,  7 Jan 2016 15:26:26 +0800
+From: Henri Roosen <henri.roosen@ginzinger.com>
+Date: Thu, 7 Jan 2016 09:31:15 +0100
 
-> I know it is extremely late in the release cycle, but please accept this
-> single (and small) change intended for net.
+> Commit 651df2183543 ("phy: micrel: Fix finding PHY properties in MAC
+>  node.") only fixes finding PHY properties in MAC node for KSZ9021. This
+> commit applies the same fix for KSZ9031.
+> 
+> Fixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not the bus' parent.")
+> Acked-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Henri Roosen <henri.roosen@ginzinger.com>
+> ---
+> 
+> Changes since v2:
+>  - removed unnecessary empty line
 
-Pulled, thanks Antonio.
+Applied, thanks Henri.
