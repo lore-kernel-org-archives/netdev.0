@@ -1,56 +1,103 @@
 From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: [PATCH] phy: micrel: Fix build failure in ksz9031_config_init()
-Date: Sat,  9 Jan 2016 12:24:34 +0100
-Message-ID: <1452338674-3353-1-git-send-email-sedat.dilek@gmail.com>
-Cc: Sedat Dilek <sedat.dilek@gmail.com>,
-	Roosen Henri <Henri.Roosen@ginzinger.com>,
-	Andrew Lunn <andrew@lunn.ch>,
+Subject: Re: [net-next] ksz9031_config_init(): error: 'struct phy_device' has
+ no member named 'dev' dev_walker = &phydev->dev;
+Date: Sat, 9 Jan 2016 12:30:49 +0100
+Message-ID: <CA+icZUV=Hs2Mz5DdDYmg9T4x7n9AN-xsLerUkCiueBuuZ3WEmQ@mail.gmail.com>
+References: <CA+icZUVUB7YtodE5shsMtB83BYF3fMEL2ypK5YFqZapC8dqeNQ@mail.gmail.com>
+Reply-To: sedat.dilek@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Daney <david.daney@cavium.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38141 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754236AbcAILXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 06:23:24 -0500
-Received: by mail-wm0-f48.google.com with SMTP id b14so205471197wmb.1
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 03:23:23 -0800 (PST)
+Received: from mail-vk0-f54.google.com ([209.85.213.54]:34406 "EHLO
+	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753607AbcAILau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 06:30:50 -0500
+Received: by mail-vk0-f54.google.com with SMTP id a123so173433384vkh.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 03:30:50 -0800 (PST)
+In-Reply-To: <CA+icZUVUB7YtodE5shsMtB83BYF3fMEL2ypK5YFqZapC8dqeNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the following build failure seen in net.git#master on top of
-Linux v4.4-rc8+:
+On Sat, Jan 9, 2016 at 11:19 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+> Just FYI...
+>
+> With recent net-next.git#master up to commit
+> d86cdfcd5d7e1179e695977b7088882822f365c4 ("Merge branch
+> 'r8152-adjustments'")...
+> ...and...
+> CONFIG_NET_VENDOR_MICREL=y
+> CONFIG_MICREL_PHY=y
+> # CONFIG_MICREL_KS8995MA is not set
+> ...
+> I get the following build-error:
+>
+> $ mycompiler -Wp,-MD,drivers/net/phy/.micrel.o.d  -nostdinc -isystem
+> /usr/lib/gcc/x86_64-linux-gnu/4.9/include -nostdinc -isystem
+> /usr/lib/gcc/x86_64-linux-gnu/4.9/include -I./arch/x86/include
+> -Iarch/x86/include/generated/uapi -Iarch/x86/include/generated
+> -Iinclude -I./arch/x86/include/uapi -Iarch/x86/include/generated/uapi
+> -I./include/uapi -Iinclude/generated/uapi -include
+> ./include/linux/kconfig.h -D__KERNEL__ -Wall -Wundef
+> -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common
+> -Werror-implicit-function-declaration -Wno-format-security -std=gnu89
+> -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -m64 -falign-jumps=1
+> -falign-loops=1 -mno-80387 -mno-fp-ret-in-387
+> -mpreferred-stack-boundary=3 -mtune=generic -mno-red-zone
+> -mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args
+> -DCONFIG_X86_X32_ABI -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1
+> -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1
+> -DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -pipe
+> -Wno-sign-compare -fno-asynchronous-unwind-tables
+> -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0
+> -Wframe-larger-than=1024 -fno-stack-protector
+> -Wno-unused-but-set-variable -fno-omit-frame-pointer
+> -fno-optimize-sibling-calls -fno-var-tracking-assignments -pg -mfentry
+> -DCC_USING_FENTRY -Wdeclaration-after-statement -Wno-pointer-sign
+> -fno-strict-overflow -fconserve-stack -Werror=implicit-int
+> -Werror=strict-prototypes -Werror=date-time -DCC_HAVE_ASM_GOTO
+> -D"KBUILD_STR(s)=#s" -D"KBUILD_BASENAME=KBUILD_STR(micrel)"
+> -D"KBUILD_MODNAME=KBUILD_STR(micrel)" -c -o
+> drivers/net/phy/.tmp_micrel.o drivers/net/phy/micrel.c
+> drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
+> drivers/net/phy/micrel.c:492:22: error: 'struct phy_device' has no
+> member named 'dev'
+>   dev_walker = &phydev->dev;
+>                       ^
+> make[5]: *** [drivers/net/phy/micrel.o] Error 1
+> make[4]: *** [drivers/net/phy] Error 2
+> make[3]: *** [drivers/net] Error 2
+> make[2]: *** [drivers] Error 2
+>
+> That's the hunk of changes in micrel.c:
+>
+> @@ -276,7 +288,8 @@ static int kszphy_config_init(struct phy_device *phydev)
+>         if (priv->rmii_ref_clk_sel) {
+>                 ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
+>                 if (ret) {
+> -                       dev_err(&phydev->dev, "failed to set rmii
+> reference clock\n");
+> +                       phydev_err(phydev,
+> +                                  "failed to set rmii reference clock\n");
+>                         return ret;
+>                 }
+>         }
+>
+> I saw no patches on patchwork.
+>
+> Hope this helps...
+>
+> Regards,
+> - Sedat -
+>
+> [1] https://patchwork.ozlabs.org/project/netdev/list/
 
-drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
-drivers/net/phy/micrel.c:492:22: error: 'struct phy_device' has no member named 'dev'
-  dev_walker = &phydev->dev;
+I have sent a fix for that (the problem is in net.git not net-next.git).
 
-Fixes: b4c19f71252e ("phy: micrel: Fix finding PHY properties in MAC node for KSZ9031.")
-CC: Roosen Henri <Henri.Roosen@ginzinger.com>
-CC: Andrew Lunn <andrew@lunn.ch>
-CC: David Daney <david.daney@cavium.com>
-CC: Florian Fainelli <f.fainelli@gmail.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
----
- drivers/net/phy/micrel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+- Sedat -
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 7a5679982c03..a7e17eabec37 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -476,7 +476,7 @@ static int ksz9031_config_init(struct phy_device *phydev)
- 	 * properties in the MAC node. Walk up the tree of devices to
- 	 * find a device with an OF node.
- 	 */
--	dev_walker = &phydev->dev;
-+	dev_walker = &phydev->mdio.dev;
- 	do {
- 		of_node = dev_walker->of_node;
- 		dev_walker = dev_walker->parent;
--- 
-2.7.0
+[1] https://patchwork.ozlabs.org/patch/565142/
