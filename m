@@ -1,74 +1,99 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [PATCH] phy: micrel: Fix build failure in ksz9031_config_init()
-Date: Sat, 9 Jan 2016 12:59:26 +0100
-Message-ID: <CA+icZUWifiy_CUOSATwPMSY+X0tXB=ki098Ychku5ahMkJGC_g@mail.gmail.com>
-References: <1452338674-3353-1-git-send-email-sedat.dilek@gmail.com>
-	<201601091926.s6AqeVJk%fengguang.wu@intel.com>
-	<CA+icZUW3ay_c5_x2yjovnP=WK2_CUEsO5s4i45hc4RCmOpdSvA@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org, Roosen Henri <Henri.Roosen@ginzinger.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Daney <david.daney@cavium.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: kbuild test robot <lkp@intel.com>
+From: Antonio Quartulli <a@unstable.cc>
+Subject: pull request: batman-adv 20160109
+Date: Sat,  9 Jan 2016 21:20:05 +0800
+Message-ID: <1452345621-15908-1-git-send-email-a__42885.9757878401$1452345750$gmane$org@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f53.google.com ([209.85.213.53]:36725 "EHLO
-	mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753708AbcAIL71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 06:59:27 -0500
-Received: by mail-vk0-f53.google.com with SMTP id n1so50136144vkb.3
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 03:59:27 -0800 (PST)
-In-Reply-To: <CA+icZUW3ay_c5_x2yjovnP=WK2_CUEsO5s4i45hc4RCmOpdSvA@mail.gmail.com>
+Received: from s1.neomailbox.net ([5.148.176.57]:42793 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754490AbcAINWL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jan 2016 08:22:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 9, 2016 at 12:55 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> On Sat, Jan 9, 2016 at 12:49 PM, kbuild test robot <lkp@intel.com> wrote:
->> Hi Sedat,
->>
->> [auto build test ERROR on net/master]
->> [cannot apply to net-next/master v4.4-rc8 next-20160108]
->> [if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
->>
->
-> This patch is for net.git#master not net-next or Linux-next.
-> I should have add a proper label, Sorry.
->
+Hello David,
 
-See <https://patchwork.ozlabs.org/patch/565144/>
+here you have a late batch of patches intended for net-next.
 
-- Sedat -
+Most of the changes are about kerneldoc and other minor cleanups
+introduced by Sven Eckelmann and Marek Lindner.
 
->> url:    https://github.com/0day-ci/linux/commits/Sedat-Dilek/phy-micrel-Fix-build-failure-in-ksz9031_config_init/20160109-192630
->> config: x86_64-randconfig-x000-01060743 (attached as .config)
->> reproduce:
->>         # save the attached .config to linux build tree
->>         make ARCH=x86_64
->>
->> All errors (new ones prefixed by >>):
->>
->>    drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
->>>> drivers/net/phy/micrel.c:479:22: error: 'struct phy_device' has no member named 'mdio'
->>      dev_walker = &phydev->mdio.dev;
->>                          ^
->>
->> vim +479 drivers/net/phy/micrel.c
->>
->>    473          const struct device *dev_walker;
->>    474
->>    475          /* The Micrel driver has a deprecated option to place phy OF
->>    476           * properties in the MAC node. Walk up the tree of devices to
->>    477           * find a device with an OF node.
->>    478           */
->>  > 479          dev_walker = &phydev->mdio.dev;
->>    480          do {
->>    481                  of_node = dev_walker->of_node;
->>    482                  dev_walker = dev_walker->parent;
->>
->> ---
->> 0-DAY kernel test infrastructure                Open Source Technology Center
->> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Other than those you have the number of BLA wait periods increased
+to 6 to reduce the probability of temporary LAN loops by Simon
+Wunderlich.
+
+Several useless NULL checks have been removed by Markus Elfring in
+order to make the code simpler and slimmer.
+
+Another change by Simon Wunderlich makes sure that the function
+consuming the value written in a sysfs file is executed only when
+such value was really changed to a new value.
+
+
+Please pull or let me know of any problem!
+Thanks a lot,
+	Antonio
+
+
+The following changes since commit d86cdfcd5d7e1179e695977b7088882822f365c4:
+
+  Merge branch 'r8152-adjustments' (2016-01-08 21:57:26 -0500)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to ed21d170e878b6b067a3216040b7b935c8007196:
+
+  batman-adv: Add kerneldoc for batadv_neigh_node::refcount (2016-01-09 20:56:00 +0800)
+
+----------------------------------------------------------------
+Included changes:
+- increase internal module version
+- increase BLA wait periods to 6
+- purge BLA backbone table when it is disabled
+- make sure post function is invoked only if sysfs value is changed
+- simplify code by removing useless NULL checks
+- various corrections to existing kerneldoc
+- minor cleanups
+
+----------------------------------------------------------------
+Marek Lindner (1):
+      batman-adv: remove leftovers of unused BATADV_PRIMARIES_FIRST_HOP flag
+
+Markus Elfring (4):
+      batman-adv: Delete unnecessary checks before the function call "kfree_skb"
+      batman-adv: Less checks in batadv_tvlv_unicast_send()
+      batman-adv: Delete an unnecessary check before the function call "batadv_softif_vlan_free_ref"
+      batman-adv: Split a condition check
+
+Simon Wunderlich (4):
+      batman-adv: Start new development cycle
+      batman-adv: purge bridge loop avoidance when its disabled
+      batman-adv: increase BLA wait periods to 6
+      batman-adv: only call post function if something changed
+
+Sven Eckelmann (7):
+      batman-adv: Fix lockdep annotation of batadv_tlv_container_remove
+      batman-adv: Add function to convert string to batadv throughput
+      batman-adv: Change ifconfig examples to iproute2
+      batman-adv: Fix kernel-doc parsing of main structs
+      batman-adv: Fix kerneldoc member names in for main structs
+      batman-adv: Remove kerneldoc for missing struct members
+      batman-adv: Add kerneldoc for batadv_neigh_node::refcount
+
+ Documentation/networking/batman-adv.txt |   9 ++-
+ net/batman-adv/bat_iv_ogm.c             |   3 -
+ net/batman-adv/bridge_loop_avoidance.c  |  20 ++++++
+ net/batman-adv/bridge_loop_avoidance.h  |   2 +
+ net/batman-adv/gateway_common.c         | 117 +++++++++++++-------------------
+ net/batman-adv/main.c                   |  17 ++---
+ net/batman-adv/main.h                   |   4 +-
+ net/batman-adv/network-coding.c         |   4 +-
+ net/batman-adv/packet.h                 |   3 +-
+ net/batman-adv/send.c                   |   3 +-
+ net/batman-adv/sysfs.c                  |  16 +++--
+ net/batman-adv/translation-table.c      |   8 ++-
+ net/batman-adv/types.h                  |  32 +++++----
+ 13 files changed, 122 insertions(+), 116 deletions(-)
