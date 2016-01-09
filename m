@@ -1,92 +1,57 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 7/8] net: ip_tunnel: remove 'csum_help' argument
- to iptunnel_handle_offloads
-Date: Fri, 8 Jan 2016 16:44:14 -0800
-Message-ID: <CALx6S34MRoLw_JiHuyDANwoF9+u7k9R-UDb_RGP+L-d9D=f3WQ@mail.gmail.com>
-References: <56901197.8040808@solarflare.com>
-	<56901244.8060809@solarflare.com>
-	<CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next 0/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
+Date: Fri, 8 Jan 2016 16:44:43 -0800
+Message-ID: <20160109004443.GA33292@kafai-mba.local>
+References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
+ <CACVXFVNhEOrroAfiEOC32dB3ZV=73WYJxUtNrpqEE94tvY2fXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	FB Kernel Team <kernel-team@fb.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34394 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753376AbcAIAoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 19:44:15 -0500
-Received: by mail-io0-f195.google.com with SMTP id k127so38802958iok.1
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2016 16:44:15 -0800 (PST)
-In-Reply-To: <CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:3942 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756165AbcAIAov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2016 19:44:51 -0500
+Content-Disposition: inline
+In-Reply-To: <CACVXFVNhEOrroAfiEOC32dB3ZV=73WYJxUtNrpqEE94tvY2fXw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 8, 2016 at 4:35 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Fri, Jan 8, 2016 at 11:47 AM, Edward Cree <ecree@solarflare.com> wrote:
->> All users now pass false, so we can remove it, and remove the code that
->>  was conditional upon it.
->>
->> Signed-off-by: Edward Cree <ecree@solarflare.com>
->> ---
->>  drivers/net/vxlan.c             |  4 ++--
->>  include/net/ip_tunnels.h        |  3 +--
->>  include/net/udp_tunnel.h        |  3 +--
->>  net/ipv4/fou.c                  |  4 ++--
->>  net/ipv4/ip_gre.c               |  3 +--
->>  net/ipv4/ip_tunnel_core.c       | 15 +--------------
->>  net/ipv4/ipip.c                 |  2 +-
->>  net/ipv6/sit.c                  |  4 ++--
->>  net/netfilter/ipvs/ip_vs_xmit.c |  6 ++----
->>  9 files changed, 13 insertions(+), 31 deletions(-)
->>
+On Fri, Jan 08, 2016 at 02:55:32PM +0800, Ming Lei wrote:
+> On Fri, Jan 8, 2016 at 6:35 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> > This patchset adds BPF_MAP_TYPE_PERCPU_HASH map type which allows
+> > percpu value.
 >
->
->> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
->> index 1db8418..f98bd53 100644
->> --- a/net/ipv4/ip_tunnel_core.c
->> +++ b/net/ipv4/ip_tunnel_core.c
->> @@ -147,7 +147,6 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
->>  EXPORT_SYMBOL_GPL(iptunnel_metadata_reply);
->>
->>  struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
->> -                                        bool csum_help,
->>                                          int gso_type_mask)
->>  {
->>         int err;
->> @@ -165,19 +164,7 @@ struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
->>                 return skb;
->>         }
->>
->> -       /* If packet is not gso and we are resolving any partial checksum,
->> -        * clear encapsulation flag. This allows setting CHECKSUM_PARTIAL
->> -        * on the outer header without confusing devices that implement
->> -        * NETIF_F_IP_CSUM with encapsulation.
->> -        */
->> -       if (csum_help)
->> -               skb->encapsulation = 0;
->> -
->> -       if (skb->ip_summed == CHECKSUM_PARTIAL && csum_help) {
->> -               err = skb_checksum_help(skb);
->> -               if (unlikely(err))
->> -                       goto error;
->> -       } else if (skb->ip_summed != CHECKSUM_PARTIAL)
->> +       if (skb->ip_summed != CHECKSUM_PARTIAL)
->>                 skb->ip_summed = CHECKSUM_NONE;
->>
->
-> So this patch is a bit broken here.  We should be clearing
-> skb->encapsulation if CHECKSUM_PARTIAL is not set.  That way we don't
-> incorrectly pull in the inner headers when computing the outer
-> checksum.
->
-In the original code this is done in csum_help argument is true in
-iptunnel_handle_offloads. These patches essentially imply that
-csum_help would always be false so we shouldn't need to clear
-skb->encapsulation any more?
+> I am also thinking about using percpu variable to ebpf map, but IMO it
+> should be better for ARRAY map instead of HASH map, then we can
+> avoid the atomic op in eBPF program, see example of tracex3, sockex1
+> and sockex3 in sample/bpf/ of kernel tree.  Also looks the ARRAY map
+> usage in bcc is wrong, strictly speaking.
+array and hash are two different use cases. May be we should have percpu
+value for array map too.
 
-Tom
+>
+> For HASH map, it is easy to make cpu id as part of key, then the map
+> can be thought as percpu too, and atomic op isn't needed in eBPF program.
+Putting the cpu id as part of the key was indeed the first hack I did
+to get a sense of potential benefit.
 
-> - Alex
+However, by extending the real-key with cpu-id, it is not intuitive to
+use and it is prone to error.  For example, how to delete a real-key for
+all cpus?  Iterating a particular real-key for all cpu is also tricky.  What
+does it mean if a real-key exists for cpu#0 but not cpu#1? The real-key
+got deleted from all cpu while iterating? or something else?  I believe
+there are ways to get around but it is better to provide a clean
+implementation instead.
+
+> Given it is always related with performance, could you provide some data
+> about the improvement? Also you can compare this patchset with the
+> approach of providing cpu id as hash key.
+In my test (bpf+kprobe at tcp_rcv_established()), both this patchset and
+extend(real_key, cpu_id) approach save ~3% CPU while receiving ~4Mpps
+in a 40cores machine.  The bpf is mostly bumping some counters for
+each received packet.
