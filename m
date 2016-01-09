@@ -1,71 +1,63 @@
 From: Joshua Henderson <joshua.henderson@microchip.com>
-Subject: Re: [PATCH] net: phy: Add support for SMSC LAN8740 PHY
-Date: Sat, 9 Jan 2016 04:43:54 -0700
-Message-ID: <5690F27A.6090500@microchip.com>
-References: <1452301040-4392-1-git-send-email-joshua.henderson@microchip.com>
- <20160109013655.GA28813@lunn.ch>
+Subject: [PATCH v2] net: phy: Add support for SMSC LAN8740 PHY
+Date: Sat, 9 Jan 2016 04:54:21 -0700
+Message-ID: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain
+Cc: Joshua Henderson <joshua.henderson@microchip.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	<netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+To: <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160109013655.GA28813@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/8/2016 6:36 PM, Andrew Lunn wrote:
-> On Fri, Jan 08, 2016 at 05:57:20PM -0700, Joshua Henderson wrote:
->> LAN8740 has a different phy_id than LAN8710/LAN8720.
->>
->> Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
->> ---
->>  drivers/net/phy/smsc.c |   24 ++++++++++++++++++++++++
->>  1 file changed, 24 insertions(+)
->>
->> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
->> index dc2da87..34021a5 100644
->> --- a/drivers/net/phy/smsc.c
->> +++ b/drivers/net/phy/smsc.c
->> @@ -264,6 +264,29 @@ static struct phy_driver smsc_phy_driver[] = {
->>  	.resume		= genphy_resume,
->>  
->>  	.driver		= { .owner = THIS_MODULE, }
->> +}, {
->> +	.phy_id		= 0x0007c110,
->> +	.phy_id_mask	= 0xfffffff0,
->> +	.name		= "SMSC LAN8740",
->> +
->> +	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
->> +				| SUPPORTED_Asym_Pause),
->> +	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
->> +
->> +	/* basic functions */
->> +	.config_aneg	= genphy_config_aneg,
->> +	.read_status	= lan87xx_read_status,
->> +	.config_init	= smsc_phy_config_init,
->> +	.soft_reset	= smsc_phy_reset,
->> +
->> +	/* IRQ related */
->> +	.ack_interrupt	= smsc_phy_ack_interrupt,
->> +	.config_intr	= smsc_phy_config_intr,
->> +
->> +	.suspend	= genphy_suspend,
->> +	.resume		= genphy_resume,
->> +
->> +	.driver		= { .owner = THIS_MODULE, }
->>  } };
-> 
-> Hi Joshua
-> 
-> You should remove this .driver line. The core sets it now.
-> 
->     Andrew
-> 
+LAN8740 has a different phy_id than LAN8710/LAN8720.
 
-Got it.  I'll apply against net-next.
+Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
+---
+Changes from v1:
+	+ Remove explicitly setting .driver and apply against net-next
 
-Thanks,
-Josh
+ drivers/net/phy/smsc.c |   22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index ddb0613..e485f26 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -254,6 +254,27 @@ static struct phy_driver smsc_phy_driver[] = {
+
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
++}, {
++	.phy_id		= 0x0007c110,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "SMSC LAN8740",
++
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
++				| SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++
++	/* basic functions */
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= lan87xx_read_status,
++	.config_init	= smsc_phy_config_init,
++	.soft_reset	= smsc_phy_reset,
++
++	/* IRQ related */
++	.ack_interrupt	= smsc_phy_ack_interrupt,
++	.config_intr	= smsc_phy_config_intr,
++
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
+ } };
+
+ module_phy_driver(smsc_phy_driver);
+@@ -268,6 +289,7 @@ static struct mdio_device_id __maybe_unused smsc_tbl[] = {
+ 	{ 0x0007c0c0, 0xfffffff0 },
+ 	{ 0x0007c0d0, 0xfffffff0 },
+ 	{ 0x0007c0f0, 0xfffffff0 },
++	{ 0x0007c110, 0xfffffff0 },
+ 	{ }
+ };
