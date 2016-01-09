@@ -1,48 +1,62 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next] bonding: make mii_status sysfs node consistent
-Date: Fri,  8 Jan 2016 20:35:36 -0500
-Message-ID: <1452303336-28203-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: Add support for SMSC LAN8740 PHY
+Date: Sat, 9 Jan 2016 02:36:55 +0100
+Message-ID: <20160109013655.GA28813@lunn.ch>
+References: <1452301040-4392-1-git-send-email-joshua.henderson@microchip.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Joshua Henderson <joshua.henderson@microchip.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1452301040-4392-1-git-send-email-joshua.henderson@microchip.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The spew in /proc/net/bonding/bond0 uses netif_carrier_ok() to determine
-mii_status, while /sys/class/net/bond0/bonding/mii_status looks at
-curr_active_slave, which doesn't actually seem to be set sometimes when
-the bond actually is up. A mode 4 bond configured via ifcfg-foo files on a
-Red Hat Enterprise Linux system, after boot, comes up clean and
-functional, but the sysfs node shows mii_status of down, while proc shows
-up. A simple enough fix here seems to be to use the same method for
-determining up or down in both places, and I'd opt for the one that seems
-to match reality.
+On Fri, Jan 08, 2016 at 05:57:20PM -0700, Joshua Henderson wrote:
+> LAN8740 has a different phy_id than LAN8710/LAN8720.
+> 
+> Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
+> ---
+>  drivers/net/phy/smsc.c |   24 ++++++++++++++++++++++++
+>  1 file changed, 24 insertions(+)
+> 
+> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+> index dc2da87..34021a5 100644
+> --- a/drivers/net/phy/smsc.c
+> +++ b/drivers/net/phy/smsc.c
+> @@ -264,6 +264,29 @@ static struct phy_driver smsc_phy_driver[] = {
+>  	.resume		= genphy_resume,
+>  
+>  	.driver		= { .owner = THIS_MODULE, }
+> +}, {
+> +	.phy_id		= 0x0007c110,
+> +	.phy_id_mask	= 0xfffffff0,
+> +	.name		= "SMSC LAN8740",
+> +
+> +	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+> +				| SUPPORTED_Asym_Pause),
+> +	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+> +
+> +	/* basic functions */
+> +	.config_aneg	= genphy_config_aneg,
+> +	.read_status	= lan87xx_read_status,
+> +	.config_init	= smsc_phy_config_init,
+> +	.soft_reset	= smsc_phy_reset,
+> +
+> +	/* IRQ related */
+> +	.ack_interrupt	= smsc_phy_ack_interrupt,
+> +	.config_intr	= smsc_phy_config_intr,
+> +
+> +	.suspend	= genphy_suspend,
+> +	.resume		= genphy_resume,
+> +
+> +	.driver		= { .owner = THIS_MODULE, }
+>  } };
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/bonding/bond_sysfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Joshua
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 313dbac..e23c3ed 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -480,7 +480,7 @@ static ssize_t bonding_show_mii_status(struct device *d,
- 				       char *buf)
- {
- 	struct bonding *bond = to_bond(d);
--	bool active = !!rcu_access_pointer(bond->curr_active_slave);
-+	bool active = netif_carrier_ok(bond->dev);
- 
- 	return sprintf(buf, "%s\n", active ? "up" : "down");
- }
--- 
-1.8.3.1
+You should remove this .driver line. The core sets it now.
+
+    Andrew
