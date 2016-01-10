@@ -1,84 +1,46 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] iwl4965: Fix a null pointer dereference in il_tx_queue_free and il_cmd_queue_free
-Date: Sun, 10 Jan 2016 10:19:09 +0800
-Message-ID: <1452392349-3561-1-git-send-email-baijiaju1990@163.com>
-Cc: ilw@linux.intel.com, linuxwifi@intel.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>
-To: sgruszka@redhat.com, kvalo@codeaurora.org, johannes.berg@intel.com,
-	emmanuel.grumbach@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-11.163.com ([220.181.12.11]:46018 "EHLO m12-11.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756634AbcAJCTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jan 2016 21:19:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+Subject: [PATCH] iwl4965: Fix a memory leak in error handling code of __il4965_up
+Date: Sun, 10 Jan 2016 10:19:23 +0800
+Message-ID: <1452392363-3600-1-git-send-email-baijiaju1990@163.com>
+Cc: ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+To: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If "txq->cmd = kzalloc(...)" in il_tx_queue_init fails, 
-"kfree(txq->cmd[i])" in il_tx_queue_free and il_cmd_queue_free 
-in iwl4965_hw_txq_ctx_free will causes a null pointer dereference,
-because txq->cmd is NULL at that time.
+When il4965_hw_nic_init in __il4965_up fails, the memory allocated by 
+iwl4965_sta_alloc_lq in iwl4965_alloc_bcast_station is not freed.
 
-This patch fixes this problem by adding a if-check before kfree.
-To avoid double free in il_tx_queue_free and il_cmd_queue_free 
-caused by the fixing, txq->cmd[i], txq->meta and txq->cmd in
-error handling code of il_tx_queue_init are assigned null values.
-Otherwise, a double free will occur.
+This patches adds il_dealloc_bcast_stations in the error handling code of 
+__il4965_up to fix this problem.
 
 This patch has been tested in real device, and it actually fixes the bug.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
 ---
- drivers/net/wireless/iwlegacy/common.c |   18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+ drivers/net/wireless/iwlegacy/4965-mac.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/wireless/iwlegacy/common.c b/drivers/net/wireless/iwlegacy/common.c
-index 8871145..2656a15 100644
---- a/drivers/net/wireless/iwlegacy/common.c
-+++ b/drivers/net/wireless/iwlegacy/common.c
-@@ -2794,8 +2794,10 @@ il_tx_queue_free(struct il_priv *il, int txq_id)
- 	il_tx_queue_unmap(il, txq_id);
+diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
+index 6656215..fd7b5c7 100644
+--- a/drivers/net/wireless/iwlegacy/4965-mac.c
++++ b/drivers/net/wireless/iwlegacy/4965-mac.c
+@@ -5577,6 +5577,7 @@ __il4965_up(struct il_priv *il)
+ 	ret = il4965_hw_nic_init(il);
+ 	if (ret) {
+ 		IL_ERR("Unable to init nic\n");
++		il_dealloc_bcast_stations(il);
+ 		return ret;
+ 	}
  
- 	/* De-alloc array of command/tx buffers */
--	for (i = 0; i < TFD_TX_CMD_SLOTS; i++)
--		kfree(txq->cmd[i]);
-+	if (txq->cmd) {
-+		for (i = 0; i < TFD_TX_CMD_SLOTS; i++)
-+			kfree(txq->cmd[i]);
-+	}
- 
- 	/* De-alloc circular buffer of TFDs */
- 	if (txq->q.n_bd)
-@@ -2873,8 +2875,10 @@ il_cmd_queue_free(struct il_priv *il)
- 	il_cmd_queue_unmap(il);
- 
- 	/* De-alloc array of command/tx buffers */
--	for (i = 0; i <= TFD_CMD_SLOTS; i++)
--		kfree(txq->cmd[i]);
-+	if (txq->cmd) {
-+		for (i = 0; i <= TFD_CMD_SLOTS; i++)
-+			kfree(txq->cmd[i]);
-+	}
- 
- 	/* De-alloc circular buffer of TFDs */
- 	if (txq->q.n_bd)
-@@ -3076,11 +3080,15 @@ il_tx_queue_init(struct il_priv *il, u32 txq_id)
- 
- 	return 0;
- err:
--	for (i = 0; i < actual_slots; i++)
-+	for (i = 0; i < actual_slots; i++) {
- 		kfree(txq->cmd[i]);
-+		txq->cmd[i] = NULL;
-+	}
- out_free_arrays:
- 	kfree(txq->meta);
-+	txq->meta = NULL;
- 	kfree(txq->cmd);
-+	txq->cmd = NULL;
- 
- 	return -ENOMEM;
- }
 -- 
 1.7.9.5
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
