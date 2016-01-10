@@ -1,7 +1,7 @@
 From: Willy Tarreau <w@1wt.eu>
 Subject: [PATCH v2] unix: properly account for FDs passed over unix sockets
-Date: Sun, 10 Jan 2016 06:58:20 +0000 (UTC)
-Message-ID: <201601100657.u0A6vk1B025554@mail.home.local>
+Date: Sun, 10 Jan 2016 06:58:24 +0000 (UTC)
+Message-ID: <201601100657.u0A6vk1B025554__22394.3175901242$1452409104$gmane$org@mail.home.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -11,11 +11,15 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:60157 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757180AbcAJG6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jan 2016 01:58:01 -0500
 Date: Sun, Jan 10 07:54:56 CET 2016
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 It is possible for a process to allocate and accumulate far more FDs than
 the process' limit by sending them over a unix socket then closing them
