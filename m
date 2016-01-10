@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: fix test which detect duplicate vxlan iface
-Date: Sat, 09 Jan 2016 21:05:09 -0500 (EST)
-Message-ID: <20160109.210509.939212619090970717.davem@davemloft.net>
-References: <1452162413-4227-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [patch net-next v2 1/2] mlxsw: spectrum: pass local_port to
+ mlxsw_sp_port_fdb_uc_op
+Date: Sat, 09 Jan 2016 21:07:01 -0500 (EST)
+Message-ID: <20160109.210701.2226572713009411405.davem@davemloft.net>
+References: <1452163830-20425-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50145 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50258 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756607AbcAJCFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 21:05:11 -0500
-In-Reply-To: <1452162413-4227-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1756607AbcAJCHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 21:07:04 -0500
+In-Reply-To: <1452163830-20425-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu,  7 Jan 2016 11:26:53 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  7 Jan 2016 11:50:29 +0100
 
-> When a vxlan interface is created, the driver checks that there is not
-> another vxlan interface with the same properties. To do this, it checks
-> the existing vxlan udp socket. Since commit 1c51a9159dde, the creation of
-> the vxlan socket is done only when the interface is set up, thus it breaks
-> that test.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Example:
-> $ ip l a vxlan10 type vxlan id 10 group 239.0.0.10 dev eth0 dstport 0
-> $ ip l a vxlan11 type vxlan id 10 group 239.0.0.10 dev eth0 dstport 0
-> $ ip -br l | grep vxlan
-> vxlan10          DOWN           f2:55:1c:6a:fb:00 <BROADCAST,MULTICAST>
-> vxlan11          DOWN           7a:cb:b9:38:59:0d <BROADCAST,MULTICAST>
+> Do not pass struct mlxsw_sp_port to mlxsw_sp_port_fdb_uc_op and rather
+> just pass local_port. This is needed in case this is called from SFN
+> process function and mlxsw_sp_port is not existent for particular
+> local_port.
 > 
-> Instead of checking sockets, let's loop over the vxlan iface list.
-> 
-> Fixes: 1c51a9159dde ("vxlan: fix race caused by dropping rtnl_unlock")
-> Reported-by: Thomas Faivre <thomas.faivre@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> ---
+> v1->v2:
+> - no change
 
-Applied and queued up for -stable, thanks.
+Applied.
