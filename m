@@ -1,61 +1,51 @@
-From: =?UTF-8?q?J=CE=B5an=20Sacren?= <sakiwit@gmail.com>
-Subject: [PATCH net-next 2/3] openvswitch: fix struct geneve_port member name
-Date: Sat,  9 Jan 2016 16:07:10 -0700
-Message-ID: <1452380831-11258-3-git-send-email-sakiwit@gmail.com>
-Cc: Pravin Shelar <pshelar@nicira.com>, dev@openvswitch.org
-To: netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2] iplink: replace exit with return
+Date: Sat,  9 Jan 2016 16:02:12 -0800
+Message-ID: <1452384132-32261-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33155 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756247AbcAIXHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 18:07:53 -0500
-Received: by mail-pf0-f195.google.com with SMTP id e65so2165463pfe.0
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 15:07:53 -0800 (PST)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34318 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756527AbcAJACQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 19:02:16 -0500
+Received: by mail-pf0-f180.google.com with SMTP id q63so27377039pfb.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 16:02:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Sacren <sakiwit@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-commit 6b001e682e90 ("openvswitch: Use Geneve device.")
+This patch replaces exits with returns in iplink
+command. Helps to continue on errors when
+invoked with ip -force -batch.
 
-The commit above introduced 'port_no' as the name for the member of
-struct geneve_port. The correct name should be 'dst_port' as described
-in the kernel doc. Let's fix that member name and all the pertinent
-instances so that both doc and code would be consistent.
-
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- net/openvswitch/vport-geneve.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ ip/iplink.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index e41cd12d9b2d..30ab8e127288 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -34,7 +34,7 @@ static struct vport_ops ovs_geneve_vport_ops;
-  * @dst_port: destination port.
-  */
- struct geneve_port {
--	u16 port_no;
-+	u16 dst_port;
- };
+diff --git a/ip/iplink.c b/ip/iplink.c
+index f30de86..c706d20 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -710,7 +710,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 			req.i.ifi_index = 0;
+ 			addattr32(&req.n, sizeof(req), IFLA_GROUP, group);
+ 			if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
+-				exit(2);
++				return -2;
+ 			return 0;
+ 		}
+ 	}
+@@ -809,7 +809,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 	}
  
- static inline struct geneve_port *geneve_vport(const struct vport *vport)
-@@ -47,7 +47,7 @@ static int geneve_get_options(const struct vport *vport,
- {
- 	struct geneve_port *geneve_port = geneve_vport(vport);
+ 	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
+-		exit(2);
++		return -2;
  
--	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, geneve_port->port_no))
-+	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, geneve_port->dst_port))
- 		return -EMSGSIZE;
  	return 0;
  }
-@@ -83,7 +83,7 @@ static struct vport *geneve_tnl_create(const struct vport_parms *parms)
- 		return vport;
- 
- 	geneve_port = geneve_vport(vport);
--	geneve_port->port_no = dst_port;
-+	geneve_port->dst_port = dst_port;
- 
- 	rtnl_lock();
- 	dev = geneve_dev_create_fb(net, parms->name, NET_NAME_USER, dst_port);
+-- 
+1.9.1
