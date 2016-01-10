@@ -1,68 +1,155 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
-Date: Sun, 10 Jan 2016 09:09:25 -0500
-Message-ID: <56926615.6040902@mojatatu.com>
-References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810>
- <568F1EE2.7020107@gmail.com> <568FC9F8.8040201@mojatatu.com>
- <568FD498.5030401@gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 7/8] mlxsw: Adding layer 2 multicast support
+Date: Sun, 10 Jan 2016 15:23:11 +0100
+Message-ID: <5692694F.8040902@cumulusnetworks.com>
+References: <1452431248-5411-1-git-send-email-jiri@resnulli.us>
+ <1452431248-5411-8-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
+	stephen@networkplumber.org, sfeldma@gmail.com,
+	vivien.didelot@savoirfairelinux.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:37252 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757160AbcAJOJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 09:09:33 -0500
-Received: by mail-ig0-f175.google.com with SMTP id h5so58337311igh.0
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 06:09:32 -0800 (PST)
-In-Reply-To: <568FD498.5030401@gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35548 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757861AbcAJOXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 09:23:14 -0500
+Received: by mail-wm0-f47.google.com with SMTP id f206so183874844wmf.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 06:23:14 -0800 (PST)
+In-Reply-To: <1452431248-5411-8-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-08 10:24 AM, John Fastabend wrote:
-> On 16-01-08 06:38 AM, Jamal Hadi Salim wrote:
->> On 16-01-07 09:28 PM, John Fastabend wrote:
->>>
->>> Hi Jamal,
->>>
->>> per your comment about using pktgen to test qdiscs here is the
->>> patch I've been using most the day which has been working well.
->>> I'm guessing this is more or less what you had in mind.
->>>
->>
->> I have attached the one i used over the holidays - see if there are
->> any differences(sorry dont have much time right now).
->>
->> cheers,
->> jamal
->
-> Close except I don't back off the qdisc when I get
-> xmit_{drop|cn|policed} return codes because I'm trying to
-> stress the qdisc.
->
+On 01/10/2016 02:07 PM, Jiri Pirko wrote:
+> From: Elad Raz <eladr@mellanox.com>
+> 
+> Add SWITCHDEV_OBJ_ID_PORT_MDB switchdev ops support. On first MDB insertion
+> creates a new multicast group (MID) and add members port to the MID. Also
+> add new MDB entry for the flooding-domain (fid-vid) and link the MDB entry
+> to the newly constructed MC group.
+> 
+> Signed-off-by: Elad Raz <eladr@mellanox.com>
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   1 +
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  13 ++
+>  .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 176 +++++++++++++++++++++
+>  3 files changed, 190 insertions(+)
+> 
+[snip]
+> +static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
+> +						const unsigned char *addr,
+> +						u16 vid)
+> +{
+> +	struct mlxsw_sp_mid *mid;
+> +	u16 mid_idx;
+> +
+> +	mid_idx = find_first_zero_bit(mlxsw_sp->br_mids.mapped,
+> +				      MLXSW_SP_MID_MAX);
+> +	if (mid_idx == MLXSW_SP_MID_MAX)
+> +		return NULL;
+> +
+> +	mid = kzalloc(sizeof(*mid), GFP_ATOMIC);
 
-In that case we need two modes. I think it is important to stress
-the qdisc backoff. It doesnt make sense to send packets that will
-be dropped. You said you were testing over vlan - how were you
-enforcing no backoff?
+Is GFP_ATOMIC allocation really required here ?
+mlxsw_sp_port_smid_set() which is called after this uses GFP_KERNEL.
 
-> Also I don't see the point to doing the skb_get_tx_queue and
-> txq_trans_update() this should be called by dev_queue_xmit
-> anyways.
->
+Cheers,
+ Nik
 
-Yes, those could go away. They are leftovers of another experiment.
-
-
-> If its all the same to you I would just assume have my version in
-> pktgen and later if its useful for you add an option to back-off
-> when the qdisc throws an error.
-
-
-Refer to above. If you can fix it so we can do either i will ACK it.
-
-cheers,
-jamal
+> +	if (!mid)
+> +		return NULL;
+> +
+> +	set_bit(mid_idx, mlxsw_sp->br_mids.mapped);
+> +	ether_addr_copy(mid->addr, addr);
+> +	mid->vid = vid;
+> +	mid->mid = mid_idx;
+> +	mid->ref_count = 0;
+> +	list_add_tail(&mid->list, &mlxsw_sp->br_mids.list);
+> +
+> +	return mid;
+> +}
+> +
+> +static int __mlxsw_sp_mc_dec_ref(struct mlxsw_sp *mlxsw_sp,
+> +				 struct mlxsw_sp_mid *mid)
+> +{
+> +	if (--mid->ref_count == 0) {
+> +		list_del(&mid->list);
+> +		clear_bit(mid->mid, mlxsw_sp->br_mids.mapped);
+> +		kfree(mid);
+> +		return 1;
+> +	}
+> +	return 0;
+> +}
+> +
+> +static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
+> +				 const struct switchdev_obj_port_mdb *mdb,
+> +				 struct switchdev_trans *trans)
+> +{
+> +	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+> +	struct net_device *dev = mlxsw_sp_port->dev;
+> +	struct mlxsw_sp_mid *mid;
+> +	u16 fid = mlxsw_sp_port_vid_to_fid_get(mlxsw_sp_port, mdb->vid);
+> +	int err = 0;
+> +
+> +	if (switchdev_trans_ph_prepare(trans))
+> +		return 0;
+> +
+> +	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, mdb->vid);
+> +	if (!mid) {
+> +		mid = __mlxsw_sp_mc_alloc(mlxsw_sp, mdb->addr, mdb->vid);
+> +		if (!mid) {
+> +			netdev_err(dev, "Unable to allocate MC group\n");
+> +			return -ENOMEM;
+> +		}
+> +	}
+> +	mid->ref_count++;
+> +
+> +	err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, true,
+> +				     mid->ref_count == 1);
+> +	if (err) {
+> +		netdev_err(dev, "Unable to set SMID\n");
+> +		goto err_out;
+> +	}
+> +
+> +	if (mid->ref_count == 1) {
+> +		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid, mid->mid,
+> +					   true);
+> +		if (err) {
+> +			netdev_err(dev, "Unable to set MC SFD\n");
+> +			goto err_out;
+> +		}
+> +	}
+> +
+> +	return 0;
+> +
+> +err_out:
+> +	__mlxsw_sp_mc_dec_ref(mlxsw_sp, mid);
+> +	return err;
+> +}
+> +
+>  static int mlxsw_sp_port_obj_add(struct net_device *dev,
+>  				 const struct switchdev_obj *obj,
+>  				 struct switchdev_trans *trans)
+> @@ -704,6 +841,11 @@ static int mlxsw_sp_port_obj_add(struct net_device *dev,
+>  						   SWITCHDEV_OBJ_PORT_FDB(obj),
+>  						   trans);
+>  		break;
+> +	case SWITCHDEV_OBJ_ID_PORT_MDB:
+> +		err = mlxsw_sp_port_mdb_add(mlxsw_sp_port,
+> +					    SWITCHDEV_OBJ_PORT_MDB(obj),
+> +					    trans);
+> +		break;
+>  	default:
+>  		err = -EOPNOTSUPP;
+>  		break;
+> @@ -817,6 +959,37 @@ mlxsw_sp_port_fdb_static_del(struct mlxsw_sp_port *mlxsw_sp_port,
+>  						   false, false);
+>  }
+>  
+[snip]
