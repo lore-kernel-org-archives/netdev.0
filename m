@@ -1,53 +1,157 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next 1/2] net: tc35815: Fix build error due to missed API
- change
-Date: Sat, 9 Jan 2016 18:48:53 -0800
-Message-ID: <5691C695.1080703@roeck-us.net>
-References: <1452374494-18752-1-git-send-email-linux@roeck-us.net>
- <20160109213614.GC6877@lunn.ch> <5691808A.1010301@roeck-us.net>
- <20160109220924.GF6877@lunn.ch>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH v2] unix: properly account for FDs passed over unix sockets
+Date: Sun, 10 Jan 2016 06:58:20 +0000 (UTC)
+Message-ID: <201601100657.u0A6vk1B025554@mail.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:46280 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756669AbcAJCsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 21:48:55 -0500
-In-Reply-To: <20160109220924.GF6877@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	socketpair@gmail.com,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Date: Sun, Jan 10 07:54:56 CET 2016
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/09/2016 02:09 PM, Andrew Lunn wrote:
->>> Hi Guenter
->>>
->>> You fix looks right, but i'm wondering about the code which is being
->>> fixed.
->>>
->>> How can phydev ever evaluate to true, given the break statement?  Can
->>> this code every detect multiple PHYs? I think not.
->>>
->>> Either the break needs to be removed, or we just replace the whole lot
->>> with phy_find_first().
->>>
->>
->> Hi Andrew,
->>
->> you are right, the current code is pretty pointless.
->>
->> I would suggest to use phy_find_first().
->
-> Me too.
->
->> Should I submit a separate patch, or replace my patch with v2 ?
->
-> I say a v2 which uses phy_find_first() and include in the changelog
-> why the current code is pointless and so the change to
-> phy_find_first().
->
+It is possible for a process to allocate and accumulate far more FDs than
+the process' limit by sending them over a unix socket then closing them
+to keep the process' fd count low.
 
-Ok, I'll do that.
+This change addresses this problem by keeping track of the number of FDs
+in flight per user and preventing non-privileged processes from having
+more FDs in flight than their configured FD limit.
 
-Guenter
+Reported-by: socketpair@gmail.com
+Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Mitigates: CVE-2013-4312 (Linux 2.0+)
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+---
+v2: add reported-by, mitigates and acked-by.
+
+It would be nice if (if accepted) it would be backported to -stable as the
+issue is currently exploitable.
+---
+ include/linux/sched.h |  1 +
+ net/unix/af_unix.c    | 24 ++++++++++++++++++++----
+ net/unix/garbage.c    | 13 ++++++++-----
+ 3 files changed, 29 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index edad7a4..fbf25f1 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -830,6 +830,7 @@ struct user_struct {
+ 	unsigned long mq_bytes;	/* How many bytes can be allocated to mqueue? */
+ #endif
+ 	unsigned long locked_shm; /* How many pages of mlocked shm ? */
++	unsigned long unix_inflight;	/* How many files in flight in unix sockets */
+ 
+ #ifdef CONFIG_KEYS
+ 	struct key *uid_keyring;	/* UID specific keyring */
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 45aebd9..d6d7b43 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1499,6 +1499,21 @@ static void unix_destruct_scm(struct sk_buff *skb)
+ 	sock_wfree(skb);
+ }
+ 
++/*
++ * The "user->unix_inflight" variable is protected by the garbage
++ * collection lock, and we just read it locklessly here. If you go
++ * over the limit, there might be a tiny race in actually noticing
++ * it across threads. Tough.
++ */
++static inline bool too_many_unix_fds(struct task_struct *p)
++{
++	struct user_struct *user = current_user();
++
++	if (unlikely(user->unix_inflight > task_rlimit(p, RLIMIT_NOFILE)))
++		return !capable(CAP_SYS_RESOURCE) && !capable(CAP_SYS_ADMIN);
++	return false;
++}
++
+ #define MAX_RECURSION_LEVEL 4
+ 
+ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+@@ -1507,6 +1522,9 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ 	unsigned char max_level = 0;
+ 	int unix_sock_count = 0;
+ 
++	if (too_many_unix_fds(current))
++		return -ETOOMANYREFS;
++
+ 	for (i = scm->fp->count - 1; i >= 0; i--) {
+ 		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
+ 
+@@ -1528,10 +1546,8 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ 	if (!UNIXCB(skb).fp)
+ 		return -ENOMEM;
+ 
+-	if (unix_sock_count) {
+-		for (i = scm->fp->count - 1; i >= 0; i--)
+-			unix_inflight(scm->fp->fp[i]);
+-	}
++	for (i = scm->fp->count - 1; i >= 0; i--)
++		unix_inflight(scm->fp->fp[i]);
+ 	return max_level;
+ }
+ 
+diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+index a73a226..8fcdc22 100644
+--- a/net/unix/garbage.c
++++ b/net/unix/garbage.c
+@@ -120,11 +120,11 @@ void unix_inflight(struct file *fp)
+ {
+ 	struct sock *s = unix_get_socket(fp);
+ 
++	spin_lock(&unix_gc_lock);
++
+ 	if (s) {
+ 		struct unix_sock *u = unix_sk(s);
+ 
+-		spin_lock(&unix_gc_lock);
+-
+ 		if (atomic_long_inc_return(&u->inflight) == 1) {
+ 			BUG_ON(!list_empty(&u->link));
+ 			list_add_tail(&u->link, &gc_inflight_list);
+@@ -132,25 +132,28 @@ void unix_inflight(struct file *fp)
+ 			BUG_ON(list_empty(&u->link));
+ 		}
+ 		unix_tot_inflight++;
+-		spin_unlock(&unix_gc_lock);
+ 	}
++	fp->f_cred->user->unix_inflight++;
++	spin_unlock(&unix_gc_lock);
+ }
+ 
+ void unix_notinflight(struct file *fp)
+ {
+ 	struct sock *s = unix_get_socket(fp);
+ 
++	spin_lock(&unix_gc_lock);
++
+ 	if (s) {
+ 		struct unix_sock *u = unix_sk(s);
+ 
+-		spin_lock(&unix_gc_lock);
+ 		BUG_ON(list_empty(&u->link));
+ 
+ 		if (atomic_long_dec_and_test(&u->inflight))
+ 			list_del_init(&u->link);
+ 		unix_tot_inflight--;
+-		spin_unlock(&unix_gc_lock);
+ 	}
++	fp->f_cred->user->unix_inflight--;
++	spin_unlock(&unix_gc_lock);
+ }
+ 
+ static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
+-- 
+1.7.12.1
