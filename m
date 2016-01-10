@@ -1,80 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/8] bridge: Reflect MDB entries to hardware
-Date: Sun, 10 Jan 2016 21:06:23 +0100
-Message-ID: <1452456389-2833-3-git-send-email-jiri@resnulli.us>
-References: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
-	stephen@networkplumber.org, sfeldma@gmail.com,
-	vivien.didelot@savoirfairelinux.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33043 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757185AbcAJUGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:35 -0500
-Received: by mail-wm0-f67.google.com with SMTP id u188so23428799wmu.0
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:34 -0800 (PST)
-In-Reply-To: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
+ function
+Date: Sun, 10 Jan 2016 12:10:03 -0800
+Message-ID: <5692BA9B.6020704@roeck-us.net>
+References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
+ <20160109165802.GD28813@lunn.ch> <56914D21.9050804@roeck-us.net>
+ <20160109205240.GA6877@lunn.ch> <569275C0.1040606@roeck-us.net>
+ <20160110154945.GD22229@lunn.ch> <56928539.1060009@roeck-us.net>
+ <20160110172109.GF22229@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160110172109.GF22229@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Elad Raz <eladr@mellanox.com>
+On 01/10/2016 09:21 AM, Andrew Lunn wrote:
+>> drivers/net/ethernet/amd/au1000_eth.c:  /* WARNING: bus->phy_map[phy_addr].attached_dev == dev does
+>> 	[ no idea what to do with that comment ]
+>
+> That comment is very generic, it applies to all MDIO devices. So i'm
+> tempted to remove it. I will send a patch, probably tomorrow.
+>
+>> drivers/net/ethernet/broadcom/sb1250-mac.c:             phy_dev = sc->mii_bus->phy_map[i];
+>> 	[ can use phy_find_first ]
+>
+> Yes, phy_find_first.
+>
+>> drivers/staging/netlogic/xlr_net.c:     struct phy_device *phydev = priv->mii_bus->phy_map[priv->phy_addr];
+>> 	[ several ]	
+>
+> Odd that i missed that file for phy_map, but did patch it for
+> phydev_name().
+>
 
-Offload MDB changes per port to hardware
+xlr_net.c also fails to build with
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/bridge/br_mdb.c | 23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+drivers/staging/netlogic/xlr_net.c: In function 'xlr_setup_mdio':
+drivers/staging/netlogic/xlr_net.c:879:21: error: assignment to expression with array type
+   priv->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index cd8deea..30e105f 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -7,6 +7,7 @@
- #include <linux/if_ether.h>
- #include <net/ip.h>
- #include <net/netlink.h>
-+#include <net/switchdev.h>
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-@@ -210,10 +211,32 @@ static inline size_t rtnl_mdb_nlmsg_size(void)
- static void __br_mdb_notify(struct net_device *dev, struct br_mdb_entry *entry,
- 			    int type)
- {
-+	struct switchdev_obj_port_mdb mdb = {
-+		.obj = {
-+			.id = SWITCHDEV_OBJ_ID_PORT_MDB,
-+			.flags = SWITCHDEV_F_DEFER,
-+		},
-+		.vid = entry->vid,
-+	};
-+	struct net_device *port_dev;
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
- 
-+	port_dev = __dev_get_by_index(net, entry->ifindex);
-+	if (entry->addr.proto == htons(ETH_P_IP))
-+		ip_eth_mc_map(entry->addr.u.ip4, mdb.addr);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else
-+		ipv6_eth_mc_map(&entry->addr.u.ip6, mdb.addr);
-+#endif
-+
-+	mdb.obj.orig_dev = port_dev;
-+	if (port_dev && type == RTM_NEWMDB)
-+		switchdev_port_obj_add(port_dev, &mdb.obj);
-+	else if (port_dev && type == RTM_DELMDB)
-+		switchdev_port_obj_del(port_dev, &mdb.obj);
-+
- 	skb = nlmsg_new(rtnl_mdb_nlmsg_size(), GFP_ATOMIC);
- 	if (!skb)
- 		goto errout;
--- 
-1.9.3
+This might be related to "mdio: Move allocation of interrupts into core",
+though I didn't track it down.
+
+Guenter
