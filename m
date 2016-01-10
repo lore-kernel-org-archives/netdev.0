@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/8] switchdev: Adding MDB entry offload
-Date: Sun, 10 Jan 2016 14:07:21 +0100
-Message-ID: <1452431248-5411-2-git-send-email-jiri@resnulli.us>
-References: <1452431248-5411-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 0/8] mlxsw: Adding layer 2 multicast
+Date: Sun, 10 Jan 2016 14:07:20 +0100
+Message-ID: <1452431248-5411-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
 	stephen@networkplumber.org, sfeldma@gmail.com,
@@ -10,70 +9,44 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:34446 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756090AbcAJNHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 08:07:34 -0500
-Received: by mail-wm0-f43.google.com with SMTP id u188so185301892wmu.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 05:07:33 -0800 (PST)
-In-Reply-To: <1452431248-5411-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33536 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755914AbcAJNHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 08:07:32 -0500
+Received: by mail-wm0-f41.google.com with SMTP id f206so184033147wmf.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 05:07:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Raz <eladr@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Define HW multicast entry: MAC and VID.
-Using a MAC address simplifies support for both IPV4 and IPv6.
+Elad says:
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/switchdev.h   | 11 +++++++++++
- net/switchdev/switchdev.c |  2 ++
- 2 files changed, 13 insertions(+)
+This patchset add Linux hardware reflection for L2 multicast offload and add
+MC support in mlxsw. For every bridge MDB entry insertion, either by IGMP
+snooping or by static insertion/removal, a switchdev ops is been called.
+In mlxsw, a new multicast group (MID) is been created and ports are assigned.
+When all ports are removed, the multicast group is been deleted.
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 603ae2f..d451122 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -68,6 +68,7 @@ enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_ID_PORT_VLAN,
- 	SWITCHDEV_OBJ_ID_IPV4_FIB,
- 	SWITCHDEV_OBJ_ID_PORT_FDB,
-+	SWITCHDEV_OBJ_ID_PORT_MDB,
- };
- 
- struct switchdev_obj {
-@@ -113,6 +114,16 @@ struct switchdev_obj_port_fdb {
- #define SWITCHDEV_OBJ_PORT_FDB(obj) \
- 	container_of(obj, struct switchdev_obj_port_fdb, obj)
- 
-+/* SWITCHDEV_OBJ_ID_PORT_MDB */
-+struct switchdev_obj_port_mdb {
-+	struct switchdev_obj obj;
-+	unsigned char addr[ETH_ALEN];
-+	u16 vid;
-+};
-+
-+#define SWITCHDEV_OBJ_PORT_MDB(obj) \
-+	container_of(obj, struct switchdev_obj_port_mdb, obj)
-+
- void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
- 				  void *data, void (*destructor)(void const *),
- 				  struct switchdev_trans_item *tritem);
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index df790d3..ebc661d 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -345,6 +345,8 @@ static size_t switchdev_obj_size(const struct switchdev_obj *obj)
- 		return sizeof(struct switchdev_obj_ipv4_fib);
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
- 		return sizeof(struct switchdev_obj_port_fdb);
-+	case SWITCHDEV_OBJ_ID_PORT_MDB:
-+		return sizeof(struct switchdev_obj_port_mdb);
- 	default:
- 		BUG();
- 	}
+Elad Raz (8):
+  switchdev: Adding MDB entry offload
+  bridge: Reflect MDB entries to hardware
+  mlxsw: reg: Add definition of multicast record for SFD register
+  mlxsw: reg: Adding SMID register
+  mlxsw: Changing the maximum number of multicast group to a define
+  mlxsw: Adding VID to FID translatation
+  mlxsw: Adding layer 2 multicast support
+  switchdev: Adding IGMP snooping documentation
+
+ Documentation/networking/switchdev.txt             |   8 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 100 +++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   3 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  15 ++
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 206 +++++++++++++++++++--
+ include/net/switchdev.h                            |  11 ++
+ net/bridge/br_mdb.c                                |  23 +++
+ net/switchdev/switchdev.c                          |   2 +
+ 8 files changed, 349 insertions(+), 19 deletions(-)
+
 -- 
 1.9.3
