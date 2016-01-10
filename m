@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 1/8] switchdev: Adding MDB entry offload
-Date: Sun, 10 Jan 2016 21:06:22 +0100
-Message-ID: <1452456389-2833-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 5/8] mlxsw: Changing the maximum number of multicast group to a define
+Date: Sun, 10 Jan 2016 21:06:26 +0100
+Message-ID: <1452456389-2833-6-git-send-email-jiri@resnulli.us>
 References: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
@@ -10,70 +10,51 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37374 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757403AbcAJUGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:34 -0500
-Received: by mail-wm0-f54.google.com with SMTP id f206so240618644wmf.0
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:33 -0800 (PST)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33059 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757481AbcAJUGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:38 -0500
+Received: by mail-wm0-f66.google.com with SMTP id u188so23428895wmu.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:37 -0800 (PST)
 In-Reply-To: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Elad Raz <eladr@mellanox.com>
 
-Define HW multicast entry: MAC and VID.
-Using a MAC address simplifies support for both IPV4 and IPv6.
-
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h   | 11 +++++++++++
- net/switchdev/switchdev.c |  2 ++
- 2 files changed, 13 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 603ae2f..d451122 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -68,6 +68,7 @@ enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_ID_PORT_VLAN,
- 	SWITCHDEV_OBJ_ID_IPV4_FIB,
- 	SWITCHDEV_OBJ_ID_PORT_FDB,
-+	SWITCHDEV_OBJ_ID_PORT_MDB,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index b6f3650..d0e98b8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1939,7 +1939,7 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.used_max_port_per_lag		= 1,
+ 	.max_port_per_lag		= MLXSW_SP_PORT_PER_LAG_MAX,
+ 	.used_max_mid			= 1,
+-	.max_mid			= 7000,
++	.max_mid			= MLXSW_SP_MID_MAX,
+ 	.used_max_pgt			= 1,
+ 	.max_pgt			= 0,
+ 	.used_max_system_port		= 1,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 0bbaef3..f360618 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -54,6 +54,8 @@
+ #define MLXSW_SP_LAG_MAX 64
+ #define MLXSW_SP_PORT_PER_LAG_MAX 16
  
- struct switchdev_obj {
-@@ -113,6 +114,16 @@ struct switchdev_obj_port_fdb {
- #define SWITCHDEV_OBJ_PORT_FDB(obj) \
- 	container_of(obj, struct switchdev_obj_port_fdb, obj)
++#define MLXSW_SP_MID_MAX 7000
++
+ struct mlxsw_sp_port;
  
-+/* SWITCHDEV_OBJ_ID_PORT_MDB */
-+struct switchdev_obj_port_mdb {
-+	struct switchdev_obj obj;
-+	unsigned char addr[ETH_ALEN];
-+	u16 vid;
-+};
-+
-+#define SWITCHDEV_OBJ_PORT_MDB(obj) \
-+	container_of(obj, struct switchdev_obj_port_mdb, obj)
-+
- void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
- 				  void *data, void (*destructor)(void const *),
- 				  struct switchdev_trans_item *tritem);
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index df790d3..ebc661d 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -345,6 +345,8 @@ static size_t switchdev_obj_size(const struct switchdev_obj *obj)
- 		return sizeof(struct switchdev_obj_ipv4_fib);
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
- 		return sizeof(struct switchdev_obj_port_fdb);
-+	case SWITCHDEV_OBJ_ID_PORT_MDB:
-+		return sizeof(struct switchdev_obj_port_mdb);
- 	default:
- 		BUG();
- 	}
+ struct mlxsw_sp_upper {
 -- 
 1.9.3
