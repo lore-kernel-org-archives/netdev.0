@@ -1,51 +1,46 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2] iplink: replace exit with return
-Date: Sat,  9 Jan 2016 16:02:12 -0800
-Message-ID: <1452384132-32261-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34318 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756527AbcAJACQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2016 19:02:16 -0500
-Received: by mail-pf0-f180.google.com with SMTP id q63so27377039pfb.1
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2016 16:02:16 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] netfilter: nf_conntrack: use safer way to lock all
+ buckets
+Date: Sun, 10 Jan 2016 02:06:37 +0100
+Message-ID: <20160110010637.GA22861@breakpoint.cc>
+References: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Sasha Levin <sasha.levin@oracle.com> wrote:
+> When we need to lock all buckets in the connection hashtable we'd attempt to
+> lock 1024 spinlocks, which is way more preemption levels than supported by
+> the kernel.
 
-This patch replaces exits with returns in iplink
-command. Helps to continue on errors when
-invoked with ip -force -batch.
+You're right.
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- ip/iplink.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Fix this by using a global lock and synchronize all buckets on it when we
+> need to lock them all. This is pretty heavyweight, but is only done when we
+> need to resize the hashtable, and that doesn't happen often enough (or at all).
 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index f30de86..c706d20 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -710,7 +710,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			req.i.ifi_index = 0;
- 			addattr32(&req.n, sizeof(req), IFLA_GROUP, group);
- 			if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
--				exit(2);
-+				return -2;
- 			return 0;
- 		}
- 	}
-@@ -809,7 +809,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 	}
- 
- 	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
--		exit(2);
-+		return -2;
- 
- 	return 0;
- }
--- 
-1.9.1
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 3cb3cb8..3c008ce 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -66,6 +66,32 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
+>  __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
+>  EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
+>  
+> +spinlock_t nf_conntrack_locks_all_lock;
+> +bool nf_conntrack_locks_all;
+
+Seems both of these can be static and __read_mostly too --
+as you already note resizing virtually never happens.
+
+Otherwise:
+Reviewed-by: Florian Westphal <fw@strlen.de>
