@@ -1,49 +1,72 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
- function
-Date: Sun, 10 Jan 2016 08:22:17 -0800
-Message-ID: <56928539.1060009@roeck-us.net>
-References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
- <20160109165802.GD28813@lunn.ch> <56914D21.9050804@roeck-us.net>
- <20160109205240.GA6877@lunn.ch> <569275C0.1040606@roeck-us.net>
- <20160110154945.GD22229@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160110154945.GD22229@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH 1/1] sched,cls_flower: set key address type when present
+Date: Sun, 10 Jan 2016 11:47:01 -0500
+Message-ID: <1452444421-3939-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net, jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36546 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756135AbcAJQrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 11:47:20 -0500
+Received: by mail-io0-f195.google.com with SMTP id q21so24323166iod.3
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 08:47:20 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2016 07:49 AM, Andrew Lunn wrote:
->> How about those ?
->>
->> drivers/net/ethernet/freescale/ucc_geth.c: In function 'uec_configure_serdes':
->> drivers/net/ethernet/freescale/ucc_geth.c:1719:20: error: 'struct phy_device' has no member named 'dev'
->>
->> drivers/net/ethernet/freescale/fs_enet/mac-fec.c: In function 'stop':
->> drivers/net/ethernet/freescale/fs_enet/mac-fec.c:366:36: error: 'struct phy_device' has no member named 'bus'
->
-> Not seen fixes for those, nor error reports either.
->
-Ok, I'll see if I can fix those.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Also:
+only when user space passes the addresses should we consider their
+presence
 
-drivers/net/ethernet/amd/au1000_eth.c:  /* WARNING: bus->phy_map[phy_addr].attached_dev == dev does
-	[ no idea what to do with that comment ]
-drivers/net/ethernet/broadcom/sb1250-mac.c:             phy_dev = sc->mii_bus->phy_map[i];
-	[ can use phy_find_first ]
-drivers/staging/netlogic/xlr_net.c:     struct phy_device *phydev = priv->mii_bus->phy_map[priv->phy_addr];
-	[ several ]	
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/sched/cls_flower.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-> I think the next time i do something like this, i'm going to ask you
-> to run some built tests for me! You seem to have better coverage than
-> 0-day.
->
-Sure, no problem.
-
-Guenter
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 5769294..95b0212 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -252,23 +252,28 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 	fl_set_key_val(tb, key->eth.src, TCA_FLOWER_KEY_ETH_SRC,
+ 		       mask->eth.src, TCA_FLOWER_KEY_ETH_SRC_MASK,
+ 		       sizeof(key->eth.src));
++
+ 	fl_set_key_val(tb, &key->basic.n_proto, TCA_FLOWER_KEY_ETH_TYPE,
+ 		       &mask->basic.n_proto, TCA_FLOWER_UNSPEC,
+ 		       sizeof(key->basic.n_proto));
++
+ 	if (key->basic.n_proto == htons(ETH_P_IP) ||
+ 	    key->basic.n_proto == htons(ETH_P_IPV6)) {
+ 		fl_set_key_val(tb, &key->basic.ip_proto, TCA_FLOWER_KEY_IP_PROTO,
+ 			       &mask->basic.ip_proto, TCA_FLOWER_UNSPEC,
+ 			       sizeof(key->basic.ip_proto));
+ 	}
+-	if (key->control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS) {
++
++	if (tb[TCA_FLOWER_KEY_IPV4_SRC] || tb[TCA_FLOWER_KEY_IPV4_DST]) {
++		key->control.addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+ 		fl_set_key_val(tb, &key->ipv4.src, TCA_FLOWER_KEY_IPV4_SRC,
+ 			       &mask->ipv4.src, TCA_FLOWER_KEY_IPV4_SRC_MASK,
+ 			       sizeof(key->ipv4.src));
+ 		fl_set_key_val(tb, &key->ipv4.dst, TCA_FLOWER_KEY_IPV4_DST,
+ 			       &mask->ipv4.dst, TCA_FLOWER_KEY_IPV4_DST_MASK,
+ 			       sizeof(key->ipv4.dst));
+-	} else if (key->control.addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
++	} else if (tb[TCA_FLOWER_KEY_IPV6_SRC] || tb[TCA_FLOWER_KEY_IPV6_DST]) {
++		key->control.addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+ 		fl_set_key_val(tb, &key->ipv6.src, TCA_FLOWER_KEY_IPV6_SRC,
+ 			       &mask->ipv6.src, TCA_FLOWER_KEY_IPV6_SRC_MASK,
+ 			       sizeof(key->ipv6.src));
+@@ -276,6 +281,7 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 			       &mask->ipv6.dst, TCA_FLOWER_KEY_IPV6_DST_MASK,
+ 			       sizeof(key->ipv6.dst));
+ 	}
++
+ 	if (key->basic.ip_proto == IPPROTO_TCP) {
+ 		fl_set_key_val(tb, &key->tp.src, TCA_FLOWER_KEY_TCP_SRC,
+ 			       &mask->tp.src, TCA_FLOWER_UNSPEC,
+-- 
+1.9.1
