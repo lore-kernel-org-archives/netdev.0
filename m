@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: prevent writes to cookie_hmac_alg from
- accessing invalid memory
-Date: Sun, 10 Jan 2016 18:01:36 -0500 (EST)
-Message-ID: <20160110.180136.2132125441173496753.davem@davemloft.net>
-References: <1452196363-30954-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH v2] stmmac: Don't exit mdio registration when mdio
+ subnode is not found in the DTS
+Date: Sun, 10 Jan 2016 18:03:17 -0500 (EST)
+Message-ID: <20160110.180317.1091002009651518965.davem@davemloft.net>
+References: <1452197608-29060-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452196363-30954-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-rockchip@lists.infradead.org
+To: romain.perier@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58843 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756722AbcAJXDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 18:03:19 -0500
+In-Reply-To: <1452197608-29060-1-git-send-email-romain.perier@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Thu,  7 Jan 2016 14:52:43 -0500
+From: Romain Perier <romain.perier@gmail.com>
+Date: Thu,  7 Jan 2016 21:13:28 +0100
 
-> proc_dostring() needs an initialized destination string, while the one
-> provided in proc_sctp_do_hmac_alg() contains stack garbage.
+> Originally, most of the platforms using this driver did not define an mdio subnode
+> in the devicetree. Commit e34d65 ("stmmac: create of compatible mdio bus for stmmac driver")
+> introduced a backward compatibily issue by using of_mdiobus_register explicitly
+> with an mdio subnode. This patch fixes the issue by calling the function
+> mdiobus_register, when mdio subnode is not found. The driver is now compatible
+> with both modes.
 > 
-> Thus, writing to cookie_hmac_alg would strlen() that garbage and end up
-> accessing invalid memory.
-> 
-> Fixes: 3c68198e7 ("sctp: Make hmac algorithm selection for cookie generation dynamic")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Fixes: e34d65696d2e ("stmmac: create of compatible mdio bus for stmmac driver")
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
