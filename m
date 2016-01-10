@@ -1,50 +1,56 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH -next] net: ethernet: faraday: Use phy_find_first() instead of open coding it
-Date: Sun, 10 Jan 2016 12:04:32 -0800
-Message-ID: <1452456272-1795-1-git-send-email-linux@roeck-us.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 0/8] mlxsw: Adding layer 2 multicast
+Date: Sun, 10 Jan 2016 21:06:21 +0100
+Message-ID: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
+	stephen@networkplumber.org, sfeldma@gmail.com,
+	vivien.didelot@savoirfairelinux.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37364 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757370AbcAJUGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:33 -0500
+Received: by mail-wm0-f42.google.com with SMTP id f206so240618202wmf.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use phy_find_first() to find the first phy device instead of
-open coding it.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Cc: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Elad says:
+
+This patchset add Linux hardware reflection for L2 multicast offload and add
+MC support in mlxsw. For every bridge MDB entry insertion, either by IGMP
+snooping or by static insertion/removal, a switchdev ops is been called.
+In mlxsw, a new multicast group (MID) is been created and ports are assigned.
+When all ports are removed, the multicast group is been deleted.
+
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 15 ++-------------
- 1 file changed, 2 insertions(+), 13 deletions(-)
+v1->v2:
+- GFP_ATOMIC->GFP_KERNEL change in patch 7/8
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index bb116ad646f6..84384e1585a5 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -834,20 +834,9 @@ static void ftgmac100_adjust_link(struct net_device *netdev)
- static int ftgmac100_mii_probe(struct ftgmac100 *priv)
- {
- 	struct net_device *netdev = priv->netdev;
--	struct phy_device *phydev = NULL;
--	int i;
--
--	/* search for connect PHY device */
--	for (i = 0; i < PHY_MAX_ADDR; i++) {
--		struct phy_device *tmp = mdiobus_get_phy(priv->mii_bus, i);
--
--		if (tmp) {
--			phydev = tmp;
--			break;
--		}
--	}
-+	struct phy_device *phydev;
- 
--	/* now we are supposed to have a proper phydev, to attach to... */
-+	phydev = phy_find_first(priv->mii_bus);
- 	if (!phydev) {
- 		netdev_info(netdev, "%s: no PHY found\n", netdev->name);
- 		return -ENODEV;
+Elad Raz (8):
+  switchdev: Adding MDB entry offload
+  bridge: Reflect MDB entries to hardware
+  mlxsw: reg: Add definition of multicast record for SFD register
+  mlxsw: reg: Adding SMID register
+  mlxsw: Changing the maximum number of multicast group to a define
+  mlxsw: Adding VID to FID translatation
+  mlxsw: Adding layer 2 multicast support
+  switchdev: Adding IGMP snooping documentation
+
+ Documentation/networking/switchdev.txt             |   8 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 100 +++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   3 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  15 ++
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 206 +++++++++++++++++++--
+ include/net/switchdev.h                            |  11 ++
+ net/bridge/br_mdb.c                                |  23 +++
+ net/switchdev/switchdev.c                          |   2 +
+ 8 files changed, 349 insertions(+), 19 deletions(-)
+
 -- 
-2.1.4
+1.9.3
