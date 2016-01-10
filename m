@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/8] mlxsw: reg: Adding SMID register
-Date: Sun, 10 Jan 2016 21:06:25 +0100
-Message-ID: <1452456389-2833-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 1/8] switchdev: Adding MDB entry offload
+Date: Sun, 10 Jan 2016 21:06:22 +0100
+Message-ID: <1452456389-2833-2-git-send-email-jiri@resnulli.us>
 References: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
@@ -10,96 +10,70 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:38111 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757403AbcAJUGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:37 -0500
-Received: by mail-wm0-f45.google.com with SMTP id b14so240499027wmb.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:36 -0800 (PST)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37374 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757403AbcAJUGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:34 -0500
+Received: by mail-wm0-f54.google.com with SMTP id f206so240618644wmf.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:33 -0800 (PST)
 In-Reply-To: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Elad Raz <eladr@mellanox.com>
 
-Adding back SMID register definition and packing. For each MC group a new
-SMID entry will be generated.
+Define HW multicast entry: MAC and VID.
+Using a MAC address simplifies support for both IPV4 and IPv6.
 
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 51 +++++++++++++++++++++++++++++++
- 1 file changed, 51 insertions(+)
+ include/net/switchdev.h   | 11 +++++++++++
+ net/switchdev/switchdev.c |  2 ++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 9b79457..0c52372 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -99,6 +99,55 @@ static const struct mlxsw_reg_info mlxsw_reg_spad = {
-  */
- MLXSW_ITEM_BUF(reg, spad, base_mac, 0x02, 6);
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 603ae2f..d451122 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -68,6 +68,7 @@ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_ID_PORT_VLAN,
+ 	SWITCHDEV_OBJ_ID_IPV4_FIB,
+ 	SWITCHDEV_OBJ_ID_PORT_FDB,
++	SWITCHDEV_OBJ_ID_PORT_MDB,
+ };
  
-+/* SMID - Switch Multicast ID
-+ * --------------------------
-+ * The MID record maps from a MID (Multicast ID), which is a unique identifier
-+ * of the multicast group within the stacking domain, into a list of local
-+ * ports into which the packet is replicated.
-+ */
-+#define MLXSW_REG_SMID_ID 0x2007
-+#define MLXSW_REG_SMID_LEN 0x240
-+
-+static const struct mlxsw_reg_info mlxsw_reg_smid = {
-+	.id = MLXSW_REG_SMID_ID,
-+	.len = MLXSW_REG_SMID_LEN,
+ struct switchdev_obj {
+@@ -113,6 +114,16 @@ struct switchdev_obj_port_fdb {
+ #define SWITCHDEV_OBJ_PORT_FDB(obj) \
+ 	container_of(obj, struct switchdev_obj_port_fdb, obj)
+ 
++/* SWITCHDEV_OBJ_ID_PORT_MDB */
++struct switchdev_obj_port_mdb {
++	struct switchdev_obj obj;
++	unsigned char addr[ETH_ALEN];
++	u16 vid;
 +};
 +
-+/* reg_smid_swid
-+ * Switch partition ID.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, smid, swid, 0x00, 24, 8);
++#define SWITCHDEV_OBJ_PORT_MDB(obj) \
++	container_of(obj, struct switchdev_obj_port_mdb, obj)
 +
-+/* reg_smid_mid
-+ * Multicast identifier - global identifier that represents the multicast group
-+ * across all devices.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, smid, mid, 0x00, 0, 16);
-+
-+/* reg_smid_port
-+ * Local port memebership (1 bit per port).
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BIT_ARRAY(reg, smid, port, 0x20, 0x20, 1);
-+
-+/* reg_smid_port_mask
-+ * Local port mask (1 bit per port).
-+ * Access: W
-+ */
-+MLXSW_ITEM_BIT_ARRAY(reg, smid, port_mask, 0x220, 0x20, 1);
-+
-+static inline void mlxsw_reg_smid_pack(char *payload, u16 mid,
-+				       u8 port, bool set)
-+{
-+	MLXSW_REG_ZERO(smid, payload);
-+	mlxsw_reg_smid_swid_set(payload, 0);
-+	mlxsw_reg_smid_mid_set(payload, mid);
-+	mlxsw_reg_smid_port_set(payload, port, set);
-+	mlxsw_reg_smid_port_mask_set(payload, port, 1);
-+}
-+
- /* SSPR - Switch System Port Record Register
-  * -----------------------------------------
-  * Configures the system port to local port mapping.
-@@ -3052,6 +3101,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "SGCR";
- 	case MLXSW_REG_SPAD_ID:
- 		return "SPAD";
-+	case MLXSW_REG_SMID_ID:
-+		return "SMID";
- 	case MLXSW_REG_SSPR_ID:
- 		return "SSPR";
- 	case MLXSW_REG_SFDAT_ID:
+ void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
+ 				  void *data, void (*destructor)(void const *),
+ 				  struct switchdev_trans_item *tritem);
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index df790d3..ebc661d 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -345,6 +345,8 @@ static size_t switchdev_obj_size(const struct switchdev_obj *obj)
+ 		return sizeof(struct switchdev_obj_ipv4_fib);
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		return sizeof(struct switchdev_obj_port_fdb);
++	case SWITCHDEV_OBJ_ID_PORT_MDB:
++		return sizeof(struct switchdev_obj_port_mdb);
+ 	default:
+ 		BUG();
+ 	}
 -- 
 1.9.3
