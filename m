@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: reduce RECURSION_LIMIT to 8
-Date: Sun, 10 Jan 2016 17:59:03 -0500 (EST)
-Message-ID: <20160110.175903.128469004176677319.davem@davemloft.net>
-References: <1452188453-5523-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: sctp: prevent writes to cookie_hmac_alg from
+ accessing invalid memory
+Date: Sun, 10 Jan 2016 18:01:36 -0500 (EST)
+Message-ID: <20160110.180136.2132125441173496753.davem@davemloft.net>
+References: <1452196363-30954-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58789 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755481AbcAJW7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 17:59:05 -0500
-In-Reply-To: <1452188453-5523-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452196363-30954-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu,  7 Jan 2016 18:40:53 +0100
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Thu,  7 Jan 2016 14:52:43 -0500
 
-> This patch tries to be conservative and reduces the limit to 8
-> without further measurements. It seems ovs uses the stack more than
-> other parts of the networking stack - I couldn't bring the system
-> down with a non-ovs tunneling setup.
+> proc_dostring() needs an initialized destination string, while the one
+> provided in proc_sctp_do_hmac_alg() contains stack garbage.
+> 
+> Thus, writing to cookie_hmac_alg would strlen() that garbage and end up
+> accessing invalid memory.
+> 
+> Fixes: 3c68198e7 ("sctp: Make hmac algorithm selection for cookie generation dynamic")
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-Can we figure out why OVS sucks so much wrt. stack usage instead?
-
-I'd rather not paper over something like this, especially when it's
-OVS which I'm completely not in the mood to specially cater for in
-any way, shape, or form.
+Applied and queued up for -stable, thanks.
