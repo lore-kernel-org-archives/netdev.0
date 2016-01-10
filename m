@@ -1,48 +1,72 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible) division by zero
-Date: Sun, 10 Jan 2016 16:57:40 +0200
-Message-ID: <4496498.SgxPQx9et6@spock>
-References: <26396443.iDTTxgChSj@spock> <CADVnQy=S62KoQL7thY73Kb=1Qd60drvOHJhE8UwH9qzPFOadEg@mail.gmail.com> <CADVnQykvDhCrCuFR0MCiEvD7DUbf+ZVBOysa1iWSE6-FydzqYQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neal Cardwell <ncardwell@google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH -next v2] net: bfin_mac: Fix build error due to missed API change
+Date: Sun, 10 Jan 2016 07:08:04 -0800
+Message-ID: <1452438484-29205-1-git-send-email-linux@roeck-us.net>
+Cc: =adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADVnQykvDhCrCuFR0MCiEvD7DUbf+ZVBOysa1iWSE6-FydzqYQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes, this is my next step. Then I'll try to move from YeAH.
+Commit 7f854420fbfe ("phy: Add API for {un}registering an mdio device to
+a bus") introduces an API to access mii_bus structures, but missed to
+update the bfin_mac driver. This results in the following error message
 
-On =D0=BD=D0=B5=D0=B4=D1=96=D0=BB=D1=8F, 10 =D1=81=D1=96=D1=87=D0=BD=D1=
-=8F 2016 =D1=80. 09:54:16 EET Neal Cardwell wrote:
-> On Sun, Jan 10, 2016 at 9:48 AM, Neal Cardwell <ncardwell@google.com>=
- wrote:
-> > On Sun, Jan 10, 2016 at 5:23 AM, Oleksandr Natalenko
-> >=20
-> > <oleksandr@natalenko.name> wrote:
-> >> With the patch queued for upstream and ECN enabled I get WARN_ON_O=
-NCE()
-> >> triggered. Here is the stacktrace:
-> >>=20
-> >> https://gist.github.com/89203e77bfcb051f269a
-> >>=20
-> >> It seems that tp->prior_cwnd is zero.
-> >=20
-> > Hmm. Interesting. Can you please confirm that you are using the cub=
-ic
-> > congestion control module?
->=20
-> Would you be able to do an experiment where you reboot, and then
-> disable ECN upon startup, and then see if the warning still shows up
-> without ECN?
->=20
-> thanks,
-> neal
+drivers/net/ethernet/adi/bfin_mac.c: In function 'mii_probe':
+drivers/net/ethernet/adi/bfin_mac.c:401:52: error:
+	'struct mii_bus' has no member named 'phy_map'
+
+Use phy_find_first() instead of open-coding it.
+
+Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus")
+Cc: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+v2: Use phy_find_first() instead of open-coding it.
+
+Dave: Please ignore if you already applied the other patch.
+      Alternatively, I'll be happy to submit it as separate patch
+      on top of the actual bug fix.
+
+ drivers/net/ethernet/adi/bfin_mac.c | 16 ++--------------
+ 1 file changed, 2 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 8c5132624510..5dfa01fadda6 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -380,9 +380,8 @@ static void bfin_mac_adjust_link(struct net_device *dev)
+ static int mii_probe(struct net_device *dev, int phy_mode)
+ {
+ 	struct bfin_mac_local *lp = netdev_priv(dev);
+-	struct phy_device *phydev = NULL;
++	struct phy_device *phydev;
+ 	unsigned short sysctl;
+-	int i;
+ 	u32 sclk, mdc_div;
+ 
+ 	/* Enable PHY output early */
+@@ -396,18 +395,7 @@ static int mii_probe(struct net_device *dev, int phy_mode)
+ 	sysctl = (sysctl & ~MDCDIV) | SET_MDCDIV(mdc_div);
+ 	bfin_write_EMAC_SYSCTL(sysctl);
+ 
+-	/* search for connected PHY device */
+-	for (i = 0; i < PHY_MAX_ADDR; ++i) {
+-		struct phy_device *const tmp_phydev = lp->mii_bus->phy_map[i];
+-
+-		if (!tmp_phydev)
+-			continue; /* no PHY here... */
+-
+-		phydev = tmp_phydev;
+-		break; /* found it */
+-	}
+-
+-	/* now we are supposed to have a proper phydev, to attach to... */
++	phydev = phy_find_first(lp->mii_bus);
+ 	if (!phydev) {
+ 		netdev_err(dev, "no phy device found\n");
+ 		return -ENODEV;
+-- 
+2.1.4
