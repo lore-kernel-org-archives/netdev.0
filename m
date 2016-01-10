@@ -1,80 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/8] bridge: Reflect MDB entries to hardware
-Date: Sun, 10 Jan 2016 14:07:22 +0100
-Message-ID: <1452431248-5411-3-git-send-email-jiri@resnulli.us>
-References: <1452431248-5411-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
-	stephen@networkplumber.org, sfeldma@gmail.com,
-	vivien.didelot@savoirfairelinux.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
+Date: Sun, 10 Jan 2016 09:09:25 -0500
+Message-ID: <56926615.6040902@mojatatu.com>
+References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810>
+ <568F1EE2.7020107@gmail.com> <568FC9F8.8040201@mojatatu.com>
+ <568FD498.5030401@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:38393 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755914AbcAJNHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 08:07:35 -0500
-Received: by mail-wm0-f46.google.com with SMTP id b14so231829014wmb.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 05:07:34 -0800 (PST)
-In-Reply-To: <1452431248-5411-1-git-send-email-jiri@resnulli.us>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:37252 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757160AbcAJOJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 09:09:33 -0500
+Received: by mail-ig0-f175.google.com with SMTP id h5so58337311igh.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 06:09:32 -0800 (PST)
+In-Reply-To: <568FD498.5030401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Raz <eladr@mellanox.com>
+On 16-01-08 10:24 AM, John Fastabend wrote:
+> On 16-01-08 06:38 AM, Jamal Hadi Salim wrote:
+>> On 16-01-07 09:28 PM, John Fastabend wrote:
+>>>
+>>> Hi Jamal,
+>>>
+>>> per your comment about using pktgen to test qdiscs here is the
+>>> patch I've been using most the day which has been working well.
+>>> I'm guessing this is more or less what you had in mind.
+>>>
+>>
+>> I have attached the one i used over the holidays - see if there are
+>> any differences(sorry dont have much time right now).
+>>
+>> cheers,
+>> jamal
+>
+> Close except I don't back off the qdisc when I get
+> xmit_{drop|cn|policed} return codes because I'm trying to
+> stress the qdisc.
+>
 
-Offload MDB changes per port to hardware
+In that case we need two modes. I think it is important to stress
+the qdisc backoff. It doesnt make sense to send packets that will
+be dropped. You said you were testing over vlan - how were you
+enforcing no backoff?
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/bridge/br_mdb.c | 23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+> Also I don't see the point to doing the skb_get_tx_queue and
+> txq_trans_update() this should be called by dev_queue_xmit
+> anyways.
+>
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index cd8deea..30e105f 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -7,6 +7,7 @@
- #include <linux/if_ether.h>
- #include <net/ip.h>
- #include <net/netlink.h>
-+#include <net/switchdev.h>
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-@@ -210,10 +211,32 @@ static inline size_t rtnl_mdb_nlmsg_size(void)
- static void __br_mdb_notify(struct net_device *dev, struct br_mdb_entry *entry,
- 			    int type)
- {
-+	struct switchdev_obj_port_mdb mdb = {
-+		.obj = {
-+			.id = SWITCHDEV_OBJ_ID_PORT_MDB,
-+			.flags = SWITCHDEV_F_DEFER,
-+		},
-+		.vid = entry->vid,
-+	};
-+	struct net_device *port_dev;
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
- 
-+	port_dev = __dev_get_by_index(net, entry->ifindex);
-+	if (entry->addr.proto == htons(ETH_P_IP))
-+		ip_eth_mc_map(entry->addr.u.ip4, mdb.addr);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else
-+		ipv6_eth_mc_map(&entry->addr.u.ip6, mdb.addr);
-+#endif
-+
-+	mdb.obj.orig_dev = port_dev;
-+	if (port_dev && type == RTM_NEWMDB)
-+		switchdev_port_obj_add(port_dev, &mdb.obj);
-+	else if (port_dev && type == RTM_DELMDB)
-+		switchdev_port_obj_del(port_dev, &mdb.obj);
-+
- 	skb = nlmsg_new(rtnl_mdb_nlmsg_size(), GFP_ATOMIC);
- 	if (!skb)
- 		goto errout;
--- 
-1.9.3
+Yes, those could go away. They are leftovers of another experiment.
+
+
+> If its all the same to you I would just assume have my version in
+> pktgen and later if its useful for you add an option to back-off
+> when the qdisc throws an error.
+
+
+Refer to above. If you can fix it so we can do either i will ACK it.
+
+cheers,
+jamal
