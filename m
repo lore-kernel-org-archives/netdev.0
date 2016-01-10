@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 03/12] net/mlx5_core: Managing root flow table
-Date: Sun, 10 Jan 2016 10:39:40 +0200
-Message-ID: <1452415189-27950-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 07/12] net/mlx5_core: Initialize namespaces only when supported by device
+Date: Sun, 10 Jan 2016 10:39:44 +0200
+Message-ID: <1452415189-27950-8-git-send-email-ogerlitz@mellanox.com>
 References: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Matan Barak <matanb@mellanox.com>,
@@ -11,315 +11,185 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Moni Shoua <monis@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51273 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51283 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755290AbcAJIk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jan 2016 03:40:28 -0500
+	id S1754591AbcAJIk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jan 2016 03:40:29 -0500
 In-Reply-To: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-The root Flow Table for each Flow Table Type is defined,
-by default, as the Flow Table with level 0.
-
-In order not to use an empty flow tables and introduce new hops,
-but still preserve space for flow-tables that have a priority
-greater(lower number) than the current flow table, we introduce this
-new set root flow table command.
-This command tells the HW to start matching packets from the
-assigned root flow table.
-This command is used when we create new flow table with level lower than the
-current lowest flow table or it is the first flow table.
+Before we create the sub tree of a steering namespaces(kernel, bypass,
+leftovers) we check that the device has the required capabilities
+in order to create this subtree.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  | 18 +++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |  2 +
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 97 ++++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  6 ++
- include/linux/mlx5/mlx5_ifc.h                     | 31 +++++++-
- 5 files changed, 144 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 70 ++++++++++++++++-------
+ 1 file changed, 49 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index 5096f4f..d8b1195 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -38,6 +38,24 @@
- #include "fs_cmd.h"
- #include "mlx5_core.h"
- 
-+int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
-+			    struct mlx5_flow_table *ft)
-+{
-+	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)];
-+	u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(set_flow_table_root_in, in, opcode,
-+		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
-+	MLX5_SET(set_flow_table_root_in, in, table_type, ft->type);
-+	MLX5_SET(set_flow_table_root_in, in, table_id, ft->id);
-+
-+	memset(out, 0, sizeof(out));
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
- int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
- 			       enum fs_flow_table_type type, unsigned int level,
- 			       unsigned int log_size, unsigned int *table_id)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-index f39304e..70d18ec 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -62,4 +62,6 @@ int mlx5_cmd_delete_fte(struct mlx5_core_dev *dev,
- 			struct mlx5_flow_table *ft,
- 			unsigned int index);
- 
-+int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
-+			    struct mlx5_flow_table *ft);
- #endif
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index c5a96e6..64bdb54 100644
+index e1282e8..96e287a 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -510,6 +510,29 @@ static struct mlx5_flow_table *find_prev_chained_ft(struct fs_prio *prio)
- 	return find_closest_ft(prio, true);
+@@ -40,20 +40,17 @@
+ #define INIT_TREE_NODE_ARRAY_SIZE(...)	(sizeof((struct init_tree_node[]){__VA_ARGS__}) /\
+ 					 sizeof(struct init_tree_node))
+ 
+-#define INIT_PRIO(min_level_val, max_ft_val,\
+-		  ...) {.type = FS_TYPE_PRIO,\
++#define ADD_PRIO(min_level_val, max_ft_val, caps_val,\
++		 ...) {.type = FS_TYPE_PRIO,\
+ 	.min_ft_level = min_level_val,\
+ 	.max_ft = max_ft_val,\
++	.caps = caps_val,\
+ 	.children = (struct init_tree_node[]) {__VA_ARGS__},\
+ 	.ar_size = INIT_TREE_NODE_ARRAY_SIZE(__VA_ARGS__) \
  }
  
-+static int update_root_ft_create(struct mlx5_flow_table *ft, struct fs_prio
-+				 *prio)
-+{
-+	struct mlx5_flow_root_namespace *root = find_root(&prio->node);
-+	int min_level = INT_MAX;
-+	int err;
-+
-+	if (root->root_ft)
-+		min_level = root->root_ft->level;
-+
-+	if (ft->level >= min_level)
-+		return 0;
-+
-+	err = mlx5_cmd_update_root_ft(root->dev, ft);
-+	if (err)
-+		mlx5_core_warn(root->dev, "Update root flow table of id=%u failed\n",
-+			       ft->id);
-+	else
-+		root->root_ft = ft;
-+
-+	return err;
-+}
-+
- struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
- 					       int prio,
- 					       int max_fte)
-@@ -526,14 +549,15 @@ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
- 		return ERR_PTR(-ENODEV);
- 	}
- 
-+	mutex_lock(&root->chain_lock);
- 	fs_prio = find_prio(ns, prio);
--	if (!fs_prio)
--		return ERR_PTR(-EINVAL);
+-#define ADD_PRIO(min_level_val, max_ft_val, ...)\
+-	INIT_PRIO(min_level_val, max_ft_val,\
+-		  __VA_ARGS__)\
 -
--	lock_ref_node(&fs_prio->node);
-+	if (!fs_prio) {
-+		err = -EINVAL;
-+		goto unlock_root;
-+	}
- 	if (fs_prio->num_ft == fs_prio->max_ft) {
- 		err = -ENOSPC;
--		goto unlock_prio;
-+		goto unlock_root;
- 	}
+ #define ADD_FT_PRIO(max_ft_val, ...)\
+-	INIT_PRIO(0, max_ft_val,\
++	ADD_PRIO(0, max_ft_val, {},\
+ 		  __VA_ARGS__)\
  
- 	ft = alloc_flow_table(find_next_free_level(fs_prio),
-@@ -541,7 +565,7 @@ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
- 			      root->table_type);
- 	if (!ft) {
- 		err = -ENOMEM;
--		goto unlock_prio;
-+		goto unlock_root;
- 	}
- 
- 	tree_init_node(&ft->node, 1, del_flow_table);
-@@ -551,15 +575,25 @@ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
- 	if (err)
- 		goto free_ft;
- 
-+	if (MLX5_CAP_FLOWTABLE(root->dev,
-+			       flow_table_properties_nic_receive.modify_root)) {
-+		err = update_root_ft_create(ft, fs_prio);
-+		if (err)
-+			goto destroy_ft;
-+	}
-+	lock_ref_node(&fs_prio->node);
- 	tree_add_node(&ft->node, &fs_prio->node);
- 	list_add_tail(&ft->node.list, &fs_prio->node.children);
- 	fs_prio->num_ft++;
- 	unlock_ref_node(&fs_prio->node);
-+	mutex_unlock(&root->chain_lock);
- 	return ft;
-+destroy_ft:
-+	mlx5_cmd_destroy_flow_table(root->dev, ft);
- free_ft:
- 	kfree(ft);
--unlock_prio:
--	unlock_ref_node(&fs_prio->node);
-+unlock_root:
-+	mutex_unlock(&root->chain_lock);
- 	return ERR_PTR(err);
+ #define ADD_NS(...) {.type = FS_TYPE_NAMESPACE,\
+@@ -61,12 +58,26 @@
+ 	.ar_size = INIT_TREE_NODE_ARRAY_SIZE(__VA_ARGS__) \
  }
  
-@@ -899,13 +933,57 @@ void mlx5_del_flow_rule(struct mlx5_flow_rule *rule)
- 	tree_remove_node(&rule->node);
++#define INIT_CAPS_ARRAY_SIZE(...) (sizeof((long[]){__VA_ARGS__}) /\
++				   sizeof(long))
++
++#define FS_CAP(cap) (__mlx5_bit_off(flow_table_nic_cap, cap))
++
++#define FS_REQUIRED_CAPS(...) {.arr_sz = INIT_CAPS_ARRAY_SIZE(__VA_ARGS__), \
++			       .caps = (long[]) {__VA_ARGS__} }
++
+ #define KERNEL_MAX_FT 2
+ #define KENREL_MIN_LEVEL 2
++
++struct node_caps {
++	size_t	arr_sz;
++	long	*caps;
++};
+ static struct init_tree_node {
+ 	enum fs_node_type	type;
+ 	struct init_tree_node *children;
+ 	int ar_size;
++	struct node_caps caps;
+ 	int min_ft_level;
+ 	int prio;
+ 	int max_ft;
+@@ -74,7 +85,7 @@ static struct init_tree_node {
+ 	.type = FS_TYPE_NAMESPACE,
+ 	.ar_size = 1,
+ 	.children = (struct init_tree_node[]) {
+-		ADD_PRIO(KENREL_MIN_LEVEL, 0,
++		ADD_PRIO(KENREL_MIN_LEVEL, 0, {},
+ 			 ADD_NS(ADD_FT_PRIO(KERNEL_MAX_FT))),
+ 	}
+ };
+@@ -1153,11 +1164,31 @@ static struct mlx5_flow_namespace *fs_create_namespace(struct fs_prio *prio)
+ 	return ns;
  }
  
-+/* Assuming prio->node.children(flow tables) is sorted by level */
-+static struct mlx5_flow_table *find_next_ft(struct mlx5_flow_table *ft)
+-static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *init_node,
++#define FLOW_TABLE_BIT_SZ 1
++#define GET_FLOW_TABLE_CAP(dev, offset) \
++	((be32_to_cpu(*((__be32 *)(dev->hca_caps_cur[MLX5_CAP_FLOW_TABLE]) +	\
++			offset / 32)) >>					\
++	  (32 - FLOW_TABLE_BIT_SZ - (offset & 0x1f))) & FLOW_TABLE_BIT_SZ)
++static bool has_required_caps(struct mlx5_core_dev *dev, struct node_caps *caps)
 +{
-+	struct fs_prio *prio;
++	int i;
 +
-+	fs_get_obj(prio, ft->node.parent);
-+
-+	if (!list_is_last(&ft->node.list, &prio->node.children))
-+		return list_next_entry(ft, node.list);
-+	return find_next_chained_ft(prio);
-+}
-+
-+static int update_root_ft_destroy(struct mlx5_flow_table *ft)
-+{
-+	struct mlx5_flow_root_namespace *root = find_root(&ft->node);
-+	struct mlx5_flow_table *new_root_ft = NULL;
-+
-+	if (root->root_ft != ft)
-+		return 0;
-+
-+	new_root_ft = find_next_ft(ft);
-+	if (new_root_ft) {
-+		int err = mlx5_cmd_update_root_ft(root->dev, new_root_ft);
-+
-+		if (err) {
-+			mlx5_core_warn(root->dev, "Update root flow table of id=%u failed\n",
-+				       ft->id);
-+			return err;
-+		}
-+		root->root_ft = new_root_ft;
++	for (i = 0; i < caps->arr_sz; i++) {
++		if (!GET_FLOW_TABLE_CAP(dev, caps->caps[i]))
++			return false;
 +	}
-+	return 0;
++	return true;
 +}
 +
- int mlx5_destroy_flow_table(struct mlx5_flow_table *ft)
++static int init_root_tree_recursive(struct mlx5_core_dev *dev,
++				    struct init_tree_node *init_node,
+ 				    struct fs_node *fs_parent_node,
+ 				    struct init_tree_node *init_parent_node,
+ 				    int index)
  {
-+	struct mlx5_flow_root_namespace *root = find_root(&ft->node);
-+	int err = 0;
-+
-+	mutex_lock(&root->chain_lock);
-+	err = update_root_ft_destroy(ft);
-+	if (err) {
-+		mutex_unlock(&root->chain_lock);
-+		return err;
-+	}
- 	if (tree_remove_node(&ft->node))
- 		mlx5_core_warn(get_dev(&ft->node), "Flow table %d wasn't destroyed, refcount > 1\n",
- 			       ft->id);
-+	mutex_unlock(&root->chain_lock);
++	int max_ft_level = MLX5_CAP_FLOWTABLE(dev,
++					      flow_table_properties_nic_receive.
++					      max_ft_level);
+ 	struct mlx5_flow_namespace *fs_ns;
+ 	struct fs_prio *fs_prio;
+ 	struct fs_node *base;
+@@ -1165,8 +1196,9 @@ static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *ini
+ 	int err;
  
--	return 0;
-+	return err;
+ 	if (init_node->type == FS_TYPE_PRIO) {
+-		if (init_node->min_ft_level > max_ft_level)
+-			return -ENOTSUPP;
++		if ((init_node->min_ft_level > max_ft_level) ||
++		    !has_required_caps(dev, &init_node->caps))
++			return 0;
+ 
+ 		fs_get_obj(fs_ns, fs_parent_node);
+ 		fs_prio = fs_create_prio(fs_ns, index, init_node->max_ft);
+@@ -1183,9 +1215,8 @@ static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *ini
+ 		return -EINVAL;
+ 	}
+ 	for (i = 0; i < init_node->ar_size; i++) {
+-		err = init_root_tree_recursive(max_ft_level,
+-					       &init_node->children[i], base,
+-					       init_node, i);
++		err = init_root_tree_recursive(dev, &init_node->children[i],
++					       base, init_node, i);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -1193,7 +1224,8 @@ static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *ini
+ 	return 0;
  }
  
- void mlx5_destroy_flow_group(struct mlx5_flow_group *fg)
-@@ -1072,6 +1150,7 @@ static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_core_dev *dev
+-static int init_root_tree(int max_ft_level, struct init_tree_node *init_node,
++static int init_root_tree(struct mlx5_core_dev *dev,
++			  struct init_tree_node *init_node,
+ 			  struct fs_node *fs_parent_node)
+ {
+ 	int i;
+@@ -1202,8 +1234,7 @@ static int init_root_tree(int max_ft_level, struct init_tree_node *init_node,
  
- 	ns = &root_ns->ns;
- 	fs_init_namespace(ns);
-+	mutex_init(&root_ns->chain_lock);
- 	tree_init_node(&ns->node, 1, NULL);
- 	tree_add_node(&ns->node, NULL);
+ 	fs_get_obj(fs_ns, fs_parent_node);
+ 	for (i = 0; i < init_node->ar_size; i++) {
+-		err = init_root_tree_recursive(max_ft_level,
+-					       &init_node->children[i],
++		err = init_root_tree_recursive(dev, &init_node->children[i],
+ 					       &fs_ns->node,
+ 					       init_node, i);
+ 		if (err)
+@@ -1278,15 +1309,12 @@ static void set_prio_attrs(struct mlx5_flow_root_namespace *root_ns)
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 0f98257..1a2e08b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -129,6 +129,9 @@ struct mlx5_flow_root_namespace {
- 	struct mlx5_flow_namespace	ns;
- 	enum   fs_flow_table_type	table_type;
- 	struct mlx5_core_dev		*dev;
-+	struct mlx5_flow_table		*root_ft;
-+	/* Should be held when chaining flow tables */
-+	struct mutex			chain_lock;
- };
+ static int init_root_ns(struct mlx5_core_dev *dev)
+ {
+-	int max_ft_level = MLX5_CAP_FLOWTABLE(dev,
+-					      flow_table_properties_nic_receive.
+-					      max_ft_level);
  
- int mlx5_init_fs(struct mlx5_core_dev *dev);
-@@ -148,6 +151,9 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev);
- #define fs_for_each_prio(pos, ns)			\
- 	fs_list_for_each_entry(pos, &(ns)->node.children)
+ 	dev->priv.root_ns = create_root_ns(dev, FS_FT_NIC_RX);
+ 	if (IS_ERR_OR_NULL(dev->priv.root_ns))
+ 		goto cleanup;
  
-+#define fs_for_each_ft(pos, prio)			\
-+	fs_list_for_each_entry(pos, &(prio)->node.children)
-+
- #define fs_for_each_fg(pos, ft)			\
- 	fs_list_for_each_entry(pos, &(ft)->node.children)
+-	if (init_root_tree(max_ft_level, &root_fs, &dev->priv.root_ns->ns.node))
++	if (init_root_tree(dev, &root_fs, &dev->priv.root_ns->ns.node))
+ 		goto cleanup;
  
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 1780a85..323e713 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -185,6 +185,7 @@ enum {
- 	MLX5_CMD_OP_MODIFY_RQT                    = 0x917,
- 	MLX5_CMD_OP_DESTROY_RQT                   = 0x918,
- 	MLX5_CMD_OP_QUERY_RQT                     = 0x919,
-+	MLX5_CMD_OP_SET_FLOW_TABLE_ROOT		  = 0x92f,
- 	MLX5_CMD_OP_CREATE_FLOW_TABLE             = 0x930,
- 	MLX5_CMD_OP_DESTROY_FLOW_TABLE            = 0x931,
- 	MLX5_CMD_OP_QUERY_FLOW_TABLE              = 0x932,
-@@ -258,7 +259,8 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
- 	u8         ft_support[0x1];
- 	u8         reserved_0[0x2];
- 	u8	   flow_modify_en[0x1];
--	u8         reserved_1[0x1c];
-+	u8         modify_root[0x1];
-+	u8         reserved_1[0x1b];
- 
- 	u8         reserved_2[0x2];
- 	u8         log_max_ft_size[0x6];
-@@ -6946,4 +6948,31 @@ union mlx5_ifc_uplink_pci_interface_document_bits {
- 	u8         reserved_0[0x20060];
- };
- 
-+struct mlx5_ifc_set_flow_table_root_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_0[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_1[0x40];
-+};
-+
-+struct mlx5_ifc_set_flow_table_root_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_0[0x10];
-+
-+	u8         reserved_1[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_2[0x40];
-+
-+	u8         table_type[0x8];
-+	u8         reserved_3[0x18];
-+
-+	u8         reserved_4[0x8];
-+	u8         table_id[0x18];
-+
-+	u8         reserved_5[0x140];
-+};
-+
- #endif /* MLX5_IFC_H */
+ 	set_prio_attrs(dev->priv.root_ns);
 -- 
 2.3.7
