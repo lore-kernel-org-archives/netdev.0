@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 5/8] mlxsw: Changing the maximum number of multicast group to a define
-Date: Sun, 10 Jan 2016 21:06:26 +0100
-Message-ID: <1452456389-2833-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 3/8] mlxsw: reg: Add definition of multicast record for SFD register
+Date: Sun, 10 Jan 2016 21:06:24 +0100
+Message-ID: <1452456389-2833-4-git-send-email-jiri@resnulli.us>
 References: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
@@ -10,51 +10,121 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33059 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757481AbcAJUGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:38 -0500
-Received: by mail-wm0-f66.google.com with SMTP id u188so23428895wmu.0
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:37 -0800 (PST)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:34391 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757370AbcAJUGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:36 -0500
+Received: by mail-wm0-f48.google.com with SMTP id u188so192257429wmu.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:35 -0800 (PST)
 In-Reply-To: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Elad Raz <eladr@mellanox.com>
 
+Multicast-related records have specific format in SFD register.
+
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 49 +++++++++++++++++++++++++++----
+ 1 file changed, 44 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index b6f3650..d0e98b8 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1939,7 +1939,7 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
- 	.used_max_port_per_lag		= 1,
- 	.max_port_per_lag		= MLXSW_SP_PORT_PER_LAG_MAX,
- 	.used_max_mid			= 1,
--	.max_mid			= 7000,
-+	.max_mid			= MLXSW_SP_MID_MAX,
- 	.used_max_pgt			= 1,
- 	.max_pgt			= 0,
- 	.used_max_system_port		= 1,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 0bbaef3..f360618 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -54,6 +54,8 @@
- #define MLXSW_SP_LAG_MAX 64
- #define MLXSW_SP_PORT_PER_LAG_MAX 16
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 66d851d..9b79457 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -287,6 +287,7 @@ MLXSW_ITEM32_INDEXED(reg, sfd, rec_swid, MLXSW_REG_SFD_BASE_LEN, 24, 8,
+ enum mlxsw_reg_sfd_rec_type {
+ 	MLXSW_REG_SFD_REC_TYPE_UNICAST = 0x0,
+ 	MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG = 0x1,
++	MLXSW_REG_SFD_REC_TYPE_MULTICAST = 0x2,
+ };
  
-+#define MLXSW_SP_MID_MAX 7000
+ /* reg_sfd_rec_type
+@@ -379,7 +380,6 @@ MLXSW_ITEM32_INDEXED(reg, sfd, uc_system_port, MLXSW_REG_SFD_BASE_LEN, 0, 16,
+ 
+ static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
+ 					  enum mlxsw_reg_sfd_rec_type rec_type,
+-					  enum mlxsw_reg_sfd_rec_policy policy,
+ 					  const char *mac,
+ 					  enum mlxsw_reg_sfd_rec_action action)
+ {
+@@ -389,7 +389,6 @@ static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
+ 		mlxsw_reg_sfd_num_rec_set(payload, rec_index + 1);
+ 	mlxsw_reg_sfd_rec_swid_set(payload, rec_index, 0);
+ 	mlxsw_reg_sfd_rec_type_set(payload, rec_index, rec_type);
+-	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
+ 	mlxsw_reg_sfd_rec_mac_memcpy_to(payload, rec_index, mac);
+ 	mlxsw_reg_sfd_rec_action_set(payload, rec_index, action);
+ }
+@@ -401,8 +400,8 @@ static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
+ 					 u8 local_port)
+ {
+ 	mlxsw_reg_sfd_rec_pack(payload, rec_index,
+-			       MLXSW_REG_SFD_REC_TYPE_UNICAST,
+-			       policy, mac, action);
++			       MLXSW_REG_SFD_REC_TYPE_UNICAST, mac, action);
++	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
+ 	mlxsw_reg_sfd_uc_sub_port_set(payload, rec_index, 0);
+ 	mlxsw_reg_sfd_uc_fid_vid_set(payload, rec_index, fid_vid);
+ 	mlxsw_reg_sfd_uc_system_port_set(payload, rec_index, local_port);
+@@ -461,7 +460,8 @@ mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
+ {
+ 	mlxsw_reg_sfd_rec_pack(payload, rec_index,
+ 			       MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG,
+-			       policy, mac, action);
++			       mac, action);
++	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
+ 	mlxsw_reg_sfd_uc_lag_sub_port_set(payload, rec_index, 0);
+ 	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, fid_vid);
+ 	mlxsw_reg_sfd_uc_lag_lag_vid_set(payload, rec_index, lag_vid);
+@@ -477,6 +477,45 @@ static inline void mlxsw_reg_sfd_uc_lag_unpack(char *payload, int rec_index,
+ 	*p_lag_id = mlxsw_reg_sfd_uc_lag_lag_id_get(payload, rec_index);
+ }
+ 
++/* reg_sfd_mc_pgi
++ *
++ * Multicast port group index - index into the port group table.
++ * Value 0x1FFF indicates the pgi should point to the MID entry.
++ * For Spectrum this value must be set to 0x1FFF
++ * Access: RW
++ */
++MLXSW_ITEM32_INDEXED(reg, sfd, mc_pgi, MLXSW_REG_SFD_BASE_LEN, 16, 13,
++		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
 +
- struct mlxsw_sp_port;
- 
- struct mlxsw_sp_upper {
++/* reg_sfd_mc_fid_vid
++ *
++ * Filtering ID or VLAN ID
++ * Access: Index
++ */
++MLXSW_ITEM32_INDEXED(reg, sfd, mc_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
++		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
++
++/* reg_sfd_mc_mid
++ *
++ * Multicast identifier - global identifier that represents the multicast
++ * group across all devices.
++ * Access: RW
++ */
++MLXSW_ITEM32_INDEXED(reg, sfd, mc_mid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
++		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
++
++static inline void
++mlxsw_reg_sfd_mc_pack(char *payload, int rec_index,
++		      const char *mac, u16 fid_vid,
++		      enum mlxsw_reg_sfd_rec_action action, u16 mid)
++{
++	mlxsw_reg_sfd_rec_pack(payload, rec_index,
++			       MLXSW_REG_SFD_REC_TYPE_MULTICAST, mac, action);
++	mlxsw_reg_sfd_mc_pgi_set(payload, rec_index, 0x1FFF);
++	mlxsw_reg_sfd_mc_fid_vid_set(payload, rec_index, fid_vid);
++	mlxsw_reg_sfd_mc_mid_set(payload, rec_index, mid);
++}
++
+ /* SFN - Switch FDB Notification Register
+  * -------------------------------------------
+  * The switch provides notifications on newly learned FDB entries and
 -- 
 1.9.3
