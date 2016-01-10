@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/8] mlxsw: reg: Add definition of multicast record for SFD register
-Date: Sun, 10 Jan 2016 21:06:24 +0100
-Message-ID: <1452456389-2833-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 7/8] mlxsw: Adding layer 2 multicast support
+Date: Sun, 10 Jan 2016 21:06:28 +0100
+Message-ID: <1452456389-2833-8-git-send-email-jiri@resnulli.us>
 References: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
@@ -10,121 +10,292 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com, nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:34391 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757370AbcAJUGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:36 -0500
-Received: by mail-wm0-f48.google.com with SMTP id u188so192257429wmu.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:35 -0800 (PST)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:36440 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757370AbcAJUGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:06:40 -0500
+Received: by mail-wm0-f41.google.com with SMTP id l65so189135333wmf.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:06:40 -0800 (PST)
 In-Reply-To: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Elad Raz <eladr@mellanox.com>
 
-Multicast-related records have specific format in SFD register.
+Add SWITCHDEV_OBJ_ID_PORT_MDB switchdev ops support. On first MDB insertion
+creates a new multicast group (MID) and add members port to the MID. Also
+add new MDB entry for the flooding-domain (fid-vid) and link the MDB entry
+to the newly constructed MC group.
 
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 49 +++++++++++++++++++++++++++----
- 1 file changed, 44 insertions(+), 5 deletions(-)
+v1->v2:
+- changed GFP_ATOMIC to GFP_KERNEL in __mlxsw_sp_mc_alloc as suggested by Nik
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  13 ++
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 176 +++++++++++++++++++++
+ 3 files changed, 190 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 66d851d..9b79457 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -287,6 +287,7 @@ MLXSW_ITEM32_INDEXED(reg, sfd, rec_swid, MLXSW_REG_SFD_BASE_LEN, 24, 8,
- enum mlxsw_reg_sfd_rec_type {
- 	MLXSW_REG_SFD_REC_TYPE_UNICAST = 0x0,
- 	MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG = 0x1,
-+	MLXSW_REG_SFD_REC_TYPE_MULTICAST = 0x2,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index d0e98b8..ce6845d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1858,6 +1858,7 @@ static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
+ 	mlxsw_sp->bus_info = mlxsw_bus_info;
+ 	INIT_LIST_HEAD(&mlxsw_sp->port_vfids.list);
+ 	INIT_LIST_HEAD(&mlxsw_sp->br_vfids.list);
++	INIT_LIST_HEAD(&mlxsw_sp->br_mids.list);
+ 
+ 	err = mlxsw_sp_base_mac_get(mlxsw_sp);
+ 	if (err) {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index f360618..a23dc61 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -44,6 +44,7 @@
+ #include <linux/list.h>
+ #include <net/switchdev.h>
+ 
++#include "port.h"
+ #include "core.h"
+ 
+ #define MLXSW_SP_VFID_BASE VLAN_N_VID
+@@ -71,6 +72,14 @@ struct mlxsw_sp_vfid {
+ 	u16 vid;
  };
  
- /* reg_sfd_rec_type
-@@ -379,7 +380,6 @@ MLXSW_ITEM32_INDEXED(reg, sfd, uc_system_port, MLXSW_REG_SFD_BASE_LEN, 0, 16,
- 
- static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
- 					  enum mlxsw_reg_sfd_rec_type rec_type,
--					  enum mlxsw_reg_sfd_rec_policy policy,
- 					  const char *mac,
- 					  enum mlxsw_reg_sfd_rec_action action)
++struct mlxsw_sp_mid {
++	struct list_head list;
++	unsigned char addr[ETH_ALEN];
++	u16 vid;
++	u16 mid;
++	unsigned int ref_count;
++};
++
+ static inline u16 mlxsw_sp_vfid_to_fid(u16 vfid)
  {
-@@ -389,7 +389,6 @@ static inline void mlxsw_reg_sfd_rec_pack(char *payload, int rec_index,
- 		mlxsw_reg_sfd_num_rec_set(payload, rec_index + 1);
- 	mlxsw_reg_sfd_rec_swid_set(payload, rec_index, 0);
- 	mlxsw_reg_sfd_rec_type_set(payload, rec_index, rec_type);
--	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
- 	mlxsw_reg_sfd_rec_mac_memcpy_to(payload, rec_index, mac);
- 	mlxsw_reg_sfd_rec_action_set(payload, rec_index, action);
- }
-@@ -401,8 +400,8 @@ static inline void mlxsw_reg_sfd_uc_pack(char *payload, int rec_index,
- 					 u8 local_port)
- {
- 	mlxsw_reg_sfd_rec_pack(payload, rec_index,
--			       MLXSW_REG_SFD_REC_TYPE_UNICAST,
--			       policy, mac, action);
-+			       MLXSW_REG_SFD_REC_TYPE_UNICAST, mac, action);
-+	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
- 	mlxsw_reg_sfd_uc_sub_port_set(payload, rec_index, 0);
- 	mlxsw_reg_sfd_uc_fid_vid_set(payload, rec_index, fid_vid);
- 	mlxsw_reg_sfd_uc_system_port_set(payload, rec_index, local_port);
-@@ -461,7 +460,8 @@ mlxsw_reg_sfd_uc_lag_pack(char *payload, int rec_index,
- {
- 	mlxsw_reg_sfd_rec_pack(payload, rec_index,
- 			       MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG,
--			       policy, mac, action);
-+			       mac, action);
-+	mlxsw_reg_sfd_rec_policy_set(payload, rec_index, policy);
- 	mlxsw_reg_sfd_uc_lag_sub_port_set(payload, rec_index, 0);
- 	mlxsw_reg_sfd_uc_lag_fid_vid_set(payload, rec_index, fid_vid);
- 	mlxsw_reg_sfd_uc_lag_lag_vid_set(payload, rec_index, lag_vid);
-@@ -477,6 +477,45 @@ static inline void mlxsw_reg_sfd_uc_lag_unpack(char *payload, int rec_index,
- 	*p_lag_id = mlxsw_reg_sfd_uc_lag_lag_id_get(payload, rec_index);
+ 	return MLXSW_SP_VFID_BASE + vfid;
+@@ -95,6 +104,10 @@ struct mlxsw_sp {
+ 		struct list_head list;
+ 		unsigned long mapped[BITS_TO_LONGS(MLXSW_SP_VFID_BR_MAX)];
+ 	} br_vfids;
++	struct {
++		struct list_head list;
++		unsigned long mapped[BITS_TO_LONGS(MLXSW_SP_MID_MAX)];
++	} br_mids;
+ 	unsigned long active_fids[BITS_TO_LONGS(VLAN_N_VID)];
+ 	struct mlxsw_sp_port **ports;
+ 	struct mlxsw_core *core;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index aa8e2f5..aad05d4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -679,6 +679,143 @@ mlxsw_sp_port_fdb_static_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 						   true, false);
  }
  
-+/* reg_sfd_mc_pgi
-+ *
-+ * Multicast port group index - index into the port group table.
-+ * Value 0x1FFF indicates the pgi should point to the MID entry.
-+ * For Spectrum this value must be set to 0x1FFF
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, mc_pgi, MLXSW_REG_SFD_BASE_LEN, 16, 13,
-+		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
-+
-+/* reg_sfd_mc_fid_vid
-+ *
-+ * Filtering ID or VLAN ID
-+ * Access: Index
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, mc_fid_vid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
-+		     MLXSW_REG_SFD_REC_LEN, 0x08, false);
-+
-+/* reg_sfd_mc_mid
-+ *
-+ * Multicast identifier - global identifier that represents the multicast
-+ * group across all devices.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, sfd, mc_mid, MLXSW_REG_SFD_BASE_LEN, 0, 16,
-+		     MLXSW_REG_SFD_REC_LEN, 0x0C, false);
-+
-+static inline void
-+mlxsw_reg_sfd_mc_pack(char *payload, int rec_index,
-+		      const char *mac, u16 fid_vid,
-+		      enum mlxsw_reg_sfd_rec_action action, u16 mid)
++static int mlxsw_sp_port_mdb_op(struct mlxsw_sp *mlxsw_sp, const char *addr,
++				u16 fid, u16 mid, bool adding)
 +{
-+	mlxsw_reg_sfd_rec_pack(payload, rec_index,
-+			       MLXSW_REG_SFD_REC_TYPE_MULTICAST, mac, action);
-+	mlxsw_reg_sfd_mc_pgi_set(payload, rec_index, 0x1FFF);
-+	mlxsw_reg_sfd_mc_fid_vid_set(payload, rec_index, fid_vid);
-+	mlxsw_reg_sfd_mc_mid_set(payload, rec_index, mid);
++	char *sfd_pl;
++	int err;
++
++	sfd_pl = kmalloc(MLXSW_REG_SFD_LEN, GFP_KERNEL);
++	if (!sfd_pl)
++		return -ENOMEM;
++
++	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
++	mlxsw_reg_sfd_mc_pack(sfd_pl, 0, addr, fid,
++			      MLXSW_REG_SFD_REC_ACTION_NOP, mid);
++	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
++	kfree(sfd_pl);
++	return err;
 +}
 +
- /* SFN - Switch FDB Notification Register
-  * -------------------------------------------
-  * The switch provides notifications on newly learned FDB entries and
++static int mlxsw_sp_port_smid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 mid,
++				  bool add, bool clear_all_ports)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char *smid_pl;
++	int err, i;
++
++	smid_pl = kmalloc(MLXSW_REG_SMID_LEN, GFP_KERNEL);
++	if (!smid_pl)
++		return -ENOMEM;
++
++	mlxsw_reg_smid_pack(smid_pl, mid, mlxsw_sp_port->local_port, add);
++	if (clear_all_ports) {
++		for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++)
++			if (mlxsw_sp->ports[i])
++				mlxsw_reg_smid_port_mask_set(smid_pl, i, 1);
++	}
++	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(smid), smid_pl);
++	kfree(smid_pl);
++	return err;
++}
++
++static struct mlxsw_sp_mid *__mlxsw_sp_mc_get(struct mlxsw_sp *mlxsw_sp,
++					      const unsigned char *addr,
++					      u16 vid)
++{
++	struct mlxsw_sp_mid *mid;
++
++	list_for_each_entry(mid, &mlxsw_sp->br_mids.list, list) {
++		if (ether_addr_equal(mid->addr, addr) && mid->vid == vid)
++			return mid;
++	}
++	return NULL;
++}
++
++static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
++						const unsigned char *addr,
++						u16 vid)
++{
++	struct mlxsw_sp_mid *mid;
++	u16 mid_idx;
++
++	mid_idx = find_first_zero_bit(mlxsw_sp->br_mids.mapped,
++				      MLXSW_SP_MID_MAX);
++	if (mid_idx == MLXSW_SP_MID_MAX)
++		return NULL;
++
++	mid = kzalloc(sizeof(*mid), GFP_KERNEL);
++	if (!mid)
++		return NULL;
++
++	set_bit(mid_idx, mlxsw_sp->br_mids.mapped);
++	ether_addr_copy(mid->addr, addr);
++	mid->vid = vid;
++	mid->mid = mid_idx;
++	mid->ref_count = 0;
++	list_add_tail(&mid->list, &mlxsw_sp->br_mids.list);
++
++	return mid;
++}
++
++static int __mlxsw_sp_mc_dec_ref(struct mlxsw_sp *mlxsw_sp,
++				 struct mlxsw_sp_mid *mid)
++{
++	if (--mid->ref_count == 0) {
++		list_del(&mid->list);
++		clear_bit(mid->mid, mlxsw_sp->br_mids.mapped);
++		kfree(mid);
++		return 1;
++	}
++	return 0;
++}
++
++static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
++				 const struct switchdev_obj_port_mdb *mdb,
++				 struct switchdev_trans *trans)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct net_device *dev = mlxsw_sp_port->dev;
++	struct mlxsw_sp_mid *mid;
++	u16 fid = mlxsw_sp_port_vid_to_fid_get(mlxsw_sp_port, mdb->vid);
++	int err = 0;
++
++	if (switchdev_trans_ph_prepare(trans))
++		return 0;
++
++	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, mdb->vid);
++	if (!mid) {
++		mid = __mlxsw_sp_mc_alloc(mlxsw_sp, mdb->addr, mdb->vid);
++		if (!mid) {
++			netdev_err(dev, "Unable to allocate MC group\n");
++			return -ENOMEM;
++		}
++	}
++	mid->ref_count++;
++
++	err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, true,
++				     mid->ref_count == 1);
++	if (err) {
++		netdev_err(dev, "Unable to set SMID\n");
++		goto err_out;
++	}
++
++	if (mid->ref_count == 1) {
++		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid, mid->mid,
++					   true);
++		if (err) {
++			netdev_err(dev, "Unable to set MC SFD\n");
++			goto err_out;
++		}
++	}
++
++	return 0;
++
++err_out:
++	__mlxsw_sp_mc_dec_ref(mlxsw_sp, mid);
++	return err;
++}
++
+ static int mlxsw_sp_port_obj_add(struct net_device *dev,
+ 				 const struct switchdev_obj *obj,
+ 				 struct switchdev_trans *trans)
+@@ -704,6 +841,11 @@ static int mlxsw_sp_port_obj_add(struct net_device *dev,
+ 						   SWITCHDEV_OBJ_PORT_FDB(obj),
+ 						   trans);
+ 		break;
++	case SWITCHDEV_OBJ_ID_PORT_MDB:
++		err = mlxsw_sp_port_mdb_add(mlxsw_sp_port,
++					    SWITCHDEV_OBJ_PORT_MDB(obj),
++					    trans);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -817,6 +959,37 @@ mlxsw_sp_port_fdb_static_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 						   false, false);
+ }
+ 
++static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
++				 const struct switchdev_obj_port_mdb *mdb)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct net_device *dev = mlxsw_sp_port->dev;
++	struct mlxsw_sp_mid *mid;
++	u16 fid = mlxsw_sp_port_vid_to_fid_get(mlxsw_sp_port, mdb->vid);
++	u16 mid_idx;
++	int err = 0;
++
++	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, mdb->vid);
++	if (!mid) {
++		netdev_err(dev, "Unable to remove port from MC DB\n");
++		return -EINVAL;
++	}
++
++	err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, false, false);
++	if (err)
++		netdev_err(dev, "Unable to remove port from SMID\n");
++
++	mid_idx = mid->mid;
++	if (__mlxsw_sp_mc_dec_ref(mlxsw_sp, mid)) {
++		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid, mid_idx,
++					   false);
++		if (err)
++			netdev_err(dev, "Unable to remove MC SFD\n");
++	}
++
++	return err;
++}
++
+ static int mlxsw_sp_port_obj_del(struct net_device *dev,
+ 				 const struct switchdev_obj *obj)
+ {
+@@ -839,6 +1012,9 @@ static int mlxsw_sp_port_obj_del(struct net_device *dev,
+ 		err = mlxsw_sp_port_fdb_static_del(mlxsw_sp_port,
+ 						   SWITCHDEV_OBJ_PORT_FDB(obj));
+ 		break;
++	case SWITCHDEV_OBJ_ID_PORT_MDB:
++		err = mlxsw_sp_port_mdb_del(mlxsw_sp_port,
++					    SWITCHDEV_OBJ_PORT_MDB(obj));
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
 -- 
 1.9.3
