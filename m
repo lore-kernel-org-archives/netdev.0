@@ -1,17 +1,17 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: spectrum: Add FDB lock to prevent session interleaving
-Date: Sun, 10 Jan 2016 09:30:23 +0100
-Message-ID: <1452414623-3516-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum: Add FDB lock to prevent session interleaving
+Date: Sun, 10 Jan 2016 09:32:16 +0100
+Message-ID: <1452414736-3571-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35396 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210AbcAJIa2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 03:30:28 -0500
-Received: by mail-wm0-f46.google.com with SMTP id f206so178614807wmf.0
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 00:30:27 -0800 (PST)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:35873 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751622AbcAJIcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 03:32:19 -0500
+Received: by mail-wm0-f52.google.com with SMTP id l65so178297852wmf.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 00:32:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -38,38 +38,38 @@ Signed-off-by: Jiri Pirko <jiri@mellanox.com>
  2 files changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 7601789..0bbaef3 100644
+index 4365c8b..69281ca 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -105,6 +105,7 @@ struct mlxsw_sp {
+@@ -63,6 +63,7 @@ struct mlxsw_sp {
  	} fdb_notify;
  #define MLXSW_SP_DEFAULT_AGEING_TIME 300
  	u32 ageing_time;
 +	struct mutex fdb_lock;	/* Make sure FDB sessions are atomic. */
- 	struct mlxsw_sp_upper master_bridge;
- 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
- };
+ 	struct {
+ 		struct net_device *dev;
+ 		unsigned int ref_count;
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index d64559e..94bc73c 100644
+index 617fb22..80e2660 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -881,6 +881,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
- 		vport_vid = mlxsw_sp_vport_vid_get(mlxsw_sp_port);
- 	}
+@@ -650,6 +650,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (!sfd_pl)
+ 		return -ENOMEM;
  
-+	mutex_lock(&mlxsw_sp->fdb_lock);
++	mutex_lock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
  	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
  	do {
  		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
-@@ -938,6 +939,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -684,6 +685,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
  	} while (num_rec == MLXSW_REG_SFD_REC_MAX_COUNT);
  
  out:
-+	mutex_unlock(&mlxsw_sp->fdb_lock);
++	mutex_unlock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
  	kfree(sfd_pl);
  	return stored_err ? stored_err : err;
  }
-@@ -1187,6 +1189,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+@@ -812,6 +814,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
  
  	mlxsw_sp = container_of(work, struct mlxsw_sp, fdb_notify.dw.work);
  
@@ -77,7 +77,7 @@ index d64559e..94bc73c 100644
  	do {
  		mlxsw_reg_sfn_pack(sfn_pl);
  		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfn), sfn_pl);
-@@ -1199,6 +1202,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+@@ -824,6 +827,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
  			mlxsw_sp_fdb_notify_rec_process(mlxsw_sp, sfn_pl, i);
  
  	} while (num_rec);
@@ -85,7 +85,7 @@ index d64559e..94bc73c 100644
  
  	kfree(sfn_pl);
  	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
-@@ -1213,6 +1217,7 @@ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
+@@ -838,6 +842,7 @@ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
  		dev_err(mlxsw_sp->bus_info->dev, "Failed to set default ageing time\n");
  		return err;
  	}
@@ -94,4 +94,4 @@ index d64559e..94bc73c 100644
  	mlxsw_sp->fdb_notify.interval = MLXSW_SP_DEFAULT_LEARNING_INTERVAL;
  	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
 -- 
-1.9.3
+2.4.3
