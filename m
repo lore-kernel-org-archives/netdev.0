@@ -1,50 +1,141 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Bluetooth: WARNING: CPU: 1 PID: 25657 at include/net/sock.h:586
- bt_sock_unlink+0x1c7/0x220()
-Date: Sun, 10 Jan 2016 14:55:50 -0500
-Message-ID: <5692B746.4050007@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [iproute2 1/1] tc: flower no need to specify the ethertype
+Date: Sun, 10 Jan 2016 14:56:31 -0500
+Message-ID: <1452455791-5833-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org, jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:35687 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757185AbcAJT4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 14:56:42 -0500
+Received: by mail-ig0-f169.google.com with SMTP id t15so83152397igr.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 11:56:42 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-While fuzzing with trinity inside a KVM tools guest, running the latest -next
-kernel, I've hit the following warning:
+since all tc classifiers are required to specify ethertype as part of grammar
+By not allowing eth_type to be specified we remove contradiction for 
+example when a user specifies:
+tc filter add ... priority xxx protocol ip flower eth_type ipv6
+This patch removes that contradiction
 
-[ 1153.249127] WARNING: CPU: 1 PID: 25657 at include/net/sock.h:586 bt_sock_unlink+0x1c7/0x220()
-[ 1153.250162] Modules linked in:
-[ 1153.250996] CPU: 1 PID: 25657 Comm: trinity-c223 Tainted: G        W       4.4.0-rc8-next-20160108-sasha-00024-gaaecb9a #2780
-[ 1153.252551]  1ffff100184f5f00 0000000015bfc733 ffff8800c27af880 ffffffff8301a182
-[ 1153.253594]  0000000041b58ab3 ffffffff8e1b3838 ffffffff8301a0b7 0000000015bfc733
-[ 1153.254857]  ffffffff8177f4c7 0000000015bfc733 ffff8801d16eb000 0000000000000001
-[ 1153.272107] Call Trace:
-[ 1153.272568] dump_stack (lib/dump_stack.c:52)
-[ 1153.274909] warn_slowpath_common (kernel/panic.c:484)
-[ 1153.276544] warn_slowpath_null (kernel/panic.c:518)
-[ 1153.277341] bt_sock_unlink (./arch/x86/include/asm/atomic.h:103 include/net/sock.h:577 include/net/sock.h:587 net/bluetooth/af_bluetooth.c:148)
-[ 1153.280581] hidp_sock_release (include/net/sock.h:1546 net/bluetooth/hidp/sock.c:43)
-[ 1153.281435] sock_release (net/socket.c:573)
-[ 1153.282145] sock_close (net/socket.c:1025)
-[ 1153.282874] __fput (fs/file_table.c:209)
-[ 1153.283581] ____fput (fs/file_table.c:245)
-[ 1153.296361] task_work_run (kernel/task_work.c:117 (discriminator 1))
-[ 1153.297090] do_exit (kernel/exit.c:749)
-[ 1153.302756] do_group_exit (kernel/exit.c:862)
-[ 1153.303523] get_signal (kernel/signal.c:2307)
-[ 1153.307151] do_signal (arch/x86/kernel/signal.c:781)
-[ 1153.322592] exit_to_usermode_loop (arch/x86/entry/common.c:249)
-[ 1153.323416] syscall_return_slowpath (./arch/x86/include/asm/jump_label.h:35 include/linux/context_tracking_state.h:30 include/linux/context_tracking.h:24 arch/x86/entry/common.c:284 arch/x86/entry/common.c:344)
-[ 1153.324276] int_ret_from_sys_call (arch/x86/entry/entry_64.S:282)
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/f_flower.c | 55 +++++++++++++++++--------------------------------------
+ 1 file changed, 17 insertions(+), 38 deletions(-)
 
-
-Thanks,
-Sasha
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index a9b2c4d..db9cc29 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -31,7 +31,7 @@ static void explain(void)
+ 	fprintf(stderr, "       MATCH      := { indev DEV-NAME | \n");
+ 	fprintf(stderr, "                       dst_mac MAC-ADDR | \n");
+ 	fprintf(stderr, "                       src_mac MAC-ADDR | \n");
+-	fprintf(stderr, "                       eth_type [ipv4 | ipv6 | ETH-TYPE ] | \n");
++	fprintf(stderr, "                       [ipv4 | ipv6 ] | \n");
+ 	fprintf(stderr, "                       ip_proto [tcp | udp | IP-PROTO ] | \n");
+ 	fprintf(stderr, "                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] | \n");
+ 	fprintf(stderr, "                       src_ip [ IPV4-ADDR | IPV6-ADDR ] | \n");
+@@ -60,29 +60,6 @@ static int flower_parse_eth_addr(char *str, int addr_type, int mask_type,
+ 	return 0;
+ }
+ 
+-static int flower_parse_eth_type(char *str, int type, __be16 *p_eth_type,
+-				 struct nlmsghdr *n)
+-{
+-	int ret;
+-	__be16 eth_type;
+-
+-	if (matches(str, "ipv4") == 0) {
+-		eth_type = htons(ETH_P_IP);
+-	} else if (matches(str, "ipv6") == 0) {
+-		eth_type = htons(ETH_P_IPV6);
+-	} else {
+-		__u16 tmp;
+-
+-		ret = get_u16(&tmp, str, 16);
+-		if (ret)
+-			return -1;
+-		eth_type = htons(tmp);
+-	}
+-	addattr16(n, MAX_MSG, type, eth_type);
+-	*p_eth_type = eth_type;
+-	return 0;
+-}
+-
+ static int flower_parse_ip_proto(char *str, __be16 eth_type, int type,
+ 				 __u8 *p_ip_proto, struct nlmsghdr *n)
+ {
+@@ -188,12 +165,9 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 	int ret;
+ 	struct tcmsg *t = NLMSG_DATA(n);
+ 	struct rtattr *tail;
+-	__be16 eth_type = 0;
++	__be16 eth_type = TC_H_MIN(t->tcm_info);
+ 	__u8 ip_proto = 0xff;
+ 
+-	if (argc == 0)
+-		return 0;
+-
+ 	if (handle) {
+ 		ret = get_u32(&t->tcm_handle, handle, 0);
+ 		if (ret) {
+@@ -205,6 +179,11 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 	tail = (struct rtattr *) (((void *) n) + NLMSG_ALIGN(n->nlmsg_len));
+ 	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
+ 
++	if (argc == 0) {
++		/*at minimal we will match all ethertype packets */
++		goto parse_done;
++	}
++
+ 	while (argc > 0) {
+ 		if (matches(*argv, "classid") == 0 ||
+ 		    matches(*argv, "flowid") == 0) {
+@@ -244,15 +223,6 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 				fprintf(stderr, "Illegal \"src_mac\"\n");
+ 				return -1;
+ 			}
+-		} else if (matches(*argv, "eth_type") == 0) {
+-			NEXT_ARG();
+-			ret = flower_parse_eth_type(*argv,
+-						    TCA_FLOWER_KEY_ETH_TYPE,
+-						    &eth_type, n);
+-			if (ret < 0) {
+-				fprintf(stderr, "Illegal \"eth_type\"\n");
+-				return -1;
+-			}
+ 		} else if (matches(*argv, "ip_proto") == 0) {
+ 			NEXT_ARG();
+ 			ret = flower_parse_ip_proto(*argv, eth_type,
+@@ -323,6 +293,14 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 		argc--; argv++;
+ 	}
+ 
++parse_done:
++	ret = addattr16(n, MAX_MSG, TCA_FLOWER_KEY_ETH_TYPE, eth_type);
++	if (ret) {
++		fprintf(stderr, "Illegal \"eth_type\"(0x%x)\n",
++			ntohs(eth_type));
++		return -1;
++	}
++
+ 	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
+ 
+ 	return 0;
+@@ -489,7 +467,8 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 	if (tb[TCA_FLOWER_CLASSID]) {
+ 		SPRINT_BUF(b1);
+ 		fprintf(f, "classid %s ",
+-			sprint_tc_classid(rta_getattr_u32(tb[TCA_FLOWER_CLASSID]), b1));
++			sprint_tc_classid(rta_getattr_u32(tb[TCA_FLOWER_CLASSID]),
++					  b1));
+ 	}
+ 
+ 	if (tb[TCA_FLOWER_INDEV]) {
+-- 
+1.9.1
