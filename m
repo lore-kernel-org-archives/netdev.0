@@ -1,50 +1,50 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
- function
-Date: Sun, 10 Jan 2016 12:10:03 -0800
-Message-ID: <5692BA9B.6020704@roeck-us.net>
-References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
- <20160109165802.GD28813@lunn.ch> <56914D21.9050804@roeck-us.net>
- <20160109205240.GA6877@lunn.ch> <569275C0.1040606@roeck-us.net>
- <20160110154945.GD22229@lunn.ch> <56928539.1060009@roeck-us.net>
- <20160110172109.GF22229@lunn.ch>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 7/8] mlxsw: Adding layer 2 multicast support
+Date: Sun, 10 Jan 2016 21:11:40 +0100
+Message-ID: <5692BAFC.9080505@cumulusnetworks.com>
+References: <1452456389-2833-1-git-send-email-jiri@resnulli.us>
+ <1452456389-2833-8-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160110172109.GF22229@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, corbet@lwn.net,
+	stephen@networkplumber.org, sfeldma@gmail.com,
+	vivien.didelot@savoirfairelinux.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:34525 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757185AbcAJULn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 15:11:43 -0500
+Received: by mail-wm0-f49.google.com with SMTP id u188so192342773wmu.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 12:11:43 -0800 (PST)
+In-Reply-To: <1452456389-2833-8-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2016 09:21 AM, Andrew Lunn wrote:
->> drivers/net/ethernet/amd/au1000_eth.c:  /* WARNING: bus->phy_map[phy_addr].attached_dev == dev does
->> 	[ no idea what to do with that comment ]
->
-> That comment is very generic, it applies to all MDIO devices. So i'm
-> tempted to remove it. I will send a patch, probably tomorrow.
->
->> drivers/net/ethernet/broadcom/sb1250-mac.c:             phy_dev = sc->mii_bus->phy_map[i];
->> 	[ can use phy_find_first ]
->
-> Yes, phy_find_first.
->
->> drivers/staging/netlogic/xlr_net.c:     struct phy_device *phydev = priv->mii_bus->phy_map[priv->phy_addr];
->> 	[ several ]	
->
-> Odd that i missed that file for phy_map, but did patch it for
-> phydev_name().
->
+On 01/10/2016 09:06 PM, Jiri Pirko wrote:
+> From: Elad Raz <eladr@mellanox.com>
+> 
+> Add SWITCHDEV_OBJ_ID_PORT_MDB switchdev ops support. On first MDB insertion
+> creates a new multicast group (MID) and add members port to the MID. Also
+> add new MDB entry for the flooding-domain (fid-vid) and link the MDB entry
+> to the newly constructed MC group.
+> 
+> Signed-off-by: Elad Raz <eladr@mellanox.com>
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v1->v2:
+> - changed GFP_ATOMIC to GFP_KERNEL in __mlxsw_sp_mc_alloc as suggested by Nik
+> ---
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   1 +
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  13 ++
+>  .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 176 +++++++++++++++++++++
+>  3 files changed, 190 insertions(+)
+> 
 
-xlr_net.c also fails to build with
+Thanks!
 
-drivers/staging/netlogic/xlr_net.c: In function 'xlr_setup_mdio':
-drivers/staging/netlogic/xlr_net.c:879:21: error: assignment to expression with array type
-   priv->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
-
-This might be related to "mdio: Move allocation of interrupts into core",
-though I didn't track it down.
-
-Guenter
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
