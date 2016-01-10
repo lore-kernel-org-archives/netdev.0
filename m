@@ -1,274 +1,172 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 11/12] IB/mlx5: Add flow steering utilities
-Date: Sun, 10 Jan 2016 10:39:48 +0200
-Message-ID: <1452415189-27950-12-git-send-email-ogerlitz@mellanox.com>
-References: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH for-net V2 00/12] net/mlx5_core: Enhance flow steering support
+Date: Sun, 10 Jan 2016 10:39:37 +0200
+Message-ID: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Matan Barak <matanb@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51437 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51233 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753955AbcAJIlT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jan 2016 03:41:19 -0500
-In-Reply-To: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
+	id S1751210AbcAJIkW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jan 2016 03:40:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maor Gottlieb <maorg@mellanox.com>
+Hi Dave,
 
-Add three utility functions for support flow steering:
+v0 --> v1 changes:
+  - fixed improperly formatted comments.
+  - compare value of ib_spec->eth.mask.ether_type in network byte order
+     in ('IB/mlx5: Add flow steering utilities').
 
-1. Parsing verbs flow attributes hardware steering specs.
-
-2. Check if flow is multicast - this is required in order to decide to
-which flow table will we add the steering rule.
-
-3. Set outer headers in flow match criteria to zeros.
-
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Moni Shoua <monis@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
----
- drivers/infiniband/hw/mlx5/main.c    | 178 +++++++++++++++++++++++++++++++++++
- drivers/infiniband/hw/mlx5/mlx5_ib.h |   5 +
- include/linux/mlx5/fs.h              |  10 ++
- 3 files changed, 193 insertions(+)
-
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index 7e97cb5..7799361 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -43,6 +43,8 @@
- #include <linux/mlx5/vport.h>
- #include <rdma/ib_smi.h>
- #include <rdma/ib_umem.h>
-+#include <linux/in.h>
-+#include <linux/etherdevice.h>
- #include "user.h"
- #include "mlx5_ib.h"
+v1 --> v2 changes:
+  - made sure that service functions added in the IB driver are only static-fied 
+    on the last commit, to make sure bisection with -Werror works fine.
  
-@@ -835,6 +837,182 @@ static int mlx5_ib_dealloc_pd(struct ib_pd *pd)
- 	return 0;
- }
- 
-+bool outer_header_zero(u32 *match_criteria)
-+{
-+	int size = MLX5_ST_SZ_BYTES(fte_match_param);
-+	char *outer_headers_c = MLX5_ADDR_OF(fte_match_param, match_criteria,
-+					     outer_headers);
-+
-+	return outer_headers_c[0] == 0 && !memcmp(outer_headers_c,
-+						  outer_headers_c + 1,
-+						  size - 1);
-+}
-+
-+int parse_flow_attr(u32 *match_c, u32 *match_v,
-+		    union ib_flow_spec *ib_spec)
-+{
-+	void *outer_headers_c = MLX5_ADDR_OF(fte_match_param, match_c,
-+					     outer_headers);
-+	void *outer_headers_v = MLX5_ADDR_OF(fte_match_param, match_v,
-+					     outer_headers);
-+	switch (ib_spec->type) {
-+	case IB_FLOW_SPEC_ETH:
-+		if (ib_spec->size != sizeof(ib_spec->eth))
-+			return -EINVAL;
-+
-+		ether_addr_copy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
-+					     dmac_47_16),
-+				ib_spec->eth.mask.dst_mac);
-+		ether_addr_copy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_v,
-+					     dmac_47_16),
-+				ib_spec->eth.val.dst_mac);
-+
-+		if (ib_spec->eth.mask.vlan_tag) {
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
-+				 vlan_tag, 1);
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
-+				 vlan_tag, 1);
-+
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
-+				 first_vid, ntohs(ib_spec->eth.mask.vlan_tag));
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
-+				 first_vid, ntohs(ib_spec->eth.val.vlan_tag));
-+
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
-+				 first_cfi,
-+				 ntohs(ib_spec->eth.mask.vlan_tag) >> 12);
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
-+				 first_cfi,
-+				 ntohs(ib_spec->eth.val.vlan_tag) >> 12);
-+
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
-+				 first_prio,
-+				 ntohs(ib_spec->eth.mask.vlan_tag) >> 13);
-+			MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
-+				 first_prio,
-+				 ntohs(ib_spec->eth.val.vlan_tag) >> 13);
-+		}
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
-+			 ethertype, ntohs(ib_spec->eth.mask.ether_type));
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
-+			 ethertype, ntohs(ib_spec->eth.val.ether_type));
-+		break;
-+	case IB_FLOW_SPEC_IPV4:
-+		if (ib_spec->size != sizeof(ib_spec->ipv4))
-+			return -EINVAL;
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c,
-+			 ethertype, 0xffff);
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v,
-+			 ethertype, ETH_P_IP);
-+
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
-+				    src_ipv4_src_ipv6.ipv4_layout.ipv4),
-+		       &ib_spec->ipv4.mask.src_ip,
-+		       sizeof(ib_spec->ipv4.mask.src_ip));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_v,
-+				    src_ipv4_src_ipv6.ipv4_layout.ipv4),
-+		       &ib_spec->ipv4.val.src_ip,
-+		       sizeof(ib_spec->ipv4.val.src_ip));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
-+				    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
-+		       &ib_spec->ipv4.mask.dst_ip,
-+		       sizeof(ib_spec->ipv4.mask.dst_ip));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_v,
-+				    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
-+		       &ib_spec->ipv4.val.dst_ip,
-+		       sizeof(ib_spec->ipv4.val.dst_ip));
-+		break;
-+	case IB_FLOW_SPEC_TCP:
-+		if (ib_spec->size != sizeof(ib_spec->tcp_udp))
-+			return -EINVAL;
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c, ip_protocol,
-+			 0xff);
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v, ip_protocol,
-+			 IPPROTO_TCP);
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c, tcp_sport,
-+			 ntohs(ib_spec->tcp_udp.mask.src_port));
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v, tcp_sport,
-+			 ntohs(ib_spec->tcp_udp.val.src_port));
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c, tcp_dport,
-+			 ntohs(ib_spec->tcp_udp.mask.dst_port));
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v, tcp_dport,
-+			 ntohs(ib_spec->tcp_udp.val.dst_port));
-+		break;
-+	case IB_FLOW_SPEC_UDP:
-+		if (ib_spec->size != sizeof(ib_spec->tcp_udp))
-+			return -EINVAL;
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c, ip_protocol,
-+			 0xff);
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v, ip_protocol,
-+			 IPPROTO_UDP);
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c, udp_sport,
-+			 ntohs(ib_spec->tcp_udp.mask.src_port));
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v, udp_sport,
-+			 ntohs(ib_spec->tcp_udp.val.src_port));
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_c, udp_dport,
-+			 ntohs(ib_spec->tcp_udp.mask.dst_port));
-+		MLX5_SET(fte_match_set_lyr_2_4, outer_headers_v, udp_dport,
-+			 ntohs(ib_spec->tcp_udp.val.dst_port));
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+/* If a flow could catch both multicast and unicast packets,
-+ * it won't fall into the multicast flow steering table and this rule
-+ * could steal other multicast packets.
-+ */
-+bool flow_is_multicast_only(struct ib_flow_attr *ib_attr)
-+{
-+	struct ib_flow_spec_eth *eth_spec;
-+
-+	if (ib_attr->type != IB_FLOW_ATTR_NORMAL ||
-+	    ib_attr->size < sizeof(struct ib_flow_attr) +
-+	    sizeof(struct ib_flow_spec_eth) ||
-+	    ib_attr->num_of_specs < 1)
-+		return false;
-+
-+	eth_spec = (struct ib_flow_spec_eth *)(ib_attr + 1);
-+	if (eth_spec->type != IB_FLOW_SPEC_ETH ||
-+	    eth_spec->size != sizeof(*eth_spec))
-+		return false;
-+
-+	return is_multicast_ether_addr(eth_spec->mask.dst_mac) &&
-+	       is_multicast_ether_addr(eth_spec->val.dst_mac);
-+}
-+
-+bool is_valid_attr(struct ib_flow_attr *flow_attr)
-+{
-+	union ib_flow_spec *ib_spec = (union ib_flow_spec *)(flow_attr + 1);
-+	bool has_ipv4_spec = false;
-+	bool eth_type_ipv4 = true;
-+	unsigned int spec_index;
-+
-+	/* Validate that ethertype is correct */
-+	for (spec_index = 0; spec_index < flow_attr->num_of_specs; spec_index++) {
-+		if (ib_spec->type == IB_FLOW_SPEC_ETH &&
-+		    ib_spec->eth.mask.ether_type) {
-+			if (!((ib_spec->eth.mask.ether_type == htons(0xffff)) &&
-+			      ib_spec->eth.val.ether_type == htons(ETH_P_IP)))
-+				eth_type_ipv4 = false;
-+		} else if (ib_spec->type == IB_FLOW_SPEC_IPV4) {
-+			has_ipv4_spec = true;
-+		}
-+		ib_spec = (void *)ib_spec + ib_spec->size;
-+	}
-+	return !has_ipv4_spec || eth_type_ipv4;
-+}
-+
- static int mlx5_ib_mcg_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
- {
- 	struct mlx5_ib_dev *dev = to_mdev(ibqp->device);
-diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-index 6333472..1e9dcbe 100644
---- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
-+++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-@@ -662,4 +662,9 @@ static inline int is_qp1(enum ib_qp_type qp_type)
- #define MLX5_MAX_UMR_SHIFT 16
- #define MLX5_MAX_UMR_PAGES (1 << MLX5_MAX_UMR_SHIFT)
- 
-+bool outer_header_zero(u32 *match_criteria);
-+int parse_flow_attr(u32 *match_c, u32 *match_v,
-+		    union ib_flow_spec *ib_spec);
-+bool flow_is_multicast_only(struct ib_flow_attr *ib_attr);
-+bool is_valid_attr(struct ib_flow_attr *flow_attr);
- #endif /* MLX5_IB_H */
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-index a943412..8230caa 100644
---- a/include/linux/mlx5/fs.h
-+++ b/include/linux/mlx5/fs.h
-@@ -38,6 +38,16 @@
- 
- #define MLX5_FS_DEFAULT_FLOW_TAG 0x0
- 
-+#define LEFTOVERS_RULE_NUM	 2
-+static inline void build_leftovers_ft_param(int *priority,
-+					    int *n_ent,
-+					    int *n_grp)
-+{
-+	*priority = 0; /* Priority of leftovers_prio-0 */
-+	*n_ent = LEFTOVERS_RULE_NUM;
-+	*n_grp = LEFTOVERS_RULE_NUM;
-+}
-+
- enum mlx5_flow_namespace_type {
- 	MLX5_FLOW_NAMESPACE_BYPASS,
- 	MLX5_FLOW_NAMESPACE_KERNEL,
+v2 has been generated against net-next commit c9c9931 "Merge tag 
+'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge"
+
+The series is signed by Matan who was revently assigned to a maintainer for 
+the mlx5_core and IB drivers (this is a 4.5-rc1 change to the maintainers file coming 
+from the rdma tree) -- as such I didn't see a neeed to add my signature (Or).
+
+This series adds three new functionalists to the driver flow-steering
+infrastructure: auto-grouped flow tables, chaining of flow tables and 
+updates for the root flow table.
+
+1. Auto-grouped flow tables - Flow table with auto grouping management.
+When a flow table is created, hints regarding the number of rule types
+and the number of rules are given in advance. Thus, a flow table is
+divided into #NUM_TYPES+1 groups each contains
+(#NUM_RULES)/(#NUM_TYPES+1) rules. The first #NUM_TYPES parts are groups
+which are filled if the added rule matches the group specification or
+the group is empty. The last part is filled by rules that can't fit
+any of the former groups.
+
+2. Chaining flow tables - Flow tables from different priorities are chained
+together, if there is no match in flow table of priority i we continue
+searching for a match in priority i+1. This is both true if priorities
+i and i+1 belongs to the same namespace or not.
+
+3. Updating the root flow table - the root flow table is the flow table
+with the lowest level. The hardware start searching for a match in the
+root flow table and continue according to the matches it find along
+the way.
+
+The first usage for the new functionality is flow steering for user-space
+ConnectX-4 offloaded HW Eth RX queues done through the mlx5 IB driver.
+
+When the mlx5 core driver is loaded, it opens three flow namespaces:
+1. By-pass namespace (used by mlx5 IB driver).
+2. Kernel namespace (used in order to get packets to the networking stack
+through mlx5 EN driver).
+3. Leftovers namespace (used by mlx5 IB and future sniffer)
+
+The series is built as follows:
+
+Patch #1 introduces auto-grouped flow tables support.
+
+Patch #2 add utility functions for finding the next and the previous
+flow tables in different priorities. This is used in order to chain
+the flow tables in a downstream patch.
+
+Patch #3 introduces a firmware command for updating the root flow table.
+
+Patch #4 introduces modify flow table firmware command, this command is used
+when we want to change the next flow table of an existing flow table.
+This is used for chaining flow tables as well.
+
+Patch #5 connect/disconnect flow tables. This is actually the chaining
+process when we want to link flow tables. This means that if we couldn't
+find a match in the first flow table, we'll continue in the chained
+flow table.
+
+Patch #6 updates priority's attributes that is required for flow table
+level allocation. We update both the max_fts (the number of allowed FTs
+in the sub-tree of this priority) and the start_level (which is the first
+level we'll assign to the flow-tables created inside the priority).
+
+Patch #7 adds checking of required device capabilities. Some namespaces
+could be only created if the hardware supports certain attributes.
+This is especially true for the Bypass and leftovers namespaces. This
+adds a generic mechanism to check these required attributes.
+
+Patch #8 creates two additional namespaces:
+	a. Bypass flow rules(has nine priorities)
+	b. Leftovers packets(have one priority) - for unmatched packets.
+
+Patch #9 re-factors ipv4/ipv6 match fields in the mlx5 firmware interface
+header to be more clear.
+
+Patch #10 exports the flow steering API for mlx5_ib usage
+
+Patch #11 and #12 implements the required support in mlx5_ib in order
+to support the RDMA flow steering verbs.
+
+Regards,
+Moni, Matan and Maor
+
+Maor Gottlieb (12):
+  net/mlx5_core: Introduce flow steering autogrouped flow table
+  net/mlx5_core: Add utilities to find next and prev flow-tables
+  net/mlx5_core: Managing root flow table
+  net/mlx5_core: Introduce modify flow table command
+  net/mlx5_core: Connect flow tables
+  net/mlx5_core: Set priority attributes
+  net/mlx5_core: Initialize namespaces only when supported by device
+  net/mlx5_core: Enable flow steering support for the IB driver
+  net/mlx5_core: Make ipv4/ipv6 location more clear
+  net/mlx5_core: Export flow steering API
+  IB/mlx5: Add flow steering utilities
+  IB/mlx5: Add flow steering support
+
+ drivers/infiniband/hw/mlx5/main.c                 | 460 ++++++++++++++++
+ drivers/infiniband/hw/mlx5/mlx5_ib.h              |  45 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  52 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |   9 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 605 +++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  14 +
+ include/linux/mlx5/device.h                       |   2 +
+ include/linux/mlx5/fs.h                           |   8 +
+ include/linux/mlx5/mlx5_ifc.h                     | 105 +++-
+ 9 files changed, 1222 insertions(+), 78 deletions(-)
+
+-- 
+1.8.3.1
+
+
+
+*** BLURB HERE ***
+
+Maor Gottlieb (12):
+  net/mlx5_core: Introduce flow steering autogrouped flow table
+  net/mlx5_core: Add utilities to find next and prev flow-tables
+  net/mlx5_core: Managing root flow table
+  net/mlx5_core: Introduce modify flow table command
+  net/mlx5_core: Connect flow tables
+  net/mlx5_core: Set priority attributes
+  net/mlx5_core: Initialize namespaces only when supported by device
+  net/mlx5_core: Enable flow steering support for the IB driver
+  net/mlx5_core: Make ipv4/ipv6 location more clear
+  net/mlx5_core: Export flow steering API
+  IB/mlx5: Add flow steering utilities
+  IB/mlx5: Add flow steering support
+
+ drivers/infiniband/hw/mlx5/main.c                 | 463 +++++++++++++++++
+ drivers/infiniband/hw/mlx5/mlx5_ib.h              |  45 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  52 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |   9 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 601 +++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  14 +
+ include/linux/mlx5/device.h                       |   2 +
+ include/linux/mlx5/fs.h                           |  18 +
+ include/linux/mlx5/mlx5_ifc.h                     | 105 +++-
+ 9 files changed, 1233 insertions(+), 76 deletions(-)
+
 -- 
 2.3.7
