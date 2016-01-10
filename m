@@ -1,78 +1,33 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible) division by zero
-Date: Sun, 10 Jan 2016 23:56:54 +0200
-Message-ID: <3240923.Qg3kfz0Bvr@spock>
-References: <26396443.iDTTxgChSj@spock> <1562805.Wa36G0OKaZ@spock> <CADVnQykPOVf7PoK8-6Mvbmbcpe1eYY=cfKHgiNGDNSFfCDPb-A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH for-net V2 00/12] net/mlx5_core: Enhance flow steering
+ support
+Date: Sun, 10 Jan 2016 17:05:24 -0500 (EST)
+Message-ID: <20160110.170524.1947409913228474436.davem@davemloft.net>
+References: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADVnQykPOVf7PoK8-6Mvbmbcpe1eYY=cfKHgiNGDNSFfCDPb-A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dledford@redhat.com, matanb@mellanox.com,
+	maorg@mellanox.com, saeedm@mellanox.com, eranbe@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58489 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751645AbcAJWF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 17:05:26 -0500
+In-Reply-To: <1452415189-27950-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OK, it seems the assumption about YeAH is correct. Here is stacktrace f=
-ired by=20
-WARN_ON_ONCE():
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun, 10 Jan 2016 10:39:37 +0200
 
-https://gist.github.com/851cedcfca60d6120035
+> v1 --> v2 changes:
+>   - made sure that service functions added in the IB driver are only static-fied 
+>     on the last commit, to make sure bisection with -Werror works fine.
 
-Is there sufficient info for you to prepare upstream patch?
+Please don't do this.  This looks rediculous.
 
-On =D0=BD=D0=B5=D0=B4=D1=96=D0=BB=D1=8F, 10 =D1=81=D1=96=D1=87=D0=BD=D1=
-=8F 2016 =D1=80. 12:29:17 EET Neal Cardwell wrote:
-> On Sun, Jan 10, 2016 at 9:57 AM, Oleksandr Natalenko
->=20
-> <oleksandr@natalenko.name> wrote:
-> > I use YeAH. But YeAH code wasn't touched between 4.2 and 4.3.
->=20
-> Oh, interesting. Looks like tcp_yeah_ssthresh() has a bug where its
-> intended reduction can be bigger than tp->snd_cwnd, leading to it
-> return a zero ssthresh (or even an ssthresh that underflows to ~4
-> billion). If tcp_yeah_ssthresh() returns an ssthresh of 0 then PRR
-> will try to pull the cwnd down to 0.
->=20
-> Can you please leave ECN and Yeah enabled and run something like the
-> following patch, to verify this conjecture? If the conjecture is
-> right, then the tcp_yeah warning should fire but not the new
-> tcp_cwnd_reduction() warning:
->=20
-> -----------
-> diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-> index 17d3566..ef60cba 100644
-> --- a/net/ipv4/tcp_yeah.c
-> +++ b/net/ipv4/tcp_yeah.c
-> @@ -206,6 +206,7 @@ static u32 tcp_yeah_ssthresh(struct sock *sk)
->         const struct tcp_sock *tp =3D tcp_sk(sk);
->         struct yeah *yeah =3D inet_csk_ca(sk);
->         u32 reduction;
-> +       s32 ssthresh;
->=20
->         if (yeah->doing_reno_now < TCP_YEAH_RHO) {
->                 reduction =3D yeah->lastQ;
-> @@ -219,7 +220,9 @@ static u32 tcp_yeah_ssthresh(struct sock *sk)
->         yeah->fast_count =3D 0;
->         yeah->reno_count =3D max(yeah->reno_count>>1, 2U);
->=20
-> -       return tp->snd_cwnd - reduction;
-> +       ssthresh =3D tp->snd_cwnd - reduction;
-> +       if (WARN_ON_ONCE(ssthresh <=3D 0))
-> +               ssthresh =3D 1;
->  }
->=20
->  static struct tcp_congestion_ops tcp_yeah __read_mostly =3D {
-> -----------
->=20
-> If that works, then we may just want a version of this patch without
-> the warning.
->=20
-> Thanks!
-> neal
+Instead, if this kind of dependency exists in a source file, simply
+add the new functions in the same commit that adds the usage of
+them.
