@@ -1,9 +1,9 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH -next v2] net: bfin_mac: Fix build error due to missed API change
-Date: Sun, 10 Jan 2016 07:08:04 -0800
-Message-ID: <1452438484-29205-1-git-send-email-linux@roeck-us.net>
-Cc: =adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
+Subject: [PATCH -next v2 1/2] net: tc35815: Fix build error due to missed API change
+Date: Sun, 10 Jan 2016 07:10:44 -0800
+Message-ID: <1452438645-29440-1-git-send-email-linux@roeck-us.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>,
 	Andrew Lunn <andrew@lunn.ch>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,13 +12,21 @@ List-Id: netdev.vger.kernel.org
 
 Commit 7f854420fbfe ("phy: Add API for {un}registering an mdio device to
 a bus") introduces an API to access mii_bus structures, but missed to
-update the bfin_mac driver. This results in the following error message
+update the tc35815 driver. This results in the following error message.
 
-drivers/net/ethernet/adi/bfin_mac.c: In function 'mii_probe':
-drivers/net/ethernet/adi/bfin_mac.c:401:52: error:
+drivers/net/ethernet/toshiba/tc35815.c: In function 'tc_mii_probe':
+drivers/net/ethernet/toshiba/tc35815.c:617:18: error:
+	'struct mii_bus' has no member named 'phy_map'
+drivers/net/ethernet/toshiba/tc35815.c:623:24: error:
 	'struct mii_bus' has no member named 'phy_map'
 
-Use phy_find_first() instead of open-coding it.
+Instead of looping over the list of phy addresses to find a phy chip,
+use phy_find_first(). While the intent of the original code was to return
+an error if more than one phy was specified, this code path was never
+executed because the loop aborted after finding the first phy. The
+original code is therefore semantically identical to phy_find_first(),
+thus it is simpler and more straightforward to use phy_find_first()
+directly.
 
 Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus")
 Cc: Andrew Lunn <andrew@lunn.ch>
@@ -26,47 +34,38 @@ Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
 v2: Use phy_find_first() instead of open-coding it.
 
-Dave: Please ignore if you already applied the other patch.
-      Alternatively, I'll be happy to submit it as separate patch
-      on top of the actual bug fix.
+ drivers/net/ethernet/toshiba/tc35815.c | 17 ++---------------
+ 1 file changed, 2 insertions(+), 15 deletions(-)
 
- drivers/net/ethernet/adi/bfin_mac.c | 16 ++--------------
- 1 file changed, 2 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index 8c5132624510..5dfa01fadda6 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -380,9 +380,8 @@ static void bfin_mac_adjust_link(struct net_device *dev)
- static int mii_probe(struct net_device *dev, int phy_mode)
+diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
+index fed5e3dfbc8f..71efe0092bec 100644
+--- a/drivers/net/ethernet/toshiba/tc35815.c
++++ b/drivers/net/ethernet/toshiba/tc35815.c
+@@ -608,23 +608,10 @@ static void tc_handle_link_change(struct net_device *dev)
+ static int tc_mii_probe(struct net_device *dev)
  {
- 	struct bfin_mac_local *lp = netdev_priv(dev);
+ 	struct tc35815_local *lp = netdev_priv(dev);
 -	struct phy_device *phydev = NULL;
+-	int phy_addr;
 +	struct phy_device *phydev;
- 	unsigned short sysctl;
--	int i;
- 	u32 sclk, mdc_div;
+ 	u32 dropmask;
  
- 	/* Enable PHY output early */
-@@ -396,18 +395,7 @@ static int mii_probe(struct net_device *dev, int phy_mode)
- 	sysctl = (sysctl & ~MDCDIV) | SET_MDCDIV(mdc_div);
- 	bfin_write_EMAC_SYSCTL(sysctl);
- 
--	/* search for connected PHY device */
--	for (i = 0; i < PHY_MAX_ADDR; ++i) {
--		struct phy_device *const tmp_phydev = lp->mii_bus->phy_map[i];
--
--		if (!tmp_phydev)
--			continue; /* no PHY here... */
--
--		phydev = tmp_phydev;
--		break; /* found it */
+-	/* find the first phy */
+-	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
+-		if (lp->mii_bus->phy_map[phy_addr]) {
+-			if (phydev) {
+-				printk(KERN_ERR "%s: multiple PHYs found\n",
+-				       dev->name);
+-				return -EINVAL;
+-			}
+-			phydev = lp->mii_bus->phy_map[phy_addr];
+-			break;
+-		}
 -	}
 -
--	/* now we are supposed to have a proper phydev, to attach to... */
 +	phydev = phy_find_first(lp->mii_bus);
  	if (!phydev) {
- 		netdev_err(dev, "no phy device found\n");
+ 		printk(KERN_ERR "%s: no PHY found\n", dev->name);
  		return -ENODEV;
 -- 
 2.1.4
