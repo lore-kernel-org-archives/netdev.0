@@ -1,161 +1,97 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH v2] unix: properly account for FDs passed over unix sockets
-Date: Sun, 10 Jan 2016 06:58:24 +0000 (UTC)
-Message-ID: <201601100657.u0A6vk1B025554__22394.3175901242$1452409104$gmane$org@mail.home.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	socketpair@gmail.com,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] mlxsw: spectrum: Add FDB lock to prevent session interleaving
+Date: Sun, 10 Jan 2016 09:30:23 +0100
+Message-ID: <1452414623-3516-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:60157 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757180AbcAJG6B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jan 2016 01:58:01 -0500
-Date: Sun, Jan 10 07:54:56 CET 2016
-Content-Disposition: inline
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:35396 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbcAJIa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 03:30:28 -0500
+Received: by mail-wm0-f46.google.com with SMTP id f206so178614807wmf.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 00:30:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is possible for a process to allocate and accumulate far more FDs than
-the process' limit by sending them over a unix socket then closing them
-to keep the process' fd count low.
+From: Ido Schimmel <idosch@mellanox.com>
 
-This change addresses this problem by keeping track of the number of FDs
-in flight per user and preventing non-privileged processes from having
-more FDs in flight than their configured FD limit.
+Dumping the FDB (invoked with a process context) or handling FDB
+notifications (polled periodicly in delayed work) might each entail
+multiple EMAD transcations due to the number of entries.
 
-Reported-by: socketpair@gmail.com
-Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Mitigates: CVE-2013-4312 (Linux 2.0+)
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Willy Tarreau <w@1wt.eu>
+While we only allow one EMAD transaction at a time, there is nothing
+stopping the dump and notification processing sessions from
+interleaving. However, this is forbidden by the hardware, so we need to
+make sure only one of these sessions can run at a time.
+
+Solve this by adding a mutex ('fdb_lock'), as both kernel threads can
+sleep while waiting for the response EMAD.
+
+Fixes: 56ade8fe3f ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v2: add reported-by, mitigates and acked-by.
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h           | 1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 5 +++++
+ 2 files changed, 6 insertions(+)
 
-It would be nice if (if accepted) it would be backported to -stable as the
-issue is currently exploitable.
----
- include/linux/sched.h |  1 +
- net/unix/af_unix.c    | 24 ++++++++++++++++++++----
- net/unix/garbage.c    | 13 ++++++++-----
- 3 files changed, 29 insertions(+), 9 deletions(-)
-
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index edad7a4..fbf25f1 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -830,6 +830,7 @@ struct user_struct {
- 	unsigned long mq_bytes;	/* How many bytes can be allocated to mqueue? */
- #endif
- 	unsigned long locked_shm; /* How many pages of mlocked shm ? */
-+	unsigned long unix_inflight;	/* How many files in flight in unix sockets */
- 
- #ifdef CONFIG_KEYS
- 	struct key *uid_keyring;	/* UID specific keyring */
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 45aebd9..d6d7b43 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1499,6 +1499,21 @@ static void unix_destruct_scm(struct sk_buff *skb)
- 	sock_wfree(skb);
- }
- 
-+/*
-+ * The "user->unix_inflight" variable is protected by the garbage
-+ * collection lock, and we just read it locklessly here. If you go
-+ * over the limit, there might be a tiny race in actually noticing
-+ * it across threads. Tough.
-+ */
-+static inline bool too_many_unix_fds(struct task_struct *p)
-+{
-+	struct user_struct *user = current_user();
-+
-+	if (unlikely(user->unix_inflight > task_rlimit(p, RLIMIT_NOFILE)))
-+		return !capable(CAP_SYS_RESOURCE) && !capable(CAP_SYS_ADMIN);
-+	return false;
-+}
-+
- #define MAX_RECURSION_LEVEL 4
- 
- static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
-@@ -1507,6 +1522,9 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	unsigned char max_level = 0;
- 	int unix_sock_count = 0;
- 
-+	if (too_many_unix_fds(current))
-+		return -ETOOMANYREFS;
-+
- 	for (i = scm->fp->count - 1; i >= 0; i--) {
- 		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
- 
-@@ -1528,10 +1546,8 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	if (!UNIXCB(skb).fp)
- 		return -ENOMEM;
- 
--	if (unix_sock_count) {
--		for (i = scm->fp->count - 1; i >= 0; i--)
--			unix_inflight(scm->fp->fp[i]);
--	}
-+	for (i = scm->fp->count - 1; i >= 0; i--)
-+		unix_inflight(scm->fp->fp[i]);
- 	return max_level;
- }
- 
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index a73a226..8fcdc22 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -120,11 +120,11 @@ void unix_inflight(struct file *fp)
- {
- 	struct sock *s = unix_get_socket(fp);
- 
-+	spin_lock(&unix_gc_lock);
-+
- 	if (s) {
- 		struct unix_sock *u = unix_sk(s);
- 
--		spin_lock(&unix_gc_lock);
--
- 		if (atomic_long_inc_return(&u->inflight) == 1) {
- 			BUG_ON(!list_empty(&u->link));
- 			list_add_tail(&u->link, &gc_inflight_list);
-@@ -132,25 +132,28 @@ void unix_inflight(struct file *fp)
- 			BUG_ON(list_empty(&u->link));
- 		}
- 		unix_tot_inflight++;
--		spin_unlock(&unix_gc_lock);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 7601789..0bbaef3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -105,6 +105,7 @@ struct mlxsw_sp {
+ 	} fdb_notify;
+ #define MLXSW_SP_DEFAULT_AGEING_TIME 300
+ 	u32 ageing_time;
++	struct mutex fdb_lock;	/* Make sure FDB sessions are atomic. */
+ 	struct mlxsw_sp_upper master_bridge;
+ 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index d64559e..94bc73c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -881,6 +881,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		vport_vid = mlxsw_sp_vport_vid_get(mlxsw_sp_port);
  	}
-+	fp->f_cred->user->unix_inflight++;
-+	spin_unlock(&unix_gc_lock);
+ 
++	mutex_lock(&mlxsw_sp->fdb_lock);
+ 	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
+ 	do {
+ 		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
+@@ -938,6 +939,7 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	} while (num_rec == MLXSW_REG_SFD_REC_MAX_COUNT);
+ 
+ out:
++	mutex_unlock(&mlxsw_sp->fdb_lock);
+ 	kfree(sfd_pl);
+ 	return stored_err ? stored_err : err;
  }
+@@ -1187,6 +1189,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
  
- void unix_notinflight(struct file *fp)
- {
- 	struct sock *s = unix_get_socket(fp);
+ 	mlxsw_sp = container_of(work, struct mlxsw_sp, fdb_notify.dw.work);
  
-+	spin_lock(&unix_gc_lock);
-+
- 	if (s) {
- 		struct unix_sock *u = unix_sk(s);
++	mutex_lock(&mlxsw_sp->fdb_lock);
+ 	do {
+ 		mlxsw_reg_sfn_pack(sfn_pl);
+ 		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfn), sfn_pl);
+@@ -1199,6 +1202,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+ 			mlxsw_sp_fdb_notify_rec_process(mlxsw_sp, sfn_pl, i);
  
--		spin_lock(&unix_gc_lock);
- 		BUG_ON(list_empty(&u->link));
+ 	} while (num_rec);
++	mutex_unlock(&mlxsw_sp->fdb_lock);
  
- 		if (atomic_long_dec_and_test(&u->inflight))
- 			list_del_init(&u->link);
- 		unix_tot_inflight--;
--		spin_unlock(&unix_gc_lock);
+ 	kfree(sfn_pl);
+ 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
+@@ -1213,6 +1217,7 @@ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to set default ageing time\n");
+ 		return err;
  	}
-+	fp->f_cred->user->unix_inflight--;
-+	spin_unlock(&unix_gc_lock);
- }
- 
- static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
++	mutex_init(&mlxsw_sp->fdb_lock);
+ 	INIT_DELAYED_WORK(&mlxsw_sp->fdb_notify.dw, mlxsw_sp_fdb_notify_work);
+ 	mlxsw_sp->fdb_notify.interval = MLXSW_SP_DEFAULT_LEARNING_INTERVAL;
+ 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
 -- 
-1.7.12.1
+1.9.3
