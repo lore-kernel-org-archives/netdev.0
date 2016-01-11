@@ -1,40 +1,401 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] ethernet: amd: au1000: Remove pointless warning
-Date: Mon, 11 Jan 2016 01:13:21 +0100
-Message-ID: <1452471201-26335-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45105 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757375AbcAKANa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jan 2016 19:13:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: net: nfc, x25: use-after-free in llcp_sock_release
+Date: Sun, 10 Jan 2016 19:16:12 -0500
+Message-ID: <5692F44C.4080209@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-wireless@vger.kernel.org, linux-x25@vger.kernel.org,
+	andrew.hendry@gmail.com
+To: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The warning about being able to read any MDIO device, not just the
-attached ethernet devices PHY applies to all MDIO drivers. So remove
-it. This also removes a reference to a member in phy_device which has
-moved.
+Hi all,
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/ethernet/amd/au1000_eth.c | 3 ---
- 1 file changed, 3 deletions(-)
+While fuzzing with trinity inside a KVM tools guest, running the latest -next
+kernel, I've hit the following use after free:
 
-diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
-index c8640418fc37..d3977d032b48 100644
---- a/drivers/net/ethernet/amd/au1000_eth.c
-+++ b/drivers/net/ethernet/amd/au1000_eth.c
-@@ -344,9 +344,6 @@ static void au1000_mdio_write(struct net_device *dev, int phy_addr,
- 
- static int au1000_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
- {
--	/* WARNING: bus->phy_map[phy_addr].attached_dev == dev does
--	 * _NOT_ hold (e.g. when PHY is accessed through other MAC's MII bus)
--	 */
- 	struct net_device *const dev = bus->priv;
- 
- 	/* make sure the MAC associated with this
--- 
-2.6.4
+[ 1174.605592] BUG: KASAN: use-after-free in llcp_sock_release+0xd0/0x4d0 at addr ffff8801c7eb8d90
+
+[ 1174.606558] Read of size 8 by task trinity-c91/16209
+
+[ 1174.607125] =============================================================================
+
+[ 1174.608041] BUG kmalloc-2048 (Not tainted): kasan: bad access detected
+
+[ 1174.608812] -----------------------------------------------------------------------------
+
+[ 1174.608812]
+
+[ 1174.609877] Disabling lock debugging due to kernel taint
+
+[ 1174.610522] INFO: Allocated in sk_prot_alloc+0x1bf/0x340 age=169 cpu=2 pid=16194
+
+[ 1174.611515] 	___slab_alloc+0x7e9/0x900
+
+[ 1174.611962] 	__slab_alloc.isra.23+0xf9/0x170
+
+[ 1174.612462] 	__kmalloc+0x21d/0x330
+
+[ 1174.612861] 	sk_prot_alloc+0x1bf/0x340
+
+[ 1174.613294] 	sk_alloc+0xc0/0xd30
+
+[ 1174.613699] 	x25_alloc_socket+0x2e/0x340
+
+[ 1174.614151] 	x25_create+0xb1/0x4b0
+
+[ 1174.614623] 	__sock_create+0x419/0x680
+
+[ 1174.615059] 	SyS_socket+0x18e/0x220
+
+[ 1174.615488] 	entry_SYSCALL_64_fastpath+0x16/0x7a
+
+[ 1174.616033] INFO: Freed in sk_destruct+0x531/0x5b0 age=15 cpu=2 pid=16205
+
+[ 1174.616795] 	__slab_free+0x8b/0x300
+
+[ 1174.617202] 	kfree+0x2a5/0x2e0
+
+[ 1174.617572] 	sk_destruct+0x531/0x5b0
+
+[ 1174.617987] 	__sk_free+0x19d/0x210
+
+[ 1174.618388] 	sk_free+0x30/0x40
+
+[ 1174.618751] 	x25_release+0x2b1/0x2c0
+
+[ 1174.619167] 	sock_release+0xac/0x1f0
+
+[ 1174.619603] 	sock_close+0x16/0x20
+
+[ 1174.620004] 	__fput+0x396/0x710
+
+[ 1174.620380] 	____fput+0x15/0x20
+
+[ 1174.620766] 	task_work_run+0x1b5/0x1f0
+
+[ 1174.621352] 	do_exit+0xec2/0x1570
+
+[ 1174.621752] 	do_group_exit+0x1fb/0x330
+
+[ 1174.622191] 	get_signal+0x1610/0x1890
+
+[ 1174.622635] 	do_signal+0x8d/0x1ef0
+
+[ 1174.623042] 	exit_to_usermode_loop+0xb1/0x210
+
+[ 1174.623564] INFO: Slab 0xffffea00071fae00 objects=13 used=10 fp=0xffff8801c7ebef00 flags=0x2fffff80004080
+
+[ 1174.624609] INFO: Object 0xffff8801c7eb8940 @offset=2368 fp=0x          (null)
+
+[ 1174.624609]
+
+[ 1174.625582] Bytes b4 ffff8801c7eb8930: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.626627] Object ffff8801c7eb8940: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.627668] Object ffff8801c7eb8950: 09 00 07 40 00 00 00 00 00 00 00 00 00 00 00 00  ...@............
+
+[ 1174.628695] Object ffff8801c7eb8960: 00 00 00 00 00 00 00 00 80 1d b0 b8 ff ff ff ff  ................
+
+[ 1174.630142] Object ffff8801c7eb8970: 40 8c 05 b8 ff ff ff ff 00 00 00 00 00 00 00 00  @...............
+
+[ 1174.631605] Object ffff8801c7eb8980: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.632788] Object ffff8801c7eb8990: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.633815] Object ffff8801c7eb89a0: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.634839] Object ffff8801c7eb89b0: 00 00 00 00 00 00 00 00 ff ff ff ff ff ff ff ff  ................
+
+[ 1174.635881] Object ffff8801c7eb89c0: 00 00 00 00 00 00 00 00 00 00 00 00 ad 4e ad de  .............N..
+
+[ 1174.636962] Object ffff8801c7eb89d0: ff ff ff ff 00 00 00 00 ff ff ff ff ff ff ff ff  ................
+
+[ 1174.637985] Object ffff8801c7eb89e0: c8 5e c1 bb ff ff ff ff f0 f0 22 ba ff ff ff ff  .^........".....
+
+[ 1174.639007] Object ffff8801c7eb89f0: 00 00 00 00 00 00 00 00 a0 f7 81 ab ff ff ff ff  ................
+
+[ 1174.640045] Object ffff8801c7eb8a00: 00 00 00 00 00 00 00 00 00 00 00 00 ad 4e ad de  .............N..
+
+[ 1174.641068] Object ffff8801c7eb8a10: ff ff ff ff 00 00 00 00 ff ff ff ff ff ff ff ff  ................
+
+[ 1174.642218] Object ffff8801c7eb8a20: c0 5b c1 bb ff ff ff ff 00 00 00 00 00 00 00 00  .[..............
+
+[ 1174.643244] Object ffff8801c7eb8a30: 00 00 00 00 00 00 00 00 c0 dd 81 ab ff ff ff ff  ................
+
+[ 1174.644328] Object ffff8801c7eb8a40: 40 8a eb c7 01 88 ff ff 40 8a eb c7 01 88 ff ff  @.......@.......
+
+[ 1174.645358] Object ffff8801c7eb8a50: 48 60 c1 bb ff ff ff ff a0 f2 22 ba ff ff ff ff  H`........".....
+
+[ 1174.646380] Object ffff8801c7eb8a60: 00 00 00 00 00 00 00 00 a0 03 82 ab ff ff ff ff  ................
+
+[ 1174.647407] Object ffff8801c7eb8a70: 70 8a eb c7 01 88 ff ff 70 8a eb c7 01 88 ff ff  p.......p.......
+
+[ 1174.648447] Object ffff8801c7eb8a80: 00 00 00 00 00 00 00 00 00 00 00 00 ad 4e ad de  .............N..
+
+[ 1174.649466] Object ffff8801c7eb8a90: ff ff ff ff 00 00 00 00 ff ff ff ff ff ff ff ff  ................
+
+[ 1174.650490] Object ffff8801c7eb8aa0: 00 5b c1 bb ff ff ff ff 20 28 22 ba ff ff ff ff  .[...... (".....
+
+[ 1174.651645] Object ffff8801c7eb8ab0: 00 00 00 00 00 00 00 00 60 d4 81 ab ff ff ff ff  ........`.......
+
+[ 1174.652669] Object ffff8801c7eb8ac0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.653700] Object ffff8801c7eb8ad0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.654721] Object ffff8801c7eb8ae0: 00 00 00 00 00 00 00 00 00 00 00 00 00 40 03 00  .............@..
+
+[ 1174.655755] Object ffff8801c7eb8af0: 00 00 00 00 00 00 00 00 c0 08 6d c7 01 88 ff ff  ..........m.....
+
+[ 1174.656777] Object ffff8801c7eb8b00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.657802] Object ffff8801c7eb8b10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.658823] Object ffff8801c7eb8b20: 00 00 00 00 00 00 00 00 00 40 03 00 00 00 00 00  .........@......
+
+[ 1174.659856] Object ffff8801c7eb8b30: 30 8b eb c7 01 88 ff ff 30 8b eb c7 01 88 ff ff  0.......0.......
+
+[ 1174.660879] Object ffff8801c7eb8b40: 00 00 00 00 00 00 00 00 00 00 00 00 ad 4e ad de  .............N..
+
+[ 1174.662035] Object ffff8801c7eb8b50: ff ff ff ff 00 00 00 00 ff ff ff ff ff ff ff ff  ................
+
+[ 1174.663058] Object ffff8801c7eb8b60: 00 5b c1 bb ff ff ff ff 20 28 22 ba ff ff ff ff  .[...... (".....
+
+[ 1174.664101] Object ffff8801c7eb8b70: 00 00 00 00 00 00 00 00 60 d4 81 ab ff ff ff ff  ........`.......
+
+[ 1174.665123] Object ffff8801c7eb8b80: 02 00 05 00 00 00 00 00 c0 00 40 02 ff ff ff ff  ..........@.....
+
+[ 1174.666145] Object ffff8801c7eb8b90: ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.667166] Object ffff8801c7eb8ba0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.668211] Object ffff8801c7eb8bb0: 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.669239] Object ffff8801c7eb8bc0: c0 8b eb c7 01 88 ff ff c0 8b eb c7 01 88 ff ff  ................
+
+[ 1174.670262] Object ffff8801c7eb8bd0: 00 00 00 00 00 00 00 00 00 00 00 00 ad 4e ad de  .............N..
+
+[ 1174.671410] Object ffff8801c7eb8be0: ff ff ff ff 00 00 00 00 ff ff ff ff ff ff ff ff  ................
+
+[ 1174.672444] Object ffff8801c7eb8bf0: 00 5b c1 bb ff ff ff ff 00 00 00 00 00 00 00 00  .[..............
+
+[ 1174.673465] Object ffff8801c7eb8c00: 00 00 00 00 00 00 00 00 60 d4 81 ab ff ff ff ff  ........`.......
+
+[ 1174.674485] Object ffff8801c7eb8c10: 80 1d b0 b8 ff ff ff ff 00 00 00 00 00 00 00 00  ................
+
+[ 1174.675516] Object ffff8801c7eb8c20: ed 1e af de ff ff ff ff ff ff ff ff ff ff ff ff  ................
+
+[ 1174.676543] Object ffff8801c7eb8c30: 48 5d c1 bb ff ff ff ff 00 00 00 00 00 00 00 00  H]..............
+
+[ 1174.677565] Object ffff8801c7eb8c40: 00 00 00 00 00 00 00 00 a0 eb 81 ab ff ff ff ff  ................
+
+[ 1174.678583] Object ffff8801c7eb8c50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.679621] Object ffff8801c7eb8c60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.680644] Object ffff8801c7eb8c70: 00 00 00 00 00 00 00 00 ff ff ff ff ff ff ff 7f  ................
+
+[ 1174.681787] Object ffff8801c7eb8c80: ff ff ff ff ff ff ff 7f 00 00 00 00 00 00 00 00  ................
+
+[ 1174.682811] Object ffff8801c7eb8c90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.683849] Object ffff8801c7eb8ca0: d0 68 03 a9 ff ff ff ff 40 89 eb c7 01 88 ff ff  .h......@.......
+
+[ 1174.684874] Object ffff8801c7eb8cb0: 02 00 00 00 ff ff ff ff ff ff ff ff 00 00 00 00  ................
+
+[ 1174.685900] Object ffff8801c7eb8cc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.686925] Object ffff8801c7eb8cd0: 00 00 00 00 00 00 00 00 c0 5a c1 bb ff ff ff ff  .........Z......
+
+[ 1174.687964] Object ffff8801c7eb8ce0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.688993] Object ffff8801c7eb8cf0: a0 d4 81 ab ff ff ff ff 00 36 65 c4 ff ff ff ff  .........6e.....
+
+[ 1174.690015] Object ffff8801c7eb8d00: 00 00 00 00 00 00 00 00 00 5a 22 d2 01 88 ff ff  .........Z".....
+
+[ 1174.691041] Object ffff8801c7eb8d10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.692197] Object ffff8801c7eb8d20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.693229] Object ffff8801c7eb8d30: ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.694255] Object ffff8801c7eb8d40: 30 24 94 ba ff ff ff ff 00 00 00 00 00 00 00 00  0$..............
+
+[ 1174.695276] Object ffff8801c7eb8d50: b0 c4 62 a8 ff ff ff ff 20 c7 62 a8 ff ff ff ff  ..b..... .b.....
+
+[ 1174.696314] Object ffff8801c7eb8d60: b0 e0 62 a8 ff ff ff ff d0 cb 62 a8 ff ff ff ff  ..b.......b.....
+
+[ 1174.697341] Object ffff8801c7eb8d70: b0 0f 03 a9 ff ff ff ff 70 32 62 a8 ff ff ff ff  ........p2b.....
+
+[ 1174.698369] Object ffff8801c7eb8d80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.699395] Object ffff8801c7eb8d90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.700434] Object ffff8801c7eb8da0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.701582] Object ffff8801c7eb8db0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.702603] Object ffff8801c7eb8dc0: 00 00 00 00 00 00 00 00 b8 0b 00 00 00 00 00 00  ................
+
+[ 1174.703640] Object ffff8801c7eb8dd0: 40 0d 03 00 00 00 00 00 20 bf 02 00 00 00 00 00  @....... .......
+
+[ 1174.704665] Object ffff8801c7eb8de0: 20 bf 02 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............
+
+[ 1174.705689] Object ffff8801c7eb8df0: 04 00 00 00 00 00 00 00 f8 8d eb c7 01 88 ff ff  ................
+
+[ 1174.706712] Object ffff8801c7eb8e00: f8 8d eb c7 01 88 ff ff 00 00 00 00 00 00 00 00  ................
+
+[ 1174.707751] Object ffff8801c7eb8e10: 00 00 00 00 ad 4e ad de ff ff ff ff 00 00 00 00  .....N..........
+
+[ 1174.708772] Object ffff8801c7eb8e20: ff ff ff ff ff ff ff ff c0 7d c5 bb ff ff ff ff  .........}......
+
+[ 1174.709792] Object ffff8801c7eb8e30: 50 f4 22 ba ff ff ff ff 00 00 00 00 00 00 00 00  P.".............
+
+[ 1174.710813] Object ffff8801c7eb8e40: c0 c8 90 ab ff ff ff ff 48 8e eb c7 01 88 ff ff  ........H.......
+
+[ 1174.711973] Object ffff8801c7eb8e50: 48 8e eb c7 01 88 ff ff 00 00 00 00 00 00 00 00  H...............
+
+[ 1174.712997] Object ffff8801c7eb8e60: 00 00 00 00 ad 4e ad de ff ff ff ff 00 00 00 00  .....N..........
+
+[ 1174.714017] Object ffff8801c7eb8e70: ff ff ff ff ff ff ff ff c0 7d c5 bb ff ff ff ff  .........}......
+
+[ 1174.715041] Object ffff8801c7eb8e80: 50 f4 22 ba ff ff ff ff 00 00 00 00 00 00 00 00  P.".............
+
+[ 1174.716078] Object ffff8801c7eb8e90: c0 c8 90 ab ff ff ff ff 98 8e eb c7 01 88 ff ff  ................
+
+[ 1174.717099] Object ffff8801c7eb8ea0: 98 8e eb c7 01 88 ff ff 00 00 00 00 00 00 00 00  ................
+
+[ 1174.718122] Object ffff8801c7eb8eb0: 00 00 00 00 ad 4e ad de ff ff ff ff 00 00 00 00  .....N..........
+
+[ 1174.719143] Object ffff8801c7eb8ec0: ff ff ff ff ff ff ff ff c0 7d c5 bb ff ff ff ff  .........}......
+
+[ 1174.720941] Object ffff8801c7eb8ed0: 50 f4 22 ba ff ff ff ff 00 00 00 00 00 00 00 00  P.".............
+
+[ 1174.722084] Object ffff8801c7eb8ee0: c0 c8 90 ab ff ff ff ff e8 8e eb c7 01 88 ff ff  ................
+
+[ 1174.723108] Object ffff8801c7eb8ef0: e8 8e eb c7 01 88 ff ff 00 00 00 00 00 00 00 00  ................
+
+[ 1174.724149] Object ffff8801c7eb8f00: 00 00 00 00 ad 4e ad de ff ff ff ff 00 00 00 00  .....N..........
+
+[ 1174.725172] Object ffff8801c7eb8f10: ff ff ff ff ff ff ff ff c0 7d c5 bb ff ff ff ff  .........}......
+
+[ 1174.726198] Object ffff8801c7eb8f20: 50 f4 22 ba ff ff ff ff 00 00 00 00 00 00 00 00  P.".............
+
+[ 1174.727223] Object ffff8801c7eb8f30: c0 c8 90 ab ff ff ff ff 00 00 00 00 00 00 00 00  ................
+
+[ 1174.729182] Object ffff8801c7eb8f40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.730209] Object ffff8801c7eb8f50: b0 6a 03 a9 ff ff ff ff 40 89 eb c7 01 88 ff ff  .j......@.......
+
+[ 1174.731357] Object ffff8801c7eb8f60: 02 00 00 00 ff ff ff ff ff ff ff ff 00 00 00 00  ................
+
+[ 1174.732396] Object ffff8801c7eb8f70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.733422] Object ffff8801c7eb8f80: 00 00 00 00 00 00 00 00 00 7f c5 bb ff ff ff ff  ................
+
+[ 1174.734452] Object ffff8801c7eb8f90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.735474] Object ffff8801c7eb8fa0: 20 ea 90 ab ff ff ff ff 00 00 00 00 02 00 00 00   ...............
+
+[ 1174.736513] Object ffff8801c7eb8fb0: 02 00 00 00 07 00 00 00 07 00 00 00 00 00 00 00  ................
+
+[ 1174.737538] Object ffff8801c7eb8fc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.738559] Object ffff8801c7eb8fd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.739599] Object ffff8801c7eb8fe0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.740621] Object ffff8801c7eb8ff0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.741765] Object ffff8801c7eb9000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.742792] Object ffff8801c7eb9010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.743829] Object ffff8801c7eb9020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.744853] Object ffff8801c7eb9030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.745874] Object ffff8801c7eb9040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.746895] Object ffff8801c7eb9050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.747934] Object ffff8801c7eb9060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.748955] Object ffff8801c7eb9070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.749978] Object ffff8801c7eb9080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.751002] Object ffff8801c7eb9090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.752185] Object ffff8801c7eb90a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.753211] Object ffff8801c7eb90b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.754234] Object ffff8801c7eb90c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.755257] Object ffff8801c7eb90d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.756292] Object ffff8801c7eb90e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.757319] Object ffff8801c7eb90f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.758340] Object ffff8801c7eb9100: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.759363] Object ffff8801c7eb9110: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.760401] Object ffff8801c7eb9120: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.761555] Object ffff8801c7eb9130: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
+[ 1174.762578] Redzone ffff8801c7eb9140: bb bb bb bb bb bb bb bb                          ........
+
+[ 1174.763553] Padding ffff8801c7eb9278: 00 00 00 00 00 00 00 00                          ........
+
+[ 1174.764527] CPU: 0 PID: 16209 Comm: trinity-c91 Tainted: G    B           4.4.0-rc8-next-20160108-sasha-00024-gaaecb9a #2780
+
+[ 1174.765773]  1ffff10018853ef0 00000000442a53ff ffff8800c429f800 ffffffffa101a182
+
+[ 1174.766701]  0000000041b58ab3 ffffffffac1b3838 ffffffffa101a0b7 ffff8800c1888000
+
+[ 1174.767637]  ffffffffac1d02b7 ffff8801d2404d80 0000000000000008 ffff8801c7eb8940
+
+[ 1174.768559] Call Trace:
+
+[ 1174.768895] dump_stack (lib/dump_stack.c:52)
+[ 1174.770831] print_trailer (mm/slub.c:655)
+[ 1174.771610] object_err (mm/slub.c:662)
+[ 1174.772193] kasan_report_error (mm/kasan/report.c:138 mm/kasan/report.c:236)
+[ 1174.774893] __asan_report_load8_noabort (mm/kasan/report.c:280)
+[ 1174.776390] llcp_sock_release (net/nfc/llcp_sock.c:594)
+[ 1174.778349] sock_release (net/socket.c:573)
+[ 1174.778963] sock_close (net/socket.c:1025)
+[ 1174.779570] __fput (fs/file_table.c:209)
+[ 1174.780135] ____fput (fs/file_table.c:245)
+[ 1174.780711] task_work_run (kernel/task_work.c:117 (discriminator 1))
+[ 1174.781516] do_exit (kernel/exit.c:749)
+[ 1174.784891] do_group_exit (kernel/exit.c:862)
+[ 1174.785527] get_signal (kernel/signal.c:2307)
+[ 1174.786147] do_signal (arch/x86/kernel/signal.c:781)
+[ 1174.791847] exit_to_usermode_loop (arch/x86/entry/common.c:249)
+[ 1174.792552] syscall_return_slowpath (./arch/x86/include/asm/jump_label.h:35 include/linux/context_tracking_state.h:30 include/linux/context_tracking.h:24 arch/x86/entry/common.c:284 arch/x86/entry/common.c:344)
+[ 1174.793274] int_ret_from_sys_call (arch/x86/entry/entry_64.S:282)
+[ 1174.793958] Memory state around the buggy address:
+
+[ 1174.794511]  ffff8801c7eb8c80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+
+[ 1174.795306]  ffff8801c7eb8d00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+
+[ 1174.796125] >ffff8801c7eb8d80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+
+[ 1174.796925]                          ^
+
+[ 1174.797358]  ffff8801c7eb8e00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+
+[ 1174.798160]  ffff8801c7eb8e80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
