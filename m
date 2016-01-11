@@ -1,50 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] mlxsw: spectrum: Add FDB lock to prevent session
- interleaving
-Date: Mon, 11 Jan 2016 00:21:03 -0500 (EST)
-Message-ID: <20160111.002103.979291218776108297.davem@davemloft.net>
-References: <1452414736-3571-1-git-send-email-jiri@resnulli.us>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH] net: pktgen: support injecting packets for qdisc testing
+Date: Sun, 10 Jan 2016 21:21:41 -0800
+Message-ID: <56933BE5.8090702@gmail.com>
+References: <20160108020908.5940.89612.stgit@john-Precision-Tower-5810> <568F1EE2.7020107@gmail.com> <568FC9F8.8040201@mojatatu.com> <568FD498.5030401@gmail.com> <56926615.6040902@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33175 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbcAKFVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 00:21:07 -0500
-In-Reply-To: <1452414736-3571-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33566 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035AbcAKFV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 00:21:56 -0500
+Received: by mail-pa0-f52.google.com with SMTP id cy9so315643805pac.0
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 21:21:56 -0800 (PST)
+In-Reply-To: <56926615.6040902@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Sun, 10 Jan 2016 09:32:16 +0100
-
-> From: Ido Schimmel <idosch@mellanox.com>
+On 16-01-10 06:09 AM, Jamal Hadi Salim wrote:
+> On 16-01-08 10:24 AM, John Fastabend wrote:
+>> On 16-01-08 06:38 AM, Jamal Hadi Salim wrote:
+>>> On 16-01-07 09:28 PM, John Fastabend wrote:
+>>>>
+>>>> Hi Jamal,
+>>>>
+>>>> per your comment about using pktgen to test qdiscs here is the
+>>>> patch I've been using most the day which has been working well.
+>>>> I'm guessing this is more or less what you had in mind.
+>>>>
+>>>
+>>> I have attached the one i used over the holidays - see if there are
+>>> any differences(sorry dont have much time right now).
+>>>
+>>> cheers,
+>>> jamal
+>>
+>> Close except I don't back off the qdisc when I get
+>> xmit_{drop|cn|policed} return codes because I'm trying to
+>> stress the qdisc.
+>>
 > 
-> Dumping the FDB (invoked with a process context) or handling FDB
-> notifications (polled periodicly in delayed work) might each entail
-> multiple EMAD transcations due to the number of entries.
-> 
-> While we only allow one EMAD transaction at a time, there is nothing
-> stopping the dump and notification processing sessions from
-> interleaving. However, this is forbidden by the hardware, so we need to
-> make sure only one of these sessions can run at a time.
-> 
-> Solve this by adding a mutex ('fdb_lock'), as both kernel threads can
-> sleep while waiting for the response EMAD.
-> 
-> Fixes: 56ade8fe3f ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> In that case we need two modes. I think it is important to stress
+> the qdisc backoff. It doesnt make sense to send packets that will
+> be dropped. You said you were testing over vlan - how were you
+> enforcing no backoff?
 
-Jiri, I noticed you submitted both a net and a net-next variant of
-this same fix.  Please don't ever do that.
+it was aborting so I wasn't able to do this with vlans. It is
+interesting for example with pfifo_tail_enqueue where we return
+NET_XMIT_CN but still enqueue the packet. If only to test the
+qdisc, agreed though "real" users should backoff.
 
-it's easiest if I just apply the 'net' variant and handle the merge
-issues when I pull 'net' into 'net-next', so that how I'm going to
-handle this change.
+> 
+>> Also I don't see the point to doing the skb_get_tx_queue and
+>> txq_trans_update() this should be called by dev_queue_xmit
+>> anyways.
+>>
+> 
+> Yes, those could go away. They are leftovers of another experiment.
+> 
+> 
+>> If its all the same to you I would just assume have my version in
+>> pktgen and later if its useful for you add an option to back-off
+>> when the qdisc throws an error.
+> 
+> 
+> Refer to above. If you can fix it so we can do either i will ACK it.
 
-Applied, thanks.
+I'll send a Jamal approved version when net-next opens again ;)
+
+Thanks!
+John
