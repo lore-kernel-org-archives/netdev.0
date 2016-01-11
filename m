@@ -1,48 +1,36 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v5 01/10] qlcnic: protect qlcnic_82xx_io_slot_reset with rtnl lock
-Date: Mon, 11 Jan 2016 13:17:22 +0100
-Message-ID: <1452514651-15445-2-git-send-email-hannes@stressinduktion.org>
-References: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
-Cc: jesse@kernel.org, Dept-GELinuxNICDev@qlogic.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:35751 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757592AbcAKMRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:17:41 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 58A9420B5F
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:17:41 -0500 (EST)
-In-Reply-To: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH net] udp: disallow UFO for sockets with SO_NO_CHECK option
+Date: Mon, 11 Jan 2016 13:19:40 +0100
+Message-ID: <56939DDC.8030600@stressinduktion.org>
+References: <20160111065030.F3FFCA0EF1@unicorn.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160111065030.F3FFCA0EF1@unicorn.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: Dept-GELinuxNICDev@qlogic.com
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+On 11.01.2016 07:50, Michal Kubecek wrote:
+> Commit acf8dd0a9d0b ("udp: only allow UFO for packets from SOCK_DGRAM
+> sockets") disallows UFO for packets sent from raw sockets. We need to do
+> the same also for SOCK_DGRAM sockets with SO_NO_CHECK options, even if
+> for a bit different reason: while such socket would override the
+> CHECKSUM_PARTIAL set by ip_ufo_append_data(), gso_size is still set and
+> bad offloading flags warning is triggered in __skb_gso_segment().
+>
+> In the IPv6 case, SO_NO_CHECK option is ignored but we need to disallow
+> UFO for packets sent by sockets with UDP_NO_CHECK6_TX option.
+>
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> Tested-by: Shannon Nelson <shannon.nelson@intel.com>
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 1205f6f9c94173..1c29105b6c364f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3952,8 +3952,14 @@ static pci_ers_result_t qlcnic_82xx_io_error_detected(struct pci_dev *pdev,
- 
- static pci_ers_result_t qlcnic_82xx_io_slot_reset(struct pci_dev *pdev)
- {
--	return qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
--				PCI_ERS_RESULT_RECOVERED;
-+	pci_ers_result_t res;
-+
-+	rtnl_lock();
-+	res = qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
-+					 PCI_ERS_RESULT_RECOVERED;
-+	rtnl_unlock();
-+
-+	return res;
- }
- 
- static void qlcnic_82xx_io_resume(struct pci_dev *pdev)
--- 
-2.5.0
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
