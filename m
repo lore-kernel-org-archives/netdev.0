@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] udp: disallow UFO for sockets with SO_NO_CHECK
- option
-Date: Mon, 11 Jan 2016 17:42:05 -0500 (EST)
-Message-ID: <20160111.174205.202764956086980022.davem@davemloft.net>
-References: <20160111065030.F3FFCA0EF1@unicorn.suse.cz>
+Subject: Re: [PATCH 1/1] smsc: Enabling SMSC LAN911 driver for ARM64 as
+ well.
+Date: Mon, 11 Jan 2016 17:45:47 -0500 (EST)
+Message-ID: <20160111.174547.403936696977744988.davem@davemloft.net>
+References: <1452502945-27765-1-git-send-email-manjeet.p@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	hannes@stressinduktion.org, shannon.nelson@intel.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: mkubecek@suse.cz
+Cc: paul.gortmaker@windriver.com, schmitzmic@gmail.com,
+	geert@linux-m68k.org, nico@fluxnic.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akhilesh.k@samsung.com,
+	pankaj.m@samsung.com
+To: manjeet.p@samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160111065030.F3FFCA0EF1@unicorn.suse.cz>
+In-Reply-To: <1452502945-27765-1-git-send-email-manjeet.p@samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Mon, 11 Jan 2016 07:50:30 +0100 (CET)
+From: Manjeet Pawar <manjeet.p@samsung.com>
+Date: Mon, 11 Jan 2016 14:32:25 +0530
 
-> Commit acf8dd0a9d0b ("udp: only allow UFO for packets from SOCK_DGRAM
-> sockets") disallows UFO for packets sent from raw sockets. We need to do
-> the same also for SOCK_DGRAM sockets with SO_NO_CHECK options, even if
-> for a bit different reason: while such socket would override the
-> CHECKSUM_PARTIAL set by ip_ufo_append_data(), gso_size is still set and
-> bad offloading flags warning is triggered in __skb_gso_segment().
+> This patch enable network driver support for ARM64
 > 
-> In the IPv6 case, SO_NO_CHECK option is ignored but we need to disallow
-> UFO for packets sent by sockets with UDP_NO_CHECK6_TX option.
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> Tested-by: Shannon Nelson <shannon.nelson@intel.com>
+> Signed-off-by: Akhilesh Kumar <akhilesh.k@samsung.com>
+> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
 
-Applied and queued up for -stable, thanks Michal.
+There is no _WAY_ this is valid.
+
+This driver casts skb->data pointers to "u32" integers
+and then casts it back to a pointer and proceeds to
+dereference that pointer.
+
+I don't think you even looked at the build when trying to
+compile this on a 64-bit machine.
+
+That makes me have absolutely no confidence in the changes
+you submit to me.
