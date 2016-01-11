@@ -1,92 +1,46 @@
-From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 29/53] perf tools: Make ordered_events reusable
-Date: Mon, 11 Jan 2016 13:48:20 +0000
-Message-ID: <1452520124-2073-30-git-send-email-wangnan0@huawei.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] smsc: Enabling SMSC LAN911 driver for ARM64 as well.
+Date: Mon, 11 Jan 2016 17:10:15 +0300
+Message-ID: <5693B7C7.8040202@cogentembedded.com>
+References: <1452502945-27765-1-git-send-email-manjeet.p@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>,
-	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
-	Jiri Olsa <jolsa@kernel.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Namhyung Kim <namhyung@kernel.org>
-To: <acme@kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pankaj.m@samsung.com
+To: Manjeet Pawar <manjeet.p@samsung.com>, davem@davemloft.net,
+	paul.gortmaker@windriver.com, schmitzmic@gmail.com,
+	geert@linux-m68k.org, nico@fluxnic.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akhilesh.k@samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+In-Reply-To: <1452502945-27765-1-git-send-email-manjeet.p@samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ordered_events__free() leaves linked lists and timestamps not cleared.
-Introduce ordered_events__reset() to reinit ordered_events so it can
-be reused again.
+Hello.
 
-Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Signed-off-by: He Kuang <hekuang@huawei.com>
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-Cc: Jiri Olsa <jolsa@kernel.org>
-Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Cc: Namhyung Kim <namhyung@kernel.org>
-Cc: Zefan Li <lizefan@huawei.com>
-Cc: pi3orama@163.com
----
- tools/perf/util/ordered-events.c | 9 +++++++++
- tools/perf/util/ordered-events.h | 1 +
- tools/perf/util/session.c        | 4 ++--
- 3 files changed, 12 insertions(+), 2 deletions(-)
+On 01/11/2016 12:02 PM, Manjeet Pawar wrote:
 
-diff --git a/tools/perf/util/ordered-events.c b/tools/perf/util/ordered-events.c
-index b1b9e23..81daada 100644
---- a/tools/perf/util/ordered-events.c
-+++ b/tools/perf/util/ordered-events.c
-@@ -308,3 +308,12 @@ void ordered_events__free(struct ordered_events *oe)
- 		free(event);
- 	}
- }
-+
-+void ordered_events__reset(struct ordered_events *oe)
-+{
-+	ordered_events__deliver_t old_deliver = oe->deliver;
-+
-+	ordered_events__free(oe);
-+	memset(oe, '\0', sizeof(*oe));
-+	ordered_events__init(oe, old_deliver);
-+}
-diff --git a/tools/perf/util/ordered-events.h b/tools/perf/util/ordered-events.h
-index f403991..77e0f1b 100644
---- a/tools/perf/util/ordered-events.h
-+++ b/tools/perf/util/ordered-events.h
-@@ -49,6 +49,7 @@ void ordered_events__delete(struct ordered_events *oe, struct ordered_event *eve
- int ordered_events__flush(struct ordered_events *oe, enum oe_flush how);
- void ordered_events__init(struct ordered_events *oe, ordered_events__deliver_t deliver);
- void ordered_events__free(struct ordered_events *oe);
-+void ordered_events__reset(struct ordered_events *oe);
- 
- static inline
- void ordered_events__set_alloc_size(struct ordered_events *oe, u64 size)
-diff --git a/tools/perf/util/session.c b/tools/perf/util/session.c
-index d5636ba..96e10d2 100644
---- a/tools/perf/util/session.c
-+++ b/tools/perf/util/session.c
-@@ -1701,7 +1701,7 @@ done:
- out_err:
- 	free(buf);
- 	perf_session__warn_about_errors(session);
--	ordered_events__free(&session->ordered_events);
-+	ordered_events__reset(&session->ordered_events);
- 	auxtrace__free_events(session);
- 	return err;
- }
-@@ -1857,7 +1857,7 @@ out:
- out_err:
- 	ui_progress__finish();
- 	perf_session__warn_about_errors(session);
--	ordered_events__free(&session->ordered_events);
-+	ordered_events__reset(&session->ordered_events);
- 	auxtrace__free_events(session);
- 	session->one_mmap = false;
- 	return err;
--- 
-1.8.3.4
+> This patch enable network driver support for ARM64
+>
+> Signed-off-by: Akhilesh Kumar <akhilesh.k@samsung.com>
+> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
+> ---
+>   drivers/net/ethernet/smsc/Kconfig |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
+> index eb9230e..6e73c73 100644
+> --- a/drivers/net/ethernet/smsc/Kconfig
+> +++ b/drivers/net/ethernet/smsc/Kconfig
+> @@ -77,7 +77,7 @@ config SMC911X
+>   	tristate "SMSC LAN911[5678] support"
+>   	select CRC32
+>   	select MII
+> -	depends on (ARM || SUPERH || MN10300)
+> +	depends on (ARM || ARM64 || SUPERH || MN10300)
+
+    Could as well drop useless parens...
+
+[...]
+
+MBR, Sergei
