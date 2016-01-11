@@ -1,68 +1,57 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 37/53] perf record: Force enable --timestamp-filename when --switch-output is provided
-Date: Mon, 11 Jan 2016 13:48:28 +0000
-Message-ID: <1452520124-2073-38-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 10/53] tools build: Add BPF feature check to test-all
+Date: Mon, 11 Jan 2016 13:48:01 +0000
+Message-ID: <1452520124-2073-11-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>, Wang Nan <wangnan0@huawei.com>,
-	He Kuang <hekuang@huawei.com>,
-	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
-	Jiri Olsa <jolsa@kernel.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Namhyung Kim <namhyung@kernel.org>
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	"Namhyung Kim" <namhyung@kernel.org>
 To: <acme@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Without this patch, the last output doesn't have timestamp appended if
---timestamp-filename is not explicitly provided. For example:
+Existing test-all.c doesn't check BPF related features. For environment
+with all other features enabled, BPF would be considered enabled
+without doing real feature check.
 
- # perf record -a --switch-output &
- [1] 11224
- # kill -s SIGUSR2 11224
- [ perf record: dump data: Woken up 1 times ]
- # [ perf record: Dump perf.data.2015122622372823 ]
-
- # fg
- perf record -a --switch-output
- ^C[ perf record: Woken up 1 times to write data ]
- [ perf record: Captured and wrote 0.027 MB perf.data (540 samples) ]
-
- # ls -l
- total 836
- -rw------- 1 root root  33256 Dec 26 22:37 perf.data   <---- *Odd*
- -rw------- 1 root root 817156 Dec 26 22:37 perf.data.2015122622372823
+This patch adds test-bpf.c into test-all.c.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Signed-off-by: He Kuang <hekuang@huawei.com>
+Acked-by: Jiri Olsa <jolsa@redhat.com>
 Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-Cc: Jiri Olsa <jolsa@kernel.org>
-Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 Cc: Namhyung Kim <namhyung@kernel.org>
-Cc: Zefan Li <lizefan@huawei.com>
-Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 3 +++
- 1 file changed, 3 insertions(+)
+ tools/build/feature/test-all.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index e8f930c..d32facd 100644
---- a/tools/perf/builtin-record.c
-+++ b/tools/perf/builtin-record.c
-@@ -1343,6 +1343,9 @@ int cmd_record(int argc, const char **argv, const char *prefix __maybe_unused)
- 		return -EINVAL;
- 	}
+diff --git a/tools/build/feature/test-all.c b/tools/build/feature/test-all.c
+index 33cf6f2..81025ca 100644
+--- a/tools/build/feature/test-all.c
++++ b/tools/build/feature/test-all.c
+@@ -125,6 +125,10 @@
+ # include "test-get_cpuid.c"
+ #undef main
  
-+	if (rec->switch_output)
-+		rec->timestamp_filename = true;
++#define main main_test_bpf
++# include "test-bpf.c"
++#undef main
 +
- 	if (!rec->itr) {
- 		rec->itr = auxtrace_record__init(rec->evlist, &err);
- 		if (err)
+ int main(int argc, char *argv[])
+ {
+ 	main_test_libpython();
+@@ -153,6 +157,7 @@ int main(int argc, char *argv[])
+ 	main_test_pthread_attr_setaffinity_np();
+ 	main_test_lzma();
+ 	main_test_get_cpuid();
++	main_test_bpf();
+ 
+ 	return 0;
+ }
 -- 
 1.8.3.4
