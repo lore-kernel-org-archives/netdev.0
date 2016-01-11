@@ -1,54 +1,37 @@
-From: Brian Haley <brian.haley@hpe.com>
-Subject: Re: [Question/Bug] Should the priority of ip rule be unique?
-Date: Mon, 11 Jan 2016 18:01:49 -0500
-Message-ID: <5694345D.4040809@hpe.com>
-References: <201601080632.u086WOPd003565@d23av04.au.ibm.com>
+From: Oleksandr Natalenko <oleksandr@natalenko.name>
+Subject: Re: [REGRESSION] tcp/ipv4: kernel panic because of (possible) division by zero
+Date: Tue, 12 Jan 2016 01:26:05 +0200
+Message-ID: <2260281.VlLhvGfHoN@spock>
+References: <26396443.iDTTxgChSj@spock> <3240923.Qg3kfz0Bvr@spock> <CADVnQynzxB7mFyprZnNzUUBNhtaibA+9LRGufDLjSw6QeZou2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Hong Hui Xiao <xiaohhui@cn.ibm.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hp.com ([15.217.136.92]:27113 "EHLO
-	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759679AbcAKXBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 18:01:52 -0500
-Received: from g2t2352.austin.hp.com (g2t2352.austin.hp.com [15.217.128.51])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 1A4A03657
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 23:01:52 +0000 (UTC)
-In-Reply-To: <201601080632.u086WOPd003565@d23av04.au.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADVnQynzxB7mFyprZnNzUUBNhtaibA+9LRGufDLjSw6QeZou2g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/08/2016 01:32 AM, Hong Hui Xiao wrote:
-> Hi,
->
->  From the man page of ip rule at [1], it says that "Each rule should have
-> an explicitly set unique priority value." It is reasonable to have unique
-> priority for ambiguous rules.
-> But I have a set of unambiguous ip rules, do I still need to set the
-> priority of to be unique? In practice, I can set ip rules with duplicated
-> priority, and things works as expected. I want to confirm with iproute
-> developers if this is a support usecase. If so, the information in man
-> page may need updates.
->
-> 5000: from all fwmark 0x4000000/0xffff0000 lookup table0
-> 5000: from all fwmark 0x4010000/0xffff0000 lookup table1
-> 5000: from all fwmark 0x4020000/0xffff0000 lookup table2
-> 5000: from all fwmark 0x4030000/0xffff0000 lookup table3
->
->
-> [1] http://man7.org/linux/man-pages/man8/ip-rule.8.html (search for
-> "unique")
+Compiled and booted OK, no issues so far, but I'd prefer to give it a s=
+everal=20
+days test.
 
-No, you shouldn't need to set the priority in this case as each rule is unique. 
-  From reading earlier in the man page, and looking at the code, the rules are 
-ordered and scanned in order of decreasing priority, with a lower priority being 
-higher.  In the case of rules with the same priority they are ordered based on 
-the order in which they were added to the kernel.
+Thanks!
 
-So I guess the man page could be tweaked a little, given "should" seems to 
-follow the liberal IANA meaning of recommended, but not required.
-
--Brian
+On =D0=BF=D0=BE=D0=BD=D0=B5=D0=B4=D1=96=D0=BB=D0=BE=D0=BA, 11 =D1=81=D1=
+=96=D1=87=D0=BD=D1=8F 2016 =D1=80. 13:47:08 EET Neal Cardwell wrote:
+> Great. Thanks for running that test! Yes, I think that's enough info.
+> We sent a proposed upstream patch here:
+>=20
+>   http://patchwork.ozlabs.org/patch/566072/
+>   tcp_yeah: don't set ssthresh below 2
+>=20
+> Feel free to add your "Tested-By" to the thread if you have a chance
+> to test that patch.
