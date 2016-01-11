@@ -1,189 +1,132 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 0/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
-Date: Mon, 11 Jan 2016 14:35:26 -0800
-Message-ID: <20160111223444.GA6742@kafai-mba.dhcp.thefacebook.com>
-References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
- <CACVXFVNhEOrroAfiEOC32dB3ZV=73WYJxUtNrpqEE94tvY2fXw@mail.gmail.com>
- <20160109004443.GA33292@kafai-mba.local>
- <CACVXFVPbsqBoAvgRjrm7A3S2G0kUrEt=e64FyRpoSqO2ukHncQ@mail.gmail.com>
- <20160110022946.GA50678@kevintjones-mbp.dhcp.thefacebook.com.DHCP.thefacebook.com>
- <CACVXFVNfRLL-TQajPHD1XKnFCgyTvU_dAJQ0+HxwYQX4qC1G8A@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH 05/53] perf tools: Test correct path of perf in build-test
+Date: Mon, 11 Jan 2016 19:39:04 -0300
+Message-ID: <20160111223904.GL18367@kernel.org>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-6-git-send-email-wangnan0@huawei.com>
+ <20160111152456.GC18367@kernel.org>
+ <20160111220618.GK18367@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	FB Kernel Team <kernel-team@fb.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Ming Lei <tom.leiming@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Jiri Olsa <jolsa@kernel.org>,
+	Namhyung Kim <namhyung@kernel.org>
+To: Wang Nan <wangnan0@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CACVXFVNfRLL-TQajPHD1XKnFCgyTvU_dAJQ0+HxwYQX4qC1G8A@mail.gmail.com>
+In-Reply-To: <20160111220618.GK18367@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ming,
+Em Mon, Jan 11, 2016 at 07:06:18PM -0300, Arnaldo Carvalho de Melo escr=
+eveu:
+> Em Mon, Jan 11, 2016 at 12:24:56PM -0300, Arnaldo Carvalho de Melo es=
+creveu:
+> > Em Mon, Jan 11, 2016 at 01:47:56PM +0000, Wang Nan escreveu:
+> > > If an 'O' is passed to 'make build-test', many 'test -x' and 'tes=
+t -f'
+> > > will fail because perf resides in a different directory. Fix this=
+ by
+> > > computing PERF_OUT according to 'O' and test correct output files=
+=2E
+> > > For make_kernelsrc and make_kernelsrc_tools, set KBUILD_OUTPUT_DI=
+R
+> > > instead because the path is different from others ($(O)/perf vs
+> > >  $(O)/tools/perf).
+> >=20
+> > Ok, applying up to this patch I now manage to almost cleanly build =
+it using O=3D,
+> > see below, but seems that we have some race, as not all tests end u=
+p producing
+> > such warnings.
+> >=20
+> > [acme@felicio linux]$ rm -rf /tmp/build/perf ; mkdir -p /tmp/build/=
+perf ; make O=3D/tmp/build/perf -C tools/perf build-test
+> > make: Entering directory `/home/acme/git/linux/tools/perf'
+> > Testing Makefile
+> > - make_no_libperl: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.m1=
+nXBMqhSA NO_LIBPERL=3D1
+> > find: =E2=80=98/tmp/build/perf/util/trace-event-scripting.o=E2=80=99=
+: No such file or directory
+>=20
+> Well, it is happening even without O=3D:
 
-On Mon, Jan 11, 2016 at 10:20:55AM +0800, Ming Lei wrote:
-> >> - percpu hash can cause huge memory consumption compared with the way
-                                  ~~~~~~~~~~~~~~~~~~
-> >> of key plus cpu_id without obvious performance advantage
-> > If the bpf prog uses the percpu map type, the expectation
-> > is the bpf is tapping some kprobes that most cpus (if not all) will access
-> > the same key.  I would argue that having a bigger key (due to cpu_id),
->
-> I think you mean the value mapped from the key can be accessed
-> concurrently from most cpus.
->
-> > and 40 more keys (and linking to 40 buckets) is less efficient.
->
-> Suppose the key is choosed in this way and may be accessed concurrently
-> from most cpus, the only extra loading for (real_key, cpu_id) is in memcmp(),
-> because key size is increased by sizeof(cpu_id), is it really a big deal?
->
-> Also in your percpu patch, you add one extra alloc_percpu_gfp(), do you
-> think that it is cheaper than the extra compasion on cpu_id in memcmp()?
-I was referring to your _memory_ consumption comment.  The key is bigger,
-more keys and buckets are needed.
+So I removed a few patches and those aren't appearing anymore, please
+take a look at my perf/core branch, running build-test on a few machine=
+s
+now, will push soon.
 
-and even for CPU concern, Yes also.  If the key stays long enough for
-aggregation (and atomic operations), is it better to do one alloc_percpu_gfp()
-at the beginning instead of extra memcmp() over and over again during lookup?
-Having said that, I don't think either of the alloc or memcmp cost is
-significant enough to distract the percpu discussion.
+My hunch is that build-test has issues with parallel builds, but I'm no=
+t
+sure...
 
->
-> >
-> > If the expectation is to have a small numbers of cpu accessing a key (like
-> > biolatency), the bpf prog can stay with the regular bpf map.  The new
-> > percpu map has almost the same interface (except the syscall added in
-> > Patch 3).
->
-> > Switching between the two map types is easy.
->
-> No, it isn't easy with your patchset, since we can't look up
-> one key in one specific CPU from eBPF prog, not mention you
-> introduce extra syscall.
-Why would a eBPF prog (bpf_kern.o) want to access value of another CPU?
-Does it defeat the purpose of using percpu value in the first place?
-
-> >
-> >> >> For HASH map, it is easy to make cpu id as part of key, then the map
-> >> >> can be thought as percpu too, and atomic op isn't needed in eBPF program.
-> >> > Putting the cpu id as part of the key was indeed the first hack I did
-> >> > to get a sense of potential benefit.
-> >> >
-> >> > However, by extending the real-key with cpu-id, it is not intuitive to
-> >> > use and it is prone to error.  For example, how to delete a real-key for
-> >> > all cpus?  Iterating a particular real-key for all cpu is also tricky.  What
-> >> > does it mean if a real-key exists for cpu#0 but not cpu#1? The real-key
-> >>
-> >> lookup returns NULL if the key(real key plus cpu id) doesn't exist.
-> >>
-> >> > got deleted from all cpu while iterating? or something else?  I believe
-> >> > there are ways to get around but it is better to provide a clean
-> >> > implementation instead.
-> >>
-> >> It might be true, but I hope there is one real example, in which we can
-> >> see the obvious disadvantage of real key plus cpu_id. In the other way,
-> >> we still can improve current hash map to make this case easier to use.
-> > By extend(real_key, cpu_id), the uniqueness property of a real_key (and
-> > it should be as a key for a hashmap) is getting blurry and it is not
-> > ideal.
-> >
-> > The typical use case is for doing a lot of aggregation (which bpf+kprobe
-> > is strong at) on a real_key which will exist for a reasonable long period
-> > of time.  For example, I would like to do some packet statistics on each
-> > IPv6 /64 prefix.  The userspace will iterate the /64 prefix (real_key)
-                          ^^^^^^^^^^^^^^^^^^^^^^
-> > and sum up all values (of each cpu) before reporting for a particular
-> > prefix.
->
-> Is there any script or ebpf sample code for this case? I appreciate much
-> we can talk with code.
-Sure, a simplified version is at the end.
-
-> >
-> > How to delete a real_key from all cpu? A loop to iterate all
-> > extend(real_key, cpu_id)?
->
-> Yes.
-That is not ideal then.
-
-Let alone the max_entries of the map also needs to be changed
-whenever it is running in another machine with different number
-of cores.
-
-> >> That sounds not a good result, 40X memory consumption only save %3 CPU,
-> >> and the approach(real_key, cpu_id) still can save %3 without extra memory
-> >> consumption(or much less than percpu MAP)
-> > Another way to look at it, the bpf prog costs 6% CPU and saving 3%
-> > with percpu implemenation.
->
-> Sorry, I am a bit confused why you say 6% saving, and could explain a bit?
-> Let's see your previous post:
-I meant:
-Without percpu optimization, the bpf_prog costs a total 6% CPU.
-With the percpu optimization, it saves 3% CPU.
-
-Thanks,
--- Martin
-
-Here is a much stripped down version of the bpf_kern and bpf_user:
-
-struct tcp_trace_flow6 {
-	__be32	dst0;
-	__be32	dst1;
-};
-
-struct tcp_stats {
-	u64	segs_in;
-	/* A few more counters... */
-};
-
-/* bpf_kern.c */
-struct bpf_map_def SEC("maps") dst_rack_map6 = {
-	.type = BPF_MAP_TYPE_PERCPU_HASH,
-	.key_size = sizeof(struct tcp_trace_flow6),
-	.value_size = sizeof(struct tcp_stats),
-	.max_entries = 10000,
-};
-
-SEC("kprobe/tcp_rcv_established")
-int trace_rcv_established(struct pt_regs *ctx)
-{
-	struct tcp_stats *tpes;
-	struct sk_buff *skb;
-	struct sock *sk;
-
-	sk = (struct sock *) PT_REGS_PARM1(ctx);
-	skb = (struct sk_buff *) PT_REGS_PARM2(ctx);
-
-	/* tcp_stats_get: A simple map lookup based on the IPv6 /64 prefix.
-	 * If it does not exist, insert
-	 */
-	tpes = tcp_stats_get(sk);
-	if (!tpes)
-		return 0;
-
-	tpes->segs_in++;
-
-	/* A free more counter++ operations here */
-
-	return 0;
-}
-
-/* bpf_user.c */
-total = 0;
-while (bpf_get_next_key(map_fd, &ttf6, &next_ttf6) == 0) {
-	for (cpu = 0; cpu < nr_cpus; cpu++) {
-		if (!bpf_lookup_percpu_elem(map_fd,
-						&next_ttf6,
-						&tpes, cpu))
-			total += tpes.segs_in;
-		else if (errno != ENXIO)
-		     break;
-	}
-	if (cpu == nr_cpus)
-		tcp_stats_log6(&next_ttf6, total);
-	ttf6 = next_ttf6;
-}
+- Arnaldo
+=20
+>=20
+> [acme@felicio linux]$ perf stat make -C tools/perf build-test
+> make: Entering directory `/home/acme/git/linux/tools/perf'
+> Testing Makefile
+> - make_doc: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.H8z3S3cEJ0 =
+doc
+> - make_install_bin: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.njI=
+APXMF7f install-bin
+> - make_install_prefix: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.=
+9FEKGBoeyN install prefix=3D/tmp/krava
+> - make_no_gtk2: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.nHl593w=
+fMP NO_GTK2=3D1
+> - make_util_map_o: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.ZSmZ=
+P490hX util/map.o
+> - make_no_slang: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.7q24C1=
+xmcu NO_SLANG=3D1
+> - make_pure: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.R51cy8kdWl=
+=20
+> - make_no_libpython: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.3t=
+9tEc0e4b NO_LIBPYTHON=3D1
+> - make_no_libbionic: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.4y=
+YelFUaq0 NO_LIBBIONIC=3D1
+> - make_no_newt: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.3Fg7hv3=
+Hn1 NO_NEWT=3D1
+> - make_tags: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.8WMgskFkOH=
+ tags
+> - make_install: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.YQq3wOE=
+kyB install
+> - make_no_libdw_dwarf_unwind: cd . && make -f Makefile   DESTDIR=3D/t=
+mp/tmp.WKRVFDA2ty NO_LIBDW_DWARF_UNWIND=3D1
+> find: =E2=80=98/home/acme/git/linux/tools/perf/.gtk-in.o.cmd=E2=80=99=
+: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/builtin-script.o=E2=80=
+=99: No such file or directory
+> - make_no_libunwind: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.SQ=
+ftzGTUYf NO_LIBUNWIND=3D1
+> - make_no_auxtrace: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.Xy2=
+xrSCVuO NO_AUXTRACE=3D1
+> - make_no_ui: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.ZFNEHWqQF=
+N NO_NEWT=3D1 NO_SLANG=3D1 NO_GTK2=3D1
+> - make_no_libnuma: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.68zR=
+tMaEqf NO_LIBNUMA=3D1
+> - make_no_backtrace: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.5x=
+cea8XfdC NO_BACKTRACE=3D1
+> find: =E2=80=98/home/acme/git/linux/tools/perf/arch/x86/tests/dwarf-u=
+nwind.o=E2=80=99: No such file or directory
+> - make_install_prefix_slash: cd . && make -f Makefile   DESTDIR=3D/tm=
+p/tmp.2c5BqUKGef install prefix=3D/tmp/krava/
+> find: =E2=80=98/home/acme/git/linux/tools/perf/builtin-record.o=E2=80=
+=99: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/builtin-inject.o=E2=80=
+=99: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/builtin-bench.o=E2=80=99=
+: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/.builtin-lock.o.cmd=E2=
+=80=99: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/perf.o=E2=80=99: No su=
+ch file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/scripts/.libperf-in.o.=
+cmd=E2=80=99: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/tests/evsel-tp-sched.o=
+=E2=80=99: No such file or directory
+> find: =E2=80=98/home/acme/git/linux/tools/perf/tests/hists_cumulate.o=
+=E2=80=99: No such file or directory
+> - make_util_pmu_bison_o: cd . && make -f Makefile   DESTDIR=3D/tmp/tm=
+p.aJUWyFbXsp util/pmu-bis
