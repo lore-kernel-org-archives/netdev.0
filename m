@@ -1,143 +1,182 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V3 00/11] net/mlx5_core: Enhance flow steering support
-Date: Mon, 11 Jan 2016 10:25:56 +0200
-Message-ID: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH  V3 04/11] net/mlx5_core: Introduce modify flow table command
+Date: Mon, 11 Jan 2016 10:26:00 +0200
+Message-ID: <1452500767-3628-5-git-send-email-ogerlitz@mellanox.com>
+References: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Matan Barak <matanb@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	Moni Shoua <monis@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59593 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59635 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758495AbcAKI0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 03:26:35 -0500
+	id S1758495AbcAKI0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 03:26:50 -0500
+In-Reply-To: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Maor Gottlieb <maorg@mellanox.com>
 
-v0 --> v1 changes:
-  - fixed improperly formatted comments.
-  - compare value of ib_spec->eth.mask.ether_type in network byte order
-     in ('IB/mlx5: Add flow steering utilities').
+Introduce the modify flow table command. This command is used when
+we want to change the next flow table of an existing flow table.
+The next flow table is defined as the table we search (in order
+to find a match), if we couldn't find a match in any of the flow table
+entries in the current flow table.
 
-v1 --> v2 changes:
-  - made sure that service functions added in the IB driver are only static-fied 
-    on the last commit, to make sure bisection with -Werror works fine.
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c | 27 ++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h |  4 ++
+ include/linux/mlx5/mlx5_ifc.h                    | 56 ++++++++++++++++++++++--
+ 3 files changed, 83 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index d8b1195..2b556255 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -101,6 +101,33 @@ int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
+ 					  sizeof(out));
+ }
  
-v2 --> v3 changes:
-   - squashed patches 11 and 12 into one patch, s.t Dave's comment
-     on unused static functions gcc complaints during bisection is
-     correctly addressed.
-
-v3 has been generated against net-next commit c9c9931 "Merge tag 
-'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge"
-
-The series is signed by Matan who was revently assigned to a maintainer for 
-the mlx5_core and IB drivers (this is a 4.5-rc1 change to the maintainers file coming 
-from the rdma tree) -- as such I didn't see a neeed to add my signature (Or).
-
-This series adds three new functionalists to the driver flow-steering
-infrastructure: auto-grouped flow tables, chaining of flow tables and 
-updates for the root flow table.
-
-1. Auto-grouped flow tables - Flow table with auto grouping management.
-When a flow table is created, hints regarding the number of rule types
-and the number of rules are given in advance. Thus, a flow table is
-divided into #NUM_TYPES+1 groups each contains
-(#NUM_RULES)/(#NUM_TYPES+1) rules. The first #NUM_TYPES parts are groups
-which are filled if the added rule matches the group specification or
-the group is empty. The last part is filled by rules that can't fit
-any of the former groups.
-
-2. Chaining flow tables - Flow tables from different priorities are chained
-together, if there is no match in flow table of priority i we continue
-searching for a match in priority i+1. This is both true if priorities
-i and i+1 belongs to the same namespace or not.
-
-3. Updating the root flow table - the root flow table is the flow table
-with the lowest level. The hardware start searching for a match in the
-root flow table and continue according to the matches it find along
-the way.
-
-The first usage for the new functionality is flow steering for user-space
-ConnectX-4 offloaded HW Eth RX queues done through the mlx5 IB driver.
-
-When the mlx5 core driver is loaded, it opens three flow namespaces:
-1. By-pass namespace (used by mlx5 IB driver).
-2. Kernel namespace (used in order to get packets to the networking stack
-through mlx5 EN driver).
-3. Leftovers namespace (used by mlx5 IB and future sniffer)
-
-The series is built as follows:
-
-Patch #1 introduces auto-grouped flow tables support.
-
-Patch #2 add utility functions for finding the next and the previous
-flow tables in different priorities. This is used in order to chain
-the flow tables in a downstream patch.
-
-Patch #3 introduces a firmware command for updating the root flow table.
-
-Patch #4 introduces modify flow table firmware command, this command is used
-when we want to change the next flow table of an existing flow table.
-This is used for chaining flow tables as well.
-
-Patch #5 connect/disconnect flow tables. This is actually the chaining
-process when we want to link flow tables. This means that if we couldn't
-find a match in the first flow table, we'll continue in the chained
-flow table.
-
-Patch #6 updates priority's attributes that is required for flow table
-level allocation. We update both the max_fts (the number of allowed FTs
-in the sub-tree of this priority) and the start_level (which is the first
-level we'll assign to the flow-tables created inside the priority).
-
-Patch #7 adds checking of required device capabilities. Some namespaces
-could be only created if the hardware supports certain attributes.
-This is especially true for the Bypass and leftovers namespaces. This
-adds a generic mechanism to check these required attributes.
-
-Patch #8 creates two additional namespaces:
-	a. Bypass flow rules(has nine priorities)
-	b. Leftovers packets(have one priority) - for unmatched packets.
-
-Patch #9 re-factors ipv4/ipv6 match fields in the mlx5 firmware interface
-header to be more clear.
-
-Patch #10 exports the flow steering API for mlx5_ib usage
-
-Patch #11 implements the required support in mlx5_ib in order
-to support the RDMA flow steering verbs.
-
-Regards,
-Moni, Matan and Maor
-
-Maor Gottlieb (11):
-  net/mlx5_core: Introduce flow steering autogrouped flow table
-  net/mlx5_core: Add utilities to find next and prev flow-tables
-  net/mlx5_core: Managing root flow table
-  net/mlx5_core: Introduce modify flow table command
-  net/mlx5_core: Connect flow tables
-  net/mlx5_core: Set priority attributes
-  net/mlx5_core: Initialize namespaces only when supported by device
-  net/mlx5_core: Enable flow steering support for the IB driver
-  net/mlx5_core: Make ipv4/ipv6 location more clear
-  net/mlx5_core: Export flow steering API
-  IB/mlx5: Add flow steering support
-
- drivers/infiniband/hw/mlx5/main.c                 | 463 +++++++++++++++++
- drivers/infiniband/hw/mlx5/mlx5_ib.h              |  45 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  52 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h  |   9 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 601 +++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  14 +
- include/linux/mlx5/device.h                       |   2 +
- include/linux/mlx5/fs.h                           |  18 +
- include/linux/mlx5/mlx5_ifc.h                     | 105 +++-
- 9 files changed, 1233 insertions(+), 76 deletions(-)
-
++int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
++			       struct mlx5_flow_table *ft,
++			       struct mlx5_flow_table *next_ft)
++{
++	u32 in[MLX5_ST_SZ_DW(modify_flow_table_in)];
++	u32 out[MLX5_ST_SZ_DW(modify_flow_table_out)];
++
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
++
++	MLX5_SET(modify_flow_table_in, in, opcode,
++		 MLX5_CMD_OP_MODIFY_FLOW_TABLE);
++	MLX5_SET(modify_flow_table_in, in, table_type, ft->type);
++	MLX5_SET(modify_flow_table_in, in, table_id, ft->id);
++	MLX5_SET(modify_flow_table_in, in, modify_field_select,
++		 MLX5_MODIFY_FLOW_TABLE_MISS_TABLE_ID);
++	if (next_ft) {
++		MLX5_SET(modify_flow_table_in, in, table_miss_mode, 1);
++		MLX5_SET(modify_flow_table_in, in, table_miss_id, next_ft->id);
++	} else {
++		MLX5_SET(modify_flow_table_in, in, table_miss_mode, 0);
++	}
++
++	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
++					  sizeof(out));
++}
++
+ int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
+ 			       struct mlx5_flow_table *ft,
+ 			       u32 *in,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
+index 70d18ec..1ae9b68 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
+@@ -40,6 +40,10 @@ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ int mlx5_cmd_destroy_flow_table(struct mlx5_core_dev *dev,
+ 				struct mlx5_flow_table *ft);
+ 
++int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
++			       struct mlx5_flow_table *ft,
++			       struct mlx5_flow_table *next_ft);
++
+ int mlx5_cmd_create_flow_group(struct mlx5_core_dev *dev,
+ 			       struct mlx5_flow_table *ft,
+ 			       u32 *in, unsigned int *group_id);
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 323e713..7f16695 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -194,7 +194,8 @@ enum {
+ 	MLX5_CMD_OP_QUERY_FLOW_GROUP              = 0x935,
+ 	MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY          = 0x936,
+ 	MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY        = 0x937,
+-	MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY       = 0x938
++	MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY       = 0x938,
++	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c
+ };
+ 
+ struct mlx5_ifc_flow_table_fields_supported_bits {
+@@ -260,7 +261,9 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
+ 	u8         reserved_0[0x2];
+ 	u8	   flow_modify_en[0x1];
+ 	u8         modify_root[0x1];
+-	u8         reserved_1[0x1b];
++	u8         identified_miss_table_mode[0x1];
++	u8         flow_table_modify[0x1];
++	u8         reserved_1[0x19];
+ 
+ 	u8         reserved_2[0x2];
+ 	u8         log_max_ft_size[0x6];
+@@ -5669,12 +5672,16 @@ struct mlx5_ifc_create_flow_table_in_bits {
+ 
+ 	u8         reserved_4[0x20];
+ 
+-	u8         reserved_5[0x8];
++	u8         reserved_5[0x4];
++	u8         table_miss_mode[0x4];
+ 	u8         level[0x8];
+ 	u8         reserved_6[0x8];
+ 	u8         log_size[0x8];
+ 
+-	u8         reserved_7[0x120];
++	u8         reserved_7[0x8];
++	u8         table_miss_id[0x18];
++
++	u8         reserved_8[0x100];
+ };
+ 
+ struct mlx5_ifc_create_flow_group_out_bits {
+@@ -6975,4 +6982,45 @@ struct mlx5_ifc_set_flow_table_root_in_bits {
+ 	u8         reserved_5[0x140];
+ };
+ 
++enum {
++	MLX5_MODIFY_FLOW_TABLE_MISS_TABLE_ID = 0x1,
++};
++
++struct mlx5_ifc_modify_flow_table_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++};
++
++struct mlx5_ifc_modify_flow_table_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_2[0x20];
++
++	u8         reserved_3[0x10];
++	u8         modify_field_select[0x10];
++
++	u8         table_type[0x8];
++	u8         reserved_4[0x18];
++
++	u8         reserved_5[0x8];
++	u8         table_id[0x18];
++
++	u8         reserved_6[0x4];
++	u8         table_miss_mode[0x4];
++	u8         reserved_7[0x18];
++
++	u8         reserved_8[0x8];
++	u8         table_miss_id[0x18];
++
++	u8         reserved_9[0x100];
++};
++
+ #endif /* MLX5_IFC_H */
 -- 
 2.3.7
