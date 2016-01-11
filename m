@@ -1,14 +1,17 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 01/53] perf tools: Add -lutil in python lib list for broken python-config
-Date: Mon, 11 Jan 2016 13:47:52 +0000
-Message-ID: <1452520124-2073-2-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 49/53] perf tools: Consider TAILSIZE bit when caclulate is_pos
+Date: Mon, 11 Jan 2016 13:48:40 +0000
+Message-ID: <1452520124-2073-50-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
+	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
 	Jiri Olsa <jolsa@kernel.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: <acme@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,45 +19,38 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On some system the perf-config is broken, causes link failure like this:
-
- /usr/lib64/python2.7/config/libpython2.7.a(posixmodule.o): In function `posix_forkpty':
- /opt/wangnan/yocto-build/tmp-eglibc/work/x86_64-oe-linux/python/2.7.3-r0.3.1/Python-2.7.3/./Modules/posixmodule.c:3816: undefined reference to `forkpty'
- /usr/lib64/python2.7/config/libpython2.7.a(posixmodule.o): In function `posix_openpty':
- /opt/wangnan/yocto-build/tmp-eglibc/work/x86_64-oe-linux/python/2.7.3-r0.3.1/Python-2.7.3/./Modules/posixmodule.c:3756: undefined reference to `openpty'
- collect2: error: ld returned 1 exit status
-make[1]: *** [/home/wangnan/kernel-hydrogen/tools/perf/out/perf] Error 1
-make: *** [all] Error 2
-
- $ python-config --libs
- -lpthread -ldl -lpthread -lutil -lm -lpython2.7
-
-In this case a '-lutil' should be appended to -lpython2.7.
-
-(I know we have --start-group and --end-group. I can see them in
-command line of collect2 by strace. However it doesn't work. Seems
-I have a broken environment?)
+evsel->is_pos indicates event id location in a event (count backward).
+It is used to find id for tracking events (mmap, exit...). If TAILSIZE
+is selected, this location should be changed accordingly.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
+Signed-off-by: He Kuang <hekuang@huawei.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Cc: Jiri Olsa <jolsa@kernel.org>
+Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Zefan Li <lizefan@huawei.com>
+Cc: pi3orama@163.com
 ---
- tools/perf/config/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ tools/perf/util/evsel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
-index 254d06e..0793c76 100644
---- a/tools/perf/config/Makefile
-+++ b/tools/perf/config/Makefile
-@@ -493,7 +493,7 @@ else
+diff --git a/tools/perf/util/evsel.c b/tools/perf/util/evsel.c
+index 6932b8b..c59ea34 100644
+--- a/tools/perf/util/evsel.c
++++ b/tools/perf/util/evsel.c
+@@ -144,10 +144,10 @@ static int __perf_evsel__calc_id_pos(u64 sample_type)
+  */
+ static int __perf_evsel__calc_is_pos(u64 sample_type)
+ {
+-	int idx = 1;
++	int idx = 1 + (sample_type & PERF_SAMPLE_TAILSIZE ? 1 : 0);
  
-       PYTHON_EMBED_LDOPTS := $(shell $(PYTHON_CONFIG_SQ) --ldflags 2>/dev/null)
-       PYTHON_EMBED_LDFLAGS := $(call strip-libs,$(PYTHON_EMBED_LDOPTS))
--      PYTHON_EMBED_LIBADD := $(call grep-libs,$(PYTHON_EMBED_LDOPTS))
-+      PYTHON_EMBED_LIBADD := $(call grep-libs,$(PYTHON_EMBED_LDOPTS)) -lutil
-       PYTHON_EMBED_CCOPTS := $(shell $(PYTHON_CONFIG_SQ) --cflags 2>/dev/null)
-       FLAGS_PYTHON_EMBED := $(PYTHON_EMBED_CCOPTS) $(PYTHON_EMBED_LDOPTS)
+ 	if (sample_type & PERF_SAMPLE_IDENTIFIER)
+-		return 1;
++		return idx;
  
+ 	if (!(sample_type & PERF_SAMPLE_ID))
+ 		return -1;
 -- 
 1.8.3.4
