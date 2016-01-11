@@ -1,56 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
- global transport hashtable
-Date: Mon, 11 Jan 2016 17:22:45 +0800
-Message-ID: <20160111092245.GA23331@gondor.apana.org.au>
-References: <cover.1451490447.git.lucien.xin@gmail.com>
- <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
- <20151230174103.GC16270@localhost.localdomain>
- <CADvbK_evLk8YgYDdNvEoBB-SSqH8s7wWu_K5g=SzP=GOj-TWtw@mail.gmail.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [PATCH] [net] phy: micrel: Fix build failure in ksz9031_config_init()
+Date: Mon, 11 Jan 2016 10:23:40 +0100
+Message-ID: <CA+icZUX-1HUsopevnyD+VCtcuV8cDTyJ8bSvZtHX2QfUGDw+=g@mail.gmail.com>
+References: <1452340757-29507-1-git-send-email-sedat.dilek@gmail.com>
+	<201601101922.K4rPhj8d%fengguang.wu@intel.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Vlad Yasevich <vyasevic@redhat.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:55312 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758693AbcAKJWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 04:22:52 -0500
-Content-Disposition: inline
-In-Reply-To: <CADvbK_evLk8YgYDdNvEoBB-SSqH8s7wWu_K5g=SzP=GOj-TWtw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: kbuild-all@01.org, Roosen Henri <Henri.Roosen@ginzinger.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	David Daney <david.daney@cavium.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>
+To: kbuild test robot <lkp@intel.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <201601101922.K4rPhj8d%fengguang.wu@intel.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 05, 2016 at 06:10:15PM +0800, Xin Long wrote:
+On Sun, Jan 10, 2016 at 12:50 PM, kbuild test robot <lkp@intel.com> wrote:
+> Hi Sedat,
 >
-> without this 'reinsert'.
-> 
-> we can reproduce this issue like this:
-> 1. download the attachment
-> 2. cp sctperf.tar.gz to server and client hosts
-> 3. in each hosts.
-> #make
-> 4. in server:
-> #sh saddr.sh $ethx
-> #./ss
-> 5. in client:
-> #sh caddr.sh $ethx
-> #ulimit -n 20000
-> #./cc
-> 
-> when the number of  connections reach about 1600, this issue will be triggered.
+> [auto build test ERROR on net/master]
+> [cannot apply to net-next/master v4.4-rc8 next-20160108]
+> [if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
+>
 
-Just to confirm this is with the latest upstream kernel, right?
-A git ID would be helpful.
+Hi,
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Andrew Lunn explained when this build-failure happens in [1].
+Short answer: When you merge net.git with net-next.git.
+
+Steven posted and added the same fix for his latest next-20160111 tree
+(see [2]).
+Dave ACKed it in [3].
+
+- Sedat -
+
+[0] http://marc.info/?l=linux-netdev&m=145235493501557&w=2
+[1] http://marc.info/?l=linux-netdev&m=145248039325668&w=2
+[3] http://marc.info/?l=linux-netdev&m=145248135925825&w=2
+
+> url:    https://github.com/0day-ci/linux/commits/Sedat-Dilek/phy-micrel-Fix-build-failure-in-ksz9031_config_init/20160109-200009
+> config: x86_64-rhel (attached as .config)
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64
+>
+> All errors (new ones prefixed by >>):
+>
+>    drivers/net/phy/micrel.c: In function 'ksz9031_config_init':
+>>> drivers/net/phy/micrel.c:479:22: error: 'struct phy_device' has no member named 'mdio'
+>      dev_walker = &phydev->mdio.dev;
+>                          ^
+>
+> vim +479 drivers/net/phy/micrel.c
+>
+>    473          const struct device *dev_walker;
+>    474
+>    475          /* The Micrel driver has a deprecated option to place phy OF
+>    476           * properties in the MAC node. Walk up the tree of devices to
+>    477           * find a device with an OF node.
+>    478           */
+>  > 479          dev_walker = &phydev->mdio.dev;
+>    480          do {
+>    481                  of_node = dev_walker->of_node;
+>    482                  dev_walker = dev_walker->parent;
+>
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
