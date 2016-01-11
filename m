@@ -1,130 +1,165 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4 06/10] netdev: add netdevice notifier type to
- trigger a reprogramming of offloads
-Date: Mon, 11 Jan 2016 22:09:03 +0100
-Message-ID: <569419EF.5090709@stressinduktion.org>
-References: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
- <1452352052-27574-7-git-send-email-hannes@stressinduktion.org>
- <CALx6S357fYzhCRHsPAjX+NH+5Wc1tnUuNwcZ5oy3WiAMASjOEA@mail.gmail.com>
- <5691439F.5090500@stressinduktion.org>
- <CALx6S37rhc+xiOZfk2F4=AXWK4jxu7BP3VMBjSCFoOMjLdLaZw@mail.gmail.com>
- <56918F1E.8080600@stressinduktion.org>
- <CALx6S341SP0XN-iBGeR_MXyu3LoYmXBsCBguDcwc26CVvF3Gtw@mail.gmail.com>
- <56939C00.3060801@stressinduktion.org>
- <CALx6S360oG5sLCmCx=UExeFU_n9dpxM8vEL=DZ-n13HSvf1Q4g@mail.gmail.com>
- <5693FAEB.8080506@stressinduktion.org>
- <CALx6S365gfktShmyiXbGnCvOOsgQTQdVFnML-rxEwmtZ6egPgA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
+Date: Mon, 11 Jan 2016 13:11:28 -0800
+Message-ID: <1452546688.1223.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5726932.6r4XOZ2Km2@rofl>
+	 <1443025879.29850.116.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <56492A39.2060307@fastly.com>
+	 <1447686469.22599.67.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <564A129F.5060705@fastly.com> <56941035.9040000@fastly.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Patrick Schaaf <kernelorg@bof.de>, NETDEV <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Grant Zhang <gzhang@fastly.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:60329 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759922AbcAKVJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 16:09:07 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8341E20D38
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 16:09:06 -0500 (EST)
-In-Reply-To: <CALx6S365gfktShmyiXbGnCvOOsgQTQdVFnML-rxEwmtZ6egPgA@mail.gmail.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34642 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932303AbcAKVLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 16:11:30 -0500
+In-Reply-To: <56941035.9040000@fastly.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+On Mon, 2016-01-11 at 12:27 -0800, Grant Zhang wrote:
 
-On 11.01.2016 21:46, Tom Herbert wrote:
-> On Mon, Jan 11, 2016 at 10:56 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> I consider the offloading interface work in progress:
->>
-> I consider it a closed interface. New devices should implement
-> protocol generic offloads so that we don't need to extend the protocol
-> specific offload interfaces any further. We do need to break the
-> dependency between drivers and VXLAN but that can be done without any
-> additional APIs.
+> Hi Eric,
+> 
+> One of my 4.1.13 server(have been up 50+ days) under testing got into a 
+> similar kernel hang (stack trace attached). Looking back at the initial 
+> conversation on this issue you also mentioned the following patch in
+> https://lkml.org/lkml/2015/9/23/433
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
+> tcp/dccp: fix timewait races in timer handling
+> 
+> Which does not seem to be part of stable 4.1 tree. Would the above patch 
+> fix the kernel hang issue?
+> 
+> Thanks,
+> 
+> Grant
+> 
+> ----stacktrace----
+> Jan  9 19:12:42 kernel:[4544972.126385] INFO: rcu_sched self-detected 
+> stall on CPU { 13}  (t=15001 jiffies g=422586407 c=422586406 q=3730083)
+> Jan  9 19:12:42 kernel:[4544972.134383] INFO: rcu_sched detected stalls 
+> on CPUs/tasks: { 13} (detected by 5, t=15002 jiffies, g=422586407, 
+> c=422586406, q=3730200)
+> Jan  9 19:12:42 kernel:[4544972.134384] Task dump for CPU 13:
+> Jan  9 19:12:42 kernel:[4544972.134387] swapper/13      R  running task 
+>         0     0      1 0x00000008
+> Jan  9 19:12:42 kernel:[4544972.134389]  0000000000000010 
+> 0000000000000246 ffff885ecde0be68 0000000000000018
+> Jan  9 19:12:42 kernel:[4544972.134390]  ffffffff8164045d 
+> ffffffff00000007 00102982b9fa1875 ffffffff81c7fc80
+> Jan  9 19:12:42 kernel:[4544972.134391]  0000000d00000000 
+> ffff88beff0e0300 ffffffff81ce5448 ffff885ecde08000
+> Jan  9 19:12:42 kernel:[4544972.134391] Call Trace:
+> Jan  9 19:12:42 kernel:[4544972.134397]  [<ffffffff8164045d>] ? 
+> cpuidle_enter_state+0x7d/0x1f0
+> Jan  9 19:12:42 kernel:[4544972.134398]  [<ffffffff81640607>] ? 
+> cpuidle_enter+0x17/0x20
+> Jan  9 19:12:42 kernel:[4544972.134401]  [<ffffffff810b6c41>] ? 
+> cpu_startup_entry+0x2d1/0x350
+> Jan  9 19:12:42 kernel:[4544972.134403]  [<ffffffff810e0aac>] ? 
+> clockevents_config_and_register+0x2c/0x40
+> Jan  9 19:12:42 kernel:[4544972.134406]  [<ffffffff81034aa3>] ? 
+> start_secondary+0x123/0x130
+> Jan  9 19:12:42 kernel:[4544972.149242] Task dump for CPU 13:
+> Jan  9 19:12:42 kernel:[4544972.149244] swapper/13      R  running task 
+>         0     0      1 0x00000008
+> Jan  9 19:12:42 kernel:[4544972.149248]  ffffffff81c3f300 
+> ffff88beff0c3820 ffffffff810a5791 000000000000000d
+> Jan  9 19:12:42 kernel:[4544972.149250]  ffffffff81c3f300 
+> ffff88beff0c3840 ffffffff810a8c4f ffff88beff0c3880
+> Jan  9 19:12:42 kernel:[4544972.149251]  ffffffff81c3f3c0 
+> ffff88beff0c3870 ffffffff810ca763 ffff88beff0d6c80
+> Jan  9 19:12:42 kernel:[4544972.149253] Call Trace:
+> Jan  9 19:12:42 kernel:[4544972.149255]  <IRQ>  [<ffffffff810a5791>] 
+> sched_show_task+0xb1/0x120
+> Jan  9 19:12:42 kernel:[4544972.149267]  [<ffffffff810a8c4f>] 
+> dump_cpu_task+0x3f/0x50
+> Jan  9 19:12:42 kernel:[4544972.149270]  [<ffffffff810ca763>] 
+> rcu_dump_cpu_stacks+0x93/0xc0
+> Jan  9 19:12:42 kernel:[4544972.149272]  [<ffffffff810cdcaa>] 
+> rcu_check_callbacks+0x4aa/0x760
+> Jan  9 19:12:42 kernel:[4544972.149277]  [<ffffffff8110e27c>] ? 
+> acct_account_cputime+0x1c/0x20
+> Jan  9 19:12:42 kernel:[4544972.149279]  [<ffffffff810d3868>] 
+> update_process_times+0x38/0x70
+> Jan  9 19:12:42 kernel:[4544972.149283]  [<ffffffff810e2a38>] 
+> tick_sched_timer+0x58/0x190
+> Jan  9 19:12:42 kernel:[4544972.149284]  [<ffffffff810d41ad>] 
+> __run_hrtimer+0x6d/0x220
+> Jan  9 19:12:42 kernel:[4544972.149285]  [<ffffffff810e29e0>] ? 
+> tick_init_highres+0x20/0x20
+> Jan  9 19:12:42 kernel:[4544972.149287]  [<ffffffff810d4893>] 
+> hrtimer_interrupt+0x103/0x240
+> Jan  9 19:12:42 kernel:[4544972.149292]  [<ffffffff810363f9>] 
+> local_apic_timer_interrupt+0x39/0x60
+> Jan  9 19:12:42 kernel:[4544972.149296]  [<ffffffff817b5275>] 
+> smp_apic_timer_interrupt+0x45/0x60
+> Jan  9 19:12:42 kernel:[4544972.149299]  [<ffffffff817b39bb>] 
+> apic_timer_interrupt+0x6b/0x70
+> Jan  9 19:12:42 kernel:[4544972.149304]  [<ffffffff816f36f0>] ? 
+> __inet_lookup_established+0x70/0x170
+> Jan  9 19:12:42 kernel:[4544972.149306]  [<ffffffff816f36c6>] ? 
+> __inet_lookup_established+0x46/0x170
+> Jan  9 19:12:42 kernel:[4544972.149309]  [<ffffffff8170eb7d>] 
+> tcp_v4_early_demux+0xad/0x160
+> Jan  9 19:12:42 kernel:[4544972.149311]  [<ffffffff816e9428>] 
+> ip_rcv_finish+0x158/0x380
+> Jan  9 19:12:42 kernel:[4544972.149312]  [<ffffffff816e9cf2>] 
+> ip_rcv+0x292/0x3b0
+> Jan  9 19:12:42 kernel:[4544972.149318]  [<ffffffffa04f0102>] ? 
+> macvlan_handle_frame+0x1f2/0x310 [macvlan]
+> Jan  9 19:12:42 kernel:[4544972.149320]  [<ffffffff816e92d0>] ? 
+> inet_add_protocol+0x50/0x50
+> Jan  9 19:12:42 kernel:[4544972.149324]  [<ffffffff81693bf0>] 
+> __netif_receive_skb_core+0x300/0x7b0
+> Jan  9 19:12:42 kernel:[4544972.149325]  [<ffffffff817b5185>] ? 
+> do_IRQ+0x65/0x110
+> Jan  9 19:12:42 kernel:[4544972.149327]  [<ffffffff816940c1>] 
+> __netif_receive_skb+0x21/0x70
+> Jan  9 19:12:42 kernel:[4544972.149329]  [<ffffffff81694271>] 
+> netif_receive_skb_internal+0x31/0xa0
+> Jan  9 19:12:42 kernel:[4544972.149331]  [<ffffffff81694ff0>] 
+> napi_gro_receive+0x130/0x1b0
+> Jan  9 19:12:42 kernel:[4544972.149341]  [<ffffffffa005f389>] 
+> ixgbe_clean_rx_irq+0x7b9/0xa20 [ixgbe]
+> Jan  9 19:12:42 kernel:[4544972.149344]  [<ffffffffa006024b>] 
+> ixgbe_poll+0x42b/0x7e0 [ixgbe]
+> Jan  9 19:12:42 kernel:[4544972.149346]  [<ffffffff816949ce>] 
+> net_rx_action+0x13e/0x320
+> Jan  9 19:12:42 kernel:[4544972.149350]  [<ffffffff8107fcce>] 
+> __do_softirq+0xde/0x2d0
+> Jan  9 19:12:42 kernel:[4544972.149352]  [<ffffffff8108009d>] 
+> irq_exit+0x4d/0x60
+> Jan  9 19:12:42 kernel:[4544972.149353]  [<ffffffff817b5185>] 
+> do_IRQ+0x65/0x110
+> Jan  9 19:12:42 kernel:[4544972.149356]  [<ffffffff817b36eb>] 
+> common_interrupt+0x6b/0x6b
+> Jan  9 19:12:42 kernel:[4544972.149356]  <EOI>  [<ffffffff8164048e>] ? 
+> cpuidle_enter_state+0xae/0x1f0
+> Jan  9 19:12:42 kernel:[4544972.149360]  [<ffffffff8164045d>] ? 
+> cpuidle_enter_state+0x7d/0x1f0
+> Jan  9 19:12:42 kernel:[4544972.149361]  [<ffffffff81640607>] 
+> cpuidle_enter+0x17/0x20
+> Jan  9 19:12:42 kernel:[4544972.149364]  [<ffffffff810b6c41>] 
+> cpu_startup_entry+0x2d1/0x350
+> Jan  9 19:12:42 kernel:[4544972.149366]  [<ffffffff810e0aac>] ? 
+> clockevents_config_and_register+0x2c/0x40
+> Jan  9 19:12:42 kernel:[4544972.149368]  [<ffffffff81034aa3>] 
+> start_secondary+0x123/0x130
+> 
 
-I am totally with you here.
+Hi Grant
 
-The reason why I did this series is that I don't want to have vxlan and 
-geneve modules autoloaded when I modprobe any of those drivers which 
-implement ndo_add_*_port and use the current style of callbacks. So I 
-think this is a step to reduce this entanglement already. I solely 
-switch from vxlan_get_rx_port and geneve_get_rx_port to 
-netdev_refresh_offloads.
+Most probably the commit would help ;)
 
->> I agree this interface can be much improved. But this series focuses on
->> firstly removing the dependency on the modules without changing too much
->> otherwise. No new callback is added just two ones are migrated into one.
->>
->> Currently drivers don't handle a list of all ports, they discard new ones as
->> soon as they don't fit into the hardware anymore (mostly only one). So
->> currently the state is not completely replicated in the drivers. We could
->> call the ndo_add_*_ports again after we deleted some ports and try to
->> refresh from the core kernel side. I think instead of adding this logic to
->> all drivers to fix this, it is easier to callback into the kernel instead of
->> adding this logic to almost all network drivers.
->>
-> Almost all network drivers??? I count only nine that are setting
-> .ndo_add_vxlan_port.
+David, can you make sure ed2e923945892a8372ab70d2f61d364b0b6d9054 is
+pushed to stable trees (4.1 & 4.2)
 
-I was referring to the drivers which already implement ndo_add_{vxlan, 
-geneve}_port, of course. Sorry for not being specific enough here. All 
-the other drivers don't need to be considered at all.
-
->> Lot's of drivers refresh the ports list by calling ndo_open function again
->> because of error recovery or resuming and thus get a new port list (here
->> some drivers actually currently increment the refcounter for already
->> installed ports by mistake and I am looking into how to fix this, probably
->> by throwing away the list of currently installed port numbers first and then
->> refreshing all ports). It is even worse: it seems drivers actually increment
->> the port refcounter by mistake when you change ring settings (or other
->> settings causing a device reset) after installing the vxlan offload.
->>
->> I agree it would be great to get away with the callback completely but I
->> haven't yet fully figured out how error handling should be done then. It
->> seems also not useful to put the error handling in the ndo_add_*_port
->> functions as most simply configure the structs and call a worker afterwards
->> to process them. So the correct propagation of errors can also be tricky.
->>
->> I just don't want to mess with the state in the current drivers but as a
->> first step remove the dependency.
->>
->> The reason why I want to keep the callback is that without completely
->> understanding the rest of problems I don't know if we need it or not.
->>
-> It is true that the drivers are all over the board on how they
-> implement this. They need to be fixed regardless (as you point ref
-> counting is a mess). A new notifier does not address this and just
-> maintains what is a bad model in the first place. Inflicting more
-> complexity into core APIs for this simply isn't justified, let's try
-> to fix the drivers in question.
-
-I think we have a core entanglement between the drivers that offload 
-vxlan and geneve to the tunnel modules which is hurting most right now 
-without dealing too much with the offloading API.
-
-As net-next is closed now do you think the series which I actually send 
-hopefully in time is still worth being considered to at least get the 
-autoloading fixed. It just replaces the callback by a different callback 
-which does not depend on the modules.
-
-Quite some drivers need to be touched by that (which implement those 
-offloads) and I am not sure if requesting a new port list from the 
-kernel in case of error conditions and the reinitialization of the NIC 
-during its UP operation without state is still the way to go and easier 
-to implement. It feels that we have to add more code to the drivers 
-otherwise. By looking at the current code it might make sense to just 
-remove the reference counting and ask the kernel to just send down the 
-list of new ports.
-
-As soon as an interface for generic offloads is found it can be favored 
-by the kernel stack and the vxlan specific code can be ifdefed out and 
-later on removed as soon as all features are adequately replaced by the 
-generic offloading interface.
-
-Does that make sense?
-
-Thanks,
-Hannes
+Thanks.
