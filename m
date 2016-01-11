@@ -1,44 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
- global transport hashtable
-Date: Mon, 11 Jan 2016 17:32:10 +0800
-Message-ID: <20160111093210.GA23557@gondor.apana.org.au>
-References: <20151230.125046.310343849422003518.davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 1/2] ravb: stop reading ECMR in ravb_emac_init()
+Date: Mon, 11 Jan 2016 10:45:36 +0100
+Message-ID: <CAMuHMdUAHYbpxVbqn=j37GKH=3PSzrfRjmqQkGPmPsqxy9XioQ@mail.gmail.com>
+References: <5859243.yu8qorLmay@wasted.cogentembedded.com>
+	<1554972.rhPQTyRgNp@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, lucien.xin@gmail.com,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	mleitner@redhat.com, vyasevic@redhat.com, daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:48888 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757777AbcAKJcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 04:32:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20151230.125046.310343849422003518.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1554972.rhPQTyRgNp@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 30 Dec 2015 11:57:31 -0500
-> 
->> I am against using rhashtable in SCTP (or TCP) at this stage, given the
->> number of bugs we have with it.
-> 
-> Come on Eric, we've largely dealt with all of these problems.  I haven't
-> seen a serious report in a while.
+Hi Sergei,
 
-Well there is still the outstanding issue with softirq insertion
-potentially failing with ENOMEM if we fail to expand the hash
-table using just kmalloc.
+On Sun, Jan 10, 2016 at 10:27 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> The code in ravb_emac_init() twiddling the ECMR bits always looked a bit
+> strange to me: if one intends to respect 'priv->duplex', why save old value
+> of the ECMR.DM bit?   As all the other bits are zeroed anyway, we don't
+> really need to read ECMR before writing to it.
 
-So if the target user does softirq insertions, I would wait until
-the fix for that is ready.
+Just an observation, I don't know about correctness: priv->duplex wasn't
+respected if ECMR_DM was already set before.
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Same comment for the second patch.
+
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+> ---
+>  drivers/net/ethernet/renesas/ravb_main.c |    7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
+>
+> Index: net/drivers/net/ethernet/renesas/ravb_main.c
+> ===================================================================
+> --- net.orig/drivers/net/ethernet/renesas/ravb_main.c
+> +++ net/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -338,16 +338,13 @@ error:
+>  static void ravb_emac_init(struct net_device *ndev)
+>  {
+>         struct ravb_private *priv = netdev_priv(ndev);
+> -       u32 ecmr;
+>
+>         /* Receive frame limit set register */
+>         ravb_write(ndev, ndev->mtu + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN, RFLR);
+>
+>         /* PAUSE prohibition */
+> -       ecmr =  ravb_read(ndev, ECMR);
+> -       ecmr &= ECMR_DM;
+
+Perhaps you misread as "ecmr &= ~ECMR_DM"?
+
+> -       ecmr |= ECMR_ZPF | (priv->duplex ? ECMR_DM : 0) | ECMR_TE | ECMR_RE;
+> -       ravb_write(ndev, ecmr, ECMR);
+> +       ravb_write(ndev, ECMR_ZPF | (priv->duplex ? ECMR_DM : 0) |
+> +                  ECMR_TE | ECMR_RE, ECMR);
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
