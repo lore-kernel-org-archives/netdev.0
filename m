@@ -1,74 +1,50 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH 5/5] net: can: ifi: Add IFI CANFD IP support
-Date: Mon, 11 Jan 2016 20:33:11 +0100
-Message-ID: <201601112033.11487.marex@denx.de>
-References: <201601120324.lYD7L0Bs%fengguang.wu@intel.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net v2] bonding: Prevent IPv6 link local address on
+ enslaved devices
+Date: Mon, 11 Jan 2016 15:11:36 -0500
+Message-ID: <20160111201135.GF32683@redhat.com>
+References: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Karl Heiss <kheiss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:36636 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964817AbcAKTdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 14:33:11 -0500
-In-Reply-To: <201601120324.lYD7L0Bs%fengguang.wu@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41845 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760008AbcAKULg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 15:11:36 -0500
+Content-Disposition: inline
+In-Reply-To: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, January 11, 2016 at 08:29:28 PM, kbuild test robot wrote:
-> Hi Marek,
-
-Hi Robot,
-
-> [auto build test WARNING on net/master]
-> [also build test WARNING on v4.4 next-20160111]
-> [if your patch is applied to the wrong git tree, please drop us a note to
-> help improving the system]
+On Mon, Jan 11, 2016 at 08:28:43AM -0500, Karl Heiss wrote:
+> Commit 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
+> undoes the fix provided by commit c2edacf80e15 ("bonding / ipv6: no addrconf
+> for slaves separately from master") by effectively setting the slave flag
+> after the slave has been opened.  If the slave comes up quickly enough, it
+> will go through the IPv6 addrconf before the slave flag has been set and
+> will get a link local IPv6 address.
 > 
-> url:   
-> https://github.com/0day-ci/linux/commits/Marek-Vasut/net-can-Sort-the-Kcon
-> fig-includes/20160112-025020 config: x86_64-allmodconfig (attached as
-> .config)
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64
+> In order to ensure that addrconf knows to ignore the slave devices on state
+> change, set IFF_SLAVE before dev_open() during bonding enslavement.
 > 
-> All warnings (new ones prefixed by >>):
+> Fixes: 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
 > 
->    drivers/net/can/ifi_canfd/ifi_canfd.c: In function 'ifi_canfd_isr':
-> >> drivers/net/can/ifi_canfd/ifi_canfd.c:486:27: warning: large integer
-> >> implicitly truncated to unsigned type [-Woverflow]
-> 
->      const u32 clr_irq_mask = ~(IFI_CANFD_INTERRUPT_SET_IRQ |
->                               ^
->    drivers/net/can/ifi_canfd/ifi_canfd.c: In function 'ifi_canfd_start':
->    drivers/net/can/ifi_canfd/ifi_canfd.c:640:9: warning: large integer
-> implicitly truncated to unsigned type [-Woverflow]
-> writel(~IFI_CANFD_INTERRUPT_SET_IRQ, priv->base + IFI_CANFD_INTERRUPT); ^
->    drivers/net/can/ifi_canfd/ifi_canfd.c: In function 'ifi_canfd_stop':
->    drivers/net/can/ifi_canfd/ifi_canfd.c:675:9: warning: large integer
-> implicitly truncated to unsigned type [-Woverflow]
-> writel(~IFI_CANFD_INTERRUPT_SET_IRQ, priv->base + IFI_CANFD_INTERRUPT); ^
+> Signed-off-by: Karl Heiss <kheiss@gmail.com>
+> ---
+> - Changes since 'v1':
+>   - Revert clearing the IFF_SLAVE flag later during bond release so that
+>     RTM_NEWLINK messages will correctly reflect the slave state.
+>   - Update commit message for clarity.
 
-How did this splat came to be ? I would expect that the expansion goes like
-this:
+Looks good to me as well, and I've actually got a recent Red Hat bugzilla
+report about this same issue.
 
-const u32 clr_irq_mask = ~(IFI_CANFD_INTERRUPT_SET_IRQ |
-                           IFI_CANFD_INTERRUPT_ERROR_WARNING);
-const u32 clr_irq_mask = ~(BIT(31) | BIT(1));
-const u32 clr_irq_mask = ~(0x80000002);
-const u32 clr_irq_mask = 0x7ffffffd;
+Reviewed-by: Jarod Wilson <jarod@redhat.com>
 
-Did I miss something there ?
-
-Thanks!
-
-Best regards,
-Marek Vasut
+-- 
+Jarod Wilson
+jarod@redhat.com
