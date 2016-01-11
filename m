@@ -1,36 +1,77 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] tc: fix compilation with old gcc (< 4.6)
-Date: Mon, 11 Jan 2016 08:28:00 -0800
-Message-ID: <20160111082800.611a9201@xeon-e3>
-References: <1452171793-5829-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	daniel@iogearbox.net, Julien Floret <julien.floret@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net v2] bonding: Prevent IPv6 link local address on enslaved devices
+Date: Mon, 11 Jan 2016 08:30:22 -0800
+Message-ID: <29720.1452529822@famine>
+References: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
+Cc: netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Karl Heiss <kheiss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36431 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757960AbcAKQ1x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 11:27:53 -0500
-Received: by mail-pf0-f180.google.com with SMTP id n128so46952921pfn.3
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 08:27:52 -0800 (PST)
-In-Reply-To: <1452171793-5829-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:34818 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933843AbcAKQa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 11:30:26 -0500
+In-reply-to: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  7 Jan 2016 14:03:13 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+Karl Heiss <kheiss@gmail.com> wrote:
 
-> From: Julien Floret <julien.floret@6wind.com>
-> 
-> gcc < 4.6 does not handle C11 syntax for the static initialization of
-> anonymous struct/union, hence the following error:
-> 
-> tc_bpf.c:260: error: unknown field map_type specified in initializer
-> 
-> Signed-off-by: Julien Floret <julien.floret@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>Commit 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
+>undoes the fix provided by commit c2edacf80e15 ("bonding / ipv6: no addrconf
+>for slaves separately from master") by effectively setting the slave flag
+>after the slave has been opened.  If the slave comes up quickly enough, it
+>will go through the IPv6 addrconf before the slave flag has been set and
+>will get a link local IPv6 address.
+>
+>In order to ensure that addrconf knows to ignore the slave devices on state
+>change, set IFF_SLAVE before dev_open() during bonding enslavement.
+>
+>Fixes: 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
+>
+>Signed-off-by: Karl Heiss <kheiss@gmail.com>
 
-Applied, thanks.
+Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+
+>---
+>- Changes since 'v1':
+>  - Revert clearing the IFF_SLAVE flag later during bond release so that
+>    RTM_NEWLINK messages will correctly reflect the slave state.
+>  - Update commit message for clarity.
+>---
+> drivers/net/bonding/bond_main.c |    5 ++++-
+> 1 files changed, 4 insertions(+), 1 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 9e0f8a7..f1692e4 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1207,7 +1207,6 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+> 	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
+> 	if (err)
+> 		return err;
+>-	slave_dev->flags |= IFF_SLAVE;
+> 	rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE, GFP_KERNEL);
+> 	return 0;
+> }
+>@@ -1465,6 +1464,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> 		}
+> 	}
+> 
+>+	/* set slave flag before open to prevent IPv6 addrconf */
+>+	slave_dev->flags |= IFF_SLAVE;
+>+
+> 	/* open the slave since the application closed it */
+> 	res = dev_open(slave_dev);
+> 	if (res) {
+>@@ -1725,6 +1727,7 @@ err_close:
+> 	dev_close(slave_dev);
+> 
+> err_restore_mac:
+>+	slave_dev->flags &= ~IFF_SLAVE;
+> 	if (!bond->params.fail_over_mac ||
+> 	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
+> 		/* XXX TODO - fom follow mode needs to change master's
+>-- 
+>1.7.1
+>
