@@ -1,40 +1,38 @@
-From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] iwl4965: Fix a memory leak in error handling code of
- __il4965_up
-Date: Mon, 11 Jan 2016 13:16:10 +0100
-Message-ID: <20160111121610.GF25015@redhat.com>
-References: <1452392363-3600-1-git-send-email-baijiaju1990@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1452392363-3600-1-git-send-email-baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v5 06/10] netdev: add netdevice notifier type to trigger a reprogramming of offloads
+Date: Mon, 11 Jan 2016 13:17:27 +0100
+Message-ID: <1452514651-15445-7-git-send-email-hannes@stressinduktion.org>
+References: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
+Cc: jesse@kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:43732 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759387AbcAKMRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:17:45 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 312DC20B6B
+	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:17:45 -0500 (EST)
+In-Reply-To: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 10, 2016 at 10:19:23AM +0800, Jia-Ju Bai wrote:
-> diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
-> index 6656215..fd7b5c7 100644
-> --- a/drivers/net/wireless/iwlegacy/4965-mac.c
-> +++ b/drivers/net/wireless/iwlegacy/4965-mac.c
-> @@ -5577,6 +5577,7 @@ __il4965_up(struct il_priv *il)
->  	ret = il4965_hw_nic_init(il);
->  	if (ret) {
->  		IL_ERR("Unable to init nic\n");
-> +		il_dealloc_bcast_stations(il);
->  		return ret;
->  	}
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/linux/netdevice.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-Please do not repost patches so frequent and if you repost
-the unchanged patch mark it so i.e. [PATCH repost].
-
-Stanislaw
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2285596e704589..0d4ee1315cb08a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2185,6 +2185,7 @@ struct netdev_lag_lower_state_info {
+ #define NETDEV_BONDING_INFO	0x0019
+ #define NETDEV_PRECHANGEUPPER	0x001A
+ #define NETDEV_CHANGELOWERSTATE	0x001B
++#define NETDEV_REFRESH_OFFLOADS	0x001C
+ 
+ int register_netdevice_notifier(struct notifier_block *nb);
+ int unregister_netdevice_notifier(struct notifier_block *nb);
+-- 
+2.5.0
