@@ -1,163 +1,107 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH 4/9] bpf: add percpu version of lookup/update element helpers
-Date: Mon, 11 Jan 2016 23:56:56 +0800
-Message-ID: <1452527821-12276-5-git-send-email-tom.leiming@gmail.com>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Ming Lei <tom.leiming@gmail.com>
-To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: mleitner@redhat.com
+Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
+ global transport hashtable
+Date: Mon, 11 Jan 2016 14:00:40 -0200
+Message-ID: <20160111160039.GA6061@mrl.redhat.com>
+References: <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
+ <20160111093012.GA23525@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Xin Long <lucien.xin@gmail.com>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, vyasevic@redhat.com,
+	daniel@iogearbox.net, davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36778 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757704AbcAKQAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 11:00:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20160111093012.GA23525@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Prepare for supporting percpu map.
+On Mon, Jan 11, 2016 at 05:30:12PM +0800, Herbert Xu wrote:
+> Xin Long <lucien.xin@gmail.com> wrote:
+> >
+> > +static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
+> > +                               const void *ptr)
+> > +{
+> > +       const struct sctp_hash_cmp_arg *x = arg->key;
+> > +       const struct sctp_transport *t = ptr;
+> > +       struct sctp_association *asoc = t->asoc;
+> > +       const struct net *net = x->net;
+> > +
+> > +       if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
+> > +               return 1;
+> > +       if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
+> > +               return 1;
+> > +       if (!net_eq(sock_net(asoc->base.sk), net))
+> > +               return 1;
+> > +       if (!sctp_bind_addr_match(&asoc->base.bind_addr,
+> > +                                 x->laddr, sctp_sk(asoc->base.sk)))
+> > +               return 1;
+> > +
+> > +       return 0;
+> > +}
+> > +
+> > +static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
+> > +{
+> > +       const struct sctp_transport *t = data;
+> > +       const union sctp_addr *paddr = &t->ipaddr;
+> > +       const struct net *net = sock_net(t->asoc->base.sk);
+> > +       u16 lport = htons(t->asoc->base.bind_addr.port);
+> > +       u32 addr;
+> > +
+> > +       if (paddr->sa.sa_family == AF_INET6)
+> > +               addr = jhash(&paddr->v6.sin6_addr, 16, seed);
+> > +       else
+> > +               addr = paddr->v4.sin_addr.s_addr;
+> > +
+> > +       return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
+> > +                            (__force __u32)lport, net_hash_mix(net), seed);
+> > +}
+> > +
+> > +static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
+> > +{
+> > +       const struct sctp_hash_cmp_arg *x = data;
+> > +       const union sctp_addr *paddr = x->paddr;
+> > +       const struct net *net = x->net;
+> > +       u16 lport = x->laddr->v4.sin_port;
+> > +       u32 addr;
+> > +
+> > +       if (paddr->sa.sa_family == AF_INET6)
+> > +               addr = jhash(&paddr->v6.sin6_addr, 16, seed);
+> > +       else
+> > +               addr = paddr->v4.sin_addr.s_addr;
+> > +
+> > +       return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
+> > +                            (__force __u32)lport, net_hash_mix(net), seed);
+> > +}
+> 
+> There's your problem.  You are allowing multiple objects to hash
+> to the same value.  This is unacceptable with rhashtable because
+> we use the hash chain length to determine if we're under attack
+> and need to rehash.  This is the reason why you would see EBUSY
+> during insertion.
 
-These introduced two callback & helpers can be used to
-retrieve/update the value from one specific CPU for percpu map.
+Cool. Then I guess we don't really have an issue here. The case that
+fails is an artificial load test which is virtually impossible to be hit
+in real world, or at least I really hope so. The test, as in Xin's
+attachment, will load more than 1600 IP addresses in one host (2 vCPU
+during the test) and attempt to start an assoc from each of those using
+the very same (lport, daddr, dport)-tuple.
 
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
----
- include/linux/bpf.h      |  3 +++
- include/uapi/linux/bpf.h |  6 ++++++
- kernel/bpf/core.c        |  2 ++
- kernel/bpf/helpers.c     | 53 ++++++++++++++++++++++++++++++++++++++++++++++++
- net/core/filter.c        |  4 ++++
- 5 files changed, 68 insertions(+)
+Doing so is just unreasonable. Note that net is also hashed, so
+even if we consider it could be 1600 containers, it is fine.
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 7fa339f..75d75d8 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -219,6 +219,9 @@ extern const struct bpf_func_proto bpf_get_current_comm_proto;
- extern const struct bpf_func_proto bpf_skb_vlan_push_proto;
- extern const struct bpf_func_proto bpf_skb_vlan_pop_proto;
- 
-+extern const struct bpf_func_proto bpf_map_lookup_elem_percpu_proto;
-+extern const struct bpf_func_proto bpf_map_update_elem_percpu_proto;
-+
- /* Shared helpers among cBPF and eBPF. */
- void bpf_user_rnd_init_once(void);
- u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 8bed7f1..2658917 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -270,6 +270,12 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_perf_event_output,
- 	BPF_FUNC_skb_load_bytes,
-+
-+	/* void *map_lookup_elem(&map, &key, cpu) */
-+	BPF_FUNC_map_lookup_elem_percpu,
-+	/* int map_update_elem(&map, &key, &value, flags, cpu) */
-+	BPF_FUNC_map_update_elem_percpu,
-+
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 972d9a8..71a09fa 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -769,6 +769,8 @@ const struct bpf_func_proto * __weak bpf_get_trace_printk_proto(void)
- {
- 	return NULL;
- }
-+const struct bpf_func_proto bpf_map_lookup_elem_percpu_proto __weak;
-+const struct bpf_func_proto bpf_map_update_elem_percpu_proto __weak;
- 
- /* Always built-in helper functions. */
- const struct bpf_func_proto bpf_tail_call_proto = {
-diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
-index 4504ca6..d05164a 100644
---- a/kernel/bpf/helpers.c
-+++ b/kernel/bpf/helpers.c
-@@ -54,6 +54,36 @@ const struct bpf_func_proto bpf_map_lookup_elem_proto = {
- 	.arg2_type	= ARG_PTR_TO_MAP_KEY,
- };
- 
-+static u64 bpf_map_lookup_elem_percpu(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	/* verifier checked that R1 contains a valid pointer to bpf_map
-+	 * and R2 points to a program stack and map->key_size bytes were
-+	 * initialized
-+	 */
-+	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-+	void *key = (void *) (unsigned long) r2;
-+	u32 cpu = (u32)(unsigned long) r3;
-+	void *value;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	value = map->ops->map_lookup_elem_percpu(map, key, cpu);
-+
-+	/* lookup() returns either pointer to element value or NULL
-+	 * which is the meaning of PTR_TO_MAP_VALUE_OR_NULL type
-+	 */
-+	return (unsigned long) value;
-+}
-+
-+const struct bpf_func_proto bpf_map_lookup_elem_percpu_proto = {
-+	.func		= bpf_map_lookup_elem_percpu,
-+	.gpl_only	= false,
-+	.ret_type	= RET_PTR_TO_MAP_VALUE_OR_NULL,
-+	.arg1_type	= ARG_CONST_MAP_PTR,
-+	.arg2_type	= ARG_PTR_TO_MAP_KEY,
-+	.arg3_type	= ARG_ANYTHING,
-+};
-+
- static u64 bpf_map_update_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
- 	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-@@ -75,6 +105,29 @@ const struct bpf_func_proto bpf_map_update_elem_proto = {
- 	.arg4_type	= ARG_ANYTHING,
- };
- 
-+static u64 bpf_map_update_elem_percpu(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-+	void *key = (void *) (unsigned long) r2;
-+	void *value = (void *) (unsigned long) r3;
-+	u32 cpu = (u32)(unsigned long) r5;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	return map->ops->map_update_elem_percpu(map, key, value, r4, cpu);
-+}
-+
-+const struct bpf_func_proto bpf_map_update_elem_percpu_proto = {
-+	.func		= bpf_map_update_elem_percpu,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_CONST_MAP_PTR,
-+	.arg2_type	= ARG_PTR_TO_MAP_KEY,
-+	.arg3_type	= ARG_PTR_TO_MAP_VALUE,
-+	.arg4_type	= ARG_ANYTHING,
-+	.arg5_type	= ARG_ANYTHING,
-+};
-+
- static u64 bpf_map_delete_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
- 	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 35e6fed..8c558fc 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1743,8 +1743,12 @@ sk_filter_func_proto(enum bpf_func_id func_id)
- 	switch (func_id) {
- 	case BPF_FUNC_map_lookup_elem:
- 		return &bpf_map_lookup_elem_proto;
-+	case BPF_FUNC_map_lookup_elem_percpu:
-+		return &bpf_map_lookup_elem_percpu_proto;
- 	case BPF_FUNC_map_update_elem:
- 		return &bpf_map_update_elem_proto;
-+	case BPF_FUNC_map_update_elem_percpu:
-+		return &bpf_map_update_elem_percpu_proto;
- 	case BPF_FUNC_map_delete_elem:
- 		return &bpf_map_delete_elem_proto;
- 	case BPF_FUNC_get_prandom_u32:
--- 
-1.9.1
+> So instead of inserting your objects as is, you should instead hash
+> a list object that then links to all the objects that has the same
+> hash key.
+
+Now that it is clarified, I'm thinking we should just get ride of that
+loop on EBUSY. No real reason to have extra code only to support an
+artificial test. Agree?
+
+Thanks,
+Marcelo
