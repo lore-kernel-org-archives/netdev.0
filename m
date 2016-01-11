@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Fixes static checker warning in
- mps_tcam_show()
-Date: Sun, 10 Jan 2016 22:42:34 -0500 (EST)
-Message-ID: <20160110.224234.1175609809393289113.davem@davemloft.net>
-References: <1452235885-28129-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH 1/2] phy: fix blackfin build failure
+Date: Sun, 10 Jan 2016 22:46:25 -0500 (EST)
+Message-ID: <20160110.224625.2255348524619041283.davem@davemloft.net>
+References: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60753 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757173AbcAKDmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 22:42:36 -0500
-In-Reply-To: <1452235885-28129-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	andrew@lunn.ch
+To: sudipm.mukherjee@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452252495-20961-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Fri,  8 Jan 2016 12:21:25 +0530
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Date: Fri,  8 Jan 2016 16:58:14 +0530
 
-> The commit 115b56af88b5 ("cxgb4: Update mps_tcam output to include T6
-> fields") from Dec 23, 2015, leads to the following static checker
-> warning:
+> The build of blackfin defconfig is failing with the error:
+> error: 'struct mii_bus' has no member named 'phy_map'
 > 
->         drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c:1735
-> mps_tcam_show()
->         warn: we tested 'lookup_type' before and it was 'true'
+> A new API mdiobus_get_phy() was introduced and phy_map was removed but
+> it was not changed here.
 > 
-> Fixing it.
-> 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus.")
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 
-Applied, thanks.
+Applied.
