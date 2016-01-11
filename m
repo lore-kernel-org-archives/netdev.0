@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH  V3 10/11] net/mlx5_core: Export flow steering API
-Date: Mon, 11 Jan 2016 10:26:06 +0200
-Message-ID: <1452500767-3628-11-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH  V3 02/11] net/mlx5_core: Add utilities to find next and prev flow-tables
+Date: Mon, 11 Jan 2016 10:25:58 +0200
+Message-ID: <1452500767-3628-3-git-send-email-ogerlitz@mellanox.com>
 References: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Matan Barak <matanb@mellanox.com>,
@@ -10,82 +10,109 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Moni Shoua <monis@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59683 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59618 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758495AbcAKI1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 03:27:00 -0500
+	id S1758227AbcAKI0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 03:26:50 -0500
 In-Reply-To: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Add exports to flow steering API for mlx5_ib usage.
-The following functions are exported:
+Add two utility functions for find next and prev flow table.
+Find next flow table function gets priority and return the
+first flow table of the next priority in the tree.
+Find prev flow table return the last flow table of
+the previous priority in the tree.
 
-1. mlx5_create_auto_grouped_flow_table - used to create flow
-table with auto flow grouping management (create and destroy
-flow groups). In auto-grouped flow tables, we create groups
-automatically if needed (if we don't find an existing
-flow group with same match criteria when we add new rule).
-
-2. mlx5_destroy_flow_table - used to destroy  a flow table.
-
-3. mlx5_add_flow_rule - used to add flow rule into a flow table.
-
-4. mlx5_del_flow_rule - used to delete flow rule from its flow table.
-
-5. mlx5_get_flow_namespace - used to get a handle to the required
-namespace sub-tree.
+These utility functions are used for chaining flow table from different
+priorities.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 67 +++++++++++++++++++++++
+ 1 file changed, 67 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 757725b..6f68dba 100644
+index 7d24bbb..c5a96e6 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -702,6 +702,7 @@ struct mlx5_flow_table *mlx5_create_auto_grouped_flow_table(struct mlx5_flow_nam
- 
+@@ -443,6 +443,73 @@ static struct mlx5_flow_table *alloc_flow_table(int level, int max_fte,
  	return ft;
  }
-+EXPORT_SYMBOL(mlx5_create_auto_grouped_flow_table);
  
- /* Flow table should be locked */
- static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *ft,
-@@ -1013,11 +1014,13 @@ unlock:
- 	unlock_ref_node(&ft->node);
- 	return rule;
- }
-+EXPORT_SYMBOL(mlx5_add_flow_rule);
- 
- void mlx5_del_flow_rule(struct mlx5_flow_rule *rule)
- {
- 	tree_remove_node(&rule->node);
- }
-+EXPORT_SYMBOL(mlx5_del_flow_rule);
- 
- /* Assuming prio->node.children(flow tables) is sorted by level */
- static struct mlx5_flow_table *find_next_ft(struct mlx5_flow_table *ft)
-@@ -1099,6 +1102,7 @@ int mlx5_destroy_flow_table(struct mlx5_flow_table *ft)
- 
- 	return err;
- }
-+EXPORT_SYMBOL(mlx5_destroy_flow_table);
- 
- void mlx5_destroy_flow_group(struct mlx5_flow_group *fg)
- {
-@@ -1143,6 +1147,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
- 
- 	return ns;
- }
-+EXPORT_SYMBOL(mlx5_get_flow_namespace);
- 
- static struct fs_prio *fs_create_prio(struct mlx5_flow_namespace *ns,
- 				      unsigned prio, int max_ft)
++/* If reverse is false, then we search for the first flow table in the
++ * root sub-tree from start(closest from right), else we search for the
++ * last flow table in the root sub-tree till start(closest from left).
++ */
++static struct mlx5_flow_table *find_closest_ft_recursive(struct fs_node  *root,
++							 struct list_head *start,
++							 bool reverse)
++{
++#define list_advance_entry(pos, reverse)		\
++	((reverse) ? list_prev_entry(pos, list) : list_next_entry(pos, list))
++
++#define list_for_each_advance_continue(pos, head, reverse)	\
++	for (pos = list_advance_entry(pos, reverse);		\
++	     &pos->list != (head);				\
++	     pos = list_advance_entry(pos, reverse))
++
++	struct fs_node *iter = list_entry(start, struct fs_node, list);
++	struct mlx5_flow_table *ft = NULL;
++
++	if (!root)
++		return NULL;
++
++	list_for_each_advance_continue(iter, &root->children, reverse) {
++		if (iter->type == FS_TYPE_FLOW_TABLE) {
++			fs_get_obj(ft, iter);
++			return ft;
++		}
++		ft = find_closest_ft_recursive(iter, &iter->children, reverse);
++		if (ft)
++			return ft;
++	}
++
++	return ft;
++}
++
++/* If reverse if false then return the first flow table in next priority of
++ * prio in the tree, else return the last flow table in the previous priority
++ * of prio in the tree.
++ */
++static struct mlx5_flow_table *find_closest_ft(struct fs_prio *prio, bool reverse)
++{
++	struct mlx5_flow_table *ft = NULL;
++	struct fs_node *curr_node;
++	struct fs_node *parent;
++
++	parent = prio->node.parent;
++	curr_node = &prio->node;
++	while (!ft && parent) {
++		ft = find_closest_ft_recursive(parent, &curr_node->list, reverse);
++		curr_node = parent;
++		parent = curr_node->parent;
++	}
++	return ft;
++}
++
++/* Assuming all the tree is locked by mutex chain lock */
++static struct mlx5_flow_table *find_next_chained_ft(struct fs_prio *prio)
++{
++	return find_closest_ft(prio, false);
++}
++
++/* Assuming all the tree is locked by mutex chain lock */
++static struct mlx5_flow_table *find_prev_chained_ft(struct fs_prio *prio)
++{
++	return find_closest_ft(prio, true);
++}
++
+ struct mlx5_flow_table *mlx5_create_flow_table(struct mlx5_flow_namespace *ns,
+ 					       int prio,
+ 					       int max_fte)
 -- 
 2.3.7
