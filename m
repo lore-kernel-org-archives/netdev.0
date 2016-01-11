@@ -1,35 +1,37 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] b43: Fix a memory leak in b43_bus_dev_ssb_init
-Date: Mon, 11 Jan 2016 11:37:36 +0800
-Message-ID: <1452483457-568-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>
-To: kvalo@codeaurora.org, zajec5@gmail.com, joe@perches.com,
-	davem@davemloft.net, m@bues.ch, johannes.berg@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Fixes static checker warning in
+ mps_tcam_show()
+Date: Sun, 10 Jan 2016 22:42:34 -0500 (EST)
+Message-ID: <20160110.224234.1175609809393289113.davem@davemloft.net>
+References: <1452235885-28129-1-git-send-email-hariprasad@chelsio.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60753 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757173AbcAKDmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 22:42:36 -0500
+In-Reply-To: <1452235885-28129-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The memory allocated by kzalloc in b43_bus_dev_ssb_init is not freed.
-This patch fixes the bug by adding kfree in b43_ssb_remove.
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri,  8 Jan 2016 12:21:25 +0530
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/wireless/b43/main.c |    1 +
- 1 file changed, 1 insertion(+)
+> The commit 115b56af88b5 ("cxgb4: Update mps_tcam output to include T6
+> fields") from Dec 23, 2015, leads to the following static checker
+> warning:
+> 
+>         drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c:1735
+> mps_tcam_show()
+>         warn: we tested 'lookup_type' before and it was 'true'
+> 
+> Fixing it.
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index ec013fb..6d251a0 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -5798,6 +5798,7 @@ static void b43_ssb_remove(struct ssb_device *sdev)
- 
- 	b43_leds_unregister(wl);
- 	b43_wireless_exit(dev, wl);
-+	kfree(dev);
- }
- 
- static struct ssb_driver b43_ssb_driver = {
--- 
-1.7.9.5
+Applied, thanks.
