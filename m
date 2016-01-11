@@ -1,86 +1,61 @@
 From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH 1/9] bpf: prepare for moving map common stuff into one place
-Date: Mon, 11 Jan 2016 23:56:53 +0800
-Message-ID: <1452527821-12276-2-git-send-email-tom.leiming@gmail.com>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
+Subject: [PATCH 0/9] bpf: support percpu ARRAY map
+Date: Mon, 11 Jan 2016 23:56:52 +0800
+Message-ID: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Ming Lei <tom.leiming@gmail.com>
+	Martin KaFai Lau <kafai@fb.com>
 To: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces some nop functions of map callback
-for use in all map implementation.
+Hi,
 
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
----
- kernel/bpf/Makefile  |  2 +-
- kernel/bpf/bpf_map.h |  9 +++++++++
- kernel/bpf/map.c     | 26 ++++++++++++++++++++++++++
- 3 files changed, 36 insertions(+), 1 deletion(-)
- create mode 100644 kernel/bpf/bpf_map.h
- create mode 100644 kernel/bpf/map.c
+In case of ARRAY map, the index of the array is used as key
+of the map, then inevitably the mapped element/value can be
+accessed from more than one CPU concurrently, so expensive
+atomic operations are often required in eBPF prog. And we can
+see these usages in tracex3, sockex1 and sockex3 in sample/bpf/
+of kernel tree.
 
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 13272582..191d54b 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1,4 +1,4 @@
- obj-y := core.o
- 
- obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
--obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o
-+obj-$(CONFIG_BPF_SYSCALL) += map.o hashtab.o arraymap.o
-diff --git a/kernel/bpf/bpf_map.h b/kernel/bpf/bpf_map.h
-new file mode 100644
-index 0000000..7e596c1
---- /dev/null
-+++ b/kernel/bpf/bpf_map.h
-@@ -0,0 +1,9 @@
-+#ifndef INT_BPF_MAP_COMMON_H
-+#define INT_BPF_MAP_COMMON_H
-+
-+#include <linux/bpf.h>
-+
-+extern void *map_lookup_elem_nop(struct bpf_map *map, void *key);
-+extern int map_delete_elem_nop(struct bpf_map *map, void *key);
-+
-+#endif
-diff --git a/kernel/bpf/map.c b/kernel/bpf/map.c
-new file mode 100644
-index 0000000..bf113fb
---- /dev/null
-+++ b/kernel/bpf/map.c
-@@ -0,0 +1,26 @@
-+/*
-+ * bpf map common stuff
-+ *
-+ *	Copyright (c) 2016 Ming Lei
-+ *
-+ * Authors:
-+ *	Ming Lei <tom.leiming@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/bpf.h>
-+
-+void *map_lookup_elem_nop(struct bpf_map *map, void *key)
-+{
-+	return NULL;
-+}
-+
-+int map_delete_elem_nop(struct bpf_map *map, void *key)
-+{
-+	return -EINVAL;
-+}
-+
--- 
-1.9.1
+This patchset trys to introduce percpu ARRAY map to address
+the issue.
+
+The 1st two patches prepares for supporting percpu map, and
+introduces one file to hold the map common functions.
+
+The following 3 patches introdues percpu version of update/
+lookup element in bpf_map_ops, bpf helpers and syscall, so
+that percpu value can be retrieved/updated from eBPF prog
+and syscall. 
+
+The 6th patch implements percpu array map.
+
+The last 3 patches are changes in samples/bpf, and implements
+test for perpcu array and converts to percpu array in sockex1
+exmaple.
+
+ include/linux/bpf.h        |  10 ++++
+ include/uapi/linux/bpf.h   |  10 ++++
+ kernel/bpf/Makefile        |   2 +-
+ kernel/bpf/arraymap.c      | 153 +++++++++++++++++++++++++++++++++++++++++++++++++++---------
+ kernel/bpf/bpf_map.h       |  15 ++++++
+ kernel/bpf/core.c          |   2 +
+ kernel/bpf/hashtab.c       |   4 ++
+ kernel/bpf/helpers.c       |  53 +++++++++++++++++++++
+ kernel/bpf/map.c           |  43 +++++++++++++++++
+ kernel/bpf/syscall.c       |  48 +++++++++++++++----
+ net/core/filter.c          |   4 ++
+ samples/bpf/bpf_helpers.h  |   5 ++
+ samples/bpf/libbpf.c       |  42 +++++++++++++++++
+ samples/bpf/libbpf.h       |   5 ++
+ samples/bpf/sockex1_kern.c |   7 +--
+ samples/bpf/sockex1_user.c |  20 ++++++--
+ samples/bpf/test_maps.c    | 110 +++++++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 493 insertions(+), 40 deletions(-)
+
+
+
+thanks,
+Ming
