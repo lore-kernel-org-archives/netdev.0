@@ -1,189 +1,95 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [Intel-wired-lan] [next PATCH 1/4] ixgbe: Add support for generic
- Tx checksums
-Date: Mon, 11 Jan 2016 12:49:29 -0800
-Message-ID: <CALx6S34cxoEHHf7hVR+B4NWK_PBjVPzF5MLj=FfSnXhVpn5h7Q@mail.gmail.com>
-References: <20160111173724.4101.35798.stgit@localhost.localdomain>
-	<20160111175356.4101.8327.stgit@localhost.localdomain>
-	<CALx6S36VOrpVoFrdr4eTynmWMkxWGs57uw+LEoXRKOsUFgryDw@mail.gmail.com>
-	<CAKgT0UfGsZGywT=rK2SAWO9ZAY2q07DZ8Vx5Hy=k1cmHJx9M7Q@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 7/8] net: ip_tunnel: remove 'csum_help' argument
+ to iptunnel_handle_offloads
+Date: Mon, 11 Jan 2016 13:00:05 -0800
+Message-ID: <CAKgT0UcgCSr8v-SOTEKXE4hSLsYgQSZ9j3PCKcBuJ=DzVuiHFw@mail.gmail.com>
+References: <56901197.8040808@solarflare.com>
+	<56901244.8060809@solarflare.com>
+	<CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
+	<CALx6S34MRoLw_JiHuyDANwoF9+u7k9R-UDb_RGP+L-d9D=f3WQ@mail.gmail.com>
+	<CAKgT0UeZwSm4oKoydXWU3iWmjL5m6H=K=hJ2wAkp_GugbZJwjA@mail.gmail.com>
+	<5693AD25.4020904@solarflare.com>
+	<CAKgT0Ufw9djq-V8YAXjq21gg7rE5=-Dp4o4GmdGk+6Diu4mDNw@mail.gmail.com>
+	<5693E6F8.7040806@solarflare.com>
+	<CAKgT0UeigRk03syFKNtQu7FR4-de-ShyBeyygEEfjRYZ4SEJ4A@mail.gmail.com>
+	<5693FC83.6060004@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:35582 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933540AbcAKUta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 15:49:30 -0500
-Received: by mail-ig0-f171.google.com with SMTP id t15so104759216igr.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 12:49:29 -0800 (PST)
-In-Reply-To: <CAKgT0UfGsZGywT=rK2SAWO9ZAY2q07DZ8Vx5Hy=k1cmHJx9M7Q@mail.gmail.com>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35370 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933237AbcAKVAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 16:00:05 -0500
+Received: by mail-io0-f195.google.com with SMTP id 77so11858795ioc.2
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 13:00:05 -0800 (PST)
+In-Reply-To: <5693FC83.6060004@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 12:29 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Mon, Jan 11, 2016 at 10:11 AM, Tom Herbert <tom@herbertland.com> wrote:
->> On Mon, Jan 11, 2016 at 9:53 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>> This patch adds support for generic Tx checksums to the ixgbe driver.  It
->>> turns out this is actually pretty easy after going over the datasheet as we
->>> were doing a number of steps we didn't need to.
->>>
->>> In order to perform a Tx checksum for an L4 header we need to fill in the
->>> following fields in the Tx descriptor:
->>>   MACLEN (maximum of 127), retrieved from:
->>>                 skb_network_offset()
->>>   IPLEN  (maximum of 511), retrieved from:
->>>                 skb_checksum_start_offset() - skb_network_offset()
->>>   TUCMD.L4T indicates offset and if checksum or crc32c, based on:
->>>                 skb->csum_offset
->>>
->>> The added advantage to doing this is that we can support inner checksum
->>> offloads for tunnels and MPLS while still being able to transparently insert
->>> VLAN tags.
->>>
->>> I also took the opportunity to clean-up many of the feature flag
->>> configuration bits to make them a bit more consistent between drivers.
->>>
->>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->>> ---
->>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  163 +++++++++----------------
->>>  1 file changed, 59 insertions(+), 104 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> index 77cdaed6de90..1e3a548cc612 100644
->>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> @@ -7207,103 +7207,61 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
->>>         return 1;
->>>  }
->>>
->>> +static inline bool ixgbe_ipv6_csum_is_sctp(struct sk_buff *skb)
->>> +{
->>> +       unsigned int offset = 0;
->>> +
->>> +       ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
->>> +
->>> +       return offset == skb_checksum_start_offset(skb);
->>> +}
->>> +
->>>  static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
->>>                           struct ixgbe_tx_buffer *first)
->>>  {
->>>         struct sk_buff *skb = first->skb;
->>>         u32 vlan_macip_lens = 0;
->>> -       u32 mss_l4len_idx = 0;
->>>         u32 type_tucmd = 0;
->>>
->>>         if (skb->ip_summed != CHECKSUM_PARTIAL) {
->>> -               if (!(first->tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
->>> -                   !(first->tx_flags & IXGBE_TX_FLAGS_CC))
->>> +csum_failed:
->>> +               if (!(first->tx_flags & (IXGBE_TX_FLAGS_HW_VLAN |
->>> +                                        IXGBE_TX_FLAGS_CC)))
->>>                         return;
->>> -               vlan_macip_lens = skb_network_offset(skb) <<
->>> -                                 IXGBE_ADVTXD_MACLEN_SHIFT;
->>> -       } else {
->>> -               u8 l4_hdr = 0;
->>> -               union {
->>> -                       struct iphdr *ipv4;
->>> -                       struct ipv6hdr *ipv6;
->>> -                       u8 *raw;
->>> -               } network_hdr;
->>> -               union {
->>> -                       struct tcphdr *tcphdr;
->>> -                       u8 *raw;
->>> -               } transport_hdr;
->>> -               __be16 frag_off;
->>> -
->>> -               if (skb->encapsulation) {
->>> -                       network_hdr.raw = skb_inner_network_header(skb);
->>> -                       transport_hdr.raw = skb_inner_transport_header(skb);
->>> -                       vlan_macip_lens = skb_inner_network_offset(skb) <<
->>> -                                         IXGBE_ADVTXD_MACLEN_SHIFT;
->>> -               } else {
->>> -                       network_hdr.raw = skb_network_header(skb);
->>> -                       transport_hdr.raw = skb_transport_header(skb);
->>> -                       vlan_macip_lens = skb_network_offset(skb) <<
->>> -                                         IXGBE_ADVTXD_MACLEN_SHIFT;
->>> -               }
->>> -
->>> -               /* use first 4 bits to determine IP version */
->>> -               switch (network_hdr.ipv4->version) {
->>> -               case IPVERSION:
->>> -                       vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
->>> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
->>> -                       l4_hdr = network_hdr.ipv4->protocol;
->>> -                       break;
->>> -               case 6:
->>> -                       vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
->>> -                       l4_hdr = network_hdr.ipv6->nexthdr;
->>> -                       if (likely((transport_hdr.raw - network_hdr.raw) ==
->>> -                                  sizeof(struct ipv6hdr)))
->>> -                               break;
->>> -                       ipv6_skip_exthdr(skb, network_hdr.raw - skb->data +
->>> -                                             sizeof(struct ipv6hdr),
->>> -                                        &l4_hdr, &frag_off);
->>> -                       if (unlikely(frag_off))
->>> -                               l4_hdr = NEXTHDR_FRAGMENT;
->>> -                       break;
->>> -               default:
->>> -                       break;
->>> -               }
->>> +               goto no_csum;
->>> +       }
->>>
->>> -               switch (l4_hdr) {
->>> -               case IPPROTO_TCP:
->>> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
->>> -                       mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
->>> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
->>> -                       break;
->>> -               case IPPROTO_SCTP:
->>> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
->>> -                       mss_l4len_idx = sizeof(struct sctphdr) <<
->>> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
->>> -                       break;
->>> -               case IPPROTO_UDP:
->>> -                       mss_l4len_idx = sizeof(struct udphdr) <<
->>> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
->>> +       switch (skb->csum_offset) {
->>> +       case offsetof(struct tcphdr, check):
->>> +               type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
->>> +               /* fall through */
->>> +       case offsetof(struct udphdr, check):
->>> +               break;
->>> +       case offsetof(struct sctphdr, checksum):
->>> +               /* validate that this is actually an SCTP request */
->>> +               if (((first->protocol == htons(ETH_P_IP)) &&
->>> +                    (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
->>> +                   ((first->protocol == htons(ETH_P_IPV6)) &&
->>> +                    ixgbe_ipv6_csum_is_sctp(skb))) {
->>> +                       type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
->>
->> I think we're going to have to do something different for SCTP CRC
->> this (and FCOE CRC) is a special case of CHECKSUM_PARTIAL that I don't
->> think we're always accounting for. For instance, in LCO we are always
->> assuming that CHECKSUM_PARTIAL refers to an IP checksum. Maybe it's
->> time to add a bit to ip_summed so we can define CHEKCKSUM_SCTP_CRC and
->> CHECKSUM_FCOE_CRC?
->
-> I was kind of thinking about that, but for now this is mostly just an
-> intermediate step.  My thought was just to add something signifying
-> that we are requesting a CRC offload, something like a CRC_PARTIAL
->
-> As far as I know the tunnels thing won't be an issue since neither
-> FCoE or SCTP will even attempt to offload the protocol unless the
-> underlying device supports it.  Since no tunnel supports either of
-> these it isn't an issue as the CRCs will always be computed by
-> software before passing the frame off to the tunnel.
->
-Right, we're probably okay in the short term, but this will need to be
-addressed. Good news is that it looks like on Intel supports SCTP CRC
-offload so this is probably manageable to fix.
+On Mon, Jan 11, 2016 at 11:03 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 11/01/16 18:15, Alexander Duyck wrote:
+>> On Mon, Jan 11, 2016 at 9:31 AM, Edward Cree <ecree@solarflare.com> wrote:
+>>> Looks OK to me.  I'd rather tack both of your patches onto the endof the
+>>>  series, rather than incorporating your patch [1/2] directly into my patch
+>>>  [1/8]; that way (a) the history allows to understand regular LCO before
+>>>  adding in the GSO flavour, (b) you're credited for your improved lco_csum.
+>> Actually if you don't plan to incorporate the function I am fine with
+>> you just leaving it out for now.  I can focus on the GSO portions of
+>> all this and rewrite this to just be an update of your patch.  Then
+>> when you submit your patches and they are accepted I will submit the
+>> GSO implementations.
+> Ok, sounds good.
+>>> As for your patch [2/2], I don't pretend to understand GSO right now but it
+>>>  looks plausible enough.  Perhaps you could add a document about GSO to go
+>>>  alongside the checksum-offloads.txt one?
+>> I don't know if we really need to.  The logic is essentially the same
+>> as what you already have for the local checksum offload.  The only
+>> difference is there is the GSO logic floating around in there to also
+>> compute the outer checksum offload based on the inner that GSO had
+>> already retained when it did the inner offload via software.
+> I didn't mean a GSO LCO document, I just meant something to explain GSOas
+>  a whole.  There doesn't appear to be any documentation in the tree
+>  defining what e.g. gso_size or gso_segs mean, and yet they are part of
+>  the driver API for TSO.  Even some comments on struct skb_shared_info
+>  would be an improvement.
 
-> - Alex
+I'm not that much of an expert on GSO, I'm just able to read the
+functions and sort out what they are doing.  From the looks of things
+with the updated lco_csum I provided you we could probably even use it
+in drivers if needed in order to provide an offload.  Most of this is
+actually pretty straight forward since the functionality for GSO doing
+checksums is pretty much the same as for the standard path.
+
+> The comment in skbuff.h seems very much to gloss over how GSO and checksum
+>  offload interact in general.  It also says two checksums can be offloaded
+>  with UDP tunnels - you might want to update that in your patch.
+
+>From what I can tell this is sort-of true.  It is offloaded in that
+the protocol itself doesn't handle it.  Instead what happens is that
+GSO maintains a running checksum in skb->csum and places checksums in
+the headers as it goes.  So in essence it is doing something similar
+to LCO, but it requires that that we let software offload the inner
+checksum instead of handling it in hardware.  Now that I think about
+it I might rebase some of my current GSO work for these tunnels to
+incorporate the existing gso_make_checksum call instead of lco since
+that may make better use of existing infrastructure.
+
+> But hopefully the GSO stack can be fully LCOified at which point the
+>  checksum offload semantics for a GSO skb will be the same as a regular
+>  skb.  As for TSO, if the driver/hw has enough information to do TSO, it
+>  must know where all the headers are, so it must be able to do the right
+>  checksum corrections on all of them.  (I think outer checksums are only
+>  affected by the Length and pseudo-header Length field changes.)
+> However, this does raise the question - will TSO be possible with nested
+>  encap?  And if not, will current drivers do the right thing in that case,
+>  or will they try to do encap TSO and only get two of the three layers?
+
+We shouldn't need to worry about multiple layers.  The
+hw_encap_features is meant to prevent that.  Once you have a tunnel in
+a tunnel the inner-most tunnel would lose all offload support.  I
+believe the only feature that is passed through all the way is
+NETIF_F_SG.  I believe the same is currently true for vlans
