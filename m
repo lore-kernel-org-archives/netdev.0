@@ -1,50 +1,36 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net v2] bonding: Prevent IPv6 link local address on
- enslaved devices
-Date: Mon, 11 Jan 2016 15:11:36 -0500
-Message-ID: <20160111201135.GF32683@redhat.com>
-References: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] connector: bump skb->users before callback invocation
+Date: Mon, 11 Jan 2016 23:03:22 +0300
+Message-ID: <1218671452542602@web12j.yandex.ru>
+References: <CACT4Y+bKYO2XfY74tgUiOC7WotQ8DRBcMT=2yy3S=Ubz8bnj_g@mail.gmail.com>
+	<20151231132633.GA30790@breakpoint.cc> <20160104.214733.921867451376206917.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Karl Heiss <kheiss@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41845 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760008AbcAKULg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 15:11:36 -0500
-Content-Disposition: inline
-In-Reply-To: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "dvyukov@google.com" <dvyukov@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, "fw@strlen.de" <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160104.214733.921867451376206917.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 11, 2016 at 08:28:43AM -0500, Karl Heiss wrote:
-> Commit 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
-> undoes the fix provided by commit c2edacf80e15 ("bonding / ipv6: no addrconf
-> for slaves separately from master") by effectively setting the slave flag
-> after the slave has been opened.  If the slave comes up quickly enough, it
-> will go through the IPv6 addrconf before the slave flag has been set and
-> will get a link local IPv6 address.
-> 
-> In order to ensure that addrconf knows to ignore the slave devices on state
-> change, set IFF_SLAVE before dev_open() during bonding enslavement.
-> 
-> Fixes: 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
-> 
-> Signed-off-by: Karl Heiss <kheiss@gmail.com>
-> ---
-> - Changes since 'v1':
->   - Revert clearing the IFF_SLAVE flag later during bond release so that
->     RTM_NEWLINK messages will correctly reflect the slave state.
->   - Update commit message for clarity.
+Hi everyone
 
-Looks good to me as well, and I've actually got a recent Red Hat bugzilla
-report about this same issue.
+Thanks for fixing and quick pushing of this bug.
 
-Reviewed-by: Jarod Wilson <jarod@redhat.com>
-
--- 
-Jarod Wilson
-jarod@redhat.com
+05.01.2016, 05:47, "David Miller" <davem@davemloft.net>:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Thu, 31 Dec 2015 14:26:33 +0100
+>
+>> =9ADmitry reports memleak with syskaller program.
+>> =9AProblem is that connector bumps skb usecount but might not invoke=
+ callback.
+>>
+>> =9ASo move skb_get to where we invoke the callback.
+>>
+>> =9AReported-by: Dmitry Vyukov <dvyukov@google.com>
+>> =9ASigned-off-by: Florian Westphal <fw@strlen.de>
+>
+> Applied and queued up for -stable, thanks.
