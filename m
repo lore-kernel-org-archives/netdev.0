@@ -1,108 +1,42 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v5 07/10] vxlan: break dependency to network drivers
-Date: Mon, 11 Jan 2016 13:17:28 +0100
-Message-ID: <1452514651-15445-8-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v5 05/10] fm10k: add rtnl lock protection in fm10k_io_resume
+Date: Mon, 11 Jan 2016 13:17:26 +0100
+Message-ID: <1452514651-15445-6-git-send-email-hannes@stressinduktion.org>
 References: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
-Cc: jesse@kernel.org
+Cc: jesse@kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:59851 "EHLO
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:48018 "EHLO
 	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759595AbcAKMRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:17:46 -0500
+	by vger.kernel.org with ESMTP id S932831AbcAKMRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:17:45 -0500
 Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id C46FD20B45
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:17:45 -0500 (EST)
+	by mailout.nyi.internal (Postfix) with ESMTP id 8472720915
+	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:17:44 -0500 (EST)
 In-Reply-To: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/vxlan.c | 20 ++++++++++++++------
- include/net/vxlan.h |  5 +----
- 2 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index fecf7b6c732e96..ee45c796cb03cd 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2468,7 +2468,7 @@ static struct device_type vxlan_type = {
-  * supply the listening VXLAN udp ports. Callers are expected
-  * to implement the ndo_add_vxlan_port.
-  */
--void vxlan_get_rx_port(struct net_device *dev)
-+static void vxlan_notify_refresh_netdev(struct net_device *dev)
- {
- 	struct vxlan_sock *vs;
- 	struct net *net = dev_net(dev);
-@@ -2477,6 +2477,9 @@ void vxlan_get_rx_port(struct net_device *dev)
- 	__be16 port;
- 	unsigned int i;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 4eb7a6fa6b0ddc..7dd55067d8912e 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -2350,8 +2350,10 @@ static void fm10k_io_resume(struct pci_dev *pdev)
+ 	/* reset clock */
+ 	fm10k_ts_reset(interface);
  
-+	if (!dev->netdev_ops->ndo_add_vxlan_port)
-+		return;
-+
- 	spin_lock(&vn->sock_lock);
- 	for (i = 0; i < PORT_HASH_SIZE; ++i) {
- 		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
-@@ -2488,7 +2491,6 @@ void vxlan_get_rx_port(struct net_device *dev)
- 	}
- 	spin_unlock(&vn->sock_lock);
- }
--EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
++	rtnl_lock();
+ 	if (netif_running(netdev))
+ 		err = fm10k_open(netdev);
++	rtnl_unlock();
  
- /* Initialize the device structure. */
- static void vxlan_setup(struct net_device *dev)
-@@ -3164,20 +3166,26 @@ static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
- 	unregister_netdevice_many(&list_kill);
- }
- 
--static int vxlan_lowerdev_event(struct notifier_block *unused,
--				unsigned long event, void *ptr)
-+static int vxlan_notifier(struct notifier_block *unused,
-+			  unsigned long event, void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 
--	if (event == NETDEV_UNREGISTER)
-+	switch (event) {
-+	case NETDEV_REFRESH_OFFLOADS:
-+		vxlan_notify_refresh_netdev(dev);
-+		break;
-+	case NETDEV_UNREGISTER:
- 		vxlan_handle_lowerdev_unregister(vn, dev);
-+		break;
-+	}
- 
- 	return NOTIFY_DONE;
- }
- 
- static struct notifier_block vxlan_notifier_block __read_mostly = {
--	.notifier_call = vxlan_lowerdev_event,
-+	.notifier_call = vxlan_notifier,
- };
- 
- static __net_init int vxlan_init_net(struct net *net)
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 0fb86442544b26..48d0450160c91f 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -242,13 +242,10 @@ static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
- /* IPv6 header + UDP + VXLAN + Ethernet header */
- #define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
- 
--#if IS_ENABLED(CONFIG_VXLAN)
--void vxlan_get_rx_port(struct net_device *netdev);
--#else
- static inline void vxlan_get_rx_port(struct net_device *netdev)
- {
-+	call_netdevice_notifiers(NETDEV_REFRESH_OFFLOADS, netdev);
- }
--#endif
- 
- static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
- {
+ 	/* final check of hardware state before registering the interface */
+ 	err = err ? : fm10k_hw_ready(interface);
 -- 
 2.5.0
