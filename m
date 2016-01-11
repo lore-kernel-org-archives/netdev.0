@@ -1,7 +1,7 @@
 From: Nikolay Borisov <kernel@kyup.com>
-Subject: [PATCH 5/9] ipv4: Namespaceify tcp_retries1 sysctl knob
-Date: Mon, 11 Jan 2016 11:51:51 +0200
-Message-ID: <1452505915-19912-6-git-send-email-kernel@kyup.com>
+Subject: [PATCH 3/9] ipv4: Namespaceify tcp syncookies sysctl knob
+Date: Mon, 11 Jan 2016 11:51:49 +0200
+Message-ID: <1452505915-19912-4-git-send-email-kernel@kyup.com>
 References: <1452505915-19912-1-git-send-email-kernel@kyup.com>
 Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
 	kuznet@ms2.inr.ac.ru, kaber@trash.net, ebiederm@xmission.com,
@@ -14,129 +14,197 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Nikolay Borisov <kernel@kyup.com>
 ---
- include/net/netns/ipv4.h   |  1 +
+ include/net/netns/ipv4.h   |  2 ++
  include/net/tcp.h          |  1 -
- net/ipv4/sysctl_net_ipv4.c | 16 ++++++++--------
- net/ipv4/tcp_ipv4.c        |  1 +
- net/ipv4/tcp_timer.c       |  8 ++++----
- 5 files changed, 14 insertions(+), 13 deletions(-)
+ net/ipv4/syncookies.c      |  4 +---
+ net/ipv4/sysctl_net_ipv4.c | 18 +++++++++---------
+ net/ipv4/tcp_input.c       | 10 ++++++----
+ net/ipv4/tcp_ipv4.c        |  3 ++-
+ net/ipv4/tcp_minisocks.c   |  3 ---
+ net/ipv6/syncookies.c      |  2 +-
+ 8 files changed, 21 insertions(+), 22 deletions(-)
 
 diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index dff8879e02fe..250bd940eb94 100644
+index bca049102441..80da0d095eaf 100644
 --- a/include/net/netns/ipv4.h
 +++ b/include/net/netns/ipv4.h
-@@ -99,6 +99,7 @@ struct netns_ipv4 {
+@@ -98,6 +98,8 @@ struct netns_ipv4 {
+ 	int sysctl_tcp_syn_retries;
  	int sysctl_tcp_synack_retries;
- 	int sysctl_tcp_syncookies;
- 	int sysctl_tcp_reordering;
-+	int sysctl_tcp_retries1;
  
++	int sysctl_tcp_syncookies;
++
  	struct ping_group_range ping_group_range;
  
+ 	atomic_t dev_addr_genid;
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 64d01d289441..60ee244772c9 100644
+index 5a162875e80c..5497cc809601 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -240,7 +240,6 @@ extern int sysctl_tcp_timestamps;
- extern int sysctl_tcp_window_scaling;
- extern int sysctl_tcp_sack;
- extern int sysctl_tcp_fin_timeout;
--extern int sysctl_tcp_retries1;
+@@ -243,7 +243,6 @@ extern int sysctl_tcp_fin_timeout;
+ extern int sysctl_tcp_retries1;
  extern int sysctl_tcp_retries2;
  extern int sysctl_tcp_orphan_retries;
+-extern int sysctl_tcp_syncookies;
  extern int sysctl_tcp_fastopen;
+ extern int sysctl_tcp_retrans_collapse;
+ extern int sysctl_tcp_stdurg;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 4cbe9f0a4281..1c2bfda72c07 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -19,8 +19,6 @@
+ #include <net/tcp.h>
+ #include <net/route.h>
+ 
+-extern int sysctl_tcp_syncookies;
+-
+ static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
+ 
+ #define COOKIEBITS 24	/* Upper bits store count */
+@@ -307,7 +305,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	__u8 rcv_wscale;
+ 	struct flowi4 fl4;
+ 
+-	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
++	if (!sock_net(sk)->ipv4.sysctl_tcp_syncookies || !th->ack || th->rst)
+ 		goto out;
+ 
+ 	if (tcp_synq_no_recent_overflow(sk))
 diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 12d752e6380b..12216ec333b4 100644
+index 5dd89de5bf8d..007b9f8f7a2a 100644
 --- a/net/ipv4/sysctl_net_ipv4.c
 +++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -321,14 +321,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
+@@ -342,15 +342,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
  	},
- 	{
--		.procname	= "tcp_retries1",
--		.data		= &sysctl_tcp_retries1,
+-#ifdef CONFIG_SYN_COOKIES
+-	{
+-		.procname	= "tcp_syncookies",
+-		.data		= &sysctl_tcp_syncookies,
 -		.maxlen		= sizeof(int),
 -		.mode		= 0644,
--		.proc_handler	= proc_dointvec_minmax,
--		.extra2		= &tcp_retr1_max
+-		.proc_handler	= proc_dointvec
 -	},
--	{
- 		.procname	= "tcp_retries2",
- 		.data		= &sysctl_tcp_retries2,
- 		.maxlen		= sizeof(int),
-@@ -950,6 +942,14 @@ static struct ctl_table ipv4_net_table[] = {
+-#endif
+ 	{
+ 		.procname	= "tcp_fastopen",
+ 		.data		= &sysctl_tcp_fastopen,
+@@ -950,6 +941,15 @@ static struct ctl_table ipv4_net_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec
  	},
++#ifdef CONFIG_SYN_COOKIES
 +	{
-+		.procname	= "tcp_retries1",
-+		.data		= &init_net.ipv4.sysctl_tcp_retries1,
++		.procname	= "tcp_syncookies",
++		.data		= &init_net.ipv4.sysctl_tcp_syncookies,
 +		.maxlen		= sizeof(int),
 +		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra2		= &tcp_retr1_max
++		.proc_handler	= proc_dointvec
 +	},
++#endif
  	{ }
  };
  
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 785bbebd6768..ea5ed84f4fb1 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2385,6 +2385,7 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.sysctl_tcp_synack_retries = TCP_SYNACK_RETRIES;
- 	net->ipv4.sysctl_tcp_syncookies = 0;
- 	net->ipv4.sysctl_tcp_reordering = TCP_FASTRETRANS_THRESH;
-+	net->ipv4.sysctl_tcp_retries1 = TCP_RETR1;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2d656eef7f8e..dc8fe6c8a2e0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6114,9 +6114,10 @@ static bool tcp_syn_flood_action(const struct sock *sk,
+ 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
+ 	const char *msg = "Dropping request";
+ 	bool want_cookie = false;
++	struct net *net = sock_net(sk);
  
- 	return 0;
- fail:
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index ca25fdf0c525..6694e33149b9 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -22,7 +22,6 @@
- #include <linux/gfp.h>
- #include <net/tcp.h>
+ #ifdef CONFIG_SYN_COOKIES
+-	if (sysctl_tcp_syncookies) {
++	if (net->ipv4.sysctl_tcp_syncookies) {
+ 		msg = "Sending cookies";
+ 		want_cookie = true;
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPREQQFULLDOCOOKIES);
+@@ -6125,7 +6126,7 @@ static bool tcp_syn_flood_action(const struct sock *sk,
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPREQQFULLDROP);
  
--int sysctl_tcp_retries1 __read_mostly = TCP_RETR1;
- int sysctl_tcp_retries2 __read_mostly = TCP_RETR2;
- int sysctl_tcp_orphan_retries __read_mostly;
- int sysctl_tcp_thin_linear_timeouts __read_mostly;
-@@ -171,7 +170,7 @@ static int tcp_write_timeout(struct sock *sk)
- 		retry_until = icsk->icsk_syn_retries ? : net->ipv4.sysctl_tcp_syn_retries;
- 		syn_set = true;
- 	} else {
--		if (retransmits_timed_out(sk, sysctl_tcp_retries1, 0, 0)) {
-+		if (retransmits_timed_out(sk, net->ipv4.sysctl_tcp_retries1, 0, 0)) {
- 			/* Some middle-boxes may black-hole Fast Open _after_
- 			 * the handshake. Therefore we conservatively disable
- 			 * Fast Open on this path on recurring timeouts with
-@@ -180,7 +179,7 @@ static int tcp_write_timeout(struct sock *sk)
- 			if (tp->syn_data_acked &&
- 			    tp->bytes_acked <= tp->rx_opt.mss_clamp) {
- 				tcp_fastopen_cache_set(sk, 0, NULL, true, 0);
--				if (icsk->icsk_retransmits == sysctl_tcp_retries1)
-+				if (icsk->icsk_retransmits == net->ipv4.sysctl_tcp_retries1)
- 					NET_INC_STATS_BH(sock_net(sk),
- 							 LINUX_MIB_TCPFASTOPENACTIVEFAIL);
- 			}
-@@ -359,6 +358,7 @@ static void tcp_fastopen_synack_timer(struct sock *sk)
- void tcp_retransmit_timer(struct sock *sk)
- {
+ 	if (!queue->synflood_warned &&
+-	    sysctl_tcp_syncookies != 2 &&
++	    net->ipv4.sysctl_tcp_syncookies != 2 &&
+ 	    xchg(&queue->synflood_warned, 1) == 0)
+ 		pr_info("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
+ 			proto, ntohs(tcp_hdr(skb)->dest), msg);
+@@ -6158,6 +6159,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	__u32 isn = TCP_SKB_CB(skb)->tcp_tw_isn;
+ 	struct tcp_options_received tmp_opt;
  	struct tcp_sock *tp = tcp_sk(sk);
 +	struct net *net = sock_net(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct sock *fastopen_sk = NULL;
+ 	struct dst_entry *dst = NULL;
+ 	struct request_sock *req;
+@@ -6168,7 +6170,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	 * limitations, they conserve resources and peer is
+ 	 * evidently real one.
+ 	 */
+-	if ((sysctl_tcp_syncookies == 2 ||
++	if ((net->ipv4.sysctl_tcp_syncookies == 2 ||
+ 	     inet_csk_reqsk_queue_is_full(sk)) && !isn) {
+ 		want_cookie = tcp_syn_flood_action(sk, skb, rsk_ops->slab_name);
+ 		if (!want_cookie)
+@@ -6234,7 +6236,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 			}
+ 		}
+ 		/* Kill the following clause, if you dislike this way. */
+-		else if (!sysctl_tcp_syncookies &&
++		else if (!net->ipv4.sysctl_tcp_syncookies &&
+ 			 (sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
+ 			  (sysctl_max_syn_backlog >> 2)) &&
+ 			 !tcp_peer_is_proven(req, dst, false,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a5268576021c..ee3566377717 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -855,7 +855,6 @@ static void tcp_v4_reqsk_destructor(struct request_sock *req)
+ 	kfree(inet_rsk(req)->opt);
+ }
  
- 	if (tp->fastopen_rsk) {
-@@ -489,7 +489,7 @@ out_reset_timer:
- 		icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
- 	}
- 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TCP_RTO_MAX);
--	if (retransmits_timed_out(sk, sysctl_tcp_retries1 + 1, 0, 0))
-+	if (retransmits_timed_out(sk, net->ipv4.sysctl_tcp_retries1 + 1, 0, 0))
- 		__sk_dst_reset(sk);
+-
+ #ifdef CONFIG_TCP_MD5SIG
+ /*
+  * RFC2385 MD5 checksumming requires a mapping of
+@@ -2385,6 +2384,8 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_syn_retries = TCP_SYN_RETRIES;
+ 	net->ipv4.sysctl_tcp_synack_retries = TCP_SYNACK_RETRIES;
  
- out:;
++	net->ipv4.sysctl_tcp_syncookies = 0;
++
+ 	return 0;
+ fail:
+ 	tcp_sk_exit(net);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index ac6b1961ffeb..c6555f97c628 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -27,9 +27,6 @@
+ #include <net/inet_common.h>
+ #include <net/xfrm.h>
+ 
+-int sysctl_tcp_syncookies __read_mostly = 1;
+-EXPORT_SYMBOL(sysctl_tcp_syncookies);
+-
+ int sysctl_tcp_abort_on_overflow __read_mostly;
+ 
+ struct inet_timewait_death_row tcp_death_row = {
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index eaf7ac496d50..0c306adc166e 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -148,7 +148,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	struct dst_entry *dst;
+ 	__u8 rcv_wscale;
+ 
+-	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
++	if (!sock_net(sk)->ipv4.sysctl_tcp_syncookies || !th->ack || th->rst)
+ 		goto out;
+ 
+ 	if (tcp_synq_no_recent_overflow(sk))
 -- 
 2.5.0
