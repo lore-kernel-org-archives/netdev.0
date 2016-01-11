@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 40/53] perf record: Generate tracking events for process forked by perf
-Date: Mon, 11 Jan 2016 13:48:31 +0000
-Message-ID: <1452520124-2073-41-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 41/53] perf record: Ensure return non-zero rc when mmap fail
+Date: Mon, 11 Jan 2016 13:48:32 +0000
+Message-ID: <1452520124-2073-42-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,13 +19,12 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With 'perf record --switch-output' without -a, record__synthesize() in
-record__switch_output() won't generate tracking events because there's
-no thread_map in evlist. Which causes newly created perf.data doesn't
-contain map and comm information.
-
-This patch creates a fake thread_map and directly call
-perf_event__synthesize_thread_map() for those events.
+perf_evlist__mmap_ex() can fail without setting errno (for example,
+fail in condition checking. In this case all syscall is success).
+If this happen, record__open() incorrectly returns 0. Force setting
+rc is a quick way to avoid this problem, or we have to follow all
+possible code path in perf_evlist__mmap_ex() to make sure there's
+at least one system call before returning an error.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -36,36 +35,24 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ tools/perf/builtin-record.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index 5305a30..aaf3b0f 100644
+index aaf3b0f..b65b41f 100644
 --- a/tools/perf/builtin-record.c
 +++ b/tools/perf/builtin-record.c
-@@ -563,6 +563,23 @@ record__switch_output(struct record *rec, bool at_exit)
- 		perf_session__create_kernel_maps(rec->session);
- 		perf_session__set_id_hdr_size(rec->session);
- 		record__synthesize(rec);
-+
-+		if (target__none(&rec->opts.target)) {
-+			struct {
-+				struct thread_map map;
-+				struct thread_map_data map_data;
-+			} thread_map;
-+
-+			thread_map.map.nr = 1;
-+			thread_map.map.map[0].pid = rec->evlist->workload.pid;
-+			thread_map.map.map[0].comm = NULL;
-+			perf_event__synthesize_thread_map(&rec->tool,
-+					&thread_map.map,
-+					process_synthesized_event,
-+					&rec->session->machines.host,
-+					rec->opts.sample_address,
-+					rec->opts.proc_map_timeout);
-+		}
+@@ -361,7 +361,10 @@ try_again:
+ 		} else {
+ 			pr_err("failed to mmap with %d (%s)\n", errno,
+ 				strerror_r(errno, msg, sizeof(msg)));
+-			rc = -errno;
++			if (errno)
++				rc = -errno;
++			else
++				rc = -EINVAL;
+ 		}
+ 		goto out;
  	}
- 	return fd;
- }
 -- 
 1.8.3.4
