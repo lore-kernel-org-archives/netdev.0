@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 28/53] perf tools: Move timestamp creation to util
-Date: Mon, 11 Jan 2016 13:48:19 +0000
-Message-ID: <1452520124-2073-29-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 31/53] perf tools: Add perf_data_file__switch() helper
+Date: Mon, 11 Jan 2016 13:48:22 +0000
+Message-ID: <1452520124-2073-32-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,21 +14,18 @@ Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: <acme@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:45305 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932640AbcAKN44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 08:56:56 -0500
 In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Timestamp generation becomes a public available helper. Which will
-be used by 'perf record', help it output to split output file based
-on time.
-
-For example:
-
- perf.data.2015122620363710
- perf.data.2015122620364092
- perf.data.2015122620365423
- ...
+perf_data_file__switch() closes current output file, renames it, then
+open a new one to continue record. It will be used by perf record
+to split output into multiple perf.data files.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -39,71 +36,73 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-buildid-cache.c | 14 +-------------
- tools/perf/util/util.c             | 17 +++++++++++++++++
- tools/perf/util/util.h             |  1 +
- 3 files changed, 19 insertions(+), 13 deletions(-)
+ tools/perf/util/data.c | 36 ++++++++++++++++++++++++++++++++++++
+ tools/perf/util/data.h | 11 ++++++++++-
+ 2 files changed, 46 insertions(+), 1 deletion(-)
 
-diff --git a/tools/perf/builtin-buildid-cache.c b/tools/perf/builtin-buildid-cache.c
-index d93bff7..632efc6 100644
---- a/tools/perf/builtin-buildid-cache.c
-+++ b/tools/perf/builtin-buildid-cache.c
-@@ -38,19 +38,7 @@ static int build_id_cache__kcore_buildid(const char *proc_dir, char *sbuildid)
- 
- static int build_id_cache__kcore_dir(char *dir, size_t sz)
+diff --git a/tools/perf/util/data.c b/tools/perf/util/data.c
+index 1921942..bfded6a 100644
+--- a/tools/perf/util/data.c
++++ b/tools/perf/util/data.c
+@@ -136,3 +136,39 @@ ssize_t perf_data_file__write(struct perf_data_file *file,
  {
--	struct timeval tv;
--	struct tm tm;
--	char dt[32];
--
--	if (gettimeofday(&tv, NULL) || !localtime_r(&tv.tv_sec, &tm))
--		return -1;
--
--	if (!strftime(dt, sizeof(dt), "%Y%m%d%H%M%S", &tm))
--		return -1;
--
--	scnprintf(dir, sz, "%s%02u", dt, (unsigned)tv.tv_usec / 10000);
--
--	return 0;
-+	return fetch_current_timestamp(dir, sz);
- }
- 
- static bool same_kallsyms_reloc(const char *from_dir, char *to_dir)
-diff --git a/tools/perf/util/util.c b/tools/perf/util/util.c
-index 88b8f8d..5b8259b 100644
---- a/tools/perf/util/util.c
-+++ b/tools/perf/util/util.c
-@@ -690,3 +690,20 @@ out:
- 
- 	return tip;
+ 	return writen(file->fd, buf, size);
  }
 +
-+int fetch_current_timestamp(char *buf, size_t sz)
++int perf_data_file__switch(struct perf_data_file *file,
++			   const char *postfix,
++			   size_t pos, bool at_exit)
 +{
-+	struct timeval tv;
-+	struct tm tm;
-+	char dt[32];
++	char *new_filepath;
++	int ret;
 +
-+	if (gettimeofday(&tv, NULL) || !localtime_r(&tv.tv_sec, &tm))
-+		return -1;
++	if (check_pipe(file))
++		return -EINVAL;
++	if (perf_data_file__is_read(file))
++		return -EINVAL;
 +
-+	if (!strftime(dt, sizeof(dt), "%Y%m%d%H%M%S", &tm))
-+		return -1;
++	if (asprintf(&new_filepath, "%s.%s", file->path, postfix) < 0)
++		return -ENOMEM;
 +
-+	scnprintf(buf, sz, "%s%02u", dt, (unsigned)tv.tv_usec / 10000);
++	rename(file->path, new_filepath);
 +
-+	return 0;
++	if (!at_exit) {
++		close(file->fd);
++		ret = perf_data_file__open(file);
++		if (ret < 0)
++			goto out;
++
++		if (lseek(file->fd, pos, SEEK_SET) == (off_t)-1) {
++			ret = -errno;
++			pr_debug("Failed to lseek to %zu: %s",
++				 pos, strerror(errno));
++			goto out;
++		}
++	}
++	ret = file->fd;
++out:
++	free(new_filepath);
++	return ret;
 +}
-diff --git a/tools/perf/util/util.h b/tools/perf/util/util.h
-index fe915e6..ef97038 100644
---- a/tools/perf/util/util.h
-+++ b/tools/perf/util/util.h
-@@ -343,5 +343,6 @@ int fetch_kernel_version(unsigned int *puint,
- #define KVER_PARAM(x)	KVER_VERSION(x), KVER_PATCHLEVEL(x), KVER_SUBLEVEL(x)
- 
- const char *perf_tip(const char *dirpath);
-+int fetch_current_timestamp(char *buf, size_t sz);
- 
- #endif /* GIT_COMPAT_UTIL_H */
+diff --git a/tools/perf/util/data.h b/tools/perf/util/data.h
+index 2b15d0c..7763300 100644
+--- a/tools/perf/util/data.h
++++ b/tools/perf/util/data.h
+@@ -46,5 +46,14 @@ int perf_data_file__open(struct perf_data_file *file);
+ void perf_data_file__close(struct perf_data_file *file);
+ ssize_t perf_data_file__write(struct perf_data_file *file,
+ 			      void *buf, size_t size);
+-
++/*
++ * If at_exit is set, only rename current perf.data to
++ * perf.data.<postfix>, continue write on original file.
++ * Used when flushing the last output.
++ *
++ * Return value is fd of new output.
++ */
++int perf_data_file__switch(struct perf_data_file *file,
++			   const char *postfix,
++			   size_t pos, bool at_exit);
+ #endif /* __PERF_DATA_H */
 -- 
 1.8.3.4
