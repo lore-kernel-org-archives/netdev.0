@@ -1,17 +1,18 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 23/53] perf tools: Support setting different slots in a BPF map separately
-Date: Mon, 11 Jan 2016 13:48:14 +0000
-Message-ID: <1452520124-2073-24-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 20/53] perf record: Apply config to BPF objects before recording
+Date: Mon, 11 Jan 2016 13:48:11 +0000
+Message-ID: <1452520124-2073-21-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>, Wang Nan <wangnan0@huawei.com>,
+	He Kuang <hekuang@huawei.com>,
 	Alexei Starovoitov <ast@kernel.org>,
-	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
 	Jiri Olsa <jolsa@kernel.org>,
-	"Masami Hiramatsu" <masami.hiramatsu.pt@hitachi.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: <acme@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,21 +20,87 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces basic facilities to support config different
-slots in a BPF map one by one.
+bpf__apply_obj_config() is introduced as the core API to apply object
+config options to all BPF objects. This patch also does the real work
+for setting values for BPF_MAP_TYPE_PERF_ARRAY maps by inserting value
+stored in map's private field into the BPF map.
 
-array.nr_ranges and array.ranges are introduced into 'struct
-parse_events_term', where ranges is an array of indices range (start,
-length) which will be configured by this config term. nr_ranges
-is the size of the array. The array is passed to 'struct bpf_map_priv'.
-To indicate the new type of configuration, BPF_MAP_KEY_RANGES is
-added as a new key type. bpf_map_config_foreach_key() is extended to
-iterate over those indices instead of all possible keys.
+This patch is required because we are not always able to set all
+BPF config during parsing. Further patch will set events created
+by perf to BPF_MAP_TYPE_PERF_EVENT_ARRAY maps, which is not exist
+until perf_evsel__open().
 
-Code in this commit will be enabled by following commit which enables
-the indices syntax for array configuration.
+bpf_map_foreach_key() is introduced to iterate over each key
+needs to be configured. This function would be extended to support
+more map types and different key settings.
+
+In perf record, before start recording, call bpf__apply_config() to
+turn on all BPF config options.
+
+Test result:
+
+ # cat ./test_bpf_map_1.c
+ /************************ BEGIN **************************/
+ #include <uapi/linux/bpf.h>
+ #define SEC(NAME) __attribute__((section(NAME), used))
+ struct bpf_map_def {
+     unsigned int type;
+     unsigned int key_size;
+     unsigned int value_size;
+     unsigned int max_entries;
+ };
+ static void *(*map_lookup_elem)(struct bpf_map_def *, void *) =
+     (void *)BPF_FUNC_map_lookup_elem;
+ static int (*trace_printk)(const char *fmt, int fmt_size, ...) =
+     (void *)BPF_FUNC_trace_printk;
+ struct bpf_map_def SEC("maps") channel = {
+     .type = BPF_MAP_TYPE_ARRAY,
+     .key_size = sizeof(int),
+     .value_size = sizeof(int),
+     .max_entries = 1,
+ };
+ SEC("func=sys_nanosleep")
+ int func(void *ctx)
+ {
+     int key = 0;
+     char fmt[] = "%d\n";
+     int *pval = map_lookup_elem(&channel, &key);
+     if (!pval)
+         return 0;
+     trace_printk(fmt, sizeof(fmt), *pval);
+     return 0;
+ }
+ char _license[] SEC("license") = "GPL";
+ int _version SEC("version") = LINUX_VERSION_CODE;
+ /************************* END ***************************/
+
+ # echo "" > /sys/kernel/debug/tracing/trace
+ # ./perf record -e './test_bpf_map_1.c/maps:channel.value=11/' usleep 10
+ [ perf record: Woken up 1 times to write data ]
+ [ perf record: Captured and wrote 0.012 MB perf.data ]
+ # cat /sys/kernel/debug/tracing/trace
+ # tracer: nop
+ #
+ # entries-in-buffer/entries-written: 1/1   #P:8
+ [SNIP]
+ #           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
+ #              | |       |   ||||       |         |
+            usleep-18593 [007] d... 2394714.395539: : 11
+ # ./perf record -e './test_bpf_map.c/maps:channel.value=101/' usleep 10
+ [ perf record: Woken up 1 times to write data ]
+ [ perf record: Captured and wrote 0.012 MB perf.data ]
+ # cat /sys/kernel/debug/tracing/trace
+ # tracer: nop
+ #
+ # entries-in-buffer/entries-written: 1/1   #P:8
+ [SNIP]
+ #           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
+ #              | |       |   ||||       |         |
+            usleep-18593 [007] d... 2394714.395539: : 11
+            usleep-19000 [006] d... 2394831.057840: : 101
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
+Signed-off-by: He Kuang <hekuang@huawei.com>
 Cc: Alexei Starovoitov <ast@kernel.org>
 Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Cc: Jiri Olsa <jolsa@kernel.org>
@@ -42,332 +109,280 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/util/bpf-loader.c   | 132 ++++++++++++++++++++++++++++++++++++++---
- tools/perf/util/bpf-loader.h   |   1 +
- tools/perf/util/parse-events.c |  33 ++++++++++-
- tools/perf/util/parse-events.h |  12 ++++
- 4 files changed, 170 insertions(+), 8 deletions(-)
+ tools/perf/builtin-record.c  |  11 +++
+ tools/perf/util/bpf-loader.c | 180 +++++++++++++++++++++++++++++++++++++++++++
+ tools/perf/util/bpf-loader.h |  15 ++++
+ 3 files changed, 206 insertions(+)
 
+diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
+index dc4e0ad..bd1692c 100644
+--- a/tools/perf/builtin-record.c
++++ b/tools/perf/builtin-record.c
+@@ -32,6 +32,7 @@
+ #include "util/parse-branch-options.h"
+ #include "util/parse-regs-options.h"
+ #include "util/llvm-utils.h"
++#include "util/bpf-loader.h"
+ 
+ #include <unistd.h>
+ #include <sched.h>
+@@ -526,6 +527,16 @@ static int __cmd_record(struct record *rec, int argc, const char **argv)
+ 		goto out_child;
+ 	}
+ 
++	err = bpf__apply_obj_config();
++	if (err) {
++		char errbuf[BUFSIZ];
++
++		bpf__strerror_apply_obj_config(err, errbuf, sizeof(errbuf));
++		pr_err("ERROR: Apply config to BPF failed: %s\n",
++			 errbuf);
++		goto out_child;
++	}
++
+ 	/*
+ 	 * Normally perf_session__new would do this, but it doesn't have the
+ 	 * evlist.
 diff --git a/tools/perf/util/bpf-loader.c b/tools/perf/util/bpf-loader.c
-index 2893b4e..6c25de8 100644
+index 7d361aa..96fd18b 100644
 --- a/tools/perf/util/bpf-loader.c
 +++ b/tools/perf/util/bpf-loader.c
-@@ -17,6 +17,7 @@
- #include "llvm-utils.h"
- #include "probe-event.h"
- #include "probe-finder.h" // for MAX_PROBES
-+#include "parse-events.h"
- #include "llvm-utils.h"
+@@ -7,6 +7,7 @@
  
- #define DEFINE_PRINT_FN(name, level) \
-@@ -747,6 +748,7 @@ enum bpf_map_op_type {
+ #include <linux/bpf.h>
+ #include <bpf/libbpf.h>
++#include <bpf/bpf.h>
+ #include <linux/err.h>
+ #include <linux/string.h>
+ #include "perf.h"
+@@ -984,6 +985,178 @@ out:
  
- enum bpf_map_key_type {
- 	BPF_MAP_KEY_ALL,
-+	BPF_MAP_KEY_RANGES,
- };
- 
- struct bpf_map_op {
-@@ -754,6 +756,9 @@ struct bpf_map_op {
- 	enum bpf_map_op_type op_type;
- 	enum bpf_map_key_type key_type;
- 	union {
-+		struct parse_events_array array;
-+	} k;
-+	union {
- 		u64 value;
- 		struct perf_evsel *evsel;
- 	} v;
-@@ -779,6 +784,8 @@ bpf_map_op__free(struct bpf_map_op *op)
- 	 */
- 	if ((list->next != LIST_POISON1) && (list->prev != LIST_POISON2))
- 		list_del(list);
-+	if (op->key_type == BPF_MAP_KEY_RANGES)
-+		parse_events__clear_array(&op->k.array);
- 	free(op);
  }
  
-@@ -794,8 +801,30 @@ bpf_map_priv__clear(struct bpf_map *map __maybe_unused,
- 	free(priv);
- }
- 
++typedef int (*map_config_func_t)(const char *name, int map_fd,
++				 struct bpf_map_def *pdef,
++				 struct bpf_map_op *op,
++				 void *pkey, void *arg);
++
 +static int
-+bpf_map_op_setkey(struct bpf_map_op *op, struct parse_events_term *term,
-+		  const char *map_name)
++foreach_key_array_all(map_config_func_t func,
++		      void *arg, const char *name,
++		      int map_fd, struct bpf_map_def *pdef,
++		      struct bpf_map_op *op)
 +{
-+	op->key_type = BPF_MAP_KEY_ALL;
++	unsigned int i;
++	int err;
 +
-+	if (term->array.nr_ranges) {
-+		size_t memsz = term->array.nr_ranges *
-+				sizeof(op->k.array.ranges[0]);
-+
-+		op->k.array.ranges = memdup(term->array.ranges, memsz);
-+		if (!op->k.array.ranges) {
-+			pr_debug("No enough memory to alloc indices for %s\n",
-+				 map_name);
-+			return -ENOMEM;
++	for (i = 0; i < pdef->max_entries; i++) {
++		err = func(name, map_fd, pdef, op, &i, arg);
++		if (err) {
++			pr_debug("ERROR: failed to insert value to %s[%u]\n",
++				 name, i);
++			return err;
 +		}
-+		op->key_type = BPF_MAP_KEY_RANGES;
-+		op->k.array.nr_ranges = term->array.nr_ranges;
 +	}
 +	return 0;
 +}
 +
- static struct bpf_map_op *
--bpf_map_op__alloc(struct bpf_map *map)
-+bpf_map_op__alloc(struct bpf_map *map, struct parse_events_term *term)
- {
- 	struct bpf_map_op *op;
- 	struct bpf_map_priv *priv;
-@@ -829,7 +858,12 @@ bpf_map_op__alloc(struct bpf_map *map)
- 		return ERR_PTR(-ENOMEM);
- 	}
- 
--	op->key_type = BPF_MAP_KEY_ALL;
-+	err = bpf_map_op_setkey(op, term, map_name);
-+	if (err) {
-+		free(op);
-+		return ERR_PTR(err);
-+	}
-+
- 	list_add_tail(&op->list, &priv->ops_list);
- 	return op;
- }
-@@ -872,7 +906,7 @@ bpf__obj_config_map_array_value(struct bpf_map *map,
- 		return -BPF_LOADER_ERRNO__OBJCONF_MAP_VALUESIZE;
- 	}
- 
--	op = bpf_map_op__alloc(map);
-+	op = bpf_map_op__alloc(map, term);
- 	if (IS_ERR(op))
- 		return PTR_ERR(op);
- 	op->op_type = BPF_MAP_OP_SET_VALUE;
-@@ -933,7 +967,7 @@ bpf__obj_config_map_array_event(struct bpf_map *map,
- 		return -BPF_LOADER_ERRNO__OBJCONF_MAP_TYPE;
- 	}
- 
--	op = bpf_map_op__alloc(map);
-+	op = bpf_map_op__alloc(map, term);
- 	if (IS_ERR(op))
- 		return PTR_ERR(op);
- 
-@@ -972,6 +1006,44 @@ struct bpf_obj_config_map_func bpf_obj_config_map_funcs[] = {
- };
- 
- static int
-+config_map_indices_range_check(struct parse_events_term *term,
-+			       struct bpf_map *map,
-+			       const char *map_name)
++static int
++bpf_map_config_foreach_key(struct bpf_map *map,
++			   map_config_func_t func,
++			   void *arg)
 +{
-+	struct parse_events_array *array = &term->array;
++	int err, map_fd;
++	const char *name;
++	struct bpf_map_op *op;
 +	struct bpf_map_def def;
-+	unsigned int i;
-+	int err;
++	struct bpf_map_priv *priv;
 +
-+	if (!array->nr_ranges)
-+		return 0;
-+	if (!array->ranges) {
-+		pr_debug("ERROR: map %s: array->nr_ranges is %d but range array is NULL\n",
-+			 map_name, (int)array->nr_ranges);
++	name = bpf_map__get_name(map);
++
++	err = bpf_map__get_private(map, (void **)&priv);
++	if (err) {
++		pr_debug("ERROR: failed to get private from map %s\n", name);
 +		return -BPF_LOADER_ERRNO__INTERNAL;
++	}
++	if (!priv || list_empty(&priv->ops_list)) {
++		pr_debug("INFO: nothing to config for map %s\n", name);
++		return 0;
 +	}
 +
 +	err = bpf_map__get_def(map, &def);
 +	if (err) {
-+		pr_debug("ERROR: Unable to get map definition from '%s'\n",
-+			 map_name);
++		pr_debug("ERROR: failed to get definition from map %s\n", name);
 +		return -BPF_LOADER_ERRNO__INTERNAL;
 +	}
++	map_fd = bpf_map__get_fd(map);
++	if (map_fd < 0) {
++		pr_debug("ERROR: failed to get fd from map %s\n", name);
++		return map_fd;
++	}
 +
-+	for (i = 0; i < array->nr_ranges; i++) {
-+		unsigned int start = array->ranges[i].start;
-+		size_t length = array->ranges[i].length;
-+		unsigned int idx = start + length - 1;
-+
-+		if (idx >= def.max_entries) {
-+			pr_debug("ERROR: index %d too large\n", idx);
-+			return -BPF_LOADER_ERRNO__OBJCONF_MAP_IDX2BIG;
++	list_for_each_entry(op, &priv->ops_list, list) {
++		switch (def.type) {
++		case BPF_MAP_TYPE_ARRAY:
++			switch (op->key_type) {
++			case BPF_MAP_KEY_ALL:
++				return foreach_key_array_all(func, arg, name,
++							     map_fd, &def, op);
++			default:
++				pr_debug("ERROR: keytype for map '%s' invalid\n",
++					 name);
++				return -BPF_LOADER_ERRNO__INTERNAL;
++		}
++		default:
++			pr_debug("ERROR: type of '%s' incorrect\n", name);
++			return -BPF_LOADER_ERRNO__OBJCONF_MAP_TYPE;
 +		}
 +	}
++
 +	return 0;
 +}
 +
 +static int
- bpf__obj_config_map(struct bpf_object *obj,
- 		    struct parse_events_term *term,
- 		    struct perf_evlist *evlist,
-@@ -1007,6 +1079,13 @@ bpf__obj_config_map(struct bpf_object *obj,
- 	}
- 
- 	*key_scan_pos += map_opt - map_name;
-+
-+	*key_scan_pos += strlen(map_opt);
-+	err = config_map_indices_range_check(term, map, map_name);
-+	if (err)
-+		goto out;
-+	*key_scan_pos -= strlen(map_opt);
-+
- 	for (i = 0; i < ARRAY_SIZE(bpf_obj_config_map_funcs); i++) {
- 		struct bpf_obj_config_map_func *func =
- 				&bpf_obj_config_map_funcs[i];
-@@ -1077,6 +1156,33 @@ foreach_key_array_all(map_config_func_t func,
- }
- 
- static int
-+foreach_key_array_ranges(map_config_func_t func, void *arg,
-+			 const char *name, int map_fd,
-+			 struct bpf_map_def *pdef,
-+			 struct bpf_map_op *op)
++apply_config_value_for_key(int map_fd, void *pkey,
++			   size_t val_size, u64 val)
 +{
-+	unsigned int i, j;
++	int err = 0;
++
++	switch (val_size) {
++	case 1: {
++		u8 _val = (u8)(val);
++		err = bpf_map_update_elem(map_fd, pkey, &_val, BPF_ANY);
++		break;
++	}
++	case 2: {
++		u16 _val = (u16)(val);
++		err = bpf_map_update_elem(map_fd, pkey, &_val, BPF_ANY);
++		break;
++	}
++	case 4: {
++		u32 _val = (u32)(val);
++		err = bpf_map_update_elem(map_fd, pkey, &_val, BPF_ANY);
++		break;
++	}
++	case 8: {
++		err = bpf_map_update_elem(map_fd, pkey, &val, BPF_ANY);
++		break;
++	}
++	default:
++		pr_debug("ERROR: invalid value size\n");
++		return -BPF_LOADER_ERRNO__OBJCONF_MAP_VALUESIZE;
++	}
++	if (err && errno)
++		err = -errno;
++	return err;
++}
++
++static int
++apply_obj_config_map_for_key(const char *name, int map_fd,
++			     struct bpf_map_def *pdef __maybe_unused,
++			     struct bpf_map_op *op,
++			     void *pkey, void *arg __maybe_unused)
++{
 +	int err;
 +
-+	for (i = 0; i < op->k.array.nr_ranges; i++) {
-+		unsigned int start = op->k.array.ranges[i].start;
-+		size_t length = op->k.array.ranges[i].length;
-+
-+		for (j = 0; j < length; j++) {
-+			unsigned int idx = start + j;
-+
-+			err = func(name, map_fd, pdef, op, &idx, arg);
-+			if (err) {
-+				pr_debug("ERROR: failed to insert value to %s[%u]\n",
-+					 name, idx);
-+				return err;
-+			}
-+		}
++	switch (op->op_type) {
++	case BPF_MAP_OP_SET_VALUE:
++		err = apply_config_value_for_key(map_fd, pkey,
++						 pdef->value_size,
++						 op->v.value);
++		break;
++	default:
++		pr_debug("ERROR: unknown value type for '%s'\n", name);
++		err = -BPF_LOADER_ERRNO__INTERNAL;
 +	}
-+	return 0;
++	return err;
 +}
 +
 +static int
- bpf_map_config_foreach_key(struct bpf_map *map,
- 			   map_config_func_t func,
- 			   void *arg)
-@@ -1116,13 +1222,24 @@ bpf_map_config_foreach_key(struct bpf_map *map,
- 		case BPF_MAP_TYPE_PERF_EVENT_ARRAY:
- 			switch (op->key_type) {
- 			case BPF_MAP_KEY_ALL:
--				return foreach_key_array_all(func, arg, name,
--							     map_fd, &def, op);
-+				err = foreach_key_array_all(func, arg, name,
-+							    map_fd, &def, op);
-+				if (err)
-+					return err;
-+				break;
-+			case BPF_MAP_KEY_RANGES:
-+				err = foreach_key_array_ranges(func, arg, name,
-+							       map_fd, &def,
-+							       op);
-+				if (err)
-+					return err;
-+				break;
- 			default:
- 				pr_debug("ERROR: keytype for map '%s' invalid\n",
- 					 name);
- 				return -BPF_LOADER_ERRNO__INTERNAL;
--		}
-+			}
-+			break;
- 		default:
- 			pr_debug("ERROR: type of '%s' incorrect\n", name);
- 			return -BPF_LOADER_ERRNO__OBJCONF_MAP_TYPE;
-@@ -1309,6 +1426,7 @@ static const char *bpf_loader_strerror_table[NR_ERRNO] = {
- 	[ERRCODE_OFFSET(OBJCONF_MAP_EVTDIM)]	= "Event dimension too large",
- 	[ERRCODE_OFFSET(OBJCONF_MAP_EVTINH)]	= "Doesn't support inherit event",
- 	[ERRCODE_OFFSET(OBJCONF_MAP_EVTTYPE)]	= "Wrong event type for map",
-+	[ERRCODE_OFFSET(OBJCONF_MAP_IDX2BIG)]	= "Index too large",
- };
- 
- static int
-diff --git a/tools/perf/util/bpf-loader.h b/tools/perf/util/bpf-loader.h
-index c9ce792..30ee519 100644
---- a/tools/perf/util/bpf-loader.h
-+++ b/tools/perf/util/bpf-loader.h
-@@ -38,6 +38,7 @@ enum bpf_loader_errno {
- 	BPF_LOADER_ERRNO__OBJCONF_MAP_EVTDIM,	/* Event dimension too large */
- 	BPF_LOADER_ERRNO__OBJCONF_MAP_EVTINH,	/* Doesn't support inherit event */
- 	BPF_LOADER_ERRNO__OBJCONF_MAP_EVTTYPE,	/* Wrong event type for map */
-+	BPF_LOADER_ERRNO__OBJCONF_MAP_IDX2BIG,	/* Index too large */
- 	__BPF_LOADER_ERRNO__END,
- };
- 
-diff --git a/tools/perf/util/parse-events.c b/tools/perf/util/parse-events.c
-index 1e0ac77..f229663 100644
---- a/tools/perf/util/parse-events.c
-+++ b/tools/perf/util/parse-events.c
-@@ -2148,8 +2148,39 @@ void parse_events__free_terms(struct list_head *terms)
- {
- 	struct parse_events_term *term, *h;
- 
--	list_for_each_entry_safe(term, h, terms, list)
-+	list_for_each_entry_safe(term, h, terms, list) {
-+		if (term->array.nr_ranges)
-+			free(term->array.ranges);
- 		free(term);
-+	}
++apply_obj_config_map(struct bpf_map *map)
++{
++	return bpf_map_config_foreach_key(map,
++					  apply_obj_config_map_for_key,
++					  NULL);
 +}
 +
-+int parse_events__merge_arrays(struct parse_events_array *dest,
-+			       struct parse_events_array *another)
++static int
++apply_obj_config_object(struct bpf_object *obj)
 +{
-+	struct parse_events_array new;
++	struct bpf_map *map;
++	int err;
 +
-+	if (!dest || !another)
-+		return -EINVAL;
-+
-+	new.nr_ranges = dest->nr_ranges + another->nr_ranges;
-+	new.ranges = malloc(sizeof(new.ranges[0]) * new.nr_ranges);
-+	if (!new.ranges)
-+		return -ENOMEM;
-+
-+	memcpy(&new.ranges[0], dest->ranges,
-+	       sizeof(new.ranges[0]) * dest->nr_ranges);
-+	memcpy(&new.ranges[dest->nr_ranges], another->ranges,
-+	       sizeof(new.ranges[0]) * another->nr_ranges);
-+	free(dest->ranges);
-+	free(another->ranges);
-+	*dest = new;
++	bpf_map__for_each(map, obj) {
++		err = apply_obj_config_map(map);
++		if (err)
++			return err;
++	}
 +	return 0;
 +}
 +
-+void parse_events__clear_array(struct parse_events_array *a)
++int bpf__apply_obj_config(void)
 +{
-+	free(a->ranges);
++	struct bpf_object *obj, *tmp;
++	int err;
++
++	bpf_object__for_each_safe(obj, tmp) {
++		err = apply_obj_config_object(obj);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+ #define ERRNO_OFFSET(e)		((e) - __BPF_LOADER_ERRNO__START)
+ #define ERRCODE_OFFSET(c)	ERRNO_OFFSET(BPF_LOADER_ERRNO__##c)
+ #define NR_ERRNO	(__BPF_LOADER_ERRNO__END - __BPF_LOADER_ERRNO__START)
+@@ -1138,3 +1311,10 @@ int bpf__strerror_config_obj(struct bpf_object *obj __maybe_unused,
+ 	bpf__strerror_end(buf, size);
+ 	return 0;
+ }
++
++int bpf__strerror_apply_obj_config(int err, char *buf, size_t size)
++{
++	bpf__strerror_head(err, buf, size);
++	bpf__strerror_end(buf, size);
++	return 0;
++}
+diff --git a/tools/perf/util/bpf-loader.h b/tools/perf/util/bpf-loader.h
+index 2464db9..db3c34c 100644
+--- a/tools/perf/util/bpf-loader.h
++++ b/tools/perf/util/bpf-loader.h
+@@ -71,6 +71,8 @@ int bpf__strerror_config_obj(struct bpf_object *obj,
+ 			     struct perf_evlist *evlist,
+ 			     int *error_pos, int err, char *buf,
+ 			     size_t size);
++int bpf__apply_obj_config(void);
++int bpf__strerror_apply_obj_config(int err, char *buf, size_t size);
+ #else
+ static inline struct bpf_object *
+ bpf__prepare_load(const char *filename __maybe_unused,
+@@ -111,6 +113,12 @@ bpf__config_obj(struct bpf_object *obj __maybe_unused,
  }
  
- void parse_events_evlist_error(struct parse_events_evlist *data,
-diff --git a/tools/perf/util/parse-events.h b/tools/perf/util/parse-events.h
-index 20ad3c2..c34615f 100644
---- a/tools/perf/util/parse-events.h
-+++ b/tools/perf/util/parse-events.h
-@@ -71,8 +71,17 @@ enum {
- 	PARSE_EVENTS__TERM_TYPE_INHERIT
- };
- 
-+struct parse_events_array {
-+	size_t nr_ranges;
-+	struct {
-+		unsigned int start;
-+		size_t length;
-+	} *ranges;
-+};
+ static inline int
++bpf__apply_obj_config(void)
++{
++	return 0;
++}
 +
- struct parse_events_term {
- 	char *config;
-+	struct parse_events_array array;
- 	union {
- 		char *str;
- 		u64  num;
-@@ -117,6 +126,9 @@ int parse_events_term__sym_hw(struct parse_events_term **term,
- int parse_events_term__clone(struct parse_events_term **new,
- 			     struct parse_events_term *term);
- void parse_events__free_terms(struct list_head *terms);
-+int parse_events__merge_arrays(struct parse_events_array *dest,
-+			       struct parse_events_array *another);
-+void parse_events__clear_array(struct parse_events_array *a);
- int parse_events__modifier_event(struct list_head *list, char *str, bool add);
- int parse_events__modifier_group(struct list_head *list, char *event_mod);
- int parse_events_name(struct list_head *list, char *name);
++static inline int
+ __bpf_strerror(char *buf, size_t size)
+ {
+ 	if (!size)
+@@ -156,5 +164,12 @@ bpf__strerror_config_obj(struct bpf_object *obj __maybe_unused,
+ {
+ 	return __bpf_strerror(buf, size);
+ }
++
++static inline int
++bpf__strerror_apply_obj_config(int err __maybe_unused,
++			       char *buf, size_t size)
++{
++	return __bpf_strerror(buf, size);
++}
+ #endif
+ #endif
 -- 
 1.8.3.4
