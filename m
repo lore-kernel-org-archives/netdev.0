@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: ethernet: faraday: Use phy_find_first()
- instead of open coding it
-Date: Sun, 10 Jan 2016 22:06:05 -0500 (EST)
-Message-ID: <20160110.220605.1377793956050429598.davem@davemloft.net>
-References: <1452456272-1795-1-git-send-email-linux@roeck-us.net>
+Subject: Re: [PATCH net-next] staging: netlogic: Fix build error due to
+ missed API change
+Date: Sun, 10 Jan 2016 22:07:23 -0500 (EST)
+Message-ID: <20160110.220723.750201203154546164.davem@davemloft.net>
+References: <1452470263-25993-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andrew@lunn.ch
-To: linux@roeck-us.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452456272-1795-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60455 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758080AbcAKDHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 22:07:25 -0500
+In-Reply-To: <1452470263-25993-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Sun, 10 Jan 2016 12:04:32 -0800
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Mon, 11 Jan 2016 00:57:43 +0100
 
-> Use phy_find_first() to find the first phy device instead of
-> open coding it.
+> Fix a number of build errors due to moving the phy_map and centralizing
+> interrupt allocation.
 > 
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
 Applied.
