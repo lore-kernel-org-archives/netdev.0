@@ -1,64 +1,74 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] openvswitch: compute needed headroom for internal
- vports
-Date: Mon, 11 Jan 2016 09:43:08 +0100
-Message-ID: <1452501788.5027.13.camel@redhat.com>
-References: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
-	 <CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
-	 <CAEh+42hN8wL7bbALB8SGCKvum2pzT3R0kXUtMfQPg-XP-QZ7Dg@mail.gmail.com>
-	 <CAOrHB_Bo2iqp2xGaZpOb2AvriGTTruC_O72hQ7LqKnkbR_CAeA@mail.gmail.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
+ function
+Date: Mon, 11 Jan 2016 14:13:51 +0530
+Message-ID: <20160111084350.GC8070@sudip-pc>
+References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
+ <20160109165802.GD28813@lunn.ch>
+ <56914D21.9050804@roeck-us.net>
+ <20160109205240.GA6877@lunn.ch>
+ <569275C0.1040606@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Gross <jesse@kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>,
 	"David S. Miller" <davem@davemloft.net>,
-	Flavio Leitner <fbl@sysclose.org>
-To: pravin shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33136 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758643AbcAKInO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 03:43:14 -0500
-In-Reply-To: <CAOrHB_Bo2iqp2xGaZpOb2AvriGTTruC_O72hQ7LqKnkbR_CAeA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <569275C0.1040606@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-01-08 at 18:44 -0800, pravin shelar wrote:
-> On Fri, Jan 8, 2016 at 4:42 PM, Jesse Gross <jesse@kernel.org> wrote:
-> > On Fri, Jan 8, 2016 at 2:53 PM, pravin shelar <pshelar@ovn.org> wrote:
-> >> On Fri, Jan 8, 2016 at 1:50 PM, Paolo Abeni <pabeni@redhat.com> wrote:
-> >>> Currently the ovs internal vports always use a default needed_headroom.
-> >>> This leads to a skb head copy while xmitting on ovs swith via vport
-> >>> that add some kind of encapsulation (gre, geneve, etc.).
+On Sun, Jan 10, 2016 at 07:16:16AM -0800, Guenter Roeck wrote:
+> On 01/09/2016 12:52 PM, Andrew Lunn wrote:
+> >On Sat, Jan 09, 2016 at 10:10:41AM -0800, Guenter Roeck wrote:
+> >>Hi Andrew,
+> >>
+> >>On 01/09/2016 08:58 AM, Andrew Lunn wrote:
+> >>>Hi Guenter
 > >>>
-> >>> This patch add book-keeping for the maximum needed_headroom used by
-> >>> the non internal vports in any dp, updating it on vport creation and
-> >>> deletion.
+> >>>Same fix was submitted yesterday by Sudip Mukherjee.
 > >>>
-> >>> Said value is than used as needed_headroom for internal vports,
-> >>> avoiding the above copy.
-> >>>
-> >> Why is this done only for internal devices? In most common case of
-> >> traffic the packet enters OVS from tap or other netdev type vport
-> >> device.
+> >>
+> >>I missed that one, sorry.
+> >>
+> >>How about drivers/net/ethernet/toshiba/tc35815.c ? It now has an unused
+> >>variable due to e7f4dc3536a4, and it fails to build because of 7f854420fbfe.
+> >>
+> >>Which leads to the question which of the other build failures due to
+> >>7f854420fbfe have been addressed already. In addition to the toshiba driver,
+> >>I see build failures in drivers/net/ethernet/ti/cpmac.c and possibly
+> >>drivers/staging/octeon/ethernet-rgmii.c (the error message is different,
+> >>so it may be something else).
+> >>
+> >>I don't see patches for those, but I guess I must be blind, so I figure I
+> >>better ask before I send out mine.
 > >
-> > How would you influence the allocation for non-internal devices?
+> >That i have seen so far:
+> >
+> >Wantiq_etp.c: Me
+> >octeon/ethernet-rgmii.c: Me
+> >adi/bfin_mac.c: Sudip Mukerjee
 > 
-> Today there is no way of influencing this. But we could add new
-> skb-headroom parameter to netdev for packets that are received on the
-> device. This new parameter could be controlled from master devices
-> like OVS, Bridge, etc. To set this value we need new ndo operation. So
-> that it can work on devices like tap where it would just set this new
-> value and in case of ovs-internal or veth device, it can also update
-> needed_headroom.
+> I re-posted this one anyway, using phy_find_first.
+> 
+> >nxp/lpc_eth.c: Fabio Estevam
+> >
+> >Plus there is an interesting one for micrel.c which is going to have
+> >to wait a while.
+> >
+> How about those ?
+> 
+> drivers/net/ethernet/freescale/ucc_geth.c: In function 'uec_configure_serdes':
+> drivers/net/ethernet/freescale/ucc_geth.c:1719:20: error: 'struct phy_device' has no member named 'dev'
+> 
+> drivers/net/ethernet/freescale/fs_enet/mac-fec.c: In function 'stop':
+> drivers/net/ethernet/freescale/fs_enet/mac-fec.c:366:36: error: 'struct phy_device' has no member named 'bus'
 
-My idea was to continue working along this lines.
+My builds didn't show them not even the other ones mentioned above. :(
+Which config you used for these?
 
-However I thought to get there incrementally, i.e. handle internal
-vports only first. Can this be ok for you?
-
-Cheers,
-
-Paolo
+regards
+sudip
