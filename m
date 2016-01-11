@@ -1,57 +1,67 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH 14/53] perf test: Check environment before start real BPF
- test
-Date: Mon, 11 Jan 2016 18:55:03 -0300
-Message-ID: <20160111215503.GJ18367@kernel.org>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-15-git-send-email-wangnan0@huawei.com>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH 06/14] libceph: use list_for_each_entry_safe
+Date: Mon, 11 Jan 2016 23:06:07 +0100
+Message-ID: <CAOi1vP_sZgBz+Xb0o-NX-4o4BveQ6LKJsu_RC6OozjkehM=1UQ@mail.gmail.com>
+References: <ab66a344512e064000357c6d3c2a6f3d0e948ddb.1450451516.git.geliangtang@163.com>
+	<40510e6829654a5a4726650c63bf00d88c037593.1450451516.git.geliangtang@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Wang Nan <wangnan0@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geliang Tang <geliangtang@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1452520124-2073-15-git-send-email-wangnan0@huawei.com>
+In-Reply-To: <40510e6829654a5a4726650c63bf00d88c037593.1450451516.git.geliangtang@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Mon, Jan 11, 2016 at 01:48:05PM +0000, Wang Nan escreveu:
-> Copying perf to old kernel system results:
-> 
->  # perf test bpf
->  37: Test BPF filter                                          :
->  37.1: Test basic BPF filtering                               : FAILED!
->  37.2: Test BPF prologue generation                           : Skip
-> 
-> However, in case when kernel doesn't support a test case it should
-> return 'Skip', 'FAILED!' should be reserved for kernel tests for when
-> the kernel supports a feature that then fails to work as advertised.
-> 
-> This patch checks environment before real testcase.
+On Fri, Dec 18, 2015 at 4:33 PM, Geliang Tang <geliangtang@163.com> wrote:
+> Use list_for_each_entry_safe() instead of list_for_each_safe() to
+> simplify the code.
+>
+> Signed-off-by: Geliang Tang <geliangtang@163.com>
+> ---
+>  net/ceph/messenger.c | 14 +++++---------
+>  1 file changed, 5 insertions(+), 9 deletions(-)
+>
+> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+> index 9981039..c664b7f 100644
+> --- a/net/ceph/messenger.c
+> +++ b/net/ceph/messenger.c
+> @@ -3361,9 +3361,8 @@ static void ceph_msg_free(struct ceph_msg *m)
+>  static void ceph_msg_release(struct kref *kref)
+>  {
+>         struct ceph_msg *m = container_of(kref, struct ceph_msg, kref);
+> -       LIST_HEAD(data);
+> -       struct list_head *links;
+> -       struct list_head *next;
+> +       LIST_HEAD(head);
+> +       struct ceph_msg_data *data, *next;
+>
+>         dout("%s %p\n", __func__, m);
+>         WARN_ON(!list_empty(&m->list_head));
+> @@ -3376,12 +3375,9 @@ static void ceph_msg_release(struct kref *kref)
+>                 m->middle = NULL;
+>         }
+>
+> -       list_splice_init(&m->data, &data);
+> -       list_for_each_safe(links, next, &data) {
+> -               struct ceph_msg_data *data;
+> -
+> -               data = list_entry(links, struct ceph_msg_data, links);
+> -               list_del_init(links);
+> +       list_splice_init(&m->data, &head);
+> +       list_for_each_entry_safe(data, next, &head, links) {
+> +               list_del_init(&data->links);
+>                 ceph_msg_data_destroy(data);
+>         }
+>         m->data_length = 0;
 
-This is really strange, this other test is failing if the above patch is
-present, found by bisecting:
+Applied.  I killed the call to list_splice_init() along with its
+list_head while at it.
 
-[acme@felicio linux]$ perf test decoder
-47: Test x86 instruction decoder - new instructions          : FAILED!
-[acme@felicio linux]$ git log --oneline -1
-91fedd318e3d perf test: Check environment before start real BPF test
-[acme@felicio linux]$ git reset --hard HEAD^
-HEAD is now at f1f23526d3b6 perf test: Reset err after using it hold
-errcode in hist testcases
-[acme@felicio linux]$ m
-make: Entering directory `/home/acme/git/linux/tools/perf'
-  BUILD:   Doing 'make -j4' parallel build
-  CC       /tmp/build/perf/arch/common.o
-  CC       /tmp/build/perf/util/abspath.o
-  CC       /tmp/build/perf/builtin-bench.o
-  CC       /tmp/build/perf/util/alias.o
+Thanks,
 
-<SNIP>
-[acme@felicio linux]$ git log --oneline -1
-f1f23526d3b6 perf test: Reset err after using it hold errcode in hist
-testcases
-[acme@felicio linux]$ perf test decoder
-47: Test x86 instruction decoder - new instructions          : Ok
-[acme@felicio linux]$ 
+                Ilya
