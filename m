@@ -1,119 +1,266 @@
-From: mleitner@redhat.com
-Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
- global transport hashtable
-Date: Mon, 11 Jan 2016 16:09:27 -0200
-Message-ID: <20160111180927.GG6061@mrl.redhat.com>
-References: <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
- <20160111093012.GA23525@gondor.apana.org.au>
- <20160111160039.GA6061@mrl.redhat.com>
- <5693E451.2000306@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [next PATCH 1/4] ixgbe: Add support for generic Tx checksums
+Date: Mon, 11 Jan 2016 10:11:41 -0800
+Message-ID: <CALx6S36VOrpVoFrdr4eTynmWMkxWGs57uw+LEoXRKOsUFgryDw@mail.gmail.com>
+References: <20160111173724.4101.35798.stgit@localhost.localdomain>
+	<20160111175356.4101.8327.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Xin Long <lucien.xin@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, vyasevic@redhat.com,
-	daniel@iogearbox.net, davem@davemloft.net
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40480 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760710AbcAKSJc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 13:09:32 -0500
-Content-Disposition: inline
-In-Reply-To: <5693E451.2000306@gmail.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37002 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757478AbcAKSLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 13:11:42 -0500
+Received: by mail-ig0-f170.google.com with SMTP id h5so76172775igh.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 10:11:42 -0800 (PST)
+In-Reply-To: <20160111175356.4101.8327.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 12:20:17PM -0500, Vlad Yasevich wrote:
-> On 01/11/2016 11:00 AM, mleitner@redhat.com wrote:
-> > On Mon, Jan 11, 2016 at 05:30:12PM +0800, Herbert Xu wrote:
-> >> Xin Long <lucien.xin@gmail.com> wrote:
-> >>>
-> >>> +static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
-> >>> +                               const void *ptr)
-> >>> +{
-> >>> +       const struct sctp_hash_cmp_arg *x = arg->key;
-> >>> +       const struct sctp_transport *t = ptr;
-> >>> +       struct sctp_association *asoc = t->asoc;
-> >>> +       const struct net *net = x->net;
-> >>> +
-> >>> +       if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
-> >>> +               return 1;
-> >>> +       if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
-> >>> +               return 1;
-> >>> +       if (!net_eq(sock_net(asoc->base.sk), net))
-> >>> +               return 1;
-> >>> +       if (!sctp_bind_addr_match(&asoc->base.bind_addr,
-> >>> +                                 x->laddr, sctp_sk(asoc->base.sk)))
-> >>> +               return 1;
-> >>> +
-> >>> +       return 0;
-> >>> +}
-> >>> +
-> >>> +static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
-> >>> +{
-> >>> +       const struct sctp_transport *t = data;
-> >>> +       const union sctp_addr *paddr = &t->ipaddr;
-> >>> +       const struct net *net = sock_net(t->asoc->base.sk);
-> >>> +       u16 lport = htons(t->asoc->base.bind_addr.port);
-> >>> +       u32 addr;
-> >>> +
-> >>> +       if (paddr->sa.sa_family == AF_INET6)
-> >>> +               addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-> >>> +       else
-> >>> +               addr = paddr->v4.sin_addr.s_addr;
-> >>> +
-> >>> +       return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-> >>> +                            (__force __u32)lport, net_hash_mix(net), seed);
-> >>> +}
-> >>> +
-> >>> +static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
-> >>> +{
-> >>> +       const struct sctp_hash_cmp_arg *x = data;
-> >>> +       const union sctp_addr *paddr = x->paddr;
-> >>> +       const struct net *net = x->net;
-> >>> +       u16 lport = x->laddr->v4.sin_port;
-> >>> +       u32 addr;
-> >>> +
-> >>> +       if (paddr->sa.sa_family == AF_INET6)
-> >>> +               addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-> >>> +       else
-> >>> +               addr = paddr->v4.sin_addr.s_addr;
-> >>> +
-> >>> +       return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-> >>> +                            (__force __u32)lport, net_hash_mix(net), seed);
-> >>> +}
-> >>
-> >> There's your problem.  You are allowing multiple objects to hash
-> >> to the same value.  This is unacceptable with rhashtable because
-> >> we use the hash chain length to determine if we're under attack
-> >> and need to rehash.  This is the reason why you would see EBUSY
-> >> during insertion.
-> > 
-> > Cool. Then I guess we don't really have an issue here. The case that
-> > fails is an artificial load test which is virtually impossible to be hit
-> > in real world, or at least I really hope so. The test, as in Xin's
-> > attachment, will load more than 1600 IP addresses in one host (2 vCPU
-> > during the test) and attempt to start an assoc from each of those using
-> > the very same (lport, daddr, dport)-tuple.
-> > 
-> > Doing so is just unreasonable. Note that net is also hashed, so
-> > even if we consider it could be 1600 containers, it is fine.
-> 
-> I have a hard time excepting this argument.  Just because a given test
-> scenario may be unreasonable now, doesn't make so in the future.  If
-> there is a way to solve the problem, then it should be done.  Saying
-> this isn't really a problem isn't going to make it go away.
+On Mon, Jan 11, 2016 at 9:53 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch adds support for generic Tx checksums to the ixgbe driver.  It
+> turns out this is actually pretty easy after going over the datasheet as we
+> were doing a number of steps we didn't need to.
+>
+> In order to perform a Tx checksum for an L4 header we need to fill in the
+> following fields in the Tx descriptor:
+>   MACLEN (maximum of 127), retrieved from:
+>                 skb_network_offset()
+>   IPLEN  (maximum of 511), retrieved from:
+>                 skb_checksum_start_offset() - skb_network_offset()
+>   TUCMD.L4T indicates offset and if checksum or crc32c, based on:
+>                 skb->csum_offset
+>
+> The added advantage to doing this is that we can support inner checksum
+> offloads for tunnels and MPLS while still being able to transparently insert
+> VLAN tags.
+>
+> I also took the opportunity to clean-up many of the feature flag
+> configuration bits to make them a bit more consistent between drivers.
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  163 +++++++++----------------
+>  1 file changed, 59 insertions(+), 104 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 77cdaed6de90..1e3a548cc612 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -7207,103 +7207,61 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+>         return 1;
+>  }
+>
+> +static inline bool ixgbe_ipv6_csum_is_sctp(struct sk_buff *skb)
+> +{
+> +       unsigned int offset = 0;
+> +
+> +       ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
+> +
+> +       return offset == skb_checksum_start_offset(skb);
+> +}
+> +
+>  static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+>                           struct ixgbe_tx_buffer *first)
+>  {
+>         struct sk_buff *skb = first->skb;
+>         u32 vlan_macip_lens = 0;
+> -       u32 mss_l4len_idx = 0;
+>         u32 type_tucmd = 0;
+>
+>         if (skb->ip_summed != CHECKSUM_PARTIAL) {
+> -               if (!(first->tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
+> -                   !(first->tx_flags & IXGBE_TX_FLAGS_CC))
+> +csum_failed:
+> +               if (!(first->tx_flags & (IXGBE_TX_FLAGS_HW_VLAN |
+> +                                        IXGBE_TX_FLAGS_CC)))
+>                         return;
+> -               vlan_macip_lens = skb_network_offset(skb) <<
+> -                                 IXGBE_ADVTXD_MACLEN_SHIFT;
+> -       } else {
+> -               u8 l4_hdr = 0;
+> -               union {
+> -                       struct iphdr *ipv4;
+> -                       struct ipv6hdr *ipv6;
+> -                       u8 *raw;
+> -               } network_hdr;
+> -               union {
+> -                       struct tcphdr *tcphdr;
+> -                       u8 *raw;
+> -               } transport_hdr;
+> -               __be16 frag_off;
+> -
+> -               if (skb->encapsulation) {
+> -                       network_hdr.raw = skb_inner_network_header(skb);
+> -                       transport_hdr.raw = skb_inner_transport_header(skb);
+> -                       vlan_macip_lens = skb_inner_network_offset(skb) <<
+> -                                         IXGBE_ADVTXD_MACLEN_SHIFT;
+> -               } else {
+> -                       network_hdr.raw = skb_network_header(skb);
+> -                       transport_hdr.raw = skb_transport_header(skb);
+> -                       vlan_macip_lens = skb_network_offset(skb) <<
+> -                                         IXGBE_ADVTXD_MACLEN_SHIFT;
+> -               }
+> -
+> -               /* use first 4 bits to determine IP version */
+> -               switch (network_hdr.ipv4->version) {
+> -               case IPVERSION:
+> -                       vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
+> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+> -                       l4_hdr = network_hdr.ipv4->protocol;
+> -                       break;
+> -               case 6:
+> -                       vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
+> -                       l4_hdr = network_hdr.ipv6->nexthdr;
+> -                       if (likely((transport_hdr.raw - network_hdr.raw) ==
+> -                                  sizeof(struct ipv6hdr)))
+> -                               break;
+> -                       ipv6_skip_exthdr(skb, network_hdr.raw - skb->data +
+> -                                             sizeof(struct ipv6hdr),
+> -                                        &l4_hdr, &frag_off);
+> -                       if (unlikely(frag_off))
+> -                               l4_hdr = NEXTHDR_FRAGMENT;
+> -                       break;
+> -               default:
+> -                       break;
+> -               }
+> +               goto no_csum;
+> +       }
+>
+> -               switch (l4_hdr) {
+> -               case IPPROTO_TCP:
+> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
+> -                       mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
+> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
+> -                       break;
+> -               case IPPROTO_SCTP:
+> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
+> -                       mss_l4len_idx = sizeof(struct sctphdr) <<
+> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
+> -                       break;
+> -               case IPPROTO_UDP:
+> -                       mss_l4len_idx = sizeof(struct udphdr) <<
+> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
+> +       switch (skb->csum_offset) {
+> +       case offsetof(struct tcphdr, check):
+> +               type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+> +               /* fall through */
+> +       case offsetof(struct udphdr, check):
+> +               break;
+> +       case offsetof(struct sctphdr, checksum):
+> +               /* validate that this is actually an SCTP request */
+> +               if (((first->protocol == htons(ETH_P_IP)) &&
+> +                    (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
+> +                   ((first->protocol == htons(ETH_P_IPV6)) &&
+> +                    ixgbe_ipv6_csum_is_sctp(skb))) {
+> +                       type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
 
-Heh, I understand..
+I think we're going to have to do something different for SCTP CRC
+this (and FCOE CRC) is a special case of CHECKSUM_PARTIAL that I don't
+think we're always accounting for. For instance, in LCO we are always
+assuming that CHECKSUM_PARTIAL refers to an IP checksum. Maybe it's
+time to add a bit to ip_summed so we can define CHEKCKSUM_SCTP_CRC and
+CHECKSUM_FCOE_CRC?
 
-There is still the other part of this thread to be worked on (re
-->dead), maybe that will justify extra stuff in here but I really
-wouldn't like to add extra structures and locks on this just to satisfy
-an unreasonable scenario like this. This hash is very busy, the lean it
-is, the better.
-
-Maybe we could keep the loop as is for now, as a fail-safe, and add a
-pr_warn_once() if it gets hit?
-
-  Marcelo
+>                         break;
+> -               default:
+> -                       if (unlikely(net_ratelimit())) {
+> -                               dev_warn(tx_ring->dev,
+> -                                        "partial checksum, version=%d, l4 proto=%x\n",
+> -                                        network_hdr.ipv4->version, l4_hdr);
+> -                       }
+> -                       skb_checksum_help(skb);
+> -                       goto no_csum;
+>                 }
+> -
+> -               /* update TX checksum flag */
+> -               first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
+> +               /* fall through */
+> +       default:
+> +               skb_checksum_help(skb);
+> +               goto csum_failed;
+>         }
+>
+> +       /* update TX checksum flag */
+> +       first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
+> +       vlan_macip_lens = skb_checksum_start_offset(skb) -
+> +                         skb_network_offset(skb);
+>  no_csum:
+>         /* vlan_macip_lens: MACLEN, VLAN tag */
+> +       vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+>         vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
+>
+> -       ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0,
+> -                         type_tucmd, mss_l4len_idx);
+> +       ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0, type_tucmd, 0);
+>  }
+>
+>  #define IXGBE_SET_FLAG(_input, _flag, _result) \
+> @@ -9012,40 +8970,37 @@ skip_sriov:
+>
+>  #endif
+>         netdev->features = NETIF_F_SG |
+> -                          NETIF_F_IP_CSUM |
+> -                          NETIF_F_IPV6_CSUM |
+> -                          NETIF_F_HW_VLAN_CTAG_TX |
+> -                          NETIF_F_HW_VLAN_CTAG_RX |
+>                            NETIF_F_TSO |
+>                            NETIF_F_TSO6 |
+>                            NETIF_F_RXHASH |
+> -                          NETIF_F_RXCSUM;
+> -
+> -       netdev->hw_features = netdev->features | NETIF_F_HW_L2FW_DOFFLOAD;
+> +                          NETIF_F_RXCSUM |
+> +                          NETIF_F_HW_CSUM |
+> +                          NETIF_F_SCTP_CRC |
+> +                          NETIF_F_HW_VLAN_CTAG_TX |
+> +                          NETIF_F_HW_VLAN_CTAG_RX;
+>
+> -       switch (adapter->hw.mac.type) {
+> -       case ixgbe_mac_82599EB:
+> -       case ixgbe_mac_X540:
+> -       case ixgbe_mac_X550:
+> -       case ixgbe_mac_X550EM_x:
+> +       if (hw->mac.type >= ixgbe_mac_82599EB)
+>                 netdev->features |= NETIF_F_SCTP_CRC;
+> -               netdev->hw_features |= NETIF_F_SCTP_CRC |
+> -                                      NETIF_F_NTUPLE;
+> -               break;
+> -       default:
+> -               break;
+> -       }
+>
+> -       netdev->hw_features |= NETIF_F_RXALL;
+> +       /* copy netdev features into list of user selectable features */
+> +       netdev->hw_features |= netdev->features;
+> +       netdev->hw_features |= NETIF_F_RXALL |
+> +                              NETIF_F_HW_L2FW_DOFFLOAD;
+> +
+> +       if (hw->mac.type >= ixgbe_mac_82599EB)
+> +               netdev->hw_features |= NETIF_F_NTUPLE;
+> +
+> +       /* set this bit last since it cannot be part of hw_features */
+>         netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+>
+> -       netdev->vlan_features |= NETIF_F_TSO;
+> -       netdev->vlan_features |= NETIF_F_TSO6;
+> -       netdev->vlan_features |= NETIF_F_IP_CSUM;
+> -       netdev->vlan_features |= NETIF_F_IPV6_CSUM;
+> -       netdev->vlan_features |= NETIF_F_SG;
+> +       netdev->vlan_features |= NETIF_F_SG |
+> +                                NETIF_F_TSO |
+> +                                NETIF_F_TSO6 |
+> +                                NETIF_F_HW_CSUM |
+> +                                NETIF_F_SCTP_CRC;
+>
+> -       netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+> +       netdev->mpls_features |= NETIF_F_HW_CSUM;
+> +       netdev->hw_enc_features |= NETIF_F_HW_CSUM;
+>
+>         netdev->priv_flags |= IFF_UNICAST_FLT;
+>         netdev->priv_flags |= IFF_SUPP_NOFCS;
+>
