@@ -1,107 +1,130 @@
-From: mleitner@redhat.com
-Subject: Re: [PATCH net-next 1/5] sctp: add the rhashtable apis for sctp
- global transport hashtable
-Date: Mon, 11 Jan 2016 14:00:40 -0200
-Message-ID: <20160111160039.GA6061@mrl.redhat.com>
-References: <2c413161eb3a2c74453bd8dc11815af7e237515e.1451490447.git.lucien.xin@gmail.com>
- <20160111093012.GA23525@gondor.apana.org.au>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v4 06/10] netdev: add netdevice notifier type to
+ trigger a reprogramming of offloads
+Date: Mon, 11 Jan 2016 08:09:51 -0800
+Message-ID: <CALx6S360oG5sLCmCx=UExeFU_n9dpxM8vEL=DZ-n13HSvf1Q4g@mail.gmail.com>
+References: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
+	<1452352052-27574-7-git-send-email-hannes@stressinduktion.org>
+	<CALx6S357fYzhCRHsPAjX+NH+5Wc1tnUuNwcZ5oy3WiAMASjOEA@mail.gmail.com>
+	<5691439F.5090500@stressinduktion.org>
+	<CALx6S37rhc+xiOZfk2F4=AXWK4jxu7BP3VMBjSCFoOMjLdLaZw@mail.gmail.com>
+	<56918F1E.8080600@stressinduktion.org>
+	<CALx6S341SP0XN-iBGeR_MXyu3LoYmXBsCBguDcwc26CVvF3Gtw@mail.gmail.com>
+	<56939C00.3060801@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xin Long <lucien.xin@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, vyasevic@redhat.com,
-	daniel@iogearbox.net, davem@davemloft.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36778 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757704AbcAKQAn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 11:00:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20160111093012.GA23525@gondor.apana.org.au>
+Received: from mail-io0-f175.google.com ([209.85.223.175]:34465 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760814AbcAKQJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 11:09:51 -0500
+Received: by mail-io0-f175.google.com with SMTP id 1so306252686ion.1
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 08:09:51 -0800 (PST)
+In-Reply-To: <56939C00.3060801@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 05:30:12PM +0800, Herbert Xu wrote:
-> Xin Long <lucien.xin@gmail.com> wrote:
-> >
-> > +static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
-> > +                               const void *ptr)
-> > +{
-> > +       const struct sctp_hash_cmp_arg *x = arg->key;
-> > +       const struct sctp_transport *t = ptr;
-> > +       struct sctp_association *asoc = t->asoc;
-> > +       const struct net *net = x->net;
-> > +
-> > +       if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
-> > +               return 1;
-> > +       if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
-> > +               return 1;
-> > +       if (!net_eq(sock_net(asoc->base.sk), net))
-> > +               return 1;
-> > +       if (!sctp_bind_addr_match(&asoc->base.bind_addr,
-> > +                                 x->laddr, sctp_sk(asoc->base.sk)))
-> > +               return 1;
-> > +
-> > +       return 0;
-> > +}
-> > +
-> > +static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
-> > +{
-> > +       const struct sctp_transport *t = data;
-> > +       const union sctp_addr *paddr = &t->ipaddr;
-> > +       const struct net *net = sock_net(t->asoc->base.sk);
-> > +       u16 lport = htons(t->asoc->base.bind_addr.port);
-> > +       u32 addr;
-> > +
-> > +       if (paddr->sa.sa_family == AF_INET6)
-> > +               addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-> > +       else
-> > +               addr = paddr->v4.sin_addr.s_addr;
-> > +
-> > +       return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-> > +                            (__force __u32)lport, net_hash_mix(net), seed);
-> > +}
-> > +
-> > +static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
-> > +{
-> > +       const struct sctp_hash_cmp_arg *x = data;
-> > +       const union sctp_addr *paddr = x->paddr;
-> > +       const struct net *net = x->net;
-> > +       u16 lport = x->laddr->v4.sin_port;
-> > +       u32 addr;
-> > +
-> > +       if (paddr->sa.sa_family == AF_INET6)
-> > +               addr = jhash(&paddr->v6.sin6_addr, 16, seed);
-> > +       else
-> > +               addr = paddr->v4.sin_addr.s_addr;
-> > +
-> > +       return  jhash_3words(addr, ((__u32)paddr->v4.sin_port) << 16 |
-> > +                            (__force __u32)lport, net_hash_mix(net), seed);
-> > +}
-> 
-> There's your problem.  You are allowing multiple objects to hash
-> to the same value.  This is unacceptable with rhashtable because
-> we use the hash chain length to determine if we're under attack
-> and need to rehash.  This is the reason why you would see EBUSY
-> during insertion.
+On Mon, Jan 11, 2016 at 4:11 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 10.01.2016 18:16, Tom Herbert wrote:
+>>
+>> On Sat, Jan 9, 2016 at 2:52 PM, Hannes Frederic Sowa <
+>> hannes@stressinduktion.org> wrote:
+>>>
+>>> On 09.01.2016 23:27, Tom Herbert wrote:
+>>>>
+>>>>
+>>>> On Sat, Jan 9, 2016 at 9:30 AM, Hannes Frederic Sowa
+>>>> <hannes@stressinduktion.org> wrote:
+>>>>>
+>>>>>
+>>>>> On 09.01.2016 18:25, Tom Herbert wrote:
+>>>>>>
+>>>>>>
+>>>>>>
+>>>>>> On Sat, Jan 9, 2016 at 7:07 AM, Hannes Frederic Sowa
+>>>>>> <hannes@stressinduktion.org> wrote:
+>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>>>>>> ---
+>>>>>>> include/linux/netdevice.h | 1 +
+>>>>>>> 1 file changed, 1 insertion(+)
+>>>>>>>
+>>>>>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>>>>>> index 8d8e5ca951b493..9750e46760695d 100644
+>>>>>>> --- a/include/linux/netdevice.h
+>>>>>>> +++ b/include/linux/netdevice.h
+>>>>>>> @@ -2183,6 +2183,7 @@ struct netdev_lag_lower_state_info {
+>>>>>>> #define NETDEV_BONDING_INFO 0x0019
+>>>>>>> #define NETDEV_PRECHANGEUPPER 0x001A
+>>>>>>> #define NETDEV_CHANGELOWERSTATE 0x001B
+>>>>>>> +#define NETDEV_REFRESH_OFFLOADS 0x001C
+>>>>>>>
+>>>>>> Per previous discussion we don't want to generalize this current
+>>>>>> offload interface. Can we just NETDEV_UP as the notifier?
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>> The problem with only using NETDEV_UP/REGISTER is that some drivers
+>>>>> need
+>>>>> to
+>>>>> reconfigure their offloads during operation while keeping the netdevice
+>>>>> in
+>>>>> UP state. One example is ixgbe. This was my first idea also.
+>>>>>
+>>>> It's configuration. Just get it once and save the port number(s) in
+>>>> the driver. Configure the device only when
+>>>> IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE is set.
+>>>
+>>>
+>>>
+>>> I don't see much value that each driver has to hold a database of ports
+>>> to
+>>> offload, the kernel knows much better and can easily be queried via this
+>>> mechanism.
+>>>
+>>> This is not only about ixgbe, but also about benet, which f.e. needs the
+>>> list of offloads available again during resume. Of course, drivers can do
+>>> their own stateful handling of ports, but this seems to much more
+>>> generate
+>>> problems. I rather would like to see more logic moved into the core and
+>>
+>> less
+>>>
+>>> code in the drivers.
+>>>
+>> All the drivers that support VXLAN already save the ports in a stateful
+>> fashion. Some support a single port, some and array, some a list. The only
+>> question is whether they bother to save the information when the offload
+>> feature is disabled. ixgbe does not for instance, but it looks like fm10k
+>> does since it doesn't check any feature flags. Fixing those that don't
+>> save
+>> the information all the times should be straightforward.
+>
+>
+> Yes, would probably be straight forward to add another list plus extra
+> reference counting and maybe a lock, but I don't see why we need to
+> duplicate the policy in the drivers? I personally think ixgbe does ok in
+> this regard.
+>
+Again, to reiterate, _all_ the drivers that support VXLAN already save
+the ports in a stateful fashion. Adding a new notifier is unnecessary
+and makes things more complicated, not less. Also to reiterate, this
+is not generic functionality that the driver is providing; we should
+not need to add anything for this into the core APIs outside of the
+two ndo functions that already exist.
 
-Cool. Then I guess we don't really have an issue here. The case that
-fails is an artificial load test which is virtually impossible to be hit
-in real world, or at least I really hope so. The test, as in Xin's
-attachment, will load more than 1600 IP addresses in one host (2 vCPU
-during the test) and attempt to start an assoc from each of those using
-the very same (lport, daddr, dport)-tuple.
+Tom
 
-Doing so is just unreasonable. Note that net is also hashed, so
-even if we consider it could be 1600 containers, it is fine.
-
-> So instead of inserting your objects as is, you should instead hash
-> a list object that then links to all the objects that has the same
-> hash key.
-
-Now that it is clarified, I'm thinking we should just get ride of that
-loop on EBUSY. No real reason to have extra code only to support an
-artificial test. Agree?
-
-Thanks,
-Marcelo
+> Anyway, this series merely tries to decouple 10gigbit cards from vxlan
+> and/or geneve. It will be no problem to deal with this later on.
+>
+> Bye,
+> Hannes
+>
