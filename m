@@ -1,54 +1,57 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 6/8] net: gre: Implement LCO for GRE over IPv4
-Date: Mon, 11 Jan 2016 10:39:40 -0800
-Message-ID: <CAKgT0UdSRi-iwZpBWrezg=-fFcVTFSd=2FOOye_oZr2oNCNJAw@mail.gmail.com>
-References: <56901197.8040808@solarflare.com>
-	<56901235.1010800@solarflare.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CCC1D7E@AcuExch.aculab.com>
-	<5693AC59.4080702@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"tom@herbertland.com" <tom@herbertland.com>
-To: Edward Cree <ecree@solarflare.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] tcp_yeah: don't set ssthresh below 2
+Date: Mon, 11 Jan 2016 13:42:43 -0500
+Message-ID: <1452537763-28163-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:33694 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757452AbcAKSjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 13:39:41 -0500
-Received: by mail-io0-f195.google.com with SMTP id f81so11090126iof.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 10:39:40 -0800 (PST)
-In-Reply-To: <5693AC59.4080702@solarflare.com>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:33187 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933143AbcAKSmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 13:42:45 -0500
+Received: by mail-qg0-f49.google.com with SMTP id b35so280001523qge.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 10:42:45 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 5:21 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 11/01/16 10:09, David Laight wrote:
->> From: Edward Cree
->>> Sent: 08 January 2016 19:47
->> ...
->>> +    if (skb->ip_summed == CHECKSUM_PARTIAL) {
->>> +            csum = csum_fold(lco_csum(skb));
->>> +            if (csum == 0)
->>> +                    csum = CSUM_MANGLED_0;
->>> +            return csum;
->>> +    } else {
->>> +            return csum_fold(skb_checksum(skb, 0, skb->len, 0));
->>> +    }
->> You see to be worried about csum_fold() returning 0 in one
->> path, but not in the other.
->> I'm guessing that 0 can only happen if all the bytes that have
->> been checksummed are zero.
-> csum_fold complements, so if the sum comes to (say) 0x1fffe, it will return ~0xffff which is 0.
->
-> Next version of patch will mangle 0 for both branches.
+For tcp_yeah, use an ssthresh floor of 2, the same floor used by Reno
+and CUBIC, per RFC 5681 (equation 4).
 
-Actually you may want to go the other way on that.  If they weren't
-flipping the checksum value for GRE before why should we start doing
-that now?  I'm pretty sure the checksum mangling is a very UDP centric
-thing.  There is no need to introduce it to other protocols.
+tcp_yeah_ssthresh() was sometimes returning a 0 or negative ssthresh
+value if the intended reduction is as big or bigger than the current
+cwnd. Congestion control modules should never return a zero or
+negative ssthresh. A zero ssthresh generally results in a zero cwnd,
+causing the connection to stall. A negative ssthresh value will be
+interpreted as a u32 and will set a target cwnd for PRR near 4
+billion.
 
-- Alex
+Oleksandr Natalenko reported that a system using tcp_yeah with ECN
+could see a warning about a prior_cwnd of 0 in
+tcp_cwnd_reduction(). Testing verified that this was due to
+tcp_yeah_ssthresh() misbehaving in this way.
+
+Reported-by: Oleksandr Natalenko <oleksandr@natalenko.name>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_yeah.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index 17d3566..3e6a472 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -219,7 +219,7 @@ static u32 tcp_yeah_ssthresh(struct sock *sk)
+ 	yeah->fast_count = 0;
+ 	yeah->reno_count = max(yeah->reno_count>>1, 2U);
+ 
+-	return tp->snd_cwnd - reduction;
++	return max_t(int, tp->snd_cwnd - reduction, 2);
+ }
+ 
+ static struct tcp_congestion_ops tcp_yeah __read_mostly = {
+-- 
+2.6.0.rc2.230.g3dd15c0
