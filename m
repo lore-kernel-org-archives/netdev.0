@@ -1,7 +1,7 @@
 From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH 8/9] sample/bpf: sockex1: user percpu array map
-Date: Mon, 11 Jan 2016 23:57:00 +0800
-Message-ID: <1452527821-12276-9-git-send-email-tom.leiming@gmail.com>
+Subject: [PATCH 4/9] bpf: add percpu version of lookup/update element helpers
+Date: Mon, 11 Jan 2016 23:56:56 +0800
+Message-ID: <1452527821-12276-5-git-send-email-tom.leiming@gmail.com>
 References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>,
@@ -13,89 +13,151 @@ In-Reply-To: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is demonstrated the expensive atomic operations can
-be removed in eBPF prog.
+Prepare for supporting percpu map.
+
+These introduced two callback & helpers can be used to
+retrieve/update the value from one specific CPU for percpu map.
 
 Signed-off-by: Ming Lei <tom.leiming@gmail.com>
 ---
- samples/bpf/sockex1_kern.c |  7 ++++---
- samples/bpf/sockex1_user.c | 20 ++++++++++++++++----
- 2 files changed, 20 insertions(+), 7 deletions(-)
+ include/linux/bpf.h      |  3 +++
+ include/uapi/linux/bpf.h |  6 ++++++
+ kernel/bpf/core.c        |  2 ++
+ kernel/bpf/helpers.c     | 53 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/core/filter.c        |  4 ++++
+ 5 files changed, 68 insertions(+)
 
-diff --git a/samples/bpf/sockex1_kern.c b/samples/bpf/sockex1_kern.c
-index ed18e9a..400518a 100644
---- a/samples/bpf/sockex1_kern.c
-+++ b/samples/bpf/sockex1_kern.c
-@@ -5,7 +5,7 @@
- #include "bpf_helpers.h"
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 7fa339f..75d75d8 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -219,6 +219,9 @@ extern const struct bpf_func_proto bpf_get_current_comm_proto;
+ extern const struct bpf_func_proto bpf_skb_vlan_push_proto;
+ extern const struct bpf_func_proto bpf_skb_vlan_pop_proto;
  
- struct bpf_map_def SEC("maps") my_map = {
--	.type = BPF_MAP_TYPE_ARRAY,
-+	.type = BPF_MAP_TYPE_ARRAY_PERCPU,
- 	.key_size = sizeof(u32),
- 	.value_size = sizeof(long),
- 	.max_entries = 256,
-@@ -16,13 +16,14 @@ int bpf_prog1(struct __sk_buff *skb)
- {
- 	int index = load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol));
- 	long *value;
-+	unsigned cpu = bpf_get_smp_processor_id();
- 
- 	if (skb->pkt_type != PACKET_OUTGOING)
- 		return 0;
- 
--	value = bpf_map_lookup_elem(&my_map, &index);
-+	value = bpf_map_lookup_elem_percpu(&my_map, &index, cpu);
- 	if (value)
--		__sync_fetch_and_add(value, skb->len);
-+		*value += skb->len;
- 
- 	return 0;
- }
-diff --git a/samples/bpf/sockex1_user.c b/samples/bpf/sockex1_user.c
-index 678ce46..8572e81 100644
---- a/samples/bpf/sockex1_user.c
-+++ b/samples/bpf/sockex1_user.c
-@@ -6,6 +6,14 @@
- #include <unistd.h>
- #include <arpa/inet.h>
- 
-+static int handle_one_cpu(unsigned cpu, void *val_cpu, void *val)
-+{
-+	long long *cnt = val;
++extern const struct bpf_func_proto bpf_map_lookup_elem_percpu_proto;
++extern const struct bpf_func_proto bpf_map_update_elem_percpu_proto;
 +
-+	*cnt += *(long *)val_cpu;
-+	return 0;
+ /* Shared helpers among cBPF and eBPF. */
+ void bpf_user_rnd_init_once(void);
+ u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 8bed7f1..2658917 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -270,6 +270,12 @@ enum bpf_func_id {
+ 	 */
+ 	BPF_FUNC_perf_event_output,
+ 	BPF_FUNC_skb_load_bytes,
++
++	/* void *map_lookup_elem(&map, &key, cpu) */
++	BPF_FUNC_map_lookup_elem_percpu,
++	/* int map_update_elem(&map, &key, &value, flags, cpu) */
++	BPF_FUNC_map_update_elem_percpu,
++
+ 	__BPF_FUNC_MAX_ID,
+ };
+ 
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 972d9a8..71a09fa 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -769,6 +769,8 @@ const struct bpf_func_proto * __weak bpf_get_trace_printk_proto(void)
+ {
+ 	return NULL;
+ }
++const struct bpf_func_proto bpf_map_lookup_elem_percpu_proto __weak;
++const struct bpf_func_proto bpf_map_update_elem_percpu_proto __weak;
+ 
+ /* Always built-in helper functions. */
+ const struct bpf_func_proto bpf_tail_call_proto = {
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index 4504ca6..d05164a 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -54,6 +54,36 @@ const struct bpf_func_proto bpf_map_lookup_elem_proto = {
+ 	.arg2_type	= ARG_PTR_TO_MAP_KEY,
+ };
+ 
++static u64 bpf_map_lookup_elem_percpu(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	/* verifier checked that R1 contains a valid pointer to bpf_map
++	 * and R2 points to a program stack and map->key_size bytes were
++	 * initialized
++	 */
++	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
++	void *key = (void *) (unsigned long) r2;
++	u32 cpu = (u32)(unsigned long) r3;
++	void *value;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	value = map->ops->map_lookup_elem_percpu(map, key, cpu);
++
++	/* lookup() returns either pointer to element value or NULL
++	 * which is the meaning of PTR_TO_MAP_VALUE_OR_NULL type
++	 */
++	return (unsigned long) value;
 +}
 +
- int main(int ac, char **argv)
++const struct bpf_func_proto bpf_map_lookup_elem_percpu_proto = {
++	.func		= bpf_map_lookup_elem_percpu,
++	.gpl_only	= false,
++	.ret_type	= RET_PTR_TO_MAP_VALUE_OR_NULL,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_PTR_TO_MAP_KEY,
++	.arg3_type	= ARG_ANYTHING,
++};
++
+ static u64 bpf_map_update_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
  {
- 	char filename[256];
-@@ -28,17 +36,21 @@ int main(int ac, char **argv)
- 	(void) f;
+ 	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
+@@ -75,6 +105,29 @@ const struct bpf_func_proto bpf_map_update_elem_proto = {
+ 	.arg4_type	= ARG_ANYTHING,
+ };
  
- 	for (i = 0; i < 5; i++) {
--		long long tcp_cnt, udp_cnt, icmp_cnt;
-+		long cnt_percpu;
-+		long long tcp_cnt = 0, udp_cnt = 0, icmp_cnt = 0;
- 		int key;
- 
- 		key = IPPROTO_TCP;
--		assert(bpf_lookup_elem(map_fd[0], &key, &tcp_cnt) == 0);
-+		assert(bpf_lookup_elem_allcpu(map_fd[0], &key,
-+		       &cnt_percpu, &tcp_cnt, handle_one_cpu) == 0);
- 
- 		key = IPPROTO_UDP;
--		assert(bpf_lookup_elem(map_fd[0], &key, &udp_cnt) == 0);
-+		assert(bpf_lookup_elem_allcpu(map_fd[0], &key,
-+		       &cnt_percpu, &udp_cnt, handle_one_cpu) == 0);
- 
- 		key = IPPROTO_ICMP;
--		assert(bpf_lookup_elem(map_fd[0], &key, &icmp_cnt) == 0);
-+		assert(bpf_lookup_elem_allcpu(map_fd[0], &key,
-+		       &cnt_percpu, &icmp_cnt, handle_one_cpu) == 0);
- 
- 		printf("TCP %lld UDP %lld ICMP %lld bytes\n",
- 		       tcp_cnt, udp_cnt, icmp_cnt);
++static u64 bpf_map_update_elem_percpu(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
++	void *key = (void *) (unsigned long) r2;
++	void *value = (void *) (unsigned long) r3;
++	u32 cpu = (u32)(unsigned long) r5;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	return map->ops->map_update_elem_percpu(map, key, value, r4, cpu);
++}
++
++const struct bpf_func_proto bpf_map_update_elem_percpu_proto = {
++	.func		= bpf_map_update_elem_percpu,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_PTR_TO_MAP_KEY,
++	.arg3_type	= ARG_PTR_TO_MAP_VALUE,
++	.arg4_type	= ARG_ANYTHING,
++	.arg5_type	= ARG_ANYTHING,
++};
++
+ static u64 bpf_map_delete_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ {
+ 	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 35e6fed..8c558fc 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1743,8 +1743,12 @@ sk_filter_func_proto(enum bpf_func_id func_id)
+ 	switch (func_id) {
+ 	case BPF_FUNC_map_lookup_elem:
+ 		return &bpf_map_lookup_elem_proto;
++	case BPF_FUNC_map_lookup_elem_percpu:
++		return &bpf_map_lookup_elem_percpu_proto;
+ 	case BPF_FUNC_map_update_elem:
+ 		return &bpf_map_update_elem_proto;
++	case BPF_FUNC_map_update_elem_percpu:
++		return &bpf_map_update_elem_percpu_proto;
+ 	case BPF_FUNC_map_delete_elem:
+ 		return &bpf_map_delete_elem_proto;
+ 	case BPF_FUNC_get_prandom_u32:
 -- 
 1.9.1
