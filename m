@@ -1,155 +1,78 @@
-From: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Subject: [PATCH] vhost: move is_le setup to the backend
-Date: Mon, 11 Jan 2016 15:39:38 +0100
-Message-ID: <20160111143509.9601.15143.stgit@bahia.huguette.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 11/53] perf test: Fix false TEST_OK result for 'perf test
+ hist'
+Date: Mon, 11 Jan 2016 12:58:37 -0200
+Message-ID: <20160111145837.GC21083@redhat.com>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-12-git-send-email-wangnan0@huawei.com>
+ <5693BB6C.9060900@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wang Nan <wangnan0@huawei.com>, acme@kernel.org,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Jiri Olsa <jolsa@kernel.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5693BB6C.9060900@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The vq->is_le field is used to fix endianness when accessing the vring via
-the cpu_to_vhost16() and vhost16_to_cpu() helpers in the following cases:
+Em Mon, Jan 11, 2016 at 05:25:48PM +0300, Sergei Shtylyov escreveu:
+> On 01/11/2016 04:48 PM, Wang Nan wrote:
+> 
+> >Commit 71d6de64feddd4b455555326fba2111b3006d9e0 ('perf test: Fix hist
+> >testcases when kptr_restrict is on') solves a double free problem when
+> 
+>    You didn't run this patch thru scripts/checkpatch.pl, I guess? A
+> certain commit citing style is enforced now, and yours doesn't quite
+> match it...
 
-1) host is big endian and device is modern virtio
+Which is? /me goes to read checpatch.pl...
 
-2) host has cross-endian support and device is legacy virtio with a different
-   endianness than the host
-
-Both cases rely on the VHOST_SET_FEATURES ioctl, but 2) also needs the
-VHOST_SET_VRING_ENDIAN ioctl to be called by userspace. Since vq->is_le
-is only needed when the backend is active, it was decided to set it at
-backend start.
-
-This is currently done in vhost_init_used()->vhost_init_is_le() but it
-obfuscates the core vhost code. This patch moves the is_le setup to a
-dedicated function that is called from the backend code.
-
-Note vhost_net is the only backend that can pass vq->private_data == NULL to
-vhost_init_used(), hence the "if (sock)" branch.
-
-No behaviour change.
-
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
----
-
-Hi Michael,
-
-This is a cleanup patch I had posted last year:
-
-http://patchwork.ozlabs.org/patch/538277/
-
-I am just reposting with Cornelia's R-b.
-
-Cheers.
-
---
-Greg
-
- drivers/vhost/net.c   |    6 ++++++
- drivers/vhost/scsi.c  |    3 +++
- drivers/vhost/test.c  |    2 ++
- drivers/vhost/vhost.c |   12 +++++++-----
- drivers/vhost/vhost.h |    1 +
- 5 files changed, 19 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 9eda69e40678..d6319cb2664c 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -917,6 +917,12 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+- Arnaldo
  
- 		vhost_net_disable_vq(n, vq);
- 		vq->private_data = sock;
-+
-+		if (sock)
-+			vhost_set_is_le(vq);
-+		else
-+			vq->is_le = virtio_legacy_is_little_endian();
-+
- 		r = vhost_init_used(vq);
- 		if (r)
- 			goto err_used;
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index 29cfc57d496e..1f4f405ebba8 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -1274,6 +1274,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
- 			vq = &vs->vqs[i].vq;
- 			mutex_lock(&vq->mutex);
- 			vq->private_data = vs_tpg;
-+
-+			vhost_set_is_le(vq);
-+
- 			vhost_init_used(vq);
- 			mutex_unlock(&vq->mutex);
- 		}
-diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-index f2882ac98726..b1c7df502211 100644
---- a/drivers/vhost/test.c
-+++ b/drivers/vhost/test.c
-@@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
- 		oldpriv = vq->private_data;
- 		vq->private_data = priv;
- 
-+		vhost_set_is_le(vq);
-+
- 		r = vhost_init_used(&n->vqs[index]);
- 
- 		mutex_unlock(&vq->mutex);
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index ad2146a9ab2d..e688eb801d43 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -113,6 +113,12 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
- }
- #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
- 
-+void vhost_set_is_le(struct vhost_virtqueue *vq)
-+{
-+	vhost_init_is_le(vq);
-+}
-+EXPORT_SYMBOL_GPL(vhost_set_is_le);
-+
- static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
- 			    poll_table *pt)
- {
-@@ -1156,12 +1162,8 @@ int vhost_init_used(struct vhost_virtqueue *vq)
- {
- 	__virtio16 last_used_idx;
- 	int r;
--	if (!vq->private_data) {
--		vq->is_le = virtio_legacy_is_little_endian();
-+	if (!vq->private_data)
- 		return 0;
--	}
--
--	vhost_init_is_le(vq);
- 
- 	r = vhost_update_used_flags(vq);
- 	if (r)
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index d3f767448a72..af5d33797937 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
- 
- int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
- 		    unsigned int log_num, u64 len);
-+void vhost_set_is_le(struct vhost_virtqueue *vq);
- 
- #define vq_err(vq, fmt, ...) do {                                  \
- 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+> >'perf test hist' calling setup_fake_machine(). However, the result is
+> >still incorrect. For example:
+> >
+> >  $ ./perf test -v 'filtering hist entries'
+> >  25: Test filtering hist entries                              :
+> >  --- start ---
+> >  test child forked, pid 4186
+> >  Cannot create kernel maps
+> >  test child finished with 0
+> >  ---- end ----
+> >  Test filtering hist entries: Ok
+> >
+> >In this case the body of this test is not get executed at all, but the
+> >result is 'Ok'.
+> >
+> >Actually, in setup_fake_machine() there's no need to create real kernel
+> >maps. What we want is the fake maps. This patch removes the
+> >machine__create_kernel_maps() in setup_fake_machine(), so it won't be
+> >affected by kptr_restrict setting.
+> >
+> >Test result:
+> >
+> >  $ cat /proc/sys/kernel/kptr_restrict
+> >  1
+> >  $ ~/perf test -v hist
+> >  15: Test matching and linking multiple hists                 :
+> >  --- start ---
+> >  test child forked, pid 24031
+> >  test child finished with 0
+> >  ---- end ----
+> >  Test matching and linking multiple hists: Ok
+> >  [SNIP]
+> >
+> >Signed-off-by: Wang Nan <wangnan0@huawei.com>
+> >Suggested-by: Namhyung Kim <namhyung@kernel.org>
+> >Acked-by: Namhyung Kim <namhyung@kernel.org>
+> >Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+> >Cc: Jiri Olsa <jolsa@kernel.org>
+> >Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+> [...]
+> 
+> MBR, Sergei
