@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH  V3 07/11] net/mlx5_core: Initialize namespaces only when supported by device
-Date: Mon, 11 Jan 2016 10:26:03 +0200
-Message-ID: <1452500767-3628-8-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH  V3 09/11] net/mlx5_core: Make ipv4/ipv6 location more clear
+Date: Mon, 11 Jan 2016 10:26:05 +0200
+Message-ID: <1452500767-3628-10-git-send-email-ogerlitz@mellanox.com>
 References: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Matan Barak <matanb@mellanox.com>,
@@ -10,185 +10,65 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Moni Shoua <monis@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59708 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59717 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758227AbcAKI1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 03:27:00 -0500
+	id S1758681AbcAKI1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 03:27:07 -0500
 In-Reply-To: <1452500767-3628-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Before we create the sub tree of a steering namespaces(kernel, bypass,
-leftovers) we check that the device has the required capabilities
-in order to create this subtree.
+Change the mlx5 firmware interface header to make it
+more clear which bytes should be used by IPv4 or
+IPv6 addresses.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 70 ++++++++++++++++-------
- 1 file changed, 49 insertions(+), 21 deletions(-)
+ include/linux/mlx5/mlx5_ifc.h | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index e1282e8..96e287a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -40,20 +40,17 @@
- #define INIT_TREE_NODE_ARRAY_SIZE(...)	(sizeof((struct init_tree_node[]){__VA_ARGS__}) /\
- 					 sizeof(struct init_tree_node))
- 
--#define INIT_PRIO(min_level_val, max_ft_val,\
--		  ...) {.type = FS_TYPE_PRIO,\
-+#define ADD_PRIO(min_level_val, max_ft_val, caps_val,\
-+		 ...) {.type = FS_TYPE_PRIO,\
- 	.min_ft_level = min_level_val,\
- 	.max_ft = max_ft_val,\
-+	.caps = caps_val,\
- 	.children = (struct init_tree_node[]) {__VA_ARGS__},\
- 	.ar_size = INIT_TREE_NODE_ARRAY_SIZE(__VA_ARGS__) \
- }
- 
--#define ADD_PRIO(min_level_val, max_ft_val, ...)\
--	INIT_PRIO(min_level_val, max_ft_val,\
--		  __VA_ARGS__)\
--
- #define ADD_FT_PRIO(max_ft_val, ...)\
--	INIT_PRIO(0, max_ft_val,\
-+	ADD_PRIO(0, max_ft_val, {},\
- 		  __VA_ARGS__)\
- 
- #define ADD_NS(...) {.type = FS_TYPE_NAMESPACE,\
-@@ -61,12 +58,26 @@
- 	.ar_size = INIT_TREE_NODE_ARRAY_SIZE(__VA_ARGS__) \
- }
- 
-+#define INIT_CAPS_ARRAY_SIZE(...) (sizeof((long[]){__VA_ARGS__}) /\
-+				   sizeof(long))
-+
-+#define FS_CAP(cap) (__mlx5_bit_off(flow_table_nic_cap, cap))
-+
-+#define FS_REQUIRED_CAPS(...) {.arr_sz = INIT_CAPS_ARRAY_SIZE(__VA_ARGS__), \
-+			       .caps = (long[]) {__VA_ARGS__} }
-+
- #define KERNEL_MAX_FT 2
- #define KENREL_MIN_LEVEL 2
-+
-+struct node_caps {
-+	size_t	arr_sz;
-+	long	*caps;
-+};
- static struct init_tree_node {
- 	enum fs_node_type	type;
- 	struct init_tree_node *children;
- 	int ar_size;
-+	struct node_caps caps;
- 	int min_ft_level;
- 	int prio;
- 	int max_ft;
-@@ -74,7 +85,7 @@ static struct init_tree_node {
- 	.type = FS_TYPE_NAMESPACE,
- 	.ar_size = 1,
- 	.children = (struct init_tree_node[]) {
--		ADD_PRIO(KENREL_MIN_LEVEL, 0,
-+		ADD_PRIO(KENREL_MIN_LEVEL, 0, {},
- 			 ADD_NS(ADD_FT_PRIO(KERNEL_MAX_FT))),
- 	}
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 7f16695..68d73f8 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -298,6 +298,22 @@ struct mlx5_ifc_odp_per_transport_service_cap_bits {
+ 	u8         reserved_1[0x1a];
  };
-@@ -1153,11 +1164,31 @@ static struct mlx5_flow_namespace *fs_create_namespace(struct fs_prio *prio)
- 	return ns;
- }
  
--static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *init_node,
-+#define FLOW_TABLE_BIT_SZ 1
-+#define GET_FLOW_TABLE_CAP(dev, offset) \
-+	((be32_to_cpu(*((__be32 *)(dev->hca_caps_cur[MLX5_CAP_FLOW_TABLE]) +	\
-+			offset / 32)) >>					\
-+	  (32 - FLOW_TABLE_BIT_SZ - (offset & 0x1f))) & FLOW_TABLE_BIT_SZ)
-+static bool has_required_caps(struct mlx5_core_dev *dev, struct node_caps *caps)
-+{
-+	int i;
++struct mlx5_ifc_ipv4_layout_bits {
++	u8         reserved_0[0x60];
 +
-+	for (i = 0; i < caps->arr_sz; i++) {
-+		if (!GET_FLOW_TABLE_CAP(dev, caps->caps[i]))
-+			return false;
-+	}
-+	return true;
-+}
++	u8         ipv4[0x20];
++};
 +
-+static int init_root_tree_recursive(struct mlx5_core_dev *dev,
-+				    struct init_tree_node *init_node,
- 				    struct fs_node *fs_parent_node,
- 				    struct init_tree_node *init_parent_node,
- 				    int index)
- {
-+	int max_ft_level = MLX5_CAP_FLOWTABLE(dev,
-+					      flow_table_properties_nic_receive.
-+					      max_ft_level);
- 	struct mlx5_flow_namespace *fs_ns;
- 	struct fs_prio *fs_prio;
- 	struct fs_node *base;
-@@ -1165,8 +1196,9 @@ static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *ini
- 	int err;
++struct mlx5_ifc_ipv6_layout_bits {
++	u8         ipv6[16][0x8];
++};
++
++union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits {
++	struct mlx5_ifc_ipv6_layout_bits ipv6_layout;
++	struct mlx5_ifc_ipv4_layout_bits ipv4_layout;
++	u8         reserved_0[0x80];
++};
++
+ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         smac_47_16[0x20];
  
- 	if (init_node->type == FS_TYPE_PRIO) {
--		if (init_node->min_ft_level > max_ft_level)
--			return -ENOTSUPP;
-+		if ((init_node->min_ft_level > max_ft_level) ||
-+		    !has_required_caps(dev, &init_node->caps))
-+			return 0;
+@@ -328,9 +344,9 @@ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         udp_sport[0x10];
+ 	u8         udp_dport[0x10];
  
- 		fs_get_obj(fs_ns, fs_parent_node);
- 		fs_prio = fs_create_prio(fs_ns, index, init_node->max_ft);
-@@ -1183,9 +1215,8 @@ static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *ini
- 		return -EINVAL;
- 	}
- 	for (i = 0; i < init_node->ar_size; i++) {
--		err = init_root_tree_recursive(max_ft_level,
--					       &init_node->children[i], base,
--					       init_node, i);
-+		err = init_root_tree_recursive(dev, &init_node->children[i],
-+					       base, init_node, i);
- 		if (err)
- 			return err;
- 	}
-@@ -1193,7 +1224,8 @@ static int init_root_tree_recursive(int max_ft_level, struct init_tree_node *ini
- 	return 0;
- }
+-	u8         src_ip[4][0x20];
++	union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits src_ipv4_src_ipv6;
  
--static int init_root_tree(int max_ft_level, struct init_tree_node *init_node,
-+static int init_root_tree(struct mlx5_core_dev *dev,
-+			  struct init_tree_node *init_node,
- 			  struct fs_node *fs_parent_node)
- {
- 	int i;
-@@ -1202,8 +1234,7 @@ static int init_root_tree(int max_ft_level, struct init_tree_node *init_node,
+-	u8         dst_ip[4][0x20];
++	union mlx5_ifc_ipv6_layout_ipv4_layout_auto_bits dst_ipv4_dst_ipv6;
+ };
  
- 	fs_get_obj(fs_ns, fs_parent_node);
- 	for (i = 0; i < init_node->ar_size; i++) {
--		err = init_root_tree_recursive(max_ft_level,
--					       &init_node->children[i],
-+		err = init_root_tree_recursive(dev, &init_node->children[i],
- 					       &fs_ns->node,
- 					       init_node, i);
- 		if (err)
-@@ -1278,15 +1309,12 @@ static void set_prio_attrs(struct mlx5_flow_root_namespace *root_ns)
- 
- static int init_root_ns(struct mlx5_core_dev *dev)
- {
--	int max_ft_level = MLX5_CAP_FLOWTABLE(dev,
--					      flow_table_properties_nic_receive.
--					      max_ft_level);
- 
- 	dev->priv.root_ns = create_root_ns(dev, FS_FT_NIC_RX);
- 	if (IS_ERR_OR_NULL(dev->priv.root_ns))
- 		goto cleanup;
- 
--	if (init_root_tree(max_ft_level, &root_fs, &dev->priv.root_ns->ns.node))
-+	if (init_root_tree(dev, &root_fs, &dev->priv.root_ns->ns.node))
- 		goto cleanup;
- 
- 	set_prio_attrs(dev->priv.root_ns);
+ struct mlx5_ifc_fte_match_set_misc_bits {
 -- 
 2.3.7
