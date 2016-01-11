@@ -1,43 +1,31 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [PATCH] net: pktgen: fix null ptr deref in skb allocation
-Date: Sun, 10 Jan 2016 21:38:44 -0800
-Message-ID: <20160111053844.3695.82965.stgit@john-Precision-Tower-5810>
+From: SYSTEM UPDATE <info.disbud@baliprov.go.id>
+Subject: Dear:  Account User,
+Date: Mon, 11 Jan 2016 01:30:19 +0100
+Message-ID: <20160110175816.CCDA962969@mail.baliprov.go.id>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: bogdan.hamciuc@freescale.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info.disbud@baliprov.go.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34184 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbcAKFi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 00:38:59 -0500
-Received: by mail-pf0-f182.google.com with SMTP id q63so40537631pfb.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2016 21:38:59 -0800 (PST)
+Received: from mail.baliprov.go.id ([182.23.65.58]:47601 "EHLO
+	mail.baliprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758477AbcAKFtt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 00:49:49 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix possible null pointer dereference that may occur when calling
-skb_reserve() on a null skb.
-
-Fixes: 879c7220e82 ("net: pktgen: Observe needed_headroom of the device")
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/core/pktgen.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index de8d5cc..4da4d51 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2787,7 +2787,9 @@ static struct sk_buff *pktgen_alloc_skb(struct net_device *dev,
- 	} else {
- 		 skb = __netdev_alloc_skb(dev, size, GFP_NOWAIT);
- 	}
--	skb_reserve(skb, LL_RESERVED_SPACE(dev));
-+
-+	if (likely(skb))
-+		skb_reserve(skb, LL_RESERVED_SPACE(dev));
- 
- 	return skb;
- }
+Dear:  Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account. To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>>>
+http://survey-webmail.ezweb123.com/
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2016.
