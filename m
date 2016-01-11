@@ -1,88 +1,60 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
-Date: Mon, 11 Jan 2016 09:24:50 -0800
-Message-ID: <CAEh+42itZQDiQMrk_rf9LLgeYD=WDa2DMPq8u-9VtUf-eCoQ2Q@mail.gmail.com>
-References: <568E9BF9.2050001@solarflare.com> <568E9C9B.3090408@solarflare.com>
- <CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
- <568FD844.3020101@solarflare.com> <CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
- <CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com> <CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next 7/8] net: ip_tunnel: remove 'csum_help' argument
+ to iptunnel_handle_offloads
+Date: Mon, 11 Jan 2016 17:31:36 +0000
+Message-ID: <5693E6F8.7040806@solarflare.com>
+References: <56901197.8040808@solarflare.com>
+ <56901244.8060809@solarflare.com>
+ <CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
+ <CALx6S34MRoLw_JiHuyDANwoF9+u7k9R-UDb_RGP+L-d9D=f3WQ@mail.gmail.com>
+ <CAKgT0UeZwSm4oKoydXWU3iWmjL5m6H=K=hJ2wAkp_GugbZJwjA@mail.gmail.com>
+ <5693AD25.4020904@solarflare.com>
+ <CAKgT0Ufw9djq-V8YAXjq21gg7rE5=-Dp4o4GmdGk+6Diu4mDNw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
 	David Miller <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
-	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+	<linux-net-drivers@solarflare.com>
 To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:34260 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760859AbcAKRZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2016 12:25:08 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id AFA3A20328
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 17:25:07 +0000 (UTC)
-Received: from mail-qk0-f182.google.com (mail-qk0-f182.google.com [209.85.220.182])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id C29D120251
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 17:25:05 +0000 (UTC)
-Received: by mail-qk0-f182.google.com with SMTP id p186so148634699qke.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 09:25:05 -0800 (PST)
-In-Reply-To: <CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:4785 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933885AbcAKRby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 12:31:54 -0500
+In-Reply-To: <CAKgT0Ufw9djq-V8YAXjq21gg7rE5=-Dp4o4GmdGk+6Diu4mDNw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 8, 2016 at 1:22 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Fri, Jan 8, 2016 at 11:40 AM, Jesse Gross <jesse@kernel.org> wrote:
->> On Fri, Jan 8, 2016 at 10:03 AM, Alexander Duyck
->> <alexander.duyck@gmail.com> wrote:
->>> On Fri, Jan 8, 2016 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
->>>> On 08/01/16 03:46, Alexander Duyck wrote:
->>>>> So I just tried testing your patches and as it turns out you are still
->>>>> missing some bits.  In this patch for instance the calls to
->>>>> udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
->>>>> that you pass false for the last parameter and allow the use of your
->>>>> udp_set_csum modifications.
->>>>>
->>>>> - Alex
->>>> Are you remembering to enable outer checksums on your vxlan tunnel?  It's
->>>>  the vxflags & VXLAN_F_UDP_CSUM check, and to enable it you need a recent
->>>>  iproute2 so you can use the 'udpcsum' option when creating the vxlan device.
->>>
->>> No I hadn't done that.  I kind of assumed that the checksums were just
->>> being enabled by default.  That might explain the some of the issues I
->>> had..  ;-)
->>>
->>>> It would be nice if that could just default to enabled now that we have LCO,
->>>>  but I don't think we can change that now (ABIs set in stone and all that),
->>>>  so I think it would have to be iproute2 that turned it on by default.
->>>
->>> If anything we might want to expose the capabilities of the kernel so
->>> that iproute2 could make an informed decision on if it want to enable
->>> the outer checksum by default or not.
->>
->> Keep in mind that protocols like VXLAN specify that the UDP checksum
->> should be set to zero. As a result, enabling the checksum is not a
->> purely local decision and it probably shouldn't be on by default.
->
-> Yes, but the RFC allows for a non-zero checksum.  The key difference
-> here is the wording between SHOULD and MUST.  We aren't requiring the
-> other endpoint to enable outer checksum on its end, and we don't
-> require the remote end to validate the outer checksum.  We have made
-> that purely optional.  If however the other end is also a Linux client
-> it can make use of the outer checksum and hardware offloads to greatly
-> improve the performance.
->
-> It is essentially all the goodness of remote checksum offload without
-> the compatibility negatives, assuming of course everyone implemented
-> things according to the RFC and didn't make the 0 checksum mandatory..
+On 11/01/16 16:39, Alexander Duyck wrote:
+> Your first patch is probably the best place for it.  Then when you
+> start setting false it doesn't introduce any errors.
+Will do.
+> Also I was doing a bit more work on the lco_csum function and think I
+> have come up with something a bit more elegant[...]  What I will do is
+> email you the full patch and the GSO patch I have as RFCs to look over
+> and possibly incorporate into your own.
+<snip>
+> +static inline __wsum lco_csum(struct sk_buff *skb)
+> +{
+> +       unsigned char *csum_start = skb_checksum_start(skb);
+> +       unsigned char *l4_hdr = skb_transport_header(skb);
+> +       __wsum partial;
+> +
+> +       partial = ~csum_unfold(*(__force __sum16 *)(csum_start +
+> +                                                   skb->csum_offset));
+> +       return csum_partial(l4_hdr, csum_start - l4_hdr, partial);
+> +}
+> +
+Looks OK to me.  I'd rather tack both of your patches onto the endof the
+ series, rather than incorporating your patch [1/2] directly into my patch
+ [1/8]; that way (a) the history allows to understand regular LCO before
+ adding in the GSO flavour, (b) you're credited for your improved lco_csum.
+As for your patch [2/2], I don't pretend to understand GSO right now but it
+ looks plausible enough.  Perhaps you could add a document about GSO to go
+ alongside the checksum-offloads.txt one?
+What testing haveyou done on your series?  When rebasing it I'll focus on
+ the tunnel types you haven't already tested.
 
-It's hard to say what other types of endpoints might do if they
-receive a VXLAN packet with a checksum set and, of course, there are
-other protocols that don't specify that received UDP checksums can be
-ignored.
-
-I'm all in favor of enabling support for the checksum but it doesn't
-seem right to make the default behavior go against the RFC
-recommendation and common implementation.
+-ed
