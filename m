@@ -1,15 +1,16 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 13/53] perf tools: Prevent calling machine__delete() on non-allocated machine
-Date: Mon, 11 Jan 2016 13:48:04 +0000
-Message-ID: <1452520124-2073-14-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 25/53] perf tools: Introduce bpf-output event
+Date: Mon, 11 Jan 2016 13:48:16 +0000
+Message-ID: <1452520124-2073-26-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>, Wang Nan <wangnan0@huawei.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Jiri Olsa <jolsa@kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
 	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: <acme@kernel.org>
@@ -18,119 +19,157 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To prevent futher commits calling machine__delete() on non-allocated
-'struct machine' (which would cause memory corruption), this patch
-enforces machine__init(), record whether a machine structure is
-dynamically allocated or not, and warn if machine__delete() is called
-on incorrect object.
+Commit a43eec304259a6c637f4014a6d4767159b6a3aa3 (bpf: introduce
+bpf_perf_event_output() helper) add a helper to enable BPF program
+output data to perf ring buffer through a new type of perf event
+PERF_COUNT_SW_BPF_OUTPUT. This patch enable perf to create perf
+event of that type. Now perf user can use following cmdline to
+receive output data from BPF programs:
 
-Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Reviewed-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-Cc: Jiri Olsa <jolsa@kernel.org>
-Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Cc: Namhyung Kim <namhyung@kernel.org>
----
- tools/perf/tests/vmlinux-kallsyms.c |  4 ++--
- tools/perf/util/machine.c           | 13 ++++++++-----
- tools/perf/util/machine.h           |  3 ++-
- 3 files changed, 12 insertions(+), 8 deletions(-)
+ # ./perf record -a -e evt=bpf-output/no-inherit/ \
+                    -e ./test_bpf_output.c/maps:channel.event=evt/ ls /
+ # ./perf script
+	perf 12927 [004] 355971.129276:          0 evt=bpf-output/no-inherit/:  ffffffff811ed5f1 sys_write
+	perf 12927 [004] 355971.129279:          0 evt=bpf-output/no-inherit/:  ffffffff811ed5f1 sys_write
+	...
 
-diff --git a/tools/perf/tests/vmlinux-kallsyms.c b/tools/perf/tests/vmlinux-kallsyms.c
-index f0bfc9e..441e93d 100644
---- a/tools/perf/tests/vmlinux-kallsyms.c
-+++ b/tools/perf/tests/vmlinux-kallsyms.c
-@@ -35,8 +35,8 @@ int test__vmlinux_matches_kallsyms(int subtest __maybe_unused)
- 	 * Init the machines that will hold kernel, modules obtained from
- 	 * both vmlinux + .ko files and from /proc/kallsyms split by modules.
- 	 */
--	machine__init(&kallsyms, "", HOST_KERNEL_ID);
--	machine__init(&vmlinux, "", HOST_KERNEL_ID);
-+	machine__init(&kallsyms, "", HOST_KERNEL_ID, false);
-+	machine__init(&vmlinux, "", HOST_KERNEL_ID, false);
- 
- 	/*
- 	 * Step 2:
-diff --git a/tools/perf/util/machine.c b/tools/perf/util/machine.c
-index ad79297..59a3c01 100644
---- a/tools/perf/util/machine.c
-+++ b/tools/perf/util/machine.c
-@@ -1,3 +1,4 @@
-+#include <asm/bug.h>
- #include "callchain.h"
- #include "debug.h"
- #include "event.h"
-@@ -23,7 +24,7 @@ static void dsos__init(struct dsos *dsos)
- 	pthread_rwlock_init(&dsos->lock, NULL);
- }
- 
--int machine__init(struct machine *machine, const char *root_dir, pid_t pid)
-+int machine__init(struct machine *machine, const char *root_dir, pid_t pid, bool allocated)
+Test result:
+ # cat ./test_bpf_output.c
+ /************************ BEGIN **************************/
+ #include <uapi/linux/bpf.h>
+ struct bpf_map_def {
+ 	unsigned int type;
+ 	unsigned int key_size;
+ 	unsigned int value_size;
+ 	unsigned int max_entries;
+ };
+
+ #define SEC(NAME) __attribute__((section(NAME), used))
+ static u64 (*ktime_get_ns)(void) =
+ 	(void *)BPF_FUNC_ktime_get_ns;
+ static int (*trace_printk)(const char *fmt, int fmt_size, ...) =
+ 	(void *)BPF_FUNC_trace_printk;
+ static int (*get_smp_processor_id)(void) =
+ 	(void *)BPF_FUNC_get_smp_processor_id;
+ static int (*perf_event_output)(void *, struct bpf_map_def *, int, void *, unsigned long) =
+ 	(void *)BPF_FUNC_perf_event_output;
+
+ struct bpf_map_def SEC("maps") channel = {
+ 	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+ 	.key_size = sizeof(int),
+ 	.value_size = sizeof(u32),
+ 	.max_entries = __NR_CPUS__,
+ };
+
+ SEC("func_write=sys_write")
+ int func_write(void *ctx)
  {
- 	memset(machine, 0, sizeof(*machine));
- 	map_groups__init(&machine->kmaps, machine);
-@@ -65,6 +66,7 @@ int machine__init(struct machine *machine, const char *root_dir, pid_t pid)
- 	}
- 
- 	machine->current_tid = NULL;
-+	machine->allocated = allocated;
- 
+ 	struct {
+ 		u64 ktime;
+ 		int cpuid;
+ 	} __attribute__((packed)) output_data;
+ 	char error_data[] = "Error: failed to output: %d\n";
+
+ 	output_data.cpuid = get_smp_processor_id();
+ 	output_data.ktime = ktime_get_ns();
+ 	int err = perf_event_output(ctx, &channel, get_smp_processor_id(),
+ 				    &output_data, sizeof(output_data));
+ 	if (err)
+ 		trace_printk(error_data, sizeof(error_data), err);
  	return 0;
  }
-@@ -74,7 +76,7 @@ struct machine *machine__new_host(void)
- 	struct machine *machine = malloc(sizeof(*machine));
- 
- 	if (machine != NULL) {
--		machine__init(machine, "", HOST_KERNEL_ID);
-+		machine__init(machine, "", HOST_KERNEL_ID, true);
- 
- 		if (machine__create_kernel_maps(machine) < 0)
- 			goto out_delete;
-@@ -137,12 +139,13 @@ void machine__exit(struct machine *machine)
- void machine__delete(struct machine *machine)
- {
- 	machine__exit(machine);
--	free(machine);
-+	WARN_ONCE((machine->allocated ? free(machine), 0 : -1),
-+		  "WARNING: deleting a non-allocated machine. Skip.\n");
- }
- 
- void machines__init(struct machines *machines)
- {
--	machine__init(&machines->host, "", HOST_KERNEL_ID);
-+	machine__init(&machines->host, "", HOST_KERNEL_ID, false);
- 	machines->guests = RB_ROOT;
- 	machines->symbol_filter = NULL;
- }
-@@ -163,7 +166,7 @@ struct machine *machines__add(struct machines *machines, pid_t pid,
- 	if (machine == NULL)
- 		return NULL;
- 
--	if (machine__init(machine, root_dir, pid) != 0) {
-+	if (machine__init(machine, root_dir, pid, true) != 0) {
- 		free(machine);
- 		return NULL;
+ char _license[] SEC("license") = "GPL";
+ int _version SEC("version") = LINUX_VERSION_CODE;
+ /************************ END ***************************/
+
+ # ./perf record -a -e evt=bpf-output/no-inherit/ \
+                    -e ./test_bpf_output.c/maps:channel.event=evt/ ls /
+ # ./perf script | grep ls
+              ls  4085 [000] 2746114.230215: evt=bpf-output/no-inherit/:  ffffffff811ed5f1 sys_write (/lib/modules/4.3.0-rc4+/build/vmlinux)
+              ls  4085 [000] 2746114.230244: evt=bpf-output/no-inherit/:  ffffffff811ed5f1 sys_write (/lib/modules/4.3.0-rc4+/build/vmlinux)
+
+Signed-off-by: Wang Nan <wangnan0@huawei.com>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Brendan Gregg <brendan.d.gregg@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Zefan Li <lizefan@huawei.com>
+Cc: pi3orama@163.com
+---
+ tools/perf/util/bpf-loader.c   | 5 ++---
+ tools/perf/util/evsel.c        | 5 +++++
+ tools/perf/util/evsel.h        | 8 ++++++++
+ tools/perf/util/parse-events.l | 1 +
+ 4 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/tools/perf/util/bpf-loader.c b/tools/perf/util/bpf-loader.c
+index 6c25de8..92b815e 100644
+--- a/tools/perf/util/bpf-loader.c
++++ b/tools/perf/util/bpf-loader.c
+@@ -1312,13 +1312,12 @@ apply_config_evsel_for_key(const char *name, int map_fd, void *pkey,
+ 		return -BPF_LOADER_ERRNO__OBJCONF_MAP_EVTINH;
  	}
-diff --git a/tools/perf/util/machine.h b/tools/perf/util/machine.h
-index 2c2b443..24dfd46 100644
---- a/tools/perf/util/machine.h
-+++ b/tools/perf/util/machine.h
-@@ -28,6 +28,7 @@ struct machine {
- 	pid_t		  pid;
- 	u16		  id_hdr_size;
- 	bool		  comm_exec;
-+	bool		  allocated;
- 	char		  *root_dir;
- 	struct rb_root	  threads;
- 	pthread_rwlock_t  threads_lock;
-@@ -131,7 +132,7 @@ void machines__set_symbol_filter(struct machines *machines,
- void machines__set_comm_exec(struct machines *machines, bool comm_exec);
  
- struct machine *machine__new_host(void);
--int machine__init(struct machine *machine, const char *root_dir, pid_t pid);
-+int machine__init(struct machine *machine, const char *root_dir, pid_t pid, bool allocated);
- void machine__exit(struct machine *machine);
- void machine__delete_threads(struct machine *machine);
- void machine__delete(struct machine *machine);
++	if (perf_evsel__is_bpf_output(evsel))
++		check_pass = true;
+ 	if (attr->type == PERF_TYPE_RAW)
+ 		check_pass = true;
+ 	if (attr->type == PERF_TYPE_HARDWARE)
+ 		check_pass = true;
+-	if (attr->type == PERF_TYPE_SOFTWARE &&
+-			attr->config == PERF_COUNT_SW_BPF_OUTPUT)
+-		check_pass = true;
+ 	if (!check_pass) {
+ 		pr_debug("ERROR: Event type is wrong for map %s\n", name);
+ 		return -BPF_LOADER_ERRNO__OBJCONF_MAP_EVTTYPE;
+diff --git a/tools/perf/util/evsel.c b/tools/perf/util/evsel.c
+index a6b3b07..f1b633e 100644
+--- a/tools/perf/util/evsel.c
++++ b/tools/perf/util/evsel.c
+@@ -225,6 +225,11 @@ struct perf_evsel *perf_evsel__new_idx(struct perf_event_attr *attr, int idx)
+ 	if (evsel != NULL)
+ 		perf_evsel__init(evsel, attr, idx);
+ 
++	if (perf_evsel__is_bpf_output(evsel)) {
++		evsel->attr.sample_type |= PERF_SAMPLE_RAW;
++		evsel->attr.sample_period = 1;
++	}
++
+ 	return evsel;
+ }
+ 
+diff --git a/tools/perf/util/evsel.h b/tools/perf/util/evsel.h
+index 19885fb..022fcff 100644
+--- a/tools/perf/util/evsel.h
++++ b/tools/perf/util/evsel.h
+@@ -365,6 +365,14 @@ static inline bool perf_evsel__is_function_event(struct perf_evsel *evsel)
+ #undef FUNCTION_EVENT
+ }
+ 
++static inline bool perf_evsel__is_bpf_output(struct perf_evsel *evsel)
++{
++	struct perf_event_attr *attr = &evsel->attr;
++
++	return (attr->config == PERF_COUNT_SW_BPF_OUTPUT) &&
++		(attr->type == PERF_TYPE_SOFTWARE);
++}
++
+ struct perf_attr_details {
+ 	bool freq;
+ 	bool verbose;
+diff --git a/tools/perf/util/parse-events.l b/tools/perf/util/parse-events.l
+index 8bb3437..27d567f 100644
+--- a/tools/perf/util/parse-events.l
++++ b/tools/perf/util/parse-events.l
+@@ -249,6 +249,7 @@ cpu-migrations|migrations			{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COU
+ alignment-faults				{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_ALIGNMENT_FAULTS); }
+ emulation-faults				{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_EMULATION_FAULTS); }
+ dummy						{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_DUMMY); }
++bpf-output					{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_BPF_OUTPUT); }
+ 
+ 	/*
+ 	 * We have to handle the kernel PMU event cycles-ct/cycles-t/mem-loads/mem-stores separately.
 -- 
 1.8.3.4
