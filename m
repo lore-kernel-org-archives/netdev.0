@@ -1,55 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] net: reduce RECURSION_LIMIT to 8
-Date: Mon, 11 Jan 2016 13:24:15 +0100
-Message-ID: <56939EEF.70403@stressinduktion.org>
-References: <1452188453-5523-1-git-send-email-hannes@stressinduktion.org>
- <CAOrHB_AWdZw1XDmxVU=bDh=gB2M3cnXUC8MyXCnV1YVjZEAsKw@mail.gmail.com>
+From: Eugenia Emantayev <eugenia@mellanox.com>
+Subject: RE: [PATCH net-next v4 02/10] mlx4: add rtnl lock protection in
+ mlx4_en_restart
+Date: Mon, 11 Jan 2016 12:12:42 +0000
+Message-ID: <DB5PR05MB1765E4F02D810BA5D7C5ED93D1C90@DB5PR05MB1765.eurprd05.prod.outlook.com>
+References: <1452352052-27574-1-git-send-email-hannes@stressinduktion.org>
+ <1452352052-27574-3-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: pravin shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "jesse@kernel.org" <jesse@kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:47985 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759797AbcAKMYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:24:17 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id BE60A20C11
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:24:16 -0500 (EST)
-In-Reply-To: <CAOrHB_AWdZw1XDmxVU=bDh=gB2M3cnXUC8MyXCnV1YVjZEAsKw@mail.gmail.com>
+Received: from mail-db3on0077.outbound.protection.outlook.com ([157.55.234.77]:43312
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758693AbcAKM2S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:28:18 -0500
+In-Reply-To: <1452352052-27574-3-git-send-email-hannes@stressinduktion.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11.01.2016 07:38, pravin shelar wrote:
-> On Thu, Jan 7, 2016 at 9:40 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> When RECURSION_LIMIT was first introduced, Eric proposed a limit of 3.
->> This limit was later raised to 10 by DaveM. Nowadays it is observed that
->> configuraion errors in openvswitch cause the STACK_END_MAGIC to be
->> overwritten shortly after 9 recursion.
->>
-> Major user of stack space in OVS is sw_flow_key in
-> ovs_vport_receive(). With recent features like IPv6 tunnel support we
-> have increased the size of the flow-key which could have caused the
-> stack overflow sooner.
-> One way to avoid using stack in subsequent recursive call is to use
-> per-cpu storage for the sw_flow_key object. This is already done for
-> OVS recursive actions, so we can expand on that facility.
+Hi Hannes,
 
-Hmmm. This already came up. I think the difficulty is that 
-ovs_vport_receive can be called from actions again with skb_cloned skb 
-before the original's skb callstack is actually finished. Data in the 
-percpu area would be overwritten while still being used. It would need 
-some more logic IMHO.
+state_lock is used for internal driver resources synchronization.
+Our code will need further examination where rtnl_lock should be used.
+For now, thank you for suggestion.
+ACK for below patch.
 
-What are recursive actions in ovs? I couldn't find any use of pcpu data 
-in there? Thanks! :)
+Jenny
 
-We could as an intermediate step add a recursion counter to openvswitch 
-and limit call chains to depth 5, what do you think?
 
-Bye,
-Hannes
+-----Original Message-----
+From: Hannes Frederic Sowa [mailto:hannes@stressinduktion.org] 
+Sent: Saturday, January 09, 2016 17:07
+To: netdev@vger.kernel.org
+Cc: jesse@kernel.org; Eugenia Emantayev <eugenia@mellanox.com>
+Subject: [PATCH net-next v4 02/10] mlx4: add rtnl lock protection in mlx4_en_restart
+
+I don't really understand the use of the state_lock. Can't it be simply replaced by rtnl_lock? It seems a lot of current users depend on rtnl_lock anyway.
+
+Anyway, fix this up for the moment.
+
+Cc: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 0c7e3f69a73bb6..94abd0843901cf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1846,6 +1846,7 @@ static void mlx4_en_restart(struct work_struct *work)
+ 
+ 	en_dbg(DRV, priv, "Watchdog task called for port %d\n", priv->port);
+ 
++	rtnl_lock();
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		mlx4_en_stop_port(dev, 1);
+@@ -1853,6 +1854,7 @@ static void mlx4_en_restart(struct work_struct *work)
+ 			en_err(priv, "Failed restarting port %d\n", priv->port);
+ 	}
+ 	mutex_unlock(&mdev->state_lock);
++	rtnl_unlock();
+ }
+ 
+ static void mlx4_en_clear_stats(struct net_device *dev)
