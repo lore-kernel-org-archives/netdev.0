@@ -1,79 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] perf/core: Put size of a sample at the end of
- it by PERF_SAMPLE_TAILSIZE
-Date: Mon, 11 Jan 2016 18:05:10 +0100
-Message-ID: <5693E0C6.2080509@iogearbox.net>
-References: <1452518653-1794-1-git-send-email-wangnan0@huawei.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [RFC PATCH 0/2] Rework of "net: local checksum offload for
+ encapsulation"
+Date: Mon, 11 Jan 2016 09:05:59 -0800
+Message-ID: <20160111165937.5210.61555.stgit@localhost.localdomain>
+References: <568E9BF9.2050001@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	pi3orama@163.com, lizefan@huawei.com,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Ahern <dsahern@gmail.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Yunlong Song <yunlong.song@huawei.com>
-To: Wang Nan <wangnan0@huawei.com>, davem@davemloft.net,
-	acme@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452518653-1794-1-git-send-email-wangnan0@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tom@herbertland.com, alexander.duyck@gmail.com
+To: ecree@solarflare.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36838 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933658AbcAKRGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 12:06:01 -0500
+Received: by mail-pa0-f54.google.com with SMTP id yy13so231417734pab.3
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 09:06:01 -0800 (PST)
+In-Reply-To: <568E9BF9.2050001@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wang,
+Edward,
 
-On 01/11/2016 02:24 PM, Wang Nan wrote:
-> This patch introduces a PERF_SAMPLE_TAILSIZE flag which allows a size
-> field attached at the end of a sample. The idea comes from [1] that,
-> with tie size at tail of an event, it is possible for user program who
-> read from the ring buffer parse events backward.
->
-> For example:
->
->     head
->      |
->      V
->   +--+---+-------+----------+------+---+
->   |E6|...|   B  8|   C    11|  D  7|E..|
->   +--+---+-------+----------+------+---+
->
-> In this case, from the 'head' pointer provided by kernel, user program
-> can first see '6' by (*(head - sizeof(u64))), then it can get the start
-> pointer of record 'E', then it can read size and find start position
-> of record D, C, B in similar way.
->
-> The implementation is easy: adding a PERF_SAMPLE_TAILSIZE flag, makes
-> perf_output_sample() output size at the end of a sample.
->
-> Following things are done for ensure the ring buffer is safe for
-> backward parsing:
->
->   - Don't allow two events with different PERF_SAMPLE_TAILSIZE setting
->     set their output to each other;
->
->   - For non-sample events, also output tailsize if required.
->
-> This patch has a limitation for perf:
->
-> Before reading such ring buffer, perf must ensure all events which may
-> output to it is already stopped, so the 'head' pointer it get is the
-> end of the last record.
->
-> [1] http://lkml.kernel.org/g/1449063499-236703-1-git-send-email-wangnan0@huawei.com
->
-> Signed-off-by: Wang Nan <wangnan0@huawei.com>
-> Cc: Adrian Hunter <adrian.hunter@intel.com>
-> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-> Cc: David Ahern <dsahern@gmail.com>
-> Cc: Ingo Molnar <mingo@kernel.org>
-> Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Cc: Yunlong Song <yunlong.song@huawei.com>
-> Cc: David S. Miller <davem@davemloft.net>
-[...]
+Attached is your first patch with a couple of modifications in order to
+improve performance and enable the use of local checksum offloag for GSO.
+The second patch is my UDP local checksum offload patch for UDP tunnel
+segmentation offload.
 
-As this seems unrelated to networking, net-next tree seems not really appropriate?
+Feel free to incorporate the GSO patch into your series if you want, or
+borrow liberally if you can apply some of this to GRE as I haven't gotten
+around to working on that yet as I started doing a clean-up on the Intel
+drivers to enable NETIF_F_HW_CSUM for a number of parts.
 
-Cheers,
-Daniel
+- Alex
+
+---
+
+Alexander Duyck (1):
+      net: Add support for UDP local checksum offload as a part of tunnel segmentation
+
+Edward Cree (1):
+      net: local checksum offload for encapsulation
+
+
+ include/linux/skbuff.h    |   30 ++++++++++++++++++++++++++++++
+ net/ipv4/ip_tunnel_core.c |    4 +++-
+ net/ipv4/udp.c            |   24 ++++++------------------
+ net/ipv4/udp_offload.c    |   38 +++++++++++++++++++++++---------------
+ net/ipv6/ip6_checksum.c   |   23 ++++++-----------------
+ 5 files changed, 68 insertions(+), 51 deletions(-)
