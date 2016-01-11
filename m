@@ -1,54 +1,48 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v5 04/10] benet: add rtnl lock protection around be_open in be_resume
-Date: Mon, 11 Jan 2016 13:17:25 +0100
-Message-ID: <1452514651-15445-5-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v5 01/10] qlcnic: protect qlcnic_82xx_io_slot_reset with rtnl lock
+Date: Mon, 11 Jan 2016 13:17:22 +0100
+Message-ID: <1452514651-15445-2-git-send-email-hannes@stressinduktion.org>
 References: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
-Cc: jesse@kernel.org, Sathya Perla <sathya.perla@avagotech.com>,
-	Ajit Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+Cc: jesse@kernel.org, Dept-GELinuxNICDev@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:55372 "EHLO
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:35751 "EHLO
 	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932827AbcAKMRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:17:44 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id C952320B1F
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:17:43 -0500 (EST)
+	by vger.kernel.org with ESMTP id S1757592AbcAKMRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 07:17:41 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 58A9420B5F
+	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 07:17:41 -0500 (EST)
 In-Reply-To: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Sathya Perla <sathya.perla@avagotech.com>
-Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+Cc: Dept-GELinuxNICDev@qlogic.com
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f99de3657ce3b5..3200f48ddd5a68 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4846,11 +4846,12 @@ static int be_resume(struct be_adapter *adapter)
- 	if (status)
- 		return status;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 1205f6f9c94173..1c29105b6c364f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3952,8 +3952,14 @@ static pci_ers_result_t qlcnic_82xx_io_error_detected(struct pci_dev *pdev,
  
--	if (netif_running(netdev)) {
+ static pci_ers_result_t qlcnic_82xx_io_slot_reset(struct pci_dev *pdev)
+ {
+-	return qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
+-				PCI_ERS_RESULT_RECOVERED;
++	pci_ers_result_t res;
++
 +	rtnl_lock();
-+	if (netif_running(netdev))
- 		status = be_open(netdev);
--		if (status)
--			return status;
--	}
++	res = qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
++					 PCI_ERS_RESULT_RECOVERED;
 +	rtnl_unlock();
-+	if (status)
-+		return status;
++
++	return res;
+ }
  
- 	netif_device_attach(netdev);
- 
+ static void qlcnic_82xx_io_resume(struct pci_dev *pdev)
 -- 
 2.5.0
