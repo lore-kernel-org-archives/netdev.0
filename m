@@ -1,61 +1,49 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] udp: disallow UFO for sockets with SO_NO_CHECK option
-Date: Mon, 11 Jan 2016 07:50:30 +0100 (CET)
-Message-ID: <20160111065030.F3FFCA0EF1@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
+From: Roland Hii <roland.king.guan.hii@intel.com>
+Subject: [PATCH] igb: add conditions for I210 to generate periodic clock output
+Date: Mon, 11 Jan 2016 15:34:18 +0800
+Message-ID: <1452497658-20050-1-git-send-email-roland.king.guan.hii@intel.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit acf8dd0a9d0b ("udp: only allow UFO for packets from SOCK_DGRAM
-sockets") disallows UFO for packets sent from raw sockets. We need to do
-the same also for SOCK_DGRAM sockets with SO_NO_CHECK options, even if
-for a bit different reason: while such socket would override the
-CHECKSUM_PARTIAL set by ip_ufo_append_data(), gso_size is still set and
-bad offloading flags warning is triggered in __skb_gso_segment().
+In general case the maximum supported half cycle time of the synchronized
+output clock is 70msec. Slower half cycle time than 70msec can be
+programmed also as long as the output clock is synchronized to whole
+seconds, useful specifically for generating a 1Hz clock.
 
-In the IPv6 case, SO_NO_CHECK option is ignored but we need to disallow
-UFO for packets sent by sockets with UDP_NO_CHECK6_TX option.
+Permitted values for the clock half cycle time are: 125,000,000 decimal,
+250,000,000 decimal and 500,000,000 decimal (equals to 125msec, 250msec
+and 500msec respectively).
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Tested-by: Shannon Nelson <shannon.nelson@intel.com>
+Before this patch, only the half cycle time of less than or equal to 70msec
+uses the I210 clock output function. This patch adds additional conditions
+when half cycle time is equal to 125msec or 250msec or 500msec to use
+clock output function.
+
+Under other conditions, interrupt driven target time output events method
+is still used to generate the desired clock output.
+
+Signed-off-by: Roland Hii <roland.king.guan.hii@intel.com>
 ---
- net/ipv4/ip_output.c  | 2 +-
- net/ipv6/ip6_output.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ptp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4233cbe47052..36ac9f3a6451 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -921,7 +921,7 @@ static int __ip_append_data(struct sock *sk,
- 	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
--	    (sk->sk_type == SOCK_DGRAM)) {
-+	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
- 					 hh_len, fragheaderlen, transhdrlen,
- 					 maxfraglen, flags);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e6a7bd15b9b7..6473889f1736 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1353,7 +1353,7 @@ emsgsize:
- 	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) &&
--	    (sk->sk_type == SOCK_DGRAM)) {
-+	    (sk->sk_type == SOCK_DGRAM) && !udp_get_no_check6_tx(sk)) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen,
- 					  transhdrlen, mtu, flags, fl6);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index c44df87..22a8a29 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -525,7 +525,8 @@ static int igb_ptp_feature_enable_i210(struct ptp_clock_info *ptp,
+ 		ts.tv_nsec = rq->perout.period.nsec;
+ 		ns = timespec64_to_ns(&ts);
+ 		ns = ns >> 1;
+-		if (on && ns <= 70000000LL) {
++		if (on && ((ns <= 70000000LL) || (ns == 125000000LL) ||
++			   (ns == 250000000LL) || (ns == 500000000LL))) {
+ 			if (ns < 8LL)
+ 				return -EINVAL;
+ 			use_freq = 1;
 -- 
-2.7.0
+1.9.1
