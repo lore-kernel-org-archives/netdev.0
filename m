@@ -1,72 +1,33 @@
-From: Karl Heiss <kheiss@gmail.com>
-Subject: [PATCH net v2] bonding: Prevent IPv6 link local address on enslaved devices
-Date: Mon, 11 Jan 2016 08:28:43 -0500
-Message-ID: <1452518923-9420-1-git-send-email-kheiss@gmail.com>
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: Re: [PATCH] iwl4965: Fix a memory leak in error handling code of
+ __il4965_up
+Date: Mon, 11 Jan 2016 21:41:12 +0800
+Message-ID: <5693B0F8.3020203@163.com>
+References: <1452392363-3600-1-git-send-email-baijiaju1990@163.com> <20160111121610.GF25015@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kvalo@codeaurora.org, johannes.berg@intel.com,
+	emmanuel.grumbach@intel.com, ilw@linux.intel.com,
+	linuxwifi@intel.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f68.google.com ([209.85.192.68]:35788 "EHLO
-	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758944AbcAKN2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 08:28:48 -0500
-Received: by mail-qg0-f68.google.com with SMTP id b35so40581451qge.2
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 05:28:47 -0800 (PST)
+Received: from m12-11.163.com ([220.181.12.11]:57953 "EHLO m12-11.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758875AbcAKNlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 08:41:11 -0500
+In-Reply-To: <20160111121610.GF25015@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
-undoes the fix provided by commit c2edacf80e15 ("bonding / ipv6: no addrconf
-for slaves separately from master") by effectively setting the slave flag
-after the slave has been opened.  If the slave comes up quickly enough, it
-will go through the IPv6 addrconf before the slave flag has been set and
-will get a link local IPv6 address.
+On 01/11/2016 08:16 PM, Stanislaw Gruszka wrote:
+>
+> Please do not repost patches so frequent and if you repost
+> the unchanged patch mark it so i.e. [PATCH repost].
+>
+> Stanislaw
 
-In order to ensure that addrconf knows to ignore the slave devices on state
-change, set IFF_SLAVE before dev_open() during bonding enslavement.
+Sorry for my reposting.
 
-Fixes: 1f718f0f4f97 ("bonding: populate neighbour's private on enslave")
-
-Signed-off-by: Karl Heiss <kheiss@gmail.com>
----
-- Changes since 'v1':
-  - Revert clearing the IFF_SLAVE flag later during bond release so that
-    RTM_NEWLINK messages will correctly reflect the slave state.
-  - Update commit message for clarity.
----
- drivers/net/bonding/bond_main.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9e0f8a7..f1692e4 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1207,7 +1207,6 @@ static int bond_master_upper_dev_link(struct net_device *bond_dev,
- 	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
- 	if (err)
- 		return err;
--	slave_dev->flags |= IFF_SLAVE;
- 	rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE, GFP_KERNEL);
- 	return 0;
- }
-@@ -1465,6 +1464,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		}
- 	}
- 
-+	/* set slave flag before open to prevent IPv6 addrconf */
-+	slave_dev->flags |= IFF_SLAVE;
-+
- 	/* open the slave since the application closed it */
- 	res = dev_open(slave_dev);
- 	if (res) {
-@@ -1725,6 +1727,7 @@ err_close:
- 	dev_close(slave_dev);
- 
- err_restore_mac:
-+	slave_dev->flags &= ~IFF_SLAVE;
- 	if (!bond->params.fail_over_mac ||
- 	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
- 		/* XXX TODO - fom follow mode needs to change master's
--- 
-1.7.1
+Jia-Ju Bai
