@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 33/53] perf record: Introduce record__finish_output() to finish a perf.data
-Date: Mon, 11 Jan 2016 13:48:24 +0000
-Message-ID: <1452520124-2073-34-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 47/53] perf record: Don't read from and poll overwrite channel
+Date: Mon, 11 Jan 2016 13:48:38 +0000
+Message-ID: <1452520124-2073-48-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,8 +19,9 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move code for finalizing 'perf.data' to record__finish_output(). It
-will be used by following commits to split output to multiple files.
+Read from overwritable ring buffer is unreliable. Also, there's
+no need to poll on a overwritable channel because we don't need
+consuming data from it. Only select PULLHUP and PULLERR events.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -31,71 +32,116 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 45 +++++++++++++++++++++++++++++----------------
- 1 file changed, 29 insertions(+), 16 deletions(-)
+ tools/perf/builtin-record.c | 15 ++++++++++++++-
+ tools/perf/util/evlist.c    | 27 +++++++++++++++++++++++----
+ 2 files changed, 37 insertions(+), 5 deletions(-)
 
 diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index 318b90f..91bf4b1 100644
+index fafcee7..e55a23f 100644
 --- a/tools/perf/builtin-record.c
 +++ b/tools/perf/builtin-record.c
-@@ -493,6 +493,33 @@ static void record__init_features(struct record *rec)
- 	perf_header__clear_feat(&session->header, HEADER_STAT);
- }
+@@ -453,6 +453,19 @@ static struct perf_event_header finished_round_event = {
+ 	.type = PERF_RECORD_FINISHED_ROUND,
+ };
  
-+static void
-+record__finish_output(struct record *rec)
++static bool record__mmap_should_read(struct record *rec, int idx)
 +{
-+	struct perf_data_file *file = &rec->file;
-+	int fd = perf_data_file__fd(file);
++	int channel = -1;
 +
-+	if (file->is_pipe)
-+		return;
-+
-+	rec->session->header.data_size += rec->bytes_written;
-+	file->size = lseek(perf_data_file__fd(file), 0, SEEK_CUR);
-+
-+	if (!rec->no_buildid) {
-+		process_buildids(rec);
-+		/*
-+		 * We take all buildids when the file contains
-+		 * AUX area tracing data because we do not decode the
-+		 * trace because it would take too long.
-+		 */
-+		if (rec->opts.full_auxtrace)
-+			dsos__hit_all(rec->session);
-+	}
-+	perf_session__write_header(rec->session, rec->evlist, fd, true);
-+
-+	return;
++	if (!rec->evlist->mmap[idx].base)
++		return false;
++	if (perf_evlist__channel_idx(rec->evlist, &channel, &idx))
++		return false;
++	if (perf_evlist__channel_check(rec->evlist, channel, RDONLY))
++		return false;
++	return true;
 +}
 +
- static volatile int workload_exec_errno;
+ static int record__mmap_read_all(struct record *rec)
+ {
+ 	u64 bytes_written = rec->bytes_written;
+@@ -463,7 +476,7 @@ static int record__mmap_read_all(struct record *rec)
+ 	for (i = 0; i < total_mmaps; i++) {
+ 		struct auxtrace_mmap *mm = &rec->evlist->mmap[i].auxtrace_mmap;
  
- /*
-@@ -820,22 +847,8 @@ out_child:
- 	/* this will be recalculated during process_buildids() */
- 	rec->samples = 0;
+-		if (rec->evlist->mmap[i].base) {
++		if (record__mmap_should_read(rec, i)) {
+ 			if (record__mmap_read(rec, i) != 0) {
+ 				rc = -1;
+ 				goto out;
+diff --git a/tools/perf/util/evlist.c b/tools/perf/util/evlist.c
+index dc00840..0511fd2 100644
+--- a/tools/perf/util/evlist.c
++++ b/tools/perf/util/evlist.c
+@@ -461,9 +461,9 @@ int perf_evlist__alloc_pollfd(struct perf_evlist *evlist)
+ 	return 0;
+ }
  
--	if (!err && !file->is_pipe) {
--		rec->session->header.data_size += rec->bytes_written;
--		file->size = lseek(perf_data_file__fd(file), 0, SEEK_CUR);
--
--		if (!rec->no_buildid) {
--			process_buildids(rec);
--			/*
--			 * We take all buildids when the file contains
--			 * AUX area tracing data because we do not decode the
--			 * trace because it would take too long.
--			 */
--			if (rec->opts.full_auxtrace)
--				dsos__hit_all(rec->session);
--		}
--		perf_session__write_header(rec->session, rec->evlist, fd, true);
--	}
-+	if (!err)
-+		record__finish_output(rec);
+-static int __perf_evlist__add_pollfd(struct perf_evlist *evlist, int fd, int idx)
++static int __perf_evlist__add_pollfd(struct perf_evlist *evlist, int fd, int idx, short revent)
+ {
+-	int pos = fdarray__add(&evlist->pollfd, fd, POLLIN | POLLERR | POLLHUP);
++	int pos = fdarray__add(&evlist->pollfd, fd, revent | POLLERR | POLLHUP);
+ 	/*
+ 	 * Save the idx so that when we filter out fds POLLHUP'ed we can
+ 	 * close the associated evlist->mmap[] entry.
+@@ -479,7 +479,7 @@ static int __perf_evlist__add_pollfd(struct perf_evlist *evlist, int fd, int idx
  
- 	if (!err && !quiet) {
- 		char samples[128];
+ int perf_evlist__add_pollfd(struct perf_evlist *evlist, int fd)
+ {
+-	return __perf_evlist__add_pollfd(evlist, fd, -1);
++	return __perf_evlist__add_pollfd(evlist, fd, -1, POLLIN);
+ }
+ 
+ static void perf_evlist__munmap_filtered(struct fdarray *fda, int fd)
+@@ -1007,6 +1007,22 @@ perf_evlist__channel_complete(struct perf_evlist *evlist)
+ 	return 0;
+ }
+ 
++static bool
++perf_evlist__should_poll(struct perf_evlist *evlist,
++			 struct perf_evsel *evsel,
++			 int channel, int idx)
++{
++	int err = perf_evlist__channel_idx(evlist, &channel, &idx);
++
++	if (err)
++		return false;
++	if (evsel->system_wide)
++		return false;
++	if (perf_evlist__channel_check(evlist, channel, RDONLY))
++		return false;
++	return true;
++}
++
+ static int perf_evlist__mmap_per_evsel(struct perf_evlist *evlist, int _idx,
+ 				       struct mmap_params *mp, int cpu,
+ 				       int thread, int *outputs)
+@@ -1015,6 +1031,7 @@ static int perf_evlist__mmap_per_evsel(struct perf_evlist *evlist, int _idx,
+ 
+ 	evlist__for_each(evlist, evsel) {
+ 		int fd, channel, idx, err;
++		short revent = POLLIN;
+ 
+ 		channel = perf_evlist__channel_find(evlist, evsel, false);
+ 		if (channel < 0) {
+@@ -1044,6 +1061,8 @@ static int perf_evlist__mmap_per_evsel(struct perf_evlist *evlist, int _idx,
+ 			perf_evlist__mmap_get(evlist, idx);
+ 		}
+ 
++		if (!perf_evlist__should_poll(evlist, evsel, channel, idx))
++			revent = 0;
+ 		/*
+ 		 * The system_wide flag causes a selected event to be opened
+ 		 * always without a pid.  Consequently it will never get a
+@@ -1052,7 +1071,7 @@ static int perf_evlist__mmap_per_evsel(struct perf_evlist *evlist, int _idx,
+ 		 * Therefore don't add it for polling.
+ 		 */
+ 		if (!evsel->system_wide &&
+-		    __perf_evlist__add_pollfd(evlist, fd, idx) < 0) {
++		    __perf_evlist__add_pollfd(evlist, fd, idx, revent) < 0) {
+ 			perf_evlist__mmap_put(evlist, idx);
+ 			return -1;
+ 		}
 -- 
 1.8.3.4
