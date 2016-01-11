@@ -1,30 +1,21 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Sun, 10 Jan 2016 22:02:19 -0500 (EST)
-Message-ID: <20160110.220219.34110291949766158.davem@davemloft.net>
-References: <20160111134615.60c08c54@canb.auug.org.au>
+Subject: net-next is CLOSED
+Date: Sun, 10 Jan 2016 22:04:10 -0500 (EST)
+Message-ID: <20160110.220410.1596275588914865505.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, andrew@lunn.ch,
-	Henri.Roosen@ginzinger.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160111134615.60c08c54@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 11 Jan 2016 13:46:15 +1100
 
-> I applied the following merge fix patch:
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 11 Jan 2016 13:25:09 +1100
-> Subject: [PATCH] phy: micrel: fix up for "phy: Add an mdio_device structure"
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+The merge window has just openned, which means that no new submissions
+for net-next should be made at this time.
 
-Thanks Stephen, it's correct and I'll make sure I do this when
-I merge net into net-next.
+Thanks in advance for your cooperation, and can we _PLEASE_ have one
+release cycle where everyone tries hard not to submit any net-next
+material during this closed time period?  It'll make my life 10 times
+easier.
