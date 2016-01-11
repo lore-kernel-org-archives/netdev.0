@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 42/53] perf record: Prevent reading invalid data in record__mmap_read
-Date: Mon, 11 Jan 2016 13:48:33 +0000
-Message-ID: <1452520124-2073-43-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 40/53] perf record: Generate tracking events for process forked by perf
+Date: Mon, 11 Jan 2016 13:48:31 +0000
+Message-ID: <1452520124-2073-41-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,11 +19,13 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When record__mmap_read() require data more than the size of ring
-buffer, drop those data to avoid access invalid memory.
+With 'perf record --switch-output' without -a, record__synthesize() in
+record__switch_output() won't generate tracking events because there's
+no thread_map in evlist. Which causes newly created perf.data doesn't
+contain map and comm information.
 
-This can happen when reading from overwritable ring buffer, which
-should be avoided. However, check this for robustness.
+This patch creates a fake thread_map and directly call
+perf_event__synthesize_thread_map() for those events.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -34,34 +36,36 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ tools/perf/builtin-record.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
 diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index b65b41f..3f58426 100644
+index 5305a30..aaf3b0f 100644
 --- a/tools/perf/builtin-record.c
 +++ b/tools/perf/builtin-record.c
-@@ -37,6 +37,7 @@
- #include <unistd.h>
- #include <sched.h>
- #include <sys/mman.h>
-+#include <asm/bug.h>
- 
- 
- struct record {
-@@ -94,6 +95,13 @@ static int record__mmap_read(struct record *rec, int idx)
- 	rec->samples++;
- 
- 	size = head - old;
-+	if (size > (unsigned long)(md->mask) + 1) {
-+		WARN_ONCE(1, "WARNING: failed to keep up with mmap data. (warn only once)\n");
+@@ -563,6 +563,23 @@ record__switch_output(struct record *rec, bool at_exit)
+ 		perf_session__create_kernel_maps(rec->session);
+ 		perf_session__set_id_hdr_size(rec->session);
+ 		record__synthesize(rec);
 +
-+		md->prev = head;
-+		perf_evlist__mmap_consume(rec->evlist, idx);
-+		return 0;
-+	}
- 
- 	if ((old & md->mask) + size != (head & md->mask)) {
- 		buf = &data[old & md->mask];
++		if (target__none(&rec->opts.target)) {
++			struct {
++				struct thread_map map;
++				struct thread_map_data map_data;
++			} thread_map;
++
++			thread_map.map.nr = 1;
++			thread_map.map.map[0].pid = rec->evlist->workload.pid;
++			thread_map.map.map[0].comm = NULL;
++			perf_event__synthesize_thread_map(&rec->tool,
++					&thread_map.map,
++					process_synthesized_event,
++					&rec->session->machines.host,
++					rec->opts.sample_address,
++					rec->opts.proc_map_timeout);
++		}
+ 	}
+ 	return fd;
+ }
 -- 
 1.8.3.4
