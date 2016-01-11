@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Fix some dubious code in the Renesas Ethernet
- drivers
-Date: Mon, 11 Jan 2016 17:31:27 -0500 (EST)
-Message-ID: <20160111.173127.388387520171868620.davem@davemloft.net>
-References: <5859243.yu8qorLmay@wasted.cogentembedded.com>
+Subject: Re: [PATCH net-next 0/2] BPF update
+Date: Mon, 11 Jan 2016 17:33:09 -0500 (EST)
+Message-ID: <20160111.173309.1543986120233268415.davem@davemloft.net>
+References: <cover.1452385316.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5859243.yu8qorLmay@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41968 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759922AbcAKWdK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 17:33:10 -0500
+In-Reply-To: <cover.1452385316.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 11 Jan 2016 00:26:07 +0300
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 11 Jan 2016 01:16:37 +0100
 
->    Here's a set of 2 patches against DaveM's 'net.git' repo. While initializing
-> EMAC the code tries to respect the duplex mode both programmed into ECMR and
-> stored in its own private data -- this just can't be right.
-> 
-> [1/2] ravb: stop reading ECMR in ravb_emac_init()
-> [2/2] sh_eth: stop reading ECMR in sh_eth_dev_init()
+> This set adds IPv6 support for bpf_skb_{set,get}_tunnel_key() helper.
+> It also exports flags to user space that are being used in helpers and
+> weren't exported thus far. For more details, please see the individual
+> patches.
 
-Series applied, thanks.
+Series applied, thank you.
