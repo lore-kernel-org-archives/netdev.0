@@ -1,57 +1,73 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net] tcp_yeah: don't set ssthresh below 2
-Date: Mon, 11 Jan 2016 13:42:43 -0500
-Message-ID: <1452537763-28163-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Mon, 11 Jan 2016 10:43:16 -0800
+Message-ID: <CALx6S37xyVHBzBG7uwatqj3je_0X=c=mTen_=R0G4f4+RTzNmA@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C9B.3090408@solarflare.com>
+	<CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
+	<568FD844.3020101@solarflare.com>
+	<CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+	<CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
+	<CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
+	<CAEh+42itZQDiQMrk_rf9LLgeYD=WDa2DMPq8u-9VtUf-eCoQ2Q@mail.gmail.com>
+	<CALx6S35sBDydNEmJwcBfKnbVhFdtEk8dkwjWsVRhrEHOLn4jTQ@mail.gmail.com>
+	<5693F3FD.4030804@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:33187 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933143AbcAKSmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 13:42:45 -0500
-Received: by mail-qg0-f49.google.com with SMTP id b35so280001523qge.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 10:42:45 -0800 (PST)
+Received: from mail-io0-f173.google.com ([209.85.223.173]:33334 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933275AbcAKSnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 13:43:17 -0500
+Received: by mail-io0-f173.google.com with SMTP id q21so358121435iod.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 10:43:17 -0800 (PST)
+In-Reply-To: <5693F3FD.4030804@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For tcp_yeah, use an ssthresh floor of 2, the same floor used by Reno
-and CUBIC, per RFC 5681 (equation 4).
+On Mon, Jan 11, 2016 at 10:27 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 11/01/16 17:55, Tom Herbert wrote:
+>> On Mon, Jan 11, 2016 at 9:24 AM, Jesse Gross <jesse@kernel.org> wrote:
+>>> It's hard to say what other types of endpoints might do if they
+>>> receive a VXLAN packet with a checksum set and, of course, there are
+>>> other protocols that don't specify that received UDP checksums can be
+>>> ignored.
+>>>
+>> RFC1122 is very clear on the subject of UDP checksums:
+>>
+>> "If a UDP datagram is received with a checksum that is non- zero and
+>> invalid, UDP MUST silently discard the datagram."
+>>
+>> So if a VXLAN receiver accepts a UDP packet without checking a
+>> non-zero UDP checksum for validity they are breaking the UDP protocol.
+>> If they blow up because they don't expect to receive non-zero
+>> checksums that is entirely their problem.
+> More to the point, RFC7348 says that if the outer checksum isvalid, the
+>  receiver MUST accept it.
 
-tcp_yeah_ssthresh() was sometimes returning a 0 or negative ssthresh
-value if the intended reduction is as big or bigger than the current
-cwnd. Congestion control modules should never return a zero or
-negative ssthresh. A zero ssthresh generally results in a zero cwnd,
-causing the connection to stall. A negative ssthresh value will be
-interpreted as a u32 and will set a target cwnd for PRR near 4
-billion.
+But the only way to know if a checksum is valid is to actually do the
+computation. :-)
 
-Oleksandr Natalenko reported that a system using tcp_yeah with ECN
-could see a warning about a prior_cwnd of 0 in
-tcp_cwnd_reduction(). Testing verified that this was due to
-tcp_yeah_ssthresh() misbehaving in this way.
+> "If the decapsulating destination chooses not to perform the verification,
+>  or performs it successfully, the packet MUST be accepted for decapsulation."
+> Therefore, if they blow up because they don't expect to receive non-zero
+>  checksums, they're not compliant with the spec.
+> On the other hand, there is always 'be conservative in what you emit'... how
+>  far should you go to interoperate with broken implementations.
+> On the gripping hand, I suspect RFC7348 only recommends against outer csums
+>  in the first place because the authors believed it was expensive.
+>
+Right, I've probably mentioned it at least ten times in nvo3 that we
+usually get *better* performance by enabling the outer checksums due
+to use of checksum offload. The reason Cisco doesn't want payload
+checksums is because switch hardware typically doesn't support it, but
+this doesn't justify changing fundamental UDP requirements for their
+purposes. Making enabling of transmitting UDP checksums per tunnel is
+sufficient to allow interoperability with such devices.
 
-Reported-by: Oleksandr Natalenko <oleksandr@natalenko.name>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_yeah.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index 17d3566..3e6a472 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -219,7 +219,7 @@ static u32 tcp_yeah_ssthresh(struct sock *sk)
- 	yeah->fast_count = 0;
- 	yeah->reno_count = max(yeah->reno_count>>1, 2U);
- 
--	return tp->snd_cwnd - reduction;
-+	return max_t(int, tp->snd_cwnd - reduction, 2);
- }
- 
- static struct tcp_congestion_ops tcp_yeah __read_mostly = {
--- 
-2.6.0.rc2.230.g3dd15c0
+> -ed
