@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 30/53] perf record: Extract synthesize code to record__synthesize()
-Date: Mon, 11 Jan 2016 13:48:21 +0000
-Message-ID: <1452520124-2073-31-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 28/53] perf tools: Move timestamp creation to util
+Date: Mon, 11 Jan 2016 13:48:19 +0000
+Message-ID: <1452520124-2073-29-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,9 +19,16 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Create record__synthesize(). It can be used to creating tracking events
-for each perf.data after perf supporting splitting into multiple
-outputs.
+Timestamp generation becomes a public available helper. Which will
+be used by 'perf record', help it output to split output file based
+on time.
+
+For example:
+
+ perf.data.2015122620363710
+ perf.data.2015122620364092
+ perf.data.2015122620365423
+ ...
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -32,159 +39,71 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 132 +++++++++++++++++++++++++-------------------
- 1 file changed, 76 insertions(+), 56 deletions(-)
+ tools/perf/builtin-buildid-cache.c | 14 +-------------
+ tools/perf/util/util.c             | 17 +++++++++++++++++
+ tools/perf/util/util.h             |  1 +
+ 3 files changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index bd1692c..10f1349 100644
---- a/tools/perf/builtin-record.c
-+++ b/tools/perf/builtin-record.c
-@@ -475,6 +475,81 @@ static void workload_exec_failed_signal(int signo __maybe_unused,
+diff --git a/tools/perf/builtin-buildid-cache.c b/tools/perf/builtin-buildid-cache.c
+index d93bff7..632efc6 100644
+--- a/tools/perf/builtin-buildid-cache.c
++++ b/tools/perf/builtin-buildid-cache.c
+@@ -38,19 +38,7 @@ static int build_id_cache__kcore_buildid(const char *proc_dir, char *sbuildid)
  
- static void snapshot_sig_handler(int sig);
- 
-+static int record__synthesize(struct record *rec)
-+{
-+	struct perf_session *session = rec->session;
-+	struct machine *machine = &session->machines.host;
-+	struct perf_data_file *file = &rec->file;
-+	struct record_opts *opts = &rec->opts;
-+	struct perf_tool *tool = &rec->tool;
-+	int fd = perf_data_file__fd(file);
-+	int err = 0;
-+	static bool warned_kmaps = false, warned_modules = false;
-+
-+	if (file->is_pipe) {
-+		err = perf_event__synthesize_attrs(tool, session,
-+						   process_synthesized_event);
-+		if (err < 0) {
-+			pr_err("Couldn't synthesize attrs.\n");
-+			goto out;
-+		}
-+
-+		if (have_tracepoints(&rec->evlist->entries)) {
-+			/*
-+			 * FIXME err <= 0 here actually means that
-+			 * there were no tracepoints so its not really
-+			 * an error, just that we don't need to
-+			 * synthesize anything.  We really have to
-+			 * return this more properly and also
-+			 * propagate errors that now are calling die()
-+			 */
-+			err = perf_event__synthesize_tracing_data(tool,	fd, rec->evlist,
-+								  process_synthesized_event);
-+			if (err <= 0) {
-+				pr_err("Couldn't record tracing data.\n");
-+				goto out;
-+			}
-+			rec->bytes_written += err;
-+		}
-+	}
-+
-+	if (rec->opts.full_auxtrace) {
-+		err = perf_event__synthesize_auxtrace_info(rec->itr, tool,
-+					session, process_synthesized_event);
-+		if (err)
-+			goto out;
-+	}
-+
-+	err = perf_event__synthesize_kernel_mmap(tool, process_synthesized_event,
-+						 machine);
-+	if (err < 0 && !warned_kmaps) {
-+		warned_kmaps = true;
-+		pr_err("Couldn't record kernel reference relocation symbol\n"
-+		       "Symbol resolution may be skewed if relocation was used (e.g. kexec).\n"
-+		       "Check /proc/kallsyms permission or run as root.\n");
-+	}
-+
-+	err = perf_event__synthesize_modules(tool, process_synthesized_event,
-+					     machine);
-+	if (err < 0 && !warned_modules) {
-+		warned_modules = true;
-+		pr_err("Couldn't record kernel module information.\n"
-+		       "Symbol resolution may be skewed if relocation was used (e.g. kexec).\n"
-+		       "Check /proc/modules permission or run as root.\n");
-+	}
-+
-+	if (perf_guest) {
-+		machines__process_guests(&session->machines,
-+					 perf_event__synthesize_guest_os, tool);
-+	}
-+
-+	err = __machine__synthesize_threads(machine, tool, &opts->target, rec->evlist->threads,
-+					    process_synthesized_event, opts->sample_address,
-+					    opts->proc_map_timeout);
-+out:
-+	return err;
-+}
-+
- static int __cmd_record(struct record *rec, int argc, const char **argv)
+ static int build_id_cache__kcore_dir(char *dir, size_t sz)
  {
- 	int err;
-@@ -569,63 +644,8 @@ static int __cmd_record(struct record *rec, int argc, const char **argv)
+-	struct timeval tv;
+-	struct tm tm;
+-	char dt[32];
+-
+-	if (gettimeofday(&tv, NULL) || !localtime_r(&tv.tv_sec, &tm))
+-		return -1;
+-
+-	if (!strftime(dt, sizeof(dt), "%Y%m%d%H%M%S", &tm))
+-		return -1;
+-
+-	scnprintf(dir, sz, "%s%02u", dt, (unsigned)tv.tv_usec / 10000);
+-
+-	return 0;
++	return fetch_current_timestamp(dir, sz);
+ }
  
- 	machine = &session->machines.host;
+ static bool same_kallsyms_reloc(const char *from_dir, char *to_dir)
+diff --git a/tools/perf/util/util.c b/tools/perf/util/util.c
+index 88b8f8d..5b8259b 100644
+--- a/tools/perf/util/util.c
++++ b/tools/perf/util/util.c
+@@ -690,3 +690,20 @@ out:
  
--	if (file->is_pipe) {
--		err = perf_event__synthesize_attrs(tool, session,
--						   process_synthesized_event);
--		if (err < 0) {
--			pr_err("Couldn't synthesize attrs.\n");
--			goto out_child;
--		}
--
--		if (have_tracepoints(&rec->evlist->entries)) {
--			/*
--			 * FIXME err <= 0 here actually means that
--			 * there were no tracepoints so its not really
--			 * an error, just that we don't need to
--			 * synthesize anything.  We really have to
--			 * return this more properly and also
--			 * propagate errors that now are calling die()
--			 */
--			err = perf_event__synthesize_tracing_data(tool,	fd, rec->evlist,
--								  process_synthesized_event);
--			if (err <= 0) {
--				pr_err("Couldn't record tracing data.\n");
--				goto out_child;
--			}
--			rec->bytes_written += err;
--		}
--	}
--
--	if (rec->opts.full_auxtrace) {
--		err = perf_event__synthesize_auxtrace_info(rec->itr, tool,
--					session, process_synthesized_event);
--		if (err)
--			goto out_delete_session;
--	}
--
--	err = perf_event__synthesize_kernel_mmap(tool, process_synthesized_event,
--						 machine);
--	if (err < 0)
--		pr_err("Couldn't record kernel reference relocation symbol\n"
--		       "Symbol resolution may be skewed if relocation was used (e.g. kexec).\n"
--		       "Check /proc/kallsyms permission or run as root.\n");
--
--	err = perf_event__synthesize_modules(tool, process_synthesized_event,
--					     machine);
-+	err = record__synthesize(rec);
- 	if (err < 0)
--		pr_err("Couldn't record kernel module information.\n"
--		       "Symbol resolution may be skewed if relocation was used (e.g. kexec).\n"
--		       "Check /proc/modules permission or run as root.\n");
--
--	if (perf_guest) {
--		machines__process_guests(&session->machines,
--					 perf_event__synthesize_guest_os, tool);
--	}
--
--	err = __machine__synthesize_threads(machine, tool, &opts->target, rec->evlist->threads,
--					    process_synthesized_event, opts->sample_address,
--					    opts->proc_map_timeout);
--	if (err != 0)
- 		goto out_child;
+ 	return tip;
+ }
++
++int fetch_current_timestamp(char *buf, size_t sz)
++{
++	struct timeval tv;
++	struct tm tm;
++	char dt[32];
++
++	if (gettimeofday(&tv, NULL) || !localtime_r(&tv.tv_sec, &tm))
++		return -1;
++
++	if (!strftime(dt, sizeof(dt), "%Y%m%d%H%M%S", &tm))
++		return -1;
++
++	scnprintf(buf, sz, "%s%02u", dt, (unsigned)tv.tv_usec / 10000);
++
++	return 0;
++}
+diff --git a/tools/perf/util/util.h b/tools/perf/util/util.h
+index fe915e6..ef97038 100644
+--- a/tools/perf/util/util.h
++++ b/tools/perf/util/util.h
+@@ -343,5 +343,6 @@ int fetch_kernel_version(unsigned int *puint,
+ #define KVER_PARAM(x)	KVER_VERSION(x), KVER_PATCHLEVEL(x), KVER_SUBLEVEL(x)
  
- 	if (rec->realtime_prio) {
+ const char *perf_tip(const char *dirpath);
++int fetch_current_timestamp(char *buf, size_t sz);
+ 
+ #endif /* GIT_COMPAT_UTIL_H */
 -- 
 1.8.3.4
