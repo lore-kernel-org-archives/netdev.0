@@ -1,39 +1,40 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH -next 1/2] net: bfin_mac: Fix error handling in probe
- function
-Date: Mon, 11 Jan 2016 00:58:50 +0100
-Message-ID: <20160110235850.GA26038@lunn.ch>
-References: <1452357427-30578-1-git-send-email-linux@roeck-us.net>
- <20160109165802.GD28813@lunn.ch>
- <56914D21.9050804@roeck-us.net>
- <20160109205240.GA6877@lunn.ch>
- <569275C0.1040606@roeck-us.net>
- <20160110154945.GD22229@lunn.ch>
- <56928539.1060009@roeck-us.net>
- <20160110172109.GF22229@lunn.ch>
- <5692BA9B.6020704@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5692BA9B.6020704@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH net-next] ethernet: amd: au1000: Remove pointless warning
+Date: Mon, 11 Jan 2016 01:13:21 +0100
+Message-ID: <1452471201-26335-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45105 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757375AbcAKANa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jan 2016 19:13:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> xlr_net.c also fails to build with
-> 
-> drivers/staging/netlogic/xlr_net.c: In function 'xlr_setup_mdio':
-> drivers/staging/netlogic/xlr_net.c:879:21: error: assignment to expression with array type
->   priv->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
-> 
-> This might be related to "mdio: Move allocation of interrupts into core",
-> though I didn't track it down.
+The warning about being able to read any MDIO device, not just the
+attached ethernet devices PHY applies to all MDIO drivers. So remove
+it. This also removes a reference to a member in phy_device which has
+moved.
 
-Yes, that was the interrupt change.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/ethernet/amd/au1000_eth.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-I sent a patch which fixes both.
-
-  Andrew
+diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
+index c8640418fc37..d3977d032b48 100644
+--- a/drivers/net/ethernet/amd/au1000_eth.c
++++ b/drivers/net/ethernet/amd/au1000_eth.c
+@@ -344,9 +344,6 @@ static void au1000_mdio_write(struct net_device *dev, int phy_addr,
+ 
+ static int au1000_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
+ {
+-	/* WARNING: bus->phy_map[phy_addr].attached_dev == dev does
+-	 * _NOT_ hold (e.g. when PHY is accessed through other MAC's MII bus)
+-	 */
+ 	struct net_device *const dev = bus->priv;
+ 
+ 	/* make sure the MAC associated with this
+-- 
+2.6.4
