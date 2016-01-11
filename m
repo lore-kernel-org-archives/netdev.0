@@ -1,182 +1,56 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [next PATCH 1/4] ixgbe: Add support for generic
- Tx checksums
-Date: Mon, 11 Jan 2016 12:29:51 -0800
-Message-ID: <CAKgT0UfGsZGywT=rK2SAWO9ZAY2q07DZ8Vx5Hy=k1cmHJx9M7Q@mail.gmail.com>
-References: <20160111173724.4101.35798.stgit@localhost.localdomain>
-	<20160111175356.4101.8327.stgit@localhost.localdomain>
-	<CALx6S36VOrpVoFrdr4eTynmWMkxWGs57uw+LEoXRKOsUFgryDw@mail.gmail.com>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCHv2 net-next 0/3] cxgb4/cxgb4i: add iscsi LRO  support for
+ chelsio t4/t5 adapters
+Date: Mon, 11 Jan 2016 14:41:09 -0600
+Message-ID: <56941365.6080905@cs.wisc.edu>
+References: <1452158647-9714-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34513 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932180AbcAKU3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 15:29:52 -0500
-Received: by mail-io0-f195.google.com with SMTP id k127so43516403iok.1
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 12:29:52 -0800 (PST)
-In-Reply-To: <CALx6S36VOrpVoFrdr4eTynmWMkxWGs57uw+LEoXRKOsUFgryDw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, JBottomley@odin.com,
+	martin.petersen@oracle.com, leedom@chelsio.com, kxie@chelsio.com,
+	manojmalviya@chelsio.com, nirranjan@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1452158647-9714-1-git-send-email-hariprasad@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 11, 2016 at 10:11 AM, Tom Herbert <tom@herbertland.com> wrote:
-> On Mon, Jan 11, 2016 at 9:53 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch adds support for generic Tx checksums to the ixgbe driver.  It
->> turns out this is actually pretty easy after going over the datasheet as we
->> were doing a number of steps we didn't need to.
->>
->> In order to perform a Tx checksum for an L4 header we need to fill in the
->> following fields in the Tx descriptor:
->>   MACLEN (maximum of 127), retrieved from:
->>                 skb_network_offset()
->>   IPLEN  (maximum of 511), retrieved from:
->>                 skb_checksum_start_offset() - skb_network_offset()
->>   TUCMD.L4T indicates offset and if checksum or crc32c, based on:
->>                 skb->csum_offset
->>
->> The added advantage to doing this is that we can support inner checksum
->> offloads for tunnels and MPLS while still being able to transparently insert
->> VLAN tags.
->>
->> I also took the opportunity to clean-up many of the feature flag
->> configuration bits to make them a bit more consistent between drivers.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  163 +++++++++----------------
->>  1 file changed, 59 insertions(+), 104 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 77cdaed6de90..1e3a548cc612 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -7207,103 +7207,61 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
->>         return 1;
->>  }
->>
->> +static inline bool ixgbe_ipv6_csum_is_sctp(struct sk_buff *skb)
->> +{
->> +       unsigned int offset = 0;
->> +
->> +       ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
->> +
->> +       return offset == skb_checksum_start_offset(skb);
->> +}
->> +
->>  static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
->>                           struct ixgbe_tx_buffer *first)
->>  {
->>         struct sk_buff *skb = first->skb;
->>         u32 vlan_macip_lens = 0;
->> -       u32 mss_l4len_idx = 0;
->>         u32 type_tucmd = 0;
->>
->>         if (skb->ip_summed != CHECKSUM_PARTIAL) {
->> -               if (!(first->tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
->> -                   !(first->tx_flags & IXGBE_TX_FLAGS_CC))
->> +csum_failed:
->> +               if (!(first->tx_flags & (IXGBE_TX_FLAGS_HW_VLAN |
->> +                                        IXGBE_TX_FLAGS_CC)))
->>                         return;
->> -               vlan_macip_lens = skb_network_offset(skb) <<
->> -                                 IXGBE_ADVTXD_MACLEN_SHIFT;
->> -       } else {
->> -               u8 l4_hdr = 0;
->> -               union {
->> -                       struct iphdr *ipv4;
->> -                       struct ipv6hdr *ipv6;
->> -                       u8 *raw;
->> -               } network_hdr;
->> -               union {
->> -                       struct tcphdr *tcphdr;
->> -                       u8 *raw;
->> -               } transport_hdr;
->> -               __be16 frag_off;
->> -
->> -               if (skb->encapsulation) {
->> -                       network_hdr.raw = skb_inner_network_header(skb);
->> -                       transport_hdr.raw = skb_inner_transport_header(skb);
->> -                       vlan_macip_lens = skb_inner_network_offset(skb) <<
->> -                                         IXGBE_ADVTXD_MACLEN_SHIFT;
->> -               } else {
->> -                       network_hdr.raw = skb_network_header(skb);
->> -                       transport_hdr.raw = skb_transport_header(skb);
->> -                       vlan_macip_lens = skb_network_offset(skb) <<
->> -                                         IXGBE_ADVTXD_MACLEN_SHIFT;
->> -               }
->> -
->> -               /* use first 4 bits to determine IP version */
->> -               switch (network_hdr.ipv4->version) {
->> -               case IPVERSION:
->> -                       vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
->> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
->> -                       l4_hdr = network_hdr.ipv4->protocol;
->> -                       break;
->> -               case 6:
->> -                       vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
->> -                       l4_hdr = network_hdr.ipv6->nexthdr;
->> -                       if (likely((transport_hdr.raw - network_hdr.raw) ==
->> -                                  sizeof(struct ipv6hdr)))
->> -                               break;
->> -                       ipv6_skip_exthdr(skb, network_hdr.raw - skb->data +
->> -                                             sizeof(struct ipv6hdr),
->> -                                        &l4_hdr, &frag_off);
->> -                       if (unlikely(frag_off))
->> -                               l4_hdr = NEXTHDR_FRAGMENT;
->> -                       break;
->> -               default:
->> -                       break;
->> -               }
->> +               goto no_csum;
->> +       }
->>
->> -               switch (l4_hdr) {
->> -               case IPPROTO_TCP:
->> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
->> -                       mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
->> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
->> -                       break;
->> -               case IPPROTO_SCTP:
->> -                       type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
->> -                       mss_l4len_idx = sizeof(struct sctphdr) <<
->> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
->> -                       break;
->> -               case IPPROTO_UDP:
->> -                       mss_l4len_idx = sizeof(struct udphdr) <<
->> -                                       IXGBE_ADVTXD_L4LEN_SHIFT;
->> +       switch (skb->csum_offset) {
->> +       case offsetof(struct tcphdr, check):
->> +               type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
->> +               /* fall through */
->> +       case offsetof(struct udphdr, check):
->> +               break;
->> +       case offsetof(struct sctphdr, checksum):
->> +               /* validate that this is actually an SCTP request */
->> +               if (((first->protocol == htons(ETH_P_IP)) &&
->> +                    (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
->> +                   ((first->protocol == htons(ETH_P_IPV6)) &&
->> +                    ixgbe_ipv6_csum_is_sctp(skb))) {
->> +                       type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
->
-> I think we're going to have to do something different for SCTP CRC
-> this (and FCOE CRC) is a special case of CHECKSUM_PARTIAL that I don't
-> think we're always accounting for. For instance, in LCO we are always
-> assuming that CHECKSUM_PARTIAL refers to an IP checksum. Maybe it's
-> time to add a bit to ip_summed so we can define CHEKCKSUM_SCTP_CRC and
-> CHECKSUM_FCOE_CRC?
+On 01/07/2016 03:24 AM, Hariprasad Shenai wrote:
+> Hi
+> 
+> This patch series adds LRO iscsi support for chelsio T4/T5 adapters.
+> 
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 and cxgb4i driver.
+> 
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
+> 
+> Thanks
+> 
+> V2:
+>  Missed a new header file cxgbi_lro.h in PATCH 2/3. Adding it.
+>  Based on failure reported by by kbuild test bot <lkp@intel.com>
+> 
+> Hariprasad Shenai (3):
+>   cxgb4: Add LRO infrastructure for cxgb4i driver
+>   libcxgbi: add pdu parsing of LRO'ed skbs
+>   cxgb4i: add iscsi LRO for chelsio t4/t5 adapters
+> 
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  15 +-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  40 ++-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   5 +
+>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  10 +-
+>  drivers/scsi/cxgbi/cxgb4i/cxgb4i.c              | 396 +++++++++++++++++++++-
+>  drivers/scsi/cxgbi/cxgbi_lro.h                  |  72 ++++
+>  drivers/scsi/cxgbi/libcxgbi.c                   | 415 +++++++++++++++++++-----
+>  drivers/scsi/cxgbi/libcxgbi.h                   |   4 +
+>  8 files changed, 840 insertions(+), 117 deletions(-)
+>  create mode 100644 drivers/scsi/cxgbi/cxgbi_lro.h
+> 
 
-I was kind of thinking about that, but for now this is mostly just an
-intermediate step.  My thought was just to add something signifying
-that we are requesting a CRC offload, something like a CRC_PARTIAL
+For the iscsi/scsi parts:
 
-As far as I know the tunnels thing won't be an issue since neither
-FCoE or SCTP will even attempt to offload the protocol unless the
-underlying device supports it.  Since no tunnel supports either of
-these it isn't an issue as the CRCs will always be computed by
-software before passing the frame off to the tunnel.
-
-- Alex
+Reviewed-by: Mike Christie <michaelc@cs.wisc.edu>
