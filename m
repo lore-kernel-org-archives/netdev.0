@@ -1,77 +1,40 @@
-From: Matti Vaittinen <matti.vaittinen@nokia.com>
-Subject: [PATCH 1/1] net: netlink: Fix multicast group storage allocation for
- families with more than one groups
-Date: Mon, 11 Jan 2016 14:26:19 +0200
-Message-ID: <20160111122610.GA28615@fi-ourus-dhcp00977.emea.nsn-net.net>
+From: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH] ARM: dts: rockchip: Add support emac for RK3036
+Date: Mon, 11 Jan 2016 12:36:51 +0100
+Message-ID: <2062991.rcWfmTiAzP@phil>
+References: <1452217026-21155-1-git-send-email-zhengxing@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sverdlin Alexander <alexander.sverdlin@nokia.com>,
-	Pennanen Teppo Olavi <teppo.o.pennanen@nokia.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Jiri Benc <jbenc@redhat.com>, Yaowei Bai <bywxiaobai@163.com>,
-	Matti Vaittinen <matti.vaittinen@nokia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:57573 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759638AbcAKLZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 06:25:15 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	leozwang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1452217026-21155-1-git-send-email-zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Am Freitag, 8. Januar 2016, 09:37:06 schrieb Xing Zheng:
+> This patch describe the emac, and we need to let mac clock under
+> the APLL which is able to provide the accurate 50MHz what mac_ref
+> need.
+> 
+> Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 
-    I got an oops when developing a driver utilizing more than 32
-    multicast groups. After a little print adding I saw that part of 
-    the address of policy struct was overwritten. It seems to me that
-    amount of longs needed to store the multicast addresses is
-    calculated wrong for families with more than one multicast groups.
-    Problem is easy to reproduce by: 
-    
-    1. generating a module which registers large amount of multicast 
-    groups.
-    2. Loading the module
-    3. Sending the netlink message which requests multicast groups for
-    this family.
-
-    I believe step 3 may not be even needed if there is enough of the
-    groups registered.
-
-    Patch created against just cloned net repository below.
-
-    Br.
-        Matti Vaittinen
+I've queued this to get applied after 4.5-rc1 is out and I have a clean base 
+again to add the needed shared clock-branch.
 
 
-
-Multicast groups are stored in global buffer. Check for needed buffer size
-incorrectly compares buffer size to first id for family. This means that
-for families with more than one mcast id one may allocate too small buffer
-and end up writing rest of the groups to some unallocated memory. Fix the 
-buffer size check to compare allocated space to last mcast id for the 
-family.
-
-Tested on ARM using kernel 3.14
-
-Signed-off-by: Matti Vaittinen <matti.vaittinen@nokia.com>
----
- net/netlink/genetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index bc0e504..a992083 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -185,7 +185,7 @@ static int genl_allocate_reserve_groups(int n_groups, int *first_id)
- 			}
- 		}
- 
--		if (id >= mc_groups_longs * BITS_PER_LONG) {
-+		if (id + n_groups >= mc_groups_longs * BITS_PER_LONG) {
- 			unsigned long new_longs = mc_groups_longs +
- 						  BITS_TO_LONGS(n_groups);
- 			size_t nlen = new_longs * sizeof(unsigned long);
--- 
-2.1.0
+Heiko
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
