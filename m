@@ -1,27 +1,24 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2016-01-09
-Date: Sun, 10 Jan 2016 23:10:40 -0500 (EST)
-Message-ID: <20160110.231040.34157283674955269.davem@davemloft.net>
-References: <87k2nji1ks.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: phy: Add support for SMSC LAN8740 PHY
+Date: Sun, 10 Jan 2016 23:13:43 -0500 (EST)
+Message-ID: <20160110.231343.1818829192646991949.davem@davemloft.net>
+References: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87k2nji1ks.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org
+To: joshua.henderson@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452340461-5763-1-git-send-email-joshua.henderson@microchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Sat, 09 Jan 2016 10:44:51 +0200
+From: Joshua Henderson <joshua.henderson@microchip.com>
+Date: Sat, 9 Jan 2016 04:54:21 -0700
 
-> these are the last -next patches I would like to get to 4.5. Only few
-> new features, mostly bugfixes. Please let me know if there are any
-> problems.
+> LAN8740 has a different phy_id than LAN8710/LAN8720.
+> 
+> Signed-off-by: Joshua Henderson <joshua.henderson@microchip.com>
 
-Pulled, thanks Kalle.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
