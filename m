@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/1] sched,cls_flower: set key address type
- when present
-Date: Mon, 11 Jan 2016 17:28:04 -0500 (EST)
-Message-ID: <20160111.172804.1878910043638374783.davem@davemloft.net>
-References: <1452444421-3939-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [PATCH 0/2] Fix some dubious code in the Renesas Ethernet
+ drivers
+Date: Mon, 11 Jan 2016 17:31:27 -0500 (EST)
+Message-ID: <20160111.173127.388387520171868620.davem@davemloft.net>
+References: <5859243.yu8qorLmay@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41783 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933657AbcAKW2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 17:28:06 -0500
-In-Reply-To: <1452444421-3939-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5859243.yu8qorLmay@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sun, 10 Jan 2016 11:47:01 -0500
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 11 Jan 2016 00:26:07 +0300
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>    Here's a set of 2 patches against DaveM's 'net.git' repo. While initializing
+> EMAC the code tries to respect the duplex mode both programmed into ECMR and
+> stored in its own private data -- this just can't be right.
 > 
-> only when user space passes the addresses should we consider their
-> presence
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Acked-by: Jiri Pirko <jiri@resnulli.us>
+> [1/2] ravb: stop reading ECMR in ravb_emac_init()
+> [2/2] sh_eth: stop reading ECMR in sh_eth_dev_init()
 
-Applied to 'net' and queued up for -stable, thanks.
+Series applied, thanks.
