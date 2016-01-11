@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bnxt_en: Zero pad fw messages and add fw
- reset.
-Date: Sun, 10 Jan 2016 22:19:36 -0500 (EST)
-Message-ID: <20160110.221936.1800180200880982064.davem@davemloft.net>
-References: <1452214618-15519-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH v2 0/3] Add support emac for the RK3036 SoC platform
+Date: Sun, 10 Jan 2016 22:21:51 -0500 (EST)
+Message-ID: <20160110.222151.599769321034656161.davem@davemloft.net>
+References: <1452216902-21063-1-git-send-email-zhengxing@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60519 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757711AbcAKDTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 22:19:38 -0500
-In-Reply-To: <1452214618-15519-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rockchip@lists.infradead.org, keescook@google.com,
+	leozwang@google.com, heiko@sntech.de, netdev@vger.kernel.org,
+	paul.gortmaker@windriver.com, linux-kernel@vger.kernel.org,
+	geert@linux-m68k.org, linux-arm-kernel@lists.infradead.org
+To: zhengxing@rock-chips.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452216902-21063-1-git-send-email-zhengxing@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <mchan@broadcom.com>
-Date: Thu, 7 Jan 2016 19:56:56 -0500
+From: Xing Zheng <zhengxing@rock-chips.com>
+Date: Fri,  8 Jan 2016 09:34:59 +0800
 
-> 2 patches related to firmware for net-next.
+>   We have supported the emac for RK3066/RK3188, but the RK3036 have
+> some configuration different with them. We should let the driver of
+> emac_rockchip compatible with other Rockchip SoCs.
 
-Series applied, thanks Michael.
+Series applied to net-next.
