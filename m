@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 34/53] perf record: Use OPT_BOOLEAN_SET for buildid cache related options
-Date: Mon, 11 Jan 2016 13:48:25 +0000
-Message-ID: <1452520124-2073-35-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 52/53] perf record: Toggle tailsize ring buffer for reading
+Date: Mon, 11 Jan 2016 13:48:43 +0000
+Message-ID: <1452520124-2073-53-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,12 +19,9 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-'perf record' knows whether buildid cache is enabled (via
---no-no-buildid-cache) deliberately. Buildid cache can be turned off
-in some situations.
-
-Output switching support needs this feature to turn off buildid cache
-by default.
+Toggel tailsize_evt_stopped director after receiving done or switch
+output. After this patch it is possible to trigger a dump use SIGUSR2
+when something happen.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -35,39 +32,70 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ tools/perf/builtin-record.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
 diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index 91bf4b1..7a26cb5 100644
+index 6c8905b..6ec0529 100644
 --- a/tools/perf/builtin-record.c
 +++ b/tools/perf/builtin-record.c
-@@ -50,7 +50,9 @@ struct record {
- 	const char		*progname;
- 	int			realtime_prio;
- 	bool			no_buildid;
-+	bool			no_buildid_set;
- 	bool			no_buildid_cache;
-+	bool			no_buildid_cache_set;
- 	unsigned long long	samples;
- };
+@@ -591,6 +591,26 @@ static void record__init_features(struct record *rec)
+ }
  
-@@ -1176,10 +1178,12 @@ struct option __record_options[] = {
- 	OPT_BOOLEAN('P', "period", &record.opts.period, "Record the sample period"),
- 	OPT_BOOLEAN('n', "no-samples", &record.opts.no_samples,
- 		    "don't sample"),
--	OPT_BOOLEAN('N', "no-buildid-cache", &record.no_buildid_cache,
--		    "do not update the buildid cache"),
--	OPT_BOOLEAN('B', "no-buildid", &record.no_buildid,
--		    "do not collect buildids in perf.data"),
-+	OPT_BOOLEAN_SET('N', "no-buildid-cache", &record.no_buildid_cache,
-+			&record.no_buildid_cache_set,
-+			"do not update the buildid cache"),
-+	OPT_BOOLEAN_SET('B', "no-buildid", &record.no_buildid,
-+			&record.no_buildid_set,
-+			"do not collect buildids in perf.data"),
- 	OPT_CALLBACK('G', "cgroup", &record.evlist, "name",
- 		     "monitor event in cgroup name only",
- 		     parse_cgroups),
+ static void
++record__toggle_tailsize_evsels(struct record *rec, bool stop)
++{
++	struct perf_evsel *pos;
++	struct perf_evlist *evlist = rec->evlist;
++
++	evlist__for_each(evlist, pos) {
++		if (!pos->tailsize)
++			continue;
++		if (!pos->overwrite)
++			continue;
++		if (stop)
++			perf_evsel__disable(pos);
++		else
++			perf_evsel__enable(pos);
++	}
++
++	rec->tailsize_evt_stopped = stop;
++}
++
++static void
+ record__finish_output(struct record *rec)
+ {
+ 	struct perf_data_file *file = &rec->file;
+@@ -925,6 +945,9 @@ static int __cmd_record(struct record *rec, int argc, const char **argv)
+ 	for (;;) {
+ 		unsigned long long hits = rec->samples;
+ 
++		if (switch_output_started || done)
++			record__toggle_tailsize_evsels(rec, true);
++
+ 		if (record__mmap_read_all(rec) < 0) {
+ 			auxtrace_snapshot_disable();
+ 			err = -1;
+@@ -943,7 +966,20 @@ static int __cmd_record(struct record *rec, int argc, const char **argv)
+ 		}
+ 
+ 		if (switch_output_started) {
++			/*
++			 * SIGUSR2 raise after or during record__mmap_read_all().
++			 * continue to read again.
++			 */
++			if (!rec->tailsize_evt_stopped)
++				continue;
++
+ 			switch_output_started = 0;
++			/* 
++			 * Reenable events in tailsize ring buffer after
++			 * record__mmap_read_all(): we have collected
++			 * data from it.
++			 */
++			record__toggle_tailsize_evsels(rec, false);
+ 
+ 			if (!quiet)
+ 				fprintf(stderr, "[ perf record: dump data: Woken up %ld times ]\n",
 -- 
 1.8.3.4
