@@ -1,49 +1,54 @@
-From: Roland Hii <roland.king.guan.hii@intel.com>
-Subject: [PATCH] igb: add conditions for I210 to generate periodic clock output
-Date: Mon, 11 Jan 2016 15:34:18 +0800
-Message-ID: <1452497658-20050-1-git-send-email-roland.king.guan.hii@intel.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+From: Teresa Remmet <t.remmet@phytec.de>
+Subject: net: phy: SMSC LAN8710/LAN8720 high load
+Date: Mon, 11 Jan 2016 08:41:55 +0100
+Message-ID: <1452498115.7467.23.camel@lws-tremmet.phytec.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Igor Plyatov <plyatov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In general case the maximum supported half cycle time of the synchronized
-output clock is 70msec. Slower half cycle time than 70msec can be
-programmed also as long as the output clock is synchronized to whole
-seconds, useful specifically for generating a 1Hz clock.
+Hello,
 
-Permitted values for the clock half cycle time are: 125,000,000 decimal,
-250,000,000 decimal and 500,000,000 decimal (equals to 125msec, 250msec
-and 500msec respectively).
+we have noticed load issues on our AM335x boards with a LAN8710 phy while 
+cpu is idling using 4.4-rc8.
 
-Before this patch, only the half cycle time of less than or equal to 70msec
-uses the I210 clock output function. This patch adds additional conditions
-when half cycle time is equal to 125msec or 250msec or 500msec to use
-clock output function.
+CPU:   0% usr   0% sys   0% nic  99% idle   0% io   0% irq   0% sirq
+Load average: 1.21 1.16 1.00 1/84 372
 
-Under other conditions, interrupt driven target time output events method
-is still used to generate the desired clock output.
+We could track this down to the ethernet phy. And bisect the issue to the
+following patch:
 
-Signed-off-by: Roland Hii <roland.king.guan.hii@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_ptp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+commit 776829de90c5972895db398993ddfa9417ff8b01
+Author: Igor Plyatov <plyatov@gmail.com>
+Date:   Fri Aug 14 20:11:02 2015 +0300
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index c44df87..22a8a29 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -525,7 +525,8 @@ static int igb_ptp_feature_enable_i210(struct ptp_clock_info *ptp,
- 		ts.tv_nsec = rq->perout.period.nsec;
- 		ns = timespec64_to_ns(&ts);
- 		ns = ns >> 1;
--		if (on && ns <= 70000000LL) {
-+		if (on && ((ns <= 70000000LL) || (ns == 125000000LL) ||
-+			   (ns == 250000000LL) || (ns == 500000000LL))) {
- 			if (ns < 8LL)
- 				return -EINVAL;
- 			use_freq = 1;
--- 
-1.9.1
+    net: phy: workaround for buggy cable detection by LAN8700 after cable plugging
+    * Due to HW bug, LAN8700 sometimes does not detect presence of energy in the
+      Ethernet cable in Energy Detect Power-Down mode (e.g while EDPWRDOWN bit is
+      set, the ENERGYON bit does not asserted sometimes). This is a common bug of
+      LAN87xx family of PHY chips.
+    * The lan87xx_read_status() was improved to acquire ENERGYON bit. Its previous
+      algorythm still not reliable on 100 % and sometimes skip cable plugging.
+    
+    Signed-off-by: Igor Plyatov <plyatov@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Reverting the commit helped to make the load drop down to:
+
+09:21:01 up 32 min,  load average: 0.19, 0.17, 0.14                   
+
+In both cases no ethernet cable as been connected.
+
+We also struggle with the buggy cable detection issue, but this increase of load
+doesn't seem acceptable.
+
+Can someone else with a LAN87xx also reproduce this?
+
+Regards
+Teresa
