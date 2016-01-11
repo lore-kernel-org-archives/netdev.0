@@ -1,95 +1,127 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 7/8] net: ip_tunnel: remove 'csum_help' argument
- to iptunnel_handle_offloads
-Date: Mon, 11 Jan 2016 13:00:05 -0800
-Message-ID: <CAKgT0UcgCSr8v-SOTEKXE4hSLsYgQSZ9j3PCKcBuJ=DzVuiHFw@mail.gmail.com>
-References: <56901197.8040808@solarflare.com>
-	<56901244.8060809@solarflare.com>
-	<CAKgT0UdQzW2+n7S3YOhAJVZY-q5bjYaQB0jDn7AD3zp2ZrkGZg@mail.gmail.com>
-	<CALx6S34MRoLw_JiHuyDANwoF9+u7k9R-UDb_RGP+L-d9D=f3WQ@mail.gmail.com>
-	<CAKgT0UeZwSm4oKoydXWU3iWmjL5m6H=K=hJ2wAkp_GugbZJwjA@mail.gmail.com>
-	<5693AD25.4020904@solarflare.com>
-	<CAKgT0Ufw9djq-V8YAXjq21gg7rE5=-Dp4o4GmdGk+6Diu4mDNw@mail.gmail.com>
-	<5693E6F8.7040806@solarflare.com>
-	<CAKgT0UeigRk03syFKNtQu7FR4-de-ShyBeyygEEfjRYZ4SEJ4A@mail.gmail.com>
-	<5693FC83.6060004@solarflare.com>
+From: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+Subject: Re: [OOPS] In __netif_receive_skb_core
+Date: Mon, 11 Jan 2016 23:03:11 +0200
+Message-ID: <5694188F.80907@gmail.com>
+References: <568EA671.7000502@gmail.com> <56929985.3020502@gmail.com>
+ <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: noureddine@arista.com, davem@davemloft.net,
+	=?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Sebastian Reichel <sre@kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35370 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933237AbcAKVAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 16:00:05 -0500
-Received: by mail-io0-f195.google.com with SMTP id 77so11858795ioc.2
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 13:00:05 -0800 (PST)
-In-Reply-To: <5693FC83.6060004@solarflare.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35875 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751761AbcAKVDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 16:03:18 -0500
+In-Reply-To: <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 11:03 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 11/01/16 18:15, Alexander Duyck wrote:
->> On Mon, Jan 11, 2016 at 9:31 AM, Edward Cree <ecree@solarflare.com> wrote:
->>> Looks OK to me.  I'd rather tack both of your patches onto the endof the
->>>  series, rather than incorporating your patch [1/2] directly into my patch
->>>  [1/8]; that way (a) the history allows to understand regular LCO before
->>>  adding in the GSO flavour, (b) you're credited for your improved lco_csum.
->> Actually if you don't plan to incorporate the function I am fine with
->> you just leaving it out for now.  I can focus on the GSO portions of
->> all this and rewrite this to just be an update of your patch.  Then
->> when you submit your patches and they are accepted I will submit the
->> GSO implementations.
-> Ok, sounds good.
->>> As for your patch [2/2], I don't pretend to understand GSO right now but it
->>>  looks plausible enough.  Perhaps you could add a document about GSO to go
->>>  alongside the checksum-offloads.txt one?
->> I don't know if we really need to.  The logic is essentially the same
->> as what you already have for the local checksum offload.  The only
->> difference is there is the GSO logic floating around in there to also
->> compute the outer checksum offload based on the inner that GSO had
->> already retained when it did the inner offload via software.
-> I didn't mean a GSO LCO document, I just meant something to explain GSOas
->  a whole.  There doesn't appear to be any documentation in the tree
->  defining what e.g. gso_size or gso_segs mean, and yet they are part of
->  the driver API for TSO.  Even some comments on struct skb_shared_info
->  would be an improvement.
 
-I'm not that much of an expert on GSO, I'm just able to read the
-functions and sort out what they are doing.  From the looks of things
-with the updated lco_csum I provided you we could probably even use it
-in drivers if needed in order to provide an offload.  Most of this is
-actually pretty straight forward since the functionality for GSO doing
-checksums is pretty much the same as for the standard path.
 
-> The comment in skbuff.h seems very much to gloss over how GSO and checksum
->  offload interact in general.  It also says two checksums can be offloaded
->  with UDP tunnels - you might want to update that in your patch.
+On 10.01.2016 22:26, Eric Dumazet wrote:
+>
+> I do not see anything wrong with this commit.
+>
+> It must uncover a prior bug.
+>
 
->From what I can tell this is sort-of true.  It is offloaded in that
-the protocol itself doesn't handle it.  Instead what happens is that
-GSO maintains a running checksum in skb->csum and places checksums in
-the headers as it goes.  So in essence it is doing something similar
-to LCO, but it requires that that we let software offload the inner
-checksum instead of handling it in hardware.  Now that I think about
-it I might rebase some of my current GSO work for these tunnels to
-incorporate the existing gso_make_checksum call instead of lco since
-that may make better use of existing infrastructure.
+Could be, but it was working fine in 3.19.
 
-> But hopefully the GSO stack can be fully LCOified at which point the
->  checksum offload semantics for a GSO skb will be the same as a regular
->  skb.  As for TSO, if the driver/hw has enough information to do TSO, it
->  must know where all the headers are, so it must be able to do the right
->  checksum corrections on all of them.  (I think outer checksums are only
->  affected by the Length and pseudo-header Length field changes.)
-> However, this does raise the question - will TSO be possible with nested
->  encap?  And if not, will current drivers do the right thing in that case,
->  or will they try to do encap TSO and only get two of the three layers?
+> Seems to be a phonet bug not reacting to NETDEV_DOWN maybe ?
+>
+>
+> diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+> index a58680016472..fd2f44940bd7 100644
+> --- a/net/phonet/pn_dev.c
+> +++ b/net/phonet/pn_dev.c
 
-We shouldn't need to worry about multiple layers.  The
-hw_encap_features is meant to prevent that.  Once you have a tunnel in
-a tunnel the inner-most tunnel would lose all offload support.  I
-believe the only feature that is passed through all the way is
-NETIF_F_SG.  I believe the same is currently true for vlans
+The patch makes difference:
+
+<3>[  118.943542] et8ek8 3-003e: could not get clock
+<6>[  119.028045] IPv6: ADDRCONF(NETDEV_UP): phonet0: link is not ready
+<4>[  120.945922] sched: RT throttling activated
+<5>[  158.556091] ssi-protocol ssi-protocol: WAKELINES TEST OK
+<6>[  158.561828] IPv6: ADDRCONF(NETDEV_CHANGE): phonet0: link becomes ready
+<1>[  158.708831] Unable to handle kernel NULL pointer dereference at 
+virtual address 0000005c
+<1>[  158.717498] pgd = ce548000
+<1>[  158.720367] [0000005c] *pgd=8e53a831, *pte=00000000, *ppte=00000000
+<0>[  158.727020] Internal error: Oops: 17 [#1] PREEMPT ARM
+<4>[  158.732330] Modules linked in: cmt_speech nokia_modem ssi_protocol 
+vfat fat rfcomm sd_mod scsi_mod bnep bluetooth omaplfb pvrsrvkm ipv6 
+bq2415x_charger uinput hsi_char radio_platform_si4713 joydev 
+omap_ssi_port video_bus_switch arc4 wl1251_spi wl1251 isp1704_charger 
+gpio_keys mac80211 smc91x mii cfg80211 omap_wdt omap_sham crc7 tsc2005 
+tsc200x_core si4713 leds_lp5523 leds_lp55xx_common adp1653 
+bq27xxx_battery tsl2563 twl4030_wdt rtc_twl et8ek8 smiaregs ad5820 
+v4l2_common twl4030_vibra ff_memless videodev lis3lv02d_i2c media 
+lis3lv02d input_polldev omap_ssi hsi ti_soc_thermal thermal_sys hwmon 
+rx51_battery
+<4>[  158.789154] CPU: 0 PID: 1038 Comm: csd Not tainted 4.4.0-rc7+ #14
+<4>[  158.795562] Hardware name: Nokia RX-51 board
+<4>[  158.800048] task: ce4d5900 ti: ce4e4000 task.ti: ce4e4000
+<4>[  158.805725] PC is at __netif_receive_skb_core+0x7c0/0x92c
+<4>[  158.811401] LR is at sock_queue_rcv_skb+0x208/0x214
+<4>[  158.816528] pc : [<c0394218>]    lr : [<c0385648>]    psr: 00000113
+<4>[  158.816528] sp : ce4e5e98  ip : 14400000  fp : cd4ab380
+<4>[  158.828582] r10: c249405c  r9 : 00000000  r8 : c24b2d74
+<4>[  158.834045] r7 : 0000f500  r6 : c2494000  r5 : c2494048  r4 : c24b2cc0
+<4>[  158.840911] r3 : 00000000  r2 : 00000002  r1 : 00000000  r0 : 00000000
+<4>[  158.847778] Flags: nzcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM 
+Segment none
+<4>[  158.855285] Control: 10c5387d  Table: 8e548019  DAC: 00000051
+<0>[  158.861297] Process csd (pid: 1038, stack limit = 0xce4e4210)
+<0>[  158.867340] Stack: (0xce4e5e98 to 0xce4e6000)
+<0>[  158.871917] 5e80: 
+       cf3ab000 cf2e4d90
+<0>[  158.880554] 5ea0: 00000002 c24b2cc0 c06534dc c243b67c c5dcae00 
+c00685ac c243b67c 40000113
+<0>[  158.889129] 5ec0: ffffffff bf3b0fac bf3b0d88 ffffffff 00000000 
+c06780c0 c24b2cc0 00000000
+<0>[  158.897735] 5ee0: c06780b4 c0678088 ce4e5f18 00000040 ce4e5f20 
+c0396950 c03968dc c06780c0
+<0>[  158.906341] 5f00: 00000001 0000012c 00000040 c0678357 ffffc8d0 
+c03970a4 ce4e5f18 ce4e5f18
+<0>[  158.914947] 5f20: ce4e5f20 ce4e5f20 cf3ab000 00000008 c0679380 
+00000008 c0679340 c067938c
+<0>[  158.923522] 5f40: 00000100 00400100 c0441be8 c0030e64 cf807f00 
+fa2000cc 00000003 00000003
+<0>[  158.932128] 5f60: ffffc8cf 00000004 10c53c7d 00000000 00000000 
+cf802000 00000001 10c53c7d
+<0>[  158.940734] 5f80: 00001a30 0000026c beba476c c0031214 00000000 
+c005b4c4 ce4e5fb0 b6e3f82c
+<0>[  158.949310] 5fa0: 40000010 ffffffff 10c5387d c043c990 00000014 
+00000000 0001ef78 00000014
+<0>[  158.957946] 5fc0: 0001edf8 00000001 00000000 00000000 00000000 
+00001a30 0000026c beba476c
+<0>[  158.966522] 5fe0: b6e4d82c beba4748 b6e3f82c b6e3f82c 40000010 
+ffffffff ddee3fd6 e7f5d5dd
+<4>[  158.975158] [<c0394218>] (__netif_receive_skb_core) from 
+[<c0396950>] (process_backlog+0x74/0xf4)
+<4>[  158.984497] [<c0396950>] (process_backlog) from [<c03970a4>] 
+(net_rx_action+0xd0/0x284)
+<4>[  158.992919] [<c03970a4>] (net_rx_action) from [<c0030e64>] 
+(__do_softirq+0xb0/0x208)
+<4>[  159.001037] [<c0030e64>] (__do_softirq) from [<c0031214>] 
+(irq_exit+0x80/0xe4)
+<4>[  159.008636] [<c0031214>] (irq_exit) from [<c005b4c4>] 
+(__handle_domain_irq+0x88/0xa8)
+<4>[  159.016906] [<c005b4c4>] (__handle_domain_irq) from [<c043c990>] 
+(__irq_usr+0x50/0x80)
+<0>[  159.025207] Code: e59d400c e5943014 e1530006 0a000025 (e593505c)
+<4>[  159.031677] ---[ end trace c52d1e36f2d07d67 ]---
+<0>[  159.038146] Kernel panic - not syncing: Fatal exception in interrupt
+--[ end trace c52d1e36f2d07d67 ]---
+
+Could you provide some hints on where to put some printks or dump some 
+data to get a clearer picture on what happens?
+
+Thanks,
+Ivo
