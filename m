@@ -1,7 +1,7 @@
 From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update elem
-Date: Mon, 11 Jan 2016 23:56:57 +0800
-Message-ID: <1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
+Subject: [PATCH 3/9] bpf: introduce percpu verion of lookup/update in bpf_map_ops
+Date: Mon, 11 Jan 2016 23:56:55 +0800
+Message-ID: <1452527821-12276-4-git-send-email-tom.leiming@gmail.com>
 References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>,
@@ -13,142 +13,119 @@ In-Reply-To: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prepare for supporting percpu map in the following patch.
-
-Now userspace can lookup/update mapped value in one specific
-CPU in case of percpu map.
+This patch is preparing for supporting percpu map, which
+will be done in the following patches.
 
 Signed-off-by: Ming Lei <tom.leiming@gmail.com>
 ---
- include/uapi/linux/bpf.h |  3 +++
- kernel/bpf/syscall.c     | 48 ++++++++++++++++++++++++++++++++++++++----------
- 2 files changed, 41 insertions(+), 10 deletions(-)
+ include/linux/bpf.h   |  5 +++++
+ kernel/bpf/arraymap.c |  6 ++++++
+ kernel/bpf/bpf_map.h  |  4 ++++
+ kernel/bpf/hashtab.c  |  4 ++++
+ kernel/bpf/map.c      | 11 +++++++++++
+ 5 files changed, 30 insertions(+)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 2658917..63b04c6 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -73,6 +73,8 @@ enum bpf_cmd {
- 	BPF_PROG_LOAD,
- 	BPF_OBJ_PIN,
- 	BPF_OBJ_GET,
-+	BPF_MAP_LOOKUP_ELEM_PERCPU,
-+	BPF_MAP_UPDATE_ELEM_PERCPU,
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 83d1926..7fa339f 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -25,6 +25,11 @@ struct bpf_map_ops {
+ 	int (*map_update_elem)(struct bpf_map *map, void *key, void *value, u64 flags);
+ 	int (*map_delete_elem)(struct bpf_map *map, void *key);
+ 
++	/* funcs callable from userspace and from eBPF programs */
++	void *(*map_lookup_elem_percpu)(struct bpf_map *map, void *key, u32 cpu);
++	int (*map_update_elem_percpu)(struct bpf_map *map, void *key,
++			void *value, u64 flags, u32 cpu);
++
+ 	/* funcs called by prog_array and perf_event_array map */
+ 	void *(*map_fd_get_ptr) (struct bpf_map *map, int fd);
+ 	void (*map_fd_put_ptr) (void *ptr);
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 9ad9031..20b9f2c 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -139,6 +139,8 @@ static const struct bpf_map_ops array_ops = {
+ 	.map_lookup_elem = array_map_lookup_elem,
+ 	.map_update_elem = array_map_update_elem,
+ 	.map_delete_elem = map_delete_elem_nop,
++	.map_lookup_elem_percpu = map_lookup_elem_percpu_nop,
++	.map_update_elem_percpu = map_update_elem_percpu_nop,
  };
  
- enum bpf_map_type {
-@@ -114,6 +116,7 @@ union bpf_attr {
- 			__aligned_u64 next_key;
- 		};
- 		__u64		flags;
-+		__u32		cpu;
- 	};
+ static struct bpf_map_type_list array_type __read_mostly = {
+@@ -258,6 +260,8 @@ static const struct bpf_map_ops prog_array_ops = {
+ 	.map_delete_elem = fd_array_map_delete_elem,
+ 	.map_fd_get_ptr = prog_fd_array_get_ptr,
+ 	.map_fd_put_ptr = prog_fd_array_put_ptr,
++	.map_lookup_elem_percpu = map_lookup_elem_percpu_nop,
++	.map_update_elem_percpu = map_update_elem_percpu_nop,
+ };
  
- 	struct { /* anonymous struct used by BPF_PROG_LOAD command */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 6373970..280c93b 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -231,8 +231,9 @@ static void __user *u64_to_ptr(__u64 val)
+ static struct bpf_map_type_list prog_array_type __read_mostly = {
+@@ -324,6 +328,8 @@ static const struct bpf_map_ops perf_event_array_ops = {
+ 	.map_delete_elem = fd_array_map_delete_elem,
+ 	.map_fd_get_ptr = perf_event_fd_array_get_ptr,
+ 	.map_fd_put_ptr = perf_event_fd_array_put_ptr,
++	.map_lookup_elem_percpu = map_lookup_elem_percpu_nop,
++	.map_update_elem_percpu = map_update_elem_percpu_nop,
+ };
  
- /* last field in 'union bpf_attr' used by this command */
- #define BPF_MAP_LOOKUP_ELEM_LAST_FIELD value
-+#define BPF_MAP_LOOKUP_ELEM_PERCPU_LAST_FIELD cpu
+ static struct bpf_map_type_list perf_event_array_type __read_mostly = {
+diff --git a/kernel/bpf/bpf_map.h b/kernel/bpf/bpf_map.h
+index 7e596c1..adab4e6 100644
+--- a/kernel/bpf/bpf_map.h
++++ b/kernel/bpf/bpf_map.h
+@@ -5,5 +5,9 @@
  
--static int map_lookup_elem(union bpf_attr *attr)
-+static int map_lookup_elem(union bpf_attr *attr, bool percpu)
- {
- 	void __user *ukey = u64_to_ptr(attr->key);
- 	void __user *uvalue = u64_to_ptr(attr->value);
-@@ -242,8 +243,14 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	struct fd f;
- 	int err;
+ extern void *map_lookup_elem_nop(struct bpf_map *map, void *key);
+ extern int map_delete_elem_nop(struct bpf_map *map, void *key);
++extern void *map_lookup_elem_percpu_nop(struct bpf_map *map, void *key,
++		u32 cpu);
++extern int map_update_elem_percpu_nop(struct bpf_map *map, void *key,
++		void *value, u64 flags, u32 cpu);
  
--	if (CHECK_ATTR(BPF_MAP_LOOKUP_ELEM))
--		return -EINVAL;
-+	if (!percpu) {
-+		if (CHECK_ATTR(BPF_MAP_LOOKUP_ELEM))
-+			return -EINVAL;
-+	} else {
-+		if (CHECK_ATTR(BPF_MAP_LOOKUP_ELEM_PERCPU) ||
-+				attr->cpu >= num_possible_cpus())
-+			return -EINVAL;
-+	}
+ #endif
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index c5b30fd..893e2e4 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -14,6 +14,8 @@
+ #include <linux/filter.h>
+ #include <linux/vmalloc.h>
  
- 	f = fdget(ufd);
- 	map = __bpf_map_get(f);
-@@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
- 		goto free_key;
++#include "bpf_map.h"
++
+ struct bucket {
+ 	struct hlist_head head;
+ 	raw_spinlock_t lock;
+@@ -384,6 +386,8 @@ static const struct bpf_map_ops htab_ops = {
+ 	.map_lookup_elem = htab_map_lookup_elem,
+ 	.map_update_elem = htab_map_update_elem,
+ 	.map_delete_elem = htab_map_delete_elem,
++	.map_lookup_elem_percpu = map_lookup_elem_percpu_nop,
++	.map_update_elem_percpu = map_update_elem_percpu_nop,
+ };
  
- 	rcu_read_lock();
--	ptr = map->ops->map_lookup_elem(map, key);
-+	if (!percpu)
-+		ptr = map->ops->map_lookup_elem(map, key);
-+	else
-+		ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
- 	if (ptr)
- 		memcpy(value, ptr, map->value_size);
- 	rcu_read_unlock();
-@@ -290,8 +300,9 @@ err_put:
+ static struct bpf_map_type_list htab_type __read_mostly = {
+diff --git a/kernel/bpf/map.c b/kernel/bpf/map.c
+index bf113fb..b94458a 100644
+--- a/kernel/bpf/map.c
++++ b/kernel/bpf/map.c
+@@ -24,3 +24,14 @@ int map_delete_elem_nop(struct bpf_map *map, void *key)
+ 	return -EINVAL;
  }
  
- #define BPF_MAP_UPDATE_ELEM_LAST_FIELD flags
-+#define BPF_MAP_UPDATE_ELEM_PERCPU_LAST_FIELD cpu
- 
--static int map_update_elem(union bpf_attr *attr)
-+static int map_update_elem(union bpf_attr *attr, bool percpu)
- {
- 	void __user *ukey = u64_to_ptr(attr->key);
- 	void __user *uvalue = u64_to_ptr(attr->value);
-@@ -301,8 +312,14 @@ static int map_update_elem(union bpf_attr *attr)
- 	struct fd f;
- 	int err;
- 
--	if (CHECK_ATTR(BPF_MAP_UPDATE_ELEM))
--		return -EINVAL;
-+	if (!percpu) {
-+		if (CHECK_ATTR(BPF_MAP_UPDATE_ELEM))
-+			return -EINVAL;
-+	} else {
-+		if (CHECK_ATTR(BPF_MAP_UPDATE_ELEM_PERCPU) ||
-+				attr->cpu >= num_possible_cpus())
-+			return -EINVAL;
-+	}
- 
- 	f = fdget(ufd);
- 	map = __bpf_map_get(f);
-@@ -331,7 +348,12 @@ static int map_update_elem(union bpf_attr *attr)
- 	 * therefore all map accessors rely on this fact, so do the same here
- 	 */
- 	rcu_read_lock();
--	err = map->ops->map_update_elem(map, key, value, attr->flags);
-+	if (!percpu)
-+		err = map->ops->map_update_elem(map, key, value, attr->flags);
-+	else
-+		err = map->ops->map_update_elem_percpu(map, key, value,
-+				attr->flags, attr->cpu);
++void *map_lookup_elem_percpu_nop(struct bpf_map *map, void *key, u32 cpu)
++{
++	return NULL;
++}
 +
- 	rcu_read_unlock();
- 
- free_value:
-@@ -772,10 +794,16 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 		err = map_create(&attr);
- 		break;
- 	case BPF_MAP_LOOKUP_ELEM:
--		err = map_lookup_elem(&attr);
-+		err = map_lookup_elem(&attr, false);
-+		break;
-+	case BPF_MAP_LOOKUP_ELEM_PERCPU:
-+		err = map_lookup_elem(&attr, true);
- 		break;
- 	case BPF_MAP_UPDATE_ELEM:
--		err = map_update_elem(&attr);
-+		err = map_update_elem(&attr, false);
-+		break;
-+	case BPF_MAP_UPDATE_ELEM_PERCPU:
-+		err = map_update_elem(&attr, true);
- 		break;
- 	case BPF_MAP_DELETE_ELEM:
- 		err = map_delete_elem(&attr);
++int map_update_elem_percpu_nop(struct bpf_map *map, void *key, void *value,
++		u64 flags, u32 cpu)
++{
++	return -EINVAL;
++}
++
 -- 
 1.9.1
