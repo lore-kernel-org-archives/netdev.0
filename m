@@ -1,54 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] mlxsw: spectrum: Add FDB lock to prevent session
- interleaving
-Date: Mon, 11 Jan 2016 09:41:36 +0100
-Message-ID: <20160111084135.GA2246@nanopsycho.orion>
-References: <1452414736-3571-1-git-send-email-jiri@resnulli.us>
- <20160111.002103.979291218776108297.davem@davemloft.net>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] openvswitch: compute needed headroom for internal
+ vports
+Date: Mon, 11 Jan 2016 09:43:08 +0100
+Message-ID: <1452501788.5027.13.camel@redhat.com>
+References: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
+	 <CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
+	 <CAEh+42hN8wL7bbALB8SGCKvum2pzT3R0kXUtMfQPg-XP-QZ7Dg@mail.gmail.com>
+	 <CAOrHB_Bo2iqp2xGaZpOb2AvriGTTruC_O72hQ7LqKnkbR_CAeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Flavio Leitner <fbl@sysclose.org>
+To: pravin shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33727 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752006AbcAKIlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 03:41:40 -0500
-Received: by mail-wm0-f68.google.com with SMTP id u188so25156952wmu.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 00:41:39 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160111.002103.979291218776108297.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:33136 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758643AbcAKInO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 03:43:14 -0500
+In-Reply-To: <CAOrHB_Bo2iqp2xGaZpOb2AvriGTTruC_O72hQ7LqKnkbR_CAeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jan 11, 2016 at 06:21:03AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Sun, 10 Jan 2016 09:32:16 +0100
->
->> From: Ido Schimmel <idosch@mellanox.com>
->> 
->> Dumping the FDB (invoked with a process context) or handling FDB
->> notifications (polled periodicly in delayed work) might each entail
->> multiple EMAD transcations due to the number of entries.
->> 
->> While we only allow one EMAD transaction at a time, there is nothing
->> stopping the dump and notification processing sessions from
->> interleaving. However, this is forbidden by the hardware, so we need to
->> make sure only one of these sessions can run at a time.
->> 
->> Solve this by adding a mutex ('fdb_lock'), as both kernel threads can
->> sleep while waiting for the response EMAD.
->> 
->> Fixes: 56ade8fe3f ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
->> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->
->Jiri, I noticed you submitted both a net and a net-next variant of
->this same fix.  Please don't ever do that.
->
->it's easiest if I just apply the 'net' variant and handle the merge
->issues when I pull 'net' into 'net-next', so that how I'm going to
->handle this change.
+On Fri, 2016-01-08 at 18:44 -0800, pravin shelar wrote:
+> On Fri, Jan 8, 2016 at 4:42 PM, Jesse Gross <jesse@kernel.org> wrote:
+> > On Fri, Jan 8, 2016 at 2:53 PM, pravin shelar <pshelar@ovn.org> wrote:
+> >> On Fri, Jan 8, 2016 at 1:50 PM, Paolo Abeni <pabeni@redhat.com> wrote:
+> >>> Currently the ovs internal vports always use a default needed_headroom.
+> >>> This leads to a skb head copy while xmitting on ovs swith via vport
+> >>> that add some kind of encapsulation (gre, geneve, etc.).
+> >>>
+> >>> This patch add book-keeping for the maximum needed_headroom used by
+> >>> the non internal vports in any dp, updating it on vport creation and
+> >>> deletion.
+> >>>
+> >>> Said value is than used as needed_headroom for internal vports,
+> >>> avoiding the above copy.
+> >>>
+> >> Why is this done only for internal devices? In most common case of
+> >> traffic the packet enters OVS from tap or other netdev type vport
+> >> device.
+> >
+> > How would you influence the allocation for non-internal devices?
+> 
+> Today there is no way of influencing this. But we could add new
+> skb-headroom parameter to netdev for packets that are received on the
+> device. This new parameter could be controlled from master devices
+> like OVS, Bridge, etc. To set this value we need new ndo operation. So
+> that it can work on devices like tap where it would just set this new
+> value and in case of ovs-internal or veth device, it can also update
+> needed_headroom.
 
-Okay. I just wanted to help since the net-next patch differs. Thanks!
+My idea was to continue working along this lines.
+
+However I thought to get there incrementally, i.e. handle internal
+vports only first. Can this be ok for you?
+
+Cheers,
+
+Paolo
