@@ -1,195 +1,108 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [next PATCH 2/4] ixgbevf: Add support for generic Tx checksums
-Date: Mon, 11 Jan 2016 09:54:02 -0800
-Message-ID: <20160111175402.4101.60720.stgit@localhost.localdomain>
-References: <20160111173724.4101.35798.stgit@localhost.localdomain>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next 3/5] net: vxlan: enable local checksum offload
+Date: Mon, 11 Jan 2016 09:55:49 -0800
+Message-ID: <CALx6S35sBDydNEmJwcBfKnbVhFdtEk8dkwjWsVRhrEHOLn4jTQ@mail.gmail.com>
+References: <568E9BF9.2050001@solarflare.com>
+	<568E9C9B.3090408@solarflare.com>
+	<CAKgT0UfqNgdRYhVRJtT24oBKK4SBqy+QOtWQdD4H09zo2sj32A@mail.gmail.com>
+	<568FD844.3020101@solarflare.com>
+	<CAKgT0Uc7K1tmwSmdi2uftJSHr4E5DKKYHxO1Gn50eCCWPaTurw@mail.gmail.com>
+	<CAEh+42iX4AxEektcKSSeJ+OKX5Paa+ZY5T9vXC5KYtiLvjqixg@mail.gmail.com>
+	<CAKgT0UcbH-BVbGxOuKx2EeX_Z5SgV8fdhDRjgoSC2eQTDjxNmQ@mail.gmail.com>
+	<CAEh+42itZQDiQMrk_rf9LLgeYD=WDa2DMPq8u-9VtUf-eCoQ2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org
-To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36000 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760940AbcAKRyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 12:54:04 -0500
-Received: by mail-pa0-f44.google.com with SMTP id yy13so232026784pab.3
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 09:54:04 -0800 (PST)
-In-Reply-To: <20160111173724.4101.35798.stgit@localhost.localdomain>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:32906 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932674AbcAKRzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 12:55:50 -0500
+Received: by mail-io0-f169.google.com with SMTP id q21so356655344iod.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 09:55:49 -0800 (PST)
+In-Reply-To: <CAEh+42itZQDiQMrk_rf9LLgeYD=WDa2DMPq8u-9VtUf-eCoQ2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for generic Tx checksums to the ixgbevf driver.  It
-turns out this is actually pretty easy after going over the datasheet as we
-were doing a number of steps we didn't need to.
+On Mon, Jan 11, 2016 at 9:24 AM, Jesse Gross <jesse@kernel.org> wrote:
+> On Fri, Jan 8, 2016 at 1:22 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Fri, Jan 8, 2016 at 11:40 AM, Jesse Gross <jesse@kernel.org> wrote:
+>>> On Fri, Jan 8, 2016 at 10:03 AM, Alexander Duyck
+>>> <alexander.duyck@gmail.com> wrote:
+>>>> On Fri, Jan 8, 2016 at 7:39 AM, Edward Cree <ecree@solarflare.com> wrote:
+>>>>> On 08/01/16 03:46, Alexander Duyck wrote:
+>>>>>> So I just tried testing your patches and as it turns out you are still
+>>>>>> missing some bits.  In this patch for instance the calls to
+>>>>>> udp_tunnel_xmit_skb and udp_tunnel6_xmit skb need to be updated so
+>>>>>> that you pass false for the last parameter and allow the use of your
+>>>>>> udp_set_csum modifications.
+>>>>>>
+>>>>>> - Alex
+>>>>> Are you remembering to enable outer checksums on your vxlan tunnel?  It's
+>>>>>  the vxflags & VXLAN_F_UDP_CSUM check, and to enable it you need a recent
+>>>>>  iproute2 so you can use the 'udpcsum' option when creating the vxlan device.
+>>>>
+>>>> No I hadn't done that.  I kind of assumed that the checksums were just
+>>>> being enabled by default.  That might explain the some of the issues I
+>>>> had..  ;-)
+>>>>
+>>>>> It would be nice if that could just default to enabled now that we have LCO,
+>>>>>  but I don't think we can change that now (ABIs set in stone and all that),
+>>>>>  so I think it would have to be iproute2 that turned it on by default.
+>>>>
+>>>> If anything we might want to expose the capabilities of the kernel so
+>>>> that iproute2 could make an informed decision on if it want to enable
+>>>> the outer checksum by default or not.
+>>>
+>>> Keep in mind that protocols like VXLAN specify that the UDP checksum
+>>> should be set to zero. As a result, enabling the checksum is not a
+>>> purely local decision and it probably shouldn't be on by default.
+>>
+>> Yes, but the RFC allows for a non-zero checksum.  The key difference
+>> here is the wording between SHOULD and MUST.  We aren't requiring the
+>> other endpoint to enable outer checksum on its end, and we don't
+>> require the remote end to validate the outer checksum.  We have made
+>> that purely optional.  If however the other end is also a Linux client
+>> it can make use of the outer checksum and hardware offloads to greatly
+>> improve the performance.
+>>
+>> It is essentially all the goodness of remote checksum offload without
+>> the compatibility negatives, assuming of course everyone implemented
+>> things according to the RFC and didn't make the 0 checksum mandatory..
+>
+> It's hard to say what other types of endpoints might do if they
+> receive a VXLAN packet with a checksum set and, of course, there are
+> other protocols that don't specify that received UDP checksums can be
+> ignored.
+>
+RFC1122 is very clear on the subject of UDP checksums:
 
-In order to perform a Tx checksum for an L4 header we need to fill in the
-following fields in the Tx descriptor:
-  MACLEN (maximum of 127), retrieved from:
-		skb_network_offset()
-  IPLEN  (maximum of 511), retrieved from:
-		skb_checksum_start_offset() - skb_network_offset()
-  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
-		skb->csum_offset
+"If a UDP datagram is received with a checksum that is non- zero and
+invalid, UDP MUST silently discard the datagram."
 
-The added advantage to doing this is that we can support inner checksum
-offloads for tunnels and MPLS while still being able to transparently insert
-VLAN tags.
+So if a VXLAN receiver accepts a UDP packet without checking a
+non-zero UDP checksum for validity they are breaking the UDP protocol.
+If they blow up because they don't expect to receive non-zero
+checksums that is entirely their problem.
 
-I also took the opportunity to clean-up many of the feature flag
-configuration bits to make them a bit more consistent between drivers.  In
-the case of the VF drivers this meant adding support for SCTP CRCs, and
-inner checksum offloads for MPLS and various tunnel types.
+> I'm all in favor of enabling support for the checksum but it doesn't
+> seem right to make the default behavior go against the RFC
+> recommendation and common implementation.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  104 +++++++++------------
- 1 file changed, 43 insertions(+), 61 deletions(-)
+RFC2460 requires UDP checksums for IPv6 which IMO supersedes what is
+recommended in RFC7348 which says that the checksum SHOULD be
+transmitted as zero. RFC6935 and RFC 6936 permit zero checksums for
+tunneled packets over IPv6 under specific conditions, but we cannot
+say that those conditions are meant in every deployment to make that a
+default. This is interpretation is consistent with other foo/UDP, like
+MPLS/UDP RFC7510 which states:
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 0b451d9eddb0..e58bebf6ea1d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3334,76 +3334,55 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
- 	return 1;
- }
- 
-+static inline bool ixgbevf_ipv6_csum_is_sctp(struct sk_buff *skb)
-+{
-+	unsigned int offset = 0;
-+
-+	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
-+
-+	return offset == skb_checksum_start_offset(skb);
-+}
-+
- static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
- 			    struct ixgbevf_tx_buffer *first)
- {
- 	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens = 0;
--	u32 mss_l4len_idx = 0;
- 	u32 type_tucmd = 0;
- 
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		u8 l4_hdr = 0;
--		__be16 frag_off;
--
--		switch (first->protocol) {
--		case htons(ETH_P_IP):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
--			l4_hdr = ip_hdr(skb)->protocol;
--			break;
--		case htons(ETH_P_IPV6):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			l4_hdr = ipv6_hdr(skb)->nexthdr;
--			if (likely(skb_network_header_len(skb) ==
--				   sizeof(struct ipv6hdr)))
--				break;
--			ipv6_skip_exthdr(skb, skb_network_offset(skb) +
--					      sizeof(struct ipv6hdr),
--					 &l4_hdr, &frag_off);
--			if (unlikely(frag_off))
--				l4_hdr = NEXTHDR_FRAGMENT;
--			break;
--		default:
--			break;
--		}
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		goto no_csum;
- 
--		switch (l4_hdr) {
--		case IPPROTO_TCP:
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
--			mss_l4len_idx = tcp_hdrlen(skb) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_SCTP:
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
--			mss_l4len_idx = sizeof(struct sctphdr) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_UDP:
--			mss_l4len_idx = sizeof(struct udphdr) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
-+	switch (skb->csum_offset) {
-+	case offsetof(struct tcphdr, check):
-+		type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
-+		/* fall through */
-+	case offsetof(struct udphdr, check):
-+		break;
-+	case offsetof(struct sctphdr, checksum):
-+		/* validate that this is actually an SCTP request */
-+		if (((first->protocol == htons(ETH_P_IP)) &&
-+		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
-+		    ((first->protocol == htons(ETH_P_IPV6)) &&
-+		     ixgbevf_ipv6_csum_is_sctp(skb))) {
-+			type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
- 			break;
--		default:
--			if (unlikely(net_ratelimit())) {
--				dev_warn(tx_ring->dev,
--					 "partial checksum, l3 proto=%x, l4 proto=%x\n",
--					 first->protocol, l4_hdr);
--			}
--			skb_checksum_help(skb);
--			goto no_csum;
- 		}
--
--		/* update TX checksum flag */
--		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+		/* fall through */
-+	default:
-+		skb_checksum_help(skb);
-+		goto no_csum;
- 	}
--
-+	/* update TX checksum flag */
-+	first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+	vlan_macip_lens = skb_checksum_start_offset(skb) -
-+			  skb_network_offset(skb);
- no_csum:
- 	/* vlan_macip_lens: MACLEN, VLAN tag */
- 	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
- 
--	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens,
--			    type_tucmd, mss_l4len_idx);
-+	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
- }
- 
- static __le32 ixgbevf_tx_cmd_type(u32 tx_flags)
-@@ -4006,22 +3985,25 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	netdev->hw_features = NETIF_F_SG |
--			      NETIF_F_IP_CSUM |
--			      NETIF_F_IPV6_CSUM |
- 			      NETIF_F_TSO |
- 			      NETIF_F_TSO6 |
--			      NETIF_F_RXCSUM;
-+			      NETIF_F_RXCSUM |
-+			      NETIF_F_HW_CSUM |
-+			      NETIF_F_SCTP_CRC;
- 
- 	netdev->features = netdev->hw_features |
- 			   NETIF_F_HW_VLAN_CTAG_TX |
- 			   NETIF_F_HW_VLAN_CTAG_RX |
- 			   NETIF_F_HW_VLAN_CTAG_FILTER;
- 
--	netdev->vlan_features |= NETIF_F_TSO |
-+	netdev->vlan_features |= NETIF_F_SG |
-+				 NETIF_F_TSO |
- 				 NETIF_F_TSO6 |
--				 NETIF_F_IP_CSUM |
--				 NETIF_F_IPV6_CSUM |
--				 NETIF_F_SG;
-+				 NETIF_F_HW_CSUM |
-+				 NETIF_F_SCTP_CRC;
-+
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
- 
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
+"When UDP is used over IPv6, the UDP checksum is relied upon to
+protect both the IPv6 and UDP headers from corruption and MUST be used
+unless the requirements in [RFC6935] and [RFC6936] for use of UDP
+zero-checksum mode with a tunnel protocol are satisfied."
