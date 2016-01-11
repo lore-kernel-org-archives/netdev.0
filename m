@@ -1,58 +1,39 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update
- elem
-Date: Mon, 11 Jan 2016 11:02:49 -0800
-Message-ID: <20160111190248.GA26495@ast-mbp.thefacebook.com>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
- <1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next 6/8] net: gre: Implement LCO for GRE over IPv4
+Date: Mon, 11 Jan 2016 19:02:51 +0000
+Message-ID: <5693FC5B.3060904@solarflare.com>
+References: <56901197.8040808@solarflare.com>
+ <56901235.1010800@solarflare.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCC1D7E@AcuExch.aculab.com>
+ <5693AC59.4080702@solarflare.com>
+ <CAKgT0UdSRi-iwZpBWrezg=-fFcVTFSd=2FOOye_oZr2oNCNJAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Martin KaFai Lau <kafai@fb.com>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@aculab.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"tom@herbertland.com" <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:31454 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933295AbcAKTDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 14:03:19 -0500
+In-Reply-To: <CAKgT0UdSRi-iwZpBWrezg=-fFcVTFSd=2FOOye_oZr2oNCNJAw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 11:56:57PM +0800, Ming Lei wrote:
-> Prepare for supporting percpu map in the following patch.
-> 
-> Now userspace can lookup/update mapped value in one specific
-> CPU in case of percpu map.
-> 
-> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
-...
-> @@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
->  		goto free_key;
->  
->  	rcu_read_lock();
-> -	ptr = map->ops->map_lookup_elem(map, key);
-> +	if (!percpu)
-> +		ptr = map->ops->map_lookup_elem(map, key);
-> +	else
-> +		ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
+On 11/01/16 18:39, Alexander Duyck wrote:
+> On Mon, Jan 11, 2016 at 5:21 AM, Edward Cree <ecree@solarflare.com> wrote:
+>> csum_fold complements, so if the sum comes to (say) 0x1fffe, it will return ~0xffff which is 0.
+>>
+>> Next version of patch will mangle 0 for both branches.
+> Actually you may want to go the other way on that.  If they weren't
+> flipping the checksum value for GRE before why should we start doing
+> that now?  I'm pretty sure the checksum mangling is a very UDP centric
+> thing.  There is no need to introduce it to other protocols.
+Good catch, you're quite right.
 
-I think this approach is less potent than Martin's for several reasons:
-- bpf program shouldn't be supplying bpf_smp_processor_id(), since
-  it's error prone and a bit slower than doing it explicitly as in:
-  http://patchwork.ozlabs.org/patch/564482/
-  although Martin's patch also needs to use this_cpu_ptr() instead
-  of per_cpu_ptr(.., smp_processor_id());
-
-- two new bpf helpers are not necessary in Martin's approach.
-  regular map_lookup_elem() will work for both per-cpu maps.
-
-- such map_lookup_elem_percpu() from syscall is not accurate.
-  Martin's approach via smp_call_function_single() returns precise value,
-  whereas here memcpy() will race with other cpus.
- 
-Overall I think both pre-cpu hash and per-cpu array maps are quite useful.
-For this particular set I would suggest to rebase on top of Martin's
-to reuse BPF_MAP_LOOKUP_PERCPU_ELEM command that should be applicable
-to both per-cpu array and per-cpu hash maps.
-and add BPF_MAP_UPDATE_PERCPU_ELEM via smp_call as another patch
-that should work for both as well.
+-ed
