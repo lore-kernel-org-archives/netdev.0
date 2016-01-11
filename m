@@ -1,30 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] Removed: missing blank after decaration,
- line over 80 characters.
-Date: Mon, 11 Jan 2016 17:26:44 -0500 (EST)
-Message-ID: <20160111.172644.1887467841781447402.davem@davemloft.net>
-References: <1452550846-3611-1-git-send-email-januszvdm@awokados.com.pl>
- <1452550846-3611-4-git-send-email-januszvdm@awokados.com.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1452550846-3611-4-git-send-email-januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Janusz Wolak <januszvdm@awokados.com.pl>
+Subject: [PATCH] Remove line over 80 characters and unnecessary braces
+Date: Mon, 11 Jan 2016 23:20:43 +0100
+Message-ID: <1452550846-3611-1-git-send-email-januszvdm@awokados.com.pl>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, dev@openvswitch.org,
+	linux-kernel@vger.kernel.org, Janusz Wolak <januszvdm@gmail.com>,
+	Janusz Wolak <januszvdm@awokados.com.pl>
+To: pshelar@nicira.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ClRoZXJlIGlzIG5vIHdheSBJIGFtIGFwcGx5aW5nIGFueSBvZiB0aGVzZSBwYXRjaGVzLgoKSW1w
-cm9wZXIgU3ViamVjdDogcHJlZml4ZXMsIGVudGlyZSBjb21taXQgbWVzc2FnZXMgaW4gdGhlIFN1
-YmplY3QKbGluZSwgZXRjLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
-c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+From: Janusz Wolak <januszvdm@gmail.com>
+
+Signed-off-by: Janusz Wolak <januszvdm@awokados.com.pl>
+---
+ net/openvswitch/actions.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index c88d0f2..28bc395 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -620,7 +620,8 @@ static int set_sctp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	return 0;
+ }
+ 
+-static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *skb)
++static int ovs_vport_output(struct net *net, struct sock *sk,
++			    struct sk_buff *skb)
+ {
+ 	struct ovs_frag_data *data = this_cpu_ptr(&ovs_frag_data_storage);
+ 	struct vport *vport = data->vport;
+@@ -707,9 +708,8 @@ static void ovs_fragment(struct net *net, struct vport *vport,
+ 		unsigned long orig_dst;
+ 		struct rt6_info ovs_rt;
+ 
+-		if (!v6ops) {
++		if (!v6ops)
+ 			goto err;
+-		}
+ 
+ 		prepare_frag(vport, skb);
+ 		memset(&ovs_rt, 0, sizeof(ovs_rt));
+-- 
+2.5.0
