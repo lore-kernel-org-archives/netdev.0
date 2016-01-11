@@ -1,69 +1,71 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 42/53] perf record: Prevent reading invalid data in
- record__mmap_read
-Date: Mon, 11 Jan 2016 17:21:44 +0300
-Message-ID: <5693BA78.70606@cogentembedded.com>
+Subject: Re: [PATCH 11/53] perf test: Fix false TEST_OK result for 'perf test
+ hist'
+Date: Mon, 11 Jan 2016 17:25:48 +0300
+Message-ID: <5693BB6C.9060900@cogentembedded.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-43-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-12-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
 	netdev@vger.kernel.org, davem@davemloft.net,
-	He Kuang <hekuang@huawei.com>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>,
 	Jiri Olsa <jolsa@kernel.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Namhyung Kim <namhyung@kernel.org>
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 To: Wang Nan <wangnan0@huawei.com>, acme@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452520124-2073-43-git-send-email-wangnan0@huawei.com>
+In-Reply-To: <1452520124-2073-12-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
 On 01/11/2016 04:48 PM, Wang Nan wrote:
 
-> When record__mmap_read() require data more than the size of ring
-> buffer, drop those data to avoid access invalid memory.
+> Commit 71d6de64feddd4b455555326fba2111b3006d9e0 ('perf test: Fix hist
+> testcases when kptr_restrict is on') solves a double free problem when
+
+    You didn't run this patch thru scripts/checkpatch.pl, I guess? A certain 
+commit citing style is enforced now, and yours doesn't quite match it...
+
+> 'perf test hist' calling setup_fake_machine(). However, the result is
+> still incorrect. For example:
 >
-> This can happen when reading from overwritable ring buffer, which
-> should be avoided. However, check this for robustness.
+>   $ ./perf test -v 'filtering hist entries'
+>   25: Test filtering hist entries                              :
+>   --- start ---
+>   test child forked, pid 4186
+>   Cannot create kernel maps
+>   test child finished with 0
+>   ---- end ----
+>   Test filtering hist entries: Ok
+>
+> In this case the body of this test is not get executed at all, but the
+> result is 'Ok'.
+>
+> Actually, in setup_fake_machine() there's no need to create real kernel
+> maps. What we want is the fake maps. This patch removes the
+> machine__create_kernel_maps() in setup_fake_machine(), so it won't be
+> affected by kptr_restrict setting.
+>
+> Test result:
+>
+>   $ cat /proc/sys/kernel/kptr_restrict
+>   1
+>   $ ~/perf test -v hist
+>   15: Test matching and linking multiple hists                 :
+>   --- start ---
+>   test child forked, pid 24031
+>   test child finished with 0
+>   ---- end ----
+>   Test matching and linking multiple hists: Ok
+>   [SNIP]
 >
 > Signed-off-by: Wang Nan <wangnan0@huawei.com>
-> Signed-off-by: He Kuang <hekuang@huawei.com>
+> Suggested-by: Namhyung Kim <namhyung@kernel.org>
+> Acked-by: Namhyung Kim <namhyung@kernel.org>
 > Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 > Cc: Jiri Olsa <jolsa@kernel.org>
 > Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-> Cc: Namhyung Kim <namhyung@kernel.org>
-> Cc: Zefan Li <lizefan@huawei.com>
-> Cc: pi3orama@163.com
-> ---
->   tools/perf/builtin-record.c | 8 ++++++++
->   1 file changed, 8 insertions(+)
->
-> diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-> index b65b41f..3f58426 100644
-> --- a/tools/perf/builtin-record.c
-> +++ b/tools/perf/builtin-record.c
-> @@ -37,6 +37,7 @@
->   #include <unistd.h>
->   #include <sched.h>
->   #include <sys/mman.h>
-> +#include <asm/bug.h>
->
->
->   struct record {
-> @@ -94,6 +95,13 @@ static int record__mmap_read(struct record *rec, int idx)
->   	rec->samples++;
->
->   	size = head - old;
-> +	if (size > (unsigned long)(md->mask) + 1) {
-> +		WARN_ONCE(1, "WARNING: failed to keep up with mmap data. (warn only once)\n");
-
-    WARNING is already printed by WARN*(), no?
-
 [...]
 
 MBR, Sergei
