@@ -1,15 +1,15 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 24/53] perf tools: Enable indices setting syntax for BPF maps
-Date: Mon, 11 Jan 2016 13:48:15 +0000
-Message-ID: <1452520124-2073-25-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 13/53] perf tools: Prevent calling machine__delete() on non-allocated machine
+Date: Mon, 11 Jan 2016 13:48:04 +0000
+Message-ID: <1452520124-2073-14-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>, Wang Nan <wangnan0@huawei.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"Arnaldo Carvalho de Melo" <acme@redhat.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Jiri Olsa <jolsa@kernel.org>,
 	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: <acme@kernel.org>
@@ -18,287 +18,119 @@ In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduce a new syntax to perf event parser:
-
- # perf record -e './test_bpf_map_3.c/maps:channel.value[0,1,2,3...5]=101/' usleep 2
-
-By utilizing the basic facilities in bpf-loader.c which allow setting
-different slots in a BPF map separately, the newly introduced syntax
-allows perf to control specific elements in a BPF map.
-
-Test result:
-
- # cat ./test_bpf_map_3.c
- /************************ BEGIN **************************/
- #include <uapi/linux/bpf.h>
- #define SEC(NAME) __attribute__((section(NAME), used))
- struct bpf_map_def {
- 	unsigned int type;
- 	unsigned int key_size;
- 	unsigned int value_size;
- 	unsigned int max_entries;
- };
- static void *(*map_lookup_elem)(struct bpf_map_def *, void *) =
- 	(void *)BPF_FUNC_map_lookup_elem;
- static int (*trace_printk)(const char *fmt, int fmt_size, ...) =
- 	(void *)BPF_FUNC_trace_printk;
- struct bpf_map_def SEC("maps") channel = {
- 	.type = BPF_MAP_TYPE_ARRAY,
- 	.key_size = sizeof(int),
- 	.value_size = sizeof(unsigned char),
- 	.max_entries = 100,
- };
- SEC("func=hrtimer_nanosleep rqtp->tv_nsec")
- int func(void *ctx, int err, long nsec)
- {
- 	char fmt[] = "%ld\n";
- 	long usec = nsec * 0x10624dd3 >> 38; // nsec / 1000
- 	int key = (int)usec;
- 	unsigned char *pval = map_lookup_elem(&channel, &key);
-
- 	if (!pval)
- 		return 0;
- 	trace_printk(fmt, sizeof(fmt), (unsigned char)*pval);
- 	return 0;
- }
- char _license[] SEC("license") = "GPL";
- int _version SEC("version") = LINUX_VERSION_CODE;
- /************************* END ***************************/
-
-Normal case:
- # echo "" > /sys/kernel/debug/tracing/trace
- # ./perf record -e './test_bpf_map_3.c/maps:channel.value[0,1,2,3...5]=101/' usleep 2
- [ perf record: Woken up 1 times to write data ]
- [ perf record: Captured and wrote 0.012 MB perf.data ]
- # cat /sys/kernel/debug/tracing/trace | grep usleep
-           usleep-405   [004] d... 2745423.547822: : 101
- # ./perf record -e './test_bpf_map_3.c/maps:channel.value[0...9,20...29]=102,maps:channel.value[10...19]=103/' usleep 3
- [ perf record: Woken up 1 times to write data ]
- [ perf record: Captured and wrote 0.012 MB perf.data ]
- # ./perf record -e './test_bpf_map_3.c/maps:channel.value[0...9,20...29]=102,maps:channel.value[10...19]=103/' usleep 15
- [ perf record: Woken up 1 times to write data ]
- [ perf record: Captured and wrote 0.012 MB perf.data ]
- # cat /sys/kernel/debug/tracing/trace | grep usleep
-           usleep-405   [004] d... 2745423.547822: : 101
-           usleep-655   [006] d... 2745434.122814: : 102
-           usleep-904   [006] d... 2745439.916264: : 103
- # ./perf record -e './test_bpf_map_3.c/maps:channel.value[all]=104/' usleep 99
- # cat /sys/kernel/debug/tracing/trace | grep usleep
-           usleep-405   [004] d... 2745423.547822: : 101
-           usleep-655   [006] d... 2745434.122814: : 102
-           usleep-904   [006] d... 2745439.916264: : 103
-           usleep-1537  [003] d... 2745538.053737: : 104
-
-Error case:
- # ./perf record -e './test_bpf_map_3.c/maps:channel.value[10...1000]=104/' usleep 99
- event syntax error: '..annel.value[10...1000]=104/'
-                                   \___ Index too large
- Hint:	Valid config terms:
-      	maps:[<arraymap>].value<indices>=[value]
-      	maps:[<eventmap>].event<indices>=[event]
-
-      	where <indices> is something like [0,3...5] or [all]
-      	(add -v to see detail)
- Run 'perf list' for a list of valid events
-
-  Usage: perf record [<options>] [<command>]
-     or: perf record [<options>] -- <command> [<options>]
-
-     -e, --event <event>   event selector. use 'perf list' to list available events
+To prevent futher commits calling machine__delete() on non-allocated
+'struct machine' (which would cause memory corruption), this patch
+enforces machine__init(), record whether a machine structure is
+dynamically allocated or not, and warn if machine__delete() is called
+on incorrect object.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Acked-by: Jiri Olsa <jolsa@kernel.org>
-Cc: Alexei Starovoitov <ast@kernel.org>
+Reviewed-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Jiri Olsa <jolsa@kernel.org>
 Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 Cc: Namhyung Kim <namhyung@kernel.org>
-Cc: Zefan Li <lizefan@huawei.com>
-Cc: pi3orama@163.com
 ---
- tools/perf/util/parse-events.c |  5 ++-
- tools/perf/util/parse-events.l | 13 ++++++-
- tools/perf/util/parse-events.y | 85 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 100 insertions(+), 3 deletions(-)
+ tools/perf/tests/vmlinux-kallsyms.c |  4 ++--
+ tools/perf/util/machine.c           | 13 ++++++++-----
+ tools/perf/util/machine.h           |  3 ++-
+ 3 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/tools/perf/util/parse-events.c b/tools/perf/util/parse-events.c
-index f229663..03d18f4 100644
---- a/tools/perf/util/parse-events.c
-+++ b/tools/perf/util/parse-events.c
-@@ -660,9 +660,10 @@ parse_events_config_bpf(struct parse_events_evlist *data,
- 						 sizeof(errbuf));
- 			data->error->help = strdup(
- "Hint:\tValid config terms:\n"
--"     \tmaps:[<arraymap>].value=[value]\n"
--"     \tmaps:[<eventmap>].event=[event]\n"
-+"     \tmaps:[<arraymap>].value<indices>=[value]\n"
-+"     \tmaps:[<eventmap>].event<indices>=[event]\n"
- "\n"
-+"     \twhere <indices> is something like [0,3...5] or [all]\n"
- "     \t(add -v to see detail)");
- 			data->error->str = strdup(errbuf);
- 			if (err == -BPF_LOADER_ERRNO__OBJCONF_MAP_VALUE)
-diff --git a/tools/perf/util/parse-events.l b/tools/perf/util/parse-events.l
-index 4387728..8bb3437 100644
---- a/tools/perf/util/parse-events.l
-+++ b/tools/perf/util/parse-events.l
-@@ -9,8 +9,8 @@
- %{
- #include <errno.h>
- #include "../perf.h"
--#include "parse-events-bison.h"
- #include "parse-events.h"
-+#include "parse-events-bison.h"
+diff --git a/tools/perf/tests/vmlinux-kallsyms.c b/tools/perf/tests/vmlinux-kallsyms.c
+index f0bfc9e..441e93d 100644
+--- a/tools/perf/tests/vmlinux-kallsyms.c
++++ b/tools/perf/tests/vmlinux-kallsyms.c
+@@ -35,8 +35,8 @@ int test__vmlinux_matches_kallsyms(int subtest __maybe_unused)
+ 	 * Init the machines that will hold kernel, modules obtained from
+ 	 * both vmlinux + .ko files and from /proc/kallsyms split by modules.
+ 	 */
+-	machine__init(&kallsyms, "", HOST_KERNEL_ID);
+-	machine__init(&vmlinux, "", HOST_KERNEL_ID);
++	machine__init(&kallsyms, "", HOST_KERNEL_ID, false);
++	machine__init(&vmlinux, "", HOST_KERNEL_ID, false);
  
- char *parse_events_get_text(yyscan_t yyscanner);
- YYSTYPE *parse_events_get_lval(yyscan_t yyscanner);
-@@ -111,6 +111,7 @@ do {							\
- %x mem
- %s config
- %x event
-+%x array
- 
- group		[^,{}/]*[{][^}]*[}][^,{}/]*
- event_pmu	[^,{}/]+[/][^/]*[/][^,{}/]*
-@@ -176,6 +177,14 @@ modifier_bp	[rwx]{1,3}
- 
- }
- 
-+<array>{
-+"]"			{ BEGIN(config); return ']'; }
-+{num_dec}		{ return value(yyscanner, 10); }
-+{num_hex}		{ return value(yyscanner, 16); }
-+,			{ return ','; }
-+"\.\.\."		{ return PE_ARRAY_RANGE; }
-+}
-+
- <config>{
  	/*
- 	 * Please update parse_events_formats_error_string any time
-@@ -196,6 +205,8 @@ no-inherit		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_NOINHERIT); }
- ,			{ return ','; }
- "/"			{ BEGIN(INITIAL); return '/'; }
- {name_minus}		{ return str(yyscanner, PE_NAME); }
-+\[all\]			{ return PE_ARRAY_ALL; }
-+"["			{ BEGIN(array); return '['; }
+ 	 * Step 2:
+diff --git a/tools/perf/util/machine.c b/tools/perf/util/machine.c
+index ad79297..59a3c01 100644
+--- a/tools/perf/util/machine.c
++++ b/tools/perf/util/machine.c
+@@ -1,3 +1,4 @@
++#include <asm/bug.h>
+ #include "callchain.h"
+ #include "debug.h"
+ #include "event.h"
+@@ -23,7 +24,7 @@ static void dsos__init(struct dsos *dsos)
+ 	pthread_rwlock_init(&dsos->lock, NULL);
  }
  
- <mem>{
-diff --git a/tools/perf/util/parse-events.y b/tools/perf/util/parse-events.y
-index c3cbd7a..7e93b9f 100644
---- a/tools/perf/util/parse-events.y
-+++ b/tools/perf/util/parse-events.y
-@@ -48,6 +48,7 @@ static inc_group_count(struct list_head *list,
- %token PE_PREFIX_MEM PE_PREFIX_RAW PE_PREFIX_GROUP
- %token PE_ERROR
- %token PE_PMU_EVENT_PRE PE_PMU_EVENT_SUF PE_KERNEL_PMU_EVENT
-+%token PE_ARRAY_ALL PE_ARRAY_RANGE
- %type <num> PE_VALUE
- %type <num> PE_VALUE_SYM_HW
- %type <num> PE_VALUE_SYM_SW
-@@ -84,6 +85,9 @@ static inc_group_count(struct list_head *list,
- %type <head> group_def
- %type <head> group
- %type <head> groups
-+%type <array> array
-+%type <array> array_term
-+%type <array> array_terms
- 
- %union
+-int machine__init(struct machine *machine, const char *root_dir, pid_t pid)
++int machine__init(struct machine *machine, const char *root_dir, pid_t pid, bool allocated)
  {
-@@ -95,6 +99,7 @@ static inc_group_count(struct list_head *list,
- 		char *sys;
- 		char *event;
- 	} tracepoint_name;
-+	struct parse_events_array array;
+ 	memset(machine, 0, sizeof(*machine));
+ 	map_groups__init(&machine->kmaps, machine);
+@@ -65,6 +66,7 @@ int machine__init(struct machine *machine, const char *root_dir, pid_t pid)
+ 	}
+ 
+ 	machine->current_tid = NULL;
++	machine->allocated = allocated;
+ 
+ 	return 0;
  }
- %%
+@@ -74,7 +76,7 @@ struct machine *machine__new_host(void)
+ 	struct machine *machine = malloc(sizeof(*machine));
  
-@@ -601,6 +606,86 @@ PE_TERM
- 	ABORT_ON(parse_events_term__num(&term, (int)$1, NULL, 1, &@1, NULL));
- 	$$ = term;
+ 	if (machine != NULL) {
+-		machine__init(machine, "", HOST_KERNEL_ID);
++		machine__init(machine, "", HOST_KERNEL_ID, true);
+ 
+ 		if (machine__create_kernel_maps(machine) < 0)
+ 			goto out_delete;
+@@ -137,12 +139,13 @@ void machine__exit(struct machine *machine)
+ void machine__delete(struct machine *machine)
+ {
+ 	machine__exit(machine);
+-	free(machine);
++	WARN_ONCE((machine->allocated ? free(machine), 0 : -1),
++		  "WARNING: deleting a non-allocated machine. Skip.\n");
  }
-+|
-+PE_NAME array '=' PE_NAME
-+{
-+	struct parse_events_term *term;
-+	int i;
-+
-+	ABORT_ON(parse_events_term__str(&term, PARSE_EVENTS__TERM_TYPE_USER,
-+					$1, $4, &@1, &@4));
-+
-+	term->array = $2;
-+	$$ = term;
-+}
-+|
-+PE_NAME array '=' PE_VALUE
-+{
-+	struct parse_events_term *term;
-+
-+	ABORT_ON(parse_events_term__num(&term, PARSE_EVENTS__TERM_TYPE_USER,
-+					$1, $4, &@1, &@4));
-+	term->array = $2;
-+	$$ = term;
-+}
-+
-+array:
-+'[' array_terms ']'
-+{
-+	$$ = $2;
-+}
-+|
-+PE_ARRAY_ALL
-+{
-+	$$.nr_ranges = 0;
-+	$$.ranges = NULL;
-+}
-+
-+array_terms:
-+array_terms ',' array_term
-+{
-+	struct parse_events_array new_array;
-+
-+	new_array.nr_ranges = $1.nr_ranges + $3.nr_ranges;
-+	new_array.ranges = malloc(sizeof(new_array.ranges[0]) *
-+				  new_array.nr_ranges);
-+	ABORT_ON(!new_array.ranges);
-+	memcpy(&new_array.ranges[0], $1.ranges,
-+	       $1.nr_ranges * sizeof(new_array.ranges[0]));
-+	memcpy(&new_array.ranges[$1.nr_ranges], $3.ranges,
-+	       $3.nr_ranges * sizeof(new_array.ranges[0]));
-+	free($1.ranges);
-+	free($3.ranges);
-+	$$ = new_array;
-+}
-+|
-+array_term
-+
-+array_term:
-+PE_VALUE
-+{
-+	struct parse_events_array array;
-+
-+	array.nr_ranges = 1;
-+	array.ranges = malloc(sizeof(array.ranges[0]));
-+	ABORT_ON(!array.ranges);
-+	array.ranges[0].start = $1;
-+	array.ranges[0].length = 1;
-+	$$ = array;
-+}
-+|
-+PE_VALUE PE_ARRAY_RANGE PE_VALUE
-+{
-+	struct parse_events_array array;
-+
-+	ABORT_ON($3 < $1);
-+	array.nr_ranges = 1;
-+	array.ranges = malloc(sizeof(array.ranges[0]));
-+	ABORT_ON(!array.ranges);
-+	array.ranges[0].start = $1;
-+	array.ranges[0].length = $3 - $1 + 1;
-+	$$ = array;
-+}
  
- sep_dc: ':' |
+ void machines__init(struct machines *machines)
+ {
+-	machine__init(&machines->host, "", HOST_KERNEL_ID);
++	machine__init(&machines->host, "", HOST_KERNEL_ID, false);
+ 	machines->guests = RB_ROOT;
+ 	machines->symbol_filter = NULL;
+ }
+@@ -163,7 +166,7 @@ struct machine *machines__add(struct machines *machines, pid_t pid,
+ 	if (machine == NULL)
+ 		return NULL;
  
+-	if (machine__init(machine, root_dir, pid) != 0) {
++	if (machine__init(machine, root_dir, pid, true) != 0) {
+ 		free(machine);
+ 		return NULL;
+ 	}
+diff --git a/tools/perf/util/machine.h b/tools/perf/util/machine.h
+index 2c2b443..24dfd46 100644
+--- a/tools/perf/util/machine.h
++++ b/tools/perf/util/machine.h
+@@ -28,6 +28,7 @@ struct machine {
+ 	pid_t		  pid;
+ 	u16		  id_hdr_size;
+ 	bool		  comm_exec;
++	bool		  allocated;
+ 	char		  *root_dir;
+ 	struct rb_root	  threads;
+ 	pthread_rwlock_t  threads_lock;
+@@ -131,7 +132,7 @@ void machines__set_symbol_filter(struct machines *machines,
+ void machines__set_comm_exec(struct machines *machines, bool comm_exec);
+ 
+ struct machine *machine__new_host(void);
+-int machine__init(struct machine *machine, const char *root_dir, pid_t pid);
++int machine__init(struct machine *machine, const char *root_dir, pid_t pid, bool allocated);
+ void machine__exit(struct machine *machine);
+ void machine__delete_threads(struct machine *machine);
+ void machine__delete(struct machine *machine);
 -- 
 1.8.3.4
