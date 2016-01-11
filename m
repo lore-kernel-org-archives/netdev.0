@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Subject: [PATCH 35/53] perf record: Add '--timestamp-filename' option to append timestamp to output filename
-Date: Mon, 11 Jan 2016 13:48:26 +0000
-Message-ID: <1452520124-2073-36-git-send-email-wangnan0@huawei.com>
+Subject: [PATCH 38/53] perf record: Disable buildid cache options by default in switch output mode
+Date: Mon, 11 Jan 2016 13:48:29 +0000
+Message-ID: <1452520124-2073-39-git-send-email-wangnan0@huawei.com>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,23 +14,19 @@ Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
 	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: <acme@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:56171 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932267AbcAKO0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 09:26:34 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This options append current timestamp to output. For example:
+Cost of buildid cache processing is high: read all events in output
+perf.data, open elf files to read buildid then copy them into
+~/.debug directory. In switch output mode, causes perf stop receiving
+from perf events for too long.
 
- # perf record -a --timestamp-filename
- ^C[ perf record: Woken up 1 times to write data ]
- [ perf record: Dump perf.data.2015122622265847 ]
- [ perf record: Captured and wrote 0.742 MB perf.data (90 samples) ]
- # ls
- perf.data.201512262226584
+Enable no-buildid and no-buildid-cache by default if --switch-output
+is provided. Still allow user use --no-no-buildid to explicitly enable
+buildid in this case.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: He Kuang <hekuang@huawei.com>
@@ -41,87 +37,50 @@ Cc: Namhyung Kim <namhyung@kernel.org>
 Cc: Zefan Li <lizefan@huawei.com>
 Cc: pi3orama@163.com
 ---
- tools/perf/builtin-record.c | 47 +++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 45 insertions(+), 2 deletions(-)
+ tools/perf/builtin-record.c | 30 +++++++++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
 
 diff --git a/tools/perf/builtin-record.c b/tools/perf/builtin-record.c
-index 7a26cb5..605cccc 100644
+index d32facd..790361b 100644
 --- a/tools/perf/builtin-record.c
 +++ b/tools/perf/builtin-record.c
-@@ -53,6 +53,7 @@ struct record {
- 	bool			no_buildid_set;
- 	bool			no_buildid_cache;
- 	bool			no_buildid_cache_set;
-+	bool			timestamp_filename;
- 	unsigned long long	samples;
- };
+@@ -1371,8 +1371,36 @@ int cmd_record(int argc, const char **argv, const char *prefix __maybe_unused)
+ "If some relocation was applied (e.g. kexec) symbols may be misresolved\n"
+ "even with a suitable vmlinux or kallsyms file.\n\n");
  
-@@ -522,6 +523,37 @@ record__finish_output(struct record *rec)
- 	return;
- }
- 
-+static int
-+record__switch_output(struct record *rec, bool at_exit)
-+{
-+	struct perf_data_file *file = &rec->file;
-+	int fd, err;
+-	if (rec->no_buildid_cache || rec->no_buildid)
++	if (rec->no_buildid_cache || rec->no_buildid) {
+ 		disable_buildid_cache();
++	} else if (rec->switch_output) {
++		/*
++		 * In 'perf record --switch-output', disable buildid
++		 * generation by default to reduce data file switching
++		 * overhead. Still generate buildid if they are required
++		 * explicitly using
++		 *
++		 *  perf record --signal-trigger --no-no-buildid \
++		 *              --no-no-buildid-cache
++		 *
++		 * Equals to:
++		 *
++                 * if ((rec->no_buildid || !rec->no_buildid_set) &&
++		 *     (rec->no_buildid_cache || !rec->no_buildid_cache_set))
++		 *         disable_buildid_cache();
++		 */
++		bool disable = true;
 +
-+	/* Same Size:      "2015122520103046"*/
-+	char timestamp[] = "InvalidTimestamp";
-+
-+	rec->samples = 0;
-+	record__finish_output(rec);
-+	err = fetch_current_timestamp(timestamp, sizeof(timestamp));
-+	if (err) {
-+		pr_err("Failed to get current timestamp\n");
-+		return -EINVAL;
-+	}
-+
-+	fd = perf_data_file__switch(file, timestamp,
-+				    rec->session->header.data_offset,
-+				    at_exit);
-+	if (fd >= 0 && !at_exit) {
-+		rec->bytes_written = 0;
-+		rec->session->header.data_size = 0;
-+	}
-+
-+	if (!quiet)
-+		fprintf(stderr, "[ perf record: Dump %s.%s ]\n",
-+			file->path, timestamp);
-+	return fd;
-+}
-+
- static volatile int workload_exec_errno;
- 
- /*
-@@ -849,8 +881,17 @@ out_child:
- 	/* this will be recalculated during process_buildids() */
- 	rec->samples = 0;
- 
--	if (!err)
--		record__finish_output(rec);
-+	if (!err) {
-+		if (!rec->timestamp_filename) {
-+			record__finish_output(rec);
-+		} else {
-+			fd = record__switch_output(rec, true);
-+			if (fd < 0) {
-+				status = fd;
-+				goto out_delete_session;
-+			}
++		if (rec->no_buildid_set && !rec->no_buildid)
++			disable = false;
++		if (rec->no_buildid_cache_set && !rec->no_buildid_cache)
++			disable = false;
++		if (disable) {
++			rec->no_buildid = true;
++			rec->no_buildid_cache = true;
++			disable_buildid_cache();
 +		}
 +	}
  
- 	if (!err && !quiet) {
- 		char samples[128];
-@@ -1225,6 +1266,8 @@ struct option __record_options[] = {
- 		   "options passed to clang when compiling BPF scriptlets"),
- 	OPT_STRING(0, "vmlinux", &symbol_conf.vmlinux_name,
- 		   "file", "vmlinux pathname"),
-+	OPT_BOOLEAN(0, "timestamp-filename", &record.timestamp_filename,
-+		    "append timestamp to output filename"),
- 	OPT_END()
- };
- 
+ 	if (rec->evlist->nr_entries == 0 &&
+ 	    perf_evlist__add_default(rec->evlist) < 0) {
 -- 
 1.8.3.4
