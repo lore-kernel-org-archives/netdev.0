@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netlink: fix null pointer dereference on nlk->groups
-Date: Sun, 10 Jan 2016 23:27:07 -0500 (EST)
-Message-ID: <20160110.232707.1954364745984617361.davem@davemloft.net>
-References: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
-	<1452355001-30295-1-git-send-email-sploving1@gmail.com>
+Subject: Re: [PATCH -next v2] net: bfin_mac: Fix build error due to missed
+ API change
+Date: Sun, 10 Jan 2016 23:30:43 -0500 (EST)
+Message-ID: <20160110.233043.1721701935879616026.davem@davemloft.net>
+References: <1452438484-29205-1-git-send-email-linux@roeck-us.net>
+	<20160110154532.GB22229@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: sploving1@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32878 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758013AbcAKE1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2016 23:27:10 -0500
-In-Reply-To: <1452355001-30295-1-git-send-email-sploving1@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux@roeck-us.net, =adi-buildroot-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160110154532.GB22229@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Baozeng Ding <sploving1@gmail.com>
-Date: Sat,  9 Jan 2016 23:56:41 +0800
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sun, 10 Jan 2016 16:45:32 +0100
 
-> If groups is not 0 and nlk->groups is NULL, it will not return
-> immediately and cause a null pointer dereference later.
+> On Sun, Jan 10, 2016 at 07:08:04AM -0800, Guenter Roeck wrote:
+>> Commit 7f854420fbfe ("phy: Add API for {un}registering an mdio device to
+>> a bus") introduces an API to access mii_bus structures, but missed to
+>> update the bfin_mac driver. This results in the following error message
+>> 
+>> drivers/net/ethernet/adi/bfin_mac.c: In function 'mii_probe':
+>> drivers/net/ethernet/adi/bfin_mac.c:401:52: error:
+>> 	'struct mii_bus' has no member named 'phy_map'
+>> 
+>> Use phy_find_first() instead of open-coding it.
+>> 
+>> Fixes: 7f854420fbfe ("phy: Add API for {un}registering an mdio device to a bus")
+>> Cc: Andrew Lunn <andrew@lunn.ch>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 > 
-> Signed-off-by: Baozeng Ding <sploving1@gmail.com>
-> ---
-> This version uses the preferred networking coding style. Thanks
-> for Sergei's feedback. Also the patch keeps the original author's
-> coding style as much as possible.
+> Acked-by: Andrew Lunn <andrew@lunn.ch>
+> 
+> Hi Dave
+> 
+> Although Sadip Mukerjee's patch [PATCH 1/2] phy: fix blackfin build failure
+> is correct, this one is better. Please take this one in preference. 
+> We do still however need Sadip's [2/2] bfin_mac: fix error path
 
-Is this an actual legal state?  If not, add a WARN_ON() check.
+Sorry, I applied Sadip's patch already.
 
-Otherwise, provide a proper OOPS log and explain how the state
-can be achieved.
+I'll need to get something relative if you really want this
+variant in my tree.
 
 Thanks.
