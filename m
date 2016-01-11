@@ -1,38 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
-Date: Mon, 11 Jan 2016 13:47:50 -0800
-Message-ID: <1452548870.1223.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5726932.6r4XOZ2Km2@rofl>
-	 <1443025879.29850.116.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <56492A39.2060307@fastly.com>
-	 <1447686469.22599.67.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <564A129F.5060705@fastly.com> <56941035.9040000@fastly.com>
-	 <1452546688.1223.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH 14/53] perf test: Check environment before start real BPF
+ test
+Date: Mon, 11 Jan 2016 18:55:03 -0300
+Message-ID: <20160111215503.GJ18367@kernel.org>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-15-git-send-email-wangnan0@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Patrick Schaaf <kernelorg@bof.de>,
-	NETDEV <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Grant Zhang <gzhang@fastly.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Wang Nan <wangnan0@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452546688.1223.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Disposition: inline
+In-Reply-To: <1452520124-2073-15-git-send-email-wangnan0@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-01-11 at 13:11 -0800, Eric Dumazet wrote:
-
+Em Mon, Jan 11, 2016 at 01:48:05PM +0000, Wang Nan escreveu:
+> Copying perf to old kernel system results:
 > 
-> Hi Grant
+>  # perf test bpf
+>  37: Test BPF filter                                          :
+>  37.1: Test basic BPF filtering                               : FAILED!
+>  37.2: Test BPF prologue generation                           : Skip
 > 
-> Most probably the commit would help ;)
+> However, in case when kernel doesn't support a test case it should
+> return 'Skip', 'FAILED!' should be reserved for kernel tests for when
+> the kernel supports a feature that then fails to work as advertised.
 > 
-> David, can you make sure ed2e923945892a8372ab70d2f61d364b0b6d9054 is
-> pushed to stable trees (4.1 & 4.2)
+> This patch checks environment before real testcase.
 
-We also want this fix:
+This is really strange, this other test is failing if the above patch is
+present, found by bisecting:
 
-commit 8695a144da9e500a5a60fa34c06694346ec1048f
-    tcp/dccp: fix old style declarations
-    
+[acme@felicio linux]$ perf test decoder
+47: Test x86 instruction decoder - new instructions          : FAILED!
+[acme@felicio linux]$ git log --oneline -1
+91fedd318e3d perf test: Check environment before start real BPF test
+[acme@felicio linux]$ git reset --hard HEAD^
+HEAD is now at f1f23526d3b6 perf test: Reset err after using it hold
+errcode in hist testcases
+[acme@felicio linux]$ m
+make: Entering directory `/home/acme/git/linux/tools/perf'
+  BUILD:   Doing 'make -j4' parallel build
+  CC       /tmp/build/perf/arch/common.o
+  CC       /tmp/build/perf/util/abspath.o
+  CC       /tmp/build/perf/builtin-bench.o
+  CC       /tmp/build/perf/util/alias.o
+
+<SNIP>
+[acme@felicio linux]$ git log --oneline -1
+f1f23526d3b6 perf test: Reset err after using it hold errcode in hist
+testcases
+[acme@felicio linux]$ perf test decoder
+47: Test x86 instruction decoder - new instructions          : Ok
+[acme@felicio linux]$ 
