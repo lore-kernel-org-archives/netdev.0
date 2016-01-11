@@ -1,46 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] smsc: Enabling SMSC LAN911 driver for ARM64 as well.
-Date: Mon, 11 Jan 2016 17:10:15 +0300
-Message-ID: <5693B7C7.8040202@cogentembedded.com>
-References: <1452502945-27765-1-git-send-email-manjeet.p@samsung.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH 07/53] tools: Move Makefile.arch from perf/config to
+ tools/scripts
+Date: Mon, 11 Jan 2016 11:10:59 -0300
+Message-ID: <20160111141059.GA18367@kernel.org>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-8-git-send-email-wangnan0@huawei.com>
+ <5693B3A6.6040508@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pankaj.m@samsung.com
-To: Manjeet Pawar <manjeet.p@samsung.com>, davem@davemloft.net,
-	paul.gortmaker@windriver.com, schmitzmic@gmail.com,
-	geert@linux-m68k.org, nico@fluxnic.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akhilesh.k@samsung.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	"Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+To: "Wangnan (F)" <wangnan0@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452502945-27765-1-git-send-email-manjeet.p@samsung.com>
+Content-Disposition: inline
+In-Reply-To: <5693B3A6.6040508@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Em Mon, Jan 11, 2016 at 09:52:38PM +0800, Wangnan (F) escreveu:
+> 
+> 
+> On 2016/1/11 21:47, Wang Nan wrote:
+> >After this patch other directories can use this architecture detector
+> >without directly including it from perf's directory. Libbpf would
+> >utilize it to get proper $(ARCH) so it can receive correct uapi include
+> >directory.
+> >
+> >Signed-off-by: Wang Nan <wangnan0@huawei.com>
+> >Signed-off-by: Arnaldo Carvalho de Melo <acme@kernel.org>
+> >[Add missing srctree definition in tests/make]
+> Hi Arnaldo, I guess you will be okay provide your SOB so I add it here.
+> You didn't provide it on your original code.
 
-On 01/11/2016 12:02 PM, Manjeet Pawar wrote:
+Sure, and I'll cherry pick this into perf/urgent, to get the PowerPC
+build fixed.
 
-> This patch enable network driver support for ARM64
->
-> Signed-off-by: Akhilesh Kumar <akhilesh.k@samsung.com>
-> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
-> ---
->   drivers/net/ethernet/smsc/Kconfig |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
-> index eb9230e..6e73c73 100644
-> --- a/drivers/net/ethernet/smsc/Kconfig
-> +++ b/drivers/net/ethernet/smsc/Kconfig
-> @@ -77,7 +77,7 @@ config SMC911X
->   	tristate "SMSC LAN911[5678] support"
->   	select CRC32
->   	select MII
-> -	depends on (ARM || SUPERH || MN10300)
-> +	depends on (ARM || ARM64 || SUPERH || MN10300)
-
-    Could as well drop useless parens...
-
-[...]
-
-MBR, Sergei
+- Arnaldo
