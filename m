@@ -1,58 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
-Date: Tue, 12 Jan 2016 15:28:22 -0800
-Message-ID: <1452641302.1223.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160112185121.GA34045@ast-mbp.thefacebook.com>
-	 <1452626228-15742-1-git-send-email-rabin@rab.in>
-	 <1452628118.1223.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160112195356.GA34598@ast-mbp.thefacebook.com>
-	 <5695653F.6030001@iogearbox.net>
-	 <20160112204620.GA35080@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] ovs: add recursion limit to ovs_vport_receive
+Date: Wed, 13 Jan 2016 00:39:49 +0100
+Message-ID: <1452641989-31293-1-git-send-email-hannes@stressinduktion.org>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33550 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbcALX2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 18:28:25 -0500
-Received: by mail-pa0-f54.google.com with SMTP id cy9so347361173pac.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 15:28:24 -0800 (PST)
-In-Reply-To: <20160112204620.GA35080@ast-mbp.thefacebook.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46237 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752483AbcALXj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 18:39:58 -0500
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 810E820151
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 18:39:57 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-12 at 12:46 -0800, Alexei Starovoitov wrote:
-> On Tue, Jan 12, 2016 at 09:42:39PM +0100, Daniel Borkmann wrote:
+It was seen that defective configurations of openvswitch could overwrite
+the STACK_END_MAGIC and cause a hard crash of the kernel because of too
+many recursions within ovs.
 
-> > >yep and we all know who was able to code hundreds of cBPF insns by hand ;)
-> > >But I'm sure that code doesn't have such broken shifts. :)))
-> > 
-> > libpcap certainly supports raw filters now thanks to Chema [1]. Alternative
-> > could be to just mask them here, but not in eBPF verifier, but that would be
-> > even more inconsistent (on the other hand, we also allow holes in BPF but not
-> > in eBPF, so wouldn't be the first time we make things different), hmm.
-> 
-> I would rather see broken classic bpf program fixed instead of continue
-> running them with undefined behavior.
+This problem arises due to the high stack usage of openvswitch. The rest
+of the kernel is fine with the current limit of 10 (RECURSION_LIMIT).
+Thus add an extra recursion limit counter for ovs_vport_receive until
+parts of the stack usage is moved to percpu scratch space.
 
-This is your choice, because you are a developer.
+Cc: Pravin Shelar <pshelar@ovn.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/openvswitch/vport.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-Some people might be stuck with old software they can not update,
-because they do not have the money to pay developers.
-
-And no, I did not code BPF programs like that, but maybe others did, and
-I feel the pain of customers that might be stuck.
-
-Linus Torvalds always made clear we must provide backward compatibility,
-and really this discussion should not even take place.
-
-As I said, we used to load such BPF program in the past.
-
-The fact that ARM64 crashes because of a faulty JIT implementation is
-not an excuse.
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 31cbc8c5c7db82..9fb0ee8e5a4dc3 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -426,6 +426,9 @@ u32 ovs_vport_find_upcall_portid(const struct vport *vport, struct sk_buff *skb)
+ 	return ids->ids[ids_index];
+ }
+ 
++static DEFINE_PER_CPU(int, ovs_recursion);
++static const int ovs_recursion_limit = 8;
++
+ /**
+  *	ovs_vport_receive - pass up received packet to the datapath for processing
+  *
+@@ -442,6 +445,14 @@ int ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
+ 	struct sw_flow_key key;
+ 	int error;
+ 
++	if (__this_cpu_inc_return(ovs_recursion) > ovs_recursion_limit) {
++		net_crit_ratelimited("ovs: recursion limit reached on datapath %s, probable configuration error\n",
++				     ovs_dp_name(vport->dp));
++		error = -ENETDOWN;
++		kfree_skb(skb);
++		goto out;
++	}
++
+ 	OVS_CB(skb)->input_vport = vport;
+ 	OVS_CB(skb)->mru = 0;
+ 	if (unlikely(dev_net(skb->dev) != ovs_dp_get_net(vport->dp))) {
+@@ -457,10 +468,13 @@ int ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
+ 	error = ovs_flow_key_extract(tun_info, skb, &key);
+ 	if (unlikely(error)) {
+ 		kfree_skb(skb);
+-		return error;
++		goto out;
+ 	}
++
+ 	ovs_dp_process_packet(skb, &key);
+-	return 0;
++out:
++	__this_cpu_dec(ovs_recursion);
++	return error;
+ }
+ EXPORT_SYMBOL_GPL(ovs_vport_receive);
+ 
+-- 
+2.5.0
