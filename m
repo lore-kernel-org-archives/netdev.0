@@ -1,79 +1,69 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Q: bad routing table cache entries
-Date: Tue, 12 Jan 2016 18:47:19 +0100
-Message-ID: <56953C27.4030405@stressinduktion.org>
-References: <5682665A.7090102@list.ru> <56951D1D.5080602@stressinduktion.org>
- <56952147.80201@stressinduktion.org> <569523C0.5040504@list.ru>
- <56952593.8040409@stressinduktion.org> <56952D01.6070204@list.ru>
- <56953059.1020506@list.ru> <569532A6.1070905@stressinduktion.org>
- <56953560.9050906@list.ru> <56953740.1090204@stressinduktion.org>
- <569538FD.2060200@list.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Stas Sergeev <stsp@list.ru>
+From: Rabin Vincent <rabin@rab.in>
+Subject: [PATCH] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 18:55:07 +0100
+Message-ID: <1452621307-2213-1-git-send-email-rabin@rab.in>
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
+	linux-arm-kernel@lists.infradead.org, Rabin Vincent <rabin@rab.in>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:44608 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752211AbcALRrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 12:47:21 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 7B8DD208A5
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 12:47:20 -0500 (EST)
-In-Reply-To: <569538FD.2060200@list.ru>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36633 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252AbcALRzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 12:55:20 -0500
+Received: by mail-wm0-f67.google.com with SMTP id l65so32586084wmf.3
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 09:55:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12.01.2016 18:33, Stas Sergeev wrote:
-> 12.01.2016 20:26, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
->> On 12.01.2016 18:18, Stas Sergeev wrote:
->>> 12.01.2016 20:06, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
->>>> On 12.01.2016 17:56, Stas Sergeev wrote:
->>>>> 12.01.2016 19:42, Stas Sergeev =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>>> Also the rfc1620 you pointed, seems to be saying this:
->>>>>
->>>>>                    A Redirect message SHOULD be silently discarde=
-d if the
->>>>>                    new router address it specifies is not on the =
-same
->>>>>                    connected (sub-) net through which the Redirec=
-t arrived,
->>>>>                    or if the source of the Redirect is not the cu=
-rrent
->>>>>                    first-hop router for the specified destination=
-=2E
->>>>>
->>>>> It seems, this is exactly the rule we were trying to find
->>>>> during the thread. And it seems violated, either. Unless I am
->>>>> mis-interpreting it, of course.
->>>>
->>>> If you read on you will read that with shared_media this exact cla=
-use (the first of those) is not in effect any more.
->>> OK. But how to get such a redirect to work, if (checked with
->>> tcpdump) the packets do not even go to eth0, but to "lo"?
->>
->> I don't know, the router must be on the same shared medium. I guess =
-physical reconfiguration is required?
-> It is same.
-> Router 192.168.8.1 has just one ethernet port.
-> And even on the 192.168.10.202 node I can do:
-> # arp -a |grep "0.1"
-> ? (192.168.0.1) at 14:d6:4d:1c:97:3d [ether] on eth0
-> So even 0.1 is about to be reachable.
-> Still nothing works.
-> Should it work if 192.168.0.1 router, to which 8.1 redirects,
-> has shared_media disabled?
+On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
+constant shift that can't be encoded in the immediate field of the
+UBFM/SBFM instructions is passed to the JIT.  Since these shifts
+amounts, which are negative or >= regsize, are invalid, reject then in
+the eBPF verifier and the classic BPF filter checker, for all
+architectures.
 
-Can you check with tcpdump? ping requires the router to also find a=20
-correct way back, so packet can get stuck at a lot of places. Also uRPF=
-=20
-is maybe active which kind of defeats shared_media and please check=20
-netfilter.
+Signed-off-by: Rabin Vincent <rabin@rab.in>
+---
+ kernel/bpf/verifier.c | 10 ++++++++++
+ net/core/filter.c     |  5 +++++
+ 2 files changed, 15 insertions(+)
 
-Bye,
-Hannes
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index a7945d10b378..3643df0dfaa9 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1121,6 +1121,16 @@ static int check_alu_op(struct verifier_env *env, struct bpf_insn *insn)
+ 			return -EINVAL;
+ 		}
+ 
++		if ((opcode == BPF_LSH || opcode == BPF_RSH) &&
++		    BPF_SRC(insn->code) == BPF_K) {
++			int size = BPF_CLASS(insn->code) == BPF_ALU64 ? 64 : 32;
++
++			if (insn->imm < 0 || insn->imm >= size) {
++				verbose("invalid shift %d\n", insn->imm);
++				return -EINVAL;
++			}
++		}
++
+ 		/* pattern match 'bpf_add Rx, imm' instruction */
+ 		if (opcode == BPF_ADD && BPF_CLASS(insn->code) == BPF_ALU64 &&
+ 		    regs[insn->dst_reg].type == FRAME_PTR &&
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 672eefbfbe99..37157c4c1a78 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
+ 			if (ftest->k == 0)
+ 				return -EINVAL;
+ 			break;
++		case BPF_ALU | BPF_LSH | BPF_K:
++		case BPF_ALU | BPF_RSH | BPF_K:
++			if (ftest->k >= 32)
++				return -EINVAL;
++			break;
+ 		case BPF_LD | BPF_MEM:
+ 		case BPF_LDX | BPF_MEM:
+ 		case BPF_ST:
+-- 
+2.6.4
