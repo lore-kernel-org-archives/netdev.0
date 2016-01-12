@@ -1,59 +1,130 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net: WARNING in tcp_recvmsg
-Date: Tue, 12 Jan 2016 11:54:19 +0100
-Message-ID: <CACT4Y+bkc46p7wgGsDwxAqpBRvObbWQ5wD-1r1h58D4yByrDJg@mail.gmail.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update elem
+Date: Tue, 12 Jan 2016 19:05:47 +0800
+Message-ID: <CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
+References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
+	<1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
+	<20160111190248.GA26495@ast-mbp.thefacebook.com>
+	<CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
+	<20160112054928.GA31180@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Martin KaFai Lau <kafai@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160112054928.GA31180@ast-mbp.thefacebook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Jan 12, 2016 at 1:49 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Tue, Jan 12, 2016 at 01:00:00PM +0800, Ming Lei wrote:
+>> Hi Alexei,
+>>
+>> Thanks for your review.
+>>
+>> On Tue, Jan 12, 2016 at 3:02 AM, Alexei Starovoitov
+>> <alexei.starovoitov@gmail.com> wrote:
+>> > On Mon, Jan 11, 2016 at 11:56:57PM +0800, Ming Lei wrote:
+>> >> Prepare for supporting percpu map in the following patch.
+>> >>
+>> >> Now userspace can lookup/update mapped value in one specific
+>> >> CPU in case of percpu map.
+>> >>
+>> >> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+>> > ...
+>> >> @@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+>> >>               goto free_key;
+>> >>
+>> >>       rcu_read_lock();
+>> >> -     ptr = map->ops->map_lookup_elem(map, key);
+>> >> +     if (!percpu)
+>> >> +             ptr = map->ops->map_lookup_elem(map, key);
+>> >> +     else
+>> >> +             ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
+>> >
+>> > I think this approach is less potent than Martin's for several reasons:
+>> > - bpf program shouldn't be supplying bpf_smp_processor_id(), since
+>> >   it's error prone and a bit slower than doing it explicitly as in:
+>> >   http://patchwork.ozlabs.org/patch/564482/
+>> >   although Martin's patch also needs to use this_cpu_ptr() instead
+>> >   of per_cpu_ptr(.., smp_processor_id());
+>>
+>> For PERCPU map, smp_processor_id() is definitely required, and
+>> Martin's patch need that too, please see htab_percpu_map_lookup_elem()
+>> in his patch.
+>
+> hmm. it's definitely _not_ required. right?
+> bpf programs shouldn't be accessing other per-cpu regions
+> only their own. That's what this_cpu_ptr is for.
+> I don't see a case where accessing other cpu per-cpu element
+> wouldn't be a bug in the program.
+>
+>> > - two new bpf helpers are not necessary in Martin's approach.
+>> >   regular map_lookup_elem() will work for both per-cpu maps.
+>>
+>> For percpu ARRAY, they are not necessary, but it is flexiable to
+>> provide them since we should allow prog to retrieve the perpcu
+>> value, also it is easier to implement the system call with the two
+>> helpers.
+>>
+>> For percpu HASH, they are required since eBPF prog need to support
+>> deleting element, so we have provide these helpers for prog to retrieve
+>> percpu value before deleting the elem.
+>
+> bpf programs cannot have loops, so there is no valid case to access
+> other cpu element, since program cannot aggregate all-cpu values.
+> Therefore the programs can only update/lookup this_cpu element and
+> delete such element across all cpus.
 
-I've hit the WARNING in tcp_recvmsg again while running syzkaller fuzzer:
-  WARN_ON(tp->copied_seq != tp->rcv_nxt &&
-                      !(flags & (MSG_PEEK | MSG_TRUNC)));
-Now on commit afd2ff9b7e1b367172f18ba7f693dfb62bdcb2dc (Jan 10). This
-is with https://groups.google.com/d/msg/syzkaller/vlk-2b1hAVQ/JpkM7K36DQAJ
-fixed. But unfortunately I cannot reproduce it. The program that
-triggered it was something along the lines of (but with syscalls
-executed chaotically concurrently):
-https://gist.githubusercontent.com/dvyukov/0bfc7714a09769ed80c0/raw/b3e9aacac6386b08c2096b5121a3b56d8204a1d9/gistfile1.txt
-So maybe if you see something obvious in the code...
+Looks I missed the point of looping constraint, then basically delete element
+helper doesn't make sense in percpu hash.
 
-------------[ cut here ]------------
-WARNING: CPU: 1 PID: 30853 at net/ipv4/tcp.c:1728 tcp_recvmsg+0x1a9f/0x2c50()
-Modules linked in:
-CPU: 1 PID: 30853 Comm: syz-executor Not tainted 4.4.0-rc8+ #218
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- 00000000ffffffff ffff8800515776e0 ffffffff82904c8d 0000000000000000
- ffff88006248af00 ffffffff868d3940 ffff880051577720 ffffffff8133e979
- ffffffff850c663f ffffffff868d3940 00000000000006c0 00000000054cf464
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff82904c8d>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
- [<ffffffff8133e979>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:483
- [<ffffffff8133eba9>] warn_slowpath_null+0x29/0x30 kernel/panic.c:516
- [<ffffffff850c663f>] tcp_recvmsg+0x1a9f/0x2c50 net/ipv4/tcp.c:1727
- [<ffffffff85184d89>] inet_recvmsg+0x2f9/0x4a0 net/ipv4/af_inet.c:767
- [<     inline     >] sock_recvmsg_nosec net/socket.c:713
- [<ffffffff84d3a85d>] sock_recvmsg+0x9d/0xb0 net/socket.c:721
- [<ffffffff84d3db89>] ___sys_recvmsg+0x259/0x540 net/socket.c:2099
- [<ffffffff84d40039>] __sys_recvmmsg+0x219/0x7b0 net/socket.c:2205
- [<     inline     >] SYSC_recvmmsg net/socket.c:2279
- [<ffffffff84d4073f>] SyS_recvmmsg+0x16f/0x180 net/socket.c:2268
- [<ffffffff85e745b6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-arch/x86/entry/entry_64.S:185
----[ end trace 3a67e167dc3f4872 ]---
+>
+>> > - such map_lookup_elem_percpu() from syscall is not accurate.
+>> >   Martin's approach via smp_call_function_single() returns precise value,
+>>
+>> I don't understand why Martin's approach is precise and my patch isn't,
+>> could you explain it a bit?
+>
+> because simple mempcy() called from syscall will race with lookup/increment
+> done to this_cpu element on another cpu. To avoid this race the smp_call
+> is needed, so that memcpy() happens on the cpu that updated the element,
+> so smp_call's memcpy and bpf program won't be touch that cpu value
+> at the same time and user space will read the correct element values.
+> If program updates them a lot, the value that user space reads will become
+> stale very quickly, but it will be valid. That's especially important
+> when program have multiple counters inside single element value.
+
+But smp_call is often very slow because of IPI, so the value acculated
+finally becomes stale easily even though the value from the requested cpu
+is 'precise' at the exact time, especially when there are lots of CPUs, so I
+think using smp_call is really a bad idea. And smp_call is worse than
+iterating from CPUs simply.
+
+>
+>> >   whereas here memcpy() will race with other cpus.
+>> >
+>> > Overall I think both pre-cpu hash and per-cpu array maps are quite useful.
+>>
+>> percpu hash isn't a must since we can get similar effect by making real_key
+>> and cpu_id as key with less memory consumption, but we can introduce that.
+>
+> I don't think so. bpf programs shouldn't be dealing with smp_processor_id()
+> It was poor man's per-cpu hack and it had too many disadvantages.
+> Like get_next_key() doesn't work properly when key is {key+processor_id},
+> so walking over hash map to aggregate fake per-cpu elements requires
+> user space to create another map just for walking.
+> map->max_entries limit becomes bogus.
+> this_cpu_ptr(..) is typically faster than per_cpu_ptr(.., smp_proc_id())
+
+OK, then this_cpu_ptr() is better since we don't need to access the value
+of other CPUs.
+
+-- 
+Ming Lei
