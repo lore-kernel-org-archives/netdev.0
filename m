@@ -1,45 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: netlink: Fix multicast group storage
- allocation for families with more than one groups
-Date: Tue, 12 Jan 2016 16:42:11 -0500 (EST)
-Message-ID: <20160112.164211.956459588621139898.davem@davemloft.net>
-References: <20160111122610.GA28615@fi-ourus-dhcp00977.emea.nsn-net.net>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH net-next 08/10] bus: mvenus-mbus: Fix size test for mvebu_mbus_get_dram_win_info
+Date: Tue, 12 Jan 2016 22:42:49 +0100
+Message-ID: <CAPv3WKcDNPY=h37ZiVp8nESmeCZYHBuU0q30D0NoymWoTvz+wA@mail.gmail.com>
+References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
+	<1452625834-22166-9-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes.berg@intel.com, jbenc@redhat.com, bywxiaobai@163.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alexander.sverdlin@nokia.com, teppo.o.pennanen@nokia.com
-To: matti.vaittinen@nokia.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160111122610.GA28615@fi-ourus-dhcp00977.emea.nsn-net.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:33739 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753467AbcALVmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 16:42:50 -0500
+Received: by mail-ob0-f178.google.com with SMTP id is5so38828173obc.0
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 13:42:49 -0800 (PST)
+In-Reply-To: <1452625834-22166-9-git-send-email-gregory.clement@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matti Vaittinen <matti.vaittinen@nokia.com>
-Date: Mon, 11 Jan 2016 14:26:19 +0200
+Gregory,
 
-> Multicast groups are stored in global buffer. Check for needed buffer size
-> incorrectly compares buffer size to first id for family. This means that
-> for families with more than one mcast id one may allocate too small buffer
-> and end up writing rest of the groups to some unallocated memory. Fix the 
-> buffer size check to compare allocated space to last mcast id for the 
-> family.
-> 
-> Tested on ARM using kernel 3.14
-> 
-> Signed-off-by: Matti Vaittinen <matti.vaittinen@nokia.com>
 
-Indeed, it looks like this function was never tested with any value
-of n_groups other than one.
 
-But I think your change has an off-by-one bug:
+2016-01-12 20:10 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  drivers/bus/mvebu-mbus.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/bus/mvebu-mbus.c b/drivers/bus/mvebu-mbus.c
+> index 3d1c0c3880ec..214bb964165b 100644
+> --- a/drivers/bus/mvebu-mbus.c
+> +++ b/drivers/bus/mvebu-mbus.c
+> @@ -964,7 +964,7 @@ int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target, u8 *attr)
+>         for (i = 0; i < dram->num_cs; i++) {
+>                 const struct mbus_dram_window *cs = dram->cs + i;
+>
+> -               if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size)) {
+> +               if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size - 1)) {
+>                         *target = dram->mbus_dram_target_id;
+>                         *attr = cs->mbus_attr;
+>                         return 0;
+> --
 
-> -		if (id >= mc_groups_longs * BITS_PER_LONG) {
-> +		if (id + n_groups >= mc_groups_longs * BITS_PER_LONG) {
+Except for a typo in the commit log, the fix is good.
+If you wish you can add
+Reviewed-by: Marcin Wojtas <mw@semihalf.com>
 
-I think this needs to be "id + n_groups > ".  Consider the existing,
-working, case of "n_groups == 1".  Now you're adding '1' and therefore
-the test needs to be adjusted from >= to >.
-
-Thanks.
+Best regards,
+Marcin
