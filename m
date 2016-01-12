@@ -1,37 +1,32 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
-Date: Tue, 12 Jan 2016 11:26:21 -0800
-Message-ID: <20160112192620.GB34276@ast-mbp.thefacebook.com>
-References: <20160112185121.GA34045@ast-mbp.thefacebook.com>
- <1452626228-15742-1-git-send-email-rabin@rab.in>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch 1/2 -next] mdio: remove an unneed condition
+Date: Tue, 12 Jan 2016 14:30:48 -0500 (EST)
+Message-ID: <20160112.143048.1357041752363538499.davem@davemloft.net>
+References: <20160112093534.GE29804@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ast@kernel.org,
-	daniel@iogearbox.net, linux-arm-kernel@lists.infradead.org
-To: Rabin Vincent <rabin@rab.in>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36078 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752528AbcALT0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:26:24 -0500
-Received: by mail-pf0-f171.google.com with SMTP id n128so67438684pfn.3
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 11:26:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1452626228-15742-1-git-send-email-rabin@rab.in>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160112093534.GE29804@mwanda>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 12, 2016 at 08:17:08PM +0100, Rabin Vincent wrote:
-> On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
-> constant shift that can't be encoded in the immediate field of the
-> UBFM/SBFM instructions is passed to the JIT.  Since these shifts
-> amounts, which are negative or >= regsize, are invalid, reject them in
-> the eBPF verifier and the classic BPF filter checker, for all
-> architectures.
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Tue, 12 Jan 2016 12:35:34 +0300
+
+> It used to be that mdio->irq was a pointer but after e7f4dc3536a4
+> ('mdio: Move allocation of interrupts into core') it's an array inside
+> the mdio struct so it can never be NULL.
 > 
-> Signed-off-by: Rabin Vincent <rabin@rab.in>
-> ---
-> v2: handle BPF_ARSH too
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Thanks.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
