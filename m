@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] mdio_bus: NULL dereference on allocation error
-Date: Tue, 12 Jan 2016 14:31:12 -0500 (EST)
-Message-ID: <20160112.143112.1804837472013389455.davem@davemloft.net>
-References: <20160112093435.GD29804@mwanda>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 20:35:19 +0100
+Message-ID: <56955577.4060905@iogearbox.net>
+References: <20160112185121.GA34045@ast-mbp.thefacebook.com> <1452626228-15742-1-git-send-email-rabin@rab.in>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, ast@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Rabin Vincent <rabin@rab.in>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53260 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752052AbcALTbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:31:13 -0500
-In-Reply-To: <20160112093435.GD29804@mwanda>
+Received: from www62.your-server.de ([213.133.104.62]:56204 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774AbcALTf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:35:27 -0500
+In-Reply-To: <1452626228-15742-1-git-send-email-rabin@rab.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 12 Jan 2016 12:34:36 +0300
+On 01/12/2016 08:17 PM, Rabin Vincent wrote:
+> On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
+> constant shift that can't be encoded in the immediate field of the
+> UBFM/SBFM instructions is passed to the JIT.  Since these shifts
+> amounts, which are negative or >= regsize, are invalid, reject them in
+> the eBPF verifier and the classic BPF filter checker, for all
+> architectures.
+>
+> Signed-off-by: Rabin Vincent <rabin@rab.in>
 
-> If bus = kzalloc() fails then we end up dereferencing bus when we do
-> "bus->irq[i] = PHY_POLL;".  The code is a little simpler if we reverse
-> the NULL check and return directly on failure.
-> 
-> Fixes: e7f4dc3536a4 ('mdio: Move allocation of interrupts into core')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Fine with me as well, thanks for following up!
 
-Applied.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
