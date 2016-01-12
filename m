@@ -1,38 +1,44 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/3] dummy: make device count build-time configurable
-Date: Tue, 12 Jan 2016 10:42:47 -0800
-Message-ID: <20160112104247.1004c32c@xeon-e3>
-References: <1452599853-27399-1-git-send-email-lkundrak@v3.sk>
+Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
+Date: Tue, 12 Jan 2016 10:44:37 -0800
+Message-ID: <20160112104437.0e1a841b@xeon-e3>
+References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
+	<5694F7BA.3040402@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
-To: Lubomir Rintel <lkundrak@v3.sk>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452599853-27399-1-git-send-email-lkundrak@v3.sk>
+In-Reply-To: <5694F7BA.3040402@mojatatu.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Jan 2016 12:57:33 +0100
-Lubomir Rintel <lkundrak@v3.sk> wrote:
+On Tue, 12 Jan 2016 07:55:22 -0500
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> The devices can be created at run-time for quite some time already and the
-> load-time device creation collides with attempts to create the device of
-> the same name:
+> On 16-01-12 06:56 AM, Lubomir Rintel wrote:
+> > The devices can be created at run-time for quite some time already and the
+> > load-time device creation collides with attempts to create the device of
+> > the same name:
+> >
+> >    # rmmod ifb
+> >    # ip link add ifb0 type ifb
+> >    RTNETLINK answers: File exists
+> >
+> > This is pretty much the same situation as was with the block loop devices
+> > which was solved by adding a build-time configuration that the
+> > distributions could use as they deem fit while keeping the default for
+> > compatibility.
+> >
+> > Let's do that here as well.
+> >
+> > Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 > 
->   # rmmod dummy
->   # ip link add dummy0 type dummy
->   RTNETLINK answers: File exists
-> 
-> This is pretty much the same situation as was with the block loop devices
-> which was solved by adding a build-time configuration that the
-> distributions could use as they deem fit while keeping the default for
-> compatibility.
-> 
-> Let's do that here as well.
-> 
-> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+> I guess module options are frowned upon. so:
 
-There is already a module parameter for this, so making it a compile
-time option adds nothing.
+I would prefer that this were done with a module parameter, the same as dummy.
+Only developers build their own configured kernels. Having the value set later
+at module load time is preferable.
