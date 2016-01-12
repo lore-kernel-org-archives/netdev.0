@@ -1,64 +1,68 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: [PATCH 17/53] perf test: Improve bp_signal
-Date: Tue, 12 Jan 2016 10:21:29 +0100
-Message-ID: <20160112092129.GA2187@krava.brq.redhat.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-18-git-send-email-wangnan0@huawei.com>
- <20160111213729.GI18367@kernel.org>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 12 Jan 2016 11:11:02 +0200
+Message-ID: <20160112091102.GA12607@colbert.idosch.org>
+References: <20160112131505.2228f559@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wang Nan <wangnan0@huawei.com>, linux-kernel@vger.kernel.org,
-	pi3orama@163.com, lizefan@huawei.com, netdev@vger.kernel.org,
-	davem@davemloft.net, Will Deacon <will.deacon@arm.com>,
-	Jiri Olsa <jolsa@kernel.org>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47671 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752629AbcALJVd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2016 04:21:33 -0500
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160111213729.GI18367@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160112131505.2228f559@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 11, 2016 at 06:37:29PM -0300, Arnaldo Carvalho de Melo wrote:
-> Em Mon, Jan 11, 2016 at 01:48:08PM +0000, Wang Nan escreveu:
-> > Will Deacon [1] has some question on patch [2]. This patch improves
-> > test__bp_signal so we can test:
-> > 
-> >  1. A watchpoint and a breakpoint that fire on the same instruction
-> >  2. Nested signals
-> > 
-> > Test result:
-> > 
-> >  On x86_64 and ARM64 (result are similar with patch [2] on ARM64):
-> > 
-> >  # ./perf test -v signal
-> >  17: Test breakpoint overflow signal handler                  :
-> >  --- start ---
-> >  test child forked, pid 10213
-> >  count1 1, count2 3, count3 2, overflow 3, overflows_2 3
-> >  test child finished with 0
-> >  ---- end ----
-> >  Test breakpoint overflow signal handler: Ok
-> > 
-> > So at least 2 cases Will doubted are handled correctly.
-> > 
-> > [1] http://lkml.kernel.org/g/20160104165535.GI1616@arm.com
-> > [2] http://lkml.kernel.org/g/1450921362-198371-1-git-send-email-wangnan0@huawei.com
-> > 
-> > Signed-off-by: Wang Nan <wangnan0@huawei.com>
-> > Cc: Will Deacon <will.deacon@arm.com>
-> 
-> Will, are you ok with this one? Can I have an Acked-by or better,
-> Tested-by for the AARCH64 base?
-> 
-> IIRC Jiri made some comment about this one?
+Tue, Jan 12, 2016 at 04:15:05AM IST, sfr@canb.auug.org.au wrote:
 
-I thought I acked this one.. all comments were addresses, so:
+Hi Stephen,
 
-Acked-by: Jiri Olsa <jolsa@kernel.org>
+>Hi all,
+>
+>Today's linux-next merge of the net-next tree got a conflict in:
+>
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+>
+>between commit:
+>
+>  366ce6031529 ("mlxsw: spectrum: Add FDB lock to prevent session interleaving")
+>
+>from the net tree and commit:
+>
+>  54a732018d8e ("mlxsw: spectrum: Adjust switchdev ops for VLAN devices")
+>
+>from the net-next tree.
+>
+>I fixed it up (see below) and can carry the fix as necessary (no action
+>is required).
+>
+>-- 
+>Cheers,
+>Stephen Rothwell                    sfr@canb.auug.org.au
+>
+>diff --cc drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+>index 80e266063aee,4cdc18e72222..000000000000
+>--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+>+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+>@@@ -650,7 -1057,14 +1057,15 @@@ static int mlxsw_sp_port_fdb_dump(struc
+>  	if (!sfd_pl)
+>  		return -ENOMEM;
+>  
+> +	mutex_lock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
 
-thanks,
-jirka
+The lock can be moved further down, just before mlxsw_reg_sfd_pack.
+Other than that everything looks fine. Thank you!
+
+>+ 	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
+>+ 		u16 tmp;
+>+ 
+>+ 		tmp = mlxsw_sp_vport_vfid_get(mlxsw_sp_port);
+>+ 		vport_fid = mlxsw_sp_vfid_to_fid(tmp);
+>+ 		vport_vid = mlxsw_sp_vport_vid_get(mlxsw_sp_port);
+>+ 	}
+>+ 
+>  	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
+>  	do {
+>  		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
