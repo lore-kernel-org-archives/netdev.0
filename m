@@ -1,10 +1,9 @@
 From: Lubomir Rintel <lkundrak@v3.sk>
-Subject: [PATCH 1/3] ifb: make device count build-time configurable
-Date: Tue, 12 Jan 2016 12:56:44 +0100
-Message-ID: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
+Subject: [PATCH 2/3] dummy: make device count build-time configurable
+Date: Tue, 12 Jan 2016 12:57:33 +0100
+Message-ID: <1452599853-27399-1-git-send-email-lkundrak@v3.sk>
 Cc: linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Lubomir Rintel <lkundrak@v3.sk>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,8 +14,8 @@ The devices can be created at run-time for quite some time already and the
 load-time device creation collides with attempts to create the device of
 the same name:
 
-  # rmmod ifb
-  # ip link add ifb0 type ifb
+  # rmmod dummy
+  # ip link add dummy0 type dummy
   RTNETLINK answers: File exists
 
 This is pretty much the same situation as was with the block loop devices
@@ -28,56 +27,48 @@ Let's do that here as well.
 
 Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 ---
- drivers/net/Kconfig | 21 +++++++++++++++++----
- drivers/net/ifb.c   |  2 +-
- 2 files changed, 18 insertions(+), 5 deletions(-)
+ drivers/net/Kconfig | 15 +++++++++++++++
+ drivers/net/dummy.c |  2 +-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f184fb5..63535b4 100644
+index 63535b4..f94af69 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -110,12 +110,25 @@ config IFB
- 	  This is an intermediate driver that allows sharing of
- 	  resources.
+@@ -71,6 +71,21 @@ config DUMMY
  	  To compile this driver as a module, choose M here: the module
--	  will be called ifb.  If you want to use more than one ifb
--	  device at a time, you need to compile this driver as a module.
--	  Instead of 'ifb', the devices will then be called 'ifb0',
--	  'ifb1' etc.
-+	  will be called ifb.
-+
- 	  Look at the iproute2 documentation directory for usage etc
+ 	  will be called dummy.
  
-+config IFB_COUNT
-+        int "Number of ifb devices to pre-create at init time"
-+        depends on IFB
-+        default 3
++config DUMMY_COUNT
++        int "Number of dummy devices to pre-create at init time"
++        depends on DUMMY
++        default 1
 +        help
-+          Static number of ifb devices to be unconditionally pre-created
++          Static number of dummy devices to be unconditionally pre-created
 +          at init time.
 +
 +          This default value can be overwritten on the kernel command
-+          line or with module-parameter ifb.numifbs.
++          line or with module-parameter dummy.numdummies.
 +
-+          The historic default is 3. If a mid-2007 version of iproute2
++          The historic default is 1. If a mid-2007 version of iproute2
 +          is used (v2.6.23 or later), it can be set to 0, since needed
-+          ifb devices can be dynamically allocated via rtnetlink.
++          dummy devices can be dynamically allocated via rtnetlink.
 +
- source "drivers/net/team/Kconfig"
+ config EQUALIZER
+ 	tristate "EQL (serial line load balancing) support"
+ 	---help---
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 69fc840..e4506c9 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -41,7 +41,7 @@
+ #define DRV_NAME	"dummy"
+ #define DRV_VERSION	"1.0"
  
- config MACVLAN
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index cc56fac..911af2c 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -298,7 +298,7 @@ static struct rtnl_link_ops ifb_link_ops __read_mostly = {
-  * Note that these legacy devices have one queue.
-  * Prefer something like : ip link add ifb10 numtxqueues 8 type ifb
-  */
--static int numifbs = 2;
-+static int numifbs = CONFIG_IFB_COUNT;
- module_param(numifbs, int, 0);
- MODULE_PARM_DESC(numifbs, "Number of ifb devices");
+-static int numdummies = 1;
++static int numdummies = CONFIG_DUMMY_COUNT;
  
+ /* fake multicast ability */
+ static void set_multicast_list(struct net_device *dev)
 -- 
 2.5.0
