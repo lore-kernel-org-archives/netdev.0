@@ -1,69 +1,51 @@
-From: Rabin Vincent <rabin@rab.in>
-Subject: [PATCH] net: bpf: reject invalid shifts
-Date: Tue, 12 Jan 2016 18:55:07 +0100
-Message-ID: <1452621307-2213-1-git-send-email-rabin@rab.in>
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-	linux-arm-kernel@lists.infradead.org, Rabin Vincent <rabin@rab.in>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36633 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752252AbcALRzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 12:55:20 -0500
-Received: by mail-wm0-f67.google.com with SMTP id l65so32586084wmf.3
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 09:55:19 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH] net: bnxt: always return values from
+ _bnxt_get_max_rings
+Date: Tue, 12 Jan 2016 09:55:43 -0800
+Message-ID: <1452621343.13732.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <4309490.qRrvvx0n1Q@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Jeffrey Huang <huangjw@broadcom.com>,
+	<linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4309490.qRrvvx0n1Q@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
-constant shift that can't be encoded in the immediate field of the
-UBFM/SBFM instructions is passed to the JIT.  Since these shifts
-amounts, which are negative or >= regsize, are invalid, reject then in
-the eBPF verifier and the classic BPF filter checker, for all
-architectures.
+On Tue, 2016-01-12 at 16:05 +0100, Arnd Bergmann wrote:
+> Newly added code in the bnxt driver uses a couple of variables that
+> are never initialized when CONFIG_BNXT_SRIOV is not set, and gcc
+> correctly warns about that:
+> 
+> In file included from include/linux/list.h:8:0,
+>                  from include/linux/module.h:9,
+>                  from drivers/net/ethernet/broadcom/bnxt/bnxt.c:10: 
+> drivers/net/ethernet/broadcom/bnxt/bnxt.c: In function 'bnxt_get_max_rings':
+> include/linux/kernel.h:794:26: warning: 'cp' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> include/linux/kernel.h:794:26: warning: 'tx' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> drivers/net/ethernet/broadcom/bnxt/bnxt.c:5730:11: warning: 'rx' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> drivers/net/ethernet/broadcom/bnxt/bnxt.c:5736:6: note: 'rx' was declared here
+> 
+> This changes the condition so that we fall back to using the PF
+> data if VF is not available, and always initialize the variables
+> to something useful.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 6e6c5a57fbe1 ("bnxt_en: Modify bnxt_get_max_rings() to support
+> shared or non shared rings.")
+> ---
+> This is the fix that made most sense to me, but that doesn't mean it's
+> the right thing to do for this driver, so please check carefully
+> whether falling back to PF is actually the correct behavior.
+> 
+> I'm assuming that BNXT_PF(bp) is meant to always be true if
+> CONFIG_BNXT_SRIOV
+> is disabled, but I have not verified if this is guaranteed. 
 
-Signed-off-by: Rabin Vincent <rabin@rab.in>
----
- kernel/bpf/verifier.c | 10 ++++++++++
- net/core/filter.c     |  5 +++++
- 2 files changed, 15 insertions(+)
+The assumption is correct.  Patch looks good.  Thanks.
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index a7945d10b378..3643df0dfaa9 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1121,6 +1121,16 @@ static int check_alu_op(struct verifier_env *env, struct bpf_insn *insn)
- 			return -EINVAL;
- 		}
- 
-+		if ((opcode == BPF_LSH || opcode == BPF_RSH) &&
-+		    BPF_SRC(insn->code) == BPF_K) {
-+			int size = BPF_CLASS(insn->code) == BPF_ALU64 ? 64 : 32;
-+
-+			if (insn->imm < 0 || insn->imm >= size) {
-+				verbose("invalid shift %d\n", insn->imm);
-+				return -EINVAL;
-+			}
-+		}
-+
- 		/* pattern match 'bpf_add Rx, imm' instruction */
- 		if (opcode == BPF_ADD && BPF_CLASS(insn->code) == BPF_ALU64 &&
- 		    regs[insn->dst_reg].type == FRAME_PTR &&
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 672eefbfbe99..37157c4c1a78 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
- 			if (ftest->k == 0)
- 				return -EINVAL;
- 			break;
-+		case BPF_ALU | BPF_LSH | BPF_K:
-+		case BPF_ALU | BPF_RSH | BPF_K:
-+			if (ftest->k >= 32)
-+				return -EINVAL;
-+			break;
- 		case BPF_LD | BPF_MEM:
- 		case BPF_LDX | BPF_MEM:
- 		case BPF_ST:
--- 
-2.6.4
+Acked-by: Michael Chan <mchan@broadcom.com>
