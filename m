@@ -1,78 +1,86 @@
-From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: [PATCHv2 0/2] net: fec: Reset ethernet PHY whenever the
- enet_out clock is being enabled
-Date: Tue, 12 Jan 2016 17:04:44 +0100
-Message-ID: <20160112170444.11c412c5@ipc1.ka-ro>
-References: <1452611876-451-1-git-send-email-LW@KARO-electronics.de>
-	<20160112152405.GZ19062@n2100.arm.linux.org.uk>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Q: bad routing table cache entries
+Date: Tue, 12 Jan 2016 17:10:59 +0100
+Message-ID: <56952593.8040409@stressinduktion.org>
+References: <5682665A.7090102@list.ru> <56951D1D.5080602@stressinduktion.org>
+ <56952147.80201@stressinduktion.org> <569523C0.5040504@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Greg Ungerer <gerg@uclinux.org>,
-	Kevin Hao <haokexin@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Nimrod Andy <B38611@freescale.com>,
-	Philippe Reynes <tremyfr@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Stefan Agner <stefan@agner.ch>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Uwe =?UTF-8?B?S2xlaW5lLUvDtm5pZw==?=
-	<u.kleine-koenig@pengutronix.de>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Sascha Hauer <kernel@pengutronix.de>,
-	Shawn Guo <shawnguo@kernel.org>, devicetree@vger.kernel.org,
-	linux-arm-kern
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160112152405.GZ19062@n2100.arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:37389 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753295AbcALQLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 11:11:01 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id E6846209F7
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 11:11:00 -0500 (EST)
+In-Reply-To: <569523C0.5040504@list.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 12.01.2016 17:03, Stas Sergeev wrote:
+> 12.01.2016 18:52, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+>> On 12.01.2016 16:34, Hannes Frederic Sowa wrote:
+>>> On 29.12.2015 11:54, Stas Sergeev wrote:
+>>>> Hello.
+>>>>
+>>>> I was hitting a strange problem when some internet hosts
+>>>> suddenly stops responding until I reboot. ping to these
+>>>> host gives "Destination Host Unreachable". After the
+>>>> initial confusion, I've finally got to
+>>>> ip route get
+>>>> and got something quite strange.
+>>>>
+>>>>
+>>>> Example for GOOD address (the one that I can ping):
+>>>>
+>>>> ip route get 91.189.89.237
+>>>> 91.189.89.237 via 192.168.8.1 dev eth0  src 192.168.10.202
+>>>>       cache
+>>>>
+>>>>
+>>>> Example for BAD address (the one that stopped responding):
+>>>>
+>>>> ip route get 91.189.89.238
+>>>> 91.189.89.238 via 192.168.0.1 dev eth0  src 192.168.10.202
+>>>>       cache <redirected>
+>>>
+>>> I tried to understand this thread and now wonder why this redirect =
+route
+>>> isn't there always. Can you please summarize again why this shouldn=
+'t
+>>> happen? It looks totally fine to me from the configuration of your
+>>> router and the subnet masks.
+>>
+>> Just an addendum:
+>>
+>> In IPv6 a redirect is seen as a notification telling hosts, this new=
+ address is on the same link as you. I think this semantic is the same =
+for IPv4, so we are informing you that in essence you are
+>> getting a /32 route installed to your new interface and can do link =
+layer resolving of the new host.
+>>
+>> I do think this is valid and fine.
+> You can't call "valid and fine" something that doesn't
+> work, at first place. Why and where does it fail, was the
+> subject of this thread.
 
-> On Tue, Jan 12, 2016 at 04:17:54PM +0100, Lothar Wa=C3=9Fmann wrote:
-> > This patchset fixes a regression introduced by
-> > commit e8fcfcd5684a ("net: fec: optimize the clock management to sa=
-ve power")
-> > for ethernet PHYs that are using ENET_OUT as reference clock (on i.=
-MX6 or i.MX28)
-> >=20
-> > Changes vs. v1:
-> > - fixed reference to the commit that introduced the regression.
-> > - dropped patch to use gpiod framework. This should be added later,
-> >   after the affected DTBs have been updated to specify the correct
-> >   gpio_flags.
-> >=20
-> > Patch overview:
-> > 1. cleanup patch to remove redundant NULL checks
-> > 2. call fec_reset_phy() after the ENET_OUT clock has been enabled
->=20
-> I definitely want to test these on my SolidRun boards before these ge=
-t
-> merged: the AR8035 on there is configured via pin-straps, and then
-> further tweaked with PHY quirks.  Resetting with the iMX6 in the
-> wrong state may result in the AR8035 being reconfigured (even jumping
-> to a different MDIO address) and certainly would need the PHY quirks
-> re-running.
->=20
-As far as I can tell, all SolidRun boards do not specify the enet_out
-clock in the dtb, so the PHY reset behaviour should be unaffected by
-this patch on those boards, since the additional fec_reset_phy() call i=
-s
-framed by:
-if (fep->clk_enet_out) {
-	...
-}
+In terms of the shared media specification=20
+<https://tools.ietf.org/html/rfc1620> it is valid and fine.
 
-But verifying this explicitly is of course a good idea.
+You can also disable shared_media on the client and it won't accept suc=
+h=20
+redirects anymore. It is just what we defined as the default.
 
+> If you think router did the right thing, then please explain
+> the breakage from that point of view.
 
-Lothar Wa=C3=9Fmann
+Hope it makes sense.
+
+Bye,
+Hannes
