@@ -1,44 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
-Date: Tue, 12 Jan 2016 10:44:37 -0800
-Message-ID: <20160112104437.0e1a841b@xeon-e3>
-References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
-	<5694F7BA.3040402@mojatatu.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 10:51:22 -0800
+Message-ID: <20160112185121.GA34045@ast-mbp.thefacebook.com>
+References: <1452621307-2213-1-git-send-email-rabin@rab.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5694F7BA.3040402@mojatatu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ast@kernel.org,
+	daniel@iogearbox.net, linux-arm-kernel@lists.infradead.org
+To: Rabin Vincent <rabin@rab.in>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34410 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170AbcALSv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 13:51:27 -0500
+Received: by mail-pa0-f53.google.com with SMTP id uo6so327602946pac.1
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 10:51:27 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1452621307-2213-1-git-send-email-rabin@rab.in>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Jan 2016 07:55:22 -0500
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-
-> On 16-01-12 06:56 AM, Lubomir Rintel wrote:
-> > The devices can be created at run-time for quite some time already and the
-> > load-time device creation collides with attempts to create the device of
-> > the same name:
-> >
-> >    # rmmod ifb
-> >    # ip link add ifb0 type ifb
-> >    RTNETLINK answers: File exists
-> >
-> > This is pretty much the same situation as was with the block loop devices
-> > which was solved by adding a build-time configuration that the
-> > distributions could use as they deem fit while keeping the default for
-> > compatibility.
-> >
-> > Let's do that here as well.
-> >
-> > Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+On Tue, Jan 12, 2016 at 06:55:07PM +0100, Rabin Vincent wrote:
+> On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
+> constant shift that can't be encoded in the immediate field of the
+> UBFM/SBFM instructions is passed to the JIT.  Since these shifts
+> amounts, which are negative or >= regsize, are invalid, reject then in
+> the eBPF verifier and the classic BPF filter checker, for all
+> architectures.
 > 
-> I guess module options are frowned upon. so:
+> Signed-off-by: Rabin Vincent <rabin@rab.in>
+> ---
+>  kernel/bpf/verifier.c | 10 ++++++++++
+>  net/core/filter.c     |  5 +++++
+>  2 files changed, 15 insertions(+)
+> 
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index a7945d10b378..3643df0dfaa9 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -1121,6 +1121,16 @@ static int check_alu_op(struct verifier_env *env, struct bpf_insn *insn)
+>  			return -EINVAL;
+>  		}
+>  
+> +		if ((opcode == BPF_LSH || opcode == BPF_RSH) &&
 
-I would prefer that this were done with a module parameter, the same as dummy.
-Only developers build their own configured kernels. Having the value set later
-at module load time is preferable.
+Missing check for opcode == BPF_ARSH
+
+Otherwise looks good. Thank you for fixing this!
+
+> @@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
+>  			if (ftest->k == 0)
+>  				return -EINVAL;
+>  			break;
+> +		case BPF_ALU | BPF_LSH | BPF_K:
+> +		case BPF_ALU | BPF_RSH | BPF_K:
+
+here it's good. ARSH is eBPF only.
