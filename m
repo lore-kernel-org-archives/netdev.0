@@ -1,77 +1,42 @@
-From: Lubomir Rintel <lkundrak@v3.sk>
-Subject: [PATCH 3/3] bonding: make device count build-time configurable
-Date: Tue, 12 Jan 2016 12:58:36 +0100
-Message-ID: <1452599916-27511-1-git-send-email-lkundrak@v3.sk>
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Lubomir Rintel <lkundrak@v3.sk>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3] netlink: fix null pointer dereference on nlk->groups
+Date: Tue, 12 Jan 2016 20:00:19 +0800
+Message-ID: <20160112120019.GA32718@gondor.apana.org.au>
+References: <CAOJe8K10a=MLyZwFCYvstP+KG3bND09RjbXVZDR5gWfFxCvMcg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sploving1@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Denis Kirjanov <kda@linux-powerpc.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:48905 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964974AbcALMBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 07:01:01 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOJe8K10a=MLyZwFCYvstP+KG3bND09RjbXVZDR5gWfFxCvMcg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The devices can be created at run-time for quite some time already and the
-load-time device creation collides with attempts to create the device of
-the same name:
+Denis Kirjanov <kda@linux-powerpc.org> wrote:
+> On 1/12/16, Baozeng Ding <sploving1@gmail.com> wrote:
+>> If groups is not 0 and nlk->groups is NULL, it will not return
+>> immediately and cause a null pointer dereference later.
+>>
+>> Signed-off-by: Baozeng Ding <sploving1@gmail.com>
+>> ---
+>> The v3 version adds WARN_ON, suggested by David Miller. Thanks for
+>> David's feedback.
+> 
+> But can you explain how can we get to this situation?
 
-  # rmmod bonding
-  # ip link add bond0 type bond
-  RTNETLINK answers: File exists
+Indeed, this patch makes no sense as it stands.  If groups is
+not NULL, then we should have allocated nlk->groups prior to
+reaching this point.  If that allocation failed, then we should
+have already bailed out long ago.  Perhaps we have a race condition
+that needs to be closed with a lock?
 
-This is pretty much the same situation as was with the block loop devices
-which was solved by adding a build-time configuration that the
-distributions could use as they deem fit while keeping the default for
-compatibility.
-
-Let's do that here as well.
-
-Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
----
- drivers/net/Kconfig             | 15 +++++++++++++++
- drivers/net/bonding/bond_main.c |  2 +-
- 2 files changed, 16 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f94af69..51de664 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -55,6 +55,21 @@ config BONDING
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called bonding.
- 
-+config BONDING_COUNT
-+        int "Number of bonding devices to pre-create at init time"
-+        depends on BONDING
-+        default 1
-+        help
-+          Static number of bonding devices to be unconditionally pre-created
-+          at init time.
-+
-+          This default value can be overwritten on the kernel command
-+          line or with module-parameter bonding.max_bonds.
-+
-+          The historic default is 1. If a mid-2007 version of iproute2
-+          is used (v2.6.23 or later), it can be set to 0, since needed
-+          bonding devices can be dynamically allocated via rtnetlink.
-+
- config DUMMY
- 	tristate "Dummy net driver support"
- 	---help---
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9e0f8a7..f013cfa 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -88,7 +88,7 @@
- 
- /* monitor all links that often (in milliseconds). <=0 disables monitoring */
- 
--static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
-+static int max_bonds	= CONFIG_BONDING_COUNT;
- static int tx_queues	= BOND_DEFAULT_TX_QUEUES;
- static int num_peer_notif = 1;
- static int miimon;
+Cheers,
 -- 
-2.5.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
