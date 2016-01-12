@@ -1,55 +1,82 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] b43: Fix memory leaks in b43_bus_dev_ssb_init and b43_bus_dev_bcma_init
-Date: Tue, 12 Jan 2016 09:01:04 +0800
-Message-ID: <1452560464-7146-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>
-To: kvalo@codeaurora.org, zajec5@gmail.com, joe@perches.com,
-	davem@davemloft.net, m@bues.ch, johannes.berg@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2 -next 1/2] tc, bpf: check section names and type everywhere
+Date: Tue, 12 Jan 2016 02:03:07 +0100
+Message-ID: <3947559fab4ac91c5b017170b80b2288a4c086c7.1452559602.git.daniel@iogearbox.net>
+References: <cover.1452559602.git.daniel@iogearbox.net>
+Cc: ast@kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:32852 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757960AbcALBDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 20:03:12 -0500
+In-Reply-To: <cover.1452559602.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1452559602.git.daniel@iogearbox.net>
+References: <cover.1452559602.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The memory allocated by kzalloc in b43_bus_dev_ssb_init and
-b43_bus_dev_bcma_initis not freed.
-This patch fixes the bug by adding kfree in b43_ssb_remove,
-b43_bcma_remove and error handling code of b43_bcma_probe.
+When extracting sections, we better check for name and type. Noticed
+that some llvm versions emit .strtab and .shstrtab (e.g. saw it on pre
+3.7), while more recent ones only seem to emit .strtab. Thus, make sure
+we get the right sections.
 
-Thanks Michael for his suggestion.
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- drivers/net/wireless/b43/main.c |    3 +++
- 1 file changed, 3 insertions(+)
+ tc/tc_bpf.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index ec013fb..2c9d9c1 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -5683,6 +5683,7 @@ static int b43_bcma_probe(struct bcma_device *core)
- 	schedule_work(&wl->firmware_load);
+diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
+index f9b2b00..677dd62 100644
+--- a/tc/tc_bpf.c
++++ b/tc/tc_bpf.c
+@@ -1237,14 +1237,17 @@ static int bpf_fetch_ancillary(struct bpf_elf_ctx *ctx)
+ 		if (ret < 0)
+ 			continue;
  
- bcma_out:
-+	kfree(dev);
- 	return err;
+-		if (!strcmp(data.sec_name, ELF_SECTION_MAPS))
++		if (data.sec_hdr.sh_type == SHT_PROGBITS &&
++		    !strcmp(data.sec_name, ELF_SECTION_MAPS))
+ 			ret = bpf_fetch_maps(ctx, i, &data);
+-		else if (!strcmp(data.sec_name, ELF_SECTION_LICENSE))
++		else if (data.sec_hdr.sh_type == SHT_PROGBITS &&
++			 !strcmp(data.sec_name, ELF_SECTION_LICENSE))
+ 			ret = bpf_fetch_license(ctx, i, &data);
+-		else if (data.sec_hdr.sh_type == SHT_SYMTAB)
++		else if (data.sec_hdr.sh_type == SHT_SYMTAB &&
++			 !strcmp(data.sec_name, ".symtab"))
+ 			ret = bpf_fetch_symtab(ctx, i, &data);
+ 		else if (data.sec_hdr.sh_type == SHT_STRTAB &&
+-			 i != ctx->elf_hdr.e_shstrndx)
++			 !strcmp(data.sec_name, ".strtab"))
+ 			ret = bpf_fetch_strtab(ctx, i, &data);
+ 		if (ret < 0) {
+ 			fprintf(stderr, "Error parsing section %d! Perhaps"
+@@ -1275,7 +1278,10 @@ static int bpf_fetch_prog(struct bpf_elf_ctx *ctx, const char *section)
+ 			continue;
  
- bcma_err_wireless_exit:
-@@ -5716,6 +5717,7 @@ static void b43_bcma_remove(struct bcma_device *core)
- 	b43_leds_unregister(wl);
+ 		ret = bpf_fill_section_data(ctx, i, &data);
+-		if (ret < 0 || strcmp(data.sec_name, section))
++		if (ret < 0 ||
++		    !(data.sec_hdr.sh_type == SHT_PROGBITS &&
++		      data.sec_hdr.sh_flags & SHF_EXECINSTR &&
++		      !strcmp(data.sec_name, section)))
+ 			continue;
  
- 	ieee80211_free_hw(wl->hw);
-+	kfree(wldev->dev);
- }
+ 		memset(&prog, 0, sizeof(prog));
+@@ -1353,7 +1359,10 @@ static int bpf_fetch_prog_relo(struct bpf_elf_ctx *ctx, const char *section)
  
- static struct bcma_driver b43_bcma_driver = {
-@@ -5798,6 +5800,7 @@ static void b43_ssb_remove(struct ssb_device *sdev)
+ 		idx = data_relo.sec_hdr.sh_info;
+ 		ret = bpf_fill_section_data(ctx, idx, &data_insn);
+-		if (ret < 0 || strcmp(data_insn.sec_name, section))
++		if (ret < 0 ||
++		    !(data_insn.sec_hdr.sh_type == SHT_PROGBITS &&
++		      data_insn.sec_hdr.sh_flags & SHF_EXECINSTR &&
++		      !strcmp(data_insn.sec_name, section)))
+ 			continue;
  
- 	b43_leds_unregister(wl);
- 	b43_wireless_exit(dev, wl);
-+	kfree(dev);
- }
- 
- static struct ssb_driver b43_ssb_driver = {
+ 		ret = bpf_apply_relo_data(ctx, &data_relo, &data_insn);
 -- 
-1.7.9.5
+1.9.3
