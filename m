@@ -1,94 +1,49 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
-Date: Tue, 12 Jan 2016 16:10:36 +0100
-Message-ID: <CAG-2HqUXL4zOtVR1SQTJNZcxmsYp+BiPaeZgqbsSxyGs2J8rZg@mail.gmail.com>
-References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
+From: =?UTF-8?Q?Fl=c3=a1vio_Silveira?= <fggs@terra.com.br>
+Subject: Re: Attansic L1 driver issue
+Date: Tue, 12 Jan 2016 13:13:03 -0200
+Message-ID: <569517FF.6060602@terra.com.br>
+References: <56876713.9090100@terra.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Lubomir Rintel <lkundrak@v3.sk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, Chris Snook <chris.snook@gmail.com>,
+	jcliburn@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from if01-mail-sr09-mia.mta.terra.com ([208.84.243.26]:54429 "EHLO
+	if01-mail-sr09-mia.mta.terra.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753124AbcALPNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 10:13:10 -0500
+In-Reply-To: <56876713.9090100@terra.com.br>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2016 at 12:56 PM, Lubomir Rintel <lkundrak@v3.sk> wrote:
-> The devices can be created at run-time for quite some time already and the
-> load-time device creation collides with attempts to create the device of
-> the same name:
+On 02/01/2016 03:58, Fl=C3=A1vio Silveira wrote:
+> Good morning,
 >
->   # rmmod ifb
->   # ip link add ifb0 type ifb
->   RTNETLINK answers: File exists
+>   I'm investigating a possible issue with atl1 driver used by Attansi=
+c=20
+> L1.
 >
-> This is pretty much the same situation as was with the block loop devices
-> which was solved by adding a build-time configuration that the
-> distributions could use as they deem fit while keeping the default for
-> compatibility.
+>   During my tests with iperf3 I saw a performance drop when the=20
+> computer is client.
 >
-> Let's do that here as well.
+>   I can hit only about 580~600Mbit/s, if I disable=20
+> generic-segmentation-offload (GSO) I can hit 660~670Mbit/s.
 >
-> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+>   When the computer is server, I can hit 940~950Mbit/s.
 
-This has been a nuisance, so would be great to see it fixed upstream.
+Hi,
 
-Acked-by: Tom Gundersen <teg@jklm.no>
+   I'm continuing to investigate this, tried older kernels (2.6.32 and=20
+3.2.68) in order to see if it was a regression.
 
-> ---
->  drivers/net/Kconfig | 21 +++++++++++++++++----
->  drivers/net/ifb.c   |  2 +-
->  2 files changed, 18 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f184fb5..63535b4 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -110,12 +110,25 @@ config IFB
->           This is an intermediate driver that allows sharing of
->           resources.
->           To compile this driver as a module, choose M here: the module
-> -         will be called ifb.  If you want to use more than one ifb
-> -         device at a time, you need to compile this driver as a module.
-> -         Instead of 'ifb', the devices will then be called 'ifb0',
-> -         'ifb1' etc.
-> +         will be called ifb.
-> +
->           Look at the iproute2 documentation directory for usage etc
->
-> +config IFB_COUNT
-> +        int "Number of ifb devices to pre-create at init time"
-> +        depends on IFB
-> +        default 3
-> +        help
-> +          Static number of ifb devices to be unconditionally pre-created
-> +          at init time.
-> +
-> +          This default value can be overwritten on the kernel command
-> +          line or with module-parameter ifb.numifbs.
-> +
-> +          The historic default is 3. If a mid-2007 version of iproute2
-> +          is used (v2.6.23 or later), it can be set to 0, since needed
-> +          ifb devices can be dynamically allocated via rtnetlink.
-> +
->  source "drivers/net/team/Kconfig"
->
->  config MACVLAN
-> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-> index cc56fac..911af2c 100644
-> --- a/drivers/net/ifb.c
-> +++ b/drivers/net/ifb.c
-> @@ -298,7 +298,7 @@ static struct rtnl_link_ops ifb_link_ops __read_mostly = {
->   * Note that these legacy devices have one queue.
->   * Prefer something like : ip link add ifb10 numtxqueues 8 type ifb
->   */
-> -static int numifbs = 2;
-> +static int numifbs = CONFIG_IFB_COUNT;
->  module_param(numifbs, int, 0);
->  MODULE_PARM_DESC(numifbs, "Number of ifb devices");
->
-> --
-> 2.5.0
->
+   What I discovered so far is that if I disable scatter-gather I can=20
+see around 70Mbit/s of improvement, I wonder if there is anything else =
+I=20
+can do to understand the "tx busy" message I mentioned in first mail or=
+=20
+the issue itself.
+
+Regards,
+   Flavio
