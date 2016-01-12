@@ -1,37 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v5 00/10] net: break dependency of drivers on
- geneve and vxlan
-Date: Tue, 12 Jan 2016 23:17:10 +0100
-Message-ID: <56957B66.6010400@stressinduktion.org>
-References: <1452514651-15445-1-git-send-email-hannes@stressinduktion.org>
- <20160112.163348.786322557927341125.davem@davemloft.net>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH] Openvswitch: datapath.c: Fixed coding style
+	warnings.
+Date: Tue, 12 Jan 2016 14:19:20 -0800
+Message-ID: <CAOrHB_C7h7UhOwZMiBzxPZO0p9g3dtGy5TmgFmDDg_eS7MuLNQ@mail.gmail.com>
+References: <1452635742-8122-1-git-send-email-januszvdm@awokados.com.pl>
+ <1452635742-8122-3-git-send-email-januszvdm@awokados.com.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:40205 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbcALWRP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 17:17:15 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 5E88920B6D
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 17:17:14 -0500 (EST)
-In-Reply-To: <20160112.163348.786322557927341125.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Janusz Wolak <januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1452635742-8122-3-git-send-email-januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 12.01.2016 22:33, David Miller wrote:
->
-> I think this needs to wait until the next merge window.
->
-> I frankly don't consider it such a serious issue, and even
-> if I thought it was an issue it is definitely not urgent
-> at all.
-
-Hehe, I just wanted to branch -d the branch. :)
-
-No problem, I keep it around and rebase and send it in time.
-
-Thanks!
+T24gVHVlLCBKYW4gMTIsIDIwMTYgYXQgMTo1NSBQTSwgSmFudXN6IFdvbGFrIDxqYW51c3p2ZG1A
+YXdva2Fkb3MuY29tLnBsPiB3cm90ZToKPiBSZW1vdmVkOiBibG9jayBjb21tZW50cyB0cmFpbGlu
+ZyB3aXRob3V0IHNlcGFyYXRlIGxpbmUsCj4gbWlzc2luZyBibGFua3MgYWZ0ZXIgZGVjYXJhdGlv
+bnMsIGNvbXBhcmFzaW9uIHRvIE5VTEwsIGFzc2lnbm1lbnQgaW4gaWYKPiBjb25kaXRpb24sIG5v
+dCBuZWNlc3Nhcnkgc3BhY2VzIGFmdGVyIGEgY2FzdHMsIG11bHRpcGxlIGFzc2lnbm1lbnRzLCBs
+aW5lCj4gb3ZlciA4MCBjaGFyYWN0ZXJzLCBhbGlnbm1lbnQgbm90IG1hdGNoZWQgdG8gb3BlbiBw
+YXJlbnRoZXNpcywga21hbGxvYyB3aXRoCj4gbXVsdGlwbHlpbmcgaW5zdGVhZCBrbWFsbG9jX2Fy
+cmF5Lgo+Cj4KPiBTaWduZWQtb2ZmLWJ5OiBKYW51c3ogV29sYWsgPGphbnVzenZkbUBhd29rYWRv
+cy5jb20ucGw+Cj4gLS0tCj4gIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jIHwgNzUgKysrKysr
+KysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLQo+ICAxIGZpbGUgY2hhbmdl
+ZCwgNDIgaW5zZXJ0aW9ucygrKSwgMzMgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvbmV0
+L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwo+IGlu
+ZGV4IDkxYThiMDAuLjEyZmY4YzIgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFw
+YXRoLmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwoKLi4uCgo+IEBAIC00NTUs
+OCArNDU3LDggQEAgc3RhdGljIGludCBxdWV1ZV91c2Vyc3BhY2VfcGFja2V0KHN0cnVjdCBkYXRh
+cGF0aCAqZHAsIHN0cnVjdCBza19idWZmICpza2IsCj4gICAgICAgICB9Cj4KPiAgICAgICAgIC8q
+IENvbXBsZXRlIGNoZWNrc3VtIGlmIG5lZWRlZCAqLwo+IC0gICAgICAgaWYgKHNrYi0+aXBfc3Vt
+bWVkID09IENIRUNLU1VNX1BBUlRJQUwgJiYKPiAtICAgICAgICAgICAoZXJyID0gc2tiX2NoZWNr
+c3VtX2hlbHAoc2tiKSkpCj4gKyAgICAgICBlcnIgPSBza2JfY2hlY2tzdW1faGVscChza2IpOwo+
+ICsgICAgICAgaWYgKHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX1BBUlRJQUwgJiYgZXJyKQo+
+ICAgICAgICAgICAgICAgICBnb3RvIG91dDsKPgpza2IgY2hlY2tzdW0gaGVscCBjYW4gYmUgZXhw
+ZW5zaXZlIGluIHNvbWUgY2FzZXMsIHNvIGl0IHNob3VsZCBiZQptb3ZlZCBpbnNpZGUgdGhlIGlm
+IGNvbmRpdGlvbiBibG9jay4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
