@@ -1,49 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 9/9] samples/bpf: test percpu array map
-Date: Tue, 12 Jan 2016 15:44:49 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC461F@AcuExch.aculab.com>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
- <1452527821-12276-10-git-send-email-tom.leiming@gmail.com>
+From: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Subject: Re: [PATCH v2 3/3] can: sja1000: of: add compatibility with
+ Technologic Systems version
+Date: Tue, 12 Jan 2016 10:51:15 -0500
+Message-ID: <20160112155115.GA6050@localhost>
+References: <1450978973-30417-1-git-send-email-damien.riegel@savoirfairelinux.com>
+ <1450978973-30417-4-git-send-email-damien.riegel@savoirfairelinux.com>
+ <5694B17A.10406@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Martin KaFai Lau" <kafai@fb.com>
-To: 'Ming Lei' <tom.leiming@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452527821-12276-10-git-send-email-tom.leiming@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	kernel@savoirfairelinux.com
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5694B17A.10406@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ming Lei
-> Sent: 11 January 2016 15:57
-...
-> ---
->  samples/bpf/test_maps.c | 110 ++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 110 insertions(+)
+On Tue, Jan 12, 2016 at 08:55:38AM +0100, Marc Kleine-Budde wrote:
+> On 12/24/2015 06:42 PM, Damien Riegel wrote:
+> > Technologic Systems provides an IP compatible with the SJA1000,
+> > instantiated in an FPGA. Because of some bus widths issue, access to
+> > registers is made through a "window" that works like this:
+> > 
+> >     base + 0x0: address to read/write
+> >     base + 0x2: 8-bit register value
 > 
-> diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
-> index 6299ee9..ff5d373 100644
-> --- a/samples/bpf/test_maps.c
-> +++ b/samples/bpf/test_maps.c
-> @@ -142,6 +142,106 @@ static void test_arraymap_sanity(int i, void *data)
->  	close(map_fd);
->  }
-> 
-> +static int handle_one_cpu(unsigned cpu, void *val_cpu, void *val)
-> +{
-> +	unsigned long *cnt = val;
-> +
-> +	*cnt += *(long *)val_cpu;
+> Why do you use io{read,write}16 if it's a 8 bit register?
 
-Integer pointer casts ring big alarm bells - they are accidents
-waiting to happen.
+8-bit is at the IP level, but the bus between the SoC and the FPGA only
+supports 16-bit wide access. The point of the window is to convert
+between 16-bit and 8-bit access.
 
-If the pointers are 'pointer to long' then define them as such.
-
-	David
+Damien
