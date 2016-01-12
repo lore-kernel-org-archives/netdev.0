@@ -1,49 +1,71 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH 13/53] perf tools: Prevent calling machine__delete() on
- non-allocated machine
-Date: Tue, 12 Jan 2016 15:03:39 +0800
-Message-ID: <5694A54B.3090209@huawei.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com> <1452520124-2073-14-git-send-email-wangnan0@huawei.com> <20160111154202.GE18367@kernel.org>
+From: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+Subject: Re: [OOPS] In __netif_receive_skb_core
+Date: Tue, 12 Jan 2016 09:16:16 +0200
+Message-ID: <5694A840.8030900@gmail.com>
+References: <568EA671.7000502@gmail.com> <56929985.3020502@gmail.com>
+ <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
+ <5694188F.80907@gmail.com>
+ <CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
+ <56944DFA.4050002@gmail.com>
+ <1452560786.1223.6.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAO7SqHC+fTCyNd8ukSH4tJ1qPvAYzMGSfhrzXmMn0NLve6NTQA@mail.gmail.com>
+ <1452565288.1223.10.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1452565515.1223.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, Jiri Olsa <jolsa@kernel.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Namhyung Kim <namhyung@kernel.org>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:56094 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbcALHGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 02:06:25 -0500
-In-Reply-To: <20160111154202.GE18367@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Salam Noureddine <noureddine@arista.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Sebastian Reichel <sre@kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452565515.1223.11.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 2016/1/11 23:42, Arnaldo Carvalho de Melo wrote:
-> Em Mon, Jan 11, 2016 at 01:48:04PM +0000, Wang Nan escreveu:
->> To prevent futher commits calling machine__delete() on non-allocated
->> 'struct machine' (which would cause memory corruption), this patch
->> enforces machine__init(), record whether a machine structure is
->> dynamically allocated or not, and warn if machine__delete() is called
->> on incorrect object.
-> Not sure on this one, I think I voiced this before, this seems like
-> something to be tested using some static analysis tool or even checking
-> if the address for the struct hitting machine__delete() is from malloc
-> or not.
+On 12.01.2016 04:25, Eric Dumazet wrote:
+> On Mon, 2016-01-11 at 18:21 -0800, Eric Dumazet wrote:
+>> On Mon, 2016-01-11 at 17:19 -0800, Salam Noureddine wrote:
+>>> It must be that skb->dev was changed to NULL inside of
+>>> __netif_receive_skb_core, otherwise we would have crashed much
+>>> earlier. Also, orig_dev is saved at the beginning. Possibly a device
+>>> is layered on top of the original device.
+
+Exactly (skb->dev was changed to NULL ...). Do you think it makes sense 
+to put printks in various places in __netif_receive_skb_core to see 
+after which function call skb->dev turns into NULL?
+
 >
-> I.e. if we do it here, we may have to do it to any other struct where we
-> allocate it in the stack or via malloc, and furthermore there are cases
-> where we embed a struct in another, when we would free just the main
-> struct but not the second, embedded one, that would need just calling
-> foo__exit() and not foo__delete().
+> OK please try this fix :
 >
-> - Arnaldo
->   
-OK. Let's drop this one.
+> diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+> index 10d42f3220ab..f925753668a7 100644
+> --- a/net/phonet/af_phonet.c
+> +++ b/net/phonet/af_phonet.c
+> @@ -377,6 +377,10 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
+>   	struct sockaddr_pn sa;
+>   	u16 len;
+>
+> +	skb = skb_share_check(skb, GFP_ATOMIC);
+> +	if (!skb)
+> +		return NET_RX_DROP;
+> +
+>   	/* check we have at least a full Phonet header */
+>   	if (!pskb_pull(skb, sizeof(struct phonethdr)))
+>   		goto out;
+>
+>
 
-Thank you.
+That one fixes the oops, though I wonder if your previous patch is 
+needed (I reverted it before testing the current). Unfortunately I don't 
+have SIM card around to test GPRS connection with, will do it as soon as 
+I find one and will report.
+
+Thanks,
+Ivo
