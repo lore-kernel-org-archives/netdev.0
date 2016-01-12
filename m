@@ -1,47 +1,45 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 3/3] bonding: make device count build-time configurable
-Date: Tue, 12 Jan 2016 22:40:35 +0100
-Message-ID: <87bn8qv5m4.fsf@nemi.mork.no>
-References: <1452599916-27511-1-git-send-email-lkundrak@v3.sk>
-	<8166.1452616452@famine> <1452619189.18559.83.camel@v3.sk>
-	<20160112.154914.397367508465928770.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: netlink: Fix multicast group storage
+ allocation for families with more than one groups
+Date: Tue, 12 Jan 2016 16:42:11 -0500 (EST)
+Message-ID: <20160112.164211.956459588621139898.davem@davemloft.net>
+References: <20160111122610.GA28615@fi-ourus-dhcp00977.emea.nsn-net.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkundrak@v3.sk, jay.vosburgh@canonical.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vfalico@gmail.com,
-	gospo@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes.berg@intel.com, jbenc@redhat.com, bywxiaobai@163.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	alexander.sverdlin@nokia.com, teppo.o.pennanen@nokia.com
+To: matti.vaittinen@nokia.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160112.154914.397367508465928770.davem@davemloft.net> (David
-	Miller's message of "Tue, 12 Jan 2016 15:49:14 -0500 (EST)")
+In-Reply-To: <20160111122610.GA28615@fi-ourus-dhcp00977.emea.nsn-net.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-> From: Lubomir Rintel <lkundrak@v3.sk>
-> Date: Tue, 12 Jan 2016 18:19:49 +0100
->
->> It's still an improvement to let the distributions decide if they're
->> keeping "ip link add" broken or possibly affecting the scripts.
->
-> That it is "broken" is your opinion.
->
-> Document the behavior.  It is not broken if the user is told to be
-> mindful of what devices are created by default.
->
-> There is way too much downside to changing this.
+From: Matti Vaittinen <matti.vaittinen@nokia.com>
+Date: Mon, 11 Jan 2016 14:26:19 +0200
 
-Besides, distributions or admins can already change that behaviour if
-they consider it "broken", using the existing module parameter:
+> Multicast groups are stored in global buffer. Check for needed buffer size
+> incorrectly compares buffer size to first id for family. This means that
+> for families with more than one mcast id one may allocate too small buffer
+> and end up writing rest of the groups to some unallocated memory. Fix the 
+> buffer size check to compare allocated space to last mcast id for the 
+> family.
+> 
+> Tested on ARM using kernel 3.14
+> 
+> Signed-off-by: Matti Vaittinen <matti.vaittinen@nokia.com>
 
- # echo "options bonding max_bonds=3D0" >/etc/modprobe.d/bonding.conf
- # rmmod bonding
- # ip link add bond0 type bond
- (no error here)
+Indeed, it looks like this function was never tested with any value
+of n_groups other than one.
 
-This method should be well known and understood by most users, contrary
-to some odd CONFIG_ build time setting.
+But I think your change has an off-by-one bug:
 
+> -		if (id >= mc_groups_longs * BITS_PER_LONG) {
+> +		if (id + n_groups >= mc_groups_longs * BITS_PER_LONG) {
 
-Bj=C3=B8rn
+I think this needs to be "id + n_groups > ".  Consider the existing,
+working, case of "n_groups == 1".  Now you're adding '1' and therefore
+the test needs to be adjusted from >= to >.
+
+Thanks.
