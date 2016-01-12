@@ -1,114 +1,63 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
- by PERF_SAMPLE_TAILSIZE
-Date: Mon, 11 Jan 2016 22:11:46 -0800
-Message-ID: <20160112061145.GA31444@ast-mbp.thefacebook.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-28-git-send-email-wangnan0@huawei.com>
- <20160111180913.GA25950@ast-mbp.thefacebook.com>
- <56949028.2070208@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, acme@kernel.org,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Ahern <dsahern@gmail.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Yunlong Song <yunlong.song@huawei.com>
-To: "Wangnan (F)" <wangnan0@huawei.com>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH v2] b43: Fix memory leaks in b43_bus_dev_ssb_init and b43_bus_dev_bcma_init
+Date: Tue, 12 Jan 2016 15:00:06 +0800
+Message-ID: <1452582006-6796-1-git-send-email-baijiaju1990@163.com>
+Cc: linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jia-Ju Bai <baijiaju1990@163.com>
+To: kvalo@codeaurora.org, zajec5@gmail.com, joe@perches.com,
+	davem@davemloft.net, m@bues.ch, johannes.berg@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56949028.2070208@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 12, 2016 at 01:33:28PM +0800, Wangnan (F) wrote:
-> 
-> 
-> On 2016/1/12 2:09, Alexei Starovoitov wrote:
-> >On Mon, Jan 11, 2016 at 01:48:18PM +0000, Wang Nan wrote:
-> >>This patch introduces a PERF_SAMPLE_TAILSIZE flag which allows a size
-> >>field attached at the end of a sample. The idea comes from [1] that,
-> >>with tie size at tail of an event, it is possible for user program who
-> >>read from the ring buffer parse events backward.
-> >>
-> >>For example:
-> >>
-> >>    head
-> >>     |
-> >>     V
-> >>  +--+---+-------+----------+------+---+
-> >>  |E6|...|   B  8|   C    11|  D  7|E..|
-> >>  +--+---+-------+----------+------+---+
-> >>
-> >>In this case, from the 'head' pointer provided by kernel, user program
-> >>can first see '6' by (*(head - sizeof(u64))), then it can get the start
-> >>pointer of record 'E', then it can read size and find start position
-> >>of record D, C, B in similar way.
-> >adding extra 8 bytes for every sample is quite unfortunate.
-> >How about another idea:
-> >. update data_tail pointer when head is about to overwrite it
-> >
-> >Ex:
-> >    head   data_tail
-> >     |       |
-> >     V       V
-> >  +--+-------+-------+---+----+---+
-> >  |E |  ...  |   B   | C |  D | E |
-> >  +--+-------+-------+---+----+---+
-> >
-> >if new sample F is about to overwrite B, the kernel would need
-> >to read the size of B from B's header and update data_tail to point C.
-> >Or even further.
-> >Comparing to TAILSIZE approach, now kernel will be doing both reads
-> >and writes into ring-buffer and there is a concern that reads may
-> >be hitting cold data, but if the records are small they may be
-> >actually on the same cache line brought by the previous
-> >read A's header, write E record cycle. So I think we shouldn't see
-> >cache misses.
-> 
-> After ring buffer rewind, we need a read before nearly
-> every write operations. The performance penalty depends on
-> configuration of write allocate. In addition, another data
-> dependency is required: we must wait for the size of
-> event B is retrived before overwrite it.
-> 
-> Even in the very first try at 2013 in [1], reading from the ring
-> buffer is avoided. I don't think Peter changes his mind now.
-> 
-> >Another concern is validity of records stored. If user space messes
-> >with ring-buffer, kernel won't be able to move data_tail properly
-> >and would need to indicate that to userspace somehow.
-> >But memory saving of 8 bytes per record could be sizable
-> 
-> Yes. But I have already discussed with Peter on this in [2].
-> Last month I suggested:
-> 
-> <quote>
-> 
->  1. If PERF_SAMPLE_SIZE is selected, we can avoid outputting the event
->     size in header. Which eliminate extra space cost;
-> </quote>
-> 
-> However:
-> 
-> <quote>
-> 
-> That would mandate you always parse the stream backwards. Which seems
-> rather unfortunate. Also, no you cannot recoup the extra space, see the
-> alignment and size requirement.
+The memory allocated by kzalloc in b43_bus_dev_ssb_init and
+b43_bus_dev_bcma_init is not freed.
+This patch fixes the bug by adding kfree in b43_ssb_remove,
+b43_bcma_remove and error handling code of b43_bcma_probe.
 
-hmm, in this kernel patch I see that you're adding 8 bytes for
-every record via this extra TAILSISZE flag and in perf you're
-walking the ring buffer backwards by reading this 8 byte
-sizes, comparing header sizes and so on until reaching beginning,
-where you start dumping it as normal.
-So for this 'signal to perf' approach to work the ring buffer
-will contain tailsizes everywhere just so that user space can
-find the beginning. That's not very pretty. imo if kernel
-can do header read to adjust data_tail it would make user
-space side clean. May be there are other solutions.
-Adding tailsize seems like brute force hack.
-There must be some nicer way.
+Thanks Michael for his suggestion.
+
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/wireless/b43/main.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index ec013fb..bbea769 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -5682,11 +5682,12 @@ static int b43_bcma_probe(struct bcma_device *core)
+ 	INIT_WORK(&wl->firmware_load, b43_request_firmware);
+ 	schedule_work(&wl->firmware_load);
+ 
+-bcma_out:
+ 	return err;
+ 
+ bcma_err_wireless_exit:
+ 	ieee80211_free_hw(wl->hw);
++bcma_out:
++	kfree(dev);
+ 	return err;
+ }
+ 
+@@ -5714,8 +5715,8 @@ static void b43_bcma_remove(struct bcma_device *core)
+ 	b43_rng_exit(wl);
+ 
+ 	b43_leds_unregister(wl);
+-
+ 	ieee80211_free_hw(wl->hw);
++	kfree(wldev->dev);
+ }
+ 
+ static struct bcma_driver b43_bcma_driver = {
+@@ -5798,6 +5799,7 @@ static void b43_ssb_remove(struct ssb_device *sdev)
+ 
+ 	b43_leds_unregister(wl);
+ 	b43_wireless_exit(dev, wl);
++	kfree(dev);
+ }
+ 
+ static struct ssb_driver b43_ssb_driver = {
+-- 
+1.7.9.5
