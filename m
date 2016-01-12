@@ -1,78 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: turn carrier off on phy attach
-Date: Tue, 12 Jan 2016 01:57:45 +0100
-Message-ID: <20160112005745.GA7690@lunn.ch>
-References: <1452365045-5364-1-git-send-email-sjoerd.simons@collabora.co.uk>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net: preserve IP control block during GSO
+	segmentation
+Date: Mon, 11 Jan 2016 16:58:24 -0800
+Message-ID: <CAM_iQpUO4aE_UybNYrFw+u=LWnF3OcC5jQ+ADsK1XobjBwUeEA@mail.gmail.com>
+References: <145225444176.22215.2003378381077166898.stgit@zurg>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCC01BA@AcuExch.aculab.com>
+ <56935DB5.1030502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1452365045-5364-1-git-send-email-sjoerd.simons@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Zang MingJie <zealot0630-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <56935DB5.1030502-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 09, 2016 at 07:44:05PM +0100, Sjoerd Simons wrote:
-> The operstate of a networking device initially IF_OPER_UNKNOWN aka
-> "unknown", updated on carrier state changes (with carrier state being on
-> by default). This means it will stay unknown unless the carrier state
-> goes to off at some point, which is not the case if the phy is already
-> up/connected at startup.
-> 
-> Explicitly turn off the carrier on phy attach, leaving the phy state
-> machine to turn the carrier on when it has done the initial negotiation.
-
-RFC 2863 says:
-
-   Whenever an interface table entry is created (usually as a result
-   of system initialization), the relevant instance of ifAdminStatus
-   is set to down, and ifOperStatus will be down or notPresent.
-
-and
-
-   The notPresent state is a refinement on the down state which
-   indicates that the relevant interface is down specifically because
-   some component (typically, a hardware component) is not present in
-   the managed system.
-
-So if we have a PHY, setting it to down is correct with respect to the
-RFC.
-
-> Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
-> 
-> ---
-> 
->  drivers/net/phy/phy_device.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 0bfbaba..a30ce1a 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -668,6 +668,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->  
->  	phydev->state = PHY_READY;
->  
-> +	/* Signal to the core network layer the phy supports
-> +	 *  carrier detection
-> +	 */
-
-I don't agree with the comment. All we are doing is getting the core
-state to agree with the phy state. The next thing we do with the phy
-is reset it, so the carrier is going to be off.
-
-Please rewrite the comment, and then i can give a reviewed-by.
-
-Thanks
-	Andrew
-
-> +	netif_carrier_off(phydev->attached_dev);
-> +
->  	/* Do initial configuration here, now that
->  	 * we have certain key parameters
->  	 * (dev_flags and interface)
-> -- 
-> 2.7.0.rc3
-> 
+T24gU3VuLCBKYW4gMTAsIDIwMTYgYXQgMTE6NDUgUE0sIFphbmcgTWluZ0ppZSA8emVhbG90MDYz
+MEBnbWFpbC5jb20+IHdyb3RlOgo+IE9uIDAxLzA4LzIwMTYgMDg6MTMgUE0sIERhdmlkIExhaWdo
+dCB3cm90ZToKPj4KPj4gWW91IGNvdWxkIHNldCBTS0JfU0dPX0NCX09GRlNFVCB0byBzaXplb2Yg
+KChza2IpLT5jYikgLSBzaXplb2YgKHN0cnVjdAo+PiBza2JfZ3NvX2NiKQo+PiBzbyB0aGF0IHRo
+ZSBlbmQgb2YgJ2NiJyBpcyBhbHdheXMgdXNlZC4KPj4gKEFzc3VtaW5nIHRoZSBmb3JtZXIgaXMg
+YSBtdWx0aXBsZSBvZiA0LikKPj4KPj4gSXQgbWlnaHQgYmUgd29ydGggdXNpbmcgYW4gb24tc3Rh
+Y2sgc3RydWN0dXJlIHBhc3NlZCB0aHJvdWdoIGFzIGEgc2VwYXJhdGUKPj4gcGFyYW1ldGVyIC0g
+aXQgZG9lc24ndCBsb29rIGFzIHRob3VnaCBpdCBoYXMgdG8gYmUgcXVldWVkIHdpdGggdGhlIHNr
+Yi4KPj4gKENsZWFybHkgYSBiaWdnZXIgY2hhbmdlLikKPgo+Cj4gSSB3b3VsZCBkZWZpbml0ZWx5
+IHByZWZlciB0aGUgc3RhY2sgc3RydWN0dXJlLgo+Cj4gQXMgYSBrZXJuZWwgZGV2ZWxvcGVyLCBz
+b21ldGltZSBJIGNhbiBoYXJkbHkgZmlndXJlIG91dCB3aGljaCBzdHJ1Y3QgY3VycmVudAo+IGNi
+IGlzIHdpdGhvdXQgZGVidWcgaXQsIGFuZCB0aGUgd29yc3QgdGhleSBhcmUgbm90IGRvY3VtZW50
+ZWQgYW55d2hlcmUuIEkKPiBjYW4gaGFyZGx5IGtub3cgdGhlIGxpZmUgdGltZSBvZiB0aGUgY2Ig
+dHlwZXMuCgpOQUsuCgpTa2IgY29udHJvbCBibG9jayB3YXMgbm90IGRlc2lnbmVkIHRvIGJlIHVz
+ZWQgbGlrZSBhIHN0YWNrIGJ1dCBsaWtlIGEgdW5pb24KZm9yIGRpZmZlcmVudCBsYXllcnMsIGp1
+c3QgdGhhdCBwZW9wbGUgYmVnaW4gdG8gbWVzcyBpdCB1cC4KX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
+Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
