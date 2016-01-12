@@ -1,102 +1,88 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: Q: bad routing table cache entries
-Date: Tue, 12 Jan 2016 23:43:06 +0300
-Message-ID: <5695655A.60509@list.ru>
-References: <5682665A.7090102@list.ru> <56951D1D.5080602@stressinduktion.org>
- <56952147.80201@stressinduktion.org> <569523C0.5040504@list.ru>
- <56952593.8040409@stressinduktion.org> <56952D01.6070204@list.ru>
- <56953059.1020506@list.ru> <569532A6.1070905@stressinduktion.org>
- <56953560.9050906@list.ru> <56953740.1090204@stressinduktion.org>
- <569538FD.2060200@list.ru> <56953C27.4030405@stressinduktion.org>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net] openvswitch: compute needed headroom for internal vports
+Date: Tue, 12 Jan 2016 12:44:14 -0800
+Message-ID: <CAOrHB_C=GxDbZBdKCo0j2z-dNTKRQ6GcpWYr6qGxuF_SxughJg@mail.gmail.com>
+References: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
+	<CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
+	<CAEh+42hN8wL7bbALB8SGCKvum2pzT3R0kXUtMfQPg-XP-QZ7Dg@mail.gmail.com>
+	<CAOrHB_Bo2iqp2xGaZpOb2AvriGTTruC_O72hQ7LqKnkbR_CAeA@mail.gmail.com>
+	<1452501788.5027.13.camel@redhat.com>
+	<CAOrHB_DL6DpyoLYZroccPR7mjUuMM-JN6p-=o6XE53Ltb_Cq0w@mail.gmail.com>
+	<CAEh+42hr8JneX5bufHNqbVFfnCXkU1iz7n0Pc4UQfm==rKF9Dw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Paolo Abeni <pabeni@redhat.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Flavio Leitner <fbl@sysclose.org>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp42.i.mail.ru ([94.100.177.102]:48335 "EHLO smtp42.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753145AbcALUnO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2016 15:43:14 -0500
-In-Reply-To: <56953C27.4030405@stressinduktion.org>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:58807 "EHLO
+	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753145AbcALUoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 15:44:20 -0500
+Received: from mfilter45-d.gandi.net (mfilter45-d.gandi.net [217.70.178.176])
+	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 86D3CC5A56
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 21:44:17 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+	by mfilter45-d.gandi.net (mfilter45-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id EEl5GfcCfu0F for <netdev@vger.kernel.org>;
+	Tue, 12 Jan 2016 21:44:16 +0100 (CET)
+Received: from mail-io0-f173.google.com (mail-io0-f173.google.com [209.85.223.173])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 0F89DC5A5D
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 21:44:15 +0100 (CET)
+Received: by mail-io0-f173.google.com with SMTP id q21so396755769iod.0
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 12:44:15 -0800 (PST)
+In-Reply-To: <CAEh+42hr8JneX5bufHNqbVFfnCXkU1iz7n0Pc4UQfm==rKF9Dw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-12.01.2016 20:47, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 12.01.2016 18:33, Stas Sergeev wrote:
->> 12.01.2016 20:26, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
->>> On 12.01.2016 18:18, Stas Sergeev wrote:
->>>> 12.01.2016 20:06, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=
-=82:
->>>>> On 12.01.2016 17:56, Stas Sergeev wrote:
->>>>>> 12.01.2016 19:42, Stas Sergeev =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>>>> Also the rfc1620 you pointed, seems to be saying this:
->>>>>>
->>>>>>                    A Redirect message SHOULD be silently=20
->>>>>> discarded if the
->>>>>>                    new router address it specifies is not on the=
-=20
->>>>>> same
->>>>>>                    connected (sub-) net through which the=20
->>>>>> Redirect arrived,
->>>>>>                    or if the source of the Redirect is not the=20
->>>>>> current
->>>>>>                    first-hop router for the specified destinatio=
-n.
->>>>>>
->>>>>> It seems, this is exactly the rule we were trying to find
->>>>>> during the thread. And it seems violated, either. Unless I am
->>>>>> mis-interpreting it, of course.
->>>>>
->>>>> If you read on you will read that with shared_media this exact=20
->>>>> clause (the first of those) is not in effect any more.
->>>> OK. But how to get such a redirect to work, if (checked with
->>>> tcpdump) the packets do not even go to eth0, but to "lo"?
+On Tue, Jan 12, 2016 at 11:20 AM, Jesse Gross <jesse@kernel.org> wrote:
+> On Mon, Jan 11, 2016 at 4:34 PM, pravin shelar <pshelar@ovn.org> wrote:
+>> On Mon, Jan 11, 2016 at 12:43 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+>>> On Fri, 2016-01-08 at 18:44 -0800, pravin shelar wrote:
+>>>> On Fri, Jan 8, 2016 at 4:42 PM, Jesse Gross <jesse@kernel.org> wrote:
+>>>> > On Fri, Jan 8, 2016 at 2:53 PM, pravin shelar <pshelar@ovn.org> wrote:
+>>>> >> On Fri, Jan 8, 2016 at 1:50 PM, Paolo Abeni <pabeni@redhat.com> wrote:
+>>>> >>> Currently the ovs internal vports always use a default needed_headroom.
+>>>> >>> This leads to a skb head copy while xmitting on ovs swith via vport
+>>>> >>> that add some kind of encapsulation (gre, geneve, etc.).
+>>>> >>>
+>>>> >>> This patch add book-keeping for the maximum needed_headroom used by
+>>>> >>> the non internal vports in any dp, updating it on vport creation and
+>>>> >>> deletion.
+>>>> >>>
+>>>> >>> Said value is than used as needed_headroom for internal vports,
+>>>> >>> avoiding the above copy.
+>>>> >>>
+>>>> >> Why is this done only for internal devices? In most common case of
+>>>> >> traffic the packet enters OVS from tap or other netdev type vport
+>>>> >> device.
+>>>> >
+>>>> > How would you influence the allocation for non-internal devices?
+>>>>
+>>>> Today there is no way of influencing this. But we could add new
+>>>> skb-headroom parameter to netdev for packets that are received on the
+>>>> device. This new parameter could be controlled from master devices
+>>>> like OVS, Bridge, etc. To set this value we need new ndo operation. So
+>>>> that it can work on devices like tap where it would just set this new
+>>>> value and in case of ovs-internal or veth device, it can also update
+>>>> needed_headroom.
 >>>
->>> I don't know, the router must be on the same shared medium. I guess=
-=20
->>> physical reconfiguration is required?
->> It is same.
->> Router 192.168.8.1 has just one ethernet port.
->> And even on the 192.168.10.202 node I can do:
->> # arp -a |grep "0.1"
->> ? (192.168.0.1) at 14:d6:4d:1c:97:3d [ether] on eth0
->> So even 0.1 is about to be reachable.
->> Still nothing works.
->> Should it work if 192.168.0.1 router, to which 8.1 redirects,
->> has shared_media disabled?
+>>> My idea was to continue working along this lines.
+>>>
+>>> However I thought to get there incrementally, i.e. handle internal
+>>> vports only first. Can this be ok for you?
+>>>
+>>
+>> If the final implementation is going to change alot, then I do not see
+>> much value in this change going in first.
 >
-> Can you check with tcpdump?
-That's what I already did.
-I monitored on 8.1 router and on the node itself,
-and my conclusion was that the packets do not
-even reach the eth0 interface. Instead I captured
-them on "lo" interface, so I assumed such route is
-completely broken.
-If it is not - how can I even see that it exist? How to
-list these redirect routes?
-I'd like to do some investigations, but this looks no
-more than a black magic without a proper support
-from tools, proper documentation, etc.
+> Even if the code will change in the future, it seems like an
+> incremental improvement that will help in some cases so I don't see
+> much reason to not do this part now.
 
-And I suspect that shared_media is disabled on a 0.1
-router, so I wonder if this can work at all, even if the node
-is cured to do the right thing with those redirects.
-In a nearby message David Miller says:
----
-
-2) increasing the chance of successful communication with peers
-
----
-If this can't work right when one of the gateways has
-shared_media disabled, then this rule is clearly violated.
-
-> ping requires the router to also find a correct way back, so packet=20
-> can get stuck at a lot of places. Also uRPF is maybe active which kin=
-d=20
-> of defeats shared_media and please check netfilter.
-I am pretty sure the node has a default ubuntu without
-any special network tweaks, but I'll double-check.
+I am not sure which cases it help. Can you tell me use cases for
+internal port in production?
