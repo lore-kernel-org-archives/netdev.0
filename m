@@ -1,97 +1,214 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH 05/53] perf tools: Test correct path of perf in build-test
-Date: Tue, 12 Jan 2016 11:08:06 -0300
-Message-ID: <20160112140806.GO18367@kernel.org>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-6-git-send-email-wangnan0@huawei.com>
- <20160111152456.GC18367@kernel.org>
- <20160111220618.GK18367@kernel.org>
- <20160111223904.GL18367@kernel.org>
- <20160111223954.GM18367@kernel.org>
- <5694A838.6030307@huawei.com>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: [PATCH net-next v2] tipc: add peer removal
+	functionality
+Date: Tue, 12 Jan 2016 15:08:16 +0100
+Message-ID: <1452607696-24216-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Jiri Olsa <jolsa@kernel.org>,
-	Namhyung Kim <namhyung@kernel.org>
-To: "Wangnan (F)" <wangnan0@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5694A838.6030307@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Jan 12, 2016 at 03:16:08PM +0800, Wangnan (F) escreveu:
->=20
->=20
-> On 2016/1/12 6:39, Arnaldo Carvalho de Melo wrote:
-> >Em Mon, Jan 11, 2016 at 07:39:04PM -0300, Arnaldo Carvalho de Melo e=
-screveu:
-> >>Em Mon, Jan 11, 2016 at 07:06:18PM -0300, Arnaldo Carvalho de Melo =
-escreveu:
-> >>>Em Mon, Jan 11, 2016 at 12:24:56PM -0300, Arnaldo Carvalho de Melo=
- escreveu:
-> >>>>Em Mon, Jan 11, 2016 at 01:47:56PM +0000, Wang Nan escreveu:
-> >>>>>If an 'O' is passed to 'make build-test', many 'test -x' and 'te=
-st -f'
-> >>>>>will fail because perf resides in a different directory. Fix thi=
-s by
-> >>>>>computing PERF_OUT according to 'O' and test correct output file=
-s.
-> >>>>>For make_kernelsrc and make_kernelsrc_tools, set KBUILD_OUTPUT_D=
-IR
-> >>>>>instead because the path is different from others ($(O)/perf vs
-> >>>>>  $(O)/tools/perf).
-> >>>>Ok, applying up to this patch I now manage to almost cleanly buil=
-d it using O=3D,
-> >>>>see below, but seems that we have some race, as not all tests end=
- up producing
-> >>>>such warnings.
-> >>>>
-> >>>>[acme@felicio linux]$ rm -rf /tmp/build/perf ; mkdir -p /tmp/buil=
-d/perf ; make O=3D/tmp/build/perf -C tools/perf build-test
-> >>>>make: Entering directory `/home/acme/git/linux/tools/perf'
-> >>>>Testing Makefile
-> >>>>- make_no_libperl: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.=
-m1nXBMqhSA NO_LIBPERL=3D1
-> >>>>find: =E2=80=98/tmp/build/perf/util/trace-event-scripting.o=E2=80=
-=99: No such file or directory
->=20
-> This can happen when you parallelly run find and rm on one directory.
-> However,
-> I've never seen this message in build-test before.
+Add TIPC_NL_PEER_REMOVE netlink command. This command can remove
+an offline peer node from the internal data structures.
 
-I'll leave this in the backburner for now, there are other, more
-important patches to process, we should revisit this as soon as we
-process the other eBPF patches :-\
-=20
-> >>>Well, it is happening even without O=3D:
-> >>So I removed a few patches and those aren't appearing anymore, plea=
-se
-> >>take a look at my perf/core branch, running build-test on a few mac=
-hines
-> >>now, will push soon.
-> >>
-> >>My hunch is that build-test has issues with parallel builds, but I'=
-m not
-> >>sure...
-> >
-> >Good:
-> >
-> >- make_perf_o_O: cd . && make -f Makefile O=3D/tmp/tmp.oLeg8aUaOo DE=
-STDIR=3D/tmp/tmp.16WP4HTQJs perf.o
-> >- make_util_pmu_bison_o_O: cd . && make -f Makefile O=3D/tmp/tmp.xNR=
-V0pCXfD DESTDIR=3D/tmp/tmp.8dyU9uEbHe util/pmu-bison.o
-> >- make_no_libdw_dwarf_unwind_O: cd . && make -f Makefile O=3D/tmp/tm=
-p.pHH4HExHcH DESTDIR=3D/tmp/tmp.Wo0m8fF5cp NO_LIBDW_DWARF_UNWIND=3D1
-> >- make_no_demangle_O: cd . && make -f Makefile O=3D/tmp/tmp.yWNsd4jO=
-sI DESTDIR=3D/tmp/tmp.Q7eA4kCvwL NO_DEMANGLE=3D1
-> >- tarpkg: ./tests/perf-targz-src-pkg .
-> >- make -C <kernelsrc> tools/perf
-> >- make -C <kernelsrc>/tools perf
-> >OK
-> Glad to see this.
->=20
-> Thank you.
+This will be supported by the tipc user space tool in iproute2.
+
+Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/uapi/linux/tipc_netlink.h |  1 +
+ net/tipc/net.c                    |  4 +--
+ net/tipc/net.h                    |  2 ++
+ net/tipc/netlink.c                |  5 ++++
+ net/tipc/node.c                   | 60 +++++++++++++++++++++++++++++++++++----
+ net/tipc/node.h                   |  3 +-
+ 6 files changed, 66 insertions(+), 9 deletions(-)
+
+diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
+index d4c8f14..25eb645 100644
+--- a/include/uapi/linux/tipc_netlink.h
++++ b/include/uapi/linux/tipc_netlink.h
+@@ -56,6 +56,7 @@ enum {
+ 	TIPC_NL_NET_GET,
+ 	TIPC_NL_NET_SET,
+ 	TIPC_NL_NAME_TABLE_GET,
++	TIPC_NL_PEER_REMOVE,
+ 
+ 	__TIPC_NL_CMD_MAX,
+ 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 77bf911..042d4ce 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -42,7 +42,7 @@
+ #include "node.h"
+ #include "bcast.h"
+ 
+-static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
++const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
+ 	[TIPC_NLA_NET_UNSPEC]	= { .type = NLA_UNSPEC },
+ 	[TIPC_NLA_NET_ID]	= { .type = NLA_U32 }
+ };
+@@ -139,7 +139,7 @@ void tipc_net_stop(struct net *net)
+ 			      tn->own_addr);
+ 	rtnl_lock();
+ 	tipc_bearer_stop(net);
+-	tipc_node_stop(net);
++	tipc_node_stop_net(net);
+ 	rtnl_unlock();
+ 
+ 	pr_info("Left network mode\n");
+diff --git a/net/tipc/net.h b/net/tipc/net.h
+index 77a7a11..c7c2549 100644
+--- a/net/tipc/net.h
++++ b/net/tipc/net.h
+@@ -39,6 +39,8 @@
+ 
+ #include <net/genetlink.h>
+ 
++extern const struct nla_policy tipc_nl_net_policy[];
++
+ int tipc_net_start(struct net *net, u32 addr);
+ 
+ void tipc_net_stop(struct net *net);
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 8975b01..9019df8 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -145,6 +145,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 		.cmd	= TIPC_NL_NAME_TABLE_GET,
+ 		.dumpit	= tipc_nl_name_table_dump,
+ 		.policy = tipc_nl_policy,
++	},
++	{
++		.cmd	= TIPC_NL_PEER_REMOVE,
++		.doit	= tipc_nl_peer_rm,
++		.policy = tipc_nl_policy,
+ 	}
+ };
+ 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index fa97d96..988cdd9 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -399,17 +399,21 @@ static void tipc_node_delete(struct tipc_node *node)
+ 	kfree_rcu(node, rcu);
+ }
+ 
+-void tipc_node_stop(struct net *net)
++static void tipc_node_stop(struct tipc_node *node)
++{
++	if (del_timer(&node->timer))
++		tipc_node_put(node);
++	tipc_node_put(node);
++}
++
++void tipc_node_stop_net(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_node *node, *t_node;
+ 
+ 	spin_lock_bh(&tn->node_list_lock);
+-	list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
+-		if (del_timer(&node->timer))
+-			tipc_node_put(node);
+-		tipc_node_put(node);
+-	}
++	list_for_each_entry_safe(node, t_node, &tn->node_list, list)
++		tipc_node_stop(node);
+ 	spin_unlock_bh(&tn->node_list_lock);
+ }
+ 
+@@ -1529,6 +1533,50 @@ discard:
+ 	kfree_skb(skb);
+ }
+ 
++int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info)
++{
++	int err;
++	u32 addr;
++	struct net *net = sock_net(skb->sk);
++	struct nlattr *attrs[TIPC_NLA_NET_MAX + 1];
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
++	struct tipc_node *peer;
++
++	/* We identify the peer by its net */
++	if (!info->attrs[TIPC_NLA_NET])
++		return -EINVAL;
++
++	err = nla_parse_nested(attrs, TIPC_NLA_NET_MAX,
++			       info->attrs[TIPC_NLA_NET],
++			       tipc_nl_net_policy);
++	if (err)
++		return err;
++
++	if (!attrs[TIPC_NLA_NET_ADDR])
++		return -EINVAL;
++
++	addr = nla_get_u32(attrs[TIPC_NLA_NET_ADDR]);
++
++	spin_lock_bh(&tn->node_list_lock);
++	list_for_each_entry_rcu(peer, &tn->node_list, list) {
++		if (peer->addr != addr)
++			continue;
++
++		if (peer->state == SELF_DOWN_PEER_DOWN ||
++		    peer->state == SELF_DOWN_PEER_LEAVING) {
++			tipc_node_stop(peer);
++
++			spin_unlock_bh(&tn->node_list_lock);
++			return 0;
++		}
++		spin_unlock_bh(&tn->node_list_lock);
++		return -EBUSY;
++	}
++	spin_unlock_bh(&tn->node_list_lock);
++
++	return -ENXIO;
++}
++
+ int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int err;
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index f39d9d0..8dfb6ba 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -51,7 +51,7 @@ enum {
+ #define TIPC_NODE_CAPABILITIES TIPC_BCAST_SYNCH
+ #define INVALID_BEARER_ID -1
+ 
+-void tipc_node_stop(struct net *net);
++void tipc_node_stop_net(struct net *net);
+ void tipc_node_check_dest(struct net *net, u32 onode,
+ 			  struct tipc_bearer *bearer,
+ 			  u16 capabilities, u32 signature,
+@@ -75,5 +75,6 @@ int tipc_nl_node_dump_link(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info);
+ 
+ #endif
+-- 
+2.1.4
+
+
+------------------------------------------------------------------------------
+Site24x7 APM Insight: Get Deep Visibility into Application Performance
+APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+Monitor end-to-end web transactions and take corrective actions now
+Troubleshoot faster and improve end-user experience. Signup Now!
+http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
