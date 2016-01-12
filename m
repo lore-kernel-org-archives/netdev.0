@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next 09/10] net: Add a hardware buffer management helper API
-Date: Tue, 12 Jan 2016 20:10:33 +0100
-Message-ID: <1452625834-22166-10-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH net-next 04/10] ARM: mvebu: add buffer manager nodes to armada-38x.dtsi
+Date: Tue, 12 Jan 2016 20:10:28 +0100
+Message-ID: <1452625834-22166-5-git-send-email-gregory.clement@free-electrons.com>
 References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -25,141 +25,57 @@ In-Reply-To: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This basic implementation allows to share code between driver using
-hardware buffer management. As the code is hardware agnostic, there is
-few helpers, most of the optimization brought by the an HW BM has to be
-done at driver level.
+From: Marcin Wojtas <mw@semihalf.com>
 
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Armada 38x network controller supports hardware buffer management (BM).
+Since it is now enabled in mvneta driver, appropriate nodes can be added
+to armada-38x.dtsi - for the actual common BM unit (bm@c8000) and its
+internal SRAM (bm-bppi), which is used for indirect access to buffer
+pointer ring residing in DRAM.
+
+Pools - ports mapping, bm-bppi entry in 'soc' node's ranges and optional
+parameters are supposed to be set in board files.
+
+Signed-off-by: Marcin Wojtas <mw@semihalf.com>
 ---
- include/net/hwbm.h | 19 +++++++++++++
- net/core/Makefile  |  2 +-
- net/core/hwbm.c    | 78 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 98 insertions(+), 1 deletion(-)
- create mode 100644 include/net/hwbm.h
- create mode 100644 net/core/hwbm.c
+ arch/arm/boot/dts/armada-38x.dtsi | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-diff --git a/include/net/hwbm.h b/include/net/hwbm.h
-new file mode 100644
-index 000000000000..898ccd2fb58d
---- /dev/null
-+++ b/include/net/hwbm.h
-@@ -0,0 +1,19 @@
-+#ifndef _HWBM_H
-+#define _HWBM_H
-+
-+struct hwbm_pool {
-+	/* Size of the buffers managed */
-+	int size;
-+	/* Number of buffers currently used by this pool */
-+	int buf_num;
-+	/* constructor called during alocation */
-+	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
-+	/* private data */
-+	void *priv;
-+};
-+
-+void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
-+int hwbm_pool_refill(struct hwbm_pool *bm_pool);
-+int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num);
-+
-+#endif /* _HWBM_H */
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 0b835de04de3..df81bf11f072 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
+index e8b7f6726772..1b7d690d8e10 100644
+--- a/arch/arm/boot/dts/armada-38x.dtsi
++++ b/arch/arm/boot/dts/armada-38x.dtsi
+@@ -540,6 +540,14 @@
+ 				status = "disabled";
+ 			};
  
- obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
- 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
--			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o
-+			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o hwbm.o
++			bm: bm@c8000 {
++				compatible = "marvell,armada-380-neta-bm";
++				reg = <0xc8000 0xac>;
++				clocks = <&gateclk 13>;
++				internal-mem = <&bm_bppi>;
++				status = "disabled";
++			};
++
+ 			sata@e0000 {
+ 				compatible = "marvell,armada-380-ahci";
+ 				reg = <0xe0000 0x2000>;
+@@ -618,6 +626,16 @@
+ 			#size-cells = <1>;
+ 			ranges = <0 MBUS_ID(0x09, 0x15) 0 0x800>;
+ 		};
++
++		bm_bppi: bm-bppi {
++			compatible = "mmio-sram";
++			reg = <MBUS_ID(0x0c, 0x04) 0 0x100000>;
++			ranges = <0 MBUS_ID(0x0c, 0x04) 0 0x100000>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			clocks = <&gateclk 13>;
++			status = "disabled";
++		};
+ 	};
  
- obj-$(CONFIG_XFRM) += flow.o
- obj-y += net-sysfs.o
-diff --git a/net/core/hwbm.c b/net/core/hwbm.c
-new file mode 100644
-index 000000000000..d5d40d63cb34
---- /dev/null
-+++ b/net/core/hwbm.c
-@@ -0,0 +1,78 @@
-+/* Support for hardware buffer manager.
-+ *
-+ * Copyright (C) 2016 Marvell
-+ *
-+ * Gregory CLEMENT <gregory.clement@free-electrons.com>
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ */
-+#include <linux/kernel.h>
-+#include <linux/printk.h>
-+#include <linux/skbuff.h>
-+#include <net/hwbm.h>
-+
-+void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
-+{
-+	if (likely(bm_pool->size <= PAGE_SIZE))
-+		skb_free_frag(buf);
-+	else
-+		kfree(buf);
-+}
-+EXPORT_SYMBOL_GPL(hwbm_buf_free);
-+
-+/* Refill processing for HW buffer management */
-+int hwbm_pool_refill(struct hwbm_pool *bm_pool)
-+{
-+	void *buf;
-+	int frag_size = bm_pool->size;
-+
-+	if (likely(frag_size <= PAGE_SIZE))
-+		buf = netdev_alloc_frag(frag_size);
-+	else
-+		buf = kmalloc(frag_size, GFP_ATOMIC);
-+
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	if (bm_pool->construct)
-+		if (bm_pool->construct(bm_pool, buf)) {
-+			hwbm_buf_free(bm_pool, buf);
-+			return -ENOMEM;
-+		}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(hwbm_pool_refill);
-+
-+int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num)
-+{
-+	int err, i;
-+
-+	if (bm_pool->buf_num == bm_pool->size) {
-+		pr_debug("pool already filled\n");
-+		return bm_pool->buf_num;
-+	}
-+
-+	if (buf_num + bm_pool->buf_num > bm_pool->size) {
-+		pr_debug("cannot allocate %d buffers for pool\n",
-+			 buf_num);
-+		return 0;
-+	}
-+
-+	for (i = 0; i < buf_num; i++) {
-+		err = hwbm_pool_refill(bm_pool);
-+		if (err < 0)
-+			break;
-+	}
-+
-+	/* Update BM driver with number of buffers added to pool */
-+	bm_pool->buf_num += i;
-+
-+	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
-+
-+	return i;
-+}
-+EXPORT_SYMBOL_GPL(hwbm_pool_add);
+ 	clocks {
 -- 
 2.5.0
