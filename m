@@ -1,32 +1,83 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: phy: SMSC LAN8710/LAN8720 high load
-Date: Tue, 12 Jan 2016 11:33:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC42AE@AcuExch.aculab.com>
-References: <1452498115.7467.23.camel@lws-tremmet.phytec.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Teresa Remmet' <t.remmet@phytec.de>,
-	Igor Plyatov <plyatov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: [PATCH 1/3] ifb: make device count build-time configurable
+Date: Tue, 12 Jan 2016 12:56:44 +0100
+Message-ID: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Lubomir Rintel <lkundrak@v3.sk>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452498115.7467.23.camel@lws-tremmet.phytec.de>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogVGVyZXNhIFJlbW1ldA0KPiBTZW50OiAxMSBKYW51YXJ5IDIwMTYgMDc6NDINCj4gd2Ug
-aGF2ZSBub3RpY2VkIGxvYWQgaXNzdWVzIG9uIG91ciBBTTMzNXggYm9hcmRzIHdpdGggYSBMQU44
-NzEwIHBoeSB3aGlsZQ0KPiBjcHUgaXMgaWRsaW5nIHVzaW5nIDQuNC1yYzguDQo+IA0KPiBDUFU6
-ICAgMCUgdXNyICAgMCUgc3lzICAgMCUgbmljICA5OSUgaWRsZSAgIDAlIGlvICAgMCUgaXJxICAg
-MCUgc2lycQ0KPiBMb2FkIGF2ZXJhZ2U6IDEuMjEgMS4xNiAxLjAwIDEvODQgMzcyDQoNClRoZSAn
-TG9hZCBhdmVyYWdlJyB2YWx1ZSBpcyBtb3N0bHkgbWVhbmluZ2xlc3MuDQpJdCBpbmNsdWRlcyBh
-bnkgcHJvY2Vzcy90aHJlYWQgdGhhdCBpcyBzbGVlcGluZyB1bmludGVycnVwdGFibHkgLSBldmVu
-DQppZiB0aGUgcHJvY2VzcyBpcyBuZXZlciB3b2tlbiAob3IgaXMgb25seSB3b2tlbiBmb3Igc2hv
-cnQgcGVyaW9kcykuDQoNCklmIHlvdSBoYXZlIGEga2VybmVsIHRocmVhZCB0aGF0IHlvdSBkb24n
-dCB3YW50IGFmZmVjdGVkIGJ5IHNpZ25hbHMNCihleGl0cyBvbiBzb21lIHJlcXVlc3QgdG8gdGhl
-IGRyaXZlcikgdGhlbiB5b3UgZW5kIHVwIGluY3JlYXNpbmcgdGhlDQonbG9hZCBhdmVyYWdlJy4N
-Cg0KCURhdmlkDQoNCg==
+The devices can be created at run-time for quite some time already and the
+load-time device creation collides with attempts to create the device of
+the same name:
+
+  # rmmod ifb
+  # ip link add ifb0 type ifb
+  RTNETLINK answers: File exists
+
+This is pretty much the same situation as was with the block loop devices
+which was solved by adding a build-time configuration that the
+distributions could use as they deem fit while keeping the default for
+compatibility.
+
+Let's do that here as well.
+
+Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+---
+ drivers/net/Kconfig | 21 +++++++++++++++++----
+ drivers/net/ifb.c   |  2 +-
+ 2 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f184fb5..63535b4 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -110,12 +110,25 @@ config IFB
+ 	  This is an intermediate driver that allows sharing of
+ 	  resources.
+ 	  To compile this driver as a module, choose M here: the module
+-	  will be called ifb.  If you want to use more than one ifb
+-	  device at a time, you need to compile this driver as a module.
+-	  Instead of 'ifb', the devices will then be called 'ifb0',
+-	  'ifb1' etc.
++	  will be called ifb.
++
+ 	  Look at the iproute2 documentation directory for usage etc
+ 
++config IFB_COUNT
++        int "Number of ifb devices to pre-create at init time"
++        depends on IFB
++        default 3
++        help
++          Static number of ifb devices to be unconditionally pre-created
++          at init time.
++
++          This default value can be overwritten on the kernel command
++          line or with module-parameter ifb.numifbs.
++
++          The historic default is 3. If a mid-2007 version of iproute2
++          is used (v2.6.23 or later), it can be set to 0, since needed
++          ifb devices can be dynamically allocated via rtnetlink.
++
+ source "drivers/net/team/Kconfig"
+ 
+ config MACVLAN
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index cc56fac..911af2c 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -298,7 +298,7 @@ static struct rtnl_link_ops ifb_link_ops __read_mostly = {
+  * Note that these legacy devices have one queue.
+  * Prefer something like : ip link add ifb10 numtxqueues 8 type ifb
+  */
+-static int numifbs = 2;
++static int numifbs = CONFIG_IFB_COUNT;
+ module_param(numifbs, int, 0);
+ MODULE_PARM_DESC(numifbs, "Number of ifb devices");
+ 
+-- 
+2.5.0
