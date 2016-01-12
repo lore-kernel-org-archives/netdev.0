@@ -1,51 +1,56 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH] net: bnxt: always return values from
- _bnxt_get_max_rings
-Date: Tue, 12 Jan 2016 09:55:43 -0800
-Message-ID: <1452621343.13732.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <4309490.qRrvvx0n1Q@wuerfel>
+From: Salam Noureddine <noureddine@arista.com>
+Subject: Re: [OOPS] In __netif_receive_skb_core
+Date: Tue, 12 Jan 2016 10:15:17 -0800
+Message-ID: <CAO7SqHBM2QtYHPP9Yp=aUwOqR_tDPH4LOSey-+=oPbsD_huFLw@mail.gmail.com>
+References: <568EA671.7000502@gmail.com>
+	<56929985.3020502@gmail.com>
+	<1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5694188F.80907@gmail.com>
+	<CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
+	<56944DFA.4050002@gmail.com>
+	<1452560786.1223.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAO7SqHC+fTCyNd8ukSH4tJ1qPvAYzMGSfhrzXmMn0NLve6NTQA@mail.gmail.com>
+	<1452565288.1223.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1452565515.1223.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5694A840.8030900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Jeffrey Huang <huangjw@broadcom.com>,
-	<linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4309490.qRrvvx0n1Q@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Sebastian Reichel <sre@kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:35115 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762204AbcALSPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 13:15:18 -0500
+Received: by mail-wm0-f49.google.com with SMTP id f206so263792869wmf.0
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 10:15:17 -0800 (PST)
+In-Reply-To: <5694A840.8030900@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-01-12 at 16:05 +0100, Arnd Bergmann wrote:
-> Newly added code in the bnxt driver uses a couple of variables that
-> are never initialized when CONFIG_BNXT_SRIOV is not set, and gcc
-> correctly warns about that:
-> 
-> In file included from include/linux/list.h:8:0,
->                  from include/linux/module.h:9,
->                  from drivers/net/ethernet/broadcom/bnxt/bnxt.c:10: 
-> drivers/net/ethernet/broadcom/bnxt/bnxt.c: In function 'bnxt_get_max_rings':
-> include/linux/kernel.h:794:26: warning: 'cp' may be used uninitialized in this function [-Wmaybe-uninitialized]
-> include/linux/kernel.h:794:26: warning: 'tx' may be used uninitialized in this function [-Wmaybe-uninitialized]
-> drivers/net/ethernet/broadcom/bnxt/bnxt.c:5730:11: warning: 'rx' may be used uninitialized in this function [-Wmaybe-uninitialized]
-> drivers/net/ethernet/broadcom/bnxt/bnxt.c:5736:6: note: 'rx' was declared here
-> 
-> This changes the condition so that we fall back to using the PF
-> data if VF is not available, and always initialize the variables
-> to something useful.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 6e6c5a57fbe1 ("bnxt_en: Modify bnxt_get_max_rings() to support
-> shared or non shared rings.")
-> ---
-> This is the fix that made most sense to me, but that doesn't mean it's
-> the right thing to do for this driver, so please check carefully
-> whether falling back to PF is actually the correct behavior.
-> 
-> I'm assuming that BNXT_PF(bp) is meant to always be true if
-> CONFIG_BNXT_SRIOV
-> is disabled, but I have not verified if this is guaranteed. 
+On Mon, Jan 11, 2016 at 11:16 PM, Ivaylo Dimitrov
+<ivo.g.dimitrov.75@gmail.com> wrote:
 
-The assumption is correct.  Patch looks good.  Thanks.
+>>> On Mon, 2016-01-11 at 17:19 -0800, Salam Noureddine wrote:
+>>>>
+>>>> It must be that skb->dev was changed to NULL inside of
+>>>> __netif_receive_skb_core, otherwise we would have crashed much
+>>>> earlier. Also, orig_dev is saved at the beginning. Possibly a device
+>>>> is layered on top of the original device.
+>
+>
+> Exactly (skb->dev was changed to NULL ...). Do you think it makes sense to
+> put printks in various places in __netif_receive_skb_core to see after which
+> function call skb->dev turns into NULL?
+>
 
-Acked-by: Michael Chan <mchan@broadcom.com>
+No need anymore since Eric found the culprit in phonet_rcv.
+Thanks for your help debugging this!
+
+Salam
