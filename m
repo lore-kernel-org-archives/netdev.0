@@ -1,7 +1,7 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 12 Jan 2016 13:15:05 +1100
-Message-ID: <20160112131505.2228f559@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the nettree
+Date: Tue, 12 Jan 2016 13:15:07 +1100
+Message-ID: <20160112131507.4509e7bf@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -9,15 +9,15 @@ Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Ido Schimmel <idosch@mellanox.com>,
 	Jiri Pirko <jiri@mellanox.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in:
 
-  drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+  drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 
 between commit:
 
@@ -25,7 +25,7 @@ between commit:
 
 from the net tree and commit:
 
-  54a732018d8e ("mlxsw: spectrum: Adjust switchdev ops for VLAN devices")
+  0d65fc13042f ("mlxsw: spectrum: Implement LAG port join/leave")
 
 from the net-next tree.
 
@@ -36,23 +36,29 @@ is required).
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 80e266063aee,4cdc18e72222..000000000000
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@@ -650,7 -1057,14 +1057,15 @@@ static int mlxsw_sp_port_fdb_dump(struc
-  	if (!sfd_pl)
-  		return -ENOMEM;
+diff --cc drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 69281ca534b1,199f91a62962..000000000000
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@@ -63,13 -120,16 +120,17 @@@ struct mlxsw_sp 
+  	} fdb_notify;
+  #define MLXSW_SP_DEFAULT_AGEING_TIME 300
+  	u32 ageing_time;
+ +	struct mutex fdb_lock;	/* Make sure FDB sessions are atomic. */
+- 	struct {
+- 		struct net_device *dev;
+- 		unsigned int ref_count;
+- 	} master_bridge;
++ 	struct mlxsw_sp_upper master_bridge;
++ 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
+  };
   
- +	mutex_lock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
-+ 	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
-+ 		u16 tmp;
++ static inline struct mlxsw_sp_upper *
++ mlxsw_sp_lag_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
++ {
++ 	return &mlxsw_sp->lags[lag_id];
++ }
 + 
-+ 		tmp = mlxsw_sp_vport_vfid_get(mlxsw_sp_port);
-+ 		vport_fid = mlxsw_sp_vfid_to_fid(tmp);
-+ 		vport_vid = mlxsw_sp_vport_vid_get(mlxsw_sp_port);
-+ 	}
-+ 
-  	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
-  	do {
-  		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
+  struct mlxsw_sp_port_pcpu_stats {
+  	u64			rx_packets;
+  	u64			rx_bytes;
