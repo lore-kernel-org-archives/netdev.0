@@ -1,66 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [OOPS] In __netif_receive_skb_core
-Date: Tue, 12 Jan 2016 06:19:37 -0800
-Message-ID: <1452608377.1223.13.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <568EA671.7000502@gmail.com> <56929985.3020502@gmail.com>
-	 <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5694188F.80907@gmail.com>
-	 <CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
-	 <56944DFA.4050002@gmail.com>
-	 <1452560786.1223.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAO7SqHC+fTCyNd8ukSH4tJ1qPvAYzMGSfhrzXmMn0NLve6NTQA@mail.gmail.com>
-	 <1452565288.1223.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1452565515.1223.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5694A840.8030900@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Salam Noureddine <noureddine@arista.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Sebastian Reichel <sre@kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+From: Lars Persson <lars.persson@axis.com>
+Subject: [PATCH net] dwc_eth_qos: Fix dma address for multi-fragment skbs
+Date: Tue, 12 Jan 2016 15:28:13 +0100
+Message-ID: <1452608893-19126-1-git-send-email-larper@axis.com>
+Cc: Lars Persson <larper@axis.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5694A840.8030900@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-01-12 at 09:16 +0200, Ivaylo Dimitrov wrote:
-> 
-> On 12.01.2016 04:25, Eric Dumazet wrote:
+The offset inside the fragment was not used for the dma address and
+silent data corruption resulted because TSO makes the checksum match.
 
-> >
-> > OK please try this fix :
-> >
-> > diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-> > index 10d42f3220ab..f925753668a7 100644
-> > --- a/net/phonet/af_phonet.c
-> > +++ b/net/phonet/af_phonet.c
-> > @@ -377,6 +377,10 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
-> >   	struct sockaddr_pn sa;
-> >   	u16 len;
-> >
-> > +	skb = skb_share_check(skb, GFP_ATOMIC);
-> > +	if (!skb)
-> > +		return NET_RX_DROP;
-> > +
-> >   	/* check we have at least a full Phonet header */
-> >   	if (!pskb_pull(skb, sizeof(struct phonethdr)))
-> >   		goto out;
-> >
-> >
-> 
-> That one fixes the oops, though I wonder if your previous patch is 
-> needed (I reverted it before testing the current). Unfortunately I don't 
-> have SIM card around to test GPRS connection with, will do it as soon as 
-> I find one and will report.
+Fixes: 077742dac2c7 ("dwc_eth_qos: Add support for Synopsys DWC Ethernet QoS")
+Signed-off-by: Lars Persson <larper@axis.com>
+---
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Well, this bug in phonet_rcv() is rather obvious, I have no idea why
-nobody got crashes or corruptions before today.
-
-I'll send a formal patch.
-
-Thanks for your help !
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 9066d7a..f96c6b3 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2107,7 +2107,7 @@ static int dwceqos_tx_frags(struct sk_buff *skb, struct net_local *lp,
+ 			dd = &lp->tx_descs[lp->tx_next];
+ 
+ 			/* Set DMA Descriptor fields */
+-			dd->des0 = dma_handle;
++			dd->des0 = dma_handle + consumed_size;
+ 			dd->des1 = 0;
+ 			dd->des2 = dma_size;
+ 
+-- 
+2.1.4
