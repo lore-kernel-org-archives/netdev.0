@@ -1,107 +1,79 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net] net: reduce RECURSION_LIMIT to 8
-Date: Tue, 12 Jan 2016 12:41:52 -0800
-Message-ID: <CAOrHB_C95YDAKk=AmLB4uXyzLz4B=DNZe-jM8OSa1=BBUqUX0w@mail.gmail.com>
-References: <1452188453-5523-1-git-send-email-hannes@stressinduktion.org>
-	<CAOrHB_AWdZw1XDmxVU=bDh=gB2M3cnXUC8MyXCnV1YVjZEAsKw@mail.gmail.com>
-	<56939EEF.70403@stressinduktion.org>
-	<CAOrHB_DKMW6VoVbu1yvHRQRk92w-uUZWaGQURyRxhO=GaOPXsg@mail.gmail.com>
-	<56945B7A.6010601@stressinduktion.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 21:42:39 +0100
+Message-ID: <5695653F.6030001@iogearbox.net>
+References: <20160112185121.GA34045@ast-mbp.thefacebook.com> <1452626228-15742-1-git-send-email-rabin@rab.in> <1452628118.1223.25.camel@edumazet-glaptop2.roam.corp.google.com> <20160112195356.GA34598@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
+	netdev@vger.kernel.org, ast@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:52196 "EHLO
-	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753145AbcALUl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 15:41:58 -0500
-Received: from mfilter28-d.gandi.net (mfilter28-d.gandi.net [217.70.178.159])
-	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 6F79D41C08A
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 21:41:55 +0100 (CET)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-	by mfilter28-d.gandi.net (mfilter28-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id XD8i66MYDVkn for <netdev@vger.kernel.org>;
-	Tue, 12 Jan 2016 21:41:54 +0100 (CET)
-Received: from mail-ig0-f177.google.com (mail-ig0-f177.google.com [209.85.213.177])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id F1EBA41C088
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 21:41:53 +0100 (CET)
-Received: by mail-ig0-f177.google.com with SMTP id z14so152917266igp.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 12:41:53 -0800 (PST)
-In-Reply-To: <56945B7A.6010601@stressinduktion.org>
+Received: from www62.your-server.de ([213.133.104.62]:34411 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753145AbcALUmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 15:42:45 -0500
+In-Reply-To: <20160112195356.GA34598@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 5:48 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 12.01.2016 01:36, pravin shelar wrote:
+On 01/12/2016 08:53 PM, Alexei Starovoitov wrote:
+> On Tue, Jan 12, 2016 at 11:48:38AM -0800, Eric Dumazet wrote:
+>> On Tue, 2016-01-12 at 20:17 +0100, Rabin Vincent wrote:
+>>> On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
+>>> constant shift that can't be encoded in the immediate field of the
+>>> UBFM/SBFM instructions is passed to the JIT.  Since these shifts
+>>> amounts, which are negative or >= regsize, are invalid, reject them in
+>>> the eBPF verifier and the classic BPF filter checker, for all
+>>> architectures.
+>>>
 >>
->> On Mon, Jan 11, 2016 at 4:24 AM, Hannes Frederic Sowa
->> <hannes@stressinduktion.org> wrote:
->>>
->>> On 11.01.2016 07:38, pravin shelar wrote:
->>>>
->>>>
->>>> On Thu, Jan 7, 2016 at 9:40 AM, Hannes Frederic Sowa
->>>> <hannes@stressinduktion.org> wrote:
->>>>>
->>>>>
->>>>> When RECURSION_LIMIT was first introduced, Eric proposed a limit of 3.
->>>>> This limit was later raised to 10 by DaveM. Nowadays it is observed
->>>>> that
->>>>> configuraion errors in openvswitch cause the STACK_END_MAGIC to be
->>>>> overwritten shortly after 9 recursion.
->>>>>
->>>> Major user of stack space in OVS is sw_flow_key in
->>>> ovs_vport_receive(). With recent features like IPv6 tunnel support we
->>>> have increased the size of the flow-key which could have caused the
->>>> stack overflow sooner.
->>>> One way to avoid using stack in subsequent recursive call is to use
->>>> per-cpu storage for the sw_flow_key object. This is already done for
->>>> OVS recursive actions, so we can expand on that facility.
->>>
->>>
->>>
->>> Hmmm. This already came up. I think the difficulty is that
->>> ovs_vport_receive
->>> can be called from actions again with skb_cloned skb before the
->>> original's
->>> skb callstack is actually finished. Data in the percpu area would be
->>> overwritten while still being used. It would need some more logic IMHO.
->>>
->> You can have stack of flow-keys and allocate a flow-key for each recursive
->> call.
+>> Hmm...
+>>
+>>> diff --git a/net/core/filter.c b/net/core/filter.c
+>>> index 672eefbfbe99..37157c4c1a78 100644
+>>> --- a/net/core/filter.c
+>>> +++ b/net/core/filter.c
+>>> @@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
+>>>   			if (ftest->k == 0)
+>>>   				return -EINVAL;
+>>>   			break;
+>>> +		case BPF_ALU | BPF_LSH | BPF_K:
+>>> +		case BPF_ALU | BPF_RSH | BPF_K:
+>>> +			if (ftest->k >= 32)
+>>> +				return -EINVAL;
+>>> +			break;
+>>>   		case BPF_LD | BPF_MEM:
+>>>   		case BPF_LDX | BPF_MEM:
+>>>   		case BPF_ST:
+>>
+>> These weak filters used to have undefined behavior, maybe in a never
+>> taken branch, and will now fail hard, possibly breaking old
+>> applications.
+>>
+>> I believe we should add a one time warning to give a clue to poor users
+>> hitting this problem.
 >
->
-> Hmm, I came up with something like that but the other day I find it
-> unpleasant and think that the kmalloc might anyway end up in the fast
-> path:
->
-We can avoid the kmalloc using per-cpu array of flow-key. Infact for
-first four recursion can be done using stack to avoid any performance
-penalty of accessing percpu variables.
+> you mean like warn_on_once() here?
+> Makes sense I guess.
 
->
->
->>> What are recursive actions in ovs? I couldn't find any use of pcpu data
->>> in
->>> there? Thanks! :)
->>>
->> There are couple of recursive actions in OVS, e.g.
->> OVS_ACTION_ATTR_RECIRC. But it is implemented by using per-cpu
->> flow-key stack to avoid recursive function call.
->
->
-> Ahh, the deferred_action stuff. I understand. So the idea would be to
-> lift even the first entry point to deferred_action a like?
->
-> This sounds like it could work but I fear we should find a solution
-> for stable, as this seems like a bit more work.
->
+Hmm, WARN_ON_ONCE() would then throw a stack trace also for unprived users,
+I doubt we want to scare admins. ;)
 
-I am fine with OVS specific recursion limit as stable tree fix for this issue.
+Or, you mean pr_warn_once()?
 
-Thanks.
+>> Not everybody has perfect BPF filters, since most of the time they were
+>> hand coded.
+>
+> yep and we all know who was able to code hundreds of cBPF insns by hand ;)
+> But I'm sure that code doesn't have such broken shifts. :)))
+
+libpcap certainly supports raw filters now thanks to Chema [1]. Alternative
+could be to just mask them here, but not in eBPF verifier, but that would be
+even more inconsistent (on the other hand, we also allow holes in BPF but not
+in eBPF, so wouldn't be the first time we make things different), hmm.
+
+   [1] https://github.com/the-tcpdump-group/libpcap/commit/273455d58b3bbd83d757bda4f4544e3e5cc8c20a
