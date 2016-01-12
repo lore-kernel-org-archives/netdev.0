@@ -1,79 +1,71 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH net] openvswitch: compute needed headroom for internal vports
-Date: Tue, 12 Jan 2016 11:20:08 -0800
-Message-ID: <CAEh+42hr8JneX5bufHNqbVFfnCXkU1iz7n0Pc4UQfm==rKF9Dw@mail.gmail.com>
-References: <0d85bf752132423483b8c5708bb9188805a99ff9.1452289759.git.pabeni@redhat.com>
- <CAOrHB_ARw+FC69yfhq_b0GDvxyQhTLLqUwJ81nYCA5XqrTNwOA@mail.gmail.com>
- <CAEh+42hN8wL7bbALB8SGCKvum2pzT3R0kXUtMfQPg-XP-QZ7Dg@mail.gmail.com>
- <CAOrHB_Bo2iqp2xGaZpOb2AvriGTTruC_O72hQ7LqKnkbR_CAeA@mail.gmail.com>
- <1452501788.5027.13.camel@redhat.com> <CAOrHB_DL6DpyoLYZroccPR7mjUuMM-JN6p-=o6XE53Ltb_Cq0w@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] arm64: net: bpf: don't BUG() on large shifts
+Date: Tue, 12 Jan 2016 11:23:03 -0800
+Message-ID: <20160112192302.GA34276@ast-mbp.thefacebook.com>
+References: <1452015543-6790-1-git-send-email-rabin@rab.in>
+ <20160108154423.GC11228@arm.com>
+ <20160108190943.GA11561@ast-mbp.thefacebook.com>
+ <20160112171710.GK15737@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paolo Abeni <pabeni@redhat.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Flavio Leitner <fbl@sysclose.org>
-To: pravin shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
+	netdev@vger.kernel.org, zlim.lnx@gmail.com, yang.shi@linaro.org,
+	catalin.marinas@arm.com, linux-arm-kernel@lists.infradead.org
+To: Will Deacon <will.deacon@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:49122 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752801AbcALTUZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2016 14:20:25 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id C442F2041C
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 19:20:24 +0000 (UTC)
-Received: from mail-qk0-f178.google.com (mail-qk0-f178.google.com [209.85.220.178])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 72E2A20414
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 19:20:23 +0000 (UTC)
-Received: by mail-qk0-f178.google.com with SMTP id t64so26524444qke.1
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 11:20:23 -0800 (PST)
-In-Reply-To: <CAOrHB_DL6DpyoLYZroccPR7mjUuMM-JN6p-=o6XE53Ltb_Cq0w@mail.gmail.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36705 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515AbcALTXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:23:07 -0500
+Received: by mail-pf0-f181.google.com with SMTP id n128so67399034pfn.3
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 11:23:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160112171710.GK15737@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2016 at 4:34 PM, pravin shelar <pshelar@ovn.org> wrote:
-> On Mon, Jan 11, 2016 at 12:43 AM, Paolo Abeni <pabeni@redhat.com> wrote:
->> On Fri, 2016-01-08 at 18:44 -0800, pravin shelar wrote:
->>> On Fri, Jan 8, 2016 at 4:42 PM, Jesse Gross <jesse@kernel.org> wrote:
->>> > On Fri, Jan 8, 2016 at 2:53 PM, pravin shelar <pshelar@ovn.org> wrote:
->>> >> On Fri, Jan 8, 2016 at 1:50 PM, Paolo Abeni <pabeni@redhat.com> wrote:
->>> >>> Currently the ovs internal vports always use a default needed_headroom.
->>> >>> This leads to a skb head copy while xmitting on ovs swith via vport
->>> >>> that add some kind of encapsulation (gre, geneve, etc.).
->>> >>>
->>> >>> This patch add book-keeping for the maximum needed_headroom used by
->>> >>> the non internal vports in any dp, updating it on vport creation and
->>> >>> deletion.
->>> >>>
->>> >>> Said value is than used as needed_headroom for internal vports,
->>> >>> avoiding the above copy.
->>> >>>
->>> >> Why is this done only for internal devices? In most common case of
->>> >> traffic the packet enters OVS from tap or other netdev type vport
->>> >> device.
->>> >
->>> > How would you influence the allocation for non-internal devices?
->>>
->>> Today there is no way of influencing this. But we could add new
->>> skb-headroom parameter to netdev for packets that are received on the
->>> device. This new parameter could be controlled from master devices
->>> like OVS, Bridge, etc. To set this value we need new ndo operation. So
->>> that it can work on devices like tap where it would just set this new
->>> value and in case of ovs-internal or veth device, it can also update
->>> needed_headroom.
->>
->> My idea was to continue working along this lines.
->>
->> However I thought to get there incrementally, i.e. handle internal
->> vports only first. Can this be ok for you?
->>
->
-> If the final implementation is going to change alot, then I do not see
-> much value in this change going in first.
+On Tue, Jan 12, 2016 at 05:17:10PM +0000, Will Deacon wrote:
+> On Fri, Jan 08, 2016 at 11:09:44AM -0800, Alexei Starovoitov wrote:
+> > On Fri, Jan 08, 2016 at 03:44:23PM +0000, Will Deacon wrote:
+> > > On Tue, Jan 05, 2016 at 06:39:03PM +0100, Rabin Vincent wrote:
+> > > > Attempting to generate UBFM/SBFM instructions with shifts that can't be
+> > > > encoded in the immediate fields of the opcodes leads to a trigger of a
+> > > > BUG() in the instruction generation code.  As the ARMv8 ARM says: "The
+> > > > shift amounts must be in the range 0 to one less than the register width
+> > > > of the instruction, inclusive."  Make the JIT reject unencodable shifts
+> > > > instead of crashing.
+> > > 
+> > > I moaned about those BUG_ONs when they were introduced:
+> > > 
+> > >   https://lkml.org/lkml/2014/7/17/438
+> > > 
+> > > The response then was that the verifier would catch these issues so
+> > > there was nothing to worry about. Has something changed so that is no
+> > > longer the case? Do we need to consider a different way of rejecting
+> > > invalid instructions at the encoding stage rather than bringing down the
+> > > kernel?
+> > 
+> > that discussion lead to replacement of all BUG_ONs in
+> > arch/arm64/net/bpf_jit_comp.c with pr_err_once(), but looks like
+> > arch/arm64/kernel/insn.c wasn't addressed.
+> > The amount of BUG_ONs there is indeed overkill regardless of what
+> > verifier and other JITs do. btw, x64 JIT doesn't have runtime BUG_ONs.
+> 
+> Maybe, but insn.c is also used by the alternatives patching code, so we
+> really need a way to communicate failure back to the BPF JIT when passed
+> an invalid instruction description.
 
-Even if the code will change in the future, it seems like an
-incremental improvement that will help in some cases so I don't see
-much reason to not do this part now.
+agree. I think there are several options to achieve that after
+all BUG_ONs are removed:
+- change interface for all insn generating macros to check for
+  AARCH64_BREAK_FAULT opcode as error.
+  That will require all of emit*() functions in bpf_jit_comp.c to
+  be changed to accept/return error.
+  Overall that looks like massive change.
+- ignore AARCH64_BREAK_FAULT during emit and add another pass after
+  all code is generated. If such insn is found in a jited code,
+  discard the jit.
+  I think that's better option.
+
+Zi, any comments?
+ 
