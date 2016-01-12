@@ -1,114 +1,73 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update
- elem
-Date: Tue, 12 Jan 2016 11:10:51 -0800
-Message-ID: <20160112191051.GA67436@kafai-mba.local>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
- <1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
- <20160111190248.GA26495@ast-mbp.thefacebook.com>
- <CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
- <20160112054928.GA31180@ast-mbp.thefacebook.com>
- <CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rabin Vincent <rabin@rab.in>
+Subject: [PATCHv2] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 20:17:08 +0100
+Message-ID: <1452626228-15742-1-git-send-email-rabin@rab.in>
+References: <20160112185121.GA34045@ast-mbp.thefacebook.com>
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
+	linux-arm-kernel@lists.infradead.org, Rabin Vincent <rabin@rab.in>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33783 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170AbcALTR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:17:26 -0500
+Received: by mail-wm0-f67.google.com with SMTP id u188so32910443wmu.0
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 11:17:25 -0800 (PST)
+In-Reply-To: <20160112185121.GA34045@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2016 at 07:05:47PM +0800, Ming Lei wrote:
-> On Tue, Jan 12, 2016 at 1:49 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Tue, Jan 12, 2016 at 01:00:00PM +0800, Ming Lei wrote:
-> >> Hi Alexei,
-> >>
-> >> Thanks for your review.
-> >>
-> >> On Tue, Jan 12, 2016 at 3:02 AM, Alexei Starovoitov
-> >> <alexei.starovoitov@gmail.com> wrote:
-> >> > On Mon, Jan 11, 2016 at 11:56:57PM +0800, Ming Lei wrote:
-> >> >> Prepare for supporting percpu map in the following patch.
-> >> >>
-> >> >> Now userspace can lookup/update mapped value in one specific
-> >> >> CPU in case of percpu map.
-> >> >>
-> >> >> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
-> >> > ...
-> >> >> @@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
-> >> >>               goto free_key;
-> >> >>
-> >> >>       rcu_read_lock();
-> >> >> -     ptr = map->ops->map_lookup_elem(map, key);
-> >> >> +     if (!percpu)
-> >> >> +             ptr = map->ops->map_lookup_elem(map, key);
-> >> >> +     else
-> >> >> +             ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
-> >> >
-> >> > I think this approach is less potent than Martin's for several reasons:
-> >> > - bpf program shouldn't be supplying bpf_smp_processor_id(), since
-> >> >   it's error prone and a bit slower than doing it explicitly as in:
-> >> >   https://urldefense.proofpoint.com/v2/url?u=http-3A__patchwork.ozlabs.org_patch_564482_&d=CwIBaQ&c=5VD0RTtNlTh3ycd41b3MUw&r=VQnoQ7LvghIj0gVEaiQSUw&m=kb6DfquDoMLBv0hgOO76O9SMvdCnhwnEwhgON8868I8&s=QtJkMfQDB55jn_aA_umJ8jiJRQlQhW5UxYO5YdxuGNI&e=
-> >> >   although Martin's patch also needs to use this_cpu_ptr() instead
-> >> >   of per_cpu_ptr(.., smp_processor_id());
-> >>
-> >> For PERCPU map, smp_processor_id() is definitely required, and
-> >> Martin's patch need that too, please see htab_percpu_map_lookup_elem()
-> >> in his patch.
-> >
-> > hmm. it's definitely _not_ required. right?
-> > bpf programs shouldn't be accessing other per-cpu regions
-> > only their own. That's what this_cpu_ptr is for.
-> > I don't see a case where accessing other cpu per-cpu element
-> > wouldn't be a bug in the program.
-> >
-> >> > - two new bpf helpers are not necessary in Martin's approach.
-> >> >   regular map_lookup_elem() will work for both per-cpu maps.
-> >>
-> >> For percpu ARRAY, they are not necessary, but it is flexiable to
-> >> provide them since we should allow prog to retrieve the perpcu
-> >> value, also it is easier to implement the system call with the two
-> >> helpers.
-> >>
-> >> For percpu HASH, they are required since eBPF prog need to support
-> >> deleting element, so we have provide these helpers for prog to retrieve
-> >> percpu value before deleting the elem.
-> >
-> > bpf programs cannot have loops, so there is no valid case to access
-> > other cpu element, since program cannot aggregate all-cpu values.
-> > Therefore the programs can only update/lookup this_cpu element and
-> > delete such element across all cpus.
->
-> Looks I missed the point of looping constraint, then basically delete element
-> helper doesn't make sense in percpu hash.
->
-> >
-> >> > - such map_lookup_elem_percpu() from syscall is not accurate.
-> >> >   Martin's approach via smp_call_function_single() returns precise value,
-> >>
-> >> I don't understand why Martin's approach is precise and my patch isn't,
-> >> could you explain it a bit?
-> >
-> > because simple mempcy() called from syscall will race with lookup/increment
-> > done to this_cpu element on another cpu. To avoid this race the smp_call
-> > is needed, so that memcpy() happens on the cpu that updated the element,
-> > so smp_call's memcpy and bpf program won't be touch that cpu value
-> > at the same time and user space will read the correct element values.
-> > If program updates them a lot, the value that user space reads will become
-> > stale very quickly, but it will be valid. That's especially important
-> > when program have multiple counters inside single element value.
->
-> But smp_call is often very slow because of IPI, so the value acculated
-> finally becomes stale easily even though the value from the requested cpu
-> is 'precise' at the exact time, especially when there are lots of CPUs, so I
-> think using smp_call is really a bad idea. And smp_call is worse than
-> iterating from CPUs simply.
-The userspace usually only aggregates value across all cpu every X seconds.
-I hardly consider some number of micro-seconds old data is stale.
+On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
+constant shift that can't be encoded in the immediate field of the
+UBFM/SBFM instructions is passed to the JIT.  Since these shifts
+amounts, which are negative or >= regsize, are invalid, reject them in
+the eBPF verifier and the classic BPF filter checker, for all
+architectures.
+
+Signed-off-by: Rabin Vincent <rabin@rab.in>
+---
+v2: handle BPF_ARSH too
+
+ kernel/bpf/verifier.c | 10 ++++++++++
+ net/core/filter.c     |  5 +++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index a7945d10b378..d1d3e8f57de9 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1121,6 +1121,16 @@ static int check_alu_op(struct verifier_env *env, struct bpf_insn *insn)
+ 			return -EINVAL;
+ 		}
+ 
++		if ((opcode == BPF_LSH || opcode == BPF_RSH ||
++		     opcode == BPF_ARSH) && BPF_SRC(insn->code) == BPF_K) {
++			int size = BPF_CLASS(insn->code) == BPF_ALU64 ? 64 : 32;
++
++			if (insn->imm < 0 || insn->imm >= size) {
++				verbose("invalid shift %d\n", insn->imm);
++				return -EINVAL;
++			}
++		}
++
+ 		/* pattern match 'bpf_add Rx, imm' instruction */
+ 		if (opcode == BPF_ADD && BPF_CLASS(insn->code) == BPF_ALU64 &&
+ 		    regs[insn->dst_reg].type == FRAME_PTR &&
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 672eefbfbe99..37157c4c1a78 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
+ 			if (ftest->k == 0)
+ 				return -EINVAL;
+ 			break;
++		case BPF_ALU | BPF_LSH | BPF_K:
++		case BPF_ALU | BPF_RSH | BPF_K:
++			if (ftest->k >= 32)
++				return -EINVAL;
++			break;
+ 		case BPF_LD | BPF_MEM:
+ 		case BPF_LDX | BPF_MEM:
+ 		case BPF_ST:
+-- 
+2.6.4
