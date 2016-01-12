@@ -1,85 +1,168 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2 0/3] can: sja1000: support for technologic version
-Date: Tue, 12 Jan 2016 08:56:48 +0100
-Message-ID: <5694B1C0.2070702@pengutronix.de>
-References: <1450978973-30417-1-git-send-email-damien.riegel@savoirfairelinux.com>
- <20160111165807.GA7116@localhost>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH v2 net-next 3/4] bpf: bpf_htab: Add syscall to iterate percpu value of a key
+Date: Tue, 12 Jan 2016 00:20:51 -0800
+Message-ID: <1452586852-1575604-4-git-send-email-kafai@fb.com>
+References: <1452586852-1575604-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="qd0fq63gn5xcxB9058qVO509IiqGwR9GG"
-Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	kernel@savoirfairelinux.com
-To: Damien Riegel <damien.riegel@savoirfairelinux.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org
+Content-Type: text/plain
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Ming Lei <tom.leiming@gmail.com>,
+	FB Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160111165807.GA7116@localhost>
+In-Reply-To: <1452586852-1575604-1-git-send-email-kafai@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---qd0fq63gn5xcxB9058qVO509IiqGwR9GG
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Add map_lookup_percpu_elem() syscall to lookup value
+of a particular CPU.
 
-On 01/11/2016 05:58 PM, Damien Riegel wrote:
-> Hi Marc,
->=20
-> On Thu, Dec 24, 2015 at 12:42:50PM -0500, Damien Riegel wrote:
->> This patchset introduces support for the technologic version of the
->> SJA1000. Access to IP's registers are proxied through a window,
->> requiring two bus accesses to read or write a register. These accesses=
+The user is expected to loop through all CPU values by:
+for (cpu = 0; cpu < sysconf(_SC_NPROCESSORS_CONF); cpu++) {
+	if (!bpf_map_lookup_percpu_elem(map, &key, &value, cpu))
+		total_value += value;
+}
 
->> must be protected by a spinlock to prevent race conditions. Currently,=
+* If the cpu is offline, errno == ENXIO
+* If the key is deleted before the iteration is done,
+  errno == ENOENT.
 
->> there is no easy way to allocate and initialize this spinlock.
->>
->> SJA1000 already provides a way to allocate private data, but
->> sja1000_platform.c makes no use of it.
->>
->> Patch 1 adds the capability to allocate and initialize private data on=
- a
->> per-compatible basis in sja1000_platform.c.
->>
->> Patch 2 updates device tree documentation to add the technologic
->> version.
->>
->> Patch 3 updates the driver to implement the technologic version
->>
->=20
-> Did you have a chance to take a look at this patchset? I would
-> appreciate your feedback, especially on the first patch.
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+---
+ include/uapi/linux/bpf.h |  2 ++
+ kernel/bpf/syscall.c     | 93 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 95 insertions(+)
 
-Done. 2/3 is ok. For the others see my comments.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---qd0fq63gn5xcxB9058qVO509IiqGwR9GG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWlLHAAAoJEP5prqPJtc/HbOYH/jfrArHf4UByYAnjGptfKNGH
-L8+7GuFQGbBxWenor0jN53BbfypqHRzReDeyP17BElJnXkmHg6iOL6MXKmR6RSBp
-CNOqpAHjrIH0t2VWUgeQvC6LS5ZgUBpfrQBV0hI9e+ZW18qdnWT79awMzOH3bbrk
-1/llwHKLkzYNFmmPWsI6dZfEvZmw7AE6LA4+CbRKM3QZYZ9gSklf7JoqmxoJA+pw
-6vn2qF+cjMvpC/bDAOTvdxlDdlp6jBBiSoOj12GTgA7v3bBlhzboBHTcBhoWNVny
-2GSUJxYG20TM6c56CJSfQftY9uClSB7/0yBEgqZXfstoOQt3ZtWTGWjXJe/zo6U=
-=ISa7
------END PGP SIGNATURE-----
-
---qd0fq63gn5xcxB9058qVO509IiqGwR9GG--
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 43ae40c..2c73c09 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -73,6 +73,7 @@ enum bpf_cmd {
+ 	BPF_PROG_LOAD,
+ 	BPF_OBJ_PIN,
+ 	BPF_OBJ_GET,
++	BPF_MAP_LOOKUP_PERCPU_ELEM,
+ };
+ 
+ enum bpf_map_type {
+@@ -115,6 +116,7 @@ union bpf_attr {
+ 			__aligned_u64 next_key;
+ 		};
+ 		__u64		flags;
++		__u32		cpu;
+ 	};
+ 
+ 	struct { /* anonymous struct used by BPF_PROG_LOAD command */
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 6373970..ba1172b 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -289,6 +289,96 @@ err_put:
+ 	return err;
+ }
+ 
++/* last field in 'union bpf_attr' used by this command */
++#define BPF_MAP_LOOKUP_PERCPU_ELEM_LAST_FIELD cpu
++
++struct percpu_map_value_info {
++	struct bpf_map *map;
++	void *key;
++	void *value;
++	bool found;
++};
++
++static void percpu_map_lookup_value(void *i)
++{
++	struct percpu_map_value_info *info = (struct percpu_map_value_info *)i;
++	struct bpf_map *map = info->map;
++	void *ptr;
++
++	rcu_read_lock();
++	ptr = map->ops->map_lookup_elem(map, info->key);
++	if (ptr) {
++		memcpy(info->value, ptr, map->value_size);
++		info->found = true;
++	} else {
++		info->found = false;
++	}
++	rcu_read_unlock();
++}
++
++static int map_lookup_percpu_elem(union bpf_attr *attr)
++{
++	void __user *ukey = u64_to_ptr(attr->key);
++	void __user *uvalue = u64_to_ptr(attr->value);
++	u32 __user ucpu = attr->cpu;
++	int ufd = attr->map_fd;
++	struct percpu_map_value_info value_info;
++	struct bpf_map *map;
++	void *key, *value;
++	struct fd f;
++	int err;
++
++	if (CHECK_ATTR(BPF_MAP_LOOKUP_PERCPU_ELEM) ||
++	    ucpu >= num_possible_cpus())
++		return -EINVAL;
++
++	f = fdget(ufd);
++	map = __bpf_map_get(f);
++	if (IS_ERR(map))
++		return PTR_ERR(map);
++
++	err = -ENOMEM;
++	key = kmalloc(map->key_size, GFP_USER);
++	if (!key)
++		goto err_put;
++
++	err = -EFAULT;
++	if (copy_from_user(key, ukey, map->key_size) != 0)
++		goto free_key;
++
++	err = -ENOMEM;
++	value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
++	if (!value)
++		goto free_key;
++
++	value_info.map = map;
++	value_info.key = key;
++	value_info.value = value;
++
++	err = smp_call_function_single(ucpu, percpu_map_lookup_value,
++				       &value_info, 1);
++	if (err)
++		goto free_value;
++
++	err = -ENOENT;
++	if (!value_info.found)
++		goto free_value;
++
++	err = -EFAULT;
++	if (copy_to_user(uvalue, value, map->value_size) != 0)
++		goto free_value;
++
++	err = 0;
++
++free_value:
++	kfree(value);
++free_key:
++	kfree(key);
++err_put:
++	fdput(f);
++	return err;
++}
++
+ #define BPF_MAP_UPDATE_ELEM_LAST_FIELD flags
+ 
+ static int map_update_elem(union bpf_attr *attr)
+@@ -792,6 +882,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
+ 	case BPF_OBJ_GET:
+ 		err = bpf_obj_get(&attr);
+ 		break;
++	case BPF_MAP_LOOKUP_PERCPU_ELEM:
++		err = map_lookup_percpu_elem(&attr);
++		break;
+ 	default:
+ 		err = -EINVAL;
+ 		break;
+-- 
+2.5.1
