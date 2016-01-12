@@ -1,99 +1,117 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update elem
-Date: Tue, 12 Jan 2016 13:00:00 +0800
-Message-ID: <CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
-	<1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
-	<20160111190248.GA26495@ast-mbp.thefacebook.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
+ by PERF_SAMPLE_TAILSIZE
+Date: Tue, 12 Jan 2016 13:33:28 +0800
+Message-ID: <56949028.2070208@huawei.com>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com> <1452520124-2073-28-git-send-email-wangnan0@huawei.com> <20160111180913.GA25950@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Martin KaFai Lau <kafai@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <acme@kernel.org>, <linux-kernel@vger.kernel.org>,
+	<pi3orama@163.com>, <lizefan@huawei.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, Adrian Hunter <adrian.hunter@intel.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Ahern <dsahern@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Yunlong Song <yunlong.song@huawei.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160111190248.GA26495@ast-mbp.thefacebook.com>
+In-Reply-To: <20160111180913.GA25950@ast-mbp.thefacebook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexei,
 
-Thanks for your review.
 
-On Tue, Jan 12, 2016 at 3:02 AM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Mon, Jan 11, 2016 at 11:56:57PM +0800, Ming Lei wrote:
->> Prepare for supporting percpu map in the following patch.
+On 2016/1/12 2:09, Alexei Starovoitov wrote:
+> On Mon, Jan 11, 2016 at 01:48:18PM +0000, Wang Nan wrote:
+>> This patch introduces a PERF_SAMPLE_TAILSIZE flag which allows a size
+>> field attached at the end of a sample. The idea comes from [1] that,
+>> with tie size at tail of an event, it is possible for user program who
+>> read from the ring buffer parse events backward.
 >>
->> Now userspace can lookup/update mapped value in one specific
->> CPU in case of percpu map.
+>> For example:
 >>
->> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
-> ...
->> @@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
->>               goto free_key;
+>>     head
+>>      |
+>>      V
+>>   +--+---+-------+----------+------+---+
+>>   |E6|...|   B  8|   C    11|  D  7|E..|
+>>   +--+---+-------+----------+------+---+
 >>
->>       rcu_read_lock();
->> -     ptr = map->ops->map_lookup_elem(map, key);
->> +     if (!percpu)
->> +             ptr = map->ops->map_lookup_elem(map, key);
->> +     else
->> +             ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
+>> In this case, from the 'head' pointer provided by kernel, user program
+>> can first see '6' by (*(head - sizeof(u64))), then it can get the start
+>> pointer of record 'E', then it can read size and find start position
+>> of record D, C, B in similar way.
+> adding extra 8 bytes for every sample is quite unfortunate.
+> How about another idea:
+> . update data_tail pointer when head is about to overwrite it
 >
-> I think this approach is less potent than Martin's for several reasons:
-> - bpf program shouldn't be supplying bpf_smp_processor_id(), since
->   it's error prone and a bit slower than doing it explicitly as in:
->   http://patchwork.ozlabs.org/patch/564482/
->   although Martin's patch also needs to use this_cpu_ptr() instead
->   of per_cpu_ptr(.., smp_processor_id());
-
-For PERCPU map, smp_processor_id() is definitely required, and
-Martin's patch need that too, please see htab_percpu_map_lookup_elem()
-in his patch.
-
+> Ex:
+>     head   data_tail
+>      |       |
+>      V       V
+>   +--+-------+-------+---+----+---+
+>   |E |  ...  |   B   | C |  D | E |
+>   +--+-------+-------+---+----+---+
 >
-> - two new bpf helpers are not necessary in Martin's approach.
->   regular map_lookup_elem() will work for both per-cpu maps.
+> if new sample F is about to overwrite B, the kernel would need
+> to read the size of B from B's header and update data_tail to point C.
+> Or even further.
+> Comparing to TAILSIZE approach, now kernel will be doing both reads
+> and writes into ring-buffer and there is a concern that reads may
+> be hitting cold data, but if the records are small they may be
+> actually on the same cache line brought by the previous
+> read A's header, write E record cycle. So I think we shouldn't see
+> cache misses.
 
-For percpu ARRAY, they are not necessary, but it is flexiable to
-provide them since we should allow prog to retrieve the perpcu
-value, also it is easier to implement the system call with the two
-helpers.
+After ring buffer rewind, we need a read before nearly
+every write operations. The performance penalty depends on
+configuration of write allocate. In addition, another data
+dependency is required: we must wait for the size of
+event B is retrived before overwrite it.
 
-For percpu HASH, they are required since eBPF prog need to support
-deleting element, so we have provide these helpers for prog to retrieve
-percpu value before deleting the elem.
+Even in the very first try at 2013 in [1], reading from the ring
+buffer is avoided. I don't think Peter changes his mind now.
 
+> Another concern is validity of records stored. If user space messes
+> with ring-buffer, kernel won't be able to move data_tail properly
+> and would need to indicate that to userspace somehow.
+> But memory saving of 8 bytes per record could be sizable
+
+Yes. But I have already discussed with Peter on this in [2].
+Last month I suggested:
+
+<quote>
+
+  1. If PERF_SAMPLE_SIZE is selected, we can avoid outputting the event
+     size in header. Which eliminate extra space cost;
+</quote>
+
+However:
+
+<quote>
+
+That would mandate you always parse the stream backwards. Which seems
+rather unfortunate. Also, no you cannot recoup the extra space, see the
+alignment and size requirement.
+
+</quote>
+
+>   and
+> user space wouldn't need to walk the whole buffer backwards and
+> can just start from valid data_tail, so the dumps of overwrite
+> ring-buffer will be faster too.
+> Thoughts?
 >
-> - such map_lookup_elem_percpu() from syscall is not accurate.
->   Martin's approach via smp_call_function_single() returns precise value,
+Please also refer to [3]. In that patch we introduced a userspace
+ring buffer in perf and make it continously collect data from
+normal ring buffers. Since we have to wake up perf to read data,
+the cost is even higher.
 
-I don't understand why Martin's approach is precise and my patch isn't,
-could you explain it a bit?
-
->   whereas here memcpy() will race with other cpus.
->
-> Overall I think both pre-cpu hash and per-cpu array maps are quite useful.
-
-percpu hash isn't a must since we can get similar effect by making real_key
-and cpu_id as key with less memory consumption, but we can introduce that.
-
-> For this particular set I would suggest to rebase on top of Martin's
-> to reuse BPF_MAP_LOOKUP_PERCPU_ELEM command that should be
-applicable
-> to both per-cpu array and per-cpu hash maps.
-
-Martin's patch doesn't introduce the two helpers, which is required for percpu
-hash, and it also makes the syscall easier to implement.
-
-> and add BPF_MAP_UPDATE_PERCPU_ELEM via smp_call as another patch
-> that should work for both as well.
-
-
-
-
-Thanks,
-Ming Lei
+[1] 
+http://lkml.kernel.org/r/20130708121557.GA17211@twins.programming.kicks-ass.net
+[2] 
+http://lkml.kernel.org/r/20151203100801.GV3816@twins.programming.kicks-ass.net
+[3] 
+http://lkml.kernel.org/r/1448373632-8806-1-git-send-email-yunlong.song@huawei.com
