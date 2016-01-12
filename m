@@ -1,64 +1,59 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH 14/53] perf test: Check environment before start real
- BPF test
-Date: Tue, 12 Jan 2016 15:40:40 +0800
-Message-ID: <5694ADF8.3080403@huawei.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com> <1452520124-2073-15-git-send-email-wangnan0@huawei.com> <20160111215503.GJ18367@kernel.org>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next 2/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
+Date: Mon, 11 Jan 2016 23:44:31 -0800
+Message-ID: <20160112074420.GA55122@kafai-mba.local>
+References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
+ <1452206155-1492617-3-git-send-email-kafai@fb.com>
+ <CACVXFVNg_3j0T8WCmtVR8XEb9xRd0qJBEZcsW3_OJ+HYZHNvEg@mail.gmail.com>
+ <20160112031148.GA13416@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	FB Kernel Team <kernel-team@fb.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160111215503.GJ18367@kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160112031148.GA13416@kafai-mba.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2016/1/12 5:55, Arnaldo Carvalho de Melo wrote:
-> Em Mon, Jan 11, 2016 at 01:48:05PM +0000, Wang Nan escreveu:
->> Copying perf to old kernel system results:
->>
->>   # perf test bpf
->>   37: Test BPF filter                                          :
->>   37.1: Test basic BPF filtering                               : FAILED!
->>   37.2: Test BPF prologue generation                           : Skip
->>
->> However, in case when kernel doesn't support a test case it should
->> return 'Skip', 'FAILED!' should be reserved for kernel tests for when
->> the kernel supports a feature that then fails to work as advertised.
->>
->> This patch checks environment before real testcase.
-> This is really strange, this other test is failing if the above patch is
-> present, found by bisecting:
->
-> [acme@felicio linux]$ perf test decoder
-> 47: Test x86 instruction decoder - new instructions          : FAILED!
-> [acme@felicio linux]$ git log --oneline -1
-> 91fedd318e3d perf test: Check environment before start real BPF test
-> [acme@felicio linux]$ git reset --hard HEAD^
-> HEAD is now at f1f23526d3b6 perf test: Reset err after using it hold
-> errcode in hist testcases
-> [acme@felicio linux]$ m
-> make: Entering directory `/home/acme/git/linux/tools/perf'
->    BUILD:   Doing 'make -j4' parallel build
->    CC       /tmp/build/perf/arch/common.o
->    CC       /tmp/build/perf/util/abspath.o
->    CC       /tmp/build/perf/builtin-bench.o
->    CC       /tmp/build/perf/util/alias.o
->
-> <SNIP>
-> [acme@felicio linux]$ git log --oneline -1
-> f1f23526d3b6 perf test: Reset err after using it hold errcode in hist
-> testcases
-> [acme@felicio linux]$ perf test decoder
-> 47: Test x86 instruction decoder - new instructions          : Ok
-> [acme@felicio linux]$
-
-Yes, really strange, and I can't reproduce your result
-in my environment. What's the result of test -v?
-
-Thank you.
+On Mon, Jan 11, 2016 at 07:11:48PM -0800, Martin KaFai Lau wrote:
+> On Sat, Jan 09, 2016 at 06:06:15PM +0800, Ming Lei wrote:
+> > On Fri, Jan 8, 2016 at 6:35 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> > > This patch adds BPFMAP_TYPE_PERCPU_HASH map type and its
+> > > htab_map_ops implementation.
+> > >
+> > > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> > > ---
+> > >  include/uapi/linux/bpf.h |   1 +
+> > >  kernel/bpf/hashtab.c     | 201 ++++++++++++++++++++++++++++++++++++++++++++++-
+> > >  2 files changed, 201 insertions(+), 1 deletion(-)
+> > >
+> > > diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> > > index 8bed7f1..e4f8060 100644
+> > > --- a/include/uapi/linux/bpf.h
+> > > +++ b/include/uapi/linux/bpf.h
+> > > @@ -81,6 +81,7 @@ enum bpf_map_type {
+> > >         BPF_MAP_TYPE_ARRAY,
+> > >         BPF_MAP_TYPE_PROG_ARRAY,
+> > >         BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+> > > +       BPF_MAP_TYPE_PERCPU_HASH,
+> > >  };
+> > >
+> > >  enum bpf_prog_type {
+> > > diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+> > > index d55df8c..63f2945 100644
+> > > --- a/kernel/bpf/hashtab.c
+> > > +++ b/kernel/bpf/hashtab.c
+> > > @@ -278,7 +278,7 @@ find_first_elem:
+> > >  }
+> > >
+> > >  static struct htab_elem_common *htab_elem_common_alloc(struct bpf_htab *htab,
+> > > -                                                       void *key)
+> > > +                                                      void *key)
+> >
+> > better to not introduce the above change.
+> What is the concern?
+Sorry. I misread your comment. will fix this unnecessary indentation change.
