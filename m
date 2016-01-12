@@ -1,229 +1,114 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next 05/10] ARM: mvebu: enable buffer manager support on
- Armada 38x boards
-Date: Tue, 12 Jan 2016 20:10:29 +0100
-Message-ID: <1452625834-22166-6-git-send-email-gregory.clement@free-electrons.com>
-References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update
+ elem
+Date: Tue, 12 Jan 2016 11:10:51 -0800
+Message-ID: <20160112191051.GA67436@kafai-mba.local>
+References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
+ <1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
+ <20160111190248.GA26495@ast-mbp.thefacebook.com>
+ <CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
+ <20160112054928.GA31180@ast-mbp.thefacebook.com>
+ <CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
- Boris BREZILLON <boris.brezillon@free-electrons.com>,
- Simon Guinot <simon.guinot@sequanux.org>, Nadav Haklai <nadavh@marvell.com>,
- Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Maxime Ripard <maxime.ripard@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcin Wojtas <mw@semihalf.com>
-
-Since mvneta driver supports using hardware buffer management (BM), in
-order to use it, board files have to be adjusted accordingly. This commit
-enables BM on:
-* A385-DB-AP - each port has its own pool for long and common pool for
-short packets,
-* A388-DB - to each port unique 'short' and 'long' pools are mapped,
-* A388-GP - same as above.
-
-Moreover appropriate entry is added to 'soc' node ranges, as well as "okay"
-status for 'bm' and 'bm-bppi' (internal SRAM) nodes.
-
-Signed-off-by: Marcin Wojtas <mw@semihalf.com>
----
- arch/arm/boot/dts/armada-385-db-ap.dts | 20 +++++++++++++++++++-
- arch/arm/boot/dts/armada-388-db.dts    | 17 ++++++++++++++++-
- arch/arm/boot/dts/armada-388-gp.dts    | 17 ++++++++++++++++-
- 3 files changed, 51 insertions(+), 3 deletions(-)
-
-diff --git a/arch/arm/boot/dts/armada-385-db-ap.dts b/arch/arm/boot/dts/armada-385-db-ap.dts
-index acd5b1519edb..5f9451be21ff 100644
---- a/arch/arm/boot/dts/armada-385-db-ap.dts
-+++ b/arch/arm/boot/dts/armada-385-db-ap.dts
-@@ -61,7 +61,8 @@
- 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
- 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
- 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
--			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
-+			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
-+			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
- 
- 		internal-regs {
- 			spi1: spi@10680 {
-@@ -138,12 +139,18 @@
- 				status = "okay";
- 				phy = <&phy2>;
- 				phy-mode = "sgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <1>;
-+				bm,pool-short = <3>;
- 			};
- 
- 			ethernet@34000 {
- 				status = "okay";
- 				phy = <&phy1>;
- 				phy-mode = "sgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <2>;
-+				bm,pool-short = <3>;
- 			};
- 
- 			ethernet@70000 {
-@@ -157,6 +164,13 @@
- 				status = "okay";
- 				phy = <&phy0>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <0>;
-+				bm,pool-short = <3>;
-+			};
-+
-+			bm@c8000 {
-+				status = "okay";
- 			};
- 
- 			nfc: flash@d0000 {
-@@ -178,6 +192,10 @@
- 			};
- 		};
- 
-+		bm-bppi {
-+			status = "okay";
-+		};
-+
- 		pcie-controller {
- 			status = "okay";
- 
-diff --git a/arch/arm/boot/dts/armada-388-db.dts b/arch/arm/boot/dts/armada-388-db.dts
-index ff47af57f091..ea93ed727030 100644
---- a/arch/arm/boot/dts/armada-388-db.dts
-+++ b/arch/arm/boot/dts/armada-388-db.dts
-@@ -66,7 +66,8 @@
- 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
- 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
- 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
--			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
-+			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
-+			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
- 
- 		internal-regs {
- 			spi@10600 {
-@@ -99,6 +100,9 @@
- 				status = "okay";
- 				phy = <&phy1>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <2>;
-+				bm,pool-short = <3>;
- 			};
- 
- 			usb@58000 {
-@@ -109,6 +113,9 @@
- 				status = "okay";
- 				phy = <&phy0>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <0>;
-+				bm,pool-short = <1>;
- 			};
- 
- 			mdio@72004 {
-@@ -129,6 +136,10 @@
- 				status = "okay";
- 			};
- 
-+			bm@c8000 {
-+				status = "okay";
-+			};
-+
- 			flash@d0000 {
- 				status = "okay";
- 				num-cs = <1>;
-@@ -169,6 +180,10 @@
- 			};
- 		};
- 
-+		bm-bppi {
-+			status = "okay";
-+		};
-+
- 		pcie-controller {
- 			status = "okay";
- 			/*
-diff --git a/arch/arm/boot/dts/armada-388-gp.dts b/arch/arm/boot/dts/armada-388-gp.dts
-index a633be3defda..0a3bd7fba488 100644
---- a/arch/arm/boot/dts/armada-388-gp.dts
-+++ b/arch/arm/boot/dts/armada-388-gp.dts
-@@ -60,7 +60,8 @@
- 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
- 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
- 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
--			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
-+			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
-+			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
- 
- 		internal-regs {
- 			spi@10600 {
-@@ -133,6 +134,9 @@
- 				status = "okay";
- 				phy = <&phy1>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <2>;
-+				bm,pool-short = <3>;
- 			};
- 
- 			/* CON4 */
-@@ -152,6 +156,9 @@
- 				status = "okay";
- 				phy = <&phy0>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <0>;
-+				bm,pool-short = <1>;
- 			};
- 
- 
-@@ -186,6 +193,10 @@
- 				};
- 			};
- 
-+			bm@c8000 {
-+				status = "okay";
-+			};
-+
- 			sata@e0000 {
- 				pinctrl-names = "default";
- 				pinctrl-0 = <&sata2_pins>, <&sata3_pins>;
-@@ -240,6 +251,10 @@
- 			};
- 		};
- 
-+		bm-bppi {
-+			status = "okay";
-+		};
-+
- 		pcie-controller {
- 			status = "okay";
- 			/*
--- 
-2.5.0
+On Tue, Jan 12, 2016 at 07:05:47PM +0800, Ming Lei wrote:
+> On Tue, Jan 12, 2016 at 1:49 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+> > On Tue, Jan 12, 2016 at 01:00:00PM +0800, Ming Lei wrote:
+> >> Hi Alexei,
+> >>
+> >> Thanks for your review.
+> >>
+> >> On Tue, Jan 12, 2016 at 3:02 AM, Alexei Starovoitov
+> >> <alexei.starovoitov@gmail.com> wrote:
+> >> > On Mon, Jan 11, 2016 at 11:56:57PM +0800, Ming Lei wrote:
+> >> >> Prepare for supporting percpu map in the following patch.
+> >> >>
+> >> >> Now userspace can lookup/update mapped value in one specific
+> >> >> CPU in case of percpu map.
+> >> >>
+> >> >> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+> >> > ...
+> >> >> @@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+> >> >>               goto free_key;
+> >> >>
+> >> >>       rcu_read_lock();
+> >> >> -     ptr = map->ops->map_lookup_elem(map, key);
+> >> >> +     if (!percpu)
+> >> >> +             ptr = map->ops->map_lookup_elem(map, key);
+> >> >> +     else
+> >> >> +             ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
+> >> >
+> >> > I think this approach is less potent than Martin's for several reasons:
+> >> > - bpf program shouldn't be supplying bpf_smp_processor_id(), since
+> >> >   it's error prone and a bit slower than doing it explicitly as in:
+> >> >   https://urldefense.proofpoint.com/v2/url?u=http-3A__patchwork.ozlabs.org_patch_564482_&d=CwIBaQ&c=5VD0RTtNlTh3ycd41b3MUw&r=VQnoQ7LvghIj0gVEaiQSUw&m=kb6DfquDoMLBv0hgOO76O9SMvdCnhwnEwhgON8868I8&s=QtJkMfQDB55jn_aA_umJ8jiJRQlQhW5UxYO5YdxuGNI&e=
+> >> >   although Martin's patch also needs to use this_cpu_ptr() instead
+> >> >   of per_cpu_ptr(.., smp_processor_id());
+> >>
+> >> For PERCPU map, smp_processor_id() is definitely required, and
+> >> Martin's patch need that too, please see htab_percpu_map_lookup_elem()
+> >> in his patch.
+> >
+> > hmm. it's definitely _not_ required. right?
+> > bpf programs shouldn't be accessing other per-cpu regions
+> > only their own. That's what this_cpu_ptr is for.
+> > I don't see a case where accessing other cpu per-cpu element
+> > wouldn't be a bug in the program.
+> >
+> >> > - two new bpf helpers are not necessary in Martin's approach.
+> >> >   regular map_lookup_elem() will work for both per-cpu maps.
+> >>
+> >> For percpu ARRAY, they are not necessary, but it is flexiable to
+> >> provide them since we should allow prog to retrieve the perpcu
+> >> value, also it is easier to implement the system call with the two
+> >> helpers.
+> >>
+> >> For percpu HASH, they are required since eBPF prog need to support
+> >> deleting element, so we have provide these helpers for prog to retrieve
+> >> percpu value before deleting the elem.
+> >
+> > bpf programs cannot have loops, so there is no valid case to access
+> > other cpu element, since program cannot aggregate all-cpu values.
+> > Therefore the programs can only update/lookup this_cpu element and
+> > delete such element across all cpus.
+>
+> Looks I missed the point of looping constraint, then basically delete element
+> helper doesn't make sense in percpu hash.
+>
+> >
+> >> > - such map_lookup_elem_percpu() from syscall is not accurate.
+> >> >   Martin's approach via smp_call_function_single() returns precise value,
+> >>
+> >> I don't understand why Martin's approach is precise and my patch isn't,
+> >> could you explain it a bit?
+> >
+> > because simple mempcy() called from syscall will race with lookup/increment
+> > done to this_cpu element on another cpu. To avoid this race the smp_call
+> > is needed, so that memcpy() happens on the cpu that updated the element,
+> > so smp_call's memcpy and bpf program won't be touch that cpu value
+> > at the same time and user space will read the correct element values.
+> > If program updates them a lot, the value that user space reads will become
+> > stale very quickly, but it will be valid. That's especially important
+> > when program have multiple counters inside single element value.
+>
+> But smp_call is often very slow because of IPI, so the value acculated
+> finally becomes stale easily even though the value from the requested cpu
+> is 'precise' at the exact time, especially when there are lots of CPUs, so I
+> think using smp_call is really a bad idea. And smp_call is worse than
+> iterating from CPUs simply.
+The userspace usually only aggregates value across all cpu every X seconds.
+I hardly consider some number of micro-seconds old data is stale.
