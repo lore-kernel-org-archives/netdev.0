@@ -1,57 +1,32 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH v3] netlink: fix null pointer dereference on nlk->groups
-Date: Tue, 12 Jan 2016 14:15:54 +0300
-Message-ID: <CAOJe8K10a=MLyZwFCYvstP+KG3bND09RjbXVZDR5gWfFxCvMcg@mail.gmail.com>
-References: <1452231970-27357-1-git-send-email-sploving1@gmail.com>
-	<1452597043-4298-1-git-send-email-sploving1@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: phy: SMSC LAN8710/LAN8720 high load
+Date: Tue, 12 Jan 2016 11:33:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC42AE@AcuExch.aculab.com>
+References: <1452498115.7467.23.camel@lws-tremmet.phytec.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Baozeng Ding <sploving1@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33651 "EHLO
-	mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbcALLPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 06:15:54 -0500
-Received: by mail-qk0-f196.google.com with SMTP id n135so26832038qka.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 03:15:54 -0800 (PST)
-In-Reply-To: <1452597043-4298-1-git-send-email-sploving1@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Teresa Remmet' <t.remmet@phytec.de>,
+	Igor Plyatov <plyatov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452498115.7467.23.camel@lws-tremmet.phytec.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/12/16, Baozeng Ding <sploving1@gmail.com> wrote:
-> If groups is not 0 and nlk->groups is NULL, it will not return
-> immediately and cause a null pointer dereference later.
->
-> Signed-off-by: Baozeng Ding <sploving1@gmail.com>
-> ---
-> The v3 version adds WARN_ON, suggested by David Miller. Thanks for
-> David's feedback.
-
-But can you explain how can we get to this situation?
-
-> ---
->  net/netlink/af_netlink.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 59651af..f93d579 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1576,7 +1576,10 @@ static int netlink_bind(struct socket *sock, struct
-> sockaddr *addr,
->  		}
->  	}
->
-> -	if (!groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
-> +	if (WARN_ON(!nlk->groups))
-> +		return 0;
-> +
-> +	if (!groups && !(u32)nlk->groups[0])
->  		return 0;
->
->  	netlink_table_grab();
-> --
-> 1.9.1
->
->
+RnJvbTogVGVyZXNhIFJlbW1ldA0KPiBTZW50OiAxMSBKYW51YXJ5IDIwMTYgMDc6NDINCj4gd2Ug
+aGF2ZSBub3RpY2VkIGxvYWQgaXNzdWVzIG9uIG91ciBBTTMzNXggYm9hcmRzIHdpdGggYSBMQU44
+NzEwIHBoeSB3aGlsZQ0KPiBjcHUgaXMgaWRsaW5nIHVzaW5nIDQuNC1yYzguDQo+IA0KPiBDUFU6
+ICAgMCUgdXNyICAgMCUgc3lzICAgMCUgbmljICA5OSUgaWRsZSAgIDAlIGlvICAgMCUgaXJxICAg
+MCUgc2lycQ0KPiBMb2FkIGF2ZXJhZ2U6IDEuMjEgMS4xNiAxLjAwIDEvODQgMzcyDQoNClRoZSAn
+TG9hZCBhdmVyYWdlJyB2YWx1ZSBpcyBtb3N0bHkgbWVhbmluZ2xlc3MuDQpJdCBpbmNsdWRlcyBh
+bnkgcHJvY2Vzcy90aHJlYWQgdGhhdCBpcyBzbGVlcGluZyB1bmludGVycnVwdGFibHkgLSBldmVu
+DQppZiB0aGUgcHJvY2VzcyBpcyBuZXZlciB3b2tlbiAob3IgaXMgb25seSB3b2tlbiBmb3Igc2hv
+cnQgcGVyaW9kcykuDQoNCklmIHlvdSBoYXZlIGEga2VybmVsIHRocmVhZCB0aGF0IHlvdSBkb24n
+dCB3YW50IGFmZmVjdGVkIGJ5IHNpZ25hbHMNCihleGl0cyBvbiBzb21lIHJlcXVlc3QgdG8gdGhl
+IGRyaXZlcikgdGhlbiB5b3UgZW5kIHVwIGluY3JlYXNpbmcgdGhlDQonbG9hZCBhdmVyYWdlJy4N
+Cg0KCURhdmlkDQoNCg==
