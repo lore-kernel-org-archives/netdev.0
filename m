@@ -1,41 +1,63 @@
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Subject: Re: [PATCH v2 3/3] can: sja1000: of: add compatibility with
- Technologic Systems version
-Date: Tue, 12 Jan 2016 10:51:15 -0500
-Message-ID: <20160112155115.GA6050@localhost>
-References: <1450978973-30417-1-git-send-email-damien.riegel@savoirfairelinux.com>
- <1450978973-30417-4-git-send-email-damien.riegel@savoirfairelinux.com>
- <5694B17A.10406@pengutronix.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Q: bad routing table cache entries
+Date: Tue, 12 Jan 2016 16:52:39 +0100
+Message-ID: <56952147.80201@stressinduktion.org>
+References: <5682665A.7090102@list.ru> <56951D1D.5080602@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	kernel@savoirfairelinux.com
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5694B17A.10406@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Stas Sergeev <stsp@list.ru>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:52181 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753323AbcALPwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 10:52:41 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id B111B20770
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 10:52:40 -0500 (EST)
+In-Reply-To: <56951D1D.5080602@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2016 at 08:55:38AM +0100, Marc Kleine-Budde wrote:
-> On 12/24/2015 06:42 PM, Damien Riegel wrote:
-> > Technologic Systems provides an IP compatible with the SJA1000,
-> > instantiated in an FPGA. Because of some bus widths issue, access to
-> > registers is made through a "window" that works like this:
-> > 
-> >     base + 0x0: address to read/write
-> >     base + 0x2: 8-bit register value
-> 
-> Why do you use io{read,write}16 if it's a 8 bit register?
+On 12.01.2016 16:34, Hannes Frederic Sowa wrote:
+> On 29.12.2015 11:54, Stas Sergeev wrote:
+>> Hello.
+>>
+>> I was hitting a strange problem when some internet hosts
+>> suddenly stops responding until I reboot. ping to these
+>> host gives "Destination Host Unreachable". After the
+>> initial confusion, I've finally got to
+>> ip route get
+>> and got something quite strange.
+>>
+>>
+>> Example for GOOD address (the one that I can ping):
+>>
+>> ip route get 91.189.89.237
+>> 91.189.89.237 via 192.168.8.1 dev eth0  src 192.168.10.202
+>>      cache
+>>
+>>
+>> Example for BAD address (the one that stopped responding):
+>>
+>> ip route get 91.189.89.238
+>> 91.189.89.238 via 192.168.0.1 dev eth0  src 192.168.10.202
+>>      cache <redirected>
+>
+> I tried to understand this thread and now wonder why this redirect route
+> isn't there always. Can you please summarize again why this shouldn't
+> happen? It looks totally fine to me from the configuration of your
+> router and the subnet masks.
 
-8-bit is at the IP level, but the bus between the SoC and the FPGA only
-supports 16-bit wide access. The point of the window is to convert
-between 16-bit and 8-bit access.
+Just an addendum:
 
-Damien
+In IPv6 a redirect is seen as a notification telling hosts, this new 
+address is on the same link as you. I think this semantic is the same 
+for IPv4, so we are informing you that in essence you are getting a /32 
+route installed to your new interface and can do link layer resolving of 
+the new host.
+
+I do think this is valid and fine.
+
+Bye,
+Hannes
