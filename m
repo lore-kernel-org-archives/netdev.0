@@ -1,89 +1,44 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
-Date: Tue, 12 Jan 2016 12:46:21 -0800
-Message-ID: <20160112204620.GA35080@ast-mbp.thefacebook.com>
-References: <20160112185121.GA34045@ast-mbp.thefacebook.com>
- <1452626228-15742-1-git-send-email-rabin@rab.in>
- <1452628118.1223.25.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160112195356.GA34598@ast-mbp.thefacebook.com>
- <5695653F.6030001@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] phonet: properly unshare skbs in phonet_rcv()
+Date: Tue, 12 Jan 2016 15:47:18 -0500 (EST)
+Message-ID: <20160112.154718.762462936767801736.davem@davemloft.net>
+References: <5694A840.8030900@gmail.com>
+	<1452608377.1223.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1452617880.1223.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35724 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404AbcALUqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 15:46:24 -0500
-Received: by mail-pa0-f54.google.com with SMTP id ho8so84579502pac.2
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 12:46:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5695653F.6030001@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ivo.g.dimitrov.75@gmail.com, courmisch@gmail.com,
+	noureddine@arista.com, pali.rohar@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sre@kernel.org, linux-omap@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452617880.1223.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 12, 2016 at 09:42:39PM +0100, Daniel Borkmann wrote:
-> On 01/12/2016 08:53 PM, Alexei Starovoitov wrote:
-> >On Tue, Jan 12, 2016 at 11:48:38AM -0800, Eric Dumazet wrote:
-> >>On Tue, 2016-01-12 at 20:17 +0100, Rabin Vincent wrote:
-> >>>On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
-> >>>constant shift that can't be encoded in the immediate field of the
-> >>>UBFM/SBFM instructions is passed to the JIT.  Since these shifts
-> >>>amounts, which are negative or >= regsize, are invalid, reject them in
-> >>>the eBPF verifier and the classic BPF filter checker, for all
-> >>>architectures.
-> >>>
-> >>
-> >>Hmm...
-> >>
-> >>>diff --git a/net/core/filter.c b/net/core/filter.c
-> >>>index 672eefbfbe99..37157c4c1a78 100644
-> >>>--- a/net/core/filter.c
-> >>>+++ b/net/core/filter.c
-> >>>@@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
-> >>>  			if (ftest->k == 0)
-> >>>  				return -EINVAL;
-> >>>  			break;
-> >>>+		case BPF_ALU | BPF_LSH | BPF_K:
-> >>>+		case BPF_ALU | BPF_RSH | BPF_K:
-> >>>+			if (ftest->k >= 32)
-> >>>+				return -EINVAL;
-> >>>+			break;
-> >>>  		case BPF_LD | BPF_MEM:
-> >>>  		case BPF_LDX | BPF_MEM:
-> >>>  		case BPF_ST:
-> >>
-> >>These weak filters used to have undefined behavior, maybe in a never
-> >>taken branch, and will now fail hard, possibly breaking old
-> >>applications.
-> >>
-> >>I believe we should add a one time warning to give a clue to poor users
-> >>hitting this problem.
-> >
-> >you mean like warn_on_once() here?
-> >Makes sense I guess.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 12 Jan 2016 08:58:00 -0800
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Hmm, WARN_ON_ONCE() would then throw a stack trace also for unprived users,
-> I doubt we want to scare admins. ;)
+> Ivaylo Dimitrov reported a regression caused by commit 7866a621043f
+> ("dev: add per net_device packet type chains").
 > 
-> Or, you mean pr_warn_once()?
-
-yes. there is no need for stack trace of course.
-
-> >>Not everybody has perfect BPF filters, since most of the time they were
-> >>hand coded.
-> >
-> >yep and we all know who was able to code hundreds of cBPF insns by hand ;)
-> >But I'm sure that code doesn't have such broken shifts. :)))
+> skb->dev becomes NULL and we crash in __netif_receive_skb_core().
 > 
-> libpcap certainly supports raw filters now thanks to Chema [1]. Alternative
-> could be to just mask them here, but not in eBPF verifier, but that would be
-> even more inconsistent (on the other hand, we also allow holes in BPF but not
-> in eBPF, so wouldn't be the first time we make things different), hmm.
+> Before above commit, different kind of bugs or corruptions could happen
+> without major crash.
+> 
+> But the root cause is that phonet_rcv() can queue skb without checking
+> if skb is shared or not.
+> 
+> Many thanks to Ivaylo Dimitrov for his help, diagnosis and tests.
+> 
+> Reported-by: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+> Tested-by: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Remi Denis-Courmont <courmisch@gmail.com>
 
-I would rather see broken classic bpf program fixed instead of continue
-running them with undefined behavior.
+Applied and queued up for -stable, th anks Eric.
