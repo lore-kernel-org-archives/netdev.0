@@ -1,51 +1,78 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
-Date: Tue, 12 Jan 2016 17:04:26 +0100
-Message-ID: <5695240A.1020803@iogearbox.net>
-References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>	 <5695199E.2040303@iogearbox.net> <56951D49.5020800@iogearbox.net> <1452613429.18559.69.camel@v3.sk>
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: [PATCHv2 0/2] net: fec: Reset ethernet PHY whenever the
+ enet_out clock is being enabled
+Date: Tue, 12 Jan 2016 17:04:44 +0100
+Message-ID: <20160112170444.11c412c5@ipc1.ka-ro>
+References: <1452611876-451-1-git-send-email-LW@KARO-electronics.de>
+	<20160112152405.GZ19062@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lunn <andrew@lunn.ch>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Lubomir Rintel <lkundrak@v3.sk>
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Kevin Hao <haokexin@gmail.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Nimrod Andy <B38611@freescale.com>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Stefan Agner <stefan@agner.ch>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Uwe =?UTF-8?B?S2xlaW5lLUvDtm5pZw==?=
+	<u.kleine-koenig@pengutronix.de>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Shawn Guo <shawnguo@kernel.org>, devicetree@vger.kernel.org,
+	linux-arm-kern
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452613429.18559.69.camel@v3.sk>
+In-Reply-To: <20160112152405.GZ19062@n2100.arm.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/12/2016 04:43 PM, Lubomir Rintel wrote:
-> On Tue, 2016-01-12 at 16:35 +0100, Daniel Borkmann wrote:
->> On 01/12/2016 04:19 PM, Daniel Borkmann wrote:
->>> On 01/12/2016 12:56 PM, Lubomir Rintel wrote:
-> ...
->>>> -static int numifbs = 2;
->>>                 ^^^^^^^^^^^^
->>>> +static int numifbs = CONFIG_IFB_COUNT;
->>>>    module_param(numifbs, int, 0);
->>>>    MODULE_PARM_DESC(numifbs, "Number of ifb devices");
->>
->> Btw, perhaps there should also be a pr_info() or the like to warn the user
->> that relying on modprobe creating these devs is deprecated and scheduled
->> for removal in future, so they should switch to ip link instead ...
->
-> I don't know, is it actually is scheduled for removal?
->
-> I was under impression that changes in default behavior users can rely
-> on are generally near impossible to do since the potential problems
-> largely outweigh the benefits. The distributions will do the changes in
-> their kernels anyway and changing behavior on kernel upgrades in random
-> old systems might be risky.
+Hi,
 
-BLK_DEV_LOOP_MIN_COUNT is 8 by default on upstream today, 0 in Fedora kernels
-since Fedora 19 (2013) onwards [1] (F18 to F19 made the switch apparently).
+> On Tue, Jan 12, 2016 at 04:17:54PM +0100, Lothar Wa=C3=9Fmann wrote:
+> > This patchset fixes a regression introduced by
+> > commit e8fcfcd5684a ("net: fec: optimize the clock management to sa=
+ve power")
+> > for ethernet PHYs that are using ENET_OUT as reference clock (on i.=
+MX6 or i.MX28)
+> >=20
+> > Changes vs. v1:
+> > - fixed reference to the commit that introduced the regression.
+> > - dropped patch to use gpiod framework. This should be added later,
+> >   after the affected DTBs have been updated to specify the correct
+> >   gpio_flags.
+> >=20
+> > Patch overview:
+> > 1. cleanup patch to remove redundant NULL checks
+> > 2. call fec_reset_phy() after the ENET_OUT clock has been enabled
+>=20
+> I definitely want to test these on my SolidRun boards before these ge=
+t
+> merged: the AR8035 on there is configured via pin-straps, and then
+> further tweaked with PHY quirks.  Resetting with the iMX6 in the
+> wrong state may result in the AR8035 being reconfigured (even jumping
+> to a different MDIO address) and certainly would need the PHY quirks
+> re-running.
+>=20
+As far as I can tell, all SolidRun boards do not specify the enet_out
+clock in the dtb, so the PHY reset behaviour should be unaffected by
+this patch on those boards, since the additional fec_reset_phy() call i=
+s
+framed by:
+if (fep->clk_enet_out) {
+	...
+}
 
-If the same happens one day to these options here and all major distros
-play along, then perhaps after still long enough time it might be an option
-(and if not, people at least switched to use ip link ;)).
+But verifying this explicitly is of course a good idea.
 
-> That said, it's just an impression. I don't follow the development
-> closely enough to be sure about anything.
 
-   [1] http://pkgs.fedoraproject.org/cgit/rpms/kernel.git/tree/config-generic?h=f19
+Lothar Wa=C3=9Fmann
