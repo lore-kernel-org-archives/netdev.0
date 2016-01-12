@@ -1,16 +1,14 @@
-From: Janusz Wolak <januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>
-Subject: [PATCH] Openvswitch: conntrack.c: Removed multiple blank
-	lines.
-Date: Tue, 12 Jan 2016 22:55:41 +0100
-Message-ID: <1452635742-8122-2-git-send-email-januszvdm@awokados.com.pl>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] Openvswitch: actions.c: Removed line over 80
+ characters and not necessary braces.
+Date: Tue, 12 Jan 2016 17:10:02 -0500 (EST)
+Message-ID: <20160112.171002.2138221886281096199.davem@davemloft.net>
 References: <1452635742-8122-1-git-send-email-januszvdm@awokados.com.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Janusz Wolak <januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1452635742-8122-1-git-send-email-januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
@@ -24,16 +22,11 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Rml4ZWQgYSBjb2Rpbmcgc3R5bGUgaXNzdWUuCgpTaWduZWQtb2ZmLWJ5OiBKYW51c3ogV29sYWsg
-PGphbnVzenZkbUBhd29rYWRvcy5jb20ucGw+Ci0tLQogbmV0L29wZW52c3dpdGNoL2Nvbm50cmFj
-ay5jIHwgMSAtCiAxIGZpbGUgY2hhbmdlZCwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL25l
-dC9vcGVudnN3aXRjaC9jb25udHJhY2suYyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwpp
-bmRleCBlMDA0MDY3Li5mYWI3YjU1IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRy
-YWNrLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCkBAIC0yMDEsNyArMjAxLDYg
-QEAgc3RhdGljIGludCBvdnNfY3Rfc2V0X21hcmsoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0
-IHN3X2Zsb3dfa2V5ICprZXksCiAJc3RydWN0IG5mX2Nvbm4gKmN0OwogCXUzMiBuZXdfbWFyazsK
-IAotCiAJLyogVGhlIGNvbm5lY3Rpb24gY291bGQgYmUgaW52YWxpZCwgaW4gd2hpY2ggY2FzZSBz
-ZXRfbWFyayBpcyBuby1vcC4gKi8KIAljdCA9IG5mX2N0X2dldChza2IsICZjdGluZm8pOwogCWlm
-ICghY3QpCi0tIAoyLjUuMAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
-dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Ckl0IGlzIG5vdCBhcHByb3ByaWF0ZSB0byBzdWJtaXQgbmV0LW5leHQgY2hhbmdlcyBhdCB0aGlz
+IHRpbWUuCgpJZiB5b3Ugd2lzaCB0byBjb250cmlidXRlIHRvIHRoZSBuZXR3b3JraW5nIGtlcm5l
+bCBjb2RlLCB5b3Ugc2hvdWxkCnJlYWQgdGhlIG5ldGRldiBtYWlsaW5nIGxpc3RzLCBhbmQgcmVh
+ZCBpbXBvcnRhbnQgYW5ub3VuY2VtZW50cyBzdWNoCmFzIHRoaXM6CgpodHRwOi8vbWFyYy5pbmZv
+Lz9sPWxpbnV4LW5ldGRldiZtPTE0NTI0ODE0NTkyNTgzNCZ3PTIKClRIYW5rcy4KX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
+ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9kZXYK
