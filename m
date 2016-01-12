@@ -1,64 +1,37 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the nettree
-Date: Tue, 12 Jan 2016 13:15:07 +1100
-Message-ID: <20160112131507.4509e7bf@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [OOPS] In __netif_receive_skb_core
+Date: Mon, 11 Jan 2016 18:21:28 -0800
+Message-ID: <1452565288.1223.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <568EA671.7000502@gmail.com> <56929985.3020502@gmail.com>
+	 <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5694188F.80907@gmail.com>
+	 <CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
+	 <56944DFA.4050002@gmail.com>
+	 <1452560786.1223.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAO7SqHC+fTCyNd8ukSH4tJ1qPvAYzMGSfhrzXmMn0NLve6NTQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ido Schimmel <idosch@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Sebastian Reichel <sre@kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: Salam Noureddine <noureddine@arista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAO7SqHC+fTCyNd8ukSH4tJ1qPvAYzMGSfhrzXmMn0NLve6NTQA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Mon, 2016-01-11 at 17:19 -0800, Salam Noureddine wrote:
+> It must be that skb->dev was changed to NULL inside of
+> __netif_receive_skb_core, otherwise we would have crashed much
+> earlier. Also, orig_dev is saved at the beginning. Possibly a device
+> is layered on top of the original device.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Please do not top post on netdev / lkml mailing lists.
 
-  drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-
-between commit:
-
-  366ce6031529 ("mlxsw: spectrum: Add FDB lock to prevent session interleaving")
-
-from the net tree and commit:
-
-  0d65fc13042f ("mlxsw: spectrum: Implement LAG port join/leave")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 69281ca534b1,199f91a62962..000000000000
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@@ -63,13 -120,16 +120,17 @@@ struct mlxsw_sp 
-  	} fdb_notify;
-  #define MLXSW_SP_DEFAULT_AGEING_TIME 300
-  	u32 ageing_time;
- +	struct mutex fdb_lock;	/* Make sure FDB sessions are atomic. */
-- 	struct {
-- 		struct net_device *dev;
-- 		unsigned int ref_count;
-- 	} master_bridge;
-+ 	struct mlxsw_sp_upper master_bridge;
-+ 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
-  };
-  
-+ static inline struct mlxsw_sp_upper *
-+ mlxsw_sp_lag_get(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
-+ {
-+ 	return &mlxsw_sp->lags[lag_id];
-+ }
-+ 
-  struct mlxsw_sp_port_pcpu_stats {
-  	u64			rx_packets;
-  	u64			rx_bytes;
+My guess is a protocol handler queued the skb without calling
+skb_share_check()
