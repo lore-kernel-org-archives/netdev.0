@@ -1,67 +1,51 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: Q: bad routing table cache entries
-Date: Tue, 12 Jan 2016 19:03:12 +0300
-Message-ID: <569523C0.5040504@list.ru>
-References: <5682665A.7090102@list.ru> <56951D1D.5080602@stressinduktion.org>
- <56952147.80201@stressinduktion.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
+Date: Tue, 12 Jan 2016 17:04:26 +0100
+Message-ID: <5695240A.1020803@iogearbox.net>
+References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>	 <5695199E.2040303@iogearbox.net> <56951D49.5020800@iogearbox.net> <1452613429.18559.69.camel@v3.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.mail.ru ([94.100.181.178]:40998 "EHLO smtp23.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753288AbcALQDS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2016 11:03:18 -0500
-In-Reply-To: <56952147.80201@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Lubomir Rintel <lkundrak@v3.sk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452613429.18559.69.camel@v3.sk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-12.01.2016 18:52, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 12.01.2016 16:34, Hannes Frederic Sowa wrote:
->> On 29.12.2015 11:54, Stas Sergeev wrote:
->>> Hello.
->>>
->>> I was hitting a strange problem when some internet hosts
->>> suddenly stops responding until I reboot. ping to these
->>> host gives "Destination Host Unreachable". After the
->>> initial confusion, I've finally got to
->>> ip route get
->>> and got something quite strange.
->>>
->>>
->>> Example for GOOD address (the one that I can ping):
->>>
->>> ip route get 91.189.89.237
->>> 91.189.89.237 via 192.168.8.1 dev eth0  src 192.168.10.202
->>>      cache
->>>
->>>
->>> Example for BAD address (the one that stopped responding):
->>>
->>> ip route get 91.189.89.238
->>> 91.189.89.238 via 192.168.0.1 dev eth0  src 192.168.10.202
->>>      cache <redirected>
+On 01/12/2016 04:43 PM, Lubomir Rintel wrote:
+> On Tue, 2016-01-12 at 16:35 +0100, Daniel Borkmann wrote:
+>> On 01/12/2016 04:19 PM, Daniel Borkmann wrote:
+>>> On 01/12/2016 12:56 PM, Lubomir Rintel wrote:
+> ...
+>>>> -static int numifbs = 2;
+>>>                 ^^^^^^^^^^^^
+>>>> +static int numifbs = CONFIG_IFB_COUNT;
+>>>>    module_param(numifbs, int, 0);
+>>>>    MODULE_PARM_DESC(numifbs, "Number of ifb devices");
 >>
->> I tried to understand this thread and now wonder why this redirect r=
-oute
->> isn't there always. Can you please summarize again why this shouldn'=
-t
->> happen? It looks totally fine to me from the configuration of your
->> router and the subnet masks.
->=20
-> Just an addendum:
->=20
-> In IPv6 a redirect is seen as a notification telling hosts, this new =
-address is on the same link as you. I think this semantic is the same f=
-or IPv4, so we are informing you that in essence you are
-> getting a /32 route installed to your new interface and can do link l=
-ayer resolving of the new host.
->=20
-> I do think this is valid and fine.
-You can't call "valid and fine" something that doesn't
-work, at first place. Why and where does it fail, was the
-subject of this thread.
-If you think router did the right thing, then please explain
-the breakage from that point of view.
+>> Btw, perhaps there should also be a pr_info() or the like to warn the user
+>> that relying on modprobe creating these devs is deprecated and scheduled
+>> for removal in future, so they should switch to ip link instead ...
+>
+> I don't know, is it actually is scheduled for removal?
+>
+> I was under impression that changes in default behavior users can rely
+> on are generally near impossible to do since the potential problems
+> largely outweigh the benefits. The distributions will do the changes in
+> their kernels anyway and changing behavior on kernel upgrades in random
+> old systems might be risky.
+
+BLK_DEV_LOOP_MIN_COUNT is 8 by default on upstream today, 0 in Fedora kernels
+since Fedora 19 (2013) onwards [1] (F18 to F19 made the switch apparently).
+
+If the same happens one day to these options here and all major distros
+play along, then perhaps after still long enough time it might be an option
+(and if not, people at least switched to use ip link ;)).
+
+> That said, it's just an impression. I don't follow the development
+> closely enough to be sure about anything.
+
+   [1] http://pkgs.fedoraproject.org/cgit/rpms/kernel.git/tree/config-generic?h=f19
