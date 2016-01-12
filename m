@@ -1,31 +1,64 @@
-From: "HELP DESK" <info.disbud@baliprov.go.id>
-Subject: Dear:  Account User,
-Date: Tue, 12 Jan 2016 01:26:08 +0100
-Message-ID: <20160111175411.114B769630@mail.baliprov.go.id>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH 14/53] perf test: Check environment before start real
+ BPF test
+Date: Tue, 12 Jan 2016 15:40:40 +0800
+Message-ID: <5694ADF8.3080403@huawei.com>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com> <1452520124-2073-15-git-send-email-wangnan0@huawei.com> <20160111215503.GJ18367@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <info.disbud@baliprov.go.id>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.baliprov.go.id ([182.23.65.58]:47524 "EHLO
-	mail.baliprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933315AbcALHhJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 02:37:09 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
+	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160111215503.GJ18367@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear:  Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account. To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://survey-webmail.ezweb123.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2016.
+
+
+On 2016/1/12 5:55, Arnaldo Carvalho de Melo wrote:
+> Em Mon, Jan 11, 2016 at 01:48:05PM +0000, Wang Nan escreveu:
+>> Copying perf to old kernel system results:
+>>
+>>   # perf test bpf
+>>   37: Test BPF filter                                          :
+>>   37.1: Test basic BPF filtering                               : FAILED!
+>>   37.2: Test BPF prologue generation                           : Skip
+>>
+>> However, in case when kernel doesn't support a test case it should
+>> return 'Skip', 'FAILED!' should be reserved for kernel tests for when
+>> the kernel supports a feature that then fails to work as advertised.
+>>
+>> This patch checks environment before real testcase.
+> This is really strange, this other test is failing if the above patch is
+> present, found by bisecting:
+>
+> [acme@felicio linux]$ perf test decoder
+> 47: Test x86 instruction decoder - new instructions          : FAILED!
+> [acme@felicio linux]$ git log --oneline -1
+> 91fedd318e3d perf test: Check environment before start real BPF test
+> [acme@felicio linux]$ git reset --hard HEAD^
+> HEAD is now at f1f23526d3b6 perf test: Reset err after using it hold
+> errcode in hist testcases
+> [acme@felicio linux]$ m
+> make: Entering directory `/home/acme/git/linux/tools/perf'
+>    BUILD:   Doing 'make -j4' parallel build
+>    CC       /tmp/build/perf/arch/common.o
+>    CC       /tmp/build/perf/util/abspath.o
+>    CC       /tmp/build/perf/builtin-bench.o
+>    CC       /tmp/build/perf/util/alias.o
+>
+> <SNIP>
+> [acme@felicio linux]$ git log --oneline -1
+> f1f23526d3b6 perf test: Reset err after using it hold errcode in hist
+> testcases
+> [acme@felicio linux]$ perf test decoder
+> 47: Test x86 instruction decoder - new instructions          : Ok
+> [acme@felicio linux]$
+
+Yes, really strange, and I can't reproduce your result
+in my environment. What's the result of test -v?
+
+Thank you.
