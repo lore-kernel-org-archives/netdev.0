@@ -1,52 +1,97 @@
 From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH 13/53] perf tools: Prevent calling machine__delete() on
- non-allocated machine
-Date: Tue, 12 Jan 2016 11:07:15 -0300
-Message-ID: <20160112140715.GN18367@kernel.org>
+Subject: Re: [PATCH 05/53] perf tools: Test correct path of perf in build-test
+Date: Tue, 12 Jan 2016 11:08:06 -0300
+Message-ID: <20160112140806.GO18367@kernel.org>
 References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-14-git-send-email-wangnan0@huawei.com>
- <20160111154202.GE18367@kernel.org>
- <5694A54B.3090209@huawei.com>
+ <1452520124-2073-6-git-send-email-wangnan0@huawei.com>
+ <20160111152456.GC18367@kernel.org>
+ <20160111220618.GK18367@kernel.org>
+ <20160111223904.GL18367@kernel.org>
+ <20160111223954.GM18367@kernel.org>
+ <5694A838.6030307@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
 	netdev@vger.kernel.org, davem@davemloft.net,
 	Jiri Olsa <jolsa@kernel.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
 	Namhyung Kim <namhyung@kernel.org>
 To: "Wangnan (F)" <wangnan0@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5694A54B.3090209@huawei.com>
+In-Reply-To: <5694A838.6030307@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Jan 12, 2016 at 03:03:39PM +0800, Wangnan (F) escreveu:
-> On 2016/1/11 23:42, Arnaldo Carvalho de Melo wrote:
-> >Em Mon, Jan 11, 2016 at 01:48:04PM +0000, Wang Nan escreveu:
-> >>To prevent futher commits calling machine__delete() on non-allocated
-> >>'struct machine' (which would cause memory corruption), this patch
-> >>enforces machine__init(), record whether a machine structure is
-> >>dynamically allocated or not, and warn if machine__delete() is called
-> >>on incorrect object.
-> >Not sure on this one, I think I voiced this before, this seems like
-> >something to be tested using some static analysis tool or even checking
-> >if the address for the struct hitting machine__delete() is from malloc
-> >or not.
+Em Tue, Jan 12, 2016 at 03:16:08PM +0800, Wangnan (F) escreveu:
+>=20
+>=20
+> On 2016/1/12 6:39, Arnaldo Carvalho de Melo wrote:
+> >Em Mon, Jan 11, 2016 at 07:39:04PM -0300, Arnaldo Carvalho de Melo e=
+screveu:
+> >>Em Mon, Jan 11, 2016 at 07:06:18PM -0300, Arnaldo Carvalho de Melo =
+escreveu:
+> >>>Em Mon, Jan 11, 2016 at 12:24:56PM -0300, Arnaldo Carvalho de Melo=
+ escreveu:
+> >>>>Em Mon, Jan 11, 2016 at 01:47:56PM +0000, Wang Nan escreveu:
+> >>>>>If an 'O' is passed to 'make build-test', many 'test -x' and 'te=
+st -f'
+> >>>>>will fail because perf resides in a different directory. Fix thi=
+s by
+> >>>>>computing PERF_OUT according to 'O' and test correct output file=
+s.
+> >>>>>For make_kernelsrc and make_kernelsrc_tools, set KBUILD_OUTPUT_D=
+IR
+> >>>>>instead because the path is different from others ($(O)/perf vs
+> >>>>>  $(O)/tools/perf).
+> >>>>Ok, applying up to this patch I now manage to almost cleanly buil=
+d it using O=3D,
+> >>>>see below, but seems that we have some race, as not all tests end=
+ up producing
+> >>>>such warnings.
+> >>>>
+> >>>>[acme@felicio linux]$ rm -rf /tmp/build/perf ; mkdir -p /tmp/buil=
+d/perf ; make O=3D/tmp/build/perf -C tools/perf build-test
+> >>>>make: Entering directory `/home/acme/git/linux/tools/perf'
+> >>>>Testing Makefile
+> >>>>- make_no_libperl: cd . && make -f Makefile   DESTDIR=3D/tmp/tmp.=
+m1nXBMqhSA NO_LIBPERL=3D1
+> >>>>find: =E2=80=98/tmp/build/perf/util/trace-event-scripting.o=E2=80=
+=99: No such file or directory
+>=20
+> This can happen when you parallelly run find and rm on one directory.
+> However,
+> I've never seen this message in build-test before.
+
+I'll leave this in the backburner for now, there are other, more
+important patches to process, we should revisit this as soon as we
+process the other eBPF patches :-\
+=20
+> >>>Well, it is happening even without O=3D:
+> >>So I removed a few patches and those aren't appearing anymore, plea=
+se
+> >>take a look at my perf/core branch, running build-test on a few mac=
+hines
+> >>now, will push soon.
+> >>
+> >>My hunch is that build-test has issues with parallel builds, but I'=
+m not
+> >>sure...
 > >
-> >I.e. if we do it here, we may have to do it to any other struct where we
-> >allocate it in the stack or via malloc, and furthermore there are cases
-> >where we embed a struct in another, when we would free just the main
-> >struct but not the second, embedded one, that would need just calling
-> >foo__exit() and not foo__delete().
-
-> OK. Let's drop this one.
-
-I'll let a note in my TODO list to improve this situation, dropping the
-rename, thanks for the resent patch with just the fix.
-
-Try to do it like that in the future, if possible, i.e. one thing per
-patch, one with the super-minimal fix, anything else in a separate
-patch.
-
-- Arnaldo
+> >Good:
+> >
+> >- make_perf_o_O: cd . && make -f Makefile O=3D/tmp/tmp.oLeg8aUaOo DE=
+STDIR=3D/tmp/tmp.16WP4HTQJs perf.o
+> >- make_util_pmu_bison_o_O: cd . && make -f Makefile O=3D/tmp/tmp.xNR=
+V0pCXfD DESTDIR=3D/tmp/tmp.8dyU9uEbHe util/pmu-bison.o
+> >- make_no_libdw_dwarf_unwind_O: cd . && make -f Makefile O=3D/tmp/tm=
+p.pHH4HExHcH DESTDIR=3D/tmp/tmp.Wo0m8fF5cp NO_LIBDW_DWARF_UNWIND=3D1
+> >- make_no_demangle_O: cd . && make -f Makefile O=3D/tmp/tmp.yWNsd4jO=
+sI DESTDIR=3D/tmp/tmp.Q7eA4kCvwL NO_DEMANGLE=3D1
+> >- tarpkg: ./tests/perf-targz-src-pkg .
+> >- make -C <kernelsrc> tools/perf
+> >- make -C <kernelsrc>/tools perf
+> >OK
+> Glad to see this.
+>=20
+> Thank you.
