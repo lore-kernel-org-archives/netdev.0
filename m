@@ -1,41 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [next PATCH 0/4] Add support for generic Tx checksums to igb,
- ixgbe, igbvf, ixgbevf
-Date: Mon, 11 Jan 2016 23:43:54 -0500 (EST)
-Message-ID: <20160111.234354.379572319999796564.davem@davemloft.net>
-References: <20160111173724.4101.35798.stgit@localhost.localdomain>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update elem
+Date: Tue, 12 Jan 2016 13:00:00 +0800
+Message-ID: <CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
+References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
+	<1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
+	<20160111190248.GA26495@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	tom@herbertland.com, netdev@vger.kernel.org
-To: aduyck@mirantis.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44766 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761739AbcALEn5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 23:43:57 -0500
-In-Reply-To: <20160111173724.4101.35798.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Martin KaFai Lau <kafai@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160111190248.GA26495@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Mon, 11 Jan 2016 09:53:50 -0800
+Hi Alexei,
 
-> It turns out we were doing far more than we needed to in the Tx checksum
-> functions for the drivers.  As a result it hid the fact that the hardware
-> is actually much more capable of handling generic offloads then previously
-> realized.
-> 
-> This patch series enables generic Tx checksum support for igb and ixgbe
-> based Intel server adapters.  In addition it adds a number of other items
-> such as:
->   Inner checksum support for MPLS
->   Encapsulated checksum support for igb, igbvf, and ixgbevf
->   SCTP CRC offload support for VLAN tunnels, and VFs
->   IPv6 extension header support for igb and igbvf
+Thanks for your review.
 
-I like this series, nice work!
+On Tue, Jan 12, 2016 at 3:02 AM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Jan 11, 2016 at 11:56:57PM +0800, Ming Lei wrote:
+>> Prepare for supporting percpu map in the following patch.
+>>
+>> Now userspace can lookup/update mapped value in one specific
+>> CPU in case of percpu map.
+>>
+>> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+> ...
+>> @@ -265,7 +272,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+>>               goto free_key;
+>>
+>>       rcu_read_lock();
+>> -     ptr = map->ops->map_lookup_elem(map, key);
+>> +     if (!percpu)
+>> +             ptr = map->ops->map_lookup_elem(map, key);
+>> +     else
+>> +             ptr = map->ops->map_lookup_elem_percpu(map, key, attr->cpu);
+>
+> I think this approach is less potent than Martin's for several reasons:
+> - bpf program shouldn't be supplying bpf_smp_processor_id(), since
+>   it's error prone and a bit slower than doing it explicitly as in:
+>   http://patchwork.ozlabs.org/patch/564482/
+>   although Martin's patch also needs to use this_cpu_ptr() instead
+>   of per_cpu_ptr(.., smp_processor_id());
 
-This can go in when net-next opens back up, and I assume I'll get
-it via Jeff K.
+For PERCPU map, smp_processor_id() is definitely required, and
+Martin's patch need that too, please see htab_percpu_map_lookup_elem()
+in his patch.
+
+>
+> - two new bpf helpers are not necessary in Martin's approach.
+>   regular map_lookup_elem() will work for both per-cpu maps.
+
+For percpu ARRAY, they are not necessary, but it is flexiable to
+provide them since we should allow prog to retrieve the perpcu
+value, also it is easier to implement the system call with the two
+helpers.
+
+For percpu HASH, they are required since eBPF prog need to support
+deleting element, so we have provide these helpers for prog to retrieve
+percpu value before deleting the elem.
+
+>
+> - such map_lookup_elem_percpu() from syscall is not accurate.
+>   Martin's approach via smp_call_function_single() returns precise value,
+
+I don't understand why Martin's approach is precise and my patch isn't,
+could you explain it a bit?
+
+>   whereas here memcpy() will race with other cpus.
+>
+> Overall I think both pre-cpu hash and per-cpu array maps are quite useful.
+
+percpu hash isn't a must since we can get similar effect by making real_key
+and cpu_id as key with less memory consumption, but we can introduce that.
+
+> For this particular set I would suggest to rebase on top of Martin's
+> to reuse BPF_MAP_LOOKUP_PERCPU_ELEM command that should be
+applicable
+> to both per-cpu array and per-cpu hash maps.
+
+Martin's patch doesn't introduce the two helpers, which is required for percpu
+hash, and it also makes the syscall easier to implement.
+
+> and add BPF_MAP_UPDATE_PERCPU_ELEM via smp_call as another patch
+> that should work for both as well.
+
+
+
+
+Thanks,
+Ming Lei
