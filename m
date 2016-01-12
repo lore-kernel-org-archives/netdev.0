@@ -1,64 +1,54 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next v2] net, sched: add clsact qdisc
-Date: Tue, 12 Jan 2016 09:15:18 -0800
-Message-ID: <569534A6.9070505@gmail.com>
-References: <61198814638d88ce3555dbecf8ef875523b95743.1452197856.git.daniel@iogearbox.net> <5694F6F0.3020205@mojatatu.com> <569511B6.8010306@iogearbox.net>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH] arm64: net: bpf: don't BUG() on large shifts
+Date: Tue, 12 Jan 2016 17:17:10 +0000
+Message-ID: <20160112171710.GK15737@arm.com>
+References: <1452015543-6790-1-git-send-email-rabin@rab.in>
+ <20160108154423.GC11228@arm.com>
+ <20160108190943.GA11561@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
+	netdev@vger.kernel.org, zlim.lnx@gmail.com, yang.shi@linaro.org,
+	catalin.marinas@arm.com, linux-arm-kernel@lists.infradead.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:36367 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753370AbcALRPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 12:15:32 -0500
-Received: by mail-pa0-f68.google.com with SMTP id a20so20928600pag.3
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 09:15:31 -0800 (PST)
-In-Reply-To: <569511B6.8010306@iogearbox.net>
+Received: from foss.arm.com ([217.140.101.70]:35805 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762100AbcALRRL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jan 2016 12:17:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20160108190943.GA11561@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
-
-> Just the leftover default setup for egress, nothing more.
+On Fri, Jan 08, 2016 at 11:09:44AM -0800, Alexei Starovoitov wrote:
+> On Fri, Jan 08, 2016 at 03:44:23PM +0000, Will Deacon wrote:
+> > On Tue, Jan 05, 2016 at 06:39:03PM +0100, Rabin Vincent wrote:
+> > > Attempting to generate UBFM/SBFM instructions with shifts that can't be
+> > > encoded in the immediate fields of the opcodes leads to a trigger of a
+> > > BUG() in the instruction generation code.  As the ARMv8 ARM says: "The
+> > > shift amounts must be in the range 0 to one less than the register width
+> > > of the instruction, inclusive."  Make the JIT reject unencodable shifts
+> > > instead of crashing.
+> > 
+> > I moaned about those BUG_ONs when they were introduced:
+> > 
+> >   https://lkml.org/lkml/2014/7/17/438
+> > 
+> > The response then was that the verifier would catch these issues so
+> > there was nothing to worry about. Has something changed so that is no
+> > longer the case? Do we need to consider a different way of rejecting
+> > invalid instructions at the encoding stage rather than bringing down the
+> > kernel?
 > 
->>>     qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1
->>> 1 1 1 1 1 1 1
->>>     qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1
->>> 1 1 1 1 1 1 1
->>>     qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1
->>> 1 1 1 1 1 1 1
->>>     qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1
->>> 1 1 1 1 1 1 1
->>>     qdisc clsact ffff: parent ffff:fff1
->>
->> Is there any reason this is not just tc qdisc add dev foo ingress ?
->> I doubt things will break..
-> 
-> Actually I already tried to explain that in the commit message, since
-> one can
-> use any possible minor with ingress qdisc, I would like to have a hard
-> guarantee
-> that setups suddenly don't break and unexpected things happen even if
-> likelihood
-> is rather small (but not zero). The option would have been to add a
-> 'mode' setting
-> over netlink on initialization for ingress and deal with the details in
-> each callback
-> based on the mode (plus aliasing ingress qdisc to something generic,
-> otherwise why
-> adding ingress qdisc to add filters to egress? ;)). Eventually, it was
-> more straight
-> forward and cleaner, imho, to just have their own handlers where they
-> both differ.
-> 
+> that discussion lead to replacement of all BUG_ONs in
+> arch/arm64/net/bpf_jit_comp.c with pr_err_once(), but looks like
+> arch/arm64/kernel/insn.c wasn't addressed.
+> The amount of BUG_ONs there is indeed overkill regardless of what
+> verifier and other JITs do. btw, x64 JIT doesn't have runtime BUG_ONs.
 
-FWIW I asked Daniel the same question on an earlier version and came
-to the same conclusion it really is much cleaner to handle it the way
-he did in this patch.
+Maybe, but insn.c is also used by the alternatives patching code, so we
+really need a way to communicate failure back to the BPF JIT when passed
+an invalid instruction description.
 
-Thanks,
-John
+Will
