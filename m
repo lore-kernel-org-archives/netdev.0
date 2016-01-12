@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] phonet: properly unshare skbs in phonet_rcv()
-Date: Tue, 12 Jan 2016 15:47:18 -0500 (EST)
-Message-ID: <20160112.154718.762462936767801736.davem@davemloft.net>
-References: <5694A840.8030900@gmail.com>
-	<1452608377.1223.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1452617880.1223.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH 3/3] bonding: make device count build-time configurable
+Date: Tue, 12 Jan 2016 15:49:14 -0500 (EST)
+Message-ID: <20160112.154914.397367508465928770.davem@davemloft.net>
+References: <1452599916-27511-1-git-send-email-lkundrak@v3.sk>
+	<8166.1452616452@famine>
+	<1452619189.18559.83.camel@v3.sk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ivo.g.dimitrov.75@gmail.com, courmisch@gmail.com,
-	noureddine@arista.com, pali.rohar@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sre@kernel.org, linux-omap@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: jay.vosburgh@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vfalico@gmail.com,
+	gospo@cumulusnetworks.com
+To: lkundrak@v3.sk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452617880.1223.21.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1452619189.18559.83.camel@v3.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 12 Jan 2016 08:58:00 -0800
+From: Lubomir Rintel <lkundrak@v3.sk>
+Date: Tue, 12 Jan 2016 18:19:49 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Ivaylo Dimitrov reported a regression caused by commit 7866a621043f
-> ("dev: add per net_device packet type chains").
-> 
-> skb->dev becomes NULL and we crash in __netif_receive_skb_core().
-> 
-> Before above commit, different kind of bugs or corruptions could happen
-> without major crash.
-> 
-> But the root cause is that phonet_rcv() can queue skb without checking
-> if skb is shared or not.
-> 
-> Many thanks to Ivaylo Dimitrov for his help, diagnosis and tests.
-> 
-> Reported-by: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
-> Tested-by: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Remi Denis-Courmont <courmisch@gmail.com>
+> It's still an improvement to let the distributions decide if they're
+> keeping "ip link add" broken or possibly affecting the scripts.
 
-Applied and queued up for -stable, th anks Eric.
+That it is "broken" is your opinion.
+
+Document the behavior.  It is not broken if the user is told to be
+mindful of what devices are created by default.
+
+There is way too much downside to changing this.
