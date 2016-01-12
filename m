@@ -1,56 +1,52 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
- by PERF_SAMPLE_TAILSIZE
-Date: Tue, 12 Jan 2016 15:05:19 +0100
-Message-ID: <20160112140519.GG6357@twins.programming.kicks-ass.net>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-28-git-send-email-wangnan0@huawei.com>
- <20160111180913.GA25950@ast-mbp.thefacebook.com>
- <56949028.2070208@huawei.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch] mdio_bus: NULL dereference on allocation error
+Date: Tue, 12 Jan 2016 15:06:47 +0100
+Message-ID: <20160112140647.GA5527@lunn.ch>
+References: <20160112093435.GD29804@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>, acme@kernel.org,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Ahern <dsahern@gmail.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Yunlong Song <yunlong.song@huawei.com>
-To: "Wangnan (F)" <wangnan0@huawei.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <56949028.2070208@huawei.com>
+In-Reply-To: <20160112093435.GD29804@mwanda>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 12, 2016 at 01:33:28PM +0800, Wangnan (F) wrote:
-> >How about another idea:
-> >. update data_tail pointer when head is about to overwrite it
-
-> Even in the very first try at 2013 in [1], reading from the ring
-> buffer is avoided. I don't think Peter changes his mind now.
-
-So I don't object to that this approach per-se, as per:
-
- lkml.kernel.org/r/20151023151205.GW11639@twins.programming.kicks-ass.net
-
-The main concern is doing it so that the regular !overwrite mode doesn't
-suffer in performance.
-
-The patch above choses to sacrifice about half the buffer space to avoid
-having to fwd parse events on every overwrite, but doing the fwd search
-is certainly possible (just really expensive).
-
-> >Another concern is validity of records stored. If user space messes
-> >with ring-buffer, kernel won't be able to move data_tail properly
-> >and would need to indicate that to userspace somehow.
-> >But memory saving of 8 bytes per record could be sizable
+On Tue, Jan 12, 2016 at 12:34:36PM +0300, Dan Carpenter wrote:
+> If bus = kzalloc() fails then we end up dereferencing bus when we do
+> "bus->irq[i] = PHY_POLL;".  The code is a little simpler if we reverse
+> the NULL check and return directly on failure.
 > 
-> Yes. But I have already discussed with Peter on this in [2].
+> Fixes: e7f4dc3536a4 ('mdio: Move allocation of interrupts into core')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-So given the trade-off between loosing half the buffer and adding 8
-bytes to every event I'm not sure which is the worst.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Also, the way its implemented means they're not in fact mutually
-exclusive, both can be had.
+Thanks
+	Andrew
+
+> 
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 0be7b3d..0cba64f 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -102,11 +102,12 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
+>  		alloc_size = sizeof(*bus);
+>  
+>  	bus = kzalloc(alloc_size, GFP_KERNEL);
+> -	if (bus) {
+> -		bus->state = MDIOBUS_ALLOCATED;
+> -		if (size)
+> -			bus->priv = (void *)bus + aligned_size;
+> -	}
+> +	if (!bus)
+> +		return NULL;
+> +
+> +	bus->state = MDIOBUS_ALLOCATED;
+> +	if (size)
+> +		bus->priv = (void *)bus + aligned_size;
+>  
+>  	/* Initialise the interrupts to polling */
+>  	for (i = 0; i < PHY_MAX_ADDR; i++)
