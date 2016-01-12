@@ -1,34 +1,35 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net] dwc_eth_qos: Fix dma address for multi-fragment skbs
-Date: Tue, 12 Jan 2016 15:28:13 +0100
-Message-ID: <1452608893-19126-1-git-send-email-larper@axis.com>
-Cc: Lars Persson <larper@axis.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: Q: bad routing table cache entries
+Date: Tue, 12 Jan 2016 17:40:45 +0300
+Message-ID: <5695106D.8040909@list.ru>
+References: <5682665A.7090102@list.ru> <20151229152208.GA22423@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp8.mail.ru ([94.100.181.96]:49042 "EHLO smtp8.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762505AbcALOkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jan 2016 09:40:49 -0500
+In-Reply-To: <20151229152208.GA22423@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The offset inside the fragment was not used for the dma address and
-silent data corruption resulted because TSO makes the checksum match.
+29.12.2015 18:22, Sowmini Varadhan =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>=20
+> Do you have admin control over the ubuntu router?
+> If yes, you might want to check the shared_media [#] setting=20
+> on that router for the interfaces with overlapping subnets.
+> (it is on by default, I would try turning it off).
+Updated testing results:
+After I disabled shared_media not only for "all", but
+also for _all_ interfaces individually, the problem seem to
+have stopped. So thanks for these hints.
+Now, as the media is actually really shared (same NIC/cable),
+I just wonder what's going on here.
 
-Fixes: 077742dac2c7 ("dwc_eth_qos: Add support for Synopsys DWC Ethernet QoS")
-Signed-off-by: Lars Persson <larper@axis.com>
----
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index 9066d7a..f96c6b3 100644
---- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-+++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -2107,7 +2107,7 @@ static int dwceqos_tx_frags(struct sk_buff *skb, struct net_local *lp,
- 			dd = &lp->tx_descs[lp->tx_next];
- 
- 			/* Set DMA Descriptor fields */
--			dd->des0 = dma_handle;
-+			dd->des0 = dma_handle + consumed_size;
- 			dd->des1 = 0;
- 			dd->des2 = dma_size;
- 
--- 
-2.1.4
+And unfortunately we still don't know why these redirects are
+ever accepted...
