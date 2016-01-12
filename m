@@ -1,135 +1,68 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] net: reduce RECURSION_LIMIT to 8
-Date: Tue, 12 Jan 2016 02:48:42 +0100
-Message-ID: <56945B7A.6010601@stressinduktion.org>
-References: <1452188453-5523-1-git-send-email-hannes@stressinduktion.org>
- <CAOrHB_AWdZw1XDmxVU=bDh=gB2M3cnXUC8MyXCnV1YVjZEAsKw@mail.gmail.com>
- <56939EEF.70403@stressinduktion.org>
- <CAOrHB_DKMW6VoVbu1yvHRQRk92w-uUZWaGQURyRxhO=GaOPXsg@mail.gmail.com>
+From: Salam Noureddine <noureddine@arista.com>
+Subject: Re: [PATCH net-next 0/4] batch calls to fib_flush and arp_ifdown
+Date: Mon, 11 Jan 2016 17:53:16 -0800
+Message-ID: <CAO7SqHA6f8LT6OvsoDj0nd-+W0VxuKT+bL86QAy_oFtVSW=mgw@mail.gmail.com>
+References: <1451949056-15500-1-git-send-email-noureddine@arista.com>
+	<87oad0rhh8.fsf@x220.int.ebiederm.org>
+	<CAO7SqHBhkSFi77-ys5zs_dKsU=62kLZYCb0jhetnJddbL8gFuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: pravin shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Network Development <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:55498 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762053AbcALBss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 20:48:48 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9A6A820FD0
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 20:48:47 -0500 (EST)
-In-Reply-To: <CAOrHB_DKMW6VoVbu1yvHRQRk92w-uUZWaGQURyRxhO=GaOPXsg@mail.gmail.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36021 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759116AbcALBxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 20:53:17 -0500
+Received: by mail-wm0-f43.google.com with SMTP id l65so233662197wmf.1
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2016 17:53:17 -0800 (PST)
+In-Reply-To: <CAO7SqHBhkSFi77-ys5zs_dKsU=62kLZYCb0jhetnJddbL8gFuA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12.01.2016 01:36, pravin shelar wrote:
-> On Mon, Jan 11, 2016 at 4:24 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> On 11.01.2016 07:38, pravin shelar wrote:
->>>
->>> On Thu, Jan 7, 2016 at 9:40 AM, Hannes Frederic Sowa
->>> <hannes@stressinduktion.org> wrote:
->>>>
->>>> When RECURSION_LIMIT was first introduced, Eric proposed a limit of 3.
->>>> This limit was later raised to 10 by DaveM. Nowadays it is observed that
->>>> configuraion errors in openvswitch cause the STACK_END_MAGIC to be
->>>> overwritten shortly after 9 recursion.
->>>>
->>> Major user of stack space in OVS is sw_flow_key in
->>> ovs_vport_receive(). With recent features like IPv6 tunnel support we
->>> have increased the size of the flow-key which could have caused the
->>> stack overflow sooner.
->>> One way to avoid using stack in subsequent recursive call is to use
->>> per-cpu storage for the sw_flow_key object. This is already done for
->>> OVS recursive actions, so we can expand on that facility.
->>
->>
->> Hmmm. This already came up. I think the difficulty is that ovs_vport_receive
->> can be called from actions again with skb_cloned skb before the original's
->> skb callstack is actually finished. Data in the percpu area would be
->> overwritten while still being used. It would need some more logic IMHO.
->>
-> You can have stack of flow-keys and allocate a flow-key for each recursive call.
-
-Hmm, I came up with something like that but the other day I find it
-unpleasant and think that the kmalloc might anyway end up in the fast
-path:
-
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 31cbc8c5c7db82..af9c94c732ce56 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -426,6 +426,9 @@ u32 ovs_vport_find_upcall_portid(const struct vport 
-*vport, struct sk_buff *skb)
-  	return ids->ids[ids_index];
-  }
-
-+static DEFINE_PER_CPU(struct sw_flow_key, pcpu_key);
-+static DEFINE_PER_CPU(int, ovs_recursion);
-+
-  /**
-   *	ovs_vport_receive - pass up received packet to the datapath for 
-processing
-   *
-@@ -439,9 +442,19 @@ u32 ovs_vport_find_upcall_portid(const struct vport 
-*vport, struct sk_buff *skb)
-  int ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
-  		      const struct ip_tunnel_info *tun_info)
-  {
--	struct sw_flow_key key;
-+	struct sw_flow_key *key;
-  	int error;
-
-+	if (__this_cpu_inc_return(ovs_recursion) == 1) {
-+		key = raw_cpu_ptr(&pcpu_key);
-+	} else {
-+		key = kmalloc(sizeof(*key), GFP_ATOMIC);
-+		if (!key) {
-+			__this_cpu_dec(ovs_recursion);
-+			return -ENOMEM;
-+		}
-+	}
-+
-  	OVS_CB(skb)->input_vport = vport;
-  	OVS_CB(skb)->mru = 0;
-  	if (unlikely(dev_net(skb->dev) != ovs_dp_get_net(vport->dp))) {
-@@ -454,12 +467,15 @@ int ovs_vport_receive(struct vport *vport, struct 
-sk_buff *skb,
-  	}
-
-  	/* Extract flow from 'skb' into 'key'. */
--	error = ovs_flow_key_extract(tun_info, skb, &key);
-+	error = ovs_flow_key_extract(tun_info, skb, key);
-  	if (unlikely(error)) {
-  		kfree_skb(skb);
--		return error;
-+		goto out;
-  	}
--	ovs_dp_process_packet(skb, &key);
-+	ovs_dp_process_packet(skb, key);
-+out:
-+	if (__this_cpu_dec_return(ovs_recursion) > 0)
-+		kfree(key);
-  	return error;
-  }
-  EXPORT_SYMBOL_GPL(ovs_vport_receive);
-
-
->> What are recursive actions in ovs? I couldn't find any use of pcpu data in
->> there? Thanks! :)
->>
-> There are couple of recursive actions in OVS, e.g.
-> OVS_ACTION_ATTR_RECIRC. But it is implemented by using per-cpu
-> flow-key stack to avoid recursive function call.
-
-Ahh, the deferred_action stuff. I understand. So the idea would be to
-lift even the first entry point to deferred_action a like?
-
-This sounds like it could work but I fear we should find a solution
-for stable, as this seems like a bit more work.
+Any thoughts on the correctness of the patchset? Or a different way to
+solve this issue leading to long rtnl_lock hold time?
 
 Thanks,
-Hannes
+
+Salam
+
+On Mon, Jan 4, 2016 at 5:12 PM, Salam Noureddine <noureddine@arista.com> wrote:
+> On Mon, Jan 4, 2016 at 4:35 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>
+>> Two things would be very valuable with this patchset.
+>>
+>> Some numbers on how much your changes have improved the code in the case
+>> you care about.  I suspect the improvements are not subtle so this
+>> should not be hard.
+>>
+>> Can you please provide a justification for event_list.  Just skimming
+>> through it appears that event_list because a duplicate of the list of
+>> batched network devices that are passed to dev_close_many and friends.
+>> If the list is actually a duplicate it appears foolish to create it.
+>>
+>> Eric
+>
+> The performance test I ran tries to unregister 1000 dummy interfaces
+> with 512K routes in the fib.
+> Without the patch I could unregister 35 interfaces per second and with
+> the patch it jumped to 620
+> interfaces per second. 512K is a lot of routes but I am assuming we
+> would get a good improvement
+> even with 100K routes in the fib.
+>
+> I am using event_list to put all the net namespaces in the current
+> net_device batch on a list and only
+> call the NETDEV_UNREGISTER_BATCH on those namespaces. It would be
+> possible to just call the
+> notifier for NETDEV_DOWN/UNREGISTER_BATCH for all the devices on the
+> list and rely on the
+> needs_fib_flush flag to only call fib_flush once per namespace but it
+> seems like a waste to me.
+>
+> Salam
