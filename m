@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/4] bpf: bpf_htab: Add
- BPF_MAP_TYPE_PERCPU_HASH
-Date: Tue, 12 Jan 2016 16:45:36 -0500 (EST)
-Message-ID: <20160112.164536.17755595447757162.davem@davemloft.net>
-References: <1452586852-1575604-1-git-send-email-kafai@fb.com>
+From: Janusz Wolak <januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>
+Subject: [PATCH] Openvswitch: actions.c: Removed line over 80
+	characters and not necessary braces.
+Date: Tue, 12 Jan 2016 22:55:40 +0100
+Message-ID: <1452635742-8122-1-git-send-email-januszvdm@awokados.com.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alexei.starovoitov@gmail.com, tom.leiming@gmail.com,
-	kernel-team@fb.com
-To: kafai@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452586852-1575604-1-git-send-email-kafai@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Janusz Wolak <januszvdm-w2tlkmz97NogbZ1banK5DA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Tue, 12 Jan 2016 00:20:48 -0800
-
-> BPF + kprobe is very useful in statistics collection.  In particular,
-> bpf is strong in doing aggregation within the kernel instead of
-> outputting a lot of raw samples to the userspace.
-> 
-> In some cases, bumping a counter/value of a particular key will have
-> noticeable impact.  For example, doing statistics collection
-> on received packets and aggregating them by network
-> prefix (like /64 in IPv6).  Having a percpu value can help.
-
-Please:
-
-	http://marc.info/?l=linux-netdev&m=145248145925834&w=2
-
-Thanks.
+Rml4ZWQgYSBjb2Rpbmcgc3R5bGUgaXNzdWUuCgpTaWduZWQtb2ZmLWJ5OiBKYW51c3ogV29sYWsg
+PGphbnVzenZkbUBhd29rYWRvcy5jb20ucGw+Ci0tLQogbmV0L29wZW52c3dpdGNoL2FjdGlvbnMu
+YyB8IDYgKysrLS0tCiAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9u
+cygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgYi9uZXQvb3BlbnZz
+d2l0Y2gvYWN0aW9ucy5jCmluZGV4IGM4OGQwZjIuLjI4YmMzOTUgMTAwNjQ0Ci0tLSBhL25ldC9v
+cGVudnN3aXRjaC9hY3Rpb25zLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwpAQCAt
+NjIwLDcgKzYyMCw4IEBAIHN0YXRpYyBpbnQgc2V0X3NjdHAoc3RydWN0IHNrX2J1ZmYgKnNrYiwg
+c3RydWN0IHN3X2Zsb3dfa2V5ICpmbG93X2tleSwKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGlu
+dCBvdnNfdnBvcnRfb3V0cHV0KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHNvY2sgKnNrLCBzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiKQorc3RhdGljIGludCBvdnNfdnBvcnRfb3V0cHV0KHN0cnVjdCBuZXQg
+Km5ldCwgc3RydWN0IHNvY2sgKnNrLAorCQkJICAgIHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJ
+c3RydWN0IG92c19mcmFnX2RhdGEgKmRhdGEgPSB0aGlzX2NwdV9wdHIoJm92c19mcmFnX2RhdGFf
+c3RvcmFnZSk7CiAJc3RydWN0IHZwb3J0ICp2cG9ydCA9IGRhdGEtPnZwb3J0OwpAQCAtNzA3LDkg
+KzcwOCw4IEBAIHN0YXRpYyB2b2lkIG92c19mcmFnbWVudChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVj
+dCB2cG9ydCAqdnBvcnQsCiAJCXVuc2lnbmVkIGxvbmcgb3JpZ19kc3Q7CiAJCXN0cnVjdCBydDZf
+aW5mbyBvdnNfcnQ7CiAKLQkJaWYgKCF2Nm9wcykgeworCQlpZiAoIXY2b3BzKQogCQkJZ290byBl
+cnI7Ci0JCX0KIAogCQlwcmVwYXJlX2ZyYWcodnBvcnQsIHNrYik7CiAJCW1lbXNldCgmb3ZzX3J0
+LCAwLCBzaXplb2Yob3ZzX3J0KSk7Ci0tIAoyLjUuMAoKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gu
+b3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
