@@ -1,117 +1,80 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
- by PERF_SAMPLE_TAILSIZE
-Date: Tue, 12 Jan 2016 13:33:28 +0800
-Message-ID: <56949028.2070208@huawei.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com> <1452520124-2073-28-git-send-email-wangnan0@huawei.com> <20160111180913.GA25950@ast-mbp.thefacebook.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [PATCH] b43: Fix memory leaks in b43_bus_dev_ssb_init and
+ b43_bus_dev_bcma_init
+Date: Tue, 12 Jan 2016 06:44:47 +0100
+Message-ID: <20160112064447.055dcf7f@wiggum>
+References: <1452560464-7146-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <acme@kernel.org>, <linux-kernel@vger.kernel.org>,
-	<pi3orama@163.com>, <lizefan@huawei.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, Adrian Hunter <adrian.hunter@intel.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Ahern <dsahern@gmail.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Yunlong Song <yunlong.song@huawei.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/qZtyUa6f2J+v2Tw04WbZD61"; protocol="application/pgp-signature"
+Cc: kvalo@codeaurora.org, zajec5@gmail.com, joe@perches.com,
+	davem@davemloft.net, johannes.berg@intel.com,
+	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jia-Ju Bai <baijiaju1990@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160111180913.GA25950@ast-mbp.thefacebook.com>
+In-Reply-To: <1452560464-7146-1-git-send-email-baijiaju1990@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--Sig_/qZtyUa6f2J+v2Tw04WbZD61
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 12 Jan 2016 09:01:04 +0800
+Jia-Ju Bai <baijiaju1990@163.com> wrote:
+
+> The memory allocated by kzalloc in b43_bus_dev_ssb_init and
+> b43_bus_dev_bcma_initis not freed.
+> This patch fixes the bug by adding kfree in b43_ssb_remove,
+> b43_bcma_remove and error handling code of b43_bcma_probe.
+>=20
+> Thanks Michael for his suggestion.
+>=20
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> ---
+>  drivers/net/wireless/b43/main.c |    3 +++
+>  1 file changed, 3 insertions(+)
+>=20
+> diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/m=
+ain.c
+> index ec013fb..2c9d9c1 100644
+> --- a/drivers/net/wireless/b43/main.c
+> +++ b/drivers/net/wireless/b43/main.c
+> @@ -5683,6 +5683,7 @@ static int b43_bcma_probe(struct bcma_device *core)
+>  	schedule_work(&wl->firmware_load);
+> =20
+>  bcma_out:
+> +	kfree(dev);
+>  	return err;
+> =20
+
+This is not correct. It will also free dev for the non-error exit.
 
 
-On 2016/1/12 2:09, Alexei Starovoitov wrote:
-> On Mon, Jan 11, 2016 at 01:48:18PM +0000, Wang Nan wrote:
->> This patch introduces a PERF_SAMPLE_TAILSIZE flag which allows a size
->> field attached at the end of a sample. The idea comes from [1] that,
->> with tie size at tail of an event, it is possible for user program who
->> read from the ring buffer parse events backward.
->>
->> For example:
->>
->>     head
->>      |
->>      V
->>   +--+---+-------+----------+------+---+
->>   |E6|...|   B  8|   C    11|  D  7|E..|
->>   +--+---+-------+----------+------+---+
->>
->> In this case, from the 'head' pointer provided by kernel, user program
->> can first see '6' by (*(head - sizeof(u64))), then it can get the start
->> pointer of record 'E', then it can read size and find start position
->> of record D, C, B in similar way.
-> adding extra 8 bytes for every sample is quite unfortunate.
-> How about another idea:
-> . update data_tail pointer when head is about to overwrite it
->
-> Ex:
->     head   data_tail
->      |       |
->      V       V
->   +--+-------+-------+---+----+---+
->   |E |  ...  |   B   | C |  D | E |
->   +--+-------+-------+---+----+---+
->
-> if new sample F is about to overwrite B, the kernel would need
-> to read the size of B from B's header and update data_tail to point C.
-> Or even further.
-> Comparing to TAILSIZE approach, now kernel will be doing both reads
-> and writes into ring-buffer and there is a concern that reads may
-> be hitting cold data, but if the records are small they may be
-> actually on the same cache line brought by the previous
-> read A's header, write E record cycle. So I think we shouldn't see
-> cache misses.
+--=20
+Michael
 
-After ring buffer rewind, we need a read before nearly
-every write operations. The performance penalty depends on
-configuration of write allocate. In addition, another data
-dependency is required: we must wait for the size of
-event B is retrived before overwrite it.
+--Sig_/qZtyUa6f2J+v2Tw04WbZD61
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-Even in the very first try at 2013 in [1], reading from the ring
-buffer is avoided. I don't think Peter changes his mind now.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> Another concern is validity of records stored. If user space messes
-> with ring-buffer, kernel won't be able to move data_tail properly
-> and would need to indicate that to userspace somehow.
-> But memory saving of 8 bytes per record could be sizable
+iQIcBAEBCAAGBQJWlJLPAAoJEPUyvh2QjYsONhoQAI7FaZe4H66UaVF4C3ZRZ7Gz
+qaIkdpgUL96dFNp0YvPWIaGz89iZal2ZJEr7RJvLSpmT9S0K8FVYkNumO4dLPy8v
+PTi1Lvs+nCyKrJWBa2nHTGMP381OC9+qLlEWRsEbhZsh/8ubQVdyQhpcXzXAMrzo
+phaFOVe8XPc50QD96Dfoh+UggYC9VtNJwPukYy8lHXxePnujc8HzDnh8eh18X1Cf
+oWLSr3Ujv7hoTt5Xk5+JhGI86RaYEPW3mp9dRafMjydvXe9eqVMj4uMfeLmnYDTI
+75lp1x5yX3zdpDdUPrnRT3/JR3DaToPoXIgD4a1v7mXRMEb6y1OOxKrqUFIR/a4v
+47P60tLeQV5CU8793RKGQfuoUbUoO7rK3YLX4J2Z+DhTY/s9Y4IQtFymeQLX9IHH
+5zhBxe59PaB3Cq/v3Tbv4s5RLwaH6TuvskEnbSOAH538x9uAF1sXVGuJ3R+p5qgE
+aKp1Ly64iqzj8w594uUXJw5WKi9tuw78esYkJ3PBhr5T7OfakdtBMbnpTJh0tymh
+yeShqGx2uHSl5aQwI9VOFS73RWP83aNAsL4ZZ1ElNQNTHZK0SisvxffnS8h+xfjj
+oIpuGlcJotOqbm9NUvWIsVzs3xmmqefalYAHt33ACcPbZp4qLmwCxCex4d9R9wvN
+qW1C8qWlYWh90oXlCZaU
+=BgSF
+-----END PGP SIGNATURE-----
 
-Yes. But I have already discussed with Peter on this in [2].
-Last month I suggested:
-
-<quote>
-
-  1. If PERF_SAMPLE_SIZE is selected, we can avoid outputting the event
-     size in header. Which eliminate extra space cost;
-</quote>
-
-However:
-
-<quote>
-
-That would mandate you always parse the stream backwards. Which seems
-rather unfortunate. Also, no you cannot recoup the extra space, see the
-alignment and size requirement.
-
-</quote>
-
->   and
-> user space wouldn't need to walk the whole buffer backwards and
-> can just start from valid data_tail, so the dumps of overwrite
-> ring-buffer will be faster too.
-> Thoughts?
->
-Please also refer to [3]. In that patch we introduced a userspace
-ring buffer in perf and make it continously collect data from
-normal ring buffers. Since we have to wake up perf to read data,
-the cost is even higher.
-
-[1] 
-http://lkml.kernel.org/r/20130708121557.GA17211@twins.programming.kicks-ass.net
-[2] 
-http://lkml.kernel.org/r/20151203100801.GV3816@twins.programming.kicks-ass.net
-[3] 
-http://lkml.kernel.org/r/1448373632-8806-1-git-send-email-yunlong.song@huawei.com
+--Sig_/qZtyUa6f2J+v2Tw04WbZD61--
