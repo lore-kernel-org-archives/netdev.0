@@ -1,69 +1,55 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
-Date: Tue, 12 Jan 2016 11:53:57 -0800
-Message-ID: <20160112195356.GA34598@ast-mbp.thefacebook.com>
-References: <20160112185121.GA34045@ast-mbp.thefacebook.com>
- <1452626228-15742-1-git-send-email-rabin@rab.in>
- <1452628118.1223.25.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
+ by PERF_SAMPLE_TAILSIZE
+Date: Tue, 12 Jan 2016 11:56:41 -0800
+Message-ID: <20160112195641.GA34601@ast-mbp.thefacebook.com>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-28-git-send-email-wangnan0@huawei.com>
+ <20160111180913.GA25950@ast-mbp.thefacebook.com>
+ <56949028.2070208@huawei.com>
+ <20160112061145.GA31444@ast-mbp.thefacebook.com>
+ <5694F347.5010700@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, acme@kernel.org,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Adrian Hunter <adrian.hunter@intel.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Ahern <dsahern@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Yunlong Song <yunlong.song@huawei.com>
+To: "Wangnan (F)" <wangnan0@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36827 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751156AbcALTyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:54:02 -0500
-Received: by mail-pa0-f44.google.com with SMTP id yy13so252101253pab.3
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 11:54:01 -0800 (PST)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34729 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752575AbcALT4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 14:56:44 -0500
 Content-Disposition: inline
-In-Reply-To: <1452628118.1223.25.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <5694F347.5010700@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2016 at 11:48:38AM -0800, Eric Dumazet wrote:
-> On Tue, 2016-01-12 at 20:17 +0100, Rabin Vincent wrote:
-> > On ARM64, a BUG() is triggered in the eBPF JIT if a filter with a
-> > constant shift that can't be encoded in the immediate field of the
-> > UBFM/SBFM instructions is passed to the JIT.  Since these shifts
-> > amounts, which are negative or >= regsize, are invalid, reject them in
-> > the eBPF verifier and the classic BPF filter checker, for all
-> > architectures.
-> > 
+On Tue, Jan 12, 2016 at 08:36:23PM +0800, Wangnan (F) wrote:
+> >hmm, in this kernel patch I see that you're adding 8 bytes for
+> >every record via this extra TAILSISZE flag and in perf you're
+> >walking the ring buffer backwards by reading this 8 byte
+> >sizes, comparing header sizes and so on until reaching beginning,
+> >where you start dumping it as normal.
+> >So for this 'signal to perf' approach to work the ring buffer
+> >will contain tailsizes everywhere just so that user space can
+> >find the beginning. That's not very pretty. imo if kernel
+> >can do header read to adjust data_tail it would make user
+> >space side clean. May be there are other solutions.
+> >Adding tailsize seems like brute force hack.
+> >There must be some nicer way.
+> Hi Peter,
 > 
-> Hmm...
-> 
-> > diff --git a/net/core/filter.c b/net/core/filter.c
-> > index 672eefbfbe99..37157c4c1a78 100644
-> > --- a/net/core/filter.c
-> > +++ b/net/core/filter.c
-> > @@ -777,6 +777,11 @@ static int bpf_check_classic(const struct sock_filter *filter,
-> >  			if (ftest->k == 0)
-> >  				return -EINVAL;
-> >  			break;
-> > +		case BPF_ALU | BPF_LSH | BPF_K:
-> > +		case BPF_ALU | BPF_RSH | BPF_K:
-> > +			if (ftest->k >= 32)
-> > +				return -EINVAL;
-> > +			break;
-> >  		case BPF_LD | BPF_MEM:
-> >  		case BPF_LDX | BPF_MEM:
-> >  		case BPF_ST:
-> 
-> These weak filters used to have undefined behavior, maybe in a never
-> taken branch, and will now fail hard, possibly breaking old
-> applications.
-> 
-> I believe we should add a one time warning to give a clue to poor users
-> hitting this problem.
+>  What's your opinion? Should we reconsider moving size field from header the
+> end?
+> Or moving whole header to the end of a record?
 
-you mean like warn_on_once() here?
-Makes sense I guess.
-
-> Not everybody has perfect BPF filters, since most of the time they were
-> hand coded.
-
-yep and we all know who was able to code hundreds of cBPF insns by hand ;)
-But I'm sure that code doesn't have such broken shifts. :)))
+I think moving the whole header under new TAILHEADER flag is
+actually very good idea. The ring buffer will be fully utilized
+and no extra bytes necessary. User space would need to parse it
+backwards, but for this use case it fits well.
