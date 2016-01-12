@@ -1,82 +1,94 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: bnxt: always return values from _bnxt_get_max_rings
-Date: Tue, 12 Jan 2016 16:05:08 +0100
-Message-ID: <4309490.qRrvvx0n1Q@wuerfel>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
+Date: Tue, 12 Jan 2016 16:10:36 +0100
+Message-ID: <CAG-2HqUXL4zOtVR1SQTJNZcxmsYp+BiPaeZgqbsSxyGs2J8rZg@mail.gmail.com>
+References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Jeffrey Huang <huangjw@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.75]:63038 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751112AbcALPF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 10:05:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Lubomir Rintel <lkundrak@v3.sk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Newly added code in the bnxt driver uses a couple of variables that
-are never initialized when CONFIG_BNXT_SRIOV is not set, and gcc
-correctly warns about that:
+On Tue, Jan 12, 2016 at 12:56 PM, Lubomir Rintel <lkundrak@v3.sk> wrote:
+> The devices can be created at run-time for quite some time already and the
+> load-time device creation collides with attempts to create the device of
+> the same name:
+>
+>   # rmmod ifb
+>   # ip link add ifb0 type ifb
+>   RTNETLINK answers: File exists
+>
+> This is pretty much the same situation as was with the block loop devices
+> which was solved by adding a build-time configuration that the
+> distributions could use as they deem fit while keeping the default for
+> compatibility.
+>
+> Let's do that here as well.
+>
+> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 
-In file included from include/linux/list.h:8:0,
-                 from include/linux/module.h:9,
-                 from drivers/net/ethernet/broadcom/bnxt/bnxt.c:10:
-drivers/net/ethernet/broadcom/bnxt/bnxt.c: In function 'bnxt_get_max_rings':
-include/linux/kernel.h:794:26: warning: 'cp' may be used uninitialized in this function [-Wmaybe-uninitialized]
-include/linux/kernel.h:794:26: warning: 'tx' may be used uninitialized in this function [-Wmaybe-uninitialized]
-drivers/net/ethernet/broadcom/bnxt/bnxt.c:5730:11: warning: 'rx' may be used uninitialized in this function [-Wmaybe-uninitialized]
-drivers/net/ethernet/broadcom/bnxt/bnxt.c:5736:6: note: 'rx' was declared here
+This has been a nuisance, so would be great to see it fixed upstream.
 
-This changes the condition so that we fall back to using the PF
-data if VF is not available, and always initialize the variables
-to something useful.
+Acked-by: Tom Gundersen <teg@jklm.no>
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 6e6c5a57fbe1 ("bnxt_en: Modify bnxt_get_max_rings() to support shared or non shared rings.")
----
-This is the fix that made most sense to me, but that doesn't mean it's
-the right thing to do for this driver, so please check carefully
-whether falling back to PF is actually the correct behavior.
-
-I'm assuming that BNXT_PF(bp) is meant to always be true if CONFIG_BNXT_SRIOV
-is disabled, but I have not verified if this is guaranteed.
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 287bfb79ea2d..df835f5e46d8 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5711,21 +5711,23 @@ static void _bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx,
- {
- 	int max_ring_grps = 0;
- 
--	if (BNXT_PF(bp)) {
--		*max_tx = bp->pf.max_tx_rings;
--		*max_rx = bp->pf.max_rx_rings;
--		*max_cp = min_t(int, bp->pf.max_irqs, bp->pf.max_cp_rings);
--		*max_cp = min_t(int, *max_cp, bp->pf.max_stat_ctxs);
--		max_ring_grps = bp->pf.max_hw_ring_grps;
--	} else {
- #ifdef CONFIG_BNXT_SRIOV
-+	if (!BNXT_PF(bp)) {
- 		*max_tx = bp->vf.max_tx_rings;
- 		*max_rx = bp->vf.max_rx_rings;
- 		*max_cp = min_t(int, bp->vf.max_irqs, bp->vf.max_cp_rings);
- 		*max_cp = min_t(int, *max_cp, bp->vf.max_stat_ctxs);
- 		max_ring_grps = bp->vf.max_hw_ring_grps;
-+	} else
- #endif
-+	{
-+		*max_tx = bp->pf.max_tx_rings;
-+		*max_rx = bp->pf.max_rx_rings;
-+		*max_cp = min_t(int, bp->pf.max_irqs, bp->pf.max_cp_rings);
-+		*max_cp = min_t(int, *max_cp, bp->pf.max_stat_ctxs);
-+		max_ring_grps = bp->pf.max_hw_ring_grps;
- 	}
-+
- 	if (bp->flags & BNXT_FLAG_AGG_RINGS)
- 		*max_rx >>= 1;
- 	*max_rx = min_t(int, *max_rx, max_ring_grps);
+> ---
+>  drivers/net/Kconfig | 21 +++++++++++++++++----
+>  drivers/net/ifb.c   |  2 +-
+>  2 files changed, 18 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f184fb5..63535b4 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -110,12 +110,25 @@ config IFB
+>           This is an intermediate driver that allows sharing of
+>           resources.
+>           To compile this driver as a module, choose M here: the module
+> -         will be called ifb.  If you want to use more than one ifb
+> -         device at a time, you need to compile this driver as a module.
+> -         Instead of 'ifb', the devices will then be called 'ifb0',
+> -         'ifb1' etc.
+> +         will be called ifb.
+> +
+>           Look at the iproute2 documentation directory for usage etc
+>
+> +config IFB_COUNT
+> +        int "Number of ifb devices to pre-create at init time"
+> +        depends on IFB
+> +        default 3
+> +        help
+> +          Static number of ifb devices to be unconditionally pre-created
+> +          at init time.
+> +
+> +          This default value can be overwritten on the kernel command
+> +          line or with module-parameter ifb.numifbs.
+> +
+> +          The historic default is 3. If a mid-2007 version of iproute2
+> +          is used (v2.6.23 or later), it can be set to 0, since needed
+> +          ifb devices can be dynamically allocated via rtnetlink.
+> +
+>  source "drivers/net/team/Kconfig"
+>
+>  config MACVLAN
+> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+> index cc56fac..911af2c 100644
+> --- a/drivers/net/ifb.c
+> +++ b/drivers/net/ifb.c
+> @@ -298,7 +298,7 @@ static struct rtnl_link_ops ifb_link_ops __read_mostly = {
+>   * Note that these legacy devices have one queue.
+>   * Prefer something like : ip link add ifb10 numtxqueues 8 type ifb
+>   */
+> -static int numifbs = 2;
+> +static int numifbs = CONFIG_IFB_COUNT;
+>  module_param(numifbs, int, 0);
+>  MODULE_PARM_DESC(numifbs, "Number of ifb devices");
+>
+> --
+> 2.5.0
+>
