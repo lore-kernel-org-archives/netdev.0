@@ -1,127 +1,101 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next 1/2] tc, ingress: clean up ingress handling a bit
-Date: Tue, 12 Jan 2016 01:42:19 +0100
-Message-ID: <04a0a8e8ba21a775c17218340bec7dae4becf968.1452558352.git.daniel@iogearbox.net>
-References: <cover.1452558352.git.daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59858 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761421AbcALAmX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2016 19:42:23 -0500
-In-Reply-To: <cover.1452558352.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1452558352.git.daniel@iogearbox.net>
-References: <cover.1452558352.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+Subject: Re: [OOPS] In __netif_receive_skb_core
+Date: Tue, 12 Jan 2016 02:51:06 +0200
+Message-ID: <56944DFA.4050002@gmail.com>
+References: <568EA671.7000502@gmail.com> <56929985.3020502@gmail.com>
+ <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
+ <5694188F.80907@gmail.com>
+ <CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Sebastian Reichel <sre@kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: Salam Noureddine <noureddine@arista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Clean it up a bit, we can also get rid of some ugly ifdefs as in our case
-TC_H_INGRESS is always defined.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tc/q_ingress.c | 20 +++++---------------
- tc/tc_qdisc.c  | 11 +++--------
- 2 files changed, 8 insertions(+), 23 deletions(-)
 
-diff --git a/tc/q_ingress.c b/tc/q_ingress.c
-index 30b24e7..c3c9b40 100644
---- a/tc/q_ingress.c
-+++ b/tc/q_ingress.c
-@@ -1,5 +1,4 @@
- /*
-- *
-  * q_ingress.c             INGRESS.
-  *
-  *              This program is free software; you can redistribute it and/or
-@@ -8,20 +7,9 @@
-  *              2 of the License, or (at your option) any later version.
-  *
-  * Authors:    J Hadi Salim
-- *
-- * This is here just in case it is needed
-- * useless right now; might be useful in the future
-- *
-  */
- 
- #include <stdio.h>
--#include <stdlib.h>
--#include <unistd.h>
--#include <syslog.h>
--#include <fcntl.h>
--#include <sys/socket.h>
--#include <netinet/in.h>
--#include <arpa/inet.h>
- #include <string.h>
- 
- #include "utils.h"
-@@ -29,10 +17,11 @@
- 
- static void explain(void)
- {
--	fprintf(stderr, "Usage: ... ingress \n");
-+	fprintf(stderr, "Usage: ... ingress\n");
- }
- 
--static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
-+static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv,
-+			     struct nlmsghdr *n)
- {
- 	while (argc > 0) {
- 		if (strcmp(*argv, "handle") == 0) {
-@@ -49,7 +38,8 @@ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struc
- 	return 0;
- }
- 
--static int ingress_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
-+static int ingress_print_opt(struct qdisc_util *qu, FILE *f,
-+			     struct rtattr *opt)
- {
- 	fprintf(f, "---------------- ");
- 	return 0;
-diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-index c31ae8d..96b8085 100644
---- a/tc/tc_qdisc.c
-+++ b/tc/tc_qdisc.c
-@@ -91,20 +91,17 @@ static int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
- 				return -1;
- 			}
- 			req.t.tcm_parent = TC_H_ROOT;
--#ifdef TC_H_INGRESS
- 		} else if (strcmp(*argv, "ingress") == 0) {
- 			if (req.t.tcm_parent) {
- 				fprintf(stderr, "Error: \"ingress\" is a duplicate parent ID\n");
- 				return -1;
- 			}
- 			req.t.tcm_parent = TC_H_INGRESS;
--			strncpy(k, "ingress", sizeof(k)-1);
-+			strncpy(k, "ingress", sizeof(k) - 1);
- 			q = get_qdisc_kind(k);
--			req.t.tcm_handle = 0xffff0000;
--
--			argc--; argv++;
-+			req.t.tcm_handle = TC_H_MAKE(TC_H_INGRESS, 0);
-+			NEXT_ARG_FWD();
- 			break;
--#endif
- 		} else if (strcmp(*argv, "parent") == 0) {
- 			__u32 handle;
- 			NEXT_ARG();
-@@ -291,14 +288,12 @@ static int tc_qdisc_list(int argc, char **argv)
- 		if (strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
- 			strncpy(d, *argv, sizeof(d)-1);
--#ifdef TC_H_INGRESS
-                 } else if (strcmp(*argv, "ingress") == 0) {
-                              if (t.tcm_parent) {
-                                      fprintf(stderr, "Duplicate parent ID\n");
-                                      usage();
-                              }
-                              t.tcm_parent = TC_H_INGRESS;
--#endif
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 		} else {
--- 
-1.9.3
+On 12.01.2016 00:11, Salam Noureddine wrote:
+> Would you be able to disassemble your kernel so we could tell where
+> the null pointer dereference happens?
+>
+
+Sure, but wouldn't it be better to provide the object file containing 
+the debug symbols as well?
+
+Otherwise, the null pointer dereference happens somewhere in:
+
+(gdb) l *__netif_receive_skb_core+0x7c0
+0x1318 is in __netif_receive_skb_core (include/linux/compiler.h:218).
+213	})
+214	
+215	static __always_inline
+216	void __read_once_size(const volatile void *p, void *res, int size)
+217	{
+218		__READ_ONCE_SIZE;
+219	}
+220	
+221	#ifdef CONFIG_KASAN
+222	/*
+
+(gdb) l *__netif_receive_skb_core+0x7bc
+0x1314 is in __netif_receive_skb_core (net/core/dev.c:3934).
+3929		}
+3930	
+3931		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
+3932				       &orig_dev->ptype_specific);
+3933	
+3934		if (unlikely(skb->dev != orig_dev)) {
+3935			deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
+3936					       &skb->dev->ptype_specific);
+3937		}
+3938	
+
+(gdb) l *__netif_receive_skb_core+0x7c4
+0x131c is in __netif_receive_skb_core (net/core/dev.c:3935).
+3930	
+3931		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
+3932				       &orig_dev->ptype_specific);
+3933	
+3934		if (unlikely(skb->dev != orig_dev)) {
+3935			deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
+3936					       &skb->dev->ptype_specific);
+3937		}
+3938	
+3939		if (pt_prev) {
+
+
+0x00001300 <+1960>:	cmp	r10, r3
+0x00001304 <+1964>:	bne	0x1284 <__netif_receive_skb_core+1836>
+0x00001308 <+1968>:	ldr	r4, [sp, #12]
+0x0000130c <+1972>:	ldr	r3, [r4, #20]
+0x00001310 <+1976>:	cmp	r3, r6
+0x00001314 <+1980>:	beq	0x13b0 <__netif_receive_skb_core+2136>
+
+0x00001318 <+1984>:	ldr	r5, [r3, #92]	; 0x5c   <-FAULT
+
+r3 seems to be skb->dev
+
+0x0000131c <+1988>:	add	r10, r3, #92	; 0x5c
+0x00001320 <+1992>:	add	r8, r4, #180	; 0xb4
+0x00001324 <+1996>:	sub	r5, r5, #20
+0x00001328 <+2000>:	b	0x13a4 <__netif_receive_skb_core+2124>
+0x0000132c <+2004>:	ldrh	r3, [r5]
+0x00001330 <+2008>:	cmp	r3, r7
+
+
+I put some additional printks around that code, and it turned out that 
+skb->dev is null, so "if (unlikely(skb->dev != orig_dev))" succeeds, but 
+"&skb->dev->ptype_specific" oopses.
+
+Thanks,
+Ivo
