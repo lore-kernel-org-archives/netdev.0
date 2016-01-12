@@ -1,126 +1,74 @@
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Subject: Re: [PATCH v2 1/3] can: sja1000: of: add per-compatible init hook
-Date: Tue, 12 Jan 2016 10:53:30 -0500
-Message-ID: <20160112155329.GB6050@localhost>
-References: <1450978973-30417-1-git-send-email-damien.riegel@savoirfairelinux.com>
- <1450978973-30417-2-git-send-email-damien.riegel@savoirfairelinux.com>
- <5694B0A6.8070200@pengutronix.de>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: Q: bad routing table cache entries
+Date: Tue, 12 Jan 2016 18:57:42 +0300
+Message-ID: <56952276.8050207@list.ru>
+References: <5682665A.7090102@list.ru> <56951D1D.5080602@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	kernel@savoirfairelinux.com
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5694B0A6.8070200@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp35.i.mail.ru ([94.100.177.95]:56314 "EHLO smtp35.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752764AbcALP5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jan 2016 10:57:50 -0500
+In-Reply-To: <56951D1D.5080602@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2016 at 08:52:06AM +0100, Marc Kleine-Budde wrote:
-> On 12/24/2015 06:42 PM, Damien Riegel wrote:
-> > This commit adds the capability to allocate and init private data
-> > embedded in the sja1000_priv structure on a per-compatible basis. The
-> > device node is passed as a parameter of the init callback to allow
-> > parsing of custom device tree properties.
-> > 
-> > Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
-> > ---
-> >  drivers/net/can/sja1000/sja1000_platform.c | 39 ++++++++++++++++++++++++++++--
-> >  1 file changed, 37 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-> > index 0552ed4..e0572d0 100644
-> > --- a/drivers/net/can/sja1000/sja1000_platform.c
-> > +++ b/drivers/net/can/sja1000/sja1000_platform.c
-> > @@ -40,6 +40,11 @@ MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
-> >  MODULE_ALIAS("platform:" DRV_NAME);
-> >  MODULE_LICENSE("GPL v2");
-> >  
-> > +struct sja1000_of_data {
-> > +	size_t  priv_sz;
-> > +	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
-> > +};
-> > +
-> >  static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
-> >  {
-> >  	return ioread8(priv->reg_base + reg);
-> > @@ -154,7 +159,8 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
-> >  		priv->cdr |= CDR_CBP; /* default */
-> >  }
-> >  
-> > -static int sp_probe(struct platform_device *pdev)
-> > +static int __sp_probe(struct platform_device *pdev,
-> > +		      const struct sja1000_of_data *of_data)
-> >  {
-> >  	int err, irq = 0;
-> >  	void __iomem *addr;
-> > @@ -163,6 +169,7 @@ static int sp_probe(struct platform_device *pdev)
-> >  	struct resource *res_mem, *res_irq = NULL;
-> >  	struct sja1000_platform_data *pdata;
-> >  	struct device_node *of = pdev->dev.of_node;
-> > +	size_t priv_sz = of_data ? of_data->priv_sz : 0;
-> >  
-> >  	pdata = dev_get_platdata(&pdev->dev);
-> >  	if (!pdata && !of) {
-> > @@ -191,7 +198,7 @@ static int sp_probe(struct platform_device *pdev)
-> >  	if (!irq && !res_irq)
-> >  		return -ENODEV;
-> >  
-> > -	dev = alloc_sja1000dev(0);
-> > +	dev = alloc_sja1000dev(priv_sz);
-> >  	if (!dev)
-> >  		return -ENOMEM;
-> >  	priv = netdev_priv(dev);
-> > @@ -213,6 +220,12 @@ static int sp_probe(struct platform_device *pdev)
-> >  	else
-> >  		sp_populate(priv, pdata, res_mem->flags);
-> >  
-> > +	if (of_data && of_data->init) {
-> > +		err = of_data->init(priv, of);
-> > +		if (err)
-> > +			goto exit_free;
-> > +	}
-> > +
-> >  	platform_set_drvdata(pdev, dev);
-> >  	SET_NETDEV_DEV(dev, &pdev->dev);
-> >  
-> > @@ -248,6 +261,28 @@ static const struct of_device_id sp_of_table[] = {
-> >  };
-> >  MODULE_DEVICE_TABLE(of, sp_of_table);
-> >  
-> > +static const struct sja1000_of_data *sp_get_of_data(struct device_node *of)
-> > +{
-> > +	const struct of_device_id *id;
-> > +
-> > +	if (!of)
-> > +		return NULL;
-> > +
-> > +	id = of_match_node(sp_of_table, of);
-> > +	if (!id)
-> > +		return NULL;
-> > +
-> > +	return id->data;
-> > +}
-> > +
-> > +static int sp_probe(struct platform_device *pdev)
-> > +{
-> > +	struct device_node *of = pdev->dev.of_node;
-> > +	const struct sja1000_of_data *of_data = sp_get_of_data(of);
-> > +
-> > +	return __sp_probe(pdev, of_data);
-> > +}
-> 
-> Please merge these two into the original sp_probe function, as there
-> already is a test for pdev->dev.of_node.
+12.01.2016 18:34, Hannes Frederic Sowa =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 29.12.2015 11:54, Stas Sergeev wrote:
+>> Hello.
+>>
+>> I was hitting a strange problem when some internet hosts
+>> suddenly stops responding until I reboot. ping to these
+>> host gives "Destination Host Unreachable". After the
+>> initial confusion, I've finally got to
+>> ip route get
+>> and got something quite strange.
+>>
+>>
+>> Example for GOOD address (the one that I can ping):
+>>
+>> ip route get 91.189.89.237
+>> 91.189.89.237 via 192.168.8.1 dev eth0  src 192.168.10.202
+>>      cache
+>>
+>>
+>> Example for BAD address (the one that stopped responding):
+>>
+>> ip route get 91.189.89.238
+>> 91.189.89.238 via 192.168.0.1 dev eth0  src 192.168.10.202
+>>      cache <redirected>
+>=20
+> I tried to understand this thread and now wonder why this redirect ro=
+ute isn't there always. Can you please summarize again why this shouldn=
+'t happen? It looks totally fine to me from the
+> configuration of your router and the subnet masks.
+http://www.spinics.net/lists/netdev/msg358200.html
+Sowmini Varadhan explains:
+---
+According to rfc1812 (pg 82-84)
 
-Ok. sp_get_of_data makes use of sp_of_table, so either I move sp_probe
-below sp_of_table, or I use a forward declaration. Which one do you
-prefer?
+   Routers MUST NOT generate a Redirect Message unless all the followin=
+g
+   conditions are met:
 
-Damien
+   o The packet is being forwarded out the same physical interface that
+      it was received from,
+
+   o The IP source address in the packet is on the same Logical IP
+      (sub)network as the next-hop IP address, and
+
+   o The packet does not contain an IP source route option.
+
+The second condition seems to have been violated by the router.
+---
+
+And he also shows the tunable that stops the router from violating this=
+=2E
+Good that linux can be at least tuned to do the right thing. :)
+
+The fewer explained question is why the bad route is ever accepted.
+This is what actually looks risky.
