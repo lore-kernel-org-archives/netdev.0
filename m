@@ -1,40 +1,28 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] igb: constify e1000_phy_operations
-	structure
-Date: Tue, 12 Jan 2016 03:44:08 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81E4D3B1@ORSMSX101.amr.corp.intel.com>
-References: <1451803496-16693-1-git-send-email-Julia.Lawall@lip6.fr>
+From: zhongjun@asia.com
+Subject: Greetings!
+Date: Tue, 12 Jan 2016 01:11:37 +0100
+Message-ID: <20160112025112.B5EBB14120A@ampsrv1.comunidad-ameripol.org>
+Reply-To: fu.zhongjun@fuzhongjun.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Julia Lawall <Julia.Lawall@lip6.fr>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451803496-16693-1-git-send-email-Julia.Lawall@lip6.fr>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <zhongjun@asia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Static-IP-cr200118122217.cable.net.co ([200.118.122.217]:56142
+	"EHLO ampsrv1.comunidad-ameripol.org" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760856AbcALEDF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2016 23:03:05 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [intel-wired-lan-bounces@lists.osuosl.org] on behalf of Julia Lawall [Julia.Lawall@lip6.fr]
-> Sent: Saturday, January 02, 2016 10:44 PM
-> To: Kirsher, Jeffrey T
-> Cc: kernel-janitors@vger.kernel.org; linux-kernel@vger.kernel.org; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org
-> Subject: [Intel-wired-lan] [PATCH] igb: constify e1000_phy_operations   structure
-> 
-> This e1000_phy_operations structure is never modified, so declare it as
-> const.  Other structures of this type are already const.
-> 
-> Done with the help of Coccinelle.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> ---
->  drivers/net/ethernet/intel/igb/e1000_82575.c |    2 +-
->  drivers/net/ethernet/intel/igb/e1000_hw.h    |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+Good day,
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+I need a foreign partner for a proposed mutual business, which refers to the transfer of a large sum of money to an account abroad, as the beneficiary of the funds. Everything about this operation, will be legally done without any bridge financial authority, both in my country and yours.I wil indulge you exercise the utmost discretion in all matters concerning this issue. If you are interested, please reply back through my private email address written down, I'll give you more information about myself with the financial institution I represented and the actual amounts involved about the project so I receive your positive response.
+
+Private E-mail: fu.zhongjun@fuzhongjun.net
+
+Friendly greeting,
+
+Executive director.
