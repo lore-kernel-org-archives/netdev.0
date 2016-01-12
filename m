@@ -1,53 +1,114 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 0/4] bpf: bpf_htab: Add BPF_MAP_TYPE_PERCPU_HASH
-Date: Mon, 11 Jan 2016 22:00:08 -0800
-Message-ID: <20160112060007.GB31180@ast-mbp.thefacebook.com>
-References: <1452206155-1492617-1-git-send-email-kafai@fb.com>
- <CACVXFVNhEOrroAfiEOC32dB3ZV=73WYJxUtNrpqEE94tvY2fXw@mail.gmail.com>
- <20160109004443.GA33292@kafai-mba.local>
- <CACVXFVPbsqBoAvgRjrm7A3S2G0kUrEt=e64FyRpoSqO2ukHncQ@mail.gmail.com>
- <20160110022946.GA50678@kevintjones-mbp.dhcp.thefacebook.com.DHCP.thefacebook.com>
- <CACVXFVNfRLL-TQajPHD1XKnFCgyTvU_dAJQ0+HxwYQX4qC1G8A@mail.gmail.com>
- <20160111223444.GA6742@kafai-mba.dhcp.thefacebook.com>
- <CACVXFVMZRS5fxta6xvehfzQHW37KxWSs630_6MO1s+GRyb0teQ@mail.gmail.com>
+Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
+ by PERF_SAMPLE_TAILSIZE
+Date: Mon, 11 Jan 2016 22:11:46 -0800
+Message-ID: <20160112061145.GA31444@ast-mbp.thefacebook.com>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
+ <1452520124-2073-28-git-send-email-wangnan0@huawei.com>
+ <20160111180913.GA25950@ast-mbp.thefacebook.com>
+ <56949028.2070208@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Martin KaFai Lau <kafai@fb.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Ming Lei <tom.leiming@gmail.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, acme@kernel.org,
+	linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Adrian Hunter <adrian.hunter@intel.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Ahern <dsahern@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Yunlong Song <yunlong.song@huawei.com>
+To: "Wangnan (F)" <wangnan0@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CACVXFVMZRS5fxta6xvehfzQHW37KxWSs630_6MO1s+GRyb0teQ@mail.gmail.com>
+In-Reply-To: <56949028.2070208@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 12, 2016 at 01:48:10PM +0800, Ming Lei wrote:
-> The total memory consumption is still much less than memory consumed
-> by percpu hash since a new element is only added to hash if the key is run
-> on that CPU. Most of times, for one key it may touch very few CPUs.
+On Tue, Jan 12, 2016 at 01:33:28PM +0800, Wangnan (F) wrote:
 > 
-> For percpu hash, the memory is always allocated to every CPU no matter
-> if the key is run from the CPU.
-
-In Martin's use case all cpus are servicing network traffic and all of them
-are counting packets.
-
-> In my test, removing the current kmalloc() in update element callback can
-> improve io thoughput by 10% not mention the percpu ida allocation cost, and
-> looks it isn't cheap. That is why I don't think it is good to
-> introduce another new
-> allocation in the eBPF prog path.
-
-I don't think anyone is arguing that pre-allocation is not needed.
-In some cases better performance can be achieved with pre-allocation,
-in some other cases regular hash map will be enough,
-and in others hash map with per-cpu is needed as well.
-
-> You can find my test in the link below:
 > 
->        https://patchwork.ozlabs.org/patch/556926/
+> On 2016/1/12 2:09, Alexei Starovoitov wrote:
+> >On Mon, Jan 11, 2016 at 01:48:18PM +0000, Wang Nan wrote:
+> >>This patch introduces a PERF_SAMPLE_TAILSIZE flag which allows a size
+> >>field attached at the end of a sample. The idea comes from [1] that,
+> >>with tie size at tail of an event, it is possible for user program who
+> >>read from the ring buffer parse events backward.
+> >>
+> >>For example:
+> >>
+> >>    head
+> >>     |
+> >>     V
+> >>  +--+---+-------+----------+------+---+
+> >>  |E6|...|   B  8|   C    11|  D  7|E..|
+> >>  +--+---+-------+----------+------+---+
+> >>
+> >>In this case, from the 'head' pointer provided by kernel, user program
+> >>can first see '6' by (*(head - sizeof(u64))), then it can get the start
+> >>pointer of record 'E', then it can read size and find start position
+> >>of record D, C, B in similar way.
+> >adding extra 8 bytes for every sample is quite unfortunate.
+> >How about another idea:
+> >. update data_tail pointer when head is about to overwrite it
+> >
+> >Ex:
+> >    head   data_tail
+> >     |       |
+> >     V       V
+> >  +--+-------+-------+---+----+---+
+> >  |E |  ...  |   B   | C |  D | E |
+> >  +--+-------+-------+---+----+---+
+> >
+> >if new sample F is about to overwrite B, the kernel would need
+> >to read the size of B from B's header and update data_tail to point C.
+> >Or even further.
+> >Comparing to TAILSIZE approach, now kernel will be doing both reads
+> >and writes into ring-buffer and there is a concern that reads may
+> >be hitting cold data, but if the records are small they may be
+> >actually on the same cache line brought by the previous
+> >read A's header, write E record cycle. So I think we shouldn't see
+> >cache misses.
+> 
+> After ring buffer rewind, we need a read before nearly
+> every write operations. The performance penalty depends on
+> configuration of write allocate. In addition, another data
+> dependency is required: we must wait for the size of
+> event B is retrived before overwrite it.
+> 
+> Even in the very first try at 2013 in [1], reading from the ring
+> buffer is avoided. I don't think Peter changes his mind now.
+> 
+> >Another concern is validity of records stored. If user space messes
+> >with ring-buffer, kernel won't be able to move data_tail properly
+> >and would need to indicate that to userspace somehow.
+> >But memory saving of 8 bytes per record could be sizable
+> 
+> Yes. But I have already discussed with Peter on this in [2].
+> Last month I suggested:
+> 
+> <quote>
+> 
+>  1. If PERF_SAMPLE_SIZE is selected, we can avoid outputting the event
+>     size in header. Which eliminate extra space cost;
+> </quote>
+> 
+> However:
+> 
+> <quote>
+> 
+> That would mandate you always parse the stream backwards. Which seems
+> rather unfortunate. Also, no you cannot recoup the extra space, see the
+> alignment and size requirement.
 
-yes, for tools/biolatency pre-allocation is a win,
-but in many other cases we simply cannot pre-allocate all elements.
+hmm, in this kernel patch I see that you're adding 8 bytes for
+every record via this extra TAILSISZE flag and in perf you're
+walking the ring buffer backwards by reading this 8 byte
+sizes, comparing header sizes and so on until reaching beginning,
+where you start dumping it as normal.
+So for this 'signal to perf' approach to work the ring buffer
+will contain tailsizes everywhere just so that user space can
+find the beginning. That's not very pretty. imo if kernel
+can do header read to adjust data_tail it would make user
+space side clean. May be there are other solutions.
+Adding tailsize seems like brute force hack.
+There must be some nicer way.
