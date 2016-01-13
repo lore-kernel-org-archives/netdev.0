@@ -1,52 +1,37 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH] net: add per device sg_max_frags for skb
-Date: Wed, 13 Jan 2016 07:44:26 -0800
-Message-ID: <CANn89iLabW-Bz7DuECB8PjtbzqYPhxKmYSO3Mj5yPy2-046h5A@mail.gmail.com>
-References: <568FA1E5.7060204@stressinduktion.org>
-	<569657D8.1020807@oracle.com>
-	<CANn89iJtB1qJCbBWUTXFo2LRWobQe6aDFb_KEWUhBNiZCNpdWA@mail.gmail.com>
-	<20160113.103825.475570791449704545.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: nft_ct: mark nft_ct_get_eval_counter
+ __maybe_unused
+Date: Wed, 13 Jan 2016 16:54:24 +0100
+Message-ID: <20160113155424.GA1581@salvia>
+References: <6200241.eeH6DHXzHj@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Laight <David.Laight@aculab.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Salam Noureddine <noureddine@arista.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Julian Anastasov <ja@ssi.bg>,
-	Ying Xue <ying.xue@windriver.com>,
-	Craig Gallek <kraig@google.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160113.103825.475570791449704545.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Florian Westphal <fw@strlen.de>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <6200241.eeH6DHXzHj@wuerfel>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 13, 2016 at 7:38 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> Date: Wed, 13 Jan 2016 06:19:11 -0800
->
->> 2) TCP stack has coalescing support. write(2) or sendmsg(2) should
->> append data into the last skb in write queue, and still use 32 KB
->> frags.
->
-> Another way to get pathological SKBs is to do lots of tiny sendpage()
-> calls over discontiguous areas of the file.
+On Wed, Jan 13, 2016 at 02:58:11PM +0100, Arnd Bergmann wrote:
+> The newly added nft_ct_get_eval_counter() function is only used when
+> CONFIG_NF_CONNTRACK_LABELS is set, otherwise gcc warns about the
+> unused definition:
+> 
+> netfilter/nft_ct.c:34:12: warning: 'nft_ct_get_eval_counter' defined but not used [-Wunused-function]
+>  static u64 nft_ct_get_eval_counter(const struct nf_conn_counter *c,
+> 
+> This marks the function __maybe_unused to shut up the warning.
 
-Yes, this was what I mentioned in the following sentence.
-"You get pathological skb when using sendpage() or ..."
+It seems that function doesn't below to CONFIG_NF_CONNTRACK_LABELS as
+it is part of the new counter support. Will be sending an alternate
+patch instead.
+
+Thanks anyway for your patch Arnd.
