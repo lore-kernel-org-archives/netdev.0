@@ -1,171 +1,176 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Fw: [virtio] CORRECTION: 15-day Public Review for Virtual I/O
- Device (VIRTIO) Version 1.0 - ends January 26th
-Date: Wed, 13 Jan 2016 09:43:14 +0100
-Message-ID: <20160113094314.479a8744.cornelia.huck@de.ibm.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: cxgb3 Chelsio S310 tx drops and latency
+Date: Wed, 13 Jan 2016 11:08:33 +0200
+Message-ID: <6f526b0e78afba5db1b39d70d6e39821@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Netdev <netdev@vger.kernel.org>,
+	Santosh Raspatur <santosh@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:59370 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932117AbcAMJPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 04:15:50 -0500
+Received: from hosting.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id 266C1481C86
+	for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 11:08:37 +0200 (EET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Let's forward this to the lists where the original message bounced due
-to html.
+Hi
 
-Begin forwarded message:
+I am trying to use Chelsio S310 on haproxy balancers and noticed 
+following problems:
 
-Date: Tue, 12 Jan 2016 09:49:01 -0500
-From: Chet Ensign <chet.ensign@oasis-open.org>
-To: tc-announce@lists.oasis-open.org, members@lists.oasis-open.org, virtio@lists.oasis-open.org, virtio-comment@lists.oasis-open.org
-Subject: [virtio] CORRECTION: 15-day Public Review for Virtual I/O Device (VIRTIO) Version 1.0 - ends January 26th
+1)Latency on load 2.5+ Gbps is going in spikes 10ms+. Comparing with 
+other vendors who is going to 7-8Gbps without problems.
+2)I see a lot of drops in qdisc queues, while comparing with other 
+vendors without drops on higher loads.
 
+I suspect it might be or problem of card or drivers, because i am doing 
+tests with similar cards from other vendor on same setup.
+CPU resources are fine, i am monitoring them with with mpstat -P ALL, 
+and cpufreq set to performance (always max freq on CPU).
 
-In last nights announcement of the public review for Virtual I/O Device
-(VIRTIO) Version 1.0, I stated that "This public review draft makes changes
-to Committee Specification 03. The changes are tracking in the red-line
-file at
-http://docs.oasis-open.org/virtio/virtio/v1.0/cs03/virtio-v1.0-cs03-diff.html."
-The correction location for the red-line file is
-http://docs.oasis-open.org/virtio/virtio/v1.0/csprd05/virtio-v1.0-csprd05-diff.html.
-My apologies to all for the error.
+Kernel 4.4 vanilla
 
-Best,
+HTTPS-VISP ~ # ethtool -i eth0
+driver: cxgb3
+version: 1.1.5-ko
+firmware-version: T 7.12.0 TP 1.1.0
+expansion-rom-version:
+bus-info: 0000:05:00.0
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: yes
+supports-register-dump: yes
+supports-priv-flags: no
 
-/chet
+Here is more details about my setup:
 
-On Mon, Jan 11, 2016 at 8:28 PM, Chet Ensign <chet.ensign@oasis-open.org>
-wrote:
+As far as i see i am having 2.5GT/s x8 PCI-Express established, i 
+checked and tried perftune.sh, it made no difference.
 
-> OASIS members and other interested parties,
->
-> The OASIS Virtual I/O Device (VIRTIO) TC members [1] have produced an
-> updated Committee Specification Draft (CSD) and submitted this
-> specification for 15-day public review:
->
-> Virtual I/O Device (VIRTIO) Version 1.0
-> Committee Specification Draft 05 / Public Review Draft 05
-> 29 October 2015
->
-> Specification Overview:
->
-> This document describes the specifications of the "virtio" family of
-> devices. These devices are found in virtual environments, yet by design
-> they are not all that different from physical devices, and this document
-> treats them as such. This allows the guest to use standard drivers and
-> discovery mechanisms.
->
-> The purpose of virtio and this specification is that virtual environments
-> and guests should have a straightforward, efficient, standard and
-> extensible mechanism for virtual devices, rather than boutique
-> per-environment or per-OS mechanisms.
->
-> Public Review Period:
->
-> The public review starts 12 January 2016 at 00:00 UTC and ends 26 January
-> 2016 at 11:59 UTC. This public review draft makes changes to Committee
-> Specification 03. The changes are tracking in the red-line file at
-> http://docs.oasis-open.org/virtio/virtio/v1.0/cs03/virtio-v1.0-cs03-diff.html.
->
->
-> This is an open invitation to comment. OASIS solicits feedback from
-> potential users, developers and others, whether OASIS members or not, for
-> the sake of improving the interoperability and quality of its technical
-> work.
->
-> URIs:
-> The prose specification document and related files are available here:
->
-> Editable source (Authoritative):
-> http://docs.oasis-open.org/virtio/virtio/v1.0/csprd05/tex/
->
-> HTML:
->
-> http://docs.oasis-open.org/virtio/virtio/v1.0/csprd05/virtio-v1.0-csprd05.html
->
->
-> PDF:
->
-> http://docs.oasis-open.org/virtio/virtio/v1.0/csprd05/virtio-v1.0-csprd05.pdf
->
-> Example Driver Listing:
-> http://docs.oasis-open.org/virtio/virtio/v1.0/csprd05/listings/
->
-> ZIP distribution files (complete):
->
-> For your convenience, OASIS provides a complete package of the prose
-> specification and related files in a ZIP distribution file. You can
-> download the ZIP file here:
->
->
-> http://docs.oasis-open.org/virtio/virtio/v1.0/csprd05/virtio-v1.0-csprd05.zip
->
-> Additional information about this specification and the VIRTIO TC may be
-> found on the TC's public home page located at:
->
-> http://www.oasis-open.org/committees/virtio/
->
-> Comments may be submitted to the TC by any person through the use of the
-> OASIS TC Comment Facility which can be accessed via the button labeled
-> "Send A Comment" at the top of the TC public home page, or directly at:
->
-> http://www.oasis-open.org/committees/comments/form.php?wg_abbrev=virtio
->
-> Feedback submitted by TC non-members for this work and for other work of
-> this TC is publicly archived and can be viewed at:
->
-> http://lists.oasis-open.org/archives/virtio-comment/
->
-> All comments submitted to OASIS are subject to the OASIS Feedback License,
-> which ensures that the feedback you provide carries the same obligations at
-> least as the obligations of the TC members. In connection with this public
-> review of 'Virtual I/O Device (VIRTIO) Version 1.0', we call your attention
-> to the OASIS IPR Policy [2] applicable especially [3] to the work of this
-> technical committee. All members of the TC should be familiar with this
-> document, which may create obligations regarding the disclosure and
-> availability of a member's patent, copyright, trademark and license rights
-> that read on an approved OASIS specification.
->
-> OASIS invites any persons who know of any such claims to disclose these if
-> they may be essential to the implementation of the above specification, so
-> that notice of them may be posted to the notice page for this TC's work.
->
-> ========== Additional references:
->
-> [1] OASIS Virtual I/O Device (VIRTIO) TC
-> http://www.oasis-open.org/committees/virtio/
->
-> [2] http://www.oasis-open.org/policies-guidelines/ipr
->
-> [3] http://www.oasis-open.org/committees/virtio/ipr.php
-> https://www.oasis-open.org/policies-guidelines/ipr#licensing_req
-> Non-Assertion Mode
->
-> --
->
-> /chet
-> ----------------
-> Chet Ensign
-> Director of Standards Development and TC Administration
-> OASIS: Advancing open standards for the information society
-> http://www.oasis-open.org
->
-> Primary: +1 973-996-2298
-> Mobile: +1 201-341-1393
->
+05:00.0 Ethernet controller: Chelsio Communications Inc S310-CR 10GbE 
+Single Port Adapter
+         Subsystem: Chelsio Communications Inc Device 0001
+         Physical Slot: 785
+         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
+ParErr+ Stepping- SERR+ FastB2B- DisINTx+
+         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+         Latency: 0, Cache Line Size: 32 bytes
+         Interrupt: pin A routed to IRQ 0
+         Region 0: Memory at 92800000 (64-bit, non-prefetchable) 
+[size=4K]
+         Region 2: Memory at 92000000 (64-bit, non-prefetchable) 
+[size=8M]
+         Region 4: Memory at 92801000 (64-bit, non-prefetchable) 
+[size=4K]
+         Expansion ROM at 92880000 [disabled] [size=512K]
+         Capabilities: [40] Power Management version 3
+                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA 
+PME(D0+,D1-,D2-,D3hot+,D3cold-)
+                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+         Capabilities: [48] MSI: Enable- Count=1/32 Maskable- 64bit+
+                 Address: 0000000000000000  Data: 0000
+         Capabilities: [58] Express (v2) Endpoint, MSI 00
+                 DevCap: MaxPayload 4096 bytes, PhantFunc 0, Latency L0s 
+<64ns, L1 <1us
+                         ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+                 DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ 
+Unsupported-
+                         RlxdOrd+ ExtTag+ PhantFunc- AuxPwr- NoSnoop+
+                         MaxPayload 256 bytes, MaxReadReq 512 bytes
+                 DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr- 
+TransPend-
+                 LnkCap: Port #0, Speed 2.5GT/s, Width x8, ASPM L0s L1, 
+Exit Latency L0s unlimited, L1 unlimited
+                         ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
+                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- CommClk+
+                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                 LnkSta: Speed 2.5GT/s, Width x8, TrErr- Train- SlotClk+ 
+DLActive- BWMgmt- ABWMgmt-
+                 DevCap2: Completion Timeout: Range ABC, TimeoutDis-, 
+LTR-, OBFF Not Supported
+                 DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-, 
+LTR-, OBFF Disabled
+                 LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- 
+SpeedDis-
+                          Transmit Margin: Normal Operating Range, 
+EnterModifiedCompliance- ComplianceSOS-
+                          Compliance De-emphasis: -6dB
+                 LnkSta2: Current De-emphasis Level: -6dB, 
+EqualizationComplete-, EqualizationPhase1-
+                          EqualizationPhase2-, EqualizationPhase3-, 
+LinkEqualizationRequest-
+         Capabilities: [94] Vital Product Data
+                 Unknown small resource type 00, will not decode more.
+         Capabilities: [9c] MSI-X: Enable+ Count=32 Masked-
+                 Vector table: BAR=4 offset=00000000
+                 PBA: BAR=4 offset=00000800
+         Capabilities: [100 v1] Device Serial Number 
+00-00-00-01-00-00-00-01
+         Capabilities: [300 v1] Advanced Error Reporting
+                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- 
+UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt+ 
+UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
+                 UESvrt: DLP+ SDES+ TLP+ FCP+ CmpltTO+ CmpltAbrt+ 
+UnxCmplt+ RxOF+ MalfTLP+ ECRC+ UnsupReq- ACSViol-
+                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- 
+NonFatalErr-
+                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- 
+NonFatalErr+
+                 AERCap: First Error Pointer: 14, GenCap+ CGenEn- ChkCap+ 
+ChkEn-
+         Kernel driver in use: cxgb3
 
+With uptime just 10 hours, over lowest load time:
 
-
--- 
-
-/chet
-----------------
-Chet Ensign
-Director of Standards Development and TC Administration
-OASIS: Advancing open standards for the information society
-http://www.oasis-open.org
-
-Primary: +1 973-996-2298
-Mobile: +1 201-341-1393
+BALANCER ~ # tc -s -d qdisc
+qdisc mq 0: dev eth0 root
+  Sent 3445096608552 bytes 2777441550 pkt (dropped 6509380, overlimits 0 
+requeues 1156)
+  backlog 0b 0p requeues 1156
+qdisc pfifo_fast 0: dev eth0 parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 428721781866 bytes 880919921 pkt (dropped 1403007, overlimits 0 
+requeues 243)
+  backlog 0b 0p requeues 243
+qdisc pfifo_fast 0: dev eth0 parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 429526790584 bytes 879237430 pkt (dropped 560836, overlimits 0 
+requeues 102)
+  backlog 0b 0p requeues 102
+qdisc pfifo_fast 0: dev eth0 parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 427233606632 bytes 882026985 pkt (dropped 1255127, overlimits 0 
+requeues 221)
+  backlog 0b 0p requeues 221
+qdisc pfifo_fast 0: dev eth0 parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 429138959430 bytes 882420516 pkt (dropped 914917, overlimits 0 
+requeues 164)
+  backlog 0b 0p requeues 164
+qdisc pfifo_fast 0: dev eth0 parent :5 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 435498527047 bytes 888437887 pkt (dropped 325962, overlimits 0 
+requeues 60)
+  backlog 0b 0p requeues 60
+qdisc pfifo_fast 0: dev eth0 parent :6 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 427458674980 bytes 881585256 pkt (dropped 610681, overlimits 0 
+requeues 113)
+  backlog 0b 0p requeues 113
+qdisc pfifo_fast 0: dev eth0 parent :7 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 435164189156 bytes 891730352 pkt (dropped 891579, overlimits 0 
+requeues 156)
+  backlog 0b 0p requeues 156
+qdisc pfifo_fast 0: dev eth0 parent :8 bands 3 priomap  1 2 2 2 1 2 0 0 
+1 1 1 1 1 1 1 1
+  Sent 432354080111 bytes 886050500 pkt (dropped 547271, overlimits 0 
+requeues 97)
