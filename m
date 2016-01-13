@@ -1,42 +1,49 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 0/2] 3c59x: Fix dma map/unmap imbalances
-Date: Wed, 13 Jan 2016 15:12:12 -0500
-Message-ID: <20160113201212.GA17915@hmsreliant.think-freely.org>
-References: <1452707034-16379-1-git-send-email-nhorman@tuxdriver.com>
- <20160113.145558.283872959731839457.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: dummy ethernet devices and sysfs
+Date: Wed, 13 Jan 2016 12:16:09 -0800
+Message-ID: <20160113121609.139af5a2@xeon-e3>
+References: <CAB_jBhhyNLeYSuOQUXPTtU3LaVdjXtD=jS0kuvMckDjyOz1Xzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Warren Turkal <wt@penguintechs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35300 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753304AbcAMUMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 15:12:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20160113.145558.283872959731839457.davem@davemloft.net>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34543 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757302AbcAMUQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 15:16:00 -0500
+Received: by mail-pa0-f48.google.com with SMTP id uo6so347761503pac.1
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 12:16:00 -0800 (PST)
+In-Reply-To: <CAB_jBhhyNLeYSuOQUXPTtU3LaVdjXtD=jS0kuvMckDjyOz1Xzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 13, 2016 at 02:55:58PM -0500, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Wed, 13 Jan 2016 12:43:52 -0500
-> 
-> > Hey all-
-> > 	recent enhancements to libdma revealed a few minor bugs in 3c59x, in
-> > which dma ranges were mapped as singles and unmaped as pages, or vice versa.
-> > These patches fix those up.  Tested by myself with success
-> 
-> Series applied, but there was trailing whitespace added in the second
-> patch which I had to fix up by hand.
-> 
-> Please be careful when copy&pasteing stuff. :)
-> 
+On Wed, 13 Jan 2016 11:58:01 -0800
+Warren Turkal <wt@penguintechs.org> wrote:
 
-Yeah, apologies, linville just pointed that out to me too.  This got reported on
-RHEL6 which I think has an old whitespacing style, and I think I missed some
-corrections that I should have made when I cherry picked it into an upstream
-kernel.  Sorry, I'll be more careful in the future.
+> Hi,
+> 
+> I was looking through sysfs today, and something interesting jumped
+> out at me after I loaded the dummy module.
+> 
+> This directory exists: /sys/class/net/wlp2s0/device/
+> 
+> This directory does not: /sys/class/net/dummy0/device/
+> 
+> I can find the module that is providing the wlp2s0 device with the following:
+> $ ls /sys/class/net/wlp2s0/device/driver/module/drivers/
+> pci:iwlwifi
+> 
+> Shouldn't dummy have something similar so that one can figure out
+> which module is providing the dummy0 device?
+> 
+> FWIW, I am running the latest Ubuntu 15.10 kernel (4.2.0-23-generic).
+> 
+> Thanks,
+> wt
 
-Best
-Neil
+If you look carefully at the /sys/class/net/wlp2s0/device/ you will
+see it is a symlink to the underlying /sys directory for the hardware (PCI)
+device.  Since dummy (and other virtual interfaces) have no hardware,
+there is no symlink.
