@@ -1,86 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: add per device sg_max_frags for skb
-Date: Wed, 13 Jan 2016 16:07:09 +0100
-Message-ID: <5696681D.4060002@stressinduktion.org>
-References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
- <568F87AC.60405@oracle.com> <568FA1E5.7060204@stressinduktion.org>
- <569657D8.1020807@oracle.com>
- <CANn89iJtB1qJCbBWUTXFo2LRWobQe6aDFb_KEWUhBNiZCNpdWA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] phonet: properly unshare skbs in phonet_rcv()
+Date: Wed, 13 Jan 2016 07:07:32 -0800
+Message-ID: <1452697652.1223.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <568EA671.7000502@gmail.com> <56929985.3020502@gmail.com>
+	 <1452457610.16445.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5694188F.80907@gmail.com>
+	 <CAO7SqHA9dNUDG+pYJoQvipE_ErM4Bgo0_o9er_OLxZLDgNVJ8Q@mail.gmail.com>
+	 <56944DFA.4050002@gmail.com>
+	 <1452560786.1223.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAO7SqHC+fTCyNd8ukSH4tJ1qPvAYzMGSfhrzXmMn0NLve6NTQA@mail.gmail.com>
+	 <1452565288.1223.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1452565515.1223.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5694A840.8030900@gmail.com>
+	 <1452608377.1223.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1452617880.1223.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <ba49c1524db476eab37647078cfeddcc@roundcube.remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Salam Noureddine <noureddine@arista.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Julian Anastasov <ja@ssi.bg>,
-	Ying Xue <ying.xue@windriver.com>,
-	Craig Gallek <kraig@google.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Edward Jee <edjee@google.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kerne
-To: Eric Dumazet <edumazet@google.com>,
-	Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iJtB1qJCbBWUTXFo2LRWobQe6aDFb_KEWUhBNiZCNpdWA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35937 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757214AbcAMPHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 10:07:34 -0500
+Received: by mail-pa0-f47.google.com with SMTP id yy13so267083809pab.3
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 07:07:33 -0800 (PST)
+In-Reply-To: <ba49c1524db476eab37647078cfeddcc@roundcube.remlab.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13.01.2016 15:19, Eric Dumazet wrote:
-> 1) There are no arch with 1K page sizes. Most certainly, if we had
-> MAX_SKB_FRAGS=65 some assumptions in the stack would fail.
->
-> 2) TCP stack has coalescing support. write(2) or sendmsg(2) should
-> append data into the last skb in write queue, and still use 32 KB
-> frags.
->      You get pathological skb when using sendpage() or when one thread
-> writes data into _multiple_ TCP sockets, since TCP stack uses
->      a per thread 32 KB reserve (
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=5640f7685831e088fe6c2e1f863a6805962f8e81
-> )
->
-> 2) As I said, implementing a limit in TCP stack is not enough. Your
-> patch is therefore adding complexity for all users, but is not a
-> general solution.
->
->     GRO, tun device, many things can still cook 'big skbs'
->
->      You need to properly implement a fallback, possibly using
-> ndo_features_check(), or directly from your ndo_start_xmit()
->
-> 3) We currently have a very dumb way to fallback, forcing a linearize
-> call, likely to fail if memory is fragmented and skb big.
->
->      You could instead provide a smart helper, trying to reduce the
-> number of frags in a skb by chosing adjacent frags and
-> re-allocating/merging them.
->
->      By choosing, I mean trying to pick smallest ones to minimize copy
-> cost, to get one skb with X less fragment. (X=1 in your case ?)
->
->     I know for example that bnx2x could benefit from such a helper, as
-> it has a 13 frags limits.
->     (bnx2x_pkt_req_lin(), called from bnx2x ndo_start_xmit()
+On Wed, 2016-01-13 at 14:26 +0200, R=C3=A9mi Denis-Courmont wrote:
+> Le 2016-01-12 18:58, Eric Dumazet a =C3=A9crit :
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Ivaylo Dimitrov reported a regression caused by commit 7866a621043f
+> > ("dev: add per net_device packet type chains").
+> >
+> > skb->dev becomes NULL and we crash in __netif_receive_skb_core().
+> >
+> > Before above commit, different kind of bugs or corruptions could=20
+> > happen
+> > without major crash.
+>=20
+> Hmm... was that always a problem then, or did it get introduced=20
+> earlier? I thought it was impossible for skb to be shared on PF-recv=20
+> callback way back.
 
-As I proposed, we could globally (or per netns) limit the maximum , I 
-think this would be okay and could be the best alternative to install 
-slow-paths which could be hit quite constantly.
+Always been a problem.
 
-Otherwise, the fallbacks like Eric proposed them are needed. I do not 
-see any other choice.
+Use tcpdump and you risk use after free.
 
-Thanks,
-Hannes
+Or simply panics if skb->head needs to be expanded.
+
+Other relevant commits to explain this :
+
+044453b3efdc90bdd5feffe74b99d95dec70ac43 arp: fix possible crash in
+arp_rcv()
+
+b30532515f0a62bfe17207ab00883dd262497006 bonding: Ensure that we unshar=
+e
+skbs prior to calling pskb_may_pull
