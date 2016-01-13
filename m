@@ -1,50 +1,50 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v4 2/3] can: sja1000: add documentation for Technologic Systems version
-Date: Wed, 13 Jan 2016 12:46:05 +0100
-Message-ID: <1452685566-27431-3-git-send-email-mkl@pengutronix.de>
-References: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org,
-	Damien Riegel <damien.riegel@savoirfairelinux.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+From: Weidong Wang <wangweidong1@huawei.com>
+Subject: [PATCH net-next v2] bgmac: fix a missing check for build_skb
+Date: Wed, 13 Jan 2016 19:53:07 +0800
+Message-ID: <56963AA3.2010804@huawei.com>
+References: <5695BF41.2040002@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Paolo Abeni <pabeni@redhat.com>
+To: David Miller <davem@davemloft.net>, <nbd@openwrt.org>,
+	<zajec5@gmail.com>, <hauke@hauke-m.de>,
+	Joe Perches <joe@perches.com>, <peter.senna@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5695BF41.2040002@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
+when build_skb failed, it may occur a NULL pointer.
+So add a 'NULL check' for it.
 
-This commit adds documentation for the Technologic Systems version of
-SJA1000. The difference with the NXP version is in the way the registers
-are accessed.
-
-Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
 ---
- Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+change log:
+v2:
+ fix the error logic change which pointed by Paolo Abni
+ and Felix.
 
-diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
-index b4a6d53fb01a..ac3160eca96a 100644
---- a/Documentation/devicetree/bindings/net/can/sja1000.txt
-+++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
-@@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
- 
- Required properties:
- 
--- compatible : should be "nxp,sja1000".
-+- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
- 
- - reg : should specify the chip select, address offset and size required
- 	to map the registers of the SJA1000. The size is usually 0x80.
-@@ -14,6 +14,7 @@ Optional properties:
- 
- - reg-io-width : Specify the size (in bytes) of the IO accesses that
- 	should be performed on the device.  Valid value is 1, 2 or 4.
-+	This property is ignored for technologic version.
- 	Default to 1 (8 bits).
- 
- - nxp,external-clock-frequency : Frequency of the external oscillator
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index c7798d3..3974152 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -466,6 +466,11 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			len -= ETH_FCS_LEN;
+
+ 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
++			if (unlikely(!skb)) {
++				bgmac_err(bgmac, "build_skb failed\n");
++				put_page(virt_to_head_page(buf));
++				break;
++			}
+ 			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
+ 				BGMAC_RX_BUF_OFFSET + len);
+ 			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
 -- 
-2.6.4
-
+1.9.0
