@@ -1,37 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nft_ct: mark nft_ct_get_eval_counter
- __maybe_unused
-Date: Wed, 13 Jan 2016 16:54:24 +0100
-Message-ID: <20160113155424.GA1581@salvia>
-References: <6200241.eeH6DHXzHj@wuerfel>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
+Date: Wed, 13 Jan 2016 11:01:15 -0500 (EST)
+Message-ID: <20160113.110115.616973869173347041.davem@davemloft.net>
+References: <564A129F.5060705@fastly.com>
+	<56941035.9040000@fastly.com>
+	<1452546688.1223.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Florian Westphal <fw@strlen.de>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6200241.eeH6DHXzHj@wuerfel>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gzhang@fastly.com, kernelorg@bof.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452546688.1223.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 13, 2016 at 02:58:11PM +0100, Arnd Bergmann wrote:
-> The newly added nft_ct_get_eval_counter() function is only used when
-> CONFIG_NF_CONNTRACK_LABELS is set, otherwise gcc warns about the
-> unused definition:
-> 
-> netfilter/nft_ct.c:34:12: warning: 'nft_ct_get_eval_counter' defined but not used [-Wunused-function]
->  static u64 nft_ct_get_eval_counter(const struct nf_conn_counter *c,
-> 
-> This marks the function __maybe_unused to shut up the warning.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 11 Jan 2016 13:11:28 -0800
 
-It seems that function doesn't below to CONFIG_NF_CONNTRACK_LABELS as
-it is part of the new counter support. Will be sending an alternate
-patch instead.
+> David, can you make sure ed2e923945892a8372ab70d2f61d364b0b6d9054 is
+> pushed to stable trees (4.1 & 4.2)
 
-Thanks anyway for your patch Arnd.
+It should definitely be there:
+
+[davem@localhost linux-stable]$ git shortlog v4.1.. -- include/net/inet_timewait_sock.h 
+David S. Miller (1):
+      Merge git://git.kernel.org/.../davem/net
+
+Eric Dumazet (4):
+      inet: simplify timewait refcounting
+      inet: inet_twsk_deschedule factorization
+      tcp/dccp: fix timewait races in timer handling
+      net: align sk_refcnt on 128 bytes boundary
+
+Raanan Avargil (1):
+      tcp/dccp: fix old style declarations
