@@ -1,56 +1,104 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
-Date: Wed, 13 Jan 2016 05:27:02 +0100
-Message-ID: <1452659222.2823039.490580066.3C283CF6@webmail.messagingengine.com>
-References: <1452641302.1223.35.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160112234707.GA36167@ast-mbp.thefacebook.com>
- <1452651098.1223.41.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160112.214315.2135966842775837844.davem@davemloft.net>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
+ by PERF_SAMPLE_TAILSIZE
+Date: Wed, 13 Jan 2016 12:34:19 +0800
+Message-ID: <5695D3CB.3030604@huawei.com>
+References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com> <1452520124-2073-28-git-send-email-wangnan0@huawei.com> <20160111180913.GA25950@ast-mbp.thefacebook.com> <56949028.2070208@huawei.com> <20160112061145.GA31444@ast-mbp.thefacebook.com> <5694F347.5010700@huawei.com> <20160112195641.GA34601@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, rabin@rab.in,
-	netdev@vger.kernel.org, ast@kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:57180 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753474AbcAME1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 23:27:04 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 3A08B20C1D
-	for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 23:27:03 -0500 (EST)
-In-Reply-To: <20160112.214315.2135966842775837844.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <acme@kernel.org>, <linux-kernel@vger.kernel.org>,
+	<pi3orama@163.com>, <lizefan@huawei.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, Adrian Hunter <adrian.hunter@intel.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Ahern <dsahern@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Yunlong Song <yunlong.song@huawei.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160112195641.GA34601@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 13, 2016, at 03:43, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 12 Jan 2016 18:11:38 -0800
-> 
-> > As I said, it is possible some guys never noticed their BPF program
-> > were 'broken' because this invalid shift was hidden in a dead code
-> > part.
-> 
-> We should not hide bugs and unintended uses of operations with
-> undefined behavior.
 
-The term 'undefined behavior' is defined in terms of the C
-specification. We tend to implement the BPF interpreter with C in the
-kernel, so we get in contact with that, but BPF programs were mostly
-written by hand in BPF assembler or by generators. So the term
-'undefined behavior' seems not to be fitting well here. As pointed out
-BPF sadly does rely on some specific processors ISAs but not on the C
-specification. This also is an advantage as otherwise the JITs would
-need to handle all those invalid shifts at runtime and generate checking
-code.
 
-I think it makes sense to adapt BPF towards the the ISAs or in case of
-the interpreter, towards gcc behavior (which sadly can change, too).
-ISAs describe the behavior quite strict what the CPUs do in case of a
-variable shift operand that is larger than the register bit size is
-applied.
+On 2016/1/13 3:56, Alexei Starovoitov wrote:
+> On Tue, Jan 12, 2016 at 08:36:23PM +0800, Wangnan (F) wrote:
+>>> hmm, in this kernel patch I see that you're adding 8 bytes for
+>>> every record via this extra TAILSISZE flag and in perf you're
+>>> walking the ring buffer backwards by reading this 8 byte
+>>> sizes, comparing header sizes and so on until reaching beginning,
+>>> where you start dumping it as normal.
+>>> So for this 'signal to perf' approach to work the ring buffer
+>>> will contain tailsizes everywhere just so that user space can
+>>> find the beginning. That's not very pretty. imo if kernel
+>>> can do header read to adjust data_tail it would make user
+>>> space side clean. May be there are other solutions.
+>>> Adding tailsize seems like brute force hack.
+>>> There must be some nicer way.
+>> Hi Peter,
+>>
+>>   What's your opinion? Should we reconsider moving size field from header the
+>> end?
+>> Or moving whole header to the end of a record?
+> I think moving the whole header under new TAILHEADER flag is
+> actually very good idea. The ring buffer will be fully utilized
+> and no extra bytes necessary. User space would need to parse it
+> backwards, but for this use case it fits well.
 
-Bye,
-Hannes
+I have another crazy suggestion: can we make kernel writing to
+the ring buffer from the end to the beginning? For example:
+
+This is the initial state of the ring buffer, head pointer
+pointes to the end of it:
+
+       -------------> Address increase
+
+                                     head
+                                       |
+                                       V
+  +--+---+-------+----------+------+---+
+  |                                    |
+  +--+---+-------+----------+------+---+
+
+
+Write the first event at the end of the ring buffer, and *decrease*
+the head pointer:
+
+                                 head
+                                   |
+                                   V
+  +--+---+-------+----------+------+---+
+  |                                | A |
+  +--+---+-------+----------+------+---+
+
+
+Another record:
+                           head
+                            |
+                            V
+  +--+---+-------+----------+------+---+
+  |                         |   B  | A |
+  +--+---+-------+----------+------+---+
+
+
+Ring buffer rewind, A is fully overwritten and B is broken:
+
+                                head
+                                  |
+                                  V
+  +--+---+-------+----------+-----+----+
+  |F | E |   D   | C        | ... | F  |
+  +--+---+-------+----------+-----+----+
+
+At this time user can parse the ring buffer normally from
+F to C. From timestamp in it he know which one is the
+oldest.
+
+By this perf don't need too much extra work to do. There's no
+performance penalty at all, and the 8 bytes are saved.
+
+Thought?
+
+Thank you.
