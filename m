@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 06/12] net: sched: support qdisc_reset on NOLOCK qdisc
-Date: Wed, 13 Jan 2016 10:03:54 -0800
-Message-ID: <5696918A.5000005@gmail.com>
-References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>	<20151230175313.26257.46445.stgit@john-Precision-Tower-5810> <20160113.112016.995229320622519258.davem@davemloft.net>
+Subject: Re: [RFC PATCH 09/12] net: sched: pfifo_fast use alf_queue
+Date: Wed, 13 Jan 2016 10:18:09 -0800
+Message-ID: <569694E1.6000109@gmail.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>	<20151230175420.26257.868.stgit@john-Precision-Tower-5810> <20160113.112459.133519495867760481.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -11,61 +11,66 @@ Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33315 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754507AbcAMSEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 13:04:13 -0500
-Received: by mail-pa0-f66.google.com with SMTP id pv5so28314927pac.0
-        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 10:04:13 -0800 (PST)
-In-Reply-To: <20160113.112016.995229320622519258.davem@davemloft.net>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35275 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753060AbcAMSSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 13:18:24 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 65so6355705pff.2
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 10:18:24 -0800 (PST)
+In-Reply-To: <20160113.112459.133519495867760481.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-13 08:20 AM, David Miller wrote:
+On 16-01-13 08:24 AM, David Miller wrote:
 > From: John Fastabend <john.fastabend@gmail.com>
-> Date: Wed, 30 Dec 2015 09:53:13 -0800
+> Date: Wed, 30 Dec 2015 09:54:20 -0800
 > 
->>  case 2: dev_deactivate sequence. This can come from a user bringing
->> 	 the interface down which causes the gso_skb list to be flushed
->> 	 and the qlen zero'd. At the moment this is protected by the
->> 	 qdisc lock so while we clear the qlen/gso_skb fields we are
->> 	 guaranteed no new skbs are added. For the lockless case
->> 	 though this is not true. To resolve this move the qdisc_reset
->> 	 call after the new qdisc is assigned and a grace period is
->> 	 exercised to ensure no new skbs can be enqueued. Further
->> 	 the RTNL lock is held so we can not get another call to
->> 	 activate the qdisc while the skb lists are being free'd.
->>
->> 	 Finally, fix qdisc_reset to handle the per cpu stats and
->> 	 skb lists.
+>> This also removes the logic used to pick the next band to dequeue
+>> from and instead just checks each alf_queue for packets from
+>> top priority to lowest. This might need to be a bit more clever
+>> but seems to work for now.
 > 
-> Just wanted to note that some setups are sensitive to device
-> register/deregister costs.  This is why we batch register and
-> unregister operations in the core, so that the RCU grace period
-> is consolidated into one when we register/unregister a lot of
-> net devices.
-> 
-> If we now will incur a new per-device unregister RCU grace period
-> when the qdisc is destroyed, it could cause a regression.
+> I suspect we won't need to be more clever, there's only 3 bands
+> after all and the head/tail tests should be fast enough.
 > 
 
-It adds a synchronize_net in the error case for many users of
-unregister_netdevice(). I think this should be rare and I believe
-its OK to add the extra sync net in these cases. For example this
-may happen when we try to add a tunnel and __dev_get_by_name() fails.
-But if your worried about bring up, tear down performance I think you
-should be using ifindex numbers and also not fat fingering dev
-names on the cli.
+Even with alf_dequeue operation dequeueing a single skb at a time and
+iterating over the bands as I did here I see a perf improvement
+on my desktop here,
 
-Also there are a few drivers still doing their own walking of lists
-and calling unregister_netdevice() directly instead of the better
-APIs like unregister_netdevice_queue() and friends. I can patch these
-drivers if that helps its a mechanical change but I'm not super
-excited about testing things like the caif driver ;)
+threads 	     mq + pfifo_fast
 
-Further just looking at it now there are three calls to sync net in
-the dev down paths. It seems we should be able to remove at least one
-of those if we re-organize the tear down a bit better. But that is
-another patch series.
+		before		after
+
+1		1.70 Mpps	 2.00 Mpps
+2		3.15 Mpps	 3.90 Mpps
+4		4.70 Mpps	 6.98 Mpps
+8		9.57 Mpps	11.62 Mpps
+
+This is using my pktgen patch previously posted and bulking set to
+0 in both cases. This doesn't really say anything about the contention
+cases, etc so I'll do some more testing before the merge window opens.
+Also my kernel isn't really optimized I had some of the kernel hacking
+stuff enabled, etc. It at least looks promising though and dequeueing
+more than a single skb out of pfifo_fast should help.
+
+Something like,
+
+static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
+{
+        struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
+        struct sk_buff *skb[8+1];
+        int band, n = 0, i;
+
+        skb[0] = NULL;
+
+        for (band = 0; band < PFIFO_FAST_BANDS && !skb[0]; band++) {
+                struct alf_queue *q = band2list(priv, band);
+
+                if (alf_queue_empty(q))
+                        continue;
+
+                n = alf_mc_dequeue(q, skb, 8); <-- 4, 8, or something
+        }
 
 .John
