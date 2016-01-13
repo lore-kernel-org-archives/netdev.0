@@ -1,75 +1,114 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
- skb_copy_and_csum_datagram_iovec()
-Date: Wed, 13 Jan 2016 11:02:00 +0000
-Message-ID: <1452682920.7020.32.camel@decadent.org.uk>
-References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
-	 <568BF0FD.4010208@suse.cz> <1452012008.2768.82.camel@decadent.org.uk>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v3 1/3] can: sja1000: of: add per-compatible init hook
+Date: Wed, 13 Jan 2016 12:21:14 +0100
+Message-ID: <5696332A.7000806@pengutronix.de>
+References: <1452637880-9922-1-git-send-email-damien.riegel@savoirfairelinux.com>
+ <1452637880-9922-2-git-send-email-damien.riegel@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Sf0MV9uOeDoodPh9/bMQ"
-Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
-To: Jiri Slaby <jslaby@suse.cz>, Michal Kubecek <mkubecek@suse.cz>,
-	stable@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35876 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933470AbcAMLCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 06:02:09 -0500
-In-Reply-To: <1452012008.2768.82.camel@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="cu1WxPemPHpn1d3XokeNNgEICuPQOV6P9"
+Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	kernel@savoirfairelinux.com
+To: Damien Riegel <damien.riegel@savoirfairelinux.com>,
+	linux-kernel@vger.kernel.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1452637880-9922-2-git-send-email-damien.riegel@savoirfairelinux.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-Sf0MV9uOeDoodPh9/bMQ
-Content-Type: text/plain; charset="UTF-8"
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--cu1WxPemPHpn1d3XokeNNgEICuPQOV6P9
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2016-01-05 at 16:40 +0000, Ben Hutchings wrote:
-> On Tue, 2016-01-05 at 17:36 +0100, Jiri Slaby wrote:
-> > On 12/28/2015, 03:01 PM, Michal Kubecek wrote:
-> > > Recent fix "net: add length argument to
-> > > skb_copy_and_csum_datagram_iovec" added to some pre-3.19 stable
-> > > branches, namely
-> > >=20
-> > > =C2=A0 stable-3.2.y: commit 127500d724f8
-> > > =C2=A0 stable-3.12.y: commit 3e1ac3aafbd0
-> >=20
-> > Applied this fix to 3.12. Thanks!
-> [...]
+On 01/12/2016 11:31 PM, Damien Riegel wrote:
+> This commit adds the capability to allocate and init private data
+> embedded in the sja1000_priv structure on a per-compatible basis. The
+> device node is passed as a parameter of the init callback to allow
+> parsing of custom device tree properties.
 >=20
-> You don't want this, you want Eric's fix (commit 197c949e7, "udp:
-> properly support MSG_PEEK with truncated buffers") although that's not
-> upstream yet.
+> Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
+> ---
+>  drivers/net/can/sja1000/sja1000_platform.c | 28 +++++++++++++++++++++-=
+------
+>  1 file changed, 21 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/c=
+an/sja1000/sja1000_platform.c
+> index 0552ed4..ea4e18b 100644
+> --- a/drivers/net/can/sja1000/sja1000_platform.c
+> +++ b/drivers/net/can/sja1000/sja1000_platform.c
+> @@ -40,6 +40,11 @@ MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on=
+ the platform bus");
+>  MODULE_ALIAS("platform:" DRV_NAME);
+>  MODULE_LICENSE("GPL v2");
+> =20
+> +struct sja1000_of_data {
+> +	size_t  priv_sz;
+> +	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
+> +};
+> +
+>  static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
+>  {
+>  	return ioread8(priv->reg_base + reg);
+> @@ -154,6 +159,12 @@ static void sp_populate_of(struct sja1000_priv *pr=
+iv, struct device_node *of)
+>  		priv->cdr |=3D CDR_CBP; /* default */
+>  }
+> =20
+> +static const struct of_device_id sp_of_table[] =3D {
+> +	{.compatible =3D "nxp,sja1000"},
+> +	{},
+> +};
+> +MODULE_DEVICE_TABLE(of, sp_of_table);
+> +
+>  static int sp_probe(struct platform_device *pdev)
+>  {
+>  	int err, irq =3D 0;
+> @@ -163,6 +174,9 @@ static int sp_probe(struct platform_device *pdev)
+>  	struct resource *res_mem, *res_irq =3D NULL;
+>  	struct sja1000_platform_data *pdata;
+>  	struct device_node *of =3D pdev->dev.of_node;
+> +	const struct of_device_id *id =3D of_match_node(sp_of_table, of);
 
-It's now upstream as commit 197c949e7798fbf28cfadc69d9ca0c2abbf93191.
+Have you tested this with of =3D=3D NULL? I think it should work as
+__of_find_property returns NULL if np is NULL.
 
-Ben.
+> +	const struct sja1000_of_data *of_data =3D id ? id->data : NULL;=20
+> +	size_t priv_sz =3D of_data ? of_data->priv_sz : 0;=20
+
+I've move the code a bit around to get rid of the ? operator. I'll send
+a new series.
+
+Marc
 
 --=20
-Ben Hutchings
-Unix is many things to many people,
-but it's never been everything to anybody.
---=-Sf0MV9uOeDoodPh9/bMQ
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--cu1WxPemPHpn1d3XokeNNgEICuPQOV6P9
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
 
-iQIVAwUAVpYuqOe/yOyVhhEJAQoahw//eIAEW9vkbPzAT3gMmtdlcRAdQWmHUZZf
-l7dPH9zVxzqeKJHiP1Z40h2j3LikkSjk/mRCFx/AZtIuPqzbbJY7smEYeT9Cyk22
-DZ5k6SmoMXATha40kw7rm2/SDzwONaR98Kn24IllQ78QQ6OOsDIXZ8mEDzRaDjAd
-BY7VUSrVIB1OmZsl+YPtyaXCAY1BPA4EuHIWCsyyxgAKL/rq7zoTZ4RDO3EjHHG0
-oYlvNFYjZC3hdQ6D8xUUmBvsJw5QK7OoWNM1Gzt8X6FqvyxOrmTBb+m04dAzVC99
-mA7p0qAOVg2v/ahnv+FwCXL3NASC3RxA3tuFfvEJqoDTOXpgbJsb717MFak5DJlK
-ZtemJfLJOVYYoul+8HURiLqYBNMhKHXEHbdruX720FNJVKa6bSo6ynp3l2NW5Wzr
-NfpNx7MOdVGaakbkOuo3UEpONu2eedJQ0swtyQYi7lIQd4izOddzQT8rm+CJx0XV
-A9pP9eBy+K78h0QEmbUdk4m4+XaA/h9+KHgiQT63Z95EVbhioM7yM4oiX6YFDPaC
-NK+duFYDfp3cf7DKfJxJLp+bEjtPr1ZcccZybLoBhmFAo+9j/0W0hNN9BNk0NCCR
-sDZoUq9zGMPqM4gEuCNHo/7Qi2uP1iyRM2PfPuMnSW8Tv1gKj/MpHo/hOdOUvY68
-KaTW8R7XN2w=
-=SFLF
+iQEcBAEBCgAGBQJWljMqAAoJEP5prqPJtc/HEZAH/3i6awwRyDUPx2om9kPDWzJq
+yFz6jvMVEYJutFEW/QGunn/U/P8C7XLw76BL70C5pk0FiEN6LkFW6MEA/7n+w/Y4
+oC5WiXi7JNmtj+qaw/rSVnt3Fb9UPFRmuljoByFYYP7+2zV6f60v95CNbfuv7kQC
+44KMzzvC7GheO31+MYTleWN4o1rfv/kCqclrwVzQU1XQ+oSXEOSNocan2WWqcU5a
+wc/uOZUBhMuAX3ZH4QyHkM/XBrUJI+z9+pUClyteeIw6dhVhQeFJUVpKsdaNtYj3
+4XCNBWPjVX31H6eYVzLl6ldbi86dM62ZVcRwyR0dRM3e/QdpIO7W6+mRBX8oPTA=
+=sKDN
 -----END PGP SIGNATURE-----
 
---=-Sf0MV9uOeDoodPh9/bMQ--
+--cu1WxPemPHpn1d3XokeNNgEICuPQOV6P9--
