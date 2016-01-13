@@ -1,7 +1,7 @@
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [PATCH v6 1/9] Add cycles to nanoseconds translation
-Date: Wed, 13 Jan 2016 04:12:21 -0800
-Message-ID: <1452687149-11281-2-git-send-email-christopher.s.hall@intel.com>
+Subject: [PATCH v6 5/9] Add timekeeping snapshot code capturing system time and counter
+Date: Wed, 13 Jan 2016 04:12:25 -0800
+Message-ID: <1452687149-11281-6-git-send-email-christopher.s.hall@intel.com>
 References: <1452687149-11281-1-git-send-email-christopher.s.hall@intel.com>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	x86@kernel.org, linux-kernel@vger.kernel.org,
@@ -9,73 +9,103 @@ Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	kevin.b.stanton@intel.com
 To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
 	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16629 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752970AbcAMTSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jan 2016 14:18:40 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1452687149-11281-1-git-send-email-christopher.s.hall@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The timekeeping code does not currently provide a way to translate
-externally provided clocksource cycles to system time. The cycle count
-is always provided by the result clocksource read() method internal to
-the timekeeping code. The added function timekeeping_cycles_to_ns()
-calculated a nanosecond value from a cycle count that can be added to
-tk_read_base.base value yielding the current system time. This allows
-clocksource cycle values external to the timekeeping code to provide a
-cycle count that can be transformed to system time.
+In the current timekeeping code there isn't any interface to
+atomically capture the current relationship between the system counter
+and system time. ktime_get_snapshot() returns this triple (counter,
+monotonic raw, realtime) in the system_time_snapshot struct.
 
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
 ---
- kernel/time/timekeeping.c | 24 ++++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
+ include/linux/clocksource.h | 13 +++++++++++++
+ include/linux/timekeeping.h |  6 ++++++
+ kernel/time/timekeeping.c   | 31 +++++++++++++++++++++++++++++++
+ 3 files changed, 50 insertions(+)
 
+diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
+index 726ca68..cccbd1c 100644
+--- a/include/linux/clocksource.h
++++ b/include/linux/clocksource.h
+@@ -281,4 +281,17 @@ struct correlated_cs {
+ 					   cycle_t cycles);
+ };
+ 
++/*
++ * struct system_time_snapshot - simultaneous raw/real time capture with
++ *	counter value
++ * @cycles:	Clocksource counter value to produce the system times
++ * @real:	Realtime system time
++ * @raw:	Monotonic raw system time
++ */
++struct system_time_snapshot {
++	cycles_t	cycles;
++	ktime_t		real;
++	ktime_t		raw;
++};
++
+ #endif /* _LINUX_CLOCKSOURCE_H */
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 2651e0a..f5fe657 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -301,6 +301,12 @@ struct sync_device_time_cb {
+ extern int get_device_system_crosststamp(struct sync_device_time_cb *cb,
+ 					 struct system_device_crosststamp *ts);
+ 
++struct system_time_snapshot;
++/*
++ * Simultaneously snapshot realtime and monotonic raw clocks
++ */
++extern void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot);
++
+ /*
+  * Persistent clock related interfaces
+  */
 diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index d563c19..3f127dd 100644
+index 84534f8..26049df 100644
 --- a/kernel/time/timekeeping.c
 +++ b/kernel/time/timekeeping.c
-@@ -298,13 +298,11 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
- static inline u32 arch_gettimeoffset(void) { return 0; }
- #endif
- 
--static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
-+static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
-+					  cycle_t delta)
- {
--	cycle_t delta;
- 	s64 nsec;
- 
--	delta = timekeeping_get_delta(tkr);
--
- 	nsec = delta * tkr->mult + tkr->xtime_nsec;
- 	nsec >>= tkr->shift;
- 
-@@ -312,6 +310,24 @@ static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
- 	return nsec + arch_gettimeoffset();
+@@ -862,6 +862,37 @@ time64_t ktime_get_real_seconds(void)
  }
+ EXPORT_SYMBOL_GPL(ktime_get_real_seconds);
  
-+static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
++/**
++ * ktime_get_snapshot - snapshots the realtime/monotonic raw clocks with counter
++ * @systime_snapshot:	pointer to struct receiving the system time snapshot
++ */
++void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
 +{
-+	cycle_t delta;
++	struct timekeeper *tk = &tk_core.timekeeper;
++	unsigned long seq;
++	ktime_t base_raw;
++	ktime_t base_real;
++	s64 nsec_raw;
++	s64 nsec_real;
++	cycle_t now;
 +
-+	delta = timekeeping_get_delta(tkr);
-+	return timekeeping_delta_to_ns(tkr, delta);
++	do {
++		seq = read_seqcount_begin(&tk_core.seq);
++
++		now = tk->tkr_mono.read(tk->tkr_mono.clock);
++		base_real = ktime_add(tk->tkr_mono.base,
++				      tk_core.timekeeper.offs_real);
++		base_raw = tk->tkr_raw.base;
++		nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono, now);
++		nsec_raw  = timekeeping_cycles_to_ns(&tk->tkr_raw, now);
++	} while (read_seqcount_retry(&tk_core.seq, seq));
++
++	systime_snapshot->cycles = now;
++	systime_snapshot->real = ktime_add_ns(base_real, nsec_real);
++	systime_snapshot->raw = ktime_add_ns(base_raw, nsec_raw);
 +}
++EXPORT_SYMBOL_GPL(ktime_get_snapshot);
 +
-+static inline s64 timekeeping_cycles_to_ns(struct tk_read_base *tkr,
-+					    cycle_t cycles)
-+{
-+	cycle_t delta;
-+
-+	/* calculate the delta since the last update_wall_time */
-+	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
-+	return timekeeping_delta_to_ns(tkr, delta);
-+}
-+
+ #ifdef CONFIG_NTP_PPS
+ 
  /**
-  * update_fast_timekeeper - Update the fast and NMI safe monotonic timekeeper.
-  * @tkr: Timekeeping readout base from which we take the update
 -- 
 2.1.4
