@@ -1,84 +1,71 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 2/2] batman-adv: Fix list removal of batadv_hardif_neigh_node
-Date: Thu, 14 Jan 2016 01:51:54 +0800
-Message-ID: <1452707514-5091-3-git-send-email-a__20275.9146727205$1452707686$gmane$org@unstable.cc>
-References: <1452707514-5091-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <a@unstable.cc>
-To: davem@davemloft.net
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 06/12] net: sched: support qdisc_reset on NOLOCK qdisc
+Date: Wed, 13 Jan 2016 10:03:54 -0800
+Message-ID: <5696918A.5000005@gmail.com>
+References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>	<20151230175313.26257.46445.stgit@john-Precision-Tower-5810> <20160113.112016.995229320622519258.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
+	aduyck@mirantis.com, brouer@redhat.com, john.r.fastabend@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:15301 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932472AbcAMRyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jan 2016 12:54:07 -0500
-In-Reply-To: <1452707514-5091-1-git-send-email-a@unstable.cc>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33315 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754507AbcAMSEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 13:04:13 -0500
+Received: by mail-pa0-f66.google.com with SMTP id pv5so28314927pac.0
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 10:04:13 -0800 (PST)
+In-Reply-To: <20160113.112016.995229320622519258.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+On 16-01-13 08:20 AM, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Wed, 30 Dec 2015 09:53:13 -0800
+> 
+>>  case 2: dev_deactivate sequence. This can come from a user bringing
+>> 	 the interface down which causes the gso_skb list to be flushed
+>> 	 and the qlen zero'd. At the moment this is protected by the
+>> 	 qdisc lock so while we clear the qlen/gso_skb fields we are
+>> 	 guaranteed no new skbs are added. For the lockless case
+>> 	 though this is not true. To resolve this move the qdisc_reset
+>> 	 call after the new qdisc is assigned and a grace period is
+>> 	 exercised to ensure no new skbs can be enqueued. Further
+>> 	 the RTNL lock is held so we can not get another call to
+>> 	 activate the qdisc while the skb lists are being free'd.
+>>
+>> 	 Finally, fix qdisc_reset to handle the per cpu stats and
+>> 	 skb lists.
+> 
+> Just wanted to note that some setups are sensitive to device
+> register/deregister costs.  This is why we batch register and
+> unregister operations in the core, so that the RCU grace period
+> is consolidated into one when we register/unregister a lot of
+> net devices.
+> 
+> If we now will incur a new per-device unregister RCU grace period
+> when the qdisc is destroyed, it could cause a regression.
+> 
 
-The neigh_list with batadv_hardif_neigh_node objects is accessed with only
-rcu_read_lock in batadv_hardif_neigh_get and batadv_iv_neigh_print. Thus it
-is not allowed to kfree the object before the rcu grace period ends (which
-may still protects context accessing this object). Therefore the object has
-first to be removed from the neigh_list and then it has either wait with
-synchronize_rcu or call_rcu till the grace period ends before it can be
-freed.
+It adds a synchronize_net in the error case for many users of
+unregister_netdevice(). I think this should be rare and I believe
+its OK to add the extra sync net in these cases. For example this
+may happen when we try to add a tunnel and __dev_get_by_name() fails.
+But if your worried about bring up, tear down performance I think you
+should be using ifindex numbers and also not fat fingering dev
+names on the cli.
 
-Fixes: cef63419f7db ("batman-adv: add list of unique single hop neighbors per hard-interface")
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
----
- net/batman-adv/originator.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
+Also there are a few drivers still doing their own walking of lists
+and calling unregister_netdevice() directly instead of the better
+APIs like unregister_netdevice_queue() and friends. I can patch these
+drivers if that helps its a mechanical change but I'm not super
+excited about testing things like the caif driver ;)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 3c782a33bdac..ae6d18cafc5a 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -211,10 +211,6 @@ static void batadv_hardif_neigh_free_rcu(struct rcu_head *rcu)
- 
- 	hardif_neigh = container_of(rcu, struct batadv_hardif_neigh_node, rcu);
- 
--	spin_lock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
--	hlist_del_init_rcu(&hardif_neigh->list);
--	spin_unlock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
--
- 	batadv_hardif_free_ref_now(hardif_neigh->if_incoming);
- 	kfree(hardif_neigh);
- }
-@@ -227,8 +223,13 @@ static void batadv_hardif_neigh_free_rcu(struct rcu_head *rcu)
- static void
- batadv_hardif_neigh_free_now(struct batadv_hardif_neigh_node *hardif_neigh)
- {
--	if (atomic_dec_and_test(&hardif_neigh->refcount))
-+	if (atomic_dec_and_test(&hardif_neigh->refcount)) {
-+		spin_lock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
-+		hlist_del_init_rcu(&hardif_neigh->list);
-+		spin_unlock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
-+
- 		batadv_hardif_neigh_free_rcu(&hardif_neigh->rcu);
-+	}
- }
- 
- /**
-@@ -238,8 +239,13 @@ batadv_hardif_neigh_free_now(struct batadv_hardif_neigh_node *hardif_neigh)
-  */
- void batadv_hardif_neigh_free_ref(struct batadv_hardif_neigh_node *hardif_neigh)
- {
--	if (atomic_dec_and_test(&hardif_neigh->refcount))
-+	if (atomic_dec_and_test(&hardif_neigh->refcount)) {
-+		spin_lock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
-+		hlist_del_init_rcu(&hardif_neigh->list);
-+		spin_unlock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
-+
- 		call_rcu(&hardif_neigh->rcu, batadv_hardif_neigh_free_rcu);
-+	}
- }
- 
- /**
--- 
-2.7.0
+Further just looking at it now there are three calls to sync net in
+the dev down paths. It seems we should be able to remove at least one
+of those if we re-organize the tear down a bit better. But that is
+another patch series.
+
+.John
