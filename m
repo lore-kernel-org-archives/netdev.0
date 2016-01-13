@@ -1,60 +1,86 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update elem
-Date: Wed, 13 Jan 2016 22:56:38 +0800
-Message-ID: <CACVXFVPO4iN_oSce6J9uiSybZy2GV-x3h6TCca+zLP-sZn6sbA@mail.gmail.com>
-References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
-	<1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
-	<20160111190248.GA26495@ast-mbp.thefacebook.com>
-	<CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
-	<20160112054928.GA31180@ast-mbp.thefacebook.com>
-	<CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
-	<20160112191051.GA67436@kafai-mba.local>
-	<CACVXFVOKRpPfVzAkeFq6vLkRG+JsK+GnmT5_YUBb4hZg3KjM1w@mail.gmail.com>
-	<20160113022204.GA25270@kafai-mba.dhcp.thefacebook.com>
-	<CACVXFVPK+1yKbOs2A73413bamssyNXFEq+j9LTs_vZxfTsxzGA@mail.gmail.com>
-	<20160113053009.GC37858@ast-mbp.thefacebook.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: add per device sg_max_frags for skb
+Date: Wed, 13 Jan 2016 16:07:09 +0100
+Message-ID: <5696681D.4060002@stressinduktion.org>
+References: <1452086182-26748-1-git-send-email-hans.westgaard.ry@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCBE5AA@AcuExch.aculab.com>
+ <568F87AC.60405@oracle.com> <568FA1E5.7060204@stressinduktion.org>
+ <569657D8.1020807@oracle.com>
+ <CANn89iJtB1qJCbBWUTXFo2LRWobQe6aDFb_KEWUhBNiZCNpdWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Martin KaFai Lau <kafai@fb.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@aculab.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Salam Noureddine <noureddine@arista.com>,
+	Jarod Wilson <jarod@redhat.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Julian Anastasov <ja@ssi.bg>,
+	Ying Xue <ying.xue@windriver.com>,
+	Craig Gallek <kraig@google.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Edward Jee <edjee@google.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kerne
+To: Eric Dumazet <edumazet@google.com>,
+	Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160113053009.GC37858@ast-mbp.thefacebook.com>
+In-Reply-To: <CANn89iJtB1qJCbBWUTXFo2LRWobQe6aDFb_KEWUhBNiZCNpdWA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 13, 2016 at 1:30 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Wed, Jan 13, 2016 at 11:17:23AM +0800, Ming Lei wrote:
->> On Wed, Jan 13, 2016 at 10:22 AM, Martin KaFai Lau <kafai@fb.com> wrote:
->> > On Wed, Jan 13, 2016 at 08:38:18AM +0800, Ming Lei wrote:
->> >> > The userspace usually only aggregates value across all cpu every X seconds.
->> >>
->> >> That is just in your case, and Alexei worried the issue of data stale.
->> > I believe we are talking about validity of a value.  How to
->> > make use of a less-stale but invalid data?
->>
->> About the 'invalidity' thing, it should be same between using
->> smp_call(run in IPI irq handler) and simple memcpy().
->>
->> When smp_call_function_single() is used to request to lookup element in
->> the specific CPU, the value of the element may be in updating in that CPU
->> and not completed yet in eBPF prog, then IPI comes and half updated
->> data is still returned to syscall.
+On 13.01.2016 15:19, Eric Dumazet wrote:
+> 1) There are no arch with 1K page sizes. Most certainly, if we had
+> MAX_SKB_FRAGS=65 some assumptions in the stack would fail.
 >
-> hmm. I'm not following. bpf programs are executing with preempt disabled,
-> so smp_call_function_single suppose to execute when bpf is not running.
+> 2) TCP stack has coalescing support. write(2) or sendmsg(2) should
+> append data into the last skb in write queue, and still use 32 KB
+> frags.
+>      You get pathological skb when using sendpage() or when one thread
+> writes data into _multiple_ TCP sockets, since TCP stack uses
+>      a per thread 32 KB reserve (
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=5640f7685831e088fe6c2e1f863a6805962f8e81
+> )
+>
+> 2) As I said, implementing a limit in TCP stack is not enough. Your
+> patch is therefore adding complexity for all users, but is not a
+> general solution.
+>
+>     GRO, tun device, many things can still cook 'big skbs'
+>
+>      You need to properly implement a fallback, possibly using
+> ndo_features_check(), or directly from your ndo_start_xmit()
+>
+> 3) We currently have a very dumb way to fallback, forcing a linearize
+> call, likely to fail if memory is fragmented and skb big.
+>
+>      You could instead provide a smart helper, trying to reduce the
+> number of frags in a skb by chosing adjacent frags and
+> re-allocating/merging them.
+>
+>      By choosing, I mean trying to pick smallest ones to minimize copy
+> cost, to get one skb with X less fragment. (X=1 in your case ?)
+>
+>     I know for example that bnx2x could benefit from such a helper, as
+> it has a 13 frags limits.
+>     (bnx2x_pkt_req_lin(), called from bnx2x ndo_start_xmit()
 
-Preempt disabled doesn't mean irq disabled, does it?  So when bpf prog is
-running, the IPI irq for smp_call still may come on that CPU.
+As I proposed, we could globally (or per netns) limit the maximum , I 
+think this would be okay and could be the best alternative to install 
+slow-paths which could be hit quite constantly.
 
-Also in current non-percpu hash, the situation exists too between
-lookup elem syscall and updating value of element from bpf prog in
-SMP.
+Otherwise, the fallbacks like Eric proposed them are needed. I do not 
+see any other choice.
 
--- 
-Ming Lei
+Thanks,
+Hannes
