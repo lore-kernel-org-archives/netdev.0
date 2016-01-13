@@ -1,48 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel 4.1 hang, apparently in __inet_lookup_established
-Date: Wed, 13 Jan 2016 14:38:45 -0500 (EST)
-Message-ID: <20160113.143845.2024795815995912436.davem@davemloft.net>
-References: <1452546688.1223.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20160113.110115.616973869173347041.davem@davemloft.net>
-	<1452701990.1223.67.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] r8152 add Microsoft Dock IDs
+Date: Wed, 13 Jan 2016 14:51:46 -0500 (EST)
+Message-ID: <20160113.145146.20282510666434086.davem@davemloft.net>
+References: <904D0AF9-5265-47F5-A8DD-5A926438FE45@exactcode.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gzhang@fastly.com, kernelorg@bof.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452701990.1223.67.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: rene@exactcode.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36701 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757979AbcAMTvs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 14:51:48 -0500
+In-Reply-To: <904D0AF9-5265-47F5-A8DD-5A926438FE45@exactcode.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 13 Jan 2016 08:19:50 -0800
+=46rom: Ren=E9 Rebe <rene@exactcode.com>
+Date: Wed, 13 Jan 2016 18:06:36 +0100
 
-> On Wed, 2016-01-13 at 11:01 -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 11 Jan 2016 13:11:28 -0800
->> 
->> > David, can you make sure ed2e923945892a8372ab70d2f61d364b0b6d9054 is
->> > pushed to stable trees (4.1 & 4.2)
->> 
->> It should definitely be there:
->> 
->> [davem@localhost linux-stable]$ git shortlog v4.1.. -- include/net/inet_timewait_sock.h 
->> David S. Miller (1):
->>       Merge git://git.kernel.org/.../davem/net
->> 
->> Eric Dumazet (4):
->>       inet: simplify timewait refcounting
->>       inet: inet_twsk_deschedule factorization
->>       tcp/dccp: fix timewait races in timer handling
->>       net: align sk_refcnt on 128 bytes boundary
->> 
->> Raanan Avargil (1):
->>       tcp/dccp: fix old style declarations
->> 
-> 
-> Nothing yet on 4.1.15 and 4.2.8
+> Hi there,
+>=20
+> The Microsoft Surface Docks uses a R8152, too.
+>=20
+> Signed-off-by: Ren=E9 Rebe <rene@exactcode.com>
 
-I should really learn how to use GIT properly, thanks Eric I'll queue
-the two patches up. :-)
+Your patch was corrupted by your email client.
+
+Please fix this, send a test patch to yourself, and please do not
+resubmit the patch here until after you can successfully apply the
+patch you receive in that test email.
+
+Please also do not use attachments to solve this problem.
