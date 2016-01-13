@@ -1,55 +1,46 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] hip04_eth: fix missing error handle for build_skb
- failed
-Date: Wed, 13 Jan 2016 11:48:41 +0800
-Message-ID: <5695C919.8070203@huawei.com>
-References: <5695C04D.1070709@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 20:07:44 -0800
+Message-ID: <1452658064.1223.58.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452641302.1223.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160112234707.GA36167@ast-mbp.thefacebook.com>
+	 <1452651098.1223.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160112.214315.2135966842775837844.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Weidong Wang <wangweidong1@huawei.com>,
-	David Miller <davem@davemloft.net>, <arnd@arndb.de>,
-	<zhangfei.gao@linaro.org>, <dan.carpenter@oracle.com>,
-	<tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5695C04D.1070709@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, rabin@rab.in,
+	netdev@vger.kernel.org, ast@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33486 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752962AbcAMEHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 23:07:46 -0500
+Received: by mail-pa0-f51.google.com with SMTP id cy9so351041831pac.0
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 20:07:46 -0800 (PST)
+In-Reply-To: <20160112.214315.2135966842775837844.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/1/13 11:11, Weidong Wang wrote:
-> when build_skb failed, we should goto refill the buffer.
+On Tue, 2016-01-12 at 21:43 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 12 Jan 2016 18:11:38 -0800
 > 
-> Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
-> ---
+> > As I said, it is possible some guys never noticed their BPF program
+> > were 'broken' because this invalid shift was hidden in a dead code
+> > part.
+> 
+> We should not hide bugs and unintended uses of operations with
+> undefined behavior.
 
-Acked-by: Ding Tainhong <dingtianhong@huawei.com>
+   JUMP 2:
+   SHR  45
+2: RET  10
 
->  drivers/net/ethernet/hisilicon/hip04_eth.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-> index 3b39fdd..417f131 100644
-> --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-> @@ -500,8 +500,10 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
->  	while (cnt && !last) {
->  		buf = priv->rx_buf[priv->rx_head];
->  		skb = build_skb(buf, priv->rx_buf_size);
-> -		if (unlikely(!skb))
-> +		if (unlikely(!skb)) {
->  			net_dbg_ratelimited("build_skb failed\n");
-> +			goto refill;
-> +		}
-> 
->  		dma_unmap_single(&ndev->dev, priv->rx_phys[priv->rx_head],
->  				 RX_BUF_SIZE, DMA_FROM_DEVICE);
-> @@ -528,6 +530,7 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
->  			rx++;
->  		}
-> 
-> +refill:
->  		buf = netdev_alloc_frag(priv->rx_buf_size);
->  		if (!buf)
->  			goto done;
-> 
+
+was a valid program.
+
+But a dumb loader decided to know better.
+ 
