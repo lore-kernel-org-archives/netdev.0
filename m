@@ -1,43 +1,49 @@
-From: Elad Raz <eladr@mellanox.com>
-Subject: Re: [patch] mlxsw: fix SWITCHDEV_OBJ_ID_PORT_MDB
-Date: Wed, 13 Jan 2016 12:33:14 +0000
-Message-ID: <DA3FDF74-E3BD-474B-8C38-E21CAEEFE1DB@mellanox.com>
-References: <20160113122823.GD19993@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160113122823.GD19993@mwanda>
-Content-Language: en-US
-Content-ID: <E421F8D9B858184C9B20DA30E74C3EA6@eurprd05.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?iso-8859-1?Q?Ren=E9_Rebe?= <rene@exactcode.com>
+Subject: [PATCH] r8152 add Microsoft Dock IDs
+Date: Wed, 13 Jan 2016 18:06:36 +0100
+Message-ID: <904D0AF9-5265-47F5-A8DD-5A926438FE45@exactcode.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nic_swsd@realtek.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.exactcode.de ([144.76.154.42]:44854 "EHLO mx.exactcode.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753835AbcAMRGf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 12:06:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi there,
 
-> On Jan 13, 2016, at 2:28 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> 
-> There is a missing break statement so we always return -EOPNOTSUPP.
-> 
-> Fixes: 3a49b4fde2a1 ('mlxsw: Adding layer 2 multicast support')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+The Microsoft Surface Docks uses a R8152, too.
 
-Acked-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Ren=E9 Rebe <rene@exactcode.com>
 
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-> index ffe894e..45479ef 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-> @@ -1015,6 +1015,7 @@ static int mlxsw_sp_port_obj_del(struct net_device *dev,
-> 	case SWITCHDEV_OBJ_ID_PORT_MDB:
-> 		err = mlxsw_sp_port_mdb_del(mlxsw_sp_port,
-> 					    SWITCHDEV_OBJ_PORT_MDB(obj));
-> +		break;
-> 	default:
-> 		err = -EOPNOTSUPP;
-> 		break;
+--- linux-3.19/drivers/net/usb/r8152.c.orig	2015-02-09 02:54:22.0000000=
+00 +0000
++++ linux-3.19/drivers/net/usb/r8152.c	2015-02-15 15:52:52.924000000 +0=
+000
+@@ -462,6 +462,7 @@
+
+/* Define these values to match your device */
+#define VENDOR_ID_REALTEK		0x0bda
++#define VENDOR_ID_MICROSOFT		0x045e
+#define VENDOR_ID_SAMSUNG		0x04e8
+
+#define MCU_TYPE_PLA			0x0100
+@@ -3932,6 +3933,8 @@
+static struct usb_device_id rtl8152_table[] =3D {
+	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
+	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
+	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+	{}
+};
+
+--=20
+ExactCODE GmbH, Lietzenburger Str. 42, DE-10789 Berlin
+http://exactcode.com | http://exactscan.com | http://ocrkit.com | http:=
+//t2-project.org | http://rene.rebe.de
