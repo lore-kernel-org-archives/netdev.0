@@ -1,71 +1,44 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence mode configuration
-Date: Wed, 13 Jan 2016 23:39:49 +0100
-Message-ID: <201601132339.50004@pali>
-References: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com> <5696D08F.9030906@broadcom.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] ssb: host_soc depends on sprom
+Date: Wed, 13 Jan 2016 23:51:43 +0100
+Message-ID: <8128014.DbbgBtKY3z@wuerfel>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart9379298.SYUCXtDZX4";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Gnedt <david.gnedt@davizone.at>
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>, Michael Buesch <m@bues.ch>,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5696D08F.9030906@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart9379298.SYUCXtDZX4
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Drivers that use the SSB sprom functionality typically 'select SSB_SPROM'
+from Kconfig, but CONFIG_SSB_HOST_SOC misses this, which results in
+a build failure unless at least one of the other drivers that selects
+it is enabled:
 
-On Wednesday 13 January 2016 23:32:47 Arend van Spriel wrote:
-> On 12/26/2015 12:45 PM, Pali Roh=C3=A1r wrote:
-> > Port the bt_coex_mode sysfs interface from wl1251 driver version
-> > included in the Maemo Fremantle kernel to allow bt-coexistence
-> > mode configuration. This enables userspace applications to set one
-> > of the modes WL1251_BT_COEX_OFF, WL1251_BT_COEX_ENABLE and
-> > WL1251_BT_COEX_MONOAUDIO. The default mode is WL1251_BT_COEX_OFF.
-> > It should be noted that this driver always enabled bt-coexistence
-> > before and enabled bt-coexistence directly affects the receiving
-> > performance, rendering it unusable in some low-signal situations.
-> > Especially monitor mode is affected very badly with bt-coexistence
-> > enabled.
->=20
-> So what user-space process will be using this interface.
+drivers/built-in.o: In function `ssb_host_soc_get_invariants':
+(.text+0x459494): undefined reference to `ssb_fill_sprom_with_fallback'
 
-On Maemo daemon wlancond use this interface. It use information from=20
-bluez daemon to decide if btcoex is needed to enable or not (and also=20
-which mode).
+This adds the same select statement that is used elsewhere.
 
-> Did you consider adding debugfs interface?
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 541c9a84cd85 ("ssb: pick SoC invariants code from MIPS BCM47xx arch")
+---
+I'm not sure who the right person is to pick up the fix. The patch that
+introduced the problem was merged by Kalle through the iwlwifi tree.
 
-Other drivers uses sysfs, so I proposed also sysfs interface.
-
-> In case of monitor mode you could
-> consider disabling bt-coex from within the driver itself.
-
-I'm not sure if you want to do it always in this case...
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart9379298.SYUCXtDZX4
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlaW0jUACgkQi/DJPQPkQ1JgcACgqv0VNU+3jY2ExMnTgpXtU8Xi
-4XMAnjtGGOwb2/DgggXPGrvH456GdPR3
-=wEtO
------END PGP SIGNATURE-----
-
---nextPart9379298.SYUCXtDZX4--
+diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
+index 0c675861623f..d8e4219c2324 100644
+--- a/drivers/ssb/Kconfig
++++ b/drivers/ssb/Kconfig
+@@ -83,6 +83,7 @@ config SSB_SDIOHOST
+ config SSB_HOST_SOC
+ 	bool "Support for SSB bus on SoC"
+ 	depends on SSB && BCM47XX_NVRAM
++	select SSB_SPROM
+ 	help
+ 	  Host interface for a SSB directly mapped into memory. This is
+ 	  for some Broadcom SoCs from the BCM47xx and BCM53xx lines.
