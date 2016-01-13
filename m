@@ -1,50 +1,50 @@
-From: Weidong Wang <wangweidong1@huawei.com>
-Subject: [PATCH net-next] hip04_eth: fix missing error handle for build_skb
- failed
-Date: Wed, 13 Jan 2016 11:11:09 +0800
-Message-ID: <5695C04D.1070709@huawei.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update elem
+Date: Wed, 13 Jan 2016 11:17:23 +0800
+Message-ID: <CACVXFVPK+1yKbOs2A73413bamssyNXFEq+j9LTs_vZxfTsxzGA@mail.gmail.com>
+References: <1452527821-12276-1-git-send-email-tom.leiming@gmail.com>
+	<1452527821-12276-6-git-send-email-tom.leiming@gmail.com>
+	<20160111190248.GA26495@ast-mbp.thefacebook.com>
+	<CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
+	<20160112054928.GA31180@ast-mbp.thefacebook.com>
+	<CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
+	<20160112191051.GA67436@kafai-mba.local>
+	<CACVXFVOKRpPfVzAkeFq6vLkRG+JsK+GnmT5_YUBb4hZg3KjM1w@mail.gmail.com>
+	<20160113022204.GA25270@kafai-mba.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Ding Tianhong <dingtianhong@huawei.com>, <arnd@arndb.de>,
-	<zhangfei.gao@linaro.org>, <dan.carpenter@oracle.com>,
-	<tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f193.google.com ([209.85.160.193]:35255 "EHLO
+	mail-yk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753048AbcAMDRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 22:17:24 -0500
+In-Reply-To: <20160113022204.GA25270@kafai-mba.dhcp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-when build_skb failed, we should goto refill the buffer.
+On Wed, Jan 13, 2016 at 10:22 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Wed, Jan 13, 2016 at 08:38:18AM +0800, Ming Lei wrote:
+>> > The userspace usually only aggregates value across all cpu every X seconds.
+>>
+>> That is just in your case, and Alexei worried the issue of data stale.
+> I believe we are talking about validity of a value.  How to
+> make use of a less-stale but invalid data?
 
-Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
----
- drivers/net/ethernet/hisilicon/hip04_eth.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+About the 'invalidity' thing, it should be same between using
+smp_call(run in IPI irq handler) and simple memcpy().
 
-diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index 3b39fdd..417f131 100644
---- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -500,8 +500,10 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
- 	while (cnt && !last) {
- 		buf = priv->rx_buf[priv->rx_head];
- 		skb = build_skb(buf, priv->rx_buf_size);
--		if (unlikely(!skb))
-+		if (unlikely(!skb)) {
- 			net_dbg_ratelimited("build_skb failed\n");
-+			goto refill;
-+		}
+When smp_call_function_single() is used to request to lookup element in
+the specific CPU, the value of the element may be in updating in that CPU
+and not completed yet in eBPF prog, then IPI comes and half updated
+data is still returned to syscall.
 
- 		dma_unmap_single(&ndev->dev, priv->rx_phys[priv->rx_head],
- 				 RX_BUF_SIZE, DMA_FROM_DEVICE);
-@@ -528,6 +530,7 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
- 			rx++;
- 		}
 
-+refill:
- 		buf = netdev_alloc_frag(priv->rx_buf_size);
- 		if (!buf)
- 			goto done;
--- 
-1.9.0
+Thanks,
+Ming Lei
