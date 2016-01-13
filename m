@@ -1,209 +1,32 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/4] bpf: bpf_htab: Add syscall to iterate
- percpu value of a key
-Date: Wed, 13 Jan 2016 10:42:49 +0800
-Message-ID: <CACVXFVPAR52e01vVqtZ5LF5j7zscjAVgOccW1erj-a2VYScJrg@mail.gmail.com>
-References: <1452586852-1575604-1-git-send-email-kafai@fb.com>
-	<1452586852-1575604-4-git-send-email-kafai@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 21:43:15 -0500 (EST)
+Message-ID: <20160112.214315.2135966842775837844.davem@davemloft.net>
+References: <1452641302.1223.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160112234707.GA36167@ast-mbp.thefacebook.com>
+	<1452651098.1223.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452586852-1575604-4-git-send-email-kafai@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, rabin@rab.in,
+	netdev@vger.kernel.org, ast@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56589 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbcAMCnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 21:43:18 -0500
+In-Reply-To: <1452651098.1223.41.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2016 at 4:20 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> Add map_lookup_percpu_elem() syscall to lookup value
-> of a particular CPU.
->
-> The user is expected to loop through all CPU values by:
-> for (cpu = 0; cpu < sysconf(_SC_NPROCESSORS_CONF); cpu++) {
->         if (!bpf_map_lookup_percpu_elem(map, &key, &value, cpu))
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 12 Jan 2016 18:11:38 -0800
 
-Thinking of further, the above way can not work well, the iteration may
-takes long time to collect the value from each CPU, and finally
-the accumulated value has been stale for long.
+> As I said, it is possible some guys never noticed their BPF program
+> were 'broken' because this invalid shift was hidden in a dead code
+> part.
 
-Syscall is often the preempt point.
-
->                 total_value += value;
-> }
->
-> * If the cpu is offline, errno == ENXIO
-> * If the key is deleted before the iteration is done,
->   errno == ENOENT.
->
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
->  include/uapi/linux/bpf.h |  2 ++
->  kernel/bpf/syscall.c     | 93 ++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 95 insertions(+)
->
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 43ae40c..2c73c09 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -73,6 +73,7 @@ enum bpf_cmd {
->         BPF_PROG_LOAD,
->         BPF_OBJ_PIN,
->         BPF_OBJ_GET,
-> +       BPF_MAP_LOOKUP_PERCPU_ELEM,
->  };
->
->  enum bpf_map_type {
-> @@ -115,6 +116,7 @@ union bpf_attr {
->                         __aligned_u64 next_key;
->                 };
->                 __u64           flags;
-> +               __u32           cpu;
->         };
->
->         struct { /* anonymous struct used by BPF_PROG_LOAD command */
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 6373970..ba1172b 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -289,6 +289,96 @@ err_put:
->         return err;
->  }
->
-> +/* last field in 'union bpf_attr' used by this command */
-> +#define BPF_MAP_LOOKUP_PERCPU_ELEM_LAST_FIELD cpu
-> +
-> +struct percpu_map_value_info {
-> +       struct bpf_map *map;
-> +       void *key;
-> +       void *value;
-> +       bool found;
-> +};
-> +
-> +static void percpu_map_lookup_value(void *i)
-> +{
-> +       struct percpu_map_value_info *info = (struct percpu_map_value_info *)i;
-> +       struct bpf_map *map = info->map;
-> +       void *ptr;
-> +
-> +       rcu_read_lock();
-> +       ptr = map->ops->map_lookup_elem(map, info->key);
-> +       if (ptr) {
-> +               memcpy(info->value, ptr, map->value_size);
-> +               info->found = true;
-> +       } else {
-> +               info->found = false;
-> +       }
-> +       rcu_read_unlock();
-> +}
-> +
-> +static int map_lookup_percpu_elem(union bpf_attr *attr)
-> +{
-> +       void __user *ukey = u64_to_ptr(attr->key);
-> +       void __user *uvalue = u64_to_ptr(attr->value);
-> +       u32 __user ucpu = attr->cpu;
-> +       int ufd = attr->map_fd;
-> +       struct percpu_map_value_info value_info;
-> +       struct bpf_map *map;
-> +       void *key, *value;
-> +       struct fd f;
-> +       int err;
-> +
-> +       if (CHECK_ATTR(BPF_MAP_LOOKUP_PERCPU_ELEM) ||
-> +           ucpu >= num_possible_cpus())
-> +               return -EINVAL;
-> +
-> +       f = fdget(ufd);
-> +       map = __bpf_map_get(f);
-> +       if (IS_ERR(map))
-> +               return PTR_ERR(map);
-> +
-> +       err = -ENOMEM;
-> +       key = kmalloc(map->key_size, GFP_USER);
-
-The kmalloc may trigger memory reclaim and take dozens of seconds
-or more.
-
-> +       if (!key)
-> +               goto err_put;
-> +
-> +       err = -EFAULT;
-> +       if (copy_from_user(key, ukey, map->key_size) != 0)
-> +               goto free_key;
-> +
-> +       err = -ENOMEM;
-> +       value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
-
-Same with above.
-
-> +       if (!value)
-> +               goto free_key;
-> +
-> +       value_info.map = map;
-> +       value_info.key = key;
-> +       value_info.value = value;
-> +
-> +       err = smp_call_function_single(ucpu, percpu_map_lookup_value,
-> +                                      &value_info, 1);
-
-It is slow too.
-
-> +       if (err)
-> +               goto free_value;
-> +
-> +       err = -ENOENT;
-> +       if (!value_info.found)
-> +               goto free_value;
-> +
-> +       err = -EFAULT;
-> +       if (copy_to_user(uvalue, value, map->value_size) != 0)
-> +               goto free_value;
-
-page fault may be triggered.
-
-> +
-> +       err = 0;
-> +
-> +free_value:
-> +       kfree(value);
-> +free_key:
-> +       kfree(key);
-> +err_put:
-> +       fdput(f);
-> +       return err;
-> +}
-> +
->  #define BPF_MAP_UPDATE_ELEM_LAST_FIELD flags
->
->  static int map_update_elem(union bpf_attr *attr)
-> @@ -792,6 +882,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
->         case BPF_OBJ_GET:
->                 err = bpf_obj_get(&attr);
->                 break;
-> +       case BPF_MAP_LOOKUP_PERCPU_ELEM:
-> +               err = map_lookup_percpu_elem(&attr);
-> +               break;
->         default:
->                 err = -EINVAL;
->                 break;
-
-So I don't think it is good to retrieve value from one CPU via one
-single system call, and accumulate them finally in userspace.
-
-One approach I thought of is to define the function(or sort of)
-
- handle_cpu_value(u32 cpu, void *val_cpu, void *val_total)
-
-in bpf kernel code for collecting value from each cpu and
-accumulating them into 'val_total', and most of situations, the
-function can be implemented without loop most of situations.
-kernel can call this function directly, and the total value can be
-return to userspace by one single syscall.
-
-Alexei and anyone, could you comment on this draft idea for
-perpcu map?
-
-Thanks,
-Ming Lei
+We should not hide bugs and unintended uses of operations with
+undefined behavior.
