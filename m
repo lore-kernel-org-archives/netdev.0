@@ -1,76 +1,69 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 09/12] net: sched: pfifo_fast use alf_queue
-Date: Wed, 13 Jan 2016 10:18:09 -0800
-Message-ID: <569694E1.6000109@gmail.com>
-References: <20151230175000.26257.41532.stgit@john-Precision-Tower-5810>	<20151230175420.26257.868.stgit@john-Precision-Tower-5810> <20160113.112459.133519495867760481.davem@davemloft.net>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [PATCH V2 5/5] i40e/ethtool: support coalesce setting by queue
+Date: Wed, 13 Jan 2016 18:19:30 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418AFE4C1F@fmsmsx115.amr.corp.intel.com>
+References: <1451912041-8860-1-git-send-email-kan.liang@intel.com>
+ <1451912041-8860-5-git-send-email-kan.liang@intel.com>
+ <FC41C24E35F18A40888AACA1A36F3E418AFE2A3B@fmsmsx115.amr.corp.intel.com>
+ <37D7C6CF3E00A74B8858931C1DB2F0770586E7D8@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, jhs@mojatatu.com,
-	aduyck@mirantis.com, brouer@redhat.com, john.r.fastabend@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"andi@firstfloor.org" <andi@firstfloor.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"sasha.levin@oracle.com" <sasha.levin@oracle.com>,
+	"dsahern@gmail.com" <dsahern@gmail.com>,
+	"tj@kernel.org" <tj@kernel.org>,
+	"cascardo@redhat.com" <cascardo@redhat.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"ben@decadent.org.uk" <ben@decadent.org
+To: "Liang, Kan" <kan.liang@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"bwh@kernel.org" <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35275 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060AbcAMSSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 13:18:24 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 65so6355705pff.2
-        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 10:18:24 -0800 (PST)
-In-Reply-To: <20160113.112459.133519495867760481.davem@davemloft.net>
+Received: from mga04.intel.com ([192.55.52.120]:51598 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755846AbcAMSTc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 13:19:32 -0500
+In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F0770586E7D8@SHSMSX103.ccr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-13 08:24 AM, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Wed, 30 Dec 2015 09:54:20 -0800
+> From: Liang, Kan
+> >
+> > This looks reasonable, but be aware that since there's no concept of
+> > queue-specific settings in the driver proper, these settings will get
+> lost on
+> > the next reset - see i40e_vsi_configure_msix().  A reset can be driven
+> by a
+> > number of things such as MTU changes, LLDP events, tx timeout recovery,
+> > promiscuous on/off, and various other configuration changes.  This might
+> > not be acceptable for your needs.
+> >
 > 
->> This also removes the logic used to pick the next band to dequeue
->> from and instead just checks each alf_queue for packets from
->> top priority to lowest. This might need to be a bit more clever
->> but seems to work for now.
+> Yes, the reset could be an issue.
+> I guess we may make the concept of queue-specific settings for i40e by
+> moving
+> rx_itr_setting and tx_itr_setting to i40e_ring.
 > 
-> I suspect we won't need to be more clever, there's only 3 bands
-> after all and the head/tail tests should be fast enough.
+> How about the patch as below?
+> The patch only move itr_setting from i40e_vsi to i40e_ring.
+> There should be no behavior change.
 > 
 
-Even with alf_dequeue operation dequeueing a single skb at a time and
-iterating over the bands as I did here I see a perf improvement
-on my desktop here,
+Thanks, I finally had a chance to look through this.  On an initial read-through, yes, this would probably take care of it.
 
-threads 	     mq + pfifo_fast
-
-		before		after
-
-1		1.70 Mpps	 2.00 Mpps
-2		3.15 Mpps	 3.90 Mpps
-4		4.70 Mpps	 6.98 Mpps
-8		9.57 Mpps	11.62 Mpps
-
-This is using my pktgen patch previously posted and bulking set to
-0 in both cases. This doesn't really say anything about the contention
-cases, etc so I'll do some more testing before the merge window opens.
-Also my kernel isn't really optimized I had some of the kernel hacking
-stuff enabled, etc. It at least looks promising though and dequeueing
-more than a single skb out of pfifo_fast should help.
-
-Something like,
-
-static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
-{
-        struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
-        struct sk_buff *skb[8+1];
-        int band, n = 0, i;
-
-        skb[0] = NULL;
-
-        for (band = 0; band < PFIFO_FAST_BANDS && !skb[0]; band++) {
-                struct alf_queue *q = band2list(priv, band);
-
-                if (alf_queue_empty(q))
-                        continue;
-
-                n = alf_mc_dequeue(q, skb, 8); <-- 4, 8, or something
-        }
-
-.John
+sln
