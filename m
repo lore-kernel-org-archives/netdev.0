@@ -1,96 +1,56 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 10/10] net: mvneta: Use the new hwbm framework
-Date: Wed, 13 Jan 2016 18:47:25 +0100
-Message-ID: <87h9ihwevm.fsf@free-electrons.com>
-References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
-	<1452625834-22166-11-git-send-email-gregory.clement@free-electrons.com>
-	<CAPv3WKcKK8fS-6koSgV7ABi8bvkRgzaqJDpOETCpGoTc2sWV=w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	"linux-arm-kernel\@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPv3WKcKK8fS-6koSgV7ABi8bvkRgzaqJDpOETCpGoTc2sWV=w@mail.gmail.com>
-	(Marcin Wojtas's message of "Tue, 12 Jan 2016 23:40:40 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <a@unstable.cc>
+Subject: pull request [net]: batman-adv 20160114
+Date: Thu, 14 Jan 2016 01:51:52 +0800
+Message-ID: <1452707514-5091-1-git-send-email-a@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s1.neomailbox.net ([5.148.176.57]:33042 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932349AbcAMRxw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jan 2016 12:53:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcin,
- 
- On mar., janv. 12 2016, Marcin Wojtas <mw@semihalf.com> wrote:
+Hello David,
 
-> Hi Gregory,
->
-> A quick remark below. All changes look fine to me at a first look, but
-> I will test and dig more into code soon.
+these are two small fixes intended for your net tree.
 
-Great! A test would be nice because I have just did basic tests: mainly an
-iperf.
+Patch 1 prevents a lockdep splat from appearing along the
+shutdown path due to a missing lock in mcast_free(), by Simon Wunderlich.
 
->
->>
->> @@ -3946,11 +3965,6 @@ static int mvneta_probe(struct platform_device *pdev)
->>         dev->priv_flags |= IFF_UNICAST_FLT;
->>         dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
->>
->> -       err = register_netdev(dev);
->> -       if (err < 0) {
->> -               dev_err(&pdev->dev, "failed to register\n");
->> -               goto err_free_stats;
->> -       }
->
-> The purpose of shifting register_netdev() was to be able to obtain
-> pp->id from net_device, before mvneta_bm_port_init is called. It is
-> needed for proper port - pool mapping control.
+Patch 2 fixes a new feature introduced in 4.5 by ensuring that a
+batadv_hardif_neigh_node object is free'd only when it is no
+longer used in any context, by Sven Eckelmann.
 
-I can revert this change, initially I moved this chunk because I wanted
-to add a netdev_ops before registering it and this netdev_op depend on
-the bm support. As for now I don't have this this netdev_op this change
-is pointless. But if in future I need it, then I will look for how to do
-it in a different way.
+Please pull or let me know of any issue.
+Thanks a lot,
+	Antonio
 
-Thanks,
+The following changes since commit f1640c3ddeec12804bc9a21feee85fc15aca95f6:
 
+  bgmac: fix a missing check for build_skb (2016-01-13 00:24:14 -0500)
 
->
->>
->>         pp->id = dev->ifindex;
->>
->> @@ -3965,6 +3979,12 @@ static int mvneta_probe(struct platform_device *pdev)
->>                 }
->>         }
->>
->> +       err = register_netdev(dev);
->> +       if (err < 0) {
->> +               dev_err(&pdev->dev, "failed to register\n");
->> +               goto err_free_stats;
->> +       }
->> +
->>         err = mvneta_init(&pdev->dev, pp);
->>         if (err < 0)
->>                 goto err_netdev;
->
-> Best regards,
-> Marcin
+are available in the git repository at:
 
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to bab7c6c3deac70966a3000402c0ea6d0c20edd15:
+
+  batman-adv: Fix list removal of batadv_hardif_neigh_node (2016-01-13 19:28:27 +0800)
+
+----------------------------------------------------------------
+Included bugfixes:
+- avoid freeing batadv_hardif_neigh_node when still in use in other contexts
+- prevent lockdep splat in mcast_free during shutdown
+
+----------------------------------------------------------------
+Simon Wunderlich (1):
+      batman-adv: fix lockdep splat when doing mcast_free
+
+Sven Eckelmann (1):
+      batman-adv: Fix list removal of batadv_hardif_neigh_node
+
+ net/batman-adv/multicast.c  |  2 ++
+ net/batman-adv/originator.c | 18 ++++++++++++------
+ 2 files changed, 14 insertions(+), 6 deletions(-)
