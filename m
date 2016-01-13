@@ -1,43 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: netlink: Fix multicast group storage
- allocation for families with more than one groups
-Date: Wed, 13 Jan 2016 10:27:35 -0500 (EST)
-Message-ID: <20160113.102735.1851782053420522112.davem@davemloft.net>
-References: <20160113075400.GA12580@fi-ourus-dhcp00977.emea.nsn-net.net>
+Subject: Re: bgmac: fix a missing check for build_skb
+Date: Wed, 13 Jan 2016 10:34:51 -0500 (EST)
+Message-ID: <20160113.103451.307083333479914494.davem@davemloft.net>
+References: <1452674087.4516.3.camel@redhat.com>
+	<5696262D.3040803@huawei.com>
+	<56962DAF.9040807@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes.berg@intel.com, jbenc@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alexander.sverdlin@nokia.com,
-	teppo.o.pennanen@nokia.com
-To: matti.vaittinen@nokia.com
+Cc: wangweidong1@huawei.com, pabeni@redhat.com, zajec5@gmail.com,
+	hauke@hauke-m.de, joe@perches.com, peter.senna@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: nbd@openwrt.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160113075400.GA12580@fi-ourus-dhcp00977.emea.nsn-net.net>
+In-Reply-To: <56962DAF.9040807@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Matti Vaittinen <matti.vaittinen@nokia.com>
-Date: Wed, 13 Jan 2016 09:54:12 +0200
+From: Felix Fietkau <nbd@openwrt.org>
+Date: Wed, 13 Jan 2016 11:57:51 +0100
 
-> Hello again,
-> 
->       Second version, Fixed the 'off by one' bug spotted by David.
-> 
->       Br.
->         Matti Vaittinen
-> 
-> Multicast groups are stored in global buffer. Check for needed buffer size
-> incorrectly compares buffer size to first id for family. This means that
-> for families with more than one mcast id one may allocate too small buffer
-> and end up writing rest of the groups to some unallocated memory. Fix the
-> buffer size check to compare allocated space to last mcast id for the
-> family.
-> 
-> Tested on ARM using kernel 3.14
-> 
-> Signed-off-by: Matti Vaittinen <matti.vaittinen@nokia.com>
+> Dave, why did you apply this patch so fast without any chance of
+> review?
 
-I inadvertantly applied your original patch, so I'll just fix
-the off-by-one error with a seperate commit.
+Because I wanted to clear my backlog %100 for the merge window
+initial pull request.
 
-Sorry for the confusion and thanks for fixing this.
+The patch looked simple enough, I did read it carefully, and I
+did unfortunately miss the logic error.
