@@ -1,35 +1,53 @@
-From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence
- mode configuration
-Date: Wed, 13 Jan 2016 15:40:05 +0100
-Message-ID: <20160113144005.GR11560@pali>
-References: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com>
- <20160113121641.GM11560@pali>
- <877fjdeixf.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Machek <pavel@ucw.cz>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Gnedt <david.gnedt@davizone.at>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <877fjdeixf.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+Subject: [PATCH] rtl818x_pci: Fix a memory leak in rtl8180_init_rx_ring
+Date: Wed, 13 Jan 2016 22:44:32 +0800
+Message-ID: <1452696272-31229-1-git-send-email-baijiaju1990@163.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+To: andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
+	flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 13 January 2016 14:57:16 Kalle Valo wrote:
-> Please be patient. I'm backlogged at the moment but I will get to you=
-r
-> patch eventually. You can follow the status from patchwork:
->=20
-> https://patchwork.kernel.org/project/linux-wireless/list/?state=3D*
->=20
+When dev_alloc_skb or pci_dma_mapping_error in rtl8180_init_rx_ring fails,
+the memory allocated by pci_zalloc_consistent is not freed.
 
-Thanks for info!
+This patch fixes the bug by adding pci_free_consistent
+in error handling code.
 
---=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
+Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+---
+ drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c b/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
+index a43a16f..28479b1 100644
+--- a/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
++++ b/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
+@@ -1018,6 +1018,8 @@ static int rtl8180_init_rx_ring(struct ieee80211_hw *dev)
+ 		dma_addr_t *mapping;
+ 		entry = priv->rx_ring + priv->rx_ring_sz*i;
+ 		if (!skb) {
++			pci_free_consistent(priv->pdev, priv->rx_ring_sz * 32,
++					priv->rx_ring, priv->rx_ring_dma);
+ 			wiphy_err(dev->wiphy, "Cannot allocate RX skb\n");
+ 			return -ENOMEM;
+ 		}
+@@ -1028,6 +1030,8 @@ static int rtl8180_init_rx_ring(struct ieee80211_hw *dev)
+ 
+ 		if (pci_dma_mapping_error(priv->pdev, *mapping)) {
+ 			kfree_skb(skb);
++			pci_free_consistent(priv->pdev, priv->rx_ring_sz * 32,
++					priv->rx_ring, priv->rx_ring_dma);
+ 			wiphy_err(dev->wiphy, "Cannot map DMA for RX skb\n");
+ 			return -ENOMEM;
+ 		}
+-- 
+1.7.9.5
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
