@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v4 1/3] can: sja1000: of: add per-compatible init hook
-Date: Wed, 13 Jan 2016 12:46:04 +0100
-Message-ID: <1452685566-27431-2-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH v4 3/3] can: sja1000: of: add compatibility with Technologic Systems version
+Date: Wed, 13 Jan 2016 12:46:06 +0100
+Message-ID: <1452685566-27431-4-git-send-email-mkl@pengutronix.de>
 References: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
 Cc: netdev@vger.kernel.org,
 	Damien Riegel <damien.riegel@savoirfairelinux.com>,
@@ -14,114 +14,96 @@ List-Id: netdev.vger.kernel.org
 
 From: Damien Riegel <damien.riegel@savoirfairelinux.com>
 
-This commit adds the capability to allocate and init private data
-embedded in the sja1000_priv structure on a per-compatible basis. The
-device node is passed as a parameter of the init callback to allow
-parsing of custom device tree properties.
+Technologic Systems provides an IP compatible with the SJA1000,
+instantiated in an FPGA. Because of some bus widths issue, access to
+registers is made through a "window" that works like this:
+
+    base + 0x0: address to read/write
+    base + 0x2: 8-bit register value
+
+This commit adds a new compatible device, "technologic,sja1000", with
+read and write functions using the window mechanism.
 
 Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/sja1000/sja1000_platform.c | 42 +++++++++++++++++++++++-------
- 1 file changed, 33 insertions(+), 9 deletions(-)
+ drivers/net/can/sja1000/sja1000_platform.c | 47 ++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
 
 diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-index 0552ed46a206..46378c9dbb29 100644
+index 46378c9dbb29..aad10e8f1de5 100644
 --- a/drivers/net/can/sja1000/sja1000_platform.c
 +++ b/drivers/net/can/sja1000/sja1000_platform.c
-@@ -27,6 +27,7 @@
- #include <linux/can/platform/sja1000.h>
- #include <linux/io.h>
- #include <linux/of.h>
-+#include <linux/of_device.h>
- #include <linux/of_irq.h>
+@@ -46,6 +46,10 @@ struct sja1000_of_data {
+ 	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
+ };
  
- #include "sja1000.h"
-@@ -40,6 +41,11 @@ MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
- MODULE_ALIAS("platform:" DRV_NAME);
- MODULE_LICENSE("GPL v2");
- 
-+struct sja1000_of_data {
-+	size_t  priv_sz;
-+	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
++struct technologic_priv {
++	spinlock_t      io_lock;
 +};
 +
  static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
  {
  	return ioread8(priv->reg_base + reg);
-@@ -154,6 +160,14 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
- 		priv->cdr |= CDR_CBP; /* default */
+@@ -76,6 +80,43 @@ static void sp_write_reg32(const struct sja1000_priv *priv, int reg, u8 val)
+ 	iowrite8(val, priv->reg_base + reg * 4);
  }
  
-+static struct sja1000_of_data nxp_data;
++static u8 sp_technologic_read_reg16(const struct sja1000_priv *priv, int reg)
++{
++	struct technologic_priv *tp = priv->priv;
++	unsigned long flags;
++	u8 val;
 +
-+static const struct of_device_id sp_of_table[] = {
-+	{ .compatible = "nxp,sja1000", .data = &nxp_data },
-+	{ /* sentinel */ },
++	spin_lock_irqsave(&tp->io_lock, flags);
++	iowrite16(reg, priv->reg_base + 0);
++	val = ioread16(priv->reg_base + 2);
++	spin_unlock_irqrestore(&tp->io_lock, flags);
++
++	return val;
++}
++
++static void sp_technologic_write_reg16(const struct sja1000_priv *priv,
++				       int reg, u8 val)
++{
++	struct technologic_priv *tp = priv->priv;
++	unsigned long flags;
++
++	spin_lock_irqsave(&tp->io_lock, flags);
++	iowrite16(reg, priv->reg_base + 0);
++	iowrite16(val, priv->reg_base + 2);
++	spin_unlock_irqrestore(&tp->io_lock, flags);
++}
++
++static int sp_technologic_init(struct sja1000_priv *priv, struct device_node *of)
++{
++	struct technologic_priv *tp = priv->priv;
++
++	priv->read_reg = sp_technologic_read_reg16;
++	priv->write_reg = sp_technologic_write_reg16;
++	spin_lock_init(&tp->io_lock);
++
++	return 0;
++}
++
+ static void sp_populate(struct sja1000_priv *priv,
+ 			struct sja1000_platform_data *pdata,
+ 			unsigned long resource_mem_flags)
+@@ -162,8 +203,14 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
+ 
+ static struct sja1000_of_data nxp_data;
+ 
++static struct sja1000_of_data technologic_data = {
++	.priv_sz = sizeof(struct technologic_priv),
++	.init = sp_technologic_init,
 +};
-+MODULE_DEVICE_TABLE(of, sp_of_table);
 +
- static int sp_probe(struct platform_device *pdev)
- {
- 	int err, irq = 0;
-@@ -163,6 +177,9 @@ static int sp_probe(struct platform_device *pdev)
- 	struct resource *res_mem, *res_irq = NULL;
- 	struct sja1000_platform_data *pdata;
- 	struct device_node *of = pdev->dev.of_node;
-+	const struct of_device_id *of_id;
-+	const struct sja1000_of_data *of_data = NULL;
-+	size_t priv_sz = 0;
- 
- 	pdata = dev_get_platdata(&pdev->dev);
- 	if (!pdata && !of) {
-@@ -191,7 +208,13 @@ static int sp_probe(struct platform_device *pdev)
- 	if (!irq && !res_irq)
- 		return -ENODEV;
- 
--	dev = alloc_sja1000dev(0);
-+	of_id = of_match_device(sp_of_table, &pdev->dev);
-+	if (of_id) {
-+		of_data = of_id->data;
-+		priv_sz = of_data->priv_sz;
-+	}
-+
-+	dev = alloc_sja1000dev(priv_sz);
- 	if (!dev)
- 		return -ENOMEM;
- 	priv = netdev_priv(dev);
-@@ -208,10 +231,17 @@ static int sp_probe(struct platform_device *pdev)
- 	dev->irq = irq;
- 	priv->reg_base = addr;
- 
--	if (of)
-+	if (of) {
- 		sp_populate_of(priv, of);
--	else
-+
-+		if (of_data->init) {
-+			err = of_data->init(priv, of);
-+			if (err)
-+				goto exit_free;
-+		}
-+	} else {
- 		sp_populate(priv, pdata, res_mem->flags);
-+	}
- 
- 	platform_set_drvdata(pdev, dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
-@@ -242,12 +272,6 @@ static int sp_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--static const struct of_device_id sp_of_table[] = {
--	{.compatible = "nxp,sja1000"},
--	{},
--};
--MODULE_DEVICE_TABLE(of, sp_of_table);
--
- static struct platform_driver sp_driver = {
- 	.probe = sp_probe,
- 	.remove = sp_remove,
+ static const struct of_device_id sp_of_table[] = {
+ 	{ .compatible = "nxp,sja1000", .data = &nxp_data },
++	{ .compatible = "technologic,sja1000", .data = &technologic_data },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(of, sp_of_table);
 -- 
 2.6.4
 
