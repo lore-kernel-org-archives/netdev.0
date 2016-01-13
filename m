@@ -1,69 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the rdma tree
-Date: Wed, 13 Jan 2016 12:35:49 +1100
-Message-ID: <20160113123549.7293b76a@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
+Date: Tue, 12 Jan 2016 18:11:38 -0800
+Message-ID: <1452651098.1223.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160112185121.GA34045@ast-mbp.thefacebook.com>
+	 <1452626228-15742-1-git-send-email-rabin@rab.in>
+	 <1452628118.1223.25.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160112195356.GA34598@ast-mbp.thefacebook.com>
+	 <5695653F.6030001@iogearbox.net>
+	 <20160112204620.GA35080@ast-mbp.thefacebook.com>
+	 <1452641302.1223.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160112234707.GA36167@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Rabin Vincent <rabin@rab.in>, davem@davemloft.net,
+	netdev@vger.kernel.org, ast@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34171 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753558AbcAMCLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2016 21:11:41 -0500
+Received: by mail-pf0-f169.google.com with SMTP id q63so74548895pfb.1
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 18:11:40 -0800 (PST)
+In-Reply-To: <20160112234707.GA36167@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Doug,
+On Tue, 2016-01-12 at 15:47 -0800, Alexei Starovoitov wrote:
 
-After merging the rdma tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+> I would agree if those loaded programs would do something sensible,
+> but they're broken. As shown arm and arm64 would execute them
+> differently without JIT, because HW treats such shifts differently.
+> I also checked that libpcap is sane and doesn't generate broken shifts.
+> imo we're not breaking backward compatiblity here.
+> 
 
-drivers/infiniband/hw/mlx5/main.c: In function 'mlx5_ib_add':
-drivers/infiniband/hw/mlx5/main.c:2255:6: error: too few arguments to function 'mlx5_ib_port_link_layer'
-  if (mlx5_ib_port_link_layer(&dev->ib_dev) ==
-      ^
-drivers/infiniband/hw/mlx5/main.c:89:1: note: declared here
- mlx5_ib_port_link_layer(struct ib_device *device, u8 port_num)
- ^
+How did you prove a particular code path was even taken in a BPF
+program ? This is new to me.
 
-Caused by commit
+As I said, it is possible some guys never noticed their BPF program were
+'broken' because this invalid shift was hidden in a dead code part.
 
-  ebd61f68e1c7 ("IB/mlx5: Support IB device's callback for getting the link layer")
+So a program might appear as 'weak' when in fact its behavior was
+absolutely correct.
 
-interacting with commit
+You assume everybody uses libpcap, this is wrong, and for very obvious
+reasons.
 
-  038d2ef87572 ("IB/mlx5: Add flow steering support")
-
-from the net-next tree.
-
-I have added the following merge fix patch:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 13 Jan 2016 12:30:50 +1100
-Subject: [PATCH] IB/mlx5: merge fix for mlx5_ib_port_link_layer API change
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/infiniband/hw/mlx5/main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index 307a8c040a11..a2613d828578 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -2252,7 +2252,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
- 			(1ull << IB_USER_VERBS_CMD_CLOSE_XRCD);
- 	}
- 
--	if (mlx5_ib_port_link_layer(&dev->ib_dev) ==
-+	if (mlx5_ib_port_link_layer(&dev->ib_dev, 1) ==
- 	    IB_LINK_LAYER_ETHERNET) {
- 		dev->ib_dev.create_flow	= mlx5_ib_create_flow;
- 		dev->ib_dev.destroy_flow = mlx5_ib_destroy_flow;
--- 
-2.6.4
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Try to encode the QUEUE, RXHASH, or CPU instructions in libpcap, for a
+start.
