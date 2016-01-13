@@ -1,41 +1,50 @@
 From: Weidong Wang <wangweidong1@huawei.com>
-Subject: bgmac: fix a missing check for build_skb
-Date: Wed, 13 Jan 2016 11:06:41 +0800
-Message-ID: <5695BF41.2040002@huawei.com>
+Subject: [PATCH net-next] hip04_eth: fix missing error handle for build_skb
+ failed
+Date: Wed, 13 Jan 2016 11:11:09 +0800
+Message-ID: <5695C04D.1070709@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <nbd@openwrt.org>,
-	<zajec5@gmail.com>, <hauke@hauke-m.de>,
-	Joe Perches <joe@perches.com>, <peter.senna@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	Ding Tianhong <dingtianhong@huawei.com>, <arnd@arndb.de>,
+	<zhangfei.gao@linaro.org>, <dan.carpenter@oracle.com>,
+	<tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-when build_skb failed, it may occure a NULL pointer.
-So add a 'NULL check' for it.
+when build_skb failed, we should goto refill the buffer.
 
 Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/hisilicon/hip04_eth.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 21e3c38..d75180a 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -466,6 +466,11 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 			len -= ETH_FCS_LEN;
+diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+index 3b39fdd..417f131 100644
+--- a/drivers/net/ethernet/hisilicon/hip04_eth.c
++++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+@@ -500,8 +500,10 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
+ 	while (cnt && !last) {
+ 		buf = priv->rx_buf[priv->rx_head];
+ 		skb = build_skb(buf, priv->rx_buf_size);
+-		if (unlikely(!skb))
++		if (unlikely(!skb)) {
+ 			net_dbg_ratelimited("build_skb failed\n");
++			goto refill;
++		}
 
- 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
-+			if (unlikely(skb)) {
-+				bgmac_err(bgmac, "build_skb failed\n");
-+				put_page(virt_to_head_page(buf));
-+				break;
-+			}
- 			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
- 				BGMAC_RX_BUF_OFFSET + len);
- 			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
+ 		dma_unmap_single(&ndev->dev, priv->rx_phys[priv->rx_head],
+ 				 RX_BUF_SIZE, DMA_FROM_DEVICE);
+@@ -528,6 +530,7 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
+ 			rx++;
+ 		}
+
++refill:
+ 		buf = netdev_alloc_frag(priv->rx_buf_size);
+ 		if (!buf)
+ 			goto done;
 -- 
 1.9.0
