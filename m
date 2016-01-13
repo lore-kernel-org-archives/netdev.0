@@ -1,51 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] net: bpf: reject invalid shifts
-Date: Wed, 13 Jan 2016 00:00:16 -0500 (EST)
-Message-ID: <20160113.000016.2304166666171388740.davem@davemloft.net>
-References: <1452651098.1223.41.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160112.214315.2135966842775837844.davem@davemloft.net>
- <1452658064.1223.58.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [GIT] Networking
+Date: Wed, 13 Jan 2016 16:09:26 +1100
+Message-ID: <20160113160926.78e65d2d@canb.auug.org.au>
+References: <20160112.215136.850414372508130298.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org, ast@kernel.org, rabin@rab.in,
- alexei.starovoitov@gmail.com, linux-arm-kernel@lists.infradead.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1452658064.1223.58.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160112.215136.850414372508130298.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 12 Jan 2016 20:07:44 -0800
+Hi Dave,
 
-> On Tue, 2016-01-12 at 21:43 -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Tue, 12 Jan 2016 18:11:38 -0800
->> 
->> > As I said, it is possible some guys never noticed their BPF program
->> > were 'broken' because this invalid shift was hidden in a dead code
->> > part.
->> 
->> We should not hide bugs and unintended uses of operations with
->> undefined behavior.
+On Tue, 12 Jan 2016 21:51:36 -0500 (EST) David Miller <davem@davemloft.net> wrote:
+>
+> The following changes since commit 51cb67c0b0fcb91581b15bd2e85f29af4d4b2df6:
 > 
->    JUMP 2:
->    SHR  45
-> 2: RET  10
+>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-01-06 16:15:03 -0800)
 > 
+> are available in the git repository at:
 > 
-> was a valid program.
-> 
-> But a dumb loader decided to know better.
+>   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git 
 
-I guess you are uninterested in knowing your programs contains such
-garbage.
+This has 62 commits (of 1375) that were not in linux-next before the
+merge window opened (22 that have never appeared in linux-next but will
+do so today).  Some will be fixes and some are just in train patches
+that had not been applied yet (I assume).
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
