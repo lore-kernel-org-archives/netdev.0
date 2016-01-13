@@ -1,102 +1,36 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 27/53] perf/core: Put size of a sample at the end of it
- by PERF_SAMPLE_TAILSIZE
-Date: Tue, 12 Jan 2016 21:14:00 -0800
-Message-ID: <20160113051358.GA37858@ast-mbp.thefacebook.com>
-References: <1452520124-2073-1-git-send-email-wangnan0@huawei.com>
- <1452520124-2073-28-git-send-email-wangnan0@huawei.com>
- <20160111180913.GA25950@ast-mbp.thefacebook.com>
- <56949028.2070208@huawei.com>
- <20160112061145.GA31444@ast-mbp.thefacebook.com>
- <5694F347.5010700@huawei.com>
- <20160112195641.GA34601@ast-mbp.thefacebook.com>
- <5695D3CB.3030604@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Wed, 13 Jan 2016 00:20:42 -0500 (EST)
+Message-ID: <20160113.002042.600273966925356229.davem@davemloft.net>
+References: <20160112.215136.850414372508130298.davem@davemloft.net>
+	<20160113160926.78e65d2d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, acme@kernel.org,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, lizefan@huawei.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Ahern <dsahern@gmail.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Yunlong Song <yunlong.song@huawei.com>
-To: "Wangnan (F)" <wangnan0@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5695D3CB.3030604@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58041 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbcAMFUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 00:20:46 -0500
+In-Reply-To: <20160113160926.78e65d2d@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 13, 2016 at 12:34:19PM +0800, Wangnan (F) wrote:
-> 
-> >>Or moving whole header to the end of a record?
-> >I think moving the whole header under new TAILHEADER flag is
-> >actually very good idea. The ring buffer will be fully utilized
-> >and no extra bytes necessary. User space would need to parse it
-> >backwards, but for this use case it fits well.
-> 
-> I have another crazy suggestion: can we make kernel writing to
-> the ring buffer from the end to the beginning? For example:
-> 
-> This is the initial state of the ring buffer, head pointer
-> pointes to the end of it:
-> 
->       -------------> Address increase
-> 
->                                     head
->                                       |
->                                       V
->  +--+---+-------+----------+------+---+
->  |                                    |
->  +--+---+-------+----------+------+---+
-> 
-> 
-> Write the first event at the end of the ring buffer, and *decrease*
-> the head pointer:
-> 
->                                 head
->                                   |
->                                   V
->  +--+---+-------+----------+------+---+
->  |                                | A |
->  +--+---+-------+----------+------+---+
-> 
-> 
-> Another record:
->                           head
->                            |
->                            V
->  +--+---+-------+----------+------+---+
->  |                         |   B  | A |
->  +--+---+-------+----------+------+---+
-> 
-> 
-> Ring buffer rewind, A is fully overwritten and B is broken:
-> 
->                                head
->                                  |
->                                  V
->  +--+---+-------+----------+-----+----+
->  |F | E |   D   | C        | ... | F  |
->  +--+---+-------+----------+-----+----+
-> 
-> At this time user can parse the ring buffer normally from
-> F to C. From timestamp in it he know which one is the
-> oldest.
-> 
-> By this perf don't need too much extra work to do. There's no
-> performance penalty at all, and the 8 bytes are saved.
-> 
-> Thought?
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 13 Jan 2016 16:09:26 +1100
 
-I like it.
-I think from algorithmic stand point it's very pretty, but real
-cpus may not like to stream the data backwards. x86 can detect
-the stride and prefetch the next cache line when stride is
-positive. I don't think there is such hw logic for negative strides.
-So if it's not too hard, I would suggest to implement both of
-your ideas. I negative stride is just as fast as normal, then
-let's use that, since it doesn't change the header and nothing
-needs to change on perf side or any other tools that read
-ring-buffer manually.
+> This has 62 commits (of 1375) that were not in linux-next before the
+> merge window opened (22 that have never appeared in linux-next but will
+> do so today).  Some will be fixes and some are just in train patches
+> that had not been applied yet (I assume).
+
+Most of them were series that were "in-progress" waiting for a respin
+based upon minor feedback over the past few days.
+
+I always have this "run up" on the last day or two before I send my
+pull request.
+
+But thanks for noticing as you always do. :)
