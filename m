@@ -1,23 +1,50 @@
-From: Holger Schurig <holgerschurig@gmail.com>
-Subject: Re: [BUG 4.4-rc4]: oops around sock_recvmsg
-Date: Wed, 13 Jan 2016 08:47:35 +0100
-Message-ID: <87d1t5hqeg.fsf@gmail.com>
-References: <87d1td6a1l.fsf@gmail.com>
-	<20160107094249.GD19062@n2100.arm.linux.org.uk>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: bgmac: fix a missing check for build_skb
+Date: Wed, 13 Jan 2016 09:34:47 +0100
+Message-ID: <1452674087.4516.3.camel@redhat.com>
+References: <5695BF41.2040002@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34981 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752363AbcAMHri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 02:47:38 -0500
-Received: by mail-wm0-f44.google.com with SMTP id f206so282443136wmf.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2016 23:47:37 -0800 (PST)
-In-Reply-To: <20160107094249.GD19062@n2100.arm.linux.org.uk> (Russell King's
-	message of "Thu, 7 Jan 2016 09:42:50 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, nbd@openwrt.org,
+	zajec5@gmail.com, hauke@hauke-m.de, Joe Perches <joe@perches.com>,
+	peter.senna@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Weidong Wang <wangweidong1@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5695BF41.2040002@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Any ideas?
+On Wed, 2016-01-13 at 11:06 +0800, Weidong Wang wrote:
+> when build_skb failed, it may occure a NULL pointer.
+> So add a 'NULL check' for it.
+> 
+> Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index 21e3c38..d75180a 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -466,6 +466,11 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+>  			len -= ETH_FCS_LEN;
+> 
+>  			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+> +			if (unlikely(skb)) {
+
+Should that be instead:
+
+if (unlikely(!skb)) {
+
+?
+
+> +				bgmac_err(bgmac, "build_skb failed\n");
+> +				put_page(virt_to_head_page(buf));
+> +				break;
+> +			}
+>  			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
+>  				BGMAC_RX_BUF_OFFSET + len);
+>  			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
