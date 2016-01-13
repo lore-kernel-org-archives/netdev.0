@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152 add Microsoft Dock IDs
-Date: Wed, 13 Jan 2016 15:49:41 -0500 (EST)
-Message-ID: <20160113.154941.1886033351271894428.davem@davemloft.net>
-References: <904D0AF9-5265-47F5-A8DD-5A926438FE45@exactcode.com>
-	<20160113.145146.20282510666434086.davem@davemloft.net>
-	<04D87F8E-0A8C-4DEC-AE66-35D9B6B0E7B7@exactcode.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] net: preserve IP control block during GSO
+ segmentation
+Date: Wed, 13 Jan 2016 15:51:12 -0500 (EST)
+Message-ID: <20160113.155112.119405358547782630.davem@davemloft.net>
+References: <145225570625.30903.13936642758071448458.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: rene@exactcode.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37288 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758677AbcAMUtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 15:49:42 -0500
-In-Reply-To: <04D87F8E-0A8C-4DEC-AE66-35D9B6B0E7B7@exactcode.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <145225570625.30903.13936642758071448458.stgit@zurg>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogUmVuw6kgUmViZSA8cmVuZUBleGFjdGNvZGUuY29tPg0KRGF0ZTogV2VkLCAxMyBKYW4g
-MjAxNiAyMTowMzozMCArMDEwMA0KDQo+IEhpIERhdmlkLA0KPiANCj4gT24gSmFuIDEzLCAyMDE2
-LCBhdCAyMDo1MSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4g
-DQo+PiBZb3VyIHBhdGNoIHdhcyBjb3JydXB0ZWQgYnkgeW91ciBlbWFpbCBjbGllbnQuDQo+IA0K
-PiBJZWVrLCBndWVzcyB0aGF04oCZcyB3aGF0IEkgZ2V0IGZyb20gbm90IHVzaW5nIE1ldyBvbiBt
-eSBVbHRyYTUgYW55bW9yZSA6LS8NCj4gQ3Jvc3NpbmcgZmluZ2VycyBpdCB3b3JrcyB0aGlzIHRp
-bWUsIC4uLg0KPiANCj4gVGhlIE1pY3Jvc29mdCBTdXJmYWNlIERvY2tzIHVzZXMgYSBSODE1Miwg
-dG9vLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogUmVuw6kgUmViZSA8cmVuZUBleGFjdGNvZGUuY29t
-Pg0KDQpTb3JyeSwgdGhpcyBkb2VzIG5vdCBhcHBseSB0byBteSBuZXQgdHJlZSBhdCBhbGwuDQo=
+RnJvbTogS29uc3RhbnRpbiBLaGxlYm5pa292IDxrb2N0OWlAZ21haWwuY29tPgpEYXRlOiBGcmks
+IDA4IEphbiAyMDE2IDE1OjIxOjQ2ICswMzAwCgo+IFNrYl9nc29fc2VnbWVudCgpIHVzZXMgc2ti
+IGNvbnRyb2wgYmxvY2sgZHVyaW5nIHNlZ21lbnRhdGlvbi4KPiBUaGlzIHBhdGNoIGFkZHMgMzIt
+Ynl0ZXMgcm9vbSBmb3IgcHJldmlvdXMgY29udHJvbCBibG9jayB3aGljaAo+IHdpbGwgYmUgY29w
+aWVkIGludG8gYWxsIHJlc3VsdGluZyBzZWdtZW50cy4KPiAKPiBUaGlzIHBhdGNoIGZpeGVzIGtl
+cm5lbCBjcmFzaCBkdXJpbmcgZnJhZ21lbnRpbmcgZm9yd2FyZGVkIHBhY2tldHMuCj4gRnJhZ21l
+bnRhdGlvbiByZXF1aXJlcyB2YWxpZCBJUCBDQiBpbiBza2IgZm9yIGNsZWFyaW5nIGlwIG9wdGlv
+bnMuCj4gQWxzbyBwYXRjaCByZW1vdmVzIGN1c3RvbSBzYXZlL3Jlc3RvcmUgaW4gb3ZzIGNvZGUs
+IG5vdyBpdCdzIHJlZHVuZGFudC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBLb25zdGFudGluIEtobGVi
+bmlrb3YgPGtvY3Q5aUBnbWFpbC5jb20+Cj4gTGluazogaHR0cDovL2xrbWwua2VybmVsLm9yZy9y
+L0NBTFlHTmlQLTBNWi1GRXhWMkh1dFR2RTlVLVFRdGtLU29FLS1LTj1KUUU1U1RZc2pBQUBtYWls
+LmdtYWlsLmNvbQoKSWYgdGhpcyB3b3JrcyBJIGRlZmluaXRlbHkgcHJlZmVyIHRoaXMgYXBwcm9h
+Y2ggdG8gdGhlIG90aGVyIHBhdGNoCndoZXJlIHRoZSBDQiBpcyBjb3BpZWQgYmFjayBhbmQgZm9y
+dGguCgpBbnkgb3RoZXIgcmV2aWV3ZXJzPwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
+cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
