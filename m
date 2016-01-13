@@ -1,41 +1,46 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nft_ct: mark nft_ct_get_eval_counter
- __maybe_unused
-Date: Wed, 13 Jan 2016 17:49:03 +0100
-Message-ID: <20160113164903.GA4121@salvia>
-References: <6200241.eeH6DHXzHj@wuerfel>
- <20160113155424.GA1581@salvia>
+Subject: Re: [PATCH] netfilter: nf_conntrack: use safer way to lock all
+ buckets
+Date: Wed, 13 Jan 2016 17:54:23 +0100
+Message-ID: <20160113165422.GA20585@salvia>
+References: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
+ <20160110010637.GA22861@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: Florian Westphal <fw@strlen.de>, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
 	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Florian Westphal <fw@strlen.de>
-To: Arnd Bergmann <arnd@arndb.de>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160113155424.GA1581@salvia>
+In-Reply-To: <20160110010637.GA22861@breakpoint.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 13, 2016 at 04:54:24PM +0100, Pablo Neira Ayuso wrote:
-> On Wed, Jan 13, 2016 at 02:58:11PM +0100, Arnd Bergmann wrote:
-> > The newly added nft_ct_get_eval_counter() function is only used when
-> > CONFIG_NF_CONNTRACK_LABELS is set, otherwise gcc warns about the
-> > unused definition:
-> > 
-> > netfilter/nft_ct.c:34:12: warning: 'nft_ct_get_eval_counter' defined but not used [-Wunused-function]
-> >  static u64 nft_ct_get_eval_counter(const struct nf_conn_counter *c,
-> > 
-> > This marks the function __maybe_unused to shut up the warning.
+On Sun, Jan 10, 2016 at 02:06:37AM +0100, Florian Westphal wrote:
+> Sasha Levin <sasha.levin@oracle.com> wrote:
+> > Fix this by using a global lock and synchronize all buckets on it when we
+> > need to lock them all. This is pretty heavyweight, but is only done when we
+> > need to resize the hashtable, and that doesn't happen often enough (or at all).
 > 
-> It seems that function doesn't below to CONFIG_NF_CONNTRACK_LABELS as
-> it is part of the new counter support. Will be sending an alternate
-> patch instead.
+> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> > index 3cb3cb8..3c008ce 100644
+> > --- a/net/netfilter/nf_conntrack_core.c
+> > +++ b/net/netfilter/nf_conntrack_core.c
+> > @@ -66,6 +66,32 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
+> >  __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
+> >  EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
+> >  
+> > +spinlock_t nf_conntrack_locks_all_lock;
+> > +bool nf_conntrack_locks_all;
+> 
+> Seems both of these can be static and __read_mostly too --
+> as you already note resizing virtually never happens.
+>
+> Otherwise:
+> Reviewed-by: Florian Westphal <fw@strlen.de>
 
-Just for the record, I submitted this fix:
+Sasha, would you resubmit addressing Florian's feedback?
 
-http://patchwork.ozlabs.org/patch/567063/
+Thanks.
