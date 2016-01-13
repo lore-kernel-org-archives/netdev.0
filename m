@@ -1,52 +1,96 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 2/2] 3c59x: fix another page map/single unmap imbalance
-Date: Wed, 13 Jan 2016 12:43:54 -0500
-Message-ID: <1452707034-16379-3-git-send-email-nhorman@tuxdriver.com>
-References: <1452707034-16379-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33296 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932341AbcAMRoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 12:44:37 -0500
-In-Reply-To: <1452707034-16379-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next 10/10] net: mvneta: Use the new hwbm framework
+Date: Wed, 13 Jan 2016 18:47:25 +0100
+Message-ID: <87h9ihwevm.fsf@free-electrons.com>
+References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
+	<1452625834-22166-11-git-send-email-gregory.clement@free-electrons.com>
+	<CAPv3WKcKK8fS-6koSgV7ABi8bvkRgzaqJDpOETCpGoTc2sWV=w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAPv3WKcKK8fS-6koSgV7ABi8bvkRgzaqJDpOETCpGoTc2sWV=w@mail.gmail.com>
+	(Marcin Wojtas's message of "Tue, 12 Jan 2016 23:40:40 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-libdma debug found another page map/unmap imbalance in 3c59x.  Multi fragment
-frames are mapped such that the lead fragment was mapped as a single entry,
-while all other fragments were mapped as pages.  However, on unmapping they were
-all unmapped as pages.  Fix is pretty easy, just unmap the lead frag as a single
-entry, and bump the for loop initalization up by one so that all subsequent
-frags get unmapped as pages
+Hi Marcin,
+ 
+ On mar., janv. 12 2016, Marcin Wojtas <mw@semihalf.com> wrote:
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
----
- drivers/net/ethernet/3com/3c59x.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+> Hi Gregory,
+>
+> A quick remark below. All changes look fine to me at a first look, but
+> I will test and dig more into code soon.
 
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index eec4a3a..b18ad8e 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -2459,7 +2459,12 @@ boomerang_interrupt(int irq, void *dev_id)
- 					struct sk_buff *skb = vp->tx_skbuff[entry];
- #if DO_ZEROCOPY
- 					int i;
--					for (i=0; i<=skb_shinfo(skb)->nr_frags; i++)
-+					pci_unmap_single(VORTEX_PCI(vp),
-+							le32_to_cpu(vp->tx_ring[entry].frag[0].addr), 
-+							le32_to_cpu(vp->tx_ring[entry].frag[0].length),
-+							PCI_DMA_TODEVICE);
-+
-+					for (i=1; i<=skb_shinfo(skb)->nr_frags; i++)
- 							pci_unmap_page(VORTEX_PCI(vp),
- 											 le32_to_cpu(vp->tx_ring[entry].frag[i].addr),
- 											 le32_to_cpu(vp->tx_ring[entry].frag[i].length)&0xFFF,
+Great! A test would be nice because I have just did basic tests: mainly an
+iperf.
+
+>
+>>
+>> @@ -3946,11 +3965,6 @@ static int mvneta_probe(struct platform_device *pdev)
+>>         dev->priv_flags |= IFF_UNICAST_FLT;
+>>         dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+>>
+>> -       err = register_netdev(dev);
+>> -       if (err < 0) {
+>> -               dev_err(&pdev->dev, "failed to register\n");
+>> -               goto err_free_stats;
+>> -       }
+>
+> The purpose of shifting register_netdev() was to be able to obtain
+> pp->id from net_device, before mvneta_bm_port_init is called. It is
+> needed for proper port - pool mapping control.
+
+I can revert this change, initially I moved this chunk because I wanted
+to add a netdev_ops before registering it and this netdev_op depend on
+the bm support. As for now I don't have this this netdev_op this change
+is pointless. But if in future I need it, then I will look for how to do
+it in a different way.
+
+Thanks,
+
+
+>
+>>
+>>         pp->id = dev->ifindex;
+>>
+>> @@ -3965,6 +3979,12 @@ static int mvneta_probe(struct platform_device *pdev)
+>>                 }
+>>         }
+>>
+>> +       err = register_netdev(dev);
+>> +       if (err < 0) {
+>> +               dev_err(&pdev->dev, "failed to register\n");
+>> +               goto err_free_stats;
+>> +       }
+>> +
+>>         err = mvneta_init(&pdev->dev, pp);
+>>         if (err < 0)
+>>                 goto err_netdev;
+>
+> Best regards,
+> Marcin
+
 -- 
-2.5.0
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
