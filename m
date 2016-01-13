@@ -1,40 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request [net]: batman-adv 20160114
-Date: Wed, 13 Jan 2016 14:58:13 -0500 (EST)
-Message-ID: <20160113.145813.44327435000640737.davem@davemloft.net>
-References: <1452707514-5091-1-git-send-email-a@unstable.cc>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Warren Turkal <wt@penguintechs.org>
+Subject: dummy ethernet devices and sysfs
+Date: Wed, 13 Jan 2016 11:58:01 -0800
+Message-ID: <CAB_jBhhyNLeYSuOQUXPTtU3LaVdjXtD=jS0kuvMckDjyOz1Xzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: a@unstable.cc
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1452707514-5091-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:33427 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752624AbcAMT6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 14:58:22 -0500
+Received: by mail-ig0-f181.google.com with SMTP id z14so176533082igp.0
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 11:58:21 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Thu, 14 Jan 2016 01:51:52 +0800
+Hi,
 
-> these are two small fixes intended for your net tree.
-> 
-> Patch 1 prevents a lockdep splat from appearing along the
-> shutdown path due to a missing lock in mcast_free(), by Simon Wunderlich.
-> 
-> Patch 2 fixes a new feature introduced in 4.5 by ensuring that a
-> batadv_hardif_neigh_node object is free'd only when it is no
-> longer used in any context, by Sven Eckelmann.
-> 
-> Please pull or let me know of any issue.
+I was looking through sysfs today, and something interesting jumped
+out at me after I loaded the dummy module.
 
-Pulled, thanks!
+This directory exists: /sys/class/net/wlp2s0/device/
+
+This directory does not: /sys/class/net/dummy0/device/
+
+I can find the module that is providing the wlp2s0 device with the following:
+$ ls /sys/class/net/wlp2s0/device/driver/module/drivers/
+pci:iwlwifi
+
+Shouldn't dummy have something similar so that one can figure out
+which module is providing the dummy0 device?
+
+FWIW, I am running the latest Ubuntu 15.10 kernel (4.2.0-23-generic).
+
+Thanks,
+wt
