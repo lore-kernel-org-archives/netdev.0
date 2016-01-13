@@ -1,55 +1,50 @@
-From: Matti Vaittinen <matti.vaittinen@nokia.com>
-Subject: [PATCH v2 1/1] net: netlink: Fix multicast group storage allocation
- for families with more than one groups
-Date: Wed, 13 Jan 2016 09:54:12 +0200
-Message-ID: <20160113075400.GA12580@fi-ourus-dhcp00977.emea.nsn-net.net>
+From: Kejian Yan <yankejian@huawei.com>
+Subject: [patch v3 net-next 0/2] dts: hisi: fixes no syscon fault when init mdio
+Date: Wed, 13 Jan 2016 15:09:57 +0800
+Message-ID: <1452668999-443-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sverdlin Alexander <alexander.sverdlin@nokia.com>,
-	Pennanen Teppo Olavi <teppo.o.pennanen@nokia.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Matti Vaittinen <matti.vaittinen@nokia.com>
+Content-Type: text/plain
+Cc: <haifeng.wei@huawei.com>, <devicetree@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: <davem@davemloft.net>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
+	<mark.rutland@arm.com>, <ijc+devicetree@hellion.org.uk>,
+	<galak@codeaurora.org>, <xuwei5@hisilicon.com>,
+	<catalin.marinas@arm.com>, <will.deacon@arm.com>,
+	<f.fainelli@gmail.com>, <andrew@lunn.ch>, <liguozhu@huawei.com>,
+	<Yisen.Zhuang@huawei.com>, <sboyd@codeaurora.org>,
+	<haojian.zhuang@linaro.org>, <wangzhou1@hisilicon.com>,
+	<bintian.wang@huawei.com>, <long.wanglong@huawei.com>,
+	<leo.yan@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello again,
+This patchset fixes the bug that eth can't initial successful on hip05-D02
+because the dts files doesn't match the source code.
 
-      Second version, Fixed the 'off by one' bug spotted by David.
-
-      Br.
-        Matti Vaittinen
-
-Multicast groups are stored in global buffer. Check for needed buffer size
-incorrectly compares buffer size to first id for family. This means that
-for families with more than one mcast id one may allocate too small buffer
-and end up writing rest of the groups to some unallocated memory. Fix the
-buffer size check to compare allocated space to last mcast id for the
-family.
-
-Tested on ARM using kernel 3.14
-
-Signed-off-by: Matti Vaittinen <matti.vaittinen@nokia.com>
+Kejian Yan (2):
+  dts: hisi: fixes no syscon fault when init mdio
+  net: hns: fixes no syscon error when init mdio
 ---
- net/netlink/genetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+change log:
+v3:
+ 1) uses capital letter at the beginning of sentences
+ 2) updates the right device node name
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index bc0e504..5e113ba 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -185,7 +185,7 @@ static int genl_allocate_reserve_groups(int n_groups, int *first_id)
- 			}
- 		}
- 
--		if (id >= mc_groups_longs * BITS_PER_LONG) {
-+		if (id + n_groups > mc_groups_longs * BITS_PER_LONG) {
- 			unsigned long new_longs = mc_groups_longs +
- 						  BITS_TO_LONGS(n_groups);
- 			size_t nlen = new_longs * sizeof(unsigned long);
+v2:
+ 1) update the related documented in the binding as well
+ 2) use the normal naming conventions using '-' instead of '_', and
+    update the related *.c files.
+v1:
+ first submit
+
+ .../devicetree/bindings/arm/hisilicon/hisilicon.txt      | 16 ++++++++++++++++
+ arch/arm64/boot/dts/hisilicon/hip05.dtsi                 |  5 +++++
+ arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi             |  4 ++--
+ drivers/net/ethernet/hisilicon/hns_mdio.c                |  2 +-
+ 4 files changed, 24 insertions(+), 3 deletions(-)
+
 -- 
-2.1.0
+2.4.1
