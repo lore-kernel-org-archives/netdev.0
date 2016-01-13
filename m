@@ -1,44 +1,62 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ssb: host_soc depends on sprom
-Date: Wed, 13 Jan 2016 23:51:43 +0100
-Message-ID: <8128014.DbbgBtKY3z@wuerfel>
+From: Warren Turkal <wt@penguintechs.org>
+Subject: Re: dummy ethernet devices and sysfs
+Date: Wed, 13 Jan 2016 14:54:15 -0800
+Message-ID: <CAB_jBhi7Ko659axT8oZEBB6z5Vm6tLYF35eBCO6ujubNkgp_6A@mail.gmail.com>
+References: <CAB_jBhhyNLeYSuOQUXPTtU3LaVdjXtD=jS0kuvMckDjyOz1Xzg@mail.gmail.com>
+ <20160113121609.139af5a2@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>, Michael Buesch <m@bues.ch>,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:34452 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbcAMWyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 17:54:35 -0500
+Received: by mail-io0-f170.google.com with SMTP id 1so387709186ion.1
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 14:54:35 -0800 (PST)
+In-Reply-To: <20160113121609.139af5a2@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Drivers that use the SSB sprom functionality typically 'select SSB_SPROM'
-from Kconfig, but CONFIG_SSB_HOST_SOC misses this, which results in
-a build failure unless at least one of the other drivers that selects
-it is enabled:
+On Wed, Jan 13, 2016 at 12:16 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> If you look carefully at the /sys/class/net/wlp2s0/device/ you will
+> see it is a symlink to the underlying /sys directory for the hardware (PCI)
+> device.  Since dummy (and other virtual interfaces) have no hardware,
+> there is no symlink.
 
-drivers/built-in.o: In function `ssb_host_soc_get_invariants':
-(.text+0x459494): undefined reference to `ssb_fill_sprom_with_fallback'
+What's the right way for one find the module that caused dummy0 to exist?
 
-This adds the same select statement that is used elsewhere.
+wt
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 541c9a84cd85 ("ssb: pick SoC invariants code from MIPS BCM47xx arch")
----
-I'm not sure who the right person is to pick up the fix. The patch that
-introduced the problem was merged by Kalle through the iwlwifi tree.
-
-diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
-index 0c675861623f..d8e4219c2324 100644
---- a/drivers/ssb/Kconfig
-+++ b/drivers/ssb/Kconfig
-@@ -83,6 +83,7 @@ config SSB_SDIOHOST
- config SSB_HOST_SOC
- 	bool "Support for SSB bus on SoC"
- 	depends on SSB && BCM47XX_NVRAM
-+	select SSB_SPROM
- 	help
- 	  Host interface for a SSB directly mapped into memory. This is
- 	  for some Broadcom SoCs from the BCM47xx and BCM53xx lines.
+On Wed, Jan 13, 2016 at 12:16 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed, 13 Jan 2016 11:58:01 -0800
+> Warren Turkal <wt@penguintechs.org> wrote:
+>
+>> Hi,
+>>
+>> I was looking through sysfs today, and something interesting jumped
+>> out at me after I loaded the dummy module.
+>>
+>> This directory exists: /sys/class/net/wlp2s0/device/
+>>
+>> This directory does not: /sys/class/net/dummy0/device/
+>>
+>> I can find the module that is providing the wlp2s0 device with the following:
+>> $ ls /sys/class/net/wlp2s0/device/driver/module/drivers/
+>> pci:iwlwifi
+>>
+>> Shouldn't dummy have something similar so that one can figure out
+>> which module is providing the dummy0 device?
+>>
+>> FWIW, I am running the latest Ubuntu 15.10 kernel (4.2.0-23-generic).
+>>
+>> Thanks,
+>> wt
+>
+> If you look carefully at the /sys/class/net/wlp2s0/device/ you will
+> see it is a symlink to the underlying /sys directory for the hardware (PCI)
+> device.  Since dummy (and other virtual interfaces) have no hardware,
+> there is no symlink.
