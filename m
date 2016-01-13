@@ -1,53 +1,50 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v4 0/3] can: sja1000: support for technologic version
-Date: Wed, 13 Jan 2016 12:46:03 +0100
-Message-ID: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH v4 2/3] can: sja1000: add documentation for Technologic Systems version
+Date: Wed, 13 Jan 2016 12:46:05 +0100
+Message-ID: <1452685566-27431-3-git-send-email-mkl@pengutronix.de>
+References: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org,
+	Damien Riegel <damien.riegel@savoirfairelinux.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: linux-can@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is Damien Riegel's series with minor changes.
+From: Damien Riegel <damien.riegel@savoirfairelinux.com>
 
-regards,
-Marc
+This commit adds documentation for the Technologic Systems version of
+SJA1000. The difference with the NXP version is in the way the registers
+are accessed.
 
+Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This patchset introduces support for the technologic version of the
-SJA1000. Access to IP's registers are proxied through a window,
-requiring two bus accesses to read or write a register. These accesses
-must be protected by a spinlock to prevent race conditions. Currently,
-there is no easy way to allocate and initialize this spinlock.
-
-SJA1000 already provides a way to allocate private data, but
-sja1000_platform.c makes no use of it.
-
-Patch 1 adds the capability to allocate and initialize private data on a
-per-compatible basis in sja1000_platform.c.
-
-Patch 2 updates device tree documentation to add the technologic
-version.
-
-Patch 3 updates the driver to implement the technologic version
-
-Changes in v4:
- - add sp_ prefix to technologic functions
- - add empty "static struct sja1000_of_data nxp_data"
- - make "struct sja1000_of_data technologic_data" static
- - get rid of "?" operator in sp_probe()
-
-Changes in v3:
- - moved sp_of_table above sp_probe as it is used in this function
- - removed functions added in v2 and do everyting in sp_probe
-
-Changes in v2:
- - added a patch to allocate and initialize private data
- - changed device tree documentation
- - added a spinlock to protect bus accesses
- - changed sp_{read,write}_reg16 to io{read,write}16
-
-
-
+diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
+index b4a6d53fb01a..ac3160eca96a 100644
+--- a/Documentation/devicetree/bindings/net/can/sja1000.txt
++++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
+@@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
+ 
+ Required properties:
+ 
+-- compatible : should be "nxp,sja1000".
++- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
+ 
+ - reg : should specify the chip select, address offset and size required
+ 	to map the registers of the SJA1000. The size is usually 0x80.
+@@ -14,6 +14,7 @@ Optional properties:
+ 
+ - reg-io-width : Specify the size (in bytes) of the IO accesses that
+ 	should be performed on the device.  Valid value is 1, 2 or 4.
++	This property is ignored for technologic version.
+ 	Default to 1 (8 bits).
+ 
+ - nxp,external-clock-frequency : Frequency of the external oscillator
+-- 
+2.6.4
 
