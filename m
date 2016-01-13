@@ -1,53 +1,44 @@
-From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH] rtl818x_pci: Fix a memory leak in rtl8180_init_rx_ring
-Date: Wed, 13 Jan 2016 22:44:32 +0800
-Message-ID: <1452696272-31229-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-To: andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
-	flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
+ skb_copy_and_csum_datagram_iovec()
+Date: Wed, 13 Jan 2016 06:51:27 -0800
+Message-ID: <1452696687.1223.59.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
+	 <568BF0FD.4010208@suse.cz> <1452012008.2768.82.camel@decadent.org.uk>
+	 <1452682920.7020.32.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jslaby@suse.cz>, Michal Kubecek <mkubecek@suse.cz>,
+	stable@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>,
+	netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1452682920.7020.32.camel@decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When dev_alloc_skb or pci_dma_mapping_error in rtl8180_init_rx_ring fails,
-the memory allocated by pci_zalloc_consistent is not freed.
+On Wed, 2016-01-13 at 11:02 +0000, Ben Hutchings wrote:
+> On Tue, 2016-01-05 at 16:40 +0000, Ben Hutchings wrote:
+> > On Tue, 2016-01-05 at 17:36 +0100, Jiri Slaby wrote:
+> > > On 12/28/2015, 03:01 PM, Michal Kubecek wrote:
+> > > > Recent fix "net: add length argument to
+> > > > skb_copy_and_csum_datagram_iovec" added to some pre-3.19 stable
+> > > > branches, namely
+> > > > 
+> > > >   stable-3.2.y: commit 127500d724f8
+> > > >   stable-3.12.y: commit 3e1ac3aafbd0
+> > > 
+> > > Applied this fix to 3.12. Thanks!
+> > [...]
+> > 
+> > You don't want this, you want Eric's fix (commit 197c949e7, "udp:
+> > properly support MSG_PEEK with truncated buffers") although that's not
+> > upstream yet.
+> 
+> It's now upstream as commit 197c949e7798fbf28cfadc69d9ca0c2abbf93191.
+> 
+> Ben.
+> 
 
-This patch fixes the bug by adding pci_free_consistent
-in error handling code.
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
----
- drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c b/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
-index a43a16f..28479b1 100644
---- a/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
-+++ b/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
-@@ -1018,6 +1018,8 @@ static int rtl8180_init_rx_ring(struct ieee80211_hw *dev)
- 		dma_addr_t *mapping;
- 		entry = priv->rx_ring + priv->rx_ring_sz*i;
- 		if (!skb) {
-+			pci_free_consistent(priv->pdev, priv->rx_ring_sz * 32,
-+					priv->rx_ring, priv->rx_ring_dma);
- 			wiphy_err(dev->wiphy, "Cannot allocate RX skb\n");
- 			return -ENOMEM;
- 		}
-@@ -1028,6 +1030,8 @@ static int rtl8180_init_rx_ring(struct ieee80211_hw *dev)
- 
- 		if (pci_dma_mapping_error(priv->pdev, *mapping)) {
- 			kfree_skb(skb);
-+			pci_free_consistent(priv->pdev, priv->rx_ring_sz * 32,
-+					priv->rx_ring, priv->rx_ring_dma);
- 			wiphy_err(dev->wiphy, "Cannot map DMA for RX skb\n");
- 			return -ENOMEM;
- 		}
--- 
-1.7.9.5
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Indeed, thanks guys for your backports !
