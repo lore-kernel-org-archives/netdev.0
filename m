@@ -1,232 +1,25 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
- flow_keys layout
-Date: Thu, 14 Jan 2016 13:44:24 -0800
-Message-ID: <CALx6S349p_2XwFXM_T74PzSmJ6F9petkyX_5dY-PEp2O7Y9vfA@mail.gmail.com>
-References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
- <20160110.172558.367101858392871618.davem@davemloft.net>
- <BN1PR0301MB07701A189AABFBF664B5775BCACB0@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <CALx6S35PbTHF7nY0ugtxCUkc5kUmMYAyuy6ZM34bZ9v42nDudg@mail.gmail.com>
- <20160114175304.161ff0af@lxorguk.ukuu.org.uk>
- <1452795849.1223.112.camel@edumazet-glaptop2.roam.corp.google.com>
- <BN1PR0301MB077010E0AC22812F390C14CACACC0@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <CALx6S36c73ESX2djY4QxWO3Yz_rnGaJ_wMrWm1spdcBj_ePVTw@mail.gmail.com>
- <BN1PR0301MB0770157002F6294CFF594C13CACC0@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <CALx6S34NWdBe0ZBuSMJCC8r68LOVvbY3ZXhneo+TSU1qz=9mYw@mail.gmail.com>
- <BN1PR0301MB0770C72CCEDD9AEBA7AEA329CACC0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ssb: host_soc depends on sprom
+Date: Thu, 14 Jan 2016 16:46:00 -0500 (EST)
+Message-ID: <20160114.164600.1186126324030429206.davem@davemloft.net>
+References: <8128014.DbbgBtKY3z@wuerfel>
+	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
- Eric Dumazet <eric.dumazet@gmail.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- David Miller <davem@davemloft.net>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BN1PR0301MB0770C72CCEDD9AEBA7AEA329CACC0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: arnd@arndb.de, zajec5@gmail.com, hauke@hauke-m.de, m@bues.ch,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 14, 2016 at 12:23 PM, Haiyang Zhang <haiyangz@microsoft.com> wrote:
->
->
->> -----Original Message-----
->> From: Tom Herbert [mailto:tom@herbertland.com]
->> Sent: Thursday, January 14, 2016 2:41 PM
->> To: Haiyang Zhang <haiyangz@microsoft.com>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>; One Thousand Gnomes
->> <gnomes@lxorguk.ukuu.org.uk>; David Miller <davem@davemloft.net>;
->> vkuznets@redhat.com; netdev@vger.kernel.org; KY Srinivasan
->> <kys@microsoft.com>; devel@linuxdriverproject.org; linux-
->> kernel@vger.kernel.org
->> Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on
->> struct flow_keys layout
->>
->> On Thu, Jan 14, 2016 at 11:15 AM, Haiyang Zhang <haiyangz@microsoft.com>
->> wrote:
->> >
->> >
->> >> -----Original Message-----
->> >> From: Tom Herbert [mailto:tom@herbertland.com]
->> >> Sent: Thursday, January 14, 2016 1:49 PM
->> >> To: Haiyang Zhang <haiyangz@microsoft.com>
->> >> Cc: Eric Dumazet <eric.dumazet@gmail.com>; One Thousand Gnomes
->> >> <gnomes@lxorguk.ukuu.org.uk>; David Miller <davem@davemloft.net>;
->> >> vkuznets@redhat.com; netdev@vger.kernel.org; KY Srinivasan
->> >> <kys@microsoft.com>; devel@linuxdriverproject.org; linux-
->> >> kernel@vger.kernel.org
->> >> Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on
->> >> struct flow_keys layout
->> >>
->> >> On Thu, Jan 14, 2016 at 10:35 AM, Haiyang Zhang
->> <haiyangz@microsoft.com>
->> >> wrote:
->> >> >
->> >> >
->> >> >> -----Original Message-----
->> >> >> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->> >> >> Sent: Thursday, January 14, 2016 1:24 PM
->> >> >> To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
->> >> >> Cc: Tom Herbert <tom@herbertland.com>; Haiyang Zhang
->> >> >> <haiyangz@microsoft.com>; David Miller <davem@davemloft.net>;
->> >> >> vkuznets@redhat.com; netdev@vger.kernel.org; KY Srinivasan
->> >> >> <kys@microsoft.com>; devel@linuxdriverproject.org; linux-
->> >> >> kernel@vger.kernel.org
->> >> >> Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on
->> >> >> struct flow_keys layout
->> >> >>
->> >> >> On Thu, 2016-01-14 at 17:53 +0000, One Thousand Gnomes wrote:
->> >> >> > > These results for Toeplitz are not plausible. Given random
->> input
->> >> you
->> >> >> > > cannot expect any hash function to produce such uniform
->> results.
->> >> I
->> >> >> > > suspect either your input data is biased or how your applying
->> the
->> >> >> hash
->> >> >> > > is.
->> >> >> > >
->> >> >> > > When I run 64 random IPv4 3-tuples through Toeplitz and
->> Jenkins I
->> >> >> get
->> >> >> > > something more reasonable:
->> >> >> >
->> >> >> > IPv4 address patterns are not random. Nothing like it. A long
->> long
->> >> >> time
->> >> >> > ago we did do a bunch of tuning for network hashes using big
->> porn
->> >> site
->> >> >> > data sets. Random it was not.
->> >> >> >
->> >> >>
->> >> >> I ran my tests with non random IPV4 addresses, as I had 2 hosts,
->> >> >> one server, one client. (typical benchmark stuff)
->> >> >>
->> >> >> The only 'random' part was the ports, so maybe ~20 bits of entropy,
->> >> >> considering how we allocate ports during connect() to a given
->> >> >> destination to avoid port reuse.
->> >> >>
->> >> >> > It's probably hard to repeat that exercise now with geo specific
->> >> >> routing,
->> >> >> > and all the front end caches and redirectors on big sites but
->> I'd
->> >> >> > strongly suggest random input is not a good test, and also that
->> you
->> >> >> need
->> >> >> > to worry more about hash attacks than perfect distributions.
->> >> >>
->> >> >> Anyway, the exercise is not to find a hash that exactly splits 128
->> >> flows
->> >> >> into 16 buckets, according to the number of flows per bucket.
->> >> >>
->> >> >> Maybe only 4 flows are sending at 3Gbits, and others are sending
->> at
->> >> 100
->> >> >> kbits. There is no way the driver can predict the future.
->> >> >>
->> >> >> This is why we prefer to select a queue given the cpu sending the
->> >> >> packet. This permits a natural shift based on actual load, and is
->> the
->> >> >> default on linux (see XPS in Documentation/networking/scaling.txt)
->> >> >>
->> >> >> Only this driver has a selection based on a flow 'hash'.
->> >> >
->> >> > Also, the port number selection may not be random either. For
->> example,
->> >> > the well-known network throughput test tool, iperf, use port
->> numbers
->> >> with
->> >> > equal increment among them. We tested these non-random cases, and
->> >> found
->> >> > the Toeplitz hash has distributed evenly, but Jenkins hash has non-
->> >> even
->> >> > distribution.
->> >> >
->> >> > I'm aware of the test from Tom Herbert <tom@herbertland.com>, which
->> >> > showing similar results of Toeplitz v.s. Jenkins with random inputs.
->> >> >
->> >> > In summary, the Toeplitz performs better in case of non-random
->> inputs,
->> >> > and performs similar to Jenkins in random inputs (which may not be
->> the
->> >> > case in real world). So we still prefer to use Toeplitz hash.
->> >> >
->> >> You are basing your conclusions on one toy benchmark. I don't believe
->> >> that an realistically loaded web server is going to consistently give
->> >> you tuples that happen to somehow fit into a nice model so that the
->> >> bias benefits your load distribution.
->> >>
->> >> > To minimize the computational overhead, we may consider put the
->> hash
->> >> > in a per-connection cache in TCP layer, so it only needs one time
->> >> > computation. But, even with the computation overhead at this moment,
->> >> > the throughput based on Toeplitz hash is better than Jenkins:
->> >> > Throughput (Gbps) comparison:
->> >> > #conn           Toeplitz        Jenkins
->> >> > 32              26.6            23.2
->> >> > 64              32.1            23.4
->> >> > 128             29.1            24.1
->> >> >
->> >> You don't need to do that. We already store a random hash value in
->> the
->> >> connection context. If you want to make it non-random then just
->> >> replace that with a simple global counter. This will have the exact
->> >> same effect that you see in your tests without needing any expensive
->> >> computation.
->> >
->> > Could you point me to the data field of connection context where this
->> > hash value is stored? Is it computed only one time?
->> >
->> sk_txhash in struct sock. It is set to a random number on TCP or UDP
->> connect call, It can be reset to a different random value when
->> connection is seen to be have trouble (sk_rethink_txhash).
->>
->> Also when you say "Toeplitz performs better in case of non-random
->> inputs" please quantify exactly how your input data is not random.
->> What header changes with each connection in your test...
->
-> Thank you for the info!
->
-> For non-random inputs, I used the port selection of iperf that increases
-> the port number by 2 for each connection. Only send-port numbers are
-> different, other values are the same. I also tested some other fixed
-> increment, Toeplitz spreads the connections evenly. For real applications,
-> if the load came from local area, then the IP/port combinations are
-> likely to have some non-random patterns.
->
-Okay, by only changing source port I can produce the same uniformity:
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Thu, 14 Jan 2016 08:46:29 +0200
 
-64 connections with a step of 2 for changing source port gives:
+> I can take it. For historical reasons ssb patches go through my
+> wireless-drivers trees.
 
-Buckets: 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4
-
-_but_, I can also find also make steps that severely mess up load
-distribution. Step 1024 gives:
-
-Buckets: 0 8 8 0 0 8 8 0 8 0 0 8 8 0 0 8
-
-The fact that we can negatively affect the output of Toeplitz so
-predictably is actually a liability and not a benefit. This sort of
-thing can be the basis of a DOS attack and is why we kicked out XOR
-hash in favor of Jenkins.
-
-> For our driver, we are thinking to put the Toeplitz hash to the sk_txhash,
-> so it only needs to be computed only once, or during sk_rethink_txhash.
-> So, the computational overhead happens almost only once.
->
-> Thanks,
-> - Haiyang
->
->
++1
