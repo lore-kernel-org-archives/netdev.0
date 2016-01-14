@@ -1,53 +1,68 @@
-From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH v2] net: preserve IP control block during GSO
-	segmentation
-Date: Thu, 14 Jan 2016 00:36:28 +0100
-Message-ID: <20160113233628.GA10507@breakpoint.cc>
-References: <145225570625.30903.13936642758071448458.stgit@zurg>
- <20160113.155112.119405358547782630.davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 5/9] bpf: syscall: add percpu version of lookup/update
+ elem
+Date: Wed, 13 Jan 2016 17:19:54 -0800
+Message-ID: <20160114011953.GA43324@ast-mbp.thefacebook.com>
+References: <20160111190248.GA26495@ast-mbp.thefacebook.com>
+ <CACVXFVM7B6diKgrGoXdMkYW94SeY9yRxbv8bJ+J0K=TBGxDBQQ@mail.gmail.com>
+ <20160112054928.GA31180@ast-mbp.thefacebook.com>
+ <CACVXFVOyAm-X7WdC-OCau_tZCAmSJoHFh2p6do16SzFDD8EkUg@mail.gmail.com>
+ <20160112191051.GA67436@kafai-mba.local>
+ <CACVXFVOKRpPfVzAkeFq6vLkRG+JsK+GnmT5_YUBb4hZg3KjM1w@mail.gmail.com>
+ <20160113022204.GA25270@kafai-mba.dhcp.thefacebook.com>
+ <CACVXFVPK+1yKbOs2A73413bamssyNXFEq+j9LTs_vZxfTsxzGA@mail.gmail.com>
+ <20160113053009.GC37858@ast-mbp.thefacebook.com>
+ <CACVXFVPO4iN_oSce6J9uiSybZy2GV-x3h6TCca+zLP-sZn6sbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Martin KaFai Lau <kafai@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160113.155112.119405358547782630.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CACVXFVPO4iN_oSce6J9uiSybZy2GV-x3h6TCca+zLP-sZn6sbA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBLb25zdGFu
-dGluIEtobGVibmlrb3YgPGtvY3Q5aUBnbWFpbC5jb20+Cj4gRGF0ZTogRnJpLCAwOCBKYW4gMjAx
-NiAxNToyMTo0NiArMDMwMAo+IAo+ID4gU2tiX2dzb19zZWdtZW50KCkgdXNlcyBza2IgY29udHJv
-bCBibG9jayBkdXJpbmcgc2VnbWVudGF0aW9uLgo+ID4gVGhpcyBwYXRjaCBhZGRzIDMyLWJ5dGVz
-IHJvb20gZm9yIHByZXZpb3VzIGNvbnRyb2wgYmxvY2sgd2hpY2gKPiA+IHdpbGwgYmUgY29waWVk
-IGludG8gYWxsIHJlc3VsdGluZyBzZWdtZW50cy4KPiA+IAo+ID4gVGhpcyBwYXRjaCBmaXhlcyBr
-ZXJuZWwgY3Jhc2ggZHVyaW5nIGZyYWdtZW50aW5nIGZvcndhcmRlZCBwYWNrZXRzLgo+ID4gRnJh
-Z21lbnRhdGlvbiByZXF1aXJlcyB2YWxpZCBJUCBDQiBpbiBza2IgZm9yIGNsZWFyaW5nIGlwIG9w
-dGlvbnMuCj4gPiBBbHNvIHBhdGNoIHJlbW92ZXMgY3VzdG9tIHNhdmUvcmVzdG9yZSBpbiBvdnMg
-Y29kZSwgbm93IGl0J3MgcmVkdW5kYW50Lgo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBLb25zdGFu
-dGluIEtobGVibmlrb3YgPGtvY3Q5aUBnbWFpbC5jb20+Cj4gPiBMaW5rOiBodHRwOi8vbGttbC5r
-ZXJuZWwub3JnL3IvQ0FMWUdOaVAtME1aLUZFeFYySHV0VHZFOVUtUVF0a0tTb0UtLUtOPUpRRTVT
-VFlzakFBQG1haWwuZ21haWwuY29tCj4gCj4gSWYgdGhpcyB3b3JrcyBJIGRlZmluaXRlbHkgcHJl
-ZmVyIHRoaXMgYXBwcm9hY2ggdG8gdGhlIG90aGVyIHBhdGNoCj4gd2hlcmUgdGhlIENCIGlzIGNv
-cGllZCBiYWNrIGFuZCBmb3J0aC4KCkkgcXVpdGUgZnJhbmtseSBkb24ndCBjYXJlIGFuZCBqdXN0
-IGxpa2UgeW91IHRvIGFwcGx5IG9uZSBvciB0aGUgb3RoZXI7CnVzZSBjb2luIHRvc3MgaWYgbmVl
-ZGVkIDotfQoKSSB3b3VsZCBwcmVmZXIgdG8gdXNlIGEgb24tc3RhY2sgc3RhdGUgc2luY2UgdGhl
-cmUgaXMgbm8gbmVlZCB0bwp1c2Ugc2tiLT5jYiAobm8gcXVldWVpbmcpIGJ1dCB3aGVuIEkgZ2F2
-ZSBpdCBhIHRyeSBpdCBnb3Qgb3V0IG9mIGhhbmQKcmF0aGVyIHF1aWNrIDotLwoKQW55d2F5IEtv
-bnN0YW50aW5zIGFwcHJvYWNoIGlzIHNhZmUgc2luY2Ugd2Ugb25seSBuZWVkIHRoaXMgaW4Kb3Zz
-L2lwIGZvcndhcmQgKyBuZm5ldGxpbmtfcXVldWUgY2FzZXMgYW5kIGluIGFsbCBvZiB0aGVzZSB0
-aGVyZSBpcwplbm91Z2ggcm9vbSBhdCB0aGUgY2IgZW5kIChmb3Igbm93IGF0IGxlYXN0KS4KX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcg
-bGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9kZXYK
+On Wed, Jan 13, 2016 at 10:56:38PM +0800, Ming Lei wrote:
+> On Wed, Jan 13, 2016 at 1:30 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+> > On Wed, Jan 13, 2016 at 11:17:23AM +0800, Ming Lei wrote:
+> >> On Wed, Jan 13, 2016 at 10:22 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> >> > On Wed, Jan 13, 2016 at 08:38:18AM +0800, Ming Lei wrote:
+> >> >> > The userspace usually only aggregates value across all cpu every X seconds.
+> >> >>
+> >> >> That is just in your case, and Alexei worried the issue of data stale.
+> >> > I believe we are talking about validity of a value.  How to
+> >> > make use of a less-stale but invalid data?
+> >>
+> >> About the 'invalidity' thing, it should be same between using
+> >> smp_call(run in IPI irq handler) and simple memcpy().
+> >>
+> >> When smp_call_function_single() is used to request to lookup element in
+> >> the specific CPU, the value of the element may be in updating in that CPU
+> >> and not completed yet in eBPF prog, then IPI comes and half updated
+> >> data is still returned to syscall.
+> >
+> > hmm. I'm not following. bpf programs are executing with preempt disabled,
+> > so smp_call_function_single suppose to execute when bpf is not running.
+> 
+> Preempt disabled doesn't mean irq disabled, does it?  So when bpf prog is
+> running, the IPI irq for smp_call still may come on that CPU.
+
+In case of kprobes irqs are disabled, but yeah for sockets smp_call won't help.
+Can probably use schedule_work_on(), but that's too heavy.
+I guess we need bpf_map_lookup_and_delete_elem() syscall command, so we can
+delete single pointer out of per-cpu hash map and in call_rcu() copy precise
+counters.
+
+> Also in current non-percpu hash, the situation exists too between
+> lookup elem syscall and updating value of element from bpf prog in
+> SMP.
+
+looks like regular bpf_map_lookup_elem() syscall will return inaccurate data
+even for per-cpu hash. hmm. we need to brain storm more on it.
