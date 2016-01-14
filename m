@@ -1,219 +1,96 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 2/2] ip-link: fix man page warnings
-Date: Thu, 14 Jan 2016 18:10:20 +0100
-Message-ID: <1452791420-10771-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1452791420-10771-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Thomas Faivre <thomas.faivre@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:42627 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754704AbcANRLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 12:11:04 -0500
-In-Reply-To: <1452791420-10771-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] hv_netvsc: don't make assumptions on struct
+ flow_keys layout
+Date: Thu, 14 Jan 2016 09:14:12 -0800
+Message-ID: <CALx6S35PbTHF7nY0ugtxCUkc5kUmMYAyuy6ZM34bZ9v42nDudg@mail.gmail.com>
+References: <1452159189-11473-1-git-send-email-vkuznets@redhat.com>
+ <20160110.172558.367101858392871618.davem@davemloft.net>
+ <BN1PR0301MB07701A189AABFBF664B5775BCACB0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ David Miller <davem@davemloft.net>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <BN1PR0301MB07701A189AABFBF664B5775BCACB0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Faivre <thomas.faivre@6wind.com>
+> I have done a comparison of the Toeplitz v.s. Jenkins Hash algorithms,
+> and found that the Toeplitz provides much better distribution of the
+> connections into send-indirection-table entries. See the data below --
+> showing how many TCP connections are distributed into each of the
+> sixteen table entries. The Toeplitz hash distributes the connections
+> almost perfectly evenly, but the Jenkins hash distributes them unevenly.
+> For example, in case of 64 connections, some entries are 0 or 1, some
+> other entries are 8. This could cause too many connections in one VMBus
+> channel and slow down the throughput. This is consistent to our test
+> which showing slower performance while using the generic skb_get_hash
+> (Jenkins) than using Toeplitz hash (see perf numbers below).
+>
+>
+> #connections:32:
+> Toeplitz:2,2,2,2,2,1,2,2,2,2,2,3,2,2,2,2,
+> Jenkins:3,2,2,4,1,1,0,2,1,1,4,3,2,5,1,0,
+> #connections:64:
+> Toeplitz:4,4,5,4,4,3,4,4,4,4,4,4,4,4,4,4,
+> Jenkins:4,5,4,6,3,5,0,6,1,2,8,3,6,8,2,1,
+> #connections:128:
+> Toeplitz:8,8,8,8,8,7,9,8,8,8,8,8,8,8,8,8,
+> Jenkins:8,12,10,9,7,8,3,10,6,8,9,8,10,11,6,3,
+>
+These results for Toeplitz are not plausible. Given random input you
+cannot expect any hash function to produce such uniform results. I
+suspect either your input data is biased or how your applying the hash
+is.
 
-grff wrapper returns warnings when parsing the ip-link.8.in file.
+When I run 64 random IPv4 3-tuples through Toeplitz and Jenkins I get
+something more reasonable:
 
-How to reproduce:
-$ man --warnings ip-link > /dev/null
-`R' is a string (producing the registered sign), not a macro.
-[...]
+Toeplitz
+Buckets: 3 7 4 5 3 6 2 6 2 4 4 5 4 3 2 4
 
-Signed-off-by: Thomas Faivre <thomas.faivre@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- man/man8/ip-link.8.in | 102 +++++++++++++++++++++++++-------------------------
- 1 file changed, 51 insertions(+), 51 deletions(-)
+Jenkins
+Buckets: 6 7 4 4 3 2 6 3 1 4 3 5 5 4 4 3
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index a3d90f796a67..02aabcbeb0a5 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -284,28 +284,28 @@ the following additional arguments are supported:
- .BI link " DEVICE "
- .BI name " NAME "
- .BI type " vlan "
--.R " [ "
-+[
- .BI protocol " VLAN_PROTO "
--.R " ] "
-+]
- .BI id " VLANID "
--.R " [ "
-+[
- .BR reorder_hdr " { " on " | " off " } "
--.R " ] "
--.R " [ "
-+]
-+[
- .BR gvrp " { " on " | " off " } "
--.R " ] "
--.R " [ "
-+]
-+[
- .BR mvrp " { " on " | " off " } "
--.R " ] "
--.R " [ "
-+]
-+[
- .BR loose_binding " { " on " | " off " } "
--.R " ] "
--.R " [ "
-+]
-+[
- .BI ingress-qos-map " QOS-MAP "
--.R " ] "
--.R " [ "
-+]
-+[
- .BI egress-qos-map " QOS-MAP "
--.R " ] "
-+]
- 
- .in +8
- .sp
-@@ -386,44 +386,44 @@ the following additional arguments are supported:
- 
- .BI "ip link add " DEVICE
- .BI type " vxlan " id " ID"
--.R " [ "
-+[
- .BI dev " PHYS_DEV "
- .RB " ] [ { " group " | " remote " } "
- .I IPADDR
--.R " ] [ "
-+] [
- .B local
- .RI "{ "IPADDR " | "any " } "
--.R " ] [ "
-+] [
- .BI ttl " TTL "
--.R " ] [ "
-+] [
- .BI tos " TOS "
--.R " ] [ "
-+] [
- .BI dstport " PORT "
--.R " ] [ "
-+] [
- .BI srcport " MIN MAX "
--.R " ] [ "
-+] [
- .I "[no]learning "
--.R " ] [ "
-+] [
- .I "[no]proxy "
--.R " ] [ "
-+] [
- .I "[no]rsc "
--.R " ] [ "
-+] [
- .I "[no]l2miss "
--.R " ] [ "
-+] [
- .I "[no]l3miss "
--.R " ] [ "
-+] [
- .I "[no]udpcsum "
--.R " ] [ "
-+] [
- .I "[no]udp6zerocsumtx "
--.R " ] [ "
-+] [
- .I "[no]udp6zerocsumrx "
--.R " ] [ "
-+] [
- .BI ageing " SECONDS "
--.R " ] [ "
-+] [
- .BI maxaddress " NUMBER "
--.R " ] [ "
-+] [
- .B gbp
--.R " ]"
-+]
- 
- .in +8
- .sp
-@@ -565,17 +565,17 @@ the following additional arguments are supported:
- .BI "ip link add " DEVICE
- .BR type " { gre | ipip | sit } "
- .BI " remote " ADDR " local " ADDR
--.R " [ "
-+[
- .BR encap " { fou | gue | none } "
--.R " ] [ "
-+] [
- .BI "encap-sport { " PORT " | auto } "
--.R " ] [ "
-+] [
- .BI "encap-dport " PORT
--.R " ] [ "
-+] [
- .I " [no]encap-csum "
--.R " ] [ "
-+] [
- .I " [no]encap-remcsum "
--.R " ]"
-+]
- 
- .in +8
- .sp
-@@ -621,25 +621,25 @@ the following additional arguments are supported:
- 
- .BI "ip link add " DEVICE
- .BI type " { ip6gre | ip6gretap }  " remote " ADDR " local " ADDR
--.R " [ "
-+[
- .I "[i|o]seq]"
--.R " ] [ "
-+] [
- .I "[i|o]key" KEY
--.R " ] [ "
-+] [
- .I " [i|o]csum "
--.R " ] [ "
-+] [
- .BI hoplimit " TTL "
--.R " ] [ "
-+] [
- .BI encaplimit " ELIM "
--.R " ] [ "
-+] [
- .BI tclass " TCLASS "
--.R " ] [ "
-+] [
- .BI flowlabel " FLOWLABEL "
--.R " ] [ "
-+] [
- .BI "dscp inherit"
--.R " ] [ "
-+] [
- .BI dev " PHYS_DEV "
--.R " ]"
-+]
- 
- .in +8
- .sp
-@@ -744,11 +744,11 @@ the following additional arguments are supported:
- 
- .BI "ip link add " DEVICE
- .BI type " geneve " id " ID " remote " IPADDR"
--.R " [ "
-+[
- .BI ttl " TTL "
--.R " ] [ "
-+] [
- .BI tos " TOS "
--.R " ]"
-+]
- 
- .in +8
- .sp
--- 
-2.4.2
+> Throughput (Gbps) comparison:
+> #conn           Toeplitz        Jenkins
+> 32              26.6            23.2
+> 64              32.1            23.4
+> 128             29.1            24.1
+>
+> For long term solution, I think we should put the Toeplitz hash as
+> another option to the generic hash function in kernel... But, for the
+> time being, can you accept this patch to fix the assumptions on
+> struct flow_keys layout?
+>
+Toeplitz is about a 100x more expensive to compute in the CPU than
+Jenkins, we can get that down to 50x by precomputing a bunch of lookup
+tables for a given key but that is at the expense of memory. Besides
+that, there is a fair amount of analysis already showing that Jenkins
+hash provides a good distribution and has good enough (though not
+great) Avalanche effect. Probably the only reason we would need
+Toeplitz in SW is if we wanted to match a computation being done by
+HW.
+
+One hash that might be better than Jenkins is CRC. This seems to have
+good uniformity and Avalanche effect, and by using crc32 instruction
+it seems be a little faster than running Jenkins hash.
+
+Tom
+
+> Thanks,
+> - Haiyang
+>
