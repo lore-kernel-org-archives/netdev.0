@@ -1,43 +1,74 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] ssb: host_soc depends on sprom
-Date: Thu, 14 Jan 2016 09:45:44 +0100
-Message-ID: <CACna6rwAUh+LTBAepMTy1ZT7QhRYFPFmP5wPxyyQVb29gFwQYg@mail.gmail.com>
-References: <8128014.DbbgBtKY3z@wuerfel>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Thu, 14 Jan 2016 16:23:59 +0800
+Message-ID: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Hauke Mehrtens <hauke@hauke-m.de>, Michael Buesch <m@bues.ch>,
-        "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <8128014.DbbgBtKY3z@wuerfel>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <f.fainelli@gmail.com>,
+	<davem@davemloft.net>, Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0096.outbound.protection.outlook.com ([65.55.169.96]:29985
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750816AbcANIse (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2016 03:48:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13 January 2016 at 23:51, Arnd Bergmann <arnd@arndb.de> wrote:
-> Drivers that use the SSB sprom functionality typically 'select SSB_SPROM'
-> from Kconfig, but CONFIG_SSB_HOST_SOC misses this, which results in
-> a build failure unless at least one of the other drivers that selects
-> it is enabled:
->
-> drivers/built-in.o: In function `ssb_host_soc_get_invariants':
-> (.text+0x459494): undefined reference to `ssb_fill_sprom_with_fallback'
->
-> This adds the same select statement that is used elsewhere.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 541c9a84cd85 ("ssb: pick SoC invariants code from MIPS BCM47xx arch")
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-I missed this dependency, thanks, patch looks OK.
+This commit adds necessary definitions for the PHY layer to recognize
+backplane Ethernet 1000BASE-KX and 10GBASE-KR as valid PHY interfaces,
+"1000base-kx" for 1000BASE-KX, "10gbase-kr" for 10GBASE-KR.
+
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes in v2:
+new patch.
+
+ Documentation/devicetree/bindings/net/ethernet.txt | 4 ++--
+ include/linux/phy.h                                | 6 ++++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index 5d88f37..1166a5c 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -11,8 +11,8 @@ The following properties are common to the Ethernet controllers:
+   the maximum frame size (there's contradiction in ePAPR).
+ - phy-mode: string, operation mode of the PHY interface; supported values are
+   "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
+-  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
+-  standard property;
++  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii", "1000base-kx", "10gbase-kr";
++  this is now a de-facto standard property;
+ - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
+ - phy-handle: phandle, specifies a reference to a node representing a PHY
+   device; this property is described in ePAPR and so preferred;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index d6f3641..7acecf7 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -80,6 +80,8 @@ typedef enum {
+ 	PHY_INTERFACE_MODE_XGMII,
+ 	PHY_INTERFACE_MODE_MOCA,
+ 	PHY_INTERFACE_MODE_QSGMII,
++	PHY_INTERFACE_MODE_1000BASE_KX,
++	PHY_INTERFACE_MODE_10GBASE_KR,
+ 	PHY_INTERFACE_MODE_MAX,
+ } phy_interface_t;
+ 
+@@ -123,6 +125,10 @@ static inline const char *phy_modes(phy_interface_t interface)
+ 		return "moca";
+ 	case PHY_INTERFACE_MODE_QSGMII:
+ 		return "qsgmii";
++	case PHY_INTERFACE_MODE_1000BASE_KX:
++		return "1000base-kx";
++	case PHY_INTERFACE_MODE_10GBASE_KR:
++		return "10gbase-kr";
+ 	default:
+ 		return "unknown";
+ 	}
+-- 
+2.1.0.27.g96db324
