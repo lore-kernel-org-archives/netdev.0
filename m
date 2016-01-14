@@ -1,41 +1,53 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] ssb: host_soc depends on sprom
-Date: Thu, 14 Jan 2016 08:46:29 +0200
-Message-ID: <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
-References: <8128014.DbbgBtKY3z@wuerfel>
+Subject: Re: [PATCH] net-brcmfmac: Delete an unnecessary variable initialisation in brcmf_sdio_download_firmware()
+Date: Thu, 14 Jan 2016 08:58:40 +0200
+Message-ID: <871t9kd4v3.fsf@kamboji.qca.qualcomm.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	<5686D2E0.2010309@users.sourceforge.net>
+	<56878F52.5070308@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>, Michael Buesch <m@bues.ch>,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8128014.DbbgBtKY3z@wuerfel> (Arnd Bergmann's message of "Wed, 13
-	Jan 2016 23:51:43 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	<brcm80211-dev-list@broadcom.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <56878F52.5070308@broadcom.com> (Arend van Spriel's message of
+	"Sat, 2 Jan 2016 09:50:26 +0100")
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
+Arend van Spriel <arend@broadcom.com> writes:
 
-> Drivers that use the SSB sprom functionality typically 'select SSB_SPROM'
-> from Kconfig, but CONFIG_SSB_HOST_SOC misses this, which results in
-> a build failure unless at least one of the other drivers that selects
-> it is enabled:
+> On 01/01/2016 08:26 PM, SF Markus Elfring wrote:
+>> From: Markus Elfring <elfring@users.sourceforge.net>
+>> Date: Fri, 1 Jan 2016 20:20:15 +0100
 >
-> drivers/built-in.o: In function `ssb_host_soc_get_invariants':
-> (.text+0x459494): undefined reference to `ssb_fill_sprom_with_fallback'
->
-> This adds the same select statement that is used elsewhere.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 541c9a84cd85 ("ssb: pick SoC invariants code from MIPS BCM47xx arch")
-> ---
-> I'm not sure who the right person is to pick up the fix. The patch that
-> introduced the problem was merged by Kalle through the iwlwifi tree.
+> I think it has been said over and over, but please use driver name
+> only as prefix. I don't see value to prepend it with 'net-'.
 
-I can take it. For historical reasons ssb patches go through my
-wireless-drivers trees.
+Yes, please use existing naming schemes. This time I can fix it before
+I commit the patch, but in the future please use correct prefixes. It's
+easy to check what has been used previously:
+
+$ git log --oneline --no-merges --follow drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | head -10
+63ce3d5db093 brcmfmac: use msecs_to_jiffies() in macro definitions
+4011fc499690 brcmfmac: change brcmf_sdio_wd_timer() prototype
+a7decc44a002 brcmfmac: fix waitqueue_active without memory barrier in brcmfmac driver
+46d703a77539 brcmfmac: Unify methods to define and map firmware files.
+64d66c30c37e brcmfmac: no retries on rxglom superframe errors
+6866a64a0f9b brcmfmac: constify brcmf_bus_ops structures
+05491d2ccf20 brcm80211: move under broadcom vendor directory
+ff4445a8502c brcmfmac: expose device memory to devcoredump subsystem
+a32be0177252 brcmfmac: include linux/atomic.h
+9d6c1dc4f913 brcmfmac: add dedicated debug level for firmware console logging
+$
 
 -- 
 Kalle Valo
