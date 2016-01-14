@@ -1,51 +1,52 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2] netfilter: nf_conntrack: use safer way to lock all
- buckets
-Date: Thu, 14 Jan 2016 18:25:27 +0100
-Message-ID: <20160114172527.GA19589@breakpoint.cc>
-References: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
+From: Rene Rebe <rene@exactcode.com>
+Subject: [PATCH] r8152 add Microsoft Dock IDs
+Date: Thu, 14 Jan 2016 18:46:26 +0100 (CET)
+Message-ID: <20160114.184626.1327276960383833164.rene@exactcode.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.exactcode.de ([144.76.154.42]:46546 "EHLO mx.exactcode.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756281AbcANRql convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 12:46:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sasha Levin <sasha.levin@oracle.com> wrote:
-> When we need to lock all buckets in the connection hashtable we'd attempt to
-> lock 1024 spinlocks, which is way more preemption levels than supported by
-> the kernel. Furthermore, this behavior was hidden by checking if lockdep is
-> enabled, and if it was - use only 8 buckets(!).
-> 
-> Fix this by using a global lock and synchronize all buckets on it when we
-> need to lock them all. This is pretty heavyweight, but is only done when we
-> need to resize the hashtable, and that doesn't happen often enough (or at all).
-> 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 3cb3cb8..4ccf5ad 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -66,6 +66,21 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
->  __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
->  EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
->  
-> +spinlock_t nf_conntrack_locks_all_lock;
-> +bool nf_conntrack_locks_all;
+Hi David,
+(my appologies for wasting your time with this noise)
 
-warning: symbol 'nf_conntrack_locks_all_lock' was not declared. Should it be static?
-warning: symbol 'nf_conntrack_locks_all' was not declared.  Should it be static?
+rebased against your netdev git, and sent with Mew:
 
-> +void nf_conntrack_lock(spinlock_t *lock)
+The Microsoft Surface Docks uses a R8152, too.
 
-__acquires(lock)
+Signed-off-by: Ren=E9 Rebe <rene@exactcode.com>
 
-It avoids 'context imbalance in 'nf_conntrack_lock' - wrong count at exit'
-sparse error.
+--- linux-git/drivers/net/usb/r8152.c.orig	2016-01-14 15:17:54.78666245=
+6 +0100
++++ linux-git/drivers/net/usb/r8152.c	2016-01-14 15:17:21.050661823 +01=
+00
+@@ -504,6 +504,7 @@
+=20
+ /* Define these values to match your device */
+ #define VENDOR_ID_REALTEK		0x0bda
++#define VENDOR_ID_MICROSOFT		0x045e
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
+ #define VENDOR_ID_NVIDIA		0x0955
+@@ -4294,6 +4295,8 @@
+ static struct usb_device_id rtl8152_table[] =3D {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
 
-Other than that this looks good, thanks.
+
+--=20
+  Ren=E9 Rebe, ExactCODE GmbH, Lietzenburger Str. 42, DE-10117 Berlin
+  http://exactcode.com | http://t2-project.org | http://rene.rebe.de
