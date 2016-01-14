@@ -1,239 +1,65 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 2/6] tcp: move cwnd reduction after recovery state procesing
-Date: Thu, 14 Jan 2016 15:43:30 -0800
-Message-ID: <1452815014-601-3-git-send-email-ycheng@google.com>
+Subject: [PATCH net-next 4/6] tcp: refactor pkts acked accounting
+Date: Thu, 14 Jan 2016 15:43:32 -0800
+Message-ID: <1452815014-601-5-git-send-email-ycheng@google.com>
 References: <1452815014-601-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
+	Eric Dumazet <edumazet@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33962 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757119AbcANXoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 18:44:17 -0500
-Received: by mail-pf0-f182.google.com with SMTP id q63so110690888pfb.1
-        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 15:44:16 -0800 (PST)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33137 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757214AbcANXoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 18:44:20 -0500
+Received: by mail-pa0-f42.google.com with SMTP id cy9so384637600pac.0
+        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 15:44:19 -0800 (PST)
 In-Reply-To: <1452815014-601-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the cwnd is reduced and increased in various different
-places. The reduction happens in various places in the recovery
-state processing (tcp_fastretrans_alert) while the increase
-happens afterward.
-
-A better sequence is to identify lost packets and update
-the congestion control state (icsk_ca_state) first. Then base
-on the new state, up/down the cwnd in one central place. It's
-more clear to reason cwnd changes.
+A small refactoring that gets number of packets cumulatively acked
+from tcp_clean_rtx_queue() directly.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 ---
- net/ipv4/tcp_input.c | 60 ++++++++++++++++++++++++----------------------------
- 1 file changed, 28 insertions(+), 32 deletions(-)
+ net/ipv4/tcp_input.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 482c0b4..f2ebe8b 100644
+index e7a8ce7..2d6eaad 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2473,14 +2473,12 @@ static void tcp_init_cwnd_reduction(struct sock *sk)
- 	tcp_ecn_queue_cwr(tp);
- }
- 
--static void tcp_cwnd_reduction(struct sock *sk, const int prior_unsacked,
--			       int fast_rexmit, int flag)
-+static void tcp_cwnd_reduction(struct sock *sk, int newly_acked_sacked,
-+			       int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int sndcnt = 0;
- 	int delta = tp->snd_ssthresh - tcp_packets_in_flight(tp);
--	int newly_acked_sacked = prior_unsacked -
--				 (tp->packets_out - tp->sacked_out);
- 
- 	if (newly_acked_sacked <= 0 || WARN_ON_ONCE(!tp->prior_cwnd))
- 		return;
-@@ -2498,7 +2496,8 @@ static void tcp_cwnd_reduction(struct sock *sk, const int prior_unsacked,
- 	} else {
- 		sndcnt = min(delta, newly_acked_sacked);
- 	}
--	sndcnt = max(sndcnt, (fast_rexmit ? 1 : 0));
-+	/* Force a fast retransmit upon entering fast recovery */
-+	sndcnt = max(sndcnt, (tp->prr_out ? 0 : 1));
- 	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
- }
- 
-@@ -2543,7 +2542,7 @@ static void tcp_try_keep_open(struct sock *sk)
- 	}
- }
- 
--static void tcp_try_to_open(struct sock *sk, int flag, const int prior_unsacked)
-+static void tcp_try_to_open(struct sock *sk, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
-@@ -2557,8 +2556,6 @@ static void tcp_try_to_open(struct sock *sk, int flag, const int prior_unsacked)
- 
- 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
- 		tcp_try_keep_open(sk);
--	} else {
--		tcp_cwnd_reduction(sk, prior_unsacked, 0, flag);
- 	}
- }
- 
-@@ -2722,8 +2719,7 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack,
- }
- 
- /* Undo during fast recovery after partial ACK. */
--static bool tcp_try_undo_partial(struct sock *sk, const int acked,
--				 const int prior_unsacked, int flag)
-+static bool tcp_try_undo_partial(struct sock *sk, const int acked)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
-@@ -2738,10 +2734,8 @@ static bool tcp_try_undo_partial(struct sock *sk, const int acked,
- 		 * can undo. Otherwise we clock out new packets but do not
- 		 * mark more packets lost or retransmit more.
- 		 */
--		if (tp->retrans_out) {
--			tcp_cwnd_reduction(sk, prior_unsacked, 0, flag);
-+		if (tp->retrans_out)
- 			return true;
--		}
- 
- 		if (!tcp_any_retrans_done(sk))
- 			tp->retrans_stamp = 0;
-@@ -2760,21 +2754,21 @@ static bool tcp_try_undo_partial(struct sock *sk, const int acked,
-  * taking into account both packets sitting in receiver's buffer and
-  * packets lost by network.
-  *
-- * Besides that it does CWND reduction, when packet loss is detected
-- * and changes state of machine.
-+ * Besides that it updates the congestion state when packet loss or ECN
-+ * is detected. But it does not reduce the cwnd, it is done by the
-+ * congestion control later.
-  *
-  * It does _not_ decide what to send, it is made in function
-  * tcp_xmit_retransmit_queue().
+@@ -3106,7 +3106,7 @@ static void tcp_ack_tstamp(struct sock *sk, struct sk_buff *skb,
+  * arrived at the other end.
   */
- static void tcp_fastretrans_alert(struct sock *sk, const int acked,
--				  const int prior_unsacked,
--				  bool is_dupack, int flag, int *rexmit)
-+				  bool is_dupack, int *ack_flag, int *rexmit)
+ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+-			       u32 prior_snd_una,
++			       u32 prior_snd_una, int *acked,
+ 			       struct tcp_sacktag_state *sack)
  {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	int fast_rexmit = 0, flag = *ack_flag;
- 	bool do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
- 				    (tcp_fackets_out(tp) > tp->reordering));
--	int fast_rexmit = 0;
- 
- 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
- 		tp->sacked_out = 0;
-@@ -2821,8 +2815,10 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 
- 	/* Use RACK to detect loss */
- 	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS &&
--	    tcp_rack_mark_lost(sk))
-+	    tcp_rack_mark_lost(sk)) {
- 		flag |= FLAG_LOST_RETRANS;
-+		*ack_flag |= FLAG_LOST_RETRANS;
-+	}
- 
- 	/* E. Process state. */
- 	switch (icsk->icsk_ca_state) {
-@@ -2831,7 +2827,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 			if (tcp_is_reno(tp) && is_dupack)
- 				tcp_add_reno_sack(sk);
- 		} else {
--			if (tcp_try_undo_partial(sk, acked, prior_unsacked, flag))
-+			if (tcp_try_undo_partial(sk, acked))
- 				return;
- 			/* Partial ACK arrived. Force fast retransmit. */
- 			do_lost = tcp_is_reno(tp) ||
-@@ -2860,7 +2856,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 			tcp_try_undo_dsack(sk);
- 
- 		if (!tcp_time_to_recover(sk, flag)) {
--			tcp_try_to_open(sk, flag, prior_unsacked);
-+			tcp_try_to_open(sk, flag);
- 			return;
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -3279,6 +3279,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
  		}
- 
-@@ -2882,7 +2878,6 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 
- 	if (do_lost)
- 		tcp_update_scoreboard(sk, fast_rexmit);
--	tcp_cwnd_reduction(sk, prior_unsacked, fast_rexmit, flag);
- 	*rexmit = REXMIT_LOST;
+ 	}
+ #endif
++	*acked = pkts_acked;
+ 	return flag;
  }
  
-@@ -3308,9 +3303,6 @@ static inline bool tcp_ack_is_dubious(const struct sock *sk, const int flag)
- /* Decide wheather to run the increase function of congestion control. */
- static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
- {
--	if (tcp_in_cwnd_reduction(sk))
--		return false;
--
- 	/* If reordering is high then always grow cwnd whenever data is
- 	 * delivered regardless of its ordering. Otherwise stay conservative
- 	 * and only grow cwnd on in-order delivery (RFC5681). A stretched ACK w/
-@@ -3553,6 +3545,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	int prior_packets = tp->packets_out;
- 	const int prior_unsacked = tp->packets_out - tp->sacked_out;
- 	int acked = 0; /* Number of packets newly acked */
-+	int acked_sacked; /* Number of packets newly acked or sacked */
- 	int rexmit = REXMIT_NONE; /* Flag to (re)transmit to recover losses */
+@@ -3644,10 +3645,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 		goto no_queue;
  
- 	sack_state.first_sackt.v64 = 0;
-@@ -3649,15 +3642,20 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	/* See if we can take anything off of the retransmit queue. */
+-	acked = tp->packets_out;
+-	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una,
++	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una, &acked,
+ 				    &sack_state);
+-	acked -= tp->packets_out;
  
  	if (tcp_ack_is_dubious(sk, flag)) {
  		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
--		tcp_fastretrans_alert(sk, acked, prior_unsacked,
--				      is_dupack, flag, &rexmit);
-+		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
- 	}
- 	if (tp->tlp_high_seq)
- 		tcp_process_tlp_ack(sk, ack, flag);
- 
-+	acked_sacked = prior_unsacked - (tp->packets_out - tp->sacked_out);
- 	/* Advance cwnd if state allows */
--	if (tcp_may_raise_cwnd(sk, flag))
-+	if (tcp_in_cwnd_reduction(sk)) {
-+		/* Reduce cwnd if state mandates */
-+		tcp_cwnd_reduction(sk, acked_sacked, flag);
-+	} else if (tcp_may_raise_cwnd(sk, flag)) {
-+		/* Advance cwnd if state allows */
- 		tcp_cong_avoid(sk, ack, acked);
-+	}
- 
- 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP)) {
- 		struct dst_entry *dst = __sk_dst_get(sk);
-@@ -3674,8 +3672,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- no_queue:
- 	/* If data was DSACKed, see if we can undo a cwnd reduction. */
- 	if (flag & FLAG_DSACKING_ACK)
--		tcp_fastretrans_alert(sk, acked, prior_unsacked,
--				      is_dupack, flag, &rexmit);
-+		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
- 	/* If this ack opens up a zero window, clear backoff.  It was
- 	 * being used to time the probes, and is probably far higher than
- 	 * it needs to be for normal retransmission.
-@@ -3698,8 +3695,7 @@ old_ack:
- 	if (TCP_SKB_CB(skb)->sacked) {
- 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
- 						&sack_state);
--		tcp_fastretrans_alert(sk, acked, prior_unsacked,
--				      is_dupack, flag, &rexmit);
-+		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
- 		tcp_xmit_recovery(sk, rexmit);
- 	}
- 
 -- 
 2.6.0.rc2.230.g3dd15c0
