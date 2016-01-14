@@ -1,48 +1,49 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 0/6] tcp: congestion control refactoring
-Date: Thu, 14 Jan 2016 15:43:28 -0800
-Message-ID: <1452815014-601-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next 5/6] tcp: make congestioin control more robust against reordering
+Date: Thu, 14 Jan 2016 15:43:33 -0800
+Message-ID: <1452815014-601-6-git-send-email-ycheng@google.com>
+References: <1452815014-601-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33724 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755855AbcANXoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 18:44:14 -0500
-Received: by mail-pf0-f170.google.com with SMTP id e65so107789442pfe.0
-        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 15:44:13 -0800 (PST)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36434 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757119AbcANXoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 18:44:21 -0500
+Received: by mail-pa0-f42.google.com with SMTP id yy13so291904152pab.3
+        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 15:44:21 -0800 (PST)
+In-Reply-To: <1452815014-601-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set refactors the sequence of congestion control,
-loss recovery, and transmission logic in TCP ack processing.
+This change enables congestion control to update cwnd based on
+not only packet cumulatively acked but also packets delivered
+out-of-order. This makes congestion control robust against packet
+reordering because it may raise cwnd as long as packets are being
+delivered once reordering has been detected (i.e., it only cares
+the amount of packets delivered, not the ordering among them).
 
-The design goal is to decouple and sequence them in the following order:
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  0. ACK accounting: free or tag sent packets [unchanged]
-
-  1. loss recovery: identify lost/ecn packets and update congestion state
-
-  2. congestion control: up/down cwnd and pacing rate based on (1)
-
-  3. transmission: send new or retransmit old based on (1) and (2)
-
-This refactoring makes the cwnd changes more clear because it's done
-in one place. The packet accounting is also more robust especially
-for connections that do not support SACK. Patch 1-4 and 6 are
-refactoring and patch 5 improves TCP performance under reordering.
-
-Yuchung Cheng (6):
-  tcp: retransmit after recovery processing and congestion control
-  tcp: move cwnd reduction after recovery state procesing
-  tcp: new delivery accounting
-  tcp: refactor pkts acked accounting
-  tcp: make congestioin control more robust against reordering
-  tcp: tcp_cong_control helper
-
- include/linux/tcp.h  |   1 +
- net/ipv4/tcp_input.c | 147 +++++++++++++++++++++++++++++++++------------------
- 2 files changed, 96 insertions(+), 52 deletions(-)
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2d6eaad..39c5326 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3662,7 +3662,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 		tcp_cwnd_reduction(sk, acked_sacked, flag);
+ 	} else if (tcp_may_raise_cwnd(sk, flag)) {
+ 		/* Advance cwnd if state allows */
+-		tcp_cong_avoid(sk, ack, acked);
++		tcp_cong_avoid(sk, ack, acked_sacked);
+ 	}
+ 
+ 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP)) {
 -- 
 2.6.0.rc2.230.g3dd15c0
