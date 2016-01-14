@@ -1,61 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, RESEND] ssb: mark ssb_bus_register as __maybe_unused
-Date: Fri, 15 Jan 2016 00:13 +0100
-Message-ID: <4037550.DMaVTE01Aq@wuerfel>
-References: <8128014.DbbgBtKY3z@wuerfel> <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH v2] net: preserve IP control block during GSO
+	segmentation
+Date: Fri, 15 Jan 2016 00:22:25 +0100
+Message-ID: <56982DB1.50304@stressinduktion.org>
+References: <145225570625.30903.13936642758071448458.stgit@zurg>
+ <20160113.155112.119405358547782630.davem@davemloft.net>
+ <20160113233628.GA10507@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-mips@linux-mips.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
-	netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160113233628.GA10507-E0PNVn5OA6ohrxcnuTQ+TQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The SoC variant of the ssb code is now optional like the other
-ones, which means we can build the framwork without any
-front-end, but that results in a warning:
-
-drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not used [-Wunused-function]
-
-This annotates the ssb_bus_register function as __maybe_unused to
-shut up the warning. A configuration like this will not work on
-any hardware of course, but we still want this to silently build
-without warnings if the configuration is allowed in the first
-place.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 845da6e58e19 ("ssb: add Kconfig entry for compiling SoC related code")
-Acked-by: Michael Buesch <m@bues.ch>
----
-
-On Thursday 14 January 2016 08:46:29 Kalle Valo wrote:
-> I can take it. For historical reasons ssb patches go through my
-> wireless-drivers trees.
-
-I found this in my backlog, and I believe it still applies. Can you take
-that one too?
-
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index cde5ff7529eb..d1a750760cf3 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -613,9 +613,10 @@ out:
- 	return err;
- }
- 
--static int ssb_bus_register(struct ssb_bus *bus,
--			    ssb_invariants_func_t get_invariants,
--			    unsigned long baseaddr)
-+static int __maybe_unused
-+ssb_bus_register(struct ssb_bus *bus,
-+		 ssb_invariants_func_t get_invariants,
-+		 unsigned long baseaddr)
- {
- 	int err;
- 
+T24gMTQuMDEuMjAxNiAwMDozNiwgRmxvcmlhbiBXZXN0cGhhbCB3cm90ZToKPiBEYXZpZCBNaWxs
+ZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+PiBGcm9tOiBLb25zdGFudGluIEtobGVi
+bmlrb3YgPGtvY3Q5aUBnbWFpbC5jb20+Cj4+IERhdGU6IEZyaSwgMDggSmFuIDIwMTYgMTU6MjE6
+NDYgKzAzMDAKPj4KPj4+IFNrYl9nc29fc2VnbWVudCgpIHVzZXMgc2tiIGNvbnRyb2wgYmxvY2sg
+ZHVyaW5nIHNlZ21lbnRhdGlvbi4KPj4+IFRoaXMgcGF0Y2ggYWRkcyAzMi1ieXRlcyByb29tIGZv
+ciBwcmV2aW91cyBjb250cm9sIGJsb2NrIHdoaWNoCj4+PiB3aWxsIGJlIGNvcGllZCBpbnRvIGFs
+bCByZXN1bHRpbmcgc2VnbWVudHMuCj4+Pgo+Pj4gVGhpcyBwYXRjaCBmaXhlcyBrZXJuZWwgY3Jh
+c2ggZHVyaW5nIGZyYWdtZW50aW5nIGZvcndhcmRlZCBwYWNrZXRzLgo+Pj4gRnJhZ21lbnRhdGlv
+biByZXF1aXJlcyB2YWxpZCBJUCBDQiBpbiBza2IgZm9yIGNsZWFyaW5nIGlwIG9wdGlvbnMuCj4+
+PiBBbHNvIHBhdGNoIHJlbW92ZXMgY3VzdG9tIHNhdmUvcmVzdG9yZSBpbiBvdnMgY29kZSwgbm93
+IGl0J3MgcmVkdW5kYW50Lgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IEtvbnN0YW50aW4gS2hsZWJu
+aWtvdiA8a29jdDlpQGdtYWlsLmNvbT4KPj4+IExpbms6IGh0dHA6Ly9sa21sLmtlcm5lbC5vcmcv
+ci9DQUxZR05pUC0wTVotRkV4VjJIdXRUdkU5VS1RUXRrS1NvRS0tS049SlFFNVNUWXNqQUFAbWFp
+bC5nbWFpbC5jb20KPj4KPj4gSWYgdGhpcyB3b3JrcyBJIGRlZmluaXRlbHkgcHJlZmVyIHRoaXMg
+YXBwcm9hY2ggdG8gdGhlIG90aGVyIHBhdGNoCj4+IHdoZXJlIHRoZSBDQiBpcyBjb3BpZWQgYmFj
+ayBhbmQgZm9ydGguCj4KPiBJIHF1aXRlIGZyYW5rbHkgZG9uJ3QgY2FyZSBhbmQganVzdCBsaWtl
+IHlvdSB0byBhcHBseSBvbmUgb3IgdGhlIG90aGVyOwo+IHVzZSBjb2luIHRvc3MgaWYgbmVlZGVk
+IDotfQo+Cj4gSSB3b3VsZCBwcmVmZXIgdG8gdXNlIGEgb24tc3RhY2sgc3RhdGUgc2luY2UgdGhl
+cmUgaXMgbm8gbmVlZCB0bwo+IHVzZSBza2ItPmNiIChubyBxdWV1ZWluZykgYnV0IHdoZW4gSSBn
+YXZlIGl0IGEgdHJ5IGl0IGdvdCBvdXQgb2YgaGFuZAo+IHJhdGhlciBxdWljayA6LS8KCkJlIGNh
+cmVmdWwgd2l0aCB0aGUgZW5jYXAgY291bnRlciB3aXRoaW4gU0tCX0dTT19DQiB3aGVuIHRyeWlu
+ZyB0byBwdXQgCml0IG9uIHRoZSBzdGFjay4KCkJ5ZSwKSGFubmVzCgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
+dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
