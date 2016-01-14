@@ -1,44 +1,51 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: use safer way to lock all
- buckets
-Date: Thu, 14 Jan 2016 15:14:04 +0100
-Message-ID: <20160114151404.729efbd2@redhat.com>
-References: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
+From: Rene Rebe <rene@exactcode.com>
+Subject: [PATH]
+Date: Thu, 14 Jan 2016 15:21:06 +0100 (CET)
+Message-ID: <20160114.152106.1522848878187628539.rene@exactcode.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1451960746-28915-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.exactcode.de ([144.76.154.42]:46268 "EHLO mx.exactcode.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753671AbcANOVJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 09:21:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon,  4 Jan 2016 21:25:46 -0500
-Sasha Levin <sasha.levin@oracle.com> wrote:
+Hi David,
 
-> When we need to lock all buckets in the connection hashtable we'd attempt to
-> lock 1024 spinlocks, which is way more preemption levels than supported by
-> the kernel. Furthermore, this behavior was hidden by checking if lockdep is
-> enabled, and if it was - use only 8 buckets(!).
-> 
-> Fix this by using a global lock and synchronize all buckets on it when we
-> need to lock them all. This is pretty heavyweight, but is only done when we
-> need to resize the hashtable, and that doesn't happen often enough (or at all).
-> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-> ---
+rebased against your netdev git, and sent with Mew:
 
-Looks good to me, and I like the idea.
+The Microsoft Surface Docks uses a R8152, too.
 
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Ren=E9 Rebe <rene@exactcode.com>
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+--- linux-git/drivers/net/usb/r8152.c.orig	2016-01-14 15:17:54.78666245=
+6 +0100
++++ linux-git/drivers/net/usb/r8152.c	2016-01-14 15:17:21.050661823 +01=
+00
+@@ -504,6 +504,7 @@
+=20
+ /* Define these values to match your device */
+ #define VENDOR_ID_REALTEK		0x0bda
++#define VENDOR_ID_MICROSOFT		0x045e
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
+ #define VENDOR_ID_NVIDIA		0x0955
+@@ -4294,6 +4295,8 @@
+ static struct usb_device_id rtl8152_table[] =3D {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
+
+
+--=20
+  Ren=E9 Rebe, ExactCODE GmbH, Lietzenburger Str. 42, DE-10117 Berlin
+  http://exactcode.com | http://t2-project.org | http://rene.rebe.de
