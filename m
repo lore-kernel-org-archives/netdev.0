@@ -1,69 +1,184 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATH]
-Date: Thu, 14 Jan 2016 18:00:39 +0100
-Message-ID: <20160114170039.GB3967@nanopsycho.orion>
-References: <20160114.152106.1522848878187628539.rene@exactcode.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Rene Rebe <rene@exactcode.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:34484 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752410AbcANRAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 12:00:43 -0500
-Received: by mail-wm0-f51.google.com with SMTP id u188so356862837wmu.1
-        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 09:00:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160114.152106.1522848878187628539.rene@exactcode.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH v2] netfilter: nf_conntrack: use safer way to lock all buckets
+Date: Thu, 14 Jan 2016 12:03:56 -0500
+Message-ID: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The subject is absolutelly wrong. Please do it properly.
+When we need to lock all buckets in the connection hashtable we'd attempt to
+lock 1024 spinlocks, which is way more preemption levels than supported by
+the kernel. Furthermore, this behavior was hidden by checking if lockdep is
+enabled, and if it was - use only 8 buckets(!).
 
-Also, you can use "git format-patch" to create patch and "git
-send-email" to send it. That makes your life a bit easier.
+Fix this by using a global lock and synchronize all buckets on it when we
+need to lock them all. This is pretty heavyweight, but is only done when we
+need to resize the hashtable, and that doesn't happen often enough (or at all).
 
-Also, please use "scripts/checkpatch.pl" to check you patch (that would
-warn you about bad subject line) and "scripts/get_maintainer.pl" to fin=
-d
-out who to put on cc list.
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ include/net/netfilter/nf_conntrack_core.h |    8 +++---
+ net/netfilter/nf_conntrack_core.c         |   38 +++++++++++++++++++++--------
+ net/netfilter/nf_conntrack_helper.c       |    2 +-
+ net/netfilter/nf_conntrack_netlink.c      |    2 +-
+ net/netfilter/nfnetlink_cttimeout.c       |    4 +--
+ 5 files changed, 35 insertions(+), 19 deletions(-)
 
-Thanks.
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index 788ef58..62e17d1 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -79,12 +79,10 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
+             const struct nf_conntrack_l3proto *l3proto,
+             const struct nf_conntrack_l4proto *proto);
+ 
+-#ifdef CONFIG_LOCKDEP
+-# define CONNTRACK_LOCKS 8
+-#else
+-# define CONNTRACK_LOCKS 1024
+-#endif
++#define CONNTRACK_LOCKS 1024
++
+ extern spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
++void nf_conntrack_lock(spinlock_t *lock);
+ 
+ extern spinlock_t nf_conntrack_expect_lock;
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 3cb3cb8..4ccf5ad 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -66,6 +66,21 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
+ __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
+ EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
+ 
++spinlock_t nf_conntrack_locks_all_lock;
++bool nf_conntrack_locks_all;
++
++void nf_conntrack_lock(spinlock_t *lock)
++{
++	spin_lock(lock);
++	while (unlikely(nf_conntrack_locks_all)) {
++		spin_unlock(lock);
++		spin_lock(&nf_conntrack_locks_all_lock);
++		spin_unlock(&nf_conntrack_locks_all_lock);
++		spin_lock(lock);
++	}
++}
++EXPORT_SYMBOL_GPL(nf_conntrack_lock);
++
+ static void nf_conntrack_double_unlock(unsigned int h1, unsigned int h2)
+ {
+ 	h1 %= CONNTRACK_LOCKS;
+@@ -82,12 +97,12 @@ static bool nf_conntrack_double_lock(struct net *net, unsigned int h1,
+ 	h1 %= CONNTRACK_LOCKS;
+ 	h2 %= CONNTRACK_LOCKS;
+ 	if (h1 <= h2) {
+-		spin_lock(&nf_conntrack_locks[h1]);
++		nf_conntrack_lock(&nf_conntrack_locks[h1]);
+ 		if (h1 != h2)
+ 			spin_lock_nested(&nf_conntrack_locks[h2],
+ 					 SINGLE_DEPTH_NESTING);
+ 	} else {
+-		spin_lock(&nf_conntrack_locks[h2]);
++		nf_conntrack_lock(&nf_conntrack_locks[h2]);
+ 		spin_lock_nested(&nf_conntrack_locks[h1],
+ 				 SINGLE_DEPTH_NESTING);
+ 	}
+@@ -102,16 +117,19 @@ static void nf_conntrack_all_lock(void)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < CONNTRACK_LOCKS; i++)
+-		spin_lock_nested(&nf_conntrack_locks[i], i);
++	spin_lock(&nf_conntrack_locks_all_lock);
++	nf_conntrack_locks_all = true;
++
++	for (i = 0; i < CONNTRACK_LOCKS; i++) {
++		spin_lock(&nf_conntrack_locks[i]);
++		spin_unlock(&nf_conntrack_locks[i]);
++	}
+ }
+ 
+ static void nf_conntrack_all_unlock(void)
+ {
+-	int i;
+-
+-	for (i = 0; i < CONNTRACK_LOCKS; i++)
+-		spin_unlock(&nf_conntrack_locks[i]);
++	nf_conntrack_locks_all = false;
++	spin_unlock(&nf_conntrack_locks_all_lock);
+ }
+ 
+ unsigned int nf_conntrack_htable_size __read_mostly;
+@@ -757,7 +775,7 @@ restart:
+ 	hash = hash_bucket(_hash, net);
+ 	for (; i < net->ct.htable_size; i++) {
+ 		lockp = &nf_conntrack_locks[hash % CONNTRACK_LOCKS];
+-		spin_lock(lockp);
++		nf_conntrack_lock(lockp);
+ 		if (read_seqcount_retry(&net->ct.generation, sequence)) {
+ 			spin_unlock(lockp);
+ 			goto restart;
+@@ -1382,7 +1400,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
+ 	for (; *bucket < net->ct.htable_size; (*bucket)++) {
+ 		lockp = &nf_conntrack_locks[*bucket % CONNTRACK_LOCKS];
+ 		local_bh_disable();
+-		spin_lock(lockp);
++		nf_conntrack_lock(lockp);
+ 		if (*bucket < net->ct.htable_size) {
+ 			hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
+ 				if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index bd9d315..3b40ec5 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -425,7 +425,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
+ 	}
+ 	local_bh_disable();
+ 	for (i = 0; i < net->ct.htable_size; i++) {
+-		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
++		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
+ 		if (i < net->ct.htable_size) {
+ 			hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
+ 				unhelp(h, me);
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index dbb1bb3..355e855 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -840,7 +840,7 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
+ 	for (; cb->args[0] < net->ct.htable_size; cb->args[0]++) {
+ restart:
+ 		lockp = &nf_conntrack_locks[cb->args[0] % CONNTRACK_LOCKS];
+-		spin_lock(lockp);
++		nf_conntrack_lock(lockp);
+ 		if (cb->args[0] >= net->ct.htable_size) {
+ 			spin_unlock(lockp);
+ 			goto out;
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 5d010f2..94837d2 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -307,12 +307,12 @@ static void ctnl_untimeout(struct net *net, struct ctnl_timeout *timeout)
+ 
+ 	local_bh_disable();
+ 	for (i = 0; i < net->ct.htable_size; i++) {
+-		spin_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
++		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
+ 		if (i < net->ct.htable_size) {
+ 			hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
+ 				untimeout(h, timeout);
+ 		}
+-		spin_unlock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
++		nf_conntrack_lock(&nf_conntrack_locks[i % CONNTRACK_LOCKS]);
+ 	}
+ 	local_bh_enable();
+ }
+-- 
+1.7.10.4
 
-Thu, Jan 14, 2016 at 03:21:06PM CET, rene@exactcode.com wrote:
->Hi David,
->
->rebased against your netdev git, and sent with Mew:
->
->The Microsoft Surface Docks uses a R8152, too.
->
->Signed-off-by: Ren=E9 Rebe <rene@exactcode.com>
->
->--- linux-git/drivers/net/usb/r8152.c.orig	2016-01-14 15:17:54.7866624=
-56 +0100
->+++ linux-git/drivers/net/usb/r8152.c	2016-01-14 15:17:21.050661823 +0=
-100
->@@ -504,6 +504,7 @@
->=20
-> /* Define these values to match your device */
-> #define VENDOR_ID_REALTEK		0x0bda
->+#define VENDOR_ID_MICROSOFT		0x045e
-> #define VENDOR_ID_SAMSUNG		0x04e8
-> #define VENDOR_ID_LENOVO		0x17ef
-> #define VENDOR_ID_NVIDIA		0x0955
->@@ -4294,6 +4295,8 @@
-> static struct usb_device_id rtl8152_table[] =3D {
-> 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
-> 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
->+	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
->+	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
-> 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
-> 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
-> 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
->
->
->--=20
->  Ren=E9 Rebe, ExactCODE GmbH, Lietzenburger Str. 42, DE-10117 Berlin
->  http://exactcode.com | http://t2-project.org | http://rene.rebe.de
