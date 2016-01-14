@@ -1,55 +1,73 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] fsl/fman: Delete one function call "put_device" in
- dtsec_config()
-Date: Thu, 14 Jan 2016 16:00:46 +0100
-Message-ID: <5697B81E.4050303@users.sourceforge.net>
-References: <5696BFAD.9030905@users.sourceforge.net>
- <20160113213537.GD4399@mwanda> <20160113220923.GE5527@lunn.ch>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net] xen-netback: use skb to determine number of required guest Rx requests
+Date: Thu, 14 Jan 2016 15:18:30 +0000
+Message-ID: <1452784710-11923-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Andrew Lunn <andrew@lunn.ch>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Igal Liberman <igal.liberman@freescale.com>,
-	netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160113220923.GE5527@lunn.ch>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:65027 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753712AbcANPSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2016 10:18:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 14 Jan 2016 15:46:28 +0100
+Using the MTU or GSO size to determine the number of required guest Rx
+requests for an skb was subtly broken since these value may change at
+runtime.
 
-The Coccinelle semantic patch script "deref_null.cocci" pointed a problem
-out in the implementation of the function "dtsec_config".
-
-A null pointer was assigned to the data structure member "tbiphy" of the
-variable "dtsec" if a matching device was not found.
-A call of the function "put_device" was unnecessary then because
-a previous call of the function "get_device" was not triggered.
-Thus remove the function call "put_device" after the printing of the
-desired error message.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 ---
- drivers/net/ethernet/freescale/fman/fman_dtsec.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/xen-netback/netback.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-index 6b1261c..7c92eb8 100644
---- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-@@ -1434,7 +1434,6 @@ struct fman_mac *dtsec_config(struct fman_mac_params *params)
- 	dtsec->tbiphy = of_phy_find_device(params->internal_phy_node);
- 	if (!dtsec->tbiphy) {
- 		pr_err("of_phy_find_device (TBI PHY) failed\n");
--		put_device(&dtsec->tbiphy->mdio.dev);
- 		goto err_dtsec_drv_param;
- 	}
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 1049c34..61b97c3 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -149,20 +149,19 @@ static inline pending_ring_idx_t pending_index(unsigned i)
+ 	return i & (MAX_PENDING_REQS-1);
+ }
  
+-static int xenvif_rx_ring_slots_needed(struct xenvif *vif)
+-{
+-	if (vif->gso_mask)
+-		return DIV_ROUND_UP(vif->dev->gso_max_size, XEN_PAGE_SIZE) + 1;
+-	else
+-		return DIV_ROUND_UP(vif->dev->mtu, XEN_PAGE_SIZE);
+-}
+-
+ static bool xenvif_rx_ring_slots_available(struct xenvif_queue *queue)
+ {
+ 	RING_IDX prod, cons;
++	struct sk_buff *skb;
+ 	int needed;
+ 
+-	needed = xenvif_rx_ring_slots_needed(queue->vif);
++	skb = skb_peek(&queue->rx_queue);
++	if (!skb)
++		return false;
++
++	needed = DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
++	if (skb_is_gso(skb))
++		needed++;
+ 
+ 	do {
+ 		prod = queue->rx.sring->req_prod;
+@@ -2005,8 +2004,7 @@ static bool xenvif_rx_queue_ready(struct xenvif_queue *queue)
+ 
+ static bool xenvif_have_rx_work(struct xenvif_queue *queue)
+ {
+-	return (!skb_queue_empty(&queue->rx_queue)
+-		&& xenvif_rx_ring_slots_available(queue))
++	return xenvif_rx_ring_slots_available(queue)
+ 		|| (queue->vif->stall_timeout &&
+ 		    (xenvif_rx_queue_stalled(queue)
+ 		     || xenvif_rx_queue_ready(queue)))
 -- 
-2.6.3
-
+2.1.4
