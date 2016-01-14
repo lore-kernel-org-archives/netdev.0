@@ -1,51 +1,138 @@
-From: Rene Rebe <rene@exactcode.com>
-Subject: [PATH]
-Date: Thu, 14 Jan 2016 15:21:06 +0100 (CET)
-Message-ID: <20160114.152106.1522848878187628539.rene@exactcode.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH RT] net: move xmit_recursion to per-task variable on -RT
+Date: Thu, 14 Jan 2016 15:50:07 +0100
+Message-ID: <20160114145007.GC17776@linutronix.de>
+References: <20160113152352.GH29964@linutronix.de>
+ <alpine.DEB.2.11.1601131830440.3575@nanos>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.exactcode.de ([144.76.154.42]:46268 "EHLO mx.exactcode.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753671AbcANOVJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 09:21:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1601131830440.3575@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+* Thomas Gleixner | 2016-01-13 18:31:46 [+0100]:
 
-rebased against your netdev git, and sent with Mew:
+>On Wed, 13 Jan 2016, Sebastian Andrzej Siewior wrote:
+>> +#ifdef CONFIG_PREEMPT_RT_FULL
+>> +static inline int dev_recursion_level(void)
+>> +{
+>> +	return atomic_read(&current->xmit_recursion);
+>
+>Why would you need an atomic here. current does hardly race against itself.
 
-The Microsoft Surface Docks uses a R8152, too.
+right.
 
-Signed-off-by: Ren=E9 Rebe <rene@exactcode.com>
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2249,11 +2249,20 @@ void netdev_freemem(struct net_device *d
+ void synchronize_net(void);
+ int init_dummy_netdev(struct net_device *dev);
+ 
++#ifdef CONFIG_PREEMPT_RT_FULL
++static inline int dev_recursion_level(void)
++{
++	return current->xmit_recursion;
++}
++
++#else
++
+ DECLARE_PER_CPU(int, xmit_recursion);
+ static inline int dev_recursion_level(void)
+ {
+ 	return this_cpu_read(xmit_recursion);
+ }
++#endif
+ 
+ struct net_device *dev_get_by_index(struct net *net, int ifindex);
+ struct net_device *__dev_get_by_index(struct net *net, int ifindex);
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1851,6 +1851,9 @@ struct task_struct {
+ #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
+ 	unsigned long	task_state_change;
+ #endif
++#ifdef CONFIG_PREEMPT_RT_FULL
++	int xmit_recursion;
++#endif
+ 	int pagefault_disabled;
+ /* CPU-specific state of this task */
+ 	struct thread_struct thread;
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2940,9 +2940,44 @@ static void skb_update_prio(struct sk_bu
+ #define skb_update_prio(skb)
+ #endif
+ 
++#ifdef CONFIG_PREEMPT_RT_FULL
++
++static inline int xmit_rec_read(void)
++{
++       return current->xmit_recursion;
++}
++
++static inline void xmit_rec_inc(void)
++{
++       current->xmit_recursion++;
++}
++
++static inline void xmit_rec_dec(void)
++{
++       current->xmit_recursion--;
++}
++
++#else
++
+ DEFINE_PER_CPU(int, xmit_recursion);
+ EXPORT_SYMBOL(xmit_recursion);
+ 
++static inline int xmit_rec_read(void)
++{
++	return __this_cpu_read(xmit_recursion);
++}
++
++static inline void xmit_rec_inc(void)
++{
++	__this_cpu_inc(xmit_recursion);
++}
++
++static inline int xmit_rec_dec(void)
++{
++	__this_cpu_dec(xmit_recursion);
++}
++#endif
++
+ #define RECURSION_LIMIT 10
+ 
+ /**
+@@ -3135,7 +3170,7 @@ static int __dev_queue_xmit(struct sk_bu
+ 
+ 		if (txq->xmit_lock_owner != cpu) {
+ 
+-			if (__this_cpu_read(xmit_recursion) > RECURSION_LIMIT)
++			if (xmit_rec_read() > RECURSION_LIMIT)
+ 				goto recursion_alert;
+ 
+ 			skb = validate_xmit_skb(skb, dev);
+@@ -3145,9 +3180,9 @@ static int __dev_queue_xmit(struct sk_bu
+ 			HARD_TX_LOCK(dev, txq, cpu);
+ 
+ 			if (!netif_xmit_stopped(txq)) {
+-				__this_cpu_inc(xmit_recursion);
++				xmit_rec_inc();
+ 				skb = dev_hard_start_xmit(skb, dev, txq, &rc);
+-				__this_cpu_dec(xmit_recursion);
++				xmit_rec_dec();
+ 				if (dev_xmit_complete(rc)) {
+ 					HARD_TX_UNLOCK(dev, txq);
+ 					goto out;
 
---- linux-git/drivers/net/usb/r8152.c.orig	2016-01-14 15:17:54.78666245=
-6 +0100
-+++ linux-git/drivers/net/usb/r8152.c	2016-01-14 15:17:21.050661823 +01=
-00
-@@ -504,6 +504,7 @@
-=20
- /* Define these values to match your device */
- #define VENDOR_ID_REALTEK		0x0bda
-+#define VENDOR_ID_MICROSOFT		0x045e
- #define VENDOR_ID_SAMSUNG		0x04e8
- #define VENDOR_ID_LENOVO		0x17ef
- #define VENDOR_ID_NVIDIA		0x0955
-@@ -4294,6 +4295,8 @@
- static struct usb_device_id rtl8152_table[] =3D {
- 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
-+	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07ab)},
-+	{REALTEK_USB_DEVICE(VENDOR_ID_MICROSOFT, 0x07c6)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x304f)},
+>Thanks,
+>
+>	tglx
 
-
---=20
-  Ren=E9 Rebe, ExactCODE GmbH, Lietzenburger Str. 42, DE-10117 Berlin
-  http://exactcode.com | http://t2-project.org | http://rene.rebe.de
+Sebastian
