@@ -1,63 +1,60 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] fsl/fman: Delete one function call "put_device" in
- dtsec_config()
-Date: Thu, 14 Jan 2016 17:27:41 +0100
-Message-ID: <20160114162741.GC19773@lunn.ch>
-References: <5696BFAD.9030905@users.sourceforge.net>
- <20160113213537.GD4399@mwanda>
- <20160113220923.GE5527@lunn.ch>
- <5697B81E.4050303@users.sourceforge.net>
+Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Thu, 14 Jan 2016 17:44:18 +0100
+Message-ID: <20160114164418.GD19773@lunn.ch>
+References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Igal Liberman <igal.liberman@freescale.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, f.fainelli@gmail.com,
+	davem@davemloft.net, Shaohui Xie <Shaohui.Xie@freescale.com>
+To: shh.xie@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:54287 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754284AbcANQoV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2016 11:44:21 -0500
 Content-Disposition: inline
-In-Reply-To: <5697B81E.4050303@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 14, 2016 at 04:00:46PM +0100, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Thu, 14 Jan 2016 15:46:28 +0100
+On Thu, Jan 14, 2016 at 04:23:59PM +0800, shh.xie@gmail.com wrote:
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
 > 
-> The Coccinelle semantic patch script "deref_null.cocci" pointed a problem
-> out in the implementation of the function "dtsec_config".
+> This commit adds necessary definitions for the PHY layer to recognize
+> backplane Ethernet 1000BASE-KX and 10GBASE-KR as valid PHY interfaces,
+> "1000base-kx" for 1000BASE-KX, "10gbase-kr" for 10GBASE-KR.
 > 
-> A null pointer was assigned to the data structure member "tbiphy" of the
-> variable "dtsec" if a matching device was not found.
-> A call of the function "put_device" was unnecessary then because
-> a previous call of the function "get_device" was not triggered.
-> Thus remove the function call "put_device" after the printing of the
-> desired error message.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-
-Fixes: 57ba4c9b56d8 ("fsl/fman: Add FMan MAC support")
-Reviewd-by: Andrew Lunn <andrew@lunn.ch>
-
-	    Andrew
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 > ---
->  drivers/net/ethernet/freescale/fman/fman_dtsec.c | 1 -
->  1 file changed, 1 deletion(-)
+> changes in v2:
+> new patch.
 > 
-> diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-> index 6b1261c..7c92eb8 100644
-> --- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-> +++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-> @@ -1434,7 +1434,6 @@ struct fman_mac *dtsec_config(struct fman_mac_params *params)
->  	dtsec->tbiphy = of_phy_find_device(params->internal_phy_node);
->  	if (!dtsec->tbiphy) {
->  		pr_err("of_phy_find_device (TBI PHY) failed\n");
-> -		put_device(&dtsec->tbiphy->mdio.dev);
->  		goto err_dtsec_drv_param;
->  	}
->  
-> -- 
-> 2.6.3
+>  Documentation/devicetree/bindings/net/ethernet.txt | 4 ++--
+>  include/linux/phy.h                                | 6 ++++++
+>  2 files changed, 8 insertions(+), 2 deletions(-)
 > 
+> diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+> index 5d88f37..1166a5c 100644
+> --- a/Documentation/devicetree/bindings/net/ethernet.txt
+> +++ b/Documentation/devicetree/bindings/net/ethernet.txt
+> @@ -11,8 +11,8 @@ The following properties are common to the Ethernet controllers:
+>    the maximum frame size (there's contradiction in ePAPR).
+>  - phy-mode: string, operation mode of the PHY interface; supported values are
+>    "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
+> -  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
+> -  standard property;
+> +  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii", "1000base-kx", "10gbase-kr";
+> +  this is now a de-facto standard property;
+
+I know very little about this, so i'm just asking a question. None of
+the other interface modes contain a bit rate. So is the bit rate
+needed for your two new modes?
+
+With a bit of googling, K means copper backplane, X means 4B/5B and R
+means 64B/66B. Could there be a 10Gbps KX? a 1GBps KR? Do we actually
+need the speed here, or is kx and kr sufficient?
+
+     Thanks
+	Andrew
