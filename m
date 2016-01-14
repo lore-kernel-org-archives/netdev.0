@@ -1,132 +1,131 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 4/4] net: Allow UDP and GRE to use inner checksum
- offloads with outer checksums needed
-Date: Wed, 13 Jan 2016 21:12:21 -0800
-Message-ID: <20160114051221.5119.91182.stgit@localhost.localdomain>
-References: <20160114045532.5119.56124.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: ecree@solarflare.com, netdev@vger.kernel.org, tom@herbertland.com
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: support to lookup with ep+paddr in transport rhashtable
+Date: Thu, 14 Jan 2016 13:49:34 +0800
+Message-ID: <66cb37a6d0c3776e9eb3adf0bf6fc33ff947eb63.1452750574.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33334 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754651AbcANFMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 00:12:23 -0500
-Received: by mail-pa0-f44.google.com with SMTP id cy9so370589788pac.0
-        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 21:12:22 -0800 (PST)
-In-Reply-To: <20160114045532.5119.56124.stgit@localhost.localdomain>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36710 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750863AbcANFti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 00:49:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables us to use inner checksum offloads if provided by
-hardware with outer checksums computed by software.
+Now, when we sendmsg, we translate the ep to laddr by selecting the
+first element of the list, and then do a lookup for a transport.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+But sctp_hash_cmp() will compare it against asoc addr_list, which may
+be a subset of ep addr_list, meaning that this chosen laddr may not be
+there, and thus making it impossible to find the transport.
+
+So we fix it by using ep + paddr to lookup transports in hashtable. In
+sctp_hash_cmp, if .ep is set, we will check if this ep == asoc->ep,
+or we will do the laddr check.
+
+Fixes: d6c0256a60e6 ("sctp: add the rhashtable apis for sctp global transport hashtable")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Reported-by: Vlad Yasevich <vyasevich@gmail.com>
 ---
- net/ipv4/gre_offload.c |    2 --
- net/ipv4/udp_offload.c |   44 +++++++++++++++++++-------------------------
- 2 files changed, 19 insertions(+), 27 deletions(-)
+ net/sctp/input.c | 38 +++++++++++++++++++++++---------------
+ 1 file changed, 23 insertions(+), 15 deletions(-)
 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 5a8ee3282550..61608fe975fc 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -53,8 +53,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 		goto out;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index d9a6e66..b9a536b 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -784,6 +784,7 @@ hit:
  
- 	csum = !!(greh->flags & GRE_CSUM);
--	if (csum)
--		skb->encap_hdr_csum = 1;
+ /* rhashtable for transport */
+ struct sctp_hash_cmp_arg {
++	const struct sctp_endpoint	*ep;
+ 	const union sctp_addr		*laddr;
+ 	const union sctp_addr		*paddr;
+ 	const struct net		*net;
+@@ -797,15 +798,20 @@ static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
+ 	struct sctp_association *asoc = t->asoc;
+ 	const struct net *net = x->net;
  
- 	/* setup inner skb. */
- 	skb->protocol = greh->protocol;
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 45824f9b81c4..0a7f1207f3d3 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -39,31 +39,30 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	netdev_features_t enc_features;
- 	int udp_offset, outer_hlen;
- 	unsigned int oldlen;
--	bool need_csum = !!(skb_shinfo(skb)->gso_type &
--			    SKB_GSO_UDP_TUNNEL_CSUM);
- 	bool remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
--	bool offload_csum = false, dont_encap = (need_csum || remcsum);
-+	bool need_csum, load_csum;
+-	if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
+-		return 1;
+ 	if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
+ 		return 1;
+ 	if (!net_eq(sock_net(asoc->base.sk), net))
+ 		return 1;
+-	if (!sctp_bind_addr_match(&asoc->base.bind_addr,
+-				  x->laddr, sctp_sk(asoc->base.sk)))
+-		return 1;
++	if (x->ep) {
++		if (x->ep != asoc->ep)
++			return 1;
++	} else {
++		if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
++			return 1;
++		if (!sctp_bind_addr_match(&asoc->base.bind_addr,
++					  x->laddr, sctp_sk(asoc->base.sk)))
++			return 1;
++	}
  
- 	oldlen = (u16)~skb->len;
+ 	return 0;
+ }
+@@ -832,9 +838,11 @@ static inline u32 sctp_hash_key(const void *data, u32 len, u32 seed)
+ 	const struct sctp_hash_cmp_arg *x = data;
+ 	const union sctp_addr *paddr = x->paddr;
+ 	const struct net *net = x->net;
+-	u16 lport = x->laddr->v4.sin_port;
++	u16 lport;
+ 	u32 addr;
  
- 	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
- 		goto out;
++	lport = x->ep ? htons(x->ep->base.bind_addr.port) :
++			x->laddr->v4.sin_port;
+ 	if (paddr->sa.sa_family == AF_INET6)
+ 		addr = jhash(&paddr->v6.sin6_addr, 16, seed);
+ 	else
+@@ -864,12 +872,9 @@ void sctp_transport_hashtable_destroy(void)
  
-+	/* Try to offload checksum if possible */
-+	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
-+	load_csum = need_csum &&
-+		    !(skb->dev->features &
-+		      (is_ipv6 ? (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM) :
-+				 (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM)));
-+
- 	skb->encapsulation = 0;
- 	__skb_pull(skb, tnl_hlen);
- 	skb_reset_mac_header(skb);
- 	skb_set_network_header(skb, skb_inner_network_offset(skb));
- 	skb->mac_len = skb_inner_network_offset(skb);
- 	skb->protocol = new_protocol;
--	skb->encap_hdr_csum = need_csum;
-+	skb->encap_hdr_csum = remcsum & load_csum;
- 	skb->remcsum_offload = remcsum;
+ void sctp_hash_transport(struct sctp_transport *t)
+ {
+-	struct sctp_sockaddr_entry *addr;
+ 	struct sctp_hash_cmp_arg arg;
  
--	/* Try to offload checksum if possible */
--	offload_csum = !!(need_csum &&
--			  ((skb->dev->features & NETIF_F_HW_CSUM) ||
--			   (skb->dev->features & (is_ipv6 ?
--			    NETIF_F_IPV6_CSUM : NETIF_F_IP_CSUM))));
+-	addr = list_entry(t->asoc->base.bind_addr.address_list.next,
+-			  struct sctp_sockaddr_entry, list);
+-	arg.laddr = &addr->a;
++	arg.ep = t->asoc->ep;
+ 	arg.paddr = &t->ipaddr;
+ 	arg.net   = sock_net(t->asoc->base.sk);
+ 
+@@ -891,6 +896,7 @@ struct sctp_transport *sctp_addrs_lookup_transport(
+ 				const union sctp_addr *paddr)
+ {
+ 	struct sctp_hash_cmp_arg arg = {
++		.ep    = NULL,
+ 		.laddr = laddr,
+ 		.paddr = paddr,
+ 		.net   = net,
+@@ -904,13 +910,15 @@ struct sctp_transport *sctp_epaddr_lookup_transport(
+ 				const struct sctp_endpoint *ep,
+ 				const union sctp_addr *paddr)
+ {
+-	struct sctp_sockaddr_entry *addr;
+ 	struct net *net = sock_net(ep->base.sk);
++	struct sctp_hash_cmp_arg arg = {
++		.ep    = ep,
++		.paddr = paddr,
++		.net   = net,
++	};
+ 
+-	addr = list_entry(ep->base.bind_addr.address_list.next,
+-			  struct sctp_sockaddr_entry, list);
 -
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & features;
- 	segs = gso_inner_segment(skb, enc_features);
-@@ -81,16 +80,11 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		int len;
- 		__be32 delta;
+-	return sctp_addrs_lookup_transport(net, &addr->a, paddr);
++	return rhashtable_lookup_fast(&sctp_transport_hashtable, &arg,
++				      sctp_hash_params);
+ }
  
--		if (dont_encap) {
--			skb->encapsulation = 0;
-+		if (remcsum)
- 			skb->ip_summed = CHECKSUM_NONE;
--		} else {
--			/* Only set up inner headers if we might be offloading
--			 * inner checksum.
--			 */
--			skb_reset_inner_headers(skb);
--			skb->encapsulation = 1;
--		}
-+
-+		skb_reset_inner_headers(skb);
-+		skb->encapsulation = skb->ip_summed == CHECKSUM_PARTIAL;
- 
- 		skb->mac_len = mac_len;
- 		skb->protocol = protocol;
-@@ -111,16 +105,16 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		uh->check = ~csum_fold((__force __wsum)
- 				       ((__force u32)uh->check +
- 					(__force u32)delta));
--		if (offload_csum) {
-+
-+		if (skb->encapsulation || load_csum) {
-+			uh->check = gso_make_checksum(skb, ~uh->check);
-+			if (uh->check == 0)
-+				uh->check = CSUM_MANGLED_0;
-+		} else {
- 			skb->ip_summed = CHECKSUM_PARTIAL;
- 			skb->csum_start = skb_transport_header(skb) - skb->head;
- 			skb->csum_offset = offsetof(struct udphdr, check);
- 			gso_reset_checksum(skb, ~uh->check);
--		} else {
--			uh->check = gso_make_checksum(skb, ~uh->check);
--
--			if (uh->check == 0)
--				uh->check = CSUM_MANGLED_0;
- 		}
- 	} while ((skb = skb->next));
- out:
+ /* Look up an association. */
+-- 
+2.1.0
