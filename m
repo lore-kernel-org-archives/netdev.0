@@ -1,49 +1,154 @@
-From: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
-Subject: [PATCH] net: phy: turn carrier off on phy attach
-Date: Thu, 14 Jan 2016 21:57:18 +0100
-Message-ID: <1452805038-27178-1-git-send-email-sjoerd.simons@collabora.co.uk>
-Cc: Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: kan.liang@intel.com
+Subject: [PATCH V3 3/6] net/ethtool: support set coalesce per queue
+Date: Thu, 14 Jan 2016 09:08:04 -0500
+Message-ID: <1452780487-10581-3-git-send-email-kan.liang@intel.com>
+References: <1452780487-10581-1-git-send-email-kan.liang@intel.com>
+Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
+	f.fainelli@gmail.com, alexander.duyck@gmail.com,
+	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, ben@decadent.org.uk,
+	Kan Liang <kan.liang@intel.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:42790 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752905AbcANU5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 15:57:22 -0500
+Received: from mga11.intel.com ([192.55.52.93]:31404 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756559AbcANV1C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2016 16:27:02 -0500
+In-Reply-To: <1452780487-10581-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The operstate of a networking device initially IF_OPER_UNKNOWN aka
-"unknown", updated on carrier state changes (with carrier state being on
-by default). This means it will stay unknown unless the carrier state
-goes to off at some point, which is not the case if the phy is already
-up/connected at startup.
+From: Kan Liang <kan.liang@intel.com>
 
-Explicitly turn off the carrier on phy attach, leaving the phy state
-machine to turn the carrier on when it has done the initial negotiation.
+This patch implements sub command ETHTOOL_SCOALESCE for ioctl
+ETHTOOL_PERQUEUE. It introduces an interface set_per_queue_coalesce to
+set coalesce of each masked queue to device driver. The wanted coalesce
+information are stored in "data" for each masked queue, which can copy
+from userspace.
+If it fails to set coalesce to device driver, the value which already
+set to specific queue will be tried to rollback.
 
-Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
-
+Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
 
- drivers/net/phy/phy_device.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Changes since V1:
+ - Use bitmap functions to parse queue mask
+ - Improve comments
+ - Add rollback support
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 0bfbaba..0b407dd 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -668,6 +668,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+No changes since V2
+
+ include/linux/ethtool.h |  8 +++++++
+ net/core/ethtool.c      | 59 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index bd01feb..e68f950 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -208,6 +208,12 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  *	zero should return. But related unavailable fields should be set to ~0,
+  *	which indicates RX or TX is not in the range.
+  * 	Returns a negative error code or zero.
++ * @set_per_queue_coalesce: Set interrupt coalescing parameters per queue.
++ * 	It needs to do range check for the input queue number. Only if
++ * 	neither RX nor TX queue number is in the range, a negative error code
++ * 	returns. For the case that only RX or only TX is not in the range,
++ * 	zero should return. The related unavailable fields should be avoid.
++ * 	Returns a negative error code or zero.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -288,6 +294,8 @@ struct ethtool_ops {
+ 			       const struct ethtool_tunable *, const void *);
+ 	int	(*get_per_queue_coalesce)(struct net_device *, int,
+ 					  struct ethtool_coalesce *);
++	int	(*set_per_queue_coalesce)(struct net_device *, int,
++					  struct ethtool_coalesce *);
  
- 	phydev->state = PHY_READY;
+ };
+ #endif /* _LINUX_ETHTOOL_H */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 572c103..d0e6d29 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1773,6 +1773,63 @@ static int ethtool_get_per_queue_coalesce(struct net_device *dev,
+ 	return 0;
+ }
  
-+	/* Initial carrier state is off as the phy is about to be
-+	 * (re)initialized.
-+	 */
-+	netif_carrier_off(phydev->attached_dev);
++static int ethtool_set_per_queue_coalesce(struct net_device *dev,
++					  void __user *useraddr,
++					  struct ethtool_per_queue_op *per_queue_opt)
++{
++	int bit, i, ret = 0;
++	int queue_num = bitmap_weight(per_queue_opt->queue_mask, MAX_NUM_QUEUE);
++	struct ethtool_coalesce *backup = NULL, *tmp = NULL;
++	bool rollback = true;
 +
- 	/* Do initial configuration here, now that
- 	 * we have certain key parameters
- 	 * (dev_flags and interface)
++	if (!dev->ethtool_ops->set_per_queue_coalesce)
++		return -EOPNOTSUPP;
++
++	if (!dev->ethtool_ops->get_per_queue_coalesce)
++		rollback = false;
++
++	useraddr += sizeof(*per_queue_opt);
++
++	if (rollback)
++		tmp = backup = kmalloc(queue_num * sizeof(*backup), GFP_KERNEL);
++
++	for_each_set_bit(bit, per_queue_opt->queue_mask, MAX_NUM_QUEUE) {
++		struct ethtool_coalesce coalesce;
++
++		if (rollback) {
++			if (dev->ethtool_ops->get_per_queue_coalesce(dev, bit, tmp)) {
++				ret = -EFAULT;
++				goto roll_back;
++			}
++			tmp += sizeof(struct ethtool_coalesce);
++		}
++
++		if (copy_from_user(&coalesce, useraddr, sizeof(coalesce))) {
++			ret = -EFAULT;
++			goto roll_back;
++		}
++
++		ret = dev->ethtool_ops->set_per_queue_coalesce(dev, bit, &coalesce);
++		if (ret != 0)
++			goto roll_back;
++
++		useraddr += sizeof(coalesce);
++	}
++
++roll_back:
++	if (rollback) {
++		if (ret != 0) {
++			tmp = backup;
++			for_each_set_bit(i, per_queue_opt->queue_mask, bit - 1) {
++				dev->ethtool_ops->set_per_queue_coalesce(dev, i, tmp);
++				tmp += sizeof(struct ethtool_coalesce);
++			}
++		}
++		kfree(backup);
++	}
++	return ret;
++}
++
+ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_per_queue_op per_queue_opt;
+@@ -1783,6 +1840,8 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ 	switch (per_queue_opt.sub_command) {
+ 	case ETHTOOL_GCOALESCE:
+ 		return ethtool_get_per_queue_coalesce(dev, useraddr, &per_queue_opt);
++	case ETHTOOL_SCOALESCE:
++		return ethtool_set_per_queue_coalesce(dev, useraddr, &per_queue_opt);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	};
 -- 
-2.7.0.rc3
+1.8.3.1
