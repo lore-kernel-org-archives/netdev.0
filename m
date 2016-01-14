@@ -1,51 +1,48 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH v2] net: preserve IP control block during GSO
-	segmentation
-Date: Fri, 15 Jan 2016 00:22:25 +0100
-Message-ID: <56982DB1.50304@stressinduktion.org>
-References: <145225570625.30903.13936642758071448458.stgit@zurg>
- <20160113.155112.119405358547782630.davem@davemloft.net>
- <20160113233628.GA10507@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160113233628.GA10507-E0PNVn5OA6ohrxcnuTQ+TQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next 0/6] tcp: congestion control refactoring
+Date: Thu, 14 Jan 2016 15:43:28 -0800
+Message-ID: <1452815014-601-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33724 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755855AbcANXoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 18:44:14 -0500
+Received: by mail-pf0-f170.google.com with SMTP id e65so107789442pfe.0
+        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 15:44:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTQuMDEuMjAxNiAwMDozNiwgRmxvcmlhbiBXZXN0cGhhbCB3cm90ZToKPiBEYXZpZCBNaWxs
-ZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+PiBGcm9tOiBLb25zdGFudGluIEtobGVi
-bmlrb3YgPGtvY3Q5aUBnbWFpbC5jb20+Cj4+IERhdGU6IEZyaSwgMDggSmFuIDIwMTYgMTU6MjE6
-NDYgKzAzMDAKPj4KPj4+IFNrYl9nc29fc2VnbWVudCgpIHVzZXMgc2tiIGNvbnRyb2wgYmxvY2sg
-ZHVyaW5nIHNlZ21lbnRhdGlvbi4KPj4+IFRoaXMgcGF0Y2ggYWRkcyAzMi1ieXRlcyByb29tIGZv
-ciBwcmV2aW91cyBjb250cm9sIGJsb2NrIHdoaWNoCj4+PiB3aWxsIGJlIGNvcGllZCBpbnRvIGFs
-bCByZXN1bHRpbmcgc2VnbWVudHMuCj4+Pgo+Pj4gVGhpcyBwYXRjaCBmaXhlcyBrZXJuZWwgY3Jh
-c2ggZHVyaW5nIGZyYWdtZW50aW5nIGZvcndhcmRlZCBwYWNrZXRzLgo+Pj4gRnJhZ21lbnRhdGlv
-biByZXF1aXJlcyB2YWxpZCBJUCBDQiBpbiBza2IgZm9yIGNsZWFyaW5nIGlwIG9wdGlvbnMuCj4+
-PiBBbHNvIHBhdGNoIHJlbW92ZXMgY3VzdG9tIHNhdmUvcmVzdG9yZSBpbiBvdnMgY29kZSwgbm93
-IGl0J3MgcmVkdW5kYW50Lgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IEtvbnN0YW50aW4gS2hsZWJu
-aWtvdiA8a29jdDlpQGdtYWlsLmNvbT4KPj4+IExpbms6IGh0dHA6Ly9sa21sLmtlcm5lbC5vcmcv
-ci9DQUxZR05pUC0wTVotRkV4VjJIdXRUdkU5VS1RUXRrS1NvRS0tS049SlFFNVNUWXNqQUFAbWFp
-bC5nbWFpbC5jb20KPj4KPj4gSWYgdGhpcyB3b3JrcyBJIGRlZmluaXRlbHkgcHJlZmVyIHRoaXMg
-YXBwcm9hY2ggdG8gdGhlIG90aGVyIHBhdGNoCj4+IHdoZXJlIHRoZSBDQiBpcyBjb3BpZWQgYmFj
-ayBhbmQgZm9ydGguCj4KPiBJIHF1aXRlIGZyYW5rbHkgZG9uJ3QgY2FyZSBhbmQganVzdCBsaWtl
-IHlvdSB0byBhcHBseSBvbmUgb3IgdGhlIG90aGVyOwo+IHVzZSBjb2luIHRvc3MgaWYgbmVlZGVk
-IDotfQo+Cj4gSSB3b3VsZCBwcmVmZXIgdG8gdXNlIGEgb24tc3RhY2sgc3RhdGUgc2luY2UgdGhl
-cmUgaXMgbm8gbmVlZCB0bwo+IHVzZSBza2ItPmNiIChubyBxdWV1ZWluZykgYnV0IHdoZW4gSSBn
-YXZlIGl0IGEgdHJ5IGl0IGdvdCBvdXQgb2YgaGFuZAo+IHJhdGhlciBxdWljayA6LS8KCkJlIGNh
-cmVmdWwgd2l0aCB0aGUgZW5jYXAgY291bnRlciB3aXRoaW4gU0tCX0dTT19DQiB3aGVuIHRyeWlu
-ZyB0byBwdXQgCml0IG9uIHRoZSBzdGFjay4KCkJ5ZSwKSGFubmVzCgpfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
-dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+This patch set refactors the sequence of congestion control,
+loss recovery, and transmission logic in TCP ack processing.
+
+The design goal is to decouple and sequence them in the following order:
+
+  0. ACK accounting: free or tag sent packets [unchanged]
+
+  1. loss recovery: identify lost/ecn packets and update congestion state
+
+  2. congestion control: up/down cwnd and pacing rate based on (1)
+
+  3. transmission: send new or retransmit old based on (1) and (2)
+
+This refactoring makes the cwnd changes more clear because it's done
+in one place. The packet accounting is also more robust especially
+for connections that do not support SACK. Patch 1-4 and 6 are
+refactoring and patch 5 improves TCP performance under reordering.
+
+Yuchung Cheng (6):
+  tcp: retransmit after recovery processing and congestion control
+  tcp: move cwnd reduction after recovery state procesing
+  tcp: new delivery accounting
+  tcp: refactor pkts acked accounting
+  tcp: make congestioin control more robust against reordering
+  tcp: tcp_cong_control helper
+
+ include/linux/tcp.h  |   1 +
+ net/ipv4/tcp_input.c | 147 +++++++++++++++++++++++++++++++++------------------
+ 2 files changed, 96 insertions(+), 52 deletions(-)
+
+-- 
+2.6.0.rc2.230.g3dd15c0
