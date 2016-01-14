@@ -1,65 +1,57 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [requrest for stable 4.1.y inclution] Fix for CVE-2015-7799
-Date: Thu, 14 Jan 2016 13:18:49 +0000
-Message-ID: <1452777529.7020.67.camel@decadent.org.uk>
-References: <56978CFE.1010703@jp.fujitsu.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 08/10] bus: mvenus-mbus: Fix size test for
+ mvebu_mbus_get_dram_win_info
+Date: Thu, 14 Jan 2016 14:00:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC5C65@AcuExch.aculab.com>
+References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
+ <1452625834-22166-9-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-GBwe6rpIpyKWwBwZw3Vs"
-Cc: netdev@vger.kernel.org
-To: Yuki Machida <machida.yuki@jp.fujitsu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:41410 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750828AbcANNTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 08:19:11 -0500
-In-Reply-To: <56978CFE.1010703@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	"Simon Guinot" <simon.guinot@sequanux.org>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
+To: 'Gregory CLEMENT' <gregory.clement@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452625834-22166-9-git-send-email-gregory.clement@free-electrons.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Gregory CLEMENT
+> Sent: 12 January 2016 19:11
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  drivers/bus/mvebu-mbus.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/bus/mvebu-mbus.c b/drivers/bus/mvebu-mbus.c
+> index 3d1c0c3880ec..214bb964165b 100644
+> --- a/drivers/bus/mvebu-mbus.c
+> +++ b/drivers/bus/mvebu-mbus.c
+> @@ -964,7 +964,7 @@ int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target, u8 *attr)
+>  	for (i = 0; i < dram->num_cs; i++) {
+>  		const struct mbus_dram_window *cs = dram->cs + i;
+> 
+> -		if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size)) {
+> +		if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size - 1)) {
 
---=-GBwe6rpIpyKWwBwZw3Vs
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Wouldn't it be better to change the line to:
+> +		if (cs->base <= phyaddr && phyaddr < (cs->base + cs->size)) {
 
-On Thu, 2016-01-14 at 20:56 +0900, Yuki Machida wrote:
-> This patch is the fix for CVE-2015-7799
-> Upstream commit 4ab42d78e37a294ac7bc56901d563c642e03c4ae
->=20
-> Stable 3.2.y has included this patch in v3.2.75.
-> https://cdn.kernel.org/pub/linux/kernel/v3.x/ChangeLog-3.2.75
->=20
-> Please include in this patch to stable 4.1.y.
-
-Commit 0baa57d8dc32db78369d8b5176ef56c5e2e18ab3 is also needed as
-preparation.
-
-Ben.
-
---=20
-Ben Hutchings
-Anthony's Law of Force: Don't force it, get a larger hammer.
-
---=-GBwe6rpIpyKWwBwZw3Vs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVpegOee/yOyVhhEJAQqQCw//cOqVjfXQBhggxSs0NzPLXkD6F1uk/QFO
-SNKap2PHlxma2B8ub5fEqbcqz9O7iH37jjUoPfOtAbT46DJ7Rf28Jk+UO3XhuN29
-cvnNTLGFICprOXvUB1dpnfkkRDWMTdm8b0h0Gd6WDb5R+Glp1REOYNTveT0fa1UU
-7wQ8aeba/JF14RsrnOUk9z27ji27EQVAoFZ8DGI/NY1c0JL9SYQnulvPahwB3HUp
-pOkdaP0wwGCedoN3Pgb++X0DV8rNNpH2UA/GrDzZpGwV3zimvffas3ttaLYW87Jq
-66ZJuw35H22Rxh8jgnOyfws9TSdRX8TegUpuhYcmQNQAFS6tsz0b0pWDwLNRVjJ1
-aTyjoyscq9CGRcIJMiVUY2W/ZnCeUh4PHL1Yp8Htbs52vtE6ZZnN0C9KMTFe/SPm
-DYw4di9GrlbfvqK4CDhoy7F1F6yJ29E7LXta8XP2ysszV8chO+e2JpUraq9SmauQ
-0F0WPewPs3djChl1wCafPCNa47CLWj8HEt9bNxmhUEX221nQkjT2iFUXeVXH8/t3
-jPSvLJNLwVpKtgOnyIEGzVZHsGIkNkfPEhaIb++g3GDP+bceisIt++n5hx/OEF4u
-nChkMRHMdPhR9nrBrkvgh/KQSgtodVOhXpBwzq/MBeIKOiHQADgOH411qyQYs2SI
-Pm6qQE7/WM0=
-=jObA
------END PGP SIGNATURE-----
-
---=-GBwe6rpIpyKWwBwZw3Vs--
+	David
