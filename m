@@ -1,72 +1,67 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/4] bpf: bpf_htab: Add syscall to iterate
- percpu value of a key
-Date: Wed, 13 Jan 2016 17:24:34 -0800
-Message-ID: <20160114012433.GB43324@ast-mbp.thefacebook.com>
-References: <1452586852-1575604-1-git-send-email-kafai@fb.com>
- <1452586852-1575604-4-git-send-email-kafai@fb.com>
- <CACVXFVPAR52e01vVqtZ5LF5j7zscjAVgOccW1erj-a2VYScJrg@mail.gmail.com>
- <20160113052341.GB37858@ast-mbp.thefacebook.com>
- <CACVXFVMMPkekaNvo+ByNGcryB7Mum91xT7nR1YkK+kKu-J1-5w@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net/sctp: use-after-free in __sctp_connect
+Date: Wed, 13 Jan 2016 23:45:45 -0200
+Message-ID: <5696FDC9.6030508@gmail.com>
+References: <CACT4Y+YjpSKvD5t8e6wKzE8+j3rFzf_Ep+23WjW1Mg3ws6cOCw@mail.gmail.com>
+ <07B7943445653648AD9B4DBB916BB48F04FDFD85@cnshjmbx01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin KaFai Lau <kafai@fb.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35680 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755182AbcANBYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2016 20:24:37 -0500
-Content-Disposition: inline
-In-Reply-To: <CACVXFVMMPkekaNvo+ByNGcryB7Mum91xT7nR1YkK+kKu-J1-5w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: YUAN Jia <Jia.Yuan@alcatel-sbell.com.cn>,
+	'Dmitry Vyukov' <dvyukov@google.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <07B7943445653648AD9B4DBB916BB48F04FDFD85@cnshjmbx01>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 13, 2016 at 11:43:50PM +0800, Ming Lei wrote:
-> On Wed, Jan 13, 2016 at 1:23 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Wed, Jan 13, 2016 at 10:42:49AM +0800, Ming Lei wrote:
-> >>
-> >> So I don't think it is good to retrieve value from one CPU via one
-> >> single system call, and accumulate them finally in userspace.
-> >>
-> >> One approach I thought of is to define the function(or sort of)
-> >>
-> >>  handle_cpu_value(u32 cpu, void *val_cpu, void *val_total)
-> >>
-> >> in bpf kernel code for collecting value from each cpu and
-> >> accumulating them into 'val_total', and most of situations, the
-> >> function can be implemented without loop most of situations.
-> >> kernel can call this function directly, and the total value can be
-> >> return to userspace by one single syscall.
-> >>
-> >> Alexei and anyone, could you comment on this draft idea for
-> >> perpcu map?
-> >
-> > I'm not sure how you expect user space to specify such callback.
-> > Kernel cannot execute user code.
-> 
-> I mean the above callback function can be built into bpf code and then
-> run from kernel after loading like in packet filter case by tcpdump, maybe
-> one new prog type is needed. It is doable in theroy. I need to investigate
-> a bit to understand how it can be called from kernel, and it might be OK
-> to call it via kprobe, but not elegent just for accumulating value from each
-> CPU.
+Em 13-01-2016 23:37, YUAN Jia escreveu:
+ > Hi Dmitry,
+ >
+ > I've tested your program, but found nothing happens. So, I suspect i=
+t=20
+may cause kernel crash only on some special kernel version?
+ > I was just using kernel of 4.2.3. What about you?
+ >
+ > Richard
 
-that would be a total overkill.
+Please don't top-post.
 
-> > Also syscall/malloc/etc is a noise comparing to ipi and it
-> > will still be there, so
-> > for(all cpus) { syscall+ipi;} will have the same speed.
-> 
-> In the syscall path, lots of slow things, and finally the accumulated
-> value is often stale and may not reprensent accurate number at any
-> time, and can be thought as invalid.
+Note that it doesn't necessarily crashes the system. syzkaller is using=
+=20
+kasan to detect such type of invalid accesses, which in some conditions=
+=20
+may lead to crashes, weird behavior or just nothing at all. It all=20
+depends on how much the memory was already changed after it was freed.
 
-no. stale != invalid.
-Some analytics/monitor applications are good with ball park numbers
-and for them regular hash map with non-atomic increment is good enough,
-but others need accurate numbers. Even though they may be seconds stale.
+ > -----Original Message-----
+ > From: linux-sctp-owner@vger.kernel.org=20
+[mailto:linux-sctp-owner@vger.kernel.org] On Behalf Of Dmitry Vyukov
+ > Sent: 2016=E5=B9=B41=E6=9C=8813=E6=97=A5 17:53
+ > To: Vlad Yasevich; Neil Horman; David S. Miller;=20
+linux-sctp@vger.kernel.org; netdev; LKML; Eric Dumazet; Marcelo Ricardo=
+=20
+Leitner
+ > Cc: syzkaller; Kostya Serebryany; Alexander Potapenko; Sasha Levin
+ > Subject: net/sctp: use-after-free in __sctp_connect
+ >
+
+=2E..
+
+ >
+ > On commit 03891f9c853d5c4473224478a1e03ea00d70ff8d (Jan 11).
+
+This is the git commit/(version) he was using --^
+
+Marcelo
