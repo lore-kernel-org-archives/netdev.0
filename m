@@ -1,107 +1,138 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 1/4] net: Move GSO csum into SKB_GSO_CB
-Date: Wed, 13 Jan 2016 21:12:02 -0800
-Message-ID: <20160114051202.5119.50169.stgit@localhost.localdomain>
+Subject: [RFC PATCH 3/4] net: Store checksum result for offloaded GSO
+ checksums
+Date: Wed, 13 Jan 2016 21:12:14 -0800
+Message-ID: <20160114051214.5119.63241.stgit@localhost.localdomain>
 References: <20160114045532.5119.56124.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: ecree@solarflare.com, netdev@vger.kernel.org, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35537 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754651AbcANFME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 00:12:04 -0500
-Received: by mail-pa0-f54.google.com with SMTP id ho8so109730887pac.2
-        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 21:12:03 -0800 (PST)
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33780 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754651AbcANFMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 00:12:17 -0500
+Received: by mail-pf0-f172.google.com with SMTP id e65so93650521pfe.0
+        for <netdev@vger.kernel.org>; Wed, 13 Jan 2016 21:12:16 -0800 (PST)
 In-Reply-To: <20160114045532.5119.56124.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the checksum maintained by GSO out of skb->csum and into
-the GSO context block in order to allow for us to work on outer checksums
-while maintaining the inner checksum offsets in the case of the inner
-checksum being offloaded, while the outer checksums will be computed.
+This patch makes it so that we can offload the checksums for a packet up
+to a certain point and then begin computing the checksums via software.
+Setting this up is fairly straight forward as all we need to do is reset
+the values stored in csum and csum_start for the GSO context block.
 
-While updating the code I also did a minor cleanu-up on gso_make_checksum.
-The change is mostly to make it so that we store the values and compute the
-checksum instead of computing the checksum and then storing the values we
-needed to update.
+One complication for this is remote checksum offload.  In order to allow
+the inner checksums to be offloaded while computing the outer checksum
+manually we needed to have some way of indicating that the offload wasn't
+real.  In order to do that I replaced CHECKSUM_PARTIAL with
+CHECKSUM_UNNECESSARY in the case of us computing checksums for the outer
+header while skipping computing checksums for the inner headers.  We clean
+up the ip_summed flag and set it to either CHECKSUM_PARTIAL or
+CHECKSUM_NONE once we hand the packet off to the next lower level.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- include/linux/skbuff.h |   14 +++++++-------
- net/core/skbuff.c      |   16 +++++++++-------
- 2 files changed, 16 insertions(+), 14 deletions(-)
+ include/linux/skbuff.h |   13 +++++++++++++
+ net/core/skbuff.c      |    8 ++++----
+ net/ipv4/tcp_offload.c |    8 ++++++--
+ net/ipv4/udp_offload.c |    1 +
+ 4 files changed, 24 insertions(+), 6 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6b6bd42d6134..0150abb81929 100644
+index 0150abb81929..8a73cb4c7e5a 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -3532,6 +3532,7 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
- struct skb_gso_cb {
- 	int	mac_offset;
- 	int	encap_level;
-+	__wsum	csum;
- 	__u16	csum_start;
- };
- #define SKB_GSO_CB(skb) ((struct skb_gso_cb *)(skb)->cb)
-@@ -3567,15 +3568,14 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
-  */
- static inline __sum16 gso_make_checksum(struct sk_buff *skb, __wsum res)
- {
--	int plen = SKB_GSO_CB(skb)->csum_start - skb_headroom(skb) -
--		   skb_transport_offset(skb);
--	__wsum partial;
-+	unsigned char *csum_start = skb_transport_header(skb);
-+	int plen = (skb->head + SKB_GSO_CB(skb)->csum_start) - csum_start;
-+	__wsum partial = SKB_GSO_CB(skb)->csum;
- 
--	partial = csum_partial(skb_transport_header(skb), plen, skb->csum);
--	skb->csum = res;
--	SKB_GSO_CB(skb)->csum_start -= plen;
-+	SKB_GSO_CB(skb)->csum = res;
-+	SKB_GSO_CB(skb)->csum_start = csum_start - skb->head;
- 
--	return csum_fold(partial);
-+	return csum_fold(csum_partial(csum_start, plen, partial));
+@@ -2161,6 +2161,11 @@ static inline int skb_checksum_start_offset(const struct sk_buff *skb)
+ 	return skb->csum_start - skb_headroom(skb);
  }
  
- static inline bool skb_is_gso(const struct sk_buff *skb)
++static inline unsigned char *skb_checksum_start(const struct sk_buff *skb)
++{
++	return skb->head + skb->csum_start;
++}
++
+ static inline int skb_transport_offset(const struct sk_buff *skb)
+ {
+ 	return skb_transport_header(skb) - skb->data;
+@@ -3558,6 +3563,14 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
+ 	return 0;
+ }
+ 
++static inline void gso_reset_checksum(struct sk_buff *skb, __wsum res)
++{
++	unsigned char *csum_start = skb_checksum_start(skb);
++
++	SKB_GSO_CB(skb)->csum = res;
++	SKB_GSO_CB(skb)->csum_start = csum_start - skb->head;
++}
++
+ /* Compute the checksum for a gso segment. First compute the checksum value
+  * from the start of transport header to SKB_GSO_CB(skb)->csum_start, and
+  * then add in skb->csum (checksum from csum_start to end of packet).
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b2df375ec9c2..02c638a643ea 100644
+index 58ff3afdf79a..25ce87932cb9 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -3100,11 +3100,12 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+@@ -3099,8 +3099,8 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 			goto perform_csum_check;
  
- 		if (!sg && !nskb->remcsum_offload) {
- 			nskb->ip_summed = CHECKSUM_NONE;
--			nskb->csum = skb_copy_and_csum_bits(head_skb, offset,
--							    skb_put(nskb, len),
--							    len, 0);
-+			SKB_GSO_CB(nskb)->csum =
-+				skb_copy_and_csum_bits(head_skb, offset,
-+						       skb_put(nskb, len),
-+						       len, 0);
- 			SKB_GSO_CB(nskb)->csum_start =
--			    skb_headroom(nskb) + doffset;
-+				skb_headroom(nskb) + doffset;
- 			continue;
- 		}
- 
-@@ -3171,11 +3172,12 @@ skip_fraglist:
+ 		if (!sg) {
+-			if (!nskb->remcsum_offload)
+-				nskb->ip_summed = CHECKSUM_NONE;
++			nskb->ip_summed = nskb->remcsum_offload ?
++					  CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
+ 			SKB_GSO_CB(nskb)->csum =
+ 				skb_copy_and_csum_bits(head_skb, offset,
+ 						       skb_put(nskb, len),
+@@ -3173,8 +3173,8 @@ skip_fraglist:
  
  perform_csum_check:
- 		if (!csum && !nskb->remcsum_offload) {
--			nskb->csum = skb_checksum(nskb, doffset,
--						  nskb->len - doffset, 0);
- 			nskb->ip_summed = CHECKSUM_NONE;
-+			SKB_GSO_CB(nskb)->csum =
-+				skb_checksum(nskb, doffset,
-+					     nskb->len - doffset, 0);
- 			SKB_GSO_CB(nskb)->csum_start =
--			    skb_headroom(nskb) + doffset;
-+				skb_headroom(nskb) + doffset;
- 		}
- 	} while ((offset += len) < head_skb->len);
+ 		if (!csum) {
+-			if (!nskb->remcsum_offload)
+-				nskb->ip_summed = CHECKSUM_NONE;
++			nskb->ip_summed = nskb->remcsum_offload ?
++					  CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
+ 			SKB_GSO_CB(nskb)->csum =
+ 				skb_checksum(nskb, doffset,
+ 					     nskb->len - doffset, 0);
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 9864a2dbadce..894f87b23094 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -135,7 +135,9 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 		th->fin = th->psh = 0;
+ 		th->check = newcheck;
+ 
+-		if (skb->ip_summed != CHECKSUM_PARTIAL)
++		if (skb->ip_summed == CHECKSUM_PARTIAL)
++			gso_reset_checksum(skb, ~th->check);
++		else if (skb->ip_summed != CHECKSUM_UNNECESSARY)
+ 			th->check = gso_make_checksum(skb, ~th->check);
+ 
+ 		seq += mss;
+@@ -169,7 +171,9 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 		      skb->data_len);
+ 	th->check = ~csum_fold((__force __wsum)((__force u32)th->check +
+ 				(__force u32)delta));
+-	if (skb->ip_summed != CHECKSUM_PARTIAL)
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		gso_reset_checksum(skb, ~th->check);
++	else if (skb->ip_summed != CHECKSUM_UNNECESSARY)
+ 		th->check = gso_make_checksum(skb, ~th->check);
+ out:
+ 	return segs;
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index ab7531b4dd24..45824f9b81c4 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -115,6 +115,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 			skb->ip_summed = CHECKSUM_PARTIAL;
+ 			skb->csum_start = skb_transport_header(skb) - skb->head;
+ 			skb->csum_offset = offsetof(struct udphdr, check);
++			gso_reset_checksum(skb, ~uh->check);
+ 		} else {
+ 			uh->check = gso_make_checksum(skb, ~uh->check);
  
