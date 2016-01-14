@@ -1,8 +1,7 @@
 From: kan.liang@intel.com
-Subject: [PATCH V3 6/6] i40e/ethtool: support coalesce setting by queue
-Date: Thu, 14 Jan 2016 09:08:07 -0500
-Message-ID: <1452780487-10581-6-git-send-email-kan.liang@intel.com>
-References: <1452780487-10581-1-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V3 1/6] net/ethtool: introduce a new ioctl for per queue setting
+Date: Thu, 14 Jan 2016 09:08:02 -0500
+Message-ID: <1452780487-10581-1-git-send-email-kan.liang@intel.com>
 Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 	f.fainelli@gmail.com, alexander.duyck@gmail.com,
 	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
@@ -17,52 +16,108 @@ To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:56595 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756595AbcANV1E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jan 2016 16:27:04 -0500
-In-Reply-To: <1452780487-10581-1-git-send-email-kan.liang@intel.com>
+	id S1756555AbcANV1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2016 16:27:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-This patch implements set_per_queue_coalesce for i40e driver.
+Introduce a new ioctl ETHTOOL_PERQUEUE for per queue parameters setting.
+The following patches will enable some SUB_COMMANDs for per queue
+setting.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
 
 Changes since V1:
- - Correct the way to find the vector for specific queue.
+ - Checking the sub-command number to determine whether the command
+   requires CAP_NET_ADMIN
+ - Refine the struct ethtool_per_queue_op and improve the comments
 
-Changes since V2:
- - Move the code per queue coalesce setting to patch 4.
+No changes since V2
 
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ include/uapi/linux/ethtool.h | 17 +++++++++++++++++
+ net/core/ethtool.c           | 18 ++++++++++++++++++
+ 2 files changed, 35 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 2fe878d..54a8e96 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2004,6 +2004,12 @@ static int i40e_set_coalesce(struct net_device *netdev,
- 	return __i40e_set_coalesce(netdev, ec, -1);
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index cd16291..1913d37 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1144,6 +1144,21 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
+ #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
+ 
++#define MAX_NUM_QUEUE		4096
++
++/**
++ * struct ethtool_per_queue_op - apply sub command to the queues in mask.
++ * @cmd: ETHTOOL_PERQUEUE
++ * @sub_command: the sub command which apply to each queues
++ * @queue_mask: Bitmap of the queues which sub command apply to
++ * @data: A complete command structure following for each of the queues addressed
++ */
++struct ethtool_per_queue_op {
++	__u32	cmd;
++	__u32	sub_command;
++	unsigned long queue_mask[BITS_TO_LONGS(MAX_NUM_QUEUE)];
++	char	data[];
++};
+ 
+ /* CMDs currently supported */
+ #define ETHTOOL_GSET		0x00000001 /* Get settings. */
+@@ -1226,6 +1241,8 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
+ #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
+ 
++#define ETHTOOL_PERQUEUE	0x0000004a /* Set per queue options */
++
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 09948a7..ac45597 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1748,6 +1748,20 @@ out:
+ 	return ret;
  }
  
-+static int i40e_set_per_queue_coalesce(struct net_device *netdev, int queue,
-+				       struct ethtool_coalesce *ec)
++static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
 +{
-+	return __i40e_set_coalesce(netdev, ec, queue);
++	struct ethtool_per_queue_op per_queue_opt;
++
++	if (copy_from_user(&per_queue_opt, useraddr, sizeof(per_queue_opt)))
++		return -EFAULT;
++
++	switch (per_queue_opt.sub_command) {
++
++	default:
++		return -EOPNOTSUPP;
++	};
 +}
 +
- /**
-  * i40e_get_rss_hash_opts - Get RSS hash Input Set for each flow type
-  * @pf: pointer to the physical function struct
-@@ -2865,6 +2871,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.get_priv_flags		= i40e_get_priv_flags,
- 	.set_priv_flags		= i40e_set_priv_flags,
- 	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
-+	.set_per_queue_coalesce	= i40e_set_per_queue_coalesce,
- };
+ /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
  
- void i40e_set_ethtool_ops(struct net_device *netdev)
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1799,6 +1813,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GEEE:
+ 	case ETHTOOL_GTUNABLE:
+ 		break;
++	case ETHTOOL_PERQUEUE:
+ 	default:
+ 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+@@ -1991,6 +2006,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_STUNABLE:
+ 		rc = ethtool_set_tunable(dev, useraddr);
+ 		break;
++	case ETHTOOL_PERQUEUE:
++		rc = ethtool_set_per_queue(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.8.3.1
