@@ -1,151 +1,235 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Fri, 15 Jan 2016 16:11:16 -0500 (EST)
-Message-ID: <20160115.161116.1645643543977219799.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net] sctp: do sanity checks before migrating the asoc
+Date: Fri, 15 Jan 2016 19:40:39 -0200
+Message-ID: <10616913996c7a4cbe8a2bb23cf4e78fcfa0a13a.1452891824.git.marcelo.leitner@gmail.com>
+References: <CACT4Y+Z6jY_n_cpmbFz366=JzoLX=u4Zc_o8gHFwJw8ApKf4zw@mail.gmail.com>
+Cc: linux-sctp@vger.kernel.org, dvyukov@google.com,
+	vyasevich@gmail.com, eric.dumazet@gmail.com,
+	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
+	sasha.levin@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59991 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752872AbcAOVlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jan 2016 16:41:01 -0500
+In-Reply-To: <CACT4Y+Z6jY_n_cpmbFz366=JzoLX=u4Zc_o8gHFwJw8ApKf4zw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Fri, Jan 15, 2016 at 08:11:03PM +0100, Dmitry Vyukov wrote:
+> On Fri, Jan 15, 2016 at 7:46 PM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+> > On Wed, Dec 30, 2015 at 09:42:27PM +0100, Dmitry Vyukov wrote:
+> >> Hello,
+> >>
+> >> The following program leads to a leak of two sock objects:
+> > ...
+> >>
+> >> On commit 8513342170278468bac126640a5d2d12ffbff106 (Dec 28).
+> >
+> > I'm afraid I cannot reproduce this one?
+> > I enabled dynprintk at sctp_destroy_sock and it does print twice when I
+> > run this test app.
+> > Also added debugs to check association lifetime, and then it was
+> > destroyed. Same for endpoint.
+> >
+> > Checking with trace-cmd, both calls to sctp_close() resulted in
+> > sctp_destroy_sock() being called.
+> >
+> > As for sock_hold/put, they are matched too.
+> >
+> > Ideas? Log is below for double checking
+>
+>
+> Hummm... I can reproduce it pretty reliably.
+>
+> [  197.459024] kmemleak: 11 new suspected memory leaks (see
+> /sys/kernel/debug/kmemleak)
+> [  307.494874] kmemleak: 409 new suspected memory leaks (see
+> /sys/kernel/debug/kmemleak)
+> [  549.784022] kmemleak: 125 new suspected memory leaks (see
+> /sys/kernel/debug/kmemleak)
+>
+> I double checked via /proc/slabinfo:
+>
+> SCTPv6              4373   4420   2368   13    8 : tunables    0    0
+>   0 : slabdata    340    340      0
+>
+> SCTPv6 starts with almost 0, but grows infinitely while I run the
+> program in a loop.
+>
+> Here is my SCTP related configs:
+>
+> CONFIG_IP_SCTP=y
+> CONFIG_NET_SCTPPROBE=y
+> CONFIG_SCTP_DBG_OBJCNT=y
+> # CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5 is not set
+> # CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1 is not set
+> CONFIG_SCTP_DEFAULT_COOKIE_HMAC_NONE=y
+> # CONFIG_SCTP_COOKIE_HMAC_MD5 is not set
+> # CONFIG_SCTP_COOKIE_HMAC_SHA1 is not set
+>
+> I am on commit 67990608c8b95d2b8ccc29932376ae73d5818727 and I don't
+> seem to have any sctp-related changes on top.
+
+Ok, now I can. Enabled slub debugs, now I cannot see calls to
+sctp_destroy_sock. I see to sctp_close, but not to sctp_destroy_sock.
+
+And SCTPv6 grew by 2 sockets after the execution.
+
+Further checking, it's a race within SCTP asoc migration:
+thread 0                thread 1
+- app creates a sock
+                        - sends a packet to itself
+			  - sctp will create an asoc and do implicit
+			    handshake
+			  - send the packet
+- listen()
+- accept() is called and
+  that asoc is migrated
+                 - packet is delivered
+                   - skb->destructor is called, BUT:
+
+(note that if accept() is called after packet is delivered and skb is freed, it
+doesn't happen)
+
+static void sctp_wfree(struct sk_buff *skb)
+{
+        struct sctp_chunk *chunk = skb_shinfo(skb)->destructor_arg;
+        struct sctp_association *asoc = chunk->asoc;
+        struct sock *sk = asoc->base.sk;
+...
+        atomic_sub(sizeof(struct sctp_chunk), &sk->sk_wmem_alloc);
+
+and it's pointing to the new socket already. So one socket gets a leak
+on sk_wmem_alloc and another gets a negative value:
+
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1537,12 +1537,14 @@ static void sctp_close(struct sock *sk, long timeout)
+        /* Hold the sock, since sk_common_release() will put sock_put()
+         * and we have just a little more cleanup.
+         */
++       printk("%s sock_hold %p\n", __func__, sk);
+        sock_hold(sk);
+        sk_common_release(sk);
+
+        bh_unlock_sock(sk);
+        spin_unlock_bh(&net->sctp.addr_wq_lock);
+
++       printk("%s sock_put %p %d %d\n", __func__, sk, atomic_read(&sk->sk_refcnt), atomic_read(&sk->sk_wmem_alloc));
+        sock_put(sk);
+
+        SCTP_DBG_OBJCNT_DEC(sock);
 
 
-A quick set of bug fixes after there initial networking merge:
+gave me:
 
-1) Netlink multicast group storage allocator only was tested with nr_groups
-   equal to 1, make it work for other values too. From Matti Vaittinen.
+[   99.456944] sctp_close sock_hold ffff880137df8940
+...
+[   99.457337] sctp_close sock_put ffff880137df8940 1 -247
+[   99.458313] sctp_close sock_hold ffff880137dfef00
+...
+[   99.458383] sctp_close sock_put ffff880137dfef00 1 249
 
-2) Check build_skb() return value in macb and hip04_eth drivers, from
-   Weidong Wang.
+That's why the socket is not freed..
 
-3) Don't leak x25_asy on x25_asy_open() failure.
 
-4) More DMA map/unmap fixes in 3c59x from Neil Horman.
+---8<---
 
-5) Don't clobber IP skb control block during GSO segmentation, from
-   Konstantin Khlebnikov.
+As reported by Dmitry, we cannot migrate asocs that have skbs in tx
+queue because they have the destructor callback pointing to the asoc,
+but which will point to a different socket if we migrate the asoc in
+between the packet sent and packet release.
 
-6) ECN helpers for ipv6 don't fixup the checksum, from Eric Dumazet.
+This patch implements proper error handling for sctp_sock_migrate and
+this first sanity check.
 
-7) Fix SKB segment utilization estimation in xen-netback, from David
-   Vrabel.
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/socket.c | 31 ++++++++++++++++++++++++-------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
 
-8) Fix lockdep splat in bridge addrlist handling, from Nikolay Aleksandrov.
-
-Please pull, thanks a lot!
-
-The following changes since commit 67990608c8b95d2b8ccc29932376ae73d5818727:
-
-  Merge tag 'pm+acpi-4.5-rc1-1' of git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm (2016-01-12 20:25:09 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to 750afbf8ee9c6a1c74a1fe5fc9852146b1d72687:
-
-  bgmac: Fix reversed test of build_skb() return value. (2016-01-15 16:07:13 -0500)
-
-----------------------------------------------------------------
-Dan Carpenter (1):
-      mlxsw: fix SWITCHDEV_OBJ_ID_PORT_MDB
-
-David S. Miller (8):
-      Merge git://git.kernel.org/.../torvalds/linux
-      genetlink: Fix off-by-one in genl_allocate_reserve_groups()
-      x25_asy: Free x25_asy on x25_asy_open() failure.
-      Merge branch '3c59x-dma-fixes'
-      Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/linux-merge
-      Merge branch 'hisi-fixes'
-      Merge branch 'xen-netback-fixes'
-      bgmac: Fix reversed test of build_skb() return value.
-
-David Vrabel (3):
-      xen-netback: use skb to determine number of required guest Rx requests
-      xen-netback: delete NAPI instance when queue fails to initialize
-      xen-netback: free queues after freeing the net device
-
-Eric Dumazet (1):
-      ipv6: update skb->csum when CE mark is propagated
-
-Geert Uytterhoeven (1):
-      net: sctp: Move sequence start handling into sctp_transport_get_idx()
-
-Konstantin Khlebnikov (1):
-      net: preserve IP control block during GSO segmentation
-
-Markus Elfring (1):
-      fsl/fman: Delete one function call "put_device" in dtsec_config()
-
-Matti Vaittinen (1):
-      net: netlink: Fix multicast group storage allocation for families with more than one groups
-
-Nathan Sullivan (1):
-      net: macb: clear interrupts when disabling them
-
-Neil Horman (2):
-      3c59x: balance page maps and unmaps
-      3c59x: fix another page map/single unmap imbalance
-
-Nikolay Aleksandrov (1):
-      bridge: fix lockdep addr_list_lock false positive splat
-
-Rabin Vincent (1):
-      net: bpf: reject invalid shifts
-
-Simon Wunderlich (1):
-      batman-adv: fix lockdep splat when doing mcast_free
-
-Sjoerd Simons (1):
-      net: phy: turn carrier off on phy attach
-
-Sven Eckelmann (1):
-      batman-adv: Fix list removal of batadv_hardif_neigh_node
-
-Xin Long (1):
-      sctp: support to lookup with ep+paddr in transport rhashtable
-
-Yoshinori Sato (1):
-      net: smsc: Add support h8300
-
-wangweidong (2):
-      bgmac: fix a missing check for build_skb
-      hip04_eth: fix missing error handle for build_skb failed
-
-yankejian (2):
-      dts: hisi: fixes no syscon fault when init mdio
-      net: hns: fixes no syscon error when init mdio
-
- Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt | 16 ++++++++++++++++
- arch/arm64/boot/dts/hisilicon/hip05.dtsi                      |  5 +++++
- arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi                  |  4 ++--
- drivers/net/ethernet/3com/3c59x.c                             |  9 +++++++--
- drivers/net/ethernet/broadcom/bgmac.c                         |  5 +++++
- drivers/net/ethernet/cadence/macb.c                           |  4 ++++
- drivers/net/ethernet/freescale/fman/fman_dtsec.c              |  1 -
- drivers/net/ethernet/hisilicon/hip04_eth.c                    |  5 ++++-
- drivers/net/ethernet/hisilicon/hns_mdio.c                     |  2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c      |  1 +
- drivers/net/ethernet/smsc/Kconfig                             |  4 ++--
- drivers/net/ethernet/smsc/smc91x.h                            | 11 +++++++++++
- drivers/net/phy/phy_device.c                                  |  5 +++++
- drivers/net/wan/x25_asy.c                                     |  4 +++-
- drivers/net/xen-netback/interface.c                           | 17 ++++++-----------
- drivers/net/xen-netback/netback.c                             | 20 +++++++++-----------
- include/linux/skbuff.h                                        |  3 ++-
- include/net/inet_ecn.h                                        | 19 ++++++++++++++++---
- net/batman-adv/multicast.c                                    |  2 ++
- net/batman-adv/originator.c                                   | 18 ++++++++++++------
- net/bridge/br_device.c                                        |  8 ++++++++
- net/core/dev.c                                                |  5 +++++
- net/ipv4/ip_output.c                                          |  1 +
- net/ipv6/xfrm6_mode_tunnel.c                                  |  2 +-
- net/netlink/genetlink.c                                       |  2 +-
- net/openvswitch/datapath.c                                    |  5 +----
- net/sctp/input.c                                              | 38 +++++++++++++++++++++++---------------
- net/sctp/proc.c                                               |  6 +++---
- net/xfrm/xfrm_output.c                                        |  2 ++
- 29 files changed, 158 insertions(+), 66 deletions(-)
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9bb80ec4c08f..5a22a6cfb699 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -99,8 +99,8 @@ static int sctp_send_asconf(struct sctp_association *asoc,
+ 			    struct sctp_chunk *chunk);
+ static int sctp_do_bind(struct sock *, union sctp_addr *, int);
+ static int sctp_autobind(struct sock *sk);
+-static void sctp_sock_migrate(struct sock *, struct sock *,
+-			      struct sctp_association *, sctp_socket_type_t);
++static int sctp_sock_migrate(struct sock *, struct sock *,
++			     struct sctp_association *, sctp_socket_type_t);
+ 
+ static int sctp_memory_pressure;
+ static atomic_long_t sctp_memory_allocated;
+@@ -3929,7 +3929,11 @@ static struct sock *sctp_accept(struct sock *sk, int flags, int *err)
+ 	/* Populate the fields of the newsk from the oldsk and migrate the
+ 	 * asoc to the newsk.
+ 	 */
+-	sctp_sock_migrate(sk, newsk, asoc, SCTP_SOCKET_TCP);
++	error = sctp_sock_migrate(sk, newsk, asoc, SCTP_SOCKET_TCP);
++	if (error) {
++		sk_common_release(newsk);
++		newsk = NULL;
++	}
+ 
+ out:
+ 	release_sock(sk);
+@@ -4436,10 +4440,16 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
+ 	/* Populate the fields of the newsk from the oldsk and migrate the
+ 	 * asoc to the newsk.
+ 	 */
+-	sctp_sock_migrate(sk, sock->sk, asoc, SCTP_SOCKET_UDP_HIGH_BANDWIDTH);
++	err = sctp_sock_migrate(sk, sock->sk, asoc,
++				SCTP_SOCKET_UDP_HIGH_BANDWIDTH);
++	if (err) {
++		sk_common_release(sock->sk);
++		goto out;
++	}
+ 
+ 	*sockp = sock;
+ 
++out:
+ 	return err;
+ }
+ EXPORT_SYMBOL(sctp_do_peeloff);
+@@ -7217,9 +7227,9 @@ static inline void sctp_copy_descendant(struct sock *sk_to,
+ /* Populate the fields of the newsk from the oldsk and migrate the assoc
+  * and its messages to the newsk.
+  */
+-static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+-			      struct sctp_association *assoc,
+-			      sctp_socket_type_t type)
++static int sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
++			     struct sctp_association *assoc,
++			     sctp_socket_type_t type)
+ {
+ 	struct sctp_sock *oldsp = sctp_sk(oldsk);
+ 	struct sctp_sock *newsp = sctp_sk(newsk);
+@@ -7229,6 +7239,12 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	struct sctp_ulpevent *event;
+ 	struct sctp_bind_hashbucket *head;
+ 
++	/* We cannot migrate asocs that have skbs tied to it otherwise
++	 * its destructor will update the wrong socket
++	 */
++	if (assoc->sndbuf_used)
++		return -EBUSY;
++
+ 	/* Migrate socket buffer sizes and all the socket level options to the
+ 	 * new socket.
+ 	 */
+@@ -7343,6 +7359,8 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 
+ 	newsk->sk_state = SCTP_SS_ESTABLISHED;
+ 	release_sock(newsk);
++
++	return 0;
+ }
+ 
+ 
