@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Fri, 15 Jan 2016 15:47:21 -0500 (EST)
-Message-ID: <20160115.154721.458450438918273509.davem@davemloft.net>
-References: <20160115142223.1e92be75@redhat.com>
+Subject: Re: [requrest for stable 4.1.y inclution] Fix for CVE-2015-7799
+Date: Fri, 15 Jan 2016 16:00:18 -0500 (EST)
+Message-ID: <20160115.160018.1581856659181409876.davem@davemloft.net>
+References: <56978CFE.1010703@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	alexei.starovoitov@gmail.com, borkmann@iogearbox.net,
-	marek@cloudflare.com, hannes@stressinduktion.org, fw@strlen.de,
-	pabeni@redhat.com, john.r.fastabend@intel.com
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk
+To: machida.yuki@jp.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33215 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33370 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbcAOUrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 15:47:24 -0500
-In-Reply-To: <20160115142223.1e92be75@redhat.com>
+	with ESMTP id S1751314AbcAOVAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 16:00:20 -0500
+In-Reply-To: <56978CFE.1010703@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Fri, 15 Jan 2016 14:22:23 +0100
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+Date: Thu, 14 Jan 2016 20:56:46 +0900
 
-> This was only at the driver level.  I also would like some API towards
-> the stack.  Maybe we could simple pass a skb-list?
+> This patch is the fix for CVE-2015-7799
+> Upstream commit 4ab42d78e37a294ac7bc56901d563c642e03c4ae
+> 
+> Stable 3.2.y has included this patch in v3.2.75.
+> https://cdn.kernel.org/pub/linux/kernel/v3.x/ChangeLog-3.2.75
+> 
+> Please include in this patch to stable 4.1.y.
 
-Datastructures are everything so maybe we can create some kind of SKB
-bundle abstractions.  Whether it's a lockless array or a linked list
-behind it doesn't really matter.
-
-We could have two categories: Related and Unrelated.
-
-If you think about GRO and routing keys you might see what I am getting
-at. :-)
+Ok, queued up for -stable, thanks.
