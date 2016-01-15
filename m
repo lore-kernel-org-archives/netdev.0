@@ -1,52 +1,61 @@
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: [PATCH v3 0/3] net-rsi: Fine-tuning for two function implementations
-Date: Fri, 15 Jan 2016 14:04:37 +0100
-Message-ID: <5698EE65.7010607@users.sourceforge.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH v3 1/3] rsi: Delete unnecessary variable initialisations in
+ rsi_send_mgmt_pkt()
+Date: Fri, 15 Jan 2016 14:09:05 +0100
+Message-ID: <5698EF71.7060102@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <5687E169.4070704@users.sourceforge.net>
+ <5698EE65.7010607@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Fariya Fatima <fariyaf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jahnavi Meher <jahnavi.meher-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5687E169.4070704-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Fariya Fatima <fariyaf@gmail.com>,
+	Jahnavi Meher <jahnavi.meher@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5698EE65.7010607@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date: Fri, 15 Jan 2016 13:54:43 +0100
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 15 Jan 2016 13:30:39 +0100
 
-A few update suggestions were taken into account
-from static source code analysis.
+Omit explicit initialisation at the beginning for four local variables
+which are redefined before their first use.
 
-Markus Elfring (3):
-  Delete unnecessary variable initialisations in rsi_send_mgmt_pkt()
-  Delete unnecessary variable initialisations in rsi_send_data_pkt()
-  Replace variable initialisations by assignments in rsi_send_data_pkt()
-
- drivers/net/wireless/rsi/rsi_91x_pkt.c | 26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
-
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
+ drivers/net/wireless/rsi/rsi_91x_pkt.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-v3: Rebase proposed changes on the source files for the software
-    "Linux next-20160114".
-    
-v2: Unfortunately, the first update step from this series contained
-    an inappropriate suggestion.
-    Thus fix that.
-
+diff --git a/drivers/net/wireless/rsi/rsi_91x_pkt.c b/drivers/net/wireless/rsi/rsi_91x_pkt.c
+index 702593f..571eaba 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_pkt.c
++++ b/drivers/net/wireless/rsi/rsi_91x_pkt.c
+@@ -123,15 +123,15 @@ int rsi_send_mgmt_pkt(struct rsi_common *common,
+ 		      struct sk_buff *skb)
+ {
+ 	struct rsi_hw *adapter = common->priv;
+-	struct ieee80211_hdr *wh = NULL;
++	struct ieee80211_hdr *wh;
+ 	struct ieee80211_tx_info *info;
+-	struct ieee80211_bss_conf *bss = NULL;
++	struct ieee80211_bss_conf *bss;
+ 	struct ieee80211_hw *hw = adapter->hw;
+ 	struct ieee80211_conf *conf = &hw->conf;
+ 	struct skb_info *tx_params;
+ 	int status = -E2BIG;
+-	__le16 *msg = NULL;
+-	u8 extnd_size = 0;
++	__le16 *msg;
++	u8 extnd_size;
+ 	u8 vap_id = 0;
+ 
+ 	info = IEEE80211_SKB_CB(skb);
 -- 
 2.6.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
