@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: update skb->csum when CE mark is propagated
-Date: Fri, 15 Jan 2016 15:07:56 -0500 (EST)
-Message-ID: <20160115.150756.1662802308203397449.davem@davemloft.net>
-References: <1452862616.1223.165.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: sctp: Move sequence start handling into
+ sctp_transport_get_idx()
+Date: Fri, 15 Jan 2016 15:12:13 -0500 (EST)
+Message-ID: <20160115.151213.2258553264727846515.davem@davemloft.net>
+References: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	tom@herbertland.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32933 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135AbcAOUH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 15:07:58 -0500
-In-Reply-To: <1452862616.1223.165.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, lucien.xin@gmail.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Jan 2016 04:56:56 -0800
-
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When a tunnel decapsulates the outer header, it has to comply
-> with RFC 6080 and eventually propagate CE mark into inner header.
-> 
-> It turns out IP6_ECN_set_ce() does not correctly update skb->csum
-> for CHECKSUM_COMPLETE packets, triggering infamous "hw csum failure"
-> messages and stack traces.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied and queued up for -stable, thanks Eric.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IEZy
+aSwgMTUgSmFuIDIwMTYgMTQ6NDQ6MzEgKzAxMDANCg0KPiBuZXQvc2N0cC9wcm9jLmM6IEluIGZ1
+bmN0aW9uIKFzY3RwX3RyYW5zcG9ydF9nZXRfaWR4ojoNCj4gbmV0L3NjdHAvcHJvYy5jOjMxMzog
+d2FybmluZzogoW9iaqIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9u
+DQo+IA0KPiBUaGlzIGlzIGN1cnJlbnRseSBhIGZhbHNlIHBvc2l0aXZlLCBhcyBhbGwgY2FsbGVy
+cyBjaGVjayBmb3IgYSB6ZXJvDQo+IG9mZnNldCBmaXJzdCwgYW5kIGhhbmRsZSB0aGlzIGNhc2Ug
+aW4gdGhlIGV4YWN0IHNhbWUgd2F5Lg0KPiANCj4gTW92ZSB0aGUgY2hlY2sgYW5kIGhhbmRsaW5n
+IGludG8gc2N0cF90cmFuc3BvcnRfZ2V0X2lkeCgpIHRvIGtpbGwgdGhlDQo+IGNvbXBpbGVyIHdh
+cm5pbmcsIGFuZCBhdm9pZCBmdXR1cmUgYnVncy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEdlZXJ0
+IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rcyBH
+ZWVydC4NCg==
