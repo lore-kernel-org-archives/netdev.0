@@ -1,51 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: update skb->csum when CE mark is propagated
-Date: Fri, 15 Jan 2016 07:44:26 -0800
-Message-ID: <1452872666.1223.168.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452862616.1223.165.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160115134515.GA31463@gondor.apana.org.au>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [PATCH RT 1/2] net/core: protect users of napi_alloc_cache against
+ reentrance
+Date: Fri, 15 Jan 2016 17:18:41 +0100
+Message-ID: <20160115161841.GA3781@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36528 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbcAOPo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 10:44:28 -0500
-Received: by mail-pf0-f179.google.com with SMTP id n128so119379350pfn.3
-        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 07:44:28 -0800 (PST)
-In-Reply-To: <20160115134515.GA31463@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, tglx@linutronix.de,
+	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
+To: linux-rt-users@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-01-15 at 21:45 +0800, Herbert Xu wrote:
-> On Fri, Jan 15, 2016 at 04:56:56AM -0800, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > When a tunnel decapsulates the outer header, it has to comply
-> > with RFC 6080 and eventually propagate CE mark into inner header.
-> > 
-> > It turns out IP6_ECN_set_ce() does not correctly update skb->csum
-> > for CHECKSUM_COMPLETE packets, triggering infamous "hw csum failure"
-> > messages and stack traces.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> Good catch!
+On -RT the code running in BH can not be moved to another CPU so CPU
+local variable remain local. However the code can be preempted
+and another task may enter BH accessing the same CPU using the same
+napi_alloc_cache variable.
+This patch ensures that each user of napi_alloc_cache uses a local lock.
 
-Thanks Herbert
+Cc: stable-rt@vger.kernel.org
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ net/core/skbuff.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
-Note that I considered to use 
-
-skb->csum = csum_add(skb->csum, from ^ to);
-
-instead of the more generic
-
-skb->csum = csum_add(csum_sub(skb->csum, from), to);
-
-I can spin a v2 if you guys prefer the optimized version (but a little
-more hacky...)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d507656e98ce..7c422e441f1c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -351,6 +351,7 @@ EXPORT_SYMBOL(build_skb);
+ static DEFINE_PER_CPU(struct page_frag_cache, netdev_alloc_cache);
+ static DEFINE_PER_CPU(struct page_frag_cache, napi_alloc_cache);
+ static DEFINE_LOCAL_IRQ_LOCK(netdev_alloc_lock);
++static DEFINE_LOCAL_IRQ_LOCK(napi_alloc_cache_lock);
+ 
+ static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+ {
+@@ -380,9 +381,13 @@ EXPORT_SYMBOL(netdev_alloc_frag);
+ 
+ static void *__napi_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+ {
+-	struct page_frag_cache *nc = this_cpu_ptr(&napi_alloc_cache);
++	struct page_frag_cache *nc;
++	void *data;
+ 
+-	return __alloc_page_frag(nc, fragsz, gfp_mask);
++	nc = &get_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
++	data = __alloc_page_frag(nc, fragsz, gfp_mask);
++	put_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
++	return data;
+ }
+ 
+ void *napi_alloc_frag(unsigned int fragsz)
+@@ -476,9 +481,10 @@ EXPORT_SYMBOL(__netdev_alloc_skb);
+ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ 				 gfp_t gfp_mask)
+ {
+-	struct page_frag_cache *nc = this_cpu_ptr(&napi_alloc_cache);
++	struct page_frag_cache *nc;
+ 	struct sk_buff *skb;
+ 	void *data;
++	bool pfmemalloc;
+ 
+ 	len += NET_SKB_PAD + NET_IP_ALIGN;
+ 
+@@ -496,7 +502,11 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ 	if (sk_memalloc_socks())
+ 		gfp_mask |= __GFP_MEMALLOC;
+ 
++	nc = &get_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
+ 	data = __alloc_page_frag(nc, len, gfp_mask);
++	pfmemalloc = nc->pfmemalloc;
++	put_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
++
+ 	if (unlikely(!data))
+ 		return NULL;
+ 
+@@ -507,7 +517,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ 	}
+ 
+ 	/* use OR instead of assignment to avoid clearing of bits in mask */
+-	if (nc->pfmemalloc)
++	if (pfmemalloc)
+ 		skb->pfmemalloc = 1;
+ 	skb->head_frag = 1;
+ 
+-- 
+2.7.0.rc3
