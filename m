@@ -1,89 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: update skb->csum when CE mark is propagated
-Date: Fri, 15 Jan 2016 04:56:56 -0800
-Message-ID: <1452862616.1223.165.camel@edumazet-glaptop2.roam.corp.google.com>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: [PATCH v3 0/3] net-rsi: Fine-tuning for two function implementations
+Date: Fri, 15 Jan 2016 14:04:37 +0100
+Message-ID: <5698EE65.7010607@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <5687E169.4070704@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:35031 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754409AbcAOM46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 07:56:58 -0500
-Received: by mail-pf0-f176.google.com with SMTP id 65so117491387pff.2
-        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 04:56:58 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Fariya Fatima <fariyaf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jahnavi Meher <jahnavi.meher-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5687E169.4070704-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Fri, 15 Jan 2016 13:54:43 +0100
 
-When a tunnel decapsulates the outer header, it has to comply
-with RFC 6080 and eventually propagate CE mark into inner header.
+A few update suggestions were taken into account
+from static source code analysis.
 
-It turns out IP6_ECN_set_ce() does not correctly update skb->csum
-for CHECKSUM_COMPLETE packets, triggering infamous "hw csum failure"
-messages and stack traces.
+Markus Elfring (3):
+  Delete unnecessary variable initialisations in rsi_send_mgmt_pkt()
+  Delete unnecessary variable initialisations in rsi_send_data_pkt()
+  Replace variable initialisations by assignments in rsi_send_data_pkt()
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+ drivers/net/wireless/rsi/rsi_91x_pkt.c | 26 ++++++++++++++------------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
+
 ---
- include/net/inet_ecn.h       |   19 ++++++++++++++++---
- net/ipv6/xfrm6_mode_tunnel.c |    2 +-
- 2 files changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
-index 84b20835b736..0dc0a51da38f 100644
---- a/include/net/inet_ecn.h
-+++ b/include/net/inet_ecn.h
-@@ -111,11 +111,24 @@ static inline void ipv4_copy_dscp(unsigned int dscp, struct iphdr *inner)
- 
- struct ipv6hdr;
- 
--static inline int IP6_ECN_set_ce(struct ipv6hdr *iph)
-+/* Note:
-+ * IP_ECN_set_ce() has to tweak IPV4 checksum when setting CE,
-+ * meaning both changes have no effect on skb->csum if/when CHECKSUM_COMPLETE
-+ * In IPv6 case, no checksum compensates the change in IPv6 header,
-+ * so we have to update skb->csum.
-+ */
-+static inline int IP6_ECN_set_ce(struct sk_buff *skb, struct ipv6hdr *iph)
- {
-+	__be32 from, to;
-+
- 	if (INET_ECN_is_not_ect(ipv6_get_dsfield(iph)))
- 		return 0;
--	*(__be32*)iph |= htonl(INET_ECN_CE << 20);
-+
-+	from = *(__be32 *)iph;
-+	to = from | htonl(INET_ECN_CE << 20);
-+	*(__be32 *)iph = to;
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_add(csum_sub(skb->csum, from), to);
- 	return 1;
- }
- 
-@@ -142,7 +155,7 @@ static inline int INET_ECN_set_ce(struct sk_buff *skb)
- 	case cpu_to_be16(ETH_P_IPV6):
- 		if (skb_network_header(skb) + sizeof(struct ipv6hdr) <=
- 		    skb_tail_pointer(skb))
--			return IP6_ECN_set_ce(ipv6_hdr(skb));
-+			return IP6_ECN_set_ce(skb, ipv6_hdr(skb));
- 		break;
- 	}
- 
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index f7fbdbabe50e..372855eeaf42 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -23,7 +23,7 @@ static inline void ipip6_ecn_decapsulate(struct sk_buff *skb)
- 	struct ipv6hdr *inner_iph = ipipv6_hdr(skb);
- 
- 	if (INET_ECN_is_ce(XFRM_MODE_SKB_CB(skb)->tos))
--		IP6_ECN_set_ce(inner_iph);
-+		IP6_ECN_set_ce(skb, inner_iph);
- }
- 
- /* Add encapsulation header.
+v3: Rebase proposed changes on the source files for the software
+    "Linux next-20160114".
+    
+v2: Unfortunately, the first update step from this series contained
+    an inappropriate suggestion.
+    Thus fix that.
+
+-- 
+2.6.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
