@@ -1,90 +1,120 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [PATCH 2/8] kernfs: implement kernfs_walk_and_get()
-Date: Fri, 15 Jan 2016 13:29:06 +0100
-Message-ID: <CAMuHMdXT63aJ2hXJg9mtMv-PZYT7CEw+ab-j42_VoFB-ib+ghg@mail.gmail.com>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org>
-	<1449527935-27056-3-git-send-email-tj@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	Zefan Li <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org,
-	Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449527935-27056-3-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] bna: fix Rx data corruption with VLAN stripping enabled and MTU > 4096
+Date: Fri, 15 Jan 2016 13:45:28 +0100
+Message-ID: <1452861928-17069-1-git-send-email-ivecera@redhat.com>
+Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38807 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753108AbcAOMpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jan 2016 07:45:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 7, 2015 at 11:38 PM, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> Implement kernfs_walk_and_get() which is similar to
-> kernfs_find_and_get() but can walk a path instead of just a name.
->
-> v2: Use strlcpy() instead of strlen() + memcpy() as suggested by
->     David.
->
-> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> ---
->  fs/kernfs/dir.c        | 46 ++++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/kernfs.h | 12 ++++++++++++
->  2 files changed, 58 insertions(+)
->
-> diff --git a/fs/kernfs/dir.c b/fs/kernfs/dir.c
-> index 91e0045..742bf4a 100644
-> --- a/fs/kernfs/dir.c
-> +++ b/fs/kernfs/dir.c
-> @@ -694,6 +694,29 @@ static struct kernfs_node *kernfs_find_ns(struct kernfs_node *parent,
->         return NULL;
->  }
->
-> +static struct kernfs_node *kernfs_walk_ns(struct kernfs_node *parent,
-> +                                         const unsigned char *path,
-> +                                         const void *ns)
-> +{
-> +       static char path_buf[PATH_MAX]; /* protected by kernfs_mutex */
+The multi-buffer Rx mode implemented in the past introduced
+a regression that causes a data corruption for received VLAN
+traffic when VLAN tag stripping is enabled. This mode is supported
+only be newer chipsets (1860) and is enabled when MTU > 4096.
 
-This is showing up in bloat-o-meter as increasing kernel size by 4 KiB.
+When this mode is enabled Rx queue contains buffers with fixed size
+2048 bytes. Any incoming packet larger than 2048 is divided into
+multiple buffers that are attached as skb frags in polling routine.
 
-> +       size_t len = strlcpy(path_buf, path, PATH_MAX);
+The driver assumes that all buffers associated with a packet except
+the last one is fully used (e.g. packet with size 5000 are divided
+into 3 buffers 2048 + 2048 + 904 bytes) and ignores true size reported
+in completions. This assumption is usually true but not when VLAN
+packet is received and VLAN tag stripping is enabled. In this case
+the first buffer is 2044 bytes long but as the driver always assumes
+2048 bytes then 4 extra random bytes are included between the first
+and the second frag. Additionally the driver sets checksum as correct
+so the packet is properly processed by the core.
 
-The full input string is copied because strsep() replaces the delimiters by
-zeroes?
-Can this be handled in some other way?
+The driver needs to check the size of used space in each Rx buffer
+reported by FW and not blindly use the fixed value.
 
-> +       char *p = path_buf;
-> +       char *name;
-> +
-> +       lockdep_assert_held(&kernfs_mutex);
-> +
-> +       if (len >= PATH_MAX)
-> +               return NULL;
-> +
-> +       while ((name = strsep(&p, "/")) && parent) {
-> +               if (*name == '\0')
-> +                       continue;
-> +               parent = kernfs_find_ns(parent, name, ns);
-> +       }
-> +
-> +       return parent;
-> +}
+Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c | 37 +++++++++++++++++++++------------
+ 1 file changed, 24 insertions(+), 13 deletions(-)
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 21a0cfc..771cc26 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -542,39 +542,50 @@ bnad_cq_drop_packet(struct bnad *bnad, struct bna_rcb *rcb,
+ }
+ 
+ static void
+-bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
+-			u32 sop_ci, u32 nvecs, u32 last_fraglen)
++bnad_cq_setup_skb_frags(struct bna_ccb *ccb, struct sk_buff *skb, u32 nvecs)
+ {
++	struct bna_rcb *rcb;
+ 	struct bnad *bnad;
+-	u32 ci, vec, len, totlen = 0;
+ 	struct bnad_rx_unmap_q *unmap_q;
+-	struct bnad_rx_unmap *unmap;
++	struct bna_cq_entry *cq, *cmpl;
++	u32 ci, pi, totlen = 0;
++
++	cq = ccb->sw_q;
++	pi = ccb->producer_index;
++	cmpl = &cq[pi];
+ 
++	rcb = bna_is_small_rxq(cmpl->rxq_id) ? ccb->rcb[1] : ccb->rcb[0];
+ 	unmap_q = rcb->unmap_q;
+ 	bnad = rcb->bnad;
++	ci = rcb->consumer_index;
+ 
+ 	/* prefetch header */
+-	prefetch(page_address(unmap_q->unmap[sop_ci].page) +
+-			unmap_q->unmap[sop_ci].page_offset);
++	prefetch(page_address(unmap_q->unmap[ci].page) +
++		 unmap_q->unmap[ci].page_offset);
++
++	while (nvecs--) {
++		struct bnad_rx_unmap *unmap;
++		u32 len;
+ 
+-	for (vec = 1, ci = sop_ci; vec <= nvecs; vec++) {
+ 		unmap = &unmap_q->unmap[ci];
+ 		BNA_QE_INDX_INC(ci, rcb->q_depth);
+ 
+ 		dma_unmap_page(&bnad->pcidev->dev,
+-				dma_unmap_addr(&unmap->vector, dma_addr),
+-				unmap->vector.len, DMA_FROM_DEVICE);
++			       dma_unmap_addr(&unmap->vector, dma_addr),
++			       unmap->vector.len, DMA_FROM_DEVICE);
+ 
+-		len = (vec == nvecs) ?
+-			last_fraglen : unmap->vector.len;
++		len = ntohs(cmpl->length);
+ 		skb->truesize += unmap->vector.len;
+ 		totlen += len;
+ 
+ 		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+-				unmap->page, unmap->page_offset, len);
++				   unmap->page, unmap->page_offset, len);
+ 
+ 		unmap->page = NULL;
+ 		unmap->vector.len = 0;
++
++		BNA_QE_INDX_INC(pi, ccb->q_depth);
++		cmpl = &cq[pi];
+ 	}
+ 
+ 	skb->len += totlen;
+@@ -704,7 +715,7 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
+ 			bnad_cq_setup_skb(bnad, skb, unmap, len);
+ 		else
+-			bnad_cq_setup_skb_frags(rcb, skb, sop_ci, nvecs, len);
++			bnad_cq_setup_skb_frags(ccb, skb, nvecs);
+ 
+ 		rcb->rxq->rx_packets++;
+ 		rcb->rxq->rx_bytes += totlen;
+-- 
+2.4.10
