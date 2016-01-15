@@ -1,69 +1,37 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] netfilter: xt_TCPMSS: handle CHECKSUM_COMPLETE in tcpmss_tg6()
-Date: Fri, 15 Jan 2016 08:43:38 -0800
-Message-ID: <CALx6S348Td5ZHVDTOn+DudAjs9pNjhs6kkEbn-CgYCqXEh0BQg@mail.gmail.com>
-References: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v3] ovs: limit ovs recursions in ovs_execute_actions
+ to not corrupt stack
+Date: Fri, 15 Jan 2016 08:45:57 -0800
+Message-ID: <1452876357.1223.178.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452868427-5655-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Pravin Shelar <pshelar@ovn.org>,
+	Simon Horman <simon.horman@netronome.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36784 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbcAOQqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 11:46:00 -0500
+Received: by mail-pa0-f54.google.com with SMTP id yy13so304454952pab.3
+        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 08:45:59 -0800 (PST)
+In-Reply-To: <1452868427-5655-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 15, 2016 at 8:21 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> In case MSS option is added in TCP options, skb length increases by 4.
-> IPv6 needs to update skb->csum if skb has CHECKSUM_COMPLETE,
-> otherwise kernel complains loudly in netdev_rx_csum_fault() with a
-> stack dump.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/netfilter/xt_TCPMSS.c |    9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
->
-> diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-> index b7c43def0dc6..e118397254af 100644
-> --- a/net/netfilter/xt_TCPMSS.c
-> +++ b/net/netfilter/xt_TCPMSS.c
-> @@ -228,7 +228,7 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
->  {
->         struct ipv6hdr *ipv6h = ipv6_hdr(skb);
->         u8 nexthdr;
-> -       __be16 frag_off;
-> +       __be16 frag_off, oldlen, newlen;
->         int tcphoff;
->         int ret;
->
-> @@ -244,7 +244,12 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
->                 return NF_DROP;
->         if (ret > 0) {
->                 ipv6h = ipv6_hdr(skb);
-> -               ipv6h->payload_len = htons(ntohs(ipv6h->payload_len) + ret);
-> +               oldlen = ipv6h->payload_len;
-> +               newlen = htons(ntohs(oldlen) + ret);
-> +               if (skb->ip_summed == CHECKSUM_COMPLETE)
-> +                       skb->csum = csum_add(csum_sub(skb->csum, oldlen),
-> +                                            newlen);
-> +               ipv6h->payload_len = newlen;
+On Fri, 2016-01-15 at 15:33 +0100, Hannes Frederic Sowa wrote:
+> It was seen that defective configurations of openvswitch could overwrite
+> the STACK_END_MAGIC and cause a hard crash of the kernel because of too
+> many recursions within ovs.
 
-Probably should have a utility function do this. Maybe something like
-update_hdr_field(skb, old, new)? Could return new value so above could
-just be:
+...
 
-ipv6h->payload_len = update_hdr_field(skb, ipv6h->payload_len,
-htons(ntohs(oldlen) + ret);
+> +
+> +	preempt_disable();
+> +	level = __this_cpu_inc_return(exec_actions_level);
+> +	if (level > ovs_recursion_limit) {
 
->         }
->         return XT_CONTINUE;
->  }
->
->
+if (unlikely(level > ovs_recursion_limit)) {
