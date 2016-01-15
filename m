@@ -1,39 +1,49 @@
-From: <bob@dept-diplo.info>
-Subject: CONFIDENTIAL LEGAL REQUEST
-Date: Fri, 15 Jan 2016 17:05:53 -0500
-Message-ID: <AM2PR09MB017812F960B252276D592C38E3CD0__20537.8382619985$1452897461$gmane$org@AM2PR09MB0178.eurprd09.prod.outlook.com>
-Reply-To: <barrfranklyn.morgan@europe.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: nf_conntrack_h323: Fix locking in process_urq
+Date: Fri, 15 Jan 2016 23:42:33 +0100
+Message-ID: <20160115224233.GA20767@breakpoint.cc>
+References: <1452894918.4622.3.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <bob@dept-diplo.info>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Sebastian =?iso-8859-15?Q?P=F6hn?= <sebastian.poehn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1hn0245.outbound.protection.outlook.com ([157.56.112.245]:6464
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750922AbcAOWg7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 17:36:59 -0500
-Content-Description: Mail message body
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40090 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752789AbcAOWmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 17:42:35 -0500
+Content-Disposition: inline
+In-Reply-To: <1452894918.4622.3.camel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Friend,
+Sebastian P=F6hn <sebastian.poehn@gmail.com> wrote:
 
-This Letter serves as a Confidential Legal Request from Mrs.Diezani  Alison-Madueke.
+[ CC netfilter-devel ]
 
-I am Franklyn Morgan, attorney to Mrs.Diezani Alison-Madueke the embattled former oil minister of the Nigerian government.
+> nf_ct_remove_expectations has to be called under nf_conntrack_expect_=
+lock
 
-My client Mrs.Diezani Alison-Madueke is dying of Cancer, she is soliciting your urgent assistance to secure and invest the sum of $87,400.000.00
-USD in your country.
+But nf_ct_remove_expectations grabs that lock?
 
-http://www.ibtimes.co.uk/sick-nigerian-ex-minister-alison-madueke-flies-home-spiritual-help-televangelist-1530244
+Added in:
 
+commit ca7433df3a672efc88e08222cfa4b3aa965ca324
+Author: Jesper Dangaard Brouer <brouer@redhat.com>
+netfilter: conntrack: seperate expect locking from nf_conntrack_lock
 
-http://www.mail.com/int/news/uk/3877736-embattled-oil-minister-asks-nigerians-prayers
+> diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/n=
+f_conntrack_h323_main.c
+> index 9511af0..d477375 100644
+> --- a/net/netfilter/nf_conntrack_h323_main.c
+> +++ b/net/netfilter/nf_conntrack_h323_main.c
+> @@ -1518,7 +1518,9 @@ static int process_urq(struct sk_buff *skb, str=
+uct nf_conn *ct,
+> =A0=A0=A0=A0=A0=A0=A0=A0}
+> =A0
+> =A0=A0=A0=A0=A0=A0=A0=A0/* Clear old expect */
+> +=A0=A0=A0=A0=A0=A0=A0spin_lock_bh(&nf_conntrack_expect_lock);
+> =A0=A0=A0=A0=A0=A0=A0=A0nf_ct_remove_expectations(ct);
 
-For Confidential reason i have withheld details until i get a confirmation of your interest by sending your personal mobile number for oral discussions.
-
-Thank you,
-
-Yours Faithfully,
-Barr. Franklyn Morgan (Esq)
+=2E.. so I'd expect deadlock.
