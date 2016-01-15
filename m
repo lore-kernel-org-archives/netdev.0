@@ -1,52 +1,60 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCHv1 net] xen-netback: use skb to determine number
- of required guest Rx requests
-Date: Fri, 15 Jan 2016 10:31:57 +0000
-Message-ID: <5698CA9D.5040707@citrix.com>
-References: <1452784710-11923-1-git-send-email-david.vrabel@citrix.com>
- <20160114.165456.1025501284568544813.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 1/3] gianfar: Less function calls in
+ gfar_ethflow_to_filer_table() after error detection
+Date: Fri, 15 Jan 2016 02:37:09 -0800
+Message-ID: <1452854229.8586.48.camel@perches.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	 <56866E7F.8080609@users.sourceforge.net>
+	 <5698C53C.8060204@users.sourceforge.net>
+	 <5698C5CB.80305@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
-	<ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>, <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:62373 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755176AbcAOKcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 05:32:07 -0500
-In-Reply-To: <20160114.165456.1025501284568544813.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	netdev@vger.kernel.org,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5698C5CB.80305@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14/01/16 21:54, David Miller wrote:
-> From: David Vrabel <david.vrabel@citrix.com>
-> Date: Thu, 14 Jan 2016 15:18:30 +0000
-> 
->> -	needed = xenvif_rx_ring_slots_needed(queue->vif);
->> +	skb = skb_peek(&queue->rx_queue);
->> +	if (!skb)
->> +		return false;
->> +
->> +	needed = DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
->> +	if (skb_is_gso(skb))
->> +		needed++;
-> 
-> If I am not mistaken, we moved away from this kind of test exactly because
-> it is inaccurate and may under-estimate the needs.
-> 
-> It is possible for an N byte SKB to require N segments.  Therefore, the:
-> 
-> 	DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
-> 
-> calculation doesn't cut it.
+On Fri, 2016-01-15 at 11:11 +0100, SF Markus Elfring wrote:
+> The kfree() function was called in one case by the
+> gfar_ethflow_to_filer_table() function during error handling
+> even if a passed variable contained a null pointer.
+>=20
+> * Return directly if a memory allocation failed at the beginning.
+>=20
+> * Adjust jump targets according to the Linux coding style convention.
+>=20
+> This issue was detected by using the Coccinelle software.
 
-After 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b (xen-netback: always
-fully coalesce guest Rx packets) we always fully pack a packet into its
-guest Rx slots.  Each slot has space for XEN_PAGE_SIZE bytes so this
-calculation for the number of slots is correct.
+Is this really better?
 
-Shall I resend with a more description changelog?
+Perhaps this particular static analysis isn't too useful.
 
-David
+Why not just allocate once and assign a second pointer?
+
+	local_rqfpr =3D kmalloc_array(2 * (MAX_FILER_IDX + 1),
+				=A0 =A0 sizeof(unsigned int), GFP_KERNEL);
+	if (!local_rqfpr)
+		goto err;
+
+	local_rqfcr =3D &local_rqfpr[MAX_FILER_IDX + 1];
+
+Perhaps this would be better removing the ret variable
+and using something like:
+
+int gfar_ethflow_to_filer_table(...)
+{
+	...
+
+	return 0;
+
+err:
+	kfree(local_rqfpt);
+	return 1;
+}
