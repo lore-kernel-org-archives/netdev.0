@@ -1,69 +1,62 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netfront: request Tx response events more often
-Date: Fri, 15 Jan 2016 11:56:42 +0000
-Message-ID: <1452859002-18543-1-git-send-email-david.vrabel@citrix.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: gianfar: Less function calls in gfar_ethflow_to_filer_table()
+ after error detection
+Date: Fri, 15 Jan 2016 04:03:49 -0800
+Message-ID: <1452859429.8586.52.camel@perches.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	 <56866E7F.8080609@users.sourceforge.net>
+	 <5698C53C.8060204@users.sourceforge.net>
+	 <5698C5CB.80305@users.sourceforge.net>
+	 <1452854229.8586.48.camel@perches.com>
+	 <5698DC52.4050808@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Malcolm Crossley <malcolm.crossley@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:9930 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751709AbcAOL5T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jan 2016 06:57:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5698DC52.4050808@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Malcolm Crossley <malcolm.crossley@citrix.com>
+On Fri, 2016-01-15 at 12:47 +0100, SF Markus Elfring wrote:
+> > > * Return directly if a memory allocation failed at the beginning.
+> > >=20
+> > > * Adjust jump targets according to the Linux coding style
+> > > convention.
+> > >=20
+> > > This issue was detected by using the Coccinelle software.
+> >=20
+> > Is this really better?
+> >=20
+> > Perhaps this particular static analysis isn't too useful.
+>=20
+> The opinions are still evolving for such a kind of search pattern.
+>=20
+>=20
+> > Why not just allocate once and assign a second pointer?
+> >=20
+> > 	local_rqfpr =3D kmalloc_array(2 * (MAX_FILER_IDX + 1),
+> > 				=A0=A0=A0=A0sizeof(unsigned int), GFP_KERNEL);
+> > 	if (!local_rqfpr)
+> > 		goto err;
+> >=20
+> > 	local_rqfcr =3D &local_rqfpr[MAX_FILER_IDX + 1];
+>=20
+> Do you suggest to use only one array (instead of two as before) here?
 
-Trying to batch Tx response events results in poor performance because
-this delays freeing the transmitted skbs.
+That's a possibility.
 
-Instead use the standard RING_FINAL_CHECK_FOR_RESPONSES() macro to be
-notified once the next Tx response is placed on the ring.
+If, as your title suggests, you really want fewer function
+calls, (which as far as I saw, you didn't do) that could
+be a mechanism to remove both an allocation and a free.
 
-Signed-off-by: Malcolm Crossley <malcolm.crossley@citrix.com>
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netfront.c | 15 +++------------
- 1 file changed, 3 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index d6abf19..9cb45be 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -364,6 +364,7 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
- 	RING_IDX cons, prod;
- 	unsigned short id;
- 	struct sk_buff *skb;
-+	int more_to_do;
- 
- 	BUG_ON(!netif_carrier_ok(queue->info->netdev));
- 
-@@ -398,18 +399,8 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
- 
- 		queue->tx.rsp_cons = prod;
- 
--		/*
--		 * Set a new event, then check for race with update of tx_cons.
--		 * Note that it is essential to schedule a callback, no matter
--		 * how few buffers are pending. Even if there is space in the
--		 * transmit ring, higher layers may be blocked because too much
--		 * data is outstanding: in such cases notification from Xen is
--		 * likely to be the only kick that we'll get.
--		 */
--		queue->tx.sring->rsp_event =
--			prod + ((queue->tx.sring->req_prod - prod) >> 1) + 1;
--		mb();		/* update shared area */
--	} while ((cons == prod) && (prod != queue->tx.sring->rsp_prod));
-+		RING_FINAL_CHECK_FOR_RESPONSES(&queue->tx, more_to_do);
-+	} while (more_to_do);
- 
- 	xennet_maybe_wake_tx(queue);
- }
--- 
-2.1.4
+--
+To unsubscribe from this list: send the line "unsubscribe kernel-janito=
+rs" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
