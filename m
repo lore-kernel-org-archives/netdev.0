@@ -1,152 +1,56 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] bridge: fix lockdep addr_list_lock false positive splat
-Date: Fri, 15 Jan 2016 19:03:54 +0100
-Message-ID: <1452881034-19128-1-git-send-email-razor@blackwall.org>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Bridge list <bridge@lists.linux-foundation.org>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33044 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751018AbcAOSEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 13:04:00 -0500
-Received: by mail-wm0-f67.google.com with SMTP id u188so4057892wmu.0
-        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 10:04:00 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: [PATCH stable-3.2 stable-3.12] net: fix checksum check in
+ skb_copy_and_csum_datagram_iovec()
+Date: Fri, 15 Jan 2016 18:16:36 +0000
+Message-ID: <20160115181636.GB1980@charon.olymp>
+References: <20151228140157.6F592A0C7D@unicorn.suse.cz>
+ <568BF0FD.4010208@suse.cz>
+ <1452012008.2768.82.camel@decadent.org.uk>
+ <1452682920.7020.32.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Slaby <jslaby@suse.cz>, Michal Kubecek <mkubecek@suse.cz>,
+	stable@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>,
+	netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1452682920.7020.32.camel@decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Wed, Jan 13, 2016 at 11:02:00AM +0000, Ben Hutchings wrote:
+> On Tue, 2016-01-05 at 16:40 +0000, Ben Hutchings wrote:
+> > On Tue, 2016-01-05 at 17:36 +0100, Jiri Slaby wrote:
+> > > On 12/28/2015, 03:01 PM, Michal Kubecek wrote:
+> > > > Recent fix "net: add length argument to
+> > > > skb_copy_and_csum_datagram_iovec" added to some pre-3.19 stable
+> > > > branches, namely
+> > > >=20
+> > > > =A0 stable-3.2.y: commit 127500d724f8
+> > > > =A0 stable-3.12.y: commit 3e1ac3aafbd0
+> > >=20
+> > > Applied this fix to 3.12. Thanks!
+> > [...]
+> >=20
+> > You don't want this, you want Eric's fix (commit 197c949e7, "udp:
+> > properly support MSG_PEEK with truncated buffers") although that's =
+not
+> > upstream yet.
+>=20
+> It's now upstream as commit 197c949e7798fbf28cfadc69d9ca0c2abbf93191.
+>=20
 
-After promisc mode management was introduced a bridge device could do
-dev_set_promiscuity from its ndo_change_rx_flags() callback which in
-turn can be called after the bridge's addr_list_lock has been taken
-(e.g. by dev_uc_add). This causes a false positive lockdep splat because
-the port interfaces' addr_list_lock is taken when br_manage_promisc()
-runs after the bridge's addr list lock was already taken.
-To remove the false positive introduce a custom bridge addr_list_lock
-class and set it on bridge init.
-A simple way to reproduce this is with the following:
-$ brctl addbr br0
-$ ip l add l br0 br0.100 type vlan id 100
-$ ip l set br0 up
-$ ip l set br0.100 up
-$ echo 1 > /sys/class/net/br0/bridge/vlan_filtering
-$ brctl addif br0 eth0
-Splat:
-[   43.684325] =============================================
-[   43.684485] [ INFO: possible recursive locking detected ]
-[   43.684636] 4.4.0-rc8+ #54 Not tainted
-[   43.684755] ---------------------------------------------
-[   43.684906] brctl/1187 is trying to acquire lock:
-[   43.685047]  (_xmit_ETHER){+.....}, at: [<ffffffff8150169e>] dev_set_rx_mode+0x1e/0x40
-[   43.685460]  but task is already holding lock:
-[   43.685618]  (_xmit_ETHER){+.....}, at: [<ffffffff815072a7>] dev_uc_add+0x27/0x80
-[   43.686015]  other info that might help us debug this:
-[   43.686316]  Possible unsafe locking scenario:
+Thanks, I'm queuing it for the 3.16 kernel as well.
 
-[   43.686743]        CPU0
-[   43.686967]        ----
-[   43.687197]   lock(_xmit_ETHER);
-[   43.687544]   lock(_xmit_ETHER);
-[   43.687886] *** DEADLOCK ***
+Cheers,
+--
+Lu=EDs
 
-[   43.688438]  May be due to missing lock nesting notation
-
-[   43.688882] 2 locks held by brctl/1187:
-[   43.689134]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81510317>] rtnl_lock+0x17/0x20
-[   43.689852]  #1:  (_xmit_ETHER){+.....}, at: [<ffffffff815072a7>] dev_uc_add+0x27/0x80
-[   43.690575] stack backtrace:
-[   43.690970] CPU: 0 PID: 1187 Comm: brctl Not tainted 4.4.0-rc8+ #54
-[   43.691270] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.8.1-20150318_183358- 04/01/2014
-[   43.691770]  ffffffff826a25c0 ffff8800369fb8e0 ffffffff81360ceb ffffffff826a25c0
-[   43.692425]  ffff8800369fb9b8 ffffffff810d0466 ffff8800369fb968 ffffffff81537139
-[   43.693071]  ffff88003a08c880 0000000000000000 00000000ffffffff 0000000002080020
-[   43.693709] Call Trace:
-[   43.693931]  [<ffffffff81360ceb>] dump_stack+0x4b/0x70
-[   43.694199]  [<ffffffff810d0466>] __lock_acquire+0x1e46/0x1e90
-[   43.694483]  [<ffffffff81537139>] ? netlink_broadcast_filtered+0x139/0x3e0
-[   43.694789]  [<ffffffff8153b5da>] ? nlmsg_notify+0x5a/0xc0
-[   43.695064]  [<ffffffff810d10f5>] lock_acquire+0xe5/0x1f0
-[   43.695340]  [<ffffffff8150169e>] ? dev_set_rx_mode+0x1e/0x40
-[   43.695623]  [<ffffffff815edea5>] _raw_spin_lock_bh+0x45/0x80
-[   43.695901]  [<ffffffff8150169e>] ? dev_set_rx_mode+0x1e/0x40
-[   43.696180]  [<ffffffff8150169e>] dev_set_rx_mode+0x1e/0x40
-[   43.696460]  [<ffffffff8150189c>] dev_set_promiscuity+0x3c/0x50
-[   43.696750]  [<ffffffffa0586845>] br_port_set_promisc+0x25/0x50 [bridge]
-[   43.697052]  [<ffffffffa05869aa>] br_manage_promisc+0x8a/0xe0 [bridge]
-[   43.697348]  [<ffffffffa05826ee>] br_dev_change_rx_flags+0x1e/0x20 [bridge]
-[   43.697655]  [<ffffffff81501532>] __dev_set_promiscuity+0x132/0x1f0
-[   43.697943]  [<ffffffff81501672>] __dev_set_rx_mode+0x82/0x90
-[   43.698223]  [<ffffffff815072de>] dev_uc_add+0x5e/0x80
-[   43.698498]  [<ffffffffa05b3c62>] vlan_device_event+0x542/0x650 [8021q]
-[   43.698798]  [<ffffffff8109886d>] notifier_call_chain+0x5d/0x80
-[   43.699083]  [<ffffffff810988b6>] raw_notifier_call_chain+0x16/0x20
-[   43.699374]  [<ffffffff814f456e>] call_netdevice_notifiers_info+0x6e/0x80
-[   43.699678]  [<ffffffff814f4596>] call_netdevice_notifiers+0x16/0x20
-[   43.699973]  [<ffffffffa05872be>] br_add_if+0x47e/0x4c0 [bridge]
-[   43.700259]  [<ffffffffa058801e>] add_del_if+0x6e/0x80 [bridge]
-[   43.700548]  [<ffffffffa0588b5f>] br_dev_ioctl+0xaf/0xc0 [bridge]
-[   43.700836]  [<ffffffff8151a7ac>] dev_ifsioc+0x30c/0x3c0
-[   43.701106]  [<ffffffff8151aac9>] dev_ioctl+0xf9/0x6f0
-[   43.701379]  [<ffffffff81254345>] ? mntput_no_expire+0x5/0x450
-[   43.701665]  [<ffffffff812543ee>] ? mntput_no_expire+0xae/0x450
-[   43.701947]  [<ffffffff814d7b02>] sock_do_ioctl+0x42/0x50
-[   43.702219]  [<ffffffff814d8175>] sock_ioctl+0x1e5/0x290
-[   43.702500]  [<ffffffff81242d0b>] do_vfs_ioctl+0x2cb/0x5c0
-[   43.702771]  [<ffffffff81243079>] SyS_ioctl+0x79/0x90
-[   43.703033]  [<ffffffff815eebb6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-
-CC: Vlad Yasevich <vyasevic@redhat.com>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-CC: Bridge list <bridge@lists.linux-foundation.org>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-Fixes: 2796d0c648c9 ("bridge: Automatically manage port promiscuous mode.")
-Reported-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-Note: Maybe we should add different addr_list_lock class names, xmit_ETHER
-is used both for the queue lock class and addr list.
-
- net/bridge/br_device.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 5e88d3e17546..2c8095a5d824 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -28,6 +28,8 @@
- const struct nf_br_ops __rcu *nf_br_ops __read_mostly;
- EXPORT_SYMBOL_GPL(nf_br_ops);
- 
-+static struct lock_class_key bridge_netdev_addr_lock_key;
-+
- /* net device transmit always called with BH disabled */
- netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -87,6 +89,11 @@ out:
- 	return NETDEV_TX_OK;
- }
- 
-+static void br_set_lockdep_class(struct net_device *dev)
-+{
-+	lockdep_set_class(&dev->addr_list_lock, &bridge_netdev_addr_lock_key);
-+}
-+
- static int br_dev_init(struct net_device *dev)
- {
- 	struct net_bridge *br = netdev_priv(dev);
-@@ -99,6 +106,7 @@ static int br_dev_init(struct net_device *dev)
- 	err = br_vlan_init(br);
- 	if (err)
- 		free_percpu(br->stats);
-+	br_set_lockdep_class(dev);
- 
- 	return err;
- }
--- 
-2.4.3
+> Ben.
+>=20
+> --=20
+> Ben Hutchings
+> Unix is many things to many people,
+> but it's never been everything to anybody.
