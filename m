@@ -1,28 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 0/3 net] xen-netback: use skb to determine number of
- required (etc.)
-Date: Fri, 15 Jan 2016 15:13:37 -0500 (EST)
-Message-ID: <20160115.151337.666126979485766166.davem@davemloft.net>
-References: <1452869736-20282-1-git-send-email-david.vrabel@citrix.com>
+Subject: Re: [PATCH] net: smsc: Add support h8300
+Date: Fri, 15 Jan 2016 15:14:34 -0500 (EST)
+Message-ID: <20160115.151434.1193109598426674937.davem@davemloft.net>
+References: <1452870309-5735-1-git-send-email-ysato@users.sourceforge.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	ian.campbell@citrix.com, wei.liu2@citrix.com
-To: david.vrabel@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32960 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754373AbcAOUNj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 15:13:39 -0500
-In-Reply-To: <1452869736-20282-1-git-send-email-david.vrabel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ysato@users.sourceforge.jp
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452870309-5735-1-git-send-email-ysato@users.sourceforge.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Fri, 15 Jan 2016 14:55:33 +0000
+From: Yoshinori Sato <ysato@users.sourceforge.jp>
+Date: Sat, 16 Jan 2016 00:05:09 +0900
 
-> "xen-netback: use skb to determine number of required" plus two other
-> minor fixes I found down the back of the sofa.
+> Add H8/300 platform support for smc91x
+> 
+> Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
 
-Series applied, thanks David.
+Applied, thank you.
