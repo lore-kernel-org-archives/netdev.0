@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: Move sequence start handling into
- sctp_transport_get_idx()
-Date: Fri, 15 Jan 2016 15:12:13 -0500 (EST)
-Message-ID: <20160115.151213.2258553264727846515.davem@davemloft.net>
-References: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCHv2 0/3 net] xen-netback: use skb to determine number of
+ required (etc.)
+Date: Fri, 15 Jan 2016 15:13:37 -0500 (EST)
+Message-ID: <20160115.151337.666126979485766166.davem@davemloft.net>
+References: <1452869736-20282-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, lucien.xin@gmail.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	ian.campbell@citrix.com, wei.liu2@citrix.com
+To: david.vrabel@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32960 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754373AbcAOUNj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 15:13:39 -0500
+In-Reply-To: <1452869736-20282-1-git-send-email-david.vrabel@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IEZy
-aSwgMTUgSmFuIDIwMTYgMTQ6NDQ6MzEgKzAxMDANCg0KPiBuZXQvc2N0cC9wcm9jLmM6IEluIGZ1
-bmN0aW9uIKFzY3RwX3RyYW5zcG9ydF9nZXRfaWR4ojoNCj4gbmV0L3NjdHAvcHJvYy5jOjMxMzog
-d2FybmluZzogoW9iaqIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9u
-DQo+IA0KPiBUaGlzIGlzIGN1cnJlbnRseSBhIGZhbHNlIHBvc2l0aXZlLCBhcyBhbGwgY2FsbGVy
-cyBjaGVjayBmb3IgYSB6ZXJvDQo+IG9mZnNldCBmaXJzdCwgYW5kIGhhbmRsZSB0aGlzIGNhc2Ug
-aW4gdGhlIGV4YWN0IHNhbWUgd2F5Lg0KPiANCj4gTW92ZSB0aGUgY2hlY2sgYW5kIGhhbmRsaW5n
-IGludG8gc2N0cF90cmFuc3BvcnRfZ2V0X2lkeCgpIHRvIGtpbGwgdGhlDQo+IGNvbXBpbGVyIHdh
-cm5pbmcsIGFuZCBhdm9pZCBmdXR1cmUgYnVncy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEdlZXJ0
-IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rcyBH
-ZWVydC4NCg==
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Fri, 15 Jan 2016 14:55:33 +0000
+
+> "xen-netback: use skb to determine number of required" plus two other
+> minor fixes I found down the back of the sofa.
+
+Series applied, thanks David.
