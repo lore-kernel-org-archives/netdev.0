@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: preserve IP control block during GSO
- segmentation
-Date: Fri, 15 Jan 2016 14:35:53 -0500 (EST)
-Message-ID: <20160115.143553.1070533798353652921.davem@davemloft.net>
-References: <145225570625.30903.13936642758071448458.stgit@zurg>
-	<20160113.155112.119405358547782630.davem@davemloft.net>
-	<20160113233628.GA10507@breakpoint.cc>
+Subject: Re: [patch v3 net-next 0/2] dts: hisi: fixes no syscon fault when
+ init mdio
+Date: Fri, 15 Jan 2016 14:40:31 -0500 (EST)
+Message-ID: <20160115.144031.1566053238441157328.davem@davemloft.net>
+References: <1452668999-443-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: koct9i@gmail.com, netdev@vger.kernel.org, dev@openvswitch.org,
-	cascardo@redhat.com, edumazet@google.com,
-	linux-kernel@vger.kernel.org, pshelar@nicira.com,
-	xiyou.wangcong@gmail.com
-To: fw@strlen.de
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	xuwei5@hisilicon.com, catalin.marinas@arm.com, will.deacon@arm.com,
+	f.fainelli@gmail.com, andrew@lunn.ch, liguozhu@huawei.com,
+	Yisen.Zhuang@huawei.com, sboyd@codeaurora.org,
+	haojian.zhuang@linaro.org, wangzhou1@hisilicon.com,
+	bintian.wang@huawei.com, long.wanglong@huawei.com,
+	leo.yan@linaro.org, haifeng.wei@huawei.com,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linuxarm@huawei.com
+To: yankejian@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160113233628.GA10507@breakpoint.cc>
+In-Reply-To: <1452668999-443-1-git-send-email-yankejian@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 14 Jan 2016 00:36:28 +0100
+From: Kejian Yan <yankejian@huawei.com>
+Date: Wed, 13 Jan 2016 15:09:57 +0800
 
-> David Miller <davem@davemloft.net> wrote:
->> From: Konstantin Khlebnikov <koct9i@gmail.com>
->> Date: Fri, 08 Jan 2016 15:21:46 +0300
->> 
->> > Skb_gso_segment() uses skb control block during segmentation.
->> > This patch adds 32-bytes room for previous control block which
->> > will be copied into all resulting segments.
->> > 
->> > This patch fixes kernel crash during fragmenting forwarded packets.
->> > Fragmentation requires valid IP CB in skb for clearing ip options.
->> > Also patch removes custom save/restore in ovs code, now it's redundant.
->> > 
->> > Signed-off-by: Konstantin Khlebnikov <koct9i@gmail.com>
->> > Link: http://lkml.kernel.org/r/CALYGNiP-0MZ-FExV2HutTvE9U-QQtkKSoE--KN=JQE5STYsjAA@mail.gmail.com
->> 
->> If this works I definitely prefer this approach to the other patch
->> where the CB is copied back and forth.
-> 
-> I quite frankly don't care and just like you to apply one or the other;
-> use coin toss if needed :-}
+> This patchset fixes the bug that eth can't initial successful on hip05-D02
+> because the dts files doesn't match the source code.
 
-So I am going to apply this patch from Konstantin and queued it up for -stable.
-
-Thanks.
+Series applied, thanks.
