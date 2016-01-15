@@ -1,48 +1,40 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Optimizing instruction-cache, more packets at each stage
-Date: Fri, 15 Jan 2016 13:36:04 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCC6613@AcuExch.aculab.com>
-References: <20160115142223.1e92be75@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: 'Jesper Dangaard Brouer' <brouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:60854 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212AbcAONjQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 08:39:16 -0500
-In-Reply-To: <20160115142223.1e92be75@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [PATCH] ath9k: Drop useless const on chanctx_event_delta() return type
+Date: Fri, 15 Jan 2016 14:41:30 +0100
+Message-ID: <1452865290-32314-1-git-send-email-geert@linux-m68k.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+To: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer
-> Sent: 15 January 2016 13:22
-...
-> I want to do some instruction-cache level optimizations.
-> 
-> What do I mean by that...
-> 
-> The kernel network stack code path (a packet travels) is obviously
-> larger than the instruction-cache (icache).  Today, every packet
-> travel individually through the network stack, experiencing the exact
-> same icache misses (as the previous packet).
-...
+drivers/net/wireless/ath/ath9k/channel.c:230: warning: type qualifiers ignored on function return type
 
-Is that actually true for modern server processors that have large i-cache.
-While the total size of the networking code may well be larger, that
-part used for transmitting data packets will be much be smaller and
-could easily fit in the icache.
+Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+---
+ drivers/net/wireless/ath/ath9k/channel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	David
+diff --git a/drivers/net/wireless/ath/ath9k/channel.c b/drivers/net/wireless/ath/ath9k/channel.c
+index 50e614b915f1b1b5..7c452af6da39605a 100644
+--- a/drivers/net/wireless/ath/ath9k/channel.c
++++ b/drivers/net/wireless/ath/ath9k/channel.c
+@@ -226,7 +226,7 @@ static const char *chanctx_state_string(enum ath_chanctx_state state)
+ 	}
+ }
+ 
+-static const u32 chanctx_event_delta(struct ath_softc *sc)
++static u32 chanctx_event_delta(struct ath_softc *sc)
+ {
+ 	u64 ms;
+ 	struct timespec ts, *old;
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
