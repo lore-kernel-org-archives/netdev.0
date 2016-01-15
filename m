@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netfilter: xt_TCPMSS: handle CHECKSUM_COMPLETE in
- tcpmss_tg6()
-Date: Fri, 15 Jan 2016 14:04:49 -0500 (EST)
-Message-ID: <20160115.140449.1324683966791337294.davem@davemloft.net>
-References: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S348Td5ZHVDTOn+DudAjs9pNjhs6kkEbn-CgYCqXEh0BQg@mail.gmail.com>
-	<1452878324.1223.188.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH] net: sctp: Move sequence start handling into
+ sctp_transport_get_idx()
+Date: Fri, 15 Jan 2016 17:05:32 -0200
+Message-ID: <20160115190532.GH6074@mrl.redhat.com>
+References: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, pablo@netfilter.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1452878324.1223.188.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Xin Long <lucien.xin@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Jan 2016 09:18:44 -0800
+On Fri, Jan 15, 2016 at 02:44:31PM +0100, Geert Uytterhoeven wrote:
+> net/sctp/proc.c: In function =E2=80=98sctp_transport_get_idx=E2=80=99=
+:
+> net/sctp/proc.c:313: warning: =E2=80=98obj=E2=80=99 may be used unini=
+tialized in this function
+>=20
+> This is currently a false positive, as all callers check for a zero
+> offset first, and handle this case in the exact same way.
+>=20
+> Move the check and handling into sctp_transport_get_idx() to kill the
+> compiler warning, and avoid future bugs.
+>=20
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> ---
+> Compile-tested only.
 
-> On Fri, 2016-01-15 at 08:43 -0800, Tom Herbert wrote:
-> 
->> Probably should have a utility function do this. Maybe something like
->> update_hdr_field(skb, old, new)? Could return new value so above could
->> just be:
->> 
->> ipv6h->payload_len = update_hdr_field(skb, ipv6h->payload_len,
->> htons(ntohs(oldlen) + ret);
-> 
-> Well, oldlen would still need to be ipv6h->payload_len
-> 
-> Not sure a helper will be nice for a stable submission.
-> 
-> Probably better for net-next ?
-
-Agreed.  We already have those csum_replace{2,4}() helpers in net/checksum.h
-which we could augment with ones that can handle length changes too.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
