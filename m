@@ -1,37 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v3] ovs: limit ovs recursions in ovs_execute_actions
- to not corrupt stack
-Date: Fri, 15 Jan 2016 08:45:57 -0800
-Message-ID: <1452876357.1223.178.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1452868427-5655-1-git-send-email-hannes@stressinduktion.org>
+From: Alison Schofield <amsfield22@gmail.com>
+Subject: [PATCH v3] isdn: divamnt: use y2038-safe ktime_get_ts64()
+	for trace data timestamps
+Date: Fri, 15 Jan 2016 08:51:25 -0800
+Message-ID: <1452876685-2325-1-git-send-email-amsfield22@gmail.com>
+References: <20151120182307.GA3513@d830.WORKGROUP>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin Shelar <pshelar@ovn.org>,
-	Simon Horman <simon.horman@netronome.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36784 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbcAOQqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 11:46:00 -0500
-Received: by mail-pa0-f54.google.com with SMTP id yy13so304454952pab.3
-        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 08:45:59 -0800 (PST)
-In-Reply-To: <1452868427-5655-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, y2038@lists.linaro.org
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <20151120182307.GA3513@d830.WORKGROUP>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-01-15 at 15:33 +0100, Hannes Frederic Sowa wrote:
-> It was seen that defective configurations of openvswitch could overwrite
-> the STACK_END_MAGIC and cause a hard crash of the kernel because of too
-> many recursions within ovs.
-
-...
-
-> +
-> +	preempt_disable();
-> +	level = __this_cpu_inc_return(exec_actions_level);
-> +	if (level > ovs_recursion_limit) {
-
-if (unlikely(level > ovs_recursion_limit)) {
+ZGl2YW1udCBzdG9yZXMgYSBzdGFydF90aW1lIGF0IG1vZHVsZSBpbml0IGFuZCB1c2VzIGl0IHRv
+IGNhbGN1bGF0ZQplbGFwc2VkIHRpbWUuIFRoZSBlbGFwc2VkIHRpbWUsIHN0b3JlZCBpbiBzZWNz
+IGFuZCB1c2VjcywgaXMgcGFydCBvZgp0aGUgdHJhY2UgZGF0YSB0aGUgZHJpdmVyIG1haW50YWlu
+cyBmb3IgdGhlIERJVkEgU2VydmVyIElTRE4gY2FyZHMuCk5vIGNoYW5nZSB0byB0aGUgZm9ybWF0
+IG9mIHRoYXQgdGltZSBkYXRhIGlzIHJlcXVpcmVkLgoKVG8gYXZvaWQgb3ZlcmZsb3cgb24gMzIt
+Yml0IHN5c3RlbXMgdXNlIGt0aW1lX2dldF90czY0KCkgdG8gcmV0dXJuCnRoZSBlbGFwc2VkIG1v
+bm90b25pYyB0aW1lIHNpbmNlIHN5c3RlbSBib290LgoKVGhpcyBpcyBhIGNoYW5nZSBmcm9tIHJl
+YWwgdG8gbW9ub3RvbmljIHRpbWUuIFNpbmNlIHRoZSBkcml2ZXIgb25seQpzdG9yZXMgZWxhcHNl
+ZCB0aW1lLCBtb25vdG9uaWMgdGltZSBpcyBzdWZmaWNpZW50IGFuZCBtb3JlIHJvYnVzdAphZ2Fp
+bnN0IHJlYWwgdGltZSBjbG9jayBjaGFuZ2VzLiBUaGVzZSBuZXcgbW9ub3RvbmljIHZhbHVlcyBj
+YW4gYmUKbW9yZSB1c2VmdWwgZm9yIGRlYnVnZ2luZyBiZWNhdXNlIHRoZXkgY2FuIGJlIGVhc2ls
+eSBjb21wYXJlZCB0bwpvdGhlciBtb25vdG9uaWMgdGltZXN0YW1wcy4KCk5vdGUgZWxhc3BzZWQg
+dGltZSB2YWx1ZXMgd2lsbCBub3cgc3RhcnQgYXQgc3lzdGVtIGJvb3QgdGltZSByYXRoZXIKdGhh
+biBtb2R1bGUgbG9hZCB0aW1lLCBzbyB0aGV5IHdpbGwgZGlmZmVyIHNsaWdodGx5IGZyb20gcHJl
+dmlvdXNseQpyZXBvcnRlZCB2YWx1ZXMuCgpSZW1vdmUgZGVjbGFyYXRpb24gYW5kIGluaXQgb2Yg
+cHJldmlvdXNseSB1bnVzZWQgdGltZSBjb25zdGFudHM6CnN0YXJ0X3NlYywgc3RhcnRfdXNlYy4K
+ClNpZ25lZC1vZmYtYnk6IEFsaXNvbiBTY2hvZmllbGQgPGFtc2ZpZWxkMjJAZ21haWwuY29tPgpS
+ZXZpZXdlZC1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KLS0tCkNoYW5nZXMgaW4g
+djM6CiAgLSB1c2UgZWxhcHNlZCB0aW1lIHNpbmNlIHN5c3RlbSBib290IGluIHBsYWNlIG9mCiAg
+ICBlbGFwc2VkIHRpbWUgc2luY2UgbW9kdWxlIGxvYWQKICAtIGNvbW1pdCBtZXNzYWdlIHVwZGF0
+ZWQKICAtIGNoYW5nZWxvZyB1cGRhdGVkCgpDaGFuZ2VzIGluIHYyOgogLSBzd2l0Y2hlZCB0byBt
+b25vdG9uaWMgdGltZQogLSByZW1vdmVkIHRoZSB1bnVzZWQgdGltZSBjb25zdGFudHMKIC0gY2hh
+bmdlbG9nIHVwZGF0ZWQKCgogZHJpdmVycy9pc2RuL2hhcmR3YXJlL2VpY29uL2RlYnVnLmMgICB8
+ICA0IC0tLS0KIGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9kaXZhbW50LmMgfCAzMCArKysr
+KystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwgNiBpbnNlcnRpb25z
+KCspLCAyOCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL2lzZG4vaGFyZHdhcmUv
+ZWljb24vZGVidWcuYyBiL2RyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9kZWJ1Zy5jCmluZGV4
+IGI1MjI2YWYuLjU3NmI3YjQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNv
+bi9kZWJ1Zy5jCisrKyBiL2RyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9kZWJ1Zy5jCkBAIC0x
+OTIsOCArMTkyLDYgQEAgc3RhdGljIGRpdmFfb3Nfc3Bpbl9sb2NrX3QgZGJnX3FfbG9jazsKIHN0
+YXRpYyBkaXZhX29zX3NwaW5fbG9ja190IGRiZ19hZGFwdGVyX2xvY2s7CiBzdGF0aWMgaW50ICAg
+ICAgICAgICAgICAgICBkYmdfcV9idXN5Owogc3RhdGljIHZvbGF0aWxlIGR3b3JkICAgICAgZGJn
+X3NlcXVlbmNlOwotc3RhdGljIGR3b3JkICAgICAgICAgICAgICAgc3RhcnRfc2VjOwotc3RhdGlj
+IGR3b3JkICAgICAgICAgICAgICAgc3RhcnRfdXNlYzsKIAogLyoKICAgSU5URVJGQUNFOgpAQCAt
+MjE1LDggKzIxMyw2IEBAIGludCBkaXZhX21haW50X2luaXQoYnl0ZSAqYmFzZSwgdW5zaWduZWQg
+bG9uZyBsZW5ndGgsIGludCBkb19pbml0KSB7CiAKIAlkYmdfYmFzZSA9IGJhc2U7CiAKLQlkaXZh
+X29zX2dldF90aW1lKCZzdGFydF9zZWMsICZzdGFydF91c2VjKTsKLQogCSooZHdvcmQgKiliYXNl
+ICA9IChkd29yZClEQkdfTUFHSUM7IC8qIFN0b3JlIE1hZ2ljICovCiAJYmFzZSAgICs9IHNpemVv
+Zihkd29yZCk7CiAJbGVuZ3RoIC09IHNpemVvZihkd29yZCk7CmRpZmYgLS1naXQgYS9kcml2ZXJz
+L2lzZG4vaGFyZHdhcmUvZWljb24vZGl2YW1udC5jIGIvZHJpdmVycy9pc2RuL2hhcmR3YXJlL2Vp
+Y29uL2RpdmFtbnQuYwppbmRleCA0OGRiMDhkLi4wZGUyOWI3YiAxMDA2NDQKLS0tIGEvZHJpdmVy
+cy9pc2RuL2hhcmR3YXJlL2VpY29uL2RpdmFtbnQuYworKysgYi9kcml2ZXJzL2lzZG4vaGFyZHdh
+cmUvZWljb24vZGl2YW1udC5jCkBAIC00NSw3ICs0NSw2IEBAIGNoYXIgKkRSSVZFUlJFTEVBU0Vf
+TU5UID0gIjIuMCI7CiAKIHN0YXRpYyB3YWl0X3F1ZXVlX2hlYWRfdCBtc2d3YWl0cTsKIHN0YXRp
+YyB1bnNpZ25lZCBsb25nIG9wZW5lZDsKLXN0YXRpYyBzdHJ1Y3QgdGltZXZhbCBzdGFydF90aW1l
+OwogCiBleHRlcm4gaW50IG1udGZ1bmNfaW5pdChpbnQgKiwgdm9pZCAqKiwgdW5zaWduZWQgbG9u
+Zyk7CiBleHRlcm4gdm9pZCBtbnRmdW5jX2Zpbml0KHZvaWQpOwpAQCAtODgsMjggKzg3LDEyIEBA
+IGludCBkaXZhX29zX2NvcHlfZnJvbV91c2VyKHZvaWQgKm9zX2hhbmRsZSwgdm9pZCAqZHN0LCBj
+b25zdCB2b2lkIF9fdXNlciAqc3JjLAogICovCiB2b2lkIGRpdmFfb3NfZ2V0X3RpbWUoZHdvcmQg
+KnNlYywgZHdvcmQgKnVzZWMpCiB7Ci0Jc3RydWN0IHRpbWV2YWwgdHY7Ci0KLQlkb19nZXR0aW1l
+b2ZkYXkoJnR2KTsKLQotCWlmICh0di50dl9zZWMgPiBzdGFydF90aW1lLnR2X3NlYykgewotCQlp
+ZiAoc3RhcnRfdGltZS50dl91c2VjID4gdHYudHZfdXNlYykgewotCQkJdHYudHZfc2VjLS07Ci0J
+CQl0di50dl91c2VjICs9IDEwMDAwMDA7Ci0JCX0KLQkJKnNlYyA9IChkd29yZCkgKHR2LnR2X3Nl
+YyAtIHN0YXJ0X3RpbWUudHZfc2VjKTsKLQkJKnVzZWMgPSAoZHdvcmQpICh0di50dl91c2VjIC0g
+c3RhcnRfdGltZS50dl91c2VjKTsKLQl9IGVsc2UgaWYgKHR2LnR2X3NlYyA9PSBzdGFydF90aW1l
+LnR2X3NlYykgewotCQkqc2VjID0gMDsKLQkJaWYgKHN0YXJ0X3RpbWUudHZfdXNlYyA8IHR2LnR2
+X3VzZWMpIHsKLQkJCSp1c2VjID0gKGR3b3JkKSAodHYudHZfdXNlYyAtIHN0YXJ0X3RpbWUudHZf
+dXNlYyk7Ci0JCX0gZWxzZSB7Ci0JCQkqdXNlYyA9IDA7Ci0JCX0KLQl9IGVsc2UgewotCQkqc2Vj
+ID0gKGR3b3JkKSB0di50dl9zZWM7Ci0JCSp1c2VjID0gKGR3b3JkKSB0di50dl91c2VjOwotCX0K
+KwlzdHJ1Y3QgdGltZXNwZWM2NCB0aW1lOworCisJa3RpbWVfZ2V0X3RzNjQoJnRpbWUpOworCisJ
+KnNlYyA9IChkd29yZCkgdGltZS50dl9zZWM7CisJKnVzZWMgPSAoZHdvcmQpICh0aW1lLnR2X25z
+ZWMgLyBOU0VDX1BFUl9VU0VDKTsKIH0KIAogLyoKQEAgLTIxMyw3ICsxOTYsNiBAQCBzdGF0aWMg
+aW50IF9faW5pdCBtYWludF9pbml0KHZvaWQpCiAJaW50IHJldCA9IDA7CiAJdm9pZCAqYnVmZmVy
+ID0gTlVMTDsKIAotCWRvX2dldHRpbWVvZmRheSgmc3RhcnRfdGltZSk7CiAJaW5pdF93YWl0cXVl
+dWVfaGVhZCgmbXNnd2FpdHEpOwogCiAJcHJpbnRrKEtFUk5fSU5GTyAiJXNcbiIsIERSSVZFUk5B
+TUUpOwotLSAKMi4xLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8v
+bGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
