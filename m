@@ -1,55 +1,49 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2] netfilter: nf_conntrack: use safer way to lock all
- buckets
-Date: Fri, 15 Jan 2016 08:06:53 +0100
-Message-ID: <20160115080653.137e0ad6@redhat.com>
-References: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH RT] net: move xmit_recursion to per-task variable on
+ -RT
+Date: Fri, 15 Jan 2016 09:21:25 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1601150916180.3575@nanos>
+References: <20160113152352.GH29964@linutronix.de> <alpine.DEB.2.11.1601131830440.3575@nanos> <20160114145007.GC17776@linutronix.de> <56981AE1.20202@stressinduktion.org> <1452810004.1223.154.camel@edumazet-glaptop2.roam.corp.google.com>
+ <56982895.6070901@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
+In-Reply-To: <56982895.6070901@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Jan 2016 12:03:56 -0500
-Sasha Levin <sasha.levin@oracle.com> wrote:
-
-> When we need to lock all buckets in the connection hashtable we'd attempt to
-> lock 1024 spinlocks, which is way more preemption levels than supported by
-> the kernel. Furthermore, this behavior was hidden by checking if lockdep is
-> enabled, and if it was - use only 8 buckets(!).
+On Fri, 15 Jan 2016, Hannes Frederic Sowa wrote:
+> On 14.01.2016 23:20, Eric Dumazet wrote:
+> > On Thu, 2016-01-14 at 23:02 +0100, Hannes Frederic Sowa wrote:
+> > 
+> > > We are just adding a second recursion limit solely to openvswitch which
+> > > has the same problem:
+> > > 
+> > > https://patchwork.ozlabs.org/patch/566769/
+> > > 
+> > > This time also we depend on rcu_read_lock marking the section being
+> > > nonpreemptible. Nice would be a more generic solution here which doesn't
+> > > need to always add something to *current.
+> > 
+> > 
+> > Note that rcu_read_lock() does not imply that preemption is disabled.
 > 
-> Fix this by using a global lock and synchronize all buckets on it when we
-> need to lock them all. This is pretty heavyweight, but is only done when we
-> need to resize the hashtable, and that doesn't happen often enough (or at all).
-> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Exactly, it is conditional on CONFIG_PREEMPT_CPU/CONFIG_PREMPT_COUNT but
+> haven't thought about exactly that in this moment.
 
-[...]
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 3cb3cb8..4ccf5ad 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -66,6 +66,21 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
->  __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
->  EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
->  
-> +spinlock_t nf_conntrack_locks_all_lock;
-> +bool nf_conntrack_locks_all;
+Wrong. CONFIG_PREEMPT_RCU makes RCU preemptible.
 
-You forgot to mark these static and __read_mostly as Florian pointed out...
+If that is not set then it fiddles with preempt_count when
+CONFIG_PREEMPT_COUNT=y. If CONFIG_PREEMPT_COUNT=n then you have a non
+preemptible system anyway.
 
-After that you can add my:
- Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+So you cannot assume that rcu_read_lock() disables preemption.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks,
+
+	tglx
