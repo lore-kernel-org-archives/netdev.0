@@ -1,60 +1,66 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: [PATCH net v3] ovs: limit ovs recursions in
-	ovs_execute_actions to not corrupt stack
-Date: Fri, 15 Jan 2016 15:33:47 +0100
-Message-ID: <1452868427-5655-1-git-send-email-hannes@stressinduktion.org>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: Optimizing instruction-cache, more packets at each stage
+Date: Fri, 15 Jan 2016 15:38:43 +0100
+Message-ID: <56990473.9090300@openwrt.org>
+References: <20160115142223.1e92be75@redhat.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCC6613@AcuExch.aculab.com>
+ <20160115150025.13a5db04@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arrakis.dune.hu ([78.24.191.176]:33000 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751224AbcAOOiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jan 2016 09:38:51 -0500
+In-Reply-To: <20160115150025.13a5db04@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SXQgd2FzIHNlZW4gdGhhdCBkZWZlY3RpdmUgY29uZmlndXJhdGlvbnMgb2Ygb3BlbnZzd2l0Y2gg
-Y291bGQgb3ZlcndyaXRlCnRoZSBTVEFDS19FTkRfTUFHSUMgYW5kIGNhdXNlIGEgaGFyZCBjcmFz
-aCBvZiB0aGUga2VybmVsIGJlY2F1c2Ugb2YgdG9vCm1hbnkgcmVjdXJzaW9ucyB3aXRoaW4gb3Zz
-LgoKVGhpcyBwcm9ibGVtIGFyaXNlcyBkdWUgdG8gdGhlIGhpZ2ggc3RhY2sgdXNhZ2Ugb2Ygb3Bl
-bnZzd2l0Y2guIFRoZSByZXN0Cm9mIHRoZSBrZXJuZWwgaXMgZmluZSB3aXRoIHRoZSBjdXJyZW50
-IGxpbWl0IG9mIDEwIChSRUNVUlNJT05fTElNSVQpLgoKV2UgdXNlIHRoZSBhbHJlYWR5IGV4aXN0
-aW5nIHJlY3Vyc2lvbiBjb3VudGVyIGluIG92c19leGVjdXRlX2FjdGlvbnMgdG8KaW1wbGVtZW50
-IGFuIHVwcGVyIGJvdW5kIG9mIDUgcmVjdXJzaW9ucy4KCkNjOiBQcmF2aW4gU2hlbGFyIDxwc2hl
-bGFyQG92bi5vcmc+CkNjOiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29t
-PgpTaWduZWQtb2ZmLWJ5OiBIYW5uZXMgRnJlZGVyaWMgU293YSA8aGFubmVzQHN0cmVzc2luZHVr
-dGlvbi5vcmc+ClJldmlld2VkLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25v
-bWUuY29tPgotLS0KdjIpIGFkZGVkIHByZWVtcHRpb24gZ3VhcmRzCnYzKSBQcmF2aW4gc3VnZ2Vz
-dGVkIHRvIHJldXNlIHRoZSBvdnNfZXhlY3V0ZV9hY3Rpb25zIGNvdW50ZXIgd2hpY2ggdGhpcwog
-ICAgcGF0Y2ggZG9lcy4gQWxzbyBvbmx5IGFsbG93IDUgcmVjdXJzaW9ucyBhcyBzdWdnZXN0ZWQg
-YnkgUHJhdmluLgoKIG5ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgfCAyMSArKysrKysrKysrKysr
-KysrLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxNiBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygt
-KQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgYi9uZXQvb3BlbnZzd2l0
-Y2gvYWN0aW9ucy5jCmluZGV4IGM4OGQwZjJkM2UwMTliLi45ZDhhMDlmZDcxNmFiZSAxMDA2NDQK
-LS0tIGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0
-aW9ucy5jCkBAIC0xMTYwLDE3ICsxMTYwLDI4IEBAIGludCBvdnNfZXhlY3V0ZV9hY3Rpb25zKHN0
-cnVjdCBkYXRhcGF0aCAqZHAsIHN0cnVjdCBza19idWZmICpza2IsCiAJCQljb25zdCBzdHJ1Y3Qg
-c3dfZmxvd19hY3Rpb25zICphY3RzLAogCQkJc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCiB7Ci0J
-aW50IGxldmVsID0gdGhpc19jcHVfcmVhZChleGVjX2FjdGlvbnNfbGV2ZWwpOwotCWludCBlcnI7
-CisJc3RhdGljIGNvbnN0IGludCBvdnNfcmVjdXJzaW9uX2xpbWl0ID0gNTsKKwlpbnQgZXJyLCBs
-ZXZlbDsKKworCXByZWVtcHRfZGlzYWJsZSgpOworCWxldmVsID0gX190aGlzX2NwdV9pbmNfcmV0
-dXJuKGV4ZWNfYWN0aW9uc19sZXZlbCk7CisJaWYgKGxldmVsID4gb3ZzX3JlY3Vyc2lvbl9saW1p
-dCkgeworCQluZXRfY3JpdF9yYXRlbGltaXRlZCgib3ZzOiByZWN1cnNpb24gbGltaXQgcmVhY2hl
-ZCBvbiBkYXRhcGF0aCAlcywgcHJvYmFibGUgY29uZmlndXJhdGlvbiBlcnJvclxuIiwKKwkJCQkg
-ICAgIG92c19kcF9uYW1lKGRwKSk7CisJCWtmcmVlX3NrYihza2IpOworCQllcnIgPSAtRU5FVERP
-V047CisJCWdvdG8gb3V0OworCX0KIAotCXRoaXNfY3B1X2luYyhleGVjX2FjdGlvbnNfbGV2ZWwp
-OwogCWVyciA9IGRvX2V4ZWN1dGVfYWN0aW9ucyhkcCwgc2tiLCBrZXksCiAJCQkJIGFjdHMtPmFj
-dGlvbnMsIGFjdHMtPmFjdGlvbnNfbGVuKTsKIAotCWlmICghbGV2ZWwpCisJaWYgKGxldmVsID09
-IDEpCiAJCXByb2Nlc3NfZGVmZXJyZWRfYWN0aW9ucyhkcCk7CiAKLQl0aGlzX2NwdV9kZWMoZXhl
-Y19hY3Rpb25zX2xldmVsKTsKK291dDoKKwlfX3RoaXNfY3B1X2RlYyhleGVjX2FjdGlvbnNfbGV2
-ZWwpOworCXByZWVtcHRfZW5hYmxlKCk7CiAJcmV0dXJuIGVycjsKIH0KIAotLSAKMi41LjAKCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5n
-IGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4v
-bGlzdGluZm8vZGV2Cg==
+On 2016-01-15 15:00, Jesper Dangaard Brouer wrote:
+> On Fri, 15 Jan 2016 13:36:04 +0000
+> David Laight <David.Laight@ACULAB.COM> wrote:
+> 
+>> From: Jesper Dangaard Brouer
+>> > Sent: 15 January 2016 13:22
+>> ...
+>> > I want to do some instruction-cache level optimizations.
+>> > 
+>> > What do I mean by that...
+>> > 
+>> > The kernel network stack code path (a packet travels) is obviously
+>> > larger than the instruction-cache (icache).  Today, every packet
+>> > travel individually through the network stack, experiencing the exact
+>> > same icache misses (as the previous packet).
+>> ...
+>> 
+>> Is that actually true for modern server processors that have large i-cache.
+>> While the total size of the networking code may well be larger, that
+>> part used for transmitting data packets will be much be smaller and
+>> could easily fit in the icache.
+> 
+> Yes, exactly. That is what I'm betting on. If I can split it into
+> stages (e.g. part used for transmitting) that fits into icache then I
+> should see a win.
+> 
+> The icache is still quite small 32Kb on modern server processors.  I
+> don't know if smaller embedded processors also have icache and how
+> large they are.  I speculate this approach would also be a benefit for
+> them (if they have icache).
+All of the router devices that I work with have icache. Typical sizes
+are 32 or 64 KiB. FWIW, I'm really looking forward to having such
+optimizations in the network stack ;)
+
+- Felix
