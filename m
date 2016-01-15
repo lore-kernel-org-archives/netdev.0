@@ -1,32 +1,63 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: Small improvements for the at803x PHY driver
-Date: Fri, 15 Jan 2016 01:57:14 +0100
-Message-ID: <CAFBinCCsmuLDMBj+KOb1MhFBdeaPeaqzj2J+16E3M2ZBFu4CGA@mail.gmail.com>
-References: <1451089622-14957-1-git-send-email-martin.blumenstingl@googlemail.com>
- <567E809D.3000902@free.fr> <567F5B2E.9050705@gmail.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [patch v3 net-next 1/2] dts: hisi: fixes no syscon fault when
+ init mdio
+Date: Thu, 14 Jan 2016 20:17:18 -0600
+Message-ID: <20160115021718.GA24459@rob-hp-laptop>
+References: <1452668999-443-1-git-send-email-yankejian@huawei.com>
+ <1452668999-443-2-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mason <slash.tmp@free.fr>, netdev@vger.kernel.org,
-	Daniel Mack <daniel@zonque.org>,
-	Fabio Estevam <festevam@gmail.com>,
-	Mans Rullgard <mans@mansr.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37479 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754342AbcAOA5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2016 19:57:34 -0500
-Received: by mail-wm0-f45.google.com with SMTP id f206so2325383wmf.0
-        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 16:57:34 -0800 (PST)
-In-Reply-To: <567F5B2E.9050705@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	haojian.zhuang-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, wangzhou1-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
+	bintian.wang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, long.wanglong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	leo.yan-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Kejian Yan <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1452668999-443-2-git-send-email-yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 27, 2015 at 4:29 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Overall, this looks pretty nice to me, few comments in individual patches.
-I have just sent refreshed versions of all patches and fixed the parts
-we've discussed (see the comment section in the corresponding
-patches).
+On Wed, Jan 13, 2016 at 03:09:58PM +0800, Kejian Yan wrote:
+> When linux start up, we get the log below:
+> "Hi-HNS_MDIO 803c0000.mdio: no syscon hisilicon,peri-c-subctrl
+> mdio_bus mdio@803c0000: mdio sys ctl reg has not maped"
+> 
+> The source code about the subctrl is dealt syscon, but dts doesn't.
+> It cause such fault, so this patch adds the syscon info on dts files to
+> fixes it.
+> 
+> Signed-off-by: Kejian Yan <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> ---
+> change log:
+> v3:
+>  1) uses capital letter at the beginning of sentences
+>  2) updates the right device node name
+> 
+> v2:
+>  1) updates the related documented in the binding as well
+>  2) uses the normal naming conventions using '-' instead of '_'
+> 
+> v1:
+>  first submit
+> 
+> v2 patch link: https://lkml.org/lkml/2015/12/7/80
+> v1 patch link: https://lkml.org/lkml/2015/11/28/3
+> ---
+>  .../devicetree/bindings/arm/hisilicon/hisilicon.txt      | 16 ++++++++++++++++
+>  arch/arm64/boot/dts/hisilicon/hip05.dtsi                 |  5 +++++
+>  arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi             |  4 ++--
+>  3 files changed, 23 insertions(+), 2 deletions(-)
 
-
-Martin
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
