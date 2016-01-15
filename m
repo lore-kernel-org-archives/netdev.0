@@ -1,65 +1,136 @@
-From: Yoshinori Sato <ysato@users.sourceforge.jp>
-Subject: [PATCH] net: smsc: Add support h8300
-Date: Sat, 16 Jan 2016 00:05:09 +0900
-Message-ID: <1452870309-5735-1-git-send-email-ysato@users.sourceforge.jp>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>,
-	linux-kernel@vger.kernel.org
+From: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Subject: [PATCH net-next] sched/cls_flow.c : allow nfct-* keys work on ingress
+ interfaces
+Date: Fri, 15 Jan 2016 17:18:17 +0200
+Message-ID: <56990DB9.4070605@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f196.google.com ([209.85.217.196]:33238 "EHLO
+	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752006AbcAOPSV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 10:18:21 -0500
+Received: by mail-lb0-f196.google.com with SMTP id bc4so21589151lbc.0
+        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 07:18:20 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add H8/300 platform support for smc91x
+Improved CTTUPLE macro with code from sched/act_connmark.c, so it be
+able to get unNATed addresses from nf_conntrack on ingress interface.
 
-Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
+
+Signed-off-by: Igor Gavrilov <i.o.gavrilov@gmail.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/smsc/Kconfig  |  4 ++--
- drivers/net/ethernet/smsc/smc91x.h | 11 +++++++++++
- 2 files changed, 13 insertions(+), 2 deletions(-)
+--- cls_flow.c.orig	2016-01-15 17:01:04.176871692 +0200
++++ cls_flow.c	2016-01-15 17:01:04.174871692 +0200
+@@ -31,6 +31,8 @@
 
-diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
-index eb9230e..63aca9f 100644
---- a/drivers/net/ethernet/smsc/Kconfig
-+++ b/drivers/net/ethernet/smsc/Kconfig
-@@ -7,7 +7,7 @@ config NET_VENDOR_SMSC
- 	default y
- 	depends on ARM || ARM64 || ATARI_ETHERNAT || BLACKFIN || COLDFIRE || \
- 		   ISA || M32R || MAC || MIPS || MN10300 || NIOS2 || PCI || \
--		   PCMCIA || SUPERH || XTENSA
-+		   PCMCIA || SUPERH || XTENSA || H8300
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
-@@ -38,7 +38,7 @@ config SMC91X
- 	select MII
- 	depends on !OF || GPIOLIB
- 	depends on ARM || ARM64 || ATARI_ETHERNAT || BLACKFIN || COLDFIRE || \
--		   M32R || MIPS || MN10300 || NIOS2 || SUPERH || XTENSA
-+		   M32R || MIPS || MN10300 || NIOS2 || SUPERH || XTENSA || H8300
- 	---help---
- 	  This is a driver for SMC's 91x series of Ethernet chipsets,
- 	  including the SMC91C94 and the SMC91C111. Say Y if you want it
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index a3c129e..1a55c79 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -172,6 +172,17 @@ static inline void mcf_outsw(void *a, unsigned char *p, int l)
- 
- #define SMC_IRQ_FLAGS		0
- 
-+#elif defined(CONFIG_H8300)
-+#define SMC_CAN_USE_8BIT	1
-+#define SMC_CAN_USE_16BIT	0
-+#define SMC_CAN_USE_32BIT	0
-+#define SMC_NOWAIT		0
-+
-+#define SMC_inb(a, r)		ioread8((a) + (r))
-+#define SMC_outb(v, a, r)	iowrite8(v, (a) + (r))
-+#define SMC_insb(a, r, p, l)	ioread8_rep((a) + (r), p, l)
-+#define SMC_outsb(a, r, p, l)	iowrite8_rep((a) + (r), p, l)
-+
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_core.h>
++#include <net/netfilter/nf_conntrack_zones.h>
+ #endif
+
+ struct flow_head {
+@@ -133,16 +135,50 @@
+ }
+
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+-#define CTTUPLE(skb, member)						\
++#define CTTUPLE(skb, direction, member)				\
+ ({									\
+ 	enum ip_conntrack_info ctinfo;					\
+-	const struct nf_conn *ct = nf_ct_get(skb, &ctinfo);		\
+-	if (ct == NULL)							\
+-		goto fallback;						\
+-	ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.member;			\
++	struct nf_conntrack_tuple tuple;				\
++	struct nf_conntrack_zone zone;					\
++	const struct nf_conntrack_tuple_hash *thash;			\
++	__be32 result;							\
++	int proto;							\
++	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);			\
++	if (ct == NULL) {						\
++		switch (tc_skb_protocol(skb)) {				\
++		case htons(ETH_P_IP):					\
++			proto = NFPROTO_IPV4;				\
++			break;						\
++		case htons(ETH_P_IPV6):					\
++			proto = NFPROTO_IPV6;				\
++			break;						\
++		default:						\
++			goto fallback;					\
++		}							\
++									\
++		if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),	\
++				proto, dev_net(skb->dev), &tuple))	\
++			goto fallback;					\
++		zone.id = NF_CT_DEFAULT_ZONE_ID;			\
++		zone.dir = NF_CT_DEFAULT_ZONE_DIR;			\
++									\
++		thash = nf_conntrack_find_get(dev_net(skb->dev),	\
++						 &zone,	&tuple);	\
++		if (!thash)						\
++			goto fallback;					\
++		ct = nf_ct_tuplehash_to_ctrack(thash);			\
++		result = ct->tuplehash[(thash->tuple.dst.dir ==		\
++				IP_CT_DIR_REPLY) ? IP_CT_DIR_ORIGINAL :	\
++				IP_CT_DIR_REPLY].tuple.src.member;	\
++		nf_ct_put(ct);						\
++	} else {							\
++		result =						\
++		ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.direction.member;\
++	}								\
++	result;								\
+ })
  #else
- 
- /*
--- 
-2.6.1
+-#define CTTUPLE(skb, member)						\
++#define CTTUPLE(skb, direction, member)				\
+ ({									\
+ 	goto fallback;							\
+ 	0;								\
+@@ -153,9 +189,9 @@
+ {
+ 	switch (tc_skb_protocol(skb)) {
+ 	case htons(ETH_P_IP):
+-		return ntohl(CTTUPLE(skb, src.u3.ip));
++		return ntohl(CTTUPLE(skb, src, u3.ip));
+ 	case htons(ETH_P_IPV6):
+-		return ntohl(CTTUPLE(skb, src.u3.ip6[3]));
++		return ntohl(CTTUPLE(skb, src, u3.ip6[3]));
+ 	}
+ fallback:
+ 	return flow_get_src(skb, flow);
+@@ -165,9 +201,9 @@
+ {
+ 	switch (tc_skb_protocol(skb)) {
+ 	case htons(ETH_P_IP):
+-		return ntohl(CTTUPLE(skb, dst.u3.ip));
++		return ntohl(CTTUPLE(skb, dst, u3.ip));
+ 	case htons(ETH_P_IPV6):
+-		return ntohl(CTTUPLE(skb, dst.u3.ip6[3]));
++		return ntohl(CTTUPLE(skb, dst, u3.ip6[3]));
+ 	}
+ fallback:
+ 	return flow_get_dst(skb, flow);
+@@ -175,14 +211,14 @@
+
+ static u32 flow_get_nfct_proto_src(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	return ntohs(CTTUPLE(skb, src.u.all));
++	return ntohs(CTTUPLE(skb, src, u.all));
+ fallback:
+ 	return flow_get_proto_src(skb, flow);
+ }
+
+ static u32 flow_get_nfct_proto_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	return ntohs(CTTUPLE(skb, dst.u.all));
++	return ntohs(CTTUPLE(skb, dst, u.all));
+ fallback:
+ 	return flow_get_proto_dst(skb, flow);
+ }
