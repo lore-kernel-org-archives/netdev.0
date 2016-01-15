@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: support to lookup with ep+paddr in transport
- rhashtable
-Date: Fri, 15 Jan 2016 14:45:56 -0500 (EST)
-Message-ID: <20160115.144556.655392601284850128.davem@davemloft.net>
-References: <66cb37a6d0c3776e9eb3adf0bf6fc33ff947eb63.1452750574.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH] net: macb: clear interrupts when disabling them
+Date: Fri, 15 Jan 2016 14:47:49 -0500 (EST)
+Message-ID: <20160115.144749.588820079930764465.davem@davemloft.net>
+References: <1452799647-1426-1-git-send-email-nathan.sullivan@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32811 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361AbcAOTp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 14:45:57 -0500
-In-Reply-To: <66cb37a6d0c3776e9eb3adf0bf6fc33ff947eb63.1452750574.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nathan.sullivan@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452799647-1426-1-git-send-email-nathan.sullivan@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 14 Jan 2016 13:49:34 +0800
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Date: Thu, 14 Jan 2016 13:27:27 -0600
 
-> Now, when we sendmsg, we translate the ep to laddr by selecting the
-> first element of the list, and then do a lookup for a transport.
+> Disabling interrupts with the IDR register does not stop the macb hardware
+> from asserting its interrupt line if there are interrupts pending.  Always
+> clear the interrupts using ISR, and be sure to write it on hardware that
+> is not read-to-clear, like Zynq.  Not doing so will cause interrupts when
+> the driver doesn't expect them.
 > 
-> But sctp_hash_cmp() will compare it against asoc addr_list, which may
-> be a subset of ep addr_list, meaning that this chosen laddr may not be
-> there, and thus making it impossible to find the transport.
-> 
-> So we fix it by using ep + paddr to lookup transports in hashtable. In
-> sctp_hash_cmp, if .ep is set, we will check if this ep == asoc->ep,
-> or we will do the laddr check.
-> 
-> Fixes: d6c0256a60e6 ("sctp: add the rhashtable apis for sctp global transport hashtable")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
+> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
 
 Applied, thanks.
