@@ -1,93 +1,98 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-Date: Fri, 15 Jan 2016 23:57:21 +0100
-Message-ID: <56997951.90304@gmail.com>
-References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
- <20160114164418.GD19773@lunn.ch>
- <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+From: poma <pomidorabelisima@gmail.com>
+Subject: freshclam: page allocation failure: order:0, mode:0x2204010
+Date: Sat, 16 Jan 2016 00:25:37 +0100
+Message-ID: <56997FF1.9000407@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: "nouveau@lists.freedesktop.org" <nouveau@lists.freedesktop.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: Shaohui Xie <shaohui.xie@nxp.com>, Andrew Lunn <andrew@lunn.ch>,
-	"shh.xie@gmail.com" <shh.xie@gmail.com>
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35461 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbcAOW50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 17:57:26 -0500
-In-Reply-To: <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:34230 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbcAOXZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 18:25:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15.01.2016 05:01, Shaohui Xie wrote:
->> -----Original Message-----
->> From: Andrew Lunn [mailto:andrew@lunn.ch]
->> Sent: Friday, January 15, 2016 12:44 AM
->> To: shh.xie@gmail.com
->> Cc: devicetree@vger.kernel.org; netdev@vger.kernel.org; linuxppc-
->> dev@lists.ozlabs.org; f.fainelli@gmail.com; davem@davemloft.net; Shaohui Xie
->> Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
->>
->> On Thu, Jan 14, 2016 at 04:23:59PM +0800, shh.xie@gmail.com wrote:
->>> From: Shaohui Xie <Shaohui.Xie@freescale.com>
->>>
->>> This commit adds necessary definitions for the PHY layer to recognize
->>> backplane Ethernet 1000BASE-KX and 10GBASE-KR as valid PHY interfaces,
->>> "1000base-kx" for 1000BASE-KX, "10gbase-kr" for 10GBASE-KR.
->>>
->>> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
->>> ---
->>> changes in v2:
->>> new patch.
 
-Shaohui,
+Hi Fi, 
 
-it would be more useful to describe _what_ is new here compared to v1.
+as you can see it looks very peculiar mix, nouveau and usbnet.
+Are they hidden viruses!?
 
-Anyway:
-
->>>  Documentation/devicetree/bindings/net/ethernet.txt | 4 ++--
->>>  include/linux/phy.h                                | 6 ++++++
->>>  2 files changed, 8 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/ethernet.txt
->>> b/Documentation/devicetree/bindings/net/ethernet.txt
->>> index 5d88f37..1166a5c 100644
->>> --- a/Documentation/devicetree/bindings/net/ethernet.txt
->>> +++ b/Documentation/devicetree/bindings/net/ethernet.txt
->>> @@ -11,8 +11,8 @@ The following properties are common to the Ethernet
->> controllers:
->>>    the maximum frame size (there's contradiction in ePAPR).
->>>  - phy-mode: string, operation mode of the PHY interface; supported values are
->>>    "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii",
->>> "rgmii", "rgmii-id",
->>> -  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a
->>> de-facto
->>> -  standard property;
->>> +  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii", "1000base-kx",
->>> + "10gbase-kr";  this is now a de-facto standard property;
->>
->> I know very little about this, so i'm just asking a question. None of the other
->> interface modes contain a bit rate. So is the bit rate needed for your two new
->> modes?
-> 
-> 1000BASE-KX and 10GBASE-KR are terms in IEEE802.3, so as XGMII and GMII. 
-> There are interfaces could be different bit rates but same types, 
-> e.g. 100BASE-LX10 and 1000BASE-LX10, or 40GBASE-KR4 and 100GBASE-KR4, 
-> having bit rate is clear to represent hardware.
-> 
-
-If you look at the list of possible values for "phy-mode" you'd see that
-none of it describes a PHY-to-PHY connection but all are for MAC-to-PHY
-connections. Also, names above suggest it already: MII is short for
-media _independent_ interface.
-
-I copy Andrew's concerns and think that neither 10000base-kx nor
-10gbase-kr belong in the list of phy-mode properties.
-
-Sebastian
+...
+freshclam: page allocation failure: order:0, mode:0x2204010
+CPU: 0 PID: 12885 Comm: freshclam Not tainted 4.4.0-1.fc22.x86_64 #1
+...
+Call Trace:
+ <IRQ>  [<ffffffff81427e39>] dump_stack+0x4b/0x72
+ [<ffffffff811ebbca>] warn_alloc_failed+0xfa/0x160
+ [<ffffffff811f00a1>] __alloc_pages_nodemask+0x4b1/0xd70
+ [<ffffffffa0389402>] ? nvkm_client_ioctl+0x12/0x20 [nouveau]
+ [<ffffffff8124287b>] alloc_pages_current+0x9b/0x1c0
+ [<ffffffff8124c518>] new_slab+0x2a8/0x530
+ [<ffffffff8124dd30>] ___slab_alloc+0x1f0/0x580
+ [<ffffffff810e80a7>] ? sched_clock_local+0x17/0x80
+ [<ffffffff8142d958>] ? radix_tree_node_alloc+0x28/0xa0
+ [<ffffffffa04e548d>] ? intr_complete+0x3d/0xd0 [usbnet]
+ [<ffffffff8142d958>] ? radix_tree_node_alloc+0x28/0xa0
+ [<ffffffff8124e111>] __slab_alloc+0x51/0x90
+ [<ffffffff8124e3a0>] kmem_cache_alloc+0x250/0x300
+ [<ffffffff8142d958>] ? radix_tree_node_alloc+0x28/0xa0
+ [<ffffffff8142d958>] radix_tree_node_alloc+0x28/0xa0
+ [<ffffffff8142db1c>] __radix_tree_create+0x7c/0x200
+ [<ffffffff8142dce1>] radix_tree_insert+0x41/0xe0
+ [<ffffffff81459432>] add_dma_entry+0xa2/0x170
+ [<ffffffff81459843>] debug_dma_map_page+0x113/0x150
+ [<ffffffff816240a8>] usb_hcd_map_urb_for_dma+0x5f8/0x780
+ [<ffffffff81108d8d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff8162469d>] usb_hcd_submit_urb+0x1cd/0xac0
+ [<ffffffff810e82ca>] ? sched_clock_cpu+0x8a/0xb0
+ [<ffffffff816e6387>] ? led_trigger_blink_oneshot+0x77/0x90
+ [<ffffffff810e8345>] ? local_clock+0x15/0x20
+ [<ffffffff81127b6d>] ? debug_lockdep_rcu_enabled+0x1d/0x20
+ [<ffffffff8162626c>] usb_submit_urb+0x3fc/0x5a0
+ [<ffffffff8187fb17>] ? _raw_read_unlock+0x27/0x40
+ [<ffffffffa04e548d>] intr_complete+0x3d/0xd0 [usbnet]
+ [<ffffffff81622bbe>] __usb_hcd_giveback_urb+0x8e/0x160
+ [<ffffffff81622d2a>] usb_giveback_urb_bh+0x9a/0xf0
+ [<ffffffff810b3184>] tasklet_hi_action+0x184/0x1d0
+ [<ffffffff810b3c1e>] __do_softirq+0xde/0x490
+ [<ffffffff81122dbd>] ? handle_fasteoi_irq+0x11d/0x150
+ [<ffffffff810b4212>] irq_exit+0x112/0x120
+ [<ffffffff81882dda>] do_IRQ+0x6a/0x120
+ [<ffffffff81880b91>] common_interrupt+0x91/0x91
+ <EOI>  [<ffffffff8187f6a3>] ? _raw_spin_unlock_irq+0x33/0x40
+ [<ffffffff8187f69c>] ? _raw_spin_unlock_irq+0x2c/0x40
+ [<ffffffff811ff9e8>] shrink_active_list+0x178/0x3a0
+ [<ffffffff812001f5>] shrink_lruvec+0x5e5/0x750
+ [<ffffffff8120044f>] shrink_zone+0xef/0x2e0
+ [<ffffffff812007bc>] do_try_to_free_pages+0x17c/0x400
+ [<ffffffff81200b3e>] try_to_free_pages+0xfe/0x2c0
+ [<ffffffff811f0484>] __alloc_pages_nodemask+0x894/0xd70
+ [<ffffffff8110959a>] ? __lock_acquire+0x4ba/0x1b70
+ [<ffffffff810268b9>] ? sched_clock+0x9/0x10
+ [<ffffffff8124287b>] alloc_pages_current+0x9b/0x1c0
+ [<ffffffff811e4ba0>] __page_cache_alloc+0x150/0x1a0
+ [<ffffffff811e54d0>] ? find_get_entry+0x120/0x240
+ [<ffffffff811e53b5>] ? find_get_entry+0x5/0x240
+ [<ffffffff811e5704>] pagecache_get_page+0x84/0x200
+ [<ffffffff811e5aa9>] grab_cache_page_write_begin+0x29/0x40
+ [<ffffffff8131ca80>] ext4_da_write_begin+0xd0/0x3d0
+ [<ffffffff811e42f1>] generic_perform_write+0xd1/0x1e0
+ [<ffffffff8129484f>] ? file_update_time+0x5f/0x110
+ [<ffffffff811e7042>] __generic_file_write_iter+0x1a2/0x1e0
+ [<ffffffff81310a12>] ext4_file_write_iter+0x102/0x480
+ [<ffffffff810268b9>] ? sched_clock+0x9/0x10
+ [<ffffffff812760dc>] __vfs_write+0xcc/0x110
+ [<ffffffff8127677c>] vfs_write+0xac/0x1a0
+ [<ffffffff81297a56>] ? __fget_light+0x66/0x90
+ [<ffffffff81277478>] SyS_write+0x58/0xd0
+ [<ffffffff818800b2>] entry_SYSCALL_64_fastpath+0x12/0x76
+SLUB: Unable to allocate memory on node -1 (gfp=0x2000000)
+  cache: radix_tree_node, object size: 576, buffer size: 584, default order: 2, min order: 0
+  node 0: slabs: 766, objs: 21448, free: 0
+DMA-API: cacheline tracking ENOMEM, dma-debug disabled
+...
