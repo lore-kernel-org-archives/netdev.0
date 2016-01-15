@@ -1,66 +1,55 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net v2] ovs: add recursion limit to
-	ovs_vport_receive
-Date: Thu, 14 Jan 2016 22:30:18 -0800
-Message-ID: <CAOrHB_A+eXb648odrGZ4Z_kehi+zRcPk9UOpbhSA-CbioS+JAw@mail.gmail.com>
-References: <1452812755-14018-1-git-send-email-hannes@stressinduktion.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2] netfilter: nf_conntrack: use safer way to lock all
+ buckets
+Date: Fri, 15 Jan 2016 08:06:53 +0100
+Message-ID: <20160115080653.137e0ad6@redhat.com>
+References: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1452812755-14018-1-git-send-email-hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1452791036-2161-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBKYW4gMTQsIDIwMTYgYXQgMzowNSBQTSwgSGFubmVzIEZyZWRlcmljIFNvd2EKPGhh
-bm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPiB3cm90ZToKPiBJdCB3YXMgc2VlbiB0aGF0IGRlZmVj
-dGl2ZSBjb25maWd1cmF0aW9ucyBvZiBvcGVudnN3aXRjaCBjb3VsZCBvdmVyd3JpdGUKPiB0aGUg
-U1RBQ0tfRU5EX01BR0lDIGFuZCBjYXVzZSBhIGhhcmQgY3Jhc2ggb2YgdGhlIGtlcm5lbCBiZWNh
-dXNlIG9mIHRvbwo+IG1hbnkgcmVjdXJzaW9ucyB3aXRoaW4gb3ZzLgo+Cj4gVGhpcyBwcm9ibGVt
-IGFyaXNlcyBkdWUgdG8gdGhlIGhpZ2ggc3RhY2sgdXNhZ2Ugb2Ygb3BlbnZzd2l0Y2guIFRoZSBy
-ZXN0Cj4gb2YgdGhlIGtlcm5lbCBpcyBmaW5lIHdpdGggdGhlIGN1cnJlbnQgbGltaXQgb2YgMTAg
-KFJFQ1VSU0lPTl9MSU1JVCkuCj4gVGh1cyBhZGQgYW4gZXh0cmEgcmVjdXJzaW9uIGxpbWl0IGNv
-dW50ZXIgZm9yIG92c192cG9ydF9yZWNlaXZlIHVudGlsCj4gcGFydHMgb2YgdGhlIHN0YWNrIHVz
-YWdlIGlzIG1vdmVkIHRvIHBlcmNwdSBzY3JhdGNoIHNwYWNlLgo+Cj4gQ2M6IFByYXZpbiBTaGVs
-YXIgPHBzaGVsYXJAb3ZuLm9yZz4KPiBTaWduZWQtb2ZmLWJ5OiBIYW5uZXMgRnJlZGVyaWMgU293
-YSA8aGFubmVzQHN0cmVzc2luZHVrdGlvbi5vcmc+Cj4gLS0tCj4gdjIpIGFkZCBwcmVlbXB0aW9u
-IHByb3RlY3Rpb24KPgo+ICBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYyB8IDIwICsrKysrKysrKysr
-KysrKysrKy0tCj4gIDEgZmlsZSBjaGFuZ2VkLCAxOCBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9u
-cygtKQo+Cj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC5jIGIvbmV0L29wZW52
-c3dpdGNoL3Zwb3J0LmMKPiBpbmRleCAzMWNiYzhjNWM3ZGI4Mi4uMjM4ZmU0MzVjYTU4NzcgMTAw
-NjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMKPiArKysgYi9uZXQvb3BlbnZzd2l0
-Y2gvdnBvcnQuYwo+IEBAIC00MjYsNiArNDI2LDkgQEAgdTMyIG92c192cG9ydF9maW5kX3VwY2Fs
-bF9wb3J0aWQoY29uc3Qgc3RydWN0IHZwb3J0ICp2cG9ydCwgc3RydWN0IHNrX2J1ZmYgKnNrYikK
-PiAgICAgICAgIHJldHVybiBpZHMtPmlkc1tpZHNfaW5kZXhdOwo+ICB9Cj4KPiArc3RhdGljIERF
-RklORV9QRVJfQ1BVKGludCwgb3ZzX3JlY3Vyc2lvbik7Cj4gK3N0YXRpYyBjb25zdCBpbnQgb3Zz
-X3JlY3Vyc2lvbl9saW1pdCA9IDg7Cj4gKwoKSSBhbSBub3Qgc3VyZSBpZiA4IGlzIHJpZ2h0IGxp
-bWl0LiBJbiBzb21lIGNhc2VzLCBsaWtlIGlwc2VjLCBuZnMsIHdlCmNvdWxkIGhhdmUgcmVhbGx5
-IGRlZXAgc3RhY2ssIFNvIHRvIGJlIGNvbnNlcnZhdGl2ZSwgdGhlIGxpbWl0IGNvdWxkCmJlIDUu
-Cgo+ICAvKioKPiAgICogICAgIG92c192cG9ydF9yZWNlaXZlIC0gcGFzcyB1cCByZWNlaXZlZCBw
-YWNrZXQgdG8gdGhlIGRhdGFwYXRoIGZvciBwcm9jZXNzaW5nCj4gICAqCj4gQEAgLTQ0Miw2ICs0
-NDUsMTUgQEAgaW50IG92c192cG9ydF9yZWNlaXZlKHN0cnVjdCB2cG9ydCAqdnBvcnQsIHN0cnVj
-dCBza19idWZmICpza2IsCj4gICAgICAgICBzdHJ1Y3Qgc3dfZmxvd19rZXkga2V5Owo+ICAgICAg
-ICAgaW50IGVycm9yOwo+Cj4gKyAgICAgICBwcmVlbXB0X2Rpc2FibGUoKTsKPiArICAgICAgIGlm
-IChfX3RoaXNfY3B1X2luY19yZXR1cm4ob3ZzX3JlY3Vyc2lvbikgPiBvdnNfcmVjdXJzaW9uX2xp
-bWl0KSB7Cj4gKyAgICAgICAgICAgICAgIG5ldF9jcml0X3JhdGVsaW1pdGVkKCJvdnM6IHJlY3Vy
-c2lvbiBsaW1pdCByZWFjaGVkIG9uIGRhdGFwYXRoICVzLCBwcm9iYWJsZSBjb25maWd1cmF0aW9u
-IGVycm9yXG4iLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvdnNfZHBf
-bmFtZSh2cG9ydC0+ZHApKTsKPiArICAgICAgICAgICAgICAgZXJyb3IgPSAtRU5FVERPV047Cj4g
-KyAgICAgICAgICAgICAgIGtmcmVlX3NrYihza2IpOwo+ICsgICAgICAgICAgICAgICBnb3RvIG91
-dDsKPiArICAgICAgIH0KPiArClRoZXJlIGlzIGFscmVhZHkgZXhlY3V0aW9uIGxldmVsIGNvdW50
-ZXIgaW4gb3ZzX2V4ZWN1dGVfYWN0aW9ucygpLiBXZQpjYW4gdXNlIHRoYXQgdG8gY2hlY2sgZm9y
-IHRoZSBsaW1pdCByYXRoZXIgdGhhbiBhZGRpbmcgYW5vdGhlcgpjb3VudGVyLgpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRl
-dkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2Rldgo=
+On Thu, 14 Jan 2016 12:03:56 -0500
+Sasha Levin <sasha.levin@oracle.com> wrote:
+
+> When we need to lock all buckets in the connection hashtable we'd attempt to
+> lock 1024 spinlocks, which is way more preemption levels than supported by
+> the kernel. Furthermore, this behavior was hidden by checking if lockdep is
+> enabled, and if it was - use only 8 buckets(!).
+> 
+> Fix this by using a global lock and synchronize all buckets on it when we
+> need to lock them all. This is pretty heavyweight, but is only done when we
+> need to resize the hashtable, and that doesn't happen often enough (or at all).
+> 
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+
+[...]
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 3cb3cb8..4ccf5ad 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -66,6 +66,21 @@ EXPORT_SYMBOL_GPL(nf_conntrack_locks);
+>  __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
+>  EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
+>  
+> +spinlock_t nf_conntrack_locks_all_lock;
+> +bool nf_conntrack_locks_all;
+
+You forgot to mark these static and __read_mostly as Florian pointed out...
+
+After that you can add my:
+ Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
