@@ -1,47 +1,59 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH RT 2/2] net/core: skbuf use local lock in __netdev_alloc_skb()
-Date: Fri, 15 Jan 2016 17:20:15 +0100
-Message-ID: <20160115162015.GB3781@linutronix.de>
-References: <20160115161841.GA3781@linutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netfilter: xt_TCPMSS: handle CHECKSUM_COMPLETE in
+ tcpmss_tg6()
+Date: Fri, 15 Jan 2016 08:21:32 -0800
+Message-ID: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
-To: linux-rt-users@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160115161841.GA3781@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <tom@herbertland.com>
+To: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-local_irq_save() was introduced in v4.2-rc1 via 9451980a6646
-("net: Use cached copy of pfmemalloc to avoid accessing page").
-This is only v4.1-RT..v4.4-RT fallout.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+In case MSS option is added in TCP options, skb length increases by 4.
+IPv6 needs to update skb->csum if skb has CHECKSUM_COMPLETE,
+otherwise kernel complains loudly in netdev_rx_csum_fault() with a
+stack dump.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/core/skbuff.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/xt_TCPMSS.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7c422e441f1c..53f10c2d7718 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -434,13 +434,13 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
- 	if (sk_memalloc_socks())
- 		gfp_mask |= __GFP_MEMALLOC;
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index b7c43def0dc6..e118397254af 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -228,7 +228,7 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	u8 nexthdr;
+-	__be16 frag_off;
++	__be16 frag_off, oldlen, newlen;
+ 	int tcphoff;
+ 	int ret;
  
--	local_irq_save(flags);
-+	local_lock_irqsave(netdev_alloc_lock, flags);
- 
- 	nc = this_cpu_ptr(&netdev_alloc_cache);
- 	data = __alloc_page_frag(nc, len, gfp_mask);
- 	pfmemalloc = nc->pfmemalloc;
- 
--	local_irq_restore(flags);
-+	local_unlock_irqrestore(netdev_alloc_lock, flags);
- 
- 	if (unlikely(!data))
- 		return NULL;
--- 
-2.7.0.rc3
+@@ -244,7 +244,12 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 		return NF_DROP;
+ 	if (ret > 0) {
+ 		ipv6h = ipv6_hdr(skb);
+-		ipv6h->payload_len = htons(ntohs(ipv6h->payload_len) + ret);
++		oldlen = ipv6h->payload_len;
++		newlen = htons(ntohs(oldlen) + ret);
++		if (skb->ip_summed == CHECKSUM_COMPLETE)
++			skb->csum = csum_add(csum_sub(skb->csum, oldlen),
++					     newlen);
++		ipv6h->payload_len = newlen;
+ 	}
+ 	return XT_CONTINUE;
+ }
+
+
