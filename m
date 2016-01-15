@@ -1,38 +1,44 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] net: sctp: Move sequence start handling into
- sctp_transport_get_idx()
-Date: Fri, 15 Jan 2016 17:05:32 -0200
-Message-ID: <20160115190532.GH6074@mrl.redhat.com>
-References: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: net/sctp: sctp_datamsg memory leak
+Date: Fri, 15 Jan 2016 17:07:33 -0200
+Message-ID: <20160115190733.GI6074@mrl.redhat.com>
+References: <CACT4Y+bhbOZAaV-KOFOS6ozqEqGa9dzjEFUkeH5b3_AbaWacJw@mail.gmail.com>
+ <20160108152507.GB6074@mrl.redhat.com>
+ <CACT4Y+abxekf8Cezxa+OdNsDDzLd_tVQVqWnxn2V5PyKGJv88Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: Vlad Yasevich <vyasevich@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Xin Long <lucien.xin@gmail.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1452865471-32509-1-git-send-email-geert@linux-m68k.org>
+In-Reply-To: <CACT4Y+abxekf8Cezxa+OdNsDDzLd_tVQVqWnxn2V5PyKGJv88Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 15, 2016 at 02:44:31PM +0100, Geert Uytterhoeven wrote:
-> net/sctp/proc.c: In function =E2=80=98sctp_transport_get_idx=E2=80=99=
-:
-> net/sctp/proc.c:313: warning: =E2=80=98obj=E2=80=99 may be used unini=
-tialized in this function
->=20
-> This is currently a false positive, as all callers check for a zero
-> offset first, and handle this case in the exact same way.
->=20
-> Move the check and handling into sctp_transport_get_idx() to kill the
-> compiler warning, and avoid future bugs.
->=20
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> ---
-> Compile-tested only.
+On Fri, Jan 15, 2016 at 07:55:56PM +0100, Dmitry Vyukov wrote:
+> On Fri, Jan 8, 2016 at 4:25 PM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+...
+> >>  \xe9\x32\
+> >>  xde\x36",
+> >> 251);
+> >
+> > Please clarify this line. It doesn't compile as-is and the len doesn't
+> > match the data itself.
+> 
+> I am not sure why there a ! at the end of the line, it wasn't present
+> in my original program.
+> Here is a source that compiles for me with -Wall:
+> https://gist.githubusercontent.com/dvyukov/662ee19898ed25f7db31/raw/3a6cbfa462f8eba67fda90f16198c62159b6b42f/gistfile1.txt
+> 
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Got it, thanks
