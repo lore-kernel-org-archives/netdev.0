@@ -1,45 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/3] gianfar: Delete unnecessary variable
- initialisations in gfar_ethflow_to_filer_table()
-Date: Fri, 15 Jan 2016 11:42:53 -0500 (EST)
-Message-ID: <20160115.114253.673366436532953675.davem@davemloft.net>
-References: <5698C61A.90504@users.sourceforge.net>
-	<20160115102947.GI4764@mwanda>
-	<5698D949.6000404@users.sourceforge.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net] netfilter: xt_TCPMSS: handle CHECKSUM_COMPLETE in tcpmss_tg6()
+Date: Fri, 15 Jan 2016 08:43:38 -0800
+Message-ID: <CALx6S348Td5ZHVDTOn+DudAjs9pNjhs6kkEbn-CgYCqXEh0BQg@mail.gmail.com>
+References: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
-	claudiu.manoil@freescale.com, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5698D949.6000404@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 15 Jan 2016 12:34:33 +0100
+On Fri, Jan 15, 2016 at 8:21 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> In case MSS option is added in TCP options, skb length increases by 4.
+> IPv6 needs to update skb->csum if skb has CHECKSUM_COMPLETE,
+> otherwise kernel complains loudly in netdev_rx_csum_fault() with a
+> stack dump.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/netfilter/xt_TCPMSS.c |    9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+> index b7c43def0dc6..e118397254af 100644
+> --- a/net/netfilter/xt_TCPMSS.c
+> +++ b/net/netfilter/xt_TCPMSS.c
+> @@ -228,7 +228,7 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+>  {
+>         struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+>         u8 nexthdr;
+> -       __be16 frag_off;
+> +       __be16 frag_off, oldlen, newlen;
+>         int tcphoff;
+>         int ret;
+>
+> @@ -244,7 +244,12 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+>                 return NF_DROP;
+>         if (ret > 0) {
+>                 ipv6h = ipv6_hdr(skb);
+> -               ipv6h->payload_len = htons(ntohs(ipv6h->payload_len) + ret);
+> +               oldlen = ipv6h->payload_len;
+> +               newlen = htons(ntohs(oldlen) + ret);
+> +               if (skb->ip_summed == CHECKSUM_COMPLETE)
+> +                       skb->csum = csum_add(csum_sub(skb->csum, oldlen),
+> +                                            newlen);
+> +               ipv6h->payload_len = newlen;
 
->>> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
->>> @@ -768,12 +768,12 @@ static void ethflow_to_filer_rules (struct gfar_private *priv, u64 ethflow)
->>>  static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
->>>  				       u64 class)
->>>  {
->>> -	unsigned int last_rule_idx = priv->cur_filer_idx;
->>> +	unsigned int last_rule_idx;
->> 
->> This is a write only variable.  We can just remove it.
-> 
-> Can a static source code analysis tool like the software "http://smatch.sourceforge.net/"
-> detect that such a variable is not read by this function implementation so far?
+Probably should have a utility function do this. Maybe something like
+update_hdr_field(skb, old, new)? Could return new value so above could
+just be:
 
-No, but a human can.
+ipv6h->payload_len = update_hdr_field(skb, ipv6h->payload_len,
+htons(ntohs(oldlen) + ret);
 
-And a human should fully analyze any change he writes based upon static
-analysis tool results.
-
-I am going to be honest, and say that I am completely ignoring most of
-your static checker patches.  You don't put enough care and consideration
-into them, and I really don't have time to waste on looking at something
-like that.
+>         }
+>         return XT_CONTINUE;
+>  }
+>
+>
