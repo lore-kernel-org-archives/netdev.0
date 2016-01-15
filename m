@@ -1,56 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] [PATCHv1 net] xen-netback: use skb to determine
- number of required guest Rx requests
-Date: Fri, 15 Jan 2016 11:34:30 -0500 (EST)
-Message-ID: <20160115.113430.2270570646723842525.davem@davemloft.net>
-References: <1452784710-11923-1-git-send-email-david.vrabel@citrix.com>
-	<20160114.165456.1025501284568544813.davem@davemloft.net>
-	<5698CA9D.5040707@citrix.com>
+Subject: Re: [PATCH v3 2/3] gianfar: Delete unnecessary variable
+ initialisations in gfar_ethflow_to_filer_table()
+Date: Fri, 15 Jan 2016 11:42:53 -0500 (EST)
+Message-ID: <20160115.114253.673366436532953675.davem@davemloft.net>
+References: <5698C61A.90504@users.sourceforge.net>
+	<20160115102947.GI4764@mwanda>
+	<5698D949.6000404@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
-	ian.campbell@citrix.com, xen-devel@lists.xenproject.org
-To: david.vrabel@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59197 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbcAOQed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 11:34:33 -0500
-In-Reply-To: <5698CA9D.5040707@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
+	claudiu.manoil@freescale.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5698D949.6000404@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Fri, 15 Jan 2016 10:31:57 +0000
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 15 Jan 2016 12:34:33 +0100
 
-> On 14/01/16 21:54, David Miller wrote:
->> From: David Vrabel <david.vrabel@citrix.com>
->> Date: Thu, 14 Jan 2016 15:18:30 +0000
+>>> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+>>> @@ -768,12 +768,12 @@ static void ethflow_to_filer_rules (struct gfar_private *priv, u64 ethflow)
+>>>  static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+>>>  				       u64 class)
+>>>  {
+>>> -	unsigned int last_rule_idx = priv->cur_filer_idx;
+>>> +	unsigned int last_rule_idx;
 >> 
->>> -	needed = xenvif_rx_ring_slots_needed(queue->vif);
->>> +	skb = skb_peek(&queue->rx_queue);
->>> +	if (!skb)
->>> +		return false;
->>> +
->>> +	needed = DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
->>> +	if (skb_is_gso(skb))
->>> +		needed++;
->> 
->> If I am not mistaken, we moved away from this kind of test exactly because
->> it is inaccurate and may under-estimate the needs.
->> 
->> It is possible for an N byte SKB to require N segments.  Therefore, the:
->> 
->> 	DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
->> 
->> calculation doesn't cut it.
+>> This is a write only variable.  We can just remove it.
 > 
-> After 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b (xen-netback: always
-> fully coalesce guest Rx packets) we always fully pack a packet into its
-> guest Rx slots.  Each slot has space for XEN_PAGE_SIZE bytes so this
-> calculation for the number of slots is correct.
-> 
-> Shall I resend with a more description changelog?
+> Can a static source code analysis tool like the software "http://smatch.sourceforge.net/"
+> detect that such a variable is not read by this function implementation so far?
 
-Yeah that would help a lot.
+No, but a human can.
+
+And a human should fully analyze any change he writes based upon static
+analysis tool results.
+
+I am going to be honest, and say that I am completely ignoring most of
+your static checker patches.  You don't put enough care and consideration
+into them, and I really don't have time to waste on looking at something
+like that.
