@@ -1,60 +1,38 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: gianfar: Delete unnecessary variable initialisations in
- gfar_ethflow_to_filer_table()
-Date: Fri, 15 Jan 2016 18:15:14 +0100
-Message-ID: <56992922.4080500@users.sourceforge.net>
-References: <5698C61A.90504@users.sourceforge.net>
- <20160115102947.GI4764@mwanda> <5698D949.6000404@users.sourceforge.net>
- <20160115.114253.673366436532953675.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] netfilter: xt_TCPMSS: handle CHECKSUM_COMPLETE in
+ tcpmss_tg6()
+Date: Fri, 15 Jan 2016 09:18:44 -0800
+Message-ID: <1452878324.1223.188.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1452874892.1223.175.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S348Td5ZHVDTOn+DudAjs9pNjhs6kkEbn-CgYCqXEh0BQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: David Miller <davem@davemloft.net>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160115.114253.673366436532953675.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CALx6S348Td5ZHVDTOn+DudAjs9pNjhs6kkEbn-CgYCqXEh0BQg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> This is a write only variable.  We can just remove it.
->>
->> Can a static source code analysis tool like the software "http://smatch.sourceforge.net/"
->> detect that such a variable is not read by this function implementation so far?
+On Fri, 2016-01-15 at 08:43 -0800, Tom Herbert wrote:
+
+> Probably should have a utility function do this. Maybe something like
+> update_hdr_field(skb, old, new)? Could return new value so above could
+> just be:
 > 
-> No,
+> ipv6h->payload_len = update_hdr_field(skb, ipv6h->payload_len,
+> htons(ntohs(oldlen) + ret);
 
-I imagine that there are a few tools available which can point such update candidates out.
-There are various software development challenges to consider.
+Well, oldlen would still need to be ipv6h->payload_len
 
+Not sure a helper will be nice for a stable submission.
 
-> but a human can.
-
-Some software developers and source code reviewers are struggling with mentioned
-implementation details as usual. Do they also wonder how the discussed variable assignment
-was left over in a specific function?
+Probably better for net-next ?
 
 
-> I am going to be honest, and say that I am completely ignoring most of
-> your static checker patches.
-
-I am curious if you would reconsider the affected source code places once more
-when you will be notified about related issues by other tools or persons.
-
-
-> You don't put enough care and consideration into them,
-
-Would you like to explain this impression a bit more?
-
-
-> and I really don't have time to waste on looking at something like that.
-
-Thanks for your feedback.
-
-Various open issues are competing for our attention as usual.
-
-Regards,
-Markus
