@@ -1,68 +1,52 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v6 3/9] Add correlated clocksource relating aliased
- auxiliary and system clocks
-Date: Fri, 15 Jan 2016 11:29:19 +0100 (CET)
-Message-ID: <alpine.DEB.2.11.1601151108110.3575@nanos>
-References: <1452687149-11281-1-git-send-email-christopher.s.hall@intel.com> <1452687149-11281-4-git-send-email-christopher.s.hall@intel.com> <CALAqxLXZhpGUv2UAPLmSboW=nhyW+eXvrMaUkZCy7JQh=WgkLQ@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCHv1 net] xen-netback: use skb to determine number
+ of required guest Rx requests
+Date: Fri, 15 Jan 2016 10:31:57 +0000
+Message-ID: <5698CA9D.5040707@citrix.com>
+References: <1452784710-11923-1-git-send-email-david.vrabel@citrix.com>
+ <20160114.165456.1025501284568544813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	"Stanton, Kevin B" <kevin.b.stanton@intel.com>
-To: John Stultz <john.stultz@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALAqxLXZhpGUv2UAPLmSboW=nhyW+eXvrMaUkZCy7JQh=WgkLQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
+	<ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>, <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:62373 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755176AbcAOKcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 05:32:07 -0500
+In-Reply-To: <20160114.165456.1025501284568544813.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Jan 2016, John Stultz wrote:
-> On Wed, Jan 13, 2016 at 4:12 AM, Christopher S. Hall
-> <christopher.s.hall@intel.com> wrote:
-> > +/*
-> > + * struct correlated_cs - Descriptor for a clocksource correlated to another
-> > + *     clocksource
-> > + * @related_cs:                Pointer to the related timekeeping clocksource
-> > + * @convert:           Conversion function to convert a timestamp from
-> > + *                     the correlated clocksource to cycles of the related
-> > + *                     timekeeping clocksource
-> > + */
-> > +struct correlated_cs {
-> > +       struct clocksource      *related_cs;
-> > +       cycle_t                 (*convert)(struct correlated_cs *cs,
-> > +                                          cycle_t cycles);
-> > +};
-> > +
+On 14/01/16 21:54, David Miller wrote:
+> From: David Vrabel <david.vrabel@citrix.com>
+> Date: Thu, 14 Jan 2016 15:18:30 +0000
 > 
-> So.. In reworking your patch set, I've preserved this, but I'm still
-> not totally convinced. Its a generic structure, but not used by any
-> generic code and its only used by hardware specific implementations
-> (ie: the tsc and e1000e_hwts logic). It seems like this could be a
-> tsc.h specific structure w/o a real issue.
+>> -	needed = xenvif_rx_ring_slots_needed(queue->vif);
+>> +	skb = skb_peek(&queue->rx_queue);
+>> +	if (!skb)
+>> +		return false;
+>> +
+>> +	needed = DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
+>> +	if (skb_is_gso(skb))
+>> +		needed++;
+> 
+> If I am not mistaken, we moved away from this kind of test exactly because
+> it is inaccurate and may under-estimate the needs.
+> 
+> It is possible for an N byte SKB to require N segments.  Therefore, the:
+> 
+> 	DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
+> 
+> calculation doesn't cut it.
 
-That correlated_cs is my fault. I invented that when I had that first stab on
-the cross time stamp thing.
- 
-> And really this doesn't seem to be a generic thing. The e1000e hwts is
-> always the ART based. Its not likely these sorts of cross hardware
-> timestamps are going to be completely abstract and interchangeable,
-> is it?
+After 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b (xen-netback: always
+fully coalesce guest Rx packets) we always fully pack a packet into its
+guest Rx slots.  Each slot has space for XEN_PAGE_SIZE bytes so this
+calculation for the number of slots is correct.
 
-They might be in future. I guess other archs will provide similar means to
-distribute an always on timer to PCIe for timestamping purposes.
+Shall I resend with a more description changelog?
 
-So the question is whether we should expose that timestamp reference via a
-generic mechanism, e.g. store it somewhere in the pci root complex or wherever
-the appropriate point for it is.
-
-Though for now, we certainly can make that x86 private and deal with it when
-others come along.
-
-Thanks,
-
-	tglx
+David
