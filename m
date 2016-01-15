@@ -1,88 +1,59 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Re: [PATCH 1/1] net/ipv6: add sysctl option accept_ra_min_hop_limit
-Date: Fri, 15 Jan 2016 18:25:04 +0900
-Message-ID: <5698BAF0.7060709@jp.fujitsu.com>
-References: <1451896664-14271-1-git-send-email-machida.yuki@jp.fujitsu.com>
- <568B9836.1000202@miraclelinux.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RT] net: move xmit_recursion to per-task variable on -RT
+Date: Fri, 15 Jan 2016 10:34:33 +0100
+Message-ID: <5698BD29.8090405@stressinduktion.org>
+References: <20160113152352.GH29964@linutronix.de>
+ <alpine.DEB.2.11.1601131830440.3575@nanos>
+ <20160114145007.GC17776@linutronix.de> <56981AE1.20202@stressinduktion.org>
+ <1452810004.1223.154.camel@edumazet-glaptop2.roam.corp.google.com>
+ <56982895.6070901@stressinduktion.org>
+ <alpine.DEB.2.11.1601150916180.3575@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"YOSHIFUJI Hideaki (USAGI Project)" <yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:62292 "EHLO
-	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755175AbcAOJZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 04:25:14 -0500
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxoi1.gw.nic.fujitsu.com (Postfix) with ESMTP id 62E1EAC04E1
-	for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 18:25:05 +0900 (JST)
-In-Reply-To: <568B9836.1000202@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1601150916180.3575@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Yoshifuji-san
-
-It is currently under investigation.
-It takes still time.
-
-Futher comment below.
-
-On 2016年01月05日 19:17, YOSHIFUJI Hideaki wrote:
-> Hi, Machida-san.
-> 
-> Yuki Machida wrote:
->> Please apply the following patch to v4.1.x.
+On 15.01.2016 09:21, Thomas Gleixner wrote:
+> On Fri, 15 Jan 2016, Hannes Frederic Sowa wrote:
+>> On 14.01.2016 23:20, Eric Dumazet wrote:
+>>> On Thu, 2016-01-14 at 23:02 +0100, Hannes Frederic Sowa wrote:
+>>>
+>>>> We are just adding a second recursion limit solely to openvswitch which
+>>>> has the same problem:
+>>>>
+>>>> https://patchwork.ozlabs.org/patch/566769/
+>>>>
+>>>> This time also we depend on rcu_read_lock marking the section being
+>>>> nonpreemptible. Nice would be a more generic solution here which doesn't
+>>>> need to always add something to *current.
+>>>
+>>>
+>>> Note that rcu_read_lock() does not imply that preemption is disabled.
 >>
->> By ommit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
-> 
-> s/ommit/commit/
-I will correct this typo.
+>> Exactly, it is conditional on CONFIG_PREEMPT_CPU/CONFIG_PREMPT_COUNT but
+>> haven't thought about exactly that in this moment.
+>
+> Wrong. CONFIG_PREEMPT_RCU makes RCU preemptible.
+>
+> If that is not set then it fiddles with preempt_count when
+> CONFIG_PREEMPT_COUNT=y. If CONFIG_PREEMPT_COUNT=n then you have a non
+> preemptible system anyway.
+>
+> So you cannot assume that rcu_read_lock() disables preemption.
 
-> 
-> Futher comment below.
-> 
-> :
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->> Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->> ---
->>   Documentation/networking/ip-sysctl.txt |  8 ++++++++
->>   include/linux/ipv6.h                   |  1 +
->>   include/uapi/linux/ipv6.h              |  1 +
->>   net/ipv6/addrconf.c                    | 10 ++++++++++
->>   net/ipv6/ndisc.c                       | 16 +++++++---------
->>   5 files changed, 27 insertions(+), 9 deletions(-)
->>
->> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->> index 071fb18..07fad3d 100644
-> :
->> --- a/include/uapi/linux/ipv6.h
->> +++ b/include/uapi/linux/ipv6.h
->> @@ -171,6 +171,7 @@ enum {
->>   	DEVCONF_USE_OPTIMISTIC,
->>   	DEVCONF_ACCEPT_RA_MTU,
->>   	DEVCONF_STABLE_SECRET,
-> 
-> You have to add a hole for DEVCONF_USE_OIF_ADDRS_ONLY.
+Sorry for maybe writing it misleading but that is exactly what I wanted 
+to say here. Yes, I agree, I didn't really check because of _bh and 
+rcu_read_lock. This was a mistake. ;)
 
-For addition a hole of DEVCONF_USE_OIF_ADDRS_ONLY,
-It needs following two patches.
-commit 9131f3de24db4dc12199aede7d931e6703e97f3b
-commit 3985e8a3611a93bb36789f65db862e5700aab65e
+I already send out an updated patch with added preemption guards.
 
-When It apply two patches to 4.1.15,
-It doesn't conform to RFC 2460 and RFC 4443.
-(I used IPv6 Ready Logo Core Conformance Test.)
-I am looking for a patch for fix.
-
-> --yoshfuji
-> 
->> +	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
->>   	DEVCONF_MAX
->>   };
->>   
-> 
+Thanks,
+Hannes
