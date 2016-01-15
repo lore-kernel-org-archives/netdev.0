@@ -1,41 +1,66 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net v2] ovs: add recursion limit to ovs_vport_receive
-Date: Fri, 15 Jan 2016 14:28:29 +0900
-Message-ID: <20160115052825.GA20879@vergenet.net>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net v2] ovs: add recursion limit to
+	ovs_vport_receive
+Date: Thu, 14 Jan 2016 22:30:18 -0800
+Message-ID: <CAOrHB_A+eXb648odrGZ4Z_kehi+zRcPk9UOpbhSA-CbioS+JAw@mail.gmail.com>
 References: <1452812755-14018-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin Shelar <pshelar@ovn.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34485 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbcAOF2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 00:28:38 -0500
-Received: by mail-pa0-f50.google.com with SMTP id uo6so373748408pac.1
-        for <netdev@vger.kernel.org>; Thu, 14 Jan 2016 21:28:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1452812755-14018-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1452812755-14018-1-git-send-email-hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Fri, Jan 15, 2016 at 12:05:55AM +0100, Hannes Frederic Sowa wrote:
-> It was seen that defective configurations of openvswitch could overwrite
-> the STACK_END_MAGIC and cause a hard crash of the kernel because of too
-> many recursions within ovs.
-> 
-> This problem arises due to the high stack usage of openvswitch. The rest
-> of the kernel is fine with the current limit of 10 (RECURSION_LIMIT).
-> Thus add an extra recursion limit counter for ovs_vport_receive until
-> parts of the stack usage is moved to percpu scratch space.
-> 
-> Cc: Pravin Shelar <pshelar@ovn.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks for this. Its looks like a clean solution to a problem
-that has been on my todo list for quite some time.
-
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+T24gVGh1LCBKYW4gMTQsIDIwMTYgYXQgMzowNSBQTSwgSGFubmVzIEZyZWRlcmljIFNvd2EKPGhh
+bm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPiB3cm90ZToKPiBJdCB3YXMgc2VlbiB0aGF0IGRlZmVj
+dGl2ZSBjb25maWd1cmF0aW9ucyBvZiBvcGVudnN3aXRjaCBjb3VsZCBvdmVyd3JpdGUKPiB0aGUg
+U1RBQ0tfRU5EX01BR0lDIGFuZCBjYXVzZSBhIGhhcmQgY3Jhc2ggb2YgdGhlIGtlcm5lbCBiZWNh
+dXNlIG9mIHRvbwo+IG1hbnkgcmVjdXJzaW9ucyB3aXRoaW4gb3ZzLgo+Cj4gVGhpcyBwcm9ibGVt
+IGFyaXNlcyBkdWUgdG8gdGhlIGhpZ2ggc3RhY2sgdXNhZ2Ugb2Ygb3BlbnZzd2l0Y2guIFRoZSBy
+ZXN0Cj4gb2YgdGhlIGtlcm5lbCBpcyBmaW5lIHdpdGggdGhlIGN1cnJlbnQgbGltaXQgb2YgMTAg
+KFJFQ1VSU0lPTl9MSU1JVCkuCj4gVGh1cyBhZGQgYW4gZXh0cmEgcmVjdXJzaW9uIGxpbWl0IGNv
+dW50ZXIgZm9yIG92c192cG9ydF9yZWNlaXZlIHVudGlsCj4gcGFydHMgb2YgdGhlIHN0YWNrIHVz
+YWdlIGlzIG1vdmVkIHRvIHBlcmNwdSBzY3JhdGNoIHNwYWNlLgo+Cj4gQ2M6IFByYXZpbiBTaGVs
+YXIgPHBzaGVsYXJAb3ZuLm9yZz4KPiBTaWduZWQtb2ZmLWJ5OiBIYW5uZXMgRnJlZGVyaWMgU293
+YSA8aGFubmVzQHN0cmVzc2luZHVrdGlvbi5vcmc+Cj4gLS0tCj4gdjIpIGFkZCBwcmVlbXB0aW9u
+IHByb3RlY3Rpb24KPgo+ICBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYyB8IDIwICsrKysrKysrKysr
+KysrKysrKy0tCj4gIDEgZmlsZSBjaGFuZ2VkLCAxOCBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9u
+cygtKQo+Cj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC5jIGIvbmV0L29wZW52
+c3dpdGNoL3Zwb3J0LmMKPiBpbmRleCAzMWNiYzhjNWM3ZGI4Mi4uMjM4ZmU0MzVjYTU4NzcgMTAw
+NjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMKPiArKysgYi9uZXQvb3BlbnZzd2l0
+Y2gvdnBvcnQuYwo+IEBAIC00MjYsNiArNDI2LDkgQEAgdTMyIG92c192cG9ydF9maW5kX3VwY2Fs
+bF9wb3J0aWQoY29uc3Qgc3RydWN0IHZwb3J0ICp2cG9ydCwgc3RydWN0IHNrX2J1ZmYgKnNrYikK
+PiAgICAgICAgIHJldHVybiBpZHMtPmlkc1tpZHNfaW5kZXhdOwo+ICB9Cj4KPiArc3RhdGljIERF
+RklORV9QRVJfQ1BVKGludCwgb3ZzX3JlY3Vyc2lvbik7Cj4gK3N0YXRpYyBjb25zdCBpbnQgb3Zz
+X3JlY3Vyc2lvbl9saW1pdCA9IDg7Cj4gKwoKSSBhbSBub3Qgc3VyZSBpZiA4IGlzIHJpZ2h0IGxp
+bWl0LiBJbiBzb21lIGNhc2VzLCBsaWtlIGlwc2VjLCBuZnMsIHdlCmNvdWxkIGhhdmUgcmVhbGx5
+IGRlZXAgc3RhY2ssIFNvIHRvIGJlIGNvbnNlcnZhdGl2ZSwgdGhlIGxpbWl0IGNvdWxkCmJlIDUu
+Cgo+ICAvKioKPiAgICogICAgIG92c192cG9ydF9yZWNlaXZlIC0gcGFzcyB1cCByZWNlaXZlZCBw
+YWNrZXQgdG8gdGhlIGRhdGFwYXRoIGZvciBwcm9jZXNzaW5nCj4gICAqCj4gQEAgLTQ0Miw2ICs0
+NDUsMTUgQEAgaW50IG92c192cG9ydF9yZWNlaXZlKHN0cnVjdCB2cG9ydCAqdnBvcnQsIHN0cnVj
+dCBza19idWZmICpza2IsCj4gICAgICAgICBzdHJ1Y3Qgc3dfZmxvd19rZXkga2V5Owo+ICAgICAg
+ICAgaW50IGVycm9yOwo+Cj4gKyAgICAgICBwcmVlbXB0X2Rpc2FibGUoKTsKPiArICAgICAgIGlm
+IChfX3RoaXNfY3B1X2luY19yZXR1cm4ob3ZzX3JlY3Vyc2lvbikgPiBvdnNfcmVjdXJzaW9uX2xp
+bWl0KSB7Cj4gKyAgICAgICAgICAgICAgIG5ldF9jcml0X3JhdGVsaW1pdGVkKCJvdnM6IHJlY3Vy
+c2lvbiBsaW1pdCByZWFjaGVkIG9uIGRhdGFwYXRoICVzLCBwcm9iYWJsZSBjb25maWd1cmF0aW9u
+IGVycm9yXG4iLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvdnNfZHBf
+bmFtZSh2cG9ydC0+ZHApKTsKPiArICAgICAgICAgICAgICAgZXJyb3IgPSAtRU5FVERPV047Cj4g
+KyAgICAgICAgICAgICAgIGtmcmVlX3NrYihza2IpOwo+ICsgICAgICAgICAgICAgICBnb3RvIG91
+dDsKPiArICAgICAgIH0KPiArClRoZXJlIGlzIGFscmVhZHkgZXhlY3V0aW9uIGxldmVsIGNvdW50
+ZXIgaW4gb3ZzX2V4ZWN1dGVfYWN0aW9ucygpLiBXZQpjYW4gdXNlIHRoYXQgdG8gY2hlY2sgZm9y
+IHRoZSBsaW1pdCByYXRoZXIgdGhhbiBhZGRpbmcgYW5vdGhlcgpjb3VudGVyLgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRl
+dkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZv
+L2Rldgo=
