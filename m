@@ -1,77 +1,85 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v3 3/3] rsi: Replace variable initialisations by assignments
- in rsi_send_data_pkt()
-Date: Fri, 15 Jan 2016 14:12:01 +0100
-Message-ID: <5698F021.1070707@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <5687E169.4070704@users.sourceforge.net>
- <5698EE65.7010607@users.sourceforge.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Optimizing instruction-cache, more packets at each stage
+Date: Fri, 15 Jan 2016 14:22:23 +0100
+Message-ID: <20160115142223.1e92be75@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Fariya Fatima <fariyaf@gmail.com>,
-	Jahnavi Meher <jahnavi.meher@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5698EE65.7010607@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56125 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755552AbcAONWb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jan 2016 08:22:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 15 Jan 2016 13:40:22 +0100
 
-Replace explicit initialisation for two local variables at the beginning
-by assignments.
+Given net-next is closed, we have time to discuss controversial core
+changes right? ;-)
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/wireless/rsi/rsi_91x_pkt.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+I want to do some instruction-cache level optimizations.
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_pkt.c b/drivers/net/wireless/rsi/rsi_91x_pkt.c
-index 4322df1..2c18c01 100644
---- a/drivers/net/wireless/rsi/rsi_91x_pkt.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_pkt.c
-@@ -26,12 +26,12 @@
-  */
- int rsi_send_data_pkt(struct rsi_common *common, struct sk_buff *skb)
- {
--	struct rsi_hw *adapter = common->priv;
-+	struct rsi_hw *adapter;
- 	struct ieee80211_hdr *tmp_hdr;
- 	struct ieee80211_tx_info *info;
- 	struct skb_info *tx_params;
- 	struct ieee80211_bss_conf *bss;
--	int status = -EINVAL;
-+	int status;
- 	u8 ieee80211_size = MIN_802_11_HDR_LEN;
- 	u8 extnd_size;
- 	__le16 *frame_desc;
-@@ -41,8 +41,10 @@ int rsi_send_data_pkt(struct rsi_common *common, struct sk_buff *skb)
- 	bss = &info->control.vif->bss_conf;
- 	tx_params = (struct skb_info *)info->driver_data;
- 
--	if (!bss->assoc)
-+	if (!bss->assoc) {
-+		status = -EINVAL;
- 		goto err;
-+	}
- 
- 	tmp_hdr = (struct ieee80211_hdr *)&skb->data[0];
- 	seq_num = (le16_to_cpu(tmp_hdr->seq_ctrl) >> 4);
-@@ -97,7 +99,7 @@ int rsi_send_data_pkt(struct rsi_common *common, struct sk_buff *skb)
- 	frame_desc[7] = cpu_to_le16(((tx_params->tid & 0xf) << 4) |
- 				    (skb->priority & 0xf) |
- 				    (tx_params->sta_id << 8));
--
-+	adapter = common->priv;
- 	status = adapter->host_intf_write_pkt(common->priv,
- 					      skb->data,
- 					      skb->len);
+What do I mean by that...
+
+The kernel network stack code path (a packet travels) is obviously
+larger than the instruction-cache (icache).  Today, every packet
+travel individually through the network stack, experiencing the exact
+same icache misses (as the previous packet).
+
+I imagine that we could process several packets at each stage in the
+packet processing code path.  That way making better use of the
+icache.
+
+Today, we already allow NAPI net_rx_action() to process many
+(e.g. up-to 64) packets in the driver RX-poll routine.  But the driver
+then calls the "full" stack for every single packet (e.g. via
+napi_gro_receive()) in its processing loop.  Thus, trashing the icache
+for every packet.
+
+I have a prove-of-concept patch for ixgbe, which gives me 10% speedup
+on full IP forwarding.  (This patch also optimize delaying when I
+touch the packet data, thus it also optimizes data-cache misses).  The
+basic idea is that I delay calling ixgbe_rx_skb/napi_gro_receive, and
+allow the RX loop (in ixgbe_clean_rx_irq()) to run more iterations
+before "flushing" the icache (by calling the stack).
+
+
+This was only at the driver level.  I also would like some API towards
+the stack.  Maybe we could simple pass a skb-list?
+
+Changing / adjusting the stack to support processing in "stages" might
+be more difficult/controversial?
+
+Maybe we should view the packets stuck/avail in the RX ring, as
+packets that all arrived at the same "time", and thus process them at
+the same time.
+
+By letting the "bulking" depend on the avail packets in the RX ring,
+we automatically amortize processing cost in a scalable manor.
+
+
+One challenge with icache optimizations is that it is hard to profile.
+But hopefully the new Skylake CPU can profile this.  Because as I
+always say, if you cannot measure it, you cannot improve it.
+
+
+p.s. I doing a Network Performance BoF[1] at NetDev 1.1, where this
+and many more subjects will be brought up face-to-face.
+
+[1] http://netdevconf.org/1.1/bof-network-performance-bof-jesper-dangaard-brouer.html
 -- 
-2.6.3
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
