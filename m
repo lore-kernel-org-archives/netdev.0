@@ -1,90 +1,50 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH RT 1/2] net/core: protect users of napi_alloc_cache against
- reentrance
-Date: Fri, 15 Jan 2016 17:18:41 +0100
-Message-ID: <20160115161841.GA3781@linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
-To: linux-rt-users@vger.kernel.org
+From: Yoshinori Sato <ysato@users.sourceforge.jp>
+Subject: [PATCH 2/2] ne: Add h8300 support.
+Date: Sat, 16 Jan 2016 01:19:46 +0900
+Message-ID: <1452874786-21202-2-git-send-email-ysato@users.sourceforge.jp>
+References: <1452874786-21202-1-git-send-email-ysato@users.sourceforge.jp>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1452874786-21202-1-git-send-email-ysato@users.sourceforge.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On -RT the code running in BH can not be moved to another CPU so CPU
-local variable remain local. However the code can be preempted
-and another task may enter BH accessing the same CPU using the same
-napi_alloc_cache variable.
-This patch ensures that each user of napi_alloc_cache uses a local lock.
+Add H8/300 platform support.
 
-Cc: stable-rt@vger.kernel.org
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
 ---
- net/core/skbuff.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/8390/Kconfig | 2 +-
+ drivers/net/ethernet/8390/ne.c    | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d507656e98ce..7c422e441f1c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -351,6 +351,7 @@ EXPORT_SYMBOL(build_skb);
- static DEFINE_PER_CPU(struct page_frag_cache, netdev_alloc_cache);
- static DEFINE_PER_CPU(struct page_frag_cache, napi_alloc_cache);
- static DEFINE_LOCAL_IRQ_LOCK(netdev_alloc_lock);
-+static DEFINE_LOCAL_IRQ_LOCK(napi_alloc_cache_lock);
- 
- static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
- {
-@@ -380,9 +381,13 @@ EXPORT_SYMBOL(netdev_alloc_frag);
- 
- static void *__napi_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
- {
--	struct page_frag_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-+	struct page_frag_cache *nc;
-+	void *data;
- 
--	return __alloc_page_frag(nc, fragsz, gfp_mask);
-+	nc = &get_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
-+	data = __alloc_page_frag(nc, fragsz, gfp_mask);
-+	put_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
-+	return data;
- }
- 
- void *napi_alloc_frag(unsigned int fragsz)
-@@ -476,9 +481,10 @@ EXPORT_SYMBOL(__netdev_alloc_skb);
- struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 				 gfp_t gfp_mask)
- {
--	struct page_frag_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-+	struct page_frag_cache *nc;
- 	struct sk_buff *skb;
- 	void *data;
-+	bool pfmemalloc;
- 
- 	len += NET_SKB_PAD + NET_IP_ALIGN;
- 
-@@ -496,7 +502,11 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 	if (sk_memalloc_socks())
- 		gfp_mask |= __GFP_MEMALLOC;
- 
-+	nc = &get_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
- 	data = __alloc_page_frag(nc, len, gfp_mask);
-+	pfmemalloc = nc->pfmemalloc;
-+	put_locked_var(napi_alloc_cache_lock, napi_alloc_cache);
-+
- 	if (unlikely(!data))
- 		return NULL;
- 
-@@ -507,7 +517,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+index 29c3075..7530bd9 100644
+--- a/drivers/net/ethernet/8390/Kconfig
++++ b/drivers/net/ethernet/8390/Kconfig
+@@ -88,7 +88,7 @@ config MCF8390
+ config NE2000
+ 	tristate "NE2000/NE1000 support"
+ 	depends on (ISA || (Q40 && m) || M32R || MACH_TX49XX || \
+-		    ATARI_ETHERNEC)
++		    ATARI_ETHERNEC || H8300)
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type, say Y here.
+diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
+index a9dde5b..e0ed765 100644
+--- a/drivers/net/ethernet/8390/ne.c
++++ b/drivers/net/ethernet/8390/ne.c
+@@ -427,7 +427,8 @@ static int __init ne_probe1(struct net_device *dev, unsigned long ioaddr)
+ 		stop_page  = NE1SM_STOP_PG;
  	}
  
- 	/* use OR instead of assignment to avoid clearing of bits in mask */
--	if (nc->pfmemalloc)
-+	if (pfmemalloc)
- 		skb->pfmemalloc = 1;
- 	skb->head_frag = 1;
- 
+-#if  defined(CONFIG_PLAT_MAPPI) || defined(CONFIG_PLAT_OAKS32R)
++#if  defined(CONFIG_PLAT_MAPPI) || defined(CONFIG_PLAT_OAKS32R) || \
++	defined(CONFIG_H8300)
+ 	neX000 = ((SA_prom[14] == 0x57  &&  SA_prom[15] == 0x57)
+ 		|| (SA_prom[14] == 0x42 && SA_prom[15] == 0x42));
+ #else
 -- 
-2.7.0.rc3
+2.6.1
