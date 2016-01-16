@@ -1,47 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net] i40e: fix build warnings
-Date: Fri, 15 Jan 2016 17:06:22 -0800
-Message-ID: <CAL3LdT52EVAxvCYWvVxKZRUMjbBf4_1gm0x0QF7FEDrKCU3++A@mail.gmail.com>
-References: <1452877279.1223.182.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: RE: [PATCH net] bna: fix Rx data corruption with VLAN stripping
+ enabled and MTU > 4096
+Date: Sat, 16 Jan 2016 01:27:08 +0000
+Message-ID: <2552F74A0BCCBE4DBE2AD218C81B28110867A9DA@avmb3.qlogic.org>
+References: <1452861928-17069-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Kiran Patil <kiran.patil@intel.com>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: Ivan Vecera <ivecera@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34584 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945941AbcAPBGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2016 20:06:23 -0500
-Received: by mail-io0-f196.google.com with SMTP id k127so53196413iok.1
-        for <netdev@vger.kernel.org>; Fri, 15 Jan 2016 17:06:23 -0800 (PST)
-In-Reply-To: <1452877279.1223.182.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:62491 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751060AbcAPB1Q convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jan 2016 20:27:16 -0500
+In-Reply-To: <1452861928-17069-1-git-send-email-ivecera@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 15, 2016 at 9:01 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Fixes following build warnings :
->
-> drivers/net/ethernet/intel/i40e/i40e_main.c:7057:13: warning:
-> 'i40e_sync_udp_filters_subtask' defined but not used [-Wunused-function]
-> drivers/net/ethernet/intel/i40e/i40e_main.c:8524:13: warning:
-> 'i40e_add_vxlan_port' defined but not used [-Wunused-function]
-> drivers/net/ethernet/intel/i40e/i40e_main.c:8569:13: warning:
-> 'i40e_del_vxlan_port' defined but not used [-Wunused-function]
-> drivers/net/ethernet/intel/i40e/i40e_main.c:8604:13: warning:
-> 'i40e_add_geneve_port' defined but not used [-Wunused-function]
-> drivers/net/ethernet/intel/i40e/i40e_main.c:8651:13: warning:
-> 'i40e_del_geneve_port' defined but not used [-Wunused-function]
->
-> Fixes: 6a899024058d ("i40e: geneve tunnel offload support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c |   15 +++++----------
->  1 file changed, 5 insertions(+), 10 deletions(-)
->
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> Sent: Friday, January 15, 2016 4:45 AM
+> 
+> The multi-buffer Rx mode implemented in the past introduced a regression
+> that causes a data corruption for received VLAN traffic when VLAN tag
+> stripping is enabled. This mode is supported only be newer chipsets (1860)
+> and is enabled when MTU > 4096.
+> 
+> When this mode is enabled Rx queue contains buffers with fixed size
+> 2048 bytes. Any incoming packet larger than 2048 is divided into multiple
+> buffers that are attached as skb frags in polling routine.
+> 
+> The driver assumes that all buffers associated with a packet except the last
+> one is fully used (e.g. packet with size 5000 are divided into 3 buffers 2048 +
+> 2048 + 904 bytes) and ignores true size reported in completions. This
+> assumption is usually true but not when VLAN packet is received and VLAN
+> tag stripping is enabled. In this case the first buffer is 2044 bytes long but as
+> the driver always assumes
+> 2048 bytes then 4 extra random bytes are included between the first and the
+> second frag. Additionally the driver sets checksum as correct so the packet is
+> properly processed by the core.
+> 
+> The driver needs to check the size of used space in each Rx buffer reported
+> by FW and not blindly use the fixed value.
 
-Thanks Eric, I will add this patch to my queue.
+Looks good to me, thanks Ivan!
+Reviewed-by: Rasesh Mody <rasesh.mody@qlogic.com>
+
+David - please apply.
