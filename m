@@ -1,37 +1,25 @@
-From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: Re: [PATCH v2 resend] b43: Fix memory leaks in b43_bus_dev_ssb_init
- and b43_bus_dev_bcma_init
-Date: Sat, 16 Jan 2016 21:17:30 +0800
-Message-ID: <569A42EA.5080509@163.com>
-References: <1452949690-16387-1-git-send-email-baijiaju1990@163.com> <20160116141321.6e0d5a87@wiggum>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: bpf or ebpf ?
+Date: Sat, 16 Jan 2016 15:22:50 +0100
+Message-ID: <569A523A.2030801@iogearbox.net>
+References: <CAKrM2XmGnOkuoJixjn8LyftE75n2cZpq6fquoiCfQFYgEQVaJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?Q?Michael_B=FCsch?= <m@bues.ch>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160116141321.6e0d5a87@wiggum>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: p pang <gokuvsvegita@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59759 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751891AbcAPOWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2016 09:22:55 -0500
+In-Reply-To: <CAKrM2XmGnOkuoJixjn8LyftE75n2cZpq6fquoiCfQFYgEQVaJQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/16/2016 09:13 PM, Michael B=FCsch wrote:
->
-> This still needs to be tested on both ssb and bcma devices. As long a=
-s
-> it's untested, there is no need to resend it to the maintainers.
->
+On 01/16/2016 12:06 PM, p pang wrote:
+> which architecture does linux uses for packet filtering?
 
-Okay, thanks for the reply :)
+You can use both flavors from user space.
 
-
-Jia-Ju Bai
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Daniel
