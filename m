@@ -1,59 +1,79 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH, RESEND] ssb: mark ssb_bus_register as __maybe_unused
-Date: Sat, 16 Jan 2016 15:44:23 +0100
-Message-ID: <CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
-References: <8128014.DbbgBtKY3z@wuerfel>
-        <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
-        <4037550.DMaVTE01Aq@wuerfel>
-        <87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net v4] ovs: limit ovs recursions in ovs_execute_actions
+ to not corrupt stack
+Date: Sat, 16 Jan 2016 09:04:50 -0800
+Message-ID: <CAOrHB_BCZRG8NinFintTcaRd0MBsYPt-hAH9LG+6uNwOa0GQaA@mail.gmail.com>
+References: <1452876675-19834-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-        Hauke Mehrtens <hauke@hauke-m.de>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Michael Buesch <m@bues.ch>,
-        Network Development <netdev@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Simon Horman <simon.horman@netronome.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:50536 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752251AbcAPREz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2016 12:04:55 -0500
+Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
+	by relay6-d.mail.gandi.net (Postfix) with ESMTP id 5DEE6FB87E
+	for <netdev@vger.kernel.org>; Sat, 16 Jan 2016 18:04:53 +0100 (CET)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+	by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id Aj_W1l8pPpMs for <netdev@vger.kernel.org>;
+	Sat, 16 Jan 2016 18:04:52 +0100 (CET)
+Received: from mail-ig0-f176.google.com (mail-ig0-f176.google.com [209.85.213.176])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id EC334FB877
+	for <netdev@vger.kernel.org>; Sat, 16 Jan 2016 18:04:51 +0100 (CET)
+Received: by mail-ig0-f176.google.com with SMTP id mw1so27712997igb.1
+        for <netdev@vger.kernel.org>; Sat, 16 Jan 2016 09:04:51 -0800 (PST)
+In-Reply-To: <1452876675-19834-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16 January 2016 at 13:10, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Arnd Bergmann <arnd@arndb.de> writes:
+On Fri, Jan 15, 2016 at 8:51 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> It was seen that defective configurations of openvswitch could overwrite
+> the STACK_END_MAGIC and cause a hard crash of the kernel because of too
+> many recursions within ovs.
 >
->> On Thursday 14 January 2016 08:46:29 Kalle Valo wrote:
->>> I can take it. For historical reasons ssb patches go through my
->>> wireless-drivers trees.
->>
->> I found this in my backlog, and I believe it still applies. Can you =
-take
->> that one too?
+> This problem arises due to the high stack usage of openvswitch. The rest
+> of the kernel is fine with the current limit of 10 (RECURSION_LIMIT).
 >
-> I'm not sure what you mean here, I can take any ssb patch if it's ok =
-for
-> Michael or Rafal :)
+> We use the already existing recursion counter in ovs_execute_actions to
+> implement an upper bound of 5 recursions.
 >
-> Just please submit the patch properly (with S-o-B line) and CC
-> linux-wireless so that it goes to patchwork.
+> Cc: Pravin Shelar <pshelar@ovn.org>
+> Cc: Simon Horman <simon.horman@netronome.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> ---
+> v2) added preemption guards
+> v3) Pravin suggested to reuse the ovs_execute_actions counter which this
+>     patch does. Also only allow 5 recursions as suggested by Pravin.
+> v4) added unlikely as suggested by Eric
+>
+> Thanks to all reviewers!
+>
+>  net/openvswitch/actions.c | 21 ++++++++++++++++-----
+>  1 file changed, 16 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+> index c88d0f2d3e019b..da66f9e1660dbb 100644
+> --- a/net/openvswitch/actions.c
+> +++ b/net/openvswitch/actions.c
+> @@ -1160,17 +1160,28 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>                         const struct sw_flow_actions *acts,
+>                         struct sw_flow_key *key)
+>  {
+> -       int level = this_cpu_read(exec_actions_level);
+> -       int err;
+> +       static const int ovs_recursion_limit = 5;
+> +       int err, level;
+> +
+> +       preempt_disable();
 
-It was already sent once and Acked by Michael:
-https://patchwork.kernel.org/patch/7543191/
-
-The problem was not cc-ing linux-wireless so it wasn't picked by the
-linux-wireless patchwork.
-
---=20
-Rafa=C5=82
+This function always run in soft-irq context. Do we really need this
+preempt-disable call here?
