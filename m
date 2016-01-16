@@ -1,41 +1,78 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH, RESEND] ssb: mark ssb_bus_register as __maybe_unused
-Date: Sat, 16 Jan 2016 14:10:31 +0200
-Message-ID: <87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
-References: <8128014.DbbgBtKY3z@wuerfel>
-	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com> <4037550.DMaVTE01Aq@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, linux-mips@linux-mips.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-	linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
-	netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: the temp asoc's transports should not be hashed/unhashed
+Date: Sat, 16 Jan 2016 20:17:17 +0800
+Message-ID: <488453d4e06805934290a1ef3cf633ee4b26bdc6.1452946637.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56926 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751826AbcAPMKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2016 07:10:40 -0500
-In-Reply-To: <4037550.DMaVTE01Aq@wuerfel> (Arnd Bergmann's message of "Fri, 15
-	Jan 2016 00:13 +0100")
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35509 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbcAPMRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2016 07:17:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> writes:
+Re-establish the previous behavior and avoid hashing temporary asocs by
+checking t->asoc->temp in sctp_(un)hash_transport. Also, remove the
+check of t->asoc->temp in __sctp_lookup_association, since they are
+never hashed now.
 
-> On Thursday 14 January 2016 08:46:29 Kalle Valo wrote:
->> I can take it. For historical reasons ssb patches go through my
->> wireless-drivers trees.
->
-> I found this in my backlog, and I believe it still applies. Can you take
-> that one too?
+Fixes: 4f0087812648 ("sctp: apply rhashtable api to send/recv path")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Reported-by: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/sctp/endpointola.c | 2 +-
+ net/sctp/input.c       | 8 +++++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-I'm not sure what you mean here, I can take any ssb patch if it's ok for
-Michael or Rafal :)
-
-Just please submit the patch properly (with S-o-B line) and CC
-linux-wireless so that it goes to patchwork.
-
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 52838ea..2522a61 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -333,7 +333,7 @@ struct sctp_association *sctp_endpoint_lookup_assoc(
+ 	if (!ep->base.bind_addr.port)
+ 		goto out;
+ 	t = sctp_epaddr_lookup_transport(ep, paddr);
+-	if (!t || t->asoc->temp)
++	if (!t)
+ 		goto out;
+ 
+ 	*transport = t;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index b9a536b..bf61dfb 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -874,6 +874,9 @@ void sctp_hash_transport(struct sctp_transport *t)
+ {
+ 	struct sctp_hash_cmp_arg arg;
+ 
++	if (t->asoc->temp)
++		return;
++
+ 	arg.ep = t->asoc->ep;
+ 	arg.paddr = &t->ipaddr;
+ 	arg.net   = sock_net(t->asoc->base.sk);
+@@ -886,6 +889,9 @@ reinsert:
+ 
+ void sctp_unhash_transport(struct sctp_transport *t)
+ {
++	if (t->asoc->temp)
++		return;
++
+ 	rhashtable_remove_fast(&sctp_transport_hashtable, &t->node,
+ 			       sctp_hash_params);
+ }
+@@ -931,7 +937,7 @@ static struct sctp_association *__sctp_lookup_association(
+ 	struct sctp_transport *t;
+ 
+ 	t = sctp_addrs_lookup_transport(net, local, peer);
+-	if (!t || t->dead || t->asoc->temp)
++	if (!t || t->dead)
+ 		return NULL;
+ 
+ 	sctp_association_hold(t->asoc);
 -- 
-Kalle Valo
+2.1.0
