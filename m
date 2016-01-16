@@ -1,7 +1,7 @@
 From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH] rtl818x_pci: Disable pci device in error handling code
-Date: Sat, 16 Jan 2016 21:02:58 +0800
-Message-ID: <1452949379-16052-1-git-send-email-baijiaju1990@163.com>
+Subject: [PATCH resend] rtl818x_pci: Fix a memory leak in rtl8180_init_rx_ring
+Date: Sat, 16 Jan 2016 21:07:12 +0800
+Message-ID: <1452949632-16329-1-git-send-email-baijiaju1990@163.com>
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
 To: andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
@@ -10,38 +10,39 @@ Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When pci_request_regions in rtl8180_probe fails, pci_disable_device is not
-called to disable the device which is enabled by pci_enbale_device.
+When dev_alloc_skb or pci_dma_mapping_error in rtl8180_init_rx_ring fails,
+the memory allocated by pci_zalloc_consistent is not freed.
 
-This patch fixes the problem by adding a new lable in error handling code.
+This patch fixes the bug by adding pci_free_consistent
+in error handling code.
 
 Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
 ---
- drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c b/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
-index a43a16f..c76af5d 100644
+index a43a16f..28479b1 100644
 --- a/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
 +++ b/drivers/net/wireless/realtek/rtl818x/rtl8180/dev.c
-@@ -1736,7 +1736,7 @@ static int rtl8180_probe(struct pci_dev *pdev,
- 	if (err) {
- 		printk(KERN_ERR "%s (rtl8180): Cannot obtain PCI resources\n",
- 		       pci_name(pdev));
--		return err;
-+		goto err_disable_dev;
- 	}
+@@ -1018,6 +1018,8 @@ static int rtl8180_init_rx_ring(struct ieee80211_hw *dev)
+ 		dma_addr_t *mapping;
+ 		entry = priv->rx_ring + priv->rx_ring_sz*i;
+ 		if (!skb) {
++			pci_free_consistent(priv->pdev, priv->rx_ring_sz * 32,
++					priv->rx_ring, priv->rx_ring_dma);
+ 			wiphy_err(dev->wiphy, "Cannot allocate RX skb\n");
+ 			return -ENOMEM;
+ 		}
+@@ -1028,6 +1030,8 @@ static int rtl8180_init_rx_ring(struct ieee80211_hw *dev)
  
- 	io_addr = pci_resource_start(pdev, 0);
-@@ -1938,6 +1938,8 @@ static int rtl8180_probe(struct pci_dev *pdev,
- 
-  err_free_reg:
- 	pci_release_regions(pdev);
-+
-+ err_disable_dev:
- 	pci_disable_device(pdev);
- 	return err;
- }
+ 		if (pci_dma_mapping_error(priv->pdev, *mapping)) {
+ 			kfree_skb(skb);
++			pci_free_consistent(priv->pdev, priv->rx_ring_sz * 32,
++					priv->rx_ring, priv->rx_ring_dma);
+ 			wiphy_err(dev->wiphy, "Cannot map DMA for RX skb\n");
+ 			return -ENOMEM;
+ 		}
 -- 
 1.7.9.5
 
