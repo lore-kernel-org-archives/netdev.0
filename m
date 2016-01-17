@@ -1,90 +1,110 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: pull request [net]: batman-adv 20160117
-Date: Sun, 17 Jan 2016 13:24:33 +0800
-Message-ID: <1453008281-15396-1-git-send-email-a__44203.1303573914$1453008453$gmane$org@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 4/8] batman-adv: Drop immediate batadv_neigh_node free function
+Date: Sun, 17 Jan 2016 13:24:37 +0800
+Message-ID: <1453008281-15396-5-git-send-email-a__44246.5211418041$1453008458$gmane$org@unstable.cc>
+References: <1453008281-15396-1-git-send-email-a@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:30723 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:37651 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750798AbcAQF0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2016 00:26:40 -0500
+	id S1751132AbcAQF0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jan 2016 00:26:53 -0500
+In-Reply-To: <1453008281-15396-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Sven Eckelmann <sven@narfation.org>
 
-here you have a bunch of patches intended for net.
+It is not allowed to free the memory of an object which is part of a list
+which is protected by rcu-read-side-critical sections without making sure
+that no other context is accessing the object anymore. This usually happens
+by removing the references to this object and then waiting until the rcu
+grace period is over and no one (allowedly) accesses it anymore.
 
-This patchset is provided by Sven Eckelmann and it is basically
-fixing 2 major issues that exist in several parts of the code -
-that is why we have 8 patches.
+But the _now functions ignore this completely. They free the object
+directly even when a different context still tries to access it. This has
+to be avoided and thus these functions must be removed and all functions
+have to use batadv_neigh_node_free_ref.
 
-The first bugfix (patch 1 and 2) is preventing call_rcu from
-being invoked recursively. This would deceive any user waiting
-on rcu_barrier() because the latter won't be able to wait for
-the nested invocation thus triggering any sort of undefined
-behaviours.
+Fixes: 89652331c00f ("batman-adv: split tq information in neigh_node struct")
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
+---
+ net/batman-adv/originator.c | 33 ++++++++++-----------------------
+ 1 file changed, 10 insertions(+), 23 deletions(-)
 
-The second bugfix (patches from 3 to 8) prevents the code from
-freeing rcu protected objects without waiting for the proper grace
-period. This issue can potentially lead to wrong memory access
-and thus kernel crashes.
-
-Unfortunately this bogus code pattern was copy/pasted
-all around the place when developing new features, therefore
-Sven diligently created several patches to address each component
-independently.
-
-
-
-Given that such bugs were introduced quite some time ago, all
-the patches except patch 5 should be considered for submission
-to stable.
-
-
-
-Please pull or let me know of any issue!
-Thanks a lot,
-	Antonio
-
-
-
-
-
-The following changes since commit 6c3f5aef1159a278b54642ebc0bbb5cdab7630cf:
-
-  bna: fix Rx data corruption with VLAN stripping enabled and MTU > 4096 (2016-01-15 21:49:25 -0500)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to 42eff6a617e23b691f8e4467f4687ed7245a92db:
-
-  batman-adv: Drop immediate orig_node free function (2016-01-16 22:50:00 +0800)
-
-----------------------------------------------------------------
-Included changes:
-- avoid recursive invocations of call_rcu() which would fool users waiting on
-  rcu_barrier()
-- prevent immediate kfree of objects used in rcu protected contexts
-
-----------------------------------------------------------------
-Sven Eckelmann (8):
-      batman-adv: Avoid recursive call_rcu for batadv_bla_claim
-      batman-adv: Avoid recursive call_rcu for batadv_nc_node
-      batman-adv: Drop immediate batadv_orig_ifinfo free function
-      batman-adv: Drop immediate batadv_neigh_node free function
-      batman-adv: Drop immediate batadv_hardif_neigh_node free function
-      batman-adv: Drop immediate neigh_ifinfo free function
-      batman-adv: Drop immediate batadv_hard_iface free function
-      batman-adv: Drop immediate orig_node free function
-
- net/batman-adv/bridge_loop_avoidance.c |  10 +-
- net/batman-adv/hard-interface.h        |  12 --
- net/batman-adv/network-coding.c        |  19 ++--
- net/batman-adv/originator.c            | 196 ++++++++++++---------------------
- net/batman-adv/originator.h            |   1 -
- net/batman-adv/translation-table.c     |  28 +++--
- 6 files changed, 94 insertions(+), 172 deletions(-)
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 6929acc1d61a..78fd4eab2169 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -285,20 +285,8 @@ static void batadv_neigh_node_free_rcu(struct rcu_head *rcu)
+ }
+ 
+ /**
+- * batadv_neigh_node_free_ref_now - decrement the neighbors refcounter
+- *  and possibly free it (without rcu callback)
+- * @neigh_node: neigh neighbor to free
+- */
+-static void
+-batadv_neigh_node_free_ref_now(struct batadv_neigh_node *neigh_node)
+-{
+-	if (atomic_dec_and_test(&neigh_node->refcount))
+-		batadv_neigh_node_free_rcu(&neigh_node->rcu);
+-}
+-
+-/**
+  * batadv_neigh_node_free_ref - decrement the neighbors refcounter
+- *  and possibly free it
++ *  and possibly release it
+  * @neigh_node: neigh neighbor to free
+  */
+ void batadv_neigh_node_free_ref(struct batadv_neigh_node *neigh_node)
+@@ -733,24 +721,23 @@ int batadv_hardif_neigh_seq_print_text(struct seq_file *seq, void *offset)
+ }
+ 
+ /**
+- * batadv_orig_ifinfo_free_rcu - free the orig_ifinfo object
+- * @rcu: rcu pointer of the orig_ifinfo object
++ * batadv_orig_ifinfo_release - release orig_ifinfo from lists and queue for
++ *  free after rcu grace period
++ * @orig_ifinfo: the orig_ifinfo object to release
+  */
+-static void batadv_orig_ifinfo_free_rcu(struct rcu_head *rcu)
++static void batadv_orig_ifinfo_release(struct batadv_orig_ifinfo *orig_ifinfo)
+ {
+-	struct batadv_orig_ifinfo *orig_ifinfo;
+ 	struct batadv_neigh_node *router;
+ 
+-	orig_ifinfo = container_of(rcu, struct batadv_orig_ifinfo, rcu);
+-
+ 	if (orig_ifinfo->if_outgoing != BATADV_IF_DEFAULT)
+-		batadv_hardif_free_ref_now(orig_ifinfo->if_outgoing);
++		batadv_hardif_free_ref(orig_ifinfo->if_outgoing);
+ 
+ 	/* this is the last reference to this object */
+ 	router = rcu_dereference_protected(orig_ifinfo->router, true);
+ 	if (router)
+-		batadv_neigh_node_free_ref_now(router);
+-	kfree(orig_ifinfo);
++		batadv_neigh_node_free_ref(router);
++
++	kfree_rcu(orig_ifinfo, rcu);
+ }
+ 
+ /**
+@@ -761,7 +748,7 @@ static void batadv_orig_ifinfo_free_rcu(struct rcu_head *rcu)
+ void batadv_orig_ifinfo_free_ref(struct batadv_orig_ifinfo *orig_ifinfo)
+ {
+ 	if (atomic_dec_and_test(&orig_ifinfo->refcount))
+-		call_rcu(&orig_ifinfo->rcu, batadv_orig_ifinfo_free_rcu);
++		batadv_orig_ifinfo_release(orig_ifinfo);
+ }
+ 
+ /**
+-- 
+2.7.0
