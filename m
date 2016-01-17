@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 1/8] batman-adv: Avoid recursive call_rcu for batadv_bla_claim
-Date: Sun, 17 Jan 2016 13:24:34 +0800
-Message-ID: <1453008281-15396-2-git-send-email-a__16988.7753123932$1453008458$gmane$org@unstable.cc>
+Subject: [PATCH 7/8] batman-adv: Drop immediate batadv_hard_iface free function
+Date: Sun, 17 Jan 2016 13:24:40 +0800
+Message-ID: <1453008281-15396-8-git-send-email-a@unstable.cc>
 References: <1453008281-15396-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,66 +9,104 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:8403 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:4437 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750941AbcAQF0n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2016 00:26:43 -0500
+	id S1751326AbcAQF1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jan 2016 00:27:05 -0500
 In-Reply-To: <1453008281-15396-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sven Eckelmann <sven@narfation.org>
 
-The batadv_claim_free_ref function uses call_rcu to delay the free of the
-batadv_bla_claim object until no (already started) rcu_read_lock is enabled
-anymore. This makes sure that no context is still trying to access the
-object which should be removed. But batadv_bla_claim also contains a
-reference to backbone_gw which must be removed.
+It is not allowed to free the memory of an object which is part of a list
+which is protected by rcu-read-side-critical sections without making sure
+that no other context is accessing the object anymore. This usually happens
+by removing the references to this object and then waiting until the rcu
+grace period is over and no one (allowedly) accesses it anymore.
 
-The reference drop of backbone_gw was done in the call_rcu function
-batadv_claim_free_rcu but should actually be done in the
-batadv_claim_release function to avoid nested call_rcus. This is important
-because rcu_barrier (e.g. batadv_softif_free or batadv_exit) will not
-detect the inner call_rcu as relevant for its execution. Otherwise this
-barrier will most likely be inserted in the queue before the callback of
-the first call_rcu was executed. The caller of rcu_barrier will therefore
-continue to run before the inner call_rcu callback finished.
+But the _now functions ignore this completely. They free the object
+directly even when a different context still tries to access it. This has
+to be avoided and thus these functions must be removed and all functions
+have to use batadv_hardif_free_ref.
 
-Fixes: 23721387c409 ("batman-adv: add basic bridge loop avoidance code")
+Fixes: 89652331c00f ("batman-adv: split tq information in neigh_node struct")
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/bridge_loop_avoidance.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ net/batman-adv/hard-interface.h | 12 ------------
+ net/batman-adv/originator.c     | 15 +++++++--------
+ 2 files changed, 7 insertions(+), 20 deletions(-)
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index d5d71ac96c8a..c24c481b666f 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -127,21 +127,17 @@ batadv_backbone_gw_free_ref(struct batadv_bla_backbone_gw *backbone_gw)
+diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
+index 5a31420513e1..7b12ea8ea29d 100644
+--- a/net/batman-adv/hard-interface.h
++++ b/net/batman-adv/hard-interface.h
+@@ -75,18 +75,6 @@ batadv_hardif_free_ref(struct batadv_hard_iface *hard_iface)
+ 		call_rcu(&hard_iface->rcu, batadv_hardif_free_rcu);
  }
  
- /* finally deinitialize the claim */
--static void batadv_claim_free_rcu(struct rcu_head *rcu)
-+static void batadv_claim_release(struct batadv_bla_claim *claim)
+-/**
+- * batadv_hardif_free_ref_now - decrement the hard interface refcounter and
+- *  possibly free it (without rcu callback)
+- * @hard_iface: the hard interface to free
+- */
+-static inline void
+-batadv_hardif_free_ref_now(struct batadv_hard_iface *hard_iface)
+-{
+-	if (atomic_dec_and_test(&hard_iface->refcount))
+-		batadv_hardif_free_rcu(&hard_iface->rcu);
+-}
+-
+ static inline struct batadv_hard_iface *
+ batadv_primary_if_get_selected(struct batadv_priv *bat_priv)
  {
--	struct batadv_bla_claim *claim;
--
--	claim = container_of(rcu, struct batadv_bla_claim, rcu);
--
- 	batadv_backbone_gw_free_ref(claim->backbone_gw);
--	kfree(claim);
-+	kfree_rcu(claim, rcu);
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index f68333586681..6fdef842ba2a 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -215,18 +215,17 @@ void batadv_hardif_neigh_free_ref(struct batadv_hardif_neigh_node *hardif_neigh)
  }
  
- /* free a claim, call claim_free_rcu if its the last reference */
- static void batadv_claim_free_ref(struct batadv_bla_claim *claim)
+ /**
+- * batadv_neigh_node_free_rcu - free the neigh_node
+- * @rcu: rcu pointer of the neigh_node
++ * batadv_neigh_node_release - release neigh_node from lists and queue for
++ *  free after rcu grace period
++ * @neigh_node: neigh neighbor to free
+  */
+-static void batadv_neigh_node_free_rcu(struct rcu_head *rcu)
++static void batadv_neigh_node_release(struct batadv_neigh_node *neigh_node)
  {
- 	if (atomic_dec_and_test(&claim->refcount))
--		call_rcu(&claim->rcu, batadv_claim_free_rcu);
-+		batadv_claim_release(claim);
+ 	struct hlist_node *node_tmp;
+-	struct batadv_neigh_node *neigh_node;
+ 	struct batadv_hardif_neigh_node *hardif_neigh;
+ 	struct batadv_neigh_ifinfo *neigh_ifinfo;
+ 	struct batadv_algo_ops *bao;
+ 
+-	neigh_node = container_of(rcu, struct batadv_neigh_node, rcu);
+ 	bao = neigh_node->orig_node->bat_priv->bat_algo_ops;
+ 
+ 	hlist_for_each_entry_safe(neigh_ifinfo, node_tmp,
+@@ -245,9 +244,9 @@ static void batadv_neigh_node_free_rcu(struct rcu_head *rcu)
+ 	if (bao->bat_neigh_free)
+ 		bao->bat_neigh_free(neigh_node);
+ 
+-	batadv_hardif_free_ref_now(neigh_node->if_incoming);
++	batadv_hardif_free_ref(neigh_node->if_incoming);
+ 
+-	kfree(neigh_node);
++	kfree_rcu(neigh_node, rcu);
+ }
+ 
+ /**
+@@ -258,7 +257,7 @@ static void batadv_neigh_node_free_rcu(struct rcu_head *rcu)
+ void batadv_neigh_node_free_ref(struct batadv_neigh_node *neigh_node)
+ {
+ 	if (atomic_dec_and_test(&neigh_node->refcount))
+-		call_rcu(&neigh_node->rcu, batadv_neigh_node_free_rcu);
++		batadv_neigh_node_release(neigh_node);
  }
  
  /**
