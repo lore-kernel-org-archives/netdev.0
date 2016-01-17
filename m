@@ -1,164 +1,249 @@
-From: Matan Barak <matanb@mellanox.com>
-Subject: [PATCH net] net/mlx5_core: Fix trimming down IRQ number
-Date: Sun, 17 Jan 2016 11:25:47 +0200
-Message-ID: <1453022747-1993-1-git-send-email-matanb@mellanox.com>
-Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Doron Tsur <doront@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53351 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753400AbcAQJ0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2016 04:26:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH/RFC v2 net-next] ravb: Add dma queue interrupt support
+Date: Sun, 17 Jan 2016 19:34:54 +0900
+Message-ID: <CAH1o70JnMzJ=xYNZZ8PhdEK-LYAVH+NQLrF-6ikwi-nZO=CP-g@mail.gmail.com>
+References: <1450602948-6777-1-git-send-email-ykaneko0929@gmail.com>
+	<56796600.3010407@cogentembedded.com>
+	<CAH1o70JdmPDchbCnRjbt+SmW4juow+ConD96_BBv8u51-KEW6A@mail.gmail.com>
+	<567F1E21.2040900@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <567F1E21.2040900@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Doron Tsur <doront@mellanox.com>
+Hi Sergei,
 
-With several ConnectX-4 cards installed on a server, one may receive
-irqn > 255 from the kernel API, which we mistakenly trim to 8bit.
+2015-12-27 8:09 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+> On 12/26/2015 02:26 PM, Yoshihiro Kaneko wrote:
+>
+>>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>>
+>>>> This patch supports the following interrupts.
+>>>>
+>>>> - One interrupt for multiple (descriptor, error, management)
+>>>> - One interrupt for emac
+>>>> - Four interrupts for dma queue (best effort rx/tx, network control
+>>>> rx/tx)
+>>>
+>>>
+>>>     You still don't say why it's better than the current scheme...
+>>
+>>
+>> I missed the comment for some reason.
+>> I will think about updating the changelog.
+>
+>
+>    TIA.
+>
+>>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>
+> [...]
+>>>>
+>>>> b/drivers/net/ethernet/renesas/ravb.h
+>>>> index 9fbe92a..71badd6d 100644
+>>>> --- a/drivers/net/ethernet/renesas/ravb.h
+>>>> +++ b/drivers/net/ethernet/renesas/ravb.h
+>
+> [...]
+>>>>
+>>>> @@ -1223,23 +1343,68 @@ static const struct ethtool_ops ravb_ethtool_ops
+>>>> =
+>>>> {
+>>>>    static int ravb_open(struct net_device *ndev)
+>>>>    {
+>>>>          struct ravb_private *priv = netdev_priv(ndev);
+>>>> -       int error;
+>>>> +       struct platform_device *pdev = priv->pdev;
+>>>> +       struct device *dev = &pdev->dev;
+>>>> +       int error, i;
+>>>> +       char *name;
+>>>>
+>>>>          napi_enable(&priv->napi[RAVB_BE]);
+>>>>          napi_enable(&priv->napi[RAVB_NC]);
+>>>>
+>>>> -       error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
+>>>> ndev->name,
+>>>> -                           ndev);
+>>>> -       if (error) {
+>>>> -               netdev_err(ndev, "cannot request IRQ\n");
+>>>> -               goto out_napi_off;
+>>>> -       }
+>>>> -
+>>>> -       if (priv->chip_id == RCAR_GEN3) {
+>>>> -               error = request_irq(priv->emac_irq, ravb_interrupt,
+>>>> -                                   IRQF_SHARED, ndev->name, ndev);
+>>>> +       if (priv->chip_id == RCAR_GEN2) {
+>>>> +               error = request_irq(ndev->irq, ravb_interrupt,
+>>>> IRQF_SHARED,
+>>>> +                                   ndev->name, ndev);
+>>>>                  if (error) {
+>>>>                          netdev_err(ndev, "cannot request IRQ\n");
+>>>> +                       goto out_napi_off;
+>>>> +               }
+>>>> +       } else {
+>>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
+>>>> +                                     ndev->name);
+>>>> +               error = request_irq(ndev->irq, ravb_multi_interrupt,
+>>>> +                                   IRQF_SHARED, name, ndev);
+>>>> +               if (error) {
+>>>> +                       netdev_err(ndev, "cannot request IRQ %s\n",
+>>>> name);
+>>>> +                       goto out_napi_off;
+>>>> +               }
+>>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch24:emac",
+>>>> +                                     ndev->name);
+>>>> +               error = request_irq(priv->emac_irq, ravb_emac_interrupt,
+>>>> +                                   IRQF_SHARED, name, ndev);
+>>>> +               if (error) {
+>>>> +                       netdev_err(ndev, "cannot request IRQ %s\n",
+>>>> name);
+>>>> +                       goto out_free_irq;
+>>>> +               }
+>>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch0:rx_be",
+>>>> +                                     ndev->name);
+>>>> +               error = request_irq(priv->rx_irqs[RAVB_BE],
+>>>> ravb_be_interrupt,
+>>>> +                                   IRQF_SHARED, name, ndev);
+>>>> +               if (error) {
+>>>> +                       netdev_err(ndev, "cannot request IRQ %s\n",
+>>>> name);
+>>>> +                       goto out_free_irq;
+>>>> +               }
+>>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch18:tx_be",
+>>>> +                                     ndev->name);
+>>>> +               error = request_irq(priv->tx_irqs[RAVB_BE],
+>>>> ravb_be_interrupt,
+>>>> +                                   IRQF_SHARED, name, ndev);
+>>>> +               if (error) {
+>>>> +                       netdev_err(ndev, "cannot request IRQ %s\n",
+>>>> name);
+>>>> +                       goto out_free_irq;
+>>>> +               }
+>>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch1:rx_nc",
+>>>> +                                     ndev->name);
+>>>> +               error = request_irq(priv->rx_irqs[RAVB_NC],
+>>>> ravb_nc_interrupt,
+>>>> +                                   IRQF_SHARED, name, ndev);
+>>>> +               if (error) {
+>>>> +                       netdev_err(ndev, "cannot request IRQ %s\n",
+>>>> name);
+>>>> +                       goto out_free_irq;
+>>>> +               }
+>>>> +               name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
+>>>> +                                     ndev->name);
+>>>> +               error = request_irq(priv->tx_irqs[RAVB_NC],
+>>>> ravb_nc_interrupt,
+>>>> +                                   IRQF_SHARED, name, ndev);
+>>>> +               if (error) {
+>>>> +                       netdev_err(ndev, "cannot request IRQ %s\n",
+>>>> name);
+>>>>                          goto out_free_irq;
+>>>>                  }
+>>>
+>>>
+>>>
+>>>     This error case is repetitive, couldn't you consolidate it somehow?
+>>
+>>
+>> It seems to be impossible to be solved by the simple change of the code.
+>> Do you intend to add macro or a small helper function?
+>
+>
+>    What I meant should look like this:
+>
+>         } else {
+>                 name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch22:multi",
+>                                       ndev->name);
+>                 error = request_irq(ndev->irq, ravb_multi_interrupt,
+>                                     IRQF_SHARED, name, ndev);
+>                 if (error)
+>                         goto out;
+> [...]
+>                 name = devm_kasprintf(dev, GFP_KERNEL, "%s:ch19:tx_nc",
+>                                       ndev->name);
+>                 error = request_irq(priv->tx_irqs[RAVB_NC],
+> ravb_nc_interrupt,
+>                                    IRQF_SHARED, name, ndev);
+>                 if (error)
+>                         goto out;
+>         }
+>
+> out:
+>         if (error) {
+>                 netdev_err(ndev, "cannot request IRQ %s\n", name);
+>                 goto out_free_irq;
+>         }
+>
+>    Did it make things clearer?
 
-This causes EQ creation failure with the following stack trace:
-[<ffffffff812a11f4>] dump_stack+0x48/0x64
-[<ffffffff810ace21>] __setup_irq+0x3a1/0x4f0
-[<ffffffff810ad7e0>] request_threaded_irq+0x120/0x180
-[<ffffffffa0923660>] ? mlx5_eq_int+0x450/0x450 [mlx5_core]
-[<ffffffffa0922f64>] mlx5_create_map_eq+0x1e4/0x2b0 [mlx5_core]
-[<ffffffffa091de01>] alloc_comp_eqs+0xb1/0x180 [mlx5_core]
-[<ffffffffa091ea99>] mlx5_dev_init+0x5e9/0x6e0 [mlx5_core]
-[<ffffffffa091ec29>] init_one+0x99/0x1c0 [mlx5_core]
-[<ffffffff812e2afc>] local_pci_probe+0x4c/0xa0
+Thanks for the clarification.
 
-Fixing it by changing of the irqn type from u8 to unsigned int to
-support values > 255
+>    But indeed, a helper function would probably be even better...
 
-Fixes: 61d0e73e0a5a ('net/mlx5_core: Use the the real irqn in eq->irqn')
-Reported-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Doron Tsur <doront@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
----
+I will add a helper function to avoid the use of nested goto statement.
 
-Hi Dave,
+>
+> [...]
+>>>>
+>>>> @@ -1798,6 +1973,22 @@ static int ravb_probe(struct platform_device
+>>>> *pdev)
+>>>>                          goto out_release;
+>>>>                  }
+>>>>                  priv->emac_irq = irq;
+>>>> +               for (i = 0; i < NUM_RX_QUEUE; i++) {
+>>>> +                       irq = platform_get_irq_byname(pdev,
+>>>> ravb_rx_irqs[i]);
+>>>> +                       if (irq < 0) {
+>>>> +                               error = irq;
+>>>> +                               goto out_release;
+>>>> +                       }
+>>>> +                       priv->rx_irqs[i] = irq;
+>>>> +               }
+>>>> +               for (i = 0; i < NUM_TX_QUEUE; i++) {
+>>>> +                       irq = platform_get_irq_byname(pdev,
+>>>> ravb_tx_irqs[i]);
+>>>> +                       if (irq < 0) {
+>>>> +                               error = irq;
+>>>> +                               goto out_release;
+>>>> +                       }
+>>>> +                       priv->tx_irqs[i] = irq;
+>>>> +               }
+>>>
+>>>
+>>>
+>>>     Perhaps it would better to use sprintf() here, in both loops...
+>>
+>>
+>> Could you give me some more details?
+>
+>
+>    I think it would be better to use sprintf() to generate the IRQ names
+> passed to platfrom_get_irq_byname() instead of string literals grouped into
+> arrays. I may be wrong though...
 
-This patch fixes a bug that occurred when several ConnectX-4 HCAs were
-used in the same server. We mistakenly trimmed the MSI-X vector to
-8bits.
+At this moment, I don't think that it is necessary.
+I would do it in other patch when the need became clear.
 
-This patch changes the irqn types to unsigned int in order to fix
-that. The necessary conversion is in driver.h, but we had to change
-the rest of the files as well in order not to introduce conversion
-compilation warning.
+>
+>
+> [...]
+>
+>> Thanks,
+>> kaneko
+>
+>
+> MBR, Sergei
+>
 
-This bug was introduced in v4.4 and as such please also push it to
-v4.4-stable.
-
-Regards,
-Matan and Doron
-
-
- drivers/infiniband/hw/mlx5/cq.c                   |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    6 +++---
- drivers/net/ethernet/mellanox/mlx5/core/main.c    |    3 ++-
- include/linux/mlx5/cq.h                           |    2 +-
- include/linux/mlx5/driver.h                       |    5 +++--
- 5 files changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
-index b143166..7fa3a92 100644
---- a/drivers/infiniband/hw/mlx5/cq.c
-+++ b/drivers/infiniband/hw/mlx5/cq.c
-@@ -774,7 +774,7 @@ struct ib_cq *mlx5_ib_create_cq(struct ib_device *ibdev,
- 	int uninitialized_var(index);
- 	int uninitialized_var(inlen);
- 	int cqe_size;
--	int irqn;
-+	unsigned int irqn;
- 	int eqn;
- 	int err;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index b8d1cdb..bd805a0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -752,7 +752,7 @@ static int mlx5e_create_cq(struct mlx5e_channel *c,
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 	struct mlx5_core_cq *mcq = &cq->mcq;
- 	int eqn_not_used;
--	int irqn;
-+	unsigned int irqn;
- 	int err;
- 	u32 i;
- 
-@@ -806,7 +806,7 @@ static int mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
- 	void *in;
- 	void *cqc;
- 	int inlen;
--	int irqn_not_used;
-+	unsigned int irqn_not_used;
- 	int eqn;
- 	int err;
- 
-@@ -1537,7 +1537,7 @@ static int mlx5e_create_drop_cq(struct mlx5e_priv *priv,
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 	struct mlx5_core_cq *mcq = &cq->mcq;
- 	int eqn_not_used;
--	int irqn;
-+	unsigned int irqn;
- 	int err;
- 
- 	err = mlx5_cqwq_create(mdev, &param->wq, param->cqc, &cq->wq,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 1bf6ff4..ca5dda1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -672,7 +672,8 @@ static void mlx5_irq_clear_affinity_hints(struct mlx5_core_dev *mdev)
- 		mlx5_irq_clear_affinity_hint(mdev, i);
- }
- 
--int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn, int *irqn)
-+int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn,
-+		    unsigned int *irqn)
- {
- 	struct mlx5_eq_table *table = &dev->priv.eq_table;
- 	struct mlx5_eq *eq, *n;
-diff --git a/include/linux/mlx5/cq.h b/include/linux/mlx5/cq.h
-index abc4767..b2c9fad 100644
---- a/include/linux/mlx5/cq.h
-+++ b/include/linux/mlx5/cq.h
-@@ -45,7 +45,7 @@ struct mlx5_core_cq {
- 	atomic_t		refcount;
- 	struct completion	free;
- 	unsigned		vector;
--	int			irqn;
-+	unsigned int		irqn;
- 	void (*comp)		(struct mlx5_core_cq *);
- 	void (*event)		(struct mlx5_core_cq *, enum mlx5_event);
- 	struct mlx5_uar	       *uar;
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index aea5810..eb534f9 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -310,7 +310,7 @@ struct mlx5_eq {
- 	u32			cons_index;
- 	struct mlx5_buf		buf;
- 	int			size;
--	u8			irqn;
-+	unsigned int		irqn;
- 	u8			eqn;
- 	int			nent;
- 	u64			mask;
-@@ -785,7 +785,8 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
- int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- int mlx5_start_eqs(struct mlx5_core_dev *dev);
- int mlx5_stop_eqs(struct mlx5_core_dev *dev);
--int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn, int *irqn);
-+int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn,
-+		    unsigned int *irqn);
- int mlx5_core_attach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn);
- int mlx5_core_detach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn);
- 
--- 
-1.7.1
+Thanks,
+kaneko
