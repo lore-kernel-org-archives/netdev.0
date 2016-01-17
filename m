@@ -1,12 +1,12 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH V3 2/6] net/ethtool: support get coalesce per queue
-Date: Sun, 17 Jan 2016 02:06:33 +0000
-Message-ID: <1452996393.2519.33.camel@decadent.org.uk>
+Subject: Re: [PATCH V3 3/6] net/ethtool: support set coalesce per queue
+Date: Sun, 17 Jan 2016 02:13:13 +0000
+Message-ID: <1452996793.2519.39.camel@decadent.org.uk>
 References: <1452780487-10581-1-git-send-email-kan.liang@intel.com>
-	 <1452780487-10581-2-git-send-email-kan.liang@intel.com>
+	 <1452780487-10581-3-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-p4PVOjxoCubHyjCgCRA9"
+	protocol="application/pgp-signature"; boundary="=-+Qddr6r7XThs4g424WB7"
 Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 	f.fainelli@gmail.com, alexander.duyck@gmail.com,
 	jeffrey.t.kirsher@intel.com, shannon.nelson@intel.com,
@@ -19,75 +19,128 @@ Cc: jesse.brandeburg@intel.com, andi@firstfloor.org,
 To: kan.liang@intel.com, netdev@vger.kernel.org, davem@davemloft.net,
 	bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53975 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54006 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753152AbcAQCG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2016 21:06:56 -0500
-In-Reply-To: <1452780487-10581-2-git-send-email-kan.liang@intel.com>
+	by vger.kernel.org with ESMTP id S1753146AbcAQCNb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2016 21:13:31 -0500
+In-Reply-To: <1452780487-10581-3-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-p4PVOjxoCubHyjCgCRA9
+--=-+Qddr6r7XThs4g424WB7
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Thu, 2016-01-14 at 09:08 -0500, kan.liang@intel.com wrote:
 [...]
-> @@ -1814,6 +1840,10 @@ int dev_ethtool(struct net *net, struct ifreq *ifr=
-)
-> =C2=A0	case ETHTOOL_GTUNABLE:
-> =C2=A0		break;
-> =C2=A0	case ETHTOOL_PERQUEUE:
-> +		if (copy_from_user(&sub_cmd, useraddr + sizeof(ethcmd), sizeof(sub_cmd=
-)))
-> +			return -EFAULT;
-> +		if (sub_cmd =3D=3D ETHTOOL_GCOALESCE)
-> +			break;
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -1773,6 +1773,63 @@ static int ethtool_get_per_queue_coalesce(struct n=
+et_device *dev,
+> =C2=A0	return 0;
+> =C2=A0}
+> =C2=A0
+> +static int ethtool_set_per_queue_coalesce(struct net_device *dev,
+> +					=C2=A0=C2=A0void __user *useraddr,
+> +					=C2=A0=C2=A0struct ethtool_per_queue_op *per_queue_opt)
+> +{
+> +	int bit, i, ret =3D 0;
+> +	int queue_num =3D bitmap_weight(per_queue_opt->queue_mask, MAX_NUM_QUEU=
+E);
+> +	struct ethtool_coalesce *backup =3D NULL, *tmp =3D NULL;
+> +	bool rollback =3D true;
+> +
+> +	if (!dev->ethtool_ops->set_per_queue_coalesce)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (!dev->ethtool_ops->get_per_queue_coalesce)
+> +		rollback =3D false;
 
-ETHTOOL_PERQUEUE should be handled before the containing switch(), so
-we can then apply the switch() to sub_cmd; something like this:
+I think that get_per_queue_coalesce should be a required operation.
+Why would a driver not implement both?
 
-	if (ethcmd =3D=3D ETHTOOL_PERQUEUE) {
-		if (copy_from_user(&sub_cmd, useraddr + sizeof(ethcmd), sizeof(sub_cmd)))
-			return -EFAULT;
-	} else {
-		sub_cmd =3D ethcmd;
-	}
+Then there's no need to make the rollback code conditional.
 
-	switch (sub_cmd) {
-	...
-	}
+> +	useraddr +=3D sizeof(*per_queue_opt);
+> +
+> +	if (rollback)
+> +		tmp =3D backup =3D kmalloc(queue_num * sizeof(*backup), GFP_KERNEL);
+
+Use kmalloc_array() as it checks for overflow (shouldn't be possible
+here, but it's best to check).
+
+> +	for_each_set_bit(bit, per_queue_opt->queue_mask, MAX_NUM_QUEUE) {
+> +		struct ethtool_coalesce coalesce;
+> +
+> +		if (rollback) {
+> +			if (dev->ethtool_ops->get_per_queue_coalesce(dev, bit, tmp)) {
+> +				ret =3D -EFAULT;
+
+This should propagate the error code from get_per_queue_coalesce rather
+than substituting EFAULT.
+
+> +				goto roll_back;
+> +			}
+> +			tmp +=3D sizeof(struct ethtool_coalesce);
+> +		}
+> +
+> +		if (copy_from_user(&coalesce, useraddr, sizeof(coalesce))) {
+> +			ret =3D -EFAULT;
+> +			goto roll_back;
+> +		}
+> +
+> +		ret =3D dev->ethtool_ops->set_per_queue_coalesce(dev, bit, &coalesce);
+> +		if (ret !=3D 0)
+> +			goto roll_back;
+> +
+> +		useraddr +=3D sizeof(coalesce);
+> +	}
+> +
+> +roll_back:
+> +	if (rollback) {
+> +		if (ret !=3D 0) {
+> +			tmp =3D backup;
+> +			for_each_set_bit(i, per_queue_opt->queue_mask, bit - 1) {
+
+The upper bound is excluded so it should be bit, not bit - 1.
 
 Ben.
 
-> =C2=A0	default:
-> =C2=A0		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-> =C2=A0			return -EPERM;
+> +				dev->ethtool_ops->set_per_queue_coalesce(dev, i, tmp);
+> +				tmp +=3D sizeof(struct ethtool_coalesce);
+> +			}
+> +		}
+> +		kfree(backup);
+> +	}
+> +	return ret;
+> +}
+[...]
+
 --=20
 Ben Hutchings
 Theory and practice are closer in theory than in practice.
                                 - John Levine, moderator of comp.compilers
---=-p4PVOjxoCubHyjCgCRA9
+--=-+Qddr6r7XThs4g424WB7
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAVpr3Kee/yOyVhhEJAQo0ug//URCny0On3QfIt5RAK8rb14fSe8Og8GR+
-IB/a385DEf0ygjkiuma1uWrloZIFIZ/wL/FMzOSJ/Xfu3As12leCfmSmx9vDAjP6
-cyXwYHYZboi+7+vPzaaR9kaelPO3vGHK6Zt5XKqVjfaeWw2yQGdsXy+2HmnD2Fzu
-YE9rAcFLNd9+EAwapzjiJPSPdUdTOoF4sg9xH1eX33ZjgTHjcAuNTfc53n6f8Grx
-xcG3xaHSGtzM7ryvIkNM3YbFllzmtYAM7zdpiTiwjW++GbzJPWQK/lXnDWppPaBO
-TDMpf5He1S84Sch8081guxHUI9p38IZRbQTsqp9hVZAVBapA3BcEIkSLAqQJ38z2
-4erjsxUi8fUFoR5wwsNTT6jbkgLE5bslrRZjI29UhRrKxWzNmA5M8Bgn928SGTG4
-SfMZTo5M46aNrFKk9v5dgFI51fn0ach7ysn+2T7Ox8FnGfky1ufSzzIwlTVUpNp8
-jlM10YTJAyzkDEYg5PrOn5FFvGBy4jys7/fvc+o9WQ5SsGG1O1b0L4pL2SjHKz1V
-4b51q3rifgiyPLTaTNFOF+EhFba8IuaB3Uihak5E0ZBwpFgLo+lFvLWmCACmBLNQ
-0He0VfHKqmUHC5bLbdVQKor+YYN44qebSpTp1s7N+xqA6QLu+v3sF2eaNmMUBgIA
-BrRpYaMhI88=
-=kV/X
+iQIVAwUAVpr4uee/yOyVhhEJAQrkJg//Z8bKYEiuEQCtuefb4HKc9XKF+NGCQufp
+FyHoliwYmO69ScxyuOSklP6iHY/NRZdJAGaZXdCmpWB/VAOV8E9uh74H1+s/Opu+
+PWvyLctjuSGtW1xe5jyFpBGRbemCGVboHCxCVEMPH78mR0J4yExekYmkAhK9E15+
+jL54BEcucnkv1lD3TOJ0v0COuow2xaZgv1VWzx06GUJem+WqI12nvh5vJLG49He9
+wxO9UpwLXpEJrTKw3KnWBX3OyDwrIlCUQOuJv3JG8o1L1IF5pTCUygOZEX10RDWq
+h6G2v8sRxFeDaZW/dXc3dDGOk4renBZ5bO6XLP8sfDpoebsahfPIOTYw9GcH+CeU
+LW0CdvHVjRY9RDTeuWXBxOEQUdnjwIRF4h6IiHvXLv+snOUI0pt8vUu7uJuD9PNU
+Oo4DwpC+4hEWGWKVKFlR5t0UV8mdpqM5Uez/1Asn4ELGJBlhZAvZSntoIZ0ul9sC
+wsusb2ke/oVyDqejF7ww4na8qpNn3MK9dHb+b9PtzfpaD9bEIjLzl0NJ4di/UX2/
+F7t0kr82ObC/O4r/m1oNhvfL24Ywe/wp38TOU3ensA3e+QaD5KolQWosX/h1hMzk
+OA+li2HTBe3mEHM+NqCHSyJS4sFlS+1EIw5MFE4bpknmNt6xqM07S1t1d17DEnV8
+1IBAXArxzH0=
+=8kTc
 -----END PGP SIGNATURE-----
 
---=-p4PVOjxoCubHyjCgCRA9--
+--=-+Qddr6r7XThs4g424WB7--
