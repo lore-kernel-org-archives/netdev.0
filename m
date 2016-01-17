@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 3/8] batman-adv: Drop immediate batadv_orig_ifinfo free function
-Date: Sun, 17 Jan 2016 13:24:36 +0800
-Message-ID: <1453008281-15396-4-git-send-email-a__3687.4255900786$1453008471$gmane$org@unstable.cc>
+Subject: [PATCH 2/8] batman-adv: Avoid recursive call_rcu for batadv_nc_node
+Date: Sun, 17 Jan 2016 13:24:35 +0800
+Message-ID: <1453008281-15396-3-git-send-email-a__32529.1609777652$1453008479$gmane$org@unstable.cc>
 References: <1453008281-15396-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,148 +9,77 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:39567 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:10896 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751126AbcAQF0u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2016 00:26:50 -0500
+	id S1750987AbcAQF0q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jan 2016 00:26:46 -0500
 In-Reply-To: <1453008281-15396-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sven Eckelmann <sven@narfation.org>
 
-It is not allowed to free the memory of an object which is part of a list
-which is protected by rcu-read-side-critical sections without making sure
-that no other context is accessing the object anymore. This usually happens
-by removing the references to this object and then waiting until the rcu
-grace period is over and no one (allowedly) accesses it anymore.
+The batadv_nc_node_free_ref function uses call_rcu to delay the free of the
+batadv_nc_node object until no (already started) rcu_read_lock is enabled
+anymore. This makes sure that no context is still trying to access the
+object which should be removed. But batadv_nc_node also contains a
+reference to orig_node which must be removed.
 
-But the _now functions ignore this completely. They free the object
-directly even when a different context still tries to access it. This has
-to be avoided and thus these functions must be removed and all functions
-have to use batadv_orig_ifinfo_free_ref.
+The reference drop of orig_node was done in the call_rcu function
+batadv_nc_node_free_rcu but should actually be done in the
+batadv_nc_node_release function to avoid nested call_rcus. This is
+important because rcu_barrier (e.g. batadv_softif_free or batadv_exit) will
+not detect the inner call_rcu as relevant for its execution. Otherwise this
+barrier will most likely be inserted in the queue before the callback of
+the first call_rcu was executed. The caller of rcu_barrier will therefore
+continue to run before the inner call_rcu callback finished.
 
-Fixes: 7351a4822d42 ("batman-adv: split out router from orig_node")
+Fixes: d56b1705e28c ("batman-adv: network coding - detect coding nodes and remove these after timeout")
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/originator.c | 77 +++++++++++++++++++++++----------------------
- 1 file changed, 40 insertions(+), 37 deletions(-)
+ net/batman-adv/network-coding.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index ae6d18cafc5a..6929acc1d61a 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -754,19 +754,7 @@ static void batadv_orig_ifinfo_free_rcu(struct rcu_head *rcu)
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
+index c98b0ab85449..cc63b44f0d2e 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -203,28 +203,25 @@ void batadv_nc_init_orig(struct batadv_orig_node *orig_node)
  }
  
  /**
-- * batadv_orig_ifinfo_free_ref - decrement the refcounter and possibly free
-- *  the orig_ifinfo (without rcu callback)
-- * @orig_ifinfo: the orig_ifinfo object to release
-- */
--static void
--batadv_orig_ifinfo_free_ref_now(struct batadv_orig_ifinfo *orig_ifinfo)
--{
--	if (atomic_dec_and_test(&orig_ifinfo->refcount))
--		batadv_orig_ifinfo_free_rcu(&orig_ifinfo->rcu);
--}
--
--/**
-- * batadv_orig_ifinfo_free_ref - decrement the refcounter and possibly free
-+ * batadv_orig_ifinfo_free_ref - decrement the refcounter and possibly release
-  *  the orig_ifinfo
-  * @orig_ifinfo: the orig_ifinfo object to release
+- * batadv_nc_node_free_rcu - rcu callback to free an nc node and remove
+- *  its refcount on the orig_node
+- * @rcu: rcu pointer of the nc node
++ * batadv_nc_node_release - release nc_node from lists and queue for free after
++ *  rcu grace period
++ * @nc_node: the nc node to free
   */
-@@ -776,36 +764,18 @@ void batadv_orig_ifinfo_free_ref(struct batadv_orig_ifinfo *orig_ifinfo)
- 		call_rcu(&orig_ifinfo->rcu, batadv_orig_ifinfo_free_rcu);
- }
- 
-+/**
-+ * batadv_orig_node_free_rcu - free the orig_node
-+ * @rcu: rcu pointer of the orig_node
-+ */
- static void batadv_orig_node_free_rcu(struct rcu_head *rcu)
+-static void batadv_nc_node_free_rcu(struct rcu_head *rcu)
++static void batadv_nc_node_release(struct batadv_nc_node *nc_node)
  {
--	struct hlist_node *node_tmp;
--	struct batadv_neigh_node *neigh_node;
- 	struct batadv_orig_node *orig_node;
--	struct batadv_orig_ifinfo *orig_ifinfo;
- 
- 	orig_node = container_of(rcu, struct batadv_orig_node, rcu);
- 
--	spin_lock_bh(&orig_node->neigh_list_lock);
+-	struct batadv_nc_node *nc_node;
 -
--	/* for all neighbors towards this originator ... */
--	hlist_for_each_entry_safe(neigh_node, node_tmp,
--				  &orig_node->neigh_list, list) {
--		hlist_del_rcu(&neigh_node->list);
--		batadv_neigh_node_free_ref_now(neigh_node);
--	}
--
--	hlist_for_each_entry_safe(orig_ifinfo, node_tmp,
--				  &orig_node->ifinfo_list, list) {
--		hlist_del_rcu(&orig_ifinfo->list);
--		batadv_orig_ifinfo_free_ref_now(orig_ifinfo);
--	}
--	spin_unlock_bh(&orig_node->neigh_list_lock);
--
- 	batadv_mcast_purge_orig(orig_node);
- 
--	/* Free nc_nodes */
--	batadv_nc_purge_orig(orig_node->bat_priv, orig_node, NULL);
--
- 	batadv_frag_purge_orig(orig_node, NULL);
- 
- 	if (orig_node->bat_priv->bat_algo_ops->bat_orig_free)
-@@ -816,14 +786,47 @@ static void batadv_orig_node_free_rcu(struct rcu_head *rcu)
+-	nc_node = container_of(rcu, struct batadv_nc_node, rcu);
+ 	batadv_orig_node_free_ref(nc_node->orig_node);
+-	kfree(nc_node);
++	kfree_rcu(nc_node, rcu);
  }
  
  /**
-+ * batadv_orig_node_release - release orig_node from lists and queue for
-+ *  free after rcu grace period
-+ * @orig_node: the orig node to free
-+ */
-+static void batadv_orig_node_release(struct batadv_orig_node *orig_node)
-+{
-+	struct hlist_node *node_tmp;
-+	struct batadv_neigh_node *neigh_node;
-+	struct batadv_orig_ifinfo *orig_ifinfo;
-+
-+	spin_lock_bh(&orig_node->neigh_list_lock);
-+
-+	/* for all neighbors towards this originator ... */
-+	hlist_for_each_entry_safe(neigh_node, node_tmp,
-+				  &orig_node->neigh_list, list) {
-+		hlist_del_rcu(&neigh_node->list);
-+		batadv_neigh_node_free_ref(neigh_node);
-+	}
-+
-+	hlist_for_each_entry_safe(orig_ifinfo, node_tmp,
-+				  &orig_node->ifinfo_list, list) {
-+		hlist_del_rcu(&orig_ifinfo->list);
-+		batadv_orig_ifinfo_free_ref(orig_ifinfo);
-+	}
-+	spin_unlock_bh(&orig_node->neigh_list_lock);
-+
-+	/* Free nc_nodes */
-+	batadv_nc_purge_orig(orig_node->bat_priv, orig_node, NULL);
-+
-+	call_rcu(&orig_node->rcu, batadv_orig_node_free_rcu);
-+}
-+
-+/**
-  * batadv_orig_node_free_ref - decrement the orig node refcounter and possibly
-- * schedule an rcu callback for freeing it
+- * batadv_nc_node_free_ref - decrements the nc node refcounter and possibly
+- * frees it
++ * batadv_nc_node_free_ref - decrement the nc node refcounter and possibly
 + *  release it
-  * @orig_node: the orig node to free
+  * @nc_node: the nc node to free
   */
- void batadv_orig_node_free_ref(struct batadv_orig_node *orig_node)
+ static void batadv_nc_node_free_ref(struct batadv_nc_node *nc_node)
  {
- 	if (atomic_dec_and_test(&orig_node->refcount))
--		call_rcu(&orig_node->rcu, batadv_orig_node_free_rcu);
-+		batadv_orig_node_release(orig_node);
+ 	if (atomic_dec_and_test(&nc_node->refcount))
+-		call_rcu(&nc_node->rcu, batadv_nc_node_free_rcu);
++		batadv_nc_node_release(nc_node);
  }
  
  /**
