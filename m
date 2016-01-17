@@ -1,42 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request [net]: batman-adv 20160117
-Date: Sun, 17 Jan 2016 11:39:31 -0500 (EST)
-Message-ID: <20160117.113931.1270444394545520569.davem@davemloft.net>
-References: <1453008281-15396-1-git-send-email-a@unstable.cc>
- <20160117.010446.1772166493922910087.davem@davemloft.net>
- <569B30D0.2040406@unstable.cc>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp_memcontrol: Forward declare cgroup_subsys and
+ mem_cgroup stucts
+Date: Sun, 17 Jan 2016 12:02:48 -0500 (EST)
+Message-ID: <20160117.120248.1797719628794320481.davem@davemloft.net>
+References: <1453026637-9942-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: a@unstable.cc
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <569B30D0.2040406-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57611 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184AbcAQRCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2016 12:02:50 -0500
+In-Reply-To: <1453026637-9942-1-git-send-email-geert@linux-m68k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Sun, 17 Jan 2016 14:12:32 +0800
-
-> On 17/01/16 14:04, David Miller wrote:
->> Just let me include what you say in this email or put exactly this
->> text into that merge commit.
->> 
-> 
-> Thanks for explaining this, David.
-> 
-> Next time I'll put in the git tag the same text as the email (I'll just
-> drop references to patch numbers because those are not really useful in
-> the git log).
-
-Thanks!
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFN1
+biwgMTcgSmFuIDIwMTYgMTE6MzA6MzcgKzAxMDANCg0KPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20g
+bmV0L2lwdjQvdGNwX2lwdjQuYzo3NyAoYW5kIG1hbnkgbW9yZSk6DQo+IGluY2x1ZGUvbmV0L3Rj
+cF9tZW1jb250cm9sLmg6NTogd2FybmluZzogoXN0cnVjdCBjZ3JvdXBfc3Vic3lzoiBkZWNsYXJl
+ZCBpbnNpZGUgcGFyYW1ldGVyIGxpc3QNCj4gaW5jbHVkZS9uZXQvdGNwX21lbWNvbnRyb2wuaDo1
+OiB3YXJuaW5nOiBpdHMgc2NvcGUgaXMgb25seSB0aGlzIGRlZmluaXRpb24gb3IgZGVjbGFyYXRp
+b24sIHdoaWNoIGlzIHByb2JhYmx5IG5vdCB3aGF0IHlvdSB3YW50DQo+IA0KPiBBZGQgZm9yd2Fy
+ZCBkZWNsYXJhdGlvbnMgZm9yIGFsbCB1c2VkIHN0cnVjdHVyZXMgdG8gZml4IHRoaXMuDQo+IA0K
+PiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBVeXR0ZXJob2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsub3Jn
+Pg0KDQpBcHBsaWVkLCB0aGFua3MgR2VlcnQuDQo=
