@@ -1,22 +1,164 @@
-From: "Tom" <jewelry.watch@139.com>
-Subject: cobalt ring
-Date: Sun, 17 Jan 2016 16:38:31 +0800
-Message-ID: <201601171638316298012@a.shuanbin.com>
-Reply-To: jewelry.watch@139.com
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+From: Matan Barak <matanb@mellanox.com>
+Subject: [PATCH net] net/mlx5_core: Fix trimming down IRQ number
+Date: Sun, 17 Jan 2016 11:25:47 +0200
+Message-ID: <1453022747-1993-1-git-send-email-matanb@mellanox.com>
+Cc: netdev@vger.kernel.org, Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Doron Tsur <doront@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [175.148.98.83] ([175.148.98.83]:2183 "HELO a.shuanbin.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
-	id S1753207AbcAQIki (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2016 03:40:38 -0500
+Received: from [193.47.165.129] ([193.47.165.129]:53351 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753400AbcAQJ0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jan 2016 04:26:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGVhciBTaXIgb3IgTWFkYW0NCg0KV2UgaGF2ZSBzb21lIHN0b2NrIG9mIGl0ZW1zLiBpZiB5b3Ug
-YXJlIHJldGFpbGVyIHRoYXQgd2lsbCBiZSBnb29kIGZvciB5b3UuIE5vIE1PUSBkZW1hbmQuIHBy
-b21wdCBzaGlwbWVudC4NCg0KSWYgeW91IGFyZSBpbnRlcmVzdGVkIHBscyBkbyBmZWVsIGZyZWUg
-dG8gY29udGFjdCB1cw0KDQpCZXN0IHdoaXNoZXMgDQoNCg0KVG9t
+From: Doron Tsur <doront@mellanox.com>
+
+With several ConnectX-4 cards installed on a server, one may receive
+irqn > 255 from the kernel API, which we mistakenly trim to 8bit.
+
+This causes EQ creation failure with the following stack trace:
+[<ffffffff812a11f4>] dump_stack+0x48/0x64
+[<ffffffff810ace21>] __setup_irq+0x3a1/0x4f0
+[<ffffffff810ad7e0>] request_threaded_irq+0x120/0x180
+[<ffffffffa0923660>] ? mlx5_eq_int+0x450/0x450 [mlx5_core]
+[<ffffffffa0922f64>] mlx5_create_map_eq+0x1e4/0x2b0 [mlx5_core]
+[<ffffffffa091de01>] alloc_comp_eqs+0xb1/0x180 [mlx5_core]
+[<ffffffffa091ea99>] mlx5_dev_init+0x5e9/0x6e0 [mlx5_core]
+[<ffffffffa091ec29>] init_one+0x99/0x1c0 [mlx5_core]
+[<ffffffff812e2afc>] local_pci_probe+0x4c/0xa0
+
+Fixing it by changing of the irqn type from u8 to unsigned int to
+support values > 255
+
+Fixes: 61d0e73e0a5a ('net/mlx5_core: Use the the real irqn in eq->irqn')
+Reported-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Doron Tsur <doront@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+---
+
+Hi Dave,
+
+This patch fixes a bug that occurred when several ConnectX-4 HCAs were
+used in the same server. We mistakenly trimmed the MSI-X vector to
+8bits.
+
+This patch changes the irqn types to unsigned int in order to fix
+that. The necessary conversion is in driver.h, but we had to change
+the rest of the files as well in order not to introduce conversion
+compilation warning.
+
+This bug was introduced in v4.4 and as such please also push it to
+v4.4-stable.
+
+Regards,
+Matan and Doron
+
+
+ drivers/infiniband/hw/mlx5/cq.c                   |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    6 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c    |    3 ++-
+ include/linux/mlx5/cq.h                           |    2 +-
+ include/linux/mlx5/driver.h                       |    5 +++--
+ 5 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
+index b143166..7fa3a92 100644
+--- a/drivers/infiniband/hw/mlx5/cq.c
++++ b/drivers/infiniband/hw/mlx5/cq.c
+@@ -774,7 +774,7 @@ struct ib_cq *mlx5_ib_create_cq(struct ib_device *ibdev,
+ 	int uninitialized_var(index);
+ 	int uninitialized_var(inlen);
+ 	int cqe_size;
+-	int irqn;
++	unsigned int irqn;
+ 	int eqn;
+ 	int err;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index b8d1cdb..bd805a0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -752,7 +752,7 @@ static int mlx5e_create_cq(struct mlx5e_channel *c,
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	struct mlx5_core_cq *mcq = &cq->mcq;
+ 	int eqn_not_used;
+-	int irqn;
++	unsigned int irqn;
+ 	int err;
+ 	u32 i;
+ 
+@@ -806,7 +806,7 @@ static int mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
+ 	void *in;
+ 	void *cqc;
+ 	int inlen;
+-	int irqn_not_used;
++	unsigned int irqn_not_used;
+ 	int eqn;
+ 	int err;
+ 
+@@ -1537,7 +1537,7 @@ static int mlx5e_create_drop_cq(struct mlx5e_priv *priv,
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	struct mlx5_core_cq *mcq = &cq->mcq;
+ 	int eqn_not_used;
+-	int irqn;
++	unsigned int irqn;
+ 	int err;
+ 
+ 	err = mlx5_cqwq_create(mdev, &param->wq, param->cqc, &cq->wq,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 1bf6ff4..ca5dda1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -672,7 +672,8 @@ static void mlx5_irq_clear_affinity_hints(struct mlx5_core_dev *mdev)
+ 		mlx5_irq_clear_affinity_hint(mdev, i);
+ }
+ 
+-int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn, int *irqn)
++int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn,
++		    unsigned int *irqn)
+ {
+ 	struct mlx5_eq_table *table = &dev->priv.eq_table;
+ 	struct mlx5_eq *eq, *n;
+diff --git a/include/linux/mlx5/cq.h b/include/linux/mlx5/cq.h
+index abc4767..b2c9fad 100644
+--- a/include/linux/mlx5/cq.h
++++ b/include/linux/mlx5/cq.h
+@@ -45,7 +45,7 @@ struct mlx5_core_cq {
+ 	atomic_t		refcount;
+ 	struct completion	free;
+ 	unsigned		vector;
+-	int			irqn;
++	unsigned int		irqn;
+ 	void (*comp)		(struct mlx5_core_cq *);
+ 	void (*event)		(struct mlx5_core_cq *, enum mlx5_event);
+ 	struct mlx5_uar	       *uar;
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index aea5810..eb534f9 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -310,7 +310,7 @@ struct mlx5_eq {
+ 	u32			cons_index;
+ 	struct mlx5_buf		buf;
+ 	int			size;
+-	u8			irqn;
++	unsigned int		irqn;
+ 	u8			eqn;
+ 	int			nent;
+ 	u64			mask;
+@@ -785,7 +785,8 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ int mlx5_start_eqs(struct mlx5_core_dev *dev);
+ int mlx5_stop_eqs(struct mlx5_core_dev *dev);
+-int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn, int *irqn);
++int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn,
++		    unsigned int *irqn);
+ int mlx5_core_attach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn);
+ int mlx5_core_detach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn);
+ 
+-- 
+1.7.1
