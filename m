@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: the temp asoc's transports should not be
- hashed/unhashed
-Date: Sun, 17 Jan 2016 19:12:20 -0500 (EST)
-Message-ID: <20160117.191220.636907487411695644.davem@davemloft.net>
-References: <488453d4e06805934290a1ef3cf633ee4b26bdc6.1452946637.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH 1/2] arm64: insn: remove BUG_ON from codegen
+Date: Sun, 17 Jan 2016 19:15:15 -0500 (EST)
+Message-ID: <20160117.191515.1256557824840537819.davem@davemloft.net>
+References: <1452756802-16511-1-git-send-email-zlim.lnx@gmail.com>
+	<20160115170852.GB1641@arm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: lucien.xin@gmail.com
+Cc: zlim.lnx@gmail.com, ast@kernel.org, catalin.marinas@arm.com,
+	rabin@rab.in, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: will.deacon@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33555 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33567 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752117AbcARAMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2016 19:12:22 -0500
-In-Reply-To: <488453d4e06805934290a1ef3cf633ee4b26bdc6.1452946637.git.lucien.xin@gmail.com>
+	with ESMTP id S1752892AbcARAPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2016 19:15:18 -0500
+In-Reply-To: <20160115170852.GB1641@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sat, 16 Jan 2016 20:17:17 +0800
+From: Will Deacon <will.deacon@arm.com>
+Date: Fri, 15 Jan 2016 17:08:53 +0000
 
-> Re-establish the previous behavior and avoid hashing temporary asocs by
-> checking t->asoc->temp in sctp_(un)hash_transport. Also, remove the
-> check of t->asoc->temp in __sctp_lookup_association, since they are
-> never hashed now.
-> 
-> Fixes: 4f0087812648 ("sctp: apply rhashtable api to send/recv path")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
+>   Acked-by: Will Deacon <will.deacon@arm.com>
 
-Applied, thanks.
+Please do not indent Acked-by: tags like this, it must appear
+on the very first column of the line or else automated tools
+and things like patchwork will not pick it up properly.
+
+I fixed it up by hand this time, but if you continue to do
+this I may make mistakes and miss it in the future and besides
+you're making more work for me.
+
+Thanks.
