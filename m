@@ -1,106 +1,69 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH 1/1] net/ipv6: add sysctl option accept_ra_min_hop_limit
-Date: Mon, 18 Jan 2016 17:33:47 +0900
-Message-ID: <569CA36B.8080905@miraclelinux.com>
-References: <1451896664-14271-1-git-send-email-machida.yuki@jp.fujitsu.com>
- <568B9836.1000202@miraclelinux.com> <5698BAF0.7060709@jp.fujitsu.com>
+From: Shaohui Xie <shaohui.xie@nxp.com>
+Subject: RE: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Mon, 18 Jan 2016 08:50:18 +0000
+Message-ID: <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
+ <20160114164418.GD19773@lunn.ch>
+ <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <56997951.90304@gmail.com> <5699B211.5070602@gmail.com>
+ <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <569C9CD2.10301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Hangbin Liu <liuhangbin@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"YOSHIFUJI Hideaki (USAGI Project)" <yoshfuji@linux-ipv6.org>
-To: Yuki Machida <machida.yuki@jp.fujitsu.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"shh.xie@gmail.com" <shh.xie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36160 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753778AbcARIdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 03:33:51 -0500
-Received: by mail-pf0-f171.google.com with SMTP id n128so154257599pfn.3
-        for <netdev@vger.kernel.org>; Mon, 18 Jan 2016 00:33:51 -0800 (PST)
-In-Reply-To: <5698BAF0.7060709@jp.fujitsu.com>
+Received: from mail-am1on0053.outbound.protection.outlook.com ([157.56.112.53]:3584
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752776AbcARJFR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jan 2016 04:05:17 -0500
+In-Reply-To: <569C9CD2.10301@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Yuki Machida wrote:
-> Hi, Yoshifuji-san
-> 
-> It is currently under investigation.
-> It takes still time.
-> 
-> Futher comment below.
-> 
-> On 2016年01月05日 19:17, YOSHIFUJI Hideaki wrote:
->> Hi, Machida-san.
->>
->> Yuki Machida wrote:
->>> Please apply the following patch to v4.1.x.
->>>
->>> By ommit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
->>
->> s/ommit/commit/
-> I will correct this typo.
-> 
->>
->> Futher comment below.
->>
->> :
->>> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->>> Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
->>> Signed-off-by: David S. Miller <davem@davemloft.net>
->>> ---
->>>   Documentation/networking/ip-sysctl.txt |  8 ++++++++
->>>   include/linux/ipv6.h                   |  1 +
->>>   include/uapi/linux/ipv6.h              |  1 +
->>>   net/ipv6/addrconf.c                    | 10 ++++++++++
->>>   net/ipv6/ndisc.c                       | 16 +++++++---------
->>>   5 files changed, 27 insertions(+), 9 deletions(-)
->>>
->>> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->>> index 071fb18..07fad3d 100644
->> :
->>> --- a/include/uapi/linux/ipv6.h
->>> +++ b/include/uapi/linux/ipv6.h
->>> @@ -171,6 +171,7 @@ enum {
->>>   	DEVCONF_USE_OPTIMISTIC,
->>>   	DEVCONF_ACCEPT_RA_MTU,
->>>   	DEVCONF_STABLE_SECRET,
->>
->> You have to add a hole for DEVCONF_USE_OIF_ADDRS_ONLY.
-> 
-> For addition a hole of DEVCONF_USE_OIF_ADDRS_ONLY,
-> It needs following two patches.
-> commit 9131f3de24db4dc12199aede7d931e6703e97f3b
-> commit 3985e8a3611a93bb36789f65db862e5700aab65e
-> 
-> When It apply two patches to 4.1.15,
-> It doesn't conform to RFC 2460 and RFC 4443.
-> (I used IPv6 Ready Logo Core Conformance Test.)
-> I am looking for a patch for fix.
-
-You do not have to implement that interface if you
-do not need.  You just have to reserve that number
-to maintain binary compatibility:
-   :
-   __DEVCONF_USE_OIF_ADDRS_ONLY,	/* not implemented */
-   DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
-   DEVCONF_MAX
-
-This is because those enums in include/"uapi"/linux/ipv6.h
-are exported to userspace.
-
-> 
->> --yoshfuji
->>
->>> +	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
->>>   	DEVCONF_MAX
->>>   };
->>>   
->>
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTZWJhc3RpYW4gSGVzc2VsYmFy
+dGggW21haWx0bzpzZWJhc3RpYW4uaGVzc2VsYmFydGhAZ21haWwuY29tXQ0KPiBTZW50OiBNb25k
+YXksIEphbnVhcnkgMTgsIDIwMTYgNDowNiBQTQ0KPiBUbzogU2hhb2h1aSBYaWU7IEZsb3JpYW4g
+RmFpbmVsbGk7IEFuZHJldyBMdW5uOyBzaGgueGllQGdtYWlsLmNvbQ0KPiBDYzogZGV2aWNldHJl
+ZUB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4cHBjLQ0KPiBk
+ZXZAbGlzdHMub3psYWJzLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgU2hhb2h1aSBYaWUNCj4g
+U3ViamVjdDogUmU6IFtQQVRDSCAxLzNdW3YyXSBuZXQ6IHBoeTogaW50cm9kdWNlIDEwMDBCQVNF
+LUtYIGFuZCAxMEdCQVNFLUtSDQo+IA0KPiBPbiAxOC4wMS4yMDE2IDA4OjIzLCBTaGFvaHVpIFhp
+ZSB3cm90ZToNCj4gPj4+IElmIHlvdSBsb29rIGF0IHRoZSBsaXN0IG9mIHBvc3NpYmxlIHZhbHVl
+cyBmb3IgInBoeS1tb2RlIiB5b3UnZCBzZWUNCj4gPj4+IHRoYXQgbm9uZSBvZiBpdCBkZXNjcmli
+ZXMgYSBQSFktdG8tUEhZIGNvbm5lY3Rpb24gYnV0IGFsbCBhcmUgZm9yDQo+ID4+PiBNQUMtdG8t
+UEhZIGNvbm5lY3Rpb25zLiBBbHNvLCBuYW1lcyBhYm92ZSBzdWdnZXN0IGl0IGFscmVhZHk6IE1J
+SSBpcw0KPiA+Pj4gc2hvcnQgZm9yIG1lZGlhIF9pbmRlcGVuZGVudF8gaW50ZXJmYWNlLg0KPiA+
+Pj4NCj4gPj4+IEkgY29weSBBbmRyZXcncyBjb25jZXJucyBhbmQgdGhpbmsgdGhhdCBuZWl0aGVy
+IDEwMDAwYmFzZS1reCBub3INCj4gPj4+IDEwZ2Jhc2Uta3IgYmVsb25nIGluIHRoZSBsaXN0IG9m
+IHBoeS1tb2RlIHByb3BlcnRpZXMuDQo+ID4+DQo+ID4+IEkgY29uY3VyIHdpdGggdGhhdCBhcyB3
+ZWxsLCBpZiB0aGUgcGh5IGNvbm5lY3Rpb24gZG9lcyBub3QgcmVhbGx5DQo+ID4+IG1hdHRlciBo
+ZXJlLCBvciBkb2VzIG5vdCBzZWVtIGxpa2UgYSBnb29kIGZpdCwgbWF5YmUgd2Ugc2hvdWxkIGhh
+dmUgYQ0KPiA+PiBkaWZmZXJlbnQgcHJvcGVydHksIG9yIGp1c3QgZGVmaW5lIHRoZSBoYXJkd2Fy
+ZSBpbnRlcmZhY2UgYSBsaXR0bGUNCj4gZGlmZmVyZW50bHk/DQo+ID4gUmlnaHQsICdwaHktbW9k
+ZScgaXMgbm90IGEgZ29vZCBmaXQgZm9yIGJhY2twbGFuZXMsIGhvdyBhYm91dCBhIG5ldw0KPiA+
+IHByb3BlcnR5IGxpa2UgJ2JhY2twbGFuZS1tb2RlJyBvciBzb21ldGhpbmcsIGxpa2UgYmVsb3c6
+DQo+IA0KPiBIbW0uIFdlIGFscmVhZHkgaGF2ZSBhIHNwZWVkIHByb3BlcnR5IGZvciB0aGF0IHlv
+dSBjYW4gdXNlIGZvciAxMDAwLCAxMDAwMCwNCj4gNDAwMDAuIExlYXZlcyB0aGUgbWVkaWEtdHlw
+ZSwgZS5nLiBjb3BwZXIgb3Igd2hhdGV2ZXIuDQpbUy5IXSBZb3UgbWVhbiB0aGUgcHJvcGVydHkg
+J21heC1zcGVlZCc/IHRoZSBwcm9ibGVtIGlzIHRoZSBtZWRpYS10eXBlIG1hdHRlcnMuDQpQbGVh
+c2Ugc2VlIGJlbG93Lg0KDQo+IA0KPiBDdXJyZW50bHksIHlvdSBmYWlsIHRvIGNvbnZpbmNlIG1l
+IHRoYXQgaXQgaXMgcmVxdWlyZWQgdG8gZGVzY3JpYmUgdGhlIG1lZGlhDQo+IHR5cGUgYXQgYWxs
+LiBXZSBoYXZlIGNvbWUgYSBsb25nIHdheSB3aXRoIGRpZmZlcmVudCBtZWRpYSB3aXRob3V0IGRl
+c2NyaWJpbmcgdGhlDQo+IFBIWS10by1QSFkgbWVkaWEgdHlwZS4NCj4gDQo+IFdoYXQgbWFrZXMg
+dGhlIGJhY2twbGFuZSBzZXR1cCBzbyBzcGVjaWFsPw0KW1MuSF0gdGhlIGZzbCBiYWNrcGxhbmUs
+IGUuZy4gMTBHQkFTRS1LUiwgbmVlZHMgc29mdHdhcmUgdG8gaGFuZGxlIGxpbmsgdHJhaW5pbmcs
+DQpJdCdzIHRvIHRyYWluIGxpbmsgcGFydG5lciwgYW5kIHRyYWluZWQgYnkgbGluayBwYXJ0bmVy
+IHBhcmFsbGVsLg0KDQpCdXQgaWYgbWVkaWEgdHlwZSBpcyBub3QgY29wcGVyLCBlLmcuIG9wdGlj
+YWwgbW9kdWxlLCB3ZSB3b24ndCBuZWVkIHRoaXMuDQoNClRoYW5rIHlvdSENCg0KU2hhb2h1aSAN
+Cg==
