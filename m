@@ -1,69 +1,91 @@
-From: Shaohui Xie <shaohui.xie@nxp.com>
-Subject: RE: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-Date: Mon, 18 Jan 2016 08:50:18 +0000
-Message-ID: <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
-References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
- <20160114164418.GD19773@lunn.ch>
- <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <56997951.90304@gmail.com> <5699B211.5070602@gmail.com>
- <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <569C9CD2.10301@gmail.com>
+From: Daode Huang <huangdaode@hisilicon.com>
+Subject: [PATCH net-next] net: hns: bug fix about hisilicon TSO BD mode
+Date: Mon, 18 Jan 2016 17:24:16 +0800
+Message-ID: <1453109056-161865-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"shh.xie@gmail.com" <shh.xie@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0053.outbound.protection.outlook.com ([157.56.112.53]:3584
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752776AbcARJFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jan 2016 04:05:17 -0500
-In-Reply-To: <569C9CD2.10301@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <huangdaode@hisilicon.com>, <yisen.zhuang@huawei.com>,
+	<yankejian@huawei.com>, <liguozhu@hisilicon.com>,
+	<salil.mehta@huawei.com>, <geliangtang@163.com>,
+	<lipeng321@huawei.com>, <andriy.shevchenko@linux.intel.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<Kenneth-Lee-2012@foxmail.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTZWJhc3RpYW4gSGVzc2VsYmFy
-dGggW21haWx0bzpzZWJhc3RpYW4uaGVzc2VsYmFydGhAZ21haWwuY29tXQ0KPiBTZW50OiBNb25k
-YXksIEphbnVhcnkgMTgsIDIwMTYgNDowNiBQTQ0KPiBUbzogU2hhb2h1aSBYaWU7IEZsb3JpYW4g
-RmFpbmVsbGk7IEFuZHJldyBMdW5uOyBzaGgueGllQGdtYWlsLmNvbQ0KPiBDYzogZGV2aWNldHJl
-ZUB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4cHBjLQ0KPiBk
-ZXZAbGlzdHMub3psYWJzLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgU2hhb2h1aSBYaWUNCj4g
-U3ViamVjdDogUmU6IFtQQVRDSCAxLzNdW3YyXSBuZXQ6IHBoeTogaW50cm9kdWNlIDEwMDBCQVNF
-LUtYIGFuZCAxMEdCQVNFLUtSDQo+IA0KPiBPbiAxOC4wMS4yMDE2IDA4OjIzLCBTaGFvaHVpIFhp
-ZSB3cm90ZToNCj4gPj4+IElmIHlvdSBsb29rIGF0IHRoZSBsaXN0IG9mIHBvc3NpYmxlIHZhbHVl
-cyBmb3IgInBoeS1tb2RlIiB5b3UnZCBzZWUNCj4gPj4+IHRoYXQgbm9uZSBvZiBpdCBkZXNjcmli
-ZXMgYSBQSFktdG8tUEhZIGNvbm5lY3Rpb24gYnV0IGFsbCBhcmUgZm9yDQo+ID4+PiBNQUMtdG8t
-UEhZIGNvbm5lY3Rpb25zLiBBbHNvLCBuYW1lcyBhYm92ZSBzdWdnZXN0IGl0IGFscmVhZHk6IE1J
-SSBpcw0KPiA+Pj4gc2hvcnQgZm9yIG1lZGlhIF9pbmRlcGVuZGVudF8gaW50ZXJmYWNlLg0KPiA+
-Pj4NCj4gPj4+IEkgY29weSBBbmRyZXcncyBjb25jZXJucyBhbmQgdGhpbmsgdGhhdCBuZWl0aGVy
-IDEwMDAwYmFzZS1reCBub3INCj4gPj4+IDEwZ2Jhc2Uta3IgYmVsb25nIGluIHRoZSBsaXN0IG9m
-IHBoeS1tb2RlIHByb3BlcnRpZXMuDQo+ID4+DQo+ID4+IEkgY29uY3VyIHdpdGggdGhhdCBhcyB3
-ZWxsLCBpZiB0aGUgcGh5IGNvbm5lY3Rpb24gZG9lcyBub3QgcmVhbGx5DQo+ID4+IG1hdHRlciBo
-ZXJlLCBvciBkb2VzIG5vdCBzZWVtIGxpa2UgYSBnb29kIGZpdCwgbWF5YmUgd2Ugc2hvdWxkIGhh
-dmUgYQ0KPiA+PiBkaWZmZXJlbnQgcHJvcGVydHksIG9yIGp1c3QgZGVmaW5lIHRoZSBoYXJkd2Fy
-ZSBpbnRlcmZhY2UgYSBsaXR0bGUNCj4gZGlmZmVyZW50bHk/DQo+ID4gUmlnaHQsICdwaHktbW9k
-ZScgaXMgbm90IGEgZ29vZCBmaXQgZm9yIGJhY2twbGFuZXMsIGhvdyBhYm91dCBhIG5ldw0KPiA+
-IHByb3BlcnR5IGxpa2UgJ2JhY2twbGFuZS1tb2RlJyBvciBzb21ldGhpbmcsIGxpa2UgYmVsb3c6
-DQo+IA0KPiBIbW0uIFdlIGFscmVhZHkgaGF2ZSBhIHNwZWVkIHByb3BlcnR5IGZvciB0aGF0IHlv
-dSBjYW4gdXNlIGZvciAxMDAwLCAxMDAwMCwNCj4gNDAwMDAuIExlYXZlcyB0aGUgbWVkaWEtdHlw
-ZSwgZS5nLiBjb3BwZXIgb3Igd2hhdGV2ZXIuDQpbUy5IXSBZb3UgbWVhbiB0aGUgcHJvcGVydHkg
-J21heC1zcGVlZCc/IHRoZSBwcm9ibGVtIGlzIHRoZSBtZWRpYS10eXBlIG1hdHRlcnMuDQpQbGVh
-c2Ugc2VlIGJlbG93Lg0KDQo+IA0KPiBDdXJyZW50bHksIHlvdSBmYWlsIHRvIGNvbnZpbmNlIG1l
-IHRoYXQgaXQgaXMgcmVxdWlyZWQgdG8gZGVzY3JpYmUgdGhlIG1lZGlhDQo+IHR5cGUgYXQgYWxs
-LiBXZSBoYXZlIGNvbWUgYSBsb25nIHdheSB3aXRoIGRpZmZlcmVudCBtZWRpYSB3aXRob3V0IGRl
-c2NyaWJpbmcgdGhlDQo+IFBIWS10by1QSFkgbWVkaWEgdHlwZS4NCj4gDQo+IFdoYXQgbWFrZXMg
-dGhlIGJhY2twbGFuZSBzZXR1cCBzbyBzcGVjaWFsPw0KW1MuSF0gdGhlIGZzbCBiYWNrcGxhbmUs
-IGUuZy4gMTBHQkFTRS1LUiwgbmVlZHMgc29mdHdhcmUgdG8gaGFuZGxlIGxpbmsgdHJhaW5pbmcs
-DQpJdCdzIHRvIHRyYWluIGxpbmsgcGFydG5lciwgYW5kIHRyYWluZWQgYnkgbGluayBwYXJ0bmVy
-IHBhcmFsbGVsLg0KDQpCdXQgaWYgbWVkaWEgdHlwZSBpcyBub3QgY29wcGVyLCBlLmcuIG9wdGlj
-YWwgbW9kdWxlLCB3ZSB3b24ndCBuZWVkIHRoaXMuDQoNClRoYW5rIHlvdSENCg0KU2hhb2h1aSAN
-Cg==
+The current upstreaming code fails to set the tso_mode register
+when initilizes, when processes large size packets, the default 4 bd is
+not enough, so this patch initilizes it and set the default value to 8 bds
+
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 13 +++++++++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |  3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |  5 +++++
+ 3 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+index d2263c7..1218880 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+@@ -369,8 +369,17 @@ int hns_rcb_common_init_hw(struct rcb_common_cb *rcb_common)
+ 	dsaf_write_dev(rcb_common, RCB_COM_CFG_ENDIAN_REG,
+ 		       HNS_RCB_COMMON_ENDIAN);
+ 
+-	dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG, 0x0);
+-	dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
++	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
++		dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG, 0x0);
++		dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
++	} else {
++		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
++				 RCB_COM_CFG_FNA_B, false);
++		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
++				 RCB_COM_CFG_FA_B, true);
++		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_TSO_MODE_REG,
++				 RCB_COM_TSO_MODE_B, HNS_TSO_MODE_8BD_32K);
++	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
+index 29041b1..81fe9f8 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
+@@ -54,6 +54,9 @@ struct rcb_common_cb;
+ #define HNS_DUMP_REG_NUM			500
+ #define HNS_STATIC_REG_NUM			12
+ 
++#define HNS_TSO_MODE_8BD_32K			1
++#define HNS_TSO_MDOE_4BD_16K			0
++
+ enum rcb_int_flag {
+ 	RCB_INT_FLAG_TX = 0x1,
+ 	RCB_INT_FLAG_RX = (0x1 << 1),
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+index 5d1b746..f0c4f9b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+@@ -363,6 +363,8 @@
+ #define RCB_COM_CFG_FA_REG			0x3C
+ #define RCB_COM_CFG_PKT_TC_BP_REG		0x40
+ #define RCB_COM_CFG_PPE_TNL_CLKEN_REG		0x44
++#define RCBV2_COM_CFG_USER_REG			0x30
++#define RCBV2_COM_CFG_TSO_MODE_REG		0x50
+ 
+ #define RCB_COM_INTMSK_TX_PKT_REG		0x3A0
+ #define RCB_COM_RINT_TX_PKT_REG			0x3A8
+@@ -860,6 +862,9 @@
+ 
+ #define PPE_COMMON_CNT_CLR_CE_B	0
+ #define PPE_COMMON_CNT_CLR_SNAP_EN_B	1
++#define RCB_COM_TSO_MODE_B	0
++#define RCB_COM_CFG_FNA_B	1
++#define RCB_COM_CFG_FA_B	0
+ 
+ #define GMAC_DUPLEX_TYPE_B 0
+ 
+-- 
+1.9.1
