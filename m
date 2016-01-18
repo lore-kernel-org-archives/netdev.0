@@ -1,71 +1,106 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH, RESEND] ssb: mark ssb_bus_register as __maybe_unused
-Date: Mon, 18 Jan 2016 10:26:29 +0200
-Message-ID: <87y4bn5m4q.fsf@kamboji.qca.qualcomm.com>
-References: <8128014.DbbgBtKY3z@wuerfel>
-	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com> <4037550.DMaVTE01Aq@wuerfel>
-	<87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
-	<CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH 1/1] net/ipv6: add sysctl option accept_ra_min_hop_limit
+Date: Mon, 18 Jan 2016 17:33:47 +0900
+Message-ID: <569CA36B.8080905@miraclelinux.com>
+References: <1451896664-14271-1-git-send-email-machida.yuki@jp.fujitsu.com>
+ <568B9836.1000202@miraclelinux.com> <5698BAF0.7060709@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"linux-arm-kernel\@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-mips\@linux-mips.org" <linux-mips@linux-mips.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Michael Buesch <m@bues.ch>,
-	Network Development <netdev@vger.kernel.org>
-To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
-	(=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Sat, 16 Jan 2016
- 15:44:23 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Hangbin Liu <liuhangbin@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"YOSHIFUJI Hideaki (USAGI Project)" <yoshfuji@linux-ipv6.org>
+To: Yuki Machida <machida.yuki@jp.fujitsu.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36160 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753778AbcARIdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 03:33:51 -0500
+Received: by mail-pf0-f171.google.com with SMTP id n128so154257599pfn.3
+        for <netdev@vger.kernel.org>; Mon, 18 Jan 2016 00:33:51 -0800 (PST)
+In-Reply-To: <5698BAF0.7060709@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
+Hi,
 
-> On 16 January 2016 at 13:10, Kalle Valo <kvalo@codeaurora.org> wrote:
->> Arnd Bergmann <arnd@arndb.de> writes:
+Yuki Machida wrote:
+> Hi, Yoshifuji-san
+> 
+> It is currently under investigation.
+> It takes still time.
+> 
+> Futher comment below.
+> 
+> On 2016年01月05日 19:17, YOSHIFUJI Hideaki wrote:
+>> Hi, Machida-san.
 >>
->>> On Thursday 14 January 2016 08:46:29 Kalle Valo wrote:
->>>> I can take it. For historical reasons ssb patches go through my
->>>> wireless-drivers trees.
+>> Yuki Machida wrote:
+>>> Please apply the following patch to v4.1.x.
 >>>
->>> I found this in my backlog, and I believe it still applies. Can you=
- take
->>> that one too?
+>>> By ommit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
 >>
->> I'm not sure what you mean here, I can take any ssb patch if it's ok=
- for
->> Michael or Rafal :)
+>> s/ommit/commit/
+> I will correct this typo.
+> 
 >>
->> Just please submit the patch properly (with S-o-B line) and CC
->> linux-wireless so that it goes to patchwork.
->
-> It was already sent once and Acked by Michael:
-> https://patchwork.kernel.org/patch/7543191/
->
-> The problem was not cc-ing linux-wireless so it wasn't picked by the
-> linux-wireless patchwork.
+>> Futher comment below.
+>>
+>> :
+>>> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+>>> Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+>>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>>> ---
+>>>   Documentation/networking/ip-sysctl.txt |  8 ++++++++
+>>>   include/linux/ipv6.h                   |  1 +
+>>>   include/uapi/linux/ipv6.h              |  1 +
+>>>   net/ipv6/addrconf.c                    | 10 ++++++++++
+>>>   net/ipv6/ndisc.c                       | 16 +++++++---------
+>>>   5 files changed, 27 insertions(+), 9 deletions(-)
+>>>
+>>> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+>>> index 071fb18..07fad3d 100644
+>> :
+>>> --- a/include/uapi/linux/ipv6.h
+>>> +++ b/include/uapi/linux/ipv6.h
+>>> @@ -171,6 +171,7 @@ enum {
+>>>   	DEVCONF_USE_OPTIMISTIC,
+>>>   	DEVCONF_ACCEPT_RA_MTU,
+>>>   	DEVCONF_STABLE_SECRET,
+>>
+>> You have to add a hole for DEVCONF_USE_OIF_ADDRS_ONLY.
+> 
+> For addition a hole of DEVCONF_USE_OIF_ADDRS_ONLY,
+> It needs following two patches.
+> commit 9131f3de24db4dc12199aede7d931e6703e97f3b
+> commit 3985e8a3611a93bb36789f65db862e5700aab65e
+> 
+> When It apply two patches to 4.1.15,
+> It doesn't conform to RFC 2460 and RFC 4443.
+> (I used IPv6 Ready Logo Core Conformance Test.)
+> I am looking for a patch for fix.
 
-Ah, that's why I missed it. I only follow patchwork, I basically ignore
-patches which are sent via email. Arnd, can you please resend the patch
-and CC linux-wireless? Sorry for the trouble.
+You do not have to implement that interface if you
+do not need.  You just have to reserve that number
+to maintain binary compatibility:
+   :
+   __DEVCONF_USE_OIF_ADDRS_ONLY,	/* not implemented */
+   DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
+   DEVCONF_MAX
 
-To avoid this in the future I think we should replace netdev with
-linux-wireless in the MAINTAINERS entry:
+This is because those enums in include/"uapi"/linux/ipv6.h
+are exported to userspace.
 
-SONICS SILICON BACKPLANE DRIVER (SSB)
-M:      Michael Buesch <m@bues.ch>
-L:      netdev@vger.kernel.org
-S:      Maintained
-=46:      drivers/ssb/
-=46:      include/linux/ssb/
+> 
+>> --yoshfuji
+>>
+>>> +	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
+>>>   	DEVCONF_MAX
+>>>   };
+>>>   
+>>
 
-Are people ok with that? Patches welcome :)
-
---=20
-Kalle Valo
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
