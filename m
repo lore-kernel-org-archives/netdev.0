@@ -1,115 +1,83 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH net-next] net: hns: bug fix about hisilicon TSO BD mode
-Date: Mon, 18 Jan 2016 11:36:32 +0200
-Message-ID: <1453109792.2521.73.camel@linux.intel.com>
-References: <1453109056-161865-1-git-send-email-huangdaode@hisilicon.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
+Date: Mon, 18 Jan 2016 10:44:57 +0100
+Message-ID: <569CB419.6050102@iogearbox.net>
+References: <1453099068-39022-1-git-send-email-maninder1.s@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yisen.zhuang@huawei.com, yankejian@huawei.com,
-	liguozhu@hisilicon.com, salil.mehta@huawei.com,
-	geliangtang@163.com, lipeng321@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Kenneth-Lee-2012@foxmail.com
-To: Daode Huang <huangdaode@hisilicon.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453109056-161865-1-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, willemb@google.com, edumazet@google.com,
+	eyal.birger@gmail.com, tklauser@distanz.ch,
+	fruggeri@aristanetworks.com, dwmw2@infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pankaj.m@samsung.com, gh007.kim@samsung.com,
+	hakbong5.lee@samsung.com, Vaneet Narang <v.narang@samsung.com>
+To: Maninder Singh <maninder1.s@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:49513 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754468AbcARJpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 04:45:06 -0500
+In-Reply-To: <1453099068-39022-1-git-send-email-maninder1.s@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-01-18 at 17:24 +0800, Daode Huang wrote:
-> The current upstreaming code fails to set the tso_mode register
-> when initilizes, when processes large size packets, the default 4 bd
-> is
-> not enough, so this patch initilizes it and set the default value to
-> 8 bds
+On 01/18/2016 07:37 AM, Maninder Singh wrote:
+> Receieve queue is not purged when socket dectruction is called
+> results in kernel warning because of non zero sk_rmem_alloc.
+>
+> WARNING: at net/packet/af_packet.c:1142 packet_sock_destruct
+>
+> Backtrace:
+> WARN_ON(atomic_read(&sk->sk_rmem_alloc)
+> packet_sock_destruct
+> __sk_free
+> sock_wfree
+> skb_release_head_state
+> skb_release_all
+> __kfree_skb
+> net_tx_action
+> __do_softirq
+> run_ksoftirqd
+>
+> Signed-off-by: Vaneet Narang <v.narang@samsung.com>
+> Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
 
-Please, next time try to thin out the Cc list. I have no intention to
-be in it.
+Thanks for the fix. While it fixes the WARN_ON(), I believe some more
+investigation is needed here on why it is happening:
 
->=20
-> Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+We call first into packet_release(), which removes the socket hook from
+the kernel (unregister_prot_hook()), later calls synchronize_net() to
+make sure no more skbs will come in. The receive queue is purged right
+after the synchronize_net() already.
+
+packet_sock_destruct() will be called afterwards, when there are no more
+refs on the socket anymore and no af_packet skbs in tx waiting for completion.
+Only then, in sk_destruct(), we'll call into packet_sock_destruct().
+
+So, eventually double purging the sk_receive_queue seems not the right
+thing to do at first look, and w/o any deeper analysis in the commit description.
+
+Could you look a bit further into the issue? Do you have a reproducer to
+trigger it?
+
+Thanks,
+Daniel
+
 > ---
-> =C2=A0drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 13 ++++++++=
-+++--
-> =C2=A0drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |=C2=A0=C2=A0=
-3 +++
-> =C2=A0drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |=C2=A0=C2=A0=
-5 +++++
-> =C2=A03 files changed, 19 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> index d2263c7..1218880 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-> @@ -369,8 +369,17 @@ int hns_rcb_common_init_hw(struct rcb_common_cb
-> *rcb_common)
-> =C2=A0	dsaf_write_dev(rcb_common, RCB_COM_CFG_ENDIAN_REG,
-> =C2=A0		=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0HNS_RCB_COMMON_ENDI=
-AN);
-> =C2=A0
-> -	dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG, 0x0);
-> -	dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
-> +	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
-> +		dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG,
-> 0x0);
-> +		dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
-> +	} else {
-> +		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
-> +				=C2=A0RCB_COM_CFG_FNA_B, false);
-> +		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
-> +				=C2=A0RCB_COM_CFG_FA_B, true);
-> +		dsaf_set_dev_bit(rcb_common,
-> RCBV2_COM_CFG_TSO_MODE_REG,
-> +				=C2=A0RCB_COM_TSO_MODE_B,
-> HNS_TSO_MODE_8BD_32K);
-> +	}
-> =C2=A0
-> =C2=A0	return 0;
-> =C2=A0}
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-> index 29041b1..81fe9f8 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-> @@ -54,6 +54,9 @@ struct rcb_common_cb;
-> =C2=A0#define HNS_DUMP_REG_NUM			500
-> =C2=A0#define HNS_STATIC_REG_NUM			12
-> =C2=A0
-> +#define HNS_TSO_MODE_8BD_32K			1
-> +#define HNS_TSO_MDOE_4BD_16K			0
-
-Typo: MDOE
-
-> +
-> =C2=A0enum rcb_int_flag {
-> =C2=A0	RCB_INT_FLAG_TX =3D 0x1,
-> =C2=A0	RCB_INT_FLAG_RX =3D (0x1 << 1),
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-> index 5d1b746..f0c4f9b 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-> @@ -363,6 +363,8 @@
-> =C2=A0#define RCB_COM_CFG_FA_REG			0x3C
-> =C2=A0#define RCB_COM_CFG_PKT_TC_BP_REG		0x40
-> =C2=A0#define RCB_COM_CFG_PPE_TNL_CLKEN_REG		0x44
-> +#define RCBV2_COM_CFG_USER_REG			0x30
-> +#define RCBV2_COM_CFG_TSO_MODE_REG		0x50
-> =C2=A0
-> =C2=A0#define RCB_COM_INTMSK_TX_PKT_REG		0x3A0
-> =C2=A0#define RCB_COM_RINT_TX_PKT_REG			0x3A8
-> @@ -860,6 +862,9 @@
-> =C2=A0
-> =C2=A0#define PPE_COMMON_CNT_CLR_CE_B	0
-> =C2=A0#define PPE_COMMON_CNT_CLR_SNAP_EN_B	1
-> +#define RCB_COM_TSO_MODE_B	0
-> +#define RCB_COM_CFG_FNA_B	1
-> +#define RCB_COM_CFG_FA_B	0
-> =C2=A0
-> =C2=A0#define GMAC_DUPLEX_TYPE_B 0
-> =C2=A0
-
---=20
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+>   net/packet/af_packet.c |    1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 81b4b81..bcb37ba 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1310,6 +1310,7 @@ static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+>
+>   static void packet_sock_destruct(struct sock *sk)
+>   {
+> +	skb_queue_purge(&sk->sk_receive_queue);
+>   	skb_queue_purge(&sk->sk_error_queue);
+>
+>   	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+>
