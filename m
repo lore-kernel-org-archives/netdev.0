@@ -1,52 +1,73 @@
-From: Shaohui Xie <shaohui.xie-3arQi8VN3Tc@public.gmane.org>
-Subject: RE: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-Date: Mon, 18 Jan 2016 07:23:27 +0000
-Message-ID: <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Mon, 18 Jan 2016 09:05:38 +0100
+Message-ID: <569C9CD2.10301@gmail.com>
 References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
  <20160114164418.GD19773@lunn.ch>
  <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
  <56997951.90304@gmail.com> <5699B211.5070602@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Shaohui Xie <Shaohui.Xie-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-	"shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5699B211.5070602-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+ <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>
+To: Shaohui Xie <shaohui.xie@nxp.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"shh.xie@gmail.com" <shh.xie@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36233 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988AbcARIFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 03:05:43 -0500
+In-Reply-To: <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+IElmIHlvdSBsb29rIGF0IHRoZSBsaXN0IG9mIHBvc3NpYmxlIHZhbHVlcyBmb3IgInBoeS1t
-b2RlIiB5b3UnZCBzZWUNCj4gPiB0aGF0IG5vbmUgb2YgaXQgZGVzY3JpYmVzIGEgUEhZLXRvLVBI
-WSBjb25uZWN0aW9uIGJ1dCBhbGwgYXJlIGZvcg0KPiA+IE1BQy10by1QSFkgY29ubmVjdGlvbnMu
-IEFsc28sIG5hbWVzIGFib3ZlIHN1Z2dlc3QgaXQgYWxyZWFkeTogTUlJIGlzDQo+ID4gc2hvcnQg
-Zm9yIG1lZGlhIF9pbmRlcGVuZGVudF8gaW50ZXJmYWNlLg0KPiA+DQo+ID4gSSBjb3B5IEFuZHJl
-dydzIGNvbmNlcm5zIGFuZCB0aGluayB0aGF0IG5laXRoZXIgMTAwMDBiYXNlLWt4IG5vcg0KPiA+
-IDEwZ2Jhc2Uta3IgYmVsb25nIGluIHRoZSBsaXN0IG9mIHBoeS1tb2RlIHByb3BlcnRpZXMuDQo+
-IA0KPiBJIGNvbmN1ciB3aXRoIHRoYXQgYXMgd2VsbCwgaWYgdGhlIHBoeSBjb25uZWN0aW9uIGRv
-ZXMgbm90IHJlYWxseSBtYXR0ZXIgaGVyZSwNCj4gb3IgZG9lcyBub3Qgc2VlbSBsaWtlIGEgZ29v
-ZCBmaXQsIG1heWJlIHdlIHNob3VsZCBoYXZlIGEgZGlmZmVyZW50IHByb3BlcnR5LCBvcg0KPiBq
-dXN0IGRlZmluZSB0aGUgaGFyZHdhcmUgaW50ZXJmYWNlIGEgbGl0dGxlIGRpZmZlcmVudGx5Pw0K
-UmlnaHQsICdwaHktbW9kZScgaXMgbm90IGEgZ29vZCBmaXQgZm9yIGJhY2twbGFuZXMsIGhvdyBh
-Ym91dCBhIG5ldyBwcm9wZXJ0eSBsaWtlDQonYmFja3BsYW5lLW1vZGUnIG9yIHNvbWV0aGluZywg
-bGlrZSBiZWxvdzoNCg0KLS0tIGEvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25l
-dC9waHkudHh0DQorKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L3Bo
-eS50eHQNCkBAIC0zMyw2ICszMyw5IEBAIE9wdGlvbmFsIFByb3BlcnRpZXM6DQogLSBicm9rZW4t
-dHVybi1hcm91bmQ6IElmIHNldCwgaW5kaWNhdGVzIHRoZSBQSFkgZGV2aWNlIGRvZXMgbm90IGNv
-cnJlY3RseQ0KICAgcmVsZWFzZSB0aGUgdHVybiBhcm91bmQgbGluZSBsb3cgYXQgdGhlIGVuZCBv
-ZiBhIE1ESU8gdHJhbnNhY3Rpb24uDQogDQorLSBiYWNrcGxhbmUtbW9kZTogc3RyaW5nLCBvcGVy
-YXRpb24gbW9kZSBvZiB0aGUgYmFja3BsYW5lIFBIWTsNCisgIG11c3QgYmUgIjEwMDBiYXNlLWt4
-IiBmb3IgMTAwMEJBU0UtS1gsIG9yICIxMGdiYXNlLWtyIiBmb3IgMTBHQkFTRS1LUi4NCisNCiBF
-eGFtcGxlOg0KIA0KIGV0aGVybmV0LXBoeUAwIHsNCg0KVGhhbmsgeW91IQ0KDQpTaGFvaHVpDQo=
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 18.01.2016 08:23, Shaohui Xie wrote:
+>>> If you look at the list of possible values for "phy-mode" you'd see
+>>> that none of it describes a PHY-to-PHY connection but all are for
+>>> MAC-to-PHY connections. Also, names above suggest it already: MII is
+>>> short for media _independent_ interface.
+>>>
+>>> I copy Andrew's concerns and think that neither 10000base-kx nor
+>>> 10gbase-kr belong in the list of phy-mode properties.
+>>
+>> I concur with that as well, if the phy connection does not really matter here,
+>> or does not seem like a good fit, maybe we should have a different property, or
+>> just define the hardware interface a little differently?
+> Right, 'phy-mode' is not a good fit for backplanes, how about a new property like
+> 'backplane-mode' or something, like below:
+
+Hmm. We already have a speed property for that you can use for
+1000, 10000, 40000. Leaves the media-type, e.g. copper or whatever.
+
+Currently, you fail to convince me that it is required to describe
+the media type at all. We have come a long way with different media
+without describing the PHY-to-PHY media type.
+
+What makes the backplane setup so special?
+
+Sebastian
+
+>
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -33,6 +33,9 @@ Optional Properties:
+>   - broken-turn-around: If set, indicates the PHY device does not correctly
+>     release the turn around line low at the end of a MDIO transaction.
+>
+> +- backplane-mode: string, operation mode of the backplane PHY;
+> +  must be "1000base-kx" for 1000BASE-KX, or "10gbase-kr" for 10GBASE-KR.
+> +
+>   Example:
+>
+>   ethernet-phy@0 {
+>
+> Thank you!
+>
+> Shaohui
+>
