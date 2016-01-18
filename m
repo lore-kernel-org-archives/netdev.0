@@ -1,73 +1,144 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-Date: Mon, 18 Jan 2016 09:05:38 +0100
-Message-ID: <569C9CD2.10301@gmail.com>
-References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
- <20160114164418.GD19773@lunn.ch>
- <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <56997951.90304@gmail.com> <5699B211.5070602@gmail.com>
- <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] MAINTAINERS: Update mailing list for Renesas SoC Development
+Date: Mon, 18 Jan 2016 09:09:29 +0100
+Message-ID: <CAMuHMdXF8QnKsLOYFnT7Rje5G9_7Xr0NesO2SKEkWSivKQYkbA@mail.gmail.com>
+References: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-renesas-soc@vger.kernel.org,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Linux Media Mailing List <linux-media@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: Shaohui Xie <shaohui.xie@nxp.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"shh.xie@gmail.com" <shh.xie@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36233 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988AbcARIFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 03:05:43 -0500
-In-Reply-To: <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+	Geert Uytterhoeven <geert+renesas@glider.be>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18.01.2016 08:23, Shaohui Xie wrote:
->>> If you look at the list of possible values for "phy-mode" you'd see
->>> that none of it describes a PHY-to-PHY connection but all are for
->>> MAC-to-PHY connections. Also, names above suggest it already: MII is
->>> short for media _independent_ interface.
->>>
->>> I copy Andrew's concerns and think that neither 10000base-kx nor
->>> 10gbase-kr belong in the list of phy-mode properties.
->>
->> I concur with that as well, if the phy connection does not really matter here,
->> or does not seem like a good fit, maybe we should have a different property, or
->> just define the hardware interface a little differently?
-> Right, 'phy-mode' is not a good fit for backplanes, how about a new property like
-> 'backplane-mode' or something, like below:
+CC linux-arm-kernel
 
-Hmm. We already have a speed property for that you can use for
-1000, 10000, 40000. Leaves the media-type, e.g. copper or whatever.
+On Mon, Jan 18, 2016 at 2:04 AM, Simon Horman
+<horms+renesas@verge.net.au> wrote:
+> Update the mailing list used for development of support for
+> Renesas SoCs and related drivers.
+>
+> Up until now the linux-sh mailing list has been used, however,
+> Renesas SoCs are now much wider than the SH architecture and there
+> is some desire from some for the linux-sh list to refocus on
+> discussion of the work on the SH architecture.
+>
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+> Cc: Geert Uytterhoeven <geert+renesas@glider.be>
+> Cc: Magnus Damm <magnus.damm@gmail.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-Currently, you fail to convince me that it is required to describe
-the media type at all. We have come a long way with different media
-without describing the PHY-to-PHY media type.
+Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-What makes the backplane setup so special?
+> ---
+> * This patch applies on top of Linus's tree where currently the head commit
+>   is 984065055e6e ("Merge branch 'drm-next' of
+>   git://people.freedesktop.org/~airlied/linux")
+>
+>   This has been used as a base instead of v4.4 so that it is based on the
+>   following two commits which affect it:
+>   - 1a4ca6dd3dc8 ("MAINTAINERS: Add co-maintainer for Renesas Pin Controllers")
+>   - 3e46c3973cba ("MAINTAINERS: add Renesas usb2 phy driver")
 
-Sebastian
+I assume you'll send an update for the "ARM/RENESAS ARM64 ARCHITECTURE"
+section as soon as that has landed in mainline?
 
+> ---
+>  MAINTAINERS | 16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
 >
-> --- a/Documentation/devicetree/bindings/net/phy.txt
-> +++ b/Documentation/devicetree/bindings/net/phy.txt
-> @@ -33,6 +33,9 @@ Optional Properties:
->   - broken-turn-around: If set, indicates the PHY device does not correctly
->     release the turn around line low at the end of a MDIO transaction.
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 1d23f701489c..52a6ba79fa3f 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1531,9 +1531,9 @@ F:        drivers/media/platform/s5p-jpeg/
+>  ARM/SHMOBILE ARM ARCHITECTURE
+>  M:     Simon Horman <horms@verge.net.au>
+>  M:     Magnus Damm <magnus.damm@gmail.com>
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  W:     http://oss.renesas.com
+> -Q:     http://patchwork.kernel.org/project/linux-sh/list/
+> +Q:     http://patchwork.kernel.org/project/linux-renesas-soc/list/
+>  T:     git git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas.git next
+>  S:     Supported
+>  F:     arch/arm/boot/dts/emev2*
+> @@ -3745,7 +3745,7 @@ F:        Documentation/devicetree/bindings/display/tegra/nvidia,tegra20-host1x.txt
+>  DRM DRIVERS FOR RENESAS
+>  M:     Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+>  L:     dri-devel@lists.freedesktop.org
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  T:     git git://people.freedesktop.org/~airlied/linux
+>  S:     Supported
+>  F:     drivers/gpu/drm/rcar-du/
+> @@ -6858,7 +6858,7 @@ F:        drivers/iio/potentiometer/mcp4531.c
+>  MEDIA DRIVERS FOR RENESAS - VSP1
+>  M:     Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+>  L:     linux-media@vger.kernel.org
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  T:     git git://linuxtv.org/media_tree.git
+>  S:     Supported
+>  F:     Documentation/devicetree/bindings/media/renesas,vsp1.txt
+> @@ -8235,7 +8235,7 @@ F:        drivers/pci/host/pci-dra7xx.c
+>  PCI DRIVER FOR RENESAS R-CAR
+>  M:     Simon Horman <horms@verge.net.au>
+>  L:     linux-pci@vger.kernel.org
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  S:     Maintained
+>  F:     drivers/pci/host/*rcar*
 >
-> +- backplane-mode: string, operation mode of the backplane PHY;
-> +  must be "1000base-kx" for 1000BASE-KX, or "10gbase-kr" for 10GBASE-KR.
-> +
->   Example:
+> @@ -8413,7 +8413,7 @@ F:        drivers/pinctrl/intel/
+>  PIN CONTROLLER - RENESAS
+>  M:     Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+>  M:     Geert Uytterhoeven <geert+renesas@glider.be>
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  S:     Maintained
+>  F:     drivers/pinctrl/sh-pfc/
 >
->   ethernet-phy@0 {
+> @@ -9019,13 +9019,13 @@ F:      include/linux/rpmsg.h
+>  RENESAS ETHERNET DRIVERS
+>  R:     Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>  L:     netdev@vger.kernel.org
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  F:     drivers/net/ethernet/renesas/
+>  F:     include/linux/sh_eth.h
 >
-> Thank you!
+>  RENESAS USB2 PHY DRIVER
+>  M:     Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> -L:     linux-sh@vger.kernel.org
+> +L:     linux-renesas-soc@vger.kernel.org
+>  S:     Maintained
+>  F:     drivers/phy/phy-rcar-gen3-usb2.c
 >
-> Shaohui
->
+> --
+> 2.1.4
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
