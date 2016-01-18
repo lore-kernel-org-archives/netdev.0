@@ -1,60 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] MAINTAINERS: Update mailing list for Renesas SoC
- Development
-Date: Mon, 18 Jan 2016 13:48:04 +0900
-Message-ID: <20160118044758.GA16388@verge.net.au>
-References: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
- <569C4595.70806@rvc.renesas.com>
- <SG2PR06MB09194A1BDF3B76AC4273F32AD8C00@SG2PR06MB0919.apcprd06.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] appletalk: Pass IP-over-DDP packets through when
+ 'ipddp0' interface is not present
+Date: Mon, 18 Jan 2016 00:04:12 -0500 (EST)
+Message-ID: <20160118.000412.103960120560960842.davem@davemloft.net>
+References: <1452832847.1707.42.camel@seering.org>
+	<20160117.192512.1143911903923641150.davem@davemloft.net>
+	<1453079782.5666.19.camel@seering.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Khiem Nguyen <khiem.nguyen.xt@rvc.renesas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	Geert Uytterhoeven <geert+renesas@glider.be>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Toru Oishi <toru.oishi.zj@rvc.renesas.com>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <SG2PR06MB09194A1BDF3B76AC4273F32AD8C00@SG2PR06MB0919.apcprd06.prod.outlook.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: adam@seering.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704AbcARFER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 00:04:17 -0500
+In-Reply-To: <1453079782.5666.19.camel@seering.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 18, 2016 at 02:27:38AM +0000, Yoshihiro Shimoda wrote:
-> Hi Khiem-san,
-> 
-> Thank you for the CC.
-> 
-> > From: Khiem Nguyen
-> > Sent: Monday, January 18, 2016 10:53 AM
-> > 
-> > cc Shimoda-san for his information.
-> > 
-> > On 1/18/2016 8:04 AM, Simon Horman wrote:
-> > > Update the mailing list used for development of support for
-> > > Renesas SoCs and related drivers.
-> > >
-> > > Up until now the linux-sh mailing list has been used, however,
-> > > Renesas SoCs are now much wider than the SH architecture and there
-> > > is some desire from some for the linux-sh list to refocus on
-> > > discussion of the work on the SH architecture.
-> > >
-> > > Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> > > Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-> > > Cc: Geert Uytterhoeven <geert+renesas@glider.be>
-> > > Cc: Magnus Damm <magnus.damm@gmail.com>
-> > > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> Acked-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+From: Adam Seering <adam@seering.org>
+Date: Sun, 17 Jan 2016 20:16:22 -0500
 
-Khiem-san, thanks.
-Shimoda-san, thanks for the Ack. Sorry for not CCing you.
+> (netdev is much too high-volume for me, unfortunately.)
+
+Seriously?  How in the world do you think it is for me?
+
+You can skim through and read only the announcements, you don't have
+to read every single posting like I do.
