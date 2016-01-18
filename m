@@ -1,111 +1,65 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: net: GPF in __netlink_ns_capable
-Date: Mon, 18 Jan 2016 14:26:47 -0600
-Message-ID: <87vb6q63co.fsf@x220.int.ebiederm.org>
-References: <CACT4Y+bS-hDuTWtXTR-n8i+tqkFcCYUxnj0QK3JsyWn25FzVRg@mail.gmail.com>
-	<CAFLxGvzo6NRNsHsJwys6c+oSMUpQxdfDEkWG-qaSqqP=V3Sjdw@mail.gmail.com>
-	<20160118092047.GA30682@gondor.apana.org.au>
-	<878u3m7i5q.fsf@x220.int.ebiederm.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] sunvnet: Initialize network_header and
+ transport_header in vnet_rx_one()
+Date: Mon, 18 Jan 2016 16:12:09 -0500
+Message-ID: <20160118211209.GB12034@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Richard Weinberger <richard.weinberger@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Florian Westphal <fw@strlen.de>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Kaike Wan <kaike.wan@intel.com>,
-	John Fleck <john.fleck@intel.com>,
-	Ira Weiny <ira.weiny@intel.com>,
-	Doug Ledford <dledford@redhat.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <878u3m7i5q.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Mon, 18 Jan 2016 14:21:37 -0600")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rashmi.narasimhan@oracle.com, david.stevens@oracle.com,
+	davem@davemloft.net
+To: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:23737 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756529AbcARVMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 16:12:14 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+vnet_fullcsum() accesses ip_hdr() and transport header to compute
+the checksum for IPv4 packets, so these need to be initialized in
+skb created in vnet_rx_one().
 
-Apparently we have missed entirely the folks who added this chunk
-of this code to the kernel on this thread, so adding them now.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet.c |   16 +++++++++++++---
+ 1 files changed, 13 insertions(+), 3 deletions(-)
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
-
-> Herbert Xu <herbert@gondor.apana.org.au> writes:
->
->> On Sat, Jan 16, 2016 at 01:08:33AM +0100, Richard Weinberger wrote:
->>> On Fri, Jan 15, 2016 at 11:31 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>> > Call Trace:
->>> >  [<     inline     >] netlink_ns_capable net/netlink/af_netlink.c:1417
->>> >  [<ffffffff8529c0a5>] netlink_capable+0x25/0x30 net/netlink/af_netlink.c:1432
->>> 
->>> Hmm, we're crashing because NETLINK_CB(skb).sk is NULL.
->>> netlink_dump() creates a new skb without a netlink control block,
->>> but infiniband's dump functions use netlink_capable() which needs a valid
->>> NETLINK_CB(skb).sk.
->>> 
->>> What about something like that?
->>
->> No you can't do it here as netlink_unicast also calls this and for
->> that case you'd be overwriting the original sending user-space
->> socket with the kernel socket.
->>
->> I'm adding Eric Bierderman as he wrote some of the code in question.
->
-> *Scratches my head*
->
-> I think I am just going to recommend removing that bit of code from
-> the infiniband stack.
->
-> There are several things very wrong here.
->
-> First netlinnk_capable and it's ilk are for the very specific purpose of
-> handling backwards compatibility as a truly clean solution of checking
-> at open or connect time would break existing applications.
-> ib_nl_handle_resolv_resp is new code.  So it can almost certainly do
-> something cleaner.
->
-> netlink_capable is very much not for filtering netlink dumps, but for
-> filtering the queries themselves.  So it appears the capability check is
-> very much in the wrong place.
->
-> All of this is newish code and apparently never even tested as this code
-> should have failed this way for everyone.  So since the code does not
-> work not apparently has never worked, it is probably easiest just to
-> remove the problematic code (AKA revert), and start fresh and not
-> something that requires backwards compatibility hacks from day one.
->
-> By new I mean code that came in through the commit below.
->
-> commit 2ca546b92a024d07adedd15b4c262b1c2c0786ec
-> Author: Kaike Wan <kaike.wan@intel.com>
-> Date:   Fri Aug 14 08:52:09 2015 -0400
->
->     IB/sa: Route SA pathrecord query through netlink
->     
->     This patch routes a SA pathrecord query to netlink first and processes the
->     response appropriately. If a failure is returned, the request will be sent
->     through IB. The decision whether to route the request to netlink first is
->     determined by the presence of a listener for the local service netlink
->     multicast group. If the user-space local service netlink multicast group
->     listener is not present, the request will be sent through IB, just like
->     what is currently being done.
->     
->     Signed-off-by: Kaike Wan <kaike.wan@intel.com>
->     Signed-off-by: John Fleck <john.fleck@intel.com>
->     Signed-off-by: Ira Weiny <ira.weiny@intel.com>
->     Signed-off-by: Doug Ledford <dledford@redhat.com>
-
-What was this code trying to do with netlink_capable besides oops the
-kernel?
-
-Eric
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index cc106d8..23fa298 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -389,17 +389,27 @@ static int vnet_rx_one(struct vnet_port *port, struct vio_net_desc *desc)
+ 	if (vio_version_after_eq(&port->vio, 1, 8)) {
+ 		struct vio_net_dext *dext = vio_net_ext(desc);
+ 
++		skb_reset_network_header(skb);
++
+ 		if (dext->flags & VNET_PKT_HCK_IPV4_HDRCKSUM) {
+ 			if (skb->protocol == ETH_P_IP) {
+-				struct iphdr *iph = (struct iphdr *)skb->data;
++				struct iphdr *iph = ip_hdr(skb);
+ 
+ 				iph->check = 0;
+ 				ip_send_check(iph);
+ 			}
+ 		}
+ 		if ((dext->flags & VNET_PKT_HCK_FULLCKSUM) &&
+-		    skb->ip_summed == CHECKSUM_NONE)
+-			vnet_fullcsum(skb);
++		    skb->ip_summed == CHECKSUM_NONE) {
++			if (skb->protocol == htons(ETH_P_IP)) {
++				struct iphdr *iph = ip_hdr(skb);
++				int ihl = iph->ihl * 4;
++
++				skb_reset_transport_header(skb);
++				skb_set_transport_header(skb, ihl);
++				vnet_fullcsum(skb);
++			}
++		}
+ 		if (dext->flags & VNET_PKT_HCK_IPV4_HDRCKSUM_OK) {
+ 			skb->ip_summed = CHECKSUM_PARTIAL;
+ 			skb->csum_level = 0;
+-- 
+1.7.1
