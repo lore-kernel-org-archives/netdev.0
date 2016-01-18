@@ -1,81 +1,79 @@
-From: Vaneet Narang <v.narang@samsung.com>
-Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
-Date: Mon, 18 Jan 2016 10:11:05 +0000 (GMT)
-Message-ID: <1385051583.176751453111860930.JavaMail.weblogic@ep2mlwas01a>
-Reply-To: v.narang@samsung.com
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Optimizing instruction-cache, more packets at each stage
+Date: Mon, 18 Jan 2016 11:27:03 +0100
+Message-ID: <20160118112703.6eac71ca@redhat.com>
+References: <20160115142223.1e92be75@redhat.com>
+	<20160115.154721.458450438918273509.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"willemb@google.com" <willemb@google.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
-	"tklauser@distanz.ch" <tklauser@distanz.ch>,
-	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	PANKAJ MISHRA <pankaj.m@samsung.com>,
-	Geon-ho Kim <gh007.kim@samsung.com>,
-	Hak-Bong Lee <hakbong5.lee@samsung.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Maninder Singh <maninder1.s@samsung.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
+	alexei.starovoitov@gmail.com, borkmann@iogearbox.net,
+	marek@cloudflare.com, hannes@stressinduktion.org, fw@strlen.de,
+	pabeni@redhat.com, john.r.fastabend@intel.com, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:42241 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753966AbcARKLH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 05:11:07 -0500
-Received: from epcpsbgr3.samsung.com
- (u143.gpu120.samsung.co.kr [203.254.230.143])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0O1501X388AH1T30@mailout2.samsung.com> for
- netdev@vger.kernel.org; Mon, 18 Jan 2016 19:11:05 +0900 (KST)
-MIME-version: 1.0
+Received: from mx1.redhat.com ([209.132.183.28]:57096 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754449AbcARK1J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jan 2016 05:27:09 -0500
+In-Reply-To: <20160115.154721.458450438918273509.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksDQoNCj4+IF9fZG9fc29mdGlycQ0KPj4gcnVuX2tzb2Z0aXJxZA0KPj4NCj4+IFNpZ25lZC1v
-ZmYtYnk6IFZhbmVldCBOYXJhbmcgPHYubmFyYW5nQHNhbXN1bmcuY29tPg0KPj4gU2lnbmVkLW9m
-Zi1ieTogTWFuaW5kZXIgU2luZ2ggPG1hbmluZGVyMS5zQHNhbXN1bmcuY29tPg0KDQo+IFRoYW5r
-cyBmb3IgdGhlIGZpeC4gV2hpbGUgaXQgZml4ZXMgdGhlIFdBUk5fT04oKSwgSSBiZWxpZXZlIHNv
-bWUgbW9yZQ0KPiBpbnZlc3RpZ2F0aW9uIGlzIG5lZWRlZCBoZXJlIG9uIHdoeSBpdCBpcyBoYXBw
-ZW5pbmc6DQo+DQo+IFdlIGNhbGwgZmlyc3QgaW50byBwYWNrZXRfcmVsZWFzZSgpLCB3aGljaCBy
-ZW1vdmVzIHRoZSBzb2NrZXQgaG9vayBmcm9tDQo+IHRoZSBrZXJuZWwgKHVucmVnaXN0ZXJfcHJv
-dF9ob29rKCkpLCBsYXRlciBjYWxscyBzeW5jaHJvbml6ZV9uZXQoKSB0bw0KPiBtYWtlIHN1cmUg
-bm8gbW9yZSBza2JzIHdpbGwgY29tZSBpbi4gVGhlIHJlY2VpdmUgcXVldWUgaXMgcHVyZ2VkIHJp
-Z2h0DQo+IGFmdGVyIHRoZSBzeW5jaHJvbml6ZV9uZXQoKSBhbHJlYWR5Lg0KPg0KPiBwYWNrZXRf
-c29ja19kZXN0cnVjdCgpIHdpbGwgYmUgY2FsbGVkIGFmdGVyd2FyZHMsIHdoZW4gdGhlcmUgYXJl
-IG5vIG1vcmUNCj4gcmVmcyBvbiB0aGUgc29ja2V0IGFueW1vcmUgYW5kIG5vIGFmX3BhY2tldCBz
-a2JzIGluIHR4IHdhaXRpbmcgZm9yIGNvbXBsZXRpb24uDQo+IE9ubHkgdGhlbiwgaW4gc2tfZGVz
-dHJ1Y3QoKSwgd2UnbGwgY2FsbCBpbnRvIHBhY2tldF9zb2NrX2Rlc3RydWN0KCkuDQo+DQo+IFNv
-LCBldmVudHVhbGx5IGRvdWJsZSBwdXJnaW5nIHRoZSBza19yZWNlaXZlX3F1ZXVlIHNlZW1zIG5v
-dCB0aGUgcmlnaHQNCj4gdGhpbmcgdG8gZG8gYXQgZmlyc3QgbG9vaywgYW5kIHcvbyBhbnkgZGVl
-cGVyIGFuYWx5c2lzIGluIHRoZSBjb21taXQgZGVzY3JpcHRpb24uDQo+DQo+IENvdWxkIHlvdSBs
-b29rIGEgYml0IGZ1cnRoZXIgaW50byB0aGUgaXNzdWU/IERvIHlvdSBoYXZlIGEgcmVwcm9kdWNl
-ciB0bw0KPiB0cmlnZ2VyIGl0Pw0KDQoNCkl0IGlzIFN1c3BlbmQgUmVzdW1lIHNjZW5hcmlvIGFu
-ZCBpbiB0aGlzIGNhc2UgY2xvc2Uoc29ja19pZCkgaXMgDQpub3QgY2FsbGVkIGFuZCBoZW5jZSBw
-YWNrZXRfcmVsZWFzZSBpcyBhbHNvIG5vdCBjYWxsZWQuIA0KSW4gY2FzZSBvZiBzdXNwZW5kLCBk
-cml2ZXIgcG93ZXIgZG93biBpdHMgZXRoZXJuZXQgcG9ydCBhbmQgcmVsZWFzZSBhbGwgdGhlDQpz
-a19idWZmIHN0b3JlZCBpbiBSWCBhbmQgVFggcmluZy4gZHJpdmVyIGNhbGxzIGRldl9rZnJlZV9z
-a2JfYW55IHRvIHJlbGVhc2UgYWxsDQp0aGUgc2tfYnVmZiBpbiB0eCByaW5nIGFuZCBpZiBsYXN0
-IHR4IGJ1ZmYgb2Ygc29ja2V0IGlzIGNhbGxlZCB0aGVuIA0KcGFja2V0X3NvY2tfZGVzdHJ1Y3Qo
-KSB3aWxsIGJlIGludm9rZWQgYW5kIHdpbGwgcmVzdWx0IGluIHdhcm5pbmcgaWYgYW5kIHJlY2V2
-aXZlIHNrX2J1ZmYgaXMgDQpzdGlsbCBpbiByZWNlaXZlIHF1ZXVlLiANCg0KRHJpdmVyIGNhbGxz
-IGRldl9rZnJlZV9za2JfYW55LT5kZXZfa2ZyZWVfc2tiX2lycSANCmFuZCBpdCBhZGRzIGJ1ZmZl
-ciBpbiBjb21wbGV0aW9uIHF1ZXVlIHRvIGZyZWUgYW5kIHJhaXNlcyBzb2Z0aXJxIE5FVF9UWF9T
-T0ZUSVJRDQoNCm5ldF90eF9hY3Rpb24tPl9fa2ZyZWVfc2tiLT5za2JfcmVsZWFzZV9hbGwtPnNr
-Yl9yZWxlYXNlX2hlYWRfc3RhdGUtPnNvY2tfd2ZyZWUtPg0KX19za19mcmVlLT5wYWNrZXRfc29j
-a19kZXN0cnVjdCANCg0KQWxzbyBwdXJnaW5nIG9mIHJlY2VpdmUgcXVldWUgaGFzIGJlZW4gdGFr
-ZW4gY2FyZSBpbiBvdGhlciBwcm90b2NvbHMuDQovLyBJUCBwcm90b2NvbA0Kdm9pZCBpbmV0X3Nv
-Y2tfZGVzdHJ1Y3Qoc3RydWN0IHNvY2sgKnNrKQ0Kew0KICAgICAgICBzdHJ1Y3QgaW5ldF9zb2Nr
-ICppbmV0ID0gaW5ldF9zayhzayk7DQoNCiAgICAgICAgX19za2JfcXVldWVfcHVyZ2UoJnNrLT5z
-a19yZWNlaXZlX3F1ZXVlKTsgICAvLyBQdXJnZSBSZWNlaXZlIHF1ZXVlDQogICAgICAgIF9fc2ti
-X3F1ZXVlX3B1cmdlKCZzay0+c2tfZXJyb3JfcXVldWUpOw0KDQouLi4uIA0KDQogICAgICAgICBX
-QVJOX09OKGF0b21pY19yZWFkKCZzay0+c2tfcm1lbV9hbGxvYykpOw0KICAgICAgICBXQVJOX09O
-KGF0b21pY19yZWFkKCZzay0+c2tfd21lbV9hbGxvYykpOw0KIH0NCg0KU28gaSB0aGluayBpdCBz
-aG91bGQgYmUgZG9uZSBpbiBSYXcgc29ja2V0cyBhbHNvLg0KDQo+PiAtLS0NCj4+ICAgbmV0L3Bh
-Y2tldC9hZl9wYWNrZXQuYyB8ICAgIDEgKw0KPj4gICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRp
-b24oKykNCj4+DQo+PiBkaWZmIC0tZ2l0IGEvbmV0L3BhY2tldC9hZl9wYWNrZXQuYyBiL25ldC9w
-YWNrZXQvYWZfcGFja2V0LmMNCj4+IGluZGV4IDgxYjRiODEuLmJjYjM3YmEgMTAwNjQ0DQoNClRo
-YW5rcw0KVmFuZWV0IE5hcmFuZw==
+On Fri, 15 Jan 2016 15:47:21 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Fri, 15 Jan 2016 14:22:23 +0100
+> 
+> > This was only at the driver level.  I also would like some API towards
+> > the stack.  Maybe we could simple pass a skb-list?
+> 
+> Datastructures are everything so maybe we can create some kind of SKB
+> bundle abstractions.  Whether it's a lockless array or a linked list
+> behind it doesn't really matter.
+> 
+> We could have two categories: Related and Unrelated.
+> 
+> If you think about GRO and routing keys you might see what I am getting
+> at. :-)
+
+Yes, I think I get it.  I like the idea of Related and Unrelated.
+We already have GRO packets which is in the "Related" category/type.
+
+I'm wondering about the API between driver and "GRO-layer" (calling
+napi_gro_receive):
+
+Down in the driver layer (RX), I think it is too early to categorize
+Related/Unrelated SKB's, because we want to delay touching packet-data
+as long as possible (waiting for the prefetcher to get data into
+cache).
+
+We could keep the napi_gro_receive() call.  But in-order to save
+icache, then the driver could just create it's own simple loop around
+napi_gro_receive().  This loop's icache and extra function call per
+packet would cost something.
+
+The down side is: The GRO layer will have no-idea how many "more"
+packets are coming.  Thus, it depends on a "flush" API, which for
+"xmit_more" didn't work out that well.
+
+The NAPI drivers actually already have a flush API (calling
+napi_complete_done()), BUT it does not always get invoked, e.g. if the
+driver have more work to do, and want to keep polling.
+ I'm not sure we want to delay "flushing" packets queued in the GRO
+layer for this long(?).
+
+
+The simplest solution to get around this (flush and driver loop
+complexity), would be to create a SKB-list down in the driver, and
+call napi_gro_receive() with this list.  Simply extending napi_gro_receive()
+with a SKB list loop.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
