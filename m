@@ -1,74 +1,73 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: RE: gianfar: Less function calls in gfar_ethflow_to_filer_table()
- after error detection
-Date: Mon, 18 Jan 2016 13:11:54 +0000
-Message-ID: <DB4PR04MB379C759FAC390B043575A1296C00@DB4PR04MB379.eurprd04.prod.outlook.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <56866E7F.8080609@users.sourceforge.net>
- <5698C53C.8060204@users.sourceforge.net>
- <5698C5CB.80305@users.sourceforge.net> <1452854229.8586.48.camel@perches.com>
- <5698DC52.4050808@users.sourceforge.net>
- <1452859429.8586.52.camel@perches.com>
- <56992D46.8070102@users.sourceforge.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/2] ne: DeviceTree support.
+Date: Mon, 18 Jan 2016 16:08:34 +0100
+Message-ID: <20160118150834.GC923@lunn.ch>
+References: <1452874786-21202-1-git-send-email-ysato@users.sourceforge.jp>
+ <20160116172226.GB9880@lunn.ch>
+ <87d1szmki3.wl-ysato@users.sourceforge.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <56992D46.8070102@users.sourceforge.net>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Yoshinori Sato <ysato@users.sourceforge.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87d1szmki3.wl-ysato@users.sourceforge.jp>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: SF Markus Elfring [mailto:elfring@users.sourceforge.net]
->Sent: Friday, January 15, 2016 7:33 PM
->To: Joe Perches <joe@perches.com>; netdev@vger.kernel.org
->Cc: Claudiu Manoil <claudiu.manoil@freescale.com>; LKML <linux-
->kernel@vger.kernel.org>; kernel-janitors@vger.kernel.org; Julia Lawall
-><julia.lawall@lip6.fr>
->Subject: Re: gianfar: Less function calls in gfar_ethflow_to_filer_table() after
->error detection
->
->>>> 	local_rqfpr = kmalloc_array(2 * (MAX_FILER_IDX + 1),
->>>> 				    sizeof(unsigned int), GFP_KERNEL);
->>>> 	if (!local_rqfpr)
->>>> 		goto err;
->>>>
->>>> 	local_rqfcr = &local_rqfpr[MAX_FILER_IDX + 1];
->>>
->>> Do you suggest to use only one array (instead of two as before) here?
->>
->> That's a possibility.
->
->Thanks for your clarification.
->
->
->> If, as your title suggests, you really want fewer function calls,
->
->I am unsure at the moment if more changes will make sense in
->this function implementation.
->
->
->> (which as far as I saw, you didn't do)
->
->Is my wording "after error detection" insufficient eventually?
->
->
->> that could be a mechanism to remove both an allocation and a free.
->
->Would any more software developers or source code reviewers like
->to share their opinions in such a direction?
->
+On Mon, Jan 18, 2016 at 04:09:40PM +0900, Yoshinori Sato wrote:
+> On Sun, 17 Jan 2016 02:22:26 +0900,
+> Andrew Lunn wrote:
+> > 
+> > On Sat, Jan 16, 2016 at 01:19:45AM +0900, Yoshinori Sato wrote:
+> > > Add basic device tree support.
+> > > 
+> > > Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
+> > > ---
+> > >  Documentation/devicetree/bindings/net/ne2000.txt | 17 +++++++++++++++++
+> > >  drivers/net/ethernet/8390/ne.c                   | 20 +++++++++++++++++++-
+> > >  2 files changed, 36 insertions(+), 1 deletion(-)
+> > >  create mode 100644 Documentation/devicetree/bindings/net/ne2000.txt
+> > > 
+> > > diff --git a/Documentation/devicetree/bindings/net/ne2000.txt b/Documentation/devicetree/bindings/net/ne2000.txt
+> > > new file mode 100644
+> > > index 0000000..8b0dfbf
+> > > --- /dev/null
+> > > +++ b/Documentation/devicetree/bindings/net/ne2000.txt
+> > > @@ -0,0 +1,17 @@
+> > > +NE2000 compatible network controller
+> > > +
+> > > +Required properties:
+> > > +- compatible: "national,ne2000"
+> > > +- reg: base address and length of NE2000.
+> > > +- interrupts: interrupt specifier for the sole interrupt.
+> > > +- national,dcr: DCR setting value.
+> > 
+> > You say here that national,dcr is required, yet the code to read it is
+> > not returning an error if it is missing.
+> 
+> Yes. This value required. Missing error check.
+> 
+> > Also, what is DCR?
+> 
+> This is chip configuration.
+> It value depend on target design.
 
-Hi,
-This kind of fixes are net-next stuff at best, no need to push them into
-the net tree right now.
-So please wait with these submissions until net-next re-opens at least.
-Thanks.
+It needs to be described in detail what it is. Device tree bindings
+generally don't list values to be poked into registers. They describe
+something, and from that, the value to be poked into a register is
+derived.
 
+> > So there is a single DCR value, for all instances of the device?
+> > The last device to probe wins?
+> 
+> Yes. It'll be usually the same value by all devices.
 
+There is no 'usually' about it. You implementation forces them all to
+be the same. You need to add error checking. If different DT instances
+have different values, you need to issue an error and fail one or more
+probes.
+
+You also need to document this in the device tree binding.
+
+	Andrew
