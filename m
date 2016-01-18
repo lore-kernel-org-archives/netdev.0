@@ -1,77 +1,55 @@
-From: Davidlohr Bueso <dave@stgolabs.net>
-Subject: Re: virtio pull for 4.5 (was Re: [PULL] virtio: barrier rework+fixes)
-Date: Mon, 18 Jan 2016 11:07:53 -0800
-Message-ID: <20160118190753.GC27825@linux-uzut.site>
-References: <20160113182855-mutt-send-email-mst@redhat.com>
-	<20160118152028-mutt-send-email-mst@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH, RESEND^2] ssb: mark ssb_bus_register as __maybe_unused
+Date: Mon, 18 Jan 2016 20:39:56 +0100
+Message-ID: <6063400.39vor3soEb@wuerfel>
+References: <8128014.DbbgBtKY3z@wuerfel> <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: aquini@redhat.com, kvm@vger.kernel.org, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	alexander.duyck@gmail.com,
-	virtualization@lists.linux-foundation.org, mingo@kernel.org,
-	linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
-	dbueso@suse.de, richard@nod.at, bjorn.andersson@sonymobile.com,
-	rmk+kernel@arm.linux.org.uk, paulmck@linux.vnet.ibm.com,
-	james.hogan@imgtec.com, arnd@arndb.de, julian.calaby@gmail.com,
-	boqun.feng@gmail.com, schwidefsky@de.ibm.com,
-	stefanha@redhat.com, tglx@linutronix.de, tony.luck@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, minchan@kernel.org,
-	david.vrabel@citrix.com, joe@perches.com, akpm@linux-foundation.org,
-	Linus Torvalds <torvalds@linux-foundation.org>, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20160118152028-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-mips@linux-mips.org,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Jan 2016, Michael S. Tsirkin wrote:
+The SoC variant of the ssb code is now optional like the other
+ones, which means we can build the framwork without any
+front-end, but that results in a warning:
 
->Hi Linus,
->Just making sure nothing's wrong with this pull request.
->If there's an issue, pls let me know!
->Thanks!
->
->On Wed, Jan 13, 2016 at 06:28:55PM +0200, Michael S. Tsirkin wrote:
->> The following changes since commit afd2ff9b7e1b367172f18ba7f693dfb62bdcb2dc:
->>
->>   Linux 4.4 (2016-01-10 15:01:32 -0800)
->>
->> are available in the git repository at:
->>
->>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
->>
->> for you to fetch changes up to 43e361f23c49dbddf74f56ddf6cdd85c5dbff6da:
->>
->>   checkpatch: add virt barriers (2016-01-12 20:47:08 +0200)
->>
->> ----------------------------------------------------------------
->> virtio: barrier rework+fixes
->>
->> This adds a new kind of barrier, and reworks virtio and xen
->> to use it.
->> Plus some fixes here and there.
->>
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>
->> ----------------------------------------------------------------
->>
->> Yes I know that the patch by Davidlohr Bueso has a typo in the subject :(
->>
->> Davidlohr Bueso (1):
->>       lcoking/barriers, arch: Use smp barriers in smp_store_release()
+drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not used [-Wunused-function]
 
-fyi this arrived in Linus' tree through Ingo's pull request for -tip:
+This annotates the ssb_bus_register function as __maybe_unused to
+shut up the warning. A configuration like this will not work on
+any hardware of course, but we still want this to silently build
+without warnings if the configuration is allowed in the first
+place.
 
-https://lkml.org/lkml/2016/1/11/319
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 845da6e58e19 ("ssb: add Kconfig entry for compiling SoC related code")
+Acked-by: Michael Buesch <m@bues.ch>
+---
+Resent to linux-wireless as requested
+
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index cde5ff7529eb..d1a750760cf3 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -613,9 +613,10 @@ out:
+ 	return err;
+ }
+ 
+-static int ssb_bus_register(struct ssb_bus *bus,
+-			    ssb_invariants_func_t get_invariants,
+-			    unsigned long baseaddr)
++static int __maybe_unused
++ssb_bus_register(struct ssb_bus *bus,
++		 ssb_invariants_func_t get_invariants,
++		 unsigned long baseaddr)
+ {
+ 	int err;
+ 
