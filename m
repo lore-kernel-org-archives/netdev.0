@@ -1,52 +1,67 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net v4] ovs: limit ovs recursions in ovs_execute_actions
- to not corrupt stack
-Date: Mon, 18 Jan 2016 17:58:28 +0100
-Message-ID: <569D19B4.5010707@stressinduktion.org>
-References: <CAOrHB_BCZRG8NinFintTcaRd0MBsYPt-hAH9LG+6uNwOa0GQaA@mail.gmail.com>
- <20160117.192628.1780434341967114696.davem@davemloft.net>
- <569CCAAC.6060906@stressinduktion.org>
- <20160118.115030.221096335100780663.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Optimizing instruction-cache, more packets at each stage
+Date: Mon, 18 Jan 2016 09:01:49 -0800
+Message-ID: <1453136509.1223.238.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160115142223.1e92be75@redhat.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CCC6613@AcuExch.aculab.com>
+	 <20160115150025.13a5db04@redhat.com> <56990473.9090300@openwrt.org>
+	 <20160118125420.0375ffda@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@ovn.org, netdev@vger.kernel.org,
-	simon.horman@netronome.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: Felix Fietkau <nbd@openwrt.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:45631 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755749AbcARQ6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 11:58:30 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id BAF2120A3E
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2016 11:58:29 -0500 (EST)
-In-Reply-To: <20160118.115030.221096335100780663.davem@davemloft.net>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36311 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752217AbcARRBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 12:01:52 -0500
+Received: by mail-pa0-f51.google.com with SMTP id yy13so343930578pab.3
+        for <netdev@vger.kernel.org>; Mon, 18 Jan 2016 09:01:51 -0800 (PST)
+In-Reply-To: <20160118125420.0375ffda@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18.01.2016 17:50, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Mon, 18 Jan 2016 12:21:16 +0100
->
->> I don't think that -rt kernels are important for openvswitch right
->> now, so this is just a safe guard.
->
-> Hannes, whilst I don't want to explicitly make things harder for the -rt
-> folks, I don't think it's appropriate to put unnecessary preemtption
-> disables into the main kernel like this.
->
-> Someone reading the code as-is will say this is superfluous and (correctly)
-> submit a patch to remove the preemption disables.
->
-> Please remove this from your patch, someone can deal with this in the
-> -rt kernel as needed.
+On Mon, 2016-01-18 at 12:54 +0100, Jesper Dangaard Brouer wrote:
 
-I am fine with that. Actually I had the same feeling, but seeing such a 
-patch being discussed and explicitly ignoring this issue in another part 
-made me feel a little bit bad.
+> That is very interesting. These kind of icache optimization will then
+> likely benefit lower-end devices more than high end Intel CPUs :-)
+> 
+> AFAIK the Intel CPUs are masking this icache problem, by having a icache
+> prefetcher and optimizing how fast the CPU can load/refill from higher
+> level caches.  Intel CPUs have a lot of HW-logic around this, which the
+> I assume the smaller CPUs don't.  E.g. quote from Intel Optimization
+> Reference Manual:
+> 
+>  "The instruction fetch unit (IFU) can fetch up to 16 bytes of aligned
+>   instruction bytes each cycle from the instruction cache to the
+>   instruction length decoder (ILD). The instruction queue (IQ) buffers
+>   the ILD-processed instructions and can deliver up to four instructions
+>   in one cycle to the instruction decoder."
+> 
 
-Will resend in some seconds.
+This does not tell how many core/threads can fetch 16 bytes per cycle.
 
-Bye,
-Hannes
+With more than 36 execution units per socket, single peak performance of
+one unit does not reflect what happens when all units are busy and
+contend on shared resource.
+
+If we want to properly exploit L1 caches of each execution unit, we need
+to split the load in a pipeline. But the number of units depend on
+hardware capabilities (like L1 cache size). Something hard to code in a
+generic way (linux kernel)
+
+For example, having the same core handling RX and TX interrupts are not
+the best choice, especially when TX interrupts have to call expensive
+callbacks to upper layers (TCP Small Queues).
