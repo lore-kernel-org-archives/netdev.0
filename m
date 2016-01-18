@@ -1,144 +1,71 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] MAINTAINERS: Update mailing list for Renesas SoC Development
-Date: Mon, 18 Jan 2016 09:09:29 +0100
-Message-ID: <CAMuHMdXF8QnKsLOYFnT7Rje5G9_7Xr0NesO2SKEkWSivKQYkbA@mail.gmail.com>
-References: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH, RESEND] ssb: mark ssb_bus_register as __maybe_unused
+Date: Mon, 18 Jan 2016 10:26:29 +0200
+Message-ID: <87y4bn5m4q.fsf@kamboji.qca.qualcomm.com>
+References: <8128014.DbbgBtKY3z@wuerfel>
+	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com> <4037550.DMaVTE01Aq@wuerfel>
+	<87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
+	<CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-renesas-soc@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Linux Media Mailing List <linux-media@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"linux-arm-kernel\@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	Geert Uytterhoeven <geert+renesas@glider.be>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+	"linux-mips\@linux-mips.org" <linux-mips@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Michael Buesch <m@bues.ch>,
+	Network Development <netdev@vger.kernel.org>
+To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
+	(=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Sat, 16 Jan 2016
+ 15:44:23 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CC linux-arm-kernel
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
 
-On Mon, Jan 18, 2016 at 2:04 AM, Simon Horman
-<horms+renesas@verge.net.au> wrote:
-> Update the mailing list used for development of support for
-> Renesas SoCs and related drivers.
+> On 16 January 2016 at 13:10, Kalle Valo <kvalo@codeaurora.org> wrote:
+>> Arnd Bergmann <arnd@arndb.de> writes:
+>>
+>>> On Thursday 14 January 2016 08:46:29 Kalle Valo wrote:
+>>>> I can take it. For historical reasons ssb patches go through my
+>>>> wireless-drivers trees.
+>>>
+>>> I found this in my backlog, and I believe it still applies. Can you=
+ take
+>>> that one too?
+>>
+>> I'm not sure what you mean here, I can take any ssb patch if it's ok=
+ for
+>> Michael or Rafal :)
+>>
+>> Just please submit the patch properly (with S-o-B line) and CC
+>> linux-wireless so that it goes to patchwork.
 >
-> Up until now the linux-sh mailing list has been used, however,
-> Renesas SoCs are now much wider than the SH architecture and there
-> is some desire from some for the linux-sh list to refocus on
-> discussion of the work on the SH architecture.
+> It was already sent once and Acked by Michael:
+> https://patchwork.kernel.org/patch/7543191/
 >
-> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-> Cc: Geert Uytterhoeven <geert+renesas@glider.be>
-> Cc: Magnus Damm <magnus.damm@gmail.com>
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> The problem was not cc-ing linux-wireless so it wasn't picked by the
+> linux-wireless patchwork.
 
-Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Ah, that's why I missed it. I only follow patchwork, I basically ignore
+patches which are sent via email. Arnd, can you please resend the patch
+and CC linux-wireless? Sorry for the trouble.
 
-> ---
-> * This patch applies on top of Linus's tree where currently the head commit
->   is 984065055e6e ("Merge branch 'drm-next' of
->   git://people.freedesktop.org/~airlied/linux")
->
->   This has been used as a base instead of v4.4 so that it is based on the
->   following two commits which affect it:
->   - 1a4ca6dd3dc8 ("MAINTAINERS: Add co-maintainer for Renesas Pin Controllers")
->   - 3e46c3973cba ("MAINTAINERS: add Renesas usb2 phy driver")
+To avoid this in the future I think we should replace netdev with
+linux-wireless in the MAINTAINERS entry:
 
-I assume you'll send an update for the "ARM/RENESAS ARM64 ARCHITECTURE"
-section as soon as that has landed in mainline?
+SONICS SILICON BACKPLANE DRIVER (SSB)
+M:      Michael Buesch <m@bues.ch>
+L:      netdev@vger.kernel.org
+S:      Maintained
+=46:      drivers/ssb/
+=46:      include/linux/ssb/
 
-> ---
->  MAINTAINERS | 16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 1d23f701489c..52a6ba79fa3f 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -1531,9 +1531,9 @@ F:        drivers/media/platform/s5p-jpeg/
->  ARM/SHMOBILE ARM ARCHITECTURE
->  M:     Simon Horman <horms@verge.net.au>
->  M:     Magnus Damm <magnus.damm@gmail.com>
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  W:     http://oss.renesas.com
-> -Q:     http://patchwork.kernel.org/project/linux-sh/list/
-> +Q:     http://patchwork.kernel.org/project/linux-renesas-soc/list/
->  T:     git git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas.git next
->  S:     Supported
->  F:     arch/arm/boot/dts/emev2*
-> @@ -3745,7 +3745,7 @@ F:        Documentation/devicetree/bindings/display/tegra/nvidia,tegra20-host1x.txt
->  DRM DRIVERS FOR RENESAS
->  M:     Laurent Pinchart <laurent.pinchart@ideasonboard.com>
->  L:     dri-devel@lists.freedesktop.org
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  T:     git git://people.freedesktop.org/~airlied/linux
->  S:     Supported
->  F:     drivers/gpu/drm/rcar-du/
-> @@ -6858,7 +6858,7 @@ F:        drivers/iio/potentiometer/mcp4531.c
->  MEDIA DRIVERS FOR RENESAS - VSP1
->  M:     Laurent Pinchart <laurent.pinchart@ideasonboard.com>
->  L:     linux-media@vger.kernel.org
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  T:     git git://linuxtv.org/media_tree.git
->  S:     Supported
->  F:     Documentation/devicetree/bindings/media/renesas,vsp1.txt
-> @@ -8235,7 +8235,7 @@ F:        drivers/pci/host/pci-dra7xx.c
->  PCI DRIVER FOR RENESAS R-CAR
->  M:     Simon Horman <horms@verge.net.au>
->  L:     linux-pci@vger.kernel.org
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  S:     Maintained
->  F:     drivers/pci/host/*rcar*
->
-> @@ -8413,7 +8413,7 @@ F:        drivers/pinctrl/intel/
->  PIN CONTROLLER - RENESAS
->  M:     Laurent Pinchart <laurent.pinchart@ideasonboard.com>
->  M:     Geert Uytterhoeven <geert+renesas@glider.be>
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  S:     Maintained
->  F:     drivers/pinctrl/sh-pfc/
->
-> @@ -9019,13 +9019,13 @@ F:      include/linux/rpmsg.h
->  RENESAS ETHERNET DRIVERS
->  R:     Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->  L:     netdev@vger.kernel.org
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  F:     drivers/net/ethernet/renesas/
->  F:     include/linux/sh_eth.h
->
->  RENESAS USB2 PHY DRIVER
->  M:     Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-> -L:     linux-sh@vger.kernel.org
-> +L:     linux-renesas-soc@vger.kernel.org
->  S:     Maintained
->  F:     drivers/phy/phy-rcar-gen3-usb2.c
->
-> --
-> 2.1.4
+Are people ok with that? Patches welcome :)
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+--=20
+Kalle Valo
