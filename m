@@ -1,208 +1,134 @@
-From: Marc Zyngier <marc.zyngier@arm.com>
-Subject: Re: [GIT] Networking
-Date: Mon, 18 Jan 2016 11:30:26 +0000
-Message-ID: <569CCCD2.4040105@arm.com>
-References: <20160112.215136.850414372508130298.davem@davemloft.net>
- <56978094.4050302@arm.com> <87k2n97n5e.fsf@kamboji.qca.qualcomm.com>
+From: "Yankejian (Hackim Yim)" <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 next-next] net: hns: enet specifies a reference to dsaf
+Date: Mon, 18 Jan 2016 19:35:38 +0800
+Message-ID: <569CCE0A.5010005@huawei.com>
+References: <1452654880-28980-1-git-send-email-yankejian@huawei.com>
+ <56970F48.9060504@huawei.com> <1452764635.2521.28.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Arend van Spriel <arend@broadcom.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>,
-	Hante Meuleman <meuleman@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:33980 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754767AbcARLa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jan 2016 06:30:29 -0500
-In-Reply-To: <87k2n97n5e.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Yisen Zhuang <Yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
+	<fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1452764635.2521.28.camel-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Kalle,
 
-On 16/01/16 11:57, Kalle Valo wrote:
-> Marc Zyngier <marc.zyngier@arm.com> writes:
-> 
->> David, Hante,
+
+On 2016/1/14 17:43, Andy Shevchenko wrote:
+> On Thu, 2016-01-14 at 11:00 +0800, Yisen Zhuang wrote:
+>> =E5=9C=A8 2016/1/13 11:14, Kejian Yan =E5=86=99=E9=81=93:
+>>> This patch replace the assoication between dsaf and enet from
+>>> string
+>>> matching to object reference. It requires the DTS to be updated
+>>> within
+>>> BIOS. Thanks god it can be done for all released boards.
+>>>
+>> Hi kejian,
 >>
->> On 13/01/16 02:51, David Miller wrote:
->>
->> [...]
->>
->>> Hante Meuleman (33):
->> [...]
->>>       brcmfmac: Move all module parameters to one place
-> 
-> As a reminder to myself this is the commit id:
-> 
-> 7d34b0560567 brcmfmac: Move all module parameters to one place
-> 
->> This particular patch breaks one of my boxes in a spectacular way:
->>
->> [    3.602155] Unable to handle kernel paging request at virtual address 000027e4
->> [    3.602160] pgd = c0003000
->> [    3.602169] [000027e4] *pgd=80000040004003, *pmd=00000000
->> [    3.602181] Internal error: Oops: 206 [#1] PREEMPT SMP ARM
-> 
-> [...]
-> 
->> This is caused by this hunk:
->>
->> @@ -890,7 +887,8 @@ static void brcmf_sdiod_sgtable_alloc(struct brcmf_sdio_dev *sdiodev)
->>  	if (!sdiodev->sg_support)
->>  		return;
->>  
->> -	nents = max_t(uint, BRCMF_DEFAULT_RXGLOM_SIZE, brcmf_sdiod_txglomsz);
->> +	nents = max_t(uint, BRCMF_DEFAULT_RXGLOM_SIZE,
->> +		      sdiodev->bus_if->drvr->settings->sdiod_txglomsz);
->>  	nents += (nents >> 4) + 1;
->>  
->>  	WARN_ON(nents > sdiodev->max_segment_count);
->>
->> were drvr->settings is NULL (as the settings allocation seems to be done
->> much later). The fix is not completely obvious to me (probably requires
->> pushing the call to brcmf_mp_device_attach() down into the various bus
->> specific functions). An alternative would be to restore the txglomsz
->> parameter as it was before and not rely on settings being allocated.
-> 
-> Should we revert the patch or can you Hante fix this? The revert doesn't
-> seem to be trivial so I would appreciate if someone could send a patch.
+>> This patch is fine to me.
+> There are few thing below.
+>
+>> =20
+>>> --- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+>>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+>>> @@ -847,6 +847,7 @@ static struct hnae_ae_ops hns_dsaf_ops =3D {
+>>>  int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev)
+>>>  {
+>>>  	struct hnae_ae_dev *ae_dev =3D &dsaf_dev->ae_dev;
+>>> +	static atomic_t id =3D ATOMIC_INIT(-1);
+>>> =20
+>>>  	switch (dsaf_dev->dsaf_ver) {
+>>>  	case AE_VERSION_1:
+>>> @@ -858,6 +859,9 @@ int hns_dsaf_ae_init(struct dsaf_device
+>>> *dsaf_dev)
+>>>  	default:
+>>>  		break;
+>>>  	}
+>>> +
+>>> +	snprintf(ae_dev->name, AE_NAME_SIZE, "%s%d",
+>>> DSAF_DEVICE_NAME,
+>>> +		 (int)atomic_inc_return(&id));
+> If you bind/unbind device enough times you may get an overflow and en=
+d
+> up with name of existing device (if you have 1+ of them in the system=
+).
+>
+> To avoid such situation better to use IDA/IDR framework.
 
-I've worked out a partial revert (see below) that allows my system to
-boot, but I'd rather see a proper fix from the maintainer of this code.
+thanks
 
-Thanks,
+Best Regards
+Kejian Yan
 
-	M.
+>>> =20
+>>> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+>>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+>>> @@ -1802,7 +1802,7 @@ static int hns_nic_try_get_ae(struct
+>>> net_device *ndev)
+>>>  	int ret;
+>>> =20
+>>>  	h =3D hnae_get_handle(&priv->netdev->dev,
+>>> -			    priv->ae_name, priv->port_id, NULL);
+>>> +			    priv->ae_node, priv->port_id, NULL);
+>>>  	if (IS_ERR_OR_NULL(h)) {
+>>>  		ret =3D PTR_ERR(h);
+>>>  		dev_dbg(priv->dev, "has not handle, register
+>>> notifier!\n");
+>>> @@ -1880,9 +1880,12 @@ static int hns_nic_dev_probe(struct
+>>> platform_device *pdev)
+>>>  	else
+>>>  		priv->enet_ver =3D AE_VERSION_2;
+>>> =20
+>>> -	ret =3D of_property_read_string(node, "ae-name", &priv-
+>>>> ae_name);
+>>> -	if (ret)
+>>> -		goto out_read_string_fail;
+> (1)
+>
+>>> +	priv->ae_node =3D (void *)of_parse_phandle(node, "ae-
+>>> handle", 0);
+>>> +	if (IS_ERR_OR_NULL(priv->ae_node)) {
+>>> +		ret =3D PTR_ERR(priv->ae_node);
+>>> +		dev_err(dev, "not find ae-handle\n");
+>>> +		goto out_read_handle_fai;
+> (2)
+>
+>>> +	}
+>>> =20
+>>>  	ret =3D of_property_read_u32(node, "port-id", &priv-
+>>>> port_id);
+>>>  	if (ret)
+>>> @@ -1945,6 +1948,8 @@ static int hns_nic_dev_probe(struct
+>>> platform_device *pdev)
+>>> =20
+>>>  out_notify_fail:
+>>>  	(void)cancel_work_sync(&priv->service_task);
+>>> +out_read_handle_fai:
+>>> +
+> Redundant line
+>
+>>>  out_read_string_fail:
+> Leftover? (see (1) and (2) )
 
->From 4dcd43e859ebf4453da90de2034c37174bb88d13 Mon Sep 17 00:00:00 2001
-From: Marc Zyngier <marc.zyngier@arm.com>
-Date: Mon, 18 Jan 2016 11:16:36 +0000
-Subject: [PATCH] brcmfmac: Partial revert of module parameter rework
+thanks.
 
-Commit 7d34b0560567 ("brcmfmac: Move all module parameters to one
-place") reworked the brcmfmac driver parameters and moved them to
-a dynamically allocated structure.
-
-It turns out that at least one parameter (sdiod_txglomsz) is required
-before this structure is allocated, leading to a crash.
-
-This patch reverts the handling of that parameter until the maintainer
-of this driver can sort it out for good.
-
-Cc: Arend Van Spriel <arend@broadcom.com>
-Cc: Hante Meuleman <meuleman@broadcom.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Signed-off-by: Marc Zyngier <marc.zyngier@arm.com>
----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c | 12 +++++++-----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c |  7 -------
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.h |  2 --
- 3 files changed, 7 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-index 5363739..410a664 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-@@ -47,8 +47,6 @@
- #include "debug.h"
- #include "sdio.h"
- #include "of.h"
--#include "core.h"
--#include "common.h"
- 
- #define SDIOH_API_ACCESS_RETRY_LIMIT	2
- 
-@@ -59,6 +57,7 @@
- /* Maximum milliseconds to wait for F2 to come up */
- #define SDIO_WAIT_F2RDY	3000
- 
-+#define BRCMF_DEFAULT_TXGLOM_SIZE	32  /* max tx frames in glom chain */
- #define BRCMF_DEFAULT_RXGLOM_SIZE	32  /* max rx frames in glom chain */
- 
- struct brcmf_sdiod_freezer {
-@@ -69,6 +68,10 @@ struct brcmf_sdiod_freezer {
- 	struct completion resumed;
- };
- 
-+static int brcmf_sdiod_txglomsz = BRCMF_DEFAULT_TXGLOM_SIZE;
-+module_param_named(txglomsz, brcmf_sdiod_txglomsz, int, 0);
-+MODULE_PARM_DESC(txglomsz, "maximum tx packet chain size [SDIO]");
-+
- static irqreturn_t brcmf_sdiod_oob_irqhandler(int irq, void *dev_id)
- {
- 	struct brcmf_bus *bus_if = dev_get_drvdata(dev_id);
-@@ -887,8 +890,7 @@ static void brcmf_sdiod_sgtable_alloc(struct brcmf_sdio_dev *sdiodev)
- 	if (!sdiodev->sg_support)
- 		return;
- 
--	nents = max_t(uint, BRCMF_DEFAULT_RXGLOM_SIZE,
--		      sdiodev->bus_if->drvr->settings->sdiod_txglomsz);
-+	nents = max_t(uint, BRCMF_DEFAULT_RXGLOM_SIZE, brcmf_sdiod_txglomsz);
- 	nents += (nents >> 4) + 1;
- 
- 	WARN_ON(nents > sdiodev->max_segment_count);
-@@ -900,7 +902,7 @@ static void brcmf_sdiod_sgtable_alloc(struct brcmf_sdio_dev *sdiodev)
- 		sdiodev->sg_support = false;
- 	}
- 
--	sdiodev->txglomsz = sdiodev->bus_if->drvr->settings->sdiod_txglomsz;
-+	sdiodev->txglomsz = brcmf_sdiod_txglomsz;
- }
- 
- #ifdef CONFIG_PM_SLEEP
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c
-index 4265b50..1f57c42 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c
-@@ -35,12 +35,6 @@ const u8 ALLFFMAC[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- /* boost value for RSSI_DELTA in preferred join selection */
- #define BRCMF_JOIN_PREF_RSSI_BOOST	8
- 
--#define BRCMF_DEFAULT_TXGLOM_SIZE	32  /* max tx frames in glom chain */
--
--static int brcmf_sdiod_txglomsz = BRCMF_DEFAULT_TXGLOM_SIZE;
--module_param_named(txglomsz, brcmf_sdiod_txglomsz, int, 0);
--MODULE_PARM_DESC(txglomsz, "Maximum tx packet chain size [SDIO]");
--
- /* Debug level configuration. See debug.h for bits, sysfs modifiable */
- int brcmf_msg_level;
- module_param_named(debug, brcmf_msg_level, int, S_IRUSR | S_IWUSR);
-@@ -234,7 +228,6 @@ int brcmf_mp_device_attach(struct brcmf_pub *drvr)
- 		return -ENOMEM;
- 	}
- 
--	drvr->settings->sdiod_txglomsz = brcmf_sdiod_txglomsz;
- 	drvr->settings->p2p_enable = !!brcmf_p2p_enable;
- 	drvr->settings->feature_disable = brcmf_feature_disable;
- 	drvr->settings->fcmode = brcmf_fcmode;
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.h
-index 3b0a63b..05ad4b8 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.h
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.h
-@@ -41,7 +41,6 @@ extern struct brcmf_mp_global_t brcmf_mp_global;
- /**
-  * struct brcmf_mp_device - Device module paramaters.
-  *
-- * @sdiod_txglomsz: SDIO txglom size.
-  * @joinboost_5g_rssi: 5g rssi booost for preferred join selection.
-  * @p2p_enable: Legacy P2P0 enable (old wpa_supplicant).
-  * @feature_disable: Feature_disable bitmask.
-@@ -49,7 +48,6 @@ extern struct brcmf_mp_global_t brcmf_mp_global;
-  * @roamoff: Firmware roaming off?
-  */
- struct brcmf_mp_device {
--	int	sdiod_txglomsz;
- 	int	joinboost_5g_rssi;
- 	bool	p2p_enable;
- 	int	feature_disable;
--- 
-2.1.4
+Best Regards
+Kejian Yan
 
 
--- 
-Jazz is not dead. It just smells funny...
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
