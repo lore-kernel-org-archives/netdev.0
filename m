@@ -1,91 +1,54 @@
-From: Daode Huang <huangdaode@hisilicon.com>
-Subject: [PATCH net-next] net: hns: bug fix about hisilicon TSO BD mode
-Date: Mon, 18 Jan 2016 17:24:16 +0800
-Message-ID: <1453109056-161865-1-git-send-email-huangdaode@hisilicon.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net: GPF in __netlink_ns_capable
+Date: Mon, 18 Jan 2016 17:20:47 +0800
+Message-ID: <20160118092047.GA30682@gondor.apana.org.au>
+References: <CACT4Y+bS-hDuTWtXTR-n8i+tqkFcCYUxnj0QK3JsyWn25FzVRg@mail.gmail.com>
+ <CAFLxGvzo6NRNsHsJwys6c+oSMUpQxdfDEkWG-qaSqqP=V3Sjdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huangdaode@hisilicon.com>, <yisen.zhuang@huawei.com>,
-	<yankejian@huawei.com>, <liguozhu@hisilicon.com>,
-	<salil.mehta@huawei.com>, <geliangtang@163.com>,
-	<lipeng321@huawei.com>, <andriy.shevchenko@linux.intel.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<Kenneth-Lee-2012@foxmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Florian Westphal <fw@strlen.de>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Richard Weinberger <richard.weinberger@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAFLxGvzo6NRNsHsJwys6c+oSMUpQxdfDEkWG-qaSqqP=V3Sjdw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current upstreaming code fails to set the tso_mode register
-when initilizes, when processes large size packets, the default 4 bd is
-not enough, so this patch initilizes it and set the default value to 8 bds
+On Sat, Jan 16, 2016 at 01:08:33AM +0100, Richard Weinberger wrote:
+> On Fri, Jan 15, 2016 at 11:31 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> > Call Trace:
+> >  [<     inline     >] netlink_ns_capable net/netlink/af_netlink.c:1417
+> >  [<ffffffff8529c0a5>] netlink_capable+0x25/0x30 net/netlink/af_netlink.c:1432
+> 
+> Hmm, we're crashing because NETLINK_CB(skb).sk is NULL.
+> netlink_dump() creates a new skb without a netlink control block,
+> but infiniband's dump functions use netlink_capable() which needs a valid
+> NETLINK_CB(skb).sk.
+> 
+> What about something like that?
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 13 +++++++++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |  3 +++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |  5 +++++
- 3 files changed, 19 insertions(+), 2 deletions(-)
+No you can't do it here as netlink_unicast also calls this and for
+that case you'd be overwriting the original sending user-space
+socket with the kernel socket.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index d2263c7..1218880 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -369,8 +369,17 @@ int hns_rcb_common_init_hw(struct rcb_common_cb *rcb_common)
- 	dsaf_write_dev(rcb_common, RCB_COM_CFG_ENDIAN_REG,
- 		       HNS_RCB_COMMON_ENDIAN);
- 
--	dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG, 0x0);
--	dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
-+	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
-+		dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG, 0x0);
-+		dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
-+	} else {
-+		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
-+				 RCB_COM_CFG_FNA_B, false);
-+		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
-+				 RCB_COM_CFG_FA_B, true);
-+		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_TSO_MODE_REG,
-+				 RCB_COM_TSO_MODE_B, HNS_TSO_MODE_8BD_32K);
-+	}
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-index 29041b1..81fe9f8 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
-@@ -54,6 +54,9 @@ struct rcb_common_cb;
- #define HNS_DUMP_REG_NUM			500
- #define HNS_STATIC_REG_NUM			12
- 
-+#define HNS_TSO_MODE_8BD_32K			1
-+#define HNS_TSO_MDOE_4BD_16K			0
-+
- enum rcb_int_flag {
- 	RCB_INT_FLAG_TX = 0x1,
- 	RCB_INT_FLAG_RX = (0x1 << 1),
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 5d1b746..f0c4f9b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -363,6 +363,8 @@
- #define RCB_COM_CFG_FA_REG			0x3C
- #define RCB_COM_CFG_PKT_TC_BP_REG		0x40
- #define RCB_COM_CFG_PPE_TNL_CLKEN_REG		0x44
-+#define RCBV2_COM_CFG_USER_REG			0x30
-+#define RCBV2_COM_CFG_TSO_MODE_REG		0x50
- 
- #define RCB_COM_INTMSK_TX_PKT_REG		0x3A0
- #define RCB_COM_RINT_TX_PKT_REG			0x3A8
-@@ -860,6 +862,9 @@
- 
- #define PPE_COMMON_CNT_CLR_CE_B	0
- #define PPE_COMMON_CNT_CLR_SNAP_EN_B	1
-+#define RCB_COM_TSO_MODE_B	0
-+#define RCB_COM_CFG_FNA_B	1
-+#define RCB_COM_CFG_FA_B	0
- 
- #define GMAC_DUPLEX_TYPE_B 0
- 
+I'm adding Eric Bierderman as he wrote some of the code in question.
+
+Cheers,
 -- 
-1.9.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
