@@ -1,73 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/2] ne: DeviceTree support.
-Date: Mon, 18 Jan 2016 16:08:34 +0100
-Message-ID: <20160118150834.GC923@lunn.ch>
-References: <1452874786-21202-1-git-send-email-ysato@users.sourceforge.jp>
- <20160116172226.GB9880@lunn.ch>
- <87d1szmki3.wl-ysato@users.sourceforge.jp>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Mon, 18 Jan 2016 16:15:00 +0100
+Message-ID: <20160118151500.GD923@lunn.ch>
+References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
+ <20160114164418.GD19773@lunn.ch>
+ <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <56997951.90304@gmail.com>
+ <5699B211.5070602@gmail.com>
+ <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <569C9CD2.10301@gmail.com>
+ <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yoshinori Sato <ysato@users.sourceforge.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Shaohui Xie <Shaohui.Xie-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: Shaohui Xie <shaohui.xie-3arQi8VN3Tc@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <87d1szmki3.wl-ysato@users.sourceforge.jp>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <VI1PR04MB1664AB0E483F01F1641059FFE8C00-mr6QIVyDiCHTAO9RNConP89NdZoXdze2vxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 18, 2016 at 04:09:40PM +0900, Yoshinori Sato wrote:
-> On Sun, 17 Jan 2016 02:22:26 +0900,
-> Andrew Lunn wrote:
-> > 
-> > On Sat, Jan 16, 2016 at 01:19:45AM +0900, Yoshinori Sato wrote:
-> > > Add basic device tree support.
-> > > 
-> > > Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
-> > > ---
-> > >  Documentation/devicetree/bindings/net/ne2000.txt | 17 +++++++++++++++++
-> > >  drivers/net/ethernet/8390/ne.c                   | 20 +++++++++++++++++++-
-> > >  2 files changed, 36 insertions(+), 1 deletion(-)
-> > >  create mode 100644 Documentation/devicetree/bindings/net/ne2000.txt
-> > > 
-> > > diff --git a/Documentation/devicetree/bindings/net/ne2000.txt b/Documentation/devicetree/bindings/net/ne2000.txt
-> > > new file mode 100644
-> > > index 0000000..8b0dfbf
-> > > --- /dev/null
-> > > +++ b/Documentation/devicetree/bindings/net/ne2000.txt
-> > > @@ -0,0 +1,17 @@
-> > > +NE2000 compatible network controller
-> > > +
-> > > +Required properties:
-> > > +- compatible: "national,ne2000"
-> > > +- reg: base address and length of NE2000.
-> > > +- interrupts: interrupt specifier for the sole interrupt.
-> > > +- national,dcr: DCR setting value.
-> > 
-> > You say here that national,dcr is required, yet the code to read it is
-> > not returning an error if it is missing.
+> [S.H] the fsl backplane, e.g. 10GBASE-KR, needs software to handle link training,
+> It's to train link partner, and trained by link partner parallel.
 > 
-> Yes. This value required. Missing error check.
-> 
-> > Also, what is DCR?
-> 
-> This is chip configuration.
-> It value depend on target design.
+> But if media type is not copper, e.g. optical module, we won't need this.
 
-It needs to be described in detail what it is. Device tree bindings
-generally don't list values to be poked into registers. They describe
-something, and from that, the value to be poked into a register is
-derived.
+So what we actually need to know is copper vs fibre?
 
-> > So there is a single DCR value, for all instances of the device?
-> > The last device to probe wins?
-> 
-> Yes. It'll be usually the same value by all devices.
-
-There is no 'usually' about it. You implementation forces them all to
-be the same. You need to add error checking. If different DT instances
-have different values, you need to issue an error and fail one or more
-probes.
-
-You also need to document this in the device tree binding.
-
-	Andrew
+   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
