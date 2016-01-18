@@ -1,52 +1,36 @@
-From: "Mr.  Eugene Gomi" <d18@greenhhh.sz.cx>
-Subject: Do You Authorize Change of Beneficiary Account?
-Date: Sun, 17 Jan 2016 18:49:03 -0500
-Message-ID: <TY1PR01MB02237710B6E8D7F069493F2996CF0__12879.5519275174$1453075404$gmane$org@TY1PR01MB0223.jpnprd01.prod.outlook.com>
-Reply-To: <standchbank100@pisem.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sctp: the temp asoc's transports should not be
+ hashed/unhashed
+Date: Sun, 17 Jan 2016 19:12:20 -0500 (EST)
+Message-ID: <20160117.191220.636907487411695644.davem@davemloft.net>
+References: <488453d4e06805934290a1ef3cf633ee4b26bdc6.1452946637.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <d18@greenhhh.sz.cx>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-hk2apc01hn0242.outbound.protection.outlook.com ([104.47.124.242]:52382
-	"EHLO APC01-HK2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751243AbcARADB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2016 19:03:01 -0500
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([149.20.54.216]:33555 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752117AbcARAMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2016 19:12:22 -0500
+In-Reply-To: <488453d4e06805934290a1ef3cf633ee4b26bdc6.1452946637.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Standard Chartered Bank
-1/2 Idumota Street
-Victoria I/S Lagos
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sat, 16 Jan 2016 20:17:17 +0800
 
-Attn: Beneficiary,
+> Re-establish the previous behavior and avoid hashing temporary asocs by
+> checking t->asoc->temp in sctp_(un)hash_transport. Also, remove the
+> check of t->asoc->temp in __sctp_lookup_association, since they are
+> never hashed now.
+> 
+> Fixes: 4f0087812648 ("sctp: apply rhashtable api to send/recv path")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
 
-In our office today was the presence of One Mr. John T. Pullen of 122 Fitch Way, Sacramento,CA.USA 95864, filing application contrary to your pending fund transfer.
-
-The above mentioned person visited this Bank yesterday with a power of attorney given in his favor by you, granting him the benefit to process and claim your inheritance of $2,500,000.00(Two Million, Five Hundred Thousand United States Dollars) for personal reasons.
-
-He further stated that the online account will be terminated while the fund should be wired to his bank immediately;
-
-Bank Name;Bank Of America,
-Account Number # 12908576457
-Routing Number# 121000358.
-
-We ask Mr. John T. Pullen, to return back to the bank within 48 hours to enable us have a personal confirmation from you being hitherto the beneficiary.
-
-We are sorry to have delayed your instruction in giving out this fund since we must adhere to the Modus Operandi of this honorable bank by making sure this request is verified and confirmed by the beneficiary and his existing attorney.
-
-Your confirmation to the above will be appreciated. We look forward to hear from you soon.
-
-Reply to this email address; Email; standchbank100@pisem.net
-                                    
-Dr. GM Gardner (A/G)
-Foreign Remittance Director
-
-Regards,
-Mr Eugene Gomi
-Manager.
-
-
- 
+Applied, thanks.
