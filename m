@@ -1,67 +1,71 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Mon, 18 Jan 2016 12:54:20 +0100
-Message-ID: <20160118125420.0375ffda@redhat.com>
-References: <20160115142223.1e92be75@redhat.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CCC6613@AcuExch.aculab.com>
-	<20160115150025.13a5db04@redhat.com>
-	<56990473.9090300@openwrt.org>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: Re: [PATCH] MAINTAINERS: Update mailing list for Renesas SoC
+ Development
+Date: Mon, 18 Jan 2016 12:58:02 +0100
+Message-ID: <20160118115802.GA1549@katana>
+References: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>, brouer@redhat.com
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46338 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754626AbcARLy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jan 2016 06:54:28 -0500
-In-Reply-To: <56990473.9090300@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="+QahgC5+KEYLbs62"
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-renesas-soc@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-media@vger.kernel.org, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+	Geert Uytterhoeven <geert+renesas@glider.be>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Fri, 15 Jan 2016 15:38:43 +0100 Felix Fietkau <nbd@openwrt.org> wrote:
-> On 2016-01-15 15:00, Jesper Dangaard Brouer wrote:
-[...]
-> > 
-> > The icache is still quite small 32Kb on modern server processors.  I
-> > don't know if smaller embedded processors also have icache and how
-> > large they are.  I speculate this approach would also be a benefit for
-> > them (if they have icache).
->
-> All of the router devices that I work with have icache. Typical sizes
-> are 32 or 64 KiB. FWIW, I'm really looking forward to having such
-> optimizations in the network stack ;)
+--+QahgC5+KEYLbs62
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-That is very interesting. These kind of icache optimization will then
-likely benefit lower-end devices more than high end Intel CPUs :-)
+On Mon, Jan 18, 2016 at 10:04:33AM +0900, Simon Horman wrote:
+> Update the mailing list used for development of support for
+> Renesas SoCs and related drivers.
+>=20
+> Up until now the linux-sh mailing list has been used, however,
+> Renesas SoCs are now much wider than the SH architecture and there
+> is some desire from some for the linux-sh list to refocus on
+> discussion of the work on the SH architecture.
+>=20
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+> Cc: Geert Uytterhoeven <geert+renesas@glider.be>
+> Cc: Magnus Damm <magnus.damm@gmail.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-AFAIK the Intel CPUs are masking this icache problem, by having a icache
-prefetcher and optimizing how fast the CPU can load/refill from higher
-level caches.  Intel CPUs have a lot of HW-logic around this, which the
-I assume the smaller CPUs don't.  E.g. quote from Intel Optimization
-Reference Manual:
+Acked-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
 
- "The instruction fetch unit (IFU) can fetch up to 16 bytes of aligned
-  instruction bytes each cycle from the instruction cache to the
-  instruction length decoder (ILD). The instruction queue (IQ) buffers
-  the ILD-processed instructions and can deliver up to four instructions
-  in one cycle to the instruction decoder."
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+--+QahgC5+KEYLbs62
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJWnNNKAAoJEBQN5MwUoCm2V/cQALBylb7EVWpN7s02MrxVPESu
+/Z0+kHW+P0F2EuC6XcKSFRTlzIKtcXqoiatude5BS0v6+CwS6Y64GYspVX7kfQJq
+tgkSr/Xt6X+UFpeH47IeQqmGcgrhwGcTeODFD5T1xfMURScrZRhEQzOXIk6ZOCKD
+FkvJuTWP9y1wnTUD5/5FbEJe3ZyBC63G6i0nrjJ9fAtc3GnBDyFAce7zYq4YLvz6
+QMWoFg1Iv/maHxdczae0+F4m7VzOrq5qV4YIQEb+bHjTeiTpyTyPnT7fk2J5hllK
+pa7amxqXGcWJ4CaAFyUe94dxoc7j4duPlHolqiB+mE8MeGQb+Qhz6L7LYOSVWUMx
+YiYExLlRs8trlgBTr+ML7ieIOl9jiO/SsmGHYfAIDaQrnI+RIM+Utj77br3ifQYx
+jRSfT1kN0JCcxGogNflV5isP2y/HgZ+FS7eUJX4YZ7HDC0EwQjDXFMo6zD4xxXta
+IhUL2ikSnmfXRw4N/HOfkDfLwggrV4IAj5NYmfzTSNXZak9T4i0CtVfcGLCWrAnv
+BTRTiHymNtrZlOKahmSujWlJ/a6ka4D66Irewv5h1F6yZVt0v7izEQKoJm+USyMf
+1XqQmD7wVtBDPknitqj/mtZXwjl2N88KXgQAh2kf/ytCQyjNIwTgA1z2k1xWFs1X
+x2zI/awYwnTfplw0Sacb
+=nFuS
+-----END PGP SIGNATURE-----
+
+--+QahgC5+KEYLbs62--
