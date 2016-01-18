@@ -1,113 +1,81 @@
-From: huangdaode <huangdaode@hisilicon.com>
-Subject: Re: [PATCH net-next] net: hns: bug fix about hisilicon TSO BD mode
-Date: Mon, 18 Jan 2016 17:56:03 +0800
-Message-ID: <569CB6B3.3010109@hisilicon.com>
-References: <1453109056-161865-1-git-send-email-huangdaode@hisilicon.com>
- <1453109792.2521.73.camel@linux.intel.com>
+From: Vaneet Narang <v.narang@samsung.com>
+Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
+Date: Mon, 18 Jan 2016 10:11:05 +0000 (GMT)
+Message-ID: <1385051583.176751453111860930.JavaMail.weblogic@ep2mlwas01a>
+Reply-To: v.narang@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<liguozhu@hisilicon.com>, <salil.mehta@huawei.com>,
-	<geliangtang@163.com>, <lipeng321@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<Kenneth-Lee-2012@foxmail.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	<davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453109792.2521.73.camel@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"willemb@google.com" <willemb@google.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
+	"tklauser@distanz.ch" <tklauser@distanz.ch>,
+	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
+	"dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	PANKAJ MISHRA <pankaj.m@samsung.com>,
+	Geon-ho Kim <gh007.kim@samsung.com>,
+	Hak-Bong Lee <hakbong5.lee@samsung.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Maninder Singh <maninder1.s@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout2.samsung.com ([203.254.224.25]:42241 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753966AbcARKLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 05:11:07 -0500
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0O1501X388AH1T30@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Mon, 18 Jan 2016 19:11:05 +0900 (KST)
+MIME-version: 1.0
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2016/1/18 17:36, Andy Shevchenko wrote:
-> On Mon, 2016-01-18 at 17:24 +0800, Daode Huang wrote:
->> The current upstreaming code fails to set the tso_mode register
->> when initilizes, when processes large size packets, the default 4 bd
->> is
->> not enough, so this patch initilizes it and set the default value to
->> 8 bds
-> Please, next time try to thin out the Cc list. I have no intention to
-> be in it.
-
-OK, sorry for interrupt!
-thanks.
-
->> Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
->> ---
->>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 13 +++++++++++--
->>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |  3 +++
->>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |  5 +++++
->>   3 files changed, 19 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> index d2263c7..1218880 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
->> @@ -369,8 +369,17 @@ int hns_rcb_common_init_hw(struct rcb_common_cb
->> *rcb_common)
->>   	dsaf_write_dev(rcb_common, RCB_COM_CFG_ENDIAN_REG,
->>   		       HNS_RCB_COMMON_ENDIAN);
->>   
->> -	dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG, 0x0);
->> -	dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
->> +	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
->> +		dsaf_write_dev(rcb_common, RCB_COM_CFG_FNA_REG,
->> 0x0);
->> +		dsaf_write_dev(rcb_common, RCB_COM_CFG_FA_REG, 0x1);
->> +	} else {
->> +		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
->> +				 RCB_COM_CFG_FNA_B, false);
->> +		dsaf_set_dev_bit(rcb_common, RCBV2_COM_CFG_USER_REG,
->> +				 RCB_COM_CFG_FA_B, true);
->> +		dsaf_set_dev_bit(rcb_common,
->> RCBV2_COM_CFG_TSO_MODE_REG,
->> +				 RCB_COM_TSO_MODE_B,
->> HNS_TSO_MODE_8BD_32K);
->> +	}
->>   
->>   	return 0;
->>   }
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> index 29041b1..81fe9f8 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
->> @@ -54,6 +54,9 @@ struct rcb_common_cb;
->>   #define HNS_DUMP_REG_NUM			500
->>   #define HNS_STATIC_REG_NUM			12
->>   
->> +#define HNS_TSO_MODE_8BD_32K			1
->> +#define HNS_TSO_MDOE_4BD_16K			0
-> Typo: MDOE
->
->> +
->>   enum rcb_int_flag {
->>   	RCB_INT_FLAG_TX = 0x1,
->>   	RCB_INT_FLAG_RX = (0x1 << 1),
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> index 5d1b746..f0c4f9b 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
->> @@ -363,6 +363,8 @@
->>   #define RCB_COM_CFG_FA_REG			0x3C
->>   #define RCB_COM_CFG_PKT_TC_BP_REG		0x40
->>   #define RCB_COM_CFG_PPE_TNL_CLKEN_REG		0x44
->> +#define RCBV2_COM_CFG_USER_REG			0x30
->> +#define RCBV2_COM_CFG_TSO_MODE_REG		0x50
->>   
->>   #define RCB_COM_INTMSK_TX_PKT_REG		0x3A0
->>   #define RCB_COM_RINT_TX_PKT_REG			0x3A8
->> @@ -860,6 +862,9 @@
->>   
->>   #define PPE_COMMON_CNT_CLR_CE_B	0
->>   #define PPE_COMMON_CNT_CLR_SNAP_EN_B	1
->> +#define RCB_COM_TSO_MODE_B	0
->> +#define RCB_COM_CFG_FNA_B	1
->> +#define RCB_COM_CFG_FA_B	0
->>   
->>   #define GMAC_DUPLEX_TYPE_B 0
->>   
+SGksDQoNCj4+IF9fZG9fc29mdGlycQ0KPj4gcnVuX2tzb2Z0aXJxZA0KPj4NCj4+IFNpZ25lZC1v
+ZmYtYnk6IFZhbmVldCBOYXJhbmcgPHYubmFyYW5nQHNhbXN1bmcuY29tPg0KPj4gU2lnbmVkLW9m
+Zi1ieTogTWFuaW5kZXIgU2luZ2ggPG1hbmluZGVyMS5zQHNhbXN1bmcuY29tPg0KDQo+IFRoYW5r
+cyBmb3IgdGhlIGZpeC4gV2hpbGUgaXQgZml4ZXMgdGhlIFdBUk5fT04oKSwgSSBiZWxpZXZlIHNv
+bWUgbW9yZQ0KPiBpbnZlc3RpZ2F0aW9uIGlzIG5lZWRlZCBoZXJlIG9uIHdoeSBpdCBpcyBoYXBw
+ZW5pbmc6DQo+DQo+IFdlIGNhbGwgZmlyc3QgaW50byBwYWNrZXRfcmVsZWFzZSgpLCB3aGljaCBy
+ZW1vdmVzIHRoZSBzb2NrZXQgaG9vayBmcm9tDQo+IHRoZSBrZXJuZWwgKHVucmVnaXN0ZXJfcHJv
+dF9ob29rKCkpLCBsYXRlciBjYWxscyBzeW5jaHJvbml6ZV9uZXQoKSB0bw0KPiBtYWtlIHN1cmUg
+bm8gbW9yZSBza2JzIHdpbGwgY29tZSBpbi4gVGhlIHJlY2VpdmUgcXVldWUgaXMgcHVyZ2VkIHJp
+Z2h0DQo+IGFmdGVyIHRoZSBzeW5jaHJvbml6ZV9uZXQoKSBhbHJlYWR5Lg0KPg0KPiBwYWNrZXRf
+c29ja19kZXN0cnVjdCgpIHdpbGwgYmUgY2FsbGVkIGFmdGVyd2FyZHMsIHdoZW4gdGhlcmUgYXJl
+IG5vIG1vcmUNCj4gcmVmcyBvbiB0aGUgc29ja2V0IGFueW1vcmUgYW5kIG5vIGFmX3BhY2tldCBz
+a2JzIGluIHR4IHdhaXRpbmcgZm9yIGNvbXBsZXRpb24uDQo+IE9ubHkgdGhlbiwgaW4gc2tfZGVz
+dHJ1Y3QoKSwgd2UnbGwgY2FsbCBpbnRvIHBhY2tldF9zb2NrX2Rlc3RydWN0KCkuDQo+DQo+IFNv
+LCBldmVudHVhbGx5IGRvdWJsZSBwdXJnaW5nIHRoZSBza19yZWNlaXZlX3F1ZXVlIHNlZW1zIG5v
+dCB0aGUgcmlnaHQNCj4gdGhpbmcgdG8gZG8gYXQgZmlyc3QgbG9vaywgYW5kIHcvbyBhbnkgZGVl
+cGVyIGFuYWx5c2lzIGluIHRoZSBjb21taXQgZGVzY3JpcHRpb24uDQo+DQo+IENvdWxkIHlvdSBs
+b29rIGEgYml0IGZ1cnRoZXIgaW50byB0aGUgaXNzdWU/IERvIHlvdSBoYXZlIGEgcmVwcm9kdWNl
+ciB0bw0KPiB0cmlnZ2VyIGl0Pw0KDQoNCkl0IGlzIFN1c3BlbmQgUmVzdW1lIHNjZW5hcmlvIGFu
+ZCBpbiB0aGlzIGNhc2UgY2xvc2Uoc29ja19pZCkgaXMgDQpub3QgY2FsbGVkIGFuZCBoZW5jZSBw
+YWNrZXRfcmVsZWFzZSBpcyBhbHNvIG5vdCBjYWxsZWQuIA0KSW4gY2FzZSBvZiBzdXNwZW5kLCBk
+cml2ZXIgcG93ZXIgZG93biBpdHMgZXRoZXJuZXQgcG9ydCBhbmQgcmVsZWFzZSBhbGwgdGhlDQpz
+a19idWZmIHN0b3JlZCBpbiBSWCBhbmQgVFggcmluZy4gZHJpdmVyIGNhbGxzIGRldl9rZnJlZV9z
+a2JfYW55IHRvIHJlbGVhc2UgYWxsDQp0aGUgc2tfYnVmZiBpbiB0eCByaW5nIGFuZCBpZiBsYXN0
+IHR4IGJ1ZmYgb2Ygc29ja2V0IGlzIGNhbGxlZCB0aGVuIA0KcGFja2V0X3NvY2tfZGVzdHJ1Y3Qo
+KSB3aWxsIGJlIGludm9rZWQgYW5kIHdpbGwgcmVzdWx0IGluIHdhcm5pbmcgaWYgYW5kIHJlY2V2
+aXZlIHNrX2J1ZmYgaXMgDQpzdGlsbCBpbiByZWNlaXZlIHF1ZXVlLiANCg0KRHJpdmVyIGNhbGxz
+IGRldl9rZnJlZV9za2JfYW55LT5kZXZfa2ZyZWVfc2tiX2lycSANCmFuZCBpdCBhZGRzIGJ1ZmZl
+ciBpbiBjb21wbGV0aW9uIHF1ZXVlIHRvIGZyZWUgYW5kIHJhaXNlcyBzb2Z0aXJxIE5FVF9UWF9T
+T0ZUSVJRDQoNCm5ldF90eF9hY3Rpb24tPl9fa2ZyZWVfc2tiLT5za2JfcmVsZWFzZV9hbGwtPnNr
+Yl9yZWxlYXNlX2hlYWRfc3RhdGUtPnNvY2tfd2ZyZWUtPg0KX19za19mcmVlLT5wYWNrZXRfc29j
+a19kZXN0cnVjdCANCg0KQWxzbyBwdXJnaW5nIG9mIHJlY2VpdmUgcXVldWUgaGFzIGJlZW4gdGFr
+ZW4gY2FyZSBpbiBvdGhlciBwcm90b2NvbHMuDQovLyBJUCBwcm90b2NvbA0Kdm9pZCBpbmV0X3Nv
+Y2tfZGVzdHJ1Y3Qoc3RydWN0IHNvY2sgKnNrKQ0Kew0KICAgICAgICBzdHJ1Y3QgaW5ldF9zb2Nr
+ICppbmV0ID0gaW5ldF9zayhzayk7DQoNCiAgICAgICAgX19za2JfcXVldWVfcHVyZ2UoJnNrLT5z
+a19yZWNlaXZlX3F1ZXVlKTsgICAvLyBQdXJnZSBSZWNlaXZlIHF1ZXVlDQogICAgICAgIF9fc2ti
+X3F1ZXVlX3B1cmdlKCZzay0+c2tfZXJyb3JfcXVldWUpOw0KDQouLi4uIA0KDQogICAgICAgICBX
+QVJOX09OKGF0b21pY19yZWFkKCZzay0+c2tfcm1lbV9hbGxvYykpOw0KICAgICAgICBXQVJOX09O
+KGF0b21pY19yZWFkKCZzay0+c2tfd21lbV9hbGxvYykpOw0KIH0NCg0KU28gaSB0aGluayBpdCBz
+aG91bGQgYmUgZG9uZSBpbiBSYXcgc29ja2V0cyBhbHNvLg0KDQo+PiAtLS0NCj4+ICAgbmV0L3Bh
+Y2tldC9hZl9wYWNrZXQuYyB8ICAgIDEgKw0KPj4gICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRp
+b24oKykNCj4+DQo+PiBkaWZmIC0tZ2l0IGEvbmV0L3BhY2tldC9hZl9wYWNrZXQuYyBiL25ldC9w
+YWNrZXQvYWZfcGFja2V0LmMNCj4+IGluZGV4IDgxYjRiODEuLmJjYjM3YmEgMTAwNjQ0DQoNClRo
+YW5rcw0KVmFuZWV0IE5hcmFuZw==
