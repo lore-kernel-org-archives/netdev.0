@@ -1,55 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, RESEND^2] ssb: mark ssb_bus_register as __maybe_unused
-Date: Mon, 18 Jan 2016 20:39:56 +0100
-Message-ID: <6063400.39vor3soEb@wuerfel>
-References: <8128014.DbbgBtKY3z@wuerfel> <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -next 0/2] clsact frontend
+Date: Mon, 18 Jan 2016 11:43:09 -0800
+Message-ID: <20160118114309.7f67615e@xeon-e3>
+References: <cover.1452558352.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-mips@linux-mips.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760ywd5fe.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35981 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756071AbcARTnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 14:43:03 -0500
+Received: by mail-pa0-f46.google.com with SMTP id yy13so345699761pab.3
+        for <netdev@vger.kernel.org>; Mon, 18 Jan 2016 11:43:02 -0800 (PST)
+In-Reply-To: <cover.1452558352.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SoC variant of the ssb code is now optional like the other
-ones, which means we can build the framwork without any
-front-end, but that results in a warning:
+On Tue, 12 Jan 2016 01:42:18 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not used [-Wunused-function]
+> Cleanup on ingress and addition of clsact frontend. There's no man-page
+> for ingress nor for clsact, will follow-up with one to document both.
+> 
+> The patch requires a header update and is against your current net-next
+> branch (pre master merge).
+> 
+> Thanks!
+> 
+> Daniel Borkmann (2):
+>   tc, ingress: clean up ingress handling a bit
+>   tc, clsact: add clsact frontend
+> 
+>  tc/Makefile    |  1 +
+>  tc/q_clsact.c  | 34 ++++++++++++++++++++++++++++++++++
+>  tc/q_ingress.c | 20 +++++---------------
+>  tc/tc_filter.c | 46 ++++++++++++++++++++++++++++++++++++++--------
+>  tc/tc_qdisc.c  | 32 ++++++++++++++++++--------------
+>  5 files changed, 96 insertions(+), 37 deletions(-)
+>  create mode 100644 tc/q_clsact.c
+> 
 
-This annotates the ssb_bus_register function as __maybe_unused to
-shut up the warning. A configuration like this will not work on
-any hardware of course, but we still want this to silently build
-without warnings if the configuration is allowed in the first
-place.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 845da6e58e19 ("ssb: add Kconfig entry for compiling SoC related code")
-Acked-by: Michael Buesch <m@bues.ch>
----
-Resent to linux-wireless as requested
-
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index cde5ff7529eb..d1a750760cf3 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -613,9 +613,10 @@ out:
- 	return err;
- }
- 
--static int ssb_bus_register(struct ssb_bus *bus,
--			    ssb_invariants_func_t get_invariants,
--			    unsigned long baseaddr)
-+static int __maybe_unused
-+ssb_bus_register(struct ssb_bus *bus,
-+		 ssb_invariants_func_t get_invariants,
-+		 unsigned long baseaddr)
- {
- 	int err;
- 
+Applied (to master).
