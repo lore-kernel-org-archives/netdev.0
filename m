@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Mon, 18 Jan 2016 11:24:55 -0500 (EST)
-Message-ID: <20160118.112455.212265265553435873.davem@davemloft.net>
-References: <20160115142223.1e92be75@redhat.com>
-	<20160115.154721.458450438918273509.davem@davemloft.net>
-	<20160118112703.6eac71ca@redhat.com>
+Subject: Re: [PATCH net v4] ovs: limit ovs recursions in
+ ovs_execute_actions to not corrupt stack
+Date: Mon, 18 Jan 2016 11:50:30 -0500 (EST)
+Message-ID: <20160118.115030.221096335100780663.davem@davemloft.net>
+References: <CAOrHB_BCZRG8NinFintTcaRd0MBsYPt-hAH9LG+6uNwOa0GQaA@mail.gmail.com>
+	<20160117.192628.1780434341967114696.davem@davemloft.net>
+	<569CCAAC.6060906@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	alexei.starovoitov@gmail.com, borkmann@iogearbox.net,
-	marek@cloudflare.com, hannes@stressinduktion.org, fw@strlen.de,
-	pabeni@redhat.com, john.r.fastabend@intel.com
-To: brouer@redhat.com
+Cc: pshelar@ovn.org, netdev@vger.kernel.org,
+	simon.horman@netronome.com, eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40260 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40473 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755675AbcARQZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 11:25:00 -0500
-In-Reply-To: <20160118112703.6eac71ca@redhat.com>
+	with ESMTP id S1755742AbcARQue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 11:50:34 -0500
+In-Reply-To: <569CCAAC.6060906@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 18 Jan 2016 11:27:03 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 18 Jan 2016 12:21:16 +0100
 
-> Down in the driver layer (RX), I think it is too early to categorize
-> Related/Unrelated SKB's, because we want to delay touching packet-data
-> as long as possible (waiting for the prefetcher to get data into
-> cache).
+> I don't think that -rt kernels are important for openvswitch right
+> now, so this is just a safe guard.
 
-You don't need to touch the headers in order to have a good idea
-as to whether there is a strong possibility packets are related
-or not.
+Hannes, whilst I don't want to explicitly make things harder for the -rt
+folks, I don't think it's appropriate to put unnecessary preemtption
+disables into the main kernel like this.
 
-We have the hash available.
+Someone reading the code as-is will say this is superfluous and (correctly)
+submit a patch to remove the preemption disables.
+
+Please remove this from your patch, someone can deal with this in the
+-rt kernel as needed.
