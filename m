@@ -1,75 +1,99 @@
-From: "Shajakhan, Mohammed Shafi (Mohammed Shafi)"
-	<mohammed-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>
-Subject: RE: Regression in 3.9 caused by "bridge: respect RFC2863 operational
- state"
-Date: Tue, 19 Jan 2016 15:45:03 +0000
-Message-ID: <439966a35f064c7690f2ccbe7296c552@aphydexm01b.ap.qualcomm.com>
-References: <CAFuUQkhHsRZMnNYBbVZU0=BcAKMEktzYgPv6oc=CMFd7MFDi6g@mail.gmail.com>
- <CAFuUQkjm3RFnrzWWSvbnYFC8gMnbX7C4bP_x0+2bREYumcoJyg@mail.gmail.com>
+From: Marc Dionne <marc.c.dionne@gmail.com>
+Subject: Crash with SO_REUSEPORT and ef456144da8ef507c8cf504284b6042e9201a05c
+Date: Tue, 19 Jan 2016 11:57:54 -0400
+Message-ID: <CAB9dFdugvFvdQLGAU83CQHYbwaWCMHrAm5Xk746iwMG5g94PqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sebastian Gottschall <s.gottschall-t37Kgv3TaIPQT0dZR+AlfA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: YanBo <dreamfly281-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org" <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	"Malinen, Jouni" <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAFuUQkjm3RFnrzWWSvbnYFC8gMnbX7C4bP_x0+2bREYumcoJyg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001a11c1274cb4a0c40529b1ee57
+Cc: eric.dumazet@google.com
+To: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Craig Gallek <kraig@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:34806 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754602AbcASP5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 10:57:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgYWxsLA0KDQpBbnkgdXBkYXRlcyBvbiB0aGlzIHBsZWFzZS4gDQoNClRoYW5rcywNCnNoYWZp
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBsaW51eC13aXJlbGVzcy1vd25l
-ckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpsaW51eC13aXJlbGVzcy1vd25lckB2Z2VyLmtlcm5l
-bC5vcmddIE9uIEJlaGFsZiBPZiBZYW5Cbw0KU2VudDogRnJpZGF5LCBEZWNlbWJlciAwNCwgMjAx
-NSA4OjAxIEFNDQpUbzogbmJkQG9wZW53cnQub3JnOyBNYWxpbmVuLCBKb3VuaTsga3ZhbG9AY29k
-ZWF1cm9yYS5vcmcNCkNjOiBTdGVwaGVuIEhlbW1pbmdlcjsgS3Jpc2huYSBDaGFpdGFueWE7IGxp
-bnV4LXdpcmVsZXNzOyBTZWJhc3RpYW4gR290dHNjaGFsbDsgSm9oYW5uZXMgQmVyZzsgbmV0ZGV2
-OyBob3N0YXBAbGlzdHMuaW5mcmFkZWFkLm9yZw0KU3ViamVjdDogUmU6IFJlZ3Jlc3Npb24gaW4g
-My45IGNhdXNlZCBieSAiYnJpZGdlOiByZXNwZWN0IFJGQzI4NjMgb3BlcmF0aW9uYWwgc3RhdGUi
-DQoNCiBTb3JyeSB0byBwaWNrIHVwIHRoaXMgdGhyZWFkIGFnYWluLCAgaXQgbG9va3MgdGhpcyBp
-c3N1ZSBzdGlsbCBleGlzdGVkICBpbiB0aGUgbmV3ZXIgNC4zIGtlcm5lbC4gKFRoZSBFQVAgZnJh
-bWVzIGNhbiBub3QgYmUgcmVjZWl2ZWQgYnkgd2lyZWxlc3MgaW50ZXJmYWNlIGR1ZSB0byB0aGUg
-YnJpZGdlIGludGVyZmFjZSwNCmh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgtd2lyZWxlc3MmbT0x
-MzY3NDM0OTU1MjY5MDUmdz0yKQ0KDQogV29uZGVyIGlzIGFueW9uZSBrbm93IHNvbWUgdXBkYXRl
-IGZvciB0aGlzIGlzc3VlPyAgQ3VycmVudGx5IHRoZSBvbmx5IHdvcmthcm91bmQgaXMgbWFrZSB0
-aGUgNC1hZGRyZXNzICBBUCBhbmQgU1RBIGFzc29jaWF0ZWQgaW4gc2VjdXJpdHkgbW9kZSBmaXJz
-dGx5IGFuZCB0aGVuIGNyZWF0ZSB0aGUgYnJpZGdlLCB0aGUgcmVuZXcga2V5IGNvbmZpZ3VyYXRp
-b24gYWxzbyBuZWVkIGJlIGRpc2FibGUgYXQgdGhlIGhvc3RhcGQgc2lkZSB0byAgYXZvaWQgcmVu
-ZXcgdGhlIGtleSBhdCBicmlkZ2Ugc3RhdHVzLg0KDQpUaGFua3MNCllhbmJvDQo+IE9uIFdlZCwg
-TWF5IDEsIDIwMTMgYXQgNTo1MyBQTSwgRmVsaXggRmlldGthdSA8bmJkQG9wZW53cnQub3JnPiB3
-cm90ZToNCj4gPg0KPiA+IE9uIDIwMTMtMDUtMDIgMTI6NDkgQU0sIFN0ZXBoZW4gSGVtbWluZ2Vy
-IHdyb3RlOg0KPiA+ID4gT24gV2VkLCAwMSBNYXkgMjAxMyAyMzowNjoxNiArMDIwMCBGZWxpeCBG
-aWV0a2F1IDxuYmRAb3BlbndydC5vcmc+IA0KPiA+ID4gd3JvdGU6DQo+ID4gPg0KPiA+ID4+IE9u
-IDIwMTMtMDUtMDEgMTA6MjEgUE0sIFN0ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOg0KPiA+ID4+ID4g
-V2hhdCBhYm91dCB1c2luZyBBRl9QQUNLRVQgYm91bmQgdG8gdW5kZXJseWluZyB3aXJlbGVzcyBk
-ZXZpY2UgDQo+ID4gPj4gPiBhbmQgdGhlIHBhY2tldCB0eXBlLiBZb3UgY2FuIGV2ZW4gdXNlIEJQ
-RiB0byBmaWx0ZXIuDQo+ID4gPj4gQXMgZmFyIGFzIEkga25vdywgQUZfUEFDS0VUIG9ubHkgd29y
-a3Mgd2hlbiBub3QgYmluZGluZyBpdCB0byB0aGUgDQo+ID4gPj4gcGFja2V0IHR5cGUgKG90aGVy
-d2lzZSBpdCBnZXQgc3RvbGVuIGJ5IHRoZSByeCBoYW5kbGVyKS4NCj4gPiA+DQo+ID4gPiBZb3Ug
-Y2FuIGRvIEFGX1BBQ0tFVCBhbmQgaXQgZ2V0cyBoYW5kbGUgYmVmb3JlIHJ4X2hhbmRsZXIuDQo+
-ID4gSWYgSSBkb24ndCBiaW5kIGl0IHRvIGEgcHJvdG9jb2wsIGl0IGVuZHMgdXAgaW4gcHR5cGVf
-YWxsLCBpZiBJIGRvLCANCj4gPiBpdCBlbmRzIHVwIGluICZwdHlwZV9iYXNlLiBwdHlwZV9hbGwg
-aXMgcHJvY2Vzc2VkIGJlZm9yZSB0aGUgDQo+ID4gcnhfaGFuZGxlciwgcHR5cGVfYmFzZSBpcyBw
-cm9jZXNzZWQgYWZ0ZXIgdGhlIHJ4IGhhbmRsZXIuDQo+ID4gSG9va2luZyBpbnRvIHB0eXBlX2Fs
-bCB3YXN0ZXMgdG9ucyBvZiBDUFUgY3ljbGVzLCBob29raW5nIGludG8gDQo+ID4gcHR5cGVfYmFz
-ZSBkb2VzIG5vdCBzb2x2ZSB0aGUgcHJvYmxlbS4NCj4gPg0KPiA+IC0gRmVsaXgNCj4gPiAtLQ0K
-PiA+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNj
-cmliZSANCj4gPiBsaW51eC13aXJlbGVzcyIgaW4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIA0K
-PiA+IG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgDQo+
-ID4gaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQotLQ0KVG8gdW5z
-dWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4
-LXdpcmVsZXNzIiBpbiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2Vy
-bmVsLm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21h
-am9yZG9tby1pbmZvLmh0bWwNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--001a11c1274cb4a0c40529b1ee57
+Content-Type: text/plain; charset=UTF-8
+
+I shared this one with Craig but I thought I'd put it out to a wider audience.
+
+Trying to run the current kernel mainline on a test system I found
+that any attempt to run many of our executables would crash the
+system.  The networking code in all of these opens and listens on
+multiple UDP sockets set with SO_REUSEPORT.  We also like to bind the
+first socket before setting SO_REUSEPORT so we can catch some cases
+where the port is actually in use by someone else (for instance a
+previous incarnation of the same service).
+
+This is easily reproduced with this sequence:
+- create 2 sockets A and B
+- bind socket A to an address
+- set SO_REUSEPORT on socket A
+- set SO_REUSEPORT on socket B
+- bind socket B to the same address as A
+
+The sk_reuseport_cb structure is only allocated at bind time if
+SO_REUSEPORT is already set, so A doesn't have one.  When we bind B, A
+is found as a match that has SO_REUSEPORT and reuseport_add_sock will
+try to use the NULL sk_reuseport_cb structure from A, causing a crash.
+
+Not sure what the best fix is, but seems like the structure could be
+either allocated (if not already done) when setting SO_REUSEPORT, or
+when we find it to be NULL in reuseport_add_sock (but locking may be
+an issue there).  I was able to test that allocating sk_reuseport_cb
+when setting SO_REUSEPORT makes things behave normally again; see
+attached patch.  That's surely not a correct/complete fix as B (in the
+scenario above) will have an unnecessary sk_reuseport_cb which will
+trigger a warning and should be dealt with.
+
+Thanks,
+Marc
+
+--001a11c1274cb4a0c40529b1ee57
+Content-Type: text/x-patch; charset=US-ASCII; name="reuseport.patch"
+Content-Disposition: attachment; filename="reuseport.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ijlksupc0
+
+Y29tbWl0IDUxODEyMGY0MWFlYzMwYmRkZTM5Y2FmNTg4MThlMWU1ZDJkNmE0YTQKQXV0aG9yOiBN
+YXJjIERpb25uZSA8bWFyYy5kaW9ubmVAYXVyaXN0b3IuY29tPgpEYXRlOiAgIEZyaSBKYW4gMTUg
+MTY6MDI6MzIgMjAxNiAtMDQwMAoKICAgIHNvcmV1c2Vwb3J0OiBBbGxvdyBiaW5kIGJlZm9yZSBz
+ZXR0aW5nIFNPX1JFVVNFUE9SVAogICAgCiAgICBJZiBhIHNvY2tldCBpcyBib3VuZCBiZWZvcmUg
+dGhlIFNPX1JFVVNFUE9SVCBvcHRpb24gaXMKICAgIHNldCwgaXQgd2lsbCBoYXZlIG5vIHNrX3Jl
+dXNlcG9ydF9jYiBzdHJ1Y3R1cmUgYWxsb2NhdGVkCiAgICBhbmQgYXR0YWNoZWQgdG8gaXQuICBJ
+ZiB0aGVyZSBpcyB0aGVuIGFuIGF0dGVtcHQgdG8gYmluZAogICAgYSBzZWNvbmQgc29ja2V0IHRv
+IHRoZSBzYW1lIHBvcnQsIHRoZSBmaXJzdCBzb2NrZXQgd2lsbAogICAgYmUgZm91bmQgYXMgbWF0
+Y2hpbmcgYW5kIHJldXNlcG9ydF9hZGRfc29jayB3aWxsIGF0dGVtcHQKICAgIHRvIHVzZSB0aGUg
+TlVMTCBza19yZXVzZXBvcnRfY2IgcG9pbnRlciwgcmVzdWx0aW5nIGluIGFuCiAgICBvb3BzLgog
+ICAgCiAgICBBbGxvY2F0ZSBza19yZXVzZXBvcnRfY2IgaW4gc2V0c29ja29wdCBpZiBub3QgYWxy
+ZWFkeSBzZXQuCiAgICBBbHNvLCBkb24ndCBwcmVjbHVkZSByZXVzaW5nIGEgcG9ydCBiZWNhdXNl
+IHRoZSBzayBoYXMKICAgIHNrX3JldXNlcG9ydF9jYiBzZXQuCiAgICAKICAgIFNpZ25lZC1vZmYt
+Ynk6IE1hcmMgRGlvbm5lIDxtYXJjLmRpb25uZUBhdXJpc3Rvci5jb20+CgpkaWZmIC0tZ2l0IGEv
+bmV0L2NvcmUvc29jay5jIGIvbmV0L2NvcmUvc29jay5jCmluZGV4IDUxMjcwMjMuLjU4N2RlNWIg
+MTAwNjQ0Ci0tLSBhL25ldC9jb3JlL3NvY2suYworKysgYi9uZXQvY29yZS9zb2NrLmMKQEAgLTcy
+NCw2ICs3MjQsOCBAQCBpbnQgc29ja19zZXRzb2Nrb3B0KHN0cnVjdCBzb2NrZXQgKnNvY2ssIGlu
+dCBsZXZlbCwgaW50IG9wdG5hbWUsCiAJCWJyZWFrOwogCWNhc2UgU09fUkVVU0VQT1JUOgogCQlz
+ay0+c2tfcmV1c2Vwb3J0ID0gdmFsYm9vbDsKKwkJaWYgKCFyY3VfYWNjZXNzX3BvaW50ZXIoc2st
+PnNrX3JldXNlcG9ydF9jYikpCisJCSAgICByZXVzZXBvcnRfYWxsb2Moc2spOwogCQlicmVhazsK
+IAljYXNlIFNPX1RZUEU6CiAJY2FzZSBTT19QUk9UT0NPTDoKZGlmZiAtLWdpdCBhL25ldC9pcHY0
+L3VkcC5jIGIvbmV0L2lwdjQvdWRwLmMKaW5kZXggZGM0NWI1My4uMTM4ODRiNiAxMDA2NDQKLS0t
+IGEvbmV0L2lwdjQvdWRwLmMKKysrIGIvbmV0L2lwdjQvdWRwLmMKQEAgLTE1NCw3ICsxNTQsNiBA
+QCBzdGF0aWMgaW50IHVkcF9saWJfbHBvcnRfaW51c2Uoc3RydWN0IG5ldCAqbmV0LCBfX3UxNiBu
+dW0sCiAJCSAgICAoIXNrMi0+c2tfYm91bmRfZGV2X2lmIHx8ICFzay0+c2tfYm91bmRfZGV2X2lm
+IHx8CiAJCSAgICAgc2syLT5za19ib3VuZF9kZXZfaWYgPT0gc2stPnNrX2JvdW5kX2Rldl9pZikg
+JiYKIAkJICAgICghc2syLT5za19yZXVzZXBvcnQgfHwgIXNrLT5za19yZXVzZXBvcnQgfHwKLQkJ
+ICAgICByY3VfYWNjZXNzX3BvaW50ZXIoc2stPnNrX3JldXNlcG9ydF9jYikgfHwKIAkJICAgICAh
+dWlkX2VxKHVpZCwgc29ja19pX3VpZChzazIpKSkgJiYKIAkJICAgIHNhZGRyX2NvbXAoc2ssIHNr
+MiwgdHJ1ZSkpIHsKIAkJCWlmICghYml0bWFwKQpAQCAtMTkwLDcgKzE4OSw2IEBAIHN0YXRpYyBp
+bnQgdWRwX2xpYl9scG9ydF9pbnVzZTIoc3RydWN0IG5ldCAqbmV0LCBfX3UxNiBudW0sCiAJCSAg
+ICAoIXNrMi0+c2tfYm91bmRfZGV2X2lmIHx8ICFzay0+c2tfYm91bmRfZGV2X2lmIHx8CiAJCSAg
+ICAgc2syLT5za19ib3VuZF9kZXZfaWYgPT0gc2stPnNrX2JvdW5kX2Rldl9pZikgJiYKIAkJICAg
+ICghc2syLT5za19yZXVzZXBvcnQgfHwgIXNrLT5za19yZXVzZXBvcnQgfHwKLQkJICAgICByY3Vf
+YWNjZXNzX3BvaW50ZXIoc2stPnNrX3JldXNlcG9ydF9jYikgfHwKIAkJICAgICAhdWlkX2VxKHVp
+ZCwgc29ja19pX3VpZChzazIpKSkgJiYKIAkJICAgIHNhZGRyX2NvbXAoc2ssIHNrMiwgdHJ1ZSkp
+IHsKIAkJCXJlcyA9IDE7Cg==
+--001a11c1274cb4a0c40529b1ee57--
