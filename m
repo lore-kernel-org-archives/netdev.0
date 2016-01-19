@@ -1,48 +1,44 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH, RESEND^2] ssb: mark ssb_bus_register as __maybe_unused
-Date: Tue, 19 Jan 2016 15:03:45 +0200
-Message-ID: <877fj567ri.fsf@kamboji.qca.qualcomm.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: ssb: Set linux-wireless as MAINTAINERS list
+Date: Tue, 19 Jan 2016 15:04:47 +0200
+Message-ID: <8737tt67ps.fsf@kamboji.qca.qualcomm.com>
 References: <8128014.DbbgBtKY3z@wuerfel>
-	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com> <6063400.39vor3soEb@wuerfel>
+	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com> <4037550.DMaVTE01Aq@wuerfel>
+	<87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
+	<CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
+	<87y4bn5m4q.fsf@kamboji.qca.qualcomm.com>
+	<20160118175303.19164539@wiggum>
+	<CACna6ry2jSJpov1Mcvk=NF+GKrZVSHKjOsinpEQh7_BQAx34wQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-	=?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michael Buesch <m@bues.ch>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6063400.39vor3soEb@wuerfel> (Arnd Bergmann's message of "Mon, 18
-	Jan 2016 20:39:56 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael =?utf-8?Q?B=C3=BCsch?= <m@bues.ch>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-mips\@linux-mips.org" <linux-mips@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACna6ry2jSJpov1Mcvk=NF+GKrZVSHKjOsinpEQh7_BQAx34wQ@mail.gmail.com>
+	(=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Mon, 18 Jan 2016
+ 20:09:52 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
 
-> The SoC variant of the ssb code is now optional like the other
-> ones, which means we can build the framwork without any
-> front-end, but that results in a warning:
+> On 18 January 2016 at 17:53, Michael B=C3=BCsch <m@bues.ch> wrote:
 >
-> drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not used [-Wunused-function]
+>> ssb patches go through the linux-wireless tree. Set the list to
+>> linux-wireless, so linux-wireless patchwork can catch the patches.
 >
-> This annotates the ssb_bus_register function as __maybe_unused to
-> shut up the warning. A configuration like this will not work on
-> any hardware of course, but we still want this to silently build
-> without warnings if the configuration is allowed in the first
-> place.
->
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Fixes: 845da6e58e19 ("ssb: add Kconfig entry for compiling SoC related code")
-> Acked-by: Michael Buesch <m@bues.ch>
-> ---
-> Resent to linux-wireless as requested
+> Thanks Michael
 
-Thanks, and sorry for the hassle. I'm planning to push this to 4.5.
+Thanks from me also. I'm planning to send this to 4.5.
 
--- 
+--=20
 Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
