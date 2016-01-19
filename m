@@ -1,49 +1,58 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: [PATCH net] sctp: fix rcu usage on proc listing
-Date: Tue, 19 Jan 2016 19:59:03 -0200
-Message-ID: <c68813736c92f28f78f1c8cc8f362e4c964f7899.1453240529.git.marcelo.leitner@gmail.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Xin Long <lucien.xin@gmail.com>
-To: netdev@vger.kernel.org
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: nf_unregister_net_hook: hook not found!
+Date: Tue, 19 Jan 2016 13:58:00 -0800
+Message-ID: <CAPWQB7HiD5q3QL7igYvkdRJ-O5BtS8Yt1OEkeJAJdvDY=nVsgg@mail.gmail.com>
+References: <8312456317d37de2b445bbece288b268@eikelenboom.it>
+ <20151230001259.GA1637@salvia> <874mf0d5i1.fsf@x220.int.ebiederm.org> <52794c2a10ac78199c3912ccf1f97990@eikelenboom.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: ebiederm@xmission.com, Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>, netfilter@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54059 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753736AbcASV7P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2016 16:59:15 -0500
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:36679 "EHLO
+	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932252AbcASWBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 17:01:23 -0500
+In-Reply-To: <52794c2a10ac78199c3912ccf1f97990@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+On 30 December 2015 at 10:15, Sander Eikelenboom <linux@eikelenboom.it> wrote:
+> On 2015-12-30 03:39, ebiederm@xmission.com wrote:
+>>
+>> Pablo Neira Ayuso <pablo@netfilter.org> writes:
+>>
+>>> On Mon, Dec 28, 2015 at 09:05:03PM +0100, Sander Eikelenboom wrote:
+>>>>
+>>>> Hi,
+>>>>
+>>>> Running a 4.4.0-rc6 kernel i encountered the warning below.
+>>>
+>>>
+>>> Cc'ing Eric Biederman.
+>>>
+>>> @Sander, could you provide a way to reproduce this?
+>>
+>>
+>> I am on vacation until the new year, but if this is reproducible we
+>> should be able to print out reg, reg->pf, reg->hooknum, reg->hook
+>> to figure out which hook is having something very weird happen to it.
+>>
+>> This is happening in some network namespace exit.
+>>
+>> Eric
+>>
+>
+> Unfortunately i have found no way to reproduce,
+> 13 seconds implies it was at boot, but i only have seen this once.
 
-commit 39f66a7dce32 ("sctp: apply rhashtable api to sctp procfs")
-removed a rcu_read_lock() too much at sctp_remaddr_seq_show().
+How about this script?
 
-Fixes: 39f66a7dce32 ("sctp: apply rhashtable api to sctp procfs")
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/proc.c | 2 ++
- 1 file changed, 2 insertions(+)
+#!/bin/sh
 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index dfa7eeccb5373053f460f1026a58e4a2ba015a69..4fdf4387910696492ba568b1096dd12e8e7221e2 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -491,6 +491,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 	tsp = (struct sctp_transport *)v;
- 	assoc = tsp->asoc;
- 
-+	rcu_read_lock();
- 	list_for_each_entry_rcu(tsp, &assoc->peer.transport_addr_list,
- 				transports) {
- 		if (tsp->dead)
-@@ -543,6 +544,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 
- 		seq_printf(seq, "\n");
- 	}
-+	rcu_read_unlock();
- 
- 	return 0;
- }
--- 
-2.5.0
+ip netns add at_ns0
+ip netns del at_ns0
+modprobe nf_conntrack_ipv4
+modprobe -r nf_conntrack_ipv4
