@@ -1,53 +1,56 @@
-From: Marc Dionne <marc.c.dionne@gmail.com>
-Subject: Re: Crash with SO_REUSEPORT and ef456144da8ef507c8cf504284b6042e9201a05c
-Date: Tue, 19 Jan 2016 13:08:27 -0400
-Message-ID: <CAB9dFdsVxzi_Tx2yvStXLr2qvqd4ht4H1BRM8A5E1x-cBMv4mg@mail.gmail.com>
-References: <CAB9dFdugvFvdQLGAU83CQHYbwaWCMHrAm5Xk746iwMG5g94PqQ@mail.gmail.com>
-	<CAB9dFdswyri4-pDZ+uoAk00isP8Lba7-uqYPXnT=PnLataJeHg@mail.gmail.com>
-	<CAEfhGixbKf7+j_4KUvNSQL96N+-9SsDSaH0CmfL=iwWFAYDeMg@mail.gmail.com>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH net] udp: fix potential infinite loop in SO_REUSEPORT logic
+Date: Tue, 19 Jan 2016 12:15:28 -0500
+Message-ID: <CAEfhGiz+gD+Lxdetbwxpxv=U9R5sfA0oR5+pgoEdHtWfojj2MA@mail.gmail.com>
+References: <CAEfhGiwsgd7-10ggn1EP4zTg3_mpqphWUnCo_7dSkRf=-jtmXQ@mail.gmail.com>
+	<1453170024.1223.251.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1453171769.1223.255.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAEfhGizQXqMCbSbi-CCp=Ct7-Mb+0ROtPMYVTAb_GusgQOY6VQ@mail.gmail.com>
+	<1453221403.1223.266.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a114a97f6025a590529b2eb25
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Craig Gallek <kraig@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEfhGixbKf7+j_4KUvNSQL96N+-9SsDSaH0CmfL=iwWFAYDeMg@mail.gmail.com>
+In-Reply-To: <1453221403.1223.266.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a114a97f6025a590529b2eb25
-Content-Type: text/plain; charset=UTF-8
-
-On Tue, Jan 19, 2016 at 12:31 PM, Craig Gallek <kraig@google.com> wrote:
+On Tue, Jan 19, 2016 at 11:36 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> I need to think about how to handle setsockopt-after-bind condition a
-> bit more, but the NULL pointer dereference is obviously wrong.  Do you
-> have a way to easily reproduce this?  I've only managed to get it to
-> happen once so far...
+> Using a combination of connected and un-connected sockets, Dmitry
+> was able to trigger soft lockups with his fuzzer.
+>
+> The problem is that sockets in the SO_REUSEPORT array might have
+> different scores.
+>
+> Right after sk2=socket(), setsockopt(sk2,...,SO_REUSEPORT, on) and
+> bind(sk2, ...), but _before_ the connect(sk2) is done, sk2 is added into
+> the soreuseport array, with a score which is smaller than the score of
+> first socket sk1 found in hash table (I am speaking of the regular UDP
+> hash table), if sk1 had the connect() done, giving a +8 to its score.
+>
+> hash bucket [X] -> sk1 -> sk2 -> NULL
+>
+> sk1 score = 14  (because it did a connect())
+> sk2 score = 6
+>
+> SO_REUSEPORT fast selection is an optimization. If it turns out the
+> score of the selected socket does not match score of first socket, just
+> fallback to old SO_REUSEPORT logic instead of trying to be too smart.
+>
+> Normal SO_REUSEPORT users do not mix different kind of sockets, as this
+> mechanism is used for load balance traffic.
+>
+> Fixes: e32ea7e74727 ("soreuseport: fast reuseport UDP socket selection")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Craig Gallek <kraigatgoog@gmail.com>
 
-The attached code reliably triggers the crash for me.
+Thanks Eric!
 
---001a114a97f6025a590529b2eb25
-Content-Type: text/x-csrc; charset=US-ASCII; name="reuseport_crash.c"
-Content-Disposition: attachment; filename="reuseport_crash.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ijlnjkoy0
-
-I2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8
-dW5pc3RkLmg+CgojaW5jbHVkZSA8YXJwYS9pbmV0Lmg+CgppbnQKbWFpbihpbnQgYXJnYywgY2hh
-ciAqKmFyZ3YpCnsKICAgIHN0cnVjdCBzb2NrYWRkcl9pbiBhZGRyLCBhZGRyMjsKICAgIGludCBs
-ZW4sIG9wdHZhbCA9IDE7CiAgICBpbnQgczEsIHMyOwoKICAgIGFkZHIuc2luX2FkZHIuc19hZGRy
-ID0gaHRvbmwoSU5BRERSX0FOWSk7CiAgICBhZGRyLnNpbl9mYW1pbHkgPSBBRl9JTkVUOwogICAg
-YWRkci5zaW5fcG9ydCA9IDA7CgogICAgczEgPSBzb2NrZXQoQUZfSU5FVCwgU09DS19ER1JBTSwg
-SVBQUk9UT19VRFApOwogICAgczIgPSBzb2NrZXQoQUZfSU5FVCwgU09DS19ER1JBTSwgSVBQUk9U
-T19VRFApOwoKICAgIGJpbmQoczEsIChzdHJ1Y3Qgc29ja2FkZHIgKikmYWRkciwgc2l6ZW9mKGFk
-ZHIpKTsKICAgIHNldHNvY2tvcHQoczEsIFNPTF9TT0NLRVQsIFNPX1JFVVNFUE9SVCwgJm9wdHZh
-bCwgc2l6ZW9mKG9wdHZhbCkpOwogICAgc2V0c29ja29wdChzMiwgU09MX1NPQ0tFVCwgU09fUkVV
-U0VQT1JULCAmb3B0dmFsLCBzaXplb2Yob3B0dmFsKSk7CgogICAgbGVuID0gc2l6ZW9mKGFkZHIp
-OwogICAgZ2V0c29ja25hbWUoczEsIChzdHJ1Y3Qgc29ja2FkZHIgKikmYWRkciwgKHNvY2tsZW5f
-dCAqKSZsZW4pOwogICAgYWRkcjIuc2luX2FkZHIuc19hZGRyID0gaHRvbmwoSU5BRERSX0FOWSk7
-CiAgICBhZGRyMi5zaW5fZmFtaWx5ID0gQUZfSU5FVDsKICAgIGFkZHIyLnNpbl9wb3J0ID0gYWRk
-ci5zaW5fcG9ydDsKICAgIGJpbmQoczIsIChzdHJ1Y3Qgc29ja2FkZHIgKikmYWRkcjIsIHNpemVv
-ZihhZGRyKSk7CiAgICBjbG9zZShzMik7CiAgICBjbG9zZShzMSk7CiAgICByZXR1cm4gMDsKfQo=
---001a114a97f6025a590529b2eb25--
+Acked-by: Craig Gallek <kraig@google.com>
