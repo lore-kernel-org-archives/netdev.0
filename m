@@ -1,64 +1,29 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] MAINTAINERS: Update mailing list for Renesas SoC
- Development
-Date: Tue, 19 Jan 2016 09:18:16 +0900
-Message-ID: <20160119001815.GA14224@verge.net.au>
-References: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
- <CAMuHMdXF8QnKsLOYFnT7Rje5G9_7Xr0NesO2SKEkWSivKQYkbA@mail.gmail.com>
+From: "Thomas" <topmag1@163.com>
+Subject: Injection magnets for your Automation
+Date: Tue, 19 Jan 2016 08:32:55 +0800
+Message-ID: <201601190832556356891@a.robotpart.net>
+Reply-To: topmag1@163.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-renesas-soc@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Linux Media Mailing List <linux-media@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	Geert Uytterhoeven <geert+renesas@glider.be>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdXF8QnKsLOYFnT7Rje5G9_7Xr0NesO2SKEkWSivKQYkbA@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [221.202.44.82] ([221.202.44.82]:1653 "HELO a.robotpart.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
+	id S1756599AbcASAiH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jan 2016 19:38:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 18, 2016 at 09:09:29AM +0100, Geert Uytterhoeven wrote:
-> CC linux-arm-kernel
-> 
-> On Mon, Jan 18, 2016 at 2:04 AM, Simon Horman
-> <horms+renesas@verge.net.au> wrote:
-> > Update the mailing list used for development of support for
-> > Renesas SoCs and related drivers.
-> >
-> > Up until now the linux-sh mailing list has been used, however,
-> > Renesas SoCs are now much wider than the SH architecture and there
-> > is some desire from some for the linux-sh list to refocus on
-> > discussion of the work on the SH architecture.
-> >
-> > Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> > Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-> > Cc: Geert Uytterhoeven <geert+renesas@glider.be>
-> > Cc: Magnus Damm <magnus.damm@gmail.com>
-> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> 
-> > ---
-> > * This patch applies on top of Linus's tree where currently the head commit
-> >   is 984065055e6e ("Merge branch 'drm-next' of
-> >   git://people.freedesktop.org/~airlied/linux")
-> >
-> >   This has been used as a base instead of v4.4 so that it is based on the
-> >   following two commits which affect it:
-> >   - 1a4ca6dd3dc8 ("MAINTAINERS: Add co-maintainer for Renesas Pin Controllers")
-> >   - 3e46c3973cba ("MAINTAINERS: add Renesas usb2 phy driver")
-> 
-> I assume you'll send an update for the "ARM/RENESAS ARM64 ARCHITECTURE"
-> section as soon as that has landed in mainline?
-
-Yes, that is my plan.
+RGVhciBwdXJjaGFzaW5nIG1hbmFnZXIsIA0KDQpIb3cgYXJlIHlvdT8gSG9wZSB5b3UgaGF2ZSBh
+IHBsZWFzYW50IENocmlzdG1hcyBhbmQgTmV3IFllYXIgaG9saWRheXMuDQoNClRoaXMgaXMgVGhv
+bWFzIGZyb20gQ2hpbmVzZSBtYWduZXQgY29tcGFueS4NCg0KQXMgeW91IG1heSBrbm93IHRoZSBw
+cmljZSBvZiByYXcgbWF0ZXJpYWwgaGFzIGJlZW4gbG93ZXIsIGl0IHdvdWxkIGJlIGEgZ29vZCB0
+aW1pbmcgZm9yIHlvdSB0byBwdXJjaGFzaW5nIG1hZ25ldCBmb3IgeW91ciBpdGVtcy4gDQogDQpG
+ZWVsIGZyZWUgdG8gY29udGFjdCBtZSBmb3IgYW55IGZ1cnRoZXIgcXVlc3Rpb25zIG9yIGVucXVp
+cnkuDQoNCkJlc3RzIFJlZ2FyZHMNCg0KVGhvbWFzIC0tLSBTYWxlcyBFbmdpbmVlciAgDQpNb2Jp
+bGU6IDAwODYtMTU4ODk3MDY4MzcNCkFkZHJlc3M6IE5ldyBTYW55byBNb3RvciBJbmR1c3RyaWFs
+IFBhcmssICBIYW95aSBWaWxsaWFnZSwgU2hhamluZyBUb3duLCBCYW9hbiBEaXN0cmljdCwgU2hl
+bnpoZW4sIENoaW5hIDUxODEwNA0KVGVsOig4Nik3NTUtMjkwMTk4NzENCkZheDooODYpIDc1NS0y
+OTczNTk4Nw0KRW1haWw6IGluZm9AdG9wbWFndGVjaC5jb20mdG9wbWFnMUAxNjMuY29t
