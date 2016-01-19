@@ -1,47 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3] netfilter: nf_conntrack: use safer way to lock all
- buckets
-Date: Tue, 19 Jan 2016 20:09:38 +0100
-Message-ID: <20160119190938.GA25130@salvia>
-References: <1453163031-31443-1-git-send-email-sasha.levin@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/1] af_iucv: Validate socket address length in
+ iucv_sock_bind()
+Date: Tue, 19 Jan 2016 14:23:57 -0500 (EST)
+Message-ID: <20160119.142357.829571599757607853.davem@davemloft.net>
+References: <1453196493-57590-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mschwid2@linux.vnet.ibm.com, heicars2@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ubraunu@linux.vnet.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41578 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757413AbcASTJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2016 14:09:51 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id D56FF2791AE
-	for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 20:09:50 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id C45BBDA865
-	for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 20:09:50 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id B9B27DA86F
-	for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 20:09:44 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1453163031-31443-1-git-send-email-sasha.levin@oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932702AbcASTYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 14:24:01 -0500
+In-Reply-To: <1453196493-57590-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 18, 2016 at 07:23:51PM -0500, Sasha Levin wrote:
-> When we need to lock all buckets in the connection hashtable we'd attempt to
-> lock 1024 spinlocks, which is way more preemption levels than supported by
-> the kernel. Furthermore, this behavior was hidden by checking if lockdep is
-> enabled, and if it was - use only 8 buckets(!).
-> 
-> Fix this by using a global lock and synchronize all buckets on it when we
-> need to lock them all. This is pretty heavyweight, but is only done when we
-> need to resize the hashtable, and that doesn't happen often enough (or at all).
-> 
-> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Tue, 19 Jan 2016 10:41:32 +0100
 
-Applied, thanks.
+> this patch fixes a problem reported by Dmitry Vyukov in december. It is built
+> and intended for the next-tree.
 
-I'm including the Reviewed-by tag from Florian in this patch.
+A bug fix is not appropriate for the next tree.
+
+All bug fixes should target 'net'.  You even contacted me privately
+asking me to queue this up for -stable.  Submitting something for
+net-next and wanting a -stable backport is doubly inappropriate.
+
+Things don't go to -stable unless it's in Linus's tree.  'net' is
+for bug fixes, 'net-next' (closed right now) is for new features,
+cleanups, and fixes to code only present in 'net-next'.
+
+Anyways I applied this to 'net' and queued it up for -stable.
