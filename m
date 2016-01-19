@@ -1,53 +1,87 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: Kernel memory leak in bnx2x driver with vxlan tunnel
-Date: Tue, 19 Jan 2016 13:07:43 -0800
-Message-ID: <CAEh+42jMi2EP3LFvUTXiO+WKkGSOuZ5e8X748QFipZUBk8uz9g@mail.gmail.com>
-References: <5697D833.5010506@hpe.com>
+From: YanBo <dreamfly281-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Regression in 3.9 caused by "bridge: respect RFC2863 operational state"
+Date: Tue, 19 Jan 2016 13:10:51 -0800
+Message-ID: <CAFuUQkgCvS6+1+3YRhBMLt3i5vvJh1SQ6EG_pe07AD14TssSrg@mail.gmail.com>
+References: <CAFuUQkhHsRZMnNYBbVZU0=BcAKMEktzYgPv6oc=CMFd7MFDi6g@mail.gmail.com>
+	<CAFuUQkjm3RFnrzWWSvbnYFC8gMnbX7C4bP_x0+2bREYumcoJyg@mail.gmail.com>
+	<439966a35f064c7690f2ccbe7296c552@aphydexm01b.ap.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>, david.roth@hpe.com
-To: John <john.phillips5@hpe.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:36185 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932702AbcASVIA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2016 16:08:00 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 2F4CF20557
-	for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 21:07:59 +0000 (UTC)
-Received: from mail-qk0-f174.google.com (mail-qk0-f174.google.com [209.85.220.174])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 647E22054C
-	for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 21:07:58 +0000 (UTC)
-Received: by mail-qk0-f174.google.com with SMTP id o6so28655877qkc.2
-        for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 13:07:58 -0800 (PST)
-In-Reply-To: <5697D833.5010506@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: "nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org" <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	"Malinen, Jouni" <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastian Gottschall <s.gottschall-t37Kgv3TaIPQT0dZR+AlfA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: "Shajakhan, Mohammed Shafi (Mohammed Shafi)"
+	<mohammed-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <439966a35f064c7690f2ccbe7296c552-uFOy1J/eYsFdSXZW2pRUXqRtKmQZhJ7pQQ4Iyu8u01E@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 14, 2016 at 9:17 AM, John <john.phillips5@hpe.com> wrote:
-> I'm getting what seems to be a kernel memory leak while doing a TCP
-> throughput test between two VMs on identical systems, in order to test a
-> broadcom NIC's performance with a kernel 4.4.0-rc8 and OpenVSwitch version
-> 2.4.90. The host system of the receiving (server) VM leaks memory during the
-> throughput test. The memory leaks fast enough to make the system completely
-> unusable within five minutes. Once I stop the throughput test, the memory
-> stops
-> leaking. A couple of times, the kernel on the host system has actually
-> killed
-> the qemu process for me, but this doesn't happen reliably. The leaked memory
-> doesn't become available again even after the VM is killed.
+There is a fixing in
+http://git.openwrt.org/?p=openwrt.git;a=blob_plain;f=target/linux/generic/patches-4.3/120-bridge_allow_receiption_on_disabled_port.patch
+for your reference.
 
-It looks like the problem is in napi_skb_finish(). If we when do
-GRO_MERGED_FREE we have NAPI_GRO_CB(skb)->free ==
-NAPI_GRO_FREE_STOLEN_HEAD then we will just free the skb memory itself
-but not any of the associated elements. Historically, this would have
-been OK but these days we will have allocated a dst entry already for
-tunnel metadata, which will get leaked.
+Yanbo
 
-If we don't have NAPI_GRO_FREE_STOLEN_HEAD then we'll do a
-__kfree_skb(), which will release the dst entry. That would explain
-why some drivers have the problem but not others since the memory is
-laid out differently.
+On Tue, Jan 19, 2016 at 7:45 AM, Shajakhan, Mohammed Shafi (Mohammed
+Shafi) <mohammed-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org> wrote:
+> Hi all,
+>
+> Any updates on this please.
+>
+> Thanks,
+> shafi
+>
+> -----Original Message-----
+> From: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of YanBo
+> Sent: Friday, December 04, 2015 8:01 AM
+> To: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org; Malinen, Jouni; kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+> Cc: Stephen Hemminger; Krishna Chaitanya; linux-wireless; Sebastian Gottschall; Johannes Berg; netdev; hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Subject: Re: Regression in 3.9 caused by "bridge: respect RFC2863 operational state"
+>
+>  Sorry to pick up this thread again,  it looks this issue still existed  in the newer 4.3 kernel. (The EAP frames can not be received by wireless interface due to the bridge interface,
+> http://marc.info/?l=linux-wireless&m=136743495526905&w=2)
+>
+>  Wonder is anyone know some update for this issue?  Currently the only workaround is make the 4-address  AP and STA associated in security mode firstly and then create the bridge, the renew key configuration also need be disable at the hostapd side to  avoid renew the key at bridge status.
+>
+> Thanks
+> Yanbo
+>> On Wed, May 1, 2013 at 5:53 PM, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org> wrote:
+>> >
+>> > On 2013-05-02 12:49 AM, Stephen Hemminger wrote:
+>> > > On Wed, 01 May 2013 23:06:16 +0200 Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+>> > > wrote:
+>> > >
+>> > >> On 2013-05-01 10:21 PM, Stephen Hemminger wrote:
+>> > >> > What about using AF_PACKET bound to underlying wireless device
+>> > >> > and the packet type. You can even use BPF to filter.
+>> > >> As far as I know, AF_PACKET only works when not binding it to the
+>> > >> packet type (otherwise it get stolen by the rx handler).
+>> > >
+>> > > You can do AF_PACKET and it gets handle before rx_handler.
+>> > If I don't bind it to a protocol, it ends up in ptype_all, if I do,
+>> > it ends up in &ptype_base. ptype_all is processed before the
+>> > rx_handler, ptype_base is processed after the rx handler.
+>> > Hooking into ptype_all wastes tons of CPU cycles, hooking into
+>> > ptype_base does not solve the problem.
+>> >
+>> > - Felix
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe
+>> > linux-wireless" in the body of a message to
+>> > majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org More majordomo info at
+>> > http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
