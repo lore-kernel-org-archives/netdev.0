@@ -1,71 +1,496 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: net/sctp: use-after-free in __sctp_connect
-Date: Tue, 19 Jan 2016 09:38:54 -0500
-Message-ID: <569E4A7E.4080301@gmail.com>
-References: <CACT4Y+YjpSKvD5t8e6wKzE8+j3rFzf_Ep+23WjW1Mg3ws6cOCw@mail.gmail.com>
- <20160115190106.GG6074@mrl.redhat.com>
+From: Igor Mammedov <imammedo@redhat.com>
+Subject: Re: [PATCH RFC] vhost: convert pre sorted vhost memory array to
+ interval tree
+Date: Tue, 19 Jan 2016 16:24:06 +0100
+Message-ID: <20160119162406.7f0c2008@nial.brq.redhat.com>
+References: <1453084949-4896-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Dmitry Vyukov <dvyukov@google.com>
+Cc: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:32893 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755548AbcASOi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 09:38:58 -0500
-In-Reply-To: <20160115190106.GG6074@mrl.redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:44615 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753920AbcASPYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2016 10:24:09 -0500
+In-Reply-To: <1453084949-4896-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/15/2016 02:01 PM, Marcelo Ricardo Leitner wrote:
-> On Wed, Jan 13, 2016 at 10:52:31AM +0100, Dmitry Vyukov wrote:
->> Hello,
->>
->> The following program causes use-after-free in __sctp_connect:
->>
-> ...
->> INFO: Freed in sctp_association_put+0x150/0x250 age=0 cpu=3 pid=15267
->> [<      none      >] __slab_free+0x1fc/0x320 mm/slub.c:2678
->> [<     inline     >] slab_free mm/slub.c:2833
->> [<      none      >] kfree+0x2a8/0x2d0 mm/slub.c:3662
->> [<     inline     >] sctp_association_destroy net/sctp/associola.c:424
->> [<      none      >] sctp_association_put+0x150/0x250 net/sctp/associola.c:860
->> [<      none      >] sctp_wait_for_connect+0x37c/0x4f0 net/sctp/socket.c:7067
->                          ^^^^^^^^^^^^^^
->> [<      none      >] __sctp_connect+0x905/0xb90 net/sctp/socket.c:1215
->> [<      none      >] __sctp_setsockopt_connectx+0x198/0x1d0
->> net/sctp/socket.c:1328
->> [<     inline     >] sctp_setsockopt_connectx net/sctp/socket.c:1360
->> [<      none      >] sctp_setsockopt+0x226/0x3630 net/sctp/socket.c:3728
->> [<      none      >] sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2642
->> [<     inline     >] SYSC_setsockopt net/socket.c:1752
->> [<      none      >] SyS_setsockopt+0x158/0x240 net/socket.c:1731
->> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
->> arch/x86/entry/entry_64.S:185
+On Mon, 18 Jan 2016 10:42:29 +0800
+Jason Wang <jasowang@redhat.com> wrote:
+
+> Current pre-sorted memory region array has some limitations for future
+> device IOTLB conversion:
 > 
-> This one may sher some light on that other socket leak one, because the
-> association shouldn't have been freed at that point.
-> Now, how it managed to unbalance that refcnt, hmm...
+> 1) need extra work for adding and removing a single region, and it's
+>    expected to be slow because of sorting or memory re-allocation.
+> 2) need extra work of removing a large range which may intersect
+>    several regions with different size.
+> 3) need trick for a replacement policy like LRU
 > 
+> To overcome the above shortcomings, this patch convert it to interval
+> tree which can easily address the above issue with almost no extra
+> work.
+> 
+> The patch could be used for:
+> 
+> - Extend the current API and only let the userspace to send diffs of
+>   memory table.
+> - Simplify Device IOTLB implementation.
 
-The free may be a result of implicit close when the program ends.  If the thread
-is still waiting for connect to finish when the program ends, we may end up
-in a situation when the association has been freed, but the ref held by wait_for_connect
-prevents the destruction.  When wait_for_connect finishes in puts the ref and
-causes the destruction.
+I'm curios how performance changes on translate_desc() hot-path in
+default case and in the case of 256 memory regions?
 
-What I am guessing is happing is the wait_for_connect doesn't catch the error condition
-correctly and thus __sctp_connect() doesn't think there was and error and references
-the assoc which was just destroyed.
-
--vlad
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/net.c   |   8 +--
+>  drivers/vhost/vhost.c | 179 +++++++++++++++++++++++++++-----------------------
+>  drivers/vhost/vhost.h |  27 ++++++--
+>  3 files changed, 125 insertions(+), 89 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 9eda69e..481db96 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -968,20 +968,20 @@ static long vhost_net_reset_owner(struct vhost_net *n)
+>  	struct socket *tx_sock = NULL;
+>  	struct socket *rx_sock = NULL;
+>  	long err;
+> -	struct vhost_memory *memory;
+> +	struct vhost_umem *umem;
+>  
+>  	mutex_lock(&n->dev.mutex);
+>  	err = vhost_dev_check_owner(&n->dev);
+>  	if (err)
+>  		goto done;
+> -	memory = vhost_dev_reset_owner_prepare();
+> -	if (!memory) {
+> +	umem = vhost_dev_reset_owner_prepare();
+> +	if (!umem) {
+>  		err = -ENOMEM;
+>  		goto done;
+>  	}
+>  	vhost_net_stop(n, &tx_sock, &rx_sock);
+>  	vhost_net_flush(n);
+> -	vhost_dev_reset_owner(&n->dev, memory);
+> +	vhost_dev_reset_owner(&n->dev, umem);
+>  	vhost_net_vq_reset(n);
+>  done:
+>  	mutex_unlock(&n->dev.mutex);
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index ad2146a..851dce8 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -27,6 +27,7 @@
+>  #include <linux/cgroup.h>
+>  #include <linux/module.h>
+>  #include <linux/sort.h>
+> +#include <linux/interval_tree_generic.h>
+>  
+>  #include "vhost.h"
+>  
+> @@ -42,6 +43,10 @@ enum {
+>  #define vhost_used_event(vq) ((__virtio16 __user *)&vq->avail->ring[vq->num])
+>  #define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
+>  
+> +INTERVAL_TREE_DEFINE(struct vhost_umem_node,
+> +		     rb, __u64, __subtree_last,
+> +		     START, LAST, , vhost_umem_interval_tree);
+> +
+>  #ifdef CONFIG_VHOST_CROSS_ENDIAN_LEGACY
+>  static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
+>  {
+> @@ -275,7 +280,7 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+>  	vq->call_ctx = NULL;
+>  	vq->call = NULL;
+>  	vq->log_ctx = NULL;
+> -	vq->memory = NULL;
+> +	vq->umem = NULL;
+>  	vq->is_le = virtio_legacy_is_little_endian();
+>  	vhost_vq_reset_user_be(vq);
+>  }
+> @@ -381,7 +386,7 @@ void vhost_dev_init(struct vhost_dev *dev,
+>  	mutex_init(&dev->mutex);
+>  	dev->log_ctx = NULL;
+>  	dev->log_file = NULL;
+> -	dev->memory = NULL;
+> +	dev->umem = NULL;
+>  	dev->mm = NULL;
+>  	spin_lock_init(&dev->work_lock);
+>  	INIT_LIST_HEAD(&dev->work_list);
+> @@ -486,27 +491,36 @@ err_mm:
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_dev_set_owner);
+>  
+> -struct vhost_memory *vhost_dev_reset_owner_prepare(void)
+> +static void *vhost_kvzalloc(unsigned long size)
+> +{
+> +	void *n = kzalloc(size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> +
+> +	if (!n)
+> +		n = vzalloc(size);
+> +	return n;
+> +}
+> +
+> +struct vhost_umem *vhost_dev_reset_owner_prepare(void)
+>  {
+> -	return kmalloc(offsetof(struct vhost_memory, regions), GFP_KERNEL);
+> +	return vhost_kvzalloc(sizeof(struct vhost_umem));
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_dev_reset_owner_prepare);
+>  
+>  /* Caller should have device mutex */
+> -void vhost_dev_reset_owner(struct vhost_dev *dev, struct vhost_memory *memory)
+> +void vhost_dev_reset_owner(struct vhost_dev *dev, struct vhost_umem *umem)
+>  {
+>  	int i;
+>  
+>  	vhost_dev_cleanup(dev, true);
+>  
+>  	/* Restore memory to default empty mapping. */
+> -	memory->nregions = 0;
+> -	dev->memory = memory;
+> +	INIT_LIST_HEAD(&umem->umem_list);
+> +	dev->umem = umem;
+>  	/* We don't need VQ locks below since vhost_dev_cleanup makes sure
+>  	 * VQs aren't running.
+>  	 */
+>  	for (i = 0; i < dev->nvqs; ++i)
+> -		dev->vqs[i]->memory = memory;
+> +		dev->vqs[i]->umem = umem;
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_dev_reset_owner);
+>  
+> @@ -523,6 +537,19 @@ void vhost_dev_stop(struct vhost_dev *dev)
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_dev_stop);
+>  
+> +static void vhost_umem_clean(struct vhost_dev *dev)
+> +{
+> +	struct vhost_umem_node *node, *tmp;
+> +	struct vhost_umem *umem = dev->umem;
+> +
+> +	list_for_each_entry_safe(node, tmp, &umem->umem_list, link) {
+> +		vhost_umem_interval_tree_remove(node, &umem->umem_tree);
+> +		list_del(&node->link);
+> +		kvfree(node);
+> +	}
+> +	kvfree(umem);
+> +}
+> +
+>  /* Caller should have device mutex if and only if locked is set */
+>  void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
+>  {
+> @@ -549,8 +576,8 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
+>  		fput(dev->log_file);
+>  	dev->log_file = NULL;
+>  	/* No one will access memory at this point */
+> -	kvfree(dev->memory);
+> -	dev->memory = NULL;
+> +	vhost_umem_clean(dev);
+> +	dev->umem = NULL;
+>  	WARN_ON(!list_empty(&dev->work_list));
+>  	if (dev->worker) {
+>  		kthread_stop(dev->worker);
+> @@ -576,25 +603,25 @@ static int log_access_ok(void __user *log_base, u64 addr, unsigned long sz)
+>  }
+>  
+>  /* Caller should have vq mutex and device mutex. */
+> -static int vq_memory_access_ok(void __user *log_base, struct vhost_memory *mem,
+> +static int vq_memory_access_ok(void __user *log_base, struct vhost_umem *umem,
+>  			       int log_all)
+>  {
+> -	int i;
+> +	struct vhost_umem_node *node;
+>  
+> -	if (!mem)
+> +	if (!umem)
+>  		return 0;
+>  
+> -	for (i = 0; i < mem->nregions; ++i) {
+> -		struct vhost_memory_region *m = mem->regions + i;
+> -		unsigned long a = m->userspace_addr;
+> -		if (m->memory_size > ULONG_MAX)
+> +	list_for_each_entry(node, &umem->umem_list, link) {
+> +		unsigned long a = node->userspace_addr;
+> +
+> +		if (node->size > ULONG_MAX)
+>  			return 0;
+>  		else if (!access_ok(VERIFY_WRITE, (void __user *)a,
+> -				    m->memory_size))
+> +				    node->size))
+>  			return 0;
+>  		else if (log_all && !log_access_ok(log_base,
+> -						   m->guest_phys_addr,
+> -						   m->memory_size))
+> +						   node->start,
+> +						   node->size))
+>  			return 0;
+>  	}
+>  	return 1;
+> @@ -602,7 +629,7 @@ static int vq_memory_access_ok(void __user *log_base, struct vhost_memory *mem,
+>  
+>  /* Can we switch to this memory table? */
+>  /* Caller should have device mutex but not vq mutex */
+> -static int memory_access_ok(struct vhost_dev *d, struct vhost_memory *mem,
+> +static int memory_access_ok(struct vhost_dev *d, struct vhost_umem *umem,
+>  			    int log_all)
+>  {
+>  	int i;
+> @@ -615,7 +642,8 @@ static int memory_access_ok(struct vhost_dev *d, struct vhost_memory *mem,
+>  		log = log_all || vhost_has_feature(d->vqs[i], VHOST_F_LOG_ALL);
+>  		/* If ring is inactive, will check when it's enabled. */
+>  		if (d->vqs[i]->private_data)
+> -			ok = vq_memory_access_ok(d->vqs[i]->log_base, mem, log);
+> +			ok = vq_memory_access_ok(d->vqs[i]->log_base,
+> +						 umem, log);
+>  		else
+>  			ok = 1;
+>  		mutex_unlock(&d->vqs[i]->mutex);
+> @@ -642,7 +670,7 @@ static int vq_access_ok(struct vhost_virtqueue *vq, unsigned int num,
+>  /* Caller should have device mutex but not vq mutex */
+>  int vhost_log_access_ok(struct vhost_dev *dev)
+>  {
+> -	return memory_access_ok(dev, dev->memory, 1);
+> +	return memory_access_ok(dev, dev->umem, 1);
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_log_access_ok);
+>  
+> @@ -653,7 +681,7 @@ static int vq_log_access_ok(struct vhost_virtqueue *vq,
+>  {
+>  	size_t s = vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX) ? 2 : 0;
+>  
+> -	return vq_memory_access_ok(log_base, vq->memory,
+> +	return vq_memory_access_ok(log_base, vq->umem,
+>  				   vhost_has_feature(vq, VHOST_F_LOG_ALL)) &&
+>  		(!vq->log_used || log_access_ok(log_base, vq->log_addr,
+>  					sizeof *vq->used +
+> @@ -669,28 +697,12 @@ int vhost_vq_access_ok(struct vhost_virtqueue *vq)
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_vq_access_ok);
+>  
+> -static int vhost_memory_reg_sort_cmp(const void *p1, const void *p2)
+> -{
+> -	const struct vhost_memory_region *r1 = p1, *r2 = p2;
+> -	if (r1->guest_phys_addr < r2->guest_phys_addr)
+> -		return 1;
+> -	if (r1->guest_phys_addr > r2->guest_phys_addr)
+> -		return -1;
+> -	return 0;
+> -}
+> -
+> -static void *vhost_kvzalloc(unsigned long size)
+> -{
+> -	void *n = kzalloc(size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> -
+> -	if (!n)
+> -		n = vzalloc(size);
+> -	return n;
+> -}
+> -
+>  static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
+>  {
+> -	struct vhost_memory mem, *newmem, *oldmem;
+> +	struct vhost_memory mem, *newmem;
+> +	struct vhost_memory_region *region;
+> +	struct vhost_umem_node *node;
+> +	struct vhost_umem *newumem, *oldumem;
+>  	unsigned long size = offsetof(struct vhost_memory, regions);
+>  	int i;
+>  
+> @@ -710,24 +722,51 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
+>  		kvfree(newmem);
+>  		return -EFAULT;
+>  	}
+> -	sort(newmem->regions, newmem->nregions, sizeof(*newmem->regions),
+> -		vhost_memory_reg_sort_cmp, NULL);
+>  
+> -	if (!memory_access_ok(d, newmem, 0)) {
+> +	newumem = vhost_kvzalloc(sizeof(*newumem));
+> +	if (!newumem) {
+>  		kvfree(newmem);
+> -		return -EFAULT;
+> +		return -ENOMEM;
+> +	}
+> +
+> +	newumem->umem_tree = RB_ROOT;
+> +	INIT_LIST_HEAD(&newumem->umem_list);
+> +
+> +	for (region = newmem->regions;
+> +	     region < newmem->regions + mem.nregions;
+> +	     region++) {
+> +		node = vhost_kvzalloc(sizeof(*node));
+> +		if (!node)
+> +			goto err;
+> +		node->start = region->guest_phys_addr;
+> +		node->size = region->memory_size;
+> +		node->last = node->start + node->size - 1;
+> +		node->userspace_addr = region->userspace_addr;
+> +		INIT_LIST_HEAD(&node->link);
+> +		list_add_tail(&node->link, &newumem->umem_list);
+> +		vhost_umem_interval_tree_insert(node, &newumem->umem_tree);
+>  	}
+> -	oldmem = d->memory;
+> -	d->memory = newmem;
+> +
+> +	if (!memory_access_ok(d, newumem, 0))
+> +		goto err;
+> +
+> +	oldumem = d->umem;
+> +	d->umem = newumem;
+>  
+>  	/* All memory accesses are done under some VQ mutex. */
+>  	for (i = 0; i < d->nvqs; ++i) {
+>  		mutex_lock(&d->vqs[i]->mutex);
+> -		d->vqs[i]->memory = newmem;
+> +		d->vqs[i]->umem = newumem;
+>  		mutex_unlock(&d->vqs[i]->mutex);
+>  	}
+> -	kvfree(oldmem);
+> +
+> +	kvfree(newmem);
+>  	return 0;
+> +
+> +err:
+> +	vhost_umem_clean(d);
+> +	kvfree(newmem);
+> +	return -EFAULT;
+>  }
+>  
+>  long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
+> @@ -1017,28 +1056,6 @@ done:
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_dev_ioctl);
+>  
+> -static const struct vhost_memory_region *find_region(struct vhost_memory *mem,
+> -						     __u64 addr, __u32 len)
+> -{
+> -	const struct vhost_memory_region *reg;
+> -	int start = 0, end = mem->nregions;
+> -
+> -	while (start < end) {
+> -		int slot = start + (end - start) / 2;
+> -		reg = mem->regions + slot;
+> -		if (addr >= reg->guest_phys_addr)
+> -			end = slot;
+> -		else
+> -			start = slot + 1;
+> -	}
+> -
+> -	reg = mem->regions + start;
+> -	if (addr >= reg->guest_phys_addr &&
+> -		reg->guest_phys_addr + reg->memory_size > addr)
+> -		return reg;
+> -	return NULL;
+> -}
+> -
+>  /* TODO: This is really inefficient.  We need something like get_user()
+>   * (instruction directly accesses the data, with an exception table entry
+>   * returning -EFAULT). See Documentation/x86/exception-tables.txt.
+> @@ -1180,29 +1197,29 @@ EXPORT_SYMBOL_GPL(vhost_init_used);
+>  static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
+>  			  struct iovec iov[], int iov_size)
+>  {
+> -	const struct vhost_memory_region *reg;
+> -	struct vhost_memory *mem;
+> +	const struct vhost_umem_node *node;
+> +	struct vhost_umem *umem = vq->umem;
+>  	struct iovec *_iov;
+>  	u64 s = 0;
+>  	int ret = 0;
+>  
+> -	mem = vq->memory;
+>  	while ((u64)len > s) {
+>  		u64 size;
+>  		if (unlikely(ret >= iov_size)) {
+>  			ret = -ENOBUFS;
+>  			break;
+>  		}
+> -		reg = find_region(mem, addr, len);
+> -		if (unlikely(!reg)) {
+> +		node = vhost_umem_interval_tree_iter_first(&umem->umem_tree,
+> +							addr, addr + len - 1);
+> +		if (node == NULL || node->start > addr) {
+>  			ret = -EFAULT;
+>  			break;
+>  		}
+>  		_iov = iov + ret;
+> -		size = reg->memory_size - addr + reg->guest_phys_addr;
+> +		size = node->size - addr + node->start;
+>  		_iov->iov_len = min((u64)len - s, size);
+>  		_iov->iov_base = (void __user *)(unsigned long)
+> -			(reg->userspace_addr + addr - reg->guest_phys_addr);
+> +			(node->userspace_addr + addr - node->start);
+>  		s += size;
+>  		addr += size;
+>  		++ret;
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index d3f7674..5d64393 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -52,6 +52,25 @@ struct vhost_log {
+>  	u64 len;
+>  };
+>  
+> +#define START(node) ((node)->start)
+> +#define LAST(node) ((node)->last)
+> +
+> +struct vhost_umem_node {
+> +	struct rb_node rb;
+> +	struct list_head link;
+> +	__u64 start;
+> +	__u64 last;
+> +	__u64 size;
+> +	__u64 userspace_addr;
+> +	__u64 flags_padding;
+> +	__u64 __subtree_last;
+> +};
+> +
+> +struct vhost_umem {
+> +	struct rb_root umem_tree;
+> +	struct list_head umem_list;
+> +};
+> +
+>  /* The virtqueue structure describes a queue attached to a device. */
+>  struct vhost_virtqueue {
+>  	struct vhost_dev *dev;
+> @@ -100,7 +119,7 @@ struct vhost_virtqueue {
+>  	struct iovec *indirect;
+>  	struct vring_used_elem *heads;
+>  	/* Protected by virtqueue mutex. */
+> -	struct vhost_memory *memory;
+> +	struct vhost_umem *umem;
+>  	void *private_data;
+>  	u64 acked_features;
+>  	/* Log write descriptors */
+> @@ -117,7 +136,6 @@ struct vhost_virtqueue {
+>  };
+>  
+>  struct vhost_dev {
+> -	struct vhost_memory *memory;
+>  	struct mm_struct *mm;
+>  	struct mutex mutex;
+>  	struct vhost_virtqueue **vqs;
+> @@ -127,14 +145,15 @@ struct vhost_dev {
+>  	spinlock_t work_lock;
+>  	struct list_head work_list;
+>  	struct task_struct *worker;
+> +	struct vhost_umem *umem;
+>  };
+>  
+>  void vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
+>  long vhost_dev_set_owner(struct vhost_dev *dev);
+>  bool vhost_dev_has_owner(struct vhost_dev *dev);
+>  long vhost_dev_check_owner(struct vhost_dev *);
+> -struct vhost_memory *vhost_dev_reset_owner_prepare(void);
+> -void vhost_dev_reset_owner(struct vhost_dev *, struct vhost_memory *);
+> +struct vhost_umem *vhost_dev_reset_owner_prepare(void);
+> +void vhost_dev_reset_owner(struct vhost_dev *, struct vhost_umem *);
+>  void vhost_dev_cleanup(struct vhost_dev *, bool locked);
+>  void vhost_dev_stop(struct vhost_dev *);
+>  long vhost_dev_ioctl(struct vhost_dev *, unsigned int ioctl, void __user *argp);
