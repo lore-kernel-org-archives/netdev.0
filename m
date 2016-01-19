@@ -1,165 +1,107 @@
-From: Teresa Remmet <t.remmet@phytec.de>
-Subject: [PATCH v2] net: phy: smsc: Fix disabling energy detect mode
-Date: Tue, 19 Jan 2016 08:56:39 +0100
-Message-ID: <1453190199-22269-1-git-send-email-t.remmet@phytec.de>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: netdev@vger.kernel.org
+From: Marc Zyngier <marc.zyngier@arm.com>
+Subject: Re: [GIT] Networking
+Date: Tue, 19 Jan 2016 08:55:38 +0000
+Message-ID: <569DFA0A.6070900@arm.com>
+References: <20160112.215136.850414372508130298.davem@davemloft.net>
+ <56978094.4050302@arm.com> <87k2n97n5e.fsf@kamboji.qca.qualcomm.com>
+ <569CCCD2.4040105@arm.com> <569D61BA.8020701@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Arend van Spriel <arend@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Hante Meuleman <meuleman@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <569D61BA.8020701@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the lan87xx_read_status function is getting called the
-energy detect mode is enabled again even if it has been
-disabled by device tree.
+On 18/01/16 22:05, Arend van Spriel wrote:
+> On 18-1-2016 12:30, Marc Zyngier wrote:
+>> Hi Kalle,
+>>
+>> On 16/01/16 11:57, Kalle Valo wrote:
+>>> Marc Zyngier <marc.zyngier@arm.com> writes:
+>>>
+>>>> David, Hante,
+>>>>
+>>>> On 13/01/16 02:51, David Miller wrote:
+>>>>
+>>>> [...]
+>>>>
+>>>>> Hante Meuleman (33):
+>>>> [...]
+>>>>>       brcmfmac: Move all module parameters to one place
+>>>
+>>> As a reminder to myself this is the commit id:
+>>>
+>>> 7d34b0560567 brcmfmac: Move all module parameters to one place
+>>>
+>>>> This particular patch breaks one of my boxes in a spectacular way:
+>>>>
+>>>> [    3.602155] Unable to handle kernel paging request at virtual address 000027e4
+>>>> [    3.602160] pgd = c0003000
+>>>> [    3.602169] [000027e4] *pgd=80000040004003, *pmd=00000000
+>>>> [    3.602181] Internal error: Oops: 206 [#1] PREEMPT SMP ARM
+>>>
+>>> [...]
+>>>
+>>>> This is caused by this hunk:
+>>>>
+>>>> @@ -890,7 +887,8 @@ static void brcmf_sdiod_sgtable_alloc(struct brcmf_sdio_dev *sdiodev)
+>>>>  	if (!sdiodev->sg_support)
+>>>>  		return;
+>>>>  
+>>>> -	nents = max_t(uint, BRCMF_DEFAULT_RXGLOM_SIZE, brcmf_sdiod_txglomsz);
+>>>> +	nents = max_t(uint, BRCMF_DEFAULT_RXGLOM_SIZE,
+>>>> +		      sdiodev->bus_if->drvr->settings->sdiod_txglomsz);
+>>>>  	nents += (nents >> 4) + 1;
+>>>>  
+>>>>  	WARN_ON(nents > sdiodev->max_segment_count);
+>>>>
+>>>> were drvr->settings is NULL (as the settings allocation seems to be done
+>>>> much later). The fix is not completely obvious to me (probably requires
+>>>> pushing the call to brcmf_mp_device_attach() down into the various bus
+>>>> specific functions). An alternative would be to restore the txglomsz
+>>>> parameter as it was before and not rely on settings being allocated.
+>>>
+>>> Should we revert the patch or can you Hante fix this? The revert doesn't
+>>> seem to be trivial so I would appreciate if someone could send a patch.
+>>
+>> I've worked out a partial revert (see below) that allows my system to
+>> boot, but I'd rather see a proper fix from the maintainer of this code.
+> 
+> Hi Marc,
+> 
+> Thanks for the patch, but Hante has created a different patch basically
+> deferring the allocation of the sgtable. Feel free to give it a spin on
+> your box and share the results.
 
-Added private struct to check the energy detect status.
+Hi Arend,
 
-Signed-off-by: Teresa Remmet <t.remmet@phytec.de>
----
-Changes since v1:
-- reordered variable definition
-- moved private variable into a struct for better readability 
-- deleted smsc_phy_remove fuction as it is not needed
+This patch fixes indeed the problem, thanks (I had to undo the mangling
+your mailer had done, though). So feel free to add my:
 
- drivers/net/phy/smsc.c | 53 ++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 43 insertions(+), 10 deletions(-)
+Reported-by: Marc Zyngier <marc.zyngier@arm.com>
+Tested-by: Marc Zyngier <marc.zyngier@arm.com>
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index e485f26..79fcb48 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -24,6 +24,10 @@
- #include <linux/netdevice.h>
- #include <linux/smscphy.h>
- 
-+struct smsc_phy_priv {
-+	bool energy_enable:1;
-+};
-+
- static int smsc_phy_config_intr(struct phy_device *phydev)
- {
- 	int rc = phy_write (phydev, MII_LAN83C185_IM,
-@@ -43,19 +47,14 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
- 
- static int smsc_phy_config_init(struct phy_device *phydev)
- {
--	int __maybe_unused len;
--	struct device *dev __maybe_unused = &phydev->mdio.dev;
--	struct device_node *of_node __maybe_unused = dev->of_node;
-+	struct smsc_phy_priv *priv = phydev->priv;
-+
- 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
--	int enable_energy = 1;
- 
- 	if (rc < 0)
- 		return rc;
- 
--	if (of_find_property(of_node, "smsc,disable-energy-detect", &len))
--		enable_energy = 0;
--
--	if (enable_energy) {
-+	if (priv->energy_enable) {
- 		/* Enable energy detect mode for this SMSC Transceivers */
- 		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
- 			       rc | MII_LAN83C185_EDPWRDOWN);
-@@ -110,10 +109,13 @@ static int lan911x_config_init(struct phy_device *phydev)
-  */
- static int lan87xx_read_status(struct phy_device *phydev)
- {
-+	struct smsc_phy_priv *priv = phydev->priv;
-+
- 	int err = genphy_read_status(phydev);
--	int i;
- 
--	if (!phydev->link) {
-+	if (!phydev->link && priv->energy_enable) {
-+		int i;
-+
- 		/* Disable EDPD to wake up PHY */
- 		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
- 		if (rc < 0)
-@@ -149,6 +151,25 @@ static int lan87xx_read_status(struct phy_device *phydev)
- 	return err;
- }
- 
-+static int smsc_phy_probe(struct phy_device *phydev)
-+{
-+	struct device *dev = &phydev->mdio.dev;
-+	struct device_node *of_node __maybe_unused = dev->of_node;
-+	struct smsc_phy_priv *priv;
-+	int __maybe_unused len;
-+
-+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+
-+	if (of_find_property(of_node, "smsc,disable-energy-detect", &len))
-+		priv->energy_enable = false;
-+
-+	phydev->priv = priv;
-+
-+	return 0;
-+}
-+
- static struct phy_driver smsc_phy_driver[] = {
- {
- 	.phy_id		= 0x0007c0a0, /* OUI=0x00800f, Model#=0x0a */
-@@ -159,6 +180,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 
-+	.probe		= smsc_phy_probe,
-+
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -180,6 +203,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 
-+	.probe		= smsc_phy_probe,
-+
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -201,6 +226,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 
-+	.probe		= smsc_phy_probe,
-+
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= lan87xx_read_status,
-@@ -222,6 +249,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 
-+	.probe		= smsc_phy_probe,
-+
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -242,6 +271,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 
-+	.probe		= smsc_phy_probe,
-+
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= lan87xx_read_status,
-@@ -263,6 +294,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 
-+	.probe		= smsc_phy_probe,
-+
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= lan87xx_read_status,
+It would be good if this could make it in -rc1.
+
+> I am looking for a arm64 platform to add to my test machines so if
+> you can recommend one (with PCIe).
+
+Note that this crash happened with 32bit ARM, without PCIe (the box is a
+"Cubietruck").
+
+As for arm64, there is now quite a few machines out there (ARM sells a
+dev board called Juno, but there is also various offerings with AMD
+Opteron A1100, Cavium ThunderX, APM X-Gene, and maybe even some Broadcom
+based systems, who knows! ;-).
+
+Thanks,
+
+	M.
 -- 
-1.9.1
+Jazz is not dead. It just smells funny...
