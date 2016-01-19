@@ -1,47 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] net: phy: smsc: Fix disabling energy detect mode
-Date: Tue, 19 Jan 2016 16:25:03 +0100
-Message-ID: <20160119152503.GK6554@lunn.ch>
-References: <1453190199-22269-1-git-send-email-t.remmet@phytec.de>
+From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
+Subject: [PATCH 0/8] General RFKill improvements
+Date: Tue, 19 Jan 2016 10:42:35 -0500
+Message-ID: <1453218163-31998-1-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Teresa Remmet <t.remmet@phytec.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59604 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753920AbcASPZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2016 10:25:06 -0500
-Content-Disposition: inline
-In-Reply-To: <1453190199-22269-1-git-send-email-t.remmet@phytec.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: marcel@holtmann.org, linux-wireless@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jprvita@endlessm.com,
+	linux@endlessm.com
+To: johannes@sipsolutions.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +struct smsc_phy_priv {
-> +	bool energy_enable:1;
-> +};
+This series contains a few general improvements to the RFKill code, fou=
+nd while
+I was writing the rfkill-all / airplane mode LED trigger. All were poin=
+ts where
+I had to read twice or do some other kind of extra effort to fully unde=
+rstand
+it, so I think merging these changes will benefit someone trying to und=
+erstand
+the RFKill subsystem in the future.
 
-Time to show my ignorance of bitfields. Since this is a bool, does the
-:1 actually do anything?
+It also removes sysfs interfaces that were marked as obsolete for 4+ ye=
+ars.
 
-> +static int smsc_phy_probe(struct phy_device *phydev)
-> +{
-> +	struct device *dev = &phydev->mdio.dev;
-> +	struct device_node *of_node __maybe_unused = dev->of_node;
-> +	struct smsc_phy_priv *priv;
-> +	int __maybe_unused len;
-> +
-> +	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-> +	if (!priv)
-> +		return -ENOMEM;
-> +
-> +	if (of_find_property(of_node, "smsc,disable-energy-detect", &len))
-> +		priv->energy_enable = false;
+Jo=C3=A3o Paulo Rechi Vita (8):
+  rfkill: Documentation and style fixes
+  rfkill: Improve code readability
+  rfkill: Improve code readability
+  rfkill: Remove obsolete "claim" sysfs interface
+  rfkill: Remove obsolete "state" sysfs interface
+  rfkill: Move user_state_from_blocked() close to its user
+  rfkill: Update userspace API documentation
+  rfkill: Factor common code
 
-Here you set it to false. Where does it get set to true?
+ Documentation/ABI/obsolete/sysfs-class-rfkill |  29 -----
+ Documentation/ABI/removed/sysfs-class-rfkill  |  30 +++++
+ include/linux/rfkill.h                        |   7 +-
+ include/uapi/linux/rfkill.h                   |   1 +
+ net/rfkill/core.c                             | 154 ++++++++----------=
+--------
+ 5 files changed, 82 insertions(+), 139 deletions(-)
+ delete mode 100644 Documentation/ABI/obsolete/sysfs-class-rfkill
+ create mode 100644 Documentation/ABI/removed/sysfs-class-rfkill
 
-Also, of_property_read_bool() would be a better call than of_find_property.
-
-     Andrew
+--=20
+2.5.0
