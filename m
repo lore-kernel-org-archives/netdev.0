@@ -1,25 +1,29 @@
 From: Kalle Valo <kvalo@codeaurora.org>
 Subject: Re: [RESEND^2] ssb: mark ssb_bus_register as __maybe_unused
 Date: Tue, 19 Jan 2016 19:26:25 +0000 (UTC)
-Message-ID: <20160119192625.5575F6061B@smtp.codeaurora.org>
+Message-ID: <20160119192625.4E3F960577@smtp.codeaurora.org>
 References: <6063400.39vor3soEb@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: linux-arm-kernel@lists.infradead.org, linux-mips@linux-mips.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+        Hauke Mehrtens <hauke@hauke-m.de>,
+        =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org
 To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:36366 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932980AbcAST0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 14:26:25 -0500
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <6063400.39vor3soEb@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
 
 > The SoC variant of the ssb code is now optional like the other
