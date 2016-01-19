@@ -1,44 +1,53 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: ssb: Set linux-wireless as MAINTAINERS list
-Date: Tue, 19 Jan 2016 15:04:47 +0200
-Message-ID: <8737tt67ps.fsf@kamboji.qca.qualcomm.com>
-References: <8128014.DbbgBtKY3z@wuerfel>
-	<8760ywd5fe.fsf@kamboji.qca.qualcomm.com> <4037550.DMaVTE01Aq@wuerfel>
-	<87bn8l7miw.fsf@kamboji.qca.qualcomm.com>
-	<CACna6ryvDFHqwJ3ExURcyFT2ZaT9fS9v36wCnJfze5BLnE88og@mail.gmail.com>
-	<87y4bn5m4q.fsf@kamboji.qca.qualcomm.com>
-	<20160118175303.19164539@wiggum>
-	<CACna6ry2jSJpov1Mcvk=NF+GKrZVSHKjOsinpEQh7_BQAx34wQ@mail.gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 19 Jan 2016 15:08:20 +0200
+Message-ID: <87r3hd4szf.fsf@kamboji.qca.qualcomm.com>
+References: <20160112.215136.850414372508130298.davem@davemloft.net>
+	<56978094.4050302@arm.com> <87k2n97n5e.fsf@kamboji.qca.qualcomm.com>
+	<569CCCD2.4040105@arm.com> <569D61BA.8020701@broadcom.com>
+	<569DFA0A.6070900@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael =?utf-8?Q?B=C3=BCsch?= <m@bues.ch>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"linux-arm-kernel\@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-mips\@linux-mips.org" <linux-mips@linux-mips.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACna6ry2jSJpov1Mcvk=NF+GKrZVSHKjOsinpEQh7_BQAx34wQ@mail.gmail.com>
-	(=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Mon, 18 Jan 2016
- 20:09:52 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <569DFA0A.6070900-5wv7dgnIgG8@public.gmane.org> (Marc Zyngier's message of "Tue, 19
+	Jan 2016 08:55:38 +0000")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
+Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org> writes:
 
-> On 18 January 2016 at 17:53, Michael B=C3=BCsch <m@bues.ch> wrote:
+>>>> Should we revert the patch or can you Hante fix this? The revert doesn't
+>>>> seem to be trivial so I would appreciate if someone could send a patch.
+>>>
+>>> I've worked out a partial revert (see below) that allows my system to
+>>> boot, but I'd rather see a proper fix from the maintainer of this code.
+>> 
+>> Hi Marc,
+>> 
+>> Thanks for the patch, but Hante has created a different patch basically
+>> deferring the allocation of the sgtable. Feel free to give it a spin on
+>> your box and share the results.
 >
->> ssb patches go through the linux-wireless tree. Set the list to
->> linux-wireless, so linux-wireless patchwork can catch the patches.
+> Hi Arend,
 >
-> Thanks Michael
+> This patch fixes indeed the problem, thanks (I had to undo the mangling
+> your mailer had done, though). So feel free to add my:
+>
+> Reported-by: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+> Tested-by: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+>
+> It would be good if this could make it in -rc1.
 
-Thanks from me also. I'm planning to send this to 4.5.
+I doubt it makes it to -rc1, most likely to -rc2. But let's see.
 
---=20
+-- 
 Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
