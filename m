@@ -1,79 +1,36 @@
-From: Marc Dionne <marc.c.dionne@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net] soreuseport: fix NULL ptr dereference SO_REUSEPORT
  after bind
-Date: Tue, 19 Jan 2016 15:43:22 -0400
-Message-ID: <CAB9dFdvj8SJkfbV-pvMRRkkDf16rUrMsYPbEDv=0eWEfWtm0Fg@mail.gmail.com>
+Date: Tue, 19 Jan 2016 14:44:52 -0500 (EST)
+Message-ID: <20160119.144452.555969872261254175.davem@davemloft.net>
 References: <1453231628-18603-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Craig Gallek <kraigatgoog@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, marc.c.dionne@gmail.com
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:35238 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755652AbcASTnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 14:43:23 -0500
-Received: by mail-qg0-f67.google.com with SMTP id b35so57770690qge.2
-        for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 11:43:22 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54404 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755745AbcASToz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 14:44:55 -0500
 In-Reply-To: <1453231628-18603-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 19, 2016 at 3:27 PM, Craig Gallek <kraigatgoog@gmail.com> wrote:
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Tue, 19 Jan 2016 14:27:08 -0500
+
 > From: Craig Gallek <kraig@google.com>
->
+> 
 > Marc Dionne discovered a NULL pointer dereference when setting
 > SO_REUSEPORT on a socket after it is bound.
 > This patch removes the assumption that at least one socket in the
 > reuseport group is bound with the SO_REUSEPORT option before other
 > bind calls occur.
->
+> 
 > Fixes: e32ea7e74727 ("soreuseport: fast reuseport UDP socket selection")
 > Reported-by: Marc Dionne <marc.c.dionne@gmail.com>
 > Signed-off-by: Craig Gallek <kraig@google.com>
-> ---
->  include/net/sock_reuseport.h | 2 +-
->  net/core/sock_reuseport.c    | 9 ++++++++-
->  2 files changed, 9 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/sock_reuseport.h b/include/net/sock_reuseport.h
-> index 7dda3d7adba8..aecd30308d50 100644
-> --- a/include/net/sock_reuseport.h
-> +++ b/include/net/sock_reuseport.h
-> @@ -16,7 +16,7 @@ struct sock_reuseport {
->  };
->
->  extern int reuseport_alloc(struct sock *sk);
-> -extern int reuseport_add_sock(struct sock *sk, const struct sock *sk2);
-> +extern int reuseport_add_sock(struct sock *sk, struct sock *sk2);
->  extern void reuseport_detach_sock(struct sock *sk);
->  extern struct sock *reuseport_select_sock(struct sock *sk,
->                                           u32 hash,
-> diff --git a/net/core/sock_reuseport.c b/net/core/sock_reuseport.c
-> index 1df98c557440..e92b759d906c 100644
-> --- a/net/core/sock_reuseport.c
-> +++ b/net/core/sock_reuseport.c
-> @@ -93,10 +93,17 @@ static struct sock_reuseport *reuseport_grow(struct sock_reuseport *reuse)
->   *  @sk2: Socket belonging to the existing reuseport group.
->   *  May return ENOMEM and not add socket to group under memory pressure.
->   */
-> -int reuseport_add_sock(struct sock *sk, const struct sock *sk2)
-> +int reuseport_add_sock(struct sock *sk, struct sock *sk2)
->  {
->         struct sock_reuseport *reuse;
->
-> +       if (!rcu_access_pointer(sk2->sk_reuseport_cb)) {
-> +               int err = reuseport_alloc(sk2);
-> +
-> +               if (err)
-> +                       return err;
-> +       }
-> +
->         spin_lock_bh(&reuseport_lock);
->         reuse = rcu_dereference_protected(sk2->sk_reuseport_cb,
->                                           lockdep_is_held(&reuseport_lock)),
-> --
-> 2.6.0.rc2.230.g3dd15c0
->
 
-Tested-by: Marc Dionne <marc.dionne@auristor.com>
+Applied, thanks everyone.
