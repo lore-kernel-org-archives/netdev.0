@@ -1,116 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: hang in ip_finish_output
-Date: Mon, 18 Jan 2016 18:49:29 -0800
-Message-ID: <1453171769.1223.255.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEfhGiwsgd7-10ggn1EP4zTg3_mpqphWUnCo_7dSkRf=-jtmXQ@mail.gmail.com>
-	 <1453170024.1223.251.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Craig Gallek <kraigatgoog@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453170024.1223.251.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 0/3] net: phy: Finally fix PHY_IGNORE_INTERRUPTS
+Date: Mon, 18 Jan 2016 19:33:05 -0800
+Message-ID: <1453174388-26752-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	sergei.shtylyov@cogentembedded.com, Woojung.Huh@microchip.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33142 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755726AbcASDdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2016 22:33:55 -0500
+Received: by mail-pa0-f41.google.com with SMTP id cy9so443904092pac.0
+        for <netdev@vger.kernel.org>; Mon, 18 Jan 2016 19:33:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-01-18 at 18:20 -0800, Eric Dumazet wrote:
+Hi all,
 
-> Same reason really.
-> 
-> Right after sk2=socket(), setsockopt(sk2,...,SO_REUSEPORT, on) and
-> bind(sk2, ...), but _before_ the connect(sk2) is done, sk2 is added into
-> the soreuseport array, with a score which is smaller than the score of
-> first socket sk1 found in hash table (I am speaking of the regular UDP
-> hash table), if sk1 had the connect() done, giving a +8 to its score.
-> 
-> So the bug has nothing to do with rcu or rcu_bh, it is just an infinite
-> loop caused by different scores.
-> 
-> 
-> hash bucket [X] -> sk1 -> sk2 -> NULL
-> 
-> sk1 score = 14  (because it did a connect())
-> sk2 score = 6
-> 
-> I guess we should relax the test done after atomic_inc_not_zero_hint()
-> to only test the base keys : 
-> (net, ipv6_only_sock, inet->inet_rcv_saddr & inet->inet_num)
+This patch series finally fixes how PHY_IGNORE_INTERRUPTS are treated by
+avoiding to poll the PHY *and* getting notified from link state changes by the
+Ethernet MAC interrupt service routine.
 
-One way to fix the issue it to not call reuseport_select_sock() if loop
-was restarted, and fallback to the old mechanism : If the optimized
-version might have a problem, just fallback to the safe thing.
+Tested with bcmgenet since this is the HW that I have access to.
 
-IPv4 only patch :
+Targetting the "net" tree since these are bugfixes, but I would like Woojun and
+Andrew to take a look and test that on their respective HW setups as well.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index dc45b538e237..8f1b2a9c90f8 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -500,6 +500,7 @@ static struct sock *udp4_lib_lookup2(struct net *net,
- 	struct hlist_nulls_node *node;
- 	int score, badness, matches = 0, reuseport = 0;
- 	u32 hash = 0;
-+	bool select_ok = true;
- 
- begin:
- 	result = NULL;
-@@ -512,14 +513,18 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
--				struct sock *sk2;
- 				hash = udp_ehashfn(net, daddr, hnum,
- 						   saddr, sport);
--				sk2 = reuseport_select_sock(sk, hash, skb,
-+				if (select_ok) {
-+					struct sock *sk2;
-+
-+					sk2 = reuseport_select_sock(sk, hash, skb,
- 							    sizeof(struct udphdr));
--				if (sk2) {
--					result = sk2;
--					goto found;
-+					if (sk2) {
-+						result = sk2;
-+						select_ok = false;
-+						goto found;
-+					}
- 				}
- 				matches = 1;
- 			}
-@@ -564,6 +569,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 	struct udp_hslot *hslot2, *hslot = &udptable->hash[slot];
- 	int score, badness, matches = 0, reuseport = 0;
- 	u32 hash = 0;
-+	bool select_ok = true;
- 
- 	rcu_read_lock();
- 	if (hslot->count > 10) {
-@@ -601,14 +607,18 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
--				struct sock *sk2;
- 				hash = udp_ehashfn(net, daddr, hnum,
- 						   saddr, sport);
--				sk2 = reuseport_select_sock(sk, hash, skb,
-+				if (select_ok) {
-+					struct sock *sk2;
-+
-+					sk2 = reuseport_select_sock(sk, hash, skb,
- 							sizeof(struct udphdr));
--				if (sk2) {
--					result = sk2;
--					goto found;
-+					if (sk2) {
-+						select_ok = false;
-+						result = sk2;
-+						goto found;
-+					}
- 				}
- 				matches = 1;
- 			}
+Thank you!
+
+Florian Fainelli (3):
+  net: phy: Avoid polling PHY with PHY_IGNORE_INTERRUPTS
+  net: phy: Fix phy_mac_interrupt()
+  net: bcmgenet: Properly configure PHY to ignore interrupt
+
+ drivers/net/ethernet/broadcom/genet/bcmmii.c |  2 +-
+ drivers/net/phy/phy.c                        | 46 +++++++++++++++++-----------
+ 2 files changed, 29 insertions(+), 19 deletions(-)
+
+-- 
+2.1.0
