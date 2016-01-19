@@ -1,55 +1,43 @@
-From: Shaohui Xie <shaohui.xie-3arQi8VN3Tc@public.gmane.org>
-Subject: RE: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-Date: Tue, 19 Jan 2016 05:00:35 +0000
-Message-ID: <VI1PR04MB1664DFBC53F08C5CE7EBF22AE8C10@VI1PR04MB1664.eurprd04.prod.outlook.com>
-References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
- <20160114164418.GD19773@lunn.ch>
- <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <56997951.90304@gmail.com> <5699B211.5070602@gmail.com>
- <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <569C9CD2.10301@gmail.com>
- <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <20160118151500.GD923@lunn.ch>
+From: Rich Felker <dalias@libc.org>
+Subject: Re: [PATCH] MAINTAINERS: Update mailing list for Renesas SoC
+ Development
+Date: Tue, 19 Jan 2016 00:01:16 -0500
+Message-ID: <20160119050116.GP238@brightrain.aerifal.cx>
+References: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Shaohui Xie <Shaohui.Xie-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160118151500.GD923-g2DYL2Zd6BY@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-renesas-soc@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-media@vger.kernel.org, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+	Geert Uytterhoeven <geert+renesas@glider.be>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1453079073-30937-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew-g2DYL2Zd6BY@public.gmane.org]
-> Sent: Monday, January 18, 2016 11:15 PM
-> To: Shaohui Xie
-> Cc: Sebastian Hesselbarth; Florian Fainelli; shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
-> devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linuxppc-
-> dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Shaohui Xie
-> Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-> 
-> > [S.H] the fsl backplane, e.g. 10GBASE-KR, needs software to handle
-> > link training, It's to train link partner, and trained by link partner
-> parallel.
-> >
-> > But if media type is not copper, e.g. optical module, we won't need this.
-> 
-> So what we actually need to know is copper vs fibre?
-Copper is not enough to indicate backplane, since backplane is always copper,
- but copper is not always backplane.
+On Mon, Jan 18, 2016 at 10:04:33AM +0900, Simon Horman wrote:
+> Update the mailing list used for development of support for
+> Renesas SoCs and related drivers.
 
-Thank you!
-Shaohui
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
+
+> Up until now the linux-sh mailing list has been used, however,
+> Renesas SoCs are now much wider than the SH architecture and there
+> is some desire from some for the linux-sh list to refocus on
+> discussion of the work on the SH architecture.
+> 
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+> Cc: Geert Uytterhoeven <geert+renesas@glider.be>
+> Cc: Magnus Damm <magnus.damm@gmail.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+Acked-by: Rich Felker <dalias@libc.org>
+
+Rich
