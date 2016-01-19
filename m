@@ -1,120 +1,66 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net/rfkill: Create "airplane mode" LED trigger
-Date: Tue, 19 Jan 2016 21:08:49 +0100
-Message-ID: <1453234129.23600.3.camel@sipsolutions.net>
-References: <1451142303-1872-1-git-send-email-jprvita@endlessm.com>
-	 <1451142303-1872-2-git-send-email-jprvita@endlessm.com>
-	 <6DC3AA8C-DDE9-44B8-91C5-94B1EB0DBE9A@holtmann.org>
-	 <1452076319.2541.3.camel@sipsolutions.net>
-	 <CA+A7VXW3Fsf2O_xnnZAWxieMMhSP2ngTbhtuJEB1JpMc6EFPxQ@mail.gmail.com>
-	 <1452200461.3141.19.camel@sipsolutions.net>
-	 <CA+A7VXWeUJHTnSiGGT2WZER=pAX7hhhhi2oQVeu4U8xSM5VZag@mail.gmail.com>
-	 (sfid-20160115_160505_851616_520209C6)
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: do sanity checks before migrating the asoc
+Date: Tue, 19 Jan 2016 18:08:48 -0200
+Message-ID: <569E97D0.7050109@gmail.com>
+References: <CACT4Y+Z6jY_n_cpmbFz366=JzoLX=u4Zc_o8gHFwJw8ApKf4zw@mail.gmail.com>
+ <10616913996c7a4cbe8a2bb23cf4e78fcfa0a13a.1452891824.git.marcelo.leitner@gmail.com>
+ <569E45FD.4040801@gmail.com> <569E5D44.5000103@gmail.com>
+ <569E8280.9080701@gmail.com> <569E8F2F.5070906@gmail.com>
+ <569E94CF.4030409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Network Development <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>, LKML <linux-kernel@vger.kernel.org>,
-	Darren Hart <dvhart@infradead.org>,
-	platform-driver-x86@vger.kernel.org
-To: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <CA+A7VXWeUJHTnSiGGT2WZER=pAX7hhhhi2oQVeu4U8xSM5VZag@mail.gmail.com> (sfid-20160115_160505_851616_520209C6)
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, dvyukov@google.com,
+	eric.dumazet@gmail.com, syzkaller@googlegroups.com, kcc@google.com,
+	glider@google.com, sasha.levin@oracle.com
+To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:35277 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756018AbcASUIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 15:08:54 -0500
+In-Reply-To: <569E94CF.4030409@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Em 19-01-2016 17:55, Vlad Yasevich escreveu:
+> On 01/19/2016 02:31 PM, Marcelo Ricardo Leitner wrote:
+>> Em 19-01-2016 16:37, Vlad Yasevich escreveu:
+>>> On 01/19/2016 10:59 AM, Marcelo Ricardo Leitner wrote:
+>>>> Yes, not thrilled here either about connect-to-self.
+>>>>
+>>>> But there is a big difference on how both works. For rx we can just look for wanted skbs
+>>>> in rx queue, as they aren't going anywhere, but for tx I don't think we can easily block
+>>>> sctp_wfree() call because that may be happening on another CPU (or am I mistaken here?
+>>>> sctp still doesn't have RFS but even irqbalance could affect this AFAICT) and more than
+>>>> one skb may be in transit at a time.
+>>>
+>>> The way it's done now, we wouldn't have to block sctp_wfree.  Chunks are released under
+>>> lock when they are acked, so we are OK here.  The tx completions will just put 1 byte back
+>>> to the socket associated with the tx'ed skb, and that should still be ok as
+>>> sctp_packet_release_owner will call sk_free().
+>>
+>> Please let me rephrase it. I'm actually worried about the asoc->base.sk part of the story
+>> and how it's fetched in sctp_wfree(). I think we can update that sk pointer after
+>> sock_wfree() has fetched it but not used it yet, possibly leading to accounting it twice,
+>> one during migration and one on sock_wfree.
+>> In sock_wfree() it will update some sk stats like sk->sk_wmem_alloc, among others.
+>
+> sctp_wfree() is only used on skbs that were created as sctp chunks to be transmitted.
+> Right now, these skbs aren't actually submitted to the IP or to nic to be transmitted.
+> They are queued at the association level (either in transports or in the outqueue).
+> They are only freed during ACK processing.
+>
+> The ACK processing happens under a socket lock and thus asoc->base.sk can not move.
+>
+> The migration process also happens under a socket lock.  As a result, during migration
+> we are guaranteed the chunk queues remain consistent and that asoc->base.sk linkage
+> remains consistent.  In fact, if you look at the sctp_sock_migrate, we lock both
+> sockets when we reassign the assoc->base.sk so we know both sockets are properly locked.
+>
+> So, I am not sure that what you are worried about can happen.  Please feel free to
+> double-check the above of course.
 
-> There was a misunderstanding of these semantics on my side, despite
-> this being documented in Documentation/rfkill.txt. Now I've realized
-> the semantic difference between 1."having all the individual switches
-> of a certain type blocked at a certain moment" and 2."blocking all
-> switches of a certain type": on the 1st situation, each switch was
-> individually blocked in different moments, and by chance a certain
-> type had all its registered switches blocked, while on the 2nd, all
-> switches of a certain type were blocked altogether using
-> RFKILL_OP_CHANGE_ALL. Only on the 2nd situation we want to update the
-> default state for hotplugged devices, and that's why
-> rfkill_global_states[type] is not updated when individual switches
-> are
-> driven, even if we read situation 1. Then there is actually no
-> difference between the state value and the operation, and there is
-> nothing to be fixed on an individual switch change. Sorry for the
-> confusion.
+Ohh, right. That makes sense. I'll rework the patch. Thanks Vlad.
 
-Ok, glad you have that cleared up because I'm not sure I understand
-what you were confused about :)
-
-> I'm going to add a note about this behavior to
-> include/uapi/linux/rfkill.h as well.
-
-If it helps the next person, sure!
-
-> > =C2=A0* allow only a single userspace owner, and require that owner=
- to
-> > =C2=A0=C2=A0=C2=A0toggle it as required, to avoid multiple userspac=
-e applications
-> > =C2=A0=C2=A0=C2=A0stepping on each others' toes. This could be impl=
-emented by
-> > making
-> > =C2=A0=C2=A0=C2=A0this a new /dev/rfkill command, and requiring the=
- fd to be held
-> > =C2=A0=C2=A0=C2=A0open while controlling the airplane mode state.
-> >=20
->=20
-> And when the fd gets released we would fallback to default, right?
-
-Yeah, I guess so. Something has to be known to be controlling it, and
-two applications can't really do it at the same time.
-
->  So
-> that would avoid two userpace apps trying to control it at the same
-> time, but not one after the other (which is a good thing). As I
-> understand it also implies we would not expose this control point
-> through sysfs.
-
-Yes, and I agree, sysfs wouldn't make a lot of sense for this (since
-you can't track ownership that way.)
-
-> Great, I already fixed the previous comments and started working on a
-> prototype of the second stage, but then a naming question came to my
-> mind. They way I'm designing it is to have only one trigger and
-> change
-> its behavior when the "airplane mode indicator" is under userspace
-> control (basically changing when to call led_trigger_event() to fire
-> the trigger). In this case it probably makes sense to call the
-> trigger
-> something like "rfkill-airplane_mode", as before, because it will
-> fire when we're in an "airplane safe" mode, controlled by userspace
-> or with a fallback default behavior.
-
-Sure.
-
-> Another option would be to have two separate triggers,
-> "rfkill-airplane_mode" controlled by userspace, and "rfkill-all"
-> implementing the default behavior, and change which trigger is set to
-> each LED *from the trigger implementation side* in rfkill. Unless I'm
-> missing something, I don't think this second approach is possible.
-
-Yes, this doesn't make sense.
-
-> So the question is, if we go with the 1st approach, would it be fine
-> to call the trigger "rkill-airplane_mode", even for the first stage
-> when only the default behavior is implemented, or should I rename it
-> (which implies renaming an API to other drivers) during the 2nd stage
-> implementation? I think sticking with one name from the beginning is
-> better, but since it goes against previous feedback, I decided to ask
-> first.
-
-Indeed, I think it's better. I wasn't previously considering (much) the
-possibility of enhancing the framework :)
-
-Thanks for your work on this - I see also your patches already, will go
-over them soon; I'm working part-time on parental leave right now, so t=
-hings take a bit longer than usual.
-
-johannes
+   Marcelo
