@@ -1,21 +1,19 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: ssb: Set linux-wireless as MAINTAINERS list
-Date: Tue, 19 Jan 2016 19:25:32 +0000 (UTC)
-Message-ID: <20160119192532.7C0506061F@smtp.codeaurora.org>
-References: <20160118175303.19164539@wiggum>
+Subject: Re: [RESEND^2] ssb: mark ssb_bus_register as __maybe_unused
+Date: Tue, 19 Jan 2016 19:26:25 +0000 (UTC)
+Message-ID: <20160119192625.5344D60388@smtp.codeaurora.org>
+References: <6063400.39vor3soEb@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
- Arnd Bergmann <arnd@arndb.de>, Hauke Mehrtens <hauke@hauke-m.de>,
- =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
- linux-wireless@vger.kernel.org,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: =?utf-8?q?Michael_B=C3=BCsch?= <m@bues.ch>
+Cc: linux-mips@linux-mips.org, Hauke Mehrtens <hauke@hauke-m.de>,
+ =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Michael Buesch <m@bues.ch>, netdev@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160118175303.19164539@wiggum>
+In-Reply-To: <6063400.39vor3soEb@wuerfel>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -28,10 +26,21 @@ Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead
 List-Id: netdev.vger.kernel.org
 
 
-> ssb patches go through the linux-wireless tree.
-> Set the list to linux-wireless, so linux-wireless patchwork can catch the patches.
+> The SoC variant of the ssb code is now optional like the other
+> ones, which means we can build the framwork without any
+> front-end, but that results in a warning:
 > 
-> Signed-off-by: Michael Buesch <m@bues.ch>
+> drivers/ssb/main.c:616:12: warning: 'ssb_bus_register' defined but not used [-Wunused-function]
+> 
+> This annotates the ssb_bus_register function as __maybe_unused to
+> shut up the warning. A configuration like this will not work on
+> any hardware of course, but we still want this to silently build
+> without warnings if the configuration is allowed in the first
+> place.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 845da6e58e19 ("ssb: add Kconfig entry for compiling SoC related code")
+> Acked-by: Michael Buesch <m@bues.ch>
 
 Thanks, applied to wireless-drivers.git.
 
