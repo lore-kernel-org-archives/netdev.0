@@ -1,123 +1,75 @@
-From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [PATCH 4/8] rfkill: Remove obsolete "claim" sysfs interface
-Date: Tue, 19 Jan 2016 10:42:39 -0500
-Message-ID: <1453218163-31998-5-git-send-email-jprvita@endlessm.com>
-References: <1453218163-31998-1-git-send-email-jprvita@endlessm.com>
+From: "Shajakhan, Mohammed Shafi (Mohammed Shafi)"
+	<mohammed-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>
+Subject: RE: Regression in 3.9 caused by "bridge: respect RFC2863 operational
+ state"
+Date: Tue, 19 Jan 2016 15:45:03 +0000
+Message-ID: <439966a35f064c7690f2ccbe7296c552@aphydexm01b.ap.qualcomm.com>
+References: <CAFuUQkhHsRZMnNYBbVZU0=BcAKMEktzYgPv6oc=CMFd7MFDi6g@mail.gmail.com>
+ <CAFuUQkjm3RFnrzWWSvbnYFC8gMnbX7C4bP_x0+2bREYumcoJyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: marcel@holtmann.org, linux-wireless@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jprvita@endlessm.com,
-	linux@endlessm.com
-To: johannes@sipsolutions.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453218163-31998-1-git-send-email-jprvita@endlessm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastian Gottschall <s.gottschall-t37Kgv3TaIPQT0dZR+AlfA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <hostap-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: YanBo <dreamfly281-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org" <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	"Malinen, Jouni" <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAFuUQkjm3RFnrzWWSvbnYFC8gMnbX7C4bP_x0+2bREYumcoJyg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This was schedule to be removed in 2012 by:
-
- commit 69c86373c6ea1149aa559e6088362d58d8ec8835
- Author: florian@mickler.org <florian@mickler.org>
- Date:   Wed Feb 24 12:05:16 2010 +0100
-
-     Document the rfkill sysfs ABI
-
-     This moves sysfs ABI info from Documentation/rfkill.txt to the
-     ABI subfolder and reformats it.
-
-     This also schedules the deprecated sysfs parts to be removed in
-     2012 (claim file) and 2014 (state file).
-
-     Signed-off-by: Florian Mickler <florian@mickler.org>
-     Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@endlessm.com>
----
- Documentation/ABI/obsolete/sysfs-class-rfkill |  9 ---------
- Documentation/ABI/removed/sysfs-class-rfkill  | 13 +++++++++++++
- net/rfkill/core.c                             | 11 +----------
- 3 files changed, 14 insertions(+), 19 deletions(-)
- create mode 100644 Documentation/ABI/removed/sysfs-class-rfkill
-
-diff --git a/Documentation/ABI/obsolete/sysfs-class-rfkill b/Documentat=
-ion/ABI/obsolete/sysfs-class-rfkill
-index ff60ad9..e736d14 100644
---- a/Documentation/ABI/obsolete/sysfs-class-rfkill
-+++ b/Documentation/ABI/obsolete/sysfs-class-rfkill
-@@ -18,12 +18,3 @@ Values: 	A numeric value.
- 		2: RFKILL_STATE_HARD_BLOCKED
- 			transmitter is forced off by something outside of
- 			the driver's control.
--
--What:		/sys/class/rfkill/rfkill[0-9]+/claim
--Date:		09-Jul-2007
--KernelVersion	v2.6.22
--Contact:	linux-wireless@vger.kernel.org
--Description:	This file is deprecated because there no longer is a way =
-to
--		claim just control over a single rfkill instance.
--		This file is scheduled to be removed in 2012.
--Values: 	0: Kernel handles events
-diff --git a/Documentation/ABI/removed/sysfs-class-rfkill b/Documentati=
-on/ABI/removed/sysfs-class-rfkill
-new file mode 100644
-index 0000000..3ce6231
---- /dev/null
-+++ b/Documentation/ABI/removed/sysfs-class-rfkill
-@@ -0,0 +1,13 @@
-+rfkill - radio frequency (RF) connector kill switch support
-+
-+For details to this subsystem look at Documentation/rfkill.txt.
-+
-+What:		/sys/class/rfkill/rfkill[0-9]+/claim
-+Date:		09-Jul-2007
-+KernelVersion	v2.6.22
-+Contact:	linux-wireless@vger.kernel.org
-+Description:	This file was deprecated because there no longer was a wa=
-y to
-+		claim just control over a single rfkill instance.
-+		This file was scheduled to be removed in 2012, and was removed
-+		in 2016.
-+Values: 	0: Kernel handles events
-diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-index 5406c76..a05d1f1 100644
---- a/net/rfkill/core.c
-+++ b/net/rfkill/core.c
-@@ -309,8 +309,7 @@ static atomic_t rfkill_input_disabled =3D ATOMIC_IN=
-IT(0);
-  * @blocked: the new state
-  *
-  * This function sets the state of all switches of given type,
-- * unless a specific switch is claimed by userspace (in which case,
-- * that switch is left alone) or suspended.
-+ * unless a specific switch is suspended.
-  *
-  * Caller must have acquired rfkill_global_mutex.
-  */
-@@ -718,20 +717,12 @@ static ssize_t state_store(struct device *dev, st=
-ruct device_attribute *attr,
- }
- static DEVICE_ATTR_RW(state);
-=20
--static ssize_t claim_show(struct device *dev, struct device_attribute =
-*attr,
--			  char *buf)
--{
--	return sprintf(buf, "%d\n", 0);
--}
--static DEVICE_ATTR_RO(claim);
--
- static struct attribute *rfkill_dev_attrs[] =3D {
- 	&dev_attr_name.attr,
- 	&dev_attr_type.attr,
- 	&dev_attr_index.attr,
- 	&dev_attr_persistent.attr,
- 	&dev_attr_state.attr,
--	&dev_attr_claim.attr,
- 	&dev_attr_soft.attr,
- 	&dev_attr_hard.attr,
- 	NULL,
---=20
-2.5.0
+SGkgYWxsLA0KDQpBbnkgdXBkYXRlcyBvbiB0aGlzIHBsZWFzZS4gDQoNClRoYW5rcywNCnNoYWZp
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBsaW51eC13aXJlbGVzcy1vd25l
+ckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpsaW51eC13aXJlbGVzcy1vd25lckB2Z2VyLmtlcm5l
+bC5vcmddIE9uIEJlaGFsZiBPZiBZYW5Cbw0KU2VudDogRnJpZGF5LCBEZWNlbWJlciAwNCwgMjAx
+NSA4OjAxIEFNDQpUbzogbmJkQG9wZW53cnQub3JnOyBNYWxpbmVuLCBKb3VuaTsga3ZhbG9AY29k
+ZWF1cm9yYS5vcmcNCkNjOiBTdGVwaGVuIEhlbW1pbmdlcjsgS3Jpc2huYSBDaGFpdGFueWE7IGxp
+bnV4LXdpcmVsZXNzOyBTZWJhc3RpYW4gR290dHNjaGFsbDsgSm9oYW5uZXMgQmVyZzsgbmV0ZGV2
+OyBob3N0YXBAbGlzdHMuaW5mcmFkZWFkLm9yZw0KU3ViamVjdDogUmU6IFJlZ3Jlc3Npb24gaW4g
+My45IGNhdXNlZCBieSAiYnJpZGdlOiByZXNwZWN0IFJGQzI4NjMgb3BlcmF0aW9uYWwgc3RhdGUi
+DQoNCiBTb3JyeSB0byBwaWNrIHVwIHRoaXMgdGhyZWFkIGFnYWluLCAgaXQgbG9va3MgdGhpcyBp
+c3N1ZSBzdGlsbCBleGlzdGVkICBpbiB0aGUgbmV3ZXIgNC4zIGtlcm5lbC4gKFRoZSBFQVAgZnJh
+bWVzIGNhbiBub3QgYmUgcmVjZWl2ZWQgYnkgd2lyZWxlc3MgaW50ZXJmYWNlIGR1ZSB0byB0aGUg
+YnJpZGdlIGludGVyZmFjZSwNCmh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgtd2lyZWxlc3MmbT0x
+MzY3NDM0OTU1MjY5MDUmdz0yKQ0KDQogV29uZGVyIGlzIGFueW9uZSBrbm93IHNvbWUgdXBkYXRl
+IGZvciB0aGlzIGlzc3VlPyAgQ3VycmVudGx5IHRoZSBvbmx5IHdvcmthcm91bmQgaXMgbWFrZSB0
+aGUgNC1hZGRyZXNzICBBUCBhbmQgU1RBIGFzc29jaWF0ZWQgaW4gc2VjdXJpdHkgbW9kZSBmaXJz
+dGx5IGFuZCB0aGVuIGNyZWF0ZSB0aGUgYnJpZGdlLCB0aGUgcmVuZXcga2V5IGNvbmZpZ3VyYXRp
+b24gYWxzbyBuZWVkIGJlIGRpc2FibGUgYXQgdGhlIGhvc3RhcGQgc2lkZSB0byAgYXZvaWQgcmVu
+ZXcgdGhlIGtleSBhdCBicmlkZ2Ugc3RhdHVzLg0KDQpUaGFua3MNCllhbmJvDQo+IE9uIFdlZCwg
+TWF5IDEsIDIwMTMgYXQgNTo1MyBQTSwgRmVsaXggRmlldGthdSA8bmJkQG9wZW53cnQub3JnPiB3
+cm90ZToNCj4gPg0KPiA+IE9uIDIwMTMtMDUtMDIgMTI6NDkgQU0sIFN0ZXBoZW4gSGVtbWluZ2Vy
+IHdyb3RlOg0KPiA+ID4gT24gV2VkLCAwMSBNYXkgMjAxMyAyMzowNjoxNiArMDIwMCBGZWxpeCBG
+aWV0a2F1IDxuYmRAb3BlbndydC5vcmc+IA0KPiA+ID4gd3JvdGU6DQo+ID4gPg0KPiA+ID4+IE9u
+IDIwMTMtMDUtMDEgMTA6MjEgUE0sIFN0ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOg0KPiA+ID4+ID4g
+V2hhdCBhYm91dCB1c2luZyBBRl9QQUNLRVQgYm91bmQgdG8gdW5kZXJseWluZyB3aXJlbGVzcyBk
+ZXZpY2UgDQo+ID4gPj4gPiBhbmQgdGhlIHBhY2tldCB0eXBlLiBZb3UgY2FuIGV2ZW4gdXNlIEJQ
+RiB0byBmaWx0ZXIuDQo+ID4gPj4gQXMgZmFyIGFzIEkga25vdywgQUZfUEFDS0VUIG9ubHkgd29y
+a3Mgd2hlbiBub3QgYmluZGluZyBpdCB0byB0aGUgDQo+ID4gPj4gcGFja2V0IHR5cGUgKG90aGVy
+d2lzZSBpdCBnZXQgc3RvbGVuIGJ5IHRoZSByeCBoYW5kbGVyKS4NCj4gPiA+DQo+ID4gPiBZb3Ug
+Y2FuIGRvIEFGX1BBQ0tFVCBhbmQgaXQgZ2V0cyBoYW5kbGUgYmVmb3JlIHJ4X2hhbmRsZXIuDQo+
+ID4gSWYgSSBkb24ndCBiaW5kIGl0IHRvIGEgcHJvdG9jb2wsIGl0IGVuZHMgdXAgaW4gcHR5cGVf
+YWxsLCBpZiBJIGRvLCANCj4gPiBpdCBlbmRzIHVwIGluICZwdHlwZV9iYXNlLiBwdHlwZV9hbGwg
+aXMgcHJvY2Vzc2VkIGJlZm9yZSB0aGUgDQo+ID4gcnhfaGFuZGxlciwgcHR5cGVfYmFzZSBpcyBw
+cm9jZXNzZWQgYWZ0ZXIgdGhlIHJ4IGhhbmRsZXIuDQo+ID4gSG9va2luZyBpbnRvIHB0eXBlX2Fs
+bCB3YXN0ZXMgdG9ucyBvZiBDUFUgY3ljbGVzLCBob29raW5nIGludG8gDQo+ID4gcHR5cGVfYmFz
+ZSBkb2VzIG5vdCBzb2x2ZSB0aGUgcHJvYmxlbS4NCj4gPg0KPiA+IC0gRmVsaXgNCj4gPiAtLQ0K
+PiA+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNj
+cmliZSANCj4gPiBsaW51eC13aXJlbGVzcyIgaW4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIA0K
+PiA+IG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgDQo+
+ID4gaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQotLQ0KVG8gdW5z
+dWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4
+LXdpcmVsZXNzIiBpbiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2Vy
+bmVsLm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21h
+am9yZG9tby1pbmZvLmh0bWwNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
