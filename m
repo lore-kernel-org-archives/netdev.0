@@ -1,42 +1,165 @@
-From: pavi1729 <pavitra1729@gmail.com>
-Subject: Re: [PATCH stable-3.14] usb: gadget: f_ncm: fix skb_clone memleak on error
-Date: Tue, 19 Jan 2016 12:17:10 +0530
-Message-ID: <CAMf7+LgQjGfTwcu+qUCX_oooB=88K7AVyOh1j2Zcj6uzfPjhcg@mail.gmail.com>
-References: <1451813841-2359-1-git-send-email-pavitra1729@gmail.com>
-	<20160113135349.GG29964@linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f195.google.com ([209.85.213.195]:34644 "EHLO
-	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751146AbcASGrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 01:47:11 -0500
-In-Reply-To: <20160113135349.GG29964@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Teresa Remmet <t.remmet@phytec.de>
+Subject: [PATCH v2] net: phy: smsc: Fix disabling energy detect mode
+Date: Tue, 19 Jan 2016 08:56:39 +0100
+Message-ID: <1453190199-22269-1-git-send-email-t.remmet@phytec.de>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Totally missed this. Will test this today and update.
+When the lan87xx_read_status function is getting called the
+energy detect mode is enabled again even if it has been
+disabled by device tree.
 
+Added private struct to check the energy detect status.
 
-On Wed, Jan 13, 2016 at 7:23 PM, Sebastian Andrzej Siewior
-<bigeasy@linutronix.de> wrote:
-> correct netdev address
->
-> * Pavitrakumar Managutte | 2016-01-03 15:07:21 [+0530]:
->
->>Fixed skb_clone pointer memleak on error path. Since the
->>newly cloned skb is still not added to the list, hence purge
->>list wont free the cloned skb.
->>  stable-3.14.y: 5d7b0fcc26
->>
->>Signed-off-by: Pavitrakumar Managutte <pavitra1729@gmail.com>
->
-> Can you check if commit 66847062a6e3 ("usb: gadget: NCM: Stop RX TCP
-> Bursts getting dropped.") works for you? That would be [0].
-> If that is the case then *this* patch should be pushed stable.
->
-> [0] https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=66847062a6e3
->
-> Sebastian
+Signed-off-by: Teresa Remmet <t.remmet@phytec.de>
+---
+Changes since v1:
+- reordered variable definition
+- moved private variable into a struct for better readability 
+- deleted smsc_phy_remove fuction as it is not needed
+
+ drivers/net/phy/smsc.c | 53 ++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 43 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index e485f26..79fcb48 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -24,6 +24,10 @@
+ #include <linux/netdevice.h>
+ #include <linux/smscphy.h>
+ 
++struct smsc_phy_priv {
++	bool energy_enable:1;
++};
++
+ static int smsc_phy_config_intr(struct phy_device *phydev)
+ {
+ 	int rc = phy_write (phydev, MII_LAN83C185_IM,
+@@ -43,19 +47,14 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
+ 
+ static int smsc_phy_config_init(struct phy_device *phydev)
+ {
+-	int __maybe_unused len;
+-	struct device *dev __maybe_unused = &phydev->mdio.dev;
+-	struct device_node *of_node __maybe_unused = dev->of_node;
++	struct smsc_phy_priv *priv = phydev->priv;
++
+ 	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+-	int enable_energy = 1;
+ 
+ 	if (rc < 0)
+ 		return rc;
+ 
+-	if (of_find_property(of_node, "smsc,disable-energy-detect", &len))
+-		enable_energy = 0;
+-
+-	if (enable_energy) {
++	if (priv->energy_enable) {
+ 		/* Enable energy detect mode for this SMSC Transceivers */
+ 		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
+ 			       rc | MII_LAN83C185_EDPWRDOWN);
+@@ -110,10 +109,13 @@ static int lan911x_config_init(struct phy_device *phydev)
+  */
+ static int lan87xx_read_status(struct phy_device *phydev)
+ {
++	struct smsc_phy_priv *priv = phydev->priv;
++
+ 	int err = genphy_read_status(phydev);
+-	int i;
+ 
+-	if (!phydev->link) {
++	if (!phydev->link && priv->energy_enable) {
++		int i;
++
+ 		/* Disable EDPD to wake up PHY */
+ 		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+ 		if (rc < 0)
+@@ -149,6 +151,25 @@ static int lan87xx_read_status(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++static int smsc_phy_probe(struct phy_device *phydev)
++{
++	struct device *dev = &phydev->mdio.dev;
++	struct device_node *of_node __maybe_unused = dev->of_node;
++	struct smsc_phy_priv *priv;
++	int __maybe_unused len;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	if (of_find_property(of_node, "smsc,disable-energy-detect", &len))
++		priv->energy_enable = false;
++
++	phydev->priv = priv;
++
++	return 0;
++}
++
+ static struct phy_driver smsc_phy_driver[] = {
+ {
+ 	.phy_id		= 0x0007c0a0, /* OUI=0x00800f, Model#=0x0a */
+@@ -159,6 +180,8 @@ static struct phy_driver smsc_phy_driver[] = {
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 
++	.probe		= smsc_phy_probe,
++
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -180,6 +203,8 @@ static struct phy_driver smsc_phy_driver[] = {
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 
++	.probe		= smsc_phy_probe,
++
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -201,6 +226,8 @@ static struct phy_driver smsc_phy_driver[] = {
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 
++	.probe		= smsc_phy_probe,
++
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= lan87xx_read_status,
+@@ -222,6 +249,8 @@ static struct phy_driver smsc_phy_driver[] = {
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 
++	.probe		= smsc_phy_probe,
++
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+@@ -242,6 +271,8 @@ static struct phy_driver smsc_phy_driver[] = {
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 
++	.probe		= smsc_phy_probe,
++
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= lan87xx_read_status,
+@@ -263,6 +294,8 @@ static struct phy_driver smsc_phy_driver[] = {
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 
++	.probe		= smsc_phy_probe,
++
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= lan87xx_read_status,
+-- 
+1.9.1
