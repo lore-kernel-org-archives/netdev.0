@@ -1,39 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/1] af_iucv: Validate socket address length in
- iucv_sock_bind()
-Date: Tue, 19 Jan 2016 14:23:57 -0500 (EST)
-Message-ID: <20160119.142357.829571599757607853.davem@davemloft.net>
-References: <1453196493-57590-1-git-send-email-ubraun@linux.vnet.ibm.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: ssb: Set linux-wireless as MAINTAINERS list
+Date: Tue, 19 Jan 2016 19:25:32 +0000 (UTC)
+Message-ID: <20160119192532.047C460631@smtp.codeaurora.org>
+References: <20160118175303.19164539@wiggum>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mschwid2@linux.vnet.ibm.com, heicars2@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ubraunu@linux.vnet.ibm.com
-To: ubraun@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54156 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932702AbcASTYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 14:24:01 -0500
-In-Reply-To: <1453196493-57590-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-mips\@linux-mips.org" <linux-mips@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-wireless@vger.kernel.org
+To: =?utf-8?q?Michael_B=C3=BCsch?= <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160118175303.19164539@wiggum>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Tue, 19 Jan 2016 10:41:32 +0100
 
-> this patch fixes a problem reported by Dmitry Vyukov in december. It is built
-> and intended for the next-tree.
+> ssb patches go through the linux-wireless tree.
+> Set the list to linux-wireless, so linux-wireless patchwork can catch the patches.
+> 
+> Signed-off-by: Michael Buesch <m@bues.ch>
 
-A bug fix is not appropriate for the next tree.
+Thanks, applied to wireless-drivers.git.
 
-All bug fixes should target 'net'.  You even contacted me privately
-asking me to queue this up for -stable.  Submitting something for
-net-next and wanting a -stable backport is doubly inappropriate.
-
-Things don't go to -stable unless it's in Linus's tree.  'net' is
-for bug fixes, 'net-next' (closed right now) is for new features,
-cleanups, and fixes to code only present in 'net-next'.
-
-Anyways I applied this to 'net' and queued it up for -stable.
+Kalle Valo
