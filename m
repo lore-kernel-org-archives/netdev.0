@@ -1,64 +1,93 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH net-next 6/8] net: gre: Implement LCO for GRE over IPv4
-Date: Wed, 20 Jan 2016 23:34:03 +0000
-Message-ID: <DA2674DE-A4F4-4375-9E22-121E76C95830@intel.com>
-References: <56901197.8040808@solarflare.com>
- <56901235.1010800@solarflare.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCC1D7E@AcuExch.aculab.com>
- <5693AC59.4080702@solarflare.com>
- <CAKgT0UdSRi-iwZpBWrezg=-fFcVTFSd=2FOOye_oZr2oNCNJAw@mail.gmail.com>
- <8BD201BE-E272-4BA7-ABB4-8FDCE139495D@intel.com>
- <CAKgT0Ufpj2DpaLPOzU5hyFATpjN=jT9ziJCpmSMo1QkefAcAKQ@mail.gmail.com>
- <CALx6S362HV4epG885kp9B7xAd6oHdVZUQMzXjrd=zdyt7PzJ4Q@mail.gmail.com>
- <CAKgT0UeAsAUWSdn+tcE0gYV-WnDukUfxBkHyCwon3ChkxFmVsA@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] net: i40e: avoid unused function warnings
+Date: Wed, 20 Jan 2016 15:36:03 -0800
+Message-ID: <1453332963.2958.39.camel@intel.com>
+References: <2806620.EpZqDlZTO3@wuerfel> <8814508.SjLecHrQqA@wuerfel>
+	 <1453329885.2958.32.camel@intel.com> <6894276.2dlRmisKUo@wuerfel>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_6C043DA8-6CEC-43B2-974B-A49660154B69";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Tom Herbert <tom@herbertland.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:39435 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754035AbcATXeG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2016 18:34:06 -0500
-In-Reply-To: <CAKgT0UeAsAUWSdn+tcE0gYV-WnDukUfxBkHyCwon3ChkxFmVsA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-YYSWXs7SlrtGA43Hsfl4"
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>,
+	intel-wired-lan@lists.osuosl.org,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	davem@davemloft.net
+To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6894276.2dlRmisKUo@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_6C043DA8-6CEC-43B2-974B-A49660154B69
+
+--=-YYSWXs7SlrtGA43Hsfl4
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2016-01-20 at 23:54 +0100, Arnd Bergmann wrote:
+> On Wednesday 20 January 2016 14:44:45 Jeff Kirsher wrote:
+> > Yeah, I have a fix for that as well.
+> >=C2=A0
+> > You can confirm by pulling my next-queue tree (dev-queue branch).
+> > git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-
+> queue.git d
+> > ev-queue
+> >=C2=A0
+>=20
+> I checked out that branch, but still see both warnings in that one,
+> plus
+> a new build error in igb, which I don't see in linux-next:
+>=20
+> drivers/net/ethernet/intel/igb/igb_cdev.c: In function 'igb_mapring':
+> drivers/net/ethernet/intel/igb/igb_cdev.c:150:2: error: implicit
+> declaration of function 'set_pages_uc' [-Werror=3Dimplicit-function-
+> declaration]
+> =C2=A0 set_pages_uc(virt_to_page(ring->desc), ring->size >> PAGE_SHIFT);
+> =C2=A0 ^
+> drivers/net/ethernet/intel/igb/igb_cdev.c: In function
+> 'igb_unmapring':
+> drivers/net/ethernet/intel/igb/igb_cdev.c:275:2: error: implicit
+> declaration of function 'set_pages_wb' [-Werror=3Dimplicit-function-
+> declaration]
+> =C2=A0 set_pages_wb(virt_to_page(ring->desc), ring->size >> PAGE_SHIFT);
+
+Oops, I just realized I had not pushed my latest tree to kernel.org.
+
+The igb issue still remains, I am working with the developer who
+introduced the issue. =C2=A0Looks like the i40e issue about possible
+uninitialized variables still exists. =C2=A0I thought we had resolved that
+issue, but apparently not.
+
+You should see Eric Dumazet's patch on the tree to resolve the other
+i40e build warnings.
+
+I can add your second patch to resolve the uninitialized variables to
+my tree.
+--=-YYSWXs7SlrtGA43Hsfl4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii;
-	delsp=yes;
-	format=flowed
 
-Alexander Duyck <alexander.duyck@gmail.com> wrote:
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-> There isn't any need to add such an indication, nor do we need to
-> start bitflipping the return value from csum_fold in all cases.  I
-> think there was just some confusion about UDP checksums vs GRE or TCP
-> checksums.
+iQIcBAABCgAGBQJWoBnjAAoJEOVv75VaS+3OOrgQAIyHEk7JvQl2MUVayyhru5Zj
+JjOZ+iPn2VWqJyIfBIwDrVyk3CkDSCcJzcY+OsT5AcbQAtgd/HmK/ekrCl/nZJ3E
+iKg2b+rRfqyT1SnX9foftv/H2sN1G6Bj2u03LKs2HUmeCPonaNfE7SNICQtQXRVz
+7xEJJeFMNMTO4lCiHkqxdzVM+bpxGRL+C0Lww+knJzrTCIX1O0W1b51zGKbI89SO
+JVFxNZoYu4nwGcdGvJyG8MXLinKurM/X2b89PtAYjJLv4RIl+fCENMgzSbYjms08
+QxTpaV8Y6Ze7+kdMHJbi/P9oor0n3k1JYsmjaaP9EPTaJnWVjAW0E9H6klqdgSfZ
+hGf6s0r66eDbeyehWJjx775AAYk6JbOw32GELATbdV3DY/np9qY953JnnlCl4WJ/
+oDnqihnD9AnFhp7eDGgAIigXCnkICGGzR2SMghXwrzSpkeP0/irFm8NsB1+JJtdo
+ElPOXMo1DGpEGeGa0msSuYvc+6qna8zKrFz08/lCPve/xJxTK5mbXvyM9RyvOTxY
+nkdcOJQZAi6UwT6D4av+Gur8xnnAz2HYnQVWhbhq+d5CjeF2I/HNiKkt1mpiQiO6
+UjoYwmD+RzXdX9SJFXZCOtlTXhzr16+WJtspS5cTQfOtNOi5eNhwHzVSy4+ovfXo
+FSoB1msU4U+MTYk+srI2
+=JrvJ
+-----END PGP SIGNATURE-----
 
-Yeah. I think I finally got there. The naive software methods will never  
-generate a true 0 unless everything was zero. Real one's complement  
-machines did addition in terms of subtraction so that 1 + -1 would never  
-produce a -0, only a normal 0. Of course a simple adder would produce a -0,  
-making it impossible to get back to a normal 0.
-
-> I'd say we are better off keeping this simple.  The original patch
-> just needs to drop the check for the resultant checksum being 0 since
-> that is not needed for GRE.
-
-I'm all in favor of simple. I had just started to worry about a possible  
-change in behavior that might have interoperability problems with some  
-implementations. I wonder if any implementation ever did the addition by  
-subtraction, but also failed to make 0 compare equal to -0? I guess if they  
-knew enough to do the former, they should not have blown the latter.
---Apple-Mail=_6C043DA8-6CEC-43B2-974B-A49660154B69--
+--=-YYSWXs7SlrtGA43Hsfl4--
