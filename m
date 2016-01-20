@@ -1,69 +1,87 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V3 5/5] net: can: ifi: Add IFI CANFD IP support
-Date: Wed, 20 Jan 2016 16:09:48 +0100
-Message-ID: <569FA33C.5060805@pengutronix.de>
-References: <569F944A.4090201@pengutronix.de>
- <201601201541.53246.marex@denx.de> <569F9DE2.10405@pengutronix.de>
- <201601201603.40080.marex@denx.de>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v3)
+Date: Wed, 20 Jan 2016 16:18:20 +0100
+Message-ID: <20160120151820.GA1765@bistromath.redhat.com>
+References: <1453267933-25381-1-git-send-email-wen.gang.wang@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU"
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Marek Vasut <marex@denx.de>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, jay.vosburgh@canonical.com
+To: Wengang Wang <wen.gang.wang@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:36692 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933889AbcATPKB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 10:10:01 -0500
-In-Reply-To: <201601201603.40080.marex@denx.de>
+Received: from mx1.redhat.com ([209.132.183.28]:57969 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933132AbcATPSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 10:18:23 -0500
+Content-Disposition: inline
+In-Reply-To: <1453267933-25381-1-git-send-email-wen.gang.wang@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+2016-01-20, 13:32:13 +0800, Wengang Wang wrote:
+> In a bonding setting, we determines fragment size according to MTU and
+> PMTU associated to the bonding master. If the slave finds the fragment
+> size is too big, it drops the fragment and calls ip_rt_update_pmtu(),
+> passing _skb_ and _pmtu_, trying to update the path MTU.
+> Problem is that the target device that function ip_rt_update_pmtu actually
+> tries to update is the slave (skb->dev), not the master. Thus since no
+> PMTU change happens on master, the fragment size for later packets doesn't
+> change so all later fragments/packets are dropped too.
+> 
+> The fix is letting build_skb_flow_key() take care of the transition of
+> device index from bonding slave to the master. That makes the master become
+> the target device that ip_rt_update_pmtu tries to update PMTU to.
+> 
+> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+> ---
+>  net/ipv4/route.c | 13 ++++++++++++-
+>  1 file changed, 12 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 85f184e..c59fb0d 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -523,10 +523,21 @@ static void build_skb_flow_key(struct flowi4 *fl4, const struct sk_buff *skb,
+>  			       const struct sock *sk)
+>  {
+>  	const struct iphdr *iph = ip_hdr(skb);
+> -	int oif = skb->dev->ifindex;
+> +	struct net_device *master = NULL;
+>  	u8 tos = RT_TOS(iph->tos);
+>  	u8 prot = iph->protocol;
+>  	u32 mark = skb->mark;
+> +	int oif;
+> +
+> +	if (skb->dev->flags & IFF_SLAVE) {
 
-On 01/20/2016 04:03 PM, Marek Vasut wrote:
->>
->> Doh! Right, let's try this:
->>>> -#define IFI_CANFD_INTERRUPT_ERROR_WARNING      BIT(1)
->>>> +#define IFI_CANFD_INTERRUPT_ERROR_WARNING      ((u32)BIT(1))
->>>
->>> I'd be happy to be proven wrong though.
->>
->> /me too
->=20
-> I think that will do the trick too. Do you want a V4 patch or will you =
-fix it?
-
-I'll fix this.
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Maybe use netif_is_bond_slave here instead, since you have this
+problem with bonding slaves?
 
 
---J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> +		rtnl_lock();
+> +		master = netdev_master_upper_dev_get(skb->dev);
+> +		rtnl_unlock();
+> +	}
 
------BEGIN PGP SIGNATURE-----
+As zhuyj said, this is called from dev_queue_xmit, so you cannot take
+rtnl_lock here.
 
-iQEcBAEBCgAGBQJWn6M8AAoJEP5prqPJtc/HbtIH/iKjeclGbf98PDzVO7Cp1/14
-fdtkzzmrQaBeyoT3MP1z17EGfwLA/j6ncfpsLPvAnAZcJMtwcnp4pprcemfO38rl
-IbOz6QoQwKLZkxkcFFGaOvVlEvs3C0jh2xXoJ6oKzTPz2tCLERLltb75hwMZrcB2
-/wFWmfv2D81SBMb22pSQy0fyioXawmGd7rSeK//Vu2yrArDQg7+jRBxbiD20du9o
-BKWDN4fCQl7xlOzvXvRAKzbWL6Ul0YTjyheZ9oZJ5M3SFChpiUHYqb9xvVAfdwOa
-cHqagsjVG1oB3/vIbYZLVbTeyHOJpKnrf3dLs7wbpmx1mXdCG5mVIpOFgFgo0iE=
-=7nhO
------END PGP SIGNATURE-----
+> +	if (master)
+> +		oif = master->ifindex;
 
---J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU--
+You cannot dereference master after you release the rtnl lock.
+
+So it would probably be best to use netdev_master_upper_dev_get_rcu,
+as zhuyj suggested earlier, and make sure that you only use the result
+between rcu_read_lock()/rcu_read_unlock():
+
+    rcu_read_lock();
+    master = netdev_master_upper_dev_get_rcu(skb->dev);
+    if (master)
+        oif = master->ifindex;
+    rcu_read_unlock();
+
+
+Thanks,
+
+-- 
+Sabrina
