@@ -1,67 +1,83 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: ethtool NFC/ntuple API questions
-Date: Wed, 20 Jan 2016 09:53:11 -0800
-Message-ID: <CAKgT0Ud1OprxqjYQC4NrFmRyhrG4x1G2=dWZEKwW866XAyW-eA@mail.gmail.com>
-References: <569FBF9D.40002@solarflare.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 111041] New: random openssh connection failure during
+ connection to server
+Date: Wed, 20 Jan 2016 09:55:51 -0800
+Message-ID: <20160120095551.4a586d27@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	netdev <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:34024 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756836AbcATRxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 12:53:12 -0500
-Received: by mail-ig0-f179.google.com with SMTP id ik10so105992661igb.1
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 09:53:11 -0800 (PST)
-In-Reply-To: <569FBF9D.40002@solarflare.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33809 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934556AbcATRzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 12:55:47 -0500
+Received: by mail-pa0-f41.google.com with SMTP id uo6so8351169pac.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 09:55:47 -0800 (PST)
+Received: from xeon-e3 (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by smtp.gmail.com with ESMTPSA id rt6sm50608908pab.17.2016.01.20.09.55.46
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 20 Jan 2016 09:55:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 20, 2016 at 9:10 AM, Edward Cree <ecree@solarflare.com> wrote:
-> I'm looking into adding IPv6 support to the ethtool flow steering API.  But,
-> I don't know "the unfortunate history of and subtle differences between the
-> RX n-tuple versus RX NFC commands".  In particular, would I need to add IPv6
-> support to both of them, or only one?  If one would be sufficient, which one
-> is preferred?
 
-I'd say just focus on Rx NFC.  The NTUPLE interface is only really
-used for legacy support on ixgbe if I recall correctly.  The original
-implementation was badly broken, but because it went out we are stuck
-supporting it.  Any new features can be added to the Rx NFC since that
-is the interface that has the ability to both set and get filters.
 
-> Also, is it necessary to duplicate the profusion of variants that the IPv4
-> flow specs have (3x struct ethtool_tcpip4_spec, 2x struct
-> ethtool_ah_espip4_spec, and struct ethtool_usrip4_spec), or should I just
-> make one struct that contains all the fields from those (I would say "the
-> union of their fields", but that might be confusing), and rely on flow_type
-> to indicate which fields are meaningful?
+Begin forwarded message:
 
-I'd say just stick with the approach taken for IPv4 since it makes it
-much more readable.  There were only really 4 types in use, but we
-named each to make certain it was clear which one should be used for
-each type.  To some extent the approach of relying on the flow_type is
-already in use, it is just made clearer by specifying which union to
-use for each type.
+Date: Wed, 20 Jan 2016 10:14:17 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 111041] New: random openssh connection failure during connection to server
 
-> And, what exactly are the hdata fields in ethtool_flow_union and the
-> anonymous union in ethtool_rx_ntuple_flow_spec (they're not documented) and
-> why are they different sizes?
 
-The hdata is essentially just padding that defines the entire region
-size.  For the user interface we have to reserve some amount of space,
-and in order to make the flow definitions compatible with NTUPLE we
-added extensions so that we could provide the information about the
-VLAN header if needed.
+https://urldefense.proofpoint.com/v2/url?u=https-3A__bugzilla.kernel.org_show-5Fbug.cgi-3Fid-3D111041&d=CwICaQ&c=IL_XqQWOjubgfqINi2jTzg&r=q_lvUiVm1uM6QEw9TPH-6jiV__hsrE6xXUAtATPE9x0&m=Jk3RwPbncUW6RyLfcTeu44MAZ0LFZm_HFxRIcPFJaEs&s=Jrbgmvu1hu8KrQlA3sTLXDCgTkW3xtWM9UuXUmMnf9M&e= 
 
-The reason for the sizing difference is that the ethtool_flow_union is
-half of the flow definition, the other half is stored in
-ethtool_flow_ext.  We shimmed ethtool_flow_ext into Rx NFC in order to
-work around the limitations of the NTUPLE filters.  The structure you
-probably should be looking at for comparison to NTUPLE is
-ethtool_rx_flow_spec, not ethtool_flow_union as that helps to tell the
-whole story.
+            Bug ID: 111041
+           Summary: random openssh connection failure during connection to
+                    server
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.4.0
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: hydrapolic@gmail.com
+        Regression: No
 
-- Alex
+It's sometimes impossible to connect to a server running Gentoo Linux with
+kernel 4.4 using ssh. The problem is only the connection, it fails a few times
+but then it goes fine and ssh works as expected.
+
+OpenSSH_7.1p2-hpn14v10, OpenSSL 1.0.2e 3 Dec 2015
+debug1: Reading configuration data /etc/ssh/ssh_config
+debug2: ssh_connect: needpriv 0
+debug1: Connecting to 10.0.0.5 [10.0.0.5] port 22.
+debug1: Connection established.
+debug1: Enabling compatibility mode for protocol 2.0
+write: Connection reset by peer
+
+Or alternatively it fails with "ssh_exchange_identification: read: Connection
+reset by peer".
+
+We were able to reproduce this problem with random clients, Gentoo, Ubuntu,
+Debian, random kernels. It's interesting that only 1 client doesn't have a
+problem to connect to the server - a system with Gentoo Linux Hardened 4.1
+(using the same openssh version).
+
+The server is a Supermicro X10DRW, Intel PCI-Express Gigabit Ethernet (igb)
+networking. Two ethernet ports were connected to bond and that to a bridge for
+xen. I've also tried without bond and without any iptables rules, it didn't
+help. This setup works without any modification on kernel 4.1.15.
+
+A Gentoo forum post: https://urldefense.proofpoint.com/v2/url?u=https-3A__forums.gentoo.org_viewtopic.php-3Fp-3D7868744&d=CwICaQ&c=IL_XqQWOjubgfqINi2jTzg&r=q_lvUiVm1uM6QEw9TPH-6jiV__hsrE6xXUAtATPE9x0&m=Jk3RwPbncUW6RyLfcTeu44MAZ0LFZm_HFxRIcPFJaEs&s=SuurWudhyHYuvvaWUtAMY_Yihv7qKIBzXVesBCNhj04&e= 
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
