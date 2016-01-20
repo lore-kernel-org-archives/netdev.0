@@ -1,50 +1,44 @@
-From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Subject: [PATCH RESEND v2] ixgbe: on recv increment rx.ring->stats.yields
-Date: Wed, 20 Jan 2016 11:08:44 +0300
-Message-ID: <1453277324-6180-1-git-send-email-ptikhomirov@virtuozzo.com>
-Cc: Andrew Vagin <avagin@parallels.com>,
-	Konstantin Khorenko <khorenko@virtuozzo.com>,
-	<devel@openvz.org>
-To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:10411 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933521AbcATIJP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2016 03:09:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 0/4] net: mvneta: support more than one clk
+Date: Wed, 20 Jan 2016 16:06:19 +0800
+Message-ID: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+To: <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-It seem to be non intentionaly changed to tx in
-commit adc810900a70 ("ixgbe: Refactor busy poll socket code to address
-multiple issues")
+Some platforms may provide more than one clk for the mvneta IP, for
+example Marvell BG4CT provides "core" clk for the mac core, and "axi"
+clk for the AXI bus logic.
 
-Lock is taken from ixgbe_low_latency_recv, and there under this
-lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
-tx counter.
+This series tries to addess the "more than one clk" issue. Note: to
+support BG4CT, we have lots of refactor work to do, eg. BG4CT doesn't
+have mbus concept etc.
 
-Yield stats can be shown through ethtool:
-ethtool -S enp129s0 | grep yield
+Jisheng Zhang (4):
+  net: mvneta: sort the headers in alphabetic order
+  net: mvneta: Try to get named core clock first
+  net: mvneta: mmc: get optional axi clk
+  net: mvneta: update clocks property and document additional
+    clock-names
 
-v2: follow commit citing style
+ .../bindings/net/marvell-armada-370-neta.txt       |  6 +++-
+ drivers/net/ethernet/marvell/mvneta.c              | 36 ++++++++++++++--------
+ 2 files changed, 28 insertions(+), 14 deletions(-)
 
-Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 1d21745..7656d46 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -451,7 +451,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 				IXGBE_QV_STATE_POLL);
- #ifdef BP_EXTENDED_STATS
- 	if (rc != IXGBE_QV_STATE_IDLE)
--		q_vector->tx.ring->stats.yields++;
-+		q_vector->rx.ring->stats.yields++;
- #endif
- 	return rc == IXGBE_QV_STATE_IDLE;
- }
 -- 
-1.9.3
+2.7.0.rc3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
