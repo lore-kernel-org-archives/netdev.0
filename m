@@ -1,53 +1,111 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v5 2/3] can: sja1000: add documentation for Technologic Systems version
-Date: Wed, 20 Jan 2016 11:23:50 +0100
-Message-ID: <1453285431-32498-3-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH v5 3/3] can: sja1000: of: add compatibility with Technologic Systems version
+Date: Wed, 20 Jan 2016 11:23:51 +0100
+Message-ID: <1453285431-32498-4-git-send-email-mkl@pengutronix.de>
 References: <1453285431-32498-1-git-send-email-mkl@pengutronix.de>
 Cc: netdev@vger.kernel.org,
 	Damien Riegel <damien.riegel@savoirfairelinux.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: linux-can@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:36602 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:40449 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933813AbcATKYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 05:24:04 -0500
+	by vger.kernel.org with ESMTP id S933862AbcATKYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 05:24:05 -0500
 In-Reply-To: <1453285431-32498-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Damien Riegel <damien.riegel@savoirfairelinux.com>
 
-This commit adds documentation for the Technologic Systems version of
-SJA1000. The difference with the NXP version is in the way the registers
-are accessed.
+Technologic Systems provides an IP compatible with the SJA1000,
+instantiated in an FPGA. Because of some bus widths issue, access to
+registers is made through a "window" that works like this:
+
+    base + 0x0: address to read/write
+    base + 0x2: 8-bit register value
+
+This commit adds a new compatible device, "technologic,sja1000", with
+read and write functions using the window mechanism.
 
 Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- Documentation/devicetree/bindings/net/can/sja1000.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/can/sja1000/sja1000_platform.c | 47 ++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
-index b4a6d53fb01a..ac3160eca96a 100644
---- a/Documentation/devicetree/bindings/net/can/sja1000.txt
-+++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
-@@ -2,7 +2,7 @@ Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
+diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
+index d398561b48ae..4eae2ec78011 100644
+--- a/drivers/net/can/sja1000/sja1000_platform.c
++++ b/drivers/net/can/sja1000/sja1000_platform.c
+@@ -46,6 +46,10 @@ struct sja1000_of_data {
+ 	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
+ };
  
- Required properties:
++struct technologic_priv {
++	spinlock_t      io_lock;
++};
++
+ static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
+ {
+ 	return ioread8(priv->reg_base + reg);
+@@ -76,6 +80,43 @@ static void sp_write_reg32(const struct sja1000_priv *priv, int reg, u8 val)
+ 	iowrite8(val, priv->reg_base + reg * 4);
+ }
  
--- compatible : should be "nxp,sja1000".
-+- compatible : should be one of "nxp,sja1000", "technologic,sja1000".
++static u8 sp_technologic_read_reg16(const struct sja1000_priv *priv, int reg)
++{
++	struct technologic_priv *tp = priv->priv;
++	unsigned long flags;
++	u8 val;
++
++	spin_lock_irqsave(&tp->io_lock, flags);
++	iowrite16(reg, priv->reg_base + 0);
++	val = ioread16(priv->reg_base + 2);
++	spin_unlock_irqrestore(&tp->io_lock, flags);
++
++	return val;
++}
++
++static void sp_technologic_write_reg16(const struct sja1000_priv *priv,
++				       int reg, u8 val)
++{
++	struct technologic_priv *tp = priv->priv;
++	unsigned long flags;
++
++	spin_lock_irqsave(&tp->io_lock, flags);
++	iowrite16(reg, priv->reg_base + 0);
++	iowrite16(val, priv->reg_base + 2);
++	spin_unlock_irqrestore(&tp->io_lock, flags);
++}
++
++static int sp_technologic_init(struct sja1000_priv *priv, struct device_node *of)
++{
++	struct technologic_priv *tp = priv->priv;
++
++	priv->read_reg = sp_technologic_read_reg16;
++	priv->write_reg = sp_technologic_write_reg16;
++	spin_lock_init(&tp->io_lock);
++
++	return 0;
++}
++
+ static void sp_populate(struct sja1000_priv *priv,
+ 			struct sja1000_platform_data *pdata,
+ 			unsigned long resource_mem_flags)
+@@ -160,7 +201,13 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
+ 		priv->cdr |= CDR_CBP; /* default */
+ }
  
- - reg : should specify the chip select, address offset and size required
- 	to map the registers of the SJA1000. The size is usually 0x80.
-@@ -14,6 +14,7 @@ Optional properties:
- 
- - reg-io-width : Specify the size (in bytes) of the IO accesses that
- 	should be performed on the device.  Valid value is 1, 2 or 4.
-+	This property is ignored for technologic version.
- 	Default to 1 (8 bits).
- 
- - nxp,external-clock-frequency : Frequency of the external oscillator
++static struct sja1000_of_data technologic_data = {
++	.priv_sz = sizeof(struct technologic_priv),
++	.init = sp_technologic_init,
++};
++
+ static const struct of_device_id sp_of_table[] = {
++	{ .compatible = "technologic,sja1000", .data = &technologic_data },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(of, sp_of_table);
 -- 
 2.7.0.rc3
