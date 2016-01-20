@@ -1,88 +1,115 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH RT 1/2] net: provide a way to delegate processing a softirq
- to ksoftirqd
-Date: Wed, 20 Jan 2016 17:32:39 +0100
-Message-ID: <20160120163239.GA2741@linutronix.de>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in
+ __skb_try_recv_datagram
+Date: Wed, 20 Jan 2016 08:38:08 -0800
+Message-ID: <569FB7F0.6000000@hurleysoftware.com>
+References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
+ <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
+ <20151229.150843.2021692616139434395.davem@davemloft.net>
+ <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
+ <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
+ <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
+ <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
+ <CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
+ <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAEnXRPu8As9sr44JcjqVW-omN8BshtzhZZd73cr7vFXLTVPFWQ@mail.gmail.com>
+ <1452003299.8255.87.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAEnXRPuL6bUJWvJ=OWokHCvZkdcngaYmwX3wV70douDbnG8bVw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org
-To: linux-rt-users@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jacob Siverskog <jacob@teenage.engineering>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CAEnXRPuL6bUJWvJ=OWokHCvZkdcngaYmwX3wV70douDbnG8bVw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the NET_RX uses up all of his budget it moves the following NAPI
-invocations into the `ksoftirqd`. On -RT it does not do so. Instead it
-rises the NET_RX softirq in its current context again.
+Hi Jacob,
 
-In order to get closer to mainline's behaviour this patch provides
-__raise_softirq_irqoff_ksoft() which raises the softirq in the ksoftird.
+On 01/05/2016 06:34 AM, Jacob Siverskog wrote:
+> On Tue, Jan 5, 2016 at 3:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Tue, 2016-01-05 at 12:07 +0100, Jacob Siverskog wrote:
+>>> On Mon, Jan 4, 2016 at 4:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>>> On Mon, 2016-01-04 at 10:10 +0100, Jacob Siverskog wrote:
+>>>>> On Wed, Dec 30, 2015 at 11:30 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>>>> On Wed, Dec 30, 2015 at 6:30 AM, Jacob Siverskog
+>>>>>> <jacob@teenage.engineering> wrote:
+>>>>>>> On Wed, Dec 30, 2015 at 2:26 PM, Eric Dumazet <edumazet@google.com> wrote:
+>>>>>>>> How often can you trigger this bug ?
+>>>>>>>
+>>>>>>> Ok. I don't have a good repro to trigger it unfortunately, I've seen it just a
+>>>>>>> few times when bringing up/down network interfaces. Does the trace
+>>>>>>> give any clue?
+>>>>>>>
+>>>>>>
+>>>>>> A little bit. You need to help people to narrow down the problem
+>>>>>> because there are too many places using skb->next and skb->prev.
+>>>>>>
+>>>>>> Since you mentioned it seems related to network interface flip,
+>>>>>> what network interfaces are you using? What's is your TC setup?
+>>>>>>
+>>>>>> Thanks.
+>>>>>
+>>>>> The system contains only one physical network interface (TI WL1837,
+>>>>> wl18xx module).
+>>>>> The state prior to the crash was as follows:
+>>>>> - One virtual network interface active (as STA, associated with access point)
+>>>>> - Bluetooth (BLE only) active (same physical chip, co-existence,
+>>>>> btwilink/st_drv modules)
+>>>>>
+>>>>> Actions made around the time of the crash:
+>>>>> - Bluetooth disabled
+>>>>> - One additional virtual network interface brought up (also as STA)
+>>>>>
+>>>>> I believe the crash occurred between these two actions. I just saw
+>>>>> that there are some interesting events in the log prior to the crash:
+>>>>> kernel: Bluetooth: Unable to push skb to HCI core(-6)
+>>>>> kernel: (stc):  proto stack 4's ->recv failed
+>>>>> kernel: (stc): remove_channel_from_table: id 3
+>>>>> kernel: (stc): remove_channel_from_table: id 2
+>>>>> kernel: (stc): remove_channel_from_table: id 4
+>>>>> kernel: (stc):  all chnl_ids unregistered
+>>>>> kernel: (stk) :ldisc_install = 0(stc): st_tty_close
+>>>>>
+>>>>> The first print is from btwilink.c. However, I can't see the
+>>>>> connection between Bluetooth (BLE) and UDP/IPv6 (we're not using
+>>>>> 6LoWPAN or anything similar).
+>>>>>
+>>>>> Thanks, Jacob
+>>>>
+>>>> Definitely these details are useful ;)
+>>>>
+>>>> Could you try :
+>>>>
+>>>> diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
+>>>> index 6e3af8b42cdd..0c99a74fb895 100644
+>>>> --- a/drivers/misc/ti-st/st_core.c
+>>>> +++ b/drivers/misc/ti-st/st_core.c
+>>>> @@ -912,7 +912,9 @@ void st_core_exit(struct st_data_s *st_gdata)
+>>>>                 skb_queue_purge(&st_gdata->txq);
+>>>>                 skb_queue_purge(&st_gdata->tx_waitq);
+>>>>                 kfree_skb(st_gdata->rx_skb);
+>>>> +               st_gdata->rx_skb = NULL;
+>>>>                 kfree_skb(st_gdata->tx_skb);
+>>>> +               st_gdata->tx_skb = NULL;
+>>>>                 /* TTY ldisc cleanup */
+>>>>                 err = tty_unregister_ldisc(N_TI_WL);
+>>>>                 if (err)
 
-Cc: stable-rt@vger.kernel.org
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- include/linux/interrupt.h |  8 ++++++++
- kernel/softirq.c          | 13 +++++++++++++
- net/core/dev.c            |  2 +-
- 3 files changed, 22 insertions(+), 1 deletion(-)
+FWIW,
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 79a9622b5a38..655cee096aed 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -465,6 +465,14 @@ extern void thread_do_softirq(void);
- extern void open_softirq(int nr, void (*action)(struct softirq_action *));
- extern void softirq_init(void);
- extern void __raise_softirq_irqoff(unsigned int nr);
-+#ifdef CONFIG_PREEMPT_RT_FULL
-+extern void __raise_softirq_irqoff_ksoft(unsigned int nr);
-+#else
-+static inline void __raise_softirq_irqoff_ksoft(unsigned int nr)
-+{
-+	__raise_softirq_irqoff(nr);
-+}
-+#endif
- 
- extern void raise_softirq_irqoff(unsigned int nr);
- extern void raise_softirq(unsigned int nr);
-diff --git a/kernel/softirq.c b/kernel/softirq.c
-index f4c2e679a7d7..e83fffff38cf 100644
---- a/kernel/softirq.c
-+++ b/kernel/softirq.c
-@@ -641,6 +641,19 @@ void __raise_softirq_irqoff(unsigned int nr)
- }
- 
- /*
-+ * Same as __raise_softirq_irqoff() but will process them in ksoftirqd
-+ */
-+void __raise_softirq_irqoff_ksoft(unsigned int nr)
-+{
-+	if (WARN_ON_ONCE(!__this_cpu_read(ksoftirqd)))
-+		return;
-+	trace_softirq_raise(nr);
-+	or_softirq_pending(1UL << nr);
-+	__this_cpu_read(ksoftirqd)->softirqs_raised |= (1U << nr);
-+	wakeup_softirqd();
-+}
-+
-+/*
-  * This function must run with irqs disabled!
-  */
- void raise_softirq_irqoff(unsigned int nr)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f4475ccbc19b..13a55d0df151 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4955,7 +4955,7 @@ static void net_rx_action(struct softirq_action *h)
- 	list_splice_tail(&repoll, &list);
- 	list_splice(&list, &sd->poll_list);
- 	if (!list_empty(&sd->poll_list))
--		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-+		__raise_softirq_irqoff_ksoft(NET_RX_SOFTIRQ);
- 
- 	net_rps_action_and_irq_enable(sd);
- }
--- 
-2.7.0.rc3
+You don't need that ti-st junk to get the WL1837 working; the WL1837 only
+has BT channels. Unfortunately, that's really all I can say about it; sorry.
+
+Regards,
+Peter Hurley
