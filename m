@@ -1,138 +1,94 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net: WARNING in dccp_set_state
-Date: Wed, 20 Jan 2016 10:29:41 +0100
-Message-ID: <CACT4Y+YNWDJCFoTawcS7LvxP1WOsz56nZGqZZzLGhAV7KM63xg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	"David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/4] net: mvneta: mmc: get optional axi clk
+Date: Wed, 20 Jan 2016 10:31:18 +0100
+Message-ID: <1525e5fba70.2764.107cef0f820c2f5d7b7f41463071c310@gmail.com>
+References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
+ <1453277183-5412-4-git-send-email-jszhang@marvell.com>
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	<thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453277183-5412-4-git-send-email-jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On January 20, 2016 9:15:22 AM Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org> wrote:
 
-The following program triggers WARNING in dccp_set_state.
-Also note the subsequent print:
-dccp_close: ABORT with 4294967274 bytes unread
-also looks quite suspicious (underflow?).
+> Some platforms may provide more than one clk for the mvneta IP, for
+> example Marvell BG4CT provides "core" clk for the mac core, and
+> "axi" clk for the AXI bus logic. Obviously this "axi" clk also need to
+> be enabled. This patch adds this optional "axi" clk support.
 
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 6889 at net/dccp/proto.c:83 dccp_set_state+0x247/0x420()
-Modules linked in:
-CPU: 0 PID: 6889 Comm: syz-executor Not tainted 4.4.0+ #273
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- 00000000ffffffff ffff880033ff7818 ffffffff8299464d 0000000000000000
- ffff8800341e17c0 ffffffff86f496a0 ffff880033ff7858 ffffffff81352089
- ffffffff85d1b9b7 ffffffff86f496a0 0000000000000053 0000000000000007
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff8299464d>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
- [<ffffffff81352089>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:482
- [<ffffffff813522b9>] warn_slowpath_null+0x29/0x30 kernel/panic.c:515
- [<ffffffff85d1b9b7>] dccp_set_state+0x247/0x420 net/dccp/proto.c:83
- [<ffffffff85d1f30b>] dccp_close+0x52b/0xb50 net/dccp/proto.c:1016
- [<ffffffff856147ef>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:416
- [<ffffffff8573a5f0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:409
- [<ffffffff851c1bff>] sock_release+0x8f/0x1d0 net/socket.c:572
- [<ffffffff851c1d56>] sock_close+0x16/0x20 net/socket.c:1023
- [<ffffffff817b36f6>] __fput+0x236/0x780 fs/file_table.c:208
- [<ffffffff817b3cc5>] ____fput+0x15/0x20 fs/file_table.c:244
- [<ffffffff813af2b0>] task_work_run+0x170/0x210 kernel/task_work.c:115
- [<     inline     >] exit_task_work include/linux/task_work.h:21
- [<ffffffff8135b275>] do_exit+0x8b5/0x2c60 kernel/exit.c:750
- [<ffffffff8135d798>] do_group_exit+0x108/0x330 kernel/exit.c:880
- [<ffffffff813806e4>] get_signal+0x5e4/0x14f0 kernel/signal.c:2307
- [<ffffffff811a2db3>] do_signal+0x83/0x1c90 arch/x86/kernel/signal.c:712
- [<ffffffff81006685>] exit_to_usermode_loop+0x1a5/0x210
-arch/x86/entry/common.c:247
- [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:282
- [<ffffffff810084ea>] syscall_return_slowpath+0x2ba/0x340
-arch/x86/entry/common.c:344
- [<ffffffff86330662>] int_ret_from_sys_call+0x25/0x9f
-arch/x86/entry/entry_64.S:281
----[ end trace 99891e826168782f ]---
-dccp_close: ABORT with 4294967274 bytes unread
-------------[ cut here ]------------
+Jisheng,
 
-// autogenerated by syzkaller (http://github.com/google/syzkaller)
-#include <pthread.h>
-#include <stdint.h>
-#include <string.h>
-#include <sys/syscall.h>
-#include <unistd.h>
+although I do not expect mvneta to appear on a non-AXI bus
+anytime soon, how about naming the clock "bus" instead?
 
-long r[15];
+If you know the clock is only required for bus master DMA but
+not for register access, "dma" would be an even better name.
 
-void* thr(void* arg)
-{
-  switch ((long)arg) {
-  case 0:
-    r[0] = syscall(SYS_mmap, 0x20000000ul, 0x600000ul, 0x3ul, 0x32ul,
-                   0xfffffffffffffffful, 0x0ul);
-    break;
-  case 1:
-    r[1] = syscall(SYS_socket, 0xaul, 0x80806ul, 0x0ul, 0, 0, 0);
-    break;
-  case 2:
-    memcpy((void*)0x20000fca,
-           "\x0a\x00\x33\xe2\x8c\xb2\x7f\x3e\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x30\x8c\x2d\x7b"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-           "\x00\x00",
-           128);
-    r[3] = syscall(SYS_connect, r[1], 0x20000fcaul, 0x80ul, 0, 0, 0);
-    break;
-  case 3:
-    *(uint16_t*)0x20004dae = (uint16_t)0x0;
-    *(uint8_t*)0x20004db0 = (uint8_t)0x0;
-    *(uint32_t*)0x20004db2 = (uint32_t)0x9;
-    r[7] = syscall(SYS_connect, r[1], 0x20004da6ul, 0x7ul, 0, 0, 0);
-    break;
-  case 4:
-    *(uint16_t*)0x2053e22b = (uint16_t)0x1;
-    *(uint64_t*)0x2053e233 = (uint64_t)0x2053eff8;
-    *(uint16_t*)0x2053eff8 = (uint16_t)0x6;
-    *(uint8_t*)0x2053effa = (uint8_t)0x0;
-    *(uint8_t*)0x2053effb = (uint8_t)0x101;
-    *(uint32_t*)0x2053effc = (uint32_t)0x6;
-    r[14] = syscall(SYS_setsockopt, r[1], 0x1ul, 0x1aul, 0x2053e22bul,
-                    0x10ul, 0);
-    break;
-  }
-  return 0;
-}
+Sebastian
 
-int main()
-{
-  long i;
-  pthread_t th[5];
 
-  memset(r, -1, sizeof(r));
-  for (i = 0; i < 5; i++) {
-    pthread_create(&th[i], 0, thr, (void*)i);
-    usleep(10000);
-  }
-  for (i = 0; i < 5; i++) {
-    pthread_create(&th[i], 0, thr, (void*)i);
-    if (i % 2 == 0)
-      usleep(10000);
-  }
-  usleep(100000);
-  return 0;
-}
+> Signed-off-by: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c 
+> b/drivers/net/ethernet/marvell/mvneta.c
+> index aca0a73..6bb709a 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -373,6 +373,8 @@ struct mvneta_port {
+>
+>  	/* Core clock */
+>  	struct clk *clk;
+> +	/* AXI clock */
+> +	struct clk *clk_axi;
+>  	u8 mcast_count[256];
+>  	u16 tx_ring_size;
+>  	u16 rx_ring_size;
+> @@ -3615,6 +3617,10 @@ static int mvneta_probe(struct platform_device *pdev)
+>
+>  	clk_prepare_enable(pp->clk);
+>
+> +	pp->clk_axi = devm_clk_get(&pdev->dev, "axi");
+> +	if (!IS_ERR(pp->clk_axi))
+> +		clk_prepare_enable(pp->clk_axi);
+> +
+>  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	pp->base = devm_ioremap_resource(&pdev->dev, res);
+>  	if (IS_ERR(pp->base)) {
+> @@ -3727,6 +3733,7 @@ err_free_ports:
+>  	free_percpu(pp->ports);
+>  err_clk:
+>  	clk_disable_unprepare(pp->clk);
+> +	clk_disable_unprepare(pp->clk_axi);
+>  err_put_phy_node:
+>  	of_node_put(phy_node);
+>  err_free_irq:
+> @@ -3744,6 +3751,7 @@ static int mvneta_remove(struct platform_device *pdev)
+>
+>  	unregister_netdev(dev);
+>  	clk_disable_unprepare(pp->clk);
+> +	clk_disable_unprepare(pp->clk_axi);
+>  	free_percpu(pp->ports);
+>  	free_percpu(pp->stats);
+>  	irq_dispose_mapping(dev->irq);
+> --
+> 2.7.0.rc3
+>
 
-On commit a200dcb34693084e56496960d855afdeaaf9578f
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
