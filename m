@@ -1,8 +1,7 @@
 From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH v3 4/4] net: mvneta: update clocks property and document
- additional clock-names
-Date: Wed, 20 Jan 2016 19:27:25 +0800
-Message-ID: <1453289245-2061-5-git-send-email-jszhang@marvell.com>
+Subject: [PATCH v3 1/4] net: mvneta: sort the headers in alphabetic order
+Date: Wed, 20 Jan 2016 19:27:22 +0800
+Message-ID: <1453289245-2061-2-git-send-email-jszhang@marvell.com>
 References: <1453289245-2061-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,33 +26,60 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
- Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+Sorting the headers in alphabetic order will help to reduce the conflict
+when adding new headers in the future.
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-index aeea50c..d0cb869 100644
---- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-@@ -6,12 +6,17 @@ Required properties:
- - interrupts: interrupt for the device
- - phy: See ethernet.txt file in the same directory.
- - phy-mode: See ethernet.txt file in the same directory
--- clocks: a pointer to the reference clock for this device.
-+- clocks: List of clocks for this device. At least one clock is
-+  mandatory for the core clock. If several clocks are given, then the
-+  clock-names property must be used to identify them.
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index fabc8df..8e85a53 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -11,28 +11,28 @@
+  * warranty of any kind, whether express or implied.
+  */
  
- Optional properties:
- - tx-csum-limit: maximum mtu supported by port that allow TX checksum.
-   Value is presented in bytes. If not used, by default 1600B is set for
-   "marvell,armada-370-neta" and 9800B for others.
-+- clock-names: List of names corresponding to clocks property; shall be
-+  "core" for core clock and "bus" for the optional bus clock.
-+
+-#include <linux/kernel.h>
+-#include <linux/netdevice.h>
++#include <linux/clk.h>
++#include <linux/cpu.h>
+ #include <linux/etherdevice.h>
+-#include <linux/platform_device.h>
+-#include <linux/skbuff.h>
++#include <linux/if_vlan.h>
+ #include <linux/inetdevice.h>
+-#include <linux/mbus.h>
+-#include <linux/module.h>
+ #include <linux/interrupt.h>
+-#include <linux/if_vlan.h>
+-#include <net/ip.h>
+-#include <net/ipv6.h>
+ #include <linux/io.h>
+-#include <net/tso.h>
++#include <linux/kernel.h>
++#include <linux/mbus.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
+ #include <linux/of.h>
++#include <linux/of_address.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+-#include <linux/of_address.h>
+ #include <linux/phy.h>
+-#include <linux/clk.h>
+-#include <linux/cpu.h>
++#include <linux/platform_device.h>
++#include <linux/skbuff.h>
++#include <net/ip.h>
++#include <net/ipv6.h>
++#include <net/tso.h>
  
- Example:
- 
+ /* Registers */
+ #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
 -- 
 2.7.0.rc3
