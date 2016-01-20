@@ -1,102 +1,57 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2 5/5] net: can: ifi: Add IFI CANFD IP support
-Date: Wed, 20 Jan 2016 15:06:02 +0100
-Message-ID: <569F944A.4090201@pengutronix.de>
-References: <1452538083-7331-5-git-send-email-marex@denx.de>
- <569F63C4.4070708@pengutronix.de> <569F675D.1070903@pengutronix.de>
- <201601201358.04790.marex@denx.de>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: regression kernel 4.4: stops routing packets with a GRE-payload
+Date: Wed, 20 Jan 2016 15:00:52 +0100
+Message-ID: <2738275.ziX0sZKPG0@stwm.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Ecj3AMVjhsVglsfQpME1WnMU0d90upP7x"
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Marek Vasut <marex@denx.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:60426 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932261AbcATOGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 09:06:14 -0500
-In-Reply-To: <201601201358.04790.marex@denx.de>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:43691 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751205AbcATOHF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 09:07:05 -0500
+Received: from mailhub.studentenwerk.mhn.de (mailhub.studentenwerk.mhn.de [127.0.0.1])
+	by email.studentenwerk.mhn.de (Postfix) with ESMTP id 3plpR91F78zMktL
+	for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 15:00:53 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Ecj3AMVjhsVglsfQpME1WnMU0d90upP7x
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hello,
 
-On 01/20/2016 01:58 PM, Marek Vasut wrote:
-> On Wednesday, January 20, 2016 at 11:54:21 AM, Marc Kleine-Budde wrote:=
+we tried 4.4 on our routers. We found one problem: 4.4 stops routing GR=
+E=20
+packets (ipv4 in GRE/ipv4) here. 4.4.15 works fine.
 
->> On 01/20/2016 11:39 AM, Marc Kleine-Budde wrote:
->>>> +/* IFI CANFD private data structure */
->>>> +struct ifi_canfd_priv {
->>>> +	struct can_priv		can;	/* must be the first member */
->>>> +	struct napi_struct	napi;
->>>> +	struct net_device	*ndev;
->>>> +	struct device		*device;
->>>
->>> Nitpick: This variable is write only, correct? I can fix this while
->>> applying the patch.
->>>
->>>> +	void __iomem		*base;
->>>> +};
->>>
->>> Otherweise looks good.
->=20
-> It's write-only, yeah. What would you propose to change here ?
+Neither GRE-endpoint is on the router:
 
-Remove it completely. :D
+gre-endpoint A <=3D=3D internet =3D=3D=3D> (eth0)router(eth1) <=3D=3D n=
+etwork =3D=3D> gre-
+endpoint B
 
->> Until compiling:
->>> drivers/net/can/ifi_canfd/ifi_canfd.c:486:40: warning: cast truncates=
+eth0 and eth1 are intel network-cards (I350).
 
->>> bits from constant value (ffffffff7ffffffd becomes 7ffffffd)
->>> drivers/net/can/ifi_canfd/ifi_canfd.c:640:9: warning: cast truncates
->>> bits from constant value (ffffffff7fffffff becomes 7fffffff)
->>> drivers/net/can/ifi_canfd/ifi_canfd.c:676:9: warning: cast truncates
->>> bits from constant value (ffffffff7fffffff becomes 7fffffff)
->>
->> target is ARMv5 with gcc version 4.9.2, compiled with C=3D2 using spar=
-se
->> v0.5.0.
->=20
-> It's again the BIT() macro :-/ Do you have any idea how to fix this ple=
-ase ?
-> Doing something like u32 foo =3D ~BIT(31); triggers this splat and I am=
- running
-> out of ideas how to fix that.
+I see GRE-packets arriving both at eth0 and eth1.
 
--#define IFI_CANFD_INTERRUPT_SET_IRQ            BIT(31)
-+#define IFI_CANFD_INTERRUPT_SET_IRQ            ((u32)BIT(31))
+GRE-packets from eth0 are not forwarded to eth1 (that means: I can't se=
+e them=20
+with tcpdump on eth1 nor on endpoint B). Packtes with an TCP or UDP pay=
+load=20
+are forwarded.
 
-=2E..or change the bit to "30" :D
+Some GRE-packets from eth1 are forwarded to eth0 but most just seem to=20
+disappear.
 
-Marc
+On the gre-endpoint B (same hardware) which is also a linux router kern=
+el 4.4=20
+works. So this seems to be a problem when forwarding ipv4-packets with =
+a GRE-
+payload.
 
+
+Regards,
 --=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---Ecj3AMVjhsVglsfQpME1WnMU0d90upP7x
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWn5RKAAoJEP5prqPJtc/HUY4H/2hOAfWB1GY3XE5GaAvPfEpx
-t4j3laVoM9SEjEGDm645jwWj8zWFEM2WefELtsaiI1OJ98m9NMDs2eAta7i0kfI1
-FM0v7f8bDF9c8TX11YNTj6p5j813w/vNUSMlkaV0vlVVIXg4y9T/KCBPbjg455nD
-4H491CH5Z8QsGfTpQHPDshX6YWmw/O5a36g9o+t5s7JAcuMjexTtOiynFw1IdKcn
-g5er/blpbe6jNlwcnY/NuhaUWk+CpjOixd5IVI8XKCyn4QIer5aC4dlZlU24BMuH
-mDfPQbbH/MQn+pEYlNS6xATaqZSYWfbfRetCH3Hipim1IlGVcsl7I9roNyIlBfo=
-=Pef9
------END PGP SIGNATURE-----
-
---Ecj3AMVjhsVglsfQpME1WnMU0d90upP7x--
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
