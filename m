@@ -1,10 +1,10 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH 3/4] net: mvneta: mmc: get optional axi clk
-Date: Wed, 20 Jan 2016 16:53:19 +0800
-Message-ID: <20160120165319.5ee8589a@xhacker>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 4/4] net: mvneta: update clocks property and document
+ additional clock-names
+Date: Wed, 20 Jan 2016 10:07:26 +0100
+Message-ID: <20160120100726.46dc8816@free-electrons.com>
 References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
- <1453277183-5412-4-git-send-email-jszhang@marvell.com>
- <20160120095132.29896293@free-electrons.com>
+ <1453277183-5412-5-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,9 +13,9 @@ Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, pawel.moll@arm.com,
  linux-kernel@vger.kernel.org, robh+dt@kernel.org, galak@codeaurora.org,
  mw@semihalf.com, davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
  sebastian.hesselbarth@gmail.com
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Jisheng Zhang <jszhang@marvell.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160120095132.29896293@free-electrons.com>
+In-Reply-To: <1453277183-5412-5-git-send-email-jszhang@marvell.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -27,60 +27,41 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Jan 2016 09:51:32 +0100 Thomas Petazzoni wrote:
+Dear Jisheng Zhang,
 
-> Dear Jisheng Zhang,
-> 
-> On Wed, 20 Jan 2016 16:06:22 +0800, Jisheng Zhang wrote:
-> > Some platforms may provide more than one clk for the mvneta IP, for
-> > example Marvell BG4CT provides "core" clk for the mac core, and
-> > "axi" clk for the AXI bus logic. Obviously this "axi" clk also need to
-> > be enabled. This patch adds this optional "axi" clk support.
-> > 
-> > Signed-off-by: Jisheng Zhang <jszhang@marvell.com>  
-> 
-> Typo in the title, you have "mmc: ", while this patch is not related to
-> MMC, unless I'm missing something and MMC means something else in this
-> context.
+On Wed, 20 Jan 2016 16:06:23 +0800, Jisheng Zhang wrote:
 
-oops, thanks for pointing out this.
+> diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> index aeea50c..f85b93b 100644
+> --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+> @@ -6,12 +6,16 @@ Required properties:
+>  - interrupts: interrupt for the device
+>  - phy: See ethernet.txt file in the same directory.
+>  - phy-mode: See ethernet.txt file in the same directory
+> -- clocks: a pointer to the reference clock for this device.
+> +- clocks: Array of clocks required for this device; requires at least one
+> +  for CORE clock.
 
-> 
-> >  	clk_prepare_enable(pp->clk);
-> >  
-> > +	pp->clk_axi = devm_clk_get(&pdev->dev, "axi");
-> > +	if (!IS_ERR(pp->clk_axi))
-> > +		clk_prepare_enable(pp->clk_axi);
-> > +
-> >  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> >  	pp->base = devm_ioremap_resource(&pdev->dev, res);
-> >  	if (IS_ERR(pp->base)) {
-> > @@ -3727,6 +3733,7 @@ err_free_ports:
-> >  	free_percpu(pp->ports);
-> >  err_clk:
-> >  	clk_disable_unprepare(pp->clk);
-> > +	clk_disable_unprepare(pp->clk_axi);  
-> 
-> For the error paths and cleanup steps, I very much prefer when things
-> are done in the opposite order of the allocation/creation steps. So can
-> you clk_disable_unprepare() the AXI clock before the core clock ?
+Rather than "Array", I would say "list", so what about:
 
-Both are fine. But I agree with your prefer. Will cook a v2 soon
+ - clocks: List of clocks for this device. At least one clock is
+   mandatory for the core clock. If several clocks are given, then the
+   clock-names property must be used to identify them.
 
-Thanks for reviewing.
+>  Optional properties:
+>  - tx-csum-limit: maximum mtu supported by port that allow TX checksum.
+>    Value is presented in bytes. If not used, by default 1600B is set for
+>    "marvell,armada-370-neta" and 9800B for others.
+> +- clock-names: Array of names corresponding to clocks property; shall be
+> +  "core" for CORE clock and "axi" for optional AXI clock.
 
-> 
-> >  err_put_phy_node:
-> >  	of_node_put(phy_node);
-> >  err_free_irq:
-> > @@ -3744,6 +3751,7 @@ static int mvneta_remove(struct platform_device *pdev)
-> >  
-> >  	unregister_netdev(dev);
-> >  	clk_disable_unprepare(pp->clk);
-> > +	clk_disable_unprepare(pp->clk_axi);  
-> 
-> Ditto.
-> 
-> Thanks!
-> 
-> Thomas
+Array -> List.
+
+Thanks!
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
