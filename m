@@ -1,56 +1,29 @@
-From: Michael Grzeschik <mgr@pengutronix.de>
-Subject: Re: [PATCH v2] can: c_can: add xceiver enable/disable support
-Date: Wed, 20 Jan 2016 17:46:40 +0100
-Message-ID: <20160120164640.GC14234@pengutronix.de>
-References: <1453297443-23279-1-git-send-email-m.grzeschik@pengutronix.de>
- <87k2n4fcl5.fsf@nemi.mork.no>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: regression kernel 4.4: stops routing packets with a GRE-payload
+Date: Wed, 20 Jan 2016 17:58:52 +0100
+Message-ID: <569FBCCC.7070607@6wind.com>
+References: <2738275.ziX0sZKPG0@stwm.de>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-can@vger.kernel.org, mkl@pengutronix.de,
-	kernel@pengutronix.de, wg@grandegger.com
-To: =?iso-8859-15?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87k2n4fcl5.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Wolfgang Walter <linux@stwm.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:38820 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934743AbcATQ6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 11:58:55 -0500
+Received: by mail-wm0-f41.google.com with SMTP id b14so39640217wmb.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 08:58:55 -0800 (PST)
+In-Reply-To: <2738275.ziX0sZKPG0@stwm.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Wed, Jan 20, 2016 at 05:19:18PM +0100, Bj=F8rn Mork wrote:
-> Michael Grzeschik <m.grzeschik@pengutronix.de> writes:
->=20
-> > @@ -1263,6 +1271,10 @@ int register_c_can_dev(struct net_device *de=
-v)
-> >  	 */
-> >  	pinctrl_pm_select_sleep_state(dev->dev.parent);
-> > =20
-> > +	priv->reg_xceiver =3D devm_regulator_get(priv->device, "xceiver")=
-;
-> > +	if (IS_ERR(priv->reg_xceiver))
-> > +		return PTR_ERR(priv->reg_xceiver);
-> > +
-> >  	c_can_pm_runtime_enable(priv);
-> > =20
-> >  	dev->flags |=3D IFF_ECHO;	/* we support local echo */
->=20
-> Do you really want to leave priv->reg_xceiver pointing to an ERR_PTR =
-in
-> case of error?
-
-No, therefore the priv->reg_xceiver will be returned in case of error.
-This codepath is called once on device registration.
-
-Michael
-
---=20
-Pengutronix e.K.                           |                           =
-  |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
-  |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
-5 |
+Le 20/01/2016 15:00, Wolfgang Walter a =E9crit :
+> Hello,
+>
+> we tried 4.4 on our routers. We found one problem: 4.4 stops routing =
+GRE
+> packets (ipv4 in GRE/ipv4) here. 4.4.15 works fine.
+4.4.15 does not exist. Is it 4.1.15?
