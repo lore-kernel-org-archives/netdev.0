@@ -1,70 +1,67 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/6] netfilter: ipset: allow a 0 netmask with hash_netiface type
-Date: Wed, 20 Jan 2016 18:04:00 +0100
-Message-ID: <1453309444-2297-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/6] netfilter: xt_TCPMSS: handle CHECKSUM_COMPLETE in tcpmss_tg6()
+Date: Wed, 20 Jan 2016 18:04:02 +0100
+Message-ID: <1453309444-2297-5-git-send-email-pablo@netfilter.org>
 References: <1453309444-2297-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45492 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:45484 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934862AbcATREZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2016 12:04:25 -0500
+	id S934912AbcATREX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 12:04:23 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 815A3A7E31
+	by mail.us.es (Postfix) with ESMTP id 69D16A7E27
 	for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:04:22 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 74A9EDA7E0
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 56A10DA7E0
 	for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:04:22 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id DE967DA80C
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:04:18 +0100 (CET)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 7071CDA803
+	for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:04:20 +0100 (CET)
 In-Reply-To: <1453309444-2297-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Eric Dumazet <edumazet@google.com>
 
-Jozsef says:
- The correct behaviour is that if we have
- ipset create test1 hash:net,iface
- ipset add test1 0.0.0.0/0,eth0
- iptables -A INPUT -m set --match-set test1 src,src
+In case MSS option is added in TCP options, skb length increases by 4.
+IPv6 needs to update skb->csum if skb has CHECKSUM_COMPLETE,
+otherwise kernel complains loudly in netdev_rx_csum_fault() with a
+stack dump.
 
- then the rule should match for any traffic coming in through eth0.
-
-This removes the -EINVAL runtime test to make matching work
-in case packet arrived via the specified interface.
-
-Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1297092
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_hash_netiface.c | 4 ----
- 1 file changed, 4 deletions(-)
+ net/netfilter/xt_TCPMSS.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index 43d8c98..f0f688d 100644
---- a/net/netfilter/ipset/ip_set_hash_netiface.c
-+++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -164,8 +164,6 @@ hash_netiface4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 	};
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index b7c43de..e118397 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -228,7 +228,7 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	u8 nexthdr;
+-	__be16 frag_off;
++	__be16 frag_off, oldlen, newlen;
+ 	int tcphoff;
+ 	int ret;
  
--	if (e.cidr == 0)
--		return -EINVAL;
- 	if (adt == IPSET_TEST)
- 		e.cidr = HOST_MASK;
- 
-@@ -377,8 +375,6 @@ hash_netiface6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 	};
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
- 
--	if (e.cidr == 0)
--		return -EINVAL;
- 	if (adt == IPSET_TEST)
- 		e.cidr = HOST_MASK;
- 
+@@ -244,7 +244,12 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 		return NF_DROP;
+ 	if (ret > 0) {
+ 		ipv6h = ipv6_hdr(skb);
+-		ipv6h->payload_len = htons(ntohs(ipv6h->payload_len) + ret);
++		oldlen = ipv6h->payload_len;
++		newlen = htons(ntohs(oldlen) + ret);
++		if (skb->ip_summed == CHECKSUM_COMPLETE)
++			skb->csum = csum_add(csum_sub(skb->csum, oldlen),
++					     newlen);
++		ipv6h->payload_len = newlen;
+ 	}
+ 	return XT_CONTINUE;
+ }
 -- 
 2.1.4
