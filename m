@@ -1,74 +1,70 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v6 09/19] net: ipvlan: use __ethtool_get_ksettings
-Date: Tue, 19 Jan 2016 16:43:54 -0800
-Message-ID: <1453250644-14796-10-git-send-email-ddecotig@gmail.com>
+From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v6 10/19] net: macvlan: use __ethtool_get_ksettings
+Date: Tue, 19 Jan 2016 16:43:55 -0800
+Message-ID: <1453250644-14796-11-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ed Swierk <eswierk@skyportsystems.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	David Decotigny <decot@googlers.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-	fcoe-devel@open-fcoe.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36656 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933378AbcATAoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 19:44:19 -0500
-In-Reply-To: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
+	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
+	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453250644-14796-1-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@googlers.com>
+From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
-Signed-off-by: David Decotigny <decot@googlers.com>
+Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 8 ++++----
+ drivers/net/macvlan.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index f94392d..3ea9983 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -346,12 +346,12 @@ static const struct header_ops ipvlan_header_ops = {
- 	.cache_update	= eth_header_cache_update,
- };
- 
--static int ipvlan_ethtool_get_settings(struct net_device *dev,
--				       struct ethtool_cmd *cmd)
-+static int ipvlan_ethtool_get_ksettings(struct net_device *dev,
-+					struct ethtool_ksettings *cmd)
- {
- 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
- 
--	return __ethtool_get_settings(ipvlan->phy_dev, cmd);
-+	return __ethtool_get_ksettings(ipvlan->phy_dev, cmd);
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 6a57a00..2064eb2 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -940,12 +940,12 @@ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+ 	strlcpy(drvinfo->version, "0.1", sizeof(drvinfo->version));
  }
  
- static void ipvlan_ethtool_get_drvinfo(struct net_device *dev,
-@@ -377,7 +377,7 @@ static void ipvlan_ethtool_set_msglevel(struct net_device *dev, u32 value)
+-static int macvlan_ethtool_get_settings(struct net_device *dev,
+-					struct ethtool_cmd *cmd)
++static int macvlan_ethtool_get_ksettings(struct net_device *dev,
++					 struct ethtool_ksettings *cmd)
+ {
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
  
- static const struct ethtool_ops ipvlan_ethtool_ops = {
- 	.get_link	= ethtool_op_get_link,
--	.get_settings	= ipvlan_ethtool_get_settings,
-+	.get_ksettings	= ipvlan_ethtool_get_ksettings,
- 	.get_drvinfo	= ipvlan_ethtool_get_drvinfo,
- 	.get_msglevel	= ipvlan_ethtool_get_msglevel,
- 	.set_msglevel	= ipvlan_ethtool_set_msglevel,
+-	return __ethtool_get_settings(vlan->lowerdev, cmd);
++	return __ethtool_get_ksettings(vlan->lowerdev, cmd);
+ }
+ 
+ static netdev_features_t macvlan_fix_features(struct net_device *dev,
+@@ -1020,7 +1020,7 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
+ 
+ static const struct ethtool_ops macvlan_ethtool_ops = {
+ 	.get_link		= ethtool_op_get_link,
+-	.get_settings		= macvlan_ethtool_get_settings,
++	.get_ksettings		= macvlan_ethtool_get_ksettings,
+ 	.get_drvinfo		= macvlan_ethtool_get_drvinfo,
+ };
+ 
 -- 
 2.7.0.rc3.207.g0ac5344
