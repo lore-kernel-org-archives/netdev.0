@@ -1,7 +1,8 @@
 From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH v2 3/4] net: mvneta: get optional axi clk
-Date: Wed, 20 Jan 2016 17:20:21 +0800
-Message-ID: <1453281622-7829-4-git-send-email-jszhang@marvell.com>
+Subject: [PATCH v2 4/4] net: mvneta: update clocks property and document
+ additional clock-names
+Date: Wed, 20 Jan 2016 17:20:22 +0800
+Message-ID: <1453281622-7829-5-git-send-email-jszhang@marvell.com>
 References: <1453281622-7829-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,55 +27,33 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Some platforms may provide more than one clk for the mvneta IP, for
-example Marvell BG4CT provides "core" clk for the mac core, and
-"axi" clk for the AXI bus logic. Obviously this "axi" clk also need to
-be enabled. This patch adds this optional "axi" clk support.
-
 Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 736a9ec..ca25933 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -373,6 +373,8 @@ struct mvneta_port {
+diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+index aeea50c..1c913d4 100644
+--- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
++++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+@@ -6,12 +6,17 @@ Required properties:
+ - interrupts: interrupt for the device
+ - phy: See ethernet.txt file in the same directory.
+ - phy-mode: See ethernet.txt file in the same directory
+-- clocks: a pointer to the reference clock for this device.
++- clocks: List of clocks for this device. At least one clock is
++  mandatory for the core clock. If several clocks are given, then the
++  clock-names property must be used to identify them.
  
- 	/* Core clock */
- 	struct clk *clk;
-+	/* AXI clock */
-+	struct clk *clk_axi;
- 	u8 mcast_count[256];
- 	u16 tx_ring_size;
- 	u16 rx_ring_size;
-@@ -3615,6 +3617,10 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	clk_prepare_enable(pp->clk);
- 
-+	pp->clk_axi = devm_clk_get(&pdev->dev, "axi");
-+	if (!IS_ERR(pp->clk_axi))
-+		clk_prepare_enable(pp->clk_axi);
+ Optional properties:
+ - tx-csum-limit: maximum mtu supported by port that allow TX checksum.
+   Value is presented in bytes. If not used, by default 1600B is set for
+   "marvell,armada-370-neta" and 9800B for others.
++- clock-names: List of names corresponding to clocks property; shall be
++  "core" for CORE clock and "axi" for the optional AXI clock.
 +
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	pp->base = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(pp->base)) {
-@@ -3726,6 +3732,7 @@ err_free_stats:
- err_free_ports:
- 	free_percpu(pp->ports);
- err_clk:
-+	clk_disable_unprepare(pp->clk_axi);
- 	clk_disable_unprepare(pp->clk);
- err_put_phy_node:
- 	of_node_put(phy_node);
-@@ -3743,6 +3750,7 @@ static int mvneta_remove(struct platform_device *pdev)
- 	struct mvneta_port *pp = netdev_priv(dev);
  
- 	unregister_netdev(dev);
-+	clk_disable_unprepare(pp->clk_axi);
- 	clk_disable_unprepare(pp->clk);
- 	free_percpu(pp->ports);
- 	free_percpu(pp->stats);
+ Example:
+ 
 -- 
 2.7.0.rc3
