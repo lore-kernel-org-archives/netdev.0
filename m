@@ -1,67 +1,74 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 4/4] net: mvneta: update clocks property and document
- additional clock-names
-Date: Wed, 20 Jan 2016 10:07:26 +0100
-Message-ID: <20160120100726.46dc8816@free-electrons.com>
-References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
- <1453277183-5412-5-git-send-email-jszhang@marvell.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Tools for sampling ethtool --statistics
+Date: Wed, 20 Jan 2016 10:13:11 +0100
+Message-ID: <20160120101311.5266cac6@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, pawel.moll@arm.com,
- ijc+devicetree@hellion.org.uk, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, robh+dt@kernel.org, galak@codeaurora.org,
- mw@semihalf.com, davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
- sebastian.hesselbarth@gmail.com
-To: Jisheng Zhang <jszhang@marvell.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1453277183-5412-5-git-send-email-jszhang@marvell.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42122 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758036AbcATJNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 04:13:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Jisheng Zhang,
+Hi All,
 
-On Wed, 20 Jan 2016 16:06:23 +0800, Jisheng Zhang wrote:
+I wrote a small tool[1] to extract ethtool --statistics|-S, sample and
+present it in a more human readable manor.  You might also find this
+useful...
 
-> diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> index aeea50c..f85b93b 100644
-> --- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> +++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-> @@ -6,12 +6,16 @@ Required properties:
->  - interrupts: interrupt for the device
->  - phy: See ethernet.txt file in the same directory.
->  - phy-mode: See ethernet.txt file in the same directory
-> -- clocks: a pointer to the reference clock for this device.
-> +- clocks: Array of clocks required for this device; requires at least one
-> +  for CORE clock.
+https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
 
-Rather than "Array", I would say "list", so what about:
+The reason I wrote this script is that the mlx5 driver (Mellanox 100 Gbit/s)
+does not report correct ifconfig stats.  It reports the HW counters,
+not what the network stack is able to handle.  I/we obviously need the
+stack number when working on improving the stack.
 
- - clocks: List of clocks for this device. At least one clock is
-   mandatory for the core clock. If several clocks are given, then the
-   clock-names property must be used to identify them.
-
->  Optional properties:
->  - tx-csum-limit: maximum mtu supported by port that allow TX checksum.
->    Value is presented in bytes. If not used, by default 1600B is set for
->    "marvell,armada-370-neta" and 9800B for others.
-> +- clock-names: Array of names corresponding to clocks property; shall be
-> +  "core" for CORE clock and "axi" for optional AXI clock.
-
-Array -> List.
-
-Thanks!
-
-Thomas
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+Output examples:
+
+pktgen (1 core) sending ~20Mpps
+
+Show adapter mlx5p2 statistics (ONLY that changed!)
+Ethtool(mlx5p2) stat:     19431694 (     19,431,694) <= frames_rx /sec
+Ethtool(mlx5p2) stat:   1243722215 (  1,243,722,215) <= in_octets /sec
+Ethtool(mlx5p2) stat:     19433161 (     19,433,161) <= in_ucast_pkts /sec
+Ethtool(mlx5p2) stat:   1243746943 (  1,243,746,943) <= octets /sec
+Ethtool(mlx5p2) stat:   1243629263 (  1,243,629,263) <= octets_received /sec
+Ethtool(mlx5p2) stat:     19433654 (     19,433,654) <= p64octets /sec
+Ethtool(mlx5p2) stat:     19433556 (     19,433,556) <= pkts /sec
+Ethtool(mlx5p2) stat:      1815546 (      1,815,546) <= rx3_packets /sec
+Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_bytes /sec
+Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_csum_good /sec
+Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_packets /sec
+Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_unicast_bytes /sec
+Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_unicast_packets /sec
+
+pktgen (4 cores) sending ~50Mpps
+
+Show adapter mlx5p2 statistics (ONLY that changed!)
+Ethtool(mlx5p2) stat:     25710443 (     25,710,443) <= drop_events /sec
+Ethtool(mlx5p2) stat:     51861645 (     51,861,645) <= frames_rx /sec
+Ethtool(mlx5p2) stat:     25710502 (     25,710,502) <= in_discards /sec
+Ethtool(mlx5p2) stat:   3319134161 (  3,319,134,161) <= in_octets /sec
+Ethtool(mlx5p2) stat:     26150970 (     26,150,970) <= in_ucast_pkts /sec
+Ethtool(mlx5p2) stat:   3319128053 (  3,319,128,053) <= octets /sec
+Ethtool(mlx5p2) stat:   3319145319 (  3,319,145,319) <= octets_received /sec
+Ethtool(mlx5p2) stat:     51861369 (     51,861,369) <= p64octets /sec
+Ethtool(mlx5p2) stat:     51861375 (     51,861,375) <= pkts /sec
+Ethtool(mlx5p2) stat:      1383475 (      1,383,475) <= rx3_packets /sec
+Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_bytes /sec
+Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_csum_good /sec
+Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_packets /sec
+Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_unicast_bytes /sec
+Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_unicast_packets /sec
