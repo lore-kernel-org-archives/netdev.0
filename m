@@ -1,68 +1,36 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Thu, 21 Jan 2016 00:20:24 +0200
-Message-ID: <CAJ3xEMiOAdu7ghRoc6ZEMG78Z9xyh1M=5Egc3ydh+97bT3_9fw@mail.gmail.com>
-References: <20160115142223.1e92be75@redhat.com>
-	<20160115.154721.458450438918273509.davem@davemloft.net>
-	<20160118112703.6eac71ca@redhat.com>
-	<20160118.112455.212265265553435873.davem@davemloft.net>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
+Date: Thu, 21 Jan 2016 00:24:40 +0200
+Message-ID: <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
+References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	borkmann@iogearbox.net, marek@cloudflare.com,
-	hannes@stressinduktion.org, Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:33387 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752377AbcATWUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:20:25 -0500
-Received: by mail-ig0-f182.google.com with SMTP id z14so111104476igp.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 14:20:25 -0800 (PST)
-In-Reply-To: <20160118.112455.212265265553435873.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453318816-21672-1-git-send-email-faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 18, 2016 at 6:24 PM, David Miller <davem@davemloft.net> wrote:
-> From: Jesper Dangaard Brouer <brouer@redhat.com>
-> Date: Mon, 18 Jan 2016 11:27:03 +0100
->
->> Down in the driver layer (RX), I think it is too early to categorize
->> Related/Unrelated SKB's, because we want to delay touching packet-data
->> as long as possible (waiting for the prefetcher to get data into
->> cache).
->
-> You don't need to touch the headers in order to have a good idea
-> as to whether there is a strong possibility packets are related
-> or not.
->
-> We have the hash available.
+On Wed, Jan 20, 2016 at 9:40 PM, Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
 
-Dave, I assume you refer to the RSS hash result which is written by
-NIC HWs to the completion descriptor and then fed to the stack by the
-driver calling skb_set_hash(.)? Well, this can be taken even further.
+> Changes since v2:
+[...]
+>                 *move netlink patch up
 
-Suppose a the NIC can be programmed by the kernel to provide a unique
-flow tag on the completion descriptor per a given 5/12 tuple which
-represents a TCP (or other logical) stream a higher level in the stack
-is identifying to be in progress, and the driver plants that in
-skb->mark before calling into the stack.
-
-I guess this could yield nice speed up for the GRO stack -- matching
-based on single 32 bit value instead of per protocol (eth, vlan, ip,
-tcp) checks [1] - or hint which packets from the current window of
-"ready" completion descriptor could be grouped together for upper
-processing?
+I also asked you why the port mapper code has to be present in each
+iwarp driver and not part of the IB core stack, and you responded
+"i40iw iwarp driver registers with port mapper and uses its services.
+Beside that it is not the scope of the patch series"  -- well, it is
+in the scope of upstream review to pose such questions, please
+address.
 
 Or.
-
-[1] some details to complete (...) here, on the last protocol hop we
-do need to verify that it would be correct to stick the incoming
-packet to the existing pending packet of this stream
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
