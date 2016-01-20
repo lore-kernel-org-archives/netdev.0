@@ -1,57 +1,31 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] vhost: convert pre sorted vhost memory array to
- interval tree
-Date: Wed, 20 Jan 2016 10:50:47 +0800
-Message-ID: <569EF607.2070107@redhat.com>
-References: <1453084949-4896-1-git-send-email-jasowang@redhat.com>
- <20160119162406.7f0c2008@nial.brq.redhat.com>
+From: "HELP DESK " <soedarno@citilink.co.id>
+Subject: WARNING!!
+Date: Wed, 20 Jan 2016 04:15:15 +0100
+Message-ID: <20160120031529.67493242CC1@mail-mta.uny.ac.id>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Igor Mammedov <imammedo@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20160119162406.7f0c2008@nial.brq.redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <soedarno@citilink.co.id>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-mta.uny.ac.id ([101.203.168.105]:55532 "HELO
+	mail-mta.uny.ac.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S935000AbcATDZe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2016 22:25:34 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 01/19/2016 11:24 PM, Igor Mammedov wrote:
-> On Mon, 18 Jan 2016 10:42:29 +0800
-> Jason Wang <jasowang@redhat.com> wrote:
->
->> > Current pre-sorted memory region array has some limitations for future
->> > device IOTLB conversion:
->> > 
->> > 1) need extra work for adding and removing a single region, and it's
->> >    expected to be slow because of sorting or memory re-allocation.
->> > 2) need extra work of removing a large range which may intersect
->> >    several regions with different size.
->> > 3) need trick for a replacement policy like LRU
->> > 
->> > To overcome the above shortcomings, this patch convert it to interval
->> > tree which can easily address the above issue with almost no extra
->> > work.
->> > 
->> > The patch could be used for:
->> > 
->> > - Extend the current API and only let the userspace to send diffs of
->> >   memory table.
->> > - Simplify Device IOTLB implementation.
-> I'm curios how performance changes on translate_desc() hot-path in
-> default case and in the case of 256 memory regions?
->
-
-Haven't measured this. But consider both methods are O(logN), should be
-no noticeable difference. Will measure it in the future.
-
-The main user is for the device IOTLB API[1], which:
-
-- have thousands of userspace memory region sections
-- may dynamically adding or removing one or some of the regions
-- need a replacement algorithm like LRU
-
-[1] https://lkml.org/lkml/2015/12/31/16
+Dear:  Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account. To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>>>
+http://survey-webmail.ezweb123.com/
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2016.
