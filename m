@@ -1,104 +1,125 @@
-From: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 3/4] net: mvneta: mmc: get optional axi clk
-Date: Wed, 20 Jan 2016 17:42:23 +0800
-Message-ID: <20160120174223.53ccc36b@xhacker>
-References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
-	<1453277183-5412-4-git-send-email-jszhang@marvell.com>
-	<1525e5fba70.2764.107cef0f820c2f5d7b7f41463071c310@gmail.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v3)
+Date: Wed, 20 Jan 2016 17:56:40 +0800
+Message-ID: <569F59D8.2060200@gmail.com>
+References: <1453267933-25381-1-git-send-email-wen.gang.wang@oracle.com>
+ <569F2806.70608@gmail.com> <569F397B.7010808@oracle.com>
+ <569F3D19.8020307@gmail.com> <569F579F.1060708@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1525e5fba70.2764.107cef0f820c2f5d7b7f41463071c310-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jay.vosburgh@canonical.com
+To: Wengang Wang <wen.gang.wang@oracle.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33551 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbcATJ4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 04:56:12 -0500
+Received: by mail-pa0-f45.google.com with SMTP id cy9so2331595pac.0
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 01:56:12 -0800 (PST)
+In-Reply-To: <569F579F.1060708@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Jan 2016 10:31:18 +0100 Sebastian Hesselbarth  wrote:
+On 01/20/2016 05:47 PM, Wengang Wang wrote:
+>
+>
+> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8820=E6=97=A5 15:54, zhuyj =E5=86=99=E9=
+=81=93:
+>> On 01/20/2016 03:38 PM, Wengang Wang wrote:
+>>>
+>>>
+>>> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8820=E6=97=A5 14:24, zhuyj =E5=86=99=
+=E9=81=93:
+>>>> On 01/20/2016 01:32 PM, Wengang Wang wrote:
+>>>>> In a bonding setting, we determines fragment size according to MT=
+U=20
+>>>>> and
+>>>>> PMTU associated to the bonding master. If the slave finds the=20
+>>>>> fragment
+>>>>> size is too big, it drops the fragment and calls ip_rt_update_pmt=
+u(),
+>>>>> passing _skb_ and _pmtu_, trying to update the path MTU.
+>>>>> Problem is that the target device that function ip_rt_update_pmtu=
+=20
+>>>>> actually
+>>>>> tries to update is the slave (skb->dev), not the master. Thus=20
+>>>>> since no
+>>>>> PMTU change happens on master, the fragment size for later packet=
+s=20
+>>>>> doesn't
+>>>>> change so all later fragments/packets are dropped too.
+>>>>>
+>>>>> The fix is letting build_skb_flow_key() take care of the=20
+>>>>> transition of
+>>>>> device index from bonding slave to the master. That makes the=20
+>>>>> master become
+>>>>> the target device that ip_rt_update_pmtu tries to update PMTU to.
+>>>>>
+>>>>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>>>>> ---
+>>>>>   net/ipv4/route.c | 13 ++++++++++++-
+>>>>>   1 file changed, 12 insertions(+), 1 deletion(-)
+>>>>>
+>>>>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>>>>> index 85f184e..c59fb0d 100644
+>>>>> --- a/net/ipv4/route.c
+>>>>> +++ b/net/ipv4/route.c
+>>>>> @@ -523,10 +523,21 @@ static void build_skb_flow_key(struct flowi=
+4=20
+>>>>> *fl4, const struct sk_buff *skb,
+>>>>>                      const struct sock *sk)
+>>>>>   {
+>>>>>       const struct iphdr *iph =3D ip_hdr(skb);
+>>>>> -    int oif =3D skb->dev->ifindex;
+>>>>> +    struct net_device *master =3D NULL;
+>>>>>       u8 tos =3D RT_TOS(iph->tos);
+>>>>>       u8 prot =3D iph->protocol;
+>>>>>       u32 mark =3D skb->mark;
+>>>>> +    int oif;
+>>>>> +
+>>>>> +    if (skb->dev->flags & IFF_SLAVE) {
+>>>>> +        rtnl_lock();
+>>>>> +        master =3D netdev_master_upper_dev_get(skb->dev);
+>>>>> +        rtnl_unlock();
+>>>> update_pmtu is called very frequently. Is it appropriate to use=20
+>>>> rtnl_lock here?
+>>> By "very frequently", how frequently it is expected? And what=20
+>>> situation can cause that?
+>>> For my case, the update_pmtu is called only once.
+>> ip_tunnel_xmit
+>>
+> Can you please explain with more details?
 
-> On January 20, 2016 9:15:22 AM Jisheng Zhang wrote:
-> 
-> > Some platforms may provide more than one clk for the mvneta IP, for
-> > example Marvell BG4CT provides "core" clk for the mac core, and
-> > "axi" clk for the AXI bus logic. Obviously this "axi" clk also need to
-> > be enabled. This patch adds this optional "axi" clk support.  
-> 
-> Jisheng,
-> 
-> although I do not expect mvneta to appear on a non-AXI bus
-> anytime soon, how about naming the clock "bus" instead?
+dev_queue_xmit->ipip_tunnel_xmit->ip_tunnel_xmit->tnl_update_pmtu->=20
+skb_dst(skb)->ops->update_pmtu
 
-Good question. IIRC, this IP expects AXI bus, but I'll check with HW people.
-
-Thanks a lot,
-Jisheng
-
-> 
-> If you know the clock is only required for bus master DMA but
-> not for register access, "dma" would be an even better name.
-> 
-> Sebastian
-> 
-> 
-> > Signed-off-by: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-> > ---
-> >  drivers/net/ethernet/marvell/mvneta.c | 8 ++++++++
-> >  1 file changed, 8 insertions(+)
-> >
-> > diff --git a/drivers/net/ethernet/marvell/mvneta.c 
-> > b/drivers/net/ethernet/marvell/mvneta.c
-> > index aca0a73..6bb709a 100644
-> > --- a/drivers/net/ethernet/marvell/mvneta.c
-> > +++ b/drivers/net/ethernet/marvell/mvneta.c
-> > @@ -373,6 +373,8 @@ struct mvneta_port {
-> >
-> >  	/* Core clock */
-> >  	struct clk *clk;
-> > +	/* AXI clock */
-> > +	struct clk *clk_axi;
-> >  	u8 mcast_count[256];
-> >  	u16 tx_ring_size;
-> >  	u16 rx_ring_size;
-> > @@ -3615,6 +3617,10 @@ static int mvneta_probe(struct platform_device *pdev)
-> >
-> >  	clk_prepare_enable(pp->clk);
-> >
-> > +	pp->clk_axi = devm_clk_get(&pdev->dev, "axi");
-> > +	if (!IS_ERR(pp->clk_axi))
-> > +		clk_prepare_enable(pp->clk_axi);
-> > +
-> >  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> >  	pp->base = devm_ioremap_resource(&pdev->dev, res);
-> >  	if (IS_ERR(pp->base)) {
-> > @@ -3727,6 +3733,7 @@ err_free_ports:
-> >  	free_percpu(pp->ports);
-> >  err_clk:
-> >  	clk_disable_unprepare(pp->clk);
-> > +	clk_disable_unprepare(pp->clk_axi);
-> >  err_put_phy_node:
-> >  	of_node_put(phy_node);
-> >  err_free_irq:
-> > @@ -3744,6 +3751,7 @@ static int mvneta_remove(struct platform_device *pdev)
-> >
-> >  	unregister_netdev(dev);
-> >  	clk_disable_unprepare(pp->clk);
-> > +	clk_disable_unprepare(pp->clk_axi);
-> >  	free_percpu(pp->ports);
-> >  	free_percpu(pp->stats);
-> >  	irq_dispose_mapping(dev->irq);
-> > --
-> > 2.7.0.rc3
-> >  
-> 
-> 
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> thanks,
+> wengang
+>
+>
+>> Zhu Yanjun
+>>
+>>>
+>>> thanks,
+>>> wengang
+>>>
+>>>> That is, rtnl_lock is called frequently. Maybe other functions hav=
+e=20
+>>>> little chance to call rtnl_lock.
+>>>>
+>>>> Best Regards!
+>>>> Zhu Yanjun
+>>>>> +    }
+>>>>> +    if (master)
+>>>>> +        oif =3D master->ifindex;
+>>>>> +    else
+>>>>> +        oif =3D skb->dev->ifindex;
+>>>>>         __build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
+>>>>>   }
+>>>>
+>>>
+>>
+>
