@@ -1,62 +1,103 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net 0/3] net: phy: Finally fix PHY_IGNORE_INTERRUPTS
-Date: Wed, 20 Jan 2016 13:29:50 -0800
-Message-ID: <569FFC4E.20803@gmail.com>
-References: <1453174388-26752-1-git-send-email-f.fainelli@gmail.com>
- <20160119.143312.940032083335697894.davem@davemloft.net>
- <9235D6609DB808459E95D78E17F2E43D40499B30@CHN-SV-EXMX02.mchp-main.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: xen-netfront crash when detaching network while
+ some network activity
+Date: Wed, 20 Jan 2016 16:59:14 -0500
+Message-ID: <20160120215914.GA6384@char.us.oracle.com>
+References: <20150522114932.GC8664@mail-itl> <55645140.1050209@citrix.com>
+	<20150526220312.GA1358@mail-itl> <20151021185734.GD31646@mail-itl>
+	<20151117024515.GN976@mail-itl>
+	<20151201220042.GC22107@char.us.oracle.com>
+	<20151201223258.GH1337@mail-itl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-	sergei.shtylyov@cogentembedded.com
-To: Woojung.Huh@microchip.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f195.google.com ([209.85.214.195]:33222 "EHLO
-	mail-ob0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbcATV3y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 16:29:54 -0500
-Received: by mail-ob0-f195.google.com with SMTP id oj9so1441258obc.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 13:29:54 -0800 (PST)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40499B30@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Annie Li <annie.li@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	netdev@vger.kernel.org, David Vrabel <david.vrabel@citrix.com>,
+	xen-devel <xen-devel@lists.xen.org>
+To: Marek =?iso-8859-1?Q?Marczykowski-G=F3recki?=
+	<marmarek@invisiblethingslab.com>,
+	Joao Martins <joao.m.martins@oracle.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <20151201223258.GH1337@mail-itl>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-Le 20/01/2016 13:20, Woojung.Huh@microchip.com a =C3=A9crit :
->>> Targetting the "net" tree since these are bugfixes, but I would lik=
-e
->>> Woojun and Andrew to take a look and test that on their respective
->>> HW setups as well.
->>
->> Ok I'll wait for Woojun and Andrew to give feedback.
->=20
-> This patch fixes periodic phy read_status access when phy is configur=
-ed as PHY_IGNORE_INTERRUPTS.
+On Tue, Dec 01, 2015 at 11:32:58PM +0100, Marek Marczykowski-G=F3recki wrot=
+e:
+> On Tue, Dec 01, 2015 at 05:00:42PM -0500, Konrad Rzeszutek Wilk wrote:
+> > On Tue, Nov 17, 2015 at 03:45:15AM +0100, Marek Marczykowski-G=F3recki =
+wrote:
+> > > On Wed, Oct 21, 2015 at 08:57:34PM +0200, Marek Marczykowski-G=F3reck=
+i wrote:
+> > > > On Wed, May 27, 2015 at 12:03:12AM +0200, Marek Marczykowski-G=F3re=
+cki wrote:
+> > > > > On Tue, May 26, 2015 at 11:56:00AM +0100, David Vrabel wrote:
+> > > > > > On 22/05/15 12:49, Marek Marczykowski-G=F3recki wrote:
+> > > > > > > Hi all,
+> > > > > > > =
 
-Great, thanks for the feedback!
+> > > > > > > I'm experiencing xen-netfront crash when doing xl network-det=
+ach while
+> > > > > > > some network activity is going on at the same time. It happen=
+s only when
+> > > > > > > domU has more than one vcpu. Not sure if this matters, but th=
+e backend
+> > > > > > > is in another domU (not dom0). I'm using Xen 4.2.2. It happen=
+s on kernel
+> > > > > > > 3.9.4 and 4.1-rc1 as well.
+> > > > > > > =
 
-> Tested and confirmed with LAN78xx USB-to-Ethernet driver except follo=
-wing checkpatch.pl warnings.
->=20
-> WARNING: line over 80 characters
-> #54: FILE: drivers/net/phy/phy.c:1008:
-> +		queue_delayed_work(system_power_efficient_wq, &phydev->state_queue=
-,
+> > > > > > > Steps to reproduce:
+> > > > > > > 1. Start the domU with some network interface
+> > > > > > > 2. Call there 'ping -f some-IP'
+> > > > > > > 3. Call 'xl network-detach NAME 0'
+> > =
 
-This one is definitively added by the patch
+> > Do you see this all the time or just on occassions?
+> =
 
->=20
-> WARNING: Comparisons should place the constant on the right side of t=
-he test
-> #68: FILE: drivers/net/phy/phy.c:714:
-> +		if (PHY_HALTED !=3D phydev->state &&
->=20
+> Using above procedure - all the time.
+> =
 
-This one is an existing warning.
+> > I tried to reproduce it and couldn't see it. Is your VM an PV or HVM?
+> =
 
-David, let me know if you consider the over 80 columns issue worth a
-resubmission or not, either way is fine with me.
+> PV, started by libvirt. This may have something to do, the problem didn't
+> existed on older Xen (4.1) and started by xl. I'm not sure about kernel
+> version there, but I think I've tried there 3.18 too, which has this
+> problem.
+> =
+
+> But I don't see anything special in domU config file (neither backend
+> nor frontend) - it may be some libvirt default. If that's really the
+> cause. Can I (and how) get any useful information about that?
+
+libvirt naturally does some libxl calls, and they may be different.
+
+Any chance you could give me an idea of:
+ - What commands you use in libvirt?
+ - Do you use a bond or bridge?
+ - What version of libvirt you are using?
 
 Thanks!
---=20
-=46lorian
+CC-ing Joao just in case he has seen this.
+> =
+
+> =
+
+> -- =
+
+> Best Regards,
+> Marek Marczykowski-G=F3recki
+> Invisible Things Lab
+> A: Because it messes up the order in which people normally read text.
+> Q: Why is top-posting such a bad thing?
