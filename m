@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 06/19] tx4939: use __ethtool_get_ksettings
-Date: Tue, 19 Jan 2016 16:43:51 -0800
-Message-ID: <1453250644-14796-7-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v6 12/19] net: fcoe: use __ethtool_get_ksettings
+Date: Tue, 19 Jan 2016 16:43:57 -0800
+Message-ID: <1453250644-14796-13-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
@@ -34,28 +34,69 @@ From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/scsi/fcoe/fcoe_transport.c | 36 ++++++++++++++++++++----------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
 
-diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
-index e3733cd..4a3ebf6 100644
---- a/arch/mips/txx9/generic/setup_tx4939.c
-+++ b/arch/mips/txx9/generic/setup_tx4939.c
-@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
- #if IS_ENABLED(CONFIG_TC35815)
- static u32 tx4939_get_eth_speed(struct net_device *dev)
+diff --git a/drivers/scsi/fcoe/fcoe_transport.c b/drivers/scsi/fcoe/fcoe_transport.c
+index d7597c0..2d5909f 100644
+--- a/drivers/scsi/fcoe/fcoe_transport.c
++++ b/drivers/scsi/fcoe/fcoe_transport.c
+@@ -93,36 +93,40 @@ static struct notifier_block libfcoe_notifier = {
+ int fcoe_link_speed_update(struct fc_lport *lport)
  {
--	struct ethtool_cmd cmd;
--	if (__ethtool_get_settings(dev, &cmd))
-+	struct ethtool_ksettings cmd;
-+
-+	if (__ethtool_get_ksettings(dev, &cmd))
- 		return 100;	/* default 100Mbps */
+ 	struct net_device *netdev = fcoe_get_netdev(lport);
+-	struct ethtool_cmd ecmd;
++	struct ethtool_ksettings ecmd;
  
--	return ethtool_cmd_speed(&cmd);
-+	return cmd.parent.speed;
- }
+-	if (!__ethtool_get_settings(netdev, &ecmd)) {
++	if (!__ethtool_get_ksettings(netdev, &ecmd)) {
+ 		lport->link_supported_speeds &= ~(FC_PORTSPEED_1GBIT  |
+ 		                                  FC_PORTSPEED_10GBIT |
+ 		                                  FC_PORTSPEED_20GBIT |
+ 		                                  FC_PORTSPEED_40GBIT);
  
- static int tx4939_netdev_event(struct notifier_block *this,
+-		if (ecmd.supported & (SUPPORTED_1000baseT_Half |
+-		                      SUPPORTED_1000baseT_Full |
+-		                      SUPPORTED_1000baseKX_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_1000baseT_Half |
++			    SUPPORTED_1000baseT_Full |
++			    SUPPORTED_1000baseKX_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_1GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_10000baseT_Full   |
+-		                      SUPPORTED_10000baseKX4_Full |
+-		                      SUPPORTED_10000baseKR_Full  |
+-		                      SUPPORTED_10000baseR_FEC))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_10000baseT_Full   |
++			    SUPPORTED_10000baseKX4_Full |
++			    SUPPORTED_10000baseKR_Full  |
++			    SUPPORTED_10000baseR_FEC))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_10GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_20000baseMLD2_Full |
+-		                      SUPPORTED_20000baseKR2_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_20000baseMLD2_Full |
++			    SUPPORTED_20000baseKR2_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_20GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_40000baseKR4_Full |
+-		                      SUPPORTED_40000baseCR4_Full |
+-		                      SUPPORTED_40000baseSR4_Full |
+-		                      SUPPORTED_40000baseLR4_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_40000baseKR4_Full |
++			    SUPPORTED_40000baseCR4_Full |
++			    SUPPORTED_40000baseSR4_Full |
++			    SUPPORTED_40000baseLR4_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_40GBIT;
+ 
+-		switch (ethtool_cmd_speed(&ecmd)) {
++		switch (ecmd.parent.speed) {
+ 		case SPEED_1000:
+ 			lport->link_speed = FC_PORTSPEED_1GBIT;
+ 			break;
 -- 
 2.7.0.rc3.207.g0ac5344
