@@ -1,57 +1,87 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: regression kernel 4.4: stops routing packets with a GRE-payload
-Date: Wed, 20 Jan 2016 15:00:52 +0100
-Message-ID: <2738275.ziX0sZKPG0@stwm.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2 2/3] vhost: introduce vhost_vq_more_avail()
+Date: Wed, 20 Jan 2016 16:09:50 +0200
+Message-ID: <20160120160400-mutt-send-email-mst@redhat.com>
+References: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
+ <1448951985-12385-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:43691 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751205AbcATOHF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2016 09:07:05 -0500
-Received: from mailhub.studentenwerk.mhn.de (mailhub.studentenwerk.mhn.de [127.0.0.1])
-	by email.studentenwerk.mhn.de (Postfix) with ESMTP id 3plpR91F78zMktL
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 15:00:53 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1448951985-12385-3-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Dec 01, 2015 at 02:39:44PM +0800, Jason Wang wrote:
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-we tried 4.4 on our routers. We found one problem: 4.4 stops routing GR=
-E=20
-packets (ipv4 in GRE/ipv4) here. 4.4.15 works fine.
+Wow new API with no comments anywhere, and no
+commit log to say what it's good for.
+Want to know what it does and whether
+it's correct? You have to read the next patch.
 
-Neither GRE-endpoint is on the router:
+So what is the point of splitting it out?
+It's confusing, and in fact it made you
+miss a bug.
 
-gre-endpoint A <=3D=3D internet =3D=3D=3D> (eth0)router(eth1) <=3D=3D n=
-etwork =3D=3D> gre-
-endpoint B
+> ---
+>  drivers/vhost/vhost.c | 13 +++++++++++++
+>  drivers/vhost/vhost.h |  1 +
+>  2 files changed, 14 insertions(+)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 163b365..4f45a03 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1633,6 +1633,19 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
+>  
+> +bool vhost_vq_more_avail(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+> +{
+> +	__virtio16 avail_idx;
+> +	int r;
+> +
+> +	r = __get_user(avail_idx, &vq->avail->idx);
+> +	if (r)
+> +		return false;
 
-eth0 and eth1 are intel network-cards (I350).
+So the result is that if the page is not present,
+you return false (empty ring) and the
+caller will busy wait with preempt disabled.
+Nasty.
 
-I see GRE-packets arriving both at eth0 and eth1.
+So it should return something that breaks
+the loop, and this means it should have
+a different name for the return code
+to make sense.
 
-GRE-packets from eth0 are not forwarded to eth1 (that means: I can't se=
-e them=20
-with tcpdump on eth1 nor on endpoint B). Packtes with an TCP or UDP pay=
-load=20
-are forwarded.
+Maybe reverse the polarity: vhost_vq_avail_empty?
+And add a comment saying we can't be sure ring
+is empty so return false.
 
-Some GRE-packets from eth1 are forwarded to eth0 but most just seem to=20
-disappear.
-
-On the gre-endpoint B (same hardware) which is also a linux router kern=
-el 4.4=20
-works. So this seems to be a problem when forwarding ipv4-packets with =
-a GRE-
-payload.
-
-
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+> +
+> +	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+> +}
+> +EXPORT_SYMBOL_GPL(vhost_vq_more_avail);
+> +
+>  /* OK, now we need to know about added descriptors. */
+>  bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  {
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index 43284ad..2f3c57c 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -159,6 +159,7 @@ void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
+>  			       struct vring_used_elem *heads, unsigned count);
+>  void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
+>  void vhost_disable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+> +bool vhost_vq_more_avail(struct vhost_dev *, struct vhost_virtqueue *);
+>  bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>  
+>  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+> -- 
+> 2.5.0
