@@ -1,35 +1,82 @@
-From: Yishai Hadas <yishaih@mellanox.com>
-Subject: RE: mlx4 fails ("go bit not cleared") without MSI
-Date: Wed, 20 Jan 2016 09:42:28 +0000
-Message-ID: <HE1PR05MB1418CCA550156D65E76B2544CEC20@HE1PR05MB1418.eurprd05.prod.outlook.com>
-References: <HE1PR05MB1418EEAC4F82E2ECF9AC0920CEC10@HE1PR05MB1418.eurprd05.prod.outlook.com>
- <CAErSpo5PsAvix815Z1Ge5-UTx5z-0m5W2p4F9J=s8AB03=C+Dw@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4 1/3] can: sja1000: of: add per-compatible init hook
+Date: Wed, 20 Jan 2016 11:22:21 +0100
+Message-ID: <569F5FDD.7050703@pengutronix.de>
+References: <1452685566-27431-1-git-send-email-mkl@pengutronix.de>
+ <1452685566-27431-2-git-send-email-mkl@pengutronix.de>
+ <20160113155749.GB6219@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "helgaas@kernel.org" <helgaas@kernel.org>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	"Or Gerlitz (gerlitz.or@gmail.com)" <gerlitz.or@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0081.outbound.protection.outlook.com ([157.55.234.81]:59040
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934939AbcATKOy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2016 05:14:54 -0500
-In-Reply-To: <CAErSpo5PsAvix815Z1Ge5-UTx5z-0m5W2p4F9J=s8AB03=C+Dw@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="qxtgDDaehR4EEiXkFSJC57HEsCjR4EtN1"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20160113155749.GB6219@localhost>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBCam9ybiBIZWxnYWFzIFttYWlsdG86YmhlbGdhYXNAZ29vZ2xlLmNvbV0NCj4gSSBh
-c3N1bWUgeW91J3JlIHRyaWVkIGJvb3Rpbmcgd2l0aCAicGNpPW5vbXNpIiBvciAibWx4X2NvcmUu
-bXNpX3g9MCINCj4gYW5kIGl0IHdvcmtzIGZvciB5b3U/ICBOb3RlIHRoYXQgbXkgYm9hcmQgbWln
-aHQgYmUgYW4gaW50ZXJuYWwgZGVzaWduLA0KPiBub3QgYSBNZWxsYW5veCBib2FyZCwgc28gaWYg
-aXQgd29ya3MgZm9yIHlvdSwgd2UgY2FuIHByb2JhYmx5IGp1c3QNCj4gaWdub3JlIHRoaXMgYXMg
-YmVpbmcgYW4gYXJ0aWZhY3Qgb2YgdGhlIGludGVybmFsIGRlc2lnbi4NCg0KWWVzLCBpdCB3b3Jr
-cyBmb3IgbWUgKG1vZHVsZSBwYXJhbWV0ZXIgbXNpX3g9MCksIGFzIHlvdSBwb2ludGVkIG91dCBh
-Ym92ZQ0KeW91IGFyZSBub3QgdXNpbmcgTWVsbGFub3ggYm9hcmQgYnV0IHNvbWUgaW50ZXJuYWwg
-ZGVzaWduIGFuZA0KaXQgbWlnaHQgYmUgc29tZSBhcnRpZmFjdCBvZi4NCg==
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--qxtgDDaehR4EEiXkFSJC57HEsCjR4EtN1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+On 01/13/2016 04:57 PM, Damien Riegel wrote:
+>>  static int sp_probe(struct platform_device *pdev)
+>>  {
+>>  	int err, irq =3D 0;
+>> @@ -163,6 +177,9 @@ static int sp_probe(struct platform_device *pdev)
+>>  	struct resource *res_mem, *res_irq =3D NULL;
+>>  	struct sja1000_platform_data *pdata;
+>>  	struct device_node *of =3D pdev->dev.of_node;
+>> +	const struct of_device_id *of_id;
+>> +	const struct sja1000_of_data *of_data =3D NULL;
+>> +	size_t priv_sz =3D 0;
+>> =20
+>>  	pdata =3D dev_get_platdata(&pdev->dev);
+>>  	if (!pdata && !of) {
+>> @@ -191,7 +208,13 @@ static int sp_probe(struct platform_device *pdev)=
+
+>>  	if (!irq && !res_irq)
+>>  		return -ENODEV;
+>> =20
+>> -	dev =3D alloc_sja1000dev(0);
+>> +	of_id =3D of_match_device(sp_of_table, &pdev->dev);
+>> +	if (of_id) {
+>=20
+> My personal preference here would be to test of_id && of_id->data. That=
+
+> way, we could avoid the declaration of nxp_data. It would also be a bit=
+
+> less error prone if someone adds a new compatible in the of device
+> table.
+
+Ok - please test v5.
+
+regards,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--qxtgDDaehR4EEiXkFSJC57HEsCjR4EtN1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWn1/dAAoJEP5prqPJtc/HdUUH/A6ItfhdwMRL0/umVU2ZqlyA
+dnzuhMYaAZO7pphXPpaHaKopXwSturS8JMiw1/2zAUT+iToh2eKa+wuvunQXqbiu
+6hOSSRhpg/fqL9DKQqPyTSpYBu4I7AVYgpun1I1mT/7rhD/ORqlSorfqZXOLzP+p
+DdxYgB8NepPhe2a7JJlgLEoS7F/pFDNe1IhMmaryRzr37ciujU2c7smQSDTkpcYi
+lO7uGcPU3RKuTbmImhqBejf/NZyPN2JDnnoD08Oyj8cxW6lbyOXNsY7S0NPEDhQ9
+EcLDdGQS/a/X7T/9/fdzJMOJYjeslp9zEuzFiJ/SdgyMNnAOj1zuCPiYCOPPuTY=
+=n1PH
+-----END PGP SIGNATURE-----
+
+--qxtgDDaehR4EEiXkFSJC57HEsCjR4EtN1--
