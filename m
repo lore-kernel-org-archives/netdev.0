@@ -1,60 +1,105 @@
-From: Lucas Tanure <tanure@linux.com>
-Subject: Re: [PATCH] sfc: Replace memset with eth_zero_addr
-Date: Wed, 20 Jan 2016 09:49:02 -0200
-Message-ID: <CAJX_Q+2OZf05CsXRm7LOU0anO54MuTKEx0reR_mve8QEBqwiPg@mail.gmail.com>
-References: <1453246074-1054-1-git-send-email-tanure@linux.com>
-	<569F7308.9060008@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <569F7308.9060008@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH] can: c_can: add xceiver enable/disable support
+Date: Wed, 20 Jan 2016 12:55:30 +0100
+Message-ID: <1453290930-19136-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: mkl@pengutronix.de, wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch adds support to enable and disable the xceiver
+in case it's switchable by the regulator framework.
 
-On Wed, Jan 20, 2016 at 9:44 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 1/20/2016 2:27 AM, Lucas Tanure wrote:
->
->> Use eth_zero_addr to assign the zero address to the given address array
->> instead of memset when second argument is address of zero.
->
->
->    What address? memset() takes just 1 address. :-)
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/can/c_can/c_can.c | 31 +++++++++++++++++++++++++++++++
+ drivers/net/can/c_can/c_can.h |  1 +
+ 2 files changed, 32 insertions(+)
 
-I mean the vf->mac, a pointer to a six-byte array containing the
-Ethernet address.
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index f91b094..ca42044 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -36,6 +36,7 @@
+ #include <linux/io.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/pinctrl/consumer.h>
++#include <linux/regulator/consumer.h>
+ 
+ #include <linux/can.h>
+ #include <linux/can/dev.h>
+@@ -588,6 +589,22 @@ static int c_can_chip_config(struct net_device *dev)
+ 	return c_can_set_bittiming(dev);
+ }
+ 
++static inline int c_can_transceiver_enable(const struct c_can_priv *priv)
++{
++	if (!priv->reg_xceiver)
++		return 0;
++
++	return regulator_enable(priv->reg_xceiver);
++}
++
++static inline int c_can_transceiver_disable(const struct c_can_priv *priv)
++{
++	if (!priv->reg_xceiver)
++		return 0;
++
++	return regulator_disable(priv->reg_xceiver);
++}
++
+ static int c_can_start(struct net_device *dev)
+ {
+ 	struct c_can_priv *priv = netdev_priv(dev);
+@@ -612,6 +629,10 @@ static int c_can_start(struct net_device *dev)
+ 	else
+ 		pinctrl_pm_select_default_state(priv->device);
+ 
++	err = c_can_transceiver_enable(priv);
++	if (err)
++		return err;
++
+ 	return 0;
+ }
+ 
+@@ -626,6 +647,9 @@ static void c_can_stop(struct net_device *dev)
+ 
+ 	/* deactivate pins */
+ 	pinctrl_pm_select_sleep_state(dev->dev.parent);
++
++	c_can_transceiver_disable(priv);
++
+ 	priv->can.state = CAN_STATE_STOPPED;
+ }
+ 
+@@ -1263,6 +1287,13 @@ int register_c_can_dev(struct net_device *dev)
+ 	 */
+ 	pinctrl_pm_select_sleep_state(dev->dev.parent);
+ 
++	priv->reg_xceiver = devm_regulator_get(priv->device, "xceiver");
++	if (IS_ERR(priv->reg_xceiver)) {
++		if (PTR_ERR(priv->reg_xceiver) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		priv->reg_xceiver = NULL;
++	}
++
+ 	c_can_pm_runtime_enable(priv);
+ 
+ 	dev->flags |= IFF_ECHO;	/* we support local echo */
+diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+index 8acdc7f..59246e3 100644
+--- a/drivers/net/can/c_can/c_can.h
++++ b/drivers/net/can/c_can/c_can.h
+@@ -213,6 +213,7 @@ struct c_can_priv {
+ 	u32 comm_rcv_high;
+ 	u32 rxmasked;
+ 	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
++	struct regulator *reg_xceiver;
+ };
+ 
+ struct net_device *alloc_c_can_dev(void);
+-- 
+2.7.0.rc3
 
->
->> Signed-off-by: Lucas Tanure <tanure@linux.com>
->> ---
->>   drivers/net/ethernet/sfc/ef10_sriov.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c
->> b/drivers/net/ethernet/sfc/ef10_sriov.c
->> index 3c17f27..10f60db 100644
->> --- a/drivers/net/ethernet/sfc/ef10_sriov.c
->> +++ b/drivers/net/ethernet/sfc/ef10_sriov.c
->> @@ -527,7 +527,7 @@ int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int
->> vf_i, u8 *mac)
->>         return 0;
->>
->>   fail:
->> -       memset(vf->mac, 0, ETH_ALEN);
->> +       eth_zero_addr(vf->mac);
->>         return rc;
->>   }
->>
->
-> MBR, Sergei
->
-
-Thanks, Tanure
