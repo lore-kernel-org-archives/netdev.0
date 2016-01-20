@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 12/19] net: fcoe: use __ethtool_get_ksettings
-Date: Tue, 19 Jan 2016 16:43:57 -0800
-Message-ID: <1453250644-14796-13-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v6 14/19] net: 8021q: use __ethtool_get_ksettings
+Date: Tue, 19 Jan 2016 16:43:59 -0800
+Message-ID: <1453250644-14796-15-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
@@ -34,69 +34,37 @@ From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/scsi/fcoe/fcoe_transport.c | 36 ++++++++++++++++++++----------------
- 1 file changed, 20 insertions(+), 16 deletions(-)
+ net/8021q/vlan_dev.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/scsi/fcoe/fcoe_transport.c b/drivers/scsi/fcoe/fcoe_transport.c
-index d7597c0..2d5909f 100644
---- a/drivers/scsi/fcoe/fcoe_transport.c
-+++ b/drivers/scsi/fcoe/fcoe_transport.c
-@@ -93,36 +93,40 @@ static struct notifier_block libfcoe_notifier = {
- int fcoe_link_speed_update(struct fc_lport *lport)
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index ad5e2fd..d4a6131 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -621,12 +621,12 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
+ 	return features;
+ }
+ 
+-static int vlan_ethtool_get_settings(struct net_device *dev,
+-				     struct ethtool_cmd *cmd)
++static int vlan_ethtool_get_ksettings(struct net_device *dev,
++				      struct ethtool_ksettings *cmd)
  {
- 	struct net_device *netdev = fcoe_get_netdev(lport);
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
+ 	const struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
  
--	if (!__ethtool_get_settings(netdev, &ecmd)) {
-+	if (!__ethtool_get_ksettings(netdev, &ecmd)) {
- 		lport->link_supported_speeds &= ~(FC_PORTSPEED_1GBIT  |
- 		                                  FC_PORTSPEED_10GBIT |
- 		                                  FC_PORTSPEED_20GBIT |
- 		                                  FC_PORTSPEED_40GBIT);
+-	return __ethtool_get_settings(vlan->real_dev, cmd);
++	return __ethtool_get_ksettings(vlan->real_dev, cmd);
+ }
  
--		if (ecmd.supported & (SUPPORTED_1000baseT_Half |
--		                      SUPPORTED_1000baseT_Full |
--		                      SUPPORTED_1000baseKX_Full))
-+		if (ecmd.link_modes.supported[0] & (
-+			    SUPPORTED_1000baseT_Half |
-+			    SUPPORTED_1000baseT_Full |
-+			    SUPPORTED_1000baseKX_Full))
- 			lport->link_supported_speeds |= FC_PORTSPEED_1GBIT;
+ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
+@@ -741,7 +741,7 @@ static int vlan_dev_get_iflink(const struct net_device *dev)
+ }
  
--		if (ecmd.supported & (SUPPORTED_10000baseT_Full   |
--		                      SUPPORTED_10000baseKX4_Full |
--		                      SUPPORTED_10000baseKR_Full  |
--		                      SUPPORTED_10000baseR_FEC))
-+		if (ecmd.link_modes.supported[0] & (
-+			    SUPPORTED_10000baseT_Full   |
-+			    SUPPORTED_10000baseKX4_Full |
-+			    SUPPORTED_10000baseKR_Full  |
-+			    SUPPORTED_10000baseR_FEC))
- 			lport->link_supported_speeds |= FC_PORTSPEED_10GBIT;
- 
--		if (ecmd.supported & (SUPPORTED_20000baseMLD2_Full |
--		                      SUPPORTED_20000baseKR2_Full))
-+		if (ecmd.link_modes.supported[0] & (
-+			    SUPPORTED_20000baseMLD2_Full |
-+			    SUPPORTED_20000baseKR2_Full))
- 			lport->link_supported_speeds |= FC_PORTSPEED_20GBIT;
- 
--		if (ecmd.supported & (SUPPORTED_40000baseKR4_Full |
--		                      SUPPORTED_40000baseCR4_Full |
--		                      SUPPORTED_40000baseSR4_Full |
--		                      SUPPORTED_40000baseLR4_Full))
-+		if (ecmd.link_modes.supported[0] & (
-+			    SUPPORTED_40000baseKR4_Full |
-+			    SUPPORTED_40000baseCR4_Full |
-+			    SUPPORTED_40000baseSR4_Full |
-+			    SUPPORTED_40000baseLR4_Full))
- 			lport->link_supported_speeds |= FC_PORTSPEED_40GBIT;
- 
--		switch (ethtool_cmd_speed(&ecmd)) {
-+		switch (ecmd.parent.speed) {
- 		case SPEED_1000:
- 			lport->link_speed = FC_PORTSPEED_1GBIT;
- 			break;
+ static const struct ethtool_ops vlan_ethtool_ops = {
+-	.get_settings	        = vlan_ethtool_get_settings,
++	.get_ksettings	        = vlan_ethtool_get_ksettings,
+ 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ts_info		= vlan_ethtool_get_ts_info,
 -- 
 2.7.0.rc3.207.g0ac5344
