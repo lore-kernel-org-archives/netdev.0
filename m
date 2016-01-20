@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 10/19] net: macvlan: use __ethtool_get_ksettings
-Date: Tue, 19 Jan 2016 16:43:55 -0800
-Message-ID: <1453250644-14796-11-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v6 06/19] tx4939: use __ethtool_get_ksettings
+Date: Tue, 19 Jan 2016 16:43:51 -0800
+Message-ID: <1453250644-14796-7-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
@@ -34,37 +34,28 @@ From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/macvlan.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 6a57a00..2064eb2 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -940,12 +940,12 @@ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 	strlcpy(drvinfo->version, "0.1", sizeof(drvinfo->version));
- }
- 
--static int macvlan_ethtool_get_settings(struct net_device *dev,
--					struct ethtool_cmd *cmd)
-+static int macvlan_ethtool_get_ksettings(struct net_device *dev,
-+					 struct ethtool_ksettings *cmd)
+diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
+index e3733cd..4a3ebf6 100644
+--- a/arch/mips/txx9/generic/setup_tx4939.c
++++ b/arch/mips/txx9/generic/setup_tx4939.c
+@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
+ #if IS_ENABLED(CONFIG_TC35815)
+ static u32 tx4939_get_eth_speed(struct net_device *dev)
  {
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct ethtool_cmd cmd;
+-	if (__ethtool_get_settings(dev, &cmd))
++	struct ethtool_ksettings cmd;
++
++	if (__ethtool_get_ksettings(dev, &cmd))
+ 		return 100;	/* default 100Mbps */
  
--	return __ethtool_get_settings(vlan->lowerdev, cmd);
-+	return __ethtool_get_ksettings(vlan->lowerdev, cmd);
+-	return ethtool_cmd_speed(&cmd);
++	return cmd.parent.speed;
  }
  
- static netdev_features_t macvlan_fix_features(struct net_device *dev,
-@@ -1020,7 +1020,7 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
- 
- static const struct ethtool_ops macvlan_ethtool_ops = {
- 	.get_link		= ethtool_op_get_link,
--	.get_settings		= macvlan_ethtool_get_settings,
-+	.get_ksettings		= macvlan_ethtool_get_ksettings,
- 	.get_drvinfo		= macvlan_ethtool_get_drvinfo,
- };
- 
+ static int tx4939_netdev_event(struct notifier_block *this,
 -- 
 2.7.0.rc3.207.g0ac5344
