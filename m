@@ -1,40 +1,88 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: mlx4 fails ("go bit not cleared") without MSI
-Date: Wed, 20 Jan 2016 11:00:49 -0600
-Message-ID: <CAErSpo7RKHE-vopDYh8P83Wb_5_-Fj8SSn7_Z=9cqYgBOejpxw@mail.gmail.com>
-References: <HE1PR05MB1418EEAC4F82E2ECF9AC0920CEC10@HE1PR05MB1418.eurprd05.prod.outlook.com>
- <CAErSpo5PsAvix815Z1Ge5-UTx5z-0m5W2p4F9J=s8AB03=C+Dw@mail.gmail.com> <HE1PR05MB1418CCA550156D65E76B2544CEC20@HE1PR05MB1418.eurprd05.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in
+ __skb_try_recv_datagram
+Date: Wed, 20 Jan 2016 09:02:41 -0800
+Message-ID: <1453309361.1223.327.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
+	 <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com>
+	 <20151229.150843.2021692616139434395.davem@davemloft.net>
+	 <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
+	 <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
+	 <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
+	 <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
+	 <CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
+	 <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEnXRPu8As9sr44JcjqVW-omN8BshtzhZZd73cr7vFXLTVPFWQ@mail.gmail.com>
+	 <1452003299.8255.87.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEnXRPuL6bUJWvJ=OWokHCvZkdcngaYmwX3wV70douDbnG8bVw@mail.gmail.com>
+	 <1452004797.8255.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEnXRPtPYz4+UTA1dqL7AXe6OeN08tyXhKL2js5Wm681z=tsWQ@mail.gmail.com>
+	 <1453304914.1223.325.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEnXRPut=4TNjmaw2afepQd5hONJs3xezy_PLrrMXbV-iAKpfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "helgaas@kernel.org" <helgaas@kernel.org>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	"Or Gerlitz (gerlitz.or@gmail.com)" <gerlitz.or@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yishai Hadas <yishaih@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:36782 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751583AbcATRBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 12:01:10 -0500
-Received: by mail-yk0-f178.google.com with SMTP id v14so16777515ykd.3
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 09:01:09 -0800 (PST)
-In-Reply-To: <HE1PR05MB1418CCA550156D65E76B2544CEC20@HE1PR05MB1418.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jacob Siverskog <jacob@teenage.engineering>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEnXRPut=4TNjmaw2afepQd5hONJs3xezy_PLrrMXbV-iAKpfg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 20, 2016 at 3:42 AM, Yishai Hadas <yishaih@mellanox.com> wrote:
->> From: Bjorn Helgaas [mailto:bhelgaas@google.com]
->> I assume you're tried booting with "pci=nomsi" or "mlx_core.msi_x=0"
->> and it works for you?  Note that my board might be an internal design,
->> not a Mellanox board, so if it works for you, we can probably just
->> ignore this as being an artifact of the internal design.
->
-> Yes, it works for me (module parameter msi_x=0), as you pointed out above
-> you are not using Mellanox board but some internal design and
-> it might be some artifact of.
+On Wed, 2016-01-20 at 17:17 +0100, Jacob Siverskog wrote:
+> On Wed, Jan 20, 2016 at 4:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Wed, 2016-01-20 at 16:06 +0100, Jacob Siverskog wrote:
+> >> On Tue, Jan 5, 2016 at 3:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> > On Tue, 2016-01-05 at 15:34 +0100, Jacob Siverskog wrote:
+> >> >> On Tue, Jan 5, 2016 at 3:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> >
+> >> >> >
+> >> >> > You might build a kernel with KASAN support to get maybe more chances to
+> >> >> > trigger the bug.
+> >> >> >
+> >> >> > ( https://www.kernel.org/doc/Documentation/kasan.txt )
+> >> >> >
+> >> >>
+> >> >> Ah. Doesn't seem to be supported on arm(32) unfortunately.
+> >> >
+> >> > Then you could at least use standard debugging features :
+> >> >
+> >> > CONFIG_SLAB=y
+> >> > CONFIG_SLABINFO=y
+> >> > CONFIG_DEBUG_SLAB=y
+> >> > CONFIG_DEBUG_SLAB_LEAK=y
+> >> >
+> >> > (Or equivalent SLUB options)
+> >> >
+> >> > and
+> >> >
+> >> > CONFIG_DEBUG_PAGEALLOC=y
+> >> >
+> >> > (If arm(32) has CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC=y)
+> >>
+> >> I tried with those enabled and while toggling power on the Bluetooth
+> >> interface I usually get this after a few iterations:
+> >> kernel: Bluetooth: Unable to push skb to HCI core(-6)
+> >
+> > Well, this code seems to be quite buggy.
+> >
+> > I do not have time to audit it, but 5 minutes are enough to spot 2
+> > issues.
+> >
+> > skb, once given to another queue/layer should not be accessed anymore.
+> >
+> 
+> Ok. Unfortunately I still see the slab corruption even with your changes.
 
-OK, let's assume that's the case.  I haven't seen the actual board, so
-I can't be certain what I'm using.  Thanks for checking into it.
+Patch was only showing potential _reads_ after free, which do not
+generally corrupt memory.
 
-Bjorn
+As I said, a full audit is needed, and I don't have time for this.
