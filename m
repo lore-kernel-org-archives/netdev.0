@@ -1,92 +1,136 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: Tools for sampling ethtool --statistics
-Date: Thu, 21 Jan 2016 00:34:16 +0200
-Message-ID: <CAJ3xEMiNDU20FVG_9_r11wqMmAFiERBTYcsFmjwaSfbZ25NOiQ@mail.gmail.com>
-References: <20160120101311.5266cac6@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] net: i40e: avoid unused function warnings
+Date: Wed, 20 Jan 2016 14:44:45 -0800
+Message-ID: <1453329885.2958.32.camel@intel.com>
+References: <2806620.EpZqDlZTO3@wuerfel>
+	 <1453328245.2958.28.camel@intel.com> <8814508.SjLecHrQqA@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Ebp7mlNq7FPVjHF2mc1i"
+Cc: netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>,
+	intel-wired-lan@lists.osuosl.org,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	davem@davemloft.net
+To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:35219 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754591AbcATWeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:34:17 -0500
-Received: by mail-io0-f177.google.com with SMTP id 77so35538624ioc.2
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 14:34:17 -0800 (PST)
-In-Reply-To: <20160120101311.5266cac6@redhat.com>
+Received: from mga11.intel.com ([192.55.52.93]:62491 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753251AbcATWoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 17:44:46 -0500
+In-Reply-To: <8814508.SjLecHrQqA@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 20, 2016 at 11:13 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> Hi All,
->
-> I wrote a small tool[1] to extract ethtool --statistics|-S, sample and
-> present it in a more human readable manor.  You might also find this
-> useful...
->
-> https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
->
-> The reason I wrote this script is that the mlx5 driver (Mellanox 100 Gbit/s)
-> does not report correct ifconfig stats.  It reports the HW counters,
-> not what the network stack is able to handle.  I/we obviously need the
-> stack number when working on improving the stack.
 
-correct && we should be fixing that ... still it's worthwhile to be
-able and see per ring stats, specially when you're dealing/optimizing
-in multi-stream env.
+--=-Ebp7mlNq7FPVjHF2mc1i
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Output examples:
->
-> pktgen (1 core) sending ~20Mpps
->
-> Show adapter mlx5p2 statistics (ONLY that changed!)
-> Ethtool(mlx5p2) stat:     19431694 (     19,431,694) <= frames_rx /sec
-> Ethtool(mlx5p2) stat:   1243722215 (  1,243,722,215) <= in_octets /sec
-> Ethtool(mlx5p2) stat:     19433161 (     19,433,161) <= in_ucast_pkts /sec
-> Ethtool(mlx5p2) stat:   1243746943 (  1,243,746,943) <= octets /sec
-> Ethtool(mlx5p2) stat:   1243629263 (  1,243,629,263) <= octets_received /sec
-> Ethtool(mlx5p2) stat:     19433654 (     19,433,654) <= p64octets /sec
-> Ethtool(mlx5p2) stat:     19433556 (     19,433,556) <= pkts /sec
-> Ethtool(mlx5p2) stat:      1815546 (      1,815,546) <= rx3_packets /sec
-> Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_bytes /sec
-> Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_csum_good /sec
-> Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_packets /sec
-> Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_unicast_bytes /sec
-> Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_unicast_packets /sec
+On Wed, 2016-01-20 at 23:28 +0100, Arnd Bergmann wrote:
+> On Wednesday 20 January 2016 14:17:25 Jeff Kirsher wrote:
+> > On Wed, 2016-01-20 at 11:42 +0100, Arnd Bergmann wrote:
+> > > The addition of the geneve tunnel offload code left a couple
+> > > of functions unconditionally defined but empty whenever
+> CONFIG_VXLAN
+> > > and CONFIG_GENEVE are disabled. gcc warns about this:
+> > >=C2=A0
+> > > i40e_main.c:7049:13: warning: 'i40e_sync_udp_filters_subtask'
+> defined
+> > > but not used [-Wunused-function]
+> > > i40e_main.c:8516:13: warning: 'i40e_add_vxlan_port' defined but
+> not
+> > > used [-Wunused-function]
+> > > i40e_main.c:8561:13: warning: 'i40e_del_vxlan_port' defined but
+> not
+> > > used [-Wunused-function]
+> > > i40e_main.c:8596:13: warning: 'i40e_add_geneve_port' defined but
+> not
+> > > used [-Wunused-function]
+> > > i40e_main.c:8643:13: warning: 'i40e_del_geneve_port' defined but
+> not
+> > > used [-Wunused-function]
+> > >=C2=A0
+> > > This moves the #ifdef statements to the outside of the affected
+> > > functions, which avoids the warnings.
+> > >=C2=A0
+> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > > Fixes: 6a899024058d ("i40e: geneve tunnel offload support")
+> > > ---
+> > > This is a harmless regression against v4.4, found on ARM
+> randconfig
+> > > builds
+> >=C2=A0
+> > Thanks Arnd, I already have a patch from Eric Dumazet and Alex
+> Duyck to
+> > resolve this issue.
+> >=C2=A0
+> > Dave- I plan on pushing the fix later today to net.
+>=20
+> Ok, thanks.
+>=20
+> FWIW, I have another patch for this driver that I did not yet submit
+> because it's not a regression and I haven't written a proper
+> changelog
+> for it (it's in a set of 15 patches for netdev that fix harmless
+> warnings).
+>=20
+> Do you have one for the warning below as well? I could not come up
+> with a better way than adding a bogus initialization, but maybe
+> there is one.
+>=20
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0Arnd
+>=20
+> From d89be3f0f932a71dfb5480ee396db514879097c4 Mon Sep 17 00:00:00
+> 2001
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Fri, 15 Jan 2016 17:31:07 +0100
+> Subject: [PATCH] net: i40e: shut up uninitialized variable warnings
+>=20
+> intel/i40e/i40e_txrx.c: In function 'i40e_xmit_frame_ring':
+> intel/i40e/i40e_txrx.c:2367:20: error: 'oiph' may be used
+> uninitialized in this function [-Werror=3Dmaybe-uninitialized]
+> intel/i40e/i40e_txrx.c:2317:16: note: 'oiph' was declared here
+> intel/i40e/i40e_txrx.c:2367:17: error: 'oudph' may be used
+> uninitialized in this function [-Werror=3Dmaybe-uninitialized]
+> intel/i40e/i40e_txrx.c:2316:17: note: 'oudph' was declared here
+>=20
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-was expecting to see tx_XXX stats, something wrong here?
+Yeah, I have a fix for that as well.
 
+You can confirm by pulling my next-queue tree (dev-queue branch).
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git=C2=A0=
+d
+ev-queue
 
-> pktgen (4 cores) sending ~50Mpps
-[...]
+--=-Ebp7mlNq7FPVjHF2mc1i
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-The 20M for single ring/core and 50M pps for four streams are really
-cool results. Do the scripts to get ~such results exist in your
-network testing github repo? last time I looked I wasn't sure if  the
-multi-stream case is supported.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-Could you post the two commands you used for these results along with
-minimal spec of the system (CPU type/freq, special .config directives,
-anything else)?
+iQIcBAABCgAGBQJWoA3dAAoJEOVv75VaS+3Os2cP/21bFLibnDpdIFj83q/lcOGA
+QLHXVmJUH92C2V9LfiJeftPqZpFIGZcCLdgHR300hgllxZRUL9YtxbMcB4Pm29SA
+/VRtvRgrGm8biCR4Tfmi47Y/gP2DY/J3OBZnrBBhp3Aq/XLOCfv0Sha80LM8sxzI
+8+Cki+LUb88maAiePT2jNDR/tURgiwK/JLOiUN6MfbBbbu5Iwx1jvQ7HDRWAtxoA
+W5UUd8e3kLreAMZJAX7IRrNgg1uvVdvic5vF8goLEmDV1SL47dn6U3dtMGniU5e1
+OpueIfUJ4JW9aXQXhqvlNU4Wn83J+5Q0UWnS65VnI3Y7zZyf4cwszKCRv1gO6Nil
+b45UMMOwG7gph3kU6mGSFPkzqd8fH+14SuQsft8BrYYRCrxG3IisypFrwltcMfP4
+9pammWUDb1GxlwqRbe1hDNT4R13Srhnyw/4GOopLBoJNXC3dQmoEEjPz0eX+kzOp
+Eu3LbtNkH0svu8yyFRiubgSK/mkg0+JHmasGtvAiIyULrRab39yYTtmL1Dg+y4ug
+Bqby3pAPxWHirpwuikC0LK4AqOCt32pdtinvaBnaQziNyUhRyBglbHoIGT0vhRBn
+0obwnjydgo63Zj2fCeH5wRmYAw5PnC1fGMuIl8r3Xo4MD96jcmnuTa9toDd/3qUa
+lobnN/rgnqx53UnYGVB3
+=xZm2
+-----END PGP SIGNATURE-----
 
-Or.
-
-> Show adapter mlx5p2 statistics (ONLY that changed!)
-> Ethtool(mlx5p2) stat:     25710443 (     25,710,443) <= drop_events /sec
-> Ethtool(mlx5p2) stat:     51861645 (     51,861,645) <= frames_rx /sec
-> Ethtool(mlx5p2) stat:     25710502 (     25,710,502) <= in_discards /sec
-> Ethtool(mlx5p2) stat:   3319134161 (  3,319,134,161) <= in_octets /sec
-> Ethtool(mlx5p2) stat:     26150970 (     26,150,970) <= in_ucast_pkts /sec
-> Ethtool(mlx5p2) stat:   3319128053 (  3,319,128,053) <= octets /sec
-> Ethtool(mlx5p2) stat:   3319145319 (  3,319,145,319) <= octets_received /sec
-> Ethtool(mlx5p2) stat:     51861369 (     51,861,369) <= p64octets /sec
-> Ethtool(mlx5p2) stat:     51861375 (     51,861,375) <= pkts /sec
-> Ethtool(mlx5p2) stat:      1383475 (      1,383,475) <= rx3_packets /sec
-> Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_bytes /sec
-> Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_csum_good /sec
-> Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_packets /sec
-> Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_unicast_bytes /sec
-> Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_unicast_packets /sec
+--=-Ebp7mlNq7FPVjHF2mc1i--
