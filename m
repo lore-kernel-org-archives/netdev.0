@@ -1,77 +1,52 @@
-From: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH v3 3/4] net: mvneta: get optional bus clk
-Date: Wed, 20 Jan 2016 19:27:24 +0800
-Message-ID: <1453289245-2061-4-git-send-email-jszhang@marvell.com>
-References: <1453289245-2061-1-git-send-email-jszhang@marvell.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sfc: Replace memset with eth_zero_addr
+Date: Wed, 20 Jan 2016 14:44:08 +0300
+Message-ID: <569F7308.9060008@cogentembedded.com>
+References: <1453246074-1054-1-git-send-email-tanure@linux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-To: <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1453289245-2061-1-git-send-email-jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Lucas Tanure <tanure@linux.com>,
+	Shradha Shah <sshah@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:36339 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751AbcATLoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 06:44:11 -0500
+Received: by mail-lb0-f172.google.com with SMTP id oh2so3512905lbb.3
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 03:44:10 -0800 (PST)
+In-Reply-To: <1453246074-1054-1-git-send-email-tanure@linux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some platforms may provide more than one clk for the mvneta IP, for
-example Marvell BG4CT provides one clk for the mac core, and one
-clk for the AXI bus logic. Obviously this bus clk also need to
-be enabled. This patch adds this optional "bus" clk support.
+Hello.
 
-Signed-off-by: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/ethernet/marvell/mvneta.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+On 1/20/2016 2:27 AM, Lucas Tanure wrote:
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 736a9ec..8b306d2 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -373,6 +373,8 @@ struct mvneta_port {
- 
- 	/* Core clock */
- 	struct clk *clk;
-+	/* AXI clock */
-+	struct clk *clk_bus;
- 	u8 mcast_count[256];
- 	u16 tx_ring_size;
- 	u16 rx_ring_size;
-@@ -3615,6 +3617,10 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	clk_prepare_enable(pp->clk);
- 
-+	pp->clk_bus = devm_clk_get(&pdev->dev, "bus");
-+	if (!IS_ERR(pp->clk_bus))
-+		clk_prepare_enable(pp->clk_bus);
-+
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	pp->base = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(pp->base)) {
-@@ -3726,6 +3732,7 @@ err_free_stats:
- err_free_ports:
- 	free_percpu(pp->ports);
- err_clk:
-+	clk_disable_unprepare(pp->clk_bus);
- 	clk_disable_unprepare(pp->clk);
- err_put_phy_node:
- 	of_node_put(phy_node);
-@@ -3743,6 +3750,7 @@ static int mvneta_remove(struct platform_device *pdev)
- 	struct mvneta_port *pp = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
-+	clk_disable_unprepare(pp->clk_bus);
- 	clk_disable_unprepare(pp->clk);
- 	free_percpu(pp->ports);
- 	free_percpu(pp->stats);
--- 
-2.7.0.rc3
+> Use eth_zero_addr to assign the zero address to the given address array
+> instead of memset when second argument is address of zero.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    What address? memset() takes just 1 address. :-)
+
+> Signed-off-by: Lucas Tanure <tanure@linux.com>
+> ---
+>   drivers/net/ethernet/sfc/ef10_sriov.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
+> index 3c17f27..10f60db 100644
+> --- a/drivers/net/ethernet/sfc/ef10_sriov.c
+> +++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+> @@ -527,7 +527,7 @@ int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf_i, u8 *mac)
+>   	return 0;
+>
+>   fail:
+> -	memset(vf->mac, 0, ETH_ALEN);
+> +	eth_zero_addr(vf->mac);
+>   	return rc;
+>   }
+>
+
+MBR, Sergei
