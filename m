@@ -1,59 +1,138 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH v2 4/4] net: mvneta: update clocks property and document
- additional clock-names
-Date: Wed, 20 Jan 2016 17:20:22 +0800
-Message-ID: <1453281622-7829-5-git-send-email-jszhang@marvell.com>
-References: <1453281622-7829-1-git-send-email-jszhang@marvell.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net: WARNING in dccp_set_state
+Date: Wed, 20 Jan 2016 10:29:41 +0100
+Message-ID: <CACT4Y+YNWDJCFoTawcS7LvxP1WOsz56nZGqZZzLGhAV7KM63xg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, devicetree@vger.kernel.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, sebastian.hesselbarth@gmail.com
-To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>,
- <mw@semihalf.com>, <robh+dt@kernel.org>, <pawel.moll@arm.com>,
- <mark.rutland@arm.com>, <ijc+devicetree@hellion.org.uk>,
- <galak@codeaurora.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1453281622-7829-1-git-send-email-jszhang@marvell.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	"David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
- Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+Hello,
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-index aeea50c..1c913d4 100644
---- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
-@@ -6,12 +6,17 @@ Required properties:
- - interrupts: interrupt for the device
- - phy: See ethernet.txt file in the same directory.
- - phy-mode: See ethernet.txt file in the same directory
--- clocks: a pointer to the reference clock for this device.
-+- clocks: List of clocks for this device. At least one clock is
-+  mandatory for the core clock. If several clocks are given, then the
-+  clock-names property must be used to identify them.
- 
- Optional properties:
- - tx-csum-limit: maximum mtu supported by port that allow TX checksum.
-   Value is presented in bytes. If not used, by default 1600B is set for
-   "marvell,armada-370-neta" and 9800B for others.
-+- clock-names: List of names corresponding to clocks property; shall be
-+  "core" for CORE clock and "axi" for the optional AXI clock.
-+
- 
- Example:
- 
--- 
-2.7.0.rc3
+The following program triggers WARNING in dccp_set_state.
+Also note the subsequent print:
+dccp_close: ABORT with 4294967274 bytes unread
+also looks quite suspicious (underflow?).
+
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 6889 at net/dccp/proto.c:83 dccp_set_state+0x247/0x420()
+Modules linked in:
+CPU: 0 PID: 6889 Comm: syz-executor Not tainted 4.4.0+ #273
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff880033ff7818 ffffffff8299464d 0000000000000000
+ ffff8800341e17c0 ffffffff86f496a0 ffff880033ff7858 ffffffff81352089
+ ffffffff85d1b9b7 ffffffff86f496a0 0000000000000053 0000000000000007
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff8299464d>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
+ [<ffffffff81352089>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:482
+ [<ffffffff813522b9>] warn_slowpath_null+0x29/0x30 kernel/panic.c:515
+ [<ffffffff85d1b9b7>] dccp_set_state+0x247/0x420 net/dccp/proto.c:83
+ [<ffffffff85d1f30b>] dccp_close+0x52b/0xb50 net/dccp/proto.c:1016
+ [<ffffffff856147ef>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:416
+ [<ffffffff8573a5f0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:409
+ [<ffffffff851c1bff>] sock_release+0x8f/0x1d0 net/socket.c:572
+ [<ffffffff851c1d56>] sock_close+0x16/0x20 net/socket.c:1023
+ [<ffffffff817b36f6>] __fput+0x236/0x780 fs/file_table.c:208
+ [<ffffffff817b3cc5>] ____fput+0x15/0x20 fs/file_table.c:244
+ [<ffffffff813af2b0>] task_work_run+0x170/0x210 kernel/task_work.c:115
+ [<     inline     >] exit_task_work include/linux/task_work.h:21
+ [<ffffffff8135b275>] do_exit+0x8b5/0x2c60 kernel/exit.c:750
+ [<ffffffff8135d798>] do_group_exit+0x108/0x330 kernel/exit.c:880
+ [<ffffffff813806e4>] get_signal+0x5e4/0x14f0 kernel/signal.c:2307
+ [<ffffffff811a2db3>] do_signal+0x83/0x1c90 arch/x86/kernel/signal.c:712
+ [<ffffffff81006685>] exit_to_usermode_loop+0x1a5/0x210
+arch/x86/entry/common.c:247
+ [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:282
+ [<ffffffff810084ea>] syscall_return_slowpath+0x2ba/0x340
+arch/x86/entry/common.c:344
+ [<ffffffff86330662>] int_ret_from_sys_call+0x25/0x9f
+arch/x86/entry/entry_64.S:281
+---[ end trace 99891e826168782f ]---
+dccp_close: ABORT with 4294967274 bytes unread
+------------[ cut here ]------------
+
+// autogenerated by syzkaller (http://github.com/google/syzkaller)
+#include <pthread.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+long r[15];
+
+void* thr(void* arg)
+{
+  switch ((long)arg) {
+  case 0:
+    r[0] = syscall(SYS_mmap, 0x20000000ul, 0x600000ul, 0x3ul, 0x32ul,
+                   0xfffffffffffffffful, 0x0ul);
+    break;
+  case 1:
+    r[1] = syscall(SYS_socket, 0xaul, 0x80806ul, 0x0ul, 0, 0, 0);
+    break;
+  case 2:
+    memcpy((void*)0x20000fca,
+           "\x0a\x00\x33\xe2\x8c\xb2\x7f\x3e\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x30\x8c\x2d\x7b"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+           "\x00\x00",
+           128);
+    r[3] = syscall(SYS_connect, r[1], 0x20000fcaul, 0x80ul, 0, 0, 0);
+    break;
+  case 3:
+    *(uint16_t*)0x20004dae = (uint16_t)0x0;
+    *(uint8_t*)0x20004db0 = (uint8_t)0x0;
+    *(uint32_t*)0x20004db2 = (uint32_t)0x9;
+    r[7] = syscall(SYS_connect, r[1], 0x20004da6ul, 0x7ul, 0, 0, 0);
+    break;
+  case 4:
+    *(uint16_t*)0x2053e22b = (uint16_t)0x1;
+    *(uint64_t*)0x2053e233 = (uint64_t)0x2053eff8;
+    *(uint16_t*)0x2053eff8 = (uint16_t)0x6;
+    *(uint8_t*)0x2053effa = (uint8_t)0x0;
+    *(uint8_t*)0x2053effb = (uint8_t)0x101;
+    *(uint32_t*)0x2053effc = (uint32_t)0x6;
+    r[14] = syscall(SYS_setsockopt, r[1], 0x1ul, 0x1aul, 0x2053e22bul,
+                    0x10ul, 0);
+    break;
+  }
+  return 0;
+}
+
+int main()
+{
+  long i;
+  pthread_t th[5];
+
+  memset(r, -1, sizeof(r));
+  for (i = 0; i < 5; i++) {
+    pthread_create(&th[i], 0, thr, (void*)i);
+    usleep(10000);
+  }
+  for (i = 0; i < 5; i++) {
+    pthread_create(&th[i], 0, thr, (void*)i);
+    if (i % 2 == 0)
+      usleep(10000);
+  }
+  usleep(100000);
+  return 0;
+}
+
+On commit a200dcb34693084e56496960d855afdeaaf9578f
