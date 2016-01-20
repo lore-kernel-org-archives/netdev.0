@@ -1,53 +1,68 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net 0/3] net: phy: Finally fix PHY_IGNORE_INTERRUPTS
-Date: Wed, 20 Jan 2016 22:20:04 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40499B7D@CHN-SV-EXMX02.mchp-main.com>
-References: <1453174388-26752-1-git-send-email-f.fainelli@gmail.com>
- <20160119.143312.940032083335697894.davem@davemloft.net>
- <9235D6609DB808459E95D78E17F2E43D40499B30@CHN-SV-EXMX02.mchp-main.com>
- <569FFC4E.20803@gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: Optimizing instruction-cache, more packets at each stage
+Date: Thu, 21 Jan 2016 00:20:24 +0200
+Message-ID: <CAJ3xEMiOAdu7ghRoc6ZEMG78Z9xyh1M=5Egc3ydh+97bT3_9fw@mail.gmail.com>
+References: <20160115142223.1e92be75@redhat.com>
+	<20160115.154721.458450438918273509.davem@davemloft.net>
+	<20160118112703.6eac71ca@redhat.com>
+	<20160118.112455.212265265553435873.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <andrew@lunn.ch>,
-	<sergei.shtylyov@cogentembedded.com>
-To: <f.fainelli@gmail.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	borkmann@iogearbox.net, marek@cloudflare.com,
+	hannes@stressinduktion.org, Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirva@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:26504 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965126AbcATWUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:20:06 -0500
-In-Reply-To: <569FFC4E.20803@gmail.com>
-Content-Language: en-US
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:33387 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752377AbcATWUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:20:25 -0500
+Received: by mail-ig0-f182.google.com with SMTP id z14so111104476igp.0
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 14:20:25 -0800 (PST)
+In-Reply-To: <20160118.112455.212265265553435873.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RmxvcmlhbiAmIERhdmlkLA0KDQpJJ20gZXhwZXJpZW5jaW5nIG1pc2JlaGF2aW9yIGFmdGVyIHJl
-c3RhcnQgc3lzdGVtLg0KQ2FuIHlvdSB3YWl0IGFwcGx5aW5nIHRoZSBwYXRjaD8NCg0KU29ycnkg
-YWJvdXQgaXQuDQpXb29qdW5nDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJv
-bTogRmxvcmlhbiBGYWluZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPiBTZW50
-OiBXZWRuZXNkYXksIEphbnVhcnkgMjAsIDIwMTYgNDozMCBQTQ0KPiBUbzogV29vanVuZyBIdWgg
-LSBDMjE2OTk7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmc7IGFuZHJld0BsdW5uLmNoOw0KPiBzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29t
-DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IDAvM10gbmV0OiBwaHk6IEZpbmFsbHkgZml4IFBI
-WV9JR05PUkVfSU5URVJSVVBUUw0KPiANCj4gTGUgMjAvMDEvMjAxNiAxMzoyMCwgV29vanVuZy5I
-dWhAbWljcm9jaGlwLmNvbSBhIMOpY3JpdCA6DQo+ID4+PiBUYXJnZXR0aW5nIHRoZSAibmV0IiB0
-cmVlIHNpbmNlIHRoZXNlIGFyZSBidWdmaXhlcywgYnV0IEkgd291bGQgbGlrZQ0KPiA+Pj4gV29v
-anVuIGFuZCBBbmRyZXcgdG8gdGFrZSBhIGxvb2sgYW5kIHRlc3QgdGhhdCBvbiB0aGVpciByZXNw
-ZWN0aXZlDQo+ID4+PiBIVyBzZXR1cHMgYXMgd2VsbC4NCj4gPj4NCj4gPj4gT2sgSSdsbCB3YWl0
-IGZvciBXb29qdW4gYW5kIEFuZHJldyB0byBnaXZlIGZlZWRiYWNrLg0KPiA+DQo+ID4gVGhpcyBw
-YXRjaCBmaXhlcyBwZXJpb2RpYyBwaHkgcmVhZF9zdGF0dXMgYWNjZXNzIHdoZW4gcGh5IGlzIGNv
-bmZpZ3VyZWQgYXMNCj4gUEhZX0lHTk9SRV9JTlRFUlJVUFRTLg0KPiANCj4gR3JlYXQsIHRoYW5r
-cyBmb3IgdGhlIGZlZWRiYWNrIQ0KPiANCj4gPiBUZXN0ZWQgYW5kIGNvbmZpcm1lZCB3aXRoIExB
-Tjc4eHggVVNCLXRvLUV0aGVybmV0IGRyaXZlciBleGNlcHQNCj4gZm9sbG93aW5nIGNoZWNrcGF0
-Y2gucGwgd2FybmluZ3MuDQo+ID4NCj4gPiBXQVJOSU5HOiBsaW5lIG92ZXIgODAgY2hhcmFjdGVy
-cw0KPiA+ICM1NDogRklMRTogZHJpdmVycy9uZXQvcGh5L3BoeS5jOjEwMDg6DQo+ID4gKwkJcXVl
-dWVfZGVsYXllZF93b3JrKHN5c3RlbV9wb3dlcl9lZmZpY2llbnRfd3EsDQo+ICZwaHlkZXYtPnN0
-YXRlX3F1ZXVlLA0KPiANCj4gVGhpcyBvbmUgaXMgZGVmaW5pdGl2ZWx5IGFkZGVkIGJ5IHRoZSBw
-YXRjaA0KPiANCj4gPg0KPiA+IFdBUk5JTkc6IENvbXBhcmlzb25zIHNob3VsZCBwbGFjZSB0aGUg
-Y29uc3RhbnQgb24gdGhlIHJpZ2h0IHNpZGUgb2YgdGhlDQo+IHRlc3QNCj4gPiAjNjg6IEZJTEU6
-IGRyaXZlcnMvbmV0L3BoeS9waHkuYzo3MTQ6DQo+ID4gKwkJaWYgKFBIWV9IQUxURUQgIT0gcGh5
-ZGV2LT5zdGF0ZSAmJg0KPiA+DQo+IA0KPiBUaGlzIG9uZSBpcyBhbiBleGlzdGluZyB3YXJuaW5n
-Lg0KPiANCj4gRGF2aWQsIGxldCBtZSBrbm93IGlmIHlvdSBjb25zaWRlciB0aGUgb3ZlciA4MCBj
-b2x1bW5zIGlzc3VlIHdvcnRoIGENCj4gcmVzdWJtaXNzaW9uIG9yIG5vdCwgZWl0aGVyIHdheSBp
-cyBmaW5lIHdpdGggbWUuDQo+IA0KPiBUaGFua3MhDQo+IC0tDQo+IEZsb3JpYW4NCg==
+On Mon, Jan 18, 2016 at 6:24 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> Date: Mon, 18 Jan 2016 11:27:03 +0100
+>
+>> Down in the driver layer (RX), I think it is too early to categorize
+>> Related/Unrelated SKB's, because we want to delay touching packet-data
+>> as long as possible (waiting for the prefetcher to get data into
+>> cache).
+>
+> You don't need to touch the headers in order to have a good idea
+> as to whether there is a strong possibility packets are related
+> or not.
+>
+> We have the hash available.
+
+Dave, I assume you refer to the RSS hash result which is written by
+NIC HWs to the completion descriptor and then fed to the stack by the
+driver calling skb_set_hash(.)? Well, this can be taken even further.
+
+Suppose a the NIC can be programmed by the kernel to provide a unique
+flow tag on the completion descriptor per a given 5/12 tuple which
+represents a TCP (or other logical) stream a higher level in the stack
+is identifying to be in progress, and the driver plants that in
+skb->mark before calling into the stack.
+
+I guess this could yield nice speed up for the GRO stack -- matching
+based on single 32 bit value instead of per protocol (eth, vlan, ip,
+tcp) checks [1] - or hint which packets from the current window of
+"ready" completion descriptor could be grouped together for upper
+processing?
+
+Or.
+
+[1] some details to complete (...) here, on the last protocol hop we
+do need to verify that it would be correct to stick the incoming
+packet to the existing pending packet of this stream
