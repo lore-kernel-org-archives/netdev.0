@@ -1,85 +1,111 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2 5/5] net: can: ifi: Add IFI CANFD IP support
-Date: Wed, 20 Jan 2016 11:54:21 +0100
-Message-ID: <569F675D.1070903@pengutronix.de>
-References: <1452538083-7331-5-git-send-email-marex@denx.de>
- <1452643156-7291-1-git-send-email-marex@denx.de>
- <569F63C4.4070708@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="HeopCKq71ngrlGWPgc8B1cp8ThDlonlej"
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Marek Vasut <marex@denx.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:55874 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934706AbcATKye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 05:54:34 -0500
-In-Reply-To: <569F63C4.4070708@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/4] net: mvneta: mmc: get optional axi clk
+Date: Wed, 20 Jan 2016 12:03:03 +0100
+Message-ID: <569F6967.9040302@gmail.com>
+References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
+ <1453277183-5412-4-git-send-email-jszhang@marvell.com>
+ <1525e5fba70.2764.107cef0f820c2f5d7b7f41463071c310@gmail.com>
+ <20160120174223.53ccc36b@xhacker>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160120174223.53ccc36b@xhacker>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---HeopCKq71ngrlGWPgc8B1cp8ThDlonlej
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On 01/20/2016 10:42 AM, Jisheng Zhang wrote:
+> On Wed, 20 Jan 2016 10:31:18 +0100 Sebastian Hesselbarth  wrote:
+>
+>> On January 20, 2016 9:15:22 AM Jisheng Zhang wrote:
+>>
+>>> Some platforms may provide more than one clk for the mvneta IP, for
+>>> example Marvell BG4CT provides "core" clk for the mac core, and
+>>> "axi" clk for the AXI bus logic. Obviously this "axi" clk also need to
+>>> be enabled. This patch adds this optional "axi" clk support.
+>>
+>> Jisheng,
+>>
+>> although I do not expect mvneta to appear on a non-AXI bus
+>> anytime soon, how about naming the clock "bus" instead?
+>
+> Good question. IIRC, this IP expects AXI bus, but I'll check with HW people.
 
-On 01/20/2016 11:39 AM, Marc Kleine-Budde wrote:
->> +/* IFI CANFD private data structure */
->> +struct ifi_canfd_priv {
->> +	struct can_priv		can;	/* must be the first member */
->> +	struct napi_struct	napi;
->> +	struct net_device	*ndev;
->> +	struct device		*device;
->=20
-> Nitpick: This variable is write only, correct? I can fix this while
-> applying the patch.
->=20
->> +	void __iomem		*base;
->> +};
->=20
-> Otherweise looks good.
+Actually, I am quite sure the current IP requires AXI. But my comment
+was more about to make the binding a little bit more flexible to
+_future_ variants/SoCs we may stumble upon.
 
-Until compiling:
+Naming the clock "bus" or "dma" will work for the current _and_ future
+IPs, while "axi" may not.
 
-> drivers/net/can/ifi_canfd/ifi_canfd.c:486:40: warning: cast truncates b=
-its from constant value (ffffffff7ffffffd becomes 7ffffffd)
-> drivers/net/can/ifi_canfd/ifi_canfd.c:640:9: warning: cast truncates bi=
-ts from constant value (ffffffff7fffffff becomes 7fffffff)
-> drivers/net/can/ifi_canfd/ifi_canfd.c:676:9: warning: cast truncates bi=
-ts from constant value (ffffffff7fffffff becomes 7fffffff)
+Sebastian
 
-target is ARMv5 with gcc version 4.9.2, compiled with C=3D2 using sparse
-v0.5.0.
-
-regards,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-
---HeopCKq71ngrlGWPgc8B1cp8ThDlonlej
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWn2dfAAoJEP5prqPJtc/Hd7UH/2mIkGlM4dNtvNAvM4pMWQem
-gxzD32cuYHPEcgsu7cP8IFoJAG21b+dh3p/HKivkIMvlyocN8ddb8AhfOhprW1gp
-V8pXgd2HUvk+J7tEr3qwelNndNspmZt4Zw3YIAbWYq52f6JzkCoyvPa7JISp//Q/
-WWB6M/QDTslNXNRg45sZPAIZckGjiBDx4KH2lMFBjVFXnLnwL/2sZ+CRoqyxapGu
-V5G7fDbKTO60y/4wJj6syU/DxZUmqVAnNF0YBofwZ91Iv081m4+U8ibqRDNNumRr
-w3dcLnfSkbo4OTe30C3P6bpJHWDBXS7K1l6Ah3P/yTEeMTGxvcsZzKHPgUvm93s=
-=2qI0
------END PGP SIGNATURE-----
-
---HeopCKq71ngrlGWPgc8B1cp8ThDlonlej--
+>>
+>> If you know the clock is only required for bus master DMA but
+>> not for register access, "dma" would be an even better name.
+>>
+>> Sebastian
+>>
+>>
+>>> Signed-off-by: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+>>> ---
+>>>   drivers/net/ethernet/marvell/mvneta.c | 8 ++++++++
+>>>   1 file changed, 8 insertions(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/marvell/mvneta.c
+>>> b/drivers/net/ethernet/marvell/mvneta.c
+>>> index aca0a73..6bb709a 100644
+>>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>>> @@ -373,6 +373,8 @@ struct mvneta_port {
+>>>
+>>>   	/* Core clock */
+>>>   	struct clk *clk;
+>>> +	/* AXI clock */
+>>> +	struct clk *clk_axi;
+>>>   	u8 mcast_count[256];
+>>>   	u16 tx_ring_size;
+>>>   	u16 rx_ring_size;
+>>> @@ -3615,6 +3617,10 @@ static int mvneta_probe(struct platform_device *pdev)
+>>>
+>>>   	clk_prepare_enable(pp->clk);
+>>>
+>>> +	pp->clk_axi = devm_clk_get(&pdev->dev, "axi");
+>>> +	if (!IS_ERR(pp->clk_axi))
+>>> +		clk_prepare_enable(pp->clk_axi);
+>>> +
+>>>   	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>>>   	pp->base = devm_ioremap_resource(&pdev->dev, res);
+>>>   	if (IS_ERR(pp->base)) {
+>>> @@ -3727,6 +3733,7 @@ err_free_ports:
+>>>   	free_percpu(pp->ports);
+>>>   err_clk:
+>>>   	clk_disable_unprepare(pp->clk);
+>>> +	clk_disable_unprepare(pp->clk_axi);
+>>>   err_put_phy_node:
+>>>   	of_node_put(phy_node);
+>>>   err_free_irq:
+>>> @@ -3744,6 +3751,7 @@ static int mvneta_remove(struct platform_device *pdev)
+>>>
+>>>   	unregister_netdev(dev);
+>>>   	clk_disable_unprepare(pp->clk);
+>>> +	clk_disable_unprepare(pp->clk_axi);
+>>>   	free_percpu(pp->ports);
+>>>   	free_percpu(pp->stats);
+>>>   	irq_dispose_mapping(dev->irq);
+>>> --
+>>> 2.7.0.rc3
+>>>
+>>
+>>
+>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
