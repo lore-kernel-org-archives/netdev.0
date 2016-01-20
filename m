@@ -1,103 +1,50 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v3)
-Date: Wed, 20 Jan 2016 15:54:01 +0800
-Message-ID: <569F3D19.8020307@gmail.com>
-References: <1453267933-25381-1-git-send-email-wen.gang.wang@oracle.com>
- <569F2806.70608@gmail.com> <569F397B.7010808@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jay.vosburgh@canonical.com
-To: Wengang Wang <wen.gang.wang@oracle.com>, netdev@vger.kernel.org
+From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Subject: [PATCH RESEND v2] ixgbe: on recv increment rx.ring->stats.yields
+Date: Wed, 20 Jan 2016 11:08:44 +0300
+Message-ID: <1453277324-6180-1-git-send-email-ptikhomirov@virtuozzo.com>
+Cc: Andrew Vagin <avagin@parallels.com>,
+	Konstantin Khorenko <khorenko@virtuozzo.com>,
+	<devel@openvz.org>
+To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35810 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913AbcATHxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 02:53:34 -0500
-Received: by mail-pf0-f177.google.com with SMTP id 65so590292pff.2
-        for <netdev@vger.kernel.org>; Tue, 19 Jan 2016 23:53:34 -0800 (PST)
-In-Reply-To: <569F397B.7010808@oracle.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:10411 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933521AbcATIJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 03:09:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2016 03:38 PM, Wengang Wang wrote:
->
->
-> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8820=E6=97=A5 14:24, zhuyj =E5=86=99=E9=
-=81=93:
->> On 01/20/2016 01:32 PM, Wengang Wang wrote:
->>> In a bonding setting, we determines fragment size according to MTU =
-and
->>> PMTU associated to the bonding master. If the slave finds the fragm=
-ent
->>> size is too big, it drops the fragment and calls ip_rt_update_pmtu(=
-),
->>> passing _skb_ and _pmtu_, trying to update the path MTU.
->>> Problem is that the target device that function ip_rt_update_pmtu=20
->>> actually
->>> tries to update is the slave (skb->dev), not the master. Thus since=
- no
->>> PMTU change happens on master, the fragment size for later packets=20
->>> doesn't
->>> change so all later fragments/packets are dropped too.
->>>
->>> The fix is letting build_skb_flow_key() take care of the transition=
- of
->>> device index from bonding slave to the master. That makes the maste=
-r=20
->>> become
->>> the target device that ip_rt_update_pmtu tries to update PMTU to.
->>>
->>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->>> ---
->>>   net/ipv4/route.c | 13 ++++++++++++-
->>>   1 file changed, 12 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->>> index 85f184e..c59fb0d 100644
->>> --- a/net/ipv4/route.c
->>> +++ b/net/ipv4/route.c
->>> @@ -523,10 +523,21 @@ static void build_skb_flow_key(struct flowi4=20
->>> *fl4, const struct sk_buff *skb,
->>>                      const struct sock *sk)
->>>   {
->>>       const struct iphdr *iph =3D ip_hdr(skb);
->>> -    int oif =3D skb->dev->ifindex;
->>> +    struct net_device *master =3D NULL;
->>>       u8 tos =3D RT_TOS(iph->tos);
->>>       u8 prot =3D iph->protocol;
->>>       u32 mark =3D skb->mark;
->>> +    int oif;
->>> +
->>> +    if (skb->dev->flags & IFF_SLAVE) {
->>> +        rtnl_lock();
->>> +        master =3D netdev_master_upper_dev_get(skb->dev);
->>> +        rtnl_unlock();
->> update_pmtu is called very frequently. Is it appropriate to use=20
->> rtnl_lock here?
-> By "very frequently", how frequently it is expected? And what=20
-> situation can cause that?
-> For my case, the update_pmtu is called only once.
-ip_tunnel_xmit
+It seem to be non intentionaly changed to tx in
+commit adc810900a70 ("ixgbe: Refactor busy poll socket code to address
+multiple issues")
 
-Zhu Yanjun
+Lock is taken from ixgbe_low_latency_recv, and there under this
+lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
+tx counter.
 
->
-> thanks,
-> wengang
->
->> That is, rtnl_lock is called frequently. Maybe other functions have=20
->> little chance to call rtnl_lock.
->>
->> Best Regards!
->> Zhu Yanjun
->>> +    }
->>> +    if (master)
->>> +        oif =3D master->ifindex;
->>> +    else
->>> +        oif =3D skb->dev->ifindex;
->>>         __build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
->>>   }
->>
->
+Yield stats can be shown through ethtool:
+ethtool -S enp129s0 | grep yield
+
+v2: follow commit citing style
+
+Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 1d21745..7656d46 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -451,7 +451,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
+ 				IXGBE_QV_STATE_POLL);
+ #ifdef BP_EXTENDED_STATS
+ 	if (rc != IXGBE_QV_STATE_IDLE)
+-		q_vector->tx.ring->stats.yields++;
++		q_vector->rx.ring->stats.yields++;
+ #endif
+ 	return rc == IXGBE_QV_STATE_IDLE;
+ }
+-- 
+1.9.3
