@@ -1,8 +1,7 @@
 From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH v3 1/4] net: mvneta: sort the headers in alphabetic order
-Date: Wed, 20 Jan 2016 19:27:22 +0800
-Message-ID: <1453289245-2061-2-git-send-email-jszhang@marvell.com>
-References: <1453289245-2061-1-git-send-email-jszhang@marvell.com>
+Subject: [PATCH v3 0/4] net: mvneta: support more than one clk
+Date: Wed, 20 Jan 2016 19:27:21 +0800
+Message-ID: <1453289245-2061-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,7 +13,6 @@ To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>,
  <mark.rutland@arm.com>, <ijc+devicetree@hellion.org.uk>,
  <galak@codeaurora.org>, <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1453289245-2061-1-git-send-email-jszhang@marvell.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -26,60 +24,35 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Sorting the headers in alphabetic order will help to reduce the conflict
-when adding new headers in the future.
+Some platforms may provide more than one clk for the mvneta IP, for
+example Marvell BG4CT provides "core" clk for the mac core, and "axi"
+clk for the AXI bus logic.
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+This series tries to addess the "more than one clk" issue. Note: to
+support BG4CT, we have lots of refactor work to do, eg. BG4CT doesn't
+have mbus concept etc.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index fabc8df..8e85a53 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -11,28 +11,28 @@
-  * warranty of any kind, whether express or implied.
-  */
- 
--#include <linux/kernel.h>
--#include <linux/netdevice.h>
-+#include <linux/clk.h>
-+#include <linux/cpu.h>
- #include <linux/etherdevice.h>
--#include <linux/platform_device.h>
--#include <linux/skbuff.h>
-+#include <linux/if_vlan.h>
- #include <linux/inetdevice.h>
--#include <linux/mbus.h>
--#include <linux/module.h>
- #include <linux/interrupt.h>
--#include <linux/if_vlan.h>
--#include <net/ip.h>
--#include <net/ipv6.h>
- #include <linux/io.h>
--#include <net/tso.h>
-+#include <linux/kernel.h>
-+#include <linux/mbus.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
- #include <linux/of.h>
-+#include <linux/of_address.h>
- #include <linux/of_irq.h>
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
--#include <linux/of_address.h>
- #include <linux/phy.h>
--#include <linux/clk.h>
--#include <linux/cpu.h>
-+#include <linux/platform_device.h>
-+#include <linux/skbuff.h>
-+#include <net/ip.h>
-+#include <net/ipv6.h>
-+#include <net/tso.h>
- 
- /* Registers */
- #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
+Since v2:
+ - Name the optional clock as "bus", which is a bit more flexible.
+
+Since v1:
+ - Add Thomas Acks to patch1 and patch2.
+ - make sure the headers are really sorted (some headers are still
+   unsorted in v1).
+ - disable axi clk before disabling core clk, Thank Thomas.
+ - update dt binding as Thomas suggested.
+
+
+Jisheng Zhang (4):
+  net: mvneta: sort the headers in alphabetic order
+  net: mvneta: Try to get named core clock first
+  net: mvneta: get optional bus clk
+  net: mvneta: update clocks property and document additional
+    clock-names
+
+ .../bindings/net/marvell-armada-370-neta.txt       |  7 +++-
+ drivers/net/ethernet/marvell/mvneta.c              | 38 ++++++++++++++--------
+ 2 files changed, 30 insertions(+), 15 deletions(-)
+
 -- 
 2.7.0.rc3
