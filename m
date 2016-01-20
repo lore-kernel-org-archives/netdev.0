@@ -1,59 +1,45 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH] net: mvneta: fix trivial cut-off issue in mvneta_ethtool_update_stats
-Date: Wed, 20 Jan 2016 16:36:25 +0800
-Message-ID: <1453278985-6433-1-git-send-email-jszhang@marvell.com>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 1/4] net: mvneta: sort the headers in alphabetic order
+Date: Wed, 20 Jan 2016 09:46:01 +0100
+Message-ID: <20160120094601.3d562bc6@free-electrons.com>
+References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
+	<1453277183-5412-2-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <rmk+kernel@arm.linux.org.uk>,
-	Jisheng Zhang <jszhang@marvell.com>
-To: <thomas.petazzoni@free-electrons.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453277183-5412-2-git-send-email-jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When s->type is T_REG_64, the high 32bits are lost in val. This patch
-fixes this trivial issue.
+Dear Jisheng Zhang,
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-Fixes: 9b0cdefa4cd5 ("net: mvneta: add ethtool statistics")
----
- drivers/net/ethernet/marvell/mvneta.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+On Wed, 20 Jan 2016 16:06:20 +0800, Jisheng Zhang wrote:
+> Sorting the headers in alphabetic order will help to reduce the conflict
+> when adding new headers in the future.
+> 
+> Signed-off-by: Jisheng Zhang <jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 24 ++++++++++++------------
+>  1 file changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 6bb709a..ea3b034 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3244,26 +3244,25 @@ static void mvneta_ethtool_update_stats(struct mvneta_port *pp)
- 	const struct mvneta_statistic *s;
- 	void __iomem *base = pp->base;
- 	u32 high, low, val;
-+	u64 val64;
- 	int i;
- 
- 	for (i = 0, s = mvneta_statistics;
- 	     s < mvneta_statistics + ARRAY_SIZE(mvneta_statistics);
- 	     s++, i++) {
--		val = 0;
--
- 		switch (s->type) {
- 		case T_REG_32:
- 			val = readl_relaxed(base + s->offset);
-+			pp->ethtool_stats[i] += val;
- 			break;
- 		case T_REG_64:
- 			/* Docs say to read low 32-bit then high */
- 			low = readl_relaxed(base + s->offset);
- 			high = readl_relaxed(base + s->offset + 4);
--			val = (u64)high << 32 | low;
-+			val64 = (u64)high << 32 | low;
-+			pp->ethtool_stats[i] += val64;
- 			break;
- 		}
--
--		pp->ethtool_stats[i] += val;
- 	}
- }
- 
+Acked-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+
+Thanks,
+
+Thomas
 -- 
-2.7.0.rc3
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
