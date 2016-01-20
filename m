@@ -1,41 +1,60 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH V3 5/5] net: can: ifi: Add IFI CANFD IP support
-Date: Wed, 20 Jan 2016 16:40:27 +0100
-Message-ID: <201601201640.27809.marex@denx.de>
-References: <569F944A.4090201@pengutronix.de> <201601201603.40080.marex@denx.de> <569FA33C.5060805@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: "Marc Kleine-Budde" <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:45078 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751367AbcATPk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 10:40:29 -0500
-In-Reply-To: <569FA33C.5060805@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH v6 0/3] can: sja1000: support for technologic version
+Date: Wed, 20 Jan 2016 16:43:28 +0100
+Message-ID: <1453304611-31207-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, January 20, 2016 at 04:09:48 PM, Marc Kleine-Budde wrote:
-> On 01/20/2016 04:03 PM, Marek Vasut wrote:
-> >> Doh! Right, let's try this:
-> >>>> -#define IFI_CANFD_INTERRUPT_ERROR_WARNING      BIT(1)
-> >>>> +#define IFI_CANFD_INTERRUPT_ERROR_WARNING      ((u32)BIT(1))
-> >>> 
-> >>> I'd be happy to be proven wrong though.
-> >> 
-> >> /me too
-> > 
-> > I think that will do the trick too. Do you want a V4 patch or will you
-> > fix it?
-> 
-> I'll fix this.
+This is Damien Riegel's series with minor changes.
 
-Thanks :)
+regards,
+Marc
 
-Best regards,
-Marek Vasut
+---
+
+This patchset introduces support for the technologic version of the
+SJA1000. Access to IP's registers are proxied through a window,
+requiring two bus accesses to read or write a register. These accesses
+must be protected by a spinlock to prevent race conditions. Currently,
+there is no easy way to allocate and initialize this spinlock.
+
+SJA1000 already provides a way to allocate private data, but
+sja1000_platform.c makes no use of it.
+
+Patch 1 adds the capability to allocate and initialize private data on a
+per-compatible basis in sja1000_platform.c.
+
+Patch 2 updates device tree documentation to add the technologic
+version.
+
+Patch 3 updates the driver to implement the technologic version
+
+Changes in v6:
+ - fix static const struct of_device_id sp_of_table
+
+Changes in v5:
+ - remove empty "static struct sja1000_of_data nxp_data", again
+ - add additional check for of_id->data
+
+Changes in v4:
+ - add sp_ prefix to technologic functions
+ - add empty "static struct sja1000_of_data nxp_data"
+ - make "struct sja1000_of_data technologic_data" static
+ - get rid of "?" operator in sp_probe()
+
+Changes in v3:
+ - moved sp_of_table above sp_probe as it is used in this function
+ - removed functions added in v2 and do everyting in sp_probe
+
+Changes in v2:
+ - added a patch to allocate and initialize private data
+ - changed device tree documentation
+ - added a spinlock to protect bus accesses
+ - changed sp_{read,write}_reg16 to io{read,write}16
+
+
+
+
