@@ -1,96 +1,92 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: i40e: avoid unused function warnings
-Date: Wed, 20 Jan 2016 23:28:34 +0100
-Message-ID: <8814508.SjLecHrQqA@wuerfel>
-References: <2806620.EpZqDlZTO3@wuerfel> <1453328245.2958.28.camel@intel.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: Tools for sampling ethtool --statistics
+Date: Thu, 21 Jan 2016 00:34:16 +0200
+Message-ID: <CAJ3xEMiNDU20FVG_9_r11wqMmAFiERBTYcsFmjwaSfbZ25NOiQ@mail.gmail.com>
+References: <20160120101311.5266cac6@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>,
-	intel-wired-lan@lists.osuosl.org,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	davem@davemloft.net
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453328245.2958.28.camel@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35219 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754591AbcATWeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:34:17 -0500
+Received: by mail-io0-f177.google.com with SMTP id 77so35538624ioc.2
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 14:34:17 -0800 (PST)
+In-Reply-To: <20160120101311.5266cac6@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 20 January 2016 14:17:25 Jeff Kirsher wrote:
-> On Wed, 2016-01-20 at 11:42 +0100, Arnd Bergmann wrote:
-> > The addition of the geneve tunnel offload code left a couple
-> > of functions unconditionally defined but empty whenever CONFIG_VXLAN
-> > and CONFIG_GENEVE are disabled. gcc warns about this:
-> > 
-> > i40e_main.c:7049:13: warning: 'i40e_sync_udp_filters_subtask' defined
-> > but not used [-Wunused-function]
-> > i40e_main.c:8516:13: warning: 'i40e_add_vxlan_port' defined but not
-> > used [-Wunused-function]
-> > i40e_main.c:8561:13: warning: 'i40e_del_vxlan_port' defined but not
-> > used [-Wunused-function]
-> > i40e_main.c:8596:13: warning: 'i40e_add_geneve_port' defined but not
-> > used [-Wunused-function]
-> > i40e_main.c:8643:13: warning: 'i40e_del_geneve_port' defined but not
-> > used [-Wunused-function]
-> > 
-> > This moves the #ifdef statements to the outside of the affected
-> > functions, which avoids the warnings.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Fixes: 6a899024058d ("i40e: geneve tunnel offload support")
-> > ---
-> > This is a harmless regression against v4.4, found on ARM randconfig
-> > builds
-> 
-> Thanks Arnd, I already have a patch from Eric Dumazet and Alex Duyck to
-> resolve this issue.
-> 
-> Dave- I plan on pushing the fix later today to net.
+On Wed, Jan 20, 2016 at 11:13 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Hi All,
+>
+> I wrote a small tool[1] to extract ethtool --statistics|-S, sample and
+> present it in a more human readable manor.  You might also find this
+> useful...
+>
+> https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
+>
+> The reason I wrote this script is that the mlx5 driver (Mellanox 100 Gbit/s)
+> does not report correct ifconfig stats.  It reports the HW counters,
+> not what the network stack is able to handle.  I/we obviously need the
+> stack number when working on improving the stack.
 
-Ok, thanks.
+correct && we should be fixing that ... still it's worthwhile to be
+able and see per ring stats, specially when you're dealing/optimizing
+in multi-stream env.
 
-FWIW, I have another patch for this driver that I did not yet submit
-because it's not a regression and I haven't written a proper changelog
-for it (it's in a set of 15 patches for netdev that fix harmless warnings).
+> Output examples:
+>
+> pktgen (1 core) sending ~20Mpps
+>
+> Show adapter mlx5p2 statistics (ONLY that changed!)
+> Ethtool(mlx5p2) stat:     19431694 (     19,431,694) <= frames_rx /sec
+> Ethtool(mlx5p2) stat:   1243722215 (  1,243,722,215) <= in_octets /sec
+> Ethtool(mlx5p2) stat:     19433161 (     19,433,161) <= in_ucast_pkts /sec
+> Ethtool(mlx5p2) stat:   1243746943 (  1,243,746,943) <= octets /sec
+> Ethtool(mlx5p2) stat:   1243629263 (  1,243,629,263) <= octets_received /sec
+> Ethtool(mlx5p2) stat:     19433654 (     19,433,654) <= p64octets /sec
+> Ethtool(mlx5p2) stat:     19433556 (     19,433,556) <= pkts /sec
+> Ethtool(mlx5p2) stat:      1815546 (      1,815,546) <= rx3_packets /sec
+> Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_bytes /sec
+> Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_csum_good /sec
+> Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_packets /sec
+> Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_unicast_bytes /sec
+> Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_unicast_packets /sec
 
-Do you have one for the warning below as well? I could not come up
-with a better way than adding a bogus initialization, but maybe
-there is one.
+was expecting to see tx_XXX stats, something wrong here?
 
-	Arnd
 
->From d89be3f0f932a71dfb5480ee396db514879097c4 Mon Sep 17 00:00:00 2001
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 15 Jan 2016 17:31:07 +0100
-Subject: [PATCH] net: i40e: shut up uninitialized variable warnings
+> pktgen (4 cores) sending ~50Mpps
+[...]
 
-intel/i40e/i40e_txrx.c: In function 'i40e_xmit_frame_ring':
-intel/i40e/i40e_txrx.c:2367:20: error: 'oiph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-intel/i40e/i40e_txrx.c:2317:16: note: 'oiph' was declared here
-intel/i40e/i40e_txrx.c:2367:17: error: 'oudph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-intel/i40e/i40e_txrx.c:2316:17: note: 'oudph' was declared here
+The 20M for single ring/core and 50M pps for four streams are really
+cool results. Do the scripts to get ~such results exist in your
+network testing github repo? last time I looked I wasn't sure if  the
+multi-stream case is supported.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Could you post the two commands you used for these results along with
+minimal spec of the system (CPU type/freq, special .config directives,
+anything else)?
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 720516b0e8ee..47bd8b3145a7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2313,8 +2313,8 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 	struct iphdr *this_ip_hdr;
- 	u32 network_hdr_len;
- 	u8 l4_hdr = 0;
--	struct udphdr *oudph;
--	struct iphdr *oiph;
-+	struct udphdr *oudph = NULL;
-+	struct iphdr *oiph = NULL;
- 	u32 l4_tunnel = 0;
- 
- 	if (skb->encapsulation) {
+Or.
+
+> Show adapter mlx5p2 statistics (ONLY that changed!)
+> Ethtool(mlx5p2) stat:     25710443 (     25,710,443) <= drop_events /sec
+> Ethtool(mlx5p2) stat:     51861645 (     51,861,645) <= frames_rx /sec
+> Ethtool(mlx5p2) stat:     25710502 (     25,710,502) <= in_discards /sec
+> Ethtool(mlx5p2) stat:   3319134161 (  3,319,134,161) <= in_octets /sec
+> Ethtool(mlx5p2) stat:     26150970 (     26,150,970) <= in_ucast_pkts /sec
+> Ethtool(mlx5p2) stat:   3319128053 (  3,319,128,053) <= octets /sec
+> Ethtool(mlx5p2) stat:   3319145319 (  3,319,145,319) <= octets_received /sec
+> Ethtool(mlx5p2) stat:     51861369 (     51,861,369) <= p64octets /sec
+> Ethtool(mlx5p2) stat:     51861375 (     51,861,375) <= pkts /sec
+> Ethtool(mlx5p2) stat:      1383475 (      1,383,475) <= rx3_packets /sec
+> Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_bytes /sec
+> Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_csum_good /sec
+> Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_packets /sec
+> Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_unicast_bytes /sec
+> Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_unicast_packets /sec
