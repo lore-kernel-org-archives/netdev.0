@@ -1,81 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] net: i40e: avoid unused function warnings
-Date: Wed, 20 Jan 2016 14:17:25 -0800
-Message-ID: <1453328245.2958.28.camel@intel.com>
-References: <2806620.EpZqDlZTO3@wuerfel>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net 0/3] net: phy: Finally fix PHY_IGNORE_INTERRUPTS
+Date: Wed, 20 Jan 2016 22:20:04 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40499B7D@CHN-SV-EXMX02.mchp-main.com>
+References: <1453174388-26752-1-git-send-email-f.fainelli@gmail.com>
+ <20160119.143312.940032083335697894.davem@davemloft.net>
+ <9235D6609DB808459E95D78E17F2E43D40499B30@CHN-SV-EXMX02.mchp-main.com>
+ <569FFC4E.20803@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-s5QhU1CTDo2x34oynExZ"
-Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2806620.EpZqDlZTO3@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <andrew@lunn.ch>,
+	<sergei.shtylyov@cogentembedded.com>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:26504 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965126AbcATWUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:20:06 -0500
+In-Reply-To: <569FFC4E.20803@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---=-s5QhU1CTDo2x34oynExZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2016-01-20 at 11:42 +0100, Arnd Bergmann wrote:
-> The addition of the geneve tunnel offload code left a couple
-> of functions unconditionally defined but empty whenever CONFIG_VXLAN
-> and CONFIG_GENEVE are disabled. gcc warns about this:
->=20
-> i40e_main.c:7049:13: warning: 'i40e_sync_udp_filters_subtask' defined
-> but not used [-Wunused-function]
-> i40e_main.c:8516:13: warning: 'i40e_add_vxlan_port' defined but not
-> used [-Wunused-function]
-> i40e_main.c:8561:13: warning: 'i40e_del_vxlan_port' defined but not
-> used [-Wunused-function]
-> i40e_main.c:8596:13: warning: 'i40e_add_geneve_port' defined but not
-> used [-Wunused-function]
-> i40e_main.c:8643:13: warning: 'i40e_del_geneve_port' defined but not
-> used [-Wunused-function]
->=20
-> This moves the #ifdef statements to the outside of the affected
-> functions, which avoids the warnings.
->=20
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 6a899024058d ("i40e: geneve tunnel offload support")
-> ---
-> This is a harmless regression against v4.4, found on ARM randconfig
-> builds
-
-Thanks Arnd, I already have a patch from Eric Dumazet and Alex Duyck to
-resolve this issue.
-
-Dave- I plan on pushing the fix later today to net.
---=-s5QhU1CTDo2x34oynExZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIbBAABCgAGBQJWoAd1AAoJEOVv75VaS+3OgFMP9imaog9xWoQ2bLzer5mKdVHH
-9RI9jh9UejPDyhVUuCGiAzae411t025gqyadUhEcnvxUrI+lGiMgBBe2k//9a6JD
-Zea4lDRDDdUSUBrunN/NpF8O8DVe9jiie7d7amRDoM13/Fr+p+Fizg7L+0i7a3R3
-kwc36CIl3lZxq3Ov6Zv4XFG1evfUlXWgiuPr1S3quczEWyyE+q8XjhOuzyPWV+Z4
-AWZ5AoD0B/LRLCeqyV/eSTT1/MwNgK9BfhmgBKh4Jg+NIxLYzUgQOcXPjm3p35d9
-FACL3+nxbVPHITcyB4sEjynCTScWmL4aIay9VSbVzxTtSy/2c0rtWfMsVzL8WlS8
-TL9rEFOL4zn+XYK3U0Jj5K8Y/SuMW/s8jq+IfhV6nFCzzjv12H3kL0lxpYFBWfj7
-pYKhOxybO8yLhu1oQaK9aAHjMoMf2CXzm6AWESV/eTIgaz5PIadkyHYTs1+st5IS
-UBn0ODdL+FgxtZLxTsPrHMqtMp9Jwz6v6TH5V5h9C5l5pNdExe9kSAH4xtcQPn8Q
-TpTSY4YrRM0O6u+dmnsZCNIpfGhe+uO46vQlRWhiMxZ3iMdGzeVZRBR48RbJl5fd
-oGHGFH4NZEH9TgIZ63qkXIVjTl1jFFg4pUijE4SCkGvjH0n6pD4pDFOgpLw+S2X4
-BfPy0vmqeBSIXAvADbc=
-=7EL8
------END PGP SIGNATURE-----
-
---=-s5QhU1CTDo2x34oynExZ--
+RmxvcmlhbiAmIERhdmlkLA0KDQpJJ20gZXhwZXJpZW5jaW5nIG1pc2JlaGF2aW9yIGFmdGVyIHJl
+c3RhcnQgc3lzdGVtLg0KQ2FuIHlvdSB3YWl0IGFwcGx5aW5nIHRoZSBwYXRjaD8NCg0KU29ycnkg
+YWJvdXQgaXQuDQpXb29qdW5nDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJv
+bTogRmxvcmlhbiBGYWluZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPiBTZW50
+OiBXZWRuZXNkYXksIEphbnVhcnkgMjAsIDIwMTYgNDozMCBQTQ0KPiBUbzogV29vanVuZyBIdWgg
+LSBDMjE2OTk7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IGFuZHJld0BsdW5uLmNoOw0KPiBzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29t
+DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IDAvM10gbmV0OiBwaHk6IEZpbmFsbHkgZml4IFBI
+WV9JR05PUkVfSU5URVJSVVBUUw0KPiANCj4gTGUgMjAvMDEvMjAxNiAxMzoyMCwgV29vanVuZy5I
+dWhAbWljcm9jaGlwLmNvbSBhIMOpY3JpdCA6DQo+ID4+PiBUYXJnZXR0aW5nIHRoZSAibmV0IiB0
+cmVlIHNpbmNlIHRoZXNlIGFyZSBidWdmaXhlcywgYnV0IEkgd291bGQgbGlrZQ0KPiA+Pj4gV29v
+anVuIGFuZCBBbmRyZXcgdG8gdGFrZSBhIGxvb2sgYW5kIHRlc3QgdGhhdCBvbiB0aGVpciByZXNw
+ZWN0aXZlDQo+ID4+PiBIVyBzZXR1cHMgYXMgd2VsbC4NCj4gPj4NCj4gPj4gT2sgSSdsbCB3YWl0
+IGZvciBXb29qdW4gYW5kIEFuZHJldyB0byBnaXZlIGZlZWRiYWNrLg0KPiA+DQo+ID4gVGhpcyBw
+YXRjaCBmaXhlcyBwZXJpb2RpYyBwaHkgcmVhZF9zdGF0dXMgYWNjZXNzIHdoZW4gcGh5IGlzIGNv
+bmZpZ3VyZWQgYXMNCj4gUEhZX0lHTk9SRV9JTlRFUlJVUFRTLg0KPiANCj4gR3JlYXQsIHRoYW5r
+cyBmb3IgdGhlIGZlZWRiYWNrIQ0KPiANCj4gPiBUZXN0ZWQgYW5kIGNvbmZpcm1lZCB3aXRoIExB
+Tjc4eHggVVNCLXRvLUV0aGVybmV0IGRyaXZlciBleGNlcHQNCj4gZm9sbG93aW5nIGNoZWNrcGF0
+Y2gucGwgd2FybmluZ3MuDQo+ID4NCj4gPiBXQVJOSU5HOiBsaW5lIG92ZXIgODAgY2hhcmFjdGVy
+cw0KPiA+ICM1NDogRklMRTogZHJpdmVycy9uZXQvcGh5L3BoeS5jOjEwMDg6DQo+ID4gKwkJcXVl
+dWVfZGVsYXllZF93b3JrKHN5c3RlbV9wb3dlcl9lZmZpY2llbnRfd3EsDQo+ICZwaHlkZXYtPnN0
+YXRlX3F1ZXVlLA0KPiANCj4gVGhpcyBvbmUgaXMgZGVmaW5pdGl2ZWx5IGFkZGVkIGJ5IHRoZSBw
+YXRjaA0KPiANCj4gPg0KPiA+IFdBUk5JTkc6IENvbXBhcmlzb25zIHNob3VsZCBwbGFjZSB0aGUg
+Y29uc3RhbnQgb24gdGhlIHJpZ2h0IHNpZGUgb2YgdGhlDQo+IHRlc3QNCj4gPiAjNjg6IEZJTEU6
+IGRyaXZlcnMvbmV0L3BoeS9waHkuYzo3MTQ6DQo+ID4gKwkJaWYgKFBIWV9IQUxURUQgIT0gcGh5
+ZGV2LT5zdGF0ZSAmJg0KPiA+DQo+IA0KPiBUaGlzIG9uZSBpcyBhbiBleGlzdGluZyB3YXJuaW5n
+Lg0KPiANCj4gRGF2aWQsIGxldCBtZSBrbm93IGlmIHlvdSBjb25zaWRlciB0aGUgb3ZlciA4MCBj
+b2x1bW5zIGlzc3VlIHdvcnRoIGENCj4gcmVzdWJtaXNzaW9uIG9yIG5vdCwgZWl0aGVyIHdheSBp
+cyBmaW5lIHdpdGggbWUuDQo+IA0KPiBUaGFua3MhDQo+IC0tDQo+IEZsb3JpYW4NCg==
