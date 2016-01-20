@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 01/19] lib/bitmap.c: conversion routines to/from u32 array
-Date: Tue, 19 Jan 2016 16:43:46 -0800
-Message-ID: <1453250644-14796-2-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v6 08/19] net: bonding: use __ethtool_get_ksettings
+Date: Tue, 19 Jan 2016 16:43:53 -0800
+Message-ID: <1453250644-14796-9-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
@@ -32,146 +32,52 @@ List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
-Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
-way.
-
-Tested:
-  unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
-  ARM.
-
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- include/linux/bitmap.h |  6 ++++
- lib/bitmap.c           | 86 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 92 insertions(+)
+ drivers/net/bonding/bond_main.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
-index 9653fdb..f7dc158 100644
---- a/include/linux/bitmap.h
-+++ b/include/linux/bitmap.h
-@@ -59,6 +59,8 @@
-  * bitmap_find_free_region(bitmap, bits, order)	Find and allocate bit region
-  * bitmap_release_region(bitmap, pos, order)	Free specified bit region
-  * bitmap_allocate_region(bitmap, pos, order)	Allocate specified bit region
-+ * bitmap_from_u32array(dst, nbits, buf, nwords) *dst = *buf (nwords 32b words)
-+ * bitmap_to_u32array(buf, nwords, src, nbits)	*buf = *dst (nwords 32b words)
-  */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 56b5605..df7b12a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -374,22 +374,20 @@ down:
+ static void bond_update_speed_duplex(struct slave *slave)
+ {
+ 	struct net_device *slave_dev = slave->dev;
+-	struct ethtool_cmd ecmd;
+-	u32 slave_speed;
++	struct ethtool_ksettings ecmd;
+ 	int res;
  
- /*
-@@ -163,6 +165,10 @@ extern void bitmap_fold(unsigned long *dst, const unsigned long *orig,
- extern int bitmap_find_free_region(unsigned long *bitmap, unsigned int bits, int order);
- extern void bitmap_release_region(unsigned long *bitmap, unsigned int pos, int order);
- extern int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order);
-+extern void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
-+				 const u32 *buf, unsigned int nwords);
-+extern void bitmap_to_u32array(u32 *buf, unsigned int nwords,
-+			       const unsigned long *bitmap, unsigned int nbits);
- #ifdef __BIG_ENDIAN
- extern void bitmap_copy_le(unsigned long *dst, const unsigned long *src, unsigned int nbits);
- #else
-diff --git a/lib/bitmap.c b/lib/bitmap.c
-index 8148143..e1cc648 100644
---- a/lib/bitmap.c
-+++ b/lib/bitmap.c
-@@ -12,6 +12,8 @@
- #include <linux/bitmap.h>
- #include <linux/bitops.h>
- #include <linux/bug.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
+ 	slave->speed = SPEED_UNKNOWN;
+ 	slave->duplex = DUPLEX_UNKNOWN;
  
- #include <asm/page.h>
- #include <asm/uaccess.h>
-@@ -1060,6 +1062,90 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
- EXPORT_SYMBOL(bitmap_allocate_region);
+-	res = __ethtool_get_settings(slave_dev, &ecmd);
++	res = __ethtool_get_ksettings(slave_dev, &ecmd);
+ 	if (res < 0)
+ 		return;
  
- /**
-+ * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
-+ *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
-+ *	@nbits: number of bits in @bitmap
-+ *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
-+ *	@nwords: number of u32 words in @buf
-+ *
-+ * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
-+ * bits between nword and nbits in @bitmap (if any) are cleared. In
-+ * last word of @bitmap, the bits beyond nbits (if any) are kept
-+ * unchanged.
-+ */
-+void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
-+			  const u32 *buf, unsigned int nwords)
-+{
-+	unsigned int k;
-+	const u32 *src = buf;
-+
-+	for (k = 0; k < BITS_TO_LONGS(nbits); ++k) {
-+		unsigned long part = 0;
-+
-+		if (nwords) {
-+			part = *src++;
-+			nwords--;
-+		}
-+
-+#if BITS_PER_LONG == 64
-+		if (nwords) {
-+			part |= ((unsigned long) *src++) << 32;
-+			nwords--;
-+		}
-+#endif
-+
-+		if (k < nbits/BITS_PER_LONG)
-+			bitmap[k] = part;
-+		else {
-+			unsigned long mask = BITMAP_LAST_WORD_MASK(nbits);
-+
-+			bitmap[k] = (bitmap[k] & ~mask) | (part & mask);
-+		}
-+	}
-+}
-+EXPORT_SYMBOL(bitmap_from_u32array);
-+
-+/**
-+ * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
-+ *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
-+ *	@nwords: number of u32 words in @buf
-+ *	@bitmap: array of unsigned longs, the source bitmap, non NULL
-+ *	@nbits: number of bits in @bitmap
-+ *
-+ * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
-+ * bits after nbits in @buf (if any) are cleared.
-+ */
-+void bitmap_to_u32array(u32 *buf, unsigned int nwords,
-+			const unsigned long *bitmap, unsigned int nbits)
-+{
-+	unsigned int k = 0;
-+	u32 *dst = buf;
-+
-+	while (nwords) {
-+		unsigned long part = 0;
-+
-+		if (k < BITS_TO_LONGS(nbits)) {
-+			part = bitmap[k];
-+			if (k >= nbits/BITS_PER_LONG)
-+				part &= BITMAP_LAST_WORD_MASK(nbits);
-+			k++;
-+		}
-+
-+		*dst++ = part & 0xffffffffUL;
-+		nwords--;
-+
-+#if BITS_PER_LONG == 64
-+		if (nwords) {
-+			part >>= 32;
-+			*dst++ = part & 0xffffffffUL;
-+			nwords--;
-+		}
-+#endif
-+	}
-+}
-+EXPORT_SYMBOL(bitmap_to_u32array);
-+
-+/**
-  * bitmap_copy_le - copy a bitmap, putting the bits into little-endian order.
-  * @dst:   destination buffer
-  * @src:   bitmap to copy
+-	slave_speed = ethtool_cmd_speed(&ecmd);
+-	if (slave_speed == 0 || slave_speed == ((__u32) -1))
++	if (ecmd.parent.speed == 0 || ecmd.parent.speed == ((__u32)-1))
+ 		return;
+ 
+-	switch (ecmd.duplex) {
++	switch (ecmd.parent.duplex) {
+ 	case DUPLEX_FULL:
+ 	case DUPLEX_HALF:
+ 		break;
+@@ -397,8 +395,8 @@ static void bond_update_speed_duplex(struct slave *slave)
+ 		return;
+ 	}
+ 
+-	slave->speed = slave_speed;
+-	slave->duplex = ecmd.duplex;
++	slave->speed = ecmd.parent.speed;
++	slave->duplex = ecmd.parent.duplex;
+ 
+ 	return;
+ }
 -- 
 2.7.0.rc3.207.g0ac5344
