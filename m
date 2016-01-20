@@ -1,77 +1,69 @@
-From: Jacob Siverskog <jacob@teenage.engineering>
-Subject: Re: [PATCH] net: Fix potential NULL pointer dereference in __skb_try_recv_datagram
-Date: Wed, 20 Jan 2016 16:06:55 +0100
-Message-ID: <CAEnXRPtPYz4+UTA1dqL7AXe6OeN08tyXhKL2js5Wm681z=tsWQ@mail.gmail.com>
-References: <1451416224-15871-1-git-send-email-jacob@teenage.engineering>
- <87y4cdyrbn.fsf@doppelsaurus.mobileactivedefense.com> <20151229.150843.2021692616139434395.davem@davemloft.net>
- <CAEnXRPtJBoOn+JgXDEUdL07WkbYVViAT_+LBiV4X=NVQ3SiDaQ@mail.gmail.com>
- <CANn89iLpuz4nP+hPoGUHY8KSv=GwSE1x13D3qDeAQDJjV-S7pw@mail.gmail.com>
- <CAEnXRPsVe5ROz=Vo0fTODrs3EsEWoU1hzHVvyEwMyMCrE3BwDA@mail.gmail.com>
- <CAM_iQpVQNPQ1LNvG+h3=UvTM9Lm-adhryQk-ad4aeckHS-V0ew@mail.gmail.com>
- <CAEnXRPsH-eTwwd7FvODL+0Qu9CLY-uGYT9z81cH-by5baEdbhg@mail.gmail.com>
- <1451921108.8255.74.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAEnXRPu8As9sr44JcjqVW-omN8BshtzhZZd73cr7vFXLTVPFWQ@mail.gmail.com>
- <1452003299.8255.87.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAEnXRPuL6bUJWvJ=OWokHCvZkdcngaYmwX3wV70douDbnG8bVw@mail.gmail.com> <1452004797.8255.90.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH V3 5/5] net: can: ifi: Add IFI CANFD IP support
+Date: Wed, 20 Jan 2016 16:09:48 +0100
+Message-ID: <569FA33C.5060805@pengutronix.de>
+References: <569F944A.4090201@pengutronix.de>
+ <201601201541.53246.marex@denx.de> <569F9DE2.10405@pengutronix.de>
+ <201601201603.40080.marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452004797.8255.90.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU"
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Marek Vasut <marex@denx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:36692 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933889AbcATPKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 10:10:01 -0500
+In-Reply-To: <201601201603.40080.marex@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 5, 2016 at 3:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2016-01-05 at 15:34 +0100, Jacob Siverskog wrote:
->> On Tue, Jan 5, 2016 at 3:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> >
->> > You might build a kernel with KASAN support to get maybe more chances to
->> > trigger the bug.
->> >
->> > ( https://www.kernel.org/doc/Documentation/kasan.txt )
->> >
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+On 01/20/2016 04:03 PM, Marek Vasut wrote:
 >>
->> Ah. Doesn't seem to be supported on arm(32) unfortunately.
->
-> Then you could at least use standard debugging features :
->
-> CONFIG_SLAB=y
-> CONFIG_SLABINFO=y
-> CONFIG_DEBUG_SLAB=y
-> CONFIG_DEBUG_SLAB_LEAK=y
->
-> (Or equivalent SLUB options)
->
-> and
->
-> CONFIG_DEBUG_PAGEALLOC=y
->
-> (If arm(32) has CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC=y)
+>> Doh! Right, let's try this:
+>>>> -#define IFI_CANFD_INTERRUPT_ERROR_WARNING      BIT(1)
+>>>> +#define IFI_CANFD_INTERRUPT_ERROR_WARNING      ((u32)BIT(1))
+>>>
+>>> I'd be happy to be proven wrong though.
+>>
+>> /me too
+>=20
+> I think that will do the trick too. Do you want a V4 patch or will you =
+fix it?
 
-I tried with those enabled and while toggling power on the Bluetooth
-interface I usually get this after a few iterations:
-kernel: Bluetooth: Unable to push skb to HCI core(-6)
-kernel: (stc):  proto stack 4's ->recv failed
-kernel: Slab corruption (Not tainted): skbuff_head_cache start=c08a8a00, len=176
-kernel: 0a0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6a 6b 6b a5  kkkkkkkkkkkkjkk.
-kernel: Prev obj: start=c08a8940, len=176
-kernel: 000: 00 00 00 00 00 00 00 00 31 73 52 00 43 17 2b 14  ........1sR.C.+.
-kernel: 010: 00 00 00 00 00 00 00 00 04 00 00 00 01 00 00 00  ................
-kernel: Next obj: start=c08a8ac0, len=176
-kernel: 000: 00 00 00 00 00 00 00 00 01 42 f6 50 36 17 2b 14  .........B.P6.+.
-kernel: 010: 00 00 00 00 00 00 00 00 04 00 00 00 01 00 00 00  ................
+I'll fix this.
 
-The "Unable to push skb" and "recv failed" lines always appear before
-the corruption.
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Unfortunately, the corruptions occur also with your patch.
+
+--J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWn6M8AAoJEP5prqPJtc/HbtIH/iKjeclGbf98PDzVO7Cp1/14
+fdtkzzmrQaBeyoT3MP1z17EGfwLA/j6ncfpsLPvAnAZcJMtwcnp4pprcemfO38rl
+IbOz6QoQwKLZkxkcFFGaOvVlEvs3C0jh2xXoJ6oKzTPz2tCLERLltb75hwMZrcB2
+/wFWmfv2D81SBMb22pSQy0fyioXawmGd7rSeK//Vu2yrArDQg7+jRBxbiD20du9o
+BKWDN4fCQl7xlOzvXvRAKzbWL6Ul0YTjyheZ9oZJ5M3SFChpiUHYqb9xvVAfdwOa
+cHqagsjVG1oB3/vIbYZLVbTeyHOJpKnrf3dLs7wbpmx1mXdCG5mVIpOFgFgo0iE=
+=7nhO
+-----END PGP SIGNATURE-----
+
+--J5HikbGocjGbKBHjwv7vioqgbpG7PBRXU--
