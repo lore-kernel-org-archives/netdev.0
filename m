@@ -1,46 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: i40e: avoid unused function warnings
-Date: Wed, 20 Jan 2016 23:54:46 +0100
-Message-ID: <6894276.2dlRmisKUo@wuerfel>
-References: <2806620.EpZqDlZTO3@wuerfel> <8814508.SjLecHrQqA@wuerfel> <1453329885.2958.32.camel@intel.com>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: RE: [PATCH v3 00/16] add Intel X722 iWARP driver
+Date: Wed, 20 Jan 2016 16:57:12 -0600
+Message-ID: <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
+References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com> <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	netdev@vger.kernel.org,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>,
-	intel-wired-lan@lists.osuosl.org,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	davem@davemloft.net
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453329885.2958.32.camel@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "'Doug Ledford'" <dledford@redhat.com>,
+	<linux-rdma@vger.kernel.org>,
+	"'Linux Netdev List'" <netdev@vger.kernel.org>,
+	"'Jeff Kirsher'" <jeffrey.t.kirsher@intel.com>,
+	<e1000-rdma@lists.sourceforge.net>
+To: "'Or Gerlitz'" <gerlitz.or@gmail.com>,
+	"'Faisal Latif'" <faisal.latif@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.opengridcomputing.com ([72.48.136.20]:33380 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752377AbcATW5K convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2016 17:57:10 -0500
+In-Reply-To: <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
+Content-Language: en-us
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 20 January 2016 14:44:45 Jeff Kirsher wrote:
-> Yeah, I have a fix for that as well.
+
+
+> -----Original Message-----
+> From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-owner@vger.kernel.org] On Behalf Of Or Gerlitz
+> Sent: Wednesday, January 20, 2016 4:25 PM
+> To: Faisal Latif
+> Cc: Doug Ledford; linux-rdma@vger.kernel.org; Linux Netdev List; Jeff Kirsher; e1000-rdma@lists.sourceforge.net
+> Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
 > 
-> You can confirm by pulling my next-queue tree (dev-queue branch).
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git d
-> ev-queue
+> On Wed, Jan 20, 2016 at 9:40 PM, Faisal Latif <faisal.latif@intel.com> wrote:
 > 
+> > Changes since v2:
+> [...]
+> >                 *move netlink patch up
+> 
+> I also asked you why the port mapper code has to be present in each
+> iwarp driver and not part of the IB core stack, and you responded
+> "i40iw iwarp driver registers with port mapper and uses its services.
+> Beside that it is not the scope of the patch series"  -- well, it is
+> in the scope of upstream review to pose such questions, please
+> address.
+> 
+> Or.
 
-I checked out that branch, but still see both warnings in that one, plus
-a new build error in igb, which I don't see in linux-next:
+Hey Or, 
 
-drivers/net/ethernet/intel/igb/igb_cdev.c: In function 'igb_mapring':
-drivers/net/ethernet/intel/igb/igb_cdev.c:150:2: error: implicit declaration of function 'set_pages_uc' [-Werror=implicit-function-declaration]
-  set_pages_uc(virt_to_page(ring->desc), ring->size >> PAGE_SHIFT);
-  ^
-drivers/net/ethernet/intel/igb/igb_cdev.c: In function 'igb_unmapring':
-drivers/net/ethernet/intel/igb/igb_cdev.c:275:2: error: implicit declaration of function 'set_pages_wb' [-Werror=implicit-function-declaration]
-  set_pages_wb(virt_to_page(ring->desc), ring->size >> PAGE_SHIFT);
+There is a common service/API in the IB core for iWarp port mapping.  See drivers/infinbiand/core/iwpm*.c and include/rdma/iw_portmap.h.
 
-	Arnd
+Steve.
