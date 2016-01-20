@@ -1,43 +1,60 @@
-From: skallam <siva.kallam@broadcom.com>
-Subject: [PATCH net-next 1/2] MAINTAINERS: Update tg3 maintainer
-Date: Wed, 20 Jan 2016 17:16:57 +0530
-Message-ID: <1453290418-15331-2-git-send-email-siva.kallam@broadcom.com>
-References: <1453290418-15331-1-git-send-email-siva.kallam@broadcom.com>
+From: Lucas Tanure <tanure@linux.com>
+Subject: Re: [PATCH] sfc: Replace memset with eth_zero_addr
+Date: Wed, 20 Jan 2016 09:49:02 -0200
+Message-ID: <CAJX_Q+2OZf05CsXRm7LOU0anO54MuTKEx0reR_mve8QEBqwiPg@mail.gmail.com>
+References: <1453246074-1054-1-git-send-email-tanure@linux.com>
+	<569F7308.9060008@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <mchan@broadcom.com>,
-	<prashant@broadcom.com>,
-	Siva Reddy Kallam <siva.kallam@broadcom.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:28743 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933033AbcATLrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 06:47:07 -0500
-In-Reply-To: <1453290418-15331-1-git-send-email-siva.kallam@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <569F7308.9060008@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+Hi,
 
-Signed-off-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Acked-by: Prashant Sreedharan <prashant@broadcom.com>
----
- MAINTAINERS | 1 +
- 1 file changed, 1 insertion(+)
+On Wed, Jan 20, 2016 at 9:44 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 1/20/2016 2:27 AM, Lucas Tanure wrote:
+>
+>> Use eth_zero_addr to assign the zero address to the given address array
+>> instead of memset when second argument is address of zero.
+>
+>
+>    What address? memset() takes just 1 address. :-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 04d62b1..0cfc43e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2386,6 +2386,7 @@ F:	drivers/irqchip/irq-bcm7*
- F:	drivers/irqchip/irq-brcmstb*
- 
- BROADCOM TG3 GIGABIT ETHERNET DRIVER
-+M:	Siva Reddy Kallam <siva.kallam@broadcom.com>
- M:	Prashant Sreedharan <prashant@broadcom.com>
- M:	Michael Chan <mchan@broadcom.com>
- L:	netdev@vger.kernel.org
--- 
-1.9.1
+I mean the vf->mac, a pointer to a six-byte array containing the
+Ethernet address.
+
+>
+>> Signed-off-by: Lucas Tanure <tanure@linux.com>
+>> ---
+>>   drivers/net/ethernet/sfc/ef10_sriov.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c
+>> b/drivers/net/ethernet/sfc/ef10_sriov.c
+>> index 3c17f27..10f60db 100644
+>> --- a/drivers/net/ethernet/sfc/ef10_sriov.c
+>> +++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+>> @@ -527,7 +527,7 @@ int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int
+>> vf_i, u8 *mac)
+>>         return 0;
+>>
+>>   fail:
+>> -       memset(vf->mac, 0, ETH_ALEN);
+>> +       eth_zero_addr(vf->mac);
+>>         return rc;
+>>   }
+>>
+>
+> MBR, Sergei
+>
+
+Thanks, Tanure
