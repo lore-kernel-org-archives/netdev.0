@@ -1,38 +1,29 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v2] can: c_can: add xceiver enable/disable support
-Date: Wed, 20 Jan 2016 17:19:18 +0100
-Message-ID: <87k2n4fcl5.fsf@nemi.mork.no>
-References: <1453297443-23279-1-git-send-email-m.grzeschik@pengutronix.de>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v3 4/4] net: mvneta: update clocks property and document
+ additional clock-names
+Date: Wed, 20 Jan 2016 10:29:32 -0600
+Message-ID: <20160120162932.GA19478@rob-hp-laptop>
+References: <1453289245-2061-1-git-send-email-jszhang@marvell.com>
+ <1453289245-2061-5-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mkl@pengutronix.de, wg@grandegger.com, linux-can@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
+	mw@semihalf.com, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	sebastian.hesselbarth@gmail.com, devicetree@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>
+	linux-arm-kernel@lists.infradead.org
+To: Jisheng Zhang <jszhang@marvell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453297443-23279-1-git-send-email-m.grzeschik@pengutronix.de>
-	(Michael Grzeschik's message of "Wed, 20 Jan 2016 14:44:03 +0100")
+Content-Disposition: inline
+In-Reply-To: <1453289245-2061-5-git-send-email-jszhang@marvell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Grzeschik <m.grzeschik@pengutronix.de> writes:
+On Wed, Jan 20, 2016 at 07:27:25PM +0800, Jisheng Zhang wrote:
+> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> ---
+>  Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
 
-> @@ -1263,6 +1271,10 @@ int register_c_can_dev(struct net_device *dev)
->  	 */
->  	pinctrl_pm_select_sleep_state(dev->dev.parent);
-> =20
-> +	priv->reg_xceiver =3D devm_regulator_get(priv->device, "xceiver");
-> +	if (IS_ERR(priv->reg_xceiver))
-> +		return PTR_ERR(priv->reg_xceiver);
-> +
->  	c_can_pm_runtime_enable(priv);
-> =20
->  	dev->flags |=3D IFF_ECHO;	/* we support local echo */
-
-Do you really want to leave priv->reg_xceiver pointing to an ERR_PTR in
-case of error?
-
-
-
-Bj=C3=B8rn
+Acked-by: Rob Herring <robh@kernel.org>
