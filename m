@@ -1,7 +1,7 @@
 From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH 3/4] net: mvneta: mmc: get optional axi clk
-Date: Wed, 20 Jan 2016 16:06:22 +0800
-Message-ID: <1453277183-5412-4-git-send-email-jszhang@marvell.com>
+Subject: [PATCH 1/4] net: mvneta: sort the headers in alphabetic order
+Date: Wed, 20 Jan 2016 16:06:20 +0800
+Message-ID: <1453277183-5412-2-git-send-email-jszhang@marvell.com>
 References: <1453277183-5412-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,55 +26,58 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Some platforms may provide more than one clk for the mvneta IP, for
-example Marvell BG4CT provides "core" clk for the mac core, and
-"axi" clk for the AXI bus logic. Obviously this "axi" clk also need to
-be enabled. This patch adds this optional "axi" clk support.
+Sorting the headers in alphabetic order will help to reduce the conflict
+when adding new headers in the future.
 
 Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/marvell/mvneta.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index aca0a73..6bb709a 100644
+index fabc8df..79e0c7d 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -373,6 +373,8 @@ struct mvneta_port {
+@@ -11,28 +11,28 @@
+  * warranty of any kind, whether express or implied.
+  */
  
- 	/* Core clock */
- 	struct clk *clk;
-+	/* AXI clock */
-+	struct clk *clk_axi;
- 	u8 mcast_count[256];
- 	u16 tx_ring_size;
- 	u16 rx_ring_size;
-@@ -3615,6 +3617,10 @@ static int mvneta_probe(struct platform_device *pdev)
+-#include <linux/kernel.h>
+-#include <linux/netdevice.h>
++#include <linux/clk.h>
++#include <linux/cpu.h>
+ #include <linux/etherdevice.h>
+-#include <linux/platform_device.h>
+-#include <linux/skbuff.h>
+-#include <linux/inetdevice.h>
++#include <linux/kernel.h>
+ #include <linux/mbus.h>
+ #include <linux/module.h>
+-#include <linux/interrupt.h>
++#include <linux/netdevice.h>
+ #include <linux/if_vlan.h>
+-#include <net/ip.h>
+-#include <net/ipv6.h>
++#include <linux/inetdevice.h>
++#include <linux/interrupt.h>
+ #include <linux/io.h>
+-#include <net/tso.h>
+ #include <linux/of.h>
++#include <linux/of_address.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+-#include <linux/of_address.h>
+ #include <linux/phy.h>
+-#include <linux/clk.h>
+-#include <linux/cpu.h>
++#include <linux/platform_device.h>
++#include <linux/skbuff.h>
++#include <net/ip.h>
++#include <net/ipv6.h>
++#include <net/tso.h>
  
- 	clk_prepare_enable(pp->clk);
- 
-+	pp->clk_axi = devm_clk_get(&pdev->dev, "axi");
-+	if (!IS_ERR(pp->clk_axi))
-+		clk_prepare_enable(pp->clk_axi);
-+
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	pp->base = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(pp->base)) {
-@@ -3727,6 +3733,7 @@ err_free_ports:
- 	free_percpu(pp->ports);
- err_clk:
- 	clk_disable_unprepare(pp->clk);
-+	clk_disable_unprepare(pp->clk_axi);
- err_put_phy_node:
- 	of_node_put(phy_node);
- err_free_irq:
-@@ -3744,6 +3751,7 @@ static int mvneta_remove(struct platform_device *pdev)
- 
- 	unregister_netdev(dev);
- 	clk_disable_unprepare(pp->clk);
-+	clk_disable_unprepare(pp->clk_axi);
- 	free_percpu(pp->ports);
- 	free_percpu(pp->stats);
- 	irq_dispose_mapping(dev->irq);
+ /* Registers */
+ #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
 -- 
 2.7.0.rc3
