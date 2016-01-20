@@ -1,73 +1,58 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: ethtool NFC/ntuple API questions
-Date: Wed, 20 Jan 2016 19:22:51 +0000
-Message-ID: <1453317771.3734.68.camel@decadent.org.uk>
-References: <569FBF9D.40002@solarflare.com>
-	 <CAKgT0Ud1OprxqjYQC4NrFmRyhrG4x1G2=dWZEKwW866XAyW-eA@mail.gmail.com>
-	 <1453313223.3734.63.camel@decadent.org.uk>
-	 <569FDC04.9090509@solarflare.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 6/8] net: gre: Implement LCO for GRE over IPv4
+Date: Wed, 20 Jan 2016 11:35:20 -0800
+Message-ID: <CAKgT0Ufpj2DpaLPOzU5hyFATpjN=jT9ziJCpmSMo1QkefAcAKQ@mail.gmail.com>
+References: <56901197.8040808@solarflare.com>
+	<56901235.1010800@solarflare.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCC1D7E@AcuExch.aculab.com>
+	<5693AC59.4080702@solarflare.com>
+	<CAKgT0UdSRi-iwZpBWrezg=-fFcVTFSd=2FOOye_oZr2oNCNJAw@mail.gmail.com>
+	<8BD201BE-E272-4BA7-ABB4-8FDCE139495D@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Y1PsgPdscmWjk/h1fspv"
-Cc: netdev <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Laight <David.Laight@aculab.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"tom@herbertland.com" <tom@herbertland.com>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54111 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753426AbcATTXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 14:23:09 -0500
-In-Reply-To: <569FDC04.9090509@solarflare.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:38535 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753516AbcATTfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 14:35:21 -0500
+Received: by mail-ig0-f177.google.com with SMTP id mw1so19100909igb.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 11:35:20 -0800 (PST)
+In-Reply-To: <8BD201BE-E272-4BA7-ABB4-8FDCE139495D@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jan 20, 2016 at 11:11 AM, Rustad, Mark D
+<mark.d.rustad@intel.com> wrote:
+> Alexander Duyck <alexander.duyck@gmail.com> wrote:
+>
+>> Actually you may want to go the other way on that.  If they weren't
+>> flipping the checksum value for GRE before why should we start doing
+>> that now?  I'm pretty sure the checksum mangling is a very UDP centric
+>> thing.  There is no need to introduce it to other protocols.
+>
+>
+> If different checksum representations are needed, then there really should
+> be an explicit indication of whether it is a UDP-style checksum or other in
+> the skb I would think rather than guessing it based on the offset. Of course
+> it would be convenient if all the protocols that use a one's complement
+> checksum would tolerate the UDP representation. I have a long (and now old)
+> history working with real one's complement machines, and so I would want to
+> believe that any correct implementation would tolerate it, but I don't know
+> for a fact that they do.
 
---=-Y1PsgPdscmWjk/h1fspv
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The only reason why UDP does the bit flip is because it has reserved a
+checksum of 0 as a special value.  For the checksum math itself either
+0xFFFF or 0 are interchangeable.  The only time they would make any
+difference would be if we had a value of 0 that we were checksumming,
+but since that is not the case the values will always end up
+converging back onto 0xFFFF as the final result in the case of a
+correct checksum.
 
-On Wed, 2016-01-20 at 19:12 +0000, Edward Cree wrote:
-> Thanks both, it's making more sense now.
-> One thing I'm still unclear about: why does struct ethtool_usrip4_spechav=
-e
-> the ip_ver field?=C2=A0=C2=A0The struct can't be extended to cover ipv6, =
-because the
-> address fields aren't big enough.=C2=A0=C2=A0So what's it for?
-
-It's also defined to always have the same value and mask! =C2=A0It's a
-design bug.
-
-> Also, would it be appropriate to use struct in6_addr for IPv6 addresses, =
-or
-> should I use __be32[4]?
-
-I think for consistency with the IPv4 structures it should be __be32[4].
-
-Ben.
-
---=20
-Ben Hutchings
-The program is absolutely right; therefore, the computer must be wrong.
---=-Y1PsgPdscmWjk/h1fspv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVp/ei+e/yOyVhhEJAQr7XA/+Jl0CkFB3POhsAsTgp1is3ZMWl95qBiyF
-HoiFr1kN30KBw6DoIW5kZOIDNxYS0D7IcSZgvcqZExoxpF2jKB4Oy2QYYuSmeGhT
-Z1LCvrvOqLZL9oDtJ7Ea6uEiePLsy5QoGg7tAEUttdwAuFR9tvFBTwjltIz2ddd0
-mNTAmbNUULNWmWuPVFszA/0hl2m6tptPtpcpG03imjLMrf1EEeKf30UYtyRNvwAO
-eW1AlwJht97Xl8ofurEnR7ooGlb8FTXEHrejnbC7IB7NgAwt+vK9zXIY3nL2TF/V
-1UfuFsvoAFnxdaQIy8eHLLPp+IC9do4Gmw+AD9KpK9Hrenw+IoA/4RaSQjGkvWfs
-ZFt6uOtXwYgkQO898/6wQSW7WBciCcClyFExRdAzkR9SSulvsD4oh2bqThyAs4qz
-VgnHp8tjx83JY6gQEqCCX/fxvdsveotXIFJ41l5M00sd2ZHppXWoQekQ7q7o6T2Z
-yugNkL37Q7G4IcwzzwuaPdJ/yFnUqLb2g99xNy/zTBYa55oPyNVXJnmoto51dRHQ
-6sOnfGCBQkA4Nnh5bJ+MZSbhMbD5PQwacleUd1kZv2PkOsdfF4euDqt0gvACSB4g
-WJuSM+fcoXGV8hP4h3knCPfNNk7opIltvgG2C5Ce50uykRL9AI9xKq7hHXfTk8XQ
-ZqTK+S8+zsU=
-=HW1B
------END PGP SIGNATURE-----
-
---=-Y1PsgPdscmWjk/h1fspv--
+- Alex
