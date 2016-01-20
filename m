@@ -1,140 +1,64 @@
-From: Damien Riegel <damien.riegel@savoirfairelinux.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH v5 1/3] can: sja1000: of: add per-compatible init hook
-Date: Wed, 20 Jan 2016 10:30:42 -0500
-Message-ID: <20160120153041.GA6117@localhost>
+Date: Wed, 20 Jan 2016 16:34:28 +0100
+Message-ID: <569FA904.4010705@pengutronix.de>
 References: <1453285431-32498-1-git-send-email-mkl@pengutronix.de>
  <1453285431-32498-2-git-send-email-mkl@pengutronix.de>
+ <20160120153041.GA6117@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="vJkJIDaK19TSbqnKUruFlJeAeXU5BV1wo"
 Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Damien Riegel <damien.riegel@savoirfairelinux.com>
 Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1453285431-32498-2-git-send-email-mkl@pengutronix.de>
+In-Reply-To: <20160120153041.GA6117@localhost>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marc,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--vJkJIDaK19TSbqnKUruFlJeAeXU5BV1wo
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+On 01/20/2016 04:30 PM, Damien Riegel wrote:
+>> +static const struct of_device_id sp_of_table[] =3D {
+>> +	{ /* sentinel */ },
+>> +};
+>> +MODULE_DEVICE_TABLE(of, sp_of_table);
+>> +
+>=20
+> I will give a try to this serie but it seems that
+>=20
+> 	{.compatible =3D "nxp,sja1000"},
+>=20
+> has disappeared of sp_of_table in v5.
+
+Doh! This is of course broken. Wait for v6, please.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-On Wed, Jan 20, 2016 at 11:23:49AM +0100, Marc Kleine-Budde wrote:
-> From: Damien Riegel <damien.riegel@savoirfairelinux.com>
-> 
-> This commit adds the capability to allocate and init private data
-> embedded in the sja1000_priv structure on a per-compatible basis. The
-> device node is passed as a parameter of the init callback to allow
-> parsing of custom device tree properties.
-> 
-> Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> ---
->  drivers/net/can/sja1000/sja1000_platform.c | 39 +++++++++++++++++++++++-------
->  1 file changed, 30 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-> index 0552ed46a206..d398561b48ae 100644
-> --- a/drivers/net/can/sja1000/sja1000_platform.c
-> +++ b/drivers/net/can/sja1000/sja1000_platform.c
-> @@ -27,6 +27,7 @@
->  #include <linux/can/platform/sja1000.h>
->  #include <linux/io.h>
->  #include <linux/of.h>
-> +#include <linux/of_device.h>
->  #include <linux/of_irq.h>
->  
->  #include "sja1000.h"
-> @@ -40,6 +41,11 @@ MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
->  MODULE_ALIAS("platform:" DRV_NAME);
->  MODULE_LICENSE("GPL v2");
->  
-> +struct sja1000_of_data {
-> +	size_t  priv_sz;
-> +	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
-> +};
-> +
->  static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
->  {
->  	return ioread8(priv->reg_base + reg);
-> @@ -154,6 +160,11 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
->  		priv->cdr |= CDR_CBP; /* default */
->  }
->  
-> +static const struct of_device_id sp_of_table[] = {
-> +	{ /* sentinel */ },
-> +};
-> +MODULE_DEVICE_TABLE(of, sp_of_table);
-> +
+--vJkJIDaK19TSbqnKUruFlJeAeXU5BV1wo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-I will give a try to this serie but it seems that
+-----BEGIN PGP SIGNATURE-----
 
-	{.compatible = "nxp,sja1000"},
+iQEcBAEBCgAGBQJWn6kEAAoJEP5prqPJtc/HDOUH/0bTtEm85j7v0BtxydMEOjiA
+B8HX7pY9d1EEbN6l0lqp7Nubig32aqiyyBXRfFXa8K/ueIRCZjFSl1Hkw+KHcM9s
+2A++wWZZ4nloWcP4jTiH+64zkvznwWGthpSRX5Ef/cz44TJtQHtJ4ygp65LKTr1j
+rhyg19+HKJjKPEsM03PJ6Tvl5QYL422j26x4VeMThdBC8JXARi2DuYhw9RBUzEmG
+jqaVVBoy1U069M7hCoS5aUq+UY9IlaFdmFz56naSJRER4cAF+yAufq/0tzWeMEtN
+IG8jPMEWMWgPxbbL9vm05uOgAFRy0NQokGsKo6k7+VHMaZxCf6TzsGiM7/wlOfE=
+=J9Qu
+-----END PGP SIGNATURE-----
 
-has disappeared of sp_of_table in v5.
-
-
-Damien
-
->  static int sp_probe(struct platform_device *pdev)
->  {
->  	int err, irq = 0;
-> @@ -163,6 +174,9 @@ static int sp_probe(struct platform_device *pdev)
->  	struct resource *res_mem, *res_irq = NULL;
->  	struct sja1000_platform_data *pdata;
->  	struct device_node *of = pdev->dev.of_node;
-> +	const struct of_device_id *of_id;
-> +	const struct sja1000_of_data *of_data = NULL;
-> +	size_t priv_sz = 0;
->  
->  	pdata = dev_get_platdata(&pdev->dev);
->  	if (!pdata && !of) {
-> @@ -191,7 +205,13 @@ static int sp_probe(struct platform_device *pdev)
->  	if (!irq && !res_irq)
->  		return -ENODEV;
->  
-> -	dev = alloc_sja1000dev(0);
-> +	of_id = of_match_device(sp_of_table, &pdev->dev);
-> +	if (of_id && of_id->data) {
-> +		of_data = of_id->data;
-> +		priv_sz = of_data->priv_sz;
-> +	}
-> +
-> +	dev = alloc_sja1000dev(priv_sz);
->  	if (!dev)
->  		return -ENOMEM;
->  	priv = netdev_priv(dev);
-> @@ -208,10 +228,17 @@ static int sp_probe(struct platform_device *pdev)
->  	dev->irq = irq;
->  	priv->reg_base = addr;
->  
-> -	if (of)
-> +	if (of) {
->  		sp_populate_of(priv, of);
-> -	else
-> +
-> +		if (of_data && of_data->init) {
-> +			err = of_data->init(priv, of);
-> +			if (err)
-> +				goto exit_free;
-> +		}
-> +	} else {
->  		sp_populate(priv, pdata, res_mem->flags);
-> +	}
->  
->  	platform_set_drvdata(pdev, dev);
->  	SET_NETDEV_DEV(dev, &pdev->dev);
-> @@ -242,12 +269,6 @@ static int sp_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> -static const struct of_device_id sp_of_table[] = {
-> -	{.compatible = "nxp,sja1000"},
-> -	{},
-> -};
-> -MODULE_DEVICE_TABLE(of, sp_of_table);
-> -
->  static struct platform_driver sp_driver = {
->  	.probe = sp_probe,
->  	.remove = sp_remove,
-> -- 
-> 2.7.0.rc3
-> 
+--vJkJIDaK19TSbqnKUruFlJeAeXU5BV1wo--
