@@ -1,58 +1,40 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH V2 5/5] net: can: ifi: Add IFI CANFD IP support
-Date: Wed, 20 Jan 2016 13:58:04 +0100
-Message-ID: <201601201358.04790.marex@denx.de>
-References: <1452538083-7331-5-git-send-email-marex@denx.de> <569F63C4.4070708@pengutronix.de> <569F675D.1070903@pengutronix.de>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] net: dp83640: Fix tx timestamp overflow handling.
+Date: Wed, 20 Jan 2016 14:25:45 +0100
+Message-ID: <20160120132545.GB2032@netboy>
+References: <1453285348-16022-1-git-send-email-manfred.rudigier@omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: "Marc Kleine-Budde" <mkl@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Manfred Rudigier <manfred.rudigier@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:49873 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932347AbcATM6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 07:58:08 -0500
-In-Reply-To: <569F675D.1070903@pengutronix.de>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37616 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbcATNZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 08:25:49 -0500
+Received: by mail-wm0-f46.google.com with SMTP id n5so29208446wmn.0
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 05:25:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1453285348-16022-1-git-send-email-manfred.rudigier@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, January 20, 2016 at 11:54:21 AM, Marc Kleine-Budde wrote:
-> On 01/20/2016 11:39 AM, Marc Kleine-Budde wrote:
-> >> +/* IFI CANFD private data structure */
-> >> +struct ifi_canfd_priv {
-> >> +	struct can_priv		can;	/* must be the first member */
-> >> +	struct napi_struct	napi;
-> >> +	struct net_device	*ndev;
-> >> +	struct device		*device;
-> > 
-> > Nitpick: This variable is write only, correct? I can fix this while
-> > applying the patch.
-> > 
-> >> +	void __iomem		*base;
-> >> +};
-> > 
-> > Otherweise looks good.
-
-It's write-only, yeah. What would you propose to change here ?
-
-> Until compiling:
-> > drivers/net/can/ifi_canfd/ifi_canfd.c:486:40: warning: cast truncates
-> > bits from constant value (ffffffff7ffffffd becomes 7ffffffd)
-> > drivers/net/can/ifi_canfd/ifi_canfd.c:640:9: warning: cast truncates
-> > bits from constant value (ffffffff7fffffff becomes 7fffffff)
-> > drivers/net/can/ifi_canfd/ifi_canfd.c:676:9: warning: cast truncates
-> > bits from constant value (ffffffff7fffffff becomes 7fffffff)
+On Wed, Jan 20, 2016 at 11:22:28AM +0100, Manfred Rudigier wrote:
+> PHY status frames are not reliable, the PHY may not be able to send them
+> during heavy receive traffic. This overflow condition is signaled by the
+> PHY in the next status frame, but the driver did not make use of it.
+> Instead it always reported wrong tx timestamps to user space after an
+> overflow happened because it assigned newly received tx timestamps to old
+> packets in the queue.
 > 
-> target is ARMv5 with gcc version 4.9.2, compiled with C=2 using sparse
-> v0.5.0.
+> This commit fixes this issue by clearing the tx timestamp queue every time
+> an overflow happens, so that no timestamps are delivered for overflow
+> packets. This way time stamping will continue correctly after an overflow.
 
-It's again the BIT() macro :-/ Do you have any idea how to fix this please ?
-Doing something like u32 foo = ~BIT(31); triggers this splat and I am running
-out of ideas how to fix that.
+Hi Manfred,
 
-Best regards,
-Marek Vasut
+Thanks for finding and fixing this bug.
+
+Dave, this patch should also go into stable.
+
+Acked-by: Richard Cochran <richardcochran@gmail.com>
