@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v6 13/19] net: rdma: use __ethtool_get_ksettings
-Date: Tue, 19 Jan 2016 16:43:58 -0800
-Message-ID: <1453250644-14796-14-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v6 15/19] net: bridge: use __ethtool_get_ksettings
+Date: Tue, 19 Jan 2016 16:44:00 -0800
+Message-ID: <1453250644-14796-16-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -34,43 +34,26 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- include/rdma/ib_addr.h | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ net/bridge/br_if.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/rdma/ib_addr.h b/include/rdma/ib_addr.h
-index 1152859..1820f26 100644
---- a/include/rdma/ib_addr.h
-+++ b/include/rdma/ib_addr.h
-@@ -254,24 +254,22 @@ static inline enum ib_mtu iboe_get_mtu(int mtu)
- 
- static inline int iboe_get_rate(struct net_device *dev)
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c367b3e..cafe4e6 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -36,10 +36,10 @@
+  */
+ static int port_cost(struct net_device *dev)
  {
--	struct ethtool_cmd cmd;
--	u32 speed;
-+	struct ethtool_ksettings cmd;
- 	int err;
+-	struct ethtool_cmd ecmd;
++	struct ethtool_ksettings ecmd;
  
- 	rtnl_lock();
--	err = __ethtool_get_settings(dev, &cmd);
-+	err = __ethtool_get_ksettings(dev, &cmd);
- 	rtnl_unlock();
- 	if (err)
- 		return IB_RATE_PORT_CURRENT;
- 
--	speed = ethtool_cmd_speed(&cmd);
--	if (speed >= 40000)
-+	if (cmd.parent.speed >= 40000)
- 		return IB_RATE_40_GBPS;
--	else if (speed >= 30000)
-+	else if (cmd.parent.speed >= 30000)
- 		return IB_RATE_30_GBPS;
--	else if (speed >= 20000)
-+	else if (cmd.parent.speed >= 20000)
- 		return IB_RATE_20_GBPS;
--	else if (speed >= 10000)
-+	else if (cmd.parent.speed >= 10000)
- 		return IB_RATE_10_GBPS;
- 	else
- 		return IB_RATE_PORT_CURRENT;
+-	if (!__ethtool_get_settings(dev, &ecmd)) {
+-		switch (ethtool_cmd_speed(&ecmd)) {
++	if (!__ethtool_get_ksettings(dev, &ecmd)) {
++		switch (ecmd.parent.speed) {
+ 		case SPEED_10000:
+ 			return 2;
+ 		case SPEED_1000:
 -- 
 2.7.0.rc3.207.g0ac5344
