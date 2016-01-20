@@ -1,41 +1,59 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] net: change tcp_syn_retries documentation
-Date: Wed, 20 Jan 2016 16:12:33 +0800
-Message-ID: <34e957bf04e4742b1d6ea599ee1ea75349e6f1f2.1453277553.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36487 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933127AbcATIMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 03:12:40 -0500
-Received: by mail-pa0-f66.google.com with SMTP id a20so62466pag.3
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 00:12:40 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH] net: mvneta: fix trivial cut-off issue in mvneta_ethtool_update_stats
+Date: Wed, 20 Jan 2016 16:36:25 +0800
+Message-ID: <1453278985-6433-1-git-send-email-jszhang@marvell.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <rmk+kernel@arm.linux.org.uk>,
+	Jisheng Zhang <jszhang@marvell.com>
+To: <thomas.petazzoni@free-electrons.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Documentation should be kept consistent with the code:
+When s->type is T_REG_64, the high 32bits are lost in val. This patch
+fixes this trivial issue.
 
- static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
- #define MAX_TCP_SYNCNT          127
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+Fixes: 9b0cdefa4cd5 ("net: mvneta: add ethtool statistics")
 ---
- Documentation/networking/ip-sysctl.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvneta.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ceb44a0..73b36d7 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -594,7 +594,7 @@ tcp_fastopen - INTEGER
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 6bb709a..ea3b034 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3244,26 +3244,25 @@ static void mvneta_ethtool_update_stats(struct mvneta_port *pp)
+ 	const struct mvneta_statistic *s;
+ 	void __iomem *base = pp->base;
+ 	u32 high, low, val;
++	u64 val64;
+ 	int i;
  
- tcp_syn_retries - INTEGER
- 	Number of times initial SYNs for an active TCP connection attempt
--	will be retransmitted. Should not be higher than 255. Default value
-+	will be retransmitted. Should not be higher than 127. Default value
- 	is 6, which corresponds to 63seconds till the last retransmission
- 	with the current initial RTO of 1second. With this the final timeout
- 	for an active TCP connection attempt will happen after 127seconds.
+ 	for (i = 0, s = mvneta_statistics;
+ 	     s < mvneta_statistics + ARRAY_SIZE(mvneta_statistics);
+ 	     s++, i++) {
+-		val = 0;
+-
+ 		switch (s->type) {
+ 		case T_REG_32:
+ 			val = readl_relaxed(base + s->offset);
++			pp->ethtool_stats[i] += val;
+ 			break;
+ 		case T_REG_64:
+ 			/* Docs say to read low 32-bit then high */
+ 			low = readl_relaxed(base + s->offset);
+ 			high = readl_relaxed(base + s->offset + 4);
+-			val = (u64)high << 32 | low;
++			val64 = (u64)high << 32 | low;
++			pp->ethtool_stats[i] += val64;
+ 			break;
+ 		}
+-
+-		pp->ethtool_stats[i] += val;
+ 	}
+ }
+ 
 -- 
-2.1.0
+2.7.0.rc3
