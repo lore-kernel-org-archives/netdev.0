@@ -1,87 +1,140 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v3)
-Date: Wed, 20 Jan 2016 16:18:20 +0100
-Message-ID: <20160120151820.GA1765@bistromath.redhat.com>
-References: <1453267933-25381-1-git-send-email-wen.gang.wang@oracle.com>
+From: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Subject: Re: [PATCH v5 1/3] can: sja1000: of: add per-compatible init hook
+Date: Wed, 20 Jan 2016 10:30:42 -0500
+Message-ID: <20160120153041.GA6117@localhost>
+References: <1453285431-32498-1-git-send-email-mkl@pengutronix.de>
+ <1453285431-32498-2-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, jay.vosburgh@canonical.com
-To: Wengang Wang <wen.gang.wang@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57969 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933132AbcATPSX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2016 10:18:23 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1453267933-25381-1-git-send-email-wen.gang.wang@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1453285431-32498-2-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-01-20, 13:32:13 +0800, Wengang Wang wrote:
-> In a bonding setting, we determines fragment size according to MTU and
-> PMTU associated to the bonding master. If the slave finds the fragment
-> size is too big, it drops the fragment and calls ip_rt_update_pmtu(),
-> passing _skb_ and _pmtu_, trying to update the path MTU.
-> Problem is that the target device that function ip_rt_update_pmtu actually
-> tries to update is the slave (skb->dev), not the master. Thus since no
-> PMTU change happens on master, the fragment size for later packets doesn't
-> change so all later fragments/packets are dropped too.
+Hi Marc,
+
+
+On Wed, Jan 20, 2016 at 11:23:49AM +0100, Marc Kleine-Budde wrote:
+> From: Damien Riegel <damien.riegel@savoirfairelinux.com>
 > 
-> The fix is letting build_skb_flow_key() take care of the transition of
-> device index from bonding slave to the master. That makes the master become
-> the target device that ip_rt_update_pmtu tries to update PMTU to.
+> This commit adds the capability to allocate and init private data
+> embedded in the sja1000_priv structure on a per-compatible basis. The
+> device node is passed as a parameter of the init callback to allow
+> parsing of custom device tree properties.
 > 
-> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+> Signed-off-by: Damien Riegel <damien.riegel@savoirfairelinux.com>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 > ---
->  net/ipv4/route.c | 13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
+>  drivers/net/can/sja1000/sja1000_platform.c | 39 +++++++++++++++++++++++-------
+>  1 file changed, 30 insertions(+), 9 deletions(-)
 > 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 85f184e..c59fb0d 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -523,10 +523,21 @@ static void build_skb_flow_key(struct flowi4 *fl4, const struct sk_buff *skb,
->  			       const struct sock *sk)
->  {
->  	const struct iphdr *iph = ip_hdr(skb);
-> -	int oif = skb->dev->ifindex;
-> +	struct net_device *master = NULL;
->  	u8 tos = RT_TOS(iph->tos);
->  	u8 prot = iph->protocol;
->  	u32 mark = skb->mark;
-> +	int oif;
+> diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
+> index 0552ed46a206..d398561b48ae 100644
+> --- a/drivers/net/can/sja1000/sja1000_platform.c
+> +++ b/drivers/net/can/sja1000/sja1000_platform.c
+> @@ -27,6 +27,7 @@
+>  #include <linux/can/platform/sja1000.h>
+>  #include <linux/io.h>
+>  #include <linux/of.h>
+> +#include <linux/of_device.h>
+>  #include <linux/of_irq.h>
+>  
+>  #include "sja1000.h"
+> @@ -40,6 +41,11 @@ MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
+>  MODULE_ALIAS("platform:" DRV_NAME);
+>  MODULE_LICENSE("GPL v2");
+>  
+> +struct sja1000_of_data {
+> +	size_t  priv_sz;
+> +	int     (*init)(struct sja1000_priv *priv, struct device_node *of);
+> +};
 > +
-> +	if (skb->dev->flags & IFF_SLAVE) {
+>  static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
+>  {
+>  	return ioread8(priv->reg_base + reg);
+> @@ -154,6 +160,11 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
+>  		priv->cdr |= CDR_CBP; /* default */
+>  }
+>  
+> +static const struct of_device_id sp_of_table[] = {
+> +	{ /* sentinel */ },
+> +};
+> +MODULE_DEVICE_TABLE(of, sp_of_table);
+> +
 
-Maybe use netif_is_bond_slave here instead, since you have this
-problem with bonding slaves?
+I will give a try to this serie but it seems that
+
+	{.compatible = "nxp,sja1000"},
+
+has disappeared of sp_of_table in v5.
 
 
-> +		rtnl_lock();
-> +		master = netdev_master_upper_dev_get(skb->dev);
-> +		rtnl_unlock();
+Damien
+
+>  static int sp_probe(struct platform_device *pdev)
+>  {
+>  	int err, irq = 0;
+> @@ -163,6 +174,9 @@ static int sp_probe(struct platform_device *pdev)
+>  	struct resource *res_mem, *res_irq = NULL;
+>  	struct sja1000_platform_data *pdata;
+>  	struct device_node *of = pdev->dev.of_node;
+> +	const struct of_device_id *of_id;
+> +	const struct sja1000_of_data *of_data = NULL;
+> +	size_t priv_sz = 0;
+>  
+>  	pdata = dev_get_platdata(&pdev->dev);
+>  	if (!pdata && !of) {
+> @@ -191,7 +205,13 @@ static int sp_probe(struct platform_device *pdev)
+>  	if (!irq && !res_irq)
+>  		return -ENODEV;
+>  
+> -	dev = alloc_sja1000dev(0);
+> +	of_id = of_match_device(sp_of_table, &pdev->dev);
+> +	if (of_id && of_id->data) {
+> +		of_data = of_id->data;
+> +		priv_sz = of_data->priv_sz;
 > +	}
-
-As zhuyj said, this is called from dev_queue_xmit, so you cannot take
-rtnl_lock here.
-
-> +	if (master)
-> +		oif = master->ifindex;
-
-You cannot dereference master after you release the rtnl lock.
-
-So it would probably be best to use netdev_master_upper_dev_get_rcu,
-as zhuyj suggested earlier, and make sure that you only use the result
-between rcu_read_lock()/rcu_read_unlock():
-
-    rcu_read_lock();
-    master = netdev_master_upper_dev_get_rcu(skb->dev);
-    if (master)
-        oif = master->ifindex;
-    rcu_read_unlock();
-
-
-Thanks,
-
--- 
-Sabrina
+> +
+> +	dev = alloc_sja1000dev(priv_sz);
+>  	if (!dev)
+>  		return -ENOMEM;
+>  	priv = netdev_priv(dev);
+> @@ -208,10 +228,17 @@ static int sp_probe(struct platform_device *pdev)
+>  	dev->irq = irq;
+>  	priv->reg_base = addr;
+>  
+> -	if (of)
+> +	if (of) {
+>  		sp_populate_of(priv, of);
+> -	else
+> +
+> +		if (of_data && of_data->init) {
+> +			err = of_data->init(priv, of);
+> +			if (err)
+> +				goto exit_free;
+> +		}
+> +	} else {
+>  		sp_populate(priv, pdata, res_mem->flags);
+> +	}
+>  
+>  	platform_set_drvdata(pdev, dev);
+>  	SET_NETDEV_DEV(dev, &pdev->dev);
+> @@ -242,12 +269,6 @@ static int sp_remove(struct platform_device *pdev)
+>  	return 0;
+>  }
+>  
+> -static const struct of_device_id sp_of_table[] = {
+> -	{.compatible = "nxp,sja1000"},
+> -	{},
+> -};
+> -MODULE_DEVICE_TABLE(of, sp_of_table);
+> -
+>  static struct platform_driver sp_driver = {
+>  	.probe = sp_probe,
+>  	.remove = sp_remove,
+> -- 
+> 2.7.0.rc3
+> 
