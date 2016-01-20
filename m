@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 08/19] net: bonding: use __ethtool_get_ksettings
-Date: Tue, 19 Jan 2016 16:43:53 -0800
-Message-ID: <1453250644-14796-9-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v6 04/19] net: usnic: use __ethtool_get_settings
+Date: Tue, 19 Jan 2016 16:43:49 -0800
+Message-ID: <1453250644-14796-5-git-send-email-ddecotig@gmail.com>
 References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
@@ -34,50 +34,21 @@ From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/bonding/bond_main.c | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 56b5605..df7b12a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -374,22 +374,20 @@ down:
- static void bond_update_speed_duplex(struct slave *slave)
- {
- 	struct net_device *slave_dev = slave->dev;
--	struct ethtool_cmd ecmd;
--	u32 slave_speed;
-+	struct ethtool_ksettings ecmd;
- 	int res;
+diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+index 5b60579..e082170 100644
+--- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
++++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+@@ -329,7 +329,7 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
+ 	usnic_dbg("\n");
  
- 	slave->speed = SPEED_UNKNOWN;
- 	slave->duplex = DUPLEX_UNKNOWN;
+ 	mutex_lock(&us_ibdev->usdev_lock);
+-	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
++	__ethtool_get_settings(us_ibdev->netdev, &cmd);
+ 	memset(props, 0, sizeof(*props));
  
--	res = __ethtool_get_settings(slave_dev, &ecmd);
-+	res = __ethtool_get_ksettings(slave_dev, &ecmd);
- 	if (res < 0)
- 		return;
- 
--	slave_speed = ethtool_cmd_speed(&ecmd);
--	if (slave_speed == 0 || slave_speed == ((__u32) -1))
-+	if (ecmd.parent.speed == 0 || ecmd.parent.speed == ((__u32)-1))
- 		return;
- 
--	switch (ecmd.duplex) {
-+	switch (ecmd.parent.duplex) {
- 	case DUPLEX_FULL:
- 	case DUPLEX_HALF:
- 		break;
-@@ -397,8 +395,8 @@ static void bond_update_speed_duplex(struct slave *slave)
- 		return;
- 	}
- 
--	slave->speed = slave_speed;
--	slave->duplex = ecmd.duplex;
-+	slave->speed = ecmd.parent.speed;
-+	slave->duplex = ecmd.parent.duplex;
- 
- 	return;
- }
+ 	props->lid = 0;
 -- 
 2.7.0.rc3.207.g0ac5344
