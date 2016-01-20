@@ -1,49 +1,46 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Tools for sampling ethtool --statistics
-Date: Wed, 20 Jan 2016 14:53:02 -0800
-Message-ID: <56A00FCE.5010907@gmail.com>
-References: <20160120101311.5266cac6@redhat.com> <CAJ3xEMiNDU20FVG_9_r11wqMmAFiERBTYcsFmjwaSfbZ25NOiQ@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: i40e: avoid unused function warnings
+Date: Wed, 20 Jan 2016 23:54:46 +0100
+Message-ID: <6894276.2dlRmisKUo@wuerfel>
+References: <2806620.EpZqDlZTO3@wuerfel> <8814508.SjLecHrQqA@wuerfel> <1453329885.2958.32.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34320 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752240AbcATWxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 17:53:16 -0500
-Received: by mail-pf0-f182.google.com with SMTP id q63so12311017pfb.1
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 14:53:15 -0800 (PST)
-In-Reply-To: <CAJ3xEMiNDU20FVG_9_r11wqMmAFiERBTYcsFmjwaSfbZ25NOiQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>,
+	intel-wired-lan@lists.osuosl.org,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	davem@davemloft.net
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453329885.2958.32.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
-
+On Wednesday 20 January 2016 14:44:45 Jeff Kirsher wrote:
+> Yeah, I have a fix for that as well.
 > 
->> pktgen (4 cores) sending ~50Mpps
-> [...]
-> 
-> The 20M for single ring/core and 50M pps for four streams are really
-> cool results. Do the scripts to get ~such results exist in your
-> network testing github repo? last time I looked I wasn't sure if  the
-> multi-stream case is supported.
-> 
-> Could you post the two commands you used for these results along with
-> minimal spec of the system (CPU type/freq, special .config directives,
-> anything else)?
+> You can confirm by pulling my next-queue tree (dev-queue branch).
+> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git d
+> ev-queue
 > 
 
-Take a look at
+I checked out that branch, but still see both warnings in that one, plus
+a new build error in igb, which I don't see in linux-next:
 
-./samples/pktgen/pktgen_sample02_multiqueue.sh
-./samples/pktgen/pktgen_sample03_burst_single_flow.sh
+drivers/net/ethernet/intel/igb/igb_cdev.c: In function 'igb_mapring':
+drivers/net/ethernet/intel/igb/igb_cdev.c:150:2: error: implicit declaration of function 'set_pages_uc' [-Werror=implicit-function-declaration]
+  set_pages_uc(virt_to_page(ring->desc), ring->size >> PAGE_SHIFT);
+  ^
+drivers/net/ethernet/intel/igb/igb_cdev.c: In function 'igb_unmapring':
+drivers/net/ethernet/intel/igb/igb_cdev.c:275:2: error: implicit declaration of function 'set_pages_wb' [-Werror=implicit-function-declaration]
+  set_pages_wb(virt_to_page(ring->desc), ring->size >> PAGE_SHIFT);
 
-that should get you there.
-
-.John
-
-> Or.
+	Arnd
