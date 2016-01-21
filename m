@@ -1,155 +1,59 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Tools for sampling ethtool --statistics
-Date: Thu, 21 Jan 2016 11:35:42 +0100
-Message-ID: <20160121113542.2d2e8e23@redhat.com>
-References: <20160120101311.5266cac6@redhat.com>
-	<CAJ3xEMiNDU20FVG_9_r11wqMmAFiERBTYcsFmjwaSfbZ25NOiQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, brouer@redhat.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Bluetooth: WARNING: CPU: 1 PID: 25657 at include/net/sock.h:586 bt_sock_unlink+0x1c7/0x220()
+Date: Thu, 21 Jan 2016 12:19:58 +0100
+Message-ID: <90527994-751A-4BA4-93D4-63CEE4C40E6E@holtmann.org>
+References: <5692B746.4050007@oracle.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sasha Levin <sasha.levin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55183 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759093AbcAUKfq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 05:35:46 -0500
-In-Reply-To: <CAJ3xEMiNDU20FVG_9_r11wqMmAFiERBTYcsFmjwaSfbZ25NOiQ@mail.gmail.com>
+Received: from [82.165.8.211] ([82.165.8.211]:56836 "EHLO mail.holtmann.org"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759365AbcAULUB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 06:20:01 -0500
+In-Reply-To: <5692B746.4050007@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Jan 2016 00:34:16 +0200
-Or Gerlitz <gerlitz.or@gmail.com> wrote:
+Hi Sasha,
 
-> On Wed, Jan 20, 2016 at 11:13 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > Hi All,
-> >
-> > I wrote a small tool[1] to extract ethtool --statistics|-S, sample and
-> > present it in a more human readable manor.  You might also find this
-> > useful...
-> >
-> > https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
-> >
-> > The reason I wrote this script is that the mlx5 driver (Mellanox 100 Gbit/s)
-> > does not report correct ifconfig stats.  It reports the HW counters,
-> > not what the network stack is able to handle.  I/we obviously need the
-> > stack number when working on improving the stack.  
+> While fuzzing with trinity inside a KVM tools guest, running the latest -next
+> kernel, I've hit the following warning:
 > 
-> correct && we should be fixing that ... 
+> [ 1153.249127] WARNING: CPU: 1 PID: 25657 at include/net/sock.h:586 bt_sock_unlink+0x1c7/0x220()
+> [ 1153.250162] Modules linked in:
+> [ 1153.250996] CPU: 1 PID: 25657 Comm: trinity-c223 Tainted: G        W       4.4.0-rc8-next-20160108-sasha-00024-gaaecb9a #2780
+> [ 1153.252551]  1ffff100184f5f00 0000000015bfc733 ffff8800c27af880 ffffffff8301a182
+> [ 1153.253594]  0000000041b58ab3 ffffffff8e1b3838 ffffffff8301a0b7 0000000015bfc733
+> [ 1153.254857]  ffffffff8177f4c7 0000000015bfc733 ffff8801d16eb000 0000000000000001
+> [ 1153.272107] Call Trace:
+> [ 1153.272568] dump_stack (lib/dump_stack.c:52)
+> [ 1153.274909] warn_slowpath_common (kernel/panic.c:484)
+> [ 1153.276544] warn_slowpath_null (kernel/panic.c:518)
+> [ 1153.277341] bt_sock_unlink (./arch/x86/include/asm/atomic.h:103 include/net/sock.h:577 include/net/sock.h:587 net/bluetooth/af_bluetooth.c:148)
+> [ 1153.280581] hidp_sock_release (include/net/sock.h:1546 net/bluetooth/hidp/sock.c:43)
+> [ 1153.281435] sock_release (net/socket.c:573)
+> [ 1153.282145] sock_close (net/socket.c:1025)
+> [ 1153.282874] __fput (fs/file_table.c:209)
+> [ 1153.283581] ____fput (fs/file_table.c:245)
+> [ 1153.296361] task_work_run (kernel/task_work.c:117 (discriminator 1))
+> [ 1153.297090] do_exit (kernel/exit.c:749)
+> [ 1153.302756] do_group_exit (kernel/exit.c:862)
+> [ 1153.303523] get_signal (kernel/signal.c:2307)
+> [ 1153.307151] do_signal (arch/x86/kernel/signal.c:781)
+> [ 1153.322592] exit_to_usermode_loop (arch/x86/entry/common.c:249)
+> [ 1153.323416] syscall_return_slowpath (./arch/x86/include/asm/jump_label.h:35 include/linux/context_tracking_state.h:30 include/linux/context_tracking.h:24 arch/x86/entry/common.c:284 arch/x86/entry/common.c:344)
+> [ 1153.324276] int_ret_from_sys_call (arch/x86/entry/entry_64.S:282)
 
-Yes, this need to be fixed. I'm currently playing around in that code,
-and will fix it if you don't ;-)... (although, to be realistic, I will
-not have time until after netdev 1.1. to submit upstream patches).
+do you have a trinity command line that will reproduce this?
 
-> still it's worthwhile to be
-> able and see per ring stats, specially when you're dealing/optimizing
-> in multi-stream env.
+Regards
 
-It is actually also useful for detecting other situation, which are
-visible via obscure stats that we usually don't look at. I've been
-postponing writing this script for years, and in the end it only took
-me 2 hours to write (and 1 hour fixups the next day).
-
-
-> > Output examples:
-> >
-> > pktgen (1 core) sending ~20Mpps
-> >
-> > Show adapter mlx5p2 statistics (ONLY that changed!)
-> > Ethtool(mlx5p2) stat:     19431694 (     19,431,694) <= frames_rx /sec
-> > Ethtool(mlx5p2) stat:   1243722215 (  1,243,722,215) <= in_octets /sec
-> > Ethtool(mlx5p2) stat:     19433161 (     19,433,161) <= in_ucast_pkts /sec
-> > Ethtool(mlx5p2) stat:   1243746943 (  1,243,746,943) <= octets /sec
-> > Ethtool(mlx5p2) stat:   1243629263 (  1,243,629,263) <= octets_received /sec
-> > Ethtool(mlx5p2) stat:     19433654 (     19,433,654) <= p64octets /sec
-> > Ethtool(mlx5p2) stat:     19433556 (     19,433,556) <= pkts /sec
-> > Ethtool(mlx5p2) stat:      1815546 (      1,815,546) <= rx3_packets /sec
-> > Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_bytes /sec
-> > Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_csum_good /sec
-> > Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_packets /sec
-> > Ethtool(mlx5p2) stat:   1165854821 (  1,165,854,821) <= rx_unicast_bytes /sec
-> > Ethtool(mlx5p2) stat:     19430906 (     19,430,906) <= rx_unicast_packets /sec  
-> 
-> was expecting to see tx_XXX stats, something wrong here?
-
-This was a RX only test (with another machine generating packets with
-pktgen).
-
-TX_xxx stats does show up when I run netperf.  And the single netperf
-results are around 50Gbit/s (if IRQ RX process runs on another CPU that
-netperf process, I guess this was Eric point earlier), if IRQ and
-netperf runs on same CPU, perf drops to 23-26Gbit/s.  Running multiple
-(super_)netperf the result max out at 64Gbit/s.
-
-
-> > pktgen (4 cores) sending ~50Mpps  
-> [...]
-> 
-> The 20M for single ring/core and 50M pps for four streams are really
-> cool results. 
-
-Yes, these 100G NICs are definitely the fastest HW I currently have!
-Thanks BTW ;-)
-
-> Do the scripts to get ~such results exist in your
-> network testing github repo? last time I looked I wasn't sure if  the
-> multi-stream case is supported.
-> 
-> Could you post the two commands you used for these results along with
-> minimal spec of the system (CPU type/freq, special .config directives,
-> anything else)?
-
-Two mlx5 100G NICs
- - firmware-version: 12.12.1240
- - Description: ConnectX-4 VPI adapter card; EDR IB (100Gb/s)
-                and 100GbE; dual-port QSFP28; PCIe3.0 x16; ROHS R6
-  - PSID: MT_2190110032
-
-The sender/generator machine:
- - CPU: i7-4790K CPU @ 4.00GHz
-
-The receiver machine:
- - CPU: i7-6700K CPU @ 4.00GHz ("skylake")
-
-Pktgen command [1] or [2]:
- ./pktgen_sample03_burst_single_flow.sh -i mlx5p2 -d 192.168.100.66 -m e4:1d:2d:af:60:65 -c1 -t 4
-
-For sending multi-threads use parameter "-t X".
-
-
-> > Show adapter mlx5p2 statistics (ONLY that changed!)
-> > Ethtool(mlx5p2) stat:     25710443 (     25,710,443) <= drop_events /sec
-> > Ethtool(mlx5p2) stat:     51861645 (     51,861,645) <= frames_rx /sec
-> > Ethtool(mlx5p2) stat:     25710502 (     25,710,502) <= in_discards /sec
-
-Notice I had to pressure it more that 26 Mpps before in_discards and
-drop_events show up.
-
-> > Ethtool(mlx5p2) stat:   3319134161 (  3,319,134,161) <= in_octets /sec
-> > Ethtool(mlx5p2) stat:     26150970 (     26,150,970) <= in_ucast_pkts /sec
-> > Ethtool(mlx5p2) stat:   3319128053 (  3,319,128,053) <= octets /sec
-> > Ethtool(mlx5p2) stat:   3319145319 (  3,319,145,319) <= octets_received /sec
-> > Ethtool(mlx5p2) stat:     51861369 (     51,861,369) <= p64octets /sec
-> > Ethtool(mlx5p2) stat:     51861375 (     51,861,375) <= pkts /sec
-> > Ethtool(mlx5p2) stat:      1383475 (      1,383,475) <= rx3_packets /sec
-
-The rx3_packets were reduced a little (1.8Mpps -> 1.4Mpps), once
-in_discards starts... 
-
-> > Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_bytes /sec
-> > Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_csum_good /sec
-> > Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_packets /sec
-> > Ethtool(mlx5p2) stat:   1569059171 (  1,569,059,171) <= rx_unicast_bytes /sec
-> > Ethtool(mlx5p2) stat:     26150988 (     26,150,988) <= rx_unicast_packets /sec  
-
-
-[1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
-[2] https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/samples/pktgen
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Marcel
