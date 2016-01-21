@@ -1,64 +1,60 @@
-From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence
- mode configuration
-Date: Thu, 21 Jan 2016 09:53:31 +0100
-Message-ID: <20160121085331.GO7192@pali>
-References: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com>
- <5696D08F.9030906@broadcom.com>
- <20160114091654.GA15380@amd>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 1/2] vhost: helpers to enable/disable vring endianness
+Date: Thu, 21 Jan 2016 10:55:39 +0100
+Message-ID: <20160121105539.63093cb6.cornelia.huck@de.ibm.com>
+References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
+	<20160113170941.23705.93915.stgit@bahia.huguette.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
-To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160114091654.GA15380@amd>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160113170941.23705.93915.stgit@bahia.huguette.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 14 January 2016 10:16:54 Pavel Machek wrote:
-> On Wed 2016-01-13 23:32:47, Arend van Spriel wrote:
-> > On 12/26/2015 12:45 PM, Pali Roh=C3=A1r wrote:
-> > >Port the bt_coex_mode sysfs interface from wl1251 driver version i=
-ncluded
-> > >in the Maemo Fremantle kernel to allow bt-coexistence mode configu=
-ration.
-> > >This enables userspace applications to set one of the modes
-> > >WL1251_BT_COEX_OFF, WL1251_BT_COEX_ENABLE and WL1251_BT_COEX_MONOA=
-UDIO.
-> > >The default mode is WL1251_BT_COEX_OFF.
-> > >It should be noted that this driver always enabled bt-coexistence =
-before
-> > >and enabled bt-coexistence directly affects the receiving performa=
-nce,
-> > >rendering it unusable in some low-signal situations. Especially mo=
-nitor
-> > >mode is affected very badly with bt-coexistence enabled.
-> >=20
-> > So what user-space process will be using this interface. Did you co=
-nsider
-> > adding debugfs interface? In case of monitor mode you could conside=
-r
-> > disabling bt-coex from within the driver itself.
->=20
-> This aint no debugging feature.
-> 									Pavel
+On Wed, 13 Jan 2016 18:09:41 +0100
+Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
 
-Right, bt-coex is not for debugging purpose, but for normal usage, when
-user want to use together bluetooth and wifi or just one of those.
+> The default use case for vhost is when the host and the vring have the
+> same endianness (default native endianness). But there are cases where
+> they differ and vhost should byteswap when accessing the vring:
+> - the host is big endian and the vring comes from a virtio 1.0 device
+>   which is always little endian
+> - the architecture is bi-endian and the vring comes from a legacy virtio
+>   device with a different endianness than the endianness of the host (aka
+>   legacy cross-endian)
+> 
+> These cases are handled by the vq->is_le and the optional vq->user_be,
+> with the following logic:
+> - if none of the fields is enabled, vhost access the vring without byteswap
+> - if the vring is virtio 1.0 and the host is big endian, vq->is_le is
+>   enabled to enforce little endian access to the vring
+> - if the vring is legacy cross-endian, userspace enables vq->user_be
+>   to inform vhost about the vring endianness. This endianness is then
+>   enforced for vring accesses through vq->is_le again
+> 
+> The logic is unclear in the current code.
+> 
+> This patch introduces helpers with explicit enable and disable semantics,
+> for better clarity.
+> 
+> No behaviour change.
+> 
+> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> ---
+>  drivers/vhost/vhost.c |   28 +++++++++++++++++++---------
+>  1 file changed, 19 insertions(+), 9 deletions(-)
 
-Are there any other objections for this patch?
-
---=20
-Pali Roh=C3=A1r
-pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
