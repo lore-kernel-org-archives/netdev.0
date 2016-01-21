@@ -1,138 +1,128 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 3/3] sctp: remove the dead field of sctp_transport
-Date: Fri, 22 Jan 2016 01:49:09 +0800
-Message-ID: <9467f6a273956a9b49c95f509a36e10371a481c2.1453398443.git.lucien.xin@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 1/3] sctp: fix the transport dead race check by using
+ atomic_add_unless on refcnt
+Date: Thu, 21 Jan 2016 15:53:05 -0200
+Message-ID: <20160121175305.GD3452@mrl.redhat.com>
 References: <cover.1453398443.git.lucien.xin@gmail.com>
  <9f366422b6a8c6c0c939ccbf993548c1881a2c16.1453398443.git.lucien.xin@gmail.com>
- <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
 	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
 	davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33806 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759914AbcAURt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 12:49:27 -0500
-In-Reply-To: <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1453398443.git.lucien.xin@gmail.com>
-References: <cover.1453398443.git.lucien.xin@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53763 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759297AbcAURxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 12:53:08 -0500
+Content-Disposition: inline
+In-Reply-To: <9f366422b6a8c6c0c939ccbf993548c1881a2c16.1453398443.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After we use refcnt to check if transport is alive, the dead can be
-removed from sctp_transport.
+On Fri, Jan 22, 2016 at 01:49:07AM +0800, Xin Long wrote:
+> Now when __sctp_lookup_association is running in BH, it will try to
+> check if t->dead is set, but meanwhile other CPUs may be freeing this
+> transport and this assoc and if it happens that
+> __sctp_lookup_association checked t->dead a bit too early, it may think
+> that the association is still good while it was already freed.
+> 
+> So we fix this race by using atomic_add_unless in sctp_transport_hold.
+> After we get one transport from hashtable, we will hold it only when
+> this transport's refcnt is not 0, so that we can make sure t->asoc
+> cannot be freed before we hold the asoc again.
+> 
+> Note that sctp association is not freed using RCU so we can't use
+> atomic_add_unless() with it as it may just be too late for that either.
+> 
+> Fixes: 4f0087812648 ("sctp: apply rhashtable api to send/recv path")
+> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-The traversal of transport_addr_list in procfs dump is using
-list_for_each_entry_rcu, no need to check if it has been freed.
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-sctp_generate_t3_rtx_event and sctp_generate_heartbeat_event is
-protected by sock lock, it's not necessary to check dead, either.
-also, the timers are cancelled when sctp_transport_free() is
-called, that it doesn't wait for refcnt to reach 0 to cancel them.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/structs.h |  3 +--
- net/sctp/proc.c            |  4 ----
- net/sctp/sm_sideeffect.c   | 12 ------------
- net/sctp/transport.c       |  4 +---
- 4 files changed, 2 insertions(+), 21 deletions(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 344da04..205630b 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -756,7 +756,6 @@ struct sctp_transport {
- 
- 	/* Reference counting. */
- 	atomic_t refcnt;
--	__u32	 dead:1,
- 		/* RTO-Pending : A flag used to track if one of the DATA
- 		 *		chunks sent to this address is currently being
- 		 *		used to compute a RTT. If this flag is 0,
-@@ -766,7 +765,7 @@ struct sctp_transport {
- 		 *		calculation completes (i.e. the DATA chunk
- 		 *		is SACK'd) clear this flag.
- 		 */
--		 rto_pending:1,
-+	__u32	rto_pending:1,
- 
- 		/*
- 		 * hb_sent : a flag that signals that we have a pending
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index c74a810..ded7d93 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -165,8 +165,6 @@ static void sctp_seq_dump_remote_addrs(struct seq_file *seq, struct sctp_associa
- 	list_for_each_entry_rcu(transport, &assoc->peer.transport_addr_list,
- 			transports) {
- 		addr = &transport->ipaddr;
--		if (transport->dead)
--			continue;
- 
- 		af = sctp_get_af_specific(addr->sa.sa_family);
- 		if (af->cmp_addr(addr, primary)) {
-@@ -499,8 +497,6 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 
- 	list_for_each_entry_rcu(tsp, &assoc->peer.transport_addr_list,
- 				transports) {
--		if (tsp->dead)
--			continue;
- 		/*
- 		 * The remote address (ADDR)
- 		 */
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 2e21384..b5327bb 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -259,12 +259,6 @@ void sctp_generate_t3_rtx_event(unsigned long peer)
- 		goto out_unlock;
- 	}
- 
--	/* Is this transport really dead and just waiting around for
--	 * the timer to let go of the reference?
--	 */
--	if (transport->dead)
--		goto out_unlock;
--
- 	/* Run through the state machine.  */
- 	error = sctp_do_sm(net, SCTP_EVENT_T_TIMEOUT,
- 			   SCTP_ST_TIMEOUT(SCTP_EVENT_TIMEOUT_T3_RTX),
-@@ -380,12 +374,6 @@ void sctp_generate_heartbeat_event(unsigned long data)
- 		goto out_unlock;
- 	}
- 
--	/* Is this structure just waiting around for us to actually
--	 * get destroyed?
--	 */
--	if (transport->dead)
--		goto out_unlock;
--
- 	error = sctp_do_sm(net, SCTP_EVENT_T_TIMEOUT,
- 			   SCTP_ST_TIMEOUT(SCTP_EVENT_TIMEOUT_HEARTBEAT),
- 			   asoc->state, asoc->ep, asoc,
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index 69f3799..a431c14 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -132,8 +132,6 @@ fail:
-  */
- void sctp_transport_free(struct sctp_transport *transport)
- {
--	transport->dead = 1;
--
- 	/* Try to delete the heartbeat timer.  */
- 	if (del_timer(&transport->hb_timer))
- 		sctp_transport_put(transport);
-@@ -169,7 +167,7 @@ static void sctp_transport_destroy_rcu(struct rcu_head *head)
-  */
- static void sctp_transport_destroy(struct sctp_transport *transport)
- {
--	if (unlikely(!transport->dead)) {
-+	if (unlikely(atomic_read(&transport->refcnt))) {
- 		WARN(1, "Attempt to destroy undead transport %p!\n", transport);
- 		return;
- 	}
--- 
-2.1.0
+> ---
+>  include/net/sctp/structs.h |  2 +-
+>  net/sctp/input.c           | 17 +++++++++++------
+>  net/sctp/transport.c       |  4 ++--
+>  3 files changed, 14 insertions(+), 9 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 20e7212..344da04 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -955,7 +955,7 @@ void sctp_transport_route(struct sctp_transport *, union sctp_addr *,
+>  void sctp_transport_pmtu(struct sctp_transport *, struct sock *sk);
+>  void sctp_transport_free(struct sctp_transport *);
+>  void sctp_transport_reset_timers(struct sctp_transport *);
+> -void sctp_transport_hold(struct sctp_transport *);
+> +int sctp_transport_hold(struct sctp_transport *);
+>  void sctp_transport_put(struct sctp_transport *);
+>  void sctp_transport_update_rto(struct sctp_transport *, __u32);
+>  void sctp_transport_raise_cwnd(struct sctp_transport *, __u32, __u32);
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index bf61dfb..49d2cc7 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -935,15 +935,22 @@ static struct sctp_association *__sctp_lookup_association(
+>  					struct sctp_transport **pt)
+>  {
+>  	struct sctp_transport *t;
+> +	struct sctp_association *asoc = NULL;
+>  
+> +	rcu_read_lock();
+>  	t = sctp_addrs_lookup_transport(net, local, peer);
+> -	if (!t || t->dead)
+> -		return NULL;
+> +	if (!t || !sctp_transport_hold(t))
+> +		goto out;
+>  
+> -	sctp_association_hold(t->asoc);
+> +	asoc = t->asoc;
+> +	sctp_association_hold(asoc);
+>  	*pt = t;
+>  
+> -	return t->asoc;
+> +	sctp_transport_put(t);
+> +
+> +out:
+> +	rcu_read_unlock();
+> +	return asoc;
+>  }
+>  
+>  /* Look up an association. protected by RCU read lock */
+> @@ -955,9 +962,7 @@ struct sctp_association *sctp_lookup_association(struct net *net,
+>  {
+>  	struct sctp_association *asoc;
+>  
+> -	rcu_read_lock();
+>  	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
+> -	rcu_read_unlock();
+>  
+>  	return asoc;
+>  }
+> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+> index aab9e3f..69f3799 100644
+> --- a/net/sctp/transport.c
+> +++ b/net/sctp/transport.c
+> @@ -296,9 +296,9 @@ void sctp_transport_route(struct sctp_transport *transport,
+>  }
+>  
+>  /* Hold a reference to a transport.  */
+> -void sctp_transport_hold(struct sctp_transport *transport)
+> +int sctp_transport_hold(struct sctp_transport *transport)
+>  {
+> -	atomic_inc(&transport->refcnt);
+> +	return atomic_add_unless(&transport->refcnt, 1, 0);
+>  }
+>  
+>  /* Release a reference to a transport and clean up
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
