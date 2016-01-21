@@ -1,57 +1,39 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Kernel memory leak in bnx2x driver with vxlan tunnel
-Date: Thu, 21 Jan 2016 03:27:34 +0100
-Message-ID: <20160121022734.GC29853@pox.localdomain>
-References: <CAEh+42iikonSmsLu5f3UyQCPge0rmUmNu15ggvpkPdv9gqKQ=g@mail.gmail.com>
- <1453247464.1223.297.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAEh+42hAHUeXaDYJbyocigyXADcOfTYKMiMAzBmScG8JFht4JA@mail.gmail.com>
- <1453249067.1223.300.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAEh+42iRs8RPATfj7P+ADUjFV3nTBMiEU3AXVe5vY9GMDbKKDQ@mail.gmail.com>
- <20160120013128.GA6326@pox.localdomain>
- <56A01BBF.1010301@hpe.com>
- <1453334825.1223.332.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAEh+42g4Zk6WVRwQDLi_fT3wWmQDEdPRA-aRidov1YD5MpYx6A@mail.gmail.com>
- <1453336495.1223.341.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] gro: Make GRO aware of lightweight tunnels.
+Date: Thu, 21 Jan 2016 03:31:59 +0100
+Message-ID: <20160121023159.GD29853@pox.localdomain>
+References: <1453336048-49406-1-git-send-email-jesse@kernel.org>
+ <1453337308.1223.345.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAEh+42g+bc-+=qjZ=Ha8580aZf5=o+2CS6pM1m-gKu47sbPTxw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Gross <jesse@kernel.org>, John <john.phillips5@hpe.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>, david.roth@hpe.com,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	John <john.phillips5@hpe.com>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37412 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755197AbcAUC1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:27:38 -0500
-Received: by mail-wm0-f44.google.com with SMTP id n5so58339347wmn.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:27:37 -0800 (PST)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:33025 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbcAUCcC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:32:02 -0500
+Received: by mail-wm0-f52.google.com with SMTP id 123so156271447wmz.0
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:32:01 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1453336495.1223.341.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <CAEh+42g+bc-+=qjZ=Ha8580aZf5=o+2CS6pM1m-gKu47sbPTxw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/16 at 04:34pm, Eric Dumazet wrote:
-> On Wed, 2016-01-20 at 16:19 -0800, Jesse Gross wrote:
-> 
-> > I have a patch that implements the comparison between dsts. For
-> > packets without a dst, there isn't really a cost and if we do have a
-> > dst then GRO is still a benefit. So it seems like it is worth doing,
-> > even if it is more expensive than is ideal.
-> 
-> You guys really want to kill GRO performance.
-> 
-> Really the aggregation should happen at the first layer (ethernet
-> device), instead of doing it after tunnel decap.
-> 
-> This is already done for GRE, IPIP, SIT, ...
-> 
-> GRO having to access metadata looks wrong, if you think about trying to
-> do the same function in hardware (offload)
+On 01/20/16 at 05:47pm, Jesse Gross wrote:
+> Just to merge the two threads together, all of protocols that would be
+> affected by this also have "normal" GRO handlers that will run when
+> the packet is first received. There's no argument that that is
+> preferable if it is available. However, GRO cells do provide a
+> performance benefit in other situations so it would be nice to avoid
+> disabling it if possible.
 
-If I understand Jesse correctly then the added cost is only for
-metadata enabled packets. Though I agree, what's the benefit of
-doing GRO after decap?
+I missed this thread when I replied to the other one.
 
-It seems like it's way too late and we've already paid the cost
-by going through the stack for each outer header packet.
+What are these situations? It seems like there are specific
+scenarios where this helps. Is it varying TLVs in the encap header
+for otherwise meregable inner headers?
