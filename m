@@ -1,77 +1,65 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
-Date: Thu, 21 Jan 2016 09:53:51 +0200
-Message-ID: <56A08E8F.7090602@mellanox.com>
-References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
- <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
- <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v4)
+Date: Thu, 21 Jan 2016 09:35:06 +0100
+Message-ID: <20160121083506.GA2251@nanopsycho.orion>
+References: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: 'Or Gerlitz' <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	'Doug Ledford' <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	'Linux Netdev List' <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	'Jeff Kirsher' <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	'Faisal Latif' <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sd@queasysnail.net,
+	jay.vosburgh@canonical.com, zyjzyj2000@gmail.com
+To: Wengang Wang <wen.gang.wang@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34940 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbcAUIfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 03:35:09 -0500
+Received: by mail-wm0-f66.google.com with SMTP id 123so9264001wmz.2
+        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 00:35:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/21/2016 12:57 AM, Steve Wise wrote:
-> I also asked you why the port mapper code has to be present in each
-> iwarp driver and not part of the IB core stack, and you responded
-> "i40iw iwarp driver registers with port mapper and uses its services.
-> Beside that it is not the scope of the patch series"  -- well, it is
-> in the scope of upstream review to pose such questions, please
-> address.
+Thu, Jan 21, 2016 at 06:32:58AM CET, wen.gang.wang@oracle.com wrote:
+>In a bonding setting, we determines fragment size according to MTU and
+>PMTU associated to the bonding master. If the slave finds the fragment
+>size is too big, it drops the fragment and calls ip_rt_update_pmtu(),
+>passing _skb_ and _pmtu_, trying to update the path MTU.
+>Problem is that the target device that function ip_rt_update_pmtu actually
+>tries to update is the slave (skb->dev), not the master. Thus since no
+>PMTU change happens on master, the fragment size for later packets doesn't
+>change so all later fragments/packets are dropped too.
 >
+>The fix is letting build_skb_flow_key() take care of the transition of
+>device index from bonding slave to the master. That makes the master become
+>the target device that ip_rt_update_pmtu tries to update PMTU to.
 >
-> There is a common service/API in the IB core for iWarp port mapping.  See drivers/infinbiand/core/iwpm*.c and include/rdma/iw_portmap.h.
+>Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>---
+> net/ipv4/route.c | 9 +++++++++
+> 1 file changed, 9 insertions(+)
 >
->
+>diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>index 85f184e..7e766b5 100644
+>--- a/net/ipv4/route.c
+>+++ b/net/ipv4/route.c
+>@@ -524,10 +524,19 @@ static void build_skb_flow_key(struct flowi4 *fl4, const struct sk_buff *skb,
+> {
+> 	const struct iphdr *iph = ip_hdr(skb);
+> 	int oif = skb->dev->ifindex;
+>+	struct net_device *master;
+> 	u8 tos = RT_TOS(iph->tos);
+> 	u8 prot = iph->protocol;
+> 	u32 mark = skb->mark;
+> 
+>+	if (netif_is_bond_slave(skb->dev)) {
+>+		rcu_read_lock();
+>+		master = netdev_master_upper_dev_get_rcu(skb->dev);
+>+		if (master)
+>+			oif = master->ifindex;
+>+		rcu_read_unlock();
+>+	}
 
-Steve,
-
-Okay, but I still don't follow why each vendor needs an RDMA_NL_YYY ID 
-(RDMA_NL_C4IW, RDMA_NL_NES and now a new one  for this driver) of their own.
-
-I see that the two current drivers actually use the same callbacks 
-towards user-space, does each vendor uses a different user-space daemon, 
-why?
-
-Or.
-
-net.git]# cd drivers/infiniband/hw/
-
-hw]# git grep RDMA_NL_IWPM .
-cxgb4/device.c: [RDMA_NL_IWPM_REG_PID] = {.dump = iwpm_register_pid_cb},
-cxgb4/device.c: [RDMA_NL_IWPM_ADD_MAPPING] = {.dump = iwpm_add_mapping_cb},
-cxgb4/device.c: [RDMA_NL_IWPM_QUERY_MAPPING] = {.dump = 
-iwpm_add_and_query_mapping_cb},
-cxgb4/device.c: [RDMA_NL_IWPM_HANDLE_ERR] = {.dump = iwpm_mapping_error_cb},
-cxgb4/device.c: [RDMA_NL_IWPM_REMOTE_INFO] = {.dump = iwpm_remote_info_cb},
-cxgb4/device.c: [RDMA_NL_IWPM_MAPINFO] = {.dump = iwpm_mapping_info_cb},
-cxgb4/device.c: [RDMA_NL_IWPM_MAPINFO_NUM] = {.dump = 
-iwpm_ack_mapping_info_cb}
-cxgb4/device.c: if (ibnl_add_client(RDMA_NL_C4IW, RDMA_NL_IWPM_NUM_OPS,
-
-nes/nes.c:      [RDMA_NL_IWPM_REG_PID] = {.dump = iwpm_register_pid_cb},
-nes/nes.c:      [RDMA_NL_IWPM_ADD_MAPPING] = {.dump = iwpm_add_mapping_cb},
-nes/nes.c:      [RDMA_NL_IWPM_QUERY_MAPPING] = {.dump = 
-iwpm_add_and_query_mapping_cb},
-nes/nes.c:      [RDMA_NL_IWPM_REMOTE_INFO] = {.dump = iwpm_remote_info_cb},
-nes/nes.c:      [RDMA_NL_IWPM_HANDLE_ERR] = {.dump = iwpm_mapping_error_cb},
-nes/nes.c:      [RDMA_NL_IWPM_MAPINFO] = {.dump = iwpm_mapping_info_cb},
-nes/nes.c:      [RDMA_NL_IWPM_MAPINFO_NUM] = {.dump = 
-iwpm_ack_mapping_info_cb}
-nes/nes.c:      if (ibnl_add_client(RDMA_NL_NES, RDMA_NL_IWPM_NUM_OPS, 
-nes_nl_cb_table))
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is certainly not correct as it should not be bond-specific but
+rather generic. Note that you may have bond over bond or bridge over
+bond or other scenarios, which this patch ignores.
