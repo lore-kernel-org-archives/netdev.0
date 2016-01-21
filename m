@@ -1,40 +1,59 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: fix NULL deref in tcp_v4_send_ack()
-Date: Thu, 21 Jan 2016 11:06:02 -0500
-Message-ID: <CADVnQyk+8G6bkhh5g_JxqpeeCquMrVfwA9=otMfmhFSYtVZAjg@mail.gmail.com>
-References: <1453392174.1223.363.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v6 3/3] can: sja1000: of: add compatibility with
+ Technologic Systems version
+Date: Thu, 21 Jan 2016 17:15:08 +0100
+Message-ID: <56A1040C.4070800@pengutronix.de>
+References: <1453304611-31207-1-git-send-email-mkl@pengutronix.de>
+ <1453304611-31207-4-git-send-email-mkl@pengutronix.de>
+ <20160121152820.GA6523@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:33117 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965429AbcAUQGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 11:06:04 -0500
-Received: by mail-yk0-f181.google.com with SMTP id k129so53664634yke.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 08:06:03 -0800 (PST)
-In-Reply-To: <1453392174.1223.363.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20160121152820.GA6523@localhost>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 21, 2016 at 11:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
-...
-> The problem here is the skb we provide to tcp_v4_send_ack() had to
-> be parked in the backlog of a new TCP fastopen child because this child
-> was owned by the user at the time an out of window packet arrived.
->
-> Before queuing a packet, TCP has to set skb->dev to NULL as the device
-> could disappear before packet is removed from the queue.
->
-> Fix this issue by using the net pointer provided by the socket (being a
-> timewait or a request socket).
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Thanks, Eric!
+On 01/21/2016 04:28 PM, Damien Riegel wrote:
+> I tested the new technologic version and it works as expected.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Thanks.
 
-neal
+> Would be nice if someone could test the nxp version to ensure no
+> regressions has been introduced (I don't have such hardware here).
+
+I don't have the hardware, either.
+
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJWoQQMAAoJEP5prqPJtc/HfRIH/2QgzqYxE1LIPUlAiitOsBch
+Eaq74lHajuDGLM3CdRsPpWo1CEmsqwi23HULVm8clhHrr5EcY3E00U1htplSMK+K
+DVkGxO8bswASsfIouQpA540YNSYe7JNpJ/hMZsLGbCFldbE7hL29egWMX2BPAaY0
+nsGuW84eRX0Xxo7oGV1xN5Pv6mm0seeBG0v7GWICaT4R2hrdamPHX2wCpBDdRtah
+bL/6oDOQ5z2LZ33DWpc2iNw0m6AKRrp49mPfhlaC8FvlDyXlkAL5IvaK78mAVVCR
+FmcugYrDIs7NDhDIF62LiH+03wRBumRT+U+b/hqBmPbRjCj0bqPjBHIYhxIHx1o=
+=JXPR
+-----END PGP SIGNATURE-----
+
+--6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco--
