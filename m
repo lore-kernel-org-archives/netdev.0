@@ -1,43 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: question about samsung/sxgbe/sxgbe_xpcs.c
-Date: Thu, 21 Jan 2016 10:45:20 -0800 (PST)
-Message-ID: <20160121.104520.110588445425253600.davem@davemloft.net>
-References: <alpine.DEB.2.10.1601191918470.2531@hadrien>
-	<20160119.143628.432983847877790677.davem@davemloft.net>
-	<20160121051056.GA4373@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net/irda: bfin_sir: remove duplicate defines
+Date: Thu, 21 Jan 2016 10:45:55 -0800 (PST)
+Message-ID: <20160121.104555.194909626689511824.davem@davemloft.net>
+References: <1453353151-4622-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: julia.lawall@lip6.fr, shuahkhan@gmail.com, bh74.an@samsung.com,
-	ks.giri@samsung.com, vipul.pandya@samsung.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shuahkh@osg.samsung.com
-To: sakiwit@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160121051056.GA4373@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org, realmz6-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453353151-4622-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSuVhbiBTYWNyZW4gPHNha2l3aXRAZ21haWwuY29tPg0KRGF0ZTogV2VkLCAyMCBKYW4g
-MjAxNiAyMjoxMDo1NiAtMDcwMA0KDQo+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldD4NCj4gRGF0ZTogVHVlLCAxOSBKYW4gMjAxNiAxNDozNjoyOCAtMDUwMA0KPj4NCj4+
-IEZyb206IEp1bGlhIExhd2FsbCA8anVsaWEubGF3YWxsQGxpcDYuZnI+DQo+PiBEYXRlOiBUdWUs
-IDE5IEphbiAyMDE2IDE5OjU0OjIwICswMTAwIChDRVQpDQo+IA0KPiBbLi4uXQ0KPiANCj4+ID4g
-SSBqdXN0IHdvbmRlcmVkLiAgSSB3YXMgbG9va2luZyBhdCBkZXBlbmRlbmNpZXMgYmV0d2VlbiBu
-ZXR3b3JraW5nIGZpbGVzLg0KPj4gPiBUaGlzIG9uZSBzdGFuZHMgb3V0IGJlY2F1c2Ugbm90aGlu
-ZyBpcyBkZXBlbmRlbnRvbiBpdCwgZXZlbiB0aGUgZmlsZXMgaXQNCj4+ID4gaXMgY29tcGlsZWQg
-d2l0aCwgYW5kIGl0IGRvZXNuJ3QgY29udGFpbiB0aGUgdXN1YWwgZnVuY3Rpb25zLA0KPj4gPiBy
-ZWdpc3Rlcl9uZXRkZXYsIGV0Yy4NCj4+IA0KPj4gRXZlbiB3aXRoIHRoYXQgZXhwbGFuYXRpb24s
-IHRoaXMgaXMgYSBib2d1cyBzaXR1YXRpb24uDQo+PiANCj4+IFRoZXJlIGFyZSBubyBpbi10cmVl
-IGNhbGxlcnMgb2YgdGhpcyBjb2RlLiAgSXQgc2hvdWxkIGJlIHJlbW92ZWQgdW50aWwgdGhlcmUN
-Cj4+IGFyZSBpbi10cmVlIHVzZXJzLg0KPj4gDQo+PiBOb2JvZHkgY2FuIGZpZ3VyZSBvdXQgaWYg
-dGhlIGludGVyZmFjZSBmb3IgdGhpcyBpcyBkb25lIHByb3Blcmx5IHdpdGhvdXQgc2VlaW5nDQo+
-PiB0aGUgY2FsbCBzaXRlcyBhbmQgaG93IHRoZXkgd29yay4gIEl0IGlzIHRoZXJlZm9yZSBpbXBv
-c3NpYmxlIHRvIHJldmlldyB0aGlzDQo+PiBjb2RlIGFuZCBqdWRnZSBpdCdzIGRlc2lnbi4NCj4+
-IA0KPj4gSWYgc29tZW9uZSBkb2Vzbid0IHNlbmQgbWUgYSByZW1vdmFsIHBhdGNoLCBJIHdpbGwg
-cmVtb3ZlIHRoaXMgY29kZSBteXNlbGYuDQo+IA0KPiBJIGhhdmUgdGhlIHBhdGNoIHJlYWR5Lg0K
-PiANCj4gRG8geW91IHdhbnQgbWUgdG8gc3VibWl0IGl0IG5vdyBkdXJpbmcgdGhlIG1lcmdlIHdp
-bmRvdyBvciB3YWl0IHRpbGwNCj4gbmV0LW5leHQgb3BlbnMgdXAgYWdhaW4/DQoNClRoaXMgaXMg
-cmVkaWN1bG91cy4NCg0KTm8sIHlvdSBjYW5ub3Qgc3VibWl0IHBhdGNoZXMgZm9yIG5ldyBmZWF0
-dXJlcyBub3cuDQoNClllcywgeW91IHdpbGwgc3VibWl0IHRvIG1lIGEgcGF0Y2ggdG8gcmVtb3Zl
-IHRoZSB1bnVzZWQgY29kZS4NCg0KQW0gSSBiZWluZyBjbGVhciBlbm91Z2ggbm93Pw0K
+From: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 21 Jan 2016 10:42:31 +0530
+
+> The defconfig build of blackfin is failing with the error:
+> 
+> arch/blackfin/include/asm/bfin_serial.h:269:0: warning: "port_membase" redefined
+> drivers/net/irda/bfin_sir.h:85:0: note: this is the location of the previous definition
+> arch/blackfin/include/asm/bfin_serial.h:382:0: warning: "get_lsr_cache" redefined
+> drivers/net/irda/bfin_sir.h:86:0: note: this is the location of the previous definition
+> arch/blackfin/include/asm/bfin_serial.h:383:0: warning: "put_lsr_cache" redefined
+> drivers/net/irda/bfin_sir.h:87:0: note: this is the location of the previous definition
+> 
+> port_membase, get_lsr_cache, put_lsr_cache are already defined in the
+> architecture files, no need to define them again in the driver.
+> 
+> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
+
+Applied, thank you.
