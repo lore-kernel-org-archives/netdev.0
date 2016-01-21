@@ -1,9 +1,10 @@
 From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 1/2] vhost: helpers to enable/disable vring endianness
-Date: Thu, 21 Jan 2016 10:55:39 +0100
-Message-ID: <20160121105539.63093cb6.cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 2/2] vhost: disentangle vring endianness stuff from the
+	core code
+Date: Thu, 21 Jan 2016 10:56:07 +0100
+Message-ID: <20160121105607.373ce75a.cornelia.huck@de.ibm.com>
 References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
-	<20160113170941.23705.93915.stgit@bahia.huguette.org>
+	<20160113170947.23705.95216.stgit@bahia.huguette.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +13,7 @@ Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	"Michael S. Tsirkin" <mst@redhat.com>
 To: Greg Kurz <gkurz@linux.vnet.ibm.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160113170941.23705.93915.stgit@bahia.huguette.org>
+In-Reply-To: <20160113170947.23705.95216.stgit@bahia.huguette.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,37 +25,25 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Jan 2016 18:09:41 +0100
+On Wed, 13 Jan 2016 18:09:47 +0100
 Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
 
-> The default use case for vhost is when the host and the vring have the
-> same endianness (default native endianness). But there are cases where
-> they differ and vhost should byteswap when accessing the vring:
-> - the host is big endian and the vring comes from a virtio 1.0 device
->   which is always little endian
-> - the architecture is bi-endian and the vring comes from a legacy virtio
->   device with a different endianness than the endianness of the host (aka
->   legacy cross-endian)
+> The way vring endianness is being handled currently obfuscates
+> the code in vhost_init_used().
 > 
-> These cases are handled by the vq->is_le and the optional vq->user_be,
-> with the following logic:
-> - if none of the fields is enabled, vhost access the vring without byteswap
-> - if the vring is virtio 1.0 and the host is big endian, vq->is_le is
->   enabled to enforce little endian access to the vring
-> - if the vring is legacy cross-endian, userspace enables vq->user_be
->   to inform vhost about the vring endianness. This endianness is then
->   enforced for vring accesses through vq->is_le again
-> 
-> The logic is unclear in the current code.
-> 
-> This patch introduces helpers with explicit enable and disable semantics,
-> for better clarity.
+> This patch tries to fix that by doing the following:
+> - move the the code that adjusts endianness to a dedicated helper
+> - export this helper so that backends explicitely call it
 > 
 > No behaviour change.
 > 
 > Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
 > ---
->  drivers/vhost/vhost.c |   28 +++++++++++++++++++---------
->  1 file changed, 19 insertions(+), 9 deletions(-)
+>  drivers/vhost/net.c   |    3 +++
+>  drivers/vhost/scsi.c  |    3 +++
+>  drivers/vhost/test.c  |    2 ++
+>  drivers/vhost/vhost.c |   16 +++++++++++-----
+>  drivers/vhost/vhost.h |    1 +
+>  5 files changed, 20 insertions(+), 5 deletions(-)
 
 Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
