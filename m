@@ -1,39 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] gro: Make GRO aware of lightweight tunnels.
-Date: Thu, 21 Jan 2016 03:31:59 +0100
-Message-ID: <20160121023159.GD29853@pox.localdomain>
-References: <1453336048-49406-1-git-send-email-jesse@kernel.org>
- <1453337308.1223.345.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAEh+42g+bc-+=qjZ=Ha8580aZf5=o+2CS6pM1m-gKu47sbPTxw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	John <john.phillips5@hpe.com>
-To: Jesse Gross <jesse@kernel.org>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [PATCH iproute2] ip-link: remove warning message
+Date: Thu, 21 Jan 2016 02:23:49 +0000
+Message-ID: <1453343029-14580-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:33025 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbcAUCcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:32:02 -0500
-Received: by mail-wm0-f52.google.com with SMTP id 123so156271447wmz.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:32:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAEh+42g+bc-+=qjZ=Ha8580aZf5=o+2CS6pM1m-gKu47sbPTxw@mail.gmail.com>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3370 "EHLO
+	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbcAUCcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:32:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/16 at 05:47pm, Jesse Gross wrote:
-> Just to merge the two threads together, all of protocols that would be
-> affected by this also have "normal" GRO handlers that will run when
-> the packet is first received. There's no argument that that is
-> preferable if it is available. However, GRO cells do provide a
-> performance benefit in other situations so it would be nice to avoid
-> disabling it if possible.
+the warning was:
+iproute.c:301:12: warning: 'val' may be used uninitialized in this
+function [-Wmaybe-uninitialized]
+   features &= ~RTAX_FEATURE_ECN;
+            ^
+iproute.c:575:10: note: 'val' was declared here
+   __u32 val;
+	  ^
 
-I missed this thread when I replied to the other one.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ ip/iproute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-What are these situations? It seems like there are specific
-scenarios where this helps. Is it varying TLVs in the encap header
-for otherwise meregable inner headers?
+diff --git a/ip/iproute.c b/ip/iproute.c
+index d5e3ebe..afe70e1 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -572,7 +572,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			mxlock = *(unsigned*)RTA_DATA(mxrta[RTAX_LOCK]);
+ 
+ 		for (i=2; i<= RTAX_MAX; i++) {
+-			__u32 val;
++			__u32 val = 0U;
+ 
+ 			if (mxrta[i] == NULL)
+ 				continue;
+-- 
+1.8.3.1
