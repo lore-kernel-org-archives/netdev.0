@@ -1,151 +1,62 @@
-From: Yang Zhang <yang.zhang.wz@gmail.com>
-Subject: Re: [PATCH V2 3/3] vhost_net: basic polling support
-Date: Thu, 21 Jan 2016 10:11:35 +0800
-Message-ID: <56A03E57.2020400@gmail.com>
-References: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
-	<1448951985-12385-4-git-send-email-jasowang@redhat.com>
-	<20160120143524.GA27168@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] gro: Make GRO aware of lightweight tunnels.
+Date: Wed, 20 Jan 2016 18:16:28 -0800
+Message-ID: <1453342588.1223.352.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1453336048-49406-1-git-send-email-jesse@kernel.org>
+	 <1453337308.1223.345.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEh+42g+bc-+=qjZ=Ha8580aZf5=o+2CS6pM1m-gKu47sbPTxw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160120143524.GA27168@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, John <john.phillips5@hpe.com>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:32876 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751264AbcAUCQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:16:30 -0500
+Received: by mail-pf0-f180.google.com with SMTP id e65so14690374pfe.0
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 18:16:29 -0800 (PST)
+In-Reply-To: <CAEh+42g+bc-+=qjZ=Ha8580aZf5=o+2CS6pM1m-gKu47sbPTxw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/1/20 22:35, Michael S. Tsirkin wrote:
-> On Tue, Dec 01, 2015 at 02:39:45PM +0800, Jason Wang wrote:
->> This patch tries to poll for new added tx buffer or socket receive
->> queue for a while at the end of tx/rx processing. The maximum time
->> spent on polling were specified through a new kind of vring ioctl.
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/vhost/net.c        | 72 ++++++++++++++++++++++++++++++++++++++++++----
->>   drivers/vhost/vhost.c      | 15 ++++++++++
->>   drivers/vhost/vhost.h      |  1 +
->>   include/uapi/linux/vhost.h | 11 +++++++
->>   4 files changed, 94 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index 9eda69e..ce6da77 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -287,6 +287,41 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->>   	rcu_read_unlock_bh();
->>   }
->>
->> +static inline unsigned long busy_clock(void)
->> +{
->> +	return local_clock() >> 10;
->> +}
->> +
->> +static bool vhost_can_busy_poll(struct vhost_dev *dev,
->> +				unsigned long endtime)
->> +{
->> +	return likely(!need_resched()) &&
->> +	       likely(!time_after(busy_clock(), endtime)) &&
->> +	       likely(!signal_pending(current)) &&
->> +	       !vhost_has_work(dev) &&
->> +	       single_task_running();
->> +}
->> +
->> +static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
->> +				    struct vhost_virtqueue *vq,
->> +				    struct iovec iov[], unsigned int iov_size,
->> +				    unsigned int *out_num, unsigned int *in_num)
->> +{
->> +	unsigned long uninitialized_var(endtime);
->> +
->> +	if (vq->busyloop_timeout) {
->> +		preempt_disable();
->> +		endtime = busy_clock() + vq->busyloop_timeout;
->> +		while (vhost_can_busy_poll(vq->dev, endtime) &&
->> +		       !vhost_vq_more_avail(vq->dev, vq))
->> +			cpu_relax();
->> +		preempt_enable();
->> +	}
->
-> Isn't there a way to call all this after vhost_get_vq_desc?
-> First, this will reduce the good path overhead as you
-> won't have to play with timers and preemption.
->
-> Second, this will reduce the chance of a pagefault on avail ring read.
->
->> +
->> +	return vhost_get_vq_desc(vq, vq->iov, ARRAY_SIZE(vq->iov),
->> +				 out_num, in_num, NULL, NULL);
->> +}
->> +
->>   /* Expects to be always run from workqueue - which acts as
->>    * read-size critical section for our kind of RCU. */
->>   static void handle_tx(struct vhost_net *net)
->> @@ -331,10 +366,9 @@ static void handle_tx(struct vhost_net *net)
->>   			      % UIO_MAXIOV == nvq->done_idx))
->>   			break;
->>
->> -		head = vhost_get_vq_desc(vq, vq->iov,
->> -					 ARRAY_SIZE(vq->iov),
->> -					 &out, &in,
->> -					 NULL, NULL);
->> +		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
->> +						ARRAY_SIZE(vq->iov),
->> +						&out, &in);
->>   		/* On error, stop handling until the next kick. */
->>   		if (unlikely(head < 0))
->>   			break;
->> @@ -435,6 +469,34 @@ static int peek_head_len(struct sock *sk)
->>   	return len;
->>   }
->>
->> +static int vhost_net_peek_head_len(struct vhost_net *net, struct sock *sk)
->
-> Need a hint that it's rx related in the name.
->
->> +{
->> +	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
->> +	struct vhost_virtqueue *vq = &nvq->vq;
->> +	unsigned long uninitialized_var(endtime);
->> +
->> +	if (vq->busyloop_timeout) {
->> +		mutex_lock(&vq->mutex);
->
-> This appears to be called under vq mutex in handle_rx.
-> So how does this work then?
->
->
->> +		vhost_disable_notify(&net->dev, vq);
->
-> This appears to be called after disable notify
-> in handle_rx - so why disable here again?
->
->> +
->> +		preempt_disable();
->> +		endtime = busy_clock() + vq->busyloop_timeout;
->> +
->> +		while (vhost_can_busy_poll(&net->dev, endtime) &&
->> +		       skb_queue_empty(&sk->sk_receive_queue) &&
->> +		       !vhost_vq_more_avail(&net->dev, vq))
->> +			cpu_relax();
->
-> This seems to mix in several items.
-> RX queue is normally not empty. I don't think
-> we need to poll for that.
+On Wed, 2016-01-20 at 17:47 -0800, Jesse Gross wrote:
 
-I have seen the RX queue is easy to be empty under some extreme 
-conditions like lots of small packet. So maybe the check is useful here.
+> Just to merge the two threads together, all of protocols that would be
+> affected by this also have "normal" GRO handlers that will run when
+> the packet is first received. There's no argument that that is
+> preferable if it is available. However, GRO cells do provide a
+> performance benefit in other situations so it would be nice to avoid
+> disabling it if possible.
 
--- 
-best regards
-yang
+Note that having a second stage GRO can introduce packet reorders,
+because GRO packets given to the second layer simply bypass GRO engine.
+
+Say sender sends P1,P2,P3
+
+Receiver gets P1 alone, put P1 in the GRO cell (2nd layer)
+
+Then we get P2 and P3, aggregated by first layer.
+
+We decap tunnel header, then give P2-P3 to 2nd GRO engine, P2-P3 is
+directly given to upper stack. [1]
+
+Then P1 will follow later.
+
+-> packets received out of order. Slow paths on both senders and
+receiver, extra sack, ...
+
+[1]
+
+static enum gro_result dev_gro_receive(struct napi_struct *napi, struct
+sk_buff *skb)
+{
+...
+        if (!(skb->dev->features & NETIF_F_GRO))
+                goto normal;
+
+        if (skb_is_gso(skb) || skb_has_frag_list(skb) || skb->csum_bad)
+                goto normal;
