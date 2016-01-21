@@ -1,7 +1,7 @@
 From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
-Date: Thu, 21 Jan 2016 16:49:27 -0600
-Message-ID: <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
+Subject: [PATCH 22/33] x86/asm/bpf: Annotate callable functions
+Date: Thu, 21 Jan 2016 16:49:26 -0600
+Message-ID: <bbe1de0c299fecd4fc9a1766bae8be2647bedb01.1453405861.git.jpoimboe@redhat.com>
 References: <cover.1453405861.git.jpoimboe@redhat.com>
 Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
 	Michal Marek <mmarek@suse.cz>,
@@ -26,67 +26,110 @@ In-Reply-To: <cover.1453405861.git.jpoimboe@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bpf_jit.S has several callable non-leaf functions which don't honor
-CONFIG_FRAME_POINTER, which can result in bad stack traces.
-
-Create a stack frame before the call instructions when
-CONFIG_FRAME_POINTER is enabled.
+bpf_jit.S has several functions which can be called from C code.  Give
+them proper ELF annotations.
 
 Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
 Cc: Alexei Starovoitov <ast@kernel.org>
 Cc: netdev@vger.kernel.org
 ---
- arch/x86/net/bpf_jit.S | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ arch/x86/net/bpf_jit.S | 39 ++++++++++++++++-----------------------
+ 1 file changed, 16 insertions(+), 23 deletions(-)
 
 diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
-index eb4a3bd..f2a7faf 100644
+index 4093216..eb4a3bd 100644
 --- a/arch/x86/net/bpf_jit.S
 +++ b/arch/x86/net/bpf_jit.S
-@@ -8,6 +8,7 @@
-  * of the License.
-  */
- #include <linux/linkage.h>
-+#include <asm/frame.h>
+@@ -22,15 +22,16 @@
+ 	32 /* space for rbx,r13,r14,r15 */ + \
+ 	8 /* space for skb_copy_bits */)
  
- /*
-  * Calling convention :
-@@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
+-sk_load_word:
+-	.globl	sk_load_word
++#define FUNC(name) \
++	.globl name; \
++	.type name, @function; \
++	name:
  
- /* rsi contains offset and can be scratched */
- #define bpf_slow_path_common(LEN)		\
-+	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
-+	FRAME_BEGIN;				\
- 	mov	%rbx, %rdi; /* arg1 == skb */	\
- 	push	%r9;				\
- 	push	SKBDATA;			\
- /* rsi already has offset */			\
- 	mov	$LEN,%ecx;	/* len */	\
--	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
- 	call	skb_copy_bits;			\
- 	test    %eax,%eax;			\
- 	pop	SKBDATA;			\
--	pop	%r9;
-+	pop	%r9;				\
-+	FRAME_END
++FUNC(sk_load_word)
+ 	test	%esi,%esi
+ 	js	bpf_slow_path_word_neg
  
- 
- bpf_slow_path_word:
-@@ -99,6 +102,7 @@ bpf_slow_path_byte:
+-sk_load_word_positive_offset:
+-	.globl	sk_load_word_positive_offset
+-
++FUNC(sk_load_word_positive_offset)
+ 	mov	%r9d,%eax		# hlen
+ 	sub	%esi,%eax		# hlen - offset
+ 	cmp	$3,%eax
+@@ -39,15 +40,11 @@ sk_load_word_positive_offset:
+ 	bswap   %eax  			/* ntohl() */
  	ret
  
- #define sk_negative_common(SIZE)				\
-+	FRAME_BEGIN;						\
- 	mov	%rbx, %rdi; /* arg1 == skb */			\
- 	push	%r9;						\
- 	push	SKBDATA;					\
-@@ -108,6 +112,7 @@ bpf_slow_path_byte:
- 	test	%rax,%rax;					\
- 	pop	SKBDATA;					\
- 	pop	%r9;						\
-+	FRAME_END;						\
- 	jz	bpf_error
+-sk_load_half:
+-	.globl	sk_load_half
+-
++FUNC(sk_load_half)
+ 	test	%esi,%esi
+ 	js	bpf_slow_path_half_neg
  
+-sk_load_half_positive_offset:
+-	.globl	sk_load_half_positive_offset
+-
++FUNC(sk_load_half_positive_offset)
+ 	mov	%r9d,%eax
+ 	sub	%esi,%eax		#	hlen - offset
+ 	cmp	$1,%eax
+@@ -56,15 +53,11 @@ sk_load_half_positive_offset:
+ 	rol	$8,%ax			# ntohs()
+ 	ret
+ 
+-sk_load_byte:
+-	.globl	sk_load_byte
+-
++FUNC(sk_load_byte)
+ 	test	%esi,%esi
+ 	js	bpf_slow_path_byte_neg
+ 
+-sk_load_byte_positive_offset:
+-	.globl	sk_load_byte_positive_offset
+-
++FUNC(sk_load_byte_positive_offset)
+ 	cmp	%esi,%r9d   /* if (offset >= hlen) goto bpf_slow_path_byte */
+ 	jle	bpf_slow_path_byte
+ 	movzbl	(SKBDATA,%rsi),%eax
+@@ -120,8 +113,8 @@ bpf_slow_path_byte:
  bpf_slow_path_word_neg:
+ 	cmp	SKF_MAX_NEG_OFF, %esi	/* test range */
+ 	jl	bpf_error	/* offset lower -> error  */
+-sk_load_word_negative_offset:
+-	.globl	sk_load_word_negative_offset
++
++FUNC(sk_load_word_negative_offset)
+ 	sk_negative_common(4)
+ 	mov	(%rax), %eax
+ 	bswap	%eax
+@@ -130,8 +123,8 @@ sk_load_word_negative_offset:
+ bpf_slow_path_half_neg:
+ 	cmp	SKF_MAX_NEG_OFF, %esi
+ 	jl	bpf_error
+-sk_load_half_negative_offset:
+-	.globl	sk_load_half_negative_offset
++
++FUNC(sk_load_half_negative_offset)
+ 	sk_negative_common(2)
+ 	mov	(%rax),%ax
+ 	rol	$8,%ax
+@@ -141,8 +134,8 @@ sk_load_half_negative_offset:
+ bpf_slow_path_byte_neg:
+ 	cmp	SKF_MAX_NEG_OFF, %esi
+ 	jl	bpf_error
+-sk_load_byte_negative_offset:
+-	.globl	sk_load_byte_negative_offset
++
++FUNC(sk_load_byte_negative_offset)
+ 	sk_negative_common(1)
+ 	movzbl	(%rax), %eax
+ 	ret
 -- 
 2.4.3
