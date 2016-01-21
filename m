@@ -1,47 +1,43 @@
-From: Sunil Shahu <shshahu@gmail.com>
-Subject: [PATCH] net:mac80211:mesh_plink: remove redundant sta_info check
-Date: Thu, 21 Jan 2016 11:06:25 +0530
-Message-ID: <1453354585-26069-1-git-send-email-shshahu@gmail.com>
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net 0/3] net: phy: Finally fix PHY_IGNORE_INTERRUPTS
+Date: Wed, 20 Jan 2016 22:32:09 -0800
+Message-ID: <676328C4-2B92-4D32-917F-956F77032A83@gmail.com>
+References: <9235D6609DB808459E95D78E17F2E43D40499B30@CHN-SV-EXMX02.mchp-main.com> <569FFC4E.20803@gmail.com> <9235D6609DB808459E95D78E17F2E43D40499C4B@CHN-SV-EXMX02.mchp-main.com> <20160120.185809.1693986708113677599.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+	sergei.shtylyov@cogentembedded.com
+To: David Miller <davem@davemloft.net>, Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33798 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbcAUGcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 01:32:18 -0500
+Received: by mail-oi0-f68.google.com with SMTP id x140so1610239oif.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2016 22:32:18 -0800 (PST)
+In-Reply-To: <20160120.185809.1693986708113677599.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove unnecessory "if" statement and club it with previos "if" block.
+On January 20, 2016 6:58:09 PM PST, David Miller <davem@davemloft.net> wrote:
+>From: <Woojung.Huh@microchip.com>
+>Date: Thu, 21 Jan 2016 00:59:42 +0000
+>
+>>  > I'm experiencing misbehavior after restart system.
+>>> Can you wait applying the patch?
+>>> 
+>>> Sorry about it.
+>>> Woojung
+>> 
+>> Sorry for spam. Version mismatch happened. :(
+>> It works as expected on USB-to-Ethernet point of view.
+>
+>So Florian, can I apply this series now?
 
-Signed-off-by: Sunil Shahu <shshahu@gmail.com>
----
- net/mac80211/mesh_plink.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+Yes, sorry for the lag and thanks for your patience.
 
-diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
-index bd3d55e..e5851ae 100644
---- a/net/mac80211/mesh_plink.c
-+++ b/net/mac80211/mesh_plink.c
-@@ -976,6 +976,9 @@ mesh_plink_get_event(struct ieee80211_sub_if_data *sdata,
- 			mpl_dbg(sdata, "Mesh plink error: no more free plinks\n");
- 			goto out;
- 		}
-+		/* new matching peer */
-+		event = OPN_ACPT;
-+		goto out;
- 	} else {
- 		if (!test_sta_flag(sta, WLAN_STA_AUTH)) {
- 			mpl_dbg(sdata, "Mesh plink: Action frame from non-authed peer\n");
-@@ -985,12 +988,6 @@ mesh_plink_get_event(struct ieee80211_sub_if_data *sdata,
- 			goto out;
- 	}
- 
--	/* new matching peer */
--	if (!sta) {
--		event = OPN_ACPT;
--		goto out;
--	}
--
- 	switch (ftype) {
- 	case WLAN_SP_MESH_PEERING_OPEN:
- 		if (!matches_local)
+
 -- 
-1.9.1
+Florian
