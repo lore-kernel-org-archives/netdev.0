@@ -1,47 +1,50 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: [PATCH] net: sock: remove dead cgroup methods from struct proto
-Date: Thu, 21 Jan 2016 14:01:11 -0500
-Message-ID: <1453402871-2548-1-git-send-email-hannes@cmpxchg.org>
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org,
+From: David Miller <davem@davemloft.net>
+Subject: Re: question about samsung/sxgbe/sxgbe_xpcs.c
+Date: Thu, 21 Jan 2016 11:09:39 -0800 (PST)
+Message-ID: <20160121.110939.1823034912783648640.davem@davemloft.net>
+References: <20160119.143628.432983847877790677.davem@davemloft.net>
+	<20160121051056.GA4373@mail.gmail.com>
+	<56A0E561.2030409@osg.samsung.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: sakiwit@gmail.com, siva.kallam@broadcom.com, julia.lawall@lip6.fr,
+	shuahkhan@gmail.com, bh74.an@samsung.com, ks.giri@samsung.com,
+	vipul.pandya@samsung.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: shuahkh@osg.samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56A0E561.2030409@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cgroup methods are no longer used after baac50b ("net:
-tcp_memcontrol: simplify linkage between socket and page counter").
-The hunk to delete them was included in the original patch but must
-have gotten lost during conflict resolution on the way upstream.
-
-Fixes: baac50b ("net: tcp_memcontrol: simplify linkage between socket and page counter")
-Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
----
- include/net/sock.h | 12 ------------
- 1 file changed, 12 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index b9e7b3d..f5ea148 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1036,18 +1036,6 @@ struct proto {
- #ifdef SOCK_REFCNT_DEBUG
- 	atomic_t		socks;
- #endif
--#ifdef CONFIG_MEMCG_KMEM
--	/*
--	 * cgroup specific init/deinit functions. Called once for all
--	 * protocols that implement it, from cgroups populate function.
--	 * This function has to setup any files the protocol want to
--	 * appear in the kmem cgroup filesystem.
--	 */
--	int			(*init_cgroup)(struct mem_cgroup *memcg,
--					       struct cgroup_subsys *ss);
--	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
--	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
--#endif
- 	int			(*diag_destroy)(struct sock *sk, int err);
- };
- 
--- 
-2.7.0
+RnJvbTogU2h1YWggS2hhbiA8c2h1YWhraEBvc2cuc2Ftc3VuZy5jb20+DQpEYXRlOiBUaHUsIDIx
+IEphbiAyMDE2IDA3OjA0OjE3IC0wNzAwDQoNCj4gT24gMDEvMjAvMjAxNiAxMDoxMCBQTSwgSuVh
+biBTYWNyZW4gd3JvdGU6DQo+PiBGcm9tOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+DQo+PiBEYXRlOiBUdWUsIDE5IEphbiAyMDE2IDE0OjM2OjI4IC0wNTAwDQo+Pj4NCj4+PiBG
+cm9tOiBKdWxpYSBMYXdhbGwgPGp1bGlhLmxhd2FsbEBsaXA2LmZyPg0KPj4+IERhdGU6IFR1ZSwg
+MTkgSmFuIDIwMTYgMTk6NTQ6MjAgKzAxMDAgKENFVCkNCj4+IA0KPj4gWy4uLl0NCj4+IA0KPj4+
+PiBJIGp1c3Qgd29uZGVyZWQuICBJIHdhcyBsb29raW5nIGF0IGRlcGVuZGVuY2llcyBiZXR3ZWVu
+IG5ldHdvcmtpbmcgZmlsZXMuDQo+Pj4+IFRoaXMgb25lIHN0YW5kcyBvdXQgYmVjYXVzZSBub3Ro
+aW5nIGlzIGRlcGVuZGVudG9uIGl0LCBldmVuIHRoZSBmaWxlcyBpdA0KPj4+PiBpcyBjb21waWxl
+ZCB3aXRoLCBhbmQgaXQgZG9lc24ndCBjb250YWluIHRoZSB1c3VhbCBmdW5jdGlvbnMsDQo+Pj4+
+IHJlZ2lzdGVyX25ldGRldiwgZXRjLg0KPj4+DQo+Pj4gRXZlbiB3aXRoIHRoYXQgZXhwbGFuYXRp
+b24sIHRoaXMgaXMgYSBib2d1cyBzaXR1YXRpb24uDQo+Pj4NCj4+PiBUaGVyZSBhcmUgbm8gaW4t
+dHJlZSBjYWxsZXJzIG9mIHRoaXMgY29kZS4gIEl0IHNob3VsZCBiZSByZW1vdmVkIHVudGlsIHRo
+ZXJlDQo+Pj4gYXJlIGluLXRyZWUgdXNlcnMuDQo+Pj4NCj4+PiBOb2JvZHkgY2FuIGZpZ3VyZSBv
+dXQgaWYgdGhlIGludGVyZmFjZSBmb3IgdGhpcyBpcyBkb25lIHByb3Blcmx5IHdpdGhvdXQgc2Vl
+aW5nDQo+Pj4gdGhlIGNhbGwgc2l0ZXMgYW5kIGhvdyB0aGV5IHdvcmsuICBJdCBpcyB0aGVyZWZv
+cmUgaW1wb3NzaWJsZSB0byByZXZpZXcgdGhpcw0KPj4+IGNvZGUgYW5kIGp1ZGdlIGl0J3MgZGVz
+aWduLg0KPj4+DQo+Pj4gSWYgc29tZW9uZSBkb2Vzbid0IHNlbmQgbWUgYSByZW1vdmFsIHBhdGNo
+LCBJIHdpbGwgcmVtb3ZlIHRoaXMgY29kZSBteXNlbGYuDQo+PiANCj4+IEkgaGF2ZSB0aGUgcGF0
+Y2ggcmVhZHkuDQo+PiANCj4+IERvIHlvdSB3YW50IG1lIHRvIHN1Ym1pdCBpdCBub3cgZHVyaW5n
+IHRoZSBtZXJnZSB3aW5kb3cgb3Igd2FpdCB0aWxsDQo+PiBuZXQtbmV4dCBvcGVucyB1cCBhZ2Fp
+bj8NCj4+IA0KPiANCj4gTXkgc2Vjb25kIGF0dGVtcHQgdG8gbG9jYXRlIHRoZSBhdXRob3IgZm9y
+IGEgY29tbWVudA0KPiBvbiB0aGlzIGJlZm9yZSBpdCBnZXRzIHJlbW92ZWQuIE1heWJlIHRoaXMg
+Y29kZSBjb3VsZA0KPiBiZSBmaXhlZCBqdXN0IGluIGNhc2UgaXQgaXMgaW1wb3J0YW50IGZvciBz
+b21lIHByb2R1Y3QNCj4gb3V0IHRoZXJlLg0KPiANCj4gSSBhbSBjYydpbmcgdGhlIG9yaWdpbmFs
+IGF1dGhvciBpbiBjYXNlIGhlIGhhcyBhbnkNCj4gY29tbWVudHMuDQoNCkl0IG5ldmVyIHNob3Vs
+ZCBoYXZlIGJlZW4gYWRkZWQgaW4gdGhlIGZpcnN0IHBsYWNlLCBJIHJlYWxseSBkb24ndA0KY2Fy
+ZSBhdCBhbGwgcmlnaHQgbm93IHdoYXQgaXQncyB1c2VkIGZvci4NCg0KVGhlIHNpbXBsZSBmYWN0
+IGlzIHRoYXQgaXQgaXNuJ3QgdXNlZCwgYW5kIHRoZXJlZm9yZSBtdXN0IGJlIHJlbW92ZWQNCm5v
+dy4NCg==
