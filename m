@@ -1,8 +1,9 @@
 From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH] net: wireless: rt2x00: Fixed Spacing issues
-Date: Thu, 21 Jan 2016 17:56:57 +0100
-Message-ID: <CAGXE3d-nbDGOgxGiasPixtiUhNtWZ+C7AgV3zMQAo1JN9KgbNw@mail.gmail.com>
-References: <1445112279-27796-1-git-send-email-paulmcquad@gmail.com>
+Subject: Re: [PATCH 2/3] net: wireless: rt2x00: Pointer issue
+Date: Thu, 21 Jan 2016 17:59:07 +0100
+Message-ID: <CAGXE3d8buJC8kSvDJV8u_2OeWKbJOVrNkdFM5qxwuS_7DqH=JA@mail.gmail.com>
+References: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
+	<1445116005-28670-2-git-send-email-paulmcquad@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
@@ -11,76 +12,45 @@ Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
 	LKML <linux-kernel@vger.kernel.org>
 To: Paul McQuade <paulmcquad@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445112279-27796-1-git-send-email-paulmcquad@gmail.com>
+In-Reply-To: <1445116005-28670-2-git-send-email-paulmcquad@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 17, 2015 at 10:04 PM, Paul McQuade <paulmcquad@gmail.com> wrote:
-> Removed empty spaces before/after parenthesis
+On Sat, Oct 17, 2015 at 11:06 PM, Paul McQuade <paulmcquad@gmail.com> wrote:
+> Code Style: pointer is declared wrong
 >
 > Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
 
-Just noticed these did not get applied by Kalle yet.
-
-Looks good to me.
+Thanks for fixing this code style issue.
 
 Acked-by: Helmut Schaa <helmut.schaa@googlemail.com>
 
 > ---
->  drivers/net/wireless/rt2x00/rt61pci.h | 20 ++++++++++----------
->  1 file changed, 10 insertions(+), 10 deletions(-)
+>  drivers/net/wireless/rt2x00/rt2x00.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 >
-> diff --git a/drivers/net/wireless/rt2x00/rt61pci.h b/drivers/net/wireless/rt2x00/rt61pci.h
-> index 1442075..ab86415 100644
-> --- a/drivers/net/wireless/rt2x00/rt61pci.h
-> +++ b/drivers/net/wireless/rt2x00/rt61pci.h
-> @@ -138,14 +138,14 @@
->  #define PAIRWISE_TA_TABLE_BASE         0x1a00
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
+> index 6f8310a..b052e87 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00.h
+> +++ b/drivers/net/wireless/rt2x00/rt2x00.h
+> @@ -380,7 +380,7 @@ struct rt2x00_intf {
+>         atomic_t seqno;
+>  };
 >
->  #define SHARED_KEY_ENTRY(__idx) \
-> -       ( SHARED_KEY_TABLE_BASE + \
-> -               ((__idx) * sizeof(struct hw_key_entry)) )
-> +       (SHARED_KEY_TABLE_BASE + \
-> +               ((__idx) * sizeof(struct hw_key_entry)))
->  #define PAIRWISE_KEY_ENTRY(__idx) \
-> -       ( PAIRWISE_KEY_TABLE_BASE + \
-> -               ((__idx) * sizeof(struct hw_key_entry)) )
-> +       (PAIRWISE_KEY_TABLE_BASE + \
-> +               ((__idx) * sizeof(struct hw_key_entry)))
->  #define PAIRWISE_TA_ENTRY(__idx) \
-> -       ( PAIRWISE_TA_TABLE_BASE + \
-> -               ((__idx) * sizeof(struct hw_pairwise_ta_entry)) )
-> +       (PAIRWISE_TA_TABLE_BASE + \
-> +               ((__idx) * sizeof(struct hw_pairwise_ta_entry)))
+> -static inline struct rt2x00_intf* vif_to_intf(struct ieee80211_vif *vif)
+> +static inline struct rt2x00_intf *vif_to_intf(struct ieee80211_vif *vif)
+>  {
+>         return (struct rt2x00_intf *)vif->drv_priv;
+>  }
+> @@ -507,7 +507,7 @@ struct rt2x00_sta {
+>         int wcid;
+>  };
 >
->  struct hw_key_entry {
->         u8 key[16];
-> @@ -180,7 +180,7 @@ struct hw_pairwise_ta_entry {
->  #define HW_BEACON_BASE3                        0x2f00
->
->  #define HW_BEACON_OFFSET(__index) \
-> -       ( HW_BEACON_BASE0 + (__index * 0x0100) )
-> +       (HW_BEACON_BASE0 + (__index * 0x0100))
->
->  /*
->   * HOST-MCU shared memory.
-> @@ -1287,9 +1287,9 @@ struct hw_pairwise_ta_entry {
->  /*
->   * DMA descriptor defines.
->   */
-> -#define TXD_DESC_SIZE                  ( 16 * sizeof(__le32) )
-> -#define TXINFO_SIZE                    ( 6 * sizeof(__le32) )
-> -#define RXD_DESC_SIZE                  ( 16 * sizeof(__le32) )
-> +#define TXD_DESC_SIZE                  (16 * sizeof(__le32))
-> +#define TXINFO_SIZE                    (6 * sizeof(__le32))
-> +#define RXD_DESC_SIZE                  (16 * sizeof(__le32))
->
->  /*
->   * TX descriptor format for TX, PRIO and Beacon Ring.
+> -static inline struct rt2x00_sta* sta_to_rt2x00_sta(struct ieee80211_sta *sta)
+> +static inline struct rt2x00_sta *sta_to_rt2x00_sta(struct ieee80211_sta *sta)
+>  {
+>         return (struct rt2x00_sta *)sta->drv_priv;
+>  }
 > --
 > 2.6.1
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
