@@ -1,53 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 26/28] dsa: Convert mv88e6xxx into a library allowing
- driver modules
-Date: Thu, 21 Jan 2016 22:54:09 +0100
-Message-ID: <20160121215409.GM9991@lunn.ch>
-References: <1450875402-20740-1-git-send-email-andrew@lunn.ch>
- <1450875402-20740-27-git-send-email-andrew@lunn.ch>
- <567DB98B.1070709@gmail.com>
- <87twm639kc.fsf@ketchup.mtl.sfl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: sock: remove dead cgroup methods from struct proto
+Date: Thu, 21 Jan 2016 14:17:33 -0800 (PST)
+Message-ID: <20160121.141733.2205727468476098690.davem@davemloft.net>
+References: <1453402871-2548-1-git-send-email-hannes@cmpxchg.org>
+	<56A131D7.4040102@cogentembedded.com>
+	<20160121205628.GA14909@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, narmstrong@baylibre.com,
-	netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40566 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751859AbcAUVyM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 16:54:12 -0500
-Content-Disposition: inline
-In-Reply-To: <87twm639kc.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+ linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: hannes@cmpxchg.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160121205628.GA14909@cmpxchg.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-> >> -module_platform_driver(mv88e6123_driver);
-> >>  
-> >> +static int __init mv88e6123_init(void)
-> >> +{
-> >> +	register_switch_driver(&mv88e6123_switch_driver);
-> >> +
-> >> +	return platform_driver_register(&mv88e6123_driver);
-> >> +}
-> >> +
-> >> +static void __exit mv88e6123_exit(void)
-> >> +{
-> >> +	platform_driver_unregister(&mv88e6123_driver);
-> >> +	unregister_switch_driver(&mv88e6123_switch_driver);
-> >> +}
-> >
-> > I think Vivien had started something like this, but it could be nice to
-> > have a helper function/macro which reduces the boilerplate code, not
-> > critical for now though.
+From: Johannes Weiner <hannes@cmpxchg.org>
+Date: Thu, 21 Jan 2016 15:56:28 -0500
+
+> From ac0fd0c5f31cdc73c52fd86f40af419c1871fbcf Mon Sep 17 00:00:00 2001
+> From: Johannes Weiner <hannes@cmpxchg.org>
+> Date: Thu, 21 Jan 2016 13:34:47 -0500
+> Subject: [PATCH] net: sock: remove dead cgroup methods from struct proto
 > 
-> Indeed I did suggest this macro and exporting in the past, without
-> success though:
+> The cgroup methods are no longer used after baac50bbc3cd ("net:
+> tcp_memcontrol: simplify linkage between socket and page counter").
+> The hunk to delete them was included in the original patch but must
+> have gotten lost during conflict resolution on the way upstream.
 > 
->     https://lkml.org/lkml/2015/5/2/152
+> Fixes: baac50bbc3cd ("net: tcp_memcontrol: simplify linkage between socket and page counter")
+> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
 
-My reworked patchset uses macros. I also had to change the order of
-some of these patches. Otherwise i had modules with two init and exit
-functions!
+Applied, thanks.
 
-	Andrew
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
