@@ -1,44 +1,64 @@
-From: Teresa Remmet <t.remmet@phytec.de>
-Subject: Re: [PATCH v3] net: phy: smsc: Fix disabling energy detect mode
-Date: Thu, 21 Jan 2016 09:43:34 +0100
-Message-ID: <1453365814.3705.0.camel@lws-tremmet.phytec.de>
-References: <1453293635-6121-1-git-send-email-t.remmet@phytec.de>
-	 <20160120142155.GB28750@lunn.ch>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence
+ mode configuration
+Date: Thu, 21 Jan 2016 09:53:31 +0100
+Message-ID: <20160121085331.GO7192@pali>
+References: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com>
+ <5696D08F.9030906@broadcom.com>
+ <20160114091654.GA15380@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160120142155.GB28750@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160114091654.GA15380@amd>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello Andrew,
+On Thursday 14 January 2016 10:16:54 Pavel Machek wrote:
+> On Wed 2016-01-13 23:32:47, Arend van Spriel wrote:
+> > On 12/26/2015 12:45 PM, Pali Roh=C3=A1r wrote:
+> > >Port the bt_coex_mode sysfs interface from wl1251 driver version i=
+ncluded
+> > >in the Maemo Fremantle kernel to allow bt-coexistence mode configu=
+ration.
+> > >This enables userspace applications to set one of the modes
+> > >WL1251_BT_COEX_OFF, WL1251_BT_COEX_ENABLE and WL1251_BT_COEX_MONOA=
+UDIO.
+> > >The default mode is WL1251_BT_COEX_OFF.
+> > >It should be noted that this driver always enabled bt-coexistence =
+before
+> > >and enabled bt-coexistence directly affects the receiving performa=
+nce,
+> > >rendering it unusable in some low-signal situations. Especially mo=
+nitor
+> > >mode is affected very badly with bt-coexistence enabled.
+> >=20
+> > So what user-space process will be using this interface. Did you co=
+nsider
+> > adding debugfs interface? In case of monitor mode you could conside=
+r
+> > disabling bt-coex from within the driver itself.
+>=20
+> This aint no debugging feature.
+> 									Pavel
 
-Am Mittwoch, den 20.01.2016, 15:21 +0100 schrieb Andrew Lunn:
-> On Wed, Jan 20, 2016 at 01:40:35PM +0100, Teresa Remmet wrote:
-> > When the lan87xx_read_status function is getting called the
-> > energy detect mode is enabled again even if it has been
-> > disabled by device tree.
-> > 
-> > Added private struct to check the energy detect status.
-> > 
-> > Signed-off-by: Teresa Remmet <t.remmet@phytec.de>
-> 
-> Hi Teresa
-> 
-> Looks a lot better now.
-> 
-> Reviewd-by: Andrew Lunn <andrew@lunn.ch>
+Right, bt-coex is not for debugging purpose, but for normal usage, when
+user want to use together bluetooth and wifi or just one of those.
 
-thank you for taking the time to review the patch.
+Are there any other objections for this patch?
 
-Regards,
-Teresa
-
-> 
-> Thanks
-> 	Andrew
+--=20
+Pali Roh=C3=A1r
+pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
