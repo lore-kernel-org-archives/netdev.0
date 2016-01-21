@@ -1,41 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
-Date: Thu, 21 Jan 2016 11:21:39 -0800 (PST)
-Message-ID: <20160121.112139.865122294942281441.davem@davemloft.net>
-References: <56A10FEC.5020402@mellanox.com>
-	<20160121182420.GA51708@flatif-MOBL1>
-	<CAJ3xEMgE1-EuNBmYVfLoBwjohcxt5tio6wtZn=TYvDAgQgh9cw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 2/3] sctp: hold transport before we access t->asoc
+ in sctp proc
+Date: Thu, 21 Jan 2016 11:27:36 -0800
+Message-ID: <1453404456.1223.378.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1453398443.git.lucien.xin@gmail.com>
+	 <9f366422b6a8c6c0c939ccbf993548c1881a2c16.1453398443.git.lucien.xin@gmail.com>
+	 <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJ3xEMgE1-EuNBmYVfLoBwjohcxt5tio6wtZn=TYvDAgQgh9cw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34359 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbcAUT1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 14:27:39 -0500
+In-Reply-To: <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 21 Jan 2016 20:40:53 +0200
-
-> On Thu, Jan 21, 2016 at 8:24 PM, Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+On Fri, 2016-01-22 at 01:49 +0800, Xin Long wrote:
+> Previously, before rhashtable, /proc assoc listing was done by
+> read-locking the entire hash entry and dumping all assocs at once, so we
+> were sure that the assoc wasn't freed because it wouldn't be possible to
+> remove it from the hash meanwhile.
 > 
->> We can certainly take up the discussion on improving the current port mapper design/implementation. But
->> that would be more appropriate in a separate thread.
+> Now we use rhashtable to list transports, and dump entries one by one.
+> That is, now we have to check if the assoc is still a good one, as the
+> transport we got may be being freed.
 > 
-> If we observe a kernel API / mechanism which could be wrongly
-> duplicated between two drivers, and now a new driver comes to town
-> with C&P-ing this -- why not stopping and thinking before rushing to
-> get the 3rd duplication upstream?
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/proc.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 684c5b3..c74a810 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -380,6 +380,8 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+>  	}
+>  
+>  	transport = (struct sctp_transport *)v;
 
-Yes, this really looks like a huge disaster.
+What protects you from this structure already being freed ?
 
-People have to stop doing unique APIs in their drivers, especially
-when equivalent functionality exists generically.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	if (!sctp_transport_hold(transport))
+> +		return 0;
+
+If this is rcu, then you do not need to increment the refcount, and
+decrement it later.
