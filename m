@@ -1,45 +1,65 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: stable backport of 3 xen multiqueue network dev fixes
-Date: Thu, 21 Jan 2016 11:58:10 +0000
-Message-ID: <1453377490.4320.16.camel@citrix.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Optimizing instruction-cache, more packets at each stage
+Date: Thu, 21 Jan 2016 13:23:04 +0100
+Message-ID: <20160121132304.12ff9d23@redhat.com>
+References: <20160115142223.1e92be75@redhat.com>
+	<20160115.154721.458450438918273509.davem@davemloft.net>
+	<20160118112703.6eac71ca@redhat.com>
+	<20160118.112455.212265265553435873.davem@davemloft.net>
+	<CAJ3xEMiOAdu7ghRoc6ZEMG78Z9xyh1M=5Egc3ydh+97bT3_9fw@mail.gmail.com>
+	<1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel <xen-devel@lists.xen.org>, Wei Liu <wei.liu2@citrix.com>,
-	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirva@gmail.com>, brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:31100 "EHLO SMTP.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:49044 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751189AbcAUMAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 07:00:05 -0500
+	id S1758886AbcAUMXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 07:23:12 -0500
+In-Reply-To: <CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Wed, 20 Jan 2016 15:27:38 -0800
+Tom Herbert <tom@herbertland.com> wrote:
 
-Please could you queue these three:
+> weaknesses of Toeplitz we talked about recently and that fact that
+> Jenkins is really fast to compute, I am starting to think maybe we
+> should always do a software hash and not rely on HW for it...
 
-32a8440 xen-netfront: respect user provided max_queues
-4c82ac3 xen-netback: respect user provided max_queues
-ca88ea1 xen-netfront: update num_queues to real created
+Please don't enforce a software hash.  You are proposing a hash
+computation per packet which cost in the area 50-100 nanosec (?). And
+on data which is cache cold (even with DDIO, you take the L3 cache
+cost/hit).
 
-for stable backports to at least 4.1. Multiqueue was added in v3.16 so I
-think they could all go to LTS that far back.
+Consider the increase in network hardware speeds.
 
-Users are tripping over issues in the field with exhausting the number of
-Xen grant entries available to guests when creating large numbers of queues
-(which happens with guests with >=32 VCPUs).
+Worst-case (pkt size 64 bytes) time between packets:
+ *  10 Gbit/s -> 67.2 nanosec
+ *  40 Gbit/s -> 16.8 nanosec
+ * 100 Gbit/s ->  6.7 nanosec
 
-ca88ea1 is a fix which causes the failure to allocate grants for all of the
-desired queues gracefully, rather than crashing or failing to pass any
-traffic.
+Adding such a per packet cost is not going to fly.
 
-32a8440 and 4c82ac3 fix the handling of the module parameters on both ends
-so that users can choose to have fewer queues than p/vcpus if they like,
-which would have been an effective workaround for the issue solved by
-ca88ea1 if that hadn't been broken.
-
-Thanks,
-Ian.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
