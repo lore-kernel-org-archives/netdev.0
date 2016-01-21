@@ -1,55 +1,47 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 3/3] net: wireless: rt2x00: Space Required
-Date: Thu, 21 Jan 2016 18:10:30 +0100
-Message-ID: <CAGXE3d80M6Kxpnc9Ksmkkif-+7+bY96WS2ZKmC3uc0fGeNjGbw@mail.gmail.com>
-References: <1445116283-28748-1-git-send-email-paulmcquad@gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] net: wireless: rt2x00: Fixed Spacing issues
+Date: Thu, 21 Jan 2016 19:12:34 +0200
+Message-ID: <87oaceyhz1.fsf@kamboji.qca.qualcomm.com>
+References: <1445112279-27796-1-git-send-email-paulmcquad@gmail.com>
+	<CAGXE3d-nbDGOgxGiasPixtiUhNtWZ+C7AgV3zMQAo1JN9KgbNw@mail.gmail.com>
+	<CAGXE3d-3M6s0k0rbA2-vihLfwvjhdVgxDsQSt_84WxXme+U7bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Paul McQuade <paulmcquad@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445116283-28748-1-git-send-email-paulmcquad@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul McQuade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGXE3d-3M6s0k0rbA2-vihLfwvjhdVgxDsQSt_84WxXme+U7bg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Helmut Schaa's message of "Thu, 21 Jan 2016 18:02:45 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 17, 2015 at 11:11 PM, Paul McQuade <paulmcquad@gmail.com> wrote:
-> Space needed before open parenthesis
->
-> Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
+Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
 
-Looks valid to me.
+> On Thu, Jan 21, 2016 at 5:56 PM, Helmut Schaa
+> <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> wrote:
+>> On Sat, Oct 17, 2015 at 10:04 PM, Paul McQuade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> Removed empty spaces before/after parenthesis
+>>>
+>>> Signed-off-by: Paul McQuade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>
+>> Just noticed these did not get applied by Kalle yet.
+>
+> Kalle, can you fix up the path (ralink/rt2x00 instead of rt2x00) when applying?
+> Or would you prefer Paul to respin the whole code style cleanup series?
 
-Acked-by: Helmut Schaa <helmut.schaa@googlemail.com>
+Actually git should be manage that automatically, it's so awesome :)
 
-> ---
->  drivers/net/wireless/rt2x00/rt2x00debug.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/wireless/rt2x00/rt2x00debug.c
-> index 90fdb02..25ee3cb 100644
-> --- a/drivers/net/wireless/rt2x00/rt2x00debug.c
-> +++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
-> @@ -629,7 +629,7 @@ static struct dentry *rt2x00debug_create_file_chipset(const char *name,
->         data += sprintf(data, "register\tbase\twords\twordsize\n");
->  #define RT2X00DEBUGFS_SPRINTF_REGISTER(__name)                 \
->  {                                                              \
-> -       if(debug->__name.read)                                  \
-> +       if (debug->__name.read)                                 \
->                 data += sprintf(data, __stringify(__name)       \
->                                 "\t%d\t%d\t%d\n",               \
->                                 debug->__name.word_base,        \
-> @@ -699,7 +699,7 @@ void rt2x00debug_register(struct rt2x00_dev *rt2x00dev)
->
->  #define RT2X00DEBUGFS_CREATE_REGISTER_ENTRY(__intf, __name)                    \
->  ({                                                                             \
-> -       if(debug->__name.read) {                                                \
-> +       if (debug->__name.read) {                                               \
->                 (__intf)->__name##_off_entry =                                  \
->                 debugfs_create_u32(__stringify(__name) "_offset",               \
->                                        S_IRUSR | S_IWUSR,                       \
-> --
-> 2.6.1
->
+I can also fix the title and remove the unnecessary "net: wireless:"
+prefix.
+
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
