@@ -1,77 +1,75 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: question about samsung/sxgbe/sxgbe_xpcs.c
-Date: Thu, 21 Jan 2016 07:04:17 -0700
-Message-ID: <56A0E561.2030409@osg.samsung.com>
-References: <alpine.DEB.2.10.1601191723250.2531@hadrien>
- <CAKocOOOFrEFLL0MWnn_bhBby8GeVH82A2wtaL9Tg9QTJC2Wprw@mail.gmail.com>
- <alpine.DEB.2.10.1601191918470.2531@hadrien>
- <20160119.143628.432983847877790677.davem@davemloft.net>
- <20160121051056.GA4373@mail.gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence mode configuration
+Date: Thu, 21 Jan 2016 16:44:33 +0200
+Message-ID: <871t9byotq.fsf@kamboji.qca.qualcomm.com>
+References: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com>
+	<5696D08F.9030906@broadcom.com> <20160114091654.GA15380@amd>
+	<20160121085331.GO7192@pali> <87d1svyrfl.fsf@kamboji.qca.qualcomm.com>
+	<20160121135110.GH7192@pali>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: julia.lawall@lip6.fr, shuahkhan@gmail.com, bh74.an@samsung.com,
-	ks.giri@samsung.com, vipul.pandya@samsung.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?J=ce=b5an_Sacren?= <sakiwit@gmail.com>,
-	David Miller <davem@davemloft.net>, siva.kallam@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160121051056.GA4373@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160121135110.GH7192@pali> ("Pali =?utf-8?Q?Roh=C3=A1r=22's?=
+ message of "Thu, 21
+	Jan 2016 14:51:10 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/20/2016 10:10 PM, J=CE=B5an Sacren wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 19 Jan 2016 14:36:28 -0500
->>
->> From: Julia Lawall <julia.lawall@lip6.fr>
->> Date: Tue, 19 Jan 2016 19:54:20 +0100 (CET)
->=20
-> [...]
->=20
->>> I just wondered.  I was looking at dependencies between networking =
-files.
->>> This one stands out because nothing is dependenton it, even the fil=
-es it
->>> is compiled with, and it doesn't contain the usual functions,
->>> register_netdev, etc.
->>
->> Even with that explanation, this is a bogus situation.
->>
->> There are no in-tree callers of this code.  It should be removed unt=
-il there
->> are in-tree users.
->>
->> Nobody can figure out if the interface for this is done properly wit=
-hout seeing
->> the call sites and how they work.  It is therefore impossible to rev=
-iew this
->> code and judge it's design.
->>
->> If someone doesn't send me a removal patch, I will remove this code =
-myself.
->=20
-> I have the patch ready.
->=20
-> Do you want me to submit it now during the merge window or wait till
-> net-next opens up again?
->=20
+Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-My second attempt to locate the author for a comment
-on this before it gets removed. Maybe this code could
-be fixed just in case it is important for some product
-out there.
+> On Thursday 21 January 2016 15:48:14 Kalle Valo wrote:
+>> Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>>=20
+>> > On Thursday 14 January 2016 10:16:54 Pavel Machek wrote:
+>> >> On Wed 2016-01-13 23:32:47, Arend van Spriel wrote:
+>> >> > On 12/26/2015 12:45 PM, Pali Roh=C3=A1r wrote:
+>> >> > >Port the bt_coex_mode sysfs interface from wl1251 driver versi=
+on included
+>> >> > >in the Maemo Fremantle kernel to allow bt-coexistence mode con=
+figuration.
+>> >> > >This enables userspace applications to set one of the modes
+>> >> > >WL1251_BT_COEX_OFF, WL1251_BT_COEX_ENABLE and WL1251_BT_COEX_M=
+ONOAUDIO.
+>> >> > >The default mode is WL1251_BT_COEX_OFF.
+>> >> > >It should be noted that this driver always enabled bt-coexiste=
+nce before
+>> >> > >and enabled bt-coexistence directly affects the receiving perf=
+ormance,
+>> >> > >rendering it unusable in some low-signal situations. Especiall=
+y monitor
+>> >> > >mode is affected very badly with bt-coexistence enabled.
+>> >> >=20
+>> >> > So what user-space process will be using this interface. Did yo=
+u consider
+>> >> > adding debugfs interface? In case of monitor mode you could con=
+sider
+>> >> > disabling bt-coex from within the driver itself.
+>> >>=20
+>> >> This aint no debugging feature.
+>> >
+>> > Right, bt-coex is not for debugging purpose, but for normal usage,=
+ when
+>> > user want to use together bluetooth and wifi or just one of those.
+>>=20
+>> I think most of other drivers have a debugfs interface for btcoex, I
+>> guess mostly for testing purposes. But this really should be added t=
+o
+>> cfg80211.
+>
+> All other TI wireless drivers have "bt_coex_state" sysfs node.
 
-I am cc'ing the original author in case he has any
-comments.
-
-thanks,
--- Shuah
-
+Then that's a mistake, they shouldn't have that.
 
 --=20
-Shuah Khan
-Sr. Linux Kernel Developer
-Open Source Innovation Group
-Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
