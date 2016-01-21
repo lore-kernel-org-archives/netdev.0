@@ -1,59 +1,99 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth: WARNING: CPU: 1 PID: 25657 at include/net/sock.h:586 bt_sock_unlink+0x1c7/0x220()
-Date: Thu, 21 Jan 2016 12:19:58 +0100
-Message-ID: <90527994-751A-4BA4-93D4-63CEE4C40E6E@holtmann.org>
-References: <5692B746.4050007@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [82.165.8.211] ([82.165.8.211]:56836 "EHLO mail.holtmann.org"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759365AbcAULUB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 06:20:01 -0500
-In-Reply-To: <5692B746.4050007@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH v3] can: c_can: add xceiver enable/disable support
+Date: Thu, 21 Jan 2016 12:24:51 +0100
+Message-ID: <1453375491-21140-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: mkl@pengutronix.de, wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sasha,
+This patch adds support to enable and disable the xceiver
+in case it's switchable by the regulator framework.
 
-> While fuzzing with trinity inside a KVM tools guest, running the latest -next
-> kernel, I've hit the following warning:
-> 
-> [ 1153.249127] WARNING: CPU: 1 PID: 25657 at include/net/sock.h:586 bt_sock_unlink+0x1c7/0x220()
-> [ 1153.250162] Modules linked in:
-> [ 1153.250996] CPU: 1 PID: 25657 Comm: trinity-c223 Tainted: G        W       4.4.0-rc8-next-20160108-sasha-00024-gaaecb9a #2780
-> [ 1153.252551]  1ffff100184f5f00 0000000015bfc733 ffff8800c27af880 ffffffff8301a182
-> [ 1153.253594]  0000000041b58ab3 ffffffff8e1b3838 ffffffff8301a0b7 0000000015bfc733
-> [ 1153.254857]  ffffffff8177f4c7 0000000015bfc733 ffff8801d16eb000 0000000000000001
-> [ 1153.272107] Call Trace:
-> [ 1153.272568] dump_stack (lib/dump_stack.c:52)
-> [ 1153.274909] warn_slowpath_common (kernel/panic.c:484)
-> [ 1153.276544] warn_slowpath_null (kernel/panic.c:518)
-> [ 1153.277341] bt_sock_unlink (./arch/x86/include/asm/atomic.h:103 include/net/sock.h:577 include/net/sock.h:587 net/bluetooth/af_bluetooth.c:148)
-> [ 1153.280581] hidp_sock_release (include/net/sock.h:1546 net/bluetooth/hidp/sock.c:43)
-> [ 1153.281435] sock_release (net/socket.c:573)
-> [ 1153.282145] sock_close (net/socket.c:1025)
-> [ 1153.282874] __fput (fs/file_table.c:209)
-> [ 1153.283581] ____fput (fs/file_table.c:245)
-> [ 1153.296361] task_work_run (kernel/task_work.c:117 (discriminator 1))
-> [ 1153.297090] do_exit (kernel/exit.c:749)
-> [ 1153.302756] do_group_exit (kernel/exit.c:862)
-> [ 1153.303523] get_signal (kernel/signal.c:2307)
-> [ 1153.307151] do_signal (arch/x86/kernel/signal.c:781)
-> [ 1153.322592] exit_to_usermode_loop (arch/x86/entry/common.c:249)
-> [ 1153.323416] syscall_return_slowpath (./arch/x86/include/asm/jump_label.h:35 include/linux/context_tracking_state.h:30 include/linux/context_tracking.h:24 arch/x86/entry/common.c:284 arch/x86/entry/common.c:344)
-> [ 1153.324276] int_ret_from_sys_call (arch/x86/entry/entry_64.S:282)
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+v1 -> v2:
+ - always returning PTR_ERR in case devm_regulator_get fails
+ - removed inline wrapper functions with checks for xceiver == NULL
+v2 -> v3:
+ - adding documentation for the devicetree binding (already generic)
 
-do you have a trinity command line that will reproduce this?
+ Documentation/devicetree/bindings/net/can/c_can.txt |  2 ++
+ drivers/net/can/c_can/c_can.c                       | 12 ++++++++++++
+ drivers/net/can/c_can/c_can.h                       |  1 +
+ 3 files changed, 15 insertions(+)
 
-Regards
+diff --git a/Documentation/devicetree/bindings/net/can/c_can.txt b/Documentation/devicetree/bindings/net/can/c_can.txt
+index 5a1d8b0..a36fea2 100644
+--- a/Documentation/devicetree/bindings/net/can/c_can.txt
++++ b/Documentation/devicetree/bindings/net/can/c_can.txt
+@@ -18,6 +18,8 @@ Optional properties:
+ 			  RAMINIT register, register offset to the RAMINIT
+ 			  register and the CAN instance number (0 offset).
+ 
++- xceiver-supply: Regulator that powers the CAN transceiver
++
+ Note: "ti,hwmods" field is used to fetch the base address and irq
+ resources from TI, omap hwmod data base during device registration.
+ Future plan is to migrate hwmod data base contents into device tree
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index f91b094..0723aeb 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -36,6 +36,7 @@
+ #include <linux/io.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/pinctrl/consumer.h>
++#include <linux/regulator/consumer.h>
+ 
+ #include <linux/can.h>
+ #include <linux/can/dev.h>
+@@ -612,6 +613,10 @@ static int c_can_start(struct net_device *dev)
+ 	else
+ 		pinctrl_pm_select_default_state(priv->device);
+ 
++	err = regulator_enable(priv->reg_xceiver);
++	if (err)
++		return err;
++
+ 	return 0;
+ }
+ 
+@@ -626,6 +631,9 @@ static void c_can_stop(struct net_device *dev)
+ 
+ 	/* deactivate pins */
+ 	pinctrl_pm_select_sleep_state(dev->dev.parent);
++
++	regulator_disable(priv->reg_xceiver);
++
+ 	priv->can.state = CAN_STATE_STOPPED;
+ }
+ 
+@@ -1263,6 +1271,10 @@ int register_c_can_dev(struct net_device *dev)
+ 	 */
+ 	pinctrl_pm_select_sleep_state(dev->dev.parent);
+ 
++	priv->reg_xceiver = devm_regulator_get(priv->device, "xceiver");
++	if (IS_ERR(priv->reg_xceiver))
++		return PTR_ERR(priv->reg_xceiver);
++
+ 	c_can_pm_runtime_enable(priv);
+ 
+ 	dev->flags |= IFF_ECHO;	/* we support local echo */
+diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+index 8acdc7f..59246e3 100644
+--- a/drivers/net/can/c_can/c_can.h
++++ b/drivers/net/can/c_can/c_can.h
+@@ -213,6 +213,7 @@ struct c_can_priv {
+ 	u32 comm_rcv_high;
+ 	u32 rxmasked;
+ 	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
++	struct regulator *reg_xceiver;
+ };
+ 
+ struct net_device *alloc_c_can_dev(void);
+-- 
+2.7.0.rc3
 
-Marcel
