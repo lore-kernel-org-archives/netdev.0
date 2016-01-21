@@ -1,40 +1,67 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch v3 net-next] net: hns: enet specifies a reference to
- dsaf
-Date: Thu, 21 Jan 2016 12:02:22 -0800 (PST)
-Message-ID: <20160121.120222.814054146075427022.davem@davemloft.net>
-References: <1453276819-22062-1-git-send-email-yankejian@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] Netlink messages for multicast HW addr programming
+Date: Thu, 21 Jan 2016 21:04:19 +0100
+Message-ID: <20160121200419.GB2251@nanopsycho.orion>
+References: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
-	fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1453276819-22062-1-git-send-email-yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Patrick Ruddy <pruddy@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37710 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752311AbcAUUEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 15:04:23 -0500
+Received: by mail-wm0-f43.google.com with SMTP id n5so98874298wmn.0
+        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 12:04:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Date: Wed, 20 Jan 2016 16:00:19 +0800
-
-> This patch replace the assoication between dsaf and enet from string
-> matching to object reference. It requires the DTS to be updated within
-> BIOS. Thanks god it can be done for all released boards.
+Thu, Jan 21, 2016 at 12:47:54PM CET, pruddy@brocade.com wrote:
+>Add RTM_NEWADDR and RTM_DELADDR netlink messages to indicate
+>interest in specific multicast hardware addresses. These messages
+>are sent when addressed are added or deleted from the appropriate
+>interface driver.
+>
+>Signed-off-by: Patrick Ruddy <pruddy@brocade.com>
+>
+>diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+>index c0548d2..a0ebadd 100644
+>--- a/net/core/dev_addr_lists.c
+>+++ b/net/core/dev_addr_lists.c
+>@@ -12,6 +12,7 @@
+>  */
 > 
-> Signed-off-by: Kejian Yan <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Acked-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> #include <linux/netdevice.h>
+>+#include <net/netlink.h>
+> #include <linux/rtnetlink.h>
+> #include <linux/export.h>
+> #include <linux/list.h>
+>@@ -661,6 +662,62 @@ out:
+> }
+> EXPORT_SYMBOL(dev_mc_add_excl);
+> 
+>+static int fill_addr(struct sk_buff *skb, struct net_device *dev,
+>+		     const unsigned char *addr, int type)
+>+{
+>+	struct nlmsghdr *nlh;
+>+	struct ifaddrmsg *ifm;
+>+
+>+	nlh = nlmsg_put(skb, 0, 0, type, sizeof(*ifm), 0);
+>+	if (nlh == NULL)
+>+		return -EMSGSIZE;
+>+
+>+	ifm = nlmsg_data(nlh);
+>+	ifm->ifa_family = AF_UNSPEC;
+>+	ifm->ifa_prefixlen = 0;
+>+	ifm->ifa_flags = IFA_F_PERMANENT;
+>+	ifm->ifa_scope = RT_SCOPE_LINK;
+>+	ifm->ifa_index = dev->ifindex;
+>+	if (nla_put(skb, IFA_ADDRESS, dev->addr_len, addr))
+>+		goto nla_put_failure;
+>+	nlmsg_end(skb, nlh);
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+How can userspace tell if this is a multicast addr? Also, why not add
+notifications for unicast addrs so we handle both the same?
