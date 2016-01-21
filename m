@@ -1,170 +1,77 @@
-From: Yang Zhang <yang.zhang.wz@gmail.com>
-Subject: Re: [PATCH V2 3/3] vhost_net: basic polling support
-Date: Thu, 21 Jan 2016 14:39:51 +0800
-Message-ID: <56A07D37.4000408@gmail.com>
-References: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
-	<1448951985-12385-4-git-send-email-jasowang@redhat.com>
-	<20160120143524.GA27168@redhat.com> <56A03E57.2020400@gmail.com>
-	<20160121064759-mutt-send-email-mst@redhat.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
+Date: Thu, 21 Jan 2016 09:53:51 +0200
+Message-ID: <56A08E8F.7090602@mellanox.com>
+References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
+ <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
+ <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160121064759-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: 'Or Gerlitz' <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	'Doug Ledford' <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	'Linux Netdev List' <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	'Jeff Kirsher' <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	'Faisal Latif' <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/1/21 13:13, Michael S. Tsirkin wrote:
-> On Thu, Jan 21, 2016 at 10:11:35AM +0800, Yang Zhang wrote:
->> On 2016/1/20 22:35, Michael S. Tsirkin wrote:
->>> On Tue, Dec 01, 2015 at 02:39:45PM +0800, Jason Wang wrote:
->>>> This patch tries to poll for new added tx buffer or socket receive
->>>> queue for a while at the end of tx/rx processing. The maximum time
->>>> spent on polling were specified through a new kind of vring ioctl.
->>>>
->>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>> ---
->>>>   drivers/vhost/net.c        | 72 ++++++++++++++++++++++++++++++++++++++++++----
->>>>   drivers/vhost/vhost.c      | 15 ++++++++++
->>>>   drivers/vhost/vhost.h      |  1 +
->>>>   include/uapi/linux/vhost.h | 11 +++++++
->>>>   4 files changed, 94 insertions(+), 5 deletions(-)
->>>>
->>>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->>>> index 9eda69e..ce6da77 100644
->>>> --- a/drivers/vhost/net.c
->>>> +++ b/drivers/vhost/net.c
->>>> @@ -287,6 +287,41 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->>>>   	rcu_read_unlock_bh();
->>>>   }
->>>>
->>>> +static inline unsigned long busy_clock(void)
->>>> +{
->>>> +	return local_clock() >> 10;
->>>> +}
->>>> +
->>>> +static bool vhost_can_busy_poll(struct vhost_dev *dev,
->>>> +				unsigned long endtime)
->>>> +{
->>>> +	return likely(!need_resched()) &&
->>>> +	       likely(!time_after(busy_clock(), endtime)) &&
->>>> +	       likely(!signal_pending(current)) &&
->>>> +	       !vhost_has_work(dev) &&
->>>> +	       single_task_running();
->>>> +}
->>>> +
->>>> +static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
->>>> +				    struct vhost_virtqueue *vq,
->>>> +				    struct iovec iov[], unsigned int iov_size,
->>>> +				    unsigned int *out_num, unsigned int *in_num)
->>>> +{
->>>> +	unsigned long uninitialized_var(endtime);
->>>> +
->>>> +	if (vq->busyloop_timeout) {
->>>> +		preempt_disable();
->>>> +		endtime = busy_clock() + vq->busyloop_timeout;
->>>> +		while (vhost_can_busy_poll(vq->dev, endtime) &&
->>>> +		       !vhost_vq_more_avail(vq->dev, vq))
->>>> +			cpu_relax();
->>>> +		preempt_enable();
->>>> +	}
->>>
->>> Isn't there a way to call all this after vhost_get_vq_desc?
->>> First, this will reduce the good path overhead as you
->>> won't have to play with timers and preemption.
->>>
->>> Second, this will reduce the chance of a pagefault on avail ring read.
->>>
->>>> +
->>>> +	return vhost_get_vq_desc(vq, vq->iov, ARRAY_SIZE(vq->iov),
->>>> +				 out_num, in_num, NULL, NULL);
->>>> +}
->>>> +
->>>>   /* Expects to be always run from workqueue - which acts as
->>>>    * read-size critical section for our kind of RCU. */
->>>>   static void handle_tx(struct vhost_net *net)
->>>> @@ -331,10 +366,9 @@ static void handle_tx(struct vhost_net *net)
->>>>   			      % UIO_MAXIOV == nvq->done_idx))
->>>>   			break;
->>>>
->>>> -		head = vhost_get_vq_desc(vq, vq->iov,
->>>> -					 ARRAY_SIZE(vq->iov),
->>>> -					 &out, &in,
->>>> -					 NULL, NULL);
->>>> +		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
->>>> +						ARRAY_SIZE(vq->iov),
->>>> +						&out, &in);
->>>>   		/* On error, stop handling until the next kick. */
->>>>   		if (unlikely(head < 0))
->>>>   			break;
->>>> @@ -435,6 +469,34 @@ static int peek_head_len(struct sock *sk)
->>>>   	return len;
->>>>   }
->>>>
->>>> +static int vhost_net_peek_head_len(struct vhost_net *net, struct sock *sk)
->>>
->>> Need a hint that it's rx related in the name.
->>>
->>>> +{
->>>> +	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
->>>> +	struct vhost_virtqueue *vq = &nvq->vq;
->>>> +	unsigned long uninitialized_var(endtime);
->>>> +
->>>> +	if (vq->busyloop_timeout) {
->>>> +		mutex_lock(&vq->mutex);
->>>
->>> This appears to be called under vq mutex in handle_rx.
->>> So how does this work then?
->>>
->>>
->>>> +		vhost_disable_notify(&net->dev, vq);
->>>
->>> This appears to be called after disable notify
->>> in handle_rx - so why disable here again?
->>>
->>>> +
->>>> +		preempt_disable();
->>>> +		endtime = busy_clock() + vq->busyloop_timeout;
->>>> +
->>>> +		while (vhost_can_busy_poll(&net->dev, endtime) &&
->>>> +		       skb_queue_empty(&sk->sk_receive_queue) &&
->>>> +		       !vhost_vq_more_avail(&net->dev, vq))
->>>> +			cpu_relax();
->>>
->>> This seems to mix in several items.
->>> RX queue is normally not empty. I don't think
->>> we need to poll for that.
->>
->> I have seen the RX queue is easy to be empty under some extreme conditions
->> like lots of small packet. So maybe the check is useful here.
+On 1/21/2016 12:57 AM, Steve Wise wrote:
+> I also asked you why the port mapper code has to be present in each
+> iwarp driver and not part of the IB core stack, and you responded
+> "i40iw iwarp driver registers with port mapper and uses its services.
+> Beside that it is not the scope of the patch series"  -- well, it is
+> in the scope of upstream review to pose such questions, please
+> address.
 >
-> It's not useful *here*.
-> If you have an rx packet but no space in the ring,
-> this will exit immediately.
-
-Indeed!
-
 >
-> It might be useful elsewhere but I doubt it -
-> if rx ring is out of buffers, you are better off
-> backing out and giving guest some breathing space.
+> There is a common service/API in the IB core for iWarp port mapping.  See drivers/infinbiand/core/iwpm*.c and include/rdma/iw_portmap.h.
 >
->> --
->> best regards
->> yang
+>
 
+Steve,
 
--- 
-best regards
-yang
+Okay, but I still don't follow why each vendor needs an RDMA_NL_YYY ID 
+(RDMA_NL_C4IW, RDMA_NL_NES and now a new one  for this driver) of their own.
+
+I see that the two current drivers actually use the same callbacks 
+towards user-space, does each vendor uses a different user-space daemon, 
+why?
+
+Or.
+
+net.git]# cd drivers/infiniband/hw/
+
+hw]# git grep RDMA_NL_IWPM .
+cxgb4/device.c: [RDMA_NL_IWPM_REG_PID] = {.dump = iwpm_register_pid_cb},
+cxgb4/device.c: [RDMA_NL_IWPM_ADD_MAPPING] = {.dump = iwpm_add_mapping_cb},
+cxgb4/device.c: [RDMA_NL_IWPM_QUERY_MAPPING] = {.dump = 
+iwpm_add_and_query_mapping_cb},
+cxgb4/device.c: [RDMA_NL_IWPM_HANDLE_ERR] = {.dump = iwpm_mapping_error_cb},
+cxgb4/device.c: [RDMA_NL_IWPM_REMOTE_INFO] = {.dump = iwpm_remote_info_cb},
+cxgb4/device.c: [RDMA_NL_IWPM_MAPINFO] = {.dump = iwpm_mapping_info_cb},
+cxgb4/device.c: [RDMA_NL_IWPM_MAPINFO_NUM] = {.dump = 
+iwpm_ack_mapping_info_cb}
+cxgb4/device.c: if (ibnl_add_client(RDMA_NL_C4IW, RDMA_NL_IWPM_NUM_OPS,
+
+nes/nes.c:      [RDMA_NL_IWPM_REG_PID] = {.dump = iwpm_register_pid_cb},
+nes/nes.c:      [RDMA_NL_IWPM_ADD_MAPPING] = {.dump = iwpm_add_mapping_cb},
+nes/nes.c:      [RDMA_NL_IWPM_QUERY_MAPPING] = {.dump = 
+iwpm_add_and_query_mapping_cb},
+nes/nes.c:      [RDMA_NL_IWPM_REMOTE_INFO] = {.dump = iwpm_remote_info_cb},
+nes/nes.c:      [RDMA_NL_IWPM_HANDLE_ERR] = {.dump = iwpm_mapping_error_cb},
+nes/nes.c:      [RDMA_NL_IWPM_MAPINFO] = {.dump = iwpm_mapping_info_cb},
+nes/nes.c:      [RDMA_NL_IWPM_MAPINFO_NUM] = {.dump = 
+iwpm_ack_mapping_info_cb}
+nes/nes.c:      if (ibnl_add_client(RDMA_NL_NES, RDMA_NL_IWPM_NUM_OPS, 
+nes_nl_cb_table))
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
