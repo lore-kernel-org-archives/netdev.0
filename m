@@ -1,43 +1,29 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: sock: remove dead cgroup methods from struct proto
-Date: Thu, 21 Jan 2016 22:30:31 +0300
-Message-ID: <56A131D7.4040102@cogentembedded.com>
-References: <1453402871-2548-1-git-send-email-hannes@cmpxchg.org>
+From: =?utf-8?B?Ss61YW4=?= Sacren <sakiwit@gmail.com>
+Subject: Re: question about samsung/sxgbe/sxgbe_xpcs.c
+Date: Thu, 21 Jan 2016 12:32:38 -0700
+Message-ID: <20160121193238.GA3699@mail.gmail.com>
+References: <alpine.DEB.2.10.1601191918470.2531@hadrien>
+ <20160119.143628.432983847877790677.davem@davemloft.net>
+ <20160121051056.GA4373@mail.gmail.com>
+ <20160121.104520.110588445425253600.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
-To: Johannes Weiner <hannes@cmpxchg.org>,
- "David S. Miller" <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1453402871-2548-1-git-send-email-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Cc: julia.lawall@lip6.fr, shuahkhan@gmail.com, bh74.an@samsung.com,
+	ks.giri@samsung.com, vipul.pandya@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	shuahkh@osg.samsung.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160121.104520.110588445425253600.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+From: David Miller <davem@davemloft.net>
+Date: Thu, 21 Jan 2016 10:45:20 -0800
+> 
+> Yes, you will submit to me a patch to remove the unused code.
 
-On 01/21/2016 10:01 PM, Johannes Weiner wrote:
+I should have paraphrased it better:
 
-> The cgroup methods are no longer used after baac50b ("net:
-
-    12-digit ID is now enforced by scripts/checkpatch.pl.
-
-> tcp_memcontrol: simplify linkage between socket and page counter").
-> The hunk to delete them was included in the original patch but must
-> have gotten lost during conflict resolution on the way upstream.
->
-> Fixes: baac50b ("net: tcp_memcontrol: simplify linkage between socket and page counter")
-
-    Here as well.
-
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
-[...]
-
-MBR, Sergei
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+"I have the patch ready and will submit it when net-next opens again."
