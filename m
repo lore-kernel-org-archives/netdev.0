@@ -1,32 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: diag: support v4mapped sockets in
- inet_diag_find_one_icsk()
-Date: Wed, 20 Jan 2016 18:51:47 -0800 (PST)
-Message-ID: <20160120.185147.87243433000767870.davem@davemloft.net>
-References: <1453335901.1223.337.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: dp83640: Fix tx timestamp overflow handling.
+Date: Wed, 20 Jan 2016 18:54:43 -0800 (PST)
+Message-ID: <20160120.185443.757622115704630474.davem@davemloft.net>
+References: <1453285348-16022-1-git-send-email-manfred.rudigier@omicron.at>
+	<20160120132545.GB2032@netboy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com
-To: eric.dumazet@gmail.com
+Cc: manfred.rudigier@omicron.at, netdev@vger.kernel.org
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40476 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40491 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965022AbcAUCvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:51:47 -0500
-In-Reply-To: <1453335901.1223.337.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1759285AbcAUCyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2016 21:54:44 -0500
+In-Reply-To: <20160120132545.GB2032@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 20 Jan 2016 16:25:01 -0800
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Wed, 20 Jan 2016 14:25:45 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> On Wed, Jan 20, 2016 at 11:22:28AM +0100, Manfred Rudigier wrote:
+>> PHY status frames are not reliable, the PHY may not be able to send them
+>> during heavy receive traffic. This overflow condition is signaled by the
+>> PHY in the next status frame, but the driver did not make use of it.
+>> Instead it always reported wrong tx timestamps to user space after an
+>> overflow happened because it assigned newly received tx timestamps to old
+>> packets in the queue.
+>> 
+>> This commit fixes this issue by clearing the tx timestamp queue every time
+>> an overflow happens, so that no timestamps are delivered for overflow
+>> packets. This way time stamping will continue correctly after an overflow.
 > 
-> Lorenzo reported that we could not properly find v4mapped sockets
-> in inet_diag_find_one_icsk(). This patch fixes the issue.
+> Hi Manfred,
 > 
-> Reported-by: Lorenzo Colitti <lorenzo@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Thanks for finding and fixing this bug.
+> 
+> Dave, this patch should also go into stable.
+> 
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-Applied, thanks Eric.
+Applied and queued up for -stable, thanks everyone.
