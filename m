@@ -1,40 +1,131 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
-Date: Thu, 21 Jan 2016 11:40:14 +0000 (GMT)
-Message-ID: <2036003091.741801453376409338.JavaMail.weblogic@ep2mlwas01a>
-Reply-To: maninder1.s@samsung.com
+From: Patrick Ruddy <pruddy@brocade.com>
+Subject: [PATCH] Netlink messages for multicast HW addr programming
+Date: Thu, 21 Jan 2016 11:47:54 +0000
+Message-ID: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"willemb@google.com" <willemb@google.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
-	"tklauser@distanz.ch" <tklauser@distanz.ch>,
-	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	PANKAJ MISHRA <pankaj.m@samsung.com>,
-	Geon-ho Kim <gh007.kim@samsung.com>,
-	Hak-Bong Lee <hakbong5.lee@samsung.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Vaneet Narang <v.narang@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-MIME-version: 1.0
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Patrick Ruddy <pruddy@brocade.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:40429 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759369AbcAULsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 06:48:30 -0500
+Received: from pps.filterd (m0048193.ppops.net [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u0LBC0uY018004
+	for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 03:48:29 -0800
+Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
+	by mx0a-000f0801.pphosted.com with ESMTP id 20gmypa1he-1
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 03:48:29 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgRGFuaWVsLA0KDQo+VGhlIG90aGVyIHNvY2tfcHV0KCkgaW4gcGFja2V0X3JlbGVhc2UoKSB0
-byBkcm9wIHRoZSBmaW5hbCByZWYgYW5kIGNhbGwgaW50bw0KPnNrX2ZyZWUoKSwgd2hpY2ggZHJv
-cHMgdGhlIDEgcmVmIG9uIHRoZSBza193bWVtX2FsbG9jIGZyb20gaW5pdCB0aW1lLiBTaW5jZSB5
-b3UNCj5nb3QgaW50byBfX3NrX2ZyZWUoKSB2aWEgc29ja193ZnJlZSgpIGRlc3RydWN0b3IsIHlv
-dXIgc29ja2V0IG11c3QgaGF2ZSBpbnZva2VkDQo+cGFja2V0X3JlbGVhc2UoKSBwcmlvciB0byB0
-aGlzIChwZXJoYXBzIGtlcm5lbCBkZXN0cm95aW5nIHRoZSBwcm9jZXNzKS4NCj4NCj5XaGF0IGtl
-cm5lbCBkbyB5b3UgdXNlPw0KDQpJc3N1ZSBpcyBjb21pbmcgZm9yIDMuMTAuNTguDQoNCj4+IERy
-aXZlciBjYWxscyBkZXZfa2ZyZWVfc2tiX2FueS0+ZGV2X2tmcmVlX3NrYl9pcnENCj4+IGFuZCBp
-dCBhZGRzIGJ1ZmZlciBpbiBjb21wbGV0aW9uIHF1ZXVlIHRvIGZyZWUgYW5kIHJhaXNlcyBzb2Z0
-aXJxIE5FVF9UWF9TT0ZUSVJRDQo+Pg0KPj4gbmV0X3R4X2FjdGlvbi0+X19rZnJlZV9za2ItPnNr
-Yl9yZWxlYXNlX2FsbC0+c2tiX3JlbGVhc2VfaGVhZF9zdGF0ZS0+c29ja193ZnJlZS0+DQo+PiBf
-X3NrX2ZyZWUtPnBhY2tldF9zb2NrX2Rlc3RydWN0DQo+Pg0KPj4gQWxzbyBwdXJnaW5nIG9mIHJl
-Y2VpdmUgcXVldWUgaGFzIGJlZW4gdGFrZW4gY2FyZSBpbiBvdGhlciBwcm90b2NvbHMu
+Add RTM_NEWADDR and RTM_DELADDR netlink messages to indicate
+interest in specific multicast hardware addresses. These messages
+are sent when addressed are added or deleted from the appropriate
+interface driver.
+
+Signed-off-by: Patrick Ruddy <pruddy@brocade.com>
+
+diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+index c0548d2..a0ebadd 100644
+--- a/net/core/dev_addr_lists.c
++++ b/net/core/dev_addr_lists.c
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include <linux/netdevice.h>
++#include <net/netlink.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/export.h>
+ #include <linux/list.h>
+@@ -661,6 +662,62 @@ out:
+ }
+ EXPORT_SYMBOL(dev_mc_add_excl);
+ 
++static int fill_addr(struct sk_buff *skb, struct net_device *dev,
++		     const unsigned char *addr, int type)
++{
++	struct nlmsghdr *nlh;
++	struct ifaddrmsg *ifm;
++
++	nlh = nlmsg_put(skb, 0, 0, type, sizeof(*ifm), 0);
++	if (nlh == NULL)
++		return -EMSGSIZE;
++
++	ifm = nlmsg_data(nlh);
++	ifm->ifa_family = AF_UNSPEC;
++	ifm->ifa_prefixlen = 0;
++	ifm->ifa_flags = IFA_F_PERMANENT;
++	ifm->ifa_scope = RT_SCOPE_LINK;
++	ifm->ifa_index = dev->ifindex;
++	if (nla_put(skb, IFA_ADDRESS, dev->addr_len, addr))
++		goto nla_put_failure;
++	nlmsg_end(skb, nlh);
++	return 0;
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static inline size_t addr_nlmsg_size(void)
++{
++	return NLMSG_ALIGN(sizeof(struct ifaddrmsg))
++		+ nla_total_size(MAX_ADDR_LEN);
++}
++
++static void mc_addr_notify(struct net_device *dev, const unsigned char * addr,
++			   int type)
++{
++	struct net *net = dev_net(dev);
++	struct sk_buff *skb;
++	int err = -ENOBUFS;
++
++	skb = nlmsg_new(addr_nlmsg_size(), GFP_ATOMIC);
++	if (skb == NULL)
++		goto errout;
++
++	err = fill_addr(skb, dev, addr, type);
++	if (err < 0) {
++		WARN_ON(err == -EMSGSIZE);
++		kfree_skb(skb);
++		goto errout;
++	}
++	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
++	return;
++errout:
++	if (err < 0)
++		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
++}
++
+ static int __dev_mc_add(struct net_device *dev, const unsigned char *addr,
+ 			bool global)
+ {
+@@ -669,8 +726,10 @@ static int __dev_mc_add(struct net_device *dev, const unsigned char *addr,
+ 	netif_addr_lock_bh(dev);
+ 	err = __hw_addr_add_ex(&dev->mc, addr, dev->addr_len,
+ 			       NETDEV_HW_ADDR_T_MULTICAST, global, false, 0);
+-	if (!err)
++	if (!err) {
+ 		__dev_set_rx_mode(dev);
++		mc_addr_notify(dev, addr, RTM_NEWADDR);
++	}
+ 	netif_addr_unlock_bh(dev);
+ 	return err;
+ }
+@@ -709,8 +768,10 @@ static int __dev_mc_del(struct net_device *dev, const unsigned char *addr,
+ 	netif_addr_lock_bh(dev);
+ 	err = __hw_addr_del_ex(&dev->mc, addr, dev->addr_len,
+ 			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
+-	if (!err)
++	if (!err) {
+ 		__dev_set_rx_mode(dev);
++		mc_addr_notify(dev, addr, RTM_DELADDR);
++	}
+ 	netif_addr_unlock_bh(dev);
+ 	return err;
+ }
+-- 
+2.1.4
