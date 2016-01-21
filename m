@@ -1,39 +1,43 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
-Date: Thu, 21 Jan 2016 20:40:53 +0200
-Message-ID: <CAJ3xEMgE1-EuNBmYVfLoBwjohcxt5tio6wtZn=TYvDAgQgh9cw@mail.gmail.com>
-References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
-	<CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
-	<00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
-	<56A08E8F.7090602@mellanox.com>
-	<004401d15460$e77fa1b0$b67ee510$@opengridcomputing.com>
-	<56A10FEC.5020402@mellanox.com>
-	<20160121182420.GA51708@flatif-MOBL1>
+From: David Miller <davem@davemloft.net>
+Subject: Re: question about samsung/sxgbe/sxgbe_xpcs.c
+Date: Thu, 21 Jan 2016 10:45:20 -0800 (PST)
+Message-ID: <20160121.104520.110588445425253600.davem@davemloft.net>
+References: <alpine.DEB.2.10.1601191918470.2531@hadrien>
+	<20160119.143628.432983847877790677.davem@davemloft.net>
+	<20160121051056.GA4373@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Doug Ledford <dledford@redhat.com>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-rdma@lists.sourceforge.net
-To: Faisal Latif <faisal.latif@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f194.google.com ([209.85.213.194]:33817 "EHLO
-	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759632AbcAUSkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 13:40:55 -0500
-In-Reply-To: <20160121182420.GA51708@flatif-MOBL1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: julia.lawall@lip6.fr, shuahkhan@gmail.com, bh74.an@samsung.com,
+	ks.giri@samsung.com, vipul.pandya@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	shuahkh@osg.samsung.com
+To: sakiwit@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160121051056.GA4373@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 21, 2016 at 8:24 PM, Faisal Latif <faisal.latif@intel.com> wrote:
-
-> We can certainly take up the discussion on improving the current port mapper design/implementation. But
-> that would be more appropriate in a separate thread.
-
-If we observe a kernel API / mechanism which could be wrongly
-duplicated between two drivers, and now a new driver comes to town
-with C&P-ing this -- why not stopping and thinking before rushing to
-get the 3rd duplication upstream?
+RnJvbTogSuVhbiBTYWNyZW4gPHNha2l3aXRAZ21haWwuY29tPg0KRGF0ZTogV2VkLCAyMCBKYW4g
+MjAxNiAyMjoxMDo1NiAtMDcwMA0KDQo+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldD4NCj4gRGF0ZTogVHVlLCAxOSBKYW4gMjAxNiAxNDozNjoyOCAtMDUwMA0KPj4NCj4+
+IEZyb206IEp1bGlhIExhd2FsbCA8anVsaWEubGF3YWxsQGxpcDYuZnI+DQo+PiBEYXRlOiBUdWUs
+IDE5IEphbiAyMDE2IDE5OjU0OjIwICswMTAwIChDRVQpDQo+IA0KPiBbLi4uXQ0KPiANCj4+ID4g
+SSBqdXN0IHdvbmRlcmVkLiAgSSB3YXMgbG9va2luZyBhdCBkZXBlbmRlbmNpZXMgYmV0d2VlbiBu
+ZXR3b3JraW5nIGZpbGVzLg0KPj4gPiBUaGlzIG9uZSBzdGFuZHMgb3V0IGJlY2F1c2Ugbm90aGlu
+ZyBpcyBkZXBlbmRlbnRvbiBpdCwgZXZlbiB0aGUgZmlsZXMgaXQNCj4+ID4gaXMgY29tcGlsZWQg
+d2l0aCwgYW5kIGl0IGRvZXNuJ3QgY29udGFpbiB0aGUgdXN1YWwgZnVuY3Rpb25zLA0KPj4gPiBy
+ZWdpc3Rlcl9uZXRkZXYsIGV0Yy4NCj4+IA0KPj4gRXZlbiB3aXRoIHRoYXQgZXhwbGFuYXRpb24s
+IHRoaXMgaXMgYSBib2d1cyBzaXR1YXRpb24uDQo+PiANCj4+IFRoZXJlIGFyZSBubyBpbi10cmVl
+IGNhbGxlcnMgb2YgdGhpcyBjb2RlLiAgSXQgc2hvdWxkIGJlIHJlbW92ZWQgdW50aWwgdGhlcmUN
+Cj4+IGFyZSBpbi10cmVlIHVzZXJzLg0KPj4gDQo+PiBOb2JvZHkgY2FuIGZpZ3VyZSBvdXQgaWYg
+dGhlIGludGVyZmFjZSBmb3IgdGhpcyBpcyBkb25lIHByb3Blcmx5IHdpdGhvdXQgc2VlaW5nDQo+
+PiB0aGUgY2FsbCBzaXRlcyBhbmQgaG93IHRoZXkgd29yay4gIEl0IGlzIHRoZXJlZm9yZSBpbXBv
+c3NpYmxlIHRvIHJldmlldyB0aGlzDQo+PiBjb2RlIGFuZCBqdWRnZSBpdCdzIGRlc2lnbi4NCj4+
+IA0KPj4gSWYgc29tZW9uZSBkb2Vzbid0IHNlbmQgbWUgYSByZW1vdmFsIHBhdGNoLCBJIHdpbGwg
+cmVtb3ZlIHRoaXMgY29kZSBteXNlbGYuDQo+IA0KPiBJIGhhdmUgdGhlIHBhdGNoIHJlYWR5Lg0K
+PiANCj4gRG8geW91IHdhbnQgbWUgdG8gc3VibWl0IGl0IG5vdyBkdXJpbmcgdGhlIG1lcmdlIHdp
+bmRvdyBvciB3YWl0IHRpbGwNCj4gbmV0LW5leHQgb3BlbnMgdXAgYWdhaW4/DQoNClRoaXMgaXMg
+cmVkaWN1bG91cy4NCg0KTm8sIHlvdSBjYW5ub3Qgc3VibWl0IHBhdGNoZXMgZm9yIG5ldyBmZWF0
+dXJlcyBub3cuDQoNClllcywgeW91IHdpbGwgc3VibWl0IHRvIG1lIGEgcGF0Y2ggdG8gcmVtb3Zl
+IHRoZSB1bnVzZWQgY29kZS4NCg0KQW0gSSBiZWluZyBjbGVhciBlbm91Z2ggbm93Pw0K
