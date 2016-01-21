@@ -1,59 +1,62 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v6 3/3] can: sja1000: of: add compatibility with
- Technologic Systems version
-Date: Thu, 21 Jan 2016 17:15:08 +0100
-Message-ID: <56A1040C.4070800@pengutronix.de>
-References: <1453304611-31207-1-git-send-email-mkl@pengutronix.de>
- <1453304611-31207-4-git-send-email-mkl@pengutronix.de>
- <20160121152820.GA6523@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Optimizing instruction-cache, more packets at each stage
+Date: Thu, 21 Jan 2016 08:38:08 -0800
+Message-ID: <1453394288.1223.368.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160115142223.1e92be75@redhat.com>
+	 <20160115.154721.458450438918273509.davem@davemloft.net>
+	 <20160118112703.6eac71ca@redhat.com>
+	 <20160118.112455.212265265553435873.davem@davemloft.net>
+	 <CAJ3xEMiOAdu7ghRoc6ZEMG78Z9xyh1M=5Egc3ydh+97bT3_9fw@mail.gmail.com>
+	 <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>
+	 <20160121122730.6330a84b@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Damien Riegel <damien.riegel@savoirfairelinux.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20160121152820.GA6523@localhost>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirva@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33608 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759914AbcAUQiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 11:38:11 -0500
+Received: by mail-pa0-f47.google.com with SMTP id cy9so25762621pac.0
+        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 08:38:10 -0800 (PST)
+In-Reply-To: <20160121122730.6330a84b@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2016-01-21 at 12:27 +0100, Jesper Dangaard Brouer wrote:
 
-On 01/21/2016 04:28 PM, Damien Riegel wrote:
-> I tested the new technologic version and it works as expected.
+> In my experiments, where I extract several packet before calling
+> napi_gro_receive(), and I also delay calling eth_type_trans().  Most of
+> my speedup comes from this trick, as the prefetch() now that enough
+> time.
 
-Thanks.
+It really depends on the cpu.
 
-> Would be nice if someone could test the nxp version to ensure no
-> regressions has been introduced (I don't have such hardware here).
+Many cpus have very poor prefetch performance.
+prefetch instructions are lazily defined by Intel/AMD
 
-I don't have the hardware, either.
+Ivy Bridge prefetcher for example is known to be not that good.
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+http://www.agner.org/optimize/blog/read.php?i=415
 
+http://www.agner.org/optimize/blog/read.php?i=285
 
---6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+https://groups.google.com/forum/#!topic/comp.arch/71wnqr_F9sw
 
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWoQQMAAoJEP5prqPJtc/HfRIH/2QgzqYxE1LIPUlAiitOsBch
-Eaq74lHajuDGLM3CdRsPpWo1CEmsqwi23HULVm8clhHrr5EcY3E00U1htplSMK+K
-DVkGxO8bswASsfIouQpA540YNSYe7JNpJ/hMZsLGbCFldbE7hL29egWMX2BPAaY0
-nsGuW84eRX0Xxo7oGV1xN5Pv6mm0seeBG0v7GWICaT4R2hrdamPHX2wCpBDdRtah
-bL/6oDOQ5z2LZ33DWpc2iNw0m6AKRrp49mPfhlaC8FvlDyXlkAL5IvaK78mAVVCR
-FmcugYrDIs7NDhDIF62LiH+03wRBumRT+U+b/hqBmPbRjCj0bqPjBHIYhxIHx1o=
-=JXPR
------END PGP SIGNATURE-----
-
---6D26Lu9UdPnJQF0NJa3vSo5hE62Lcxgco--
+Really, refrain from adding stuff that might look good one one cpu.
