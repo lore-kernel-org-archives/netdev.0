@@ -1,69 +1,89 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-Date: Thu, 21 Jan 2016 22:12:50 +0100
-Message-ID: <20160121211250.GK9991@lunn.ch>
-References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
- <20160114164418.GD19773@lunn.ch>
- <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <56997951.90304@gmail.com>
- <5699B211.5070602@gmail.com>
- <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <569C9CD2.10301@gmail.com>
- <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
- <20160118151500.GD923@lunn.ch>
- <VI1PR04MB1664DFBC53F08C5CE7EBF22AE8C10@VI1PR04MB1664.eurprd04.prod.outlook.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH RFC 26/28] dsa: Convert mv88e6xxx into a library allowing driver modules
+Date: Thu, 21 Jan 2016 16:29:55 -0500
+Message-ID: <87twm639kc.fsf@ketchup.mtl.sfl>
+References: <1450875402-20740-1-git-send-email-andrew@lunn.ch> <1450875402-20740-27-git-send-email-andrew@lunn.ch> <567DB98B.1070709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Shaohui Xie <Shaohui.Xie-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Shaohui Xie <shaohui.xie-3arQi8VN3Tc@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <VI1PR04MB1664DFBC53F08C5CE7EBF22AE8C10-mr6QIVyDiCHTAO9RNConP89NdZoXdze2vxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, narmstrong@baylibre.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:54761 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751633AbcAUVaD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 16:30:03 -0500
+In-Reply-To: <567DB98B.1070709@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 19, 2016 at 05:00:35AM +0000, Shaohui Xie wrote:
-> > -----Original Message-----
-> > From: Andrew Lunn [mailto:andrew-g2DYL2Zd6BY@public.gmane.org]
-> > Sent: Monday, January 18, 2016 11:15 PM
-> > To: Shaohui Xie
-> > Cc: Sebastian Hesselbarth; Florian Fainelli; shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
-> > devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linuxppc-
-> > dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Shaohui Xie
-> > Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
-> > 
-> > > [S.H] the fsl backplane, e.g. 10GBASE-KR, needs software to handle
-> > > link training, It's to train link partner, and trained by link partner
-> > parallel.
-> > >
-> > > But if media type is not copper, e.g. optical module, we won't need this.
-> > 
-> > So what we actually need to know is copper vs fibre?
+Hi Andrew, Florian,
 
-> Copper is not enough to indicate backplane, since backplane is
-> always copper, but copper is not always backplane.
+=46lorian Fainelli <f.fainelli@gmail.com> writes:
 
-O.K, lets try again....
+> Le 23/12/2015 04:56, Andrew Lunn a =C3=A9crit :
+>> Turn mv88e6xxx into a library module, by exporting its symbols.  Hav=
+e
+>> each driver register their own driver functions with the DSA core in
+>> there init function.
+>>=20
+>> This results in each driver being a loadable module.
+>>=20
+>> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+>> ---
+>
+> [snip]
+>
+>> +obj-$(CONFIG_NET_DSA_MV88E6XXX) +=3D mv88e6xxx.o
+>> +obj-$(CONFIGNET_DSA_MV88E6131)  +=3D mv88e6123.o
+>
+> Missing underscore here between CONFIG and NET.
+>
+>> +obj-$(CONFIG_NET_DSA_MV88E6131) +=3D mv88e6131.o
+>> +obj-$(CONFIG_NET_DSA_MV88E6352) +=3D mv88e6352.o
+>> +obj-$(CONFIG_NET_DSA_MV88E6171) +=3D mv88e6171.o
+>>  obj-$(CONFIG_NET_DSA_BCM_SF2)	+=3D bcm_sf2.o
+>> diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123=
+=2Ec
+>> index bb39720f3e8b..9680e59fd2ae 100644
+>> --- a/drivers/net/dsa/mv88e6123.c
+>> +++ b/drivers/net/dsa/mv88e6123.c
+>> @@ -167,7 +167,21 @@ static struct platform_driver mv88e6123_driver =
+=3D {
+>>  		.of_match_table =3D mv88e6123_of_match,
+>>  	},
+>>  };
+>> -module_platform_driver(mv88e6123_driver);
+>> =20
+>> +static int __init mv88e6123_init(void)
+>> +{
+>> +	register_switch_driver(&mv88e6123_switch_driver);
+>> +
+>> +	return platform_driver_register(&mv88e6123_driver);
+>> +}
+>> +
+>> +static void __exit mv88e6123_exit(void)
+>> +{
+>> +	platform_driver_unregister(&mv88e6123_driver);
+>> +	unregister_switch_driver(&mv88e6123_switch_driver);
+>> +}
+>
+> I think Vivien had started something like this, but it could be nice =
+to
+> have a helper function/macro which reduces the boilerplate code, not
+> critical for now though.
 
-If it is copper backplane you need to perform training.
+Indeed I did suggest this macro and exporting in the past, without
+success though:
 
-Looking at the driver probe function, it is either 1000BASE-KX, no
-training needed, or else it is 10GBASE-RK and training is needed.
+    https://lkml.org/lkml/2015/5/2/152
 
-Looking at fsl_backplane_config_aneg() you expect phydev->speed to be
-set, and from the speed you then kick of either KR autoneg or KX
-autoneg. Could you also start the training at this point? Use the
-speed to indicate if training is needed?
+Maybe the other approach with a reference driver (e.g. mv88e6352.c)
+declaring a table of supported switch names is more natural?
 
-      Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Most Linux drivers factorize the support for similar devices this way
+(e.g. lm75, ...).
+
+Thanks,
+-v
