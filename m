@@ -1,70 +1,42 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 1/3] net: wireless: rt2x00: Space issue
-Date: Thu, 21 Jan 2016 18:04:07 +0100
-Message-ID: <CAGXE3d-XH5Efi_9cypT=HmJYzYdzyGoGJxcnrXZ86EVTcDM4Fg@mail.gmail.com>
-References: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
+Date: Thu, 21 Jan 2016 19:05:48 +0200
+Message-ID: <56A10FEC.5020402@mellanox.com>
+References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
+ <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
+ <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
+ <56A08E8F.7090602@mellanox.com>
+ <004401d15460$e77fa1b0$b67ee510$@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Paul McQuade <paulmcquad@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: 'Or Gerlitz' <gerlitz.or@gmail.com>,
+	'Doug Ledford' <dledford@redhat.com>,
+	<linux-rdma@vger.kernel.org>,
+	'Linux Netdev List' <netdev@vger.kernel.org>,
+	'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+	<e1000-rdma@lists.sourceforge.net>
+To: Steve Wise <swise@opengridcomputing.com>,
+	'Faisal Latif' <faisal.latif@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0070.outbound.protection.outlook.com ([157.56.112.70]:38736
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965302AbcAURF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 12:05:59 -0500
+In-Reply-To: <004401d15460$e77fa1b0$b67ee510$@opengridcomputing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 17, 2015 at 11:06 PM, Paul McQuade <paulmcquad@gmail.com> wrote:
-> Removed empty spaces before/after parenthesis
->
-> Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
+On 1/21/2016 5:32 PM, Steve Wise wrote:
+> Only a single user-space daemon is used.
 
-Looks valid to me as well.
+Good.
 
-Acked-by: Helmut Schaa <helmut.schaa@googlemail.com>
+> Someone from Intel might have insight into the architecture and design.  Perhaps the intention is that individual drivers might want to have their own handlers for these various operations.  But currently they all use the core/common ones.
 
-> ---
->  drivers/net/wireless/rt2x00/rt2x00.h | 24 ++++++++++++------------
->  1 file changed, 12 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
-> index 3282ddb..6f8310a 100644
-> --- a/drivers/net/wireless/rt2x00/rt2x00.h
-> +++ b/drivers/net/wireless/rt2x00/rt2x00.h
-> @@ -107,7 +107,7 @@
->   * amount of bytes needed to move the data.
->   */
->  #define ALIGN_SIZE(__skb, __header) \
-> -       (  ((unsigned long)((__skb)->data + (__header))) & 3 )
-> +       (((unsigned long)((__skb)->data + (__header))) & 3)
->
->  /*
->   * Constants for extra TX headroom for alignment purposes.
-> @@ -128,14 +128,14 @@
->  #define SLOT_TIME              20
->  #define SHORT_SLOT_TIME                9
->  #define SIFS                   10
-> -#define PIFS                   ( SIFS + SLOT_TIME )
-> -#define SHORT_PIFS             ( SIFS + SHORT_SLOT_TIME )
-> -#define DIFS                   ( PIFS + SLOT_TIME )
-> -#define SHORT_DIFS             ( SHORT_PIFS + SHORT_SLOT_TIME )
-> -#define EIFS                   ( SIFS + DIFS + \
-> -                                 GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10) )
-> -#define SHORT_EIFS             ( SIFS + SHORT_DIFS + \
-> -                                 GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10) )
-> +#define PIFS                   (SIFS + SLOT_TIME)
-> +#define SHORT_PIFS             (SIFS + SHORT_SLOT_TIME)
-> +#define DIFS                   (PIFS + SLOT_TIME)
-> +#define SHORT_DIFS             (SHORT_PIFS + SHORT_SLOT_TIME)
-> +#define EIFS                   (SIFS + DIFS + \
-> +                                 GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10))
-> +#define SHORT_EIFS             (SIFS + SHORT_DIFS + \
-> +                                 GET_DURATION(IEEE80211_HEADER + ACK_SIZE, 10))
->
->  enum rt2x00_chip_intf {
->         RT2X00_CHIP_INTF_PCI,
->
-> --
-> 2.6.1
->
+But if there's single daemon there and one set of pre-defined  
+callbacks, why different netlink commands are needed? in what case the 
+damon uses RDMA_NL_NES or RDMA_NL_C4IW or the new define and why?
+
+Or.
