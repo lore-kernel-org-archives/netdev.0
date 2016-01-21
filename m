@@ -1,28 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: phy: smsc: Fix disabling energy detect mode
-Date: Thu, 21 Jan 2016 12:06:21 -0800 (PST)
-Message-ID: <20160121.120621.312904386049504736.davem@davemloft.net>
-References: <1453293635-6121-1-git-send-email-t.remmet@phytec.de>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 2/3] sctp: hold transport before we access t->asoc in
+ sctp proc
+Date: Thu, 21 Jan 2016 18:08:40 -0200
+Message-ID: <20160121200840.GH3452@mrl.redhat.com>
+References: <cover.1453398443.git.lucien.xin@gmail.com>
+ <9f366422b6a8c6c0c939ccbf993548c1881a2c16.1453398443.git.lucien.xin@gmail.com>
+ <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
+ <1453404456.1223.378.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20160121193709.GG3452@mrl.redhat.com>
+ <1453406236.1223.381.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org, andrew@lunn.ch
-To: t.remmet@phytec.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453293635-6121-1-git-send-email-t.remmet@phytec.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	daniel@iogearbox.net, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45532 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752361AbcAUUIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 15:08:43 -0500
+Content-Disposition: inline
+In-Reply-To: <1453406236.1223.381.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Teresa Remmet <t.remmet@phytec.de>
-Date: Wed, 20 Jan 2016 13:40:35 +0100
-
-> When the lan87xx_read_status function is getting called the
-> energy detect mode is enabled again even if it has been
-> disabled by device tree.
+On Thu, Jan 21, 2016 at 11:57:16AM -0800, Eric Dumazet wrote:
+> On Thu, 2016-01-21 at 17:37 -0200, Marcelo Ricardo Leitner wrote:
+> > On Thu, Jan 21, 2016 at 11:27:36AM -0800, Eric Dumazet wrote:
+> > > On Fri, 2016-01-22 at 01:49 +0800, Xin Long wrote:
+> > > > Previously, before rhashtable, /proc assoc listing was done by
+> > > > read-locking the entire hash entry and dumping all assocs at once, so we
+> > > > were sure that the assoc wasn't freed because it wouldn't be possible to
+> > > > remove it from the hash meanwhile.
+> > > > 
+> > > > Now we use rhashtable to list transports, and dump entries one by one.
+> > > > That is, now we have to check if the assoc is still a good one, as the
+> > > > transport we got may be being freed.
+> > > > 
+> > > > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> > > > ---
+> > > >  net/sctp/proc.c | 8 ++++++++
+> > > >  1 file changed, 8 insertions(+)
+> > > > 
+> > > > diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> > > > index 684c5b3..c74a810 100644
+> > > > --- a/net/sctp/proc.c
+> > > > +++ b/net/sctp/proc.c
+> > > > @@ -380,6 +380,8 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+> > > >  	}
+> > > >  
+> > > >  	transport = (struct sctp_transport *)v;
+> > > 
+> > > What protects you from this structure already being freed ?
+> > 
+> > rcu, rhashtable_walk_start() at sctp_assocs_seq_start() starts an
+> > (implicit from this POV) rcu_read_lock() for us which is unlocked only
+> > when the walking is terminated, thus covering this _show.
+> > 
+> > > > +	if (!sctp_transport_hold(transport))
+> > > > +		return 0;
+> > > 
+> > > If this is rcu, then you do not need to increment the refcount, and
+> > > decrement it later.
+> > 
+> > It's an implicit hold on sctp asoc.
+> > 
+> > This code is using contents from asoc pointer, which is not proctected
+> > by rcu. As transport has a hold on the asoc, it's enough to just hold
+> > the transport and not the asoc too, as we had to do in the previous
+> > patch.
 > 
-> Added private struct to check the energy detect status.
-> 
-> Signed-off-by: Teresa Remmet <t.remmet@phytec.de>
+> Then it means fast path also need to do this sctp_transport_hold() ?
 
-Applied, thanks.
+Well, kind of broad question, but I think so, yes. It's mostly done when
+the transport is identified and fetched from rhashtable. Otherwise, we
+probably already have the asoc and doesn't need this jump.
+
+It's the first patch in this series. It's the only way we found to
+safely transfer the ref from transport to asoc.
+
+> If sctp_association_put() was called from sctp_transport_destroy_rcu()
+> (ie after rcu grace period), you would not need to increment/decrement
+> the transport refcount.
+> 
+> Normally, RCU protection does not need to change the refcount, unless we
+> need to keep an object alive after escaping the rcu section.
+
+sctp_association_put() was in sctp_transport_destroy_rcu(), but it
+caused sctp-issues which Daniel fixed on 8c98653f0553 ("sctp:
+sctp_close: fix release of bindings for deferred call_rcu's").
+
+So in this case, we are not leaving the protected section but jumping
+from a RCU-protected object (transport) to a non-protected one (asoc).
+
+  Marcelo
