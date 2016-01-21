@@ -1,50 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: question about samsung/sxgbe/sxgbe_xpcs.c
-Date: Thu, 21 Jan 2016 11:09:39 -0800 (PST)
-Message-ID: <20160121.110939.1823034912783648640.davem@davemloft.net>
-References: <20160119.143628.432983847877790677.davem@davemloft.net>
-	<20160121051056.GA4373@mail.gmail.com>
-	<56A0E561.2030409@osg.samsung.com>
+Subject: Re: [PATCH net] tunnels: Allow IPv6 UDP checksums to be correctly
+ controlled.
+Date: Thu, 21 Jan 2016 11:13:21 -0800 (PST)
+Message-ID: <20160121.111321.1645988832633186651.davem@davemloft.net>
+References: <1453335767-49234-1-git-send-email-jesse@kernel.org>
+	<20160121155715.511dfc8e@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: sakiwit@gmail.com, siva.kallam@broadcom.com, julia.lawall@lip6.fr,
-	shuahkhan@gmail.com, bh74.an@samsung.com, ks.giri@samsung.com,
-	vipul.pandya@samsung.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: shuahkh@osg.samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56A0E561.2030409@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jesse@kernel.org, netdev@vger.kernel.org
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46338 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752770AbcAUTNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 14:13:23 -0500
+In-Reply-To: <20160121155715.511dfc8e@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2h1YWggS2hhbiA8c2h1YWhraEBvc2cuc2Ftc3VuZy5jb20+DQpEYXRlOiBUaHUsIDIx
-IEphbiAyMDE2IDA3OjA0OjE3IC0wNzAwDQoNCj4gT24gMDEvMjAvMjAxNiAxMDoxMCBQTSwgSuVh
-biBTYWNyZW4gd3JvdGU6DQo+PiBGcm9tOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
-ZXQ+DQo+PiBEYXRlOiBUdWUsIDE5IEphbiAyMDE2IDE0OjM2OjI4IC0wNTAwDQo+Pj4NCj4+PiBG
-cm9tOiBKdWxpYSBMYXdhbGwgPGp1bGlhLmxhd2FsbEBsaXA2LmZyPg0KPj4+IERhdGU6IFR1ZSwg
-MTkgSmFuIDIwMTYgMTk6NTQ6MjAgKzAxMDAgKENFVCkNCj4+IA0KPj4gWy4uLl0NCj4+IA0KPj4+
-PiBJIGp1c3Qgd29uZGVyZWQuICBJIHdhcyBsb29raW5nIGF0IGRlcGVuZGVuY2llcyBiZXR3ZWVu
-IG5ldHdvcmtpbmcgZmlsZXMuDQo+Pj4+IFRoaXMgb25lIHN0YW5kcyBvdXQgYmVjYXVzZSBub3Ro
-aW5nIGlzIGRlcGVuZGVudG9uIGl0LCBldmVuIHRoZSBmaWxlcyBpdA0KPj4+PiBpcyBjb21waWxl
-ZCB3aXRoLCBhbmQgaXQgZG9lc24ndCBjb250YWluIHRoZSB1c3VhbCBmdW5jdGlvbnMsDQo+Pj4+
-IHJlZ2lzdGVyX25ldGRldiwgZXRjLg0KPj4+DQo+Pj4gRXZlbiB3aXRoIHRoYXQgZXhwbGFuYXRp
-b24sIHRoaXMgaXMgYSBib2d1cyBzaXR1YXRpb24uDQo+Pj4NCj4+PiBUaGVyZSBhcmUgbm8gaW4t
-dHJlZSBjYWxsZXJzIG9mIHRoaXMgY29kZS4gIEl0IHNob3VsZCBiZSByZW1vdmVkIHVudGlsIHRo
-ZXJlDQo+Pj4gYXJlIGluLXRyZWUgdXNlcnMuDQo+Pj4NCj4+PiBOb2JvZHkgY2FuIGZpZ3VyZSBv
-dXQgaWYgdGhlIGludGVyZmFjZSBmb3IgdGhpcyBpcyBkb25lIHByb3Blcmx5IHdpdGhvdXQgc2Vl
-aW5nDQo+Pj4gdGhlIGNhbGwgc2l0ZXMgYW5kIGhvdyB0aGV5IHdvcmsuICBJdCBpcyB0aGVyZWZv
-cmUgaW1wb3NzaWJsZSB0byByZXZpZXcgdGhpcw0KPj4+IGNvZGUgYW5kIGp1ZGdlIGl0J3MgZGVz
-aWduLg0KPj4+DQo+Pj4gSWYgc29tZW9uZSBkb2Vzbid0IHNlbmQgbWUgYSByZW1vdmFsIHBhdGNo
-LCBJIHdpbGwgcmVtb3ZlIHRoaXMgY29kZSBteXNlbGYuDQo+PiANCj4+IEkgaGF2ZSB0aGUgcGF0
-Y2ggcmVhZHkuDQo+PiANCj4+IERvIHlvdSB3YW50IG1lIHRvIHN1Ym1pdCBpdCBub3cgZHVyaW5n
-IHRoZSBtZXJnZSB3aW5kb3cgb3Igd2FpdCB0aWxsDQo+PiBuZXQtbmV4dCBvcGVucyB1cCBhZ2Fp
-bj8NCj4+IA0KPiANCj4gTXkgc2Vjb25kIGF0dGVtcHQgdG8gbG9jYXRlIHRoZSBhdXRob3IgZm9y
-IGEgY29tbWVudA0KPiBvbiB0aGlzIGJlZm9yZSBpdCBnZXRzIHJlbW92ZWQuIE1heWJlIHRoaXMg
-Y29kZSBjb3VsZA0KPiBiZSBmaXhlZCBqdXN0IGluIGNhc2UgaXQgaXMgaW1wb3J0YW50IGZvciBz
-b21lIHByb2R1Y3QNCj4gb3V0IHRoZXJlLg0KPiANCj4gSSBhbSBjYydpbmcgdGhlIG9yaWdpbmFs
-IGF1dGhvciBpbiBjYXNlIGhlIGhhcyBhbnkNCj4gY29tbWVudHMuDQoNCkl0IG5ldmVyIHNob3Vs
-ZCBoYXZlIGJlZW4gYWRkZWQgaW4gdGhlIGZpcnN0IHBsYWNlLCBJIHJlYWxseSBkb24ndA0KY2Fy
-ZSBhdCBhbGwgcmlnaHQgbm93IHdoYXQgaXQncyB1c2VkIGZvci4NCg0KVGhlIHNpbXBsZSBmYWN0
-IGlzIHRoYXQgaXQgaXNuJ3QgdXNlZCwgYW5kIHRoZXJlZm9yZSBtdXN0IGJlIHJlbW92ZWQNCm5v
-dy4NCg==
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 21 Jan 2016 15:57:15 +0100
+
+> On Wed, 20 Jan 2016 16:22:47 -0800, Jesse Gross wrote:
+>> When configuring checksums on UDP tunnels, the flags are different
+>> for IPv4 vs. IPv6 (and reversed). However, when lightweight tunnels
+>> are enabled the flags used are always the IPv4 versions, which are
+>> ignored in the IPv6 code paths. This uses the correct IPv6 flags, so
+>> checksums can be controlled appropriately.
+>> 
+>> Fixes: a725e514 ("vxlan: metadata based tunneling for IPv6")
+>> Fixes: abe492b4 ("geneve: UDP checksum configuration via netlink")
+>> Signed-off-by: Jesse Gross <jesse@kernel.org>
+> 
+> Indeed. Thanks for spotting this.
+> 
+> Acked-by: Jiri Benc <jbenc@redhat.com>
+
+Applied, and queued up for -stable.
+
+Thanks.
