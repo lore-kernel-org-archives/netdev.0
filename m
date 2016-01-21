@@ -1,97 +1,111 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Fri, 22 Jan 2016 00:45:13 +0200
-Message-ID: <CAJ3xEMjMg9fZGk-=F_nvx2Ta5z8fj9nrEEAm+xWYSm-hyUDDYg@mail.gmail.com>
-References: <CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>
-	<20160121122730.6330a84b@redhat.com>
-	<CAJ3xEMgPi-P6R39LOkBM67SehQE0MLxDXRB7qxCV5Y4WLORpXA@mail.gmail.com>
-	<20160121.105608.180935122763399438.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH] ethtool: add IPv6 to the NFC API
+Date: Thu, 21 Jan 2016 14:48:51 -0800
+Message-ID: <CAKgT0UeP4u04PsaupuQ19HdOxa6qZ3dCaxbdJeJ4DJ-Oqq+SOA@mail.gmail.com>
+References: <1453317771.3734.68.camel@decadent.org.uk>
+	<56A12E29.7000507@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@gmail.com>,
-	Matan Barak <matanb@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Netdev <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:34138 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbcAUWpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 17:45:14 -0500
-Received: by mail-ig0-f173.google.com with SMTP id ik10so134610021igb.1
-        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 14:45:14 -0800 (PST)
-In-Reply-To: <20160121.105608.180935122763399438.davem@davemloft.net>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:38451 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934AbcAUWsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 17:48:52 -0500
+Received: by mail-ig0-f181.google.com with SMTP id mw1so43652758igb.1
+        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 14:48:52 -0800 (PST)
+In-Reply-To: <56A12E29.7000507@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 21, 2016 at 8:56 PM, David Miller <davem@davemloft.net> wrote:
-> From: Or Gerlitz <gerlitz.or@gmail.com>
-> Date: Thu, 21 Jan 2016 14:49:25 +0200
+On Thu, Jan 21, 2016 at 11:14 AM, Edward Cree <ecree@solarflare.com> wrote:
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+> Haven't yet tried to write the ethtool client end of this (or a driver
+> implementation), but does it look reasonable?
 >
->> On Thu, Jan 21, 2016 at 1:27 PM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->>> On Wed, 20 Jan 2016 15:27:38 -0800 Tom Herbert <tom@herbertland.com> wrote:
->>>
->>>> eth_type_trans touches headers
->>>
->>> True, the eth_type_trans() call in the driver is a major bottleneck,
->>> because it touch the packet header and happens very early in the driver.
->>>
->>> In my experiments, where I extract several packet before calling
->>> napi_gro_receive(), and I also delay calling eth_type_trans().  Most of
->>> my speedup comes from this trick, as the prefetch() now that enough
->>> time.
->>>
->>>  while ((skb = __skb_dequeue(&rx_skb_list)) != NULL) {
->>>         skb->protocol = eth_type_trans(skb, rq->netdev);
->>>         napi_gro_receive(cq->napi, skb);
->>>  }
->>>
->>> What is the HW could provide the info we need in the descriptor?!?
->>>
->>>
->>> eth_type_trans() does two things:
->>>
->>> 1) determine skb->protocol
->>> 2) setup skb->pkt_type = PACKET_{BROADCAST,MULTICAST,OTHERHOST}
->>>
->>> Could the HW descriptor deliver the "proto", or perhaps just some bits
->>> on the most common proto's?
->>>
->>> The skb->pkt_type don't need many bits.  And I bet the HW already have
->>> the information.  The BROADCAST and MULTICAST indication are easy.  The
->>> PACKET_OTHERHOST, can be turned around, by instead set a PACKET_HOST
->>> indication, if the eth->h_dest match the devices dev->dev_addr (else a
->>> SW compare is required).
->>>
->>> Is that doable in hardware?
->>
->> As I wrote earlier, for determination of the eth-type HWs can do what you ask
->> here and more.
->>
->> Protocol being IP or not (and only then you look in the data) you could
->> get I guess from many NICs, e.g if the NIC sets PKT_HASH_TYPE_L4
->> or PKT_HASH_TYPE_L3 then we know it's an IP packets and only if
->> we don't see this indication we look into the data.
+>  include/uapi/linux/ethtool.h | 30 +++++++++++++++++++++++++-----
+>  1 file changed, 25 insertions(+), 5 deletions(-)
 >
-> This doesn't differentiate ipv4 vs. ipv6 which is critical here, so this
-> mechanism is not sufficient.
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 57fa390..74bef53 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -748,6 +748,24 @@ struct ethtool_usrip4_spec {
+>         __u8    proto;
+>  };
+>
+> +/**
+> + * struct ethtool_ip6_spec - general flow specification for IPv6
+> + * @ip6src: Source host
+> + * @ip6dst: Destination host
+> + * @l4_4_bytes: First 4 bytes of transport (layer 4) header
+> + * @spi: Security parameters index, for %AH_V6_FLOW and %ESP_V6_FLOW
+> + * @tos: Type-of-service
+> + * @proto: Transport protocol number, for %IP6_USER_FLOW
+> + */
+> +struct ethtool_ip6_spec {
+> +       __be32  ip6src[4];
+> +       __be32  ip6dst[4];
+> +       __be32  l4_4_bytes;
 
-Dave, at least in the ConnectX4 (mlx5e driver), as I commented earlier
-on this thread, we can use programmed tags reported by the HW on the
-completion of packets  whether the ethtype is ipv4 or ipv6 or
-something else, and let the kernel
-branch look into the packet memory on in the last case.
+The one concern I would have about the filter is that for protocols
+like UDP and TCP which have 2 __be16 values in the l4_4_bytes field is
+that it would be pretty easy to end up swapping src and dst and then
+making a mess of it.  I really would like to see a ethtool_tcpip6_spec
+just to make sure we have it laid out clearly that it should be src
+port and then destination port.
 
-> We must know the exact ETH_P_* value.
+> +       __be32  spi;
+
+Is this supposed to be the flow label, or is this the IPSec security
+parameter index?  If it is the flow label you may want to rename it.
+If it is supposed to be the IPSec security parameter index this might
+belong in a different flow definition since it is not actually a part
+of the IPv6 header.
+
+> +       __u8    tos;
+> +       __u8    proto;
+> +};
+> +
+
+Technically the name of the field for proto is nexthdr.
+
+>  union ethtool_flow_union {
+>         struct ethtool_tcpip4_spec              tcp_ip4_spec;
+>         struct ethtool_tcpip4_spec              udp_ip4_spec;
+> @@ -755,6 +773,7 @@ union ethtool_flow_union {
+>         struct ethtool_ah_espip4_spec           ah_ip4_spec;
+>         struct ethtool_ah_espip4_spec           esp_ip4_spec;
+>         struct ethtool_usrip4_spec              usr_ip4_spec;
+> +       struct ethtool_ip6_spec                 ip6_spec;
+>         struct ethhdr                           ether_spec;
+>         __u8                                    hdata[52];
+>  };
+> @@ -1367,18 +1386,19 @@ enum ethtool_sfeatures_retval_bits {
+>  #define        UDP_V4_FLOW     0x02    /* hash or spec (udp_ip4_spec) */
+>  #define        SCTP_V4_FLOW    0x03    /* hash or spec (sctp_ip4_spec) */
+>  #define        AH_ESP_V4_FLOW  0x04    /* hash only */
+> -#define        TCP_V6_FLOW     0x05    /* hash only */
+> -#define        UDP_V6_FLOW     0x06    /* hash only */
+> -#define        SCTP_V6_FLOW    0x07    /* hash only */
+> +#define        TCP_V6_FLOW     0x05    /* hash or spec (ip6_spec) */
+> +#define        UDP_V6_FLOW     0x06    /* hash or spec (ip6_spec) */
+> +#define        SCTP_V6_FLOW    0x07    /* hash or spec (ip6_spec) */
+>  #define        AH_ESP_V6_FLOW  0x08    /* hash only */
+>  #define        AH_V4_FLOW      0x09    /* hash or spec (ah_ip4_spec) */
+>  #define        ESP_V4_FLOW     0x0a    /* hash or spec (esp_ip4_spec) */
+> -#define        AH_V6_FLOW      0x0b    /* hash only */
+> -#define        ESP_V6_FLOW     0x0c    /* hash only */
+> +#define        AH_V6_FLOW      0x0b    /* hash or spec (ip6_spec) */
+> +#define        ESP_V6_FLOW     0x0c    /* hash or spec (ip6_spec) */
+>  #define        IP_USER_FLOW    0x0d    /* spec only (usr_ip4_spec) */
+>  #define        IPV4_FLOW       0x10    /* hash only */
+>  #define        IPV6_FLOW       0x11    /* hash only */
+>  #define        ETHER_FLOW      0x12    /* spec only (ether_spec) */
+> +#define        IP6_USER_FLOW   0x13    /* spec only (ip6_spec) */
+>  /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
+>  #define        FLOW_EXT        0x80000000
+>  #define        FLOW_MAC_EXT    0x40000000
