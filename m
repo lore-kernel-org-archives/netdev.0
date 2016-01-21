@@ -1,10 +1,10 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net 1/3] sctp: fix the transport dead race check by using
- atomic_add_unless on refcnt
-Date: Thu, 21 Jan 2016 15:53:05 -0200
-Message-ID: <20160121175305.GD3452@mrl.redhat.com>
+Subject: Re: [PATCH net 2/3] sctp: hold transport before we access t->asoc in
+ sctp proc
+Date: Thu, 21 Jan 2016 15:53:47 -0200
+Message-ID: <20160121175347.GE3452@mrl.redhat.com>
 References: <cover.1453398443.git.lucien.xin@gmail.com>
- <9f366422b6a8c6c0c939ccbf993548c1881a2c16.1453398443.git.lucien.xin@gmail.com>
+ <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
@@ -12,112 +12,73 @@ Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
 	davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53763 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44590 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759297AbcAURxI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 12:53:08 -0500
+	id S1755545AbcAURxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 12:53:50 -0500
 Content-Disposition: inline
-In-Reply-To: <9f366422b6a8c6c0c939ccbf993548c1881a2c16.1453398443.git.lucien.xin@gmail.com>
+In-Reply-To: <4357f1f3ad90ffec1481a265d8ca198d75e25d07.1453398443.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 22, 2016 at 01:49:07AM +0800, Xin Long wrote:
-> Now when __sctp_lookup_association is running in BH, it will try to
-> check if t->dead is set, but meanwhile other CPUs may be freeing this
-> transport and this assoc and if it happens that
-> __sctp_lookup_association checked t->dead a bit too early, it may think
-> that the association is still good while it was already freed.
+On Fri, Jan 22, 2016 at 01:49:08AM +0800, Xin Long wrote:
+> Previously, before rhashtable, /proc assoc listing was done by
+> read-locking the entire hash entry and dumping all assocs at once, so we
+> were sure that the assoc wasn't freed because it wouldn't be possible to
+> remove it from the hash meanwhile.
 > 
-> So we fix this race by using atomic_add_unless in sctp_transport_hold.
-> After we get one transport from hashtable, we will hold it only when
-> this transport's refcnt is not 0, so that we can make sure t->asoc
-> cannot be freed before we hold the asoc again.
+> Now we use rhashtable to list transports, and dump entries one by one.
+> That is, now we have to check if the assoc is still a good one, as the
+> transport we got may be being freed.
 > 
-> Note that sctp association is not freed using RCU so we can't use
-> atomic_add_unless() with it as it may just be too late for that either.
-> 
-> Fixes: 4f0087812648 ("sctp: apply rhashtable api to send/recv path")
-> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 > ---
->  include/net/sctp/structs.h |  2 +-
->  net/sctp/input.c           | 17 +++++++++++------
->  net/sctp/transport.c       |  4 ++--
->  3 files changed, 14 insertions(+), 9 deletions(-)
+>  net/sctp/proc.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
 > 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 20e7212..344da04 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -955,7 +955,7 @@ void sctp_transport_route(struct sctp_transport *, union sctp_addr *,
->  void sctp_transport_pmtu(struct sctp_transport *, struct sock *sk);
->  void sctp_transport_free(struct sctp_transport *);
->  void sctp_transport_reset_timers(struct sctp_transport *);
-> -void sctp_transport_hold(struct sctp_transport *);
-> +int sctp_transport_hold(struct sctp_transport *);
->  void sctp_transport_put(struct sctp_transport *);
->  void sctp_transport_update_rto(struct sctp_transport *, __u32);
->  void sctp_transport_raise_cwnd(struct sctp_transport *, __u32, __u32);
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index bf61dfb..49d2cc7 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -935,15 +935,22 @@ static struct sctp_association *__sctp_lookup_association(
->  					struct sctp_transport **pt)
->  {
->  	struct sctp_transport *t;
-> +	struct sctp_association *asoc = NULL;
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 684c5b3..c74a810 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -380,6 +380,8 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+>  	}
 >  
-> +	rcu_read_lock();
->  	t = sctp_addrs_lookup_transport(net, local, peer);
-> -	if (!t || t->dead)
-> -		return NULL;
-> +	if (!t || !sctp_transport_hold(t))
-> +		goto out;
+>  	transport = (struct sctp_transport *)v;
+> +	if (!sctp_transport_hold(transport))
+> +		return 0;
+>  	assoc = transport->asoc;
+>  	epb = &assoc->base;
+>  	sk = epb->sk;
+> @@ -412,6 +414,8 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+>  		sk->sk_rcvbuf);
+>  	seq_printf(seq, "\n");
 >  
-> -	sctp_association_hold(t->asoc);
-> +	asoc = t->asoc;
-> +	sctp_association_hold(asoc);
->  	*pt = t;
->  
-> -	return t->asoc;
-> +	sctp_transport_put(t);
+> +	sctp_transport_put(transport);
 > +
-> +out:
-> +	rcu_read_unlock();
-> +	return asoc;
+>  	return 0;
 >  }
 >  
->  /* Look up an association. protected by RCU read lock */
-> @@ -955,9 +962,7 @@ struct sctp_association *sctp_lookup_association(struct net *net,
->  {
->  	struct sctp_association *asoc;
+> @@ -489,6 +493,8 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+>  	}
 >  
-> -	rcu_read_lock();
->  	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
-> -	rcu_read_unlock();
+>  	tsp = (struct sctp_transport *)v;
+> +	if (!sctp_transport_hold(tsp))
+> +		return 0;
+>  	assoc = tsp->asoc;
 >  
->  	return asoc;
->  }
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index aab9e3f..69f3799 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -296,9 +296,9 @@ void sctp_transport_route(struct sctp_transport *transport,
->  }
+>  	list_for_each_entry_rcu(tsp, &assoc->peer.transport_addr_list,
+> @@ -544,6 +550,8 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+>  		seq_printf(seq, "\n");
+>  	}
 >  
->  /* Hold a reference to a transport.  */
-> -void sctp_transport_hold(struct sctp_transport *transport)
-> +int sctp_transport_hold(struct sctp_transport *transport)
->  {
-> -	atomic_inc(&transport->refcnt);
-> +	return atomic_add_unless(&transport->refcnt, 1, 0);
+> +	sctp_transport_put(tsp);
+> +
+>  	return 0;
 >  }
 >  
->  /* Release a reference to a transport and clean up
 > -- 
 > 2.1.0
 > 
