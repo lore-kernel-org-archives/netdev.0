@@ -1,7 +1,7 @@
 From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: [PATCH 31/33] bpf: Add __bpf_prog_run() to stacktool whitelist
-Date: Thu, 21 Jan 2016 16:49:35 -0600
-Message-ID: <8ee01c195432e4c1ebaa79c20e91525c7af22384.1453405861.git.jpoimboe@redhat.com>
+Subject: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
+Date: Thu, 21 Jan 2016 16:49:27 -0600
+Message-ID: <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
 References: <cover.1453405861.git.jpoimboe@redhat.com>
 Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
 	Michal Marek <mmarek@suse.cz>,
@@ -26,54 +26,67 @@ In-Reply-To: <cover.1453405861.git.jpoimboe@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-stacktool reports the following false positive warnings:
+bpf_jit.S has several callable non-leaf functions which don't honor
+CONFIG_FRAME_POINTER, which can result in bad stack traces.
 
-  stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
-  stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
-  stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
-  [...]
-
-It's confused by the following dynamic jump instruction in
-__bpf_prog_run()::
-
-  jmp     *(%r12,%rax,8)
-
-which corresponds to the following line in the C code:
-
-  goto *jumptable[insn->code];
-
-There's no way for stacktool to deterministically find all possible
-branch targets for a dynamic jump, so it can't verify this code.
-
-In this case the jumps all stay within the function, and there's nothing
-unusual going on related to the stack, so we can whitelist the function.
+Create a stack frame before the call instructions when
+CONFIG_FRAME_POINTER is enabled.
 
 Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
 Cc: Alexei Starovoitov <ast@kernel.org>
 Cc: netdev@vger.kernel.org
 ---
- kernel/bpf/core.c | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/x86/net/bpf_jit.S | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 972d9a8..7108a96 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -27,6 +27,7 @@
- #include <linux/random.h>
- #include <linux/moduleloader.h>
- #include <linux/bpf.h>
-+#include <linux/stacktool.h>
+diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
+index eb4a3bd..f2a7faf 100644
+--- a/arch/x86/net/bpf_jit.S
++++ b/arch/x86/net/bpf_jit.S
+@@ -8,6 +8,7 @@
+  * of the License.
+  */
+ #include <linux/linkage.h>
++#include <asm/frame.h>
  
- #include <asm/unaligned.h>
+ /*
+  * Calling convention :
+@@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
  
-@@ -649,6 +650,7 @@ load_byte:
- 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
- 		return 0;
- }
-+STACKTOOL_IGNORE_FUNC(__bpf_prog_run);
+ /* rsi contains offset and can be scratched */
+ #define bpf_slow_path_common(LEN)		\
++	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
++	FRAME_BEGIN;				\
+ 	mov	%rbx, %rdi; /* arg1 == skb */	\
+ 	push	%r9;				\
+ 	push	SKBDATA;			\
+ /* rsi already has offset */			\
+ 	mov	$LEN,%ecx;	/* len */	\
+-	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
+ 	call	skb_copy_bits;			\
+ 	test    %eax,%eax;			\
+ 	pop	SKBDATA;			\
+-	pop	%r9;
++	pop	%r9;				\
++	FRAME_END
  
- bool bpf_prog_array_compatible(struct bpf_array *array,
- 			       const struct bpf_prog *fp)
+ 
+ bpf_slow_path_word:
+@@ -99,6 +102,7 @@ bpf_slow_path_byte:
+ 	ret
+ 
+ #define sk_negative_common(SIZE)				\
++	FRAME_BEGIN;						\
+ 	mov	%rbx, %rdi; /* arg1 == skb */			\
+ 	push	%r9;						\
+ 	push	SKBDATA;					\
+@@ -108,6 +112,7 @@ bpf_slow_path_byte:
+ 	test	%rax,%rax;					\
+ 	pop	SKBDATA;					\
+ 	pop	%r9;						\
++	FRAME_END;						\
+ 	jz	bpf_error
+ 
+ bpf_slow_path_word_neg:
 -- 
 2.4.3
