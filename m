@@ -1,34 +1,73 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] tunnels: Allow IPv6 UDP checksums to be correctly
- controlled.
-Date: Thu, 21 Jan 2016 15:57:15 +0100
-Message-ID: <20160121155715.511dfc8e@griffin>
-References: <1453335767-49234-1-git-send-email-jesse@kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] net-libertas: Better exception handling in if_spi_host_to_card_worker()
+Date: Thu, 21 Jan 2016 17:07:34 +0200
+Message-ID: <87si1rx96x.fsf@kamboji.qca.qualcomm.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	<5686F0B2.5000000@users.sourceforge.net>
+	<56870866.7020000@cogentembedded.com>
+	<568785B3.5000905@users.sourceforge.net>
+	<alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesse Gross <jesse@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56494 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965309AbcAUO5T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 09:57:19 -0500
-In-Reply-To: <1453335767-49234-1-git-send-email-jesse@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1601020914100.2063@localhost6.localdomain6>
+	(Julia Lawall's message of "Sat, 2 Jan 2016 09:21:37 +0100 (CET)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Jan 2016 16:22:47 -0800, Jesse Gross wrote:
-> When configuring checksums on UDP tunnels, the flags are different
-> for IPv4 vs. IPv6 (and reversed). However, when lightweight tunnels
-> are enabled the flags used are always the IPv4 versions, which are
-> ignored in the IPv6 code paths. This uses the correct IPv6 flags, so
-> checksums can be controlled appropriately.
-> 
-> Fixes: a725e514 ("vxlan: metadata based tunneling for IPv6")
-> Fixes: abe492b4 ("geneve: UDP checksum configuration via netlink")
-> Signed-off-by: Jesse Gross <jesse@kernel.org>
+Julia Lawall <julia.lawall@lip6.fr> writes:
 
-Indeed. Thanks for spotting this.
+> On Sat, 2 Jan 2016, SF Markus Elfring wrote:
+>
+>> >> Move the jump label directly before the desired log statement
+>> >> so that the variable "err" will not be checked once more
+>> >> after it was determined that a function call failed.
+>> >> Use the identifier "report_failure" instead of the label "err".
+>> > 
+>> >    Why?
+>> 
+>> I suggest to reconsider the places with which such a jump label
+>> is connected.
+>> 
+>> 
+>> > The code was smart enough
+>> 
+>> Which action should really be performed after a failure was detected
+>> and handled a bit already?
+>> 
+>> * Another condition check
+>> 
+>> * Just additional error logging
+>> 
+>> 
+>> > and you're making it uglier that it needs to be.
+>> 
+>> I assume that a software development taste can evolve, can't it?
+>
+> So far, you have gotten several down votes for this kind of change, and no 
+> enthusiasm.
+>
+> Admittedly, this is a trivial case, because there are no local variables, 
+> but do you actually know the semantics in C of a jump into a block?  And 
+> if you do know, do you think that this semantics is common knowledge?  And 
+> do you really think that introducing poorly understandable code is really 
+> worth saving an if test of a single variable on a non-critical path?
+>
+> Most of the kernel code is not performance critical at the level of a 
+> single if test.  So the goal should be for the code to be easy to 
+> understand and robust to change.  The code that is performance critical, 
+> you should probably not touch, ever.  The people who wrote it knew what 
+> was important and what was not.
 
-Acked-by: Jiri Benc <jbenc@redhat.com>
+Very well said! Only optimise something you can measure.
+
+I'm dropping this patch.
+
+-- 
+Kalle Valo
