@@ -1,49 +1,29 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 2/2] vhost: disentangle vring endianness stuff from the
-	core code
-Date: Thu, 21 Jan 2016 10:56:07 +0100
-Message-ID: <20160121105607.373ce75a.cornelia.huck@de.ibm.com>
-References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
-	<20160113170947.23705.95216.stgit@bahia.huguette.org>
+From: <zyjzyj2000@gmail.com>
+Subject: [PATCH 1/1] bonding: Use notifiers for slave link state detection
+Date: Thu, 21 Jan 2016 18:16:27 +0800
+Message-ID: <1453371388-30230-1-git-send-email-zyjzyj2000@gmail.com>
+References: <87618083B2453E4A8714035B62D679925050766D@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160113170947.23705.95216.stgit@bahia.huguette.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <zyjzyj2000@gmail.com>, <mkubecek@suse.cz>, <vfalico@gmail.com>,
+	<gospo@cumulusnetworks.com>, <netdev@vger.kernel.org>,
+	<boris.shteinbock@windriver.com>, <jay.vosburgh@canonical.com>,
+	<emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:51872 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965058AbcAUKPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 05:15:51 -0500
+In-Reply-To: <87618083B2453E4A8714035B62D679925050766D@FMSMSX105.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Jan 2016 18:09:47 +0100
-Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
 
-> The way vring endianness is being handled currently obfuscates
-> the code in vhost_init_used().
-> 
-> This patch tries to fix that by doing the following:
-> - move the the code that adjusts endianness to a dedicated helper
-> - export this helper so that backends explicitely call it
-> 
-> No behaviour change.
-> 
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
-> ---
->  drivers/vhost/net.c   |    3 +++
->  drivers/vhost/scsi.c  |    3 +++
->  drivers/vhost/test.c  |    2 ++
->  drivers/vhost/vhost.c |   16 +++++++++++-----
->  drivers/vhost/vhost.h |    1 +
->  5 files changed, 20 insertions(+), 5 deletions(-)
+Hi, Jay && Emil
 
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Thanks for your hard work. I forget to send this patch to you. Please help to review. Thanks a lot.
+
+I think the similar patch is needed in linux kernel 4.4. As such, based on linux kernel 4.4, I made this patch. Please comment.
+
+Best Regards!
+Zhu Yanjun
