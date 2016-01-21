@@ -1,42 +1,55 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
-Date: Thu, 21 Jan 2016 19:05:48 +0200
-Message-ID: <56A10FEC.5020402@mellanox.com>
-References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
- <CAJ3xEMhxMzAVJUNbBHrG8hia2tcFJ4cuPHpq3t9p0FqPHfYX+Q@mail.gmail.com>
- <00cf01d153d5$e6248eb0$b26dac10$@opengridcomputing.com>
- <56A08E8F.7090602@mellanox.com>
- <004401d15460$e77fa1b0$b67ee510$@opengridcomputing.com>
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Subject: Re: [PATCH 3/3] net: wireless: rt2x00: Space Required
+Date: Thu, 21 Jan 2016 18:10:30 +0100
+Message-ID: <CAGXE3d80M6Kxpnc9Ksmkkif-+7+bY96WS2ZKmC3uc0fGeNjGbw@mail.gmail.com>
+References: <1445116283-28748-1-git-send-email-paulmcquad@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: 'Or Gerlitz' <gerlitz.or@gmail.com>,
-	'Doug Ledford' <dledford@redhat.com>,
-	<linux-rdma@vger.kernel.org>,
-	'Linux Netdev List' <netdev@vger.kernel.org>,
-	'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-	<e1000-rdma@lists.sourceforge.net>
-To: Steve Wise <swise@opengridcomputing.com>,
-	'Faisal Latif' <faisal.latif@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0070.outbound.protection.outlook.com ([157.56.112.70]:38736
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965302AbcAURF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 12:05:59 -0500
-In-Reply-To: <004401d15460$e77fa1b0$b67ee510$@opengridcomputing.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>, kvalo@codeaurora.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Paul McQuade <paulmcquad@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445116283-28748-1-git-send-email-paulmcquad@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/21/2016 5:32 PM, Steve Wise wrote:
-> Only a single user-space daemon is used.
+On Sat, Oct 17, 2015 at 11:11 PM, Paul McQuade <paulmcquad@gmail.com> wrote:
+> Space needed before open parenthesis
+>
+> Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
 
-Good.
+Looks valid to me.
 
-> Someone from Intel might have insight into the architecture and design.  Perhaps the intention is that individual drivers might want to have their own handlers for these various operations.  But currently they all use the core/common ones.
+Acked-by: Helmut Schaa <helmut.schaa@googlemail.com>
 
-But if there's single daemon there and one set of pre-defined  
-callbacks, why different netlink commands are needed? in what case the 
-damon uses RDMA_NL_NES or RDMA_NL_C4IW or the new define and why?
-
-Or.
+> ---
+>  drivers/net/wireless/rt2x00/rt2x00debug.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/wireless/rt2x00/rt2x00debug.c
+> index 90fdb02..25ee3cb 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00debug.c
+> +++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
+> @@ -629,7 +629,7 @@ static struct dentry *rt2x00debug_create_file_chipset(const char *name,
+>         data += sprintf(data, "register\tbase\twords\twordsize\n");
+>  #define RT2X00DEBUGFS_SPRINTF_REGISTER(__name)                 \
+>  {                                                              \
+> -       if(debug->__name.read)                                  \
+> +       if (debug->__name.read)                                 \
+>                 data += sprintf(data, __stringify(__name)       \
+>                                 "\t%d\t%d\t%d\n",               \
+>                                 debug->__name.word_base,        \
+> @@ -699,7 +699,7 @@ void rt2x00debug_register(struct rt2x00_dev *rt2x00dev)
+>
+>  #define RT2X00DEBUGFS_CREATE_REGISTER_ENTRY(__intf, __name)                    \
+>  ({                                                                             \
+> -       if(debug->__name.read) {                                                \
+> +       if (debug->__name.read) {                                               \
+>                 (__intf)->__name##_off_entry =                                  \
+>                 debugfs_create_u32(__stringify(__name) "_offset",               \
+>                                        S_IRUSR | S_IWUSR,                       \
+> --
+> 2.6.1
+>
