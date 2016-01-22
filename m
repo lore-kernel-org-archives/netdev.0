@@ -1,10 +1,10 @@
 From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
-Date: Thu, 21 Jan 2016 21:55:31 -0600
-Message-ID: <20160122035531.GA20502@treble.redhat.com>
+Subject: Re: [PATCH 31/33] bpf: Add __bpf_prog_run() to stacktool whitelist
+Date: Thu, 21 Jan 2016 22:13:02 -0600
+Message-ID: <20160122041302.GB20502@treble.redhat.com>
 References: <cover.1453405861.git.jpoimboe@redhat.com>
- <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
- <20160122024427.GA6000@ast-mbp.thefacebook.com>
+ <8ee01c195432e4c1ebaa79c20e91525c7af22384.1453405861.git.jpoimboe@redhat.com>
+ <20160122025540.GB6000@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: Thomas Gleixner <tglx@linutronix.de>,
@@ -28,111 +28,63 @@ Cc: Thomas Gleixner <tglx@linutronix.de>,
 	daniel@iogearbox.net
 To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52982 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55202 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751675AbcAVDze (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 22:55:34 -0500
+	id S1751438AbcAVENF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 23:13:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20160122024427.GA6000@ast-mbp.thefacebook.com>
+In-Reply-To: <20160122025540.GB6000@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 21, 2016 at 06:44:28PM -0800, Alexei Starovoitov wrote:
-> On Thu, Jan 21, 2016 at 04:49:27PM -0600, Josh Poimboeuf wrote:
-> > bpf_jit.S has several callable non-leaf functions which don't honor
-> > CONFIG_FRAME_POINTER, which can result in bad stack traces.
+On Thu, Jan 21, 2016 at 06:55:41PM -0800, Alexei Starovoitov wrote:
+> On Thu, Jan 21, 2016 at 04:49:35PM -0600, Josh Poimboeuf wrote:
+> > stacktool reports the following false positive warnings:
 > > 
-> > Create a stack frame before the call instructions when
-> > CONFIG_FRAME_POINTER is enabled.
+> >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
+> >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
+> >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
+> >   [...]
 > > 
-> > Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-> > Cc: Alexei Starovoitov <ast@kernel.org>
-> > Cc: netdev@vger.kernel.org
-> > ---
-> >  arch/x86/net/bpf_jit.S | 9 +++++++--
-> >  1 file changed, 7 insertions(+), 2 deletions(-)
+> > It's confused by the following dynamic jump instruction in
+> > __bpf_prog_run()::
 > > 
-> > diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
-> > index eb4a3bd..f2a7faf 100644
-> > --- a/arch/x86/net/bpf_jit.S
-> > +++ b/arch/x86/net/bpf_jit.S
-> > @@ -8,6 +8,7 @@
-> >   * of the License.
-> >   */
-> >  #include <linux/linkage.h>
-> > +#include <asm/frame.h>
-> >  
-> >  /*
-> >   * Calling convention :
-> > @@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
-> >  
-> >  /* rsi contains offset and can be scratched */
-> >  #define bpf_slow_path_common(LEN)		\
-> > +	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
-> > +	FRAME_BEGIN;				\
-> >  	mov	%rbx, %rdi; /* arg1 == skb */	\
-> >  	push	%r9;				\
-> >  	push	SKBDATA;			\
-> >  /* rsi already has offset */			\
-> >  	mov	$LEN,%ecx;	/* len */	\
-> > -	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
-> >  	call	skb_copy_bits;			\
-> >  	test    %eax,%eax;			\
-> >  	pop	SKBDATA;			\
-> > -	pop	%r9;
-> > +	pop	%r9;				\
-> > +	FRAME_END
+> >   jmp     *(%r12,%rax,8)
+> > 
+> > which corresponds to the following line in the C code:
+> > 
+> >   goto *jumptable[insn->code];
+> > 
+> > There's no way for stacktool to deterministically find all possible
+> > branch targets for a dynamic jump, so it can't verify this code.
+> > 
+> > In this case the jumps all stay within the function, and there's nothing
+> > unusual going on related to the stack, so we can whitelist the function.
 > 
-> I'm not sure what above is doing.
-> There is already 'push rbp; mov rbp,rsp' at the beginning of generated
-> code and with above the stack trace will show two function at the same ip?
-> since there were no calls between them?
-> I think the stack walker will get even more confused?
-> Also the JIT of bpf_call insn will emit variable number of push/pop
-> around the call and I definitely don't want to add extra push rbp
-> there, since it's the critical path and callee will do its own
-> push rbp.
-> Also there are push/pops emitted around div/mod
-> and there is indirect goto emitted as well for bpf_tail_call
-> that jumps into different function body without touching
-> current stack.
+> well, few things are very unusual in this function.
+> did you see what JMP_CALL does? it's a call into a different function,
+> but not like typical indirect call. Will it be ok as well?
+> 
+> In general it's not possible for any tool to identify all possible
+> branch targets. bpf programs can be loaded on the fly and
+> jumping sequence will change.
+> So if this marking says 'don't bother analyzing this function because
+> it does sane stuff' that's probably not the case.
+> If this marking says 'don't bother analyzing, the stack may be crazy
+> from here on' then it's ok.
 
-Hm, I'm not sure I follow.  Let me try to explain my understanding.
+So the tool doesn't need to follow all possible call targets.  Instead
+it just verifies that all functions follow the frame pointer convention.
+That way it doesn't matter *which* function is being called because they
+all do the right thing.
 
-As you mentioned, the generated code sets up the frame pointer.  From
-emit_prologue():
+But it *does* need to follow all jump targets, so that it can analyze
+all possible code paths within the function itself.  With a dynamic
+jump, it can't do that.
 
-        EMIT1(0x55); /* push rbp */
-	EMIT3(0x48, 0x89, 0xE5); /* mov rbp,rsp */
-
-And then later, do_jit() can generate a call into the functions in
-bpf_jit.S.  For example:
-
-	func = CHOOSE_LOAD_FUNC(imm32, sk_load_word);
-	...
-	EMIT1_off32(0xE8, jmp_offset); /* call */
-
-So the functions in bpf_jit.S are being called by the generated code.
-They're not part of the generated code itself.  So they're callees and
-need to create their own stack frame before they call out to somewhere
-else.
-
-Or did I miss something?
-
-> Also none of the JITed function are dwarf annotated.
-
-But what does that have to do with frame pointers?
-
-> I could be missing something. I think either this patch
-> is not need or you need to teach the tool to ignore
-> all JITed stuff. I don't think it's practical to annotate
-> everything. Different JITs do their own magic.
-> s390 JIT is even more fancy.
-
-Well, but the point of these patches isn't to make the tool happy.  It's
-really to make sure that runtime stack traces can be made reliable.
-Maybe I'm missing something but I don't see why JIT code can't honor
-CONFIG_FRAME_POINTER just like any other code.
+So the JMP_CALL is fine, but the goto *jumptable[insn->code] isn't.
+(And BTW that's the only occurrence of such a dynamic jump table in the
+entire kernel.)
 
 -- 
 Josh
