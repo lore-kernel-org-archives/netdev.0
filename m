@@ -1,52 +1,52 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 1/3] xen-netback: fix license ident used in
- MODULE_LICENSE
-Date: Fri, 22 Jan 2016 14:34:46 +0000
-Message-ID: <56A23E06.50403@citrix.com>
-References: <1453466057-7176-1-git-send-email-wei.liu2@citrix.com>
- <1453466057-7176-2-git-send-email-wei.liu2@citrix.com>
- <56A22B30.3020206@citrix.com> <20160122134943.GB1691@citrix.com>
- <1453472147.4320.92.camel@citrix.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Fri, 22 Jan 2016 15:38:12 +0100
+Message-ID: <20160122143812.GP9991@lunn.ch>
+References: <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <569C9CD2.10301@gmail.com>
+ <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <20160118151500.GD923@lunn.ch>
+ <VI1PR04MB1664DFBC53F08C5CE7EBF22AE8C10@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <20160121211250.GK9991@lunn.ch>
+ <VI1PR04MB1664BAFB4EE494CB14830BCCE8C40@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <56A1F5AB.6090606@gmail.com>
+ <VI1PR04MB1664AD70D26C452F5A33595AE8C40@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <VI1PR04MB1664B669925ADB21D3A13594E8C40@VI1PR04MB1664.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Xen-devel <xen-devel@lists.xenproject.org>,
-	"open list:XEN NETWORK BACKEND DRIVER" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:31506 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753608AbcAVOfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jan 2016 09:35:25 -0500
-In-Reply-To: <1453472147.4320.92.camel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <shh.xie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Shaohui Xie <shaohui.xie-3arQi8VN3Tc@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <VI1PR04MB1664B669925ADB21D3A13594E8C40-mr6QIVyDiCHTAO9RNConP89NdZoXdze2vxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 22/01/16 14:15, Ian Campbell wrote:
-> On Fri, 2016-01-22 at 13:49 +0000, Wei Liu wrote:
->> On Fri, Jan 22, 2016 at 01:14:24PM +0000, David Vrabel wrote:
->>> On 22/01/16 12:34, Wei Liu wrote:
->>>> The comment at the beginning of the file is the canonical source of
->>>> licenses for this module. Currently it contains GPL and MIT license.
->>>> Fix
->>>> the code to reflect the reality.
->>>
->>> "The MIT license" isn't really a thing.  The closest is the X11
->>> license[1], but this not applicable here either since the text in the
->>> drivers does not refer to X11 trademarks etc.
->>>
->>
->> That was referring to the license ident string in Linux.  If MIT license
->> isn't a thing, why would Linux have it at all?
-> 
-> The fact what include/linux/license.h:license_is_gpl_compatible includes
-> "Dual MIT/GPL" as an option seems to suggest that it is enough of a thing
-> to be validly used as the contents of a MODULE_LICENSE() thing.
+> The reason I mentioned maybe I should put the backplane property in
+> fsl's binding is because the backplane implementation is really
+> vendor specific, it's heavily relay how hardware implements the
+> feature, maybe another vendor's hardware only needs a boolean
+> property for driver to tell it should work in backplane, hardware
+> can deal with different modes, or even no any special property
+> needed if the hardware is strong enough to handle any connections, I
+> cannot assume.  But I know what fsl's hardware needs to support
+> backplane.
 
-"Dual MIT/GPL" is used exactly once in the source in a file that has no
-license text and there is no other documentation.
+This is the key point really. We don't really care about the Freescale
+PCS. We want a generic solution for 1000BASE-KX and 10GBASE-KR,
+independent of who makes it, Marvell, Micrel, Broadcom, or Acme.
 
-David
+So, what generic properties are needed for 1000BASE-KX and 10GBASE-KR?
+Properties that most/all manufactures are likely to need?
+
+	   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
