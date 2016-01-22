@@ -1,153 +1,107 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
-Date: Thu, 21 Jan 2016 20:18:46 -0800
-Message-ID: <20160122041845.GA7175@ast-mbp.thefacebook.com>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
- <20160122024427.GA6000@ast-mbp.thefacebook.com>
- <20160122035531.GA20502@treble.redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V2 2/3] vhost: introduce vhost_vq_more_avail()
+Date: Fri, 22 Jan 2016 13:43:14 +0800
+Message-ID: <56A1C172.7070601@redhat.com>
+References: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
+	<1448951985-12385-3-git-send-email-jasowang@redhat.com>
+	<20160120160400-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	daniel@iogearbox.net
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34210 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438AbcAVESs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 23:18:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20160122035531.GA20502@treble.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160120160400-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 21, 2016 at 09:55:31PM -0600, Josh Poimboeuf wrote:
-> On Thu, Jan 21, 2016 at 06:44:28PM -0800, Alexei Starovoitov wrote:
-> > On Thu, Jan 21, 2016 at 04:49:27PM -0600, Josh Poimboeuf wrote:
-> > > bpf_jit.S has several callable non-leaf functions which don't honor
-> > > CONFIG_FRAME_POINTER, which can result in bad stack traces.
-> > > 
-> > > Create a stack frame before the call instructions when
-> > > CONFIG_FRAME_POINTER is enabled.
-> > > 
-> > > Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-> > > Cc: Alexei Starovoitov <ast@kernel.org>
-> > > Cc: netdev@vger.kernel.org
-> > > ---
-> > >  arch/x86/net/bpf_jit.S | 9 +++++++--
-> > >  1 file changed, 7 insertions(+), 2 deletions(-)
-> > > 
-> > > diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
-> > > index eb4a3bd..f2a7faf 100644
-> > > --- a/arch/x86/net/bpf_jit.S
-> > > +++ b/arch/x86/net/bpf_jit.S
-> > > @@ -8,6 +8,7 @@
-> > >   * of the License.
-> > >   */
-> > >  #include <linux/linkage.h>
-> > > +#include <asm/frame.h>
-> > >  
-> > >  /*
-> > >   * Calling convention :
-> > > @@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
-> > >  
-> > >  /* rsi contains offset and can be scratched */
-> > >  #define bpf_slow_path_common(LEN)		\
-> > > +	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
-> > > +	FRAME_BEGIN;				\
-> > >  	mov	%rbx, %rdi; /* arg1 == skb */	\
-> > >  	push	%r9;				\
-> > >  	push	SKBDATA;			\
-> > >  /* rsi already has offset */			\
-> > >  	mov	$LEN,%ecx;	/* len */	\
-> > > -	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
-> > >  	call	skb_copy_bits;			\
-> > >  	test    %eax,%eax;			\
-> > >  	pop	SKBDATA;			\
-> > > -	pop	%r9;
-> > > +	pop	%r9;				\
-> > > +	FRAME_END
-> > 
-> > I'm not sure what above is doing.
-> > There is already 'push rbp; mov rbp,rsp' at the beginning of generated
-> > code and with above the stack trace will show two function at the same ip?
-> > since there were no calls between them?
-> > I think the stack walker will get even more confused?
-> > Also the JIT of bpf_call insn will emit variable number of push/pop
-> > around the call and I definitely don't want to add extra push rbp
-> > there, since it's the critical path and callee will do its own
-> > push rbp.
-> > Also there are push/pops emitted around div/mod
-> > and there is indirect goto emitted as well for bpf_tail_call
-> > that jumps into different function body without touching
-> > current stack.
-> 
-> Hm, I'm not sure I follow.  Let me try to explain my understanding.
-> 
-> As you mentioned, the generated code sets up the frame pointer.  From
-> emit_prologue():
-> 
->         EMIT1(0x55); /* push rbp */
-> 	EMIT3(0x48, 0x89, 0xE5); /* mov rbp,rsp */
-> 
-> And then later, do_jit() can generate a call into the functions in
-> bpf_jit.S.  For example:
-> 
-> 	func = CHOOSE_LOAD_FUNC(imm32, sk_load_word);
-> 	...
-> 	EMIT1_off32(0xE8, jmp_offset); /* call */
-> 
-> So the functions in bpf_jit.S are being called by the generated code.
-> They're not part of the generated code itself.  So they're callees and
-> need to create their own stack frame before they call out to somewhere
-> else.
-> 
-> Or did I miss something?
 
-yes. all correct.
-This particular patch is ok, since it adds to
-bpf_slow_path_common and as the name says it's slow and rare,
-but wanted to make sure the rest of it is understood.
 
-> > Also none of the JITed function are dwarf annotated.
-> 
-> But what does that have to do with frame pointers?
+On 01/20/2016 10:09 PM, Michael S. Tsirkin wrote:
+> On Tue, Dec 01, 2015 at 02:39:44PM +0800, Jason Wang wrote:
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Wow new API with no comments anywhere, and no
+> commit log to say what it's good for.
+> Want to know what it does and whether
+> it's correct? You have to read the next patch.
+>
+> So what is the point of splitting it out?
+> It's confusing, and in fact it made you
+> miss a bug.
 
-nothing, but then why do you need
-.type name, @function
-annotations in another patch?
+Ok, will add comments to explain the function.
 
-> > I could be missing something. I think either this patch
-> > is not need or you need to teach the tool to ignore
-> > all JITed stuff. I don't think it's practical to annotate
-> > everything. Different JITs do their own magic.
-> > s390 JIT is even more fancy.
-> 
-> Well, but the point of these patches isn't to make the tool happy.  It's
-> really to make sure that runtime stack traces can be made reliable.
-> Maybe I'm missing something but I don't see why JIT code can't honor
-> CONFIG_FRAME_POINTER just like any other code.
+>
+>> ---
+>>  drivers/vhost/vhost.c | 13 +++++++++++++
+>>  drivers/vhost/vhost.h |  1 +
+>>  2 files changed, 14 insertions(+)
+>>
+>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>> index 163b365..4f45a03 100644
+>> --- a/drivers/vhost/vhost.c
+>> +++ b/drivers/vhost/vhost.c
+>> @@ -1633,6 +1633,19 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
+>>  }
+>>  EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
+>>  
+>> +bool vhost_vq_more_avail(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>> +{
+>> +	__virtio16 avail_idx;
+>> +	int r;
+>> +
+>> +	r = __get_user(avail_idx, &vq->avail->idx);
+>> +	if (r)
+>> +		return false;
+> So the result is that if the page is not present,
+> you return false (empty ring) and the
+> caller will busy wait with preempt disabled.
+> Nasty.
+>
+> So it should return something that breaks
+> the loop, and this means it should have
+> a different name for the return code
+> to make sense.
+>
+> Maybe reverse the polarity: vhost_vq_avail_empty?
+> And add a comment saying we can't be sure ring
+> is empty so return false.
 
-It can if there is no performance cost added.
-I can speak for x64 JIT, but the rest needs to be analyzed as well.
-My point was that may be it's easier to ignore all JITed code and
-just say that such call stacks may be unreliable?
-live-patching is not applicable to JITed code anyway
-or you want to livepatch the callees of it?
+Sounds good, will do this.
+
+>
+>> +
+>> +	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+>> +}
+>> +EXPORT_SYMBOL_GPL(vhost_vq_more_avail);
+>> +
+>>  /* OK, now we need to know about added descriptors. */
+>>  bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>>  {
+>> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+>> index 43284ad..2f3c57c 100644
+>> --- a/drivers/vhost/vhost.h
+>> +++ b/drivers/vhost/vhost.h
+>> @@ -159,6 +159,7 @@ void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
+>>  			       struct vring_used_elem *heads, unsigned count);
+>>  void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
+>>  void vhost_disable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>> +bool vhost_vq_more_avail(struct vhost_dev *, struct vhost_virtqueue *);
+>>  bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>>  
+>>  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+>> -- 
+>> 2.5.0
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
