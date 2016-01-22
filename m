@@ -1,172 +1,203 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
-Date: Fri, 22 Jan 2016 09:58:04 -0600
-Message-ID: <20160122155804.GC20502@treble.redhat.com>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
- <20160122024427.GA6000@ast-mbp.thefacebook.com>
- <20160122035531.GA20502@treble.redhat.com>
- <20160122041845.GA7175@ast-mbp.thefacebook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: struct pid memory leak
+Date: Fri, 22 Jan 2016 08:50:01 -0800
+Message-ID: <1453481401.1223.396.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+bZTpitMQOCyPcf4kKaXwghhEe3hmT=FtkrD3toZgoxxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Hocko <mhocko@suse.cz>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	daniel@iogearbox.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Eric Dumazet <edumazet@google.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	netdev <netdev@vger.kernel.org>, willy tarreau <w@1wt.eu>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160122041845.GA7175@ast-mbp.thefacebook.com>
+In-Reply-To: <CACT4Y+bZTpitMQOCyPcf4kKaXwghhEe3hmT=FtkrD3toZgoxxQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 21, 2016 at 08:18:46PM -0800, Alexei Starovoitov wrote:
-> On Thu, Jan 21, 2016 at 09:55:31PM -0600, Josh Poimboeuf wrote:
-> > On Thu, Jan 21, 2016 at 06:44:28PM -0800, Alexei Starovoitov wrote:
-> > > On Thu, Jan 21, 2016 at 04:49:27PM -0600, Josh Poimboeuf wrote:
-> > > > bpf_jit.S has several callable non-leaf functions which don't honor
-> > > > CONFIG_FRAME_POINTER, which can result in bad stack traces.
-> > > > 
-> > > > Create a stack frame before the call instructions when
-> > > > CONFIG_FRAME_POINTER is enabled.
-> > > > 
-> > > > Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-> > > > Cc: Alexei Starovoitov <ast@kernel.org>
-> > > > Cc: netdev@vger.kernel.org
-> > > > ---
-> > > >  arch/x86/net/bpf_jit.S | 9 +++++++--
-> > > >  1 file changed, 7 insertions(+), 2 deletions(-)
-> > > > 
-> > > > diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
-> > > > index eb4a3bd..f2a7faf 100644
-> > > > --- a/arch/x86/net/bpf_jit.S
-> > > > +++ b/arch/x86/net/bpf_jit.S
-> > > > @@ -8,6 +8,7 @@
-> > > >   * of the License.
-> > > >   */
-> > > >  #include <linux/linkage.h>
-> > > > +#include <asm/frame.h>
-> > > >  
-> > > >  /*
-> > > >   * Calling convention :
-> > > > @@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
-> > > >  
-> > > >  /* rsi contains offset and can be scratched */
-> > > >  #define bpf_slow_path_common(LEN)		\
-> > > > +	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
-> > > > +	FRAME_BEGIN;				\
-> > > >  	mov	%rbx, %rdi; /* arg1 == skb */	\
-> > > >  	push	%r9;				\
-> > > >  	push	SKBDATA;			\
-> > > >  /* rsi already has offset */			\
-> > > >  	mov	$LEN,%ecx;	/* len */	\
-> > > > -	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
-> > > >  	call	skb_copy_bits;			\
-> > > >  	test    %eax,%eax;			\
-> > > >  	pop	SKBDATA;			\
-> > > > -	pop	%r9;
-> > > > +	pop	%r9;				\
-> > > > +	FRAME_END
-> > > 
-> > > I'm not sure what above is doing.
-> > > There is already 'push rbp; mov rbp,rsp' at the beginning of generated
-> > > code and with above the stack trace will show two function at the same ip?
-> > > since there were no calls between them?
-> > > I think the stack walker will get even more confused?
-> > > Also the JIT of bpf_call insn will emit variable number of push/pop
-> > > around the call and I definitely don't want to add extra push rbp
-> > > there, since it's the critical path and callee will do its own
-> > > push rbp.
-> > > Also there are push/pops emitted around div/mod
-> > > and there is indirect goto emitted as well for bpf_tail_call
-> > > that jumps into different function body without touching
-> > > current stack.
-> > 
-> > Hm, I'm not sure I follow.  Let me try to explain my understanding.
-> > 
-> > As you mentioned, the generated code sets up the frame pointer.  From
-> > emit_prologue():
-> > 
-> >         EMIT1(0x55); /* push rbp */
-> > 	EMIT3(0x48, 0x89, 0xE5); /* mov rbp,rsp */
-> > 
-> > And then later, do_jit() can generate a call into the functions in
-> > bpf_jit.S.  For example:
-> > 
-> > 	func = CHOOSE_LOAD_FUNC(imm32, sk_load_word);
-> > 	...
-> > 	EMIT1_off32(0xE8, jmp_offset); /* call */
-> > 
-> > So the functions in bpf_jit.S are being called by the generated code.
-> > They're not part of the generated code itself.  So they're callees and
-> > need to create their own stack frame before they call out to somewhere
-> > else.
-> > 
-> > Or did I miss something?
+CC netdev, as it looks some af_unix issue ...
+
+On Fri, 2016-01-22 at 16:08 +0100, Dmitry Vyukov wrote:
+> Hello,
 > 
-> yes. all correct.
-> This particular patch is ok, since it adds to
-> bpf_slow_path_common and as the name says it's slow and rare,
-> but wanted to make sure the rest of it is understood.
+> The following program causes struct pid memory leak:
 > 
-> > > Also none of the JITed function are dwarf annotated.
-> > 
-> > But what does that have to do with frame pointers?
+> // autogenerated by syzkaller (http://github.com/google/syzkaller)
+> #include <pthread.h>
+> #include <stdint.h>
+> #include <string.h>
+> #include <sys/syscall.h>
+> #include <unistd.h>
 > 
-> nothing, but then why do you need
-> .type name, @function
-> annotations in another patch?
-
-Those are ELF function annotations which are needed so that stacktool
-can find and analyze all callable functions (and they're a good idea
-anyway for the sake of other tooling).
-
-Obviously we can't annotate the JIT functions which have no name, but
-that's ok.  As long as they're doing the right thing with respect to
-frame pointers, the stack dump code will still be able to see their
-frames (and that they're associated with generated code).
-
-> > > I could be missing something. I think either this patch
-> > > is not need or you need to teach the tool to ignore
-> > > all JITed stuff. I don't think it's practical to annotate
-> > > everything. Different JITs do their own magic.
-> > > s390 JIT is even more fancy.
-> > 
-> > Well, but the point of these patches isn't to make the tool happy.  It's
-> > really to make sure that runtime stack traces can be made reliable.
-> > Maybe I'm missing something but I don't see why JIT code can't honor
-> > CONFIG_FRAME_POINTER just like any other code.
+> long r[37];
 > 
-> It can if there is no performance cost added.
-
-CONFIG_FRAME_POINTER always adds a small performance cost but as you
-mentioned it only affects the slow path here.  And hopefully we'll soon
-have an in-kernel DWARF unwinder on x86 so we can get rid of the need
-for frame pointers.
-
-> I can speak for x64 JIT, but the rest needs to be analyzed as well.
-> My point was that may be it's easier to ignore all JITed code and
-> just say that such call stacks may be unreliable?
-> live-patching is not applicable to JITed code anyway
-> or you want to livepatch the callees of it?
-
-Right.  We can't patch JIT code, but we might need to patch other
-functions on the call stack (including callees and callers).
-
--- 
-Josh
+> void* thr(void* arg)
+> {
+>   switch ((long)arg) {
+>   case 0:
+>     r[0] = syscall(SYS_mmap, 0x20000000ul, 0xd000ul, 0x3ul, 0x32ul,
+>                    0xfffffffffffffffful, 0x0ul);
+>     break;
+>   case 1:
+>     r[1] = syscall(SYS_socketpair, 0x1ul, 0x2ul, 0x0ul, 0x20000ffcul, 0,
+>                    0);
+>     if (r[1] != -1)
+>       r[2] = *(uint32_t*)0x20001000;
+>     break;
+>   case 2:
+>     r[3] =
+>         syscall(SYS_accept, r[2], 0x20000ffbul, 0x20000ffful, 0, 0, 0);
+>     break;
+>   case 3:
+>     r[4] = syscall(SYS_socketpair, 0x1ul, 0x1ul, 0x0ul, 0x20001ff8ul, 0,
+>                    0);
+>     if (r[4] != -1)
+>       r[5] = *(uint32_t*)0x20001ff8;
+>     if (r[4] != -1)
+>       r[6] = *(uint32_t*)0x20001ffc;
+>     break;
+>   case 4:
+>     memcpy((void*)0x2000bf5c,
+>            "\xd4\x37\x4c\x81\xff\x25\x00\xf7\x44\x0d\x1a\xe2\x4d\xae"
+>            "\x17\x36\xb0\xef\x85\xd0\xb6\xa2\x0a\x4c\x29\xf0\x43\x3c"
+>            "\x2b\xab\xdf\x9f\x3e\x4b\x9c\x1b\xb0\x36\xce\xe7\x14\x2b"
+>            "\xa4\x33\x47\xd5\x58\x76\x63\x83\x71\xb3\x95\x37\xca\x25"
+>            "\x93\x3f\x46\xd7\xc0\x8f\x8e\x2a\xcf\x0d\x60\xb7\x62\xac"
+>            "\xd9\xaf\x6e\x88\x3f\xe0\xbf\x94\xc3\x57\x74\x8d\x22\xed"
+>            "\x61\x71\x85\x10\x64\x2d\x50\xdf\xae\x9a\xdd\xa2\x5e\x28"
+>            "\xa3\xf8\x14\xf0\x94\x4a\xac\x82\x45\xed\x85\x7a\xb6\x2b"
+>            "\xef\xb4\x0b\x78\xb8\x92\x30\xcc\x5d\xcc\x07\xbf\x70\x4e"
+>            "\x1c\x10\x38\xde\x89\x58\x8b\x87\x97\xc9\x6a\x62\x84\x3b"
+>            "\xcd\x37\xbb\x8d\x41\x50\x65\x24\xa8\x90\x85\xa7\x51\x32"
+>            "\x58\xf9\x71\xb3\x0b\xf0\x0f\xe6\xc4\x81",
+>            164);
+>     r[8] = syscall(SYS_write, r[5], 0x2000bf5cul, 0xa4ul, 0, 0, 0);
+>     break;
+>   case 5:
+>     *(uint32_t*)0x2000cb16 = (uint32_t)0x20;
+>     *(uint32_t*)0x2000cb1a = (uint32_t)0xfffffffffffffffd;
+>     *(uint64_t*)0x2000cb1e = (uint64_t)0x1;
+>     *(uint32_t*)0x2000cb26 = (uint32_t)0xd51;
+>     *(uint32_t*)0x2000cb2a = (uint32_t)0x3;
+>     *(uint32_t*)0x2000cb2e = (uint32_t)0x9;
+>     *(uint32_t*)0x2000cb32 = (uint32_t)0x9;
+>     r[16] = syscall(SYS_write, r[5], 0x2000cb16ul, 0x20ul, 0, 0, 0);
+>     break;
+>   case 6:
+>     *(uint32_t*)0x20005ffc = (uint32_t)0x7;
+>     r[18] = syscall(SYS_setsockopt, r[6], 0x1ul, 0x10ul, 0x20005ffcul,
+>                     0x4ul, 0);
+>     break;
+>   case 7:
+>     memcpy((void*)0x20003000,
+>            "\xad\xd4\xf6\xb6\x5d\x21\x41\x96\x29\xc7\x46\x59\xb5\x12"
+>            "\x13\x1f\xc2\xab\x18\x66\x38\x2f\x01\xd0\x78\x07\x19\xe4"
+>            "\x2f\xac\xa5\x81\xc9\x01\x6f\x8d\xeb\x2f\x06\x23\xc8\x42"
+>            "\xf8\x6e\x04\xf6\xcf\x7e\x76\x1a\xb8\xe3\xff\x45\x30\x9b"
+>            "\x0a\x9a\x0d\x1a\x6d\xfe\x01\x94\xc3\xc6\xfb\xc7\xd2\x7d"
+>            "\xe3\x5f\xc9\xdb\xa8\xfc\x9a\x0c\xdf\x4a\xf9\x6c\xf5\xcd"
+>            "\x20\x90\x16\xd6\x2a\xec\x79\xac\x6a\x04\x9d\x92\xd3\x7d"
+>            "\x2c\xf5\x24\x60\xcc\x57\xb1\x1e\x2a\xf9\x33\x54\x7b\xd8"
+>            "\x5b\x23\x26\x79\xdb\x89\x72\xf7\x17\xe0\x1c\x1f\x2e\xc0"
+>            "\x23\x94\xc5\xb1\x7d\xea\x84\xd1\x40\x43\x8a\xc1\x89\xa2"
+>            "\x72\xd8\x8a\xff\xf7\x30\xc9\x96\x5c\x84\x58\x4f\x7e\x04"
+>            "\x84\x45\x1b\x83\x51\xb6\x90\x4a\x17\x4e\x95\x09\xb9\x37"
+>            "\x6e\xe6\xb0\x5e\xb5\x11\xb6\x2f\x06\x75\x31\x57\xda\xc2"
+>            "\xfe\x5d\x84\x0e\x6a\x29\xb7\xe6\x22\xf2\xc9\x00\xa5\x80"
+>            "\x0f\x48\x42\x38\x5a\x66\x32\x91\x5a\xe5\x5e\xfe\xce\xc0"
+>            "\x98\x16\x19\x39\x21\x4b\x60\xe1\xa5\x7a\xba\x62\xd4\x38"
+>            "\x96\x2d\x79\x09\x30\x2c\x75\x54\x68\xca",
+>            234);
+>     r[20] = syscall(SYS_sendto, r[5], 0x20003000ul, 0xeaul, 0x4000ul,
+>                     0x20003000ul, 0x0ul);
+>     break;
+>   case 8:
+>     *(uint64_t*)0x2000a000 = (uint64_t)0x2000a000;
+>     *(uint32_t*)0x2000a008 = (uint32_t)0x1c;
+>     *(uint64_t*)0x2000a010 = (uint64_t)0x2000ac60;
+>     *(uint64_t*)0x2000a018 = (uint64_t)0x4;
+>     *(uint64_t*)0x2000a020 = (uint64_t)0x2000a8b3;
+>     *(uint64_t*)0x2000a028 = (uint64_t)0x1000;
+>     *(uint32_t*)0x2000a030 = (uint32_t)0x0;
+>     *(uint64_t*)0x2000ac60 = (uint64_t)0x2000afb4;
+>     *(uint64_t*)0x2000ac68 = (uint64_t)0x7a;
+>     *(uint64_t*)0x2000ac70 = (uint64_t)0x2000affe;
+>     *(uint64_t*)0x2000ac78 = (uint64_t)0x10;
+>     *(uint64_t*)0x2000ac80 = (uint64_t)0x2000afe2;
+>     *(uint64_t*)0x2000ac88 = (uint64_t)0x2f;
+>     *(uint64_t*)0x2000ac90 = (uint64_t)0x2000afdb;
+>     *(uint64_t*)0x2000ac98 = (uint64_t)0xd4;
+>     r[36] =
+>         syscall(SYS_recvmsg, r[6], 0x2000a000ul, 0x12100ul, 0, 0, 0);
+>     break;
+>   }
+>   return 0;
+> }
+> 
+> int main()
+> {
+>   long i;
+>   pthread_t th[9];
+> 
+>   memset(r, -1, sizeof(r));
+>   for (i = 0; i < 9; i++) {
+>     pthread_create(&th[i], 0, thr, (void*)i);
+>     usleep(10000);
+>   }
+>   for (i = 0; i < 9; i++) {
+>     pthread_create(&th[i], 0, thr, (void*)i);
+>     if (i % 2 == 0)
+>       usleep(10000);
+>   }
+>   usleep(100000);
+>   return 0;
+> }
+> 
+> unreferenced object 0xffff8800324af200 (size 112):
+>   comm "syz-executor", pid 18413, jiffies 4295500287 (age 14.321s)
+>   hex dump (first 32 bytes):
+>     01 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00  ................
+>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>   backtrace:
+>     [<ffffffff86315673>] kmemleak_alloc+0x63/0xa0 mm/kmemleak.c:916
+>     [<     inline     >] kmemleak_alloc_recursive include/linux/kmemleak.h:47
+>     [<     inline     >] slab_post_alloc_hook mm/slub.c:1337
+>     [<     inline     >] slab_alloc_node mm/slub.c:2596
+>     [<     inline     >] slab_alloc mm/slub.c:2604
+>     [<ffffffff81758b49>] kmem_cache_alloc+0x149/0x2d0 mm/slub.c:2609
+>     [<ffffffff813adabd>] alloc_pid+0x5d/0xc90 kernel/pid.c:306
+>     [<ffffffff8134de09>] copy_process.part.35+0x3759/0x57a0 kernel/fork.c:1462
+>     [<     inline     >] copy_process kernel/fork.c:1274
+>     [<ffffffff8135017c>] _do_fork+0x1bc/0xcb0 kernel/fork.c:1723
+>     [<     inline     >] SYSC_clone kernel/fork.c:1832
+>     [<ffffffff81350d47>] SyS_clone+0x37/0x50 kernel/fork.c:1826
+>     [<ffffffff86332bb6>] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
+>     [<ffffffffffffffff>] 0xffffffffffffffff
+> 
+> 
+> # cat /proc/slabinfo | grep pid
+> pid                  297    532    576   28    4 : tunables    0    0
+>   0 : slabdata     19     19      0
+> ...
+> pid                  412    532    576   28    4 : tunables    0    0
+>   0 : slabdata     19     19      0
+> ...
+> pid                 1107   1176    576   28    4 : tunables    0    0
+>   0 : slabdata     42     42      0
+> ...
+> pid                 1545   1652    576   28    4 : tunables    0    0
+>   0 : slabdata     59     59      0
+> 
+> 
+> On commit 30f05309bde49295e02e45c7e615f73aa4e0ccc2 (Jan 20).
