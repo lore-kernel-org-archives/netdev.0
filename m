@@ -1,68 +1,61 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 31/33] bpf: Add __bpf_prog_run() to stacktool whitelist
-Date: Thu, 21 Jan 2016 18:55:41 -0800
-Message-ID: <20160122025540.GB6000@ast-mbp.thefacebook.com>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <8ee01c195432e4c1ebaa79c20e91525c7af22384.1453405861.git.jpoimboe@redhat.com>
+Subject: Re: [PATCH iproute2 -master] tc, bpf: make sure relo is in relation
+ with map section
+Date: Thu, 21 Jan 2016 19:13:44 -0800
+Message-ID: <20160122031343.GA6593@ast-mbp.thefacebook.com>
+References: <6f06b68f62c89489ec1afea5ba1c328ef51efd10.1453418999.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	daniel@iogearbox.net
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	wangnan0@huawei.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:32799 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbcAVDNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 22:13:44 -0500
+Received: by mail-pf0-f176.google.com with SMTP id e65so34271381pfe.0
+        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 19:13:43 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <8ee01c195432e4c1ebaa79c20e91525c7af22384.1453405861.git.jpoimboe@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <6f06b68f62c89489ec1afea5ba1c328ef51efd10.1453418999.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 21, 2016 at 04:49:35PM -0600, Josh Poimboeuf wrote:
-> stacktool reports the following false positive warnings:
+On Fri, Jan 22, 2016 at 12:46:28AM +0100, Daniel Borkmann wrote:
+> Add a test that symbol from relocation entry is actually related
+> to map section and bail out with an error message if it's not the
+> case; in relation to [1].
 > 
->   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
->   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
->   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
->   [...]
+>   [1] https://llvm.org/bugs/show_bug.cgi?id=26243
 > 
-> It's confused by the following dynamic jump instruction in
-> __bpf_prog_run()::
-> 
->   jmp     *(%r12,%rax,8)
-> 
-> which corresponds to the following line in the C code:
-> 
->   goto *jumptable[insn->code];
-> 
-> There's no way for stacktool to deterministically find all possible
-> branch targets for a dynamic jump, so it can't verify this code.
-> 
-> In this case the jumps all stay within the function, and there's nothing
-> unusual going on related to the stack, so we can whitelist the function.
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-well, few things are very unusual in this function.
-did you see what JMP_CALL does? it's a call into a different function,
-but not like typical indirect call. Will it be ok as well?
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-In general it's not possible for any tool to identify all possible
-branch targets. bpf programs can be loaded on the fly and
-jumping sequence will change.
-So if this marking says 'don't bother analyzing this function because
-it does sane stuff' that's probably not the case.
-If this marking says 'don't bother analyzing, the stack may be crazy
-from here on' then it's ok.
+Thanks. Useful check.
+Wang, we probably want something like this in libbpf as well.
+
+> ---
+>  tc/tc_bpf.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
+> index 219ffa5..3c97cdb 100644
+> --- a/tc/tc_bpf.c
+> +++ b/tc/tc_bpf.c
+> @@ -1336,6 +1336,12 @@ static int bpf_apply_relo_data(struct bpf_elf_ctx *ctx,
+>  
+>  		if (gelf_getsym(ctx->sym_tab, GELF_R_SYM(relo.r_info), &sym) != &sym)
+>  			return -EIO;
+> +		if (sym.st_shndx != ctx->sec_maps) {
+> +			fprintf(stderr, "ELF contains non-map related relo data in "
+> +				"entry %u pointing to section %u! Compiler bug?!\n",
+> +				relo_ent, sym.st_shndx);
+> +			return -EIO;
+> +		}
+>  
+>  		rmap = sym.st_value / sizeof(struct bpf_elf_map);
+>  		if (rmap >= ARRAY_SIZE(ctx->map_fds))
+> -- 
+> 1.9.3
+> 
