@@ -1,141 +1,90 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH v2] ethtool: add IPv6 to the NFC API
-Date: Fri, 22 Jan 2016 10:54:53 -0800
-Message-ID: <CAKgT0UdTLSio=LZPOzT5aiPL=GbPHXHxD6dCaBQ470f29YKq7Q@mail.gmail.com>
-References: <56A260D9.3020004@solarflare.com>
-	<56A26F1A.1000505@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Netdev <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:34393 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089AbcAVSyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 13:54:54 -0500
-Received: by mail-ig0-f178.google.com with SMTP id ik10so17062182igb.1
-        for <netdev@vger.kernel.org>; Fri, 22 Jan 2016 10:54:54 -0800 (PST)
-In-Reply-To: <56A26F1A.1000505@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [RFC PATCH net] net/core: don't increment rx_dropped on inactive slaves
+Date: Fri, 22 Jan 2016 14:11:22 -0500
+Message-ID: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2016 at 10:04 AM, Edward Cree <ecree@solarflare.com> wrote:
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> ---
-> changes from v1:
-> * split out separate spec structs for different flow types
-> * clarified the proto field in usr_ip6_spec
-> * changed IP6_USER_FLOW to 0x0e as I noticed there's a gap there
->
->  include/uapi/linux/ethtool.h | 67 ++++++++++++++++++++++++++++++++++++++++----
->  1 file changed, 62 insertions(+), 5 deletions(-)
->
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 57fa390..ad805b9 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -748,6 +748,56 @@ struct ethtool_usrip4_spec {
->         __u8    proto;
->  };
->
-> +/**
-> + * struct ethtool_tcpip6_spec - flow specification for TCP/IPv6 etc.
-> + * @ip6src: Source host
-> + * @ip6dst: Destination host
-> + * @psrc: Source port
-> + * @pdst: Destination port
-> + * @tos: Type-of-service
-> + *
-> + * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
-> + */
-> +struct ethtool_tcpip6_spec {
-> +       __be32  ip6src[4];
-> +       __be32  ip6dst[4];
-> +       __be16  psrc;
-> +       __be16  pdst;
-> +       __u8    tos;
-> +};
-> +
-> +/**
-> + * struct ethtool_ah_espip6_spec - flow specification for IPsec/IPv6
-> + * @ip6src: Source host
-> + * @ip6dst: Destination host
-> + * @spi: Security parameters index
-> + * @tos: Type-of-service
-> + *
-> + * This can be used to specify an IPsec transport or tunnel over IPv6.
-> + */
-> +struct ethtool_ah_espip6_spec {
-> +       __be32  ip6src[4];
-> +       __be32  ip6dst[4];
-> +       __be32  spi;
-> +       __u8    tos;
-> +};
-> +
-> +/**
-> + * struct ethtool_usrip6_spec - general flow specification for IPv6
-> + * @ip6src: Source host
-> + * @ip6dst: Destination host
-> + * @l4_4_bytes: First 4 bytes of transport (layer 4) header
-> + * @tos: Type-of-service
-> + * @proto: Transport protocol number (nexthdr after any Extension Headers)
-> + */
-> +struct ethtool_usrip6_spec {
-> +       __be32  ip6src[4];
-> +       __be32  ip6dst[4];
-> +       __be32  l4_4_bytes;
-> +       __u8    tos;
-> +       __u8    proto;
-> +};
-> +
+The network core tries to keep track of dropped packets, but some packets
+you wouldn't really call dropped, so much as intentionally ignored, under
+certain circumstances. One such case is that of bonding and team device
+slaves that are currently inactive. Their respective rx_handler functions
+return RX_HANDLER_EXACT (the only places in the kernel that return that),
+which ends up tracking into the network core's __netif_receive_skb_core()
+function's drop path, with no pt_prev set. On a noisy network, this can
+result in a very rapidly incrementing rx_dropped counter, not only on the
+inactive slave(s), but also on the master device, such as the following:
 
-It might be better to refer to this as l4_proto so that it is clear
-that this is specifying the protocol of the l4 header that the
-l4_4_bytes will be pulled from.
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  p7p1: 14783346  140430    0 140428    0     0          0      2040      680       8    0    0    0     0       0          0
+  p7p2: 14805198  140648    0    0    0     0          0      2034        0       0    0    0    0     0       0          0
+ bond0: 53365248  532798    0 421160    0     0          0    115151     2040      24    0    0    0     0       0          0
+    lo:    5420      54    0    0    0     0          0         0     5420      54    0    0    0     0       0          0
+  p5p1: 19292195  196197    0 140368    0     0          0     56564      680       8    0    0    0     0       0          0
+  p5p2: 19289707  196171    0 140364    0     0          0     56547      680       8    0    0    0     0       0          0
+   em3: 20996626  158214    0    0    0     0          0       383        0       0    0    0    0     0       0          0
+   em2: 14065122  138462    0    0    0     0          0       310        0       0    0    0    0     0       0          0
+   em1: 14063162  138440    0    0    0     0          0       308        0       0    0    0    0     0       0          0
+   em4: 21050830  158729    0    0    0     0          0       385    71662     469    0    0    0     0       0          0
+   ib0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
 
-It still might even be useful to add a nexthdr field since it is
-possible that there may be NICs out there that don't support parsing
-the extension headers.  In such a case they could block setting
-protocol and use nexthdr instead.  It provides an indirect way of
-communicating if the NIC supports parsing extension headers or not as
-the NIC can block adding a filter on one mask being set or the other.
+In this scenario, p5p1, p5p2 and p7p1 are all inactive slaves in an
+active-backup bond0, and you can see that all three have high drop counts,
+with the master bond0 showing a tally of all three.
 
->  union ethtool_flow_union {
->         struct ethtool_tcpip4_spec              tcp_ip4_spec;
->         struct ethtool_tcpip4_spec              udp_ip4_spec;
-> @@ -755,6 +805,12 @@ union ethtool_flow_union {
->         struct ethtool_ah_espip4_spec           ah_ip4_spec;
->         struct ethtool_ah_espip4_spec           esp_ip4_spec;
->         struct ethtool_usrip4_spec              usr_ip4_spec;
-> +       struct ethtool_tcpip6_spec              tcp_ip6_spec;
-> +       struct ethtool_tcpip6_spec              udp_ip6_spec;
-> +       struct ethtool_tcpip6_spec              sctp_ip6_spec;
-> +       struct ethtool_ah_espip6_spec           ah_ip6_spec;
-> +       struct ethtool_ah_espip6_spec           esp_ip6_spec;
-> +       struct ethtool_usrip6_spec              usr_ip6_spec;
->         struct ethhdr                           ether_spec;
->         __u8                                    hdata[52];
->  };
-> @@ -1367,15 +1423,16 @@ enum ethtool_sfeatures_retval_bits {
->  #define        UDP_V4_FLOW     0x02    /* hash or spec (udp_ip4_spec) */
->  #define        SCTP_V4_FLOW    0x03    /* hash or spec (sctp_ip4_spec) */
->  #define        AH_ESP_V4_FLOW  0x04    /* hash only */
-> -#define        TCP_V6_FLOW     0x05    /* hash only */
-> -#define        UDP_V6_FLOW     0x06    /* hash only */
-> -#define        SCTP_V6_FLOW    0x07    /* hash only */
-> +#define        TCP_V6_FLOW     0x05    /* hash or spec (tcp_ip6_spec; nfc only) */
-> +#define        UDP_V6_FLOW     0x06    /* hash or spec (udp_ip6_spec; nfc only) */
-> +#define        SCTP_V6_FLOW    0x07    /* hash or spec (sctp_ip6_spec; nfc only) */
->  #define        AH_ESP_V6_FLOW  0x08    /* hash only */
->  #define        AH_V4_FLOW      0x09    /* hash or spec (ah_ip4_spec) */
->  #define        ESP_V4_FLOW     0x0a    /* hash or spec (esp_ip4_spec) */
-> -#define        AH_V6_FLOW      0x0b    /* hash only */
-> -#define        ESP_V6_FLOW     0x0c    /* hash only */
-> +#define        AH_V6_FLOW      0x0b    /* hash or spec (ah_ip6_spec; nfc only) */
-> +#define        ESP_V6_FLOW     0x0c    /* hash or spec (esp_ip6_spec; nfc only) */
->  #define        IP_USER_FLOW    0x0d    /* spec only (usr_ip4_spec) */
-> +#define        IP6_USER_FLOW   0x0e    /* spec only (usr_ip6_spec; nfc only) */
->  #define        IPV4_FLOW       0x10    /* hash only */
->  #define        IPV6_FLOW       0x11    /* hash only */
->  #define        ETHER_FLOW      0x12    /* spec only (ether_spec) */
+I know that this was previously discussed some here:
+
+    http://www.spinics.net/lists/netdev/msg226341.html
+
+It seems additional counters never came to fruition, but honestly, for
+this particular case, I'm not even sure they're warranted, I'd be inclined
+to say just silently drop these packets without incrementing a counter. At
+least, that's probably what would make someone who has complained loudly
+about this issue happy, as they have monitoring tools that are squaking
+loudly at any increments to rx_dropped.
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@mellanox.com>
+CC: Daniel Borkmann <daniel@iogearbox.net>
+CC: Tom Herbert <tom@herbertland.com>
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ net/core/dev.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8cba3d8..1354c7b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4153,8 +4153,11 @@ ncls:
+ 		else
+ 			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ 	} else {
++		if (deliver_exact)
++			goto inactive; /* bond or team inactive slave */
+ drop:
+ 		atomic_long_inc(&skb->dev->rx_dropped);
++inactive:
+ 		kfree_skb(skb);
+ 		/* Jamal, now you will not able to escape explaining
+ 		 * me how you were going to use this. :-)
+-- 
+1.8.3.1
