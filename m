@@ -1,64 +1,81 @@
-From: Patrick Ruddy <pruddy@Brocade.com>
+From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH] Netlink messages for multicast HW addr programming
-Date: Fri, 22 Jan 2016 14:51:55 +0000
-Message-ID: <1453474315.20378.7.camel@brocade.com>
+Date: Fri, 22 Jan 2016 16:05:09 +0100
+Message-ID: <20160122150508.GD2211@nanopsycho.orion>
 References: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
-	 <20160121200419.GB2251@nanopsycho.orion>
+ <20160121200419.GB2251@nanopsycho.orion>
+ <1453474315.20378.7.camel@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=us-ascii
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Stapleton <dstaplet@Brocade.com>,
 	Olufemi Komolafe <okomolaf@Brocade.com>,
-	"Stephen Hemminger" <shemming@Brocade.com>
-To: "jiri@resnulli.us" <jiri@resnulli.us>
+	Stephen Hemminger <shemming@Brocade.com>
+To: Patrick Ruddy <pruddy@Brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:52590 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753640AbcAVOwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 09:52:02 -0500
-Received: from pps.filterd (m0048193.ppops.net [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u0ME52ZF028945
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2016 06:52:01 -0800
-Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
-	by mx0a-000f0801.pphosted.com with ESMTP id 20gmypdfrq-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2016 06:52:01 -0800
-In-Reply-To: <20160121200419.GB2251@nanopsycho.orion>
-Content-Language: en-US
-Content-ID: <C0FB026F800FED4BAC31D98D80E7BA21@brocade.local>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36627 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753261AbcAVPFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 10:05:11 -0500
+Received: by mail-wm0-f68.google.com with SMTP id l65so17968378wmf.3
+        for <netdev@vger.kernel.org>; Fri, 22 Jan 2016 07:05:11 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1453474315.20378.7.camel@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDE2LTAxLTIxIGF0IDIxOjA0ICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
-aHUsIEphbiAyMSwgMjAxNiBhdCAxMjo0Nzo1NFBNIENFVCwgcHJ1ZGR5QGJyb2NhZGUuY29tIHdy
-b3RlOg0KPiA+QWRkIFJUTV9ORVdBRERSIGFuZCBSVE1fREVMQUREUiBuZXRsaW5rIG1lc3NhZ2Vz
-IHRvIGluZGljYXRlDQo+ID5pbnRlcmVzdCBpbiBzcGVjaWZpYyBtdWx0aWNhc3QgaGFyZHdhcmUg
-YWRkcmVzc2VzLiBUaGVzZSBtZXNzYWdlcw0KPiA+YXJlIHNlbnQgd2hlbiBhZGRyZXNzZWQgYXJl
-IGFkZGVkIG9yIGRlbGV0ZWQgZnJvbSB0aGUgYXBwcm9wcmlhdGUNCj4gPmludGVyZmFjZSBkcml2
-ZXIuDQo+ID4NCj4gPlNpZ25lZC1vZmYtYnk6IFBhdHJpY2sgUnVkZHkgPHBydWRkeUBicm9jYWRl
-LmNvbT4NCj4gPg0KPiA+ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Rldl9hZGRyX2xpc3RzLmMgYi9u
-ZXQvY29yZS9kZXZfYWRkcl9saXN0cy5jDQo+ID5pbmRleCBjMDU0OGQyLi5hMGViYWRkIDEwMDY0
-NA0KPiA+LS0tIGEvbmV0L2NvcmUvZGV2X2FkZHJfbGlzdHMuYw0KPiA+KysrIGIvbmV0L2NvcmUv
-ZGV2X2FkZHJfbGlzdHMuYw0KPiA+QEAgLTEyLDYgKzEyLDcgQEANCj4gPiAgKi8NCj4gPiANCj4g
-PiAjaW5jbHVkZSA8bGludXgvbmV0ZGV2aWNlLmg+DQo+ID4rI2luY2x1ZGUgPG5ldC9uZXRsaW5r
-Lmg+DQo+ID4gI2luY2x1ZGUgPGxpbnV4L3J0bmV0bGluay5oPg0KPiA+ICNpbmNsdWRlIDxsaW51
-eC9leHBvcnQuaD4NCj4gPiAjaW5jbHVkZSA8bGludXgvbGlzdC5oPg0KPiA+QEAgLTY2MSw2ICs2
-NjIsNjIgQEAgb3V0Og0KPiA+IH0NCj4gPiBFWFBPUlRfU1lNQk9MKGRldl9tY19hZGRfZXhjbCk7
-DQo+ID4gDQo+ID4rc3RhdGljIGludCBmaWxsX2FkZHIoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldiwNCj4gPisJCSAgICAgY29uc3QgdW5zaWduZWQgY2hhciAqYWRk
-ciwgaW50IHR5cGUpDQo+ID4rew0KPiA+KwlzdHJ1Y3Qgbmxtc2doZHIgKm5saDsNCj4gPisJc3Ry
-dWN0IGlmYWRkcm1zZyAqaWZtOw0KPiA+Kw0KPiA+KwlubGggPSBubG1zZ19wdXQoc2tiLCAwLCAw
-LCB0eXBlLCBzaXplb2YoKmlmbSksIDApOw0KPiA+KwlpZiAobmxoID09IE5VTEwpDQo+ID4rCQly
-ZXR1cm4gLUVNU0dTSVpFOw0KPiA+Kw0KPiA+KwlpZm0gPSBubG1zZ19kYXRhKG5saCk7DQo+ID4r
-CWlmbS0+aWZhX2ZhbWlseSA9IEFGX1VOU1BFQzsNCj4gPisJaWZtLT5pZmFfcHJlZml4bGVuID0g
-MDsNCj4gPisJaWZtLT5pZmFfZmxhZ3MgPSBJRkFfRl9QRVJNQU5FTlQ7DQo+ID4rCWlmbS0+aWZh
-X3Njb3BlID0gUlRfU0NPUEVfTElOSzsNCj4gPisJaWZtLT5pZmFfaW5kZXggPSBkZXYtPmlmaW5k
-ZXg7DQo+ID4rCWlmIChubGFfcHV0KHNrYiwgSUZBX0FERFJFU1MsIGRldi0+YWRkcl9sZW4sIGFk
-ZHIpKQ0KPiA+KwkJZ290byBubGFfcHV0X2ZhaWx1cmU7DQo+ID4rCW5sbXNnX2VuZChza2IsIG5s
-aCk7DQo+IA0KPiBIb3cgY2FuIHVzZXJzcGFjZSB0ZWxsIGlmIHRoaXMgaXMgYSBtdWx0aWNhc3Qg
-YWRkcj8gQWxzbywgd2h5IG5vdCBhZGQNCj4gbm90aWZpY2F0aW9ucyBmb3IgdW5pY2FzdCBhZGRy
-cyBzbyB3ZSBoYW5kbGUgYm90aCB0aGUgc2FtZT8NCg0KSSBhbSBvbmx5IHVzaW5nIHRoaXMgUlRN
-X05FVy9ERUxBRERSIEFGX1VOU1BFQyBtZXNzYWdlIGZvciBtdWx0aWNhc3QNCmFkZHJlc3Nlcy4g
-SSB1bmRlcnN0YW5kIHRoYXQgdGhlIHVuaWNhc3QgYWRkcmVzc2VzIGFyZSBub3RpZmllZCBpbiB0
-aGUNClJUTV9ORVcvREVMTElOSy4NCg0KLXByDQo=
+Fri, Jan 22, 2016 at 03:51:55PM CET, pruddy@Brocade.com wrote:
+>On Thu, 2016-01-21 at 21:04 +0100, Jiri Pirko wrote:
+>> Thu, Jan 21, 2016 at 12:47:54PM CET, pruddy@brocade.com wrote:
+>> >Add RTM_NEWADDR and RTM_DELADDR netlink messages to indicate
+>> >interest in specific multicast hardware addresses. These messages
+>> >are sent when addressed are added or deleted from the appropriate
+>> >interface driver.
+>> >
+>> >Signed-off-by: Patrick Ruddy <pruddy@brocade.com>
+>> >
+>> >diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+>> >index c0548d2..a0ebadd 100644
+>> >--- a/net/core/dev_addr_lists.c
+>> >+++ b/net/core/dev_addr_lists.c
+>> >@@ -12,6 +12,7 @@
+>> >  */
+>> > 
+>> > #include <linux/netdevice.h>
+>> >+#include <net/netlink.h>
+>> > #include <linux/rtnetlink.h>
+>> > #include <linux/export.h>
+>> > #include <linux/list.h>
+>> >@@ -661,6 +662,62 @@ out:
+>> > }
+>> > EXPORT_SYMBOL(dev_mc_add_excl);
+>> > 
+>> >+static int fill_addr(struct sk_buff *skb, struct net_device *dev,
+>> >+		     const unsigned char *addr, int type)
+>> >+{
+>> >+	struct nlmsghdr *nlh;
+>> >+	struct ifaddrmsg *ifm;
+>> >+
+>> >+	nlh = nlmsg_put(skb, 0, 0, type, sizeof(*ifm), 0);
+>> >+	if (nlh == NULL)
+>> >+		return -EMSGSIZE;
+>> >+
+>> >+	ifm = nlmsg_data(nlh);
+>> >+	ifm->ifa_family = AF_UNSPEC;
+>> >+	ifm->ifa_prefixlen = 0;
+>> >+	ifm->ifa_flags = IFA_F_PERMANENT;
+>> >+	ifm->ifa_scope = RT_SCOPE_LINK;
+>> >+	ifm->ifa_index = dev->ifindex;
+>> >+	if (nla_put(skb, IFA_ADDRESS, dev->addr_len, addr))
+>> >+		goto nla_put_failure;
+>> >+	nlmsg_end(skb, nlh);
+>> 
+>> How can userspace tell if this is a multicast addr? Also, why not add
+>> notifications for unicast addrs so we handle both the same?
+>
+>I am only using this RTM_NEW/DELADDR AF_UNSPEC message for multicast
+>addresses. I understand that the unicast addresses are notified in the
+>RTM_NEW/DELLINK.
+
+dev->dev_addr is notified by that. UC addresses do not have any
+notification now.
