@@ -1,105 +1,138 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for CONFIG_INET
-Date: Fri, 22 Jan 2016 12:25:08 +0900
-Message-ID: <CALLJCT2wHo3jJb7emyG8bWR5=zC7aEo_05JfHsnKHhjgHArCcA@mail.gmail.com>
-References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
-	<2564892.qO1q7YJ6Nb@wuerfel>
-	<7343206.sFybcLLUN2@wuerfel>
-	<20151209185858.GA2342@cmpxchg.org>
-	<20151209142836.e81260567879110f319c01a4@linux-foundation.org>
-	<20151209230505.GA16610@cmpxchg.org>
-	<20151209151326.f7efba4e5697e1b0f212ea34@linux-foundation.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
+Date: Thu, 21 Jan 2016 21:55:31 -0600
+Message-ID: <20160122035531.GA20502@treble.redhat.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
+ <20160122024427.GA6000@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Weiner <hannes@cmpxchg.org>, Arnd Bergmann <arnd@arndb.de>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, "cgroups@vger.kernel.org" <cgroups@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20151209151326.f7efba4e5697e1b0f212ea34@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+	daniel@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52982 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751675AbcAVDze (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2016 22:55:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20160122024427.GA6000@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I hit this while I was testing 4.5-rc1 with randconfig during merger period.
-And now I noticed that it was fixed after Linus merged akpm branch.
+On Thu, Jan 21, 2016 at 06:44:28PM -0800, Alexei Starovoitov wrote:
+> On Thu, Jan 21, 2016 at 04:49:27PM -0600, Josh Poimboeuf wrote:
+> > bpf_jit.S has several callable non-leaf functions which don't honor
+> > CONFIG_FRAME_POINTER, which can result in bad stack traces.
+> > 
+> > Create a stack frame before the call instructions when
+> > CONFIG_FRAME_POINTER is enabled.
+> > 
+> > Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+> > Cc: Alexei Starovoitov <ast@kernel.org>
+> > Cc: netdev@vger.kernel.org
+> > ---
+> >  arch/x86/net/bpf_jit.S | 9 +++++++--
+> >  1 file changed, 7 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
+> > index eb4a3bd..f2a7faf 100644
+> > --- a/arch/x86/net/bpf_jit.S
+> > +++ b/arch/x86/net/bpf_jit.S
+> > @@ -8,6 +8,7 @@
+> >   * of the License.
+> >   */
+> >  #include <linux/linkage.h>
+> > +#include <asm/frame.h>
+> >  
+> >  /*
+> >   * Calling convention :
+> > @@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
+> >  
+> >  /* rsi contains offset and can be scratched */
+> >  #define bpf_slow_path_common(LEN)		\
+> > +	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
+> > +	FRAME_BEGIN;				\
+> >  	mov	%rbx, %rdi; /* arg1 == skb */	\
+> >  	push	%r9;				\
+> >  	push	SKBDATA;			\
+> >  /* rsi already has offset */			\
+> >  	mov	$LEN,%ecx;	/* len */	\
+> > -	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
+> >  	call	skb_copy_bits;			\
+> >  	test    %eax,%eax;			\
+> >  	pop	SKBDATA;			\
+> > -	pop	%r9;
+> > +	pop	%r9;				\
+> > +	FRAME_END
+> 
+> I'm not sure what above is doing.
+> There is already 'push rbp; mov rbp,rsp' at the beginning of generated
+> code and with above the stack trace will show two function at the same ip?
+> since there were no calls between them?
+> I think the stack walker will get even more confused?
+> Also the JIT of bpf_call insn will emit variable number of push/pop
+> around the call and I definitely don't want to add extra push rbp
+> there, since it's the critical path and callee will do its own
+> push rbp.
+> Also there are push/pops emitted around div/mod
+> and there is indirect goto emitted as well for bpf_tail_call
+> that jumps into different function body without touching
+> current stack.
 
-commit eae21770b4fed5597623aad0d618190fa60426ff
-Merge: e9f57eb 9f273c2
-Author: Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Thu Jan 21 12:32:08 2016 -0800
+Hm, I'm not sure I follow.  Let me try to explain my understanding.
 
-    Merge branch 'akpm' (patches from Andrew)
+As you mentioned, the generated code sets up the frame pointer.  From
+emit_prologue():
 
-Try one commit before this (commit e9f57ebcba563e0cd532926cab83c92bb4d79360 )
-DOES have an issue.
-So I believe it was fixed for now.
-Thanks
+        EMIT1(0x55); /* push rbp */
+	EMIT3(0x48, 0x89, 0xE5); /* mov rbp,rsp */
 
-Masanari
+And then later, do_jit() can generate a call into the functions in
+bpf_jit.S.  For example:
 
+	func = CHOOSE_LOAD_FUNC(imm32, sk_load_word);
+	...
+	EMIT1_off32(0xE8, jmp_offset); /* call */
 
-On Thu, Dec 10, 2015 at 8:13 AM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
-> On Wed, 9 Dec 2015 18:05:05 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
->
->> On Wed, Dec 09, 2015 at 02:28:36PM -0800, Andrew Morton wrote:
->> > On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
->> > > The calls to tcp_init_cgroup() appear earlier in the series than "mm:
->> > > memcontrol: hook up vmpressure to socket pressure". However, they get
->> > > moved around a few times so fixing it earlier means respinning the
->> > > series. Andrew, it's up to you whether we take the bisectability hit
->> > > for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
->> > > want me to resend the series.
->> >
->> > hm, drat, I was suspecting dependency issues here, but a test build
->> > said it was OK.
->> >
->> > Actually, I was expecting this patch series to depend on the linux-next
->> > cgroup2 changes, but that doesn't appear to be the case.  *should* this
->> > series be staged after the cgroup2 code?
->>
->> Code-wise they are independent. My stuff is finishing up the new memcg
->> control knobs, the cgroup2 stuff is changing how and when those knobs
->> are exposed from within the cgroup core. I'm not relying on any recent
->> changes in the cgroup core AFAICS, so the order shouldn't matter here.
->
-> OK, thanks.
->
->> > Regarding this particular series: yes, I think we can live with a
->> > bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
->> > sure why we're discussing bisection issues, because Arnd's build
->> > failure occurs with everything applied?
->>
->> Arnd's patches apply to the top of the stack, but they address issues
->> introduced early in the series and the problematic code gets touched a
->> lot in subsequent patches. E.g. the first build breakage is in ("net:
->> tcp_memcontrol: simplify linkage between socket and page counter")
->> when the tcp_init_cgroup() and tcp_destroy_cgroup() function calls get
->> moved around and lose the CONFIG_INET protection.
->
-> Yeah, this is a pain.  I think I'll fold Arnd's fix into
-> mm-memcontrol-introduce-config_memcg_legacy_kmem.patch (which is staged
-> after all the other MM patches and after linux-next) and will pretend I
-> didn't know about the issue ;)
->
->> Anyway, if we can live with the bisection caveat then Arnd's fixes on
->> top of the kmem series look good to me. Depending on what Vladimir
->> thinks we might want to replace the CONFIG_SLOB fix with something
->> else later on, but that shouldn't be a problem, either.
->
-> I don't have a fix for the CONFIG_SLOB&&CONFIG_MEMCG issue yet.  I
-> agree that it would be best to make the combination work correctly
-> rather than banning it, but that does require a bit of runtime testing.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+So the functions in bpf_jit.S are being called by the generated code.
+They're not part of the generated code itself.  So they're callees and
+need to create their own stack frame before they call out to somewhere
+else.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Or did I miss something?
+
+> Also none of the JITed function are dwarf annotated.
+
+But what does that have to do with frame pointers?
+
+> I could be missing something. I think either this patch
+> is not need or you need to teach the tool to ignore
+> all JITed stuff. I don't think it's practical to annotate
+> everything. Different JITs do their own magic.
+> s390 JIT is even more fancy.
+
+Well, but the point of these patches isn't to make the tool happy.  It's
+really to make sure that runtime stack traces can be made reliable.
+Maybe I'm missing something but I don't see why JIT code can't honor
+CONFIG_FRAME_POINTER just like any other code.
+
+-- 
+Josh
