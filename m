@@ -1,75 +1,59 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: simplify napi_synchronize() to avoid warnings
-Date: Fri, 22 Jan 2016 11:43:44 +0100
-Message-ID: <2817787.9jKELuxj8h@wuerfel>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v2] wl1251: add sysfs interface for bluetooth coexistence mode configuration
+Date: Fri, 22 Jan 2016 13:55:44 +0200
+Message-ID: <87wpr1x1z3.fsf@kamboji.qca.qualcomm.com>
+References: <1451130310-16666-1-git-send-email-pali.rohar@gmail.com>
+	<5696D08F.9030906@broadcom.com> <20160114091654.GA15380@amd>
+	<20160121085331.GO7192@pali> <87d1svyrfl.fsf@kamboji.qca.qualcomm.com>
+	<20160121135110.GH7192@pali> <871t9byotq.fsf@kamboji.qca.qualcomm.com>
+	<20160122092935.GL7192@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:54598 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753087AbcAVKoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 05:44:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Machek <pavel@ucw.cz>, Arend van Spriel <arend@broadcom.com>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Gnedt <david.gnedt@davizone.at>
+To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160122092935.GL7192@pali> ("Pali =?utf-8?Q?Roh=C3=A1r=22's?=
+ message of "Fri, 22
+	Jan 2016 10:29:35 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The napi_synchronize() function is defined twice: The definition
-for SMP builds waits for other CPUs to be done, while the uniprocessor
-variant just contains a barrier and ignores its argument.
+Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
 
-In the mvneta driver, this leads to a warning about an unused variable
-when we lookup the NAPI struct of another CPU and then don't use it:
+>> >> > Right, bt-coex is not for debugging purpose, but for normal usa=
+ge, when
+>> >> > user want to use together bluetooth and wifi or just one of tho=
+se.
+>> >>=20
+>> >> I think most of other drivers have a debugfs interface for btcoex=
+, I
+>> >> guess mostly for testing purposes. But this really should be adde=
+d to
+>> >> cfg80211.
+>> >
+>> > All other TI wireless drivers have "bt_coex_state" sysfs node.
+>>=20
+>> Then that's a mistake, they shouldn't have that.
+>
+> But it is there, wl1251 is also TI wireless driver and for last two
+> years there is no interface to deal with this problem...
+>
+> So as other drivers do, I'm proposing solution which fix bt coex also
+> for wl1251 driver need on Nokia N900.
 
-ethernet/marvell/mvneta.c: In function 'mvneta_percpu_notifier':
-ethernet/marvell/mvneta.c:2910:30: error: unused variable 'other_port' [-Werror=unused-variable]
+Even if the wlcore sysfs interface fell through the cracks it's no
+excuse to add more private interfaces to wireless drivers. We have
+cfg80211 and all generic interfaces, like btcoex control, should go
+through that subsystem. That way all drivers can share a common
+interface and everyone are happy.
 
-There are no other CPUs on a UP build, so that code never runs, but
-gcc does not know this.
+What I suggest is that you add this yourself to cfg80211 and mac80211.
+It's not that hard and I think you could use NL80211_CMD_SET_POWER_SAVE
+as an example.
 
-The nicest solution seems to be to turn the napi_synchronize() helper
-into an inline function for the UP case as well, as that leads gcc to
-not complain about the argument being unused. Once we do that, we can
-also combine the two cases into a single function definition and use
-if(IS_ENABLED()) rather than #ifdef to make it look a bit nicer.
-
-The warning first came up in linux-4.4, but I failed to catch it
-earlier.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: f86428854480 ("net: mvneta: Statically assign queues to CPUs")
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5ac140dcb789..289c2314d766 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -512,7 +512,6 @@ static inline void napi_enable(struct napi_struct *n)
- 	clear_bit(NAPI_STATE_NPSVC, &n->state);
- }
- 
--#ifdef CONFIG_SMP
- /**
-  *	napi_synchronize - wait until NAPI is not running
-  *	@n: napi context
-@@ -523,12 +522,12 @@ static inline void napi_enable(struct napi_struct *n)
-  */
- static inline void napi_synchronize(const struct napi_struct *n)
- {
--	while (test_bit(NAPI_STATE_SCHED, &n->state))
--		msleep(1);
-+	if (IS_ENABLED(CONFIG_SMP))
-+		while (test_bit(NAPI_STATE_SCHED, &n->state))
-+			msleep(1);
-+	else
-+		barrier();
- }
--#else
--# define napi_synchronize(n)	barrier()
--#endif
- 
- enum netdev_queue_state_t {
- 	__QUEUE_STATE_DRV_XOFF,
+--=20
+Kalle Valo
