@@ -1,61 +1,105 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH iproute2 -master] tc, bpf: make sure relo is in relation
- with map section
-Date: Thu, 21 Jan 2016 19:13:44 -0800
-Message-ID: <20160122031343.GA6593@ast-mbp.thefacebook.com>
-References: <6f06b68f62c89489ec1afea5ba1c328ef51efd10.1453418999.git.daniel@iogearbox.net>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: Re: [PATCH] mm: memcontrol: only manage socket pressure for CONFIG_INET
+Date: Fri, 22 Jan 2016 12:25:08 +0900
+Message-ID: <CALLJCT2wHo3jJb7emyG8bWR5=zC7aEo_05JfHsnKHhjgHArCcA@mail.gmail.com>
+References: <1449588624-9220-1-git-send-email-hannes@cmpxchg.org>
+	<2564892.qO1q7YJ6Nb@wuerfel>
+	<7343206.sFybcLLUN2@wuerfel>
+	<20151209185858.GA2342@cmpxchg.org>
+	<20151209142836.e81260567879110f319c01a4@linux-foundation.org>
+	<20151209230505.GA16610@cmpxchg.org>
+	<20151209151326.f7efba4e5697e1b0f212ea34@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	wangnan0@huawei.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:32799 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbcAVDNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 22:13:44 -0500
-Received: by mail-pf0-f176.google.com with SMTP id e65so34271381pfe.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 19:13:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <6f06b68f62c89489ec1afea5ba1c328ef51efd10.1453418999.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Weiner <hannes@cmpxchg.org>, Arnd Bergmann <arnd@arndb.de>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, "cgroups@vger.kernel.org" <cgroups@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20151209151326.f7efba4e5697e1b0f212ea34@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2016 at 12:46:28AM +0100, Daniel Borkmann wrote:
-> Add a test that symbol from relocation entry is actually related
-> to map section and bail out with an error message if it's not the
-> case; in relation to [1].
-> 
->   [1] https://llvm.org/bugs/show_bug.cgi?id=26243
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Hi,
+I hit this while I was testing 4.5-rc1 with randconfig during merger period.
+And now I noticed that it was fixed after Linus merged akpm branch.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+commit eae21770b4fed5597623aad0d618190fa60426ff
+Merge: e9f57eb 9f273c2
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Thu Jan 21 12:32:08 2016 -0800
 
-Thanks. Useful check.
-Wang, we probably want something like this in libbpf as well.
+    Merge branch 'akpm' (patches from Andrew)
 
-> ---
->  tc/tc_bpf.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-> index 219ffa5..3c97cdb 100644
-> --- a/tc/tc_bpf.c
-> +++ b/tc/tc_bpf.c
-> @@ -1336,6 +1336,12 @@ static int bpf_apply_relo_data(struct bpf_elf_ctx *ctx,
->  
->  		if (gelf_getsym(ctx->sym_tab, GELF_R_SYM(relo.r_info), &sym) != &sym)
->  			return -EIO;
-> +		if (sym.st_shndx != ctx->sec_maps) {
-> +			fprintf(stderr, "ELF contains non-map related relo data in "
-> +				"entry %u pointing to section %u! Compiler bug?!\n",
-> +				relo_ent, sym.st_shndx);
-> +			return -EIO;
-> +		}
->  
->  		rmap = sym.st_value / sizeof(struct bpf_elf_map);
->  		if (rmap >= ARRAY_SIZE(ctx->map_fds))
-> -- 
-> 1.9.3
-> 
+Try one commit before this (commit e9f57ebcba563e0cd532926cab83c92bb4d79360 )
+DOES have an issue.
+So I believe it was fixed for now.
+Thanks
+
+Masanari
+
+
+On Thu, Dec 10, 2015 at 8:13 AM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+> On Wed, 9 Dec 2015 18:05:05 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
+>
+>> On Wed, Dec 09, 2015 at 02:28:36PM -0800, Andrew Morton wrote:
+>> > On Wed, 9 Dec 2015 13:58:58 -0500 Johannes Weiner <hannes@cmpxchg.org> wrote:
+>> > > The calls to tcp_init_cgroup() appear earlier in the series than "mm:
+>> > > memcontrol: hook up vmpressure to socket pressure". However, they get
+>> > > moved around a few times so fixing it earlier means respinning the
+>> > > series. Andrew, it's up to you whether we take the bisectability hit
+>> > > for !CONFIG_INET && CONFIG_MEMCG (how common is this?) or whether you
+>> > > want me to resend the series.
+>> >
+>> > hm, drat, I was suspecting dependency issues here, but a test build
+>> > said it was OK.
+>> >
+>> > Actually, I was expecting this patch series to depend on the linux-next
+>> > cgroup2 changes, but that doesn't appear to be the case.  *should* this
+>> > series be staged after the cgroup2 code?
+>>
+>> Code-wise they are independent. My stuff is finishing up the new memcg
+>> control knobs, the cgroup2 stuff is changing how and when those knobs
+>> are exposed from within the cgroup core. I'm not relying on any recent
+>> changes in the cgroup core AFAICS, so the order shouldn't matter here.
+>
+> OK, thanks.
+>
+>> > Regarding this particular series: yes, I think we can live with a
+>> > bisection hole for !CONFIG_INET && CONFIG_MEMCG users.  But I'm not
+>> > sure why we're discussing bisection issues, because Arnd's build
+>> > failure occurs with everything applied?
+>>
+>> Arnd's patches apply to the top of the stack, but they address issues
+>> introduced early in the series and the problematic code gets touched a
+>> lot in subsequent patches. E.g. the first build breakage is in ("net:
+>> tcp_memcontrol: simplify linkage between socket and page counter")
+>> when the tcp_init_cgroup() and tcp_destroy_cgroup() function calls get
+>> moved around and lose the CONFIG_INET protection.
+>
+> Yeah, this is a pain.  I think I'll fold Arnd's fix into
+> mm-memcontrol-introduce-config_memcg_legacy_kmem.patch (which is staged
+> after all the other MM patches and after linux-next) and will pretend I
+> didn't know about the issue ;)
+>
+>> Anyway, if we can live with the bisection caveat then Arnd's fixes on
+>> top of the kmem series look good to me. Depending on what Vladimir
+>> thinks we might want to replace the CONFIG_SLOB fix with something
+>> else later on, but that shouldn't be a problem, either.
+>
+> I don't have a fix for the CONFIG_SLOB&&CONFIG_MEMCG issue yet.  I
+> agree that it would be best to make the combination work correctly
+> rather than banning it, but that does require a bit of runtime testing.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
