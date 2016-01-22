@@ -1,13 +1,11 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
-Date: Fri, 22 Jan 2016 09:18:23 -0800
-Message-ID: <20160122171823.GC9608@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH 31/33] bpf: Add __bpf_prog_run() to stacktool whitelist
+Date: Fri, 22 Jan 2016 09:19:57 -0800
+Message-ID: <20160122171956.GD9608@ast-mbp.thefacebook.com>
 References: <cover.1453405861.git.jpoimboe@redhat.com>
- <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
- <20160122024427.GA6000@ast-mbp.thefacebook.com>
- <20160122035531.GA20502@treble.redhat.com>
- <20160122041845.GA7175@ast-mbp.thefacebook.com>
- <20160122155804.GC20502@treble.redhat.com>
+ <8ee01c195432e4c1ebaa79c20e91525c7af22384.1453405861.git.jpoimboe@redhat.com>
+ <20160122025540.GB6000@ast-mbp.thefacebook.com>
+ <20160122041302.GB20502@treble.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Thomas Gleixner <tglx@linutronix.de>,
@@ -32,55 +30,58 @@ Cc: Thomas Gleixner <tglx@linutronix.de>,
 To: Josh Poimboeuf <jpoimboe@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160122155804.GC20502@treble.redhat.com>
+In-Reply-To: <20160122041302.GB20502@treble.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2016 at 09:58:04AM -0600, Josh Poimboeuf wrote:
-> On Thu, Jan 21, 2016 at 08:18:46PM -0800, Alexei Starovoitov wrote:
-> > On Thu, Jan 21, 2016 at 09:55:31PM -0600, Josh Poimboeuf wrote:
-> > > On Thu, Jan 21, 2016 at 06:44:28PM -0800, Alexei Starovoitov wrote:
-> > > > On Thu, Jan 21, 2016 at 04:49:27PM -0600, Josh Poimboeuf wrote:
-> > > > > bpf_jit.S has several callable non-leaf functions which don't honor
-> > > > > CONFIG_FRAME_POINTER, which can result in bad stack traces.
-> > > > > 
-> > > > > Create a stack frame before the call instructions when
-> > > > > CONFIG_FRAME_POINTER is enabled.
-> > > > > 
-> > > > > Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-> > > > > Cc: Alexei Starovoitov <ast@kernel.org>
-> > > > > Cc: netdev@vger.kernel.org
-> > > > > ---
-> > > > >  arch/x86/net/bpf_jit.S | 9 +++++++--
-...
-> > > > >  /* rsi contains offset and can be scratched */
-> > > > >  #define bpf_slow_path_common(LEN)		\
-> > > > > +	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
-> > > > > +	FRAME_BEGIN;				\
-> > > > >  	mov	%rbx, %rdi; /* arg1 == skb */	\
-> > > > >  	push	%r9;				\
-> > > > >  	push	SKBDATA;			\
-> > > > >  /* rsi already has offset */			\
-> > > > >  	mov	$LEN,%ecx;	/* len */	\
-> > > > > -	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
-> > > > >  	call	skb_copy_bits;			\
-> > > > >  	test    %eax,%eax;			\
-> > > > >  	pop	SKBDATA;			\
-> > > > > -	pop	%r9;
-> > > > > +	pop	%r9;				\
-> > > > > +	FRAME_END
-...
-> > > Well, but the point of these patches isn't to make the tool happy.  It's
-> > > really to make sure that runtime stack traces can be made reliable.
-> > > Maybe I'm missing something but I don't see why JIT code can't honor
-> > > CONFIG_FRAME_POINTER just like any other code.
+On Thu, Jan 21, 2016 at 10:13:02PM -0600, Josh Poimboeuf wrote:
+> On Thu, Jan 21, 2016 at 06:55:41PM -0800, Alexei Starovoitov wrote:
+> > On Thu, Jan 21, 2016 at 04:49:35PM -0600, Josh Poimboeuf wrote:
+> > > stacktool reports the following false positive warnings:
+> > > 
+> > >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
+> > >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
+> > >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
+> > >   [...]
+> > > 
+> > > It's confused by the following dynamic jump instruction in
+> > > __bpf_prog_run()::
+> > > 
+> > >   jmp     *(%r12,%rax,8)
+> > > 
+> > > which corresponds to the following line in the C code:
+> > > 
+> > >   goto *jumptable[insn->code];
+> > > 
+> > > There's no way for stacktool to deterministically find all possible
+> > > branch targets for a dynamic jump, so it can't verify this code.
+> > > 
+> > > In this case the jumps all stay within the function, and there's nothing
+> > > unusual going on related to the stack, so we can whitelist the function.
 > > 
-> > It can if there is no performance cost added.
+> > well, few things are very unusual in this function.
+> > did you see what JMP_CALL does? it's a call into a different function,
+> > but not like typical indirect call. Will it be ok as well?
+> > 
+> > In general it's not possible for any tool to identify all possible
+> > branch targets. bpf programs can be loaded on the fly and
+> > jumping sequence will change.
+> > So if this marking says 'don't bother analyzing this function because
+> > it does sane stuff' that's probably not the case.
+> > If this marking says 'don't bother analyzing, the stack may be crazy
+> > from here on' then it's ok.
 > 
-> CONFIG_FRAME_POINTER always adds a small performance cost but as you
-> mentioned it only affects the slow path here.  And hopefully we'll soon
-> have an in-kernel DWARF unwinder on x86 so we can get rid of the need
-> for frame pointers.
+> So the tool doesn't need to follow all possible call targets.  Instead
+> it just verifies that all functions follow the frame pointer convention.
+> That way it doesn't matter *which* function is being called because they
+> all do the right thing.
+> 
+> But it *does* need to follow all jump targets, so that it can analyze
+> all possible code paths within the function itself.  With a dynamic
+> jump, it can't do that.
+> 
+> So the JMP_CALL is fine, but the goto *jumptable[insn->code] isn't.
+> (And BTW that's the only occurrence of such a dynamic jump table in the
+> entire kernel.)
 
-ok. fair enough.
 Acked-by: Alexei Starovoitov <ast@kernel.org>
