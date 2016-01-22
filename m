@@ -1,90 +1,91 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [RFC PATCH net] net/core: don't increment rx_dropped on inactive slaves
-Date: Fri, 22 Jan 2016 14:11:22 -0500
-Message-ID: <1453489882-57948-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Josh Poimboeuf <jpoimboe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
+Date: Fri, 22 Jan 2016 13:14:47 -0600
+Message-ID: <20160122191447.GH20502@treble.redhat.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <20160122174348.GB29221@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, live-patching-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
+	Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Namhyung Kim <namhyung-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Bernd Petrovitsch <bernd-JY8rjfDgnXcb9sJ47jD7nuTv7YV0F9Eg@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
+	Borislav Petkov <bp-l3A5Bk7waGM@public.gmane.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Jeremy Fitzhardinge <jeremy-TSDbQ3PG+2Y@public.gmane.org>,
+	Chris Wright <chrisw-69jw2NvuJkxg9hUCZPvPmw@public.gmane.org>,
+	Alok
+To: Chris J Arges <chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160122174348.GB29221-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The network core tries to keep track of dropped packets, but some packets
-you wouldn't really call dropped, so much as intentionally ignored, under
-certain circumstances. One such case is that of bonding and team device
-slaves that are currently inactive. Their respective rx_handler functions
-return RX_HANDLER_EXACT (the only places in the kernel that return that),
-which ends up tracking into the network core's __netif_receive_skb_core()
-function's drop path, with no pt_prev set. On a noisy network, this can
-result in a very rapidly incrementing rx_dropped counter, not only on the
-inactive slave(s), but also on the master device, such as the following:
+On Fri, Jan 22, 2016 at 11:43:48AM -0600, Chris J Arges wrote:
+> On Thu, Jan 21, 2016 at 04:49:04PM -0600, Josh Poimboeuf wrote:
+> > This is v16 of the compile-time stack metadata validation patch set,
+> > along with proposed fixes for most of the warnings it found.  It's based
+> > on the tip/master branch.
+> >
+> Josh,
+> 
+> Looks good, with my config [1] I do still get a few warnings building
+> linux/linux-next.
+> 
+> Here are the warnings:
+> $ grep ^stacktool build.log | grep -v staging
 
-Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-  p7p1: 14783346  140430    0 140428    0     0          0      2040      680       8    0    0    0     0       0          0
-  p7p2: 14805198  140648    0    0    0     0          0      2034        0       0    0    0    0     0       0          0
- bond0: 53365248  532798    0 421160    0     0          0    115151     2040      24    0    0    0     0       0          0
-    lo:    5420      54    0    0    0     0          0         0     5420      54    0    0    0     0       0          0
-  p5p1: 19292195  196197    0 140368    0     0          0     56564      680       8    0    0    0     0       0          0
-  p5p2: 19289707  196171    0 140364    0     0          0     56547      680       8    0    0    0     0       0          0
-   em3: 20996626  158214    0    0    0     0          0       383        0       0    0    0    0     0       0          0
-   em2: 14065122  138462    0    0    0     0          0       310        0       0    0    0    0     0       0          0
-   em1: 14063162  138440    0    0    0     0          0       308        0       0    0    0    0     0       0          0
-   em4: 21050830  158729    0    0    0     0          0       385    71662     469    0    0    0     0       0          0
-   ib0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
+Thanks for reporting these!
 
-In this scenario, p5p1, p5p2 and p7p1 are all inactive slaves in an
-active-backup bond0, and you can see that all three have high drop counts,
-with the master bond0 showing a tally of all three.
+> stacktool: arch/x86/kvm/vmx.o: vmx_handle_external_intr()+0x67: call without frame pointer save/setup
 
-I know that this was previously discussed some here:
+This can be fixed by setting the stack pointer as an output operand for
+the inline asm call in vmx_handle_external_intr().
 
-    http://www.spinics.net/lists/netdev/msg226341.html
+Feel free to submit a patch, or I'll get around to it eventually.
 
-It seems additional counters never came to fruition, but honestly, for
-this particular case, I'm not even sure they're warranted, I'd be inclined
-to say just silently drop these packets without incrementing a counter. At
-least, that's probably what would make someone who has complained loudly
-about this issue happy, as they have monitoring tools that are squaking
-loudly at any increments to rx_dropped.
+> stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x9e: return without frame pointer restore
+> stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x89: duplicate frame pointer save
+> stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x8a: duplicate frame pointer setup
+> stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x9e: frame pointer state mismatch
+> stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x0: frame pointer state mismatch
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@mellanox.com>
-CC: Daniel Borkmann <daniel@iogearbox.net>
-CC: Tom Herbert <tom@herbertland.com>
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- net/core/dev.c | 3 +++
- 1 file changed, 3 insertions(+)
+These are false positives.  Stacktool is confused by the use of a
+"noreturn" function which it doesn't know about (__reiserfs_panic).
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8cba3d8..1354c7b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4153,8 +4153,11 @@ ncls:
- 		else
- 			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- 	} else {
-+		if (deliver_exact)
-+			goto inactive; /* bond or team inactive slave */
- drop:
- 		atomic_long_inc(&skb->dev->rx_dropped);
-+inactive:
- 		kfree_skb(skb);
- 		/* Jamal, now you will not able to escape explaining
- 		 * me how you were going to use this. :-)
+Unfortunately the only solution I currently have for dealing with global
+noreturn functions is to just hard-code a list of them.  So the short
+term fix would be to add "__reiserfs_panic" to the global_noreturns list
+in tools/stacktool/builtin-check.c.
+
+I'm still trying to figure out a better way to deal with this type of
+issue, as it's a pain to have to keep a hard-coded list of noreturn
+functions.  Unfortunately that info isn't available in the ELF.
+
+> stacktool: fs/reiserfs/ibalance.o: .text: unexpected end of section
+> stacktool: fs/reiserfs/tail_conversion.o: .text: unexpected end of section
+
+For some reason I'm not able to recreate these warnings...  Can you
+share one of the .o files?
+
 -- 
-1.8.3.1
+Josh
+--
+To unsubscribe from this list: send the line "unsubscribe linux-watchdog" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
