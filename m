@@ -1,125 +1,103 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net: use-after-free in recvmmsg
-Date: Fri, 22 Jan 2016 21:39:53 +0100
-Message-ID: <CACT4Y+YUobBGeFiq5d-==TBB7F2am+wjH6CKVz0uCvw4KuM1dg@mail.gmail.com>
+From: Chris J Arges <chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
+Date: Fri, 22 Jan 2016 14:40:35 -0600
+Message-ID: <20160122204034.GA5826@canonical.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <20160122174348.GB29221@canonical.com>
+ <20160122191447.GH20502@treble.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, live-patching-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
+	Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Namhyung Kim <namhyung-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Bernd Petrovitsch <bernd-JY8rjfDgnXcb9sJ47jD7nuTv7YV0F9Eg@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
+	Borislav Petkov <bp-l3A5Bk7waGM@public.gmane.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Jeremy Fitzhardinge <jeremy-TSDbQ3PG+2Y@public.gmane.org>,
+	Chris Wright <chrisw-69jw2NvuJkxg9hUCZPvPmw@public.gmane.org>,
+	Alok
+To: Josh Poimboeuf <jpoimboe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160122191447.GH20502-8wJ5/zUtDR0XGNroddHbYwC/G2K4zDHf@public.gmane.org>
+Sender: linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Fri, Jan 22, 2016 at 01:14:47PM -0600, Josh Poimboeuf wrote:
+> On Fri, Jan 22, 2016 at 11:43:48AM -0600, Chris J Arges wrote:
+> > On Thu, Jan 21, 2016 at 04:49:04PM -0600, Josh Poimboeuf wrote:
+> > > This is v16 of the compile-time stack metadata validation patch set,
+> > > along with proposed fixes for most of the warnings it found.  It's based
+> > > on the tip/master branch.
+> > >
+> > Josh,
+> > 
+> > Looks good, with my config [1] I do still get a few warnings building
+> > linux/linux-next.
+> > 
+> > Here are the warnings:
+> > $ grep ^stacktool build.log | grep -v staging
+> 
+> Thanks for reporting these!
+> 
+> > stacktool: arch/x86/kvm/vmx.o: vmx_handle_external_intr()+0x67: call without frame pointer save/setup
+> 
+> This can be fixed by setting the stack pointer as an output operand for
+> the inline asm call in vmx_handle_external_intr().
+> 
+> Feel free to submit a patch, or I'll get around to it eventually.
+> 
+> > stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x9e: return without frame pointer restore
+> > stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x89: duplicate frame pointer save
+> > stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x8a: duplicate frame pointer setup
+> > stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x9e: frame pointer state mismatch
+> > stacktool: fs/reiserfs/namei.o: set_de_name_and_namelen()+0x0: frame pointer state mismatch
+> 
+> These are false positives.  Stacktool is confused by the use of a
+> "noreturn" function which it doesn't know about (__reiserfs_panic).
+> 
+> Unfortunately the only solution I currently have for dealing with global
+> noreturn functions is to just hard-code a list of them.  So the short
+> term fix would be to add "__reiserfs_panic" to the global_noreturns list
+> in tools/stacktool/builtin-check.c.
+> 
+> I'm still trying to figure out a better way to deal with this type of
+> issue, as it's a pain to have to keep a hard-coded list of noreturn
+> functions.  Unfortunately that info isn't available in the ELF.
+> 
 
-While running syzkaller fuzzer I've hit the following use-after-free:
+Josh,
+Ok I'll hack on the patches above.
 
-==================================================================
-BUG: KASAN: use-after-free in __sys_recvmmsg+0x6fa/0x7f0 at addr
-ffff88003b689ce0
-Read of size 8 by task syz-executor/11997
-=============================================================================
-BUG sock_inode_cache (Not tainted): kasan: bad access detected
------------------------------------------------------------------------------
+> > stacktool: fs/reiserfs/ibalance.o: .text: unexpected end of section
+> > stacktool: fs/reiserfs/tail_conversion.o: .text: unexpected end of section
+> 
+> For some reason I'm not able to recreate these warnings...  Can you
+> share one of the .o files?
+> 
+> -- 
+> Josh
+> 
 
-INFO: Allocated in sock_alloc_inode+0x1d/0x250 age=125 cpu=1 pid=11960
-[<      none      >] ___slab_alloc+0x4c2/0x500 mm/slub.c:2470
-[<      none      >] __slab_alloc+0x66/0xc0 mm/slub.c:2499
-[<     inline     >] slab_alloc_node mm/slub.c:2562
-[<     inline     >] slab_alloc mm/slub.c:2604
-[<      none      >] kmem_cache_alloc+0x257/0x2d0 mm/slub.c:2609
-[<      none      >] sock_alloc_inode+0x1d/0x250 net/socket.c:250
-[<      none      >] alloc_inode+0x61/0x180 fs/inode.c:198
-[<      none      >] new_inode_pseudo+0x17/0xe0 fs/inode.c:878
-[<      none      >] sock_alloc+0x3d/0x260 net/socket.c:541
-[<      none      >] __sock_create+0xa7/0x640 net/socket.c:1127
-[<     inline     >] sock_create net/socket.c:1203
-[<     inline     >] SYSC_socketpair net/socket.c:1275
-[<      none      >] SyS_socketpair+0x112/0x4e0 net/socket.c:1254
-[<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
-arch/x86/entry/entry_64.S:185
+Binaries are here:
+http://people.canonical.com/~arges/stacktool/
 
-INFO: Freed in sock_destroy_inode+0x56/0x70 age=25 cpu=1 pid=11960
-[<      none      >] __slab_free+0x1fc/0x320 mm/slub.c:2680
-[<     inline     >] slab_free mm/slub.c:2835
-[<      none      >] kmem_cache_free+0x2ec/0x370 mm/slub.c:2844
-[<      none      >] sock_destroy_inode+0x56/0x70 net/socket.c:280
-[<      none      >] destroy_inode+0xc7/0x130 fs/inode.c:255
-[<      none      >] evict+0x329/0x500 fs/inode.c:559
-[<     inline     >] iput_final fs/inode.c:1477
-[<      none      >] iput+0x45f/0x860 fs/inode.c:1504
-[<     inline     >] dentry_iput fs/dcache.c:358
-[<      none      >] __dentry_kill+0x457/0x620 fs/dcache.c:543
-[<     inline     >] dentry_kill fs/dcache.c:587
-[<      none      >] dput+0x65b/0x740 fs/dcache.c:796
-[<      none      >] __fput+0x42f/0x780 fs/file_table.c:226
-[<      none      >] ____fput+0x15/0x20 fs/file_table.c:244
-[<      none      >] task_work_run+0x170/0x210 kernel/task_work.c:115
-[<     inline     >] tracehook_notify_resume include/linux/tracehook.h:191
-[<      none      >] exit_to_usermode_loop+0x1d1/0x210
-arch/x86/entry/common.c:251
-[<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:282
-[<      none      >] syscall_return_slowpath+0x2ba/0x340
-arch/x86/entry/common.c:344
-[<      none      >] int_ret_from_sys_call+0x25/0x9f
-arch/x86/entry/entry_64.S:281
-
-INFO: Slab 0xffffea0000eda200 objects=22 used=2 fp=0xffff88003b689cc0
-flags=0x1fffc0000004080
-INFO: Object 0xffff88003b689cc0 @offset=7360 fp=0xffff88003b68a840
-CPU: 3 PID: 11997 Comm: syz-executor Tainted: G    B           4.4.0+ #275
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- 00000000ffffffff ffff880038fefb68 ffffffff82994c8d ffff88003df06d00
- ffff88003b689cc0 ffff88003b688000 ffff880038fefb98 ffffffff81755374
- ffff88003df06d00 ffffea0000eda200 ffff88003b689cc0 0000000000000002
-
-Call Trace:
- [<ffffffff8175ea0e>] __asan_report_load8_noabort+0x3e/0x40
-mm/kasan/report.c:295
- [<ffffffff851cc31a>] __sys_recvmmsg+0x6fa/0x7f0 net/socket.c:2261
- [<     inline     >] SYSC_recvmmsg net/socket.c:2281
- [<ffffffff851cc57f>] SyS_recvmmsg+0x16f/0x180 net/socket.c:2270
- [<ffffffff86332bb6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-arch/x86/entry/entry_64.S:185
-==================================================================
-
-I cannot reproduce it, but looking at __sys_recvmmsg code, it seems
-that sock is not necessary live after fput_light:
-
-out_put:
-    fput_light(sock->file, fput_needed);
-
-    if (err == 0)
-        return datagrams;
-
-    if (datagrams != 0) {
-        /*
-         * We may return less entries than requested (vlen) if the
-         * sock is non block and there aren't enough datagrams...
-         */
-        if (err != -EAGAIN) {
-            /*
-             * ... or  if recvmsg returns an error after we
-             * received some datagrams, where we record the
-             * error to return on the next call or if the
-             * app asks about it using getsockopt(SO_ERROR).
-             */
-            sock->sk->sk_err = -err;
-        }
-
-        return datagrams;
-    }
-
-    return err;
-}
-
-I am on commit 30f05309bde49295e02e45c7e615f73aa4e0ccc2 (Jan 20).
-Seems to be added in commit a2e2725541fad72416326798c2d7fa4dafb7d337
-(Oct 2009).
+--chris
+--
+To unsubscribe from this list: send the line "unsubscribe linux-watchdog" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
