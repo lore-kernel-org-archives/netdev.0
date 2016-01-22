@@ -1,90 +1,86 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: Re: [PATCH 31/33] bpf: Add __bpf_prog_run() to stacktool whitelist
-Date: Thu, 21 Jan 2016 22:13:02 -0600
-Message-ID: <20160122041302.GB20502@treble.redhat.com>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <8ee01c195432e4c1ebaa79c20e91525c7af22384.1453405861.git.jpoimboe@redhat.com>
- <20160122025540.GB6000@ast-mbp.thefacebook.com>
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v4)
+Date: Fri, 22 Jan 2016 12:21:28 +0800
+Message-ID: <56A1AE48.4000908@oracle.com>
+References: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
+ <20160121083506.GA2251@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	daniel@iogearbox.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sd@queasysnail.net,
+	jay.vosburgh@canonical.com, zyjzyj2000@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55202 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751438AbcAVENF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2016 23:13:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20160122025540.GB6000@ast-mbp.thefacebook.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:37075 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751897AbcAVESS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 23:18:18 -0500
+In-Reply-To: <20160121083506.GA2251@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 21, 2016 at 06:55:41PM -0800, Alexei Starovoitov wrote:
-> On Thu, Jan 21, 2016 at 04:49:35PM -0600, Josh Poimboeuf wrote:
-> > stacktool reports the following false positive warnings:
-> > 
-> >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
-> >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
-> >   stacktool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
-> >   [...]
-> > 
-> > It's confused by the following dynamic jump instruction in
-> > __bpf_prog_run()::
-> > 
-> >   jmp     *(%r12,%rax,8)
-> > 
-> > which corresponds to the following line in the C code:
-> > 
-> >   goto *jumptable[insn->code];
-> > 
-> > There's no way for stacktool to deterministically find all possible
-> > branch targets for a dynamic jump, so it can't verify this code.
-> > 
-> > In this case the jumps all stay within the function, and there's nothing
-> > unusual going on related to the stack, so we can whitelist the function.
-> 
-> well, few things are very unusual in this function.
-> did you see what JMP_CALL does? it's a call into a different function,
-> but not like typical indirect call. Will it be ok as well?
-> 
-> In general it's not possible for any tool to identify all possible
-> branch targets. bpf programs can be loaded on the fly and
-> jumping sequence will change.
-> So if this marking says 'don't bother analyzing this function because
-> it does sane stuff' that's probably not the case.
-> If this marking says 'don't bother analyzing, the stack may be crazy
-> from here on' then it's ok.
 
-So the tool doesn't need to follow all possible call targets.  Instead
-it just verifies that all functions follow the frame pointer convention.
-That way it doesn't matter *which* function is being called because they
-all do the right thing.
 
-But it *does* need to follow all jump targets, so that it can analyze
-all possible code paths within the function itself.  With a dynamic
-jump, it can't do that.
+=E5=9C=A8 2016=E5=B9=B401=E6=9C=8821=E6=97=A5 16:35, Jiri Pirko =E5=86=99=
+=E9=81=93:
+> Thu, Jan 21, 2016 at 06:32:58AM CET, wen.gang.wang@oracle.com wrote:
+>> In a bonding setting, we determines fragment size according to MTU a=
+nd
+>> PMTU associated to the bonding master. If the slave finds the fragme=
+nt
+>> size is too big, it drops the fragment and calls ip_rt_update_pmtu()=
+,
+>> passing _skb_ and _pmtu_, trying to update the path MTU.
+>> Problem is that the target device that function ip_rt_update_pmtu ac=
+tually
+>> tries to update is the slave (skb->dev), not the master. Thus since =
+no
+>> PMTU change happens on master, the fragment size for later packets d=
+oesn't
+>> change so all later fragments/packets are dropped too.
+>>
+>> The fix is letting build_skb_flow_key() take care of the transition =
+of
+>> device index from bonding slave to the master. That makes the master=
+ become
+>> the target device that ip_rt_update_pmtu tries to update PMTU to.
+>>
+>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>> ---
+>> net/ipv4/route.c | 9 +++++++++
+>> 1 file changed, 9 insertions(+)
+>>
+>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>> index 85f184e..7e766b5 100644
+>> --- a/net/ipv4/route.c
+>> +++ b/net/ipv4/route.c
+>> @@ -524,10 +524,19 @@ static void build_skb_flow_key(struct flowi4 *=
+fl4, const struct sk_buff *skb,
+>> {
+>> 	const struct iphdr *iph =3D ip_hdr(skb);
+>> 	int oif =3D skb->dev->ifindex;
+>> +	struct net_device *master;
+>> 	u8 tos =3D RT_TOS(iph->tos);
+>> 	u8 prot =3D iph->protocol;
+>> 	u32 mark =3D skb->mark;
+>>
+>> +	if (netif_is_bond_slave(skb->dev)) {
+>> +		rcu_read_lock();
+>> +		master =3D netdev_master_upper_dev_get_rcu(skb->dev);
+>> +		if (master)
+>> +			oif =3D master->ifindex;
+>> +		rcu_read_unlock();
+>> +	}
+> This is certainly not correct as it should not be bond-specific but
+> rather generic.
 
-So the JMP_CALL is fine, but the goto *jumptable[insn->code] isn't.
-(And BTW that's the only occurrence of such a dynamic jump table in the
-entire kernel.)
+Then what you would suggest to fix it?
+> Note that you may have bond over bond or bridge over
+> bond or other scenarios, which this patch ignores.
+I don't think bond over bond is a good configuration. Do you have a rea=
+l=20
+use case for that configuration?
 
--- 
-Josh
+thanks,
+wengang
