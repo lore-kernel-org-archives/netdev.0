@@ -1,102 +1,85 @@
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v4)
-Date: Fri, 22 Jan 2016 16:00:30 +0800
-Message-ID: <56A1E19E.40603@oracle.com>
-References: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
- <20160121083506.GA2251@nanopsycho.orion> <56A1AE48.4000908@oracle.com>
- <20160122065207.GA2211@nanopsycho.orion>
+From: Shaohui Xie <shaohui.xie@nxp.com>
+Subject: Re: [PATCH 1/3][v2] net: phy: introduce 1000BASE-KX and 10GBASE-KR
+Date: Fri, 22 Jan 2016 08:15:53 +0000
+Message-ID: <VI1PR04MB1664BAFB4EE494CB14830BCCE8C40@VI1PR04MB1664.eurprd04.prod.outlook.com>
+References: <1452759839-9874-1-git-send-email-shh.xie@gmail.com>
+ <20160114164418.GD19773@lunn.ch>
+ <VI1PR04MB166491DEBB439EB72742201DE8CD0@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <56997951.90304@gmail.com> <5699B211.5070602@gmail.com>
+ <VI1PR04MB16645A2F24DB515D86136BE2E8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <569C9CD2.10301@gmail.com>
+ <VI1PR04MB1664AB0E483F01F1641059FFE8C00@VI1PR04MB1664.eurprd04.prod.outlook.com>
+ <20160118151500.GD923@lunn.ch>
+ <VI1PR04MB1664DFBC53F08C5CE7EBF22AE8C10@VI1PR04MB1664.eurprd04.prod.outlook.com>,
+ <20160121211250.GK9991@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sd@queasysnail.net,
-	jay.vosburgh@canonical.com, zyjzyj2000@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:49864 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbcAVH50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 02:57:26 -0500
-In-Reply-To: <20160122065207.GA2211@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "shh.xie@gmail.com" <shh.xie@gmail.com>,
+ Florian Fainelli <f.fainelli@gmail.com>,
+ Shaohui Xie <Shaohui.Xie@freescale.com>,
+ "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20160121211250.GK9991@lunn.ch>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-
-
-=E5=9C=A8 2016=E5=B9=B401=E6=9C=8822=E6=97=A5 14:52, Jiri Pirko =E5=86=99=
-=E9=81=93:
-> Fri, Jan 22, 2016 at 05:21:28AM CET, wen.gang.wang@oracle.com wrote:
->>
->> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8821=E6=97=A5 16:35, Jiri Pirko =E5=86=
-=99=E9=81=93:
->>> Thu, Jan 21, 2016 at 06:32:58AM CET, wen.gang.wang@oracle.com wrote=
-:
->>>> In a bonding setting, we determines fragment size according to MTU=
- and
->>>> PMTU associated to the bonding master. If the slave finds the frag=
-ment
->>>> size is too big, it drops the fragment and calls ip_rt_update_pmtu=
-(),
->>>> passing _skb_ and _pmtu_, trying to update the path MTU.
->>>> Problem is that the target device that function ip_rt_update_pmtu =
-actually
->>>> tries to update is the slave (skb->dev), not the master. Thus sinc=
-e no
->>>> PMTU change happens on master, the fragment size for later packets=
- doesn't
->>>> change so all later fragments/packets are dropped too.
->>>>
->>>> The fix is letting build_skb_flow_key() take care of the transitio=
-n of
->>>> device index from bonding slave to the master. That makes the mast=
-er become
->>>> the target device that ip_rt_update_pmtu tries to update PMTU to.
->>>>
->>>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->>>> ---
->>>> net/ipv4/route.c | 9 +++++++++
->>>> 1 file changed, 9 insertions(+)
->>>>
->>>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->>>> index 85f184e..7e766b5 100644
->>>> --- a/net/ipv4/route.c
->>>> +++ b/net/ipv4/route.c
->>>> @@ -524,10 +524,19 @@ static void build_skb_flow_key(struct flowi4=
- *fl4, const struct sk_buff *skb,
->>>> {
->>>> 	const struct iphdr *iph =3D ip_hdr(skb);
->>>> 	int oif =3D skb->dev->ifindex;
->>>> +	struct net_device *master;
->>>> 	u8 tos =3D RT_TOS(iph->tos);
->>>> 	u8 prot =3D iph->protocol;
->>>> 	u32 mark =3D skb->mark;
->>>>
->>>> +	if (netif_is_bond_slave(skb->dev)) {
->>>> +		rcu_read_lock();
->>>> +		master =3D netdev_master_upper_dev_get_rcu(skb->dev);
->>>> +		if (master)
->>>> +			oif =3D master->ifindex;
->>>> +		rcu_read_unlock();
->>>> +	}
->>> This is certainly not correct as it should not be bond-specific but
->>> rather generic.
->> Then what you would suggest to fix it?
->>> Note that you may have bond over bond or bridge over
->>> bond or other scenarios, which this patch ignores.
->> I don't think bond over bond is a good configuration. Do you have a =
-real use
->> case for that configuration?
-> Stacking of multiple master devices is absolutelly common.
->
-> You have to go in the upper tree all the way up, for all master devic=
-e
-> types.
-Yep, to make code better. I can do it.
-
-thanks,
-wengang
-
->
->> thanks,
->> wengang
->>
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkZyb206IEFuZHJldyBMdW5u
+IDxhbmRyZXdAbHVubi5jaD4KU2VudDogRnJpZGF5LCBKYW51YXJ5IDIyLCAyMDE2IDU6MTIgQU0K
+VG86IFNoYW9odWkgWGllCkNjOiBTZWJhc3RpYW4gSGVzc2VsYmFydGg7IEZsb3JpYW4gRmFpbmVs
+bGk7IHNoaC54aWVAZ21haWwuY29tOyBkZXZpY2V0cmVlQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZzsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7IGRhdmVtQGRh
+dmVtbG9mdC5uZXQ7IFNoYW9odWkgWGllClN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8zXVt2Ml0gbmV0
+OiBwaHk6IGludHJvZHVjZSAxMDAwQkFTRS1LWCBhbmQgMTBHQkFTRS1LUgoKT24gVHVlLCBKYW4g
+MTksIDIwMTYgYXQgMDU6MDA6MzVBTSArMDAwMCwgU2hhb2h1aSBYaWUgd3JvdGU6Cj4gPiAtLS0t
+LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+ID4gRnJvbTogQW5kcmV3IEx1bm4gW21haWx0bzphbmRy
+ZXdAbHVubi5jaF0KPiA+IFNlbnQ6IE1vbmRheSwgSmFudWFyeSAxOCwgMjAxNiAxMToxNSBQTQo+
+ID4gVG86IFNoYW9odWkgWGllCj4gPiBDYzogU2ViYXN0aWFuIEhlc3NlbGJhcnRoOyBGbG9yaWFu
+IEZhaW5lbGxpOyBzaGgueGllQGdtYWlsLmNvbTsKPiA+IGRldmljZXRyZWVAdmdlci5rZXJuZWwu
+b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eHBwYy0KPiA+IGRldkBsaXN0cy5vemxh
+YnMub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBTaGFvaHVpIFhpZQo+ID4gU3ViamVjdDogUmU6
+IFtQQVRDSCAxLzNdW3YyXSBuZXQ6IHBoeTogaW50cm9kdWNlIDEwMDBCQVNFLUtYIGFuZCAxMEdC
+QVNFLUtSCj4gPgo+ID4gPiBbUy5IXSB0aGUgZnNsIGJhY2twbGFuZSwgZS5nLiAxMEdCQVNFLUtS
+LCBuZWVkcyBzb2Z0d2FyZSB0byBoYW5kbGUKPiA+ID4gbGluayB0cmFpbmluZywgSXQncyB0byB0
+cmFpbiBsaW5rIHBhcnRuZXIsIGFuZCB0cmFpbmVkIGJ5IGxpbmsgcGFydG5lcgo+ID4gcGFyYWxs
+ZWwuCj4gPiA+Cj4gPiA+IEJ1dCBpZiBtZWRpYSB0eXBlIGlzIG5vdCBjb3BwZXIsIGUuZy4gb3B0
+aWNhbCBtb2R1bGUsIHdlIHdvbid0IG5lZWQgdGhpcy4KPiA+Cj4gPiBTbyB3aGF0IHdlIGFjdHVh
+bGx5IG5lZWQgdG8ga25vdyBpcyBjb3BwZXIgdnMgZmlicmU/Cgo+IENvcHBlciBpcyBub3QgZW5v
+dWdoIHRvIGluZGljYXRlIGJhY2twbGFuZSwgc2luY2UgYmFja3BsYW5lIGlzCj4gYWx3YXlzIGNv
+cHBlciwgYnV0IGNvcHBlciBpcyBub3QgYWx3YXlzIGJhY2twbGFuZS4KCj5PLkssIGxldHMgdHJ5
+IGFnYWluLi4uLgoKW1MuSF1TZWVtcyBJIGRpZCBub3QgZ2V0IHlvdXIgcG9pbnQsIFNvcnJ5IGZv
+ciB0aGUgaW5jb252ZW5pZW50LgoKPklmIGl0IGlzIGNvcHBlciBiYWNrcGxhbmUgeW91IG5lZWQg
+dG8gcGVyZm9ybSB0cmFpbmluZy4KCj5Mb29raW5nIGF0IHRoZSBkcml2ZXIgcHJvYmUgZnVuY3Rp
+b24sIGl0IGlzIGVpdGhlciAxMDAwQkFTRS1LWCwgbm8KPnRyYWluaW5nIG5lZWRlZCwgb3IgZWxz
+ZSBpdCBpcyAxMEdCQVNFLVJLIGFuZCB0cmFpbmluZyBpcyBuZWVkZWQuCgo+TG9va2luZyBhdCBm
+c2xfYmFja3BsYW5lX2NvbmZpZ19hbmVnKCkgeW91IGV4cGVjdCBwaHlkZXYtPnNwZWVkIHRvIGJl
+Cj5zZXQsIGFuZCBmcm9tIHRoZSBzcGVlZCB5b3UgdGhlbiBraWNrIG9mIGVpdGhlciBLUiBhdXRv
+bmVnIG9yIEtYCj5hdXRvbmVnLiBDb3VsZCB5b3UgYWxzbyBzdGFydCB0aGUgdHJhaW5pbmcgYXQg
+dGhpcyBwb2ludD8gVXNlIHRoZQo+c3BlZWQgdG8gaW5kaWNhdGUgaWYgdHJhaW5pbmcgaXMgbmVl
+ZGVkPwoKIFtTLkhdVGhlIHRyYWluaW5nIGNhbm5vdCBiZSBzdGFydGVkIGF0IHRoaXMgcG9pbnQs
+IHlldCwgYmVjYXVzZSBpdCdzIGJhc2VkIG9uIAphdXRvbmVnIHJlc3VsdCwgb25seSB3aGVuIGJv
+dGggc2lkZXMgYXV0b25lZy1lZCB0byAxMEctS1IsIHRoZW4gdG8gc3RhcnQKdGhlIHRyYWluaW5n
+LgoKQmVzaWRlcyB0aGUgZHJpdmVyLCBnZW5lcmFsbHkgc3BlYWtpbmcsICJjb3BwZXIgKyBzcGVl
+ZCIgaXMgbm90IGVub3VnaCB0byBpbmRpY2F0ZSAKaXQncyBiYWNrcGxhbmUsIGZvciBleC4gImNv
+cHBlciArIDEwMDAiIGRvZXMgbm90IG1lYW4gaXQgaGFzIHRvIGJlIDEwMDBCQVNFLUtYLCAKaXQg
+Y291bGQgYmUgU0dNSUksIGhlbmNlIGNhbm5vdCB1c2UgS1ggYXV0b25lZy4KCklmIHB1dHRpbmcg
+YmFja3BsYW5lIHByb3BlcnR5IHRvIHBoeS50eHQgaXMgbm90IGdvb2QsIEkgY2FuIHB1dCBpdCB0
+byBmc2wgc3BlY2lmaWMKYmluZGluZywgbGlrZSB0aGUgc2Vjb25kIHBhdGNoIDIvMyBkaWQuCgpU
+aGFuayB5b3UhClNoYW9odWkKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3ps
+YWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
