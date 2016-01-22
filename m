@@ -1,126 +1,102 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] pptp: fix illegal memory access caused by multiple bind()s
-Date: Fri, 22 Jan 2016 01:39:43 +0100
-Message-ID: <1453423183-4211-1-git-send-email-hannes@stressinduktion.org>
-Cc: Dmitry Kozlov <xeb@mail.ru>, Sasha Levin <sasha.levin@oracle.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Dave Jones <davej@codemonkey.org.uk>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
+Date: Thu, 21 Jan 2016 18:44:28 -0800
+Message-ID: <20160122024427.GA6000@ast-mbp.thefacebook.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+	daniel@iogearbox.net
+To: Josh Poimboeuf <jpoimboe@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:45732 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750820AbcAVAjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 19:39:51 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0505220640
-	for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 19:39:50 -0500 (EST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36260 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbcAVCo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2016 21:44:29 -0500
+Content-Disposition: inline
+In-Reply-To: <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several times already this has been reported as kasan reports caused by
-syzkaller and trinity and people always looked at RCU races, but it is
-much more simple. :)
+On Thu, Jan 21, 2016 at 04:49:27PM -0600, Josh Poimboeuf wrote:
+> bpf_jit.S has several callable non-leaf functions which don't honor
+> CONFIG_FRAME_POINTER, which can result in bad stack traces.
+> 
+> Create a stack frame before the call instructions when
+> CONFIG_FRAME_POINTER is enabled.
+> 
+> Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: netdev@vger.kernel.org
+> ---
+>  arch/x86/net/bpf_jit.S | 9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
+> index eb4a3bd..f2a7faf 100644
+> --- a/arch/x86/net/bpf_jit.S
+> +++ b/arch/x86/net/bpf_jit.S
+> @@ -8,6 +8,7 @@
+>   * of the License.
+>   */
+>  #include <linux/linkage.h>
+> +#include <asm/frame.h>
+>  
+>  /*
+>   * Calling convention :
+> @@ -65,16 +66,18 @@ FUNC(sk_load_byte_positive_offset)
+>  
+>  /* rsi contains offset and can be scratched */
+>  #define bpf_slow_path_common(LEN)		\
+> +	lea	-MAX_BPF_STACK + 32(%rbp), %rdx;\
+> +	FRAME_BEGIN;				\
+>  	mov	%rbx, %rdi; /* arg1 == skb */	\
+>  	push	%r9;				\
+>  	push	SKBDATA;			\
+>  /* rsi already has offset */			\
+>  	mov	$LEN,%ecx;	/* len */	\
+> -	lea	- MAX_BPF_STACK + 32(%rbp),%rdx;			\
+>  	call	skb_copy_bits;			\
+>  	test    %eax,%eax;			\
+>  	pop	SKBDATA;			\
+> -	pop	%r9;
+> +	pop	%r9;				\
+> +	FRAME_END
 
-In case we bind a pptp socket multiple times, we simply add it to
-the callid_sock list but don't remove the old binding. Thus the old
-socket stays in the bucket with unused call_id indexes and doesn't get
-cleaned up. This causes various forms of kasan reports which were hard
-to pinpoint.
-
-Simply don't allow multiple binds and correct error handling in
-pptp_bind. Also keep sk_state bits in place in pptp_connect.
-
-Fixes: 00959ade36acad ("PPTP: PPP over IPv4 (Point-to-Point Tunneling Protocol)")
-Cc: Dmitry Kozlov <xeb@mail.ru>
-Cc: Sasha Levin <sasha.levin@oracle.com>
-Cc: Dmitry Vyukov <dvyukov@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Dave Jones <davej@codemonkey.org.uk>
-Reported-by: Dave Jones <davej@codemonkey.org.uk>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- drivers/net/ppp/pptp.c | 34 ++++++++++++++++++++++++----------
- 1 file changed, 24 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index 90868ca5e3412f..ae0905ed4a32b5 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -129,24 +129,27 @@ static int lookup_chan_dst(u16 call_id, __be32 d_addr)
- 	return i < MAX_CALLID;
- }
- 
--static int add_chan(struct pppox_sock *sock)
-+static int add_chan(struct pppox_sock *sock,
-+		    struct pptp_addr *sa)
- {
- 	static int call_id;
- 
- 	spin_lock(&chan_lock);
--	if (!sock->proto.pptp.src_addr.call_id)	{
-+	if (!sa->call_id)	{
- 		call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, call_id + 1);
- 		if (call_id == MAX_CALLID) {
- 			call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
- 			if (call_id == MAX_CALLID)
- 				goto out_err;
- 		}
--		sock->proto.pptp.src_addr.call_id = call_id;
--	} else if (test_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap))
-+		sa->call_id = call_id;
-+	} else if (test_bit(sa->call_id, callid_bitmap)) {
- 		goto out_err;
-+	}
- 
--	set_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
--	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], sock);
-+	sock->proto.pptp.src_addr = *sa;
-+	set_bit(sa->call_id, callid_bitmap);
-+	rcu_assign_pointer(callid_sock[sa->call_id], sock);
- 	spin_unlock(&chan_lock);
- 
- 	return 0;
-@@ -416,7 +419,6 @@ static int pptp_bind(struct socket *sock, struct sockaddr *uservaddr,
- 	struct sock *sk = sock->sk;
- 	struct sockaddr_pppox *sp = (struct sockaddr_pppox *) uservaddr;
- 	struct pppox_sock *po = pppox_sk(sk);
--	struct pptp_opt *opt = &po->proto.pptp;
- 	int error = 0;
- 
- 	if (sockaddr_len < sizeof(struct sockaddr_pppox))
-@@ -424,10 +426,22 @@ static int pptp_bind(struct socket *sock, struct sockaddr *uservaddr,
- 
- 	lock_sock(sk);
- 
--	opt->src_addr = sp->sa_addr.pptp;
--	if (add_chan(po))
-+	if (sk->sk_state & PPPOX_DEAD) {
-+		error = -EALREADY;
-+		goto out;
-+	}
-+
-+	if (sk->sk_state & PPPOX_BOUND) {
- 		error = -EBUSY;
-+		goto out;
-+	}
-+
-+	if (add_chan(po, &sp->sa_addr.pptp))
-+		error = -EBUSY;
-+	else
-+		sk->sk_state |= PPPOX_BOUND;
- 
-+out:
- 	release_sock(sk);
- 	return error;
- }
-@@ -498,7 +512,7 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	}
- 
- 	opt->dst_addr = sp->sa_addr.pptp;
--	sk->sk_state = PPPOX_CONNECTED;
-+	sk->sk_state |= PPPOX_CONNECTED;
- 
-  end:
- 	release_sock(sk);
--- 
-2.5.0
+I'm not sure what above is doing.
+There is already 'push rbp; mov rbp,rsp' at the beginning of generated
+code and with above the stack trace will show two function at the same ip?
+since there were no calls between them?
+I think the stack walker will get even more confused?
+Also the JIT of bpf_call insn will emit variable number of push/pop
+around the call and I definitely don't want to add extra push rbp
+there, since it's the critical path and callee will do its own
+push rbp.
+Also there are push/pops emitted around div/mod
+and there is indirect goto emitted as well for bpf_tail_call
+that jumps into different function body without touching
+current stack.
+Also none of the JITed function are dwarf annotated.
+I could be missing something. I think either this patch
+is not need or you need to teach the tool to ignore
+all JITed stuff. I don't think it's practical to annotate
+everything. Different JITs do their own magic.
+s390 JIT is even more fancy.
