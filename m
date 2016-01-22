@@ -1,98 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v4)
-Date: Fri, 22 Jan 2016 07:52:07 +0100
-Message-ID: <20160122065207.GA2211@nanopsycho.orion>
-References: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
- <20160121083506.GA2251@nanopsycho.orion>
- <56A1AE48.4000908@oracle.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH 23/33] x86/asm/bpf: Create stack frames in bpf_jit.S
+Date: Fri, 22 Jan 2016 08:36:38 +0100
+Message-ID: <20160122073638.GA28042@gmail.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <fa4c41976b438b51954cb8021f06bceb1d1d66cc.1453405861.git.jpoimboe@redhat.com>
+ <20160122024427.GA6000@ast-mbp.thefacebook.com>
+ <20160122035531.GA20502@treble.redhat.com>
+ <20160122041845.GA7175@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sd@queasysnail.net,
-	jay.vosburgh@canonical.com, zyjzyj2000@gmail.com
-To: Wengang Wang <wen.gang.wang@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Josh Poimboeuf <jpoimboe@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+	daniel@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35730 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbcAVGwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 01:52:10 -0500
-Received: by mail-wm0-f67.google.com with SMTP id 123so15413680wmz.2
-        for <netdev@vger.kernel.org>; Thu, 21 Jan 2016 22:52:10 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35467 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273AbcAVHgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 02:36:44 -0500
 Content-Disposition: inline
-In-Reply-To: <56A1AE48.4000908@oracle.com>
+In-Reply-To: <20160122041845.GA7175@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ri, Jan 22, 2016 at 05:21:28AM CET, wen.gang.wang@oracle.com wrote:
->
->
->=E5=9C=A8 2016=E5=B9=B401=E6=9C=8821=E6=97=A5 16:35, Jiri Pirko =E5=86=
-=99=E9=81=93:
->>Thu, Jan 21, 2016 at 06:32:58AM CET, wen.gang.wang@oracle.com wrote:
->>>In a bonding setting, we determines fragment size according to MTU a=
-nd
->>>PMTU associated to the bonding master. If the slave finds the fragme=
-nt
->>>size is too big, it drops the fragment and calls ip_rt_update_pmtu()=
-,
->>>passing _skb_ and _pmtu_, trying to update the path MTU.
->>>Problem is that the target device that function ip_rt_update_pmtu ac=
-tually
->>>tries to update is the slave (skb->dev), not the master. Thus since =
-no
->>>PMTU change happens on master, the fragment size for later packets d=
-oesn't
->>>change so all later fragments/packets are dropped too.
->>>
->>>The fix is letting build_skb_flow_key() take care of the transition =
-of
->>>device index from bonding slave to the master. That makes the master=
- become
->>>the target device that ip_rt_update_pmtu tries to update PMTU to.
->>>
->>>Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->>>---
->>>net/ipv4/route.c | 9 +++++++++
->>>1 file changed, 9 insertions(+)
->>>
->>>diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->>>index 85f184e..7e766b5 100644
->>>--- a/net/ipv4/route.c
->>>+++ b/net/ipv4/route.c
->>>@@ -524,10 +524,19 @@ static void build_skb_flow_key(struct flowi4 *=
-fl4, const struct sk_buff *skb,
->>>{
->>>	const struct iphdr *iph =3D ip_hdr(skb);
->>>	int oif =3D skb->dev->ifindex;
->>>+	struct net_device *master;
->>>	u8 tos =3D RT_TOS(iph->tos);
->>>	u8 prot =3D iph->protocol;
->>>	u32 mark =3D skb->mark;
->>>
->>>+	if (netif_is_bond_slave(skb->dev)) {
->>>+		rcu_read_lock();
->>>+		master =3D netdev_master_upper_dev_get_rcu(skb->dev);
->>>+		if (master)
->>>+			oif =3D master->ifindex;
->>>+		rcu_read_unlock();
->>>+	}
->>This is certainly not correct as it should not be bond-specific but
->>rather generic.
->
->Then what you would suggest to fix it?
->>Note that you may have bond over bond or bridge over
->>bond or other scenarios, which this patch ignores.
->I don't think bond over bond is a good configuration. Do you have a re=
-al use
->case for that configuration?
 
-Stacking of multiple master devices is absolutelly common.
+* Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-You have to go in the upper tree all the way up, for all master device
-types.
+> > > I could be missing something. I think either this patch is not need or you 
+> > > need to teach the tool to ignore all JITed stuff. I don't think it's 
+> > > practical to annotate everything. Different JITs do their own magic. s390 
+> > > JIT is even more fancy.
+> > 
+> > Well, but the point of these patches isn't to make the tool happy.  It's 
+> > really to make sure that runtime stack traces can be made reliable. Maybe I'm 
+> > missing something but I don't see why JIT code can't honor 
+> > CONFIG_FRAME_POINTER just like any other code.
+> 
+> It can if there is no performance cost added. I can speak for x64 JIT, but the 
+> rest needs to be analyzed as well. My point was that may be it's easier to 
+> ignore all JITed code and just say that such call stacks may be unreliable? 
+> live-patching is not applicable to JITed code anyway or you want to livepatch 
+> the callees of it?
 
+So the rule is that if frame pointers are enabled all kernel code should have 
+correct stack frames - in case an IRQ (or NMI) hits it or it crashes.
 
->
->thanks,
->wengang
->
+Thanks,
+
+	Ingo
