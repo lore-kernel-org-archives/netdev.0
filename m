@@ -1,77 +1,66 @@
-From: Andrew Lunn <andrew@lunn.ch>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Subject: Re: [PATCH] net: dsa: fix mv88e6xxx switches
-Date: Sat, 23 Jan 2016 20:37:05 +0100
-Message-ID: <20160123193705.GE3880@lunn.ch>
+Date: Sat, 23 Jan 2016 19:48:57 +0000
+Message-ID: <20160123194856.GB10826@n2100.arm.linux.org.uk>
 References: <E1aMvmm-0006G3-8T@rmk-PC.arm.linux.org.uk>
  <20160123181526.GD3880@lunn.ch>
  <20160123190622.GA10826@n2100.arm.linux.org.uk>
+ <20160123193705.GE3880@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41354 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753968AbcAWThK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jan 2016 14:37:10 -0500
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:59018 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753266AbcAWTtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 14:49:03 -0500
 Content-Disposition: inline
-In-Reply-To: <20160123190622.GA10826@n2100.arm.linux.org.uk>
+In-Reply-To: <20160123193705.GE3880@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 23, 2016 at 07:06:22PM +0000, Russell King - ARM Linux wrote:
-> On Sat, Jan 23, 2016 at 07:15:26PM +0100, Andrew Lunn wrote:
-> > Thanks for digging into this.
-> 
-> I hope you saw v2, which is functionally identical.
+On Sat, Jan 23, 2016 at 08:37:05PM +0100, Andrew Lunn wrote:
+> I'm testing on a 6172. But 6172 and 6176 are both in the same family
+> 6352, and share the same driver.
 
-No, not yet. I will go look for it.
- 
-> > I think this is a step towards a solution, but does not solve all the
-> > problems.
-> > 
-> > e.g. I have a switch interface lan0 with the IP address
-> > 192.168.10.2. I can ping this address from another host. I then take
-> > the IP address off the interface, create a br0 device, add lan0 to the
-> > bridge, and put 192.168.10.2 onto the bridge. I should be able to then
-> > ping the address. But it does not work.
-> 
-> That works for me.  Maybe it's differences in the switch device?  I
-> seem to remember you said your switch was an older generation than
-> mine (88E6176).
+Hmm, can't be that then.
 
-I'm testing on a 6172. But 6172 and 6176 are both in the same family
-6352, and share the same driver.
+> So you initially have lan1 in an bridge. I don't.
 
-> root@clearfog:~# brctl show br0
-> bridge name     bridge id               STP enabled     interfaces
-> br0             8000.005043020202       no              lan1
->                                                         lan2
->                                                         lan3
->                                                         lan4
->                                                         lan5
->                                                         lan6
+Okay, I've disabled br0 in the debian network/interfaces and rebooted.
+This means eth0 (connected to the bridge) is initially down, along with
+all the lan interfaces.
 
-So you initially have lan1 in an bridge. I don't.
+root@clearfog:~# brctl show br0
+bridge name     bridge id               STP enabled     interfaces
+br0             can't get info No such device
+root@clearfog:~# ip link set eth0 up
+root@clearfog:~# ip link set lan5 up
+root@clearfog:~# ip addr add 192.168.254.3/24 dev lan5
+root@clearfog:~# ping 192.168.254.254
+PING 192.168.254.254 (192.168.254.254) 56(84) bytes of data.
+64 bytes from 192.168.254.254: icmp_seq=1 ttl=64 time=1.15 ms
+64 bytes from 192.168.254.254: icmp_seq=2 ttl=64 time=0.686 ms
+^C
+--- 192.168.254.254 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.686/0.921/1.157/0.237 ms
+root@clearfog:~# ip addr del 192.168.254.3/24 dev lan5
+root@clearfog:~# brctl addbr br0
+root@clearfog:~# brctl addif br0 lan5
+root@clearfog:~# ip link set br0 up
+root@clearfog:~# ip addr add 192.168.254.3/24 dev br0
+root@clearfog:~# ping 192.168.254.254
+PING 192.168.254.254 (192.168.254.254) 56(84) bytes of data.
+64 bytes from 192.168.254.254: icmp_seq=1 ttl=64 time=1.18 ms
+^C
+--- 192.168.254.254 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 1.189/1.189/1.189/0.000 ms
 
-root@370-rd:~# ip link set lan0 up                                                             
-root@370-rd:~# ip addr add 192.168.10.2/24 dev lan0                                            
-root@370-rd:~# ping 192.168.10.1                                                
-PING 192.168.10.1 (192.168.10.1) 56(84) bytes of data.                          
-64 bytes from 192.168.10.1: icmp_seq=1 ttl=64 time=1.69 ms                      
-64 bytes from 192.168.10.1: icmp_seq=2 ttl=64 time=0.953 ms                     
-64 bytes from 192.168.10.1: icmp_seq=3 ttl=64 time=0.926 ms    
-
-root@370-rd:~# ip addr del 192.168.10.2/24 dev lan0
-root@370-rd:~# brctl addbr br0
-root@370-rd:~# brctl addif br0 lan0
-root@370-rd:~# ip link set br0 up
-root@370-rd:~# ip addr add 192.168.10.2/24 dev br0                              
-root@370-rd:~# ping 192.168.10.1                                                
-PING 192.168.10.1 (192.168.10.1) 56(84) bytes of data.                          
-^C                                                                              
---- 192.168.10.1 ping statistics ---                                            
-3 packets transmitted, 0 received, 100% packet loss, time 2001ms    
-
-  Andrew
+-- 
+RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
