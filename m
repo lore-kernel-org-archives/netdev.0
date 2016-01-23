@@ -1,142 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] dump_stack: avoid potential deadlocks
-Date: Fri, 22 Jan 2016 23:06:44 -0800
-Message-ID: <1453532804.1223.443.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] Netlink messages for multicast HW addr programming
+Date: Sat, 23 Jan 2016 08:53:31 +0100
+Message-ID: <20160123075331.GA2193@nanopsycho.orion>
+References: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
+ <20160121200419.GB2251@nanopsycho.orion>
+ <1453474315.20378.7.camel@brocade.com>
+ <20160122150508.GD2211@nanopsycho.orion>
+ <1453477775.20378.15.camel@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alex Thorlton <athorlton@sgi.com>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Stapleton <dstaplet@Brocade.com>,
+	Olufemi Komolafe <okomolaf@Brocade.com>,
+	Stephen Hemminger <shemming@Brocade.com>
+To: Patrick Ruddy <pruddy@Brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33856 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbcAWHGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 02:06:46 -0500
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33525 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbcAWHxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 02:53:34 -0500
+Received: by mail-wm0-f66.google.com with SMTP id u188so1838334wmu.0
+        for <netdev@vger.kernel.org>; Fri, 22 Jan 2016 23:53:34 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1453477775.20378.15.camel@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Fri, Jan 22, 2016 at 04:49:36PM CET, pruddy@Brocade.com wrote:
+>On Fri, 2016-01-22 at 16:05 +0100, Jiri Pirko wrote:
+>> Fri, Jan 22, 2016 at 03:51:55PM CET, pruddy@Brocade.com wrote:
+>> >On Thu, 2016-01-21 at 21:04 +0100, Jiri Pirko wrote:
+>> >> Thu, Jan 21, 2016 at 12:47:54PM CET, pruddy@brocade.com wrote:
+>> >> >Add RTM_NEWADDR and RTM_DELADDR netlink messages to indicate
+>> >> >interest in specific multicast hardware addresses. These messages
+>> >> >are sent when addressed are added or deleted from the appropriate
+>> >> >interface driver.
+>> >> >
+>> >> >Signed-off-by: Patrick Ruddy <pruddy@brocade.com>
+>> >> >
+>> >> >diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+>> >> >index c0548d2..a0ebadd 100644
+>> >> >--- a/net/core/dev_addr_lists.c
+>> >> >+++ b/net/core/dev_addr_lists.c
+>> >> >@@ -12,6 +12,7 @@
+>> >> >  */
+>> >> > 
+>> >> > #include <linux/netdevice.h>
+>> >> >+#include <net/netlink.h>
+>> >> > #include <linux/rtnetlink.h>
+>> >> > #include <linux/export.h>
+>> >> > #include <linux/list.h>
+>> >> >@@ -661,6 +662,62 @@ out:
+>> >> > }
+>> >> > EXPORT_SYMBOL(dev_mc_add_excl);
+>> >> > 
+>> >> >+static int fill_addr(struct sk_buff *skb, struct net_device *dev,
+>> >> >+		     const unsigned char *addr, int type)
+>> >> >+{
+>> >> >+	struct nlmsghdr *nlh;
+>> >> >+	struct ifaddrmsg *ifm;
+>> >> >+
+>> >> >+	nlh = nlmsg_put(skb, 0, 0, type, sizeof(*ifm), 0);
+>> >> >+	if (nlh == NULL)
+>> >> >+		return -EMSGSIZE;
+>> >> >+
+>> >> >+	ifm = nlmsg_data(nlh);
+>> >> >+	ifm->ifa_family = AF_UNSPEC;
+>> >> >+	ifm->ifa_prefixlen = 0;
+>> >> >+	ifm->ifa_flags = IFA_F_PERMANENT;
+>> >> >+	ifm->ifa_scope = RT_SCOPE_LINK;
+>> >> >+	ifm->ifa_index = dev->ifindex;
+>> >> >+	if (nla_put(skb, IFA_ADDRESS, dev->addr_len, addr))
+>> >> >+		goto nla_put_failure;
+>> >> >+	nlmsg_end(skb, nlh);
+>> >> 
+>> >> How can userspace tell if this is a multicast addr? Also, why not add
+>> >> notifications for unicast addrs so we handle both the same?
+>> >
+>> >I am only using this RTM_NEW/DELADDR AF_UNSPEC message for multicast
+>> >addresses. I understand that the unicast addresses are notified in the
+>> >RTM_NEW/DELLINK.
+>> 
+>> dev->dev_addr is notified by that. UC addresses do not have any
+>> notification now.
+>It is the multicast MAC address (ie the multicast equivalent of the
+>dev_addr) that we are notifying here right? Not L3 addresses.
 
-Some servers experienced fatal deadlocks because of a combination
-of bugs, leading to multiple cpus calling dump_stack().
+I know :)
 
-The checksumming bug was fixed in commit 34ae6a1aa054
-("ipv6: update skb->csum when CE mark is propagated").
+For example if kernel code calls dev_uc_add or dev_uc_del, thise
+addresses are not notified to the userspace. All I'm saying is, if you
+add notification for dev_mc_add and dev_mc_del, add it for uc variants
+as well. Then you have to distinguish mc and uc in the netlink message.
 
-The second problem is a faulty locking in dump_stack()
-
-CPU1 runs in process context and calls dump_stack(), grabs dump_lock.
-
-   CPU2 receives a TCP packet under softirq, grabs socket spinlock, and
-   call dump_stack() from netdev_rx_csum_fault().
-
-   dump_stack() spins on atomic_cmpxchg(&dump_lock, -1, 2), since
-   dump_lock is owned by CPU1
-
-While dumping its stack, CPU1 is interrupted by a softirq, and happens
-to process a packet for the TCP socket locked by CPU2.
-
-CPU1 spins forever in spin_lock() : deadlock
-
-Stack trace on CPU1 looked like :
-
-[306295.402231] NMI backtrace for cpu 1
-[306295.402238] RIP: 0010:[<ffffffffa9804e95>]  [<ffffffffa9804e95>] _raw_spin_lock+0x25/0x30
-...
-[306295.402255] Stack:
-[306295.402256]  ffff88407f023cb0 ffffffffa99cbdc3 ffff88407f023ca0 ffff88012f496bb0
-[306295.402266]  ffffffffaa4dc1f0 ffff8820d94f0dc0 000000000000000a ffffffffaa4b4280
-[306295.402275]  ffff88407f023ce0 ffffffffa98a21d0 ffff88407f023cc0 ffff88407f023ca0
-[306295.402284] Call Trace:
-[306295.402286]  <IRQ> 
-[306295.402288] 
-[306295.402291]  [<ffffffffa99cbdc3>] tcp_v6_rcv+0x243/0x620
-[306295.402304]  [<ffffffffa99c38af>] ip6_input_finish+0x11f/0x330
-[306295.402309]  [<ffffffffa99c3b38>] ip6_input+0x38/0x40
-[306295.402313]  [<ffffffffa99c3b7c>] ip6_rcv_finish+0x3c/0x90
-[306295.402318]  [<ffffffffa99c3e79>] ipv6_rcv+0x2a9/0x500
-[306295.402323]  [<ffffffffa989a1a1>] process_backlog+0x461/0xaa0
-[306295.402332]  [<ffffffffa9899a57>] net_rx_action+0x147/0x430
-[306295.402337]  [<ffffffffa980cca7>] __do_softirq+0x167/0x2d0
-[306295.402341]  [<ffffffffa9d912dc>] call_softirq+0x1c/0x30
-[306295.402345]  [<ffffffffa980687f>] do_softirq+0x3f/0x80
-[306295.402350]  [<ffffffffa980cf7e>] irq_exit+0x6e/0xc0
-[306295.402355]  [<ffffffffa980a5b5>] smp_call_function_single_interrupt+0x35/0x40
-[306295.402360]  [<ffffffffa9d90bfa>] call_function_single_interrupt+0x6a/0x70
-[306295.402361]  <EOI> 
-[306295.402364] 
-[306295.402376]  [<ffffffffa9a3fa32>] printk+0x4d/0x4f
-[306295.402390]  [<ffffffffa99e1726>] printk_address+0x31/0x33
-[306295.402395]  [<ffffffffa99e175b>] print_trace_address+0x33/0x3c
-[306295.402408]  [<ffffffffa99e165b>] print_context_stack+0x7f/0x119
-[306295.402412]  [<ffffffffa99e07f1>] dump_trace+0x26b/0x28e
-[306295.402417]  [<ffffffffa99e17b3>] show_trace_log_lvl+0x4f/0x5c
-[306295.402421]  [<ffffffffa99e0a14>] show_stack_log_lvl+0x104/0x113
-[306295.402425]  [<ffffffffa99e1819>] show_stack+0x42/0x44
-[306295.402429]  [<ffffffffa9ba350a>] dump_stack+0x46/0x58
-[306295.402434]  [<ffffffffa9d0957d>] netdev_rx_csum_fault+0x38/0x3c
-[306295.402439]  [<ffffffffa9988e0e>] __skb_checksum_complete_head+0x6e/0x80
-[306295.402444]  [<ffffffffa9988e31>] __skb_checksum_complete+0x11/0x20
-[306295.402449]  [<ffffffffa98acf65>] tcp_rcv_established+0x2bd5/0x2fd0
-[306295.402468]  [<ffffffffa99cb69c>] tcp_v6_do_rcv+0x13c/0x620
-[306295.402477]  [<ffffffffa9984be5>] sk_backlog_rcv+0x15/0x30
-[306295.402482]  [<ffffffffa98931e2>] release_sock+0xd2/0x150
-[306295.402486]  [<ffffffffa98a51b1>] tcp_recvmsg+0x1c1/0xfc0
-[306295.402491]  [<ffffffffa98b637d>] inet_recvmsg+0x7d/0x90
-[306295.402495]  [<ffffffffa9891fcf>] sock_recvmsg+0xaf/0xe0
-[306295.402505]  [<ffffffffa9892611>] ___sys_recvmsg+0x111/0x3b0
-[306295.402528]  [<ffffffffa9892f5c>] SyS_recvmsg+0x5c/0xb0
-[306295.402532]  [<ffffffffa9d8fba2>] system_call_fastpath+0x16/0x1b
-
-
-Fixes: b58d977432c8 ("dump_stack: serialize the output from dump_stack()")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alex Thorlton <athorlton@sgi.com>
----
- lib/dump_stack.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/lib/dump_stack.c b/lib/dump_stack.c
-index 6745c6230db3..c30d07e99dba 100644
---- a/lib/dump_stack.c
-+++ b/lib/dump_stack.c
-@@ -25,6 +25,7 @@ static atomic_t dump_lock = ATOMIC_INIT(-1);
- 
- asmlinkage __visible void dump_stack(void)
- {
-+	unsigned long flags;
- 	int was_locked;
- 	int old;
- 	int cpu;
-@@ -33,9 +34,8 @@ asmlinkage __visible void dump_stack(void)
- 	 * Permit this cpu to perform nested stack dumps while serialising
- 	 * against other CPUs
- 	 */
--	preempt_disable();
--
- retry:
-+	local_irq_save(flags);
- 	cpu = smp_processor_id();
- 	old = atomic_cmpxchg(&dump_lock, -1, cpu);
- 	if (old == -1) {
-@@ -43,6 +43,7 @@ retry:
- 	} else if (old == cpu) {
- 		was_locked = 1;
- 	} else {
-+		local_irq_restore(flags);
- 		cpu_relax();
- 		goto retry;
- 	}
-@@ -52,7 +53,7 @@ retry:
- 	if (!was_locked)
- 		atomic_set(&dump_lock, -1);
- 
--	preempt_enable();
-+	local_irq_restore(flags);
- }
- #else
- asmlinkage __visible void dump_stack(void)
+>
+>-pr
+>
