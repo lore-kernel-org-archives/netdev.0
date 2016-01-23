@@ -1,7 +1,7 @@
-From: Andrew Lunn <andrew@lunn.ch>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Subject: Re: [PATCH] net: dsa: fix mv88e6xxx switches
-Date: Sat, 23 Jan 2016 23:23:26 +0100
-Message-ID: <20160123222326.GK3880@lunn.ch>
+Date: Sat, 23 Jan 2016 23:31:17 +0000
+Message-ID: <20160123233116.GD10826@n2100.arm.linux.org.uk>
 References: <E1aMvmm-0006G3-8T@rmk-PC.arm.linux.org.uk>
  <20160123181526.GD3880@lunn.ch>
  <20160123190622.GA10826@n2100.arm.linux.org.uk>
@@ -10,47 +10,40 @@ References: <E1aMvmm-0006G3-8T@rmk-PC.arm.linux.org.uk>
  <20160123201647.GH3880@lunn.ch>
  <20160123204416.GC10826@n2100.arm.linux.org.uk>
  <20160123221232.GJ3880@lunn.ch>
+ <20160123222326.GK3880@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41393 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755220AbcAWWX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jan 2016 17:23:29 -0500
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:59294 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751608AbcAWXbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 18:31:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20160123221232.GJ3880@lunn.ch>
+In-Reply-To: <20160123222326.GK3880@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 23, 2016 at 11:12:32PM +0100, Andrew Lunn wrote:
-> > This shows port 0 is on vlan 0, but it should default to vlan 1 when
-> > no vlans are configured.  The patch below should at least allow some
-> > diagnosis of what's being requested, and when.
+On Sat, Jan 23, 2016 at 11:23:26PM +0100, Andrew Lunn wrote:
+> On Sat, Jan 23, 2016 at 11:12:32PM +0100, Andrew Lunn wrote:
+> > Hi Russell
 > > 
-> > diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> > index a43354ed0607..8a9cf67eb16d 100644
-> > --- a/drivers/net/dsa/mv88e6xxx.c
-> > +++ b/drivers/net/dsa/mv88e6xxx.c
-> > @@ -1511,6 +1511,9 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
-> >  	u16 vid;
-> >  	int err = 0;
-> >  
-> > +	printk("%s: port %d vid %u-%u flags %x\n",
-> > +		__func__, port, vlan->vid_begin, vlan->vid_end, vlan->flags);
-> > +
+> > Never called.
+> > 
+> > So i guess we have a kernel configuration difference.
+> > 
+> > I don't have CONFIG_BRIDGE_VLAN_FILTERING.
 > 
-> Hi Russell
-> 
-> Never called.
-> 
-> So i guess we have a kernel configuration difference.
-> 
-> I don't have CONFIG_BRIDGE_VLAN_FILTERING.
+> Yep, confirmed. When i enable this option, and VLAN_8021Q which it
+> depends on, i then have a working bridge.
 
-Yep, confirmed. When i enable this option, and VLAN_8021Q which it
-depends on, i then have a working bridge.
+It sounds like Vivien urgently needs to do some extra work to fix
+the patches that created all this broken-ness, or we need to ask
+davem to revert back to a known good working state.
 
-	Andrew
+-- 
+RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
