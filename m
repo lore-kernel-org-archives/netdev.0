@@ -1,93 +1,54 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH] net: dsa: fix mv88e6xxx switches
-Date: Sat, 23 Jan 2016 10:51:16 +0000
-Message-ID: <E1aMvmm-0006G3-8T@rmk-PC.arm.linux.org.uk>
+From: Thomas Egerer <hakke_007@gmx.de>
+Subject: [PATCH] ipv4+ipv6: Make INET*_ESP select CRYPTO_ECHAINIV
+Date: Sat, 23 Jan 2016 14:30:56 +0100
+Message-ID: <56A38090.5030909@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:58278 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbcAWKvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 05:51:22 -0500
-Content-Disposition: inline
+Received: from mout.gmx.net ([212.227.15.15]:61418 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752582AbcAWNaE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jan 2016 08:30:04 -0500
+Received: from [192.168.178.113] ([87.157.62.212]) by mail.gmx.com (mrgmx003)
+ with ESMTPSA (Nemesis) id 0MTkNU-1aVsDJ3n72-00QVMQ for
+ <netdev@vger.kernel.org>; Sat, 23 Jan 2016 14:30:01 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 76e398a62712 ("net: dsa: use switchdev obj for VLAN add/del
-ops"), the Marvell 88E6xxx switch has been unable to pass traffic
-between ports - any received traffic is discarded by the switch.
-Taking a port out of bridge mode and configuring a vlan on it also the
-port to start passing traffic.
+The ESP algorithms using CBC mode require echainiv. Hence INET*_ESP have
+to select CRYPTO_ECHAINIV in order to work properly. This solves the
+issues caused by a misconfiguration as described in [1].
+The original approach, patching crypto/Kconfig was turned down by
+Herbert Xu [2].
 
-With the debugfs files re-instated to allow debug of this issue by
-comparing the register settings between the working and non-working
-case, the reason becomes clear:
+[1] https://lists.strongswan.org/pipermail/users/2015-December/009074.html
+[2] http://marc.info/?l=linux-crypto-vger&m=145224655809562&w=2
 
-     GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
-- 7:  1111    707f    2001     2    2    2    2    2    0    2
-+ 7:  1111    707f    2001     1    1    1    1    1    0    1
-
-Register 7 for the ports is the default vlan tag register, and in the
-non-working setup, it has been set to 2, despite vlan 2 not being
-configured.  This causes the switch to drop all packets coming in to
-these ports.  The working setup has the default vlan tag register set
-to 1, which is the default vlan when none is configured.
-
-Inspection of the code reveals why.  The code prior to this commit
-was:
-
--		for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-...
--			if (!err && vlan->flags & BRIDGE_VLAN_INFO_PVID)
--				err = ds->drv->port_pvid_set(ds, p->port, vid);
-
-but the new code is:
-
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-...
-+	}
-...
-+	if (pvid)
-+		err = _mv88e6xxx_port_pvid_set(ds, port, vid);
-
-This causes the new code to always set the default vlan to one higher
-than the old code.
-
-Fix this.
-
-Fixes: 76e398a62712 ("net: dsa: use switchdev obj for VLAN add/del ops")
-Cc: <stable@vger.kernel.org>
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Thomas Egerer <hakke_007@gmx.de>
 ---
-As this is a regression on 4.4 compared to 4.3, I've added the stable
-tag.
+ net/ipv4/Kconfig | 1 +
+ net/ipv6/Kconfig | 1 +
+ 2 files changed, 2 insertions(+)
 
- drivers/net/dsa/mv88e6xxx.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b06dba05594a..bf622675397d 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1515,11 +1515,12 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 		err = _mv88e6xxx_port_vlan_add(ds, port, vid, untagged);
- 		if (err)
- 			goto unlock;
-+
-+		/* no PVID with ranges, otherwise it's a bug */
-+		if (pvid)
-+			err = _mv88e6xxx_port_pvid_set(ds, port, vid);
- 	}
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index c229205..7758247 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -353,6 +353,7 @@ config INET_ESP
+ 	select CRYPTO_CBC
+ 	select CRYPTO_SHA1
+ 	select CRYPTO_DES
++	select CRYPTO_ECHAINIV
+ 	---help---
+ 	  Support for IPsec ESP.
  
--	/* no PVID with ranges, otherwise it's a bug */
--	if (pvid)
--		err = _mv88e6xxx_port_pvid_set(ds, port, vid);
- unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
--- 
-2.1.0
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index bb7dabe..40c8975 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -69,6 +69,7 @@ config INET6_ESP
+ 	select CRYPTO_CBC
+ 	select CRYPTO_SHA1
+ 	select CRYPTO_DES
