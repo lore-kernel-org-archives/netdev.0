@@ -1,119 +1,142 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] lan78xx: changed to use updated phy-ignore-interrupts
-Date: Fri, 22 Jan 2016 19:33:40 -0800
-Message-ID: <56A2F494.50900@gmail.com>
-References: <9235D6609DB808459E95D78E17F2E43D4049C34C@CHN-SV-EXMX02.mchp-main.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] dump_stack: avoid potential deadlocks
+Date: Fri, 22 Jan 2016 23:06:44 -0800
+Message-ID: <1453532804.1223.443.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com, davem@davemloft.net
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Alex Thorlton <athorlton@sgi.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:33920 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755232AbcAWDdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 22:33:43 -0500
-Received: by mail-ob0-f174.google.com with SMTP id vt7so78389133obb.1
-        for <netdev@vger.kernel.org>; Fri, 22 Jan 2016 19:33:43 -0800 (PST)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D4049C34C@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33856 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770AbcAWHGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 02:06:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/01/2016 12:15, Woojung.Huh@microchip.com wrote:
-> Update lan78xx to use patch of commit 4f2aaf7dd95b
-> ("Merge branch 'fix-phy-ignore-interrupts'")
+From: Eric Dumazet <edumazet@google.com>
 
-Looks fine, just one nit below:
+Some servers experienced fatal deadlocks because of a combination
+of bugs, leading to multiple cpus calling dump_stack().
 
-> 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
-> ---
->  drivers/net/usb/lan78xx.c | 28 ++++++++++++++--------------
->  1 file changed, 14 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-> index 2ed5333..85ca7de 100644
-> --- a/drivers/net/usb/lan78xx.c
-> +++ b/drivers/net/usb/lan78xx.c
-> @@ -36,7 +36,7 @@
->  #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
->  #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
->  #define DRIVER_NAME	"lan78xx"
-> -#define DRIVER_VERSION	"1.0.1"
-> +#define DRIVER_VERSION	"1.0.2"
->  
->  #define TX_TIMEOUT_JIFFIES		(5 * HZ)
->  #define THROTTLE_JIFFIES		(HZ / 8)
-> @@ -914,6 +914,8 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
->  		ret = lan78xx_write_reg(dev, MAC_CR, buf);
->  		if (unlikely(ret < 0))
->  			return -EIO;
-> +
-> +		phy_mac_interrupt(phydev, 0);
->  	} else if (phydev->link && !dev->link_on) {
->  		dev->link_on = true;
->  
-> @@ -954,6 +956,7 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
->  
->  		ret = lan78xx_update_flowcontrol(dev, ecmd.duplex, ladv, radv);
->  		netif_carrier_on(dev->net);
+The checksumming bug was fixed in commit 34ae6a1aa054
+("ipv6: update skb->csum when CE mark is propagated").
 
-Do you need this netif_carrier_on() call here? PHYLIB should set that
-already.
+The second problem is a faulty locking in dump_stack()
 
-> +		phy_mac_interrupt(phydev, 1);
->  	}
->  
->  	return ret;
-> @@ -1495,7 +1498,6 @@ done:
->  static int lan78xx_mdio_init(struct lan78xx_net *dev)
->  {
->  	int ret;
-> -	int i;
->  
->  	dev->mdiobus = mdiobus_alloc();
->  	if (!dev->mdiobus) {
-> @@ -1511,10 +1513,6 @@ static int lan78xx_mdio_init(struct lan78xx_net *dev)
->  	snprintf(dev->mdiobus->id, MII_BUS_ID_SIZE, "usb-%03d:%03d",
->  		 dev->udev->bus->busnum, dev->udev->devnum);
->  
-> -	/* handle our own interrupt */
-> -	for (i = 0; i < PHY_MAX_ADDR; i++)
-> -		dev->mdiobus->irq[i] = PHY_IGNORE_INTERRUPT;
-> -
->  	switch (dev->devid & ID_REV_CHIP_ID_MASK_) {
->  	case 0x78000000:
->  	case 0x78500000:
-> @@ -1558,6 +1556,16 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
->  		return -EIO;
->  	}
->  
-> +	/* Enable PHY interrupts.
-> +	 * We handle our own interrupt
-> +	 */
-> +	ret = phy_read(phydev, LAN88XX_INT_STS);
-> +	ret = phy_write(phydev, LAN88XX_INT_MASK,
-> +			LAN88XX_INT_MASK_MDINTPIN_EN_ |
-> +			LAN88XX_INT_MASK_LINK_CHANGE_);
-> +
-> +	phydev->irq = PHY_IGNORE_INTERRUPT;
-> +
->  	ret = phy_connect_direct(dev->net, phydev,
->  				 lan78xx_link_status_change,
->  				 PHY_INTERFACE_MODE_GMII);
-> @@ -1580,14 +1588,6 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
->  			      SUPPORTED_Pause | SUPPORTED_Asym_Pause);
->  	genphy_config_aneg(phydev);
->  
-> -	/* Workaround to enable PHY interrupt.
-> -	 * phy_start_interrupts() is API for requesting and enabling
-> -	 * PHY interrupt. However, USB-to-Ethernet device can't use
-> -	 * request_irq() called in phy_start_interrupts().
-> -	 * Set PHY to PHY_HALTED and call phy_start()
-> -	 * to make a call to phy_enable_interrupts()
-> -	 */
-> -	phy_stop(phydev);
->  	phy_start(phydev);
->  
->  	netif_dbg(dev, ifup, dev->net, "phy initialised successfully");
-> 
+CPU1 runs in process context and calls dump_stack(), grabs dump_lock.
+
+   CPU2 receives a TCP packet under softirq, grabs socket spinlock, and
+   call dump_stack() from netdev_rx_csum_fault().
+
+   dump_stack() spins on atomic_cmpxchg(&dump_lock, -1, 2), since
+   dump_lock is owned by CPU1
+
+While dumping its stack, CPU1 is interrupted by a softirq, and happens
+to process a packet for the TCP socket locked by CPU2.
+
+CPU1 spins forever in spin_lock() : deadlock
+
+Stack trace on CPU1 looked like :
+
+[306295.402231] NMI backtrace for cpu 1
+[306295.402238] RIP: 0010:[<ffffffffa9804e95>]  [<ffffffffa9804e95>] _raw_spin_lock+0x25/0x30
+...
+[306295.402255] Stack:
+[306295.402256]  ffff88407f023cb0 ffffffffa99cbdc3 ffff88407f023ca0 ffff88012f496bb0
+[306295.402266]  ffffffffaa4dc1f0 ffff8820d94f0dc0 000000000000000a ffffffffaa4b4280
+[306295.402275]  ffff88407f023ce0 ffffffffa98a21d0 ffff88407f023cc0 ffff88407f023ca0
+[306295.402284] Call Trace:
+[306295.402286]  <IRQ> 
+[306295.402288] 
+[306295.402291]  [<ffffffffa99cbdc3>] tcp_v6_rcv+0x243/0x620
+[306295.402304]  [<ffffffffa99c38af>] ip6_input_finish+0x11f/0x330
+[306295.402309]  [<ffffffffa99c3b38>] ip6_input+0x38/0x40
+[306295.402313]  [<ffffffffa99c3b7c>] ip6_rcv_finish+0x3c/0x90
+[306295.402318]  [<ffffffffa99c3e79>] ipv6_rcv+0x2a9/0x500
+[306295.402323]  [<ffffffffa989a1a1>] process_backlog+0x461/0xaa0
+[306295.402332]  [<ffffffffa9899a57>] net_rx_action+0x147/0x430
+[306295.402337]  [<ffffffffa980cca7>] __do_softirq+0x167/0x2d0
+[306295.402341]  [<ffffffffa9d912dc>] call_softirq+0x1c/0x30
+[306295.402345]  [<ffffffffa980687f>] do_softirq+0x3f/0x80
+[306295.402350]  [<ffffffffa980cf7e>] irq_exit+0x6e/0xc0
+[306295.402355]  [<ffffffffa980a5b5>] smp_call_function_single_interrupt+0x35/0x40
+[306295.402360]  [<ffffffffa9d90bfa>] call_function_single_interrupt+0x6a/0x70
+[306295.402361]  <EOI> 
+[306295.402364] 
+[306295.402376]  [<ffffffffa9a3fa32>] printk+0x4d/0x4f
+[306295.402390]  [<ffffffffa99e1726>] printk_address+0x31/0x33
+[306295.402395]  [<ffffffffa99e175b>] print_trace_address+0x33/0x3c
+[306295.402408]  [<ffffffffa99e165b>] print_context_stack+0x7f/0x119
+[306295.402412]  [<ffffffffa99e07f1>] dump_trace+0x26b/0x28e
+[306295.402417]  [<ffffffffa99e17b3>] show_trace_log_lvl+0x4f/0x5c
+[306295.402421]  [<ffffffffa99e0a14>] show_stack_log_lvl+0x104/0x113
+[306295.402425]  [<ffffffffa99e1819>] show_stack+0x42/0x44
+[306295.402429]  [<ffffffffa9ba350a>] dump_stack+0x46/0x58
+[306295.402434]  [<ffffffffa9d0957d>] netdev_rx_csum_fault+0x38/0x3c
+[306295.402439]  [<ffffffffa9988e0e>] __skb_checksum_complete_head+0x6e/0x80
+[306295.402444]  [<ffffffffa9988e31>] __skb_checksum_complete+0x11/0x20
+[306295.402449]  [<ffffffffa98acf65>] tcp_rcv_established+0x2bd5/0x2fd0
+[306295.402468]  [<ffffffffa99cb69c>] tcp_v6_do_rcv+0x13c/0x620
+[306295.402477]  [<ffffffffa9984be5>] sk_backlog_rcv+0x15/0x30
+[306295.402482]  [<ffffffffa98931e2>] release_sock+0xd2/0x150
+[306295.402486]  [<ffffffffa98a51b1>] tcp_recvmsg+0x1c1/0xfc0
+[306295.402491]  [<ffffffffa98b637d>] inet_recvmsg+0x7d/0x90
+[306295.402495]  [<ffffffffa9891fcf>] sock_recvmsg+0xaf/0xe0
+[306295.402505]  [<ffffffffa9892611>] ___sys_recvmsg+0x111/0x3b0
+[306295.402528]  [<ffffffffa9892f5c>] SyS_recvmsg+0x5c/0xb0
+[306295.402532]  [<ffffffffa9d8fba2>] system_call_fastpath+0x16/0x1b
+
+
+Fixes: b58d977432c8 ("dump_stack: serialize the output from dump_stack()")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alex Thorlton <athorlton@sgi.com>
+---
+ lib/dump_stack.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/lib/dump_stack.c b/lib/dump_stack.c
+index 6745c6230db3..c30d07e99dba 100644
+--- a/lib/dump_stack.c
++++ b/lib/dump_stack.c
+@@ -25,6 +25,7 @@ static atomic_t dump_lock = ATOMIC_INIT(-1);
+ 
+ asmlinkage __visible void dump_stack(void)
+ {
++	unsigned long flags;
+ 	int was_locked;
+ 	int old;
+ 	int cpu;
+@@ -33,9 +34,8 @@ asmlinkage __visible void dump_stack(void)
+ 	 * Permit this cpu to perform nested stack dumps while serialising
+ 	 * against other CPUs
+ 	 */
+-	preempt_disable();
+-
+ retry:
++	local_irq_save(flags);
+ 	cpu = smp_processor_id();
+ 	old = atomic_cmpxchg(&dump_lock, -1, cpu);
+ 	if (old == -1) {
+@@ -43,6 +43,7 @@ retry:
+ 	} else if (old == cpu) {
+ 		was_locked = 1;
+ 	} else {
++		local_irq_restore(flags);
+ 		cpu_relax();
+ 		goto retry;
+ 	}
+@@ -52,7 +53,7 @@ retry:
+ 	if (!was_locked)
+ 		atomic_set(&dump_lock, -1);
+ 
+-	preempt_enable();
++	local_irq_restore(flags);
+ }
+ #else
+ asmlinkage __visible void dump_stack(void)
