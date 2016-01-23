@@ -1,173 +1,46 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: [PATCH net] inet: frag: Always orphan skbs inside ip_defrag()
-Date: Fri, 22 Jan 2016 15:49:12 -0800
-Message-ID: <1453506552-10373-1-git-send-email-joe@ovn.org>
-Cc: Joe Stringer <joe@ovn.org>, fw@strlen.de,
-	hannes@stressinduktion.org, pshelar@ovn.org
-To: netdev@vger.kernel.org
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH V2 5/5] net: can: ifi: Add IFI CANFD IP support
+Date: Sat, 23 Jan 2016 00:11:48 +0000
+Message-ID: <020FA2C7-F92E-49F9-BF52-CFFCAAB7C82F@intel.com>
+References: <1452538083-7331-5-git-send-email-marex@denx.de>
+ <201601201358.04790.marex@denx.de> <569F944A.4090201@pengutronix.de>
+ <201601201525.42143.marex@denx.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_38513DC2-5DC1-4D64-9A3A-D1A61E926FD0";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Mark Rutland" <mark.rutland@arm.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Marek Vasut <marex@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33873 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756319AbcAVXte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2016 18:49:34 -0500
+Received: from mga01.intel.com ([192.55.52.88]:7192 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752927AbcAWALu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jan 2016 19:11:50 -0500
+In-Reply-To: <201601201525.42143.marex@denx.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Later parts of the stack (including fragmentation) expect that there is
-never a socket attached to frag in a frag_list, however this invariant
-was not enforced on all defrag paths. This could lead to the
-BUG_ON(skb->sk) during ip_do_fragment(), as per the call stack at the
-end of this commit message.
+--Apple-Mail=_38513DC2-5DC1-4D64-9A3A-D1A61E926FD0
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=us-ascii;
+	delsp=yes;
+	format=flowed
 
-While the call could be added to openvswitch to fix this particular
-error, the head and tail of the frags list are already orphaned
-indirectly inside ip_defrag(), so it seems like the remaining fragments
-should all be orphaned in all circumstances.
+Marek Vasut <marex@denx.de> wrote:
 
-kernel BUG at net/ipv4/ip_output.c:586!
-[...]
-Call Trace:
- <IRQ>
- [<ffffffffa0205270>] ? do_output.isra.29+0x1b0/0x1b0 [openvswitch]
- [<ffffffffa02167a7>] ovs_fragment+0xcc/0x214 [openvswitch]
- [<ffffffff81667830>] ? dst_discard_out+0x20/0x20
- [<ffffffff81667810>] ? dst_ifdown+0x80/0x80
- [<ffffffffa0212072>] ? find_bucket.isra.2+0x62/0x70 [openvswitch]
- [<ffffffff810e0ba5>] ? mod_timer_pending+0x65/0x210
- [<ffffffff810b732b>] ? __lock_acquire+0x3db/0x1b90
- [<ffffffffa03205a2>] ? nf_conntrack_in+0x252/0x500 [nf_conntrack]
- [<ffffffff810b63c4>] ? __lock_is_held+0x54/0x70
- [<ffffffffa02051a3>] do_output.isra.29+0xe3/0x1b0 [openvswitch]
- [<ffffffffa0206411>] do_execute_actions+0xe11/0x11f0 [openvswitch]
- [<ffffffff810b63c4>] ? __lock_is_held+0x54/0x70
- [<ffffffffa0206822>] ovs_execute_actions+0x32/0xd0 [openvswitch]
- [<ffffffffa020b505>] ovs_dp_process_packet+0x85/0x140 [openvswitch]
- [<ffffffff810b63c4>] ? __lock_is_held+0x54/0x70
- [<ffffffffa02068a2>] ovs_execute_actions+0xb2/0xd0 [openvswitch]
- [<ffffffffa020b505>] ovs_dp_process_packet+0x85/0x140 [openvswitch]
- [<ffffffffa0215019>] ? ovs_ct_get_labels+0x49/0x80 [openvswitch]
- [<ffffffffa0213a1d>] ovs_vport_receive+0x5d/0xa0 [openvswitch]
- [<ffffffff810b732b>] ? __lock_acquire+0x3db/0x1b90
- [<ffffffff810b732b>] ? __lock_acquire+0x3db/0x1b90
- [<ffffffff810b732b>] ? __lock_acquire+0x3db/0x1b90
- [<ffffffffa0214895>] ? internal_dev_xmit+0x5/0x140 [openvswitch]
- [<ffffffffa02148fc>] internal_dev_xmit+0x6c/0x140 [openvswitch]
- [<ffffffffa0214895>] ? internal_dev_xmit+0x5/0x140 [openvswitch]
- [<ffffffff81660299>] dev_hard_start_xmit+0x2b9/0x5e0
- [<ffffffff8165fc21>] ? netif_skb_features+0xd1/0x1f0
- [<ffffffff81660f20>] __dev_queue_xmit+0x800/0x930
- [<ffffffff81660770>] ? __dev_queue_xmit+0x50/0x930
- [<ffffffff810b53f1>] ? mark_held_locks+0x71/0x90
- [<ffffffff81669876>] ? neigh_resolve_output+0x106/0x220
- [<ffffffff81661060>] dev_queue_xmit+0x10/0x20
- [<ffffffff816698e8>] neigh_resolve_output+0x178/0x220
- [<ffffffff816a8e6f>] ? ip_finish_output2+0x1ff/0x590
- [<ffffffff816a8e6f>] ip_finish_output2+0x1ff/0x590
- [<ffffffff816a8cee>] ? ip_finish_output2+0x7e/0x590
- [<ffffffff816a9a31>] ip_do_fragment+0x831/0x8a0
- [<ffffffff816a8c70>] ? ip_copy_metadata+0x1b0/0x1b0
- [<ffffffff816a9ae3>] ip_fragment.constprop.49+0x43/0x80
- [<ffffffff816a9c9c>] ip_finish_output+0x17c/0x340
- [<ffffffff8169a6f4>] ? nf_hook_slow+0xe4/0x190
- [<ffffffff816ab4c0>] ip_output+0x70/0x110
- [<ffffffff816a9b20>] ? ip_fragment.constprop.49+0x80/0x80
- [<ffffffff816aa9f9>] ip_local_out+0x39/0x70
- [<ffffffff816abf89>] ip_send_skb+0x19/0x40
- [<ffffffff816abfe3>] ip_push_pending_frames+0x33/0x40
- [<ffffffff816df21a>] icmp_push_reply+0xea/0x120
- [<ffffffff816df93d>] icmp_reply.constprop.23+0x1ed/0x230
- [<ffffffff816df9ce>] icmp_echo.part.21+0x4e/0x50
- [<ffffffff810b63c4>] ? __lock_is_held+0x54/0x70
- [<ffffffff810d5f9e>] ? rcu_read_lock_held+0x5e/0x70
- [<ffffffff816dfa06>] icmp_echo+0x36/0x70
- [<ffffffff816e0d11>] icmp_rcv+0x271/0x450
- [<ffffffff816a4ca7>] ip_local_deliver_finish+0x127/0x3a0
- [<ffffffff816a4bc1>] ? ip_local_deliver_finish+0x41/0x3a0
- [<ffffffff816a5160>] ip_local_deliver+0x60/0xd0
- [<ffffffff816a4b80>] ? ip_rcv_finish+0x560/0x560
- [<ffffffff816a46fd>] ip_rcv_finish+0xdd/0x560
- [<ffffffff816a5453>] ip_rcv+0x283/0x3e0
- [<ffffffff810b6302>] ? match_held_lock+0x192/0x200
- [<ffffffff816a4620>] ? inet_del_offload+0x40/0x40
- [<ffffffff8165d062>] __netif_receive_skb_core+0x392/0xae0
- [<ffffffff8165e68e>] ? process_backlog+0x8e/0x230
- [<ffffffff810b53f1>] ? mark_held_locks+0x71/0x90
- [<ffffffff8165d7c8>] __netif_receive_skb+0x18/0x60
- [<ffffffff8165e678>] process_backlog+0x78/0x230
- [<ffffffff8165e6dd>] ? process_backlog+0xdd/0x230
- [<ffffffff8165e355>] net_rx_action+0x155/0x400
- [<ffffffff8106b48c>] __do_softirq+0xcc/0x420
- [<ffffffff816a8e87>] ? ip_finish_output2+0x217/0x590
- [<ffffffff8178e78c>] do_softirq_own_stack+0x1c/0x30
- <EOI>
- [<ffffffff8106b88e>] do_softirq+0x4e/0x60
- [<ffffffff8106b948>] __local_bh_enable_ip+0xa8/0xb0
- [<ffffffff816a8eb0>] ip_finish_output2+0x240/0x590
- [<ffffffff816a9a31>] ? ip_do_fragment+0x831/0x8a0
- [<ffffffff816a9a31>] ip_do_fragment+0x831/0x8a0
- [<ffffffff816a8c70>] ? ip_copy_metadata+0x1b0/0x1b0
- [<ffffffff816a9ae3>] ip_fragment.constprop.49+0x43/0x80
- [<ffffffff816a9c9c>] ip_finish_output+0x17c/0x340
- [<ffffffff8169a6f4>] ? nf_hook_slow+0xe4/0x190
- [<ffffffff816ab4c0>] ip_output+0x70/0x110
- [<ffffffff816a9b20>] ? ip_fragment.constprop.49+0x80/0x80
- [<ffffffff816aa9f9>] ip_local_out+0x39/0x70
- [<ffffffff816abf89>] ip_send_skb+0x19/0x40
- [<ffffffff816abfe3>] ip_push_pending_frames+0x33/0x40
- [<ffffffff816d55d3>] raw_sendmsg+0x7d3/0xc30
- [<ffffffff810b732b>] ? __lock_acquire+0x3db/0x1b90
- [<ffffffff816e7557>] ? inet_sendmsg+0xc7/0x1d0
- [<ffffffff810b63c4>] ? __lock_is_held+0x54/0x70
- [<ffffffff816e759a>] inet_sendmsg+0x10a/0x1d0
- [<ffffffff816e7495>] ? inet_sendmsg+0x5/0x1d0
- [<ffffffff8163e398>] sock_sendmsg+0x38/0x50
- [<ffffffff8163ec5f>] ___sys_sendmsg+0x25f/0x270
- [<ffffffff811aadad>] ? handle_mm_fault+0x8dd/0x1320
- [<ffffffff8178c147>] ? _raw_spin_unlock+0x27/0x40
- [<ffffffff810529b2>] ? __do_page_fault+0x1e2/0x460
- [<ffffffff81204886>] ? __fget_light+0x66/0x90
- [<ffffffff8163f8e2>] __sys_sendmsg+0x42/0x80
- [<ffffffff8163f932>] SyS_sendmsg+0x12/0x20
- [<ffffffff8178cb17>] entry_SYSCALL_64_fastpath+0x12/0x6f
-Code: 00 00 44 89 e0 e9 7c fb ff ff 4c 89 ff e8 e7 e7 ff ff 41 8b 9d 80 00 00 00 2b 5d d4 89 d8 c1 f8 03 0f b7 c0 e9 33 ff ff f
- 66 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 66 66 90 55 48
-RIP  [<ffffffff816a9a92>] ip_do_fragment+0x892/0x8a0
- RSP <ffff88006d603170>
+> I see, so adding u32 also here works. I'm starting to wonder if the BIT
+> macro is really that nice and if I shouldn't just use (1 << n) as usual.
 
-Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-Signed-off-by: Joe Stringer <joe@ovn.org>
----
-Maybe the corresponding change needs to be proposed for IPv6 too. I haven't
-been able to reproduce it there yet though.
----
- net/ipv4/ip_fragment.c              | 1 +
- net/ipv4/netfilter/nf_defrag_ipv4.c | 2 --
- 2 files changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 3f00810b7288..187c6fcc3027 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -661,6 +661,7 @@ int ip_defrag(struct net *net, struct sk_buff *skb, u32 user)
- 	struct ipq *qp;
- 
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMREQDS);
-+	skb_orphan(skb);
- 
- 	/* Lookup (or create) queue header */
- 	qp = ip_find(net, ip_hdr(skb), user, vif);
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index 6fb869f646bf..a04dee536b8e 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -27,8 +27,6 @@ static int nf_ct_ipv4_gather_frags(struct net *net, struct sk_buff *skb,
- {
- 	int err;
- 
--	skb_orphan(skb);
--
- 	local_bh_disable();
- 	err = ip_defrag(net, skb, user);
- 	local_bh_enable();
--- 
-2.1.4
+Actually, (1 << n) is not so good either when n is 31 - it can trigger  
+overflow warnings since it will be presumed to be a signed value. (1U << n)  
+should avoid that problem. Unfortunately, BIT() uses 1UL which produces  
+64-bit values on 64-bit arches. The bit ops are kind of a mess in that way.  
+It would be nicer if BIT was restricted to int-size values and a new BIT_UL  
+or something would produce the long values.
+--Apple-Mail=_38513DC2-5DC1-4D64-9A3A-D1A61E926FD0--
