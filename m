@@ -1,56 +1,61 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 1/3] xen-netback: fix license ident used in
- MODULE_LICENSE
-Date: Sat, 23 Jan 2016 14:54:38 +0000
-Message-ID: <20160123145438.GB9393@citrix.com>
-References: <1453466057-7176-1-git-send-email-wei.liu2@citrix.com>
- <1453466057-7176-2-git-send-email-wei.liu2@citrix.com>
- <56A22B30.3020206@citrix.com> <20160122134943.GB1691@citrix.com>
- <1453472147.4320.92.camel@citrix.com>
- <20160122202521.76b98494@lxorguk.ukuu.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net] net/core: don't increment rx_dropped on
+ inactive slaves
+Date: Sat, 23 Jan 2016 07:23:09 -0800
+Message-ID: <1453562589.1223.445.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Xen-devel <xen-devel@lists.xenproject.org>,
-	"open list:XEN NETWORK BACKEND DRIVER" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>,
-	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>
-To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:62916 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754051AbcAWOyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2016 09:54:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20160122202521.76b98494@lxorguk.ukuu.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2016 at 08:25:21PM +0000, One Thousand Gnomes wrote:
-> > The fact what include/linux/license.h:license_is_gpl_compatible includes
-> > "Dual MIT/GPL" as an option seems to suggest that it is enough of a thing
-> > to be validly used as the contents of a MODULE_LICENSE() thing.
+On Fri, 2016-01-22 at 14:11 -0500, Jarod Wilson wrote:
+
+> ---
+>  net/core/dev.c | 3 +++
+>  1 file changed, 3 insertions(+)
 > 
-> Yes. The MIT licence most definitely exists, and people know what it
-> means.
-> 
-> Also nobody should be changing the licence on anything unless they have
-> the written permission of all rights holders on record, so it's best to
-> leave it be 8)
-> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 8cba3d8..1354c7b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4153,8 +4153,11 @@ ncls:
+>  		else
+>  			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+>  	} else {
+> +		if (deliver_exact)
+> +			goto inactive; /* bond or team inactive slave */
+>  drop:
+>  		atomic_long_inc(&skb->dev->rx_dropped);
+> +inactive:
+>  		kfree_skb(skb);
+>  		/* Jamal, now you will not able to escape explaining
+>  		 * me how you were going to use this. :-)
 
-I knew from the beginning anything related to license will be fun. :-)
+Note that if you still have a kfree_skb() instead of consume_skb(),
+some tools will still give you a wrong signal (packet dropped ...).
 
-In this particular case, I don't think I need to get confirmation from
-all rights holder because they've agreed to the licenses listed in
-the comment. I'm merely fixing a bug in code.
+But then maybe the signal is telling some truth.
 
-I understand people have different opinion on how this should be
-interpreted. And I'm not a lawyer. Let's just leave it be now and divert
-our energy to more useful things in life.
+We receive a packet, and decide to drop it because no one was willing to
+handle it.
 
-Wei.
+Maybe someone wants to know a particular slave receives 10,000 such
+frames per second and hurts performance with useless work.
 
-> Alan
+We should at least increment some counter and maybe dump it with
+"ethtool -S" or something.
