@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 10/26] ext4: Use skcipher
-Date: Sun, 24 Jan 2016 21:17:38 +0800
-Message-ID: <E1aNKXy-0008CQ-Ne@gondolin.me.apana.org.au>
+Subject: [PATCH 11/26] f2fs: Use skcipher
+Date: Sun, 24 Jan 2016 21:17:49 +0800
+Message-ID: <E1aNKY9-0008Ch-75@gondolin.me.apana.org.au>
 References: <20160124131021.GA31153@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,20 +33,20 @@ This patch replaces uses of ablkcipher with skcipher.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- fs/ext4/crypto.c       |   24 +++++++++++-------------
- fs/ext4/crypto_fname.c |   32 +++++++++++++++-----------------
- fs/ext4/crypto_key.c   |   42 ++++++++++++++++++++----------------------
- fs/ext4/ext4_crypto.h  |    2 +-
- 4 files changed, 47 insertions(+), 53 deletions(-)
+ fs/f2fs/crypto.c       |   24 +++++++++++-------------
+ fs/f2fs/crypto_fname.c |   32 +++++++++++++++-----------------
+ fs/f2fs/crypto_key.c   |   40 ++++++++++++++++++----------------------
+ fs/f2fs/f2fs_crypto.h  |    2 +-
+ 4 files changed, 45 insertions(+), 53 deletions(-)
 
-diff --git a/fs/ext4/crypto.c b/fs/ext4/crypto.c
-index 1a08350..a052c2a 100644
---- a/fs/ext4/crypto.c
-+++ b/fs/ext4/crypto.c
-@@ -18,11 +18,9 @@
+diff --git a/fs/f2fs/crypto.c b/fs/f2fs/crypto.c
+index 4a62ef1..95c5cf0 100644
+--- a/fs/f2fs/crypto.c
++++ b/fs/f2fs/crypto.c
+@@ -23,11 +23,9 @@
+  * The usage of AES-XTS should conform to recommendations in NIST
   * Special Publication 800-38E and IEEE P1619/D16.
   */
- 
 -#include <crypto/hash.h>
 -#include <crypto/sha.h>
 +#include <crypto/skcipher.h>
@@ -56,15 +56,15 @@ index 1a08350..a052c2a 100644
  #include <linux/ecryptfs.h>
  #include <linux/gfp.h>
  #include <linux/kernel.h>
-@@ -261,21 +259,21 @@ static int ext4_page_crypto(struct inode *inode,
- 
+@@ -328,21 +326,21 @@ static int f2fs_page_crypto(struct f2fs_crypto_ctx *ctx,
+ 				struct page *dest_page)
  {
- 	u8 xts_tweak[EXT4_XTS_TWEAK_SIZE];
+ 	u8 xts_tweak[F2FS_XTS_TWEAK_SIZE];
 -	struct ablkcipher_request *req = NULL;
 +	struct skcipher_request *req = NULL;
- 	DECLARE_EXT4_COMPLETION_RESULT(ecr);
+ 	DECLARE_F2FS_COMPLETION_RESULT(ecr);
  	struct scatterlist dst, src;
- 	struct ext4_crypt_info *ci = EXT4_I(inode)->i_crypt_info;
+ 	struct f2fs_crypt_info *ci = F2FS_I(inode)->i_crypt_info;
 -	struct crypto_ablkcipher *tfm = ci->ci_ctfm;
 +	struct crypto_skcipher *tfm = ci->ci_ctfm;
  	int res = 0;
@@ -73,51 +73,51 @@ index 1a08350..a052c2a 100644
 +	req = skcipher_request_alloc(tfm, GFP_NOFS);
  	if (!req) {
  		printk_ratelimited(KERN_ERR
- 				   "%s: crypto_request_alloc() failed\n",
- 				   __func__);
+ 				"%s: crypto_request_alloc() failed\n",
+ 				__func__);
  		return -ENOMEM;
  	}
 -	ablkcipher_request_set_callback(
 +	skcipher_request_set_callback(
  		req, CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
- 		ext4_crypt_complete, &ecr);
+ 		f2fs_crypt_complete, &ecr);
  
-@@ -288,21 +286,21 @@ static int ext4_page_crypto(struct inode *inode,
+@@ -355,21 +353,21 @@ static int f2fs_page_crypto(struct f2fs_crypto_ctx *ctx,
  	sg_set_page(&dst, dest_page, PAGE_CACHE_SIZE, 0);
  	sg_init_table(&src, 1);
  	sg_set_page(&src, src_page, PAGE_CACHE_SIZE, 0);
 -	ablkcipher_request_set_crypt(req, &src, &dst, PAGE_CACHE_SIZE,
--				     xts_tweak);
+-					xts_tweak);
 +	skcipher_request_set_crypt(req, &src, &dst, PAGE_CACHE_SIZE,
 +				   xts_tweak);
- 	if (rw == EXT4_DECRYPT)
+ 	if (rw == F2FS_DECRYPT)
 -		res = crypto_ablkcipher_decrypt(req);
 +		res = crypto_skcipher_decrypt(req);
  	else
 -		res = crypto_ablkcipher_encrypt(req);
 +		res = crypto_skcipher_encrypt(req);
  	if (res == -EINPROGRESS || res == -EBUSY) {
+ 		BUG_ON(req->base.data != &ecr);
  		wait_for_completion(&ecr.completion);
  		res = ecr.res;
  	}
 -	ablkcipher_request_free(req);
 +	skcipher_request_free(req);
  	if (res) {
- 		printk_ratelimited(
- 			KERN_ERR
+ 		printk_ratelimited(KERN_ERR
 -			"%s: crypto_ablkcipher_encrypt() returned %d\n",
 +			"%s: crypto_skcipher_encrypt() returned %d\n",
  			__func__, res);
  		return res;
  	}
-diff --git a/fs/ext4/crypto_fname.c b/fs/ext4/crypto_fname.c
-index 2fbef8a..1a2f360 100644
---- a/fs/ext4/crypto_fname.c
-+++ b/fs/ext4/crypto_fname.c
-@@ -11,11 +11,9 @@
+diff --git a/fs/f2fs/crypto_fname.c b/fs/f2fs/crypto_fname.c
+index ab377d4..16aec66 100644
+--- a/fs/f2fs/crypto_fname.c
++++ b/fs/f2fs/crypto_fname.c
+@@ -15,11 +15,9 @@
   *
+  * This has not yet undergone a rigorous security audit.
   */
- 
 -#include <crypto/hash.h>
 -#include <crypto/sha.h>
 +#include <crypto/skcipher.h>
@@ -127,37 +127,37 @@ index 2fbef8a..1a2f360 100644
  #include <linux/gfp.h>
  #include <linux/kernel.h>
  #include <linux/key.h>
-@@ -65,10 +63,10 @@ static int ext4_fname_encrypt(struct inode *inode,
- 			      struct ext4_str *oname)
+@@ -70,10 +68,10 @@ static int f2fs_fname_encrypt(struct inode *inode,
+ 			const struct qstr *iname, struct f2fs_str *oname)
  {
  	u32 ciphertext_len;
 -	struct ablkcipher_request *req = NULL;
 +	struct skcipher_request *req = NULL;
- 	DECLARE_EXT4_COMPLETION_RESULT(ecr);
- 	struct ext4_crypt_info *ci = EXT4_I(inode)->i_crypt_info;
+ 	DECLARE_F2FS_COMPLETION_RESULT(ecr);
+ 	struct f2fs_crypt_info *ci = F2FS_I(inode)->i_crypt_info;
 -	struct crypto_ablkcipher *tfm = ci->ci_ctfm;
 +	struct crypto_skcipher *tfm = ci->ci_ctfm;
  	int res = 0;
- 	char iv[EXT4_CRYPTO_BLOCK_SIZE];
+ 	char iv[F2FS_CRYPTO_BLOCK_SIZE];
  	struct scatterlist src_sg, dst_sg;
-@@ -95,14 +93,14 @@ static int ext4_fname_encrypt(struct inode *inode,
+@@ -99,14 +97,14 @@ static int f2fs_fname_encrypt(struct inode *inode,
  	}
  
  	/* Allocate request */
 -	req = ablkcipher_request_alloc(tfm, GFP_NOFS);
 +	req = skcipher_request_alloc(tfm, GFP_NOFS);
  	if (!req) {
- 		printk_ratelimited(
- 		    KERN_ERR "%s: crypto_request_alloc() failed\n", __func__);
+ 		printk_ratelimited(KERN_ERR
+ 			"%s: crypto_request_alloc() failed\n", __func__);
  		kfree(alloc_buf);
  		return -ENOMEM;
  	}
 -	ablkcipher_request_set_callback(req,
 +	skcipher_request_set_callback(req,
- 		CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
- 		ext4_dir_crypt_complete, &ecr);
+ 			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 			f2fs_dir_crypt_complete, &ecr);
  
-@@ -117,14 +115,14 @@ static int ext4_fname_encrypt(struct inode *inode,
+@@ -121,15 +119,15 @@ static int f2fs_fname_encrypt(struct inode *inode,
  	/* Create encryption request */
  	sg_init_one(&src_sg, workbuf, ciphertext_len);
  	sg_init_one(&dst_sg, oname->name, ciphertext_len);
@@ -166,6 +166,7 @@ index 2fbef8a..1a2f360 100644
 +	skcipher_request_set_crypt(req, &src_sg, &dst_sg, ciphertext_len, iv);
 +	res = crypto_skcipher_encrypt(req);
  	if (res == -EINPROGRESS || res == -EBUSY) {
+ 		BUG_ON(req->base.data != &ecr);
  		wait_for_completion(&ecr.completion);
  		res = ecr.res;
  	}
@@ -173,40 +174,40 @@ index 2fbef8a..1a2f360 100644
 -	ablkcipher_request_free(req);
 +	skcipher_request_free(req);
  	if (res < 0) {
- 		printk_ratelimited(
- 		    KERN_ERR "%s: Error (error code %d)\n", __func__, res);
-@@ -145,11 +143,11 @@ static int ext4_fname_decrypt(struct inode *inode,
- 			      struct ext4_str *oname)
+ 		printk_ratelimited(KERN_ERR
+ 				"%s: Error (error code %d)\n", __func__, res);
+@@ -148,11 +146,11 @@ static int f2fs_fname_encrypt(struct inode *inode,
+ static int f2fs_fname_decrypt(struct inode *inode,
+ 			const struct f2fs_str *iname, struct f2fs_str *oname)
  {
- 	struct ext4_str tmp_in[2], tmp_out[1];
 -	struct ablkcipher_request *req = NULL;
 +	struct skcipher_request *req = NULL;
- 	DECLARE_EXT4_COMPLETION_RESULT(ecr);
+ 	DECLARE_F2FS_COMPLETION_RESULT(ecr);
  	struct scatterlist src_sg, dst_sg;
- 	struct ext4_crypt_info *ci = EXT4_I(inode)->i_crypt_info;
+ 	struct f2fs_crypt_info *ci = F2FS_I(inode)->i_crypt_info;
 -	struct crypto_ablkcipher *tfm = ci->ci_ctfm;
 +	struct crypto_skcipher *tfm = ci->ci_ctfm;
  	int res = 0;
- 	char iv[EXT4_CRYPTO_BLOCK_SIZE];
+ 	char iv[F2FS_CRYPTO_BLOCK_SIZE];
  	unsigned lim = max_name_len(inode);
-@@ -162,13 +160,13 @@ static int ext4_fname_decrypt(struct inode *inode,
- 	tmp_out[0].name = oname->name;
+@@ -161,13 +159,13 @@ static int f2fs_fname_decrypt(struct inode *inode,
+ 		return -EIO;
  
  	/* Allocate request */
 -	req = ablkcipher_request_alloc(tfm, GFP_NOFS);
 +	req = skcipher_request_alloc(tfm, GFP_NOFS);
  	if (!req) {
- 		printk_ratelimited(
- 		    KERN_ERR "%s: crypto_request_alloc() failed\n",  __func__);
+ 		printk_ratelimited(KERN_ERR
+ 			"%s: crypto_request_alloc() failed\n",  __func__);
  		return -ENOMEM;
  	}
 -	ablkcipher_request_set_callback(req,
 +	skcipher_request_set_callback(req,
  		CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
- 		ext4_dir_crypt_complete, &ecr);
+ 		f2fs_dir_crypt_complete, &ecr);
  
-@@ -178,13 +176,13 @@ static int ext4_fname_decrypt(struct inode *inode,
- 	/* Create encryption request */
+@@ -177,14 +175,14 @@ static int f2fs_fname_decrypt(struct inode *inode,
+ 	/* Create decryption request */
  	sg_init_one(&src_sg, iname->name, iname->len);
  	sg_init_one(&dst_sg, oname->name, oname->len);
 -	ablkcipher_request_set_crypt(req, &src_sg, &dst_sg, iname->len, iv);
@@ -214,33 +215,35 @@ index 2fbef8a..1a2f360 100644
 +	skcipher_request_set_crypt(req, &src_sg, &dst_sg, iname->len, iv);
 +	res = crypto_skcipher_decrypt(req);
  	if (res == -EINPROGRESS || res == -EBUSY) {
+ 		BUG_ON(req->base.data != &ecr);
  		wait_for_completion(&ecr.completion);
  		res = ecr.res;
  	}
 -	ablkcipher_request_free(req);
 +	skcipher_request_free(req);
  	if (res < 0) {
- 		printk_ratelimited(
- 		    KERN_ERR "%s: Error in ext4_fname_encrypt (error code %d)\n",
-diff --git a/fs/ext4/crypto_key.c b/fs/ext4/crypto_key.c
-index c5882b3..1b8bdbb 100644
---- a/fs/ext4/crypto_key.c
-+++ b/fs/ext4/crypto_key.c
-@@ -8,6 +8,7 @@
-  * Written by Michael Halcrow, Ildar Muslukhov, and Uday Savagaonkar, 2015.
-  */
- 
-+#include <crypto/skcipher.h>
- #include <keys/encrypted-type.h>
- #include <keys/user-type.h>
+ 		printk_ratelimited(KERN_ERR
+ 			"%s: Error in f2fs_fname_decrypt (error code %d)\n",
+diff --git a/fs/f2fs/crypto_key.c b/fs/f2fs/crypto_key.c
+index 5de2d86..2aeb627 100644
+--- a/fs/f2fs/crypto_key.c
++++ b/fs/f2fs/crypto_key.c
+@@ -14,7 +14,7 @@
  #include <linux/random.h>
-@@ -41,45 +42,42 @@ static int ext4_derive_key_aes(char deriving_key[EXT4_AES_128_ECB_KEY_SIZE],
- 			       char derived_key[EXT4_AES_256_XTS_KEY_SIZE])
+ #include <linux/scatterlist.h>
+ #include <uapi/linux/keyctl.h>
+-#include <crypto/hash.h>
++#include <crypto/skcipher.h>
+ #include <linux/f2fs_fs.h>
+ 
+ #include "f2fs.h"
+@@ -44,46 +44,43 @@ static int f2fs_derive_key_aes(char deriving_key[F2FS_AES_128_ECB_KEY_SIZE],
+ 				char derived_key[F2FS_AES_256_XTS_KEY_SIZE])
  {
  	int res = 0;
 -	struct ablkcipher_request *req = NULL;
 +	struct skcipher_request *req = NULL;
- 	DECLARE_EXT4_COMPLETION_RESULT(ecr);
+ 	DECLARE_F2FS_COMPLETION_RESULT(ecr);
  	struct scatterlist src_sg, dst_sg;
 -	struct crypto_ablkcipher *tfm = crypto_alloc_ablkcipher("ecb(aes)", 0,
 -								0);
@@ -264,24 +267,23 @@ index c5882b3..1b8bdbb 100644
  			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
  			derive_crypt_complete, &ecr);
 -	res = crypto_ablkcipher_setkey(tfm, deriving_key,
--				       EXT4_AES_128_ECB_KEY_SIZE);
 +	res = crypto_skcipher_setkey(tfm, deriving_key,
-+				     EXT4_AES_128_ECB_KEY_SIZE);
+ 				F2FS_AES_128_ECB_KEY_SIZE);
  	if (res < 0)
  		goto out;
- 	sg_init_one(&src_sg, source_key, EXT4_AES_256_XTS_KEY_SIZE);
- 	sg_init_one(&dst_sg, derived_key, EXT4_AES_256_XTS_KEY_SIZE);
+ 
+ 	sg_init_one(&src_sg, source_key, F2FS_AES_256_XTS_KEY_SIZE);
+ 	sg_init_one(&dst_sg, derived_key, F2FS_AES_256_XTS_KEY_SIZE);
 -	ablkcipher_request_set_crypt(req, &src_sg, &dst_sg,
--				     EXT4_AES_256_XTS_KEY_SIZE, NULL);
--	res = crypto_ablkcipher_encrypt(req);
 +	skcipher_request_set_crypt(req, &src_sg, &dst_sg,
-+				   EXT4_AES_256_XTS_KEY_SIZE, NULL);
+ 					F2FS_AES_256_XTS_KEY_SIZE, NULL);
+-	res = crypto_ablkcipher_encrypt(req);
 +	res = crypto_skcipher_encrypt(req);
  	if (res == -EINPROGRESS || res == -EBUSY) {
+ 		BUG_ON(req->base.data != &ecr);
  		wait_for_completion(&ecr.completion);
  		res = ecr.res;
  	}
- 
  out:
 -	if (req)
 -		ablkcipher_request_free(req);
@@ -292,59 +294,59 @@ index c5882b3..1b8bdbb 100644
  	return res;
  }
  
-@@ -90,7 +88,7 @@ void ext4_free_crypt_info(struct ext4_crypt_info *ci)
+@@ -93,7 +90,7 @@ static void f2fs_free_crypt_info(struct f2fs_crypt_info *ci)
+ 		return;
  
- 	if (ci->ci_keyring_key)
- 		key_put(ci->ci_keyring_key);
+ 	key_put(ci->ci_keyring_key);
 -	crypto_free_ablkcipher(ci->ci_ctfm);
 +	crypto_free_skcipher(ci->ci_ctfm);
- 	kmem_cache_free(ext4_crypt_info_cachep, ci);
+ 	kmem_cache_free(f2fs_crypt_info_cachep, ci);
  }
  
-@@ -122,7 +120,7 @@ int _ext4_get_encryption_info(struct inode *inode)
- 	struct ext4_encryption_context ctx;
+@@ -123,7 +120,7 @@ int _f2fs_get_encryption_info(struct inode *inode)
+ 	struct f2fs_encryption_key *master_key;
+ 	struct f2fs_encryption_context ctx;
  	const struct user_key_payload *ukp;
- 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
 -	struct crypto_ablkcipher *ctfm;
 +	struct crypto_skcipher *ctfm;
  	const char *cipher_str;
- 	char raw_key[EXT4_MAX_KEY_SIZE];
+ 	char raw_key[F2FS_MAX_KEY_SIZE];
  	char mode;
-@@ -233,7 +231,7 @@ retry:
+@@ -213,7 +210,7 @@ retry:
  	if (res)
  		goto out;
- got_key:
+ 
 -	ctfm = crypto_alloc_ablkcipher(cipher_str, 0, 0);
 +	ctfm = crypto_alloc_skcipher(cipher_str, 0, 0);
  	if (!ctfm || IS_ERR(ctfm)) {
  		res = ctfm ? PTR_ERR(ctfm) : -ENOMEM;
  		printk(KERN_DEBUG
-@@ -242,11 +240,11 @@ got_key:
+@@ -222,11 +219,10 @@ retry:
  		goto out;
  	}
  	crypt_info->ci_ctfm = ctfm;
 -	crypto_ablkcipher_clear_flags(ctfm, ~0);
 -	crypto_tfm_set_flags(crypto_ablkcipher_tfm(ctfm),
-+	crypto_skcipher_clear_flags(ctfm, ~0);
-+	crypto_tfm_set_flags(crypto_skcipher_tfm(ctfm),
- 			     CRYPTO_TFM_REQ_WEAK_KEY);
+-			     CRYPTO_TFM_REQ_WEAK_KEY);
 -	res = crypto_ablkcipher_setkey(ctfm, raw_key,
--				       ext4_encryption_key_size(mode));
+-					f2fs_encryption_key_size(mode));
++	crypto_skcipher_clear_flags(ctfm, ~0);
++	crypto_skcipher_set_flags(ctfm, CRYPTO_TFM_REQ_WEAK_KEY);
 +	res = crypto_skcipher_setkey(ctfm, raw_key,
-+				     ext4_encryption_key_size(mode));
++				     f2fs_encryption_key_size(mode));
  	if (res)
  		goto out;
- 	memzero_explicit(raw_key, sizeof(raw_key));
-diff --git a/fs/ext4/ext4_crypto.h b/fs/ext4/ext4_crypto.h
-index ac7d4e8..1f73c29 100644
---- a/fs/ext4/ext4_crypto.h
-+++ b/fs/ext4/ext4_crypto.h
-@@ -77,7 +77,7 @@ struct ext4_crypt_info {
+ 
+diff --git a/fs/f2fs/f2fs_crypto.h b/fs/f2fs/f2fs_crypto.h
+index c2c1c2b..ea3d1d7 100644
+--- a/fs/f2fs/f2fs_crypto.h
++++ b/fs/f2fs/f2fs_crypto.h
+@@ -78,7 +78,7 @@ struct f2fs_crypt_info {
  	char		ci_data_mode;
  	char		ci_filename_mode;
  	char		ci_flags;
 -	struct crypto_ablkcipher *ci_ctfm;
 +	struct crypto_skcipher *ci_ctfm;
  	struct key	*ci_keyring_key;
- 	char		ci_master_key[EXT4_KEY_DESCRIPTOR_SIZE];
+ 	char		ci_master_key[F2FS_KEY_DESCRIPTOR_SIZE];
  };
