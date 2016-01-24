@@ -1,67 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] af_unix: fix struct pid memory leak
-Date: Sun, 24 Jan 2016 13:53:50 -0800
-Message-ID: <1453672430.1223.456.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACT4Y+bZTpitMQOCyPcf4kKaXwghhEe3hmT=FtkrD3toZgoxxQ@mail.gmail.com>
-	 <1453481401.1223.396.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160123180010.GB1609@1wt.eu>
-	 <CACT4Y+Z2fosqX4dRZQNEu=9zdxqCE=5CoQc1WQYsEdnH+MwK+g@mail.gmail.com>
-	 <20160123184007.GE1609@1wt.eu>
-	 <CACT4Y+Y9f838pAMnvkPzEDwWWE0Ge1xLNetwjKFk0ccZ51YgHQ@mail.gmail.com>
-	 <20160124021145.GA12367@1wt.eu> <20160124023824.GA13942@1wt.eu>
-	 <CANn89i+KfDVX8SO3mLnh8naXGb3WiM80=aBuhQKBVstZyfS_xg@mail.gmail.com>
-	 <20160124030412.GA13949@1wt.eu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Willy Tarreau <w@1wt.eu>
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Subject: [net] igbvf: remove "link is Up" message when registering mcast address
+Date: Mon, 25 Jan 2016 10:22:52 +1100
+Message-ID: <1453677772-27075-1-git-send-email-jmaxwell37@gmail.com>
+Cc: davem@davemloft.net, jmaxwell@redhat.com, vinschen@redhat.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jon Maxwell <jmaxwell37@gmail.com>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34668 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751723AbcAXVxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 16:53:53 -0500
-In-Reply-To: <20160124030412.GA13949@1wt.eu>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35137 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751971AbcAXXXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 18:23:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+A similar issue was addressed a few years ago in the following thread:
 
-Dmitry reported a struct pid leak detected by a syzkaller program.
+http://www.spinics.net/lists/netdev/msg245877.html
 
-Bug happens in unix_stream_recvmsg() when we break the loop when a
-signal is pending, without properly releasing scm.
+At that time there were concerns that removing this statement may cause other
+side effects. However the submitter addressed those concerns. But the dialogue
+went cold. We have a new case where a customers application is registering and 
+un-registering multicast addresses every few seconds. This is leading to many 
+"Link is Up" messages in the logs as a result of the 
+"netif_carrier_off(netdev)" statement called by igbvf_msix_other(). Also on
+some kernels it is interfering with the bonding driver causing it to failover 
+and subsequently affecting connectivity.
 
-Fixes: b3ca9b02b007 ("net: fix multithreaded signal handling in unix recv routines")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+The Sourgeforge driver does not make this call and is therefore not affected.
+If there were any side effects I would expect that driver to also be affected.
+I have tested re-loading the igbvf driver and downing the adapter with the PF
+entity on the host where the VM has this patch. When I bring it back up again 
+connectivity is restored as expected. Therefore I request that this patch gets 
+submitted. 
+
+Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 ---
- net/unix/af_unix.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/igbvf/netdev.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index c5bf5ef2bf89..49d5093eb055 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2339,6 +2339,7 @@ again:
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 297af80..c2dfc22 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -876,7 +876,6 @@ static irqreturn_t igbvf_msix_other(int irq, void *data)
  
- 			if (signal_pending(current)) {
- 				err = sock_intr_errno(timeo);
-+				scm_destroy(&scm);
- 				goto out;
- 			}
+ 	adapter->int_counter1++;
  
+-	netif_carrier_off(netdev);
+ 	hw->mac.get_link_status = 1;
+ 	if (!test_bit(__IGBVF_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer, jiffies + 1);
+-- 
+1.8.3.1
