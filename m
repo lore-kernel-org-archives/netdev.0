@@ -1,85 +1,363 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH v2] net: dsa: fix mv88e6xxx switches
-Date: Sun, 24 Jan 2016 09:22:05 +0000
-Message-ID: <E1aNGs1-0002kA-1b@rmk-PC.arm.linux.org.uk>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH/RFC v3 net-next] ravb: Add dma queue interrupt support
+Date: Sun, 24 Jan 2016 20:22:56 +0900
+Message-ID: <CAH1o70K8nds8XH9gZvL-6QoM06jDHOgBi3YiJ8dpi=r-Qg8YzQ@mail.gmail.com>
+References: <1453028133-7670-1-git-send-email-ykaneko0929@gmail.com>
+	<56A3FC0E.4080108@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:60050 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045AbcAXJWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 04:22:11 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <56A3FC0E.4080108@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 76e398a62712 ("net: dsa: use switchdev obj for VLAN add/del
-ops"), the Marvell 88E6xxx switch has been unable to pass traffic
-between ports - any received traffic is discarded by the switch.
-Taking a port out of bridge mode and configuring a vlan on it also the
-port to start passing traffic.
+Hi Sergei,
 
-With the debugfs files re-instated to allow debug of this issue by
-comparing the register settings between the working and non-working
-case, the reason becomes clear:
+2016-01-24 7:17 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+> On 01/17/2016 01:55 PM, Yoshihiro Kaneko wrote:
+>
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> This patch supports the following interrupts.
+>>
+>> - One interrupt for multiple (descriptor, error, management)
+>> - One interrupt for emac
+>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>
+>> This patch improve efficiency of the interrupt handler by adding the
+>> interrupt handler corresponding to each interrupt source described
+>> above. Additionally, it reduces the number of times of the access to
+>> EthernetAVB IF.
+>
+>
+>    Not sure I got the last sentence right... Did you mean that we save on
+> the register reads?
 
-     GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
-- 7:  1111    707f    2001     2    2    2    2    2    0    2
-+ 7:  1111    707f    2001     1    1    1    1    1    0    1
+Yes, I meant that.
 
-Register 7 for the ports is the default vlan tag register, and in the
-non-working setup, it has been set to 2, despite vlan 2 not being
-configured.  This causes the switch to drop all packets coming in to
-these ports.  The working setup has the default vlan tag register set
-to 1, which is the default vlan when none is configured.
+>    Yet another reason could be that we don't want to depend on the boot
+> loader's whim any more...
+>
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>> ---
+>>
+>> This patch is based on the master branch of David Miller's next networking
+>> tree.
+>>
+>> v3 [Yoshihiro Kaneko]
+>> * compile tested only
+>
+>
+>    Doesn't sound very encouraging... couldn't you manage to re-test the
+> patch before Dave merges it?
 
-Inspection of the code reveals why.  The code prior to this commit
-was:
+I will talk to Simon Horman.
 
--		for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-...
--			if (!err && vlan->flags & BRIDGE_VLAN_INFO_PVID)
--				err = ds->drv->port_pvid_set(ds, p->port, vid);
+>
+> [...]
+>>
+>> diff --git a/drivers/net/ethernet/renesas/ravb.h
+>> b/drivers/net/ethernet/renesas/ravb.h
+>> index 9fbe92a..385f06b 100644
+>> --- a/drivers/net/ethernet/renesas/ravb.h
+>> +++ b/drivers/net/ethernet/renesas/ravb.h
+>
+> [...]
+>>
+>> @@ -556,6 +566,18 @@ enum ISS_BIT {
+>>         ISS_DPS15       = 0x80000000,
+>>   };
+>>
+>> +/* CIE
+>> + * R-Car Gen3 only
+>> + */
+>
+>
+>    I'd be more happy with one line comment like:
+>
+> /* CIE (R-Car Gen3 only) */
 
-but the new code is:
+Agreed.
 
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-...
-+	}
-...
-+	if (pvid)
-+		err = _mv88e6xxx_port_pvid_set(ds, port, vid);
+>
+> [...]
+>>
+>> @@ -592,6 +614,212 @@ enum GIS_BIT {
+>>         GIS_PTMF        = 0x00000004,
+>>   };
+>>
+>> +/* GIE
+>> + * R-Car Gen3 only
+>> + */
+>> +enum GIE_BIT {
+>
+> [...]
+>>
+>> +       GIE_ALL         = 0xffff03ff,
+>
+>
+>    GIE_ALL isn't used, no need to define it.
 
-This causes the new code to always set the default vlan to one higher
-than the old code.
+Agreed.
 
-Fix this.
+>
+>> +};
+>> +
+>> +/* GID
+>> + * R-Car Gen3 only
+>> + */
+>> +enum GID_BIT {
+>
+> [...]
+>>
+>> +       GID_ALL         = 0xffff03ff,
+>
+>
+>    Not used any more.
+>
+>> +};
+>> +
+>> +/* RIE0
+>> + * R-Car Gen3 only
+>> + */
+>> +enum RIE0_BIT {
+>
+> [...]
+>>
+>> +       RIE0_ALL        = 0x0003ffff,
+>
+>
+>    Likewise.
+>
+>> +};
+>> +
+>> +/* RID0
+>> + * R-Car Gen3 only
+>> + */
+>> +enum RID0_BIT {
+>
+> [...]
+>>
+>> +       RID0_ALL        = 0x0003ffff,
+>
+>
+>    Likewise.
+>
+>> +};
+>> +
+>> +/* RIE2
+>> + * R-Car Gen3 only
+>> + */
+>> +enum RIE2_BIT {
+>
+> [...]
+>>
+>> +       RIE2_ALL        = 0x8003ffff,
+>
+>
+>    Likewise.
+>
+>> +};
+>> +
+>> +/* RID2
+>> + * R-Car Gen3 only
+>> + */
+>> +enum RID2_BIT {
+>
+>
+>> +       RID2_ALL        = 0x8003ffff,
+>
+>
+>     Likewise.
+>
+>> +};
+>> +
+>> +/* TIE
+>> + * R-Car Gen3 only
+>> + */
+>> +enum TIE_BIT {
+>
+> [...]
+>>
+>> +       TIE_ALL         = 0x000f0f0f,
+>
+>
+>    Likewise.
+>
+>> +};
+>> +
+>> +/* TID
+>> + * R-Car Gen3 only
+>> + */
+>> +enum TID_BIT {
+>
+> [...]
+>>
+>> +       TID_ALL         = 0x000f0f0f,
+>
+>
+>    Likewise.
+>
+> [...]
+>>
+>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>> b/drivers/net/ethernet/renesas/ravb_main.c
+>> index ac43ed9..4c4912e0 100644
+>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>> @@ -42,6 +42,16 @@
+>>                  NETIF_MSG_RX_ERR | \
+>>                  NETIF_MSG_TX_ERR)
+>>
+>> +static const char *ravb_rx_irqs[NUM_RX_QUEUE] = {
+>> +       "ch0", /* RAVB_BE */
+>> +       "ch1", /* RAVB_NC */
+>> +};
+>> +
+>> +static const char *ravb_tx_irqs[NUM_TX_QUEUE] = {
+>> +       "ch18", /* RAVB_BE */
+>> +       "ch19", /* RAVB_NC */
+>> +};
+>> +
+>
+>
+>    Do what you wish but I don't like these...
 
-Fixes: 76e398a62712 ("net: dsa: use switchdev obj for VLAN add/del ops")
-Cc: <stable@vger.kernel.org>
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
-v2: simpler fix
+I think there is no problem.
 
- drivers/net/dsa/mv88e6xxx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> [...]
+>>
+>> @@ -693,7 +722,7 @@ static void ravb_error_interrupt(struct net_device
+>> *ndev)
+>>                 if (ris2 & RIS2_QFF0)
+>>                         priv->stats[RAVB_BE].rx_over_errors++;
+>>
+>> -                   /* Receive Descriptor Empty int */
+>> +               /* Receive Descriptor Empty int */
+>
+>
+>    It's not even a "drove-by" change, please don't do this here, submit a
+> separate patch (or I can do it).
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b06dba05594a..84b0a93559b2 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1519,7 +1519,7 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 
- 	/* no PVID with ranges, otherwise it's a bug */
- 	if (pvid)
--		err = _mv88e6xxx_port_pvid_set(ds, port, vid);
-+		err = _mv88e6xxx_port_pvid_set(ds, port, vlan->vid_end);
- unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
--- 
-2.1.0
+Got it.
+I remove this change from the patch.
+
+>
+> [...]
+>
+>> @@ -773,6 +829,55 @@ static irqreturn_t ravb_interrupt(int irq, void
+>> *dev_id)
+>>         return result;
+>>   }
+>>
+>> +static irqreturn_t ravb_dmaq_interrupt(int irq, void *dev_id, int
+>> ravb_queue)
+>> +{
+>> +       struct net_device *ndev = dev_id;
+>> +       struct ravb_private *priv = netdev_priv(ndev);
+>> +       irqreturn_t result = IRQ_NONE;
+>> +       u32 ris0, ric0, tis, tic;
+>> +       int q = ravb_queue;
+>> +
+>> +       spin_lock(&priv->lock);
+>> +
+>> +       ris0 = ravb_read(ndev, RIS0);
+>> +       ric0 = ravb_read(ndev, RIC0);
+>> +       tis  = ravb_read(ndev, TIS);
+>> +       tic  = ravb_read(ndev, TIC);
+>> +
+>> +       /* Timestamp updated */
+>> +       if (tis & TIS_TFUF) {
+>> +               ravb_write(ndev, TID_TFUD, TID);
+>> +               ravb_get_tx_tstamp(ndev);
+>> +               result = IRQ_HANDLED;
+>> +       }
+>> +
+>> +       /* Best effort queue RX/TX */
+>> +       if (((ris0 & ric0) & BIT(q)) ||
+>> +           ((tis  & tic)  & BIT(q))) {
+>> +               if (napi_schedule_prep(&priv->napi[q])) {
+>> +                       /* Mask RX and TX interrupts */
+>> +                       ravb_write(ndev, BIT(q), RID0);
+>> +                       ravb_write(ndev, BIT(q), TID);
+>> +                       __napi_schedule(&priv->napi[q]);
+>> +               }
+>
+>
+>    There was an *else* branch originally (napi_schedule_prep()'s failure is
+> a serious issue deserving an explanation), not sure why you dropped it
+> here...
+
+Agreed.
+
+>
+> [...]
+>>
+>> @@ -1215,29 +1325,63 @@ static const struct ethtool_ops ravb_ethtool_ops =
+>> {
+>>         .get_ts_info            = ravb_get_ts_info,
+>>   };
+>>
+>> +static inline int req_irq(unsigned int irq, irq_handler_t handler,
+>
+>
+>    I'd suggest hook_irq() instead.
+>
+>> +                         struct net_device *ndev, struct device *dev,
+>> +                         const char *ch)
+>> +{
+>> +       char *name;
+>> +       int error;
+>> +
+>> +       name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", ndev->name, ch);
+>> +       error = request_irq(irq, handler, IRQF_SHARED, name, ndev);
+>
+>
+>    Looks like you missed a line here. Compile testing is not enough,
+> apparently... :-(
+
+Uh, this is terrible.
+Anyway, I will fix it.
+
+>
+>> +               netdev_err(ndev, "cannot request IRQ %s\n", name);
+>> +
+>> +       return error;
+>> +}
+>> +
+>
+> [...]
+>>
+>> @@ -1268,6 +1412,10 @@ out_free_irq2:
+>>                 free_irq(priv->emac_irq, ndev);
+>>   out_free_irq:
+>>         free_irq(ndev->irq, ndev);
+>> +       for (i = 0; i < NUM_RX_QUEUE; i++)
+>> +               free_irq(priv->rx_irqs[i], ndev);
+>> +       for (i = 0; i < NUM_TX_QUEUE; i++)
+>> +               free_irq(priv->tx_irqs[i], ndev);
+>
+>
+>    If these are left uninitialized (as done for gen2), __free_irq() will
+> curse loudly. Please only do this for gen3 like was done in my fix just
+> above this code.
+
+Got it.
+
+>
+> [...]
+>
+> MBR, Sergei
+>
+
+Thanks,
+kaneko
