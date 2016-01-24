@@ -1,694 +1,85 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
-Date: Mon, 25 Jan 2016 00:52:55 +0900
-Message-ID: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Sultan Qasim <sultanqasim@gmail.com>
+Subject: Re: Mis-backport in af_unix patch for Linux 3.10.95
+Date: Sun, 24 Jan 2016 11:16:25 -0500
+Message-ID: <CAJLwaKb=uvay2Ht0-UbZzF03QmjwaZOVeJ+N+hTgSKbh61PJnA@mail.gmail.com>
+References: <CAJLwaKa3vMzRnTt+JL7msQ33HZk_Jp+xMjOteBYCad46u15hKg@mail.gmail.com>
+ <20160124083142.GA14045@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: stable@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20160124083142.GA14045@1wt.eu>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Hello,
 
-This patch supports the following interrupts.
+Thank you very much for the warm welcome :-)
 
-- One interrupt for multiple (descriptor, error, management)
-- One interrupt for emac
-- Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+You're right, the noblock variable is used elsewhere in the stream
+receive function, so nothing is needed there after the interruptible
+logic is restored for the dgram function.
 
-This patch improve efficiency of the interrupt handler by adding the
-interrupt handler corresponding to each interrupt source described
-above. Additionally, it reduces the number of times of the access to
-EthernetAVB IF.
+Your patch looks good to me. I had picked the Linux 3.12.52 version of
+the patch (where the interruptible locking was removed from the right
+place in the stream receive function) onto my 3.10 kernel branch a
+couple weeks ago and it has been working fine for me.
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+Thanks,
+Sultan
 
-This patch is based on the master branch of David Miller's next networking
-tree.
-
-v4 [Yoshihiro Kaneko]
-* compile tested only
-* As suggested by Sergei Shtylyov
-  drivers/net/ethernet/renesas/ravb.h:
-    - make two lines of comment into one line.
-    - remove unused definition of xxx_ALL.
-  drivers/net/ethernet/renesas/ravb_main.c:
-    - remove unrelated change (fix indentation).
-    - output warning messages when napi_schedule_prep() fails in ravb_dmaq_
-      interrupt() like ravb_interrupt().
-    - change the function name from req_irq to hook_irq.
-    - fix programming error in hook_irq().
-    - do free_irq() for rx_irqs[] and tx_irqs[] for only gen3 in out_free_
-      irq label in ravb_open().
-
-v3 [Yoshihiro Kaneko]
-* compile tested only
-* As suggested by Sergei Shtylyov
-  - update changelog
-  drivers/net/ethernet/renesas/ravb.h:
-    - add comments to the additional registers like CIE
-  drivers/net/ethernet/renesas/ravb_main.c:
-    - fix the initialization of the interrupt in ravb_dmac_init()
-    - revert ravb_error_interrupt() because gen3 code is wrong
-    - change the comment "Management" in ravb_multi_interrupt()
-    - add a helper function for request_irq() in ravb_open()
-    - revert ravb_close() because atomicity is not necessary here
-  drivers/net/ethernet/renesas/ravb_ptp.c:
-    - revert ravb_ptp_stop() because atomicity is not necessary here
-
-v2 [Yoshihiro Kaneko]
-* compile tested only
-* As suggested by Sergei Shtylyov
-  - add comment to CIE
-  - remove comments from CIE bits
-  - fix value of TIx_ALL
-  - define each bits for CIE, GIE, GID, RIE0, RID0, RIE2, RID2, TIE, TID
-  - reversed Christmas tree declaration ordered
-  - rename _ravb_emac_interrupt() to ravb_emac_interrupt_unlocked()
-  - remove unnecessary clearing of CIE
-  - use a bit name corresponding to the target register, RIE0, RIE2, TIE,
-    TID, RID2, GID, GIE
- drivers/net/ethernet/renesas/ravb.h      | 204 ++++++++++++++++++++++++++++++
- drivers/net/ethernet/renesas/ravb_main.c | 207 ++++++++++++++++++++++++++++---
- drivers/net/ethernet/renesas/ravb_ptp.c  |  37 ++++--
- 3 files changed, 421 insertions(+), 27 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-index 9fbe92a..28314ea 100644
---- a/drivers/net/ethernet/renesas/ravb.h
-+++ b/drivers/net/ethernet/renesas/ravb.h
-@@ -157,6 +157,7 @@ enum ravb_reg {
- 	TIC	= 0x0378,
- 	TIS	= 0x037C,
- 	ISS	= 0x0380,
-+	CIE	= 0x0384,	/* R-Car Gen3 only */
- 	GCCR	= 0x0390,
- 	GMTT	= 0x0394,
- 	GPTC	= 0x0398,
-@@ -170,6 +171,15 @@ enum ravb_reg {
- 	GCT0	= 0x03B8,
- 	GCT1	= 0x03BC,
- 	GCT2	= 0x03C0,
-+	GIE	= 0x03CC,	/* R-Car Gen3 only */
-+	GID	= 0x03D0,	/* R-Car Gen3 only */
-+	DIL	= 0x0440,	/* R-Car Gen3 only */
-+	RIE0	= 0x0460,	/* R-Car Gen3 only */
-+	RID0	= 0x0464,	/* R-Car Gen3 only */
-+	RIE2	= 0x0470,	/* R-Car Gen3 only */
-+	RID2	= 0x0474,	/* R-Car Gen3 only */
-+	TIE	= 0x0478,	/* R-Car Gen3 only */
-+	TID	= 0x047c,	/* R-Car Gen3 only */
- 
- 	/* E-MAC registers */
- 	ECMR	= 0x0500,
-@@ -556,6 +566,16 @@ enum ISS_BIT {
- 	ISS_DPS15	= 0x80000000,
- };
- 
-+/* CIE (R-Car Gen3 only) */
-+enum CIE_BIT {
-+	CIE_CRIE	= 0x00000001,
-+	CIE_CTIE	= 0x00000100,
-+	CIE_RQFM	= 0x00010000,
-+	CIE_CL0M	= 0x00020000,
-+	CIE_RFWL	= 0x00040000,
-+	CIE_RFFL	= 0x00080000,
-+};
-+
- /* GCCR */
- enum GCCR_BIT {
- 	GCCR_TCR	= 0x00000003,
-@@ -592,6 +612,188 @@ enum GIS_BIT {
- 	GIS_PTMF	= 0x00000004,
- };
- 
-+/* GIE (R-Car Gen3 only) */
-+enum GIE_BIT {
-+	GIE_PTCS	= 0x00000001,
-+	GIE_PTOS	= 0x00000002,
-+	GIE_PTMS0	= 0x00000004,
-+	GIE_PTMS1	= 0x00000008,
-+	GIE_PTMS2	= 0x00000010,
-+	GIE_PTMS3	= 0x00000020,
-+	GIE_PTMS4	= 0x00000040,
-+	GIE_PTMS5	= 0x00000080,
-+	GIE_PTMS6	= 0x00000100,
-+	GIE_PTMS7	= 0x00000200,
-+	GIE_ATCS0	= 0x00010000,
-+	GIE_ATCS1	= 0x00020000,
-+	GIE_ATCS2	= 0x00040000,
-+	GIE_ATCS3	= 0x00080000,
-+	GIE_ATCS4	= 0x00100000,
-+	GIE_ATCS5	= 0x00200000,
-+	GIE_ATCS6	= 0x00400000,
-+	GIE_ATCS7	= 0x00800000,
-+	GIE_ATCS8	= 0x01000000,
-+	GIE_ATCS9	= 0x02000000,
-+	GIE_ATCS10	= 0x04000000,
-+	GIE_ATCS11	= 0x08000000,
-+	GIE_ATCS12	= 0x10000000,
-+	GIE_ATCS13	= 0x20000000,
-+	GIE_ATCS14	= 0x40000000,
-+	GIE_ATCS15	= 0x80000000,
-+};
-+
-+/* GID (R-Car Gen3 only) */
-+enum GID_BIT {
-+	GID_PTCD	= 0x00000001,
-+	GID_PTOD	= 0x00000002,
-+	GID_PTMD0	= 0x00000004,
-+	GID_PTMD1	= 0x00000008,
-+	GID_PTMD2	= 0x00000010,
-+	GID_PTMD3	= 0x00000020,
-+	GID_PTMD4	= 0x00000040,
-+	GID_PTMD5	= 0x00000080,
-+	GID_PTMD6	= 0x00000100,
-+	GID_PTMD7	= 0x00000200,
-+	GID_ATCD0	= 0x00010000,
-+	GID_ATCD1	= 0x00020000,
-+	GID_ATCD2	= 0x00040000,
-+	GID_ATCD3	= 0x00080000,
-+	GID_ATCD4	= 0x00100000,
-+	GID_ATCD5	= 0x00200000,
-+	GID_ATCD6	= 0x00400000,
-+	GID_ATCD7	= 0x00800000,
-+	GID_ATCD8	= 0x01000000,
-+	GID_ATCD9	= 0x02000000,
-+	GID_ATCD10	= 0x04000000,
-+	GID_ATCD11	= 0x08000000,
-+	GID_ATCD12	= 0x10000000,
-+	GID_ATCD13	= 0x20000000,
-+	GID_ATCD14	= 0x40000000,
-+	GID_ATCD15	= 0x80000000,
-+};
-+
-+/* RIE0 (R-Car Gen3 only) */
-+enum RIE0_BIT {
-+	RIE0_FRS0	= 0x00000001,
-+	RIE0_FRS1	= 0x00000002,
-+	RIE0_FRS2	= 0x00000004,
-+	RIE0_FRS3	= 0x00000008,
-+	RIE0_FRS4	= 0x00000010,
-+	RIE0_FRS5	= 0x00000020,
-+	RIE0_FRS6	= 0x00000040,
-+	RIE0_FRS7	= 0x00000080,
-+	RIE0_FRS8	= 0x00000100,
-+	RIE0_FRS9	= 0x00000200,
-+	RIE0_FRS10	= 0x00000400,
-+	RIE0_FRS11	= 0x00000800,
-+	RIE0_FRS12	= 0x00001000,
-+	RIE0_FRS13	= 0x00002000,
-+	RIE0_FRS14	= 0x00004000,
-+	RIE0_FRS15	= 0x00008000,
-+	RIE0_FRS16	= 0x00010000,
-+	RIE0_FRS17	= 0x00020000,
-+};
-+
-+/* RID0 (R-Car Gen3 only) */
-+enum RID0_BIT {
-+	RID0_FRD0	= 0x00000001,
-+	RID0_FRD1	= 0x00000002,
-+	RID0_FRD2	= 0x00000004,
-+	RID0_FRD3	= 0x00000008,
-+	RID0_FRD4	= 0x00000010,
-+	RID0_FRD5	= 0x00000020,
-+	RID0_FRD6	= 0x00000040,
-+	RID0_FRD7	= 0x00000080,
-+	RID0_FRD8	= 0x00000100,
-+	RID0_FRD9	= 0x00000200,
-+	RID0_FRD10	= 0x00000400,
-+	RID0_FRD11	= 0x00000800,
-+	RID0_FRD12	= 0x00001000,
-+	RID0_FRD13	= 0x00002000,
-+	RID0_FRD14	= 0x00004000,
-+	RID0_FRD15	= 0x00008000,
-+	RID0_FRD16	= 0x00010000,
-+	RID0_FRD17	= 0x00020000,
-+};
-+
-+/* RIE2 (R-Car Gen3 only) */
-+enum RIE2_BIT {
-+	RIE2_QFS0	= 0x00000001,
-+	RIE2_QFS1	= 0x00000002,
-+	RIE2_QFS2	= 0x00000004,
-+	RIE2_QFS3	= 0x00000008,
-+	RIE2_QFS4	= 0x00000010,
-+	RIE2_QFS5	= 0x00000020,
-+	RIE2_QFS6	= 0x00000040,
-+	RIE2_QFS7	= 0x00000080,
-+	RIE2_QFS8	= 0x00000100,
-+	RIE2_QFS9	= 0x00000200,
-+	RIE2_QFS10	= 0x00000400,
-+	RIE2_QFS11	= 0x00000800,
-+	RIE2_QFS12	= 0x00001000,
-+	RIE2_QFS13	= 0x00002000,
-+	RIE2_QFS14	= 0x00004000,
-+	RIE2_QFS15	= 0x00008000,
-+	RIE2_QFS16	= 0x00010000,
-+	RIE2_QFS17	= 0x00020000,
-+	RIE2_RFFS	= 0x80000000,
-+};
-+
-+/* RID2 (R-Car Gen3 only) */
-+enum RID2_BIT {
-+	RID2_QFD0	= 0x00000001,
-+	RID2_QFD1	= 0x00000002,
-+	RID2_QFD2	= 0x00000004,
-+	RID2_QFD3	= 0x00000008,
-+	RID2_QFD4	= 0x00000010,
-+	RID2_QFD5	= 0x00000020,
-+	RID2_QFD6	= 0x00000040,
-+	RID2_QFD7	= 0x00000080,
-+	RID2_QFD8	= 0x00000100,
-+	RID2_QFD9	= 0x00000200,
-+	RID2_QFD10	= 0x00000400,
-+	RID2_QFD11	= 0x00000800,
-+	RID2_QFD12	= 0x00001000,
-+	RID2_QFD13	= 0x00002000,
-+	RID2_QFD14	= 0x00004000,
-+	RID2_QFD15	= 0x00008000,
-+	RID2_QFD16	= 0x00010000,
-+	RID2_QFD17	= 0x00020000,
-+	RID2_RFFD	= 0x80000000,
-+};
-+
-+/* TIE (R-Car Gen3 only) */
-+enum TIE_BIT {
-+	TIE_FTS0	= 0x00000001,
-+	TIE_FTS1	= 0x00000002,
-+	TIE_FTS2	= 0x00000004,
-+	TIE_FTS3	= 0x00000008,
-+	TIE_TFUS	= 0x00000100,
-+	TIE_TFWS	= 0x00000200,
-+	TIE_MFUS	= 0x00000400,
-+	TIE_MFWS	= 0x00000800,
-+	TIE_TDPS0	= 0x00010000,
-+	TIE_TDPS1	= 0x00020000,
-+	TIE_TDPS2	= 0x00040000,
-+	TIE_TDPS3	= 0x00080000,
-+};
-+
-+/* TID (R-Car Gen3 only) */
-+enum TID_BIT {
-+	TID_FTD0	= 0x00000001,
-+	TID_FTD1	= 0x00000002,
-+	TID_FTD2	= 0x00000004,
-+	TID_FTD3	= 0x00000008,
-+	TID_TFUD	= 0x00000100,
-+	TID_TFWD	= 0x00000200,
-+	TID_MFUD	= 0x00000400,
-+	TID_MFWD	= 0x00000800,
-+	TID_TDPD0	= 0x00010000,
-+	TID_TDPD1	= 0x00020000,
-+	TID_TDPD2	= 0x00040000,
-+	TID_TDPD3	= 0x00080000,
-+};
-+
- /* ECMR */
- enum ECMR_BIT {
- 	ECMR_PRM	= 0x00000001,
-@@ -817,6 +1019,8 @@ struct ravb_private {
- 	int duplex;
- 	int emac_irq;
- 	enum ravb_chip_id chip_id;
-+	int rx_irqs[NUM_RX_QUEUE];
-+	int tx_irqs[NUM_TX_QUEUE];
- 
- 	unsigned no_avb_link:1;
- 	unsigned avb_link_active_low:1;
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index ac43ed9..076f25f 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -42,6 +42,16 @@
- 		 NETIF_MSG_RX_ERR | \
- 		 NETIF_MSG_TX_ERR)
- 
-+static const char *ravb_rx_irqs[NUM_RX_QUEUE] = {
-+	"ch0", /* RAVB_BE */
-+	"ch1", /* RAVB_NC */
-+};
-+
-+static const char *ravb_tx_irqs[NUM_TX_QUEUE] = {
-+	"ch18", /* RAVB_BE */
-+	"ch19", /* RAVB_NC */
-+};
-+
- int ravb_wait(struct net_device *ndev, enum ravb_reg reg, u32 mask, u32 value)
- {
- 	int i;
-@@ -372,6 +382,7 @@ static void ravb_emac_init(struct net_device *ndev)
- /* Device init function for Ethernet AVB */
- static int ravb_dmac_init(struct net_device *ndev)
- {
-+	struct ravb_private *priv = netdev_priv(ndev);
- 	int error;
- 
- 	/* Set CONFIG mode */
-@@ -408,6 +419,12 @@ static int ravb_dmac_init(struct net_device *ndev)
- 	ravb_write(ndev, TCCR_TFEN, TCCR);
- 
- 	/* Interrupt init: */
-+	if (priv->chip_id == RCAR_GEN3) {
-+		/* Clear DIL.DPLx */
-+		ravb_write(ndev, 0, DIL);
-+		/* Set queue specific interrupt */
-+		ravb_write(ndev, CIE_CRIE | CIE_CTIE | CIE_CL0M, CIE);
-+	}
- 	/* Frame receive */
- 	ravb_write(ndev, RIC0_FRE0 | RIC0_FRE1, RIC0);
- 	/* Disable FIFO full warning */
-@@ -651,7 +668,7 @@ static int ravb_stop_dma(struct net_device *ndev)
- }
- 
- /* E-MAC interrupt handler */
--static void ravb_emac_interrupt(struct net_device *ndev)
-+static void ravb_emac_interrupt_unlocked(struct net_device *ndev)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
- 	u32 ecsr, psr;
-@@ -677,6 +694,18 @@ static void ravb_emac_interrupt(struct net_device *ndev)
- 	}
- }
- 
-+static irqreturn_t ravb_emac_interrupt(int irq, void *dev_id)
-+{
-+	struct net_device *ndev = dev_id;
-+	struct ravb_private *priv = netdev_priv(ndev);
-+
-+	spin_lock(&priv->lock);
-+	ravb_emac_interrupt_unlocked(ndev);
-+	mmiowb();
-+	spin_unlock(&priv->lock);
-+	return IRQ_HANDLED;
-+}
-+
- /* Error interrupt handler */
- static void ravb_error_interrupt(struct net_device *ndev)
- {
-@@ -755,7 +784,7 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
- 
- 	/* E-MAC status summary */
- 	if (iss & ISS_MS) {
--		ravb_emac_interrupt(ndev);
-+		ravb_emac_interrupt_unlocked(ndev);
- 		result = IRQ_HANDLED;
- 	}
- 
-@@ -773,6 +802,89 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
- 	return result;
- }
- 
-+/* Descriptor IRQ/Error/Management interrupt handler */
-+static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
-+{
-+	struct net_device *ndev = dev_id;
-+	struct ravb_private *priv = netdev_priv(ndev);
-+	irqreturn_t result = IRQ_NONE;
-+	u32 iss;
-+
-+	spin_lock(&priv->lock);
-+	/* Get interrupt status */
-+	iss = ravb_read(ndev, ISS);
-+
-+	/* Error status summary */
-+	if (iss & ISS_ES) {
-+		ravb_error_interrupt(ndev);
-+		result = IRQ_HANDLED;
-+	}
-+
-+	/* gPTP interrupt status summary */
-+	if (iss & ISS_CGIS)
-+		result = ravb_ptp_interrupt(ndev);
-+
-+	mmiowb();
-+	spin_unlock(&priv->lock);
-+	return result;
-+}
-+
-+static irqreturn_t ravb_dmaq_interrupt(int irq, void *dev_id, int ravb_queue)
-+{
-+	struct net_device *ndev = dev_id;
-+	struct ravb_private *priv = netdev_priv(ndev);
-+	irqreturn_t result = IRQ_NONE;
-+	u32 ris0, ric0, tis, tic;
-+	int q = ravb_queue;
-+
-+	spin_lock(&priv->lock);
-+
-+	ris0 = ravb_read(ndev, RIS0);
-+	ric0 = ravb_read(ndev, RIC0);
-+	tis  = ravb_read(ndev, TIS);
-+	tic  = ravb_read(ndev, TIC);
-+
-+	/* Timestamp updated */
-+	if (tis & TIS_TFUF) {
-+		ravb_write(ndev, TID_TFUD, TID);
-+		ravb_get_tx_tstamp(ndev);
-+		result = IRQ_HANDLED;
-+	}
-+
-+	/* Best effort queue RX/TX */
-+	if (((ris0 & ric0) & BIT(q)) ||
-+	    ((tis  & tic)  & BIT(q))) {
-+		if (napi_schedule_prep(&priv->napi[q])) {
-+			/* Mask RX and TX interrupts */
-+			ravb_write(ndev, BIT(q), RID0);
-+			ravb_write(ndev, BIT(q), TID);
-+			__napi_schedule(&priv->napi[q]);
-+		} else {
-+			netdev_warn(ndev,
-+				    "ignoring interrupt, rx status 0x%08x, rx mask 0x%08x,\n",
-+				    ris0, ric0);
-+			netdev_warn(ndev,
-+				    "                    tx status 0x%08x, tx mask 0x%08x.\n",
-+				    tis, tic);
-+		}
-+		result = IRQ_HANDLED;
-+	}
-+
-+	mmiowb();
-+	spin_unlock(&priv->lock);
-+	return result;
-+}
-+
-+static irqreturn_t ravb_be_interrupt(int irq, void *dev_id)
-+{
-+	return ravb_dmaq_interrupt(irq, dev_id, RAVB_BE);
-+}
-+
-+static irqreturn_t ravb_nc_interrupt(int irq, void *dev_id)
-+{
-+	return ravb_dmaq_interrupt(irq, dev_id, RAVB_NC);
-+}
-+
- static int ravb_poll(struct napi_struct *napi, int budget)
- {
- 	struct net_device *ndev = napi->dev;
-@@ -812,8 +924,13 @@ static int ravb_poll(struct napi_struct *napi, int budget)
- 
- 	/* Re-enable RX/TX interrupts */
- 	spin_lock_irqsave(&priv->lock, flags);
--	ravb_write(ndev, ravb_read(ndev, RIC0) | mask, RIC0);
--	ravb_write(ndev, ravb_read(ndev, TIC)  | mask,  TIC);
-+	if (priv->chip_id == RCAR_GEN2) {
-+		ravb_write(ndev, ravb_read(ndev, RIC0) | mask, RIC0);
-+		ravb_write(ndev, ravb_read(ndev, TIC)  | mask, TIC);
-+	} else {
-+		ravb_write(ndev, mask, RIE0);
-+		ravb_write(ndev, mask, TIE);
-+	}
- 	mmiowb();
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
-@@ -1215,29 +1332,64 @@ static const struct ethtool_ops ravb_ethtool_ops = {
- 	.get_ts_info		= ravb_get_ts_info,
- };
- 
-+static inline int hook_irq(unsigned int irq, irq_handler_t handler,
-+			   struct net_device *ndev, struct device *dev,
-+			   const char *ch)
-+{
-+	char *name;
-+	int error;
-+
-+	name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", ndev->name, ch);
-+	error = request_irq(irq, handler, IRQF_SHARED, name, ndev);
-+	if (error)
-+		netdev_err(ndev, "cannot request IRQ %s\n", name);
-+
-+	return error;
-+}
-+
- /* Network device open function for Ethernet AVB */
- static int ravb_open(struct net_device *ndev)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
--	int error;
-+	struct platform_device *pdev = priv->pdev;
-+	struct device *dev = &pdev->dev;
-+	int error, i;
- 
- 	napi_enable(&priv->napi[RAVB_BE]);
- 	napi_enable(&priv->napi[RAVB_NC]);
- 
--	error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED, ndev->name,
--			    ndev);
--	if (error) {
--		netdev_err(ndev, "cannot request IRQ\n");
--		goto out_napi_off;
--	}
--
--	if (priv->chip_id == RCAR_GEN3) {
--		error = request_irq(priv->emac_irq, ravb_interrupt,
--				    IRQF_SHARED, ndev->name, ndev);
-+	if (priv->chip_id == RCAR_GEN2) {
-+		error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
-+				    ndev->name, ndev);
- 		if (error) {
- 			netdev_err(ndev, "cannot request IRQ\n");
--			goto out_free_irq;
-+			goto out_napi_off;
- 		}
-+	} else {
-+		error = hook_irq(ndev->irq, ravb_multi_interrupt, ndev, dev,
-+				 "ch22:multi");
-+		if (error)
-+			goto out_napi_off;
-+		error = hook_irq(priv->emac_irq, ravb_emac_interrupt, ndev,
-+				 dev, "ch24:emac");
-+		if (error)
-+			goto out_free_irq;
-+		error = hook_irq(priv->rx_irqs[RAVB_BE], ravb_be_interrupt,
-+				 ndev, dev, "ch0:rx_be");
-+		if (error)
-+			goto out_free_irq;
-+		error = hook_irq(priv->tx_irqs[RAVB_BE], ravb_be_interrupt,
-+				 ndev, dev, "ch18:tx_be");
-+		if (error)
-+			goto out_free_irq;
-+		error = hook_irq(priv->rx_irqs[RAVB_NC], ravb_nc_interrupt,
-+				 ndev, dev, "ch1:rx_nc");
-+		if (error)
-+			goto out_free_irq;
-+		error = hook_irq(priv->tx_irqs[RAVB_NC], ravb_nc_interrupt,
-+				 ndev, dev, "ch19:tx_nc");
-+		if (error)
-+			goto out_free_irq;
- 	}
- 
- 	/* Device init */
-@@ -1268,6 +1420,12 @@ out_free_irq2:
- 		free_irq(priv->emac_irq, ndev);
- out_free_irq:
- 	free_irq(ndev->irq, ndev);
-+	if (priv->chip_id == RCAR_GEN3) {
-+		for (i = 0; i < NUM_RX_QUEUE; i++)
-+			free_irq(priv->rx_irqs[i], ndev);
-+		for (i = 0; i < NUM_TX_QUEUE; i++)
-+			free_irq(priv->tx_irqs[i], ndev);
-+	}
- out_napi_off:
- 	napi_disable(&priv->napi[RAVB_NC]);
- 	napi_disable(&priv->napi[RAVB_BE]);
-@@ -1724,6 +1882,7 @@ static int ravb_probe(struct platform_device *pdev)
- 	struct net_device *ndev;
- 	int error, irq, q;
- 	struct resource *res;
-+	int i;
- 
- 	if (!np) {
- 		dev_err(&pdev->dev,
-@@ -1794,6 +1953,22 @@ static int ravb_probe(struct platform_device *pdev)
- 			goto out_release;
- 		}
- 		priv->emac_irq = irq;
-+		for (i = 0; i < NUM_RX_QUEUE; i++) {
-+			irq = platform_get_irq_byname(pdev, ravb_rx_irqs[i]);
-+			if (irq < 0) {
-+				error = irq;
-+				goto out_release;
-+			}
-+			priv->rx_irqs[i] = irq;
-+		}
-+		for (i = 0; i < NUM_TX_QUEUE; i++) {
-+			irq = platform_get_irq_byname(pdev, ravb_tx_irqs[i]);
-+			if (irq < 0) {
-+				error = irq;
-+				goto out_release;
-+			}
-+			priv->tx_irqs[i] = irq;
-+		}
- 	}
- 
- 	priv->chip_id = chip_id;
-diff --git a/drivers/net/ethernet/renesas/ravb_ptp.c b/drivers/net/ethernet/renesas/ravb_ptp.c
-index 7a8ce92..027223d 100644
---- a/drivers/net/ethernet/renesas/ravb_ptp.c
-+++ b/drivers/net/ethernet/renesas/ravb_ptp.c
-@@ -196,11 +196,18 @@ static int ravb_ptp_extts(struct ptp_clock_info *ptp,
- 
- 	spin_lock_irqsave(&priv->lock, flags);
- 	gic = ravb_read(ndev, GIC);
--	if (on)
--		gic |= GIC_PTCE;
--	else
--		gic &= ~GIC_PTCE;
--	ravb_write(ndev, gic, GIC);
-+	if (priv->chip_id == RCAR_GEN2) {
-+		if (on)
-+			gic |= GIC_PTCE;
-+		else
-+			gic &= ~GIC_PTCE;
-+		ravb_write(ndev, gic, GIC);
-+	} else {
-+		if (on)
-+			ravb_write(ndev, GIE_PTCS, GIE);
-+		else
-+			ravb_write(ndev, GID_PTCD, GID);
-+	}
- 	mmiowb();
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
-@@ -248,9 +255,13 @@ static int ravb_ptp_perout(struct ptp_clock_info *ptp,
- 		error = ravb_ptp_update_compare(priv, (u32)start_ns);
- 		if (!error) {
- 			/* Unmask interrupt */
--			gic = ravb_read(ndev, GIC);
--			gic |= GIC_PTME;
--			ravb_write(ndev, gic, GIC);
-+			if (priv->chip_id == RCAR_GEN2) {
-+				gic = ravb_read(ndev, GIC);
-+				gic |= GIC_PTME;
-+				ravb_write(ndev, gic, GIC);
-+			} else {
-+				ravb_write(ndev, GIE_PTMS0, GIE);
-+			}
- 		}
- 	} else	{
- 		spin_lock_irqsave(&priv->lock, flags);
-@@ -259,9 +270,13 @@ static int ravb_ptp_perout(struct ptp_clock_info *ptp,
- 		perout->period = 0;
- 
- 		/* Mask interrupt */
--		gic = ravb_read(ndev, GIC);
--		gic &= ~GIC_PTME;
--		ravb_write(ndev, gic, GIC);
-+		if (priv->chip_id == RCAR_GEN2) {
-+			gic = ravb_read(ndev, GIC);
-+			gic &= ~GIC_PTME;
-+			ravb_write(ndev, gic, GIC);
-+		} else {
-+			ravb_write(ndev, GID_PTMD0, GID);
-+		}
- 	}
- 	mmiowb();
- 	spin_unlock_irqrestore(&priv->lock, flags);
--- 
-1.9.1
-
+On Sun, Jan 24, 2016 at 3:31 AM, Willy Tarreau <w@1wt.eu> wrote:
+> Hello,
+>
+> On Sun, Jan 24, 2016 at 12:10:35AM -0500, Sultan Qasim wrote:
+>> Hello all,
+>>
+>> I'm an outsider to the Linux kernel community, so I apologize if this
+>> is not the right channel to mention this.
+>
+> The simple fact that you participate, inspect the code and report bugs
+> makes you part of this community :-)  It's indeed the right place.
+> Usually when reporting an issue with a commit, we also CC the whole
+> signed-off-by / CC chain of that commit (which I'm doing now). For
+> bugs related to networking, we usually CC the netdev list as well.
+>
+>> I noticed that the
+>> backported version of the patch "af_unix: Revert 'lock_interruptible'
+>> in stream receive code" in Linux 3.10.95 seems to have removed the
+>> mutex_lock_interruptible from the wrong function.
+>>
+>> Here is the backported patch:
+>> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=3a57e783016bf43ab9326172217f564941b85b17
+>>
+>> Here is the original:
+>> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/net/unix/af_unix.c?id=3822b5c2fc62e3de8a0f33806ff279fb7df92432
+>>
+>> Was it not meant to be removed from unix_stream_recvmsg instead of
+>> unix_dgram_recvmsg?
+>
+> You're absolutely right, good catch! Similar controls were added to
+> both functions resulting in the same code appearing there, which
+> confused the patch process, causing the change to be applied to the
+> wrong location. This happens from time to time in such circumstances
+> when backporting to older kernels.
+>
+>> Also, the variable called "noblock" needs to be
+>> removed from the function being changed to prevent unused variable
+>> warnings.
+>
+> If you mean this variable in function unix_dgram_recvmsg(), it would
+> indeed report a warning but only due to the patch being mis-applied.
+> In unix_stream_recvmsg(), it's still used as well.
+>
+> Does the attached patch seem better to you (not compile-tested) ?
+>
+> Greg/Ben, both 3.2.76 and 3.14.59 are OK regarding this, it seems
+> like only 3.10.95 was affected.
+>
+> Thanks,
+> Willy
+>
