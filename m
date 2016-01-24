@@ -1,49 +1,45 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: struct pid memory leak
-Date: Sun, 24 Jan 2016 04:04:12 +0100
-Message-ID: <20160124030412.GA13949@1wt.eu>
-References: <CACT4Y+bZTpitMQOCyPcf4kKaXwghhEe3hmT=FtkrD3toZgoxxQ@mail.gmail.com> <1453481401.1223.396.camel@edumazet-glaptop2.roam.corp.google.com> <20160123180010.GB1609@1wt.eu> <CACT4Y+Z2fosqX4dRZQNEu=9zdxqCE=5CoQc1WQYsEdnH+MwK+g@mail.gmail.com> <20160123184007.GE1609@1wt.eu> <CACT4Y+Y9f838pAMnvkPzEDwWWE0Ge1xLNetwjKFk0ccZ51YgHQ@mail.gmail.com> <20160124021145.GA12367@1wt.eu> <20160124023824.GA13942@1wt.eu> <CANn89i+KfDVX8SO3mLnh8naXGb3WiM80=aBuhQKBVstZyfS_xg@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: dsa: fix mv88e6xxx switches
+Date: Sun, 24 Jan 2016 01:01:41 -0500
+Message-ID: <87y4bfjz22.fsf@ketchup.mtl.sfl>
+References: <E1aMvmm-0006G3-8T@rmk-PC.arm.linux.org.uk> <20160123181526.GD3880@lunn.ch> <20160123190622.GA10826@n2100.arm.linux.org.uk> <20160123193705.GE3880@lunn.ch> <20160123194856.GB10826@n2100.arm.linux.org.uk> <20160123201647.GH3880@lunn.ch> <20160123204416.GC10826@n2100.arm.linux.org.uk> <20160123221232.GJ3880@lunn.ch> <20160123222326.GK3880@lunn.ch> <20160123233116.GD10826@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CANn89i+KfDVX8SO3mLnh8naXGb3WiM80=aBuhQKBVstZyfS_xg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:37857 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbcAXGBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 01:01:52 -0500
+In-Reply-To: <20160123233116.GD10826@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 23, 2016 at 06:50:11PM -0800, Eric Dumazet wrote:
-> On Sat, Jan 23, 2016 at 6:38 PM, Willy Tarreau <w@1wt.eu> wrote:
-> > On Sun, Jan 24, 2016 at 03:11:45AM +0100, Willy Tarreau wrote:
-> >> It doesn't report this on 3.10.
-> >
-> > To be more precise, kmemleak reports the issue on 3.13 and not on 3.12.
-> > I'm not sure if it's reliable enough to run a bisect though.
-> >
-> > Willy
-> >
-> 
-> I have the leak on linux-3.11.
-> 
-> I believe even linux-3.3 gets the leak, although I had to wait about
-> one hour to be confident the leak was there.
+Hi Russell,
 
-OK so I'm stopping my bisect. It's possible it's affected with some option
-which changed along the various "make oldconfig" at each step. Thanks for
-letting me know.
+Russell King - ARM Linux <linux@arm.linux.org.uk> writes:
 
-Willy
+> On Sat, Jan 23, 2016 at 11:23:26PM +0100, Andrew Lunn wrote:
+>> On Sat, Jan 23, 2016 at 11:12:32PM +0100, Andrew Lunn wrote:
+>> > Hi Russell
+>> > 
+>> > Never called.
+>> > 
+>> > So i guess we have a kernel configuration difference.
+>> > 
+>> > I don't have CONFIG_BRIDGE_VLAN_FILTERING.
+>> 
+>> Yep, confirmed. When i enable this option, and VLAN_8021Q which it
+>> depends on, i then have a working bridge.
+>
+> It sounds like Vivien urgently needs to do some extra work to fix
+> the patches that created all this broken-ness, or we need to ask
+> davem to revert back to a known good working state.
+
+Indeed hardware bridging currently relies on 802.1Q and VLAN filtering
+enabled. I will work on this asap.
+
+Thanks,
+-v
