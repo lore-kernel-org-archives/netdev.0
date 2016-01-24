@@ -1,41 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] net: fec: make driver endian-safe
-Date: Sun, 24 Jan 2016 20:12:51 +0100
-Message-ID: <1453662771.2390.0.camel@sipsolutions.net>
-References: <1453650757-27459-1-git-send-email-johannes@sipsolutions.net>
-	 <1637940.UNKGUmXJxm@wuerfel>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/26] staging: rtl8192e: Replace uses of obsolete
+ blkcipher and hash
+Date: Sun, 24 Jan 2016 12:00:19 -0800
+Message-ID: <20160124200019.GA17868@kroah.com>
+References: <20160124131021.GA31153@gondor.apana.org.au>
+ <E1aNKWo-0008AS-PG@gondolin.me.apana.org.au>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Fugang Duan <B38611@freescale.com>,
-	Shawn Guo <shawnguo@kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55970 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751163AbcAXTMz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jan 2016 14:12:55 -0500
-In-Reply-To: <1637940.UNKGUmXJxm@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ecryptfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-f2fs-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keyrings-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <open-iscsi+bncBDK73744WQBRBVG2SS2QKGQEWGG4ZTQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <E1aNKWo-0008AS-PG-XQvu0L+U/CjiRBuR/1fSEKKkPtS2pBon@public.gmane.org>
+List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/open-iscsi
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/open-iscsi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-01-24 at 17:49 +0100, Arnd Bergmann wrote:
-
-> I'd argue that the "(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)"
-> is definitely wrong, because if we ever get another ARM platform
-> that uses this driver, it may or may not work depending on whether
-> the ARCH_MXC is also set, and that is not a helpful behavior.
+On Sun, Jan 24, 2016 at 09:16:26PM +0800, Herbert Xu wrote:
+> The interfaces blkcipher and hash are obsolete.  This patch replaces
+> them with skcipher and ahash respectively.
 > 
-> Better make it simply CONFIG_ARM to keep the behavior independent
-> of config options. It won't change anything for now but any future
-> platform will probably work independent of configuration or would
-> require a bugfix at all.
+> Signed-off-by: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+> ---
 > 
+>  drivers/staging/rtl8192e/rtllib_crypt_tkip.c |   99 ++++++++++++++-------------
+>  drivers/staging/rtl8192e/rtllib_crypt_wep.c  |   48 +++++++------
+>  2 files changed, 82 insertions(+), 65 deletions(-)
 
-I agree, but I'm not really sure it's in the scope of this particular
-patch? Might be better to just have a separate patch with an
-appropriate commit message changing this ifdef.
+Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
 
-johannes
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at https://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
