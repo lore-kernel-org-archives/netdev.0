@@ -1,30 +1,31 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH 4/26] dm crypt: Use skcipher and ahash
-Date: Sun, 24 Jan 2016 21:43:44 +0800
-Message-ID: <201601242155.wffwoOEe%fengguang.wu@intel.com>
-References: <E1aNKWy-0008Ah-UM@gondolin.me.apana.org.au>
+From: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 19/26] ipsec: Use skcipher and ahash when probing
+ algorithms
+Date: Sun, 24 Jan 2016 21:42:08 +0800
+Message-ID: <201601242115.NdmUTST6%fengguang.wu@intel.com>
+References: <E1aNKZT-0008Ew-7q@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="WIyZ46R2i8wDzkSu"
-Cc: kbuild-all@01.org,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	dm-devel@redhat.com, linux-wireless@vger.kernel.org,
-	linux-cifs@vger.kernel.org, ecryptfs@vger.kernel.org,
-	linux-ext4@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
-	linux-nfs@vger.kernel.org, keyrings@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org, ceph-devel@vger.kernel.org,
-	linux-wpan@vger.kernel.org, linux-afs@lists.infradead.org,
-	drbd-dev@lists.linbit.com, open-iscsi@googlegroups.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <ecryptfs-owner@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="vkogqOf2sHV7VnPd"
+Cc: kbuild-all-JC7UmRfGjtg@public.gmane.org,
+	Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ecryptfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-f2fs-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keyrings-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <E1aNKWy-0008Ah-UM@gondolin.me.apana.org.au>
-Sender: ecryptfs-owner@vger.kernel.org
+In-Reply-To: <E1aNKZT-0008Ew-7q-XQvu0L+U/CjiRBuR/1fSEKKkPtS2pBon@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---WIyZ46R2i8wDzkSu
+--vkogqOf2sHV7VnPd
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -42,35 +43,35 @@ reproduce:
 
 All errors (new ones prefixed by >>):
 
-   drivers/md/dm-crypt.c: In function 'crypt_iv_essiv_init':
->> drivers/md/dm-crypt.c:278:2: error: implicit declaration of function 'ahash_request_zero' [-Werror=implicit-function-declaration]
-     ahash_request_zero(req);
-     ^
+   net/xfrm/xfrm_algo.c: In function 'xfrm_probe_algs':
+>> net/xfrm/xfrm_algo.c:787:12: error: implicit declaration of function 'crypto_has_ahash' [-Werror=implicit-function-declaration]
+      status = crypto_has_ahash(aalg_list[i].name, 0, 0);
+               ^
    cc1: some warnings being treated as errors
 
-vim +/ahash_request_zero +278 drivers/md/dm-crypt.c
+vim +/crypto_has_ahash +787 net/xfrm/xfrm_algo.c
 
-   272		sg_init_one(&sg, cc->key, cc->key_size);
-   273		ahash_request_set_tfm(req, essiv->hash_tfm);
-   274		ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_SLEEP, NULL, NULL);
-   275		ahash_request_set_crypt(req, &sg, essiv->salt, cc->key_size);
-   276	
-   277		err = crypto_ahash_digest(req);
- > 278		ahash_request_zero(req);
-   279		if (err)
-   280			return err;
-   281	
+   781	{
+   782		int i, status;
+   783	
+   784		BUG_ON(in_softirq());
+   785	
+   786		for (i = 0; i < aalg_entries(); i++) {
+ > 787			status = crypto_has_ahash(aalg_list[i].name, 0, 0);
+   788			if (aalg_list[i].available != status)
+   789				aalg_list[i].available = status;
+   790		}
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---WIyZ46R2i8wDzkSu
+--vkogqOf2sHV7VnPd
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICFrUpFYAAy5jb25maWcAjDxNd9u2svv+Cp30Le5dJLEdx3XPO15AICihIggaAGXJGx7V
+H4sICOXTpFYAAy5jb25maWcAjDxNd9u2svv+Cp30Le5dJLEdx3XPO15AICihIggaAGXJGx7V
 VlqfOnauJfc2//7NAPwAQNB5WSThzADEx3zPUD//9POMvB6fv+6OD3e7x8fvsz/2T/uX3XF/
 P/vy8Lj/31kmZ6U0M5Zx8wGIi4en138+/nN50Vycz84/nH84ma32L0/7xxl9fvry8McrjH14
 fvrp55+oLHO+ALI5N1ffu8eNHRk8Dw+81EbV1HBZNhmjMmNqQFZM5Q1bs9JoIDSsaOqSSsUG
@@ -572,4 +573,4 @@ DBBrFlPd1oJF7G8T9G0CfhovSQowE/oWpeUGibF6bdV6xo8LRSftRQIFHToo79jS1SR9m5cg
 oBJLbejCI47DeYvqFotMOIBWFW7KnaJwGq67Ut/NW5b2pnBjSVq0lOPTHIRz/muiv/hxEbRw
 8YPE4qIuMZisKrltxjzUHmdUlA0zC5jxZvK8zTMKz6AmOrsC5D8sflHZupcBAA==
 
---WIyZ46R2i8wDzkSu--
+--vkogqOf2sHV7VnPd--
