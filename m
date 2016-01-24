@@ -1,363 +1,44 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH/RFC v3 net-next] ravb: Add dma queue interrupt support
-Date: Sun, 24 Jan 2016 20:22:56 +0900
-Message-ID: <CAH1o70K8nds8XH9gZvL-6QoM06jDHOgBi3YiJ8dpi=r-Qg8YzQ@mail.gmail.com>
-References: <1453028133-7670-1-git-send-email-ykaneko0929@gmail.com>
-	<56A3FC0E.4080108@cogentembedded.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 0/26] crypto: Use skcipher and ahash/shash where possible
+Date: Sun, 24 Jan 2016 21:10:21 +0800
+Message-ID: <20160124131021.GA31153@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <56A3FC0E.4080108@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	dm-devel@redhat.com, linux-wireless@vger.kernel.org,
+	linux-cifs@vger.kernel.org, ecryptfs@vger.kernel.org,
+	linux-ext4@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
+	linux-nfs@vger.kernel.org, keyrings@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org, ceph-devel@vger.kernel.org,
+	linux-wpan@vger.kernel.org, linux-afs@lists.infradead.org,
+	drbd-dev@lists.linbit.com, linux-nfc@lists.01.org,
+	open-iscsi@googlegroups.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+Hi:
 
-2016-01-24 7:17 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
-> On 01/17/2016 01:55 PM, Yoshihiro Kaneko wrote:
->
->> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>
->> This patch supports the following interrupts.
->>
->> - One interrupt for multiple (descriptor, error, management)
->> - One interrupt for emac
->> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->>
->> This patch improve efficiency of the interrupt handler by adding the
->> interrupt handler corresponding to each interrupt source described
->> above. Additionally, it reduces the number of times of the access to
->> EthernetAVB IF.
->
->
->    Not sure I got the last sentence right... Did you mean that we save on
-> the register reads?
+The crypto hash interface has been obsolete for many years and
+this series converts all remaining users to shash and ahash as
+appropriate.  Despite the name ahash can be used synchronously
+and is the preferred interface for those dealing with SGs.
 
-Yes, I meant that.
+The blkcipher and ablkcipher interfaces are also being phased out
+and is being replaced with the merged skcipher interface which
+is essentially the same as ablkcipher but without the implicit
+IV generators.  This series converts all users of blkcipher and
+ablkcipher over to skcipher.
 
->    Yet another reason could be that we don't want to depend on the boot
-> loader's whim any more...
->
->> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->> ---
->>
->> This patch is based on the master branch of David Miller's next networking
->> tree.
->>
->> v3 [Yoshihiro Kaneko]
->> * compile tested only
->
->
->    Doesn't sound very encouraging... couldn't you manage to re-test the
-> patch before Dave merges it?
-
-I will talk to Simon Horman.
-
->
-> [...]
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb.h
->> b/drivers/net/ethernet/renesas/ravb.h
->> index 9fbe92a..385f06b 100644
->> --- a/drivers/net/ethernet/renesas/ravb.h
->> +++ b/drivers/net/ethernet/renesas/ravb.h
->
-> [...]
->>
->> @@ -556,6 +566,18 @@ enum ISS_BIT {
->>         ISS_DPS15       = 0x80000000,
->>   };
->>
->> +/* CIE
->> + * R-Car Gen3 only
->> + */
->
->
->    I'd be more happy with one line comment like:
->
-> /* CIE (R-Car Gen3 only) */
-
-Agreed.
-
->
-> [...]
->>
->> @@ -592,6 +614,212 @@ enum GIS_BIT {
->>         GIS_PTMF        = 0x00000004,
->>   };
->>
->> +/* GIE
->> + * R-Car Gen3 only
->> + */
->> +enum GIE_BIT {
->
-> [...]
->>
->> +       GIE_ALL         = 0xffff03ff,
->
->
->    GIE_ALL isn't used, no need to define it.
-
-Agreed.
-
->
->> +};
->> +
->> +/* GID
->> + * R-Car Gen3 only
->> + */
->> +enum GID_BIT {
->
-> [...]
->>
->> +       GID_ALL         = 0xffff03ff,
->
->
->    Not used any more.
->
->> +};
->> +
->> +/* RIE0
->> + * R-Car Gen3 only
->> + */
->> +enum RIE0_BIT {
->
-> [...]
->>
->> +       RIE0_ALL        = 0x0003ffff,
->
->
->    Likewise.
->
->> +};
->> +
->> +/* RID0
->> + * R-Car Gen3 only
->> + */
->> +enum RID0_BIT {
->
-> [...]
->>
->> +       RID0_ALL        = 0x0003ffff,
->
->
->    Likewise.
->
->> +};
->> +
->> +/* RIE2
->> + * R-Car Gen3 only
->> + */
->> +enum RIE2_BIT {
->
-> [...]
->>
->> +       RIE2_ALL        = 0x8003ffff,
->
->
->    Likewise.
->
->> +};
->> +
->> +/* RID2
->> + * R-Car Gen3 only
->> + */
->> +enum RID2_BIT {
->
->
->> +       RID2_ALL        = 0x8003ffff,
->
->
->     Likewise.
->
->> +};
->> +
->> +/* TIE
->> + * R-Car Gen3 only
->> + */
->> +enum TIE_BIT {
->
-> [...]
->>
->> +       TIE_ALL         = 0x000f0f0f,
->
->
->    Likewise.
->
->> +};
->> +
->> +/* TID
->> + * R-Car Gen3 only
->> + */
->> +enum TID_BIT {
->
-> [...]
->>
->> +       TID_ALL         = 0x000f0f0f,
->
->
->    Likewise.
->
-> [...]
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->> b/drivers/net/ethernet/renesas/ravb_main.c
->> index ac43ed9..4c4912e0 100644
->> --- a/drivers/net/ethernet/renesas/ravb_main.c
->> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->> @@ -42,6 +42,16 @@
->>                  NETIF_MSG_RX_ERR | \
->>                  NETIF_MSG_TX_ERR)
->>
->> +static const char *ravb_rx_irqs[NUM_RX_QUEUE] = {
->> +       "ch0", /* RAVB_BE */
->> +       "ch1", /* RAVB_NC */
->> +};
->> +
->> +static const char *ravb_tx_irqs[NUM_TX_QUEUE] = {
->> +       "ch18", /* RAVB_BE */
->> +       "ch19", /* RAVB_NC */
->> +};
->> +
->
->
->    Do what you wish but I don't like these...
-
-I think there is no problem.
-
->
-> [...]
->>
->> @@ -693,7 +722,7 @@ static void ravb_error_interrupt(struct net_device
->> *ndev)
->>                 if (ris2 & RIS2_QFF0)
->>                         priv->stats[RAVB_BE].rx_over_errors++;
->>
->> -                   /* Receive Descriptor Empty int */
->> +               /* Receive Descriptor Empty int */
->
->
->    It's not even a "drove-by" change, please don't do this here, submit a
-> separate patch (or I can do it).
-
-Got it.
-I remove this change from the patch.
-
->
-> [...]
->
->> @@ -773,6 +829,55 @@ static irqreturn_t ravb_interrupt(int irq, void
->> *dev_id)
->>         return result;
->>   }
->>
->> +static irqreturn_t ravb_dmaq_interrupt(int irq, void *dev_id, int
->> ravb_queue)
->> +{
->> +       struct net_device *ndev = dev_id;
->> +       struct ravb_private *priv = netdev_priv(ndev);
->> +       irqreturn_t result = IRQ_NONE;
->> +       u32 ris0, ric0, tis, tic;
->> +       int q = ravb_queue;
->> +
->> +       spin_lock(&priv->lock);
->> +
->> +       ris0 = ravb_read(ndev, RIS0);
->> +       ric0 = ravb_read(ndev, RIC0);
->> +       tis  = ravb_read(ndev, TIS);
->> +       tic  = ravb_read(ndev, TIC);
->> +
->> +       /* Timestamp updated */
->> +       if (tis & TIS_TFUF) {
->> +               ravb_write(ndev, TID_TFUD, TID);
->> +               ravb_get_tx_tstamp(ndev);
->> +               result = IRQ_HANDLED;
->> +       }
->> +
->> +       /* Best effort queue RX/TX */
->> +       if (((ris0 & ric0) & BIT(q)) ||
->> +           ((tis  & tic)  & BIT(q))) {
->> +               if (napi_schedule_prep(&priv->napi[q])) {
->> +                       /* Mask RX and TX interrupts */
->> +                       ravb_write(ndev, BIT(q), RID0);
->> +                       ravb_write(ndev, BIT(q), TID);
->> +                       __napi_schedule(&priv->napi[q]);
->> +               }
->
->
->    There was an *else* branch originally (napi_schedule_prep()'s failure is
-> a serious issue deserving an explanation), not sure why you dropped it
-> here...
-
-Agreed.
-
->
-> [...]
->>
->> @@ -1215,29 +1325,63 @@ static const struct ethtool_ops ravb_ethtool_ops =
->> {
->>         .get_ts_info            = ravb_get_ts_info,
->>   };
->>
->> +static inline int req_irq(unsigned int irq, irq_handler_t handler,
->
->
->    I'd suggest hook_irq() instead.
->
->> +                         struct net_device *ndev, struct device *dev,
->> +                         const char *ch)
->> +{
->> +       char *name;
->> +       int error;
->> +
->> +       name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", ndev->name, ch);
->> +       error = request_irq(irq, handler, IRQF_SHARED, name, ndev);
->
->
->    Looks like you missed a line here. Compile testing is not enough,
-> apparently... :-(
-
-Uh, this is terrible.
-Anyway, I will fix it.
-
->
->> +               netdev_err(ndev, "cannot request IRQ %s\n", name);
->> +
->> +       return error;
->> +}
->> +
->
-> [...]
->>
->> @@ -1268,6 +1412,10 @@ out_free_irq2:
->>                 free_irq(priv->emac_irq, ndev);
->>   out_free_irq:
->>         free_irq(ndev->irq, ndev);
->> +       for (i = 0; i < NUM_RX_QUEUE; i++)
->> +               free_irq(priv->rx_irqs[i], ndev);
->> +       for (i = 0; i < NUM_TX_QUEUE; i++)
->> +               free_irq(priv->tx_irqs[i], ndev);
->
->
->    If these are left uninitialized (as done for gen2), __free_irq() will
-> curse loudly. Please only do this for gen3 like was done in my fix just
-> above this code.
-
-Got it.
-
->
-> [...]
->
-> MBR, Sergei
->
+If you have any objections please shout.  Otherwise I would like
+to take these patches through the cryptodev tree so we can proceed
+with phasing out the obsolete interfaces.
 
 Thanks,
-kaneko
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
