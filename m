@@ -1,10 +1,9 @@
 From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/26] staging: rtl8192e: Replace uses of obsolete
- blkcipher and hash
-Date: Sun, 24 Jan 2016 12:00:19 -0800
-Message-ID: <20160124200019.GA17868@kroah.com>
+Subject: Re: [PATCH 6/26] staging: rtl8192u: Use skcipher and ahash
+Date: Sun, 24 Jan 2016 12:00:52 -0800
+Message-ID: <20160124200052.GB17868@kroah.com>
 References: <20160124131021.GA31153@gondor.apana.org.au>
- <E1aNKWo-0008AS-PG@gondolin.me.apana.org.au>
+ <E1aNKXJ-0008BG-BI@gondolin.me.apana.org.au>
 Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -19,9 +18,9 @@ Cc: Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.
 	linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <open-iscsi+bncBDK73744WQBRBVG2SS2QKGQEWGG4ZTQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <open-iscsi+bncBDK73744WQBRB5O2SS2QKGQE4CYEEOQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <E1aNKWo-0008AS-PG-XQvu0L+U/CjiRBuR/1fSEKKkPtS2pBon@public.gmane.org>
+In-Reply-To: <E1aNKXJ-0008BG-BI-XQvu0L+U/CjiRBuR/1fSEKKkPtS2pBon@public.gmane.org>
 List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/open-iscsi
@@ -31,16 +30,16 @@ List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39U
  <https://groups.google.com/group/open-iscsi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 24, 2016 at 09:16:26PM +0800, Herbert Xu wrote:
-> The interfaces blkcipher and hash are obsolete.  This patch replaces
-> them with skcipher and ahash respectively.
-> 
+On Sun, Jan 24, 2016 at 09:16:57PM +0800, Herbert Xu wrote:
+> This patch replaces uses of blkcipher with skcipher, and the long
+> obsolete hash interface with ahash.
+>     
 > Signed-off-by: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
 > ---
 > 
->  drivers/staging/rtl8192e/rtllib_crypt_tkip.c |   99 ++++++++++++++-------------
->  drivers/staging/rtl8192e/rtllib_crypt_wep.c  |   48 +++++++------
->  2 files changed, 82 insertions(+), 65 deletions(-)
+>  drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c |   92 +++++++-------
+>  drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_wep.c  |   46 ++++---
+>  2 files changed, 81 insertions(+), 57 deletions(-)
 
 Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
 
