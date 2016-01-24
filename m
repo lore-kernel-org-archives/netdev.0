@@ -1,116 +1,67 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Sun, 24 Jan 2016 13:41:13 -0800
-Message-ID: <56A544F9.9000501@gmail.com>
-References: <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>	<CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>	<20160121122730.6330a84b@redhat.com>	<20160121.105401.1793719917762270884.davem@davemloft.net>	<20160124152814.2ea5e99b@redhat.com> <CALx6S36Tq+4wwC5Z=6cuBt6k3beb_d7gy_ofdWf86KCxLjSaew@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] af_unix: fix struct pid memory leak
+Date: Sun, 24 Jan 2016 13:53:50 -0800
+Message-ID: <1453672430.1223.456.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACT4Y+bZTpitMQOCyPcf4kKaXwghhEe3hmT=FtkrD3toZgoxxQ@mail.gmail.com>
+	 <1453481401.1223.396.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160123180010.GB1609@1wt.eu>
+	 <CACT4Y+Z2fosqX4dRZQNEu=9zdxqCE=5CoQc1WQYsEdnH+MwK+g@mail.gmail.com>
+	 <20160123184007.GE1609@1wt.eu>
+	 <CACT4Y+Y9f838pAMnvkPzEDwWWE0Ge1xLNetwjKFk0ccZ51YgHQ@mail.gmail.com>
+	 <20160124021145.GA12367@1wt.eu> <20160124023824.GA13942@1wt.eu>
+	 <CANn89i+KfDVX8SO3mLnh8naXGb3WiM80=aBuhQKBVstZyfS_xg@mail.gmail.com>
+	 <20160124030412.GA13949@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Tom Herbert <tom@herbertland.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34510 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051AbcAXVlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 16:41:36 -0500
-Received: by mail-pf0-f175.google.com with SMTP id q63so73038305pfb.1
-        for <netdev@vger.kernel.org>; Sun, 24 Jan 2016 13:41:36 -0800 (PST)
-In-Reply-To: <CALx6S36Tq+4wwC5Z=6cuBt6k3beb_d7gy_ofdWf86KCxLjSaew@mail.gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34668 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751723AbcAXVxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 16:53:53 -0500
+In-Reply-To: <20160124030412.GA13949@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-24 12:09 PM, Tom Herbert wrote:
-> On Sun, Jan 24, 2016 at 6:28 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
->> On Thu, 21 Jan 2016 10:54:01 -0800 (PST)
->> David Miller <davem@davemloft.net> wrote:
->>
->>> From: Jesper Dangaard Brouer <brouer@redhat.com>
->>> Date: Thu, 21 Jan 2016 12:27:30 +0100
->>>
->>>> eth_type_trans() does two things:
->>>>
->>>> 1) determine skb->protocol
->>>> 2) setup skb->pkt_type = PACKET_{BROADCAST,MULTICAST,OTHERHOST}
->>>>
->>>> Could the HW descriptor deliver the "proto", or perhaps just some bits
->>>> on the most common proto's?
->>>>
->>>> The skb->pkt_type don't need many bits.  And I bet the HW already have
->>>> the information.  The BROADCAST and MULTICAST indication are easy.  The
->>>> PACKET_OTHERHOST, can be turned around, by instead set a PACKET_HOST
->>>> indication, if the eth->h_dest match the devices dev->dev_addr (else a
->>>> SW compare is required).
->>>>
->>>> Is that doable in hardware?
->>>
->>> I feel like we've had this discussion before several years ago.
->>>
->>> I think having just the protocol value would be enough.
->>>
->>> skb->pkt_type we could deal with by using always an accessor and
->>> evaluating it lazily.  Nothing needs it until we hit ip_rcv() or
->>> similar.
->>
->> First I thought, I liked the idea delaying the eval of skb->pkt_type.
->>
->> BUT then I realized, what if we take this even further.  What if we
->> actually use this information, for something useful, at this very
->> early RX stage.
->>
->> The information I'm interested in, from the HW descriptor, is if this
->> packet is NOT for local delivery.  If so, we can send the packet on a
->> "fast-forward" code path.
->>
->> Think about bridging packets to a guest OS.  Because we know very
->> early at RX (from packet HW descriptor) we might even avoid allocating
->> a SKB.  We could just "forward" the packet-page to the guest OS.
->>
->> Taking Eric's idea, of remote CPUs, we could even send these
->> packet-pages to a remote CPU (e.g. where the guest OS is running),
->> without having touched a single cache-line in the packet-data.  I
->> would still bundle them up first, to amortize the (100-133ns) cost of
->> transferring something to another CPU.
->>
-> You mean like RPS/RFS/aRFS/flow_director already does (except for the
-> zero-touch part)?
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-You could also look at ATR in the ixgbe/i40e drivers which on xmit
-uses a tuple to try and force the hardware to recv on the same queue
-pair as the sending side. The idea being you can bind tx/rx queue
-pairs to a core and send/recv on the same core which tends to be an
-OK strategy although not always. It is sometimes better to tx and rx
-on separate cores.
+Dmitry reported a struct pid leak detected by a syzkaller program.
 
->> The data-cache trick, would be to instruct prefetcher only to start
->> prefetching to L3 or L2, when these packet are destined for a remote
->> CPU.  At-least Intel CPUs have prefetch operations that specify only
->> L2/L3 cache.
->>
->>
->> Maybe, we need a combined solution.  Lazy eval skb->pkt_type, for
->> local delivery, but set the information if avail from HW desc.  And
->> fast page-forward don't even need a SKB.
->>
->> --
->> Best regards,
->>   Jesper Dangaard Brouer
->>   MSc.CS, Principal Kernel Engineer at Red Hat
->>   Author of http://www.iptv-analyzer.org
->>   LinkedIn: http://www.linkedin.com/in/brouer
+Bug happens in unix_stream_recvmsg() when we break the loop when a
+signal is pending, without properly releasing scm.
+
+Fixes: b3ca9b02b007 ("net: fix multithreaded signal handling in unix recv routines")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+---
+ net/unix/af_unix.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index c5bf5ef2bf89..49d5093eb055 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2339,6 +2339,7 @@ again:
+ 
+ 			if (signal_pending(current)) {
+ 				err = sock_intr_errno(timeo);
++				scm_destroy(&scm);
+ 				goto out;
+ 			}
+ 
