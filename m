@@ -1,153 +1,110 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Sun, 24 Jan 2016 09:28:36 -0800
-Message-ID: <56A509C4.3030706@gmail.com>
-References: <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com> <CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com> <20160121122730.6330a84b@redhat.com> <20160121.105401.1793719917762270884.davem@davemloft.net> <20160124152814.2ea5e99b@redhat.com> <20160124163846-mutt-send-email-mst@redhat.com>
+From: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+Subject: Re: [PATCH 9/26] eCryptfs: Use skcipher and shash
+Date: Sun, 24 Jan 2016 19:10:50 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1601241909430.2498@hadrien>
+References: <201601250207.1gdHywwq%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, tom@herbertland.com,
-	eric.dumazet@gmail.com, gerlitz.or@gmail.com, edumazet@google.com,
-	netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	alexei.starovoitov@gmail.com, borkmann@iogearbox.net,
-	marek@cloudflare.com, hannes@stressinduktion.org, fw@strlen.de,
-	pabeni@redhat.com, john.r.fastabend@intel.com, amirva@gmail.com,
-	Daniel Borkmann <daniel@iogearbox.net>, vyasevich@gmail.com
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33839 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752194AbcAXR3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 12:29:02 -0500
-Received: by mail-pf0-f173.google.com with SMTP id q63so71197633pfb.1
-        for <netdev@vger.kernel.org>; Sun, 24 Jan 2016 09:29:01 -0800 (PST)
-In-Reply-To: <20160124163846-mutt-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ecryptfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-f2fs-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keyrings-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	kbuild-all-JC7UmRfGjtg@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201601250207.1gdHywwq%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-01-24 06:44 AM, Michael S. Tsirkin wrote:
-> On Sun, Jan 24, 2016 at 03:28:14PM +0100, Jesper Dangaard Brouer wrote:
->> On Thu, 21 Jan 2016 10:54:01 -0800 (PST)
->> David Miller <davem@davemloft.net> wrote:
->>
->>> From: Jesper Dangaard Brouer <brouer@redhat.com>
->>> Date: Thu, 21 Jan 2016 12:27:30 +0100
->>>
->>>> eth_type_trans() does two things:
->>>>
->>>> 1) determine skb->protocol
->>>> 2) setup skb->pkt_type = PACKET_{BROADCAST,MULTICAST,OTHERHOST}
->>>>
->>>> Could the HW descriptor deliver the "proto", or perhaps just some bits
->>>> on the most common proto's?
->>>>
->>>> The skb->pkt_type don't need many bits.  And I bet the HW already have
->>>> the information.  The BROADCAST and MULTICAST indication are easy.  The
->>>> PACKET_OTHERHOST, can be turned around, by instead set a PACKET_HOST
->>>> indication, if the eth->h_dest match the devices dev->dev_addr (else a
->>>> SW compare is required).
->>>>
->>>> Is that doable in hardware?  
->>>
->>> I feel like we've had this discussion before several years ago.
->>>
->>> I think having just the protocol value would be enough.
->>>
->>> skb->pkt_type we could deal with by using always an accessor and
->>> evaluating it lazily.  Nothing needs it until we hit ip_rcv() or
->>> similar.
->>
->> First I thought, I liked the idea delaying the eval of skb->pkt_type.
->>
->> BUT then I realized, what if we take this even further.  What if we
->> actually use this information, for something useful, at this very
->> early RX stage.
->>
->> The information I'm interested in, from the HW descriptor, is if this
->> packet is NOT for local delivery.  If so, we can send the packet on a
->> "fast-forward" code path.
->>
->> Think about bridging packets to a guest OS.  Because we know very
->> early at RX (from packet HW descriptor) we might even avoid allocating
->> a SKB.  We could just "forward" the packet-page to the guest OS.
-> 
-> OK, so you would build a new kind of rx handler, and then
-> e.g. macvtap could maybe get packets this way?
-> Sure - e.g. vhost expects an skb at the moment
-> but it won't be too hard to teach it that there's
-> some other option.
+Maybe the goto on line 1726 needs a preceding mutex_unlock?
 
-+ Daniel, Vlad
+julia
 
-If you use the macvtap device with the offload features you can "know"
-via mac address that all packets on a specific hardware queue set belong
-to a specific guest. (the queues are bound to a new netdev) This works
-well with the passthru mode of macvlan. So you can do hardware bridging
-this way. Supporting similar L3 modes probably not via macvlan has been
-on my todo list for awhile but I haven't got there yet. ixgbe and fm10k
-intel drivers support this now maybe others but those are the two I've
-worked with recently.
+On Mon, 25 Jan 2016, kbuild test robot wrote:
 
-The idea here is you remove any overhead from running bridge code, etc.
-but still allowing users to stick netfilter, qos, etc hooks in the
-datapath.
-
-Also Daniel and I started working on a zero-copy RX mode which would
-further help this by letting vhost-net pass down a set of dma buffers
-we should probably get this working and submit it. iirc Vlad also
-had the same sort of idea. The initial data for this looked good but
-not as good as the solution below. However it had a similar issue as
-below in that you just jumped over netfilter, qos, etc. Our initial
-implementation used af_packet.
-
-> 
-> Or maybe some kind of stub skb that just has
-> the correct length but no data is easier,
-> I'm not sure.
-> 
-
-Another option is to use perfect filters to push traffic to a VF and
-then map the VF into user space and use the vhost dpdk bits. This
-works fairly well and gets pkts into the guest with little hypervisor
-overhead and no(?) kernel network stack overhead. But the trade-off is
-you cut out netfilter, qos, etc. This is really slick if you "trust"
-your guest or have enough ACLs/etc in your hardware to "trust' the
-guest.
-
-A compromise is to use a VF and do not unbind it from the OS then
-you can use macvtap again and map the netdev 1:1 to a guest. With
-this mode you can still use your netfilter, qos, etc. but do l2,l3,l4
-hardware forwarding with perfect filters.
-
-As an aside if you don't like ethtool perfect filters I have a set of
-patches to control this via 'tc' that I'll submit when net-next opens
-up again which would let you support filtering on more field options
-using offset:mask:value notation.
-
->> Taking Eric's idea, of remote CPUs, we could even send these
->> packet-pages to a remote CPU (e.g. where the guest OS is running),
->> without having touched a single cache-line in the packet-data.  I
->> would still bundle them up first, to amortize the (100-133ns) cost of
->> transferring something to another CPU.
-> 
-> This bundling would have to happen in a guest
-> specific way then, so in vhost.
-> I'd be curious to see what you come up with.
-> 
->> The data-cache trick, would be to instruct prefetcher only to start
->> prefetching to L3 or L2, when these packet are destined for a remote
->> CPU.  At-least Intel CPUs have prefetch operations that specify only
->> L2/L3 cache.
->>
->>
->> Maybe, we need a combined solution.  Lazy eval skb->pkt_type, for
->> local delivery, but set the information if avail from HW desc.  And
->> fast page-forward don't even need a SKB.
->>
->> -- 
->> Best regards,
->>   Jesper Dangaard Brouer
->>   MSc.CS, Principal Kernel Engineer at Red Hat
->>   Author of http://www.iptv-analyzer.org
->>   LinkedIn: http://www.linkedin.com/in/brouer
+> Hi Herbert,
+>
+> [auto build test WARNING on net/master]
+> [also build test WARNING on v4.4 next-20160122]
+> [if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
+>
+> url:    https://github.com/0day-ci/linux/commits/Herbert-Xu/crypto-Use-skcipher-and-ahash-shash-where-possible/20160124-212323
+> :::::: branch date: 5 hours ago
+> :::::: commit date: 5 hours ago
+>
+> >> fs/ecryptfs/keystore.c:1761:1-7: preceding lock on line 1719
+>
+> git remote add linux-review https://github.com/0day-ci/linux
+> git remote update linux-review
+> git checkout 0186bf144c1f96606f491be0e7ed47b79ea0d285
+> vim +1761 fs/ecryptfs/keystore.c
+>
+> ac97b9f9 Michael Halcrow 2008-11-19  1713  	if (rc < 1 || rc > 2) {
+> f4aad16a Michael Halcrow 2007-10-16  1714  		printk(KERN_ERR "Internal error whilst attempting to convert "
+> f4aad16a Michael Halcrow 2007-10-16  1715  			"auth_tok->session_key.decrypted_key to scatterlist; "
+> f4aad16a Michael Halcrow 2007-10-16  1716  			"expected rc = 1; got rc = [%d]\n", rc);
+> f4aad16a Michael Halcrow 2007-10-16  1717  		goto out;
+> 237fead6 Michael Halcrow 2006-10-04  1718  	}
+> 237fead6 Michael Halcrow 2006-10-04 @1719  	mutex_lock(tfm_mutex);
+> 0186bf14 Herbert Xu      2016-01-24  1720  	req = skcipher_request_alloc(tfm, GFP_KERNEL);
+> 0186bf14 Herbert Xu      2016-01-24  1721  	if (!req) {
+> 0186bf14 Herbert Xu      2016-01-24  1722  		printk(KERN_ERR "%s: Out of kernel memory whilst attempting to "
+> 0186bf14 Herbert Xu      2016-01-24  1723  		       "skcipher_request_alloc for %s\n", __func__,
+> 0186bf14 Herbert Xu      2016-01-24  1724  		       crypto_skcipher_driver_name(tfm));
+> 0186bf14 Herbert Xu      2016-01-24  1725  		rc = -ENOMEM;
+> 0186bf14 Herbert Xu      2016-01-24  1726  		goto out;
+> 0186bf14 Herbert Xu      2016-01-24  1727  	}
+> 0186bf14 Herbert Xu      2016-01-24  1728
+> 0186bf14 Herbert Xu      2016-01-24  1729  	skcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_SLEEP,
+> 0186bf14 Herbert Xu      2016-01-24  1730  				      NULL, NULL);
+> 0186bf14 Herbert Xu      2016-01-24  1731  	rc = crypto_skcipher_setkey(
+> 0186bf14 Herbert Xu      2016-01-24  1732  		tfm, auth_tok->token.password.session_key_encryption_key,
+> 237fead6 Michael Halcrow 2006-10-04  1733  		crypt_stat->key_size);
+> f4aad16a Michael Halcrow 2007-10-16  1734  	if (unlikely(rc < 0)) {
+> f4aad16a Michael Halcrow 2007-10-16  1735  		mutex_unlock(tfm_mutex);
+> e5d9cbde Michael Halcrow 2006-10-30  1736  		printk(KERN_ERR "Error setting key for crypto context\n");
+> e5d9cbde Michael Halcrow 2006-10-30  1737  		rc = -EINVAL;
+> f4aad16a Michael Halcrow 2007-10-16  1738  		goto out;
+> 237fead6 Michael Halcrow 2006-10-04  1739  	}
+> 0186bf14 Herbert Xu      2016-01-24  1740  	skcipher_request_set_crypt(req, src_sg, dst_sg,
+> 0186bf14 Herbert Xu      2016-01-24  1741  				   auth_tok->session_key.encrypted_key_size,
+> 0186bf14 Herbert Xu      2016-01-24  1742  				   NULL);
+> 0186bf14 Herbert Xu      2016-01-24  1743  	rc = crypto_skcipher_decrypt(req);
+> f4aad16a Michael Halcrow 2007-10-16  1744  	mutex_unlock(tfm_mutex);
+> f4aad16a Michael Halcrow 2007-10-16  1745  	if (unlikely(rc)) {
+> 8bba066f Michael Halcrow 2006-10-30  1746  		printk(KERN_ERR "Error decrypting; rc = [%d]\n", rc);
+> f4aad16a Michael Halcrow 2007-10-16  1747  		goto out;
+> 8bba066f Michael Halcrow 2006-10-30  1748  	}
+> 237fead6 Michael Halcrow 2006-10-04  1749  	auth_tok->session_key.flags |= ECRYPTFS_CONTAINS_DECRYPTED_KEY;
+> 237fead6 Michael Halcrow 2006-10-04  1750  	memcpy(crypt_stat->key, auth_tok->session_key.decrypted_key,
+> 237fead6 Michael Halcrow 2006-10-04  1751  	       auth_tok->session_key.decrypted_key_size);
+> e2bd99ec Michael Halcrow 2007-02-12  1752  	crypt_stat->flags |= ECRYPTFS_KEY_VALID;
+> f4aad16a Michael Halcrow 2007-10-16  1753  	if (unlikely(ecryptfs_verbosity > 0)) {
+> f24b3887 Tyler Hicks     2010-11-15  1754  		ecryptfs_printk(KERN_DEBUG, "FEK of size [%zd]:\n",
+> f4aad16a Michael Halcrow 2007-10-16  1755  				crypt_stat->key_size);
+> 237fead6 Michael Halcrow 2006-10-04  1756  		ecryptfs_dump_hex(crypt_stat->key,
+> 237fead6 Michael Halcrow 2006-10-04  1757  				  crypt_stat->key_size);
+> f4aad16a Michael Halcrow 2007-10-16  1758  	}
+> 237fead6 Michael Halcrow 2006-10-04  1759  out:
+> 0186bf14 Herbert Xu      2016-01-24  1760  	skcipher_request_free(req);
+> 237fead6 Michael Halcrow 2006-10-04 @1761  	return rc;
+> 237fead6 Michael Halcrow 2006-10-04  1762  }
+> 237fead6 Michael Halcrow 2006-10-04  1763
+> 237fead6 Michael Halcrow 2006-10-04  1764  /**
+>
+> :::::: The code at line 1761 was first introduced by commit
+> :::::: 237fead619984cc48818fe12ee0ceada3f55b012 [PATCH] ecryptfs: fs/Makefile and fs/Kconfig
+>
+> :::::: TO: Michael Halcrow <mhalcrow-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+> :::::: CC: Linus Torvalds <torvalds-hNm40g4Ew95AfugRpC6u6w@public.gmane.org>
+>
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+>
