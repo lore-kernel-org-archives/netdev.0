@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 7/26] wusb: Use skcipher
-Date: Sun, 24 Jan 2016 21:17:07 +0800
-Message-ID: <E1aNKXT-0008BX-N7@gondolin.me.apana.org.au>
+Subject: [PATCH 8/26] cifs: Use skcipher
+Date: Sun, 24 Jan 2016 21:17:17 +0800
+Message-ID: <E1aNKXd-0008Bs-VK@gondolin.me.apana.org.au>
 References: <20160124131021.GA31153@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,102 +33,148 @@ This patch replaces uses of blkcipher with skcipher.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- drivers/usb/wusbcore/crypto.c |   30 ++++++++++++++++--------------
- 1 file changed, 16 insertions(+), 14 deletions(-)
+ fs/cifs/cifsencrypt.c |   32 +++++++++++++++++++++-----------
+ fs/cifs/smbencrypt.c  |   26 +++++++++++++++++++-------
+ 2 files changed, 40 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/usb/wusbcore/crypto.c b/drivers/usb/wusbcore/crypto.c
-index 50ce80d..8ed8e34 100644
---- a/drivers/usb/wusbcore/crypto.c
-+++ b/drivers/usb/wusbcore/crypto.c
-@@ -45,6 +45,7 @@
-  *             funneled through AES are...16 bytes in size!
-  */
+diff --git a/fs/cifs/cifsencrypt.c b/fs/cifs/cifsencrypt.c
+index afa09fc..d411654 100644
+--- a/fs/cifs/cifsencrypt.c
++++ b/fs/cifs/cifsencrypt.c
+@@ -33,6 +33,7 @@
+ #include <linux/ctype.h>
+ #include <linux/random.h>
+ #include <linux/highmem.h>
++#include <crypto/skcipher.h>
+ 
+ static int
+ cifs_crypto_shash_md5_allocate(struct TCP_Server_Info *server)
+@@ -789,38 +790,46 @@ int
+ calc_seckey(struct cifs_ses *ses)
+ {
+ 	int rc;
+-	struct crypto_blkcipher *tfm_arc4;
++	struct crypto_skcipher *tfm_arc4;
+ 	struct scatterlist sgin, sgout;
+-	struct blkcipher_desc desc;
++	struct skcipher_request *req;
+ 	unsigned char sec_key[CIFS_SESS_KEY_SIZE]; /* a nonce */
+ 
+ 	get_random_bytes(sec_key, CIFS_SESS_KEY_SIZE);
+ 
+-	tfm_arc4 = crypto_alloc_blkcipher("ecb(arc4)", 0, CRYPTO_ALG_ASYNC);
++	tfm_arc4 = crypto_alloc_skcipher("ecb(arc4)", 0, CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(tfm_arc4)) {
+ 		rc = PTR_ERR(tfm_arc4);
+ 		cifs_dbg(VFS, "could not allocate crypto API arc4\n");
+ 		return rc;
+ 	}
+ 
+-	desc.tfm = tfm_arc4;
+-
+-	rc = crypto_blkcipher_setkey(tfm_arc4, ses->auth_key.response,
++	rc = crypto_skcipher_setkey(tfm_arc4, ses->auth_key.response,
+ 					CIFS_SESS_KEY_SIZE);
+ 	if (rc) {
+ 		cifs_dbg(VFS, "%s: Could not set response as a key\n",
+ 			 __func__);
+-		return rc;
++		goto out_free_cipher;
++	}
++
++	req = skcipher_request_alloc(tfm_arc4, GFP_KERNEL);
++	if (!req) {
++		rc = -ENOMEM;
++		cifs_dbg(VFS, "could not allocate crypto API arc4 request\n");
++		goto out_free_cipher;
+ 	}
+ 
+ 	sg_init_one(&sgin, sec_key, CIFS_SESS_KEY_SIZE);
+ 	sg_init_one(&sgout, ses->ntlmssp->ciphertext, CIFS_CPHTXT_SIZE);
+ 
+-	rc = crypto_blkcipher_encrypt(&desc, &sgout, &sgin, CIFS_CPHTXT_SIZE);
++	skcipher_request_set_callback(req, 0, NULL, NULL);
++	skcipher_request_set_crypt(req, &sgin, &sgout, CIFS_CPHTXT_SIZE, NULL);
++
++	rc = crypto_skcipher_encrypt(req);
++	skcipher_request_free(req);
+ 	if (rc) {
+ 		cifs_dbg(VFS, "could not encrypt session key rc: %d\n", rc);
+-		crypto_free_blkcipher(tfm_arc4);
+-		return rc;
++		goto out_free_cipher;
+ 	}
+ 
+ 	/* make secondary_key/nonce as session key */
+@@ -828,7 +837,8 @@ calc_seckey(struct cifs_ses *ses)
+ 	/* and make len as that of session key only */
+ 	ses->auth_key.len = CIFS_SESS_KEY_SIZE;
+ 
+-	crypto_free_blkcipher(tfm_arc4);
++out_free_cipher:
++	crypto_free_skcipher(tfm_arc4);
+ 
+ 	return rc;
+ }
+diff --git a/fs/cifs/smbencrypt.c b/fs/cifs/smbencrypt.c
+index a4232ec..699b786 100644
+--- a/fs/cifs/smbencrypt.c
++++ b/fs/cifs/smbencrypt.c
+@@ -23,6 +23,7 @@
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
  
 +#include <crypto/skcipher.h>
- #include <linux/crypto.h>
  #include <linux/module.h>
- #include <linux/err.h>
-@@ -195,21 +196,22 @@ static void bytewise_xor(void *_bo, const void *_bi1, const void *_bi2,
-  * NOTE: blen is not aligned to a block size, we'll pad zeros, that's
-  *       what sg[4] is for. Maybe there is a smarter way to do this.
-  */
--static int wusb_ccm_mac(struct crypto_blkcipher *tfm_cbc,
-+static int wusb_ccm_mac(struct crypto_skcipher *tfm_cbc,
- 			struct crypto_cipher *tfm_aes, void *mic,
- 			const struct aes_ccm_nonce *n,
- 			const struct aes_ccm_label *a, const void *b,
- 			size_t blen)
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+@@ -70,31 +71,42 @@ smbhash(unsigned char *out, const unsigned char *in, unsigned char *key)
  {
- 	int result = 0;
+ 	int rc;
+ 	unsigned char key2[8];
+-	struct crypto_blkcipher *tfm_des;
++	struct crypto_skcipher *tfm_des;
+ 	struct scatterlist sgin, sgout;
 -	struct blkcipher_desc desc;
-+	SKCIPHER_REQUEST_ON_STACK(req, tfm_cbc);
- 	struct aes_ccm_b0 b0;
- 	struct aes_ccm_b1 b1;
- 	struct aes_ccm_a ax;
- 	struct scatterlist sg[4], sg_dst;
--	void *iv, *dst_buf;
--	size_t ivsize, dst_size;
-+	void *dst_buf;
-+	size_t dst_size;
- 	const u8 bzero[16] = { 0 };
-+	u8 iv[crypto_skcipher_ivsize(tfm_cbc)];
- 	size_t zero_padding;
++	struct skcipher_request *req;
  
- 	/*
-@@ -232,9 +234,7 @@ static int wusb_ccm_mac(struct crypto_blkcipher *tfm_cbc,
- 		goto error_dst_buf;
+ 	str_to_key(key, key2);
+ 
+-	tfm_des = crypto_alloc_blkcipher("ecb(des)", 0, CRYPTO_ALG_ASYNC);
++	tfm_des = crypto_alloc_skcipher("ecb(des)", 0, CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(tfm_des)) {
+ 		rc = PTR_ERR(tfm_des);
+ 		cifs_dbg(VFS, "could not allocate des crypto API\n");
+ 		goto smbhash_err;
  	}
  
--	iv = crypto_blkcipher_crt(tfm_cbc)->iv;
--	ivsize = crypto_blkcipher_ivsize(tfm_cbc);
--	memset(iv, 0, ivsize);
-+	memset(iv, 0, sizeof(iv));
+-	desc.tfm = tfm_des;
++	req = skcipher_request_alloc(tfm_des, GFP_KERNEL);
++	if (!req) {
++		rc = -ENOMEM;
++		cifs_dbg(VFS, "could not allocate des crypto API\n");
++		goto smbhash_free_skcipher;
++	}
  
- 	/* Setup B0 */
- 	b0.flags = 0x59;	/* Format B0 */
-@@ -259,9 +259,11 @@ static int wusb_ccm_mac(struct crypto_blkcipher *tfm_cbc,
- 	sg_set_buf(&sg[3], bzero, zero_padding);
- 	sg_init_one(&sg_dst, dst_buf, dst_size);
+-	crypto_blkcipher_setkey(tfm_des, key2, 8);
++	crypto_skcipher_setkey(tfm_des, key2, 8);
  
--	desc.tfm = tfm_cbc;
--	desc.flags = 0;
--	result = crypto_blkcipher_encrypt(&desc, &sg_dst, sg, dst_size);
-+	skcipher_request_set_tfm(req, tfm_cbc);
+ 	sg_init_one(&sgin, in, 8);
+ 	sg_init_one(&sgout, out, 8);
+ 
+-	rc = crypto_blkcipher_encrypt(&desc, &sgout, &sgin, 8);
 +	skcipher_request_set_callback(req, 0, NULL, NULL);
-+	skcipher_request_set_crypt(req, sg, &sg_dst, dst_size, iv);
-+	result = crypto_skcipher_encrypt(req);
-+	skcipher_request_zero(req);
- 	if (result < 0) {
- 		printk(KERN_ERR "E: can't compute CBC-MAC tag (MIC): %d\n",
- 		       result);
-@@ -301,18 +303,18 @@ ssize_t wusb_prf(void *out, size_t out_size,
- {
- 	ssize_t result, bytes = 0, bitr;
- 	struct aes_ccm_nonce n = *_n;
--	struct crypto_blkcipher *tfm_cbc;
-+	struct crypto_skcipher *tfm_cbc;
- 	struct crypto_cipher *tfm_aes;
- 	u64 sfn = 0;
- 	__le64 sfn_le;
++	skcipher_request_set_crypt(req, &sgin, &sgout, 8, NULL);
++
++	rc = crypto_skcipher_encrypt(req);
+ 	if (rc)
+ 		cifs_dbg(VFS, "could not encrypt crypt key rc: %d\n", rc);
  
--	tfm_cbc = crypto_alloc_blkcipher("cbc(aes)", 0, CRYPTO_ALG_ASYNC);
-+	tfm_cbc = crypto_alloc_skcipher("cbc(aes)", 0, CRYPTO_ALG_ASYNC);
- 	if (IS_ERR(tfm_cbc)) {
- 		result = PTR_ERR(tfm_cbc);
- 		printk(KERN_ERR "E: can't load CBC(AES): %d\n", (int)result);
- 		goto error_alloc_cbc;
- 	}
--	result = crypto_blkcipher_setkey(tfm_cbc, key, 16);
-+	result = crypto_skcipher_setkey(tfm_cbc, key, 16);
- 	if (result < 0) {
- 		printk(KERN_ERR "E: can't set CBC key: %d\n", (int)result);
- 		goto error_setkey_cbc;
-@@ -345,7 +347,7 @@ error_setkey_aes:
- 	crypto_free_cipher(tfm_aes);
- error_alloc_aes:
- error_setkey_cbc:
--	crypto_free_blkcipher(tfm_cbc);
-+	crypto_free_skcipher(tfm_cbc);
- error_alloc_cbc:
- 	return result;
+-	crypto_free_blkcipher(tfm_des);
++	skcipher_request_free(req);
++
++smbhash_free_skcipher:
++	crypto_free_skcipher(tfm_des);
+ smbhash_err:
+ 	return rc;
  }
