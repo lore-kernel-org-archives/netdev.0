@@ -1,32 +1,45 @@
-From: =?UTF-8?Q?Bj=C3=B8rnar_Ness?= <bjornar.ness@gmail.com>
-Subject: bonding (IEEE 802.3ad) not working with qemu/virtio
-Date: Mon, 25 Jan 2016 17:24:48 +0100
-Message-ID: <CAJO99TmB3957Wq3Cse7azgBxKeZ2BV6QihoyAsjUjyvzc-V8dQ@mail.gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net] lan78xx: changed to use updated
+ phy-ignore-interrupts
+Date: Mon, 25 Jan 2016 16:26:09 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4049DBE4@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D4049C34C@CHN-SV-EXMX02.mchp-main.com>
+ <56A2F494.50900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:33472 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751763AbcAYQYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 11:24:50 -0500
-Received: by mail-lb0-f181.google.com with SMTP id x4so77711213lbm.0
-        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 08:24:49 -0800 (PST)
+Received: from exsmtp01.microchip.com ([198.175.253.37]:49990 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756463AbcAYQ0K convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 11:26:10 -0500
+In-Reply-To: <56A2F494.50900@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As subject says, 802.3ad bonding is not working with virtio network model.
+Florian,
 
-The only errors I see is:
+> Looks fine, just one nit below:
+> 
+> > @@ -954,6 +956,7 @@ static int lan78xx_link_reset(struct lan78xx_net
+> *dev)
+> >
+> >  		ret = lan78xx_update_flowcontrol(dev, ecmd.duplex, ladv,
+> radv);
+> >  		netif_carrier_on(dev->net);
+> 
+> Do you need this netif_carrier_on() call here? PHYLIB should set that
+> already.
+> 
+> > +		phy_mac_interrupt(phydev, 1);
+> >  	}
 
-No 802.3ad response from the link partner for any adapters in the bond.
+Thanks for feedback.
+As you pointed, netif_carrier_on() is redundant and also netif_carrier_off() in same routine.
+Will post new patch.
 
-Dumping the network traffic shows that no LACP packets are sent from the
-host running with virtio driver, changing to for example e1000 solves
-this problem
-with no configuration changes.
-
-Is this a known problem?
-
--- 
-Bj(/)rnar
+Thanks,
+Woojung
