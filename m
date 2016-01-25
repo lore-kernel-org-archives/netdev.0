@@ -1,73 +1,72 @@
-From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: [PATCHv2 2/4] net: rfkill: gpio: get the name and type from device property
-Date: Mon, 25 Jan 2016 12:03:47 +0300
-Message-ID: <1453712629-143317-3-git-send-email-heikki.krogerus@linux.intel.com>
-References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:49698 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752521AbcAYJF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2016 04:05:58 -0500
-In-Reply-To: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net: GPF in netlink_getsockbyportid
+Date: Mon, 25 Jan 2016 18:03:41 +0800
+Message-ID: <20160125100341.GA6735@gondor.apana.org.au>
+References: <CACT4Y+Zmwr0VbfB5RAoLTCJJAF7epZWbbMkHxtXUwvF3tXbrgQ@mail.gmail.com>
+ <20160123192502.GB17729@breakpoint.cc>
+ <56A3DCF7.7000404@iogearbox.net>
+ <20160124001103.GA2748@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	netfilter-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160124001103.GA2748@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This prepares the driver for removal of platform data.
+On Sun, Jan 24, 2016 at 01:11:03AM +0100, Florian Westphal wrote:
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+> > On 01/23/2016 08:25 PM, Florian Westphal wrote:
+> > >Dmitry Vyukov <dvyukov@google.com> wrote:
+> > >
+> > >[ CC nf-devel, not sure if its nfnetlink fault or NETLINK_MMAP ]
+> > >
+> > >>The following program causes GPF in netlink_getsockbyportid:
+> [..]
+> 
+> > >CONFIG_NETLINK_MMAP and nfnetlink batching strike in unison :-/
+> > >
+> > >root cause is in nfnetlink_rcv_batch():
+> > >
+> > >296 replay:
+> > >297         status = 0;
+> > >298
+> > >299         skb = netlink_skb_clone(oskb, GFP_KERNEL);
+> > >
+> > >The clone op doesn't copy oskb->sk, so we oops in
+> > >__netlink_alloc_skb -> netlink_getsockbyportid() when nfnetlink_rcv_batch
+> > >tries to send netlink ack.
+> > 
+> > If indeed oskb is the mmap'ed netlink skb, then it's not even allowed
+> > to call into skb_clone()
+> 
+> Right, but in this case there is no mmap'd netlink sk involved -- we
+> crash when we try to look up dst netlink socket to see if there is an
+> mmap'd ring attached.
+> 
+> [ and that code isn't there with CONFIG_NETLINK_MMAP=n ].
 
-Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
----
- net/rfkill/rfkill-gpio.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+Let's CC Pablo since he wrote the code in question.
 
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index 4b1e3f3..1a9c031 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -81,7 +81,6 @@ static int rfkill_gpio_acpi_probe(struct device *dev,
- 	if (!id)
- 		return -ENODEV;
- 
--	rfkill->name = dev_name(dev);
- 	rfkill->type = (unsigned)id->driver_data;
- 
- 	return acpi_dev_add_driver_gpios(ACPI_COMPANION(dev),
-@@ -93,12 +92,21 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
- 	struct rfkill_gpio_data *rfkill;
- 	struct gpio_desc *gpio;
-+	const char *type_name;
- 	int ret;
- 
- 	rfkill = devm_kzalloc(&pdev->dev, sizeof(*rfkill), GFP_KERNEL);
- 	if (!rfkill)
- 		return -ENOMEM;
- 
-+	device_property_read_string(&pdev->dev, "name", &rfkill->name);
-+	device_property_read_string(&pdev->dev, "type", &type_name);
-+
-+	if (!rfkill->name)
-+		rfkill->name = dev_name(&pdev->dev);
-+
-+	rfkill->type = rfkill_find_type(type_name);
-+
- 	if (ACPI_HANDLE(&pdev->dev)) {
- 		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
- 		if (ret)
-@@ -124,10 +132,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 
- 	rfkill->shutdown_gpio = gpio;
- 
--	/* Make sure at-least one of the GPIO is defined and that
--	 * a name is specified for this instance
--	 */
--	if ((!rfkill->reset_gpio && !rfkill->shutdown_gpio) || !rfkill->name) {
-+	/* Make sure at-least one GPIO is defined for this instance */
-+	if (!rfkill->reset_gpio && !rfkill->shutdown_gpio) {
- 		dev_err(&pdev->dev, "invalid platform data\n");
- 		return -EINVAL;
- 	}
+Thanks,
 -- 
-2.7.0.rc3
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
