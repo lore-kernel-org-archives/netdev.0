@@ -1,72 +1,105 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: net: GPF in netlink_getsockbyportid
-Date: Mon, 25 Jan 2016 11:17:20 +0100
-Message-ID: <20160125101720.GA1360@salvia>
-References: <CACT4Y+Zmwr0VbfB5RAoLTCJJAF7epZWbbMkHxtXUwvF3tXbrgQ@mail.gmail.com>
- <20160123192502.GB17729@breakpoint.cc>
- <56A3DCF7.7000404@iogearbox.net>
- <20160124001103.GA2748@breakpoint.cc>
- <20160125100341.GA6735@gondor.apana.org.au>
+From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
+Subject: Supermicro AOC-STGN-i2S w intel 82599ES on Brocade ICX6610 - random
+ link failures
+Date: Mon, 25 Jan 2016 11:08:51 +0100
+Message-ID: <20160125100851.GA7545@nbnik.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	netfilter-devel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="2fHTh5uZTiUOsy+g"
+Cc: nik@linuxbox.cz, Stanislav Schattke <schattke@linuxbox.cz>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gwu.lbox.cz ([62.245.111.132]:56708 "EHLO gwu.lbox.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755368AbcAYKYP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2016 05:24:15 -0500
 Content-Disposition: inline
-In-Reply-To: <20160125100341.GA6735@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2016 at 06:03:41PM +0800, Herbert Xu wrote:
-> On Sun, Jan 24, 2016 at 01:11:03AM +0100, Florian Westphal wrote:
-> > Daniel Borkmann <daniel@iogearbox.net> wrote:
-> > > On 01/23/2016 08:25 PM, Florian Westphal wrote:
-> > > >Dmitry Vyukov <dvyukov@google.com> wrote:
-> > > >
-> > > >[ CC nf-devel, not sure if its nfnetlink fault or NETLINK_MMAP ]
-> > > >
-> > > >>The following program causes GPF in netlink_getsockbyportid:
-> > [..]
-> > 
-> > > >CONFIG_NETLINK_MMAP and nfnetlink batching strike in unison :-/
-> > > >
-> > > >root cause is in nfnetlink_rcv_batch():
-> > > >
-> > > >296 replay:
-> > > >297         status = 0;
-> > > >298
-> > > >299         skb = netlink_skb_clone(oskb, GFP_KERNEL);
-> > > >
-> > > >The clone op doesn't copy oskb->sk, so we oops in
-> > > >__netlink_alloc_skb -> netlink_getsockbyportid() when nfnetlink_rcv_batch
-> > > >tries to send netlink ack.
-> > > 
-> > > If indeed oskb is the mmap'ed netlink skb, then it's not even allowed
-> > > to call into skb_clone()
-> > 
-> > Right, but in this case there is no mmap'd netlink sk involved -- we
-> > crash when we try to look up dst netlink socket to see if there is an
-> > mmap'd ring attached.
-> > 
-> > [ and that code isn't there with CONFIG_NETLINK_MMAP=n ].
-> 
-> Let's CC Pablo since he wrote the code in question.
 
-I have just sent this patch:
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-http://patchwork.ozlabs.org/patch/572489/
+Hello netdev readers,
+
+I'd like to consult following problem we're dealing with:
+
+I have a cluster of three nodes connected to stacked Brocade ICX6610
+switches using bonded AOC-STGN-i2S adapters (they're using 82599ES
+chipsets).
+
+The problem is, I see random link failures on practically all
+interfaces. Link always goes down for very short time, then adapter
+is reset and link goes up again.
+
+Here's dmesg snippet:
+
+[Jan22 22:09] ixgbe 0000:03:00.0 eth0: NIC Link is Down
+[  +0.005610] ixgbe 0000:03:00.0 eth0: initiating reset to clear Tx work af=
+ter link loss
+[  +0.012792] bond0: link status definitely down for interface eth0, disabl=
+ing it
+[  +1.105826] ixgbe 0000:03:00.0 eth0: Reset adapter
+[  +0.307518] ixgbe 0000:03:00.0 eth0: detected SFP+: 3
+[  +0.145881] ixgbe 0000:03:00.0 eth0: NIC Link is Up 10 Gbps, Flow Control=
+: RX/TX
+
+since I'm using bonding, it doesn't disrupt traffic, but I'd still like to
+resolve it. We're using 5m passive SFP cables, we tried replacing one with =
+3m
+piece, to no avail.=20
+
+all three boxes are supermicro X10DRW, running vanilla x86_64 4.0.5 kernel =
+(I'll upgrade it to 4.1.16 soon)
+
+we were using broadcom adapter before and they were working without such pr=
+oblems
+(except for one particular port, which showed mysterious packet drops every=
+ few
+months, thats why we switched to intel-based adapters), so I think cables a=
+nd switches
+should be fine, but I'm not sure of course
+
+I think I've seen similar problems and they were PM related, but I'm not su=
+re..
+
+anyone seen similar problem?
+
+or some tips on how could I debug it?
+
+If I could provide more information, please let me know
+
+BR
+
+nik
+
+--=20
+-------------------------------------
+Ing. Nikola CIPRICH
+LinuxBox.cz, s.r.o.
+28.rijna 168, 709 00 Ostrava
+
+tel.:   +420 591 166 214
+fax:    +420 596 621 273
+mobil:  +420 777 093 799
+www.linuxbox.cz
+
+mobil servis: +420 737 238 656
+email servis: servis@linuxbox.cz
+-------------------------------------
+
+--2fHTh5uZTiUOsy+g
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.14 (GNU/Linux)
+
+iEYEARECAAYFAlal9DMACgkQ3xdJJrLygV41dgCggP+dXDxK704IfzaEknPn42kI
+BcUAoOJJqSRIJMZ0M5hdXoJcPi40PSE2
+=acxT
+-----END PGP SIGNATURE-----
+
+--2fHTh5uZTiUOsy+g--
