@@ -1,113 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 0/3] basic busy polling support for vhost_net
-Date: Mon, 25 Jan 2016 16:41:33 +0800
-Message-ID: <56A5DFBD.4000701@redhat.com>
-References: <1448951985-12385-1-git-send-email-jasowang@redhat.com>
-	<loom.20160124T095157-151@post.gmane.org> <56A58FB5.8020101@redhat.com>
-	<OF39FCBD95.AC4D3DD2-ONC2257F45.002772D2-C2257F45.002BD839@il.ibm.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 2/3] net: macb: fix build warning
+Date: Mon, 25 Jan 2016 09:45:36 +0100
+Message-ID: <56A5E0B0.4070802@atmel.com>
+References: <1453702389-601-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Michael Rapoport <RAPOPORT@il.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <OF39FCBD95.AC4D3DD2-ONC2257F45.002772D2-C2257F45.002BD839@il.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453702389-601-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Le 25/01/2016 07:13, Sudip Mukherjee a =E9crit :
+> We are getting build warning about:
+> macb.c:2889:13: warning: 'tx_clk' may be used uninitialized in this f=
+unction
+> macb.c:2888:11: warning: 'hclk' may be used uninitialized in this fun=
+ction
+>=20
+> In reality they are not used uninitialized as clk_init() will initial=
+ize
+> them, this patch will just silence the warning.
+>=20
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Thanks for your patch.
+
+Bye,
+
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 9d9984a..50c9410 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2823,7 +2823,7 @@ static int macb_probe(struct platform_device *p=
+dev)
+>  	struct device_node *np =3D pdev->dev.of_node;
+>  	struct device_node *phy_node;
+>  	const struct macb_config *macb_config =3D NULL;
+> -	struct clk *pclk, *hclk, *tx_clk;
+> +	struct clk *pclk, *hclk =3D NULL, *tx_clk =3D NULL;
+>  	unsigned int queue_mask, num_queues;
+>  	struct macb_platform_data *pdata;
+>  	bool native_io;
+>=20
 
 
-On 01/25/2016 03:58 PM, Michael Rapoport wrote:
-> (restored 'CC, sorry for dropping it originally, Notes is still hard
-> for me)
->
-> > Jason Wang <jasowang@redhat.com> wrote on 01/25/2016 05:00:05 AM:
-> > On 01/24/2016 05:00 PM, Mike Rapoport wrote:
-> > > Hi Jason,
-> > >
-> > >> Jason Wang <jasowang <at> redhat.com> writes:
-> > >>
-> > >> Hi all:
-> > >>
-> > >> This series tries to add basic busy polling for vhost net. The
-> idea is
-> > >> simple: at the end of tx/rx processing, busy polling for new tx added
-> > >> descriptor and rx receive socket for a while.
-> > > There were several conciens Michael raised on the Razya's attempt
-> to add
-> > > polling to vhost-net ([1], [2]). Some of them seem relevant for these
-> > > patches as well:
-> > >
-> > > - What happens in overcommit scenarios?
-> >
-> > We have an optimization here: busy polling will end if more than one
-> > processes is runnable on local cpu. This was done by checking
-> > single_task_running() in each iteration. So at the worst case, busy
-> > polling should be as fast as or only a minor regression compared to
-> > normal case. You can see this from the last test result.
-> >
-> > > - Have you checked the effect of polling on some macro benchmarks?
-> >
-> > I'm not sure I get the question. Cover letters shows some benchmark
-> > result of netperf. What do you mean by "macro benchmarks"?
->
-> Back then, when Razya posted her polling implementation, Michael had
-> concern about the macro effect ([3]),
-> so I was wondering if this concern is also valid for your implementation.
-> Now, after I've reread your changes, I think it's not that relevant...
-
-More benchmarks is good, but lots of kernel patches were accepted only
-with simple netperf results. Anyway busy polling is disabled by default,
-will try to do macro benchmark in the future if I had time.
-
->
->
-> > >> The maximum number of time (in us) could be spent on busy polling was
-> > >> specified ioctl.
-> > > Although ioctl is definitely more appropriate interface to allow
-> user to
-> > > tune polling, it's still not clear for me how *end user* will
-> interact with
-> > > it and how easy it would be for him/her.
-> >
-> > There will be qemu part of the codes for end user. E.g. a vhost_poll_us
-> > parameter for tap like:
-> >
-> > -netdev tap,id=hn0,vhost=on,vhost_pull_us=20
->
-> Not strictly related, I'd like to give a try to polling + vhost thread
-> sharing and polling + workqueues.
-> Do you mind sharing the scripts you used to test the polling?
-
-Sure, it was a subtest of autotest[1].
-
-[1]
-https://github.com/autotest/tp-qemu/blob/7cf589b490aff7511eccbf2e1336ecf8d9fa9cb9/generic/tests/netperf.py
-
->
->  
-> Thanks,
-> Mike.
->
-> > Thanks
-> >
-> > >
-> > > [1] http://thread.gmane.org/gmane.linux.kernel/1765593
-> > > [2] http://thread.gmane.org/gmane.comp.emulators.kvm.devel/131343
-> > >
-> > > --
-> > > Sincerely yours,
-> > > Mike.
-> > >
->
-> [3] https://www.mail-archive.com/kvm@vger.kernel.org/msg109703.html
+--=20
+Nicolas Ferre
