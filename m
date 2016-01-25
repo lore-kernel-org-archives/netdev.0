@@ -1,148 +1,134 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: net/sctp: out-of-bounds access in sctp_add_bind_addr
-Date: Mon, 25 Jan 2016 11:05:34 -0500
-Message-ID: <20160125160534.GC29690@hmsreliant.think-freely.org>
-References: <CACT4Y+YNM_C1_mBBiq40-xe+dTKdsfmxri2SeDyRKSVpw+7nLQ@mail.gmail.com>
- <20160125143130.GB29690@hmsreliant.think-freely.org>
- <CACT4Y+Z36GoxiRDQdFeVNkEvdRvmTXZC47cRM=TA1FCM+vCDcg@mail.gmail.com>
- <20160125144802.GA6602@mrl.redhat.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Fix book keeping of skb during batching
+ process
+Date: Mon, 25 Jan 2016 09:49:31 -0800
+Message-ID: <1453744171-31843-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47952 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932913AbcAYQF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 11:05:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20160125144802.GA6602@mrl.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, haiyangz@microsoft.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 25, 2016 at 12:48:02PM -0200, Marcelo Ricardo Leitner wrote:
-> On Mon, Jan 25, 2016 at 03:42:14PM +0100, Dmitry Vyukov wrote:
-> > On Mon, Jan 25, 2016 at 3:31 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> > > On Mon, Jan 25, 2016 at 03:02:38PM +0100, Dmitry Vyukov wrote:
-> > >> Hello,
-> > >>
-> > >> I've git the following error report while running syzkaller fuzzer:
-> > >>
-> > >> ==================================================================
-> > >> BUG: KASAN: slab-out-of-bounds in memcpy+0x1d/0x40 at addr ffff88006c6361e8
-> > >> Read of size 28 by task syz-executor/12551
-> > >> =============================================================================
-> > >> BUG kmalloc-16 (Not tainted): kasan: bad access detected
-> > >> -----------------------------------------------------------------------------
-> > >>
-> > >> INFO: Allocated in sctp_setsockopt_bindx+0xd2/0x3e0 age=12 cpu=2 pid=12551
-> > >> [<     inline     >] kmalloc include/linux/slab.h:468
-> > >> [<      none      >] sctp_setsockopt_bindx+0xd2/0x3e0 net/sctp/socket.c:975
-> > >> [<      none      >] sctp_setsockopt+0x1493/0x3630 net/sctp/socket.c:3711
-> > >> [<      none      >] sock_common_setsockopt+0x97/0xd0 net/core/sock.c:2620
-> > >> [<     inline     >] SYSC_setsockopt net/socket.c:1752
-> > >> [<      none      >] SyS_setsockopt+0x15b/0x250 net/socket.c:1731
-> > >> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
-> > >> arch/x86/entry/entry_64.S:185
-> > >>
-> > >> INFO: Slab 0xffffea0001b18d80 objects=16 used=4 fp=0xffff88006c6376e0
-> > >> flags=0x5fffc0000004080
-> > >> INFO: Object 0xffff88006c6361e8 @offset=488 fp=0x0000000000000002
-> > >> Bytes b4 ffff88006c6361d8: 00 00 00 00 00 00 00 00 2f 98 34 88 ff ff
-> > >> ff ff  ......../.4.....
-> > >> Object ffff88006c6361e8: 02 00 00 00 00 00 00 00 02 00 ab 07 7f 00 00
-> > >> 01  ................
-> > >> CPU: 2 PID: 12551 Comm: syz-executor Tainted: G    B           4.5.0-rc1+ #278
-> > >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> > >>  00000000ffffffff ffff880036397928 ffffffff8299a02d ffff88003e807900
-> > >>  ffff88006c6361e8 ffff88006c636000 ffff880036397958 ffffffff81752814
-> > >>  ffff88003e807900 ffffea0001b18d80 ffff88006c6361e8 ffff88006c6361e8
-> > >>
-> > >> Call Trace:
-> > >>  [<ffffffff8175ad54>] __asan_loadN+0x124/0x1a0 mm/kasan/kasan.c:512
-> > >>  [<ffffffff8175b2dd>] memcpy+0x1d/0x40 mm/kasan/kasan.c:297
-> > >>  [<ffffffff85dcb249>] sctp_add_bind_addr+0xa9/0x270 net/sctp/bind_addr.c:162
-> > >>  [<ffffffff85dcfd66>] sctp_do_bind+0x336/0x580 net/sctp/socket.c:389
-> > >>  [<ffffffff85dd16ec>] sctp_bindx_add+0xac/0x1a0 net/sctp/socket.c:471
-> > >>  [<ffffffff85dd5cc8>] sctp_setsockopt_bindx+0x2f8/0x3e0 net/sctp/socket.c:1010
-> > >>  [<ffffffff85dde283>] sctp_setsockopt+0x1493/0x3630 net/sctp/socket.c:3711
-> > >>  [<ffffffff851f5ae7>] sock_common_setsockopt+0x97/0xd0 net/core/sock.c:2620
-> > >>  [<     inline     >] SYSC_setsockopt net/socket.c:1752
-> > >>  [<ffffffff851f2c3b>] SyS_setsockopt+0x15b/0x250 net/socket.c:1731
-> > >>  [<ffffffff863595f6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-> > >> arch/x86/entry/entry_64.S:185
-> > >>
-> > >> Memory state around the buggy address:
-> > >>  ffff88006c636080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> > >>  ffff88006c636100: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> > >> >ffff88006c636180: fc fc fc fc fc fc fc fc fc fc fc fc fc 00 00 fc
-> > >>                                                                 ^
-> > >>  ffff88006c636200: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> > >>  ffff88006c636280: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> > >> ==================================================================
-> > >>
-> > >>
-> > >> sctp_setsockopt_bindx verifies that the user-passed address has valid
-> > >> len for the specified family, but then sctp_add_bind_addr copies whole
-> > >> sctp_addr from there. This causes heap out-of-bounds access and can
-> > >> crash kernel. Not sure if it is possible to copy out the trailing
-> > >> garbage to user-space later.
-> > >>
-> > >
-> > > It does more than that though.  sctp_setsockopt_bindx checks the following:
-> > > 1) That passed addr_size is greater than zero
-> > > 2) that the entire range of memory between addrs and addrs+addr_size is readable
-> > > 3) That at least one address structure worth of data is available (implicit in
-> > > the while (walk_size < addr_size) loop).
-> > >
-> > > Could one of the sockaddr_len fields in one of the addresses have been mangled
-> > > so that it appeared shorter in the the while loop from (3), so that a copy of
-> > > sizeof(sctp_addr in sctp_add_bind_addr overrun the allocated memory?
-> > 
-> > I may be missing something, but what I see is:
-> > 
-> > 1. we check that there is at least family:
-> > if (walk_size + sizeof(sa_family_t) > addrs_size) {
-> > 
-> > 2. get family descriptor:
-> > af = sctp_get_af_specific(sa_addr->sa_family);
-> > 
-> > 3. check that the address size is enough to hold the declared family:
-> > if (!af || (walk_size + af->sockaddr_len) > addrs_size) {
-> > 
-> > 4. then we do sctp_add_bind_addr, which copies whole sctp_addr from addr:
-> > 
-> > int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
-> > ...
-> > memcpy(&addr->a, new, sizeof(*new));
-> > 
-> > Now imagine that the addr is ipv4 (16 or so bytes, that's what we
-> > checked) and we copy 28 bytes (ipv6) from addr.
-> 
-> Yes, that's pretty much it I think. That memcpy should be limited to
-> af->sockaddr_len, it's just that af is not readily available in that
-> function.
-> 
-Yeah, ok, we're on the same page.  If the size of the sctp_addr struct is larger
-than the size that the address family specifies, we're up the creek.  We should
-augment sctp_add_bind_addr to take the family length as a parameter and either
-limit the copy to the min of the sruct size and the family size
+Since eliminating send_completion_tid from struct hv_netvsc_packet, we
+haven't add proper book keeping for the skb of the batched packet. This
+patch fixes this issue and allows the previous skb is properly freed.
+Otherwise, a panic may happen.
+Thanks to Simon Xiao <sixiao@microsoft.com> for bisecting and analysis.
 
-Neil
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    1 +
+ drivers/net/hyperv/netvsc.c     |   33 ++++++++++++++++++++++-----------
+ 2 files changed, 23 insertions(+), 11 deletions(-)
 
->   Marcelo
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index f4130af..fcb92c0 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -624,6 +624,7 @@ struct nvsp_message {
+ #define RNDIS_PKT_ALIGN_DEFAULT 8
+ 
+ struct multi_send_data {
++	struct sk_buff *skb; /* skb containing the pkt */
+ 	struct hv_netvsc_packet *pkt; /* netvsc pkt pending */
+ 	u32 count; /* counter of batched packets */
+ };
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 059fc52..ec313fc 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -841,6 +841,18 @@ static inline int netvsc_send_pkt(
+ 	return ret;
+ }
+ 
++/* Move packet out of multi send data (msd), and clear msd */
++static inline void move_pkt_msd(struct hv_netvsc_packet **msd_send,
++				struct sk_buff **msd_skb,
++				struct multi_send_data *msdp)
++{
++	*msd_skb = msdp->skb;
++	*msd_send = msdp->pkt;
++	msdp->skb = NULL;
++	msdp->pkt = NULL;
++	msdp->count = 0;
++}
++
+ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+@@ -855,6 +867,7 @@ int netvsc_send(struct hv_device *device,
+ 	unsigned int section_index = NETVSC_INVALID_INDEX;
+ 	struct multi_send_data *msdp;
+ 	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
++	struct sk_buff *msd_skb = NULL;
+ 	bool try_batch;
+ 	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
+ 
+@@ -897,10 +910,8 @@ int netvsc_send(struct hv_device *device,
+ 		   net_device->send_section_size) {
+ 		section_index = netvsc_get_next_send_section(net_device);
+ 		if (section_index != NETVSC_INVALID_INDEX) {
+-				msd_send = msdp->pkt;
+-				msdp->pkt = NULL;
+-				msdp->count = 0;
+-				msd_len = 0;
++			move_pkt_msd(&msd_send, &msd_skb, msdp);
++			msd_len = 0;
+ 		}
+ 	}
+ 
+@@ -919,31 +930,31 @@ int netvsc_send(struct hv_device *device,
+ 			packet->total_data_buflen += msd_len;
+ 		}
+ 
+-		if (msdp->pkt)
+-			dev_kfree_skb_any(skb);
++		if (msdp->skb)
++			dev_kfree_skb_any(msdp->skb);
+ 
+ 		if (xmit_more && !packet->cp_partial) {
++			msdp->skb = skb;
+ 			msdp->pkt = packet;
+ 			msdp->count++;
+ 		} else {
+ 			cur_send = packet;
++			msdp->skb = NULL;
+ 			msdp->pkt = NULL;
+ 			msdp->count = 0;
+ 		}
+ 	} else {
+-		msd_send = msdp->pkt;
+-		msdp->pkt = NULL;
+-		msdp->count = 0;
++		move_pkt_msd(&msd_send, &msd_skb, msdp);
+ 		cur_send = packet;
+ 	}
+ 
+ 	if (msd_send) {
+-		m_ret = netvsc_send_pkt(msd_send, net_device, pb, skb);
++		m_ret = netvsc_send_pkt(msd_send, net_device, NULL, msd_skb);
+ 
+ 		if (m_ret != 0) {
+ 			netvsc_free_send_slot(net_device,
+ 					      msd_send->send_buf_index);
+-			dev_kfree_skb_any(skb);
++			dev_kfree_skb_any(msd_skb);
+ 		}
+ 	}
+ 
+-- 
+1.7.4.1
