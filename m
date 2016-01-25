@@ -1,129 +1,122 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: net/sctp: out-of-bounds access in sctp_add_bind_addr
-Date: Mon, 25 Jan 2016 12:48:02 -0200
-Message-ID: <20160125144802.GA6602@mrl.redhat.com>
-References: <CACT4Y+YNM_C1_mBBiq40-xe+dTKdsfmxri2SeDyRKSVpw+7nLQ@mail.gmail.com>
- <20160125143130.GB29690@hmsreliant.think-freely.org>
- <CACT4Y+Z36GoxiRDQdFeVNkEvdRvmTXZC47cRM=TA1FCM+vCDcg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net-next] hv_netvsc: use skb_get_hash() instead of a homegrown implementation
+Date: Mon, 25 Jan 2016 16:00:41 +0100
+Message-ID: <1453734041-20394-1-git-send-email-vkuznets@redhat.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+Z36GoxiRDQdFeVNkEvdRvmTXZC47cRM=TA1FCM+vCDcg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 25, 2016 at 03:42:14PM +0100, Dmitry Vyukov wrote:
-> On Mon, Jan 25, 2016 at 3:31 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> > On Mon, Jan 25, 2016 at 03:02:38PM +0100, Dmitry Vyukov wrote:
-> >> Hello,
-> >>
-> >> I've git the following error report while running syzkaller fuzzer:
-> >>
-> >> ==================================================================
-> >> BUG: KASAN: slab-out-of-bounds in memcpy+0x1d/0x40 at addr ffff88006c6361e8
-> >> Read of size 28 by task syz-executor/12551
-> >> =============================================================================
-> >> BUG kmalloc-16 (Not tainted): kasan: bad access detected
-> >> -----------------------------------------------------------------------------
-> >>
-> >> INFO: Allocated in sctp_setsockopt_bindx+0xd2/0x3e0 age=12 cpu=2 pid=12551
-> >> [<     inline     >] kmalloc include/linux/slab.h:468
-> >> [<      none      >] sctp_setsockopt_bindx+0xd2/0x3e0 net/sctp/socket.c:975
-> >> [<      none      >] sctp_setsockopt+0x1493/0x3630 net/sctp/socket.c:3711
-> >> [<      none      >] sock_common_setsockopt+0x97/0xd0 net/core/sock.c:2620
-> >> [<     inline     >] SYSC_setsockopt net/socket.c:1752
-> >> [<      none      >] SyS_setsockopt+0x15b/0x250 net/socket.c:1731
-> >> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a
-> >> arch/x86/entry/entry_64.S:185
-> >>
-> >> INFO: Slab 0xffffea0001b18d80 objects=16 used=4 fp=0xffff88006c6376e0
-> >> flags=0x5fffc0000004080
-> >> INFO: Object 0xffff88006c6361e8 @offset=488 fp=0x0000000000000002
-> >> Bytes b4 ffff88006c6361d8: 00 00 00 00 00 00 00 00 2f 98 34 88 ff ff
-> >> ff ff  ......../.4.....
-> >> Object ffff88006c6361e8: 02 00 00 00 00 00 00 00 02 00 ab 07 7f 00 00
-> >> 01  ................
-> >> CPU: 2 PID: 12551 Comm: syz-executor Tainted: G    B           4.5.0-rc1+ #278
-> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> >>  00000000ffffffff ffff880036397928 ffffffff8299a02d ffff88003e807900
-> >>  ffff88006c6361e8 ffff88006c636000 ffff880036397958 ffffffff81752814
-> >>  ffff88003e807900 ffffea0001b18d80 ffff88006c6361e8 ffff88006c6361e8
-> >>
-> >> Call Trace:
-> >>  [<ffffffff8175ad54>] __asan_loadN+0x124/0x1a0 mm/kasan/kasan.c:512
-> >>  [<ffffffff8175b2dd>] memcpy+0x1d/0x40 mm/kasan/kasan.c:297
-> >>  [<ffffffff85dcb249>] sctp_add_bind_addr+0xa9/0x270 net/sctp/bind_addr.c:162
-> >>  [<ffffffff85dcfd66>] sctp_do_bind+0x336/0x580 net/sctp/socket.c:389
-> >>  [<ffffffff85dd16ec>] sctp_bindx_add+0xac/0x1a0 net/sctp/socket.c:471
-> >>  [<ffffffff85dd5cc8>] sctp_setsockopt_bindx+0x2f8/0x3e0 net/sctp/socket.c:1010
-> >>  [<ffffffff85dde283>] sctp_setsockopt+0x1493/0x3630 net/sctp/socket.c:3711
-> >>  [<ffffffff851f5ae7>] sock_common_setsockopt+0x97/0xd0 net/core/sock.c:2620
-> >>  [<     inline     >] SYSC_setsockopt net/socket.c:1752
-> >>  [<ffffffff851f2c3b>] SyS_setsockopt+0x15b/0x250 net/socket.c:1731
-> >>  [<ffffffff863595f6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-> >> arch/x86/entry/entry_64.S:185
-> >>
-> >> Memory state around the buggy address:
-> >>  ffff88006c636080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> >>  ffff88006c636100: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> >> >ffff88006c636180: fc fc fc fc fc fc fc fc fc fc fc fc fc 00 00 fc
-> >>                                                                 ^
-> >>  ffff88006c636200: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> >>  ffff88006c636280: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-> >> ==================================================================
-> >>
-> >>
-> >> sctp_setsockopt_bindx verifies that the user-passed address has valid
-> >> len for the specified family, but then sctp_add_bind_addr copies whole
-> >> sctp_addr from there. This causes heap out-of-bounds access and can
-> >> crash kernel. Not sure if it is possible to copy out the trailing
-> >> garbage to user-space later.
-> >>
-> >
-> > It does more than that though.  sctp_setsockopt_bindx checks the following:
-> > 1) That passed addr_size is greater than zero
-> > 2) that the entire range of memory between addrs and addrs+addr_size is readable
-> > 3) That at least one address structure worth of data is available (implicit in
-> > the while (walk_size < addr_size) loop).
-> >
-> > Could one of the sockaddr_len fields in one of the addresses have been mangled
-> > so that it appeared shorter in the the while loop from (3), so that a copy of
-> > sizeof(sctp_addr in sctp_add_bind_addr overrun the allocated memory?
-> 
-> I may be missing something, but what I see is:
-> 
-> 1. we check that there is at least family:
-> if (walk_size + sizeof(sa_family_t) > addrs_size) {
-> 
-> 2. get family descriptor:
-> af = sctp_get_af_specific(sa_addr->sa_family);
-> 
-> 3. check that the address size is enough to hold the declared family:
-> if (!af || (walk_size + af->sockaddr_len) > addrs_size) {
-> 
-> 4. then we do sctp_add_bind_addr, which copies whole sctp_addr from addr:
-> 
-> int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
-> ...
-> memcpy(&addr->a, new, sizeof(*new));
-> 
-> Now imagine that the addr is ipv4 (16 or so bytes, that's what we
-> checked) and we copy 28 bytes (ipv6) from addr.
+Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
+VLAN ID to flow_keys")) introduced a performance regression in netvsc
+driver. Is problem is, however, not the above mentioned commit but the
+fact that netvsc_set_hash() function did some assumptions on the struct
+flow_keys data layout and this is wrong.
 
-Yes, that's pretty much it I think. That memcpy should be limited to
-af->sockaddr_len, it's just that af is not readily available in that
-function.
+Get rid of netvsc_set_hash() by switching to skb_get_hash(). This change
+will also imply switching to Jenkins hash from the currently used Toeplitz
+but it seems there is no good excuse for Toeplitz to stay.
 
-  Marcelo
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+- This patch is an alternative to the previosely sent "hv_netvsc: don't make
+ assumptions on struct flow_keys layout" and Haiyang's "hv_netvsc: Use simple
+ parser for IPv4 and v6 headers".
+---
+ drivers/net/hyperv/netvsc_drv.c | 67 ++---------------------------------------
+ 1 file changed, 3 insertions(+), 64 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1c8db9a..1d3a665 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -196,65 +196,6 @@ static void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
+ 	return ppi;
+ }
+ 
+-union sub_key {
+-	u64 k;
+-	struct {
+-		u8 pad[3];
+-		u8 kb;
+-		u32 ka;
+-	};
+-};
+-
+-/* Toeplitz hash function
+- * data: network byte order
+- * return: host byte order
+- */
+-static u32 comp_hash(u8 *key, int klen, void *data, int dlen)
+-{
+-	union sub_key subk;
+-	int k_next = 4;
+-	u8 dt;
+-	int i, j;
+-	u32 ret = 0;
+-
+-	subk.k = 0;
+-	subk.ka = ntohl(*(u32 *)key);
+-
+-	for (i = 0; i < dlen; i++) {
+-		subk.kb = key[k_next];
+-		k_next = (k_next + 1) % klen;
+-		dt = ((u8 *)data)[i];
+-		for (j = 0; j < 8; j++) {
+-			if (dt & 0x80)
+-				ret ^= subk.ka;
+-			dt <<= 1;
+-			subk.k <<= 1;
+-		}
+-	}
+-
+-	return ret;
+-}
+-
+-static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+-{
+-	struct flow_keys flow;
+-	int data_len;
+-
+-	if (!skb_flow_dissect_flow_keys(skb, &flow, 0) ||
+-	    !(flow.basic.n_proto == htons(ETH_P_IP) ||
+-	      flow.basic.n_proto == htons(ETH_P_IPV6)))
+-		return false;
+-
+-	if (flow.basic.ip_proto == IPPROTO_TCP)
+-		data_len = 12;
+-	else
+-		data_len = 8;
+-
+-	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, &flow, data_len);
+-
+-	return true;
+-}
+-
+ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 			void *accel_priv, select_queue_fallback_t fallback)
+ {
+@@ -267,11 +208,9 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 	if (nvsc_dev == NULL || ndev->real_num_tx_queues <= 1)
+ 		return 0;
+ 
+-	if (netvsc_set_hash(&hash, skb)) {
+-		q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
+-			ndev->real_num_tx_queues;
+-		skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
+-	}
++	hash = skb_get_hash(skb);
++	q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
++		ndev->real_num_tx_queues;
+ 
+ 	if (!nvsc_dev->chn_table[q_idx])
+ 		q_idx = 0;
+-- 
+2.5.0
