@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/3] sctp: fix the transport dead race check by
- using atomic_add_unless on refcnt
-Date: Mon, 25 Jan 2016 10:44:46 -0800 (PST)
-Message-ID: <20160125.104446.2231255639148070984.davem@davemloft.net>
-References: <56A25DCC.9040207@gmail.com>
-	<20160122171812.GI3452@mrl.redhat.com>
-	<56A27AD1.9040502@gmail.com>
+Subject: Re: [PATCH] ipv4+ipv6: Make INET*_ESP select CRYPTO_ECHAINIV
+Date: Mon, 25 Jan 2016 10:46:14 -0800 (PST)
+Message-ID: <20160125.104614.1095945891181570299.davem@davemloft.net>
+References: <20160125102659.GA6976@gondor.apana.org.au>
+	<56A60DF4.30700@gmx.de>
+	<20160125135628.GA8256@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcelo.leitner@gmail.com, lucien.xin@gmail.com,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	daniel@iogearbox.net
-To: vyasevich@gmail.com
+Cc: hakke_007@gmx.de, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49002 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49023 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755589AbcAYSou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 13:44:50 -0500
-In-Reply-To: <56A27AD1.9040502@gmail.com>
+	with ESMTP id S1757417AbcAYSqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 13:46:15 -0500
+In-Reply-To: <20160125135628.GA8256@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Fri, 22 Jan 2016 13:54:09 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 25 Jan 2016 21:56:28 +0800
 
-> OK,  I see how that holds together, but I think there might be hole wrt icmp
-> handling.  Some icmp processes assume transport can't disappear on them, but in
-> this case that last put(transport) may result in a call to sctp_transport_destroy()
-> and that might be bad.  I am looking at it now.
+> On Mon, Jan 25, 2016 at 12:58:44PM +0100, Thomas Egerer wrote:
+>> The ESP algorithms using CBC mode require echainiv. Hence INET*_ESP have
+>> to select CRYPTO_ECHAINIV in order to work properly. This solves the
+>> issues caused by a misconfiguration as described in [1].
+>> The original approach, patching crypto/Kconfig was turned down by
+>> Herbert Xu [2].
+>> 
+>> [1] https://lists.strongswan.org/pipermail/users/2015-December/009074.html
+>> [2] http://marc.info/?l=linux-crypto-vger&m=145224655809562&w=2
+>> 
+>> Signed-off-by: Thomas Egerer <hakke_007@gmx.de>
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Vlad, this patch series is being held up because of this.  Please resolve
-this one way or the other at your earliest possible convenience, thanks.
+Applied, thanks.
