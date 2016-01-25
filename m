@@ -1,53 +1,35 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 3/3] defxx: fix build warning
-Date: Mon, 25 Jan 2016 11:45:07 +0530
-Message-ID: <1453702507-736-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers: net: xgene: fix extra IRQ issue
+Date: Sun, 24 Jan 2016 22:16:18 -0800 (PST)
+Message-ID: <20160124.221618.1619209434096345332.davem@davemloft.net>
+References: <1453421261-4295-1-git-send-email-isubramanian@apm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	patches@apm.com, toanle@apm.com
+To: isubramanian@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43211 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754630AbcAYGQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 01:16:19 -0500
+In-Reply-To: <1453421261-4295-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We are getting many build warning about:
-'bar_start' may be used uninitialized
-and
-'bar_len' may be used uninitialized
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Thu, 21 Jan 2016 16:07:41 -0800
 
-They are not actually uninitialized as dfx_get_bars() will initialize
-them properly. But still lets have them initialized just to satisfy the
-compiler.
+> For interrupt controller that doesn't support irq_disable and hardware
+> with level interrupt, an extra interrupt may be pending. This patch fixes
+> the issue by setting IRQ_DISABLE_UNLAZY flag for the interrupt line,
+> as suggested by,
+> 
+> 'commit e9849777d0e2 ("genirq: Add flag to force mask in
+> 		       disable_irq[_nosync]()")'
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Tested-by: Toan Le <toanle@apm.com>
 
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
- drivers/net/fddi/defxx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
-index 7f975a2..4113535 100644
---- a/drivers/net/fddi/defxx.c
-+++ b/drivers/net/fddi/defxx.c
-@@ -533,8 +533,8 @@ static int dfx_register(struct device *bdev)
- 	const char *print_name = dev_name(bdev);
- 	struct net_device *dev;
- 	DFX_board_t	  *bp;			/* board pointer */
--	resource_size_t bar_start[3];		/* pointers to ports */
--	resource_size_t bar_len[3];		/* resource length */
-+	resource_size_t bar_start[3] = {0, 0, 0};	/* pointers to ports */
-+	resource_size_t bar_len[3] = {0, 0, 0};		/* resource length */
- 	int alloc_size;				/* total buffer size used */
- 	struct resource *region;
- 	int err = 0;
-@@ -3697,8 +3697,8 @@ static void dfx_unregister(struct device *bdev)
- 	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
--	resource_size_t bar_start[3];		/* pointers to ports */
--	resource_size_t bar_len[3];		/* resource lengths */
-+	resource_size_t bar_start[3] = {0, 0, 0};	/* pointers to ports */
-+	resource_size_t bar_len[3] = {0, 0, 0};		/* resource lengths */
- 	int		alloc_size;		/* total buffer size used */
- 
- 	unregister_netdev(dev);
--- 
-1.9.1
+Applied, thanks.
