@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tbl->lock not taken in neigh_lookup() ?
-Date: Sun, 24 Jan 2016 21:20:45 -0800 (PST)
-Message-ID: <20160124.212045.993259665260998708.davem@davemloft.net>
-References: <CAOxq_8Okd4uLcj-MeLoms3mzpQhjX6t06fR6svDUeCV6VNEyAA@mail.gmail.com>
-	<CAOxq_8Mj2kxq1r-MFGWCXBBE=7hi0ASy2p99=Tx4ageDTnMHtA@mail.gmail.com>
+Subject: Re: [PATCH 26/26] tcp: Use ahash
+Date: Sun, 24 Jan 2016 22:01:47 -0800 (PST)
+Message-ID: <20160124.220147.1840338377819463012.davem@davemloft.net>
+References: <20160124131021.GA31153@gondor.apana.org.au>
+	<E1aNKad-0008H5-Ax@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-	eric.dumazet@gmail.com
-To: ani@arista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42760 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbcAYFUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 00:20:46 -0500
-In-Reply-To: <CAOxq_8Mj2kxq1r-MFGWCXBBE=7hi0ASy2p99=Tx4ageDTnMHtA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	dm-devel@redhat.com, linux-wireless@vger.kernel.org,
+	linux-cifs@vger.kernel.org, ecryptfs@vger.kernel.org,
+	linux-ext4@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
+	linux-nfs@vger.kernel.org, keyrings@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org, ceph-devel@vger.kernel.org,
+	linux-wpan@vger.kernel.org, linux-afs@lists.infradead.org,
+	drbd-dev@lists.linbit.com, open-iscsi@googlegroups.com
+To: herbert@gondor.apana.org.au
+Return-path: <ecryptfs-owner@vger.kernel.org>
+In-Reply-To: <E1aNKad-0008H5-Ax@gondolin.me.apana.org.au>
+Sender: ecryptfs-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ani Sinha <ani@arista.com>
-Date: Mon, 25 Jan 2016 10:11:15 +0530
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 24 Jan 2016 21:20:23 +0800
 
-> Can I get some insights into this? I am sure I am missing something.
+> This patch replaces uses of the long obsolete hash interface with
+> ahash.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The whole point of RCU locking is that read accesses in the fast paths
-(lookups) do not need to take the spinlock.  Proper RCU barriers, RCU
-deferred freeing of objects, and other things make it safe.
+Acked-by: David S. Miller <davem@davemloft.net>
