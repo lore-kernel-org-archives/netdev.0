@@ -1,89 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Optimizing instruction-cache, more packets at each stage
-Date: Sun, 24 Jan 2016 16:08:48 -0800
-Message-ID: <56A56790.4080808@gmail.com>
-References: <20160115142223.1e92be75@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCC6613@AcuExch.aculab.com>
- <20160115150025.13a5db04@redhat.com> <56990473.9090300@openwrt.org>
- <20160118125420.0375ffda@redhat.com>
+From: Greg Ungerer <gerg@uclinux.org>
+Subject: Re: [PATCH v2] net: fec: make driver endian-safe
+Date: Mon, 25 Jan 2016 10:52:17 +1000
+Message-ID: <56A571C1.5050905@uclinux.org>
+References: <1453650757-27459-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Felix Fietkau <nbd@openwrt.org>
+Cc: Lucas Stach <l.stach@pengutronix.de>,
+	Fugang Duan <B38611@freescale.com>,
+	Arnd Bergmann <arnd@arndb.de>, Shawn Guo <shawnguo@kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f194.google.com ([209.85.214.194]:34671 "EHLO
-	mail-ob0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbcAYAIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 19:08:53 -0500
-Received: by mail-ob0-f194.google.com with SMTP id x5so8346265obg.1
-        for <netdev@vger.kernel.org>; Sun, 24 Jan 2016 16:08:53 -0800 (PST)
-In-Reply-To: <20160118125420.0375ffda@redhat.com>
+Received: from icp-osb-irony-out9.external.iinet.net.au ([203.59.1.226]:16743
+	"EHLO icp-osb-irony-out9.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751723AbcAYBBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 20:01:32 -0500
+In-Reply-To: <1453650757-27459-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jesper
+Hi Johannes,
 
-On 18/01/2016 03:54, Jesper Dangaard Brouer wrote:
+On 25/01/16 01:52, Johannes Berg wrote:
+> The driver treats the device descriptors as CPU-endian, which appears
+> to be correct with the default endianness on both ARM (typically LE)
+> and PowerPC (typically BE) SoCs, indicating that the hardware block
+> is generated differently. Add endianness annotations and byteswaps as
+> necessary.
 > 
-> On Fri, 15 Jan 2016 15:38:43 +0100 Felix Fietkau <nbd@openwrt.org> wrote:
->> On 2016-01-15 15:00, Jesper Dangaard Brouer wrote:
-> [...]
->>>
->>> The icache is still quite small 32Kb on modern server processors.  I
->>> don't know if smaller embedded processors also have icache and how
->>> large they are.  I speculate this approach would also be a benefit for
->>> them (if they have icache).
->>
->> All of the router devices that I work with have icache. Typical sizes
->> are 32 or 64 KiB. FWIW, I'm really looking forward to having such
->> optimizations in the network stack ;)
+> It's not clear that the ifdef there really is correct and shouldn't
+> just be #ifdef CONFIG_ARM, but I also can't test on anything but the
+> i.MX6 HummingBoard where this gets it working with a BE kernel.
 > 
-> That is very interesting. These kind of icache optimization will then
-> likely benefit lower-end devices more than high end Intel CPUs :-)
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Typical embedded routers have small I and D cache, but they also have
-fairly small cache line sizes (16, 32 or 64 bytes), and not necessarily
-a L2 cache to help them, the memory bandwidth is also very limited
-(DDR/DDR2 speeds are not uncommon) so the less I/D cache lines you
-trash, the better obviously.
+I tested this on a ColdFire (5208) target that uses this driver.
+Simple testing showed it working with no problems. The ColdFire
+SoC processors use a version of the FEC hardware module, and they
+always run big-endian.
 
-One thing that some HW vendors have done, before they started
-introducing a HW capable of offloading routing/NAT workloads to
-specialized hardware is to hack the heck of the Linux network stack to
-allow a lightweight SKB structure to be used for forwarding and allocate
-these "meta" bookeekping SKBs from a dedicated kmem cache pool to get
-relatively predictable latencies.
+Regards
+Greg
 
-There is also a notion of a dirty pointer within the skbuff itself, such
-that instead of e.g: having your Ethernet NIC driver do a DMA-API call
-which can potentially invalidate the D-cache for an entire 1500-ish
-bytes Ethernet frame, the packet contents are "valid" up until the dirty
-pointer, which is a nice trick if you are just forwarding, but requires
-both SKB accessors/manipulation functions to check that, and your
-Ethernet driver to be cooperative as well, so may not scale well.
 
-Broadcom's implementation of such a thing can be found here among these
-files, code is not kernel style compliant, but there might be some
-re-usable ideas for you:
-
-NBUFF/FKBUFF/SKBUFF are the actual packet book keeping data structures
-that replace and/or extend the use of SKBs:
-
-https://code.google.com/p/gfiber-gflt100/source/browse/kernel/linux/include/linux/nbuff.h
-https://code.google.com/p/gfiber-gflt100/source/browse/kernel/linux/net/core/nbuff.c
-
-# Check for CONFIG_MIPS_BRCM changes here:
-https://code.google.com/p/gfiber-gflt100/source/browse/kernel/linux/net/core/skbuff.c
-https://code.google.com/p/gfiber-gflt100/source/browse/kernel/linux/include/linux/skbuff.h
+> ---
+>  drivers/net/ethernet/freescale/Makefile   |   3 +
+>  drivers/net/ethernet/freescale/fec.h      |  40 ++++++---
+>  drivers/net/ethernet/freescale/fec_main.c | 130 ++++++++++++++++--------------
+>  3 files changed, 101 insertions(+), 72 deletions(-)
