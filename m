@@ -1,127 +1,160 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Bypass at packet-page level (Was: Optimizing instruction-cache,
- more packets at each stage)
-Date: Mon, 25 Jan 2016 09:50:16 -0800
-Message-ID: <56A66058.1090308@gmail.com>
-References: <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>	<CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>	<20160121122730.6330a84b@redhat.com>	<20160121.105401.1793719917762270884.davem@davemloft.net>	<20160124152814.2ea5e99b@redhat.com>	<20160124163846-mutt-send-email-mst@redhat.com>	<56A509C4.3030706@gmail.com>	<20160125141516.795f3eb7@redhat.com> <CALx6S37EmUh7SXmVSjTN9DLMTicr6-VwL-i25VV1fM=V2E6giQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vladislav Yasevich <vyasevich@gmail.com>
-To: Tom Herbert <tom@herbertland.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36710 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934038AbcAYRuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 12:50:40 -0500
-Received: by mail-pa0-f54.google.com with SMTP id yy13so83867634pab.3
-        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 09:50:39 -0800 (PST)
-In-Reply-To: <CALx6S37EmUh7SXmVSjTN9DLMTicr6-VwL-i25VV1fM=V2E6giQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net] sctp: fix copying more bytes than expected in sctp_add_bind_addr
+Date: Mon, 25 Jan 2016 15:52:58 -0200
+Message-ID: <508c18fbd4bd0b447e2f9b110190be2fd2dbb3cf.1453744111.git.marcelo.leitner@gmail.com>
+References: <20160125172902.GD29690@hmsreliant.think-freely.org>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, syzkaller@googlegroups.com, kcc@google.com,
+	glider@google.com, sasha.levin@oracle.com, edumazet@google.com
+To: dvyukov@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160125172902.GD29690@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-01-25 09:09 AM, Tom Herbert wrote:
-> On Mon, Jan 25, 2016 at 5:15 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
->>
->> After reading John's reply about perfect filters, I want to re-state
->> my idea, for this very early RX stage.  And describe a packet-page
->> level bypass use-case, that John indirectly mentions.
->>
->>
->> There are two ideas, getting mixed up here.  (1) bundling from the
->> RX-ring, (2) allowing to pick up the "packet-page" directly.
->>
->> Bundling (1) is something that seems natural, and which help us
->> amortize the cost between layers (and utilizes icache better). Lets
->> keep that in another thread.
->>
->> This (2) direct forward of "packet-pages" is a fairly extreme idea,
->> BUT it have the potential of being an new integration point for
->> "selective" bypass-solutions and bringing RAW/af_packet (RX) up-to
->> speed with bypass-solutions.
->>
->>
->> Today, the bypass-solutions grab and control the entire NIC HW.  In
->> many cases this is not very practical, if you also want to use the NIC
->> for something else.
->>
->> Solutions for bypassing only part of the traffic is starting to show
->> up.  Both a netmap[1] and a DPDK[2] based approach.
->>
->> [1] https://blog.cloudflare.com/partial-kernel-bypass-merged-netmap/
->> [2] http://rhelblog.redhat.com/2015/10/02/getting-the-best-of-both-worlds-with-queue-splitting-bifurcated-driver/
->>
->> Both approaches install a HW filter in the NIC, and redirect packets
->> to a separate RX HW queue (via ethtool ntuple + flow-type).  DPDK
->> needs pci SRIOV setup and then run it own poll-mode driver on top.
->> Netmap patch the orig ixgbe driver, and since CloudFlare/Gilberto's
->> changes[3] support a single RX queue mode.
->>
+Great. Dmitry, please give this a run. Local tests looked good but who
+knows what syzkaller may find.
 
-FWIW I wrote a version of the patch talked about in the queue splitting
-article that didn't require SR-IOV and we also talked about it at last
-netconf in ottowa. The problem is without SR-IOV if you map a queue
-directly into userspace so you can run the poll mode drivers there is
-nothing protecting the DMA engine. So userspace can put arbitrary
-addresses in there. There is something called Process Address Space ID
-(PASID) also part of the PCI-SIG spec that could help you here but I
-don't know of any hardware that supports it. The other option is to
-use system calls and validate the descriptors in the kernel but this
-incurs some overhead we had it at 15% or so when I did the numbers
-last year. However I'm told there is some interesting work going on
-around syscall overhead that may help.
+Thanks
 
-One thing to note is SRIOV does somewhat limit the number of these
-types of interfaces you can support to the max VFs where as the
-queue mechanism although slower with a function call would be limited
-to max number of queues. Also busy polling will help here if you
-are worried about pps.
+--8<--
 
-Jesper, at least for you (2) case what are we missing with the
-bifurcated/queue splitting work? Are you really after systems
-without SR-IOV support or are you trying to get this on the order
-of queues instead of VFs.
+Dmitry reported that sctp_add_bind_addr may read more bytes than
+expected in case the parameter is a IPv4 addr supplied by the user
+through calls such as sctp_bindx_add(), because it always copies
+sizeof(union sctp_addr) while the buffer may be just a struct
+sockaddr_in, which is smaller.
 
-> Jepser, thanks for providing more specifics.
-> 
-> One comment: If you intend to change core code paths or APIs for this,
-> then I think that we should require up front that the associated HW
-> support is protocol agnostic (i.e. HW filters must be programmable and
-> generic ). We don't want a promising feature like this to be
-> undermined by protocol ossification.
+This patch then fixes it by limiting the memcpy to the min between the
+union size and a (new parameter) provided addr size. Where possible this
+parameter still is the size of that union, except for reading from
+user-provided buffers, which then it accounts for protocol type.
 
-At the moment we use ethtool ntuple filters which is basically adding
-a new set of enums and structures every time we need a new protocol
-so its painful and you need your vendor to support you and you need a
-new kernel.
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ include/net/sctp/structs.h |  2 +-
+ net/sctp/bind_addr.c       | 14 ++++++++------
+ net/sctp/protocol.c        |  1 +
+ net/sctp/sm_make_chunk.c   |  2 +-
+ net/sctp/socket.c          |  5 +++--
+ 5 files changed, 14 insertions(+), 10 deletions(-)
 
-The flow api was shot down (which would get you to the point where
-the user could specify the protocols for the driver to implement e.g.
-put_parse_graph) and the only new proposals I've seen are bpf
-translations in drivers and 'tc'. I plan to take another shot at this in
-net-next.
-
-> 
-> Thanks,
-> Tom
-> 
->> [3] https://github.com/luigirizzo/netmap/pull/87
->>
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 20e72129be1ce0063eeafcbaadcee1f37e0c614c..97ba8a8c466f5c50bdc87ec578792e56553baa91 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1099,7 +1099,7 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
+ 			const struct sctp_bind_addr *src,
+ 			gfp_t gfp);
+ int sctp_add_bind_addr(struct sctp_bind_addr *, union sctp_addr *,
+-		       __u8 addr_state, gfp_t gfp);
++		       int new_size, __u8 addr_state, gfp_t gfp);
+ int sctp_del_bind_addr(struct sctp_bind_addr *, union sctp_addr *);
+ int sctp_bind_addr_match(struct sctp_bind_addr *, const union sctp_addr *,
+ 			 struct sctp_sock *);
+diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+index 871cdf9567e6bc9c13cb1077dc6866a67e6e4367..80129d10a0af9c33e7348b79d010b9e5e948e584 100644
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -111,7 +111,8 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
+ 	dest->port = src->port;
+ 
+ 	list_for_each_entry(addr, &src->address_list, list) {
+-		error = sctp_add_bind_addr(dest, &addr->a, 1, gfp);
++		error = sctp_add_bind_addr(dest, &addr->a, sizeof(addr->a),
++					   1, gfp);
+ 		if (error < 0)
+ 			break;
+ 	}
+@@ -150,7 +151,7 @@ void sctp_bind_addr_free(struct sctp_bind_addr *bp)
+ 
+ /* Add an address to the bind address list in the SCTP_bind_addr structure. */
+ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
+-		       __u8 addr_state, gfp_t gfp)
++		       int new_size, __u8 addr_state, gfp_t gfp)
+ {
+ 	struct sctp_sockaddr_entry *addr;
+ 
+@@ -159,7 +160,7 @@ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
+ 	if (!addr)
+ 		return -ENOMEM;
+ 
+-	memcpy(&addr->a, new, sizeof(*new));
++	memcpy(&addr->a, new, min_t(size_t, sizeof(*new), new_size));
+ 
+ 	/* Fix up the port if it has not yet been set.
+ 	 * Both v4 and v6 have the port at the same offset.
+@@ -291,7 +292,8 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
+ 		}
+ 
+ 		af->from_addr_param(&addr, rawaddr, htons(port), 0);
+-		retval = sctp_add_bind_addr(bp, &addr, SCTP_ADDR_SRC, gfp);
++		retval = sctp_add_bind_addr(bp, &addr, sizeof(addr),
++					    SCTP_ADDR_SRC, gfp);
+ 		if (retval) {
+ 			/* Can't finish building the list, clean up. */
+ 			sctp_bind_addr_clean(bp);
+@@ -453,8 +455,8 @@ static int sctp_copy_one_addr(struct net *net, struct sctp_bind_addr *dest,
+ 		    (((AF_INET6 == addr->sa.sa_family) &&
+ 		      (flags & SCTP_ADDR6_ALLOWED) &&
+ 		      (flags & SCTP_ADDR6_PEERSUPP))))
+-			error = sctp_add_bind_addr(dest, addr, SCTP_ADDR_SRC,
+-						    gfp);
++			error = sctp_add_bind_addr(dest, addr, sizeof(addr),
++						   SCTP_ADDR_SRC, gfp);
+ 	}
+ 
+ 	return error;
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index ab0d538a74ed593571cfaef02cd1bb7ce872abe6..2fb609008311f51344704d82f21b4de9f08253da 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -214,6 +214,7 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
+ 			      (copy_flags & SCTP_ADDR6_ALLOWED) &&
+ 			      (copy_flags & SCTP_ADDR6_PEERSUPP)))) {
+ 				error = sctp_add_bind_addr(bp, &addr->a,
++						    sizeof(addr->a),
+ 						    SCTP_ADDR_SRC, GFP_ATOMIC);
+ 				if (error)
+ 					goto end_copy;
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 5d6a03fad3789a12290f5f14c5a7efa69c98f41a..1b91e9760fe514db6d89457e1d5da9e02800745e 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1830,7 +1830,7 @@ no_hmac:
+ 	/* Also, add the destination address. */
+ 	if (list_empty(&retval->base.bind_addr.address_list)) {
+ 		sctp_add_bind_addr(&retval->base.bind_addr, &chunk->dest,
+-				SCTP_ADDR_SRC, GFP_ATOMIC);
++				   sizeof(chunk->dest), SCTP_ADDR_SRC, GFP_ATOMIC);
+ 	}
+ 
+ 	retval->next_tsn = retval->c.initial_tsn;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 5ca2ebfe0be83882fcb841de6fa8029b6455ef85..213be3821a1d49e0c469c4ad4e9ff055a03205c5 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -386,7 +386,8 @@ static int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
+ 	/* Add the address to the bind address list.
+ 	 * Use GFP_ATOMIC since BHs will be disabled.
+ 	 */
+-	ret = sctp_add_bind_addr(bp, addr, SCTP_ADDR_SRC, GFP_ATOMIC);
++	ret = sctp_add_bind_addr(bp, addr, af->sockaddr_len,
++				 SCTP_ADDR_SRC, GFP_ATOMIC);
+ 
+ 	/* Copy back into socket for getsockname() use. */
+ 	if (!ret) {
+@@ -576,7 +577,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
+ 			addr = addr_buf;
+ 			af = sctp_get_af_specific(addr->v4.sin_family);
+ 			memcpy(&saveaddr, addr, af->sockaddr_len);
+-			retval = sctp_add_bind_addr(bp, &saveaddr,
++			retval = sctp_add_bind_addr(bp, &saveaddr, sizeof(saveaddr),
+ 						    SCTP_ADDR_NEW, GFP_ATOMIC);
+ 			addr_buf += af->sockaddr_len;
+ 		}
+-- 
+2.5.0
