@@ -1,58 +1,34 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 2/3] net: macb: fix build warning
-Date: Mon, 25 Jan 2016 09:45:36 +0100
-Message-ID: <56A5E0B0.4070802@atmel.com>
-References: <1453702389-601-1-git-send-email-sudipm.mukherjee@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453702389-601-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [PATCHv2 0/4] net: rfkill: gpio: replace platform data with build-in property
+Date: Mon, 25 Jan 2016 12:03:45 +0300
+Message-ID: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 25/01/2016 07:13, Sudip Mukherjee a =E9crit :
-> We are getting build warning about:
-> macb.c:2889:13: warning: 'tx_clk' may be used uninitialized in this f=
-unction
-> macb.c:2888:11: warning: 'hclk' may be used uninitialized in this fun=
-ction
->=20
-> In reality they are not used uninitialized as clk_init() will initial=
-ize
-> them, this patch will just silence the warning.
->=20
-> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+Hi,
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-Thanks for your patch.
-
-Bye,
-
-> ---
->  drivers/net/ethernet/cadence/macb.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-> index 9d9984a..50c9410 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2823,7 +2823,7 @@ static int macb_probe(struct platform_device *p=
-dev)
->  	struct device_node *np =3D pdev->dev.of_node;
->  	struct device_node *phy_node;
->  	const struct macb_config *macb_config =3D NULL;
-> -	struct clk *pclk, *hclk, *tx_clk;
-> +	struct clk *pclk, *hclk =3D NULL, *tx_clk =3D NULL;
->  	unsigned int queue_mask, num_queues;
->  	struct macb_platform_data *pdata;
->  	bool native_io;
->=20
+The changes to the unified properties interface that I have been
+waiting for are finally available in v4.5-rc1.
 
 
---=20
-Nicolas Ferre
+Heikki Krogerus (4):
+  net: rfkill: add rfkill_find_type function
+  net: rfkill: gpio: get the name and type from device property
+  ARM: tegra: use build-in device properties with rfkill_gpio
+  net: rfkill: gpio: remove rfkill_gpio_platform_data
+
+ arch/arm/mach-tegra/board-paz00.c | 17 +++++++-----
+ include/linux/rfkill-gpio.h       | 37 -------------------------
+ include/linux/rfkill.h            | 15 +++++++++++
+ net/rfkill/Kconfig                |  3 +--
+ net/rfkill/core.c                 | 57 ++++++++++++++++++++-------------------
+ net/rfkill/rfkill-gpio.c          | 24 ++++++++---------
+ 6 files changed, 66 insertions(+), 87 deletions(-)
+ delete mode 100644 include/linux/rfkill-gpio.h
+
+-- 
+2.7.0.rc3
