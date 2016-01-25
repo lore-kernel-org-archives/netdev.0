@@ -1,77 +1,86 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH 2/2] ppp: implement rtnetlink device handling
-Date: Mon, 25 Jan 2016 16:28:30 +0100
-Message-ID: <20160125152830.GW18510@alphalink.fr>
-References: <cover.1450900138.git.g.nault@alphalink.fr>
- <c5f53cba74321e0b9fc5e03fd5c55bdc8c1bc4bf.1450900138.git.g.nault@alphalink.fr>
- <56A6026E.4020709@bfs.de>
+From: Arend van Spriel <aspriel@gmail.com>
+Subject: Re: [PATCH] brcmfmac: sdio: Increase the default timeouts a bit
+Date: Mon, 25 Jan 2016 16:36:52 +0100
+Message-ID: <56A64114.3010400@gmail.com>
+References: <1453718849-3508-1-git-send-email-sjoerd.simons@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>
-To: walter harms <wharms@bfs.de>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56A6026E.4020709@bfs.de>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Paul Stewart <pstew@chromium.org>,
+	Doug Anderson <dianders@chromium.org>,
+	linux-rockchip@lists.infradead.org,
+	Arend van Spriel <arend@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Brett Rudley <brudley@broadcom.com>, netdev@vger.kernel.org,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Adrian Hunter <adrian.hunter@intel.com>,
+	linux-mmc@vger.kernel.org
+To: Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453718849-3508-1-git-send-email-sjoerd.simons@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 25, 2016 at 12:09:34PM +0100, walter harms wrote:
+On 25-01-16 11:47, Sjoerd Simons wrote:
+> On a Radxa Rock2 board with a Ampak AP6335 (Broadcom 4339 core) it seems
+> the card responds very quickly most of the time, unfortunately during
+> initialisation it sometimes seems to take just a bit over 2 seconds to
+> respond.
 > 
+> This results intialization failing with message like:
+>   brcmf_c_preinit_dcmds: Retreiving cur_etheraddr failed, -52
+>   brcmf_bus_start: failed: -52
+>   brcmf_sdio_firmware_callback: dongle is not responding
 > 
-> Am 23.12.2015 21:04, schrieb Guillaume Nault:
-> > @@ -1012,7 +1017,24 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
-> >  	int indx;
-> >  	int err;
-> >  
-> > -	file = conf->file;
-> > +	if (conf->fd >= 0) {
-> > +		file = fget(conf->fd);
-> > +		if (file) {
-> > +			if (file->f_op != &ppp_device_fops) {
-> > +				fput(file);
-> > +				return -EBADF;
-> > +			}
-> > +
-> > +			/* Don't hold reference on file: ppp_release() is
-> > +			 * responsible for safely freeing the associated
-> > +			 * resources upon release. So file won't go away
-> > +			 * from under us.
-> > +			 */
-> > +			fput(file);
-> > +		}
-> > +	} else {
-> > +		file = conf->file;
-> > +	}
-> >  	if (!file)
-> >  		return -EBADF;
-> 
-> 
-> I would write that a bid different to reduce indent
-> und improve readability
-> 
-> (note: totaly untested just reviewing)
-> 
-> if (conf->fd < 0) {
-> 	file = conf->file;
-> 	if (!file)
->   		return -EBADF;
-> }
-> else
-> {
-> file = fget(conf->fd);
-> if (!file)
->   	return -EBADF;
-> 
-Early return on fget() failure looks indeed simpler.
+> Increasing the timeout to allow for a bit more headroom allows the
+> card to initialize reliably.
 
-> fput(file);
-> if (file->f_op != &ppp_device_fops) {		
-> 		return -EBADF;
-> 	}
-> 
-But this is wrong: we can't act on file after fput(). So we have to
-place fput() after the test.
+I would prefer to know where the 2 second response time comes from.
+Could be sdio retuning. Maybe the chromeos people can comment whether
+this has been root caused.
 
-Thanks for your review.
+There is a mmc patch pending in which retuning procedure can be deferred
+by the driver. Using that API may resolve the issue as well and I would
+prefer that solution.
+
+> A quick search online after diagnosing/fixing this showed that Google
+> has a similar patch in their ChromeOS tree, so this doesn't seem
+> specific to the board I'm using.
+
+As the retuning stuff is not in main line I guess we need this fix for
+now so...
+
+Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+> 
+> ---
+Still would like to know whether it is firmware initialization or some
+mmc stack procedure. Any suggestions to debug this are welcome.
+
+Regards,
+Arend
+---
+> 
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+> index dd66143..75ac4bd 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+> @@ -45,8 +45,8 @@
+>  #include "chip.h"
+>  #include "firmware.h"
+>  
+> -#define DCMD_RESP_TIMEOUT	msecs_to_jiffies(2000)
+> -#define CTL_DONE_TIMEOUT	msecs_to_jiffies(2000)
+> +#define DCMD_RESP_TIMEOUT	msecs_to_jiffies(2500)
+> +#define CTL_DONE_TIMEOUT	msecs_to_jiffies(2500)
+>  
+>  #ifdef DEBUG
+>  
+> 
