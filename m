@@ -1,84 +1,146 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [BISECTED] v4.5-rc1 phylib regression
-Date: Mon, 25 Jan 2016 22:31:41 +0100
-Message-ID: <20160125213141.GA27473@lunn.ch>
-References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Bypass at packet-page level (Was: Optimizing instruction-cache,
+ more packets at each stage)
+Date: Mon, 25 Jan 2016 13:32:57 -0800
+Message-ID: <CALx6S37vfK_++j-BpePGJWHp8cef1k2drRFmAcM8Ys4ciBYUFg@mail.gmail.com>
+References: <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>
+	<20160121122730.6330a84b@redhat.com>
+	<20160121.105401.1793719917762270884.davem@davemloft.net>
+	<20160124152814.2ea5e99b@redhat.com>
+	<20160124163846-mutt-send-email-mst@redhat.com>
+	<56A509C4.3030706@gmail.com>
+	<20160125141516.795f3eb7@redhat.com>
+	<CALx6S37EmUh7SXmVSjTN9DLMTicr6-VwL-i25VV1fM=V2E6giQ@mail.gmail.com>
+	<56A66058.1090308@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Aaro Koskinen <aaro.koskinen@nokia.com>,
-	Olof Johansson <olof@lixom.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirva@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Vladislav Yasevich <vyasevich@gmail.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42512 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932118AbcAYVbo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2016 16:31:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:35414 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756515AbcAYVc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 16:32:58 -0500
+Received: by mail-ig0-f180.google.com with SMTP id t15so45498351igr.0
+        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 13:32:58 -0800 (PST)
+In-Reply-To: <56A66058.1090308@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2016 at 05:45:21PM +0200, Aaro Koskinen wrote:
-> Hi,
-> 
-> I get the below crash on OCTEON (with octeon_mgmt interface, genphy)
-> always during systemd boot.
-> 
-> Bisected to:
-> 
-> commit a9049e0c513c4521dbfaa302af8ed08b3366b41f
-> Author: Andrew Lunn <andrew@lunn.ch>
-> Date:   Wed Jan 6 20:11:26 2016 +0100
-> 
->     mdio: Add support for mdio drivers.
-> 
-> [  250.179887] CPU 2 Unable to handle kernel paging request at virtual address 0000000000000000, epc == ffffffff81637bac, ra == ffffffff81637b7c
-> [  250.218161] Oops[#1]:
-> [  250.224970] CPU: 2 PID: 850 Comm: systemd-network Not tainted 4.5.0-rc1-octeon-distro.git-test #1
-> [  250.251569] task: 8000000031188000 ti: 800000002f8e8000 task.ti: 800000002f8e8000
-> [  250.251586] $ 0   : 0000000000000000 ffffffff81639774 0000000000000000 ffffffffffffffff
-> [  250.251595] $ 4   : 0000000000000000 0000000000000000 ffffffff81740000 0000000000000001
-> [  250.251604] $ 8   : 0000000000000001 0000000000000000 ffffffff81106100 0000000100000001
-> [  250.251613] $12   : 0000000000000000 ffffffff813eb81c ffffffff8150be18 0000000000000000
-> [  250.251622] $16   : 8000000031290fc0 ffffffffffffffff 8000000031290fc4 8000000031188000
-> [  250.251631] $20   : 0000000000000002 0000000000000001 8000000031290fc8 800000002f8eba40
-> [  250.251640] $24   : 0000000000000038 ffffffff81105fb0                                  
-> [  250.251649] $28   : 800000002f8e8000 800000002f8eb740 000000fff7857f88 ffffffff81637b7c
-> [  250.251651] Hi    : 431bde82d7b50717
-> [  250.251653] Lo    : c8de2ac3222855ea
-> [  250.251668] epc   : ffffffff81637bac __mutex_lock_slowpath+0x7c/0x190
-> [  250.251675] ra    : ffffffff81637b7c __mutex_lock_slowpath+0x4c/0x190
-> [  250.251684] Status: 10108ce3	KX SX UX KERNEL EXL IE 
-> [  250.251686] Cause : 0080000c (ExcCode 03)
-> [  250.251688] BadVA : 0000000000000000
-> [  250.251690] PrId  : 000d0409 (Cavium Octeon+)
-> [  250.251699] Modules linked in: pata_octeon_cf libata autofs4
-> [  250.251704] Process systemd-network (pid: 850, threadinfo=800000002f8e8000, task=8000000031188000, tls=000000fff75ba700)
-> [  250.251782] Stack : 8000000031290fc8 0000000000000000 0000000000000001 8000000003f9bca0
-> [  250.251782] 	  8000000031290c00 ffffffff81856558 8000000031290fc0 8000000031225000
-> [  250.251782] 	  0000000000000001 0000000000000000 8000000031008800 ffffffff814b6284
-> [  250.251782] 	  ffffffff81639774 ffffffff81175dc4 8000000031290c00 ffffffff814baf80
-> [  250.251782] 	  8000000031210000 ffffffff814b64ac 800000002f8eb810 800000002f8eb810
-> [  250.251782] 	  ffffffff814f7790 8000000031290c00 ffffffff814baf80 ffffffff814baf80
-> [  250.251782] 	  8000000031225000 0000000000000000 800000003290ca10 ffffffff814b66a4
-> [  250.251782] 	  8000000031225000 8000000031290c00 0000000000000001 ffffffff814f7b80
-> [  250.251782] 	  8000000031225000 8000000031225788 8000000031225830 0000000000001002
-> [  250.251782] 	  800000002f8ebb80 ffffffff814ba81c 8000000fb7105c32 ffffffff8116aab4
-> [  250.251782] 	  ...
-> [  250.251784] Call Trace:
-> [  250.251791] [<ffffffff81637bac>] __mutex_lock_slowpath+0x7c/0x190
-> [  250.251801] [<ffffffff814b6284>] phy_probe+0x6c/0x120
-> [  250.251807] [<ffffffff814b64ac>] phy_attach_direct+0xdc/0x1a8
-> [  250.251814] [<ffffffff814b66a4>] phy_connect_direct+0x2c/0x98
-> [  250.251822] [<ffffffff814f7b80>] of_phy_connect+0x60/0xb8
-> [  250.251830] [<ffffffff814ba81c>] octeon_mgmt_open+0x36c/0xad0
+On Mon, Jan 25, 2016 at 9:50 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> On 16-01-25 09:09 AM, Tom Herbert wrote:
+>> On Mon, Jan 25, 2016 at 5:15 AM, Jesper Dangaard Brouer
+>> <brouer@redhat.com> wrote:
+>>>
+>>> After reading John's reply about perfect filters, I want to re-state
+>>> my idea, for this very early RX stage.  And describe a packet-page
+>>> level bypass use-case, that John indirectly mentions.
+>>>
+>>>
+>>> There are two ideas, getting mixed up here.  (1) bundling from the
+>>> RX-ring, (2) allowing to pick up the "packet-page" directly.
+>>>
+>>> Bundling (1) is something that seems natural, and which help us
+>>> amortize the cost between layers (and utilizes icache better). Lets
+>>> keep that in another thread.
+>>>
+>>> This (2) direct forward of "packet-pages" is a fairly extreme idea,
+>>> BUT it have the potential of being an new integration point for
+>>> "selective" bypass-solutions and bringing RAW/af_packet (RX) up-to
+>>> speed with bypass-solutions.
+>>>
+>>>
+>>> Today, the bypass-solutions grab and control the entire NIC HW.  In
+>>> many cases this is not very practical, if you also want to use the NIC
+>>> for something else.
+>>>
+>>> Solutions for bypassing only part of the traffic is starting to show
+>>> up.  Both a netmap[1] and a DPDK[2] based approach.
+>>>
+>>> [1] https://blog.cloudflare.com/partial-kernel-bypass-merged-netmap/
+>>> [2] http://rhelblog.redhat.com/2015/10/02/getting-the-best-of-both-worlds-with-queue-splitting-bifurcated-driver/
+>>>
+>>> Both approaches install a HW filter in the NIC, and redirect packets
+>>> to a separate RX HW queue (via ethtool ntuple + flow-type).  DPDK
+>>> needs pci SRIOV setup and then run it own poll-mode driver on top.
+>>> Netmap patch the orig ixgbe driver, and since CloudFlare/Gilberto's
+>>> changes[3] support a single RX queue mode.
+>>>
+>
+> FWIW I wrote a version of the patch talked about in the queue splitting
+> article that didn't require SR-IOV and we also talked about it at last
+> netconf in ottowa. The problem is without SR-IOV if you map a queue
+> directly into userspace so you can run the poll mode drivers there is
+> nothing protecting the DMA engine. So userspace can put arbitrary
+> addresses in there. There is something called Process Address Space ID
+> (PASID) also part of the PCI-SIG spec that could help you here but I
+> don't know of any hardware that supports it. The other option is to
+> use system calls and validate the descriptors in the kernel but this
+> incurs some overhead we had it at 15% or so when I did the numbers
+> last year. However I'm told there is some interesting work going on
+> around syscall overhead that may help.
+>
+> One thing to note is SRIOV does somewhat limit the number of these
+> types of interfaces you can support to the max VFs where as the
+> queue mechanism although slower with a function call would be limited
+> to max number of queues. Also busy polling will help here if you
+> are worried about pps.
+>
+I think you're understating that a bit :-) We know that busy polling
+helps with both pps and latency. IIRC, busy polling in the kernel
+reduced latency by 2/3. Any latency or pps comparison between an
+interrupt driven kernel stack and a userspace stack doing polling
+would be invalid. If this work is all about latency (like burning
+cores is not an issue), maybe busy polling should be be assumed for
+all test cases?
 
-Hi Aaro, Olof
-
-I've not been able to reproduce this. I've tried a Kirkwood Qnap, a
-Kirkwood DIR665, an Armada XP WRT1900AC and a Freescale Vybrid. And
-i've turned on mutex debugging.... Nothing, always boots to user
-space, no complaints.
-
-     Andrew
+> Jesper, at least for you (2) case what are we missing with the
+> bifurcated/queue splitting work? Are you really after systems
+> without SR-IOV support or are you trying to get this on the order
+> of queues instead of VFs.
+>
+>> Jepser, thanks for providing more specifics.
+>>
+>> One comment: If you intend to change core code paths or APIs for this,
+>> then I think that we should require up front that the associated HW
+>> support is protocol agnostic (i.e. HW filters must be programmable and
+>> generic ). We don't want a promising feature like this to be
+>> undermined by protocol ossification.
+>
+> At the moment we use ethtool ntuple filters which is basically adding
+> a new set of enums and structures every time we need a new protocol
+> so its painful and you need your vendor to support you and you need a
+> new kernel.
+>
+> The flow api was shot down (which would get you to the point where
+> the user could specify the protocols for the driver to implement e.g.
+> put_parse_graph) and the only new proposals I've seen are bpf
+> translations in drivers and 'tc'. I plan to take another shot at this in
+> net-next.
+>
+>>
+>> Thanks,
+>> Tom
+>>
+>>> [3] https://github.com/luigirizzo/netmap/pull/87
+>>>
+>
