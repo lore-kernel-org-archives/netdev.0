@@ -1,42 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2] net: fec: use CONFIG_ARM instead of CONFIG_ARCH_MXC/SOC_IMX28
-Date: Mon, 25 Jan 2016 11:43:43 +0100
-Message-ID: <1612772.4retUf0a0d@wuerfel>
-References: <1453718450-7250-1-git-send-email-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Fugang Duan <B38611@freescale.com>,
-	Shawn Guo <shawnguo@kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.135]:52404 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932353AbcAYKoF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 05:44:05 -0500
-In-Reply-To: <1453718450-7250-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+Subject: [PATCH] brcmfmac: sdio: Increase the default timeouts a bit
+Date: Mon, 25 Jan 2016 11:47:29 +0100
+Message-ID: <1453718849-3508-1-git-send-email-sjoerd.simons@collabora.co.uk>
+Cc: Paul Stewart <pstew@chromium.org>,
+	Doug Anderson <dianders@chromium.org>,
+	linux-rockchip@lists.infradead.org,
+	Arend van Spriel <arend@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Brett Rudley <brudley@broadcom.com>, netdev@vger.kernel.org,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 25 January 2016 11:40:50 Johannes Berg wrote:
-> As Arnd Bergmann points out, using CONFIG_ARCH_MXC and/or SOC_IMX28
-> is wrong if some other ARM platform uses this device - the operation
-> of the driver would depend on an unrelated ARM platform that might
-> or might not be set for multi-platform kernels.
-> 
-> Prior to my previous patch, any other platforms using it would have
-> been broken already due to having the cbd_datlen/cbd_sc fields in
-> the wrong order, but byte ordering correctly, so no such platforms
-> can exist and work today.
-> 
-> In any case, it seems likely that only Freescale SoCs use this part,
-> and those are little-endian on ARM, so CONFIG_ARM is safe for them.
-> 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> 
+On a Radxa Rock2 board with a Ampak AP6335 (Broadcom 4339 core) it seems
+the card responds very quickly most of the time, unfortunately during
+initialisation it sometimes seems to take just a bit over 2 seconds to
+respond.
 
-Thanks, looks good.
+This results intialization failing with message like:
+  brcmf_c_preinit_dcmds: Retreiving cur_etheraddr failed, -52
+  brcmf_bus_start: failed: -52
+  brcmf_sdio_firmware_callback: dongle is not responding
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+Increasing the timeout to allow for a bit more headroom allows the
+card to initialize reliably.
+
+A quick search online after diagnosing/fixing this showed that Google
+has a similar patch in their ChromeOS tree, so this doesn't seem
+specific to the board I'm using.
+
+Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+
+---
+
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+index dd66143..75ac4bd 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+@@ -45,8 +45,8 @@
+ #include "chip.h"
+ #include "firmware.h"
+ 
+-#define DCMD_RESP_TIMEOUT	msecs_to_jiffies(2000)
+-#define CTL_DONE_TIMEOUT	msecs_to_jiffies(2000)
++#define DCMD_RESP_TIMEOUT	msecs_to_jiffies(2500)
++#define CTL_DONE_TIMEOUT	msecs_to_jiffies(2500)
+ 
+ #ifdef DEBUG
+ 
+-- 
+2.7.0
