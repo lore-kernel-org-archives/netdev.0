@@ -1,50 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: simplify napi_synchronize() to avoid warnings
-Date: Sun, 24 Jan 2016 22:20:12 -0800 (PST)
-Message-ID: <20160124.222012.1063840610459462933.davem@davemloft.net>
-References: <2817787.9jKELuxj8h@wuerfel>
+Subject: Re: [RFC PATCH net] net/core: don't increment rx_dropped on
+ inactive slaves
+Date: Sun, 24 Jan 2016 22:42:22 -0800 (PST)
+Message-ID: <20160124.224222.1748787418887617295.davem@davemloft.net>
+References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maxime.ripard@free-electrons.com,
-	gregory.clement@free-electrons.com, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43240 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbcAYGUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 01:20:13 -0500
-In-Reply-To: <2817787.9jKELuxj8h@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
+	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 22 Jan 2016 11:43:44 +0100
+From: Jarod Wilson <jarod@redhat.com>
+Date: Fri, 22 Jan 2016 14:11:22 -0500
 
-> The napi_synchronize() function is defined twice: The definition
-> for SMP builds waits for other CPUs to be done, while the uniprocessor
-> variant just contains a barrier and ignores its argument.
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 8cba3d8..1354c7b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4153,8 +4153,11 @@ ncls:
+>  		else
+>  			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+>  	} else {
+> +		if (deliver_exact)
+> +			goto inactive; /* bond or team inactive slave */
+>  drop:
+>  		atomic_long_inc(&skb->dev->rx_dropped);
+> +inactive:
+>  		kfree_skb(skb);
+>  		/* Jamal, now you will not able to escape explaining
+>  		 * me how you were going to use this. :-)
+> -- 
+> 1.8.3.1
 > 
-> In the mvneta driver, this leads to a warning about an unused variable
-> when we lookup the NAPI struct of another CPU and then don't use it:
-> 
-> ethernet/marvell/mvneta.c: In function 'mvneta_percpu_notifier':
-> ethernet/marvell/mvneta.c:2910:30: error: unused variable 'other_port' [-Werror=unused-variable]
-> 
-> There are no other CPUs on a UP build, so that code never runs, but
-> gcc does not know this.
-> 
-> The nicest solution seems to be to turn the napi_synchronize() helper
-> into an inline function for the UP case as well, as that leads gcc to
-> not complain about the argument being unused. Once we do that, we can
-> also combine the two cases into a single function definition and use
-> if(IS_ENABLED()) rather than #ifdef to make it look a bit nicer.
-> 
-> The warning first came up in linux-4.4, but I failed to catch it
-> earlier.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: f86428854480 ("net: mvneta: Statically assign queues to CPUs")
 
-I guess this is fine, applied, thanks Arnd.
+I agree that rx_dropped is not the correct stat to bump here, but
+I'm totally against the event disappearing completely into thin
+air.
+
+You have to replace the rx_dropped bump with _something_.
+
+The only reason this hasn't been "fixed" yet is that everyone is
+too damn lazy to implement that "something".
