@@ -1,48 +1,37 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: [PATCH net] sit: set rtnl_link_ops before calling register_netdevice
-Date: Mon, 25 Jan 2016 11:29:19 -0200
-Message-ID: <1453728559-4903-1-git-send-email-cascardo@redhat.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ipv4+ipv6: Make INET*_ESP select CRYPTO_ECHAINIV
+Date: Mon, 25 Jan 2016 21:56:28 +0800
+Message-ID: <20160125135628.GA8256@gondor.apana.org.au>
+References: <20160125102659.GA6976@gondor.apana.org.au>
+ <56A60DF4.30700@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Thomas Egerer <hakke_007@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57378 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753293AbcAYN33 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2016 08:29:29 -0500
+Received: from helcar.hengli.com.au ([209.40.204.226]:48704 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756724AbcAYN4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 08:56:33 -0500
+Content-Disposition: inline
+In-Reply-To: <56A60DF4.30700@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When creating a SIT tunnel with ip tunnel, rtnl_link_ops is not set before
-ipip6_tunnel_create is called. When register_netdevice is called, there is
-no linkinfo attribute in the NEWLINK message because of that.
+On Mon, Jan 25, 2016 at 12:58:44PM +0100, Thomas Egerer wrote:
+> The ESP algorithms using CBC mode require echainiv. Hence INET*_ESP have
+> to select CRYPTO_ECHAINIV in order to work properly. This solves the
+> issues caused by a misconfiguration as described in [1].
+> The original approach, patching crypto/Kconfig was turned down by
+> Herbert Xu [2].
+> 
+> [1] https://lists.strongswan.org/pipermail/users/2015-December/009074.html
+> [2] http://marc.info/?l=linux-crypto-vger&m=145224655809562&w=2
+> 
+> Signed-off-by: Thomas Egerer <hakke_007@gmx.de>
 
-Setting rtnl_link_ops before calling register_netdevice fixes that.
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
----
- net/ipv6/sit.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index e794ef6..2066d1c 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -201,14 +201,14 @@ static int ipip6_tunnel_create(struct net_device *dev)
- 	if ((__force u16)t->parms.i_flags & SIT_ISATAP)
- 		dev->priv_flags |= IFF_ISATAP;
- 
-+	dev->rtnl_link_ops = &sit_link_ops;
-+
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto out;
- 
- 	ipip6_tunnel_clone_6rd(dev, sitn);
- 
--	dev->rtnl_link_ops = &sit_link_ops;
--
- 	dev_hold(dev);
- 
- 	ipip6_tunnel_link(sitn, t);
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 -- 
-2.5.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
