@@ -1,47 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] pptp: fix illegal memory access caused by multiple
- bind()s
-Date: Sun, 24 Jan 2016 22:18:59 -0800 (PST)
-Message-ID: <20160124.221859.411528121283723172.davem@davemloft.net>
-References: <1453423183-4211-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: simplify napi_synchronize() to avoid warnings
+Date: Sun, 24 Jan 2016 22:20:12 -0800 (PST)
+Message-ID: <20160124.222012.1063840610459462933.davem@davemloft.net>
+References: <2817787.9jKELuxj8h@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xeb@mail.ru, sasha.levin@oracle.com,
-	dvyukov@google.com, davej@codemonkey.org.uk
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, maxime.ripard@free-electrons.com,
+	gregory.clement@free-electrons.com, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43226 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43240 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684AbcAYGTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 01:19:01 -0500
-In-Reply-To: <1453423183-4211-1-git-send-email-hannes@stressinduktion.org>
+	with ESMTP id S1751232AbcAYGUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 01:20:13 -0500
+In-Reply-To: <2817787.9jKELuxj8h@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 22 Jan 2016 01:39:43 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 22 Jan 2016 11:43:44 +0100
 
-> Several times already this has been reported as kasan reports caused by
-> syzkaller and trinity and people always looked at RCU races, but it is
-> much more simple. :)
+> The napi_synchronize() function is defined twice: The definition
+> for SMP builds waits for other CPUs to be done, while the uniprocessor
+> variant just contains a barrier and ignores its argument.
 > 
-> In case we bind a pptp socket multiple times, we simply add it to
-> the callid_sock list but don't remove the old binding. Thus the old
-> socket stays in the bucket with unused call_id indexes and doesn't get
-> cleaned up. This causes various forms of kasan reports which were hard
-> to pinpoint.
+> In the mvneta driver, this leads to a warning about an unused variable
+> when we lookup the NAPI struct of another CPU and then don't use it:
 > 
-> Simply don't allow multiple binds and correct error handling in
-> pptp_bind. Also keep sk_state bits in place in pptp_connect.
+> ethernet/marvell/mvneta.c: In function 'mvneta_percpu_notifier':
+> ethernet/marvell/mvneta.c:2910:30: error: unused variable 'other_port' [-Werror=unused-variable]
 > 
-> Fixes: 00959ade36acad ("PPTP: PPP over IPv4 (Point-to-Point Tunneling Protocol)")
-> Cc: Dmitry Kozlov <xeb@mail.ru>
-> Cc: Sasha Levin <sasha.levin@oracle.com>
-> Cc: Dmitry Vyukov <dvyukov@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Dave Jones <davej@codemonkey.org.uk>
-> Reported-by: Dave Jones <davej@codemonkey.org.uk>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> There are no other CPUs on a UP build, so that code never runs, but
+> gcc does not know this.
+> 
+> The nicest solution seems to be to turn the napi_synchronize() helper
+> into an inline function for the UP case as well, as that leads gcc to
+> not complain about the argument being unused. Once we do that, we can
+> also combine the two cases into a single function definition and use
+> if(IS_ENABLED()) rather than #ifdef to make it look a bit nicer.
+> 
+> The warning first came up in linux-4.4, but I failed to catch it
+> earlier.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: f86428854480 ("net: mvneta: Statically assign queues to CPUs")
 
-Applied and queued up for -stable, thanks Hannes.
+I guess this is fine, applied, thanks Arnd.
