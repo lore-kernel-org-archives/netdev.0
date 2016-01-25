@@ -1,18 +1,17 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: use skb_get_hash() instead of a
- homegrown implementation
-Date: Mon, 25 Jan 2016 10:53:23 -0800 (PST)
-Message-ID: <20160125.105323.453007330881616541.davem@davemloft.net>
-References: <1453734041-20394-1-git-send-email-vkuznets@redhat.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Fix book keeping of skb during
+ batching process
+Date: Mon, 25 Jan 2016 10:53:49 -0800 (PST)
+Message-ID: <20160125.105349.498617091020487962.davem@davemloft.net>
+References: <1453744171-31843-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, eric.dumazet@gmail.com, netdev@vger.kernel.org,
- haiyangz@microsoft.com, linux-kernel@vger.kernel.org, tom@herbertland.com,
- devel@linuxdriverproject.org
-To: vkuznets@redhat.com
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1453734041-20394-1-git-send-email-vkuznets@redhat.com>
+In-Reply-To: <1453744171-31843-1-git-send-email-haiyangz@microsoft.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -24,19 +23,16 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Mon, 25 Jan 2016 16:00:41 +0100
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 25 Jan 2016 09:49:31 -0800
 
-> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
-> VLAN ID to flow_keys")) introduced a performance regression in netvsc
-> driver. Is problem is, however, not the above mentioned commit but the
-> fact that netvsc_set_hash() function did some assumptions on the struct
-> flow_keys data layout and this is wrong.
+> Since eliminating send_completion_tid from struct hv_netvsc_packet, we
+> haven't add proper book keeping for the skb of the batched packet. This
+> patch fixes this issue and allows the previous skb is properly freed.
+> Otherwise, a panic may happen.
+> Thanks to Simon Xiao <sixiao@microsoft.com> for bisecting and analysis.
 > 
-> Get rid of netvsc_set_hash() by switching to skb_get_hash(). This change
-> will also imply switching to Jenkins hash from the currently used Toeplitz
-> but it seems there is no good excuse for Toeplitz to stay.
-> 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
 Applied.
