@@ -1,50 +1,67 @@
-From: Greg Ungerer <gerg@uclinux.org>
-Subject: Re: [PATCH v2] net: fec: make driver endian-safe
-Date: Mon, 25 Jan 2016 10:52:17 +1000
-Message-ID: <56A571C1.5050905@uclinux.org>
-References: <1453650757-27459-1-git-send-email-johannes@sipsolutions.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net] af_unix: fix struct pid memory leak
+Date: Mon, 25 Jan 2016 02:06:27 +0100
+Message-ID: <20160125010627.GB14576@1wt.eu>
+References: <1453481401.1223.396.camel@edumazet-glaptop2.roam.corp.google.com> <20160123180010.GB1609@1wt.eu> <CACT4Y+Z2fosqX4dRZQNEu=9zdxqCE=5CoQc1WQYsEdnH+MwK+g@mail.gmail.com> <20160123184007.GE1609@1wt.eu> <CACT4Y+Y9f838pAMnvkPzEDwWWE0Ge1xLNetwjKFk0ccZ51YgHQ@mail.gmail.com> <20160124021145.GA12367@1wt.eu> <20160124023824.GA13942@1wt.eu> <CANn89i+KfDVX8SO3mLnh8naXGb3WiM80=aBuhQKBVstZyfS_xg@mail.gmail.com> <20160124030412.GA13949@1wt.eu> <1453672430.1223.456.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Lucas Stach <l.stach@pengutronix.de>,
-	Fugang Duan <B38611@freescale.com>,
-	Arnd Bergmann <arnd@arndb.de>, Shawn Guo <shawnguo@kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from icp-osb-irony-out9.external.iinet.net.au ([203.59.1.226]:16743
-	"EHLO icp-osb-irony-out9.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751723AbcAYBBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 20:01:32 -0500
-In-Reply-To: <1453650757-27459-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1453672430.1223.456.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Johannes,
+Hi Eric,
 
-On 25/01/16 01:52, Johannes Berg wrote:
-> The driver treats the device descriptors as CPU-endian, which appears
-> to be correct with the default endianness on both ARM (typically LE)
-> and PowerPC (typically BE) SoCs, indicating that the hardware block
-> is generated differently. Add endianness annotations and byteswaps as
-> necessary.
+On Sun, Jan 24, 2016 at 01:53:50PM -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> It's not clear that the ifdef there really is correct and shouldn't
-> just be #ifdef CONFIG_ARM, but I also can't test on anything but the
-> i.MX6 HummingBoard where this gets it working with a BE kernel.
+> Dmitry reported a struct pid leak detected by a syzkaller program.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-
-I tested this on a ColdFire (5208) target that uses this driver.
-Simple testing showed it working with no problems. The ColdFire
-SoC processors use a version of the FEC hardware module, and they
-always run big-endian.
-
-Regards
-Greg
-
-
+> Bug happens in unix_stream_recvmsg() when we break the loop when a
+> signal is pending, without properly releasing scm.
+> 
+> Fixes: b3ca9b02b007 ("net: fix multithreaded signal handling in unix recv routines")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 > ---
->  drivers/net/ethernet/freescale/Makefile   |   3 +
->  drivers/net/ethernet/freescale/fec.h      |  40 ++++++---
->  drivers/net/ethernet/freescale/fec_main.c | 130 ++++++++++++++++--------------
->  3 files changed, 101 insertions(+), 72 deletions(-)
+>  net/unix/af_unix.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index c5bf5ef2bf89..49d5093eb055 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -2339,6 +2339,7 @@ again:
+>  
+>  			if (signal_pending(current)) {
+>  				err = sock_intr_errno(timeo);
+> +				scm_destroy(&scm);
+>  				goto out;
+>  			}
+
+Good job on this one! FWIW, I managed to test it on 3.14 and I confirm it
+completely fixes the leak there as well. I had to modify it a little bit
+however since there's no scm local variable there :
+
+-				scm_destroy(&scm);
++				scm_destroy(siocb->scm);
+
+Cheers,
+Willy
