@@ -1,148 +1,88 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Bypass at packet-page level (Was: Optimizing instruction-cache,
- more packets at each stage)
-Date: Mon, 25 Jan 2016 13:58:17 -0800
-Message-ID: <56A69A79.4080701@gmail.com>
-References: <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>	<CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>	<20160121122730.6330a84b@redhat.com>	<20160121.105401.1793719917762270884.davem@davemloft.net>	<20160124152814.2ea5e99b@redhat.com>	<20160124163846-mutt-send-email-mst@redhat.com>	<56A509C4.3030706@gmail.com>	<20160125141516.795f3eb7@redhat.com>	<CALx6S37EmUh7SXmVSjTN9DLMTicr6-VwL-i25VV1fM=V2E6giQ@mail.gmail.com>	<56A66058.1090308@gmail.com> <CALx6S37vfK_++j-BpePGJWHp8cef1k2drRFmAcM8Ys4ciBYUFg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vladislav Yasevich <vyasevich@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] tcp: fix tcp_mark_head_lost to check skb len before fragmenting
+Date: Mon, 25 Jan 2016 14:01:53 -0800
+Message-ID: <1453759313-22681-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35786 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751763AbcAYV6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 16:58:41 -0500
-Received: by mail-pa0-f41.google.com with SMTP id ho8so86839761pac.2
-        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 13:58:40 -0800 (PST)
-In-Reply-To: <CALx6S37vfK_++j-BpePGJWHp8cef1k2drRFmAcM8Ys4ciBYUFg@mail.gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35958 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932084AbcAYWDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 17:03:08 -0500
+Received: by mail-pa0-f46.google.com with SMTP id yy13so86852385pab.3
+        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 14:03:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-01-25 01:32 PM, Tom Herbert wrote:
-> On Mon, Jan 25, 2016 at 9:50 AM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
->> On 16-01-25 09:09 AM, Tom Herbert wrote:
->>> On Mon, Jan 25, 2016 at 5:15 AM, Jesper Dangaard Brouer
->>> <brouer@redhat.com> wrote:
->>>>
->>>> After reading John's reply about perfect filters, I want to re-state
->>>> my idea, for this very early RX stage.  And describe a packet-page
->>>> level bypass use-case, that John indirectly mentions.
->>>>
->>>>
->>>> There are two ideas, getting mixed up here.  (1) bundling from the
->>>> RX-ring, (2) allowing to pick up the "packet-page" directly.
->>>>
->>>> Bundling (1) is something that seems natural, and which help us
->>>> amortize the cost between layers (and utilizes icache better). Lets
->>>> keep that in another thread.
->>>>
->>>> This (2) direct forward of "packet-pages" is a fairly extreme idea,
->>>> BUT it have the potential of being an new integration point for
->>>> "selective" bypass-solutions and bringing RAW/af_packet (RX) up-to
->>>> speed with bypass-solutions.
->>>>
->>>>
->>>> Today, the bypass-solutions grab and control the entire NIC HW.  In
->>>> many cases this is not very practical, if you also want to use the NIC
->>>> for something else.
->>>>
->>>> Solutions for bypassing only part of the traffic is starting to show
->>>> up.  Both a netmap[1] and a DPDK[2] based approach.
->>>>
->>>> [1] https://blog.cloudflare.com/partial-kernel-bypass-merged-netmap/
->>>> [2] http://rhelblog.redhat.com/2015/10/02/getting-the-best-of-both-worlds-with-queue-splitting-bifurcated-driver/
->>>>
->>>> Both approaches install a HW filter in the NIC, and redirect packets
->>>> to a separate RX HW queue (via ethtool ntuple + flow-type).  DPDK
->>>> needs pci SRIOV setup and then run it own poll-mode driver on top.
->>>> Netmap patch the orig ixgbe driver, and since CloudFlare/Gilberto's
->>>> changes[3] support a single RX queue mode.
->>>>
->>
->> FWIW I wrote a version of the patch talked about in the queue splitting
->> article that didn't require SR-IOV and we also talked about it at last
->> netconf in ottowa. The problem is without SR-IOV if you map a queue
->> directly into userspace so you can run the poll mode drivers there is
->> nothing protecting the DMA engine. So userspace can put arbitrary
->> addresses in there. There is something called Process Address Space ID
->> (PASID) also part of the PCI-SIG spec that could help you here but I
->> don't know of any hardware that supports it. The other option is to
->> use system calls and validate the descriptors in the kernel but this
->> incurs some overhead we had it at 15% or so when I did the numbers
->> last year. However I'm told there is some interesting work going on
->> around syscall overhead that may help.
->>
->> One thing to note is SRIOV does somewhat limit the number of these
->> types of interfaces you can support to the max VFs where as the
->> queue mechanism although slower with a function call would be limited
->> to max number of queues. Also busy polling will help here if you
->> are worried about pps.
->>
-> I think you're understating that a bit :-) We know that busy polling
-> helps with both pps and latency. IIRC, busy polling in the kernel
-> reduced latency by 2/3. Any latency or pps comparison between an
-> interrupt driven kernel stack and a userspace stack doing polling
-> would be invalid. If this work is all about latency (like burning
-> cores is not an issue), maybe busy polling should be be assumed for
-> all test cases?
+From: Neal Cardwell <ncardwell@google.com>
 
-Probably if your going to try and report pps numbers and chart them
-we mind as well play the game and use the best configuration we can.
+This commit fixes a corner case in tcp_mark_head_lost() which was
+causing the WARN_ON(len > skb->len) in tcp_fragment() to fire.
 
-Although I did want to make busy polling per queue or maybe create
-L3/L4 netdev's like macvlan and put those in busy polling. Its a bit
-overkill to put the entire device in busy polling mode when we have
-only a couple sockets doing it. net-next is opening soon right ;)
+tcp_mark_head_lost() was assuming that if a packet has
+tcp_skb_pcount(skb) of N, then it's safe to fragment off a prefix of
+M*mss bytes, for any M < N. But with the tricky way TCP pcounts are
+maintained, this is not always true.
 
-> 
->> Jesper, at least for you (2) case what are we missing with the
->> bifurcated/queue splitting work? Are you really after systems
->> without SR-IOV support or are you trying to get this on the order
->> of queues instead of VFs.
->>
->>> Jepser, thanks for providing more specifics.
->>>
->>> One comment: If you intend to change core code paths or APIs for this,
->>> then I think that we should require up front that the associated HW
->>> support is protocol agnostic (i.e. HW filters must be programmable and
->>> generic ). We don't want a promising feature like this to be
->>> undermined by protocol ossification.
->>
->> At the moment we use ethtool ntuple filters which is basically adding
->> a new set of enums and structures every time we need a new protocol
->> so its painful and you need your vendor to support you and you need a
->> new kernel.
->>
->> The flow api was shot down (which would get you to the point where
->> the user could specify the protocols for the driver to implement e.g.
->> put_parse_graph) and the only new proposals I've seen are bpf
->> translations in drivers and 'tc'. I plan to take another shot at this in
->> net-next.
->>
->>>
->>> Thanks,
->>> Tom
->>>
->>>> [3] https://github.com/luigirizzo/netmap/pull/87
->>>>
->>
+For example, suppose the sender sends 4 1-byte packets and have the
+last 3 packet sacked. It will merge the last 3 packets in the write
+queue into an skb with pcount = 3 and len = 3 bytes. If another
+recovery happens after a sack reneging event, tcp_mark_head_lost()
+may attempt to split the skb assuming it has more than 2*MSS bytes.
+
+This sounds very counterintuitive, but as the commit description for
+the related commit c0638c247f55 ("tcp: don't fragment SACKed skbs in
+tcp_mark_head_lost()") notes, this is because tcp_shifted_skb()
+coalesces adjacent regions of SACKed skbs, and when doing this it
+preserves the sum of their packet counts in order to reflect the
+real-world dynamics on the wire. The c0638c247f55 commit tried to
+avoid problems by not fragmenting SACKed skbs, since SACKed skbs are
+where the non-proportionality between pcount and skb->len/mss is known
+to be possible. However, that commit did not handle the case where
+during a reneging event one of these weird SACKed skbs becomes an
+un-SACKed skb, which tcp_mark_head_lost() can then try to fragment.
+
+The fix is to simply mark the entire skb lost when this happens.
+This makes the recovery slightly more aggressive in such corner
+cases before we detect reordering. But once we detect reordering
+this code path is by-passed because FACK is disabled.
+
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0003d40..d2ad433 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2164,8 +2164,7 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+-	int cnt, oldcnt;
+-	int err;
++	int cnt, oldcnt, lost;
+ 	unsigned int mss;
+ 	/* Use SACK to deduce losses of new sequences sent during recovery */
+ 	const u32 loss_high = tcp_is_sack(tp) ?  tp->snd_nxt : tp->high_seq;
+@@ -2205,9 +2204,10 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
+ 				break;
+ 
+ 			mss = tcp_skb_mss(skb);
+-			err = tcp_fragment(sk, skb, (packets - oldcnt) * mss,
+-					   mss, GFP_ATOMIC);
+-			if (err < 0)
++			/* If needed, chop off the prefix to mark as lost. */
++			lost = (packets - oldcnt) * mss;
++			if (lost < skb->len &&
++			    tcp_fragment(sk, skb, lost, mss, GFP_ATOMIC) < 0)
+ 				break;
+ 			cnt = packets;
+ 		}
+-- 
+2.7.0.rc3.207.g0ac5344
