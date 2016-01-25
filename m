@@ -1,95 +1,91 @@
-From: Arend van Spriel <aspriel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: sdio: Increase the default timeouts a bit
-Date: Mon, 25 Jan 2016 16:39:56 +0100
-Message-ID: <56A641CC.6020500@gmail.com>
-References: <1453718849-3508-1-git-send-email-sjoerd.simons@collabora.co.uk>
- <CAGRGNgXWE=b52Mcy8NsKBZS_4gz-TUiuFipjsuTZh1xjja=uUg@mail.gmail.com>
+From: Aaro Koskinen <aaro.koskinen@nokia.com>
+Subject: [BISECTED] v4.5-rc1 phylib regression
+Date: Mon, 25 Jan 2016 17:45:21 +0200
+Message-ID: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Doug Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sjoerd Simons <sjoerd.simons-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGRGNgXWE=b52Mcy8NsKBZS_4gz-TUiuFipjsuTZh1xjja=uUg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from demumfd002.nsn-inter.net ([93.183.12.31]:49383 "EHLO
+	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754830AbcAYPpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 10:45:25 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25-01-16 12:06, Julian Calaby wrote:
-> Hi Sjoerd,
-> 
-> On Mon, Jan 25, 2016 at 9:47 PM, Sjoerd Simons
-> <sjoerd.simons-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org> wrote:
->> On a Radxa Rock2 board with a Ampak AP6335 (Broadcom 4339 core) it seems
->> the card responds very quickly most of the time, unfortunately during
->> initialisation it sometimes seems to take just a bit over 2 seconds to
->> respond.
->>
->> This results intialization failing with message like:
->>   brcmf_c_preinit_dcmds: Retreiving cur_etheraddr failed, -52
->>   brcmf_bus_start: failed: -52
->>   brcmf_sdio_firmware_callback: dongle is not responding
->>
->> Increasing the timeout to allow for a bit more headroom allows the
->> card to initialize reliably.
->>
->> A quick search online after diagnosing/fixing this showed that Google
->> has a similar patch in their ChromeOS tree, so this doesn't seem
->> specific to the board I'm using.
->>
->> Signed-off-by: Sjoerd Simons <sjoerd.simons-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-> 
-> Looks sane to me.
-> 
-> Reviewed-by: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Hi,
 
-Not really a cleanup patch :-p , but thanks for the review.
+I get the below crash on OCTEON (with octeon_mgmt interface, genphy)
+always during systemd boot.
 
-Regards,
-Arend
+Bisected to:
 
-> 
->>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
->> index dd66143..75ac4bd 100644
->> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
->> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
->> @@ -45,8 +45,8 @@
->>  #include "chip.h"
->>  #include "firmware.h"
->>
->> -#define DCMD_RESP_TIMEOUT      msecs_to_jiffies(2000)
->> -#define CTL_DONE_TIMEOUT       msecs_to_jiffies(2000)
->> +#define DCMD_RESP_TIMEOUT      msecs_to_jiffies(2500)
->> +#define CTL_DONE_TIMEOUT       msecs_to_jiffies(2500)
->>
->>  #ifdef DEBUG
->>
->> --
->> 2.7.0
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+commit a9049e0c513c4521dbfaa302af8ed08b3366b41f
+Author: Andrew Lunn <andrew@lunn.ch>
+Date:   Wed Jan 6 20:11:26 2016 +0100
+
+    mdio: Add support for mdio drivers.
+
+[  250.179887] CPU 2 Unable to handle kernel paging request at virtual address 0000000000000000, epc == ffffffff81637bac, ra == ffffffff81637b7c
+[  250.218161] Oops[#1]:
+[  250.224970] CPU: 2 PID: 850 Comm: systemd-network Not tainted 4.5.0-rc1-octeon-distro.git-test #1
+[  250.251569] task: 8000000031188000 ti: 800000002f8e8000 task.ti: 800000002f8e8000
+[  250.251586] $ 0   : 0000000000000000 ffffffff81639774 0000000000000000 ffffffffffffffff
+[  250.251595] $ 4   : 0000000000000000 0000000000000000 ffffffff81740000 0000000000000001
+[  250.251604] $ 8   : 0000000000000001 0000000000000000 ffffffff81106100 0000000100000001
+[  250.251613] $12   : 0000000000000000 ffffffff813eb81c ffffffff8150be18 0000000000000000
+[  250.251622] $16   : 8000000031290fc0 ffffffffffffffff 8000000031290fc4 8000000031188000
+[  250.251631] $20   : 0000000000000002 0000000000000001 8000000031290fc8 800000002f8eba40
+[  250.251640] $24   : 0000000000000038 ffffffff81105fb0                                  
+[  250.251649] $28   : 800000002f8e8000 800000002f8eb740 000000fff7857f88 ffffffff81637b7c
+[  250.251651] Hi    : 431bde82d7b50717
+[  250.251653] Lo    : c8de2ac3222855ea
+[  250.251668] epc   : ffffffff81637bac __mutex_lock_slowpath+0x7c/0x190
+[  250.251675] ra    : ffffffff81637b7c __mutex_lock_slowpath+0x4c/0x190
+[  250.251684] Status: 10108ce3	KX SX UX KERNEL EXL IE 
+[  250.251686] Cause : 0080000c (ExcCode 03)
+[  250.251688] BadVA : 0000000000000000
+[  250.251690] PrId  : 000d0409 (Cavium Octeon+)
+[  250.251699] Modules linked in: pata_octeon_cf libata autofs4
+[  250.251704] Process systemd-network (pid: 850, threadinfo=800000002f8e8000, task=8000000031188000, tls=000000fff75ba700)
+[  250.251782] Stack : 8000000031290fc8 0000000000000000 0000000000000001 8000000003f9bca0
+[  250.251782] 	  8000000031290c00 ffffffff81856558 8000000031290fc0 8000000031225000
+[  250.251782] 	  0000000000000001 0000000000000000 8000000031008800 ffffffff814b6284
+[  250.251782] 	  ffffffff81639774 ffffffff81175dc4 8000000031290c00 ffffffff814baf80
+[  250.251782] 	  8000000031210000 ffffffff814b64ac 800000002f8eb810 800000002f8eb810
+[  250.251782] 	  ffffffff814f7790 8000000031290c00 ffffffff814baf80 ffffffff814baf80
+[  250.251782] 	  8000000031225000 0000000000000000 800000003290ca10 ffffffff814b66a4
+[  250.251782] 	  8000000031225000 8000000031290c00 0000000000000001 ffffffff814f7b80
+[  250.251782] 	  8000000031225000 8000000031225788 8000000031225830 0000000000001002
+[  250.251782] 	  800000002f8ebb80 ffffffff814ba81c 8000000fb7105c32 ffffffff8116aab4
+[  250.251782] 	  ...
+[  250.251784] Call Trace:
+[  250.251791] [<ffffffff81637bac>] __mutex_lock_slowpath+0x7c/0x190
+[  250.251801] [<ffffffff814b6284>] phy_probe+0x6c/0x120
+[  250.251807] [<ffffffff814b64ac>] phy_attach_direct+0xdc/0x1a8
+[  250.251814] [<ffffffff814b66a4>] phy_connect_direct+0x2c/0x98
+[  250.251822] [<ffffffff814f7b80>] of_phy_connect+0x60/0xb8
+[  250.251830] [<ffffffff814ba81c>] octeon_mgmt_open+0x36c/0xad0
+[  250.251838] [<ffffffff81531444>] __dev_open+0x11c/0x1b0
+[  250.251844] [<ffffffff815317b0>] __dev_change_flags+0xa0/0x188
+[  250.251850] [<ffffffff815318c8>] dev_change_flags+0x30/0x78
+[  250.251856] [<ffffffff81543b7c>] do_setlink+0x374/0xa38
+[  250.251862] [<ffffffff8154431c>] rtnl_setlink+0xdc/0x120
+[  250.251868] [<ffffffff81542f6c>] rtnetlink_rcv_msg+0xac/0x2a0
+[  250.251875] [<ffffffff8155f210>] netlink_rcv_skb+0xf0/0x120
+[  250.251880] [<ffffffff81542eb0>] rtnetlink_rcv+0x38/0x48
+[  250.251886] [<ffffffff8155e850>] netlink_unicast+0x1c0/0x2d8
+[  250.251891] [<ffffffff8155eefc>] netlink_sendmsg+0x424/0x480
+[  250.251898] [<ffffffff81509cbc>] sock_sendmsg+0x24/0x40
+[  250.251904] [<ffffffff8150bedc>] SyS_sendto+0xc4/0x108
+[  250.251914] [<ffffffff8112de90>] syscall_common+0x34/0x58
+[  250.251918] 
+[  250.251936] 
+[  250.251936] Code: 24150001  ffa20008  24140002 <fc5d0000> 0858def5  ffb30010  fe740000  0c58e612  0240202d 
+[  250.251983] ---[ end trace 1be6b781dce6d4dc ]---
+
+A.
