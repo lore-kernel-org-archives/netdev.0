@@ -1,147 +1,192 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: net/sctp: out-of-bounds access in sctp_add_bind_addr
-Date: Mon, 25 Jan 2016 14:16:00 -0200
-Message-ID: <f5e86af253fac52b6f78448e9aaf68742a1ec7c5.1453738452.git.marcelo.leitner@gmail.com>
-References: <20160125160534.GC29690@hmsreliant.think-freely.org>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, syzkaller@googlegroups.com, kcc@google.com,
-	glider@google.com, sasha.levin@oracle.com, edumazet@google.com
-To: dvyukov@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160125160534.GC29690@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH 16/26] libceph: Use skcipher
+Date: Mon, 25 Jan 2016 17:18:47 +0100
+Message-ID: <CAOi1vP9jmMYHR21UeAO175susZ5V74vcXyoxwayBVSTFHxjhBQ@mail.gmail.com>
+References: <20160124131021.GA31153@gondor.apana.org.au>
+	<E1aNKYy-0008E6-GI@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=001a1147799e7aa950052a2aecaa
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org,
+	dm-devel@redhat.com, linux-wireless@vger.kernel.org,
+	linux-cifs@vger.kernel.org, ecryptfs@vger.kernel.org,
+	linux-ext4@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
+	linux-nfs@vger.kernel.org, keyrings@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	linux-wpan@vger.kernel.org, linux-afs@lists.infradead.org,
+	Lars Ellenberg <drbd-dev@lists.linbit.com>,
+	open-iscsi@googlegroups.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <ecryptfs-owner@vger.kernel.org>
+In-Reply-To: <E1aNKYy-0008E6-GI@gondolin.me.apana.org.au>
+Sender: ecryptfs-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Something like this. Builds, but UNTESTED.
-Uses union sizeof where possible but when reading from a buffer that is
-not aligned to it, like that user supplied one. Then relies on
-af->sockaddr_len
+--001a1147799e7aa950052a2aecaa
+Content-Type: text/plain; charset=UTF-8
 
---8<--
+On Sun, Jan 24, 2016 at 2:18 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> This patch replaces uses of blkcipher with skcipher.
+>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> ---
+>
+>  net/ceph/crypto.c |   97 +++++++++++++++++++++++++++++++-----------------------
+>  1 file changed, 56 insertions(+), 41 deletions(-)
 
----
- include/net/sctp/structs.h |  2 +-
- net/sctp/bind_addr.c       | 14 ++++++++------
- net/sctp/protocol.c        |  1 +
- net/sctp/sm_make_chunk.c   |  2 +-
- net/sctp/socket.c          |  5 +++--
- 5 files changed, 14 insertions(+), 10 deletions(-)
+Could you get rid of ivsize instead of assigning to it - see the
+attached diff?
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 20e72129be1ce0063eeafcbaadcee1f37e0c614c..97ba8a8c466f5c50bdc87ec578792e56553baa91 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1099,7 +1099,7 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
- 			const struct sctp_bind_addr *src,
- 			gfp_t gfp);
- int sctp_add_bind_addr(struct sctp_bind_addr *, union sctp_addr *,
--		       __u8 addr_state, gfp_t gfp);
-+		       int new_size, __u8 addr_state, gfp_t gfp);
- int sctp_del_bind_addr(struct sctp_bind_addr *, union sctp_addr *);
- int sctp_bind_addr_match(struct sctp_bind_addr *, const union sctp_addr *,
- 			 struct sctp_sock *);
-diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-index 871cdf9567e6bc9c13cb1077dc6866a67e6e4367..80129d10a0af9c33e7348b79d010b9e5e948e584 100644
---- a/net/sctp/bind_addr.c
-+++ b/net/sctp/bind_addr.c
-@@ -111,7 +111,8 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
- 	dest->port = src->port;
- 
- 	list_for_each_entry(addr, &src->address_list, list) {
--		error = sctp_add_bind_addr(dest, &addr->a, 1, gfp);
-+		error = sctp_add_bind_addr(dest, &addr->a, sizeof(addr->a),
-+					   1, gfp);
- 		if (error < 0)
- 			break;
- 	}
-@@ -150,7 +151,7 @@ void sctp_bind_addr_free(struct sctp_bind_addr *bp)
- 
- /* Add an address to the bind address list in the SCTP_bind_addr structure. */
- int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
--		       __u8 addr_state, gfp_t gfp)
-+		       int new_size, __u8 addr_state, gfp_t gfp)
- {
- 	struct sctp_sockaddr_entry *addr;
- 
-@@ -159,7 +160,7 @@ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
- 	if (!addr)
- 		return -ENOMEM;
- 
--	memcpy(&addr->a, new, sizeof(*new));
-+	memcpy(&addr->a, new, min_t(size_t, sizeof(*new), new_size));
- 
- 	/* Fix up the port if it has not yet been set.
- 	 * Both v4 and v6 have the port at the same offset.
-@@ -291,7 +292,8 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
- 		}
- 
- 		af->from_addr_param(&addr, rawaddr, htons(port), 0);
--		retval = sctp_add_bind_addr(bp, &addr, SCTP_ADDR_SRC, gfp);
-+		retval = sctp_add_bind_addr(bp, &addr, sizeof(addr),
-+					    SCTP_ADDR_SRC, gfp);
- 		if (retval) {
- 			/* Can't finish building the list, clean up. */
- 			sctp_bind_addr_clean(bp);
-@@ -453,8 +455,8 @@ static int sctp_copy_one_addr(struct net *net, struct sctp_bind_addr *dest,
- 		    (((AF_INET6 == addr->sa.sa_family) &&
- 		      (flags & SCTP_ADDR6_ALLOWED) &&
- 		      (flags & SCTP_ADDR6_PEERSUPP))))
--			error = sctp_add_bind_addr(dest, addr, SCTP_ADDR_SRC,
--						    gfp);
-+			error = sctp_add_bind_addr(dest, addr, sizeof(addr),
-+						   SCTP_ADDR_SRC, gfp);
- 	}
- 
- 	return error;
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index ab0d538a74ed593571cfaef02cd1bb7ce872abe6..2fb609008311f51344704d82f21b4de9f08253da 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -214,6 +214,7 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
- 			      (copy_flags & SCTP_ADDR6_ALLOWED) &&
- 			      (copy_flags & SCTP_ADDR6_PEERSUPP)))) {
- 				error = sctp_add_bind_addr(bp, &addr->a,
-+						    sizeof(addr->a),
- 						    SCTP_ADDR_SRC, GFP_ATOMIC);
- 				if (error)
- 					goto end_copy;
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 5d6a03fad3789a12290f5f14c5a7efa69c98f41a..1b91e9760fe514db6d89457e1d5da9e02800745e 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1830,7 +1830,7 @@ no_hmac:
- 	/* Also, add the destination address. */
- 	if (list_empty(&retval->base.bind_addr.address_list)) {
- 		sctp_add_bind_addr(&retval->base.bind_addr, &chunk->dest,
--				SCTP_ADDR_SRC, GFP_ATOMIC);
-+				   sizeof(chunk->dest), SCTP_ADDR_SRC, GFP_ATOMIC);
- 	}
- 
- 	retval->next_tsn = retval->c.initial_tsn;
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9bb80ec4c08ff06f6e629078c5a926c3def3ce23..3765f1fd06aac253ec5ee8e8bd18fffefda64d62 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -386,7 +386,8 @@ static int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
- 	/* Add the address to the bind address list.
- 	 * Use GFP_ATOMIC since BHs will be disabled.
- 	 */
--	ret = sctp_add_bind_addr(bp, addr, SCTP_ADDR_SRC, GFP_ATOMIC);
-+	ret = sctp_add_bind_addr(bp, addr, af->sockaddr_len,
-+				 SCTP_ADDR_SRC, GFP_ATOMIC);
- 
- 	/* Copy back into socket for getsockname() use. */
- 	if (!ret) {
-@@ -576,7 +577,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
- 			addr = addr_buf;
- 			af = sctp_get_af_specific(addr->v4.sin_family);
- 			memcpy(&saveaddr, addr, af->sockaddr_len);
--			retval = sctp_add_bind_addr(bp, &saveaddr,
-+			retval = sctp_add_bind_addr(bp, &saveaddr, sizeof(saveaddr),
- 						    SCTP_ADDR_NEW, GFP_ATOMIC);
- 			addr_buf += af->sockaddr_len;
- 		}
--- 
-2.5.0
+Otherwise:
+
+Acked-by: Ilya Dryomov <idryomov@gmail.com>
+
+Thanks,
+
+                Ilya
+
+--001a1147799e7aa950052a2aecaa
+Content-Type: text/plain; charset=US-ASCII; name="skcipher-ivsize.diff"
+Content-Disposition: attachment; filename="skcipher-ivsize.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iju6gmbs0
+
+ZGlmZiAtLWdpdCBhL25ldC9jZXBoL2NyeXB0by5jIGIvbmV0L2NlcGgvY3J5cHRvLmMKaW5kZXgg
+NDJlODY0OWM2ZTc5Li5kYjI4NDdhYzVmMTIgMTAwNjQ0Ci0tLSBhL25ldC9jZXBoL2NyeXB0by5j
+CisrKyBiL25ldC9jZXBoL2NyeXB0by5jCkBAIC00LDcgKzQsOCBAQAogI2luY2x1ZGUgPGxpbnV4
+L2Vyci5oPgogI2luY2x1ZGUgPGxpbnV4L3NjYXR0ZXJsaXN0Lmg+CiAjaW5jbHVkZSA8bGludXgv
+c2xhYi5oPgotI2luY2x1ZGUgPGNyeXB0by9oYXNoLmg+CisjaW5jbHVkZSA8Y3J5cHRvL2Flcy5o
+PgorI2luY2x1ZGUgPGNyeXB0by9za2NpcGhlci5oPgogI2luY2x1ZGUgPGxpbnV4L2tleS10eXBl
+Lmg+CiAKICNpbmNsdWRlIDxrZXlzL2NlcGgtdHlwZS5oPgpAQCAtNzksOSArODAsOSBAQCBpbnQg
+Y2VwaF9jcnlwdG9fa2V5X3VuYXJtb3Ioc3RydWN0IGNlcGhfY3J5cHRvX2tleSAqa2V5LCBjb25z
+dCBjaGFyICppbmtleSkKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIHN0cnVjdCBjcnlwdG9fYmxr
+Y2lwaGVyICpjZXBoX2NyeXB0b19hbGxvY19jaXBoZXIodm9pZCkKK3N0YXRpYyBzdHJ1Y3QgY3J5
+cHRvX3NrY2lwaGVyICpjZXBoX2NyeXB0b19hbGxvY19jaXBoZXIodm9pZCkKIHsKLQlyZXR1cm4g
+Y3J5cHRvX2FsbG9jX2Jsa2NpcGhlcigiY2JjKGFlcykiLCAwLCBDUllQVE9fQUxHX0FTWU5DKTsK
+KwlyZXR1cm4gY3J5cHRvX2FsbG9jX3NrY2lwaGVyKCJjYmMoYWVzKSIsIDAsIENSWVBUT19BTEdf
+QVNZTkMpOwogfQogCiBzdGF0aWMgY29uc3QgdTggKmFlc19pdiA9ICh1OCAqKUNFUEhfQUVTX0lW
+OwpAQCAtMTYyLDExICsxNjMsMTAgQEAgc3RhdGljIGludCBjZXBoX2Flc19lbmNyeXB0KGNvbnN0
+IHZvaWQgKmtleSwgaW50IGtleV9sZW4sCiB7CiAJc3RydWN0IHNjYXR0ZXJsaXN0IHNnX2luWzJd
+LCBwcmVhbGxvY19zZzsKIAlzdHJ1Y3Qgc2dfdGFibGUgc2dfb3V0OwotCXN0cnVjdCBjcnlwdG9f
+YmxrY2lwaGVyICp0Zm0gPSBjZXBoX2NyeXB0b19hbGxvY19jaXBoZXIoKTsKLQlzdHJ1Y3QgYmxr
+Y2lwaGVyX2Rlc2MgZGVzYyA9IHsgLnRmbSA9IHRmbSwgLmZsYWdzID0gMCB9OworCXN0cnVjdCBj
+cnlwdG9fc2tjaXBoZXIgKnRmbSA9IGNlcGhfY3J5cHRvX2FsbG9jX2NpcGhlcigpOworCVNLQ0lQ
+SEVSX1JFUVVFU1RfT05fU1RBQ0socmVxLCB0Zm0pOwogCWludCByZXQ7Ci0Jdm9pZCAqaXY7Ci0J
+aW50IGl2c2l6ZTsKKwljaGFyIGl2W0FFU19CTE9DS19TSVpFXTsKIAlzaXplX3QgemVyb19wYWRk
+aW5nID0gKDB4MTAgLSAoc3JjX2xlbiAmIDB4MGYpKTsKIAljaGFyIHBhZFsxNl07CiAKQEAgLTE4
+NCwxMCArMTg0LDEzIEBAIHN0YXRpYyBpbnQgY2VwaF9hZXNfZW5jcnlwdChjb25zdCB2b2lkICpr
+ZXksIGludCBrZXlfbGVuLAogCWlmIChyZXQpCiAJCWdvdG8gb3V0X3RmbTsKIAotCWNyeXB0b19i
+bGtjaXBoZXJfc2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOwotCWl2ID0gY3J5cHRv
+X2Jsa2NpcGhlcl9jcnQodGZtKS0+aXY7Ci0JaXZzaXplID0gY3J5cHRvX2Jsa2NpcGhlcl9pdnNp
+emUodGZtKTsKLQltZW1jcHkoaXYsIGFlc19pdiwgaXZzaXplKTsKKwljcnlwdG9fc2tjaXBoZXJf
+c2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOworCW1lbWNweShpdiwgYWVzX2l2LCBB
+RVNfQkxPQ0tfU0laRSk7CisKKwlza2NpcGhlcl9yZXF1ZXN0X3NldF90Zm0ocmVxLCB0Zm0pOwor
+CXNrY2lwaGVyX3JlcXVlc3Rfc2V0X2NhbGxiYWNrKHJlcSwgMCwgTlVMTCwgTlVMTCk7CisJc2tj
+aXBoZXJfcmVxdWVzdF9zZXRfY3J5cHQocmVxLCBzZ19pbiwgc2dfb3V0LnNnbCwKKwkJCQkgICBz
+cmNfbGVuICsgemVyb19wYWRkaW5nLCBpdik7CiAKIAkvKgogCXByaW50X2hleF9kdW1wKEtFUk5f
+RVJSLCAiZW5jIGtleTogIiwgRFVNUF9QUkVGSVhfTk9ORSwgMTYsIDEsCkBAIC0xOTcsOCArMjAw
+LDggQEAgc3RhdGljIGludCBjZXBoX2Flc19lbmNyeXB0KGNvbnN0IHZvaWQgKmtleSwgaW50IGtl
+eV9sZW4sCiAJcHJpbnRfaGV4X2R1bXAoS0VSTl9FUlIsICJlbmMgcGFkOiAiLCBEVU1QX1BSRUZJ
+WF9OT05FLCAxNiwgMSwKIAkJCXBhZCwgemVyb19wYWRkaW5nLCAxKTsKIAkqLwotCXJldCA9IGNy
+eXB0b19ibGtjaXBoZXJfZW5jcnlwdCgmZGVzYywgc2dfb3V0LnNnbCwgc2dfaW4sCi0JCQkJICAg
+ICBzcmNfbGVuICsgemVyb19wYWRkaW5nKTsKKwlyZXQgPSBjcnlwdG9fc2tjaXBoZXJfZW5jcnlw
+dChyZXEpOworCXNrY2lwaGVyX3JlcXVlc3RfemVybyhyZXEpOwogCWlmIChyZXQgPCAwKSB7CiAJ
+CXByX2VycigiY2VwaF9hZXNfY3J5cHQgZmFpbGVkICVkXG4iLCByZXQpOwogCQlnb3RvIG91dF9z
+ZzsKQEAgLTIxMSw3ICsyMTQsNyBAQCBzdGF0aWMgaW50IGNlcGhfYWVzX2VuY3J5cHQoY29uc3Qg
+dm9pZCAqa2V5LCBpbnQga2V5X2xlbiwKIG91dF9zZzoKIAl0ZWFyZG93bl9zZ3RhYmxlKCZzZ19v
+dXQpOwogb3V0X3RmbToKLQljcnlwdG9fZnJlZV9ibGtjaXBoZXIodGZtKTsKKwljcnlwdG9fZnJl
+ZV9za2NpcGhlcih0Zm0pOwogCXJldHVybiByZXQ7CiB9CiAKQEAgLTIyMiwxMSArMjI1LDEwIEBA
+IHN0YXRpYyBpbnQgY2VwaF9hZXNfZW5jcnlwdDIoY29uc3Qgdm9pZCAqa2V5LCBpbnQga2V5X2xl
+biwgdm9pZCAqZHN0LAogewogCXN0cnVjdCBzY2F0dGVybGlzdCBzZ19pblszXSwgcHJlYWxsb2Nf
+c2c7CiAJc3RydWN0IHNnX3RhYmxlIHNnX291dDsKLQlzdHJ1Y3QgY3J5cHRvX2Jsa2NpcGhlciAq
+dGZtID0gY2VwaF9jcnlwdG9fYWxsb2NfY2lwaGVyKCk7Ci0Jc3RydWN0IGJsa2NpcGhlcl9kZXNj
+IGRlc2MgPSB7IC50Zm0gPSB0Zm0sIC5mbGFncyA9IDAgfTsKKwlzdHJ1Y3QgY3J5cHRvX3NrY2lw
+aGVyICp0Zm0gPSBjZXBoX2NyeXB0b19hbGxvY19jaXBoZXIoKTsKKwlTS0NJUEhFUl9SRVFVRVNU
+X09OX1NUQUNLKHJlcSwgdGZtKTsKIAlpbnQgcmV0OwotCXZvaWQgKml2OwotCWludCBpdnNpemU7
+CisJY2hhciBpdltBRVNfQkxPQ0tfU0laRV07CiAJc2l6ZV90IHplcm9fcGFkZGluZyA9ICgweDEw
+IC0gKChzcmMxX2xlbiArIHNyYzJfbGVuKSAmIDB4MGYpKTsKIAljaGFyIHBhZFsxNl07CiAKQEAg
+LTI0NSwxMCArMjQ3LDEzIEBAIHN0YXRpYyBpbnQgY2VwaF9hZXNfZW5jcnlwdDIoY29uc3Qgdm9p
+ZCAqa2V5LCBpbnQga2V5X2xlbiwgdm9pZCAqZHN0LAogCWlmIChyZXQpCiAJCWdvdG8gb3V0X3Rm
+bTsKIAotCWNyeXB0b19ibGtjaXBoZXJfc2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4p
+OwotCWl2ID0gY3J5cHRvX2Jsa2NpcGhlcl9jcnQodGZtKS0+aXY7Ci0JaXZzaXplID0gY3J5cHRv
+X2Jsa2NpcGhlcl9pdnNpemUodGZtKTsKLQltZW1jcHkoaXYsIGFlc19pdiwgaXZzaXplKTsKKwlj
+cnlwdG9fc2tjaXBoZXJfc2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOworCW1lbWNw
+eShpdiwgYWVzX2l2LCBBRVNfQkxPQ0tfU0laRSk7CisKKwlza2NpcGhlcl9yZXF1ZXN0X3NldF90
+Zm0ocmVxLCB0Zm0pOworCXNrY2lwaGVyX3JlcXVlc3Rfc2V0X2NhbGxiYWNrKHJlcSwgMCwgTlVM
+TCwgTlVMTCk7CisJc2tjaXBoZXJfcmVxdWVzdF9zZXRfY3J5cHQocmVxLCBzZ19pbiwgc2dfb3V0
+LnNnbCwKKwkJCQkgICBzcmMxX2xlbiArIHNyYzJfbGVuICsgemVyb19wYWRkaW5nLCBpdik7CiAK
+IAkvKgogCXByaW50X2hleF9kdW1wKEtFUk5fRVJSLCAiZW5jICBrZXk6ICIsIERVTVBfUFJFRklY
+X05PTkUsIDE2LCAxLApAQCAtMjYwLDggKzI2NSw4IEBAIHN0YXRpYyBpbnQgY2VwaF9hZXNfZW5j
+cnlwdDIoY29uc3Qgdm9pZCAqa2V5LCBpbnQga2V5X2xlbiwgdm9pZCAqZHN0LAogCXByaW50X2hl
+eF9kdW1wKEtFUk5fRVJSLCAiZW5jICBwYWQ6ICIsIERVTVBfUFJFRklYX05PTkUsIDE2LCAxLAog
+CQkJcGFkLCB6ZXJvX3BhZGRpbmcsIDEpOwogCSovCi0JcmV0ID0gY3J5cHRvX2Jsa2NpcGhlcl9l
+bmNyeXB0KCZkZXNjLCBzZ19vdXQuc2dsLCBzZ19pbiwKLQkJCQkgICAgIHNyYzFfbGVuICsgc3Jj
+Ml9sZW4gKyB6ZXJvX3BhZGRpbmcpOworCXJldCA9IGNyeXB0b19za2NpcGhlcl9lbmNyeXB0KHJl
+cSk7CisJc2tjaXBoZXJfcmVxdWVzdF96ZXJvKHJlcSk7CiAJaWYgKHJldCA8IDApIHsKIAkJcHJf
+ZXJyKCJjZXBoX2Flc19jcnlwdDIgZmFpbGVkICVkXG4iLCByZXQpOwogCQlnb3RvIG91dF9zZzsK
+QEAgLTI3NCw3ICsyNzksNyBAQCBzdGF0aWMgaW50IGNlcGhfYWVzX2VuY3J5cHQyKGNvbnN0IHZv
+aWQgKmtleSwgaW50IGtleV9sZW4sIHZvaWQgKmRzdCwKIG91dF9zZzoKIAl0ZWFyZG93bl9zZ3Rh
+YmxlKCZzZ19vdXQpOwogb3V0X3RmbToKLQljcnlwdG9fZnJlZV9ibGtjaXBoZXIodGZtKTsKKwlj
+cnlwdG9fZnJlZV9za2NpcGhlcih0Zm0pOwogCXJldHVybiByZXQ7CiB9CiAKQEAgLTI4NCwxMSAr
+Mjg5LDEwIEBAIHN0YXRpYyBpbnQgY2VwaF9hZXNfZGVjcnlwdChjb25zdCB2b2lkICprZXksIGlu
+dCBrZXlfbGVuLAogewogCXN0cnVjdCBzZ190YWJsZSBzZ19pbjsKIAlzdHJ1Y3Qgc2NhdHRlcmxp
+c3Qgc2dfb3V0WzJdLCBwcmVhbGxvY19zZzsKLQlzdHJ1Y3QgY3J5cHRvX2Jsa2NpcGhlciAqdGZt
+ID0gY2VwaF9jcnlwdG9fYWxsb2NfY2lwaGVyKCk7Ci0Jc3RydWN0IGJsa2NpcGhlcl9kZXNjIGRl
+c2MgPSB7IC50Zm0gPSB0Zm0gfTsKKwlzdHJ1Y3QgY3J5cHRvX3NrY2lwaGVyICp0Zm0gPSBjZXBo
+X2NyeXB0b19hbGxvY19jaXBoZXIoKTsKKwlTS0NJUEhFUl9SRVFVRVNUX09OX1NUQUNLKHJlcSwg
+dGZtKTsKIAljaGFyIHBhZFsxNl07Ci0Jdm9pZCAqaXY7Ci0JaW50IGl2c2l6ZTsKKwljaGFyIGl2
+W0FFU19CTE9DS19TSVpFXTsKIAlpbnQgcmV0OwogCWludCBsYXN0X2J5dGU7CiAKQEAgLTMwMiwx
+MCArMzA2LDEzIEBAIHN0YXRpYyBpbnQgY2VwaF9hZXNfZGVjcnlwdChjb25zdCB2b2lkICprZXks
+IGludCBrZXlfbGVuLAogCWlmIChyZXQpCiAJCWdvdG8gb3V0X3RmbTsKIAotCWNyeXB0b19ibGtj
+aXBoZXJfc2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOwotCWl2ID0gY3J5cHRvX2Js
+a2NpcGhlcl9jcnQodGZtKS0+aXY7Ci0JaXZzaXplID0gY3J5cHRvX2Jsa2NpcGhlcl9pdnNpemUo
+dGZtKTsKLQltZW1jcHkoaXYsIGFlc19pdiwgaXZzaXplKTsKKwljcnlwdG9fc2tjaXBoZXJfc2V0
+a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOworCW1lbWNweShpdiwgYWVzX2l2LCBBRVNf
+QkxPQ0tfU0laRSk7CisKKwlza2NpcGhlcl9yZXF1ZXN0X3NldF90Zm0ocmVxLCB0Zm0pOworCXNr
+Y2lwaGVyX3JlcXVlc3Rfc2V0X2NhbGxiYWNrKHJlcSwgMCwgTlVMTCwgTlVMTCk7CisJc2tjaXBo
+ZXJfcmVxdWVzdF9zZXRfY3J5cHQocmVxLCBzZ19pbi5zZ2wsIHNnX291dCwKKwkJCQkgICBzcmNf
+bGVuLCBpdik7CiAKIAkvKgogCXByaW50X2hleF9kdW1wKEtFUk5fRVJSLCAiZGVjIGtleTogIiwg
+RFVNUF9QUkVGSVhfTk9ORSwgMTYsIDEsCkBAIC0zMTMsNyArMzIwLDggQEAgc3RhdGljIGludCBj
+ZXBoX2Flc19kZWNyeXB0KGNvbnN0IHZvaWQgKmtleSwgaW50IGtleV9sZW4sCiAJcHJpbnRfaGV4
+X2R1bXAoS0VSTl9FUlIsICJkZWMgIGluOiAiLCBEVU1QX1BSRUZJWF9OT05FLCAxNiwgMSwKIAkJ
+ICAgICAgIHNyYywgc3JjX2xlbiwgMSk7CiAJKi8KLQlyZXQgPSBjcnlwdG9fYmxrY2lwaGVyX2Rl
+Y3J5cHQoJmRlc2MsIHNnX291dCwgc2dfaW4uc2dsLCBzcmNfbGVuKTsKKwlyZXQgPSBjcnlwdG9f
+c2tjaXBoZXJfZGVjcnlwdChyZXEpOworCXNrY2lwaGVyX3JlcXVlc3RfemVybyhyZXEpOwogCWlm
+IChyZXQgPCAwKSB7CiAJCXByX2VycigiY2VwaF9hZXNfZGVjcnlwdCBmYWlsZWQgJWRcbiIsIHJl
+dCk7CiAJCWdvdG8gb3V0X3NnOwpAQCAtMzM4LDcgKzM0Niw3IEBAIHN0YXRpYyBpbnQgY2VwaF9h
+ZXNfZGVjcnlwdChjb25zdCB2b2lkICprZXksIGludCBrZXlfbGVuLAogb3V0X3NnOgogCXRlYXJk
+b3duX3NndGFibGUoJnNnX2luKTsKIG91dF90Zm06Ci0JY3J5cHRvX2ZyZWVfYmxrY2lwaGVyKHRm
+bSk7CisJY3J5cHRvX2ZyZWVfc2tjaXBoZXIodGZtKTsKIAlyZXR1cm4gcmV0OwogfQogCkBAIC0z
+NDksMTEgKzM1NywxMCBAQCBzdGF0aWMgaW50IGNlcGhfYWVzX2RlY3J5cHQyKGNvbnN0IHZvaWQg
+KmtleSwgaW50IGtleV9sZW4sCiB7CiAJc3RydWN0IHNnX3RhYmxlIHNnX2luOwogCXN0cnVjdCBz
+Y2F0dGVybGlzdCBzZ19vdXRbM10sIHByZWFsbG9jX3NnOwotCXN0cnVjdCBjcnlwdG9fYmxrY2lw
+aGVyICp0Zm0gPSBjZXBoX2NyeXB0b19hbGxvY19jaXBoZXIoKTsKLQlzdHJ1Y3QgYmxrY2lwaGVy
+X2Rlc2MgZGVzYyA9IHsgLnRmbSA9IHRmbSB9OworCXN0cnVjdCBjcnlwdG9fc2tjaXBoZXIgKnRm
+bSA9IGNlcGhfY3J5cHRvX2FsbG9jX2NpcGhlcigpOworCVNLQ0lQSEVSX1JFUVVFU1RfT05fU1RB
+Q0socmVxLCB0Zm0pOwogCWNoYXIgcGFkWzE2XTsKLQl2b2lkICppdjsKLQlpbnQgaXZzaXplOwor
+CWNoYXIgaXZbQUVTX0JMT0NLX1NJWkVdOwogCWludCByZXQ7CiAJaW50IGxhc3RfYnl0ZTsKIApA
+QCAtMzY4LDEwICszNzUsMTMgQEAgc3RhdGljIGludCBjZXBoX2Flc19kZWNyeXB0Mihjb25zdCB2
+b2lkICprZXksIGludCBrZXlfbGVuLAogCWlmIChyZXQpCiAJCWdvdG8gb3V0X3RmbTsKIAotCWNy
+eXB0b19ibGtjaXBoZXJfc2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOwotCWl2ID0g
+Y3J5cHRvX2Jsa2NpcGhlcl9jcnQodGZtKS0+aXY7Ci0JaXZzaXplID0gY3J5cHRvX2Jsa2NpcGhl
+cl9pdnNpemUodGZtKTsKLQltZW1jcHkoaXYsIGFlc19pdiwgaXZzaXplKTsKKwljcnlwdG9fc2tj
+aXBoZXJfc2V0a2V5KCh2b2lkICopdGZtLCBrZXksIGtleV9sZW4pOworCW1lbWNweShpdiwgYWVz
+X2l2LCBBRVNfQkxPQ0tfU0laRSk7CisKKwlza2NpcGhlcl9yZXF1ZXN0X3NldF90Zm0ocmVxLCB0
+Zm0pOworCXNrY2lwaGVyX3JlcXVlc3Rfc2V0X2NhbGxiYWNrKHJlcSwgMCwgTlVMTCwgTlVMTCk7
+CisJc2tjaXBoZXJfcmVxdWVzdF9zZXRfY3J5cHQocmVxLCBzZ19pbi5zZ2wsIHNnX291dCwKKwkJ
+CQkgICBzcmNfbGVuLCBpdik7CiAKIAkvKgogCXByaW50X2hleF9kdW1wKEtFUk5fRVJSLCAiZGVj
+ICBrZXk6ICIsIERVTVBfUFJFRklYX05PTkUsIDE2LCAxLApAQCAtMzc5LDcgKzM4OSw4IEBAIHN0
+YXRpYyBpbnQgY2VwaF9hZXNfZGVjcnlwdDIoY29uc3Qgdm9pZCAqa2V5LCBpbnQga2V5X2xlbiwK
+IAlwcmludF9oZXhfZHVtcChLRVJOX0VSUiwgImRlYyAgIGluOiAiLCBEVU1QX1BSRUZJWF9OT05F
+LCAxNiwgMSwKIAkJICAgICAgIHNyYywgc3JjX2xlbiwgMSk7CiAJKi8KLQlyZXQgPSBjcnlwdG9f
+YmxrY2lwaGVyX2RlY3J5cHQoJmRlc2MsIHNnX291dCwgc2dfaW4uc2dsLCBzcmNfbGVuKTsKKwly
+ZXQgPSBjcnlwdG9fc2tjaXBoZXJfZGVjcnlwdChyZXEpOworCXNrY2lwaGVyX3JlcXVlc3RfemVy
+byhyZXEpOwogCWlmIChyZXQgPCAwKSB7CiAJCXByX2VycigiY2VwaF9hZXNfZGVjcnlwdCBmYWls
+ZWQgJWRcbiIsIHJldCk7CiAJCWdvdG8gb3V0X3NnOwpAQCAtNDE1LDcgKzQyNiw3IEBAIHN0YXRp
+YyBpbnQgY2VwaF9hZXNfZGVjcnlwdDIoY29uc3Qgdm9pZCAqa2V5LCBpbnQga2V5X2xlbiwKIG91
+dF9zZzoKIAl0ZWFyZG93bl9zZ3RhYmxlKCZzZ19pbik7CiBvdXRfdGZtOgotCWNyeXB0b19mcmVl
+X2Jsa2NpcGhlcih0Zm0pOworCWNyeXB0b19mcmVlX3NrY2lwaGVyKHRmbSk7CiAJcmV0dXJuIHJl
+dDsKIH0KIAo=
+--001a1147799e7aa950052a2aecaa--
