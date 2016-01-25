@@ -1,50 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net] net/core: don't increment rx_dropped on
- inactive slaves
-Date: Sun, 24 Jan 2016 22:42:22 -0800 (PST)
-Message-ID: <20160124.224222.1748787418887617295.davem@davemloft.net>
-References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+Subject: Re: [PATCH net] sctp: allow setting SCTP_SACK_IMMEDIATELY by the
+ application
+Date: Sun, 24 Jan 2016 22:44:03 -0800 (PST)
+Message-ID: <20160124.224403.165607430306052575.davem@davemloft.net>
+References: <e066aaa1725a6cafb73ad270376ed2ebc953917a.1453494301.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
-	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453489882-57948-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	vyasevich@gmail.com, nhorman@tuxdriver.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43361 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbcAYGoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 01:44:04 -0500
+In-Reply-To: <e066aaa1725a6cafb73ad270376ed2ebc953917a.1453494301.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Fri, 22 Jan 2016 14:11:22 -0500
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Fri, 22 Jan 2016 18:29:49 -0200
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 8cba3d8..1354c7b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4153,8 +4153,11 @@ ncls:
->  		else
->  			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
->  	} else {
-> +		if (deliver_exact)
-> +			goto inactive; /* bond or team inactive slave */
->  drop:
->  		atomic_long_inc(&skb->dev->rx_dropped);
-> +inactive:
->  		kfree_skb(skb);
->  		/* Jamal, now you will not able to escape explaining
->  		 * me how you were going to use this. :-)
-> -- 
-> 1.8.3.1
+> This patch extends commit b93d6471748d ("sctp: implement the sender side
+> for SACK-IMMEDIATELY extension") as it didn't white list
+> SCTP_SACK_IMMEDIATELY on sctp_msghdr_parse(), causing it to be
+> understood as an invalid flag and returning -EINVAL to the application.
 > 
+> Note that the actual handling of the flag is already there in
+> sctp_datamsg_from_user().
+> 
+> https://tools.ietf.org/html/rfc7053#section-7
+> 
+> Fixes: b93d6471748d ("sctp: implement the sender side for SACK-IMMEDIATELY extension")
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-I agree that rx_dropped is not the correct stat to bump here, but
-I'm totally against the event disappearing completely into thin
-air.
-
-You have to replace the rx_dropped bump with _something_.
-
-The only reason this hasn't been "fixed" yet is that everyone is
-too damn lazy to implement that "something".
+Applied and queued up for -stable, thanks.
