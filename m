@@ -1,75 +1,84 @@
-From: Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties withrfkill_gpio
-Date: Mon, 25 Jan 2016 21:59:04 +0100
-Message-ID: <1626364.s6q6eBGYVQ@ax5200p>
-References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <1453712629-143317-4-git-send-email-heikki.krogerus@linux.intel.com> <20160125121840.GA20452@ulmo.nvidia.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [BISECTED] v4.5-rc1 phylib regression
+Date: Mon, 25 Jan 2016 22:31:41 +0100
+Message-ID: <20160125213141.GA27473@lunn.ch>
+References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart1990714.Ebrfbf8RNK"; micalg="pgp-sha1"; protocol="application/pgp-signature"
-Cc: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-To: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160125121840.GA20452-AwZRO8vwLAwmlAP/+Wk3EA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Aaro Koskinen <aaro.koskinen@nokia.com>,
+	Olof Johansson <olof@lixom.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42512 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932118AbcAYVbo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2016 16:31:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---nextPart1990714.Ebrfbf8RNK
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-Am Montag 25 Januar 2016, 13:18:40 schrieb Thierry Reding:
-> On Mon, Jan 25, 2016 at 12:03:48PM +0300, Heikki Krogerus wrote:
-> > Pass the rfkill name and type to the device with properties
-> > instead of driver specific platform data.
-> > 
-> > Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> > CC: Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > CC: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > CC: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-> > ---
-> > 
-> >  arch/arm/mach-tegra/board-paz00.c | 17 ++++++++++-------
-> >  1 file changed, 10 insertions(+), 7 deletions(-)
+On Mon, Jan 25, 2016 at 05:45:21PM +0200, Aaro Koskinen wrote:
+> Hi,
 > 
-> Looks fine to me. We might want to wait for Marc (Cc'ed) to give this a
-> spin, since I don't have the hardware. For reference, the series can be
-> found here:
+> I get the below crash on OCTEON (with octeon_mgmt interface, genphy)
+> always during systemd boot.
 > 
-> 	http://patchwork.ozlabs.org/patch/572640/
-> 	http://patchwork.ozlabs.org/patch/572644/
-> 	http://patchwork.ozlabs.org/patch/572643/
-> 	http://patchwork.ozlabs.org/patch/572642/
+> Bisected to:
 > 
-> Johannes, I assume that you'll want to take this through your tree
-> because of the dependency? In that case:
+> commit a9049e0c513c4521dbfaa302af8ed08b3366b41f
+> Author: Andrew Lunn <andrew@lunn.ch>
+> Date:   Wed Jan 6 20:11:26 2016 +0100
 > 
-> Acked-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+>     mdio: Add support for mdio drivers.
+> 
+> [  250.179887] CPU 2 Unable to handle kernel paging request at virtual address 0000000000000000, epc == ffffffff81637bac, ra == ffffffff81637b7c
+> [  250.218161] Oops[#1]:
+> [  250.224970] CPU: 2 PID: 850 Comm: systemd-network Not tainted 4.5.0-rc1-octeon-distro.git-test #1
+> [  250.251569] task: 8000000031188000 ti: 800000002f8e8000 task.ti: 800000002f8e8000
+> [  250.251586] $ 0   : 0000000000000000 ffffffff81639774 0000000000000000 ffffffffffffffff
+> [  250.251595] $ 4   : 0000000000000000 0000000000000000 ffffffff81740000 0000000000000001
+> [  250.251604] $ 8   : 0000000000000001 0000000000000000 ffffffff81106100 0000000100000001
+> [  250.251613] $12   : 0000000000000000 ffffffff813eb81c ffffffff8150be18 0000000000000000
+> [  250.251622] $16   : 8000000031290fc0 ffffffffffffffff 8000000031290fc4 8000000031188000
+> [  250.251631] $20   : 0000000000000002 0000000000000001 8000000031290fc8 800000002f8eba40
+> [  250.251640] $24   : 0000000000000038 ffffffff81105fb0                                  
+> [  250.251649] $28   : 800000002f8e8000 800000002f8eb740 000000fff7857f88 ffffffff81637b7c
+> [  250.251651] Hi    : 431bde82d7b50717
+> [  250.251653] Lo    : c8de2ac3222855ea
+> [  250.251668] epc   : ffffffff81637bac __mutex_lock_slowpath+0x7c/0x190
+> [  250.251675] ra    : ffffffff81637b7c __mutex_lock_slowpath+0x4c/0x190
+> [  250.251684] Status: 10108ce3	KX SX UX KERNEL EXL IE 
+> [  250.251686] Cause : 0080000c (ExcCode 03)
+> [  250.251688] BadVA : 0000000000000000
+> [  250.251690] PrId  : 000d0409 (Cavium Octeon+)
+> [  250.251699] Modules linked in: pata_octeon_cf libata autofs4
+> [  250.251704] Process systemd-network (pid: 850, threadinfo=800000002f8e8000, task=8000000031188000, tls=000000fff75ba700)
+> [  250.251782] Stack : 8000000031290fc8 0000000000000000 0000000000000001 8000000003f9bca0
+> [  250.251782] 	  8000000031290c00 ffffffff81856558 8000000031290fc0 8000000031225000
+> [  250.251782] 	  0000000000000001 0000000000000000 8000000031008800 ffffffff814b6284
+> [  250.251782] 	  ffffffff81639774 ffffffff81175dc4 8000000031290c00 ffffffff814baf80
+> [  250.251782] 	  8000000031210000 ffffffff814b64ac 800000002f8eb810 800000002f8eb810
+> [  250.251782] 	  ffffffff814f7790 8000000031290c00 ffffffff814baf80 ffffffff814baf80
+> [  250.251782] 	  8000000031225000 0000000000000000 800000003290ca10 ffffffff814b66a4
+> [  250.251782] 	  8000000031225000 8000000031290c00 0000000000000001 ffffffff814f7b80
+> [  250.251782] 	  8000000031225000 8000000031225788 8000000031225830 0000000000001002
+> [  250.251782] 	  800000002f8ebb80 ffffffff814ba81c 8000000fb7105c32 ffffffff8116aab4
+> [  250.251782] 	  ...
+> [  250.251784] Call Trace:
+> [  250.251791] [<ffffffff81637bac>] __mutex_lock_slowpath+0x7c/0x190
+> [  250.251801] [<ffffffff814b6284>] phy_probe+0x6c/0x120
+> [  250.251807] [<ffffffff814b64ac>] phy_attach_direct+0xdc/0x1a8
+> [  250.251814] [<ffffffff814b66a4>] phy_connect_direct+0x2c/0x98
+> [  250.251822] [<ffffffff814f7b80>] of_phy_connect+0x60/0xb8
+> [  250.251830] [<ffffffff814ba81c>] octeon_mgmt_open+0x36c/0xad0
 
-seems to work fine. I wish we could instantiate this from device-tree so we 
-can finially get rid of this file.
+Hi Aaro, Olof
 
-Tested-by: Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>
+I've not been able to reproduce this. I've tried a Kirkwood Qnap, a
+Kirkwood DIR665, an Armada XP WRT1900AC and a Freescale Vybrid. And
+i've turned on mutex debugging.... Nothing, always boots to user
+space, no complaints.
 
---nextPart1990714.Ebrfbf8RNK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQEcBAABAgAGBQJWpoyYAAoJEKyeR39HFBtojysH+gPoKfxQC7HZRoPxlW3cvw3w
-yQnlrnL8ifHJeFYBiZWSMDZ8COOTb0VkJAfZ/BNTm2+yBPzxPXMNCvrM9B9EHZF/
-ikY/8YZ6uMXZqEMguEDxagwGSmr7we8rwAu0NaG+92eS1wYs6sLdBgi6vWxYV9Yy
-99/6IdQuCS8ICFWatUlB2FETABxLWtW0o5qW7CoNbCcgRNMqn+csXnBV1kteQK+s
-NpKIomwmPqbWXFxYw0sDluVyu6Ljb5NqVh4Z7ybGN+Bjsjerx2+PGUZxIqNNAdNj
-dFtB8vAebqxsSdcwPRqhZrh1gCj8JTt9GC8lnAaMU7u6Umw9szAauwq8HmhJBWI=
-=9kVs
------END PGP SIGNATURE-----
-
---nextPart1990714.Ebrfbf8RNK--
+     Andrew
