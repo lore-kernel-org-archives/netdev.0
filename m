@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sit: set rtnl_link_ops before calling
- register_netdevice
-Date: Mon, 25 Jan 2016 10:53:02 -0800 (PST)
-Message-ID: <20160125.105302.658707800815766292.davem@davemloft.net>
-References: <1453728559-4903-1-git-send-email-cascardo@redhat.com>
+Subject: Re: [PATCH net-next] hv_netvsc: use skb_get_hash() instead of a
+ homegrown implementation
+Date: Mon, 25 Jan 2016 10:53:23 -0800 (PST)
+Message-ID: <20160125.105323.453007330881616541.davem@davemloft.net>
+References: <1453734041-20394-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cascardo@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49164 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757539AbcAYSxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 13:53:02 -0500
-In-Reply-To: <1453728559-4903-1-git-send-email-cascardo@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gnomes@lxorguk.ukuu.org.uk, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+ haiyangz@microsoft.com, linux-kernel@vger.kernel.org, tom@herbertland.com,
+ devel@linuxdriverproject.org
+To: vkuznets@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1453734041-20394-1-git-send-email-vkuznets@redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Date: Mon, 25 Jan 2016 11:29:19 -0200
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Mon, 25 Jan 2016 16:00:41 +0100
 
-> When creating a SIT tunnel with ip tunnel, rtnl_link_ops is not set before
-> ipip6_tunnel_create is called. When register_netdevice is called, there is
-> no linkinfo attribute in the NEWLINK message because of that.
+> Recent changes to 'struct flow_keys' (e.g commit d34af823ff40 ("net: Add
+> VLAN ID to flow_keys")) introduced a performance regression in netvsc
+> driver. Is problem is, however, not the above mentioned commit but the
+> fact that netvsc_set_hash() function did some assumptions on the struct
+> flow_keys data layout and this is wrong.
 > 
-> Setting rtnl_link_ops before calling register_netdevice fixes that.
+> Get rid of netvsc_set_hash() by switching to skb_get_hash(). This change
+> will also imply switching to Jenkins hash from the currently used Toeplitz
+> but it seems there is no good excuse for Toeplitz to stay.
 > 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 
 Applied.
