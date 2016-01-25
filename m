@@ -1,118 +1,76 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH net 1/4] lan78xx: change to use updated phy-ignore-interrupts
-Date: Mon, 25 Jan 2016 23:01:13 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4049DEBC@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH net 2/4] lan78xx: replace devid to chipid & chiprev
+Date: Mon, 25 Jan 2016 23:02:25 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4049DED4@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <f.fainelli@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:10123 "EHLO
+Received: from exsmtp03.microchip.com ([198.175.253.49]:51676 "EHLO
 	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932373AbcAYXBP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 18:01:15 -0500
+	with ESMTP id S933489AbcAYXC0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 18:02:26 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update lan78xx to use patch of commit 4f2aaf7dd95b
- (fix-phy-ignore-interrupts) by Florian Fainelli.
+Replace devid of struct lan78xx_net to chipid & chiprev for easy access.
 
 Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- drivers/net/usb/lan78xx.c | 30 ++++++++++++++----------------
- 1 file changed, 14 insertions(+), 16 deletions(-)
+ drivers/net/usb/lan78xx.c | 11 +++++++----
+ drivers/net/usb/lan78xx.h |  1 +
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 2ed5333..027ee37 100644
+index 027ee37..7a8391b 100644
 --- a/drivers/net/usb/lan78xx.c
 +++ b/drivers/net/usb/lan78xx.c
-@@ -36,7 +36,7 @@
- #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
- #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
- #define DRIVER_NAME	"lan78xx"
--#define DRIVER_VERSION	"1.0.1"
-+#define DRIVER_VERSION	"1.0.2"
+@@ -278,7 +278,8 @@ struct lan78xx_net {
+ 	int			link_on;
+ 	u8			mdix_ctrl;
  
- #define TX_TIMEOUT_JIFFIES		(5 * HZ)
- #define THROTTLE_JIFFIES		(HZ / 8)
-@@ -904,7 +904,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+-	u32			devid;
++	u32			chipid;
++	u32			chiprev;
+ 	struct mii_bus		*mdiobus;
+ };
  
- 	if (!phydev->link && dev->link_on) {
- 		dev->link_on = false;
--		netif_carrier_off(dev->net);
- 
- 		/* reset MAC */
- 		ret = lan78xx_read_reg(dev, MAC_CR, &buf);
-@@ -914,6 +913,8 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 		ret = lan78xx_write_reg(dev, MAC_CR, buf);
- 		if (unlikely(ret < 0))
- 			return -EIO;
-+
-+		phy_mac_interrupt(phydev, 0);
- 	} else if (phydev->link && !dev->link_on) {
- 		dev->link_on = true;
- 
-@@ -953,7 +954,7 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 			  ethtool_cmd_speed(&ecmd), ecmd.duplex, ladv, radv);
- 
- 		ret = lan78xx_update_flowcontrol(dev, ecmd.duplex, ladv, radv);
--		netif_carrier_on(dev->net);
-+		phy_mac_interrupt(phydev, 1);
- 	}
- 
- 	return ret;
-@@ -1495,7 +1496,6 @@ done:
- static int lan78xx_mdio_init(struct lan78xx_net *dev)
- {
- 	int ret;
--	int i;
- 
- 	dev->mdiobus = mdiobus_alloc();
- 	if (!dev->mdiobus) {
-@@ -1511,10 +1511,6 @@ static int lan78xx_mdio_init(struct lan78xx_net *dev)
+@@ -1511,8 +1512,9 @@ static int lan78xx_mdio_init(struct lan78xx_net *dev)
  	snprintf(dev->mdiobus->id, MII_BUS_ID_SIZE, "usb-%03d:%03d",
  		 dev->udev->bus->busnum, dev->udev->devnum);
  
--	/* handle our own interrupt */
--	for (i = 0; i < PHY_MAX_ADDR; i++)
--		dev->mdiobus->irq[i] = PHY_IGNORE_INTERRUPT;
--
- 	switch (dev->devid & ID_REV_CHIP_ID_MASK_) {
- 	case 0x78000000:
+-	switch (dev->devid & ID_REV_CHIP_ID_MASK_) {
+-	case 0x78000000:
++	switch (dev->chipid) {
++	case ID_REV_CHIP_ID_7800_:
++	case ID_REV_CHIP_ID_7850_:
  	case 0x78500000:
-@@ -1558,6 +1554,16 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
- 		return -EIO;
- 	}
+ 		/* set to internal PHY id */
+ 		dev->mdiobus->phy_mask = ~(1 << 1);
+@@ -1874,7 +1876,8 @@ static int lan78xx_reset(struct lan78xx_net *dev)
  
-+	/* Enable PHY interrupts.
-+	 * We handle our own interrupt
-+	 */
-+	ret = phy_read(phydev, LAN88XX_INT_STS);
-+	ret = phy_write(phydev, LAN88XX_INT_MASK,
-+			LAN88XX_INT_MASK_MDINTPIN_EN_ |
-+			LAN88XX_INT_MASK_LINK_CHANGE_);
-+
-+	phydev->irq = PHY_IGNORE_INTERRUPT;
-+
- 	ret = phy_connect_direct(dev->net, phydev,
- 				 lan78xx_link_status_change,
- 				 PHY_INTERFACE_MODE_GMII);
-@@ -1580,14 +1586,6 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
- 			      SUPPORTED_Pause | SUPPORTED_Asym_Pause);
- 	genphy_config_aneg(phydev);
+ 	/* save DEVID for later usage */
+ 	ret = lan78xx_read_reg(dev, ID_REV, &buf);
+-	dev->devid = buf;
++	dev->chipid = (buf & ID_REV_CHIP_ID_MASK_) >> 16;
++	dev->chiprev = buf & ID_REV_CHIP_REV_MASK_;
  
--	/* Workaround to enable PHY interrupt.
--	 * phy_start_interrupts() is API for requesting and enabling
--	 * PHY interrupt. However, USB-to-Ethernet device can't use
--	 * request_irq() called in phy_start_interrupts().
--	 * Set PHY to PHY_HALTED and call phy_start()
--	 * to make a call to phy_enable_interrupts()
--	 */
--	phy_stop(phydev);
- 	phy_start(phydev);
+ 	/* Respond to the IN token with a NAK */
+ 	ret = lan78xx_read_reg(dev, USB_CFG0, &buf);
+diff --git a/drivers/net/usb/lan78xx.h b/drivers/net/usb/lan78xx.h
+index a93fb65..4092790 100644
+--- a/drivers/net/usb/lan78xx.h
++++ b/drivers/net/usb/lan78xx.h
+@@ -107,6 +107,7 @@
+ #define ID_REV_CHIP_ID_MASK_		(0xFFFF0000)
+ #define ID_REV_CHIP_REV_MASK_		(0x0000FFFF)
+ #define ID_REV_CHIP_ID_7800_		(0x7800)
++#define ID_REV_CHIP_ID_7850_		(0x7850)
  
- 	netif_dbg(dev, ifup, dev->net, "phy initialised successfully");
+ #define FPGA_REV			(0x04)
+ #define FPGA_REV_MINOR_MASK_		(0x0000FF00)
 -- 
 2.1.4
