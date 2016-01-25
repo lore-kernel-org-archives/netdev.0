@@ -1,57 +1,36 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH v2] defxx: fix build warning
-Date: Mon, 25 Jan 2016 13:05:20 +0530
-Message-ID: <1453707320-30556-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2] net: fec: make driver endian-safe
+Date: Mon, 25 Jan 2016 08:53:36 +0100
+Message-ID: <1453708416.2164.0.camel@sipsolutions.net>
+References: <1453650757-27459-1-git-send-email-johannes@sipsolutions.net>
+	 <56A571C1.5050905@uclinux.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lucas Stach <l.stach@pengutronix.de>,
+	Fugang Duan <B38611@freescale.com>,
+	Arnd Bergmann <arnd@arndb.de>, Shawn Guo <shawnguo@kernel.org>
+To: Greg Ungerer <gerg@uclinux.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:58946 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751458AbcAYHxm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2016 02:53:42 -0500
+In-Reply-To: <56A571C1.5050905@uclinux.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We are getting many build warnings about:
-'bar_start' may be used uninitialized
-and
-'bar_len' may be used uninitialized
+On Mon, 2016-01-25 at 10:52 +1000, Greg Ungerer wrote:
+>=C2=A0
+> I tested this on a ColdFire (5208) target that uses this driver.
+> Simple testing showed it working with no problems. The ColdFire
+> SoC processors use a version of the FEC hardware module, and they
+> always run big-endian.
+>=20
 
-They are not actually uninitialized as dfx_get_bars() will initialize
-them properly. But still lets have them initialized just to satisfy the
-compiler (gcc 4.8.2).
+Great, thanks!
 
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
+=46WIW, I failed to mention this - I did test the new version also on
+little-endian ARM.
 
-v2: only the first element is zeroed.
-
- drivers/net/fddi/defxx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
-index 7f975a2..de5eaa6 100644
---- a/drivers/net/fddi/defxx.c
-+++ b/drivers/net/fddi/defxx.c
-@@ -533,8 +533,8 @@ static int dfx_register(struct device *bdev)
- 	const char *print_name = dev_name(bdev);
- 	struct net_device *dev;
- 	DFX_board_t	  *bp;			/* board pointer */
--	resource_size_t bar_start[3];		/* pointers to ports */
--	resource_size_t bar_len[3];		/* resource length */
-+	resource_size_t bar_start[3] = {0};	/* pointers to ports */
-+	resource_size_t bar_len[3] = {0};	/* resource length */
- 	int alloc_size;				/* total buffer size used */
- 	struct resource *region;
- 	int err = 0;
-@@ -3697,8 +3697,8 @@ static void dfx_unregister(struct device *bdev)
- 	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
--	resource_size_t bar_start[3];		/* pointers to ports */
--	resource_size_t bar_len[3];		/* resource lengths */
-+	resource_size_t bar_start[3] = {0};	/* pointers to ports */
-+	resource_size_t bar_len[3] = {0};	/* resource lengths */
- 	int		alloc_size;		/* total buffer size used */
- 
- 	unregister_netdev(dev);
--- 
-1.9.1
+johannes
