@@ -1,66 +1,100 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: allow setting SCTP_SACK_IMMEDIATELY by the application
-Date: Sun, 24 Jan 2016 22:24:10 -0500
-Message-ID: <CAGCdqXE1VvyuoyhgJnRtksoRBPHwD0jSbvUHAo3pSErWuGGhBQ@mail.gmail.com>
-References: <e066aaa1725a6cafb73ad270376ed2ebc953917a.1453494301.git.marcelo.leitner@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC PATCH v2] ethtool: add IPv6 to the NFC API
+Date: Mon, 25 Jan 2016 03:34:30 +0000
+Message-ID: <1453692870.3734.195.camel@decadent.org.uk>
+References: <56A260D9.3020004@solarflare.com>
+	 <56A26F1A.1000505@solarflare.com>
+	 <CAKgT0UdTLSio=LZPOzT5aiPL=GbPHXHxD6dCaBQ470f29YKq7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-No9A6anFAuqbOSL5nuNc"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:32792 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754411AbcAYDYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 22:24:11 -0500
-In-Reply-To: <e066aaa1725a6cafb73ad270376ed2ebc953917a.1453494301.git.marcelo.leitner@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40165 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755006AbcAYDen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2016 22:34:43 -0500
+In-Reply-To: <CAKgT0UdTLSio=LZPOzT5aiPL=GbPHXHxD6dCaBQ470f29YKq7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 22, 2016 at 3:29 PM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> This patch extends commit b93d6471748d ("sctp: implement the sender side
-> for SACK-IMMEDIATELY extension") as it didn't white list
-> SCTP_SACK_IMMEDIATELY on sctp_msghdr_parse(), causing it to be
-> understood as an invalid flag and returning -EINVAL to the application.
->
-> Note that the actual handling of the flag is already there in
-> sctp_datamsg_from_user().
->
-> https://tools.ietf.org/html/rfc7053#section-7
->
-> Fixes: b93d6471748d ("sctp: implement the sender side for SACK-IMMEDIATELY extension")
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+--=-No9A6anFAuqbOSL5nuNc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
--vlad
+On Fri, 2016-01-22 at 10:54 -0800, Alexander Duyck wrote:
+> On Fri, Jan 22, 2016 at 10:04 AM, Edward Cree <ecree@solarflare.com> wrot=
+e:
+[...]
+> > +/**
+> > + * struct ethtool_usrip6_spec - general flow specification for IPv6
+> > + * @ip6src: Source host
+> > + * @ip6dst: Destination host
+> > + * @l4_4_bytes: First 4 bytes of transport (layer 4) header
+> > + * @tos: Type-of-service
+> > + * @proto: Transport protocol number (nexthdr after any Extension Head=
+ers)
+> > + */
+> > +struct ethtool_usrip6_spec {
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0__be32=C2=A0=C2=A0ip6src[4];
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0__be32=C2=A0=C2=A0ip6dst[4];
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0__be32=C2=A0=C2=A0l4_4_bytes=
+;
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0__u8=C2=A0=C2=A0=C2=A0=C2=A0=
+tos;
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0__u8=C2=A0=C2=A0=C2=A0=C2=A0=
+proto;
+> > +};
+> > +
+>=20
+> It might be better to refer to this as l4_proto so that it is clear
+> that this is specifying the protocol of the l4 header that the
+> l4_4_bytes will be pulled from.
 
-> ---
->  net/sctp/socket.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 2657b51f627625a4d674041da1f6dd913932b1d7..594ba9db9c2660b6b0803a2a3955ea7e8b3a7a44 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -6638,6 +6638,7 @@ static int sctp_msghdr_parse(const struct msghdr *msg, sctp_cmsgs_t *cmsgs)
->
->                         if (cmsgs->srinfo->sinfo_flags &
->                             ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
-> +                             SCTP_SACK_IMMEDIATELY |
->                               SCTP_ABORT | SCTP_EOF))
->                                 return -EINVAL;
->                         break;
-> @@ -6661,6 +6662,7 @@ static int sctp_msghdr_parse(const struct msghdr *msg, sctp_cmsgs_t *cmsgs)
->
->                         if (cmsgs->sinfo->snd_flags &
->                             ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
-> +                             SCTP_SACK_IMMEDIATELY |
->                               SCTP_ABORT | SCTP_EOF))
->                                 return -EINVAL;
->                         break;
-> --
-> 2.5.0
->
+The comment seems to make it fairly clear.
+
+> It still might even be useful to add a nexthdr field since it is
+> possible that there may be NICs out there that don't support parsing
+> the extension headers.=C2=A0=C2=A0In such a case they could block setting
+> protocol and use nexthdr instead.=C2=A0=C2=A0It provides an indirect way =
+of
+> communicating if the NIC supports parsing extension headers or not as
+> the NIC can block adding a filter on one mask being set or the other.
+
+I don't think a NIC can do any useful flow steering for IPv6 without
+being able to parse and skip over the extension headers. =C2=A0It would be
+like trying to match flows by looking at IPv4 header options.
+
+Ben.
+
+--=20
+Ben Hutchings
+Klipstein's 4th Law of Prototyping and Production:
+                                    A fail-safe circuit will destroy others=
+.
+--=-No9A6anFAuqbOSL5nuNc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVqWXx+e/yOyVhhEJAQopJQ/+N7KYiU+B2xsImbL1NHfmcNmNj5HS5uxL
+XDRvW8kMVmcrN4Gw+egyj/AwZ8itEoP5/nrxLajvYOiJmAV/34svP/0I2O6/PVLR
+lH4GB4QqvxI8e9GErJEuShihUvnCViufYvmyw7xo/IjqBw6GXOQ98345jNRFIbBn
+gS37dhc6v5uZBTtU09yjTeTx9QTq5MLDM5azEcBH76/+crGicPMAMO4PtVJ+SrBf
+EikKh57difbz45hmSoyE3yYiP1PAv1b5+m2kYRZxgI/dYpiDMpm01Oy0g7VZXspR
+6CG9s5ANoulfqiNa0lDaWRzJQomyOjDCFJBkuOnqzjGOgi9nAQuABwSpYuQDpeyr
+4JOlkwntN8ZmDjkLYpKQQSPZOG3PA6lBMW6dUv2y1XnxEJXeQ5ly7V2qQTOviU4N
+RlIEPj9PcmrCDWbj1oCqS1IJRr9gG3QM05I0t+UHSpv7wf93gm3EN105Q/NabzIx
+4FTDwHcFZhWzQT6r0BEVkdEHYJsghJy8l4/Uf8iGlxXFRcXrrVSVmxxZDP5NCwYE
+pg2eRtPaQsV2Z88C3yS5ZPkph4JENIuQ0MmmaRY310J2GXHGUcuyqtR4wjawROe+
+PPqAJ8jepPLYuc5rKoE/t0GzJmtczzG41l2LbjZotT/d4E0u8HriCl1mt/6n8oas
+suNKxRJ6oL0=
+=+exk
+-----END PGP SIGNATURE-----
+
+--=-No9A6anFAuqbOSL5nuNc--
