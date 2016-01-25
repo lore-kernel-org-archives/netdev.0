@@ -1,55 +1,75 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: [PATCH 4.1] [media] media/vivid-osd: fix info leak in ioctl
-Date: Mon, 25 Jan 2016 19:42:18 +0900
-Message-ID: <1453718538-21691-1-git-send-email-machida.yuki@jp.fujitsu.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: Supermicro AOC-STGN-i2S w intel 82599ES on Brocade ICX6610 -
+ random link failures
+Date: Mon, 25 Jan 2016 18:44:11 +0800
+Message-ID: <56A5FC7B.3020803@gmail.com>
+References: <20160125100851.GA7545@nbnik.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuki Machida <machida.yuki@jp.fujitsu.com>,
-	=?UTF-8?q?Salva=20Peir=C3=B3?= <speirofr@gmail.com>,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Mauro Carvalho Chehab <mchehab@osg.samsung.com>
-To: <netdev@vger.kernel.org>, <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nik@linuxbox.cz, Stanislav Schattke <schattke@linuxbox.cz>
+To: Nikola Ciprich <nikola.ciprich@linuxbox.cz>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:55032 "EHLO
-	mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932306AbcAYKmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 05:42:42 -0500
-Received: from g01jpfmpwkw01.exch.g01.fujitsu.local (g01jpfmpwkw01.exch.g01.fujitsu.local [10.0.193.38])
-	by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 908ABAC0246
-	for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 19:42:35 +0900 (JST)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33294 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756393AbcAYKno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 05:43:44 -0500
+Received: by mail-pa0-f45.google.com with SMTP id cy9so79200142pac.0
+        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 02:43:44 -0800 (PST)
+In-Reply-To: <20160125100851.GA7545@nbnik.linuxbox.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit eda98796aff0d9bf41094b06811f5def3b4c333c upstream.
+https://www.mail-archive.com/netdev@vger.kernel.org/msg94109.html
 
-The vivid_fb_ioctl() code fails to initialize the 16 _reserved bytes of
-struct fb_vblank after the ->hcount member. Add an explicit
-memset(0) before filling the structure to avoid the info leak.
+Maybe this link can help you. If work, please let me know.
 
-This fixes CVE-2015-7884.
+Thanks a lot.
+Zhu Yanjun
 
-Signed-off-by: Salva Peir=C3=B3 <speirofr@gmail.com>
-Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
-Signed-off-by: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
-Signed-off-by: Yuki Machida <machida.yuki@jp.fujitsu.com>
----
- drivers/media/platform/vivid/vivid-osd.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/media/platform/vivid/vivid-osd.c b/drivers/media/p=
-latform/vivid/vivid-osd.c
-index 084d346..e15eef6 100644
---- a/drivers/media/platform/vivid/vivid-osd.c
-+++ b/drivers/media/platform/vivid/vivid-osd.c
-@@ -85,6 +85,7 @@ static int vivid_fb_ioctl(struct fb_info *info, unsig=
-ned cmd, unsigned long arg)
- 	case FBIOGET_VBLANK: {
- 		struct fb_vblank vblank;
-=20
-+		memset(&vblank, 0, sizeof(vblank));
- 		vblank.flags =3D FB_VBLANK_HAVE_COUNT | FB_VBLANK_HAVE_VCOUNT |
- 			FB_VBLANK_HAVE_VSYNC;
- 		vblank.count =3D 0;
---=20
-1.9.1
+On 01/25/2016 06:08 PM, Nikola Ciprich wrote:
+> Hello netdev readers,
+>
+> I'd like to consult following problem we're dealing with:
+>
+> I have a cluster of three nodes connected to stacked Brocade ICX6610
+> switches using bonded AOC-STGN-i2S adapters (they're using 82599ES
+> chipsets).
+>
+> The problem is, I see random link failures on practically all
+> interfaces. Link always goes down for very short time, then adapter
+> is reset and link goes up again.
+>
+> Here's dmesg snippet:
+>
+> [Jan22 22:09] ixgbe 0000:03:00.0 eth0: NIC Link is Down
+> [  +0.005610] ixgbe 0000:03:00.0 eth0: initiating reset to clear Tx work after link loss
+> [  +0.012792] bond0: link status definitely down for interface eth0, disabling it
+> [  +1.105826] ixgbe 0000:03:00.0 eth0: Reset adapter
+> [  +0.307518] ixgbe 0000:03:00.0 eth0: detected SFP+: 3
+> [  +0.145881] ixgbe 0000:03:00.0 eth0: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+>
+> since I'm using bonding, it doesn't disrupt traffic, but I'd still like to
+> resolve it. We're using 5m passive SFP cables, we tried replacing one with 3m
+> piece, to no avail.
+>
+> all three boxes are supermicro X10DRW, running vanilla x86_64 4.0.5 kernel (I'll upgrade it to 4.1.16 soon)
+>
+> we were using broadcom adapter before and they were working without such problems
+> (except for one particular port, which showed mysterious packet drops every few
+> months, thats why we switched to intel-based adapters), so I think cables and switches
+> should be fine, but I'm not sure of course
+>
+> I think I've seen similar problems and they were PM related, but I'm not sure..
+>
+> anyone seen similar problem?
+>
+> or some tips on how could I debug it?
+>
+> If I could provide more information, please let me know
+>
+> BR
+>
+> nik
+>
