@@ -1,43 +1,41 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 15/26] Bluetooth: Use skcipher and hash
-Date: Mon, 25 Jan 2016 07:48:46 +0100
-Message-ID: <B35B9E9E-DA6B-4AAD-B1EF-2DE778645CAC@holtmann.org>
-References: <20160124131021.GA31153@gondor.apana.org.au> <E1aNKYo-0008Dp-5h@gondolin.me.apana.org.au>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
+From: "Oliver Carter" <olivercarter_google@saiz.us>
+Subject: hi netdev
+Date: Mon, 25 Jan 2016 06:40:58 +0000
+Message-ID: <41BAB3F1-C18C-442D-C8F5-813FF63CBA67@saiz.us>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	devel@driverdev.osuosl.org, dm-devel@redhat.com,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-cifs@vger.kernel.org, ecryptfs@vger.kernel.org,
-	linux-ext4@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
-	linux-nfs@vger.kernel.org, keyrings@vger.kernel.org,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	ceph-devel@vger.kernel.org, linux-wpan@vger.kernel.org,
-	linux-afs@lists.infradead.org, drbd-dev@lists.linbit.com,
-	open-iscsi@googlegroups.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <ecryptfs-owner@vger.kernel.org>
-In-Reply-To: <E1aNKYo-0008Dp-5h@gondolin.me.apana.org.au>
-Sender: ecryptfs-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx7.dnchosting.com ([74.117.220.10]:59153 "EHLO
+	mx7.dnchosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751936AbcAYGuK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 01:50:10 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mx7.dnchosting.com (Postfix) with ESMTP id 006FD202E5
+	for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 00:40:38 -0600 (CST)
+Received: from mx7.dnchosting.com ([127.0.0.1])
+	by localhost (mx7.dnchosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 6uyUrArOkVIW for <netdev@vger.kernel.org>;
+	Mon, 25 Jan 2016 00:40:37 -0600 (CST)
+Received: from web96.dnchosting.com (web96.dnchosting.com [199.7.108.96])
+	by mx7.dnchosting.com (Postfix) with ESMTP id B15BD202A9
+	for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 00:40:36 -0600 (CST)
+Received: from [187.72.152.130] (port=16505 helo=saiz.us)
+	by web96.dnchosting.com with esmtpa (Exim 4.86)
+	(envelope-from <olivercarter_google@saiz.us>)
+	id 1aNapH-002cyD-L6
+	for netdev@vger.kernel.org; Mon, 25 Jan 2016 00:40:36 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+Good afternoon netdev
 
-> This patch replaces uses of blkcipher with skcipher and the long
-> obsolete hash interface with shash.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+http://barfood.it/Thomas.php?fresh=1ryy2r0pmgrn2hm3
 
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
-> ---
-> 
-> net/bluetooth/smp.c |  135 ++++++++++++++++++++++++----------------------------
-> 1 file changed, 63 insertions(+), 72 deletions(-)
 
-Regards
 
-Marcel
+
+Oliver
