@@ -1,105 +1,65 @@
-From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
-Subject: Supermicro AOC-STGN-i2S w intel 82599ES on Brocade ICX6610 - random
- link failures
-Date: Mon, 25 Jan 2016 11:08:51 +0100
-Message-ID: <20160125100851.GA7545@nbnik.linuxbox.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ipv4+ipv6: Make INET*_ESP select CRYPTO_ECHAINIV
+Date: Mon, 25 Jan 2016 18:26:59 +0800
+Message-ID: <20160125102659.GA6976@gondor.apana.org.au>
+References: <56A38090.5030909@gmx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2fHTh5uZTiUOsy+g"
-Cc: nik@linuxbox.cz, Stanislav Schattke <schattke@linuxbox.cz>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Thomas Egerer <hakke_007@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:56708 "EHLO gwu.lbox.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755368AbcAYKYP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2016 05:24:15 -0500
+Received: from helcar.hengli.com.au ([209.40.204.226]:50773 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755890AbcAYK1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 05:27:04 -0500
 Content-Disposition: inline
+In-Reply-To: <56A38090.5030909@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thomas Egerer <hakke_007@gmx.de> wrote:
+> The ESP algorithms using CBC mode require echainiv. Hence INET*_ESP have
+> to select CRYPTO_ECHAINIV in order to work properly. This solves the
+> issues caused by a misconfiguration as described in [1].
+> The original approach, patching crypto/Kconfig was turned down by
+> Herbert Xu [2].
+> 
+> [1] https://lists.strongswan.org/pipermail/users/2015-December/009074.html
+> [2] http://marc.info/?l=linux-crypto-vger&m=145224655809562&w=2
+> 
+> Signed-off-by: Thomas Egerer <hakke_007@gmx.de>
+> ---
+> net/ipv4/Kconfig | 1 +
+> net/ipv6/Kconfig | 1 +
+> 2 files changed, 2 insertions(+)
+> 
+> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> index c229205..7758247 100644
+> --- a/net/ipv4/Kconfig
+> +++ b/net/ipv4/Kconfig
+> @@ -353,6 +353,7 @@ config INET_ESP
+>        select CRYPTO_CBC
+>        select CRYPTO_SHA1
+>        select CRYPTO_DES
+> +       select CRYPTO_ECHAINIV
+>        ---help---
+>          Support for IPsec ESP.
+> 
+> diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+> index bb7dabe..40c8975 100644
+> --- a/net/ipv6/Kconfig
+> +++ b/net/ipv6/Kconfig
+> @@ -69,6 +69,7 @@ config INET6_ESP
+>        select CRYPTO_CBC
+>        select CRYPTO_SHA1
+>        select CRYPTO_DES
 
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Your patch seems to be missing a few lines at the end.
 
-Hello netdev readers,
+Otherwise it looks good to me.
 
-I'd like to consult following problem we're dealing with:
-
-I have a cluster of three nodes connected to stacked Brocade ICX6610
-switches using bonded AOC-STGN-i2S adapters (they're using 82599ES
-chipsets).
-
-The problem is, I see random link failures on practically all
-interfaces. Link always goes down for very short time, then adapter
-is reset and link goes up again.
-
-Here's dmesg snippet:
-
-[Jan22 22:09] ixgbe 0000:03:00.0 eth0: NIC Link is Down
-[  +0.005610] ixgbe 0000:03:00.0 eth0: initiating reset to clear Tx work af=
-ter link loss
-[  +0.012792] bond0: link status definitely down for interface eth0, disabl=
-ing it
-[  +1.105826] ixgbe 0000:03:00.0 eth0: Reset adapter
-[  +0.307518] ixgbe 0000:03:00.0 eth0: detected SFP+: 3
-[  +0.145881] ixgbe 0000:03:00.0 eth0: NIC Link is Up 10 Gbps, Flow Control=
-: RX/TX
-
-since I'm using bonding, it doesn't disrupt traffic, but I'd still like to
-resolve it. We're using 5m passive SFP cables, we tried replacing one with =
-3m
-piece, to no avail.=20
-
-all three boxes are supermicro X10DRW, running vanilla x86_64 4.0.5 kernel =
-(I'll upgrade it to 4.1.16 soon)
-
-we were using broadcom adapter before and they were working without such pr=
-oblems
-(except for one particular port, which showed mysterious packet drops every=
- few
-months, thats why we switched to intel-based adapters), so I think cables a=
-nd switches
-should be fine, but I'm not sure of course
-
-I think I've seen similar problems and they were PM related, but I'm not su=
-re..
-
-anyone seen similar problem?
-
-or some tips on how could I debug it?
-
-If I could provide more information, please let me know
-
-BR
-
-nik
-
---=20
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28.rijna 168, 709 00 Ostrava
-
-tel.:   +420 591 166 214
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
-
---2fHTh5uZTiUOsy+g
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iEYEARECAAYFAlal9DMACgkQ3xdJJrLygV41dgCggP+dXDxK704IfzaEknPn42kI
-BcUAoOJJqSRIJMZ0M5hdXoJcPi40PSE2
-=acxT
------END PGP SIGNATURE-----
-
---2fHTh5uZTiUOsy+g--
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
