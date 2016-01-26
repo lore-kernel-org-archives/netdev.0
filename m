@@ -1,86 +1,242 @@
-From: Hannes Reinecke <hare@suse.de>
-Subject: [PATCH] fddi: Fixup potential uninitialized bars
-Date: Tue, 26 Jan 2016 08:27:31 +0100
-Message-ID: <1453793251-101247-1-git-send-email-hare@suse.de>
-Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.com>,
-	Hannes Reinecke <hare@suse.de>, Hannes Reinecke <hare@suse.com>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:50622 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752015AbcAZH1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2016 02:27:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: jason <huzhijiang@gmail.com>
+Subject: Re: [PATCH net-next v2] tipc: add peer removal
+	functionality
+Date: Tue, 26 Jan 2016 15:36:39 +0800
+Message-ID: <CAOTeD=CGvLkfgE7b3DDJgFf26X5afrnN1VJqDoV0V4XR8JD_2w@mail.gmail.com>
+References: <1452607696-24216-1-git-send-email-richard.alpe@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: Richard Alpe <richard.alpe@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1452607696-24216-1-git-send-email-richard.alpe@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-dfx_get_bars() allocates the various bars, depending on the
-bus type. But as the function itself returns void and there
-is no default selection there is a risk of the function
-returning without allocating any bars.
-This patch moves the entries around so that PCI is assumed
-to the the default bus, and adds a WARN_ON check if that
-should no be the case.
-And I've made some minor code reshuffles to keep checkpatch
-happy.
+Hi,
 
-Signed-off-by: Hannes Reinecke <hare@suse.com>
----
- drivers/net/fddi/defxx.c | 29 ++++++++++++++++-------------
- 1 file changed, 16 insertions(+), 13 deletions(-)
+On Jan 12, 2016 10:09 PM, "Richard Alpe" <richard.alpe@ericsson.com> wrote:
+>
+> Add TIPC_NL_PEER_REMOVE netlink command. This command can remove
+> an offline peer node from the internal data structures.
+>
+> This will be supported by the tipc user space tool in iproute2.
+>
+> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+> ---
+>  include/uapi/linux/tipc_netlink.h |  1 +
+>  net/tipc/net.c                    |  4 +--
+>  net/tipc/net.h                    |  2 ++
+>  net/tipc/netlink.c                |  5 ++++
+>  net/tipc/node.c                   | 60
++++++++++++++++++++++++++++++++++++----
+>  net/tipc/node.h                   |  3 +-
+>  6 files changed, 66 insertions(+), 9 deletions(-)
+>
+> diff --git a/include/uapi/linux/tipc_netlink.h
+b/include/uapi/linux/tipc_netlink.h
+> index d4c8f14..25eb645 100644
+> --- a/include/uapi/linux/tipc_netlink.h
+> +++ b/include/uapi/linux/tipc_netlink.h
+> @@ -56,6 +56,7 @@ enum {
+>         TIPC_NL_NET_GET,
+>         TIPC_NL_NET_SET,
+>         TIPC_NL_NAME_TABLE_GET,
+> +       TIPC_NL_PEER_REMOVE,
+>
+>         __TIPC_NL_CMD_MAX,
+>         TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
+> diff --git a/net/tipc/net.c b/net/tipc/net.c
+> index 77bf911..042d4ce 100644
+> --- a/net/tipc/net.c
+> +++ b/net/tipc/net.c
+> @@ -42,7 +42,7 @@
+>  #include "node.h"
+>  #include "bcast.h"
+>
+> -static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1]
+= {
+> +const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
+>         [TIPC_NLA_NET_UNSPEC]   = { .type = NLA_UNSPEC },
+>         [TIPC_NLA_NET_ID]       = { .type = NLA_U32 }
+>  };
+> @@ -139,7 +139,7 @@ void tipc_net_stop(struct net *net)
+>                               tn->own_addr);
+>         rtnl_lock();
+>         tipc_bearer_stop(net);
+> -       tipc_node_stop(net);
+> +       tipc_node_stop_net(net);
+>         rtnl_unlock();
+>
+>         pr_info("Left network mode\n");
+> diff --git a/net/tipc/net.h b/net/tipc/net.h
+> index 77a7a11..c7c2549 100644
+> --- a/net/tipc/net.h
+> +++ b/net/tipc/net.h
+> @@ -39,6 +39,8 @@
+>
+>  #include <net/genetlink.h>
+>
+> +extern const struct nla_policy tipc_nl_net_policy[];
+> +
+>  int tipc_net_start(struct net *net, u32 addr);
+>
+>  void tipc_net_stop(struct net *net);
+> diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+> index 8975b01..9019df8 100644
+> --- a/net/tipc/netlink.c
+> +++ b/net/tipc/netlink.c
+> @@ -145,6 +145,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+>                 .cmd    = TIPC_NL_NAME_TABLE_GET,
+>                 .dumpit = tipc_nl_name_table_dump,
+>                 .policy = tipc_nl_policy,
+> +       },
+> +       {
+> +               .cmd    = TIPC_NL_PEER_REMOVE,
+> +               .doit   = tipc_nl_peer_rm,
+> +               .policy = tipc_nl_policy,
+>         }
+>  };
+>
+> diff --git a/net/tipc/node.c b/net/tipc/node.c
+> index fa97d96..988cdd9 100644
+> --- a/net/tipc/node.c
+> +++ b/net/tipc/node.c
+> @@ -399,17 +399,21 @@ static void tipc_node_delete(struct tipc_node *node)
+>         kfree_rcu(node, rcu);
+>  }
+>
+> -void tipc_node_stop(struct net *net)
+> +static void tipc_node_stop(struct tipc_node *node)
+> +{
+> +       if (del_timer(&node->timer))
+> +               tipc_node_put(node);
+> +       tipc_node_put(node);
+> +}
+> +
+> +void tipc_node_stop_net(struct net *net)
+>  {
+>         struct tipc_net *tn = net_generic(net, tipc_net_id);
+>         struct tipc_node *node, *t_node;
+>
+>         spin_lock_bh(&tn->node_list_lock);
+> -       list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
+> -               if (del_timer(&node->timer))
+> -                       tipc_node_put(node);
+> -               tipc_node_put(node);
+> -       }
+> +       list_for_each_entry_safe(node, t_node, &tn->node_list, list)
+> +               tipc_node_stop(node);
+>         spin_unlock_bh(&tn->node_list_lock);
+>  }
+>
+> @@ -1529,6 +1533,50 @@ discard:
+>         kfree_skb(skb);
+>  }
+>
+> +int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +       int err;
+> +       u32 addr;
+> +       struct net *net = sock_net(skb->sk);
+> +       struct nlattr *attrs[TIPC_NLA_NET_MAX + 1];
+> +       struct tipc_net *tn = net_generic(net, tipc_net_id);
+> +       struct tipc_node *peer;
+> +
+> +       /* We identify the peer by its net */
+> +       if (!info->attrs[TIPC_NLA_NET])
+> +               return -EINVAL;
+> +
+> +       err = nla_parse_nested(attrs, TIPC_NLA_NET_MAX,
+> +                              info->attrs[TIPC_NLA_NET],
+> +                              tipc_nl_net_policy);
+> +       if (err)
+> +               return err;
+> +
+> +       if (!attrs[TIPC_NLA_NET_ADDR])
+> +               return -EINVAL;
+> +
+> +       addr = nla_get_u32(attrs[TIPC_NLA_NET_ADDR]);
+> +
+> +       spin_lock_bh(&tn->node_list_lock);
+> +       list_for_each_entry_rcu(peer, &tn->node_list, list) {
+> +               if (peer->addr != addr)
+> +                       continue;
+> +
+> +               if (peer->state == SELF_DOWN_PEER_DOWN ||
+> +                   peer->state == SELF_DOWN_PEER_LEAVING) {
+> +                       tipc_node_stop(peer);
 
-diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
-index 7f975a2..5fcaf03 100644
---- a/drivers/net/fddi/defxx.c
-+++ b/drivers/net/fddi/defxx.c
-@@ -434,19 +434,10 @@ static void dfx_port_read_long(DFX_board_t *bp, int offset, u32 *data)
- static void dfx_get_bars(struct device *bdev,
- 			 resource_size_t *bar_start, resource_size_t *bar_len)
- {
--	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
- 
--	if (dfx_bus_pci) {
--		int num = dfx_use_mmio ? 0 : 1;
--
--		bar_start[0] = pci_resource_start(to_pci_dev(bdev), num);
--		bar_len[0] = pci_resource_len(to_pci_dev(bdev), num);
--		bar_start[2] = bar_start[1] = 0;
--		bar_len[2] = bar_len[1] = 0;
--	}
- 	if (dfx_bus_eisa) {
- 		unsigned long base_addr = to_eisa_device(bdev)->base_addr;
- 		resource_size_t bar_lo;
-@@ -476,13 +467,25 @@ static void dfx_get_bars(struct device *bdev,
- 		bar_len[1] = PI_ESIC_K_BURST_HOLDOFF_LEN;
- 		bar_start[2] = base_addr + PI_ESIC_K_ESIC_CSR;
- 		bar_len[2] = PI_ESIC_K_ESIC_CSR_LEN;
--	}
--	if (dfx_bus_tc) {
-+	} else if (dfx_bus_tc) {
- 		bar_start[0] = to_tc_dev(bdev)->resource.start +
- 			       PI_TC_K_CSR_OFFSET;
- 		bar_len[0] = PI_TC_K_CSR_LEN;
--		bar_start[2] = bar_start[1] = 0;
--		bar_len[2] = bar_len[1] = 0;
-+		bar_start[1] = 0;
-+		bar_len[1] = 0;
-+		bar_start[2] = 0;
-+		bar_len[2] = 0;
-+	} else {
-+		/* Assume PCI */
-+		int num = dfx_use_mmio ? 0 : 1;
-+
-+		WARN_ON(!dev_is_pci(bdev));
-+		bar_start[0] = pci_resource_start(to_pci_dev(bdev), num);
-+		bar_len[0] = pci_resource_len(to_pci_dev(bdev), num);
-+		bar_start[1] = 0;
-+		bar_len[1] = 0;
-+		bar_start[2] = 0;
-+		bar_len[2] = 0;
- 	}
- }
- 
--- 
-1.8.5.6
+I think here is not safe to do tipc_node_stop(). Because here we are not
+sure that node's refcount  really can drop to zero,thus, not sure
+tipc_node_delete() can be execute in a critical region which protected by
+node_list_lock spin lock. This may result in tipc_create_node() to return a
+to-be-deleted node which is not in the node list any more.
+> +
+> +                       spin_unlock_bh(&tn->node_list_lock);
+> +                       return 0;
+> +               }
+> +               spin_unlock_bh(&tn->node_list_lock);
+> +               return -EBUSY;
+> +       }
+> +       spin_unlock_bh(&tn->node_list_lock);
+> +
+> +       return -ENXIO;
+> +}
+> +
+>  int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb)
+>  {
+>         int err;
+> diff --git a/net/tipc/node.h b/net/tipc/node.h
+> index f39d9d0..8dfb6ba 100644
+> --- a/net/tipc/node.h
+> +++ b/net/tipc/node.h
+> @@ -51,7 +51,7 @@ enum {
+>  #define TIPC_NODE_CAPABILITIES TIPC_BCAST_SYNCH
+>  #define INVALID_BEARER_ID -1
+>
+> -void tipc_node_stop(struct net *net);
+> +void tipc_node_stop_net(struct net *net);
+>  void tipc_node_check_dest(struct net *net, u32 onode,
+>                           struct tipc_bearer *bearer,
+>                           u16 capabilities, u32 signature,
+> @@ -75,5 +75,6 @@ int tipc_nl_node_dump_link(struct sk_buff *skb, struct
+netlink_callback *cb);
+>  int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct genl_info
+*info);
+>  int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
+>  int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
+> +int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info);
+>
+>  #endif
+> --
+> 2.1.4
+>
+>
+>
+------------------------------------------------------------------------------
+> Site24x7 APM Insight: Get Deep Visibility into Application Performance
+> APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+> Monitor end-to-end web transactions and take corrective actions now
+> Troubleshoot faster and improve end-user experience. Signup Now!
+> http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
+> _______________________________________________
+> tipc-discussion mailing list
+> tipc-discussion@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/tipc-discussion
+------------------------------------------------------------------------------
+Site24x7 APM Insight: Get Deep Visibility into Application Performance
+APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+Monitor end-to-end web transactions and take corrective actions now
+Troubleshoot faster and improve end-user experience. Signup Now!
+http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
