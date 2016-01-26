@@ -1,8 +1,8 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V6 1/8] Drivers: hv: vmbus: add a helper function to set a
- channel's pending send size
-Date: Tue, 26 Jan 2016 01:43:48 -0800
-Message-ID: <1453801428-3241-1-git-send-email-decui@microsoft.com>
+Subject: [PATCH V6 2/8] Drivers: hv: vmbus: define the new offer type for
+ Hyper-V socket (hvsock)
+Date: Tue, 26 Jan 2016 01:44:15 -0800
+Message-ID: <1453801455-3284-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,29 +24,37 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-This will be used by the coming net/hvsock driver.
+A helper function is also added.
 
 Signed-off-by: Dexuan Cui <decui@microsoft.com>
 ---
- include/linux/hyperv.h | 6 ++++++
- 1 file changed, 6 insertions(+)
+ include/linux/hyperv.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 753dbad..e4867a7 100644
+index e4867a7..c0eddd7 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -790,6 +790,12 @@ static inline void *get_per_channel_state(struct vmbus_channel *c)
- 	return c->per_channel_state;
- }
+@@ -235,6 +235,7 @@ struct vmbus_channel_offer {
+ #define VMBUS_CHANNEL_LOOPBACK_OFFER			0x100
+ #define VMBUS_CHANNEL_PARENT_OFFER			0x200
+ #define VMBUS_CHANNEL_REQUEST_MONITORED_NOTIFICATION	0x400
++#define VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER		0x2000
  
-+static inline void set_channel_pending_send_size(struct vmbus_channel *c,
-+						 u32 size)
+ struct vmpacket_descriptor {
+ 	u16 type;
+@@ -769,6 +770,12 @@ struct vmbus_channel {
+ 	enum hv_signal_policy  signal_policy;
+ };
+ 
++static inline bool is_hvsock_channel(const struct vmbus_channel *c)
 +{
-+	c->outbound.ring_buffer->pending_send_sz = size;
++	return !!(c->offermsg.offer.chn_flags &
++		  VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER);
 +}
 +
- void vmbus_onmessage(void *context);
- 
- int vmbus_request_offers(void);
+ static inline void set_channel_signal_state(struct vmbus_channel *c,
+ 					    enum hv_signal_policy policy)
+ {
 -- 
 2.1.0
