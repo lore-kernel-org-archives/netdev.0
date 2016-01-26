@@ -1,59 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [BISECTED] v4.5-rc1 phylib regression
-Date: Tue, 26 Jan 2016 23:09:24 +0100
-Message-ID: <20160126220924.GK27473@lunn.ch>
-References: <20160126044624.GH3880@lunn.ch>
- <20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
- <20160126133417.GI3880@lunn.ch>
- <CAOesGMgaB8R+7jGyLNgQ-M+2nVRhOsEp7LUbiApEEw+dscfL0w@mail.gmail.com>
- <20160126175353.GG27473@lunn.ch>
- <CAOesGMhYU4NOeGRJoF4bcELCFfSsvBVp2du7ZgVjC3QuCv637w@mail.gmail.com>
- <CAOesGMi+ymn_FdDfgTjwgyO-MsEJNGBDU9ayRJvGkjJ7T_ExfA@mail.gmail.com>
- <56A7DB27.6080203@gmail.com>
- <20160126213600.GJ27473@lunn.ch>
- <CAOesGMiEzhN9sGBTq57xnti_Fy1J4rO=djehNHwj47ZhetymXw@mail.gmail.com>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RESEND net] nfc: use GFP_USER for user-controlled kmalloc
+Date: Wed, 27 Jan 2016 09:55:55 +1100
+Message-ID: <CAGRGNgV7MUXdk+e8Arx05yiWX6owei5dmnFQ-TBfs55jfy+qBw@mail.gmail.com>
+References: <1453830820-27104-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Aaro Koskinen <aaro.koskinen@nokia.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Olof Johansson <olof@lixom.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43267 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750756AbcAZWJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2016 17:09:30 -0500
-Content-Disposition: inline
-In-Reply-To: <CAOesGMiEzhN9sGBTq57xnti_Fy1J4rO=djehNHwj47ZhetymXw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453830820-27104-1-git-send-email-xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> > Nope, not an option. Only a small number of DTB actually use c22 or
-> > c45. The majority of devices have no compatible at all. Why should
-> > they, the binding documentation says it is optional!
-> 
-> So one thing that can be done is to just have a whitelist in the
-> driver that we add the known phy compatibles to, with a nice comment
-> above that this should only be for legacy device trees.
+Hi Cong,
 
-So you mean drivers/of/of_mdio.c:of_mdiobus_child_is_phy()
-has a white list like:
+On Wed, Jan 27, 2016 at 4:53 AM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-"brcm,40nm-ephy"
-"marvell,88E1111", 
-"marvell,88e1116",
-"marvell,88e1118",
-"marvell,88e1149r",
-"marvell,88e1310",
-"marvell,88E1510",
-"marvell,88E1514",
-"moxa,moxart-rtl8201cp",
+A commit message would be nice. A brief rundown of how this is called
+from userspace would be nice (I'm talking a single sentence here, e.g.
+"this is allocated when submitting a nfc packet") and what issue
+__GFP_NOWARN is fixing. (I'm guessing log spam due to allocation
+failures.)
 
-Yes, that would work.
+> Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+> Cc: Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+> Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  net/nfc/llcp_commands.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
+> index 3621a90..5d94055 100644
+> --- a/net/nfc/llcp_commands.c
+> +++ b/net/nfc/llcp_commands.c
+> @@ -729,7 +729,7 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
+>         if (local == NULL)
+>                 return -ENODEV;
+>
+> -       msg_data = kzalloc(len, GFP_KERNEL);
+> +       msg_data = kzalloc(len, GFP_USER | __GFP_NOWARN);
+>         if (msg_data == NULL)
+>                 return -ENOMEM;
 
-We should also update the binding documentation to limit what is legal
-in the compatible string.
+Thanks,
 
-   Andrew
+-- 
+Julian Calaby
+
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Profile: http://www.google.com/profiles/julian.calaby/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
