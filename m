@@ -1,129 +1,75 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [BISECTED] v4.5-rc1 phylib regression
-Date: Tue, 26 Jan 2016 14:34:17 +0100
-Message-ID: <20160126133417.GI3880@lunn.ch>
-References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
- <20160126044624.GH3880@lunn.ch>
- <20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net] tipc: fix connection abort during
+	subscription cancel
+Date: Tue, 26 Jan 2016 15:01:02 +0100
+Message-ID: <1453816862-30289-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Aaro Koskinen <aaro.koskinen@nokia.com>,
-	Olof Johansson <olof@lixom.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42908 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965414AbcAZNeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2016 08:34:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, anders.widell@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 26, 2016 at 02:14:35PM +0200, Aaro Koskinen wrote:
-> Hi,
-> 
-> On Tue, Jan 26, 2016 at 05:46:24AM +0100, Andrew Lunn wrote:
-> > On Mon, Jan 25, 2016 at 05:45:21PM +0200, Aaro Koskinen wrote:
-> > > I get the below crash on OCTEON (with octeon_mgmt interface, genphy)
-> > > always during systemd boot.
-> > 
-> > I think i know what is going on now.
-> > 
-> > What does your phy look like in DT?
-> 
-> It's using the in-kernel DT:
-> 
-> 	arch/mips/boot/dts/cavium-octeon/octeon_3xxx.dts
-> 
-> The management interface is "mix0: ethernet@1070000100000". The phy entry
-> might be bogus for this specific board, and I don't have MARVELL_PHY
-> enabled...
+In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing
+to events")', we terminate the connection if the subscription
+creation fails.
+In the same commit, the subscription creation result was based on
+the value of subscription pointer (set in the function) instead of
+the return code.
 
-                        phy1: ethernet-phy@1 {
-                                cavium,qlm-trim = "4,sgmii";
-                                reg = <1>;
-                                compatible = "marvell,88e1149r";
-                                marvell,reg-init = <3 0x10 0 0x5777>,
-                                        <3 0x11 0 0x00aa>,
-                                        <3 0x12 0 0x4105>,
-                                        <3 0x13 0 0x0a60>;
-                        };
-   
-Dove Cubox is the other board which Olof has problems with. It has
+Unfortunately, the same function tipc_subscrp_create() handles
+subscription cancel request. For a subscription cancellation request,
+the subscription pointer cannot be set. Thus if a subscriber has
+several subscriptions and cancels any of them, the connection is
+terminated.
 
-&ethphy {
-        compatible = "marvell,88e1310";
-        reg = <1>;
-};
+In this commit, we terminate the connection based on the return value
+of tipc_subscrp_create().
+Fixes: commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to events")
 
-The issue here is the compatible string. The binding says:
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/subscr.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Optional Properties:
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 350cca33ee0a..72bb7cdc85aa 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -293,11 +293,11 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
+ 	struct tipc_subscription *sub = NULL;
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 
+-	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber, &sub);
+-	if (sub)
+-		tipc_nametbl_subscribe(sub);
+-	else
+-		tipc_conn_terminate(tn->topsrv, subscriber->conid);
++	if (tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber,
++				&sub))
++		return tipc_conn_terminate(tn->topsrv, subscriber->conid);
++
++	tipc_nametbl_subscribe(sub);
+ }
+ 
+ /* Handle one request to establish a new subscriber */
+-- 
+2.1.4
 
-- compatible: Compatible list, may contain
-  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
-  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
-  specifications. If neither of these are specified, the default is to
-  assume clause 22. The compatible list may also contain other
-  elements.
 
-  If the phy's identifier is known then the list may contain an entry
-  of the form: "ethernet-phy-idAAAA.BBBB" where
-     AAAA - The value of the 16 bit Phy Identifier 1 register as
-            4 hex digits. This is the chip vendor OUI bits 3:18
-     BBBB - The value of the 16 bit Phy Identifier 2 register as
-            4 hex digits. This is the chip vendor OUI bits 19:24,
-            followed by 10 bits of a vendor specific ID.
-
-We are in a grey area, it does not say you can specifically exactly
-what PHY you have, but it also does not rule it out, since "may also
-contain other elements".
-
-When adding support for generic MDIO device, like switches, i have to
-differentiate between PHYs and generic MDIO devices in DT. What i
-implemented is:
-
-/*
- * Return true if the child node is for a phy. It must either:
- * o Compatible string of "ethernet-phy-idX.X"
- * o Compatible string of "ethernet-phy-ieee802.3-c45"
- * o Compatible string of "ethernet-phy-ieee802.3-c22"
- * o No compatibility string
- *
- * A device which is not a phy is expected to have a compatible string
- * indicating what sort of device it is.
- */
-static bool of_mdiobus_child_is_phy(struct device_node *child)
-{
-
-The last rule is the issue. Before this patch, saying
-"marvell,88e1149r" would be totally ignored, never used. The PHY
-drivers don't have an of_device_id table to match against.  Now it
-means the device is a generic MDIO device, and use the compatible
-string to find the correct driver for it.
-
-The first part of the fix is clear. If we have a generic MDIO device,
-but somebody asks for a PHY device, return an error. I've not checked
-the code paths yet, but i expect the generic MDIO device is being
-returned, container_of() into a phydev, and then the non-existent
-mutex is lock. The code already have a flag to indicate if it is a PHY
-or not, so it looks like a check is missing somewhere.
-
-The harder problem, is what to do with these compatible strings, and
-how to decide if we have a generic MDIO device, or a PHY. Grep'ing the
-DTS files, it seems to be an issue for octeon_68xx.dts,
-octeon_3xxx.dts, k2e-evm.dts, k2he-evm.dts, k2l-evm.dts,
-kirkwood-dockstar.dts, moxart-uc7112lx.dts, dove-cubox.dts and maybe
-others my grep foo missed.
-
-This is too many to ignore. Having a useless compatible string for a
-PHY needs to be supported. So i guess i need a bool property,
-"generic-mdio", and assume anything without that is a PHY.
-
-Florian, are you O.K. with this?
-
-Thanks
-	Andrew
+------------------------------------------------------------------------------
+Site24x7 APM Insight: Get Deep Visibility into Application Performance
+APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+Monitor end-to-end web transactions and take corrective actions now
+Troubleshoot faster and improve end-user experience. Signup Now!
+http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
