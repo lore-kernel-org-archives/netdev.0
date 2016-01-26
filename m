@@ -1,34 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [BISECTED] v4.5-rc1 phylib regression
-Date: Tue, 26 Jan 2016 18:53:53 +0100
-Message-ID: <20160126175353.GG27473@lunn.ch>
-References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
- <20160126044624.GH3880@lunn.ch>
- <20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
- <20160126133417.GI3880@lunn.ch>
- <CAOesGMgaB8R+7jGyLNgQ-M+2nVRhOsEp7LUbiApEEw+dscfL0w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Aaro Koskinen <aaro.koskinen@nokia.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Olof Johansson <olof@lixom.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [PATCH RESEND net] nfc: use GFP_USER for user-controlled kmalloc
+Date: Tue, 26 Jan 2016 09:53:39 -0800
+Message-ID: <1453830820-27104-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov@google.com, linux-wireless@vger.kernel.org,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43106 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756995AbcAZRx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2016 12:53:58 -0500
-Content-Disposition: inline
-In-Reply-To: <CAOesGMgaB8R+7jGyLNgQ-M+2nVRhOsEp7LUbiApEEw+dscfL0w@mail.gmail.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33371 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757002AbcAZRyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 12:54:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I hate to bikeshed, but I'm not sure if "generic-mdio" is too...
-> generic? Will someone writing a DT be thinking "well, this is a
-> generic mdio PHY, I should set it"?  "mdio-device"?
-> "generic-nonphy-mdio"? Neither of those seem much better.
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/nfc/llcp_commands.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-How about 'not-a-phy'?
-
-    Andrew
+diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
+index 3621a90..5d94055 100644
+--- a/net/nfc/llcp_commands.c
++++ b/net/nfc/llcp_commands.c
+@@ -729,7 +729,7 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
+ 	if (local == NULL)
+ 		return -ENODEV;
+ 
+-	msg_data = kzalloc(len, GFP_KERNEL);
++	msg_data = kzalloc(len, GFP_USER | __GFP_NOWARN);
+ 	if (msg_data == NULL)
+ 		return -ENOMEM;
+ 
+-- 
+1.8.3.1
