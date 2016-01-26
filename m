@@ -1,34 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
- 2016-01-25
-Date: Mon, 25 Jan 2016 22:51:59 -0800 (PST)
-Message-ID: <20160125.225159.1722142349535363848.davem@davemloft.net>
-References: <1453766332-43274-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+From: Hannes Reinecke <hare@suse.de>
+Subject: [PATCH] fddi: Fixup potential uninitialized bars
+Date: Tue, 26 Jan 2016 08:27:31 +0100
+Message-ID: <1453793251-101247-1-git-send-email-hare@suse.de>
+Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.com>,
+	Hannes Reinecke <hare@suse.de>, Hannes Reinecke <hare@suse.com>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55471 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797AbcAZGwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 01:52:01 -0500
-In-Reply-To: <1453766332-43274-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx2.suse.de ([195.135.220.15]:50622 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752015AbcAZH1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2016 02:27:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 25 Jan 2016 15:58:50 -0800
+dfx_get_bars() allocates the various bars, depending on the
+bus type. But as the function itself returns void and there
+is no default selection there is a risk of the function
+returning without allocating any bars.
+This patch moves the entries around so that PCI is assumed
+to the the default bus, and adds a WARN_ON check if that
+should no be the case.
+And I've made some minor code reshuffles to keep checkpatch
+happy.
 
-> This series contains updates to i40e only and so I won't continue receiving
-> patches to fix the same issue (again).
-> 
-> Arnd fixes the driver from causing the compiler whining about uninitialized
-> variables, so initialize those variables.
-> 
-> Eric fixes the build errors/warnings which were introduced by Anjali
-> when she added geneve support to i40e.
+Signed-off-by: Hannes Reinecke <hare@suse.com>
+---
+ drivers/net/fddi/defxx.c | 29 ++++++++++++++++-------------
+ 1 file changed, 16 insertions(+), 13 deletions(-)
 
-Pulled, thanks Jeff.
+diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
+index 7f975a2..5fcaf03 100644
+--- a/drivers/net/fddi/defxx.c
++++ b/drivers/net/fddi/defxx.c
+@@ -434,19 +434,10 @@ static void dfx_port_read_long(DFX_board_t *bp, int offset, u32 *data)
+ static void dfx_get_bars(struct device *bdev,
+ 			 resource_size_t *bar_start, resource_size_t *bar_len)
+ {
+-	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
+ 
+-	if (dfx_bus_pci) {
+-		int num = dfx_use_mmio ? 0 : 1;
+-
+-		bar_start[0] = pci_resource_start(to_pci_dev(bdev), num);
+-		bar_len[0] = pci_resource_len(to_pci_dev(bdev), num);
+-		bar_start[2] = bar_start[1] = 0;
+-		bar_len[2] = bar_len[1] = 0;
+-	}
+ 	if (dfx_bus_eisa) {
+ 		unsigned long base_addr = to_eisa_device(bdev)->base_addr;
+ 		resource_size_t bar_lo;
+@@ -476,13 +467,25 @@ static void dfx_get_bars(struct device *bdev,
+ 		bar_len[1] = PI_ESIC_K_BURST_HOLDOFF_LEN;
+ 		bar_start[2] = base_addr + PI_ESIC_K_ESIC_CSR;
+ 		bar_len[2] = PI_ESIC_K_ESIC_CSR_LEN;
+-	}
+-	if (dfx_bus_tc) {
++	} else if (dfx_bus_tc) {
+ 		bar_start[0] = to_tc_dev(bdev)->resource.start +
+ 			       PI_TC_K_CSR_OFFSET;
+ 		bar_len[0] = PI_TC_K_CSR_LEN;
+-		bar_start[2] = bar_start[1] = 0;
+-		bar_len[2] = bar_len[1] = 0;
++		bar_start[1] = 0;
++		bar_len[1] = 0;
++		bar_start[2] = 0;
++		bar_len[2] = 0;
++	} else {
++		/* Assume PCI */
++		int num = dfx_use_mmio ? 0 : 1;
++
++		WARN_ON(!dev_is_pci(bdev));
++		bar_start[0] = pci_resource_start(to_pci_dev(bdev), num);
++		bar_len[0] = pci_resource_len(to_pci_dev(bdev), num);
++		bar_start[1] = 0;
++		bar_len[1] = 0;
++		bar_start[2] = 0;
++		bar_len[2] = 0;
+ 	}
+ }
+ 
+-- 
+1.8.5.6
