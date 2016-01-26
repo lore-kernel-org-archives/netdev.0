@@ -1,8 +1,8 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V6 4/8] Drivers: hv: vmbus: define a new VMBus message type
- for hvsock
-Date: Tue, 26 Jan 2016 01:44:45 -0800
-Message-ID: <1453801485-3364-1-git-send-email-decui@microsoft.com>
+Subject: [PATCH V6 5/8] Drivers: hv: vmbus: add a hvsock flag in struct
+ hv_driver
+Date: Tue, 26 Jan 2016 01:44:52 -0800
+Message-ID: <1453801492-3397-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,94 +24,57 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-A function to send the type of message is also added.
+Only the coming hv_sock driver has a "true" value for this flag.
 
-The coming net/hvsock driver will use this function to proactively request
-the host to offer a VMBus channel for a new hvsock connection.
+We treat the hvsock offers/channels as special VMBus devices.
+Since the hv_sock driver handles all the hvsock offers/channels, we need to
+tweak vmbus_match() for hv_sock driver, so we introduce this flag.
 
 Signed-off-by: Dexuan Cui <decui@microsoft.com>
 ---
- drivers/hv/channel.c      | 15 +++++++++++++++
- drivers/hv/channel_mgmt.c |  4 ++++
- include/linux/hyperv.h    | 13 +++++++++++++
- 3 files changed, 32 insertions(+)
+ drivers/hv/vmbus_drv.c |  4 ++++
+ include/linux/hyperv.h | 14 ++++++++++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
-index 3f04533..fcab234 100644
---- a/drivers/hv/channel.c
-+++ b/drivers/hv/channel.c
-@@ -219,6 +219,21 @@ error0:
- }
- EXPORT_SYMBOL_GPL(vmbus_open);
+diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
+index 328e4c3..c1c9d71 100644
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -562,6 +562,10 @@ static int vmbus_match(struct device *device, struct device_driver *driver)
+ 	struct hv_driver *drv = drv_to_hv_drv(driver);
+ 	struct hv_device *hv_dev = device_to_hv_device(device);
  
-+/* Used for Hyper-V Socket: a guest client's connect() to the host */
-+int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
-+				  const uuid_le *shv_host_servie_id)
-+{
-+	struct vmbus_channel_tl_connect_request conn_msg;
++	/* The hv_sock driver handles all hv_sock offers. */
++	if (is_hvsock_channel(hv_dev->channel))
++		return drv->hvsock;
 +
-+	memset(&conn_msg, 0, sizeof(conn_msg));
-+	conn_msg.header.msgtype = CHANNELMSG_TL_CONNECT_REQUEST;
-+	conn_msg.guest_endpoint_id = *shv_guest_servie_id;
-+	conn_msg.host_service_id = *shv_host_servie_id;
-+
-+	return vmbus_post_msg(&conn_msg, sizeof(conn_msg));
-+}
-+EXPORT_SYMBOL_GPL(vmbus_send_tl_connect_request);
-+
- /*
-  * create_gpadl_header - Creates a gpadl for the specified buffer
-  */
-diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
-index 1c1ad47..4611b50 100644
---- a/drivers/hv/channel_mgmt.c
-+++ b/drivers/hv/channel_mgmt.c
-@@ -825,6 +825,10 @@ struct vmbus_channel_message_table_entry
- 	{CHANNELMSG_VERSION_RESPONSE,		1, vmbus_onversion_response},
- 	{CHANNELMSG_UNLOAD,			0, NULL},
- 	{CHANNELMSG_UNLOAD_RESPONSE,		1, vmbus_unload_response},
-+	{CHANNELMSG_18,				0, NULL},
-+	{CHANNELMSG_19,				0, NULL},
-+	{CHANNELMSG_20,				0, NULL},
-+	{CHANNELMSG_TL_CONNECT_REQUEST,		0, NULL},
- };
+ 	if (hv_vmbus_get_id(drv->id_table, &hv_dev->dev_type))
+ 		return 1;
  
- /*
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index c0eddd7..b835d80 100644
+index b835d80..5587711 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -392,6 +392,10 @@ enum vmbus_channel_message_type {
- 	CHANNELMSG_VERSION_RESPONSE		= 15,
- 	CHANNELMSG_UNLOAD			= 16,
- 	CHANNELMSG_UNLOAD_RESPONSE		= 17,
-+	CHANNELMSG_18				= 18,
-+	CHANNELMSG_19				= 19,
-+	CHANNELMSG_20				= 20,
-+	CHANNELMSG_TL_CONNECT_REQUEST		= 21,
- 	CHANNELMSG_COUNT
- };
+@@ -964,6 +964,20 @@ extern void vmbus_ontimer(unsigned long data);
+ struct hv_driver {
+ 	const char *name;
  
-@@ -562,6 +566,13 @@ struct vmbus_channel_initiate_contact {
- 	u64 monitor_page2;
- } __packed;
- 
-+/* Hyper-V socket: guest's connect()-ing to host */
-+struct vmbus_channel_tl_connect_request {
-+	struct vmbus_channel_message_header header;
-+	uuid_le guest_endpoint_id;
-+	uuid_le host_service_id;
-+} __packed;
++	/*
++	 * A hvsock offer, which has a VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER
++	 * channel flag, actually doesn't mean a synthetic device because the
++	 * offer's if_type/if_instance can change for every new hvsock
++	 * connection.
++	 *
++	 * However, to facilitate the notification of new-offer/rescind-offer
++	 * from vmbus driver to hvsock driver, we can handle hvsock offer as
++	 * a special vmbus device, and hence we need the below flag to
++	 * indicate if the driver is the hvsock driver or not: we need to
++	 * specially treat the hvosck offer & driver in vmbus_match().
++	 */
++	bool hvsock;
 +
- struct vmbus_channel_version_response {
- 	struct vmbus_channel_message_header header;
- 	u8 version_supported;
-@@ -1255,4 +1266,6 @@ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid);
- 
- extern __u32 vmbus_proto_version;
- 
-+int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
-+				  const uuid_le *shv_host_servie_id);
- #endif /* _HYPERV_H */
+ 	/* the device type supported by this driver */
+ 	uuid_le dev_type;
+ 	const struct hv_vmbus_device_id *id_table;
 -- 
 2.1.0
