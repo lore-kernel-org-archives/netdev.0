@@ -1,138 +1,77 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH 1/1] bonding: Use notifiers for slave link state detection
-Date: Tue, 26 Jan 2016 14:26:53 +0800
-Message-ID: <56A711AD.3030406@gmail.com>
-References: <87618083B2453E4A8714035B62D679925050766D@FMSMSX105.amr.corp.intel.com>
- <1453371388-30230-1-git-send-email-zyjzyj2000@gmail.com>
- <1453371388-30230-2-git-send-email-zyjzyj2000@gmail.com>
- <7578.1453769012@famine> <56A6E5D1.7070807@gmail.com>
- <10582.1453788049@famine>
+From: Arend van Spriel <aspriel@gmail.com>
+Subject: Re: [PATCH] brcmfmac: sdio: Increase the default timeouts a bit
+Date: Tue, 26 Jan 2016 07:29:54 +0100
+Message-ID: <56A71262.8000804@gmail.com>
+References: <1453718849-3508-1-git-send-email-sjoerd.simons@collabora.co.uk>
+ <CAGRGNgXWE=b52Mcy8NsKBZS_4gz-TUiuFipjsuTZh1xjja=uUg@mail.gmail.com>
+ <56A641CC.6020500@gmail.com>
+ <CAGRGNgVftXxnq06MOHKNVzVjvCkwCM8Bc+Sfs4NoOQR=sfYP-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, boris.shteinbock@windriver.com,
-	emil.s.tantilov@intel.com, zhuyj <zyjzyj2000@gmail.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Cc: Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Paul Stewart <pstew@chromium.org>,
+	Doug Anderson <dianders@chromium.org>,
+	linux-rockchip@lists.infradead.org,
+	Arend van Spriel <arend@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	brcm80211-dev-list@broadcom.com,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: Julian Calaby <julian.calaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33684 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754305AbcAZG03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 01:26:29 -0500
-Received: by mail-pa0-f65.google.com with SMTP id pv5so7498438pac.0
-        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 22:26:29 -0800 (PST)
-In-Reply-To: <10582.1453788049@famine>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36040 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797AbcAZG3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 01:29:52 -0500
+In-Reply-To: <CAGRGNgVftXxnq06MOHKNVzVjvCkwCM8Bc+Sfs4NoOQR=sfYP-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/26/2016 02:00 PM, Jay Vosburgh wrote:
-> zhuyj <zyjzyj2000@gmail.com> wrote:
->
->> On 01/26/2016 08:43 AM, Jay Vosburgh wrote:
->>> <zyjzyj2000@gmail.com> wrote:
+On 26-01-16 00:41, Julian Calaby wrote:
+> Hi Arend,
+> 
+> On Tue, Jan 26, 2016 at 2:39 AM, Arend van Spriel <aspriel@gmail.com> wrote:
+>> On 25-01-16 12:06, Julian Calaby wrote:
+>>> Hi Sjoerd,
 >>>
->>>> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+>>> On Mon, Jan 25, 2016 at 9:47 PM, Sjoerd Simons
+>>> <sjoerd.simons@collabora.co.uk> wrote:
+>>>> On a Radxa Rock2 board with a Ampak AP6335 (Broadcom 4339 core) it seems
+>>>> the card responds very quickly most of the time, unfortunately during
+>>>> initialisation it sometimes seems to take just a bit over 2 seconds to
+>>>> respond.
 >>>>
->>>> Bonding will utilize notifier callbacks to detect slave
->>>> link state changes. It is intended to be used with miimon
->>>> set to zero, and does not support the updelay or downdelay
->>>> options to bonding.
+>>>> This results intialization failing with message like:
+>>>>   brcmf_c_preinit_dcmds: Retreiving cur_etheraddr failed, -52
+>>>>   brcmf_bus_start: failed: -52
+>>>>   brcmf_sdio_firmware_callback: dongle is not responding
 >>>>
->>>> Because of link flap from the slave interface, if the notifier
->>>> is NETDEV_UP while the actual link state is down, it is not
->>>> necessary to continue.
+>>>> Increasing the timeout to allow for a bit more headroom allows the
+>>>> card to initialize reliably.
 >>>>
->>>> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
->>> 	I haven't signed off on this patch.
+>>>> A quick search online after diagnosing/fixing this showed that Google
+>>>> has a similar patch in their ChromeOS tree, so this doesn't seem
+>>>> specific to the board I'm using.
+>>>>
+>>>> Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
 >>>
->>> 	I've just started some testing, but as before immediately get an
->>> RCU warning; it looks to be coming from bond_miimon_inspect_slave();
+>>> Looks sane to me.
 >>>
->>> [  316.473050] bond1: Enslaving eth1 as a backup interface with an up link
->>> [  316.473059]
->>> [  316.473806] ===============================
->>> [  316.475630] [ INFO: suspicious RCU usage. ]
->>> [  316.477519] 4.4.0+ #38 Not tainted
->>> [  316.479094] -------------------------------
->>> [  316.480765] drivers/net/bonding/bond_main.c:2024 suspicious rcu_dereference_check() usage!
->>>
->>> 	This is presumably because the "case NETDEV_DOWN" call to
->>> bond_miimon_inspect_slave does not hold RCU.  It does hold RTNL, though,
->>> which should be safe for this usage (RTNL mutexes changes to the active
->>> slave).  The appended patch on top of the original makes the warning go
->>> away.
->>>
->>> 	I'm still testing the patch and have no comment about its
->>> functionality as yet.
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index 9f67948..e3faee9 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -2014,14 +2014,14 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
->>>      /*-------------------------------- Monitoring
->>> -------------------------------*/
->>>    -/* called with rcu_read_lock() */
->>> +/* called with rcu_read_lock() or RTNL */
->>>    static int bond_miimon_inspect_slave(struct bonding *bond, struct slave *slave,
->>>    				     unsigned long event)
->>>    {
->>>    	int link_state;
->>>    	bool ignore_updelay;
->>>    -	ignore_updelay = !rcu_dereference(bond->curr_active_slave);
->>> +	ignore_updelay = !rcu_dereference_rtnl(bond->curr_active_slave);
->> Thanks a lot.
->> Because kernel v4.4 needs this kind of patch, I backport this patch from
->> net-next to kernel v4.4.
+>>> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 >>
->> If it is not appropriate, I will revert this patch.
-> 	I don't understand what you mean here.
->
-> 	I've tested the patch (with my above modification), and while I
-> seem to be hitting an unrelated bug in the ARP monitor, I believe this
-> patch will misbehave when the ARP monitor is running.
->
-> 	For example, if arp_interval=1000 and miimon=0, the link state
-> notifier callback will change a slave to up should a notifier event take
-> place.  So, hypothetically, if a slave is "down" according to the ARP
-> monitor (but actually carrier up), and then experience a carrier down
-> then up transition, the slave would be set to "up" even though the ARP
-> monitor believes it to be down.
->
-> 	I'm not able to induce the speedy link flap events, so I'm not
-> sure about this portion of the patch:
->
-> +	/* Because of link flap from the slave interface, it is possilbe that
-> +	 * the notifiler is NETDEV_UP while the actual link state is down. If
-> +	 * so, it is not necessary to contiune.
-> +	 */
-> +	switch (event) {
-> +	case NETDEV_UP:
-> +		if (!link_state)
-> +			return 0;
-> +		break;
-> +
-> +	case NETDEV_DOWN:
-> +		if (link_state)
-> +			return 0;
-> +		break;
-> +	}
-> +
->
-> 	Unless I misunderstood, Emil's comments elsewhere suggest that
-> the current ixgbe driver won't cause those, though.
-This patch will avoid useless configuration because of link flap.
+>> Not really a cleanup patch :-p , but thanks for the review.
+> 
+> I'm trying to review any "small" patch from (relatively) new people.
 
-Hi, Emil
+And it is surely appreciated. Just read your reply in "cleanup patch
+pile" thread and felt I had to make the stupid remark with just fun
+intended.
 
-Does the current ixgbe driver not cause link flap?
-
-Thanks a lot.
-Zhu Yanjun
-
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
->
+Regards,
+Arend
