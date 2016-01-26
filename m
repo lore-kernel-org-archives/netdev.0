@@ -1,65 +1,128 @@
-From: Sjoerd Simons <sjoerd.simons-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: sdio: Increase the default timeouts a bit
-Date: Tue, 26 Jan 2016 10:12:52 +0100
-Message-ID: <1453799572.30130.51.camel@collabora.co.uk>
-References: <1453718849-3508-1-git-send-email-sjoerd.simons@collabora.co.uk>
- <56A64114.3010400@gmail.com>
- <CAD=FV=X-ejMLnh30TofU7dKP5WwZaXcgLaQwFs__wo9wHsv53Q@mail.gmail.com>
- <56A68064.5020702@broadcom.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net/rfkill: WARNING in rfkill_fop_read
+Date: Tue, 26 Jan 2016 10:55:08 +0100
+Message-ID: <CACT4Y+a9pNis4UH3zV4PCD5DhY-wk1+eRU8s-SM2Bm5mjpPiOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- "Franky \(Zhenhui\) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
- "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
- "open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
- "linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Adrian Hunter <adrian.hunter-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
- Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, Doug Anderson
- <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,  Arend van Spriel <aspriel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <56A68064.5020702-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE2LTAxLTI1IGF0IDIxOjA3ICswMTAwLCBBcmVuZCB2YW4gU3ByaWVsIHdyb3Rl
-Ogo+IE9uIDI1LTEtMjAxNiAyMDoyMywgRG91ZyBBbmRlcnNvbiB3cm90ZToKPiA+IEtpbmRhIGN1
-cmlvdXM6IGRvIHdlIGdldCBvbmUgb3IgdHdvIHJlYWxseSBzbG93IHJlc3BvbnNlcyBvbiBldmVy
-eQo+ID4gYm9vdHVwLCBvciBqdXN0IHNvbWUgYm9vdHVwcz/CoMKgRG8gd2UgZXZlciBzdWNjZWVk
-IGV2ZW4gd2l0aCBhIHNsb3cKPiA+IChsaWtlIDEuOCBvciAxLjkgc2Vjb25kcykgcmVzcG9uc2Us
-IG9yIGlzIGl0IGFsd2F5cyBlaXRoZXIgImZhc3QiCj4gPiBvcgo+ID4gIjIuMSIgc2Vjb25kcz8K
-PiAKPiBOb3cgdGhlc2UgYXJlIGludGVyZXN0aW5nIHF1ZXN0aW9ucyB0aGF0IEkgc2hvdWxkIGhh
-dmUgc3BpbGxlZCBvdXQgaW4KPiB0aGUgZmlyc3QgcGxhY2UuIFRoYW5rcy4KCkkgd291bGQgbmVl
-ZCB0byBnZXQgYSBtb3JlIGRhdGEgdG8gcmVhbGx5IGNvbmNsdXNpdmVseSBzYXksIGJ1dCB3aGF0
-IGkKc2F3IGluIHRlc3RpbmcgdGh1c2ZhciB3YXM6CgoqIFRoZSBpc3N1ZSBvY2N1cnMgb24gX3Nv
-bWVfIGJvb3RzCiogVGhlIGlzc3VlIHNlZW1zIHRvIGNvbWUgdXAgbW9yZSBvZnRlbiBvbiB3YXJt
-IHJlYm9vdHMKKiBUaGUgbGlrZWx5aG9vZCBzZWVtZWQgdG8gY2hhbmdlIGRlcGVuZGluZyBvbiB0
-aGUga2VybmVsCsKgIGNvbmZpZ3VyYXRpb24gKGlvdHcgd2hlbiB0aGUgaW5pdGlsaXNhdGlvbiBv
-cmRlci90aW1pbmcgY2hhbmdlZD8pCiogRm9yY2luZyB0aGUgYnJjbWZtYWMgbW9kdWxlIHRvIGxv
-YWQgbGF0ZXIgaW4gYm9vdCBzZWVtZWQgdG8gbWFrZSB0aGXCoArCoCBsaWtlbHlob29kIG9mIHRo
-ZSBpc3N1ZSBzaG93aW5nIHVwIGxvd2VyLgoqIFRoZSBzYW1wbGVzIEkgaGF2ZSB3aXRoIHRyYWNl
-cyBzaG93ZWQgZWl0aGVyIHF1aWNrIHJlc3BvbnNlcyBvbsKgCsKgIHN1Y2Nlc3Mgb3Igc2xvdyAi
-Mi4xIiBzZWNvbmRzIHJlc3BvbnNlcyBvbiBmYWlsdXJlLgoKSSdsbCB0cnkgdG8gbWFrZSBzb21l
-IHRpbWUgdG8gZ2V0IHNvbWUgc3RhdGlzdGljcyBvdmVyIGEgc2VyaWVzIG9mCmJvb3RzIHdydC4g
-dGhlIHJlc3BvbnNlIHRpbWUocykgZm9yIGNvbnRyb2wgbWVzc2FnZXMgc28gd2UgY2FuIGdldCBh
-CmJldHRlciBpZGVhIGhvdyBvZnRlbiB0aGlzIGhhcHBlbnMgYW5kIGl0cyBiZWhhdmlvdXIuCgoK
-SSBndWVzcyBvbmUgb3RoZXIgdGhpbmcgdG8gbm90ZSBpcyB0aGF0IGJvdGggRG91ZyBhbmQgbXlz
-ZWxmIHdlcmUKc2VlaW5nIHRoaXMgb24gUm9ja2NoaXAgUkszMjg4IGJhc2VkIGRldmljZXMuIEl0
-IHdvdWxkIG9mY291cnNlIGJlCmludGVyZXN0aW5nIHRvIGtub3cgaWYgdGhpcyBoYXMgYmVlbiBz
-ZWVuIG9uIG90aGVyIHR5cGVzIG9mIGRldmljZXMuLgoKLS3CoApTam9lcmQgU2ltb25zCkNvbGxh
-Ym9yYSBMdGQuCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpMaW51eC1yb2NrY2hpcCBtYWlsaW5nIGxpc3QKTGludXgtcm9ja2NoaXBAbGlzdHMuaW5mcmFk
-ZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4
-LXJvY2tjaGlwCg==
+Hello,
+
+The following program triggers WARNING message in rfkill_fop_read:
+
+------------[ cut here ]------------
+WARNING: CPU: 2 PID: 6975 at kernel/sched/core.c:7663
+__might_sleep+0x138/0x1a0()
+do not call blocking ops when !TASK_RUNNING; state=1 set at
+[<ffffffff81436e01>] prepare_to_wait_event+0x141/0x410
+kernel/sched/wait.c:210
+Modules linked in:
+CPU: 2 PID: 6975 Comm: a.out Not tainted 4.5.0-rc1+ #283
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff88003369f908 ffffffff8299a06d ffff88003369f978
+ ffff8800338e0000 ffffffff864453c0 ffff88003369f948 ffffffff8134fcf9
+ ffffffff813c9cf8 ffffed00066d3f2b ffffffff864453c0 0000000000001def
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff8299a06d>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
+ [<ffffffff8134fcf9>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:482
+ [<ffffffff8134fe09>] warn_slowpath_fmt+0xa9/0xd0 kernel/panic.c:494
+ [<ffffffff813c9cf8>] __might_sleep+0x138/0x1a0 kernel/sched/core.c:7658
+ [<ffffffff8634f934>] mutex_lock_nested+0x74/0xa50 kernel/locking/mutex.c:617
+ [<     inline     >] rfkill_readable net/rfkill/core.c:1102
+ [<ffffffff8613403d>] rfkill_fop_read+0x23d/0x3e0 net/rfkill/core.c:1125
+ [<ffffffff817a9831>] do_loop_readv_writev+0x141/0x1e0 fs/read_write.c:719
+ [<ffffffff817ad698>] do_readv_writev+0x5f8/0x6e0 fs/read_write.c:849
+ [<ffffffff817ad803>] vfs_readv+0x83/0xb0 fs/read_write.c:873
+ [<     inline     >] SYSC_readv fs/read_write.c:899
+ [<ffffffff817b0771>] SyS_readv+0x111/0x2b0 fs/read_write.c:891
+ [<ffffffff86359636>] entry_SYSCALL_64_fastpath+0x16/0x7a
+arch/x86/entry/entry_64.S:185
+---[ end trace 8fc3336c73e4219c ]---
+
+
+// autogenerated by syzkaller (http://github.com/google/syzkaller)
+#include <pthread.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+
+long r[8];
+
+void* thr(void* arg)
+{
+  switch ((long)arg) {
+  case 0:
+    r[0] = syscall(SYS_mmap, 0x20000000ul, 0x50000ul, 0x3ul, 0x32ul,
+                   0xfffffffffffffffful, 0x0ul);
+    break;
+  case 1:
+    r[2] = open("/dev/rfkill", O_RDWR);
+    break;
+  case 2:
+    *(uint64_t*)0x20042fe0 = (uint64_t)0x20042ff9;
+    *(uint64_t*)0x20042fe8 = (uint64_t)0x7;
+    *(uint64_t*)0x20042ff0 = (uint64_t)0x20032fa1;
+    *(uint64_t*)0x20042ff8 = (uint64_t)0xf4;
+    r[7] = syscall(SYS_readv, r[2], 0x20042fe0ul, 0x2ul, 0, 0, 0);
+    break;
+  }
+  return 0;
+}
+
+void worker()
+{
+  long i;
+  pthread_t th[3];
+
+  memset(r, -1, sizeof(r));
+  for (i = 0; i < 3; i++) {
+    pthread_create(&th[i], 0, thr, (void*)i);
+    usleep(10000);
+  }
+  for (i = 0; i < 3; i++) {
+    pthread_create(&th[i], 0, thr, (void*)i);
+    if (i % 2 == 0)
+      usleep(10000);
+  }
+  usleep(100000);
+}
+
+int main()
+{
+  int i, status, pids[16];
+
+  for (;;) {
+    for (i = 0; i < 16; i++) {
+      if ((pids[i] = fork()) == 0) {
+        worker();
+        exit(0);
+      }
+    }
+    for (i = 0; i < 16; i++) {
+      while (waitpid(pids[i], &status, __WALL) != pids[i]) {
+      }
+    }
+  }
+  return 0;
+}
+
+On commit 92e963f50fc74041b5e9e744c330dca48e04f08d (Jan 24).
