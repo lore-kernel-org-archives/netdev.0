@@ -1,46 +1,105 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH] net: mv643xx_eth: fix packet corruption with TSO and tiny unaligned packets.
-Date: Tue, 26 Jan 2016 16:12:35 +0100
-Message-ID: <1453821155-27561-1-git-send-email-nschichan@freebox.fr>
-Cc: Nicolas Schichan <nschichan@freebox.fr>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philipp Kirchhofer <philipp@familie-kirchhofer.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH net] tipc: fix connection abort during
+ subscription cancel
+Date: Tue, 26 Jan 2016 16:10:10 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D223C0A88@eusaamb103.ericsson.se>
+References: <1453816862-30289-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Anders Widell <anders.widell@ericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1453816862-30289-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The code in txq_put_data() would use txq->tx_curr_desc to index the
-tso_hdrs/tso_hdrs_dma buffers, for less than 8 bytes unaligned
-fragments, which is already moved to the next descriptor at the
-beginning of the function.
 
-If that fragment was the last of the the skb, the next skb would use
-that same space to place the ip headers, overwritting that small
-fragment data.
 
-Fixes: 91986fd3d335 (net: mv643xx_eth: Ensure proper data alignment in TSO TX path)
-Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> -----Original Message-----
+> From: Parthasarathy Bhuvaragan
+> Sent: Tuesday, 26 January, 2016 09:01
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net; Jon
+> Maloy; maloy@donjonn.com; Ying Xue; Richard Alpe; Anders Widell
+> Subject: [PATCH net] tipc: fix connection abort during subscription cancel
+> 
+> In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to
+> events")', we terminate the connection if the subscription creation fails.
+> In the same commit, the subscription creation result was based on the value
+> of 
+the
+>subscription pointer (set in the function) instead of the return code.
+> 
+> Unfortunately, the same function tipc_subscrp_create() handles subscription
+> cancel request. 
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index a0c0383..5583118 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -762,10 +762,10 @@ txq_put_data_tso(struct net_device *dev, struct tx_queue *txq,
- 
- 	if (length <= 8 && (uintptr_t)data & 0x7) {
- 		/* Copy unaligned small data fragment to TSO header data area */
--		memcpy(txq->tso_hdrs + txq->tx_curr_desc * TSO_HEADER_SIZE,
-+		memcpy(txq->tso_hdrs + tx_index * TSO_HEADER_SIZE,
- 		       data, length);
- 		desc->buf_ptr = txq->tso_hdrs_dma
--			+ txq->tx_curr_desc * TSO_HEADER_SIZE;
-+			+ tx_index * TSO_HEADER_SIZE;
- 	} else {
- 		/* Alignment is okay, map buffer and hand off to hardware */
- 		txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_SINGLE;
--- 
-1.9.1
+This sounds very strange, but seems to be true. I would add a comment that this misnomer will be addressed in a later commit series.
+
+>For a subscription cancellation request, the subscription
+> pointer cannot be set. Thus if a subscriber has several subscriptions and
+> cancels any of them, the connection is terminated.
+> 
+> In this commit, we terminate the connection based on the return value of
+> tipc_subscrp_create().
+> Fixes: commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to
+> events")
+> 
+> Signed-off-by: Parthasarathy Bhuvaragan
+> <parthasarathy.bhuvaragan@ericsson.com>
+> ---
+>  net/tipc/subscr.c | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c index
+> 350cca33ee0a..72bb7cdc85aa 100644
+> --- a/net/tipc/subscr.c
+> +++ b/net/tipc/subscr.c
+> @@ -293,11 +293,11 @@ static void tipc_subscrb_rcv_cb(struct net *net, int
+> conid,
+>  	struct tipc_subscription *sub = NULL;
+>  	struct tipc_net *tn = net_generic(net, tipc_net_id);
+> 
+> -	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber,
+> &sub);
+> -	if (sub)
+> -		tipc_nametbl_subscribe(sub);
+> -	else
+> -		tipc_conn_terminate(tn->topsrv, subscriber->conid);
+> +	if (tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber,
+> +				&sub))
+
+Maybe rename subscription to "subscrb", to make the if clause fit on one line?
+
+Reviewed-by:  Jon
+
+///jon
+
+> +		return tipc_conn_terminate(tn->topsrv, subscriber->conid);
+> +
+> +	tipc_nametbl_subscribe(sub);
+>  }
+> 
+>  /* Handle one request to establish a new subscriber */
+> --
+> 2.1.4
+
+
+------------------------------------------------------------------------------
+Site24x7 APM Insight: Get Deep Visibility into Application Performance
+APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+Monitor end-to-end web transactions and take corrective actions now
+Troubleshoot faster and improve end-user experience. Signup Now!
+http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
