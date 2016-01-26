@@ -1,59 +1,81 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
-Date: Tue, 26 Jan 2016 09:23:01 +0900
-Message-ID: <20160126002300.GA27856@verge.net.au>
-References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH 1/1] bonding: Use notifiers for slave link state detection
+Date: Mon, 25 Jan 2016 16:43:32 -0800
+Message-ID: <7578.1453769012@famine>
+References: <87618083B2453E4A8714035B62D679925050766D@FMSMSX105.amr.corp.intel.com> <1453371388-30230-1-git-send-email-zyjzyj2000@gmail.com> <1453371388-30230-2-git-send-email-zyjzyj2000@gmail.com>
+Cc: mkubecek@suse.cz, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org, boris.shteinbock@windriver.com,
+	emil.s.tantilov@intel.com
+To: zyjzyj2000@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:46173 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750997AbcAZAnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 19:43:39 -0500
+In-reply-to: <1453371388-30230-2-git-send-email-zyjzyj2000@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2016 at 12:52:55AM +0900, Yoshihiro Kaneko wrote:
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> 
-> This patch supports the following interrupts.
-> 
-> - One interrupt for multiple (descriptor, error, management)
-> - One interrupt for emac
-> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
-> 
-> This patch improve efficiency of the interrupt handler by adding the
-> interrupt handler corresponding to each interrupt source described
-> above. Additionally, it reduces the number of times of the access to
-> EthernetAVB IF.
-> 
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+<zyjzyj2000@gmail.com> wrote:
 
-I have tested this patch and the result seems positive.
-Please let me know if any more/different testing would help.
+>From: Zhu Yanjun <zyjzyj2000@gmail.com>
+>
+>Bonding will utilize notifier callbacks to detect slave
+>link state changes. It is intended to be used with miimon
+>set to zero, and does not support the updelay or downdelay
+>options to bonding.
+>
+>Because of link flap from the slave interface, if the notifier
+>is NETDEV_UP while the actual link state is down, it is not
+>necessary to continue.
+>
+>Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 
-My test was to examine /proc/interrupts after booting a Salvator-X board
-using NFS root. The test used net-next merged with v4.5-rc1 (for
-r8a7795/Salvator-X support). I then applied this patch.
+	I haven't signed off on this patch.
 
-Without this patch:
-# grep eth /proc/interrupts
- 74:      13002          0          0          0     GIC-0  93 Level     eth0
- 76:          3          0          0          0     GIC-0  95 Level     eth0
+	I've just started some testing, but as before immediately get an
+RCU warning; it looks to be coming from bond_miimon_inspect_slave();
 
-With this patch:
+[  316.473050] bond1: Enslaving eth1 as a backup interface with an up link
+[  316.473059] 
+[  316.473806] ===============================
+[  316.475630] [ INFO: suspicious RCU usage. ]
+[  316.477519] 4.4.0+ #38 Not tainted
+[  316.479094] -------------------------------
+[  316.480765] drivers/net/bonding/bond_main.c:2024 suspicious rcu_dereference_check() usage!
 
-# grep eth /proc/interrupts
- 52:       8744          0          0          0     GIC-0  71 Level     eth0:ch0:rx_be
- 53:          0          0          0          0     GIC-0  72 Level     eth0:ch1:rx_nc
- 70:       4277          0          0          0     GIC-0  89 Level     eth0:ch18:tx_be
- 71:          0          0          0          0     GIC-0  90 Level     eth0:ch19:tx_nc
- 74:          0          0          0          0     GIC-0  93 Level     eth0:ch22:multi
- 76:          3          0          0          0     GIC-0  95 Level     eth0:ch24:emac
+	This is presumably because the "case NETDEV_DOWN" call to
+bond_miimon_inspect_slave does not hold RCU.  It does hold RTNL, though,
+which should be safe for this usage (RTNL mutexes changes to the active
+slave).  The appended patch on top of the original makes the warning go
+away.
 
-Please feel free to add:
+	I'm still testing the patch and have no comment about its
+functionality as yet.
 
-Tested-by: Simon Horman <horms+renesas@verge.net.au>
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 9f67948..e3faee9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2014,14 +2014,14 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
+ 
+ /*-------------------------------- Monitoring -------------------------------*/
+ 
+-/* called with rcu_read_lock() */
++/* called with rcu_read_lock() or RTNL */
+ static int bond_miimon_inspect_slave(struct bonding *bond, struct slave *slave,
+ 				     unsigned long event)
+ {
+ 	int link_state;
+ 	bool ignore_updelay;
+ 
+-	ignore_updelay = !rcu_dereference(bond->curr_active_slave);
++	ignore_updelay = !rcu_dereference_rtnl(bond->curr_active_slave);
+ 
+ 	slave->new_link = BOND_LINK_NOCHANGE;
+ 
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
