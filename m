@@ -1,131 +1,178 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v4)
-Date: Tue, 26 Jan 2016 15:45:52 +0800
-Message-ID: <56A72430.4030107@gmail.com>
-References: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
- <20160121083506.GA2251@nanopsycho.orion> <56A1AE48.4000908@oracle.com>
- <20160122065207.GA2211@nanopsycho.orion>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH V6 0/8] introduce Hyper-V VM Socket(hv_sock)
+Date: Tue, 26 Jan 2016 01:39:43 -0800
+Message-ID: <1453801183-3187-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sd@queasysnail.net,
-	jay.vosburgh@canonical.com, zhuyj <zyjzyj2000@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>,
-	Wengang Wang <wen.gang.wang@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33603 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932223AbcAZHp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 02:45:27 -0500
-Received: by mail-pf0-f179.google.com with SMTP id e65so95868178pfe.0
-        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 23:45:26 -0800 (PST)
-In-Reply-To: <20160122065207.GA2211@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pebolle@tiscali.nl, dan.carpenter@oracle.com, stefanha@redhat.com
+To: gregkh@linuxfoundation.org, davem@davemloft.net,
+ stephen@networkplumber.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
+ olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+ vkuznets@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 01/22/2016 02:52 PM, Jiri Pirko wrote:
-> Fri, Jan 22, 2016 at 05:21:28AM CET, wen.gang.wang@oracle.com wrote:
->>
->> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8821=E6=97=A5 16:35, Jiri Pirko =E5=86=
-=99=E9=81=93:
->>> Thu, Jan 21, 2016 at 06:32:58AM CET, wen.gang.wang@oracle.com wrote=
-:
->>>> In a bonding setting, we determines fragment size according to MTU=
- and
->>>> PMTU associated to the bonding master. If the slave finds the frag=
-ment
->>>> size is too big, it drops the fragment and calls ip_rt_update_pmtu=
-(),
->>>> passing _skb_ and _pmtu_, trying to update the path MTU.
->>>> Problem is that the target device that function ip_rt_update_pmtu =
-actually
->>>> tries to update is the slave (skb->dev), not the master. Thus sinc=
-e no
->>>> PMTU change happens on master, the fragment size for later packets=
- doesn't
->>>> change so all later fragments/packets are dropped too.
->>>>
->>>> The fix is letting build_skb_flow_key() take care of the transitio=
-n of
->>>> device index from bonding slave to the master. That makes the mast=
-er become
->>>> the target device that ip_rt_update_pmtu tries to update PMTU to.
->>>>
->>>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->>>> ---
->>>> net/ipv4/route.c | 9 +++++++++
->>>> 1 file changed, 9 insertions(+)
->>>>
->>>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->>>> index 85f184e..7e766b5 100644
->>>> --- a/net/ipv4/route.c
->>>> +++ b/net/ipv4/route.c
->>>> @@ -524,10 +524,19 @@ static void build_skb_flow_key(struct flowi4=
- *fl4, const struct sk_buff *skb,
->>>> {
->>>> 	const struct iphdr *iph =3D ip_hdr(skb);
->>>> 	int oif =3D skb->dev->ifindex;
->>>> +	struct net_device *master;
->>>> 	u8 tos =3D RT_TOS(iph->tos);
->>>> 	u8 prot =3D iph->protocol;
->>>> 	u32 mark =3D skb->mark;
->>>>
->>>> +	if (netif_is_bond_slave(skb->dev)) {
->>>> +		rcu_read_lock();
->>>> +		master =3D netdev_master_upper_dev_get_rcu(skb->dev);
->>>> +		if (master)
->>>> +			oif =3D master->ifindex;
->>>> +		rcu_read_unlock();
->>>> +	}
->>> This is certainly not correct as it should not be bond-specific but
->>> rather generic.
->> Then what you would suggest to fix it?
->>> Note that you may have bond over bond or bridge over
->>> bond or other scenarios, which this patch ignores.
->> I don't think bond over bond is a good configuration. Do you have a =
-real use
->> case for that configuration?
-> Stacking of multiple master devices is absolutelly common.
->
-> You have to go in the upper tree all the way up, for all master devic=
-e
-> types.
-I am not sure that the following can work or not.
-Just a test patch.
+Changes since v1:
+- updated "[PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature"
+- added __init and __exit for the module init/exit functions
+- net/hv_sock/Kconfig: "default m" -> "default m if HYPERV"
+- MODULE_LICENSE: "Dual MIT/GPL" -> "Dual BSD/GPL" 
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 85f184e..12b4982 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -523,10 +523,19 @@ static void build_skb_flow_key(struct flowi4 *fl4=
-,=20
-const struct sk_buff *skb,
-                                const struct sock *sk)
-  {
-         const struct iphdr *iph =3D ip_hdr(skb);
--       int oif =3D skb->dev->ifindex;
-+       struct net_device *master =3D NULL;
-         u8 tos =3D RT_TOS(iph->tos);
-         u8 prot =3D iph->protocol;
-         u32 mark =3D skb->mark;
-+       int oif =3D skb->dev->ifindex;
-+
-+       if (skb->dev->flags & IFF_SLAVE) {
-+               rcu_read_lock();
-+               master =3D skb_dst(skb)->dev;
-+               if (master)
-+                       oif =3D master->ifindex;
-+               rcu_read_unlock();
-+       }
+Changes since v2:
+- fixed various coding issue pointed out by David Miller
+- fixed indentation issues
+- removed pr_debug in net/hv_sock/af_hvsock.c
+- used reverse-Chrismas-tree style for local variables.
+- EXPORT_SYMBOL -> EXPORT_SYMBOL_GPL
 
-         __build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
-  }
+Changes since v3:
+- fixed a few coding issue pointed by Vitaly Kuznetsov and Dan Carpenter
+- fixed the ret value in vmbus_recvpacket_hvsock on error
+- fixed the style of multi-line comment: vmbus_get_hvsock_rw_status()
 
-Thanks a lot.
-Zhu Yanjun
->
->
->> thanks,
->> wengang
->>
+Changes since v4 (https://lkml.org/lkml/2015/7/28/404):
+- addressed all the comments about V4.
+- treat the hvsock offers/channels as special VMBus devices
+- add a mechanism to pass hvsock events to the hvsock driver
+- fixed some corner cases with proper locking when a connection is closed
+- rebased to the latest Greg's tree
+
+Changes since v5 (https://lkml.org/lkml/2015/12/24/103):
+- addressed the coding style issues (Vitaly Kuznetsov & David Miller, thanks!)
+- used a better coding for the per-channel rescind callback (Thank Vitaly!)
+- avoided the introduction of new VMBUS driver APIs vmbus_sendpacket_hvsock()
+and vmbus_recvpacket_hvsock() and used vmbus_sendpacket()/vmbus_recvpacket()
+in the higher level (i.e., the vmsock driver). Thank Vitaly!
+
+Hyper-V VM Socket (hv_sock) is a byte-stream based communication mechanism
+between Windowsd 10 (or later) host and a guest. It's kind of TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
+With Hyper-V VM Sockets, applications between the host and a guest can
+talk with each other directly by the traditional BSD-style socket APIs.
+
+The patchset implements the necessary support in the guest side by adding
+the necessary new APIs in the vmbus driver, and introducing a new driver
+hv_sock.ko, which implements_a new socket address family AF_HYPERV.
+
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware's VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://thread.gmane.org/gmane.linux.network/365205.
+
+However, though Hyper-V VM Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
+
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
+
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
+
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like    .notify_recv_init
+        .notify_recv_pre_block
+        .notify_recv_pre_dequeue
+        .notify_recv_post_dequeue
+        .notify_send_init
+        .notify_send_pre_block
+        .notify_send_pre_enqueue
+        .notify_send_post_enqueue
+etc.
+
+So I think we'd better introduce a new address family: AF_HYPERV.
+
+Please review the patchset.
+
+Looking forward to your comments!
+
+Dexuan Cui (9):
+  Drivers: hv: vmbus: add a helper function to set a channel's pending
+    send size
+  Drivers: hv: vmbus: define the new offer type for Hyper-V socket
+    (hvsock)
+  Drivers: hv: vmbus: define a new VMBus message type for hvsock
+  Drivers: hv: ring_buffer: enhance hv_ringbuffer_read() to support
+    hvsock
+  Drivers: hv: vmbus: add APIs to send/recv hvsock packets
+  Drivers: hv: vmbus: add a hvsock flag in struct hv_driver
+  Drivers: hv: vmbus: add a mechanism to pass hvsock events to the
+    hvsock driver
+  Drivers: hv: vmbus: add an API vmbus_hvsock_device_unregister()
+  hvsock: introduce Hyper-V VM Sockets feature
+
+ MAINTAINERS                 |    2 +
+ drivers/hv/channel.c        |   84 ++-
+ drivers/hv/channel_mgmt.c   |   53 +-
+ drivers/hv/connection.c     |    4 +-
+ drivers/hv/hyperv_vmbus.h   |   13 +-
+ drivers/hv/ring_buffer.c    |   54 +-
+ drivers/hv/vmbus_drv.c      |    4 +
+ include/linux/hyperv.h      |   88 +++
+ include/linux/socket.h      |    4 +-
+ include/net/af_hvsock.h     |   44 ++
+ include/uapi/linux/hyperv.h |   16 +
+ net/Kconfig                 |    1 +
+ net/Makefile                |    1 +
+ net/hv_sock/Kconfig         |   10 +
+ net/hv_sock/Makefile        |    3 +
+ net/hv_sock/af_hvsock.c     | 1473 +++++++++++++++++++++++++++++++++++++++++++
+ 16 files changed, 1830 insertions(+), 24 deletions(-)
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
+-- 
+2.1.4
+
+Dexuan Cui (8):
+  Drivers: hv: vmbus: add a helper function to set a channel's pending
+    send size
+  Drivers: hv: vmbus: define the new offer type for Hyper-V socket
+    (hvsock)
+  Drivers: hv: vmbus: vmbus_sendpacket_ctl: hvsock: avoid unnecessary
+    signaling
+  Drivers: hv: vmbus: define a new VMBus message type for hvsock
+  Drivers: hv: vmbus: add a hvsock flag in struct hv_driver
+  Drivers: hv: vmbus: add a per-channel rescind callback
+  Drivers: hv: vmbus: add an API vmbus_hvsock_device_unregister()
+  hvsock: introduce Hyper-V Socket feature
+
+ MAINTAINERS                 |    2 +
+ drivers/hv/channel.c        |   21 +-
+ drivers/hv/channel_mgmt.c   |   46 +-
+ drivers/hv/connection.c     |    4 +-
+ drivers/hv/vmbus_drv.c      |    4 +
+ include/linux/hyperv.h      |   67 ++
+ include/linux/socket.h      |    4 +-
+ include/net/af_hvsock.h     |   51 ++
+ include/uapi/linux/hyperv.h |   16 +
+ net/Kconfig                 |    1 +
+ net/Makefile                |    1 +
+ net/hv_sock/Kconfig         |   10 +
+ net/hv_sock/Makefile        |    3 +
+ net/hv_sock/af_hvsock.c     | 1480 +++++++++++++++++++++++++++++++++++++++++++
+ 14 files changed, 1702 insertions(+), 8 deletions(-)
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
+-- 
+2.1.0
