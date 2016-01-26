@@ -1,242 +1,131 @@
-From: jason <huzhijiang@gmail.com>
-Subject: Re: [PATCH net-next v2] tipc: add peer removal
-	functionality
-Date: Tue, 26 Jan 2016 15:36:39 +0800
-Message-ID: <CAOTeD=CGvLkfgE7b3DDJgFf26X5afrnN1VJqDoV0V4XR8JD_2w@mail.gmail.com>
-References: <1452607696-24216-1-git-send-email-richard.alpe@ericsson.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH] net: take care of bonding in build_skb_flow_key (v4)
+Date: Tue, 26 Jan 2016 15:45:52 +0800
+Message-ID: <56A72430.4030107@gmail.com>
+References: <1453354378-3018-1-git-send-email-wen.gang.wang@oracle.com>
+ <20160121083506.GA2251@nanopsycho.orion> <56A1AE48.4000908@oracle.com>
+ <20160122065207.GA2211@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: Richard Alpe <richard.alpe@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1452607696-24216-1-git-send-email-richard.alpe@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sd@queasysnail.net,
+	jay.vosburgh@canonical.com, zhuyj <zyjzyj2000@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+	Wengang Wang <wen.gang.wang@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33603 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932223AbcAZHp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 02:45:27 -0500
+Received: by mail-pf0-f179.google.com with SMTP id e65so95868178pfe.0
+        for <netdev@vger.kernel.org>; Mon, 25 Jan 2016 23:45:26 -0800 (PST)
+In-Reply-To: <20160122065207.GA2211@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/22/2016 02:52 PM, Jiri Pirko wrote:
+> Fri, Jan 22, 2016 at 05:21:28AM CET, wen.gang.wang@oracle.com wrote:
+>>
+>> =E5=9C=A8 2016=E5=B9=B401=E6=9C=8821=E6=97=A5 16:35, Jiri Pirko =E5=86=
+=99=E9=81=93:
+>>> Thu, Jan 21, 2016 at 06:32:58AM CET, wen.gang.wang@oracle.com wrote=
+:
+>>>> In a bonding setting, we determines fragment size according to MTU=
+ and
+>>>> PMTU associated to the bonding master. If the slave finds the frag=
+ment
+>>>> size is too big, it drops the fragment and calls ip_rt_update_pmtu=
+(),
+>>>> passing _skb_ and _pmtu_, trying to update the path MTU.
+>>>> Problem is that the target device that function ip_rt_update_pmtu =
+actually
+>>>> tries to update is the slave (skb->dev), not the master. Thus sinc=
+e no
+>>>> PMTU change happens on master, the fragment size for later packets=
+ doesn't
+>>>> change so all later fragments/packets are dropped too.
+>>>>
+>>>> The fix is letting build_skb_flow_key() take care of the transitio=
+n of
+>>>> device index from bonding slave to the master. That makes the mast=
+er become
+>>>> the target device that ip_rt_update_pmtu tries to update PMTU to.
+>>>>
+>>>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>>>> ---
+>>>> net/ipv4/route.c | 9 +++++++++
+>>>> 1 file changed, 9 insertions(+)
+>>>>
+>>>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>>>> index 85f184e..7e766b5 100644
+>>>> --- a/net/ipv4/route.c
+>>>> +++ b/net/ipv4/route.c
+>>>> @@ -524,10 +524,19 @@ static void build_skb_flow_key(struct flowi4=
+ *fl4, const struct sk_buff *skb,
+>>>> {
+>>>> 	const struct iphdr *iph =3D ip_hdr(skb);
+>>>> 	int oif =3D skb->dev->ifindex;
+>>>> +	struct net_device *master;
+>>>> 	u8 tos =3D RT_TOS(iph->tos);
+>>>> 	u8 prot =3D iph->protocol;
+>>>> 	u32 mark =3D skb->mark;
+>>>>
+>>>> +	if (netif_is_bond_slave(skb->dev)) {
+>>>> +		rcu_read_lock();
+>>>> +		master =3D netdev_master_upper_dev_get_rcu(skb->dev);
+>>>> +		if (master)
+>>>> +			oif =3D master->ifindex;
+>>>> +		rcu_read_unlock();
+>>>> +	}
+>>> This is certainly not correct as it should not be bond-specific but
+>>> rather generic.
+>> Then what you would suggest to fix it?
+>>> Note that you may have bond over bond or bridge over
+>>> bond or other scenarios, which this patch ignores.
+>> I don't think bond over bond is a good configuration. Do you have a =
+real use
+>> case for that configuration?
+> Stacking of multiple master devices is absolutelly common.
+>
+> You have to go in the upper tree all the way up, for all master devic=
+e
+> types.
+I am not sure that the following can work or not.
+Just a test patch.
 
-On Jan 12, 2016 10:09 PM, "Richard Alpe" <richard.alpe@ericsson.com> wrote:
->
-> Add TIPC_NL_PEER_REMOVE netlink command. This command can remove
-> an offline peer node from the internal data structures.
->
-> This will be supported by the tipc user space tool in iproute2.
->
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> ---
->  include/uapi/linux/tipc_netlink.h |  1 +
->  net/tipc/net.c                    |  4 +--
->  net/tipc/net.h                    |  2 ++
->  net/tipc/netlink.c                |  5 ++++
->  net/tipc/node.c                   | 60
-+++++++++++++++++++++++++++++++++++----
->  net/tipc/node.h                   |  3 +-
->  6 files changed, 66 insertions(+), 9 deletions(-)
->
-> diff --git a/include/uapi/linux/tipc_netlink.h
-b/include/uapi/linux/tipc_netlink.h
-> index d4c8f14..25eb645 100644
-> --- a/include/uapi/linux/tipc_netlink.h
-> +++ b/include/uapi/linux/tipc_netlink.h
-> @@ -56,6 +56,7 @@ enum {
->         TIPC_NL_NET_GET,
->         TIPC_NL_NET_SET,
->         TIPC_NL_NAME_TABLE_GET,
-> +       TIPC_NL_PEER_REMOVE,
->
->         __TIPC_NL_CMD_MAX,
->         TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-> diff --git a/net/tipc/net.c b/net/tipc/net.c
-> index 77bf911..042d4ce 100644
-> --- a/net/tipc/net.c
-> +++ b/net/tipc/net.c
-> @@ -42,7 +42,7 @@
->  #include "node.h"
->  #include "bcast.h"
->
-> -static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1]
-= {
-> +const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
->         [TIPC_NLA_NET_UNSPEC]   = { .type = NLA_UNSPEC },
->         [TIPC_NLA_NET_ID]       = { .type = NLA_U32 }
->  };
-> @@ -139,7 +139,7 @@ void tipc_net_stop(struct net *net)
->                               tn->own_addr);
->         rtnl_lock();
->         tipc_bearer_stop(net);
-> -       tipc_node_stop(net);
-> +       tipc_node_stop_net(net);
->         rtnl_unlock();
->
->         pr_info("Left network mode\n");
-> diff --git a/net/tipc/net.h b/net/tipc/net.h
-> index 77a7a11..c7c2549 100644
-> --- a/net/tipc/net.h
-> +++ b/net/tipc/net.h
-> @@ -39,6 +39,8 @@
->
->  #include <net/genetlink.h>
->
-> +extern const struct nla_policy tipc_nl_net_policy[];
-> +
->  int tipc_net_start(struct net *net, u32 addr);
->
->  void tipc_net_stop(struct net *net);
-> diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-> index 8975b01..9019df8 100644
-> --- a/net/tipc/netlink.c
-> +++ b/net/tipc/netlink.c
-> @@ -145,6 +145,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
->                 .cmd    = TIPC_NL_NAME_TABLE_GET,
->                 .dumpit = tipc_nl_name_table_dump,
->                 .policy = tipc_nl_policy,
-> +       },
-> +       {
-> +               .cmd    = TIPC_NL_PEER_REMOVE,
-> +               .doit   = tipc_nl_peer_rm,
-> +               .policy = tipc_nl_policy,
->         }
->  };
->
-> diff --git a/net/tipc/node.c b/net/tipc/node.c
-> index fa97d96..988cdd9 100644
-> --- a/net/tipc/node.c
-> +++ b/net/tipc/node.c
-> @@ -399,17 +399,21 @@ static void tipc_node_delete(struct tipc_node *node)
->         kfree_rcu(node, rcu);
->  }
->
-> -void tipc_node_stop(struct net *net)
-> +static void tipc_node_stop(struct tipc_node *node)
-> +{
-> +       if (del_timer(&node->timer))
-> +               tipc_node_put(node);
-> +       tipc_node_put(node);
-> +}
-> +
-> +void tipc_node_stop_net(struct net *net)
->  {
->         struct tipc_net *tn = net_generic(net, tipc_net_id);
->         struct tipc_node *node, *t_node;
->
->         spin_lock_bh(&tn->node_list_lock);
-> -       list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
-> -               if (del_timer(&node->timer))
-> -                       tipc_node_put(node);
-> -               tipc_node_put(node);
-> -       }
-> +       list_for_each_entry_safe(node, t_node, &tn->node_list, list)
-> +               tipc_node_stop(node);
->         spin_unlock_bh(&tn->node_list_lock);
->  }
->
-> @@ -1529,6 +1533,50 @@ discard:
->         kfree_skb(skb);
->  }
->
-> +int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info)
-> +{
-> +       int err;
-> +       u32 addr;
-> +       struct net *net = sock_net(skb->sk);
-> +       struct nlattr *attrs[TIPC_NLA_NET_MAX + 1];
-> +       struct tipc_net *tn = net_generic(net, tipc_net_id);
-> +       struct tipc_node *peer;
-> +
-> +       /* We identify the peer by its net */
-> +       if (!info->attrs[TIPC_NLA_NET])
-> +               return -EINVAL;
-> +
-> +       err = nla_parse_nested(attrs, TIPC_NLA_NET_MAX,
-> +                              info->attrs[TIPC_NLA_NET],
-> +                              tipc_nl_net_policy);
-> +       if (err)
-> +               return err;
-> +
-> +       if (!attrs[TIPC_NLA_NET_ADDR])
-> +               return -EINVAL;
-> +
-> +       addr = nla_get_u32(attrs[TIPC_NLA_NET_ADDR]);
-> +
-> +       spin_lock_bh(&tn->node_list_lock);
-> +       list_for_each_entry_rcu(peer, &tn->node_list, list) {
-> +               if (peer->addr != addr)
-> +                       continue;
-> +
-> +               if (peer->state == SELF_DOWN_PEER_DOWN ||
-> +                   peer->state == SELF_DOWN_PEER_LEAVING) {
-> +                       tipc_node_stop(peer);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 85f184e..12b4982 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -523,10 +523,19 @@ static void build_skb_flow_key(struct flowi4 *fl4=
+,=20
+const struct sk_buff *skb,
+                                const struct sock *sk)
+  {
+         const struct iphdr *iph =3D ip_hdr(skb);
+-       int oif =3D skb->dev->ifindex;
++       struct net_device *master =3D NULL;
+         u8 tos =3D RT_TOS(iph->tos);
+         u8 prot =3D iph->protocol;
+         u32 mark =3D skb->mark;
++       int oif =3D skb->dev->ifindex;
++
++       if (skb->dev->flags & IFF_SLAVE) {
++               rcu_read_lock();
++               master =3D skb_dst(skb)->dev;
++               if (master)
++                       oif =3D master->ifindex;
++               rcu_read_unlock();
++       }
 
-I think here is not safe to do tipc_node_stop(). Because here we are not
-sure that node's refcount  really can drop to zero,thus, not sure
-tipc_node_delete() can be execute in a critical region which protected by
-node_list_lock spin lock. This may result in tipc_create_node() to return a
-to-be-deleted node which is not in the node list any more.
-> +
-> +                       spin_unlock_bh(&tn->node_list_lock);
-> +                       return 0;
-> +               }
-> +               spin_unlock_bh(&tn->node_list_lock);
-> +               return -EBUSY;
-> +       }
-> +       spin_unlock_bh(&tn->node_list_lock);
-> +
-> +       return -ENXIO;
-> +}
-> +
->  int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  {
->         int err;
-> diff --git a/net/tipc/node.h b/net/tipc/node.h
-> index f39d9d0..8dfb6ba 100644
-> --- a/net/tipc/node.h
-> +++ b/net/tipc/node.h
-> @@ -51,7 +51,7 @@ enum {
->  #define TIPC_NODE_CAPABILITIES TIPC_BCAST_SYNCH
->  #define INVALID_BEARER_ID -1
->
-> -void tipc_node_stop(struct net *net);
-> +void tipc_node_stop_net(struct net *net);
->  void tipc_node_check_dest(struct net *net, u32 onode,
->                           struct tipc_bearer *bearer,
->                           u16 capabilities, u32 signature,
-> @@ -75,5 +75,6 @@ int tipc_nl_node_dump_link(struct sk_buff *skb, struct
-netlink_callback *cb);
->  int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct genl_info
-*info);
->  int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
->  int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
-> +int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info);
->
->  #endif
-> --
-> 2.1.4
+         __build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
+  }
+
+Thanks a lot.
+Zhu Yanjun
 >
 >
->
-------------------------------------------------------------------------------
-> Site24x7 APM Insight: Get Deep Visibility into Application Performance
-> APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-> Monitor end-to-end web transactions and take corrective actions now
-> Troubleshoot faster and improve end-user experience. Signup Now!
-> http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
-> _______________________________________________
-> tipc-discussion mailing list
-> tipc-discussion@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/tipc-discussion
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
+>> thanks,
+>> wengang
+>>
