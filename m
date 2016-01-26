@@ -1,8 +1,7 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V6 5/8] Drivers: hv: vmbus: add a hvsock flag in struct
- hv_driver
-Date: Tue, 26 Jan 2016 01:44:52 -0800
-Message-ID: <1453801492-3397-1-git-send-email-decui@microsoft.com>
+Subject: [PATCH V6 6/8] Drivers: hv: vmbus: add a per-channel rescind callback
+Date: Tue, 26 Jan 2016 01:45:01 -0800
+Message-ID: <1453801501-3431-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,57 +23,66 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Only the coming hv_sock driver has a "true" value for this flag.
-
-We treat the hvsock offers/channels as special VMBus devices.
-Since the hv_sock driver handles all the hvsock offers/channels, we need to
-tweak vmbus_match() for hv_sock driver, so we introduce this flag.
+This will be used by the coming hv_sock driver.
 
 Signed-off-by: Dexuan Cui <decui@microsoft.com>
 ---
- drivers/hv/vmbus_drv.c |  4 ++++
- include/linux/hyperv.h | 14 ++++++++++++++
- 2 files changed, 18 insertions(+)
+ drivers/hv/channel_mgmt.c | 11 +++++++++++
+ include/linux/hyperv.h    |  9 +++++++++
+ 2 files changed, 20 insertions(+)
 
-diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
-index 328e4c3..c1c9d71 100644
---- a/drivers/hv/vmbus_drv.c
-+++ b/drivers/hv/vmbus_drv.c
-@@ -562,6 +562,10 @@ static int vmbus_match(struct device *device, struct device_driver *driver)
- 	struct hv_driver *drv = drv_to_hv_drv(driver);
- 	struct hv_device *hv_dev = device_to_hv_device(device);
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index 4611b50..b782944 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -608,6 +608,10 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 	spin_unlock_irqrestore(&channel->lock, flags);
  
-+	/* The hv_sock driver handles all hv_sock offers. */
-+	if (is_hvsock_channel(hv_dev->channel))
-+		return drv->hvsock;
+ 	if (channel->device_obj) {
++		if (channel->chn_rescind_callback) {
++			channel->chn_rescind_callback(channel);
++			return;
++		}
+ 		/*
+ 		 * We will have to unregister this device from the
+ 		 * driver core.
+@@ -977,3 +981,10 @@ bool vmbus_are_subchannels_present(struct vmbus_channel *primary)
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(vmbus_are_subchannels_present);
 +
- 	if (hv_vmbus_get_id(drv->id_table, &hv_dev->dev_type))
- 		return 1;
- 
++void vmbus_set_chn_rescind_callback(struct vmbus_channel *channel,
++		void (*chn_rescind_cb)(struct vmbus_channel *))
++{
++	channel->chn_rescind_callback = chn_rescind_cb;
++}
++EXPORT_SYMBOL_GPL(vmbus_set_chn_rescind_callback);
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index b835d80..5587711 100644
+index 5587711..ff89d4c 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -964,6 +964,20 @@ extern void vmbus_ontimer(unsigned long data);
- struct hv_driver {
- 	const char *name;
+@@ -740,6 +740,12 @@ struct vmbus_channel {
+ 	void (*sc_creation_callback)(struct vmbus_channel *new_sc);
  
-+	/*
-+	 * A hvsock offer, which has a VMBUS_CHANNEL_TLNPI_PROVIDER_OFFER
-+	 * channel flag, actually doesn't mean a synthetic device because the
-+	 * offer's if_type/if_instance can change for every new hvsock
-+	 * connection.
-+	 *
-+	 * However, to facilitate the notification of new-offer/rescind-offer
-+	 * from vmbus driver to hvsock driver, we can handle hvsock offer as
-+	 * a special vmbus device, and hence we need the below flag to
-+	 * indicate if the driver is the hvsock driver or not: we need to
-+	 * specially treat the hvosck offer & driver in vmbus_match().
+ 	/*
++	 * Channel rescind callback. Some channels (the hvsock ones), need to
++	 * register a callback which is invoked in vmbus_onoffer_rescind().
 +	 */
-+	bool hvsock;
++	void (*chn_rescind_callback)(struct vmbus_channel *channel);
 +
- 	/* the device type supported by this driver */
- 	uuid_le dev_type;
- 	const struct hv_vmbus_device_id *id_table;
++	/*
+ 	 * The spinlock to protect the structure. It is being used to protect
+ 	 * test-and-set access to various attributes of the structure as well
+ 	 * as all sc_list operations.
+@@ -825,6 +831,9 @@ int vmbus_request_offers(void);
+ void vmbus_set_sc_create_callback(struct vmbus_channel *primary_channel,
+ 			void (*sc_cr_cb)(struct vmbus_channel *new_sc));
+ 
++void vmbus_set_chn_rescind_callback(struct vmbus_channel *channel,
++		void (*chn_rescind_cb)(struct vmbus_channel *));
++
+ /*
+  * Retrieve the (sub) channel on which to send an outgoing request.
+  * When a primary channel has multiple sub-channels, we choose a
 -- 
 2.1.0
