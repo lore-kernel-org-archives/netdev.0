@@ -1,31 +1,36 @@
-From: primfinance <info@primefinance.com>
-Subject: Kredit?
-Date: Mon, 25 Jan 2016 02:20:17 -0800
-Message-ID: <20160125102519.43CAA140A5CD@mail.smileenergy.it>
-Reply-To: premsfinancialltd@outlook.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/irda: use-after-free in ircomm_param_request
+Date: Tue, 26 Jan 2016 10:13:29 -0800
+Message-ID: <CAM_iQpUbCggUxAr6OpLx9CM3Gy2N4+B+2+-cgVs=Dd1z_GdL4A@mail.gmail.com>
+References: <CACT4Y+bP+_KTgjksXJbjOj-CjgUgKU=dR6BVuA81kmJ9b9kJ9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@primefinance.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smileenergy.it ([95.110.202.141]:48595 "EHLO
-	mail.smileenergy.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932586AbcAZSKu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 13:10:50 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+bP+_KTgjksXJbjOj-CjgUgKU=dR6BVuA81kmJ9b9kJ9g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brauchen Sie ein Gesch=E4ft oder einen pers=F6nlichen Kredit?
-Wir haben die F=E4higkeit zur Gesch=E4fts- und pers=F6nlichen Kredit /
-Darlehen an Unternehmen und Individuum zu 3 % Zins.
-Unser Firmensitz ist in China, Europa und Amerika.
-=46=FCr weitere Informationen Kontakt E-Mail: premsfinancialltd@outlook=
-=2Ecom
+On Mon, Jan 25, 2016 at 7:59 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> It seems that skb can be freed after skb_put() and spinlock unlock,
+> but ircomm_param_request reads skb->len afterwards:
+>
+> int ircomm_param_request(struct ircomm_tty_cb *self, __u8 pi, int flush)
+> {
+>     ...
+>     skb_put(skb, count);
+>     spin_unlock_irqrestore(&self->spinlock, flags);
+>     pr_debug("%s(), skb->len=%d\n", __func__ , skb->len);
+>
 
-Hinweis: Ihre Antwort nur auf diese E-Mail zu =FCbermitteln: premsfinan=
-cialltd@outlook.com
-
-
-Danke
-PFS / China Kredite
+This looks correct to me. We can either get rid of that debugging
+print or move it under spinlock.
