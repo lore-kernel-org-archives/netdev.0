@@ -1,40 +1,51 @@
-From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RESEND net] nfc: use GFP_USER for user-controlled kmalloc
-Date: Tue, 26 Jan 2016 15:12:09 -0800
-Message-ID: <CAM_iQpWawou1Z_NnAzM5TxH7TUQUCAhf+k96PErNV8q_SOCShw@mail.gmail.com>
-References: <1453830820-27104-1-git-send-email-xiyou.wangcong@gmail.com>
-	<CAGRGNgV7MUXdk+e8Arx05yiWX6owei5dmnFQ-TBfs55jfy+qBw@mail.gmail.com>
+From: Noam Camus <noamc@ezchip.com>
+Subject: Re: [PATCH 13/22] net: Fix dependencies for !HAS_IOMEM archs
+Date: Tue, 26 Jan 2016 23:15:29 +0000
+Message-ID: <HE1PR02MB13871CED63A989B03AF11B56D6D80@HE1PR02MB1387.eurprd02.prod.outlook.com>
+References: <1453760661-1444-1-git-send-email-richard@nod.at>,<1453760661-1444-14-git-send-email-richard@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGRGNgV7MUXdk+e8Arx05yiWX6owei5dmnFQ-TBfs55jfy+qBw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "user-mode-linux-devel@lists.sourceforge.net"
+	<user-mode-linux-devel@lists.sourceforge.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Tal Zilcer <talz@ezchip.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Brodkin <abrodkin@synopsys.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Weinberger <richard@nod.at>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453760661-1444-14-git-send-email-richard@nod.at>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 26, 2016 at 2:55 PM, Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Hi Cong,
->
-> On Wed, Jan 27, 2016 at 4:53 AM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
-> A commit message would be nice. A brief rundown of how this is called
-> from userspace would be nice (I'm talking a single sentence here, e.g.
-> "this is allocated when submitting a nfc packet") and what issue
-> __GFP_NOWARN is fixing. (I'm guessing log spam due to allocation
-> failures.)
->
+From: Richard Weinberger <richard@nod.at>
+Sent: Tuesday, January 26, 2016 12:24 AM
 
-I thought it is obvious. ;) Keep in mind that $subject is one part of commit
-message too, so there is a commit message although very short.
+>Not every arch has io memory.
+>So, unbreak the build by fixing the dependencies.
 
-I will add it.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>Signed-off-by: Richard Weinberger <richard@nod.at>
+>---
+> drivers/net/ethernet/ezchip/Kconfig | 1 +
+> drivers/net/phy/Kconfig             | 1 +
+> 2 files changed, 2 insertions(+)
+
+>diff --git a/drivers/net/ethernet/ezchip/Kconfig >b/drivers/net/ethernet/ezchip/Kconfig
+>index 48ecbc8..b423ad3 100644
+>--- a/drivers/net/ethernet/ezchip/Kconfig
+>+++ b/drivers/net/ethernet/ezchip/Kconfig
+>@@ -18,6 +18,7 @@ if NET_VENDOR_EZCHIP
+> config EZCHIP_NPS_MANAGEMENT_ENET
+>        tristate "EZchip NPS management enet support"
+>       depends on OF_IRQ && OF_NET
+>+       depends on HAS_IOMEM
+>        ---help---
+>          Simple LAN device for debug or management purposes.
+>          Device supports interrupts for RX and TX(completion).
+
+You got my ACK.
+
+-Noam
