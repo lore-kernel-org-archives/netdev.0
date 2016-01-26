@@ -1,52 +1,86 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [BISECTED] v4.5-rc1 phylib regression
-Date: Tue, 26 Jan 2016 12:46:31 -0800
-Message-ID: <56A7DB27.6080203@gmail.com>
-References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>	<20160126044624.GH3880@lunn.ch>	<20160126121435.GK22974@ak-desktop.emea.nsn-net.net>	<20160126133417.GI3880@lunn.ch>	<CAOesGMgaB8R+7jGyLNgQ-M+2nVRhOsEp7LUbiApEEw+dscfL0w@mail.gmail.com>	<20160126175353.GG27473@lunn.ch>	<CAOesGMhYU4NOeGRJoF4bcELCFfSsvBVp2du7ZgVjC3QuCv637w@mail.gmail.com> <CAOesGMi+ymn_FdDfgTjwgyO-MsEJNGBDU9ayRJvGkjJ7T_ExfA@mail.gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [RFC PATCH net] net/core: don't increment rx_dropped on inactive
+ slaves
+Date: Tue, 26 Jan 2016 16:14:53 -0500
+Message-ID: <20160126211453.GQ59058@redhat.com>
+References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+ <1453562589.1223.445.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Aaro Koskinen <aaro.koskinen-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAOesGMi+ymn_FdDfgTjwgyO-MsEJNGBDU9ayRJvGkjJ7T_ExfA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1453562589.1223.445.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26/01/16 10:14, Olof Johansson wrote:
-> +devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org instead.
+On Sat, Jan 23, 2016 at 07:23:09AM -0800, Eric Dumazet wrote:
+> On Fri, 2016-01-22 at 14:11 -0500, Jarod Wilson wrote:
 > 
-> On Tue, Jan 26, 2016 at 10:08 AM, Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org> wrote:
->> On Tue, Jan 26, 2016 at 9:53 AM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
->>>> I hate to bikeshed, but I'm not sure if "generic-mdio" is too...
->>>> generic? Will someone writing a DT be thinking "well, this is a
->>>> generic mdio PHY, I should set it"?  "mdio-device"?
->>>> "generic-nonphy-mdio"? Neither of those seem much better.
->>>
->>> How about 'not-a-phy'?
->>
->> "mdio,not-a-phy" or "mdio,non-phy" will scope it a bit, especially if
->> you expect other generic mdio properties that can do with a namespace.
+> > ---
+> >  net/core/dev.c | 3 +++
+> >  1 file changed, 3 insertions(+)
+> > 
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 8cba3d8..1354c7b 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -4153,8 +4153,11 @@ ncls:
+> >  		else
+> >  			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+> >  	} else {
+> > +		if (deliver_exact)
+> > +			goto inactive; /* bond or team inactive slave */
+> >  drop:
+> >  		atomic_long_inc(&skb->dev->rx_dropped);
+> > +inactive:
+> >  		kfree_skb(skb);
+> >  		/* Jamal, now you will not able to escape explaining
+> >  		 * me how you were going to use this. :-)
+> 
+> Note that if you still have a kfree_skb() instead of consume_skb(),
+> some tools will still give you a wrong signal (packet dropped ...).
+> 
+> But then maybe the signal is telling some truth.
+> 
+> We receive a packet, and decide to drop it because no one was willing to
+> handle it.
+> 
+> Maybe someone wants to know a particular slave receives 10,000 such
+> frames per second and hurts performance with useless work.
+> 
+> We should at least increment some counter and maybe dump it with
+> "ethtool -S" or something.
 
-Really not a fan of having to add an additional boolean property to
-differentiate an Ethernet PHY from something else, the proper solution
-would really be to enforce the use of the c22 or c45 compatible string
-as the least compatible string to be used, but I am assuming this is not
-necessarily an option here with DTBs out there.
+I've been digging into ethtool -S a little bit, and am somewhat at a loss
+as to how I would wire into this. From what I've been able to figure out,
+it's entirely device-specific-ish counters spit out. On my sfc cards, I
+get rx_noskb_drops and rx_nodesc_drop_cnt output from ethtool -S, but for
+the core network stack, these are actually added up and shoved into
+rx_dropped, and no other network driver has those two individual counters.
 
-What plays in favor of this boolean property is that the very concept of
-MDIO devices has been recently introduced, so presumably, there are not
-that many DTBs out there which would be affected...
+By itself, rx_dropped isn't output directly anywhere from ethtool, 
+so far as I can see. And ethtool -S bondX shows absolutely nothing.
+*Should* ethtool -S be dumping all the network core stats? I have to say I
+was more than a little surprised at this:
 
-The only other idea I had was to force the MDIO device creation to be
-dependent on finding a matching compatible string provided by a driver
-(yikes).
+# ethtool -S bond0
+no stats available
+
+Particularly given that if I look in /proc/net/dev or
+/sys/devices/virtual/net/bond0/statistics/*, there are quite a few stats
+that are being tracked and make their way out to userspace...
+
 -- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarod Wilson
+jarod@redhat.com
