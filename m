@@ -1,62 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net] of: of_mdio: Ensure mdio device is a PHY
-Date: Tue, 26 Jan 2016 15:12:30 +0100
-Message-ID: <1453817550-4770-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	aaro.koskinen@nokia.com, olof@lixom.net,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42932 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757505AbcAZOMp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2016 09:12:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: [PATCH] net: mv643xx_eth: fix packet corruption with TSO and tiny unaligned packets.
+Date: Tue, 26 Jan 2016 16:12:35 +0100
+Message-ID: <1453821155-27561-1-git-send-email-nschichan@freebox.fr>
+Cc: Nicolas Schichan <nschichan@freebox.fr>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philipp Kirchhofer <philipp@familie-kirchhofer.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-of_phy_find_device() is used to find the phy device associated with a
-device node. It is expected the node is for a PHY device, but in fact
-it could of been probed as a generic MDIO device. Ensure the device is
-a PHY before returning it.
+The code in txq_put_data() would use txq->tx_curr_desc to index the
+tso_hdrs/tso_hdrs_dma buffers, for less than 8 bytes unaligned
+fragments, which is already moved to the next descriptor at the
+beginning of the function.
 
-Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
-Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
-Reported-by: Olof Johansson <olof@lixom.net>
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+If that fragment was the last of the the skb, the next skb would use
+that same space to place the ip headers, overwritting that small
+fragment data.
+
+Fixes: 91986fd3d335 (net: mv643xx_eth: Ensure proper data alignment in TSO TX path)
+Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 ---
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This is only 1/2 the fix. It will stop the NULL pointer dereference in
-the mutex code, but the Ethernet device probe is likely to return an
-error when it cannot find its PHY.
----
- drivers/of/of_mdio.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 86829f8064a6..b5aa004a24b6 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -256,11 +256,19 @@ static int of_phy_match(struct device *dev, void *phy_np)
- struct phy_device *of_phy_find_device(struct device_node *phy_np)
- {
- 	struct device *d;
-+	struct mdio_device *mdiodev;
-+
- 	if (!phy_np)
- 		return NULL;
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index a0c0383..5583118 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -762,10 +762,10 @@ txq_put_data_tso(struct net_device *dev, struct tx_queue *txq,
  
- 	d = bus_find_device(&mdio_bus_type, NULL, phy_np, of_phy_match);
--	return d ? to_phy_device(d) : NULL;
-+	if (d) {
-+		mdiodev = to_mdio_device(d);
-+		if (mdiodev->flags & MDIO_DEVICE_FLAG_PHY)
-+			return to_phy_device(d);
-+	}
-+
-+	return NULL;
- }
- EXPORT_SYMBOL(of_phy_find_device);
- 
+ 	if (length <= 8 && (uintptr_t)data & 0x7) {
+ 		/* Copy unaligned small data fragment to TSO header data area */
+-		memcpy(txq->tso_hdrs + txq->tx_curr_desc * TSO_HEADER_SIZE,
++		memcpy(txq->tso_hdrs + tx_index * TSO_HEADER_SIZE,
+ 		       data, length);
+ 		desc->buf_ptr = txq->tso_hdrs_dma
+-			+ txq->tx_curr_desc * TSO_HEADER_SIZE;
++			+ tx_index * TSO_HEADER_SIZE;
+ 	} else {
+ 		/* Alignment is okay, map buffer and hand off to hardware */
+ 		txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_SINGLE;
 -- 
-2.7.0
+1.9.1
