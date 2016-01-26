@@ -1,49 +1,142 @@
-From: Alan Davey <Alan.Davey@metaswitch.com>
-Subject: =?Windows-1252?Q?doubt_about_the_behaviour_of_a_Linux_IPv4_raw_socket,_wi?=
- =?Windows-1252?Q?th_the_IP=5FHDRINCL_option_set,_rejecting_a_packet_bigge?=
- =?Windows-1252?Q?r_than_the_outgoing_interface=92s_MTU_size?=
-Date: Tue, 26 Jan 2016 17:29:14 +0000
-Message-ID: <BN3PR0201MB10592F17F9CC717E46A738B0F9D80@BN3PR0201MB1059.namprd02.prod.outlook.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: use-after-free in recvmmsg
+Date: Tue, 26 Jan 2016 20:27:48 +0100
+Message-ID: <CACT4Y+ZBNZGEWAe-iXeUO=PwNb39T60Sa0hYTrY-mykYuPZgYQ@mail.gmail.com>
+References: <CACT4Y+YUobBGeFiq5d-==TBB7F2am+wjH6CKVz0uCvw4KuM1dg@mail.gmail.com>
+ <20160122211644.GC2470@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0131.outbound.protection.outlook.com ([207.46.100.131]:12157
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751632AbcAZTEO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 14:04:14 -0500
-Content-Language: en-US
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:32996 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428AbcAZT2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 14:28:09 -0500
+Received: by mail-wm0-f52.google.com with SMTP id 123so119996350wmz.0
+        for <netdev@vger.kernel.org>; Tue, 26 Jan 2016 11:28:09 -0800 (PST)
+In-Reply-To: <20160122211644.GC2470@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46olks
+On Fri, Jan 22, 2016 at 10:16 PM, Arnaldo Carvalho de Melo
+<acme@redhat.com> wrote:
+> Em Fri, Jan 22, 2016 at 09:39:53PM +0100, Dmitry Vyukov escreveu:
+>> While running syzkaller fuzzer I've hit the following use-after-free:
+>
+> <SNIP>
+>
+>> Call Trace:
+>>  [<ffffffff8175ea0e>] __asan_report_load8_noabort+0x3e/0x40
+>> mm/kasan/report.c:295
+>>  [<ffffffff851cc31a>] __sys_recvmmsg+0x6fa/0x7f0 net/socket.c:2261
+>>  [<     inline     >] SYSC_recvmmsg net/socket.c:2281
+>>  [<ffffffff851cc57f>] SyS_recvmmsg+0x16f/0x180 net/socket.c:2270
+>>  [<ffffffff86332bb6>] entry_SYSCALL_64_fastpath+0x16/0x7a
+>> arch/x86/entry/entry_64.S:185
+>> ==================================================================
+>>
+>> I cannot reproduce it, but looking at __sys_recvmmsg code, it seems
+>> that sock is not necessary live after fput_light:
+>>
+>> out_put:
+>>     fput_light(sock->file, fput_needed);
+>>
+>>     if (err == 0)
+>>         return datagrams;
+>>
+>>     if (datagrams != 0) {
+>>         /*
+>>          * We may return less entries than requested (vlen) if the
+>>          * sock is non block and there aren't enough datagrams...
+>>          */
+>>         if (err != -EAGAIN) {
+>>             /*
+>>              * ... or  if recvmsg returns an error after we
+>>              * received some datagrams, where we record the
+>>              * error to return on the next call or if the
+>>              * app asks about it using getsockopt(SO_ERROR).
+>>              */
+>>             sock->sk->sk_err = -err;
+>>         }
+>>
+>>         return datagrams;
+>>     }
+>>
+>>     return err;
+>> }
+>>
+>> I am on commit 30f05309bde49295e02e45c7e615f73aa4e0ccc2 (Jan 20).
+>> Seems to be added in commit a2e2725541fad72416326798c2d7fa4dafb7d337
+>> (Oct 2009).
+>
+> Maybe this helps? Compile testing now...
 
-I have a doubt about the behaviour of a Linux IPv4 raw socket, with the=
- IP_HDRINCL option set, rejecting a packet bigger than the outgoing int=
-erface=92s MTU size with EMSGSIZE.=A0 Please take a look at the followi=
-ng and let me know if I should make a kernel code change to remove this=
- behaviour and fragment the packet instead.
 
-- raw_send_hdrinc() (net/ipv4/raw.c) has an explicit check for (length =
-> rt->dst.dev->mtu), returning -EMSGSIZE if this is true.
+I don't have a reliable reproducer, so can't test it per se.
+I will integrate this patch tomorrow and restart fuzzer with it.
 
-- I do not understand the reason for this restriction.=A0 If a packet w=
-as received on one interface and routed out through another interface w=
-ith a smaller MTU then the packet would be fragmented.=A0 Why is a loca=
-lly originated packet treated differently?
 
-- I note that the =93raw(7) - Linux man page=94 lists =93When the IP_HD=
-RINCL option is set, datagrams will not be fragmented and are limited t=
-o the interface MTU=94 as a known bug.
-
-Please let me know if you have any questions.
-
-Regards
-Alan Davey
+> diff --git a/net/socket.c b/net/socket.c
+> index 91c2de6f5020..03e57ad7ec9f 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -2240,31 +2240,31 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+>                 cond_resched();
+>         }
+>
+> -out_put:
+> -       fput_light(sock->file, fput_needed);
+> -
+>         if (err == 0)
+> -               return datagrams;
+> +               goto out_put;
+>
+> -       if (datagrams != 0) {
+> +       if (datagrams == 0) {
+> +               datagrams = err;
+> +               goto out_put;
+> +       }
+> +
+> +       /*
+> +        * We may return less entries than requested (vlen) if the
+> +        * sock is non block and there aren't enough datagrams...
+> +        */
+> +       if (err != -EAGAIN) {
+>                 /*
+> -                * We may return less entries than requested (vlen) if the
+> -                * sock is non block and there aren't enough datagrams...
+> +                * ... or  if recvmsg returns an error after we
+> +                * received some datagrams, where we record the
+> +                * error to return on the next call or if the
+> +                * app asks about it using getsockopt(SO_ERROR).
+>                  */
+> -               if (err != -EAGAIN) {
+> -                       /*
+> -                        * ... or  if recvmsg returns an error after we
+> -                        * received some datagrams, where we record the
+> -                        * error to return on the next call or if the
+> -                        * app asks about it using getsockopt(SO_ERROR).
+> -                        */
+> -                       sock->sk->sk_err = -err;
+> -               }
+> -
+> -               return datagrams;
+> +               sock->sk->sk_err = -err;
+>         }
+> +out_put:
+> +       fput_light(sock->file, fput_needed);
+>
+> -       return err;
+> +       return datagrams;
+>  }
+>
+>  SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,
