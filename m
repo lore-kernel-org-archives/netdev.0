@@ -1,75 +1,62 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net] tipc: fix connection abort during
-	subscription cancel
-Date: Tue, 26 Jan 2016 15:01:02 +0100
-Message-ID: <1453816862-30289-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, anders.widell@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net] of: of_mdio: Ensure mdio device is a PHY
+Date: Tue, 26 Jan 2016 15:12:30 +0100
+Message-ID: <1453817550-4770-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	aaro.koskinen@nokia.com, olof@lixom.net,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42932 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757505AbcAZOMp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2016 09:12:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing
-to events")', we terminate the connection if the subscription
-creation fails.
-In the same commit, the subscription creation result was based on
-the value of subscription pointer (set in the function) instead of
-the return code.
+of_phy_find_device() is used to find the phy device associated with a
+device node. It is expected the node is for a PHY device, but in fact
+it could of been probed as a generic MDIO device. Ensure the device is
+a PHY before returning it.
 
-Unfortunately, the same function tipc_subscrp_create() handles
-subscription cancel request. For a subscription cancellation request,
-the subscription pointer cannot be set. Thus if a subscriber has
-several subscriptions and cancels any of them, the connection is
-terminated.
-
-In this commit, we terminate the connection based on the return value
-of tipc_subscrp_create().
-Fixes: commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to events")
-
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
+Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
+Reported-by: Olof Johansson <olof@lixom.net>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- net/tipc/subscr.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 350cca33ee0a..72bb7cdc85aa 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -293,11 +293,11 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
- 	struct tipc_subscription *sub = NULL;
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 
--	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber, &sub);
--	if (sub)
--		tipc_nametbl_subscribe(sub);
--	else
--		tipc_conn_terminate(tn->topsrv, subscriber->conid);
-+	if (tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber,
-+				&sub))
-+		return tipc_conn_terminate(tn->topsrv, subscriber->conid);
+This is only 1/2 the fix. It will stop the NULL pointer dereference in
+the mutex code, but the Ethernet device probe is likely to return an
+error when it cannot find its PHY.
+---
+ drivers/of/of_mdio.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 86829f8064a6..b5aa004a24b6 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -256,11 +256,19 @@ static int of_phy_match(struct device *dev, void *phy_np)
+ struct phy_device *of_phy_find_device(struct device_node *phy_np)
+ {
+ 	struct device *d;
++	struct mdio_device *mdiodev;
 +
-+	tipc_nametbl_subscribe(sub);
- }
+ 	if (!phy_np)
+ 		return NULL;
  
- /* Handle one request to establish a new subscriber */
+ 	d = bus_find_device(&mdio_bus_type, NULL, phy_np, of_phy_match);
+-	return d ? to_phy_device(d) : NULL;
++	if (d) {
++		mdiodev = to_mdio_device(d);
++		if (mdiodev->flags & MDIO_DEVICE_FLAG_PHY)
++			return to_phy_device(d);
++	}
++
++	return NULL;
+ }
+ EXPORT_SYMBOL(of_phy_find_device);
+ 
 -- 
-2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
+2.7.0
