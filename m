@@ -1,53 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] net_sched: drr: check for NULL pointer in drr_dequeue
-Date: Tue, 26 Jan 2016 10:03:38 -0800
-Message-ID: <CAM_iQpX=x6gvuhxbN7zjbCa+zfyeh0nN86Ao_wVg6f9U3OEJew@mail.gmail.com>
-References: <1453780265-29508-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [BISECTED] v4.5-rc1 phylib regression
+Date: Tue, 26 Jan 2016 10:08:00 -0800
+Message-ID: <CAOesGMhYU4NOeGRJoF4bcELCFfSsvBVp2du7ZgVjC3QuCv637w@mail.gmail.com>
+References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
+	<20160126044624.GH3880@lunn.ch>
+	<20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
+	<20160126133417.GI3880@lunn.ch>
+	<CAOesGMgaB8R+7jGyLNgQ-M+2nVRhOsEp7LUbiApEEw+dscfL0w@mail.gmail.com>
+	<20160126175353.GG27473@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, stable@vger.kernel.org
-To: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+Cc: Aaro Koskinen <aaro.koskinen@nokia.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:35715 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932586AbcAZSDj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 13:03:39 -0500
-In-Reply-To: <1453780265-29508-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:32795 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932586AbcAZSIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 13:08:01 -0500
+Received: by mail-yk0-f170.google.com with SMTP id k129so210584866yke.0
+        for <netdev@vger.kernel.org>; Tue, 26 Jan 2016 10:08:00 -0800 (PST)
+In-Reply-To: <20160126175353.GG27473@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2016 at 7:51 PM, Bernie Harris
-<bernie.harris@alliedtelesis.co.nz> wrote:
-> There are cases where qdisc_dequeue_peeked can return NULL, and the result
-> is dereferenced later on in the function.
+On Tue, Jan 26, 2016 at 9:53 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> I hate to bikeshed, but I'm not sure if "generic-mdio" is too...
+>> generic? Will someone writing a DT be thinking "well, this is a
+>> generic mdio PHY, I should set it"?  "mdio-device"?
+>> "generic-nonphy-mdio"? Neither of those seem much better.
 >
-> Similarly to the other qdisc dequeue functions, check whether the skb
-> pointer is NULL and if it is, goto out.
->
-> Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+> How about 'not-a-phy'?
 
-Looks good to me, just one minor thing: an unlikely() can be used for this case.
+"mdio,not-a-phy" or "mdio,non-phy" will scope it a bit, especially if
+you expect other generic mdio properties that can do with a namespace.
+
+Probably time to add devicetree-discuss. Doing so.
 
 
-> ---
->  net/sched/sch_drr.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-> index f26bdea..8086c3d 100644
-> --- a/net/sched/sch_drr.c
-> +++ b/net/sched/sch_drr.c
-> @@ -403,6 +403,8 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
->                 if (len <= cl->deficit) {
->                         cl->deficit -= len;
->                         skb = qdisc_dequeue_peeked(cl->qdisc);
-> +                       if (skb == NULL)
-> +                               goto out;
->                         if (cl->qdisc->q.qlen == 0)
->                                 list_del(&cl->alist);
->
-> --
-> 2.7.0
->
+-Olof
