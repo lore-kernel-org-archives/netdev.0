@@ -1,56 +1,144 @@
-From: Chris Bainbridge <chris.bainbridge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: UBSAN: Undefined behaviour in net/mac80211/rx.c:924:18
-Date: Tue, 26 Jan 2016 11:17:30 +0000
-Message-ID: <20160126111730.GA6765@localhost>
+From: Ilya Dryomov <idryomov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 16/26] libceph: Use skcipher
+Date: Tue, 26 Jan 2016 12:29:57 +0100
+Message-ID: <CAOi1vP9kB5a-JeZ1PriwyQO0XH4Qh3UKidp==NPvVw-AsL=uqw@mail.gmail.com>
+References: <20160124131021.GA31153@gondor.apana.org.au>
+	<E1aNKYy-0008E6-GI@gondolin.me.apana.org.au>
+	<CAOi1vP9jmMYHR21UeAO175susZ5V74vcXyoxwayBVSTFHxjhBQ@mail.gmail.com>
+	<20160126105455.GA19674@gondor.apana.org.au>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: aryabinin-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ecryptfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-f2fs-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	keyrings-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ceph Development <ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Lars Ellenberg <drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>,
+	open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <open-iscsi+bncBCWIHX4L7AKRBNNRTW2QKGQEFE46HRY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <20160126105455.GA19674-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/open-iscsi
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/open-iscsi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-4.5.0-rc1 another UBSAN error:
+On Tue, Jan 26, 2016 at 11:54 AM, Herbert Xu
+<herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> wrote:
+> On Mon, Jan 25, 2016 at 05:18:47PM +0100, Ilya Dryomov wrote:
+>>
+>> Could you get rid of ivsize instead of assigning to it - see the
+>> attached diff?
+>
+> How about an incremental patch like this? Thanks!
+>
+> ---8<---
+> From: Ilya Dryomov <idryomov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Subject: libceph: Remove unnecessary ivsize variables
+>
+> This patch removes the unnecessary ivsize variabls as they always
+> have the value of AES_BLOCK_SIZE.
+>
+> Signed-off-by: Ilya Dryomov <idryomov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+> diff --git a/net/ceph/crypto.c b/net/ceph/crypto.c
+> index fb9cb2b..db2847a 100644
+> --- a/net/ceph/crypto.c
+> +++ b/net/ceph/crypto.c
+> @@ -166,8 +166,7 @@ static int ceph_aes_encrypt(const void *key, int key_len,
+>         struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
+>         SKCIPHER_REQUEST_ON_STACK(req, tfm);
+>         int ret;
+> -       int ivsize = AES_BLOCK_SIZE;
+> -       char iv[ivsize];
+> +       char iv[AES_BLOCK_SIZE];
+>         size_t zero_padding = (0x10 - (src_len & 0x0f));
+>         char pad[16];
+>
+> @@ -186,7 +185,7 @@ static int ceph_aes_encrypt(const void *key, int key_len,
+>                 goto out_tfm;
+>
+>         crypto_skcipher_setkey((void *)tfm, key, key_len);
+> -       memcpy(iv, aes_iv, ivsize);
+> +       memcpy(iv, aes_iv, AES_BLOCK_SIZE);
+>
+>         skcipher_request_set_tfm(req, tfm);
+>         skcipher_request_set_callback(req, 0, NULL, NULL);
+> @@ -229,8 +228,7 @@ static int ceph_aes_encrypt2(const void *key, int key_len, void *dst,
+>         struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
+>         SKCIPHER_REQUEST_ON_STACK(req, tfm);
+>         int ret;
+> -       int ivsize = AES_BLOCK_SIZE;
+> -       char iv[ivsize];
+> +       char iv[AES_BLOCK_SIZE];
+>         size_t zero_padding = (0x10 - ((src1_len + src2_len) & 0x0f));
+>         char pad[16];
+>
+> @@ -250,7 +248,7 @@ static int ceph_aes_encrypt2(const void *key, int key_len, void *dst,
+>                 goto out_tfm;
+>
+>         crypto_skcipher_setkey((void *)tfm, key, key_len);
+> -       memcpy(iv, aes_iv, ivsize);
+> +       memcpy(iv, aes_iv, AES_BLOCK_SIZE);
+>
+>         skcipher_request_set_tfm(req, tfm);
+>         skcipher_request_set_callback(req, 0, NULL, NULL);
+> @@ -294,8 +292,7 @@ static int ceph_aes_decrypt(const void *key, int key_len,
+>         struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
+>         SKCIPHER_REQUEST_ON_STACK(req, tfm);
+>         char pad[16];
+> -       int ivsize = AES_BLOCK_SIZE;
+> -       char iv[16];
+> +       char iv[AES_BLOCK_SIZE];
+>         int ret;
+>         int last_byte;
+>
+> @@ -310,7 +307,7 @@ static int ceph_aes_decrypt(const void *key, int key_len,
+>                 goto out_tfm;
+>
+>         crypto_skcipher_setkey((void *)tfm, key, key_len);
+> -       memcpy(iv, aes_iv, ivsize);
+> +       memcpy(iv, aes_iv, AES_BLOCK_SIZE);
+>
+>         skcipher_request_set_tfm(req, tfm);
+>         skcipher_request_set_callback(req, 0, NULL, NULL);
+> @@ -363,8 +360,7 @@ static int ceph_aes_decrypt2(const void *key, int key_len,
+>         struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
+>         SKCIPHER_REQUEST_ON_STACK(req, tfm);
+>         char pad[16];
+> -       int ivsize = AES_BLOCK_SIZE;
+> -       char iv[ivsize];
+> +       char iv[AES_BLOCK_SIZE];
+>         int ret;
+>         int last_byte;
+>
+> @@ -380,7 +376,7 @@ static int ceph_aes_decrypt2(const void *key, int key_len,
+>                 goto out_tfm;
+>
+>         crypto_skcipher_setkey((void *)tfm, key, key_len);
+> -       memcpy(iv, aes_iv, ivsize);
+> +       memcpy(iv, aes_iv, AES_BLOCK_SIZE);
+>
+>         skcipher_request_set_tfm(req, tfm);
+>         skcipher_request_set_callback(req, 0, NULL, NULL);
 
-[ 4845.229441] ================================================================================
-[ 4845.229454] UBSAN: Undefined behaviour in net/mac80211/rx.c:924:18
-[ 4845.229458] load of value 2 is not a valid value for type '_Bool'
-[ 4845.229464] CPU: 1 PID: 6266 Comm: kworker/u16:8 Not tainted 4.5.0-rc1 #252
-[ 4845.229468] Hardware name: Apple Inc. MacBookPro10,2/Mac-AFD8A9D944EA4843, BIOS MBP102.88Z.0106.B0A.1509130955 09/13/2015
-[ 4845.229491] Workqueue: phy2 rt2x00usb_work_rxdone
-[ 4845.229493]  0000000000000000 0000000000000000 0000000000000002 ffff8801b13c39f8
-[ 4845.229496]  ffffffff81b2e7d9 0000000000000007 ffff8801b13c3a20 ffff8801b13c3a10
-[ 4845.229498]  ffffffff81bcb87d ffffffff85016890 ffff8801b13c3a60 ffffffff81bcc279
-[ 4845.229501] Call Trace:
-[ 4845.229506]  [<ffffffff81b2e7d9>] dump_stack+0x45/0x6c
-[ 4845.229510]  [<ffffffff81bcb87d>] ubsan_epilogue+0xd/0x40
-[ 4845.229513]  [<ffffffff81bcc279>] __ubsan_handle_load_invalid_value+0x69/0x80
-[ 4845.229517]  [<ffffffff82280032>] ? xhci_setup_addressable_virt_dev+0xeb2/0x13b0
-[ 4845.229520]  [<ffffffff8121230b>] ? pick_next_entity+0xcb/0x280
-[ 4845.229524]  [<ffffffff82a7bce3>] ieee80211_sta_reorder_release.isra.15+0x7e3/0xad0
-[ 4845.229527]  [<ffffffff82a86837>] ieee80211_prepare_and_rx_handle+0x11a7/0x2ab0
-[ 4845.229530]  [<ffffffff82272694>] ? xhci_urb_enqueue+0x394/0x1140
-[ 4845.229533]  [<ffffffff82205d8f>] ? usb_hcd_map_urb_for_dma+0x94f/0x1140
-[ 4845.229537]  [<ffffffff82552927>] ? skb_release_data+0x117/0x2f0
-[ 4845.229539]  [<ffffffff82a883aa>] __ieee80211_rx_handle_packet+0x26a/0x9a0
-[ 4845.229542]  [<ffffffff8254ef8c>] ? __kmalloc_reserve.isra.11+0x2c/0x80
-[ 4845.229545]  [<ffffffff82a89131>] ieee80211_rx_napi+0x651/0x12b0
-[ 4845.229549]  [<ffffffff82188972>] rt2x00lib_rxdone+0x402/0x1120
-[ 4845.229552]  [<ffffffff8121b8ff>] ? dequeue_task_fair+0x97f/0x41d0
-[ 4845.229554]  [<ffffffff8219d19c>] rt2x00usb_work_rxdone+0xac/0x1f0
-[ 4845.229558]  [<ffffffff82b37cbd>] ? __schedule+0x5cd/0x1770
-[ 4845.229561]  [<ffffffff811dc3b6>] process_one_work+0x266/0xc00
-[ 4845.229563]  [<ffffffff811dce56>] worker_thread+0x96/0xd40
-[ 4845.229565]  [<ffffffff811dcdc0>] ? process_scheduled_works+0x70/0x70
-[ 4845.229568]  [<ffffffff811e91d8>] kthread+0x108/0x180
-[ 4845.229571]  [<ffffffff811e90d0>] ? kthread_create_on_node+0x210/0x210
-[ 4845.229573]  [<ffffffff82b40d9f>] ret_from_fork+0x3f/0x70
-[ 4845.229576]  [<ffffffff811e90d0>] ? kthread_create_on_node+0x210/0x210
-[ 4845.229577] ================================================================================
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+LGTM.  You want to take it through crypto?
+
+Thanks,
+
+                Ilya
+
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at https://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
