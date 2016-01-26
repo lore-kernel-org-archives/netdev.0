@@ -1,58 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
-Date: Tue, 26 Jan 2016 01:13:33 +0100
-Message-ID: <56A6BA2D.2090604@iogearbox.net>
-References: <2036003091.741801453376409338.JavaMail.weblogic@ep2mlwas01a>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
+Date: Tue, 26 Jan 2016 09:23:01 +0900
+Message-ID: <20160126002300.GA27856@verge.net.au>
+References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"willemb@google.com" <willemb@google.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
-	"tklauser@distanz.ch" <tklauser@distanz.ch>,
-	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	PANKAJ MISHRA <pankaj.m@samsung.com>,
-	Geon-ho Kim <gh007.kim@samsung.com>,
-	Hak-Bong Lee <hakbong5.lee@samsung.com>
-To: maninder1.s@samsung.com, Vaneet Narang <v.narang@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:32852 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752388AbcAZANk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2016 19:13:40 -0500
-In-Reply-To: <2036003091.741801453376409338.JavaMail.weblogic@ep2mlwas01a>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/21/2016 12:40 PM, Maninder Singh wrote:
->> The other sock_put() in packet_release() to drop the final ref and call into
->> sk_free(), which drops the 1 ref on the sk_wmem_alloc from init time. Since you
->> got into __sk_free() via sock_wfree() destructor, your socket must have invoked
->> packet_release() prior to this (perhaps kernel destroying the process).
->>
->> What kernel do you use?
->
-> Issue is coming for 3.10.58.
+On Mon, Jan 25, 2016 at 12:52:55AM +0900, Yoshihiro Kaneko wrote:
+> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> 
+> This patch supports the following interrupts.
+> 
+> - One interrupt for multiple (descriptor, error, management)
+> - One interrupt for emac
+> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+> 
+> This patch improve efficiency of the interrupt handler by adding the
+> interrupt handler corresponding to each interrupt source described
+> above. Additionally, it reduces the number of times of the access to
+> EthernetAVB IF.
+> 
+> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 
-[ sorry for late reply ]
+I have tested this patch and the result seems positive.
+Please let me know if any more/different testing would help.
 
-What driver are you using (is that in-tree)? Can you reproduce the same issue
-with a latest -net kernel, for example (or, a 'reasonably' recent one like 4.3 or
-4.4)? There has been quite a bit of changes in err queue handling (which also
-accounts rmem) as well. How reliably can you trigger the issue? Does it trigger
-with a completely different in-tree network driver as well with your tests? Would
-be useful to track/debug sk_rmem_alloc increases/decreases to see from which path
-new rmem is being charged in the time between packet_release() and packet_sock_destruct()
-for that socket ...
+My test was to examine /proc/interrupts after booting a Salvator-X board
+using NFS root. The test used net-next merged with v4.5-rc1 (for
+r8a7795/Salvator-X support). I then applied this patch.
 
->>> Driver calls dev_kfree_skb_any->dev_kfree_skb_irq
->>> and it adds buffer in completion queue to free and raises softirq NET_TX_SOFTIRQ
->>>
->>> net_tx_action->__kfree_skb->skb_release_all->skb_release_head_state->sock_wfree->
->>> __sk_free->packet_sock_destruct
->>>
->>> Also purging of receive queue has been taken care in other protocols.
+Without this patch:
+# grep eth /proc/interrupts
+ 74:      13002          0          0          0     GIC-0  93 Level     eth0
+ 76:          3          0          0          0     GIC-0  95 Level     eth0
+
+With this patch:
+
+# grep eth /proc/interrupts
+ 52:       8744          0          0          0     GIC-0  71 Level     eth0:ch0:rx_be
+ 53:          0          0          0          0     GIC-0  72 Level     eth0:ch1:rx_nc
+ 70:       4277          0          0          0     GIC-0  89 Level     eth0:ch18:tx_be
+ 71:          0          0          0          0     GIC-0  90 Level     eth0:ch19:tx_nc
+ 74:          0          0          0          0     GIC-0  93 Level     eth0:ch22:multi
+ 76:          3          0          0          0     GIC-0  95 Level     eth0:ch24:emac
+
+Please feel free to add:
+
+Tested-by: Simon Horman <horms+renesas@verge.net.au>
