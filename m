@@ -1,137 +1,97 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 16/26] libceph: Use skcipher
-Date: Tue, 26 Jan 2016 18:54:55 +0800
-Message-ID: <20160126105455.GA19674@gondor.apana.org.au>
-References: <20160124131021.GA31153@gondor.apana.org.au>
- <E1aNKYy-0008E6-GI@gondolin.me.apana.org.au>
- <CAOi1vP9jmMYHR21UeAO175susZ5V74vcXyoxwayBVSTFHxjhBQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, linux-cifs@vger.kernel.org,
- linux-nfs@vger.kernel.org, open-iscsi@googlegroups.com,
- netdev <netdev@vger.kernel.org>, ecryptfs@vger.kernel.org,
- linux-wireless@vger.kernel.org,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- linux-f2fs-devel@lists.sourceforge.net, linux-bluetooth@vger.kernel.org,
- dm-devel@redhat.com, keyrings@vger.kernel.org,
- Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
- Ceph Development <ceph-devel@vger.kernel.org>, linux-ext4@vger.kernel.org,
- linux-wpan@vger.kernel.org, linux-afs@lists.infradead.org,
- Lars Ellenberg <drbd-dev@lists.linbit.com>
-To: Ilya Dryomov <idryomov@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <CAOi1vP9jmMYHR21UeAO175susZ5V74vcXyoxwayBVSTFHxjhBQ@mail.gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2016-01-26
+Date: Tue, 26 Jan 2016 12:00:33 +0100
+Message-ID: <1453806034-10185-1-git-send-email-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:38804 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934165AbcAZLAl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2016 06:00:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2016 at 05:18:47PM +0100, Ilya Dryomov wrote:
-> 
-> Could you get rid of ivsize instead of assigning to it - see the
-> attached diff?
+Hi Dave,
 
-How about an incremental patch like this? Thanks!
+After split up the patches from the previous pull request that was
+lost in the process, here's a new one with fixes for the current
+cycle (I'll follow up with a -next one later.)
 
----8<---
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: libceph: Remove unnecessary ivsize variables
+I've also scripted my pull-request sending process a bit more, so
+hopefully the emails will no longer have any unexpected UTF-8 contents
+that tripped up patchwork :)
 
-This patch removes the unnecessary ivsize variabls as they always
-have the value of AES_BLOCK_SIZE.
+Let me know if there's any problem.
 
-Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Thanks,
+johannes
 
-diff --git a/net/ceph/crypto.c b/net/ceph/crypto.c
-index fb9cb2b..db2847a 100644
---- a/net/ceph/crypto.c
-+++ b/net/ceph/crypto.c
-@@ -166,8 +166,7 @@ static int ceph_aes_encrypt(const void *key, int key_len,
- 	struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
- 	SKCIPHER_REQUEST_ON_STACK(req, tfm);
- 	int ret;
--	int ivsize = AES_BLOCK_SIZE;
--	char iv[ivsize];
-+	char iv[AES_BLOCK_SIZE];
- 	size_t zero_padding = (0x10 - (src_len & 0x0f));
- 	char pad[16];
- 
-@@ -186,7 +185,7 @@ static int ceph_aes_encrypt(const void *key, int key_len,
- 		goto out_tfm;
- 
- 	crypto_skcipher_setkey((void *)tfm, key, key_len);
--	memcpy(iv, aes_iv, ivsize);
-+	memcpy(iv, aes_iv, AES_BLOCK_SIZE);
- 
- 	skcipher_request_set_tfm(req, tfm);
- 	skcipher_request_set_callback(req, 0, NULL, NULL);
-@@ -229,8 +228,7 @@ static int ceph_aes_encrypt2(const void *key, int key_len, void *dst,
- 	struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
- 	SKCIPHER_REQUEST_ON_STACK(req, tfm);
- 	int ret;
--	int ivsize = AES_BLOCK_SIZE;
--	char iv[ivsize];
-+	char iv[AES_BLOCK_SIZE];
- 	size_t zero_padding = (0x10 - ((src1_len + src2_len) & 0x0f));
- 	char pad[16];
- 
-@@ -250,7 +248,7 @@ static int ceph_aes_encrypt2(const void *key, int key_len, void *dst,
- 		goto out_tfm;
- 
- 	crypto_skcipher_setkey((void *)tfm, key, key_len);
--	memcpy(iv, aes_iv, ivsize);
-+	memcpy(iv, aes_iv, AES_BLOCK_SIZE);
- 
- 	skcipher_request_set_tfm(req, tfm);
- 	skcipher_request_set_callback(req, 0, NULL, NULL);
-@@ -294,8 +292,7 @@ static int ceph_aes_decrypt(const void *key, int key_len,
- 	struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
- 	SKCIPHER_REQUEST_ON_STACK(req, tfm);
- 	char pad[16];
--	int ivsize = AES_BLOCK_SIZE;
--	char iv[16];
-+	char iv[AES_BLOCK_SIZE];
- 	int ret;
- 	int last_byte;
- 
-@@ -310,7 +307,7 @@ static int ceph_aes_decrypt(const void *key, int key_len,
- 		goto out_tfm;
- 
- 	crypto_skcipher_setkey((void *)tfm, key, key_len);
--	memcpy(iv, aes_iv, ivsize);
-+	memcpy(iv, aes_iv, AES_BLOCK_SIZE);
- 
- 	skcipher_request_set_tfm(req, tfm);
- 	skcipher_request_set_callback(req, 0, NULL, NULL);
-@@ -363,8 +360,7 @@ static int ceph_aes_decrypt2(const void *key, int key_len,
- 	struct crypto_skcipher *tfm = ceph_crypto_alloc_cipher();
- 	SKCIPHER_REQUEST_ON_STACK(req, tfm);
- 	char pad[16];
--	int ivsize = AES_BLOCK_SIZE;
--	char iv[ivsize];
-+	char iv[AES_BLOCK_SIZE];
- 	int ret;
- 	int last_byte;
- 
-@@ -380,7 +376,7 @@ static int ceph_aes_decrypt2(const void *key, int key_len,
- 		goto out_tfm;
- 
- 	crypto_skcipher_setkey((void *)tfm, key, key_len);
--	memcpy(iv, aes_iv, ivsize);
-+	memcpy(iv, aes_iv, AES_BLOCK_SIZE);
- 
- 	skcipher_request_set_tfm(req, tfm);
- 	skcipher_request_set_callback(req, 0, NULL, NULL);
 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+The following changes since commit 701a0fd5231866db08cebcd502894699f49cb960:
+
+  hip04_eth: fix missing error handle for build_skb failed (2016-01-13 15:48:14 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-01-26
+
+for you to fetch changes up to 6736fde9672ff6717ac576e9bba2fd5f3dfec822:
+
+  rfkill: fix rfkill_fop_read wait_event usage (2016-01-26 11:32:05 +0100)
+
+----------------------------------------------------------------
+Here's a first set of fixes for the 4.5-rc cycle:
+ * make regulatory messages much less verbose by default
+ * various remain-on-channel fixes
+ * scheduled scanning fixes with hardware restart
+ * a PS-Poll handling fix; was broken just recently
+ * bugfix to avoid buffering non-bufferable MMPDUs
+ * world regulatory domain data fix
+ * a fix for scanning causing other work to get stuck
+ * hwsim: revert an older problematic patch that caused some
+   userspace tools to have issues - not that big a deal as
+   it's a debug only driver though
+
+----------------------------------------------------------------
+Bob Copeland (1):
+      Revert "mac80211_hwsim: support any address in userspace"
+
+Dave Young (1):
+      wireless: change cfg80211 regulatory domain info as debug messages
+
+Eliad Peller (3):
+      mac80211: avoid ROC during hw restart
+      mac80211: clear local->sched_scan_req properly on reconfig
+      mac80211: handle sched_scan_stopped vs. hw restart race
+
+Emmanuel Grumbach (1):
+      mac80211: fix PS-Poll handling
+
+Helmut Schaa (1):
+      mac80211: Don't buffer non-bufferable MMPDUs
+
+Johannes Berg (4):
+      mac80211: recalculate SW ROC only when needed
+      mac80211: fix remain-on-channel cancellation
+      regulatory: fix world regulatory domain data
+      rfkill: fix rfkill_fop_read wait_event usage
+
+Sachin Kulkarni (1):
+      mac80211: Requeue work after scan complete for all VIF types.
+
+ drivers/net/wireless/mac80211_hwsim.c |  5 ++--
+ net/mac80211/ibss.c                   |  1 -
+ net/mac80211/main.c                   |  6 +++++
+ net/mac80211/mesh.c                   | 11 ---------
+ net/mac80211/mesh.h                   |  4 ----
+ net/mac80211/mlme.c                   |  2 --
+ net/mac80211/offchannel.c             | 16 +++++++------
+ net/mac80211/scan.c                   | 20 +++++++++++++++-
+ net/mac80211/sta_info.c               |  2 +-
+ net/mac80211/status.c                 |  5 ++++
+ net/mac80211/util.c                   | 16 ++++++++++---
+ net/rfkill/core.c                     | 16 ++++---------
+ net/wireless/reg.c                    | 45 +++++++++++++++++++----------------
+ 13 files changed, 85 insertions(+), 64 deletions(-)
