@@ -1,178 +1,129 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH net] sctp: fix copying more bytes than expected in sctp_add_bind_addr
-Date: Tue, 26 Jan 2016 14:28:48 +0100
-Message-ID: <CACT4Y+YN5V1Eo6C2hyWGCyLEjWGLhaz94XdufHGAdwvXq4uEZQ@mail.gmail.com>
-References: <20160125172902.GD29690@hmsreliant.think-freely.org> <508c18fbd4bd0b447e2f9b110190be2fd2dbb3cf.1453744111.git.marcelo.leitner@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [BISECTED] v4.5-rc1 phylib regression
+Date: Tue, 26 Jan 2016 14:34:17 +0100
+Message-ID: <20160126133417.GI3880@lunn.ch>
+References: <20160125154520.GI22974@ak-desktop.emea.nsn-net.net>
+ <20160126044624.GH3880@lunn.ch>
+ <20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Aaro Koskinen <aaro.koskinen@nokia.com>,
+	Olof Johansson <olof@lixom.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:32926 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933342AbcAZN3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 08:29:09 -0500
-Received: by mail-wm0-f54.google.com with SMTP id 123so105899717wmz.0
-        for <netdev@vger.kernel.org>; Tue, 26 Jan 2016 05:29:09 -0800 (PST)
-In-Reply-To: <508c18fbd4bd0b447e2f9b110190be2fd2dbb3cf.1453744111.git.marcelo.leitner@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:42908 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965414AbcAZNeV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2016 08:34:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20160126121435.GK22974@ak-desktop.emea.nsn-net.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2016 at 6:52 PM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> Great. Dmitry, please give this a run. Local tests looked good but who
-> knows what syzkaller may find.
+On Tue, Jan 26, 2016 at 02:14:35PM +0200, Aaro Koskinen wrote:
+> Hi,
+> 
+> On Tue, Jan 26, 2016 at 05:46:24AM +0100, Andrew Lunn wrote:
+> > On Mon, Jan 25, 2016 at 05:45:21PM +0200, Aaro Koskinen wrote:
+> > > I get the below crash on OCTEON (with octeon_mgmt interface, genphy)
+> > > always during systemd boot.
+> > 
+> > I think i know what is going on now.
+> > 
+> > What does your phy look like in DT?
+> 
+> It's using the in-kernel DT:
+> 
+> 	arch/mips/boot/dts/cavium-octeon/octeon_3xxx.dts
+> 
+> The management interface is "mix0: ethernet@1070000100000". The phy entry
+> might be bogus for this specific board, and I don't have MARVELL_PHY
+> enabled...
 
-Now running with this patch.
+                        phy1: ethernet-phy@1 {
+                                cavium,qlm-trim = "4,sgmii";
+                                reg = <1>;
+                                compatible = "marvell,88e1149r";
+                                marvell,reg-init = <3 0x10 0 0x5777>,
+                                        <3 0x11 0 0x00aa>,
+                                        <3 0x12 0 0x4105>,
+                                        <3 0x13 0 0x0a60>;
+                        };
+   
+Dove Cubox is the other board which Olof has problems with. It has
 
-> Thanks
->
-> --8<--
->
-> Dmitry reported that sctp_add_bind_addr may read more bytes than
-> expected in case the parameter is a IPv4 addr supplied by the user
-> through calls such as sctp_bindx_add(), because it always copies
-> sizeof(union sctp_addr) while the buffer may be just a struct
-> sockaddr_in, which is smaller.
->
-> This patch then fixes it by limiting the memcpy to the min between the
-> union size and a (new parameter) provided addr size. Where possible this
-> parameter still is the size of that union, except for reading from
-> user-provided buffers, which then it accounts for protocol type.
->
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  include/net/sctp/structs.h |  2 +-
->  net/sctp/bind_addr.c       | 14 ++++++++------
->  net/sctp/protocol.c        |  1 +
->  net/sctp/sm_make_chunk.c   |  2 +-
->  net/sctp/socket.c          |  5 +++--
->  5 files changed, 14 insertions(+), 10 deletions(-)
->
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 20e72129be1ce0063eeafcbaadcee1f37e0c614c..97ba8a8c466f5c50bdc87ec578792e56553baa91 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1099,7 +1099,7 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
->                         const struct sctp_bind_addr *src,
->                         gfp_t gfp);
->  int sctp_add_bind_addr(struct sctp_bind_addr *, union sctp_addr *,
-> -                      __u8 addr_state, gfp_t gfp);
-> +                      int new_size, __u8 addr_state, gfp_t gfp);
->  int sctp_del_bind_addr(struct sctp_bind_addr *, union sctp_addr *);
->  int sctp_bind_addr_match(struct sctp_bind_addr *, const union sctp_addr *,
->                          struct sctp_sock *);
-> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-> index 871cdf9567e6bc9c13cb1077dc6866a67e6e4367..80129d10a0af9c33e7348b79d010b9e5e948e584 100644
-> --- a/net/sctp/bind_addr.c
-> +++ b/net/sctp/bind_addr.c
-> @@ -111,7 +111,8 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
->         dest->port = src->port;
->
->         list_for_each_entry(addr, &src->address_list, list) {
-> -               error = sctp_add_bind_addr(dest, &addr->a, 1, gfp);
-> +               error = sctp_add_bind_addr(dest, &addr->a, sizeof(addr->a),
-> +                                          1, gfp);
->                 if (error < 0)
->                         break;
->         }
-> @@ -150,7 +151,7 @@ void sctp_bind_addr_free(struct sctp_bind_addr *bp)
->
->  /* Add an address to the bind address list in the SCTP_bind_addr structure. */
->  int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
-> -                      __u8 addr_state, gfp_t gfp)
-> +                      int new_size, __u8 addr_state, gfp_t gfp)
->  {
->         struct sctp_sockaddr_entry *addr;
->
-> @@ -159,7 +160,7 @@ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
->         if (!addr)
->                 return -ENOMEM;
->
-> -       memcpy(&addr->a, new, sizeof(*new));
-> +       memcpy(&addr->a, new, min_t(size_t, sizeof(*new), new_size));
->
->         /* Fix up the port if it has not yet been set.
->          * Both v4 and v6 have the port at the same offset.
-> @@ -291,7 +292,8 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
->                 }
->
->                 af->from_addr_param(&addr, rawaddr, htons(port), 0);
-> -               retval = sctp_add_bind_addr(bp, &addr, SCTP_ADDR_SRC, gfp);
-> +               retval = sctp_add_bind_addr(bp, &addr, sizeof(addr),
-> +                                           SCTP_ADDR_SRC, gfp);
->                 if (retval) {
->                         /* Can't finish building the list, clean up. */
->                         sctp_bind_addr_clean(bp);
-> @@ -453,8 +455,8 @@ static int sctp_copy_one_addr(struct net *net, struct sctp_bind_addr *dest,
->                     (((AF_INET6 == addr->sa.sa_family) &&
->                       (flags & SCTP_ADDR6_ALLOWED) &&
->                       (flags & SCTP_ADDR6_PEERSUPP))))
-> -                       error = sctp_add_bind_addr(dest, addr, SCTP_ADDR_SRC,
-> -                                                   gfp);
-> +                       error = sctp_add_bind_addr(dest, addr, sizeof(addr),
-> +                                                  SCTP_ADDR_SRC, gfp);
->         }
->
->         return error;
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index ab0d538a74ed593571cfaef02cd1bb7ce872abe6..2fb609008311f51344704d82f21b4de9f08253da 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -214,6 +214,7 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
->                               (copy_flags & SCTP_ADDR6_ALLOWED) &&
->                               (copy_flags & SCTP_ADDR6_PEERSUPP)))) {
->                                 error = sctp_add_bind_addr(bp, &addr->a,
-> +                                                   sizeof(addr->a),
->                                                     SCTP_ADDR_SRC, GFP_ATOMIC);
->                                 if (error)
->                                         goto end_copy;
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 5d6a03fad3789a12290f5f14c5a7efa69c98f41a..1b91e9760fe514db6d89457e1d5da9e02800745e 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -1830,7 +1830,7 @@ no_hmac:
->         /* Also, add the destination address. */
->         if (list_empty(&retval->base.bind_addr.address_list)) {
->                 sctp_add_bind_addr(&retval->base.bind_addr, &chunk->dest,
-> -                               SCTP_ADDR_SRC, GFP_ATOMIC);
-> +                                  sizeof(chunk->dest), SCTP_ADDR_SRC, GFP_ATOMIC);
->         }
->
->         retval->next_tsn = retval->c.initial_tsn;
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 5ca2ebfe0be83882fcb841de6fa8029b6455ef85..213be3821a1d49e0c469c4ad4e9ff055a03205c5 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -386,7 +386,8 @@ static int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
->         /* Add the address to the bind address list.
->          * Use GFP_ATOMIC since BHs will be disabled.
->          */
-> -       ret = sctp_add_bind_addr(bp, addr, SCTP_ADDR_SRC, GFP_ATOMIC);
-> +       ret = sctp_add_bind_addr(bp, addr, af->sockaddr_len,
-> +                                SCTP_ADDR_SRC, GFP_ATOMIC);
->
->         /* Copy back into socket for getsockname() use. */
->         if (!ret) {
-> @@ -576,7 +577,7 @@ static int sctp_send_asconf_add_ip(struct sock              *sk,
->                         addr = addr_buf;
->                         af = sctp_get_af_specific(addr->v4.sin_family);
->                         memcpy(&saveaddr, addr, af->sockaddr_len);
-> -                       retval = sctp_add_bind_addr(bp, &saveaddr,
-> +                       retval = sctp_add_bind_addr(bp, &saveaddr, sizeof(saveaddr),
->                                                     SCTP_ADDR_NEW, GFP_ATOMIC);
->                         addr_buf += af->sockaddr_len;
->                 }
-> --
-> 2.5.0
->
+&ethphy {
+        compatible = "marvell,88e1310";
+        reg = <1>;
+};
+
+The issue here is the compatible string. The binding says:
+
+Optional Properties:
+
+- compatible: Compatible list, may contain
+  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
+  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
+  specifications. If neither of these are specified, the default is to
+  assume clause 22. The compatible list may also contain other
+  elements.
+
+  If the phy's identifier is known then the list may contain an entry
+  of the form: "ethernet-phy-idAAAA.BBBB" where
+     AAAA - The value of the 16 bit Phy Identifier 1 register as
+            4 hex digits. This is the chip vendor OUI bits 3:18
+     BBBB - The value of the 16 bit Phy Identifier 2 register as
+            4 hex digits. This is the chip vendor OUI bits 19:24,
+            followed by 10 bits of a vendor specific ID.
+
+We are in a grey area, it does not say you can specifically exactly
+what PHY you have, but it also does not rule it out, since "may also
+contain other elements".
+
+When adding support for generic MDIO device, like switches, i have to
+differentiate between PHYs and generic MDIO devices in DT. What i
+implemented is:
+
+/*
+ * Return true if the child node is for a phy. It must either:
+ * o Compatible string of "ethernet-phy-idX.X"
+ * o Compatible string of "ethernet-phy-ieee802.3-c45"
+ * o Compatible string of "ethernet-phy-ieee802.3-c22"
+ * o No compatibility string
+ *
+ * A device which is not a phy is expected to have a compatible string
+ * indicating what sort of device it is.
+ */
+static bool of_mdiobus_child_is_phy(struct device_node *child)
+{
+
+The last rule is the issue. Before this patch, saying
+"marvell,88e1149r" would be totally ignored, never used. The PHY
+drivers don't have an of_device_id table to match against.  Now it
+means the device is a generic MDIO device, and use the compatible
+string to find the correct driver for it.
+
+The first part of the fix is clear. If we have a generic MDIO device,
+but somebody asks for a PHY device, return an error. I've not checked
+the code paths yet, but i expect the generic MDIO device is being
+returned, container_of() into a phydev, and then the non-existent
+mutex is lock. The code already have a flag to indicate if it is a PHY
+or not, so it looks like a check is missing somewhere.
+
+The harder problem, is what to do with these compatible strings, and
+how to decide if we have a generic MDIO device, or a PHY. Grep'ing the
+DTS files, it seems to be an issue for octeon_68xx.dts,
+octeon_3xxx.dts, k2e-evm.dts, k2he-evm.dts, k2l-evm.dts,
+kirkwood-dockstar.dts, moxart-uc7112lx.dts, dove-cubox.dts and maybe
+others my grep foo missed.
+
+This is too many to ignore. Having a useless compatible string for a
+PHY needs to be supported. So i guess i need a bool property,
+"generic-mdio", and assume anything without that is a PHY.
+
+Florian, are you O.K. with this?
+
+Thanks
+	Andrew
