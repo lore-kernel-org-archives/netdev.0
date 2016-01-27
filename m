@@ -1,7 +1,8 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [RFC PATCH net-next 0/3] sctp: add GSO support
-Date: Wed, 27 Jan 2016 15:06:30 -0200
-Message-ID: <cover.1453913331.git.marcelo.leitner@gmail.com>
+Subject: [RFC PATCH net-next 1/3] skbuff: export skb_gro_receive
+Date: Wed, 27 Jan 2016 15:06:31 -0200
+Message-ID: <c4f95e89023018417b7daf2bcec9db8859b65eaa.1453913331.git.marcelo.leitner@gmail.com>
+References: <cover.1453913331.git.marcelo.leitner@gmail.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>,
 	Vlad Yasevich <vyasevich@gmail.com>,
 	David Miller <davem@davemloft.net>, brouer@redhat.com,
@@ -11,51 +12,33 @@ Cc: Neil Horman <nhorman@tuxdriver.com>,
 	john.r.fastabend@intel.com, linux-sctp@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50860 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60959 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752976AbcA0RGv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2016 12:06:51 -0500
+	id S1754485AbcA0RGy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jan 2016 12:06:54 -0500
+In-Reply-To: <cover.1453913331.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset is merely a RFC for the moment. There are some
-controversial points that I'd like to discuss before actually proposing
-the patches.
+sctp GSO requires it and sctp can be compiled as a module, so export
+this function.
 
-The points are more detailed in the 3rd patch.
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/core/skbuff.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Another approach that I can think of, is using something related to
-what Dave Miller mentioned on the thread 'Optimizing instruction-cache,
-more packets at each stage' about skb bundling, so I Cc'ed people from
-that thread too.
-SCTP could generate a list of related skbs, after all that's pretty much
-what this patchset does but using GRO/GSO infrastructure that is already
-there.
-
-PS: I also have code for GRO on top of this patchset, but it needs more
-work yet.
-
-Thanks!
-
-Marcelo Ricardo Leitner (3):
-  skbuff: export skb_gro_receive
-  sctp: offloading support structure
-  sctp: Add GSO support
-
- include/linux/netdev_features.h |   7 +-
- include/linux/netdevice.h       |   1 +
- include/linux/skbuff.h          |   2 +
- include/net/sctp/sctp.h         |   4 +
- net/core/dev.c                  |   6 +-
- net/core/skbuff.c               |  13 +-
- net/ipv4/af_inet.c              |   1 +
- net/sctp/Makefile               |   3 +-
- net/sctp/offload.c              | 100 ++++++++++++
- net/sctp/output.c               | 338 +++++++++++++++++++++++++---------------
- net/sctp/protocol.c             |   3 +
- net/sctp/socket.c               |   2 +
- 12 files changed, 351 insertions(+), 129 deletions(-)
- create mode 100644 net/sctp/offload.c
-
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b2df375ec9c2173a8132b8efa1c3062f0510284b..704b69682085dec77f3d0f990aaf0024afd705b9 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3312,6 +3312,7 @@ done:
+ 	NAPI_GRO_CB(skb)->same_flow = 1;
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(skb_gro_receive);
+ 
+ void __init skb_init(void)
+ {
 -- 
 2.5.0
