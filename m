@@ -1,48 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: switchdev automated testing
-Date: Wed, 27 Jan 2016 15:46:57 +0100
-Message-ID: <20160127144657.GB2222@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
-	sfeldma@gmail.com, vivien.didelot@savoirfairelinux.com,
-	f.fainelli@gmail.com, linux@roeck-us.net, andrew@lunn.ch,
-	gospo@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	rami.rosen@intel.com, nikolay@cumulusnetworks.com,
-	horms@verge.net.au, pjonnala@broadcom.com, olichtne@redhat.com,
-	jtluka@redhat.com, jprochaz@redhat.com
-To: netdev@vger.kernel.org
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: [PATCH 1/1] netfilter: h323: avoid potential attack
+Date: Wed, 27 Jan 2016 22:40:45 +0800
+Message-ID: <1453905646-6446-1-git-send-email-zhouzhouyi@gmail.com>
+Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>,
+	Zhouyi Zhou <zhouzhouyi@gmail.com>
+To: <pablo@netfilter.org>, <kaber@trash.net>,
+	<kadlec@blackhole.kfki.hu>, <davem@davemloft.net>,
+	<netfilter-devel@vger.kernel.org>, <coreteam@netfilter.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33615 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932555AbcA0OrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:47:00 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r129so3787944wmr.0
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 06:46:59 -0800 (PST)
-Content-Disposition: inline
+Received: from smtp15.cstnet.cn ([159.226.251.15]:56259 "EHLO cstnet.cn"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932725AbcA0Ou2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jan 2016 09:50:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All.
+From: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
 
-Just want to send a small note here about what we use for mlxsw driver
-automated testing. It can be handy for other people using switchdev
-infra, namely DSA guys.
+I think hackers chould build a malicious h323 packet to overflow
+the pointer p which will panic during the memcpy(addr, p, len)
 
-The framework is called LNST:
-http://lnst-project.org/
+For example, he may fabricate a very large taddr->ipAddress.ip; 
 
-Switchdev recipes are located in LNST git repo here:
-https://github.com/jpirko/lnst/tree/master/recipes/switchdev
+Signed-off-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
+---
+ net/netfilter/nf_conntrack_h323_main.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-It's just a start. We'd like to make them more complete, possibly with
-your help.
-
-LNST can be of course used for other network automated testing purposes.
-Ccing LNST developers (jtluka, olichtne, jprochaz). Feel free to ask me
-or them any questions.
-
-Thanks.
-
-Jiri
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index 9511af0..3b3dd8c 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -110,6 +110,10 @@ int (*nat_q931_hook) (struct sk_buff *skb,
+ 
+ static DEFINE_SPINLOCK(nf_h323_lock);
+ static char *h323_buffer;
++#define CHECK_BOUND(p, n) do {					\
++		if (((p - h323_buffer) + n) > 65536)		\
++			return 0;				\
++} while (0)
+ 
+ static struct nf_conntrack_helper nf_conntrack_helper_h245;
+ static struct nf_conntrack_helper nf_conntrack_helper_q931[];
+@@ -247,6 +251,8 @@ static int get_h245_addr(struct nf_conn *ct, const unsigned char *data,
+ 		return 0;
+ 	}
+ 
++	CHECK_BOUND(p, len);
++
+ 	memcpy(addr, p, len);
+ 	memset((void *)addr + len, 0, sizeof(*addr) - len);
+ 	memcpy(port, p + len, sizeof(__be16));
+@@ -669,6 +675,8 @@ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
+ 		return 0;
+ 	}
+ 
++	CHECK_BOUND(p, len);
++
+ 	memcpy(addr, p, len);
+ 	memset((void *)addr + len, 0, sizeof(*addr) - len);
+ 	memcpy(port, p + len, sizeof(__be16));
+-- 
+1.7.10.4
