@@ -1,34 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: stable backport of 3 xen multiqueue network dev fixes
-Date: Tue, 26 Jan 2016 17:44:12 -0800 (PST)
-Message-ID: <20160126.174412.307182482674052748.davem@davemloft.net>
-References: <1453377490.4320.16.camel@citrix.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
+Date: Wed, 27 Jan 2016 10:49:44 +0900
+Message-ID: <20160127014944.GD27499@verge.net.au>
+References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
+ <20160126002300.GA27856@verge.net.au>
+ <56A7C252.3040707@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	wei.liu2@citrix.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com
-To: ian.campbell@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39439 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbcA0BoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 20:44:16 -0500
-In-Reply-To: <1453377490.4320.16.camel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56A7C252.3040707@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Thu, 21 Jan 2016 11:58:10 +0000
-
-> Please could you queue these three:
+On Tue, Jan 26, 2016 at 10:00:34PM +0300, Sergei Shtylyov wrote:
+> Hello.
 > 
-> 32a8440 xen-netfront: respect user provided max_queues
-> 4c82ac3 xen-netback: respect user provided max_queues
-> ca88ea1 xen-netfront: update num_queues to real created
-> 
-> for stable backports to at least 4.1. Multiqueue was added in v3.16 so I
-> think they could all go to LTS that far back.
+>    Yoshihiro-san, there was no need to hurry -- net-next is still closed and
+> by posting this patch to netdev you're only making DaveM upset...
 
-Done.
+True.
+
+> On 01/26/2016 03:23 AM, Simon Horman wrote:
+> 
+> >> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >>
+> >>This patch supports the following interrupts.
+> >>
+> >>- One interrupt for multiple (descriptor, error, management)
+> >>- One interrupt for emac
+> >>- Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+> >>
+> >>This patch improve efficiency of the interrupt handler by adding the
+> >>interrupt handler corresponding to each interrupt source described
+> >>above. Additionally, it reduces the number of times of the access to
+> >>EthernetAVB IF.
+> >>
+> >>Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >>Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> >
+> >I have tested this patch and the result seems positive.
+> 
+>    Tested on gen3 only I guess?
+
+Yes, that is correct.
+
+> >Please let me know if any more/different testing would help.
+> 
+>    Sanity testing on some gen2 SoC wouldn't hurt (if you have time).
+
+I don't believe that I have access to a gen2 board (+ extra hardware ?)
+where ravb works. If you do would it be possible for you to do a sanity
+test?
