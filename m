@@ -1,46 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] tipc: fix connection abort during subscription
- cancel
-Date: Wed, 27 Jan 2016 17:08:50 -0500 (EST)
-Message-ID: <20160127.170850.1011664949543122106.davem@davemloft.net>
-References: <1453890959-8238-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] virtio: fixes, tests
+Date: Thu, 28 Jan 2016 00:15:39 +0200
+Message-ID: <20160128001448-mutt-send-email-mst@redhat.com>
+References: <20160127211216-mutt-send-email-mst@redhat.com>
+	<CA+55aFzypP2SDdX7y8MpZGKhmLJot=UT4i328CYBcNQsP2VU+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	jon.maloy@ericsson.com, maloy@donjonn.com, ying.xue@windriver.com,
-	richard.alpe@ericsson.com, anders.widell@ericsson.com
-To: parthasarathy.bhuvaragan@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49454 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934332AbcA0WIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 17:08:53 -0500
-In-Reply-To: <1453890959-8238-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jmarchan@redhat.com, KVM list <kvm@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Kamal Mostafa <kamal@canonical.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFzypP2SDdX7y8MpZGKhmLJot=UT4i328CYBcNQsP2VU+Q@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Date: Wed, 27 Jan 2016 11:35:59 +0100
+On Wed, Jan 27, 2016 at 11:57:52AM -0800, Linus Torvalds wrote:
+> On Wed, Jan 27, 2016 at 11:12 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> >
+> >  arch/sh/include/asm/barrier.h            |   1 -
+> >  tools/virtio/asm/barrier.h               |  22 +-
+> >  tools/virtio/linux/compiler.h            |   9 +
+> >  tools/virtio/linux/kernel.h              |   1 +
+> >  tools/virtio/ringtest/main.h             | 119 ++++++++++
+> >  drivers/virtio/virtio_pci_common.c       |   2 +
+> >  tools/virtio/ringtest/main.c             | 366 +++++++++++++++++++++++++++++++
+> >  tools/virtio/ringtest/ring.c             | 272 +++++++++++++++++++++++
+> >  tools/virtio/ringtest/virtio_ring_0_9.c  | 316 ++++++++++++++++++++++++++
+> >  tools/virtio/ringtest/virtio_ring_poll.c |   2 +
+> >  tools/virtio/ringtest/Makefile           |  22 ++
+> >  tools/virtio/ringtest/README             |   2 +
+> >  tools/virtio/ringtest/run-on-all.sh      |  24 ++
+> >  13 files changed, 1148 insertions(+), 10 deletions(-)
+> 
+> How the heck did you generate that diffstat? The names should be
+> ordered, and are for me.
+> 
+> Anyway, pulled. Just curious about how that thing happened.
+> 
+>              Linus
 
-> In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing
-> to events")', we terminate the connection if the subscription
-> creation fails.
-> In the same commit, the subscription creation result was based on
-> the value of the subscription pointer (set in the function) instead
-> of the return code.
-> 
-> Unfortunately, the same function tipc_subscrp_create() handles
-> subscription cancel request. For a subscription cancellation request,
-> the subscription pointer cannot be set. Thus if a subscriber has
-> several subscriptions and cancels any of them, the connection is
-> terminated.
-> 
-> In this commit, we terminate the connection based on the return value
-> of tipc_subscrp_create().
-> Fixes: commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to events")
-> 
-> Reviewed-by:  Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+That's because apparently diffstat obeys orderfile rules:
 
-Applied and queued up for -stable, thanks.
+[diff]
+        renames = true
+        orderfile = "/home/mst/.gitorderfile"
+
+$ cat .gitorderfile 
+configure
+Makefile*
+*.json
+*.h
+*.c
