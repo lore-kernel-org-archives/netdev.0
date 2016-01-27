@@ -1,127 +1,59 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/9] net: hp100: remove unnecessary #ifdefs
-Date: Wed, 27 Jan 2016 15:04:52 +0100
-Message-ID: <1453903507-3427225-3-git-send-email-arnd@arndb.de>
+Subject: [PATCH 3/9] net: bgmac: clarify CONFIG_BCMA dependency
+Date: Wed, 27 Jan 2016 15:04:53 +0100
+Message-ID: <1453903507-3427225-4-git-send-email-arnd@arndb.de>
 References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	Jaroslav Kysela <perex@perex.cz>, linux-kernel@vger.kernel.org
+	Michael Chan <mchan@broadcom.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Rajesh Borundia <Rajesh.Borundia@qlogic.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Building the hp100 ethernet driver causes warnings when both the PCI
-and EISA drivers are disabled:
+The bgmac driver depends on BCMA_HOST_SOC, which is only used
+when CONFIG_BCMA is enabled. However, it is a bool option and can
+be set when CONFIG_BCMA=m, and then bgmac can be built-in, leading
+to an obvious link error:
 
-ethernet/hp/hp100.c: In function 'hp100_module_init':
-ethernet/hp/hp100.c:3047:2: warning: label 'out3' defined but not used [-Wunused-label]
-ethernet/hp/hp100.c: At top level:
-ethernet/hp/hp100.c:2828:13: warning: 'cleanup_dev' defined but not used [-Wunused-function]
+drivers/built-in.o: In function `bgmac_init':
+:(.init.text+0x7f2c): undefined reference to `__bcma_driver_register'
+drivers/built-in.o: In function `bgmac_exit':
+:(.exit.text+0x110a): undefined reference to `bcma_driver_unregister'
 
-We can easily avoid the warnings and make the driver look slightly
-nicer by removing the #ifdefs that check for the CONFIG_PCI and
-CONFIG_EISA, as all the registration functions are designed to
-have no effect when the buses are disabled.
+To avoid this case, we need to depend on both BCMA and BCMA_SOC,
+as this patch does. I'm also trying to make the dependency more
+readable by splitting it into three lines, and adding a COMPILE_TEST
+alternative so we can test-build it in all configurations that
+support BCMA.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/hp/hp100.c | 18 ------------------
- 1 file changed, 18 deletions(-)
+ drivers/net/ethernet/broadcom/Kconfig | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index 1d5c3e16d8f4..3daf2d4a7ca0 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -194,7 +194,6 @@ static const char *hp100_isa_tbl[] = {
- };
- #endif
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 8550df189ceb..19f7cd02e085 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -151,8 +151,11 @@ config BNX2X_VXLAN
  
--#ifdef CONFIG_EISA
- static struct eisa_device_id hp100_eisa_tbl[] = {
- 	{ "HWPF180" }, /* HP J2577 rev A */
- 	{ "HWP1920" }, /* HP 27248B */
-@@ -205,9 +204,7 @@ static struct eisa_device_id hp100_eisa_tbl[] = {
- 	{ "" }	       /* Mandatory final entry ! */
- };
- MODULE_DEVICE_TABLE(eisa, hp100_eisa_tbl);
--#endif
- 
--#ifdef CONFIG_PCI
- static const struct pci_device_id hp100_pci_tbl[] = {
- 	{PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_J2585A, PCI_ANY_ID, PCI_ANY_ID,},
- 	{PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_J2585B, PCI_ANY_ID, PCI_ANY_ID,},
-@@ -219,7 +216,6 @@ static const struct pci_device_id hp100_pci_tbl[] = {
- 	{}			/* Terminating entry */
- };
- MODULE_DEVICE_TABLE(pci, hp100_pci_tbl);
--#endif
- 
- static int hp100_rx_ratio = HP100_DEFAULT_RX_RATIO;
- static int hp100_priority_tx = HP100_DEFAULT_PRIORITY_TX;
-@@ -2842,7 +2838,6 @@ static void cleanup_dev(struct net_device *d)
- 	free_netdev(d);
- }
- 
--#ifdef CONFIG_EISA
- static int hp100_eisa_probe(struct device *gendev)
- {
- 	struct net_device *dev = alloc_etherdev(sizeof(struct hp100_private));
-@@ -2884,9 +2879,7 @@ static struct eisa_driver hp100_eisa_driver = {
- 		.remove  = hp100_eisa_remove,
-         }
- };
--#endif
- 
--#ifdef CONFIG_PCI
- static int hp100_pci_probe(struct pci_dev *pdev,
- 			   const struct pci_device_id *ent)
- {
-@@ -2955,7 +2948,6 @@ static struct pci_driver hp100_pci_driver = {
- 	.probe		= hp100_pci_probe,
- 	.remove		= hp100_pci_remove,
- };
--#endif
- 
- /*
-  *  module section
-@@ -3032,23 +3024,17 @@ static int __init hp100_module_init(void)
- 	err = hp100_isa_init();
- 	if (err && err != -ENODEV)
- 		goto out;
--#ifdef CONFIG_EISA
- 	err = eisa_driver_register(&hp100_eisa_driver);
- 	if (err && err != -ENODEV)
- 		goto out2;
--#endif
--#ifdef CONFIG_PCI
- 	err = pci_register_driver(&hp100_pci_driver);
- 	if (err && err != -ENODEV)
- 		goto out3;
--#endif
-  out:
- 	return err;
-  out3:
--#ifdef CONFIG_EISA
- 	eisa_driver_unregister (&hp100_eisa_driver);
-  out2:
--#endif
- 	hp100_isa_cleanup();
- 	goto out;
- }
-@@ -3057,12 +3043,8 @@ static int __init hp100_module_init(void)
- static void __exit hp100_module_exit(void)
- {
- 	hp100_isa_cleanup();
--#ifdef CONFIG_EISA
- 	eisa_driver_unregister (&hp100_eisa_driver);
--#endif
--#ifdef CONFIG_PCI
- 	pci_unregister_driver (&hp100_pci_driver);
--#endif
- }
- 
- module_init(hp100_module_init)
+ config BGMAC
+ 	tristate "BCMA bus GBit core support"
+-	depends on BCMA_HOST_SOC && HAS_DMA && (BCM47XX || ARCH_BCM_5301X)
++	depends on BCMA && BCMA_HOST_SOC
++	depends on HAS_DMA
++	depends on BCM47XX || ARCH_BCM_5301X || COMPILE_TEST
+ 	select PHYLIB
++	select FIXED_PHY
+ 	---help---
+ 	  This driver supports GBit MAC and BCM4706 GBit MAC cores on BCMA bus.
+ 	  They can be found on BCM47xx SoCs and provide gigabit ethernet.
 -- 
 2.7.0
