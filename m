@@ -1,54 +1,90 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 0/9] network driver fixes
-Date: Wed, 27 Jan 2016 15:04:50 +0100
-Message-ID: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
+Subject: [PATCH 1/9] net: davinci_cpdma: use dma_addr_t for DMA address
+Date: Wed, 27 Jan 2016 15:04:51 +0100
+Message-ID: <1453903507-3427225-2-git-send-email-arnd@arndb.de>
+References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Cc: linux-arm-kernel@lists.infradead.org,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:52739 "EHLO
+Received: from mout.kundenserver.de ([212.227.126.187]:63193 "EHLO
 	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754261AbcA0OFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:05:52 -0500
+	with ESMTP id S1754261AbcA0OGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:06:36 -0500
+In-Reply-To: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These are all fixes for relatively harmless bugs that showed up
-in my randconfig testing, so they should not be needed for v4.5
-but get merged into net-next.
+The davinci_cpdma mixes up physical addresses as seen from the CPU
+and DMA addresses as seen from a DMA master, since it can operate
+on both normal memory or an on-chip buffer. If dma_addr_t is
+different from phys_addr_t, this means we get a compile-time warning
+about the type mismatch:
 
-I've managed to address all 'uninitialized variable' warnings that
-I get in ARM randconfig kernels now, this series includes the
-last five I got in network drivers. They are often really annoying
-warnings but when we get new ones, they often are about actual
-bugs in corner cases, so I'm trying hard to eliminate the false
-positives here to get people to pay attention to added warnings.
-I've recently tried building with an older gcc and found tons more
-that are all bogus, this series only addresses the ones that
-gcc-5.2 finds.
+ethernet/ti/davinci_cpdma.c: In function 'cpdma_desc_pool_create':
+ethernet/ti/davinci_cpdma.c:182:48: error: passing argument 3 of 'dma_alloc_coherent' from incompatible pointer type [-Werror=incompatible-pointer-types]
+   pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
+In file included from ethernet/ti/davinci_cpdma.c:21:0:
+dma-mapping.h:398:21: note: expected 'dma_addr_t * {aka long long unsigned int *}' but argument is of type 'phys_addr_t * {aka unsigned int *}'
+ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 
-Arnd Bergmann (9):
-  net: davinci_cpdma: use dma_addr_t for DMA address
-  net: hp100: remove unnecessary #ifdefs
-  net: bgmac: clarify CONFIG_BCMA dependency
-  net: moxart: use correct accessors for DMA memory
-  net: fddi/defxx: avoid warning about uninitialized variable use
-  net: vxge: avoid unused function warnings
-  net: macb: avoid uninitialized variables
-  net: nb8800: avoid uninitialized variable warning
-  net: tg3: avoid uninitialized variable warning
+This slightly restructures the code so the address we use for
+mapping RAM into a DMA address is always a dma_addr_t, avoiding
+the warning. The code is correct even if both types are 32-bit
+because the DMA master in this device only supports 32-bit addressing
+anyway, independent of the types that are used.
 
- drivers/net/ethernet/aurora/nb8800.c           |  4 +--
- drivers/net/ethernet/broadcom/Kconfig          |  5 ++-
- drivers/net/ethernet/broadcom/tg3.c            |  2 +-
- drivers/net/ethernet/cadence/macb.c            |  1 +
- drivers/net/ethernet/hp/hp100.c                | 18 -----------
- drivers/net/ethernet/moxa/moxart_ether.c       | 42 ++++++++++++++++----------
- drivers/net/ethernet/moxa/moxart_ether.h       |  4 +--
- drivers/net/ethernet/neterion/vxge/vxge-main.c | 31 ++++++++-----------
- drivers/net/ethernet/ti/davinci_cpdma.c        | 12 ++++----
- drivers/net/fddi/defxx.c                       |  5 +++
- 10 files changed, 59 insertions(+), 65 deletions(-)
+We still assign this value to pool->phys, and that is wrong if
+the driver is ever used with an IOMMU, but that value appears to
+be never used, so there is no problem really. I've added a couple
+of comments about where we do things that are slightly violating
+the API.
 
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/ti/davinci_cpdma.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 657b65bf5cac..18bf3a8fdc50 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -82,7 +82,7 @@ struct cpdma_desc {
+ 
+ struct cpdma_desc_pool {
+ 	phys_addr_t		phys;
+-	u32			hw_addr;
++	dma_addr_t		hw_addr;
+ 	void __iomem		*iomap;		/* ioremap map */
+ 	void			*cpumap;	/* dma_alloc map */
+ 	int			desc_size, mem_size;
+@@ -152,7 +152,7 @@ struct cpdma_chan {
+  * abstract out these details
+  */
+ static struct cpdma_desc_pool *
+-cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
++cpdma_desc_pool_create(struct device *dev, u32 phys, dma_addr_t hw_addr,
+ 				int size, int align)
+ {
+ 	int bitmap_size;
+@@ -176,13 +176,13 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
+ 
+ 	if (phys) {
+ 		pool->phys  = phys;
+-		pool->iomap = ioremap(phys, size);
++		pool->iomap = ioremap(phys, size); /* should be memremap? */
+ 		pool->hw_addr = hw_addr;
+ 	} else {
+-		pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
++		pool->cpumap = dma_alloc_coherent(dev, size, &pool->hw_addr,
+ 						  GFP_KERNEL);
+-		pool->iomap = pool->cpumap;
+-		pool->hw_addr = pool->phys;
++		pool->iomap = (void __iomem __force *)pool->cpumap;
++		pool->phys = pool->hw_addr; /* assumes no IOMMU, don't use this value */
+ 	}
+ 
+ 	if (pool->iomap)
 -- 
 2.7.0
