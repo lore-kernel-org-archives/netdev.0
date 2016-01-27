@@ -1,74 +1,101 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v2] tipc: fix connection abort during subscription cancel
-Date: Wed, 27 Jan 2016 11:35:59 +0100
-Message-ID: <1453890959-8238-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Aaro Koskinen <aaro.koskinen@nokia.com>
+Subject: Re: [PATCH net 1/2] of: of_mdio: Add a whitelist of PHY
+ compatibilities.
+Date: Wed, 27 Jan 2016 13:17:27 +0200
+Message-ID: <20160127111726.GN22974@ak-desktop.emea.nsn-net.net>
+References: <1453853499-11248-1-git-send-email-andrew@lunn.ch>
+ <1453853499-11248-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<jon.maloy@ericsson.com>, <maloy@donjonn.com>,
-	<ying.xue@windriver.com>, <richard.alpe@ericsson.com>,
-	<anders.widell@ericsson.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>, olof@lixom.net
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:49428 "EHLO
-	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743AbcA0KgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 05:36:23 -0500
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:34403 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932075AbcA0LRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 06:17:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1453853499-11248-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing
-to events")', we terminate the connection if the subscription
-creation fails.
-In the same commit, the subscription creation result was based on
-the value of the subscription pointer (set in the function) instead
-of the return code.
+Hi,
 
-Unfortunately, the same function tipc_subscrp_create() handles
-subscription cancel request. For a subscription cancellation request,
-the subscription pointer cannot be set. Thus if a subscriber has
-several subscriptions and cancels any of them, the connection is
-terminated.
+On Wed, Jan 27, 2016 at 01:11:38AM +0100, Andrew Lunn wrote:
+> Some phy nodes list a compatible value indicating the PHY make/model.
+> This is never used to match the device to the driver. However it does
+> confuse the code to separate a PHY from a generic MDIO device like a
+> switch. Generic MDIO devices must have a compatible value, PHYs can
+> list clause 22 or 45, but nothing else.
+> 
+> Issue a warning if we find a compatible value known on the whitelist,
+> and say it is a PHY.
+> 
+> Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
+> Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
+> Reported-by: Olof Johansson <olof@lixom.net>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-In this commit, we terminate the connection based on the return value
-of tipc_subscrp_create().
-Fixes: commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to events")
+Tested-by: Aaro Koskinen <aaro.koskinen@nokia.com>
 
-Reviewed-by:  Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
----
-v2:
- * Update variable subscriber to subscrb to fit the condition in single
-   line as requested by Jon.
+A.
 
-
- net/tipc/subscr.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
-
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 350cca33ee0a..69ee2eeef968 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -289,15 +289,14 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
- 				struct sockaddr_tipc *addr, void *usr_data,
- 				void *buf, size_t len)
- {
--	struct tipc_subscriber *subscriber = usr_data;
-+	struct tipc_subscriber *subscrb = usr_data;
- 	struct tipc_subscription *sub = NULL;
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 
--	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber, &sub);
--	if (sub)
--		tipc_nametbl_subscribe(sub);
--	else
--		tipc_conn_terminate(tn->topsrv, subscriber->conid);
-+	if (tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscrb, &sub))
-+		return tipc_conn_terminate(tn->topsrv, subscrb->conid);
-+
-+	tipc_nametbl_subscribe(sub);
- }
- 
- /* Handle one request to establish a new subscriber */
--- 
-2.1.4
+> ---
+>  drivers/of/of_mdio.c | 27 +++++++++++++++++++++++++++
+>  1 file changed, 27 insertions(+)
+> 
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index b5aa004a24b6..26c245041493 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -143,11 +143,31 @@ int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
+>  }
+>  EXPORT_SYMBOL(of_mdio_parse_addr);
+>  
+> +/* The following is a list of PHY compatible strings which appear in
+> + * some DTBs. The compatible string is never matched against a PHY
+> + * driver, so is pointless. We only expect devices which are not PHYs
+> + * to have a compatible string, so they can be matched to an MDIO
+> + * driver.  Encourage users to upgrade there DT blobs to remove these.
+> + */
+> +static const struct of_device_id whitelist_phys[] = {
+> +	{ .compatible = "brcm,40nm-ephy" },
+> +	{ .compatible = "marvell,88E1111", },
+> +	{ .compatible = "marvell,88e1116", },
+> +	{ .compatible = "marvell,88e1118", },
+> +	{ .compatible = "marvell,88e1149r", },
+> +	{ .compatible = "marvell,88e1310", },
+> +	{ .compatible = "marvell,88E1510", },
+> +	{ .compatible = "marvell,88E1514", },
+> +	{ .compatible = "moxa,moxart-rtl8201cp", },
+> +	{}
+> +};
+> +
+>  /*
+>   * Return true if the child node is for a phy. It must either:
+>   * o Compatible string of "ethernet-phy-idX.X"
+>   * o Compatible string of "ethernet-phy-ieee802.3-c45"
+>   * o Compatible string of "ethernet-phy-ieee802.3-c22"
+> + * o In the white list above (and issue a warning)
+>   * o No compatibility string
+>   *
+>   * A device which is not a phy is expected to have a compatible string
+> @@ -166,6 +186,13 @@ static bool of_mdiobus_child_is_phy(struct device_node *child)
+>  	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c22"))
+>  		return true;
+>  
+> +	if (of_match_node(whitelist_phys, child)) {
+> +		pr_warn(FW_WARN
+> +			"%s: Whitelisted compatible string. Please remove\n",
+> +			child->full_name);
+> +		return true;
+> +	}
+> +
+>  	if (!of_find_property(child, "compatible", NULL))
+>  		return true;
+>  
+> -- 
+> 2.7.0
+> 
