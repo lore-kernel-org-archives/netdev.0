@@ -1,67 +1,79 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH net-next 1/3] skbuff: export skb_gro_receive
-Date: Wed, 27 Jan 2016 16:46:25 -0200
-Message-ID: <56A91081.9050000@gmail.com>
-References: <cover.1453913331.git.marcelo.leitner@gmail.com>
- <c4f95e89023018417b7daf2bcec9db8859b65eaa.1453913331.git.marcelo.leitner@gmail.com>
- <1453919718.20722.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: beware of alignments in tcp_get_info()
+Date: Wed, 27 Jan 2016 10:52:43 -0800
+Message-ID: <1453920763.20722.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, brouer@redhat.com,
-	alexander.duyck@gmail.com, alexei.starovoitov@gmail.com,
-	borkmann@iogearbox.net, marek@cloudflare.com,
-	hannes@stressinduktion.org, fw@strlen.de, pabeni@redhat.com,
-	john.r.fastabend@intel.com, linux-sctp@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:34293 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965386AbcA0Sqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 13:46:32 -0500
-In-Reply-To: <1453919718.20722.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36857 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934715AbcA0Swp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 13:52:45 -0500
+Received: by mail-pf0-f176.google.com with SMTP id n128so9016908pfn.3
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 10:52:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 27-01-2016 16:35, Eric Dumazet escreveu:
-> On Wed, 2016-01-27 at 15:06 -0200, Marcelo Ricardo Leitner wrote:
->> sctp GSO requires it and sctp can be compiled as a module, so export
->> this function.
->>
->> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->> ---
->>   net/core/skbuff.c | 1 +
->>   1 file changed, 1 insertion(+)
->>
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index b2df375ec9c2173a8132b8efa1c3062f0510284b..704b69682085dec77f3d0f990aaf0024afd705b9 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3312,6 +3312,7 @@ done:
->>   	NAPI_GRO_CB(skb)->same_flow = 1;
->>   	return 0;
->>   }
->> +EXPORT_SYMBOL_GPL(skb_gro_receive);
->>
->>   void __init skb_init(void)
->>   {
->
->
-> Normally, all the offloading support belongs in vmlinux, so this export
-> is not needed.
->
-> For instance, we support GRO IPV6 even if IPv6 is not enabled on the
-> host.
->
-> Ie all these net/ipv6 files are included in vmlinux if CONFIG_INET is
-> enabled
->
-> ip6_offload.o tcpv6_offload.o udp_offload.o exthdrs_offload.o
+From: Eric Dumazet <edumazet@google.com>
 
-Okay. For SCTP it might be a bit harder due to its CRC, which is using 
-crc32c function. I'll check it.
+With some combinations of user provided flags in netlink command,
+it is possible to call tcp_get_info() with a buffer that is not 8-bytes
+aligned.
 
-Thanks,
-Marcelo
+It does matter on some arches, so we need to use put_unaligned() to
+store the u64 fields.
+
+Current iproute2 package does not trigger this particular issue.
+
+Fixes: 0df48c26d841 ("tcp: add tcpi_bytes_acked to tcp_info")
+Fixes: 977cb0ecf82e ("tcp: add pacing_rate information into tcp_info")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index fd17eec93525..19746b3fcbbe 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -279,6 +279,7 @@
+ 
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
++#include <asm/unaligned.h>
+ #include <net/busy_poll.h>
+ 
+ int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+@@ -2638,6 +2639,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	u32 now = tcp_time_stamp;
+ 	unsigned int start;
++	u64 rate64;
+ 	u32 rate;
+ 
+ 	memset(info, 0, sizeof(*info));
+@@ -2703,15 +2705,17 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_total_retrans = tp->total_retrans;
+ 
+ 	rate = READ_ONCE(sk->sk_pacing_rate);
+-	info->tcpi_pacing_rate = rate != ~0U ? rate : ~0ULL;
++	rate64 = rate != ~0U ? rate : ~0ULL;
++	put_unaligned(rate64, &info->tcpi_pacing_rate);
+ 
+ 	rate = READ_ONCE(sk->sk_max_pacing_rate);
+-	info->tcpi_max_pacing_rate = rate != ~0U ? rate : ~0ULL;
++	rate64 = rate != ~0U ? rate : ~0ULL;
++	put_unaligned(rate64, &info->tcpi_max_pacing_rate);
+ 
+ 	do {
+ 		start = u64_stats_fetch_begin_irq(&tp->syncp);
+-		info->tcpi_bytes_acked = tp->bytes_acked;
+-		info->tcpi_bytes_received = tp->bytes_received;
++		put_unaligned(tp->bytes_acked, &info->tcpi_bytes_acked);
++		put_unaligned(tp->bytes_received, &info->tcpi_bytes_received);
+ 	} while (u64_stats_fetch_retry_irq(&tp->syncp, start));
+ 	info->tcpi_segs_out = tp->segs_out;
+ 	info->tcpi_segs_in = tp->segs_in;
