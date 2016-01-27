@@ -1,50 +1,68 @@
-From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH] net: cavium: liquidio: use helpers ns_to_timespec64()
-Date: Wed, 27 Jan 2016 17:34:37 +0800
-Message-ID: <1453887277-11531-1-git-send-email-wangkefeng.wang@huawei.com>
+From: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/2] vhost: cross-endian code cleanup
+Date: Wed, 27 Jan 2016 11:25:31 +0100
+Message-ID: <20160127112531.2225ef1c@bahia.huguette.org>
+References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	<guohanjun@huawei.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Kefeng Wang <wangkefeng.wang@huawei.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160113170934.23705.62626.stgit@bahia.huguette.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Convert the driver to use ns_to_timespec64() to keep consistency
-with timespec64_to_ns() instead of open coding the same logic.
+On Wed, 13 Jan 2016 18:09:34 +0100
+Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
 
-Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+> This series is a respin of the following patch:
+> 
+> http://patchwork.ozlabs.org/patch/565921/
+> 
+> Patch 1 is preliminary work: it gives better names to the helpers that are
+> involved in cross-endian support.
+> 
+> Patch 2 is actually a v2 of the original patch. All devices now call a
+> helper in the generic code, which DTRT according to vq->private_data, as
+> suggested by Michael.
+> 
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index b895044..8727655 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -1526,7 +1526,6 @@ static int liquidio_ptp_gettime(struct ptp_clock_info *ptp,
- 				struct timespec64 *ts)
- {
- 	u64 ns;
--	u32 remainder;
- 	unsigned long flags;
- 	struct lio *lio = container_of(ptp, struct lio, ptp_info);
- 	struct octeon_device *oct = (struct octeon_device *)lio->oct_dev;
-@@ -1536,8 +1535,7 @@ static int liquidio_ptp_gettime(struct ptp_clock_info *ptp,
- 	ns += lio->ptp_adjust;
- 	spin_unlock_irqrestore(&lio->ptp_lock, flags);
- 
--	ts->tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
--	ts->tv_nsec = remainder;
-+	*ts = ns_to_timespec64(ns);
- 
- 	return 0;
- }
--- 
-2.6.0.GIT
+Hi Michael,
+
+This is just a friendly reminder for this series, which was
+reviewed by Cornelia already.
+
+Thanks.
+
+--
+Greg
+
+> ---
+> 
+> Greg Kurz (2):
+>       vhost: helpers to enable/disable vring endianness
+>       vhost: disentangle vring endianness stuff from the core code
+> 
+> 
+>  drivers/vhost/net.c   |    3 +++
+>  drivers/vhost/scsi.c  |    3 +++
+>  drivers/vhost/test.c  |    2 ++
+>  drivers/vhost/vhost.c |   40 ++++++++++++++++++++++++++++------------
+>  drivers/vhost/vhost.h |    1 +
+>  5 files changed, 37 insertions(+), 12 deletions(-)
+> 
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+> 
