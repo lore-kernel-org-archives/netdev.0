@@ -1,67 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] virtio: fixes, tests
-Date: Wed, 27 Jan 2016 21:12:16 +0200
-Message-ID: <20160127211216-mutt-send-email-mst@redhat.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] hostap: avoid uninitialized variable use in
+ hfa384x_get_rid
+Date: Wed, 27 Jan 2016 19:26:13 +0000
+Message-ID: <20160127192612.GD10826@n2100.arm.linux.org.uk>
+References: <1453902342-3420391-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jmarchan@redhat.com, kamal@canonical.com, mst@redhat.com,
-	sasha.levin@oracle.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Jouni Malinen <j@w1.fi>, Kalle Valo <kvalo@codeaurora.org>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <1453902342-3420391-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 92e963f50fc74041b5e9e744c330dca48e04f08d:
+On Wed, Jan 27, 2016 at 02:45:26PM +0100, Arnd Bergmann wrote:
+> To ensure we get consistent error handling here, this changes the code
+> to only set rlen if we actually read data correctly, which also takes
+> care of the warning.
 
-  Linux 4.5-rc1 (2016-01-24 13:06:47 -0800)
+It may be a good idea to do the job better.  Looking at the code:
 
-are available in the git repository at:
+        struct hfa384x_rid_hdr rec;
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+        spin_lock_bh(&local->baplock);
 
-for you to fetch changes up to 481eaec37e91e2b33f17275901172f50ce2c71e8:
+        res = hfa384x_setup_bap(dev, BAP0, rid, 0);
+        if (!res)
+                res = hfa384x_from_bap(dev, BAP0, &rec, sizeof(rec));
 
-  tools/virtio: add ringtest utilities (2016-01-26 10:18:30 +0200)
+The only thing which initialises any of "rec" is that function call.
+The following lines are:
 
-----------------------------------------------------------------
-virtio: fixes, tests
+        if (le16_to_cpu(rec.len) == 0) {
+                /* RID not available */
+                res = -ENODATA;
+        }
 
-This fixes existing tests broken by barrier rework,
-and adds some new tests.
-Plus, there's a fix for an old bug in virtio-pci.
+        rlen = (le16_to_cpu(rec.len) - 1) * 2;
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+So, why give the compiler a hard time as you're doing, why make the code
+harder to read.  What's wrong with:
 
-----------------------------------------------------------------
-Michael S. Tsirkin (4):
-      virtio_pci: fix use after free on release
-      tools/virtio: use virt_xxx barriers
-      sh: fix smp_store_mb for !SMP
-      tools/virtio: add ringtest utilities
+	spin_lock_bh(&local->baplock);
 
- arch/sh/include/asm/barrier.h            |   1 -
- tools/virtio/asm/barrier.h               |  22 +-
- tools/virtio/linux/compiler.h            |   9 +
- tools/virtio/linux/kernel.h              |   1 +
- tools/virtio/ringtest/main.h             | 119 ++++++++++
- drivers/virtio/virtio_pci_common.c       |   2 +
- tools/virtio/ringtest/main.c             | 366 +++++++++++++++++++++++++++++++
- tools/virtio/ringtest/ring.c             | 272 +++++++++++++++++++++++
- tools/virtio/ringtest/virtio_ring_0_9.c  | 316 ++++++++++++++++++++++++++
- tools/virtio/ringtest/virtio_ring_poll.c |   2 +
- tools/virtio/ringtest/Makefile           |  22 ++
- tools/virtio/ringtest/README             |   2 +
- tools/virtio/ringtest/run-on-all.sh      |  24 ++
- 13 files changed, 1148 insertions(+), 10 deletions(-)
- create mode 100644 tools/virtio/linux/compiler.h
- create mode 100644 tools/virtio/ringtest/main.h
- create mode 100644 tools/virtio/ringtest/main.c
- create mode 100644 tools/virtio/ringtest/ring.c
- create mode 100644 tools/virtio/ringtest/virtio_ring_0_9.c
- create mode 100644 tools/virtio/ringtest/virtio_ring_poll.c
- create mode 100644 tools/virtio/ringtest/Makefile
- create mode 100644 tools/virtio/ringtest/README
- create mode 100755 tools/virtio/ringtest/run-on-all.sh
+	res = hfa384x_setup_bap(dev, BAP0, rid, 0);
+	if (res)
+		goto unlock;
+
+	res = hfa384x_from_bap(dev, BAP0, &rec, sizeof(rec));
+	if (res)
+		goto unlock;
+
+	if (le16_to_cpu(rec.len) == 0) {
+		/* RID not available */
+		res = -ENODATA;
+		goto unlock;
+	}
+
+	rlen = (le16_to_cpu(rec.len) - 1) * 2;
+	if (exact_len && rlen != len) {
+		printk(KERN_DEBUG "%s: hfa384x_get_rid - RID len mismatch: rid=0x%04x, len=%d (expected %d)\n",
+		       dev->name, rid, rlen, len);
+		res = -ENODATA;
+		goto unlock;
+	}
+
+	res = hfa384x_from_bap(dev, BAP0, buf, len);
+unlock:
+	spin_unlock_bh(&local->baplock);
+
+?
+
+-- 
+RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
