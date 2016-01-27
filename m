@@ -1,79 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/2] of: of_mdio: Add a whitelist of PHY
- compatibilities.
-Date: Wed, 27 Jan 2016 16:51:38 +0300
-Message-ID: <56A8CB6A.2070101@cogentembedded.com>
-References: <1453853499-11248-1-git-send-email-andrew@lunn.ch>
- <1453853499-11248-2-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	aaro.koskinen@nokia.com, olof@lixom.net
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:35202 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932385AbcA0Nvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 08:51:42 -0500
-Received: by mail-lf0-f52.google.com with SMTP id c192so6356243lfe.2
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 05:51:41 -0800 (PST)
-In-Reply-To: <1453853499-11248-2-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 2/2] netfilter: ipvs/SIP: handle ip_vs_fill_iph_skb_off failure
+Date: Wed, 27 Jan 2016 14:52:02 +0100
+Message-ID: <1453902749-3422685-2-git-send-email-arnd@arndb.de>
+References: <1453902749-3422685-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1453902749-3422685-1-git-send-email-arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+ip_vs_fill_iph_skb_off() may not find an IP header, and gcc has
+determined that ip_vs_sip_fill_param() then incorrectly accesses
+the protocol fields:
 
-On 01/27/2016 03:11 AM, Andrew Lunn wrote:
+net/netfilter/ipvs/ip_vs_pe_sip.c: In function 'ip_vs_sip_fill_param':
+net/netfilter/ipvs/ip_vs_pe_sip.c:76:5: error: 'iph.protocol' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  if (iph.protocol != IPPROTO_UDP)
+     ^
+net/netfilter/ipvs/ip_vs_pe_sip.c:81:10: error: 'iph.len' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  dataoff = iph.len + sizeof(struct udphdr);
+          ^
 
-> Some phy nodes list a compatible value indicating the PHY make/model.
-> This is never used to match the device to the driver. However it does
-> confuse the code to separate a PHY from a generic MDIO device like a
-> switch. Generic MDIO devices must have a compatible value, PHYs can
-> list clause 22 or 45, but nothing else.
->
-> Issue a warning if we find a compatible value known on the whitelist,
+This adds a check for the ip_vs_fill_iph_skb_off() return code
+before looking at the ip header data returned from it.
 
-    My spell-checker trips on "whitelist"... Perhaps a space/hyphen needed?
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: b0e010c527de ("ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off")
+---
+ net/netfilter/ipvs/ip_vs_pe_sip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> and say it is a PHY.
->
-> Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
-> Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
-> Reported-by: Olof Johansson <olof@lixom.net>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->   drivers/of/of_mdio.c | 27 +++++++++++++++++++++++++++
->   1 file changed, 27 insertions(+)
->
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index b5aa004a24b6..26c245041493 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -143,11 +143,31 @@ int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
->   }
->   EXPORT_SYMBOL(of_mdio_parse_addr);
->
-> +/* The following is a list of PHY compatible strings which appear in
-> + * some DTBs. The compatible string is never matched against a PHY
-> + * driver, so is pointless. We only expect devices which are not PHYs
-> + * to have a compatible string, so they can be matched to an MDIO
-> + * driver.  Encourage users to upgrade there DT blobs to remove these.
+diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
+index 1b8d594e493a..c4e9ca016a88 100644
+--- a/net/netfilter/ipvs/ip_vs_pe_sip.c
++++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
+@@ -70,10 +70,10 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
+ 	const char *dptr;
+ 	int retc;
+ 
+-	ip_vs_fill_iph_skb(p->af, skb, false, &iph);
++	retc = ip_vs_fill_iph_skb(p->af, skb, false, &iph);
+ 
+ 	/* Only useful with UDP */
+-	if (iph.protocol != IPPROTO_UDP)
++	if (!retc || iph.protocol != IPPROTO_UDP)
+ 		return -EINVAL;
+ 	/* todo: IPv6 fragments:
+ 	 *       I think this only should be done for the first fragment. /HS
+-- 
+2.7.0
 
-    s/there/their/.
-
-[...]
-> @@ -166,6 +186,13 @@ static bool of_mdiobus_child_is_phy(struct device_node *child)
->   	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c22"))
->   		return true;
->
-> +	if (of_match_node(whitelist_phys, child)) {
-> +		pr_warn(FW_WARN
-> +			"%s: Whitelisted compatible string. Please remove\n",
-
-    White-listed?
-
-[...]
-
-MBR, Sergei
