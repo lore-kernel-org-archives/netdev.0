@@ -1,181 +1,118 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH 2/3] lan78xx: Add to handle mux control per chip id
-Date: Wed, 27 Jan 2016 22:57:53 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4049F341@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH 1/3] lan78xx: change to use updated phy-ignore-interrupts
+Date: Wed, 27 Jan 2016 22:57:52 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4049F338@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:52131 "EHLO
+Received: from exsmtp03.microchip.com ([198.175.253.49]:52122 "EHLO
 	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S936290AbcA0W5y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 17:57:54 -0500
+	with ESMTP id S935248AbcA0W5x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 17:57:53 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Depends on chip, some EEPROM pins are muxed with LED function.
-Disable & restore LED function to access EEPROM.
+Update lan78xx to use patch of commit 4f2aaf7dd95b
+("Merge branch 'fix-phy-ignore-interrupts'").
 
 Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- drivers/net/usb/lan78xx.c | 98 ++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 71 insertions(+), 27 deletions(-)
+ drivers/net/usb/lan78xx.c | 30 ++++++++++++++----------------
+ 1 file changed, 14 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 027ee37..650e716 100644
+index 2ed5333..027ee37 100644
 --- a/drivers/net/usb/lan78xx.c
 +++ b/drivers/net/usb/lan78xx.c
-@@ -462,32 +462,53 @@ static int lan78xx_read_raw_eeprom(struct lan78xx_net *dev, u32 offset,
- 				   u32 length, u8 *data)
- {
- 	u32 val;
-+	u32 saved;
- 	int i, ret;
-+	int retval;
+@@ -36,7 +36,7 @@
+ #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
+ #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
+ #define DRIVER_NAME	"lan78xx"
+-#define DRIVER_VERSION	"1.0.1"
++#define DRIVER_VERSION	"1.0.2"
  
--	ret = lan78xx_eeprom_confirm_not_busy(dev);
--	if (ret)
--		return ret;
-+	/* depends on chip, some EEPROM pins are muxed with LED function.
-+	 * disable & restore LED function to access EEPROM.
-+	 */
-+	ret = lan78xx_read_reg(dev, HW_CFG, &val);
-+	saved = val;
-+	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000) {
-+		val &= ~(HW_CFG_LED1_EN_ | HW_CFG_LED0_EN_);
-+		ret = lan78xx_write_reg(dev, HW_CFG, val);
-+	}
+ #define TX_TIMEOUT_JIFFIES		(5 * HZ)
+ #define THROTTLE_JIFFIES		(HZ / 8)
+@@ -904,7 +904,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 
+ 	if (!phydev->link && dev->link_on) {
+ 		dev->link_on = false;
+-		netif_carrier_off(dev->net);
+ 
+ 		/* reset MAC */
+ 		ret = lan78xx_read_reg(dev, MAC_CR, &buf);
+@@ -914,6 +913,8 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 		ret = lan78xx_write_reg(dev, MAC_CR, buf);
+ 		if (unlikely(ret < 0))
+ 			return -EIO;
 +
-+	retval = lan78xx_eeprom_confirm_not_busy(dev);
-+	if (retval)
-+		return retval;
++		phy_mac_interrupt(phydev, 0);
+ 	} else if (phydev->link && !dev->link_on) {
+ 		dev->link_on = true;
  
- 	for (i = 0; i < length; i++) {
- 		val = E2P_CMD_EPC_BUSY_ | E2P_CMD_EPC_CMD_READ_;
- 		val |= (offset & E2P_CMD_EPC_ADDR_MASK_);
- 		ret = lan78xx_write_reg(dev, E2P_CMD, val);
--		if (unlikely(ret < 0))
--			return -EIO;
-+		if (unlikely(ret < 0)) {
-+			retval = -EIO;
-+			goto exit;
-+		}
+@@ -953,7 +954,7 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 			  ethtool_cmd_speed(&ecmd), ecmd.duplex, ladv, radv);
  
--		ret = lan78xx_wait_eeprom(dev);
--		if (ret < 0)
--			return ret;
-+		retval = lan78xx_wait_eeprom(dev);
-+		if (retval < 0)
-+			goto exit;
- 
- 		ret = lan78xx_read_reg(dev, E2P_DATA, &val);
--		if (unlikely(ret < 0))
--			return -EIO;
-+		if (unlikely(ret < 0)) {
-+			retval = -EIO;
-+			goto exit;
-+		}
- 
- 		data[i] = val & 0xFF;
- 		offset++;
+ 		ret = lan78xx_update_flowcontrol(dev, ecmd.duplex, ladv, radv);
+-		netif_carrier_on(dev->net);
++		phy_mac_interrupt(phydev, 1);
  	}
  
--	return 0;
-+	retval = 0;
-+exit:
-+	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000)
-+		ret = lan78xx_write_reg(dev, HW_CFG, saved);
-+
-+	return retval;
- }
- 
- static int lan78xx_read_eeprom(struct lan78xx_net *dev, u32 offset,
-@@ -509,44 +530,67 @@ static int lan78xx_write_raw_eeprom(struct lan78xx_net *dev, u32 offset,
- 				    u32 length, u8 *data)
+ 	return ret;
+@@ -1495,7 +1496,6 @@ done:
+ static int lan78xx_mdio_init(struct lan78xx_net *dev)
  {
- 	u32 val;
-+	u32 saved;
- 	int i, ret;
-+	int retval;
+ 	int ret;
+-	int i;
  
--	ret = lan78xx_eeprom_confirm_not_busy(dev);
--	if (ret)
--		return ret;
-+	/* depends on chip, some EEPROM pins are muxed with LED function.
-+	 * disable & restore LED function to access EEPROM.
-+	 */
-+	ret = lan78xx_read_reg(dev, HW_CFG, &val);
-+	saved = val;
-+	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000) {
-+		val &= ~(HW_CFG_LED1_EN_ | HW_CFG_LED0_EN_);
-+		ret = lan78xx_write_reg(dev, HW_CFG, val);
-+	}
-+
-+	retval = lan78xx_eeprom_confirm_not_busy(dev);
-+	if (retval)
-+		goto exit;
+ 	dev->mdiobus = mdiobus_alloc();
+ 	if (!dev->mdiobus) {
+@@ -1511,10 +1511,6 @@ static int lan78xx_mdio_init(struct lan78xx_net *dev)
+ 	snprintf(dev->mdiobus->id, MII_BUS_ID_SIZE, "usb-%03d:%03d",
+ 		 dev->udev->bus->busnum, dev->udev->devnum);
  
- 	/* Issue write/erase enable command */
- 	val = E2P_CMD_EPC_BUSY_ | E2P_CMD_EPC_CMD_EWEN_;
- 	ret = lan78xx_write_reg(dev, E2P_CMD, val);
--	if (unlikely(ret < 0))
--		return -EIO;
-+	if (unlikely(ret < 0)) {
-+		retval = -EIO;
-+		goto exit;
-+	}
- 
--	ret = lan78xx_wait_eeprom(dev);
--	if (ret < 0)
--		return ret;
-+	retval = lan78xx_wait_eeprom(dev);
-+	if (retval < 0)
-+		goto exit;
- 
- 	for (i = 0; i < length; i++) {
- 		/* Fill data register */
- 		val = data[i];
- 		ret = lan78xx_write_reg(dev, E2P_DATA, val);
--		if (ret < 0)
--			return ret;
-+		if (ret < 0) {
-+			retval = -EIO;
-+			goto exit;
-+		}
- 
- 		/* Send "write" command */
- 		val = E2P_CMD_EPC_BUSY_ | E2P_CMD_EPC_CMD_WRITE_;
- 		val |= (offset & E2P_CMD_EPC_ADDR_MASK_);
- 		ret = lan78xx_write_reg(dev, E2P_CMD, val);
--		if (ret < 0)
--			return ret;
-+		if (ret < 0) {
-+			retval = -EIO;
-+			goto exit;
-+		}
- 
--		ret = lan78xx_wait_eeprom(dev);
--		if (ret < 0)
--			return ret;
-+		retval = lan78xx_wait_eeprom(dev);
-+		if (retval < 0)
-+			goto exit;
- 
- 		offset++;
+-	/* handle our own interrupt */
+-	for (i = 0; i < PHY_MAX_ADDR; i++)
+-		dev->mdiobus->irq[i] = PHY_IGNORE_INTERRUPT;
+-
+ 	switch (dev->devid & ID_REV_CHIP_ID_MASK_) {
+ 	case 0x78000000:
+ 	case 0x78500000:
+@@ -1558,6 +1554,16 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 		return -EIO;
  	}
  
--	return 0;
-+	retval = 0;
-+exit:
-+	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000)
-+		ret = lan78xx_write_reg(dev, HW_CFG, saved);
++	/* Enable PHY interrupts.
++	 * We handle our own interrupt
++	 */
++	ret = phy_read(phydev, LAN88XX_INT_STS);
++	ret = phy_write(phydev, LAN88XX_INT_MASK,
++			LAN88XX_INT_MASK_MDINTPIN_EN_ |
++			LAN88XX_INT_MASK_LINK_CHANGE_);
 +
-+	return retval;
- }
++	phydev->irq = PHY_IGNORE_INTERRUPT;
++
+ 	ret = phy_connect_direct(dev->net, phydev,
+ 				 lan78xx_link_status_change,
+ 				 PHY_INTERFACE_MODE_GMII);
+@@ -1580,14 +1586,6 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 			      SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+ 	genphy_config_aneg(phydev);
  
- static int lan78xx_read_raw_otp(struct lan78xx_net *dev, u32 offset,
+-	/* Workaround to enable PHY interrupt.
+-	 * phy_start_interrupts() is API for requesting and enabling
+-	 * PHY interrupt. However, USB-to-Ethernet device can't use
+-	 * request_irq() called in phy_start_interrupts().
+-	 * Set PHY to PHY_HALTED and call phy_start()
+-	 * to make a call to phy_enable_interrupts()
+-	 */
+-	phy_stop(phydev);
+ 	phy_start(phydev);
+ 
+ 	netif_dbg(dev, ifup, dev->net, "phy initialised successfully");
 -- 
 2.7.0
