@@ -1,31 +1,107 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: bcmgenet: bcmgenet.h: fix 0x0x prefix
-Date: Wed, 27 Jan 2016 10:27:49 -0800
-Message-ID: <56A90C25.1010306@gmail.com>
-References: <1453902852-32649-1-git-send-email-ao2@ao2.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Antonio Ospite <ao2@ao2.it>, netdev@vger.kernel.org
+From: Rostislav Pehlivanov <atomnuker@gmail.com>
+Subject: [PATCH] ixgbe: add a callback to set the maximum transmit bitrate
+Date: Wed, 27 Jan 2016 18:33:30 +0000
+Message-ID: <1453919610-8197-1-git-send-email-atomnuker@gmail.com>
+Cc: Rostislav Pehlivanov <atomnuker@gmail.com>
+To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:34949 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934573AbcA0S2o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 13:28:44 -0500
-Received: by mail-pf0-f173.google.com with SMTP id 65so8766968pfd.2
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 10:28:44 -0800 (PST)
-In-Reply-To: <1453902852-32649-1-git-send-email-ao2@ao2.it>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:33390 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964984AbcA0Sdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 13:33:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/01/16 05:54, Antonio Ospite wrote:
-> Fix the 0x0x prefix in an integer constant.
-> 
-> In this case, while at it, also fix a typo (s/unitcast/unicast/).
-> 
-> Signed-off-by: Antonio Ospite <ao2@ao2.it>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
+This commit adds a callback which allows to adjust the maximum transmit
+bitrate the card can output. This makes it possible to get a smooth
+traffic instead of the default burst-y behaviour when trying to output
+e.g. a video stream.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Much of the logic needed to get a correct bcnrc_val was taken from the
+ixgbe_set_vf_rate_limit() function.
+
+Signed-off-by: Rostislav Pehlivanov <atomnuker@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 31 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  1 +
+ 3 files changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c4003a8..d05455c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1084,6 +1084,36 @@ static void ixgbe_tx_timeout_reset(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
++ * ixgbe_tx_maxrate - callback to set the maximum per-queue bitrate
++ **/
++static int ixgbe_tx_maxrate(struct net_device *netdev,
++			    int queue_index, u32 maxrate)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 bcnrc_val = ixgbe_link_mbps(adapter);
++
++	if (!maxrate)
++		return 0;
++
++	/* Calculate the rate factor values to set */
++	bcnrc_val <<= IXGBE_RTTBCNRC_RF_INT_SHIFT;
++	bcnrc_val /= maxrate;
++
++	/* clear everything but the rate factor */
++	bcnrc_val &= IXGBE_RTTBCNRC_RF_INT_MASK |
++	IXGBE_RTTBCNRC_RF_DEC_MASK;
++
++	/* enable the rate scheduler */
++	bcnrc_val |= IXGBE_RTTBCNRC_RS_ENA;
++
++	IXGBE_WRITE_REG(hw, IXGBE_RTTDQSEL, queue_index);
++	IXGBE_WRITE_REG(hw, IXGBE_RTTBCNRC, bcnrc_val);
++
++	return 0;
++}
++
++/**
+  * ixgbe_clean_tx_irq - Reclaim resources after transmit completes
+  * @q_vector: structure containing interrupt and ring information
+  * @tx_ring: tx ring to clean
+@@ -8646,6 +8676,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_mac_address	= ixgbe_set_mac,
+ 	.ndo_change_mtu		= ixgbe_change_mtu,
+ 	.ndo_tx_timeout		= ixgbe_tx_timeout,
++	.ndo_set_tx_maxrate	= ixgbe_tx_maxrate,
+ 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
+ 	.ndo_do_ioctl		= ixgbe_ioctl,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 8025a3f..f9ca7d5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1395,7 +1395,7 @@ out:
+ 	return err;
+ }
+ 
+-static int ixgbe_link_mbps(struct ixgbe_adapter *adapter)
++int ixgbe_link_mbps(struct ixgbe_adapter *adapter)
+ {
+ 	switch (adapter->link_speed) {
+ 	case IXGBE_LINK_SPEED_100_FULL:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index dad9257..47e65e2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -44,6 +44,7 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
+ int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
+ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
+ 			   u8 qos);
++int ixgbe_link_mbps(struct ixgbe_adapter *adapter);
+ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ 			int max_tx_rate);
+ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
 -- 
-Florian
+2.7.0
