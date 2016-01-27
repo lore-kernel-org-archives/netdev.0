@@ -1,225 +1,274 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] switchdev: Require RTNL mutex to be held when sending FDB notifications
-Date: Wed, 27 Jan 2016 15:16:43 +0100
-Message-ID: <1453904203-4908-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net 03/11] mlxsw: spectrum: Flush FDB when leaving bridge
+Date: Wed, 27 Jan 2016 15:20:18 +0100
+Message-ID: <1453904426-4960-4-git-send-email-jiri@resnulli.us>
+References: <1453904426-4960-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	stephen@networkplumber.org, sfeldma@gmail.com
+	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35784 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932602AbcA0OQr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:16:47 -0500
-Received: by mail-wm0-f67.google.com with SMTP id l66so562096wml.2
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 06:16:46 -0800 (PST)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:38218 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932784AbcA0OUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:20:35 -0500
+Received: by mail-wm0-f48.google.com with SMTP id p63so28694906wmp.1
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 06:20:34 -0800 (PST)
+In-Reply-To: <1453904426-4960-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When switchdev drivers process FDB notifications from the underlying
-device they resolve the netdev to which the entry points to and notify
-the bridge using the switchdev notifier.
+As explained in previous commit, we should always take care of flushing
+the FDB in the driver and not rely on bridge code.
 
-However, since the RTNL mutex is not held there is nothing preventing
-the netdev from disappearing in the middle, which will cause
-br_switchdev_event() to dereference a non-existing netdev.
+We need to distinguish between two cases with regards to LAG:
 
-Make switchdev drivers hold the lock at the beginning of the
-notification processing session and release it once it ends, after
-notifying the bridge.
+1) Port is leaving LAG while LAG is bridged (or VLAN devices on top of
+it). In this case don't flush the FDB entries pointing to the LAG ID, as
+this will affect other ports still member in the LAG. Only flush the FDB
+when the last port in the LAG is leaving the bridge.
 
-Also, remove switchdev_mutex and fdb_lock, as they are no longer needed
-when RTNL mutex is held.
+2) LAG device is leaving the bridge. In this case the CHANGEUPPER event
+is simply propagated to each member port, so make each port flush the
+FDB in its turn.
 
-Fixes: 03bf0c281234 ("switchdev: introduce switchdev notifier")
+Note that emptying a bridged LAG from ports creates an inconsistency
+between hardware and software. A user who later (< ageing_time)
+re-populates the LAG won't have any FDB entries pointing to the LAG ID
+in hardware, but they will be present in the software bridge's FDB.
+Currently there is no good solution to this problem, but this will be
+addressed by us in the future.
+
+In order to optimize the flushing process, flush by port or LAG ID if
+there are no VLAN interfaces on top of the port. Otherwise, flush using
+(Port / LAG ID, FID=VID} for each of the lower 4K FIDs. In the case of
+VLAN device simply flush using {Port / LAG ID, vFID} with the vFID to
+which the VLAN device is mapped to.
+
+Fixes: 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h           |  1 -
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c |  8 +++-----
- drivers/net/ethernet/rocker/rocker.c                     |  2 ++
- net/bridge/br.c                                          |  3 +--
- net/switchdev/switchdev.c                                | 15 ++++++++-------
- 5 files changed, 14 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 137 +++++++++++++++++++++++--
+ 1 file changed, 129 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index a23dc61..199f91a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -120,7 +120,6 @@ struct mlxsw_sp {
- 	} fdb_notify;
- #define MLXSW_SP_DEFAULT_AGEING_TIME 300
- 	u32 ageing_time;
--	struct mutex fdb_lock;	/* Make sure FDB sessions are atomic. */
- 	struct mlxsw_sp_upper master_bridge;
- 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
- };
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 45479ef..54d25af 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -45,6 +45,7 @@
- #include <linux/if_bridge.h>
- #include <linux/workqueue.h>
- #include <linux/jiffies.h>
-+#include <linux/rtnetlink.h>
- #include <net/switchdev.h>
- 
- #include "spectrum.h"
-@@ -1058,7 +1059,6 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
- 	if (!sfd_pl)
- 		return -ENOMEM;
- 
--	mutex_lock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
- 	if (mlxsw_sp_port_is_vport(mlxsw_sp_port)) {
- 		u16 tmp;
- 
-@@ -1124,7 +1124,6 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
- 	} while (num_rec == MLXSW_REG_SFD_REC_MAX_COUNT);
- 
- out:
--	mutex_unlock(&mlxsw_sp_port->mlxsw_sp->fdb_lock);
- 	kfree(sfd_pl);
- 	return stored_err ? stored_err : err;
- }
-@@ -1374,7 +1373,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
- 
- 	mlxsw_sp = container_of(work, struct mlxsw_sp, fdb_notify.dw.work);
- 
--	mutex_lock(&mlxsw_sp->fdb_lock);
-+	rtnl_lock();
- 	do {
- 		mlxsw_reg_sfn_pack(sfn_pl);
- 		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfn), sfn_pl);
-@@ -1387,7 +1386,7 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
- 			mlxsw_sp_fdb_notify_rec_process(mlxsw_sp, sfn_pl, i);
- 
- 	} while (num_rec);
--	mutex_unlock(&mlxsw_sp->fdb_lock);
-+	rtnl_unlock();
- 
- 	kfree(sfn_pl);
- 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
-@@ -1402,7 +1401,6 @@ static int mlxsw_sp_fdb_init(struct mlxsw_sp *mlxsw_sp)
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to set default ageing time\n");
- 		return err;
- 	}
--	mutex_init(&mlxsw_sp->fdb_lock);
- 	INIT_DELAYED_WORK(&mlxsw_sp->fdb_notify.dw, mlxsw_sp_fdb_notify_work);
- 	mlxsw_sp->fdb_notify.interval = MLXSW_SP_DEFAULT_LEARNING_INTERVAL;
- 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index a4ab71d..166a7fc 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3531,12 +3531,14 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
- 	info.addr = lw->addr;
- 	info.vid = lw->vid;
- 
-+	rtnl_lock();
- 	if (learned && removing)
- 		call_switchdev_notifiers(SWITCHDEV_FDB_DEL,
- 					 lw->rocker_port->dev, &info.info);
- 	else if (learned && !removing)
- 		call_switchdev_notifiers(SWITCHDEV_FDB_ADD,
- 					 lw->rocker_port->dev, &info.info);
-+	rtnl_unlock();
- 
- 	rocker_port_kfree(lw->trans, work);
- }
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index a1abe49..3addc05 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -121,6 +121,7 @@ static struct notifier_block br_device_notifier = {
- 	.notifier_call = br_device_event
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 637a9d7..217856b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1979,6 +1979,115 @@ static struct mlxsw_driver mlxsw_sp_driver = {
+ 	.profile		= &mlxsw_sp_config_profile,
  };
  
-+/* called with RTNL */
- static int br_switchdev_event(struct notifier_block *unused,
- 			      unsigned long event, void *ptr)
- {
-@@ -130,7 +131,6 @@ static int br_switchdev_event(struct notifier_block *unused,
- 	struct switchdev_notifier_fdb_info *fdb_info;
- 	int err = NOTIFY_DONE;
- 
--	rtnl_lock();
- 	p = br_port_get_rtnl(dev);
- 	if (!p)
- 		goto out;
-@@ -155,7 +155,6 @@ static int br_switchdev_event(struct notifier_block *unused,
- 	}
- 
- out:
--	rtnl_unlock();
- 	return err;
- }
- 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index ebc661d..47f7da5 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -20,6 +20,7 @@
- #include <linux/list.h>
- #include <linux/workqueue.h>
- #include <linux/if_vlan.h>
-+#include <linux/rtnetlink.h>
- #include <net/ip_fib.h>
- #include <net/switchdev.h>
- 
-@@ -567,7 +568,6 @@ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
- }
- EXPORT_SYMBOL_GPL(switchdev_port_obj_dump);
- 
--static DEFINE_MUTEX(switchdev_mutex);
- static RAW_NOTIFIER_HEAD(switchdev_notif_chain);
- 
- /**
-@@ -582,9 +582,9 @@ int register_switchdev_notifier(struct notifier_block *nb)
- {
- 	int err;
- 
--	mutex_lock(&switchdev_mutex);
-+	rtnl_lock();
- 	err = raw_notifier_chain_register(&switchdev_notif_chain, nb);
--	mutex_unlock(&switchdev_mutex);
-+	rtnl_unlock();
- 	return err;
- }
- EXPORT_SYMBOL_GPL(register_switchdev_notifier);
-@@ -600,9 +600,9 @@ int unregister_switchdev_notifier(struct notifier_block *nb)
- {
- 	int err;
- 
--	mutex_lock(&switchdev_mutex);
-+	rtnl_lock();
- 	err = raw_notifier_chain_unregister(&switchdev_notif_chain, nb);
--	mutex_unlock(&switchdev_mutex);
-+	rtnl_unlock();
- 	return err;
- }
- EXPORT_SYMBOL_GPL(unregister_switchdev_notifier);
-@@ -616,16 +616,17 @@ EXPORT_SYMBOL_GPL(unregister_switchdev_notifier);
-  *	Call all network notifier blocks. This should be called by driver
-  *	when it needs to propagate hardware event.
-  *	Return values are same as for atomic_notifier_call_chain().
-+ *	rtnl_lock must be held.
-  */
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- 			     struct switchdev_notifier_info *info)
- {
- 	int err;
- 
-+	ASSERT_RTNL();
++static int
++mlxsw_sp_port_fdb_flush_by_port(const struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char sfdf_pl[MLXSW_REG_SFDF_LEN];
 +
- 	info->dev = dev;
--	mutex_lock(&switchdev_mutex);
- 	err = raw_notifier_call_chain(&switchdev_notif_chain, val, info);
--	mutex_unlock(&switchdev_mutex);
- 	return err;
++	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_PORT);
++	mlxsw_reg_sfdf_system_port_set(sfdf_pl, mlxsw_sp_port->local_port);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
++}
++
++static int
++mlxsw_sp_port_fdb_flush_by_port_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
++				    u16 fid)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char sfdf_pl[MLXSW_REG_SFDF_LEN];
++
++	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_PORT_AND_FID);
++	mlxsw_reg_sfdf_fid_set(sfdf_pl, fid);
++	mlxsw_reg_sfdf_port_fid_system_port_set(sfdf_pl,
++						mlxsw_sp_port->local_port);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
++}
++
++static int
++mlxsw_sp_port_fdb_flush_by_lag_id(const struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char sfdf_pl[MLXSW_REG_SFDF_LEN];
++
++	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_LAG);
++	mlxsw_reg_sfdf_lag_id_set(sfdf_pl, mlxsw_sp_port->lag_id);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
++}
++
++static int
++mlxsw_sp_port_fdb_flush_by_lag_id_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
++				      u16 fid)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char sfdf_pl[MLXSW_REG_SFDF_LEN];
++
++	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_LAG_AND_FID);
++	mlxsw_reg_sfdf_fid_set(sfdf_pl, fid);
++	mlxsw_reg_sfdf_lag_fid_lag_id_set(sfdf_pl, mlxsw_sp_port->lag_id);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
++}
++
++static int
++__mlxsw_sp_port_fdb_flush(const struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	int err, last_err = 0;
++	u16 vid;
++
++	for (vid = 1; vid < VLAN_N_VID - 1; vid++) {
++		err = mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, vid);
++		if (err)
++			last_err = err;
++	}
++
++	return last_err;
++}
++
++static int
++__mlxsw_sp_port_fdb_flush_lagged(const struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	int err, last_err = 0;
++	u16 vid;
++
++	for (vid = 1; vid < VLAN_N_VID - 1; vid++) {
++		err = mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_port, vid);
++		if (err)
++			last_err = err;
++	}
++
++	return last_err;
++}
++
++static int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	if (!list_empty(&mlxsw_sp_port->vports_list))
++		if (mlxsw_sp_port->lagged)
++			return __mlxsw_sp_port_fdb_flush_lagged(mlxsw_sp_port);
++		else
++			return __mlxsw_sp_port_fdb_flush(mlxsw_sp_port);
++	else
++		if (mlxsw_sp_port->lagged)
++			return mlxsw_sp_port_fdb_flush_by_lag_id(mlxsw_sp_port);
++		else
++			return mlxsw_sp_port_fdb_flush_by_port(mlxsw_sp_port);
++}
++
++static int mlxsw_sp_vport_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_vport)
++{
++	u16 vfid = mlxsw_sp_vport_vfid_get(mlxsw_sp_vport);
++	u16 fid = mlxsw_sp_vfid_to_fid(vfid);
++
++	if (mlxsw_sp_vport->lagged)
++		return mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_vport,
++							     fid);
++	else
++		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_vport, fid);
++}
++
+ static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
+ {
+ 	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
+@@ -2006,10 +2115,14 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+ 
+-static int mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port)
++static int mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
++				      bool flush_fdb)
+ {
+ 	struct net_device *dev = mlxsw_sp_port->dev;
+ 
++	if (flush_fdb && mlxsw_sp_port_fdb_flush(mlxsw_sp_port))
++		netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
++
+ 	mlxsw_sp_port->learning = 0;
+ 	mlxsw_sp_port->learning_sync = 0;
+ 	mlxsw_sp_port->uc_flood = 0;
+@@ -2201,7 +2314,8 @@ err_col_port_enable:
+ }
+ 
+ static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
+-				       struct net_device *br_dev);
++				       struct net_device *br_dev,
++				       bool flush_fdb);
+ 
+ static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				   struct net_device *lag_dev)
+@@ -2236,18 +2350,20 @@ static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			continue;
+ 
+ 		br_dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
+-		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev);
++		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev, false);
+ 	}
+ 
+ 	if (mlxsw_sp_port->bridged) {
+ 		mlxsw_sp_port_active_vlans_del(mlxsw_sp_port);
+-		mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
++		mlxsw_sp_port_bridge_leave(mlxsw_sp_port, false);
+ 
+ 		if (lag->ref_count == 1)
+ 			mlxsw_sp_master_bridge_dec(mlxsw_sp, NULL);
+ 	}
+ 
+ 	if (lag->ref_count == 1) {
++		if (mlxsw_sp_port_fdb_flush_by_lag_id(mlxsw_sp_port))
++			netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
+ 		err = mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
+ 		if (err)
+ 			return err;
+@@ -2336,7 +2452,7 @@ static int mlxsw_sp_port_vlan_unlink(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		struct net_device *br_dev;
+ 
+ 		br_dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
+-		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev);
++		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev, true);
+ 	}
+ 
+ 	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
+@@ -2398,7 +2514,8 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 				}
+ 				mlxsw_sp_master_bridge_inc(mlxsw_sp, upper_dev);
+ 			} else {
+-				err = mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
++				err = mlxsw_sp_port_bridge_leave(mlxsw_sp_port,
++								 true);
+ 				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
+ 				if (err) {
+ 					netdev_err(dev, "Failed to leave bridge\n");
+@@ -2565,7 +2682,8 @@ static void mlxsw_sp_br_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
+ }
+ 
+ static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
+-				       struct net_device *br_dev)
++				       struct net_device *br_dev,
++				       bool flush_fdb)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_vport->mlxsw_sp;
+ 	u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
+@@ -2628,6 +2746,9 @@ static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 		goto err_vport_flood_set;
+ 	}
+ 
++	if (flush_fdb && mlxsw_sp_vport_fdb_flush(mlxsw_sp_vport))
++		netdev_err(dev, "Failed to flush FDB\n");
++
+ 	/* Switch between the vFIDs and destroy the old one if needed. */
+ 	new_vfid->nr_vports++;
+ 	mlxsw_sp_vport->vport.vfid = new_vfid;
+@@ -2801,7 +2922,7 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
+ 			if (!mlxsw_sp_vport)
+ 				return NOTIFY_DONE;
+ 			err = mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport,
+-							  upper_dev);
++							  upper_dev, true);
+ 			if (err) {
+ 				netdev_err(dev, "Failed to leave bridge\n");
+ 				return NOTIFY_BAD;
 -- 
 1.9.3
