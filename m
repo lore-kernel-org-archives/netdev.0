@@ -1,48 +1,62 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH 3/9] net: bgmac: clarify CONFIG_BCMA dependency
-Date: Wed, 27 Jan 2016 11:11:10 -0500
-Message-ID: <20160127161110.GL8889@windriver.com>
-References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
- <1453903507-3427225-4-git-send-email-arnd@arndb.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net 2/2] DT: phy.txt: Clarify expected compatible values
+Date: Wed, 27 Jan 2016 08:31:21 -0800
+Message-ID: <1D1D50D7-5C95-4FD6-9919-6898DE05B5DA@gmail.com>
+References: <1453853499-11248-1-git-send-email-andrew@lunn.ch> <1453853499-11248-3-git-send-email-andrew@lunn.ch> <56A81047.4010802@gmail.com> <20160127010638.GA4815@lunn.ch> <56A81C7B.8050201@gmail.com> <20160127015755.GB4815@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Rajesh Borundia <Rajesh.Borundia@qlogic.com>,
-	Rasesh Mody <rasesh.mody@qlogic.com>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	<linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, aaro.koskinen@nokia.com,
+	olof@lixom.net
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:35621 "EHLO mail5.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932317AbcA0QLz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2016 11:11:55 -0500
-Content-Disposition: inline
-In-Reply-To: <1453903507-3427225-4-git-send-email-arnd@arndb.de>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36776 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932158AbcA0Qba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 11:31:30 -0500
+Received: by mail-oi0-f68.google.com with SMTP id y78so595424oif.3
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 08:31:30 -0800 (PST)
+In-Reply-To: <20160127015755.GB4815@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[[PATCH 3/9] net: bgmac: clarify CONFIG_BCMA dependency] On 27/01/2016 (Wed 15:04) Arnd Bergmann wrote:
+On January 26, 2016 5:57:55 PM PST, Andrew Lunn <andrew@lunn.ch> wrote:
+>> Well, we do now, since that is one of the results used by
+>> of_mdiobus_child_is_phy(),
+>
+>It uses it, but do not rely on it, since for backwards compatibility,
+>we cannot assume it is there.
+>
+>You can never change an optional parameter to a mandatory parameter in
+>DT. To do so breaks backwards compatibility.
+>
+>> What I would prefer seeing though is not removing nodes that have at
+>> least two compatible strings, including one that is
+>> "ethernet-phy-ieee802.3-c22", but those which have only one, like the
+>> marvell ones that you patch, should have either an additional
+>> "ethernet-phy-ieee802.3-c22", or none.
+>
+>So you are saying, if there is an "ethernet-phy-ieee802.3-c22" or an
+>"ethernet-phy-ieee802.3-45" you can also have any other random junk,
+>which we are going to ignore, since we have no way to verify, hence we
+>have to assume it is broken, yet we need to be backwards compatible
+>with it.
+>
+>Did you notice:
+>
+>+       { .compatible = "marvell,88e1310", },
+>+       { .compatible = "marvell,88E1510", },
+>
+>No consistency with the 'e'. We would just be encouraging people to
+>add more inconsistent stuff.
 
-> The bgmac driver depends on BCMA_HOST_SOC, which is only used
-> when CONFIG_BCMA is enabled. However, it is a bool option and can
-> be set when CONFIG_BCMA=m, and then bgmac can be built-in, leading
-> to an obvious link error:
-> 
-> drivers/built-in.o: In function `bgmac_init':
-> :(.init.text+0x7f2c): undefined reference to `__bcma_driver_register'
-> drivers/built-in.o: In function `bgmac_exit':
-> :(.exit.text+0x110a): undefined reference to `bcma_driver_unregister'
-> 
-> To avoid this case, we need to depend on both BCMA and BCMA_SOC,
-> as this patch does. I'm also trying to make the dependency more
-> readable by splitting it into three lines, and adding a COMPILE_TEST
-> alternative so we can test-build it in all configurations that
-> support BCMA.
+You are right, I am convinced now. If somebody needs to know the exact PHY ID a priori, then you are also likely to use the more descriptive compatible string including that ID.
 
-It wasn't immediately clear to me from the above why you added the
-select on FIXED_PHY.
+So:
 
-P.
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+-- 
+Florian
