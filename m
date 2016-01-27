@@ -1,65 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net 1/2] of: of_mdio: Add a whitelist of PHY
- compatibilities.
-Date: Wed, 27 Jan 2016 15:03:50 +0100
-Message-ID: <20160127140350.GA18319@lunn.ch>
-References: <1453853499-11248-1-git-send-email-andrew@lunn.ch>
- <1453853499-11248-2-git-send-email-andrew@lunn.ch>
- <56A8CB6A.2070101@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	aaro.koskinen@nokia.com, olof@lixom.net
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 0/9] network driver fixes
+Date: Wed, 27 Jan 2016 15:04:50 +0100
+Message-ID: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43751 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754265AbcA0ODy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2016 09:03:54 -0500
-Content-Disposition: inline
-In-Reply-To: <56A8CB6A.2070101@cogentembedded.com>
+Received: from mout.kundenserver.de ([212.227.126.133]:52739 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754261AbcA0OFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:05:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 27, 2016 at 04:51:38PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 01/27/2016 03:11 AM, Andrew Lunn wrote:
-> 
-> >Some phy nodes list a compatible value indicating the PHY make/model.
-> >This is never used to match the device to the driver. However it does
-> >confuse the code to separate a PHY from a generic MDIO device like a
-> >switch. Generic MDIO devices must have a compatible value, PHYs can
-> >list clause 22 or 45, but nothing else.
-> >
-> >Issue a warning if we find a compatible value known on the whitelist,
-> 
->    My spell-checker trips on "whitelist"... Perhaps a space/hyphen needed?
+These are all fixes for relatively harmless bugs that showed up
+in my randconfig testing, so they should not be needed for v4.5
+but get merged into net-next.
 
-$ dict whitelist
-1 definition found
+I've managed to address all 'uninitialized variable' warnings that
+I get in ARM randconfig kernels now, this series includes the
+last five I got in network drivers. They are often really annoying
+warnings but when we get new ones, they often are about actual
+bugs in corner cases, so I'm trying hard to eliminate the false
+positives here to get people to pay attention to added warnings.
+I've recently tried building with an older gcc and found tons more
+that are all bogus, this series only addresses the ones that
+gcc-5.2 finds.
 
->From The Jargon File (version 4.4.7, 29 Dec 2003) [jargon]:
+Arnd Bergmann (9):
+  net: davinci_cpdma: use dma_addr_t for DMA address
+  net: hp100: remove unnecessary #ifdefs
+  net: bgmac: clarify CONFIG_BCMA dependency
+  net: moxart: use correct accessors for DMA memory
+  net: fddi/defxx: avoid warning about uninitialized variable use
+  net: vxge: avoid unused function warnings
+  net: macb: avoid uninitialized variables
+  net: nb8800: avoid uninitialized variable warning
+  net: tg3: avoid uninitialized variable warning
 
-  whitelist
-   n.
-  
-          The opposite of a blacklist. That is, instead of being an explicit
-          list of people who are banned, it's an explicit list of people who
-          are to be admitted. Hackers use this especially of lists of email
-          addresses that are explicitly enabled to get past strict anti-spam
-          filters.
+ drivers/net/ethernet/aurora/nb8800.c           |  4 +--
+ drivers/net/ethernet/broadcom/Kconfig          |  5 ++-
+ drivers/net/ethernet/broadcom/tg3.c            |  2 +-
+ drivers/net/ethernet/cadence/macb.c            |  1 +
+ drivers/net/ethernet/hp/hp100.c                | 18 -----------
+ drivers/net/ethernet/moxa/moxart_ether.c       | 42 ++++++++++++++++----------
+ drivers/net/ethernet/moxa/moxart_ether.h       |  4 +--
+ drivers/net/ethernet/neterion/vxge/vxge-main.c | 31 ++++++++-----------
+ drivers/net/ethernet/ti/davinci_cpdma.c        | 12 ++++----
+ drivers/net/fddi/defxx.c                       |  5 +++
+ 10 files changed, 59 insertions(+), 65 deletions(-)
 
-> >+/* The following is a list of PHY compatible strings which appear in
-> >+ * some DTBs. The compatible string is never matched against a PHY
-> >+ * driver, so is pointless. We only expect devices which are not PHYs
-> >+ * to have a compatible string, so they can be matched to an MDIO
-> >+ * driver.  Encourage users to upgrade there DT blobs to remove these.
-> 
->    s/there/their/.
-
-I will fix this.
-
-  Andrew
+-- 
+2.7.0
