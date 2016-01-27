@@ -1,11 +1,9 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] netfilter: ipvs/SIP: handle ip_vs_fill_iph_skb_off
- failure
-Date: Thu, 28 Jan 2016 08:39:14 +0900
-Message-ID: <20160127233914.GA5183@verge.net.au>
+Subject: Re: [PATCH 1/2] netfilter: ipvs: avoid unused variable warnings
+Date: Thu, 28 Jan 2016 08:39:53 +0900
+Message-ID: <20160127233953.GB5183@verge.net.au>
 References: <1453902749-3422685-1-git-send-email-arnd@arndb.de>
- <1453902749-3422685-2-git-send-email-arnd@arndb.de>
- <alpine.LFD.2.11.1601272241530.2353@ja.home.ssi.bg>
+ <alpine.LFD.2.11.1601272156590.2353@ja.home.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Arnd Bergmann <arnd@arndb.de>,
@@ -18,73 +16,41 @@ Cc: Arnd Bergmann <arnd@arndb.de>,
 	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	coreteam@netfilter.org, linux-kernel@vger.kernel.org
 To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:46390 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934577AbcA0Xj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 18:39:57 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1601272241530.2353@ja.home.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <alpine.LFD.2.11.1601272156590.2353@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 27, 2016 at 10:56:08PM +0200, Julian Anastasov wrote:
+On Wed, Jan 27, 2016 at 10:01:42PM +0200, Julian Anastasov wrote:
 > 
 > 	Hello,
 > 
 > On Wed, 27 Jan 2016, Arnd Bergmann wrote:
 > 
-> > ip_vs_fill_iph_skb_off() may not find an IP header, and gcc has
-> > determined that ip_vs_sip_fill_param() then incorrectly accesses
-> > the protocol fields:
+> > The proc_create() and remove_proc_entry() functions do not reference
+> > their arguments when CONFIG_PROC_FS is disabled, so we get a couple
+> > of warnings about unused variables in IPVS:
 > > 
-> > net/netfilter/ipvs/ip_vs_pe_sip.c: In function 'ip_vs_sip_fill_param':
-> > net/netfilter/ipvs/ip_vs_pe_sip.c:76:5: error: 'iph.protocol' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> >   if (iph.protocol != IPPROTO_UDP)
-> >      ^
-> > net/netfilter/ipvs/ip_vs_pe_sip.c:81:10: error: 'iph.len' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> >   dataoff = iph.len + sizeof(struct udphdr);
-> >           ^
+> > ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
+> > ipvs/ip_vs_ctl.c:3950:14: warning: unused variable 'net' [-Wunused-variable]
+> > ipvs/ip_vs_ctl.c:3994:14: warning: unused variable 'net' [-Wunused-variable]
 > > 
-> > This adds a check for the ip_vs_fill_iph_skb_off() return code
-> > before looking at the ip header data returned from it.
+> > This removes the local variables and instead looks them up separately
+> > for each use, which obviously avoids the warning.
 > > 
 > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Fixes: b0e010c527de ("ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off")
+> > Fixes: 4c50a8ce2b63 ("netfilter: ipvs: avoid unused variable warning")
 > 
-> 	Looks ok to me,
+> 	Looks like your previous patch for ip_vs_app_net_cleanup
+> was delayed in ipvs-next tree. I guess, Simon should drop it and
+> use this one instead when net-next opens:
 > 
 > Acked-by: Julian Anastasov <ja@ssi.bg>
 
-Thanks, I have queued this up.
-
-> 	but see below...
-> 
-> > ---
-> >  net/netfilter/ipvs/ip_vs_pe_sip.c | 4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-> > index 1b8d594e493a..c4e9ca016a88 100644
-> > --- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-> > +++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-> > @@ -70,10 +70,10 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
-> >  	const char *dptr;
-> >  	int retc;
-> >  
-> > -	ip_vs_fill_iph_skb(p->af, skb, false, &iph);
-> > +	retc = ip_vs_fill_iph_skb(p->af, skb, false, &iph);
-> >  
-> >  	/* Only useful with UDP */
-> > -	if (iph.protocol != IPPROTO_UDP)
-> > +	if (!retc || iph.protocol != IPPROTO_UDP)
-> >  		return -EINVAL;
-> >  	/* todo: IPv6 fragments:
-> >  	 *       I think this only should be done for the first fragment. /HS
-> 
-> 	There are other places like this where result is not
-> checked because there is always a guarding skb_header_pointer
-> check, i.e. ip_vs_fill_iph_skb* should not fail at such point.
-> 
-> 	Let us know you want to extend this patch with other such
-> calls (including ip_vs_fill_iph_skb_icmp)? May be they will
-> need return NF_ACCEPT. I guess, all such changes should be
-> for the ipvs-next/net-next tree when it opens.
-
-I would suggest making such changes incrementally on top of this one.
+Thanks, and sorry about not pushing the other patch to net-next.
+I have dropped it and queued up this one in its place.
