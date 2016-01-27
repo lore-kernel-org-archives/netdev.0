@@ -1,60 +1,50 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Re: [PATCH 4.1] [media] media/vivid-osd: fix info leak in ioctl
-Date: Wed, 27 Jan 2016 16:59:57 +0900
-Message-ID: <56A878FD.7070905@jp.fujitsu.com>
-References: <1453718538-21691-1-git-send-email-machida.yuki@jp.fujitsu.com>
- <20160125171844.GA27264@kroah.com>
+From: Kefeng Wang <wangkefeng.wang@huawei.com>
+Subject: [PATCH] net: cavium: liquidio: use helpers ns_to_timespec64()
+Date: Wed, 27 Jan 2016 17:34:37 +0800
+Message-ID: <1453887277-11531-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?Q?Salva_Peir=c3=b3?= <speirofr@gmail.com>,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Mauro Carvalho Chehab <mchehab@osg.samsung.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:14848 "EHLO
-	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753760AbcA0IAG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 03:00:06 -0500
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by yt-mxq.gw.nic.fujitsu.com (Postfix) with ESMTP id 31835AC03C0
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 16:59:58 +0900 (JST)
-In-Reply-To: <20160125171844.GA27264@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	<guohanjun@huawei.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Kefeng Wang <wangkefeng.wang@huawei.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+Convert the driver to use ns_to_timespec64() to keep consistency
+with timespec64_to_ns() instead of open coding the same logic.
 
-On 2016=E5=B9=B401=E6=9C=8826=E6=97=A5 02:18, Greg KH wrote:
-> On Mon, Jan 25, 2016 at 07:42:18PM +0900, Yuki Machida wrote:
->> commit eda98796aff0d9bf41094b06811f5def3b4c333c upstream.
->>
->> The vivid_fb_ioctl() code fails to initialize the 16 _reserved bytes=
- of
->> struct fb_vblank after the ->hcount member. Add an explicit
->> memset(0) before filling the structure to avoid the info leak.
->>
->> This fixes CVE-2015-7884.
->>
->> Signed-off-by: Salva Peir=C3=B3 <speirofr@gmail.com>
->> Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
->> Signed-off-by: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
->> Signed-off-by: Yuki Machida <machida.yuki@jp.fujitsu.com>
->> ---
->>   drivers/media/platform/vivid/vivid-osd.c | 1 +
->>   1 file changed, 1 insertion(+)
->
-> <formletter>
->
-> This is not the correct way to submit patches for inclusion in the
-> stable kernel tree.  Please read Documentation/stable_kernel_rules.tx=
-t
-> for how to do this properly.
+Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Thank you for your advice.
-I will check stable_kernel_rules.txt again.
-
-> </formletter>
->
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index b895044..8727655 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -1526,7 +1526,6 @@ static int liquidio_ptp_gettime(struct ptp_clock_info *ptp,
+ 				struct timespec64 *ts)
+ {
+ 	u64 ns;
+-	u32 remainder;
+ 	unsigned long flags;
+ 	struct lio *lio = container_of(ptp, struct lio, ptp_info);
+ 	struct octeon_device *oct = (struct octeon_device *)lio->oct_dev;
+@@ -1536,8 +1535,7 @@ static int liquidio_ptp_gettime(struct ptp_clock_info *ptp,
+ 	ns += lio->ptp_adjust;
+ 	spin_unlock_irqrestore(&lio->ptp_lock, flags);
+ 
+-	ts->tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
+-	ts->tv_nsec = remainder;
++	*ts = ns_to_timespec64(ns);
+ 
+ 	return 0;
+ }
+-- 
+2.6.0.GIT
