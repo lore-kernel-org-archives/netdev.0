@@ -1,79 +1,65 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 7/9] net: macb: avoid uninitialized variables
-Date: Wed, 27 Jan 2016 16:51:36 +0100
-Message-ID: <56A8E788.5020802@atmel.com>
-References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
- <1453903507-3427225-8-git-send-email-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] netfilter: h323: avoid potential attack
+Date: Wed, 27 Jan 2016 07:57:43 -0800
+Message-ID: <1453910263.20722.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1453905646-6446-1-git-send-email-zhouzhouyi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453903507-3427225-8-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1453905646-6446-1-git-send-email-zhouzhouyi@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 27/01/2016 15:04, Arnd Bergmann a =E9crit :
-> The macb_clk_init function returns three clock pointers, unless
-> the it fails to get the first ones. We correctly handle the
-> failure case by propagating the error from macb_probe, but
-> gcc does not realize this and incorrectly warns about a later
-> use of those:
->=20
-> In file included from /git/arm-soc/drivers/net/ethernet/cadence/macb.=
-c:12:0:
-> drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
-> include/linux/clk.h:484:2: error: 'tx_clk' may be used uninitialized =
-in this function [-Werror=3Dmaybe-uninitialized]
->   clk_disable(clk);
->   ^
-> drivers/net/ethernet/cadence/macb.c:2822:28: note: 'tx_clk' was decla=
-red here
->   struct clk *pclk, *hclk, *tx_clk;
->                             ^
-> In file included from /git/arm-soc/drivers/net/ethernet/cadence/macb.=
-c:12:0:
-> include/linux/clk.h:484:2: error: 'hclk' may be used uninitialized in=
- this function [-Werror=3Dmaybe-uninitialized]
->   clk_disable(clk);
->   ^
-> drivers/net/ethernet/cadence/macb.c:2822:21: note: 'hclk' was declare=
-d here
->   struct clk *pclk, *hclk, *tx_clk;
->                      ^
->=20
-> This shuts up the misleading warnings by ensuring that the
-> macb_clk_init() always stores something into all three pointers.
->=20
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Okay Arnd, thanks!
-
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
+On Wed, 2016-01-27 at 22:40 +0800, Zhouyi Zhou wrote:
+> From: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+> 
+> I think hackers chould build a malicious h323 packet to overflow
+> the pointer p which will panic during the memcpy(addr, p, len)
+> 
+> For example, he may fabricate a very large taddr->ipAddress.ip; 
+> 
+> Signed-off-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
 > ---
->  drivers/net/ethernet/cadence/macb.c | 1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-> index 9d9984a87d42..d3aa74f9db79 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2268,6 +2268,7 @@ static int macb_clk_init(struct platform_device=
- *pdev, struct clk **pclk,
->  {
->  	int err;
-> =20
-> +	*tx_clk =3D *hclk =3D NULL;
->  	*pclk =3D devm_clk_get(&pdev->dev, "pclk");
->  	if (IS_ERR(*pclk)) {
->  		err =3D PTR_ERR(*pclk);
->=20
+>  net/netfilter/nf_conntrack_h323_main.c |    8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+> index 9511af0..3b3dd8c 100644
+> --- a/net/netfilter/nf_conntrack_h323_main.c
+> +++ b/net/netfilter/nf_conntrack_h323_main.c
+> @@ -110,6 +110,10 @@ int (*nat_q931_hook) (struct sk_buff *skb,
+>  
+>  static DEFINE_SPINLOCK(nf_h323_lock);
+>  static char *h323_buffer;
+> +#define CHECK_BOUND(p, n) do {					\
+> +		if (((p - h323_buffer) + n) > 65536)		\
+> +			return 0;				\
+> +} while (0)
+>  
 
 
---=20
-Nicolas Ferre
+Do not add 'return X;' or 'goto something;' in macros please.
+
+Even referring to 'h323_buffer' is not nice, and of course 65536 is
+another 'magic' value.
+
+Even if h323_buffer was allocated to hold 65536 bytes, the various
+skb_header_pointer() calls only populated a part of it.
+
+I understand there is a bad precedent in
+net/netfilter/nf_conntrack_h323_asn1.c, but it is not a good reason.
+
+Anyway, if the issue is real, you do not take into account the 2 extra
+bytes for the port.
+
+memcpy(port, p + len, sizeof(__be16));
+
+
+
+
