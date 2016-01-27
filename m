@@ -1,33 +1,74 @@
-From: Samsonov Dmitry <dmitry.samsonov@corp.mail.ru>
-Subject: 802.11ad symmetry
-Date: Wed, 27 Jan 2016 10:33:41 +0000
-Message-ID: <04BDB9B17E30314988B0D24726BF7DEA3BD9FED1@R2EMBS1.mail.msk>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v2] tipc: fix connection abort during subscription cancel
+Date: Wed, 27 Jan 2016 11:35:59 +0100
+Message-ID: <1453890959-8238-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>,
+	<ying.xue@windriver.com>, <richard.alpe@ericsson.com>,
+	<anders.widell@ericsson.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.odnoklassniki.ru ([89.111.19.141]:56660 "EHLO
-	mail2.odnoklassniki.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932085AbcA0Kdq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 05:33:46 -0500
-Received: from email.forticom.com (unknown [172.19.0.56])
-	by mail2.odnoklassniki.ru (Postfix) with ESMTP id 3D045820346
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 12:33:43 +0200 (EET)
-Content-Language: en-US
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:49428 "EHLO
+	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbcA0KgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 05:36:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-bonding-devel@lists.sourceforge.net is not accepting e-mails, so I assume this list is the correct destination.
-Is there a way to make LACP bonding between a linux box and a switch to be symmetric?
-As I understand, currently there is no way to guarantee, that hash, generated for two packet which differs only by direction (packet from connection with same MAC or IP or IP:PORT) would get in the same port on the switch and on the linux box.
-Imagine that we have linux box with 2 CPUs and bond from two interfaces - eth0 (cpu node 0) and eth1 (cpu node 1). And there is an application thread which handle connection with client. Now it is possible, that incoming packet for this connection would end up in eth0 (cpu node 0) and outgoing packets would end up in eth1 (cpu node 1) which will lead to inter CPU communication.
-So, is there a way to guarantee symmetric choice of bonded ports?
+In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing
+to events")', we terminate the connection if the subscription
+creation fails.
+In the same commit, the subscription creation result was based on
+the value of the subscription pointer (set in the function) instead
+of the return code.
 
-Best regards,
-Dmitry Samsonov
-Odnoklassniki.ru
-Mail.ru Group
-Lead System Administrator
-e-mail: dmitry.samsonov@odnoklassniki.ru
+Unfortunately, the same function tipc_subscrp_create() handles
+subscription cancel request. For a subscription cancellation request,
+the subscription pointer cannot be set. Thus if a subscriber has
+several subscriptions and cancels any of them, the connection is
+terminated.
+
+In this commit, we terminate the connection based on the return value
+of tipc_subscrp_create().
+Fixes: commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to events")
+
+Reviewed-by:  Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+v2:
+ * Update variable subscriber to subscrb to fit the condition in single
+   line as requested by Jon.
+
+
+ net/tipc/subscr.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 350cca33ee0a..69ee2eeef968 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -289,15 +289,14 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
+ 				struct sockaddr_tipc *addr, void *usr_data,
+ 				void *buf, size_t len)
+ {
+-	struct tipc_subscriber *subscriber = usr_data;
++	struct tipc_subscriber *subscrb = usr_data;
+ 	struct tipc_subscription *sub = NULL;
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 
+-	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber, &sub);
+-	if (sub)
+-		tipc_nametbl_subscribe(sub);
+-	else
+-		tipc_conn_terminate(tn->topsrv, subscriber->conid);
++	if (tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscrb, &sub))
++		return tipc_conn_terminate(tn->topsrv, subscrb->conid);
++
++	tipc_nametbl_subscribe(sub);
+ }
+ 
+ /* Handle one request to establish a new subscriber */
+-- 
+2.1.4
