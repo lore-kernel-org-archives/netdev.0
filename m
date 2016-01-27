@@ -1,201 +1,132 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 09/10] net: Add a hardware buffer management
- helper API
-Date: Wed, 27 Jan 2016 12:02:14 -0800
-Message-ID: <56A92246.7010807@gmail.com>
-References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com> <1452625834-22166-10-git-send-email-gregory.clement@free-electrons.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/2] netfilter: ipvs: avoid unused variable warnings
+Date: Wed, 27 Jan 2016 22:01:42 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1601272156590.2353@ja.home.ssi.bg>
+References: <1453902749-3422685-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1452625834-22166-10-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Wensong Zhang <wensong@linux-vs.org>, coreteam@netfilter.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>, lvs-devel@vger.kernel.org,
+ Simon Horman <horms@verge.net.au>, netfilter-devel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org,
+ Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, Patrick McHardy <kaber@trash.net>,
+ Pablo Neira Ayuso <pablo@netfilter.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1453902749-3422685-1-git-send-email-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 12/01/16 11:10, Gregory CLEMENT wrote:
-> This basic implementation allows to share code between driver using
-> hardware buffer management. As the code is hardware agnostic, there is
-> few helpers, most of the optimization brought by the an HW BM has to be
-> done at driver level.
+
+	Hello,
+
+On Wed, 27 Jan 2016, Arnd Bergmann wrote:
+
+> The proc_create() and remove_proc_entry() functions do not reference
+> their arguments when CONFIG_PROC_FS is disabled, so we get a couple
+> of warnings about unused variables in IPVS:
 > 
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
+> ipvs/ip_vs_ctl.c:3950:14: warning: unused variable 'net' [-Wunused-variable]
+> ipvs/ip_vs_ctl.c:3994:14: warning: unused variable 'net' [-Wunused-variable]
+> 
+> This removes the local variables and instead looks them up separately
+> for each use, which obviously avoids the warning.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 4c50a8ce2b63 ("netfilter: ipvs: avoid unused variable warning")
+
+	Looks like your previous patch for ip_vs_app_net_cleanup
+was delayed in ipvs-next tree. I guess, Simon should drop it and
+use this one instead when net-next opens:
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
 > ---
->  include/net/hwbm.h | 19 +++++++++++++
->  net/core/Makefile  |  2 +-
->  net/core/hwbm.c    | 78 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 98 insertions(+), 1 deletion(-)
->  create mode 100644 include/net/hwbm.h
->  create mode 100644 net/core/hwbm.c
+>  net/netfilter/ipvs/ip_vs_app.c |  8 ++------
+>  net/netfilter/ipvs/ip_vs_ctl.c | 15 ++++++---------
+>  2 files changed, 8 insertions(+), 15 deletions(-)
 > 
-> diff --git a/include/net/hwbm.h b/include/net/hwbm.h
-> new file mode 100644
-> index 000000000000..898ccd2fb58d
-> --- /dev/null
-> +++ b/include/net/hwbm.h
-> @@ -0,0 +1,19 @@
-> +#ifndef _HWBM_H
-> +#define _HWBM_H
-> +
-> +struct hwbm_pool {
-> +	/* Size of the buffers managed */
-> +	int size;
-> +	/* Number of buffers currently used by this pool */
-> +	int buf_num;
-> +	/* constructor called during alocation */
-> +	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
-
-Having the buffer size might be handy too.
-
-> +	/* private data */
-> +	void *priv;
-> +};
-> +
-> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
-> +int hwbm_pool_refill(struct hwbm_pool *bm_pool);
-> +int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num);
-> +
-> +#endif /* _HWBM_H */
-> diff --git a/net/core/Makefile b/net/core/Makefile
-> index 0b835de04de3..df81bf11f072 100644
-> --- a/net/core/Makefile
-> +++ b/net/core/Makefile
-> @@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+> diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
+> index 0328f7250693..299edc6add5a 100644
+> --- a/net/netfilter/ipvs/ip_vs_app.c
+> +++ b/net/netfilter/ipvs/ip_vs_app.c
+> @@ -605,17 +605,13 @@ static const struct file_operations ip_vs_app_fops = {
 >  
->  obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
->  			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
-> -			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o
-> +			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o hwbm.o
-
-Not everybody will want this built in by default, we probably need a
-hidden config symbol here.
-
+>  int __net_init ip_vs_app_net_init(struct netns_ipvs *ipvs)
+>  {
+> -	struct net *net = ipvs->net;
+> -
+>  	INIT_LIST_HEAD(&ipvs->app_list);
+> -	proc_create("ip_vs_app", 0, net->proc_net, &ip_vs_app_fops);
+> +	proc_create("ip_vs_app", 0, ipvs->net->proc_net, &ip_vs_app_fops);
+>  	return 0;
+>  }
 >  
->  obj-$(CONFIG_XFRM) += flow.o
->  obj-y += net-sysfs.o
-> diff --git a/net/core/hwbm.c b/net/core/hwbm.c
-> new file mode 100644
-> index 000000000000..d5d40d63cb34
-> --- /dev/null
-> +++ b/net/core/hwbm.c
-> @@ -0,0 +1,78 @@
-> +/* Support for hardware buffer manager.
-> + *
-> + * Copyright (C) 2016 Marvell
-> + *
-> + * Gregory CLEMENT <gregory.clement@free-electrons.com>
-> + *
-> + *  This program is free software; you can redistribute it and/or modify
-> + *  it under the terms of the GNU General Public License as published by
-> + *  the Free Software Foundation; either version 2 of the License, or
-> + *  (at your option) any later version.
-> + */
-> +#include <linux/kernel.h>
-> +#include <linux/printk.h>
-> +#include <linux/skbuff.h>
-> +#include <net/hwbm.h>
-> +
-> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
-> +{
-> +	if (likely(bm_pool->size <= PAGE_SIZE))
-> +		skb_free_frag(buf);
-> +	else
-> +		kfree(buf);
-> +}
-> +EXPORT_SYMBOL_GPL(hwbm_buf_free);
-> +
-> +/* Refill processing for HW buffer management */
-> +int hwbm_pool_refill(struct hwbm_pool *bm_pool)
-> +{
-> +	void *buf;
-> +	int frag_size = bm_pool->size;
+>  void __net_exit ip_vs_app_net_cleanup(struct netns_ipvs *ipvs)
+>  {
+> -	struct net *net = ipvs->net;
+> -
+>  	unregister_ip_vs_app(ipvs, NULL /* all */);
+> -	remove_proc_entry("ip_vs_app", net->proc_net);
+> +	remove_proc_entry("ip_vs_app", ipvs->net->proc_net);
+>  }
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index e7c1b052c2a3..bfb4f8372b83 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -3947,7 +3947,6 @@ static struct notifier_block ip_vs_dst_notifier = {
+>  
+>  int __net_init ip_vs_control_net_init(struct netns_ipvs *ipvs)
+>  {
+> -	struct net *net = ipvs->net;
+>  	int i, idx;
+>  
+>  	/* Initialize rs_table */
+> @@ -3974,9 +3973,9 @@ int __net_init ip_vs_control_net_init(struct netns_ipvs *ipvs)
+>  
+>  	spin_lock_init(&ipvs->tot_stats.lock);
+>  
+> -	proc_create("ip_vs", 0, net->proc_net, &ip_vs_info_fops);
+> -	proc_create("ip_vs_stats", 0, net->proc_net, &ip_vs_stats_fops);
+> -	proc_create("ip_vs_stats_percpu", 0, net->proc_net,
+> +	proc_create("ip_vs", 0, ipvs->net->proc_net, &ip_vs_info_fops);
+> +	proc_create("ip_vs_stats", 0, ipvs->net->proc_net, &ip_vs_stats_fops);
+> +	proc_create("ip_vs_stats_percpu", 0, ipvs->net->proc_net,
+>  		    &ip_vs_stats_percpu_fops);
+>  
+>  	if (ip_vs_control_net_init_sysctl(ipvs))
+> @@ -3991,13 +3990,11 @@ err:
+>  
+>  void __net_exit ip_vs_control_net_cleanup(struct netns_ipvs *ipvs)
+>  {
+> -	struct net *net = ipvs->net;
+> -
+>  	ip_vs_trash_cleanup(ipvs);
+>  	ip_vs_control_net_cleanup_sysctl(ipvs);
+> -	remove_proc_entry("ip_vs_stats_percpu", net->proc_net);
+> -	remove_proc_entry("ip_vs_stats", net->proc_net);
+> -	remove_proc_entry("ip_vs", net->proc_net);
+> +	remove_proc_entry("ip_vs_stats_percpu", ipvs->net->proc_net);
+> +	remove_proc_entry("ip_vs_stats", ipvs->net->proc_net);
+> +	remove_proc_entry("ip_vs", ipvs->net->proc_net);
+>  	free_percpu(ipvs->tot_stats.cpustats);
+>  }
+>  
+> -- 
+> 2.7.0
 
-Reverse christmas tree declaration looks a bit nicer.
+Regards
 
-> +
-> +	if (likely(frag_size <= PAGE_SIZE))
-> +		buf = netdev_alloc_frag(frag_size);
-> +	else
-> +		buf = kmalloc(frag_size, GFP_ATOMIC);
-
-Maybe we should allow the caller to specify a gfp_t, just in case
-GFP_ATOMIC is not good enough.
-
-> +
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	if (bm_pool->construct)
-> +		if (bm_pool->construct(bm_pool, buf)) {
-> +			hwbm_buf_free(bm_pool, buf);
-> +			return -ENOMEM;
-> +		}
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(hwbm_pool_refill);
-> +
-> +int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num)
-
-unsigned int buf_num
-
-> +{
-> +	int err, i;
-> +
-> +	if (bm_pool->buf_num == bm_pool->size) {
-> +		pr_debug("pool already filled\n");
-> +		return bm_pool->buf_num;
-> +	}
-> +
-> +	if (buf_num + bm_pool->buf_num > bm_pool->size) {
-> +		pr_debug("cannot allocate %d buffers for pool\n",
-> +			 buf_num);
-> +		return 0;
-> +	}
-
-buf_num is under caller control, and potentially hardware control
-indirectly, what if I make this arbitrary big and wrap around?
-
-> +
-> +	for (i = 0; i < buf_num; i++) {
-> +		err = hwbm_pool_refill(bm_pool);
-> +		if (err < 0)
-> +			break;
-> +	}
-
-If we fail refiling here, should not we propagate the error back to the
-caller?
-
-> +
-> +	/* Update BM driver with number of buffers added to pool */
-> +	bm_pool->buf_num += i;
-> +
-> +	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
-
-No locking or atomic operations here? What if two CPUs call into this
-function?
-
-> +
-> +	return i;
-> +}
-> +EXPORT_SYMBOL_GPL(hwbm_pool_add);
-> 
-
-
--- 
-Florian
+--
+Julian Anastasov <ja@ssi.bg>
