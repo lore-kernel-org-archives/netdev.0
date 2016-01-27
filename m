@@ -1,65 +1,83 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH 1/1] netfilter: h323: avoid potential attack
-Date: Wed, 27 Jan 2016 22:40:45 +0800
-Message-ID: <1453905646-6446-1-git-send-email-zhouzhouyi@gmail.com>
-Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>,
-	Zhouyi Zhou <zhouzhouyi@gmail.com>
-To: <pablo@netfilter.org>, <kaber@trash.net>,
-	<kadlec@blackhole.kfki.hu>, <davem@davemloft.net>,
-	<netfilter-devel@vger.kernel.org>, <coreteam@netfilter.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx5_core: Set flow steering dest only for forward rules
+Date: Wed, 27 Jan 2016 17:02:24 +0200
+Message-ID: <1453906945-25414-2-git-send-email-ogerlitz@mellanox.com>
+References: <1453906945-25414-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp15.cstnet.cn ([159.226.251.15]:56259 "EHLO cstnet.cn"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932725AbcA0Ou2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2016 09:50:28 -0500
+Received: from [193.47.165.129] ([193.47.165.129]:49139 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932555AbcA0PC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jan 2016 10:02:56 -0500
+In-Reply-To: <1453906945-25414-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+From: Amir Vadai <amir@vadai.me>
 
-I think hackers chould build a malicious h323 packet to overflow
-the pointer p which will panic during the memcpy(addr, p, len)
+We need to handle flow table entry destinations only if the action
+associated with the rule is
+forwarding (MLX5_FLOW_CONTEXT_ACTION_FWD_DEST).
 
-For example, he may fabricate a very large taddr->ipAddress.ip; 
-
-Signed-off-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Fixes: 26a8145390b3 ('net/mlx5_core: Introduce flow steering firmware commands')
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- net/netfilter/nf_conntrack_h323_main.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c | 33 +++++++++++++-----------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 9511af0..3b3dd8c 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -110,6 +110,10 @@ int (*nat_q931_hook) (struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index a9894d2..0302f44 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -212,25 +212,28 @@ static int mlx5_cmd_set_fte(struct mlx5_core_dev *dev,
+ 	MLX5_SET(flow_context, in_flow_context, group_id, group_id);
+ 	MLX5_SET(flow_context, in_flow_context, flow_tag, fte->flow_tag);
+ 	MLX5_SET(flow_context, in_flow_context, action, fte->action);
+-	MLX5_SET(flow_context, in_flow_context, destination_list_size,
+-		 fte->dests_size);
+ 	in_match_value = MLX5_ADDR_OF(flow_context, in_flow_context,
+ 				      match_value);
+ 	memcpy(in_match_value, &fte->val, MLX5_ST_SZ_BYTES(fte_match_param));
  
- static DEFINE_SPINLOCK(nf_h323_lock);
- static char *h323_buffer;
-+#define CHECK_BOUND(p, n) do {					\
-+		if (((p - h323_buffer) + n) > 65536)		\
-+			return 0;				\
-+} while (0)
- 
- static struct nf_conntrack_helper nf_conntrack_helper_h245;
- static struct nf_conntrack_helper nf_conntrack_helper_q931[];
-@@ -247,6 +251,8 @@ static int get_h245_addr(struct nf_conn *ct, const unsigned char *data,
- 		return 0;
- 	}
- 
-+	CHECK_BOUND(p, len);
+-	in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
+-	list_for_each_entry(dst, &fte->node.children, node.list) {
+-		unsigned int id;
+-
+-		MLX5_SET(dest_format_struct, in_dests, destination_type,
+-			 dst->dest_attr.type);
+-		if (dst->dest_attr.type ==
+-		    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
+-			id = dst->dest_attr.ft->id;
+-		else
+-			id = dst->dest_attr.tir_num;
+-		MLX5_SET(dest_format_struct, in_dests, destination_id, id);
+-		in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
++	if (fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
++		MLX5_SET(flow_context, in_flow_context, destination_list_size,
++			 fte->dests_size);
++		in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
++		list_for_each_entry(dst, &fte->node.children, node.list) {
++			unsigned int id;
 +
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
-@@ -669,6 +675,8 @@ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
- 		return 0;
++			MLX5_SET(dest_format_struct, in_dests, destination_type,
++				 dst->dest_attr.type);
++			if (dst->dest_attr.type ==
++			    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE) {
++				id = dst->dest_attr.ft->id;
++			} else {
++				id = dst->dest_attr.tir_num;
++			}
++			MLX5_SET(dest_format_struct, in_dests, destination_id, id);
++			in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
++		}
  	}
- 
-+	CHECK_BOUND(p, len);
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
+ 	memset(out, 0, sizeof(out));
+ 	err = mlx5_cmd_exec_check_status(dev, in, inlen, out,
 -- 
-1.7.10.4
+2.3.7
