@@ -1,90 +1,127 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 1/9] net: davinci_cpdma: use dma_addr_t for DMA address
-Date: Wed, 27 Jan 2016 15:04:51 +0100
-Message-ID: <1453903507-3427225-2-git-send-email-arnd@arndb.de>
+Subject: [PATCH 2/9] net: hp100: remove unnecessary #ifdefs
+Date: Wed, 27 Jan 2016 15:04:52 +0100
+Message-ID: <1453903507-3427225-3-git-send-email-arnd@arndb.de>
 References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	Jaroslav Kysela <perex@perex.cz>, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:63193 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754261AbcA0OGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:06:36 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The davinci_cpdma mixes up physical addresses as seen from the CPU
-and DMA addresses as seen from a DMA master, since it can operate
-on both normal memory or an on-chip buffer. If dma_addr_t is
-different from phys_addr_t, this means we get a compile-time warning
-about the type mismatch:
+Building the hp100 ethernet driver causes warnings when both the PCI
+and EISA drivers are disabled:
 
-ethernet/ti/davinci_cpdma.c: In function 'cpdma_desc_pool_create':
-ethernet/ti/davinci_cpdma.c:182:48: error: passing argument 3 of 'dma_alloc_coherent' from incompatible pointer type [-Werror=incompatible-pointer-types]
-   pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
-In file included from ethernet/ti/davinci_cpdma.c:21:0:
-dma-mapping.h:398:21: note: expected 'dma_addr_t * {aka long long unsigned int *}' but argument is of type 'phys_addr_t * {aka unsigned int *}'
- static inline void *dma_alloc_coherent(struct device *dev, size_t size,
+ethernet/hp/hp100.c: In function 'hp100_module_init':
+ethernet/hp/hp100.c:3047:2: warning: label 'out3' defined but not used [-Wunused-label]
+ethernet/hp/hp100.c: At top level:
+ethernet/hp/hp100.c:2828:13: warning: 'cleanup_dev' defined but not used [-Wunused-function]
 
-This slightly restructures the code so the address we use for
-mapping RAM into a DMA address is always a dma_addr_t, avoiding
-the warning. The code is correct even if both types are 32-bit
-because the DMA master in this device only supports 32-bit addressing
-anyway, independent of the types that are used.
-
-We still assign this value to pool->phys, and that is wrong if
-the driver is ever used with an IOMMU, but that value appears to
-be never used, so there is no problem really. I've added a couple
-of comments about where we do things that are slightly violating
-the API.
+We can easily avoid the warnings and make the driver look slightly
+nicer by removing the #ifdefs that check for the CONFIG_PCI and
+CONFIG_EISA, as all the registration functions are designed to
+have no effect when the buses are disabled.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/ti/davinci_cpdma.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/hp/hp100.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 657b65bf5cac..18bf3a8fdc50 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -82,7 +82,7 @@ struct cpdma_desc {
+diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
+index 1d5c3e16d8f4..3daf2d4a7ca0 100644
+--- a/drivers/net/ethernet/hp/hp100.c
++++ b/drivers/net/ethernet/hp/hp100.c
+@@ -194,7 +194,6 @@ static const char *hp100_isa_tbl[] = {
+ };
+ #endif
  
- struct cpdma_desc_pool {
- 	phys_addr_t		phys;
--	u32			hw_addr;
-+	dma_addr_t		hw_addr;
- 	void __iomem		*iomap;		/* ioremap map */
- 	void			*cpumap;	/* dma_alloc map */
- 	int			desc_size, mem_size;
-@@ -152,7 +152,7 @@ struct cpdma_chan {
-  * abstract out these details
-  */
- static struct cpdma_desc_pool *
--cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
-+cpdma_desc_pool_create(struct device *dev, u32 phys, dma_addr_t hw_addr,
- 				int size, int align)
+-#ifdef CONFIG_EISA
+ static struct eisa_device_id hp100_eisa_tbl[] = {
+ 	{ "HWPF180" }, /* HP J2577 rev A */
+ 	{ "HWP1920" }, /* HP 27248B */
+@@ -205,9 +204,7 @@ static struct eisa_device_id hp100_eisa_tbl[] = {
+ 	{ "" }	       /* Mandatory final entry ! */
+ };
+ MODULE_DEVICE_TABLE(eisa, hp100_eisa_tbl);
+-#endif
+ 
+-#ifdef CONFIG_PCI
+ static const struct pci_device_id hp100_pci_tbl[] = {
+ 	{PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_J2585A, PCI_ANY_ID, PCI_ANY_ID,},
+ 	{PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_J2585B, PCI_ANY_ID, PCI_ANY_ID,},
+@@ -219,7 +216,6 @@ static const struct pci_device_id hp100_pci_tbl[] = {
+ 	{}			/* Terminating entry */
+ };
+ MODULE_DEVICE_TABLE(pci, hp100_pci_tbl);
+-#endif
+ 
+ static int hp100_rx_ratio = HP100_DEFAULT_RX_RATIO;
+ static int hp100_priority_tx = HP100_DEFAULT_PRIORITY_TX;
+@@ -2842,7 +2838,6 @@ static void cleanup_dev(struct net_device *d)
+ 	free_netdev(d);
+ }
+ 
+-#ifdef CONFIG_EISA
+ static int hp100_eisa_probe(struct device *gendev)
  {
- 	int bitmap_size;
-@@ -176,13 +176,13 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
+ 	struct net_device *dev = alloc_etherdev(sizeof(struct hp100_private));
+@@ -2884,9 +2879,7 @@ static struct eisa_driver hp100_eisa_driver = {
+ 		.remove  = hp100_eisa_remove,
+         }
+ };
+-#endif
  
- 	if (phys) {
- 		pool->phys  = phys;
--		pool->iomap = ioremap(phys, size);
-+		pool->iomap = ioremap(phys, size); /* should be memremap? */
- 		pool->hw_addr = hw_addr;
- 	} else {
--		pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
-+		pool->cpumap = dma_alloc_coherent(dev, size, &pool->hw_addr,
- 						  GFP_KERNEL);
--		pool->iomap = pool->cpumap;
--		pool->hw_addr = pool->phys;
-+		pool->iomap = (void __iomem __force *)pool->cpumap;
-+		pool->phys = pool->hw_addr; /* assumes no IOMMU, don't use this value */
- 	}
+-#ifdef CONFIG_PCI
+ static int hp100_pci_probe(struct pci_dev *pdev,
+ 			   const struct pci_device_id *ent)
+ {
+@@ -2955,7 +2948,6 @@ static struct pci_driver hp100_pci_driver = {
+ 	.probe		= hp100_pci_probe,
+ 	.remove		= hp100_pci_remove,
+ };
+-#endif
  
- 	if (pool->iomap)
+ /*
+  *  module section
+@@ -3032,23 +3024,17 @@ static int __init hp100_module_init(void)
+ 	err = hp100_isa_init();
+ 	if (err && err != -ENODEV)
+ 		goto out;
+-#ifdef CONFIG_EISA
+ 	err = eisa_driver_register(&hp100_eisa_driver);
+ 	if (err && err != -ENODEV)
+ 		goto out2;
+-#endif
+-#ifdef CONFIG_PCI
+ 	err = pci_register_driver(&hp100_pci_driver);
+ 	if (err && err != -ENODEV)
+ 		goto out3;
+-#endif
+  out:
+ 	return err;
+  out3:
+-#ifdef CONFIG_EISA
+ 	eisa_driver_unregister (&hp100_eisa_driver);
+  out2:
+-#endif
+ 	hp100_isa_cleanup();
+ 	goto out;
+ }
+@@ -3057,12 +3043,8 @@ static int __init hp100_module_init(void)
+ static void __exit hp100_module_exit(void)
+ {
+ 	hp100_isa_cleanup();
+-#ifdef CONFIG_EISA
+ 	eisa_driver_unregister (&hp100_eisa_driver);
+-#endif
+-#ifdef CONFIG_PCI
+ 	pci_unregister_driver (&hp100_pci_driver);
+-#endif
+ }
+ 
+ module_init(hp100_module_init)
 -- 
 2.7.0
