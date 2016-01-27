@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
- __skb_flow_dissector when used by eth_get_headlen
-Date: Sun, 31 Jan 2016 11:17:36 -0800 (PST)
-Message-ID: <20160131.111736.885803938247704593.davem@davemloft.net>
-References: <CAKgT0UfyK1HO6vp4F9S3rB400A74OhS=qRX_N9RuPRYg2KazLg@mail.gmail.com>
-	<20160130.194507.777391919166997236.davem@davemloft.net>
-	<CAKgT0UepN041H4QcWkoNWnzGgf=yo71w8_3-JQKFFNBegQVpzA@mail.gmail.com>
+From: mudaridi04@gmail.com
+Subject: Fw: Important Message (2M).
+Date: 28 Jan 2016 05:45:16 +0700
+Message-ID: <20160128054515.33356E50863225BC@gmail.com>
+Reply-To: mudairdi04@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, sowmini.varadhan@oracle.com,
-	aduyck@mirantis.com, netdev@vger.kernel.org, tom@herbertland.com
-To: alexander.duyck@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57507 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933388AbcAaTRj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 14:17:39 -0500
-In-Reply-To: <CAKgT0UepN041H4QcWkoNWnzGgf=yo71w8_3-JQKFFNBegQVpzA@mail.gmail.com>
+Received: from www4371ub.sakura.ne.jp ([49.212.43.165]:33205 "EHLO
+	mail.takasugi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757404AbcAaTlE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 14:41:04 -0500
+Received: from mecuru.jp (unknown [203.146.251.69])
+	(Authenticated sender: t_yamasaki)
+	by mail.takasugi.co.jp (Postfix) with ESMTP id D9A9511E297
+	for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 07:47:31 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Sun, 31 Jan 2016 01:12:03 -0800
+Sir,
 
-> If nothing else we can discuss this further in Seville as I am just
-> not convinced changing the drivers is the right way to go about fixing
-> this, and I won't have the time to really get around to doing any of
-> it until I have come back from the conference.
+Our company offers Corporate / Personal Loan to finance different=20
+projects at 3% Interest Rate for a duration of Ten (10) years.=20
+Also, we pay 1% commission to brokers, who introduce project=20
+owners for finance or other opportunities.
 
-Ok, let me think about this some more.
+If interested in the opportunity, do notify me.
 
-It's a shame that "put two garbage bytes into the FIFO at the
-beginning of every frame" isn't a standard hw feature.  Or maybe
-I misunderstand what's going on in all of these drivers...
+Yours faithfully,
+
+Patrick Mullin
+Chief Investment officer
+Telephone: (+973) 1619 6237
+=46acsimile:  (+973) 1756 6234
+
+Click on the link to: unsubscribe
+
+=C2=A9 2016 Bahrain Investment Group. All rights reserved Legal.
