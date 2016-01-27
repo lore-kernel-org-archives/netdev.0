@@ -1,120 +1,96 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH 1/2] wext: fix message delay/ordering
-Date: Wed, 27 Jan 2016 13:41:34 +0100
-Message-ID: <1453898495-11790-1-git-send-email-johannes@sipsolutions.net>
-Cc: Beniamino Galvani <bgalvani-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 2/2] cfg80211/wext: fix message ordering
+Date: Wed, 27 Jan 2016 13:41:35 +0100
+Message-ID: <1453898495-11790-2-git-send-email-johannes@sipsolutions.net>
+References: <1453898495-11790-1-git-send-email-johannes@sipsolutions.net>
+Cc: Beniamino Galvani <bgalvani@redhat.com>, netdev@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:48154 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754460AbcA0Mlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jan 2016 07:41:42 -0500
+In-Reply-To: <1453898495-11790-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+From: Johannes Berg <johannes.berg@intel.com>
 
-Beniamino reported that he was getting an RTM_NEWLINK message for a
-given interface, after the RTM_DELLINK for it. It turns out that the
-message is a wireless extensions message, which was sent because the
-interface had been connected and disconnection while it was deleted
-caused a wext message.
-
-For its netlink messages, wext uses RTM_NEWLINK, but the message is
-without all the regular rtnetlink attributes, so "ip monitor link"
-prints just rudimentary information:
+Since cfg80211 frequently takes actions from its netdev notifier
+call, wireless extensions messages could still be ordered badly
+since the wext netdev notifier, since wext is built into the
+kernel, runs before the cfg80211 netdev notifier. For example,
+the following can happen:
 
 5: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN group default
     link/ether 02:00:00:00:01:00 brd ff:ff:ff:ff:ff:ff
-Deleted 5: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
-    link/ether 02:00:00:00:01:00 brd ff:ff:ff:ff:ff:ff
 5: wlan1: <BROADCAST,MULTICAST,UP>
     link/ether
-(from my hwsim reproduction)
 
-This can cause userspace to get confused since it doesn't expect an
-RTM_NEWLINK message after RTM_DELLINK.
+when setting the interface down causes the wext message.
 
-The reason for this is that wext schedules a worker to send out the
-messages, and the scheduling delay can cause the messages to get out
-to userspace in different order.
+To also fix this, export the wireless_nlevent_flush() function
+and also call it from the cfg80211 notifier.
 
-To fix this, have wext register a netdevice notifier and flush out
-any pending messages when netdevice state changes. This fixes any
-ordering whenever the original message wasn't sent by a notifier
-itself.
-
-Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Reported-by: Beniamino Galvani <bgalvani-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- net/wireless/wext-core.c | 49 ++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 39 insertions(+), 10 deletions(-)
+ include/net/iw_handler.h | 6 ++++++
+ net/wireless/core.c      | 2 ++
+ net/wireless/wext-core.c | 3 ++-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
 
+diff --git a/include/net/iw_handler.h b/include/net/iw_handler.h
+index 8f81bbbc38fc..8a3ec3955f20 100644
+--- a/include/net/iw_handler.h
++++ b/include/net/iw_handler.h
+@@ -439,6 +439,12 @@ int dev_get_wireless_info(char *buffer, char **start, off_t offset, int length);
+ /* Send a single event to user space */
+ void wireless_send_event(struct net_device *dev, unsigned int cmd,
+ 			 union iwreq_data *wrqu, const char *extra);
++#ifdef CONFIG_WEXT_CORE
++/* flush all previous wext events - if work is done from netdev notifiers */
++void wireless_nlevent_flush(void);
++#else
++static void wireless_nlevent_flush(void) {}
++#endif
+ 
+ /* We may need a function to send a stream of events to user space.
+  * More on that later... */
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index b0915515640e..8f0bac7e03c4 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -1147,6 +1147,8 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
+ 		return NOTIFY_DONE;
+ 	}
+ 
++	wireless_nlevent_flush();
++
+ 	return NOTIFY_OK;
+ }
+ 
 diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
-index c8717c1d082e..5f429637efff 100644
+index 5f429637efff..abdfcb5f3e48 100644
 --- a/net/wireless/wext-core.c
 +++ b/net/wireless/wext-core.c
-@@ -342,6 +342,39 @@ static const int compat_event_type_size[] = {
+@@ -342,7 +342,7 @@ static const int compat_event_type_size[] = {
  
  /* IW event code */
  
-+static void wireless_nlevent_flush(void)
-+{
-+	struct sk_buff *skb;
-+	struct net *net;
-+
-+	ASSERT_RTNL();
-+
-+	for_each_net(net) {
-+		while ((skb = skb_dequeue(&net->wext_nlevents)))
-+			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
-+				    GFP_KERNEL);
-+	}
-+}
-+
-+static int wext_netdev_notifier_call(struct notifier_block *nb,
-+				     unsigned long state, void *ptr)
-+{
-+	/*
-+	 * When a netdev changes state in any way, flush all pending messages
-+	 * to avoid them going out in a strange order, e.g. RTM_NEWLINK after
-+	 * RTM_DELLINK, or with IFF_UP after without IFF_UP during dev_close()
-+	 * or similar - all of which could otherwise happen due to delays from
-+	 * schedule_work().
-+	 */
-+	wireless_nlevent_flush();
-+
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block wext_netdev_notifier = {
-+	.notifier_call = wext_netdev_notifier_call,
-+};
-+
- static int __net_init wext_pernet_init(struct net *net)
+-static void wireless_nlevent_flush(void)
++void wireless_nlevent_flush(void)
  {
- 	skb_queue_head_init(&net->wext_nlevents);
-@@ -360,6 +393,11 @@ static struct pernet_operations wext_pernet_ops = {
- 
- static int __init wireless_nlevent_init(void)
- {
-+	int err = register_netdevice_notifier(&wext_netdev_notifier);
-+
-+	if (err)
-+		return err;
-+
- 	return register_pernet_subsys(&wext_pernet_ops);
+ 	struct sk_buff *skb;
+ 	struct net *net;
+@@ -355,6 +355,7 @@ static void wireless_nlevent_flush(void)
+ 				    GFP_KERNEL);
+ 	}
  }
++EXPORT_SYMBOL_GPL(wireless_nlevent_flush);
  
-@@ -368,17 +406,8 @@ subsys_initcall(wireless_nlevent_init);
- /* Process events generated by the wireless layer or the driver. */
- static void wireless_nlevent_process(struct work_struct *work)
- {
--	struct sk_buff *skb;
--	struct net *net;
--
- 	rtnl_lock();
--
--	for_each_net(net) {
--		while ((skb = skb_dequeue(&net->wext_nlevents)))
--			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
--				    GFP_KERNEL);
--	}
+ static int wext_netdev_notifier_call(struct notifier_block *nb,
+ 				     unsigned long state, void *ptr)
+-- 
+2.6.2
