@@ -1,81 +1,95 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net] inet: frag: Always orphan skbs inside ip_defrag()
-Date: Tue, 26 Jan 2016 18:16:10 -0800
-Message-ID: <CAPWQB7EAD9CGSW3C-LMO1U1gHOOkeh3sTkS+gtpWVpkwChdBTw@mail.gmail.com>
-References: <1453506552-10373-1-git-send-email-joe@ovn.org>
- <1453512162.1223.418.camel@edumazet-glaptop2.roam.corp.google.com> <CAPWQB7GgKU8TC6RQNkkZppNrH64ufOH50g2VXHp8D8WC7_gh_g@mail.gmail.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH V6 8/8] hvsock: introduce Hyper-V Socket feature
+Date: Wed, 27 Jan 2016 02:48:20 +0000
+Message-ID: <e2183eeeaacd4b938813098da7531b69@HKXPR3004MB0088.064d.mgd.msft.net>
+References: <1453801515-3501-1-git-send-email-decui@microsoft.com>
+ <20160126102412.GA19626@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, fw@strlen.de,
-	hannes@stressinduktion.org, pravin shelar <pshelar@ovn.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:38247 "EHLO
-	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbcA0C2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2016 21:28:19 -0500
-Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
-	by slow1-d.mail.gandi.net (Postfix) with ESMTP id CA1D4534FA7
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 03:16:32 +0100 (CET)
-Received: from mfilter38-d.gandi.net (mfilter38-d.gandi.net [217.70.178.169])
-	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 57DCCC5A5F
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 03:16:31 +0100 (CET)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-	by mfilter38-d.gandi.net (mfilter38-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id LCSX6Y-4jpz1 for <netdev@vger.kernel.org>;
-	Wed, 27 Jan 2016 03:16:29 +0100 (CET)
-Received: from mail-wm0-f54.google.com (mail-wm0-f54.google.com [74.125.82.54])
-	(Authenticated sender: joe@ovn.org)
-	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id E1058C5A50
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 03:16:29 +0100 (CET)
-Received: by mail-wm0-f54.google.com with SMTP id p63so5060816wmp.1
-        for <netdev@vger.kernel.org>; Tue, 26 Jan 2016 18:16:29 -0800 (PST)
-In-Reply-To: <CAPWQB7GgKU8TC6RQNkkZppNrH64ufOH50g2VXHp8D8WC7_gh_g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stephen@networkplumber.org" <stephen@networkplumber.org>,
+ "stefanha@redhat.com" <stefanha@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160126102412.GA19626@aepfle.de>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 25 January 2016 at 17:11, Joe Stringer <joe@ovn.org> wrote:
-> On 22 January 2016 at 17:22, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Fri, 2016-01-22 at 15:49 -0800, Joe Stringer wrote:
->>> Later parts of the stack (including fragmentation) expect that there is
->>> never a socket attached to frag in a frag_list, however this invariant
->>> was not enforced on all defrag paths. This could lead to the
->>> BUG_ON(skb->sk) during ip_do_fragment(), as per the call stack at the
->>> end of this commit message.
->>>
->>> While the call could be added to openvswitch to fix this particular
->>> error, the head and tail of the frags list are already orphaned
->>> indirectly inside ip_defrag(), so it seems like the remaining fragments
->>> should all be orphaned in all circumstances.
->>
->>
->> Yes, it looks we have a problem, and even IP early demux apparently does
->> not check if incoming packet is a fragment.
->>
->> Your patch could also remove some socket leaks in this respect.
->>
->> I guess we also could add a safety check (ipv4 only, but ipv6 needs care
->> as well)
->>
->> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
->> index b1209b63381f..99513c829213 100644
->> --- a/net/ipv4/ip_input.c
->> +++ b/net/ipv4/ip_input.c
->> @@ -316,7 +316,9 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
->>         const struct iphdr *iph = ip_hdr(skb);
->>         struct rtable *rt;
->>
->> -       if (sysctl_ip_early_demux && !skb_dst(skb) && !skb->sk) {
->> +       if (sysctl_ip_early_demux &&
->> +           !skb_dst(skb) && !skb->sk &&
->> +           !ip_is_fragment(iph)) {
->>                 const struct net_protocol *ipprot;
->>                 int protocol = iph->protocol;
->
-> Thanks, I can roll this into a v2 (or keep as a separate patch?). I
-> got sidetracked on the IPv6 side, some other issues are blocking me on
-> that but I intend to continue following up there as well.
+> From: Olaf Hering [mailto:olaf@aepfle.de]
+> Sent: Tuesday, January 26, 2016 18:24
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: gregkh@linuxfoundation.org; davem@davemloft.net;
+> stephen@networkplumber.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; driverdev-devel@linuxdriverproject.org;
+> apw@canonical.com; jasowang@redhat.com; KY Srinivasan
+> <kys@microsoft.com>; vkuznets@redhat.com; pebolle@tiscali.nl;
+> stefanha@redhat.com; dan.carpenter@oracle.com
+> Subject: Re: [PATCH V6 8/8] hvsock: introduce Hyper-V Socket feature
+> 
+> On Tue, Jan 26, Dexuan Cui wrote:
+> 
+> > +#define AF_MAX		42	/* For now.. */
+> 
+> Maybe net/core/sock.c needs additional strings for the new socket?
+> 
+> Olaf
+Olaf, Thanks for the reminder!
 
-FWIW I confirmed that all frags in frag list coming back from
-nf_ct_frag6_gather() have skb->sk == NULL, so this bug is not present
-on that path.
+I'll add a new patch like this:
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 6c1c8bc..3c0aedb 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -221,7 +221,8 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
+   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
+-  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MAX"
++  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_HYPERV"
++  "sk_lock-AF_MAX"
+ };
+ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
+@@ -237,7 +238,8 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
+   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
+-  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_MAX"
++  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_HYPERV"
++  "slock-AF_MAX"
+ };
+ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
+@@ -253,7 +255,8 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
+-  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MAX"
++  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_HYPERV"
++  "clock-AF_MAX"
+ };
+
+ /*
+
+Thanks,
+-- Dexuan
