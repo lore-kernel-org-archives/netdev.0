@@ -1,274 +1,71 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 03/11] mlxsw: spectrum: Flush FDB when leaving bridge
-Date: Wed, 27 Jan 2016 15:20:18 +0100
-Message-ID: <1453904426-4960-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net 09/11] mlxsw: spectrum: Dump LAG FDB records only once
+Date: Wed, 27 Jan 2016 15:20:24 +0100
+Message-ID: <1453904426-4960-10-git-send-email-jiri@resnulli.us>
 References: <1453904426-4960-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38218 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932784AbcA0OUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:20:35 -0500
-Received: by mail-wm0-f48.google.com with SMTP id p63so28694906wmp.1
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 06:20:34 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:37400 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932519AbcA0OUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 09:20:41 -0500
+Received: by mail-wm0-f45.google.com with SMTP id n5so28761892wmn.0
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 06:20:41 -0800 (PST)
 In-Reply-To: <1453904426-4960-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-As explained in previous commit, we should always take care of flushing
-the FDB in the driver and not rely on bridge code.
+LAG FDB records can only point to LAG devices or VLAN devices configured
+on top of them. Therefore, when dumping the FDB we shouldn't associate
+these records with the underlying physical ports.
 
-We need to distinguish between two cases with regards to LAG:
-
-1) Port is leaving LAG while LAG is bridged (or VLAN devices on top of
-it). In this case don't flush the FDB entries pointing to the LAG ID, as
-this will affect other ports still member in the LAG. Only flush the FDB
-when the last port in the LAG is leaving the bridge.
-
-2) LAG device is leaving the bridge. In this case the CHANGEUPPER event
-is simply propagated to each member port, so make each port flush the
-FDB in its turn.
-
-Note that emptying a bridged LAG from ports creates an inconsistency
-between hardware and software. A user who later (< ageing_time)
-re-populates the LAG won't have any FDB entries pointing to the LAG ID
-in hardware, but they will be present in the software bridge's FDB.
-Currently there is no good solution to this problem, but this will be
-addressed by us in the future.
-
-In order to optimize the flushing process, flush by port or LAG ID if
-there are no VLAN interfaces on top of the port. Otherwise, flush using
-(Port / LAG ID, FID=VID} for each of the lower 4K FIDs. In the case of
-VLAN device simply flush using {Port / LAG ID, vFID} with the vFID to
-which the VLAN device is mapped to.
-
-Fixes: 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
+Fixes: 8a1ab5d76639 ("mlxsw: spectrum: Implement FDB add/remove/dump for LAG")
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 137 +++++++++++++++++++++++--
- 1 file changed, 129 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 637a9d7..217856b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1979,6 +1979,115 @@ static struct mlxsw_driver mlxsw_sp_driver = {
- 	.profile		= &mlxsw_sp_config_profile,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 10a0270..21fc3c8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1049,7 +1049,8 @@ static struct mlxsw_sp_port *mlxsw_sp_lag_rep_port(struct mlxsw_sp *mlxsw_sp,
  
-+static int
-+mlxsw_sp_port_fdb_flush_by_port(const struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char sfdf_pl[MLXSW_REG_SFDF_LEN];
-+
-+	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_PORT);
-+	mlxsw_reg_sfdf_system_port_set(sfdf_pl, mlxsw_sp_port->local_port);
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
-+}
-+
-+static int
-+mlxsw_sp_port_fdb_flush_by_port_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
-+				    u16 fid)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char sfdf_pl[MLXSW_REG_SFDF_LEN];
-+
-+	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_PORT_AND_FID);
-+	mlxsw_reg_sfdf_fid_set(sfdf_pl, fid);
-+	mlxsw_reg_sfdf_port_fid_system_port_set(sfdf_pl,
-+						mlxsw_sp_port->local_port);
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
-+}
-+
-+static int
-+mlxsw_sp_port_fdb_flush_by_lag_id(const struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char sfdf_pl[MLXSW_REG_SFDF_LEN];
-+
-+	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_LAG);
-+	mlxsw_reg_sfdf_lag_id_set(sfdf_pl, mlxsw_sp_port->lag_id);
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
-+}
-+
-+static int
-+mlxsw_sp_port_fdb_flush_by_lag_id_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
-+				      u16 fid)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char sfdf_pl[MLXSW_REG_SFDF_LEN];
-+
-+	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_LAG_AND_FID);
-+	mlxsw_reg_sfdf_fid_set(sfdf_pl, fid);
-+	mlxsw_reg_sfdf_lag_fid_lag_id_set(sfdf_pl, mlxsw_sp_port->lag_id);
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
-+}
-+
-+static int
-+__mlxsw_sp_port_fdb_flush(const struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	int err, last_err = 0;
-+	u16 vid;
-+
-+	for (vid = 1; vid < VLAN_N_VID - 1; vid++) {
-+		err = mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, vid);
-+		if (err)
-+			last_err = err;
-+	}
-+
-+	return last_err;
-+}
-+
-+static int
-+__mlxsw_sp_port_fdb_flush_lagged(const struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	int err, last_err = 0;
-+	u16 vid;
-+
-+	for (vid = 1; vid < VLAN_N_VID - 1; vid++) {
-+		err = mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_port, vid);
-+		if (err)
-+			last_err = err;
-+	}
-+
-+	return last_err;
-+}
-+
-+static int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	if (!list_empty(&mlxsw_sp_port->vports_list))
-+		if (mlxsw_sp_port->lagged)
-+			return __mlxsw_sp_port_fdb_flush_lagged(mlxsw_sp_port);
-+		else
-+			return __mlxsw_sp_port_fdb_flush(mlxsw_sp_port);
-+	else
-+		if (mlxsw_sp_port->lagged)
-+			return mlxsw_sp_port_fdb_flush_by_lag_id(mlxsw_sp_port);
-+		else
-+			return mlxsw_sp_port_fdb_flush_by_port(mlxsw_sp_port);
-+}
-+
-+static int mlxsw_sp_vport_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_vport)
-+{
-+	u16 vfid = mlxsw_sp_vport_vfid_get(mlxsw_sp_vport);
-+	u16 fid = mlxsw_sp_vfid_to_fid(vfid);
-+
-+	if (mlxsw_sp_vport->lagged)
-+		return mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_vport,
-+							     fid);
-+	else
-+		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_vport, fid);
-+}
-+
- static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
+ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  struct switchdev_obj_port_fdb *fdb,
+-				  switchdev_obj_dump_cb_t *cb)
++				  switchdev_obj_dump_cb_t *cb,
++				  struct net_device *orig_dev)
  {
- 	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
-@@ -2006,10 +2115,14 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port)
- 	return 0;
- }
- 
--static int mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port)
-+static int mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
-+				      bool flush_fdb)
- {
- 	struct net_device *dev = mlxsw_sp_port->dev;
- 
-+	if (flush_fdb && mlxsw_sp_port_fdb_flush(mlxsw_sp_port))
-+		netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
-+
- 	mlxsw_sp_port->learning = 0;
- 	mlxsw_sp_port->learning_sync = 0;
- 	mlxsw_sp_port->uc_flood = 0;
-@@ -2201,7 +2314,8 @@ err_col_port_enable:
- }
- 
- static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
--				       struct net_device *br_dev);
-+				       struct net_device *br_dev,
-+				       bool flush_fdb);
- 
- static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 				   struct net_device *lag_dev)
-@@ -2236,18 +2350,20 @@ static int mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 			continue;
- 
- 		br_dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
--		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev);
-+		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev, false);
- 	}
- 
- 	if (mlxsw_sp_port->bridged) {
- 		mlxsw_sp_port_active_vlans_del(mlxsw_sp_port);
--		mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
-+		mlxsw_sp_port_bridge_leave(mlxsw_sp_port, false);
- 
- 		if (lag->ref_count == 1)
- 			mlxsw_sp_master_bridge_dec(mlxsw_sp, NULL);
- 	}
- 
- 	if (lag->ref_count == 1) {
-+		if (mlxsw_sp_port_fdb_flush_by_lag_id(mlxsw_sp_port))
-+			netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
- 		err = mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
- 		if (err)
- 			return err;
-@@ -2336,7 +2452,7 @@ static int mlxsw_sp_port_vlan_unlink(struct mlxsw_sp_port *mlxsw_sp_port,
- 		struct net_device *br_dev;
- 
- 		br_dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
--		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev);
-+		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, br_dev, true);
- 	}
- 
- 	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
-@@ -2398,7 +2514,8 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
- 				}
- 				mlxsw_sp_master_bridge_inc(mlxsw_sp, upper_dev);
- 			} else {
--				err = mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
-+				err = mlxsw_sp_port_bridge_leave(mlxsw_sp_port,
-+								 true);
- 				mlxsw_sp_master_bridge_dec(mlxsw_sp, upper_dev);
- 				if (err) {
- 					netdev_err(dev, "Failed to leave bridge\n");
-@@ -2565,7 +2682,8 @@ static void mlxsw_sp_br_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
- }
- 
- static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
--				       struct net_device *br_dev)
-+				       struct net_device *br_dev,
-+				       bool flush_fdb)
- {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_vport->mlxsw_sp;
- 	u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
-@@ -2628,6 +2746,9 @@ static int mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
- 		goto err_vport_flood_set;
- 	}
- 
-+	if (flush_fdb && mlxsw_sp_vport_fdb_flush(mlxsw_sp_vport))
-+		netdev_err(dev, "Failed to flush FDB\n");
-+
- 	/* Switch between the vFIDs and destroy the old one if needed. */
- 	new_vfid->nr_vports++;
- 	mlxsw_sp_vport->vport.vfid = new_vfid;
-@@ -2801,7 +2922,7 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
- 			if (!mlxsw_sp_vport)
- 				return NOTIFY_DONE;
- 			err = mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport,
--							  upper_dev);
-+							  upper_dev, true);
- 			if (err) {
- 				netdev_err(dev, "Failed to leave bridge\n");
- 				return NOTIFY_BAD;
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	u16 vport_fid = 0;
+@@ -1114,6 +1115,12 @@ static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+ 							    mac, &fid, &lag_id);
+ 				if (mlxsw_sp_port ==
+ 				    mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id)) {
++					/* LAG records can only point to LAG
++					 * devices or VLAN devices on top.
++					 */
++					if (!netif_is_lag_master(orig_dev) &&
++					    !is_vlan_dev(orig_dev))
++						continue;
+ 					if (vport_fid && vport_fid == fid)
+ 						fdb->vid = 0;
+ 					else if (!vport_fid &&
+@@ -1184,7 +1191,8 @@ static int mlxsw_sp_port_obj_dump(struct net_device *dev,
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = mlxsw_sp_port_fdb_dump(mlxsw_sp_port,
+-					     SWITCHDEV_OBJ_PORT_FDB(obj), cb);
++					     SWITCHDEV_OBJ_PORT_FDB(obj), cb,
++					     obj->orig_dev);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
 -- 
 1.9.3
