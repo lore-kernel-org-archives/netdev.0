@@ -1,107 +1,59 @@
-From: Rostislav Pehlivanov <atomnuker@gmail.com>
-Subject: [PATCH] ixgbe: add a callback to set the maximum transmit bitrate
-Date: Wed, 27 Jan 2016 18:33:30 +0000
-Message-ID: <1453919610-8197-1-git-send-email-atomnuker@gmail.com>
-Cc: Rostislav Pehlivanov <atomnuker@gmail.com>
-To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net-next 1/3] skbuff: export skb_gro_receive
+Date: Wed, 27 Jan 2016 10:35:18 -0800
+Message-ID: <1453919718.20722.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1453913331.git.marcelo.leitner@gmail.com>
+	 <c4f95e89023018417b7daf2bcec9db8859b65eaa.1453913331.git.marcelo.leitner@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, brouer@redhat.com,
+	alexander.duyck@gmail.com, alexei.starovoitov@gmail.com,
+	borkmann@iogearbox.net, marek@cloudflare.com,
+	hannes@stressinduktion.org, fw@strlen.de, pabeni@redhat.com,
+	john.r.fastabend@intel.com, linux-sctp@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:33390 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964984AbcA0Sdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 13:33:39 -0500
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34226 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934919AbcA0SfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 13:35:20 -0500
+In-Reply-To: <c4f95e89023018417b7daf2bcec9db8859b65eaa.1453913331.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds a callback which allows to adjust the maximum transmit
-bitrate the card can output. This makes it possible to get a smooth
-traffic instead of the default burst-y behaviour when trying to output
-e.g. a video stream.
+On Wed, 2016-01-27 at 15:06 -0200, Marcelo Ricardo Leitner wrote:
+> sctp GSO requires it and sctp can be compiled as a module, so export
+> this function.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  net/core/skbuff.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index b2df375ec9c2173a8132b8efa1c3062f0510284b..704b69682085dec77f3d0f990aaf0024afd705b9 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3312,6 +3312,7 @@ done:
+>  	NAPI_GRO_CB(skb)->same_flow = 1;
+>  	return 0;
+>  }
+> +EXPORT_SYMBOL_GPL(skb_gro_receive);
+>  
+>  void __init skb_init(void)
+>  {
 
-Much of the logic needed to get a correct bcnrc_val was taken from the
-ixgbe_set_vf_rate_limit() function.
 
-Signed-off-by: Rostislav Pehlivanov <atomnuker@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 31 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  1 +
- 3 files changed, 33 insertions(+), 1 deletion(-)
+Normally, all the offloading support belongs in vmlinux, so this export
+is not needed.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c4003a8..d05455c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1084,6 +1084,36 @@ static void ixgbe_tx_timeout_reset(struct ixgbe_adapter *adapter)
- }
- 
- /**
-+ * ixgbe_tx_maxrate - callback to set the maximum per-queue bitrate
-+ **/
-+static int ixgbe_tx_maxrate(struct net_device *netdev,
-+			    int queue_index, u32 maxrate)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 bcnrc_val = ixgbe_link_mbps(adapter);
-+
-+	if (!maxrate)
-+		return 0;
-+
-+	/* Calculate the rate factor values to set */
-+	bcnrc_val <<= IXGBE_RTTBCNRC_RF_INT_SHIFT;
-+	bcnrc_val /= maxrate;
-+
-+	/* clear everything but the rate factor */
-+	bcnrc_val &= IXGBE_RTTBCNRC_RF_INT_MASK |
-+	IXGBE_RTTBCNRC_RF_DEC_MASK;
-+
-+	/* enable the rate scheduler */
-+	bcnrc_val |= IXGBE_RTTBCNRC_RS_ENA;
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_RTTDQSEL, queue_index);
-+	IXGBE_WRITE_REG(hw, IXGBE_RTTBCNRC, bcnrc_val);
-+
-+	return 0;
-+}
-+
-+/**
-  * ixgbe_clean_tx_irq - Reclaim resources after transmit completes
-  * @q_vector: structure containing interrupt and ring information
-  * @tx_ring: tx ring to clean
-@@ -8646,6 +8676,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_set_mac_address	= ixgbe_set_mac,
- 	.ndo_change_mtu		= ixgbe_change_mtu,
- 	.ndo_tx_timeout		= ixgbe_tx_timeout,
-+	.ndo_set_tx_maxrate	= ixgbe_tx_maxrate,
- 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
- 	.ndo_do_ioctl		= ixgbe_ioctl,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 8025a3f..f9ca7d5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -1395,7 +1395,7 @@ out:
- 	return err;
- }
- 
--static int ixgbe_link_mbps(struct ixgbe_adapter *adapter)
-+int ixgbe_link_mbps(struct ixgbe_adapter *adapter)
- {
- 	switch (adapter->link_speed) {
- 	case IXGBE_LINK_SPEED_100_FULL:
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-index dad9257..47e65e2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-@@ -44,6 +44,7 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
- int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
- int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
- 			   u8 qos);
-+int ixgbe_link_mbps(struct ixgbe_adapter *adapter);
- int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
- 			int max_tx_rate);
- int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
--- 
-2.7.0
+For instance, we support GRO IPV6 even if IPv6 is not enabled on the
+host.
+
+Ie all these net/ipv6 files are included in vmlinux if CONFIG_INET is
+enabled
+
+ip6_offload.o tcpv6_offload.o udp_offload.o exthdrs_offload.o
