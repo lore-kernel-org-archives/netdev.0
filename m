@@ -1,101 +1,120 @@
-From: Aaro Koskinen <aaro.koskinen@nokia.com>
-Subject: Re: [PATCH net 1/2] of: of_mdio: Add a whitelist of PHY
- compatibilities.
-Date: Wed, 27 Jan 2016 13:17:27 +0200
-Message-ID: <20160127111726.GN22974@ak-desktop.emea.nsn-net.net>
-References: <1453853499-11248-1-git-send-email-andrew@lunn.ch>
- <1453853499-11248-2-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>, olof@lixom.net
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:34403 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932075AbcA0LRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 06:17:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1453853499-11248-2-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 1/2] wext: fix message delay/ordering
+Date: Wed, 27 Jan 2016 13:41:34 +0100
+Message-ID: <1453898495-11790-1-git-send-email-johannes@sipsolutions.net>
+Cc: Beniamino Galvani <bgalvani-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-On Wed, Jan 27, 2016 at 01:11:38AM +0100, Andrew Lunn wrote:
-> Some phy nodes list a compatible value indicating the PHY make/model.
-> This is never used to match the device to the driver. However it does
-> confuse the code to separate a PHY from a generic MDIO device like a
-> switch. Generic MDIO devices must have a compatible value, PHYs can
-> list clause 22 or 45, but nothing else.
-> 
-> Issue a warning if we find a compatible value known on the whitelist,
-> and say it is a PHY.
-> 
-> Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
-> Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
-> Reported-by: Olof Johansson <olof@lixom.net>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Beniamino reported that he was getting an RTM_NEWLINK message for a
+given interface, after the RTM_DELLINK for it. It turns out that the
+message is a wireless extensions message, which was sent because the
+interface had been connected and disconnection while it was deleted
+caused a wext message.
 
-Tested-by: Aaro Koskinen <aaro.koskinen@nokia.com>
+For its netlink messages, wext uses RTM_NEWLINK, but the message is
+without all the regular rtnetlink attributes, so "ip monitor link"
+prints just rudimentary information:
 
-A.
+5: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN group default
+    link/ether 02:00:00:00:01:00 brd ff:ff:ff:ff:ff:ff
+Deleted 5: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
+    link/ether 02:00:00:00:01:00 brd ff:ff:ff:ff:ff:ff
+5: wlan1: <BROADCAST,MULTICAST,UP>
+    link/ether
+(from my hwsim reproduction)
 
-> ---
->  drivers/of/of_mdio.c | 27 +++++++++++++++++++++++++++
->  1 file changed, 27 insertions(+)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index b5aa004a24b6..26c245041493 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -143,11 +143,31 @@ int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
->  }
->  EXPORT_SYMBOL(of_mdio_parse_addr);
->  
-> +/* The following is a list of PHY compatible strings which appear in
-> + * some DTBs. The compatible string is never matched against a PHY
-> + * driver, so is pointless. We only expect devices which are not PHYs
-> + * to have a compatible string, so they can be matched to an MDIO
-> + * driver.  Encourage users to upgrade there DT blobs to remove these.
-> + */
-> +static const struct of_device_id whitelist_phys[] = {
-> +	{ .compatible = "brcm,40nm-ephy" },
-> +	{ .compatible = "marvell,88E1111", },
-> +	{ .compatible = "marvell,88e1116", },
-> +	{ .compatible = "marvell,88e1118", },
-> +	{ .compatible = "marvell,88e1149r", },
-> +	{ .compatible = "marvell,88e1310", },
-> +	{ .compatible = "marvell,88E1510", },
-> +	{ .compatible = "marvell,88E1514", },
-> +	{ .compatible = "moxa,moxart-rtl8201cp", },
-> +	{}
-> +};
-> +
->  /*
->   * Return true if the child node is for a phy. It must either:
->   * o Compatible string of "ethernet-phy-idX.X"
->   * o Compatible string of "ethernet-phy-ieee802.3-c45"
->   * o Compatible string of "ethernet-phy-ieee802.3-c22"
-> + * o In the white list above (and issue a warning)
->   * o No compatibility string
->   *
->   * A device which is not a phy is expected to have a compatible string
-> @@ -166,6 +186,13 @@ static bool of_mdiobus_child_is_phy(struct device_node *child)
->  	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c22"))
->  		return true;
->  
-> +	if (of_match_node(whitelist_phys, child)) {
-> +		pr_warn(FW_WARN
-> +			"%s: Whitelisted compatible string. Please remove\n",
-> +			child->full_name);
-> +		return true;
-> +	}
-> +
->  	if (!of_find_property(child, "compatible", NULL))
->  		return true;
->  
-> -- 
-> 2.7.0
-> 
+This can cause userspace to get confused since it doesn't expect an
+RTM_NEWLINK message after RTM_DELLINK.
+
+The reason for this is that wext schedules a worker to send out the
+messages, and the scheduling delay can cause the messages to get out
+to userspace in different order.
+
+To fix this, have wext register a netdevice notifier and flush out
+any pending messages when netdevice state changes. This fixes any
+ordering whenever the original message wasn't sent by a notifier
+itself.
+
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Reported-by: Beniamino Galvani <bgalvani-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ net/wireless/wext-core.c | 49 ++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 39 insertions(+), 10 deletions(-)
+
+diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
+index c8717c1d082e..5f429637efff 100644
+--- a/net/wireless/wext-core.c
++++ b/net/wireless/wext-core.c
+@@ -342,6 +342,39 @@ static const int compat_event_type_size[] = {
+ 
+ /* IW event code */
+ 
++static void wireless_nlevent_flush(void)
++{
++	struct sk_buff *skb;
++	struct net *net;
++
++	ASSERT_RTNL();
++
++	for_each_net(net) {
++		while ((skb = skb_dequeue(&net->wext_nlevents)))
++			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
++				    GFP_KERNEL);
++	}
++}
++
++static int wext_netdev_notifier_call(struct notifier_block *nb,
++				     unsigned long state, void *ptr)
++{
++	/*
++	 * When a netdev changes state in any way, flush all pending messages
++	 * to avoid them going out in a strange order, e.g. RTM_NEWLINK after
++	 * RTM_DELLINK, or with IFF_UP after without IFF_UP during dev_close()
++	 * or similar - all of which could otherwise happen due to delays from
++	 * schedule_work().
++	 */
++	wireless_nlevent_flush();
++
++	return NOTIFY_OK;
++}
++
++static struct notifier_block wext_netdev_notifier = {
++	.notifier_call = wext_netdev_notifier_call,
++};
++
+ static int __net_init wext_pernet_init(struct net *net)
+ {
+ 	skb_queue_head_init(&net->wext_nlevents);
+@@ -360,6 +393,11 @@ static struct pernet_operations wext_pernet_ops = {
+ 
+ static int __init wireless_nlevent_init(void)
+ {
++	int err = register_netdevice_notifier(&wext_netdev_notifier);
++
++	if (err)
++		return err;
++
+ 	return register_pernet_subsys(&wext_pernet_ops);
+ }
+ 
+@@ -368,17 +406,8 @@ subsys_initcall(wireless_nlevent_init);
+ /* Process events generated by the wireless layer or the driver. */
+ static void wireless_nlevent_process(struct work_struct *work)
+ {
+-	struct sk_buff *skb;
+-	struct net *net;
+-
+ 	rtnl_lock();
+-
+-	for_each_net(net) {
+-		while ((skb = skb_dequeue(&net->wext_nlevents)))
+-			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
+-				    GFP_KERNEL);
+-	}
