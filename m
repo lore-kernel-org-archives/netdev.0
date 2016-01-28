@@ -1,52 +1,53 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH next] ipvlan: inherit MTU from master device
-Date: Thu, 28 Jan 2016 05:13:02 -0800
-Message-ID: <CANn89iJXmdaq=Rc20QriH+QL8Nug_g4zRUO8BFw04pdAWQ6BEA@mail.gmail.com>
-References: <1453966408-16343-1-git-send-email-mahesh@bandewar.net>
+From: "Zhouyi Zhou" <yizhouzhou@ict.ac.cn>
+Subject: Re: Re: [PATCH V2] netfilter: h323: avoid potential attack
+Date: Thu, 28 Jan 2016 21:14:42 +0800 (GMT+08:00)
+Message-ID: <a703ec.53db.152885f2292.Coremail.yizhouzhou@ict.ac.cn>
+References: <1453971597-4811-1-git-send-email-zhouzhouyi@gmail.com>
+ <1453985821.7627.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Tim Hockin <thockin@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tim Hockins <thockins@google.com>
-To: Mahesh Bandewar <mahesh@bandewar.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:35286 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752548AbcA1NNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 08:13:04 -0500
-Received: by mail-wm0-f49.google.com with SMTP id r129so24167942wmr.0
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 05:13:02 -0800 (PST)
-In-Reply-To: <1453966408-16343-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "Zhouyi Zhou" <zhouzhouyi@gmail.com>, pablo@netfilter.org,
+	kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453985821.7627.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 27, 2016 at 11:33 PM, Mahesh Bandewar <mahesh@bandewar.net> wrote:
-> From: Mahesh Bandewar <maheshb@google.com>
->
-> When we create IPvlan slave; we use ether_setup() and that
-> sets up default MTU to 1500 while the master device may have
-> lower / different MTU. Any subsequent changes to the masters'
-> MTU are reflected into the slaves' MTU setting. However if those
-> don't happen (most likely scenario), the slaves' MTU stays at
-> 1500 which could be bad.
->
-> This change adds code to inherit MTU from the master device
-> instead of using the default value during the link initialization
-> phase.
->
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Tim Hockins <thockins@google.com>
->
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Two points Mahesh :
-
-1) ipvlan_adjust_mtu() could be static, it is only used from
-drivers/net/ipvlan/ipvlan_main.c
-
-2) mtu_adj does not seem to be used ?
+Thanks Eric for replying
+> -----Original Messages-----
+> From: "Eric Dumazet" <eric.dumazet@gmail.com>
+> Sent Time: Thursday, January 28, 2016
+> To: "Zhouyi Zhou" <zhouzhouyi@gmail.com>
+> Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net, netfilter-devel@vger.kernel.org, coreteam@netfilter.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.or, "Zhouyi Zhou" <yizhouzhou@ict.ac.cn>
+> Subject: Re: [PATCH V2] netfilter: h323: avoid potential attack
+> 
+> On Thu, 2016-01-28 at 16:59 +0800, Zhouyi Zhou wrote:
+> > Thanks Eric for your review and advice.
+> > 
+> > I think hackers chould build a malicious h323 packet to overflow
+> > the pointer p which will panic during the memcpy(addr, p, len)
+> > 
+> > For example, he may fabricate a very large taddr->ipAddress.ip;
+> > 
+> > Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+> > ---
+> 
+> Except you did not address my feedback about potentially reading not
+> initialized memory.
+> 
+> if the frame length was 1000 bytes, then surely accessing memory at
+> offset 8000 will either read garbage, or read data from a prior frame
+> and leak secrets.
+My patch is intend to prevent kernel panic, to prevent reading garbage
+or read data from a prior frame and leak secrets, the prototypes of the 
+get_h2x5_addr functions and the functions that call get_h2x5_addr should
+be changed, should we do this? 
+> 
+> 
+> 
+Cheers 
+Zhouyi
