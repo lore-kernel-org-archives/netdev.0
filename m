@@ -1,47 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
-Date: Thu, 28 Jan 2016 20:51:39 +0300
-Message-ID: <56AA552B.9080608@cogentembedded.com>
-References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+From: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
+Subject: Re: [RFC PATCH net-next 0/3] sctp: add GSO support
+Date: Thu, 28 Jan 2016 18:54:06 +0100
+Message-ID: <9D5B8E18-A20A-4E27-8EB8-EE8856DFB184@lurchi.franken.de>
+References: <cover.1453913331.git.marcelo.leitner@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1CCCEDE4@AcuExch.aculab.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"brouer@redhat.com" <brouer@redhat.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+	"borkmann@iogearbox.net" <borkmann@iogearbox.net>,
+	"marek@cloudflare.com" <marek@cloudflare.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"pabeni@redhat.com" <pabeni@redhat.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-n.franken.de ([193.175.24.27]:40819 "EHLO
+	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754796AbcA1SSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 13:18:23 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCCEDE4@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/24/2016 06:52 PM, Yoshihiro Kaneko wrote:
+> On 28 Jan 2016, at 14:51, David Laight <David.Laight@ACULAB.COM> wrote:
+> 
+> From: Marcelo Ricardo Leitner
+>> Sent: 27 January 2016 17:07
+>> This patchset is merely a RFC for the moment. There are some
+>> controversial points that I'd like to discuss before actually proposing
+>> the patches.
+> 
+> You also need to look at how a 'user' can actually get SCTP to
+> merge data chunks in the first place.
+> 
+> With Nagle disabled (and it probably has to be since the data flow
+> is unlikely to be 'command-response' or 'unidirectional bulk')
+> it is currently almost impossible to get more than one chunk
+> into an ethernet frame.
+> 
+> Support for MSG_MORE would help.
+What about adding support for the explicit EOR mode as specified in
+https://tools.ietf.org/html/rfc6458#section-8.1.26
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> This patch supports the following interrupts.
->
-> - One interrupt for multiple (descriptor, error, management)
-
-    Looking at the code again, ravb_multi_interrupot() only handles error and 
-gPTP interrupt now.
-
-> - One interrupt for emac
-> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->
-> This patch improve efficiency of the interrupt handler by adding the
-> interrupt handler corresponding to each interrupt source described
-> above. Additionally, it reduces the number of times of the access to
-> EthernetAVB IF.
-
-    I'd still like to see there a statement about not being dependent on the 
-whim of a boot loader any more...
-
->
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-
-[...]
-
-MBR, Sergei
-
+Best regards
+Michael
+> 
+> Given the current implementation you can get almost the required
+> behaviour by turning nagle off and on repeatedly.
+> 
+> I did wonder whether the queued data could actually be picked up
+> be a Heartbeat chunk that is probing a different remote address
+> (which would be bad news).
+> 
+> 	David
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
