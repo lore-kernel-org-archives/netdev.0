@@ -1,61 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/2] netfilter: ipvs: avoid unused variable warnings
-Date: Thu, 28 Jan 2016 13:28:17 +0100
-Message-ID: <121171795.jNF1vkL58j@wuerfel>
-References: <1453902749-3422685-1-git-send-email-arnd@arndb.de> <alpine.LFD.2.11.1601272156590.2353@ja.home.ssi.bg> <20160127233953.GB5183@verge.net.au>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/9] net: moxart: use correct accessors for DMA memory
+Date: Thu, 28 Jan 2016 12:36:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCCEDCE@AcuExch.aculab.com>
+References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
+ <1453903507-3427225-5-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Julian Anastasov <ja@ssi.bg>, Wensong Zhang <wensong@linux-vs.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?Windows-1252?Q?fran=E7ois_romieu?= <romieu@fr.zoreil.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Arnd Bergmann' <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160127233953.GB5183@verge.net.au>
+In-Reply-To: <1453903507-3427225-5-git-send-email-arnd@arndb.de>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 28 January 2016 08:39:53 Simon Horman wrote:
-> On Wed, Jan 27, 2016 at 10:01:42PM +0200, Julian Anastasov wrote:
-> > 
-> >       Hello,
-> > 
-> > On Wed, 27 Jan 2016, Arnd Bergmann wrote:
-> > 
-> > > The proc_create() and remove_proc_entry() functions do not reference
-> > > their arguments when CONFIG_PROC_FS is disabled, so we get a couple
-> > > of warnings about unused variables in IPVS:
-> > > 
-> > > ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
-> > > ipvs/ip_vs_ctl.c:3950:14: warning: unused variable 'net' [-Wunused-variable]
-> > > ipvs/ip_vs_ctl.c:3994:14: warning: unused variable 'net' [-Wunused-variable]
-> > > 
-> > > This removes the local variables and instead looks them up separately
-> > > for each use, which obviously avoids the warning.
-> > > 
-> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > > Fixes: 4c50a8ce2b63 ("netfilter: ipvs: avoid unused variable warning")
-> > 
-> >       Looks like your previous patch for ip_vs_app_net_cleanup
-> > was delayed in ipvs-next tree. I guess, Simon should drop it and
-> > use this one instead when net-next opens:
-> > 
-> > Acked-by: Julian Anastasov <ja@ssi.bg>
+From: Arnd Bergmann
+> Sent: 27 January 2016 14:05
+> The moxart ethernet driver confuses coherent DMA buffers with
+> MMIO registers.
 > 
-> Thanks, and sorry about not pushing the other patch to net-next.
-> I have dropped it and queued up this one in its place.
+> moxart_ether.c: In function 'moxart_mac_setup_desc_ring':
+> moxart_ether.c:146:428: error: passing argument 1 of '__fswab32' makes integer from pointer without a
+> cast [-Werror=int-conversion]
+> moxart_ether.c:74:39: warning: incorrect type in argument 3 (different address spaces)
+> moxart_ether.c:74:39:    expected void *cpu_addr
+> moxart_ether.c:74:39:    got void [noderef] <asn:2>*tx_desc_base
+> 
+> This leaves the basic logic alone and uses normal pointers for
+> the virtual address of the descriptor. As we cannot use readl/writel
+> to access them, we also introduce our own moxart_desc_read
+> moxart_desc_write helpers that perform the same endianess swap
+> as the original code, but without the extra barriers and address
+> space conversion.
 
-Ah, I had not realized that the other patch was still in ipvs-next
-and not merged in mainline. I did most of my testing on linux-next
-(with the previous patch) and then validated the new one on
-4.5-rc1, which led me to update it to contain the same hunk again.
+I'm pretty sure you need to add some explicit barriers:
 
-Replacing the original patch works fine though, thanks for picking
-it up!
+> @@ -354,8 +364,8 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	txdes1 = TX_DESC1_LTS | TX_DESC1_FTS | (len & TX_DESC1_BUF_SIZE_MASK);
+>  	if (tx_head == TX_DESC_NUM_MASK)
+>  		txdes1 |= TX_DESC1_END;
+> -	writel(txdes1, desc + TX_REG_OFFSET_DESC1);
+> -	writel(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
+> +	moxart_desc_write(txdes1, desc + TX_REG_OFFSET_DESC1);
+> +	moxart_desc_write(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
 
-	Arnd
+Those last two writes must happen in that order.
+There may be others.
+
+	David
