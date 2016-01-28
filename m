@@ -1,62 +1,56 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next] ipvlan: inherit MTU from master device
-Date: Thu, 28 Jan 2016 09:04:05 -0800
-Message-ID: <CAF2d9jitKK9dBkpAUYFJtTMsw2zCP0Z+U0fEs2W7bwj2VA1rUw@mail.gmail.com>
-References: <1453966408-16343-1-git-send-email-mahesh@bandewar.net> <CANn89iJXmdaq=Rc20QriH+QL8Nug_g4zRUO8BFw04pdAWQ6BEA@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net 1/2] ipv6: enforce flowi6_oif usage in
+ ip6_dst_lookup_tail()
+Date: Thu, 28 Jan 2016 18:04:53 +0100
+Message-ID: <1454000693.27229.15.camel@redhat.com>
+References: <cover.1453830778.git.pabeni@redhat.com>
+	 <88bb9789390b781edd13fc4bfaf9fec868f693dd.1453830778.git.pabeni@redhat.com>
+	 <56AA2CE5.2050307@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-	David Miller <davem@davemloft.net>,
-	Tim Hockin <thockin@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tim Hockins <thockins@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Hajime Tazaki <thehajime@gmail.com>, lucien.xin@gmail.com,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:34952 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967449AbcA1RE0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 12:04:26 -0500
-Received: by mail-yk0-f177.google.com with SMTP id y137so38003708yka.2
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 09:04:25 -0800 (PST)
-In-Reply-To: <CANn89iJXmdaq=Rc20QriH+QL8Nug_g4zRUO8BFw04pdAWQ6BEA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40107 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161416AbcA1RE6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jan 2016 12:04:58 -0500
+In-Reply-To: <56AA2CE5.2050307@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 28, 2016 at 5:13 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Wed, Jan 27, 2016 at 11:33 PM, Mahesh Bandewar <mahesh@bandewar.net> wrote:
->> From: Mahesh Bandewar <maheshb@google.com>
->>
->> When we create IPvlan slave; we use ether_setup() and that
->> sets up default MTU to 1500 while the master device may have
->> lower / different MTU. Any subsequent changes to the masters'
->> MTU are reflected into the slaves' MTU setting. However if those
->> don't happen (most likely scenario), the slaves' MTU stays at
->> 1500 which could be bad.
->>
->> This change adds code to inherit MTU from the master device
->> instead of using the default value during the link initialization
->> phase.
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> CC: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Tim Hockins <thockins@google.com>
->>
->
-> Acked-by: Eric Dumazet <edumazet@google.com>
->
-> Two points Mahesh :
->
-> 1) ipvlan_adjust_mtu() could be static, it is only used from
-> drivers/net/ipvlan/ipvlan_main.c
->
-Correct, I'm working on a some other (generic) changes and I could
-include this suggestion  as part of that / later patch or do you
-prefer it to be part of this change?
+On Thu, 2016-01-28 at 07:59 -0700, David Ahern wrote:
+> On 1/27/16 6:45 AM, Paolo Abeni wrote:
+> > The current implementation of ip6_dst_lookup_tail() basically
+> > ignore the egress ifindex match: if the saddr is set,
+> > ip6_route_output() purposefully ignores flowi6_oif, due
+> > to the commit d46a9d678e4c ("net: ipv6: Dont add RT6_LOOKUP_F_IFACE
+> > flag if saddr set"), if the saddr is 'any' the first route lookup
+> > in ip6_dst_lookup_tail fails, but upon failure a second lookup will
+> > be performed with saddr set, thus ignoring the ifindex constraint.
+> >
+> > This commit adds an output route lookup function variant, which
+> > allows the caller to specify additional lookup flags, and modify
+> > ip6_dst_lookup_tail() to enforce the ifindex match on the second
+> > lookup via said helper.
+> >
+> > Fixes: d46a9d678e4c ("net: ipv6: Dont add RT6_LOOKUP_F_IFACE flag if saddr set")
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> 
+> I don't agree with that 'Fixes:' tag.
+> 
+> ip6_route_output did not add the RT6_LOOKUP_F_IFACE flag until 
+> 741a11d9e410; d46a9d678e4c is a follow on to limit adding the flag only 
+> if no source address  is given.
+> 
+> Since ip6_dst_lookup_tail never considered the flowi6_oif this is a 
+> general bug fix rather than a fix of d46a9d678e4c.
 
-> 2) mtu_adj does not seem to be used ?
-mtu_adj is set to zero so that it follows the master. The idea behind
-this field was that if enhancements / changes to the IPvlan driver
-(some sort of built-in encapsulation etc.) is added, this can be set
-to that magic value so that changes to master will still allow slaves
-to follow it without compromising the built-in mechanism.
+Ok, I'll remove it in the v2, which will include Hannes feedback, too.
+
+Regards,
+
+Paolo
