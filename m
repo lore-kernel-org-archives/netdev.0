@@ -1,56 +1,88 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 4/9] net: moxart: use correct accessors for DMA memory
-Date: Thu, 28 Jan 2016 12:36:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCCEDCE@AcuExch.aculab.com>
-References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
- <1453903507-3427225-5-git-send-email-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bypass at packet-page level (Was: Optimizing instruction-cache,
+ more packets at each stage)
+Date: Thu, 28 Jan 2016 04:45:53 -0800
+Message-ID: <1453985153.7627.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1453330945.1223.329.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34H67o64q3YoYiHQ+VSSuSsuSjBXmexSSXF_Hq8fcN0iw@mail.gmail.com>
+	 <20160121122730.6330a84b@redhat.com>
+	 <20160121.105401.1793719917762270884.davem@davemloft.net>
+	 <20160124152814.2ea5e99b@redhat.com>
+	 <20160124163846-mutt-send-email-mst@redhat.com>
+	 <56A509C4.3030706@gmail.com> <20160125141516.795f3eb7@redhat.com>
+	 <CALx6S37EmUh7SXmVSjTN9DLMTicr6-VwL-i25VV1fM=V2E6giQ@mail.gmail.com>
+	 <56A66058.1090308@gmail.com> <20160125231016.4f0d2cd5@redhat.com>
+	 <20160127214750.51fe2392@redhat.com>
+	 <CALx6S350ra6fmZrcabasndWBq4A3L-xKLS__jy1gi3xmhMc=sA@mail.gmail.com>
+	 <20160128102530.5c07a8e7@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?Windows-1252?Q?fran=E7ois_romieu?= <romieu@fr.zoreil.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Arnd Bergmann' <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453903507-3427225-5-git-send-email-arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Marek Majkowski <marek@cloudflare.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirva@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Vladislav Yasevich <vyasevich@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34774 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161101AbcA1Mp4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 07:45:56 -0500
+Received: by mail-pa0-f41.google.com with SMTP id uo6so23303271pac.1
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 04:45:55 -0800 (PST)
+In-Reply-To: <20160128102530.5c07a8e7@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann
-> Sent: 27 January 2016 14:05
-> The moxart ethernet driver confuses coherent DMA buffers with
-> MMIO registers.
+On Thu, 2016-01-28 at 10:25 +0100, Jesper Dangaard Brouer wrote:
+
+> Yes, that is exactly what I'm contemplating :-)  That is idea "(1)".
 > 
-> moxart_ether.c: In function 'moxart_mac_setup_desc_ring':
-> moxart_ether.c:146:428: error: passing argument 1 of '__fswab32' makes integer from pointer without a
-> cast [-Werror=int-conversion]
-> moxart_ether.c:74:39: warning: incorrect type in argument 3 (different address spaces)
-> moxart_ether.c:74:39:    expected void *cpu_addr
-> moxart_ether.c:74:39:    got void [noderef] <asn:2>*tx_desc_base
+> A natural extension to this work, which I expect Tom will love, is to
+> also use the idea for RPS.  Once we have a SKB list in stack/GRO-layer,
+> then we could build a local sk_buff_head list for each remote CPU, by
+> calling get_rps_cpu().   And then enqueue_list_to_backlog, by a
+> skb_queue_splice_tail(&cpu_list, &cpu->sd->input_pkt_queue) call.
 > 
-> This leaves the basic logic alone and uses normal pointers for
-> the virtual address of the descriptor. As we cannot use readl/writel
-> to access them, we also introduce our own moxart_desc_read
-> moxart_desc_write helpers that perform the same endianess swap
-> as the original code, but without the extra barriers and address
-> space conversion.
+> This would amortize the cost of transferring packets to a remote CPU,
+> which Eric AFAIK points out is costing approx ~133ns.
+> 
 
-I'm pretty sure you need to add some explicit barriers:
+Jesper, RPS and RFS already defer sending the IPI and submit batches to
+remote cpus.
 
-> @@ -354,8 +364,8 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->  	txdes1 = TX_DESC1_LTS | TX_DESC1_FTS | (len & TX_DESC1_BUF_SIZE_MASK);
->  	if (tx_head == TX_DESC_NUM_MASK)
->  		txdes1 |= TX_DESC1_END;
-> -	writel(txdes1, desc + TX_REG_OFFSET_DESC1);
-> -	writel(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
-> +	moxart_desc_write(txdes1, desc + TX_REG_OFFSET_DESC1);
-> +	moxart_desc_write(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
+See commits 
 
-Those last two writes must happen in that order.
-There may be others.
+e326bed2f47d0365da5a8faaf8ee93ed2d86325b ("rps: immediate send IPI in
+process_backlog()")
 
-	David
+88751275b8e867d756e4f86ae92afe0232de129f ("rps: shortcut
+net_rps_action()")
+
+And of course all the discussions we had to come up with
+0a9627f2649a02bea165cfd529d7bcb625c2fcad ("rps: Receive Packet
+Steering")
+
+The current state :
+
+net_rps_action_and_irq_enable() sends the IPI at the end of
+net_rx_action() once all NAPI handlers have been called, and therefore
+have accumulated packets and cook rps_ipi_list (via calls to
+rps_ipi_queued() from enqueue_to_backlog())
+
+
+Adding another stage in the pipeline would not help.
