@@ -1,58 +1,67 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next 08/40] net: fec: move cbd_bufaddr assignment closer
- to the mapping function
-Date: Thu, 28 Jan 2016 14:25:32 -0700
-Message-ID: <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next 21/40] net: fec: print more debug info in fec_timeout
+Date: Thu, 28 Jan 2016 14:25:45 -0700
+Message-ID: <1454016364-30985-22-git-send-email-troy.kisky@boundarydevices.com>
 References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: fabio.estevam@freescale.com, andrew@lunn.ch, linux@arm.linux.org.uk,
- Troy Kisky <troy.kisky@boundarydevices.com>, laci@boundarydevices.com,
- l.stach@pengutronix.de, shawnguo@kernel.org,
- linux-arm-kernel@lists.infradead.org, tremyfr@gmail.com
-To: netdev@vger.kernel.org,
-	davem@davemloft.net,
-	B38611@freescale.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
+	shawnguo@kernel.org, Troy Kisky <troy.kisky@boundarydevices.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36758 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755548AbcA1V2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:28:44 -0500
+Received: by mail-pa0-f43.google.com with SMTP id yy13so29101613pab.3
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:28:43 -0800 (PST)
 In-Reply-To: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Print the current interrupt flags and mask and
+the interrupt state during the last interrupt in
+fec_timeout.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      | 1 +
+ drivers/net/ethernet/freescale/fec_main.c | 4 ++++
+ 2 files changed, 5 insertions(+)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index be0e3d9..d2ca2e2 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -490,6 +490,7 @@ struct fec_enet_private {
+ 	unsigned int total_tx_ring_size;
+ 	unsigned int total_rx_ring_size;
+ 	uint	events;
++	uint	last_ievents;
+ 
+ 	struct	platform_device *pdev;
+ 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b87f80d..15a93f90 100644
+index 47df66e..bc084ad9 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -476,6 +476,8 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
- 				estatus |= BD_ENET_TX_TS;
- 		}
- 	}
-+	bdp->cbd_bufaddr = addr;
-+	bdp->cbd_datlen = buflen;
+@@ -1102,6 +1102,9 @@ fec_timeout(struct net_device *ndev)
+ 	int i;
+ 	uint events = 0;
  
- 	if (fep->bufdesc_ex) {
++	pr_err("%s: last=%x %x, mask %x\n", __func__, fep->last_ievents,
++	       readl(fep->hwp + FEC_IEVENT), readl(fep->hwp + FEC_IMASK));
++
+ 	for (i = 0; i < fep->num_tx_queues; i++) {
+ 		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
+ 		int index;
+@@ -1504,6 +1507,7 @@ fec_enet_interrupt(int irq, void *dev_id)
  
-@@ -499,8 +501,6 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
- 	/* Save skb pointer */
- 	txq->tx_skbuff[index] = skb;
+ 	if (!int_events)
+ 		return IRQ_NONE;
++	fep->last_ievents = int_events;
  
--	bdp->cbd_datlen = buflen;
--	bdp->cbd_bufaddr = addr;
- 	/* Make sure the updates to rest of the descriptor are performed before
- 	 * transferring ownership.
- 	 */
+ 	if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
+ 		if (napi_schedule_prep(&fep->napi)) {
 -- 
 2.5.0
