@@ -1,62 +1,39 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH V2] netfilter: h323: avoid potential attack
-Date: Thu, 28 Jan 2016 16:59:57 +0800
-Message-ID: <1453971597-4811-1-git-send-email-zhouzhouyi@gmail.com>
-Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: eric.dumazet@gmail.com, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.or
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 1/8] net: local checksum offload for encapsulation
+Date: Thu, 28 Jan 2016 01:00:43 -0800
+Message-ID: <CAKgT0UcA5kAg64QPL=L=SYw3O=f+KDwcqgMEziCs=AYL439FYA@mail.gmail.com>
+References: <56901197.8040808@solarflare.com>
+	<569011D4.60002@solarflare.com>
+	<56A9BD8E.4030209@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	linux-net-drivers@solarflare.com, Tom Herbert <tom@herbertland.com>
+To: Zang MingJie <zealot0630@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:35263 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755205AbcA1JAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 04:00:43 -0500
+Received: by mail-io0-f169.google.com with SMTP id d63so30810077ioj.2
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 01:00:43 -0800 (PST)
+In-Reply-To: <56A9BD8E.4030209@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Eric for your review and advice.
+On Wed, Jan 27, 2016 at 11:04 PM, Zang MingJie <zealot0630@gmail.com> wrote:
+> I have also noticed that for gso, all gso segs will have exactly same outer
+> udp checksum, this is also because inner checksum cancellation.
+>
+> Can we also optimize that outer udp checksum should be only calculated once
+> for all gso segs ?
 
-I think hackers chould build a malicious h323 packet to overflow
-the pointer p which will panic during the memcpy(addr, p, len)
+Actually that is a good point.  It isn't as if anything really changes
+in the tunnel headers between frames so we probably can just compute
+the outer once and then adjust it on the last frame to account for the
+fact that the length will be different.  I'll see if we can do that in
+the GSO patches I have been working on.
 
-For example, he may fabricate a very large taddr->ipAddress.ip;
-
-Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
----
- net/netfilter/nf_conntrack_h323_main.c |    7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 9511af0..ccd08c5 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -110,6 +110,7 @@ int (*nat_q931_hook) (struct sk_buff *skb,
- 
- static DEFINE_SPINLOCK(nf_h323_lock);
- static char *h323_buffer;
-+#define CHECK_BOUND(p, n) ((void *)p + n - (void *)h323_buffer > 65536)
- 
- static struct nf_conntrack_helper nf_conntrack_helper_h245;
- static struct nf_conntrack_helper nf_conntrack_helper_q931[];
-@@ -247,6 +248,9 @@ static int get_h245_addr(struct nf_conn *ct, const unsigned char *data,
- 		return 0;
- 	}
- 
-+	if (CHECK_BOUND(p, len + sizeof(__be16)))
-+		return 0;
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
-@@ -669,6 +673,9 @@ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
- 		return 0;
- 	}
- 
-+	if (CHECK_BOUND(p, len + sizeof(__be16)))
-+		return 0;
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
--- 
-1.7.10.4
-
-
+- Alex
