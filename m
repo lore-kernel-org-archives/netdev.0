@@ -1,68 +1,80 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
-Date: Thu, 28 Jan 2016 21:36:02 +0300
-Message-ID: <56AA5F92.5030901@cogentembedded.com>
-References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
- <20160126002300.GA27856@verge.net.au> <56A7C252.3040707@cogentembedded.com>
- <20160127014944.GD27499@verge.net.au> <56AA38C5.6070004@cogentembedded.com>
+From: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: Re: KASAN splal in minstrel_ht_update_stats()
+Date: Thu, 28 Jan 2016 19:52:42 +0100
+Message-ID: <56AA637A.6030407@openwrt.org>
+References: <CALYGNiNyJhSaVnE35qS6UCGaSb2Dx1_i5HcRavuOX14oTz2P+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <56AA38C5.6070004@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Thomas Huehn <thomas-rDH2yu9ArSPZY3qUpHLZ+xQ0avMEgXv9@public.gmane.org>
+To: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALYGNiNyJhSaVnE35qS6UCGaSb2Dx1_i5HcRavuOX14oTz2P+w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/28/2016 06:50 PM, Sergei Shtylyov wrote:
+On 2016-01-15 06:23, Konstantin Khlebnikov wrote:
+> Jan 10 17:56:25 hamm kernel: [184374.378842]
+> ==================================================================
+> Jan 10 17:56:25 hamm kernel: [184374.379001] BUG: KASAN:
+> slab-out-of-bounds in minstrel_ht_update_stats.isra.7+0x6e1/0x9e0
+[...]
+> ==================================================================
+> 
+> out-of-bound in
+> 
+> if (mrs->prob_ewma > mg->rates[mg->max_group_prob_rate].prob_ewma)
+>              mg->max_group_prob_rate = index;
+> 
+> 
+> 
+> Fix should be something like this:
+> 
+> --- a/net/mac80211/rc80211_minstrel_ht.c
+> +++ b/net/mac80211/rc80211_minstrel_ht.c
+> @@ -414,15 +414,16 @@ minstrel_ht_set_best_prob_rate(struct
+> minstrel_ht_sta *mi, u16 index)
+>             (max_tp_group != MINSTREL_CCK_GROUP))
+>                 return;
+> 
+> +       max_gpr_group = mg->max_group_prob_rate / MCS_GROUP_RATES;
+> +       max_gpr_idx = mg->max_group_prob_rate % MCS_GROUP_RATES;
+> +       max_gpr_prob = mi->groups[max_gpr_group].rates[max_gpr_idx].prob_ewma;
+> +
+>         if (mrs->prob_ewma > MINSTREL_FRAC(75, 100)) {
+>                 cur_tp_avg = minstrel_ht_get_tp_avg(mi, cur_group, cur_idx,
+>                                                     mrs->prob_ewma);
+>                 if (cur_tp_avg > tmp_tp_avg)
+>                         mi->max_prob_rate = index;
+> 
+> -               max_gpr_group = mg->max_group_prob_rate / MCS_GROUP_RATES;
+> -               max_gpr_idx = mg->max_group_prob_rate % MCS_GROUP_RATES;
+> -               max_gpr_prob =
+> mi->groups[max_gpr_group].rates[max_gpr_idx].prob_ewma;
+>                 max_gpr_tp_avg = minstrel_ht_get_tp_avg(mi, max_gpr_group,
+>                                                         max_gpr_idx,
+>                                                         max_gpr_prob);
+> @@ -431,7 +432,7 @@ minstrel_ht_set_best_prob_rate(struct
+> minstrel_ht_sta *mi, u16 index)
+>         } else {
+>                 if (mrs->prob_ewma > tmp_prob)
+>                         mi->max_prob_rate = index;
+> -               if (mrs->prob_ewma >
+> mg->rates[mg->max_group_prob_rate].prob_ewma)
+> +               if (mrs->prob_ewma > max_gpr_prob)
+>                         mg->max_group_prob_rate = index;
+>         }
+>  }
+Fix looks correct, but does not apply (line wrapped). Please resubmit
+with a proper description and your Signed-off-by.
 
->>>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
->     Kaneko-san, with the amount of the review changes, it might make sense for
-> you to assume the authorship of this patch, only noting it's based on
-> Mizuguchi-san's work. In principle, when you change the original patch, you
-> should document the changes you made in the change log, above ---...
->
->>>>> This patch supports the following interrupts.
->>>>>
->>>>> - One interrupt for multiple (descriptor, error, management)
->>>>> - One interrupt for emac
->>>>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->>>>>
->>>>> This patch improve efficiency of the interrupt handler by adding the
->>>>> interrupt handler corresponding to each interrupt source described
->>>>> above. Additionally, it reduces the number of times of the access to
->>>>> EthernetAVB IF.
->>>>>
->>>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->>>>
->>>> I have tested this patch and the result seems positive.
->>>
->>>     Tested on gen3 only I guess?
->>
->> Yes, that is correct.
->>
->>>> Please let me know if any more/different testing would help.
->>>
->>>     Sanity testing on some gen2 SoC wouldn't hurt (if you have time).
->>
->> I don't believe that I have access to a gen2 board (+ extra hardware ?)
->> where ravb works.
->
->     Sorry, I just forgot about that.
->
->> If you do would it be possible for you to do a sanity test?
->
->     Yes, of course.
+Thanks,
 
-    Oops, I forgot that I failed to make the driver work on Porter -- it fails 
-to connect to PHY while opening eth<n>. I've tested the patch as far as I 
-could and it didn't blow up. :-)
-    I'll have access to the other board (most probably Alt) next week.
-
-MBR, Sergei
-
+- Felix
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
