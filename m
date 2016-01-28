@@ -1,78 +1,74 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates
- [mac80211]
-Date: Thu, 28 Jan 2016 23:12:35 +0100
-Message-ID: <1454019155.2332.15.camel@sipsolutions.net>
-References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
-	 <1453983185.2217.12.camel@sipsolutions.net>
-	 <CA+55aFya9K4JboNY8kB9cg6zt9otguhdzfHm3jvLmWedxQTSWg@mail.gmail.com>
-	 <1454013625.2332.9.camel@sipsolutions.net>
-	 <CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
-	 <CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw@mail.gmail.com>
-	 (sfid-20160128_230454_551008_3AE61B48)
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next 08/40] net: fec: move cbd_bufaddr assignment
+ closer to the mapping function
+Date: Thu, 28 Jan 2016 23:14:19 +0100
+Message-ID: <1454019259.2332.17.camel@sipsolutions.net>
+References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
+	 <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
+	 <1725152.bhtFKTSjnb@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20160128_230454_551008_3AE61B48)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com,
+	fabio.estevam@freescale.com, andrew@lunn.ch,
+	linux@arm.linux.org.uk, laci@boundarydevices.com,
+	l.stach@pengutronix.de, shawnguo@kernel.org, tremyfr@gmail.com
+To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:57458 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750732AbcA1WO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jan 2016 17:14:26 -0500
+In-Reply-To: <1725152.bhtFKTSjnb@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-01-28 at 14:04 -0800, Linus Torvalds wrote:
->=C2=A0
-> Well, it "makes a difference" in the sense that the warning goes
-> away.
-> But it doesn't make things work. In fact, it might be making things
-> worse.
-
-Heh, ok.
-
-> Because with that patch, the wireless still authenticates and
-> associates, but then it doesn't even get an IP address, so now even
-> dhcp doesn't work. Of course, I was surprised that it worked last
-> time, and I'm not 100% sure it did work consistently. I'll re-test
-> without the patch, just to make sure, but it doesn't really seem to
-> improve on anything.
+On Thu, 2016-01-28 at 23:02 +0100, Arnd Bergmann wrote:
+> On Thursday 28 January 2016 14:25:32 Troy Kisky wrote:
+> > Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> > ---
+> > =C2=A0drivers/net/ethernet/freescale/fec_main.c | 4 ++--
+> > =C2=A01 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> [note: missing changelog?]
+>=20
+> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> > b/drivers/net/ethernet/freescale/fec_main.c
+> > index b87f80d..15a93f90 100644
+> > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > @@ -476,6 +476,8 @@ static int fec_enet_txq_submit_skb(struct
+> > fec_enet_priv_tx_q *txq,
+> > =C2=A0				estatus |=3D BD_ENET_TX_TS;
+> > =C2=A0		}
+> > =C2=A0	}
+> > +	bdp->cbd_bufaddr =3D addr;
+> > +	bdp->cbd_datlen =3D buflen;
+> > =C2=A0
+> > =C2=A0	if (fep->bufdesc_ex) {
+> > =C2=A0
+> > @@ -499,8 +501,6 @@ static int fec_enet_txq_submit_skb(struct
+> > fec_enet_priv_tx_q *txq,
+> > =C2=A0	/* Save skb pointer */
+> > =C2=A0	txq->tx_skbuff[index] =3D skb;
+> > =C2=A0
+> > -	bdp->cbd_datlen =3D buflen;
+> > -	bdp->cbd_bufaddr =3D addr;
+> > =C2=A0	/* Make sure the updates to rest of the descriptor are
+> > performed before
+> > =C2=A0	=C2=A0* transferring ownership.
+> > =C2=A0	=C2=A0*/
+> >=20
+>=20
+> This patch and others in the series conflicts with the bugfix "net:
+> fec: make driver endian-safe" that Johannes sent this week. Can you
+> include his fix in your series and ensure that all descriptor
+> accesses are done in an endian-safe way?
 >=20
 
-It makes some sense, here's some speculation:
-
-VHT rates are MCS 0-9. If the rate scaling decides to use only VHT
-MCSes with a VHT-capable peer, then it stands to reason it might still
-start at 0, but forget to set the VHT_MCS flag, so it would really use
-rate index 0 from the table, which is 6 MBps. Then, it would see that
-"working" (since it's not the right thing) and scale up until it hits
-MCS 8 or 9, which is no longer a valid rate (those are only 0-7).
-
-Since the suggested changes make it worse, we can assume that this is
-not the only place where VHT is simply completely broken, and fixing
-VHT here will instead uncover a bug elsewhere, that was previously not
-happening because we never got to real VHT rates.
-
-Your best workaround may just be to ignore VHT for now - clearly it's
-broken so using "just" HT (which is likely not that much of a penalty
-anyway since you're apparently not using 80 MHz) will be much better.
-
-Go into
-
-_rtl_init_hw_vht_capab()
-
-and just remove or stub out the entire contents of that (or you could
-just remove the "vht_supported=3Dtrue" if you feel like it.)
-
-That should get it to HT only, which is likely tested and working
-better.
+My fixes are already in net.git, so you should base on a current
+net.git or on net-next.git after net.git is merged there (which davem
+usually does after Linus merges from him, IIRC)
 
 johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
