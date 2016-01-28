@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next 28/40] net: fec: unmap initial buffer on error
-Date: Thu, 28 Jan 2016 14:25:52 -0700
-Message-ID: <1454016364-30985-29-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next 34/40] net: fec: update dirty_tx even if no skb
+Date: Thu, 28 Jan 2016 14:25:58 -0700
+Message-ID: <1454016364-30985-35-git-send-email-troy.kisky@boundarydevices.com>
 References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -9,46 +9,49 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	shawnguo@kernel.org, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:32934 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755898AbcA1V24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:28:56 -0500
-Received: by mail-pf0-f173.google.com with SMTP id x125so29978421pfb.0
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:28:56 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:32779 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965963AbcA1V3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:29:06 -0500
+Received: by mail-pa0-f54.google.com with SMTP id cy9so29208739pac.0
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:29:05 -0800 (PST)
 In-Reply-To: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If dirty_tx isn't updated, then dma_unmap_single
+will be called twice.
+
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 7258051..e141f6f 100644
+index 512b1ad..8dea600 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -404,7 +404,6 @@ dma_mapping_error:
- 				bdp->cbd_datlen, DMA_TO_DEVICE);
+@@ -1236,10 +1236,8 @@ static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
+ 			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
+ 					bdp->cbd_datlen, DMA_TO_DEVICE);
  		bdp->cbd_bufaddr = 0;
- 	}
--	dev_kfree_skb_any(skb);
- 	return ERR_PTR(-ENOMEM);
- }
+-		if (!skb) {
+-			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+-			continue;
+-		}
++		if (!skb)
++			goto skb_done;
  
-@@ -466,8 +465,12 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
- 			((bdp == txq->bd.last) ? BD_SC_WRAP : 0);
- 	if (nr_frags) {
- 		last_bdp = fec_enet_txq_submit_frag_skb(txq, skb, ndev);
--		if (IS_ERR(last_bdp))
-+		if (IS_ERR(last_bdp)) {
-+			dma_unmap_single(&fep->pdev->dev, addr,
-+					 buflen, DMA_TO_DEVICE);
-+			dev_kfree_skb_any(skb);
- 			return NETDEV_TX_OK;
-+		}
- 	} else {
- 		status |= (BD_ENET_TX_INTR | BD_ENET_TX_LAST);
- 		if (fep->bufdesc_ex) {
+ 		/* Check for errors. */
+ 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
+@@ -1278,7 +1276,7 @@ static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
+ 
+ 		/* Free the sk buffer associated with this last transmit */
+ 		dev_kfree_skb_any(skb);
+-
++skb_done:
+ 		/* Make sure the update to bdp and tx_skbuff are performed
+ 		 * before dirty_tx
+ 		 */
 -- 
 2.5.0
