@@ -1,61 +1,39 @@
-From: Bernie Harris <Bernie.Harris@alliedtelesis.co.nz>
-Subject: Re: [PATCH] net_sched: drr: check for NULL pointer in drr_dequeue
-Date: Thu, 28 Jan 2016 03:26:03 +0000
-Message-ID: <1453951563658.55708@alliedtelesis.co.nz>
-References: <1453780265-29508-1-git-send-email-bernie.harris@alliedtelesis.co.nz>,<CAM_iQpX=x6gvuhxbN7zjbCa+zfyeh0nN86Ao_wVg6f9U3OEJew@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+Subject: [PATCH] net_sched: drr: check for NULL pointer in drr_dequeue
+Date: Thu, 28 Jan 2016 16:30:51 +1300
+Message-ID: <1453951851-24501-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+References: <CAM_iQpX=x6gvuhxbN7zjbCa+zfyeh0nN86Ao_wVg6f9U3OEJew@mail.gmail.com>
+Cc: davem@davemloft.net, jhs@mojatatu.com, stable@vger.kernel.org,
+	bernie.harris@alliedtelesis.co.nz
+To: netdev@vger.kernel.org
 Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <CAM_iQpX=x6gvuhxbN7zjbCa+zfyeh0nN86Ao_wVg6f9U3OEJew@mail.gmail.com>
-Content-Language: en-GB
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you. I will add unlikely() and re-submit the patch.
+There are cases where qdisc_dequeue_peeked can return NULL, and the result
+is dereferenced later on in the function.
 
-________________________________________
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Sent: 27 January 2016 07:03
-To: Bernie Harris
-Cc: Linux Kernel Network Developers; David Miller; Jamal Hadi Salim; stable@vger.kernel.org
-Subject: Re: [PATCH] net_sched: drr: check for NULL pointer in drr_dequeue
+Similarly to the other qdisc dequeue functions, check whether the skb
+pointer is NULL and if it is, goto out.
 
-On Mon, Jan 25, 2016 at 7:51 PM, Bernie Harris
-<bernie.harris@alliedtelesis.co.nz> wrote:
-> There are cases where qdisc_dequeue_peeked can return NULL, and the result
-> is dereferenced later on in the function.
->
-> Similarly to the other qdisc dequeue functions, check whether the skb
-> pointer is NULL and if it is, goto out.
->
-> Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+---
+ net/sched/sch_drr.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Looks good to me, just one minor thing: an unlikely() can be used for this case.
-
-
-> ---
->  net/sched/sch_drr.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-> index f26bdea..8086c3d 100644
-> --- a/net/sched/sch_drr.c
-> +++ b/net/sched/sch_drr.c
-> @@ -403,6 +403,8 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
->                 if (len <= cl->deficit) {
->                         cl->deficit -= len;
->                         skb = qdisc_dequeue_peeked(cl->qdisc);
-> +                       if (skb == NULL)
-> +                               goto out;
->                         if (cl->qdisc->q.qlen == 0)
->                                 list_del(&cl->alist);
->
-> --
-> 2.7.0
->
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index f26bdea..a1cd778 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -403,6 +403,8 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
+ 		if (len <= cl->deficit) {
+ 			cl->deficit -= len;
+ 			skb = qdisc_dequeue_peeked(cl->qdisc);
++			if (unlikely(skb == NULL))
++				goto out;
+ 			if (cl->qdisc->q.qlen == 0)
+ 				list_del(&cl->alist);
+ 
+-- 
+2.7.0
