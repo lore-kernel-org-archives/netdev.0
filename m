@@ -1,104 +1,73 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates
- [mac80211]
-Date: Thu, 28 Jan 2016 13:13:05 +0100
-Message-ID: <1453983185.2217.12.camel@sipsolutions.net>
-References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
-	 (sfid-20160128_063527_929413_6B184FD5)
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net 1/2] ipv6: enforce flowi6_oif usage in
+ ip6_dst_lookup_tail()
+Date: Thu, 28 Jan 2016 13:27:30 +0100
+Message-ID: <1453984050.5118.37.camel@redhat.com>
+References: <cover.1453830778.git.pabeni@redhat.com>
+	 <88bb9789390b781edd13fc4bfaf9fec868f693dd.1453830778.git.pabeni@redhat.com>
+	 <56A90EB7.5000702@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20160128_063527_929413_6B184FD5)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Hajime Tazaki <thehajime@gmail.com>, lucien.xin@gmail.com,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42682 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964868AbcA1M1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jan 2016 07:27:35 -0500
+In-Reply-To: <56A90EB7.5000702@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-01-27 at 21:34 -0800, Linus Torvalds wrote:
+On Wed, 2016-01-27 at 19:38 +0100, Hannes Frederic Sowa wrote:
+> On 27.01.2016 14:45, Paolo Abeni wrote:
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index 3c8834b..973cb73 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -1183,11 +1183,10 @@ static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table
+> >   	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
+> >   }
+> >
+> > -struct dst_entry *ip6_route_output(struct net *net, const struct sock *sk,
+> > -				    struct flowi6 *fl6)
+> > +struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
+> > +					 struct flowi6 *fl6, int flags)
+> >   {
+> >   	struct dst_entry *dst;
+> > -	int flags = 0;
+> >   	bool any_src;
+> >
+> >   	dst = l3mdev_rt6_dst_by_oif(net, fl6);
+> > @@ -1208,6 +1207,13 @@ struct dst_entry *ip6_route_output(struct net *net, const struct sock *sk,
+> >
+> >   	return fib6_rule_lookup(net, fl6, flags, ip6_pol_route_output);
+> >   }
+> > +EXPORT_SYMBOL_GPL(ip6_route_output_flags);
+> > +
+> > +struct dst_entry *ip6_route_output(struct net *net, const struct sock *sk,
+> > +				   struct flowi6 *fl6)
+> > +{
+> > +	return ip6_route_output_flags(net, sk, fl6, 0);
+> > +}
+> >   EXPORT_SYMBOL(ip6_route_output);
+> 
+> I think this can just be a static inline function.
+> 
+> Is it a lot of work to introduce the flags argument globally? Most other 
+> functions already have a flags parameter, maybe instead of just adding 
+> another wrapper just bite the bullet and add it everywhere?
 
-> .. except now I upgraded the nearest access point, and now wireless
-> on that machine no longer works.
+There are ~20 call sites for ip6_route_output(). Replacing them with
+ip6_route_output_flags() should be trivial, but it sounds quite
+invasive. Moving the new ip6_route_output() definition into the header
+file as static inline function should be pretty much equivalent, may I
+go with the latter option ?
 
-Can you describe the upgrade a bit more, just for background?
+Cheers,
 
-> Or rather, it actually *does* work in the sense that it
-> authenticates, it associates, and it actually gets a DHCP lease etc.
-> So the darn thing has an IP address and everything, but then nothing
-> else seems to go through after that. Very odd. My guess is that the
-> auth/assoc/dhcp thign happens at low rates, then it starts trying to
-> up the rates, and things go to hell.
-
-That's usually the case, yes. Auth/assoc/etc. management frames use low
-rates anyway, and the first few data frames usually also do until it
-scales up.
-
-The code involved is drivers/net/wireless/realtek/rtlwifi/rc.c
-
-> I do note that that rate_fixup_ratelist() function is a bit odd wrt
-> those rate indexes: it has code to make sure that there are no valid
-> rates following an invalid one:
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0/*
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0* make sure there's no valid rate foll=
-owing
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0* an invalid one, just in case drivers=
- don't
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0* take the API seriously to stop at -1=
-=2E
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0*/
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0if (inval) {
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0rates[i].idx =3D -1;
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0continue;
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0}
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0if (rates[i].idx < 0) {
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0inval =3D true;
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0continue;
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0}
->=20
-> but then that "RC is busted" case that generates a warning will add
-> one of those invalid rates in the middle anyway. So I get the feeling
-> that if that warning ever triggers, it will basically be screwing up
-> that whole rate table. I dunno.
-
-This should be OK, it's more of a sanity check. The driver is supposed
-to stop transmission attempts at the first -1 it seems, but the rate
-control algorithm shouldn't generate useless attempts that will never
-really get used, since that indicates a bug in the rate scaling.
-
-> Is there anything sane I can do to help debug this case?
-
-Could you print out the entire table there when the warning happens? Or
-at least, it'd help to figure out at which index the invalid actually
-happens. It seems that if that perhaps happens on the very first index,
-the driver might get completely confused and perhaps not even send the
-frame, which would lead to symptoms like the one you describe.
-
-It seems plausible that there's a path somewhere in the rate scaling
-code that forgets to set=C2=A0IEEE80211_TX_RC_MCS or so.
-
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Paolo
