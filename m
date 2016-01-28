@@ -1,64 +1,59 @@
-From: =?UTF-8?B?SsO2cmc=?= Thalheim <joerg@higgsboson.tk>
-Subject: [PATCH] tcp: Change reference to experimental CWND RFC.
-Date: Wed, 27 Jan 2016 22:54:06 +0100
-Message-ID: <20160127225406.18844cab@turingmachine>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] lib: fix callers of strtobool to use char array
+Date: Wed, 27 Jan 2016 17:03:23 -0800
+Message-ID: <CAGXu5jKhTDX_JcEgO=kVfb-LRdPAfoRtiYXTHJLT_ABTt3MY6g@mail.gmail.com>
+References: <20160128004542.GA15247@www.outflux.net>
+	<1453942708.10099.41.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- boundary="Sig_/2ua/Pxdid21hc2mx.WW5Dvi"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.higgsboson.tk ([148.251.132.243]:41936 "EHLO
-	mail.higgsboson.tk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1162154AbcA0WDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 17:03:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---Sig_/2ua/Pxdid21hc2mx.WW5Dvi
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Steve French <sfrench@samba.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-cifs@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453942708.10099.41.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: J=C3=B6rg Thalheim <joerg@higgsboson.tk>
----
- include/net/tcp.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Wed, Jan 27, 2016 at 4:58 PM, Joe Perches <joe@perches.com> wrote:
+> On Wed, 2016-01-27 at 16:45 -0800, Kees Cook wrote:
+>> Some callers of strtobool were passing a pointer to unterminated strings.
+>> This fixes the issue and consolidates some logic in cifs.
+>
+> This may be incomplete as it duplicates the behavior for
+> the old number of characters, but this is not a solution
+> for the entry of a bool that is "on" or "off".
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 051dc5c2..74d8eb4 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -216,7 +216,7 @@ void tcp_time_wait(struct sock *sk, int state, int time=
-o);
- /* TCP thin-stream limits */
- #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do exp.=
- backoff */
-=20
--/* TCP initial congestion window as per draft-hkchu-tcpm-initcwnd-01 */
-+/* TCP initial congestion window as per rfc6928 */
- #define TCP_INIT_CWND		10
-=20
- /* Bit Flags for sysctl_tcp_fastopen */
---=20
-2.7.0
+As in, the on/off patch is missing? Yes, that's been sent separately,
+but I wanted to make sure these changes weren't upsetting to the two
+users.
 
+>> diff --git a/fs/cifs/cifs_debug.c b/fs/cifs/cifs_debug.c
+> []
+>> @@ -290,7 +305,8 @@ static ssize_t cifs_stats_proc_write(struct file *file,
+>>                       }
+>>               }
+>>               spin_unlock(&cifs_tcp_ses_lock);
+>> -     }
+>> +     } else
+>> +             return rc;
+>
+> Likely better to reverse the test and unindent the
+> preceding block.
+>
+> Otherwise, please make sure to use the general brace
+> form of when one branch needs braces, the other branch
+> should have them too.
 
---Sig_/2ua/Pxdid21hc2mx.WW5Dvi
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+Okay, sure, I'll rework this and send it together with the on/off patch.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+-Kees
 
-iQF8BAEBCgBmBQJWqTx+XxSAAAAAAC4AKGlzc3Vlci1mcHJAbm90YXRpb25zLm9w
-ZW5wZ3AuZmlmdGhob3JzZW1hbi5uZXQ0QUJBMDczODJBRDU3RTZCOUFBNEU4OERD
-QTQxMDZCOEQ3Q0M3OUZBAAoJEMpBBrjXzHn6WOcIAJ11gqSLjF9RCTruKwEX5g9g
-QHw8IMfSJlGWQOqxx4WM0vLoSQgdsOqTjbE8p1NqnJBVsFq16o78hLGvG7u/lMfJ
-vVOiWpjLyI4YsMRw18EgEjhWs5Q/zjvhLwqmM8J9GoU4vA3Qv32FmIvNjUDhrun4
-dMvQ/6jIDhpguQJNH0rUCYfFfb6pA/FHHHGOZAnEE6UZz9rYeKBCtlL7nV2iP/9B
-3WY/O7tcHIkkV3ejKgf52qK2plOO09RyN1cOgbTbIQ7P90vh5l8K25bSxHIq/6g2
-hw5ucUZfNwGfU7TRf9r37UDBgIR8JFLgyHJwLGK54AaGbVsx8mMVfRwQmvsN+Rk=
-=Rr8Q
------END PGP SIGNATURE-----
-
---Sig_/2ua/Pxdid21hc2mx.WW5Dvi--
+-- 
+Kees Cook
+Chrome OS & Brillo Security
