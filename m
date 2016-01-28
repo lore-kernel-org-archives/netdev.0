@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next 02/40] net: fec: fix rx error counts
-Date: Thu, 28 Jan 2016 14:25:26 -0700
-Message-ID: <1454016364-30985-3-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next 06/40] net: fec: don't disable FEC_ENET_TS_TIMER interrupt
+Date: Thu, 28 Jan 2016 14:25:30 -0700
+Message-ID: <1454016364-30985-7-git-send-email-troy.kisky@boundarydevices.com>
 References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -9,80 +9,48 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	shawnguo@kernel.org, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34030 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754927AbcA1V2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:28:12 -0500
-Received: by mail-pa0-f44.google.com with SMTP id uo6so29715270pac.1
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:28:12 -0800 (PST)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36279 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966431AbcA1V2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:28:19 -0500
+Received: by mail-pf0-f182.google.com with SMTP id n128so29529846pfn.3
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:28:19 -0800 (PST)
 In-Reply-To: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On an overrun, the other flags are not
-valid, so don't check them.
+Only the interrupt routine processes this condition.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 36 +++++++++++++------------------
- 1 file changed, 15 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      | 1 +
+ drivers/net/ethernet/freescale/fec_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index f8d7fdb..684fe91f 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -359,6 +359,7 @@ struct bufdesc_ex {
+ #define FEC_ENET_TS_TIMER       ((uint)0x00008000)
+ 
+ #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII | FEC_ENET_TS_TIMER)
++#define FEC_NAPI_IMASK	(FEC_ENET_MII | FEC_ENET_TS_TIMER)
+ #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
+ 
+ /* ENET interrupt coalescing macro define */
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 2c7c845..620834f 100644
+index 0e8c8b6..e8f35fb 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1403,37 +1403,31 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 			break;
- 		pkt_received++;
+@@ -1545,7 +1545,7 @@ fec_enet_interrupt(int irq, void *dev_id)
  
--		/* Since we have allocated space to hold a complete frame,
--		 * the last indicator should be set.
--		 */
--		if ((status & BD_ENET_RX_LAST) == 0)
--			netdev_err(ndev, "rcv is not +last\n");
--
- 		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
- 
- 		/* Check for errors. */
-+		status ^= BD_ENET_RX_LAST;
- 		if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_NO |
--			   BD_ENET_RX_CR | BD_ENET_RX_OV)) {
-+			   BD_ENET_RX_CR | BD_ENET_RX_OV | BD_ENET_RX_LAST |
-+			   BD_ENET_RX_CL)) {
- 			ndev->stats.rx_errors++;
--			if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH)) {
-+			if (status & BD_ENET_RX_OV) {
-+				/* FIFO overrun */
-+				ndev->stats.rx_fifo_errors++;
-+				goto rx_processing_done;
-+			}
-+			if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH
-+						| BD_ENET_RX_LAST)) {
- 				/* Frame too long or too short. */
- 				ndev->stats.rx_length_errors++;
-+				if (status & BD_ENET_RX_LAST)
-+					netdev_err(ndev, "rcv is not +last\n");
- 			}
--			if (status & BD_ENET_RX_NO)	/* Frame alignment */
--				ndev->stats.rx_frame_errors++;
- 			if (status & BD_ENET_RX_CR)	/* CRC Error */
- 				ndev->stats.rx_crc_errors++;
--			if (status & BD_ENET_RX_OV)	/* FIFO overrun */
--				ndev->stats.rx_fifo_errors++;
--		}
--
--		/* Report late collisions as a frame error.
--		 * On this error, the BD is closed, but we don't know what we
--		 * have in the buffer.  So, just drop this frame on the floor.
--		 */
--		if (status & BD_ENET_RX_CL) {
--			ndev->stats.rx_errors++;
--			ndev->stats.rx_frame_errors++;
-+			/* Report late collisions as a frame error. */
-+			if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
-+				ndev->stats.rx_frame_errors++;
- 			goto rx_processing_done;
+ 		if (napi_schedule_prep(&fep->napi)) {
+ 			/* Disable the NAPI interrupts */
+-			writel(FEC_ENET_MII, fep->hwp + FEC_IMASK);
++			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
+ 			__napi_schedule(&fep->napi);
  		}
- 
+ 	}
 -- 
 2.5.0
