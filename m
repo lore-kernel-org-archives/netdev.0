@@ -1,55 +1,48 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next] ipvlan: inherit MTU from master device
-Date: Wed, 27 Jan 2016 23:33:28 -0800
-Message-ID: <1453966408-16343-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Tim Hockin <thockin@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tim Hockins <thockins@google.com>
-To: David Miller <davem@davemloft.net>
+From: Michael Chan <mchan@broadcom.com>
+Subject: [PATCH net 3/3] bnxt_en: Fix crash in bnxt_free_tx_skbs() during tx timeout.
+Date: Thu, 28 Jan 2016 03:11:22 -0500
+Message-ID: <1453968682-10014-4-git-send-email-mchan@broadcom.com>
+References: <1453968682-10014-1-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34232 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbcA1Hdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 02:33:35 -0500
-Received: by mail-pa0-f66.google.com with SMTP id yy13so1562211pab.1
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2016 23:33:35 -0800 (PST)
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:3533 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934813AbcA1ILZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 03:11:25 -0500
+In-Reply-To: <1453968682-10014-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+The ring index j is not wrapped properly at the end of the ring, causing
+it to reference pointers past the end of the ring.  For proper loop
+termination and to access the ring properly, we need to increment j and
+mask it before referencing the ring entry.
 
-When we create IPvlan slave; we use ether_setup() and that
-sets up default MTU to 1500 while the master device may have
-lower / different MTU. Any subsequent changes to the masters'
-MTU are reflected into the slaves' MTU setting. However if those
-don't happen (most likely scenario), the slaves' MTU stays at
-1500 which could be bad.
-
-This change adds code to inherit MTU from the master device
-instead of using the default value during the link initialization
-phase.
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Tim Hockins <thockins@google.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index f94392d07126..7a3b41468a55 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -468,6 +468,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 	ipvlan->dev = dev;
- 	ipvlan->port = port;
- 	ipvlan->sfeatures = IPVLAN_FEATURES;
-+	ipvlan_adjust_mtu(ipvlan, phy_dev);
- 	INIT_LIST_HEAD(&ipvlan->addrs);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index ebc5413..5dc89e5 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -1490,10 +1490,11 @@ static void bnxt_free_tx_skbs(struct bnxt *bp)
  
- 	/* TODO Probably put random address here to be presented to the
+ 			last = tx_buf->nr_frags;
+ 			j += 2;
+-			for (k = 0; k < last; k++, j = NEXT_TX(j)) {
++			for (k = 0; k < last; k++, j++) {
++				int ring_idx = j & bp->tx_ring_mask;
+ 				skb_frag_t *frag = &skb_shinfo(skb)->frags[k];
+ 
+-				tx_buf = &txr->tx_buf_ring[j];
++				tx_buf = &txr->tx_buf_ring[ring_idx];
+ 				dma_unmap_page(
+ 					&pdev->dev,
+ 					dma_unmap_addr(tx_buf, mapping),
 -- 
-2.7.0.rc3.207.g0ac5344
+1.8.3.1
