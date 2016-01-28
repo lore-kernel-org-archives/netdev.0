@@ -1,58 +1,62 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net] net: dsa: mv88e6xxx: fix port VLAN maps
-Date: Thu, 28 Jan 2016 16:54:37 -0500
-Message-ID: <1454018077-11222-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Kevin Smith <kevin.smith@elecsyscorp.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 08/40] net: fec: move cbd_bufaddr assignment closer to the mapping function
+Date: Thu, 28 Jan 2016 23:02:19 +0100
+Message-ID: <1725152.bhtFKTSjnb@wuerfel>
+References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com> <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com,
+	fabio.estevam@freescale.com, andrew@lunn.ch,
+	linux@arm.linux.org.uk, laci@boundarydevices.com,
+	l.stach@pengutronix.de, shawnguo@kernel.org, tremyfr@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.133]:61728 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbcA1WDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 17:03:14 -0500
+In-Reply-To: <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently the port based VLAN maps should be configured to allow every
-port to egress frames on all other ports, except themselves.
+On Thursday 28 January 2016 14:25:32 Troy Kisky wrote:
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-The debugfs interface shows that they are misconfigured. For instance, a
-7-port switch has the following content in the related register 0x06:
+[note: missing changelog?]
 
-       GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
-    ...
-    6:  1fa4    1f0f       4   7f   7e   7d   7c   7b   7a   79
-    ...
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index b87f80d..15a93f90 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -476,6 +476,8 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+>  				estatus |= BD_ENET_TX_TS;
+>  		}
+>  	}
+> +	bdp->cbd_bufaddr = addr;
+> +	bdp->cbd_datlen = buflen;
+>  
+>  	if (fep->bufdesc_ex) {
+>  
+> @@ -499,8 +501,6 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+>  	/* Save skb pointer */
+>  	txq->tx_skbuff[index] = skb;
+>  
+> -	bdp->cbd_datlen = buflen;
+> -	bdp->cbd_bufaddr = addr;
+>  	/* Make sure the updates to rest of the descriptor are performed before
+>  	 * transferring ownership.
+>  	 */
+> 
 
-This means that port 3 is allowed to talk to port 2-6, but cannot talk
-to ports 0 and 1. With this fix, port 3 can correctly talk to all ports
-except 3 itself:
+This patch and others in the series conflicts with the bugfix "net: fec: make
+driver endian-safe" that Johannes sent this week. Can you include his fix
+in your series and ensure that all descriptor accesses are done in
+an endian-safe way?
 
-       GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
-    ...
-    6:  1fa4    1f0f       4   7e   7d   7b   77   6f   5f   3f
-    ...
-
-Fixes: ede8098d0fef ("net: dsa: mv88e6xxx: bridges do not need an FID")
-Reported-by: Kevin Smith <kevin.smith@elecsyscorp.com>
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b03f746..d365007 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2153,7 +2153,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	 * database, and allow every port to egress frames on all other ports.
- 	 */
- 	reg = BIT(ps->num_ports) - 1; /* all ports */
--	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg & ~port);
-+	reg &= ~BIT(port); /* except itself */
-+	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg);
- 	if (ret)
- 		goto abort;
- 
--- 
-2.7.0
+	Arnd
