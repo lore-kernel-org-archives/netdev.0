@@ -1,62 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 08/40] net: fec: move cbd_bufaddr assignment closer to the mapping function
-Date: Thu, 28 Jan 2016 23:02:19 +0100
-Message-ID: <1725152.bhtFKTSjnb@wuerfel>
-References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com> <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates [mac80211]
+Date: Thu, 28 Jan 2016 14:04:53 -0800
+Message-ID: <CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw@mail.gmail.com>
+References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
+	<1453983185.2217.12.camel@sipsolutions.net>
+	<CA+55aFya9K4JboNY8kB9cg6zt9otguhdzfHm3jvLmWedxQTSWg@mail.gmail.com>
+	<1454013625.2332.9.camel@sipsolutions.net>
+	<CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com,
-	fabio.estevam@freescale.com, andrew@lunn.ch,
-	linux@arm.linux.org.uk, laci@boundarydevices.com,
-	l.stach@pengutronix.de, shawnguo@kernel.org, tremyfr@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:61728 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912AbcA1WDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 17:03:14 -0500
-In-Reply-To: <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38904 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974AbcA1WEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 17:04:54 -0500
+In-Reply-To: <CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 28 January 2016 14:25:32 Troy Kisky wrote:
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+On Thu, Jan 28, 2016 at 1:44 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> I will try Johannes' suggestion on that machine to see if it makes a
+> difference
 
-[note: missing changelog?]
+Well, it "makes a difference" in the sense that the warning goes away.
+But it doesn't make things work. In fact, it might be making things
+worse.
 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index b87f80d..15a93f90 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -476,6 +476,8 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
->  				estatus |= BD_ENET_TX_TS;
->  		}
->  	}
-> +	bdp->cbd_bufaddr = addr;
-> +	bdp->cbd_datlen = buflen;
->  
->  	if (fep->bufdesc_ex) {
->  
-> @@ -499,8 +501,6 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
->  	/* Save skb pointer */
->  	txq->tx_skbuff[index] = skb;
->  
-> -	bdp->cbd_datlen = buflen;
-> -	bdp->cbd_bufaddr = addr;
->  	/* Make sure the updates to rest of the descriptor are performed before
->  	 * transferring ownership.
->  	 */
-> 
+Because with that patch, the wireless still authenticates and
+associates, but then it doesn't even get an IP address, so now even
+dhcp doesn't work. Of course, I was surprised that it worked last
+time, and I'm not 100% sure it did work consistently. I'll re-test
+without the patch, just to make sure, but it doesn't really seem to
+improve on anything.
 
-This patch and others in the series conflicts with the bugfix "net: fec: make
-driver endian-safe" that Johannes sent this week. Can you include his fix
-in your series and ensure that all descriptor accesses are done in
-an endian-safe way?
-
-	Arnd
+                Linus
