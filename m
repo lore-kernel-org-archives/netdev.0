@@ -1,56 +1,92 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/2] netfilter: ipvs: avoid unused variable warnings
-Date: Thu, 28 Jan 2016 08:39:53 +0900
-Message-ID: <20160127233953.GB5183@verge.net.au>
-References: <1453902749-3422685-1-git-send-email-arnd@arndb.de>
- <alpine.LFD.2.11.1601272156590.2353@ja.home.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv2 net 1/2] of: of_mdio: Add a whitelist of PHY compatibilities.
+Date: Thu, 28 Jan 2016 02:30:29 +0100
+Message-ID: <1453944630-28585-2-git-send-email-andrew@lunn.ch>
+References: <1453944630-28585-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	aaro.koskinen@nokia.com, olof@lixom.net,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46390 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934577AbcA0Xj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2016 18:39:57 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1601272156590.2353@ja.home.ssi.bg>
+Received: from vps0.lunn.ch ([178.209.37.122]:44305 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935593AbcA1Bap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jan 2016 20:30:45 -0500
+In-Reply-To: <1453944630-28585-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 27, 2016 at 10:01:42PM +0200, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Wed, 27 Jan 2016, Arnd Bergmann wrote:
-> 
-> > The proc_create() and remove_proc_entry() functions do not reference
-> > their arguments when CONFIG_PROC_FS is disabled, so we get a couple
-> > of warnings about unused variables in IPVS:
-> > 
-> > ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
-> > ipvs/ip_vs_ctl.c:3950:14: warning: unused variable 'net' [-Wunused-variable]
-> > ipvs/ip_vs_ctl.c:3994:14: warning: unused variable 'net' [-Wunused-variable]
-> > 
-> > This removes the local variables and instead looks them up separately
-> > for each use, which obviously avoids the warning.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Fixes: 4c50a8ce2b63 ("netfilter: ipvs: avoid unused variable warning")
-> 
-> 	Looks like your previous patch for ip_vs_app_net_cleanup
-> was delayed in ipvs-next tree. I guess, Simon should drop it and
-> use this one instead when net-next opens:
-> 
-> Acked-by: Julian Anastasov <ja@ssi.bg>
+Some phy nodes list a compatible value indicating the PHY make/model.
+This is never used to match the device to the driver. However it does
+confuse the code to separate a PHY from a generic MDIO device like a
+switch. Generic MDIO devices must have a compatible value, PHYs can
+list clause 22 or 45, but nothing else.
 
-Thanks, and sorry about not pushing the other patch to net-next.
-I have dropped it and queued up this one in its place.
+Issue a warning if we find a compatible value known on the whitelist,
+and say it is a PHY.
+
+Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
+Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
+Reported-by: Olof Johansson <olof@lixom.net>
+Tested-by: Aaro Koskinen <aaro.koskinen@nokia.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+v2: Fix grammar error in comment.
+    Add Tested-by
+---
+ drivers/of/of_mdio.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index b5aa004a24b6..5648317d355f 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -143,11 +143,31 @@ int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
+ }
+ EXPORT_SYMBOL(of_mdio_parse_addr);
+ 
++/* The following is a list of PHY compatible strings which appear in
++ * some DTBs. The compatible string is never matched against a PHY
++ * driver, so is pointless. We only expect devices which are not PHYs
++ * to have a compatible string, so they can be matched to an MDIO
++ * driver.  Encourage users to upgrade their DT blobs to remove these.
++ */
++static const struct of_device_id whitelist_phys[] = {
++	{ .compatible = "brcm,40nm-ephy" },
++	{ .compatible = "marvell,88E1111", },
++	{ .compatible = "marvell,88e1116", },
++	{ .compatible = "marvell,88e1118", },
++	{ .compatible = "marvell,88e1149r", },
++	{ .compatible = "marvell,88e1310", },
++	{ .compatible = "marvell,88E1510", },
++	{ .compatible = "marvell,88E1514", },
++	{ .compatible = "moxa,moxart-rtl8201cp", },
++	{}
++};
++
+ /*
+  * Return true if the child node is for a phy. It must either:
+  * o Compatible string of "ethernet-phy-idX.X"
+  * o Compatible string of "ethernet-phy-ieee802.3-c45"
+  * o Compatible string of "ethernet-phy-ieee802.3-c22"
++ * o In the white list above (and issue a warning)
+  * o No compatibility string
+  *
+  * A device which is not a phy is expected to have a compatible string
+@@ -166,6 +186,13 @@ static bool of_mdiobus_child_is_phy(struct device_node *child)
+ 	if (of_device_is_compatible(child, "ethernet-phy-ieee802.3-c22"))
+ 		return true;
+ 
++	if (of_match_node(whitelist_phys, child)) {
++		pr_warn(FW_WARN
++			"%s: Whitelisted compatible string. Please remove\n",
++			child->full_name);
++		return true;
++	}
++
+ 	if (!of_find_property(child, "compatible", NULL))
+ 		return true;
+ 
+-- 
+2.7.0
