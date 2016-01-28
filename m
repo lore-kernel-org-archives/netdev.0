@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next 31/40] net: fec: don't transfer ownership until entire tso is queued
-Date: Thu, 28 Jan 2016 14:25:55 -0700
-Message-ID: <1454016364-30985-32-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next 37/40] net: fec: add events device file
+Date: Thu, 28 Jan 2016 14:26:01 -0700
+Message-ID: <1454016364-30985-38-git-send-email-troy.kisky@boundarydevices.com>
 References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -9,94 +9,107 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	shawnguo@kernel.org, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36591 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755912AbcA1V3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:29:01 -0500
-Received: by mail-pf0-f179.google.com with SMTP id n128so29538166pfn.3
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:29:01 -0800 (PST)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35830 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965963AbcA1V3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:29:10 -0500
+Received: by mail-pa0-f50.google.com with SMTP id ho8so29149255pac.2
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:29:10 -0800 (PST)
 In-Reply-To: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise, we cannot undo our work if an error condition arises
-later.
+This is for debug purposes. If a receive interrupt
+is lost, writing to this file can recover the FEC.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 52 +++++++++++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b829c29..ee6cd69 100644
+index 11968a9..00c9b7e 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -590,7 +590,8 @@ fec_enet_txq_put_data_tso(struct fec_enet_priv_tx_q *txq, struct sk_buff *skb,
- static int
- fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
- 			 struct sk_buff *skb, struct net_device *ndev,
--			 struct bufdesc *bdp, int index)
-+			 struct bufdesc *bdp, int index,
-+			 unsigned short *pstatus)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-@@ -632,9 +633,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
- 		ebdp->cbd_bdu = 0;
- 		ebdp->cbd_esc = estatus;
- 	}
--
--	bdp->cbd_sc = status;
--
-+	*pstatus = status;
- 	return 0;
+@@ -3273,6 +3273,53 @@ fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
+ 
  }
  
-@@ -646,7 +645,10 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 	int total_len, data_left;
- 	struct bufdesc *bdp = txq->bd.cur;
-+	struct bufdesc *first_bdp = bdp;
- 	struct tso_t tso;
-+	unsigned short status = 0;
-+	unsigned short *pstatus = &status;
- 	unsigned int index = 0;
- 	int ret;
++static ssize_t fec_show_events(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	int qid;
++	int complete_cnt[] = {0, 0, 0};
++
++	for (qid = 0; qid < fep->num_rx_queues; qid++) {
++		struct fec_enet_priv_rx_q *rxq = fep->rx_queue[qid];
++		struct bufdesc *bdp = rxq->bd.cur;
++
++		do {
++			unsigned status = bdp->cbd_sc;
++
++			if (status & BD_ENET_RX_EMPTY)
++				break;
++			complete_cnt[qid]++;
++			bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
++		} while (bdp != rxq->bd.cur);
++	}
++	return sprintf(buf, "%08x %08x %08x %08x %d %d %d\n", fep->events,
++			fep->last_ievents,
++			readl(fep->hwp + FEC_IEVENT),
++			readl(fep->hwp + FEC_IMASK),
++			complete_cnt[0], complete_cnt[1], complete_cnt[2]);
++}
++
++static ssize_t fec_set_events(struct device *dev,
++			      struct device_attribute *attr,
++			      const char *buf, size_t count)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	unsigned long events;
++
++	/* Disable the RX/TX interrupt */
++	writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
++	if (!kstrtoul(buf, 16, &events))
++		fep->events |= events;
++	napi_schedule(&fep->napi);
++	netif_wake_queue(fep->netdev);
++	return count;
++}
++
++static DEVICE_ATTR(events, 0644, fec_show_events, fec_set_events);
++
+ static int
+ fec_probe(struct platform_device *pdev)
+ {
+@@ -3451,6 +3498,9 @@ fec_probe(struct platform_device *pdev)
+ 	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&pdev->dev);
  
-@@ -676,7 +678,8 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
- 		/* prepare packet headers: MAC + IP + TCP */
- 		hdr = txq->tso_hdrs + index * TSO_HEADER_SIZE;
- 		tso_build_hdr(skb, hdr, &tso, data_left, total_len == 0);
--		ret = fec_enet_txq_put_hdr_tso(txq, skb, ndev, bdp, index);
-+		ret = fec_enet_txq_put_hdr_tso(txq, skb, ndev, bdp, index,
-+					       pstatus);
- 		if (ret)
- 			goto err_release;
++	ret = device_create_file(&pdev->dev, &dev_attr_events);
++	if (ret)
++		dev_err(&pdev->dev, "Error creating fec sysfs file(%d)\n", ret);
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+ 		goto failed_register;
+@@ -3470,6 +3520,7 @@ fec_probe(struct platform_device *pdev)
+ 	return 0;
  
-@@ -700,12 +703,23 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
- 		}
+ failed_register:
++	device_remove_file(&pdev->dev, &dev_attr_events);
+ 	fec_enet_mii_remove(fep);
+ failed_mii_init:
+ failed_irq:
+@@ -3496,6 +3547,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
  
- 		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
-+		pstatus = &bdp->cbd_sc;
- 	}
- 
- 	/* Save skb pointer */
- 	txq->tx_skbuff[index] = skb;
--
- 	skb_tx_timestamp(skb);
-+	/* Make sure the updates to rest of the descriptor are performed before
-+	 * transferring ownership.
-+	 */
-+	wmb();
-+	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
-+	 */
-+	first_bdp->cbd_sc = status;
-+	/* Make sure ownership is transferred before the
-+	 * update to txq->bd.cur.
-+	 */
-+	wmb();
- 	txq->bd.cur = bdp;
- 
- 	/* Trigger transmission start */
++	device_remove_file(&pdev->dev, &dev_attr_events);
+ 	cancel_work_sync(&fep->tx_timeout_work);
+ 	fec_ptp_stop(pdev);
+ 	unregister_netdev(ndev);
 -- 
 2.5.0
