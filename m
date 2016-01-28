@@ -1,49 +1,70 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net v2 4/4] bond: track sum of rx_nohandler for all slaves
-Date: Thu, 28 Jan 2016 10:49:48 -0500
-Message-ID: <1453996188-29965-5-git-send-email-jarod@redhat.com>
-References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
- <1453996188-29965-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453996188-29965-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
+Date: Thu, 28 Jan 2016 18:50:29 +0300
+Message-ID: <56AA38C5.6070004@cogentembedded.com>
+References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
+ <20160126002300.GA27856@verge.net.au> <56A7C252.3040707@cogentembedded.com>
+ <20160127014944.GD27499@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:35216 "EHLO
+	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966653AbcA1Pud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 10:50:33 -0500
+Received: by mail-lf0-f43.google.com with SMTP id c192so29571704lfe.2
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 07:50:32 -0800 (PST)
+In-Reply-To: <20160127014944.GD27499@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sample output with this set applied for an active-backup bond:
+Hello.
 
-$ cat /sys/devices/virtual/net/bond0/lower_p7p1/statistics/rx_nohandler
-16568
-$ cat /sys/devices/virtual/net/bond0/lower_p5p2/statistics/rx_nohandler
-16583
-$ cat /sys/devices/virtual/net/bond0/statistics/rx_nohandler
-33151
+On 01/27/2016 04:49 AM, Simon Horman wrote:
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/bonding/bond_main.c | 1 +
- 1 file changed, 1 insertion(+)
+>>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 56b5605..6587929 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3309,6 +3309,7 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
- 		stats->rx_bytes += sstats->rx_bytes - pstats->rx_bytes;
- 		stats->rx_errors += sstats->rx_errors - pstats->rx_errors;
- 		stats->rx_dropped += sstats->rx_dropped - pstats->rx_dropped;
-+		stats->rx_nohandler += sstats->rx_nohandler - pstats->rx_nohandler;
- 
- 		stats->tx_packets += sstats->tx_packets - pstats->tx_packets;;
- 		stats->tx_bytes += sstats->tx_bytes - pstats->tx_bytes;
--- 
-1.8.3.1
+    Kaneko-san, with the amount of the review changes, it might make sense for 
+you to assume the authorship of this patch, only noting it's based on 
+Mizuguchi-san's work. In principle, when you change the original patch, you 
+should document the changes you made in the change log, above ---...
+
+>>>> This patch supports the following interrupts.
+>>>>
+>>>> - One interrupt for multiple (descriptor, error, management)
+>>>> - One interrupt for emac
+>>>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>>>
+>>>> This patch improve efficiency of the interrupt handler by adding the
+>>>> interrupt handler corresponding to each interrupt source described
+>>>> above. Additionally, it reduces the number of times of the access to
+>>>> EthernetAVB IF.
+>>>>
+>>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>>>
+>>> I have tested this patch and the result seems positive.
+>>
+>>     Tested on gen3 only I guess?
+>
+> Yes, that is correct.
+>
+>>> Please let me know if any more/different testing would help.
+>>
+>>     Sanity testing on some gen2 SoC wouldn't hurt (if you have time).
+>
+> I don't believe that I have access to a gen2 board (+ extra hardware ?)
+> where ravb works.
+
+    Sorry, I just forgot about that.
+
+> If you do would it be possible for you to do a sanity test?
+
+    Yes, of course.
+
+MBR, Sergei
