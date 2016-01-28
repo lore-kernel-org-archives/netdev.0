@@ -1,70 +1,68 @@
-From: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-Subject: Re: [RFC PATCH net-next 0/3] sctp: add GSO support
-Date: Thu, 28 Jan 2016 18:54:06 +0100
-Message-ID: <9D5B8E18-A20A-4E27-8EB8-EE8856DFB184@lurchi.franken.de>
-References: <cover.1453913331.git.marcelo.leitner@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1CCCEDE4@AcuExch.aculab.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=windows-1252
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
+Date: Thu, 28 Jan 2016 21:36:02 +0300
+Message-ID: <56AA5F92.5030901@cogentembedded.com>
+References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
+ <20160126002300.GA27856@verge.net.au> <56A7C252.3040707@cogentembedded.com>
+ <20160127014944.GD27499@verge.net.au> <56AA38C5.6070004@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"brouer@redhat.com" <brouer@redhat.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-	"borkmann@iogearbox.net" <borkmann@iogearbox.net>,
-	"marek@cloudflare.com" <marek@cloudflare.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"pabeni@redhat.com" <pabeni@redhat.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:40819 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754796AbcA1SSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 13:18:23 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCCEDE4@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <56AA38C5.6070004@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On 28 Jan 2016, at 14:51, David Laight <David.Laight@ACULAB.COM> wrote:
-> 
-> From: Marcelo Ricardo Leitner
->> Sent: 27 January 2016 17:07
->> This patchset is merely a RFC for the moment. There are some
->> controversial points that I'd like to discuss before actually proposing
->> the patches.
-> 
-> You also need to look at how a 'user' can actually get SCTP to
-> merge data chunks in the first place.
-> 
-> With Nagle disabled (and it probably has to be since the data flow
-> is unlikely to be 'command-response' or 'unidirectional bulk')
-> it is currently almost impossible to get more than one chunk
-> into an ethernet frame.
-> 
-> Support for MSG_MORE would help.
-What about adding support for the explicit EOR mode as specified in
-https://tools.ietf.org/html/rfc6458#section-8.1.26
+On 01/28/2016 06:50 PM, Sergei Shtylyov wrote:
 
-Best regards
-Michael
-> 
-> Given the current implementation you can get almost the required
-> behaviour by turning nagle off and on repeatedly.
-> 
-> I did wonder whether the queued data could actually be picked up
-> be a Heartbeat chunk that is probing a different remote address
-> (which would be bad news).
-> 
-> 	David
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>>>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>
+>     Kaneko-san, with the amount of the review changes, it might make sense for
+> you to assume the authorship of this patch, only noting it's based on
+> Mizuguchi-san's work. In principle, when you change the original patch, you
+> should document the changes you made in the change log, above ---...
+>
+>>>>> This patch supports the following interrupts.
+>>>>>
+>>>>> - One interrupt for multiple (descriptor, error, management)
+>>>>> - One interrupt for emac
+>>>>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>>>>
+>>>>> This patch improve efficiency of the interrupt handler by adding the
+>>>>> interrupt handler corresponding to each interrupt source described
+>>>>> above. Additionally, it reduces the number of times of the access to
+>>>>> EthernetAVB IF.
+>>>>>
+>>>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>>>>
+>>>> I have tested this patch and the result seems positive.
+>>>
+>>>     Tested on gen3 only I guess?
+>>
+>> Yes, that is correct.
+>>
+>>>> Please let me know if any more/different testing would help.
+>>>
+>>>     Sanity testing on some gen2 SoC wouldn't hurt (if you have time).
+>>
+>> I don't believe that I have access to a gen2 board (+ extra hardware ?)
+>> where ravb works.
+>
+>     Sorry, I just forgot about that.
+>
+>> If you do would it be possible for you to do a sanity test?
+>
+>     Yes, of course.
+
+    Oops, I forgot that I failed to make the driver work on Porter -- it fails 
+to connect to PHY while opening eth<n>. I've tested the patch as far as I 
+could and it didn't blow up. :-)
+    I'll have access to the other board (most probably Alt) next week.
+
+MBR, Sergei
+
