@@ -1,50 +1,53 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 1/8] net: local checksum offload for encapsulation
-Date: Thu, 28 Jan 2016 09:09:24 -0800
-Message-ID: <CALx6S37hTuTcrNVr8zKHTVa46wxkZSjbzyxPOuVjW4_4xRh-Sw@mail.gmail.com>
-References: <56901197.8040808@solarflare.com>
-	<569011D4.60002@solarflare.com>
-	<56A9BD8E.4030209@gmail.com>
-	<CAKgT0UcA5kAg64QPL=L=SYw3O=f+KDwcqgMEziCs=AYL439FYA@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: UBSAN: Undefined behaviour in net/ipv4/fib_trie.c:1397:22 and
+ UBSAN: Undefined behaviour in ./arch/x86/include/asm/atomic.h:156:2
+Date: Thu, 28 Jan 2016 09:15:09 -0800
+Message-ID: <CAKgT0UeU7BC6XQ9VqwUWYX1SdDk7kGKXdrEgfkkSiDS0i5-3gw@mail.gmail.com>
+References: <56A7CCD6.9030105@gmx.de>
+	<1453844178.11327.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Zang MingJie <zealot0630@gmail.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34902 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbcA1RJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 12:09:24 -0500
-Received: by mail-io0-f194.google.com with SMTP id m139so3298786ioe.2
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 09:09:24 -0800 (PST)
-In-Reply-To: <CAKgT0UcA5kAg64QPL=L=SYw3O=f+KDwcqgMEziCs=AYL439FYA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Toralf_F=C3=B6rster?= <toralf.foerster@gmx.de>,
+	Alexander Duyck <alexander.duyck@redhat.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453844178.11327.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 28, 2016 at 1:00 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Wed, Jan 27, 2016 at 11:04 PM, Zang MingJie <zealot0630@gmail.com> wrote:
->> I have also noticed that for gso, all gso segs will have exactly same outer
->> udp checksum, this is also because inner checksum cancellation.
+On Tue, Jan 26, 2016 at 1:36 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> On Tue, 2016-01-26 at 20:45 +0100, Toralf F=C3=B6rster wrote:
+>> at a 32 nbit KVM image of a Gentoo Linux runniogn v4.5-rc1 - attache=
+d is /var/log/messages
 >>
->> Can we also optimize that outer udp checksum should be only calculated once
->> for all gso segs ?
 >
-> Actually that is a good point.  It isn't as if anything really changes
-> in the tunnel headers between frames so we probably can just compute
-
-This is probably true for current all implementation, but it has never
-been declared as a requirement. It's conceivable that some
-encapsulation layer might implement something like a sequence number
-or its own CRC. The requirements should at least be documented.
-
-Tom
-
-> the outer once and then adjust it on the last frame to account for the
-> fact that the length will be different.  I'll see if we can do that in
-> the GSO patches I have been working on.
+> Jan 26 20:40:04 n22kvm-clone kernel: =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> Jan 26 20:40:04 n22kvm-clone kernel: UBSAN: Undefined behaviour in ne=
+t/ipv4/fib_trie.c:1397:22
+> Jan 26 20:40:04 n22kvm-clone kernel: shift exponent 32 is too large f=
+or 32-bit type 'long unsigned int'
+> Jan 26 20:40:04 n22kvm-clone kernel: CPU: 1 PID: 2050 Comm: dhcpcd No=
+t tainted 4.5.0-rc1 #1
+> Jan 26 20:40:04 n22kvm-clone kernel: Hardware name: QEMU Standard PC =
+(i440FX + PIIX, 1996), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04=
+/01/2014
 >
-> - Alex
+> Thanks for the report.
+>
+> CC netdev and Alexander
+>
+> Commit 79e5ad2ceb006
+> ("fib_trie: Remove leaf_info ")
+
+I looked over the line in question, it is an issue where we are doing
+the shift and then sanitizing for the undefined result after the fact.
+I'll see about submitting a patch to address this.
+
+- Alex
