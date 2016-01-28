@@ -1,60 +1,62 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net 0/4] net: add rx_unhandled stat counter
-Date: Thu, 28 Jan 2016 10:11:08 -0500
-Message-ID: <20160128151108.GF59058@redhat.com>
-References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
- <1453926098-40181-1-git-send-email-jarod@redhat.com>
- <1453928987.20722.29.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160128060215.GB59058@redhat.com>
- <20160128061808.GD59058@redhat.com>
- <1453986002.7627.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160128143806.GE59058@redhat.com>
- <1453992162.7627.35.camel@edumazet-glaptop2.roam.corp.google.com>
- <1453992265.7627.37.camel@edumazet-glaptop2.roam.corp.google.com>
- <1453992410.7627.39.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Zhouyi Zhou" <yizhouzhou@ict.ac.cn>
+Subject: Re: Re: [PATCH V2] netfilter: h323: avoid potential attack
+Date: Thu, 28 Jan 2016 23:13:34 +0800 (GMT+08:00)
+Message-ID: <5b6c32.5bd1.15288cbf662.Coremail.yizhouzhou@ict.ac.cn>
+References: <1453971597-4811-1-git-send-email-zhouzhouyi@gmail.com>
+ <20160128142959.GB30994@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: "Zhouyi Zhou" <zhouzhouyi@gmail.com>, eric.dumazet@gmail.com,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Florian Westphal" <fw@strlen.de>, gnomes@lxorguk.ukuu.org.uk,
+	sergei.shtylyov@cogentembedded.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1453992410.7627.39.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20160128142959.GB30994@breakpoint.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 28, 2016 at 06:46:50AM -0800, Eric Dumazet wrote:
-> On Thu, 2016-01-28 at 06:44 -0800, Eric Dumazet wrote:
-> > On Thu, 2016-01-28 at 06:42 -0800, Eric Dumazet wrote:
-> > 
-> > > 
-> > > Sure, you also can set stats64->rx_unhandled to 0 here, just to be 100%
-> > > safe.
-> > 
-> > And not add the memset(stats64, 0, sizeof(*stats64)), since we have the
-> > guarantee to properly init whole stats64 structure.
-> 
-> Or a more tricky
-> 
-> memset((char *)stats64 + sizeof(struct net_device_stats),
->        0,
->        sizeof(*stats64) - sizeof(struct net_device_stats));
+Thanks for your advices.
+I will take your advice if I could have the opportunity
+to write the final code.
 
-I think I like this best, since it won't require someone to notice they
-have to add an explicit initialization if they add a new counter, as well
-as saving us from memset'ing the entire struct, the majority of which
-we'll initialize moments later. Just needs some documentation updates,
-which I've done locally. Will rebuild, re-test, then hopefully get an
-updated patchset out the door.
+As matter of factor, I trigger this bug when I tried to 
+migrate H323 code to other operating systems.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+This could trigger a panic because get_h2x5_addr functions
+is the first time we ever try to ask for potentially
+out of range data because of H323 style decodings 
+(the value taddr->ipAddress.ip is decoded in the midway between
+calling skb_header_pointer and calling get_h2x5_addr)
+
+
+
+> -----Original Messages-----
+> From: "Florian Westphal" <fw@strlen.de>
+> Sent Time: Thursday, January 28, 2016
+> To: "Zhouyi Zhou" <zhouzhouyi@gmail.com>
+> Cc: eric.dumazet@gmail.com, pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net, netfilter-devel@vger.kernel.org, coreteam@netfilter.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.or, "Zhouyi Zhou" <yizhouzhou@ict.ac.cn>
+> Subject: Re: [PATCH V2] netfilter: h323: avoid potential attack
+> 
+> Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+> > Thanks Eric for your review and advice.
+> > 
+> > I think hackers chould build a malicious h323 packet to overflow
+> > the pointer p which will panic during the memcpy(addr, p, len)
+> > 
+> > For example, he may fabricate a very large taddr->ipAddress.ip;
+> 
+> Can you be more specific?
+> 
+> h323_buffer is backend storage for skb_header_pointer, i.e.
+> this will error out early when we ask for more data than is available in
+> packet.
+> 
+> I don't understand how this could overflow anything.
+> Even assuming 64k packet we'd still have enough room in h323_buffer
+> for an ipv6 address, no? (we skip the l3/l4 header when extracting
+> packet payload).
+> 
