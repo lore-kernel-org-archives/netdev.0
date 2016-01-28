@@ -1,49 +1,95 @@
-From: Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 3/3] param: convert some "on"/"off" users to strtobool
-Date: Thu, 28 Jan 2016 16:27:51 +0100
-Message-ID: <20160128152751.GB3926@osiris>
-References: <1453990627-19164-1-git-send-email-keescook@chromium.org>
- <1453990627-19164-4-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Steve French <sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1453990627-19164-4-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net v2 0/4] net: add and use rx_nohandler stat counter
+Date: Thu, 28 Jan 2016 10:49:44 -0500
+Message-ID: <1453996188-29965-1-git-send-email-jarod@redhat.com>
+References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 28, 2016 at 06:17:07AM -0800, Kees Cook wrote:
-> This changes several users of manual "on"/"off" parsing to use strtobool.
-> 
-> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> Cc: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-> Cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-> Cc: linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> ---
->  arch/powerpc/kernel/rtasd.c                  | 10 +++-------
->  arch/powerpc/platforms/pseries/hotplug-cpu.c | 11 +++--------
->  arch/s390/kernel/time.c                      |  8 ++------
->  arch/s390/kernel/topology.c                  |  8 +++-----
->  arch/x86/kernel/aperture_64.c                | 13 +++----------
->  include/linux/tick.h                         |  2 +-
->  kernel/time/hrtimer.c                        | 11 +++--------
->  kernel/time/tick-sched.c                     | 11 +++--------
->  8 files changed, 21 insertions(+), 53 deletions(-)
+The network core tries to keep track of dropped packets, but some packets
+you wouldn't really call dropped, so much as intentionally ignored, under
+certain circumstances. One such case is that of bonding and team device
+slaves that are currently inactive. Their respective rx_handler functions
+return RX_HANDLER_EXACT (the only places in the kernel that return that),
+which ends up tracking into the network core's __netif_receive_skb_core()
+function's drop path, with no pt_prev set. On a noisy network, this can
+result in a very rapidly incrementing rx_dropped counter, not only on the
+inactive slave(s), but also on the master device, such as the following:
 
-For the s390 bits:
+$ cat /proc/net/dev
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  p7p1: 14783346  140430    0 140428    0     0          0      2040      680       8    0    0    0     0       0          0
+  p7p2: 14805198  140648    0    0    0     0          0      2034        0       0    0    0    0     0       0          0
+ bond0: 53365248  532798    0 421160    0     0          0    115151     2040      24    0    0    0     0       0          0
+    lo:    5420      54    0    0    0     0          0         0     5420      54    0    0    0     0       0          0
+  p5p1: 19292195  196197    0 140368    0     0          0     56564      680       8    0    0    0     0       0          0
+  p5p2: 19289707  196171    0 140364    0     0          0     56547      680       8    0    0    0     0       0          0
+   em3: 20996626  158214    0    0    0     0          0       383        0       0    0    0    0     0       0          0
+   em2: 14065122  138462    0    0    0     0          0       310        0       0    0    0    0     0       0          0
+   em1: 14063162  138440    0    0    0     0          0       308        0       0    0    0    0     0       0          0
+   em4: 21050830  158729    0    0    0     0          0       385    71662     469    0    0    0     0       0          0
+   ib0:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
 
-Acked-by: Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+In this scenario, p5p1, p5p2 and p7p1 are all inactive slaves in an
+active-backup bond0, and you can see that all three have high drop counts,
+with the master bond0 showing a tally of all three.
+
+I know that this was previously discussed some here:
+
+    http://www.spinics.net/lists/netdev/msg226341.html
+
+It seems additional counters never came to fruition, so this is a first
+attempt at creating one of them, so that we stop calling these drops,
+which for users monitoring rx_dropped, causes great alarm, and renders the
+counter much less useful for them.
+
+This adds a sysfs statistics node and makes the counter available via
+netlink.
+
+Additionally, I'm not certain if this set qualifies for net, or if it
+should be put aside and resubmitted for net-next after 4.5 is put to
+bed, but I do have users who consider this an important bugfix.
+
+Jarod Wilson (4):
+  net/core: relax BUILD_BUG_ON in netdev_stats_to_stats64
+  net: add rx_nohandler stat counter
+  team: track sum of rx_nohandler for all slaves
+  bond: track sum of rx_nohandler for all slaves
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@mellanox.com>
+CC: Daniel Borkmann <daniel@iogearbox.net>
+CC: Tom Herbert <tom@herbertland.com>
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+
+ drivers/net/bonding/bond_main.c |  1 +
+ drivers/net/team/team.c         | 10 +++++++---
+ include/linux/if_team.h         |  1 +
+ include/linux/netdevice.h       |  3 +++
+ include/uapi/linux/if_link.h    |  4 ++++
+ net/core/dev.c                  | 19 ++++++++++++++-----
+ net/core/net-sysfs.c            |  2 ++
+ net/core/rtnetlink.c            |  2 ++
+ 8 files changed, 34 insertions(+), 8 deletions(-)
+
+-- 
+1.8.3.1
