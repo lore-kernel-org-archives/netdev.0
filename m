@@ -1,72 +1,104 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Interesting performance characteristics of serial packet submission
-Date: Thu, 28 Jan 2016 13:05:03 +0100
-Message-ID: <CAHmME9odG_BcQe_-8RWDtq0G0g7DyoLdpaOCCWg_+Tq-2sHPAQ@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates
+ [mac80211]
+Date: Thu, 28 Jan 2016 13:13:05 +0100
+Message-ID: <1453983185.2217.12.camel@sipsolutions.net>
+References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
+	 (sfid-20160128_063527_929413_6B184FD5)
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:34021 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932900AbcA1MLp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jan 2016 07:11:45 -0500
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 23d4699e
-	for <netdev@vger.kernel.org>;
-	Thu, 28 Jan 2016 12:04:00 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 2278fad6
-	TLS version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=YES
-	for <netdev@vger.kernel.org>;
-	Thu, 28 Jan 2016 12:04:00 +0000 (UTC)
-Received: by mail-wm0-f52.google.com with SMTP id p63so21406746wmp.1
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 04:05:04 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20160128_063527_929413_6B184FD5)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello folks,
+On Wed, 2016-01-27 at 21:34 -0800, Linus Torvalds wrote:
 
-I've observed a very interesting performance characteristic. Sometimes
-net_device drivers need to "do something to a packet" and then "send
-it through a tunnel". This looks like:
+> .. except now I upgraded the nearest access point, and now wireless
+> on that machine no longer works.
 
-    expensive_transformation(skb1);
-    udp_tunnel_xmit_skb(skb1);
-    expensive_transformation(skb2);
-    udp_tunnel_xmit_skb(skb2);
-    expensive_transformation(skb3);
-    udp_tunnel_xmit_skb(skb3);
-    expensive_transformation(skb4);
-    udp_tunnel_xmit_skb(skb4);
-    expensive_transformation(skb5);
-    udp_tunnel_xmit_skb(skb5);
+Can you describe the upgrade a bit more, just for background?
 
-It turns out, however, that we gain significant performance increases
-(300mbps on my laptop) by doing all the xmits in a row, like this:
+> Or rather, it actually *does* work in the sense that it
+> authenticates, it associates, and it actually gets a DHCP lease etc.
+> So the darn thing has an IP address and everything, but then nothing
+> else seems to go through after that. Very odd. My guess is that the
+> auth/assoc/dhcp thign happens at low rates, then it starts trying to
+> up the rates, and things go to hell.
 
-    expensive_transformation(skb1);
-    expensive_transformation(skb2);
-    expensive_transformation(skb3);
-    expensive_transformation(skb4);
-    expensive_transformation(skb5);
-    udp_tunnel_xmit_skb(skb1);
-    udp_tunnel_xmit_skb(skb2);
-    udp_tunnel_xmit_skb(skb3);
-    udp_tunnel_xmit_skb(skb4);
-    udp_tunnel_xmit_skb(skb5);
+That's usually the case, yes. Auth/assoc/etc. management frames use low
+rates anyway, and the first few data frames usually also do until it
+scales up.
 
-Now practically speaking, it's not that hard to implement the latter
-more performant variant, as devices can simply opt in to receiving GSO
-super packets, and submit them all together in bunches of GSO-split
-packets. Implementation is not an issue.
+The code involved is drivers/net/wireless/realtek/rtlwifi/rc.c
 
-But this does leave me wondering why the performance is better this way.
+> I do note that that rate_fixup_ratelist() function is a bit odd wrt
+> those rate indexes: it has code to make sure that there are no valid
+> rates following an invalid one:
+>=20
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0/*
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0* make sure there's no valid rate foll=
+owing
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0* an invalid one, just in case drivers=
+ don't
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0* take the API seriously to stop at -1=
+=2E
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0*/
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0if (inval) {
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0rates[i].idx =3D -1;
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0continue;
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0}
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0if (rates[i].idx < 0) {
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0inval =3D true;
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0continue;
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0}
+>=20
+> but then that "RC is busted" case that generates a warning will add
+> one of those invalid rates in the middle anyway. So I get the feeling
+> that if that warning ever triggers, it will basically be screwing up
+> that whole rate table. I dunno.
 
-Possible ideas include something along the lines of NAPI polling for
-tx buffers at intervals, and the more full the buffer is, the better,
-as it means it won't need to do another poll examination later. But
-this is just a theory, and I really have no idea. I was wondering if
-anybody reads this message and thinks, "oh, duh, it's of course
-because of XYZ. You should always do ABC, and you can improve things
-further if you 123 too." I'd be quite interested anyhow.
+This should be OK, it's more of a sanity check. The driver is supposed
+to stop transmission attempts at the first -1 it seems, but the rate
+control algorithm shouldn't generate useless attempts that will never
+really get used, since that indicates a bug in the rate scaling.
 
-Thanks,
-Jason
+> Is there anything sane I can do to help debug this case?
+
+Could you print out the entire table there when the warning happens? Or
+at least, it'd help to figure out at which index the invalid actually
+happens. It seems that if that perhaps happens on the very first index,
+the driver might get completely confused and perhaps not even send the
+frame, which would lead to symptoms like the one you describe.
+
+It seems plausible that there's a path somewhere in the rate scaling
+code that forgets to set=C2=A0IEEE80211_TX_RC_MCS or so.
+
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
