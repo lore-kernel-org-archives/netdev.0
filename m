@@ -1,39 +1,56 @@
-From: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
-Subject: Re: [PATCH] net: mv643xx_eth: fix packet corruption with TSO and tiny
- unaligned packets.
-Date: Thu, 28 Jan 2016 22:12:08 +0100
-Message-ID: <56AA8428.2060706@familie-kirchhofer.de>
-References: <1453821155-27561-1-git-send-email-nschichan@freebox.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
-To: Nicolas Schichan <nschichan@freebox.fr>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453821155-27561-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next 01/40] net: fec: stop the "rcv is not +last, " error messages
+Date: Thu, 28 Jan 2016 14:25:25 -0700
+Message-ID: <1454016364-30985-2-git-send-email-troy.kisky@boundarydevices.com>
+References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
+Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
+	shawnguo@kernel.org, Troy Kisky <troy.kisky@boundarydevices.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33404 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbcA1V2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:28:10 -0500
+Received: by mail-pa0-f54.google.com with SMTP id cy9so29197946pac.0
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:28:10 -0800 (PST)
+In-Reply-To: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 26.01.2016 um 16:12 schrieb Nicolas Schichan:
-> The code in txq_put_data() would use txq->tx_curr_desc to index the
-> tso_hdrs/tso_hdrs_dma buffers, for less than 8 bytes unaligned
-> fragments, which is already moved to the next descriptor at the
-> beginning of the function.
->
-> If that fragment was the last of the the skb, the next skb would use
-> that same space to place the ip headers, overwritting that small
-> fragment data.
->
-> Fixes: 91986fd3d335 (net: mv643xx_eth: Ensure proper data alignment in TSO TX path)
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+Setting the FTRL register will stop the fec from
+trying to use multiple receive buffers.
 
-Hello Nicolas,
+Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+---
+ drivers/net/ethernet/freescale/fec.h      | 1 +
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-thanks for catching this bug. Fix is good.
-
-Reviewed-by: Philipp Kirchhofer <philipp@familie-kirchhofer.de>
-
-Best wishes,
-   Philipp
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 99d33e2..5144e73 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -65,6 +65,7 @@
+ #define FEC_R_FIFO_RSEM		0x194 /* Receive FIFO section empty threshold */
+ #define FEC_R_FIFO_RAEM		0x198 /* Receive FIFO almost empty threshold */
+ #define FEC_R_FIFO_RAFL		0x19c /* Receive FIFO almost full threshold */
++#define FEC_FTRL		0x1b0 /* Frame truncation receive length*/
+ #define FEC_RACC		0x1c4 /* Receive Accelerator function */
+ #define FEC_RCMR_1		0x1c8 /* Receive classification match ring 1 */
+ #define FEC_RCMR_2		0x1cc /* Receive classification match ring 2 */
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 502da6f..2c7c845 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -984,6 +984,7 @@ fec_restart(struct net_device *ndev)
+ 			val &= ~FEC_RACC_OPTIONS;
+ 		writel(val, fep->hwp + FEC_RACC);
+ 	}
++	writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+ #endif
+ 
+ 	/*
+-- 
+2.5.0
