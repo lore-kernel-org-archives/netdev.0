@@ -1,74 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next 08/40] net: fec: move cbd_bufaddr assignment
- closer to the mapping function
-Date: Thu, 28 Jan 2016 23:14:19 +0100
-Message-ID: <1454019259.2332.17.camel@sipsolutions.net>
-References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
-	 <1454016364-30985-9-git-send-email-troy.kisky@boundarydevices.com>
-	 <1725152.bhtFKTSjnb@wuerfel>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v6 19/19] net: mlx4: use new
+ ETHTOOL_G/SSETTINGS API
+Date: Thu, 28 Jan 2016 14:38:49 -0800 (PST)
+Message-ID: <20160128.143849.1063439968744271789.davem@davemloft.net>
+References: <1453250644-14796-1-git-send-email-ddecotig@gmail.com>
+	<1453250644-14796-20-git-send-email-ddecotig@gmail.com>
+	<CABqvoseo5UPNuNDjmP1PDhco7KGja2QzEVd5Aio+GD+UbaV0+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com,
-	fabio.estevam@freescale.com, andrew@lunn.ch,
-	linux@arm.linux.org.uk, laci@boundarydevices.com,
-	l.stach@pengutronix.de, shawnguo@kernel.org, tremyfr@gmail.com
-To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:57458 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750732AbcA1WO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jan 2016 17:14:26 -0500
-In-Reply-To: <1725152.bhtFKTSjnb@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	_govind-KK0ffGbhmjU@public.gmane.org, VenkatKumar.Duvvuru-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org, robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org, decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org
+To: eugenia.emantayev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CABqvoseo5UPNuNDjmP1PDhco7KGja2QzEVd5Aio+GD+UbaV0+g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-01-28 at 23:02 +0100, Arnd Bergmann wrote:
-> On Thursday 28 January 2016 14:25:32 Troy Kisky wrote:
-> > Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> > ---
-> > =C2=A0drivers/net/ethernet/freescale/fec_main.c | 4 ++--
-> > =C2=A01 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> [note: missing changelog?]
->=20
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > b/drivers/net/ethernet/freescale/fec_main.c
-> > index b87f80d..15a93f90 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -476,6 +476,8 @@ static int fec_enet_txq_submit_skb(struct
-> > fec_enet_priv_tx_q *txq,
-> > =C2=A0				estatus |=3D BD_ENET_TX_TS;
-> > =C2=A0		}
-> > =C2=A0	}
-> > +	bdp->cbd_bufaddr =3D addr;
-> > +	bdp->cbd_datlen =3D buflen;
-> > =C2=A0
-> > =C2=A0	if (fep->bufdesc_ex) {
-> > =C2=A0
-> > @@ -499,8 +501,6 @@ static int fec_enet_txq_submit_skb(struct
-> > fec_enet_priv_tx_q *txq,
-> > =C2=A0	/* Save skb pointer */
-> > =C2=A0	txq->tx_skbuff[index] =3D skb;
-> > =C2=A0
-> > -	bdp->cbd_datlen =3D buflen;
-> > -	bdp->cbd_bufaddr =3D addr;
-> > =C2=A0	/* Make sure the updates to rest of the descriptor are
-> > performed before
-> > =C2=A0	=C2=A0* transferring ownership.
-> > =C2=A0	=C2=A0*/
-> >=20
->=20
-> This patch and others in the series conflicts with the bugfix "net:
-> fec: make driver endian-safe" that Johannes sent this week. Can you
-> include his fix in your series and ensure that all descriptor
-> accesses are done in an endian-safe way?
->=20
+From: Eugenia Emantayev <eugenia.emantayev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 28 Jan 2016 10:21:53 +0200
 
-My fixes are already in net.git, so you should base on a current
-net.git or on net-next.git after net.git is merged there (which davem
-usually does after Linus merges from him, IIRC)
+> Acked-by: Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-johannes
+Please don't quote an entire HUGE patch just to give your ACK.
+
+Only quote, at most, the commit message itself.
+
+I know it's easy to be lazy, and I also realize that most email
+clients are terrible and make quick editing of quoted material a pain
+in the ass, but that's not an excuse to bomb the whole list
+unnecessarily like this.  You're causing problems for everyone who
+reads this list.
+
+Thanks in advance for your cooperation.
