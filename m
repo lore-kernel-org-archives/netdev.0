@@ -1,48 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net_sched: drr: check for NULL pointer in drr_dequeue
-Date: Thu, 28 Jan 2016 17:04:19 +0300
-Message-ID: <56AA1FE3.6060201@cogentembedded.com>
-References: <CAM_iQpX=x6gvuhxbN7zjbCa+zfyeh0nN86Ao_wVg6f9U3OEJew@mail.gmail.com>
- <1453951851-24501-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re: [PATCH V2] netfilter: h323: avoid potential attack
+Date: Thu, 28 Jan 2016 06:07:43 -0800
+Message-ID: <1453990063.7627.34.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1453971597-4811-1-git-send-email-zhouzhouyi@gmail.com>
+	 <1453985821.7627.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <a703ec.53db.152885f2292.Coremail.yizhouzhou@ict.ac.cn>
+	 <1453989650.7627.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jhs@mojatatu.com, stable@vger.kernel.org
-To: Bernie Harris <bernie.harris@alliedtelesis.co.nz>,
-	netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1453951851-24501-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>, pablo@netfilter.org,
+	kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36148 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933171AbcA1OHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 09:07:45 -0500
+In-Reply-To: <1453989650.7627.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, 2016-01-28 at 06:00 -0800, Eric Dumazet wrote:
+> On Thu, 2016-01-28 at 21:14 +0800, Zhouyi Zhou wrote:
+> 
+> > My patch is intend to prevent kernel panic, to prevent reading garbage
+> > or read data from a prior frame and leak secrets, the prototypes of the 
+> > get_h2x5_addr functions and the functions that call get_h2x5_addr should
+> > be changed, should we do this? 
+> 
+> In term of security, panics are better than allowing attacker to read
+> data from other people, like a password.
+> 
+> BTW, are you able to trigger any panic ?
+> 
+> I am not familiar with this code, it is not obvious.
+> 
+> If a fix is needed, better doing it right.
+> 
 
-On 1/28/2016 6:30 AM, Bernie Harris wrote:
 
-> There are cases where qdisc_dequeue_peeked can return NULL, and the result
-> is dereferenced later on in the function.
->
-> Similarly to the other qdisc dequeue functions, check whether the skb
-> pointer is NULL and if it is, goto out.
->
-> Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
-> ---
->   net/sched/sch_drr.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-> index f26bdea..a1cd778 100644
-> --- a/net/sched/sch_drr.c
-> +++ b/net/sched/sch_drr.c
-> @@ -403,6 +403,8 @@ static struct sk_buff *drr_dequeue(struct Qdisc *sch)
->   		if (len <= cl->deficit) {
->   			cl->deficit -= len;
->   			skb = qdisc_dequeue_peeked(cl->qdisc);
-> +			if (unlikely(skb == NULL))
+BTW, this module is protected by a lock (nf_h323_lock)
 
-    !skb is preferred in the networking code. I think scripts/checkpatch.pl 
-should've warned you.
+So adding a variable like 'h323_buffer_valid_bytes' that would contain
+the number of valid bytes would not require to change prototypes.
 
-[...]
-
-MBR, Sergei
+This variable would be written when skb_header_pointer() is used in
+get_tpkt_data() / get_udp_data()
