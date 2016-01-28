@@ -1,67 +1,55 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next 23/40] net: fec: don't set cbd_bufaddr unless no mapping error
-Date: Thu, 28 Jan 2016 14:25:47 -0700
-Message-ID: <1454016364-30985-24-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next 03/40] net: fec: fix fec_enet_get_free_txdesc_num
+Date: Thu, 28 Jan 2016 14:25:27 -0700
+Message-ID: <1454016364-30985-4-git-send-email-troy.kisky@boundarydevices.com>
 References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
-	shawnguo@kernel.org, Troy Kisky <troy.kisky@boundarydevices.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34289 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755885AbcA1V2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 16:28:47 -0500
-Received: by mail-pa0-f46.google.com with SMTP id uo6so29722168pac.1
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 13:28:47 -0800 (PST)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: fabio.estevam@freescale.com, andrew@lunn.ch, linux@arm.linux.org.uk,
+ Troy Kisky <troy.kisky@boundarydevices.com>, laci@boundarydevices.com,
+ l.stach@pengutronix.de, shawnguo@kernel.org,
+ linux-arm-kernel@lists.infradead.org, tremyfr@gmail.com
+To: netdev@vger.kernel.org,
+	davem@davemloft.net,
+	B38611@freescale.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
+
+When first initialized, cur_tx points to the 1st
+entry in the queue, and dirty_tx points to the last.
+At this point, fec_enet_get_free_txdesc_num will
+return tx_ring_size -2. If tx_ring_size -2 entries
+are now queued, then fec_enet_get_free_txdesc_num
+should return 0, but it returns tx_ring_size instead.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index da2e3c530..29c5781 100644
+index 620834f..8e1f2a6 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -597,7 +597,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 	struct bufdesc_ex *ebdp = container_of(bdp, struct bufdesc_ex, desc);
- 	void *bufaddr;
--	unsigned long dmabuf;
-+	dma_addr_t dmabuf;
- 	unsigned short status;
- 	unsigned int estatus = 0;
+@@ -296,7 +296,7 @@ static int fec_enet_get_free_txdesc_num(struct fec_enet_private *fep,
+ 	entries = ((const char *)txq->dirty_tx -
+ 			(const char *)txq->cur_tx) / fep->bufdesc_size - 1;
  
-@@ -1287,19 +1287,21 @@ fec_enet_new_rxbdp(struct net_device *ndev, struct bufdesc *bdp, struct sk_buff
- {
- 	struct  fec_enet_private *fep = netdev_priv(ndev);
- 	int off;
-+	dma_addr_t dmabuf;
- 
- 	off = ((unsigned long)skb->data) & fep->rx_align;
- 	if (off)
- 		skb_reserve(skb, fep->rx_align + 1 - off);
- 
--	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
--					  FEC_ENET_RX_FRSIZE - fep->rx_align,
--					  DMA_FROM_DEVICE);
--	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+	dmabuf = dma_map_single(&fep->pdev->dev, skb->data,
-+				FEC_ENET_RX_FRSIZE - fep->rx_align,
-+				DMA_FROM_DEVICE);
-+	if (dma_mapping_error(&fep->pdev->dev, dmabuf)) {
- 		if (net_ratelimit())
- 			netdev_err(ndev, "Rx DMA memory map failed\n");
- 		return -ENOMEM;
- 	}
-+	bdp->cbd_bufaddr = dmabuf;
- 
- 	return 0;
+-	return entries > 0 ? entries : entries + txq->tx_ring_size;
++	return entries >= 0 ? entries : entries + txq->tx_ring_size;
  }
+ 
+ static void swap_buffer(void *bufaddr, int len)
 -- 
 2.5.0
