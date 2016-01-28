@@ -1,93 +1,112 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Bypass at packet-page level (Was: Optimizing instruction-cache,
- more packets at each stage)
-Date: Thu, 28 Jan 2016 10:52:55 +0100
-Message-ID: <20160128105255.083799a3@redhat.com>
-References: <20160121122730.6330a84b@redhat.com>
-	<20160121.105401.1793719917762270884.davem@davemloft.net>
-	<20160124152814.2ea5e99b@redhat.com>
-	<20160124163846-mutt-send-email-mst@redhat.com>
-	<56A509C4.3030706@gmail.com>
-	<20160125141516.795f3eb7@redhat.com>
-	<CALx6S37EmUh7SXmVSjTN9DLMTicr6-VwL-i25VV1fM=V2E6giQ@mail.gmail.com>
-	<56A66058.1090308@gmail.com>
-	<20160125231016.4f0d2cd5@redhat.com>
-	<20160127214750.51fe2392@redhat.com>
-	<20160127215601.GA52809@ast-mbp.thefacebook.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [patch added to 3.12-stable] =?UTF-8?q?veth:=20don=E2=80=99t=20mo?= =?UTF-8?q?dify=20ip=5Fsummed;=20doing=20so=20treats=20packets=20with=20ba?= =?UTF-8?q?d=20checksums=20as=20good.?=
+Date: Thu, 28 Jan 2016 11:51:59 +0100
+Message-ID: <1453978346-20237-8-git-send-email-jslaby@suse.cz>
+References: <1453978346-20237-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Marek Majkowski <marek@cloudflare.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Paolo Abeni <pabeni@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Vladislav Yasevich <vyasevich@gmail.com>, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vijay Pandurangan <vijayp@vijayp.ca>, Evan Jones <ej@evanjones.ca>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>,
+	Jiri Slaby <jslaby@suse.cz>
+To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43156 "EHLO mx1.redhat.com"
+Received: from mx2.suse.de ([195.135.220.15]:60738 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932479AbcA1JxE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jan 2016 04:53:04 -0500
-In-Reply-To: <20160127215601.GA52809@ast-mbp.thefacebook.com>
+	id S967077AbcA1Kwm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jan 2016 05:52:42 -0500
+In-Reply-To: <1453978346-20237-1-git-send-email-jslaby@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Jan 2016 13:56:03 -0800
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+=46rom: Vijay Pandurangan <vijayp@vijayp.ca>
 
-> On Wed, Jan 27, 2016 at 09:47:50PM +0100, Jesper Dangaard Brouer wrote:
-> >  Sum: 18.75 % => calc: 30.0 ns (sum: 30.0 ns) => Total: 159.9 ns
-> > 
-> > To get around the cache-miss in eth_type_trans(), I created a
-> > "icache-loop" in mlx5e_poll_rx_cq() and pull all RX-ring packets "out",
-> > before calling eth_type_trans(), reducing cost to 2.45%.
-> > 
-> > To mitigate the SLUB slowpath, I used my slab + SKB-napi bulk API .  And
-> > also tuned SLUB (with slub_nomerge slub_min_objects=128) to get bigger
-> > slab-pages, thus bigger bulk opportunities.
-> > 
-> > This helped a lot, I can now drop 12Mpps (12,088,767 => 82.7 ns).  
-> 
-> great stuff. I think such batching loop will reduce the cost of
-> eth_type_trans() for all use cases.
-> Only unfortunate that it would need to be implemented in every driver,
-> but there is only a handful that people care about in high performance
-> setups, so I think it's worth getting this patch in for mlx5 and
-> the other drivers will catch up.
+This patch has been added to the 3.12 stable tree. If you have any
+objections, please let us know.
 
-I'm still in flux/undecided how long we should delay the first touching
-of pkt-data, which happens when calling eth_type_trans().  Should it
-stay in the driver or not(?).
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 
-In the extreme case, for optimize for RPS sending to remote CPUs, delay
-calling eth_type_trans() as long as possible.
+[ Upstream commit ce8c839b74e3017996fad4e1b7ba2e2625ede82f ]
 
-1. In driver only start prefetch data to L2/L3 cache
-2. Stack calls get_rps_cpu() and assume skb_get_hash() have HW hash
-3. (Bulk) enqueue on remote_cpu->sd->input_pkt_queue
-4. On remote CPU in process_backlog call eth_type_trans() on sd->input_pkt_queue
+Packets that arrive from real hardware devices have ip_summed =3D=3D
+CHECKSUM_UNNECESSARY if the hardware verified the checksums, or
+CHECKSUM_NONE if the packet is bad or it was unable to verify it. The
+current version of veth will replace CHECKSUM_NONE with
+CHECKSUM_UNNECESSARY, which causes corrupt packets routed from hardware=
+ to
+a veth device to be delivered to the application. This caused applicati=
+ons
+at Twitter to receive corrupt data when network hardware was corrupting
+packets.
 
+We believe this was added as an optimization to skip computing and
+verifying checksums for communication between containers. However, loca=
+lly
+generated packets have ip_summed =3D=3D CHECKSUM_PARTIAL, so the code a=
+s
+written does nothing for them. As far as we can tell, after removing th=
+is
+code, these packets are transmitted from one stack to another unmodifie=
+d
+(tcpdump shows invalid checksums on both sides, as expected), and they =
+are
+delivered correctly to applications. We didn=E2=80=99t test every possi=
+ble network
+configuration, but we tried a few common ones such as bridging containe=
+rs,
+using NAT between the host and a container, and routing from hardware
+devices to containers. We have effectively deployed this in production =
+at
+Twitter (by disabling RX checksum offloading on veth devices).
 
-On the other hand, if the HW desc can provide skb->proto, and we can
-lazy eval skb->pkt_type, then it is okay to keep that responsibility in
-the driver (as the call to eth_type_trans() basically disappears).
+This code dates back to the first version of the driver, commit
+<e314dbdc1c0dc6a548ecf> ("[NET]: Virtual ethernet device driver"), so I
+suspect this bug occurred mostly because the driver API has evolved
+significantly since then. Commit <0b7967503dc97864f283a> ("net/veth: Fi=
+x
+packet checksumming") (in December 2010) fixed this for packets that ge=
+t
+created locally and sent to hardware devices, by not changing
+CHECKSUM_PARTIAL. However, the same issue still occurs for packets comi=
+ng
+in from hardware devices.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Co-authored-by: Evan Jones <ej@evanjones.ca>
+Signed-off-by: Evan Jones <ej@evanjones.ca>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Phil Sutter <phil@nwl.cc>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Vijay Pandurangan <vijayp@vijayp.ca>
+Acked-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+---
+ drivers/net/veth.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 61c4044f644e..917abeae77ad 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -116,12 +116,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, =
+struct net_device *dev)
+ 		kfree_skb(skb);
+ 		goto drop;
+ 	}
+-	/* don't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
+-	 * will cause bad checksum on forwarded packets
+-	 */
+-	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
+-	    rcv->features & NETIF_F_RXCSUM)
+-		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+=20
+ 	if (likely(dev_forward_skb(rcv, skb) =3D=3D NET_RX_SUCCESS)) {
+ 		struct pcpu_vstats *stats =3D this_cpu_ptr(dev->vstats);
+--=20
+2.7.0
