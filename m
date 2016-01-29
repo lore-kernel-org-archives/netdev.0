@@ -1,65 +1,119 @@
-From: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] mac80211: minstrel_ht: fix out-of-bound in
- minstrel_ht_set_best_prob_rate
-Date: Fri, 29 Jan 2016 11:35:12 +0300
-Message-ID: <145405651192.4948.10685647900939287282.stgit@zurg>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2016-01-29
+Date: Fri, 29 Jan 2016 10:47:19 +0200
+Message-ID: <8737tgkc14.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Thomas Huehn <thomas-rDH2yu9ArSPZY3qUpHLZ+xQ0avMEgXv9@public.gmane.org>
-To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch fixes this splat
+Hi Dave,
 
-BUG: KASAN: slab-out-of-bounds in minstrel_ht_update_stats.isra.7+0x6e1/0x9e0
-[mac80211] at addr ffff8800cee640f4 Read of size 4 by task swapper/3/0
+few fixes for 4.5. Nothing really standing out, see the tag for
+more info. Please let me know if you have any problems.
 
-Signed-off-by: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Link: http://lkml.kernel.org/r/CALYGNiNyJhSaVnE35qS6UCGaSb2Dx1_i5HcRavuOX14oTz2P+w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org
----
- net/mac80211/rc80211_minstrel_ht.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+Kalle
 
-diff --git a/net/mac80211/rc80211_minstrel_ht.c b/net/mac80211/rc80211_minstrel_ht.c
-index 3928dbd24e25..93bf2b743e20 100644
---- a/net/mac80211/rc80211_minstrel_ht.c
-+++ b/net/mac80211/rc80211_minstrel_ht.c
-@@ -414,15 +414,16 @@ minstrel_ht_set_best_prob_rate(struct minstrel_ht_sta *mi, u16 index)
- 	    (max_tp_group != MINSTREL_CCK_GROUP))
- 		return;
- 
-+	max_gpr_group = mg->max_group_prob_rate / MCS_GROUP_RATES;
-+	max_gpr_idx = mg->max_group_prob_rate % MCS_GROUP_RATES;
-+	max_gpr_prob = mi->groups[max_gpr_group].rates[max_gpr_idx].prob_ewma;
-+
- 	if (mrs->prob_ewma > MINSTREL_FRAC(75, 100)) {
- 		cur_tp_avg = minstrel_ht_get_tp_avg(mi, cur_group, cur_idx,
- 						    mrs->prob_ewma);
- 		if (cur_tp_avg > tmp_tp_avg)
- 			mi->max_prob_rate = index;
- 
--		max_gpr_group = mg->max_group_prob_rate / MCS_GROUP_RATES;
--		max_gpr_idx = mg->max_group_prob_rate %	MCS_GROUP_RATES;
--		max_gpr_prob = mi->groups[max_gpr_group].rates[max_gpr_idx].prob_ewma;
- 		max_gpr_tp_avg = minstrel_ht_get_tp_avg(mi, max_gpr_group,
- 							max_gpr_idx,
- 							max_gpr_prob);
-@@ -431,7 +432,7 @@ minstrel_ht_set_best_prob_rate(struct minstrel_ht_sta *mi, u16 index)
- 	} else {
- 		if (mrs->prob_ewma > tmp_prob)
- 			mi->max_prob_rate = index;
--		if (mrs->prob_ewma > mg->rates[mg->max_group_prob_rate].prob_ewma)
-+		if (mrs->prob_ewma > max_gpr_prob)
- 			mg->max_group_prob_rate = index;
- 	}
- }
+The following changes since commit a200dcb34693084e56496960d855afdeaaf9578f:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Merge tag 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost (2016-01-18 16:44:24 -0800)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-01-29
+
+for you to fetch changes up to f9ead9beef3f44be0db4b542a8c2ce698fb1530e:
+
+  Merge tag 'iwlwifi-for-kalle-2016-01-26_2' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2016-01-27 14:19:18 +0200)
+
+----------------------------------------------------------------
+
+iwlwifi
+
+* Fix support for 3168 device:
+  * NVM version
+  * firmware file name
+  * device IDs
+* Fix a compilation warning in dvm calibration code
+* Fix the TPC (reduced Tx Power) code. This fixes performance issues
+* Add device IDs for 8265
+
+rtx2x00
+
+* fix monitor mode regression dating back to 4.1
+
+brcmfmac
+
+* fix sdio initialisation related crash
+
+rtlwifi
+
+* rtl8821ae: Fix 5G failure when EEPROM is incorrectly encoded
+
+ath9k
+
+* ignore eeprom magic mismatch on flash based devices
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      ssb: mark ssb_bus_register as __maybe_unused
+
+Eli Cooper (1):
+      rt2x00: fix monitor mode regression
+
+Felix Fietkau (2):
+      brcmfmac: add missing include
+      ath9k_hw: ignore eeprom magic mismatch on flash based devices
+
+Gregory Greenman (1):
+      iwlwifi: mvm: rs: fix TPC statistics handling
+
+Hante Meuleman (1):
+      brcmfmac: fix sdio sg table alloc crash
+
+Kalle Valo (2):
+      Merge ath-current from ath.git
+      Merge tag 'iwlwifi-for-kalle-2016-01-26_2' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Larry Finger (1):
+      rtlwifi: rtl8821ae: Fix 5G failure when EEPROM is incorrectly encoded
+
+Michael Buesch (1):
+      ssb: Set linux-wireless as MAINTAINERS list
+
+Oren Givon (3):
+      iwlwifi: add new 3168 series devices support
+      iwlwifi: add device ID for 8265
+      iwlwifi: update support for 3168 series firmware and NVM
+
+ MAINTAINERS                                        |    2 +-
+ drivers/net/wireless/ath/ath9k/eeprom.c            |   12 ++--
+ .../wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c  |   40 ++++-------
+ .../wireless/broadcom/brcm80211/brcmfmac/common.c  |    1 +
+ .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |    5 ++
+ .../wireless/broadcom/brcm80211/brcmfmac/sdio.h    |    1 +
+ drivers/net/wireless/intel/iwlwifi/iwl-7000.c      |   23 ++++--
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-tx.h |    6 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/rs.c        |   74 +++++++++++++-------
+ drivers/net/wireless/intel/iwlwifi/mvm/tx.c        |    5 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |    4 ++
+ drivers/net/wireless/ralink/rt2x00/rt2400pci.c     |    4 +-
+ drivers/net/wireless/ralink/rt2x00/rt2500pci.c     |    4 +-
+ drivers/net/wireless/ralink/rt2x00/rt2500usb.c     |    4 +-
+ drivers/net/wireless/ralink/rt2x00/rt2800lib.c     |    3 +-
+ drivers/net/wireless/ralink/rt2x00/rt2x00.h        |    1 +
+ drivers/net/wireless/ralink/rt2x00/rt2x00config.c  |    5 ++
+ drivers/net/wireless/ralink/rt2x00/rt2x00mac.c     |    5 --
+ drivers/net/wireless/ralink/rt2x00/rt61pci.c       |    4 +-
+ drivers/net/wireless/ralink/rt2x00/rt73usb.c       |    4 +-
+ drivers/net/wireless/realtek/rtlwifi/regd.c        |    2 +-
+ drivers/ssb/main.c                                 |    7 +-
+ 22 files changed, 136 insertions(+), 80 deletions(-)
+
+-- 
+Kalle Valo
