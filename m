@@ -1,127 +1,75 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH] bgmac: add helper checking for BCM4707 / BCM53018 chip id
-Date: Sat, 30 Jan 2016 00:41:07 +0100
-Message-ID: <1454110867-9489-1-git-send-email-zajec5@gmail.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: xfrm: UFO + ESP = double fragmentation
+Date: Sat, 30 Jan 2016 00:44:24 +0100
+Message-ID: <20160129234424.GC7907@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>, Felix Fietkau <nbd@openwrt.org>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:35199 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753351AbcA2XlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 18:41:19 -0500
-Received: by mail-lb0-f179.google.com with SMTP id bc4so49125011lbc.2
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 15:41:18 -0800 (PST)
+Received: from mx2.suse.de ([195.135.220.15]:33737 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932583AbcA2Xo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jan 2016 18:44:27 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chipsets with BCM4707 / BCM53018 ID require special handling at a few
-places in the code. It's likely there will be more IDs to check in the
-future. To simplify it add this trivial helper.
+Hi,
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
- drivers/net/ethernet/broadcom/bgmac.c | 30 ++++++++++++++++-----------=
----
- 1 file changed, 16 insertions(+), 14 deletions(-)
+I'm seeing wrong fragmentation on locally generated UDPv6 packets
+going out over ESP (transport mode):
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index 06f6cff..230f8e6 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -26,6 +26,17 @@ static const struct bcma_device_id bgmac_bcma_tbl[] =
-=3D {
- };
- MODULE_DEVICE_TABLE(bcma, bgmac_bcma_tbl);
-=20
-+static inline bool bgmac_is_bcm4707_family(struct bgmac *bgmac)
-+{
-+	switch (bgmac->core->bus->chipinfo.id) {
-+	case BCMA_CHIP_ID_BCM4707:
-+	case BCMA_CHIP_ID_BCM53018:
-+		return true;
-+	default:
-+		return false;
-+	}
-+}
-+
- static bool bgmac_wait_value(struct bcma_device *core, u16 reg, u32 ma=
-sk,
- 			     u32 value, int timeout)
- {
-@@ -987,11 +998,9 @@ static void bgmac_mac_speed(struct bgmac *bgmac)
- static void bgmac_miiconfig(struct bgmac *bgmac)
- {
- 	struct bcma_device *core =3D bgmac->core;
--	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
- 	u8 imode;
-=20
--	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
--	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
-+	if (bgmac_is_bcm4707_family(bgmac)) {
- 		bcma_awrite32(core, BCMA_IOCTL,
- 			      bcma_aread32(core, BCMA_IOCTL) | 0x40 |
- 			      BGMAC_BCMA_IOCTL_SW_CLKEN);
-@@ -1055,9 +1064,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	}
-=20
- 	/* Request Misc PLL for corerev > 2 */
--	if (core->id.rev > 2 &&
--	    ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
--	    ci->id !=3D BCMA_CHIP_ID_BCM53018) {
-+	if (core->id.rev > 2 && !bgmac_is_bcm4707_family(bgmac)) {
- 		bgmac_set(bgmac, BCMA_CLKCTLST,
- 			  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ);
- 		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST,
-@@ -1193,8 +1200,7 @@ static void bgmac_enable(struct bgmac *bgmac)
- 		break;
- 	}
-=20
--	if (ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
--	    ci->id !=3D BCMA_CHIP_ID_BCM53018) {
-+	if (!bgmac_is_bcm4707_family(bgmac)) {
- 		rxq_ctl =3D bgmac_read(bgmac, BGMAC_RXQ_CTL);
- 		rxq_ctl &=3D ~BGMAC_RXQ_CTL_MDP_MASK;
- 		bp_clk =3D bcma_pmu_get_bus_clock(&bgmac->core->bus->drv_cc) /
-@@ -1472,14 +1478,12 @@ static int bgmac_fixed_phy_register(struct bgma=
-c *bgmac)
-=20
- static int bgmac_mii_register(struct bgmac *bgmac)
- {
--	struct bcma_chipinfo *ci =3D &bgmac->core->bus->chipinfo;
- 	struct mii_bus *mii_bus;
- 	struct phy_device *phy_dev;
- 	char bus_id[MII_BUS_ID_SIZE + 3];
- 	int err =3D 0;
-=20
--	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
--	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018)
-+	if (bgmac_is_bcm4707_family(bgmac))
- 		return bgmac_fixed_phy_register(bgmac);
-=20
- 	mii_bus =3D mdiobus_alloc();
-@@ -1539,7 +1543,6 @@ static void bgmac_mii_unregister(struct bgmac *bg=
-mac)
- /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
- static int bgmac_probe(struct bcma_device *core)
- {
--	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
- 	struct net_device *net_dev;
- 	struct bgmac *bgmac;
- 	struct ssb_sprom *sprom =3D &core->bus->sprom;
-@@ -1620,8 +1623,7 @@ static int bgmac_probe(struct bcma_device *core)
- 	bgmac_chip_reset(bgmac);
-=20
- 	/* For Northstar, we have to take all GMAC core out of reset */
--	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
--	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
-+	if (bgmac_is_bcm4707_family(bgmac)) {
- 		struct bcma_device *ns_core;
- 		int ns_gmac;
-=20
---=20
-1.8.4.5
+UFO is turned on on the outgoing interface and MTU is 1500.
+When 8 kB is written to a UDP socket, udpv6_sendmsg() calls
+ip_append_data() which generates a single 8 kB GSO skb.
+
+Through ip6_send_skb() it reaches xfrm_output(). Since
+skb_is_gso(skb) is nonzero, xfrm_output_gso() is called.
+It immediatelly segments the skb via skb_gso_segment() and then
+calls xfrm_output2() on each individual segment.
+
+This is wrong. RFC4303 says:
+	3.3.4.  Fragmentation
+	   If necessary, fragmentation is performed after ESP
+	   processing within an IPsec implementation.  Thus,
+	   transport mode ESP is applied only to whole IP
+	   datagrams (not to IP fragments).
+
+Instead, xfrm_output_gso() applies the transform to each segment.
+Since both the fragmentation header _and_ the ESP headers now
+don't fit in the MTU and the ESP-encapsulated segments
+are fragmented for a second time in ip6_finish_output().
+
+The outcome is:
+- the original 8k UDP packet is split into 6 ESP fragments
+- the first 5 ESP fragments are 1508 bytes each, thus fragmented
+  again into two fragments 
+
+The destination host replies with ICMP parameter problem.
+
+How is this supposed to work?
+This hack fixes this specific case:
+
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -198,7 +198,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ 	int err;
+ 
+ 	if (skb_is_gso(skb))
+-		return xfrm_output_gso(net, sk, skb);
++		return xfrm_output2(net, sk, skb);
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		err = skb_checksum_help(skb);
+
+
+Is there a situation when xfrm_output_gso() does the right thing?
+
+Thanks,
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
