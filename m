@@ -1,91 +1,50 @@
-From: John Holland <jotihojr@gmail.com>
-Subject: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using
- a device tree blob
-Date: Fri, 29 Jan 2016 23:11:52 +0100
-Message-ID: <56ABE3A8.4010602@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] vxlan: fix a out of bounds access in __vxlan_find_mac
+Date: Fri, 29 Jan 2016 14:17:13 -0800
+Message-ID: <CAM_iQpUFHcX+=R9H5iO1HZLcnbaX=QEzDnRMUYqH+d3NeF7vQA@mail.gmail.com>
+References: <1454031827-23118-1-git-send-email-roy.qing.li@gmail.com>
+	<CAM_iQpUoB0VH_c3OFMo4Dxrnrzie89jB0u=tceeqJjQgnr5PMQ@mail.gmail.com>
+	<1454104896.7627.80.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	jotihojr@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: roy.qing.li@gmail.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37675 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbcA2WLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:11:55 -0500
-Received: by mail-wm0-f48.google.com with SMTP id l66so72455771wml.0
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 14:11:54 -0800 (PST)
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:34727 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393AbcA2WRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:17:13 -0500
+Received: by mail-yk0-f171.google.com with SMTP id a85so85836016ykb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 14:17:13 -0800 (PST)
+In-Reply-To: <1454104896.7627.80.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Intel i211 LOM pcie ethernet controllers' iNVM operates as an OTP 
-and has no externel EEPROM interface [1]. The following allows the 
-driver to pickup the MAC address from a device tree blob when CONFIG_OF 
-has been enabled.
+On Fri, Jan 29, 2016 at 2:01 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-01-29 at 13:41 -0800, Cong Wang wrote:
+>> On Thu, Jan 28, 2016 at 5:43 PM,  <roy.qing.li@gmail.com> wrote:
+>> > From: Li RongQing <roy.qing.li@gmail.com>
+>> >
+>> > The size of all_zeros_mac is 6 byte, but eth_hash() will access the
+>> > 8 byte, and KASan reported the below bug:
+>>
+>>
+>> Sounds like we should fix eth_hash() (macvlan has a same function),
+>> it should not read beyond 6 bytes.
+>
+> Why ? We always have at least 2 bytes following ethernet address in a
+> packet.
 
-[1] 
-http://www.intel.com/content/www/us/en/embedded/products/networking/i211-ethernet-controller-datasheet.html
+Because we have to fix all the cases that don't.
 
-Signed-off-by: John Holland <jotihojr@gmail.com>
----
-  drivers/net/ethernet/intel/igb/igb_main.c | 30 
-++++++++++++++++++++++++++++++
-  1 file changed, 30 insertions(+)
+>
+> Better add these 2 bytes in all_zeros_mac[] and not slow down the hash
+> function.
+>
+> We use same tricks in eth_type_trans()
+>
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c 
-b/drivers/net/ethernet/intel/igb/igb_main.c
-index 31e5f39..9c92443 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -56,6 +56,11 @@
-  #include <linux/i2c.h>
-  #include "igb.h"
-
-+#ifdef defined(CONFIG_OF)
-+#include <linux/of_net.h>
-+#include <linux/etherdevice.h>
-+#endif
-+
-  #define MAJ 5
-  #define MIN 3
-  #define BUILD 0
-@@ -2217,6 +2222,26 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
-  }
-
-  /**
-+ *  igb_read_mac_addr_dts - Read mac addres from the device tree blob.
-+ *  @hw: pointer to the e1000 hardware structure
-+ **/
-+#ifdef defined(CONFIG_OF)
-+static void igb_read_mac_addr_dts(struct e1000_hw *hw)
-+{
-+       const u8 *mac;
-+       struct device_node *dn;
-+
-+       dn = of_find_compatible_node(NULL, NULL, "intel,i211");
-+       if (!dn)
-+               return;
-+
-+       mac = of_get_mac_address(dn);
-+       if (mac)
-+               ether_addr_copy(hw->mac.addr, mac);
-+}
-+#endif
-+
-+/**
-   *  igb_probe - Device Initialization Routine
-   *  @pdev: PCI device information struct
-   *  @ent: entry in igb_pci_tbl
-@@ -2420,6 +2445,11 @@ static int igb_probe(struct pci_dev *pdev, const 
-struct pci_device_id *ent)
-         if (hw->mac.ops.read_mac_addr(hw))
-                 dev_err(&pdev->dev, "NVM Read Error\n");
-
-+#ifdef defined(CONFIG_OF)
-+       if (!is_valid_ether_addr(hw->mac.addr))
-+               igb_read_mac_addr_dts(hw);
-+#endif
-+
-         memcpy(netdev->dev_addr, hw->mac.addr, netdev->addr_len);
-
-         if (!is_valid_ether_addr(netdev->dev_addr)) {
+I never doubt it works, as long as you want to audit all the cases
+like this one,
+sure go for it.
