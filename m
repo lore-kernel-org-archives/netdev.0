@@ -1,87 +1,47 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH V3] netfilter: h323: avoid potential attack
-Date: Fri, 29 Jan 2016 11:25:35 +0800
-Message-ID: <1454037935-14842-1-git-send-email-zhouzhouyi@gmail.com>
-Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: eric.dumazet@gmail.com, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, fw@strlen.de,
-	gnomes@lxorguk.ukuu.org.uk, sergei.shtylyov@cogentembedded.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 2/2] net/mlx5e: Use a private copy of netdev ops
+Date: Thu, 28 Jan 2016 20:00:38 -0800 (PST)
+Message-ID: <20160128.200038.1283811216884732396.davem@davemloft.net>
+References: <1453906945-25414-1-git-send-email-ogerlitz@mellanox.com>
+	<1453906945-25414-3-git-send-email-ogerlitz@mellanox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, saeedm@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751620AbcA2EAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 23:00:42 -0500
+In-Reply-To: <1453906945-25414-3-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I think hackers chould build a malicious h323 packet to overflow
-the pointer p which will panic during the memcpy(addr, p, len)
-For example, he may fabricate a very large taddr->ipAddress.ip;
-As suggested by Eric, this module is protected by a lock (nf_h323_lock)
-so adding a variable h323_buffer_valid_bytes that would contain
-the number of valid bytes would not require to change prototypes of
-get_h2x5_addr.
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 27 Jan 2016 17:02:25 +0200
 
-Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> 
+> From: Saeed Mahameed <saeedm@mellanox.com>
+> 
+> Currently our netdevice ops is a static global variable which
+> is referenced by all mlx5e netdevice instances. This can be
+> problematic when different driver instances do not share same
+> HW capabilities (e.g SRIOV PF and VFs probed to the host).
+> 
+> Remove the global variable and add a private net_device_ops
+> field in netdevice private data, which is initialized at
+> netdev construction.
+> 
+> Fixes: 66e49dedada6 ("net/mlx5e: Add support for SR-IOV ndos")
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
----
- net/netfilter/nf_conntrack_h323_main.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+This is not the canonical way to fix this.  Please look at how
+other drivers handle this situation before inventing your own
+way of solving the problem.
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 9511af0..65d84bc 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -110,6 +110,11 @@ int (*nat_q931_hook) (struct sk_buff *skb,
- 
- static DEFINE_SPINLOCK(nf_h323_lock);
- static char *h323_buffer;
-+static unsigned int h323_buffer_valid_bytes;
-+/* check offset overflow and out of range data reference */
-+#define CHECK_BOUND(p, n) ((n) > h323_buffer_valid_bytes ||		\
-+			   ((void *)(p) + (n) - (void *)h323_buffer	\
-+			    > h323_buffer_valid_bytes))
- 
- static struct nf_conntrack_helper nf_conntrack_helper_h245;
- static struct nf_conntrack_helper nf_conntrack_helper_q931[];
-@@ -145,6 +150,7 @@ static int get_tpkt_data(struct sk_buff *skb, unsigned int protoff,
- 
- 	if (*data == NULL) {	/* first TPKT */
- 		/* Get first TPKT pointer */
-+		h323_buffer_valid_bytes = tcpdatalen;
- 		tpkt = skb_header_pointer(skb, tcpdataoff, tcpdatalen,
- 					  h323_buffer);
- 		BUG_ON(tpkt == NULL);
-@@ -247,6 +253,9 @@ static int get_h245_addr(struct nf_conn *ct, const unsigned char *data,
- 		return 0;
- 	}
- 
-+	if (CHECK_BOUND(p, len + sizeof(__be16)))
-+		return 0;
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
-@@ -669,6 +678,9 @@ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
- 		return 0;
- 	}
- 
-+	if (CHECK_BOUND(p, len + sizeof(__be16)))
-+		return 0;
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
-@@ -1248,6 +1260,7 @@ static unsigned char *get_udp_data(struct sk_buff *skb, unsigned int protoff,
- 	if (dataoff >= skb->len)
- 		return NULL;
- 	*datalen = skb->len - dataoff;
-+	h323_buffer_valid_bytes = *datalen;
- 	return skb_header_pointer(skb, dataoff, *datalen, h323_buffer);
- }
- 
--- 
-1.9.1
+The proper way is to have multiple netdevice ops instances, and simply
+choose the one which is correct for the chip in question.
 
-
+You should also mark the ops as const.  They should never _ever_ be
+modified at runtime.
