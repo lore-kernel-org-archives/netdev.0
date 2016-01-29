@@ -1,46 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH net] irda: fix a potential use-after-free in ircomm_param_request
-Date: Fri, 29 Jan 2016 11:58:03 -0800
-Message-ID: <1454097483-29308-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	Samuel Ortiz <samuel@sortiz.org>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 12:01:36 -0800
+Message-ID: <1454097696.7627.68.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160129180651.GA17127@oracle.com>
+	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160129.110634.1678121731419241040.davem@davemloft.net>
+	 <1454096250.7627.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160129194434.GC17127@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:36008 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753640AbcA2T6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 14:58:40 -0500
-Received: by mail-pf0-f175.google.com with SMTP id n128so46801477pfn.3
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 11:58:40 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36758 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640AbcA2UBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 15:01:38 -0500
+Received: by mail-pa0-f48.google.com with SMTP id yy13so46217933pab.3
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 12:01:38 -0800 (PST)
+In-Reply-To: <20160129194434.GC17127@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-self->ctrl_skb is protected by self->spinlock, we should not
-access it out of the lock. Move the debugging printk inside.
+On Fri, 2016-01-29 at 14:44 -0500, Sowmini Varadhan wrote:
+> On (01/29/16 11:37), Eric Dumazet wrote:
+> > 
+> > I have no idea why reading iph->saddr or iph->daddr would not hit the
+> > problem, but accessing the 32bit ipv6 flow label would be an issue.
+> > 
+> > Something is fishy.
+> 
+> I was wondering about this myself. Even on sparc, I only first
+> ran into the errors for ipv6. I dont know if the fact that the
+> saddr is memcpy'ed masks the error (even though the problem
+> is still there). 
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/irda/ircomm/ircomm_param.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Oh right, recent work in flow dissector added all these memcpy()
 
-diff --git a/net/irda/ircomm/ircomm_param.c b/net/irda/ircomm/ircomm_param.c
-index 3c4caa6..5728e76 100644
---- a/net/irda/ircomm/ircomm_param.c
-+++ b/net/irda/ircomm/ircomm_param.c
-@@ -134,11 +134,10 @@ int ircomm_param_request(struct ircomm_tty_cb *self, __u8 pi, int flush)
- 		return -1;
- 	}
- 	skb_put(skb, count);
-+	pr_debug("%s(), skb->len=%d\n", __func__, skb->len);
- 
- 	spin_unlock_irqrestore(&self->spinlock, flags);
- 
--	pr_debug("%s(), skb->len=%d\n", __func__ , skb->len);
--
- 	if (flush) {
- 		/* ircomm_tty_do_softint will take care of the rest */
- 		schedule_work(&self->tqueue);
--- 
-1.8.3.1
+I was still looking at linux-4.3 ;)
