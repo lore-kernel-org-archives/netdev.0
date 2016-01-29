@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211 2016-01-26
-Date: Thu, 28 Jan 2016 16:06:17 -0800 (PST)
-Message-ID: <20160128.160617.1926761912082289010.davem@davemloft.net>
-References: <1453806034-10185-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [PATCH net] of: of_mdio: Ensure mdio device is a PHY
+Date: Thu, 28 Jan 2016 16:08:24 -0800 (PST)
+Message-ID: <20160128.160824.1353384794421241954.davem@davemloft.net>
+References: <1453817550-4770-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	aaro.koskinen@nokia.com, olof@lixom.net
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60034 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60039 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750832AbcA2AGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:06:18 -0500
-In-Reply-To: <1453806034-10185-1-git-send-email-johannes@sipsolutions.net>
+	with ESMTP id S1751504AbcA2AIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:08:25 -0500
+In-Reply-To: <1453817550-4770-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 26 Jan 2016 12:00:33 +0100
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Tue, 26 Jan 2016 15:12:30 +0100
 
-> After split up the patches from the previous pull request that was
-> lost in the process, here's a new one with fixes for the current
-> cycle (I'll follow up with a -next one later.)
+> of_phy_find_device() is used to find the phy device associated with a
+> device node. It is expected the node is for a PHY device, but in fact
+> it could of been probed as a generic MDIO device. Ensure the device is
+> a PHY before returning it.
 > 
-> I've also scripted my pull-request sending process a bit more, so
-> hopefully the emails will no longer have any unexpected UTF-8 contents
-> that tripped up patchwork :)
-> 
-> Let me know if there's any problem.
+> Fixes: a9049e0c513c ("mdio: Add support for mdio drivers.")
+> Reported-by: Aaro Koskinen <aaro.koskinen@nokia.com>
+> Reported-by: Olof Johansson <olof@lixom.net>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Pulled, thanks Johannes.
+Applied.
