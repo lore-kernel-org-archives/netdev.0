@@ -1,44 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: early demux should be aware of fragments
-Date: Fri, 29 Jan 2016 12:24:37 -0800 (PST)
-Message-ID: <20160129.122437.2258453843319826058.davem@davemloft.net>
-References: <1453856382.11327.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20160127.170203.701586924097928864.davem@davemloft.net>
-	<1454080926.7627.49.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Fri, 29 Jan 2016 14:38:15 -0600
+Message-ID: <56ABCDB7.5080203@codeaurora.org>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+ <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org>
+ <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: joe@ovn.org, netdev@vger.kernel.org, fw@strlen.de,
-	hannes@stressinduktion.org, pshelar@ovn.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39525 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752830AbcA2UYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 15:24:38 -0500
-In-Reply-To: <1454080926.7627.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Gilad Avidov <gavidov@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 29 Jan 2016 07:22:06 -0800
+Rob Herring wrote:
+>> The emac is present on a lot of Qualcomm SOCs, and there are only a few
+>> variations of it.  It's not really SOC-specific, and the hardware version
+>> can be queried by the driver.
+>
+> Can the integration bugs be queried, too?
+>
+> Come on, you know how compatible strings work.
 
-> On Wed, 2016-01-27 at 17:02 -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Tue, 26 Jan 2016 16:59:42 -0800
->> 
->> > From: Eric Dumazet <edumazet@google.com>
->> > 
->> > We should not assume a valid protocol header is present,
->> > as this is not the case for IPv4 fragments.
->> > 
->> > Lets avoid extra cache line misses and potential bugs
->> > if we actually find a socket and incorrectly uses its dst.
->> > 
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> 
->> Applied, thanks.
-> 
-> David, I do not see this patch in net tree ?
+Fine.  I'll figure something out.
 
-This should be fixed now, thanks for letting me know.
+>> What did you have in mind?  I don't know even have a list of which SOCs has
+>> an emac, especially since it's mostly on MSM parts, and I work on the server
+>> SOC.
+>
+> You only need the one you care about. Figure out the part number
+> already. Or find the closest MSM part.
+
+Ironically, the only SOC I actually care about is not supported by this 
+driver yet.
+
+>>>> +- qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
+>>>> +- qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
+>>>
+>>>
+>>> Use the standard binding for GPIO controlled MDIO bus.
+>>
+>> I'm not familiar with that one.  Are you talking about
+>> bindings/net/mdio-gpio.txt?
+>
+> Yes.
+
+Thanks.
+
+>> That, I can't answer.  Aren't all MDIO devices basically the same?  It's
+>> been a while since I've worked on them.
+>
+> No. There was some discussion just this week about needing to require
+> phy devices to have compatible strings.
+
+Ok, I'll check it out.
+
+>>> Isn't this a user enabled feature if the h/w supports it?
+>>
+>>
+>> Is there a sysfs entry for that?  We were planning on having a similar ACPI
+>> property.
+>
+> It would be in ethtool I think.
+
+Ah, this driver does not support ethtool yet.
+
+However, based on a cursory look of ethtool, it appears that there's 
+only an option to query the current timestamp, but not actually 
+enable/disable the feature.  The e1000e driver, for example, just forces 
+the feature by default for various chips.  Is there any reason why we 
+shouldn't enable it if the hardware supports it?
