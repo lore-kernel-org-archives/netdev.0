@@ -1,57 +1,91 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 14:08:41 -0800
-Message-ID: <CAKgT0Udwjgmbwd2StNm-e-02Th4NHetb_FMbrU=KOCHf_90YbA@mail.gmail.com>
-References: <20160129180651.GA17127@oracle.com>
-	<1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20160129.110634.1678121731419241040.davem@davemloft.net>
-	<1454096250.7627.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20160129194434.GC17127@oracle.com>
-	<1454097696.7627.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKgT0UdXBHocMwdcQHHd5bGMUofEH6ENox=Jw_vLEn3kMonmhA@mail.gmail.com>
-	<1454103195.7627.76.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Holland <jotihojr@gmail.com>
+Subject: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using
+ a device tree blob
+Date: Fri, 29 Jan 2016 23:11:52 +0100
+Message-ID: <56ABE3A8.4010602@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	jotihojr@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38796 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756927AbcA2WIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:08:42 -0500
-Received: by mail-ig0-f178.google.com with SMTP id mw1so43214626igb.1
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 14:08:42 -0800 (PST)
-In-Reply-To: <1454103195.7627.76.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37675 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751284AbcA2WLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:11:55 -0500
+Received: by mail-wm0-f48.google.com with SMTP id l66so72455771wml.0
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 14:11:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2016 at 1:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2016-01-29 at 13:16 -0800, Alexander Duyck wrote:
->
->> It has to be something recent.  I know back when I wrote the code I
->> tested it on a few different architectures and had to add a few bits
->> in __skb_get_poff so that it would read doff as a u8 instead of
->> bitfield in a u32.
->>
->> Looking at the code it seems like this should be an easy fix.  Just
->> swap the two lines that acquire and test the flow label with the check
->> for dissector_uses_key(... _KEY_FLOW_LABEL).  Then ixgbe will stop
->> trying to grab flow labels.
->
-> Note that if we properly align headers, we also align TCP/UDP payload.
->
-> Meaning that copying data in recvmsg() is likely faster in some cpus.
-> (The ones having NET_IP_ALIGN set to 2 presumably)
+The Intel i211 LOM pcie ethernet controllers' iNVM operates as an OTP 
+and has no externel EEPROM interface [1]. The following allows the 
+driver to pickup the MAC address from a device tree blob when CONFIG_OF 
+has been enabled.
 
-It also means DMA becomes dramatically slower as it introduces a
-partial write access for the start of every frame.  It is why we had
-set NET_IP_ALIGN to 0 on x86 since DMA was becoming more expensive
-when unaligned then reading IP unaligned headers.
+[1] 
+http://www.intel.com/content/www/us/en/embedded/products/networking/i211-ethernet-controller-datasheet.html
 
-The gain on recvmsg would probably be minimal.  The only time I have
-seen any significant speed-up for copying is if you can get both ends
-aligned to something like 16B.
+Signed-off-by: John Holland <jotihojr@gmail.com>
+---
+  drivers/net/ethernet/intel/igb/igb_main.c | 30 
+++++++++++++++++++++++++++++++
+  1 file changed, 30 insertions(+)
 
-- Alex
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c 
+b/drivers/net/ethernet/intel/igb/igb_main.c
+index 31e5f39..9c92443 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -56,6 +56,11 @@
+  #include <linux/i2c.h>
+  #include "igb.h"
+
++#ifdef defined(CONFIG_OF)
++#include <linux/of_net.h>
++#include <linux/etherdevice.h>
++#endif
++
+  #define MAJ 5
+  #define MIN 3
+  #define BUILD 0
+@@ -2217,6 +2222,26 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
+  }
+
+  /**
++ *  igb_read_mac_addr_dts - Read mac addres from the device tree blob.
++ *  @hw: pointer to the e1000 hardware structure
++ **/
++#ifdef defined(CONFIG_OF)
++static void igb_read_mac_addr_dts(struct e1000_hw *hw)
++{
++       const u8 *mac;
++       struct device_node *dn;
++
++       dn = of_find_compatible_node(NULL, NULL, "intel,i211");
++       if (!dn)
++               return;
++
++       mac = of_get_mac_address(dn);
++       if (mac)
++               ether_addr_copy(hw->mac.addr, mac);
++}
++#endif
++
++/**
+   *  igb_probe - Device Initialization Routine
+   *  @pdev: PCI device information struct
+   *  @ent: entry in igb_pci_tbl
+@@ -2420,6 +2445,11 @@ static int igb_probe(struct pci_dev *pdev, const 
+struct pci_device_id *ent)
+         if (hw->mac.ops.read_mac_addr(hw))
+                 dev_err(&pdev->dev, "NVM Read Error\n");
+
++#ifdef defined(CONFIG_OF)
++       if (!is_valid_ether_addr(hw->mac.addr))
++               igb_read_mac_addr_dts(hw);
++#endif
++
+         memcpy(netdev->dev_addr, hw->mac.addr, netdev->addr_len);
+
+         if (!is_valid_ether_addr(netdev->dev_addr)) {
