@@ -1,108 +1,64 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: [PATCH net] bonding: Fix ARP monitor validation
-Date: Thu, 28 Jan 2016 17:33:08 -0800
-Message-ID: <16766.1454031188@famine>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] vxlan: fix a out of bounds access in __vxlan_find_mac
+Date: Fri, 29 Jan 2016 09:43:47 +0800
+Message-ID: <1454031827-23118-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:33750 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932172AbcA2BdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 20:33:13 -0500
+Received: from mail.windriver.com ([147.11.1.11]:33137 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755124AbcA2Bns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 20:43:48 -0500
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.134])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u0T1hlJb025276
+	for <netdev@vger.kernel.org>; Thu, 28 Jan 2016 17:43:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Li RongQing <roy.qing.li@gmail.com>
 
-	The current logic in bond_arp_rcv will accept an incoming ARP
-for validation if (a) the receiving slave is either "active" (here
-meaning the slave is functioning, not that it is the currently active
-slave) or, (b) the currently active slave recently sent an ARP probe.
+The size of all_zeros_mac is 6 byte, but eth_hash() will access the
+8 byte, and KASan reported the below bug:
 
-	This can fail if there is no currently active slave.  In this
-case, the ARP probe logic cycles through all slaves, assigning each in
-turn as the "current_arp_slave," setting that one as "active," and
-sending an ARP probe from that slave.  The current logic expects the ARP
-reply to arrive on this slave, however, due to switch FDB updating
-delays, the reply may be directed to another slave.
+[ 8596.479031] BUG: KASan: out of bounds access in __vxlan_find_mac+0x24/0x100 at addr ffffffff841514c0
+[ 8596.487647] Read of size 8 by task ip/52820
+[ 8596.490818] Address belongs to variable all_zeros_mac+0x0/0x40
+[ 8596.496051] CPU: 0 PID: 52820 Comm: ip Tainted: G WC 4.1.15 #1
+[ 8596.503520] Hardware name: HP ProLiant DL380p Gen8, BIOS P70 02/10/2014
+[ 8596.509365] ffffffff841514c0 ffff88007450f0b8 ffffffff822fa5e1 0000000000000032
+[ 8596.516112] ffff88007450f150 ffff88007450f138 ffffffff812dd58c ffff88007450f1d8
+[ 8596.522856] ffffffff81113b80 0000000000000282 0000000000000001 ffffffff8101ee4d
+[ 8596.529599] Call Trace:
+[ 8596.530858] [<ffffffff822fa5e1>] dump_stack+0x4f/0x7b
+[ 8596.535080] [<ffffffff812dd58c>] kasan_report_error+0x3bc/0x3f0
+[ 8596.540258] [<ffffffff81113b80>] ? __lock_acquire+0x90/0x2140
+[ 8596.545245] [<ffffffff8101ee4d>] ? save_stack_trace+0x2d/0x80
+[ 8596.550234] [<ffffffff812dda70>] kasan_report+0x40/0x50
+[ 8596.554647] [<ffffffff81b211e4>] ? __vxlan_find_mac+0x24/0x100
+[ 8596.559729] [<ffffffff812dc399>] __asan_load8+0x69/0xa0
+[ 8596.564141] [<ffffffff81b211e4>] __vxlan_find_mac+0x24/0x100
+[ 8596.569033] [<ffffffff81b2683d>] vxlan_fdb_create+0x9d/0x570
 
-	This leads to a pathological condition wherein the ARP target host
-replies faster than the switch can update its forwarding table, causing
-each ARP reply to be sent to the previous current_arp_slave.  This will
-never pass the logic in bond_arp_rcv.
+it can be fixed by enlarging the all_zeros_mac to 8 byte, although it is
+harmless; eth_hash() will be called in other place with the memory which
+is larger and equal to 8 byte.
 
-	Some experimentation on a LAN shows ARP reply round trips in the
-200 usec range, but my available switches never update their FDB in less
-than 4000 usec.
-
-	This patch changes the logic to accept an ARP reply for validation
-on any slave if there is a current ARP slave and it has recently sent an
-ARP probe.
-
-Fixes: aeea64ac717a ("bonding: don't trust arp requests unless active slave really works")
-Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
-
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/net/bonding/bond_main.c | 19 ++++++++++++++-----
- 1 file changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/vxlan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 56b560558884..5a9c43b12999 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -214,6 +214,8 @@ static void bond_uninit(struct net_device *bond_dev);
- static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
- 						struct rtnl_link_stats64 *stats);
- static void bond_slave_arr_handler(struct work_struct *work);
-+static bool bond_time_in_interval(struct bonding *bond, unsigned long last_act,
-+				  int mod);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 2d88c79..b733f093 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -73,7 +73,7 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
+ static int vxlan_net_id;
+ static struct rtnl_link_ops vxlan_link_ops;
  
- /*---------------------------- General routines -----------------------------*/
+-static const u8 all_zeros_mac[ETH_ALEN];
++static const u8 all_zeros_mac[ETH_ALEN + 2];
  
-@@ -2459,7 +2461,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 		 struct slave *slave)
- {
- 	struct arphdr *arp = (struct arphdr *)skb->data;
--	struct slave *curr_active_slave;
-+	struct slave *curr_active_slave, *curr_arp_slave;
- 	unsigned char *arp_ptr;
- 	__be32 sip, tip;
- 	int alen, is_arp = skb->protocol == __cpu_to_be16(ETH_P_ARP);
-@@ -2506,6 +2508,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 		     &sip, &tip);
+ static int vxlan_sock_add(struct vxlan_dev *vxlan);
  
- 	curr_active_slave = rcu_dereference(bond->curr_active_slave);
-+	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
- 
- 	/* Backup slaves won't see the ARP reply, but do come through
- 	 * here for each ARP probe (so we swap the sip/tip to validate
-@@ -2514,10 +2517,12 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 	 * the active, through one switch, the router, then the other
- 	 * switch before reaching the backup.
- 	 *
--	 * We 'trust' the arp requests if there is an active slave and
--	 * it received valid arp reply(s) after it became active. This
--	 * is done to avoid endless looping when we can't reach the
--	 * arp_ip_target and fool ourselves with our own arp requests.
-+	 * We 'trust' the arp requests if (a) there is an active slave and
-+	 * it received valid arp reply(s) after it became active, or (b)
-+	 * there is an ARP slave, and we receive a recent ARP reply on any
-+	 * slave. This is done to avoid endless looping when we can't
-+	 * reach the arp_ip_target and fool ourselves with our own arp
-+	 * requests.
- 	 */
- 
- 	if (bond_is_active_slave(slave))
-@@ -2526,6 +2531,10 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 		 time_after(slave_last_rx(bond, curr_active_slave),
- 			    curr_active_slave->last_link_up))
- 		bond_validate_arp(bond, slave, tip, sip);
-+	else if (curr_arp_slave && (arp->ar_op == htons(ARPOP_REPLY)) &&
-+		 bond_time_in_interval(bond,
-+				       dev_trans_start(curr_arp_slave->dev), 1))
-+		bond_validate_arp(bond, slave, sip, tip);
- 
- out_unlock:
- 	if (arp != (struct arphdr *)skb->data)
 -- 
-1.9.1
+2.1.4
