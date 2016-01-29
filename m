@@ -1,44 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv4: early demux should be aware of fragments
-Date: Fri, 29 Jan 2016 07:22:06 -0800
-Message-ID: <1454080926.7627.49.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAPWQB7GgKU8TC6RQNkkZppNrH64ufOH50g2VXHp8D8WC7_gh_g@mail.gmail.com>
-	 <1453787905.11327.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1453856382.11327.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160127.170203.701586924097928864.davem@davemloft.net>
+From: Kevin Smith <kevin.smith@elecsyscorp.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: fix port VLAN maps
+Date: Fri, 29 Jan 2016 15:14:59 +0000
+Message-ID: <56AB81F4.6050409@elecsyscorp.com>
+References: <1454018077-11222-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20160129021832.GA12692@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: joe@ovn.org, netdev@vger.kernel.org, fw@strlen.de,
-	hannes@stressinduktion.org, pshelar@ovn.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Russell King <rmk+kernel@arm.linux.org.uk>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34941 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937AbcA2PWI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 10:22:08 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 66so3481393pfe.2
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 07:22:08 -0800 (PST)
-In-Reply-To: <20160127.170203.701586924097928864.davem@davemloft.net>
+Received: from s12p02o147.mxlogic.net ([208.65.145.70]:42929 "EHLO
+	s12p02o147.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752311AbcA2PYQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 10:24:16 -0500
+In-Reply-To: <20160129021832.GA12692@lunn.ch>
+Content-Language: en-US
+Content-ID: <1AD3B5D749F08E4B9566AE85D7217024@dciincorporated.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-01-27 at 17:02 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 26 Jan 2016 16:59:42 -0800
-> 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > We should not assume a valid protocol header is present,
-> > as this is not the case for IPv4 fragments.
-> > 
-> > Lets avoid extra cache line misses and potential bugs
-> > if we actually find a socket and incorrectly uses its dst.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> Applied, thanks.
-
-David, I do not see this patch in net tree ?
-
-Thanks !
+On 01/28/2016 08:18 PM, Andrew Lunn wrote:
+> On Thu, Jan 28, 2016 at 04:54:37PM -0500, Vivien Didelot wrote:
+>> Currently the port based VLAN maps should be configured to allow every
+>> port to egress frames on all other ports, except themselves.
+>>
+>> The debugfs interface shows that they are misconfigured. For instance, a
+>> 7-port switch has the following content in the related register 0x06:
+>>
+>>         GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
+>>      ...
+>>      6:  1fa4    1f0f       4   7f   7e   7d   7c   7b   7a   79
+>>      ...
+>>
+>> This means that port 3 is allowed to talk to port 2-6, but cannot talk
+>> to ports 0 and 1. With this fix, port 3 can correctly talk to all ports
+>> except 3 itself:
+>>
+>>         GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
+>>      ...
+>>      6:  1fa4    1f0f       4   7e   7d   7b   77   6f   5f   3f
+>>      ...
+>>
+>> Fixes: ede8098d0fef ("net: dsa: mv88e6xxx: bridges do not need an FID")
+>> Reported-by: Kevin Smith <kevin.smith@elecsyscorp.com>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Tested-by: Kevin Smith <kevin.smith@elecsyscorp.com>
