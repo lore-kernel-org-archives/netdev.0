@@ -1,115 +1,116 @@
-From: "'Marcelo Ricardo Leitner'" <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/3] sctp: add GSO support
-Date: Fri, 29 Jan 2016 16:53:25 -0200
-Message-ID: <20160129185325.GE6604@mrl.redhat.com>
-References: <cover.1453913331.git.marcelo.leitner@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCCEDE4@AcuExch.aculab.com>
- <20160128155323.GB6602@mrl.redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCD0160@AcuExch.aculab.com>
- <20160128205551.GC6602@mrl.redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCD119A@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 10:54:02 -0800
+Message-ID: <1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160129180651.GA17127@oracle.com>
+	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"brouer@redhat.com" <brouer@redhat.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-	"borkmann@iogearbox.net" <borkmann@iogearbox.net>,
-	"marek@cloudflare.com" <marek@cloudflare.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"pabeni@redhat.com" <pabeni@redhat.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>, mwdalton@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48428 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932495AbcA2Sxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jan 2016 13:53:32 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCD119A@AcuExch.aculab.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33610 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932495AbcA2SyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 13:54:05 -0500
+Received: by mail-pa0-f46.google.com with SMTP id cy9so45551609pac.0
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 10:54:04 -0800 (PST)
+In-Reply-To: <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2016 at 03:51:52PM +0000, David Laight wrote:
-> From: 'Marcelo Ricardo Leitner'
-> > Sent: 28 January 2016 20:56
-> > On Thu, Jan 28, 2016 at 05:30:24PM +0000, David Laight wrote:
-> > > From: 'Marcelo Ricardo Leitner'
-> > > > Sent: 28 January 2016 15:53
-> > > > On Thu, Jan 28, 2016 at 01:51:02PM +0000, David Laight wrote:
-> ...
-> > > > > With Nagle disabled (and it probably has to be since the data flow
-> > > > > is unlikely to be 'command-response' or 'unidirectional bulk')
-> > > > > it is currently almost impossible to get more than one chunk
-> > > > > into an ethernet frame.
-> > > > >
-> > > > > Support for MSG_MORE would help.
-> > > > >
-> > > > > Given the current implementation you can get almost the required
-> > > > > behaviour by turning nagle off and on repeatedly.
-> > > >
-> > > > That's pretty much expected, I think. Without Nagle, if bandwidth and
-> > > > cwnd allow, segment will be sent. GSO by itself shouldn't cause a
-> > > > buffering to protect from that.
-> > > >
-> > > > If something causes a bottleneck, tx may get queue up.  Like if I do a
-> > > > stress test in my system, generally receiver side is slower than sender,
-> > > > so I end up having tx buffers pretty easily. It mimics bandwidth
-> > > > restrictions.
-> > >
-> > > Imagine a using M2UA to connect local machines (one running mtp3, the other mtp2).
-> > > Configure two linksets of 16 signalling links and perform a double-reflect
-> > > loopback test.
-> > > The SCTP connection won't ever saturate, so every msu ends up in its own
-> > > ethernet packet.
-> > > It is easy to generate 1000's of ethernet frames/sec on a single connection.
-> > >
-> > > (We do this with something not entirely quite like M2UA over TCP,
-> > > even then it is very hard to get multiple message into a single
-> > > ethernet frame.)
-> > >
+On Fri, 2016-01-29 at 10:33 -0800, Eric Dumazet wrote:
+> On Fri, 2016-01-29 at 13:06 -0500, Sowmini Varadhan wrote:
+> > There is an unaligned access at __skb_flow_dissect when it calls
+> > ip6_flowlabel() with the call stack
 > > 
-> > Agreed, GSO won't help much in there without a corking feature like
-> > MSG_MORE or that on/off switch on Nagle you mentioned.
+> >   __skb_flow_dissect+0x2a8/0x87c
+> >   eth_get_headlen+0x5c/0xaxa4
+> >   ixgbe_clean_rx_irq+0x5cc/0xb20 [ixgbe]
+> >   ixgbe_poll+0x5a4/0x760 [ixgbe]
+> >   net_rx_action+0x13c/0x354
+> >     :
 > > 
-> > Thing about this (and also GRO) is on identifying how much can be spent
-> > on waiting for the next chunk/packet without causing issues to the
-> > application. Nagle is there and helps quite a lot, but timing-sensitive
-> > applications will turn it off.
+> > Essentially, ixgbe_pull_tail() is trying to figure out how much
+> > to pull, in order to have an aligned buffer:
+> > 
+> >         pull_len = eth_get_headlen(va, IXGBE_RX_HDR_SIZE);
+> > 
+> >         /* align pull length to size of long to optimize memcpy performance */
+> >         skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
+> > 
+> > and seems like the unaligned access is unavoidable here (see comments
+> > in __skb_get_poff, for example).
+> > 
+> > This (below) is what I came up with, to get rid of the unaligned access
+> > errors on sparc, Is there a better solution? (Not having access
+> > to struct ip6_hdr in this file made put_unaligned usage non-obvious)
+> > 
+> > 
+> > --- a/net/core/flow_dissector.c
+> > +++ b/net/core/flow_dissector.c
+> > @@ -102,6 +102,17 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int 
+> >  }
+> >  EXPORT_SYMBOL(__skb_flow_get_ports);
+> >  
+> > +static inline __be32 ip6_flowlabel_align(const u8 *hdr)
+> > +{
+> > +       union {
+> > +               __u8 w[4];
+> > +               __u32 flow;
+> > +       } ip6_flow;
+> > +
+> > +       memcpy(ip6_flow.w, hdr, 4);
+> > +       return (ip6_flow.flow & IPV6_FLOWLABEL_MASK);
+> > +}
+> > +
+> >  /**
+> >   * __skb_flow_dissect - extract the flow_keys struct and return it
+> >   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specifie
+> > @@ -230,7 +241,7 @@ ipv6:
+> >                         key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+> >                 }
+> >  
+> > -               flow_label = ip6_flowlabel(iph);
+> > +               flow_label = ip6_flowlabel_align((const u8 *)iph);
+> >                 if (flow_label) {
+> >                         if (dissector_uses_key(flow_dissector,
+> >                                                FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
+> > 
+> > 
 > 
-> Nagle is only any good for unidirectional data (think file transfer)
-> and command-response (think telnet or rlogin), for anything else
-> it generates 200ms+ delays.
-> The SIGTRAN protocols (M3UA etc) are all specified to use SCTP
-> and have no real relationship between the send and receive data.
-> SCTP is being used to replace 64kb/s links so a few milliseconds
-> of delay (1ms is 8 byte times) probably don't matter.
-> The Nagle timeout is, however far too long - so has to be disabled.
+> Why ipv6 stack itself does not trigger the issue ?
 > 
-> So never mind GSO to improve 'bulk' output, the big SCTP performance
-> issue (as I see it) is the inability for a lot of workloads to
-> ever get more than one small data chunk into an ethernet frame.
+> Maybe the driver itself does not properly align IP headers on sparc ?
 > 
-> Which other (application) protocols are using SCTP?
-> It doesn't seem an appropriate protocol for bulk data.
+> Make sure NET_IP_ALIGN is 2 on your build.
+> 
+> Note that x86 does not care, but a driver should always align Ethernet
+> header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
+> boundaries.
 
-David I agree with most of what you said here and before, sorry if I
-didn't make it clear before. I put MSG_MORE on my ToDo and I'll check
-what I can do about it. I got your link from the other email, thanks.
+Hmmm.... it seems that flow dissector can "support L2 GRE", leading to
+unaligned accesses since a header is 14 bytes (not multiple of 4)
 
-Just the usage you mention on SCTP, is limited to SIGTRAN work. DLM,
-distributed lock manager, filesystem stuff, uses SCTP just because it
-has multi-homing out of the box and it improves the cluster resilience.
-I'd like SCTP to be more adopted in projects like DLM did. It has plenty
-of features that are very often re-impemented by applications, like
-message boundaries and ordering. 
+commit e1733de2243609073534cf56afb146a62af3c3d8
+Author: Michael Dalton <mwdalton@google.com>
+Date:   Mon Mar 11 06:52:28 2013 +0000
 
-GSO should not, in any way, objects to MSG_MORE. I don't see we having
-conflicting goals here. Do you?
+    flow_dissector: support L2 GRE
+    
+    Add support for L2 GRE tunnels, so that RPS can be more effective.
 
-  Marcelo
+
+Michael, do we still need this ?
+
+IP stacks in linux assume IP headers are always aligned to 4 bytes,
+so it means having a GRE header like this would align trap on some
+arches.
+
+
+
+
+
+
+  
