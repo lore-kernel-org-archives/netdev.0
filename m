@@ -1,40 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] network driver fixes
-Date: Thu, 28 Jan 2016 16:14:13 -0800 (PST)
-Message-ID: <20160128.161413.1463071323452305953.davem@davemloft.net>
-References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 1/4] ipv4: add option to drop unicast encapsulated
+ in L2 multicast
+Date: Thu, 28 Jan 2016 16:16:57 -0800 (PST)
+Message-ID: <20160128.161657.1850505368474577536.davem@davemloft.net>
+References: <1446712923-9136-1-git-send-email-johannes@sipsolutions.net>
+	<1453984413.2217.13.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60089 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189AbcA2AOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:14:14 -0500
-In-Reply-To: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ja-FgGsKACvmQM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453984413.2217.13.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 27 Jan 2016 15:04:50 +0100
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Thu, 28 Jan 2016 13:33:33 +0100
 
-> These are all fixes for relatively harmless bugs that showed up
-> in my randconfig testing, so they should not be needed for v4.5
-> but get merged into net-next.
+> Is there anything I should do about these patches?
 > 
-> I've managed to address all 'uninitialized variable' warnings that
-> I get in ARM randconfig kernels now, this series includes the
-> last five I got in network drivers. They are often really annoying
-> warnings but when we get new ones, they often are about actual
-> bugs in corner cases, so I'm trying hard to eliminate the false
-> positives here to get people to pay attention to added warnings.
-> I've recently tried building with an older gcc and found tons more
-> that are all bogus, this series only addresses the ones that
-> gcc-5.2 finds.
+> I see you marked them as "deferred" in patchwork, but I don't really
+> know how you're using that state.
 
-Arnd I'm expecting a respin of this series to address with the
-feedback you've been given.
+I use it in two situations, the first is the most often used case but
+doesn't apply to this specific situation :-)
 
-Thanks.
+1) net-next change submitted while net-next is closed
+
+2) discussion has ensued for several days, no resolution imminent
+
+And I think #2 is the case that happened here.
+
+You can submit them again to reignite the conversation if you
+like.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
