@@ -1,40 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 1/4] ipv4: add option to drop unicast encapsulated
- in L2 multicast
-Date: Thu, 28 Jan 2016 16:16:57 -0800 (PST)
-Message-ID: <20160128.161657.1850505368474577536.davem@davemloft.net>
-References: <1446712923-9136-1-git-send-email-johannes@sipsolutions.net>
-	<1453984413.2217.13.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/40] net: fec: cleanup/fixes
+Date: Thu, 28 Jan 2016 16:19:57 -0800 (PST)
+Message-ID: <20160128.161957.724013635430166638.davem@davemloft.net>
+References: <1454016364-30985-1-git-send-email-troy.kisky@boundarydevices.com>
+	<20160128.143946.1959250656527012570.davem@davemloft.net>
+	<CAGB=+3Sip-+2Qf-KTZfoCCBcO9=9tb=pVCaEs=+eNJ1sWSRgXw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja-FgGsKACvmQM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1453984413.2217.13.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: troy.kisky@boundarydevices.com, netdev@vger.kernel.org,
+	B38611@freescale.com, fabio.estevam@freescale.com,
+	l.stach@pengutronix.de, andrew@lunn.ch, tremyfr@gmail.com,
+	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
+	shawnguo@kernel.org
+To: laci@boundarydevices.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60121 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbcA2AT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:19:59 -0500
+In-Reply-To: <CAGB=+3Sip-+2Qf-KTZfoCCBcO9=9tb=pVCaEs=+eNJ1sWSRgXw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Thu, 28 Jan 2016 13:33:33 +0100
+From: Laci Tele <laci@boundarydevices.com>
+Date: Thu, 28 Jan 2016 23:57:10 +0100
 
-> Is there anything I should do about these patches?
-> 
-> I see you marked them as "deferred" in patchwork, but I don't really
-> know how you're using that state.
+> If he divides it, then it will be even more.
 
-I use it in two situations, the first is the most often used case but
-doesn't apply to this specific situation :-)
-
-1) net-next change submitted while net-next is closed
-
-2) discussion has ensued for several days, no resolution imminent
-
-And I think #2 is the case that happened here.
-
-You can submit them again to reignite the conversation if you
-like.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do not top-post.
