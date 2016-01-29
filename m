@@ -1,48 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: fix port VLAN maps
-Date: Fri, 29 Jan 2016 03:18:32 +0100
-Message-ID: <20160129021832.GA12692@lunn.ch>
-References: <1454018077-11222-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Subject: Re: [PATCH 3/3] param: convert some "on"/"off" users to strtobool
+Date: Fri, 29 Jan 2016 14:15:58 +1100
+Message-ID: <1454037358.30708.1.camel@ellerman.id.au>
+References: <1453990627-19164-1-git-send-email-keescook@chromium.org>
+	 <1453990627-19164-4-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Kevin Smith <kevin.smith@elecsyscorp.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1454018077-11222-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Steve French <sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1453990627-19164-4-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 28, 2016 at 04:54:37PM -0500, Vivien Didelot wrote:
-> Currently the port based VLAN maps should be configured to allow every
-> port to egress frames on all other ports, except themselves.
-> 
-> The debugfs interface shows that they are misconfigured. For instance, a
-> 7-port switch has the following content in the related register 0x06:
-> 
->        GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
->     ...
->     6:  1fa4    1f0f       4   7f   7e   7d   7c   7b   7a   79
->     ...
-> 
-> This means that port 3 is allowed to talk to port 2-6, but cannot talk
-> to ports 0 and 1. With this fix, port 3 can correctly talk to all ports
-> except 3 itself:
-> 
->        GLOBAL GLOBAL2 SERDES   0    1    2    3    4    5    6
->     ...
->     6:  1fa4    1f0f       4   7e   7d   7b   77   6f   5f   3f
->     ...
-> 
-> Fixes: ede8098d0fef ("net: dsa: mv88e6xxx: bridges do not need an FID")
-> Reported-by: Kevin Smith <kevin.smith@elecsyscorp.com>
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+On Thu, 2016-01-28 at 06:17 -0800, Kees Cook wrote:
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> This changes several users of manual "on"/"off" parsing to use strtobool.
 
-Thanks
-	Andrew
+You should probably point out that it's a slight behaviour change for some
+users. ie. parameters that previously *only* worked with "on"/"off", can now
+also take 0/1/y/n etc.
+
+But I don't think that's a show stopper.
+
+
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Cc: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+> Cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Cc: linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> ---
+>  arch/powerpc/kernel/rtasd.c                  | 10 +++-------
+>  arch/powerpc/platforms/pseries/hotplug-cpu.c | 11 +++--------
+
+Acked-by: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org> (powerpc)
+
+
+cheers
