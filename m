@@ -1,75 +1,37 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: xfrm: UFO + ESP = double fragmentation
-Date: Sat, 30 Jan 2016 00:44:24 +0100
-Message-ID: <20160129234424.GC7907@midget.suse.cz>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 18:58:00 -0500
+Message-ID: <20160129235800.GH17127@oracle.com>
+References: <20160129180651.GA17127@oracle.com>
+ <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CALx6S34+od6o69rHQzotJFXf7kziEuQUj=xH5VUWw+YpH4FjNg@mail.gmail.com>
+ <20160129210900.GD17127@oracle.com>
+ <CALx6S35V47scFFQab7ZsQyh6CktS17w4hSKZSVAnOB0Ppa7brg@mail.gmail.com>
+ <20160129230424.GG17127@oracle.com>
+ <CALx6S34KtC4kkjzchY5Xs4QapD7FMqxShwEDST0Q_bZgDRicmQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Michael Dalton <mwdalton@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33737 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932583AbcA2Xo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jan 2016 18:44:27 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:27567 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753688AbcA2X6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 18:58:15 -0500
 Content-Disposition: inline
+In-Reply-To: <CALx6S34KtC4kkjzchY5Xs4QapD7FMqxShwEDST0Q_bZgDRicmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On (01/29/16 15:31), Tom Herbert wrote:
+> But even within flow dissector, to be completely correct, we need to
+> replace all 32-bit accesses with the mempy (flow_label, mpls label,
+> keyid) and be vigilant about new ones coming in. For that matter, ..
 
-I'm seeing wrong fragmentation on locally generated UDPv6 packets
-going out over ESP (transport mode):
-
-UFO is turned on on the outgoing interface and MTU is 1500.
-When 8 kB is written to a UDP socket, udpv6_sendmsg() calls
-ip_append_data() which generates a single 8 kB GSO skb.
-
-Through ip6_send_skb() it reaches xfrm_output(). Since
-skb_is_gso(skb) is nonzero, xfrm_output_gso() is called.
-It immediatelly segments the skb via skb_gso_segment() and then
-calls xfrm_output2() on each individual segment.
-
-This is wrong. RFC4303 says:
-	3.3.4.  Fragmentation
-	   If necessary, fragmentation is performed after ESP
-	   processing within an IPsec implementation.  Thus,
-	   transport mode ESP is applied only to whole IP
-	   datagrams (not to IP fragments).
-
-Instead, xfrm_output_gso() applies the transform to each segment.
-Since both the fragmentation header _and_ the ESP headers now
-don't fit in the MTU and the ESP-encapsulated segments
-are fragmented for a second time in ip6_finish_output().
-
-The outcome is:
-- the original 8k UDP packet is split into 6 ESP fragments
-- the first 5 ESP fragments are 1508 bytes each, thus fragmented
-  again into two fragments 
-
-The destination host replies with ICMP parameter problem.
-
-How is this supposed to work?
-This hack fixes this specific case:
-
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -198,7 +198,7 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
- 	int err;
- 
- 	if (skb_is_gso(skb))
--		return xfrm_output_gso(net, sk, skb);
-+		return xfrm_output2(net, sk, skb);
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		err = skb_checksum_help(skb);
-
-
-Is there a situation when xfrm_output_gso() does the right thing?
-
-Thanks,
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+well, one question that came to my mind when I was looking at this is:
+why does eth_get_headlen try to compute the flow hash even before the
+driver has had a chance to pull things into an aligned buffer? Isn't
+that just risking even more unaligned accesses?
