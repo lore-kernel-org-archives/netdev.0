@@ -1,247 +1,53 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 09/10] net: Add a hardware buffer management helper API
-Date: Fri, 29 Jan 2016 19:36:16 +0100
-Message-ID: <87twlw6xnj.fsf@free-electrons.com>
-References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
-	<1452625834-22166-10-git-send-email-gregory.clement@free-electrons.com>
-	<56A92246.7010807@gmail.com>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates [mac80211]
+Date: Fri, 29 Jan 2016 10:39:40 -0800
+Message-ID: <CA+55aFysqqp-BCZs1ue6_1tE=h9SOUZTH_o7TwGbsaBnaFvXGA@mail.gmail.com>
+References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
+	<1453983185.2217.12.camel@sipsolutions.net>
+	<CA+55aFya9K4JboNY8kB9cg6zt9otguhdzfHm3jvLmWedxQTSWg@mail.gmail.com>
+	<1454013625.2332.9.camel@sipsolutions.net>
+	<CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
+	<CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw@mail.gmail.com>
+	<1454019155.2332.15.camel@sipsolutions.net>
+	<CA+55aFxjpdepHYD_6uU48kW38Z9bmf2wwA8yPZt4ibhkofmfQA@mail.gmail.com>
+	<56AAC66C.1080800@lwfinger.net>
+	<1454056380.3369.2.camel@sipsolutions.net>
+	<CAP71bdVZzUUNwP3py_m1pwU21qMKth=0BmMfLuUb7=B-1840zg@mail.gmail.com>
+	<1454084146.2800.0.camel@sipsolutions.net>
+	<56ABA73C.1060504@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56ABA73C.1060504-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
-
-thanks for your review!
- 
- On mer., janv. 27 2016, Florian Fainelli <f.fainelli@gmail.com> wrote:
-
-> On 12/01/16 11:10, Gregory CLEMENT wrote:
->> This basic implementation allows to share code between driver using
->> hardware buffer management. As the code is hardware agnostic, there is
->> few helpers, most of the optimization brought by the an HW BM has to be
->> done at driver level.
->> 
->> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
->> ---
->>  include/net/hwbm.h | 19 +++++++++++++
->>  net/core/Makefile  |  2 +-
->>  net/core/hwbm.c    | 78 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->>  3 files changed, 98 insertions(+), 1 deletion(-)
->>  create mode 100644 include/net/hwbm.h
->>  create mode 100644 net/core/hwbm.c
->> 
->> diff --git a/include/net/hwbm.h b/include/net/hwbm.h
->> new file mode 100644
->> index 000000000000..898ccd2fb58d
->> --- /dev/null
->> +++ b/include/net/hwbm.h
->> @@ -0,0 +1,19 @@
->> +#ifndef _HWBM_H
->> +#define _HWBM_H
->> +
->> +struct hwbm_pool {
->> +	/* Size of the buffers managed */
->> +	int size;
->> +	/* Number of buffers currently used by this pool */
->> +	int buf_num;
->> +	/* constructor called during alocation */
->> +	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
+On Fri, Jan 29, 2016 at 9:54 AM, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote:
 >
-> Having the buffer size might be handy too.
->
->> +	/* private data */
->> +	void *priv;
->> +};
->> +
->> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
->> +int hwbm_pool_refill(struct hwbm_pool *bm_pool);
->> +int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num);
->> +
->> +#endif /* _HWBM_H */
->> diff --git a/net/core/Makefile b/net/core/Makefile
->> index 0b835de04de3..df81bf11f072 100644
->> --- a/net/core/Makefile
->> +++ b/net/core/Makefile
->> @@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
->>  
->>  obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
->>  			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
->> -			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o
->> +			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o hwbm.o
->
-> Not everybody will want this built in by default, we probably need a
-> hidden config symbol here.
+> The test patch that Johannes sent earlier was close. The section needed to
+> add VHT rates is:
 
-I copied what was done for TSO, but I agree to not build it by default.
+Hmm. This looks pretty much exactly like what I already tried (I had
+fixed Johannes' patch to use "vht_cap" already, since it didn't
+compile otherwise).
 
->
->>  
->>  obj-$(CONFIG_XFRM) += flow.o
->>  obj-y += net-sysfs.o
->> diff --git a/net/core/hwbm.c b/net/core/hwbm.c
->> new file mode 100644
->> index 000000000000..d5d40d63cb34
->> --- /dev/null
->> +++ b/net/core/hwbm.c
->> @@ -0,0 +1,78 @@
->> +/* Support for hardware buffer manager.
->> + *
->> + * Copyright (C) 2016 Marvell
->> + *
->> + * Gregory CLEMENT <gregory.clement@free-electrons.com>
->> + *
->> + *  This program is free software; you can redistribute it and/or modify
->> + *  it under the terms of the GNU General Public License as published by
->> + *  the Free Software Foundation; either version 2 of the License, or
->> + *  (at your option) any later version.
->> + */
->> +#include <linux/kernel.h>
->> +#include <linux/printk.h>
->> +#include <linux/skbuff.h>
->> +#include <net/hwbm.h>
->> +
->> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
->> +{
->> +	if (likely(bm_pool->size <= PAGE_SIZE))
->> +		skb_free_frag(buf);
->> +	else
->> +		kfree(buf);
->> +}
->> +EXPORT_SYMBOL_GPL(hwbm_buf_free);
->> +
->> +/* Refill processing for HW buffer management */
->> +int hwbm_pool_refill(struct hwbm_pool *bm_pool)
->> +{
->> +	void *buf;
->> +	int frag_size = bm_pool->size;
->
-> Reverse christmas tree declaration looks a bit nicer.
+So the only difference is that it only checks WIRELESS_MODE_AC_5G.
 
-First time I heard about it :) I though it was something related to the
-tree algorithms until I visualized it!
+But it worked for me this time. I have no idea why.
 
-My logical here was first uninitialized variable then the initialized
-ones. But I don't have a strong opinion about it so I can change it.
+Maybe Johannes' patch actually always worked for me, but I just had a
+transient problem that made me think it didn't. I think I only booted
+it once, and went "oh, ok, no network, that didn't work".
 
->
->> +
->> +	if (likely(frag_size <= PAGE_SIZE))
->> +		buf = netdev_alloc_frag(frag_size);
->> +	else
->> +		buf = kmalloc(frag_size, GFP_ATOMIC);
->
-> Maybe we should allow the caller to specify a gfp_t, just in case
-> GFP_ATOMIC is not good enough.
-
-Good idea.
-
->
->> +
->> +	if (!buf)
->> +		return -ENOMEM;
->> +
->> +	if (bm_pool->construct)
->> +		if (bm_pool->construct(bm_pool, buf)) {
->> +			hwbm_buf_free(bm_pool, buf);
->> +			return -ENOMEM;
->> +		}
->> +
->> +	return 0;
->> +}
->> +EXPORT_SYMBOL_GPL(hwbm_pool_refill);
->> +
->> +int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num)
->
-> unsigned int buf_num
-
-OK
-
->
->> +{
->> +	int err, i;
->> +
->> +	if (bm_pool->buf_num == bm_pool->size) {
->> +		pr_debug("pool already filled\n");
->> +		return bm_pool->buf_num;
->> +	}
->> +
->> +	if (buf_num + bm_pool->buf_num > bm_pool->size) {
->> +		pr_debug("cannot allocate %d buffers for pool\n",
->> +			 buf_num);
->> +		return 0;
->> +	}
->
-> buf_num is under caller control, and potentially hardware control
-> indirectly, what if I make this arbitrary big and wrap around?
-
-We could test if ((buf_num + bm_pool->buf_num)<bm_pool->buf_num. I
-failed to find a better way to detect a wrapping.
-
-
->
->> +
->> +	for (i = 0; i < buf_num; i++) {
->> +		err = hwbm_pool_refill(bm_pool);
->> +		if (err < 0)
->> +			break;
->> +	}
->
-> If we fail refiling here, should not we propagate the error back to the
-> caller?
-
-We return the number of we actually managed to add. So, if it fails we
-return less buffer than expected, as for a read in userspace. Is it not
-a good indication of what happened?
-
->
->> +
->> +	/* Update BM driver with number of buffers added to pool */
->> +	bm_pool->buf_num += i;
->> +
->> +	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
->
-> No locking or atomic operations here? What if two CPUs call into this
-> function?
-
-Indeed it could be a problem, I will see how to handle this in the next
-version.
-
-Thanks again,
-
-Gregory
-
->
->> +
->> +	return i;
->> +}
->> +EXPORT_SYMBOL_GPL(hwbm_pool_add);
->> 
->
->
-> -- 
-> Florian
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+                  Linus
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
