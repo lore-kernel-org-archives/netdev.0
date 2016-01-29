@@ -1,63 +1,55 @@
-From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 net] nfc: close a race condition in llcp_sock_getname()
-Date: Fri, 29 Jan 2016 11:37:40 -0800
-Message-ID: <1454096260-20396-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 11:39:58 -0800
+Message-ID: <1454096398.7627.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160129180651.GA17127@oracle.com>
+	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1454092810.7627.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160129.110811.1595768260535944996.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35257 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbcA2TkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 14:40:00 -0500
+Received: by mail-pf0-f181.google.com with SMTP id 65so46877287pfd.2
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 11:39:59 -0800 (PST)
+In-Reply-To: <20160129.110811.1595768260535944996.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-llcp_sock_getname() checks llcp_sock->dev to make sure
-llcp_sock is already connected or bound, however, we could
-be in the middle of llcp_sock_bind() where llcp_sock->dev
-is bound and llcp_sock->service_name_len is set,
-but llcp_sock->service_name is not, in this case we would
-lead to copy some bytes from a NULL pointer.
+On Fri, 2016-01-29 at 11:08 -0800, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 29 Jan 2016 10:40:10 -0800
+> 
+> > I would try following ixgbe fix (sorry, totally untested, but you get
+> > the idea...)
+> > 
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > index c4003a88bbf6..7ba64ed463a6 100644
+> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > @@ -1525,7 +1525,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+> >  
+> >  	bi->dma = dma;
+> >  	bi->page = page;
+> > -	bi->page_offset = 0;
+> > +	bi->page_offset = NET_IP_ALIGN;
+> >  
+> >  	return true;
+> >  }
+> 
+> Hmmm, wouldn't this waste 2 bytes on all pages?  Or just the head one with the headers?
 
-Just lock the sock since this is not a hot path anyway.
+On arches where NET_IP_ALIGN = 2, where it makes sense to get a proper
+alignement, even for the copy of headers into skb->head, with same
+source/destination alignment.
 
-Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
-Cc: Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
-Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/nfc/llcp_sock.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+We 'waste' already 66 bytes for typical ethernet+IPv4+TCP headers.
 
-diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
-index ecf0a01..b9edf5f 100644
---- a/net/nfc/llcp_sock.c
-+++ b/net/nfc/llcp_sock.c
-@@ -509,6 +509,11 @@ static int llcp_sock_getname(struct socket *sock, struct sockaddr *uaddr,
- 	memset(llcp_addr, 0, sizeof(*llcp_addr));
- 	*len = sizeof(struct sockaddr_nfc_llcp);
- 
-+	lock_sock(sk);
-+	if (!llcp_sock->dev) {
-+		release_sock(sk);
-+		return -EBADFD;
-+	}
- 	llcp_addr->sa_family = AF_NFC;
- 	llcp_addr->dev_idx = llcp_sock->dev->idx;
- 	llcp_addr->target_idx = llcp_sock->target_idx;
-@@ -518,6 +523,7 @@ static int llcp_sock_getname(struct socket *sock, struct sockaddr *uaddr,
- 	llcp_addr->service_name_len = llcp_sock->service_name_len;
- 	memcpy(llcp_addr->service_name, llcp_sock->service_name,
- 	       llcp_addr->service_name_len);
-+	release_sock(sk);
- 
- 	return 0;
- }
--- 
-1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Lets remind we allocate half a page (2048 bytes) for an ethernet frame
+anyway. We have plenty of room.
