@@ -1,50 +1,65 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates
- [mac80211]
-Date: Fri, 29 Jan 2016 09:33:00 +0100
-Message-ID: <1454056380.3369.2.camel@sipsolutions.net>
-References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
-	 <1453983185.2217.12.camel@sipsolutions.net>
-	 <CA+55aFya9K4JboNY8kB9cg6zt9otguhdzfHm3jvLmWedxQTSWg@mail.gmail.com>
-	 <1454013625.2332.9.camel@sipsolutions.net>
-	 <CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
-	 <CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw@mail.gmail.com>
-	 <1454019155.2332.15.camel@sipsolutions.net>
-	 <CA+55aFxjpdepHYD_6uU48kW38Z9bmf2wwA8yPZt4ibhkofmfQA@mail.gmail.com>
-	 <56AAC66C.1080800@lwfinger.net> (sfid-20160129_025456_485103_1633A2EE)
+From: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] mac80211: minstrel_ht: fix out-of-bound in
+ minstrel_ht_set_best_prob_rate
+Date: Fri, 29 Jan 2016 11:35:12 +0300
+Message-ID: <145405651192.4948.10685647900939287282.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Thomas Huehn <thomas-rDH2yu9ArSPZY3qUpHLZ+xQ0avMEgXv9@public.gmane.org>
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56AAC66C.1080800-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (sfid-20160129_025456_485103_1633A2EE)
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-01-28 at 19:54 -0600, Larry Finger wrote:
->=C2=A0
-> I have been running an RTL8821AE since kernel 3.18 without hitting
-> this problem=20
-> using a TRENDnet AC1750 dual-band AP. The UniFi may be doing
-> something that the=20
-> driver is not expecting.
+Patch fixes this splat
 
-Are you quite sure you're actually using VHT though, perhaps the AP
-somehow turned it off? It seems unlikely that you could successfully
-use it in any way given that=C2=A0RATE_INFO_FLAGS_VHT_MCS doesn't show =
-up in
-the driver or rate scaling at all.
+BUG: KASAN: slab-out-of-bounds in minstrel_ht_update_stats.isra.7+0x6e1/0x9e0
+[mac80211] at addr ffff8800cee640f4 Read of size 4 by task swapper/3/0
 
+Signed-off-by: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Link: http://lkml.kernel.org/r/CALYGNiNyJhSaVnE35qS6UCGaSb2Dx1_i5HcRavuOX14oTz2P+w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org
+---
+ net/mac80211/rc80211_minstrel_ht.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-johannes
+diff --git a/net/mac80211/rc80211_minstrel_ht.c b/net/mac80211/rc80211_minstrel_ht.c
+index 3928dbd24e25..93bf2b743e20 100644
+--- a/net/mac80211/rc80211_minstrel_ht.c
++++ b/net/mac80211/rc80211_minstrel_ht.c
+@@ -414,15 +414,16 @@ minstrel_ht_set_best_prob_rate(struct minstrel_ht_sta *mi, u16 index)
+ 	    (max_tp_group != MINSTREL_CCK_GROUP))
+ 		return;
+ 
++	max_gpr_group = mg->max_group_prob_rate / MCS_GROUP_RATES;
++	max_gpr_idx = mg->max_group_prob_rate % MCS_GROUP_RATES;
++	max_gpr_prob = mi->groups[max_gpr_group].rates[max_gpr_idx].prob_ewma;
++
+ 	if (mrs->prob_ewma > MINSTREL_FRAC(75, 100)) {
+ 		cur_tp_avg = minstrel_ht_get_tp_avg(mi, cur_group, cur_idx,
+ 						    mrs->prob_ewma);
+ 		if (cur_tp_avg > tmp_tp_avg)
+ 			mi->max_prob_rate = index;
+ 
+-		max_gpr_group = mg->max_group_prob_rate / MCS_GROUP_RATES;
+-		max_gpr_idx = mg->max_group_prob_rate %	MCS_GROUP_RATES;
+-		max_gpr_prob = mi->groups[max_gpr_group].rates[max_gpr_idx].prob_ewma;
+ 		max_gpr_tp_avg = minstrel_ht_get_tp_avg(mi, max_gpr_group,
+ 							max_gpr_idx,
+ 							max_gpr_prob);
+@@ -431,7 +432,7 @@ minstrel_ht_set_best_prob_rate(struct minstrel_ht_sta *mi, u16 index)
+ 	} else {
+ 		if (mrs->prob_ewma > tmp_prob)
+ 			mi->max_prob_rate = index;
+-		if (mrs->prob_ewma > mg->rates[mg->max_group_prob_rate].prob_ewma)
++		if (mrs->prob_ewma > max_gpr_prob)
+ 			mg->max_group_prob_rate = index;
+ 	}
+ }
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
